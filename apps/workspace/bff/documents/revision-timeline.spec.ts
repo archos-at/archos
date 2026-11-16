@@ -102,9 +102,7 @@ describe('buildRevisionTimeline', () => {
     expect(current(build({ versions, publishedVersionId: 'ver_2' }))).toEqual([2])
     expect(current(build({ versions, publishedVersionId: 'ver_2', newestRead: 'reading' }))).toEqual([1])
     expect(current(build({ versions, publishedVersionId: 'ver_2', newestRead: 'failed' }))).toEqual([1])
-    // A Piloti document's publish removed the old passages first: nothing stands in.
     expect(current(build({ versions, publishedVersionId: 'ver_2', newestRead: 'reading', predecessorStandsIn: false }))).toEqual([])
-    // The stand-in row of a document whose versions are unknown is not current while it is read.
     expect(build({ newestRead: 'reading' })[0]).toMatchObject({ kind: 'head', current: false })
   })
 
@@ -148,7 +146,6 @@ describe('buildRevisionTimeline', () => {
       history: [linked('a', '2026-06-01T00:00:00Z'), linked('b', '2026-07-02T00:00:00Z')],
     })
 
-    // A place in this list, not the stored versionNumber (which counts only the uploads).
     expect(rows.map((row) => [ids([row])[0], row.number])).toEqual([
       ['v2', 4],
       ['b', 3],
@@ -226,7 +223,6 @@ describe('versionActs / latestAct', () => {
   })
 
   it('reports no approval for an upload that was born published, only the upload itself', () => {
-    // The server stamps the uploader as approver and publisher to satisfy the CHECK (ADR-0054).
     const upload = version(1, 'published', {
       approvedBy: 'user_author',
       approvedAt: '2026-09-01T08:00:00.000Z',

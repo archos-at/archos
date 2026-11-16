@@ -1,10 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The root sort's client: one short request per call, the paths written once,
- * and every answer parsed against the contract rather than cast.
- */
 import { describe, expect, it, vi } from 'vitest'
 import {
   applyRootSortRun,

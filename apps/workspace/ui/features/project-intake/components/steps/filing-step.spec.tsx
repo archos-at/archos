@@ -1,12 +1,3 @@
-/**
- * Step 2, Ablage, inside the setup's footer: the drop area and the folder
- * picker as the one primary action; the project folder as a tree before the
- * upload, switched per folder; what the sensitive-data list keeps on the
- * server and the project's changes to it (in a sheet); who opens which folder
- * (in a sheet); only the chosen files reach the upload; the upload on its way;
- * the project's folders once documents are in; and Piloti's open filing
- * suggestions (carried over from the frame's spec).
- */
 import type { JSX } from 'react'
 import { fireEvent, render, screen, within } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
@@ -50,7 +41,6 @@ vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }))
 const onFiles = vi.fn()
 const onNext = vi.fn()
 
-/** The step inside the setup's footer, as the page draws it: the step names its actions there. */
 function Framed(props: FilingStepProps): JSX.Element {
   const footer = useStepFooterChannel()
   return (
@@ -112,7 +102,6 @@ describe('FilingStep', () => {
       expect(within(zone).getByText('Drag the project folder here')).toBeInTheDocument()
       expect(screen.queryByTestId('filing-choice')).toBeNull()
       expect(within(footer()).getByRole('button', { name: 'Choose project folder' })).toBeInTheDocument()
-      // On a desk and under the thumb: the aside is drawn in both footer slots.
       await user.click(within(footer()).getAllByRole('button', { name: 'Continue without documents' })[0] as HTMLElement)
       expect(onNext).toHaveBeenCalled()
     })
@@ -185,7 +174,6 @@ describe('FilingStep', () => {
     it("names what the office's list keeps on the server of the choice, and where", async () => {
       setup(INTAKE_WAITING, { initialChoice: FILING_PROJECT_FOLDER })
       expect(await screen.findByTestId('filing-held')).toHaveTextContent('3 files stay on the server')
-      // „Bauvertrag" is one of the office's exceptions, so only the Werkvertrag is held.
       expect(screen.getByTestId('filing-screening')).toHaveTextContent('Matches for “Honorar” and “Vertrag”')
       expect(row('Wohnbau Nord/07_Honorare')).toHaveTextContent('2 stay here')
       expect(row('Wohnbau Nord/06_Verträge')).toHaveTextContent('1 stays here')
@@ -200,7 +188,6 @@ describe('FilingStep', () => {
       await user.click(await screen.findByRole('button', { name: 'Adjust for this project' }))
       const editor = await screen.findByTestId('filing-screening-editor')
       await user.click(within(editor).getByRole('button', { name: '“Vertrag” applies in this project' }))
-      // The contracts are no longer held back in the preview, before any save.
       expect(within(editor).getByTestId('filing-screening-preview')).toHaveTextContent('With this list, 2 files stay on the server.')
       expect(screen.getByTestId('filing-held')).toHaveTextContent('2 files stay on the server')
       await user.click(within(editor).getByRole('button', { name: 'Save for the project' }))
@@ -243,7 +230,6 @@ describe('FilingStep', () => {
         .getAllByTestId('filing-access-row')
         .map((element) => element.dataset.path)
       expect(paths).toContain('Wohnbau Nord/07_Honorare')
-      // A folder switched out is not uploaded, so there is nothing to restrict.
       expect(paths).not.toContain('Wohnbau Nord/Backup')
       await user.click(within(access).getByRole('button', { name: 'Restrict “07_Honorare” before uploading' }))
       expect(ensure).toHaveBeenCalledWith(INTAKE_WAITING.projectId, 'Wohnbau Nord/07_Honorare')
@@ -309,7 +295,6 @@ describe('FilingStep', () => {
 
       const section = screen.getByTestId('intake-filing')
       expect(within(section).getByRole('heading', { name: 'Filing' })).toBeInTheDocument()
-      // The same FilingBar as above a folder in Files, not a lookalike.
       const bar = within(section).getByTestId('filing-bar')
       expect(bar).toHaveAttribute('role', 'group')
       const lines = within(bar).getAllByTestId('filing-bar-line')

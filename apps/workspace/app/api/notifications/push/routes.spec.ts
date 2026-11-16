@@ -1,14 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The push API (ADR-0112), driven through the TYPED CLIENT (ADR-0055): the
- * client and the routes cannot disagree about a path, a verb or a field.
- *
- * The service is real; the repository is an in-memory table that applies the
- * same scoping the SQL does (organization and person), so what these cases prove
- * is that a request can only ever reach its own person's rows.
- */
 
 import { generateVAPIDKeys } from 'web-push'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -58,7 +50,6 @@ vi.mock('@/lib/push/repository', () => {
     }),
     upsertSubscription: vi.fn(async (values: Record<string, unknown>) => {
       const existing = STORE.rows.find((r) => r.endpoint === values.endpoint)
-      // The unique index: another person's row for the endpoint refuses the write.
       if (existing && !mine(String(values.organizationId), String(values.userId))(existing)) throw new Error('endpoint is held by another person')
       if (existing) return Object.assign(existing, values)
       const row = { id: `00000000-0000-4000-8000-${String(++STORE.next).padStart(12, '0')}`, createdAt: new Date(), lastSuccessAt: null, ...values }
@@ -157,9 +148,6 @@ describe('devices', () => {
     expect((await client.listDevices()).map((d) => d.endpoint)).toEqual([sub('new').endpoint])
   })
 
-  // The worker posts a rotation for whoever is signed in when the push service
-  // rotates. On a shared computer that may be B rotating A's subscription: B
-  // must not take the browser over, and A's row stays until its next send 410s.
   it('refuses a rotation of an endpoint that is not one of the caller’s devices, and claims nothing', async () => {
     await client.registerDevice(sub('old'))
     as('user_2')
@@ -178,7 +166,6 @@ describe('devices', () => {
     expect(await client.listDevices()).toEqual([])
   })
 
-  // `new URL` and the `url.parse` web-push sends with read these hosts differently.
   it.each([';', '{', '`', '"', "'"])('refuses a host the sender’s parser would read as another (%s)', async (char) => {
     const endpoint = `https://169.254.169.254${char}.fcm.googleapis.com/x`
     await expect(client.registerDevice({ ...sub('a'), endpoint })).rejects.toMatchObject({ status: 400 })

@@ -1,5 +1,3 @@
-"""Tests for fleet-wide OpenRouter structured-output defaults."""
-
 from types import SimpleNamespace
 
 import pytest
@@ -9,8 +7,6 @@ from agent.common.llm_factory import apply_openrouter_structured_defaults
 
 
 class FakeLLM:
-    """Minimal stand-in for a LangChain ChatOpenAI (mutable extra_body)."""
-
     def __init__(self, base_url="https://openrouter.ai/api/v1", extra_body=None):
         self.openai_api_base = base_url
         self.extra_body = extra_body
@@ -23,9 +19,6 @@ def test_openrouter_llm_gets_response_healing():
 
 
 def test_require_parameters_is_not_set():
-    # require_parameters is deliberately omitted: it 404s ("No endpoints found
-    # that can handle the requested parameters") when a group is overridden to a
-    # model whose endpoints don't support every param we send.
     llm = FakeLLM()
     apply_openrouter_structured_defaults(llm)
     assert "provider" not in llm.extra_body
@@ -42,7 +35,6 @@ def test_is_idempotent():
 def test_preserves_existing_extra_body():
     llm = FakeLLM(extra_body={"provider": {"order": ["A"]}, "plugins": [{"id": "web"}]})
     apply_openrouter_structured_defaults(llm)
-    # Pre-existing provider prefs are left untouched (we neither add nor remove).
     assert llm.extra_body["provider"] == {"order": ["A"]}
     ids = {p["id"] for p in llm.extra_body["plugins"]}
     assert ids == {"web", "response-healing"}
@@ -56,7 +48,6 @@ def test_non_openrouter_llm_is_untouched():
 
 def test_llm_without_extra_body_field_is_untouched():
     llm = SimpleNamespace(openai_api_base="https://openrouter.ai/api/v1")
-    # No extra_body attribute at all -> returned unchanged, no crash.
     assert apply_openrouter_structured_defaults(llm) is llm
     assert not hasattr(llm, "extra_body")
 
@@ -74,10 +65,6 @@ def test_base_url_falls_back_to_client():
 
 @pytest.mark.asyncio
 async def test_get_langchain_llm_resolves_and_hardens_the_chat_model_itself():
-    """The agent runtime 1.9 hands back a `RunnableConfigurableFields` wrapper. Hardening that
-    lands on the wrapper fails or no-ops, and a per-request `model_copy` of it
-    keeps sending the original model, so the seam must return the chat model,
-    still retry-patched the way the agent runtime patched the wrapper."""
     from langchain_openai import ChatOpenAI
 
     from agent.common.model_overrides import override_model
@@ -88,15 +75,6 @@ async def test_get_langchain_llm_resolves_and_hardens_the_chat_model_itself():
     assert llm.extra_body["plugins"] == [{"id": "response-healing"}]
     assert "invoke" in vars(llm), "NAT's retry patch did not survive the unwrap"
     assert override_model(llm, "x-ai/grok-4.5").model_name == "x-ai/grok-4.5"
-
-
-# -- prompt-cache affinity on the outgoing request ----------------------------
-#
-# The seam these pin is `prepare_request`, which both the chat-completions and
-# the Responses payload builders pass through. Asserting on the PAYLOAD rather
-# than on the helper is the point: the fields have to survive langchain's
-# per-API payload construction, and on the Responses path they ride in
-# `extra_body` precisely because that is the one bag both builders forward.
 
 
 def _openrouter_chat_model(model="openai/gpt-5.6-luna", **kwargs):
@@ -114,7 +92,6 @@ def _openrouter_chat_model(model="openai/gpt-5.6-luna", **kwargs):
 
 
 def _sent_payload(llm, messages, **bind_kwargs):
-    """The request body one `invoke` would put on the wire, without the network."""
     captured = {}
     base = type(llm).__mro__[1]
     original = base._generate
@@ -133,8 +110,7 @@ def _sent_payload(llm, messages, **bind_kwargs):
     return captured["payload"]
 
 
-class _Captured(Exception):
-    """Stop the call once the payload exists; nothing should reach the network."""
+class _Captured(Exception): ...
 
 
 def _messages(system="You are Piloti."):
@@ -170,17 +146,12 @@ def test_cache_routing_does_not_displace_the_response_healing_plugin():
 
 
 def test_usage_include_is_not_sent():
-    # OpenRouter: "The `usage: { include: true }` … parameters are deprecated
-    # and have no effect." Sending one would be cargo cult, not configuration.
     payload = _sent_payload(_openrouter_chat_model(), _messages(), tools=DEFERRED_TOOLS)
     assert "usage" not in payload
     assert "usage" not in payload["extra_body"]
 
 
 def test_a_claude_call_asks_for_caching_on_both_apis():
-    # Claude caches nothing unless asked: 0 of 60 M prompt tokens over 30 days
-    # in production before this (2026-10-27). The field has to survive both
-    # payload builders, so assert on the wire body.
     for responses in (False, True):
         llm = _openrouter_chat_model(model="anthropic/claude-opus-5.5", use_responses_api=responses)
         payload = _sent_payload(llm, _messages(), tools=DEFERRED_TOOLS)
@@ -194,8 +165,6 @@ def test_an_openai_call_gets_no_cache_marker():
 
 
 def test_provider_order_is_not_pinned():
-    # A manual provider order DISABLES OpenRouter's sticky routing, which is
-    # the mechanism the cache key exists to drive.
     payload = _sent_payload(_openrouter_chat_model(), _messages(), tools=DEFERRED_TOOLS)
     assert "provider" not in payload["extra_body"]
 
@@ -226,8 +195,6 @@ def test_a_different_system_prompt_gets_a_different_key():
 
 
 def test_a_non_openrouter_model_sends_no_cache_routing():
-    # `session_id` is OpenRouter's own field; a direct OpenAI-compatible
-    # endpoint would be handed a parameter it never declared.
     from langchain_openai import ChatOpenAI
 
     from agent.common.llm_factory import enforce_chat_request_contract
@@ -244,10 +211,6 @@ def test_a_non_openrouter_model_sends_no_cache_routing():
 
 
 def test_cache_routing_composes_with_zdr_provider_routing():
-    # The other extra_body writer is the per-request ZDR seam
-    # (`model_overrides.apply_zdr_routing`), which sets `provider.zdr`. The two
-    # must compose: a tenant on ZDR still gets a cache key, and the key must not
-    # displace the routing policy that keeps its data out of training sets.
     from agent.common.model_overrides import apply_zdr_routing
 
     llm = apply_zdr_routing(_openrouter_chat_model())
@@ -261,8 +224,6 @@ def test_cache_routing_composes_with_zdr_provider_routing():
 
 
 def test_a_model_override_changes_the_key():
-    # A re-pointed group (ADR-0014) is a different cache, so it must not be
-    # pinned to the previous model's shard.
     from agent.common.model_overrides import override_model
 
     llm = _openrouter_chat_model()
@@ -271,16 +232,7 @@ def test_a_model_override_changes_the_key():
     assert before["extra_body"]["session_id"] != after["extra_body"]["session_id"]
 
 
-# -- previous_response_id on the OpenRouter Responses path ---------------------
-#
-# The agent runtime hands every `api_type: responses` client `use_previous_response_id=True`,
-# which langchain-openai fills from the last `resp_…` AIMessage id. OpenRouter
-# rejects the field outright, so `get_langchain_llm` must turn it off — and only
-# for OpenRouter, where a direct OpenAI endpoint keeps the feature it supports.
-
-
 async def _resolved_responses_client(base_url):
-    """An `api_type: responses` client, built by the agent runtime."""
     return await _resolved_through_nat(base_url=base_url, api_type="responses")
 
 
@@ -308,9 +260,6 @@ async def test_openrouter_responses_client_never_sends_previous_response_id():
 
 @pytest.mark.asyncio
 async def test_the_whole_conversation_still_goes_without_the_server_side_handle():
-    # Dropping the handle is only safe because the payload stops being truncated
-    # to the messages *after* the resp_ id: OpenRouter is stateless, so the
-    # history has to travel with every request.
     llm = await _resolved_responses_client("https://openrouter.ai/api/v1")
     payload = _sent_payload(llm, _turn_after_a_resp_id_answer())
     sent = str(payload["input"])
@@ -326,13 +275,6 @@ async def test_a_non_openrouter_responses_client_is_untouched():
     payload = _sent_payload(llm, _turn_after_a_resp_id_answer())
     assert payload["previous_response_id"] == "resp_abc"
 
-
-# -- a rate limit that arrives inside the stream ------------------------------
-#
-# OpenRouter reports an upstream rate limit on the Responses path as an `error`
-# event mid-stream; langchain-openai turns it into a bare ValueError with no
-# status code and no "429" in it. The agent runtime's default filters missed it, so the turn
-# ended on the generic error instead of waiting a moment (#826).
 
 _STREAMED_RATE_LIMIT = (
     "ResponseError(code='rate_limit_exceeded', message='openai/gpt-6.1-sol is temporarily "
@@ -375,13 +317,6 @@ def test_the_configured_retry_messages_survive_the_merge():
     assert retry_messages(["rate_limit_exceeded"]) == ["rate_limit_exceeded"]
 
 
-# -- a model that cannot stop reasoning ---------------------------------------
-#
-# A role configured with `reasoning_effort: none` (the follow-ups stage) that an
-# org override points at a reasoning-mandatory model got OpenRouter's 400 on
-# every call, and the stage failed for every answer on that model. The call is
-# re-sent at the lowest effort instead, and the model is remembered.
-
 _REASONING_MANDATORY_400 = (
     "Error code: 400 - {'error': {'message': 'Reasoning is mandatory for this endpoint and cannot be "
     "disabled.', 'code': 400, 'metadata': {'provider_name': None}}}"
@@ -389,7 +324,6 @@ _REASONING_MANDATORY_400 = (
 
 
 def _efforts_sent(llm, monkeypatch, *, refuse=_REASONING_MANDATORY_400):
-    """Patch the base class so reasoning-off is refused; returns the list of efforts each call went out with."""
     from langchain_core.messages import AIMessage
     from langchain_core.outputs import ChatGeneration
     from langchain_core.outputs import ChatResult

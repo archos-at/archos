@@ -1,14 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * A refusal says where it failed and why. In 2026-11 every delivery to one
- * office was refused `unavailable` for two days, and nothing a person could
- * read named the step or the error: the bucket check's error was swallowed into
- * a bare 503 and the log line printed no class for an `ApiError`. These hold
- * the webhook to naming the stage and the cause chain (classes and codes, never
- * a message) in the log line and in PostHog's `inbound_mail_refused`.
- */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
@@ -85,7 +77,6 @@ describe('a refused delivery', () => {
     const line = vi.mocked(console.error).mock.calls.flat().join(' ')
     expect(line).toContain('stage=bucket')
     expect(line).toContain('BucketOwnershipError:unclaimed_objects')
-    // Never the message: it names organizations.
     expect(line).not.toContain('bucket-x')
   })
 

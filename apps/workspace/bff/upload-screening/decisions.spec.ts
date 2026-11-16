@@ -101,7 +101,6 @@ describe('decideQuarantinedDocuments', () => {
     ])
     expect(deleteDocument).toHaveBeenCalledWith(reviewer, 'p', request)
     expect(deleteSessionDocument).toHaveBeenCalledWith(reviewer, 's', request)
-    // The uploader's ask about each is answered: it leaves the reviewers' inboxes.
     expect(settleReleaseRequests).toHaveBeenCalledWith('org-1', 'p')
   })
 

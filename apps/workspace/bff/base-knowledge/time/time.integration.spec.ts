@@ -226,7 +226,6 @@ describe.skipIf(!url)('editions in time against Postgres', () => {
       ['LGBl. 1/2015', '2015-02-01', '2023-01-01', false],
       ['LGBl. 2023/1', '2023-01-01', null, true],
     ])
-    // `EU` follows `AT` where another spec in the same database published the Austria pack's dated parent.
     expect((await repository.readTerritoryChain(ORG, NODE, '2026-11-10')).slice(0, 3)).toEqual([NODE, 'AT-3', 'AT'])
   })
 
@@ -238,7 +237,6 @@ describe.skipIf(!url)('editions in time against Postgres', () => {
       referenceDate: { date: '2022-10-01', territoryId: NODE },
       transitions: [{ outcome: 'old_law' }],
     })
-    // Positive control: filed after the boundary, the new edition.
     expect(await answerFor(ORG, { filedOn: '2023-02-01', decidedOn: 'pending' })).toMatchObject({
       edition: { label: 'LGBl. 2023/1' },
     })
@@ -246,7 +244,6 @@ describe.skipIf(!url)('editions in time against Postgres', () => {
 
   it('reads the zone a day is in from the territory record, through the office’s entitlement', async () => {
     expect(await repository.readTerritoryZones(ORG, [NODE, 'AT-3', 'AT'])).toEqual({ AT: 'Europe/Vienna' })
-    // An office not entitled to Austria does not read its record.
     expect(await repository.readTerritoryZones(OUTSIDER, ['AT'])).toEqual({})
     const read = await repository.readWorkInTime(ORG, workId())
     const chain = await repository.readTerritoryChain(ORG, NODE, '2026-11-10')
@@ -262,7 +259,6 @@ describe.skipIf(!url)('editions in time against Postgres', () => {
         now: NOW,
       })
     expect(open(await repository.readTerritoryZones(ORG, chain))).toMatchObject({ status: 'determined' })
-    // No zone released on the chain: the build's zone of the country answers, as before the records.
     expect(open({})).toEqual(open(await repository.readTerritoryZones(ORG, chain)))
   })
 

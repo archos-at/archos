@@ -21,7 +21,6 @@ vi.mock('server-only', () => ({}))
 
 import { IfcArchiveError, isZipArchive, readArchiveModelEntries, unwrapIfcArchive } from './ifc-archive'
 
-/** Minimal STEP that `looksLikeStepIfc` and the parser both accept as a start. */
 const STEP = "ISO-10303-21;\nHEADER;\nFILE_DESCRIPTION((''),'2;1');\nENDSEC;\nDATA;\nENDSEC;\nEND-ISO-10303-21;\n"
 
 const asArrayBuffer = (view: Uint8Array): ArrayBuffer =>
@@ -36,7 +35,6 @@ describe('isZipArchive', () => {
   it('decides on the magic bytes, not on the file name', () => {
     expect(isZipArchive(archive([{ path: 'haus.ifc', content: STEP }]))).toBe(true)
     expect(isZipArchive(asArrayBuffer(new TextEncoder().encode(STEP)))).toBe(false)
-    // A truncated read is not a zip, and must not index past the buffer.
     expect(isZipArchive(asArrayBuffer(new Uint8Array([0x50, 0x4b])))).toBe(false)
   })
 })
@@ -75,7 +73,6 @@ describe('readArchiveModelEntries', () => {
 
   it('refuses bytes it cannot follow rather than guessing at their contents', () => {
     const bytes = new Uint8Array(64)
-    // Zip magic, and nothing else that a zip has.
     bytes.set([0x50, 0x4b, 0x03, 0x04])
 
     expect(() => readArchiveModelEntries(asArrayBuffer(bytes))).toThrow(IfcArchiveError)
@@ -99,17 +96,12 @@ describe('unwrapIfcArchive', () => {
   })
 
   it('refuses a model that does not fit BEFORE inflating it', async () => {
-    // The ceiling that matters is the opened size. Under the old check this
-    // archive — a few hundred compressed bytes — passed the 250 MB limit and
-    // was then decompressed in full inside the request process.
     const bomb = archive([{ path: 'gross.ifc', content: 'A'.repeat(100_000) }])
 
     await expect(unwrapIfcArchive(bomb, 50_000)).rejects.toMatchObject({
       name: 'IfcArchiveError',
       code: 'too-large',
     })
-    // The number in the message is the OPENED size, which is the one the
-    // uploader has to do something about.
     await expect(unwrapIfcArchive(bomb, 50_000)).rejects.toThrow(/Unpacked model is/)
   })
 

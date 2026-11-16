@@ -1,14 +1,5 @@
 'use client'
 
-/**
- * A machine id (turn, job, conversation) shown the way an operator uses it:
- * shortened in a mono cell, the full value one click away on the clipboard.
- *
- * The platform tables used to print these as a wrapped `<code>` line under the
- * row, which was the longest thing on the row and the least read. The id is
- * still all there: in the button's accessible name, its tooltip and the copy.
- */
-
 import type { JSX } from 'react'
 import { useState } from 'react'
 import { Check, Copy } from 'lucide-react'
@@ -17,7 +8,6 @@ import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 
-/** First segment of a UUID-ish id, or the head of anything else. */
 export function shortId(id: string, length = 8): string {
   const head = id.split('-')[0]
   const base = head.length >= 6 && head.length <= 12 ? head : id.slice(0, length)
@@ -33,12 +23,10 @@ export function CopyableId({
   idClassName,
 }: {
   id: string
-  /** Accessible name of the copy button; should name the id. */
   copyLabel: string
   copiedLabel: string
   failedLabel: string
   className?: string
-  /** E.g. `hidden sm:inline` to keep only the copy button on a phone. */
   idClassName?: string
 }): JSX.Element {
   const [copied, setCopied] = useState(false)

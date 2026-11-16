@@ -1,16 +1,5 @@
 'use client'
 
-/**
- * Organisation → what Piloti has learned about the office's conventions
- * (ADR-0129): each counted line in German, with the count behind it, and a
- * button to confirm or decline it. Confirmed lines are kept for Piloti even
- * when later counts fall short; declined lines never reach it again. Taking a
- * decision back is the same button on the decided line.
- *
- * The lines are the server's (`GET /api/organization/office-conventions`); a
- * decision is one POST that returns the updated list.
- */
-
 import { type FC, useCallback, useEffect, useState } from 'react'
 import { toast } from 'sonner'
 
@@ -31,11 +20,6 @@ import type {
 
 type Translate = ReturnType<typeof useTranslations>
 
-/**
- * One line as a sentence; the folder and shape are the office's own words. The
- * Dokumentart is a stored tag, read through `labelOf` (`tagLabel` with the
- * `files` translator) so a token such as `correspondence` reads as its label.
- */
 export function conventionSentence(
   t: Translate,
   line: ConventionLine,

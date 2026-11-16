@@ -1,16 +1,5 @@
 'use client'
 
-/**
- * The preview's rail for a thread document (`useFilePreviewController`): which
- * thread it is, which of its two tabs is up, and the mail a link points at.
- *
- * A thread document's rail is two tabs, „E-Mails“ and „Details“
- * (`ThreadRailViews`); the mails are up whenever a thread document arrives. A
- * link into one mail of the thread (`?mailEntry=`, from a Fassung's
- * provenance or a citation) opens the „E-Mails“ tab, scrolled to it, wherever
- * the rail is (the peek's Details face, the phone's details sheet).
- */
-
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import type { MailThreadSummaryView } from '@/lib/mail-thread/mail-thread-wire'
@@ -22,9 +11,7 @@ import { useMailThreadOfDocument } from './use-mail-thread-of-document'
 export interface MailThreadRailInput {
   projectId: string | undefined
   file: { id: string; filename: string; tags?: readonly string[] | null }
-  /** The preview is the peek: a mail link turns it to its Details face. */
   peeking: boolean
-  /** The preview is the phone's reader: a mail link opens its details sheet. */
   reader: boolean
   setPeekView: (view: 'details') => void
   setDetailsOpen: (open: boolean) => void
@@ -34,7 +21,6 @@ export interface MailThreadRail {
   mailThread: MailThreadSummaryView | null
   railView: RailView
   setRailView: (view: RailView) => void
-  /** The mail a `?mailEntry=` link points at, for the „E-Mails“ tab to scroll to. */
   mailFocus: { entryId: string } | undefined
 }
 

@@ -4,8 +4,6 @@ import { reviewUnitsOf } from '@/lib/base-knowledge/platform/law-map-review'
 import type { RevisionView } from '@/lib/base-knowledge/platform/wire'
 import { branchesOf } from './law-map-outline'
 
-/** "N to confirm" opens what waits and every branch above it, so the row it scrolls to is one a person can see. */
-
 const revision = (type: RevisionView['type'], recordId: string, body: Record<string, unknown>): RevisionView => ({
   revisionId: `rev-${recordId}`,
   recordId,

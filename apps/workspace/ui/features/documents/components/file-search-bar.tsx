@@ -10,27 +10,18 @@ import { cn } from '@/lib/utils'
 interface FileSearchFieldProps {
   value: string
   onChange: (value: string) => void
-  /** Commit the query. Enter always does this; the run button is optional. */
   onSubmit: () => void
   onClear: () => void
   placeholder: string
   searchLabel: string
   resetLabel: string
-  /**
-   * Draw a button that commits the query, and what to call it. Omit for a field
-   * that reads as a plain filter — Enter still submits, so this decides how
-   * VISIBLE the semantic run is, never whether it is reachable.
-   */
   runButton?: { label: string; isSearching: boolean }
-  /** Sizing for the form. Defaults to filling its row (the sticky band). */
   className?: string
-  /** The `size` of the buttons in the field's row, so the field stands as tall as they do. */
   size?: ControlSize
 }
 
 interface FileSearchBannerProps {
   isSearching: boolean
-  /** Pre-formatted banner line ("Searching…" / "N results for …"). */
   bannerText: string
   resetSemanticLabel: string
   onResetSemantic: () => void
@@ -39,22 +30,11 @@ interface FileSearchBannerProps {
 
 type FileSearchBarProps = Omit<FileSearchFieldProps, 'runButton'> &
   FileSearchBannerProps & {
-    /** Whether the explicit-run semantic search is available (shows the run button). */
     canSearch: boolean
     runLabel: string
-    /** Whether semantic mode is showing its result banner. */
     semanticActive: boolean
   }
 
-/**
- * The search control itself: the shared {@link SearchField} molecule plus the
- * button that commits the query to the semantic search.
- *
- * Separate from {@link FileSearchBar} because the field and its result banner
- * no longer always sit together — the Files browser puts the field in the page
- * header, beside the view toggles and Upload, and leaves the banner over the
- * listing the hits belong to.
- */
 export function FileSearchField({
   value,
   onChange,
@@ -85,8 +65,6 @@ export function FileSearchField({
         label={searchLabel}
         clearLabel={resetLabel}
         size={size}
-        // A field is a white field with the 3:1 field border (paper on a desk, lines): the desk well it was read as
-        // a grey press and nearly vanished into the paper (round 3). In dark it is cut into the paper, its border lit.
         inputClassName="pr-10 md:pr-9 border-field-border bg-sheet shadow-none hover:border-foreground/60 focus-visible:border-foreground dark:bg-background"
         clearClassName={cn(
           'right-1 pointer-coarse:size-11 md:right-1.5 md:size-6',
@@ -115,11 +93,6 @@ export function FileSearchField({
   )
 }
 
-/**
- * What the committed search found, stated above the results it describes —
- * "Searching…", "N results for …", or the failure, with the way back to the
- * plain listing.
- */
 export function FileSearchBanner({
   isSearching,
   bannerText,
@@ -155,11 +128,6 @@ export function FileSearchBanner({
   )
 }
 
-/**
- * The sticky search band above a listing — field and banner in one strip. The
- * Archiv library uses it; the Files browser does not any more (its field is in
- * the page header, so a band would be a second search on the same screen).
- */
 export function FileSearchBar({ semanticActive, canSearch, runLabel, ...props }: FileSearchBarProps) {
   return (
     <>

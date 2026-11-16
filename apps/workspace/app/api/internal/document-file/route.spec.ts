@@ -3,8 +3,6 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-// The route factory (`@/lib/api/handler`) statically imports the session
-// guard, which pulls in authkit; internal routes never call it.
 vi.mock('@/lib/auth/require-auth', () => ({
   requireAuthorizedSession: vi.fn(),
 }))
@@ -18,8 +16,6 @@ vi.mock('@/lib/conversations/restricted-use', () => ({
   drawableRestrictedCollections: vi.fn(),
 }))
 
-// Partial: the factory opens a request-scoped slot itself, and replacing that
-// would test a handler the app does not run.
 vi.mock('@/lib/db/tenant-context', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/db/tenant-context')>()),
   withTenant: vi.fn(async (_scope: unknown, run: () => Promise<unknown>) => run()),
@@ -43,7 +39,6 @@ const request = (
 const RESTRICTED = 'proj_1_r0123456789ab'
 const WRONG_SECRET = 'not-the-signing-secret' // pragma: allowlist secret
 
-/** The turn's signed envelope, as the BFF mints it and the agent echoes it. */
 function envelope(
   overrides: { collectionScope?: string[]; conversationId?: string | null; secret?: string } = {}
 ): Record<string, string> {
@@ -132,15 +127,10 @@ describe('GET /api/internal/document-file', () => {
       storageKey: 'org/o1/project/p1/doc/d1/plan.png',
       storageBucket: null,
       contentType: 'image/png',
-      // The Fassung, so a look card keeps showing the bytes that were read (ADR-0128).
       versionId: '22222222-2222-4222-8222-222222222222',
     })
   })
 
-  // The agent tier calls get_object directly, so the bucket has to travel with
-  // the key. A response that dropped it would send every per-organization
-  // lookup to the shared bucket, where the object is not — a silent 404 that
-  // degrades to a text-only answer with nothing in any log to explain it.
   it('passes a per-organization bucket through to the caller', async () => {
     vi.mocked(findDocumentStorageKey).mockResolvedValue({
       id: '11111111-1111-4111-8111-111111111111',
@@ -153,8 +143,6 @@ describe('GET /api/internal/document-file', () => {
     expect(await res.json()).toMatchObject({ storageBucket: 'grid-org-o1-abcdef123456' })
   })
 
-  // The derived-key read. The backend only ever varies a bounded integer; the
-  // key itself is built from the document's row, so it cannot leave the prefix.
   describe('with imageIndex', () => {
     it('resolves the stored raster through the image lookup, not the file lookup', async () => {
       vi.mocked(findDocumentImageStorageKey).mockResolvedValue({
@@ -186,8 +174,6 @@ describe('GET /api/internal/document-file', () => {
     })
   })
 
-  // ADR-0088: the collection is the model's argument, so its name is not a
-  // boundary. The envelope the agent echoes is.
   describe("with the turn's signed envelope", () => {
     beforeEach(() => {
       vi.mocked(findDocumentStorageKey).mockResolvedValue(STORED)

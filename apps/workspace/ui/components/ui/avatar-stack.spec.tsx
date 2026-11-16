@@ -32,8 +32,6 @@ describe('AvatarStack', () => {
   })
 
   test('renders people in the order given — ordering is the caller’s information', () => {
-    // "Owners first" / "oldest request first" is a decision the caller has already
-    // made; a primitive that re-sorted would silently overrule it.
     const reversed = [...PEOPLE].reverse()
     render(<AvatarStack people={reversed} />)
 
@@ -84,8 +82,6 @@ describe('AvatarStack', () => {
   })
 
   test('the discs are large enough that two initials are not clipped by the overlap', () => {
-    // 24px discs lost their trailing edge to the negative margin plus the next
-    // disc's ring, which cut the second initial off; 28px was the measured fix.
     render(<AvatarStack people={PEOPLE} size="sm" />)
     for (const disc of screen.getAllByTestId('person-avatar')) {
       expect(disc).toHaveClass('size-7')
@@ -122,8 +118,6 @@ describe('PersonAvatar', () => {
   test('prefers a real profile picture when there is one', () => {
     render(<PersonAvatar person={person('u-x', 'Xaver Huber', 'https://cdn/x.png')} />)
 
-    // Radix only swaps the image in once it loads, so the initials must be the
-    // fallback that is always present.
     expect(screen.getByTestId('person-avatar')).toHaveTextContent('XH')
   })
 

@@ -1,20 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Gateway WebSocket FRAME limiting (ADR-0040 layer L2b).
- *
- * `server.js` has no unit-test seam — it is plain CommonJS with no exports — so
- * this is covered the same way `ws-upgrade-admission.test.ts` covers admission:
- * spawn the real process against a fake upstream, complete a real upgrade, and
- * push real WebSocket frames down the socket.
- *
- * What this pins is the blind spot the whole layer exists for: to the edge, a
- * chat session is ONE HTTP request (the upgrade) and every turn afterwards is
- * invisible. If the observer in `server.js` ever loses frame sync, or is never
- * attached, the limiter silently stops counting and nothing else in the system
- * notices. These tests fail when that happens.
- */
 import { type ChildProcess, spawn } from 'node:child_process'
 import http from 'node:http'
 import type { Duplex } from 'node:stream'
@@ -50,8 +36,6 @@ beforeAll(async () => {
     openSockets.add(sock)
     sock.on('close', () => openSockets.delete(sock))
   })
-  // Accept the upgrade and then swallow everything: this test is about what the
-  // GATEWAY does with client frames, not what a backend replies.
   upstream.on('upgrade', (_req, sock) => {
     openSockets.add(sock)
     sock.on('data', () => {})
@@ -90,17 +74,11 @@ async function startGateway(env: Record<string, string> = {}): Promise<number> {
     env: {
       ...process.env,
       NODE_ENV: 'development',
-      // Per-process buckets only. An inherited REDIS_URL would carry frame
-      // counts across spawns AND across runs — and these budgets span minutes,
-      // so a second run inside the window would start already spent.
       REDIS_URL: '',
       PORT: String(port),
       NEXT_INTERNAL_URL: `http://127.0.0.1:${upstreamPort}`,
       BACKEND_CHAT_URL: `http://127.0.0.1:${upstreamPort}`,
-      // Authenticated scopes require a signed compact turn-context capsule.
       INTERNAL_API_TOKEN: 'gateway-frame-limits-test-token', // pragma: allowlist secret
-      // Every request here comes from 127.0.0.1; the per-IP upgrade limit is a
-      // different layer and would only add noise to what these tests assert.
       WS_UPGRADE_RATE_LIMIT: '0',
       ...env,
     },
@@ -109,9 +87,6 @@ async function startGateway(env: Record<string, string> = {}): Promise<number> {
   running.push(child)
   await new Promise<void>((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error('gateway did not start')), 20_000)
-    // Without these, a gateway that dies on startup — MODULE_NOT_FOUND for one
-    // of the CommonJS limit modules, say — costs 20 seconds and reports only
-    // "did not start", with the actual cause on a stderr nobody reads.
     let stderr = ''
     child.stderr?.on('data', (chunk: Buffer) => {
       stderr += chunk.toString()
@@ -134,7 +109,6 @@ async function startGateway(env: Record<string, string> = {}): Promise<number> {
   return port
 }
 
-/** Complete an upgrade and hand back the live client socket. */
 function openSocket(port: number, cookie: string): Promise<Duplex> {
   return new Promise((resolve, reject) => {
     const req = http.request({
@@ -150,9 +124,6 @@ function openSocket(port: number, cookie: string): Promise<Duplex> {
     })
     req.on('upgrade', (_res, sock) => {
       sock.on('error', () => {})
-      // An upgraded socket starts paused, and a paused socket never reports the
-      // peer closing: 'end' and 'close' wait for the read side to drain. Without
-      // MSW's http patch (which happened to pump it) `closedWithin` timed out.
       sock.resume()
       resolve(sock)
     })
@@ -165,7 +136,6 @@ function openSocket(port: number, cookie: string): Promise<Duplex> {
   })
 }
 
-/** A masked client→server text frame, the way a browser sends one. */
 function textFrame(payload: string): Buffer {
   const body = Buffer.from(payload, 'utf8')
   const mask = Buffer.from([0x11, 0x22, 0x33, 0x44])
@@ -187,7 +157,6 @@ function textFrame(payload: string): Buffer {
 const chatTurn = (n: number) =>
   textFrame(JSON.stringify({ type: 'user_message', id: `m${n}`, content: { messages: [] } }))
 
-/** Resolves true if the socket closes within `ms`. */
 function closedWithin(socket: Duplex, ms: number): Promise<boolean> {
   return new Promise((resolve) => {
     if (socket.destroyed || socket.readableEnded) return resolve(true)
@@ -206,7 +175,6 @@ describe('gateway WS frame limiting', () => {
     const port = await startGateway()
     const socket = await openSocket(port, 'session=flooder')
 
-    // Comfortably past the burst clause — a client loop, not a person typing.
     const burst = CHAT_TURN_LIMIT.burst?.limit ?? CHAT_TURN_LIMIT.limit
     for (let i = 0; i < burst + 5; i++) socket.write(chatTurn(i))
 
@@ -217,8 +185,6 @@ describe('gateway WS frame limiting', () => {
     const port = await startGateway()
     const socket = await openSocket(port, 'session=polite')
 
-    // Two turns is nobody's idea of abuse, and this is the assertion that keeps
-    // the limit from being quietly tightened into the way of real users.
     socket.write(chatTurn(1))
     socket.write(chatTurn(2))
 
@@ -233,8 +199,6 @@ describe('gateway WS frame limiting', () => {
     const burst = CHAT_TURN_LIMIT.burst?.limit ?? CHAT_TURN_LIMIT.limit
     for (let i = 0; i < burst + 20; i++) socket.write(chatTurn(i))
 
-    // The escape hatch has to actually work, or an operator cannot roll the
-    // behaviour back without a deploy.
     expect(await closedWithin(socket, 1500)).toBe(false)
     socket.destroy()
   })

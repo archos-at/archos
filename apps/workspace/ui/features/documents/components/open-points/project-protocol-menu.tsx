@@ -23,23 +23,6 @@ import { projectProtocolHref, type ProjectMarksFilters } from '@/lib/annotations
 import { documentFilesHref } from '../../lib/document-question'
 import { fileProtocol, ProtocolFilingError, protocolFilingStem } from '../../lib/protocol-filing'
 
-/**
- * „Protokoll exportieren" over a project's Offene Punkte: the marks the list
- * shows, under its filters, as one file across the documents
- * (`/api/projects/{id}/annotations/export`), downloaded the way a document's
- * Protokoll is (`downloadFetched`). Only the format is asked: what is in it
- * is what is on screen.
- *
- * „Im Projekt ablegen" files the same export into the project root, through
- * the upload door every person's file goes through (`fileProtocol`, as the
- * document's Protokoll is filed), named „Offene Punkte – <Projekt> – <Datum>“.
- * Offered where the reader may upload to the root (`filing`). The Protokoll
- * quotes the marks of every document it lists, and every member reads the
- * root: while what the filters select includes a document not every member
- * may open (`restricted`: a restricted folder, an upload held back), the item
- * stays in the menu, withheld, and says why, rather than handing that text to
- * people who may not open the document.
- */
 export function ProjectProtocolMenu({
   projectId,
   filters,
@@ -49,17 +32,13 @@ export function ProjectProtocolMenu({
 }: {
   projectId: string
   filters: ProjectMarksFilters
-  /** Where the reader may file into the project root: the project's name for the file. Null, not offered. */
   filing?: { projectName: string } | null
-  /** The list's answer: the selection quotes a document not every member may open. Null while unknown. */
   restricted?: boolean | null
-  /** A phone: the press is one ⋯ at the end of the tabs' line, the menu says what it exports. */
   compact?: boolean
 }): JSX.Element {
   const t = useTranslations(filesCopy)
   const router = useRouter()
   const [busy, setBusy] = useState(false)
-  /** What this tab filed, by name: a second filing of the same name the same day is a new Fassung of it. */
   const filedHere = useRef(new Map<string, string>())
 
   const download = async (format: AnnotationExportFormat): Promise<void> => {
@@ -67,7 +46,6 @@ export function ProjectProtocolMenu({
     const result = await downloadFetched(projectProtocolHref(projectId, filters, format), `protokoll.${format}`)
     setBusy(false)
     if (result.saved) {
-      // The CSAT trigger the document's Protokoll fires: the kind and the format, never a name or a filter.
       capturePosthog('report_exported', { kind: 'open_points', format })
       return
     }

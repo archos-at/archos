@@ -1,5 +1,3 @@
-"""The live stream gates the masthead provisionally; only the finished answer records a drop."""
-
 from __future__ import annotations
 
 from unittest.mock import patch

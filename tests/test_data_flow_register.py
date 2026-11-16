@@ -1,12 +1,3 @@
-"""The data-flow register is complete, valid, and the pages generated from it are current.
-
-``configs/subprocessors/*.yaml`` is the one list of where data leaves the
-cluster (``docs/compliance/data-flow-register.md``). This is the ratchet: a new
-outbound host, API key, base URL, Hog file or PostHog destination in the code
-fails here until a row names it, and the legal page and the DPA annex cannot
-drift from the rows because both are generated.
-"""
-
 from __future__ import annotations
 
 import importlib.util
@@ -126,13 +117,11 @@ def test_a_stale_exemption_fails(tmp_path: Path) -> None:
 
 
 def test_the_shipped_packages_are_all_classified() -> None:
-    """The scan reads real manifests: the workspace's SDKs, PostHog's among them, are found."""
     packages = check.scan_packages()
     assert {"js:posthog-node", "js:@workos-inc/node", "py:langchain-tavily", "js:web-push"} <= set(packages)
 
 
 def test_a_flow_needs_a_processing_location_and_the_rows_classes(register) -> None:
-    """Residency enforcement reads ``processing_location`` per flow; a flow cannot widen its row."""
     row = {**next(row for row in register.rows if row["id"] == "posthog")}
     row["flows"] = [
         {"id": "x", "what": {"de": "x", "en": "x"}, "data_classes": ["voice_audio"], "purposes": ["security"]}
@@ -174,7 +163,6 @@ def test_a_flow_needs_a_processing_location_and_the_rows_classes(register) -> No
     ],
 )
 def test_every_class_of_flow_fails_until_registered(tmp_path: Path, relative: str, code: str, finding: str) -> None:
-    """The positive controls: each kind of flow the review planted makes the scan fail."""
     path = tmp_path / relative
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(code + "\n")
@@ -186,7 +174,6 @@ def test_a_private_or_documentation_address_is_not_a_flow(tmp_path: Path) -> Non
     code = tmp_path / "apps" / "agent-host" / "src"
     code.mkdir(parents=True)
     (code / "a.py").write_text('A = "http://10.0.0.5:80/x"\nB = "http://192.0.2.1/"\nC = "cert-manager.io/v1"\n')
-    # A NetworkPolicy's exceptions: CGNAT, IETF assignments, benchmarking, multicast, reserved.
     special = ["100.64.0.0", "100.127.0.0", "192.0.0.0", "198.18.0.0", "224.0.0.0", "240.0.0.0"]
     (code / "b.py").write_text("".join(f'X{i} = "{ip}/10"\n' for i, ip in enumerate(special)))
     assert check.flow_errors(check.Register(), tmp_path) == []
@@ -201,7 +188,6 @@ def test_a_public_address_beside_the_special_ranges_is_still_a_flow(tmp_path: Pa
 
 
 def test_an_unused_public_source_is_recorded_but_not_on_the_page(register) -> None:
-    """Fedlex is configured and fetched for nobody: the annex says so, the page does not list it."""
     fedlex = next(source for source in register.public_sources if source["id"] == "fedlex")
     assert fedlex["status"] == "unused"
     assert fedlex["copy"]["de"] not in generate.page_tables(register, "de")["publicSources"]
@@ -232,7 +218,6 @@ def test_a_posthog_destination_fails_until_registered_even_when_cut_short(tmp_pa
 
 
 def test_a_row_the_scan_cannot_find_fails(register) -> None:
-    """Deleting such a row would leave the check clean, so the row itself is refused."""
     row = {**next(row for row in register.rows if row["id"] == "elevenlabs"), "model_vendors": [], "env": []}
     assert any("names nothing the scan can find" in error for error in check.row_errors(row))
 
@@ -254,7 +239,6 @@ def test_a_latent_vendor_switched_on_in_a_shipped_config_fails(tmp_path: Path) -
 
 
 def test_an_endpoint_must_be_placed_in_iso_codes_on_one_of_the_rows_hosts(register) -> None:
-    """Residency reads where a host processes from `endpoints` (ADR-0167): a vague or foreign entry fails."""
     row = next(row for row in register.rows if row["id"] == "openrouter")
     planted = {**row, "endpoints": [{"host": "elsewhere.example", "processing_location": ["per_model"]}]}
     errors = check._endpoint_errors(planted, "openrouter.yaml")

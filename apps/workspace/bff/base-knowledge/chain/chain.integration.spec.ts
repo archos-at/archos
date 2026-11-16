@@ -57,9 +57,7 @@ describe.skipIf(!url)('the Austria pack against Postgres', () => {
   let withPlatformAccess: typeof import('@/lib/db/tenant-context').withPlatformAccess
   let db: ReturnType<typeof import('@/lib/db').getDb>
 
-  /** Proposed by the author, every claim accepted and approved by the expert, published to preview and stable. */
   async function published(countryId: string, title: string, raw: unknown[]): Promise<string> {
-    // Parsed in batches, as records-propose takes them: a pack may hold more records than one batch carries.
     const records = Array.from({ length: Math.ceil(raw.length / wire.MAX_PROPOSED_RECORDS) }, (_, i) =>
       wire.proposeRecordsBodySchema.parse({ records: raw.slice(i * wire.MAX_PROPOSED_RECORDS, (i + 1) * wire.MAX_PROPOSED_RECORDS) }).records,
     ).flat()
@@ -122,9 +120,6 @@ describe.skipIf(!url)('the Austria pack against Postgres', () => {
     expect(graph.editions.get('edition:oib-rl-2-2023')?.corpusFiles).toEqual(['oib-rl_2_ausgabe_mai_2023.pdf'])
   })
 
-  // The walk misses nothing the packs give. The database is shared with other specs, which publish records of
-  // their own onto an Austrian Land (time.integration.spec.ts publishes a fixture Bauordnung for AT-3), so the
-  // walked context may hold more uses than the packs: every pack use must be in it, unchanged.
   it('walks from the chain to every use the whole pack graph gives, in every Land', async () => {
     const { graphFromProposals } = await import('./from-proposals')
     const { resolveKnowledgeContext } = await import('../context/resolve')
@@ -177,7 +172,6 @@ describe.skipIf(!url)('the Austria pack against Postgres', () => {
       expect(truncated).toBe(false)
       expect(graph.relations.map((relation) => relation.id)).toEqual([`relation:xs-1-shared-${RUN}`])
       expect([...graph.works.keys()].sort()).toEqual([`work:code-xs-1-${RUN}`, `work:shared-${RUN}`])
-      // Positive control: XS-2's own chain reads both of its relations.
       expect((await load.loadGraph(SYNTHETIC, 'XS-2')).graph.relations.map((relation) => relation.id).sort()).toEqual([`relation:xs-2-own-${RUN}`, `relation:xs-2-shared-${RUN}`])
     } finally {
       await withPlatformAccess('chain spec cleanup', () => db.execute(sql`DELETE FROM organizations WHERE workos_organization_id = ${SYNTHETIC}`))
@@ -238,13 +232,11 @@ describe.skipIf(!url)('the Austria pack against Postgres', () => {
     ])
     const { graph } = await load.loadGraph(AUSTRIAN, 'AT-9')
     expect(graph.editions.get(`edition:lang-${RUN}-2023`)?.text).toEqual({ language: 'fr-CH', status: 'authentic' })
-    // An edition no manifestation holds states no text: nothing is assumed about a language.
     expect(graph.editions.get(`edition:lang-${RUN}-2019`)?.text).toBeNull()
   })
 
   it('reads the EU pack through an entitled member, and a German office reads neither', async () => {
     expect(await bindingOf(AUSTRIAN, 'AT-9', 'work:eu-cpr')).toEqual([['edition:eu-cpr-305-2011', 'binding']])
-    // Positive control above; the same reads for an office not entitled to Austria.
     const { graph } = await load.loadGraph(GERMAN, 'AT-9')
     expect([...graph.works.keys()]).toEqual([])
     expect(graph.relations).toEqual([])
@@ -256,7 +248,6 @@ describe.skipIf(!url)('the Austria pack against Postgres', () => {
 
   it('walks to the EU on the time path too, from a Land and from a code with no record', async () => {
     const { readTerritoryChain } = await import('../time/repository')
-    // AT-0 has no territory record: the walk still starts at its ISO country, as the chain path's does.
     for (const land of ['AT-9', 'AT-0']) {
       expect(await readTerritoryChain(AUSTRIAN, land, '2026-11-10'), land).toEqual(expect.arrayContaining([land, 'AT', 'EU']))
       expect(await readTerritoryChain(AUSTRIAN, land, '1994-12-31'), land).not.toContain('EU')
@@ -280,7 +271,6 @@ describe.skipIf(!url)('the Austria pack against Postgres', () => {
   })
 
   it('reads a record of another pack only where a released relation reaches it, and not after its rollback', async () => {
-    // A Swiss standard (another pack, no Swiss entitlement) and, in a second request, the Austrian relation that reaches it.
     await published('CH', `SIA listing ${RUN}`, [
       { type: 'work', key: `sia-500-${RUN}`, kind: 'technical_standard', title: 'Hindernisfreie Bauten', designation: 'SIA 500' },
       { type: 'edition', key: `sia-500-2009-${RUN}`, workKey: `sia-500-${RUN}`, label: '2009', issuedOn: '2009-01-01' },
@@ -304,11 +294,9 @@ describe.skipIf(!url)('the Austria pack against Postgres', () => {
     ])
     expect((await visible()).sort()).toEqual([`edition:sia-500-2009-${RUN}`, `work:sia-500-${RUN}`])
     expect(await bindingOf(AUSTRIAN, 'AT-9', `work:sia-500-${RUN}`)).toEqual([[`edition:sia-500-2009-${RUN}`, 'binding']])
-    // What binds in the chain is what the time path answers for: one visibility predicate (store/visibility.ts).
     const { readWorkInTime } = await import('../time/repository')
     expect((await readWorkInTime(AUSTRIAN, `work:sia-500-${RUN}`))?.work.editions.map((edition) => edition.id)).toEqual([`edition:sia-500-2009-${RUN}`])
     expect(await readWorkInTime(GERMAN, `work:sia-500-${RUN}`)).toBeNull()
-    // A German office reaches nothing through an Austrian relation it cannot read.
     const german = await withTenant({ organizationId: GERMAN }, () =>
       db.execute(sql`SELECT id FROM knowledge_records WHERE id = ${`work:sia-500-${RUN}`}`),
     )
@@ -336,7 +324,6 @@ describe.skipIf(!url)('the Austria pack against Postgres', () => {
       .resolveChain(own.graph, 'AT-9', '2026-11-10')
       .uses.find((use) => use.editionId === 'edition:oib-rl-6-2019')
     expect(rl6).toMatchObject({ role: 'binding', qualifier: 'office_maintained' })
-    // Another office entitled to the same country reads the platform's relations and not this one.
     const other = await load.loadGraph(SECOND_AUSTRIAN, 'AT-9')
     expect(other.graph.relations.length).toBeGreaterThan(0)
     expect(other.graph.relations.some((relation) => relation.id === relationId)).toBe(false)
@@ -346,7 +333,6 @@ describe.skipIf(!url)('the Austria pack against Postgres', () => {
     const [row] = await withPlatformAccess('chain spec relation', () =>
       db.execute<{ revision_id: string }>(sql`SELECT revision_id FROM knowledge_relation_revisions LIMIT 1`),
     )
-    // The runtime roles hold no UPDATE on a body (0209 revokes it); the append-only trigger stands behind that for the owner.
     await expect(
       withPlatformAccess('chain spec update', () =>
         db.execute(sql`UPDATE knowledge_relation_revisions SET provision = 'x' WHERE revision_id = ${row.revision_id}`),

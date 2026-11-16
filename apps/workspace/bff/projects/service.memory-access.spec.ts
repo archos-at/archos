@@ -38,7 +38,6 @@ vi.mock('./memory-topics', () => ({
   resolveProjectTopicForWrite: vi.fn(async (_p: string, _o: string, raw: string | null) => raw),
 }))
 
-// The office shelf's spelling: the create resolves it (`withOfficeTopic`), here a stand-in that capitalises.
 vi.mock('./office-memory-topics', () => ({
   withOfficeTopic: vi.fn(async (_organizationId: string, input: { topic?: string | null }) =>
     input.topic ? { ...input, topic: 'Brandschutz' } : input
@@ -52,8 +51,6 @@ vi.mock('./memory-service', () => ({
   updateProjectMemoryItem: vi.fn(async () => ({ id: 'item-1' })),
 }))
 
-// Which evidence names a reader may see is the SQL's subject (memory-evidence.integration.spec.ts);
-// here, that the panel's read asks it, as this person, with this person's clearance.
 vi.mock('./memory-evidence', () => ({
   withServedEvidence: vi.fn(async (_organizationId: string, items: readonly unknown[]) => [...items]),
 }))
@@ -76,7 +73,6 @@ import {
   renameProjectMemoryTopic,
 } from './service'
 
-/** The source folder of a restricted note (ADR-0088). */
 const CONTRACTS = 'aaaaaaaa-0000-4000-8000-000000000001'
 
 const SESSION: AuthorizedSession = {

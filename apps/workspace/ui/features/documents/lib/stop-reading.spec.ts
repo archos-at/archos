@@ -1,8 +1,3 @@
-/**
- * `stopReadingRow`: the upload row says cancelled only when the document does,
- * decided from the stop's own answer and never from a second request.
- */
-
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useDocumentsStore } from '../store'
 import type { TrackedFile } from '../types'
@@ -42,7 +37,6 @@ describe('stopReadingRow', () => {
     expect(rowStatus()).toBe('canceled')
   })
 
-  // The queue stopped a job, and the read had ended in the same moment.
   it('leaves the row alone and says finished when the document did not end cancelled', async () => {
     serverAnswers({ id: 'doc_1', result: 'cancelled', status: 'completed' })
 

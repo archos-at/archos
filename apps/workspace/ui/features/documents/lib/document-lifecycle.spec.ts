@@ -1,13 +1,3 @@
-/**
- * The two rules the Files surfaces read the lifecycle through: when the badge
- * speaks, and which controls this reader gets.
- *
- * Every expectation here is checked against `DOCUMENT_VERSION_TRANSITIONS`
- * rather than against a list written in the spec — the last test in the file is
- * the one that matters most, because it fails if this module ever starts
- * answering from a table of its own.
- */
-
 import { describe, expect, it } from 'vitest'
 import {
   DOCUMENT_VERSION_TRANSITIONS,
@@ -43,8 +33,6 @@ const version = (state: DocumentVersionState, submittedBy: string | null = null)
 
 describe('showsVersionStateBadge', () => {
   it('says nothing about a plain upload', () => {
-    // The rule the Files list depends on: one version, born published, a person
-    // put it there. A badge here would appear on every row of every folder.
     expect(
       showsVersionStateBadge({ versionState: 'published', versionCount: 1, authoredBy: 'user' }),
     ).toBe(false)
@@ -63,8 +51,6 @@ describe('showsVersionStateBadge', () => {
   })
 
   it('says nothing when the listing never read the state', () => {
-    // A listing that did not pay for the summary is saying "unknown here", and
-    // an unknown editorial state is not `Entwurf`.
     expect(showsVersionStateBadge({ versionState: null, authoredBy: 'agent' })).toBe(false)
   })
 
@@ -101,9 +87,6 @@ describe('availableReviewOps', () => {
   })
 
   it('withholds Freigeben from the person who submitted it', () => {
-    // Approval is the office asserting the content; an assertion nobody but the
-    // author has read is not one. The other two stay: asking yourself for
-    // changes is pointless but not a lie about who has read it.
     expect(availableReviewOps(version('in_review', 'user_me'), editor)).toEqual([
       'request_changes',
       'reject',
@@ -157,8 +140,6 @@ describe('„Piloti überarbeiten lassen" is a field, not a fourth op', () => {
   })
 
   it('is absent wherever the row that carries it is', () => {
-    // A reader who may not send this version back may not delegate its revision
-    // either: there is one permission, because there is one transition.
     expect(availableLifecycleGestures(version('in_review'), 'active', viewer)).toEqual([])
     expect(availableLifecycleGestures(version('published'), 'active', editor)).not.toContain(
       DELEGATE_REVISION,
@@ -195,9 +176,6 @@ describe('„Piloti überarbeiten lassen" is a field, not a fourth op', () => {
 
 describe('the table is the only table', () => {
   it('offers exactly the rows the transition table allows, for every state', () => {
-    // The guard on this whole module: if somebody ever answers from a second
-    // list, one of these states disagrees. Permissions are held wide open here
-    // on purpose — this is about the table's shape, not about access.
     const omnipotent = {
       permissions: [
         'project:view',
@@ -234,8 +212,6 @@ describe('lifecycleProgress — the track', () => {
   })
 
   it('puts a sent-back version where it actually is: at the draft, stopped', () => {
-    // Not a fifth stage. „Änderungen angefordert“ is a draft that has been round
-    // once, and the next move is a new version rather than a step forward.
     expect(lifecycleProgress(version('changes_requested'), 'active')).toMatchObject({
       reached: 1,
       halted: true,
@@ -250,7 +226,6 @@ describe('lifecycleProgress — the track', () => {
   })
 
   it('counts a superseded version as having completed the walk', () => {
-    // It was live once; a newer version took its place. Nothing was halted.
     expect(lifecycleProgress(version('superseded'), 'active')).toMatchObject({
       reached: 4,
       halted: false,
@@ -275,8 +250,6 @@ describe('lifecycleMeaning — one place decides what a state means for answers'
   })
 
   it('tells a pending version apart by whether a published one stands behind it', () => {
-    // „Piloti antwortet aus der veröffentlichten Fassung" is only true when
-    // there is one; without it the honest sentence is that nothing is the basis yet.
     expect(lifecycleMeaning(version('in_review', 'user_anna'), 'active', { live: true })).toBe('inReviewLive')
     expect(lifecycleMeaning(version('in_review'), 'active', { live: false })).toBe('inReviewAlone')
     expect(lifecycleMeaning(version('draft'), 'active', { live: true })).toBe('draftLive')
@@ -311,9 +284,6 @@ describe('lifecycleNeedsReader — what opens the panel by itself', () => {
   })
 
   it('does not hold on Archivieren alone', () => {
-    // The rule, not a tweak: `archive` is offered on every active document to
-    // anybody who may write, so counting it would open the panel on every file
-    // in the project and would therefore mean nothing.
     expect(canArchiveDocument('active', writer)).toBe(true)
     expect(lifecycleNeedsReader(version('published'), 'active', writer)).toBe(false)
   })
@@ -323,15 +293,6 @@ describe('lifecycleNeedsReader — what opens the panel by itself', () => {
   })
 
   it('still holds for the submitter, because the table still offers them a move', () => {
-    // Approval is withheld from them (`notSubmitter`) — but „Änderungen
-    // anfordern" and „Ablehnen" are not, so somebody who submitted their own
-    // version can still pull it back, and that IS a decision of theirs.
-    //
-    // Asserted rather than assumed: this function reads the transition table
-    // and nothing else, which is the whole invariant of this module. A rule
-    // that said „not for the submitter" here would be a second table — the one
-    // the file header refuses — and it would have to be kept in step with the
-    // first by hand.
     expect(availableLifecycleGestures(version('in_review', 'user_me'), 'active', editor)).not.toContain(
       'approve',
     )

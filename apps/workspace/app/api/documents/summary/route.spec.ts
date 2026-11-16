@@ -1,10 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * `GET /api/documents/summary` (ADR-0102): the counts behind a paged Files
- * workspace's folder tiles and brief, with the listing's two server filters.
- */
 
 import { describe, expect, it, vi } from 'vitest'
 

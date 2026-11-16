@@ -1,27 +1,5 @@
 'use client'
 
-/**
- * A run's message in the thread: the block, and the report beneath it once
- * there is one (ADR-0062, PR 2 design).
- *
- * The message-list dispatch (`ChatArea`) sends every assistant message that
- * carries a `runLedger` here instead of to the answer renderer. This component
- * owns two decisions and nothing else:
- *
- *   - which ledger the block renders from — `useRunLedger`: the stored one,
- *     replaced by the run's own stream while it is live;
- *   - whether the message's content is shown yet. The content IS the report,
- *     and it renders as today's answer card BELOW the block, so the reader gets
- *     the same sources and Herleitung a chat answer has. It appears once the
- *     run has produced it: `done`, and `interrupted` too, because that
- *     sentence says the report was written from what was there — hiding it
- *     would contradict the block's own words.
- *
- * The answer element is BUILT by the caller and handed in. The prop mapping
- * from a `ChatMessage` onto `AgentResponse` is thirty lines that exist once in
- * `ChatArea`; a second copy here would drift on the first added prop.
- */
-
 import type { JSX } from 'react'
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { motion, motionEntrance, motionInstant } from '@/components/motion'
@@ -39,18 +17,13 @@ import type { RunLedgerDoc } from '@/lib/runs/run-ledger-types'
 import { landingDelays } from '../lib/choreography'
 import { RunBlock } from './RunBlock'
 
-/** The states in which the message's content is a report the reader may have. */
 const REPORT_STATUSES: ReadonlySet<RunStatus> = new Set<RunStatus>(['done', 'interrupted'])
 
 export interface RunBlockMessageProps {
   message: ChatMessage
-  /** The project the run belongs to; without one the block is static. */
   projectId?: string | null
-  /** The thread the message is in; lets a status change reach the stored message. */
   conversationId?: string | null
-  /** The report as the caller renders an answer. Shown only once the run has one. */
   answer?: ReactNode
-  /** „Bericht fortschreiben", when the thread can commission a run. */
   onContinue?: (() => void | Promise<void>) | null
 }
 
@@ -68,14 +41,9 @@ export function RunBlockMessage({
     conversationId,
   })
   const reduced = useReducedMotion()
-  // The picker for „Unterlage hinzufügen", and the reader behind a receipt
-  // chip: both dialogs over the thread, and both read the same listing, which
-  // is fetched only once one of them is wanted.
   const [picking, setPicking] = useState(false)
   const [wantsInventory, setWantsInventory] = useState(false)
   const inventory = useProjectInventory(projectId ?? null, wantsInventory)
-  // A chip clicked before the listing has arrived is remembered and opened
-  // once it does; otherwise the first click on a finished run would do nothing.
   const [pendingDoc, setPendingDoc] = useState<RunLedgerDoc | null>(null)
   const openDocument = useCallback((doc: RunLedgerDoc): void => {
     setWantsInventory(true)
@@ -95,10 +63,6 @@ export function RunBlockMessage({
       bindComposerSubject: false,
     })
   }, [pendingDoc, inventory.documents, projectId])
-  // A report that arrives while the reader is watching rises AFTER the block
-  // has finished saying how the run ended: the verdict first, the document
-  // second. A thread scrolled back to weeks later has both at once — nothing
-  // happened just now, so nothing should look as though it did.
   const paintedRef = useRef(false)
   useEffect(() => {
     paintedRef.current = true

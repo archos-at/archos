@@ -1,17 +1,5 @@
 'use client'
 
-/**
- * Platform → Agents (ADR-0126, ADR-0154): how platform staff connect their own
- * AI assistant to the two MCP servers that are theirs, the operator console's
- * door and the cluster's own servers behind the platform MCP gateway.
- *
- * The profile's "Agent verbinden" serves an office; this serves the platform,
- * so it is its own section here, built from the same kit: Card, Alert, Tabs,
- * and the CodeBlock with its copy button. It draws a server-decided
- * {@link PlatformConnectState} and reads no environment itself, so
- * `/dev/platform-agents` renders every state from fixtures.
- */
-
 import type { JSX } from 'react'
 import { BookOpen, Check, Info, Network, ShieldCheck, TerminalSquare } from 'lucide-react'
 
@@ -25,7 +13,6 @@ import { platformCopy } from '@/i18n/namespaces/platform'
 import { CodeBlock } from '@/shared/components/CodeBlock'
 import type { McpServerEntry, PlatformConnectState } from '../lib/platform-connect-state'
 
-/** The client-side name of the console's server. */
 const CONSOLE_SERVER_NAME = 'platform'
 
 type ClientId = 'claudeCode' | 'cursor' | 'other'
@@ -42,11 +29,9 @@ const CONSOLE_STAYS = ['permissions', 'confirm', 'organization'] as const
 
 export interface PlatformConnectProps {
   state: PlatformConnectState
-  /** The operator runbook: WorkOS setup, stack keys, first-deploy checks. */
   runbookHref: string
 }
 
-/** One server's address and, per client, how to add it. */
 function ServerSetup({ name, url, testId }: { name: string; url: string; testId: string }): JSX.Element {
   const t = useTranslations(platformCopy, 'agents')
   return (

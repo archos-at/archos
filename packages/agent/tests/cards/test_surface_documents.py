@@ -1,5 +1,3 @@
-"""Tests for the ``surface_documents`` tool helpers and the document cards."""
-
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -32,7 +30,6 @@ class TestSourceForCollection:
         assert _source_for_collection("s_conversation") is None
 
     def test_signed_shelf_map_does_not_fall_back_to_prefix(self):
-        """A custom project collection the BFF already labeled must retrieve."""
         signed = {"custom_project_store": "project"}
         assert _source_for_target("custom_project_store", signed) == "project"
         assert _source_for_target("proj_abc", signed) is None
@@ -51,7 +48,6 @@ class TestTargetCollections:
         assert _target_collections(None) == []
 
     def test_a_restricted_folders_collection_is_never_listed(self):
-        """ADR-0088: listing is not use; a card naming its files would skip the admission."""
         from agent.common.source_kinds import Shelf
         from agent.knowledge.scoping import ScopedCollection
 
@@ -254,13 +250,6 @@ class TestPlatformCounts:
         assert 'Opened "plan.pdf"' in output
 
     async def test_a_surfaced_file_is_filed_under_the_turns_round(self, monkeypatch):
-        """The Herleitung hangs on a round the documents it returned.
-
-        A surfacing round is announced as a retrieval („Sucht in Ihren
-        Unterlagen") and used to return no document to the ledger, so the
-        layer drew as a search that found nothing. The file put on screen is
-        that document, on the shelf it came from.
-        """
         from agent.common import turn_status
 
         self._make_env(monkeypatch)
@@ -356,18 +345,6 @@ class TestPlatformCounts:
 
 
 class TestBriefingNamesTheFolder:
-    """Surfacing a file says WHERE it is filed, not only that it exists (ADR-0049).
-
-    The card puts the file on screen; this briefing is what the agent then writes
-    prose from. Without the folder in it, "die drei Dokumente in Brandschutz" is
-    a sentence the model has no grounds for — the filing is the user's own
-    organisation of their project and it is exactly what they ask about.
-
-    The folder rides on an underscore-prefixed key: the briefing reads it and the
-    `document_grid` card payload strips it, because the card schema has no folder
-    field (see the report for what that leaves undone).
-    """
-
     def test_one_file_states_its_folder_beside_the_shelf(self):
         text = _briefing_for_agent(
             "Fluchtwege",
@@ -477,14 +454,6 @@ class TestToolContract:
 
 
 class TestBrowseThroughWorkspaceSearch:
-    """A browse asks `workspace-search`, the search page's own operation, and its card links there.
-
-    The person runs that search on the search page; the card offers it with the
-    same text and scope, so "show me the rest" is one click, not a second question.
-    Without an answer from the operation (no envelope in an eval, an outage) the
-    browse reads the vector corpora as before and the card carries no link.
-    """
-
     PROJECT_ID = "0d7b3a5e-7c1c-4a4e-9a63-6a4a1f5f1c11"
 
     @staticmethod

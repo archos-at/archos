@@ -1,10 +1,3 @@
-/**
- * The designed blocks in a real chat answer. A Fundstelle excerpt: a plain `> „…" [1]` blockquote
- * drawn with its source in the margin, resolved by the same citation model the
- * `[1]` chip reads, and opened in the app at the cited page in one click.
- * Setup as `CitationMarker.spec.tsx`: the real renderer, a base-corpus PDF.
- */
-
 import { render, screen, within } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { vi, describe, test, expect, beforeEach, afterEach } from 'vitest'
@@ -13,7 +6,6 @@ import { resetSourcePreviewIndexCache } from './source-preview/source-preview-in
 import type { CitationSource } from '../types'
 import { resetPopoverMounts } from '@/test-utils/popover-mounts'
 
-// Real popover, counted: a read answer must not pay for peeks nobody opened.
 vi.mock('@/components/ui/popover', async (importOriginal) =>
   (await import('@/test-utils/popover-mounts')).countPopoverMounts(await importOriginal())
 )
@@ -25,8 +17,6 @@ vi.mock('@/features/layout/store', () => ({
   }),
 }))
 
-// Mutable, so one case can put the chat inside a project: the peek reads the
-// project id off the store, exactly as the marker's own resolver does.
 const chatStore = vi.hoisted(() => ({ projectId: null as string | null, prefill: vi.fn() }))
 
 vi.mock('../store', () => ({
@@ -44,10 +34,6 @@ vi.mock('../store', () => ({
 vi.mock('@/adapters/api', () => ({ cancelJob: vi.fn() }))
 
 vi.mock('@/adapters/auth', () => ({ useAuth: () => ({ accessToken: null }) }))
-
-// NOT mocked: the real MarkdownRenderer, because the marker only exists
-// because of how it renders in-page anchors. Stubbing it would leave these
-// tests asserting against markup no reader ever sees.
 
 vi.mock('next/navigation', () => ({
   useSearchParams: () => new URLSearchParams(),

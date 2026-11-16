@@ -1,10 +1,3 @@
-"""A migration that takes something away fails, so a rollback stays possible.
-
-`ci/migration_contract.py` guards the one thing a rollback by image tag cannot
-undo: the schema (docs/deployment/rollback.md). Each case below is a statement
-an older build would trip over, or one it would not.
-"""
-
 from __future__ import annotations
 
 import importlib.util

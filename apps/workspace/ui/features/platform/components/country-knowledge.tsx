@@ -1,14 +1,5 @@
 'use client'
 
-/**
- * Platform → Länder (ADR-0165): the one place a country's knowledge is kept.
- * One row per country, in words: where it stands (not started, in progress,
- * published), the one thing it needs next, and how many offices read it. A row
- * opens the country's page, where that work is done.
- *
- * A link from elsewhere (`?request=<id>`) still opens that change request here.
- */
-
 import type { JSX } from 'react'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
@@ -75,8 +66,6 @@ export function CountryKnowledge(): JSX.Element {
                 const step = countryNextStep(country, ready.queue)
                 const href = `${COUNTRIES_HREF}/${country.countryId}`
                 return (
-                  // The whole row opens the country. Not a link stretched over the row: Safari ignores position on a
-                  // <tr>, so every row's overlay covered the table and the last row took every tap.
                   <TableRow key={country.countryId} data-testid={`country-row-${country.countryId}`} className="cursor-pointer" onClick={() => router.push(href)}>
                     <TableCell>
                       <Link href={href} className="font-medium" onClick={(event) => event.stopPropagation()}>

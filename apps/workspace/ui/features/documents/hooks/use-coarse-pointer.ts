@@ -2,13 +2,6 @@
 
 import { useSyncExternalStore } from 'react'
 
-/**
- * Whether the primary pointer is a finger: the question the photo entries ask,
- * because a camera and a photo library are what a phone or a tablet holds.
- *
- * `useMediaQuery` with a guard: an engine with no `matchMedia` (jsdom, an old
- * embedded view) answers `false`, the desktop shape, instead of throwing.
- */
 const QUERY = '(pointer: coarse)'
 
 const hasMatchMedia = (): boolean => typeof window !== 'undefined' && typeof window.matchMedia === 'function'

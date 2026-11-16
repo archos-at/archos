@@ -1,24 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Whether a reader gets a document.
- *
- * Two kinds of assertion, because there are two kinds of failure.
- *
- * The first is that nothing arrives: react-pdf throws at LAYOUT time, not at
- * element-construction time, so a style it does not understand, an SVG
- * primitive it cannot draw or a `Text` nested where it may not be produces a
- * 500 from the endpoint and no file at all. That is what the `renderToBuffer`
- * cases are for — they run the whole engine, over every block kind and every
- * run flag the vocabulary defines, plus a body assembled by the card
- * shape-walker, which is the code path this exporter exists to reuse.
- *
- * The second is that the document arrives but says the wrong thing. Those are
- * asserted against `blockNodes`, on the element tree, rather than against the
- * bytes: a rendered PDF's content streams are deflate-compressed, so grepping
- * the buffer for a heading proves only that the deflater was not in the mood.
- */
 
 import React from 'react'
 import { renderToBuffer } from '@react-pdf/renderer'
@@ -31,7 +13,6 @@ import { BlocksDocument, blockNodes, pdfText } from './blocks-to-pdf'
 
 const t = translatorFor(answerExportCopy, 'en')
 
-/** Every block kind and every run flag `blocks.ts` defines, in one body. */
 const EVERY_BLOCK: DocBlock[] = [
   { kind: 'heading', level: 1, text: 'Fluchtwege und Ausgänge' },
   { kind: 'heading', level: 2, text: 'Beurteilung' },
@@ -57,7 +38,6 @@ const EVERY_BLOCK: DocBlock[] = [
     head: ['Position', 'Ist', 'Soll', 'Beurteilung'],
     rows: [
       [[{ text: 'Fluchtweglänge' }], [{ text: '38 m' }], [{ text: '≤ 40 m' }], [{ text: 'erfüllt' }]],
-      // Deliberately short: the renderer must pad it to the column count.
       [[{ text: 'Türbreite' }], [{ text: '0,9 m' }]],
     ],
   },
@@ -71,16 +51,6 @@ const EVERY_BLOCK: DocBlock[] = [
   },
 ]
 
-/**
- * A body built by the card walker, not by hand.
- *
- * The point of this exporter is that it renders the ~40 card types without
- * knowing any of them, so the spec must not hand-write the blocks a card
- * produces: it runs `cardsBlocks` over real stored card shapes and prints
- * whatever comes out. A card with a check, a card with an array of objects, a
- * card with a reference and a quoted excerpt, and a live card that carries no
- * values at all — the four shapes the walker dispatches on.
- */
 const CARD_BLOCKS = cardsBlocks(
   [
     {
@@ -124,7 +94,6 @@ const COVER = {
   ],
 }
 
-/** Every `Text` string in a react element tree, in document order. */
 const textsIn = (node: React.ReactNode, found: string[] = []): string[] => {
   if (typeof node === 'string') found.push(node)
   else if (typeof node === 'number') found.push(String(node))
@@ -135,7 +104,6 @@ const textsIn = (node: React.ReactNode, found: string[] = []): string[] => {
   return found
 }
 
-/** Depth-first list of elements, so a spec can look at what was drawn. */
 const elementsIn = (node: React.ReactNode, found: React.ReactElement[] = []): React.ReactElement[] => {
   if (Array.isArray(node)) node.forEach((child) => elementsIn(child, found))
   else if (React.isValidElement(node)) {
@@ -149,15 +117,11 @@ describe('rendering a document', () => {
   it('produces a PDF for every block kind and run flag the vocabulary defines', async () => {
     const buffer = await renderToBuffer(<BlocksDocument cover={COVER} blocks={EVERY_BLOCK} />)
 
-    // "%PDF-" — the header every reader sniffs for before it opens anything.
     expect(buffer.subarray(0, 5).toString('latin1')).toBe('%PDF-')
     expect(buffer.length).toBeGreaterThan(1000)
   })
 
   it('produces a PDF for a body the card shape-walker assembled', async () => {
-    // The blocks are not hand-written: whatever `cards.ts` emits for these four
-    // card shapes has to lay out, or the day a new card type ships the export
-    // 500s instead of printing it.
     expect(CARD_BLOCKS.length).toBeGreaterThan(0)
 
     const buffer = await renderToBuffer(<BlocksDocument cover={COVER} blocks={CARD_BLOCKS} />)
@@ -166,8 +130,6 @@ describe('rendering a document', () => {
   })
 
   it('lays out a document long enough to paginate', async () => {
-    // The footer's page numbers and the fixed running header are only exercised
-    // once there is a second page to repeat them onto.
     const long: DocBlock[] = Array.from({ length: 90 }, (_, index) => ({
       kind: 'paragraph',
       runs: [{ text: `Absatz ${index}: ${'Fluchtweg '.repeat(24)}` }],
@@ -179,7 +141,6 @@ describe('rendering a document', () => {
   })
 
   it('renders an empty body rather than refusing one', async () => {
-    // A cards-only answer whose prose was empty still has a cover to print.
     const buffer = await renderToBuffer(<BlocksDocument cover={COVER} blocks={[]} />)
 
     expect(buffer.subarray(0, 5).toString('latin1')).toBe('%PDF-')
@@ -194,8 +155,6 @@ describe('the shapes the renderer reads off a block', () => {
 
     const texts = textsIn(nodes)
     expect(texts).toContain('3')
-    // The bold `[3] ` run became the chip; leaving it in the body as well would
-    // print the marker twice.
     expect(texts.some((text) => text.includes('[3]'))).toBe(false)
     expect(texts).toContain('OIB-RL 2')
   })
@@ -217,8 +176,6 @@ describe('the shapes the renderer reads off a block', () => {
       },
     ])
 
-    // Three header cells and three body cells: a row left short would stretch
-    // its one value across the columns and file it under the wrong heading.
     const texts = textsIn(nodes)
     expect(texts.filter((text) => ['A', 'B', 'C'].includes(text))).toHaveLength(3)
     expect(texts).toContain('nur eine')
@@ -233,7 +190,6 @@ describe('the shapes the renderer reads off a block', () => {
       (element) => (element.props as { src?: string }).src !== undefined
     )
     expect(links).toHaveLength(1)
-    // The sentence's full stop is not part of the address.
     expect((links[0].props as { src: string }).src).toBe('https://www.oib.or.at/rl2.pdf')
   })
 
@@ -252,8 +208,6 @@ describe('the shapes the renderer reads off a block', () => {
   })
 
   it('keeps a surface tab’s title on the page with its card, and sets it above the card', () => {
-    // A tab title stranded at a page bottom reads as a tab with nothing in it,
-    // and one the size of the card heading beneath it reads as a second card.
     const blocks = cardsBlocks(
       [
         {
@@ -283,7 +237,6 @@ describe('the shapes the renderer reads off a block', () => {
 
   it('renders one node per block, for every kind', () => {
     expect(blockNodes(EVERY_BLOCK)).toHaveLength(EVERY_BLOCK.length)
-    // Nothing silently dropped: a kind with no branch would be `undefined`.
     expect(blockNodes(EVERY_BLOCK).every((node) => node !== undefined)).toBe(true)
   })
 })

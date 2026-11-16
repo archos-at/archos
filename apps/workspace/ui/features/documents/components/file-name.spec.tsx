@@ -2,7 +2,6 @@ import { beforeAll, describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@/test-utils'
 import { FileName, FolderName } from './file-name'
 
-// A canvas that measures 7px a character, and a box 140px wide: twenty characters a line.
 beforeAll(() => {
   vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
     font: '',
@@ -22,7 +21,6 @@ describe('FileName', () => {
   })
 
   it('never breaks inside a word: a compound wider than the line loses its middle instead', () => {
-    // „Baustellenbesprechun/g.pdf“ was `overflow-wrap: anywhere` on a phone's tile.
     const { container } = render(<FileName text="Bericht_01_Baustellenbesprechung.pdf" lines={2} />)
     const lines = drawn(container)
     expect(lines.join('')).not.toContain('Baustellenbesprechun')

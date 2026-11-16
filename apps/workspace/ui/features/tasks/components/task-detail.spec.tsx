@@ -1,18 +1,3 @@
-/**
- * The task drawer — the account of the run, the result, and the one way a task
- * becomes a schedule.
- *
- * Three claims carry the file. The first is the one this drawer exists for:
- * a task with a run shows the REAL block, off the run's own ledger, rather
- * than a second description of the run assembled from the row — and a task
- * WITHOUT one falls back to exactly the paragraphs the drawer used to show,
- * because for a legacy run those are the only account there is. The second is
- * that the drawer always points at SOMEWHERE: whichever of document,
- * conversation, report or thinking this task actually has. The third is „Als
- * Zeitplan speichern", offered on work a person wrote and withheld on work a
- * schedule already produces.
- */
-
 import { render, screen, waitFor } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
@@ -99,12 +84,6 @@ describe('what the drawer says a task became', () => {
     )
   })
 
-  /**
-   * The report used to be its own destination, `?job=<backendJobId>`, read by
-   * the deep-research side panel. With the panel gone that URL lands on the
-   * chat page and does nothing, so a run that filed no document and has no
-   * thread offers no button rather than a link that goes nowhere.
-   */
   test('a run with no document and no thread is not a destination', () => {
     drawer({ task: task({ kind: 'deep-research' }) })
     expect(screen.queryByTestId('task-detail-result')).not.toBeInTheDocument()
@@ -174,8 +153,6 @@ describe('the run itself, which is what the drawer is for', () => {
     drawer({ task: withRun })
     expect(await screen.findByTestId('run-stand')).toBeInTheDocument()
     expect(fetchRunView).toHaveBeenCalledWith('p1', 'task-1')
-    // The row's paragraphs are the block's job now: the title is the ask, the
-    // status line is the outcome. Repeating them beside it is the lookalike.
     expect(screen.queryByTestId('task-detail-goal')).not.toBeInTheDocument()
     expect(screen.queryByTestId('task-detail-status')).not.toBeInTheDocument()
   })
@@ -183,8 +160,6 @@ describe('the run itself, which is what the drawer is for', () => {
   test('opens the block rather than making the reader unfold it again', async () => {
     drawer({ task: withRun })
     await screen.findByTestId('run-stand')
-    // Terminal runs collapse by default in a thread, where the reader is
-    // scrolling past them. Clicking the row IS the request to see inside.
     await waitFor(() =>
       expect(screen.getByRole('button', { name: /Aktenvermerk Fluchtwege/ })).toHaveAttribute(
         'data-state',
@@ -238,8 +213,6 @@ describe('on a phone the way to the result is not buried under the run block', (
     const body = await screen.findByTestId('task-detail-body')
     const actions = screen.getByTestId('task-detail-actions')
 
-    // The body scrolls; the actions are its sibling, so they never scroll away
-    // with three rounds of sources.
     expect(body.className).toMatch(/overflow-y-auto/)
     expect(body.contains(actions)).toBe(false)
     expect(actions.contains(screen.getByTestId('task-detail-result'))).toBe(true)

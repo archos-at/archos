@@ -71,7 +71,6 @@ describe.skipIf(!url)('one operator alone on a deployment that says so (migratio
   const owner = { userId: AUTHOR, email: `${AUTHOR}@example.com`, organizationId: fixed.platformOrg, permissions: PERMISSIONS } as unknown as UserSession
   const alone = { decision: 'approve' as const, role: 'domain_expert' as const, override: { reason: REASON } }
 
-  /** A submitted request whose one work cites a page the author pasted: the case that blocked dev. */
   async function pastedRequest(name: string): Promise<string> {
     const id = await store.insertChangeRequest({ title: name, countryId: 'AT', createdBy: AUTHOR })
     const capture = await onboarding.capturePlatformCitation(owner, id, {
@@ -168,7 +167,6 @@ describe.skipIf(!url)('one operator alone on a deployment that says so (migratio
     const id = await pastedRequest('alone')
     expect((await reviewOwn(id, true)).recorded).toBeGreaterThan(0)
     expect((await service.getPlatformChangeRequest(owner, id)).sourcesUnchecked).toBe(false)
-    // Approving alone stays explicit: the author's plain approve is refused, the override is not.
     await expect(service.decidePlatformChangeRequest(owner, id, { decision: 'approve', role: 'domain_expert' })).rejects.toThrow(/four eyes/)
     await expect(service.decidePlatformChangeRequest(owner, id, alone)).resolves.toEqual({
       status: 'approved',

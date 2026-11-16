@@ -1,28 +1,5 @@
 'use client'
 
-/**
- * The decision about one mail, pinned to the bottom of the detail: „Verwerfen“
- * on the left, the one primary action on the right, and between them only
- * what the press still needs.
- *
- * The primary is the verb, „Ablegen“; beside it a muted sentence computed from
- * the draft says exactly what one press files („2 Dateien und den E-Mail-Text
- * ablegen“, „In E-Mail-Verlauf „Stellplatznachweis“ ablegen (wird Fassung
- * 4)“), and is the press's accessible description. With nothing chosen the
- * one press left is „Verwerfen“: the bar says it once, as the primary, not a
- * ghost „Verwerfen“ beside a black „Nichts ablegen“ that did the same. Above it:
- * the sender confirmation where filing needs it („Domain nicht bestätigt.
- * Trotzdem ablegen“), what still blocks the press, and the one consequence a
- * person would not guess (without the text, the original is erased).
- *
- * A mail only another member may file never gets this bar: a colleague reads
- * `ClaimedMailBar`, which offers „Verwerfen …“ alone.
- *
- * On a phone the bar is the bottom edge: the two buttons stack full width
- * with the primary nearest the thumb, and the home indicator's inset pads it.
- * Busy is not disabled: a pressed button keeps its focus and its width.
- */
-
 import { useId, type JSX } from 'react'
 import { Info, ShieldAlert } from 'lucide-react'
 import { BusyButton } from '@/components/ui/busy-button'
@@ -35,12 +12,6 @@ import { inboundMailCopy } from '@/i18n/namespaces/inbound-mail'
 export interface DecisionBarProps {
   summary: DraftSummary
   acknowledgeSender: boolean
-  /**
-   * The mail reads as someone posing as another (`riskLevel: 'impersonation'`):
-   * „Verwerfen“ is the primary press, and filing is offered only once the
-   * person opened „Trotzdem ablegen …“ (`filingOpen`), as the secondary one,
-   * behind a yes that says they checked the mail is real.
-   */
   impersonation?: boolean
   filingOpen?: boolean
   onAcknowledgeSender: (value: boolean) => void
@@ -48,16 +19,7 @@ export interface DecisionBarProps {
   onDismiss: () => void
   filing: boolean
   dismissing: boolean
-  /**
-   * A batch bar is up in the list (mails are picked): it holds its pane's one primary, so the reader's steps back to
-   * the raised press until the batch is cleared (one primary per area: a pane is an area, and a floating bar
-   * replaces its pane's primary while it is shown).
-   */
   yieldPrimary?: boolean
-  /**
-   * The choice the sentence summarises is on screen (the message's E-Mail-Verlauf radios): the sentence would repeat
-   * it word for word 270px above, so it stays only as the press's accessible description until the choice scrolls away.
-   */
   choiceInView?: boolean
   className?: string
 }
@@ -77,7 +39,6 @@ function blockerText(blocker: DraftBlocker, t: (key: string, vars?: Record<strin
   }
 }
 
-/** The primary label for a draft, as the bar shows it; shared with the keyboard's „Wie gezeigt ablegen“. */
 export function primaryLabel(summary: DraftSummary, t: (key: string, vars?: Record<string, string | number>) => string): string {
   if (summary.files > 0 && summary.text) return t('bar.fileBoth', { count: summary.files })
   if (summary.files > 0) return t('bar.fileFiles', { count: summary.files })
@@ -103,12 +64,10 @@ export function DecisionBar({
   const summaryId = useId()
   const t = useTranslations(inboundMailCopy)
   const nothing = summary.files === 0 && !summary.text
-  // Nothing chosen: the one press left is „Verwerfen“, said once, as the primary (one primary action per surface).
   const onlyDismiss = nothing && !impersonation
   const blockers = summary.blockers.filter((blocker) => blocker.kind !== 'sender')
   const blocked = !nothing && summary.blockers.length > 0
   const busy = filing || dismissing
-  // An impersonation offers no filing until the person opened „Trotzdem ablegen …“.
   const offersFiling = !impersonation || filingOpen
   const messages = blockers.map((blocker) => blockerText(blocker, t)).filter((text): text is string => text !== null)
 

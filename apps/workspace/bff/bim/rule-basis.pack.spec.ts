@@ -27,7 +27,6 @@ const AT = read('at.json')
 const GRAPH = graphFromProposals([...read('eu.json'), ...AT])
 const LANDS = ['AT-1', 'AT-2', 'AT-3', 'AT-4', 'AT-5', 'AT-6', 'AT-7', 'AT-8', 'AT-9'] as const
 
-/** V: verdict, H: hint; per rule, Länder AT-1 to AT-9, on 2026-11-11. */
 const EXPECTED: Record<string, string> = {
   'oib4-stair-rise-run-ratio': 'H V V V V H V H V',
   'oib4-door-clear-width': 'H V V V V H V H V',

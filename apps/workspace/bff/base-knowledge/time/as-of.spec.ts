@@ -23,7 +23,6 @@ import {
 import { editionInForce } from './editions'
 import { dayIn, zoneOf } from './today'
 
-/** The zones the released territory records state: the country's, as the records give them. */
 const ZONES = { AT: 'Europe/Vienna' }
 
 function answer(
@@ -41,7 +40,6 @@ function answer(
   })
 }
 
-/** The answer as the set's expectation reads it. */
 function observed(result: AsOfAnswer): AsOfCase['expect'] {
   if (result.status === 'determined') return { edition: result.edition.label }
   if (result.status === 'choice')
@@ -237,7 +235,6 @@ describe('today in the node’s zone', () => {
 
   it('is a synthetic country’s zone from its record alone, and the build’s zone where no record states one', () => {
     expect(zoneOf(['XA-N', 'XA'], { XA: 'Asia/Tokyo' })).toBe('Asia/Tokyo')
-    // Nothing released states a zone: the zone the build lists for the leaf's country, as before the records.
     expect([zoneOf(['AT:gkz:90001', 'AT-9', 'AT'], {}), zoneOf(['DE-BE', 'DE'], {}), zoneOf(['XA-N', 'XA'], {})]).toEqual([
       'Europe/Vienna',
       'Europe/Berlin',
@@ -297,7 +294,6 @@ describe('the walk ends on an edition in force where it was reached (review find
   it('a gap between editions on the reference date is no edition in force', () => {
     const editions = [edition('A', '2018-01-01', '2022-01-01'), edition('B', '2022-06-01', null)]
     expect(run(editions, '2021-06-01', '2022-03-01')).toMatchObject({ reason: 'no_edition_in_force' })
-    // Positive control: decided once B is in force.
     expect(run(editions, '2021-06-01', '2022-07-01')).toMatchObject({ status: 'determined', edition: { id: 'B' } })
   })
 

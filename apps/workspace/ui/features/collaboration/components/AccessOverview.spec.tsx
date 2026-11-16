@@ -10,8 +10,6 @@ import type {
 } from '@/lib/sharing/types'
 import { AccessOverview } from './AccessOverview'
 
-/** Default locale in an unprovided test tree is `en`. */
-
 const entry = (
   userId: string,
   name: string,
@@ -50,10 +48,8 @@ describe('AccessOverview — the blanket rule', () => {
     render(<AccessOverview state={state()} currentUserId="u-matthias" />)
 
     expect(screen.getByTestId('access-chip')).toHaveTextContent('Shared with 2')
-    // The chip's count is everyone the rule plus the grants resolve to.
     expect(screen.getByText('3 people')).toBeInTheDocument()
     expect(screen.getByText('Only the people listed here.')).toBeInTheDocument()
-    // Nothing is derived under `private`, so there is no rule block to draw.
     expect(screen.queryByTestId('access-derived')).toBeNull()
   })
 
@@ -94,10 +90,6 @@ describe('AccessOverview — the blanket rule', () => {
     render(<AccessOverview state={state()} showVisibility={false} />)
 
     expect(screen.queryByTestId('access-chip')).not.toBeInTheDocument()
-    // …but the named list still says how many people that is. The heading is
-    // "Invited by name", not "People with access": with a rule block above it, this
-    // list is no longer everyone, and a heading claiming otherwise is the exact
-    // confusion the split exists to remove.
     expect(screen.getByText('Invited by name')).toBeInTheDocument()
     expect(screen.getByText('3 people')).toBeInTheDocument()
   })
@@ -155,13 +147,9 @@ describe('AccessOverview — the named exceptions', () => {
       />,
     )
 
-    // Derived access is its own block — not a row in the named list, because it
-    // carries no controls and changing it means changing the rule above it.
     const block = screen.getByTestId('access-derived')
     expect(within(block).getByText('Project member', { exact: false })).toBeInTheDocument()
-    // The NAME is present as text, not only as initials in an avatar.
     expect(within(block).getByText('Klaus Berger', { exact: false })).toBeInTheDocument()
-    // …and it is not duplicated as a roster row.
     expect(screen.getAllByTestId('access-row')).toHaveLength(1)
   })
 
@@ -180,7 +168,6 @@ describe('AccessOverview — the named exceptions', () => {
       />,
     )
 
-    // Five names, then the remainder counted rather than silently dropped.
     expect(
       within(screen.getByTestId('access-derived')).getByText(/and 3 more/),
     ).toBeInTheDocument()
@@ -256,7 +243,6 @@ describe('AccessOverview — someone who can no longer read what the chat drew o
     const anna = rows.find((row) => row.textContent?.includes('Anna Weber')) as HTMLElement
     expect(within(anna).getByTestId('access-lost')).toHaveTextContent('No longer has access')
     expect(screen.getAllByTestId('access-lost')).toHaveLength(1)
-    // The row still says why she is here, and nothing names a folder.
     expect(anna).toHaveTextContent('Invited by Matthias Bigl')
   })
 

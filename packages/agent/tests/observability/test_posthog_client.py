@@ -1,15 +1,3 @@
-"""The one PostHog client the Python tiers capture through (ADR-0100).
-
-What these cases hold in place: the client is off until both settings arrive
-and is then built once with the options the module header promises; and the
-behaviour the module leaves to the SDK (personless system events, never
-raising, super properties on every event) is checked against the real SDK, so
-an upgrade that changes it fails here rather than in PostHog.
-
-The real-SDK cases build the client with ``send=False``: the event runs the
-SDK's whole enrichment path and ``before_send``, and nothing leaves the process.
-"""
-
 from __future__ import annotations
 
 import functools
@@ -51,7 +39,6 @@ def configured_env(monkeypatch: pytest.MonkeyPatch) -> None:
 
 @pytest.fixture
 def sent(monkeypatch: pytest.MonkeyPatch, configured_env: None) -> list[dict[str, Any]]:
-    """Every event the real SDK hands to ``before_send``, after the scrubber ran."""
     import posthog
 
     events: list[dict[str, Any]] = []
@@ -171,8 +158,6 @@ def test_every_event_carries_the_super_properties_and_no_geoip(sent: list[dict[s
 
 
 def test_the_deploys_release_id_links_every_event(sent: list[dict[str, Any]], monkeypatch: pytest.MonkeyPatch) -> None:
-    # The deploy resolves the PostHog release and hands its id over in this
-    # variable; the SDK reads it when the client is built (ci.md).
     monkeypatch.setenv("POSTHOG_RELEASE_ID", "0193f5a6-release")
     posthog_client.capture_exception(ValueError("x"))
 
@@ -200,8 +185,6 @@ def test_the_scrubber_runs_on_every_event(sent: list[dict[str, Any]]) -> None:
     error = RuntimeError(f"Client error for url '{url}'")
     posthog_client.capture_exception(error, properties={"message": f"failed {url}"})
 
-    # The frames' source context is this file's code, which spells the URL out;
-    # what is checked is the data the event carries.
     properties = sent[0]["properties"]
     assert "deadbeef" not in properties["message"]
     assert "deadbeef" not in properties["$exception_list"][0]["value"]

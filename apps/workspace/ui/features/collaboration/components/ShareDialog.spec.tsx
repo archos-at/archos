@@ -10,8 +10,6 @@ import type {
   ShareCandidate,
 } from '@/lib/sharing/types'
 
-// The candidate hook is already built and tested; this spec is about the controls
-// and the refusals, so it is stubbed. The sharing state itself arrives as a prop.
 vi.mock('../hooks/use-sharing', () => ({
   useShareCandidates: vi.fn(() => ({
     candidates: [],
@@ -26,8 +24,6 @@ import type { UseSharingResult } from '../hooks/use-sharing'
 import { ShareDialog } from './ShareDialog'
 
 const useShareCandidatesMock = vi.mocked(useShareCandidates)
-
-/** Default locale in an unprovided test tree is `en`. */
 
 const person = (userId: string, name: string) => ({
   userId,
@@ -71,10 +67,6 @@ const refresh = vi.fn()
 const dismissFailure = vi.fn()
 const reloadCandidates = vi.fn()
 
-/**
- * The candidate hook's real shape, so a spec only states the fields it cares
- * about while `error`/`reload` stay checked against the hook.
- */
 type CandidatesResult = ReturnType<typeof useShareCandidates>
 
 const candidatesResult = (overrides: Partial<CandidatesResult> = {}): CandidatesResult => ({
@@ -166,8 +158,6 @@ describe('ShareDialog — visibility', () => {
 
     expect(screen.getByRole('option', { name: /Only me/ })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: /Everyone in this project/ })).toBeInTheDocument()
-    // `organization` is phase 2 and the API rejects it — offering it would be a
-    // control that fails.
     expect(screen.queryByRole('option', { name: /Everyone in the organization/ })).toBeNull()
   })
 
@@ -202,7 +192,6 @@ describe('ShareDialog — visibility', () => {
     await user.click(screen.getByRole('combobox', { name: 'Who can see this' }))
     await user.click(screen.getByRole('option', { name: /Only me/ }))
 
-    // Nothing saved yet.
     expect(setVisibility).not.toHaveBeenCalled()
 
     const loss = await screen.findByTestId('visibility-loss-list')
@@ -228,7 +217,6 @@ describe('ShareDialog — visibility', () => {
     renderDialog({ state: sharingState({ canManage: false, myRole: 'viewer' }) })
 
     expect(screen.queryByRole('combobox', { name: 'Who can see this' })).toBeNull()
-    // The overview then carries the visibility chip instead.
     expect(screen.getByTestId('access-chip')).toBeInTheDocument()
   })
 })
@@ -238,8 +226,6 @@ describe('ShareDialog — per-person controls', () => {
     const user = userEvent.setup()
     renderDialog()
 
-    // One control per row, and it does NOT restate the role — the group heading
-    // above the row already says it. Opening the menu is how the role is changed.
     await user.click(screen.getByRole('button', { name: 'Manage access: Anna Weber' }))
     await user.click(await screen.findByRole('menuitemradio', { name: 'Can view' }))
 
@@ -266,9 +252,6 @@ describe('ShareDialog — per-person controls', () => {
   })
 
   test('a refused removal keeps its confirmation open instead of closing like a success', async () => {
-    // Every sharing mutation resolves to a boolean rather than throwing, so the
-    // confirm used to close on refusal too — the dialog dismissed itself as if
-    // the person had been removed, and the explanation appeared behind it.
     const user = userEvent.setup()
     revoke.mockResolvedValueOnce(false)
     renderDialog({ failure: { reason: 'last-owner', message: null } })
@@ -279,10 +262,6 @@ describe('ShareDialog — per-person controls', () => {
 
     expect(revoke).toHaveBeenCalledWith('u-anna')
     expect(await screen.findByText('Remove Anna Weber?')).toBeInTheDocument()
-    // …and the reason has to be stated INSIDE the confirm. Radix aria-hidden's
-    // the outer dialog while a nested one is open and the overlay covers it, so
-    // an explanation left in the dialog body behind is neither seen nor
-    // announced — leaving a live button the user simply presses again.
     expect(await screen.findByTestId('confirm-failure')).toHaveTextContent(
       'This conversation must keep at least one owner. Make someone else an owner first.',
     )
@@ -299,16 +278,10 @@ describe('ShareDialog — per-person controls', () => {
       }),
     })
 
-    // Klaus is still named and still explained — in the rule block, because that
-    // is what his access comes from…
     const rule = screen.getByTestId('access-derived')
     expect(within(rule).getByText(/Klaus Berger/)).toBeInTheDocument()
     expect(within(rule).getByText(/Project member/)).toBeInTheDocument()
-    // …and the block promises nothing the model cannot do: there is no per-person
-    // deny, so there is no per-person control anywhere for him.
     expect(screen.queryByRole('button', { name: 'Manage access: Klaus Berger' })).toBeNull()
-    // He is also not a roster row, so the list that DOES carry controls is
-    // uniformly actionable rather than half-actionable.
     expect(screen.getAllByTestId('access-row')).toHaveLength(1)
   })
 
@@ -362,21 +335,13 @@ describe('ShareDialog — invite', () => {
     )
     renderDialog()
 
-    // Never hidden: an invite picker that silently omits a colleague reads as a bug.
     expect(screen.getByText('Eva Ritter')).toBeInTheDocument()
     expect(screen.getByText('Not in this project yet')).toBeInTheDocument()
-    // The reason is still stated — once, below the list, rather than as a
-    // paragraph inside the row.
     expect(within(screen.getByTestId('share-blocked-note')).getByText(
       'Add them to the project first. Sharing a chat never grants access to the project itself.',
     )).toBeInTheDocument()
-    // Stronger than "disabled": there is no invite control on this row at all. A
-    // greyed-out button is a promise that pressing it might one day work here,
-    // and it never will until someone adds Eva to the project elsewhere.
     expect(screen.queryByRole('button', { name: 'Invite: Eva Ritter' })).toBeNull()
 
-    // The identifying detail survives. It used to be replaced by the explanation,
-    // which is precisely the row where the reader most needs to be sure WHO this is.
     const row = screen.getByText('Eva Ritter').closest('[data-testid="share-candidate"]')
     expect(within(row as HTMLElement).getByText('u-eva@example.com')).toBeInTheDocument()
   })
@@ -397,12 +362,9 @@ describe('ShareDialog — invite', () => {
     expect(within(row).getByTestId('share-candidate-lacks-folder')).toHaveTextContent(
       'Has no access to a folder this chat draws on',
     )
-    // No invite control on the row at all, and the identifying email stays.
     expect(screen.queryByRole('button', { name: 'Invite: Ina Praktikantin' })).toBeNull()
     expect(within(row).getByText('u-ina@example.com')).toBeInTheDocument()
-    // The row never carries a folder name: the sharer may not be cleared for it.
     expect(row.textContent).not.toMatch(/Ordner|Verträge|Honorar/)
-    // Someone who qualifies is invited as before.
     expect(screen.getByRole('button', { name: 'Invite: Klaus Berger' })).toBeEnabled()
     const klaus = screen.getByText('Klaus Berger').closest('[data-testid="share-candidate"]') as HTMLElement
     expect(klaus).not.toHaveAttribute('data-blocked')
@@ -451,14 +413,6 @@ describe('ShareDialog — invite', () => {
     expect(screen.queryByTestId('share-blocked-note')).toBeNull()
   })
 
-  /**
-   * One person, one place (rule 7).
-   *
-   * A grant holder used to get a role control in the roster AND a second one beside
-   * their invite row: two controls for one person's role in one dialog, which reads
-   * as a bug because it is one. The roster is the home — role and removal live there
-   * — so the invite list is only ever "who else could be added".
-   */
   test('a person who already has access is not repeated in the invite list', () => {
     useShareCandidatesMock.mockReturnValue(
       candidatesResult({
@@ -470,20 +424,15 @@ describe('ShareDialog — invite', () => {
     )
     renderDialog()
 
-    // Only the person who is NOT on the roster is offered.
     const rows = screen.getAllByTestId('share-candidate')
     expect(rows).toHaveLength(1)
     expect(rows[0]).toHaveTextContent('Sabine Gruber')
 
-    // Anna is on screen exactly once, with exactly one control: her roster row.
     expect(screen.getAllByRole('button', { name: 'Manage access: Anna Weber' })).toHaveLength(1)
     expect(screen.queryByRole('button', { name: 'Invite: Anna Weber' })).toBeNull()
   })
 
   test('no person appears in both the roster and the invite list', () => {
-    // Includes the harder case: a project member whose access is DERIVED, so the
-    // server does not flag them `alreadyHasAccess` — the roster is still where they
-    // are accounted for.
     useShareCandidatesMock.mockReturnValue(
       candidatesResult({
         candidates: [
@@ -514,7 +463,6 @@ describe('ShareDialog — invite', () => {
       expect(inRoster && inInvites, `${name} appears in both lists`).toBe(false)
     }
 
-    // …and the deliberate SH-19 row is still there: visible, named, not invitable.
     expect(inviteText.some((text) => text.includes('Eva Ritter'))).toBe(true)
     expect(screen.queryByRole('button', { name: 'Invite: Eva Ritter' })).toBeNull()
     expect(screen.getByTestId('share-blocked-note')).toBeInTheDocument()
@@ -544,7 +492,6 @@ describe('ShareDialog — leaving and escalation', () => {
     expect(await screen.findByText('Leave this conversation?')).toBeInTheDocument()
     expect(screen.getByText('You lose access. Everyone else keeps theirs.')).toBeInTheDocument()
 
-    // The confirm button carries the same label; the last match is the dialog's.
     const confirms = screen.getAllByRole('button', { name: 'Leave this conversation' })
     await user.click(confirms[confirms.length - 1])
 
@@ -568,13 +515,10 @@ describe('ShareDialog — leaving and escalation', () => {
       ),
     ).toBeInTheDocument()
 
-    // Taking ownership over someone else's conversation is consequential and
-    // audited, so it runs through the same explicit confirm as every other one.
     await user.click(screen.getByRole('button', { name: 'Take ownership' }))
     expect(await screen.findByText('Take ownership?')).toBeInTheDocument()
     expect(escalate).not.toHaveBeenCalled()
 
-    // The confirm button carries the same label; the last match is the dialog's.
     const confirms = screen.getAllByRole('button', { name: 'Take ownership' })
     await user.click(confirms[confirms.length - 1])
     expect(escalate).toHaveBeenCalledOnce()
@@ -620,18 +564,12 @@ describe('ShareDialog — refusals', () => {
 })
 
 describe('ShareDialog — the row menu states the current role', () => {
-  /**
-   * The select this replaced DISPLAYED the current role. Losing that would be a
-   * real regression for anyone who cannot see the group heading above the row —
-   * the checked radio is what carries it now, and a screen reader reads it.
-   */
   test('the current role is the checked option, not merely the default', async () => {
     const user = userEvent.setup()
     renderDialog()
 
     await user.click(screen.getByRole('button', { name: 'Manage access: Anna Weber' }))
 
-    // Anna is a collaborator, so "Can contribute" is checked and the others are not.
     expect(await screen.findByRole('menuitemradio', { name: 'Can contribute' })).toBeChecked()
     expect(screen.getByRole('menuitemradio', { name: 'Can view' })).not.toBeChecked()
     expect(screen.getByRole('menuitemradio', { name: 'Owner' })).not.toBeChecked()
@@ -661,7 +599,6 @@ describe('ShareDialog — passing the link on', () => {
     expect(button).toHaveTextContent('Copy link')
     expect(screen.getByTestId('share-link')).toHaveTextContent(/only for people who have access/i)
 
-    // fireEvent: `userEvent.setup()` installs its own clipboard over the stub.
     fireEvent.click(button)
     await waitFor(() => expect(writeText).toHaveBeenCalled())
     expect(writeText).toHaveBeenCalledWith('https://piloti.example/app/projects/p1/chat?session=c1')

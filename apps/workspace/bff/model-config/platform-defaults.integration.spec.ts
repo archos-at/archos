@@ -1,15 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Opt-in integration test: the platform default-model set against a real
- * Postgres with migration 0026 applied. Skipped unless TEST_DATABASE_URL
- * is set (CI has no database).
- *
- * The behaviour worth a real database: a save is a REPLACE, not a patch — a
- * group left out of the payload is cleared back to the workflow config — and
- * the cached read reflects it immediately rather than after a TTL.
- */
 
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 
@@ -33,7 +24,6 @@ describe.skipIf(!url)('platform model defaults against live Postgres', () => {
 
     const actor = { actorUserId: 'user_test', actorEmail: 'owner@example.test' }
 
-    // Nothing pinned: every group runs on the workflow config.
     await savePlatformModelDefaults({ defaults: {}, modelSnapshot: {}, note: null, ...actor })
     expect(await getPlatformModelDefaults()).toEqual({})
 
@@ -45,7 +35,6 @@ describe.skipIf(!url)('platform model defaults against live Postgres', () => {
     })
     expect(await getPlatformModelDefaults()).toEqual({ shallow_research: 'vendor/fast', deep_research: 'vendor/deep' })
 
-    // A save is the whole set: `shallow_research` changes, `deep_research` is dropped.
     await savePlatformModelDefaults({
       defaults: { shallow_research: 'vendor/faster' },
       modelSnapshot: { shallow_research: { id: 'vendor/faster' } },

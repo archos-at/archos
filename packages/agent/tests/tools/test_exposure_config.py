@@ -1,17 +1,3 @@
-"""Every ``native:<tool>`` in the exposure config is a tool Piloti really has (ADR-0122).
-
-``apps/workspace/bff/agent-api/exposure.config.ts`` decides who sees each
-operation of the agent door. ``agent: 'native:<tool>'`` hides an operation from
-Piloti's door because Piloti does that work with its own tool. A name that is
-not in Piloti's tool list would hide the operation and leave Piloti with no way
-to do the work at all, so each one is checked against the chat agent's
-``tools:`` in ``configs/config_oib_openrouter.yml``, a function group's member as
-``<group>__<function>``, the name the model binds.
-
-The TypeScript config reaches Python as ``apps/workspace/tests/fixtures/exposure.json``,
-written and drift-checked by ``exposure.config.spec.ts``.
-"""
-
 from __future__ import annotations
 
 import json
@@ -41,7 +27,6 @@ def test_every_native_tool_the_config_names_is_one_the_chat_agent_has(exposure: 
 
 
 def test_the_consultants_steps_hide_these_from_the_chat_agent_behind_its_own_tools(exposure: dict[str, dict]) -> None:
-    """The approved mappings (2026-10-21): visibility on Piloti's door only, the outside agent keeps each."""
     expected = {
         "project-memory-create": "native:remember",
         "organization-memory-create": "native:remember",
@@ -58,12 +43,10 @@ def test_the_consultants_steps_hide_these_from_the_chat_agent_behind_its_own_too
 
 
 def test_the_tool_list_reader_sees_the_canvas_group() -> None:
-    """The reader itself: a group's members come through under the bound name, or every canvas name looks unknown."""
     assert {"canvas__mark", "canvas__reply", "remember", "create_task"} <= chat_tool_names()
 
 
 def test_the_door_looks_with_the_tool_agent_looks_with(exposure: dict[str, dict]) -> None:
-    """ADR-0128: one name for one act. The door's ``document-look`` is Piloti's own ``look``, offered outside."""
     assert exposure["document-look"]["agent"] == "native:look"
     assert exposure["document-look"]["external"] is True
     assert "knowledge-image-view" not in exposure

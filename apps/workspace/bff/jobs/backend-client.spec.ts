@@ -19,7 +19,6 @@ import {
 const headersOf = (init: RequestInit | undefined): Record<string, string> =>
   (init as RequestInit).headers as Record<string, string>
 
-/** A person steering a run: their token, and the envelope over the project their caller authorized. */
 const caller: JobControlCaller = {
   accessToken: 'tok',
   contextHeaders: { 'X-Request-Context': 'signed-scope', 'X-Request-Context-Sig': 'sig' },
@@ -40,7 +39,6 @@ const payload: JobSubmitPayload = {
   owner_email: null,
   budget_header: null,
   model_overrides: null,
-  // Every run carries its project's knowledge context (ADR-0175); here, none was readable.
   knowledge_context: {
     gate: { state: 'knowledge_unavailable', reason: null, leaves: [] },
     packs: [],
@@ -92,8 +90,6 @@ describe('submitJob', () => {
     expect(headersOf(init)['x-organization-id']).toBe('org-1')
     expect(JSON.parse(init.body as string)).toMatchObject({
       skills: ['data-table-analysis'],
-      // The wire field is `output`; the backend accepts `execution` for one
-      // release only because the two services deploy separately.
       output: 'chat',
     })
   })
@@ -155,7 +151,6 @@ describe('cancelBackendJob', () => {
   })
 
   it('carries the backend’s status and its own words on a refusal', async () => {
-    // A body reads once, so each call gets its own response.
     fetchMock.mockImplementation(
       async () => new Response('Job not cancellable: job-1 (status: success)', { status: 400 }),
     )

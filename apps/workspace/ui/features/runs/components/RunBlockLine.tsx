@@ -1,20 +1,3 @@
-/**
- * RunBlockLine — the run block in one line, for the Aufträge index and the
- * previews that list threads.
- *
- *   [glyph] Fertig · Brandschutzkonzept — Fluchtwege · 3 Runden · 9 Dokumente · vor 3 Stunden   → Im Verlauf öffnen
- *
- * The same glyph, the same word and the same tallies as the full block's
- * header, derived by the same vocabulary, so the row in the index and the block
- * in the thread cannot disagree about the run they both describe. Numbers only
- * where they change what the reader does: the tallies say how much work is
- * behind the row, the time says how stale it is, and nothing else counts.
- *
- * It holds no subscription. A row is a snapshot of the ledger the index was
- * given; the block in the thread is where a live run is followed, and the
- * trailing link is the way there.
- */
-
 'use client'
 
 import type { JSX } from 'react'
@@ -31,30 +14,15 @@ import { cn } from '@/lib/utils'
 import { RunStatusGlyph } from './RunStatusGlyph'
 
 export interface RunBlockLineProps {
-  /** The run's ledger, or null for a row that has none yet. */
   ledger: RunLedger | null
-  /** Overrides the ledger's status; the word for a row without a ledger. */
   status?: RunStatus
-  /**
-   * Overrides the ledger's tallies; the numbers for a row without a ledger.
-   * The Aufträge index sends four facts per row rather than the ledger
-   * (`TaskRunSummary`), and this is how those facts reach the same line.
-   */
   tallies?: RunTallies
-  /**
-   * The run's title. Omitted inside a surface that already names the run —
-   * the task card, whose heading IS the title — so it is not read twice.
-   */
   title?: string
-  /** The thread at the run: `?session=…&run=…#message-…` (`task-view.ts`). */
   href?: string
-  /** When the row's state was last true — rendered relative after mount. */
   at?: string | Date
   className?: string
 }
 
-// `whitespace-pre`: as a flex item the span is block-level and would collapse
-// its own leading and trailing space, gluing the dot to both neighbours.
 const Sep: FC = () => (
   <span aria-hidden className="text-muted-foreground/50 whitespace-pre">
     {' · '}

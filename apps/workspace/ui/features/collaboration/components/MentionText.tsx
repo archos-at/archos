@@ -1,31 +1,5 @@
 'use client'
 
-/**
- * Renders message text with its mentions as pills.
- *
- * Four properties matter here:
- *
- * 1. **XSS-safe by construction.** The text is split into segments and each one
- *    becomes a React node. There is no `dangerouslySetInnerHTML` anywhere on this
- *    path, and there must never be: this is user-authored text from another person
- *    in the thread.
- *
- * 2. **Only the message's OWN mentions become pills** (spec MN-3). The segments come
- *    from the structured `{ targetId, display }` list the server stored with the
- *    message, so text that merely looks like `@Someone` stays plain text — the same
- *    rule that decides who was notified decides what lights up.
- *
- * 3. **A mention of YOU is louder.** Being tagged is the one thing in a thread that
- *    asks something of the reader, so it is rendered as a filled pill with its own
- *    aria label, while a mention of somebody else stays a quiet reference.
- *
- * 4. **A pill answers "who is that?" on a glance** — the same peek behaviour as a
- *    citation, sharing the same `useHoverPopover` timing, because a reference the
- *    reader has to leave the thread to resolve is a reference that gets guessed at.
- *    Interactive ONLY when the person resolves (see `context/mention-people`): with
- *    nothing to show, a button that opens an empty panel is worse than a span.
- */
-
 import type { JSX } from 'react'
 import { Fragment } from 'react'
 
@@ -42,55 +16,16 @@ import { PersonPeek } from './PersonPeek'
 
 export interface MentionTextProps {
   content: string
-  /** The message's structured mentions. Without them nothing is pilled. */
   mentions?: readonly DraftMention[]
-  /** The reader, so a mention OF them can be emphasised. */
   currentUserId?: string | null
-  /**
-   * How a mention of the reader stands out. `warning` (the chat's): the ochre tint, „this concerns you“. `ink`: 600 on
-   * the desk grey, where ochre means something narrower than a mention (Offene Punkte: a point assigned to the reader
-   * or overdue, paper on a desk, principle 7), so a mention there wins by weight and not by a hue.
-   */
   meTone?: 'warning' | 'ink'
   className?: string
 }
 
-/**
- * The pill's look, shared by the plain and the interactive variants so they cannot
- * drift into two different-looking mentions in one thread.
- */
 const pillClasses = (isMe: boolean, isAgent: boolean, interactive: boolean, meTone: 'warning' | 'ink' = 'warning'): string =>
   cn(
-    // Padding kept to 3px and NO horizontal margin, because a mention sits inside
-    // running prose: at `px-1 mx-px` the pill pushed the following character away
-    // and "@Matthias Bigl, das passt" rendered as "@Matthias Bigl , das passt" —
-    // a stray space before a comma. Some gap is unavoidable (every product with
-    // inline mention pills has it); this is the tightest that still reads as a
-    // pill rather than a highlight.
-    // em-relative, not a ramp step: a mention rides INSIDE a sentence and has
-    // to track whatever size that sentence is set at (bubble body, digest row,
-    // inbox preview) rather than pin itself to one of them.
     'inline-flex items-baseline rounded-md px-[3px] py-px align-baseline text-[0.9375em] font-medium',
-    // A pill is already wide enough for a fingertip — a name sees to that — and
-    // 1px of vertical padding left it 22px tall, half the floor on the one axis
-    // it could fix. `py-1` measures 29px, which is a prose line box, so the
-    // target fills the line it sits on without opening the leading.
-    // Applied to BOTH variants deliberately: the interactive pill is the one that
-    // needs the target, but this function exists so the two cannot look different
-    // in one thread, and a plain pill pays nothing for the extra 8px.
-    // Vertical only, and that is the whole reason it can be done here: growing a
-    // mention sideways would push the sentence's own punctuation off, which is
-    // exactly the gap the padding note above was written to close.
     'pointer-coarse:py-1',
-    // A mention of YOU is the only signal that a message wants something from the
-    // reader — no row treatment carries it — so it has to survive a scan. It does
-    // NOT have to win the page. At `bg-primary` it was a solid ink block in light
-    // and a solid white one in dark: the highest-contrast element on screen,
-    // louder than the sentence it annotates and reading as a redaction rather than
-    // a person. The tint/text pair is the one the `warning` Chip and Badge already
-    // use for "this concerns you" (the picker's "Wird eingeladen", the peek card's
-    // "Nicht in diesem Chat"), so this borrows an established meaning instead of
-    // minting a louder one.
     isMe
       ? meTone === 'ink'
         ? 'bg-desk text-foreground font-semibold'
@@ -105,7 +40,6 @@ const pillClasses = (isMe: boolean, isAgent: boolean, interactive: boolean, meTo
       )
   )
 
-/** One mention that resolved to a person: a pill you can look at. */
 function MentionPill({
   targetId,
   text,
@@ -123,8 +57,6 @@ function MentionPill({
   const resolved = useMentionPerson(targetId)
   const isAgent = targetId === AGENT_MENTION_ID
 
-  // No provider, or a person who cannot be placed: a plain reference, exactly as
-  // before. Never a button that opens nothing.
   if (!resolved) {
     return (
       <span

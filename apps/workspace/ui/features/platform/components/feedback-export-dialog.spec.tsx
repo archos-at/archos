@@ -25,7 +25,6 @@ const options = (total: number, overCap = false) => ({
   withExpectedAnswer: 0,
 })
 
-/** Answers each options request by its query string; `total` per request, in order. */
 const stubCounts = (...totals: { total: number; overCap?: boolean; delay?: number }[]) => {
   let call = 0
   vi.stubGlobal(
@@ -122,7 +121,6 @@ describe('FeedbackExportDialog', () => {
   })
 
   it('keeps the newest count when an older answer arrives late', async () => {
-    // The first request (filters on) answers after the second (filters off).
     stubCounts({ total: 12, delay: 600 }, { total: 900 })
     const user = await open()
     await waitFor(() => expect(optionUrls()).toHaveLength(1))

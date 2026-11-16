@@ -24,8 +24,6 @@ describe('RoleCatalog', () => {
 
     const group = screen.getByTestId('role-tier-org')
     expect(within(group).getByText('Billing Admin')).toBeInTheDocument()
-    // The catalog's own label for the permission, not just its slug — the whole
-    // point of the view is that "org:budgets:manage" means something.
     expect(within(group).getByText('Manage LLM budgets')).toBeInTheDocument()
     expect(within(group).getByText('org:budgets:manage')).toBeInTheDocument()
   })
@@ -37,7 +35,6 @@ describe('RoleCatalog', () => {
     expect(
       within(group).getByText(t('access.roles.permissionCountOther', { count: 0 }))
     ).toBeInTheDocument()
-    // One list — the roles themselves. No orphan permission list.
     expect(within(group).getAllByRole('list')).toHaveLength(1)
   })
 
@@ -80,14 +77,11 @@ describe('RoleCatalog', () => {
     expect(within(platform).getByText('Platform Owner')).toBeInTheDocument()
     expect(within(platform).getByText(t('access.roles.platformNotice'))).toBeInTheDocument()
 
-    // The tenant-assignable group must NOT inherit the warning.
     const org = screen.getByTestId('role-tier-org')
     expect(within(org).queryByText(t('access.roles.platformNotice'))).not.toBeInTheDocument()
   })
 
   test('the notice follows the scope, not the tier label it is filed under', () => {
-    // `scope: 'platform-org'` is what makes WorkOS refuse the assignment, so a
-    // platform-org role filed under any tier must still carry the warning.
     render(<RoleCatalog roles={[role({ scope: 'platform-org' })]} />)
 
     const org = screen.getByTestId('role-tier-org')

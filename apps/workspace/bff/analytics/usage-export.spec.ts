@@ -1,11 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The PostHog usage export: which hours a run sends, what each event carries,
- * and that the cursor moves only after PostHog took the events, so an hour is
- * neither lost nor counted twice.
- */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
@@ -118,7 +113,6 @@ describe('exportWindow', () => {
   const now = new Date('2026-10-20T08:05:00Z')
 
   it('stops at the last hour that closed ten minutes ago', () => {
-    // 08:05 is inside 08:00's settle time, so 07:00–08:00 is not closed yet.
     expect(exportWindow(new Date('2026-10-20T05:00:00Z'), now)).toEqual({
       from: new Date('2026-10-20T05:00:00Z'),
       to: new Date('2026-10-20T07:00:00Z'),

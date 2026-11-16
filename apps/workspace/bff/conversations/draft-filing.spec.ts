@@ -1,20 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The draft-filing service: one normalized path in, one document out.
- *
- * Two properties the route spec cannot see, pinned here against the service
- * directly:
- *
- *   - the card's raw path is normalized ONCE and reused for the backend read,
- *     the title fallback and the idempotency reference. Fringe in any one of
- *     the three mints a different ref or misses the same-name veto — both as
- *     a duplicate document;
- *   - the same-name veto scans the WHOLE project, page by page, rather than
- *     the repository's first bounded listing. Past 500 rows a single page
- *     misses the veto and files the duplicate it exists to stop.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Conversation } from '@/lib/db/schema/conversations'
@@ -112,11 +98,7 @@ describe('fileConversationDraft — one normalized path for read, title and ref'
     })
 
     expect(filed.documentId).toBe(DOC)
-    // The backend read door gets the normalized path — the leading space is
-    // gone, so this press reads the same bytes as the preview's.
     expect(readConversationDraft).toHaveBeenCalledWith(session, 'conv-1', 'entwuerfe/Aktenvermerk.md')
-    // …and the reference is the normalized one, not a second key beside the
-    // agent's row for the same draft.
     expect(vi.mocked(fileAgentDocumentDraft).mock.calls[0][0]).toMatchObject({
       ref: filingReference('conv-1', '/entwuerfe/Aktenvermerk.md'),
     })
@@ -168,7 +150,6 @@ describe('fileConversationDraft — the same-name veto scans every page', () => 
       details: { reason: 'same-name', documentId: 'doc-9', displayName: 'Der späte Zwilling' },
     })
 
-    // Two pages walked: the full first one, then the short one holding the row.
     expect(listProjectDocuments).toHaveBeenCalledTimes(2)
     expect(vi.mocked(listProjectDocuments).mock.calls[1][2]).toMatchObject({
       offset: DOCUMENT_LIST_LIMIT,

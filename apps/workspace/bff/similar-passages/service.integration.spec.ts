@@ -32,9 +32,7 @@ import { PROJECT_PERMISSION_SPECS } from '@/lib/authz/catalog'
 
 vi.mock('server-only', () => ({}))
 
-/** Projects the reader holds a grant on, by id (filled once the rows exist). */
 const GRANTED = new Set<string>()
-/** Folders the reader holds folder-reader on, by id. */
 const CLEARED_FOLDERS = new Set<string>()
 
 vi.mock('@/lib/auth/membership-roles', () => ({ resolveMembershipRoles: vi.fn(async () => ['member']) }))
@@ -42,7 +40,6 @@ vi.mock('@/lib/authz/org-role-permissions', () => ({ rolesHoldPermission: vi.fn(
 vi.mock('@/lib/workos/client', () => ({
   getWorkOS: () => ({
     authorization: {
-      // A granted project holds every project permission.
       listEffectivePermissionsByExternalId: vi.fn(async ({ externalId }: { externalId: string }) => ({
         autoPagination: async () => (GRANTED.has(externalId) ? PROJECT_PERMISSION_SPECS.map(({ slug }) => ({ slug })) : []),
       })),
@@ -67,7 +64,6 @@ describe('the similar-passages suite is not silently skipped in CI', () => {
   })
 })
 
-/** What the stubbed backend was asked, and what it answers. */
 interface BackendCall {
   body: { source: Record<string, unknown>; collections: string[] }
   scope: string[]
@@ -82,7 +78,6 @@ describe.skipIf(!url)('similar passages against live Postgres', () => {
   let restrictedCollectionName: typeof import('@/lib/authz/folder-access').restrictedCollectionName
   let officeShelf = ''
   const calls: BackendCall[] = []
-  /** Every collection the backend answers from, with the file names it claims: a liar's answer included. */
   let answer: Array<{ collection: string; file_name: string; score: number }> = []
 
   const ids = {
@@ -132,7 +127,6 @@ describe.skipIf(!url)('similar passages against live Postgres', () => {
     )
   }
 
-  /** Closed once its documents are in: a closed project takes no new document (migration 0115). */
   const close = (projectId: string) =>
     inOrg(ORG, () =>
       db.execute(sql`
@@ -152,7 +146,6 @@ describe.skipIf(!url)('similar passages against live Postgres', () => {
   }
 
   let keys = 0
-  /** A document; screened (`clean`) and read to the end unless `held`. */
   async function document(
     projectId: string | null,
     filename: string,
@@ -204,7 +197,6 @@ describe.skipIf(!url)('similar passages against live Postgres', () => {
     })
     await document(ids.current, 'Baubeschreibung.pdf', collections.current)
     await document(ids.current, 'Gesperrt.pdf', collections.current, { held: 'quarantined' })
-    // The reader's own upload, still being read: they may open it in Files, it is not offered here.
     await document(ids.current, 'Noch-in-Prüfung.pdf', collections.current, { held: 'in-flight', createdBy: USER })
     await document(ids.current, 'Honorarnote.pdf', collections.restricted, { folderId: ids.restricted })
     await document(ids.current, 'Werkvertrag.pdf', collections.cleared, { folderId: ids.cleared })
@@ -303,7 +295,6 @@ describe.skipIf(!url)('similar passages against live Postgres', () => {
       { collection: collections.cleared, file_name: 'Werkvertrag.pdf', score: 0.91 },
       { collection: collections.closed, file_name: 'Fluchtweg-Nachweis.pdf', score: 0.9 },
       { collection: officeShelf, file_name: 'Archiv-gesperrt.pdf', score: 0.89 },
-      // What a lying or confused backend might add: a project and a folder this reader may not read.
       { collection: collections.unreadable, file_name: 'Fremd.pdf', score: 0.99 },
       { collection: collections.restricted, file_name: 'Honorarnote.pdf', score: 0.98 },
     ]
@@ -350,10 +341,8 @@ describe.skipIf(!url)('similar passages against live Postgres', () => {
 
     expect(calls[0].body.source).toMatchObject({ collection: 'oib_knowledge', file_name: 'OIB-Richtlinie_2.pdf' })
     expect(calls[0].scope).toContain('oib_knowledge')
-    // The corpus is signed as the base entry carrying the office's countries, or the agent tier reads none of it.
     expect(calls[0].base).toMatchObject({ collection: 'oib_knowledge', shelf: 'base', countries: expect.any(Array) })
     expect(calls[0].body.collections).not.toContain('oib_knowledge')
-    // The cited corpus file is not an office document, so the project's own documents may all come back.
     expect(response.groups[0]).toMatchObject({ kind: 'current', documents: [{ filename: 'Brandschutzkonzept.pdf' }] })
   })
 })

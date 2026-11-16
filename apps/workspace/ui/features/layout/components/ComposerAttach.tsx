@@ -1,32 +1,5 @@
 'use client'
 
-/**
- * The composer's paperclip, and what it opens.
- *
- * WITH A MOUSE it is one action: the file picker, with every accepted type,
- * photos included where photos are accepted. A menu in front of it would be a
- * second click for nothing.
- *
- * ON A TOUCH SCREEN it opens three entries, the site photo first:
- *
- * - **Foto aufnehmen** opens the camera directly (`capture="environment"`):
- *   the architect on site holds the phone up and shoots, with no sheet in
- *   between.
- * - **Aus Mediathek** offers the photos already on the phone.
- * - **Datei auswählen** offers the documents, and only those: with image types
- *   in its `accept`, iOS answers the tap with its own Mediathek / Kamera /
- *   Dateien sheet, and the reader would make the same choice twice.
- *
- * The menu says where all of it lands (this chat, never the project's files),
- * and when photos are off it says why under the two photo entries rather than
- * leaving them out: an entry that silently is not there reads as "the app
- * cannot take photos", when the truth is a setting the office can change.
- *
- * Photos are named and HEIC is re-encoded on the way through
- * (`features/documents/lib/site-photo.ts`); this component only says which
- * input a selection came from.
- */
-
 import { useRef, type ChangeEvent, type FC } from 'react'
 import { Camera, FileText, Images, Paperclip } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -44,16 +17,12 @@ import { captureCopy } from '@/i18n/namespaces/capture'
 import { researchCopy } from '@/i18n/namespaces/research'
 import { documentsOnlyAccept, type PhotoIntake } from '@/features/documents/lib/site-photo'
 
-/** Which input a selection came from: a camera capture is always renamed. */
 export type AttachSource = 'camera' | 'picker'
 
 export interface ComposerAttachProps {
-  /** The full accept-list (`FileUploadConfig.acceptedTypes`). */
   acceptedTypes: string
-  /** Whether photos are accepted here, and with which `accept`. */
   photos: PhotoIntake
   disabled: boolean
-  /** Why the paperclip is disabled, or what it does; its tooltip. */
   title: string
   onFiles: (files: File[], source: AttachSource) => void
 }
@@ -74,7 +43,6 @@ export const ComposerAttach: FC<ComposerAttachProps> = ({
 
   const handleChange = (source: AttachSource) => (event: ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files ?? [])
-    // Reset first, so the same photo or file can be picked again.
     event.target.value = ''
     if (files.length > 0) onFiles(files, source)
   }

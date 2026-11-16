@@ -1,13 +1,3 @@
-/**
- * The alignment, the numbering and the folding — the three things a diff can get
- * wrong while still looking like a diff.
- *
- * The case this file exists for is the one the old side-by-side view refused to
- * fake: a line INSERTED near the top. Every line after it shares no index with
- * its counterpart, and any renderer that pairs rows by position marks the whole
- * remainder as changed. Here it must be one added row and nothing else.
- */
-
 import { describe, expect, it } from 'vitest'
 import { DIFF_CONTEXT_LINES, diffVersionText, type DiffRow } from './version-diff'
 
@@ -75,7 +65,6 @@ describe('diffVersionText', () => {
     const gaps = diff.rows.filter((row) => row.kind === 'gap')
 
     expect(gaps).toHaveLength(1)
-    // 40 unchanged lines, three of which are kept as leading context.
     expect(gaps[0]).toEqual({ kind: 'gap', skipped: 40 - DIFF_CONTEXT_LINES })
     expect(texts(diff.rows, 'context')).toEqual(['Zeile 38', 'Zeile 39', 'Zeile 40'])
   })

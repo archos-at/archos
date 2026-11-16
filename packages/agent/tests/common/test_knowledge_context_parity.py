@@ -1,15 +1,3 @@
-"""The knowledge context's vocabulary, held between the BFF's schema and the agent's constants (ADR-0175).
-
-``test_knowledge_context_contract.py`` checks that the fixture is what the schema
-allows and that the agent keeps every use. That passes when the BFF adds a
-field or an enum value the agent has never heard of, because a dict keeps
-whatever it is sent. Here every enum in ``knowledge-context.schema.json`` must
-equal the agent's own constant, or be named below as one the agent does not
-read, with the reason; and every property the BFF sends must be one the agent
-reads, or be named as ignored. A field or a value added on one side alone fails
-here, and whoever adds it decides what the agent makes of it.
-"""
-
 from __future__ import annotations
 
 import dataclasses
@@ -36,19 +24,16 @@ SCHEMA = json.loads(
 )
 CONTEXT = SCHEMA["$defs"]["KnowledgeContext"]
 
-#: Each enum the agent reads, by its JSON Pointer in the schema, and the constant it reads it with.
 READ_ENUMS: dict[str, tuple[str, ...]] = {
     "/properties/gate/properties/state": GATE_STATES,
     "/properties/uses/items/properties/role": EDITION_ROLES,
     "/properties/uses/items/properties/via": ROUTE_VIAS,
     "/properties/uses/items/properties/qualifier/anyOf/0": QUALIFIERS,
     "/properties/uses/items/properties/textStatus/anyOf/0": TEXT_STATUSES,
-    # What a citation's status line states (design §6.7): kept on the use and sent on the citation wire.
     "/properties/uses/items/properties/freshness": FRESHNESS,
     "/properties/uses/items/properties/labels/items": USE_LABELS,
 }
 
-#: Each enum the agent does not read yet, and why. Moving one to ``READ_ENUMS`` is the decision this file asks for.
 UNREAD_ENUMS: dict[str, str] = {
     "/properties/gate/properties/reason/anyOf/0": "the agent answers a site_unknown gate the same for either reason",
     "/properties/gate/properties/leaves/items/properties/certainty": (
@@ -69,7 +54,6 @@ UNREAD_ENUMS: dict[str, str] = {
     ),
 }
 
-#: The context's properties the agent reads, as ``KnowledgeContext`` holds them.
 READ_KEYS: dict[str, str] = {
     "gate": "gate",
     "retrieval": "retrieval_countries",
@@ -85,17 +69,12 @@ READ_KEYS: dict[str, str] = {
     "sourcesDropped": "sources_dropped",
 }
 
-#: The context's properties the agent ignores, and why.
 IGNORED_KEYS: dict[str, str] = {}
 
-#: The use properties the agent drops, and why; the rest are ``EditionUse``'s fields, camel-cased. A
-#: citation states its edition, role, route and dates from the use (``citations/roles.role_fields``), so a
-#: property dropped here is one no citation can ever show: name the reason.
 IGNORED_USE_KEYS: dict[str, str] = {
     "connectsBy": "stated in the chain text; the role already carries its correction",
 }
 
-#: EditionUse fields read from a use key of another name, and the key (ADR-0178: null, the edition states no scope).
 DERIVED_USE_FIELDS: dict[str, str] = {
     "scope_unsettled": "applicability",
 }
@@ -138,7 +117,6 @@ def test_every_property_of_a_use_is_read_or_named_as_ignored() -> None:
 
 
 def test_a_property_is_either_read_or_dropped_never_both() -> None:
-    """A key left on the drop list after ``EditionUse`` learned it would hide the next one dropped by mistake."""
     read = {DERIVED_USE_FIELDS.get(field.name, _camel(field.name)) for field in dataclasses.fields(EditionUse)}
     assert not read & set(IGNORED_USE_KEYS)
 
@@ -149,5 +127,4 @@ def test_every_property_of_a_route_is_read() -> None:
 
 
 def test_the_agent_keeps_the_whole_chain_text_the_bff_may_send() -> None:
-    """A shorter bound here would cut the chain text mid-line, past the BFF's own "the rest is cut" line."""
     assert {"type": "string", "maxLength": MAX_TEXT_CHARS} in CONTEXT["properties"]["text"]["anyOf"]

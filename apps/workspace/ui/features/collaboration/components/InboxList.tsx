@@ -1,46 +1,5 @@
 'use client'
 
-/**
- * The inbox list — the surface that answers "what needs me?" (spec IB-20).
- *
- * Owns exactly two things: the filter the user is looking through, and the
- * layout of the four states a list can be in (loading / error / empty / rows).
- * All data comes from `useInboxList`, which re-reads on live events, on focus and
- * on a slow poll while the live channel is down — so this component never has to
- * know whether an update arrived by push or by poll.
- *
- * Accessibility notes that are requirements, not polish:
- *   - a small `role="status"` region carries the announcement — NOT the row
- *     container, which would read the whole list aloud on every filter change
- *     and every archive. It states the count of things needing attention (NF-3),
- *     and says nothing at all when that count is zero — "nothing needs you" is
- *     already on screen as the empty state and is not worth interrupting for;
- *     an arrival that leaves the count unchanged is likewise not announced,
- *     which is a known narrowing of NF-3 rather than the intent;
- *   - the filter is a single-select `ToggleGroup` (`role="radiogroup"`) rather
- *     than loose unlabelled buttons;
- *   - the empty state differs per filter, because "nothing needs you" and "your
- *     inbox is empty" are different facts and collapsing them misleads;
- *   - the list can be worked from the keyboard: j/k move between rows, Enter
- *     opens the row, e archives it, u toggles it read (the shortcuts sheet's
- *     „Postfach“ group). The keys are the list's own while focus is not in a
- *     field, so typing a reply never archives anything.
- *
- * The three filters are three questions: „Für mich“ is what is new or waits
- * on the reader (the badge's number: an open request, or a row not yet
- * opened), „Alle“ everything, and „Archiviert“ what they put away, which can
- * come back from there. Opening a piece of news takes it out of „Für mich“,
- * as reading a mail does; `u` puts it back. A request stays until it is
- * answered.
- *
- * The filter is in the page's address (`filter=all|archived`; „Für
- * mich“, the default, is not written), as Offene Punkte keeps its own: a row
- * that opens a mark carries this address as `back`, so closing the review
- * comes back to the filter the reader left, and a reload keeps it. A change
- * replaces the address with `history.replaceState`, which Next's router
- * follows (`useSearchParams` reads it) without asking the server again.
- */
-
 import type { FocusEvent, JSX } from 'react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { usePathname, useSearchParams } from 'next/navigation'
@@ -75,12 +34,6 @@ type InboxFilter = 'needsMe' | 'all' | 'archived'
 
 const FILTERS: readonly InboxFilter[] = ['needsMe', 'all', 'archived']
 
-/**
- * Which slice of the API each filter reads. „Für mich“ is `pending`, the set
- * the badge counts (an open request, or anything not yet opened): a bell
- * saying 18 opened on a tab saying 8, because the tab counted requests alone
- * and the news sat one tab over under „Ungelesen“. One number, one place.
- */
 const API_FILTER: Record<InboxFilter, InboxListFilter> = {
   needsMe: 'pending',
   all: 'all',
@@ -93,19 +46,13 @@ function isInboxFilter(value: string): value is InboxFilter {
   return (FILTERS as readonly string[]).includes(value)
 }
 
-/** The page's address parameter that holds the filter. */
 const FILTER_PARAM = 'filter'
 
-/** The filter the page's address names; anything else is `fallback`. */
 function filterOf(params: Pick<URLSearchParams, 'get'> | null, fallback: InboxFilter): InboxFilter {
   const named = params?.get(FILTER_PARAM)
   return named && isInboxFilter(named) ? named : fallback
 }
 
-/**
- * This page's address with `filter` on it, leaving out the default („Für mich“)
- * and keeping every other param: what a row's link carries as `back`.
- */
 function hrefOf(pathname: string, current: string, filter: InboxFilter): string {
   const params = new URLSearchParams(current)
   if (filter === 'needsMe') params.delete(FILTER_PARAM)
@@ -114,11 +61,6 @@ function hrefOf(pathname: string, current: string, filter: InboxFilter): string 
   return query ? `${pathname}?${query}` : pathname
 }
 
-/**
- * Each section with a key that is its span's (`today`), and a count only for a
- * span that opens twice (rows out of order), so a section keeps its identity
- * when one above it leaves.
- */
 function keyedSections<T>(sections: InboxSection<T>[]): { key: string; section: InboxSection<T> }[] {
   const seen = new Map<string, number>()
   return sections.map((section) => {
@@ -128,7 +70,6 @@ function keyedSections<T>(sections: InboxSection<T>[]): { key: string; section: 
   })
 }
 
-/** Whether a key press belongs to whatever has focus rather than to the list. */
 function typingInto(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false
   if (target.isContentEditable) return true
@@ -137,19 +78,8 @@ function typingInto(target: EventTarget | null): boolean {
 }
 
 export interface InboxListProps {
-  /**
-   * False for an organization without the collaboration flag: the hooks then open
-   * no connection and issue no request at all (NF-8).
-   */
   enabled?: boolean
-  /**
-   * Which filter the list opens on when the page's address names none. Defaults
-   * to `needsMe` — the inbox exists to answer "what needs me?" — but an entry
-   * point that means "show me everything that happened" can seed the other one.
-   * Seed only: the address, and the user's clicks, own it from then on.
-   */
   initialFilter?: InboxFilter
-  /** The reader: a quoted mention of them is drawn louder, as the thread draws it. */
   viewerId?: string | null
   className?: string
 }
@@ -164,7 +94,6 @@ export function InboxList({
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const [filter, setFilter] = useState<InboxFilter>(() => filterOf(searchParams, initialFilter))
-  /** A filter changes the list and the address, so a review opened from a row comes back to it. */
   const choose = (next: InboxFilter): void => {
     setFilter(next)
     setFocusedId(null)
@@ -189,17 +118,12 @@ export function InboxList({
     markAllRead,
     archive,
     unarchive,
-    // „Für mich“ is the queue (`InboxQueue`), which reads its own two slices:
-    // this read idles there, so the page asks the server once per question.
   } = useInboxList(enabled && filter !== 'needsMe', API_FILTER[filter])
   const queued = filter === 'needsMe'
-  // The badge's number is what „Für mich“ holds; the queue's reads do not count it.
   const badge = useInboxBadge(enabled && queued)
   const shownPending = queued ? badge.pending : pending
 
   const archiveLater = useUndoableArchive(archive)
-  // A row waiting out its undo window is already gone as far as the reader can
-  // tell; the server hears about it when the window closes.
   const visibleItems = items.filter((item) => !archiveLater.pendingIds.has(item.id))
   const hasUnread = visibleItems.some((item) => !item.read)
 
@@ -216,7 +140,6 @@ export function InboxList({
 
   const onUnarchive = useCallback(
     (itemId: string): void => {
-      // Said once it is true: a refused restore shows the list's own error instead.
       void unarchive(itemId).then((restored) => {
         if (restored) toast(t('inbox.unarchived'))
       })
@@ -231,12 +154,10 @@ export function InboxList({
     [markRead],
   )
 
-  // ---- Keyboard triage: j/k move, Enter opens, e archives, u toggles read ----
   const rootRef = useRef<HTMLDivElement>(null)
   const [focusedId, setFocusedId] = useState<string | null>(null)
   const focusedIndex = visibleItems.findIndex((item) => item.id === focusedId)
 
-  /** Focus a row; `scroll` brings it into view, as a key moving through the list wants and a handoff the reader did not ask for does not. */
   const focusRow = useCallback((itemId: string, { scroll = true }: { scroll?: boolean } = {}) => {
     setFocusedId(itemId)
     const row = rootRef.current?.querySelector<HTMLElement>(`[data-item-id="${CSS.escape(itemId)}"]`)
@@ -244,13 +165,6 @@ export function InboxList({
     if (scroll) row?.scrollIntoView?.({ block: 'nearest' })
   }, [])
 
-  // ---- The focus stays on the list when its row leaves ----
-  // A row can leave with the focus in it without a key pressed here: a refresh
-  // drops it (under „Für mich“ a mark resolved from its row is no open request,
-  // and the re-read after the undo window takes the row with its outcome line).
-  // The focus would fall to the page. It goes to the row now at that place, or
-  // to the list when none is left. A row on its way out (its exit animation)
-  // still holds the focus, so that counts as lost too.
   const listRef = useRef<HTMLDivElement>(null)
   const heldRowId = useRef<string | null>(null)
   const shownIds = useRef<string[]>([])
@@ -264,16 +178,13 @@ export function InboxList({
     const inLeavingRow = active instanceof Element && active.closest('[data-item-id]')?.getAttribute('data-item-id') === held
     if (!inLeavingRow && !focusLost()) return
     const next = visibleItems[Math.min(Math.max(previous.indexOf(held), 0), visibleItems.length - 1)]
-    // Without scrolling: the reader may have scrolled on during the undo window, and stays where they read.
     if (next) focusRow(next.id, { scroll: false })
     else restoreFocus(listRef.current)
   }, [visibleItems, focusRow])
-  /** Which row the focus is in, so its leaving can hand the focus on. */
   const trackFocus = (event: FocusEvent<HTMLDivElement>): void => {
     heldRowId.current = event.target.closest('[data-item-id]')?.getAttribute('data-item-id') ?? null
   }
   const dropFocus = (event: FocusEvent<HTMLDivElement>): void => {
-    // Only when the reader takes it elsewhere: a row unmounting blurs to nothing.
     if (event.relatedTarget instanceof Node && !event.currentTarget.contains(event.relatedTarget)) heldRowId.current = null
   }
 
@@ -282,8 +193,6 @@ export function InboxList({
       const root = rootRef.current
       if (!root || event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return
       if (typingInto(event.target)) return
-      // The list's keys work wherever its page is: inside its sheet, or on the
-      // page when nothing else holds the focus.
       const scope = root.closest('[role="dialog"]') ?? document.body
       if (event.target instanceof Node && event.target !== document.body && !scope.contains(event.target)) return
       const key = event.key
@@ -302,7 +211,6 @@ export function InboxList({
         return
       }
       if (!current) return
-      // Enter on a focused control (a row's button) is that control's.
       if (key === 'Enter' && event.target instanceof HTMLElement && event.target.closest('button, a')) return
       event.preventDefault()
       if (key === 'Enter') {
@@ -312,8 +220,6 @@ export function InboxList({
       if (key === 'e') {
         if (current.archived) onUnarchive(current.id)
         else onArchive(current.id)
-        // The keyboard stays on the list: the next row takes the focus the
-        // archived one had, in the DOM as well as in the ring.
         const neighbour = visibleItems[focusedIndex + 1] ?? visibleItems[focusedIndex - 1]
         if (neighbour) focusRow(neighbour.id)
         else setFocusedId(null)
@@ -326,16 +232,13 @@ export function InboxList({
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [queued, visibleItems, focusedIndex, focusRow, markRead, markUnread, onArchive, onUnarchive])
 
-  // The count each filter wears: what waits on the reader, and what is unread.
   const filterCount = (key: InboxFilter): number => (key === 'needsMe' ? shownPending : 0)
   const emptyKey = filter
-  // Only a read that left nothing to show is the list's failure.
   const failed = error && visibleItems.length === 0
   const move = useMotionToken(motionQuick)
   const exit = useMotionToken(motionQuickExit)
 
   return (
-    // A reading measure: inbox rows are reading material, and a 1400px line of them is not.
     <div
       ref={rootRef}
       className={cn('mx-auto w-full max-w-3xl space-y-4', className)}
@@ -352,15 +255,11 @@ export function InboxList({
         <div className="-mx-1 min-w-0 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <ToggleGroup
           type="single"
-          // Segmented with a filled thumb: the outlined pair this was before
-          // told the selected filter apart by a hairline, which dark mode lost.
           segmented
           variant="inverted"
           size="sm"
           value={filter}
           onValueChange={(value) => {
-            // type=single can emit "" when the pressed item is clicked again;
-            // the inbox always has a filter, so ignore a clear.
             if (isInboxFilter(value)) choose(value)
           }}
           aria-label={t('inbox.filters.ariaLabel')}
@@ -445,8 +344,6 @@ export function InboxList({
         {failed ? (
           <LoadError title={t('inbox.errors.loadFailed')} onRetry={() => refresh()} />
         ) : loading ? (
-          // Held back one beat: a filter whose rows arrive at once shows them,
-          // not a skeleton for a frame and then them.
           <ItemList
             as="ul"
             data-testid="inbox-skeleton"
@@ -473,10 +370,6 @@ export function InboxList({
             description={t(`inbox.empty.${emptyKey}Description`)}
           />
         ) : (
-          /* Sections by the day a row last changed („Heute“, „Gestern“ …): one
-             heading does the date arithmetic forty timestamps left to the
-             reader. The order is the server's; the sections only cut it, so
-             j/k walks the rows as drawn. */
           <div className="space-y-5">
             {/* A section leaves with its last row and the ones under it close
                 the gap (`layout`). It used to unmount in one frame, taking the

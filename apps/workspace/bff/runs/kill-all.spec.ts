@@ -1,11 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The platform kill switch: the job store first, then every run its reports did
- * not close, through the one recorder, and nothing at all when the job store
- * did not confirm the kill.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -30,7 +25,6 @@ import { recordRunOutcome } from '@/lib/tasks/service'
 import { KILL_RUN_BATCH, KILLED_REASON, killAllActiveRuns } from './kill-all'
 import { reconcileRunWithEnding } from './reconcile'
 
-/** A run with no backend job id unless one is given: nothing can be running for it. */
 const run = (id: string, organizationId = 'org_1', backendJobId: string | null = null) =>
   ({ id, organizationId, backendJobId }) as TaskRun
 
@@ -52,8 +46,6 @@ describe('killAllActiveRuns', () => {
 
     const result = await killAllActiveRuns()
 
-    // The kill switch's own claim, which leaves out a run whose block reads
-    // `done` (`reconcile.integration.spec.ts` holds the SQL), never the reconciler's.
     expect(claimRunsToInterrupt).toHaveBeenCalledTimes(1)
     expect(claimRunsToInterrupt).toHaveBeenCalledWith(KILL_RUN_BATCH)
     for (const [id, organizationId] of [['run-a', 'org_1'], ['run-b', 'org_2']] as const) {
@@ -79,8 +71,6 @@ describe('killAllActiveRuns', () => {
 
   describe('a run whose job the kill did not stop', () => {
     it('is closed by the job store’s verdict, not as interrupted: one that had already succeeded ends succeeded', async () => {
-      // The worker owned SUCCESS in the job store and its outcome report was
-      // still on its way. The backend counts that job as already finished.
       vi.mocked(killActiveBackendJobs).mockResolvedValue(backend({ found: 3, alreadyFinished: 1 }))
       const finished = run('run-finished', 'org_2', 'job-3')
       vi.mocked(claimRunsToInterrupt).mockResolvedValue([run('run-killed', 'org_1', 'job-1'), finished])
@@ -97,7 +87,6 @@ describe('killAllActiveRuns', () => {
       expect(reconcileRunWithEnding).toHaveBeenCalledTimes(1)
       expect(vi.mocked(reconcileRunWithEnding).mock.calls[0][0]).toBe(finished)
       expect(withTenant).toHaveBeenCalledWith({ organizationId: 'org_2' }, expect.any(Function))
-      // Counted as what it is.
       expect(result).toMatchObject({ runsClosed: 1, runsSucceeded: 1, runsFailed: 0, runsWaiting: 0 })
     })
 
@@ -110,9 +99,7 @@ describe('killAllActiveRuns', () => {
       )
       vi.mocked(reconcileRunWithEnding)
         .mockResolvedValueOnce({ verdict: 'closed', ending: 'failure' })
-        // INTERRUPTED was written in an earlier press and its report was lost.
         .mockResolvedValueOnce({ verdict: 'closed', ending: 'interrupted' })
-        // Its kill failed: the job still runs, and its row keeps saying so.
         .mockResolvedValueOnce({ verdict: 'waiting' })
         .mockResolvedValueOnce({ verdict: 'already-closed' })
         .mockResolvedValueOnce({ verdict: 'closed', ending: 'success' })

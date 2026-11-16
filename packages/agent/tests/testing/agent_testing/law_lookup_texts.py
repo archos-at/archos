@@ -1,11 +1,3 @@
-"""Law texts for the parity rig's document pages, written for the test (not the laws' wording).
-
-Each is laid out the way a consolidated text on a statute database's page reads
-once converted: a heading line, then ``§ N.`` with its first Absatz on the same
-line, later Absätze on their own lines. The rig (``law_lookup_parity``) wraps
-each in a document page; what is being tested is the cutting, not the content.
-"""
-
 from __future__ import annotations
 
 _BO = "https://www.ris.bka.gv.at/GeltendeFassung.wxe?Abfrage="

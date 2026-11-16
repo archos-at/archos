@@ -1,7 +1,3 @@
-/**
- * The chat panel is the drop target, not the composer card: a file let go over
- * the transcript is attached, and while attaching is closed the panel says why.
- */
 import { act, fireEvent, render, screen, waitFor } from '@/test-utils'
 import { describe, expect, test, vi } from 'vitest'
 import { ChatDropZone, useChatDropTarget, type ChatDropTarget } from './chat-drop-zone'
@@ -23,7 +19,6 @@ vi.mock('@/shared/context', () => ({
 const plan = new File(['%PDF'], 'Grundriss.pdf', { type: 'application/pdf' })
 const transfer = (files: File[]) => ({ types: ['Files'], files, items: [] })
 
-/** A composer stand-in: it only registers, as InputArea does. */
 function Composer({ target }: { target: ChatDropTarget | null }) {
   useChatDropTarget(target)
   return <p>Composer</p>
@@ -71,7 +66,6 @@ describe('ChatDropZone', () => {
 
     fireEvent.dragEnter(screen.getByText('Transcript'), { dataTransfer: transfer([plan]) })
     expect(screen.queryByTestId('chat-drop-overlay')).toBeNull()
-    // `fireEvent` answers false when a handler cancelled the event.
     expect(fireEvent.drop(screen.getByText('Transcript'), { dataTransfer: transfer([plan]) })).toBe(true)
   })
 

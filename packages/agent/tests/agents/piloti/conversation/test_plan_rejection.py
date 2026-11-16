@@ -1,26 +1,3 @@
-"""A rejected research plan degrades to an answer, and stays rejected.
-
-The live transcript this file guards: the user asked a plain procedural
-question, was shown a six-section research plan instead of an answer, said "no
-i dont want a deep research pla", was shown a SECOND seven-section plan, said
-"reject" — and the product replied *"Research plan was rejected. Please start a
-new research query when ready."* They had to type the question a third time to
-get an answer, and the shallow answer they finally got was fine.
-
-Two contracts follow, and both are exercised through the real compiled graph
-rather than by calling ``clarifier_node`` directly, because the failure was in
-where the graph went next:
-
-1. **A rejection is not a cancellation.** The question is still in
-   ``state.messages`` — the rejection reply lives in the clarifier's own state
-   and never enters this graph — so the turn continues on the shallow path and
-   the user gets the answer they asked for.
-2. **A rejection is remembered for the conversation.** Somebody who has said no
-   to a plan twice is telling us something durable; Piloti's
-   ``[ESCALATE_TO_DEEP]`` marker — since ADR-0052 the only way into the
-   clarifier — may not put a third plan in front of them in this thread.
-"""
-
 from unittest.mock import MagicMock
 
 import pytest
@@ -40,7 +17,6 @@ SHALLOW_ANSWER = "Das Verfahren läuft in fünf Schritten ab [1]."
 
 
 def _research_result(messages, *, escalating: bool = False):
-    """A Piloti result: the real state, asking for deep research or not."""
     answer = SHALLOW_ANSWER + (f"\n{ESCALATION_MARKER}" if escalating else "")
     return ResearchAgentState(
         messages=list(messages) + [AIMessage(content=answer)],
@@ -50,20 +26,11 @@ def _research_result(messages, *, escalating: bool = False):
 
 
 def _is_fresh_question(messages) -> bool:
-    """True on the first attempt at a turn — the latest message is the user's."""
     return bool(messages) and isinstance(messages[-1], HumanMessage)
 
 
 @pytest.fixture
 def parts():
-    """Call trackers plus the agent functions the graph is built from.
-
-    Piloti asks for deep research on every fresh question, so every
-    turn reaches the clarifier unless something suppresses the deep route —
-    which is the thing under test. Asked again after a rejection (its own
-    partial answer is now the latest message) it answers plainly, the way the
-    real agent does once the plan is off the table.
-    """
     calls = {"research": 0, "deep": 0, "clarifier": 0}
 
     async def research(state_input):
@@ -85,16 +52,6 @@ def parts():
 
 
 def _build(research, deep, clarifier, **kwargs):
-    """An agent wired the way ``register.py`` wires the real one.
-
-    The checkpointer is NOT optional decoration here. ``_build_graph`` compiles
-    with whatever it is handed, so omitting it compiles a graph with
-    ``checkpointer=None`` — and then nothing at all survives a ``run()``, which
-    would make "the rejection is remembered for the conversation" untestable and
-    silently vacuous. Production always passes one
-    (``register.py`` -> ``get_checkpointer(config.checkpoint_db)``); a
-    ``MemorySaver`` is the in-process equivalent.
-    """
     kwargs.setdefault("checkpointer", MemorySaver())
     return ConversationGraph(
         research_fn=research,
@@ -107,7 +64,6 @@ def _build(research, deep, clarifier, **kwargs):
 class TestRejectionDegradesToAnAnswer:
     @pytest.mark.asyncio
     async def test_rejected_plan_is_answered_on_the_shallow_path(self, parts):
-        """The turn the transcript lost: reject -> the question is answered."""
         calls, research, deep, clarifier = parts
         agent = _build(research, deep, clarifier)
 
@@ -129,7 +85,6 @@ class TestRejectionDegradesToAnAnswer:
 
     @pytest.mark.asyncio
     async def test_chat_agent_receives_the_original_question(self, parts):
-        """Not a paraphrase and not the plan: the words the user actually typed."""
         calls, _research, deep, clarifier = parts
         seen: dict[str, object] = {}
 
@@ -145,20 +100,12 @@ class TestRejectionDegradesToAnAnswer:
             thread_id="reject-2",
         )
 
-        # The retry after the rejection sees the question and its own first
-        # attempt — and nothing of the plan or the rejection dialog.
         assert [m.content for m in seen["messages"] if isinstance(m, HumanMessage)] == [PROCEDURAL_QUESTION]
         assert all(isinstance(m, (HumanMessage, AIMessage)) for m in seen["messages"])
         assert not any("planned" in str(m.content) for m in seen["messages"])
 
     @pytest.mark.asyncio
     async def test_the_answer_is_reported_as_shallow_not_deep(self, parts):
-        """The transparency panel must name the agent that actually answered.
-
-        The routing is observed after the answer, so a rejected plan cannot
-        leave a "deep" label standing on a shallow answer — and the escalation
-        that led to the plan is not narrated either.
-        """
         calls, research, deep, clarifier = parts
         agent = _build(research, deep, clarifier)
 
@@ -174,13 +121,6 @@ class TestRejectionDegradesToAnAnswer:
 
 
 class TestCancellationEndsTheTurnWithAReceipt:
-    """An explicit cancellation (the „Abbrechen" button, "cancel"/"abbrechen")
-    is the one refusal that may end the turn without an answer — the user chose
-    it over the shallow option offered right next to it. It must still say so:
-    a silently ended turn reads as a crash, and the old dead-end text told the
-    user to retype a question the product was holding.
-    """
-
     @pytest.fixture
     def cancelling_parts(self, parts):
         calls, research, deep, _rejecting = parts
@@ -212,8 +152,6 @@ class TestCancellationEndsTheTurnWithAReceipt:
 
     @pytest.mark.asyncio
     async def test_cancel_is_reported_as_a_direct_reply_not_deep(self, cancelling_parts):
-        """A receipt is neither research nor an escalation: the panel must not
-        quote back the deep route the user just refused."""
         calls, research, deep, clarifier = cancelling_parts
         agent = _build(research, deep, clarifier)
 
@@ -228,8 +166,6 @@ class TestCancellationEndsTheTurnWithAReceipt:
 
     @pytest.mark.asyncio
     async def test_cancel_declines_deep_for_the_conversation(self, cancelling_parts):
-        """Re-asking after a cancellation yields the answer, not plan number two
-        — which is exactly what the receipt promises."""
         calls, research, deep, clarifier = cancelling_parts
         agent = _build(research, deep, clarifier)
 
@@ -268,8 +204,6 @@ class TestRejectionIsRemembered:
 
     @pytest.mark.asyncio
     async def test_a_later_escalating_turn_in_the_same_thread_stays_shallow(self, parts):
-        """Turn 2 of the same conversation: Piloti still asks for
-        deep research, and the user still does not get a plan."""
         calls, research, deep, clarifier = parts
         agent = _build(research, deep, clarifier)
 
@@ -293,7 +227,6 @@ class TestRejectionIsRemembered:
 
     @pytest.mark.asyncio
     async def test_a_new_conversation_can_still_reach_deep_research(self, parts):
-        """The flag is per-thread. A fresh chat is the deliberate way back."""
         calls, research, deep, clarifier = parts
 
         async def approving_clarifier(request):
@@ -319,11 +252,6 @@ class TestRejectionIsRemembered:
 
     @pytest.mark.asyncio
     async def test_escalation_is_suppressed_after_a_rejection(self, parts):
-        """Piloti's own ``[ESCALATE_TO_DEEP]`` marker cannot re-open
-        the clarifier — on the rejection turn that would be a cycle
-        (clarifier -> shallow -> clarifier), and on any later turn it would be
-        the third plan the user has refused to look at.
-        """
         calls, _research, deep, clarifier = parts
 
         async def escalating_research(state_input):
@@ -332,13 +260,11 @@ class TestRejectionIsRemembered:
 
         agent = _build(escalating_research, deep, clarifier)
 
-        # Turn 1: the plan is rejected; the fallback answer asks to escalate.
         await turn(
             agent,
             ConversationState(messages=[HumanMessage(content=PROCEDURAL_QUESTION)]),
             thread_id="escalate-1",
         )
-        # Turn 2: same conversation, the shallow answer asks to escalate again.
         result = await turn(
             agent,
             ConversationState(messages=[HumanMessage(content="Und die Fristen?")]),

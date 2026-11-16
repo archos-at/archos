@@ -1,10 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Budget events for PostHog: what is sent, to whom, and that each window's
- * event is sent once however many usage batches and replicas notice it.
- */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
@@ -35,7 +31,6 @@ import {
 } from './budget-events'
 import type { BudgetUtilisation } from './service'
 
-/** A shared store that remembers what each key was set to and for how long. */
 class MemoryStore implements CacheStore {
   entries = new Map<string, { value: string; ttlMs: number }>()
   async get(key: string): Promise<string | null> {
@@ -222,7 +217,6 @@ describe('announceBudgetThresholds', () => {
     await announceBudgetThresholds(batch)
     expect(captureServer).toHaveBeenCalledTimes(1)
 
-    // Then the same window reaches 100 %: a new fact, announced once.
     getBudgetUtilisation.mockResolvedValue([usage({ used: 1000 })])
     await announceBudgetThresholds(batch)
     await announceBudgetThresholds(batch)
@@ -277,7 +271,6 @@ describe('announceBudgetThresholds', () => {
     expect(captureServer).toHaveBeenCalledTimes(2)
     for (const [key, entry] of store.entries) {
       expect(key).toMatch(/org_[12]/)
-      // 2026-10-10 12:00 to month end plus the grace hour.
       expect(entry.ttlMs).toBeGreaterThan(20 * 24 * 3_600_000)
       expect(entry.ttlMs).toBeLessThan(23 * 24 * 3_600_000)
     }

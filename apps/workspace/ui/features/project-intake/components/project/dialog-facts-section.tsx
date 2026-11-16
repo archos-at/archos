@@ -1,20 +1,5 @@
 'use client'
 
-/**
- * Step 1's „Projekt" card: what the create dialog took, to check at a glance.
- * Name, the address with the Gemeinde and Bundesland the geocoder named, the
- * status with its Zeitraum, and the short description. „Bearbeiten" opens the
- * address and the description in a sheet, so the card stays a card.
- *
- * Each value is edited where it lives. The address and the description are
- * profile facts, so „Ändern" writes them as the person's answers through the
- * review's decisions (`onDecide`, `patchProjectProfile`), the same door the
- * Rückfragen use; a hit chosen from the address search brings its Bundesland
- * and Land along. Name, status and period belong to the project and its
- * lifecycle (ADR-0098), so they link to the overview, where renaming, closing
- * and the Beginn already are.
- */
-
 import { useMemo, useState, type FormEvent, type JSX } from 'react'
 import Link from 'next/link'
 import { Pencil } from 'lucide-react'
@@ -46,7 +31,6 @@ export interface DialogFactsSectionProps {
   onDecide: (decisions: IntakeDecision[]) => Promise<boolean>
 }
 
-/** The decisions an edit makes: only what changed, a chosen hit with its Bundesland and Land. Pure. */
 export function factDecisions(
   before: { address: string | null; description: string | null },
   after: { address: AddressValue; description: string }
@@ -68,7 +52,6 @@ export function factDecisions(
   return decisions
 }
 
-/** The address search's same-address notice, without this project itself. */
 function sameAddressExcept(projectId: string): SameAddressClient {
   const real = createSameAddressClient()
   return {
@@ -84,7 +67,6 @@ export function DialogFactsSection({ view, projectId, project, peopleRecord, can
   const facts = dialogFacts(view)
   const [editing, setEditing] = useState(false)
   const status = useStatusText(view, project, peopleRecord)
-  // Wien is its own Bundesland: „Wien · Wien“ says nothing twice.
   const place = [...new Set([facts.municipality, facts.federalState].filter(Boolean))].join(' · ')
 
   return (
@@ -156,7 +138,6 @@ export function DialogFactsSection({ view, projectId, project, peopleRecord, can
   )
 }
 
-/** „Aktiv · seit März 2026", „Fertiggestellt, wird nach der Prüfung abgeschlossen · März 2024 – Juni 2026". */
 function useStatusText(view: IntakeView, project: ProjectBasics | null, peopleRecord: ProjectRecordView | null): string {
   const t = useTranslations(intakeProjectStepCopy)
   const { span } = useProjectRecordFormat()

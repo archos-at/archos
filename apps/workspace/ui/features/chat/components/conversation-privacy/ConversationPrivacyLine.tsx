@@ -1,21 +1,5 @@
 'use client'
 
-/**
- * Who reads this chat and what is kept from it, said under the composer where
- * the next message is written (ADR-0180: pilot offices held back because
- * nothing on screen said either).
- *
- * Two statements, each shown only while it is true and known:
- *
- * - **Temporary.** The conversation's `temporary`, as the store holds the
- *   server row's value. Shown to everyone in the thread, not only the owner
- *   who switched it.
- * - **Private.** The server's own answer about the thread, read where the chat
- *   already reads it (`useThreadSharing`, published by the shared-thread seam):
- *   `private` is "no grant and no blanket rule". `unknown` shows nothing, and
- *   so does an office without sharing, where the seam never asks.
- */
-
 import type { JSX } from 'react'
 import { Lock, MessageCircleDashed } from 'lucide-react'
 import { FactLine } from '@/components/ui/fact-line'
@@ -27,18 +11,14 @@ import { useThreadSharing } from '@/shared/collaboration/thread-sharing'
 import { useTemporarySwitch } from '../../lib/temporary-conversation'
 import type { TemporarySwitchView } from '../../lib/temporary-switch-machine'
 
-/** The temporary line: what holds, what is being switched, or nothing. */
 export type TemporaryStatement = TemporarySwitchView['statement']
 
 export interface ConversationPrivacyLineViewProps {
-  /** What the server holds, or that a switch to it is on its way (`temporary-switch-machine.ts`). */
   temporary: boolean | TemporaryStatement
-  /** Only the reader can open the conversation, and they can share it. */
   privateToReader: boolean
   className?: string
 }
 
-/** The statements alone, for the chat and for the preview. Nothing when neither holds. */
 export function ConversationPrivacyLineView({
   temporary,
   privateToReader,
@@ -67,7 +47,6 @@ export function ConversationPrivacyLineView({
 
 export interface ConversationPrivacyLineProps {
   conversationId: string | null | undefined
-  /** Sharing is on for this office and this reader; without it nobody can be let in, and the seam is not asked. */
   canCollaborate: boolean
   className?: string
 }

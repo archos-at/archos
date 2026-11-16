@@ -11,14 +11,11 @@ import { cn } from '@/lib/utils'
 import { EvidenceProjectContext } from '../evidence-chips'
 import { drawExcerpt, type DocumentEvidence, type DrawnExcerpt } from './excerpt-loader'
 
-/** Shown width when the figure has not been laid out (a test, a hidden tab). */
 const FALLBACK_WIDTH = 360
-/** Drawn a little before it scrolls in, so it is there when it arrives. */
 const NEAR_MARGIN = '300px 0px'
 
 type State = { status: 'waiting' } | { status: 'drawn'; drawn: DrawnExcerpt } | { status: 'unavailable' }
 
-/** True once the element has come near the viewport; immediately where nothing can tell (no IntersectionObserver). */
 function useNear(ref: React.RefObject<HTMLElement | null>): boolean {
   const [near, setNear] = useState(() => typeof IntersectionObserver === 'undefined')
   useEffect(() => {
@@ -36,15 +33,6 @@ function useNear(ref: React.RefObject<HTMLElement | null>): boolean {
   return near
 }
 
-/**
- * The excerpt of the page a value was found on: the quoted passage, marked as
- * the viewer marks it, with the page around it, at the width of the column.
- * Nothing is fetched or drawn until it is shown and near the screen, so a
- * Steckbrief of forty values costs nothing until someone looks. When the
- * passage cannot be found in the page's text (a scan), the whole page is shown
- * small and says so; when there is nothing to draw, a line says the chip opens
- * the document instead.
- */
 export function PageExcerpt({
   evidence,
   className,

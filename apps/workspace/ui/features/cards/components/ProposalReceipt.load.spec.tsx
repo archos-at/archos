@@ -1,13 +1,3 @@
-/**
- * A receipt card whose read of the proposal failed (ADR-0105).
- *
- * The card's read is one state: loading, loaded or failed. Failed means there
- * is no object to draw or decide, so the card says so and offers nothing to
- * press; and failed is not final. The card asks again on what already makes it
- * re-read: its channel coming up or saying something, and the reader coming
- * back to the tab. The other receipt specs (`ProposalReceipts.spec.tsx`) hold
- * the loaded card.
- */
 import { act, render, screen, waitFor } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
@@ -64,7 +54,6 @@ const memoryCard = (
   />
 )
 
-/** The reads the server answers, in order: a proposal, or `'down'` for a 502. The last one repeats. */
 const serveReads = (...answers: Array<MemoryProposal | 'down'>) => {
   let read = 0
   server.use(
@@ -111,7 +100,6 @@ describe('a receipt card whose first read failed', () => {
     )
     expect(await screen.findByText(LOAD_ERROR)).toBeInTheDocument()
 
-    // Still down: the card stays as it is, and the next return asks again.
     comeBackToTheTab()
     await waitFor(() => expect(gets()).toHaveLength(2))
     expect(screen.getByText(LOAD_ERROR)).toBeInTheDocument()
@@ -141,8 +129,6 @@ describe('a receipt card whose first read failed', () => {
 })
 
 describe('a click that came second, whose re-read failed', () => {
-  // „Could not be loaded“ beside „Apply“ and „Discard“ was two answers at once:
-  // the object the buttons would decide is the one that could not be read.
   it('shows the failed read alone, then the colleague’s decision once it can be read', async () => {
     serveReads(memoryProposal(), 'down', memoryProposal(decidedByAnna('dismissed')))
     server.use(
@@ -151,8 +137,6 @@ describe('a click that came second, whose re-read failed', () => {
       )
     )
     const user = userEvent.setup()
-    // The stream is never opened here, so the only reads are the first one,
-    // the 409's and the one the return to the tab asks for.
     useFakeStream()
     render(memoryCard)
     await user.click(await screen.findByRole('button', { name: 'Apply' }))
@@ -165,7 +149,6 @@ describe('a click that came second, whose re-read failed', () => {
 
     expect(await screen.findByTestId('proposal-decided-by')).toHaveTextContent(/^Discarded by Anna Berger · /)
     expect(screen.getByTestId('proposal-overtaken')).toBeInTheDocument()
-    // The shell cross-fades: the outgoing body is still in the DOM for a moment.
     await waitFor(() => expect(screen.queryByText(LOAD_ERROR)).toBeNull())
   })
 })

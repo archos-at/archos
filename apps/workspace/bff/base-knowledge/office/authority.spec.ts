@@ -32,7 +32,6 @@ describe('whether a directive belongs to the project’s building authority', ()
     expect(projectTerritory({ federalState: 'vienna' }, {})).toEqual({ territoryId: null, label: null })
     expect(projectTerritory({ country: 'at' }, {})).toEqual({ territoryId: null, label: null })
     expect(directiveApplicability(MA37, projectTerritory({ federalState: 'vienna' }, {}))).toEqual({ verdict: 'authority_unknown' })
-    // Positive control: with Austria's records the same Land places the project.
     expect(projectTerritory({ federalState: 'vienna' }, AT_SUBDIVISIONS).territoryId).toBe('AT-9')
   })
 

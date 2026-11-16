@@ -1,5 +1,3 @@
-"""Tests for the research-runs listing endpoint (GET /v1/jobs/async/jobs)."""
-
 from __future__ import annotations
 
 import base64
@@ -103,8 +101,6 @@ def _seed_job(
 
 
 class TestFindResearchRuns:
-    """Unit tests directly against the sync query helper."""
-
     def test_filters_by_project_collection(self, db_url):
         principal = Principal(type="jwt", sub="user-1")
         _seed_job(db_url, "job-a", principal, project_collection="proj-alpha")
@@ -170,7 +166,6 @@ class TestFindResearchRuns:
         assert [row["job_id"] for row in rows] == ["job-new"]
 
     def test_pagination_stable_for_identical_created_at(self, db_url):
-        """job_id tiebreaker: identical created_at must not duplicate/drop rows across pages."""
         principal = Principal(type="jwt", sub="user-1")
         ts = datetime.now(UTC)
         for job_id in ("job-a", "job-b", "job-c"):
@@ -178,13 +173,10 @@ class TestFindResearchRuns:
 
         pages = [find_research_runs(db_url, None, None, None, None, 1, offset)[0][0]["job_id"] for offset in (0, 1, 2)]
 
-        # Deterministic order (created_at DESC, job_id DESC) and full coverage.
         assert pages == ["job-c", "job-b", "job-a"]
 
 
 class TestListingFollowsTheSignedScope:
-    """ADR-0084: the listing shows the runs a single-job read would open, no more."""
-
     OWNER = Principal(type="jwt", sub="user-owner")
     TEAMMATE = Principal(type="jwt", sub="user-teammate")
 
@@ -213,7 +205,6 @@ class TestListingFollowsTheSignedScope:
         scope = SignedJobScope(organization_id="org-1", project_collection="proj_alpha", conversation_id=None)
 
         assert self._ids(db_url, scope, "proj_alpha") == {"project-run"}
-        # Naming a project the envelope did not sign shows only what the caller owns there.
         assert self._ids(db_url, scope, "proj_beta") == {"own-elsewhere"}
 
     def test_the_signed_conversations_runs_are_listed(self, db_url):
@@ -230,7 +221,6 @@ class TestListingFollowsTheSignedScope:
 
 @pytest.fixture
 async def research_runs_app(db_url, monkeypatch):
-    """Build a minimal app with the async job routes, including the new list endpoint."""
     import agent_host.routes.jobs as jobs_routes
 
     worker = SimpleNamespace(
@@ -268,7 +258,6 @@ async def test_list_research_runs_scopes_to_caller_when_auth_required(research_r
 
 @pytest.mark.asyncio
 async def test_list_research_runs_anonymous_mode_sees_all_jobs(research_runs_app, db_url, monkeypatch):
-    """Mirrors authorize_job_access: when REQUIRE_AUTH is not 'true', ownership isn't enforced."""
 
     monkeypatch.setenv("REQUIRE_AUTH", "false")
     owner_a = Principal(type="jwt", sub="user-1")
@@ -301,7 +290,6 @@ async def test_list_research_runs_clamps_limit(research_runs_app, db_url, monkey
 
 @pytest.mark.asyncio
 async def test_list_research_runs_honours_the_signed_project(research_runs_app, db_url, monkeypatch):
-    """The route reads the envelope off the request: a teammate sees the project's runs, not another org's."""
 
     secret = "listing-test-secret"  # noqa: S105  # pragma: allowlist secret
     monkeypatch.setenv("REQUIRE_AUTH", "true")

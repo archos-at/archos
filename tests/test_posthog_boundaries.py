@@ -1,26 +1,3 @@
-"""The two boundaries ADR-0100 draws around PostHog, held by something other than review.
-
-1. **One client per runtime.** ``packages/agent/src/agent/observability/posthog_client.py``
-   is the only Python module that imports the ``posthog`` SDK, and
-   ``apps/workspace/bff/analytics/posthog-server.ts`` the only BFF module that
-   imports ``posthog-node``. ``posthog-js`` is reached only through
-   ``apps/workspace/bff/analytics/posthog.ts``. A second client is a second
-   place deciding whether PostHog is on, which host it talks to and what it may
-   send. That is how a privacy default gets lost. The one bought exception is
-   ``@posthog/next``'s request-error capture, which builds its own posthog-node
-   client: ``apps/workspace/bff/analytics/request-error.ts`` is the only module
-   that imports it (and ``@posthog/core``'s rate limiter beside it), and it
-   configures that client from ``posthog-server.ts``'s settings and scrubber.
-2. **LLM data reaches PostHog through Langfuse.** Langfuse's PostHog
-   integration exports observations and scores. Our code emits none of
-   PostHog's AI-observability events. A ``$ai_generation`` captured from our code
-   would double-count cost against the free tier and send model input past the
-   Langfuse redaction and identity gates.
-
-The scan is textual on purpose: it reads every file a contributor could add an
-import to, with no build and no node_modules.
-"""
-
 from __future__ import annotations
 
 import re
@@ -63,7 +40,6 @@ _TS_IMPORT = re.compile(
     r"""(?:from\s+|require\(\s*|import\(\s*)['"](posthog-js|posthog-node|@posthog/[\w-]+)(?:/[^'"]*)?['"]"""
 )
 
-#: PostHog's AI-observability event names (https://posthog.com/docs/ai-observability/surfaces/api).
 AI_EVENTS = ("$ai_generation", "$ai_trace", "$ai_span", "$ai_embedding", "$ai_metric", "$ai_feedback")
 _AI_EVENT = re.compile(r"""['"](\$ai_(?:generation|trace|span|embedding|metric|feedback))['"]""")
 
@@ -129,7 +105,6 @@ def test_no_code_emits_posthog_ai_observability_events() -> None:
 
 
 def test_the_scanners_see_what_they_guard(tmp_path: Path) -> None:
-    """The regexes fire on the shapes they exist to catch, so a green run means something."""
     assert _PY_IMPORT.search("from posthog import Posthog")
     assert _PY_IMPORT.search("import posthog")
     assert not _PY_IMPORT.search("from agent.observability import posthog_client")

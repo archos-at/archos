@@ -2,17 +2,6 @@
  * @vitest-environment node
  */
 
-/**
- * The extraction orchestration, with object storage and the repository stubbed.
- *
- * What matters here is not that ifc-lite can parse (that is `extract.spec.ts`,
- * against a real file) but the CONTRACT around it: the derived objects land
- * where the rest of the system looks for them, the digest is named so citations
- * resolve, a broken model becomes a recorded failure rather than a thrown
- * exception into a request that has already responded, and a backend that
- * refuses the digest does not cost us the extraction.
- */
-
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createZip } from './zip'
 
@@ -22,31 +11,21 @@ interface StoredObject {
   key: string
   body: string
   contentType: string | undefined
-  /** Set only on the viewer's gzipped source; the mechanism, not decoration. */
   contentEncoding: string | undefined
   metadata: Record<string, string> | undefined
-  /** Bytes actually written, so a "compressed" object can be shown to be smaller. */
   byteLength: number | undefined
-  /** The body as written, when it is binary — `String(body)` loses gzip. */
   raw: Uint8Array | undefined
 }
 
 const stored: StoredObject[] = []
 const deleted: string[] = []
 let sourceBytes = ''
-/** Set when the stored object is not text — a `.ifczip` upload. */
 let sourceBinary: Uint8Array | null = null
-/** Key suffix whose next PUT should fail, for the best-effort write paths. */
 let putFailureSuffix: string | null = null
 function failNextPutFor(suffix: string): void {
   putFailureSuffix = suffix
 }
 
-/**
- * A minimal S3 stand-in that records what was written. The command objects the
- * service builds are real, so their shape is checked by the SDK's own types;
- * this only has to route them by constructor name and remember the effect.
- */
 vi.mock('@/lib/s3', () => ({
   s3Client: {
     send: async (command: { constructor: { name: string }; input: Record<string, unknown> }) => {
@@ -96,7 +75,6 @@ vi.mock('@/lib/storage/bucket', () => ({
 const started: unknown[] = []
 const completed: Array<{ run: unknown; elements: unknown[]; indexStorageKey: string | null }> = []
 const failed: Array<{ modelId: string; runId: string; reason: string }> = []
-/** Whether the row still waits for this run when it comes back; false plays a newer run having taken it. */
 let rowStillHeld = true
 
 vi.mock('./extraction-repository', () => ({
@@ -159,8 +137,6 @@ beforeEach(() => {
 
 describe('buildBimDerivedKeys', () => {
   it('keeps the original filename as the digest object’s last path segment', () => {
-    // Load-bearing: the backend records the URL basename as `file_name`, and
-    // citations and chunk deletion both match documents on that exact string.
     expect(buildBimDerivedKeys(STORAGE_KEY)).toEqual({
       prefix: 'org/org_1/project/p1/doc/d1/_bim/',
       digestKey: 'org/org_1/project/p1/doc/d1/_bim/haus-a.ifc',
@@ -190,8 +166,6 @@ describe('runBimExtraction', () => {
     await runBimExtraction(baseInput())
 
     const digest = stored.find((object) => object.key.endsWith('/_bim/haus-a.ifc'))
-    // A `.ifc` content type would make the backend infer a `.ifc` suffix and
-    // hand the file to a reader that garbles it — the whole point of the digest.
     expect(digest?.contentType).toBe('text/markdown; charset=utf-8')
     expect(digest?.body).toContain('# BIM-Modell: Haus A')
 
@@ -220,9 +194,6 @@ describe('runBimExtraction', () => {
 
     const outcome = await runBimExtraction(baseInput(dispatchDigest))
 
-    // The model is queryable without the digest; losing the parse because the
-    // ingestor was restarting would be the expensive half of the work thrown
-    // away for the cheap half.
     expect(outcome.status).toBe('ready')
     expect(completed).toHaveLength(1)
     expect(failed).toHaveLength(0)
@@ -235,8 +206,6 @@ describe('runBimExtraction', () => {
     const outcome = await runBimExtraction(baseInput(dispatchDigest))
 
     expect(completed[0].run).toEqual({ modelId: 'model-1', runId: 'run-1' })
-    // Not `ready`, and not `failed` either: the job would write that onto a
-    // document the newer run is still reading.
     expect(outcome).toEqual({ modelId: 'model-1', status: 'superseded', elementCount: 0 })
     expect(dispatchDigest).not.toHaveBeenCalled()
     expect(failed).toHaveLength(0)
@@ -261,10 +230,6 @@ describe('deleteBimDerivedObjects', () => {
 
     await deleteBimDerivedObjects(STORAGE_KEY, null)
 
-    // Nested under `doc/<id>/`, so the document delete path's exact-key removals
-    // never reach them — this is the only thing that does.
-    // The gzip is swept with everything else: it lives under the same prefix,
-    // so deleting a model cannot leave a compressed copy of it behind.
     expect(deleted.sort()).toEqual([
       'org/org_1/project/p1/doc/d1/_bim/haus-a.ifc',
       'org/org_1/project/p1/doc/d1/_bim/index.json',
@@ -284,12 +249,7 @@ describe('the viewer’s compressed source', () => {
 
     const gzip = stored.find((object) => object.key.endsWith('/source.ifc.gz'))
     expect(gzip).toBeDefined()
-    // `Content-Encoding` is the whole mechanism: it is what makes the browser
-    // inflate the body itself, so the geometry kernel still receives the exact
-    // bytes the architect uploaded.
     expect(gzip?.contentEncoding).toBe('gzip')
-    // Without this the viewer's progress bar divides decoded bytes by the
-    // compressed length and pins itself at 100%.
     expect(Number(gzip?.metadata?.['uncompressed-length'])).toBeGreaterThan(0)
   })
 
@@ -302,8 +262,6 @@ describe('the viewer’s compressed source', () => {
   })
 
   it('does not fail the extraction when the compressed write fails', async () => {
-    // An optimisation must never cost a model. The gzip is best-effort and the
-    // viewer falls back to the original object.
     failNextPutFor('/source.ifc.gz')
 
     const outcome = await runBimExtraction(baseInput())
@@ -312,13 +270,6 @@ describe('the viewer’s compressed source', () => {
   })
 
   it('holds the MODEL for a `.ifczip`, not the container', async () => {
-    /*
-      The viewer parses in the browser and `@ifc-lite/geometry` does not unwrap
-      zip — it finds no entities and reports no error, so a zipped upload
-      rendered as an empty viewport under a model the server had already read.
-      The source object is what the browser is handed, so it has to be STEP for
-      every model, whatever the upload was wrapped in.
-    */
     const archive = createZip([{ path: 'haus-a.ifc', content: VALID_IFC }])
     sourceBinary = archive
 
@@ -330,17 +281,12 @@ describe('the viewer’s compressed source', () => {
     expect(gzip?.raw).toBeDefined()
     const written = gunzipSync(gzip?.raw as Uint8Array)
     expect(new TextDecoder().decode(written)).toBe(VALID_IFC)
-    // And it is the model's size the progress bar divides by, not the zip's.
     expect(Number(gzip?.metadata?.['uncompressed-length'])).toBe(
       new TextEncoder().encode(VALID_IFC).byteLength
     )
   })
 
   it('reports an archive refusal in its own words, not as "not a valid IFC file"', async () => {
-    // "The archive holds two models" is something the uploader can act on, and
-    // it is not true of the file they see in the list. The ceiling refusal —
-    // read from the zip directory before anything is inflated — takes the same
-    // branch; `ifc-archive.spec.ts` covers the sizes themselves.
     sourceBinary = createZip([
       { path: 'haus-a.ifc', content: VALID_IFC },
       { path: 'haus-b.ifc', content: VALID_IFC },

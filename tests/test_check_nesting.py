@@ -1,5 +1,3 @@
-"""The nesting ratchet: a new finding fails, a baselined file may not gain one, the baseline only moves down."""
-
 from __future__ import annotations
 
 import importlib.util

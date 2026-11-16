@@ -1,5 +1,3 @@
-"""Tests for the database URL and schema-creation utilities."""
-
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -44,14 +42,11 @@ def test_sqlite_path_no_crash():
 
 
 def test_bare_path_passes_through_unchanged():
-    # No credentials to scrub and unparseable as a SQLAlchemy URL → returned as-is.
     out = redact_db_url("summaries.db")
     assert out == "summaries.db"
 
 
 def test_garbled_url_with_credentials_scrubs_password():
-    # A DSN SQLAlchemy cannot parse (spaces in the scheme) still gets its
-    # user:pass@ segment scrubbed by the regex fallback.
     out = redact_db_url("a b c://myuser:supersecret@host/db")
     assert "supersecret" not in out
     assert "://***@" in out
@@ -79,8 +74,6 @@ def test_postgres_bounds_every_lock_wait_then_takes_the_transaction_scoped_lock_
     lock_schema(conn, "ingest_jobs")
 
     [(bound, bound_params), (statement, params)] = executed
-    # Transaction-local (the third argument is true), so it ends with the DDL's commit
-    # and never leaks onto a pooled connection the next transaction gets.
     assert "set_config('lock_timeout', :timeout, true)" in bound
     assert bound_params == {"timeout": SCHEMA_LOCK_TIMEOUT}
     assert "pg_advisory_xact_lock" in statement

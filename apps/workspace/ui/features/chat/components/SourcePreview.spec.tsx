@@ -35,10 +35,8 @@ const PROJECT_ROWS: Row[] = [
     filename: 'Raumprogramm.docx',
     contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   },
-  // Stored with no type: the extension alone makes it an office file.
   { id: 'doc-sheet', filename: 'Kostenschaetzung.xlsx', contentType: null },
   { id: 'doc-deck', filename: 'Entwurf.pptx', contentType: null },
-  // A PDF the gateway fails on: 502 like a refused rendition, but not one.
   { id: 'doc-gateway', filename: 'Statik.pdf', contentType: 'application/pdf' },
 ]
 
@@ -46,7 +44,6 @@ const OFFICE_SHELF_ROWS: Row[] = [
   { id: 'archiv-1', filename: 'Bueroe_Detail_Attika.pdf', contentType: 'application/pdf' },
 ]
 
-/** The by-name resolve, answered the way the server matches: case-folded filename. */
 const byName = (rows: Row[], init?: RequestInit) => {
   const names = (JSON.parse(String(init?.body)) as { names: string[] }).names.map((name) =>
     name.toLowerCase()
@@ -58,15 +55,12 @@ const byName = (rows: Row[], init?: RequestInit) => {
   })
 }
 
-/** Routes the module's read APIs (project docs, org Archiv, base corpus); anything else 404s. */
 const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
   const url = String(input)
   if (url === '/api/documents/by-name') {
     const office = (JSON.parse(String(init?.body)) as { scope?: string }).scope === 'office_shelf'
     return Promise.resolve(byName(office ? OFFICE_SHELF_ROWS : PROJECT_ROWS, init))
   }
-  // The BFF's two "no rendition" answers (ADR-0070): conversion switched off,
-  // and conversion attempted and failed.
   if (url === '/api/documents/doc-sheet/preview') {
     return Promise.resolve({ ok: false, status: 415, json: async () => ({}) })
   }
@@ -96,9 +90,6 @@ const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
       })
     )
   }
-  // This conversation's private attachments. `Brandschutzkonzept.pdf` is
-  // deliberately a name the project shelf ALSO holds: the two copies are
-  // different documents, and only the citation's shelf can tell them apart.
   if (url === '/api/session/documents?conversationId=conv-1') {
     return Promise.resolve(
       jsonResponse({
@@ -127,11 +118,6 @@ const citation = (overrides: Partial<CitationSource>): CitationSource => ({
   ...overrides,
 })
 
-/**
- * Build the reference a chip renders through the REAL model, so these tests
- * exercise the same identity/title/tint resolution production does rather than
- * a hand-shaped object no producer would ever emit.
- */
 const ref = (overrides: Partial<CitationSource>): CitationRef => {
   const [document] = buildCitationModel({ citations: [citation(overrides)] })
   if (!document) throw new Error('fixture produced no document')
@@ -178,8 +164,6 @@ describe('SourcePreviewChip', () => {
       />
     )
 
-    // Not a bare link — it is a peek trigger, so the bindingness is reachable
-    // AND the click can mean something better than leaving the product (#622).
     expect(screen.queryByRole('link')).toBeNull()
     const chip = screen.getByRole('button', { name: 'Preview source: WBTV' })
     await user.hover(chip)
@@ -187,13 +171,10 @@ describe('SourcePreviewChip', () => {
     expect(await screen.findByText('Binding effect')).toBeInTheDocument()
     expect(screen.getByText('Macht die OIB-Richtlinien in Wien verbindlich.')).toBeInTheDocument()
     expect(screen.getByText('Landesrecht')).toBeInTheDocument()
-    // The authoritative RIS publication stays one explicit action away — a
-    // legal citation must always be able to reach it.
     expect(screen.getByRole('link', { name: /Open in RIS/i })).toHaveAttribute(
       'href',
       'https://www.ris.bka.gv.at/x'
     )
-    // And the peek offers the in-app reader, which is what the click commits to.
     expect(screen.getByText('Open at this passage')).toBeInTheDocument()
   })
 
@@ -212,8 +193,6 @@ describe('SourcePreviewChip', () => {
       />
     )
 
-    // The chip upgrades to a button once the resolution index has loaded.
-    // The chip names the document, not its storage filename.
     const chip = await screen.findByRole('button', {
       name: 'Preview source: Brandschutzkonzept',
     })
@@ -222,10 +201,7 @@ describe('SourcePreviewChip', () => {
     const dialog = await screen.findByRole('dialog')
     expect(within(dialog).getByText('Brandschutzkonzept')).toBeInTheDocument()
     expect(within(dialog).getByText('Project document')).toBeInTheDocument()
-    // The presigned preview URL was fetched for the project document.
     expect(fetchMock).toHaveBeenCalledWith('/api/documents/doc-1/preview')
-    // Resolved BY NAME, never looked up in the listing's first page — a cited
-    // plan older than the newest 500 used to resolve to nothing.
     const byNameCall = fetchMock.mock.calls.find(([url]) => String(url) === '/api/documents/by-name')
     expect(JSON.parse(String(byNameCall?.[1]?.body))).toEqual({
       projectId: 'project-1',
@@ -235,7 +211,6 @@ describe('SourcePreviewChip', () => {
   })
 
   test('a chip resolving its document stays focused and busy, never disabled, and ignores a second press', async () => {
-    // Hold the presign open so the in-flight state can be looked at.
     let release: () => void = () => {}
     const routed = fetchMock.getMockImplementation()!
     fetchMock.mockImplementation((input, init) =>
@@ -259,7 +234,6 @@ describe('SourcePreviewChip', () => {
         />
       )
       const chip = await screen.findByRole('button', { name: 'Preview source: Brandschutzkonzept' })
-      // The peek is the tooltip: no native `title` racing it.
       expect(chip).not.toHaveAttribute('title')
 
       await user.click(chip)
@@ -294,10 +268,8 @@ describe('SourcePreviewChip', () => {
 
     const dialog = await screen.findByRole('dialog')
     expect(fetchMock).toHaveBeenCalledWith('/api/documents/doc-word/preview')
-    // The reader is told the page is a PDF made from the file, not the file.
     expect(within(dialog).getByText('PDF preview of the original')).toBeInTheDocument()
     await user.click(within(dialog).getByRole('button', { name: /Download original/ }))
-    // The ORIGINAL, by its own name — never the rendition on screen.
     expect(startDocumentDownload).toHaveBeenCalledWith('doc-word', 'Raumprogramm.docx')
   })
 
@@ -342,21 +314,16 @@ describe('SourcePreviewChip', () => {
 
       await user.click(await screen.findByRole('button', { name: `Preview source: ${title}` }))
 
-      // No viewer and no error: the reader gets the file they asked to see.
       expect(fetchMock).toHaveBeenCalledWith(`/api/documents/${id}/preview`)
       await vi.waitFor(() => expect(startDocumentDownload).toHaveBeenCalledWith(id, fileName))
       expect(screen.queryByRole('dialog')).toBeNull()
 
-      // And from then on the chip is the download it is: its peek says why
-      // and offers the file, rather than promising a viewer again.
       await user.hover(screen.getByRole('button', { name: `Preview source: ${title}` }))
       expect(await screen.findByText('Download document')).toBeInTheDocument()
     }
   )
 
   test('a 502 on an ordinary PDF citation is a failure, not a silent download', async () => {
-    // 502 is also what a failed office rendition answers, and the fallback to
-    // the download used to fire on the status alone.
     const user = userEvent.setup()
     render(
       <SourcePreviewChip
@@ -375,15 +342,11 @@ describe('SourcePreviewChip', () => {
     await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/documents/doc-gateway/preview'))
     expect(startDocumentDownload).not.toHaveBeenCalled()
     expect(screen.queryByRole('dialog')).toBeNull()
-    // Still a preview: the chip did not learn "unrenderable" from a gateway hiccup.
     await user.hover(screen.getByRole('button', { name: 'Preview source: Statik' }))
     expect(screen.queryByText('Download document')).toBeNull()
   })
 
   test('a citation resolving to an org office shelf document opens it too', async () => {
-    // Buero-kind citations were structurally unopenable: the preview index
-    // never listed the Archiv, so an Archiv document always degraded to a dead
-    // info popover even though the preview route would have served it.
     const user = userEvent.setup()
     render(
       <SourcePreviewChip
@@ -409,9 +372,6 @@ describe('SourcePreviewChip', () => {
   })
 
   test('a citation on the session shelf opens THIS chat’s attachment, not the project copy', async () => {
-    // The `session` shelf had no rows in the index at all — `storedDocuments`
-    // listed project and Archiv only — so a private attachment matched nothing
-    // and quietly resolved to the project document of the same name.
     const user = userEvent.setup()
     render(
       <SourcePreviewChip
@@ -452,14 +412,10 @@ describe('SourcePreviewChip', () => {
       />
     )
 
-    // The chip stays inert until the resolution index answers, then upgrades to
-    // the info popover — it never settles into the weaker affordance early.
     await user.click(await screen.findByRole('button', { name: 'Preview source: Unbekannt' }))
 
     expect(await screen.findByText('Cited passage')).toBeInTheDocument()
     expect(screen.getByText('Zitierter Absatz.')).toBeInTheDocument()
-    // No document viewer opened (the popover itself carries role="dialog",
-    // so assert on the viewer's frame instead).
     expect(document.querySelector('iframe')).toBeNull()
   })
 
@@ -467,9 +423,6 @@ describe('SourcePreviewChip', () => {
     const user = userEvent.setup()
     render(
       <SourcePreviewChip
-        // `origin` is derived kb/ris/web only, so a knowledge-base copy of a
-        // legal text used to read "Project knowledge" in the popover while the
-        // chip beside it wore a RIS badge and a Baurecht lane.
         citation={ref({
           kind: 'building_law',
           content: '[KB] wr_bauordnung.pdf\n§ 119.',
@@ -532,9 +485,6 @@ describe('a document read at several pages', () => {
           number: 1,
           isCited: true,
         }),
-        // Retrieval surfaced this one and the answer passed over it: it carries
-        // no [N]. It still belongs in the rail — it is part of what the reader
-        // is checking — but it must not look like grounding.
         citation({
           id: 'c-3',
           content: '[KB] Brandschutzkonzept.pdf, p.14',
@@ -559,15 +509,10 @@ describe('a document read at several pages', () => {
   }
 
   test('every passage is reachable from the dialog, not just the first', async () => {
-    // The defect: a document read at pages 3, 9 and 14 opened at 3 and offered
-    // no way to reach the rest — verifying the second citation meant closing
-    // the viewer, hunting for another chip, and hoping.
     const user = userEvent.setup()
     const rail = await openRail(user)
     const entries = within(rail).getAllByRole('listitem')
 
-    // Document order, not retrieval order: this is a way through the document,
-    // and the model handed them over as 9, 3, 14.
     expect(entries.map((entry) => entry.textContent)).toEqual([
       '[1]p. 3Fluchtwege sind freizuhalten.',
       '[2]p. 9',
@@ -575,8 +520,6 @@ describe('a document read at several pages', () => {
     ])
 
     const buttons = entries.map((entry) => within(entry).getByRole('button'))
-    // The one being read is marked, so the rail says WHERE you are, not just
-    // where you could go.
     expect(buttons[0]).toHaveAttribute('aria-current', 'true')
 
     await user.click(buttons[1]!)
@@ -585,8 +528,6 @@ describe('a document read at several pages', () => {
   })
 
   test('the stepper reads straight through, and stops at the ends', async () => {
-    // Picking a passage from the list is one intent; reading the next one is
-    // another, and it should not require finding it in the list first.
     const user = userEvent.setup()
     const rail = await openRail(user)
     const next = within(rail).getByRole('button', { name: 'Next passage' })
@@ -603,7 +544,6 @@ describe('a document read at several pages', () => {
     expect(current()).toBe(1)
     await user.click(next)
     expect(current()).toBe(2)
-    // The last passage is the end of the document, not a wrap-around.
     expect(next).toBeDisabled()
 
     await user.click(previous)
@@ -611,10 +551,6 @@ describe('a document read at several pages', () => {
   })
 
   test('the rail follows the passage you move to', async () => {
-    // A document read at nine places scrolls its rail. Stepping used to walk
-    // the current entry off the bottom of it: the one control that says WHERE
-    // YOU ARE stopped saying it exactly when the list got long enough to need
-    // saying.
     const scrollIntoView = vi.fn()
     vi.spyOn(Element.prototype, 'scrollIntoView').mockImplementation(scrollIntoView)
     const user = userEvent.setup()
@@ -627,14 +563,6 @@ describe('a document read at several pages', () => {
     expect(scrolled?.textContent).toContain('p. 14')
   })
 
-  /**
-   * A single Fundstelle gets the rail too. It used to be withheld — one entry is
-   * nowhere to navigate — which left two citations that look identical from the
-   * chat opening two differently shaped dialogs, and left the reader deep in a
-   * long document with nothing on screen saying which passage they came to
-   * check. The rail is that answer, and it is worth a column whether the
-   * document was read once or four times.
-   */
   test('a document read at ONE page still gets the rail, without a stepper', async () => {
     const user = userEvent.setup()
     const [document] = buildCitationModel({
@@ -662,18 +590,11 @@ describe('a document read at several pages', () => {
     expect(within(rail).getAllByRole('listitem').map((entry) => entry.textContent)).toEqual([
       '[1]p. 3Fluchtwege sind freizuhalten.',
     ])
-    // The one entry is the one being read, so it is marked as such.
     expect(within(rail).getByRole('button')).toHaveAttribute('aria-current', 'true')
-    // Nowhere to step to: the controls for it would be dead affordances.
     expect(within(rail).queryByRole('button', { name: 'Next passage' })).toBeNull()
     expect(within(rail).queryByRole('button', { name: 'Previous passage' })).toBeNull()
   })
 
-  /**
-   * The rail carries the passage, so the band above the document that used to
-   * carry it is the same words twice — and the second copy is paid for in the
-   * height the document is rendered at.
-   */
   test('the cited passage is shown once, in the rail', async () => {
     const user = userEvent.setup()
     const rail = await openRail(user)
@@ -685,7 +606,6 @@ describe('a document read at several pages', () => {
 })
 
 describe('a source from another project (ADR-0094)', () => {
-  // The chat's own project is 'project-1' (the store mock above).
   const traufe = {
     kind: 'project' as const,
     content: '[KB] Detail Traufe.pdf (Wohnbau Graz), p.3\nDie Traufe ist hinterlüftet ausgeführt.',

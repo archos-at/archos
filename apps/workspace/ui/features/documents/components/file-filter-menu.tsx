@@ -28,67 +28,18 @@ import {
 } from '../lib/file-filters'
 import { defaultDirectionFor, type FileSort, type FileSortKey } from '../lib/file-sort'
 
-/**
- * Every way of narrowing and ordering the Dateien listing, behind one button.
- *
- * ## Why this replaced the strip
- *
- * The filters used to sit open in the section header: a three-segment assignment
- * group plus a `Von Piloti` toggle, beside a view switch, a `lg:w-72` search
- * field and an upload button. That row wants about 1100px and gets ~900 inside
- * the sidebar, so it took its width out of the page title — the Dateien subtitle
- * rendered as a one-to-two-word column. The header fix in `PageHeader` stops the
- * title paying for it, but the row was still the busiest thing on the page and
- * had no room left for the filters people actually asked for.
- *
- * Folding them into a popover buys that room. It costs one click to reach a
- * filter, and the count badge is what pays it back: the state a strip carried by
- * showing a pressed chip is carried here by a number, so a reader can still see
- * at a glance that the listing is narrowed — which is the one thing a hidden
- * filter must never take away.
- *
- * ## Why sorting is in here too
- *
- * Ordering was a property of the DETAIL view: `FileListView` held its own sort
- * state and the card grid had none, so switching to Kacheln silently discarded
- * the order you had chosen and the answer to "what is the newest" was only
- * available in one of the two views. Sorting is a question about the listing,
- * not about how the listing is drawn, so it lives with the filters and both
- * views read it. The list's column headers still set it — they write to the same
- * state.
- */
 export interface FileFilterMenuProps {
-  /** Assignment is behind the collaboration flag; nothing else here is. */
   canCollaborate: boolean
   filters: FileFilters
   onFiltersChange: (next: FileFilters) => void
   sort: FileSort
   onSortChange: (next: FileSort) => void
-  /**
-   * Ordering is the ranking's own and must not be offered.
-   *
-   * A semantic result set is ranked, and re-sorting it by upload date throws
-   * that ranking away without saying so — the same rule `FileListView` already
-   * keeps. The section is hidden rather than disabled: there is nothing the
-   * reader could do to enable it short of clearing a search they meant.
-   */
   sortDisabled?: boolean
-  /**
-   * The tags the loaded documents carry. Absent or empty hides the section —
-   * a filter over nothing is a control that does nothing.
-   */
   tagOptions?: readonly TagOption[]
-  /**
-   * The trigger as one icon, for a header row that has no width for a word: the
-   * name stays in the accessible label and the count rides on the glyph, so a
-   * narrowed listing still says so at a glance.
-   */
   compact?: boolean
-  /** Fixture escape hatch: renders the popover open for the visual registry. */
   defaultOpen?: boolean
 }
 
-/** The columns worth offering as an explicit order. `relevance` is not one — it is a search's own. */
 const SORT_KEYS: readonly FileSortKey[] = ['added', 'name', 'status', 'size']
 
 const ASSIGNMENT_FILTERS: readonly AssignmentFilter[] = ['all', 'mine', 'unassigned']
@@ -134,13 +85,10 @@ export function FileFilterMenu({
       <PopoverTrigger asChild>
         <Button
           type="button"
-          // Tonal: it opens the filters, and as bare words „Filter“ read as a label (2026-11-10). The count says when one is on.
           variant="secondary"
           size={compact ? 'icon' : 'sm'}
           className={compact ? 'relative shrink-0' : 'gap-2'}
           data-testid="file-filter-menu-trigger"
-          // The count is IN the accessible name, not only in the pill: a badge a
-          // screen reader does not read is a state change nobody announced.
           aria-label={count > 0 ? t('filters.labelActive', { count }) : t('filters.label')}
         >
           <SlidersHorizontal className="size-4" aria-hidden />
@@ -172,14 +120,8 @@ export function FileFilterMenu({
                 type="single"
                 value={sort.key}
                 onValueChange={(value) => {
-                  // Radix answers '' when the pressed item is pressed again.
-                  // There is no "unordered" listing, so that is ignored rather
-                  // than turned into an arbitrary order.
                   if (SORT_KEYS.includes(value as FileSortKey)) {
                     const key = value as FileSortKey
-                    // A new column takes ITS OWN default direction — names read
-                    // forwards, everything else newest/biggest first — instead
-                    // of inheriting the direction of the column before it.
                     onSortChange({ key, direction: defaultDirectionFor(key) })
                   }
                 }}
@@ -347,8 +289,6 @@ export function FileFilterMenu({
           size="sm"
           className="w-full"
           disabled={count === 0}
-          // The whole set, spelled once: a reset that enumerated the fields by
-          // hand left every filter added afterwards standing.
           onClick={() => onFiltersChange({ ...NO_FILE_FILTERS })}
           data-testid="file-filter-reset"
         >
@@ -371,12 +311,6 @@ function FilterSection({ label, children }: { label: string; children: ReactNode
   )
 }
 
-/**
- * A checkbox and its label as one hit target.
- *
- * `htmlFor` rather than nesting, because Radix's checkbox is a button and a
- * button may not contain the label that activates it.
- */
 function CheckRow({
   id,
   checked,

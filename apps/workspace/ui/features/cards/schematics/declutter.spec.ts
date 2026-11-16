@@ -25,7 +25,6 @@ describe('declutterLabels', () => {
   })
 
   it('moves the lower of two overprinted labels down until they clear', () => {
-    // „GK4-Grenze" over „+11 m": same column, 5px of overlap.
     const upper = box(100, 20)
     const lower = box(100, 27)
     const [first, second] = declutterLabels([upper, lower], BOUNDS)

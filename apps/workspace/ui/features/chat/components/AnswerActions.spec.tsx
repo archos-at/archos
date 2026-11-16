@@ -1,16 +1,3 @@
-/**
- * The answer's way out of the app.
- *
- * What matters here is not that a button exists but WHAT lands on the
- * clipboard: source markdown (numbering, tables, emphasis intact), never the
- * rendered text, and never the internal `[[card:N]]` machinery. Two buttons
- * and a fallback: the with-sources copy when the turn resolved sources, the
- * Word export when the turn is persisted, and a plain copy when a turn has
- * neither — so the row never goes silent, and never promises provenance an
- * answer does not have. Plus the refusal: no silent failure when the
- * clipboard is blocked.
- */
-
 import { render, screen, waitFor } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { vi, describe, test, expect, beforeEach, afterEach } from 'vitest'
@@ -53,10 +40,6 @@ describe('AnswerActions', () => {
     writeText = vi.fn().mockResolvedValue(undefined)
   })
 
-  /**
-   * `userEvent.setup()` installs its own clipboard stub on `navigator`, so ours
-   * has to be written over it AFTERWARDS — same order `CopyCitation.spec` uses.
-   */
   const installClipboard = () => {
     Object.defineProperty(navigator, 'clipboard', {
       value: { writeText },
@@ -68,8 +51,6 @@ describe('AnswerActions', () => {
   const copied = () => writeText.mock.calls[0]![0] as string
 
   test('copies the answer as markdown — numbering, table and emphasis survive', async () => {
-    // A sourceless turn gets the plain-copy fallback — the right surface to
-    // assert the markdown flavor on.
     const user = userEvent.setup()
     render(<AnswerActions content={ANSWER} body={ANSWER} documents={[]} />)
     installClipboard()
@@ -116,11 +97,6 @@ describe('AnswerActions', () => {
   })
 
   test('an uncited answer in a real conversation can still be copied', () => {
-    // The regression: the plain copy used to be withheld from any turn that had
-    // an export, and every persisted turn has one. So an answer with no
-    // resolved citations — a Rückfrage, a conversational reply, an answer whose
-    // citations were all dropped — offered a .docx download and no way to put a
-    // sentence on the clipboard. The download is not a copy.
     render(
       <AnswerActions
         content="Nur Prosa."

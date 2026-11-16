@@ -79,11 +79,9 @@ describe('KnowledgeBasePanel', () => {
     expect(await screen.findByText('oib-rl_1_ausgabe_mai_2023.pdf')).toBeDefined()
     expect(screen.getByText('oib-rl_2_ausgabe_mai_2023.pdf')).toBeDefined()
     expect(screen.getByText('oib-rl_3_ausgabe_mai_2023.pdf')).toBeDefined()
-    // "Indexed" appears both as a summary-tile label and a status badge.
     expect(screen.getAllByText('Indexed').length).toBeGreaterThanOrEqual(1)
     expect(screen.getByText('Outdated')).toBeDefined()
     expect(screen.getByText('Not indexed yet')).toBeDefined()
-    // Generated document summary is surfaced as the subline.
     expect(screen.getByText('Fire safety guideline.')).toBeDefined()
   })
 
@@ -92,7 +90,6 @@ describe('KnowledgeBasePanel', () => {
     render(<KnowledgeBasePanel projectId="proj-1" />)
 
     await screen.findByText('oib-rl_1_ausgabe_mai_2023.pdf')
-    // 128 searchable chunks and 2 files needing attention (1 stale + 1 pending).
     expect(screen.getByText('128')).toBeDefined()
     expect(screen.getByText('Searchable sections')).toBeDefined()
     expect(screen.getByText('Needs attention')).toBeDefined()
@@ -116,8 +113,6 @@ describe('KnowledgeBasePanel', () => {
     expect(await screen.findByText('statik-gutachten.pdf')).toBeDefined()
   })
 
-  // The panel counts and lists the project's documents, so it reads every
-  // page: a first page of 500 used to be the whole project as far as it knew.
   it('lists project documents from every page of the listing', async () => {
     mockEndpoints()
     const doc = (id: string, filename: string) => ({

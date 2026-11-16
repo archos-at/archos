@@ -1,10 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Saved searches: a person sees their own and the office's shared ones, and
- * changes only their own; a colleague's answers 404 like a missing one.
- */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
@@ -34,7 +30,6 @@ const lena = { organizationId: 'org-1', userId: 'user-lena' }
 const PROJECT_SEEN = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
 const PROJECT_HIDDEN = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'
 
-/** The projects Lena may view, as the route reads them. */
 const viewable = (...ids: string[]) => vi.fn(async (): Promise<ReadonlySet<string>> => new Set(ids))
 
 function row(overrides: Partial<SavedSearchRow> = {}): SavedSearchRow {
@@ -52,7 +47,6 @@ function row(overrides: Partial<SavedSearchRow> = {}): SavedSearchRow {
   }
 }
 
-/** What drizzle throws for a unique violation: the driver's error on `cause`. */
 function uniqueViolation(): Error {
   return new Error('Failed query', {
     cause: Object.assign(new Error('duplicate key'), { code: '23505', constraint_name: 'saved_searches_owner_name_key' }),

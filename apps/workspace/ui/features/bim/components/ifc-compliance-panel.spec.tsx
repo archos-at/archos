@@ -1,13 +1,3 @@
-/**
- * The Prüfbuch panel.
- *
- * The data layer already refuses to call a missing value a pass. These
- * assertions are about the second half of that promise: that the UI does not
- * quietly undo it by hiding the rows that make the report incomplete.
- *
- * Rendered in English — the default test locale.
- */
-
 import { describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -118,15 +108,10 @@ function panel(overrides: Partial<React.ComponentProps<typeof IfcCompliancePanel
 
 describe('IfcCompliancePanel', () => {
   it('says so, above the badges, when the catalogue only saw part of the model', () => {
-    // The element loader caps at 50 000 rows. A Prüfbuch that reports counts
-    // over a capped page as though they covered the building is the exact
-    // failure this whole feature exists to prevent — and it ends up in the
-    // BCF export and on a signed confirmation.
     panel({ truncated: true })
 
     const warning = screen.getByText(/the catalogue saw only part of it/i)
     expect(warning).toBeInTheDocument()
-    // Ahead of the counts it invalidates, in the DOM order a reader follows.
     expect(warning.compareDocumentPosition(screen.getByText(/Met/))).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING
     )
@@ -139,9 +124,6 @@ describe('IfcCompliancePanel', () => {
   })
 
   it('offers the open items as a BCF download, counting only the rules with work left', () => {
-    // The count must match what the archive actually carries: `FAILING` has
-    // failures and `UNDECIDABLE` has unknowns; `STOOD_DOWN` is out of scope
-    // and never becomes a topic.
     panel()
 
     const link = screen.getByRole('link', { name: /2 open items as BCF/ })
@@ -156,7 +138,6 @@ describe('IfcCompliancePanel', () => {
   })
 
   it('hides the download when the ledger has nothing to export', () => {
-    // A BCF with no topics is a valid file and a confusing button.
     panel({ rules: [STOOD_DOWN] })
 
     expect(screen.queryByRole('link', { name: /as BCF/ })).not.toBeInTheDocument()
@@ -170,17 +151,12 @@ describe('IfcCompliancePanel', () => {
 
   it('shows the threshold beside every rule, not just the verdict', () => {
     panel()
-    // The architect checks the RULE, not only the result.
     expect(screen.getByText('lichte Durchgangsbreite ≥ 0,80 m')).toBeInTheDocument()
-    // Two rules in this fixture share the Gebäudeklasse threshold, and BOTH
-    // must print it — a rule that stood down still shows what it would apply.
     expect(screen.getAllByText(/GK1 R 30 … GK5 REI 90/)).toHaveLength(2)
   })
 
   it('gives "not decidable" the same weight as a failure', () => {
     panel()
-    // 34 walls whose fire rating is unknown is not a smaller problem than two
-    // narrow doors — it is an unknown one, and the badge row must say both.
     expect(screen.getByText('Not met 1')).toBeInTheDocument()
     expect(screen.getByText('Not decidable 1')).toBeInTheDocument()
   })
@@ -208,7 +184,6 @@ describe('IfcCompliancePanel', () => {
 
   it('shows a rule that stood down, with its reason', () => {
     panel()
-    // Hiding it would make an under-configured project look like a clean one.
     expect(screen.getByText(/Gebäudeklasse in den Projektangaben nicht gesetzt/)).toBeInTheDocument()
   })
 
@@ -216,7 +191,6 @@ describe('IfcCompliancePanel', () => {
     const hint = 'Hinweis: Schwellwerte aus Ausgabe Mai 2023; am Standort gilt Ausgabe April 2019 über StBTV'
     panel({ rules: [FAILING, { ...UNDECIDABLE, hint }], onConfirm: vi.fn() })
     expect(screen.getByText(hint)).toBeInTheDocument()
-    // One confirm button, the failing rule's; the hint's would outlive it.
     expect(screen.getAllByRole('button', { name: 'Confirm manually' })).toHaveLength(1)
     expect(screen.getByRole('link', { name: /One open item as BCF/ })).toBeInTheDocument()
   })
@@ -234,7 +208,6 @@ describe('IfcCompliancePanel', () => {
     panel()
     expect(screen.getByText('Pset_WallCommon.FireRating')).toBeInTheDocument()
     expect(screen.getByText('on 34 elements')).toBeInTheDocument()
-    // No number pretending to be a grade.
     expect(screen.queryByText(/\/100/)).not.toBeInTheDocument()
   })
 
@@ -266,8 +239,6 @@ describe('IfcCompliancePanel', () => {
       panel({ rules: [CONFIRMED] })
       expect(screen.getByText(/Confirmed by a.muster/)).toBeInTheDocument()
       expect(screen.getByText(/Mit dem Brandschutzplaner abgeklärt/)).toBeInTheDocument()
-      // The machine verdict is NOT overwritten — the reader still sees that 34
-      // walls publish nothing.
       expect(screen.getByText(/34 not decidable/)).toBeInTheDocument()
     })
 
@@ -275,7 +246,6 @@ describe('IfcCompliancePanel', () => {
       panel({ rules: [{ ...CONFIRMED, confirmationStale: true }] })
       expect(screen.getByText('Older revision')).toBeInTheDocument()
       expect(screen.getByText(/does not apply to the current revision/)).toBeInTheDocument()
-      // Still recorded: a signature is not deleted by a re-export.
       expect(screen.getByText(/Confirmed by a.muster/)).toBeInTheDocument()
     })
 
@@ -289,11 +259,6 @@ describe('IfcCompliancePanel', () => {
     })
 
     it('lands the reader in the note field they just asked for', async () => {
-      // Pressing "Bestätigen" unmounts the button that was pressed. Without a
-      // focus move the reader is thrown to the top of the enclosing dialog and
-      // has to Tab back through the whole Prüfbuch to reach a textarea that
-      // appeared because of them — a signature a keyboard cannot complete
-      // without counting Tab stops.
       panel({ rules: [rule({ ruleId: 'oib2-fire-resistance-load-bearing', undecidable: 34 })], onConfirm: vi.fn() })
       await userEvent.click(screen.getByRole('button', { name: 'Confirm manually' }))
       expect(document.activeElement).toBe(screen.getByLabelText('Why this is settled'))
@@ -307,10 +272,6 @@ describe('IfcCompliancePanel', () => {
     })
 
     it('asks before deleting a signed record', async () => {
-      // One click used to delete it — permanently, across every revision of
-      // the building, with no confirmation, no undo, and no feedback beyond
-      // the button vanishing. Everything else in this component asks first;
-      // the note form is itself a two-step disclosure.
       const onWithdraw = vi.fn().mockResolvedValue(undefined)
       panel({ rules: [CONFIRMED], onConfirm: vi.fn(), onWithdraw })
 
@@ -333,9 +294,6 @@ describe('IfcCompliancePanel', () => {
     })
 
     it('tells a read-only reader why, rather than telling them to try again', async () => {
-      // The retry can never succeed and the note is retyped each time. The
-      // panel's own prop doc says the write callbacks are absent for a viewer
-      // without `project:edit`; nothing ever omits them.
       const onConfirm = vi.fn().mockRejectedValue(new Error('403'))
       panel({ rules: [rule({ ruleId: 'oib2-fire-resistance-load-bearing', undecidable: 34 })], onConfirm })
 
@@ -345,14 +303,10 @@ describe('IfcCompliancePanel', () => {
 
       expect(await screen.findByText(/cannot be added or withdrawn/)).toBeInTheDocument()
       expect(screen.queryByTestId('bim-confirmation-failed')).not.toBeInTheDocument()
-      // And the note survives, so nothing they typed is lost.
       expect(screen.getByLabelText('Why this is settled')).toHaveValue('Geprüft')
     })
 
     it('says a brief it could not READ was not read, rather than naming gaps in it', () => {
-      // Untested on both sides until now: the hook's `failed` had no assertion
-      // and no caller passed `factsFailed`. The two sentences send the reader
-      // to different places, and only one of them can help.
       panel({
         rules: [rule({ ruleId: 'oib3-room-height', passed: 9 })],
         factsFailed: true,
@@ -363,13 +317,11 @@ describe('IfcCompliancePanel', () => {
     })
 
     it('offers nothing to confirm on a rule the model settled cleanly', () => {
-      // A signature there would be one nobody needs.
       panel({ rules: [rule({ ruleId: 'oib3-room-height', passed: 9 })], onConfirm: vi.fn() })
       expect(screen.queryByRole('button', { name: 'Confirm manually' })).not.toBeInTheDocument()
     })
 
     it('shows a confirmation to a viewer who cannot add one', () => {
-      // Read access is enough to SEE the record; only writing is withheld.
       panel({ rules: [CONFIRMED] })
       expect(screen.getByText(/Confirmed by a.muster/)).toBeInTheDocument()
       expect(screen.queryByRole('button', { name: /Confirm/ })).not.toBeInTheDocument()
@@ -410,10 +362,6 @@ describe('a confirmation that could not be saved', () => {
     )
 
   it('says so, instead of leaving the form open with no explanation', async () => {
-    // The failure used to be invisible: the request rejected, the form stayed
-    // open, and an architect who had just signed off a requirement had every
-    // reason to believe it was recorded. A record of a decision that was never
-    // recorded is the worst thing this surface can produce.
     const user = userEvent.setup()
     panel(() => Promise.reject(new Error('offline')))
 
@@ -422,8 +370,6 @@ describe('a confirmation that could not be saved', () => {
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent(/NOT recorded/i)
-    // And the form stays open, holding the note the person typed, so
-    // "try again" does not mean "type it all again".
     expect(screen.getByTestId('bim-confirm-save')).toBeInTheDocument()
   })
 
@@ -435,10 +381,6 @@ describe('a confirmation that could not be saved', () => {
     await user.click(screen.getByTestId('bim-confirm-open'))
     await user.click(screen.getByTestId('bim-confirm-save'))
 
-    // Awaited on a POSITIVE signal first. Its sibling above needs
-    // `findByRole('alert')` to see the failure, i.e. the alert arrives a tick
-    // later — so asserting its ABSENCE synchronously would stay green for a
-    // regression that surfaced it on the next tick.
     await waitFor(() => expect(onConfirm).toHaveBeenCalled())
     await waitFor(() => expect(screen.queryByTestId('bim-confirm-save')).not.toBeInTheDocument())
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()

@@ -104,8 +104,6 @@ describe('PhoneProjectList', () => {
     const list = open()
     const recent = within(list).getByRole('region', { name: 'Recently opened' })
     const rows = within(recent).getAllByRole('button')
-    // A row is the project's name alone: initials beside a name say nothing
-    // the name does not (they stand only in the icon rail, where no name fits).
     expect(rows.map((row) => row.textContent)).toEqual(['Bürohaus Lände', 'Amtshaus Favoriten'])
     expect(rows[1]).toHaveAttribute('aria-current', 'true')
     for (const row of rows) expect(row.className).toContain('min-h-14')

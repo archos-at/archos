@@ -4,18 +4,14 @@ import { act, fireEvent, render, screen, waitFor } from '@/test-utils'
 
 import type { InboxItemView } from '@/lib/inbox/types'
 
-// The undo toast is the contract; sonner is stubbed so its action can be pressed.
 const toastMock = vi.hoisted(() => vi.fn())
 vi.mock('sonner', () => ({ toast: toastMock }))
 
-// The data hooks are already built and tested; this spec is about the four states
-// the list can be in and the controls around them, so the hook is stubbed.
 vi.mock('../hooks/use-inbox', () => ({
   useInboxList: vi.fn(),
   useInboxBadge: vi.fn(),
 }))
 
-/** The page's address, played by the test: the Postfach's own, with whatever query it carries. */
 const page = vi.hoisted(() => ({ pathname: '/app/inbox', search: '' }))
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), back: vi.fn(), refresh: vi.fn(), prefetch: vi.fn() }),
@@ -38,11 +34,6 @@ import { PRODUCT_NAME } from '@/lib/brand'
 const useInboxListMock = vi.mocked(useInboxList)
 const useInboxBadgeMock = vi.mocked(useInboxBadge)
 
-/**
- * „Für mich“, the default, is the queue (`InboxQueue`, its own spec); the
- * flat list these specs exercise is „Alle“ and „Archiviert“. So the address
- * names „Alle“ unless a spec is about „Für mich“ and clears it.
- */
 beforeEach(() => {
   page.search = 'filter=all'
   useInboxBadgeMock.mockReturnValue({ pending: 0, connected: true, refresh: vi.fn() })
@@ -106,7 +97,6 @@ const ITEM: InboxItemView = {
   updatedAt: '2026-07-29T09:00:00Z',
 }
 
-/** Default locale in an unprovided test tree is `en`. */
 describe('InboxList — filters', () => {
   beforeEach(() => {
     useInboxListMock.mockReturnValue(result({ items: [ITEM], pending: 1 }))
@@ -115,7 +105,6 @@ describe('InboxList — filters', () => {
   test('defaults to "needs me", which reads what the badge counts: open requests and anything unread', () => {
     page.search = ''
     render(<InboxList />)
-    // The queue reads its two questions; the flat list's own read idles.
     expect(useInboxListMock).toHaveBeenCalledWith(true, 'requests', expect.anything())
     expect(useInboxListMock).toHaveBeenCalledWith(true, 'unread', expect.anything())
     expect(useInboxListMock).not.toHaveBeenCalledWith(true, 'pending')
@@ -148,7 +137,6 @@ describe('InboxList — filters', () => {
       render(<InboxList />)
       fireEvent.click(screen.getByRole('radio', { name: 'All' }))
       expect(replaceState).toHaveBeenLastCalledWith(null, '', '/app/inbox?tab=x&filter=all')
-      // „Needs me“ is the default, and the address does not say it.
       fireEvent.click(screen.getByRole('radio', { name: /Needs me/ }))
       expect(replaceState).toHaveBeenLastCalledWith(null, '', '/app/inbox?tab=x')
     } finally {
@@ -199,8 +187,6 @@ describe('InboxList — filters', () => {
   })
 
   test('„Needs me“ carries the badge’s own number, and no pill at zero', () => {
-    // The bell and the tab said different numbers (18 and 8): the tab counted
-    // requests alone. It says what the badge says now, whichever filter is open.
     useInboxBadgeMock.mockReturnValue({ pending: 7, connected: true, refresh: vi.fn() })
     page.search = ''
     const { unmount } = render(<InboxList />)
@@ -231,8 +217,6 @@ describe('InboxList — states', () => {
   })
 
   test('a read that fails with rows on screen keeps the rows', () => {
-    // A background re-read (a live nudge, the poll) that failed once used to
-    // replace a working list with the load error.
     page.search = 'filter=all'
     useInboxListMock.mockReturnValue(result({ items: [ITEM], error: true }))
     render(<InboxList />)
@@ -250,7 +234,6 @@ describe('InboxList — states', () => {
     const older = screen.getAllByTestId('inbox-section')[1]
     useInboxListMock.mockReturnValue(result({ items: [old] }))
     rerender(<InboxList />)
-    // Keyed by its place it became „the first section“ and was built again: its rows jumped instead of closing the gap.
     expect(screen.getAllByTestId('inbox-section')).toContain(older)
     page.search = ''
   })
@@ -282,8 +265,6 @@ describe('InboxList — states', () => {
   test('announces the count politely, without reading the list aloud (NF-3)', () => {
     useInboxListMock.mockReturnValue(result({ items: [ITEM], pending: 1 }))
     render(<InboxList />)
-    // The live region is a small status node. It used to be the list container,
-    // so every filter change and every archive re-announced all fifty rows.
     expect(screen.getByTestId('inbox-list')).not.toHaveAttribute('aria-live')
     const status = screen.getByRole('status')
     expect(status).toHaveAttribute('aria-live', 'polite')
@@ -292,9 +273,6 @@ describe('InboxList — states', () => {
   })
 
   test('says nothing when nothing needs the reader', () => {
-    // The region is re-read on every filter change and every archive, so an empty
-    // queue used to interrupt with "0 items need your attention" — an
-    // announcement about nothing, repeated.
     useInboxListMock.mockReturnValue(result({ items: [], pending: 0 }))
     render(<InboxList />)
     expect(screen.getByRole('status')).toHaveTextContent('')
@@ -302,15 +280,11 @@ describe('InboxList — states', () => {
   })
 
   test('a refused action is reported beside the list, not instead of it', () => {
-    // Archiving a row a second tab already archived used to replace every row
-    // with "Your inbox could not be loaded." — which had not happened.
     useInboxListMock.mockReturnValue(result({ items: [ITEM], pending: 1, mutationError: true }))
     render(<InboxList />)
     expect(screen.getAllByTestId('inbox-item')).toHaveLength(1)
     expect(screen.getByText(/That action could not be completed/)).toBeInTheDocument()
     expect(screen.queryByText('Your inbox could not be loaded.')).not.toBeInTheDocument()
-    // The refusal path does not re-read the list, so the alert must not claim it
-    // did: the rows on screen are the ones that were already there.
     expect(refresh).not.toHaveBeenCalled()
     expect(screen.getByText(/Your inbox is unchanged\./)).toBeInTheDocument()
   })
@@ -511,7 +485,6 @@ describe('InboxList — the focus when a refresh drops its row', () => {
   const SECOND: InboxItemView = { ...ITEM, id: 'i2', actorName: 'Markus Hofer', actorUserId: 'u-markus' }
   const THIRD: InboxItemView = { ...ITEM, id: 'i3', actorName: 'Lena Berger', actorUserId: 'u-lena' }
   const rowOf = (id: string) => document.querySelector<HTMLElement>(`[data-item-id="${id}"]`)
-  /** The row's own control holds the focus, as the outcome line does after „Erledigen“. */
   const focusIn = (id: string) => {
     const control = rowOf(id)?.querySelector<HTMLElement>('a, button') ?? rowOf(id)
     act(() => control?.focus())
@@ -522,7 +495,6 @@ describe('InboxList — the focus when a refresh drops its row', () => {
     useInboxListMock.mockReturnValue(result({ items: [ITEM, SECOND, THIRD], pending: 3 }))
     const { rerender } = render(<InboxList />)
     focusIn('i2')
-    // The mark was resolved: the next read of open requests leaves its row out.
     useInboxListMock.mockReturnValue(result({ items: [ITEM, THIRD], pending: 2 }))
     rerender(<InboxList />)
     await waitFor(() => expect(document.activeElement).toBe(rowOf('i3')))

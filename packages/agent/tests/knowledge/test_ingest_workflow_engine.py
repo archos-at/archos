@@ -1,20 +1,3 @@
-"""The ``ingest-document`` workflow on a real Hatchet engine: the main evidence for the Hatchet layer.
-
-Runs only when ``HATCHET_CLIENT_TOKEN`` and ``HATCHET_CLIENT_HOST_PORT`` name an
-engine (CI runs ``hatchet-lite`` as a service container); skipped otherwise.
-Each run gets its own namespace, so it shares the engine with nothing.
-
-One worker process (``agent_testing.orchestrator_engine_worker``) serves the real
-workflow, four slots, with ``INGEST_MAX_PER_ORG=2``; only the ingestor in it is
-scripted. The tests trigger runs through ``ingest_workflow.trigger`` and read the
-outcome from the status store the BFF reads, the engine's run status, and the
-worker's log of each attempt.
-
-Locally: ``docker run -p 8888:8888 -p 7077:7077 ghcr.io/hatchet-dev/hatchet/hatchet-lite``,
-create a token in its UI, then set ``HATCHET_CLIENT_TOKEN``,
-``HATCHET_CLIENT_HOST_PORT=localhost:7077`` and ``HATCHET_CLIENT_TLS_STRATEGY=none``.
-"""
-
 from __future__ import annotations
 
 import os
@@ -37,7 +20,6 @@ _WAIT_SECONDS = 120
 
 @pytest.fixture(scope="module")
 def engine(tmp_path_factory):
-    """A namespace of our own, a status store both processes share, and the worker serving the workflow."""
     from agent.common import orchestrator_client
     from agent.knowledge import ingest_status_store
     from agent.knowledge import ingest_workflow
@@ -75,11 +57,6 @@ def engine(tmp_path_factory):
 
 
 def _wait_for_worker(directory: Path) -> None:
-    """The worker has registered once a warm-up run completes through it.
-
-    A trigger before the worker registered the workflow is refused, so the
-    warm-up is retried until the workflow exists.
-    """
     deadline = time.monotonic() + _WAIT_SECONDS
     while True:
         try:
@@ -182,7 +159,6 @@ def test_a_cancelled_job_stops_and_reads_cancelled(engine):
 
 
 def test_a_burst_from_one_office_waits_its_turn_and_never_exceeds_its_cap(engine):
-    """Office A uploads ten slow files, then office B one: B starts while A's backlog still waits."""
     burst = [_start("slow", "org-a") for _ in range(10)]
     single = _start("slow", "org-b")
 
@@ -191,10 +167,8 @@ def test_a_burst_from_one_office_waits_its_turn_and_never_exceeds_its_cap(engine
     events = _events(engine)
     starts = {job: at for event, job, _, at in events if event == "start"}
     ends = {job: at for event, job, _, at in events if event == "end"}
-    # B did not wait behind A's backlog: it started before the last of A's jobs.
     assert starts[single] < max(starts[job] for job in burst)
     assert starts[single] - min(starts[job] for job in burst) < 2 * 3.0 + 5
-    # A never had more than its cap running at once, though the worker had four slots.
     edges = sorted([(starts[job], 1) for job in burst] + [(ends[job], -1) for job in burst])
     running = peak = 0
     for _, step in edges:

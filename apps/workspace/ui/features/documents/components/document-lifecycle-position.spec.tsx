@@ -1,13 +1,3 @@
-/**
- * Where the document stands, said unconditionally.
- *
- * The sentence is what the stand MEANS for answers, not a restatement of the
- * state word: only a published version is the basis Piloti answers from, so a
- * version in review says which version answers come from meanwhile. The track
- * beside it puts the state's word in an order rather than leaving it as a label
- * the reader had to have been taught.
- */
-
 import { describe, expect, it } from 'vitest'
 import { render, screen } from '@/test-utils'
 import type { DocumentVersionState } from '@/lib/documents/lifecycle-types'
@@ -45,10 +35,6 @@ describe('DocumentLifecyclePosition — the sentence', () => {
   })
 
   it('lets the item win over the version once it is retired', () => {
-    // „Stillgelegt" is a statement about the FILE. Which version was live when
-    // it left the working set is not the question somebody who found it anyway
-    // is asking. And it is NOT „archived": the Archiv is where a document goes
-    // to become office knowledge, which is the opposite of this.
     render(<DocumentLifecyclePosition version={version('published')} lifecycle="archived" />)
 
     expect(screen.getByTestId('document-lifecycle-meaning')).toHaveTextContent('Retired')
@@ -76,7 +62,6 @@ describe('DocumentLifecyclePosition — the track', () => {
     const track = screen.getByTestId('document-lifecycle-track')
     expect(track).toHaveAttribute('data-reached', '3')
     expect(track.querySelectorAll('[data-done]')).toHaveLength(3)
-    // Four segments, always: the stages are the model, not a bar that grows.
     expect(track.children).toHaveLength(4)
   })
 
@@ -89,7 +74,6 @@ describe('DocumentLifecyclePosition — the track', () => {
     )
 
     const track = screen.getByTestId('document-lifecycle-track')
-    // Back at the draft it came from — one segment, and halted.
     expect(track).toHaveAttribute('data-reached', '1')
     expect(track).toHaveAttribute('data-halted', 'true')
   })

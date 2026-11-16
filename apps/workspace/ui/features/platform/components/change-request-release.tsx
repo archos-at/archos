@@ -1,14 +1,5 @@
 'use client'
 
-/**
- * The next step of one change request once its claims are decided (ADR-0165,
- * ADR-0176): approve, approve alone, give or dispute a due second review,
- * publish to preview, then to stable, roll back. Each asks first, and each is
- * the person's own decision on the existing decide, publish and rollback
- * routes; four eyes stays the server's. The review dialog and the law map's
- * outline both end with it, so a request is released the same way from either.
- */
-
 import type { JSX } from 'react'
 import { useState } from 'react'
 import { toast } from 'sonner'
@@ -29,16 +20,13 @@ const BASE = '/api/platform/knowledge/change-requests'
 
 export type ReleaseStep = 'approve' | 'reject' | 'preview' | 'stable' | 'rollback' | 'alone' | 'confirm' | 'dispute'
 
-/** Where a due second review is given, as the server has it (`decide.ts`). */
 export const REVIEWED_AFTER_APPROVAL: readonly ChangeRequestStatus[] = ['approved', 'published', 'rolled_back']
 
-/** The route's own words for a refusal, or the status. */
 export async function refusal(response: Response): Promise<string> {
   const body = (await response.json().catch(() => null)) as { error?: string; detail?: string } | null
   return body?.error ?? body?.detail ?? String(response.status)
 }
 
-/** Where the request stands, as the rail's step and the sentence under it. */
 export function stageOf(view: ChangeRequestView, open: number, wrong: number): { index: number; say: string } {
   const previewed = view.releases.some((move) => move.channel === 'preview' && move.action === 'publish')
   if (view.status === 'submitted') return { index: open > 0 || wrong > 0 ? 0 : 1, say: wrong > 0 ? 'wrong' : open > 0 ? 'check' : 'approve' }
@@ -47,7 +35,6 @@ export function stageOf(view: ChangeRequestView, open: number, wrong: number): {
   return { index: -1, say: view.status }
 }
 
-/** Open, accepted and wrong claims of the request: what decides whether it may be approved. */
 export function claimCounts(view: ChangeRequestView): { total: number; checked: number; wrong: number; open: number } {
   const claims = view.revisions.flatMap((revision) => revision.claims)
   const checked = claims.filter((claim) => claim.decision === 'accepted').length
@@ -62,7 +49,6 @@ export function ReleaseBar({ view, canManage, onChanged, className }: { view: Ch
   const [reason, setReason] = useState('')
   const { user } = useAuth()
   const canApproveAlone = usePlatformCan(PLATFORM_PERMISSIONS.knowledgeApproveAlone)
-  // Each second review is given in a role approved alone that the reviewer holds (ADR-0176).
   const holds: Record<ApprovalRole, boolean> = {
     domain_expert: usePlatformCan(PLATFORM_PERMISSIONS.knowledgeApproveAsDomainExpert),
     counsel: usePlatformCan(PLATFORM_PERMISSIONS.knowledgeApproveAsCounsel),
@@ -71,16 +57,13 @@ export function ReleaseBar({ view, canManage, onChanged, className }: { view: Ch
 
   const { open, wrong } = claimCounts(view)
   const stage = stageOf(view, open, wrong)
-  // Keyed off status as the server is: only an approved request (or later) takes its second review.
   const secondReviewDue = view.secondReview?.state === 'due' && REVIEWED_AFTER_APPROVAL.includes(view.status)
   const disputed = view.secondReview?.state === 'disputed'
   const authored = Boolean(user?.id) && view.revisions.some((revision) => revision.createdBy === user?.id)
   const dueRoles = (view.secondReviewRoles ?? []).filter((role) => role.state === 'due').map((role) => role.role)
   const reviewRole = dueRoles.find((role) => holds[role]) ?? null
   const canReview = canManage && secondReviewDue && !authored && reviewRole !== null
-  // The UI approves as domain expert; once that role is approved, alone or not, another override can only answer 409.
   const approvedAsExpert = view.approvals.some((approval) => approval.role === 'domain_expert')
-  // A pasted page nobody else checked refuses an approval alone too (migration 0218): another person checks it first.
   const offerAlone = canManage && canApproveAlone && authored && view.status === 'submitted' && wrong === 0 && !approvedAsExpert && !view.sourcesUnchecked
 
   const primary: { step: ReleaseStep; enabled: boolean; why?: string } | null = !canManage
@@ -90,7 +73,6 @@ export function ReleaseBar({ view, canManage, onChanged, className }: { view: Ch
       : view.status === 'submitted'
         ? {
             step: 'approve',
-            // An author's plain approve can only be refused (four eyes): another person approves, or checks the pasted page first.
             enabled: open === 0 && wrong === 0 && !authored,
             why:
               wrong > 0

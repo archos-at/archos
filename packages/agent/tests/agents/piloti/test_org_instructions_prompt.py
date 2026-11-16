@@ -1,22 +1,3 @@
-"""The office's standing instructions: header → state → prompt, and where they land.
-
-This block is what replaced forcing a skill onto a turn. A standing
-instruction — "Antworten kurz", "immer die Bauordnung zuerst" — is prompt text:
-always present, costing no tool call, and impossible to half-apply, which is
-exactly what a forced `use_skill` call could not promise.
-
-Three things about it are load-bearing and each has a test here:
-
-* it reaches the model at all (the lift, which is where `research_truncated`
-  was once set, declared by the frontend and read by nobody for months);
-* it sits BELOW the KV-cache boundary, because it varies per tenant and
-  everything above the marker is the same bytes for every organization on the
-  deployment;
-* it is framed as a preference and never as a source, and the STATIC half of
-  the prompt says so too — a rule that lives only next to the tenant's own text
-  is a rule the tenant's own text sits beside rather than under.
-"""
-
 from langchain_core.messages import HumanMessage
 
 from agent.agents.piloti.models import ResearchAgentState
@@ -43,8 +24,6 @@ class TestTheBlockReachesTheModel:
         assert "Immer die Wiener Bauordnung zuerst prüfen." in rendered
 
     def test_no_instructions_renders_no_section(self):
-        """An empty heading is a worse answer than no heading: it tells the
-        model the office said something and then shows it nothing."""
         rendered = _render()
 
         assert HEADING not in rendered
@@ -61,27 +40,16 @@ class TestTheBlockReachesTheModel:
 
 class TestWhereItSits:
     def test_it_is_below_the_kv_cache_boundary(self):
-        """Tenant-varying text above the marker would break prompt caching for
-        every turn of every other organization on the deployment."""
         rendered = _render(org_instructions=INSTRUCTIONS)
 
         assert rendered.index(HEADING) > rendered.index(BOUNDARY_ANCHOR)
 
     def test_the_project_brief_keeps_its_place_at_the_bottom(self):
-        """`<project_grounding>` says the Project Context is "at the bottom",
-        and the office block must not have quietly taken that position."""
         rendered = _render(org_instructions=INSTRUCTIONS, project_context="Wien, Neubau, GK 4.")
 
         assert rendered.index(HEADING) < rendered.index("## Project Context")
 
     def test_the_static_half_says_the_rules_win(self):
-        """The precedence rule is in the system prompt, not only in the turn context.
-
-        Stated only beside the office's own text, it would be a sentence the
-        tenant's instructions sit next to; stated in `<rules>`, it is one the
-        model has read before it reaches them — and it is there whether or not
-        this organization sent anything.
-        """
         from agent.agents.piloti.prompt import bundled_static_block
 
         rules = bundled_static_block().text.split("<rules>")[1].split("</rules>")[0]
@@ -100,8 +68,6 @@ class TestTheLift:
         assert "org_instructions" in RequestContext.__dataclass_fields__
 
     def test_the_conversation_state_hands_it_to_the_research_state(self):
-        """The graph edge the field has to survive: a value that stops at the
-        conversation state is a value the answering agent never reads."""
         from agent.agents.piloti.conversation import ConversationGraph
         from agent.agents.piloti.models.conversation import ConversationState
 

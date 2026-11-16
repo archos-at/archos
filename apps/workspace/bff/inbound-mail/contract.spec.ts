@@ -1,11 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The Worker ↔ webhook contract is held to `contracts/inbound-mail-contract.json`,
- * which the Email Worker's spec reads too: a value changed on one side only
- * would bounce mail the webhook meant to hold, or retry mail it meant to bounce.
- */
 import { existsSync, readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { describe, expect, it } from 'vitest'

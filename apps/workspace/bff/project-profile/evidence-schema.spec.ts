@@ -1,13 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * `evidence` and `alternatives` on a fact or an assumption (ADR-0111) are
- * optional and lenient: a malformed list is dropped and the value kept, because
- * `salvage.ts` parses a stored profile fact by fact and a bad evidence entry
- * must not cost the fact. And they survive the profile's one door, the patch
- * engine, which re-parses the whole profile on every write.
- */
 import { describe, expect, it } from 'vitest'
 import { applyProjectProfilePatch, emptyProjectProfile } from './patch-engine'
 import { salvageProjectProfile } from './salvage'
@@ -144,7 +137,6 @@ describe('evidence on the profile', () => {
     expect(next.facts['escape_level_m@bldg1']?.alternatives).toEqual([OTHER])
     expect(next.assumptions['building_class@bldg1']?.evidence).toEqual([DERIVED])
 
-    // And a second pass, as every later write re-parses the stored profile.
     const again = applyProjectProfilePatch(JSON.parse(JSON.stringify(next)) as ProjectProfile, [])
     expect(again).toEqual(next)
   })

@@ -2,10 +2,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The committed JSON Schema is what the Python job worker's envelope client is
- * tested against. REWRITES the fixture when `UPDATE_FIXTURES=1`, otherwise compares.
- */
 import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'

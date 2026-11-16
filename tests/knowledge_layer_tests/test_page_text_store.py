@@ -1,5 +1,3 @@
-"""A version's page text, stored beside its file (ADR-0134): the contract the agent's file reader reads."""
-
 from __future__ import annotations
 
 import json

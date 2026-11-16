@@ -1,9 +1,3 @@
-/**
- * An upload surface's tie to the orchestrator: the shelf's live hint is passed
- * on as `askNow` while a read is in flight, on this shelf's channel only, and
- * a chat's attachments open no channel.
- */
-
 import { renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest'
 import { scriptedChannels, type ScriptedChannels } from '@/test-utils/live-channels'

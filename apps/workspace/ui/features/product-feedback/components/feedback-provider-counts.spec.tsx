@@ -61,7 +61,6 @@ describe('FeedbackProvider', () => {
 
   test('reads the count when the shell mounts, and again when the modal closes', async () => {
     const user = userEvent.setup()
-    // One reply waits; once the member has read it (inside the modal) the server says none.
     const list = vi.fn().mockResolvedValueOnce(empty(1)).mockResolvedValue(empty(0))
     const api: FeedbackThreadsApi = {
       list,

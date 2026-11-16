@@ -5,13 +5,6 @@ import type { FileItem } from '../file-types'
 import { AgentReading } from './agent-reading'
 import { PRODUCT_NAME } from '@/lib/brand'
 
-/**
- * What Piloti made of a citable document: the facts line, the type and
- * discipline chips it assigned, and the way to correct them. The editor it
- * opens is specced on its own in `document-tags-editor.spec.tsx`; here it is
- * only checked that the reading opens it, closes it and lets go of it when
- * the reader moves to another file.
- */
 const fileFixture = (overrides: Partial<FileItem> = {}): FileItem => ({
   id: 'doc-1',
   filename: 'plan.pdf',

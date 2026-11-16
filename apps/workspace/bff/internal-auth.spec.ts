@@ -3,17 +3,6 @@
  * @vitest-environment node
  */
 
-/**
- * The service token's outbound half: one producer, one missing-token policy,
- * and a ratchet that keeps a second producer from coming back.
- *
- * The header used to be written at sixteen call sites with three policies
- * nobody chose: send an empty token, throw a 503, or quietly omit it. The
- * backend refuses every one of those requests that lacks a valid token
- * (`apps/agent-host/src/agent_host/routes/internal_auth.py`), so the empty
- * header only bought a misleading 403.
- */
-
 import { readdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import ts from 'typescript-api'
@@ -60,7 +49,6 @@ describe('internalServiceHeaders', () => {
 
 const UI_ROOT = path.resolve(__dirname, '..')
 const PRODUCER = 'bff/internal-auth.ts'
-/** Files that name the header only to strip it from what a browser sends, never to send it. */
 const STRIPS_IT = new Set(['bff/proxy/ws-upgrade-headers.js'])
 const HEADER = 'x-internal-token'
 
@@ -73,7 +61,6 @@ function sourceFiles(dir: string): string[] {
   })
 }
 
-/** Every string literal in `file` that spells the header, in any case. Comments do not count. */
 function headerLiterals(file: string): number {
   const text = readFileSync(file, 'utf8')
   if (!text.toLowerCase().includes(HEADER)) return 0

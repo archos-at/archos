@@ -57,7 +57,6 @@ const REGION = { page: 2, x: 0.2, y: 0.3, w: 0.1, h: 0.25, label: 'Wand verschob
 
 beforeEach(() => {
   vi.resetAllMocks()
-  // Where people sign in, a session's flags decide (`lib/authz/feature-flags.ts`).
   vi.stubEnv('REQUIRE_AUTH', 'true')
   vi.mocked(resolvePinnedRequesterSession).mockResolvedValue(session)
   vi.mocked(findDocumentInOrg).mockImplementation(async (id) => [NEWER, OLDER].find((d) => d.id === id) ?? null)

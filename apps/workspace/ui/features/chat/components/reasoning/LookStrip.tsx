@@ -1,11 +1,5 @@
 'use client'
 
-/**
- * The thumbnails of one document's looks (ADR-0128), drawn under the row that
- * made them. Every thumbnail opens the document at its place with the box
- * glowing, as the look card's items do (`PagePlaceButton`).
- */
-
 import type { FC } from 'react'
 import { PagePlaceButton } from '@/features/knowledge/components/page-place-button'
 import { useTranslations, type Translator } from '@/i18n'
@@ -13,20 +7,17 @@ import { chatCopy } from '@/i18n/namespaces/chat'
 import type { LookStepGroup, LookStepPlace } from '../../lib/look-steps'
 import { regionWords } from '../../lib/work-sentence'
 
-/** A strip thumbnail's size, in CSS pixels. */
 export const STRIP_WIDTH = 132
 export const STRIP_MAX_HEIGHT = 96
 
 const colorOf = (group: LookStepGroup): string =>
   `var(--source-${group.document.shelf === 'base' ? 'law' : 'project'})`
 
-/** „S. 2, oben rechts“. */
 export const placeLine = (t: Translator, look: LookStepPlace): string =>
   look.where
     ? t('thinking.look.place', { page: look.place.page, where: regionWords(t, look.where) })
     : t('thinking.look.placeWhole', { page: look.place.page })
 
-/** The thumbnails of one document's looks; each opens the place. */
 export const LookStrip: FC<{ group: LookStepGroup; eager?: boolean; className?: string }> = ({
   group,
   eager,

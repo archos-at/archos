@@ -1,13 +1,3 @@
-"""The chat wire v2 contract, read from this side (``docs/design/chat-wire-v2.md``).
-
-The fixtures under ``contracts/wire/v2/`` are recorded turns, one event per line.
-``apps/workspace/ui/adapters/api/wire-v2.spec.ts`` reads the same files with the
-generated zod schemas, so a field the two sides disagree on fails one of the two
-suites. What this side adds: the frame the server would write for a fixture is
-the fixture itself (defaults omitted, discriminators kept), the ordering rules
-of a turn hold, and the committed JSON Schema is the one the models generate.
-"""
-
 from __future__ import annotations
 
 import json
@@ -74,13 +64,11 @@ def test_a_turn_is_one_ordered_sequence(path: Path) -> None:
     terminal = [n for n, event in enumerate(events) if event["type"] in TERMINAL]
     assert len(terminal) == 1
     after = events[terminal[0] + 1 :]
-    # Only the post-answer stages outlive the turn; a heartbeat never does.
     assert all(event["type"] == "CUSTOM" and event["name"] == "stage" for event in after)
 
 
 @pytest.mark.parametrize("path", TURNS, ids=[path.name for path in TURNS])
 def test_a_subagent_s_work_lies_between_its_start_and_its_end(path: Path) -> None:
-    """AG-UI 1.0: a step names an open invocation, a nested one an open parent, and each closes once."""
     open_runs: set[str] = set()
     closed: set[str] = set()
     for event in _lines(path):
@@ -113,10 +101,6 @@ def test_every_client_message_parses(raw: dict[str, Any]) -> None:
 
 @pytest.mark.parametrize("raw", _lines(FIXTURES / "invalid-events.jsonl") + _lines(FIXTURES / "newer-events.jsonl"))
 def test_what_is_not_a_v2_event_is_refused(raw: dict[str, Any]) -> None:
-    # newer-events.jsonl is drift a newer server might send: an unknown key, an
-    # unknown event type, step kind or CUSTOM name. The client reads it
-    # (wire-v2.spec.ts); this server never writes it, because its models
-    # forbid what they do not name.
     with pytest.raises(ValidationError):
         WIRE_EVENT.validate_python(raw)
 
@@ -166,7 +150,6 @@ def test_the_committed_schema_is_the_one_the_models_generate() -> None:
 @pytest.mark.parametrize("raw", _lines(FIXTURES / "hello.jsonl"))
 def test_the_hello_is_the_frame_the_server_writes_and_no_turn_event(raw: dict[str, Any]) -> None:
     assert to_frame(HELLO.validate_python(raw)) == raw
-    # A reader that folds turns must never mistake it for one: it names no turn.
     with pytest.raises(ValidationError):
         WIRE_EVENT.validate_python(raw)
 
@@ -185,19 +168,9 @@ def test_a_hello_in_another_dialect_is_refused(raw: dict[str, Any]) -> None:
 
 
 def test_a_turn_still_ends_only_on_the_terminals_old_tabs_know() -> None:
-    """Pin the event types, so a new one is a decision, not an accident.
-
-    A tab running an older bundle skips any event type it does not know (the
-    client folds it as a no-op so ``seq`` stays continuous; chat-wire-v2.md,
-    "Compatibility: additive changes are safe"). That makes a new type safe
-    unless it ENDS a turn: old tabs would skip it and wait on the watchdog. A
-    turn must keep ending with ``RUN_FINISHED`` or ``RUN_ERROR``. Adding a type
-    here means checking it is not a terminal before extending the set.
-    """
     import typing
 
     def models(annotated: Any) -> list[Any]:
-        # `CustomEvent` is itself an Annotated union, discriminated by `name`.
         union = typing.get_args(annotated)[0]
         return [
             m
@@ -214,8 +187,6 @@ def test_a_turn_still_ends_only_on_the_terminals_old_tabs_know() -> None:
         "STATE_SNAPSHOT",
         "STEP_STARTED",
         "STEP_FINISHED",
-        # AG-UI 1.0's subagent lifecycle: none of the three ends a turn, and a
-        # SUBAGENT_ERROR is deliberately not RUN_ERROR (the turn goes on).
         "SUBAGENT_STARTED",
         "SUBAGENT_FINISHED",
         "SUBAGENT_ERROR",
@@ -227,8 +198,6 @@ def test_a_turn_still_ends_only_on_the_terminals_old_tabs_know() -> None:
 
 
 class TestFocusRegion:
-    """The box on the review canvas: the JSON Schema cannot say x + w <= 1, so the model does."""
-
     def _message(self, **region) -> dict:
         box = {"page": 1, "x": 0.1, "y": 0.1, "w": 0.2, "h": 0.2, **region}
         return {
@@ -256,8 +225,6 @@ class TestFocusRegion:
 
 
 class TestViewerAction:
-    """A viewer action (ADR-0144): the allow-list and what each action needs, which the JSON Schema cannot say."""
-
     def _value(self, name: str, **args) -> dict:
         return {
             "tool_call_id": "va_1",

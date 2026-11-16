@@ -16,11 +16,8 @@ vi.mock('server-only', () => ({}))
 
 const state = vi.hoisted(() => ({
   reach: [] as Project[],
-  /** Per project id, the restricted collections the reader is cleared for. */
   cleared: new Map<string, string[]>(),
-  /** What the backend was asked, per call. */
   asked: [] as string[][],
-  /** What each backend call's request context was signed for. */
   signed: [] as Array<{ collectionScope?: unknown[]; organizationId?: string }>,
 }))
 
@@ -98,7 +95,6 @@ beforeEach(() => {
 
 describe('the backend’s collection cap', () => {
   it('stops adding projects before the collections pass it, the reader’s own project and the Büroablage kept', async () => {
-    // 30 projects of 40 collections each would be 1 200 collections.
     for (const project of state.reach) state.cleared.set(project.id, restricted(project, 39))
 
     const response = await findSimilarPassages(session, request)
@@ -108,7 +104,6 @@ describe('the backend’s collection cap', () => {
     expect(collections.length).toBeLessThanOrEqual(BACKEND_SEARCH_MAX_COLLECTIONS)
     expect(collections.slice(0, 40)).toEqual(['proj_1', ...restricted(state.reach[0], 39)])
     expect(collections).toContain('archiv_org_1')
-    // The reader's own and eleven others fit (12 × 40 = 480, plus the Büroablage); the thirteenth would pass.
     expect(response.projectsSearched).toBe(11)
   })
 
@@ -153,7 +148,6 @@ describe('projectId', () => {
     const without = await findSimilarPassages(session, legal)
     const within = await findSimilarPassages(session, { ...legal, projectId: 'p3' })
 
-    // Nine projects either way: the current one is walked first, the count is of the others.
     expect(state.asked[0].slice().sort()).toEqual(state.asked[1].slice().sort())
     expect(state.asked[1][0]).toBe('proj_3')
     expect([without.projectsSearched, within.projectsSearched]).toEqual([9, 8])

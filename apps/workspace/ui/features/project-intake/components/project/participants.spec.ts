@@ -1,10 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The Beteiligte as one list: the Steckbrief decides who is on it, the roster
- * adds the role, and nobody's own access is offered for change.
- */
 import { describe, expect, test } from 'vitest'
 import type { ProjectRoster } from '@/lib/projects/participants-client'
 import { PROJECT_STEP_FIXTURES } from '@/app/dev/_fixtures/project-setup-project'

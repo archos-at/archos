@@ -1,11 +1,3 @@
-/**
- * Render tests for the DocumentAnswerCard — the chat surfacing card that presents
- * REAL project/Büroablage files. Focus: surfaced file names resolve to their
- * live document rows (project + Archiv), the card shows the human summary
- * (never the retrieval snippet / score), and a file that no longer resolves
- * degrades to a lean "not available" card instead of vanishing or crashing.
- */
-
 import { afterEach, describe, expect, it } from 'vitest'
 import { render, screen, waitFor } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
@@ -61,7 +53,6 @@ describe('DocumentAnswerCard', () => {
           canManage: false,
         }),
       ),
-      // Thumbnails fail → deterministic SVG sketch fallback (no backend needed).
       http.get('/api/documents/:id/thumbnail', () => HttpResponse.json({}, { status: 404 })),
     )
 
@@ -92,7 +83,6 @@ describe('DocumentAnswerCard', () => {
     expect(screen.getByText('Referenzprojekt.pdf')).toBeInTheDocument()
     expect(screen.getByText('Fluchtwegplan EG mit zweitem Ausgang.')).toBeInTheDocument()
     expect(screen.getByText('Vergleichbarer Grundriss aus dem Archiv.')).toBeInTheDocument()
-    // Ranking leftovers stay off the card — they belong in Files search.
     expect(screen.queryByTestId('semantic-match')).not.toBeInTheDocument()
     expect(screen.queryByText(/DRAWING from page/)).not.toBeInTheDocument()
     expect(screen.queryByText('83%')).not.toBeInTheDocument()
@@ -105,7 +95,6 @@ describe('DocumentAnswerCard', () => {
   it('degrades an unresolvable file to an honest, actionable card (not a dead tile)', async () => {
     server.use(
       shelfPost('project', '/api/documents/by-name', () => HttpResponse.json({ documents: [] })),
-      // 403 = feature gate, fail-open — NOT a fetch error, so no retry state.
       shelfPost('office_shelf', '/api/documents/by-name', () => HttpResponse.json({}, { status: 403 }))
     )
 
@@ -118,12 +107,10 @@ describe('DocumentAnswerCard', () => {
     )
 
     await waitFor(() => expect(screen.getByText('Verschwunden.pdf')).toBeInTheDocument())
-    // Honest explanation + a REAL action linking into the project files.
     expect(screen.getByText('The assistant referenced this file.')).toBeInTheDocument()
     const link = screen.getByTestId('document-answer-unresolved')
     expect(link).toHaveAttribute('href', '/app/projects/proj-1/files')
     expect(screen.getByText('Open in project files')).toBeInTheDocument()
-    // Not the old dead "no longer available" grey box.
     expect(screen.queryByText('No longer available')).not.toBeInTheDocument()
   })
 
@@ -132,7 +119,6 @@ describe('DocumentAnswerCard', () => {
     server.use(
       shelfPost('project', '/api/documents/by-name', () => {
         projectCalls += 1
-        // First load fails (5xx = genuine error); the retry succeeds.
         return projectCalls === 1
           ? HttpResponse.json({}, { status: 500 })
           : HttpResponse.json({ documents: [row('p1', 'Fluchtwegplan.pdf')] })
@@ -149,12 +135,10 @@ describe('DocumentAnswerCard', () => {
       />
     )
 
-    // Genuine failure → retry state, never a permanent dead tile.
     await waitFor(() => expect(screen.getByTestId('document-answer-error')).toBeInTheDocument())
     expect(screen.getByText('Documents couldn’t be loaded.')).toBeInTheDocument()
     expect(screen.queryByTestId('document-answer-unresolved')).not.toBeInTheDocument()
 
-    // Retrying refetches and now resolves the file.
     await userEvent.click(screen.getByText('Try again'))
     await waitFor(() => expect(screen.getByText(/Fluchtwegplan\.pdf/)).toBeInTheDocument())
     expect(screen.getByTestId('document-answer-card')).toHaveAttribute('data-layout', 'receipt')
@@ -189,8 +173,6 @@ describe('DocumentAnswerCard', () => {
   })
 
   it('does NOT cross corpora when the backend tagged a source (avoids opening a same-named file)', async () => {
-    // Same filename in BOTH corpora; the surfaced hit is tagged 'office' but the
-    // Archiv list is empty — it must resolve to nothing, never the project file.
     server.use(
       shelfPost('project', '/api/documents/by-name', () => HttpResponse.json({ documents: [row('p1', 'Bericht.pdf')] })),
       shelfPost('office_shelf', '/api/documents/by-name', () => HttpResponse.json({ documents: [] }))
@@ -205,8 +187,6 @@ describe('DocumentAnswerCard', () => {
     )
 
     await waitFor(() => expect(screen.getByText('Bericht.pdf')).toBeInTheDocument())
-    // Resolved to nothing → honest unresolved card linking to the ARCHIV (buero
-    // source), never the same-named project file's card.
     expect(screen.getByText('The assistant referenced this file.')).toBeInTheDocument()
     expect(screen.getByTestId('document-answer-unresolved')).toHaveAttribute('href', '/app/office-shelf')
     expect(screen.getByText('Open in Office filing')).toBeInTheDocument()

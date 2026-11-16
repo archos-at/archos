@@ -1,9 +1,3 @@
-"""Register a lightweight ``agent_host`` package before submodule imports.
-
-Skips ``agent_host/__init__.py`` (plugin pulls in the agent runtime) so tests can load
-``agent_host.auth`` and peers from ``src/`` without the full runtime stack.
-"""
-
 from __future__ import annotations
 
 import sys
@@ -29,12 +23,6 @@ if _PKG_DIR.is_dir():
 
 @pytest.fixture(autouse=True)
 def _no_retry_pauses(monkeypatch):
-    """The internal-write retry pauses 5 s and 20 s between attempts; tests do not.
-
-    Every backend→BFF write goes through ``internal_retry.send_with_retry``, so
-    a test that doubles a failing BFF would otherwise wait 25 s per call. The
-    attempts still happen; only the pauses are skipped.
-    """
     from agent_host import internal_retry
 
     async def _instant(_seconds: float) -> None:
@@ -45,26 +33,14 @@ def _no_retry_pauses(monkeypatch):
 
 @pytest.fixture(autouse=True)
 def _no_live_decisions(monkeypatch):
-    """The decision model (ADR-0064) is off unless a test turns it on.
-
-    Same guard as ``tests/conftest.py``: the feedback digest now labels its
-    down-votes on it, and a developer's OpenRouter key would otherwise send a
-    test's fixtures to the live endpoint.
-    """
     monkeypatch.setenv("DECISIONS_ENABLED", "false")
 
 
-#: A fixed test key: a research submit sends only ciphertext to Hatchet, so it needs one.
 _TEST_KEK = "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY="
 
 
 @pytest.fixture(autouse=True)
 def hatchet(monkeypatch):
-    """Every test runs research on a fake Hatchet (ADR-0150): no engine is reachable here.
-
-    A test that asserts what was handed to the SDK asks for this fixture by name.
-    A test of the no-key path deletes ``JOB_PAYLOAD_KEK`` itself.
-    """
     from agent.common import orchestrator_client
     from agent_host.jobs import research_workflow
 

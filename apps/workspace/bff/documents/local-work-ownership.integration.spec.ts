@@ -103,10 +103,8 @@ describe.skipIf(!url)('local work owning a document row, against Postgres', () =
     await expect(ingestState.markDocumentIngestFailed(id, ORG, 'IFC extraction failed', earlier)).resolves.toBe(false)
     expect(await statusOf(id)).toBe('processing')
 
-    // The bytes alone still match, which is how the earlier job used to fail it.
     expect(localWorkOwnsRow({ status: 'processing', storageKey: KEY, metadata: { bffJobId: LATER } }, { storageKey: KEY })).toBe(true)
 
-    // And the later job's own failure lands.
     const later = { ...earlier, backgroundJobId: LATER }
     await expect(ingestState.markDocumentIngestFailed(id, ORG, 'IFC extraction failed', later)).resolves.toBe(true)
     expect(await statusOf(id)).toBe('failed')

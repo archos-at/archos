@@ -1,36 +1,5 @@
 'use client'
 
-/**
- * Renaming a document.
- *
- * ## What is being edited, and what is not
- *
- * The field holds the STEM. The extension sits beside it as text, because it is
- * a fact about the bytes rather than a part of the name a person chose — the
- * same reason Finder and Explorer preselect only the stem when you press F2.
- * Showing it (rather than hiding it, or letting it be edited into a lie) is
- * Nielsen's visibility heuristic applied to the one detail people get wrong:
- * nobody has to wonder whether they just turned a PDF into something else.
- *
- * The file itself does not move. `filename` addresses the stored object and
- * every chunk the retrieval index holds for the document, so a rename writes a
- * display name and leaves the identity alone — which is why it is instant, and
- * why it can be undone by renaming again. The description says so in one line,
- * where the person deciding can read it.
- *
- * ## Recovery, not just prevention
- *
- * A document that has been renamed offers "restore original name" in the same
- * dialog. Renaming is reversible by construction and the control makes that
- * visible, which is the difference between a system a person will try things in
- * and one they will not touch.
- *
- * Errors are refused BEFORE the request and explained in place, next to the
- * field, in the sentence that says which rule was broken — never as a toast
- * after a round trip. The rules come from `@/lib/documents/display-name`, the
- * same module the server validates with.
- */
-
 import { useEffect, useState, type FormEvent } from 'react'
 import { useTranslations } from '@/i18n'
 import { Button } from '@/components/ui/button'
@@ -58,11 +27,8 @@ export interface RenameDocumentDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   document: ActionableDocument
-  /** Which namespace holds the words ('files' or 'office_shelf'). */
   scope: DocumentScope
-  /** `null` restores the file's own name. Resolves once the request settles. */
   onRename: (displayName: string | null) => Promise<boolean>
-  /** In-flight flag from `useDocumentActions` — drives the pending state. */
   pending?: boolean
 }
 
@@ -80,16 +46,10 @@ export function RenameDocumentDialog({
   const [value, setValue] = useState(stem)
   const [error, setError] = useState<DocumentNameError | null>(null)
 
-  // Re-seed whenever the dialog opens, or the document under it changes. The
-  // dialog is mounted by surfaces that reuse it across documents (the preview
-  // pane switches files without unmounting), so a stale stem is a real state,
-  // not a theoretical one.
   useEffect(() => {
     if (!open) return
     setValue(stem)
     setError(null)
-    // `stem` is derived from the document's current name; re-seeding on it would
-    // also fight a user's typing after an optimistic parent update.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, document.id])
 
@@ -121,7 +81,6 @@ export function RenameDocumentDialog({
     <Dialog
       open={open}
       onOpenChange={(next) => {
-        // Never close mid-flight: the same rule the shared ConfirmDialog applies.
         if (pending) return
         onOpenChange(next)
       }}
@@ -143,20 +102,8 @@ export function RenameDocumentDialog({
                   setValue(event.target.value)
                   setError(null)
                 }}
-                // The stem, selected. Opening straight into "type the new name"
-                // is the whole interaction; making someone clear the field first
-                // is the part every renaming UI that gets this wrong shares.
                 autoFocus
                 onFocus={(event) => event.currentTarget.select()}
-                // `autoFocus` means the soft keyboard is already up when the
-                // dialog opens, so its action key is the fastest way to finish —
-                // and this is a one-field form, so Enter submits it. "Done"
-                // rather than the return glyph says that.
-                //
-                // A filename is a string, not a sentence: autocapitalize would
-                // title-case the stem the reader deliberately kept lowercase, and
-                // autocorrect rewrites the German compound nouns and abbreviations
-                // these files are named with.
                 enterKeyHint="done"
                 autoCapitalize="off"
                 autoCorrect="off"

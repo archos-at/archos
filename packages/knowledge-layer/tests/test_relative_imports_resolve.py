@@ -1,12 +1,3 @@
-"""Every relative import in the knowledge layer names a module that exists.
-
-When the layer was laid out by job, a branch written before the move merged
-cleanly and still said ``from .qdrant.schema import …`` inside a file that now
-lives in ``search/``: git carried the hunk into the moved file, and the import,
-inside a function body, failed only when a test happened to call it. Read
-statically here, so a function nothing calls is checked too.
-"""
-
 from __future__ import annotations
 
 import ast

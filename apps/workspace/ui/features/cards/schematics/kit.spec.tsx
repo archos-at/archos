@@ -1,8 +1,3 @@
-/**
- * Schematic labels stay legible when the drawing shrinks (`legibleLabelSize`,
- * `SvgLabel` inside `SchematicCanvas`): the geometry is to scale, a label is
- * not, and a label is never enlarged past the room its template left for it.
- */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { render } from '@testing-library/react'
 import { MAX_LABEL_GROWTH, MIN_LABEL_PX, SchematicCanvas, SvgLabel, legibleLabelSize } from './kit'
@@ -19,14 +14,12 @@ describe('legibleLabelSize', () => {
   })
 
   it('enlarges a shrunken label to the minimum on screen', () => {
-    // 9 units at 0.8 would be 7.2px; 12.5 units at 0.8 is exactly 10px.
     expect(legibleLabelSize(9, 0.8)).toBeCloseTo(MIN_LABEL_PX / 0.8)
     expect(legibleLabelSize(9, 0.8) * 0.8).toBeCloseTo(MIN_LABEL_PX)
   })
 
   it('caps the growth at 2×, even when the minimum is not reached', () => {
     expect(MAX_LABEL_GROWTH).toBe(2)
-    // 8 units at 0.4 would need 25 units to read at 10px; it gets 16.
 
     expect(legibleLabelSize(8, 0.4)).toBeCloseTo(8 * MAX_LABEL_GROWTH)
   })
@@ -49,8 +42,6 @@ describe('SvgLabel on a SchematicCanvas', () => {
   }
 
   it('draws the label larger on a narrow canvas and scales its halo with it', () => {
-    // 500 units in 350px: scale 0.7, so 8 units would be 5.6px; it is drawn
-    // at 10 / 0.7 units, which is the 10px floor, inside the 2× cap.
     const { size, halo } = drawnAt(350)
     expect(size).toBeCloseTo(MIN_LABEL_PX / 0.7)
     expect(halo).toBeCloseTo((3 * size) / 8)
@@ -85,10 +76,8 @@ describe('SchematicCanvas label declutter', () => {
     )
     const [grenze, hoehe, start] = Array.from(container.querySelectorAll('text'))
 
-    // Scale 0.7: a 12px push back to viewBox units is 12 / 0.7 or more.
     expect(grenze.hasAttribute('dy')).toBe(false)
     expect(Number(hoehe.getAttribute('dy'))).toBeGreaterThan(0)
-    // 12px cut off at the left edge (minus the 2px margin) slides back by 14px.
     expect(Number(start.getAttribute('dx'))).toBeCloseTo((12 + 2) / 0.7)
   })
 })

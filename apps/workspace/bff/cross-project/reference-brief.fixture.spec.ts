@@ -2,19 +2,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The precedent eval's prompt texts, rendered by the production code
- * (docs/roadmap/office-experience.md, step A). The fixture office
- * (`tests/fixtures/precedent/office.json`) is the source; this writes what the
- * real BFF would hand a turn in it — the reference catalog, the current
- * project's PROJECT_CONTEXT, the order a `similar` search walks, and each
- * project's brief — to `rendered.json`,
- * which `scripts/turn_census/fixture_bff.py` serves. A change to how the
- * catalog or a brief renders fails here until the fixture is regenerated, so
- * the eval never measures a format production no longer sends:
- *
- *   UPDATE_FIXTURES=1 npx vitest run bff/cross-project/reference-brief.fixture.spec.ts
- */
 
 import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -43,9 +30,7 @@ interface FixtureProject {
 }
 
 interface FixtureScenario {
-  /** The project the chat sits in; the office's own `current` when absent. */
   current?: FixtureProject
-  /** The ids of the office's projects that exist in this scenario; all when absent. */
   projects?: string[]
 }
 
@@ -53,16 +38,9 @@ interface FixtureOffice {
   organizationId: string
   current: FixtureProject
   projects: FixtureProject[]
-  /** Other offices made of the same projects, each rendered beside the default (`fixture_bff.py` picks per question). */
   scenarios?: Record<string, FixtureScenario>
 }
 
-/**
- * The facts the intake wizard asks per building, read off its definition: the
- * wizard stores those under the building (`construction_method@bldg1`), and the fixture
- * office must be stored the same way, or the eval measures a profile shape
- * production never has. `office.json` names facts plainly; this stores them.
- */
 const PER_BUILDING: ReadonlySet<string> = new Set(
   projectIntakeDefinitionV1.stages
     .filter((stage) => stage.scope === 'building')
@@ -112,7 +90,6 @@ function renderScenario(office: FixtureOffice, scenario: FixtureScenario) {
   return {
     referenceProjects: renderReferenceBrief(current, [current, ...projects]),
     projectContext: buildProjectPromptView(current.profile),
-    // The order a `similar` search walks, as `projectsInScope` ranks it.
     similarOrder: rankBySimilarity(current.profile, projects).map((project) => project.id),
     briefs: Object.fromEntries(projects.map((project) => [project.id, buildProjectPromptView(project.profile)])),
   }

@@ -1,12 +1,3 @@
-"""Fassungen on the metadata row: a person's link, Piloti's suggestion, the change line.
-
-``superseded_by`` is written by a person's confirmation only and lives on the
-OLDER document's row; ``revision_suggestion`` is Piloti's advice and hides
-nothing; ``change_summary`` says what changed against the file named by
-``change_basis``. All three ride the row the way ``topics`` and ``capture`` do:
-optional columns, a re-register leaves them alone, an old table is migrated.
-"""
-
 import tempfile
 from pathlib import Path
 
@@ -123,13 +114,6 @@ class TestTheLink:
 
 
 class TestAPurgeThatCanBeUndone:
-    """An archive, the folder bin and a publish purge a document and read it again later.
-
-    A link only a person makes must come back with it: the row's own link, its refusals and the
-    change line told against a linked Fassung are kept by name, and the links other rows hold to it
-    are left alone (read as nothing while it is gone).
-    """
-
     def test_the_older_files_link_comes_back_when_it_is_read_again(self, pair):
         pair.set_superseded_by("coll", "B.pdf", "C.pdf")
 
@@ -146,7 +130,6 @@ class TestAPurgeThatCanBeUndone:
         pair.set_superseded_by("coll", "B.pdf", "C.pdf")
 
         pair.unregister("coll", "C.pdf")
-        # While C is gone, B answers again: the link is read as nothing, not erased.
         assert _doc(pair, "B.pdf").superseded_by is None
         assert pair.get_superseded_files("coll") == {}
 
@@ -196,7 +179,6 @@ class TestAPurgeThatCanBeUndone:
 
         pair.register("coll", "C.pdf", "Aus dem Archiv zurück.")
 
-        # C -> X -> B -> C would be a loop: the links made while C was gone stand.
         assert _doc(pair, "C.pdf").superseded_by is None
         assert _doc(pair, "B.pdf").superseded_by == "C.pdf"
 
@@ -242,8 +224,6 @@ class TestAPurgeThatCanBeUndone:
 
 
 class TestRefusals:
-    """Every file a person refused stays refused, whatever is suggested or refused afterwards."""
-
     def test_refusing_a_second_file_keeps_the_first_refusal(self, pair):
         assert pair.dismiss_revision_suggestion("coll", "C.pdf", "A.pdf") is True
         assert pair.dismiss_revision_suggestion("coll", "C.pdf", "B.pdf") is True
@@ -303,8 +283,6 @@ class TestRefusals:
 
 
 class TestTheLinkIsOneStep:
-    """The loop check and the write happen under one lock, so concurrent confirmations cannot close a loop."""
-
     def test_a_loop_is_refused_and_nothing_is_written(self, pair):
         assert pair.link_revision("coll", "B.pdf", "C.pdf") is LinkOutcome.LINKED
         assert pair.link_revision("coll", "C.pdf", "B.pdf") is LinkOutcome.LOOP
@@ -520,8 +498,6 @@ class TestTheSchema:
 
 
 class TestThroughTheFactory:
-    """The seams the ingestion path and the route call, over one store."""
-
     @pytest.fixture
     def db_url(self):
         from agent.knowledge import configure_summary_db

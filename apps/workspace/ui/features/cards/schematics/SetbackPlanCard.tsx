@@ -1,24 +1,3 @@
-/**
- * SetbackPlanCard — top-down site plan for Abstandsflächen / Bauwich checks.
- *
- * Draws the parcel to scale, the required-setback envelope (Baufenster) as a
- * dashed inset — each edge inset by that side's required distance — and the
- * building footprint placed from the actual side distances (centered on an
- * axis when both actuals are unknown). Every side gets a status-coloured
- * dimension arrow at its midpoint; a failing side turns its envelope edge red
- * as well, so the violated line is unmissable. A street band anchors "front"
- * at the bottom and a north arrow orients the plan.
- *
- * Under the plan, where `coverage` or `density` is given, a readout of
- * Bebauungsgrad (built area / parcel) and GFZ (BGF / parcel) against the
- * Bebauungsplan's limits: the retired `density_check` card's job. The ratios
- * are COMPUTED here from the areas ({@link densityReadout}) and the computation
- * wins: a ratio the model stated is shown only where no areas give one, and a
- * stated ratio that disagrees with the areas is named beside the computed one.
- * A pure density question (no parcel geometry, `sides` empty) draws the
- * readout and no plan: a parcel nobody gave is never drawn to scale.
- */
-
 import { type FC } from 'react'
 import { LandPlot } from 'lucide-react'
 import {
@@ -53,15 +32,8 @@ interface SetbackPlanCardProps {
   density?: DimensionCheckData | null
 }
 
-/** How far a stated ratio may sit from the computed one and still be the same figure (rounding). */
 const RATIO_TOLERANCE = 0.01
 
-/**
- * A ratio's check with its value derived from two areas. Where the areas give
- * one, the computation wins over a value the model typed (guardrail 1): an
- * agreeing value is kept, a disagreeing one is named in the label
- * (`stated`) beside the computed value and status.
- */
 function derivedRatio(
   check: DimensionCheckData,
   numerator: number | null,
@@ -76,12 +48,10 @@ function derivedRatio(
   const disagrees = check.value != null && Math.abs(check.value - value) > Math.max(RATIO_TOLERANCE, Math.abs(value) * RATIO_TOLERANCE)
   const label = disagrees && check.value != null ? `${check.label} (${stated(check.value)})` : check.label
   if (check.required == null) return { ...check, label, value }
-  // A density limit is a ceiling unless the Bebauungsplan says otherwise.
   const pass = check.comparator === '>=' ? value >= check.required : value <= check.required
   return { ...check, label, value, status: pass ? 'pass' : 'fail' }
 }
 
-/** Bebauungsgrad and GFZ, derived from the areas wherever they are given. */
 export function densityReadout({
   parcelArea,
   footprintArea,
@@ -95,7 +65,6 @@ export function densityReadout({
   grossFloorArea: number | null
   coverage?: DimensionCheckData | null
   density?: DimensionCheckData | null
-  /** A stated ratio that disagrees with the areas, as the label names it. */
   stated?: (value: number) => string
 }): DimensionCheckData[] {
   return [
@@ -131,7 +100,6 @@ export const SetbackPlanCard: FC<SetbackPlanCardProps> = (props) => {
     density,
     stated: (value) => t('cards.schematics.setback.stated', { value: fmtNum(value) }),
   })
-  // The card's verdict is every check it draws, the density readout included.
   const verdict = worstStatus([...sides.map((s) => s.status), ...readout.map((check) => check.status)])
   const { parcel_width_m: parcelW, parcel_depth_m: parcelD, building_width_m: buildingW, building_depth_m: buildingD } = props
   const drawable = parcelW != null && parcelD != null && buildingW != null && buildingD != null
@@ -157,7 +125,6 @@ export const SetbackPlanCard: FC<SetbackPlanCardProps> = (props) => {
   )
 }
 
-/** The plan to scale, and the setback checks under it. */
 const SetbackPlanDrawing: FC<{
   title: string
   sides: SetbackSideData[]
@@ -180,8 +147,6 @@ const SetbackPlanDrawing: FC<{
   const PW = parcelW * k
   const PD = parcelD * k
 
-  // Building placement in metres (front = bottom edge of the plan). Falls back
-  // to centering on an axis when neither actual distance is known.
   const bxM =
     left?.actual_m ??
     (right?.actual_m != null ? parcelW - buildingW - right.actual_m : (parcelW - buildingW) / 2)
@@ -195,7 +160,6 @@ const SetbackPlanDrawing: FC<{
   const bMidX = bx + BW / 2
   const bMidY = by + BD / 2
 
-  // Required-setback envelope (Baufenster).
   const ex = px + (left?.required_m ?? 0) * k
   const ey = py + (back?.required_m ?? 0) * k
   const ew = PW - ((left?.required_m ?? 0) + (right?.required_m ?? 0)) * k

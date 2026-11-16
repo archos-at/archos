@@ -4,7 +4,6 @@
 import { describe, test, expect, vi } from 'vitest'
 import { RATE_LIMIT_RETRIES, runWithConcurrency, sendWaitingOutRateLimit, UPLOAD_CONCURRENCY } from './upload-queue'
 
-/** A worker that never resolves until the test releases it. */
 function deferred<T>() {
   let resolve!: (value: T) => void
   let reject!: (reason: unknown) => void
@@ -79,8 +78,6 @@ describe('runWithConcurrency', () => {
   })
 
   test('the shipped limit leaves room for the polling that runs alongside it', () => {
-    // Browsers allow six connections per host; the ingest-status poll and the
-    // page's own traffic share the same budget.
     expect(UPLOAD_CONCURRENCY).toBeLessThan(6)
     expect(UPLOAD_CONCURRENCY).toBeGreaterThan(1)
   })

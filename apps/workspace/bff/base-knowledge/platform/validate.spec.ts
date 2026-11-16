@@ -34,7 +34,6 @@ const ma37 = (extra: Record<string, unknown> = {}) => ({
   ...extra,
 })
 
-/** The kit's checks other than KC-6, for records proposed without citations: what the tests below are about. */
 function kit(records: ReturnType<typeof parse>, country: string, known: ReadonlyMap<string, KnownRecord>, existing: DatedPlatformEdition[] = []): Problem[] {
   return validateProposal(records, country, known, CAPTURES, existing).filter((problem) => problem.code !== 'KC-6')
 }
@@ -101,7 +100,6 @@ describe('validateProposal', () => {
     })
 
     it('finds a compound a PDF hyphenated across a line, and still not the compound with a word changed', () => {
-      // As the BauNVO's PDF has it (page 6): the line ends at "Bundes-", the next begins "Immissionsschutzgesetzes".
       const pdf = 'im Sinne des § 3 des Bundes-\nImmissionsschutzgesetzes sowie Auswirkungen'
       const capture = new Map<string, KnownCapture>([[CAPTURE, { text: `MA 37 – Baupolizei. ${pdf}`, basis: 'fetched' }]])
       const check = (quote: string) =>
@@ -235,11 +233,9 @@ describe('validateProposal', () => {
     expect(kit(overlapping, 'AT', KNOWN)).toEqual([
       expect.objectContaining({ code: 'KC-3', key: 'e2018' }),
     ])
-    // RIS's last day in force copied as the end leaves one day between the editions: refused, with the day to enter.
     expect(kit(parse([work, edition('e2018', '2018-09-01', '2023-12-31'), edition('e2024', '2024-01-01', null)]), 'AT', KNOWN)).toEqual([
       expect.objectContaining({ code: 'KC-3', key: 'e2018', pointer: '/inForceTo', detail: expect.stringContaining('plus one') }),
     ])
-    // inForceTo is the first day no longer in force: an edition ending on the day it begins is in force on no day.
     expect(kit(parse([work, edition('e2024', '2024-01-01', '2024-01-01')]), 'AT', KNOWN)).toEqual([
       expect.objectContaining({ code: 'KC-3', pointer: '/inForceTo' }),
     ])
@@ -271,7 +267,6 @@ describe('validateProposal', () => {
     ])
     const closing = parse([edition('e2018', '2018-09-01', '2024-01-01'), edition('e2024', '2024-01-01', null)])
     expect(kit(closing, 'AT', known, published)).toEqual([])
-    // An edition of another work does not count.
     expect(kit(alone, 'AT', known, [{ ...published[0], workId: 'work:other' }])).toEqual([])
   })
 
@@ -322,7 +317,6 @@ describe('validateProposal', () => {
 })
 
 describe('releaseWarnings', () => {
-  /** A territory as a request holds it: its newest revision's claims, read from the body its proposal writes. */
   const territory = (values: Record<string, unknown>) => {
     const [record] = parse([{ type: 'territory', id: 'XA', kind: 'country', name: 'Xanadu', parents: [], citations: cited(), ...values }])
     return { type: 'territory' as const, recordId: recordIdOf(record), claims: claimsOf(bodyOf(record)) }

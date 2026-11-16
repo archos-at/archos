@@ -2,14 +2,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * An ask's bound, pinned to the chat turn's own deadline.
- *
- * An ask still open past `DEFAULT_ASK_MAX_SECONDS` is ended `failed` when it is
- * next read. Below the turn's deadline it would end an ask whose turn may still
- * answer; far above it an ask whose outcome notice was lost reads `working` long
- * after nothing runs. So the deadline is read out of the socket that enforces it.
- */
 
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'

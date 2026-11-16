@@ -1,17 +1,3 @@
-"""Retrieval prefers the editions that bind at the turn's site, and never requires them (country-as-data row 7).
-
-The same rule in two editions (the 2019 and the 2023 Ausgabe of one Richtlinie) is the same words, so
-the two passages score alike and rank by chance. The answer then cites the edition that does not bind,
-the citation check removes it after the answer is written, and the reader gets a value with no source.
-Every corpus point carries ``knowledge_edition_id``; the turn's knowledge context names the editions that
-bind (``knowledge_context.binding_editions``), and each ranked read rescores every channel by them
-(``boost.ranking_formula``). A boost, not a filter: the other edition stays a candidate, so a question
-about the 2019 edition still finds it.
-
-The formula's semantics run on Qdrant's local mode, which needs no server; the two ranked reads
-(``hybrid_search`` and ``grouped_search``) run on a real Qdrant when ``QDRANT_TEST_URL`` names one.
-"""
-
 from __future__ import annotations
 
 import pytest
@@ -101,7 +87,6 @@ def test_of_two_identical_passages_the_binding_editions_ranks_first(binding):
 
 
 def test_a_clearly_better_passage_of_another_edition_still_ranks_first():
-    """A question about the 2019 edition: its passage answers it clearly better, and is not outranked."""
     cosine_gap = 0.3  # well beyond EDITION_PREFERENCE of its own score
     assert cosine_gap > EDITION_PREFERENCE
     points = {
@@ -112,7 +97,6 @@ def test_a_clearly_better_passage_of_another_edition_still_ranks_first():
 
 
 def test_a_passage_of_no_edition_is_ranked_as_before():
-    """An office's own document or a legacy chunk carries no edition: it neither gains nor loses."""
     points = {1: ([1.0, 0.0], {}), 2: ([1.0, 0.05], {KNOWLEDGE_EDITION_FIELD: OLD})}
     assert _ranked(_local(points), frozenset({NEW})) == [1, 2]
 

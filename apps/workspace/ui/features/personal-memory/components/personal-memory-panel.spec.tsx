@@ -1,10 +1,3 @@
-/**
- * „Mein Gedächtnis“ (ADR-0180): the person's own notes. What must hold: the
- * page says who reads them before anything else, the list keeps the server's
- * order (pinned first), every state has a face (loading, empty, failed), and
- * an edit another note already says (409) keeps the editor open with the
- * reason instead of losing what was typed.
- */
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import userEvent from '@testing-library/user-event'
 import { render, screen, waitFor, within } from '@/test-utils'
@@ -33,7 +26,6 @@ const OLDER = note('n-older', 'Flächen in Quadratmetern.', { provenanceType: 'd
 type Handler = (url: string, init?: RequestInit) => Response | Promise<Response>
 const fetchMock = vi.fn<Handler>()
 
-/** Answer the list with `items`, and every other request with `rest`. */
 function serve(items: unknown[], rest: Handler = () => new Response(null, { status: 204 })): void {
   fetchMock.mockImplementation((url, init) =>
     !init?.method ? Response.json({ items, nextCursor: null }) : rest(url, init)
@@ -171,7 +163,6 @@ describe('PersonalMemoryPanel', () => {
 
     await waitFor(() => expect(screen.queryByLabelText('Note')).not.toBeInTheDocument())
     expect(rows()).toHaveLength(1)
-    // Nothing was added, and the panel does not claim it was.
     expect(toast.success).toHaveBeenCalledWith('You already have this note. It is back at the top.')
     expect(toast.success).not.toHaveBeenCalledWith('Note added.')
   })

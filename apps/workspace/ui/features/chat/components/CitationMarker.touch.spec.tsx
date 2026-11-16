@@ -1,13 +1,3 @@
-/**
- * The inline citation, driven by a finger.
- *
- * `CitationMarker.spec.tsx` is the mouse and keyboard contract. This is what a
- * phone adds: the pinned peek is a bottom sheet with its own close and the open
- * action as one button, a source with no file says so in a sentence rather than
- * as a dead action, and a tap that misses the 22px pill by a thumb's width still
- * opens the nearest one.
- */
-
 import { fireEvent, render, screen, within } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { vi, describe, test, expect, beforeEach, afterEach } from 'vitest'
@@ -48,7 +38,6 @@ const at = new Date('2026-07-28T12:00:00Z')
 
 const jsonResponse = (data: unknown) => ({ ok: true, json: async () => data })
 
-/** The corpus listing: the file is there (or, with `[]`, it is not). */
 const fetchWith = (files: { fileName: string; state: string }[]) =>
   vi.fn((input: RequestInfo | URL) =>
     Promise.resolve(
@@ -91,7 +80,6 @@ const renderAnswer = () =>
     />
   )
 
-/** A device whose primary pointer is a finger (or, with `false`, a mouse). */
 const stubPointer = (coarse: boolean) =>
   vi.stubGlobal(
     'matchMedia',
@@ -123,14 +111,11 @@ describe('a citation marker under a finger', () => {
 
     const sheet = await screen.findByRole('dialog')
     expect(sheet).toHaveAttribute('data-citation-sheet')
-    // It names the source it belongs to: the sentence is behind the scrim.
     expect(within(sheet).getByText('Source 1')).toBeInTheDocument()
     expect(within(sheet).getByText('Garagen sind mechanisch zu entlüften.')).toBeInTheDocument()
     expect(within(sheet).getByRole('button', { name: 'Close' })).toBeInTheDocument()
-    // The passage is one press away, as the primary action.
     const open = await within(sheet).findByRole('button', { name: /Open at this passage/i })
     expect(open).toHaveAttribute('data-citation-open')
-    // No popover was mounted for it: one presentation, not two.
     expect(popoverMounts.total).toBe(0)
   })
 
@@ -143,8 +128,6 @@ describe('a citation marker under a finger', () => {
     await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Close' }))
 
     await vi.waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
-    // Focus went back to the marker, whose focus handler opens a peek: it must
-    // not read the return as a reason to open.
     expect(document.activeElement).toBe(marker)
     expect(screen.queryByRole('dialog')).toBeNull()
   })
@@ -169,12 +152,10 @@ describe('a citation marker under a finger', () => {
     const [first, second] = ['Source 1', 'Source 2'].map((label) =>
       screen.getByRole('button', { name: new RegExp(`${label}: OIB`, 'i') })
     )
-    // jsdom has no layout: two pills on one line, 30px apart.
     first!.getBoundingClientRect = () => ({ left: 100, right: 122, top: 50, bottom: 76 }) as DOMRect
     second!.getBoundingClientRect = () => ({ left: 152, right: 174, top: 50, bottom: 76 }) as DOMRect
     const prose = screen.getByText(/Zwei Fluchtwege sind erforderlich/)
 
-    // 8px right of the first pill, 22px left of the second: the first.
     fireEvent.click(prose, { clientX: 130, clientY: 60 })
     expect(await screen.findByText('Source 1')).toBeInTheDocument()
   })

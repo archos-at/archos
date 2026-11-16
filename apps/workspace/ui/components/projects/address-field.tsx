@@ -1,27 +1,5 @@
 'use client'
 
-/**
- * The address of a new project: one text field that keeps what the person
- * types. Where an address search is configured it also suggests hits
- * (`createGeocodingClient().search`), and choosing one adds what the hit knows
- * (Gemeinde, Bundesland, the position). Not choosing one loses nothing: the
- * typed line is the address, and Piloti finds the Bundesland in the documents
- * or asks for it in the review.
- *
- * The field never changes into something else. It used to turn into a
- * Bundesland select on the first answer saying no search was configured, which
- * is every deployment without `GEOCODER_URL`: the person typed three
- * letters and their text was gone (pilot onboarding, 2026-10-19).
- *
- * Typing asks after 250 ms of quiet; every keystroke aborts the request still
- * in flight, so a slow answer for „Haupt" never lands over the one for
- * „Hauptstraße 1". The suggestions float over the form below rather than
- * pushing it down, but are not portalled: a portal in a dialog fights the
- * dialog over focus, outside presses and Escape. It is the ARIA combobox
- * pattern (focus stays in the field; arrows move `aria-activedescendant`;
- * Enter chooses; Escape closes the list and nothing else).
- */
-
 import type { JSX } from 'react'
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { MapPin } from 'lucide-react'
@@ -37,27 +15,21 @@ import { MAX_ADDRESS_LENGTH } from '@/lib/projects/create-project-schema'
 import { createSameAddressClient, type SameAddressClient } from '@/lib/projects/same-address-client'
 import { SameAddressNotice } from './same-address-notice'
 
-/** Quiet time before a keystroke becomes a request. */
 export const ADDRESS_SEARCH_DEBOUNCE_MS = 250
-/** Shortest text the address search takes (`geocodeQuerySchema`). */
 const MIN_QUERY_LENGTH = 3
 
-/** The geocoder answered `enabled: false` once; the page asks no more. */
 let geocoderKnownOff = false
 
-/** For specs: forget what an earlier answer taught the field. */
 export function forgetGeocoderAnswer(): void {
   geocoderKnownOff = false
 }
 
 type SearchStatus = 'idle' | 'waiting' | 'searching' | 'done'
 
-/** „Gemeinde · Bundesland" of a hit, as far as the provider named them. */
 export function placeLine(place: Pick<GeocodeResult, 'municipality' | 'state'>): string {
   return [place.municipality, place.state].filter(Boolean).join(' · ')
 }
 
-/** What the field holds: the line as typed, and the hit it came from when one was chosen. */
 export interface AddressValue {
   text: string
   place: GeocodeResult | null
@@ -67,7 +39,6 @@ export interface AddressFieldProps {
   value: AddressValue
   onChange: (value: AddressValue) => void
   disabled?: boolean
-  /** The address search; the real one unless a spec brings its own. */
   client?: GeocodingClient
   sameAddressClient?: SameAddressClient
 }
@@ -109,7 +80,6 @@ export function AddressField({
       const answer = await geocoder.current.search(query, GEOCODE_DEFAULT_LIMIT, { signal: controller.signal })
       if (controller.signal.aborted) return
       if (!answer.enabled) {
-        // No search here: the field stays a text field and stops asking.
         geocoderKnownOff = true
         setSearchOff(true)
         setResults([])
@@ -120,7 +90,6 @@ export function AddressField({
       setActive(answer.results.length > 0 ? 0 : -1)
       setStatus('done')
     } catch {
-      // A failed search is no suggestions; the typed line stays the address.
       if (controller.signal.aborted) return
       setResults([])
       setStatus('done')
@@ -129,7 +98,6 @@ export function AddressField({
 
   const onInput = (next: string): void => {
     cancel()
-    // Editing the line lets go of the hit it came from: the two would disagree.
     onChange({ text: next, place: null })
     setActive(-1)
     if (searchOff || next.trim().length < MIN_QUERY_LENGTH) {
@@ -152,7 +120,6 @@ export function AddressField({
 
   const onKeyDown = (event: React.KeyboardEvent<HTMLInputElement>): void => {
     if (event.key === 'Escape' && open && results.length > 0) {
-      // The list closes; the dialog around it stays.
       event.preventDefault()
       event.stopPropagation()
       setOpen(false)
@@ -168,7 +135,6 @@ export function AddressField({
       setOpen(true)
       setActive((index) => (index <= 0 ? results.length - 1 : index - 1))
     } else if (event.key === 'Enter' && open && active >= 0) {
-      // Not a form submit: choosing an option is not creating the project.
       event.preventDefault()
       choose(results[active])
     }
@@ -205,9 +171,6 @@ export function AddressField({
           <Spinner className="absolute top-1/2 right-3 size-4 -translate-y-1/2" aria-label={t('form.address.searching')} />
         )}
         {listed && (
-          // One floating panel: the hits, and under them the reminder that
-          // none has to be chosen. The reminder sits outside the listbox,
-          // which may hold options only.
           <div
             className="bg-popover text-popover-foreground absolute inset-x-0 top-full z-20 mt-1.5 rounded-overlay p-1 shadow-lg"
             data-testid="create-project-address-suggestions"

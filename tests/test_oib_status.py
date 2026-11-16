@@ -1,5 +1,3 @@
-"""The corpus status: the table merged with what the index holds (ADR-0082, step A2)."""
-
 import hashlib
 from datetime import UTC
 from datetime import datetime
@@ -20,12 +18,10 @@ from tests.corpus_job_fakes import lose_the_workers_for
 from tests.corpus_job_fakes import run_worker
 from tests.object_corpus_fakes import install
 
-#: The API tier's own enqueue, which its routes hand to every ``oib_sync`` entry point.
 ENQUEUE = ingest_dispatch.enqueue_only
 
 
 def _job_done(name: str, sha256: str, chunk_format_version: int) -> bool:
-    """A job for ``name`` prepared at the file's current mark and finished: what ``oib_sync`` records."""
     corpus_store.begin_job(name)
     return corpus_store.mark_ingested(name, sha256, chunk_format_version)
 
@@ -79,11 +75,9 @@ def corpus(monkeypatch, tmp_path):
 
 
 def _stored(name: str, content: bytes, *, ingested: bytes | None = None, format_version: int | None = None) -> None:
-    """A corpus file, optionally with the bytes the index was last built from."""
     corpus_store.put(name, content)
     if ingested is None:
         return
-    # `mark_ingested` only records bytes the row still holds, so replay the history it would have had.
     corpus_store.put(name, ingested)
     _job_done(name, _sha256(ingested), format_version or oib_sync.CHUNK_FORMAT_VERSION)
     corpus_store.put(name, content)
@@ -120,7 +114,6 @@ def test_status_classifies_ingested_stale_and_pending():
 
 
 def test_status_says_which_country_a_release_marked_a_file_with():
-    """The BFF reads this to refuse other bytes under a file a country's offices read (ADR-0165)."""
     _stored("released.pdf", b"v1", ingested=b"v1")
     _stored("draft.pdf", b"v2")
     corpus_store.set_mark("released.pdf", corpus_store.FileMark(country_id="AT", edition_id="edition:oib-rl-1-2019"))
@@ -135,7 +128,6 @@ def test_status_says_which_country_a_release_marked_a_file_with():
 
 
 def test_a_withdrawn_file_names_no_country_so_no_office_lists_it():
-    """A rollback marks the file unreleased and keeps its country; the status says no country reads it."""
     _stored("withdrawn.pdf", b"v1", ingested=b"v1")
     corpus_store.set_mark("withdrawn.pdf", corpus_store.FileMark(country_id="AT", released=False))
 
@@ -155,7 +147,6 @@ def test_a_file_ingested_by_an_older_chunk_format_is_stale():
 
 def test_status_flags_removed_and_inconsistent_files():
     _stored("no_chunks.pdf", b"x", ingested=b"x")
-    # "orphan.pdf" only exists in the collection: chunks the corpus does not list.
     ingestor = FakeIngestor(_collection(), files=[_file_info("orphan.pdf", 5)])
 
     status = oib_status.get_status(ingestor=ingestor)
@@ -203,12 +194,10 @@ def test_status_attaches_document_summaries(monkeypatch):
     status = oib_status.get_status(ingestor=ingestor)
 
     assert status.files[0].summary == "Brandschutz basics."
-    # The stored display-title override is surfaced as the effective name.
     assert status.files[0].display_title == "Custom OIB name"
 
 
 def test_status_display_title_falls_back_to_derived_default():
-    """An OIB file with no stored override still gets an effective name."""
     name = "oib-rl_2_ausgabe_mai_2023.pdf"
     _stored(name, b"a", ingested=b"a")
     ingestor = FakeIngestor(_collection(), files=[_file_info(name, 3)])
@@ -259,14 +248,8 @@ def test_the_response_carries_no_trace_of_the_removed_concepts():
     }
 
 
-# ---------------------------------------------------------------------------
-# What the ingest jobs say
-# ---------------------------------------------------------------------------
-
-
 @pytest.fixture
 def jobs(monkeypatch):
-    """The corpus's ingest jobs: a fake ingestor that only prepares them, and a worker to finish them."""
     monkeypatch.setattr(oib_sync, "_get_oib_ingestor", lambda: JobIngestor())
 
 

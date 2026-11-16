@@ -1,14 +1,3 @@
-/**
- * „Piloti hat sich gemerkt" — the chip that tells a reader what one turn made
- * durable about their project (`docs/architecture/post-answer-stages.md` §1.1).
- *
- * The one thing this component must never do is COLLAPSE the two paths. A
- * finding the reader themselves authorised mid-answer and a finding the machine
- * distilled after the answer are different promises: the first they agreed to,
- * the second happened without them. The chip is where they are told apart, and
- * the label is the only place that distinction survives — the popover shows the
- * same words for both otherwise.
- */
 import type { JSX } from 'react'
 import { cleanup, render, screen, waitFor, within } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
@@ -33,12 +22,9 @@ const afterwards: TurnMemoryItem = {
   provenance: 'distillation',
 }
 
-/** The note as a turn records it once it knows the shelf, but not the stored row (an older card). */
 const inProject = (item: TurnMemoryItem): TurnMemoryItem => ({ ...item, audience: 'project' })
-/** The note as the stage frame carries it: its shelf and the id of the stored row. */
 const saved = (item: TurnMemoryItem, audience: TurnMemoryAudience): TurnMemoryItem => ({ ...item, audience, noteId: item.id })
 
-/** One of the reader's own personal notes, saved under this answer. */
 const mine: TurnMemoryItem = {
   id: 'p-1',
   noteId: 'p-1',
@@ -50,8 +36,6 @@ const mine: TurnMemoryItem = {
 
 describe('MemoryNotedChip', () => {
   test('renders nothing for a turn that recorded nothing', () => {
-    // Which is most turns. Reflection's most common correct outcome is "nothing
-    // durable here", and an empty popover trigger would be a promise of content.
     const { container } = render(<MemoryNotedChip items={[]} />)
     expect(container).toBeEmptyDOMElement()
   })
@@ -70,8 +54,6 @@ describe('MemoryNotedChip', () => {
 
     expect(await screen.findByText('noted during the response')).toBeInTheDocument()
     expect(screen.getByText('added after the response')).toBeInTheDocument()
-    // Both are shown in the reader's own words, verbatim — the chip is a record
-    // of what is now in their project, not a summary of it.
     expect(screen.getByText(inTurn.content)).toBeInTheDocument()
     expect(screen.getByText(afterwards.content)).toBeInTheDocument()
     expect(screen.getByText('Constraint')).toBeInTheDocument()
@@ -229,10 +211,8 @@ describe('MemoryNotedChip', () => {
     }
     const rowOf = (content: string): HTMLElement =>
       screen.getAllByTestId('memory-item').find((row) => row.textContent?.includes(content)) as HTMLElement
-    /** The project's list of this conversation's active notes names the turn's project note. */
     const WRITER = { canWrite: true, activeIds: [afterwards.id, inTurn.id] }
     const VIEWER = { canWrite: false, activeIds: [afterwards.id, inTurn.id] }
-    /** The office's list of this conversation's active notes names the turn's office note. */
     const OFFICE = [inTurn.id]
 
     test('a personal row reads „only you“, links to the reader’s own memory and is theirs to remove', async () => {
@@ -340,22 +320,15 @@ describe('MemoryNotedChip', () => {
         />
       )
       expect(within(rowOf(note.content)).getByTestId('memory-item-gone')).toBeInTheDocument()
-      // The project's list says nothing about the office's notes.
       expect(within(rowOf(office.content)).getByTestId('memory-item-remove')).toBeInTheDocument()
     })
 
-    /**
-     * A shared note's id comes off the stage frame, which a browser stored on
-     * the message: a participant can forge one naming any note of the office.
-     * Only the shelf's own list of this conversation's notes vouches for it.
-     */
     test('a project note id the project does not list for this conversation is not offered for removal', async () => {
       const forged = { ...saved(afterwards, 'project'), noteId: 'note-of-another-conversation' }
       await open(<MemoryNotedChipView items={[forged]} projectId="p-1" shelf={WRITER} onRemove={vi.fn()} />)
       expect(screen.queryByTestId('memory-item-remove')).not.toBeInTheDocument()
       cleanup()
 
-      // A list longer than one page vouches for nothing.
       const note = saved(afterwards, 'project')
       await open(
         <MemoryNotedChipView items={[note]} projectId="p-1" shelf={{ canWrite: true, activeIds: null }} onRemove={vi.fn()} />
@@ -369,7 +342,6 @@ describe('MemoryNotedChip', () => {
       expect(screen.queryByTestId('memory-item-remove')).not.toBeInTheDocument()
       cleanup()
 
-      // Before the office answered, or when it could not, nothing is offered either.
       await open(<MemoryNotedChipView items={[saved(inTurn, 'organization')]} projectId="p-1" onRemove={vi.fn()} />)
       expect(screen.queryByTestId('memory-item-remove')).not.toBeInTheDocument()
     })
@@ -408,7 +380,6 @@ describe('MemoryNotedChip', () => {
     const office = saved(inTurn, 'organization')
     let canWrite = true
     let deleteStatus = 204
-    /** What the office's list of this conversation's notes names. */
     let officeListed = [office.id]
 
     beforeEach(() => {
@@ -463,7 +434,6 @@ describe('MemoryNotedChip', () => {
     test('a turn with no project note asks the project nothing, and removes on the shelf’s own route', async () => {
       const user = await openChip([mine, office])
 
-      // The office's row offers removal once the office's list named its note.
       await user.click(await within(screen.getAllByTestId('memory-item')[0]).findByTestId('memory-item-remove'))
       await user.click(await within(screen.getAllByTestId('memory-item')[1]).findByTestId('memory-item-remove'))
 

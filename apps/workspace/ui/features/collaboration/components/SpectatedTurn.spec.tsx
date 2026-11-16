@@ -1,11 +1,3 @@
-/**
- * What an observer sees while somebody else's turn runs.
- *
- * The important assertion is the negative one: the agent's question to the asker
- * must appear as text, never as a control. A prompt an observer can press is a
- * button whose every press the server refuses.
- */
-
 import { describe, expect, it } from 'vitest'
 import { render, screen, waitFor } from '@/test-utils'
 import { initialTurnView, type KeyedCard, type TurnView } from '@/lib/turns/turn-fold'
@@ -16,7 +8,6 @@ import { CARD_PREVIEW_FIXTURES } from '@/features/cards/preview-fixtures'
 
 const LABEL = 'Piloti beantwortet die Frage von Anna Berger…'
 
-/** A turn this observer watched from its start: `RUN_STARTED` named the answer. */
 function turn(overrides: Partial<TurnView> = {}): TurnView {
   return { ...initialTurnView('turn-1', 'conv_1'), messageId: 'a', ...overrides }
 }
@@ -30,7 +21,6 @@ const FILE_PROPOSAL = {
   operations: [{ document: 'Grundriss EG.pdf', source: 'project', current: '', target_folder: 'Einreichung' }],
 }
 
-/** Raw bodies folded the way the hook folds them, from the turn's start. */
 const folded = (...rest: Record<string, unknown>[]): TurnView => {
   const bodies = [{ type: 'RUN_STARTED', message_id: 'a' }, ...rest]
   const view = bodies.reduce<TurnView | null>(
@@ -73,17 +63,11 @@ describe('SpectatedTurn', () => {
   })
 
   it('does not announce the streaming answer', () => {
-    // A live region here would read every token mutation aloud and make the
-    // thread unusable with a screen reader; the finished message's arrival
-    // announcement (CC-9) is what reports the answer.
     render(<SpectatedTurn turn={turn({ text: 'Teilantwort' })} label={LABEL} />)
     expect(screen.getByTestId('spectated-turn')).toHaveAttribute('aria-live', 'off')
   })
 
   it('draws a card that acts without anything to press (ADR-0039 §5)', () => {
-    // The second wall: even a memory proposal that reached the view offers the
-    // observer no button — pressing one wrote into the OBSERVER's organization.
-    // It is withheld outright, so there is nothing to press and nothing to read.
     const proposal = keyed({
       type: 'memory_proposal',
       title: 'Merken?',
@@ -109,10 +93,6 @@ describe('SpectatedTurn', () => {
   })
 
   it('draws nothing, not a skeleton, where a withheld card stood while the turn streams', () => {
-    // The observer's cards keep a hole where a card that acts was dropped. The
-    // marker naming it points INSIDE the array, at a card that is never coming,
-    // so it must not hold a pending skeleton for the rest of the stream; a
-    // marker past the end still does, since that card is only not written yet.
     const state = folded(
       { type: 'CUSTOM', name: 'card', value: { index: 0, key: 'f', card: FILE_PROPOSAL } },
       { type: 'TEXT_MESSAGE_CONTENT', message_id: 'a', delta: 'Vorschlag:\n\n[[card:1]]\n\nWeiter.' }
@@ -129,7 +109,6 @@ describe('SpectatedTurn', () => {
   it('draws a turn that carries cards and no prose', async () => {
     const stair = keyed({ ...CARD_PREVIEW_FIXTURES.stair_diagram!, title: 'Treppe Haus A' })
     render(<SpectatedTurn turn={turn({ cards: [stair] })} label={LABEL} />)
-    // The card arrives behind its skeleton (CardSlotArrival); on a cold module cache, as in CI, that is a tick later.
     await waitFor(() => expect(screen.getByTestId('spectated-turn')).toHaveTextContent('Treppe Haus A'))
   })
 
@@ -139,16 +118,13 @@ describe('SpectatedTurn', () => {
   })
 
   it('an observer who joined mid-answer waits for the whole text rather than starting mid-sentence', () => {
-    // No `RUN_STARTED` seen, and text from the first sight: a fragment.
     const joined = { ...initialTurnView('turn-1', 'conv_1'), streaming: true, text: 'chossen gilt das nicht.' }
     const { rerender } = render(<SpectatedTurn turn={joined} label={LABEL} />)
     expect(screen.getByTestId('spectated-turn')).not.toHaveTextContent('chossen')
 
-    // More of the same fragment: still held.
     rerender(<SpectatedTurn turn={{ ...joined, text: `${joined.text} Weiter` }} label={LABEL} />)
     expect(screen.getByTestId('spectated-turn')).not.toHaveTextContent('Weiter')
 
-    // A snapshot brings the answer from its start.
     rerender(
       <SpectatedTurn
         turn={{ ...joined, text: 'Ab drei Geschossen gilt das nicht. Weiter' }}
@@ -172,7 +148,6 @@ describe('SpectatedTurn', () => {
     })
     expect(steps.stepOrder.length).toBeGreaterThan(0)
     const { container } = render(<SpectatedTurn turn={steps} label={LABEL} />)
-    // The headline is plain text, the Herleitung's header the one shimmer.
     expect(screen.getAllByText(LABEL)).toHaveLength(1)
     expect(container.querySelectorAll('.animate-shimmer-window')).toHaveLength(1)
   })

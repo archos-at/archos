@@ -23,7 +23,6 @@ describe('buildProjectBriefView', () => {
       project_name: fact('Wohnhaus Lerchenfelder'),
       federal_state: fact('vienna'),
       work_type: fact(['new_build']),
-      // Scoped building facts + the structural building-name fact used to label them.
       'building_name@bldg1': fact('Haupthaus'),
       'building_type@bldg1': fact('building'),
       'storeys_above_ground@bldg1': fact(5),
@@ -55,7 +54,6 @@ describe('buildProjectBriefView', () => {
       }),
     ])
     const c = view.groups.find((g) => g.id === 'C')!
-    // Scoped keys resolve to their base question label, suffixed with the building name.
     expect(c.facts).toEqual([
       expect.objectContaining({ key: 'building_type@bldg1', label: 'Bauwerkstyp · Haupthaus' }),
       expect.objectContaining({
@@ -82,7 +80,6 @@ describe('buildProjectBriefView', () => {
 
   it('dedupes unknowns, drops answered ones, resolves scoped labels', () => {
     const view = buildProjectBriefView(profile)
-    // `federal_state` is answered by a fact → dropped; the scoped escape-level unknown remains.
     expect(view.missing).toEqual([
       { key: 'escape_level_m@bldg1', label: 'Fluchtniveau (Zielzustand)' },
     ])
@@ -103,7 +100,6 @@ describe('buildProjectBriefView', () => {
 
   it('counts completeness as answered vs answered+missing', () => {
     const view = buildProjectBriefView(profile)
-    // project_name + building_name@bldg1 hidden → 5 visible facts.
     expect(view.answeredCount).toBe(5)
     expect(view.totalCount).toBe(6) // + the one remaining scoped unknown
   })
@@ -192,8 +188,6 @@ describe('pruneResolvedAssumptions', () => {
   })
 
   it('drops an assumption once a confirmed fact exists under the same key', () => {
-    // The migration-backfilled federal_state=vienna default must vanish when the
-    // user answers the location question — never two jurisdictions at once.
     const profile: ProjectProfile = {
       facts: { federal_state: fact('tyrol') },
       goals: {},

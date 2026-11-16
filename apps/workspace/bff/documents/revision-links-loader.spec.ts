@@ -54,7 +54,6 @@ describe('loadRevisionLinks', () => {
     const facts = await loadRevisionLinks(session, [subject()], reader)
 
     expect(facts.get('doc-b')?.supersedes).toEqual([{ id: 'doc-a', filename: 'Grundriss_A.pdf' }])
-    // The collection of the document, the reader of the listing, the names asked about.
     expect(findRevisionCounterparts).toHaveBeenCalledWith('org-1', 'proj_abc', [A.filename], reader)
   })
 
@@ -67,7 +66,6 @@ describe('loadRevisionLinks', () => {
         change: { text: `Gegenüber ${HELD}: Spalte C entfällt.`, basis: HELD },
       }),
     )
-    // The query composes `documentVisibleTo(reader)`: the held row is not returned.
     vi.mocked(findRevisionCounterparts).mockResolvedValue([A])
 
     const facts = await loadRevisionLinks(session, [subject()], reader)
@@ -80,7 +78,6 @@ describe('loadRevisionLinks', () => {
       supersedes: [{ id: 'doc-a', filename: 'Grundriss_A.pdf' }],
       suggestion: null,
       changeSummary: null,
-      // A's own change line names the held document, so it goes with it.
       history: [{ id: 'doc-a', filename: 'Grundriss_A.pdf', createdAt: '2026-07-02T09:00:00.000Z', changeSummary: null }],
     })
   })
@@ -195,7 +192,6 @@ describe('loadRevisionLinks', () => {
 
     it('leaves out an older Fassung the reader may not open, and keeps the ones behind it they may', async () => {
       vi.mocked(readRevisionLinkNames).mockImplementation(async (ref) => byName[ref.filename] ?? null)
-      // B is held from this reader.
       vi.mocked(findRevisionCounterparts).mockResolvedValue([A, C])
 
       const facts = await loadRevisionLinks(session, [subject({ id: 'doc-c', filename: 'Grundriss_C.pdf' })], reader)

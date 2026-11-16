@@ -37,8 +37,6 @@ import { executeRows } from '@/lib/db/execute-rows'
 import { NO_RATINGS_FILTERS, type FeedbackQuery } from './filters'
 
 vi.mock('server-only', () => ({}))
-// What the vote service does besides writing the vote: none of it is the
-// question here, and each would reach for a model, a cache or a setting.
 vi.mock('@/lib/upload-screening/service', () => ({
   maskChatText: vi.fn(async (_organizationId: string, text: string) => ({ text })),
 }))
@@ -49,7 +47,6 @@ vi.mock('@/lib/projects/memory-service', () => ({ implicateMemoryFromFeedback: v
 const STAMP = Date.now()
 const ORG = `org_rfb_${STAMP}`
 
-/** This organization's down-votes, over a range that holds every seeded vote. */
 const DOWN_IN_ORG: FeedbackQuery = {
   scope: {
     from: new Date(Date.now() - 86_400_000).toISOString().slice(0, 10),
@@ -60,7 +57,6 @@ const DOWN_IN_ORG: FeedbackQuery = {
   ratings: { ...NO_RATINGS_FILTERS, verdict: 'down' },
 }
 
-/** Today's profiled turns in this organization, for the staff directory. */
 const PROFILER_SCOPE = {
   start: new Date(Date.now() - 86_400_000),
   endExclusive: new Date(Date.now() + 86_400_000),
@@ -119,7 +115,6 @@ describe.skipIf(!url)('answer feedback from a restricted conversation, against P
     )
   }
 
-  /** Content of a restricted folder entered this chat's context: what `admitRestrictedUse` records. */
   async function admit(chat: string) {
     await inOrg((executor) =>
       executor.execute(sql`
@@ -140,7 +135,6 @@ describe.skipIf(!url)('answer feedback from a restricted conversation, against P
     return String(row.id)
   }
 
-  /** A down-vote quoting the answer; `claimedChat` is the conversation id the client sent. */
   async function vote(messageId: string, claimedChat: string | null, answer: string, voter = USER) {
     await inOrg((executor) =>
       executor.execute(sql`
@@ -149,10 +143,6 @@ describe.skipIf(!url)('answer feedback from a restricted conversation, against P
     )
   }
 
-  /**
-   * A chat in production order: the question is persisted, the turn admits
-   * restricted content (when `restricted`), then the answer is persisted.
-   */
   async function seedVotedChat(chat: string, question: string, answer: string, restricted: boolean) {
     await conversation(chat)
     await message(chat, 'user', question, 3)
@@ -169,7 +159,6 @@ describe.skipIf(!url)('answer feedback from a restricted conversation, against P
       )
     ).map((row) => String(row.message_id))
 
-  /** Whether the vote on `messageId` is scored in Langfuse without its words: the same rule, asked in the voter's tenant. */
   async function scoredWithoutWords(messageId: string, voter = USER): Promise<boolean> {
     const { isRestrictedUseVote } = await import('./repository')
     const [row] = executeRows<{ id: string }>(
@@ -202,14 +191,8 @@ describe.skipIf(!url)('answer feedback from a restricted conversation, against P
     return { turns, exported, reports, health }
   }
 
-  /**
-   * A vote cast after the admission on an answer from before it is typed by
-   * someone who has read the restricted content, and its comment can quote it.
-   * The first admission marks every message the conversation already holds.
-   */
   it('marks every message of the conversation from its first admission, and leaves their votes out of the drill-in, the export and the lessons input', async () => {
     const openAnswer = await seedVotedChat(OPEN_CHAT, 'Wie hoch muss die Brüstung sein?', OPEN_ANSWER, false)
-    // An earlier turn of the restricted chat, before anything restricted entered it.
     await conversation(RESTRICTED_CHAT, RESTRICTED_TITLE)
     const firstQuestion = await message(RESTRICTED_CHAT, 'user', 'Wie lang darf der Fluchtweg sein?', 10)
     const earlier = await message(RESTRICTED_CHAT, 'assistant', EARLIER_ANSWER, 9)
@@ -219,7 +202,6 @@ describe.skipIf(!url)('answer feedback from a restricted conversation, against P
     await admit(RESTRICTED_CHAT)
     const answer = await message(RESTRICTED_CHAT, 'assistant', RESTRICTED_ANSWER, 2)
     await vote(answer, RESTRICTED_CHAT, RESTRICTED_ANSWER)
-    // After the admission a colleague down-votes the EARLIER answer, quoting the offer.
     await vote(earlier, RESTRICTED_CHAT, 'Falsch, laut Angebot ZIMMERER-AAA 48.000 EUR', COLLEAGUE)
 
     expect(await marksIn(RESTRICTED_CHAT)).toEqual([firstQuestion, earlier, secondQuestion, answer].sort())
@@ -233,24 +215,13 @@ describe.skipIf(!url)('answer feedback from a restricted conversation, against P
       expect(JSON.stringify(reports)).not.toContain(quoted)
     }
     expect(reports.map((report) => report.answer)).toEqual([OPEN_ANSWER])
-    // Counted, never quoted.
     expect(health.totals.down).toBe(4)
 
-    // Langfuse has the same readers: the number and the chip, never the words.
     expect(await scoredWithoutWords(answer)).toBe(true)
     expect(await scoredWithoutWords(earlier, COLLEAGUE)).toBe(true)
     expect(await scoredWithoutWords(openAnswer)).toBe(false)
   })
 
-  /**
-   * Deleting the chat deletes its messages, its record and its votes: a vote's
-   * comment and expected answer quote the folder, and they are the chat's
-   * words. The votes have no foreign key, so the delete names them. The marks
-   * stay (ids only, no text; the runtime role cannot delete one) and keep the
-   * chat answering yes: the answer written after the admission, and the earlier
-   * answer, whose vote from before the admission was edited after it to quote
-   * the offer. A vote cast on either id after the deletion is held out again.
-   */
   it('erases the votes with the restricted conversation, keeps its marks, and holds a later vote on its answers out', async () => {
     await conversation(DELETED_CHAT)
     const firstQuestion = await message(DELETED_CHAT, 'user', 'Wie hoch ist die Attika?', 10)
@@ -278,7 +249,6 @@ describe.skipIf(!url)('answer feedback from a restricted conversation, against P
       )
     )
     expect(left).toEqual({ records: 0, messages: 0, votes: 0 })
-    // Every message the conversation held at its admission, and the answer written after it.
     const marks = await marksIn(DELETED_CHAT)
     expect(marks).toHaveLength(4)
     expect(marks).toEqual(expect.arrayContaining([firstQuestion, earlier, answer]))
@@ -289,22 +259,14 @@ describe.skipIf(!url)('answer feedback from a restricted conversation, against P
       expect(JSON.stringify(exported)).not.toContain(quoted)
       expect(JSON.stringify(reports)).not.toContain(quoted)
     }
-    // The two votes went with the chat: the count is the earlier test's again.
     expect(health.totals.down).toBe(4)
 
-    // The marks outlive the chat, so a vote on either answer cast now stays out.
     await vote(answer, DELETED_CHAT, 'Spengler nach dem Löschen', COLLEAGUE)
     await vote(earlier, DELETED_CHAT, 'Attika nach dem Löschen', COLLEAGUE)
     expect(await scoredWithoutWords(answer, COLLEAGUE)).toBe(true)
     expect(await scoredWithoutWords(earlier, COLLEAGUE)).toBe(true)
   })
 
-  /**
-   * `messages.id` is minted by the client, and a shallow turn, or one whose
-   * persist failed, has no row. A vote whose id names nothing is judged by the
-   * chat it was cast in: through the vote service itself, the way every vote
-   * is written, it marks its own id, and the mark outlives the chat.
-   */
   it('keeps out a vote whose message id names no row, cast in a restricted chat, and erases it with the chat', async () => {
     await conversation(PHANTOM_CHAT)
     await message(PHANTOM_CHAT, 'user', 'Was kostet der Spengler laut Angebot?', 3)
@@ -346,7 +308,6 @@ describe.skipIf(!url)('answer feedback from a restricted conversation, against P
     expect(JSON.stringify(after.turns)).not.toContain('SPENGLER-BBB')
     expect(JSON.stringify(after.exported)).not.toContain('SPENGLER-BBB')
     expect(JSON.stringify(after.reports)).not.toContain('SPENGLER-BBB')
-    // The vote had no message row to be found by: the conversation it named was enough.
     const [left] = executeRows<{ votes: number }>(
       await inOrg((executor) =>
         executor.execute(sql`select count(*)::int as votes from answer_feedback where message_id = ${phantom}`)
@@ -354,20 +315,11 @@ describe.skipIf(!url)('answer feedback from a restricted conversation, against P
     )
     expect(left.votes).toBe(0)
 
-    // The chat and its record are gone; its marks keep it answering yes (sticky).
     const late = randomUUID()
     await vote(late, PHANTOM_CHAT, 'SPENGLER-BBB nach dem Löschen', COLLEAGUE)
     expect(await marksIn(PHANTOM_CHAT)).toContain(late)
   })
 
-  /**
-   * The vote's `conversation_id` is the client's, and it can only add to the
-   * answer. A vote on a marked answer that names an open chat stays out. A vote
-   * on an open answer that names a restricted chat stays out too, since its
-   * comment was typed where the client says; the mark names the restricted
-   * chat, so the open chat does not read as restricted, and an honest vote in
-   * it is shown with ITS question and title.
-   */
   it('lets the conversation id a vote was sent with add to the answer, never lift it', async () => {
     await conversation(NAMING_CHAT)
     await message(NAMING_CHAT, 'user', 'Was kostet der Maler laut Angebot?', 3)
@@ -399,7 +351,6 @@ describe.skipIf(!url)('answer feedback from a restricted conversation, against P
     expect(await scoredWithoutWords(honest)).toBe(false)
   })
 
-  /** A run's message is created empty at dispatch and its report written into it after the run. */
   it('marks a message whose content is written after the conversation drew on the folder', async () => {
     await conversation(RUN_CHAT)
     const runMessage = await message(RUN_CHAT, 'assistant', '', 5)
@@ -413,7 +364,6 @@ describe.skipIf(!url)('answer feedback from a restricted conversation, against P
 
   it('lets the runtime role neither change nor delete a mark', async () => {
     const before = await marksIn(RESTRICTED_CHAT)
-    // Drizzle wraps the driver's error; Postgres's own words are its cause.
     const refusal = (attempt: Promise<unknown>) =>
       attempt.then(
         () => 'went through',
@@ -455,19 +405,12 @@ describe.skipIf(!url)('answer feedback from a restricted conversation, against P
       titleWithheld: false,
     })
 
-    // The search must not confirm a word of the title either; the id still finds it.
     const byTitle = await listProfiledConversations(PROFILER_SCOPE, 'Honorare Zimmerer')
     expect(byTitle.rows.map((row) => row.conversationId)).not.toContain(PROFILED_CHAT)
     const byId = await listProfiledConversations(PROFILER_SCOPE, PROFILED_CHAT)
     expect(byId.rows.map((row) => row.conversationId)).toEqual([PROFILED_CHAT])
   })
 
-  /**
-   * Design E44: a down-voted answer that read the office's licensed text becomes no platform lesson, whose
-   * text reaches every other office. Seeded as production stores it: the asking tab writes the answer row
-   * first and the Herleitung onto the QUESTION row; the server's persist then finds the answer row taken and
-   * merges its mark into it (`mergeMessageMetadata`, as `persistInternalConversationMessages` does).
-   */
   it('leaves a vote on an answer that read licensed text out of the lessons input, and keeps one that did not', async () => {
     const licensedChat = randomUUID()
     const lawChat = randomUUID()

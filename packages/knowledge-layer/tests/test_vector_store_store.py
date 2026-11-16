@@ -1,13 +1,3 @@
-"""The Qdrant store against a real Qdrant server (ADR-0115, ADR-0116).
-
-What is under test is the server's behaviour as this package drives it: German
-BM25, server-side fusion, strict mode, phrase matching, grouping. A mock would
-only test the mock, so these run against ``QDRANT_TEST_URL``: the CI
-backend job starts ``qdrant/qdrant:v1.19.2`` as a service container. Locally,
-without the variable, the module skips; on CI it fails instead, so the suite
-cannot quietly stop running.
-"""
-
 from __future__ import annotations
 
 import math
@@ -42,13 +32,11 @@ def _server_url() -> str:
 
 @pytest.fixture
 def store(qdrant_store):
-    """A store on the collections this module shares, emptied after each test (``qdrant_testing``)."""
     return qdrant_store
 
 
 @pytest.fixture
 def fresh_store(fresh_qdrant_store):
-    """A store on collections of the test's own, for a test of how a collection comes to be."""
     return fresh_qdrant_store
 
 
@@ -69,9 +57,6 @@ def _record(text: str, file_name: str, **metadata) -> ChunkRecord:
 def _cosine(a: list[float], b: list[float]) -> float:
     dot = sum(x * y for x, y in zip(a, b, strict=True))
     return dot / (math.sqrt(sum(x * x for x in a)) * math.sqrt(sum(y * y for y in b)))
-
-
-# ---------------------------------------------------------------- pure units
 
 
 def test_filter_translation_keeps_missing_keys_on_negations():
@@ -115,9 +100,6 @@ def test_point_id_keeps_uuids_and_maps_others_stably():
     chunk_id = str(uuid.uuid4())
     assert point_id(chunk_id) == chunk_id
     assert point_id("not-a-uuid") == point_id("not-a-uuid") != "not-a-uuid"
-
-
-# ---------------------------------------------------------------- server
 
 
 def test_german_bm25_finds_inflected_forms(store):
@@ -177,11 +159,6 @@ def test_exact_term_channel_lifts_the_chunk_with_the_phrase(store):
     ],
 )
 def test_phrase_matching_keeps_the_numbers_in_a_term(store, asked, matching, neighbour):
-    """The exact-term channel's numbers are its signal (qdrant-gates-2026-10.md).
-
-    The multilingual tokenizer dropped digit tokens: „REI 90“ matched REI 60 as
-    well, and „§ 3“ or „5.1.1“, nothing left but punctuation, matched nothing.
-    """
     store.upsert("proj_a", [_record(matching, "match.pdf"), _record(neighbour, "neighbour.pdf")])
     found, _ = store.client.scroll(
         schema.ALIASES[schema.Physical.OFFICE], scroll_filter=scope_filter(["proj_a"], None, phrase(asked))
@@ -210,7 +187,6 @@ def test_ne_keeps_points_without_the_field(store):
 
 
 def test_a_point_still_carrying_the_old_punkt_keys_is_found_under_the_clause_names(store):
-    """Points written before the rename keep ``punkt_*`` and ``chunking: "punkt"`` until the operator rewrite."""
     store.upsert(
         "oib_knowledge",
         [
@@ -270,7 +246,6 @@ def test_grouped_search_ranks_projects_in_one_call(store):
 
 
 def test_grouped_search_says_which_hits_hold_the_words(store):
-    """The fusion fills its candidates from the dense channel whatever the words; ``lexical`` tells them apart."""
     store.upsert(
         "proj_a",
         [_record("Fluchttreppe Holzbau", "a1.pdf"), _record("Fassade Glas", "a2.pdf"), _record("Dach", "a3.pdf")],
@@ -296,7 +271,6 @@ def test_grouped_search_says_which_hits_hold_the_words(store):
 
 
 def test_a_document_filter_reaches_the_points_written_without_a_document_id(store):
-    """Points copied from Chroma carry no ``grid_document_id``; the BFF names them by file name beside the ids."""
     doc = "0e8b1c2a-1111-4222-8333-444455556666"
     store.upsert(
         "proj_a",
@@ -355,7 +329,6 @@ def test_a_foreign_embedder_is_refused(store):
 
 
 def test_isolation_property_random_scope_sets(store):
-    """No hit ever comes from a scope outside the requested set (ADR-0116 Confirmation)."""
     scopes = [f"proj_{name}" for name in "abcdef"] + ["archiv_org1", "s_conv1"]
     words = ["Fluchtweg", "Brandschutz", "Stiege", "Holzbau", "Auflage", "Bescheid"]
     rng = random.Random(7)
@@ -376,15 +349,12 @@ def test_isolation_property_random_scope_sets(store):
             office_id="org_test",
         )
         assert {hit.payload["scope"] for hit in hits} <= set(requested), case
-        # Every requested scope holds 5 chunks and the dense channel admits
-        # them all: an empty answer would make the property vacuous.
         assert len(hits) == min(20, 5 * len(requested)), case
         returned += len(hits)
     assert returned > 0
 
 
 def test_no_scope_is_an_empty_answer_not_an_index_error(monkeypatch):
-    """A caller with nothing to search gets nothing back, before any store call."""
     from knowledge_layer.vector_store import retrieval
 
     monkeypatch.setattr(retrieval, "get_store", lambda *a, **k: pytest.fail("store touched for no scope"))
@@ -403,9 +373,6 @@ def test_no_scope_is_an_empty_answer_not_an_index_error(monkeypatch):
     assert hybrid_search(object(), [], vector=[0.1], lexical_text="x", limit=3, office_id="org_test") == []
 
 
-# ---------------------------------------------------------------- the text index tokenizes digits
-
-
 NUMBERED = [
     "Gemäß § 3 Abs. 2 sind Fluchtwege vorzusehen.",
     "Nach §3 gilt dies sinngemäß.",
@@ -418,7 +385,6 @@ NUMBERED = [
 
 
 def test_phrases_on_numbers_match_exactly_the_chunks_that_contain_them(store):
-    """``multilingual`` dropped digits: "5.1.1" and "43" matched nothing and "Abs. 2" matched every "Abs."."""
     from knowledge_layer.vector_store import exact_term
 
     store.upsert("proj_a", [_record(text, f"{index}.pdf") for index, text in enumerate(NUMBERED)])
@@ -430,12 +396,9 @@ def test_phrases_on_numbers_match_exactly_the_chunks_that_contain_them(store):
     assert files(phrase("43")) == {"3.pdf"}
     assert files(phrase("Abs. 2")) == {"0.pdf", "6.pdf"}
     assert files(phrase("OIB-Richtlinie 2")) == {"2.pdf"}
-    # A § reference is matched on the chunk's own list of the ones it cites:
-    # as a phrase it would be the bare token "3", which "Abs. 3" carries too.
     assert files(exact_term("§ 3")) == {"0.pdf", "1.pdf"}
     assert files(exact_term("§ 13")) == {"6.pdf"}
     assert files(exact_term("OIB-Richtlinie 2")) == {"2.pdf"}
-    # Lowercasing and ASCII folding still hold: one token however it is spelled.
     for spelling in ("Größe", "GRÖSSE", "grosse", "Straße", "strasse", "brustungshohe"):
         assert files(phrase(spelling)) == {"3.pdf"}, spelling
 
@@ -462,7 +425,6 @@ def test_a_text_index_built_with_another_tokenizer_is_reported_loudly(fresh_stor
         schema.ensure_payload_indexes(store.client, name)
     [record] = [r for r in caplog.records if "full-text index" in r.getMessage()]
     assert "multilingual" in record.getMessage() and "switch the alias" in record.getMessage()
-    # The index is left as it is: a rebuild is a new collection, never a silent drop.
     assert store.client.get_collection(name).payload_schema[schema.TEXT_FIELD].params.tokenizer == "multilingual"
 
     caplog.clear()
@@ -472,11 +434,7 @@ def test_a_text_index_built_with_another_tokenizer_is_reported_loudly(fresh_stor
     assert not caplog.records
 
 
-# ---------------------------------------------------------------- creating the collection
-
-
 def test_a_collection_left_without_its_alias_is_finished_not_wedged(fresh_store):
-    """A writer died between create_collection and the alias; every later writer used to fail on the conflict."""
     store = fresh_store
     from qdrant_client import models
 
@@ -496,7 +454,6 @@ def test_a_collection_left_without_its_alias_is_finished_not_wedged(fresh_store)
 
 
 def test_concurrent_creators_both_succeed(store, monkeypatch):
-    """The loser of the create race finishes the collection instead of raising while the alias is not there yet."""
     import threading
     import time
 
@@ -532,15 +489,11 @@ def test_concurrent_creators_both_succeed(store, monkeypatch):
 
 
 def test_writes_are_acknowledged_by_one_replica(fresh_store, monkeypatch):
-    """At RF 2 a write consistency of 2 failed every write to a shard whose second peer was down."""
     store = fresh_store
     monkeypatch.setenv("QDRANT_REPLICATION_FACTOR", "2")
     store.upsert("proj_a", [_record("x", "a.pdf")])
     assert store.client.get_collection(store.alias("proj_a")).config.params.replication_factor == 2
     assert store.client.get_collection(store.alias("proj_a")).config.params.write_consistency_factor == 1
-
-
-# ---------------------------------------------------------------- transient failures are retried, refusals are not
 
 
 def _flaky(store, monkeypatch, errors: list[BaseException]):
@@ -596,11 +549,7 @@ def test_a_refusal_is_never_retried_and_an_outage_gives_up(store, monkeypatch):
     assert calls["n"] == 4 and pauses == [0.2, 0.8, 2.0]
 
 
-# ---------------------------------------------------------------- filters a model may name
-
-
 def test_the_metadata_keys_the_chunkers_write_are_filterable(store):
-    """``knowledge_search`` passes a model's raw ``filters``; under Chroma every one of these applied."""
     store.upsert(
         "oib_knowledge",
         [
@@ -644,7 +593,6 @@ def test_a_string_boolean_is_read_for_what_it_says():
 
 
 def test_a_list_value_is_any_of_on_every_field_type(store):
-    """``project_facts.*`` are keyword fields holding lists; a list equality was one string and matched nothing."""
     from knowledge_layer.vector_store import project_payload
 
     store.upsert(

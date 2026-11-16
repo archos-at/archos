@@ -1,12 +1,5 @@
 'use client'
 
-/**
- * The standards at one level: what needs a person as filters with their counts
- * (to confirm, check due, text not read), a search and a kind, the bulk bar
- * once rows are selected, the table, and the next page. The server narrows and
- * counts (`listing.ts`); this draws what it answered.
- */
-
 import type { JSX } from 'react'
 import { Button } from '@/components/ui/button'
 import { Chip, ChipCount } from '@/components/ui/chip'
@@ -60,7 +53,6 @@ function AttentionFilters({ counts, value, onChange }: { counts: EntryCounts; va
   )
 }
 
-/** Where a selection can move to: the top level and every folder, by path. */
 function MoveTo({ folders, onMove }: { folders: BaseKnowledgeFolders; onMove: (folderId: string) => void }): JSX.Element | null {
   const t = useTranslations(baseKnowledgeCopy)
   if (!folders.rootId) return null

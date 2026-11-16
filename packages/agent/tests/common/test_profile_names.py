@@ -1,5 +1,3 @@
-"""``profile_names`` is held to ``legacy-names.json``, the source the TypeScript twin and the migrations share."""
-
 from __future__ import annotations
 
 import json

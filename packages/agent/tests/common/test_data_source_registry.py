@@ -1,5 +1,3 @@
-"""Tests for data_source_registry module."""
-
 import pytest
 
 from agent.common.data_source_registry import DataSourceEntry
@@ -16,17 +14,13 @@ from agent.common.data_source_registry import set_tool_source_map
 
 @pytest.fixture(autouse=True)
 def _clean_registry():
-    """Reset registry before and after each test."""
     reset_registry()
     yield
     reset_registry()
 
 
 class TestPopulateFromConfig:
-    """Tests for populate_from_config (YAML-driven registration)."""
-
     def test_populates_registry_and_tool_map(self):
-        """Test that populate_from_config loads sources and tool mappings."""
         populate_from_config(
             [
                 {
@@ -54,7 +48,6 @@ class TestPopulateFromConfig:
         assert get_source_id_for_tool("knowledge_search") == "knowledge_layer"
 
     def test_default_enabled_false(self):
-        """Test that default_enabled can be set to False."""
         populate_from_config(
             [
                 {"id": "disabled_src", "name": "D", "description": "D", "default_enabled": False},
@@ -66,7 +59,6 @@ class TestPopulateFromConfig:
         assert meta.default_enabled is False
 
     def test_requires_auth_true(self):
-        """Test that requires_auth is stored on the metadata."""
         populate_from_config(
             [
                 {"id": "eci", "name": "ECI", "description": "Enterprise.", "requires_auth": True},
@@ -78,7 +70,6 @@ class TestPopulateFromConfig:
         assert meta.requires_auth is True
 
     def test_requires_auth_defaults_to_false(self):
-        """Test that requires_auth defaults to False when omitted."""
         populate_from_config(
             [
                 {"id": "web", "name": "Web", "description": "Web search."},
@@ -89,21 +80,18 @@ class TestPopulateFromConfig:
         assert meta.requires_auth is False
 
     def test_missing_name_uses_title_cased_id(self):
-        """Test that missing name falls back to title-cased ID."""
         populate_from_config([{"id": "my_custom_search", "description": "Custom search."}])
 
         meta = get_source("my_custom_search")
         assert meta.name == "My Custom Search"
 
     def test_source_without_tools(self):
-        """Test that a source with no tools is registered but has no tool mappings."""
         populate_from_config([{"id": "empty_src", "name": "Empty", "description": "No tools."}])
 
         assert get_source("empty_src") is not None
         assert get_source_id_for_tool("anything") is None
 
     def test_group_refs_populate_prefix_map(self):
-        """Test that tools listed as group_names enable prefix matching."""
         populate_from_config(
             [{"id": "my_group", "name": "My Group", "description": "A group source.", "tools": ["my_group"]}],
             group_names={"my_group"},
@@ -114,7 +102,6 @@ class TestPopulateFromConfig:
         assert get_source_id_for_tool("web_search_tool") is None
 
     def test_child_tool_matches_data_source_ref_when_group_detection_misses_it(self):
-        """MCP-style child tools still match refs declared under data_sources."""
         populate_from_config(
             [{"id": "mcp_time", "name": "MCP Time", "description": "Get current time.", "tools": ["mcp_time"]}]
         )
@@ -168,20 +155,17 @@ class TestToolSourceMap:
         assert get_source_id_for_tool("tool") is None
 
     def test_group_matches_nat_separator(self):
-        """Function group tools use the agent runtime's __ separator."""
         set_group_source_map({"my_group": "my_group"})
 
         assert get_source_id_for_tool("my_group__tool_a") == "my_group"
         assert get_source_id_for_tool("my_group__tool_b") == "my_group"
 
     def test_group_matches_legacy_separator(self):
-        """Function group tools also match the agent runtime's legacy . separator."""
         set_group_source_map({"my_group": "my_group"})
 
         assert get_source_id_for_tool("my_group.tool_a") == "my_group"
 
     def test_group_rejects_no_separator(self):
-        """Bare prefix without the agent runtime's separator does not match."""
         set_group_source_map({"my_group": "my_group"})
 
         assert get_source_id_for_tool("my_group") is None
@@ -189,7 +173,6 @@ class TestToolSourceMap:
         assert get_source_id_for_tool("my_group_tool") is None  # single underscore is not an agent-runtime separator
 
     def test_exact_match_takes_priority_over_group(self):
-        """Exact tool match should win over group prefix match."""
         set_tool_source_map({"my_group__special": "special_source"})
         set_group_source_map({"my_group": "my_group"})
 
@@ -197,14 +180,12 @@ class TestToolSourceMap:
         assert get_source_id_for_tool("my_group__other") == "my_group"
 
     def test_overlapping_group_prefixes_match_longest(self):
-        """When group prefixes overlap, the longest matching prefix wins."""
         set_group_source_map({"abc": "source_short", "abc_special": "source_long"})
 
         assert get_source_id_for_tool("abc_special__tool") == "source_long"
         assert get_source_id_for_tool("abc__tool") == "source_short"
 
     def test_unknown_tool_returns_none_with_groups(self):
-        """Tools not matching any exact or prefix mapping return None."""
         set_tool_source_map({"web_search_tool": "web_search"})
         set_group_source_map({"my_group": "my_group"})
 
@@ -212,8 +193,6 @@ class TestToolSourceMap:
 
 
 class TestGetAllToolRefs:
-    """Tests for get_all_tool_refs (auto-inherit helper)."""
-
     def test_empty_registry(self):
         assert get_all_tool_refs() == []
 
@@ -288,8 +267,6 @@ class TestGetAllToolRefs:
 
 
 class TestDataSourceEntry:
-    """Tests for the DataSourceEntry pydantic config model."""
-
     def test_requires_auth_defaults_false(self):
         entry = DataSourceEntry(id="web", name="Web", description="Web search.")
         assert entry.requires_auth is False

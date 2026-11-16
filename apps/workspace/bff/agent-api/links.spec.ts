@@ -1,10 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * What the door answers carries `url`, the page a person opens, on the objects
- * its operation declares in `links`, and nothing at all without a pinned origin.
- */
 import { describe, expect, it } from 'vitest'
 import { findOperation } from './catalog'
 import { fromOperationResult } from './discovery'

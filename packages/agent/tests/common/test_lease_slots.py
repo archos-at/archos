@@ -1,5 +1,3 @@
-"""A fleet-wide slot pool: at most `limit` holders, waiting rather than refused."""
-
 from __future__ import annotations
 
 import pytest
@@ -8,8 +6,6 @@ from agent.common import lease_slots
 
 
 class FakeStore:
-    """Dragonfly's sorted-set semantics for the three lease scripts, in memory."""
-
     def __init__(self) -> None:
         self.pools: dict[str, dict[str, float]] = {}
         self.acquires = 0
@@ -74,16 +70,12 @@ def test_without_a_store_every_call_proceeds(monkeypatch):
 
 
 def test_a_lease_stamped_far_in_the_future_ages_out_too(store):
-    # Only a holder whose clock runs a lease ahead writes one; left alone it
-    # would keep its slot until the fleet's clocks caught up.
     store.pools["pool"] = {"skewed": 9e18}
     with lease_slots.hold("pool", 1, lease_seconds=60, max_wait_seconds=0):
         assert "skewed" not in store.pools["pool"]
 
 
 def test_a_full_pool_is_waited_out_past_the_deadline_never_bypassed(store, monkeypatch):
-    # Running without a slot after the deadline let every late waiter through
-    # at once under sustained load: the burst the ceiling exists to stop.
     clock = iter(range(0, 10_000, 5))
     monkeypatch.setattr(lease_slots.time, "monotonic", lambda: next(clock))
     store.pools["pool"] = {"other": 9e9}  # held, fresh, and within a lease of now
@@ -103,8 +95,6 @@ def test_a_full_pool_is_waited_out_past_the_deadline_never_bypassed(store, monke
 
 
 class TestFairShareBetweenLanes:
-    """The vision pool shared between organisations, on the real script (fakeredis runs the Lua)."""
-
     @pytest.fixture
     def redis(self, monkeypatch):
         import fakeredis
@@ -129,7 +119,6 @@ class TestFairShareBetweenLanes:
 
     def test_a_lane_over_its_share_gives_the_next_slot_to_a_waiting_lane(self, redis):
         assert [self._take("office-a", n) for n in range(3)] == [1, 1, 1]
-        # The pool has one slot left; A holds 3 of 4 while B now waits.
         redis.zadd("pool:waiting", {"office-b|0": 1000.0})
         assert self._take("office-a", 9) == 0
         assert self._take("office-b", 0) == 1
@@ -160,7 +149,6 @@ class TestFairShareBetweenLanes:
 
 
 def test_a_body_that_outlasts_its_lease_keeps_its_slot(monkeypatch):
-    """A retried vision call lasts longer than one lease; unrenewed, its slot aged out and a second call took it."""
     import threading
 
     fake = FakeStore()

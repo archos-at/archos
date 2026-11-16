@@ -1,10 +1,3 @@
-/**
- * Grundlagen des Büros over a fetch stub: the first visit explains what belongs
- * here, a filter asks the server for what needs attention, a selection turns
- * the control row into the bulk bar and sends one bulk call, and a member who
- * may not manage reads without a control to change anything.
- */
-
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ReactNode } from 'react'
@@ -23,8 +16,6 @@ vi.mock('next/navigation', () => ({
   useSearchParams: () => new URLSearchParams(navigation.search),
 }))
 
-// The one viewer, as a frame around what it is given: these specs are about what the place opens and puts beside
-// the file, not about the viewer, which has its own.
 vi.mock('@/features/documents/file-preview', () => ({
   fileItemFromStatus: (body: { id: string; filename: string }) => ({ ...body }),
   FilePreviewDialog: ({ file, detailsLead, onClose }: { file: { filename: string } | null; detailsLead?: ReactNode; onClose: () => void }) =>
@@ -177,7 +168,6 @@ describe('BaseKnowledgeWorkspace', () => {
     expect(within(facts).getByText('Ausgabe')).toBeTruthy()
     expect(within(facts).getByText('Zuletzt geprüft')).toBeTruthy()
     await userEvent.click(within(facts).getByTestId('standard-facts-manage'))
-    // In place of the file, not on top of it: back from the page leads where the file was opened from.
     expect(navigation.replace).toHaveBeenCalledWith('/app/base-knowledge?entry=oenorm-b-1600', { scroll: false })
   })
 

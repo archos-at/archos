@@ -9,7 +9,6 @@ const serverMessage = (overrides: Partial<Message> = {}): Message =>
     role: 'user',
     content: 'Hello',
     metadata: {},
-    // Over JSON, timestamps arrive as ISO strings despite the Date type.
     createdAt: '2026-07-01T10:00:00.000Z' as unknown as Date,
     ...overrides,
   }) as Message
@@ -77,7 +76,6 @@ describe('mapServerMessageToChatMessage', () => {
         content: 'REI 90',
         kind: 'preference',
         confidence: 'medium',
-        // A stored card parses with the fields it predates: no proposal, no correction.
         proposal_id: null,
         supersedes: null,
       },
@@ -87,16 +85,6 @@ describe('mapServerMessageToChatMessage', () => {
   })
 
   it('holes a stored card the current schema does not know, keeping the rest in place', () => {
-    // This path - every card read back out of the database - used to CAST
-    // rather than validate, while the live websocket path validated. One row
-    // written under a different schema version then reached a renderer that
-    // indexes a lookup table by an unvalidated field, threw during render, and
-    // blanked the whole conversation instead of that one card.
-    //
-    // The rejected card leaves a HOLE rather than being filtered out:
-    // positions are card identity (`[[card:N]]` markers address them, persisted
-    // decisions key on them), so closing the gap would rebind every marker and
-    // decision after it onto the wrong card on reload.
     const mapped = mapServerMessageToChatMessage(
       serverMessage({
         role: 'assistant',
@@ -111,9 +99,6 @@ describe('mapServerMessageToChatMessage', () => {
   })
 
   it('restores interactive-card decisions so a settled card cannot be re-answered', () => {
-    // Regression: when a history rehydrates from the server (localStorage wiped,
-    // other device) an already-applied project_profile_patch used to come back
-    // pending, re-offering an Accept that writes the same patch again.
     const mapped = mapServerMessageToChatMessage(
       serverMessage({
         role: 'assistant',
@@ -147,8 +132,6 @@ describe('mapServerMessageToChatMessage', () => {
       serverMessage({ role: 'user', authorUserId: 'user_anna' })
     )
 
-    // A colleague's contribution arrives as role `user` — the same role as our own
-    // messages — so authorship is the ONLY thing that tells them apart.
     expect(mapped).not.toBeNull()
     expect(mapped!.messageType).toBe('user')
     expect(mapped!.authorUserId).toBe('user_anna')
@@ -156,7 +139,6 @@ describe('mapServerMessageToChatMessage', () => {
 
   it('leaves the author absent on an unattributed row rather than inventing one', () => {
     expect(mapServerMessageToChatMessage(serverMessage({ authorUserId: null }))!.authorUserId).toBeUndefined()
-    // NULL on an assistant row is correct: the agent wrote it.
     expect(
       mapServerMessageToChatMessage(serverMessage({ role: 'assistant', authorUserId: null }))!.authorUserId
     ).toBeUndefined()
@@ -245,9 +227,6 @@ describe('mapServerMessagesToChatMessages', () => {
   })
 
   it('keeps every human author in a multi-author history', () => {
-    // The regression this guards: the role filter above drops anything that is not
-    // user/assistant, and a colleague's message arrives as `user`. If that ever
-    // narrowed to "the session owner", a shared thread would render half of itself.
     const mapped = mapServerMessagesToChatMessages([
       serverMessage({ id: 'm1', role: 'user', authorUserId: 'user_me' }),
       serverMessage({ id: 'm2', role: 'user', authorUserId: 'user_anna' }),
@@ -264,14 +243,6 @@ describe('mapServerMessagesToChatMessages', () => {
   })
 })
 
-/**
- * The provenance round-trip (ADR-0037).
- *
- * This is what an OBSERVER's whole view of the reasoning rests on. A colleague
- * holds no agent socket by design (ADR-0033 §7), so they never receive the
- * intermediate frames — this row is the only place the Herleitung can come from.
- * The same path is what restores it for the asker on a second device.
- */
 describe('mapServerMessageToChatMessage — the answer’s provenance', () => {
   const provenance = {
     thinkingSteps: [
@@ -301,13 +272,10 @@ describe('mapServerMessageToChatMessage — the answer’s provenance', () => {
 
     expect(mapped!.thinkingSteps).toHaveLength(1)
     const step = mapped!.thinkingSteps![0]
-    // The stored v2 shape, exactly what the turn fold writes: a restored step
-    // and a live one are one shape, and the timestamp stays the ISO string.
     expect(step).toEqual(provenance.thinkingSteps[0])
   })
 
   it('drops a step in the pre-v2 shape rather than interpreting it', () => {
-    // Migration 0097 rewrote every stored row; there is no second reader.
     const mapped = mapServerMessageToChatMessage(
       serverMessage({
         metadata: {
@@ -471,16 +439,12 @@ describe('mapServerMessageToChatMessage — the answer’s provenance', () => {
     expect(mapped!.answerConfidenceVersion).toBe(2)
     expect(mapped!.lookupFoundNothing).toBe(true)
 
-    // A row stored before ADR-0125 restores no version: it renders under the rule it was computed with.
     const old = mapServerMessageToChatMessage(serverMessage({ role: 'assistant', metadata: { provenance } }))
     expect(old!.answerConfidenceVersion).toBeUndefined()
     expect(old!.confidenceCheck).toBeUndefined()
   })
 
   it('restores the run ledger on a run’s own message, bounded again on the way out', () => {
-    // The one payload on a message that this tier did not write: the Python
-    // fold produces it, so „written by another build" is the ordinary case
-    // rather than the legacy one.
     const mapped = mapServerMessageToChatMessage(
       serverMessage({
         role: 'assistant',
@@ -536,8 +500,6 @@ describe('mapServerMessageToChatMessage — the answer’s provenance', () => {
   })
 
   it('ignores a provenance blob written by some other build', () => {
-    // Narrowed, not cast: the server bounds this on write, but a row written
-    // earlier is whatever it was, and a bad value must not reach a renderer.
     const mapped = mapServerMessageToChatMessage(
       serverMessage({
         metadata: {
@@ -574,8 +536,6 @@ describe('mapServerMessageToChatMessage — the answer’s provenance', () => {
   })
 
   it('restores the read-but-uncited disclosure from its own envelope', () => {
-    // Stored under `readSources` in the same versioned envelope as the
-    // citations, so a reloaded thread still says what else the turn read.
     const mapped = mapServerMessageToChatMessage(
       serverMessage({
         role: 'assistant',
@@ -608,24 +568,6 @@ describe('mapServerMessageToChatMessage — the answer’s provenance', () => {
   })
 })
 
-/**
- * A human-in-the-loop prompt, restored (ADR-0037).
- *
- * `addAgentPrompt` used to persist nothing, so a clarification card existed only in
- * the browser whose socket received the frame. An observer's server-authoritative
- * load showed NO card — the thread simply stopped mid-question and looked broken —
- * and the asker's own reload lost it too.
- */
-/**
- * A post-answer stage's output is restored the same way `cards` is: through the
- * same sanitiser that bounded it on the way IN
- * (`docs/architecture/post-answer-stages.md` §4.4).
- *
- * Re-checked on read and not merely trusted, for the reason `validateAnswerCards`
- * exists on this path — a row written by an older build is still whatever it
- * was, and a renderer that trusts it blanks the whole conversation rather than
- * that one message.
- */
 describe('mapServerMessageToChatMessage — a post-answer stage', () => {
   it('restores the chips a stage wrote onto the answer', () => {
     const mapped = mapServerMessageToChatMessage(
@@ -664,10 +606,6 @@ describe('mapServerMessageToChatMessage — a post-answer stage', () => {
   })
 
   it('restores what the reflection stage recorded, so a reload still shows it', () => {
-    // The reload case that decides whether the poll could be deleted at all.
-    // The `project_memory` rows survive regardless — they are in the database —
-    // but which TURN wrote them exists only here, and a reader who reloads must
-    // still be told what Piloti noted on this answer rather than on the thread.
     const mapped = mapServerMessageToChatMessage(
       serverMessage({
         role: 'assistant',
@@ -719,14 +657,11 @@ describe('mapServerMessageToChatMessage — a human-in-the-loop prompt', () => {
       { id: 'both', label: 'Beide Kerne' },
     ])
     expect(mapped!.promptPlaceholder).toBe('Welcher Kern?')
-    // The addressee is what lets every other reader be shown it read-only.
     expect(mapped!.promptFor).toBe('user_matthias')
-    // Unanswered, so no response and not marked responded.
     expect(mapped!.isPromptResponded).toBeUndefined()
   })
 
   it('derives isPromptResponded from the stored answer rather than a second field', () => {
-    // Two fields that can disagree about one fact is one field too many.
     const mapped = mapServerMessageToChatMessage(
       serverMessage({
         role: 'assistant',

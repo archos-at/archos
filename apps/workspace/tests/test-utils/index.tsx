@@ -14,7 +14,5 @@ const renderWithProviders = (ui: ReactElement) => {
   }
 }
 
-// Re-export everything from @testing-library/react
 export * from '@testing-library/react'
-// Override render with our custom wrapper
 export { renderWithProviders as render }

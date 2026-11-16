@@ -28,9 +28,6 @@ vi.mock('@/lib/projects/repository', () => ({
   setProjectProfileSummaryInOrg: vi.fn(),
 }))
 
-// A card's patch names its conversation; the restricted-folder refusal reads
-// what the conversation recorded it drew on (ADR-0087). The access check is the
-// sharing layer's.
 vi.mock('@/lib/sharing/access', () => ({ requireResourceAccess: vi.fn() }))
 vi.mock('@/lib/conversations/restricted-use', () => ({
   recordedRestrictedFolders: vi.fn(async () => []),
@@ -72,7 +69,6 @@ describe('POST /api/projects/[id]/profile/patches', () => {
     expect(response.status).toBe(400)
     const body = await response.json()
     expect(body.error).toMatch(/Bauwerkstyp/)
-    // The bad patch never reached the persistence layer.
     expect(updateProjectProfileIfVersion).not.toHaveBeenCalled()
   })
 
@@ -93,12 +89,6 @@ describe('POST /api/projects/[id]/profile/patches', () => {
     expect(updateProjectProfileIfVersion).toHaveBeenCalledTimes(1)
   })
 
-  /**
-   * `updateProjectProfileIfVersion` only compares `profileVersion`, so the refusal
-   * it returns is a GENERIC optimistic-lock failure. Which of the two conflicts it
-   * is decides whether the caller may report success, and only the profile the
-   * winner left behind can say.
-   */
   it('reports an idempotent success when the winner already applied this patch', async () => {
     const applied = ProjectProfileSchema.parse({
       facts: {
@@ -125,8 +115,6 @@ describe('POST /api/projects/[id]/profile/patches', () => {
   })
 
   it('still returns 409 when the concurrent write was somebody else’s change', async () => {
-    // The winner set a DIFFERENT fact, so these operations were dropped. Reporting
-    // this as applied would lose the change behind a card that cannot be retried.
     const other = ProjectProfileSchema.parse({
       facts: {
         building_type: {

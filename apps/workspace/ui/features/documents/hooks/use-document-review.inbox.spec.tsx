@@ -1,12 +1,3 @@
-/**
- * Opening a mark in the review reads its news in the inbox: the reader's
- * informational items anchored on that mark, through the inbox's own client.
- * A mark only stepped past (J/K) does not count, and a mark without news (no
- * dot) writes nothing.
- *
- * And the review knows which marks have news before they are opened (their
- * dot): one read per document, again when the inbox changes.
- */
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { http, HttpResponse } from 'msw'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -16,14 +7,8 @@ import type { InboxClient } from '@/lib/inbox/client'
 import type { RoomTransport } from './use-document-room'
 import { MARK_NEWS_SETTLE_MS, UNREAD_READ_DELAY_MS, useDocumentReview } from './use-document-review'
 
-/**
- * How long a wait for a debounced read may take. The debounces are real timers, and under the full
- * suite's load a few of their periods is not enough; `waitFor` returns as soon as it holds, so a
- * generous bound costs nothing when the machine is idle.
- */
 const SETTLED = { timeout: 5_000 }
 
-/** The tab's live channel, played by the test: what reaches every listener. */
 const hub = vi.hoisted(() => ({ listeners: new Set<(event: CollaborationEvent) => void>() }))
 vi.mock('@/features/collaboration/lib/event-hub', () => ({
   subscribeToEvents: (listener: (event: CollaborationEvent) => void) => {
@@ -87,7 +72,6 @@ describe('opening a mark reads its news', () => {
 })
 
 describe('which marks have news', () => {
-  /** The inbox as the review asks it: the unread marks answered in turn, and what was read. */
   function inboxWith(...answers: string[][]) {
     const unreadMarks = vi.fn<InboxClient['unreadMarks']>(async () => answers.shift() ?? [])
     const markMarkRead = vi.fn<InboxClient['markMarkRead']>(async () => ({ affected: 1, pending: 0 }))
@@ -113,16 +97,13 @@ describe('which marks have news', () => {
     const { result } = renderHook(() => useDocumentReview('doc-1', { enabled: true, transport, inbox: inbox.client }))
     await waitFor(() => expect(inbox.unreadMarks).toHaveBeenCalledTimes(1))
     act(() => result.current.select('mark-2'))
-    // No news on it yet: nothing to read.
     await new Promise((resolve) => setTimeout(resolve, MARK_NEWS_SETTLE_MS * 2))
     expect(inbox.markMarkRead).not.toHaveBeenCalled()
 
-    // A colleague answers in the thread the reader has open: the inbox changes, three nudges in a row.
     for (let index = 0; index < 3; index += 1) publish({ kind: 'inbox.changed', pending: -1 })
 
     await waitFor(() => expect(inbox.unreadMarks).toHaveBeenCalledTimes(2), SETTLED)
     await waitFor(() => expect(inbox.markMarkRead).toHaveBeenCalledTimes(1), SETTLED)
-    // The dot goes in the same tick the read is sent, as a state update: wait for the render, not the call.
     await waitFor(() => expect(result.current.unread.has('mark-2')).toBe(false), SETTLED)
     expect(inbox.unreadMarks).toHaveBeenCalledTimes(2)
   })
@@ -134,7 +115,6 @@ describe('the news about new marks, while the review is open', () => {
   it('reads it on opening, again on each change in the inbox while open, and no more once closed', async () => {
     const { result } = renderHook(() => useDocumentReview('doc-1', { enabled: true, transport }))
     await waitFor(() => expect(result.current.load).toBe('ready'))
-    // A change in the inbox while the review is closed reads no news about new marks.
     publish({ kind: 'inbox.changed', pending: 1 })
     await new Promise((resolve) => setTimeout(resolve, UNREAD_READ_DELAY_MS * 2))
     expect(marksSetReads()).toEqual([])
@@ -146,7 +126,6 @@ describe('the news about new marks, while the review is open', () => {
     await waitFor(() => expect(marksSetReads()).toHaveLength(1))
     expect(marksSetReads()[0]).toEqual({ resourceType: 'document', resourceId: 'doc-1', marksSet: true })
 
-    // Anna sets fifteen marks while the reader looks at the document: its row arrives, and is read.
     publish({ kind: 'inbox.changed', pending: 1 })
     await waitFor(() => expect(marksSetReads()).toHaveLength(2), SETTLED)
 

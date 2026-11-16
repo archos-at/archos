@@ -73,7 +73,6 @@ const queuePage = (names: string[], page = 1, totalPages = 1) => ({
   meta: { page, limit: 100, totalItems: names.length, totalPages },
 })
 
-/** A Langfuse API error as the client throws it: an Error carrying the HTTP status. */
 const httpError = (statusCode: number) => Object.assign(new Error(`Status code: ${statusCode}`), { statusCode })
 
 beforeEach(() => {
@@ -90,7 +89,6 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-/** The scores sent, by name. */
 const sentScores = (name: string) =>
   api.create.mock.calls.map(([score]) => score).filter((score) => score.name === name)
 
@@ -125,7 +123,6 @@ describe('toFeedbackScore', () => {
 })
 
 describe('feedbackScoreId', () => {
-  /** Langfuse upserts by score id: a re-vote replaces, a retraction finds the same score. */
   it('is a pure function of the feedback row id', () => {
     const id = vote().feedbackId
     expect(feedbackScoreId(id)).toBe(feedbackScoreId(id))
@@ -173,7 +170,6 @@ describe('with configuration', () => {
     expect(api.remove).toHaveBeenCalledWith(feedbackScoreId(vote().feedbackId), expect.any(Object))
   })
 
-  /** A Langfuse outage must never surface in the vote that triggered it. */
   it('swallows and logs a failure instead of rejecting', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     api.create.mockRejectedValueOnce(new Error('503 from Langfuse'))
@@ -185,10 +181,6 @@ describe('with configuration', () => {
     warn.mockRestore()
   })
 
-  /**
-   * Re-vote then retract, a moment apart: the delete must not overtake the
-   * upsert, or Langfuse ends up holding a score for a vote that no longer exists.
-   */
   it('keeps calls for one score in the order they were made', async () => {
     const order: string[] = []
     const scoreId = feedbackScoreId(vote().feedbackId)
@@ -237,7 +229,6 @@ describe('toFeedbackReasonScore', () => {
     expect(FEEDBACK_REASON_SCORE_NAME).toBe('user-feedback-reason')
   })
 
-  /** The platform page and the export count a reasonless down-vote as `other`; so does Langfuse. */
   it('scores a down-vote without a reason as other, and keeps that it had none', () => {
     const score = toFeedbackReasonScore(vote({ reason: null }))
     expect(score?.value).toBe('other')
@@ -294,7 +285,6 @@ describe('the reason score, with configuration', () => {
     )
   })
 
-  /** An up-vote that never had a reason deletes a score that is not there: the outcome wanted. */
   it('does not log a delete that found nothing', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     api.remove.mockRejectedValue(httpError(404))
@@ -393,7 +383,6 @@ describe('the review queue, with configuration', () => {
     expect(api.createQueueItem).toHaveBeenCalledTimes(3)
   })
 
-  /** Before provisioning: the scores still land, nothing is queued, and the miss costs one lookup. */
   it('does nothing without the queue, caches the miss, and says so once', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const now = vi.spyOn(Date, 'now').mockReturnValue(1_000_000)
@@ -426,7 +415,6 @@ describe('the review queue, with configuration', () => {
     expect(api.createQueueItem).toHaveBeenCalledWith(QUEUE_ID, expect.any(Object), expect.any(Object))
   })
 
-  /** An outage is not a missing queue: it is not cached, and it never reaches the vote. */
   it('swallows a failed lookup or add, and retries the lookup on the next vote', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     api.listQueues.mockRejectedValueOnce(httpError(503))

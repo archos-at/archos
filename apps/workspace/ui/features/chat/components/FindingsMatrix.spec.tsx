@@ -133,9 +133,6 @@ describe('FindingsMatrix', () => {
   })
 
   test('stacks below 30rem of its own container, in one DOM with the table', () => {
-    // jsdom has no container queries: what is held here is that the table and the
-    // card are the SAME elements (one set of rows, one click, one test), and that
-    // the stacked form is keyed to the matrix's own width rather than the viewport.
     render(<FindingsMatrix findings={findings} anchorPrefix="src-" />)
     expect(screen.getByTestId('findings-matrix').className).toMatch(/@container\/matrix/)
     expect(screen.getByRole('table').className).toMatch(/@max-\[30rem\]\/matrix:block/)

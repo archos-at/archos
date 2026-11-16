@@ -1,12 +1,4 @@
 // @disk-inputs: ui/components/ui/input.tsx, ui/components/ui/textarea.tsx, ui/components/ui/select.tsx, ui/components/ui/tag-input.tsx, ui/features/layout/components/InputArea.tsx
-/**
- * A text field's focus is its border turning ink, and nothing more (Notion #38,
- * „Texteingabefelder bekommen beim Anklicken eine zu dicke Markierung"). A
- * field shows `:focus-visible` on a mouse click, so a halo or the global
- * keyboard outline on it is drawn on every click into it. Held here: the field
- * recipes carry no ring width and switch the global outline off, and every
- * shared field composes them rather than spelling a ring of its own.
- */
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'

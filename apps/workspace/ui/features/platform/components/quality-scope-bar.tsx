@@ -1,26 +1,5 @@
 'use client'
 
-/**
- * The scope bar of Platform → Answer quality: which days, which organizations,
- * which projects. Every view on the page (ratings, citation checks, runtime) is
- * read in this one scope, so "these two offices, last quarter" means the same
- * rows on every tab and in every export.
- *
- * - **Range.** The presets (7 / 30 / 90 days, ending today) are one tap; any
- *   other range is "Benutzerdefiniert", two dates in a popover, checked against
- *   the same bounds the API enforces (`QUALITY_MAX_RANGE_DAYS`).
- * - **Organizations.** Those with any quality activity in the range — a vote, a
- *   citation check or a profiled turn — from `/api/platform/quality/scope-options`.
- *   Not the ratings' list, because the bar is not the ratings tab's.
- * - **Projects.** Of the chosen organizations only; until one is chosen the
- *   picker says so instead of listing every project of every tenant. Removing
- *   an organization drops its projects from the selection, so the scope never
- *   holds a project that no chosen organization owns.
- *
- * Controlled: the workspace owns the URL and hands the scope down. The options
- * request is aborted when the scope changes under it.
- */
-
 import type { JSX } from 'react'
 import { useEffect, useMemo, useState } from 'react'
 import { CalendarRange } from 'lucide-react'
@@ -50,7 +29,6 @@ import { getQualityScopeOptions, type QualityScopeOptions } from '@/adapters/api
 export interface QualityScopeBarProps {
   scope: QualityScope
   onScopeChange: (next: QualityScope) => void
-  /** The pickers' options, from `useQualityScopeOptions`. */
   options: QualityScopeOptionsState
 }
 
@@ -60,7 +38,6 @@ export interface QualityScopeOptionsState {
   failed: boolean
 }
 
-/** Why a custom range cannot be applied, or null. The API checks the same. */
 export function customRangeError(from: string, to: string): 'invalid' | 'inverted' | 'tooLong' | null {
   if (!isIsoDay(from) || !isIsoDay(to)) return 'invalid'
   if (from > to) return 'inverted'
@@ -68,7 +45,6 @@ export function customRangeError(from: string, to: string): 'invalid' | 'inverte
   return null
 }
 
-/** The scope with these organizations, keeping only the projects one of them owns. */
 export function withOrganizations(
   scope: QualityScope,
   organizationIds: string[],
@@ -80,18 +56,11 @@ export function withOrganizations(
       ? []
       : scope.projectIds.filter((id) => {
           const owner = projectOrganization.get(id)
-          // A project whose owner is not known yet stays until the options say otherwise.
           return owner === undefined || chosen.has(owner)
         })
   return { ...scope, organizationIds, projectIds }
 }
 
-/**
- * The scope bar's options for a scope: fetched when the range or the chosen
- * organizations and projects change, the superseded request aborted. A hook
- * rather than inside the bar because the ratings tab names the same
- * organizations and projects in its export summary, and one request serves both.
- */
 export function useQualityScopeOptions(scope: QualityScope): QualityScopeOptionsState {
   const [state, setState] = useState<QualityScopeOptionsState>({ options: null, loading: true, failed: false })
   const search = qualityScopeQuery(scope)
@@ -134,7 +103,6 @@ export function QualityScopeBar({ scope, onScopeChange, options: state }: Qualit
         .map((project) => ({
           value: project.id,
           label: project.name,
-          // With several organizations chosen, a project name alone is ambiguous.
           hint: scope.organizationIds.length > 1 ? organizationName.get(project.organizationId) : undefined,
         })),
     [options, scope.organizationIds, organizationName]
@@ -235,7 +203,6 @@ export function QualityScopeBar({ scope, onScopeChange, options: state }: Qualit
   )
 }
 
-/** Two dates in a popover, applied together and only when the API would accept them. */
 function CustomRange({
   scope,
   active,
@@ -267,7 +234,6 @@ function CustomRange({
     <Popover
       open={open}
       onOpenChange={(next) => {
-        // Opened on the range on screen, not on whatever was typed last time.
         if (next) {
           setFrom(scope.from)
           setTo(scope.to)

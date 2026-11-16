@@ -1,5 +1,3 @@
-"""The OpenRouter seam: the pin, the org policy (fail closed) and each adapter."""
-
 from __future__ import annotations
 
 import contextvars
@@ -77,8 +75,6 @@ class TestThePin:
 
 
 class TestPageReads:
-    """A ZDR page read is EU-only so its prompt cache can hit; every other call keeps the EU-first order."""
-
     def test_only_the_eu_slugs_no_fallback_no_order(self, monkeypatch):
         monkeypatch.delenv(openrouter.PREFERRED_PROVIDERS_ENV, raising=False)
         body = ZERO_DATA_RETENTION.for_page_reads().apply({"model": "m"})
@@ -126,8 +122,6 @@ class TestTheOrganizationsPolicy:
 
 
 class _OpenRouterModel:
-    """Duck-typed chat model: OpenRouter base URL, ``extra_body``, ``model_copy``."""
-
     openai_api_base = "https://openrouter.ai/api/v1"
 
     def __init__(self, extra_body=None, *, copy_fails=False):

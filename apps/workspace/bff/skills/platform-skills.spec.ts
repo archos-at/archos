@@ -15,7 +15,6 @@ import { listPlatformSkills } from './platform-skills'
 import { KNOWN_SKILL_AGENTS, METADATA_AGENTS } from './types'
 
 const here = dirname(fileURLToPath(import.meta.url))
-// bff/skills -> bff -> src -> apps/workspace
 const uiRoot = join(here, '..', '..')
 const script = join(uiRoot, 'scripts', 'sync-platform-skills.mjs')
 
@@ -32,13 +31,6 @@ describe('sync-platform-skills --check', () => {
   })
 })
 
-/**
- * `grid-agents` is the availability gate. A builtin that loses this key is
- * offered to every agent, including ones that cannot carry out its
- * instructions. Research/synthesis skills must keep `deep_researcher`; OIB and
- * BIM skills name both. The assertion is that the key is present and names a
- * known agent, not that every builtin is deep-research-only.
- */
 describe('architect job playbooks are offers', () => {
   it.each(['submission-check', 'existing-building'] as const)(
     '%s declares grid-catalog curated',
@@ -74,8 +66,6 @@ describe('every builtin scopes itself to the agent that can run it', () => {
         .map((part) => part.trim())
         .filter(Boolean)
       expect(listed).not.toHaveLength(0)
-      // A name outside the known set is IGNORED by both resolvers, so a typo
-      // here is the same as declaring nothing at all.
       expect(
         listed.filter((name) => (KNOWN_SKILL_AGENTS as readonly string[]).includes(name)),
       ).not.toHaveLength(0)

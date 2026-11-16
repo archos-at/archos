@@ -173,8 +173,6 @@ describe('revisionCandidatesOnShelf', () => {
 })
 
 describe('probeProjectRevisionCandidates', () => {
-  // „Honorare" restricts reading: its documents are a collection of their own
-  // (ADR-0087). „Verborgen" is one this reader may not open.
   const SECRET = '5ec7e700-0000-4000-8000-000000000001'
   const HIDDEN = '41dde400-0000-4000-8000-000000000002'
   const secretCollection = restrictedCollectionName('proj_abc', SECRET)

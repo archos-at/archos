@@ -17,7 +17,6 @@ import { readPdf } from '@/test-utils/read-pdf'
 
 const DIGITAL_SOURCE_TYPE = 'iptc4xmpext:digitalsourcetype'
 
-/** A real react-pdf render: the shape the module appends to in production. */
 async function rendered(title = 'Bericht (Entwurf) >> Teil 2'): Promise<Uint8Array> {
   return new Uint8Array(
     await renderToBuffer(

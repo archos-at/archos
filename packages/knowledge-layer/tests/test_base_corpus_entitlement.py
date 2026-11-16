@@ -1,10 +1,3 @@
-"""The base corpus reads only the countries the turn's gate lets it read (ADR-0173).
-
-Audit of #1559, item 1: the shared corpus carried no country, so an office not
-entitled to a country could still retrieve its chunks. A point carries
-``country_id`` now; one written before it is Austrian.
-"""
-
 from __future__ import annotations
 
 from unittest.mock import patch
@@ -54,12 +47,10 @@ def _scope(context: str | None) -> list[str]:
 
 
 def _country(filter_: models.Filter) -> models.Filter | None:
-    """The country clause :func:`scope_filter` ANDed in, or None."""
     return next((part for part in filter_.must if isinstance(part, models.Filter) and part.should), None)
 
 
 def _reads(*countries: str) -> models.Filter:
-    """The country clause for ``countries``: one of them, and not marked unreleased."""
     return models.Filter(
         must=[models.FieldCondition(key="country_id", match=models.MatchAny(any=list(countries)))],
         must_not=[models.FieldCondition(key="released", match=models.MatchValue(value=False))],
@@ -103,8 +94,6 @@ def test_a_run_or_a_door_call_reads_the_countries_signed_onto_the_base_entry(mon
 
 @pytest.mark.parametrize(("entry", "readable"), [({"countries": []}, False), ({}, False)])
 def test_a_base_entry_with_no_countries_or_an_empty_list_reads_nothing(monkeypatch, entry, readable):
-    """An empty ``countries`` list fails closed, and so does a request whose base entry has no ``countries``
-    at all: a request's silence is never "unscoped" (only a read of no request is, ``UNSCOPED``)."""
     from agent.common.knowledge_context import base_corpus_readable
     from agent.project_context import RequestContext
 

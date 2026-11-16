@@ -1,7 +1,3 @@
-/**
- * The avatar menu offers „Switch organization" only to someone who works in
- * more than one office.
- */
 import { describe, expect, test, vi } from 'vitest'
 import { render, screen } from '@/test-utils'
 import userEvent from '@testing-library/user-event'

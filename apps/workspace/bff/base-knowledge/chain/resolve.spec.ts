@@ -131,7 +131,6 @@ describe('law and routes', () => {
   })
 
   it('a norm no Land declares here guides in its newest edition only', () => {
-    // No Styrian relation for RL 6 in this fixture.
     const resolved = resolveChain(graph, 'AT-6', '2026-11-10')
     expect(usesOf(resolved, 'work:oib-rl-6').map((use) => [use.editionId, use.role])).toEqual([
       ['edition:oib-rl-6-2025', 'guidance'],
@@ -188,7 +187,6 @@ describe('law and routes', () => {
     expect(usesOf(resolved, 'work:bo-wien')).toEqual([])
     expect(resolved.undetermined).toEqual([{ workId: 'work:bo-wien', reason: 'ambiguous_editions' }])
     const undated = graphFromProposals(parse([...AUSTRIA, edition('bo-wien-x', 'bo-wien', '2018-01-01')]))
-    // A law counts from its in-force date, never from its issue.
     expect(resolveChain(undated, 'AT-9', '2026-11-10').undetermined).toEqual([{ workId: 'work:bo-wien', reason: 'edition_dates_unknown' }])
     const held = graphFromProposals(
       parse([...AUSTRIA.filter((record) => !('key' in record && record.key === 'bo-wien')), work('bo-wien', 'statute', ['AT-9'], { historyAvailableFrom: '2018-01-01' }), edition('bo-wien-2018', 'bo-wien', null, { inForceFrom: '2018-01-01' })]),
@@ -245,7 +243,6 @@ describe('law and routes', () => {
   })
 
   it('reads the scope of the edition chosen for the date, not of another edition of the work (ADR-0178)', () => {
-    // Synthetic thresholds: the 2023 edition is written for buildings above 22 m, the 2025 one above 25 m.
     const above = (metres: number) => ({
       inputs: [{ key: 'escape_level_m', type: 'number' }],
       output: { type: 'boolean' },
@@ -263,7 +260,6 @@ describe('law and routes', () => {
       usesOf(resolveChain(scoped, 'AT-9', date, { buildings: [{ buildingId: 'bldg1', inputs: { escape_level_m: metres } }] }), 'work:oib-rl-6').filter(
         (use) => use.role === 'binding',
       )
-    // Wien binds the 2023 edition until 2026-07-15 and the 2025 edition from that day.
     expect(bindingAt('2026-07-14', 23)).toMatchObject([{ editionId: 'edition:oib-rl-6-2023', applicability: { verdict: 'applies' } }])
     expect(bindingAt('2026-07-15', 23)).toEqual([])
     expect(bindingAt('2026-07-15', 26)).toMatchObject([{ editionId: 'edition:oib-rl-6-2025', applicability: { verdict: 'applies' } }])
@@ -340,7 +336,6 @@ describe('deviations, precedence and packs', () => {
     const resolved = resolveChain(mergeGraphs(swissBodies, liechtenstein), 'LI', '2026-11-10')
     expect(roleOf(resolved, 'edition:sia-500-2009')).toBe('binding')
     expect(roleOf(resolved, 'edition:vkf-2015')).toBe('binding')
-    // The same SIA work is nothing to an Austrian site no route reaches it from.
     expect(roleOf(resolveChain(mergeGraphs(graph, swissBodies), 'AT-9', '2026-11-10'), 'edition:sia-500-2009')).toBeNull()
   })
 

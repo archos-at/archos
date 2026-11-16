@@ -94,7 +94,6 @@ beforeEach(() => {
   filed('doc-of-model-hidden', HIDDEN_FOLDER)
   filed('doc-of-model-open', null)
   filed('doc-hidden', HIDDEN_FOLDER)
-  // The intern is not cleared for Verwaltung; everything else is open.
   vi.mocked(isFolderVisibleTo).mockImplementation(async (_session, _project, folderId) => folderId !== HIDDEN_FOLDER)
   vi.mocked(getHiddenFolderIds).mockResolvedValue([HIDDEN_FOLDER])
 })

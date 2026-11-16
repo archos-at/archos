@@ -1,10 +1,3 @@
-/**
- * Each attachment's case (DECISION §9, the case table): its state, and the
- * reasons the row shows for it. Whether it is offered checked is the
- * server's `preselected` (`lib/inbound-mail/review-defaults.spec.ts` holds
- * that table); the row only follows it.
- */
-
 import { describe, expect, it } from 'vitest'
 import { mail, part } from '@/app/dev/inbound-mail/fixtures'
 import { attachmentCase, notStagedSummary } from './attachment-case'
@@ -18,7 +11,6 @@ describe('attachmentCase', () => {
   })
 
   it.each<[string, Parameters<typeof part>[0], { status: string; selectable: boolean; defaultChecked: boolean }]>([
-    // `part()` derives `preselected` with the server's rule, so the checked column still reads as the case table.
     ['scan pending', { scan: 'pending' }, { status: 'scan_pending', selectable: false, defaultChecked: false }],
     ['scan failed', { scan: 'failed' }, { status: 'scan_failed', selectable: false, defaultChecked: false }],
     ['infected', { scan: 'infected' }, { status: 'scan_infected', selectable: false, defaultChecked: false }],

@@ -1,5 +1,3 @@
-"""The banner on a cut-off report names the cause, not a taxonomy."""
-
 from agent.agents.deep_researcher.agent import _prepend_honesty_banner
 from agent.common.turn_notices import CUTOFF_STEP_LIMIT
 from agent.common.turn_notices import CUTOFF_UPSTREAM_TIMEOUT
@@ -19,8 +17,6 @@ def test_the_step_limit_is_a_step_limit():
 
 
 def test_a_source_that_did_not_answer_is_not_called_a_time_limit():
-    """Readers asked for a longer budget on runs that died in three minutes,
-    because a source's silence was labelled as the run's clock."""
     line = _banner(CUTOFF_UPSTREAM_TIMEOUT)
 
     assert "Quelle nicht rechtzeitig geantwortet" in line
@@ -32,7 +28,6 @@ def test_an_unknown_reason_still_says_the_report_is_partial():
 
 
 def test_an_english_report_gets_an_english_banner():
-    """The banner follows the report's language, detected off the report itself."""
     report = "# Report\n\nThe fire resistance of the load-bearing elements is REI 60 and the escape route is compliant."
     line = _prepend_honesty_banner(report, cutoff_reason=CUTOFF_WALL_CLOCK, degraded_reasons=["x"]).splitlines()[0]
 
@@ -42,7 +37,6 @@ def test_an_english_report_gets_an_english_banner():
 
 
 def test_an_unread_basis_alone_is_not_called_unverified():
-    """The unread documents have their own section; the banner does not call the report unverified."""
     from agent.common.turn_notices import DEGRADED_BASIS_UNREAD
 
     report = _prepend_honesty_banner("# Bericht", cutoff_reason=None, degraded_reasons=[DEGRADED_BASIS_UNREAD])

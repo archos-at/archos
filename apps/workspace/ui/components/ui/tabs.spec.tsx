@@ -1,16 +1,3 @@
-/**
- * The tab strip's travelling pill, and its shared-layout IDENTITY.
- *
- * Same defect as `ToggleGroup`, same reason: `layoutId` names one travelling
- * element across the whole tree, so the constant this used to be made every
- * strip on screen the same element. Two strips mounted together — a dialog
- * over a page, two panels side by side — and the pill flew between them.
- *
- * `layoutId` is motion state and never reaches the DOM, so it is mirrored onto
- * `data-pill-id`; that attribute is what makes the collision observable here
- * rather than only in the animation.
- */
-
 import type { JSX } from 'react'
 import { useState } from 'react'
 import { render, screen } from '@testing-library/react'
@@ -67,8 +54,6 @@ describe('Tabs', () => {
   })
 
   it('moves the pill when the strip is UNCONTROLLED too', async () => {
-    // Same contract as ToggleGroup: with no `value`, the wrapper tracks
-    // `onValueChange` itself so the pill still follows clicks.
     const user = userEvent.setup()
     const { container } = render(
       <Tabs defaultValue="one">

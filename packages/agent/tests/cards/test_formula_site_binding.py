@@ -1,12 +1,3 @@
-"""A formula card is stamped with which editions bind at the turn's site, and the model cannot stamp it.
-
-The card's bounds are transcribed from one edition of each rule (``formulas.ts``). It may give a verdict
-only where that edition binds at the site and the gate is settled; elsewhere it shows a hint. Which
-edition binds is the knowledge context's answer, so the server stamps it while the card validates
-(``FormulaCard.site_binding``) and the browser compares it with the edition its values come from. Fed by
-what the BFF really sends: ``tests/fixtures/base-knowledge/turn_law_austria.json``.
-"""
-
 from __future__ import annotations
 
 import copy
@@ -25,7 +16,6 @@ from agent.common.knowledge_context import set_turn_knowledge_context
 
 REPO = Path(__file__).resolve().parents[4]
 LAW = json.loads((REPO / "tests/fixtures/base-knowledge/turn_law_austria.json").read_text(encoding="utf-8"))
-#: The work the U-value rule's bound is written in, as the browser names it (``formulas.ts``, ``FORMULA_SOURCES``).
 U_VALUE_WORK = "OIB-Richtlinie 6"
 
 U_VALUE_CARD = {
@@ -57,7 +47,6 @@ def _bind(territory: str, *, gate: str | None = None, uses: list[dict] | None = 
 
 
 def _uses(territory: str, designation: str) -> list[dict]:
-    """The territory's binding uses of ``designation``, as the BFF sends them."""
     uses = LAW[territory]["knowledgeContext"]["uses"]
     return [use for use in uses if use.get("role") == "binding" and use.get("designation") == designation]
 

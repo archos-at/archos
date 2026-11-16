@@ -1,13 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * How a woken turn ended (ADR-0106, ADR-0109): the outcome names its wake by
- * the turn id, and the wake's final word, the mark handed back from a
- * delegation, the one audit event and the one call to attention follow from
- * it. The repository layer is mocked; what is pinned is which calls the
- * service makes, in which order, and when it makes none.
- */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -84,7 +77,6 @@ const request = (wake: AgentWakeRow, over: Partial<TurnOutcomeRequest> = {}): Tu
   ...over,
 })
 
-/** The mark as the service reads it: delegated at that moment, or not delegated. */
 function markIs(delegatedAt: Date | null) {
   vi.mocked(findDocumentAnnotation).mockResolvedValue({
     id: MARK_ID,
@@ -94,7 +86,6 @@ function markIs(delegatedAt: Date | null) {
   } as Partial<AnnotationRecord> as AnnotationRecord)
 }
 
-/** `endWake` as the database would answer it: the row as ended, or null when it was not `started`. */
 function wakeEndsAs(wake: AgentWakeRow) {
   vi.mocked(findWakeById).mockResolvedValue(wake)
   vi.mocked(endWake).mockImplementation(async (_tx, _org, _id, end) => ({
@@ -196,7 +187,6 @@ describe('recordTurnOutcome', () => {
   it('is idempotent: a second report finds the wake ended and changes nothing', async () => {
     wakeEndsAs(MENTION)
     expect(await recordTurnOutcome(request(MENTION))).toEqual({ settled: true })
-    // The row is `answered` now; and were the status read stale, `endWake` refuses from anything but `started`.
     vi.mocked(findWakeById).mockResolvedValue({ ...MENTION, status: 'answered', endedAt: new Date() })
     expect(await recordTurnOutcome(request(MENTION, { outcome: 'failed', reason: 'late' }))).toEqual({ settled: false })
     vi.mocked(findWakeById).mockResolvedValue(MENTION)
@@ -229,7 +219,6 @@ describe('recordTurnOutcome', () => {
       markIs(DELEGATED_AT)
       vi.mocked(handBackDelegation).mockResolvedValue(false)
       await recordTurnOutcome(request(DELEGATION))
-      // The mark's „Piloti arbeitet" line moved (`agent-work.ts`), whatever became of the delegation.
       expect(publishToDocumentRoom).toHaveBeenCalledTimes(1)
     })
 
@@ -253,7 +242,6 @@ describe('recordTurnOutcome', () => {
     markIs(DELEGATED_AT)
     await recordTurnOutcome(request(MENTION))
     expect(handBackDelegation).not.toHaveBeenCalled()
-    // The room still hears that the wake ended: every reader's thread drops „Piloti antwortet".
     expect(publishToDocumentRoom).toHaveBeenCalledWith(
       DOC_ID,
       expect.objectContaining({ kind: 'annotations.changed', annotationIds: [MARK_ID], change: 'updated' })
@@ -294,13 +282,11 @@ describe('recordTurnOutcome', () => {
 
   describe('the audit trail', () => {
     const audited = (): AuditEventInput[] => vi.mocked(recordAuditEvent).mock.calls.map(([input]) => input)
-    // The wake's row keeps no email: the event goes out once the directory named the person.
     const recorded = async (): Promise<AuditEventInput[]> => {
       await vi.waitFor(() => expect(recordAuditEvent).toHaveBeenCalled())
       return audited()
     }
     const settle = () => new Promise((resolve) => setTimeout(resolve, 0))
-    // Whatever was emitted, WorkOS would accept: every target type and key is registered.
     afterEach(() => {
       for (const [input] of vi.mocked(recordAuditEvent).mock.calls) expectRegistered(input)
     })

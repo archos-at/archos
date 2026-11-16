@@ -72,7 +72,6 @@ describe('DownloadLogView', () => {
     render(<DownloadLogView people={PEOPLE} />)
 
     const rows = await screen.findAllByRole('row')
-    // Header + four entries.
     expect(rows).toHaveLength(5)
     const second = rows[2]
     expect(within(second).getByText('Anna Weber (anna@buero.at)')).toBeInTheDocument()
@@ -80,7 +79,6 @@ describe('DownloadLogView', () => {
     expect(within(second).getByText('Vertrag.pdf')).toBeInTheDocument()
     expect(within(second).getByText(/Wohnbau Nord · Personal/)).toBeInTheDocument()
     expect(within(second).getByText('Own access list')).toBeInTheDocument()
-    // Someone who has left is shown by id and said to have left; the Archiv has no folder.
     expect(within(rows[3]).getByText('user_gone')).toBeInTheDocument()
     expect(within(rows[3]).getByText('No longer in the organization')).toBeInTheDocument()
     expect(within(rows[3]).getByText('Office filing')).toBeInTheDocument()

@@ -1,13 +1,3 @@
-"""Tests for deep-research phase-progress event detection (backlog T4-4).
-
-Covers: subagent-name based phase detection off the "task" tool (planning /
-writing), batch-size reporting off "run_research_batch" (research), the
-writer-task-end -> citation-verification-started inference, dedup semantics
-(each of the four "entered once" phases fires exactly once; research_started
-fires on every batch), and the job.phase event schema written to the event
-store.
-"""
-
 from __future__ import annotations
 
 from agent_host.jobs.phase_events import JOB_PHASE_EVENT_TYPE
@@ -21,8 +11,6 @@ from agent_host.jobs.phase_events import emit_phase_event
 
 
 class FakeEventStore:
-    """Records every stored event dict, mirroring EventStore/BatchingEventStore.store()."""
-
     def __init__(self) -> None:
         self.events: list[dict] = []
 
@@ -36,9 +24,6 @@ class RaisingEventStore:
 
 
 def _task_start(callback: PhaseProgressCallback, subagent_type: str, run_id: str, *, via_input_str: bool = False):
-    """Fire on_tool_start for the "task" tool the way DeepAgents' subagent
-    dispatcher (deepagents.middleware.subagents._build_task_tool) invokes it.
-    """
     if via_input_str:
         callback.on_tool_start(
             {"name": "task"},
@@ -68,8 +53,6 @@ class TestPlanningPhase:
         assert store.events == [{"type": JOB_PHASE_EVENT_TYPE, "data": {"phase": PHASE_PLANNING_STARTED}}]
 
     def test_planner_task_repeated_calls_dedup(self):
-        """The planner subagent can be invoked more than once across an
-        orchestrator's iterations; planning_started must fire only once."""
         store = FakeEventStore()
         callback = PhaseProgressCallback(store)
 
@@ -98,9 +81,6 @@ class TestWritingAndCitationVerificationPhase:
         assert store.events == [{"type": JOB_PHASE_EVENT_TYPE, "data": {"phase": PHASE_WRITING_STARTED}}]
 
     def test_writer_task_end_emits_citation_verification_started(self):
-        """DeepResearcherAgent.run() runs verify_citations/sanitize_report as
-        plain Python immediately after the writer-agent task returns -- no
-        callback event of its own, so this is inferred from the task ending."""
         store = FakeEventStore()
         callback = PhaseProgressCallback(store)
 
@@ -116,7 +96,6 @@ class TestWritingAndCitationVerificationPhase:
 
         _task_start(callback, "writer-agent", run_id="run-1")
         _task_end(callback, run_id="run-1")
-        # A second, unrelated task call ending must not re-trigger it.
         _task_start(callback, "planner-agent", run_id="run-2")
         _task_end(callback, run_id="run-2")
 
@@ -134,7 +113,6 @@ class TestWritingAndCitationVerificationPhase:
         assert PHASE_CITATION_VERIFICATION_STARTED not in phases
 
     def test_source_router_task_emits_no_tracked_phase(self):
-        """source-router-agent isn't one of the four tracked subagent phases."""
         store = FakeEventStore()
         callback = PhaseProgressCallback(store)
 
@@ -169,8 +147,6 @@ class TestResearchPhase:
         ]
 
     def test_run_research_batch_not_deduped_across_calls(self):
-        """Unlike the other phases, each batch call is a fresh unit of
-        progress and must be surfaced every time -- not just the first."""
         store = FakeEventStore()
         callback = PhaseProgressCallback(store)
 

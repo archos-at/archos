@@ -1,9 +1,3 @@
-"""What one user message states about how to answer it (`turn/payload.py`).
-
-The chat socket hands the turn the v2 `user_message` with flat, typed fields;
-`nat run` and a single-shot HTTP turn hand it the question as a plain string.
-"""
-
 import pytest
 
 from agent.common.data_sources import unavailable_source_ids
@@ -26,8 +20,6 @@ def _clear_intent():
 
 
 class TestTheTurnsClientTools:
-    """``user_message.client_tools`` (AG-UI's RunAgentInput.tools) sets what the turn may offer (ADR-0144)."""
-
     def test_a_declared_tool_is_the_turns_and_a_plain_question_declares_none(self):
         from agent.common.client_tools import client_tool_declared
 
@@ -46,13 +38,6 @@ class TestTheTurnsClientTools:
 
 
 class TestExtractTurnInputs:
-    """The wire -> state lift.
-
-    Retrieval reads the turn focus from ContextVars that this lift sets. Reading
-    them was once a separate step in the register layer, ordered only by a
-    comment, and nothing noticed when it was removed entirely.
-    """
-
     def test_lifts_the_focus_from_the_message(self):
         inputs = extract_turn_inputs(_message(focus_file_name="Aufsicht.pdf", focus_shelf="project"))
 
@@ -61,7 +46,6 @@ class TestExtractTurnInputs:
         assert inputs.focus_shelf == "project"
 
     def test_a_plain_question_is_the_whole_question_and_states_nothing_else(self):
-        """`nat run`: no JSON is read out of the text, and no data source is chosen."""
         inputs = extract_turn_inputs('  {"query": "x", "data_sources": ["web_search"]}  ')
 
         assert inputs.query_text == '{"query": "x", "data_sources": ["web_search"]}'
@@ -73,7 +57,6 @@ class TestExtractTurnInputs:
             extract_turn_inputs({"content": {"messages": [{"role": "user", "content": "x"}]}})
 
     def test_a_turn_without_a_subject_clears_the_previous_one(self):
-        """The vars outlive one turn; a plain message must not inherit a subject."""
         extract_turn_inputs(_message(focus_file_name="Aufsicht.pdf"))
         inputs = extract_turn_inputs(_message("welche OIB-Richtlinien gelten in Wien?"))
 
@@ -88,9 +71,6 @@ class TestExtractTurnInputs:
         assert "skills" not in extract_turn_inputs(_message())._fields
 
     def test_an_unstated_selection_switches_off_only_what_the_organization_did(self):
-        """A headless sender (the MCP ask, a wake, the document check) states no
-        selection. That is every source the organization allows, never none: the
-        MCP ask once answered that its knowledge base was switched off."""
         inputs = extract_turn_inputs(_message())
 
         assert inputs.data_sources is None
@@ -99,8 +79,6 @@ class TestExtractTurnInputs:
     def test_the_intent_is_set_for_retrieval_by_the_lift(self):
         extract_turn_inputs(_message(focus_file_name="Protokoll.pdf", focus_shelf="session"))
         assert get_focused_file_name() == "Protokoll.pdf"
-        # `base` rides along with every subject shelf: a subject narrows which
-        # documents the turn reads, not whether the law applies.
         assert get_turn_shelves() == frozenset({"session", "base"})
 
         extract_turn_inputs(_message(source_preset="law"))
@@ -116,8 +94,6 @@ class TestExtractTurnInputs:
 
 
 class TestTheSubjectVersion:
-    """What the composer says about the subject's OPEN version, and only that."""
-
     def test_it_travels_beside_the_focus_file_name(self):
         inputs = extract_turn_inputs(
             _message(
@@ -148,8 +124,6 @@ class TestTheSubjectVersion:
 
 
 class TestTurnReasoningEffort:
-    """The composer's Aufwand dial reaches the turn through the same lift."""
-
     def test_the_stated_level_is_the_turns(self):
         from agent.common.reasoning_settings import get_turn_reasoning_effort
 
@@ -178,8 +152,6 @@ class TestTurnReasoningEffort:
 
 
 class TestTheReviewCanvas:
-    """The box a person drew, and the ask to answer in its thread."""
-
     def test_a_box_is_lifted_and_the_turn_is_a_canvas_turn(self):
         region = {"page": 2, "x": 0.1, "y": 0.2, "w": 0.3, "h": 0.2}
         inputs = extract_turn_inputs(_message(focus_region=region))

@@ -1,14 +1,3 @@
-"""The boot line's format, pinned on the Python side.
-
-Same table as ``apps/workspace/tests/lib/boot.test.ts``. The two services print
-the same line so one ``grep '^\\[boot\\]'`` over a deployment answers "what is
-this running, and where do its flags come from" for both tiers at once; that
-only holds if both sides agree on the format down to the rule that reads
-``REQUIRE_AUTH``, which is what these cases assert. The cases are duplicated rather than shared through a
-fixture on purpose — a fixture would pin the format to itself, and what needs
-pinning is the *rendered line*, which is what an operator actually greps.
-"""
-
 from __future__ import annotations
 
 import logging
@@ -22,7 +11,6 @@ from agent_host.startup_banner import flag_source
 from agent_host.startup_banner import format_boot_line
 from agent_host.startup_banner import log_boot_line
 
-# (name, env, expected line) — byte-identical to the TypeScript spec's table.
 CASES = [
     (
         "an unstamped image with nothing configured — the compose defaults",
@@ -72,7 +60,6 @@ def test_the_line_renders_the_same_as_the_bff_does(name: str, env: dict, expecte
 
 
 def test_an_unstamped_image_is_named_rather_than_left_blank() -> None:
-    # "sha=" in a log reads as a truncation; "unknown" reads as the fact.
     assert deployed_sha({}) == UNKNOWN_SHA
     assert f"sha={UNKNOWN_SHA}" in boot_line({})
 
@@ -96,14 +83,6 @@ def test_log_boot_line_emits_at_info_and_returns_what_it_logged(caplog, monkeypa
 
 
 def test_build_app_prints_it_before_anything_else_registers() -> None:
-    """The line is worthless if a crash during route registration precedes it.
-
-    Reading the source rather than building the app: ``build_app`` pulls the
-    whole agent-runtime front-end stack, which this suite cannot stand up, and what
-    matters here is ORDER — that ``log_boot_line()`` sits ahead of
-    ``super().build_app()``, so a container that fails to come up has still
-    said which build failed.
-    """
     from pathlib import Path
 
     source = (Path(__file__).resolve().parents[1] / "src/agent_host/plugin.py").read_text(encoding="utf-8")

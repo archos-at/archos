@@ -3,15 +3,7 @@ import { useLayoutStore } from '@/features/layout/store'
 import type { ThemeMode } from '@/features/layout'
 import { LAYOUT_STORE_KEY, THEME_BOOT_SCRIPT } from './theme-boot'
 
-// The boot script runs before any bundle, so it restates the store's persist
-// key and envelope instead of importing them. These specs write through the
-// REAL store and then run the script string, which is what holds the two
-// together: rename the key or change the envelope and the dark first paint
-// breaks here, not on a reader's phone.
-
 const runBootScript = (): void => {
-  // The script is a self-contained string shipped into <head>; evaluating it is
-  // exactly what the browser does with it.
   new Function(THEME_BOOT_SCRIPT)()
 }
 

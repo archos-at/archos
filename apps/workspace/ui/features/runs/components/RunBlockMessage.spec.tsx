@@ -1,8 +1,3 @@
-/**
- * The run's message: the block from the hook's ledger, and the report beneath
- * it only once the run has produced one.
- */
-
 import { render, screen } from '@/test-utils'
 import { describe, expect, it, vi } from 'vitest'
 

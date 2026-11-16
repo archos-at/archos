@@ -11,7 +11,6 @@ vi.mock('@/lib/authz/platform', () => ({
   hasPlatformPermission: vi.fn(),
   getPlatformOrganizationId: vi.fn(),
 }))
-// Records the organization each lane's query ran as. Pass-through otherwise.
 const laneScopes: string[] = []
 vi.mock('@/lib/db/tenant-context', () => ({
   withTenant: vi.fn(async (scope: { organizationId: string }, fn: () => unknown) => {
@@ -40,9 +39,6 @@ vi.mock('./repository', () => ({
   upsertInboxItems: vi.fn(),
 }))
 
-// The pending/ambient predicates live in SQL, so the two tests that assert them
-// render the real repository's WHERE clause with drizzle's dialect. `@/lib/db` is
-// mocked so no connection is ever opened.
 vi.mock('@/lib/db', () => ({ getDb: vi.fn() }))
 vi.mock('@/lib/documents/can-write', () => ({ canWriteDocument: vi.fn() }))
 vi.mock('@/lib/projects/repository', () => ({ listProjectNamesInOrg: vi.fn(async () => new Map()) }))
@@ -83,19 +79,6 @@ import {
 } from './service'
 import { BadRequestError } from '@/lib/api/errors'
 
-/**
- * A COMPLETE session, not a two-field cast.
- *
- * This fixture used to be `{ userId, organizationId } as unknown as
- * AuthorizedSession`. That was harmless only while the service ignored
- * everything else on the session; it stopped being harmless when `listInbox`
- * began deriving the visible item types from `featureFlags` (ADR-0042), because
- * the cast made a session carrying NO flags look like a fully specified one.
- * Spelling the session out means the gate is exercised deliberately in both of
- * its states — see the `visibleInboxTypes` describe block — rather than
- * accidentally in whichever one the missing field happened to produce.
- */
-/** Whether the organization holds `collaboration`; a test switches it off. */
 let collaborationGranted = true
 
 function makeSession(overrides: Partial<AuthorizedSession> = {}): AuthorizedSession {
@@ -108,7 +91,6 @@ function makeSession(overrides: Partial<AuthorizedSession> = {}): AuthorizedSess
     organizationMembershipId: 'om_1',
     role: 'admin',
     permissions: [],
-    // Read at call time, so the shared `session` below follows the switch too.
     get featureFlags() {
       return collaborationGranted ? ['collaboration'] : []
     },
@@ -118,7 +100,6 @@ function makeSession(overrides: Partial<AuthorizedSession> = {}): AuthorizedSess
 
 const session = makeSession()
 
-/** Every type the registry knows — what a collaboration tenant may see. */
 const ALL_TYPES = [
   'mention.requested',
   'mention.answered',
@@ -131,27 +112,19 @@ const ALL_TYPES = [
   'task_run.failed',
   'task_run.waiting',
   'document.review_requested',
-  // The team answered your own feedback: every member sends feedback, chat or not.
   'feedback.replied',
   'upload.completed',
   'document.quarantined',
   'document.release_requested',
   'mail_import.completed',
   'mail_import.failed',
-  // A newer Fassung of a document you follow (ADR-0054): documents are not a
-  // chat feature, and an office without collaboration still has uploaders.
   'document.new_revision',
-  // Piloti's work on marks and proposals (ADR-0105, ADR-0106): Anmerkungen are
-  // not a chat feature either.
   'piloti.work_done',
   'piloti.work_failed',
   'piloti.asks_you',
   'piloti.proposal_waiting',
-  // A reading of a project's documents is ready for review (ADR-0111): setting
-  // a project up is not a chat feature.
   'piloti.intake_ready',
   'piloti.revision_checked',
-  // A colleague's work on an Anmerkung: marks are not a chat feature either.
   'annotation.assigned_to_you',
   'annotation.activity',
   'annotation.mentioned',
@@ -170,50 +143,30 @@ const ALL_TYPES = [
   'inbound_mail.expired',
 ] as const satisfies readonly InboxItemType[]
 
-/** What a tenant WITHOUT collaboration may see: the operational types only. */
 const OPERATIONAL_TYPES = [
   'storage.quota_warning',
   'task_run.completed',
   'task_run.failed',
-  // A run stopped to ask its requester something: the same operational class
-  // as a run that finished or failed, and invisible without the badge.
   'task_run.waiting',
-  // A Freigabe is not a chat feature (ADR-0054): an office that never bought
-  // collaboration still has documents to approve, and gating the one review
-  // queue in the product would make it invisible for exactly them.
   'document.review_requested',
-  // The team answered your own feedback (ADR-0118): every member sends feedback, chat or not.
   'feedback.replied',
-  // ADR-0086: an upload being read and a file held back by the content check
-  // are about the office's own files, not about working together.
   'upload.completed',
   'document.quarantined',
   'document.release_requested',
-  // An Outlook archive import ended (ADR-0085): an office without
-  // collaboration imports mail too.
   'mail_import.completed',
   'mail_import.failed',
-  // A newer Fassung of a document you follow (ADR-0054): documents are not a
-  // chat feature, and an office without collaboration still has uploaders.
   'document.new_revision',
-  // Piloti's work on marks and proposals (ADR-0105, ADR-0106): Anmerkungen are
-  // not a chat feature either.
   'piloti.work_done',
   'piloti.work_failed',
   'piloti.asks_you',
   'piloti.proposal_waiting',
-  // A reading of a project's documents is ready for review (ADR-0111): setting
-  // a project up is not a chat feature.
   'piloti.intake_ready',
   'piloti.revision_checked',
-  // A colleague's work on an Anmerkung: marks are not a chat feature either.
   'annotation.assigned_to_you',
   'annotation.activity',
   'annotation.mentioned',
-  // A sort of a shelf's root is ready or has stopped (ADR-0121): documents are not a chat feature.
   'root_sort.ready',
   'root_sort.failed',
-  // Project mail (ADR-0137) is not a chat feature: every one of its notices is operational.
   'inbound_mail.waiting',
   'inbound_mail.expiring',
   'inbound_mail.decided',
@@ -253,7 +206,6 @@ function row(overrides: Partial<InboxItem> = {}): InboxItem {
   }
 }
 
-/** A reachable target in project `proj_1`. */
 const reachable = {
   role: 'collaborator' as const,
   reason: 'visibility-project' as const,
@@ -264,14 +216,9 @@ const reachable = {
 }
 
 beforeEach(() => {
-  // Most of this file is about collaboration items, so the default world is a
-  // signed-in tenant that HAS collaboration: `isCollaborationEnabled` reads the
-  // session's claim. The gate's other state is exercised explicitly
-  // (`collaborationGranted = false`) rather than inherited from a missing field.
   vi.stubEnv('REQUIRE_AUTH', 'true')
   collaborationGranted = true
   laneScopes.length = 0
-  // Not platform staff unless a test says so: the platform lane stays shut.
   vi.mocked(hasPlatformPermission).mockResolvedValue(false)
   vi.mocked(getPlatformOrganizationId).mockResolvedValue('org_platform')
   vi.mocked(repository.listInboxItems).mockResolvedValue([])
@@ -304,7 +251,6 @@ describe('listInbox — read-time re-authorization (IB-13)', () => {
     expect(items[0]!.state).toBe('inert')
     expect(items[0]!.href).toBeNull()
     expect(items[0]!.excerpt).toBeNull()
-    // Inert is already decided, so it must not cost a re-authorization query.
     expect(resolveResourceAccess).not.toHaveBeenCalled()
   })
 
@@ -322,11 +268,8 @@ describe('listInbox — read-time re-authorization (IB-13)', () => {
 
     const gone = items.find((item) => item.id === 'item_gone')!
     const ok = items.find((item) => item.id === 'item_ok')!
-    // Redacted, NOT dropped: a vanished row would read as a bug.
     expect(gone.href).toBeNull()
     expect(gone.excerpt).toBeNull()
-    // The subject is the conversation TITLE, so it is gated on access exactly as
-    // the snippet is — otherwise "redacted" would only cover half the payload.
     expect(gone.subject).toBeNull()
     expect(ok.href).toBe('/app/projects/proj_1/chat?session=conv_ok')
     expect(ok.excerpt).toBe('Welche OIB-2 Anforderung gilt hier?')
@@ -366,14 +309,11 @@ describe('listInbox — read-time re-authorization (IB-13)', () => {
     const { items } = await listInbox(session)
 
     expect(items).toHaveLength(4)
-    // Four rows, two resources: two probes. Per-item probing is the thing that
-    // would make this endpoint unusable on a busy inbox.
     expect(resolveResourceAccess).toHaveBeenCalledTimes(2)
     expect(vi.mocked(resolveResourceAccess).mock.calls.map((call) => call[2]).sort()).toEqual([
       'conv_1',
       'conv_2',
     ])
-    // Actor names likewise: one directory call for the whole page.
     expect(resolvePeople).toHaveBeenCalledTimes(1)
   })
 })
@@ -409,7 +349,6 @@ describe('listInbox — projection', () => {
 
     const { items } = await listInbox(session)
 
-    // By id: rows that share a moment are ordered by id, as the SQL orders them.
     expect(Object.fromEntries(items.map((item) => [item.id, item.state]))).toEqual({
       r: 'read',
       s: 'resolved',
@@ -449,7 +388,6 @@ describe('listInbox — projection', () => {
     expect(byId.get('ok')!.mentions).toEqual([anna])
     expect(byId.get('inert')!.mentions).toEqual([])
     expect(byId.get('junk')!.mentions).toEqual([])
-    // A row written before mentions travelled with the quote reads plain text.
     expect(byId.get('old')!.mentions).toEqual([])
   })
 
@@ -468,11 +406,8 @@ describe('listInbox — projection', () => {
     const { items } = await listInbox(session)
     const byId = new Map(items.map((item) => [item.id, item]))
 
-    // The row is a sentence about a person: who made the change comes from the
-    // directory by `actorUserId`, never from the payload.
     expect(byId.get('ok')).toMatchObject({ subject: 'Grundriss A', related: 'Grundriss B', actorName: 'Anna Berger' })
     expect(byId.get('junk')!.related).toBeNull()
-    // The newer document's name is content: a reader who lost the document sees neither.
     expect(byId.get('inert')!.related).toBeNull()
     expect(byId.get('gone')!.related).toBeNull()
   })
@@ -568,17 +503,12 @@ describe('listInbox — projection', () => {
     expect(repository.listInboxItems).toHaveBeenCalledWith('org_1', 'user_1', {
       filter: 'pending',
       cursor: null,
-      // One past the page: the extra row is how the page knows there is another.
       limit: 51,
-      // The type set travels INTO the query rather than filtering rows after
-      // they come back, so a type this reader may not see is never fetched.
       types: [...ALL_TYPES],
     })
   })
 
   it('keeps a read-but-unresolved actionable request in the pending page', async () => {
-    // The SQL predicate (asserted below) returns it; nothing in the service may
-    // filter it out again — reading a request is not answering it.
     vi.mocked(repository.listInboxItems).mockResolvedValue([
       row({ id: 'req', type: 'mention.requested', actionable: true, anchorId: 'msg_7', readAt: at }),
     ])
@@ -636,12 +566,6 @@ describe('listInbox — project href threads the delegated task', () => {
     expect(byId.get('job-blank-task')!.href).toBe('/app/projects/proj_1/automation?tab=jobs')
   })
 
-  /**
-   * The target is the project, and project access says nothing about a
-   * revision task whose document moved into a folder the recipient may not
-   * read (ADR-0093): its title and its link into the thread are withheld, as
-   * the task list and the run view withhold them.
-   */
   it('redacts a run row whose task the recipient may not see now, by the run it names', async () => {
     vi.mocked(repository.listInboxItems).mockResolvedValue([
       row({
@@ -688,8 +612,6 @@ describe('getInboxSummary', () => {
   it('is one count and nothing else — it runs on every page render', async () => {
     expect(await getInboxSummary(session)).toEqual({ pending: 3 })
 
-    // Counted over the SAME type set the list uses, so the badge can never
-    // promise a row the list will not show.
     expect(repository.countPendingInboxItems).toHaveBeenCalledWith('org_1', 'user_1', [
       ...ALL_TYPES,
     ])
@@ -705,16 +627,12 @@ describe('mutations are scoped to the caller\'s own inbox', () => {
 
     const result = await markRead(session, ['item_of_another_user'])
 
-    // The type scope travels with the mutation, not just with the reads: an id
-    // kept from before collaboration was disabled belongs to this recipient
-    // either way, so recipient scoping alone did not enforce the gate.
     expect(repository.markInboxItemsRead).toHaveBeenCalledWith(
       'org_1',
       'user_1',
       ['item_of_another_user'],
       [...ALL_TYPES],
     )
-    // Quietly a no-op: saying "not yours" would confirm the item exists.
     expect(result).toEqual({ affected: 0, pending: 3 })
   })
 
@@ -733,8 +651,6 @@ describe('mutations are scoped to the caller\'s own inbox', () => {
     vi.mocked(repository.countPendingInboxItems).mockResolvedValue(0)
 
     expect(await markAllRead(session)).toEqual({ affected: 5, pending: 0 })
-    // "All" means the list in front of the caller — scoped to the types they can
-    // see, so it cannot settle rows they were never shown.
     expect(repository.markAllInboxItemsRead).toHaveBeenCalledWith('org_1', 'user_1', [
       ...ALL_TYPES,
     ])
@@ -752,18 +668,10 @@ describe('mutations are scoped to the caller\'s own inbox', () => {
       'item_of_another_user',
       [...ALL_TYPES],
     )
-    // No badge event for a mutation that did not happen.
     expect(publishToUser).not.toHaveBeenCalled()
   })
 
-  // The gap the type scope closes. A caller who kept an item id from before
-  // collaboration was switched off could still archive or read that now-hidden
-  // item: the row is theirs, so recipient scoping matched it, and the gate lived
-  // only on the read paths. Both mutations now carry the same scope the list
-  // does, and the repository takes it as a REQUIRED argument so a new query
-  // cannot omit it silently.
   it('narrows both mutations to the types the caller may see', async () => {
-    // Collaboration off, the way the rest of this file does it.
     collaborationGranted = false
     vi.mocked(repository.markInboxItemsRead).mockResolvedValue(0)
     vi.mocked(repository.archiveInboxItem).mockResolvedValue(false)
@@ -915,17 +823,10 @@ describe('listInbox — one page at a time', () => {
     vi.mocked(repository.listInboxItems).mockResolvedValue([row({ id: 'a', archivedAt: at, inertAt: at })])
     const page = await listInbox(session, { filter: 'archived' })
     expect(page.counts).toEqual({ requests: 2, unread: 5 })
-    // Archived and redacted: the state says inert, the flag still says archived.
     expect(page.items[0]).toMatchObject({ state: 'inert', archived: true })
   })
 })
 
-/**
- * The two predicates the inbox's correctness rests on live in SQL, so they are
- * asserted by rendering the real repository's WHERE clause through drizzle's
- * dialect — no database, but also no re-implementation of the predicate in the
- * test, which would prove nothing.
- */
 describe('the SQL predicates behind the filters', () => {
   function render(condition: unknown): { sql: string; params: unknown[] } {
     const query = new PgDialect().sqlToQuery(condition as never)
@@ -956,7 +857,6 @@ describe('the SQL predicates behind the filters', () => {
     expect(sql).toContain('"inbox_items"."organization_id" = $1')
     expect(sql).toContain('"inbox_items"."recipient_user_id" = $2')
     expect(sql).toContain('"inbox_items"."archived_at" is null')
-    // Never a redacted row, and either unread OR an actionable request still open.
     expect(sql).toContain('"inbox_items"."inert_at" is null')
     expect(sql).toContain(
       '"inbox_items"."read_at" is null or ("inbox_items"."actionable" = $3 and "inbox_items"."resolved_at" is null)',
@@ -965,12 +865,6 @@ describe('the SQL predicates behind the filters', () => {
   })
 
   it('resolves a settled request for ITS recipient only, never a colleague sharing the group key', async () => {
-    // Everyone mentioned on the same message shares
-    // `mention.requested:conversation:<id>:<anchor>` — only `recipient_user_id`
-    // differs. An UPDATE keyed on the group alone therefore closed Bob's
-    // untouched request when Anna answered hers (spec MN-10, lifecycle
-    // invariant 3): his badge dropped and his row left `pendingOnly` while the
-    // banner still said "awaiting Bob".
     let condition: unknown
     const returning = vi.fn().mockResolvedValue([])
     const where = vi.fn((value: unknown) => {
@@ -1016,31 +910,18 @@ describe('the SQL predicates behind the filters', () => {
     await real.markResourceItemsRead('org_1', 'user_1', 'conversation', 'conv_1')
     const { sql, params } = render(condition)
 
-    // `actionable = false` is the whole point: opening a thread is not answering
-    // the question someone asked you inside it (spec IB-9 / MN-16).
     expect(sql).toContain('"inbox_items"."actionable" = $5')
     expect(sql).toContain('"inbox_items"."read_at" is null')
     expect(params).toEqual(['org_1', 'user_1', 'conversation', 'conv_1', false])
   })
 })
 
-/**
- * The per-type gate (ADR-0042).
- *
- * The inbox used to be gated as a whole, at the route: without the collaboration
- * flag every `/api/inbox/*` call answered 403. That became wrong the moment the
- * inbox carried something that is not a collaboration event, because it made the
- * storage warning unreachable for precisely the tenants most likely to hit a
- * quota. The gate now lives on the registry entry and is applied here, so what a
- * reader sees is decided per ITEM TYPE.
- */
 describe('visibleInboxTypes gate — the inbox is not collaboration-only', () => {
   it('a tenant WITHOUT collaboration still sees operational items', async () => {
     collaborationGranted = false
 
     await listInbox(makeSession())
 
-    // Not a 403 and not an empty set: the operational types, and only those.
     expect(repository.listInboxItems).toHaveBeenCalledWith('org_1', 'user_1', {
       filter: 'all',
       cursor: null,
@@ -1082,11 +963,6 @@ describe('visibleInboxTypes gate — the inbox is not collaboration-only', () =>
   })
 })
 
-/**
- * The platform lane: rows addressed to platform staff live in the PLATFORM
- * organization (product feedback), and an owner reads them from whichever
- * organization they are working in.
- */
 describe('the platform lane', () => {
   const feedbackRow = row({
     id: 'item_feedback',
@@ -1123,8 +999,6 @@ describe('the platform lane', () => {
     const { items } = await listInbox(session)
 
     expect(items.map((item) => item.id)).toEqual(['item_feedback', 'item_1'])
-    // RLS shows the platform rows only inside that tenant scope, and only
-    // the platform lane pays for it (its list and its badge count).
     expect(laneScopes.length).toBeGreaterThan(0)
     expect(new Set(laneScopes)).toEqual(new Set(['org_platform']))
     const platformCall = vi
@@ -1141,15 +1015,12 @@ describe('the platform lane', () => {
     const { items } = await listInbox(session)
 
     expect(items[0]!.href).toBe('/app/platform/feedback?report=report_1')
-    // The author is in another organization, which the reader's directory
-    // cannot resolve.
     expect(items[0]!.actorName).toBe('Maria Huber')
     expect(items[0]!.excerpt).toBe('Upload hängt')
   })
 
   it('never asks the tenant lane for a platform type, so no row is listed twice', async () => {
     vi.mocked(hasPlatformPermission).mockResolvedValue(true)
-    // The owner is ACTING in the platform organization.
     const insidePlatform = makeSession({ organizationId: 'org_platform' })
 
     await listInbox(insidePlatform)
@@ -1193,11 +1064,6 @@ describe('the platform lane', () => {
   })
 })
 
-/**
- * Two emissions that fold into one row in the same call (two files of one
- * settle quarantined for the same reviewer) used to reach one INSERT … ON
- * CONFLICT DO UPDATE, which Postgres refuses. They go in successive waves.
- */
 describe('emitInboxItems — repeated keys in one call', () => {
   it('splits rows so no wave repeats a (recipient, group) key, keeping order', () => {
     const row = (recipientUserId: string, groupKey: string, n: number) => ({ recipientUserId, groupKey, n })
@@ -1353,12 +1219,6 @@ describe('viewInboxItemAs — the row as its recipient would be shown it', () =>
   })
 })
 
-/**
- * A request on a mark says where it may be answered, decided on the server:
- * answering and closing a mark are writes, so a reader who may only read the
- * document is offered neither; and Piloti's Rückfrage while events do not wake
- * Piloti is answered in the Prüfansicht, which asks Piloti itself.
- */
 describe('listInbox — where a request on a mark may be answered (answerIn)', () => {
   const onMark = (overrides: Partial<InboxItem>) =>
     row({
@@ -1380,7 +1240,6 @@ describe('listInbox — where a request on a mark may be answered (answerIn)', (
       onMark({ id: 'writer' }),
       onMark({ id: 'reader', resourceId: 'doc_r', groupKey: 'g_r' }),
       onMark({ id: 'mentioned', type: 'annotation.mentioned', groupKey: 'g_m' }),
-      // A mention reaches whoever may open the document: a reader is told, and only opens the mark.
       onMark({ id: 'mentionedReader', type: 'annotation.mentioned', resourceId: 'doc_r', groupKey: 'g_mr' }),
     ])
 
@@ -1392,7 +1251,6 @@ describe('listInbox — where a request on a mark may be answered (answerIn)', (
       mentioned: 'row',
       mentionedReader: null,
     })
-    // Each document is asked once, however many rows name it.
     expect(vi.mocked(canWriteDocument).mock.calls.map(([, documentId]) => documentId).sort()).toEqual(['doc_r', 'doc_w'])
   })
 

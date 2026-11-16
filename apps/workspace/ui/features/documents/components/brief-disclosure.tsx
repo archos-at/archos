@@ -6,14 +6,8 @@ import { ChevronDown } from 'lucide-react'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { cn } from '@/lib/utils'
 
-/** The brief's chevron, after its words: muted, turning as the section opens. */
 export const BRIEF_CHEVRON = 'text-muted-foreground size-3.5 shrink-0 transition-transform duration-quick ease-out motion-reduce:transition-none'
 
-/**
- * A secondary section of the brief, folded to its title and one line of what
- * it holds. The heading wraps the trigger (the disclosure pattern): a heading
- * inside a button is not one a screen reader can jump to.
- */
 export function BriefDisclosure({
   id,
   title,

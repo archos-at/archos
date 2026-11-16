@@ -1,20 +1,5 @@
 'use client'
 
-/**
- * „Verschieben nach …" as a place to choose, not a submenu to hover.
- *
- * A nested dropdown is a mouse gesture: its panel opens to the side of the item
- * that spawned it, and on a 393px phone there is no side. It opened off the
- * left edge with its first folders unreachable, and it could not scroll. A
- * choice among every folder of a shelf is a list with a search field, so it is
- * a Dialog (a bottom sheet on a phone): the folders scroll inside it, the field
- * narrows them, and each row is a full-width 44px target.
- *
- * One component for both callers, so a single document's „Verschieben" and a
- * selection's cannot drift: they differ in the title and in what happens on a
- * pick, which is the caller's.
- */
-
 import type { JSX } from 'react'
 import { useMemo, useState } from 'react'
 import { Check, Folder, FolderOpen } from 'lucide-react'
@@ -35,26 +20,13 @@ export interface FolderPickerSheetProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   title: string
-  /** The folders to choose from, labelled by full path and sorted (`sortedFolderDestinations`). */
   destinations: readonly FolderDestination[]
-  /**
-   * Where everything chosen already is (null: the shelf's top level), or
-   * undefined when the choice spans several places. That row is marked and
-   * cannot be picked: a move to where it already is says nothing.
-   */
   currentFolderId?: string | null
-  /**
-   * Whether a destination may be chosen (null: the top level), for a caller
-   * with rules of its own: a folder cannot go inside itself. Absent allows all.
-   * A row it refuses is shown and cannot be pressed, as „Hier" is.
-   */
   canPick?: (folderId: string | null) => boolean
-  /** Pending: the rows stand still while the request is out. */
   pending?: boolean
   onPick: (folderId: string | null, label: string) => void
 }
 
-/** The ordered rows a query leaves: the top level first, then every folder whose path matches. */
 function matching(
   destinations: readonly FolderDestination[],
   query: string
@@ -79,7 +51,6 @@ export function FolderPickerSheet({
   const rows = useMemo(() => matching(destinations, query), [destinations, query])
   const allFiles = t('folders.allFiles')
   const searching = query.trim() !== ''
-  // The top level is a destination too, until a query says otherwise.
   const showRoot =
     !searching || allFiles.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())
 

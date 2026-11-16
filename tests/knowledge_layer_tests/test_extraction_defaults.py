@@ -1,14 +1,3 @@
-"""Every extraction capability is on unless switched off, and its cost is bounded.
-
-Production once set only ``EXTRACT_IMAGES``: uncaptioned tables stayed
-garbled page text, and every raster the VLM typed ``chart`` was analysed, paid
-for, and then dropped at indexing. Four layers are pinned here: the env switch
-(no env means on), the typing rule that decides what an analysed raster is
-indexed as, the per-document image cap, and ``_run_ingestion`` wiring them
-together (a chart is indexed, a rendered page's rasters are not analysed again,
-and the count the cap left out lands on the file's job status).
-"""
-
 from __future__ import annotations
 
 import time
@@ -25,15 +14,10 @@ from agent.common.credential_resolution import ResolvedCredential
 
 
 def _counters(metadata: dict) -> dict:
-    """A file's own counters, without the stage seconds and coverage every file now carries."""
     return {k: v for k, v in metadata.items() if k not in (STAGE_SECONDS_KEY, COVERAGE_KEY)}
 
 
 _SWITCHES = ("EXTRACT_TABLES", "EXTRACT_IMAGES", "EXTRACT_CHARTS")
-
-# =============================================================================
-# The env switch: on unless explicitly off
-# =============================================================================
 
 
 @pytest.mark.parametrize("name", _SWITCHES)
@@ -62,7 +46,6 @@ def test_an_ingestor_built_without_config_extracts_everything(tmp_path, monkeypa
         ("DEFAULT_EXTRACT_IMAGES", "EXTRACT_IMAGES"),
         ("DEFAULT_EXTRACT_CHARTS", "EXTRACT_CHARTS"),
     ):
-        # The class reads the env once at import; re-read it the same way.
         monkeypatch.setattr(LlamaIndexIngestor, attr, adapter.env_switch(name))
 
     ing = LlamaIndexIngestor({})
@@ -71,8 +54,6 @@ def test_an_ingestor_built_without_config_extracts_everything(tmp_path, monkeypa
 
 
 def test_the_corpus_sync_leaves_the_switches_to_the_adapter(monkeypatch):
-    """oib_sync used to pass its own off-by-default reading of the flags, which
-    overrode the adapter's defaults for the whole corpus."""
     from agent import oib_sync
 
     for name in _SWITCHES:
@@ -83,11 +64,6 @@ def test_the_corpus_sync_leaves_the_switches_to_the_adapter(monkeypatch):
     oib_sync._get_oib_ingestor()
 
     assert not {"extract_tables", "extract_images", "extract_charts"} & seen.keys()
-
-
-# =============================================================================
-# indexed_visual_type: a paid-for chart is never dropped while images are on
-# =============================================================================
 
 
 @pytest.mark.parametrize(
@@ -104,11 +80,6 @@ def test_the_corpus_sync_leaves_the_switches_to_the_adapter(monkeypatch):
 )
 def test_indexed_visual_type(content_type, images, charts, expected):
     assert adapter.indexed_visual_type(content_type, extract_images=images, extract_charts=charts) == expected
-
-
-# =============================================================================
-# cap_images: largest first, returned in document order
-# =============================================================================
 
 
 def _raster(page: int, index: int, width: int, height: int) -> dict:
@@ -141,11 +112,6 @@ def test_over_the_cap_the_largest_are_kept_in_document_order():
 
 def test_a_zero_cap_analyses_none():
     assert adapter.cap_images([_raster(1, 0, 200, 200)], 0) == ([], 1)
-
-
-# =============================================================================
-# _extract_images_from_pdf: a rendered page contributes no rasters
-# =============================================================================
 
 
 def test_rasters_on_rendered_pages_are_not_extracted(monkeypatch):
@@ -201,11 +167,6 @@ def test_rasters_on_rendered_pages_are_not_extracted(monkeypatch):
     assert [image["page_number"] for image in images] == [1, 3]
 
 
-# =============================================================================
-# Through _run_ingestion
-# =============================================================================
-
-
 @pytest.fixture
 def summary_db(tmp_path):
     from agent.knowledge import configure_summary_db
@@ -219,7 +180,6 @@ def summary_db(tmp_path):
 
 @pytest.fixture
 def ingestor(tmp_path, monkeypatch, qdrant_store):
-    # The deployed default: no switch in the env, none named in the config.
     for name in _SWITCHES:
         monkeypatch.delenv(name, raising=False)
         monkeypatch.setattr(LlamaIndexIngestor, f"DEFAULT_{name.removeprefix('GRID_')}", adapter.env_switch(name))
@@ -240,7 +200,6 @@ def _wait_terminal(ing, job_id, timeout=30):
     raise AssertionError("ingestion job did not terminate in time")
 
 
-#: What each file of the running test's jobs handed to chunking and embedding (``ingestor`` records it).
 _INDEXED: list[list] = []
 
 
@@ -249,8 +208,6 @@ def _indexed_documents():
 
 
 class _Pipeline:
-    """A PDF whose page 1 is rendered whole and whose rasters sit on pages 1-3."""
-
     def __init__(self, tmp_path, monkeypatch, *, rendered_pages=(1,), over_pixel_budget=0):
         self.analysed: list[bytes] = []
         self.extract_calls: list[set] = []
@@ -315,7 +272,6 @@ def test_each_page_is_analysed_once(tmp_path, monkeypatch, ingestor, summary_db)
     _ingest(ingestor, pipeline)
 
     assert pipeline.extract_calls == [{1}]
-    # Page 1 is analysed as its render, never again as its full-page raster.
     assert sorted(pipeline.analysed) == sorted([b"render-1", b"2-0", b"3-0"])
 
 
@@ -325,7 +281,6 @@ def test_the_cap_bounds_analysis_and_records_what_it_left_out(tmp_path, monkeypa
 
     status = _ingest(ingestor, pipeline)
 
-    # The largest raster (page 1, 2000x2000) is the one analysed.
     assert pipeline.analysed == [b"1-0"]
     assert _counters(status.file_details[0].metadata) == {"images_over_cap": 2}
 
@@ -339,7 +294,6 @@ def test_under_the_cap_nothing_is_recorded(tmp_path, monkeypatch, ingestor, summ
 
 
 def test_a_raster_over_the_pixel_budget_is_counted_on_the_file_status(tmp_path, monkeypatch, ingestor, summary_db):
-    """An oversized raster is refused, and the refusal reaches the file's job status."""
     pipeline = _Pipeline(tmp_path, monkeypatch, rendered_pages=(), over_pixel_budget=1)
 
     status = _ingest(ingestor, pipeline)
@@ -350,7 +304,6 @@ def test_a_raster_over_the_pixel_budget_is_counted_on_the_file_status(tmp_path, 
 def test_pages_read_without_layout_are_counted_and_kept_from_the_table_pass(
     tmp_path, monkeypatch, ingestor, summary_db
 ):
-    """A page over PDF_PAGE_MAX_OBJECTS is a partial read, and the job status says so."""
     pipeline = _Pipeline(tmp_path, monkeypatch, rendered_pages=())
     table_calls: list = []
     monkeypatch.setattr(

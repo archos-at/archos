@@ -1,10 +1,3 @@
-"""Relative links in any tracked Markdown file resolve against git, not the disk.
-
-A link into a gitignored directory resolves on the author's machine, where
-`task setup` created it, and is dead in CI's fresh checkout.
-`scripts/check_agent_docs.py` checks every tracked `.md` against `git ls-files`.
-"""
-
 from __future__ import annotations
 
 import importlib.util

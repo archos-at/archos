@@ -1,5 +1,3 @@
-"""The asker's personal memory in the chat prompt (ADR-0180): shown from the turn's memory log, in the turn's note."""
-
 from langchain_core.messages import HumanMessage
 
 from agent.agents.piloti.context_layout import TURN_VALUES
@@ -39,7 +37,6 @@ def test_the_block_reaches_the_model_with_who_reads_it_and_what_never_to_do_with
 
 def test_no_block_renders_no_section():
     assert HEADING not in _render(None)
-    # Outside a turn (a worker run, an eval) there is no memory log and no block.
     assert HEADING not in render_turn_context(system_prompt_template(), _state(), TOOLS)
 
 

@@ -94,9 +94,6 @@ describe('Piloti’s Rückfrage, by where it is answered', () => {
   const enDictionary = { collaboration: collaborationCopy.messages.en }
   const enT = createTranslator(enDictionary, 'collaboration')
 
-  // While events do not wake Piloti the row leads to the Prüfansicht
-  // („In der Prüfansicht beantworten“): its line says so, never that Piloti
-  // waits for an answer in the thread.
   it('says the answer goes in the review when the row leads there', () => {
     expect(inboxItemCopy(asks('review'), t, dictionary).body).toBe(
       `Antworten Sie in der Prüfansicht. Von dort erreicht Ihre Antwort ${PRODUCT_NAME}.`,

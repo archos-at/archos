@@ -1,16 +1,3 @@
-"""The ghost-job reaper's election takes its lock on the direct lock DSN (ADR-0083).
-
-The reaper used to run its own ``pg_try_advisory_lock`` on the job-store engine.
-Behind the transaction pooler that lock is taken on one server connection and
-"released" on another, so one replica would hold it until the pooler recycled
-the connection and no replica would reap. It now elects through
-``agent.knowledge.leader_lock`` like every other session lock, so these
-tests pin the one fact that matters: which connection, and which statements.
-
-The suite has no Postgres server, so the engine is a double and the tests read
-what it was sent.
-"""
-
 from __future__ import annotations
 
 from unittest.mock import AsyncMock
@@ -26,7 +13,6 @@ DIRECT = "postgresql://agent:pw@grid-pg-rw:5432/jobs"  # pragma: allowlist secre
 
 
 def _engine(monkeypatch, *, wins: bool):
-    """A lock engine whose try-lock answers ``wins``; returns (engine, connection)."""
     conn = MagicMock()
     conn.execute.return_value.scalar.return_value = wins
     engine = MagicMock()
@@ -91,11 +77,6 @@ async def test_the_lock_is_released_when_the_cycle_raises(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_a_lock_that_cannot_be_taken_skips_the_cycle_and_the_next_tick_retries(monkeypatch, caplog):
-    """Fail-closed: with the lock database down nobody reaps this cycle.
-
-    Running unelected would be every web replica reaping at once. The reaper runs on
-    a two-minute schedule, so the cost of skipping is one tick.
-    """
     conn = MagicMock()
     conn.execute.side_effect = RuntimeError("connection lost")
     engine = MagicMock()

@@ -1,10 +1,3 @@
-"""Tests for job cancellation states and the ghost-job reaper.
-
-Covers: SUBMITTED jobs are cancellable, the reaper finds stale RUNNING jobs
-(including zero-event ones) via job_info timestamps and marks them FAILURE, and
-a queued job is never reaped: it has no worker yet.
-"""
-
 from __future__ import annotations
 
 from datetime import UTC
@@ -114,7 +107,6 @@ class TestFindStaleJobs:
         assert _find_stale_jobs(db_url, ACTIVE_STATUSES) == []
 
     def test_finds_stale_submitted_job_with_zero_events(self, db_url):
-        """SUBMITTED jobs may have no events at all; the reaper must still find them."""
         _insert_job_info(db_url, "job-stuck", status="submitted", age_seconds=STALE_AGE)
         EventStore._ensure_table_exists(db_url)
 
@@ -134,7 +126,6 @@ class TestFindStaleJobs:
         assert _find_stale_jobs(db_url, ACTIVE_STATUSES) == []
 
     def test_finds_stale_eventless_running_job(self, db_url):
-        """Regression: RUNNING jobs whose worker died before the first event."""
         _insert_job_info(db_url, "job-crashed", status="running", age_seconds=STALE_AGE)
         EventStore._ensure_table_exists(db_url)
 
@@ -166,10 +157,6 @@ class TestReapStaleJobsOnce:
 
     @pytest.mark.asyncio
     async def test_reaper_does_not_flip_job_completed_after_detection(self, db_url, monkeypatch):
-        """Mirror race of backlog item 6: the job looked stale at detection but
-        the runner committed SUCCESS before the reaper's write. The reaper must
-        lose — no status flip, no GhostJobTimeout event on a good run — and the
-        job is not reported as reaped."""
         import json
 
         from nat.front_ends.fastapi.async_jobs.job_store import JobStore
@@ -202,7 +189,6 @@ class TestReapStaleJobsOnce:
 
 @pytest.fixture
 async def cancel_app(db_url, monkeypatch):
-    """Minimal app with the async job routes and a controllable job store."""
     import agent_host.routes.jobs as jobs_routes
     from nat.front_ends.fastapi.async_jobs import job_store as job_store_module
 
@@ -215,8 +201,6 @@ async def cancel_app(db_url, monkeypatch):
     job_store = SimpleNamespace(get_job=AsyncMock(), update_status=AsyncMock(), conditional_wins=True)
 
     async def _conditional_write(store, job_id, status, **kwargs):
-        # The route's write is the sticky-terminal conditional; the double
-        # records it on `update_status` and lets a test lose the race.
         if not store.conditional_wins:
             return False
         await store.update_status(job_id, status, **kwargs)
@@ -294,9 +278,6 @@ class TestCancelRoute:
 
     @pytest.mark.asyncio
     async def test_cancel_reports_the_outcome_it_wrote(self, cancel_app, db_url):
-        """The BFF closes the run row on this report. Before, the route wrote
-        INTERRUPTED and told nobody, and the runner then lost the write race and
-        told nobody either: the run stayed `running` in the BFF forever."""
         app, job_store = cancel_app
         job_store.get_job.return_value = _job("running")
 
@@ -308,8 +289,6 @@ class TestCancelRoute:
 
     @pytest.mark.asyncio
     async def test_a_cancel_losing_the_race_to_the_finish_changes_nothing(self, cancel_app, db_url):
-        """Read RUNNING, but the run finished before the write: no relabel, no
-        report, no cancellation event, and the same 400 as an ended job."""
         app, job_store = cancel_app
         job_store.get_job.return_value = _job("running")
         job_store.conditional_wins = False
@@ -327,7 +306,6 @@ class TestCancelRoute:
     async def test_cancel_of_a_waiting_job_cancels_its_hatchet_run_and_reports(
         self, cancel_app, db_url, hatchet, monkeypatch
     ):
-        """No worker ever started it, so no runner will ever report it; its Hatchet run is cancelled by id."""
         from agent_host.jobs import orchestrator_runs
 
         orchestrator_runs.record(db_url, "job-1", "run-abc")
@@ -344,8 +322,6 @@ class TestCancelRoute:
 
 
 class TestKillActiveRoute:
-    """The platform maintenance kill: every live job, the cancel route's treatment."""
-
     @pytest.fixture
     async def kill_app(self, db_url, monkeypatch):
         import agent_host.routes.jobs as jobs_routes
@@ -394,7 +370,6 @@ class TestKillActiveRoute:
             assert job.error == job_kill.KILL_REASON
             kill_app.notify.assert_any_await(job_id=job_id, db_url=db_url, status="interrupted")
             assert [e["type"] for e in EventStore.get_events(db_url, job_id)] == ["job.cancellation_requested"]
-        # A finished run keeps its verdict and is not stopped or reported.
         assert (await kill_app.job_store.get_job("job-done")).status == "success"
         assert kill_app.notify.await_count == 2
 
@@ -566,7 +541,6 @@ class TestTheMonitorHearsTheRequest:
 
     @pytest.mark.asyncio
     async def test_the_poll_reads_only_the_control_events(self, tmp_path):
-        """A token stream ahead of the request must not page it out of reach."""
         from agent_host.jobs.event_store import EventStore
         from agent_host.jobs.runner import CONTROL_EVENT_TYPES
         from agent_host.jobs.runner import WRITE_NOW_EVENT_TYPE

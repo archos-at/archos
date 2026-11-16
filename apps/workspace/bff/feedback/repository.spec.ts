@@ -55,7 +55,6 @@ describe('upsertAnswerFeedback', () => {
     const row = await upsertAnswerFeedback(values)
 
     expect(valuesFn).toHaveBeenCalledWith(values)
-    // Conflict target pins the row to the voting user (one vote per answer).
     const config = onConflictDoUpdate.mock.calls[0]![0] as unknown as {
       target: unknown[]
       set: Record<string, unknown>
@@ -103,7 +102,6 @@ describe('listAnswerFeedbackForConversation', () => {
   })
 })
 
-/** Every vote of 2026-09-10..2026-10-09, no filters. */
 const ALL: FeedbackQuery = {
   scope: { from: '2026-09-10', to: '2026-10-09', organizationIds: [], projectIds: [] },
   ratings: NO_RATINGS_FILTERS,
@@ -114,11 +112,6 @@ const narrowed = (ratings: Partial<RatingsFilters>, scope: Partial<FeedbackQuery
 })
 const sqlOf = (fragment: unknown) => new PgDialect().sqlToQuery(fragment as never)
 
-/**
- * The drill-in serves BOTH directions from one query. These are the guards on
- * that: a second, near-identical query for the praised answers would drift, and
- * the half that drifts is always the one nobody is watching.
- */
 describe('listFeedbackTurns', () => {
   const capture = () => {
     const execute = vi.fn().mockResolvedValue([])
@@ -137,7 +130,6 @@ describe('listFeedbackTurns', () => {
     expect(params).toContain('up')
   })
 
-  /** The digest samples each direction; an override may narrow a request, never widen it. */
   it('narrows to a direction on request, but never widens a filtered one', async () => {
     const execute = capture()
     await listFeedbackTurns(ALL, { verdict: 'down' })
@@ -154,14 +146,12 @@ describe('listFeedbackTurns', () => {
     expect(sqlOf(execute.mock.calls[0][0]).params).toContain(FEEDBACK_EXPORT_ROW_CAP + 1)
   })
 
-  /** A chip-less down-vote counts as `other` in the aggregate, so the filter must find it there too. */
   it('filters `other` with chip-less down-votes included', async () => {
     const execute = capture()
     await listFeedbackTurns(narrowed({ reasons: ['other'] }))
     expect(sqlOf(execute.mock.calls[0][0]).sql).toContain("coalesce(f.reason, 'other') in (")
   })
 
-  /** The range is UTC calendar days, both ends inclusive: `[from, to + 1 day)`. */
   it('reads the range as UTC days, the last one included', async () => {
     const execute = capture()
     await listFeedbackTurns(narrowed({}, { from: '2026-07-24', to: '2026-07-30' }))
@@ -170,19 +160,12 @@ describe('listFeedbackTurns', () => {
     )
   })
 
-  /** `100%` used to match every answer starting with "100"; `_` matched any character. */
   it('searches the free text literally, with LIKE wildcards escaped', async () => {
     const execute = capture()
     await listFeedbackTurns(narrowed({ query: '100%_R\\60' }))
     expect(sqlOf(execute.mock.calls[0][0]).params).toContain('%100\\%\\_R\\\\60%')
   })
 
-  /**
-   * Its question, answer, comment and expected answer may quote a restricted
-   * folder, and every reader of this list (platform staff, the CSV export, the
-   * digest's model) is outside that folder's audience. The SQL is checked
-   * against Postgres in `restricted-feedback.integration.spec.ts`.
-   */
   it('leaves out votes the database\'s one rule answers yes for, asked of the whole vote', async () => {
     const execute = capture()
     await listFeedbackTurns(ALL)
@@ -191,12 +174,6 @@ describe('listFeedbackTurns', () => {
     )
   })
 
-  /**
-   * The question used to be "the newest user message at or before the answer —
-   * or ANY, when the answer row is missing", so an unpersisted answer was shown
-   * under whatever was asked last. The behaviour is proven against Postgres in
-   * `repository.integration.spec.ts`; this pins that the anchor stays the answer.
-   */
   it('anchors the question to the answer row, never to "any user message"', async () => {
     const execute = capture()
     await listFeedbackTurns(ALL)
@@ -207,11 +184,6 @@ describe('listFeedbackTurns', () => {
     expect(text).toContain('qm.created_at <= m.created_at')
   })
 
-  /**
-   * `message_id` is client text. Joined on the id alone, a vote that named
-   * another tenant's answer showed (and exported, and distilled) that tenant's
-   * text under the voter's row. Proven against Postgres in the integration spec.
-   */
   it("pins every join to the voter's organization", async () => {
     const execute = capture()
     await listFeedbackTurns(ALL)
@@ -223,7 +195,6 @@ describe('listFeedbackTurns', () => {
     expect(text).toContain('tr.organization_id = m.organization_id')
   })
 
-  /** The client sends `conversation_id`; the answer row is the authority when it exists. */
   it("takes the conversation from the persisted answer, inside the voter's organization", async () => {
     const execute = capture()
     await listFeedbackTurns(ALL)
@@ -248,8 +219,6 @@ describe('listFeedbackTurns', () => {
         answer: 'A',
         question: 'Q',
         conversation_title: 'T',
-        // A tag the vocabulary does not know — written by an LLM, or a row
-        // that predates the current keys. The UI has no label for it.
         topics: ['fire_safety', 'not_a_real_tag'],
       },
     ])
@@ -286,7 +255,6 @@ describe('getFeedbackWeeklySummary', () => {
     expect(summary.truncated).toBe(false)
   })
 
-  /** It used to stop at the cap and say nothing; a reader saw a complete-looking quarter. */
   it('reads one row past the cap, reports the cut and keeps the newest weeks', async () => {
     const rows = Array.from({ length: FEEDBACK_WEEKLY_SUMMARY_LIMIT + 1 }, (_, index) => ({
       organization_id: `org_${index}`,
@@ -308,10 +276,6 @@ describe('getFeedbackWeeklySummary', () => {
     expect(query.sql).toContain('order by week_start desc')
   })
 
-  /**
-   * A rate needs both verdicts and every answer: the scope and the topic narrow
-   * answers and votes alike, and nothing that only describes a vote reaches it.
-   */
   it('applies the scope and the topic to both halves, and no vote-only filter', async () => {
     const execute = vi.fn().mockResolvedValue([])
     mockGetDb.mockReturnValue({ execute } as never)
@@ -336,17 +300,11 @@ describe('getFeedbackWeeklySummary', () => {
   })
 
   it('starts the window on the Monday of an ISO week', () => {
-    // Wednesday 2026-10-07 -> Monday 2026-10-05; Sunday 2026-10-11 -> the same Monday.
     expect(isoWeekStart(new Date('2026-10-07T13:00:00Z'))).toBe('2026-10-05T00:00:00.000Z')
     expect(isoWeekStart(new Date('2026-10-11T23:59:00Z'))).toBe('2026-10-05T00:00:00.000Z')
   })
 })
 
-/**
- * Every figure on the tab is read over the same votes as the list, so a filter
- * on the tab is a filter on all of it; and the rollups group by values nothing
- * bounds (customers, LLM-written tags), so each carries a LIMIT.
- */
 describe('getFeedbackHealth', () => {
   const run = async (query: FeedbackQuery) => {
     const execute = vi.fn().mockResolvedValue([])
@@ -359,7 +317,6 @@ describe('getFeedbackHealth', () => {
     const { queries } = await run(
       narrowed({ reasons: ['wrong_source'], modes: ['deep'], hasExpectedAnswer: true }, { organizationIds: ['org_9'] })
     )
-    // coverage, totals, reasons, daily, organizations, topics
     expect(queries).toHaveLength(6)
     for (const query of queries) {
       expect(query.params).toEqual(expect.arrayContaining(['org_9', 'wrong_source', 'deep']))

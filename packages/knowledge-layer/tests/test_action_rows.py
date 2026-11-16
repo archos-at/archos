@@ -1,9 +1,3 @@
-"""One Herleitung row per evidence call (ADR-0132): ``knowledge_search``, ``read_passage``, ``list_files``.
-
-Each call emits one ``running`` step and settles it under the same id, from the values the tool holds
-(chunks ranked, groups counted, rows listed), never from its text.
-"""
-
 from __future__ import annotations
 
 import importlib
@@ -31,7 +25,6 @@ OIB = "oib-rl_2_ausgabe_mai_2023.pdf"
 
 @pytest.fixture
 def rows(monkeypatch) -> list:
-    """The action steps written during the test, in order."""
     bodies: list = []
     monkeypatch.setattr("agent.common.turn_status.get_stream_writer", lambda: bodies.append)
     return bodies
@@ -42,7 +35,6 @@ def _actions(bodies: list) -> list:
 
 
 def _one_call(bodies: list):
-    """Exactly one start and one finish under one id; returns (started, finished)."""
     steps = _actions(bodies)
     assert [step.status for step in steps][0] == "running"
     assert len(steps) == 2
@@ -222,7 +214,6 @@ class TestKnowledgeSearchRow:
 
         await _search(query="Flucht", match="exact")
 
-        # Before: 4 (the ancestor line in the header, the Punkt's own line, the overlap twice).
         assert _one_call(rows)[1].counts.hits == 2
 
     async def test_an_exact_search_with_no_match_is_empty_and_keeps_its_denominator(
@@ -327,14 +318,12 @@ class TestListFilesRow:
         assert _one_call(rows)[1].status == "error"
 
 
-#: A restricted folder's collection (``proj_<id>_r<12 hex>``), drawable but not admitted unless a test admits it.
 RESTRICTED = "proj_a_r0123456789ab"
 SECRET = "Gehaltsliste.pdf"
 
 
 @pytest.fixture
 def restricted(corpus, monkeypatch):
-    """Scope the turn to one restricted folder holding :data:`SECRET`; ``admit()`` admits it for the turn."""
 
     def install(chunks: list[Chunk]) -> _Store:
         store = corpus(
@@ -358,7 +347,6 @@ def restricted(corpus, monkeypatch):
 
 @pytest.fixture
 def admit(monkeypatch):
-    """Call it to admit :data:`RESTRICTED` for the turn."""
     from agent.knowledge.restricted_use import RestrictedUse
 
     def _admit() -> None:
@@ -369,8 +357,6 @@ def admit(monkeypatch):
 
 
 class TestRestrictedFoldersStayUnnamedOnTheRow:
-    """A row settles before the round is admitted: it names and counts only what the model may be told (ADR-0088)."""
-
     async def _read(self, **kwargs) -> str:
         return await TestReadPassageRow._read(self, **kwargs)
 

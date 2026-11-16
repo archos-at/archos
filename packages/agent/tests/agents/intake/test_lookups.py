@@ -1,5 +1,3 @@
-"""The intake's lookups map one to one onto catalog operations the door offers (design §5.3, ADR-0173)."""
-
 from __future__ import annotations
 
 import json

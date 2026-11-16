@@ -17,7 +17,6 @@ describe('QuarantineFindings', () => {
       reasons: [{ kind: 'term', term: 'Honorar', count: 1, pages: [2] }, ...verdict.reasons],
     }
     render(<QuarantineFindings verdict={twoTerms} />)
-    // Not a tooltip: a chip is no focus target and a touch has no hover.
     expect(screen.getAllByTestId('quarantine-findings-basis').map((line) => line.textContent)).toEqual([
       filesCopy.messages.en.screening.basisTerm,
       filesCopy.messages.en.screening.basisIban,

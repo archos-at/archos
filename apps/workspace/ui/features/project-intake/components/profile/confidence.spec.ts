@@ -1,7 +1,3 @@
-/**
- * Confidence in words: from who decided and how many independent sources
- * agree, never a number nobody measured.
- */
 import { describe, expect, it } from 'vitest'
 import type { ProfileEvidence } from '@/lib/project-intake/types'
 import { confidenceOf, distinctSources } from './confidence'

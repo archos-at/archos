@@ -1,21 +1,5 @@
 'use client'
 
-/**
- * TagInput — a list of short strings edited as chips in one field.
- *
- * Type a value and press Enter (or a comma) to add it; each chip has its own
- * remove button; Backspace in the empty field removes the last chip. Pasting a
- * list separated by commas, semicolons or line breaks adds every entry at once,
- * because the lists this edits are usually copied from somewhere. What is typed
- * but not yet added is added when the field loses focus, so a Save pressed
- * straight after typing does not drop the last entry.
- *
- * Knows no domain. The caller decides what a clean list is (`normalize`); the
- * default trims, drops empties and de-duplicates ignoring case, keeping the
- * first spelling. Read-only renders the chips without remove buttons and
- * without the typing surface.
- */
-
 import * as React from 'react'
 import { X } from 'lucide-react'
 
@@ -23,7 +7,6 @@ import { cn } from '@/lib/utils'
 import { Chip } from '@/components/ui/chip'
 import { FIELD_FOCUS_WITHIN_RING, FOCUS_RING } from '@/components/ui/focus-ring'
 
-/** Trim, drop empties, de-duplicate case-insensitively; the first spelling wins. */
 export function defaultTagNormalize(values: readonly string[]): string[] {
   const seen = new Set<string>()
   const out: string[] = []
@@ -42,16 +25,12 @@ const SEPARATORS = /[,;\n\r]+/
 export interface TagInputProps {
   value: readonly string[]
   onChange: (next: string[]) => void
-  /** The accessible name of each chip's remove button, e.g. `Remove „Rechnung“`. */
   removeLabel: (tag: string) => string
-  /** Clean the list after every add. Defaults to {@link defaultTagNormalize}. */
   normalize?: (values: string[]) => string[]
   readOnly?: boolean
-  /** Shown in place of the chips when the list is empty and read-only. */
   emptyLabel?: string
   id?: string
   placeholder?: string
-  /** Names the list for assistive tech; the typing surface carries it too. */
   'aria-label'?: string
   'aria-describedby'?: string
   className?: string
@@ -86,7 +65,6 @@ export function TagInput({
   }
 
   const onKeyDown = (event: React.KeyboardEvent<HTMLInputElement>): void => {
-    // An IME composing a character also sends Enter; that one is not ours.
     if (event.nativeEvent.isComposing) return
     if (event.key === 'Enter' || event.key === ',') {
       event.preventDefault()
@@ -110,7 +88,6 @@ export function TagInput({
     <div
       data-slot="tag-input"
       data-readonly={readOnly || undefined}
-      // A click on the box, between chips, lands in the typing surface.
       onClick={(event) => {
         if (event.target === event.currentTarget) inputRef.current?.focus()
       }}
@@ -164,9 +141,6 @@ export function TagInput({
           aria-describedby={ariaDescribedBy}
           enterKeyHint="done"
           autoComplete="off"
-          // The typing surface is the field under a finger: 44px tall on a
-          // coarse pointer (grown, not given a catchment, because the chips
-          // wrap right beside it), at 16px so iOS does not zoom on focus.
           className="h-7 min-w-32 flex-1 bg-transparent px-1 outline-none placeholder:text-muted-foreground pointer-coarse:h-11 pointer-coarse:text-base"
         />
       )}

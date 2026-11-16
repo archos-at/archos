@@ -1,11 +1,3 @@
-"""The working directory's storage half: what it normalises, bounds and keeps apart.
-
-Every test here runs the REAL DeepAgents ``StoreBackend`` over an
-``InMemoryStore``, because the properties under test are properties of the pair
-— the stock create-only write and exact-string edit, plus the three things this
-repo adds on top (NFC, a byte ceiling, one namespace per conversation).
-"""
-
 from __future__ import annotations
 
 import unicodedata
@@ -24,7 +16,6 @@ from agent.tools.documents.draft_store import get_draft_store
 from agent.tools.documents.draft_store import normalize_draft_text
 from agent.tools.documents.draft_store import reset_draft_stores
 
-#: The same word typed the two ways a keyboard and a model produce it.
 COMPOSED = unicodedata.normalize("NFC", "Gebäudeklasse 4")
 DECOMPOSED = unicodedata.normalize("NFD", "Gebäudeklasse 4")
 
@@ -43,10 +34,7 @@ def stored(backend: DraftBackend, path: str = DRAFT) -> dict:
 
 
 class TestNfc:
-    """The one correction this repo makes to the stock backend."""
-
     def test_the_two_spellings_are_not_the_same_bytes(self) -> None:
-        """Without this the rest of the class is testing nothing."""
         assert COMPOSED != DECOMPOSED
         assert len(COMPOSED) < len(DECOMPOSED)
 
@@ -55,12 +43,6 @@ class TestNfc:
         assert stored(backend)["content"] == f"# Vermerk\n\n{COMPOSED}\n"
 
     def test_a_decomposed_old_string_still_finds_composed_text(self, backend: DraftBackend) -> None:
-        """The failure this exists for: an error printing a string identical to the file's.
-
-        The model types ``Gebäudeklasse`` decomposed against a file written
-        composed, DeepAgents reports ``String not found in file:
-        'Gebäudeklasse 4'``, and the model retries the same bytes forever.
-        """
         backend.write(DRAFT, f"# Vermerk\n\n{COMPOSED}\n")
         result = backend.edit(DRAFT, DECOMPOSED, "Gebäudeklasse 5")
         assert result.error is None
@@ -77,8 +59,6 @@ class TestNfc:
 
 
 class TestTheCeiling:
-    """A refusal, never a truncation: a shortened draft is a lie about what was written."""
-
     def test_a_write_past_the_ceiling_is_refused_with_a_readable_reason(self, backend: DraftBackend) -> None:
         result = backend.write(DRAFT, "x" * (MAX_DRAFT_BYTES + 1))
         assert result.error is not None
@@ -97,10 +77,8 @@ class TestTheCeiling:
         assert backend.write(f"{DRAFT_ROOT}c.md", half).error is not None
 
     def test_replacing_a_file_counts_only_the_difference(self, backend: DraftBackend) -> None:
-        """A rewrite is not an addition; the old bytes go away with it."""
         big = "x" * (MAX_DRAFT_BYTES - 10)
         assert backend.write(f"{DRAFT_ROOT}a.md", big).error is None
-        # `write` is create-only, so the same-size rewrite arrives as an edit.
         assert backend.edit(f"{DRAFT_ROOT}a.md", big, "y" * (MAX_DRAFT_BYTES - 10)).error is None
 
     def test_an_edit_that_would_grow_past_the_ceiling_is_refused(self, backend: DraftBackend) -> None:
@@ -114,7 +92,6 @@ class TestTheCeiling:
         assert backend.edit(DRAFT, "# Vermerk", "# V").error is None
 
     def test_a_multibyte_draft_is_measured_in_bytes(self, backend: DraftBackend) -> None:
-        """Two bytes per umlaut: a ceiling counted in characters would be 30% wrong."""
         result = backend.write(DRAFT, "ä" * (MAX_DRAFT_BYTES // 2 + 1))
         assert result.error is not None
 
@@ -132,12 +109,10 @@ class TestThePathRoot:
         assert backend.edit("/etc/passwd", "a", "b").error is not None
 
     def test_the_root_itself_is_inside_with_or_without_slash(self) -> None:
-        """``ls`` lists the root, so the refusal must not contradict the permission."""
         assert draft_store.path_refusal(DRAFT_ROOT) is None
         assert draft_store.path_refusal(DRAFT_ROOT.rstrip("/")) is None
 
     def test_a_write_to_the_root_itself_is_refused(self, backend: DraftBackend) -> None:
-        """The directory is listed, not written: a draft is a file under it."""
         for root in (DRAFT_ROOT, DRAFT_ROOT.rstrip("/")):
             result = backend.write(root, "# Vermerk\n")
             assert result.error is not None
@@ -147,7 +122,6 @@ class TestThePathRoot:
         assert backend.edit(DRAFT_ROOT.rstrip("/"), "a", "b").error is not None
 
     def test_the_refusal_names_the_recovery(self, backend: DraftBackend) -> None:
-        """A dead end paraphrases as access denied; ``ls`` then ``read_file`` does not."""
         result = backend.write("/etc/passwd", "x")
         assert result.error is not None
         assert "`ls`" in result.error
@@ -165,10 +139,7 @@ class TestThePathRoot:
 
 
 class TestTheStockContract:
-    """What the tool descriptions rely on: DeepAgents' guarantees, and the one we add back."""
-
     def test_write_is_create_only(self, backend: DraftBackend) -> None:
-        """Ours since DeepAgents 0.7, whose ``write`` overwrites: ``write_refusal`` keeps it."""
         backend.write(DRAFT, "# Vermerk\n")
         result = backend.write(DRAFT, "# Anderer Vermerk\n")
         assert result.error is not None
@@ -177,7 +148,6 @@ class TestTheStockContract:
         assert backend.read(DRAFT).file_data["content"] == "# Vermerk\n"
 
     async def test_write_is_create_only_on_the_async_path(self, backend: DraftBackend) -> None:
-        """The path production runs: a second ``awrite`` leaves the first draft standing."""
         await backend.awrite(DRAFT, "# Vermerk\n")
         result = await backend.awrite(DRAFT, "# Anderer Vermerk\n")
         assert result.error is not None
@@ -185,7 +155,6 @@ class TestTheStockContract:
         assert (await backend.aread(DRAFT)).file_data["content"] == "# Vermerk\n"
 
     def test_an_ambiguous_edit_reports_the_count(self, backend: DraftBackend) -> None:
-        """The count is what tells the model to add surrounding context."""
         backend.write(DRAFT, "Frist\nFrist\nFrist\n")
         result = backend.edit(DRAFT, "Frist", "Termin")
         assert result.error is not None
@@ -226,8 +195,6 @@ class TestNamespaceIsolation:
 
 
 class TestTheVersionCounter:
-    """What the draft card counts: writes and edits of one path, in one conversation."""
-
     def test_a_first_write_is_version_one(self, backend: DraftBackend) -> None:
         backend.write(DRAFT, "# Vermerk\n")
         assert stored(backend)[VERSION_KEY] == 1
@@ -244,7 +211,6 @@ class TestTheVersionCounter:
         assert stored(backend)[VERSION_KEY] == 1
 
     def test_the_counter_does_not_reach_the_file_tools(self, backend: DraftBackend) -> None:
-        """It rides on the stored value; ``read_file`` still returns the document."""
         backend.write(DRAFT, "# Vermerk\n")
         result = backend.read(DRAFT)
         assert result.error is None
@@ -252,8 +218,6 @@ class TestTheVersionCounter:
 
 
 class TestTheAsyncHalf:
-    """The path Piloti actually runs: ToolNode awaits the coroutine."""
-
     @pytest.mark.asyncio
     async def test_write_and_edit_normalise_and_count(self, backend: DraftBackend) -> None:
         assert (await backend.awrite(DRAFT, f"# Vermerk\n\n{DECOMPOSED}\n")).error is None
@@ -292,7 +256,6 @@ class TestTheStoreFactory:
 
     @pytest.mark.asyncio
     async def test_a_postgres_dsn_takes_the_postgres_store(self, monkeypatch) -> None:
-        """Neither a pool nor a database, only the branch: the DSN decides."""
         built: dict[str, str] = {}
 
         class _FakeStore:
@@ -322,14 +285,6 @@ class TestTheStoreFactory:
 
 
 class TestTheFilingRecordIsReadOnce:
-    """One reader for both shapes the lifecycle API spells a version in.
-
-    The write route nests the version in an envelope; the read route is flat,
-    because it answers about one version and has nothing to hang it in. Two
-    private readers of one record drift silently — each looks locally correct —
-    and the failure is a second document, found by a person.
-    """
-
     WRITE_ROUTE_BODY = {
         "documentId": "doc-1",
         "alreadyFiled": False,
@@ -361,12 +316,9 @@ class TestTheFilingRecordIsReadOnce:
 
     def test_a_body_with_nothing_in_it_yields_empty_strings_not_a_crash(self) -> None:
         assert draft_store.filing_record({}) == dict.fromkeys(draft_store.FILING_KEYS, "")
-        # `version: null` is what the route sends when no version was written.
         assert draft_store.filing_record({"version": None}) == dict.fromkeys(draft_store.FILING_KEYS, "")
 
     def test_both_callers_read_the_record_through_this_one_function(self) -> None:
-        # The point of the lift: neither the filing tool nor the subject loader
-        # keeps a spelling of its own.
         from agent.tools.documents import register as filing_tools
         from agent.turn import subject_document
 
@@ -375,13 +327,6 @@ class TestTheFilingRecordIsReadOnce:
 
 
 class TestDroppingAConversationsWorkingDirectory:
-    """``delete_conversation_drafts``: the one verb that removes a namespace.
-
-    A conversation's drafts are the only thing it owns outside ``app``, so
-    without this they outlive the conversation row: bytes under a key that names
-    nothing, which nothing will read and nothing will total against a quota.
-    """
-
     @pytest.fixture(autouse=True)
     def _store(self, monkeypatch: pytest.MonkeyPatch) -> InMemoryStore:
         memory = InMemoryStore()
@@ -430,8 +375,6 @@ class TestDroppingAConversationsWorkingDirectory:
 
     @pytest.mark.asyncio
     async def test_a_namespace_larger_than_one_page_is_swept_whole(self, _store, monkeypatch) -> None:
-        # Each pass searches from the start, because the pass before shortened
-        # the namespace and an offset would step over rows.
         monkeypatch.setattr(draft_store, "_PAGE_SIZE", 2)
         for index in range(5):
             await self._write(_store, "conv-a", f"entwurf-{index}")
@@ -441,11 +384,6 @@ class TestDroppingAConversationsWorkingDirectory:
 
     @pytest.mark.asyncio
     async def test_a_key_the_store_will_not_drop_ends_the_sweep(self, monkeypatch) -> None:
-        """`seen`, and not a page count, is what makes the loop terminate.
-
-        A store whose ``adelete`` is a no-op would return the same page forever
-        to a sweep that re-searched from the start and trusted the result.
-        """
         deletes: list[str] = []
 
         class _Stubborn(InMemoryStore):
@@ -466,8 +404,6 @@ class TestDroppingAConversationsWorkingDirectory:
 
 
 class TestTheGermanRootStillReads:
-    """Drafts lived under ``/entwuerfe/`` before the root had an English name."""
-
     @pytest.mark.parametrize(
         ("old", "new"),
         [

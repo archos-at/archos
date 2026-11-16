@@ -1,11 +1,3 @@
-"""Every deep research run looks under a budget of its own (ADR-0128, plan risk R6).
-
-``look`` is capped by the per-turn image budget, and an unbound budget is no cap
-at all. A chat turn binds one (``turn/registries``); a deep research run on the
-job worker enters no chat turn, so ``run_deep_research`` binds its own, and a
-run inside a turn gets its own too rather than spending the turn's looks.
-"""
-
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -25,7 +17,6 @@ from agent.common.image_view_budget import try_consume_image_view
 
 
 async def _run(seen: list) -> DeepResearchAgentState:
-    """One run with a prebuilt agent that records the budget it ran under and spends one look."""
     state = DeepResearchAgentState(messages=[HumanMessage(content="q")])
 
     async def run(_state):

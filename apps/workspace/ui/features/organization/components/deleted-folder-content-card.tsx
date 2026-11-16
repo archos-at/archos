@@ -1,12 +1,5 @@
 'use client'
 
-/**
- * Organisation → Sensible Daten → „Inhalte aus gelöschten Ordnern" (ADR-0088):
- * who sees chats, answers and notes drawn from a folder once it is purged.
- * Four choices as tiles; the server applies the choice when derived content
- * is read, so a change takes effect at once, for folders already purged too.
- */
-
 import { useEffect, useState, type JSX } from 'react'
 import { Eye, ShieldCheck, Trash2, Users } from 'lucide-react'
 import { toast } from 'sonner'
@@ -24,7 +17,6 @@ const ICONS = { unchanged: Eye, project: Users, admins: ShieldCheck, remove: Tra
 
 export interface DeletedFolderContentCardProps {
   canEdit: boolean
-  /** The saved choice, when the page already read it; otherwise the card asks. */
   initial?: DeletedFolderContentPolicy
 }
 

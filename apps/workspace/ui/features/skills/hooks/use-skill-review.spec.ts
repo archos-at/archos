@@ -1,9 +1,3 @@
-/**
- * The review's state machine, which is where the failure mode lives: a review
- * that could not run must never read as a clean bill of health, and a verdict
- * must never outlive the text it was about.
- */
-
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useSkillReview } from './use-skill-review'
@@ -50,8 +44,6 @@ describe('useSkillReview', () => {
       'Vague name.',
       'Add an example.',
     ])
-    // The grouping is what lets a finding be shown under the field it is about,
-    // which is the whole point of holding the verdict above the steps.
     expect(result.current.findingsFor('description').map((f) => f.message)).toEqual([
       'No WHEN clause.',
     ])
@@ -66,8 +58,6 @@ describe('useSkillReview', () => {
     expect(result.current.stale).toBe(false)
   })
 
-  // `findings: null` is "could not check". Reading it as clean would tell an
-  // author their skill is fine on the strength of a failed request.
   it('NEVER reads as clean when the review could not run — but never blocks either', async () => {
     reviewSkill.mockResolvedValue({ findings: null, error: 'review_failed' })
     const { result } = renderHook(() => useSkillReview(DRAFT))
@@ -75,7 +65,6 @@ describe('useSkillReview', () => {
 
     expect(result.current.state).toEqual({ kind: 'unavailable' })
     expect(result.current.findings).toEqual([])
-    // Our outage is not the author's to pay for with an unsaveable draft.
     expect(result.current.gate).toEqual({ checked: true, reason: 'unavailable' })
   })
 
@@ -92,8 +81,6 @@ describe('useSkillReview', () => {
     expect(result.current.gate.checked).toBe(false)
   })
 
-  // A character typed while the reviewer was thinking must leave the verdict
-  // stale, or the gate opens on a draft nobody read.
   it('is stale when the draft moved while the request was in flight', async () => {
     let settle: (value: { findings: [] }) => void = () => {}
     reviewSkill.mockReturnValue(new Promise((resolve) => (settle = resolve)))

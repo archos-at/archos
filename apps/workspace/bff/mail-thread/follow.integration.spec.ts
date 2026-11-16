@@ -82,7 +82,6 @@ vi.mock('@/lib/inbound-mail/sender-auth', async (importOriginal) => {
 vi.mock('@/lib/documents/accepted-types', () => ({
   acceptedTypesForOrganization: vi.fn(async () => ['.pdf', '.docx', '.txt', '.md']),
 }))
-// The receive job asks the strict form (a failed read is a fault, `receive-faults.ts`); both answer the same here.
 vi.mock('@/lib/sharing/directory', () => {
   const loadOrganizationDirectory = vi.fn()
   return { loadOrganizationDirectory, loadOrganizationDirectoryStrict: loadOrganizationDirectory }
@@ -114,8 +113,6 @@ vi.mock('@/lib/authz/folder-access', async (importOriginal) => ({
   requireFolderWrite: vi.fn(async () => undefined),
   getHiddenFolderIds: vi.fn(async () => []),
 }))
-// The replying member may not write in the project: their reply waits, and the follow is what appends it.
-// (A writer's own signed reply is filed as them instead: `review-first.e2e.spec.ts`.)
 vi.mock('@/lib/authz/project-membership', () => {
   const userHoldsProjectPermission = vi.fn(async () => false)
   return { userHoldsProjectPermission, userHoldsProjectPermissionStrict: userHoldsProjectPermission }
@@ -178,7 +175,6 @@ describe.skipIf(!url)('following an E-Mail-Verlauf against Postgres', () => {
   const count = async (statement: ReturnType<typeof sql>): Promise<number> =>
     Number((await one<{ count: string }>(statement)).count)
 
-  /** A project with an address and a thread whose document is screened, with one filed message. */
   async function followedProject(seed: string): Promise<{ projectId: string; addressId: string; threadId: string; documentId: string; slug: string; token: string }> {
     const { id: projectId } = await one<{ id: string }>(sql`
       INSERT INTO projects (organization_id, name, created_by, collection_name)
@@ -225,7 +221,6 @@ describe.skipIf(!url)('following an E-Mail-Verlauf against Postgres', () => {
     return { projectId, addressId, threadId, documentId, ...address }
   }
 
-  /** A waiting mail of the project with its text part, received `receivedAt`. */
   async function waitingMail(projectId: string, addressId: string, receivedAt: Date): Promise<{ mailId: string; textPart: string }> {
     const mailId = crypto.randomUUID()
     await rows(sql`
@@ -273,10 +268,6 @@ describe.skipIf(!url)('following an E-Mail-Verlauf against Postgres', () => {
     await withPlatformAccess('test cleanup', () => db.execute(sql`DELETE FROM bff_job_queue WHERE lane = ${ORG}`))
   })
 
-  // -------------------------------------------------------------------------
-  // The follow SQL
-  // -------------------------------------------------------------------------
-
   it('keeps one running follow per person and thread, renews within 180 days of its start, and ends it once', async () => {
     const { projectId, threadId } = await followedProject('rows')
     const now = new Date()
@@ -286,9 +277,7 @@ describe.skipIf(!url)('following an E-Mail-Verlauf against Postgres', () => {
       )
     const follow = await start(MEMBER_ID)
     expect(follow).not.toBeNull()
-    // A second follow of one person is refused by the partial unique index, quietly.
     expect(await start(MEMBER_ID)).toBeNull()
-    // Several people may follow one thread.
     expect(await start(COLLEAGUE_ID)).not.toBeNull()
 
     const renewed = await inTenant(() => repo.renewFollow(follow!.id, new Date(now.getTime() + 400 * DAY), now))
@@ -300,9 +289,7 @@ describe.skipIf(!url)('following an E-Mail-Verlauf against Postgres', () => {
     expect(await inTenant(() => repo.endFollow(follow!.id, { reason: 'unfollowed', endedBy: MEMBER_ID }))).toBeNull()
     expect(await inTenant(() => repo.renewFollow(follow!.id, new Date(now.getTime() + DAY), now))).toBeNull()
     expect(await inTenant(() => repo.findRunningFollow(threadId, MEMBER_ID))).toBeNull()
-    // Ended, the person may follow again.
     expect(await start(MEMBER_ID)).not.toBeNull()
-    // An unfollow is the follower's own: the migration refuses it in another's name.
     const colleague = await inTenant(() => repo.findRunningFollow(threadId, COLLEAGUE_ID))
     await expect(inTenant(() => repo.endFollow(colleague!.id, { reason: 'unfollowed', endedBy: MEMBER_ID }))).rejects.toThrow()
   })
@@ -317,7 +304,6 @@ describe.skipIf(!url)('following an E-Mail-Verlauf against Postgres', () => {
     expect(await state(live)).toBe('gone')
     await rows(sql`DELETE FROM documents WHERE id = ${live.documentId}::uuid`)
     expect(await state(live)).toBe('gone')
-    // Held by its screening, uploaded by somebody else: not seen, and not gone either.
     const held = await followedProject('held')
     await rows(sql`UPDATE documents SET status = 'quarantined', created_by = ${COLLEAGUE_ID} WHERE id = ${held.documentId}::uuid`)
     expect(await state(held)).toBe('unseen')
@@ -331,7 +317,6 @@ describe.skipIf(!url)('following an E-Mail-Verlauf against Postgres', () => {
     )
     const ref = { id: follow!.id, userId: MEMBER_ID, threadId }
 
-    // A mail that arrived before the follow follows nothing (D31 condition 1).
     const early = new Date(created.getTime() - DAY)
     const old = await waitingMail(projectId, addressId, early)
     expect(await inTenant(() => repo.writeFollowDecision(decisionInput(ref, projectId, old, early)))).toEqual({ kind: 'follow_not_running' })
@@ -357,13 +342,10 @@ describe.skipIf(!url)('following an E-Mail-Verlauf against Postgres', () => {
       state: 'filing',
       claimed: true,
     })
-    // Decided, not appended yet: the E-Mail-Eingang names no follower until the text is filed.
     const { findFollowDeciders } = await import('@/lib/inbound-mail/repository')
     expect(await inTenant(() => findFollowDeciders([mail.mailId]))).toEqual(new Map())
-    // Decided once: the text is no longer waiting.
     expect(await inTenant(() => repo.writeFollowDecision(decisionInput(ref, projectId, mail, received)))).toEqual({ kind: 'not_waiting' })
 
-    // An ended follow decides nothing.
     await inTenant(() => repo.endFollow(follow!.id, { reason: 'unfollowed', endedBy: MEMBER_ID }))
     const after = await waitingMail(projectId, addressId, received)
     expect(await inTenant(() => repo.writeFollowDecision(decisionInput(ref, projectId, after, received)))).toEqual({ kind: 'follow_not_running' })
@@ -413,7 +395,6 @@ describe.skipIf(!url)('following an E-Mail-Verlauf against Postgres', () => {
     const mine = await inTenant(() =>
       repo.startFollow({ organizationId: ORG, projectId, threadId, userId: MEMBER_ID, createdAt: created, expiresAt: new Date(Date.now() + DAY) }),
     )
-    // A hundred appends by the colleague's follow today, as decisions of one text.
     const filler = await waitingMail(projectId, addressId, new Date())
     await rows(sql`
       INSERT INTO inbound_mail_decisions (organization_id, project_id, mail_id, part_id, action, decided_by, via, follow_id, thread_action, mail_thread_id, message_text)
@@ -426,7 +407,6 @@ describe.skipIf(!url)('following an E-Mail-Verlauf against Postgres', () => {
     ).toEqual({ kind: 'project_cap' })
   })
 
-  /** A transaction of another session that takes `lock`, then waits for the spec, then runs `then` and commits. */
   function holding(lock: ReturnType<typeof sql>, then: ReturnType<typeof sql>) {
     let release!: () => void
     let held!: () => void
@@ -456,7 +436,6 @@ describe.skipIf(!url)('following an E-Mail-Verlauf against Postgres', () => {
       INSERT INTO inbound_mail_decisions (organization_id, project_id, mail_id, part_id, action, decided_by, via, follow_id, thread_action, mail_thread_id, message_text)
       SELECT ${ORG}, ${projectId}::uuid, ${filler.mailId}::uuid, ${filler.textPart}::uuid, 'file', ${THIRD_ID}, 'follow', ${third!.id}::uuid, 'append', ${threadId}::uuid, 'full'
       FROM generate_series(1, ${n})`
-    // 99 appends today: one slot left. Another follow job holds the project's lock and takes it.
     await rows(fill(99))
     const other = holding(sql`SELECT pg_advisory_xact_lock(hashtextextended(${`inbound_mail_follow:${projectId}`}, 0))`, fill(1))
     await other.taken
@@ -486,10 +465,6 @@ describe.skipIf(!url)('following an E-Mail-Verlauf against Postgres', () => {
     expect(await deciding).toEqual({ kind: 'follow_not_running' })
     expect(await count(sql`SELECT count(*) FROM inbound_mail_decisions WHERE part_id = ${mail.textPart}::uuid`)).toBe(0)
   })
-
-  // -------------------------------------------------------------------------
-  // The dynamic ratchet's follow half
-  // -------------------------------------------------------------------------
 
   describe('the dynamic ratchet’s follow half', () => {
     let project: Awaited<ReturnType<typeof followedProject>>
@@ -530,7 +505,6 @@ describe.skipIf(!url)('following an E-Mail-Verlauf against Postgres', () => {
         unreadable: false,
       })
       const { uploadDocument } = await import('@/lib/documents/document-dispatch')
-      // The upload path past the decision: the next Fassung of the document of this name, as the person.
       vi.mocked(uploadDocument).mockImplementation(async (asWho, input) => {
         const bytes = new Uint8Array(await input.file.arrayBuffer())
         const hash = createHash('sha256').update(bytes).digest('hex')
@@ -538,7 +512,6 @@ describe.skipIf(!url)('following an E-Mail-Verlauf against Postgres', () => {
           await db.execute(sql`SELECT id FROM documents WHERE project_id = ${input.projectId}::uuid AND filename = ${input.file.name}`),
         ) as Array<{ id: string }>
         if (!existing) throw new Error('the follow half files only into an existing thread document')
-        // Screened on arrival, as a Fassung that passed the content gate would be.
         await db.execute(sql`UPDATE documents SET content_hash = ${hash}, screened_hash = ${hash} WHERE id = ${existing.id}::uuid`)
         await db.execute(sql`
           INSERT INTO document_versions (organization_id, document_id, project_id, version_number, state, storage_key, created_by, approved_by, approved_at)
@@ -573,13 +546,11 @@ describe.skipIf(!url)('following an E-Mail-Verlauf against Postgres', () => {
         ) as Array<{ payload: { mailId: string } }>
       ).filter((job) => job.payload.mailId === mailId)
 
-    /** A reply from the member's domain, signed for real over `headerList`, received through the real receive job. */
     async function receive(seed: string, headers: Record<string, string>, headerList: string): Promise<string> {
       const raw = await hostile.sign(
         hostile.message(
           hostile.multipart('mixed', [hostile.BODY, hostile.attachment(`S-${seed}.pdf`, 'application/pdf', hostile.pdf(`S ${seed}`))]),
           {
-            // `<local part>+<slug>.<token>@<domain>` (`address.ts`): without the local part no recipient names the project.
             To: `project+${project.slug}.${project.token}@example.org`,
             Subject: 'AW: Einreichplan',
             Date: new Date(Date.now() - 60_000).toUTCString(),
@@ -635,14 +606,12 @@ describe.skipIf(!url)('following an E-Mail-Verlauf against Postgres', () => {
       expect(
         await rows(sql`SELECT via, decided_by, follow_id FROM inbound_mail_decisions WHERE mail_id = ${mailId}::uuid`),
       ).toEqual([{ via: 'follow', decided_by: MEMBER_ID, follow_id: followId }])
-      // The E-Mail-Eingang's `followedBy` names the follow's person, the one the job appended as.
       const { findFollowDeciders } = await import('@/lib/inbound-mail/repository')
       expect(await inTenant(() => findFollowDeciders([mailId]))).toEqual(new Map([[mailId, MEMBER_ID]]))
       expect(
         await one(sql`SELECT entry_count, filed_via FROM mail_threads t JOIN mail_thread_entries e ON e.thread_id = t.id
                       WHERE t.id = ${project.threadId}::uuid AND e.inbound_mail_id = ${mailId}::uuid`),
       ).toEqual({ entry_count: 2, filed_via: 'follow' })
-      // Run again (a retry after a lost answer): nothing more.
       expect(await runFollow(mailId)).toMatchObject({ done: true })
       expect(await threadVersionCount()).toBe(2)
     })

@@ -4,35 +4,15 @@ import type { LucideIcon } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 
-/**
- * Shared empty-state. Every "there's nothing here yet" moment in the app uses
- * this so empty states are a crafted, consistent invitation — never bare text.
- *
- * @example
- * <EmptyState
- *   icon={FolderOpen}
- *   title="No files yet"
- *   description="Upload building documents so Piloti can ground its answers in your project."
- *   action={<Button>Upload files</Button>}
- * />
- */
 export type EmptyStateDiscTone = 'muted' | 'destructive' | 'warning'
 export type EmptyStateDiscSize = 'md' | 'sm'
 
 const EMPTY_STATE_DISC_TONES: Record<EmptyStateDiscTone, string> = {
-  // A small sheet (white, its edge and elevation 1 from `shadow-sm`): the glyph names the state, the sheet seats it.
-  // A grey tile on the paper was a grey box called a surface (paper on a desk, principle 1).
   muted: 'bg-sheet text-muted-foreground',
   destructive: 'border-transparent bg-danger-subtle text-error',
   warning: 'border-transparent bg-warning-subtle text-warning',
 }
 
-/**
- * The raised icon disc shared by empty states and confirm dialogs — a disc
- * that catches the light (soft shadow) reads more considered than a flat
- * muted circle. `md` is the empty-state panel disc, `sm` the dialog disc;
- * both keep `shadow-sm`. Tones reuse the chip tint pairs.
- */
 export function EmptyStateDisc({
   icon: Icon,
   tone = 'muted',
@@ -61,20 +41,12 @@ export function EmptyStateDisc({
 
 export interface EmptyStateProps extends React.HTMLAttributes<HTMLDivElement> {
   icon?: LucideIcon
-  /**
-   * A riso print (`RisoPrint`) in place of the icon disc. Only for first-run
-   * moments read at leisure (no projects, no documents): a moment to act, such
-   * as a filter with no match, keeps the disc.
-   */
   art?: React.ReactNode
   title: string
   description?: string
   action?: React.ReactNode
-  /** 'panel' = bordered dashed card (default); 'bare' = no border, for use inside an existing card */
   variant?: 'panel' | 'bare'
-  /** Icon-disc tone. Defaults to the muted panel disc. */
   tone?: EmptyStateDiscTone
-  /** Icon-disc size. Defaults to the `size-12` panel disc. */
   size?: EmptyStateDiscSize
 }
 
@@ -95,10 +67,6 @@ export function EmptyState({
       className={cn(
         'flex w-full min-w-0 flex-col items-center justify-center text-center',
         variant === 'panel' ? 'rounded-surface border border-dashed bg-muted px-6 py-12' : 'py-10',
-        // Staged entrance, CSS-only (this stays server-safe): the panel fades
-        // in, the disc lands a beat later. Transform/opacity only, and the
-        // parent already reserves the space, so no layout shift. `fade-in-0`
-        // is the design language's content-entrance fade.
         'animate-in fade-in-0 duration-base ease-entrance motion-reduce:animate-none',
         className,
       )}
@@ -107,8 +75,6 @@ export function EmptyState({
       {art ? (
         <div className="mb-5">{art}</div>
       ) : Icon && (
-        // The staged entrance keeps its own motion: the panel fades in, the
-        // disc lands a beat later.
         <EmptyStateDisc
           icon={Icon}
           tone={tone}

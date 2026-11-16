@@ -1,13 +1,3 @@
-"""A builtin skill that deep research loads teaches no answer dialect.
-
-Deep research files its report as a PDF, and until Phase B the PDF pipeline
-draws no ``:::`` block: it prints the fence lines as text
-(``docs/design/answer-richness.md``, "Deep research waits for the PDF"). A skill
-whose ``grid-agents`` names ``deep_researcher`` is read by that writer, so it
-names a shape in words („Prüftabelle mit Status-Spalte") and the chat prompt's
-RICH BLOCKS maps the shape to its block.
-"""
-
 from __future__ import annotations
 
 import re

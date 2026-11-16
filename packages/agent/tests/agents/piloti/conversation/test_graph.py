@@ -1,12 +1,3 @@
-"""Tests for the ConversationGraph.
-
-Since ADR-0052 there is no classifier in front of the answering agent: every
-turn enters ``shallow_research`` with the full tool set, and the shape of the
-turn — a direct reply, a researched answer, a hand-off to deep research — is
-read off Piloti's result AFTER the answer exists. The fixtures here
-therefore seed the shallow path directly; nothing routes ahead of it.
-"""
-
 import pytest
 from agent_testing.conversation import turn
 from langchain_core.messages import AIMessage
@@ -23,12 +14,6 @@ from agent.agents.piloti.models import ResearchAgentState
 
 
 def _research_result(messages, answer: str, *, escalating: bool = False, direct: bool = False):
-    """A Piloti result: the real state Piloti returns.
-
-    ``direct`` models a reply that consulted no source and graded nothing — a
-    greeting, a listing, an off-topic decline — which is what the observed
-    routing reads as ``meta``.
-    """
     return ResearchAgentState(
         messages=list(messages) + [AIMessage(content=answer + (f"\n{ESCALATION_MARKER}" if escalating else ""))],
         escalation_requested=escalating,
@@ -37,11 +22,8 @@ def _research_result(messages, answer: str, *, escalating: bool = False, direct:
 
 
 class TestConversationGraph:
-    """Tests for the ConversationGraph class."""
-
     @pytest.fixture
     def mock_research(self):
-        """A research function that answers with sources."""
 
         async def research(state_input):
             messages = state_input.messages if hasattr(state_input, "messages") else state_input
@@ -51,7 +33,6 @@ class TestConversationGraph:
 
     @pytest.fixture
     def mock_deep_research(self):
-        """Create a mock deep research function."""
 
         async def deep(state):
             return DeepResearchAgentState(
@@ -65,7 +46,6 @@ class TestConversationGraph:
 
     @pytest.fixture
     def mock_clarifier(self):
-        """A clarification step that asked its questions and got a plan approved."""
 
         async def clarifier(request):
             return ClarifyResult(research_context="User clarified: technical focus", outcome="approved")
@@ -73,7 +53,6 @@ class TestConversationGraph:
         return clarifier
 
     def test_init_with_defaults(self, mock_research, mock_deep_research, mock_clarifier):
-        """Test ConversationGraph initialization with defaults."""
         agent = ConversationGraph(
             research_fn=mock_research,
             deep_research_fn=mock_deep_research,
@@ -83,7 +62,6 @@ class TestConversationGraph:
         assert agent.graph is not None
 
     def test_graph_property(self, mock_research, mock_deep_research, mock_clarifier):
-        """Test that graph property returns the compiled graph."""
         agent = ConversationGraph(
             research_fn=mock_research,
             deep_research_fn=mock_deep_research,
@@ -95,11 +73,6 @@ class TestConversationGraph:
     def test_the_graph_has_no_classifier_and_starts_with_the_answering_agent(
         self, mock_research, mock_deep_research, mock_clarifier
     ):
-        """ADR-0052: nothing classifies a turn before the answer.
-
-        The compiled graph has no ``intent_classifier`` node, and the only edge
-        out of START goes to ``shallow_research``.
-        """
         agent = ConversationGraph(
             research_fn=mock_research,
             deep_research_fn=mock_deep_research,
@@ -116,8 +89,6 @@ class TestConversationGraph:
 
     @pytest.mark.asyncio
     async def test_a_direct_reply_is_observed_as_meta(self, mock_deep_research, mock_clarifier):
-        """A greeting answered without a source lookup and without a
-        self-assessment is a direct reply: ``routing_decision`` reads ``meta``."""
 
         async def direct_research(state_input):
             return _research_result(state_input.messages, "Hello! I'm an AI assistant.", direct=True)
@@ -137,7 +108,6 @@ class TestConversationGraph:
 
     @pytest.mark.asyncio
     async def test_run_shallow_research_flow(self, mock_research, mock_deep_research, mock_clarifier):
-        """A researched answer (a source was consulted) is observed as shallow."""
         agent = ConversationGraph(
             research_fn=mock_research,
             deep_research_fn=mock_deep_research,
@@ -152,7 +122,6 @@ class TestConversationGraph:
 
     @pytest.mark.asyncio
     async def test_run_deep_research_flow(self, mock_deep_research, mock_clarifier):
-        """An escalating shallow result reaches deep research through the clarifier."""
 
         async def escalating_research(state_input):
             return _research_result(state_input.messages, "Partial answer.", escalating=True)
@@ -174,10 +143,6 @@ class TestConversationGraph:
 
     @pytest.mark.asyncio
     async def test_a_direct_reply_never_escalates(self, mock_clarifier):
-        """A direct reply (a memory/`remember` request, a greeting) ends on the
-        shallow path. Piloti owns `remember`; a deep-research job
-        does not have it, and there is no classifier left to misroute the turn
-        there anyway — only Piloti's own envelope can escalate."""
         deep_called = False
 
         async def direct_research(state_input):
@@ -213,7 +178,6 @@ class TestConversationGraph:
 
     @pytest.mark.asyncio
     async def test_run_with_empty_messages(self, mock_research, mock_deep_research, mock_clarifier):
-        """Test run() handles empty messages."""
         agent = ConversationGraph(
             research_fn=mock_research,
             deep_research_fn=mock_deep_research,
@@ -227,7 +191,6 @@ class TestConversationGraph:
 
     @pytest.mark.asyncio
     async def test_run_without_thread_id(self, mock_deep_research, mock_clarifier):
-        """Test run() works without thread_id."""
 
         async def direct_research(state_input):
             return _research_result(state_input.messages, "Hi there!", direct=True)
@@ -245,7 +208,6 @@ class TestConversationGraph:
 
     @pytest.mark.asyncio
     async def test_run_propagates_data_sources(self, mock_deep_research, mock_clarifier):
-        """Test that run() propagates data_sources to Piloti."""
         captured_state = {}
 
         async def capturing_research(state_input):
@@ -268,7 +230,6 @@ class TestConversationGraph:
 
     @pytest.mark.asyncio
     async def test_run_propagates_collection_scope(self, mock_deep_research, mock_clarifier):
-        """Test that run() propagates collection_scope into the graph state."""
 
         async def direct_research(state_input):
             return _research_result(state_input.messages, "Hello!", direct=True)
@@ -289,7 +250,6 @@ class TestConversationGraph:
 
     @pytest.mark.asyncio
     async def test_run_propagates_none_data_sources(self, mock_deep_research, mock_clarifier):
-        """Test that run() propagates None data_sources correctly."""
         captured_state = {}
 
         async def capturing_research(state_input):
@@ -312,7 +272,6 @@ class TestConversationGraph:
 
     @pytest.mark.asyncio
     async def test_run_propagates_empty_data_sources(self, mock_deep_research, mock_clarifier):
-        """Test that run() propagates empty data_sources list."""
         captured_state = {}
 
         async def capturing_research(state_input):
@@ -335,9 +294,6 @@ class TestConversationGraph:
 
     @pytest.mark.asyncio
     async def test_chat_sets_the_listing_shelf_from_the_query(self, mock_deep_research, mock_clarifier):
-        """A shelf named in the question is the one the inventory prints in
-        full this turn. Piloti sets it as a ContextVar before the
-        Piloti runs, so the prompt renderer sees it."""
         from agent.knowledge.inventory import Shelf
         from agent.knowledge.inventory import get_listing_shelf
 
@@ -369,16 +325,8 @@ class TestConversationGraph:
 
 
 class TestRoutingBoundary:
-    """Pins the shallow/deep split as the graph DOES it.
-
-    There is no classification to route on any more: Piloti's own
-    envelope is the only thing that can send a turn to deep research, and a
-    turn it answers directly ends where it is.
-    """
-
     @pytest.fixture
     def trackers(self):
-        """Shallow/deep/clarifier call trackers plus their mock functions."""
         calls = {"research": False, "deep": False, "clarifier": False}
 
         def research_answering(answer: str, *, escalating: bool = False, direct: bool = False):
@@ -403,10 +351,6 @@ class TestRoutingBoundary:
 
     @pytest.mark.asyncio
     async def test_out_of_scope_is_answered_by_chat(self, trackers):
-        """An off-topic question is Piloti's to decline — there is
-        no fixed redirect ahead of it any more. It declines without a source
-        lookup, so the turn is observed as a direct reply; no clarifier, no
-        deep research."""
         calls, research_answering, deep, clarifier = trackers
 
         agent = ConversationGraph(
@@ -426,8 +370,6 @@ class TestRoutingBoundary:
 
     @pytest.mark.asyncio
     async def test_well_specified_shallow_answers_without_overclarifying(self, trackers):
-        """Guardrail against over-correction: a normal, well-specified OIB
-        question is answered directly — no clarifier, no deep escalation."""
         calls, research_answering, deep, clarifier = trackers
 
         agent = ConversationGraph(
@@ -445,8 +387,6 @@ class TestRoutingBoundary:
 
     @pytest.mark.asyncio
     async def test_an_escalating_shallow_result_routes_through_clarifier(self, trackers):
-        """A shallow answer that asks for deep research goes through the
-        clarifier (the HITL push-back point) before deep research runs."""
         calls, research_answering, deep, clarifier = trackers
 
         agent = ConversationGraph(
@@ -466,16 +406,8 @@ class TestRoutingBoundary:
 
 
 class TestAppendContextMessage:
-    """Ingest-only context (ADR-0034 addendum): the agent SEES it, without answering.
-
-    The gap this closes: suppressing the agent by not invoking it left its history —
-    the LangGraph checkpoint — with a hole where the colleague's turn should be, so
-    "@Piloti given that, recheck" referred to nothing.
-    """
-
     @pytest.fixture
     def trackers(self):
-        """Fake agent fns that record whether they were ever reached."""
         calls: list[str] = []
 
         async def research(state_input):
@@ -502,7 +434,6 @@ class TestAppendContextMessage:
 
     @pytest.mark.asyncio
     async def test_appends_to_the_checkpoint_without_running_a_node(self, trackers):
-        """No node, therefore no LLM, therefore no token — suppression stays free."""
         calls, *_ = trackers
         agent = self._agent(trackers)
 
@@ -514,24 +445,19 @@ class TestAppendContextMessage:
 
     @pytest.mark.asyncio
     async def test_the_next_real_turn_sees_the_ingested_context(self, trackers):
-        """THE POINT: "given that" now refers to something."""
         calls, *_ = trackers
         agent = self._agent(trackers)
 
-        # 1. Matthias asks Piloti.
         await turn(
             agent,
             ConversationState(messages=[HumanMessage(content="Ist das Atrium ein eigener Abschnitt?")]),
             thread_id="conv-1",
         )
-        # 2/3. Matthias tags Anna, Anna answers — neither is an agent turn. Measured
-        # as a DELTA over turn 1's calls: what matters is that ingestion adds none.
         after_turn_one = list(calls)
         await agent.append_context_message("conv-1", "Matthias Bigl: @Anna Weber weißt du das?")
         await agent.append_context_message("conv-1", "Anna Weber: Ja, laut Einreichplan eigener Abschnitt.")
         assert calls == after_turn_one, "ingestion must not have run a single node"
 
-        # 4. Matthias asks Piloti to recheck.
         seen: list[str] = []
 
         async def capture_research(state_input):
@@ -567,12 +493,6 @@ async def _unused(state):  # pragma: no cover - the route never reaches it
 
 
 class TestTurnBoundary:
-    """What ``run()`` resets and what it keeps, derived from the model rather
-    than hand-listed — a field missing from a hand-written reset dict persisted
-    silently across turns via the checkpoint, and ``in_flight_documents`` was
-    such a field: set by the register on every turn and never reaching the graph.
-    """
-
     def test_the_reset_set_is_every_field_that_is_not_conversation_scoped(self):
         assert CONVERSATION_SCOPED_FIELDS == {"messages", "deep_research_declined", "already_read_digest"}
         assert TURN_SCOPED_FIELDS == set(ConversationState.model_fields) - CONVERSATION_SCOPED_FIELDS
@@ -605,8 +525,6 @@ class TestTurnBoundary:
 
 
 class TestEscalation:
-    """The one bit the escalation edge and the clarifier read."""
-
     def test_only_an_explicit_ask_escalates(self):
         assert ConversationState(messages=[], escalate_to_deep=True).escalate_to_deep is True
         assert not ConversationState(messages=[], escalate_to_deep=False).escalate_to_deep
@@ -614,12 +532,6 @@ class TestEscalation:
 
     @pytest.mark.asyncio
     async def test_insufficiency_prose_alone_is_not_an_ask(self):
-        """A hedging answer that did NOT set the structured ask ends the turn.
-
-        German legal hedging in a successful answer ("nicht finden", "weitere
-        Recherche erforderlich") false-positived a substring match and
-        surprise-escalated good answers; the ask is structured for that reason.
-        """
 
         async def research(state_input):
             return _research_result(state_input.messages, "Ich konnte keine Informationen dazu finden.")
@@ -632,8 +544,6 @@ class TestEscalation:
 
 
 class TestTheWholeTurnIsWrittenBack:
-    """The next turn has the passages the last answer was written from."""
-
     async def test_tool_results_reach_the_conversation_and_the_answer_stays_last(self):
         from langchain_core.messages import ToolMessage
 
@@ -711,7 +621,6 @@ class TestTheWholeTurnIsWrittenBack:
         return [*messages, HumanMessage(content="und in GK 4?")]
 
     def test_the_next_turns_history_prunes_older_turns_a_batch_at_a_time(self):
-        """Older turns keep only what was said, cut once per batch so earlier bytes stay cached in between."""
         from agent.agents.piloti.history import PRUNE_BATCH_TURNS
 
         completed = PRUNE_BATCH_TURNS + 1
@@ -731,9 +640,6 @@ class TestTheWholeTurnIsWrittenBack:
 
 class TestAFollowUpAnsweredFromTheTranscript:
     async def test_a_previous_turns_search_is_not_this_turns_lookup(self):
-        """Against an empty registry, a follow-up answered from the transcript is an
-        answer — not the "nothing retrieved" refusal the previous turn's search
-        would trigger if it counted as this turn's."""
         from langchain_core.messages import ToolMessage
 
         from agent.agents.piloti.answer_pipeline import finalize_answer

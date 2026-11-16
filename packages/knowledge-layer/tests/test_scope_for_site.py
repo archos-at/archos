@@ -1,11 +1,3 @@
-"""The base corpus is searched only where the knowledge context lets the read see a country (ADR-0173, ADR-0175).
-
-Review of #1545, fix 1: a Bavarian project's "Brandschutz?" retrieved OIB-RL 2 as
-building law. The project's own text no longer decides it: a profile naming
-Austria with a gate that reads no country searches no base corpus, and one
-naming Germany with a gate that reads Austria does.
-"""
-
 from __future__ import annotations
 
 from unittest.mock import patch

@@ -1,27 +1,5 @@
 'use client'
 
-/**
- * The escape hatch: the whole SKILL.md, editable.
- *
- * The form above it is the right way to write a skill for the first time, but
- * it is a projection — three fields and three switches over a document that
- * people also receive as a file, copy from agentskills.io, paste out of another
- * tool, or simply want to edit in one place. Retyping a SKILL.md field by field
- * is busywork the product should not require, so this section takes the
- * document itself and writes it back into the form.
- *
- * Collapsed by default and labelled as advanced, because it is the one control
- * here that can undo the form's guardrails in a single paste, and because the
- * document is already visible read-only just above.
- *
- * APPLY IS EXPLICIT. The draft is a copy: it is seeded when the section opens
- * and nothing reaches the form until "apply" is pressed. Syncing on every
- * keystroke would mean a half-typed `name:` momentarily clearing the Name
- * field, and a document that does not parse — every document does not parse,
- * for a moment, while it is being typed — would have to either clobber the form
- * or be silently ignored. Neither is a thing to do to somebody's work.
- */
-
 import { useCallback, useMemo, useState, type FC } from 'react'
 import { ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -34,9 +12,7 @@ import { cn } from '@/lib/utils'
 import { parseSkillDocument, type ParsedSkillDocument } from '../lib/skill-document'
 
 export interface SkillRawDocumentSectionProps {
-  /** The document the form currently describes — the seed for a fresh draft. */
   document: string
-  /** Called with a parsed document when the author applies it. */
   onApply: (parsed: ParsedSkillDocument) => void
   className?: string
 }
@@ -50,9 +26,6 @@ export const SkillRawDocumentSection: FC<SkillRawDocumentSectionProps> = ({
   const [open, setOpen] = useState(false)
   const [draft, setDraft] = useState(document)
 
-  // Seeding on open rather than in an effect: the draft must NOT follow the
-  // form while the section is open, or typing in the fields above would
-  // overwrite what is being edited here.
   const handleOpenChange = useCallback(
     (next: boolean) => {
       if (next) setDraft(document)

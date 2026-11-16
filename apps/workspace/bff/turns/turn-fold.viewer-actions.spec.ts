@@ -1,10 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The fold keeps Piloti's viewer actions (ADR-0144) for the driver to hand on:
- * in order, once each, and none after the reader stopped the turn.
- */
 import { describe, expect, it } from 'vitest'
 import { wireEvents } from '@/test-utils/wire-v2-fixtures'
 import { foldTurnEvents, stopTurnView, type TurnView } from './turn-fold'

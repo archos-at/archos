@@ -1,13 +1,3 @@
-"""Both Compose files' bucket init waits for the filer and checks the bucket by its whole name.
-
-The SeaweedFS healthcheck passes before the filer has registered with the
-master, so an init that does not wait for it fails a first boot. And the
-listing is checked for the bucket's whole name: a substring match would let
-`grid-documents-old` stand in for a `grid-documents` that was never created.
-This reads the files, so it runs without Docker; the commands themselves were
-run against SeaweedFS 3.80.
-"""
-
 from __future__ import annotations
 
 from pathlib import Path

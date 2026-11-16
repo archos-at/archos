@@ -1,5 +1,3 @@
-"""Deep research's citation pass: ``finalize.verify_report`` and the removal summary."""
-
 from __future__ import annotations
 
 from agent.agents.deep_researcher import finalize
@@ -35,7 +33,6 @@ def test_a_range_naming_a_removed_source_no_longer_names_it():
 
 
 def test_deep_research_asks_for_no_nearest_passage(monkeypatch):
-    # It annotates and never patches; a closeness pass per cited page is waste.
     calls: list[dict] = []
     real = finalize.verify_quoted_spans
 

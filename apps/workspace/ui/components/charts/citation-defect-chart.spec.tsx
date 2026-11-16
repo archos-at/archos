@@ -2,14 +2,6 @@ import { fireEvent, render, screen } from '@/test-utils'
 import { describe, expect, test } from 'vitest'
 import { CitationDefectChart } from './citation-defect-chart'
 
-/**
- * The chart stacks per-KIND turn counts, and those counts are not additive: one
- * turn that trips three checks contributes three segments. Labelling that stack
- * as a count of turns reported three bad turns in a window that only had one —
- * the exact contradiction that made the dashboard read as broken (0 % clean of
- * 1 turn, next to a bar claiming "3 turns"). These tests pin the units.
- */
-
 const KINDS = ['citations_removed', 'answer_ungrounded', 'confidence_capped'] as const
 
 const labels = {
@@ -44,9 +36,6 @@ describe('CitationDefectChart', () => {
   })
 
   test('draws the legend inside the palette scope, so its swatches have a colour', () => {
-    // The series variables only resolve under `.usage-viz`. The legend
-    // used to sit outside that element, so every swatch painted nothing and
-    // the legend was labels alone.
     render(
       <CitationDefectChart
         points={[{ day: '2026-07-28', turns: 4, defectTurns: 2, byKind: { citations_removed: 2 } }]}

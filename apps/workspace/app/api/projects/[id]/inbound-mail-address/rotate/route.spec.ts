@@ -1,9 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * `/api/projects/[id]/inbound-mail-address/rotate`: replaces the address as the caller.
- */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const session = {

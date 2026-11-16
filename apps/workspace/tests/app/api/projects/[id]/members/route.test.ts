@@ -15,7 +15,6 @@ vi.mock('@/lib/workos/client', () => ({
   getWorkOS: vi.fn(),
 }))
 
-// The roster resolves the project's FGA resource id from Postgres; here it is a fixed id.
 vi.mock('@/lib/projects/repository', () => ({
   findProjectWorkosResourceId: vi.fn(),
 }))
@@ -46,7 +45,6 @@ function makeParams(id: string): { params: Promise<{ id: string }> } {
   return { params: Promise.resolve({ id }) }
 }
 
-/** WorkOS list calls resolve to an AutoPaginatable; the route drains it via autoPagination(). */
 function paginated<T>(data: T[]): { autoPagination: () => Promise<T[]> } {
   return { autoPagination: () => Promise.resolve(data) }
 }
@@ -113,9 +111,6 @@ describe('/api/projects/[id]/members', () => {
         { id: 'om_narrow', userId: 'user_narrow' },
       ])
     )
-    // One list per rung of PROJECT_ROLE_BY_PERMISSION, in its order:
-    // view, chat, edit, documents:write, memory:write, manage. A later rung
-    // overwrites an earlier one, so each member reads as the strongest they hold.
     const everyone = [
       { id: 'om_viewer', userId: 'user_viewer' },
       { id: 'om_editor', userId: 'user_editor' },
@@ -125,9 +120,7 @@ describe('/api/projects/[id]/members', () => {
     ]
     const listMembershipsForResourceByExternalId = vi
       .fn()
-      // project:view — everybody with any access at all
       .mockResolvedValueOnce(paginated(everyone))
-      // project:chat — contributor, editor, admin
       .mockResolvedValueOnce(
         paginated([
           { id: 'om_editor', userId: 'user_editor' },
@@ -135,15 +128,12 @@ describe('/api/projects/[id]/members', () => {
           { id: 'om_contributor', userId: 'user_contributor' },
         ])
       )
-      // project:edit (the pre-split umbrella) — editor, admin
       .mockResolvedValueOnce(
         paginated([
           { id: 'om_editor', userId: 'user_editor' },
           { id: 'om_admin', userId: 'user_admin' },
         ])
       )
-      // project:documents:write — plus the custom narrow-write role, which the
-      // old three-rung ladder reported as a plain Viewer
       .mockResolvedValueOnce(
         paginated([
           { id: 'om_editor', userId: 'user_editor' },
@@ -151,19 +141,14 @@ describe('/api/projects/[id]/members', () => {
           { id: 'om_narrow', userId: 'user_narrow' },
         ])
       )
-      // project:memory:write
       .mockResolvedValueOnce(
         paginated([
           { id: 'om_editor', userId: 'user_editor' },
           { id: 'om_admin', userId: 'user_admin' },
         ])
       )
-      // project:manage
       .mockResolvedValueOnce(paginated([{ id: 'om_admin', userId: 'user_admin' }]))
 
-    // The admin holds a stale viewer assignment besides the admin one: the row must offer
-    // the assignment that grants the role it shows, not the first it finds. The others
-    // reach the project through a group or an org-wide right: nothing to remove here.
     const listRoleAssignmentsForResource = vi.fn().mockResolvedValue(
       paginated([
         { id: 'ra_admin_old', organizationMembershipId: 'om_admin', role: { slug: 'project-viewer' } },
@@ -200,9 +185,6 @@ describe('/api/projects/[id]/members', () => {
     const probed = listMembershipsForResourceByExternalId.mock.calls.map(
       (call) => (call[0] as { permissionSlug: string }).permissionSlug
     )
-    // Every rung the catalog defines is probed. It used to be three, so a
-    // Contributor read as "Viewer" and so did a role holding only the narrow
-    // writes — on the one screen whose job is to report access accurately.
     expect(probed).toEqual([
       'project:view',
       'project:chat',

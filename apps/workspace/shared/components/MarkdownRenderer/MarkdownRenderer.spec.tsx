@@ -34,12 +34,10 @@ describe('MarkdownRenderer', () => {
           <MarkdownRenderer content={'Satz[^1].\n\n[^1]: Die Fußnote.'} />
         </I18nProvider>
       )
-      // The converter's own heading stays out of the page but keeps its name.
       const label = container.querySelector('h2#footnote-label')
       expect(label).not.toBeNull()
       expect(label?.className).toContain('sr-only')
       expect(label?.textContent).toBe(commonCopy.messages.de.markdown.footnotes)
-      // The list item keeps the id the `[^1]` link points at.
       expect(container.querySelector('li[id$="fn-1"]')).not.toBeNull()
       const back = container.querySelector('[data-footnote-backref]')
       expect(back?.getAttribute('aria-label')).toBe('Zurück zu Verweis 1')
@@ -79,12 +77,6 @@ describe('MarkdownRenderer', () => {
       expect(screen.getByRole('heading', { level: 3 })).toHaveAttribute('id', 'next-steps')
     })
 
-    /*
-      A report that assesses two variants writes „## Bewertung" twice. Both
-      headings used to get `id="bewertung"`, so `getElementById` found the first
-      and every link to the second — an outline row, an in-page citation anchor
-      — scrolled to the wrong section without ever failing.
-    */
     test('a repeated heading gets an id of its own', () => {
       const { container } = render(
         <MarkdownRenderer content={'## Bewertung\n\nText.\n\n## Bewertung\n\n## Bewertung'} />
@@ -95,9 +87,6 @@ describe('MarkdownRenderer', () => {
     })
 
     test('the first occurrence keeps the id it has always had', () => {
-      // Links published against `#zusammenfassung` — stored citation anchors,
-      // an address somebody pasted — must not move because a later section
-      // repeats the title.
       const { container } = render(
         <MarkdownRenderer content={'## Zusammenfassung\n\n## Zusammenfassung'} />
       )
@@ -106,9 +95,6 @@ describe('MarkdownRenderer', () => {
     })
 
     test('two renderers on one page do not number each other', () => {
-      // A chat thread mounts one of these per answer, and a module-level or
-      // ref-held counter would carry the first document's tally into the
-      // second: its lone „Bewertung" would come out as `bewertung-2`.
       const { container } = render(
         <>
           <MarkdownRenderer content={'## Bewertung\n\n## Bewertung'} />
@@ -121,9 +107,6 @@ describe('MarkdownRenderer', () => {
     })
 
     test('re-rendering the same document does not renumber it', () => {
-      // The ids come from a pure pass over the markdown, not from counting the
-      // callbacks as they fire, so a second render — which React may perform
-      // whenever it likes — cannot move an anchor.
       const { container, rerender } = render(
         <MarkdownRenderer content={'## Bewertung\n\n## Bewertung'} />
       )
@@ -277,13 +260,6 @@ Paragraph 2.`}
       vi.restoreAllMocks()
     })
 
-    /*
-      German headings are the normal case here, not an edge case: the answers and
-      OIB reports this renders are written in German. Stripping the umlaut
-      outright ("Gebäude" → "gebude") produced an id nothing links to, so every
-      in-page link into such a section silently did nothing — `scrollToAnchor`
-      returns quietly when `getElementById` misses.
-    */
     test('gives a German heading an id that survives its umlauts', () => {
       render(<MarkdownRenderer content={'## Brandschutz für Gebäude'} />)
 
@@ -299,11 +275,6 @@ Paragraph 2.`}
       expect(screen.getByRole('heading', { name: 'Außenwand' })).toHaveAttribute('id', 'aussenwand')
     })
 
-    /*
-      An in-app link is not an external one. Answers now write links back into
-      the app — `/app/projects/:id/model?element=…` opens a wall in the viewer —
-      and a new tab there means leaving the app to re-enter it with a cold store.
-    */
     test('in-app links stay in the same tab', () => {
       render(<MarkdownRenderer content="[AW 38](/app/projects/p1/model?element=abc)" />)
 
@@ -313,8 +284,6 @@ Paragraph 2.`}
     })
 
     test('a protocol-relative href is external, however much it looks internal', () => {
-      // `//evil.example/app` is another origin. This renders model output, so
-      // the near-miss is the case that matters.
       render(<MarkdownRenderer content="[Link](//evil.example/app/projects/p1/model)" />)
 
       const link = screen.getByRole('link', { name: 'Link' })
@@ -338,8 +307,6 @@ Paragraph 2.`}
     })
 
     test('leaves ASCII heading ids exactly as they were', () => {
-      // The transliteration must not disturb the ids already in use — including
-      // the punctuation-stripping shape (`1.2` → `12`, not `1-2`).
       render(<MarkdownRenderer content={'## Section 1.2 Overview'} />)
 
       expect(screen.getByRole('heading', { name: 'Section 1.2 Overview' })).toHaveAttribute(
@@ -355,7 +322,6 @@ Paragraph 2.`}
 
       render(<MarkdownRenderer content={code} />)
 
-      // CodeSnippet component should be rendered
       expect(screen.getByText('const x = 1;')).toBeInTheDocument()
     })
 
@@ -417,11 +383,6 @@ Below`}
       expect(screen.getByText('Cell 4')).toBeInTheDocument()
     })
 
-    /*
-      The delimiter row's alignment (`|---:|`) is the author's statement about
-      the column — the agent right-aligns number columns on purpose. The custom
-      th/td used to drop it, so every table came out left-aligned.
-    */
     test('keeps the column alignment the delimiter row declared', () => {
       const tableMarkdown = '| Bauteil | REI |\n| :--- | ---: |\n| Wand | 90 |'
       render(<MarkdownRenderer content={tableMarkdown} />)
@@ -438,14 +399,11 @@ Below`}
         <MarkdownRenderer content={'- [x] Nachweis erbracht\n- [ ] Nachweis offen'} />
       )
 
-      // Status marks, not form controls: a disabled checkbox reads as a
-      // broken form, and the list states what is done and what is owed.
       expect(container.querySelectorAll('input')).toHaveLength(0)
       const marks = container.querySelectorAll('[data-testid="task-mark"]')
       expect(marks).toHaveLength(2)
       expect(marks[0]).toHaveAttribute('data-done', 'true')
       expect(marks[1]).toHaveAttribute('data-done', 'false')
-      // The list must not ALSO draw disc bullets beside the marks.
       expect(container.querySelector('ul')?.className).toContain('list-none')
     })
 
@@ -500,9 +458,7 @@ Below`}
         <MarkdownRenderer content={'The resistance is $R = \\rho \\frac{L}{A}$ overall.'} />
       )
 
-      // rehype-katex emits a .katex wrapper for typeset math.
       expect(container.querySelector('.katex')).toBeInTheDocument()
-      // The raw TeX source with dollar delimiters must not survive as text.
       expect(container.textContent).not.toContain('$R = \\rho')
     })
 
@@ -525,7 +481,6 @@ Below`}
     test('does not crash on malformed TeX (throwOnError: false)', () => {
       const { container } = render(<MarkdownRenderer content={'Broken: $\\frac{1}$ here.'} />)
 
-      // Renders something rather than throwing; container is present.
       expect(container.querySelector('.markdown-content')).toBeInTheDocument()
     })
   })
@@ -534,14 +489,12 @@ Below`}
     test('uses default text size when compact is false', () => {
       render(<MarkdownRenderer content="Normal text" compact={false} />)
 
-      // Text should be rendered (we can't easily check the exact kind prop)
       expect(screen.getByText('Normal text')).toBeInTheDocument()
     })
 
     test('uses smaller text size when compact is true', () => {
       render(<MarkdownRenderer content="Compact text" compact={true} />)
 
-      // Text should be rendered
       expect(screen.getByText('Compact text')).toBeInTheDocument()
     })
   })
@@ -604,7 +557,6 @@ Visit [our site](https://example.com) for more.
     test('handles nested formatting', () => {
       render(<MarkdownRenderer content="**Bold with *italic* inside**" />)
 
-      // Should render without errors
       expect(screen.getByText(/Bold with/)).toBeInTheDocument()
     })
   })
@@ -628,28 +580,7 @@ Visit [our site](https://example.com) for more.
   })
 
   describe('the streaming stabilizer is linear in the length of a line', () => {
-    /**
-     * The delimiter-row test used to read `/^\s*\|?\s*:?-{1,}/`, putting two
-     * `\s*` either side of an optional pipe. On a line of pure whitespace the
-     * engine can split that whitespace between them in quadratically many ways:
-     * 32k tabs took 1,034ms against 0.1ms for the fix. This runs on every token
-     * of every streaming answer, over text a model writes from retrieved
-     * documents, so the length of a line is not ours to bound.
-     *
-     * Measured on the function directly rather than through `render`. A first
-     * version of this test wrapped a full React render around the clock and was
-     * flaky in CI at 737ms against a 400ms budget — on a loaded runner the
-     * render dominates, and the thing under test is microseconds. Calling the
-     * function alone puts four orders of magnitude between healthy and the
-     * defect, which no runner contention can close.
-     */
     test('a long run of whitespace under a table does not stall the stabilizer', () => {
-      // The whitespace must sit BEFORE the pipe. Only then can the two `\s*`
-      // compete to split it; with the pipe first, one of them consumes the run
-      // and the scan is linear even with the defect in place — a first version
-      // of this test put it after and passed against the bug. The line still
-      // reaches the check, because the surrounding code selects lines whose
-      // `trim()` starts with a pipe, and this one's does.
       const content = `| Bauteil | REI |\n${'\t'.repeat(32_000)}|\n`
 
       const started = performance.now()
@@ -723,8 +654,6 @@ Visit [our site](https://example.com) for more.
 
 describe('a streamed answer', () => {
   test('is rendered in time linear in a long run of whitespace inside it', () => {
-    // Every token renders the answer again; a `/\s+$/` over it backtracked from
-    // every space in a run that text follows, quadratic in the run.
     const content = (spaces: number) => `a${' '.repeat(spaces)}x`
     const renderTime = (spaces: number) => {
       let unmount = () => {}
@@ -734,7 +663,6 @@ describe('a streamed answer', () => {
       unmount()
       return elapsed
     }
-    // Quadratic, 8 times the run took ~64 times as long; linear, ~8 times.
     expect(growthRatio(renderTime, { size: 5_000, floorMs: 1 })).toBeLessThan(LINEAR_BOUND)
   })
 })

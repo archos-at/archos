@@ -1,33 +1,11 @@
 /**
  * @vitest-environment node
  */
-/**
- * The conversations service is where the collaboration feature's security fix
- * lives: a conversation used to be resolved **org-scoped only**, so any signed-in
- * colleague holding an id could read the thread and the unfiltered list returned
- * every chat in the organization (spec §3 fact 1, ADR-0032).
- *
- * The access rules are therefore exercised through the REAL
- * `@/lib/sharing/access` — only the registry's probe, the grant lookup and the
- * container check are mocked. A test that mocked `requireResourceAccess` would
- * assert nothing about whether access is actually enforced.
- *
- * Covered here, each a way access could leak or a way the single-player
- * experience could be disturbed:
- *   - cross-tenant, and someone else's `private` thread → 404 (the fix itself);
- *   - `project` visibility and an explicit grant → readable;
- *   - authorship on write, creator-attribution of legacy rows on read (CC-3/MG-3);
- *   - the addressee ruling that decides whether the agent answers (MN-1/MN-7);
- *   - a solo thread produces NO events and NO notifications (NF-8).
- */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/lib/authz/projects', () => ({ requireProjectAccess: vi.fn() }))
 
-// The service reaches the naming backend through `@/lib/backend-proxy`, which
-// pulls in the WorkOS AuthKit session helpers. Stubbed so importing the module
-// under test does not need the Next.js request context.
 vi.mock('@/lib/auth/require-auth', () => ({
   requireAuthorizedSession: vi.fn(),
 }))
@@ -57,23 +35,12 @@ vi.mock('@/lib/sharing/repository', () => ({
 
 vi.mock('@/lib/sharing/service', () => ({ resolveParticipants: vi.fn() }))
 vi.mock('@/lib/sharing/directory', () => ({ resolvePeople: vi.fn(async () => new Map()) }))
-// Which people may read what a conversation recorded is judged against the
-// folder tree and WorkOS; `restricted-use.spec.ts` covers that. Here the default
-// is a conversation that recorded nothing restricting, and the tests of the
-// locked state say otherwise.
 vi.mock('./restricted-use', async (importOriginal) => ({
   ...(await importOriginal<typeof import('./restricted-use')>()),
   peopleWhoMayRead: vi.fn(async (_organizationId: string, _conversationId: string, userIds: readonly string[]) => new Set(userIds)),
   lockedConversationIds: vi.fn(async () => new Set<string>()),
 }))
-// Which other projects restrict a chat now is judged against the record and the
-// project rows; `cross-project-use.spec.ts` covers that. Here the default is a
-// chat that drew on none, and the tests of the detail say otherwise.
 vi.mock('./cross-project-use', () => ({ restrictingOtherProjects: vi.fn(async () => []) }))
-// Discarding a chat now erases state that lives OUTSIDE Postgres before it
-// touches a row (ADR-0047 Phase 2). Mocked at the boundary so this suite can
-// state what the service does with each outcome; the erasure itself is tested
-// in `session-documents/cleanup.spec.ts`.
 vi.mock('@/lib/session-documents/cleanup', () => ({
   purgeSessionDocuments: vi.fn(),
   deleteSessionCollection: vi.fn(),
@@ -94,9 +61,6 @@ vi.mock('@/lib/mentions/service', () => ({
   threadIsAwaitingHuman: vi.fn(),
 }))
 
-// The office's chat screening (ADR-0086): the REAL matcher over Piloti's
-// suggested list; only the settings read is replaced, because it reaches the
-// database. What the matcher does has its own spec (`content-screen.spec.ts`).
 vi.mock('@/lib/upload-screening/service', async () => {
   const { buildContentRules, chatScreeningRules, maskText } = await import('@/lib/upload-screening/content-screen')
   const { SUGGESTED_SCREENING_POLICY } = await import('@/lib/upload-screening/policy')
@@ -110,9 +74,6 @@ vi.mock('@/lib/upload-screening/service', async () => {
   }
 })
 
-// The engagement mode (ADR-0036) is mocked at the module boundary: what this
-// suite asserts is that the RULING obeys it, while how the mode is stored and
-// derived has its own tests in engagement.spec.ts.
 vi.mock('./engagement', () => ({
   resolveEngagement: vi.fn(),
   resolveEngagementFor: vi.fn(),
@@ -189,7 +150,6 @@ const session = {
   featureFlags: ['collaboration'],
 } as unknown as AuthorizedSession
 
-/** The registry's single probe: existence, tenancy, container, visibility, creator. */
 function stubConversation(
   overrides: Partial<{
     organizationId: string
@@ -213,7 +173,6 @@ function stubConversation(
     id: CONVERSATION_ID,
     title: 'Brandschutz Stiegenhaus',
     tags: [],
-    // Unset, so the mode derives from the thread's author count (ADR-0036).
     engagement: null,
     createdAt: new Date('2026-07-01T10:00:00Z'),
     updatedAt: new Date('2026-07-02T10:00:00Z'),
@@ -224,7 +183,6 @@ function stubConversation(
   })
 }
 
-/** Whether the caller can reach the container project at all (spec SH-5). */
 function stubContainer(role: ProjectRole | 'denied'): void {
   if (role === 'denied') {
     vi.mocked(requireProjectAccess).mockRejectedValue(new NotFoundError())
@@ -248,26 +206,15 @@ function messageRow(overrides: Partial<Message> = {}): Message {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  // Nothing the conversation recorded restricts anybody, unless a test says so.
   vi.mocked(peopleWhoMayRead).mockImplementation(async (_org, _id, userIds) => new Set(userIds))
   vi.mocked(lockedConversationIds).mockResolvedValue(new Set())
   vi.mocked(restrictingOtherProjects).mockResolvedValue([])
-  // The collaboration feature is an entitlement (spec NF-7): without the
-  // organization's flag the mention path refuses outright, so these tests run as
-  // a signed-in deployment whose session holds it (`session.featureFlags`). The
-  // flag-OFF behaviour has its own tests.
   vi.stubEnv('REQUIRE_AUTH', 'true')
   stubConversation()
   stubContainer('project-editor')
   vi.mocked(findGrantForSubject).mockResolvedValue(null)
   vi.mocked(countGrantsForResource).mockResolvedValue(0)
-  // Default: no outstanding hand-off, so a plain message asks Piloti. Set
-  // explicitly because `clearAllMocks` clears CALLS but not a `mockResolvedValue`,
-  // so a test that opts into "awaiting" would otherwise leak into its neighbours.
   vi.mocked(threadIsAwaitingHuman).mockResolvedValue(false)
-  // Default: `ask`, so a plain message asks Piloti. Set explicitly for the same
-  // reason as `threadIsAwaitingHuman` above — `clearAllMocks` does not clear a
-  // `mockResolvedValue`, so a test opting into `mention` would leak.
   vi.mocked(resolveEngagementFor).mockResolvedValue({ mode: 'ask', stored: null, suggestion: null })
   vi.mocked(resolveEngagement).mockResolvedValue({ mode: 'ask', stored: null, suggestion: null })
   vi.mocked(findConversationRead).mockResolvedValue(null)
@@ -291,13 +238,10 @@ describe('reading a conversation — the access rules', () => {
     stubConversation({ organizationId: 'org_2' })
 
     await expect(getConversation(session, CONVERSATION_ID)).rejects.toThrow(NotFoundError)
-    // Never even asks about the container: another tenant's row does not exist.
     expect(requireProjectAccess).not.toHaveBeenCalled()
   })
 
   it("404s someone else's PRIVATE conversation in the same org and project", async () => {
-    // THE regression this slice exists for. Before the fix this returned the row:
-    // org scope alone was the only gate, so "private" did not exist.
     stubConversation({ visibility: 'private', createdBy: 'user_other' })
 
     await expect(getConversation(session, CONVERSATION_ID)).rejects.toThrow(NotFoundError)
@@ -313,7 +257,6 @@ describe('reading a conversation — the access rules', () => {
     expect(conversation.id).toBe(CONVERSATION_ID)
     expect(conversation.myRole).toBe('collaborator')
     expect(conversation.visibility).toBe('project')
-    // Not private → the server is authoritative for the thread (ADR-0033).
     expect(conversation.shared).toBe(true)
   })
 
@@ -410,7 +353,6 @@ describe('listing conversations', () => {
 })
 
 describe('a chat the reader may no longer read (ADR-0088)', () => {
-  /** The folders the conversation recorded are no longer ones this reader's roles reach. */
   function lockFor(...locked: string[]): void {
     vi.mocked(peopleWhoMayRead).mockImplementation(async (_org, _id, userIds) =>
       new Set(userIds.filter((userId) => !locked.includes(userId)))
@@ -456,7 +398,6 @@ describe('a chat the reader may no longer read (ADR-0088)', () => {
         tags: [],
         subjectResourceType: null,
         subjectResourceId: null,
-        // Still theirs, still in the list, still sortable.
         createdBy: 'user_me',
         updatedAt: new Date('2026-07-02T10:00:00Z'),
       })
@@ -524,7 +465,6 @@ describe('a chat the reader may no longer read (ADR-0088)', () => {
     })
 
     it('refuses a rename and a read mark: both act on the chat', async () => {
-      // Renaming is an owner's call: a grantee never got that far, the creator is locked out of it.
       await expect(updateConversationTitle(session, CONVERSATION_ID, 'Neu')).rejects.toBeInstanceOf(
         granted ? NotFoundError : ResourceRightsLostError
       )
@@ -607,8 +547,6 @@ describe('creating a conversation on an id that already exists', () => {
   })
 
   it('never hands back a thread the caller cannot contribute to', async () => {
-    // The response carries a title and a project id. A colliding id that is not
-    // the caller's to reach must not leak either of them.
     stubConversation({ visibility: 'private', createdBy: 'user_other' })
 
     await expect(createConversation(session, { id: CONVERSATION_ID })).rejects.toThrow(
@@ -650,15 +588,6 @@ describe('writing requires more than reading', () => {
   })
 
   it('answers the SAME refusal for an id that does not exist at all (spec SH-6)', async () => {
-    // This assertion used to be `resolves.toBeUndefined()`, pinning a silent
-    // no-op — which made the service, and through it the endpoint, an existence
-    // oracle: 204 for an unknown id, 404 for one that exists in another tenant or
-    // belongs to a colleague. Any signed-in member could sort guessed ids into
-    // "real" and "not real" with it.
-    //
-    // The service now reports one truth for both, and the DELETE route turns that
-    // truth into ONE response (204 either way) so the chat store can still delete
-    // ids that only ever lived in a browser — see `[id]/route.spec.ts`.
     vi.mocked(findConversationTenancy).mockResolvedValue(null)
 
     await expect(deleteConversation(session, CONVERSATION_ID)).rejects.toThrow(NotFoundError)
@@ -666,12 +595,6 @@ describe('writing requires more than reading', () => {
   })
 })
 
-/**
- * A chat's private attachments live in SeaweedFS and in a retrieval collection
- * — two stores no foreign key reaches — while the rows that NAME them cascade
- * off the conversation. So the discard is ordered, and the order is the whole
- * safety property (ADR-0047 Phase 2).
- */
 describe('discarding a chat that holds attachments', () => {
   beforeEach(() => {
     stubConversation({ createdBy: 'user_me' })
@@ -705,19 +628,12 @@ describe('discarding a chat that holds attachments', () => {
 
     await deleteConversation(session, CONVERSATION_ID)
 
-    // Marked first, so an upload arriving at any point during the purge has
-    // something to refuse on — without it, one landing between the purge and
-    // the row delete lost its row to the cascade and left its bytes behind.
-    // The collection goes after the rows' own erasure and before the row: once
-    // the conversation row is gone, nothing could authorize erasing it.
     expect(order).toEqual(['mark', 'purge', 'collection', 'delete'])
   })
 
   it('erases the chat’s own s_ collection, which no attachment row names', async () => {
     await deleteConversation(session, CONVERSATION_ID)
 
-    // A chat with no rows still had its collection left behind: attachments
-    // from before session rows existed, and the collection's summaries.
     expect(deleteSessionCollection).toHaveBeenCalledWith(`s_${CONVERSATION_ID}`)
     expect(deleteConversationInOrg).toHaveBeenCalled()
   })
@@ -727,7 +643,6 @@ describe('discarding a chat that holds attachments', () => {
 
     await expect(deleteConversation(session, CONVERSATION_ID)).rejects.toThrow(/attachments failed/)
 
-    // The row is what authorizes the retry; deleting it would orphan the collection.
     expect(deleteConversationInOrg).not.toHaveBeenCalled()
   })
 
@@ -742,7 +657,6 @@ describe('discarding a chat that holds attachments', () => {
       entityType: 'conversation',
     })
     expect(isCoveredByActiveHold).toHaveBeenCalledWith('org_1', 'conversation', CONVERSATION_ID)
-    // The chat stays visible and whole: not marked, not purged, not deleted.
     expect(markConversationDeleting).not.toHaveBeenCalled()
     expect(purgeSessionDocuments).not.toHaveBeenCalled()
     expect(deleteSessionCollection).not.toHaveBeenCalled()
@@ -760,18 +674,10 @@ describe('discarding a chat that holds attachments', () => {
 
     await expect(deleteConversation(session, CONVERSATION_ID)).rejects.toThrow(/attachments failed/)
 
-    // Deleting it would cascade away the retained document rows, and those rows
-    // are the only handle on the object and chunks still sitting in the stores.
     expect(deleteConversationInOrg).not.toHaveBeenCalled()
   })
 })
 
-/**
- * A delete whose erase failed (the agent service was down) used to leave the
- * chat hidden and marked deleting until somebody deleted it again. The mark now
- * queues the erasure, the purger retries it through `retryConversationErasure`,
- * and both reach the same steps.
- */
 describe('a chat erasure the request could not finish is retried', () => {
   const erased = { ok: true, purged: 0, retained: 0, failures: [] }
 
@@ -831,7 +737,6 @@ describe('a chat erasure the request could not finish is retried', () => {
     expect(purgeConversationCollaboration).toHaveBeenCalledWith(CONVERSATION_ID)
     expect(recordConversationErased).toHaveBeenCalledWith(CONVERSATION_ID, 'org_1')
     expect(discardConversationDrafts).toHaveBeenCalledWith(CONVERSATION_ID)
-    // The retry never re-marks: the mark is what it resumes from.
     expect(markConversationDeleting).not.toHaveBeenCalled()
   })
 
@@ -891,8 +796,6 @@ describe('a chat erasure the request could not finish is retried', () => {
     await expect(retryConversationErasure('org_1', CONVERSATION_ID)).resolves.toEqual({
       outcome: 'already-gone',
     })
-    // The tail still runs: a project purge or a request that died after the row
-    // delete leaves the collaboration rows, the drafts and the queue row.
     expect(purgeConversationCollaboration).toHaveBeenCalledWith(CONVERSATION_ID)
     expect(recordConversationErased).toHaveBeenCalledWith(CONVERSATION_ID, 'org_1')
   })
@@ -909,7 +812,6 @@ describe('message authorship (spec CC-3, MG-3)', () => {
 
     const rows = vi.mocked(insertMessages).mock.calls[0][0]
     expect(rows[0]).toMatchObject({ id: 'msg_1', role: 'user', authorUserId: 'user_me' })
-    // The agent wrote this one — a user id here would be a lie.
     expect(rows[1]).toMatchObject({ id: 'msg_2', role: 'assistant', authorUserId: null })
   })
 
@@ -927,11 +829,8 @@ describe('message authorship (spec CC-3, MG-3)', () => {
     const { messages } = await listConversationMessages(session, CONVERSATION_ID)
 
     expect(messages[0].authorUserId).toBe('user_creator')
-    // Not backfilled — the stored row is untouched (MG-3).
     expect(vi.mocked(listMessagePage).mock.results).toHaveLength(1)
-    // An authorless assistant row is correct as it stands.
     expect(messages[1].authorUserId).toBeNull()
-    // A real author is never overwritten.
     expect(messages[2].authorUserId).toBe('user_me')
   })
 })
@@ -942,10 +841,6 @@ describe('the addressee ruling (spec MN-1, MN-2, MN-7)', () => {
   })
 
   it('does NOT wake the agent for a plain message while the thread awaits a human', async () => {
-    // The defect this pins: a colleague's answer carries no mentions, so the
-    // "no mentions means ask the agent" rule would have Piloti answer a message
-    // that was written to a person. Same for "thanks, take your time" from the
-    // asker. While a wait is open, a plain message is a remark to the thread.
     vi.mocked(threadIsAwaitingHuman).mockResolvedValue(true)
 
     const [persisted] = await createConversationMessages(session, CONVERSATION_ID, [
@@ -965,15 +860,6 @@ describe('the addressee ruling (spec MN-1, MN-2, MN-7)', () => {
     expect(persisted.addressees).toEqual({ agent: true, users: [] })
   })
 
-  /**
-   * The fourth row of the routing table (ADR-0036) — the only one in question.
-   *
-   * `@Piloti` always answers, a humans-only tag never starts a turn, tagging both
-   * answers. Those three are absolute. A message that tags NOBODY is governed by
-   * the thread's engagement mode, and the reason that exists is the reported bug:
-   * Anna answers, Matthias replies TO ANNA, and Piloti answers a message that was
-   * never for it.
-   */
   it('sends a plain message to the chat, not to Piloti, in a mention-mode thread', async () => {
     vi.mocked(resolveEngagementFor).mockResolvedValue({
       mode: 'mention',
@@ -1003,9 +889,6 @@ describe('the addressee ruling (spec MN-1, MN-2, MN-7)', () => {
   })
 
   it('an outstanding wait outranks the mode — a waiting thread is asking nobody', async () => {
-    // Both would send the message to the chat; what this pins is the ORDER, so a
-    // thread explicitly waiting on Anna never pays for the mode lookup and can
-    // never be overridden by an `ask` mode into waking the agent.
     vi.mocked(threadIsAwaitingHuman).mockResolvedValue(true)
     vi.mocked(resolveEngagementFor).mockResolvedValue({
       mode: 'ask',
@@ -1018,14 +901,10 @@ describe('the addressee ruling (spec MN-1, MN-2, MN-7)', () => {
     ])
 
     expect(persisted.addressees).toEqual({ agent: false, users: [] })
-    // …and the mode is never even looked up: a waiting thread does not ask the
-    // question, so it pays for no query and cannot be talked out of waiting.
     expect(resolveEngagementFor).not.toHaveBeenCalled()
   })
 
   it('resolves the mode at most once for a batch, however many messages it carries', async () => {
-    // The ruling and the settle-the-flip step both need the mode. Resolving it
-    // twice was a duplicate query on every plain message in every shared thread.
     vi.mocked(resolveEngagementFor).mockResolvedValue({
       mode: 'mention',
       stored: null,
@@ -1041,10 +920,6 @@ describe('the addressee ruling (spec MN-1, MN-2, MN-7)', () => {
   })
 
   it('writing a message never changes the thread\u2019s own mode', async () => {
-    // The load-bearing constraint. Piloti is the point of this product, not a guest
-    // in someone else\u2019s chat app, so `ask` stays the default however many people
-    // are talking — a colleague typing "danke" must not silently rewire who answers
-    // next. A second person writing produces an OFFER on read, never a write here.
     vi.mocked(resolveEngagementFor).mockResolvedValue({
       mode: 'ask',
       stored: null,
@@ -1055,14 +930,11 @@ describe('the addressee ruling (spec MN-1, MN-2, MN-7)', () => {
       { id: 'msg_1', role: 'user', content: 'Passt.' },
     ])
 
-    // Still answered by Piloti, and nothing was persisted about the mode.
     expect(persisted.addressees).toEqual({ agent: true, users: [] })
     expect(setEngagement).not.toHaveBeenCalled()
   })
 
   it('never pays for the awaiting lookup on a solo thread', async () => {
-    // A private thread with no grants cannot hold a request, so the default path
-    // — a plain question to Piloti — must stay query-free.
     stubConversation({ createdBy: 'user_me', visibility: 'private' })
     vi.mocked(threadIsAwaitingHuman).mockResolvedValue(true)
 
@@ -1081,7 +953,6 @@ describe('the addressee ruling (spec MN-1, MN-2, MN-7)', () => {
 
     expect(persisted.addressees).toEqual({ agent: true, users: [] })
     expect(applyMessageMentions).not.toHaveBeenCalled()
-    // Stored on the row, so it is never re-derived from the text later (MN-2).
     expect(vi.mocked(insertMessages).mock.calls[0][0][0].metadata).toMatchObject({
       addressees: { agent: true, users: [] },
     })
@@ -1109,7 +980,6 @@ describe('the addressee ruling (spec MN-1, MN-2, MN-7)', () => {
     expect(applyMessageMentions).toHaveBeenCalledWith(
       expect.objectContaining({ resourceId: CONVERSATION_ID, anchorId: 'msg_1' })
     )
-    // MN-7: nothing is started, so no turn event claims one is running.
     const turnEvents = vi
       .mocked(publishToUsers)
       .mock.calls.filter(([, event]) => event.kind === 'conversation.turn')
@@ -1144,15 +1014,11 @@ describe('the addressee ruling (spec MN-1, MN-2, MN-7)', () => {
       resourceType: 'conversation',
       resourceId: CONVERSATION_ID,
       authorUserId: 'user_me',
-      // A plain contribution addresses nobody by name, so nothing is recorded as
-      // a question back — this is the "they really did answer" case.
       addressedUserIds: [],
     })
   })
 
   it('passes on who the reply addressed, so a question back is not filed as an answer', async () => {
-    // The message that used to produce two contradictory notifications: Anna,
-    // who was asked, replies by asking Matthias something.
     await createConversationMessages(session, CONVERSATION_ID, [
       {
         id: 'msg_1',
@@ -1162,8 +1028,6 @@ describe('the addressee ruling (spec MN-1, MN-2, MN-7)', () => {
       },
     ])
 
-    // Whatever the ruling addressed is what resolution is judged against — the
-    // routing decision is made once, server-side, and never re-derived from text.
     expect(resolveRequestsOnReply).toHaveBeenCalledWith(
       expect.objectContaining({ addressedUserIds: ['user_anna'] })
     )
@@ -1187,7 +1051,6 @@ describe('participant fan-out (spec CC-9, CC-20, NF-8)', () => {
       { id: 'msg_1', role: 'user', content: 'Frage' },
     ])
 
-    // A user who never shares anything must not notice this feature exists.
     expect(publishToUsers).not.toHaveBeenCalled()
     expect(emitInboxItems).not.toHaveBeenCalled()
     expect(resolveParticipants).not.toHaveBeenCalled()
@@ -1259,11 +1122,9 @@ describe('participant fan-out (spec CC-9, CC-20, NF-8)', () => {
     const emissions = vi.mocked(emitInboxItems).mock.calls[0][0]
     expect(emissions).toHaveLength(2)
     expect(emissions.every((item) => item.type === 'conversation.activity')).toBe(true)
-    // The group key carries no anchor, which is what makes twenty messages one row.
     expect(new Set(emissions.map((item) => item.groupKey))).toEqual(
       new Set(['conversation.activity:conversation:conv_1'])
     )
-    // The actor is stamped so `emitInboxItems` can drop the self-notification.
     expect(emissions.every((item) => item.actorUserId === 'user_me')).toBe(true)
   })
 
@@ -1275,8 +1136,6 @@ describe('participant fan-out (spec CC-9, CC-20, NF-8)', () => {
       { id: 'msg_1', role: 'user', content: 'Frage' },
     ])
 
-    // Without the payload this row — the commonest type in the inbox — rendered
-    // "3 new messages in Untitled conversation", so ten threads read the same.
     const emissions = vi.mocked(emitInboxItems).mock.calls[0][0]
     expect(emissions.map((item) => [item.recipientUserId, item.payload])).toEqual([
       ['user_me', { subject: 'Brandschutz Stiegenhaus' }],
@@ -1299,10 +1158,6 @@ describe('participant fan-out (spec CC-9, CC-20, NF-8)', () => {
 
 describe("the addressee ruling is the SERVER's, and only the server's (spec MN-2)", () => {
   it('strips a client-supplied `addressees` from metadata on a NON-user row', async () => {
-    // The server writes its ruling only when it HAS one, and it has none for an
-    // assistant/system/tool row — so a client-supplied value used to survive
-    // untouched on exactly those rows, and `storedAddressees` would read it back
-    // as authoritative when the id was replayed.
     stubConversation({ visibility: 'project', createdBy: session.userId })
 
     const [persisted] = await createConversationMessages(session, CONVERSATION_ID, [
@@ -1320,7 +1175,6 @@ describe("the addressee ruling is the SERVER's, and only the server's (spec MN-2
 
     const metadata = persisted.metadata as Record<string, unknown>
     expect(metadata.addressees).toBeUndefined()
-    // Everything else the client legitimately stores is untouched.
     expect(metadata.cards).toEqual([{ kind: 'memory_proposal' }])
     expect(metadata.messageType).toBe('agent_response')
   })
@@ -1352,9 +1206,6 @@ describe("the addressee ruling is the SERVER's, and only the server's (spec MN-2
 
 describe('the collaboration flag is off (spec NF-8, NF-7)', () => {
   beforeEach(() => {
-    // An organization nobody granted it. The chat path must be the product it
-    // was before this feature existed — the flag is the operator's decision, and
-    // the feature must not switch itself on by being POSTed to.
     session.featureFlags = []
   })
   afterEach(() => {
@@ -1373,11 +1224,8 @@ describe('the collaboration flag is off (spec NF-8, NF-7)', () => {
       },
     ]).catch((error: unknown) => error)
 
-    // The one refusal of a switched-off feature, as requireFeature answers it (RFC 9457, `feature_disabled`).
     expect(failure).toBeInstanceOf(FeatureDisabledError)
     expect((failure as FeatureDisabledError).problem).toEqual(featureDisabledProblem('collaboration'))
-    // No grant, no mention request, no inbox row — and the message itself is not
-    // stored either, because a refused mention must not leave a half-sent trail.
     expect(applyMessageMentions).not.toHaveBeenCalled()
     expect(insertMessages).not.toHaveBeenCalled()
     expect(emitInboxItems).not.toHaveBeenCalled()
@@ -1401,9 +1249,7 @@ describe('the collaboration flag is off (spec NF-8, NF-7)', () => {
 
     await markConversationRead(session, CONVERSATION_ID, { lastReadMessageId: 'msg_9' })
 
-    // CC-18/CC-19 read state is ordinary chat state and keeps working…
     expect(upsertConversationRead).toHaveBeenCalled()
-    // …but the ambient-item clearing is collaboration behaviour.
     expect(markResourceItemsReadFor).not.toHaveBeenCalled()
   })
 })
@@ -1430,7 +1276,6 @@ describe('read state (spec CC-18, IB-9)', () => {
       lastReadMessageId: 'msg_9',
     })
     expect(markResourceItemsReadFor).toHaveBeenCalledWith(session, 'conversation', CONVERSATION_ID)
-    // Reading a thread is NOT answering the question someone asked in it (MN-16).
     expect(resolveRequestsOnReply).not.toHaveBeenCalled()
     expect(mark.lastReadMessageId).toBe('msg_9')
   })
@@ -1451,25 +1296,6 @@ describe('read state (spec CC-18, IB-9)', () => {
   })
 })
 
-/**
- * Naming a conversation is cosmetic, and its log severity has to say so
- * (issue #233). The backend answers HTTP 200 for every LLM outcome it knows how
- * to degrade from, so an `error` code on a 200 is a handled degradation: the
- * chat keeps the provisional first-message name and nothing a user can see is
- * broken. Logging that at ERROR made err2issue file a GitHub issue every time a
- * model phrased its JSON slightly differently. A non-2xx is the opposite case —
- * the endpoint broke its own always-200 contract — and stays at ERROR.
- */
-/**
- * A post-answer stage's output reaches the message row through the SAME route
- * the card decisions and the provenance already use
- * (`docs/architecture/post-answer-stages.md` §4.3, §7.3).
- *
- * That reuse is the design's tenant-isolation claim: `messages` is already
- * covered by `secure_table` and the route already requires `collaborator`,
- * so a stage adds **zero rows to `secure_table`** — the thing the isolation
- * job would otherwise have to re-prove.
- */
 describe('a stage writes its output onto the message row (post-answer-stages §4.3)', () => {
   const MESSAGE_ID = '9c2a4c5e-7a1f-4a25-b0a2-2f3f7d0d5b21'
   const stages = { followUps: { items: [{ question: 'Und bei Hanglage?' }] } }
@@ -1489,8 +1315,6 @@ describe('a stage writes its output onto the message row (post-answer-stages §4
   })
 
   it('deep-merges by STAGE key, so two stages on one turn do not erase each other', async () => {
-    // §7.7: two independent stages address the same turn and each PATCHes only
-    // its own output. A plain top-level merge would let the second win outright.
     stubConversation({ createdBy: 'user_me' })
 
     await updateMessageDetail(session, CONVERSATION_ID, MESSAGE_ID, { stages })
@@ -1520,7 +1344,6 @@ describe('a stage writes its output onto the message row (post-answer-stages §4
   })
 
   it('writes nothing at all when nothing survives sanitisation', async () => {
-    // No no-op write under a row lock for a payload with nothing usable in it.
     stubConversation({ createdBy: 'user_me' })
     vi.mocked(findMessageInConversation).mockResolvedValue({ id: MESSAGE_ID } as never)
 
@@ -1532,14 +1355,6 @@ describe('a stage writes its output onto the message row (post-answer-stages §4
   })
 })
 
-/**
- * The memory frame has two writers (post-answer-stages §11 risk 3): the
- * browser's PATCH when the frame reaches an attached tab, and the agent tier's
- * internal write, which holds when no tab is attached. Both must end in one
- * write's content, in either order and any number of times, and neither may
- * touch another key or another stage's output. The row here is held in memory
- * and merged by the repository's own merge (`mergeMetadataEntries`).
- */
 describe('the memory frame written by the browser and by the agent tier converges', () => {
   const MESSAGE_ID = '9c2a4c5e-7a1f-4a25-b0a2-2f3f7d0d5b21'
   const frame = {
@@ -1627,8 +1442,6 @@ describe('generating a conversation title — severity of a handled failure', ()
   }
 
   beforeEach(() => {
-    // The namer requires `owner`, which in practice is the person whose opening
-    // exchange is being named.
     stubConversation({ createdBy: 'user_me' })
     vi.mocked(updateConversationMetaInOrg).mockResolvedValue({} as never)
   })
@@ -1651,7 +1464,6 @@ describe('generating a conversation title — severity of a handled failure', ()
       expect.stringContaining('[GenerateConversationTitle]'),
       'llm_response_malformed'
     )
-    // An empty title must never clobber the provisional first-message name.
     expect(updateConversationMetaInOrg).not.toHaveBeenCalled()
   })
 
@@ -1679,13 +1491,6 @@ describe('generating a conversation title — severity of a handled failure', ()
 })
 
 describe("the backend's own persist path speaks a different dialect", () => {
-  /**
-   * The turn whose client dropped is the one whose only copy is the server row,
-   * so this path is where an answer's trust signals are most easily lost. The
-   * backend posts them in wire spelling; every reader of a message row looks for
-   * the browser's stored contract. What this pins is that the service translates
-   * — the module's own rules are in `agent-answer-metadata.spec.ts`.
-   */
   it('marks an answer that read licensed text, also when the asking tab stored the row first (E44)', async () => {
     stubConversation()
     const answer = (id: string) => ({
@@ -1696,12 +1501,10 @@ describe("the backend's own persist path speaks a different dialect", () => {
       metadata: { sources: [], licensed_text: true },
     })
 
-    // The server's row wins the insert: the mark is in it, under the stored key.
     await persistInternalConversationMessages('org_1', CONVERSATION_ID, [answer('msg_server_first')])
     expect(vi.mocked(insertMessages).mock.calls[0][0][0].metadata).toMatchObject({ licensedText: true })
     expect(mergeMessageMetadata).not.toHaveBeenCalled()
 
-    // The tab stored the answer first, so the insert no-ops: the mark is merged into the tab's row.
     vi.mocked(insertMessages).mockResolvedValueOnce([])
     await persistInternalConversationMessages('org_1', CONVERSATION_ID, [answer('msg_tab_first')])
     expect(mergeMessageMetadata).toHaveBeenCalledWith(CONVERSATION_ID, 'msg_tab_first', { licensedText: true })
@@ -1760,31 +1563,12 @@ describe("the backend's own persist path speaks a different dialect", () => {
         answerConfidenceReason: 'Direkt aus OIB-RL 4 belegt.',
       },
     })
-    // The wire spelling does not survive alongside the translation: one column,
-    // one dialect.
     expect(row.metadata).not.toHaveProperty('sources')
     expect(row.metadata).not.toHaveProperty('answer_confidence')
   })
 })
 
 describe('project:chat gates the AGENT, not the conversation (the message-write hole)', () => {
-  /**
-   * The gap an adversarial pass found after `project:chat` shipped: gating
-   * `createConversation` stopped a Viewer STARTING a project thread and did
-   * nothing about the ones they already owned.
-   *
-   * `requireResourceAccess` gates the container on `project:view` — correctly, a
-   * Viewer reads the project's threads — and `resolveResourceAccess` grants the
-   * creator `owner`, which satisfies the `collaborator` gate on message writes.
-   * So a project Viewer could open agent turns in their own project thread
-   * indefinitely and spend the tenant's LLM budget doing it.
-   */
-  /**
-   * A project VIEWER: passes the container gate (`project:view`, which
-   * `resolveResourceAccess` applies) and fails the agent gate. Mocking a blanket
-   * rejection would fail the container check first and never reach the code
-   * under test.
-   */
   const asViewer = (): void => {
     vi.mocked(requireProjectAccess).mockImplementation(async (_s, _id, permission) => {
       const accepted = Array.isArray(permission) ? permission : [permission]
@@ -1807,9 +1591,6 @@ describe('project:chat gates the AGENT, not the conversation (the message-write 
       ])
     ).rejects.toThrow(`ask ${PRODUCT_NAME}`)
 
-    // 403, not the 404 `requireProjectAccess` throws: the caller is looking at a
-    // thread inside this project, so its existence is not a secret from them and
-    // a 404 would only read as "your message vanished".
     await expect(
       createConversationMessages(session, CONVERSATION_ID, [
         { id: 'msg_2', role: 'user', content: 'Nochmal bitte.' },
@@ -1841,9 +1622,6 @@ describe('project:chat gates the AGENT, not the conversation (the message-write 
   })
 
   it('still lets a Viewer reply to a COLLEAGUE — the gate is on the agent alone', async () => {
-    // Contributing to a conversation is not what project:chat governs; spending
-    // a turn is. A blanket block on message writes would have taken a reader out
-    // of every shared thread in the project.
     vi.mocked(resolveEngagementFor).mockResolvedValue({
       mode: 'mention',
       stored: 'mention',
@@ -1860,12 +1638,6 @@ describe('project:chat gates the AGENT, not the conversation (the message-write 
   })
 
   it('refuses an explicit @Piloti BEFORE applying its mentions', async () => {
-    // The ordering defect a review caught in the first version of this gate.
-    // `prepareMessage`'s mention path WRITES — grants, requests and inbox rows,
-    // through `applyMessageMentions` — so a gate that ran after the prepare loop
-    // rejected the message and left that state behind for a row that was never
-    // inserted. Asserting the refusal alone could not tell "gated" from "gated
-    // too late"; this asserts nothing was written.
     asViewer()
 
     await expect(
@@ -1884,7 +1656,6 @@ describe('project:chat gates the AGENT, not the conversation (the message-write 
   })
 
   it('still applies mentions when the caller MAY chat', async () => {
-    // The gate must not cost the mention path its behaviour for everyone else.
     vi.mocked(requireProjectAccess).mockResolvedValue({ role: 'project-editor', closed: false, readsBecauseClosed: false })
 
     await createConversationMessages(session, CONVERSATION_ID, [
@@ -1912,14 +1683,6 @@ describe('project:chat gates the AGENT, not the conversation (the message-write 
   })
 })
 
-/**
- * The chat's drafts on the Python tier (ADR-0003, §1 of the design of record).
- *
- * A conversation's working directory lives in the agent service's own store,
- * which no foreign key and no cascade reaches — so „Chat gelöscht" has to mean
- * the drafts went too, or the product keeps private text in a store nothing
- * lists.
- */
 describe('deleting a conversation takes its working directory with it', () => {
   beforeEach(() => {
     stubConversation({ visibility: 'private', createdBy: session.userId })
@@ -1937,9 +1700,6 @@ describe('deleting a conversation takes its working directory with it', () => {
   })
 
   it('does not ask when the delete stopped short of removing the rows', async () => {
-    // The attachment purge is the one failure the delete cannot be retried past
-    // — it stops BEFORE the rows that still name the objects — and the
-    // conversation is still there afterwards.
     vi.mocked(purgeSessionDocuments).mockResolvedValue({
       ok: false,
       retained: 1,

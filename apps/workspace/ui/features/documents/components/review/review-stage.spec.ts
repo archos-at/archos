@@ -1,12 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * A card on the sheet keeps inside the review's free stage: never under the
- * toolbars at the canvas's foot, nor under the chips of who is out of view
- * below them (at 1440x900 „Lena · Seite 2" lay over the open card's reply
- * field, and Piloti's answer grew the card under the viewer's pill).
- */
 
 import { describe, expect, it } from 'vitest'
 import { covers, fitCard, MIN_CARD_HEIGHT } from './review-stage'
@@ -27,7 +21,6 @@ describe('fitCard', () => {
   })
 
   it('keeps the hairline inside the card when the mark is at the very foot', () => {
-    // Its top at 790, 300 tall: moving it the whole 290 would leave the hairline under it.
     expect(fitCard(790, 300, STAGE, true).shift).toBe(272)
   })
 

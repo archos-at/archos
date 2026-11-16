@@ -1,8 +1,3 @@
-"""Tests for tokenomics report statistics helpers.
-
-Module under test: packages/agent/src/agent/tokenomics/report/_report_stats.py
-"""
-
 from agent.tokenomics.report._report_stats import _latency_stats
 from agent.tokenomics.report._report_stats import _load_csv_predictions
 from agent.tokenomics.report._report_stats import _pct
@@ -18,7 +13,6 @@ def test_pct_single_value():
 
 
 def test_pct_two_values_median():
-    # k = 0.5 → linear interpolation between sorted[0] and sorted[1]
     assert _pct([10.0, 20.0], 50) == 15.0
 
 

@@ -1,20 +1,5 @@
 'use client'
 
-/**
- * Organisation → Personen & Zugriff → Eigene Rollen (ADR-0087).
- *
- * The office's own roles, kept in WorkOS, beside the platform's. Custom roles
- * are created, edited and deleted here; the platform's are listed read-only,
- * because they are the same for every organization and change only with the
- * catalog. Assigning a role to a person stays on the People tab (WorkOS's own
- * widget), and the copy says so, together with where a single folder's access
- * is set instead: on the folder, person by person (ADR-0097).
- *
- * Who may edit is read from the listing itself: `assignable` is present only
- * for `org:members:manage`, and it says which permissions this editor may put
- * into a role. The routes enforce both again.
- */
-
 import { type FC, type ReactNode, useState } from 'react'
 import { Info, Pencil, Plus, ShieldCheck, Trash2, UsersRound } from 'lucide-react'
 import { toast } from 'sonner'
@@ -186,11 +171,6 @@ export const CustomRolesSection: FC = () => {
   )
 }
 
-/**
- * One role: name and identifier, description, and what it may do. A
- * platform role (`compact`) shows the count only; its permissions are read on
- * the Roles tab, which renders the catalog it comes from.
- */
 const RoleRow: FC<{ role: OrganizationRole; compact?: boolean; actions?: ReactNode }> = ({
   role,
   compact = false,
@@ -199,9 +179,6 @@ const RoleRow: FC<{ role: OrganizationRole; compact?: boolean; actions?: ReactNo
   const t = useTranslations(organizationCopy)
   const permissions = role.permissions ?? []
   return (
-    // Name and actions share the top line; the description and the permissions
-    // run the full card width under it. Beside two icon buttons they used to
-    // wrap in half a phone's width.
     <Item as="li" className="flex-col items-stretch gap-1.5" data-testid={`role-row-${role.slug}`}>
       <div className="flex items-start justify-between gap-2">
         <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1">

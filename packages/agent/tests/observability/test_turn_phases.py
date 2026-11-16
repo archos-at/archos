@@ -1,13 +1,3 @@
-"""The turn-start phases as Langfuse observations with their real latency.
-
-A phase emitted as a point read 1 ms in Langfuse whatever it took
-(`retrieve.knowledge_search` at the end of a 4.7 s search, 2026-10-27), so the
-seconds before the first model call had no row to read. Pinned here: the pair
-carries the block's true start and end, a raising or cancelled block is
-recorded as such and still raises, and the open-span stack is untouched while
-the block runs, so gathered branches cannot nest under each other.
-"""
-
 import asyncio
 import json
 
@@ -34,7 +24,6 @@ def steps():
 
 
 def _pairs(steps):
-    """``{name: (start, end)}`` for every balanced pair pushed."""
     starts = {step.UUID: step for step in steps if step.payload.event_type.value == "FUNCTION_START"}
     return {
         step.payload.name: (starts[step.UUID], step)
@@ -48,7 +37,6 @@ class TestTimestampedSpan:
         emit_step_span("setup.x", {"a": 1}, {"b": 2}, started_at=100.0, ended_at=101.5)
 
         start, end = _pairs(steps)["setup.x"]
-        # The exporter reads the span's start off the START and its end off the END.
         assert start.payload.event_timestamp == 100.0
         assert end.payload.event_timestamp == 101.5
         assert end.payload.span_event_timestamp == 100.0

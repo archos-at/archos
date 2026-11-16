@@ -15,7 +15,6 @@ import {
   toggleFolder,
 } from './folder-tree'
 
-/** A file as a folder input hands it over: with its path in the choice. */
 function file(path: string, size = 100): File {
   const name = path.split('/').pop() ?? path
   const made = new File([new Uint8Array(size)], name)
@@ -82,8 +81,6 @@ describe('the folder switches', () => {
     expect(folderState(back, 'Wohnbau Nord/02_Einreichung/_alt')).toBe('in')
     expect(folderState(back, 'Wohnbau Nord/01_Grundlagen')).toBe('out')
     expect(folderState(back, 'Wohnbau Nord/04_Honorare')).toBe('out')
-    // The folders on the way are in, their own files with them: a folder is
-    // confirmed whole or not at all.
     expect(chosenFiles(tree, back).map((entry) => entry.file.name).sort()).toEqual([
       'Baubeschreibung.docx',
       'EG.pdf',

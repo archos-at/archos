@@ -1,20 +1,5 @@
 'use client'
 
-/**
- * The controls of the Dateien header: view, Offene Punkte, E-Mail-Eingang, Papierkorb, filter, search, upload.
- *
- * ONE ROW ON A PHONE. The header used to stack four rows (view and filter,
- * search, upload) and put about 270px of controls between the title and the
- * first document. Search and filter are what is reached for, so they are the
- * row; the view choice, the Papierkorb and whatever a shelf adds fold into one
- * ⋯; and Hochladen leaves the header for the foot of the screen, where the
- * thumb is (the workspace's floating upload). A wide screen keeps the row it
- * always had.
- *
- * The workspace and the `/dev/files-header` preview both render this, so the
- * preview measures the real header and not a lookalike.
- */
-
 import type { JSX, ReactNode } from 'react'
 import Link from 'next/link'
 import { LayoutGrid, List, ListTodo, Mail, MoreHorizontal, Trash2 } from 'lucide-react'
@@ -30,44 +15,23 @@ import type { FileView } from '../hooks/use-view-preference'
 import { FileSearchField } from './file-search-bar'
 
 export interface FilesHeaderControlsProps {
-  /** The narrow layout: search and filter on one row, the rest behind ⋯. */
   phone: boolean
   view: FileView
   onViewChange: (view: FileView) => void
-  /** Where the Papierkorb is; absent where the shelf has none. */
   binHref?: string
-  /** Where the shelf's Offene Punkte are, the open Anmerkungen of all its documents; absent where it has none. */
   openPointsHref?: string
-  /**
-   * The project's E-Mail-Eingang (ADR-0137) and how many mails wait in it for
-   * this reader; absent where the reader may not decide held mail. The count
-   * is a muted pill: the Postfach's ink pill is the one that asks for
-   * attention, and two of them would make neither mean anything.
-   */
   inboundMail?: { href: string; waiting: number | null }
-  /** The filter menu, told whether the row has room for its word. */
   renderFilter: (compact: boolean) => ReactNode
   search: {
     value: string
     onChange: (value: string) => void
     onSubmit: () => void
     onClear: () => void
-    /** Enter opens the shelf's search rather than the listing's: the placeholder says so where there is room. */
     opensSearch?: boolean
   }
-  /**
-   * The upload control for the WIDE row. Absent on a phone, where the same
-   * control floats at the foot of the screen instead.
-   */
   upload?: ReactNode
-  /** More for the phone's ⋯, after the view choice and the Papierkorb. */
   moreEntries?: readonly ActionMenuEntry[]
-  /** The level's own tools for the phone's ⋯, first (iOS Files' order): „Auswählen“, „Ordner anlegen“. */
   levelEntries?: readonly ActionMenuEntry[]
-  /**
-   * The shelf's advanced actions (sort the root into folders). On a phone they
-   * follow `moreEntries` in the ⋯; on a wide screen they get a ⋯ of their own.
-   */
   advancedEntries?: readonly ActionMenuEntry[]
 }
 
@@ -121,14 +85,12 @@ export function FilesHeaderControls({
       mode="dropdown"
       entries={[...entries]}
       trigger={
-        // Tonal: it opens a menu of actions, and a bare glyph beside the tonal filter read as a label.
         <Button type="button" variant="secondary" size="icon" aria-label={t('workspace.more')} data-testid={testId}>
           <MoreHorizontal aria-hidden />
         </Button>
       }
     />
   )
-  // As tall as its neighbours: the wide row's buttons are `sm`, the phone's filter and ⋯ are `icon` (the default height).
   const searchField = (className: string): JSX.Element => (
     <FileSearchField
       className={className}
@@ -199,9 +161,6 @@ export function FilesHeaderControls({
     )
   }
 
-  // In the section's frame: one row on the title's left edge that never wraps. What finds (the search, flexing, the
-  // filter, the view) on the left; what acts on the level (Auswählen, Ordner anlegen, Hochladen, ⋯) on the right. A
-  // tier gives way in steps (`SectionToolTier`): „Ordner anlegen“ into Hochladen's menu, then the view into the ⋯.
   if (tier !== null) {
     const narrow = tier === 'narrow'
     const more: ActionMenuEntry[] = [
@@ -223,7 +182,6 @@ export function FilesHeaderControls({
   }
 
   return (
-    // At the tabs' 14px, as the tabs row's tools below: one press size for the head of the page.
     <div className="flex min-w-0 flex-wrap items-center justify-end gap-3 [&_[data-slot=button]]:text-sm" data-testid="files-controls">
       {viewToggle}
       {/* The open Anmerkungen of every document, for the Jour fixe: a page of its own, as the Papierkorb is. */}

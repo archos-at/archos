@@ -1,11 +1,3 @@
-"""[1] The address stage: what the caller's words already say, in the RIS record's grammar.
-
-Pure text matching, and the cheapest stage in the tool: everything it reads
-correctly is an LLM call the pipeline does not make. Ported from the RIS tool's
-suite with its assertions: the grammar is the record's now (``lookup.locus``),
-and must read every reference the regexes read.
-"""
-
 from __future__ import annotations
 
 import time
@@ -66,14 +58,12 @@ class TestTheDirectAddress:
         assert address.law == ""
 
     def test_a_url_on_the_ogd_host_is_the_public_one(self):
-        """Cached search text states ogd URLs; they are an address, not a law's name."""
         address = parse_address("Was steht da?", "https://ogd.ris.bka.gv.at/Dokumente/x/y.html", "")
 
         assert address.url == "https://www.ris.bka.gv.at/Dokumente/x/y.html"
         assert address.law == ""
 
     def test_a_foreign_url_is_not_one(self):
-        """This adapter fetches RIS and nothing else; a stray link is not an address."""
         address = parse_address("Was steht da?", "https://example.com/gesetz.html", "")
 
         assert address.url == ""
@@ -87,13 +77,6 @@ class TestTheDirectAddress:
         assert parse_address("?", "JWT_2020130074_20210415J00", "").document_number == "JWT_2020130074_20210415J00"
 
     def test_a_named_law_is_not_mistaken_for_a_document_number(self):
-        """ "Bauordnung" fits the shape of a document number letter for letter.
-
-        Read as one, it becomes an address nothing can resolve: the catalog is
-        skipped, the live search never runs, and the question misses with a law
-        named in the arguments. Every RIS number carries a year-length run of
-        digits; no law's short title does.
-        """
         address = parse_address("Welche Stellplätze sind nötig? § 60", "Bauordnung", "")
 
         assert address.document_number == ""
@@ -101,9 +84,6 @@ class TestTheDirectAddress:
 
 
 class TestTheJurisdiction:
-    """A wrong Bundesland is the commonest silent RIS failure, so both the
-    value and its provenance travel."""
-
     def test_the_argument_wins_over_everything(self):
         address = parse_address("Bauordnung in Wien?", "BO Wien", "Tirol")
 
@@ -133,9 +113,6 @@ class TestTheJurisdiction:
 
 
 class TestAListOfParagraphs:
-    """ "§§ 75 und 81 BO Wien" addresses both. Read as one § it kept § 75, left
-    "und 81" in the law's name, and the agent spent a round asking for § 81."""
-
     def test_every_paragraph_of_a_list_is_addressed(self):
         address = parse_address("Wie hoch darf gebaut werden?", "§§ 75 und 81 Bauordnung für Wien", "")
 
@@ -151,8 +128,6 @@ class TestAListOfParagraphs:
         assert parse_address("x", "§§ 63 bis 65 BO Wien", "").sections == ("63", "64", "65")
 
     def test_a_list_past_the_budget_reads_its_first_six_and_names_the_rest(self):
-        # It used to fall back to the first § alone, silently: "§§ 3 bis 12"
-        # came back as § 3, as if that were the answer.
         address = parse_address("x", "§§ 3 bis 12 BO Wien", "")
 
         assert address.sections == ("3", "4", "5", "6", "7", "8")
@@ -192,8 +167,6 @@ def test_a_list_shares_one_budget_and_one_named_paragraph_keeps_its_own():
 
 
 def test_a_range_past_the_old_span_names_every_paragraph_it_did_not_read():
-    # Past 200 §§ a range used to keep only its two ends: §§ 3-299 were
-    # dropped while the result claimed to name what it had not read.
     address = parse_address("x", "§§ 1 bis 300 BO Wien", "")
 
     assert address.sections == ("1", "2", "3", "4", "5", "6")
@@ -212,10 +185,7 @@ def test_the_unread_line_says_bis_only_for_a_run():
 
 
 class TestTheListReaderAgainstPracticeInputs:
-    """Inputs a list parser built from one regex got wrong (code review, 2026-09-25)."""
-
     def test_the_list_starts_at_the_first_paragraph_named(self):
-        # A later list is a reference, not the address: § 3 was dropped for §§ 75, 81.
         assert parse_address("Gilt § 3 BO auch für §§ 75 und 81?", "", "").sections == ("3",)
         address = parse_address("x", "§ 3 BO Wien, siehe §§ 75 und 81", "")
         assert (address.sections, address.law) == (("3",), "BO Wien")
@@ -225,11 +195,9 @@ class TestTheListReaderAgainstPracticeInputs:
         ["§ 3 BO Wien, siehe §§ 75 und 81", "§ 3 BO Wien, vgl. § 75", "§ 3 BO Wien (s. § 75)", "§ 3 BO Wien vgl § 7"],
     )
     def test_the_word_that_introduced_a_reference_is_not_part_of_the_law(self, instrument):
-        # The law name is the live RIS search's title: "BO Wien, siehe" finds nothing.
         assert parse_address("x", instrument, "").law == "BO Wien"
 
     def test_a_run_of_unclosed_references_is_read_in_linear_time(self):
-        # "(s. (s. (s. …" backtracked exponentially: 23 repeats took six seconds (CodeQL py/redos).
         started = time.perf_counter()
         parse_address("x", "§ 3 BO Wien (s." + " (s." * 40 + "x", "")
         assert time.perf_counter() - started < 1.0
@@ -239,12 +207,10 @@ class TestTheListReaderAgainstPracticeInputs:
         assert (address.sections, address.subsection, address.law) == (("5", "7"), "", "BO Wien")
 
     def test_every_qualifier_of_a_paragraph_is_read_before_the_next_one(self):
-        # One qualifier per item ended the list at "Z 2" and dropped § 7 into the law's name.
         cases = {
             "§ 5 Abs 1 Z 2 und § 7 BO Wien": (("5", "7"), "BO Wien"),
             "§ 5 Abs 2 lit. a und § 7": (("5", "7"), ""),
             "§ 63 Abs. 1 lit. b BO für Wien": (("63",), "BO für Wien"),
-            # A second item of the same qualifier, lettered or signed again, is not the law.
             "§ 5 lit. b und c BO Wien": (("5",), "BO Wien"),
             "§ 5 lit. a, b BO Wien": (("5",), "BO Wien"),
             "§ 5 Z 4 und Z 6 BO Wien": (("5",), "BO Wien"),
@@ -288,7 +254,6 @@ def test_one_surviving_paragraph_of_a_list_gets_no_more_than_a_named_one():
 
 
 def test_a_list_across_two_documents_shares_one_budget():
-    """The list budget is per call: one § in one law and five in another stay inside it."""
     from agent.knowledge.law_lookup.candidates import Candidate
     from agent.knowledge.law_lookup.client import Document as RisDocument
     from agent.knowledge.law_lookup.extract import Selection

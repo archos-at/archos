@@ -77,7 +77,6 @@ describe('UploadTray', () => {
         tracked({ id: 'b', fileName: 'b.pdf', fileSize: 2_000_000, status: 'success' }),
       ])
 
-      // Two of three files are done; almost none of the payload has moved.
       expect(track()).toHaveAttribute('aria-valuenow', '4')
     })
   })
@@ -178,8 +177,6 @@ describe('UploadTray', () => {
       renderTray([tracked({ fileName: name, uploadStartedAt: 1, bytesUploaded: 10 })])
 
       const label = within(screen.getByTestId('upload-row-name'))
-      // The end is a span of its own that never shrinks; the head is the part CSS ellipsizes.
-      // Both are drawn for the eye; the whole name is read once.
       const [head, tail] = Array.from(label.getByTitle(name).querySelectorAll('[aria-hidden="true"]'))
       expect(tail.textContent).toMatch(/Rev_C_Freigabe\.pdf$/)
       expect(head.textContent).toMatch(/^2026-06-14_Lageplan/)
@@ -261,8 +258,6 @@ describe('UploadTray', () => {
     })
 
     it('still retires when the parent keeps re-rendering the same settled batch', () => {
-      // A poll or a store write hands a new array (and so a new dismiss) every
-      // few seconds; the timer used to restart on each one and never fire.
       const onDismiss = vi.fn()
       const { rerender } = renderTray([tracked({ status: 'success' })], { onDismiss })
 
@@ -279,7 +274,6 @@ describe('UploadTray', () => {
       const { rerender } = renderTray([tracked({ status: 'failed', errorMessage: 'boom' })], { onDismiss })
       const tray = screen.getByTestId('upload-tray')
 
-      // Pointer in, „Dismiss“ pressed: the tray empties while it is held.
       act(() => {
         tray.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }))
       })
@@ -295,11 +289,9 @@ describe('UploadTray', () => {
       const onDismiss = vi.fn()
       renderTray([tracked({ status: 'success' })], { onDismiss })
 
-      // Focus inside the tray — the collapse control, a row's retry, anything.
       act(() => screen.getByRole('button', { name: 'Hide files' }).focus())
       act(() => vi.advanceTimersByTime(60_000))
 
-      // Unmounting the section would drop focus to the document body.
       expect(onDismiss).not.toHaveBeenCalled()
     })
 
@@ -340,7 +332,6 @@ describe('UploadTray', () => {
       expect(label.closest('.text-warning')).not.toBeNull()
       expect(within(row).queryByText('Failed')).toBeNull()
       expect(within(screen.getByTestId('upload-row-held')).getByText(/Lohnzettel/)).toBeDefined()
-      // The tray cannot show the document, so the pages are words, not buttons.
       expect(screen.queryByTestId('upload-row-held-page-2')).toBeNull()
       expect(screen.queryByText(/^quarantined:/)).toBeNull()
     })
@@ -364,7 +355,6 @@ describe('UploadTray', () => {
       expect(releaseQuarantinedDocument).toHaveBeenCalledWith('doc-h')
       expect(await screen.findByTestId('upload-row-allow-done')).toBeDefined()
       expect(screen.queryByTestId('upload-row-request-review')).toBeNull()
-      // The row is read again: the tray follows it by document status.
       expect(watchDocuments).toHaveBeenCalledWith(['h'])
     })
 
@@ -401,7 +391,6 @@ describe('UploadTray', () => {
     })
 
     it('offers no retry for a failure a retry would only repeat', () => {
-      // The quarantined-replace 409: uploading again gets the same refusal.
       renderTray([
         tracked({ id: 'r', fileName: 'r.pdf', status: 'failed', errorMessage: 'refused', retryable: false }),
         tracked({ id: 'ok', fileName: 'ok.pdf', status: 'success' }),

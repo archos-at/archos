@@ -1,11 +1,3 @@
-/**
- * The `#` picker, through the real composer: typing `#` and a word searches
- * the workspace for documents (`useDocumentReference`), a pick writes the name
- * into the message and makes the document its subject, the same subject
- * „Piloti fragen" on a file sets. The pure half is
- * `features/search/lib/document-reference.spec.ts`.
- */
-
 import { render, screen, waitFor } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
@@ -62,7 +54,6 @@ beforeEach(() => {
 })
 
 const composer = () => screen.getByRole('textbox')
-/** The whole composer mounts per test; under a loaded runner its first answer takes seconds. */
 const SLOW = { timeout: 8000 }
 
 describe('the composer’s # reference', () => {
@@ -72,7 +63,6 @@ describe('the composer’s # reference', () => {
 
     await user.type(composer(), 'Was steht in #Flucht')
     expect(await screen.findByTestId('composer-search-picker', {}, SLOW)).toBeInTheDocument()
-    // A slow runner can ask on a pause mid-word; the last question is the one typed.
     await waitFor(() => expect(asked.at(-1)).toMatchObject({ text: 'Flucht', kinds: ['document'] }), SLOW)
 
     const hit = DOCUMENTS.sections.document!.hits[0]

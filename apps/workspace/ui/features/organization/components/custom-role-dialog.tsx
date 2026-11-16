@@ -1,19 +1,5 @@
 'use client'
 
-/**
- * Create or edit one custom role (ADR-0087): a name, an optional description,
- * and permissions from the organization tier.
- *
- * A permission the editor does not hold is shown and disabled, with the reason
- * under it, rather than hidden: "it exists, and you cannot grant it" is the
- * actual rule, and the server refuses the same thing. A permission the role
- * already carries stays changeable either way, because taking one away grants
- * nothing.
- *
- * An editor form is a Dialog, and one with unsaved changes asks before Escape,
- * the X or a scrim click throws them away (`design-language.md`).
- */
-
 import { type FC, type MutableRefObject, useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 
@@ -48,9 +34,7 @@ import { permissionLabel } from '../lib/permission-labels'
 export interface CustomRoleDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  /** The role being edited; absent creates a new one. */
   role?: OrganizationRole
-  /** What the editor may offer, from the roles listing. */
   assignable: readonly AssignablePermission[]
   onSaved: (role: OrganizationRole) => void
 }
@@ -70,7 +54,6 @@ const draftOf = (role?: OrganizationRole): Draft => ({
 const samePermissions = (a: readonly string[], b: readonly string[]): boolean =>
   a.length === b.length && a.every((slug) => b.includes(slug))
 
-/** The fields a save sends: all of them on create, only what changed on edit. */
 export function roleChanges(initial: Draft, draft: Draft, creating: boolean): Partial<CustomRoleFields> {
   const fields: CustomRoleFields = {
     name: draft.name.trim(),
@@ -86,12 +69,7 @@ export function roleChanges(initial: Draft, draft: Draft, creating: boolean): Pa
 }
 
 export const CustomRoleDialog: FC<CustomRoleDialogProps> = ({ open, onOpenChange, role, assignable, onSaved }) => {
-  // Escape, the X and a scrim click all arrive here as `false`; the form
-  // decides whether that closes or first asks about unsaved changes.
   const closeGuard = useRef<(() => void) | null>(null)
-  // A new form per opening, so a second open starts from the role and not
-  // from the last draft. The content stays mounted while closed so its exit
-  // transition runs.
   const [session, setSession] = useState(0)
   useEffect(() => {
     if (open) setSession((n) => n + 1)
@@ -139,8 +117,6 @@ const CustomRoleForm: FC<{
     ? draft.name.trim() !== '' || draft.description.trim() !== '' || draft.permissions.length > 0
     : Object.keys(changes).length > 0
 
-  // The permissions on offer, plus any the role carries that are not on offer
-  // (set in the WorkOS dashboard): those can be taken away, never added.
   const offered = useMemo(() => {
     const rows = assignable.map((entry) => ({ slug: entry.slug, grantable: entry.grantable }))
     for (const slug of initial.permissions) {
@@ -257,8 +233,6 @@ const CustomRoleForm: FC<{
               {offered.map(({ slug, grantable }) => {
                 const checked = draft.permissions.includes(slug)
                 const label = permissionLabel(t, slug)
-                // Taking a permission away grants nothing, so one the role
-                // already carries stays changeable.
                 const locked = !grantable && !initial.permissions.includes(slug)
                 const id = `custom-role-permission-${slug.replace(/[^a-z0-9]+/g, '-')}`
                 return (

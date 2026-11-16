@@ -18,13 +18,11 @@ function profile(facts: Record<string, string>, assumptions: Record<string, stri
   }
 }
 
-// The twin of `agent.common.country_profile.resolve_site` (packages/agent/tests/common/test_country_profile.py).
 describe('siteCountry', () => {
   it.each([
     [profile({ country: 'at', federal_state: 'tyrol' }), 'at'],
     [profile({ federal_state: 'vienna' }), 'at'],
     [profile({ country: 'de' }), 'de'],
-    // Upper case reads as lower, in both twins.
     [profile({ country: 'DE' }), 'de'],
     [profile({ country: 'AT', federal_state: 'Tyrol' }), 'at'],
     [profile({ country: 'other' }), 'other'],
@@ -32,7 +30,6 @@ describe('siteCountry', () => {
     [profile({}, { federal_state: 'vienna' }), 'at'],
     [profile({ country: 'de' }, { federal_state: 'vienna' }), 'de'],
     [profile({ main_use: 'residential' }), null],
-    // A value the intake does not offer places nothing, as in the Python twin.
     [profile({ federal_state: 'foo' }), null],
     [profile({ country: 'germany' }), null],
   ])('places %j in %s', (input, expected) => {

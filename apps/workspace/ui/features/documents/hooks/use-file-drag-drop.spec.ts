@@ -2,12 +2,10 @@ import { renderHook, act } from '@testing-library/react'
 import { vi, describe, test, expect, beforeEach } from 'vitest'
 import { useFileDragDrop } from './use-file-drag-drop'
 
-// Mock the validation module
 vi.mock('../validation', () => ({
   checkDraggedFilesSupported: vi.fn(() => true),
 }))
 
-// Mock useAppConfig
 vi.mock('@/shared/context', () => ({
   useAppConfig: () => ({
     authRequired: true,
@@ -24,15 +22,6 @@ vi.mock('@/shared/context', () => ({
 
 import { checkDraggedFilesSupported } from '../validation'
 
-/**
- * A drag carrying files from the desktop.
- *
- * `types: ['Files']` is not decoration — it is the fact this hook discriminates
- * on, and the browser sets it for every drag that carries real files and for no
- * drag started inside the page. The fixture omitted it, which is how the hook
- * came to answer for in-app drags too: nothing here could tell the two apart, so
- * nothing here noticed that the hook could not either.
- */
 function createMockDragEvent(files: File[] = [], items: DataTransferItem[] = []): React.DragEvent {
   return {
     preventDefault: vi.fn(),
@@ -45,7 +34,6 @@ function createMockDragEvent(files: File[] = [], items: DataTransferItem[] = [])
   } as unknown as React.DragEvent
 }
 
-/** A drag started inside the page — a document being moved into a folder. */
 function createInternalDragEvent(type = 'application/x-document-id'): React.DragEvent {
   return {
     preventDefault: vi.fn(),
@@ -139,13 +127,11 @@ describe('useFileDragDrop', () => {
       [{ kind: 'file', type: 'application/pdf' } as DataTransferItem]
     )
 
-    // Enter once
     act(() => {
       result.current.dragHandlers.onDragEnter(enterEvent)
     })
     expect(result.current.isDragging).toBe(true)
 
-    // Leave once
     const leaveEvent = createMockDragEvent()
     act(() => {
       result.current.dragHandlers.onDragLeave(leaveEvent)
@@ -163,28 +149,22 @@ describe('useFileDragDrop', () => {
     )
     const leaveEvent = createMockDragEvent()
 
-    // Enter parent
     act(() => {
       result.current.dragHandlers.onDragEnter(enterEvent)
     })
-    // Enter child
     act(() => {
       result.current.dragHandlers.onDragEnter(enterEvent)
     })
     expect(result.current.isDragging).toBe(true)
 
-    // Leave child
     act(() => {
       result.current.dragHandlers.onDragLeave(leaveEvent)
     })
-    // Should still be dragging (counter = 1)
     expect(result.current.isDragging).toBe(true)
 
-    // Leave parent
     act(() => {
       result.current.dragHandlers.onDragLeave(leaveEvent)
     })
-    // Now should be false (counter = 0)
     expect(result.current.isDragging).toBe(false)
   })
 
@@ -199,17 +179,11 @@ describe('useFileDragDrop', () => {
     )
     const dropEvent = createMockDragEvent([file])
 
-    // Enter to set dragging state
     act(() => {
       result.current.dragHandlers.onDragEnter(enterEvent)
     })
     expect(result.current.isDragging).toBe(true)
 
-    // Drop
-    // The drop path is asynchronous now: a DROPPED FOLDER is invisible to
-    // `dataTransfer.files` and has to be walked through the entries API, so the
-    // handler captures its entries synchronously and resolves the files a
-    // microtask later. The fallback below is unchanged for a plain file drop.
     await act(async () => {
       result.current.dragHandlers.onDrop(dropEvent)
     })
@@ -227,10 +201,6 @@ describe('useFileDragDrop', () => {
 
     const dropEvent = createMockDragEvent([])
 
-    // The drop path is asynchronous now: a DROPPED FOLDER is invisible to
-    // `dataTransfer.files` and has to be walked through the entries API, so the
-    // handler captures its entries synchronously and resolves the files a
-    // microtask later. The fallback below is unchanged for a plain file drop.
     await act(async () => {
       result.current.dragHandlers.onDrop(dropEvent)
     })
@@ -252,7 +222,6 @@ describe('useFileDragDrop', () => {
       result.current.dragHandlers.onDragEnter(enterEvent)
     })
 
-    // Event handlers still called but state doesn't change
     expect(result.current.isDragging).toBe(false)
   })
 
@@ -263,10 +232,6 @@ describe('useFileDragDrop', () => {
     const file = new File(['content'], 'test.pdf', { type: 'application/pdf' })
     const dropEvent = createMockDragEvent([file])
 
-    // The drop path is asynchronous now: a DROPPED FOLDER is invisible to
-    // `dataTransfer.files` and has to be walked through the entries API, so the
-    // handler captures its entries synchronously and resolves the files a
-    // microtask later. The fallback below is unchanged for a plain file drop.
     await act(async () => {
       result.current.dragHandlers.onDrop(dropEvent)
     })
@@ -299,10 +264,6 @@ describe('useFileDragDrop', () => {
     ]
     const dropEvent = createMockDragEvent(files)
 
-    // The drop path is asynchronous now: a DROPPED FOLDER is invisible to
-    // `dataTransfer.files` and has to be walked through the entries API, so the
-    // handler captures its entries synchronously and resolves the files a
-    // microtask later. The fallback below is unchanged for a plain file drop.
     await act(async () => {
       result.current.dragHandlers.onDrop(dropEvent)
     })
@@ -312,14 +273,6 @@ describe('useFileDragDrop', () => {
   })
 })
 
-/**
- * THE UPLOAD SURFACE MUST NOT ANSWER FOR A MOVE.
- *
- * Dragging a document at a folder raised the full-surface "drop files to upload
- * to this project" overlay over the folder it was aimed at, because this hook
- * reacted to any drag with items on it — and an in-app drag has one, our own
- * MIME type. The move underneath still worked; nothing on screen said so.
- */
 describe('useFileDragDrop — an in-app drag is not an upload', () => {
   test('ignores a document drag entirely', () => {
     const onDrop = vi.fn()
@@ -352,9 +305,6 @@ describe('useFileDragDrop — an in-app drag is not an upload', () => {
     act(() => result.current.dragHandlers.onDrop(event))
 
     expect(onDrop).not.toHaveBeenCalled()
-    // Not claimed as a drop target either: `preventDefault` here would make the
-    // whole workspace accept a move, so a document released between two folder
-    // tiles would look accepted and do nothing.
     expect(event.preventDefault).not.toHaveBeenCalled()
   })
 
@@ -362,12 +312,9 @@ describe('useFileDragDrop — an in-app drag is not an upload', () => {
     const onDrop = vi.fn()
     const { result } = renderHook(() => useFileDragDrop({ onDrop }))
 
-    // A move crosses the workspace and leaves it. Neither event is this hook's.
     act(() => result.current.dragHandlers.onDragLeave(createInternalDragEvent()))
     act(() => result.current.dragHandlers.onDragLeave(createInternalDragEvent()))
 
-    // Then a genuine upload arrives. If the leaves above had been subtracted,
-    // the counter would be at -2 and one leave would never bring it back to 0.
     act(() => result.current.dragHandlers.onDragEnter(createMockDragEvent([new File(['x'], 'a.pdf')])))
     expect(result.current.isDragging).toBe(true)
     act(() => result.current.dragHandlers.onDragLeave(createMockDragEvent([new File(['x'], 'a.pdf')])))
@@ -375,14 +322,6 @@ describe('useFileDragDrop — an in-app drag is not an upload', () => {
   })
 })
 
-/**
- * THE FILE LIST IS ONLY READABLE DURING THE DROP EVENT.
- *
- * The browser empties `dataTransfer.files` once the event has been dispatched.
- * The handler read it as a fallback AFTER the entries traversal had awaited, so
- * an entry whose `file()` fails — an Outlook attachment, a OneDrive file that
- * is only in the cloud — ended in an empty list and a drop that did nothing.
- */
 describe('useFileDragDrop — a drop the entries API cannot read', () => {
   function transferThatEmptiesAfterTheEvent(files: File[]): React.DragEvent {
     let dispatching = true
@@ -423,10 +362,6 @@ describe('useFileDragDrop — a drop the entries API cannot read', () => {
   })
 })
 
-/**
- * A zone that is off, a zone that says no, and a drag that ends somewhere else:
- * the three ways the files used to vanish or the overlay used to stay up.
- */
 describe('useFileDragDrop — off, refused, and ended elsewhere', () => {
   const pdf = () => [new File(['x'], 'Plan.pdf', { type: 'application/pdf' })]
 
@@ -488,8 +423,6 @@ describe('useFileDragDrop — off, refused, and ended elsewhere', () => {
     act(() => result.current.dragHandlers.onDragEnter(createMockDragEvent(pdf())))
     expect(result.current.isDragging).toBe(true)
 
-    // A folder tile inside the zone claims the drop and stops it; the window
-    // still hears it first, in the capture phase.
     const tile = document.createElement('div')
     document.body.appendChild(tile)
     tile.addEventListener('drop', (event) => event.stopPropagation())

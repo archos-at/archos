@@ -1,11 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * `getChatUsageNotice` is the decision plus the viewer's rights: a project the
- * viewer cannot see is dropped, `canChange` and the link follow who may move the
- * binding limit, and amounts travel only to someone who may already read them.
- */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { BudgetPolicy } from '@/lib/db/schema/budgets'
 import type { AuthorizedSession } from '@/lib/auth/types'
@@ -56,7 +51,6 @@ beforeEach(() => {
   canManageBudgets.mockReturnValue(false)
   can.mockResolvedValue(true)
   findActivePolicy.mockResolvedValue(null)
-  // The organization's seeded allowance: 100 a day, 1000 a month.
   sumRollupTotals.mockImplementation(async (_org: string, filter: { projectId?: string }) =>
     filter.projectId ? totals(0, 196) : totals(10, 100),
   )

@@ -73,10 +73,8 @@ describe('findFeedbackRecipients — derived from the triage permission', () => 
   it('addresses active members whose role may triage, and nobody else', async () => {
     vi.mocked(listOrganizationMembersWithRoles).mockResolvedValue([
       member({ id: 'user_owner' }),
-      // Support reads the page but holds no manage permission: not paged.
       member({ id: 'user_support', roleSlug: 'org-platform-support' }),
       member({ id: 'user_invited', status: 'pending' }),
-      // A role this build does not know is not assumed to hold anything.
       member({ id: 'user_custom', roleSlug: 'custom-role-nobody-knows' }),
       member({ id: 'user_none', roleSlug: null }),
     ])

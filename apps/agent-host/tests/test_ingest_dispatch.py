@@ -1,11 +1,3 @@
-"""A job ``/v1/ingest`` accepts runs on Hatchet, and only as it was accepted.
-
-The workflow itself (its declaration, its steps, an attempt's end) is
-``packages/agent/tests/knowledge/test_ingest_workflow.py``; these pin the half
-that lives here: what the payload carries, that a worker reads back nothing the
-route would have refused, that a job Hatchet cannot take still runs, and cancel.
-"""
-
 from __future__ import annotations
 
 import base64
@@ -110,7 +102,6 @@ def test_the_payload_round_trips_with_its_downloads():
 
 
 def test_a_worker_uploads_the_thumbnail_to_the_configured_origin_whatever_the_row_spells():
-    """A queued row's URL is rebuilt on the store's own origin before the job sees it."""
     import json
 
     from agent_host.jobs import payload_crypto
@@ -144,7 +135,6 @@ def test_the_stored_payload_is_encrypted_when_a_key_is_set(monkeypatch):
     ],
 )
 def test_a_worker_refuses_what_the_route_would_have_refused(forged):
-    """Without a KEK a row is plaintext anyone who can write the table can forge."""
     import json
 
     from agent_host.jobs import payload_crypto
@@ -186,7 +176,6 @@ def test_an_accepted_job_starts_its_run_with_ids_and_the_encrypted_payload_only(
     assert run.input.organization_id == "org-1"
     assert run.input.priority == "interactive"
     assert run.input.payload.startswith("enc:")
-    # No tenant content in Hatchet's database: no URL, no file name.
     dumped = run.input.model_dump_json()
     assert "secret-original" not in dumped
     assert "plan.pdf" not in dumped
@@ -197,7 +186,6 @@ def test_an_accepted_job_starts_its_run_with_ids_and_the_encrypted_payload_only(
         "heavy": False,
     }
     assert ingest_dispatch.decode(run.input.payload).job_id == "job-1"
-    # The row is held for the run, and knows which run it is.
     assert _held(db)["job-1"] == ("run-1", True)
 
 
@@ -353,9 +341,6 @@ def test_a_hatchet_error_does_not_leak_the_payload(db, hatchet, kek):
     assert "secret" not in str(raised.value)
 
 
-# ------------------------------------------------------------------- cancel
-
-
 def _dispatched() -> None:
     ingest_status_store.put(_prepared().status)
     ingest_dispatch.dispatch(FakeIngestor(), _prepared())
@@ -388,7 +373,6 @@ def test_a_cancel_reports_finished_when_the_job_is_no_longer_live(db, hatchet, k
 
 
 def test_a_cancel_reports_finished_when_the_job_ended_before_the_settle(db, hatchet, kek):
-    """The job completed between the cancel's read and its settle: the file is indexed, not stopped."""
     _dispatched()
 
     def completes_first(run_id: str) -> None:
@@ -403,7 +387,6 @@ def test_a_cancel_reports_finished_when_the_job_ended_before_the_settle(db, hatc
 
 
 def test_a_cancel_whose_settle_could_not_be_written_still_reports_cancelled(db, hatchet, kek, monkeypatch):
-    """The run was cancelled and settles its row itself; a database error is not "finished"."""
     _dispatched()
     monkeypatch.setattr(ingest_status_store, "settle_cancelled", lambda job_id: False)
 
@@ -412,7 +395,6 @@ def test_a_cancel_whose_settle_could_not_be_written_still_reports_cancelled(db, 
 
 
 def test_a_job_with_no_run_cannot_be_cancelled_from_here(db, hatchet):
-    """A job in another process's own pool has no run: that process is out of reach."""
     ingest_status_store.put(_prepared().status)
 
     assert ingest_dispatch.cancel("job-1") == ingest_dispatch.CANCEL_UNAVAILABLE
@@ -449,9 +431,6 @@ def test_a_waiting_status_clears_a_count_from_the_claim_queue():
     assert statuses["job-1"]["metadata"] == {"queue_ahead": None}
     assert statuses["job-2"]["metadata"] == {"queue_ahead": None}
     assert statuses["done"]["metadata"] == {}
-
-
-# ------------------------------------------------- heavy files, supersede
 
 
 def test_a_large_original_runs_heavy_and_every_run_names_its_document(db, hatchet, kek):

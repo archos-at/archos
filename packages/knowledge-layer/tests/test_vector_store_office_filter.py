@@ -1,17 +1,3 @@
-"""Every search over an office's scopes carries the office it reads as (``scope.ScopeRead``).
-
-The scope list is the boundary the BFF signs; the office condition is the
-second one, under it: a scope name that reached the list by mistake (another
-office's ``proj_``, or one project scope two offices' points share) still
-returns nothing of the other office. Each leak test runs twice, once with the
-condition dropped, to prove the leak it guards against is real and that the
-condition, not the fixture, is what stops it.
-
-The filter's semantics are checked on Qdrant's local mode, which needs no
-server; the search paths themselves (ranked, grouped, similar, literal) on the
-real server behind ``qdrant_store``, which skips without ``QDRANT_TEST_URL``.
-"""
-
 from __future__ import annotations
 
 import pytest
@@ -45,16 +31,12 @@ OTHER_PROJECT = "proj_of_b"
 CORPUS = "oib_knowledge"
 TEXT = "Fluchtweg Breite Stiegenhaus"
 
-#: The office condition in place, and dropped: the second run must leak, or the first proves nothing.
 WITH_AND_WITHOUT = pytest.mark.parametrize("dropped", [False, True], ids=["office-filtered", "condition-dropped"])
 
 
 def _drop_condition(monkeypatch, dropped: bool) -> None:
     if dropped:
         monkeypatch.setattr(ScopeRead, "office", lambda read: [])
-
-
-# ---------------------------------------------------------------- building a read
 
 
 class TestBuildingARead:
@@ -84,12 +66,8 @@ class TestBuildingARead:
         assert no_office.is_empty.key == OFFICE_FIELD
 
 
-# ---------------------------------------------------------------- the filter's semantics (local mode)
-
-
 @pytest.fixture
 def local():
-    """Qdrant's local mode with one point per case: office A's, office B's, a legacy point, a corpus point."""
     client = QdrantClient(":memory:")
     client.create_collection(
         "t", vectors_config={"dense": models.VectorParams(size=2, distance=models.Distance.COSINE)}
@@ -99,7 +77,6 @@ def local():
         2: {"scope": PROJECT, "office_id": OFFICE_B},
         3: {"scope": PROJECT},
         4: {"scope": PROJECT, "office_id": None},
-        # The corpus carries the platform organization's office: never office A's, and still read.
         5: {"scope": CORPUS, "office_id": "org_platform"},
         6: {"scope": OTHER_PROJECT, "office_id": OFFICE_B},
     }
@@ -139,12 +116,8 @@ def test_a_corpus_read_with_no_office_reads_the_corpus(local):
     assert _found(local, ScopeRead((CORPUS,), None)) == {5}
 
 
-# ---------------------------------------------------------------- the search paths (a real Qdrant)
-
-
 @pytest.fixture
 def two_offices(qdrant_store):
-    """One project scope holding a file of office A, one of office B and one written before ``office_id`` existed."""
     write(PROJECT, [record(TEXT, "A.pdf")], {"organization_id": OFFICE_A})
     write(PROJECT, [record(TEXT, "B.pdf")], {"organization_id": OFFICE_B})
     write(PROJECT, [record(TEXT, "Legacy.pdf")])
@@ -229,9 +202,6 @@ def test_a_corpus_search_with_no_office_works(qdrant_store):
     assert _files(hits) == {"OIB.pdf"}
 
 
-# ---------------------------------------------------------------- the office the retriever reads as
-
-
 class TestTheRetrieversOffice:
     @pytest.fixture(autouse=True)
     def no_request(self, monkeypatch):
@@ -251,9 +221,6 @@ class TestTheRetrieversOffice:
         assert office_for([PROJECT]) is None
         assert office_for(["office_shelf_org_a", PROJECT]) is None
         assert office_for(["office_shelf_org_a", "office_shelf_org_b"]) is None
-
-
-# ---------------------------------------------------------------- the licence mark
 
 
 class TestTheLicenceMark:

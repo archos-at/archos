@@ -1,12 +1,3 @@
-/**
- * Getting an answer out of the app from a phone: the share sheet.
- *
- * jsdom has no `pointer: coarse` and no `navigator.share`, so each test states
- * its device. The contract: the share button exists only where there is a sheet
- * AND a finger, hands over the answer (sources written out when the turn has
- * them), and falls back to the copy rather than failing silently.
- */
-
 import { render, screen, waitFor } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { vi, describe, test, expect, beforeEach, afterEach } from 'vitest'

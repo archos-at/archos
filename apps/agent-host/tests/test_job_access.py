@@ -58,7 +58,6 @@ def clear_event_store_caches():
 
 @pytest.fixture
 def auth_on(monkeypatch):
-    """REQUIRE_AUTH=true with the shared secret the BFF signs envelopes with."""
     monkeypatch.setenv("REQUIRE_AUTH", "true")
     monkeypatch.setenv("INTERNAL_API_TOKEN", SECRET)
     monkeypatch.setenv("OIB_COLLECTION_NAME", "oib_knowledge")
@@ -111,7 +110,6 @@ def _envelope(
     issued_at: int | None | object = ...,
     secret: str | None = SECRET,
 ) -> dict[str, str]:
-    """The headers the BFF's job proxy sends: the signed envelope over the scope it authorized."""
     scope: list[dict[str, str]] = [{"collection": "oib_knowledge", "shelf": "base"}]
     if organization_id:
         scope.append({"collection": f"archiv_{organization_id}", "shelf": "office_shelf"})
@@ -197,16 +195,6 @@ class TestJobAccessStorage:
 
 
 class TestCommissioningProject:
-    """Which project a run belongs to — read from the run, never from a request.
-
-    The report a run produces is filed into a project as a document, and its
-    cover sheet names the Bundesland, which is what says which Bauordnung the
-    report was checked against. Taking that project from whatever the reader's
-    session or preferences happen to say produces a compliance document
-    asserting the wrong law, so the answer has to come from the row written at
-    submit time.
-    """
-
     def test_reports_the_project_recorded_at_submit_time(self, db_url):
         principal = Principal(type="jwt", sub="user-1")
         create_job_access("job-1", principal, db_url, project_collection="proj_wien")
@@ -214,24 +202,15 @@ class TestCommissioningProject:
         assert asyncio.run(get_job_project_collection("job-1", db_url)) == "proj_wien"
 
     def test_a_run_started_outside_a_project_reports_none(self, db_url):
-        # The case the old `active_project_id` fallback filled in silently: a
-        # chat with no project makes no filing promise, and None has to stay
-        # None all the way to the caller so it can decline to file.
         principal = Principal(type="jwt", sub="user-1")
         create_job_access("job-2", principal, db_url)
 
         assert asyncio.run(get_job_project_collection("job-2", db_url)) is None
 
     def test_an_unknown_job_reports_none_rather_than_raising(self, db_url):
-        # This runs on the report path beside an authorization check that has
-        # already decided whether the caller may see the job. Raising here would
-        # turn "no destination" into a failed report.
         assert asyncio.run(get_job_project_collection("job-does-not-exist", db_url)) is None
 
     def test_an_empty_string_is_not_a_project(self, db_url):
-        # The column is nullable VARCHAR and nothing constrains it, so an empty
-        # string is storable. Returning it would send the caller looking up a
-        # project named "", and the honest answer is the same as no project.
         principal = Principal(type="jwt", sub="user-1")
         create_job_access("job-3", principal, db_url, project_collection="")
 
@@ -239,8 +218,6 @@ class TestCommissioningProject:
 
 
 class TestAuthorizeJobAccess:
-    """ADR-0084: a job is reached by its owner, or inside the scope the BFF signed."""
-
     @pytest.mark.parametrize("action", ["read", "control"])
     def test_owner_reaches_their_job_without_any_envelope(self, db_url, auth_on, action):
         job = _seed(db_url)
@@ -260,8 +237,6 @@ class TestAuthorizeJobAccess:
         assert _refused(db_url, job, TEAMMATE, _envelope(project_collection="proj_beta"), "read") == 404
 
     def test_other_organization_with_the_same_project_collection_is_refused(self, db_url, auth_on):
-        # Collection names are not tenant-qualified, so the organization is what
-        # keeps a colliding name in another tenant from opening this run.
         job = _seed(db_url)
         headers = _envelope(organization_id="org-2", project_collection="proj_alpha")
 
@@ -287,15 +262,12 @@ class TestAuthorizeJobAccess:
         assert _refused(db_url, job, TEAMMATE, _envelope(conversation_id="conv-2"), "read") == 404
 
     def test_a_run_without_a_project_is_not_reached_through_a_project_less_scope(self, db_url, auth_on):
-        # NULL never matches: a scope that names no project must not meet a run
-        # that has none.
         job = _seed(db_url, project_collection=None, conversation_id=None)
 
         assert _refused(db_url, job, TEAMMATE, _envelope(), "read") == 404
 
     @pytest.mark.parametrize("offset_ms", [-(JOB_ENVELOPE_MAX_AGE_MS + 60_000), JOB_ENVELOPE_MAX_AGE_MS + 60_000])
     def test_an_envelope_outside_the_window_grants_nothing(self, db_url, auth_on, offset_ms):
-        # Past and future alike, as the BFF verifier counts it.
         job = _seed(db_url)
         headers = _envelope(project_collection="proj_alpha", issued_at=_now_ms() + offset_ms)
 
@@ -318,18 +290,15 @@ class TestAuthorizeJobAccess:
         headers = _envelope(project_collection="proj_alpha", secret="not-the-secret")  # noqa: S106
 
         assert _refused(db_url, job, TEAMMATE, headers, "read") == 404
-        # The owner keeps what they own whatever the envelope says.
         assert _authorize(db_url, job, OWNER, headers, "control") is job
 
     def test_an_envelope_minted_for_another_user_grants_nothing(self, db_url, auth_on):
-        # A captured envelope does not travel with somebody else's bearer token.
         job = _seed(db_url)
         headers = _envelope(user_id="user-someone-else", project_collection="proj_alpha")
 
         assert _refused(db_url, job, TEAMMATE, headers, "read") == 404
 
     def test_without_a_shared_secret_no_envelope_grants(self, db_url, auth_on, monkeypatch):
-        # An unsigned envelope is accepted elsewhere in dev; it never widens job access.
         monkeypatch.delenv("INTERNAL_API_TOKEN")
         job = _seed(db_url)
         headers = _envelope(project_collection="proj_alpha", secret=None)
@@ -364,7 +333,6 @@ class TestAuthorizeJobAccess:
 
 
 def test_the_job_envelope_window_is_the_bff_verifiers():
-    """The two windows are one decision written in two languages; this holds them equal."""
     source = (Path(__file__).resolve().parents[3] / "apps/workspace/bff/request-context.ts").read_text()
     match = re.search(r"export const REQUEST_CONTEXT_MAX_AGE_MS = ([\d *]+)\n", source)
     assert match, "REQUEST_CONTEXT_MAX_AGE_MS moved; point this test at it"
@@ -373,8 +341,6 @@ def test_the_job_envelope_window_is_the_bff_verifiers():
 
 
 class _TokenValidator:
-    """Stands in for the WorkOS validator: the token ``tok-<sub>`` is a verified JWT for ``<sub>``."""
-
     def can_handle(self, token: str) -> bool:
         return token.startswith("tok-")
 
@@ -387,15 +353,6 @@ def _bearer(principal: Principal) -> dict[str, str]:
 
 
 def test_job_routes_under_auth_through_the_middleware_chain(db_url, auth_on, monkeypatch):
-    """REQUIRE_AUTH=true through the middleware chain plugin.py builds, against the real job routes.
-
-    The owner reaches the job with their envelope; a project teammate reads and
-    steers it with an envelope signed for the project; a conversation viewer
-    reads it but cannot steer it; another project's member gets 404. A JWT call
-    with no envelope reaches only what its caller owns. A caller with no user token
-    and no envelope reaches an internal route when it sends the internal token,
-    and is refused without it.
-    """
     monkeypatch.setenv("APP_ENV", "production")
     _seed(db_url)
     worker = SimpleNamespace(
@@ -405,7 +362,6 @@ def test_job_routes_under_auth_through_the_middleware_chain(db_url, auth_on, mon
     )
     app = FastAPI()
     validators = [_TokenValidator()]
-    # The order plugin.py adds them in: AuthMiddleware is the outer layer.
     app.add_middleware(RequestContextEnvelopeMiddleware, require_auth=True, validators=validators)
     app.add_middleware(AuthMiddleware, validators=validators, require_auth=True)
     asyncio.run(jobs_routes.register_job_routes(app, MagicMock(), worker))
@@ -426,8 +382,6 @@ def test_job_routes_under_auth_through_the_middleware_chain(db_url, auth_on, mon
     assert call("GET", "/v1/jobs/async/job/job-1", TEAMMATE, conversation_envelope) == 200
     assert call("POST", "/v1/jobs/async/job/job-1/write-now", TEAMMATE, conversation_envelope) == 404
     assert call("GET", "/v1/jobs/async/job/job-1", TEAMMATE, other_project_envelope) == 404
-    # No envelope, as from a frontend before ADR-0084: the owner still reaches
-    # its job on the bearer alone, and nobody else does.
     assert call("GET", "/v1/jobs/async/job/job-1", OWNER, None) == 200
     assert call("GET", "/v1/jobs/async/job/job-1", TEAMMATE, None) == 404
 
@@ -438,7 +392,6 @@ def test_job_routes_under_auth_through_the_middleware_chain(db_url, auth_on, mon
     )
     no_token = client.get("/v1/internal/jobs/job-missing/outcome", params={"organization_id": "org-1"})
 
-    # 404 from the handler ("Job not found"), so the call got past both gates.
     assert internal.status_code == 404
     assert internal.json()["detail"] == "Job not found: job-missing"
     assert no_token.status_code == 403

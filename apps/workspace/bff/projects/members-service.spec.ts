@@ -22,15 +22,12 @@ vi.mock('./project-record-service', () => projectRecord)
 const collaboration = vi.hoisted(() => ({ revokeCollaborationForProjectMember: vi.fn() }))
 vi.mock('@/lib/collaboration/cleanup', () => collaboration)
 
-// The roster lock, recorded: every change must run inside it.
 const lock = vi.hoisted(() => ({
   held: false,
   withProjectMembersLock: vi.fn(),
 }))
 vi.mock('./member-change-lock', () => lock)
 
-// What the caller holds on the project (the grant ceiling), and the cache the
-// change must forget.
 const grants = vi.hoisted(() => ({
   effectiveResourcePermissions: vi.fn(),
   forgetResourceGrants: vi.fn(),
@@ -76,7 +73,6 @@ type Assignment = {
   source?: { type: 'direct' | 'group' }
 }
 
-/** WorkOS dates every assignment; these say nothing about when anyone joined. */
 const UNDATED = new Date('2020-01-01T00:00:00Z')
 
 const session = {
@@ -91,7 +87,6 @@ const EVERY_PROJECT_PERMISSION = PROJECT_PERMISSION_SPECS.map((spec) => spec.slu
 
 const request = new Request('https://grid.test/api/projects/p1/members', { method: 'POST' })
 
-/** Stub the FGA assignment list the service reads to count admins. */
 function stubAssignments(assignments: Assignment[]): void {
   listRoleAssignmentsForResource.mockResolvedValue({
     autoPagination: () => Promise.resolve(assignments),
@@ -128,7 +123,6 @@ beforeEach(() => {
       lock.held = false
     }
   })
-  // By default the caller is a Project Admin: every project permission.
   grants.effectiveResourcePermissions.mockReset().mockResolvedValue(new Set(EVERY_PROJECT_PERMISSION))
   grants.forgetResourceGrants.mockReset().mockResolvedValue(undefined)
 })
@@ -146,7 +140,6 @@ describe('setProjectMemberRole — last-admin guard', () => {
       )
     ).rejects.toBeInstanceOf(ConflictError)
 
-    // The guard runs before any mutation.
     expect(removeRoleAssignment).not.toHaveBeenCalled()
     expect(assignRole).not.toHaveBeenCalled()
   })
@@ -207,7 +200,6 @@ describe('setProjectMemberRole — last-admin guard', () => {
         request
       )
     ).resolves.toBeUndefined()
-    // They hold it already: nothing to write, and nothing removed either.
     expect(writes).toEqual([])
   })
 
@@ -355,7 +347,6 @@ describe('a role change never leaves the person with less than either role', () 
     stubAssignments([admin('ra_1', 'om_admin'), { ...editor('ra_g', 'om_editor'), source: { type: 'group' } }, editor('ra_2', 'om_editor')])
     await setProjectMemberRole(session, 'p1', { organizationMembershipId: 'om_editor', roleSlug: '' }, request)
     expect(writes).toEqual(['remove ra_2'])
-    // They still reach the project through the group: no departure.
     expect(projectRecord.recordMemberLeft).not.toHaveBeenCalled()
     expect(collaboration.revokeCollaborationForProjectMember).not.toHaveBeenCalled()
   })
@@ -433,7 +424,6 @@ describe('listProjectMembers — the removal a row offers', () => {
   }
 
   it('offers the direct assignment of a role the catalog does not know', async () => {
-    // A dashboard-made role with the editor's rights shows as Editor; no assignment carries that slug.
     stubRoster([{ ...editor('ra_x', 'om_x'), role: { slug: 'dashboard-made' } }], {
       'project:view': ['u_x'],
       'project:documents:write': ['u_x'],

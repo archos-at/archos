@@ -9,7 +9,6 @@ import { cn } from '@/lib/utils'
 import { ROUND_GROUPS } from '../../lib/question-round'
 import type { RoundRow } from './use-round-memory'
 
-/** The marker before a row: done (filled, a check), asked now (a thick ring), open (a thin ring; amber for a contradiction). */
 function Marker({ row, current }: { row: RoundRow; current: boolean }): JSX.Element {
   if (row.done) {
     return (
@@ -30,12 +29,6 @@ function Marker({ row, current }: { row: RoundRow; current: boolean }): JSX.Elem
   )
 }
 
-/**
- * Every Rückfrage of the round on the left, by group: „Fehlt in den
- * Unterlagen", „Unterlagen zum Standort", „Widerspruch". A done one shows what
- * was given; an open one is a button that brings it into the card. Desk only:
- * on a phone the question fills the screen and the bar carries the count.
- */
 export function RoundList({
   rows,
   currentId,
@@ -46,9 +39,7 @@ export function RoundList({
   rows: readonly RoundRow[]
   currentId: string | null
   onChoose: (id: string) => void
-  /** One quiet line under the subtitle (Piloti still reads, a past project). */
   note?: ReactNode
-  /** Under the list: the folded interview's link. */
   footer?: ReactNode
 }): JSX.Element {
   const t = useTranslations(intakeQuestionsStepCopy)

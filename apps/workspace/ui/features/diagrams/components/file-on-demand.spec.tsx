@@ -1,11 +1,3 @@
-/**
- * Where this product's view draws a diagram, mermaid's SVG is only the FILE,
- * and the file is drawn when the reader files it — not on mount.
- *
- * Every mermaid render waits behind one global lock, and in dark mode a render
- * on mount was two full layouts per diagram (the unseen dark copy, then the
- * paper one) for a file most readers never make.
- */
 import { render, screen, waitFor } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'

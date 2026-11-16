@@ -3,12 +3,6 @@
  * @vitest-environment node
  */
 
-/**
- * Turn events: the live line, the technical records, and WHOSE WORDS. The backend ships a stable KEY plus interpolation
- * VALUES; every word is written on this side, in the reader's locale — so these
- * tests assert both locales.
- */
-
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, test, expect } from 'vitest'
@@ -81,7 +75,6 @@ describe('liveLine', () => {
 describe('every key the backend can emit has words in every locale', () => {
   const repoRoot = join(process.cwd(), '..', '..')
 
-  /** The string literals inside an `ALL_*_KEYS: tuple[str, ...] = ( … )` block, cut at the first `)`. */
   const registry = (file: string, constant: string): string[] => {
     const source = readFileSync(join(repoRoot, file), 'utf8')
     const block = source.split(`${constant}: tuple[str, ...] = (`)[1]

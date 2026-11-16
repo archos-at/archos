@@ -1,11 +1,3 @@
-"""Markdown, text and CSV files with locators and lossless decoding (``ingest/text_formats``).
-
-These went through ``SimpleDirectoryReader``: one Document per file with no locator (the
-file was citable only as a whole, and ``read_passage`` could not open any part of it),
-read as UTF-8 with ``errors="ignore"`` -- a cp1252 CSV exported from Excel lost every
-umlaut and ß without a trace.
-"""
-
 from __future__ import annotations
 
 import pytest
@@ -63,7 +55,6 @@ class TestDecoding:
         assert text.lstrip("\ufeff").startswith("Geschoßfläche")
 
     def test_bytes_no_codepage_defines_fall_back_to_latin1_not_to_nothing(self):
-        # 0x81 is undefined in cp1252 and invalid UTF-8.
         text, used = decode_text(b"Wand \x81 Decke")
         assert used == "latin-1"
         assert text == "Wand \x81 Decke"
@@ -73,8 +64,6 @@ class TestMarkdown:
     def test_one_section_per_heading_addressed_by_its_path(self, tmp_path):
         docs = extract_text_format_documents(_write(tmp_path, "digest.md", DIGEST.encode()), "digest.md", 1)
         ids = [doc.metadata.get("clause_id") for doc in docs]
-        # The lone "#" heading is the document's title: its own text is addressed by it,
-        # and the chapters are addressed below it.
         assert ids == [
             "BIM-Modell: Wohnanlage Musterstraße",
             "Modellangaben",
@@ -99,7 +88,6 @@ class TestMarkdown:
         assert any("# kein Heading" in doc.text for doc in docs)
 
     def test_a_heading_whose_content_is_in_subsections_still_has_its_chunk(self, tmp_path):
-        """It is what gives the Gliederung its chapter line."""
         docs = extract_text_format_documents(_write(tmp_path, "digest.md", DIGEST.encode()), "digest.md", 1)
         storeys = [doc for doc in docs if doc.metadata.get("clause_id") == "Geschoße"]
         assert [doc.text for doc in storeys] == ["BIM-Modell: Wohnanlage Musterstraße › Geschoße"]
@@ -166,11 +154,6 @@ class TestRouting:
         assert [doc.metadata.get("clause_id") for doc in docs] == ["Teil"]
 
 
-# =============================================================================
-# Through the ingest job: the reader the job uses, and what the file result says.
-# =============================================================================
-
-
 @pytest.fixture
 def summary_db(tmp_path):
     from agent.knowledge import configure_summary_db
@@ -208,7 +191,6 @@ def _run(ing, path: str, name: str):
     raise AssertionError("ingestion job did not terminate in time")
 
 
-#: What each file of the running test's jobs handed to chunking and embedding (``ingestor`` records it).
 _INDEXED: list[list] = []
 
 

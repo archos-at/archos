@@ -1,16 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The cron composer, and the round trip that makes editing safe.
- *
- * The rule under test is that `parseCronParts` accepts EXACTLY what `buildCron`
- * emits and nothing else. If it were looser, opening somebody else's schedule
- * in the wizard and pressing save would silently rewrite when it fires — the
- * expression would be re-composed from a reading the composer cannot actually
- * express. Strictness is why a stepped or listed field falls through to the raw
- * cron field instead.
- */
 
 import { describe, expect, test } from 'vitest'
 import {
@@ -48,7 +38,6 @@ describe('buildCron', () => {
 
   test('clamps out-of-range input rather than emitting an unparseable field', () => {
     expect(buildCron(parts({ frequency: 'daily', hour: 99, minute: -4 }))).toBe('0 23 * * *')
-    // 28 is the ceiling: a monthly schedule must never skip February.
     expect(buildCron(parts({ frequency: 'monthly', monthDay: 31 }))).toBe('0 6 28 * *')
   })
 })
@@ -86,8 +75,6 @@ describe('parseCronParts', () => {
     for (const cron of [
       '*/15 * * * *', // stepped minute
       '0 */2 * * *', // stepped hour
-      // A RANGE, even though it means the same as the list the composer emits:
-      // a parser that accepts more than the writer emits rewrites schedules.
       '0 6 * * 1-5',
       '0 6,18 * * *', // an hour list
       '0 6 1 3 *', // a specific month
@@ -139,14 +126,7 @@ describe('weekdayName', () => {
   })
 })
 
-/**
- * The sentence on a card. The reason it is built from the parsed parts rather
- * than from a preset table is that the table only knew five expressions and
- * called everything else "Benutzerdefiniert (0 8 * * 3)" — which is a cron
- * string with an apology in front of it.
- */
 describe('scheduleSummary', () => {
-  // A stand-in dictionary: the keys and their interpolations are what matters.
   const t = (key: string, values: Record<string, string | number> = {}): string =>
     `${key}(${Object.entries(values)
       .map(([name, value]) => `${name}=${value}`)
@@ -204,9 +184,6 @@ describe('cadenceOf', () => {
   })
 
   test('a cron wins, so a row that somehow has both still reads as one thing', () => {
-    // The write boundary refuses both, and the CHECK constraint refuses both.
-    // If one ever arrives anyway, the UI must still pick a single reading
-    // rather than rendering a task that is two cadences at once.
     expect(cadenceOf({ scheduleCron: '0 6 * * 1', dueAt: '2026-10-02T07:00:00Z' })).toBe('recurring')
   })
 })
@@ -218,9 +195,6 @@ describe('whenSummary', () => {
       .join(',')})`
 
   test('a one-shot reads as its date, not as "manual only"', () => {
-    // The bug this exists to prevent: `scheduleSummary` answers "manual only"
-    // for anything without a cron, which would describe a task due on Friday
-    // as one that never fires by itself.
     const summary = whenSummary(
       t,
       { scheduleCron: null, dueAt: '2026-10-02T07:00:00Z', scheduleTimezone: 'Europe/Vienna' },
@@ -250,8 +224,6 @@ describe('whenSummary', () => {
 
 describe('defaultDueAt', () => {
   test('is tomorrow at 09:00, never now', () => {
-    // "Now" is already in the past by the time the form is submitted, so the
-    // first thing a reader would see is a validation error they did not cause.
     const due = defaultDueAt(new Date('2026-09-16T14:37:12'))
     expect(due.getDate()).toBe(17)
     expect(due.getHours()).toBe(9)
@@ -261,9 +233,6 @@ describe('defaultDueAt', () => {
 
 describe('toDateTimeLocal', () => {
   test('formats in local parts, so the input shows the time the reader picked', () => {
-    // Slicing toISOString() here would show a reader in Vienna 07:00 for a
-    // task they scheduled at 09:00, and saving the form back would walk the
-    // task two hours earlier every time somebody opened it.
     const local = new Date(2026, 9, 2, 9, 5)
     expect(toDateTimeLocal(local)).toBe('2026-10-02T09:05')
   })

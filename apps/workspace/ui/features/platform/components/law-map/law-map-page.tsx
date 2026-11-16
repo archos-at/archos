@@ -1,15 +1,5 @@
 'use client'
 
-/**
- * Platform → a country → law map: the country as one outline, country →
- * region → adoption statement, everything opening in place
- * (docs/design/international/country-onboarding-ux.md, section B). It reads
- * the open change request the review reads (`change-requests/[id]`), so what
- * it shows is what a reviewer decides on; `?request=` names another. A
- * reviewer confirms there, unit by unit (`law-map-review.ts`), and the request
- * is approved, published or rolled back from the same page (`ReleaseBar`).
- */
-
 import type { JSX } from 'react'
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
@@ -36,7 +26,6 @@ import { branchesOf, LawMapOutline } from './law-map-outline'
 
 const BASE = '/api/platform/knowledge/change-requests'
 
-/** The request a reviewer works on: the newest submitted one, else an approved one not yet published, else the newest draft. */
 export function openRequestOf(requests: readonly ChangeRequestSummary[]): ChangeRequestSummary | null {
   const newest = (status: string) => requests.filter((one) => one.status === status).sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0] ?? null
   return newest('submitted') ?? newest('approved') ?? newest('draft')
@@ -46,7 +35,6 @@ export function LawMapPage({ countryId, today = new Date().toISOString().slice(0
   const t = useTranslations(lawMapCopy)
   const { locale } = useLocale()
   const params = useSearchParams()
-  // Only a request id goes into the path; anything else reads as no request named.
   const asked = params.get('request')
   const named = asked && /^[0-9a-f-]{36}$/i.test(asked) ? asked : null
   const list = usePlatformJson<{ changeRequests: ChangeRequestSummary[] }>(`${BASE}?countryId=${countryId}&limit=200`)
@@ -54,7 +42,6 @@ export function LawMapPage({ countryId, today = new Date().toISOString().slice(0
   const sources = usePlatformJson<{ sources: SourceStatusView[] }>(canWrite ? '/api/platform/knowledge/sources' : null)
   const requestId = named ?? (list.load.state === 'ready' ? openRequestOf(list.load.value.changeRequests)?.id ?? null : null)
   const request = usePlatformJson<ChangeRequestView>(requestId ? `${BASE}/${requestId}` : null)
-  // Only the request asked for, of this country: a previous one stays loaded while the next arrives.
   const loaded = request.load.state === 'ready' && request.load.value.id === requestId ? request.load.value : null
   const current = loaded && loaded.countryId === countryId ? loaded : null
   const map = useMemo(() => (current ? lawMapOf(countryId, current.revisions, current.captures) : null), [current, countryId])
@@ -64,7 +51,6 @@ export function LawMapPage({ countryId, today = new Date().toISOString().slice(0
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set())
   const [open, setOpen] = useState<string | null>(null)
   const toggle = (id: string) => setExpanded((now) => (now.has(id) ? new Set([...now].filter((one) => one !== id)) : new Set([...now, id])))
-  // A link naming another country's request lands on that country's map.
   const router = useRouter()
   const elsewhere = loaded && loaded.countryId !== countryId ? loaded : null
   useEffect(() => {
@@ -94,11 +80,8 @@ export function LawMapPage({ countryId, today = new Date().toISOString().slice(0
   }
 
   const view = current
-  // What waits for a verdict; a unit sent back waits for its proposer, not for this reviewer.
   const waiting = units.filter((unit) => unit.review === 'open')
-  // Verdicts are taken while the request is submitted, and on an approved one whose second review is due (ADR-0176).
   const reviewable = view.status === 'submitted' || (view.secondReview?.state === 'due' && REVIEWED_AFTER_APPROVAL.includes(view.status))
-  // "Next" opens what waits and the branches it sits in, then brings it into view.
   const goTo = (key: string): void => {
     const unit = units.find((one) => one.key === key)
     if (!unit) return
@@ -106,11 +89,10 @@ export function LawMapPage({ countryId, today = new Date().toISOString().slice(0
     setOpen(key)
     window.setTimeout(() => document.getElementById(`row-${key}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 50)
   }
-  // As the server decides it (0208, 0218): an author of any revision in the request.
   const authored = Boolean(user?.id) && view.revisions.some((revision) => revision.createdBy === user?.id)
+  // An author of any revision in the request may not give its second review.
   const confirm = {
     requestId: view.id,
-    // A second review is never its author's: the review dialog hides its verdicts from them too.
     open: reviewable && !(view.status !== 'submitted' && authored),
     canReview,
     authored,
@@ -156,7 +138,6 @@ export function LawMapPage({ countryId, today = new Date().toISOString().slice(0
               ? {
                   countryId,
                   sources: sources.load.value.sources.filter((source) => source.countryId === countryId),
-                  // Stay here: the draft's link appears above, and this request is read again in case it was the draft.
                   onAdded: () => {
                     setOpen(null)
                     list.reload()

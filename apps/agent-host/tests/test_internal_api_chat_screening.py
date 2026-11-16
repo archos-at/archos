@@ -1,10 +1,3 @@
-"""``chat_screening_for``: the office's chat screening, read from the BFF once per socket (ADR-0086).
-
-It fails CLOSED. Anything but a well-formed answer from the BFF masks with
-every detector and no term (``CHAT_SCREENING_FALLBACK``), and says so by
-``from_office=False``, so the socket asks again on its next message.
-"""
-
 from __future__ import annotations
 
 from typing import Any
@@ -20,8 +13,6 @@ from agent_host.internal_api import chat_screening_from
 
 
 class _Requests(list):
-    """Every request the BFF received; ``answer`` is what it replies next (or an exception to raise)."""
-
     answer: tuple[int, Any] | Exception = (
         200,
         {"enabled": True, "content_terms": ["Gehaltsabrechnung"], "detectors": ["iban"]},

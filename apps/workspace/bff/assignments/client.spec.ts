@@ -2,12 +2,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The assignments' typed client (ADR-0055): the one place the browser writes
- * their paths and verbs. The Zuständige picker, a document's assignee strip
- * and the Anmerkung composer go through it, so a path or a verb the routes
- * change cannot be missed in one of three raw fetches.
- */
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
@@ -43,7 +37,6 @@ describe('the assignments client', () => {
     const { run, calls } = recorder({ candidates: [ANNA] })
 
     expect(await listAssignmentCandidates('document', 'doc_1', {}, run)).toEqual([ANNA])
-    // A mark's Zuständige must answer it: the picker asks who may write the document.
     expect(await listAssignmentCandidates('document', 'doc_1', { access: 'write' }, run)).toEqual([ANNA])
     expect(calls.map((call) => call.path)).toEqual([
       '/api/assignments/document/doc_1/candidates',
@@ -60,7 +53,6 @@ describe('the assignments client', () => {
   })
 })
 
-/** Every browser-side source file under these roots, specs left out. */
 function sources(root: string): string[] {
   return readdirSync(root).flatMap((name) => {
     const path = join(root, name)

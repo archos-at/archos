@@ -37,7 +37,6 @@ const atRecords = recordsOf(at)
 const euRecords = recordsOf(eu)
 const graph = graphFromProposals([...euRecords, ...atRecords])
 
-/** The OIB's table, corrected by RIS: the binding edition of RL 1–5 and of RL 6 per Land on 2026-11-10. */
 const BINDING_ON_2026_11_10: Record<string, { rl1to5: string | null; rl6: string | null }> = {
   'AT-1': { rl1to5: '2019', rl6: '2025' }, // LGBl. 75/2026; the OIB table still shows '-'
   'AT-2': { rl1to5: '2023', rl6: '2023' },
@@ -59,22 +58,18 @@ function bindingEditions(leaf: string, date: string, rl: string): string[] {
 }
 
 describe('the Austria and EU packs', () => {
-  /** KC-6 asks every platform record for a capture of its change request; a pack file holds none (ADR-0170). */
   const structural = (problems: readonly { code: string }[]) => problems.filter((problem) => problem.code !== 'KC-6')
   const published = new Map<string, KnownRecord>(euRecords.map((record) => [recordIdOf(record), { type: record.type, countryId: 'EU' }]))
 
   it('are proposals the platform accepts but for their captures: one change request each, valid against what it names', () => {
     expect(at.countryId).toBe('AT')
     expect(eu.countryId).toBe('EU')
-    // A change request takes its records in batches of MAX_PROPOSED_RECORDS (records-propose upserts into it).
     for (let start = 0; start < atRecords.length; start += MAX_PROPOSED_RECORDS)
       expect(() => proposeRecordsBodySchema.parse({ records: at.records.slice(start, start + MAX_PROPOSED_RECORDS) })).not.toThrow()
     expect(structural(validateProposal(euRecords, 'EU', new Map(), new Map()))).toEqual([])
-    // A text's file is in the base corpus before its record is written (ADR-0165): the corpus answers for each, as the api tier does.
     const held = new Map(atRecords.filter((record) => record.type === 'manifestation' && record.corpusFile).map((record) => [recordIdOf(record), []]))
     expect(held.size).toBeGreaterThan(0)
     expect(structural(validateProposal(atRecords, 'AT', published, new Map(), [], held))).toEqual([])
-    // Unasked, each of those texts is a problem at its corpusFile, and nothing else is.
     const unasked = validateProposal(atRecords, 'AT', published, new Map()).filter((problem) => problem.code !== 'KC-6')
     expect(unasked.map((problem) => `${problem.code} ${problem.pointer}`)).toEqual([...held].map(() => 'KC-1 /corpusFile'))
   })
@@ -139,7 +134,6 @@ describe('the Austria and EU packs', () => {
       'oib-rl_4_ausgabe_mai_2023.pdf': 'edition:oib-rl-4-2023',
       'oib-rl_5_ausgabe_mai_2023.pdf': 'edition:oib-rl-5-2023',
       'oib-rl_6_ausgabe_mai_2023.pdf': 'edition:oib-rl-6-2023',
-      // The other binding editions, under the names oib.or.at publishes (agent/common/oib_file_names.py).
       'richtlinie_1_12.04.19_0.pdf': 'edition:oib-rl-1-2019',
       'oib-rl-2-brandschutz-2019.pdf': 'edition:oib-rl-2-2019',
       'oib-rl-2.1-brandschutz-bei-betriebsbauten-2019.pdf': 'edition:oib-rl-2-1-2019',

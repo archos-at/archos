@@ -1,9 +1,3 @@
-/**
- * Specs render in the English dictionary; the answer's own words stay German.
- *
- * The answer's directive dialect, drawn: each block from plain Markdown, and
- * nothing lost when a name is unknown or a text merely looks like a directive.
- */
 import { fireEvent, render, screen, within } from '@/test-utils'
 import { describe, expect, it } from 'vitest'
 
@@ -33,11 +27,6 @@ const PASSING = [
 ].join('\n')
 
 
-/**
- * Whether the disclosure holding `element` is open. A closed disclosure stays
- * in the page (it prints open, `PRINT_OPEN_CONTENT`) and is hidden by its
- * `data-state`, which jsdom does not apply as CSS.
- */
 const panelState = (element: HTMLElement): string | null =>
   element.closest('[data-slot="collapsible-content"]')?.getAttribute('data-state') ?? null
 
@@ -71,9 +60,7 @@ describe(':::check', () => {
   it('lets the computed outcome win: an open word becomes the result, a contradiction is flagged', () => {
     const { container } = render(<MarkdownRenderer content={CHECK} />)
     const rows = container.querySelectorAll('tbody tr')
-    // 38 m ≤ 40 m: „offen" is replaced by the computed outcome (English copy here).
     expect(within(rows[1] as HTMLElement).getByTestId('status-mark')).toHaveTextContent('met')
-    // 1.380 m² against max. 1.200 m² written as „erfüllt": a Widerspruch.
     expect(rows[2]).toHaveAttribute('data-conflict', 'true')
     expect(within(rows[2] as HTMLElement).getByTestId('status-mark')).toHaveTextContent('Contradiction – check')
     expect(screen.getByTestId('status-tally').textContent).toContain('1 unresolved')
@@ -82,7 +69,6 @@ describe(':::check', () => {
   it('collapses a check that passes everywhere to one line', () => {
     render(<MarkdownRenderer content={PASSING} />)
     expect(screen.getByTestId('check-passed')).toHaveTextContent('4 of 4 met')
-    // Kept in the page so it prints, but closed on screen.
     expect(panelState(screen.getByRole('table'))).toBe('closed')
     fireEvent.click(screen.getByTestId('check-passed'))
     expect(panelState(screen.getByRole('table'))).toBe('open')

@@ -6,8 +6,6 @@ import { parseDelimited, sniffDelimiter } from './delimited'
 
 describe('sniffDelimiter', () => {
   it('picks the semicolon a German Excel export uses', () => {
-    // The case this exists for: comma-first reading renders the whole export as
-    // one column, which looks like a one-column file rather than a misparse.
     expect(sniffDelimiter('Bauteil;U-Wert;Norm\nAußenwand;0,20;OIB-6\n')).toBe(';')
   })
 

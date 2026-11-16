@@ -26,10 +26,8 @@ const read = (name: string) =>
 const GRAPH = graphFromProposals([...read('eu.json'), ...read('at.json')])
 const LANDS = ['AT-1', 'AT-2', 'AT-3', 'AT-4', 'AT-5', 'AT-6', 'AT-7', 'AT-8', 'AT-9']
 
-/** A quarter of the warm budget: the resolver must leave the reads the rest. */
 const RESOLVER_P95_MS = 10
 
-/** One trial: every Land twenty times; its p95 in milliseconds. */
 function trialP95(): number {
   const timings: number[] = []
   for (let round = 0; round < 20; round += 1) {
@@ -49,7 +47,6 @@ function trialP95(): number {
       timings.push(performance.now() - started)
       expect(context.gate.state).toBe('core')
       expect(context.uses.length).toBeGreaterThan(0)
-      // The Austria pack dates every edition: nothing on its chains is undetermined, and the context says so.
       expect(context.undetermined).toEqual([])
     }
   }
@@ -57,13 +54,6 @@ function trialP95(): number {
   return sorted[Math.floor(sorted.length * 0.95)]
 }
 
-/**
- * Trials, of which the best p95 is held to the bound. The resolution, chain
- * text included, is the cost a cache miss pays, so all of it is timed: about
- * 1 ms on an idle machine. A parallel suite's contention inflated one trial past
- * the bound (2026-11 review of #1584); a slower resolver is slow in every trial,
- * contention seldom in all of them (the best-of rule of `timeit`).
- */
 const TRIALS = 5
 
 describe('the knowledge phase budget', () => {

@@ -1,14 +1,5 @@
 'use client'
 
-/**
- * A shelf's notes as folders by topic (ADR-0180, topics amendment): one
- * collapsible group per topic, in the order the shelf's topic summary gives
- * (most notes first), and the notes without a topic last. Domain-free on the
- * note: the caller renders a row (`renderItem`) and what a topic can do
- * (`renderTopicActions`, rename, merge, remove), so a person's shelf and a
- * project's shelf list the same folders.
- */
-
 import type { JSX, ReactNode } from 'react'
 import { Fragment } from 'react'
 import { ChevronDown } from 'lucide-react'
@@ -19,29 +10,19 @@ import { useTranslations } from '@/i18n'
 import { memoryTopicsCopy } from '@/i18n/namespaces/memory-topics'
 
 export interface TopicFoldersProps<T extends { id: string; topic: string | null }> {
-  /** The notes the reader sees on the shelf, in the order their rows should keep. */
   items: T[]
-  /** The shelf's topics with how many notes each holds, in the order the folders show. */
   topics: { name: string; count: number }[]
   renderItem: (item: T) => ReactNode
-  /** The actions of a folder's heading; `null` is the folder of notes without a topic. */
   renderTopicActions?: (topic: string | null) => ReactNode
-  /** Whether the folders start open. */
   defaultOpen?: boolean
 }
 
 interface FolderGroup<T> {
-  /** The topic's name, or null for the notes without one. */
   topic: string | null
   count: number
   items: T[]
 }
 
-/**
- * The notes sorted into their topic's group, the summary's order kept. A topic the
- * notes hold and the summary lacks gets its own group after the summary's, counted
- * by its notes, so no note is dropped; the notes without a topic come last.
- */
 function groupByTopic<T extends { topic: string | null }>(
   items: T[],
   topics: { name: string; count: number }[]
@@ -76,7 +57,6 @@ export function TopicFolders<T extends { id: string; topic: string | null }>({
   defaultOpen = true,
 }: TopicFoldersProps<T>): JSX.Element {
   const t = useTranslations(memoryTopicsCopy)
-  // No note has a topic yet: no folder and no „Ohne Thema“ heading, the notes are the plain list they were before topics.
   if (items.every((item) => item.topic === null)) {
     return (
       <ItemList data-testid="topic-folders">

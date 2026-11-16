@@ -1,5 +1,3 @@
-"""A card streamed before the pipeline runs, gated as the pipeline gates it (ADR-0066)."""
-
 from __future__ import annotations
 
 import copy
@@ -51,8 +49,6 @@ def _with_tool_cards(*cards: dict) -> tuple[CardRegistry, object]:
 
 
 def test_a_card_streams_after_a_tool_registered_one_and_the_tools_head_the_list():
-    # The terminal lists the tools' cards first, then the envelope's: the live
-    # list is the same, so [[card:N]] and a decision's key mean one card.
     _cards, token = _with_tool_cards({"type": "document_draft", "path": "a.md"})
     try:
         live = LiveAnswer(_registry())
@@ -75,7 +71,6 @@ def test_a_marker_a_tool_handed_out_keeps_its_number():
     _cards, token = _with_tool_cards({"type": "document_draft"})
     try:
         live = LiveAnswer(_registry(), handed={1})
-        # [[card:1]] is the tool's own; the model continued after it, so 2 is array card 1.
         assert live.place("[[card:1]] [[card:2]]") == "[[card:1]] [[card:2]]"
     finally:
         reset_card_registry(token)
@@ -97,7 +92,6 @@ def test_the_tool_cards_are_read_once_per_call():
 
 
 async def test_the_live_positions_are_the_terminals():
-    """``place`` and the finished answer's renumbering read the model's numbers the same way."""
     from agent.agents.piloti.answer_pipeline import _register_envelope_cards
     from agent.common.answer_envelope import AnswerMeta
 

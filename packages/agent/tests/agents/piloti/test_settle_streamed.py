@@ -1,5 +1,3 @@
-"""Settling the streamed prose's citations before the cards arrive (ADR-0066)."""
-
 from __future__ import annotations
 
 from agent_testing.settle_streamed import SOURCES
@@ -15,10 +13,8 @@ from agent.citations.registry import SourceRegistry
 def test_an_unbacked_marker_is_removed_and_the_rest_take_the_numbers_the_terminal_will_give():
     settled = settle_streamed_citations("Fluchtweg 40 m [1], erfunden [2], Treppe [3].", SOURCES, _registry())
     body, _, section = settled.content.partition("\n\n")
-    # Removed, never labelled (ADR-0125, amended 2026-11-10): no verification marker reaches prose.
     assert body == "Fluchtweg 40 m [1], erfunden, Treppe [2]."
     assert DROPPED_CITATION_MARKER not in settled.content
-    # The source list rides along, renumbered, the unbacked line gone.
     assert "[1]" in section and "[2]" in section and "erfunden.pdf" not in section and "[3]" not in section
     assert [(s["number"], s["citation_key"]) for s in settled.sources] == [
         (1, "oib-rl_2_ausgabe_mai_2023.pdf, p.12"),
@@ -32,8 +28,6 @@ def test_prose_without_a_sources_section_or_a_registry_settles_nothing():
 
 
 def test_a_quote_no_passage_holds_carries_no_marker_when_it_settles():
-    # The quote stays as written, with no marker in the prose (ADR-0125, amended
-    # 2026-11-10): the quote gate lowers the answer's confidence instead.
     registry = SourceRegistry()
     registry.add(
         SourceEntry(
@@ -57,8 +51,6 @@ def test_a_quote_no_passage_holds_carries_no_marker_when_it_settles():
 
 
 def test_a_mindmap_that_only_redraws_a_table_goes_when_the_prose_settles():
-    # The terminal dropped it; with diagrams drawn mid-stream the reader
-    # watched it appear, then vanish at the terminal frame.
     prose = (
         "| Abschnitt | Gegenstand |\n|---|---|\n| Garagen | Nutzfläche [1] |\n| Parkdecks | Bauart [1] |\n\n"
         '```mermaid\nmindmap\n  root(("OIB"))\n    "Garagen"\n      "Nutzfläche"\n'
@@ -79,9 +71,6 @@ def _one_source() -> SourceRegistry:
 
 
 def test_no_source_the_model_did_not_cite_is_attached():
-    # The single-source fallback attached the registry's one source when the
-    # only line named nothing retrieved; that source could be two turns old
-    # (ADR-0125). The marker is removed and no chip is invented.
     settled = settle_streamed_citations(
         "Treppen brauchen 2,10 m [1].", "## Quellen\n- [1] erfunden.pdf, p.9", _one_source()
     )

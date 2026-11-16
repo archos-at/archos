@@ -1,10 +1,3 @@
-"""The one BFF client: where it calls, with which credential, and what it refuses to do.
-
-The transport tests run against a real loopback HTTP server rather than a
-patched opener, because the properties under test (a redirect is not followed,
-no proxy is used, a ``file:`` URL is not read) live in the opener itself.
-"""
-
 from __future__ import annotations
 
 import json
@@ -40,8 +33,6 @@ TOKEN = "service-token"
 
 
 class _Server:
-    """A loopback server answering each path with a queued (status, headers, body); it records every request."""
-
     def __init__(self) -> None:
         self.answers: dict[str, tuple[int, dict[str, str], bytes]] = {}
         self.requests: list[dict[str, Any]] = []
@@ -161,15 +152,12 @@ class TestWhatItRefuses:
             elsewhere.close()
 
     def test_an_environment_proxy_is_not_used(self, bff: _Server, monkeypatch: pytest.MonkeyPatch) -> None:
-        """The token never travels through an egress proxy an environment variable configured."""
         proxy = _Server()
         try:
             for name in ("HTTP_PROXY", "http_proxy", "HTTPS_PROXY", "https_proxy"):
                 monkeypatch.setenv(name, proxy.url)
             for name in ("NO_PROXY", "no_proxy"):
                 monkeypatch.delenv(name, raising=False)
-            # A ProxyHandler reads the environment when it is built, so the
-            # opener is built again here, under the proxy settings.
             monkeypatch.setattr(bff_http, "_opener", bff_http._build_opener())
             bff.answers["/api/internal/x"] = (200, {}, b"{}")
             assert bff_http.get_json("/api/internal/x", timeout=2) == {}
@@ -245,7 +233,6 @@ class TestWhatItRefuses:
     ],
 )
 def test_every_domain_error_is_a_bff_error(error: type[Exception]) -> None:
-    """A caller that needs only "the BFF did not answer" catches the base; each domain keeps its own name."""
     assert issubclass(error, bff_http.BffError)
     assert issubclass(error, RuntimeError)
 
@@ -263,8 +250,6 @@ LEDGERS = [
 
 @pytest.mark.parametrize(("post", "route", "payload"), LEDGERS)
 class TestTheLedgersGoThroughTheSeam:
-    """The three best-effort ledgers: through the seam, with the token, and never raising."""
-
     def test_the_batch_reaches_its_route_with_the_token(
         self, bff: _Server, post: Callable[[dict], None], route: str, payload: dict
     ) -> None:

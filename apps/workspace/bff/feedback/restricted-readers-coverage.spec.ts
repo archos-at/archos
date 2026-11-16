@@ -2,34 +2,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Every cross-tenant reader of a vote's words asks the database's one rule
- * (ADR-0093).
- *
- * A vote's `comment` and `expected_answer` can quote a folder with restricted
- * access, and every reader outside the voter's tenant (platform staff, the
- * digest's model, the lessons distiller, Langfuse) is outside that folder's
- * audience. Three repair rounds each found another reader that asked the wrong
- * thing. So the readers are found here, in the commit that adds one, the way
- * `download-log/coverage.spec.ts` finds what hands out a document's bytes: from
- * the syntax tree, not the text, so a comment naming a column is not a reader.
- *
- * - A **reader** is a unit of `src` (a top-level function, a declarator, a class
- *   member) whose SQL names `comment`, `expected_answer` or `*` together with
- *   `answer_feedback` or a call to the shared `voteScope` (which supplies
- *   `from answer_feedback f`), or whose drizzle query reads
- *   `answerFeedback.comment` / `.expectedAnswer` or the whole row (`select()`,
- *   `returning()` without a projection), or that hands the words to Langfuse
- *   (`upsertFeedbackScore`).
- * - A reader is **cross-tenant** when it is reached from the callback of a
- *   `withPlatformAccess(...)`, following calls by name.
- * - Every reader is classified in {@link READERS}: either it applies the rule
- *   (`OUTSIDE_RESTRICTED_USE`, `feedback_restricted_use`, `voteScope`
- *   with `contentBearing`, or for the Langfuse score `isRestrictedUseVote`),
- *   or it is tenant-scoped, or it reads only whether a note exists, with the
- *   reason. A tenant-scoped reader reached from a platform callback fails, and
- *   so does a reader nobody classified.
- */
 import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import ts from 'typescript-api'
@@ -39,7 +11,6 @@ import { SOURCE_DIRS, srcKey } from '@/test-utils/source-tree'
 
 type Classification = { rule: true } | { tenant: string } | { presenceOnly: string }
 
-/** `path::unit` → how it keeps a restricted folder's words from a reader outside its audience. */
 const READERS: Record<string, Classification> = {
   'lib/feedback/repository.ts::upsertAnswerFeedback': {
     tenant: "The caller's own vote, written and returned in the caller's tenant.",
@@ -62,7 +33,6 @@ const READERS: Record<string, Classification> = {
 
 const RULE = /\bOUTSIDE_RESTRICTED_USE\b|\b(?:grid_)?feedback_restricted_use\b|\bisRestrictedUseVote\b/
 
-/** The shared scope applies the rule when asked: `voteScope(…, { contentBearing: true })`. */
 const SCOPED_RULE = /\bcontentBearing:\s*true\b/
 
 interface Unit {
@@ -80,7 +50,6 @@ function sourceFiles(dir: string): string[] {
     .map((file) => join(dir, file))
 }
 
-/** Top-level functions, declarators and class members: each is its own unit. */
 function unitsOf(rel: string, source: ts.SourceFile): Unit[] {
   const units: Unit[] = []
   const add = (name: string, node: ts.Node) => units.push({ key: `${rel}::${name}`, name, node })
@@ -100,7 +69,6 @@ function unitsOf(rel: string, source: ts.SourceFile): Unit[] {
   return units
 }
 
-/** What a unit says in code: its literal and template text, and its property accesses. Comments are not in it. */
 function codeOf(node: ts.Node): {
   sql: string
   accesses: string[]
@@ -112,8 +80,6 @@ function codeOf(node: ts.Node): {
   const calls: string[] = []
   let selectsWholeRow = false
   const visit = (child: ts.Node) => {
-    // Template text only: SQL is written in `sql` templates, and a plain string
-    // (a table definition's column name) is not a query.
     if (
       ts.isNoSubstitutionTemplateLiteral(child) ||
       ts.isTemplateHead(child) ||
@@ -154,7 +120,6 @@ function readsWords(unit: Unit): boolean {
   return code.calls.includes('upsertFeedbackScore')
 }
 
-/** Everything a unit names in code, so the rule's identifier and its SQL are both found. */
 function codeText(unit: Unit): string {
   const code = codeOf(unit.node)
   return [code.sql, ...identifiersOf(unit.node)].join('\n')
@@ -184,7 +149,6 @@ function scan(): Scan {
   return { readers, byName, units }
 }
 
-/** The units a platform callback reaches, following every name it mentions (stricter than calls alone). */
 function reachedFromPlatformAccess({ units, byName }: Scan): Set<string> {
   const reached = new Set<string>()
   const queue: string[] = []
@@ -195,8 +159,6 @@ function reachedFromPlatformAccess({ units, byName }: Scan): Set<string> {
         ts.isIdentifier(node.expression) &&
         node.expression.text === 'withPlatformAccess'
       ) {
-        // Every name the callback mentions: a function handed over by reference
-        // (`withPlatformAccess(reason, sweep)`) is reached as surely as a call.
         for (const argument of node.arguments.slice(1)) queue.push(...identifiersOf(argument))
       }
       ts.forEachChild(node, visit)
@@ -270,10 +232,8 @@ describe("every reader of a vote's words outside its tenant asks the rule (ADR-0
     expect(rule && codeOf(rule.node).sql).toMatch(
       /not feedback_restricted_use\(f\.organization_id, f\.message_id, f\.conversation_id\)/
     )
-    // `scoreVoteInLangfuse` applies the rule through this; it must be the same one.
     const langfuse = unit('lib/feedback/repository.ts::isRestrictedUseVote')
     expect(langfuse && identifiersOf(langfuse.node)).toContain('OUTSIDE_RESTRICTED_USE')
-    // `contentBearing` is only a promise until the shared scope keeps it.
     const scope = unit('lib/feedback/vote-scope.ts::voteScope')
     expect(scope?.node.getText()).toMatch(/if \(options\.contentBearing\) conditions\.push\(OUTSIDE_RESTRICTED_USE\)/)
   })

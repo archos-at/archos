@@ -1,12 +1,3 @@
-"""A passage read off a picture of the page carries its box to the viewer (issue #433).
-
-The box travels as a field of the grounding record, and the model reads it as a
-``Region:`` line in ``look``'s own frame (``[x, y, w, h]``, ADR-0128), so it can
-look again at the place a hit cites. These tests hold both halves: the line is
-what ``look(region=...)`` takes, and the box still reaches the wire, through
-dedup and the session cache.
-"""
-
 from __future__ import annotations
 
 import dataclasses
@@ -72,7 +63,6 @@ def test_a_hit_with_a_region_says_where_it_sits_in_looks_own_numbers():
     rendered = render_grounding_block(_block(_hit(regions=(FLOOR_PLAN, SECTION))))
 
     assert "Region: [0.1, 0.2, 0.4, 0.4] „Grundriss EG“\n" in rendered
-    # origin and size, not corners; an unlabelled box has no label
     assert "Region: [0.55, 0.2, 0.35, 0.4]\n" in rendered
     assert rendered.index("Region:") < rendered.index("Citation:")
 
@@ -110,7 +100,6 @@ def test_the_record_carries_the_region_into_the_registry(capturing):
 
 
 def test_two_depictions_on_one_page_are_both_marked(capturing):
-    """Dedup folds the page's chunks into one source; it must not fold their boxes away."""
     rendered = render_grounding_block(
         _block(_hit(regions=(FLOOR_PLAN,)), _hit(regions=(SECTION,), body="Schnitt A-A durch die Sitztreppe."))
     )
@@ -138,14 +127,12 @@ def test_running_text_carries_no_regions_key():
 
 
 def test_a_source_that_was_only_read_carries_no_regions():
-    """The uncited channel names documents; a box is a claim about where the evidence is."""
     entry = SourceEntry(citation_key="plan.pdf, p.3", source_type="knowledge_layer", regions=[FLOOR_PLAN])
 
     assert "regions" not in read_source_to_wire(entry)
 
 
 def test_a_resumed_conversation_keeps_its_boxes():
-    """The session registry is cached as ``asdict``; a replica move must not drop the boxes."""
     entry = SourceEntry(citation_key="plan.pdf, p.3", source_type="knowledge_layer", regions=[FLOOR_PLAN])
 
     hydrated = _registry_from_cached_entries([dataclasses.asdict(entry)])

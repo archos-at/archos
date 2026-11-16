@@ -1,20 +1,3 @@
-"""The server's WebSocket implementation does not log a peer's ordinary close as an ERROR (#758).
-
-err2issue filed ``ConnectionClosedError`` with no traceback, from asyncio's
-default exception handler. The source is websockets' legacy protocol (uvicorn's
-default): ``ping()`` returns ``asyncio.shield(pong_waiter)``, a peer that closes
-while a keepalive ping is unanswered gets the keepalive task, and so the shield,
-cancelled first, and Python 3.12+ then reports the waiter's close exception as
-"... exception in shielded future". ``apps/agent-host/start_web.py`` names the
-implementation production runs; this runs that exact close against it.
-
-There used to be an oracle beside it that ran the same close against the legacy
-implementation and required the report. That report comes from a future's
-finaliser, so whether it showed up depended on garbage collection in a shared
-CI shard, and the oracle failed develop at random (2026-10-22, CI run 3636). It
-was removed; the harness is unchanged since it last reproduced the report.
-"""
-
 from __future__ import annotations
 
 import ast
@@ -31,7 +14,6 @@ START_WEB = Path(__file__).resolve().parents[1] / "apps" / "agent-host" / "start
 
 
 def _module_constant(name: str) -> object:
-    """A constant from start_web.py, read without importing it (the script has import-time effects)."""
     for node in ast.parse(START_WEB.read_text()).body:
         if isinstance(node, ast.Assign) and any(getattr(t, "id", None) == name for t in node.targets):
             return ast.literal_eval(node.value)
@@ -43,7 +25,6 @@ def _production_implementation() -> str:
 
 
 def _uvicorn_run_keywords() -> dict[str, str]:
-    """The keyword arguments ``main()`` passes to ``uvicorn.run``, each as the name or literal it is given."""
     for node in ast.walk(ast.parse(START_WEB.read_text())):
         if isinstance(node, ast.Call) and ast.unparse(node.func) == "uvicorn.run":
             return {kw.arg: ast.unparse(kw.value) for kw in node.keywords if kw.arg}
@@ -66,7 +47,6 @@ def _masked(opcode: int, payload: bytes) -> bytes:
 
 
 async def _close_during_a_ping(implementation: str) -> tuple[list[str], str]:
-    """Open a socket, echo one message, let a keepalive ping go unanswered, then close; what asyncio reported."""
     loop = asyncio.get_running_loop()
     reports: list[str] = []
     previous = loop.get_exception_handler()
@@ -101,10 +81,6 @@ async def _close_during_a_ping(implementation: str) -> tuple[list[str], str]:
         writer.write(_masked(0x8, (1000).to_bytes(2, "big")))  # a normal close, ping still outstanding
         await asyncio.sleep(0.3)
         writer.close()
-        # The legacy bug reports from a future's finaliser, so the closed
-        # connection's garbage has to be collected before `reports` is read.
-        # One full collection after the settle time finds all of it; five in
-        # a loop cost seconds each on a large heap.
         await asyncio.sleep(0.25)
         gc.collect()
         return reports, echoed
@@ -124,8 +100,6 @@ async def test_the_implementation_production_runs_serves_and_closes_quietly():
 
 
 def test_keepalive_tolerates_a_late_pong():
-    # uvicorn's default ws_ping_timeout of 20 s closed live chat sockets with
-    # 1011 when a background tab or a waking radio answered late.
     keywords = _uvicorn_run_keywords()
     assert keywords["ws_ping_interval"] == "WS_PING_INTERVAL"
     assert keywords["ws_ping_timeout"] == "WS_PING_TIMEOUT"

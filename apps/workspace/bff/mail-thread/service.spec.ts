@@ -1,11 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * What a thread view names is the reader's (D9, D36): every attachment of a
- * message is listed by position, and one filed where the reader may not look
- * keeps its place and loses its name and ids.
- */
 import { describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
@@ -39,7 +34,6 @@ describe('an entry’s attachments for the reader', () => {
       ),
     ).toEqual([
       { position: 1, filename: 'S-101_C.pdf', disposition: 'filed', documentId: 'doc-1', visible: true },
-      // Waiting, dismissed, infected or name-stopped: its name is the mail's, not a document's, and only a reviewer reads it.
       { position: 2, filename: null, disposition: 'not_filed', notFiledReason: 'type_not_accepted', visible: true },
     ])
   })

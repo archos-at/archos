@@ -1,13 +1,3 @@
-/**
- * Into a document's Prüfansicht at one mark, over the chat, and nowhere else.
- *
- * What is held here: the chat's link carries `review` and `mark` and nothing
- * the chat page reads as something else (`doc` starts an ask there); every
- * other param and the hash survive, so the thread on screen stays; the
- * document is in the peek BEFORE the link lands, because the pane takes the
- * link for the document it shows; and a surface with no pane goes to Dateien
- * rather than doing nothing.
- */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useChatStore } from '@/features/chat/store'
 import type { FileItem } from '../components/project-file-workspace'
@@ -157,7 +147,6 @@ describe('opening it', () => {
   it('puts the document in the peek first, then replaces the url', async () => {
     answerWith(ROW)
     const navigate = vi.fn((_href: string, _how: 'replace' | 'push') => {
-      // The pane takes the link for the file it shows: by now it must be ours.
       expect(useFilePreviewStore.getState().file?.id).toBe(DOC)
     })
 
@@ -168,7 +157,6 @@ describe('opening it', () => {
     expect(navigate).toHaveBeenCalledWith('/app/projects/p1/chat?session=s1&review=1&mark=ann-7#message-m1', 'replace')
     const state = useFilePreviewStore.getState()
     expect(state.mode).toBe('peek')
-    // Looking at a mark is not asking about the document.
     expect(useChatStore.getState().composerSubject).toBeNull()
   })
 

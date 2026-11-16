@@ -1,14 +1,3 @@
-/**
- * Connection Recovery Hook
- *
- * Activates only when connection error cards are visible in the store.
- * Uses exponential backoff health polling + browser online/visibility
- * events to detect backend recovery, then auto-dismisses error cards
- * and invokes a recovery callback (typically WebSocket reconnect).
- *
- * Zero overhead when healthy: no timers, no listeners.
- */
-
 'use client'
 
 import { useCallback, useEffect, useRef } from 'react'
@@ -23,12 +12,6 @@ const INITIAL_DELAY_MS = 5_000
 const MAX_DELAY_MS = 60_000
 const BACKOFF_FACTOR = 2
 
-/**
- * Poll for backend recovery when connection errors are shown.
- *
- * @param onRecovered - Called once when the backend is confirmed healthy
- *   (e.g. trigger WebSocket reconnect).
- */
 export function useConnectionRecovery(onRecovered: () => void): void {
   const hasConnectionError = useChatStore(selectHasRecoverableConnectionError)
   const dismissConnectionErrors = useChatStore(
@@ -56,13 +39,9 @@ export function useConnectionRecovery(onRecovered: () => void): void {
       delayRef.current * BACKOFF_FACTOR,
       MAX_DELAY_MS
     )
-    // `delayRef` holds the undithered schedule; the jitter is applied per-wait
-    // so that clients which entered the error state together don't poll in
-    // lockstep for as long as the outage lasts.
     timerRef.current = setTimeout(checkHealth, applyJitter(delayRef.current))
   }, [dismissConnectionErrors, onRecovered])
 
-  // Activate / deactivate polling based on connection error presence
   useEffect(() => {
     if (!hasConnectionError) {
       activeRef.current = false
@@ -81,7 +60,6 @@ export function useConnectionRecovery(onRecovered: () => void): void {
     }
   }, [hasConnectionError, checkHealth])
 
-  // Browser event triggers — check immediately when network comes back or tab refocuses
   useEffect(() => {
     if (!hasConnectionError) return
 

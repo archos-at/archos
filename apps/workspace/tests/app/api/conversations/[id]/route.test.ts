@@ -1,32 +1,12 @@
 /**
  * @vitest-environment node
  */
-/**
- * `/api/conversations/[id]` — GET / PATCH happy paths and input validation.
- *
- * **Rewritten for the collaboration authorization model (ADR-0032).** These tests
- * used to fake drizzle by call ORDER: a `getDb` mock returning a different chain
- * object depending on how many times `select()` had been called. That only worked
- * while the number of queries per request stayed frozen, so adding the
- * access-resolution probes turned each of them into a 500. The brittleness was
- * the defect, not the new queries.
- *
- * They now mock at the **repository boundary**, like the newer specs beside them
- * (`app/api/conversations/[id]/route.spec.ts`). That is more robust and more
- * honest: what is under test is the route + service contract, not drizzle's
- * builder shape.
- *
- * DELETE's authorization (owner-only, and the no-op for an id that never reached
- * the server) is covered by that sibling spec, so this file keeps only its own
- * unique ground: the read/rename happy paths and the 400 on a missing title.
- */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/lib/auth/require-auth', () => ({
   requireAuthorizedSession: vi.fn(),
 }))
 
-// Container access granted, so the only interesting variable is the conversation.
 vi.mock('@/lib/authz/projects', () => ({ requireProjectAccess: vi.fn() }))
 
 vi.mock('@/lib/sharing/repository', () => ({
@@ -34,15 +14,12 @@ vi.mock('@/lib/sharing/repository', () => ({
   countGrantsForResource: vi.fn(),
 }))
 
-// Which people may read what a conversation recorded is `restricted-use.spec.ts`'s
-// subject (ADR-0088); here nothing it recorded restricts anybody.
 vi.mock('@/lib/conversations/restricted-use', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/conversations/restricted-use')>()),
   peopleWhoMayRead: vi.fn(async (_org: string, _id: string, userIds: readonly string[]) => new Set(userIds)),
   lockedConversationIds: vi.fn(async () => new Set<string>()),
 }))
 
-// Which other projects restrict the chat is `cross-project-use.spec.ts`'s subject (ADR-0094).
 vi.mock('@/lib/conversations/cross-project-use', () => ({ restrictingOtherProjects: vi.fn(async () => []) }))
 
 vi.mock('@/lib/conversations/repository', () => ({
@@ -113,8 +90,6 @@ describe('/api/conversations/[id]', () => {
     vi.clearAllMocks()
     vi.mocked(requireAuthorizedSession).mockResolvedValue(session)
     vi.mocked(requireProjectAccess).mockResolvedValue({ role: 'project-editor' } as never)
-    // The caller created it, so they own it (ADR-0032). Every operation below is
-    // permitted, which keeps these assertions about the route rather than the gate.
     vi.mocked(findConversationTenancy).mockResolvedValue({
       organizationId: 'org_1',
       projectId: PROJECT_ID,
@@ -139,16 +114,12 @@ describe('/api/conversations/[id]', () => {
       expect(res.status).toBe(200)
       const json = await res.json()
       expect(json.id).toBe('s_conv_1')
-      // Access facts ride along so the client knows whether the server is
-      // authoritative for this thread (ADR-0033).
       expect(json.myRole).toBe('owner')
       expect(json.visibility).toBe('private')
       expect(json.shared).toBe(false)
     })
 
     it('returns 404 when not found', async () => {
-      // Nothing to resolve tenancy against. Denial and non-existence produce the
-      // same response, so a caller cannot probe for other people's ids.
       vi.mocked(findConversationTenancy).mockResolvedValue(null)
       vi.mocked(findConversationInOrg).mockResolvedValue(null)
 
@@ -176,7 +147,6 @@ describe('/api/conversations/[id]', () => {
 
       expect(res.status).toBe(200)
       expect((await res.json()).title).toBe('Updated')
-      // Tenancy still lives in the WHERE clause, not just in the gate above it.
       expect(updateConversationTitleInOrg).toHaveBeenCalledWith('s_conv_1', 'org_1', 'Updated')
     })
 
@@ -191,7 +161,6 @@ describe('/api/conversations/[id]', () => {
       )
 
       expect(res.status).toBe(400)
-      // Validation must reject before any write is attempted.
       expect(updateConversationTitleInOrg).not.toHaveBeenCalled()
     })
   })

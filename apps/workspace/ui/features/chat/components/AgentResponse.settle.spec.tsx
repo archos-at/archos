@@ -1,13 +1,3 @@
-/**
- * The end of a turn, as the answer draws it: the text still held back is
- * finished first, and only when all of it is on screen does the answer settle.
- * Then everything that belongs to a finished answer lands together (the copy
- * action, the caret gone) and the reveal signal the Herleitung's collapse waits
- * on (`answer-reveal-store.ts`) ends, once.
- *
- * The pace is switched on here (it is off under vitest by default), and the
- * clock is faked, frames included.
- */
 import { act, render, screen } from '@/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { asStoreState, type DeepPartial, type StoreSelector } from '@/test-utils/store-fixtures'
@@ -43,15 +33,8 @@ vi.mock('../store', () => ({
 }))
 
 vi.mock('@/adapters/auth', () => ({ useAuth: () => ({ accessToken: null }) }))
-// The feedback row is AnswerFeedback.spec's subject and fetches its own state;
-// these specs are about the answer's settle, so it renders nothing here.
 vi.mock('./AnswerFeedback', () => ({ AnswerFeedback: () => null }))
 
-// Every element-level animation the answer starts, passed through: the body's
-// fade is read off these calls.
-// `stops` counts the `stop()` calls on each: in a browser a stopped animation
-// commits the value it had reached (WAAPI `commitStyles`), so a fade stopped
-// half-way leaves the element half-transparent. jsdom has no WAAPI to show it.
 const animations = vi.hoisted(() => [] as { keyframes: unknown; stops: number }[])
 vi.mock('motion/react', async (importOriginal) => {
   const actual = await importOriginal<typeof import('motion/react')>()
@@ -71,10 +54,6 @@ vi.mock('motion/react', async (importOriginal) => {
   }
 })
 
-// The prose as plain text, so what is shown can be read off the DOM exactly.
-// The caret where the renderer would place it: after the last word.
-// Every plugin list the renderer was handed, by identity: a new list re-parses
-// the whole answer.
 const pluginLists = new Set<unknown>()
 vi.mock('@/shared/components/MarkdownRenderer', () => ({
   MarkdownRenderer: ({
@@ -142,18 +121,14 @@ describe('the end of a streamed answer', () => {
       look()
     }
 
-    // The frame the terminal lands in shows no more than before, and nothing settled.
     expect(steps[0]!.shown.length).toBeLessThan(FINAL.length)
     expect(steps[0]!.copy).toBe(false)
-    // The rest came in steps, not at once.
     expect(new Set(steps.map((s) => s.shown.length)).size).toBeGreaterThan(3)
-    // Whatever belongs to the finished answer is there exactly when all the text is.
     for (const step of steps) {
       expect(step.copy).toBe(step.shown === FINAL)
       expect(step.revealing).toBe(step.shown !== FINAL)
     }
     expect(steps.at(-1)!.shown).toBe(FINAL)
-    // One reveal, begun once and ended once.
     expect(signal).toEqual(['m-1', null])
   })
 
@@ -161,8 +136,6 @@ describe('the end of a streamed answer', () => {
     const { rerender } = render(answer(STREAMED, true))
     act(() => vi.advanceTimersByTime(3000))
     expect(screen.getByTestId('prose').textContent).toBe(STREAMED)
-    // The written sources section is lifted into the source rows, never drawn
-    // as text: there is nothing left to reveal.
     rerender(answer(`${STREAMED}\n\n## Quellen\n\n1. OIB-Richtlinie 2, Ausgabe Mai 2023`, false))
     expect(screen.getByRole('button', { name: /Copy answer/ })).toBeInTheDocument()
     expect(useAnswerRevealStore.getState().revealingId).toBeNull()
@@ -180,11 +153,9 @@ describe('the end of a streamed answer', () => {
     const { rerender } = render(answer(STREAMED, true))
     act(() => vi.advanceTimersByTime(FRAME_MS * 6))
     const caret = () => screen.queryByTestId('streaming-caret')
-    // Inside the prose, not after it: no wrapper is forced inline to trail it.
     expect(screen.getByTestId('prose')).toContainElement(caret())
     expect(caret()?.closest('[class*=":inline"]')).toBeNull()
     expect(caret()).not.toHaveAttribute('data-idle')
-    // Everything that arrived is shown and nothing more comes.
     act(() => vi.advanceTimersByTime(3000))
     act(() => vi.advanceTimersByTime(IDLE_AFTER_MS))
     expect(caret()).toHaveAttribute('data-idle', 'true')
@@ -207,7 +178,6 @@ describe('the end of a streamed answer', () => {
     rerender(answer(FINAL, false))
     act(() => vi.advanceTimersByTime(1500))
     expect(screen.getByTestId('prose').textContent).toBe(FINAL)
-    // The settle frame is the answer's most expensive; it re-parses nothing.
     expect(pluginLists.size).toBe(1)
   })
 
@@ -221,13 +191,10 @@ describe('the end of a streamed answer', () => {
 
     rerender(answer(FINAL, false))
     act(() => vi.advanceTimersByTime(1500))
-    // The same button, now there for the reader: nothing was inserted.
     expect(screen.getByRole('button', { name: 'Copy answer' })).toBe(held)
     expect(held?.closest('[inert]')).toBeNull()
   })
 
-  // The footer's room: a card that fits the viewport shows no empty band of
-  // shell under its first words; the footer opens at the settle, below them.
   it('keeps no room for the footer while the answer fits the viewport, and opens it at the settle', () => {
     const { rerender } = render(answer(STREAMED, true))
     act(() => vi.advanceTimersByTime(FRAME_MS * 6))
@@ -273,7 +240,6 @@ describe('the end of a streamed answer', () => {
     )
     rerender(stoppedAnswer(STREAMED))
     expect(screen.getByTestId('prose').textContent).toBe(atStop)
-    // The server's cancelled terminal brings everything the model wrote.
     rerender(stoppedAnswer(FINAL))
     act(() => vi.advanceTimersByTime(1500))
     expect(screen.getByTestId('prose').textContent).toBe(atStop)
@@ -281,9 +247,6 @@ describe('the end of a streamed answer', () => {
     expect(useAnswerRevealStore.getState().revealingId).toBeNull()
   })
 
-  // Stop drops a citation still pending at the press, so the frozen body is
-  // not a prefix of the last one: read as a rewrite, the whole answer faded
-  // out and back in as the button was pressed.
   it('does not fade the body in again when Stop freezes it', () => {
     const cited = 'Ein zweiter Fluchtweg ist erforderlich [1] und '
     const { rerender } = render(answer(cited, true))
@@ -299,11 +262,6 @@ describe('the end of a streamed answer', () => {
     expect(fades).toEqual([])
   })
 
-  // The settled snapshot drops a citation and renumbers the next one, so the
-  // body is rewritten and fades in again; the reveal then carries on through
-  // the rest of it. Each further word re-ran the fade's effect, whose cleanup
-  // stopped the fade wherever it was, and the run after it exited early (the
-  // body only grew): the finished answer stayed greyed out at that opacity.
   it('never stops the fade of a rewritten body part-way while the rest is revealed', () => {
     const streamed = 'Holzbau Wien ist ein Holzbauprojekt [1]. Der Fassadenschnitt zeigt keine Holzkonstruktion [2]. '
     const { rerender } = render(answer(streamed, true))
@@ -312,7 +270,6 @@ describe('the end of a streamed answer', () => {
 
     animations.length = 0
     const settled = `Holzbau Wien ist ein Holzbauprojekt. Der Fassadenschnitt zeigt keine Holzkonstruktion [1]. ${STREAMED.repeat(4)}`
-    // The snapshot arrives while the turn still streams, the terminal after it.
     rerender(answer(settled, true))
     act(() => vi.advanceTimersByTime(FRAME_MS * 20))
     rerender(answer(settled, false))
@@ -325,8 +282,6 @@ describe('the end of a streamed answer', () => {
   })
 })
 
-// L27, L28: an answer that mounts in the middle of its turn (a reload's
-// replay, a thread opened again) does not type out what had already arrived.
 describe('an answer mounting mid-turn', () => {
   beforeEach(() => {
     vi.useFakeTimers({
@@ -343,9 +298,6 @@ describe('an answer mounting mid-turn', () => {
   })
 })
 
-// The masthead's summary arrives whole, ahead of the prose. Faded in as one
-// block it read as the answer's first words popping in finished while the
-// sentence under it was being written: it is written in, then the prose.
 describe('a summary that leads a fresh answer', () => {
   beforeEach(() => {
     vi.useFakeTimers({
@@ -376,12 +328,10 @@ describe('a summary that leads a fresh answer', () => {
       const shown = standfirst()?.textContent ?? ''
       lengths.push(shown.length)
       if (shown.length < SUMMARY.length && (screen.getByTestId('prose').textContent ?? '') !== '') proseBeforeSummary = true
-      // While the summary is being written, the caret is at its end.
       if (shown.length > 0 && shown.length < SUMMARY.length) {
         expect(standfirst()!.querySelector('[data-testid="streaming-caret"]')).not.toBeNull()
       }
     }
-    // Written in steps, not one frame.
     expect(new Set(lengths.filter((n) => n > 0 && n < SUMMARY.length)).size).toBeGreaterThan(3)
     expect(proseBeforeSummary).toBe(false)
     expect(standfirst()!.textContent).toBe(SUMMARY)
@@ -392,9 +342,6 @@ describe('a summary that leads a fresh answer', () => {
     expect(standfirst()!.textContent).toBe(SUMMARY)
   })
 
-  // Stopped while the summary was being written: no prose yet, only the
-  // masthead. Read as an empty answer, the settle after the press dropped the
-  // masthead in one frame, and the stored row drew nothing after a reload.
   it('keeps the masthead and the summary as far as it was written when stopped under it', () => {
     const { rerender } = render(headed('', true))
     act(() => vi.advanceTimersByTime(FRAME_MS * 6))
@@ -424,7 +371,6 @@ describe('a summary that leads a fresh answer', () => {
   })
 })
 
-// L12: a retraction keeps the answer's frame instead of dropping it.
 describe('a retracted round', () => {
   beforeEach(() => {
     vi.useFakeTimers({
@@ -442,7 +388,6 @@ describe('a retracted round', () => {
     expect(ledeOn()).toBe(true)
 
     rerender(answer('', true))
-    // The frame stays, the withdrawn words still on it while they fade.
     expect(screen.getByRole('article')).toBeInTheDocument()
     expect(screen.getByTestId('prose').textContent).not.toBe('')
     expect(screen.queryByTestId('streaming-caret')).toBeNull()
@@ -452,7 +397,6 @@ describe('a retracted round', () => {
     expect(screen.getByTestId('answer-retracting')).toHaveTextContent('Working on a response …')
     expect(screen.getByTestId('prose').textContent).toBe('')
 
-    // The real answer opens with a heading: no lede carried over from the preamble.
     rerender(answer('## Fluchtwege\n\nIn Gebäudeklasse 4 gilt ', true))
     act(() => vi.advanceTimersByTime(FRAME_MS * 30))
     expect(screen.queryByTestId('answer-retracting')).toBeNull()

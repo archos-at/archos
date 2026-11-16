@@ -1,13 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The person confirms an outside agent's destructive call in their own chat
- * (MCP elicitation on the 2026-07-28 multi-round-trip flow), through the real
- * SDK and the door's own handler: the question, the yes that runs it, the no
- * that changes nothing, a forged or foreign state refused, and every client the
- * feature does not reach answered exactly as before.
- */
 import { webcrypto } from 'node:crypto'
 import { CLIENT_CAPABILITIES_META_KEY, PROTOCOL_VERSION_META_KEY, CLIENT_INFO_META_KEY } from '@modelcontextprotocol/server'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -16,7 +9,6 @@ vi.mock('./catalog', async () => {
   const { FAKE_OPERATIONS } = await import('./test-operations')
   const { z } = await import('zod')
   const enc = encodeURIComponent
-  // A write that is not destructive by itself, so only the mark puts it to the person.
   const personDecides: import('./operation').AgentOperation = {
     name: 'held-item-file',
     domain: 'documents',
@@ -111,7 +103,6 @@ interface Rpc {
 
 const handler = createAgentDoorHandler(() => undefined)
 
-/** A 2026-07-28 tools/call, its client capabilities in `_meta` as the specification puts them. */
 async function modernCall(
   principal: AgentPrincipal,
   call: { name: string; arguments: unknown },
@@ -151,7 +142,6 @@ async function modernCall(
   return JSON.parse(await response.text()) as Rpc
 }
 
-/** The same call as a 2025-11-25 client sends it, Piloti's own among them: no initialize, no envelope. */
 async function legacyCall(principal: AgentPrincipal, call: { name: string; arguments: unknown }): Promise<string> {
   const response = await handler.fetch(
     new Request('https://app.example.test/api/mcp', {
@@ -304,7 +294,6 @@ describe('what the answer can never do', () => {
     const first = await modernCall(outside, bad)
     expect(first.result?.resultType).toBe('complete')
     expect(first.result?.inputRequests).toBeUndefined()
-    // The dispatcher is a stub here; the real one validates the input first (`dispatch.spec.ts`).
     expect(vi.mocked(callOperation).mock.calls[0][1]).toEqual({})
   })
 })
@@ -440,7 +429,6 @@ describe('an operation that runs only on the person’s own yes', () => {
     const bad = { name: 'held-item-file', arguments: { name: 'held-item-file', input: { params: { id: 'p-1' }, body: {} } } }
     const result = (JSON.parse(await legacyCall(outside, bad)) as Rpc).result
     expect(result?.structuredContent).not.toHaveProperty('decision', 'person_required')
-    // The dispatcher is a stub here; the real one validates the input first (`dispatch.spec.ts`).
     expect(vi.mocked(callOperation).mock.calls[0][1]).toEqual({ params: { id: 'p-1' }, body: {} })
   })
 

@@ -18,7 +18,6 @@ import { describe, expect, it } from 'vitest'
 
 const ROOT = process.cwd()
 
-/** What builds the agent's context, or answers the agent: directories and single files. */
 const CONTEXT_BUILDERS = [
   'bff/project-profile',
   'bff/turn-context',
@@ -30,7 +29,6 @@ const CONTEXT_BUILDERS = [
   'bff/tasks/delegation.ts',
 ]
 
-/** What reads or names the people. */
 const PEOPLE = /project-record-(service|repository)|['"]@\/lib\/db\/schema\/project-people['"]|\bprojectPeople\b|project_people/
 
 function sources(path: string): string[] {

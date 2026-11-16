@@ -34,8 +34,6 @@ describe('the registry', () => {
   })
 
   it('classifies every slug, and nothing that is not one', () => {
-    // `FLAG_KINDS` is a Record over the slug union, so tsc already refuses a
-    // missing entry; this pins that the runtime object agrees.
     expect(Object.keys(FLAG_KINDS).sort()).toEqual([...REGISTRY_FLAG_SLUGS].sort())
   })
 
@@ -55,7 +53,6 @@ describe('the registry', () => {
         'licensed-seam',
         'mail-import',
         'office-conventions',
-        // The office's own standards: what the office records reaches its answers (ADR-0163).
         'office-standards',
         'piloti-acts',
         'piloti-ask',
@@ -64,7 +61,6 @@ describe('the registry', () => {
         'platform-agent-mcp',
         'runtime-model-config',
         'skills',
-        // Not a cost or a widening: a sweep that fetches public sources and opens review work (ADR-0174).
         'source-monitors',
         'task-automation',
       ].sort()
@@ -73,8 +69,6 @@ describe('the registry', () => {
 })
 
 describe('the switches the cut-over removed (ADR-0175)', () => {
-  // Which office reads which country is its entitlement rows, never a switch:
-  // a slug coming back would bring a second, silent answer to that question.
   const RETIRED = ['knowledge-context', 'building-law-chain', 'time-editions', 'office-base-knowledge', 'platform-base-knowledge']
 
   it.each(RETIRED)('%s is not in the registry', (slug) => {
@@ -103,9 +97,6 @@ describe('where people sign in (REQUIRE_AUTH=true): WorkOS decides, fail-closed'
   })
 
   it('gives a rollout no default either — absent from the claim is off', () => {
-    // The default-ON env gates (`IFC_MODELS_ENABLED`,
-    // `AGENT_AUTHORED_DOCUMENTS_ENABLED`) are gone; what WorkOS says is
-    // what the session gets.
     expect(isIfcModelsEnabled({ featureFlags: [] })).toBe(false)
     expect(isAgentAuthoredDocumentsEnabled({ featureFlags: [] })).toBe(false)
     expect(isIfcModelsEnabled({ featureFlags: [FEATURE_FLAGS.ifcModels] })).toBe(true)

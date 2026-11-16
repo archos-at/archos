@@ -1,14 +1,5 @@
 'use client'
 
-/**
- * One office standard, opened from the list as a page in place of it: what it is (the form), where it
- * is filed, what happens to its text and why, when it was last checked, and
- * every action on it: confirm or save, the licence statements, record a check,
- * upload a newer edition, move, remove. Each action is one call of
- * `/api/base-knowledge` (a `base-knowledge-*` operation), so an agent can do
- * the same without this page; the licence statements are the person's alone.
- */
-
 import { useRef, useState, type JSX } from 'react'
 import { toast } from 'sonner'
 import { FileText, Upload } from 'lucide-react'
@@ -51,18 +42,13 @@ interface EntryPageProps {
   canManage: boolean
   rootId: string | null
   folders: readonly BaseKnowledgeFolder[]
-  /** Where an entry can apply, to pick from (`BaseKnowledgeList.territories`). */
   territories: readonly TerritoryChoice[]
-  /** After a change: reload the list; `null` when the entry is gone. */
   onChanged: (entry: BaseKnowledgeEntry | null) => void
-  /** A standard just added, among the others added with it: confirming leads to the next. */
   adding?: { position: number; count: number }
 }
 
-/** `done` is the success message; `null` when the action says its own outcome. */
 type Run = (action: () => Promise<BaseKnowledgeEntry | null>, done?: string | null) => Promise<void>
 
-/** The stores a removal could not clear, from its receipt. */
 function leftBehind(receipt: BaseKnowledgeRemovalReceipt): ('search' | 'objects' | 'caches')[] {
   const { search, objects, caches } = receipt.stores
   return [
@@ -151,7 +137,6 @@ function FolderField({
   )
 }
 
-/** The licence statements: on a proposal, the two to confirm with; on a confirmed licensed copy, the AI one to give or take back. */
 function LicenceSection({
   entry,
   values,
@@ -235,11 +220,6 @@ function LicenceSection({
   )
 }
 
-/**
- * A confirmed copy recorded as freely available that turns out to be bought:
- * the class changes only with the office's licence statement, as at confirming,
- * so its text is never read on a licence nobody stated.
- */
 function BoughtAfterAll({ entry, busy, run }: { entry: BaseKnowledgeEntry; busy: boolean; run: Run }): JSX.Element {
   const t = useTranslations(baseKnowledgeCopy)
   const [open, setOpen] = useState(false)
@@ -339,7 +319,6 @@ function CheckSection({
                 event.target.value = ''
                 if (chosen)
                   void run(
-                    // The new edition opens, a proposal to confirm, whatever the list's filters show.
                     () => addBaseKnowledgeEdition(entry.id, chosen),
                     t('detail.newEditionDone')
                   )
@@ -475,7 +454,6 @@ function SheetBody({
             cancelLabel={t('detail.cancel')}
             onConfirm={() =>
               run(async () => {
-                // The records are gone either way, so the page closes; a store that kept something is named, not hidden.
                 const receipt = await removeBaseKnowledge(entry.id)
                 const left = leftBehind(receipt)
                 if (left.length === 0) toast.success(t('detail.removed'))
@@ -490,17 +468,6 @@ function SheetBody({
   )
 }
 
-/**
- * The standard as a page of its own, in place of the list (`?entry=<id>`): the
- * way back names where it leads, and the URL can be sent to a colleague.
- */
-/**
- * The editions of this standard the office holds, when it holds more than one:
- * which applies today, which were superseded, which still await confirming.
- * Answers take the one in force on the project's reference day, by the same
- * rule the platform's editions follow, so an earlier edition keeps serving the
- * projects filed under it.
- */
 function Editions({ entry, onOpen }: { entry: BaseKnowledgeEntry; onOpen: (entryId: string) => void }): JSX.Element | null {
   const t = useTranslations(baseKnowledgeCopy)
   const { locale } = useLocale()
@@ -547,7 +514,6 @@ export function EntryPage({
   entry: BaseKnowledgeEntry
   onBack: () => void
   onOpenEdition: (entryId: string) => void
-  /** The standard is a file: from its page, one press opens it to read. */
   onOpenFile?: () => void
 }): JSX.Element {
   const t = useTranslations(baseKnowledgeCopy)

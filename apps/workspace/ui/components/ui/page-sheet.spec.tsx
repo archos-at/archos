@@ -1,13 +1,3 @@
-/**
- * The page sheet's ways out, on a phone as on a desktop.
- *
- * Until this pass a phone had none it could see: the header X was `hidden …
- * md:flex` and the grabber's pill ignored taps (`pointer-events-none`), so the
- * Postfach and the Archiv closed only to a pull nobody was told about. The two
- * assertions that matter are the ones a desktop review cannot see: the X is not
- * hidden at any width, and a tap on the pill closes.
- */
-
 import { describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 
@@ -46,7 +36,6 @@ describe('PageSheet', () => {
   it('tells a bar at its foot to clear the home indicator: no tab bar runs under a sheet', () => {
     renderSheet()
 
-    // The shell publishes 0 over the tab bar; inside the sheet the whole inset holds.
     expect(screen.getByRole('dialog').className).toContain('[--shell-inset-bottom:env(safe-area-inset-bottom)]')
   })
 

@@ -1,5 +1,3 @@
-/** RFC 9457 problems for the office's base-knowledge operations (ADR-0163). */
-
 import { describe, expect, it } from 'vitest'
 import { ConflictError, NotFoundError, UnprocessableError } from '@/lib/api/errors'
 import { PROBLEM_CONTENT_TYPE, asProblem, toProblem } from './problem'

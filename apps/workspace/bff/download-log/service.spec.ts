@@ -82,7 +82,6 @@ const document = (overrides: Partial<LoggedDocument> = {}): LoggedDocument => ({
   ...overrides,
 })
 
-/** Folders: Verträge has its own list, Anhänge below it inherits, Allgemein inherits. */
 const tree = () => [
   { id: FOLDER, parentId: null, accessMode: 'custom', everyoneReads: false },
   { id: CHILD, parentId: FOLDER, accessMode: 'inherit', everyoneReads: false },
@@ -97,7 +96,6 @@ beforeEach(() => {
   recordAuditEvent.mockResolvedValue(undefined)
   getOrgSettings.mockResolvedValue({ displayName: null, defaultLocale: 'de', settings: {} })
   resolvePeople.mockResolvedValue(new Map())
-  // An organization admin: clears every folder.
   clearanceOf.mockResolvedValue({ levels: {}, seesEverything: true })
   seesEveryFolder.mockResolvedValue(true)
 })
@@ -352,7 +350,6 @@ describe('the admin view', () => {
         ['Plan.pdf', 'Allgemein', false],
         [null, null, true],
       ])
-      // Who, when, what and which id stay: the log still answers for the hand-over.
       expect(page.entries[1]).toMatchObject({ documentId: 'doc-1', kind: 'preview', folderId: CHILD, ownList: true })
     })
 
@@ -368,8 +365,6 @@ describe('the admin view', () => {
 
     it('decides each row by the clearance in its own project: a closed one clears an outsider as a member with no folder role', async () => {
       const CLOSED = '77777777-7777-4777-8777-777777777777'
-      // A folder role on Verträge. In the closed project the viewer reads only
-      // because it is closed, so it clears no list there (ADR-0090).
       clearanceOf.mockImplementation(async (_session: AuthorizedSession, projectId: string) =>
         projectId === CLOSED ? { levels: {}, seesEverything: false } : { levels: { [FOLDER]: 'write' }, seesEverything: false }
       )
@@ -405,8 +400,6 @@ describe('the admin view', () => {
     })
 
     it('narrows a name filter before the page limit, so the rows it leaves out shape neither the page nor its cursor', async () => {
-      // The newest hit is in a folder they may not read. The database, as the
-      // double plays it, applies `readable` before the limit, as it does `documentName`.
       const hits = [
         restrictedRow(),
         { ...openRow(), ...row(2), folderId: OPEN_FOLDER, folderPath: 'Allgemein', documentName: 'Plan.pdf', ownList: false },
@@ -419,8 +412,6 @@ describe('the admin view', () => {
 
       const page = await listDownloadLog(viewer(), { document: 'Plan', limit: 1 }, request())
 
-      // A full page and a cursor that points past a readable row: the
-      // restricted hit took no slot, and the cursor names no row of it.
       expect(page.entries.map((entry) => [entry.documentName, entry.nameWithheld])).toEqual([['Plan.pdf', false]])
       expect(decodeCursor(page.nextCursor as string)).toEqual(row(2).cursor)
     })
@@ -446,7 +437,6 @@ describe('the admin view', () => {
     })
 
     it('withholds the name of a row whose project is gone, by the list it was logged under', async () => {
-      // A purged project leaves no folder rows: no tree, no project name, no path.
       loadCustomFolderTree.mockResolvedValue(null)
       const purged = { ...restrictedRow(), projectName: null, folderPath: null }
       listAccessLog.mockResolvedValue([purged, { ...openRow(), projectName: null, folderPath: null }])

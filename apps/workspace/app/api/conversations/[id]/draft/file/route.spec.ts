@@ -1,22 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The conversation draft-filing door: what it files, and what it refuses.
- *
- * The browser and the agent's `file_draft` converge on ONE document through
- * the shared idempotency reference (`{conversationId}-{slug}`), so the
- * properties pinned here are the convergence ones:
- *
- *   - the reference is the agent tier's spelling, byte for byte (parity
- *     vectors below — change either side and this fails first);
- *   - an already-filed reference comes back with the open version and creates
- *     nothing, while a reference past the writing states is a conflict;
- *   - a same-name row the reference does NOT own is a 409 carrying that row,
- *     and only an explicit `force` files beside it;
- *   - the gate order (conversation viewer, then project, then bytes) means a
- *     denial never addresses the backend and a project-less chat never files.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { NotFoundError } from '@/lib/api/errors'
@@ -126,23 +110,15 @@ describe('POST /api/conversations/[id]/draft/file', () => {
       state: 'draft',
       alreadyFiled: false,
     })
-    // The conversation gate first: only drafts of conversations the reader may
-    // see are filed.
     expect(requireResourceAccessMock).toHaveBeenCalledWith(
       expect.objectContaining({ userId: 'user_1', organizationId: 'org_1' }),
       'conversation',
       'conv-1',
       'viewer',
     )
-    // The bytes come from the agent tier's read door, with the internal token
-    // and this conversation's own namespace.
     const [url, init] = fetchMock.mock.calls[0]
     expect(url).toBe('http://backend:8000/v1/drafts/conv-1/entwuerfe/aktenvermerk.md')
     expect(init.headers['x-internal-token']).toBe('test-token')
-    // The create goes through the existing filing op — the reference the agent
-    // tier mints for this path, the card's title, the fetched bytes, and this
-    // conversation as the origin a later review decision returns to. No
-    // `actingHuman: false`: this caller IS the person.
     expect(vi.mocked(fileAgentDocumentDraft).mock.calls[0][0]).toMatchObject({
       projectId: PROJECT,
       ref: 'conv-1-aktenvermerk',
@@ -266,15 +242,10 @@ describe('POST /api/conversations/[id]/draft/file', () => {
 
 describe('filingReference — parity with the agent tier', () => {
   it('spells the reference the way file_draft does', () => {
-    // `tools/documents/register.py::filing_reference`: `{conversation}-{slug}`,
-    // the slug lowercased, non-alphanumerics folded to one dash, `.md` gone.
     expect(filingReference('conv-1', '/entwuerfe/Aktenvermerk Fluchtweg.md')).toBe(
       'conv-1-aktenvermerk-fluchtweg',
     )
-    // Umlauts are not ASCII and fold like any other non-alphanumeric — mirrored
-    // exactly rather than transliterated, because convergence is the point.
     expect(filingReference('conv-1', '/entwuerfe/Fluchtweglänge.md')).toBe('conv-1-fluchtwegl-nge')
-    // A bare name files under itself; a name with nothing left is still a key.
     expect(filingReference('conv-1', 'notiz')).toBe('conv-1-notiz')
     expect(filingReference('conv-1', '/entwuerfe/---.md')).toBe('conv-1-draft')
   })

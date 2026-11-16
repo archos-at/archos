@@ -1,40 +1,5 @@
 'use client'
 
-/**
- * CalculationCard — der Rechenweg, laid out line by line.
- *
- * The single thing a Ziviltechniker re-checks. As prose („2 × 17 + 30 = 64 cm,
- * damit innerhalb der Schrittmaßregel") the reader has to re-derive it before
- * they can trust it; here it is a derivation they audit by looking at it.
- *
- * ## Why this card cannot disagree with itself
- *
- * The model supplies operands, an operation and the limit. Everything else on
- * the card is produced HERE, by `../lib/calculate`: every step's result, the
- * tolerance band propagated through it, and the verdict against the limit.
- * There is no `result` field on the wire for a model to state, which is the
- * whole point — a Rechenweg whose printed result disagreed with its own
- * operands would be the worst artefact this product can make, because the card
- * is the part that gets screenshotted into an Einreichung.
- *
- * That extends to how the number is PRINTED. The house format is two decimals
- * (`fmtNum`), which is exact for almost every derivation here; where rounding
- * to it would move the value across the bound, `resultDecimals` prints further
- * instead, so the number on the card and the verdict beside it can never
- * contradict each other (a 0,2504 W/(m²K) against a „≤ 0,25" limit prints as
- * 0,2504, not as „0,25 — nicht erfüllt").
- *
- * The disclosure holds the operands' provenance, their bands and where each
- * figure is written down — the second thing that gets re-checked, and already
- * on the client, so opening it costs no turn („ich klick das und sehe mehr").
- * It is offered only when at least one operand actually carries something
- * behind it: an expander that opens onto nothing teaches the reader the
- * chevrons are decorative.
- *
- * `presentational` in CARD_INTERACTIVITY — opening the sources is one reader's
- * view state, commits nothing and reaches no backend (ADR-0030).
- */
-
 import { useState, type FC } from 'react'
 import { ChevronDown, Sigma } from 'lucide-react'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
@@ -62,7 +27,6 @@ interface CalculationCardProps {
   note?: string | null
 }
 
-/** The bound the last result is held against, written the way a plan writes it. */
 const LimitLine: FC<{ limit: CalculationLimitData; unit: string; t: Translator }> = ({ limit, unit, t }) => {
   const suffix = unit ? ` ${unit}` : ''
   const text =
@@ -98,10 +62,6 @@ export const CalculationCard: FC<CalculationCardProps> = ({ title, steps, limit,
   const verdict = final ? verdictFor(final, limit) : null
   const decimals = final ? resultDecimals(final, limit) : 2
 
-  // The disclosure is offered only when something is actually behind it. An
-  // operand with no provenance, no band and no source has nothing to reveal,
-  // and an expander that opens onto a restatement teaches the reader that the
-  // chevrons are decorative.
   const documented = steps.flatMap((step) =>
     step.operands.filter((operand) => operand.step == null && (operand.provenance || operand.tolerance || operand.source))
   )
@@ -138,8 +98,6 @@ export const CalculationCard: FC<CalculationCardProps> = ({ title, steps, limit,
         <Collapsible open={open} onOpenChange={setOpen}>
           <CollapsibleTrigger
             className={cn(
-              // See CalloutCard: catchment, not padding — the drawn control keeps the
-              // card's rhythm and a fingertip still gets its 44px.
               '-ml-1 inline-flex items-center gap-1 rounded px-1 py-0.5 touch-target',
               'text-xs font-medium text-muted-foreground',
               'transition-colors duration-quick ease-out hover:text-foreground',

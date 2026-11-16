@@ -1,5 +1,3 @@
-"""The knowledge layer's lane fan-out: typed lanes from the records, and the ``sources`` step."""
-
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -51,18 +49,11 @@ def _chunk(
 
 
 def test_trace_lanes_sources_carry_the_shelf_the_hit_stated():
-    """The fan-out is the only channel an uncited document has for its shelf."""
     (lane,) = _trace_lanes_for_chunks([_chunk(file_name="Konzept.pdf", page=1, collection="proj_abc", shelf="project")])
     assert lane.sources[0].shelf == "project"
 
 
 def test_trace_lanes_lane_is_decided_by_the_stated_shelf_not_a_collection_guess():
-    """A collection id nobody can read a prefix from, with the default doc class.
-
-    Resolved from the name alone this hit was "Basisdokument" in law blue —
-    ``sonstiges`` is a valid class and the collection said nothing. The shelf
-    the hit already carries settles it.
-    """
     (lane,) = _trace_lanes_for_chunks(
         [_chunk(file_name="Plan.pdf", page=2, collection="c_9f2a", shelf="project", doc_class="other")]
     )
@@ -77,8 +68,6 @@ def test_trace_lanes_group_by_lane():
     ]
     lanes = _trace_lanes_for_chunks(chunks)
     assert [lane.key for lane in lanes] == ["building_law_oib", "project", "office"]
-    # `name` is document identity (dedup / preview resolution); `title` is the
-    # user-facing display name the Herleitung fan-out renders.
     assert lanes[0] == TraceLane(
         key="building_law_oib",
         label="OIB-Richtlinie",
@@ -89,7 +78,6 @@ def test_trace_lanes_group_by_lane():
 
 
 def test_trace_lanes_sources_carry_the_display_title():
-    """The fan-out must never make a user read a raw corpus filename."""
     (lane,) = _trace_lanes_for_chunks(
         [_chunk(file_name="oib-rl_2.3_ausgabe_mai_2023.pdf", page=4, collection="oib_knowledge")]
     )
@@ -100,13 +88,11 @@ def test_trace_lanes_sources_carry_the_display_title():
 
 
 def test_trace_lanes_omit_title_when_it_would_repeat_the_filename():
-    """A project upload's filename IS its user-meaningful name — no redundancy."""
     (lane,) = _trace_lanes_for_chunks([_chunk(file_name="Konzept.pdf", page=1, collection="proj_abc")])
     assert (lane.sources[0].name, lane.sources[0].title) == ("Konzept.pdf", None)
 
 
 def test_trace_lanes_sources_carry_the_retrieval_round():
-    """The Herleitung assigns files by this stamp."""
     from agent.common.turn_status import retrieval_round_scope
 
     with retrieval_round_scope(1):
@@ -117,7 +103,6 @@ def test_trace_lanes_sources_carry_the_retrieval_round():
 
 
 def test_emitted_hits_are_captured_for_the_per_round_ledger():
-    """The ledger reads the capture, never the prose: same emission, both ships."""
     from agent.common.turn_status import begin_lane_capture
     from agent.common.turn_status import end_lane_capture
     from agent.common.turn_status import get_lane_captures
@@ -139,7 +124,6 @@ def test_emitted_hits_are_captured_for_the_per_round_ledger():
 
 
 def test_a_search_result_is_one_sources_step_built_from_its_records(emitted):
-    """Through the real producer: the step carries the lanes the records made, and the tool that ran."""
     from agent.common.tool_calls import READ_PASSAGE_TOOL
     from agent.common.turn_status import lane_tool_scope
     from agent.common.turn_status import retrieval_round_scope
@@ -170,11 +154,6 @@ def test_format_results_empty_chunks_skips_trace_block():
     assert "Trace-Lanes" not in text
 
 
-# ---------------------------------------------------------------------------
-# A document AGENT wrote, that a person released (docs/architecture/
-# agent-document-provenance.md)
-# ---------------------------------------------------------------------------
-
 _AGENT_FILED = {
     "authored_by": "agent",
     "approved_by": "Maria Huber",
@@ -195,13 +174,10 @@ def test_a_published_agent_document_gets_its_own_lane_inside_the_office_kind():
             )
         ]
     )
-    # The shelf says project. Without the provenance rule this lane would be
-    # "project"/"Projektwissen" and nothing would say who wrote the document.
     assert (lane.key, lane.label, lane.kind) == ("office_piloti", AGENT_AUTHORED_LANE_LABEL, "office")
 
 
 def test_the_fan_out_carries_the_provenance_as_data_not_as_a_sentence():
-    """So a frontend can render the approver in the reader's own locale."""
     (lane,) = _trace_lanes_for_chunks(
         [_chunk(file_name="Konzept.md", page=1, shelf="project", provenance=_AGENT_FILED)]
     )
@@ -221,14 +197,12 @@ def test_the_grounding_block_states_who_released_the_document_in_one_line():
     )
     text = format_results(result, "brandschutz")
     assert f"Herkunft: {AGENT_AUTHORED_LANE_LABEL} · freigegeben von Maria Huber am 01.09.2026" in text
-    # One line, and no sentence for the model to copy into an answer.
     assert "freigegeben" not in text.replace(
         f"Herkunft: {AGENT_AUTHORED_LANE_LABEL} · freigegeben von Maria Huber am 01.09.2026", ""
     )
 
 
 def test_an_unmarked_hit_is_formatted_exactly_as_before():
-    """Every human document in the corpus is this case, and it must not move."""
     chunk = _chunk(file_name="Konzept.pdf", page=1, shelf="project")
     text = format_results(SimpleNamespace(success=True, chunks=[chunk], error_message=None), "q")
     assert "Herkunft" not in text

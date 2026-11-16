@@ -1,18 +1,3 @@
-"""Every surface names the product with the one string in ``packages/brand/identity.json``.
-
-The name is copy, and it has changed four times (ADR-0149). The UI's copy reads
-``PRODUCT_NAME`` from ``apps/workspace/bff/brand.ts`` (through ``{productName}`` in
-the dictionaries); the agent's prompts read it from ``agent.common.brand`` (through
-``{{ product_name }}``); both read ``identity.json``, which ``node packages/brand/sync.mjs``
-copies beside each of them. A few files must spell the name as a literal because nothing
-can import there (the service worker, the icons' SVG ``<title>``), and ``sync.mjs`` writes
-those too (``packages/brand/name-copies.mjs``).
-
-The rename drill at the bottom is the owner's acceptance test for "the next rename is
-one edit": it changes the name in a scratch copy of the brand package, runs ``sync.mjs``
-once, and expects every derived surface to carry the new name with no other edit.
-"""
-
 from __future__ import annotations
 
 import importlib
@@ -38,7 +23,6 @@ IDENTITY_COPIES = (
     Path("packages/agent/src/agent/common/identity.json"),
     Path("apps/workspace/shared/brand/identity.json"),
     Path("apps/website/src/styles/brand/identity.json"),
-    # The DXF sheet's „Erstellt mit …“ line (ADR-0152).
     Path("apps/agent-host/src/agent_host/drawings/brand/identity.json"),
 )
 SERVICE_WORKER = Path("apps/workspace/public/sw.js")
@@ -63,7 +47,6 @@ def _svg_title(path: Path) -> str:
 
 
 def _ui_product_name(workspace: Path) -> str:
-    """``PRODUCT_NAME`` as the UI's module evaluates it, through its own path aliases."""
     script = "import { PRODUCT_NAME } from './bff/brand.ts'; console.log(PRODUCT_NAME)"
     out = subprocess.run(["bun", "-e", script], cwd=workspace, capture_output=True, text=True, check=True)
     return out.stdout.strip()
@@ -108,7 +91,6 @@ def test_the_mcp_server_titles_come_from_product_name() -> None:
 
 
 def test_what_an_outside_agent_reads_at_connect_time_spells_no_name() -> None:
-    """The MCP instructions and the OAuth resource names a client shows come from ``PRODUCT_NAME``."""
     names = "|".join(re.escape(name) for name in (PRODUCT_NAME, "Piloti", "AI-Q"))
     spelled = re.compile(rf"""['"`][^'"`\n]*\b(?:{names})\b""")
     for module in (MCP_SERVER, MCP_CONFIG):
@@ -122,12 +104,8 @@ def test_a_prompt_names_the_agent_with_the_product_name() -> None:
     assert rendered == f"You are {PRODUCT_NAME}."
 
 
-# ── The rename drill ────────────────────────────────────────────────────────
-
-
 @pytest.fixture(scope="module")
 def drill(tmp_path_factory: pytest.TempPathFactory) -> Path:
-    """A scratch tree holding the brand package and every derived surface, renamed by one edit and one sync."""
     if shutil.which("node") is None:
         pytest.skip("node runs packages/brand/sync.mjs")
     scratch = tmp_path_factory.mktemp("rename-drill")
@@ -183,7 +161,6 @@ WEBSITE_DEPS = ROOT / "apps" / "website" / "node_modules"
 
 
 def test_rename_drill_redraws_the_icon(drill: Path) -> None:
-    """The icon is the name's initial: one run of ``build-brand-assets.mjs`` after the sync redraws it."""
     if not all((WEBSITE_DEPS / dep).is_dir() for dep in ("fontkit", "sharp")):
         pytest.skip("build-brand-assets.mjs borrows fontkit and sharp from apps/website (bun install there)")
     site = drill / "apps" / "website"

@@ -41,7 +41,6 @@ describe('FolderBinPanel (the Papierkorb)', () => {
   test('lists who deleted what, when, what it holds and when it goes for good', () => {
     render(<FolderBinPanel projectId="p1" initial={listing([entry()])} />)
     expect(screen.getByText('Verträge')).toBeDefined()
-    // At desk width one meta line says it all; a phone says it in two lines that break only between clauses.
     const desk = screen.getByTestId('bin-meta-f-vertraege')
     expect(desk).toHaveTextContent(/14 documents · 2 folders · deleted by Gerda Fischer on .* · kept until/)
     const phone = screen.getAllByTestId('bin-meta-phone-f-vertraege').map((line) => line.textContent?.replace(/\s+/g, ' '))
@@ -59,7 +58,6 @@ describe('FolderBinPanel (the Papierkorb)', () => {
     )
     expect(screen.getByTestId('bin-restore-f-vertraege')).toBeDefined()
     expect(screen.queryByTestId('bin-restore-f-ro')).toBeNull()
-    // Where the press is missing, the row says why.
     expect(screen.getByTestId('bin-blocked-f-ro')).toHaveTextContent('you may only read this folder')
     expect(screen.queryByTestId('bin-purge-f-vertraege')).toBeNull()
   })

@@ -1,11 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Every check of DECISION §4 C2, each failing alone with its code, on a mail
- * that otherwise passes; and the rows a passing decision becomes, which are the
- * filing job's only instruction (ADR-0137).
- */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
@@ -94,7 +89,6 @@ function decision(mail: InboundMailRow, overrides: Partial<InboundMailDecision> 
   }
 }
 
-/** The refusal code `fn` throws, or `passes`. */
 function codeOf(fn: () => unknown): string {
   try {
     fn()
@@ -124,7 +118,6 @@ describe('a decision that passes', () => {
       acknowledgedSender: false,
       acknowledgedRisk: false,
     })
-    // An append names its thread and no destination of its own (`inbound_mail_decisions_destination_when_filing`).
     expect(planned.files[1]).toMatchObject({
       partId: TEXT_PART_ID,
       threadAction: 'append',
@@ -229,11 +222,9 @@ describe('C2: each rule, failing alone', () => {
   })
 
   it('needs the unverified-thread acknowledgement for an append the sender’s signature does not cover (D11)', () => {
-    // A stranger whose domain verified but did not sign References: the match proves nothing.
     const mail = heldMail({ senderTrust: 'external_verified', senderUserId: null, signedHeaders: ['from', 'subject', 'date', 'message-id'] })
     expect(codeOf(() => plan(mail, decision(mail)))).toBe('risk_not_acknowledged')
     expect(plan(mail, { ...decision(mail), acknowledgeRisk: [TEXT_PART_ID] }).files[1]).toMatchObject({ acknowledgedRisk: true })
-    // An unverified sender's References never vouch for the append either.
     const forged = heldMail({ senderTrust: 'external_unverified', senderUserId: null, senderReason: 'dkim_none', signedHeaders: [] })
     expect(codeOf(() => plan(forged, decision(forged)))).toBe('risk_not_acknowledged')
   })

@@ -1,25 +1,5 @@
 'use client'
 
-/**
- * The unfiled draft's reading surface — a lightweight dialog, deliberately NOT
- * the Files pane's preview.
- *
- * `FilePreviewPane` needs a `FileItem` (a `documents` row) that does not exist
- * while the draft is unfiled: it lives only in the agent store under
- * `/entwuerfe/`. So this renders the fetched markdown directly through
- * `FileTextPage` (which itself uses `MarkdownRenderer`), with the draft's own
- * facts — path, and past the first write the version, and bytes — in the
- * chrome above it.
- *
- * One fixed header, one scroll container: the dialog itself never scrolls, so
- * a long draft gets a single scrollbar on its words rather than one per
- * nesting level.
- *
- * Presentational view state only: opening it writes nothing, which is why the
- * card stays in its `CARD_INTERACTIVITY` classification. Errors render as an
- * actionable message with a retry control, never as a bare sentence.
- */
-
 import type { FC } from 'react'
 import { RotateCcw } from 'lucide-react'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
@@ -31,15 +11,10 @@ import { formatBytes } from '@/lib/format'
 interface DocumentDraftPreviewDialogProps {
   open: boolean
   onClose: () => void
-  /** The draft's first heading, or its file name when it has none. */
   title: string
-  /** Path in the working directory, e.g. `/entwuerfe/aktenvermerk.md`. */
   path: string
-  /** How often this path has been written or edited in this conversation. */
   version: number
-  /** Size of the draft as stored, in UTF-8 bytes. */
   bytes: number
-  /** Fetched markdown; null while loading or when the fetch failed. */
   content: string | null
   loading: boolean
   failed: boolean

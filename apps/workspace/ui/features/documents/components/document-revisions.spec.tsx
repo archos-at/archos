@@ -1,27 +1,3 @@
-/**
- * Fassungen und Freigabe, as the reader meets it: ONE section, a header that
- * says where the newest Fassung stands, and one numbered timeline under it.
- *
- * Pinned here: the header and the rows cannot contradict each other (the header
- * is about the newest Fassung and names the older one Piloti still answers from
- * by number); rows are „Fassung 3, 2, 1" across uploads and linked documents,
- * with the index as a tag and „aktuell" only on the Fassung Piloti answers
- * from; a plain upload claims no approval; the next step names a person, and
- * „ein Teammitglied" stands in only when the name is truly unknown; every fact
- * once; one visible action per row and the rest behind ⋯; Freigeben and
- * Änderungen anfordern visible and the other two decisions behind ⋯. Carried
- * over: a refusal cannot be sent without words, a lost race says so and
- * re-reads, the section opens itself when something is asked of the reader and
- * stays shut once they close it, the unlink is per row, a decision answered
- * after the rail moved on is dropped.
- *
- * The visibility of each control per state and permission is proved over the
- * transition table in `../lib/document-lifecycle.spec.ts`; the merge, numbering
- * and standing rules over plain data in `lib/documents/revision-timeline.spec.ts` and
- * `../lib/revision-standing.spec.ts`. Copy another worker owns is read from the
- * dictionary, so a wording change there does not break a behaviour pinned here.
- */
-
 import type { ReactElement } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import userEvent from '@testing-library/user-event'
@@ -44,7 +20,6 @@ import { PRODUCT_NAME } from '@/lib/brand'
 
 const compareOpened = vi.hoisted(() => vi.fn())
 
-// The real comparison, with a spy on the pair it is opened with.
 vi.mock('./revision-compare', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./revision-compare')>()
   return {
@@ -127,7 +102,6 @@ function makeVersion(
   }
 }
 
-/** A version that went through review: submitted, so its acts are acts. */
 const reviewed = (versionNumber: number, state: DocumentVersionState, overrides: Partial<DocumentVersionView> = {}) =>
   makeVersion(versionNumber, state, {
     submittedBy: 'user_author',
@@ -135,7 +109,6 @@ const reviewed = (versionNumber: number, state: DocumentVersionState, overrides:
     ...overrides,
   })
 
-/** What the listing resolves for the people who acted. */
 const PEOPLE = [
   { userId: 'user_author', name: 'Anna Berger' },
   { userId: 'user_sabine', name: 'Sabine Gruber' },
@@ -157,7 +130,6 @@ function listing(
   }
 }
 
-/** A client double: every method present, only the ones a test needs behaving. */
 function fakeClient(overrides: Partial<DocumentLifecycleClient> = {}): DocumentLifecycleClient {
   const unexpected = () => Promise.reject(new Error('not stubbed'))
   return {
@@ -185,7 +157,6 @@ const clientOf = (
 const reviewer = { permissions: ['project:view', 'project:edit'] as const, userId: 'user_reviewer' }
 const viewOnly = { permissions: ['project:view'] as const, userId: 'user_x' }
 
-/** The section under the German dictionary, the way sibling specs render a locale. */
 const section = (props: Partial<DocumentRevisionsProps> & { file?: FileItem }): ReactElement => (
   <I18nProvider initialLocale="de" fixedLocale>
     <DocumentRevisions file={props.file ?? fileFixture()} canManage={false} {...props} />
@@ -196,10 +167,6 @@ const renderSection = (props: Parameters<typeof section>[0] = {}) => render(sect
 
 const toggle = () => screen.findByTestId('document-revisions-toggle')
 
-/**
- * Render and open the section. It is shut at rest unless something is asked of
- * the reader, and a shut body is not in the DOM; a test about the body opens it.
- */
 async function renderOpen(props: Parameters<typeof section>[0] = {}) {
   const result = render(section(props))
   const trigger = await toggle()
@@ -207,7 +174,6 @@ async function renderOpen(props: Parameters<typeof section>[0] = {}) {
   return result
 }
 
-/** Open a row's ⋯ and return the menu's items by test id (the menu is a portal). */
 async function openRowMenu(row: HTMLElement) {
   await userEvent.click(within(row).getByTestId('revision-row-menu'))
   return screen.findByRole('menu')
@@ -230,7 +196,6 @@ describe('DocumentRevisions — the header says where the newest Fassung stands'
   it('gives a plain upload no state word and no track: nobody approved it, Piloti answers from it', async () => {
     renderSection({
       viewer: reviewer,
-      // As the server stores an upload: the uploader stands in as approver and publisher.
       client: clientOf([makeVersion(1, 'published', { approvedBy: 'user_author', publishedBy: 'user_author' })]),
     })
 
@@ -238,7 +203,6 @@ describe('DocumentRevisions — the header says where the newest Fassung stands'
     expect(screen.queryByTestId('document-lifecycle-state')).toBeNull()
     expect(screen.queryByTestId('document-lifecycle-track')).toBeNull()
     expect(screen.getByTestId('revision-answer')).toHaveTextContent(`${PRODUCT_NAME} antwortet aus dieser Fassung.`)
-    // Who and when, once, in words: never „Freigegeben" or „Veröffentlicht" for an upload.
     const act = screen.getByTestId('revision-header-act')
     expect(act).toHaveTextContent('Hochgeladen von Anna Berger · 01.09.2026')
     expect(screen.getByTestId('document-revisions')).not.toHaveTextContent('Veröffentlicht')
@@ -282,7 +246,6 @@ describe('DocumentRevisions — the header says where the newest Fassung stands'
     expect(within(rows[0]).queryByTestId('revision-row-current')).toBeNull()
     expect(within(rows[1]).getByTestId('revision-row-label')).toHaveTextContent('Fassung 1')
     expect(within(rows[1]).getByTestId('revision-row-current')).toHaveTextContent('aktuell')
-    // The state is the header's; the newest row does not say it again.
     expect(rows[0]).not.toHaveTextContent('In Prüfung')
     expect(screen.getByTestId('document-revisions')).not.toHaveTextContent('Diese Fassung')
   })
@@ -568,7 +531,6 @@ describe('DocumentRevisions — one numbered timeline', () => {
     compareOpened.mockClear()
     await renderOpen({ file: fileFixture({ filename: 'EG_Index_C_2026-08-14.pdf', revision: linked }), canManage: true })
     const rows = await screen.findAllByTestId('revision-timeline-row')
-    // Only the Fassung directly before this one carries it.
     expect(screen.getAllByTestId('revision-compare-previous')).toHaveLength(1)
     await userEvent.click(within(rows[1]).getByTestId('revision-compare-previous'))
     expect(compareOpened).toHaveBeenCalledTimes(1)
@@ -609,7 +571,6 @@ describe('DocumentRevisions — one numbered timeline', () => {
 
     const row = (await screen.findAllByTestId('revision-timeline-row'))[1]
     const name = within(row).getByTitle(long)
-    // The tail is kept whole while there is room; the head ellipsizes first.
     expect(name.lastElementChild).toHaveTextContent('Index-C_2026-06-30.pdf')
     expect(name.lastElementChild).toHaveAttribute('data-part', 'tail')
   })
@@ -769,7 +730,6 @@ describe('DocumentRevisions — one visible action per row, the rest behind ⋯'
 
     const rows = await screen.findAllByTestId('revision-timeline-row')
     expect(rows).toHaveLength(3)
-    // Newest first: the current upload, the unread one, the screened first upload.
     expect(within(rows[1]).queryByTestId('revision-version-open')).toBeNull()
     expect(within(rows[2]).getByTestId('revision-version-open')).toHaveAttribute('href', '/api/documents/doc_1/file?versionId=ver_1')
     await openRowMenu(rows[2])
@@ -804,7 +764,6 @@ describe('DocumentRevisions — one visible action per row, the rest behind ⋯'
     const rows = await screen.findAllByTestId('revision-timeline-row')
     await openRowMenu(rows[0])
     const compare = await screen.findByTestId('document-version-compare')
-    // Fassung 2 in the timeline, because the linked Index A is Fassung 1.
     expect(compare).toHaveTextContent(fill(copy.preview.revision.versions.compareText, { number: 2 }))
     await userEvent.click(compare)
 
@@ -833,7 +792,6 @@ describe('DocumentRevisions — one visible action per row, the rest behind ⋯'
     await openRowMenu(rows[0])
     await userEvent.click(await screen.findByTestId('document-version-compare'))
     expect(diff).toHaveBeenCalledWith('doc_1', 'ver_59', 'ver_60')
-    // A failed comparison is a line under its row; the timeline stays.
     expect(await within(rows[0]).findByTestId('document-version-compare-failed')).toBeInTheDocument()
     expect(screen.getAllByTestId('revision-timeline-row')).toHaveLength(60)
     await openRowMenu(rows[59])
@@ -863,7 +821,6 @@ describe('DocumentRevisions — one visible action per row, the rest behind ⋯'
     ]
     await renderOpen({
       file: fileFixture({ filename: 'EG_Index_C_2026-08-14.pdf', revision: facts({ supersedes: [ref('doc_b', history[0].filename)], history }) }),
-      // Pages that never arrive: the sheet opens and says it is loading.
       compareSource: () => new Promise(() => undefined),
     })
 
@@ -987,7 +944,6 @@ describe('DocumentRevisions — the decisions on the newest Fassung', () => {
 
     await userEvent.click(await screen.findByRole('button', { name: 'Freigeben' }))
     expect(approve).not.toHaveBeenCalled()
-    // The linked Index A is Fassung 1, so this upload is Fassung 2, as the header says.
     expect(screen.getByTestId('document-review-approve-as-of')).toHaveTextContent('Fassung 2')
     expect(screen.getByTestId('document-review-approve-acting')).toHaveTextContent('DI Huber')
     const send = screen.getByTestId('document-review-approve-send')

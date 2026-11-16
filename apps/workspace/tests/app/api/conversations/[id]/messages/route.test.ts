@@ -1,21 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * `GET /api/conversations/[id]/messages` — listing a thread's history.
- *
- * **Rewritten for the collaboration authorization model (ADR-0032)**, for the
- * same reason as the sibling `[id]/route.test.ts`: this file used to fake drizzle
- * by call ORDER (first `select()` = the conversation probe, second = the
- * messages), which broke the moment access resolution added queries of its own.
- * Mocking the repository boundary instead makes it robust against the next such
- * change, and tests the contract rather than the query builder.
- *
- * Reading a thread requires `viewer` — the weakest role — so both cases here are
- * about the route, with one addition worth keeping honest: legacy messages with
- * no recorded author are attributed to the conversation's creator **at read
- * time** (spec CC-3, MG-3), so the response is the right place to prove it.
- */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/lib/auth/require-auth', () => ({
@@ -29,15 +14,12 @@ vi.mock('@/lib/sharing/repository', () => ({
   countGrantsForResource: vi.fn(),
 }))
 
-// Which people may read what a conversation recorded is `restricted-use.spec.ts`'s
-// subject (ADR-0088); here nothing it recorded restricts anybody.
 vi.mock('@/lib/conversations/restricted-use', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/conversations/restricted-use')>()),
   peopleWhoMayRead: vi.fn(async (_org: string, _id: string, userIds: readonly string[]) => new Set(userIds)),
   lockedConversationIds: vi.fn(async () => new Set<string>()),
 }))
 
-// Author names come from the directory (WorkOS); the route's contract is the id, not the name.
 vi.mock('@/lib/sharing/directory', () => ({
   resolvePeople: vi.fn(async () => new Map()),
 }))
@@ -105,7 +87,6 @@ describe('/api/conversations/[id]/messages', () => {
         organizationId: 'org_1',
         conversationId: 's_conv_1',
         role: 'user',
-        // Written before authorship existed — attribution happens on read.
         authorUserId: null,
         runId: null,
         content: 'hello',
@@ -132,14 +113,11 @@ describe('/api/conversations/[id]/messages', () => {
 
     expect(res.status).toBe(200)
     const json = await res.json()
-    // Paged: a lean envelope, the newest page, with a cursor to the earlier ones.
     expect(json.messages).toHaveLength(2)
     expect(json.nextCursor).toBe('550e8400-e29b-41d4-a716-446655440000')
     expect(json.messages[0].role).toBe('user')
     expect(json.messages[0]).not.toHaveProperty('metadata')
     expect(listMessagePage).toHaveBeenCalledWith('s_conv_1', { limit: 50, before: undefined })
-    // The legacy human message is attributed to the creator; the assistant row
-    // keeps its null author, because that is correct rather than missing.
     expect(json.messages[0].authorUserId).toBe('user_1')
     expect(json.messages[1].authorUserId).toBeNull()
   })
@@ -153,7 +131,6 @@ describe('/api/conversations/[id]/messages', () => {
     )
 
     expect(res.status).toBe(404)
-    // Access is refused before the history query is even attempted.
     expect(listMessagePage).not.toHaveBeenCalled()
   })
 })

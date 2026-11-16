@@ -7,8 +7,6 @@ import { ProjectOverview } from './project-overview'
 import { PRODUCT_NAME } from '@/lib/brand'
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: vi.fn(), push: vi.fn() }) }))
-// The lifecycle card and the Steckbrief have their own specs; here only where
-// they mount, and for whom, is asserted.
 vi.mock('../project-lifecycle-card', () => ({
   ProjectLifecycleCard: (props: { lifecycle: { status: string } }) => (
     <div data-testid="project-lifecycle-card" data-status={props.lifecycle.status} />
@@ -179,7 +177,6 @@ describe('ProjectOverview', () => {
 
     expect(screen.getByRole('button', { name: 'Project actions' })).toBeInTheDocument()
     expect(screen.getByTestId('overview-usage')).toHaveTextContent('120 credits')
-    // Only people with a project role are counted, not the whole org roster.
     const members = screen.getByTestId('overview-members')
     expect(await within(members).findByText('person')).toBeInTheDocument()
   })

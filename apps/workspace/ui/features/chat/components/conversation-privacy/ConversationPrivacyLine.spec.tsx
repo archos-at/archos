@@ -1,8 +1,3 @@
-/**
- * The line under the composer (ADR-0180): what is kept from this chat and who
- * reads it. Each statement appears only while it is true AND known: a guess
- * about access shown as fact is the one thing this line must never do.
- */
 import { afterEach, describe, expect, test } from 'vitest'
 import { act, render, screen } from '@/test-utils'
 import { PRODUCT_NAME } from '@/lib/brand'

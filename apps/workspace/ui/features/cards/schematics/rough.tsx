@@ -1,17 +1,3 @@
-/**
- * Seeded rough.js helpers — the hand-sketched stroke of the schematic kit.
- *
- * Object geometry (walls, storeys, stairs, parcels) is drawn with a subtle
- * rough stroke so the diagrams read as "generated schematic", not a certified
- * CAD drawing; the measurement layer (dimension arrows, marker lines, text)
- * stays crisp for contrast and legibility.
- *
- * SSR safety: only `rough.generator()` is used — pure path-data computation
- * with no canvas/DOM access — so the exact same markup renders on the server
- * and the client. Every shape takes a string seed hashed to a deterministic
- * rough.js seed, so strokes never jitter across re-renders or hydration.
- */
-
 import { type ReactNode } from 'react'
 import rough from 'roughjs'
 
@@ -21,7 +7,6 @@ export type RoughOptions = NonNullable<Parameters<typeof generator.rectangle>[4]
 type Drawable = ReturnType<typeof generator.rectangle>
 export type Point = [number, number]
 
-/** djb2 string hash → positive rough.js seed (0 would mean "random"). */
 export const hashSeed = (input: string): number => {
   let hash = 5381
   for (let i = 0; i < input.length; i += 1) {
@@ -30,7 +15,6 @@ export const hashSeed = (input: string): number => {
   return (hash >>> 0) % 2147483646 || 1
 }
 
-/** Quiet default sketchiness — visible on close look, never wobbly. */
 const BASE: RoughOptions = {
   roughness: 0.8,
   bowing: 0.6,
@@ -92,6 +76,5 @@ export const sketchPolygon = (
   overrides?: RoughOptions
 ): ReactNode => toNodes(generator.polygon(points, opts(seed, overrides)))
 
-/** Open polyline (no closing segment). */
 export const sketchPath = (points: Point[], seed: string, overrides?: RoughOptions): ReactNode =>
   toNodes(generator.linearPath(points, opts(seed, overrides)))

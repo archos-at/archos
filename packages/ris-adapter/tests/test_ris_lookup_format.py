@@ -1,16 +1,3 @@
-"""The return format IS the contract: RIS output must parse as evidence.
-
-``ris_fetch_document`` returned 40 000 characters with a ``Source:`` and a
-``Title:`` and nothing a citation could resolve to — so
-``extract_sources_from_tool_result`` fell through to the generic URL extractor
-and the answer cited a link. These tests assert the opposite for
-``ris_lookup``: the SAME parser the knowledge layer registers reads the block,
-and what comes out carries a citation key, a Punkt and ``doc_class="law"``.
-
-That is the whole claim of the consolidation, as an assertion rather than a
-paragraph.
-"""
-
 from __future__ import annotations
 
 import json
@@ -29,7 +16,6 @@ async def test_the_block_carries_every_field_the_grounding_grammar_needs(lookup,
 
     assert "--- Result 1 ---" in output
     assert "Source: Bauordnung für Wien" in output
-    # The whole law's URL is not a citation, and printed it was copied as one.
     assert "Source URL:" not in output and lookup.WIEN_URL not in output
     assert "Shelf: base" in output
     assert "Dokumentart: law — Gesetz / Bauordnung" in output
@@ -42,12 +28,10 @@ async def test_the_block_carries_every_field_the_grounding_grammar_needs(lookup,
 
 
 async def test_the_knowledge_parser_reads_it_as_evidence(lookup, catalog):
-    """The assertion the whole consolidation rests on."""
     output = await lookup.run(question=_QUESTION, instrument="§ 63 Abs 1 BO Wien")
 
     entries = extract_sources_from_tool_result("ris_lookup", output)
 
-    # The named Absatz, then the whole § under its own key (see below).
     assert [e.citation_key for e in entries] == ["Bauordnung für Wien, § 63 Abs 1", "Bauordnung für Wien, § 63"]
     entry = entries[0]
     assert entry.citation_key == "Bauordnung für Wien, § 63 Abs 1"
@@ -59,7 +43,6 @@ async def test_the_knowledge_parser_reads_it_as_evidence(lookup, catalog):
 
 
 async def test_only_the_named_subsection_is_returned(lookup, catalog):
-    """``Abs 1`` means Abs 1 — the Absätze after it stay out of the passage."""
     output = await lookup.run(question=_QUESTION, instrument="§ 63 Abs 1 BO Wien")
 
     body = lookup.body_of(output)
@@ -68,7 +51,6 @@ async def test_only_the_named_subsection_is_returned(lookup, catalog):
 
 
 async def test_the_lane_is_the_legal_source_lane_not_unknown(lookup, catalog):
-    """``doc_class`` is what ``lane_for_hit`` reads first — so the chip is law, not Web."""
     output = await lookup.run(question=_QUESTION, instrument="§ 63 BO Wien")
 
     lanes = json.loads(output.split("## Trace-Lanes\n", 1)[1].strip())
@@ -78,7 +60,6 @@ async def test_the_lane_is_the_legal_source_lane_not_unknown(lookup, catalog):
 
 
 async def test_a_named_section_arrives_whole(lookup, catalog):
-    """Seen in the answer suite: § 63 cut at the chunk bound cost three lookups."""
     absaetze = "\n".join(f"({index}) " + "Text " * 100 for index in range(1, 12))
     lookup.set_text(lookup.WIEN_URL, f"Bauansuchen\n§ 63. {absaetze}\n(12) Letzter Absatz.")
 
@@ -89,7 +70,6 @@ async def test_a_named_section_arrives_whole(lookup, catalog):
 
 
 async def test_a_named_section_is_still_bounded(lookup, catalog):
-    """Longer than a § bound, it is cut on an Absatz and says so."""
     from ris_adapter.lookup.grammar import SECTION_MAX_CHARS
 
     long_subsection = "\n".join(f"({index}) " + "Text " * 200 for index in range(1, 12))
@@ -99,12 +79,10 @@ async def test_a_named_section_is_still_bounded(lookup, catalog):
 
     body = lookup.body_of(output)
     assert len(body) <= SECTION_MAX_CHARS
-    # The producer's own truncation marker, which the parser strips back off.
     assert "... [truncated]" in output
 
 
 async def test_a_named_subsection_comes_with_its_whole_section(lookup, catalog):
-    """Asked for Abs 2 alone, the agent came back for Abs 4, 5 and 3 one lookup at a time."""
     output = await lookup.run(question=_QUESTION, instrument="§ 63 Abs 1 BO Wien")
 
     assert "Die Baupläne müssen von einem hierzu Befugten" not in lookup.body_of(output, 1)

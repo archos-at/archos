@@ -1,21 +1,9 @@
-"""A Katastralmappe as BEV writes it, in a few parcels: the fixture both DXF suites read (ADR-0152, ADR-0153).
-
-The rendition tests (``apps/agent-host/tests/test_drawing_renditions.py``) draw
-it; the site tests (``packages/agent/tests/drawings``) measure it. One builder,
-so the page a person sees and the numbers the agent quotes are tested on the
-same drawing.
-"""
-
 from __future__ import annotations
 
-#: A point in Mödling, Lower Austria, in MGI / Austria GK East (EPSG 31256) with
-#: the 5,000,000 of the northing dropped, as BEV writes it.
 X0, Y0 = -3139.84, 327390.65
 
 
 class R12Writer:
-    """Group codes for a partial R12 file, the way BEV writes one: a minimal header, then entities only."""
-
     def __init__(self) -> None:
         self.codes = ["0", "SECTION", "2", "HEADER", "9", "$ACADVER", "1", "AC1009", "0", "ENDSEC"]
         self.codes += ["0", "SECTION", "2", "ENTITIES"]
@@ -27,7 +15,6 @@ class R12Writer:
         self.codes += ["0", "SEQEND", "8", layer]
 
     def insert(self, layer: str, block: str, at: tuple[float, float], value: str, tag: str, **text: float) -> None:
-        """An INSERT with one attribute, centred on its point as BEV's parcel numbers are (spec §8.3)."""
         x, y = X0 + at[0], Y0 + at[1]
         rotation = text.get("rotation", 0.0)
         self.codes += ["0", "INSERT", "8", layer, "66", "1", "2", block, "10", f"{x:.3f}", "20", f"{y:.3f}", "30", "0"]
@@ -59,7 +46,6 @@ class R12Writer:
         return ("\n".join([*self.codes, "0", "ENDSEC", "0", "EOF"]) + "\n").encode("cp1252")
 
 
-#: Parcel numbers of the fixture block, with where each sits and whether it is in the Grenzkataster.
 PARCELS = [
     ("123/4", (10, 30), False),
     ("123/5", (27.5, 30), True),
@@ -73,15 +59,6 @@ PARCELS = [
 
 
 def bev_partial_dxf() -> bytes:
-    """A block of a Katastralmappe shaped like BEV's "BEV-DXF+CSV" file, at 1:1000.
-
-    Seven parcels on either side of a street parcel, a cadastral-community
-    boundary on the east, houses, a land-use line and boundary points. The
-    boundaries run node to node and are never closed (spec §3.2); the parcel
-    numbers and point symbols are INSERTs of blocks the file does not define (§1);
-    parcel numbers are centred on their point (§8.3) at the 1:1000 sheet's text
-    height; the sheet marker names meridian strip 34 (§3.1).
-    """
     dxf = R12Writer()
     north = [0, 20, 35, 55, 75]
     south = [0, 25, 50, 75]

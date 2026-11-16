@@ -2,16 +2,6 @@ import * as React from 'react'
 
 import { cn } from '@/lib/utils'
 
-/**
- * Listbox — the suggestions under a typing field (an ARIA combobox's popup),
- * drawn in the field's own subtree instead of in a portalled layer.
- *
- * Not portalled, on purpose. The one caller lives in a dialog, and a portalled
- * popover there fights the dialog over focus, outside presses and Escape. A
- * list in the field's own subtree has none of that; the caller may position it
- * absolutely so it floats over the form instead of pushing it down. Focus never leaves the field: the field owns the keyboard and names
- * the active option with `aria-activedescendant`, this only paints.
- */
 export function Listbox({ className, ...props }: React.ComponentProps<'ul'>): React.JSX.Element {
   return (
     <ul
@@ -24,10 +14,8 @@ export function Listbox({ className, ...props }: React.ComponentProps<'ul'>): Re
 }
 
 export interface ListboxOptionProps extends Omit<React.ComponentProps<'li'>, 'onSelect'> {
-  /** The option the keyboard is on. */
   active?: boolean
   selected?: boolean
-  /** Fired on pointer press, which keeps focus in the field (a click would blur it first). */
   onChoose?: () => void
 }
 
@@ -51,7 +39,6 @@ export function ListboxOption({
         className
       )}
       onMouseDown={(event) => {
-        // Keeps the field focused: its blur is what closes the list.
         event.preventDefault()
         onMouseDown?.(event)
         onChoose?.()

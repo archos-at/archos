@@ -1,10 +1,3 @@
-"""`task verify:fast` runs what a change can break, and everything when it cannot tell.
-
-`ci/verify_plan.py` chooses the tiers from `.github/filters.yml` and the UI
-specs through `ci/pr_selection.py`, the two definitions CI's Plan job reads. A
-wrong plan is a push that CI then fails, so the widening rules are pinned here.
-"""
-
 from __future__ import annotations
 
 import importlib.util

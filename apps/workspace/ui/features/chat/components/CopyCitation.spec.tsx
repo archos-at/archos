@@ -70,10 +70,7 @@ describe('citation copy', () => {
     expect(screen.getByRole('status')).toHaveTextContent('')
     await user.click(button)
 
-    // Heard: the visible „Copied" is inside a button named by its aria-label.
     await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Copied'))
-    // Both labels stay mounted in one cell, so the button is as wide in its
-    // receipt as at rest; only which one is visible changes.
     expect(button).toHaveTextContent('Copy citation')
     expect(button).toHaveTextContent('Copied')
   })

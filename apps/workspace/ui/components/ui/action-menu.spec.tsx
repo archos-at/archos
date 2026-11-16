@@ -1,11 +1,3 @@
-/**
- * The kit menu that dropdown and right-click both render.
- *
- * The whole point of this control is that the two triggers cannot drift: the
- * same entry list is what a click on ⋯ and a right-click both show. That is
- * the behaviour under test, not the Radix internals of either primitive.
- */
-
 import { useState } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '@/test-utils'
@@ -79,7 +71,6 @@ describe('ActionMenu', () => {
     fireEvent.contextMenu(canvas)
 
     expect(await screen.findByRole('menuitem', { name: 'Open' })).toBeInTheDocument()
-    // The same node: the entries arriving did not wrap the canvas in a new host.
     expect(screen.getByText('Canvas')).toBe(canvas)
   })
 

@@ -120,8 +120,6 @@ describe.skipIf(!url)('upload batches against Postgres', () => {
     const quarantine = { status: 'quarantined' as const, errorMessage: 'quarantined:{}' }
     const seen = { status: 'pending' as const, jobId: null }
     expect(await documentsRepo.setDocumentReconciledStatus(reading, ORG, quarantine, seen)).toBe(true)
-    // A second read that saw the same `pending` lost the race: it moves
-    // nothing, so it settles nothing and the quarantine is audited once.
     expect(await documentsRepo.setDocumentReconciledStatus(reading, ORG, quarantine, seen)).toBe(false)
     const completed = await repo.completeSettledBatches(ORG, [BATCH], new Date())
     expect(completed.map((batch) => batch.id)).toEqual([BATCH])
@@ -154,18 +152,12 @@ describe.skipIf(!url)('upload batches against Postgres', () => {
         )
       )
 
-    // A read that resolved another dispatch moves nothing.
     expect(await settle('job-0')).toBe(false)
     expect(await settle('job-1')).toBe(true)
     expect(await decisions()).toEqual([
       { job_id: 'job-1', reasons: 'term:Lohnzettel', checked: 'full', filename: 'lohn.pdf', uploaded_by: USER, folder_id: null },
     ])
 
-    // A reviewer releases it: back in flight under a new job. A read that saw
-    // the row in flight before and resolved job-1 must not land on job-2's
-    // dispatch, though the status it saw is the row's status again. Through
-    // the release and the dispatch after it, the one way out of quarantine
-    // (migration 0122).
     await inTenant(ORG, () => db.execute(sql`UPDATE documents SET content_hash = 'sha256:lohn' WHERE id = ${id}::uuid`))
     expect(
       await documentsRepo.markScreeningReleased(id, ORG, {
@@ -178,13 +170,10 @@ describe.skipIf(!url)('upload batches against Postgres', () => {
     expect(await settle('job-1')).toBe(false)
     expect(await decisions()).toHaveLength(1)
 
-    // job-2 quarantines it again: a second decision, a second row.
     expect(await settle('job-2')).toBe(true)
     expect((await decisions()).map((row) => row.job_id)).toEqual(['job-1', 'job-2'])
   })
 
-  // `lib/documents/filing-choice.ts`: the choice a dispatch carried rides on the
-  // row through the quarantine its reading ends in, for the release to send.
   it("keeps the dispatch's filing choice through a quarantine, and drops it with the next dispatch that carries none", async () => {
     const { storedFilingChoice } = await import('@/lib/documents/filing-choice')
     const { DOCUMENT_TYPE_TAGS } = await import('@/lib/documents/tag-vocabulary')
@@ -229,13 +218,11 @@ describe.skipIf(!url)('upload batches against Postgres', () => {
     const [owed] = await decisionsRepo.listOwedQuarantineDecisions(ORG, [id])
     expect(owed).toMatchObject({ documentId: id, jobId: 'job-owed', reasons: 'iban', auditedAt: null })
     expect(await decisionsRepo.listOwedQuarantineDecisions(OTHER_ORG, [id])).toEqual([])
-    // The sweep's discovery, across organizations.
     const found = await withPlatformAccess('test: the quarantine audit sweep', () =>
       decisionsRepo.listOwedQuarantineDecisionsBetween(new Date(Date.now() - 60_000), new Date(Date.now() + 60_000), 50)
     )
     expect(found.map((row) => row.id)).toContain(owed.id)
 
-    // The document goes; the decision it was stays owed.
     await inTenant(ORG, () => db.execute(sql`DELETE FROM documents WHERE id = ${id}::uuid`))
     expect(await decisionsRepo.listOwedQuarantineDecisions(ORG, [id])).toHaveLength(1)
 
@@ -252,8 +239,6 @@ describe.skipIf(!url)('upload batches against Postgres', () => {
     ).rejects.toThrow()
   })
 
-  // Retention (0118): a decision holds the file's name, the uploader and the
-  // matched terms, and is kept only to reach the trail.
   it('deletes the spent decisions, on the platform role only, and keeps what is still owed', async () => {
     const decide = async (label: string, decidedAt: string, auditedAt: string | null): Promise<string> => {
       const rows = await inTenant(ORG, () =>
@@ -284,7 +269,6 @@ describe.skipIf(!url)('upload batches against Postgres', () => {
         )
       ).map((row) => String(row.id))
 
-    // A tenant session never deletes one, spent or not.
     await expect(inTenant(ORG, () => decisionsRepo.deleteSpentQuarantineDecisions(window, 500))).rejects.toThrow()
     expect((await remaining()).sort()).toEqual([owed, audited, expired].sort())
 
@@ -303,14 +287,12 @@ describe.skipIf(!url)('upload batches against Postgres', () => {
     const completedAt = new Date()
     expect((await repo.completeSettledBatches(ORG, [batch], completedAt)).map((row) => row.id)).toEqual([batch])
 
-    // Another organization, or another completion time, reopens nothing.
     await repo.reopenCompletedBatches(OTHER_ORG, [batch], completedAt)
     await repo.reopenCompletedBatches(ORG, [batch], new Date(completedAt.getTime() + 1))
     expect((await repo.findUploadBatch(ORG, batch))?.completedAt).not.toBeNull()
 
     await repo.reopenCompletedBatches(ORG, [batch], completedAt)
     expect((await repo.findUploadBatch(ORG, batch))?.completedAt).toBeNull()
-    // Open again, so the next settle completes it and tells the uploader.
     expect((await repo.completeSettledBatches(ORG, [batch], new Date())).map((row) => row.id)).toEqual([batch])
   })
 
@@ -345,9 +327,6 @@ describe.skipIf(!url)('upload batches against Postgres', () => {
     expect(await repo.findUploadBatch(ORG, JOB_BATCH)).toMatchObject({ expectedCount: 2, sealedAt: expect.any(Date) })
   })
 
-  // The name check's stops arrive after the batch opened: a job's as it meets
-  // them, the server's repeat with the browser's seal (ADR-0086). Each adds to
-  // what is there, term by term, and a sealed batch takes no more.
   it('adds name-check stops to a batch by term, summed, until it is sealed', async () => {
     const batch = '7c1f0f8e-0b6a-4f41-9d3b-5a0b2f9e1a05'
     await repo.insertUploadBatch({
@@ -397,8 +376,6 @@ describe.skipIf(!url)('upload batches against Postgres', () => {
     ).rejects.toThrow()
   })
 
-  // Migration 0195: the effects a settle sets off. A batch opened without
-  // them is a person's upload; only the server opens one quieter.
   it("opens a batch with every effect of a person's upload, and keeps the quieter ones a caller set", async () => {
     expect(await repo.findUploadBatch(ORG, BATCH)).toMatchObject({
       announcesCompletion: true,
@@ -434,7 +411,6 @@ describe.skipIf(!url)('upload batches against Postgres', () => {
         [quiet, { revisionNotice: 'marks_only', runsDocumentCheck: false }],
       ])
     )
-    // Another organization learns nothing about the batch, its effects included.
     expect(await repo.findBatchSettleEffects(OTHER_ORG, [quiet])).toEqual(new Map())
   })
 
@@ -456,7 +432,6 @@ describe.skipIf(!url)('upload batches against Postgres', () => {
 
     expect(await release('sha256:other')).toBe(false)
     expect(await release('sha256:seen')).toBe(true)
-    // No longer quarantined, so a second release takes nothing.
     expect(await release('sha256:seen')).toBe(false)
 
     const row = await documentsRepo.findDocumentInOrg(id, ORG, internalRead('ingest'))
@@ -477,7 +452,6 @@ describe.skipIf(!url)('upload batches against Postgres', () => {
 
   it('pages the quarantine newest first, with ties on the timestamp broken by id, each row once', async () => {
     const ids = await Promise.all(['q1.pdf', 'q2.pdf', 'q3.pdf'].map((name) => insertDocument(name, 'quarantined')))
-    // Two rows on one timestamp: the tie a plain `updated_at <` cursor would skip.
     await inTenant(ORG, () =>
       db.execute(sql`
         UPDATE documents SET updated_at = '2026-10-01T10:00:00Z'
@@ -495,7 +469,6 @@ describe.skipIf(!url)('upload batches against Postgres', () => {
         ids.includes(row.id)
       )
       if (rows.length === 0) break
-      // One row per "page" here, by walking the cursor row by row.
       const first: Document = rows[0]
       seen.push(first.id)
       cursor = { updatedAt: new Date(first.updatedAt), id: first.id }
@@ -561,9 +534,6 @@ describe.skipIf(!url)('upload batches against Postgres', () => {
     )
     const many = String(Array.from(rows)[0]?.id)
     const total = repo.UPLOAD_HISTORY_LIMIT + 7
-    // One minute apart, except that the last upload of the first page and the
-    // first of the second share one timestamp: the tie a plain `created_at <`
-    // cursor would skip across the page boundary.
     await inTenant(ORG, () =>
       db.execute(sql`
         INSERT INTO upload_batches (id, organization_id, created_by, scope, project_id, expected_count, created_at)

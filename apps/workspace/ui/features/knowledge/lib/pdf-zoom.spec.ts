@@ -52,7 +52,6 @@ describe('stepZoom', () => {
   })
 })
 
-/** An A1 sheet across (841 mm) in PDF points, and its fit on a 393px phone (frame 381 less the 24px gutter). */
 const A1_WIDTH = 2384
 const A4_WIDTH = 595
 const PHONE_FIT = 357
@@ -60,7 +59,6 @@ const PHONE_FIT = 357
 describe('maxZoomFor', () => {
   it('lets an A1 plan on a phone go deep enough to read 2.5 mm lettering', () => {
     const ceiling = maxZoomFor({ pageWidth: A1_WIDTH, fitWidth: PHONE_FIT })
-    // The finding: fit x 4 left 2.5 mm text at about 4 px. Twice print size is ~19 px.
     expect(ceiling).toBeGreaterThan(12)
     const pxPerMm = (PHONE_FIT * ceiling) / 841
     expect(2.5 * pxPerMm).toBeGreaterThanOrEqual(18)
@@ -119,7 +117,6 @@ describe('anchoredTransform', () => {
     const origin = { x: 10, y: 50 }
     const at = { x: 260, y: 420 }
     const transform = anchoredTransform({ scale: 2.5, point, origin, at })
-    // With transform-origin 0 0 the point lands at origin + translate + scale * point.
     expect(origin.x + transform.x + transform.scale * point.x).toBeCloseTo(at.x)
     expect(origin.y + transform.y + transform.scale * point.y).toBeCloseTo(at.y)
   })

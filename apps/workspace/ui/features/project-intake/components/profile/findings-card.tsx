@@ -23,17 +23,8 @@ interface Decide {
   onDecide: (decisions: IntakeDecision[]) => Promise<boolean>
 }
 
-/** The table's columns on a desk; on a phone each row is a stacked list item. */
 const ROW_GRID = 'md:grid md:grid-cols-[200px_minmax(0,1fr)_200px_148px] md:items-center md:gap-3.5'
 
-/**
- * „Was Piloti gefunden hat": one table of the values the reading found, each
- * with the place it stands. The few that decide the most are shown (the inputs
- * of the Gebäudeklasse first); the rest fold away by topic behind one link.
- * The person checks rather than approves: they change what is wrong, and the
- * footer's „Alles übernehmen und abschließen“ takes the rest, each value as
- * their confirmation with its evidence.
- */
 export function FindingsCard({
   projectId,
   groups,
@@ -45,9 +36,7 @@ export function FindingsCard({
   projectId: string
   groups: readonly SuggestionGroup[]
   derivations: readonly DerivationReview[]
-  /** A reading is running: more rows are on their way. */
   reading: boolean
-  /** The briefing editor is still a way to change the values (the setup is not finished). */
   editable: boolean
 }): JSX.Element {
   const t = useTranslations(intakeProfileStepCopy)
@@ -187,11 +176,6 @@ function FindingRow({ item, severalBuildings, ...decide }: Decide & { item: Sugg
   )
 }
 
-/**
- * What a row offers. Nothing to approve: what is right is taken with
- * „Alles übernehmen und abschließen“. A person changes what is wrong
- * („Ändern“) or says it is not right at all (✕); a value they set says so.
- */
 function RowAction({ item, label, canDecide, busy, onDecide }: Decide & { item: Suggestion; label: string }): JSX.Element {
   const t = useTranslations(intakeProfileStepCopy)
   const [dismissing, dismiss] = usePressed()

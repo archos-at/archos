@@ -21,7 +21,6 @@ vi.mock('@/lib/project-profile/prompt-view', () => ({
   loadProjectFederalState: vi.fn().mockResolvedValue(null),
 }))
 
-// Keep the test hermetic: the real digest builder requires a database.
 vi.mock('@/lib/projects/memory-service', () => ({
   buildProjectMemoryDigest: vi.fn(),
 }))
@@ -68,12 +67,8 @@ describe('/api/auth/websocket-scope', () => {
       scope: ['oib_knowledge'],
       scopedCollections: [{ collection: 'oib_knowledge', shelf: 'base' }],
       header: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9',
-      // The route echoes the requested projectId so server.js can scope the socket,
-      // and the conversationId it authorized so the signed envelope carries it.
       projectId: 'proj-1',
       conversationId: 'conv-1',
-      // Anonymous mode: nobody signs in, so the reflection stage gets a
-      // rollout's fixed answer — ON.
       memoryReflectionEnabled: true,
     })
     expect(mockRequireProjectAccess).not.toHaveBeenCalled()
@@ -124,13 +119,9 @@ describe('/api/auth/websocket-scope', () => {
     const res = await GET(req)
 
     expect(res.status).toBe(200)
-    // Access enforcement lives in buildCollectionScopeFromRequest (covered by
-    // its own tests); the route must delegate with the session and NOT run a
-    // second, redundant check.
     expect(mockBuildCollectionScopeFromRequest).toHaveBeenCalledWith(session, {
       projectId: 'proj-1',
       conversationId: undefined,
-      // The upgrade is the one interactive chat scope (ADR-0087).
       interactiveChat: true,
     })
     expect(mockRequireProjectAccess).not.toHaveBeenCalled()
@@ -150,7 +141,6 @@ describe('/api/auth/websocket-scope', () => {
   featureFlags: null,
     }
     mockGetUserSession.mockResolvedValue(session)
-    // The access check inside the scope builder rejects (tenancy/FGA denial).
     mockBuildCollectionScopeFromRequest.mockRejectedValue(new NotFoundError())
 
     const req = new Request('http://localhost:3000/api/auth/websocket-scope?projectId=proj-1')

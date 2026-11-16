@@ -1,9 +1,3 @@
-"""The citation grammar is the record's: a locus in another language reads its own references.
-
-The RIS record's grammar is held by the ported address and grammar suites; this
-one holds that nothing of it is in the code, with a locus no record ships.
-"""
-
 from __future__ import annotations
 
 from public_sources.lookup import Locus

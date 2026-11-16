@@ -5,14 +5,6 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useTranslations } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
 
-/**
- * The detail view, waiting.
- *
- * A card grid was drawn here whatever the reader had chosen, so running a search
- * from the list showed a wall of card skeletons and then snapped to a table —
- * a layout flash announcing a change that was never going to happen. Shaped like
- * the rows it stands in for, so what arrives lands where the placeholder was.
- */
 export function FileListSkeleton({ rows = 6 }: { rows?: number }) {
   return (
     <div className="@container/filelist space-y-1 px-2 pb-4 pt-6 md:-mx-2 md:px-0" data-testid="file-list-skeleton">
@@ -43,7 +35,6 @@ export function FileListSkeleton({ rows = 6 }: { rows?: number }) {
   )
 }
 
-/** The heading strip above the placeholder rows — same widths as the real columns. */
 function FileListSkeletonHeader(): JSX.Element {
   const t = useTranslations(filesCopy)
   return (

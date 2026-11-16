@@ -1,5 +1,3 @@
-"""The open-archive cache: a held archive is never closed under its reader; a hit is only the URL's own object."""
-
 from __future__ import annotations
 
 import threading
@@ -40,10 +38,8 @@ def fake_open(monkeypatch):
 
 STORE = "http://seaweedfs:8333"
 
-#: The signatures the fake store honours; anything else is a 403, as SigV4 answers.
 VALID_SIGNATURES = {"1", "2"}
 
-#: The URLs the fake store was asked for, in order.
 store_requests: list[str] = []
 
 
@@ -74,7 +70,6 @@ def test_an_archive_is_reused_for_a_fresh_url_of_the_same_object(fake_open):
 
 
 def test_a_url_for_another_object_never_reaches_an_open_archive(fake_open):
-    # The cross-tenant read the caller-stated key allowed: same size, another object.
     with archives.use_archive(url("staging/org_a/a.pst"), 10) as theirs:
         pass
     with archives.use_archive(url("staging/org_b/b.pst"), 10) as mine:
@@ -94,7 +89,6 @@ def test_eviction_passes_over_an_archive_in_use_and_its_last_holder_closes_it(fa
             with archives.use_archive(url(key), 10):
                 pass
         assert held.closed is False
-    # Past capacity and released: the next eviction may now take it.
     with archives.use_archive(url("d"), 10):
         pass
     assert sum(1 for archive in fake_open if not archive.closed) <= archives.MAX_OPEN
@@ -108,9 +102,6 @@ def test_idle_archives_are_closed_after_the_idle_window(fake_open, monkeypatch):
 
 
 def test_a_caller_naming_another_offices_key_gets_its_own_object_through_the_route(fake_open, monkeypatch):
-    """C2's finding: the cache was keyed by the caller's ``key``, so a token holder could send another
-    office's storage key with a presigned URL to any object of its own and be served that office's
-    open archive. Through the route, the second request must open its own object."""
     from fastapi import APIRouter
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
@@ -141,9 +132,6 @@ def test_a_caller_naming_another_offices_key_gets_its_own_object_through_the_rou
 
 @pytest.mark.parametrize("unproven", [f"{STORE}/staging/org_a/a.pst", url("staging/org_a/a.pst", "forged")])
 def test_a_url_the_store_does_not_honour_never_reaches_an_open_archive(fake_open, unproven):
-    """Naming the object is not holding a right to it: an unsigned or forged URL
-    for an open archive's path gets nothing from the cache, and the archive goes
-    on reading through the URL it had, so its other holders lose nothing."""
     with archives.use_archive(url("staging/org_a/a.pst", "1"), 10) as theirs:
         pass
 

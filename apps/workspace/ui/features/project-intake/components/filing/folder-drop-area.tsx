@@ -8,11 +8,6 @@ import { useTranslations } from '@/i18n'
 import { intakeFilingStepCopy } from '@/i18n/namespaces/intake-filing-step'
 import { cn } from '@/lib/utils'
 
-/**
- * Takes a folder let go on it, and only there: the drop stops at this element,
- * so on the Ablage a folder dropped here becomes the tree to confirm rather than
- * going straight to the page's own upload.
- */
 export function FolderDropTarget({
   onFiles,
   disabled = false,
@@ -46,11 +41,6 @@ export function FolderDropTarget({
   )
 }
 
-/**
- * The Ablage before a folder is chosen: one calm, dashed area that takes the
- * project folder by drop or opens the folder picker on a click, and under it
- * the quiet way to pick single files instead.
- */
 export function FolderDropArea({
   onFiles,
   onPickFolder,

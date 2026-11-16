@@ -1,36 +1,5 @@
 'use client'
 
-/**
- * The Skills tab's content: the skills Piloti curates for every organization
- * (`curated-skills.tsx`), and then the ones this one wrote itself — each half
- * grouped onto categories, with the unsorted closers last.
- *
- * Featured leads. An organization gets more out of switching one of ours on
- * than out of writing its first skill from a blank editor, so the curated set
- * is the top of the page rather than an appendix to it.
- *
- * The pipeline's own machinery used to sit in this same grid as equal cards,
- * each offering a "clone". Both were wrong. Those are hardcoded files, not
- * rows: nobody installs one, nobody can edit one, and every one of them
- * declares `grid-agents: deep_researcher`, so none is even invocable from chat
- * — they are how deep research analyses figures and writes its report. Five of
- * them in front of an org with two skills of its own made the page look like it
- * was mostly ours, and the one action they offered produced a frozen copy of an
- * instruction the org never wrote. They are gone from this surface entirely
- * (see `lib/skills/service.ts::listSkills`) and still resolve for every run.
- *
- * What replaces clone is a switch, in both halves of the page. A skill is
- * either in play for this organization or it is not, and that is the only state
- * anyone here has an opinion about: for an org's own skill it is
- * `skills.enabled`, which already gated resolution but sat three clicks deep in
- * the editor; for a curated one it is the org's activation decision.
- *
- * A card opens its drawer, and a `?skill=` deep link opens it directly — an
- * org id, or a curated name. Authoring is gated on org:skills:manage; without
- * it the page is read-only. Nothing here is about time or output: a skill
- * says neither.
- */
-
 import type { JSX } from 'react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { BookOpen, ChevronDown, Library, Pencil, Plus, Search, Sparkles, Trash2 } from 'lucide-react'
@@ -66,23 +35,12 @@ import { SkillCategoryManager } from './skill-category-manager'
 import { capturePosthog } from '@/lib/analytics/posthog'
 
 interface SkillToolboxProps {
-  /** Whether this member may author/edit/delete skills (org:skills:manage). */
   canManage: boolean
-  /** Open the editor for a skill (edit, or create empty from scratch). */
   onEdit: (skill: SkillListItem | null) => void
-  /**
-   * Bumped by the panel after a save, to re-fetch.
-   *
-   * Without it a skill you had just written did not appear until a reload —
-   * the save succeeded, the toast said so, and the page still showed the list
-   * from before it, which reads as the save having done nothing.
-   */
   reloadKey?: number
-  /** Categories changed outside (editor save) — re-fetch above. */
   onCategoriesChanged?: () => void
 }
 
-/** The `?skill=` on the URL, if any — an org id, or a curated name. */
 function readSelectionFromUrl(): string | null {
   try {
     if (typeof window === 'undefined') return null
@@ -92,7 +50,6 @@ function readSelectionFromUrl(): string | null {
   }
 }
 
-/** Keep the deep link on the URL while the drawer is open, drop it on close. */
 function syncSelectionToUrl(value: string | null): void {
   try {
     const url = new URL(window.location.href)
@@ -117,7 +74,6 @@ export function SkillToolbox({
   const [query, setQuery] = useState('')
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [confirmId, setConfirmId] = useState<string | null>(null)
-  /** Ids whose switch is mid-flight, so it cannot be flipped twice. */
   const [togglingIds, setTogglingIds] = useState<string[]>([])
   const [categoriesOpen, setCategoriesOpen] = useState(false)
   const [selected, setSelected] = useState<string | null>(() => readSelectionFromUrl())
@@ -156,13 +112,6 @@ export function SkillToolbox({
     }
   }
 
-  /**
-   * Flip a skill on or off — an org row by id, a curated offer by name.
-   *
-   * Optimistic, and reverted on failure. A switch that waits for a round trip
-   * before moving is a switch you press twice — and this one is cheap to undo,
-   * which is exactly the case optimism is for.
-   */
   const toggleEnabled = async (skill: SkillListItem, enabled: boolean) => {
     const key = selectionKey(skill)
     setTogglingIds((current) => [...current, key])
@@ -192,15 +141,12 @@ export function SkillToolbox({
     }
   }
 
-  // A null confirmId means no deletion is pending — never match it against a
-  // curated skill (whose id is also null).
   const confirmation = confirmId ? (skills?.find((skill) => skill.id === confirmId) ?? null) : null
 
   const filtered = useMemo(
     () => (skills ?? []).filter((skill) => matchesSkillQuery(skill, query)),
     [skills, query],
   )
-  /** Everything this org wrote; the curated offers are listed separately. */
   const orgSkills = useMemo(
     () => filtered.filter((skill) => skill.origin !== 'platform'),
     [filtered],
@@ -219,16 +165,6 @@ export function SkillToolbox({
     () => categories.filter((category) => category.scope === 'org'),
     [categories],
   )
-  /**
-   * How many skills stand on each category — counted over EVERY org skill, not
-   * the search-filtered view.
-   *
-   * These counts feed the category manager, whose delete confirmation says how
-   * many skills fall back to unsorted. Derived from the filtered list, a search
-   * narrowing the page to one skill would promise that deleting a category
-   * touches one skill while it silently unsorts thirty. A destructive action
-   * states its real blast radius or it is not a confirmation.
-   */
   const categoryCounts = useMemo(() => {
     const counts: Record<string, number> = {}
     for (const skill of skills ?? []) {
@@ -426,7 +362,6 @@ export function SkillToolbox({
   )
 }
 
-/** The drawer key: an org row by id, a curated offer by name. */
 function selectionKey(skill: SkillListItem): string {
   return skill.id ?? skill.name
 }
@@ -441,13 +376,6 @@ interface CategorySectionProps {
   onDelete: (skill: SkillListItem) => void
 }
 
-/**
- * One category of org skills: a subheading with its count, then the cards.
- *
- * The same card as a job and a file (components/ui/raised-card): a white
- * block laid into a tray, with the quiet provenance and the instruction
- * disclosure showing on the tray beneath it.
- */
 function CategorySection({
   group,
   canManage,
@@ -491,8 +419,6 @@ function CategorySection({
                       type="button"
                       onClick={() => onOpen(skill)}
                       aria-label={t('toolbox.actions.openAria', { name: skill.name })}
-                      // Grown, not overhung: the heading clips (`truncate`), which would cut a
-                      // `touch-target` catchment back to the drawn line.
                       className="pointer-coarse:block pointer-coarse:w-full pointer-coarse:py-3 truncate rounded-sm text-left hover:underline focus-visible:outline-none focus-visible:ring-2"
                     >
                       <span aria-hidden className="text-muted-foreground">

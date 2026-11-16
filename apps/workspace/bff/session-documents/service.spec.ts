@@ -1,23 +1,9 @@
 /**
  * @vitest-environment node
  */
-/**
- * A chat attachment dropped a second time under the same name.
- *
- * The project and Archiv paths already replaced instead of inserting; the
- * session path still minted a fresh id every time. Same table, same
- * filename-keyed chunk replacement in the ingest pipeline, same ghost: the
- * first row listed and downloadable, its passages already replaced by the
- * second's, and the conversation charged for both.
- */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { DeleteObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3'
 
-/**
- * `document_versions` is not this suite's subject (ADR-0054). The upload path
- * records a version through the lifecycle; here that reduces to "it was asked
- * for", and the version table's own behaviour is `lifecycle.spec.ts`'s.
- */
 vi.mock('@/lib/documents/version-repository', () => ({
   DOCUMENT_VERSION_LIST_LIMIT: 200,
   insertDocumentVersion: vi.fn(async (values: Record<string, unknown>) => ({
@@ -26,7 +12,6 @@ vi.mock('@/lib/documents/version-repository', () => ({
     versionNumber: 1,
     ...values,
   })),
-  // The born-published insert every upload records its version with.
   insertPublishedVersion: vi.fn(async (values: Record<string, unknown>) => ({
     version: { id: 'version_1', state: 'published', versionNumber: 1, ...values },
     superseded: [],
@@ -35,8 +20,6 @@ vi.mock('@/lib/documents/version-repository', () => ({
   findDocumentVersion: vi.fn().mockResolvedValue(null),
   findPublishedVersion: vi.fn().mockResolvedValue(null),
   findOpenVersion: vi.fn().mockResolvedValue(null),
-  // 2: the only caller asks for it on the REPLACE path, where the next version
-  // is by definition not the first.
   nextVersionNumber: vi.fn().mockResolvedValue(2),
   compareAndSwapVersionState: vi.fn().mockResolvedValue(null),
   promoteVersionToPublished: vi.fn().mockResolvedValue(null),
@@ -64,8 +47,6 @@ vi.mock('@/lib/storage/bucket', () => ({
   resolveDocumentBucket: (bucket: string | null) => bucket ?? 'grid-documents',
 }))
 vi.mock('@/lib/audit/service', () => ({ recordAuditEvent: vi.fn() }))
-// The upload-screening policy (ADR-0086) the name gate reads: an office on
-// Piloti's suggested list. Unreadable settings refuse the upload outright.
 vi.mock('@/lib/organizations/service', () => ({
   getOrgSettings: vi.fn(async () => ({ displayName: null, defaultLocale: 'de', settings: {} })),
   writeDedicatedOrgSetting: vi.fn(),
@@ -75,8 +56,6 @@ vi.mock('@/lib/conversations/service', () => ({
   assertConversationAcceptsUploads: vi.fn(),
   createConversation: vi.fn(),
 }))
-// The type and size gates, mocked where they live: `admitUpload`
-// (`@/lib/documents/upload-admission`) imports them from there.
 vi.mock('@/lib/documents/upload-type', () => ({ assertUploadTypeAllowed: vi.fn().mockResolvedValue(undefined) }))
 vi.mock('@/lib/storage/upload-limit', () => ({ assertFileSizeAllowed: vi.fn().mockResolvedValue(undefined) }))
 vi.mock('@/lib/documents/document-dispatch', () => ({
@@ -90,9 +69,6 @@ vi.mock('@/lib/storage/admission', () => ({
 }))
 vi.mock('@/lib/documents/repository', () => ({
   findLiveDocumentByFilename: vi.fn(),
-  // Read back by `recordUploadedVersionOrDiscard` (ADR-0054) before it records
-  // the version. The row the upload just wrote: a miss means the attachment was
-  // deleted mid-upload, a 409 of its own, so the default is the row existing.
   findDocumentInOrg: vi.fn(async (id: string) =>
     (await import('@/test-utils/db-fixtures')).makeDocument({
       id,
@@ -186,16 +162,9 @@ describe('uploadSessionDocument, a file already attached under that name', () =>
     expect(result.documentId).toBe('doc-existing')
     expect(admitOrDiscard).not.toHaveBeenCalled()
     expect(admitReplacementOrDiscard).toHaveBeenCalled()
-    // The quota is charged the delta, under the same lock, against THIS row.
     expect(vi.mocked(admitReplacementOrDiscard).mock.calls.at(-1)?.[3]).toBe('doc-existing')
   })
 
-  /**
-   * Since ADR-0054 a re-upload is a new VERSION, so it writes to a new key and
-   * the previous bytes stay where the previous version's row says they are. The
-   * old expectation — new bytes on the old key, then discard the derivatives —
-   * described exactly the behaviour that made a version history impossible.
-   */
   it('writes the new bytes under a v2 key and leaves the previous object alone', async () => {
     await uploadSessionDocument(session, { conversationId: CONVERSATION_ID, file: file() }, new Request('http://x'))
 
@@ -218,9 +187,6 @@ describe('uploadSessionDocument, a file already attached under that name', () =>
   })
 })
 
-// A re-upload keeps the replaced bytes as an earlier version (ADR-0054), so
-// replacing somebody else's quarantined attachment would hand its held-back
-// bytes to the whole chat (ADR-0086).
 describe("uploadSessionDocument onto somebody else's quarantined attachment", () => {
   it('is refused like a taken name, and nothing is admitted', async () => {
     vi.mocked(findLiveDocumentByFilename).mockResolvedValue({
@@ -242,9 +208,6 @@ describe("uploadSessionDocument onto somebody else's quarantined attachment", ()
   })
 })
 
-// The browser screens a dropped folder's names before a chat attachment goes;
-// the server's repeat reads the same segments (ADR-0086), so a client that
-// skipped the check cannot slip a file in from „Personalunterlagen“.
 describe('uploadSessionDocument screens the folders the file came from', () => {
   it('refuses a file because of its origin folder, before anything is stored', async () => {
     const error = await uploadSessionDocument(
@@ -289,14 +252,6 @@ describe('uploadSessionDocument, a genuinely new file', () => {
   })
 })
 
-/**
- * The races the project and Archiv shelves already answer, on the chat shelf.
- * Session documents version like the others (ADR-0054), so the loser of two
- * simultaneous first uploads of one name becomes the winner's next version
- * rather than a 409, and a re-upload whose attachment was deleted underneath it
- * becomes a first upload. The losing attempt's object is discarded by the
- * admission, which these mocks stand in for.
- */
 describe('uploadSessionDocument, when the shelf changes under the probe', () => {
   it('retries a lost first-upload race as a new version of the winner', async () => {
     vi.mocked(findLiveDocumentByFilename).mockResolvedValueOnce(null).mockResolvedValueOnce(existing)
@@ -313,7 +268,6 @@ describe('uploadSessionDocument, when the shelf changes under the probe', () => 
     expect(admitReplacementOrDiscard).toHaveBeenCalledTimes(1)
     const puts = s3Send.mock.calls.map((call) => call[0]).filter((c) => c instanceof PutObjectCommand)
     expect(puts).toHaveLength(2)
-    // The retry never aims at the winner's flat key.
     expect((puts[1] as PutObjectCommand).input.Key).not.toBe(existing.storageKey)
     expect((puts[1] as PutObjectCommand).input.Key).toMatch(/\/doc\/doc-existing\/v\d+\/[0-9a-f]{12}\/brandschutz\.pdf$/)
   })
@@ -352,9 +306,6 @@ describe('uploadSessionDocument, when the shelf changes under the probe', () => 
   })
 
   it('writes a re-upload under a write key even when the version number reads 1', async () => {
-    // The hint reads 1 while a concurrent first upload has its row but not
-    // yet its version. The old version-1 shortcut put this PUT on that
-    // upload's own key.
     vi.mocked(nextVersionNumber).mockResolvedValueOnce(1)
     vi.mocked(findLiveDocumentByFilename).mockResolvedValue(existing)
 
@@ -366,12 +317,6 @@ describe('uploadSessionDocument, when the shelf changes under the probe', () => 
   })
 })
 
-/**
- * An attachment deleted, or its chat discarded, after the admission and before
- * the version is recorded. The lenient recorder answered null and the upload
- * went on: it dispatched a gone document for ingest, audited it as uploaded and
- * left its object in the bucket with no row naming it.
- */
 describe('uploadSessionDocument, when the attachment is deleted mid-upload', () => {
   it('answers 409, discards the stored object, and neither dispatches nor audits', async () => {
     vi.mocked(findDocumentInOrg).mockResolvedValueOnce(null)
@@ -417,11 +362,6 @@ describe('deleteSessionDocument under a legal hold', () => {
   })
 })
 
-/**
- * An ingest whose existence check landed before the row delete still saw the
- * row and kept the chunks it inserted after the first purge (ADR-0054,
- * correction 18). The delete purges once more after the row is gone.
- */
 describe('deleteSessionDocument purges the chunks again after the row', () => {
   const attached = {
     ...existing,
@@ -503,8 +443,6 @@ describe('listSessionDocuments and a quarantined attachment (ADR-0086)', () => {
     expect(listSessionDocumentRows).toHaveBeenCalledWith('conv_1', ORG_ID, { kind: 'member', userId: USER_ID }, 100)
   })
 
-  // The first read after the verdict finds the row `pending`, which the query
-  // keeps; the reconcile turns it `quarantined` on the way out.
   it('narrows again after the reconcile turns a row quarantined', async () => {
     const row = (id: string, createdBy: string) =>
       ({ id, filename: `${id}.pdf`, status: 'pending', createdBy, metadata: null }) as never

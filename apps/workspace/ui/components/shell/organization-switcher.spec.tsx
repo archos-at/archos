@@ -1,7 +1,3 @@
-/**
- * „Switch organization" in the avatar menu: the person's offices, AuthKit's
- * switch, and what happens after it.
- */
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { render, screen } from '@/test-utils'
 import userEvent from '@testing-library/user-event'

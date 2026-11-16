@@ -1,12 +1,5 @@
 'use client'
 
-/**
- * A project's mail address as the dialog and the settings card read it, with
- * the three things a manager may do to it. Reading never mints one
- * (`inbound-mail-address-get`); creating, replacing and switching off are
- * their own requests, each answered with the address as it now stands.
- */
-
 import { useCallback, useEffect, useState } from 'react'
 import type { InboundMailAddressView } from '@/lib/inbound-mail/inbound-mail-wire'
 import { inboundMailAddressClient, type InboundMailAddressClient } from '../lib/client'

@@ -2,24 +2,6 @@ import type { CSSProperties, JSX } from 'react'
 
 import { cn } from '@/lib/utils'
 
-/**
- * The drawing on a status screen: a line drawing in the pens of a construction
- * drawing, drawn once as the screen opens (`ui/styles/status-drawing.css`).
- *
- *   missing  a floor plan: a door opens onto a room that was never built. The
- *            walk line runs through it and ends in the empty outline (not found).
- *   closed   the same plan with the door swinging shut in front of the walk
- *            line; the room behind is there, but seen only as hidden lines
- *            (no access).
- *   fault    a beam has lost the column at its end (hidden lines) and sags onto
- *            a temporary prop; a level line and a dimension show how far (an
- *            error).
- *
- * The website's 404 and 500 pages draw the same scenes with the same pens
- * (`apps/website/src/components/StatusDrawing.astro`). Decorative: the heading
- * beside it says what happened, so it is hidden from assistive technology and
- * has no words. Canvas 960 × 800 on a 40-unit module.
- */
 export type StatusDrawingKind = 'missing' | 'closed' | 'fault'
 
 const W = 960
@@ -31,15 +13,11 @@ const MODULE_LINES = [
   ...Array.from({ length: H / MODULE - 1 }, (_, i) => `M0 ${(i + 1) * MODULE}H${W}`),
 ].join('')
 
-/** A dimension tick: a short stroke at 45° through a point. */
 const tick = (x: number, y: number): string => `M${x - 8} ${y + 8}L${x + 8} ${y - 8}`
 
-/** The beam sags 40 units at its far end (x 760), turning about its column's outer edge (x 220). */
 const SAG = (Math.atan(40 / 540) * 180) / Math.PI
-/** Where the beam's underside meets the prop at x 600. */
 const PROP_TOP = 180 + 380 * Math.tan((SAG * Math.PI) / 180)
 
-/** Custom properties for one part: its step in the sequence, and what it turns about. */
 function part(vars: Record<string, string | number>): CSSProperties {
   return vars as CSSProperties
 }
@@ -52,7 +30,6 @@ function Mask({ id, children }: { id: string; children: JSX.Element | JSX.Elemen
   )
 }
 
-/** A mask path: the route a part is drawn along, `width` wide, from step `step`. */
 function Stroke({ d, width, step, quick = false }: { d: string; width: number; step: number; quick?: boolean }): JSX.Element {
   return (
     <path
@@ -178,7 +155,6 @@ function FaultDrawing({ id }: { id: string }): JSX.Element {
 }
 
 export function StatusDrawing({ kind, className }: { kind: StatusDrawingKind; className?: string }): JSX.Element {
-  // Ids in inline SVG are document-wide; a status screen shows one drawing.
   const id = `status-${kind}`
   return (
     <svg

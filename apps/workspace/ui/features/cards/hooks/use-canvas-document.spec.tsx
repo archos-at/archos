@@ -1,10 +1,3 @@
-/**
- * The `canvas_activity` card's marks as a live view, against a scripted
- * channel: a hint on the document's room is a fresh read, the cards on one
- * document share one subscription and one read, and a card that leaves the
- * screen or unmounts lets the channel go.
- */
-
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { listAnnotations } from '@/lib/annotations/client'
@@ -25,7 +18,6 @@ vi.mock('@/features/realtime/use-channel', async (importOriginal) => ({
 
 const list = vi.mocked(listAnnotations)
 
-/** The fields of a mark the card reads; the rest of a view does not reach it. */
 const mark = (id: string, status: AnnotationView['status'], replies: Array<Partial<AnnotationView['replies'][number]>> = []) =>
   ({
     id,
@@ -43,7 +35,6 @@ const mark = (id: string, status: AnnotationView['status'], replies: Array<Parti
 const answer = (...annotations: AnnotationView[]) =>
   ({ annotations, canAnnotate: true, pilotiWakes: false }) as unknown as AnnotationListResponse
 
-/** The tab's connection, scripted: which channels were joined and left, and a way to speak in one. */
 function scriptedChannels() {
   const open = new Map<string, (frame: ChannelFrame) => void>()
   const joins: string[] = []
@@ -118,7 +109,6 @@ describe('useLiveMarks', () => {
     const { result } = renderHook(() => useLiveMarks('doc_1', ON_SCREEN))
 
     await waitFor(() => expect(result.current.lookup('ann_7')).toBeDefined())
-    // Piloti's reply carries no name of its own: the person it spoke for is not its author.
     expect(result.current.lookup('ann_7')).toMatchObject({
       replyCount: 2,
       lastReply: { authorKind: 'piloti', authorName: null, body: 'Die Breite…' },
@@ -164,7 +154,6 @@ describe('useLiveMarks', () => {
     channels.hint('doc:doc_1')
     channels.hint('doc:doc_1')
     await waitFor(() => expect(watching.result.current.touched).toBe(1))
-    // A burst is one stamp, and a card watching other marks is not moved by it.
     expect(other.result.current.touched).toBe(0)
   })
 
@@ -210,7 +199,6 @@ describe('useLiveMarks', () => {
     expect(second.result.current.lookup('ann_7')).toMatchObject({ status: 'dismissed' })
     expect(list).toHaveBeenCalledTimes(2)
 
-    // One card going leaves the channel to the other.
     first.unmount()
     expect(channels.leaves).toEqual([])
     expect(second.result.current.connected).toBe(true)

@@ -1,19 +1,5 @@
 'use client'
 
-/**
- * "Agent verbinden" in the profile (ADR-0122): how a person connects their own
- * AI assistant (Claude, ChatGPT, Cursor, ...) to Piloti.
- *
- * Draws a server-decided {@link AgentConnectState}; it reads no environment and
- * no flag itself, so `/dev/connect-agent` renders every state from fixtures.
- * Only when the state is `ready` does it show the address and the steps: an
- * address that leads to a refusal helps nobody. Otherwise a calm notice says
- * what is missing and who can change it.
- *
- * Built from the kit: Card, Alert, Tabs, and the CodeBlock (which already
- * carries the copy button) for the address and the commands.
- */
-
 import type { JSX } from 'react'
 import { BookOpen, Check, Plug, ShieldCheck, Info } from 'lucide-react'
 
@@ -33,9 +19,7 @@ type ClientId = 'claude' | 'claudeCode' | 'cursor' | 'chatgpt' | 'other'
 
 interface ClientSpec {
   id: ClientId
-  /** Step keys under `connectAgent.clients.<id>`, in order. */
   steps: readonly string[]
-  /** A step after which a snippet is shown, with the snippet. */
   snippetAfter?: { step: string; language: string; value: (url: string) => string }
 }
 
@@ -68,7 +52,6 @@ const STAYS_KEYS = ['confirm', 'sensitive', 'rights'] as const
 
 export interface ConnectAgentCardProps {
   state: AgentConnectState
-  /** Where the full user guide lives. */
   guideHref: string
 }
 

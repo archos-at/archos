@@ -1,14 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * A project's Offene Punkte as one Protokoll (`./project-export.ts`), and the
- * service's pure parts (`./project-marks.ts`): what a `due` filter means on
- * the office's day, the cursor's round trip, and how the marks of several
- * documents become one file made of the document Protokoll's own entries.
- * The routes, the gate and the bound are in
- * `app/api/projects/[id]/annotations/route.spec.ts`.
- */
 
 import { describe, expect, it, vi } from 'vitest'
 

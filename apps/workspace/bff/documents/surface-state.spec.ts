@@ -10,19 +10,14 @@ import {
 
 describe('surfaceStateOf', () => {
   it.each(KNOWN_DOCUMENT_STATUSES)('%s is counted in the family its state names', (status) => {
-    // The badge's word and the brief's count must agree for every declared status.
     expect(readFamilyOfState(surfaceStateOf(status))).toBe(documentReadFamily(status))
   })
 
   it.each(KNOWN_DOCUMENT_STATUSES)('%s is drawn in the colour it declares', (status) => {
-    // The badge takes its colour from the state, so the state must not move a
-    // declared status out of the colour `DOCUMENT_STATUS_FACTS` gives it.
     expect(surfaceStateVariant(surfaceStateOf(status))).toBe(documentStatusFacts(status)?.variant)
   })
 
   it('says the bytes are still arriving, not that they are being read', () => {
-    // „Wird gelesen“ for a file the browser is still sending claims a read that
-    // has not started; before the states existed the badge said „Wird hochgeladen“.
     expect(surfaceStateOf('uploading')).toBe('uploading')
     expect(surfaceStateOf('UPLOADING')).toBe('uploading')
     expect(readFamilyOfState('uploading')).toBe('reading')
@@ -51,8 +46,6 @@ describe('surfaceStateOf', () => {
   })
 
   it('reads the status alone, as the SQL that counts the families does', () => {
-    // A stored reason never moves a row out of its status's state: the counts
-    // beside the badge cannot read it, and they must say the same thing.
     expect(surfaceStateOf('failed')).toBe('unreadable')
     expect(surfaceStateVariant(surfaceStateOf('quarantined'))).toBe('warning')
   })

@@ -1,9 +1,3 @@
-"""The estate tree route's client: the bodies and answers are the contract's, and the envelope is echoed.
-
-The contract is ``apps/workspace/tests/fixtures/estate-tree.schema.json``, exported
-from ``lib/estate-tree/types.ts``. There is no Pydantic twin.
-"""
-
 from __future__ import annotations
 
 import io

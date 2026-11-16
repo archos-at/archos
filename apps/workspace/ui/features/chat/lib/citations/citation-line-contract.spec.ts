@@ -2,27 +2,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Cross-language contract: what a citation carries for its line, on every hop.
- *
- * The agent resolves a cited passage's edition, role, route and dates from the
- * knowledge records (`citations/roles.py` `role_fields`) and
- * `source_entry_to_wire` puts them on the citation. From there three readers
- * hold them: the live normalizer (`citationFromWire`), the browser's stored
- * payload (`encodeCitations` / `decodeCitations`) and the BFF's
- * (`encodeBackendSources`, the only one a research report and a turn whose
- * client was gone ever pass through). Each of the three ENUMERATES fields, so a
- * field one of them does not know is dropped in silence, and a citation with no
- * status line is a supported outcome everywhere: nothing fails, the line is
- * simply never there. Before this spec the agent emitted `role`, `role_qualifier`
- * and `edition_id` and no client read any of them.
- *
- * Both sides assert against the same checked-in fixture
- * (`tests/fixtures/citation_pipeline/wire_sources.json`); its Python counterpart,
- * `test_wire_sources_fixture_matches_the_serializer`, proves the fixture is
- * exactly what the serializer emits. So a key the agent adds and this tier does
- * not name fails here, by name.
- */
 
 import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
@@ -39,7 +18,6 @@ const WIRE_SOURCES = JSON.parse(
   readFileSync(resolve(HERE, '../../../../../../../tests/fixtures/citation_pipeline/wire_sources.json'), 'utf-8')
 ) as Array<WireCitationSource & Record<string, unknown>>
 
-/** Every key the serializer emits that is not a line field: what the three readers already enumerate. */
 const KNOWN_SOURCE_KEYS = new Set([
   'number',
   'document_id',
@@ -99,7 +77,6 @@ describe('the citation line the agent emits', () => {
   })
 
   test('the schema keeps every field the serializer wrote, as written', () => {
-    // A field the schema found malformed would be dropped here and the two would differ.
     expect(citationLineOf(edition)).toEqual(lineOfFixture)
   })
 
@@ -126,7 +103,6 @@ describe('the citation line the agent emits', () => {
 
   test('one malformed field is dropped on its own, never the line or the source', () => {
     const bent = { ...edition, role_since: 'June 2022', public_url: 'http://insecure.example/x', route: { designation: 'no work' } }
-    // What a stored row or an older pod might hold: the wrong type for a field, not the declared one.
     const line = citationFromWire(bent as unknown as WireCitationSource).line
     expect(line).toEqual(
       Object.fromEntries(Object.entries(lineOfFixture).filter(([key]) => !['role_since', 'public_url', 'route'].includes(key)))

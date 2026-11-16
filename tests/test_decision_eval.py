@@ -1,5 +1,3 @@
-"""The decision eval's scoring is under test; the run itself needs a key."""
-
 from __future__ import annotations
 
 from scripts.decision_eval import Row

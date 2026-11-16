@@ -17,8 +17,6 @@ describe('the paper palette', () => {
   })
 
   it('keeps the box colour apart from both overlay inks', () => {
-    // Hue alone would be a weak claim; the overlay also dashes the boxes. This
-    // holds the colour to not BEING either ink.
     expect(MARK_INK).not.toEqual(NEWER_INK)
     expect(MARK_INK).not.toEqual(OLDER_INK)
     expect(contrastRatio(MARK_INK, OLDER_INK)).toBeGreaterThan(1.3)

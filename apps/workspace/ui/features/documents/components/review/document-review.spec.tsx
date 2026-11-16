@@ -1,13 +1,3 @@
-/**
- * The full-screen review around the page layer: the tools as the reader first
- * meets them, the walk through Piloti's proposals, the way out to a window of
- * its own, and the tool the review is opened with.
- *
- * The viewer is a stand-in that lays page 1's overlay and the tools it is
- * handed into its pill, as the real one does: what is pinned here is the
- * review's side of that contract, not PDF rendering.
- */
-
 import { useState, type ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import userEvent from '@testing-library/user-event'
@@ -26,12 +16,9 @@ import { useStartDock } from '@/components/shell/start-dock'
 import { DOCK_LAYOUT_QUERY } from '@/hooks/use-is-mobile'
 import { PRODUCT_NAME } from '@/lib/brand'
 
-// The real chat store, signed in as `user_me`: the review reads who is looking
-// from it, and `use-canvas-ask` subscribes to it.
 beforeEach(() => useChatStore.setState({ currentUserId: 'user_me' }))
 
 const toastMock = vi.hoisted(() => Object.assign(vi.fn(), { error: vi.fn(), success: vi.fn(), dismiss: vi.fn() }))
-// The real Toaster, so the review's own mounts; only the calls are watched.
 vi.mock('sonner', async (importOriginal) => ({ ...(await importOriginal<typeof import('sonner')>()), toast: toastMock }))
 
 vi.mock('@/features/knowledge/components/pdf-document-view', () => ({
@@ -182,7 +169,6 @@ describe('the tools', () => {
     serve([])
     const { unmount } = render(<Host />)
     const tools = await screen.findByTestId('review-tools')
-    // In the viewer's own pill: one bar at the foot, not two.
     expect(within(screen.getByTestId('pdf-floating-toolbar')).getByTestId('review-tools')).toBe(tools)
     await waitFor(() => expect(tools).toHaveAttribute('data-variant', 'intro'))
     expect(within(tools).getByText('Comment')).toBeInTheDocument()
@@ -226,7 +212,6 @@ describe('the tools', () => {
     render(<Host />)
     await userEvent.click(await screen.findByTestId('review-tool-chat'))
     const bubble = screen.getByTestId('cursor-chat')
-    // Opened from the button, not at the corner of the toolbar it was pressed in: a plain bubble.
     expect(bubble.className).not.toContain('rounded-tl-sm')
     const glyph = (testId: string) => screen.getByTestId(testId).querySelector('svg')?.getAttribute('class')
     expect(glyph('review-tool-chat')).not.toEqual(glyph('review-tool-point'))
@@ -265,12 +250,6 @@ describe('going through the proposals', () => {
   })
 })
 
-/**
- * E and ⌫ decide with one key, which is easy to hit by mistake: the decision
- * shows at once, the toast names it with „Rückgängig", and it is sent only
- * when the toast's window closes, with the status the mark had. Undone, it
- * never reaches the server.
- */
 describe('deciding by a key', () => {
   type Toasted = [string, { action: { label: string; onClick: () => void }; duration: number; toasterId?: string }]
   const lastToast = () => toastMock.mock.calls.at(-1) as Toasted
@@ -310,9 +289,6 @@ describe('deciding by a key', () => {
     expect(message).toBe('Annotation 4 dismissed')
     expect(options.action.label).toBe('Undo')
     expect(screen.getByTestId('review-thread')).toHaveTextContent('Dismissed')
-    // In the review's own toaster, inside its dialog at the canvas's foot: the
-    // app's sits over the review's header and list, outside the modal dialog,
-    // where „Undo" could not be clicked.
     expect(options.toasterId).toBe(REVIEW_TOASTER)
     expect(within(screen.getByTestId('review-canvas')).getByRole('region', { name: /Notifications/ })).toBeInTheDocument()
 
@@ -405,7 +381,6 @@ describe('Escape', () => {
   })
 })
 
-/** A room the test speaks in: what colleagues do arrives as frames. */
 function liveRoom() {
   let deliver: ((frame: RoomFrame) => void) | null = null
   const transport: RoomTransport = {
@@ -424,7 +399,6 @@ function liveRoom() {
 
 const ANNA = { peerId: 'peer_anna_0001', userId: 'user_anna', name: 'Anna Berger', kind: 'person' as const }
 
-/** The pane's part: it holds the review and hands it on, and counts how often it is drawn. */
 function CountingHost({ transport, renders }: { transport: RoomTransport; renders: { count: number } }) {
   renders.count += 1
   const review = useDocumentReview('doc_1', { enabled: true, transport })
@@ -433,7 +407,6 @@ function CountingHost({ transport, renders }: { transport: RoomTransport; render
   )
 }
 
-/** What the API was asked to set. */
 function servePosts(annotations: AnnotationView[]) {
   const created: Array<Record<string, unknown>> = []
   server.use(
@@ -466,7 +439,6 @@ describe('a room of pointers', () => {
     }
 
     expect(renders.count).toBe(settled)
-    // The pointer itself still moved: its own layer drew it.
     expect(screen.getByTestId('review-company-1')).toHaveAttribute('aria-hidden', 'true')
     restore()
   })
@@ -498,7 +470,6 @@ describe("the keyboard's crosshair", () => {
     const aim = await screen.findByRole('application', { name: /Choose a spot/ })
     await waitFor(() => expect(aim).toHaveFocus())
     expect(screen.getByTestId('review-tool-hint')).toHaveTextContent('Click or ↵ · Arrow keys · Esc')
-    // The crosshair's label says the keys in words; the glyph line is not read on top of it.
     expect(screen.getByTestId('review-tool-hint')).toHaveAttribute('aria-hidden', 'true')
     expect(screen.getByTestId('review-tool-hint')).not.toHaveAttribute('role')
 
@@ -508,7 +479,6 @@ describe("the keyboard's crosshair", () => {
 
     const body = await screen.findByTestId('review-draft-body')
     await waitFor(() => expect(body).toHaveFocus())
-    // The kinds: three buttons, the one in force pressed (a radio group would owe arrow keys).
     expect(screen.queryByRole('radio')).toBeNull()
     expect(screen.getByTestId('thread-kind-hint')).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByTestId('thread-kind-defect')).toHaveAttribute('aria-pressed', 'false')
@@ -610,13 +580,11 @@ describe('the focus', () => {
     serve([view({ id: 'ann_1', number: 1 }), view({ id: 'ann_2', number: 2, x: 0.7 })])
     render(<Host />)
     const rows = await screen.findAllByTestId('review-row')
-    // Enter on a row opens its card, then Enter on the same row again: the card is already open.
     fireEvent.click(rows[0] as HTMLElement, { detail: 0 })
     await waitFor(() => expect(screen.getByTestId('review-thread')).toHaveFocus())
     fireEvent.click(rows[0] as HTMLElement, { detail: 0 })
     await act(() => new Promise((resolve) => requestAnimationFrame(resolve)))
 
-    // Then a pointer opens another mark: the focus stays with the pin it clicked.
     const pin = screen.getAllByTestId('review-pin').find((node) => node.getAttribute('aria-label')?.startsWith('Annotation 2'))
     await userEvent.click(pin as HTMLElement)
     await waitFor(() => expect(screen.getByRole('dialog', { name: /#2/ })).toBeInTheDocument())
@@ -682,14 +650,12 @@ describe('the tools spelled out, on a narrow stage', () => {
     expect(point.className).toMatch(/@max-5xl:w-7/)
     const label = within(point).getByText((_, node) => node?.tagName === 'SPAN' && node.className.includes('@max-5xl:sr-only'))
     expect(label).toBeInTheDocument()
-    // Folded, the glyph still says its name and key where a pointer finds it: the icons' tooltip.
     await userEvent.hover(point)
     expect(await screen.findByRole('tooltip')).toHaveTextContent(/Comment\s*C/)
   })
 })
 
 describe('the list beside the sheet', () => {
-  /** The review as Host mounts it, with a hand on its list read: a mark arriving is the list read again. */
   const reread: { current: (() => void) | null } = { current: null }
   function ListHost() {
     const [transport] = useState(room)
@@ -734,7 +700,6 @@ describe('the list beside the sheet', () => {
     await userEvent.click(toggle())
     expect(column()).not.toBeVisible()
 
-    // Folded by the reader: a mark arriving does not unfold it over their head.
     serve([view({ id: 'a1' })])
     act(() => reread.current?.())
     await waitFor(() => expect(toggle()).toHaveTextContent(/^1$/))
@@ -743,7 +708,6 @@ describe('the list beside the sheet', () => {
 })
 
 describe('the list on a phone', () => {
-  // Under `lg` the list is not beside the sheet: a button in the header opens it.
   const realMatchMedia = window.matchMedia
   beforeEach(() => {
     window.matchMedia = ((query: string) => ({
@@ -834,7 +798,6 @@ describe('opening the review reads the news about new marks', () => {
 })
 
 describe('beside a panel docked at the page’s start edge (ADR-0148)', () => {
-  // Room for the dock (`DOCK_LAYOUT_QUERY`); every other query as the environment answers it.
   const realMatchMedia = window.matchMedia
   beforeEach(() => {
     window.matchMedia = ((query: string) => ({

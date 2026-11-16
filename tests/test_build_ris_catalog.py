@@ -1,11 +1,3 @@
-"""The norm catalog's builder still imports.
-
-It loads ``norm_registry`` standalone, without the ``agent`` package, so
-every import that module gains has to be loaded by hand. Nothing ran it, and it
-died on ``source_kinds`` until a catalog change needed it (2026-09-24). This
-imports it and reads the real catalog, with no network.
-"""
-
 from __future__ import annotations
 
 import importlib.util
@@ -19,7 +11,6 @@ def test_the_builder_imports_and_reads_the_catalog():
     spec = importlib.util.spec_from_file_location("build_ris_catalog", REPO_ROOT / "scripts" / "build_ris_catalog.py")
     module = importlib.util.module_from_spec(spec)
     saved = dict(sys.modules)
-    # As a bare `python scripts/build_ris_catalog.py` starts: no agent yet.
     for name in [name for name in sys.modules if name == "agent" or name.startswith("agent.")]:
         del sys.modules[name]
     try:

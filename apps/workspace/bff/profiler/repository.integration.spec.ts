@@ -1,20 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Opt-in integration test: the profiler's conversation directory against a
- * REAL Postgres with every migration applied, as the restricted runtime role.
- *
- * What a mocked handle cannot say: that the range bounds the turns Postgres
- * aggregates (so the counts are the range's), that the organization falls back
- * to the span's when the conversation row is gone, and that a project filter
- * resolves through `conversations.project_id`.
- *
- *   TEST_DATABASE_URL=postgres://app_rw@host:port/app \
- *     npx vitest run bff/profiler/repository.integration.spec.ts
- *
- * `task db:test:rls` (scripts/rls-test-db.sh) builds that database.
- */
 
 import { sql } from 'drizzle-orm'
 import { beforeAll, describe, expect, it, vi } from 'vitest'
@@ -31,11 +17,9 @@ const USER = `user_prof_${STAMP}`
 const CHAT_P = `s_prof_p_${STAMP}`
 const CHAT_A = `s_prof_a_${STAMP}`
 const CHAT_B = `s_prof_b_${STAMP}`
-/** Spans whose conversation row was never written. */
 const CHAT_GONE = `s_prof_gone_${STAMP}`
 const PROJECT = '0f0f0f0f-0000-4000-8000-0000000000d1'
 
-/** March 2031: far from any other suite's rows. */
 const MARCH: ProfiledConversationFilter = {
   start: new Date('2031-03-01T00:00:00.000Z'),
   endExclusive: new Date('2031-04-01T00:00:00.000Z'),
@@ -115,7 +99,6 @@ describe.skipIf(!url)('profiler directory scope against live Postgres', () => {
     const { rows } = await platform(() =>
       repo.listProfiledConversations({ ...MARCH, organizationIds: [ORG_A] }, 'Projekt')
     )
-    // Both ORG_A titles contain "Projekt"; ORG_B's does not and is out of scope anyway.
     expect(ids(rows)).toEqual([CHAT_A, CHAT_P])
   })
 

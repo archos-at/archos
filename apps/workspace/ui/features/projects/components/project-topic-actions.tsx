@@ -12,26 +12,14 @@ import { projectsCopy } from '@/i18n/namespaces/projects'
 import type { ProjectMemoryItem } from '@/lib/db/schema/project-memory'
 import { moveProjectMemoryNote, renameProjectMemoryTopic } from '@/adapters/api/project-memory-client'
 
-/**
- * The topic actions of the project memory shelf (ADR-0180, the topics amendment):
- * rename or merge a topic, ungroup it, and move one note to another topic. Both
- * answer through the shelf's own routes, which apply the same gate as the note
- * PATCH; there is no remove-topic on the team shelf (a team's notes go one by one).
- */
-
 export interface ProjectTopicActionsProps {
   projectId: string
-  /** The group's topic; the group of notes with no topic has nothing to rename or ungroup. */
   topic: string | null
-  /** The topics a rename may merge into: the ones open notes hold, never a restricted topic's name. */
   mergeTargets: readonly string[]
-  /** The folder holds office notes, which a rename leaves under the topic's name. */
   holdsOfficeNotes?: boolean
-  /** Called after the shelf took a change, so the list reloads the groups. */
   onChanged: () => void
 }
 
-/** The rename and ungroup buttons of one topic group on the project shelf. */
 export function ProjectTopicActions({
   projectId,
   topic,
@@ -46,7 +34,6 @@ export function ProjectTopicActions({
 
   if (topic === null) return null
 
-  /** Every notes-of-a-topic change: `to` null ungroups, another name renames or merges. */
   const change = async (to: string | null): Promise<boolean> => {
     setPending(true)
     try {
@@ -86,18 +73,14 @@ export function ProjectTopicActions({
 export interface ProjectNoteTopicMoveProps {
   projectId: string
   item: Pick<ProjectMemoryItem, 'id' | 'scope' | 'topic'>
-  /** The topics the note may move to (`pickableTopicNames`): an office note offers only the office's topics. */
   topics: string[]
-  /** Called after the note took its new topic. */
   onChanged: () => void
 }
 
-/** Move one note (project or office) to another topic, or to none: a compact control that opens the picker. */
 export function ProjectNoteTopicMove({ projectId, item, topics, onChanged }: ProjectNoteTopicMoveProps): JSX.Element {
   const t = useTranslations(memoryTopicsCopy)
   const tProject = useTranslations(projectsCopy)
   const [pending, setPending] = useState(false)
-  /** Bumped on a failure: the picker is keyed by it, so it shows the note's topic again. */
   const [attempt, setAttempt] = useState(0)
 
   const move = async (topic: string | null) => {

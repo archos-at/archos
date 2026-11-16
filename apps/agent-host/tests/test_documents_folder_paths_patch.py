@@ -1,15 +1,3 @@
-"""`PATCH /v1/collections/{c}/folder-paths` — the folder rename/move/delete mirror.
-
-The sibling of the display-title mirror, and it exists for the same reason: the
-backend stores a denormalised copy of something the BFF owns, so every change to
-the original has to be replayed. The difference is arity — a display title
-belongs to one document, a folder path belongs to a whole subtree — which is why
-this is one prefix rewrite rather than one call per file.
-
-The BFF twin is `folder-service.mirror.spec.ts`, which asserts the same
-`from_path` / `to_path` body against the same URL.
-"""
-
 import asyncio
 import tempfile
 from pathlib import Path
@@ -101,8 +89,6 @@ async def test_a_rename_re_files_the_folder_and_its_subtree(app, store):
 
 @pytest.mark.asyncio
 async def test_a_null_target_re_files_the_subtree_at_the_project_root(app, store):
-    # What a folder DELETE does to its direct children — the label goes, the
-    # work stays.
     _file(store, "a.pdf", "Brandschutz")
     _file(store, "b.pdf", "Brandschutz/EG")
 
@@ -128,7 +114,5 @@ async def test_a_folder_nothing_is_filed_under_is_not_an_error(app, store):
 
 @pytest.mark.asyncio
 async def test_an_empty_from_path_is_rejected(app):
-    # Without a source prefix the request means "re-file everything", which is
-    # never what a folder operation asks for.
     response = await _patch(app, {"from_path": "", "to_path": "Feuer"})
     assert response.status_code == 422

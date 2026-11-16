@@ -2,13 +2,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * How the WebSocket proxy reports a spliced socket going away (`server.js`).
- *
- * A post-upgrade `write EPIPE` used to log at ERROR and file an issue (#784),
- * and the same error reached the `ws()` callback, which wrote
- * `HTTP/1.1 502 Bad Gateway` into the live WebSocket stream.
- */
 import { EventEmitter } from 'node:events'
 import { readFileSync } from 'node:fs'
 import { describe, expect, it, vi } from 'vitest'
@@ -51,7 +44,6 @@ describe('watchSplicedSockets', () => {
 
     const err = socketError('EPIPE')
     upstream.emit('error', err)
-    // http-proxy routes the same error through the ws() callback.
     handleWsProxyError(err, client as never, { logger })
 
     expect(logger.error).not.toHaveBeenCalled()
@@ -93,8 +85,6 @@ describe('watchSplicedSockets', () => {
   })
 
   it('blames the side that errored even when the other side closes first', () => {
-    // http-proxy destroys the client synchronously on an upstream error, so the
-    // client's 'close' arrives before the upstream's.
     const { client, upstream, logger } = splicedPair()
     upstream.emit('error', socketError('ECONNRESET'))
     client.emit('close', false)

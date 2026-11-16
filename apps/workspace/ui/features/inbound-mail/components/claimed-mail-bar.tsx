@@ -1,20 +1,5 @@
 'use client'
 
-/**
- * The decision bar for a mail only another member may file
- * (`onlySenderReleases`, ADR-0137's amendment of 2026-11-03): it carries a
- * colleague's address, and that colleague's domain did not confirm it. The
- * reader may dismiss it and nothing else (`sender_only` refuses a filing and a
- * restore alike), so the bar holds one line naming whom it waits for and
- * „Verwerfen …“, behind a confirmation that says the reader cannot take it
- * back: once dismissed, only that member restores it.
- *
- * No primary „Ablegen“, no „Nichts ablegen“: the full filing bar gave a
- * colleague every control to try, and its ink button discarded the mail.
- * Under an impersonation warning „Verwerfen …“ is the primary press; else a
- * quiet one, since waiting for the member is the normal course.
- */
-
 import type { JSX } from 'react'
 import { Lock } from 'lucide-react'
 import { BusyButton } from '@/components/ui/busy-button'
@@ -26,11 +11,8 @@ import { FactLine, PinnedBar } from './inbound-mail-atoms'
 import { inboundMailCopy } from '@/i18n/namespaces/inbound-mail'
 
 export interface ClaimedMailBarProps {
-  /** The member the mail claims: the display name it carries, and the address that makes it theirs. */
   member: { name: string; address: string }
-  /** The mail reads as an impersonation: dismissing it is the one press the page asks for. */
   impersonation: boolean
-  /** Ask for the confirmation (the keyboard's ⌫ opens it too). */
   confirmOpen: boolean
   onConfirmOpenChange: (open: boolean) => void
   onDismiss: () => void

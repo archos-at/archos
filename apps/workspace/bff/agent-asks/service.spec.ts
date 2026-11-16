@@ -1,15 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * An agent asks Piloti (ADR-0124). Pinned here: the switch; the thread (a new
- * private one, or one an earlier ask of the same person started, never another
- * conversation); the question written under the ask's id; the headless turn
- * with the `agent_consult` trigger, `if_idle` and the signed envelope; every way
- * an ask ends without a turn; the wait for the turn's outcome; the answer read by
- * the id the agent derives; only the asker reads or stops an ask; and how a
- * turn's outcome ends its ask.
- */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -175,7 +166,6 @@ afterEach(() => {
 
 describe('askAnswerMessageId', () => {
   it('is the id the agent gives its answer (agent.turn.response.answer_message_id)', () => {
-    // Computed by the Python function for the same pair.
     expect(askAnswerMessageId(THREAD, '22222222-2222-4222-8222-222222222222')).toBe('e007c373-c4c5-504d-9558-2d975bb207d1')
   })
 })
@@ -230,7 +220,6 @@ describe('askAgent', () => {
       if (row.state === 'working') row = { ...row, state: 'completed', endedAt: new Date() }
       return row
     })
-    // The ask's id is minted inside, so the answer's id is derived from the row as it is read.
     vi.mocked(findMessageInConversation).mockImplementation(async (conversationId, id) =>
       id === askAnswerMessageId(conversationId, row.id) ? ({ id, content: 'Höchstens 40 m.' } as Message) : null,
     )
@@ -310,7 +299,6 @@ describe('askAgent', () => {
     expect(view.state).toBe('rejected')
     expect(view.reason).toMatch(/^budget: The organization LLM budget is exhausted/)
     expect(runHeadlessTurn).not.toHaveBeenCalled()
-    // The thread this ask opened holds nothing anyone will answer: it goes, the ask row with it.
     expect(deleteConversationInOrg).toHaveBeenCalledWith(row.conversationId, ORG)
   })
 
@@ -378,7 +366,6 @@ describe('askAgent', () => {
       let reads = 0
       vi.mocked(findAsk).mockImplementation(async () => {
         reads += 1
-        // Read 1 is the start's re-read, read 2 the one after `working`; read 3 is the first poll.
         if (reads >= 3 && row.state === 'working') row = { ...row, state: 'completed', endedAt: new Date() }
         return row
       })
@@ -525,7 +512,6 @@ describe('getAsk and cancelAsk', () => {
   })
 
   it('leaves an ask alone while its turn may still answer, up to the chat turn deadline', async () => {
-    // The old bound (30 minutes) ended an ask whose turn the socket lets run 45.
     row = askRow({ state: 'working', createdAt: new Date(Date.now() - (CHAT_TURN_DEADLINE_SECONDS - 60) * 1_000) })
     expect((await getAsk(SESSION, row.id)).state).toBe('working')
     expect(endAsk).not.toHaveBeenCalled()
@@ -540,7 +526,6 @@ describe('getAsk and cancelAsk', () => {
 
 describe('endLostAsks (the agent-ask-expiry sweep)', () => {
   it('ends, in its own organization, every ask still open past the age a read would end it at, with the same reason', async () => {
-    // dev, 2026-11-12: six asks read `working` for an hour after a pod restart lost their notices.
     const now = new Date('2026-11-12T14:20:00Z')
     const lost = [
       { id: '33333333-3333-4333-8333-333333333333', organizationId: ORG },

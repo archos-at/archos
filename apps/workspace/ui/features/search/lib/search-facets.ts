@@ -1,13 +1,3 @@
-/**
- * A facet value is a filter the reader can switch on and off with one click.
- *
- * Each dimension the search counts (`SEARCH_FACET_DIMENSIONS`) maps onto one
- * field of the query, so the count beside a value is what the result becomes
- * when the value is clicked. Two dimensions have no list filter in the
- * contract and are a single value: the project narrows the office-wide page to
- * one project (its scope), the municipality is the `place` filter.
- */
-
 import { DOSSIER_DOCUMENT_TYPES, DOSSIER_FACT_KEYS, DOSSIER_PARTY_ROLES } from '@/lib/documents/dossier'
 import { ALLOWED_TAGS } from '@/lib/documents/tag-vocabulary'
 import { SEARCH_READ_STATES, type DocumentFilters, type SearchFacetDimension } from '@/lib/search/search-wire'
@@ -26,7 +16,6 @@ function known<T extends string>(vocabulary: readonly T[], value: string): value
   return (vocabulary as readonly string[]).includes(value)
 }
 
-/** Whether the value is switched on in the search. */
 export function isFacetActive(state: SearchUrlState, dimension: SearchFacetDimension, value: string): boolean {
   const f = state.filters
   switch (dimension) {
@@ -53,7 +42,6 @@ export function isFacetActive(state: SearchUrlState, dimension: SearchFacetDimen
   }
 }
 
-/** The search with the value switched: on when it was off, off when it was on. A value the query cannot name is ignored. */
 export function toggleFacet(state: SearchUrlState, dimension: SearchFacetDimension, value: string): SearchUrlState {
   const f = state.filters
   const withFilters = (filters: DocumentFilters): SearchUrlState => ({ ...state, filters: compactFilters(filters) })

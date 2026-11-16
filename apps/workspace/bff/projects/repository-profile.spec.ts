@@ -1,15 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * `findProjectProfile` hands out a profile every reader can use as one.
- *
- * `projects.profile` is `jsonb NOT NULL DEFAULT '{}'`, so a project whose
- * intake was never saved stores `{}`. Returned raw, that reached
- * `answersFromProfile` as a `ProjectProfile` and threw on
- * `Object.keys(profile.facts)`: binding Bestandspläne to a building during a
- * first intake answered 500 „Internal server error“.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -22,7 +13,6 @@ import { answersFromProfile } from '@/lib/project-profile/intake-profile'
 import { asDb } from '@/test-utils/db-fixtures'
 import { findProjectInOrg, findProjectProfile } from './repository'
 
-/** A drizzle stand-in whose every chain resolves to `rows`. */
 function dbReturning(rows: unknown[]) {
   const proxy: unknown = new Proxy(
     {},

@@ -1,12 +1,3 @@
-"""Reading one raw message: body choice, own text and quotes, calendar, and the fixture corpus.
-
-The fixtures under ``fixtures/`` are mail as the clients that matter here write
-it: Outlook's German reply block, Apple Mail's flowed text with "Am … schrieb",
-an HTML-only table in a mislabelled Latin-1, an Outlook invitation with the
-same event inline and as ``invite.ics``, S/MIME, a hyphen list above an RFC
-3676 signature, a bare forward, an English reply sent from a phone.
-"""
-
 from __future__ import annotations
 
 from email.message import EmailMessage
@@ -58,7 +49,6 @@ def test_an_html_only_mail_keeps_its_table_cells_and_its_windows_characters():
 
     assert read.body_source == "html"
     assert "Stellplätze | 12\nFahrradabstellplätze | 30" in read.own_text
-    # Declared ISO-8859-1, written as Windows-1252: the dash is 0x96.
     assert "hier die Mengen – wie besprochen:" in read.own_text
     assert "alert" not in read.own_text
 
@@ -66,7 +56,6 @@ def test_an_html_only_mail_keeps_its_table_cells_and_its_windows_characters():
 def test_an_invitation_is_read_once_in_vienna_time():
     read = fixture("invite-vienna.eml")
 
-    # Inline in Outlook's Windows zone and again as invite.ics in UTC: one event.
     (event,) = read.calendar
     assert event.method == "REQUEST"
     assert event.summary == "Bauverhandlung Bauplatz 12"
@@ -115,7 +104,6 @@ def test_every_fixture_reads_and_round_trips_through_the_wire_shape(path):
 
 
 def message(**parts: tuple[str, str]) -> EmailMessage:
-    """A message with one part per keyword: ``plain=("text", "utf-8")`` and so on."""
     mail = EmailMessage()
     mail["Subject"] = "Test"
     for subtype, (content, charset) in parts.items():

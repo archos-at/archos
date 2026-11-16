@@ -1,34 +1,6 @@
-/**
- * What a cut-off run cost the answer — the tokens, and the words.
- *
- * A deep run can now be CUT OFF (wall clock, step limit) and its report
- * SALVAGED from whatever it had reached. The backend records that as three
- * facts: THAT it stopped (`research_truncated`), WHY (`truncation_reason`), and
- * the ways the salvaged answer is weaker than a clean one (`degraded_reasons`).
- * Only the first of the three was ever rendered, so a partially researched
- * answer reached the reader looking exactly like a finished one — the worst
- * shape a transparency signal can take, because the reader has no way to know
- * there was anything to ask about.
- *
- * The other half is the direction of the crossing. The backend has NO locale:
- * it states stable tokens and the frontend owns the words. That makes the
- * unknown token the case worth pinning — a token is added on the producer's
- * release train, not ours, and `createTranslator` falls back to the key itself,
- * so "forgot to map it" does not render nothing, it renders
- * `answerSources.truncationReason.tool_budget` under an answer about
- * Fluchtwegbreiten. Silence is the honest rendering; the line the token merely
- * qualifies still says the thing that matters.
- *
- * And it has to survive a reload. A deep-research answer is written into the
- * thread by the JOBS runner — nobody holds a socket for a job that finishes
- * tomorrow — so the persisted row is not a backup of the live turn, it is the
- * only copy there ever was. The last describe walks that path.
- */
-
 import { fireEvent, render, screen } from '@/test-utils'
 import { chatCopy } from '@/i18n/namespaces/chat'
 
-/** The chat namespace in the dictionary's shape, which is all this spec reads. */
 const en = { chat: chatCopy.messages.en }
 const de = { chat: chatCopy.messages.de }
 import { createTranslator } from '@/i18n/translate'
@@ -62,12 +34,6 @@ vi.mock('@/shared/components/MarkdownRenderer', () => ({
   MarkdownRenderer: ({ content }: { content: string }) => <span>{content}</span>,
 }))
 
-/**
- * The copy is READ from the dictionary and formatted by the SAME translator the
- * component uses, so what these assert is that the answer resolves the right
- * key — not that someone typed the sentence into a second place where it can
- * quietly drift from the first. The harness renders English.
- */
 const t = createTranslator(en, 'chat')
 const copy = {
   truncated: en.chat.answerSources.researchTruncated,
@@ -78,22 +44,13 @@ const copy = {
   removedUrl: en.chat.answerSources.citationsRemovedReason.url_not_in_registry,
 }
 
-/** An answer that carries a real source, so the chips row renders. */
 const CITED = 'Die Antwort [1].\n\n## Quellen\n[1] OIB-Richtlinie 3 — https://example.org/oib3'
 
-/** Every transparency line the answer's footer is showing, in DOM order. */
 const footerNotes = (): string[] =>
   Array.from(document.querySelectorAll<HTMLElement>('[role="note"]')).map(
     (element) => element.textContent ?? ''
   )
 
-/**
- * The transparency lines live in the answer-details disclosure. It no longer
- * opens ITSELF for a cut-off or degraded turn: the warnings land at the
- * settle, and opening the disclosure then snapped 100-400px in under a reader
- * who had just reached the end. The trigger carries a warning dot instead,
- * so this asserts the dot and then opens the details the way the reader does.
- */
 const openAnswerDetails = async (): Promise<void> => {
   const trigger = screen.getByTestId('answer-details-trigger')
   expect(trigger).toHaveAttribute('aria-expanded', 'false')
@@ -114,8 +71,6 @@ describe.each(['default', 'inline'] as const)('the %s answer variant', (variant)
     )
     await openAnswerDetails()
 
-    // One line, not two: "it ran out of time" is the first sentence finished,
-    // not a second statement competing with it.
     const note = screen.getByText(`${copy.truncated} (${copy.wallClock})`)
     expect(note).toHaveAttribute('role', 'note')
     expect(screen.queryByText('wall_clock')).not.toBeInTheDocument()
@@ -137,9 +92,6 @@ describe.each(['default', 'inline'] as const)('the %s answer variant', (variant)
   })
 
   test('a cause this build has no words for leaves the sentence exactly as it was', async () => {
-    // The producer adds tokens on its own release train. An unmapped one must
-    // not reach the reader as an identifier, and must not cost them the fact
-    // that the search stopped early — which is the part they can act on.
     render(
       <AgentResponse
         content={CITED}
@@ -172,8 +124,6 @@ describe.each(['default', 'inline'] as const)('the %s answer variant', (variant)
     )
     await openAnswerDetails()
 
-    // Two lines, not one joined sentence: they ask the reader for different
-    // things — where the record is, versus what to check before relying on it.
     expect(screen.getByText(copy.noReport)).toHaveAttribute('role', 'note')
     expect(screen.getByText(copy.noCitations)).toHaveAttribute('role', 'note')
   })
@@ -200,8 +150,6 @@ describe.each(['default', 'inline'] as const)('the %s answer variant', (variant)
   })
 
   test('an empty list is not a claim', () => {
-    // "Degraded in zero ways" is the ordinary case and is never stated — an
-    // empty array must read exactly like an absent one.
     render(<AgentResponse content={CITED} variant={variant} degradedReasons={[]} />)
 
     expect(footerNotes()).toHaveLength(0)
@@ -231,8 +179,6 @@ describe('the citation-verification reasons reach the reader as words', () => {
     )
     await openAnswerDetails()
 
-    // The count is the fact and rides the visible line; the reasons hang off
-    // the tooltip. Neither may carry `url_not_in_registry` to an architect.
     expect(screen.queryByText('url_not_in_registry')).not.toBeInTheDocument()
     expect(
       screen.getByRole('button', {
@@ -258,13 +204,8 @@ describe('the citation-verification reasons reach the reader as words', () => {
 })
 
 describe('every token this build accepts has words in BOTH locales', () => {
-  // The key-coverage guard cannot see these: the component builds the key from
-  // the token at runtime, which is exactly the shape that ships a dot-path to
-  // the reader when an entry is missing. This is that guard, for these groups.
   test.each([
     ['truncationReason', ['wall_clock', 'step_limit']],
-    // Read off the closed list itself, so a token added there without words
-    // fails here instead of being silently dropped from the reader's view.
     ['degradedReason', ANSWER_DEGRADED_REASONS],
     [
       'citationsRemovedReason',
@@ -282,9 +223,6 @@ describe('every token this build accepts has words in BOTH locales', () => {
       const german = (de.chat.answerSources[group] as Record<string, string>)[token]
       const english = (en.chat.answerSources[group] as Record<string, string>)[token]
 
-      // German is the product's language and the English is its own sentence,
-      // not a gloss of it — so the two must differ, and neither may ship a
-      // half-finished template or a bare token to the reader.
       expect(german, `de ${group}.${token}`).toBeTruthy()
       expect(english, `en ${group}.${token}`).toBeTruthy()
       expect(german).not.toBe(english)
@@ -321,12 +259,6 @@ describe('an unread basis is named as such, not as a generic check', () => {
 })
 
 describe('a reopened thread shows what the live turn showed', () => {
-  /**
-   * The row the jobs runner writes for a finished deep run, in the backend's
-   * own wire spelling (`jobs/conversation_output.write_job_turn`). This is the
-   * only copy of these facts that exists for a deep answer: the client that
-   * asked was long gone when the report landed.
-   */
   const backendMetadata = {
     deep_research_job_id: 'job_9',
     research_truncated: true,
@@ -384,8 +316,6 @@ describe('a reopened thread shows what the live turn showed', () => {
         truncationReason={stored.truncationReason}
       />
     )
-    // The cause is stored — a row that lost the boolean still knows something
-    // true — but nothing claims the search was cut off.
     expect(stored.truncationReason).toBe('wall_clock')
     expect(screen.queryByText(new RegExp(copy.wallClock))).not.toBeInTheDocument()
     expect(footerNotes()).toHaveLength(0)

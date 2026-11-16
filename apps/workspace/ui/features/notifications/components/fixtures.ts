@@ -2,10 +2,6 @@ import { DEFAULT_PUSH_PREFERENCES } from '@/lib/inbox/push-categories'
 import type { PushDeviceView } from '@/lib/push/types'
 import type { UsePushNotificationsResult } from '../hooks/use-push-notifications'
 
-/**
- * A hook result for the specs and for `/dev/notifications`, which draw the
- * states without a browser to produce them.
- */
 export function pushFixture(overrides: Partial<UsePushNotificationsResult> = {}): UsePushNotificationsResult {
   const noop = async (): Promise<void> => undefined
   return {

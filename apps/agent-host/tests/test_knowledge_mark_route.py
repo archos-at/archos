@@ -1,10 +1,3 @@
-"""The licence mark: ``PUT /v1/collections/{c}/knowledge-mark``, and the ingest job that carries it.
-
-The store is stood in for here, so the route's refusals and its call are
-checked without a Qdrant; the write itself runs on a real one in
-``packages/knowledge-layer/tests/test_vector_store_office_filter.py``.
-"""
-
 from __future__ import annotations
 
 import typing
@@ -36,8 +29,6 @@ BODY = {
 
 
 class _Store:
-    """The store's three calls the route makes, recorded."""
-
     def __init__(self, chunks: int = 3, exists: bool = True) -> None:
         self.chunks, self.present = chunks, exists
         self.written: list[tuple[str, dict]] = []
@@ -177,9 +168,6 @@ def test_the_wire_classes_are_the_stores():
     assert typing.get_args(LicenceClass) == LICENCE_CLASSES
 
 
-# ---------------------------------------------------------------- the ingest job carries the mark
-
-
 @pytest.fixture
 def ingest_app(monkeypatch):
     ingestor = MagicMock()
@@ -249,9 +237,6 @@ async def test_a_withdrawal_lands_on_the_corpus_row_and_keeps_its_country_so_a_r
 
 @pytest.mark.parametrize("missing", ["chunks", "collection"])
 async def test_a_withdrawal_reaches_the_corpus_row_of_a_file_that_has_no_chunks_yet(store, monkeypatch, missing):
-    """A text rolled back before it was indexed: no chunk to mark, and still nobody's to read as a PDF.
-
-    200 with 0 chunks, never 404: the BFF takes a 404 as a backend from before the flag that wrote nothing."""
     from agent import corpus_store
     from agent.oib_sync import COLLECTION_NAME
 

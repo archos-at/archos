@@ -1,12 +1,3 @@
-"""The country-in-code ratchet refuses a new country token in code, and makes the baseline follow every removal.
-
-`scripts/check_country_in_code.py` counts the tokens of `ci/country_tokens.json` in
-source code under `apps/` and `packages/`, with `ci/country_in_code_baseline.json`
-recording what each file held when the check arrived. These run it on a scratch
-repository with the real token list, so the real tree's baseline is not what they
-depend on and the list itself is what they prove.
-"""
-
 from __future__ import annotations
 
 import importlib.util
@@ -28,7 +19,6 @@ def checker():
     spec = importlib.util.spec_from_file_location("check_country_in_code", path)
     module = importlib.util.module_from_spec(spec)
     assert spec.loader is not None
-    # A dataclass resolves its annotations through sys.modules, so register before running the module.
     sys.modules[spec.name] = module
     spec.loader.exec_module(module)
     return module
@@ -49,7 +39,6 @@ def repo(tmp_path, monkeypatch):
 
 
 def _add(repo: Path, path: str, text: str = "") -> None:
-    """Write ``path`` and stage it: the check reads `git ls-files`, as a commit would."""
     target = repo / path
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(text, encoding="utf-8")
@@ -93,13 +82,11 @@ def test_a_removal_asks_for_the_baseline_to_follow_and_update_only_lowers_it(che
     _add(repo, "packages/agent/src/agent/gone.py", "A = source.publisher\n")
     _add(repo, "packages/agent/src/agent/new.py", "LAND = 'Tirol'\n")
 
-    # The new file fails; the two shrinks pass and are reported as slack, not as findings.
     assert checker.main([]) == 1
     captured = capsys.readouterr()
     assert "packages/agent/src/agent/new.py: 1 country hit(s), baseline 0" in captured.err
     assert "down from" not in captured.err
 
-    # --update tightens what is recorded and still refuses the new file: it never adds an entry.
     assert checker.main(["--update"]) == 1
     assert _baseline(repo) == {"packages/agent/src/agent/law.py": 1}
     assert "packages/agent/src/agent/new.py: 1 country hit(s), baseline 0" in capsys.readouterr().err
@@ -120,15 +107,12 @@ def test_what_is_data_by_nature_and_what_lies_outside_the_roots_is_not_checked(c
         "configs/knowledge-packs/loader.py",
         "scripts/build_catalog.py",
         "docs/examples/sample.py",
-        # Generated from the built-in SKILL.md files, which are counted themselves.
         "apps/workspace/bff/skills/platform-skills.ts",
-        # Prose about the code, not what a model reads.
         "packages/agent/src/agent/README.md",
         "packages/agent/src/agent/tools/AGENTS.md",
         "docs/prompts/notes.md",
     ):
         _add(repo, path, austria)
-    # Not a source file, so not this check's: a pack is where a country belongs.
     _add(repo, "packages/agent/src/agent/data/at.json", '{"name": "Wien"}\n')
 
     assert checker.main([]) == 0
@@ -150,7 +134,6 @@ def test_a_prompt_is_counted_whole_because_the_model_reads_it(checker, repo, cap
     _add(repo, path, "You answer questions about Austrian building law.\n{# RIS was named here #}\n<!-- OIB -->\n")
 
     assert checker.main([]) == 1
-    # Prose is counted, a template comment and an HTML comment are not rendered and are not.
     assert f"{path}: 1 country hit(s), baseline 0" in capsys.readouterr().err
 
 
@@ -175,7 +158,6 @@ def test_comments_and_docstrings_are_not_code_but_strings_are(checker):
         assert word not in checker.code_text("a.py", python)
     assert checker.code_text("a.ts", script).count("RIS") == 1
     assert "Wien" not in checker.code_text("a.ts", script)
-    # A `//` inside a string is a URL, not a comment.
     assert "example.org/a" in checker.code_text("a.ts", script)
 
 
@@ -223,8 +205,6 @@ def test_the_legal_database_is_caught_as_a_word_of_an_identifier(tokens, text):
     ],
 )
 def test_unrelated_words_that_contain_a_token_are_not_hits(tokens, text):
-    # `wiener` is the one exception written down here: it is a token (Wiener Bauordnung), so the
-    # Wiener filter of signal processing would be a hit. Nothing in the tree uses it.
     assert [hit.text for hit in tokens.hits(text) if hit.text.lower() != "wiener"] == []
 
 
@@ -247,7 +227,6 @@ def test_one_occurrence_is_one_hit_under_the_most_specific_kind(tokens):
 
 
 def test_the_token_list_names_every_territory_of_every_shipped_country_pack(tokens):
-    """A pack for a second country is the moment its tokens are due: this fails until they are listed."""
     listed = set(json.loads((ROOT / "ci" / "country_tokens.json").read_text(encoding="utf-8"))["countries"])
     for pack_path in sorted(PACKS.glob("*.json")):
         pack = json.loads(pack_path.read_text(encoding="utf-8"))

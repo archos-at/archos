@@ -1,14 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The platform default-model endpoint. The contract worth pinning down: only
- * the platform owner may write it, the catalog validates every choice
- * server-side, and an omitted group is a *clear*, not a no-op — that is how a
- * group goes back to the workflow config. Every organization is ZDR unless it
- * opted out, so a default must have a ZDR endpoint serving its group, and an
- * unreadable ZDR list refuses the save.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -89,8 +81,6 @@ import { PlatformAccessDeniedError } from '@/lib/authz/platform'
 import { ZdrListUnavailableError } from '@/lib/model-config/openrouter'
 import { GET, PUT } from './route'
 
-// The route goes through `platformApiRoute`, which reads `request.method` for
-// its scope label, so GET takes a real Request like every other route factory.
 const get = (): Promise<Response> =>
   GET(new Request('http://localhost/api/platform/model-defaults'))
 
@@ -175,7 +165,6 @@ describe('/api/platform/model-defaults', () => {
   })
 
   it('rejects a model that fails the group capability requirements', async () => {
-    // `deep_research` needs tools and 128k of context; vendor/tiny has neither.
     const response = await put({ defaults: { deep_research: { model: 'vendor/tiny' } } })
     expect(response.status).toBe(422)
     expect(savePlatformModelDefaults).not.toHaveBeenCalled()
@@ -273,14 +262,12 @@ describe('/api/platform/model-defaults', () => {
         modelSnapshot: null,
       },
     ])
-    // The model lost its last ZDR endpoint after it was pinned.
     fetchZdrEndpoints.mockResolvedValue(zdrIndex('vendor/other'))
     const body = (await (await get()).json()) as {
       defaults: Record<string, { zdrSafe: boolean | null }>
       workflowDefaultsZdrSafe: Record<string, boolean | null>
     }
     expect(body.defaults.deep_research.zdrSafe).toBe(false)
-    // The workflow model (deepseek/deepseek-v4-flash) is not on the list either.
     expect(body.workflowDefaultsZdrSafe.deep_research).toBe(false)
   })
 

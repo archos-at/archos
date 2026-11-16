@@ -1,32 +1,3 @@
-"""The law lookup's parity rig: the same calls, the same recorded source, the same text back.
-
-The country-as-data plan (step 4) replaces the RIS tool with one country-neutral
-lookup that reads RIS from its source record. Austrian answers must not get
-worse, and the strongest form of "not worse" is "the same": for every call
-below, the new lookup must send the requests the old one sent and return the
-text the old one returned, byte for byte.
-
-So the rig drives a lookup at its two edges only:
-
-* **the network**: an ``httpx`` transport that answers from recorded exchanges
-  (``tests/fixtures/law_lookup/upstream.json``) and fails on any URL it was not
-  given, so a request the new code builds differently is a failure, not a miss;
-* **the two model calls**: the search planner and the provision picker,
-  scripted per case, so neither run depends on a model.
-
-Everything between them (reference parsing, the catalog, candidates, fetch,
-the provision grammar, rendering, the miss) is the code under test, reached
-through the agent runtime the way a turn reaches it.
-
-The golden file (``golden.json``) holds what the RIS tool returned for each
-case, recorded by :func:`record` from that tool. ``upstream.json`` holds the
-OGD-RIS search answers as data.bka.gv.at served them (recorded live), and
-document pages in the shape a RIS document page has, carrying law text written
-for the test: the document host serves a challenge page to automated clients,
-and the parity question is what the lookup does with a page, not what the page
-says.
-"""
-
 from __future__ import annotations
 
 import contextlib
@@ -47,16 +18,12 @@ FIXTURES = Path(__file__).resolve().parents[5] / "tests" / "fixtures" / "law_loo
 UPSTREAM = FIXTURES / "upstream.json"
 GOLDEN = FIXTURES / "golden.json"
 
-#: The name the lookup is bound under (``configs/config_oib_openrouter.yml``), as its errors state it.
 TOOL_NAME = "law_lookup"
-#: The RIS tool's name, which ``golden.json`` was recorded under; one output (an empty question) states it.
 OLD_TOOL_NAME = "ris_lookup"
 
 
 @dataclass(frozen=True)
 class Plan:
-    """What the scripted search planner answers: a collection, terms, a title, a territory."""
-
     collection: str
     terms: str
     title: str = ""
@@ -67,9 +34,7 @@ class Plan:
 class Case:
     id: str
     args: dict[str, str]
-    #: The planner's answer, or None for a lookup without a planner model.
     plan: Plan | None = None
-    #: The picker's sections, or None for a lookup without a picker model.
     picks: tuple[str, ...] | None = None
     note: str = ""
 
@@ -155,18 +120,10 @@ CASES: tuple[Case, ...] = (
 )
 
 
-# ---------------------------------------------------------------------------
-# The network edge
-# ---------------------------------------------------------------------------
-
-
 @dataclass
 class Upstream:
-    """Recorded exchanges by URL; every request is logged, an unknown one fails."""
-
     responses: dict[str, dict[str, str]]
     requested: list[str] = field(default_factory=list)
-    #: Called for an unknown URL in record mode; returns the response to keep, or None.
     record: Callable[[str], dict[str, str] | None] | None = None
 
     @classmethod
@@ -206,17 +163,10 @@ class Upstream:
         return httpx.MockTransport(handler)
 
 
-# ---------------------------------------------------------------------------
-# A lookup under test: how one implementation is run at the two edges
-# ---------------------------------------------------------------------------
-
-
 @dataclass(frozen=True)
 class Result:
     output: str
     requested: tuple[str, ...]
-    #: What each hit states beside its text (citation key, public address, revision, work, edition): the record
-    #: fields a citation's role, address and date come from, which the text never shows.
     records: tuple[tuple, ...] = ()
 
     def as_json(self) -> dict[str, Any]:
@@ -225,7 +175,6 @@ class Result:
 
 @contextlib.contextmanager
 def _capturing_hits(module: str):
-    """Record the hits ``module`` hands the grounding renderer, as the citation layer receives them."""
     from agent.common import grounding_block
 
     seen: list[tuple] = []
@@ -245,7 +194,6 @@ def _reset_shared_cache() -> None:
 
 
 async def run_ris_lookup(case: Case, upstream: Upstream) -> Result:
-    """The RIS tool (``ris_adapter.lookup``), as it was before the country-neutral lookup."""
     from ris_adapter.client import RisClient
     from ris_adapter.lookup import RisLookupToolConfig
     from ris_adapter.lookup import ris_lookup
@@ -291,17 +239,14 @@ async def run_ris_lookup(case: Case, upstream: Upstream) -> Result:
         async with ris_lookup(config, MagicMock()) as info:
             fn = LambdaFunction.from_info(config=_probe_config(), info=info)
             output = await fn.ainvoke(case.args, to_type=str)
-    # The RIS tool names itself in its one error; the golden file holds the lookup's name since the rename.
     output = output.replace(f"Error: {OLD_TOOL_NAME} ", f"Error: {TOOL_NAME} ")
     return Result(output=output, requested=tuple(upstream.requested), records=tuple(records))
 
 
-#: The key a released record of the repository's RIS source takes (``scripts/source_record_payload.py``).
 RELEASED_KEY = "at-ris-ogd"
 
 
 def released_record() -> dict[str, Any]:
-    """The repository's RIS record as the BFF hands a released one to a turn: its own key, no fixtures."""
     from public_sources.source import get_source
 
     raw = get_source("at-ris").model_dump(mode="json", exclude_none=True)
@@ -311,7 +256,6 @@ def released_record() -> dict[str, Any]:
 
 @contextlib.contextmanager
 def _turn_carrying(record: dict[str, Any] | None, uses: tuple = ()):
-    """Bind a knowledge context that carries ``record`` as the turn's released source (or none), and ``uses``."""
     from agent.common.knowledge_context import KnowledgeContext
     from agent.common.knowledge_context import LawSource as TurnSource
     from agent.common.knowledge_context import get_turn_knowledge_context
@@ -319,7 +263,6 @@ def _turn_carrying(record: dict[str, Any] | None, uses: tuple = ()):
 
     previous = get_turn_knowledge_context()
     if record is not None:
-        # A revision names one content, as on the platform: the lookup builds a record once per revision.
         revision = hashlib.sha256(json.dumps(record, sort_keys=True).encode()).hexdigest()[:16]
         country = record["territory"][:2]
         source = TurnSource(key=record["id"], revision_id=revision, country=country, config=record)
@@ -339,18 +282,12 @@ def _turn_carrying(record: dict[str, Any] | None, uses: tuple = ()):
 
 
 async def run_law_lookup_from_turn(case: Case, upstream: Upstream) -> Result:
-    """The country-neutral lookup reading RIS as a released record the turn carries, not as a repository file."""
     return await run_law_lookup(case, upstream, turn_record=released_record())
 
 
 async def run_law_lookup(
     case: Case, upstream: Upstream, turn_record: dict[str, Any] | None = None, uses: tuple = ()
 ) -> Result:
-    """The country-neutral lookup (``agent.knowledge.law_lookup``), reading RIS from its record, or the
-    ``turn_record`` the turn carries beside ``uses`` (the edition uses its records resolved).
-
-    Bound as the chat binds it, under its own name, so its errors and its sources step say ``law_lookup``.
-    """
     from agent.knowledge.law_lookup import LawLookupToolConfig
     from agent.knowledge.law_lookup import law_lookup
     from agent.knowledge.law_lookup.client import SourceClient
@@ -409,11 +346,6 @@ def _probe_config():
     return _Probe()
 
 
-# ---------------------------------------------------------------------------
-# Recording (run by hand, once, from the RIS tool)
-# ---------------------------------------------------------------------------
-
-#: The law texts the recorded document pages carry, by the URL the norm registry points at.
 _PAGES: dict[str, tuple[str, str]] = {}
 
 
@@ -430,7 +362,6 @@ def _page(title: str, body: str) -> str:
 
 
 def _synthetic_page(url: str) -> dict[str, str]:
-    """A document page for a URL no law text was written for: two §§, named by the URL's number."""
     from agent_testing.law_lookup_texts import PAGES
 
     title, body = PAGES.get(url) or ("Rechtsvorschrift", PAGES["__default__"][1])
@@ -452,7 +383,6 @@ def _record_live(url: str) -> dict[str, str] | None:
 
 
 async def record() -> dict[str, dict[str, Any]]:
-    """Run every case through the RIS tool, recording what the network was asked, and keep the outputs."""
     upstream = Upstream.load()
     upstream.record = _record_live
     golden: dict[str, dict[str, Any]] = {}
