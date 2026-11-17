@@ -105,7 +105,7 @@ marks })`, and the preview host patches the open file too): the review's
 does not already hold is sent, so a reader who resolves all five marks and
 closes the review sees no „5 offen“ left behind. The review's `load` reads
 `loading`, never `ready`, until the list of the document it is now for has
-answered (`listedFor` in `use-document-review.ts`): a pane reused for
+answered (`listedFor` in `use-annotation-list.ts`): a pane reused for
 another document otherwise counted the last one's marks under the new id for
 one render. Dateien draws it as
 `OpenMarksChip` (`features/documents/components/open-marks-chip.tsx`), the
@@ -360,7 +360,7 @@ leave out rows folded on `MARKS_SET_GROUP_ANCHOR`), and it is read while the
 review of the document is open: when it opens, and on each `inbox.changed`
 nudge while it stays open, so fifteen marks a colleague sets while the reader
 looks at the document are read as they arrive (`watchMarksSetNews` in
-`use-document-review.ts`, called by the review's open effect and let go when
+`use-unread-review-marks.ts`, called by the review's open effect and let go when
 it closes; `markMarksSetRead`, `POST /api/inbox/read { resourceType:
 'document', resourceId, marksSet: true }`, which narrows
 `markResourceItemsRead` to those rows in the types the reader may see). It
@@ -1153,7 +1153,7 @@ or for `piloti.asks_you` the agent („{productName} hat eine Rückfrage an Sie 
 „Jemand“ for the agent's question.
 
 Opening a mark reads its news. When a mark stays selected in the review for
-`MARK_NEWS_SETTLE_MS` (`features/documents/hooks/use-document-review.ts`), the
+`MARK_NEWS_SETTLE_MS` (`features/documents/hooks/use-unread-review-marks.ts`), the
 reader's informational items anchored on it are read through
 `POST /api/inbox/read { resourceType: 'document', resourceId, anchorId }`; a
 mark stepped past with J/K is not, and only a mark whose dot says it has news
