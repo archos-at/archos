@@ -39,15 +39,9 @@ weeks later) were invisible to everything except a human re-reading the file.
 
 **The catalog's wording follows the „Büroablage" rename on the next provisioning.**
 The product renamed the org-wide shelf from „Archiv" to „Büroablage" („Office
-filing" in English) on 6 Oct 2026. The slug is now `org:office_shelf:manage`; `org:archiv:manage` is retired ([runbook](office-shelf-rename-runbook.md)). Its
-label is NOT taken from the dictionary: Organisation → Zugriff
+filing" in English) on 6 Oct 2026. The slug is now `org:office_shelf:manage`; `org:archiv:manage` is retired ([runbook](office-shelf-rename-runbook.md)). Organisation → Zugriff
 (`apps/workspace/ui/features/organization/components/permission-reference.tsx`) shows the `name` and `description` from
-`apps/workspace/bff/authz/catalog.ts`, so it still reads „Manage document Archiv" there until
-the next provisioning changes them. Changing them rewrites the permission's
-name and description in WorkOS, a provisioning step that waits for the
-product owner's go. Change the
-`name` and `description` in `catalog.ts` and run `--apply` together, never one
-without the other: the drift check would fail in between.
+`apps/workspace/bff/authz/catalog.ts` („Manage the office shelf").
 
 ### Retiring a permission
 

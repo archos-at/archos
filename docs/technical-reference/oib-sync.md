@@ -111,7 +111,7 @@ sync()
   returns {enqueued, ingested_recorded, failed, total}
 ```
 
-Run twice, the second cycle queues nothing: the job exists, waiting or running. A job that dies (every claim lost, so the queue row is `dead`) or that ran and failed shows as `failed`; the cycle counts it in `failed`, records the job id in `failed_job_id` (the status row is pruned after an hour and a ran-and-failed job leaves no dead queue row, so the table is the memory), and does not queue the file again until the bytes change (a new job id) or an admin re-indexes it.
+Run twice, the second cycle queues nothing: the job exists, waiting or running. A job whose Hatchet run failed shows as `failed`; the cycle counts it in `failed`, records the job id in `failed_job_id` (the status row is pruned after an hour, so the table is the memory), and does not queue the file again until the bytes change (a new job id) or an admin re-indexes it.
 
 ---
 
@@ -216,10 +216,10 @@ packages/agent/src/agent/oib_sync.py ──────────► packages/
        │   │                              │ writes: BFF presigned URLs / delete
        │   │                              │ reads:  agent.common.seaweed_s3
        │   │                              └ cache:  BASE_CORPUS_CACHE_DIR
-       │   └── enqueue (handed in by the route) ─► agent_host.jobs.ingest_dispatch.enqueue_only ─► ingest_job_queue
-       │                                                          │ claimed by
+       │   └── enqueue (handed in by the route) ─► agent_host.jobs.ingest_dispatch.enqueue_only ─► Hatchet ingest run
+       │                                                          │ run by
        │                                                          ▼
-       │                                         ingest workers (QueueSource) ─► CorpusObjectDownload
+       │                                         ingest workers ─► CorpusObjectDownload
        ├── knowledge_layer.ingest.adapter   (prepare_job; the worker runs the job)
        ├── agent.knowledge.ingest_status_store (job outcomes, read by settle)
        ├── agent.knowledge.leader_lock

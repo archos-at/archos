@@ -539,13 +539,9 @@ stays, unread, until a migration drops it.
   never fill. The budget (`vlmFleetConcurrency`,
   `ingestPageReadParallelism`, `providerLimitCeiling`, `providerModelLimitCeiling`) is
   stack config, not image defaults.
-- **Measured, in PostHog Metrics.** `grid.queue.depth{queue,status}`,
-  `grid.queue.oldest_age_seconds`, `grid.queue.claim_latency_ms`,
-  `grid.queue.job_duration_seconds{kind}` and `grid.queue.dead_total`, for
-  every queue (the BFF's included), reach PostHog through the collector
-  (ADR-0119, [`metrics.md`](../observability/metrics.md)). Every replica
-  reports the same depth, read from the same table, so chart depth and age
-  with `max`, not `sum`.
+- **Measured, in the engine's metrics.** The backlog is
+  `hatchet_tenant_queue_size` and its age `hatchet_queued_to_assigned_time_seconds`,
+  with alerts on both ([`hatchet.md`](../deployment/hatchet.md)).
 - **A fixed ceiling at the provider.** However many workers run, at most
   `VLM_FLEET_CONCURRENCY` vision calls are in flight, a Dragonfly lease pool
   sharing L3's scripts (`common/lease_slots.py`). A 429 backs off outside its
