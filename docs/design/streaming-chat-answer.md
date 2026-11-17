@@ -442,7 +442,7 @@ socket sends `attach{turn_id, after_seq: 0}` once it is up: the whole turn is
 folded again from its first event. `rejected{turn_not_found}`
 (the stream no longer holds the turn) ends it by asking for the persisted
 answer, and shows the banner only if there is none. A turn that has drawn
-words keeps them on screen while it asks (`endInterruptedTurn`): the stored
+words keeps them on screen while it asks (`endInterruptedTurn` in `turn-endings.ts`): the stored
 answer, under the same id, replaces them in their row in one frame; a server
 with no finished answer gets the wait below, and only once it confirms there
 is none are the words put back, dimmed (`failed`), above the banner.
