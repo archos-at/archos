@@ -46,6 +46,7 @@ def _add(repo: Path, path: str, text: str) -> None:
         ("GRID operates the platform", 1),
         ("Grid platform and Grid agent", 2),
         ("image grid-oib-backend", 1),
+        ("the stack grid-oib/dev and its key grid-oib:imageTag", 0),
         ("display: grid; grid-template-columns: 1fr", 0),
         ("<div className='grid grid-cols-2'>", 0),
         ("a Grid of cards, the document grid", 0),

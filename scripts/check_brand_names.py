@@ -45,6 +45,12 @@ What is not a hit
 - The Kubernetes and Compose tier names `aiq-agent` and `aiq-api`
   (``PENDING_INFRA_NAMES``), until the deploy rename (ADR-0145 row 10c) moves
   them in its three operator-applied deploys.
+- The external names the owner kept (ADR-0182 decision 4, ``EXTERNAL_NAMES``):
+  the Pulumi project and stack `grid-oib` (its config keys `grid-oib:…` and
+  its ESC paths `…/grid-oib/dev`), the S3 buckets `grid-documents` and
+  `grid-org-<id>`, and the Qdrant aliases `piloti_corpus` and `piloti_office`.
+  Renaming any of them copies every stored document or replaces every
+  resource, and no customer reads them.
 - The module path on a Python ``from``/``import`` line into the chat agent's
   package (``IMPORT_PATH``). The package's directory is the identifier, kept on
   purpose because the checkpointer restores a graph by it, and is counted once
@@ -123,6 +129,10 @@ REPOSITORY = re.compile(
     r"\bgrid-check/grid-oib-agent\b|\bgrid-oib-agent\b|\bgrid-check\b|(?<![\w.-])archos-at(?:/archos(?![\w-]))?(?![\w-])",
     re.IGNORECASE,
 )
+EXTERNAL_NAMES = re.compile(
+    r"(?<![\w-])grid-oib(?![\w-])|(?<![\w-])grid-documents(?![\w-])|(?<![\w-])grid-org(?![\w])(?:-[\w-]*)?"
+    r"|(?<![\w-])piloti_(?:corpus|office)(?!\w)"
+)
 BRAND = re.compile("|".join(BRANDS), re.IGNORECASE)
 TOKEN_CHARS = frozenset("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_.-")
 WORD = re.compile(r"[A-Z]+(?![a-z])|[A-Z]?[a-z]+|\d+")
@@ -183,6 +193,8 @@ def _without_exempt_names(text: str) -> str:
     lowered = text.lower()
     if "grid-" in lowered or "archos-at" in lowered:
         text = REPOSITORY.sub(" ", text)
+    if "grid-" in text or "piloti_" in text:
+        text = EXTERNAL_NAMES.sub(" ", text)
     if "aiq-a" in text:
         text = PENDING_INFRA_NAMES.sub(" ", text)
     if "agent.agents." in text:
