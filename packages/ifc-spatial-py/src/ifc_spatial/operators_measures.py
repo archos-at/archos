@@ -159,7 +159,6 @@ def floor_area(model: SpatialModel, global_id: str, declared_area: float | None 
 
 
 def _measured_floor_area(triangles: np.ndarray, global_id: str, method: str) -> tuple[Answer[float], str]:
-    """The measured side of :func:`floor_area` and the footprint reason it rests on."""
     area, reason = _footprint(triangles)
     if reason in _FOOTPRINT_FAILURES:
         measured = undecidable(
@@ -206,15 +205,7 @@ _FOOTPRINT_FAILURES = {
 
 
 def _footprint(triangles: np.ndarray) -> tuple[float, str]:
-    """The plan area of a solid and why it came out that way, as ``(area, reason)``.
-
-    ``reason`` is ``measured`` or ``no_horizontal`` (a true 0: faces with an area
-    exist and none is horizontal) or one of :data:`_FOOTPRINT_FAILURES`, where 0
-    means "could not be measured" and must not be reported as a value. A mesh of
-    only zero-area triangles has no normal to judge by, so it is
-    ``invalid_triangles``, not ``no_horizontal``.
-
-    The plan area of a solid is measured from whichever side its faces point.
+    """The plan area of a solid, measured from whichever side its faces point.
 
     ``util.shape.get_footprint_area`` keeps only triangles whose normal points
     **towards** the given direction, so it silently returns ``0.0`` for a mesh
@@ -253,7 +244,6 @@ def _footprint(triangles: np.ndarray) -> tuple[float, str]:
 
 
 def _facing_union_area(triangles: np.ndarray, normals: np.ndarray) -> tuple[float, bool, bool]:
-    """The larger union area of the up- and down-facing faces, whether any faced, and whether GEOS failed."""
     import shapely
     import shapely.ops
 
