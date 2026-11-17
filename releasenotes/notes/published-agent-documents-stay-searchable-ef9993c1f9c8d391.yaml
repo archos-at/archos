@@ -1,0 +1,7 @@
+---
+# area: documents
+fixes:
+  - >
+    A document the agent wrote and you published no longer drops out of search
+    after the weekly cleanup. Until now it could only be found again once it
+    was published anew.

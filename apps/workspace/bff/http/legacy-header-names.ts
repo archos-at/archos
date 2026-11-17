@@ -1,4 +1,4 @@
-// drop after release 2026-W48
+// drop after release 2026-W50
 const RENAMED_HEADERS: Record<string, string> = { 'x-chat-mode': 'x-aiq-mode' }
 
 export function legacyHeaderName(name: string): string {

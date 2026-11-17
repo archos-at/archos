@@ -256,6 +256,10 @@
     "de": "Ein Dokument, das erneut eingelesen, archiviert oder ersetzt wird, während ein älterer Hintergrundschritt noch läuft, wird nicht mehr als fehlgeschlagen markiert."
   },
   {
+    "en": "A document the agent wrote and you published no longer drops out of search after the weekly cleanup. Until now it could only be found again once it was published anew.",
+    "de": "Ein vom Agenten erstelltes und von Ihnen veröffentlichtes Dokument verschwindet nach der wöchentlichen Bereinigung nicht mehr aus der Suche. Bislang lässt es sich erst wieder finden, wenn es erneut veröffentlicht wird."
+  },
+  {
     "en": "A document whose reading failed can be read again from its own card: \"Erneut lesen\" is in the ⋯ menu, beside rename and delete, wherever the failure is shown. Until now the card only said it had failed, and the one retry was two clicks inside a viewer you had no reason to open.",
     "de": "Ein Dokument, dessen Lesen fehlgeschlagen ist, lässt sich direkt auf seiner Karte erneut lesen: „Erneut lesen“ steht im ⋯-Menü neben Umbenennen und Löschen, überall dort, wo der Fehler angezeigt wird. Bisher meldete die Karte nur den Fehler, und der einzige Versuch führte über zwei Klicks in einer Ansicht, die Sie ohne Grund öffnen mussten."
   },

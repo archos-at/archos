@@ -7,8 +7,10 @@ from unittest.mock import MagicMock
 import pytest
 from knowledge_layer.ingest import LlamaIndexIngestor
 from knowledge_layer.ingest import PdfTextPages
-from knowledge_layer.ingest import adapter as adapter_module
+from knowledge_layer.ingest import pdf_rasters
+from knowledge_layer.ingest import pdf_text
 from knowledge_layer.ingest import unreadable_pdf_verdict
+from knowledge_layer.ingest import vision_credentials
 
 from agent.knowledge import ingest_status_store
 from agent.knowledge.schema import FileProgress
@@ -59,7 +61,7 @@ def fake_pdf(monkeypatch):
 def test_a_broken_page_costs_that_page_and_not_the_rest(fake_pdf):
     fake_pdf(60, broken={50})
 
-    pages = adapter_module._extract_text_from_pdf("plan.pdf")
+    pages = pdf_text._extract_text_from_pdf("plan.pdf")
 
     assert [p["page_number"] for p in pages] == [n for n in range(1, 61) if n != 50]
     assert pages.failed_pages == [50]
@@ -71,7 +73,7 @@ def test_an_unopenable_pdf_reads_as_no_pages(monkeypatch):
 
     monkeypatch.setattr(pdfplumber, "open", MagicMock(side_effect=ValueError("not a PDF")))
 
-    pages = adapter_module._extract_text_from_pdf("broken.pdf")
+    pages = pdf_text._extract_text_from_pdf("broken.pdf")
 
     assert list(pages) == [] and pages.failed_pages == [] and pages.page_count == 0
 
@@ -129,8 +131,8 @@ def quiet_pdf_pipeline(monkeypatch):
     from agent.common.credential_resolution import ResolvedCredential
 
     none = ResolvedCredential(api_key="", base_url="https://vlm.test/v1", model="test-vlm", source="none")
-    monkeypatch.setattr(adapter_module, "resolve_vlm_credential", lambda organization_id=None: none)
-    monkeypatch.setattr(adapter_module, "_extract_image_records", lambda *a, **k: ([], 0, 0))
+    monkeypatch.setattr(vision_credentials, "resolve_vlm_credential", lambda organization_id=None: none)
+    monkeypatch.setattr(pdf_rasters, "_extract_image_records", lambda *a, **k: ([], 0, 0))
     monkeypatch.setattr(processing_module, "render_visual_pages_no_vlm", lambda *a, **k: [])
 
 
@@ -179,7 +181,7 @@ def test_chunks_created_counts_the_nodes_stored(tmp_path, live_ingestor, stores)
 def test_a_few_unreadable_pages_are_recorded_on_a_successful_file(
     tmp_path, monkeypatch, live_ingestor, stores, quiet_pdf_pipeline
 ):
-    monkeypatch.setattr(adapter_module, "_extract_text_from_pdf", lambda _path: _text_pages(10, [4]))
+    monkeypatch.setattr(pdf_text, "_extract_text_from_pdf", lambda _path: _text_pages(10, [4]))
 
     job_id = live_ingestor.submit_job(
         [str(_pdf_upload(tmp_path))], "proj_pages", config={"original_filenames": ["plan.pdf"]}
@@ -192,7 +194,7 @@ def test_a_few_unreadable_pages_are_recorded_on_a_successful_file(
 
 
 def test_too_many_unreadable_pages_fail_the_file(tmp_path, monkeypatch, live_ingestor, stores, quiet_pdf_pipeline):
-    monkeypatch.setattr(adapter_module, "_extract_text_from_pdf", lambda _path: _text_pages(10, [2, 3, 4]))
+    monkeypatch.setattr(pdf_text, "_extract_text_from_pdf", lambda _path: _text_pages(10, [2, 3, 4]))
 
     job_id = live_ingestor.submit_job(
         [str(_pdf_upload(tmp_path))], "proj_holes", config={"original_filenames": ["plan.pdf"]}

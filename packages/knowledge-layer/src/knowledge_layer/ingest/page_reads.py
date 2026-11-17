@@ -81,8 +81,8 @@ class FilePageReads:
             self.submit(self._prefetch, pdf_path, pages, max_dim, vision)
 
     def _prefetch(self, pdf_path: str, pages: list[int], max_dim: int, vision: dict[str, Any]) -> None:
-        from knowledge_layer.ingest import adapter as _adapter
         from knowledge_layer.ingest import processing as _processing
+        from knowledge_layer.ingest import vision_reads
 
         doc = _processing._open_pdf(pdf_path, "Drawing prefetch")
         if doc is None:
@@ -100,7 +100,7 @@ class FilePageReads:
                         "height": height,
                         "max_dim": max_dim,
                     }
-                self.submit(_adapter.analyze_visual, image_bytes, **vision)
+                self.submit(vision_reads.analyze_visual, image_bytes, **vision)
         finally:
             _processing._close_pdf(doc)
 

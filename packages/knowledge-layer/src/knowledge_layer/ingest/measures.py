@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import logging
+import time
+from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
@@ -27,6 +29,21 @@ STAGES = (
 
 STAGE_SECONDS_KEY = "stage_seconds"
 COVERAGE_KEY = "coverage"
+
+
+@contextmanager
+def _stage(stages: dict[str, float], name: str) -> Iterator[None]:
+    start = time.perf_counter()
+    try:
+        yield
+    finally:
+        stages[name] = stages.get(name, 0.0) + (time.perf_counter() - start)
+
+
+def _log_ingest_perf(file_name: str, stages: dict[str, float]) -> None:
+    parts = [f"{name}={stages[name]:.3f}" for name in STAGES if name in stages]
+    if parts:
+        logger.info("[ingest-perf] %s %s", file_name, " ".join(parts))
 
 
 @contextmanager

@@ -9,10 +9,13 @@ from unittest.mock import MagicMock
 import pytest
 from knowledge_layer.ingest import OFFICE_RENDITION_REQUIRED
 from knowledge_layer.ingest import LlamaIndexIngestor
-from knowledge_layer.ingest import adapter
 from knowledge_layer.ingest import align_extraction_paths
 from knowledge_layer.ingest import office_extractors
+from knowledge_layer.ingest import pdf_rasters
+from knowledge_layer.ingest import pdf_text
 from knowledge_layer.ingest import requires_rendition
+from knowledge_layer.ingest import vision_credentials
+from knowledge_layer.ingest import vision_reads
 from knowledge_layer_testing.vector_store import FakeEmbedder
 from knowledge_layer_testing.vector_store import capture_indexed_documents
 
@@ -175,7 +178,7 @@ def _indexed_documents():
 def pdf_pipeline(monkeypatch):
     read: dict[str, list[str]] = {"text": [], "images": [], "pages": []}
     cred = ResolvedCredential(api_key="vlm-key", base_url="https://vlm.test/v1", model="test-vlm", source="env")
-    monkeypatch.setattr(adapter, "resolve_vlm_credential", lambda organization_id=None: cred)
+    monkeypatch.setattr(vision_credentials, "resolve_vlm_credential", lambda organization_id=None: cred)
 
     def _text(path):
         read["text"].append(path)
@@ -205,9 +208,9 @@ def pdf_pipeline(monkeypatch):
         read["pages"].append(path)
         return []
 
-    monkeypatch.setattr(adapter, "_extract_text_from_pdf", _text)
-    monkeypatch.setattr(adapter, "_extract_image_records", _images)
-    monkeypatch.setattr(adapter, "analyze_visual", lambda *a, **k: ("image", "Ein Schnitt A-A.", {}))
+    monkeypatch.setattr(pdf_text, "_extract_text_from_pdf", _text)
+    monkeypatch.setattr(pdf_rasters, "_extract_image_records", _images)
+    monkeypatch.setattr(vision_reads, "analyze_visual", lambda *a, **k: ("image", "Ein Schnitt A-A.", {}))
     import knowledge_layer.ingest.processing as processing_module
 
     monkeypatch.setattr(processing_module, "render_visual_pages_no_vlm", _pages)
