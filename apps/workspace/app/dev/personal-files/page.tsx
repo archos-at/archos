@@ -242,15 +242,16 @@ function SwitchPage({ own, top, menu, scoped }: { own: boolean; top: 'project' |
             <OnlyYou />
           </div>
         )}
-        <div className="absolute right-8 top-8 z-10">
-          <div className="bg-desk text-name flex rounded-control p-0.5 font-medium">
-            <span className={`${own ? off : on} inline-flex items-center gap-1`}>
-              {top === 'all' ? 'Projekt wählen' : project.short}
-              <ChevronDown className="size-3.5" aria-hidden />
-            </span>
-            <span className={own ? on : off}>Meine Dateien</span>
-          </div>
-          {menu && (
+        {/* One chooser for the project (the rail's switcher). `menu` keeps the earlier draft, where the track chose it too. */}
+        {menu ? (
+          <div className="absolute right-8 top-8 z-10">
+            <div className="bg-desk text-name flex rounded-control p-0.5 font-medium">
+              <span className={`${own ? off : on} inline-flex items-center gap-1`}>
+                {top === 'all' ? 'Projekt wählen' : project.short}
+                <ChevronDown className="size-3.5" aria-hidden />
+              </span>
+              <span className={own ? on : off}>Meine Dateien</span>
+            </div>
             <div className="bg-sheet shadow-md absolute right-0 top-full mt-2 w-72 rounded-[16px] p-1.5">
               <div className="text-muted-foreground text-meta px-2.5 pb-1 pt-1.5 font-medium">Dateien eines Projekts</div>
               {PROJECTS.map((item) => (
@@ -260,8 +261,15 @@ function SwitchPage({ own, top, menu, scoped }: { own: boolean; top: 'project' |
                 </div>
               ))}
             </div>
-          )}
-        </div>
+          </div>
+        ) : top === 'project' ? (
+          <div className="bg-desk text-name absolute right-8 top-8 z-10 flex rounded-control p-0.5 font-medium">
+            <span className={own ? off : on}>Projektdateien</span>
+            <span className={own ? on : off}>Meine Dateien</span>
+          </div>
+        ) : (
+          <p className="text-muted-foreground absolute right-8 top-10 z-10 text-sm">Für Projektdateien oben ein Projekt wählen.</p>
+        )}
         <ProjectSectionFrame projectId="dev" projectName={own ? (top === 'all' ? 'Alle Projekte' : project.name) : project.name} pathname="/app/projects/dev/files" inboundMail={!own}>
           <ProjectSectionActions>
             <FilesHeaderControls
