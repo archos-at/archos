@@ -1,13 +1,13 @@
 /**
  * @vitest-environment node
  */
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { assertSafeBaseUrl, isKnownProvider, resolveBaseUrl } from './providers'
 
 describe('llm-credentials providers', () => {
   afterEach(() => {
-    delete process.env.BYOK_ALLOW_PRIVATE_BASE_URLS
+    vi.stubEnv('BYOK_ALLOW_PRIVATE_BASE_URLS', undefined)
   })
 
   it('knows the preset providers', () => {
@@ -44,7 +44,7 @@ describe('llm-credentials providers', () => {
   })
 
   it('honours the private-network escape hatch', () => {
-    process.env.BYOK_ALLOW_PRIVATE_BASE_URLS = 'true'
+    vi.stubEnv('BYOK_ALLOW_PRIVATE_BASE_URLS', 'true')
     expect(() => assertSafeBaseUrl('https://litellm.corp.internal/v1')).not.toThrow()
   })
 })

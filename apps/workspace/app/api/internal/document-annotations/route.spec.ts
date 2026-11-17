@@ -131,7 +131,7 @@ const PROPOSAL = {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  process.env.INTERNAL_API_TOKEN = SECRET
+  vi.stubEnv('INTERNAL_API_TOKEN', SECRET)
   vi.stubEnv('REQUIRE_AUTH', 'true')
   SESSION.featureFlags = ['agent-direct-edits']
   vi.mocked(requireVerifiedContext).mockReturnValue(CONTEXT)
@@ -156,7 +156,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
-  delete process.env.INTERNAL_API_TOKEN
+  vi.stubEnv('INTERNAL_API_TOKEN', undefined)
   vi.unstubAllEnvs()
 })
 

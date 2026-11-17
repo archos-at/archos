@@ -1,5 +1,4 @@
-// @disk-inputs: ui/features/chat/components/AnswerActions.tsx, ui/features/chat/components/AnswerFeedback.tsx, ui/features/chat/components/RetryThoroughButton.tsx, ui/features/layout/components/ChatArea.tsx, ui/features/layout/components/ChatToolbar.tsx, ui/features/layout/components/SessionsPanel.tsx, ui/features/runs/components/RunBlock.tsx
-
+// @disk-inputs: ui/features/chat/components/AnswerActions.tsx, ui/features/chat/components/AnswerFeedback.tsx, ui/features/chat/components/RetryThoroughButton.tsx, ui/features/layout/components/ChatArea.tsx, ui/features/layout/components/ChatToolbar.tsx, ui/features/layout/components/SessionsPanel.tsx, ui/features/layout/components/sessions-panel/**, ui/features/runs/components/RunBlock.tsx, ui/features/runs/components/run-block/**
 import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { srcJoin } from '@/test-utils/source-tree'
@@ -23,13 +22,21 @@ describe('thread chrome on a phone', () => {
   it.each([
     ...FOOTNOTE_BUTTONS,
     'features/runs/components/RunBlock.tsx',
+    'features/runs/components/run-block/run-doc-chip.tsx',
+    'features/runs/components/run-block/run-elapsed.tsx',
+    'features/runs/components/run-block/run-phase-acts.tsx',
+    'features/runs/components/run-block/run-round-row.tsx',
+    'features/runs/components/run-block/run-separator.tsx',
     'features/layout/components/SessionsPanel.tsx',
+    'features/layout/components/sessions-panel/deep-research-section.tsx',
+    'features/layout/components/sessions-panel/session-item.tsx',
+    'features/layout/components/sessions-panel/session-status-icon.tsx',
   ])('%s sets no text under 12px', (path) => {
     expect(read(path)).not.toMatch(/text-\[(?:9|10|10\.5|11)px\]/)
   })
 
   it('the history row has a visible menu on touch beside the hover overlay', () => {
-    const source = read('features/layout/components/SessionsPanel.tsx')
+    const source = read('features/layout/components/sessions-panel/session-item.tsx')
     expect(source).toContain('pointer-coarse:inline-flex')
     expect(source).toMatch(/pointer-coarse:hidden animate-in/)
   })

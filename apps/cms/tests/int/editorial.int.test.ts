@@ -2,7 +2,7 @@ import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { getPayload, type Payload } from 'payload';
 import type { Post } from '../../src/payload-types';
-import { afterAll, beforeAll, describe, expect, test } from 'vitest';
+import { afterAll, beforeAll, describe, expect, test, vi } from 'vitest';
 import { paragraph, root } from '../../scripts/lib/lexical.mjs';
 
 const DATABASE = process.env.CMS_TEST_DATABASE_URL;
@@ -34,14 +34,14 @@ describe.skipIf(!DATABASE)('blog posts on Postgres', () => {
       res.end();
     });
     await new Promise<void>((resolve) => website.listen(0, '127.0.0.1', resolve));
-    process.env.WEBSITE_REVALIDATE_URL = `http://127.0.0.1:${(website.address() as AddressInfo).port}/api/cms/revalidate`;
-    process.env.WEBSITE_REVALIDATE_TOKEN = 'revalidate-token'; // pragma: allowlist secret
-    process.env.CMS_JOBS_AUTORUN = 'false';
-    process.env.CMS_WEBSITE_API_KEY = 'website-key-0123456789'; // pragma: allowlist secret
-    process.env.CMS_SOCIAL_HANDOFF_API_KEY = 'handoff-key-0123456789'; // pragma: allowlist secret
-    process.env.CMS_PLATFORM_MCP_API_KEY = 'gateway-key-0123456789'; // pragma: allowlist secret
-    process.env.CMS_ADMIN_EMAIL = 'admin@example.com';
-    process.env.CMS_ADMIN_PASSWORD = 'an-admin-password'; // pragma: allowlist secret
+    vi.stubEnv('WEBSITE_REVALIDATE_URL', `http://127.0.0.1:${(website.address() as AddressInfo).port}/api/cms/revalidate`);
+    vi.stubEnv('WEBSITE_REVALIDATE_TOKEN', 'revalidate-token'); // pragma: allowlist secret
+    vi.stubEnv('CMS_JOBS_AUTORUN', 'false');
+    vi.stubEnv('CMS_WEBSITE_API_KEY', 'website-key-0123456789'); // pragma: allowlist secret
+    vi.stubEnv('CMS_SOCIAL_HANDOFF_API_KEY', 'handoff-key-0123456789'); // pragma: allowlist secret
+    vi.stubEnv('CMS_PLATFORM_MCP_API_KEY', 'gateway-key-0123456789'); // pragma: allowlist secret
+    vi.stubEnv('CMS_ADMIN_EMAIL', 'admin@example.com');
+    vi.stubEnv('CMS_ADMIN_PASSWORD', 'an-admin-password'); // pragma: allowlist secret
     const { default: config } = await import('@payload-config');
     payload = await getPayload({ config });
     const find = async (email: string) => (await payload.find({ collection: 'users', where: { email: { equals: email } } })).docs[0] as unknown as User;

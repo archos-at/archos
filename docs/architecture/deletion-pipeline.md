@@ -183,7 +183,7 @@ Every step is idempotent; a retry after any failure finishes the work, and a fol
 3. Delete the chat's Langfuse traces (below): in the purger's retry after the BFF's erasure, or, for a chat the delete request erased itself, by the scheduler afterwards; see **Langfuse traces**
 
 What `DELETE /api/conversations/[id]` does today is immediate, with the queue
-as its retry (`deleteConversation`, `lib/conversations/service.ts`), and every
+as its retry (`deleteConversation`, `lib/conversations/conversation-erasure.ts`), and every
 step after the hold check is safe to repeat:
 
 1. `owner` on the conversation (or the creator of one already marked deleting, so a failed erase can be retried).

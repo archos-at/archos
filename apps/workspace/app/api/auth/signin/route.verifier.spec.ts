@@ -24,8 +24,8 @@ vi.mock('next/headers', () => ({
 }))
 vi.mock('@/lib/db/tenant-context', () => ({ tenantSlotRoute: (handler: never) => handler }))
 
-process.env.WORKOS_CLIENT_ID = 'client_test'
-process.env.WORKOS_COOKIE_PASSWORD = 'a-test-cookie-password-of-32-chars'
+vi.stubEnv('WORKOS_CLIENT_ID', 'client_test')
+vi.stubEnv('WORKOS_COOKIE_PASSWORD', 'a-test-cookie-password-of-32-chars')
 
 const { GET } = await import('./route')
 

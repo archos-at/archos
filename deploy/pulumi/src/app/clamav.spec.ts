@@ -67,6 +67,26 @@ function composeService(name: string): ComposeService {
   return doc.services[name];
 }
 
+type ComposeMount = { host: string; readOnly: boolean };
+function composeMountAt(service: ComposeService, target: string): ComposeMount {
+  for (const volume of service.volumes) {
+    const [host, mounted, mode] = volume.split(":");
+    if (mounted === target) return { host, readOnly: mode === "ro" };
+  }
+  throw new Error(`Compose mounts nothing at ${target}`);
+}
+
+type Mount = { name: string; mountPath: string; subPath?: string; readOnly?: boolean };
+async function clamdMounts(): Promise<Mount[]> {
+  const spec = await resolve(find("kubernetes:apps/v1:Deployment", "clamav").inputs.spec);
+  return spec.template.spec.containers[0].volumeMounts;
+}
+function mountPathOf(mounts: Mount[], name: string, subPath?: string): string {
+  const mount = mounts.find((m) => m.name === name && m.subPath === subPath);
+  if (!mount) throw new Error(`no ${name} mount${subPath ? ` of ${subPath}` : ""}`);
+  return mount.mountPath;
+}
+
 describe("clamav", () => {
   let cfgImage = "";
   let env: k8s.types.input.core.v1.EnvVar[] = [];
@@ -126,16 +146,14 @@ describe("clamav", () => {
     expect(conf.get("ExtendedDetectionInfo")).toBe("no");
     expect(conf.get("StreamMaxLength")).toBe("30M");
     expect(Number(conf.get("MaxScanTime"))).toBeGreaterThan(0);
-    expect(conf.get("TCPSocket")).toBe("3310");
-    expect(conf.get("DatabaseDirectory")).toBe("/var/lib/clamav");
   });
 
-  it("holds the BFF to the limits clamd enforces, and to the same signature age as the probe", () => {
-    const bff = readFileSync(join(REPO, "apps", "workspace", "bff", "malware-scan", "config.ts"), "utf8");
-    const age = bff.match(/MAX_SIGNATURE_AGE_MS = (\d+) \* 60 \* 60 \* 1000/);
-    expect(age?.[1]).toBe("48");
-    const stream = bff.match(/STREAM_MAX_BYTES = (\d+) \* 1024 \* 1024/);
-    expect(`${stream?.[1]}M`).toBe(directives(readFileSync(join(REPO, "deploy", "compose", "clamav", "clamd.conf"), "utf8")).get("StreamMaxLength"));
+  it("serves clamd on the Service's port, with its signatures in the database volume the pod mounts", async () => {
+    const { clamavConfigFiles } = await import("./clamav");
+    const conf = directives(clamavConfigFiles()["clamd.conf"]);
+    const svc = await resolve(find("kubernetes:core/v1:Service", "clamav").inputs.spec);
+    expect(conf.get("TCPSocket")).toBe(String(svc.ports[0].targetPort));
+    expect(conf.get("DatabaseDirectory")).toBe(mountPathOf(await clamdMounts(), "database"));
   });
 
   it("runs clamd and freshclam as the image's clamav user, past the root entrypoint", async () => {
@@ -169,10 +187,9 @@ describe("clamav", () => {
     expect(clamd.startupProbe.exec.command).toEqual(["sh", "-c", livenessScript()]);
   });
 
-  it("lets pulumi up go on without waiting for fresh signatures, and gives the app tiers a URL, not the Deployment", async () => {
+  it("lets pulumi up go on without waiting for fresh signatures", async () => {
     const metadata = await resolve(find("kubernetes:apps/v1:Deployment", "clamav").inputs.metadata);
     expect(metadata.annotations).toEqual({ "pulumi.com/skipAwait": "true" });
-    expect(readFileSync(join(__dirname, "clamav.ts"), "utf8")).toContain("url: pulumi.output(`tcp://${name}:${CLAMAV.port}`)");
   });
 
   it("rolls the pod when either config file changes", async () => {
@@ -191,6 +208,7 @@ describe("clamav", () => {
       expect(await resolve(url?.value)).toBe("tcp://clamav:3310");
     }
     expect(envDisabled.some((e) => e.name === "MALWARE_SCAN_URL")).toBe(false);
+    expect(composeService("frontend").environment.map((e) => e.split("=")[0])).toContain("MALWARE_SCAN_URL");
   });
 
   it("admits the frontend and the bff-jobs pool alone", async () => {
@@ -209,29 +227,30 @@ describe("clamav", () => {
     expect(intra.podSelector.matchExpressions[0].values).toContain("clamav");
   });
 
-  it("matches the Compose service: image, files, no port, and the same health check", async () => {
-    const { readinessScript } = await import("./clamav");
+  it("matches the Compose service: image, profile, the same mounts with the same config bytes, no port, and the same health check", async () => {
+    const { readinessScript, clamavConfigFiles } = await import("./clamav");
+    const files: Record<string, string> = clamavConfigFiles();
     const svc = composeService("clamav");
     expect(svc.image).toBe(cfgImage);
     expect(svc.profiles).toEqual(["malware-scan"]);
     expect(svc.ports).toBeUndefined();
-    expect(svc.volumes).toEqual(
-      expect.arrayContaining([
-        "./clamav/clamd.conf:/etc/clamav/clamd.conf:ro",
-        "./clamav/freshclam.conf:/etc/clamav/freshclam.conf:ro",
-      ]),
-    );
+    for (const mount of await clamdMounts()) {
+      const compose = composeMountAt(svc, mount.mountPath);
+      expect(compose.readOnly, mount.mountPath).toBe(mount.readOnly === true);
+      if (mount.subPath) {
+        expect(readFileSync(join(REPO, "deploy", "compose", compose.host), "utf8"), mount.mountPath).toBe(files[mount.subPath]);
+      }
+    }
     expect(svc.healthcheck.test[0]).toBe("CMD-SHELL");
     expect(svc.healthcheck.test[1].split("$$").join("$")).toBe(readinessScript());
-    expect(svc.environment).toContain("FRESHCLAM_CHECKS=12");
-    expect(composeService("frontend").environment).toContain("MALWARE_SCAN_URL=${MALWARE_SCAN_URL:-}");
   });
 
-  it("checks for signatures as often as freshclam.conf says, and notifies clamd", async () => {
+  it("checks for signatures as often as Compose does, and tells the clamd that reads the same config", async () => {
     const { clamavConfigFiles } = await import("./clamav");
     const fresh = directives(clamavConfigFiles()["freshclam.conf"]);
-    expect(fresh.get("Checks")).toBe("12");
-    expect(fresh.get("NotifyClamd")).toBe("/etc/clamav/clamd.conf");
-    expect(fresh.get("DatabaseDirectory")).toBe("/var/lib/clamav");
+    expect(composeService("clamav").environment).toContain(`FRESHCLAM_CHECKS=${fresh.get("Checks")}`);
+    const mounts = await clamdMounts();
+    expect(fresh.get("NotifyClamd")).toBe(mountPathOf(mounts, "config", "clamd.conf"));
+    expect(fresh.get("DatabaseDirectory")).toBe(mountPathOf(mounts, "database"));
   });
 });

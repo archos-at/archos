@@ -73,10 +73,10 @@ beforeAll(() => {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  process.env.WORKOS_AUTHKIT_DOMAIN = 'auth.example.test'
-  process.env.MCP_RESOURCE_URL = URL_
-  process.env.INTERNAL_API_TOKEN = SECRET
-  process.env.WORKOS_REDIRECT_URI = 'https://app.example.test/api/auth/callback'
+  vi.stubEnv('WORKOS_AUTHKIT_DOMAIN', 'auth.example.test')
+  vi.stubEnv('MCP_RESOURCE_URL', URL_)
+  vi.stubEnv('INTERNAL_API_TOKEN', SECRET)
+  vi.stubEnv('WORKOS_REDIRECT_URI', 'https://app.example.test/api/auth/callback')
   vi.mocked(resolvePinnedRequesterSession).mockResolvedValue(session)
   vi.mocked(enforceLimit).mockResolvedValue({
     allowed: true,
@@ -105,13 +105,13 @@ describe('authentication', () => {
   })
 
   it('answers 503 on the external door while AuthKit is not configured', async () => {
-    delete process.env.WORKOS_AUTHKIT_DOMAIN
+    vi.stubEnv('WORKOS_AUTHKIT_DOMAIN', undefined)
     const response = await POST(rpc('tools/list', {}, { authorization: 'Bearer x.y.z' }))
     expect(response.status).toBe(503)
   })
 
   it('keeps the agent\'s door working without an AuthKit domain', async () => {
-    delete process.env.WORKOS_AUTHKIT_DOMAIN
+    vi.stubEnv('WORKOS_AUTHKIT_DOMAIN', undefined)
     const response = await POST(rpc('tools/list', {}, signedMcpHeaders()))
     expect(response.status).toBe(200)
   })

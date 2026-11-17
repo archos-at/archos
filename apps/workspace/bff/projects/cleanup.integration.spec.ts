@@ -125,7 +125,7 @@ describe.skipIf(!url)('Ausmisten against Postgres', () => {
     ).then(one)
 
   beforeAll(async () => {
-    process.env.APP_DATABASE_URL = url
+    vi.stubEnv('APP_DATABASE_URL', url)
     vi.stubGlobal('fetch', vi.fn(async () => new Response('{}', { status: 200 })))
     withTenant = (await import('@/lib/db/tenant-context')).withTenant
     db = (await import('@/lib/db')).getDb()

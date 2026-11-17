@@ -165,7 +165,7 @@ Paths are under `apps/workspace/` unless they start with a package.
 | Intake setup step | project, filing, reading, questions, profile | same | an ordered list |
 | Filing step mode | empty, chosen, uploading, project | same | one ternary |
 | Participants overlays | four slots | same | |
-| BIM model poll | pending, extracting, ready, failed | `features/bim/hooks/use-bim-model.ts` | |
+| BIM model poll | pending, extracting, ready, failed | `features/bim/hooks/use-project-bim-models.ts`, `features/bim/hooks/use-document-bim-model.ts` | |
 | IFC viewer load | idle, downloading, parsing, ready, error | `features/bim/components/` | cancel kept outside the phase |
 | IFC compare | idle, loading, error | same | |
 | Inbound attachment case | nine statuses | `features/inbound-mail/lib/attachment-case.ts` | exhaustive by type (read) |
@@ -354,15 +354,15 @@ scheduled task definitions, feedback, the folder bin, budgets.
 
 | What | Where | Trust |
 |---|---|---|
-| The preview pane keeps the previous file's image when the next file's preview fails: A's picture under B's name, no error, no retry | `ui/features/documents/components/use-file-preview-controller.tsx`, `file-preview-pane-document.tsx` | **Fixed**, reproduced first (`file-preview-pane.spec.tsx`, „a next file whose preview fails“): every load drops the last one's URLs in `use-file-preview-controller.tsx`, so the pane's own failed and gone states show |
+| The preview pane keeps the previous file's image when the next file's preview fails: A's picture under B's name, no error, no retry | `ui/features/documents/hooks/use-preview-loader.ts`, `file-preview-pane-document.tsx` | **Fixed**, reproduced first (`file-preview-pane.spec.tsx`, „a next file whose preview fails“): every load drops the last one's URLs in `hooks/use-preview-loader.ts`, so the pane's own failed and gone states show |
 | A server proposal card whose first read fails stays failed until it is mounted again, and `problem = 'load'` can sit beside a live proposal | `ui/features/cards/hooks/use-server-proposal.ts` | **Fixed**, reproduced first (`ProposalReceipt.load.spec.tsx`): the read is one state (loading, loaded, failed) in `use-server-proposal.ts`, and a failed one is read again on the channel coming up, a hint, or the reader's return to the tab |
-| A shared thread's read-receipt retry outlives its conversation: a failed POST arms a timer after cleanup that later posts the old conversation's id | `ui/features/collaboration/hooks/use-shared-thread.ts` | **Fixed**, reproduced first (`use-shared-thread.spec.ts`, „a read receipt that fails after the reader left…“): the retry in `use-shared-thread.ts` is not armed once its effect is cleaned up, and takes the reported-id ref back only while it still names its own message. Whether the server accepted a backwards mark was not checked |
+| A shared thread's read-receipt retry outlives its conversation: a failed POST arms a timer after cleanup that later posts the old conversation's id | `ui/features/collaboration/hooks/use-shared-thread.ts` | **Fixed**, reproduced first (`use-shared-thread.spec.ts`, „a read receipt that fails after the reader left…“): the retry in `use-thread-read-receipt.ts` is not armed once its effect is cleaned up, and takes the reported-id ref back only while it still names its own message. Whether the server accepted a backwards mark was not checked |
 | "The shelf is free" in an upload is five flags from three hooks; a stuck dialog stalls the drop queue | `ui/features/documents/hooks/use-shelf-upload.ts` | scout, suspected |
 | A shared thread's turn banner is cleared by one unguarded write, so the composer can unlock during a colleague's turn | `use-shared-thread.ts` | scout, suspected |
-| A review reply stays in `editing` when the agent takes the thread up, and the draft is lost | `ui/features/documents/components/review/thread-card.tsx` | scout, mechanism traced |
-| An activity card's row derives "undone" from five sources; its undo reads then writes with no version | `ui/features/cards/components/CanvasActivityCard.tsx` | scout, race suspected |
+| A review reply stays in `editing` when the agent takes the thread up, and the draft is lost | `ui/features/documents/components/review/thread-card/reply-entry.tsx` | scout, mechanism traced |
+| An activity card's row derives "undone" from five sources; its undo reads then writes with no version | `ui/features/cards/components/canvas-activity-card/` (the rows), `ui/features/cards/hooks/use-server-undo.ts` (the undo) | scout, race suspected |
 | The intake wizard's save awaits deferred uploads with no bound, and decides a conflict by comparing translated text | the intake wizard controller | scout |
-| The IFC viewer destroys its renderer twice on a cancel mid-load, and its two-point measurement is written twice | `use-ifc-viewer-canvas-controller.tsx` | scout |
+| The IFC viewer destroys its renderer twice on a cancel mid-load, and its two-point measurement is written twice | `features/bim/hooks/use-ifc-model-load.ts`, `features/bim/hooks/use-ifc-viewer-input.ts` | scout |
 | The members form loads a roster with no request guard across projects | `ui/components/projects/project-members-form.tsx` | scout, suspected |
 
 The hand-written loading, error and retry state is wider than the dozen this

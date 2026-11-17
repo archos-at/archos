@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { MAX_GRAPH_NODES } from './model'
 import { parseMermaid } from './parse-mermaid'
 
@@ -117,11 +117,11 @@ describe('parseMermaid', () => {
 describe('parseMermaid, in a time zone east of Greenwich', () => {
   const zone = process.env.TZ
   beforeAll(() => {
-    process.env.TZ = 'Europe/Vienna'
+    vi.stubEnv('TZ', 'Europe/Vienna')
   })
   afterAll(() => {
-    if (zone === undefined) delete process.env.TZ
-    else process.env.TZ = zone
+    if (zone === undefined) vi.stubEnv('TZ', undefined)
+    else vi.stubEnv('TZ', zone)
   })
 
   it('keeps the calendar date the source wrote', async () => {
@@ -262,11 +262,11 @@ describe('a sequence', () => {
 describe.each(['UTC', 'Europe/Vienna', 'America/Los_Angeles'])('a gantt in %s', (tz) => {
   const zone = process.env.TZ
   beforeAll(() => {
-    process.env.TZ = tz
+    vi.stubEnv('TZ', tz)
   })
   afterAll(() => {
-    if (zone === undefined) delete process.env.TZ
-    else process.env.TZ = zone
+    if (zone === undefined) vi.stubEnv('TZ', undefined)
+    else vi.stubEnv('TZ', zone)
   })
 
   it.each([
