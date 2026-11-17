@@ -181,15 +181,13 @@ was a count of 2 955 server events, and a daily budget warning was reported as
 80 % of a monthly budget. A report whose numbers must be right is saved
 insights; a model may summarise them, never query for them.
 
-## Skills: `skills/`
+## Skills
 
-Project skills PostHog serves to every agent on its MCP (`learn project:<name>`).
-Edit the file here, then paste it with `skill-update` (body without the
-frontmatter, the description from it).
-
-| File | Project skill | What it holds |
-|---|---|---|
-| [`querying-archos-data/SKILL.md`](skills/querying-archos-data/SKILL.md) | `querying-archos-data` | How to select production per kind of data, where each number lives, the traps. Written from the questions nine agents could not answer cleanly on 2026-11-17 |
+The project skill `querying-product-analytics`, which PostHog serves to every agent on
+its MCP (`learn project:querying-product-analytics`), has its source in
+[`../../skills/querying-product-analytics/SKILL.md`](../../skills/querying-product-analytics/SKILL.md),
+where apm also installs it for coding agents. After editing it, publish it with
+`skill-update`: the body without the frontmatter, the description from it.
 
 ## Announcements
 

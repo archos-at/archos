@@ -1,7 +1,21 @@
 lockfile_version: '1'
-generated_at: '2026-11-17T10:39:55.620679+00:00'
+generated_at: '2026-11-17T12:45:46.756454+00:00'
 apm_version: 0.28.0
 dependencies:
+- repo_url: _local/querying-product-analytics
+  name: querying-product-analytics
+  version: 0.0.0
+  package_type: claude_skill
+  deployed_files:
+  - .agents/skills/querying-product-analytics
+  - .agents/skills/querying-product-analytics/SKILL.md
+  - .claude/skills/querying-product-analytics
+  - .claude/skills/querying-product-analytics/SKILL.md
+  deployed_file_hashes:
+    .agents/skills/querying-product-analytics/SKILL.md: sha256:eadb99ad01910b8e6b0ddb0b81ade2ce77a5f880c6a0d2df5165e881e878ecda
+    .claude/skills/querying-product-analytics/SKILL.md: sha256:eadb99ad01910b8e6b0ddb0b81ade2ce77a5f880c6a0d2df5165e881e878ecda
+  source: local
+  local_path: ./skills/querying-product-analytics
 - repo_url: _local/verify-on-dev
   name: verify-on-dev
   version: 0.0.0
@@ -3383,6 +3397,24 @@ deployments:
   content_hash: sha256:52c0d85e0c3827c41c18299b642657d7b47eaf77b7b31609e42e0df42b84c75f
 - kind: project-relative
   target: agent-skills
+  value: .agents/skills/querying-product-analytics
+  runtime: null
+  scope: project
+  owners:
+  - ./skills/querying-product-analytics
+  active_owner: ./skills/querying-product-analytics
+  content_hash: null
+- kind: project-relative
+  target: agent-skills
+  value: .agents/skills/querying-product-analytics/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - ./skills/querying-product-analytics
+  active_owner: ./skills/querying-product-analytics
+  content_hash: sha256:eadb99ad01910b8e6b0ddb0b81ade2ce77a5f880c6a0d2df5165e881e878ecda
+- kind: project-relative
+  target: agent-skills
   value: .agents/skills/skill
   runtime: null
   scope: project
@@ -5685,6 +5717,24 @@ deployments:
   - cursor/plugins/pstack/skills/principle-model-the-domain
   active_owner: cursor/plugins/pstack/skills/principle-model-the-domain
   content_hash: sha256:52c0d85e0c3827c41c18299b642657d7b47eaf77b7b31609e42e0df42b84c75f
+- kind: project-relative
+  target: claude
+  value: .claude/skills/querying-product-analytics
+  runtime: null
+  scope: project
+  owners:
+  - ./skills/querying-product-analytics
+  active_owner: ./skills/querying-product-analytics
+  content_hash: null
+- kind: project-relative
+  target: claude
+  value: .claude/skills/querying-product-analytics/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - ./skills/querying-product-analytics
+  active_owner: ./skills/querying-product-analytics
+  content_hash: sha256:eadb99ad01910b8e6b0ddb0b81ade2ce77a5f880c6a0d2df5165e881e878ecda
 - kind: project-relative
   target: claude
   value: .claude/skills/skill
