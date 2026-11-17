@@ -7,6 +7,7 @@ import { readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
+import { calleeName, nodesOf, parseSource, ts } from '@/test-utils/source-ast'
 import { toJsonSchema } from '@/lib/api/zod-json-schema'
 import { AGENT_OPERATIONS, RENAMED_OPERATIONS, findOperation, renamedTo } from './catalog'
 import { isOnDoor } from './exposure'
@@ -188,16 +189,46 @@ function apiPathOf(file: string): string {
   return dir === '.' ? '/api' : `/api/${dir}`
 }
 
+interface Handler {
+  readonly method: string
+  readonly wrapper: string | undefined
+}
+
+const NOT_PERSON_FACING_WRAPPERS: readonly string[] = ['internalApiRoute', 'publicApiRoute']
+
+const isMethod = (name: string): boolean => METHODS.some((method) => method === name)
+
+function isExported(statement: ts.Statement): boolean {
+  const modifiers = ts.canHaveModifiers(statement) ? ts.getModifiers(statement) : undefined
+  return modifiers?.some((modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword) ?? false
+}
+
+function wrapperOf(initializer: ts.Expression | undefined): string | undefined {
+  if (initializer && ts.isCallExpression(initializer)) return calleeName(initializer)
+  return initializer && ts.isIdentifier(initializer) ? initializer.text : undefined
+}
+
+function handlersIn(file: string): Handler[] {
+  return parseSource(file).statements.flatMap((statement): Handler[] => {
+    if (!isExported(statement)) return []
+    if (ts.isFunctionDeclaration(statement) && statement.name && isMethod(statement.name.text)) {
+      return [{ method: statement.name.text, wrapper: undefined }]
+    }
+    if (!ts.isVariableStatement(statement)) return []
+    return statement.declarationList.declarations.flatMap((declaration): Handler[] =>
+      ts.isIdentifier(declaration.name) && isMethod(declaration.name.text)
+        ? [{ method: declaration.name.text, wrapper: wrapperOf(declaration.initializer) }]
+        : [],
+    )
+  })
+}
+
 function personFacingRouteMethods(): RouteMethod[] {
   const found: RouteMethod[] = []
   for (const file of findRouteFiles(API_DIR)) {
-    const source = readFileSync(file, 'utf8')
     const path = apiPathOf(file)
-    for (const method of METHODS) {
-      const exported = new RegExp(`export\\s+(?:const\\s+${method}\\s*=\\s*(\\w+)|async\\s+function\\s+${method}\\s*\\()`)
-      const match = source.match(exported)
-      if (!match) continue
-      if (match[1] === 'internalApiRoute' || match[1] === 'publicApiRoute') continue
+    for (const { method, wrapper } of handlersIn(file)) {
+      if (wrapper !== undefined && NOT_PERSON_FACING_WRAPPERS.includes(wrapper)) continue
       found.push({ key: `${method} ${path}`, path, method, file })
     }
   }
@@ -309,12 +340,36 @@ describe('what the door offers (ADR-0122, amendments of 2026-10-21)', () => {
   })
 })
 
+function propertyOf(object: ts.ObjectLiteralExpression, key: string): ts.Expression | undefined {
+  for (const property of object.properties) {
+    if (ts.isPropertyAssignment(property) && ts.isIdentifier(property.name) && property.name.text === key) return property.initializer
+  }
+  return undefined
+}
+
+function dynamicImportsIn(node: ts.Node): string[] {
+  return nodesOf(node, ts.isCallExpression)
+    .filter((call) => call.expression.kind === ts.SyntaxKind.ImportKeyword)
+    .flatMap((call) => call.arguments.flatMap((argument) => (ts.isStringLiteralLike(argument) ? [argument.text] : [])))
+}
+
+function loadedRoutes(): Map<string, string[]> {
+  const loads = new Map<string, string[]>()
+  for (const file of readdirSync(CATALOG_DIR).filter((name) => name.endsWith('.ts') && !name.endsWith('.spec.ts'))) {
+    for (const entry of nodesOf(parseSource(join(CATALOG_DIR, file)), ts.isObjectLiteralExpression)) {
+      const name = propertyOf(entry, 'name')
+      const load = propertyOf(entry, 'load')
+      if (name && ts.isStringLiteralLike(name) && load) {
+        loads.set(name.text, [...(loads.get(name.text) ?? []), ...dynamicImportsIn(load)])
+      }
+    }
+  }
+  return loads
+}
+
 describe('the catalog is well formed', () => {
   const routeKeys = new Set(ROUTES.map((route) => route.key))
-  const catalogSource = readdirSync(CATALOG_DIR)
-    .filter((file) => file.endsWith('.ts') && !file.endsWith('.spec.ts'))
-    .map((file) => readFileSync(join(CATALOG_DIR, file), 'utf8'))
-    .join('\n')
+  const loads = loadedRoutes()
 
   it('names are unique kebab-case <entity>-<verb>, at most 52 characters', () => {
     const names = AGENT_OPERATIONS.map((op) => op.name)
@@ -339,10 +394,7 @@ describe('the catalog is well formed', () => {
 
   it('load imports the route its path names', () => {
     for (const op of AGENT_OPERATIONS) {
-      const block = catalogSource.slice(catalogSource.indexOf(`name: '${op.name}',`))
-      const next = block.indexOf("name: '", 10)
-      const entry = next > 0 ? block.slice(0, next) : block
-      expect(entry.includes(`load: () => import('@/app${op.path}/route')`), op.name).toBe(true)
+      expect(loads.get(op.name) ?? [], op.name).toContain(`@/app${op.path}/route`)
     }
   })
 
