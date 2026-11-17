@@ -2265,7 +2265,7 @@ Indexes: `uniq_inbox_items_recipient_group`;
 the migration and not declared in the schema file — matching the badge
 predicate exactly (`archived_at IS NULL AND inert_at IS NULL AND (read_at IS NULL
 OR (actionable AND resolved_at IS NULL))`). Keep the predicate and
-`pendingPredicate()` in `lib/inbox/repository.ts` in step, or the badge silently
+`pendingPredicate()` in `lib/inbox/inbox-item-queries.ts` in step, or the badge silently
 stops using its index.
 
 ### mention_requests
