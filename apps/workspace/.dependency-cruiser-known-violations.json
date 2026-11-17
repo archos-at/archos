@@ -2946,7 +2946,7 @@
   },
   {
     "type": "dependency",
-    "from": "ui/features/documents/components/review/thread-card.tsx",
+    "from": "ui/features/documents/components/review/thread-card/agent-rows.tsx",
     "to": "ui/features/chat/lib/turn-events.ts",
     "unresolvedTo": "@/features/chat/lib/turn-events",
     "dependencyTypes": [
