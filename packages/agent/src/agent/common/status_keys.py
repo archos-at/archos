@@ -1,9 +1,3 @@
-"""The status keys: stable dotted ids the frontend resolves against its own dictionary.
-
-The frontend owns the words; these own the meaning. Renaming one is a wire change
-(``ALL_STATUS_KEYS`` is what the dictionary parity check reads).
-"""
-
 from __future__ import annotations
 
 import logging

@@ -1,5 +1,3 @@
-"""Ghost jobs: runs with no heartbeat for too long are failed, once per cycle, under an advisory lock."""
-
 from __future__ import annotations
 
 import asyncio
@@ -56,7 +54,6 @@ _EVENTLESS_SQL = {
 
 
 def _with_statuses(template: str, statuses: tuple[str, ...]):
-    """``template`` as a statement with one bound ``:sN`` placeholder per status, and its parameters."""
     from sqlalchemy import text
 
     placeholders = ", ".join(f":s{i}" for i in range(len(statuses)))
@@ -66,12 +63,6 @@ def _with_statuses(template: str, statuses: tuple[str, ...]):
 
 
 def _find_stale_jobs(db_url: str, active_statuses: tuple[str, ...]) -> list[str]:
-    """
-    Sync helper to query for ghost jobs in any of the given non-terminal statuses.
-
-    Runs in a thread via run_in_executor to avoid blocking the async event loop
-    with DB I/O.
-    """
     from sqlalchemy import inspect
 
     from ..jobs.event_store import EventStore
@@ -96,11 +87,6 @@ def _find_stale_jobs(db_url: str, active_statuses: tuple[str, ...]) -> list[str]
 
 
 async def reap_stale_jobs_once(job_store, db_url: str) -> list[str]:
-    """Run a single reap cycle: mark stale jobs FAILURE so their workers stop.
-
-    Returns the list of reaped job IDs. Factored out of _reap_ghost_jobs for
-    testability.
-    """
     from agent.knowledge.leader_lock import leader_lock_async
 
     async with leader_lock_async(_PG_REAPER_LOCK_ID) as is_leader:
@@ -156,7 +142,6 @@ async def _do_reap_cycle(job_store, db_url: str, loop) -> list[str]:
 
 
 def _int_env(name: str, default: int) -> int:
-    """Positive-int env override, falling back to ``default`` on unset/invalid/≤0."""
 
     try:
         val = int(os.environ.get(name, ""))
@@ -182,5 +167,4 @@ def checkpoint_retention_seconds() -> int:
 
 
 def job_info_delete_grace_seconds() -> int:
-    """How long an expired, terminal job's rows are kept before the event cleanup deletes them."""
     return _int_env("JOB_INFO_DELETE_GRACE_SECONDS", 604800)  # 7d

@@ -13,7 +13,6 @@ import {
 import {
   defaultLocale,
   isLocale,
-  LEGACY_LOCALE_COOKIE,
   LOCALE_COOKIE,
   LOCALE_COOKIE_MAX_AGE_SECONDS,
   localeNames,
@@ -35,7 +34,6 @@ const I18nContext = createContext<I18nContextValue | null>(null)
 function writeLocaleCookie(locale: Locale): void {
   if (typeof document === 'undefined') return
   document.cookie = `${LOCALE_COOKIE}=${locale}; path=/; max-age=${LOCALE_COOKIE_MAX_AGE_SECONDS}; samesite=lax`
-  document.cookie = `${LEGACY_LOCALE_COOKIE}=; path=/; max-age=0; samesite=lax`
 }
 
 export interface I18nProviderProps {

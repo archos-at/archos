@@ -1,13 +1,3 @@
-"""The evidence part of the agent's tool surface and prompt stays within the slice-6 budget (ADR-0133).
-
-Slice 6 cut the evidence tools' descriptions and schemas from about 3,600 to about 2,350 tokens per
-call (o200k), by stating each tool's contract once, moving what a result can say into the result,
-and leaving the schema fields bare. The tool surface is sent on every call of every round, so a line
-added back is paid many times per turn: this pins the totals, as characters / 4 (the estimate the
-prompt audit uses, and one that needs no tokenizer download), with some slack. Before adding a line,
-read the slice-6 entry of ``docs/audit/prompt-value-audit-2026-10.md``.
-"""
-
 from __future__ import annotations
 
 import json
@@ -38,7 +28,6 @@ def _estimate(text: str) -> int:
 
 
 def _nat_schema(name: str) -> type[BaseModel]:
-    """A model with the agent-runtime function's fields, rebuilt from the exported JSON Schema."""
     tool = next(tool for tool in json.loads(NAT_SCHEMAS.read_text(encoding="utf-8"))["tools"] if tool["name"] == name)
     schema, fields = tool["inputSchema"], {}
     for field, spec in schema["properties"].items():
@@ -90,7 +79,6 @@ def test_the_evidence_tool_surface_stays_within_the_slice_six_budget():
 
 @pytest.mark.parametrize("name", ["ls", "glob", "grep", "read_file", "write_file", "edit_file", "list_files"])
 def test_a_schema_field_carries_no_description_but_conclusion(name):
-    """The meaning is said once, in the description (slice 6); `conclusion` is the one field described."""
     tool = next(tool for tool in _evidence_tools() if tool.name == name)
     properties = tool.tool_call_schema.model_json_schema()["properties"]
     described = {field for field, spec in properties.items() if "description" in spec}

@@ -208,7 +208,6 @@ async def test_a_broken_tracer_never_raises_into_the_route(monkeypatch, exporter
 
 class TestDeployment:
     def test_a_span_the_hatchet_sdk_starts_on_the_provider_names_the_deployment(self, exporter):
-        # Hatchet's step-run spans were filed under Langfuse's "default" environment with no tags.
         direct_trace.tracer_provider().get_tracer("hatchet_sdk").start_span("hatchet.start_step_run").end()
 
         (span,) = _spans(exporter)

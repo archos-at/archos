@@ -1,5 +1,3 @@
-"""Tolerances and the field names a stair's record may use, each named once."""
-
 from __future__ import annotations
 
 from .operators import FURNISHING

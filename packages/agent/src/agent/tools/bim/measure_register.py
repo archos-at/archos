@@ -1,23 +1,3 @@
-"""``ifc_measure`` tool — measure the building, and say how the number was got.
-
-The sibling of :mod:`agent.tools.bim.register`. ``ifc_query`` reads the
-extracted index and answers what the export WROTE DOWN; this tool runs the
-spatial engine (IfcOpenShell/OCCT) over the model's own bytes for what it did
-not: a floor area with no published quantity, a sill with no property, the
-lichte Höhe under a suspended ceiling.
-
-Every answer carries its provenance, and the renderer puts a different German
-verb in front of each — *deklariert* (the file states it) / *gemessen (±tol)*
-(we measured it) / *vermutlich* (a heuristic, with its confidence). Collapsing
-those into one number is how a guess gets stamped. ``decidable: false`` is not
-an error: the question was well-formed and THIS EXPORT cannot answer it, and
-``missing.remedy`` says what the architect changes in their CAD.
-
-Design, costs and the defects each rule answers:
-``docs/roadmap/agent-spatial-reasoning.md`` and
-``docs/roadmap/spatial-review-findings.md``.
-"""
-
 import asyncio
 from collections.abc import Callable
 from typing import Any
@@ -125,7 +105,6 @@ __all__ = [
 
 
 def _selection_args(a: IfcMeasureInput, ceiling: int) -> dict[str, Any] | str:
-    """The filter half `find_elements` and `survey` share. `kind` is the spatial ROLE here, never an aspect."""
     args: dict[str, Any] = {"limit": max(1, min(a.limit, ceiling))}
     for key, value in (("ifcType", a.ifc_type), ("nameContains", a.name_contains), ("storey", a.storey)):
         if value:
@@ -144,7 +123,6 @@ def _find_elements_call(a: IfcMeasureInput) -> _EngineCall | str:
 
 
 def _survey_call(a: IfcMeasureInput) -> _EngineCall | str:
-    """Selection and measurement in one call, capped at 50: every row is a real geometric measurement."""
     if a.measure is None:
         return _needs("survey", "measure", tuple(MEASURES))
     args = _selection_args(a, 50)
@@ -152,7 +130,6 @@ def _survey_call(a: IfcMeasureInput) -> _EngineCall | str:
 
 
 def _sun_position_call(a: IfcMeasureInput) -> _EngineCall | str:
-    """No latitude field, deliberately: an assumed Vienna on a Vorarlberg project is 1.4° out and looks measured."""
     if not a.when:
         return (
             "Error: sun_position needs 'when' — an ISO 8601 instant WITH a time zone, e.g. "
@@ -174,7 +151,6 @@ def _overhang_call(a: IfcMeasureInput) -> _EngineCall | str:
 
 
 def _light_incidence_call(a: IfcMeasureInput) -> _EngineCall | str:
-    """The angle is refused rather than defaulted to 45: it is a fact about the CLAUSE, not the model."""
     if not a.global_id:
         return "Error: light_incidence needs global_id — the opening, or the window that fills it."
     if a.angle_deg is None:
@@ -209,7 +185,6 @@ def _fire_call(a: IfcMeasureInput) -> _EngineCall | str:
 
 
 def _envelope_call(a: IfcMeasureInput) -> _EngineCall | str:
-    """Whole-model only: no `globalId` is forwarded, because the engine's schema does not accept one."""
     aspect = a.kind or "thermalEnvelope"
     if aspect not in ENVELOPE_ASPECTS:
         return f"Error: for operation 'envelope', kind must be one of: {', '.join(ENVELOPE_ASPECTS)}. Got '{a.kind}'."
@@ -217,7 +192,6 @@ def _envelope_call(a: IfcMeasureInput) -> _EngineCall | str:
 
 
 def _view_call(a: IfcMeasureInput) -> _EngineCall | str:
-    """`global_id` is a list here: "where is this" is usually about a pair — the window AND its wall."""
     mode = a.mode or "highlight"
     if mode not in VIEW_MODES:
         return (
@@ -257,7 +231,6 @@ def _measure_call(a: IfcMeasureInput) -> _EngineCall | str:
 
 
 def _element_profile_call(a: IfcMeasureInput) -> _EngineCall:
-    """`kind='expensive'` opts into escape route, reachability, turning circle and door approach."""
     args: dict[str, Any] = {"globalId": a.global_id}
     if a.kind == "expensive":
         args["include"] = "expensive"
@@ -307,11 +280,6 @@ _CALL_BUILDERS: dict[str, Callable[[IfcMeasureInput], _EngineCall | str]] = {
 
 
 def _engine_call(arguments: IfcMeasureInput, default_limit: int = 50) -> _EngineCall | str:
-    """The engine tool name and its arguments, or a correctable error string.
-
-    Refusing here — before the model is resolved and long before it is parsed
-    — is what makes the mistake correctable in the same turn.
-    """
     if arguments.operation in _SUBJECT_OPERATIONS and not arguments.global_id:
         return (
             f"Error: operation '{arguments.operation}' needs a global_id (the element's IFC GlobalId). "
@@ -322,7 +290,6 @@ def _engine_call(arguments: IfcMeasureInput, default_limit: int = 50) -> _Engine
 
 
 def _refusal(exc: ValidationError) -> str:
-    """The schema's refusal as the sentence the ToolNode hands the agent: one message, the permitted values in it."""
     error = exc.errors()[0]
     field = str(error["loc"][0]) if error["loc"] else "arguments"
     asked = error.get("input")
@@ -334,12 +301,6 @@ def _refusal(exc: ValidationError) -> str:
 
 
 def _build_call(**arguments: Any) -> _EngineCall | str:
-    """The tool minus the I/O: validate the way the wire does, then build.
-
-    The tool body holds a validated model and calls :func:`_engine_call`; this
-    is the seam the tests and the question battery drive with loose keyword
-    arguments. An empty string means "not given", as it always has.
-    """
     given = {name: value for name, value in arguments.items() if value != ""}
     try:
         parsed = IfcMeasureInput.model_validate(given)
@@ -356,15 +317,6 @@ def _render(
     handle: str = "",
     detail: str = "",
 ) -> str:
-    """The engine's result as the string the model reads.
-
-    Ends with the evidence trailer (:func:`.measurement_evidence_line`) on every
-    operation that could carry a measurement; :data:`NON_MEASURING_OPERATIONS`
-    get none, and an absent trailer never opens the confidence gate. This is
-    also the last point at which the structured ``Answer`` exists, so it is
-    where a measurement becomes a Herleitung source — a no-op unless a turn is
-    capturing.
-    """
     lines = [_model_line(source or {}, handle), *_body_lines(operation, payload)]
     note_model_read(((source or {}).get("model") or {}).get("filename"), operation, detail or None)
     record_measurements(_measurement_sources(operation, payload, source=source, detail=detail))
@@ -374,14 +326,12 @@ def _render(
 
 
 def _trace(operation: str, detail: str, *, outcome: str) -> None:
-    """The SHAPE of the call for Langfuse: names from the closed vocabularies here, never model-authored text."""
     known = operation if operation in VALID_OPERATIONS else "unknown"
     known_detail = detail if detail in RELATIONS or detail in MEASURES or detail in DISTANCE_MODES else None
     record_ifc_call(f"measure:{known}", outcome, ifc_measure_detail=known_detail)
 
 
 def _run(organization_id: str, project_id: str | None, model_name: str, name: str, args: dict[str, Any]):
-    """Resolve, load and call — one blocking unit for ``to_thread``."""
     source = resolve_model_source(organization_id=organization_id, project_id=project_id, model_name=model_name or None)
     if not source.get("resolved"):
         return source, None, ""
@@ -390,7 +340,6 @@ def _run(organization_id: str, project_id: str | None, model_name: str, name: st
 
 
 def _reply(name: str, detail: str, source: dict[str, Any], payload: Any, handle: str) -> list[dict] | str:
-    """What the agent reads once the engine has answered — or once the model could not be selected."""
     if not source.get("resolved"):
         _trace(name, detail, outcome=f"unresolved:{source.get('reason', 'unknown')}")
         return _render_unresolved(source)
@@ -402,13 +351,11 @@ def _reply(name: str, detail: str, source: dict[str, Any], payload: Any, handle:
 
 
 def _measure_row_fields(arguments: IfcMeasureInput) -> dict[str, str]:
-    """The Herleitung row of a measurement, from its own arguments: the operation and what it measures."""
     about = arguments.measure or arguments.relation or arguments.mode or arguments.kind or ""
     return {"query": f"{arguments.operation} {about}".strip()}
 
 
 async def run_ifc_measure(arguments: IfcMeasureInput, default_limit: int) -> list[dict] | str:
-    """:func:`_measure` with its Herleitung row (ADR-0132): one row per call, settled on every path."""
     outcome = ActionOutcome()
     row = ActionRow("model", **_measure_row_fields(arguments))
     try:
@@ -423,7 +370,6 @@ async def run_ifc_measure(arguments: IfcMeasureInput, default_limit: int) -> lis
 async def _measure(
     arguments: IfcMeasureInput, default_limit: int, outcome: ActionOutcome | None = None
 ) -> list[dict] | str:
-    """The tool body: guard, build, run, render — every failure as text the agent can act on."""
     outcome = outcome if outcome is not None else ActionOutcome()
     outcome.failed = True  # cleared once the engine answered; a refusal on the way leaves it set
     organization_id = get_organization_id_from_context()
@@ -455,15 +401,12 @@ async def _measure(
 
 
 class IfcMeasureConfig(FunctionBaseConfig, name="ifc_measure"):
-    """Configuration for the ``ifc_measure`` spatial tool."""
-
     default_limit: int = Field(default=50, description="Rows returned by 'find_elements' when none is given.")
 
 
 @register_function(config_type=IfcMeasureConfig)
 async def ifc_measure(tool_config: IfcMeasureConfig, builder: Builder):
     async def _ifc_measure(arguments: IfcMeasureInput) -> list[dict] | str:
-        """Measure the project's IFC/BIM model and report the provenance."""
         return await run_ifc_measure(arguments, tool_config.default_limit)
 
     yield FunctionInfo.from_fn(_ifc_measure, input_schema=IfcMeasureInput, description=_TOOL_DESCRIPTION)

@@ -102,7 +102,7 @@ describe('POST /api/office-shelf/folders', () => {
     expect(response.status).toBe(400)
   })
 
-  it('answers 403 for a member without org:archiv:manage', async () => {
+  it('answers 403 for a member without org:office_shelf:manage', async () => {
     vi.mocked(createOfficeShelfFolder).mockRejectedValue(new ForbiddenError())
 
     const response = await POST(json('/api/office-shelf/folders', 'POST', { name: 'Normen' }), noParams)

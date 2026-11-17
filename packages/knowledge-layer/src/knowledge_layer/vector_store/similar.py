@@ -1,0 +1,202 @@
+from __future__ import annotations
+
+import re
+from collections.abc import Callable
+from collections.abc import Sequence
+from dataclasses import dataclass
+from dataclasses import field
+from typing import Any
+
+from qdrant_client import models
+
+from agent.knowledge.base import reading_order
+
+from .schema import CHUNK_ID_FIELD
+from .schema import DENSE
+from .schema import DOCUMENT_ID_FIELD
+from .schema import READING_ORDER_FIELD
+from .schema import SCOPE_FIELD
+from .schema import TEXT_FIELD
+from .schema import Physical
+from .schema import physical_for_scope
+from .scope import ScopeRead
+from .scope import scope_condition
+from .store import QdrantStore
+
+MAX_CANDIDATES = 200
+LOCATE_SCAN_CAP = 4096
+LOCATE_PROBE_CHARS = 240
+LOCATE_MIN_CHARS = 24
+
+ORIGIN_POINT = "point"
+ORIGIN_EMBEDDED = "embedded"
+
+_SPACE = re.compile(r"\s+")
+_TRAILING_ELLIPSIS = re.compile(r"(?:…|\.\.\.)\s*$")
+
+
+@dataclass(frozen=True)
+class PassageSource:
+    scope: str
+    file_name: str
+    text: str = ""
+    page: int | None = None
+    chunk_id: str | None = None
+    cited: bool = False
+    document_id: str | None = None
+
+
+@dataclass
+class SimilarPassage:
+    chunk_id: str
+    text: str
+    page: int | None
+    score: float
+
+
+@dataclass
+class SimilarDocument:
+    scope: str
+    file_name: str
+    passages: list[SimilarPassage] = field(default_factory=list)
+
+
+@dataclass
+class SimilarResult:
+    documents: list[SimilarDocument]
+    origin: str
+    candidates: int = 0
+
+
+def normalized(text: str) -> str:
+    return _SPACE.sub(" ", _TRAILING_ELLIPSIS.sub("", text or "")).strip().casefold()
+
+
+def _file_condition(source: PassageSource) -> models.Filter:
+    return models.Filter(
+        must=[
+            scope_condition([source.scope]),
+            models.FieldCondition(key="file_name", match=models.MatchValue(value=source.file_name)),
+        ]
+    )
+
+
+def _record_by_chunk_id(store: QdrantStore, source: PassageSource, office_id: str | None) -> Any | None:
+    if not source.chunk_id:
+        return None
+    condition = models.FieldCondition(key=CHUNK_ID_FIELD, match=models.MatchValue(value=str(source.chunk_id)))
+    office = ScopeRead((source.scope,), office_id).office()
+    return next(iter(store.scroll(source.scope, None, condition, *office, limit=1)), None)
+
+
+def _containing(records: Sequence[Any], probe: str) -> Any | None:
+    for record in records:
+        text = normalized(str((record.payload or {}).get(TEXT_FIELD) or ""))
+        if text and (probe in text or (len(text) >= LOCATE_MIN_CHARS and text in probe)):
+            return record
+    return None
+
+
+def _record_by_text(store: QdrantStore, source: PassageSource, office_id: str | None) -> Any | None:
+    probe = normalized(source.text)[:LOCATE_PROBE_CHARS]
+    if len(probe) < LOCATE_MIN_CHARS:
+        return None
+    file_filter = models.Filter(must=[_file_condition(source), *ScopeRead((source.scope,), office_id).office()])
+    if source.page:
+        on_page = models.FieldCondition(key=READING_ORDER_FIELD, match=models.MatchValue(value=int(source.page)))
+        found = _containing(list(store.scroll(source.scope, None, file_filter, on_page, limit=LOCATE_SCAN_CAP)), probe)
+        if found is not None:
+            return found
+    return _containing(list(store.scroll(source.scope, None, file_filter, limit=LOCATE_SCAN_CAP)), probe)
+
+
+def locate_source(store: QdrantStore, source: PassageSource, *, office_id: str | None) -> Any | None:
+    record = _record_by_chunk_id(store, source, office_id)
+    if record is None and source.cited:
+        record = _record_by_text(store, source, office_id)
+    return record
+
+
+def _excluded(source: PassageSource) -> models.Filter:
+    exclusions: list[Any] = [_file_condition(source)]
+    if source.document_id:
+        exclusions.append(
+            models.FieldCondition(key=DOCUMENT_ID_FIELD, match=models.MatchValue(value=source.document_id))
+        )
+    return models.Filter(must_not=exclusions)
+
+
+CURRENT_REVISIONS: dict[str, Any] = {"superseded": {"$ne": True}}
+
+
+def group_by_document(points: Sequence[Any], documents: int, per_document: int) -> list[SimilarDocument]:
+    grouped: dict[tuple[str, str], SimilarDocument] = {}
+    for point in points:
+        payload = point.payload or {}
+        scope, file_name = payload.get(SCOPE_FIELD), payload.get("file_name")
+        if not scope or not file_name:
+            continue
+        key = (str(scope), str(file_name))
+        if key not in grouped:
+            if len(grouped) >= documents:
+                continue
+            grouped[key] = SimilarDocument(scope=key[0], file_name=key[1])
+        document = grouped[key]
+        if len(document.passages) < per_document:
+            page = reading_order(payload.get("page_label"))
+            document.passages.append(
+                SimilarPassage(
+                    chunk_id=str(payload.get(CHUNK_ID_FIELD) or point.id),
+                    text=str(payload.get(TEXT_FIELD) or ""),
+                    page=page or None,
+                    score=float(point.score),
+                )
+            )
+    return list(grouped.values())
+
+
+def find_similar(
+    store: QdrantStore,
+    scopes: Sequence[str],
+    *,
+    office_id: str | None,
+    source: PassageSource,
+    embed: Callable[[str], Sequence[float]],
+    documents: int,
+    per_document: int,
+) -> SimilarResult:
+    if not scopes:
+        return SimilarResult([], ORIGIN_POINT)
+    read = ScopeRead(tuple(scopes), office_id)
+    if documents <= 0 or per_document <= 0:
+        return SimilarResult([], ORIGIN_POINT)
+    physicals = {physical_for_scope(scope) for scope in scopes}
+    if physicals != {Physical.OFFICE}:
+        raise ValueError(f"Similar passages are searched in the office's collections, not {sorted(physicals)}")
+    if not store.exists(scopes[0]):
+        return SimilarResult([], ORIGIN_POINT)
+    store.check_identity(scopes[0])
+    store.check_identity(source.scope)
+    record = locate_source(store, source, office_id=read.office_id)
+    query: Any
+    lookup: models.LookupLocation | None = None
+    if record is not None:
+        query, origin = record.id, ORIGIN_POINT
+        if physical_for_scope(source.scope) is not Physical.OFFICE:
+            lookup = models.LookupLocation(collection=store.alias(source.scope), vector=DENSE)
+    elif source.text.strip():
+        query, origin = list(embed(source.text)), ORIGIN_EMBEDDED
+    else:
+        raise LookupError("the passage is no stored chunk and carries no text to embed")
+    candidates = min(MAX_CANDIDATES, max(documents * per_document * 4, documents))
+    result = store.client.query_points(
+        store.alias(scopes[0]),
+        query=query,
+        using=DENSE,
+        lookup_from=lookup,
+        query_filter=read.filter(CURRENT_REVISIONS, _excluded(source)),
+        search_params=models.SearchParams(quantization=models.QuantizationSearchParams(rescore=True)),
+        limit=candidates,
+        with_payload=True,
+    )
+    return SimilarResult(group_by_document(result.points, documents, per_document), origin, len(result.points))

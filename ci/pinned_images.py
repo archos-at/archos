@@ -1,22 +1,4 @@
 #!/usr/bin/env python3
-"""List the third-party images the Pulumi program pins by digest, and which ones a change adds.
-
-trivy scans these images because nothing else does: they are not built from any
-Dockerfile in this repository (ADR-0029). The pull request gate scans only the
-pins a change adds or moves. A pin nobody touched does not change because of a
-pull request, and a CVE disclosed against it this morning is not the author's to
-fix, so it belongs to the weekly scan rather than to whichever unrelated pull
-request happened to edit `config.ts` next.
-
-Every `<image>@sha256:<digest>` string literal under `deploy/pulumi/src` counts,
-whatever its name, so a new pin is scanned the day it lands instead of waiting
-for someone to add it to a list.
-
-Usage:
-  pinned_images.py list [REV]          every pin at REV (default: the working tree)
-  pinned_images.py new BASE            pins at HEAD that BASE's merge base with HEAD lacks
-`new` also writes `pins=<json list>` to $GITHUB_OUTPUT.
-"""
 
 from __future__ import annotations
 
@@ -26,6 +8,11 @@ import re
 import subprocess
 import sys
 from pathlib import Path
+
+USAGE = (
+    "usage: pinned_images.py list [REV]     every pin at REV (default: the working tree)\n"
+    "       pinned_images.py new BASE       pins at HEAD that BASE's merge base with HEAD lacks"
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = "deploy/pulumi/src"
@@ -53,7 +40,7 @@ def main(argv: list[str]) -> int:
         print("\n".join(sorted(pins_at(argv[1] if len(argv) == 2 else None))))
         return 0
     if argv[:1] != ["new"] or len(argv) != 2:
-        print(__doc__, file=sys.stderr)
+        print(USAGE, file=sys.stderr)
         return 2
     merge_base = _git("merge-base", argv[1], "HEAD").strip()
     new = sorted(pins_at("HEAD") - pins_at(merge_base))

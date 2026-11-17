@@ -1,34 +1,3 @@
-"""Platform-tunable reasoning effort ("thinking level") per agent group.
-
-How hard a role thinks used to be a build-time fact: ``reasoning_effort`` in
-``configs/config_oib_openrouter.yml``, so retuning the cost/quality trade-off
-meant a commit and a redeploy. The platform owner now sets it per agent group
-in Platform → Models; the values live in the BFF's
-``platform_reasoning_efforts`` table and reach the backend through the same
-token-guarded internal channel as the retrieval settings
-(``GET /api/internal/reasoning-efforts``), TTL-cached and fail-open.
-
-Resolution order per call:
-
-  1. the effort the asker chose for this turn (the composer's Aufwand dial,
-     ``UserMessage.reasoning_effort``), for the chat answer's group only
-  2. the platform owner's effort for the agent group (if a known level)
-  3. the ``reasoning_effort`` the role's ``llms:`` entry was built with
-
-The dial is per chat and starts at the organization's default
-(``settings.chatReasoningEffort``, Organisation → Einstellungen); the backend
-never reads that default, because the composer always sends the level it shows.
-A turn with no stated level (the CLI, an older client, a job) keeps the
-platform/YAML level. Fail-open by design: a BFF outage must never take chat
-down, so every error path leaves the YAML value in place.
-
-The values are OpenRouter's UNIFIED vocabulary and are passed through verbatim
-— OpenRouter maps a requested effort to the nearest level the effective model
-supports, server-side, per model. That is what lets an effort chosen here
-survive the group's model changing underneath it. See the NOTE in
-``llm_factory`` and https://openrouter.ai/docs/guides/best-practices/reasoning-tokens
-"""
-
 import logging
 import os
 import threading
@@ -61,14 +30,12 @@ _cache_lock = threading.Lock()
 
 
 def reset_reasoning_settings_cache() -> None:
-    """Test hook: clear the in-process resolution cache."""
     global _cache
     with _cache_lock:
         _cache = None
 
 
 def sanitize_reasoning_efforts(data: object) -> dict[str, str]:
-    """Reduce an untrusted mapping to ``{known_group: known_effort}``."""
     from agent.common.model_overrides import AgentGroup
 
     if not isinstance(data, dict):
@@ -89,7 +56,6 @@ def sanitize_reasoning_efforts(data: object) -> dict[str, str]:
 
 
 def _fetch_efforts() -> dict[str, str]:
-    """One HTTP round-trip to the BFF's internal reasoning-efforts endpoint."""
     token = os.environ.get("INTERNAL_API_TOKEN")
     if not token:
         return {}
@@ -111,7 +77,6 @@ def _fetch_efforts() -> dict[str, str]:
 
 
 def _resolve() -> dict[str, str]:
-    """Cached resolution of the platform efforts (shared hot path)."""
     global _cache
     now = time.monotonic()
     from agent.common.profiler import annotate_current_span
@@ -135,42 +100,21 @@ def _resolve() -> dict[str, str]:
 
 
 def get_reasoning_effort(group: str) -> str | None:
-    """The platform owner's effort for ``group``, or ``None`` when unset.
-
-    ``None`` means "leave the role's configured value alone" — it is NOT the
-    same as the level ``"none"``, which is an explicit instruction to disable
-    reasoning. Never raises; the TTL cache keeps the hot path free of network
-    calls.
-    """
     return _resolve().get(group)
 
 
 def get_reasoning_efforts() -> dict[str, str]:
-    """Every pinned effort, ``{agent_group: effort}``, for ``LLMProvider.with_reasoning_efforts``.
-
-    A copy: callers may not reach the shared cache entry. Platform-wide, so any
-    process that can reach the BFF resolves the same map (a detached worker
-    needs nothing captured at submit time, unlike the per-org model overrides).
-    """
     return dict(_resolve())
 
 
 def set_turn_reasoning_effort(effort: str | None) -> None:
-    """Record the level the asker chose for this turn; ``None`` clears it."""
     _turn_effort.set(effort if effort in CHAT_EFFORTS else None)
 
 
 def get_turn_reasoning_effort() -> str | None:
-    """The asker's level for the turn in flight, or ``None`` when none was stated."""
     return _turn_effort.get()
 
 
 def effort_of(llm: object) -> str | None:
-    """The level ``llm`` sends with each call, or ``None`` when it sends none we know.
-
-    Read off the model the turn actually ran on, after every layer above has
-    been applied to it, so it is the resolved level rather than the asked one:
-    a turn that stated none reports the platform's or the YAML's.
-    """
     effort = getattr(llm, "reasoning_effort", None)
     return effort if effort in _EFFORTS else None

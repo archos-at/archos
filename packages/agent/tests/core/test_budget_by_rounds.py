@@ -1,29 +1,3 @@
-"""The research budget is spent in ROUNDS, and cost is bounded separately.
-
-A round is one LLM decision that emitted tool calls. It costs one, whatever it
-asked for: five parallel ``read_passage`` opens, three ``emit_card`` calls, one
-``use_skill``, or a batch the guards withheld in full.
-
-The failure this replaces is measured, not imagined. The budget used to be
-charged per emitted CALL, so „was weißt du über die OIB 2" — one
-``knowledge_search`` plus the family opened in one parallel batch, which is the
-shape the prompt asks for — exhausted a budget of seven on the single most
-ordinary question the product answers, and the answer came back written from
-whatever had been read by then. Parallel calls inside one round are the model
-using its round well; pricing them is what made the prompt and the budget
-contradict each other.
-
-What a round ceiling does NOT bound is money, because it stopped being a proxy
-for it the moment a round stopped being one call. So there is a second bound —
-cumulative INPUT tokens, read off the cost tracker that already meters every
-call — and it is checked in the same place and answered the same way.
-
-Through the COMPILED GRAPH: the agent node decides what to charge and the tools
-node what to run, and a unit test of either half passes while the two disagree.
-The system prompt is a fixed string here, so these tests pin the budget rather
-than whatever the template happens to say today.
-"""
-
 from __future__ import annotations
 
 from unittest.mock import AsyncMock
@@ -55,30 +29,26 @@ _PROMPT = "Du bist der Agent."
 RAN: list[str] = []
 
 
-@tool
+@tool(description="Search the OIB knowledge corpus.")
 def knowledge_search(query: str) -> str:
-    """Search the OIB knowledge corpus."""
     RAN.append(f"knowledge_search:{query}")
     return f"Treffer zu: {query}"
 
 
-@tool
+@tool(description="Open a named passage of a known document.")
 def read_passage(document: str, clause: str | None = None) -> str:
-    """Open a named passage of a known document."""
     RAN.append(f"read_passage:{document}|{clause or ''}")
     return f"Passage aus {document}"
 
 
-@tool
+@tool(description="Emit a UI card.")
 def emit_card(kind: str) -> str:
-    """Emit a UI card."""
     RAN.append(f"emit_card:{kind}")
     return "Karte erstellt"
 
 
-@tool
+@tool(description="Remember a durable fact.")
 def remember(fact: str) -> str:
-    """Remember a durable fact."""
     RAN.append(f"remember:{fact}")
     return "Gemerkt"
 
@@ -97,7 +67,6 @@ def _clean_slate():
 
 @pytest.fixture(autouse=True)
 def _bypass_citation_pipeline():
-    """The answer pipeline is not what these tests are about."""
     with (
         patch.object(SourceRegistry, "all_sources", return_value=[SourceEntry(url="https://example.com")]),
         patch("agent.core.answer_pipeline.verify_citations") as verify,
@@ -112,7 +81,6 @@ def _bypass_citation_pipeline():
 
 @pytest.fixture
 def steps(emitted):
-    """Every body the producers wrote during the test (``tests/conftest.py``)."""
     return emitted
 
 
@@ -152,12 +120,6 @@ async def _run(agent: ChatAgent, question: str = "Was weißt du über die OIB 2?
 
 class TestAParallelRoundCostsOne:
     async def test_the_family_overview_costs_two_rounds_not_six(self):
-        """The question that used to exhaust a budget of seven.
-
-        One search, then every member of the Richtlinien-Familie opened in ONE
-        parallel batch — which is what the research rules ask for. Six calls,
-        two decisions, two rounds.
-        """
         agent = _agent(
             _batch(_call("knowledge_search", "k", query="OIB 2")),
             _batch(
@@ -176,7 +138,6 @@ class TestAParallelRoundCostsOne:
         assert result.research_truncated is None
 
     async def test_a_round_of_cards_costs_the_same_as_a_round_of_searches(self):
-        """No second currency: the output channel is priced like the research."""
         agent = _agent(
             _batch(
                 _call("emit_card", "c1", kind="verdict_header"),
@@ -196,7 +157,6 @@ class TestAParallelRoundCostsOne:
 
 class TestTheCeilingIsRounds:
     async def test_the_loop_stops_after_ceiling_rounds(self, steps):
-        """Seven decisions, however many calls each of them asked for."""
 
         async def _reply(messages, **_kwargs):
             if any(_SYNTHESIS_ANCHOR in str(getattr(message, "content", "")) for message in messages):
@@ -220,17 +180,13 @@ class TestTheCeilingIsRounds:
         assert record.channel == turn_status.CHANNEL_TECHNICAL
 
     def test_the_recursion_guard_derives_from_the_round_ceiling_alone(self):
-        """Two graph steps per round, the synthesis, and slack — nothing added."""
         assert _recursion_limit(7) == 24
         assert _recursion_limit(0) == 10
 
 
 class TestTheInputTokenStop:
-    """What bounds the BILL, now that rounds do not."""
-
     @pytest.fixture
     def spent_tracker(self):
-        """A turn that has already metered 1 500 input tokens."""
         tracker = CostTracker(organization_id="org-1")
         tracker.record(
             UsageEvent(
@@ -270,8 +226,6 @@ class TestTheInputTokenStop:
         assert "key" not in record
 
     async def test_it_is_a_separate_record_from_the_round_ceiling(self, spent_tracker, steps):
-        """Two bounds, two slots. One step name for both would collapse under
-        the frontend's dedupe and make either question unanswerable."""
         agent = _agent(AIMessage(content="Die Antwort [1]."), ceiling=7, max_input_tokens=1000)
 
         await _run(agent)
@@ -293,8 +247,6 @@ class TestTheInputTokenStop:
         assert result.research_truncated is None
 
     async def test_zero_disables_the_stop(self, spent_tracker):
-        """A deployment that does not want the bound gets the old behaviour,
-        not a bound of zero that ends every turn before it starts."""
         agent = _agent(
             _batch(_call("knowledge_search", "k", query="OIB 2")),
             AIMessage(content="Die Antwort [1]."),
@@ -308,8 +260,6 @@ class TestTheInputTokenStop:
         assert result.research_truncated is None
 
     async def test_no_tracker_means_no_budget_has_been_spent(self):
-        """A CLI run, an eval, a unit test: nothing is billing anyone, so
-        nothing is cut off."""
         agent = _agent(
             _batch(_call("knowledge_search", "k", query="OIB 2")),
             AIMessage(content="Die Antwort [1]."),
@@ -324,21 +274,6 @@ class TestTheInputTokenStop:
 
 
 class TestTheRoundWidthCap:
-    """What bounds ONE round's fan-out, which neither other bound sees.
-
-    A round costs one whatever it asked for — that is the point of the round
-    budget, and the family overview the prompt asks for is five parallel opens
-    in one batch. But „a round is free to be wide" and „a round may be sixty
-    concurrent calls into the vector store" are not the same claim, and the
-    input-token bound cannot tell them apart: it is checked at the START of the
-    next round, by which time the fan-out has already been served.
-
-    So the cap keeps the first N calls in the order the model emitted them and
-    answers the rest under the withholding pattern the other two guards use —
-    still on the AIMessage, still answered exactly once, and told they may be
-    issued again next round.
-    """
-
     async def test_a_round_wider_than_the_cap_runs_only_the_first_calls(self):
         agent = _agent(
             _batch(*(_call("read_passage", f"p{index}", document=f"Dok {index}") for index in range(6))),
@@ -353,8 +288,6 @@ class TestTheRoundWidthCap:
         assert result.tool_iterations == 1
 
     async def test_the_deferred_calls_are_answered_not_deleted(self):
-        """A provider rejects an un-answered tool call on the NEXT request, so
-        the withheld ones keep their place on the message and get a result."""
         agent = _agent(
             _batch(*(_call("read_passage", f"p{index}", document=f"Dok {index}") for index in range(4))),
             AIMessage(content="Die Antwort [1]."),
@@ -368,8 +301,6 @@ class TestTheRoundWidthCap:
         assert sorted(answered) == sorted(asked) == ["p0", "p1", "p2", "p3"]
 
     async def test_the_notice_says_it_may_be_issued_again_next_round(self):
-        """Not a refusal: the call was not run THIS round. A notice that read
-        as „never" would cost the turn the passage it still needs."""
         agent = _agent(
             _batch(
                 _call("read_passage", "a", document="Dok A"),
@@ -402,8 +333,6 @@ class TestTheRoundWidthCap:
         assert "key" not in record
 
     async def test_the_deferred_call_runs_when_it_is_issued_again(self):
-        """The whole claim of „next round": nothing about the call was recorded
-        as done, so the second round runs it for real."""
         agent = _agent(
             _batch(
                 _call("read_passage", "a", document="Dok A"),
@@ -420,7 +349,6 @@ class TestTheRoundWidthCap:
         assert result.tool_iterations == 2
 
     async def test_a_round_at_the_cap_is_untouched(self, steps):
-        """A guard that fires on the batch the prompt asks for is a hobble."""
         agent = _agent(
             _batch(*(_call("read_passage", f"p{index}", document=f"Dok {index}") for index in range(5))),
             AIMessage(content="Die Antwort [1]."),
@@ -445,9 +373,6 @@ class TestTheRoundWidthCap:
         assert len(RAN) == 20
 
     async def test_the_cap_counts_what_would_RUN_not_what_was_asked(self):
-        """The other guards go first. Two of these four calls are the same
-        passage twice, so the round asks the store for three — and a cap of
-        three has no opinion about it."""
         agent = _agent(
             _batch(
                 _call("read_passage", "a", document="Dok A"),
@@ -466,7 +391,4 @@ class TestTheRoundWidthCap:
         assert not any(str(m.content) == _WIDTH_CAP_MESSAGE for m in result.messages if isinstance(m, ToolMessage))
 
     def test_the_default_is_a_runaway_guard_not_a_doctrine(self):
-        """Far above every batch the prompt asks for. A cap that fires on a
-        normal turn would price parallelism, which the round budget exists to
-        stop doing."""
         assert _DEFAULT_MAX_CALLS_PER_ROUND >= 12

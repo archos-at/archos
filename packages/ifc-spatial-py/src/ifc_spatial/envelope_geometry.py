@@ -1,94 +1,3 @@
-"""The thermal envelope — the geometry every OIB-6 energy calculation starts from.
-
-Three operators, and between them they answer the three questions that come
-before any Energieausweis: **which** elements separate heated inside from
-outside, **how much** area each compass bearing carries and how much of it is
-glass, and **how compact** the resulting body is.
-
-Not to be confused with :mod:`ifc_spatial.envelope`, which is the answer
-contract (``Answer``, ``computed``, ``undecidable``) and has nothing to do with
-buildings. This module imports it like every other operator module does.
-
-## The line this module does not cross
-
-OIB Richtlinie 6 names maximum U-values, reference values and an
-Energiekennzahl. **None of them are in here, and none of them may ever be.**
-This layer measures; the Bestimmung decides. So there is no threshold, no
-"erfüllt", no energy rating, and no U-value limit anywhere below — for the same
-reason :func:`~ifc_spatial.operators.prism` takes its 45° as a parameter and
-:func:`~ifc_spatial.operators.light_entry_area` refuses to apply the percentage
-it computes against.
-
-The sharpest form of that boundary is the U-value itself. Where an export
-DECLARES ``ThermalTransmittance``, it is reported as ``declared`` and passed
-through untouched. It is never recomputed from the material layers, even though
-the layers are usually right there in ``IfcMaterialLayerSet``: a U-value derived
-from a layer list is a *different number* from the one the architect signed —
-different in the surface resistances, in the Wärmebrückenzuschlag, and in which
-layer counts as the load-bearing one — and quietly substituting ours for theirs
-would put our arithmetic behind their signature. The sample house declares
-0.2359 W/(m²·K) on its external walls and 6.7069 on its curtain-wall panes;
-those two numbers travel out of here exactly as they came in.
-
-## Which route decided each element, and why that has to be visible
-
-An element is in the envelope by one of two routes, tried in this order:
-
-1. **``Pset_*Common.IsExternal``** — the architect's own statement, and it wins
-   outright. ``operators._faces_outside`` already establishes exactly this
-   ordering for openings, so openings are handed to it rather than to a second,
-   differently-wrong copy of the same rule.
-2. **The spaces the element bounds.** An element that bounds exactly one
-   ``IfcSpace`` has outside on its other face, because there is no IfcSpace
-   outdoors. Two or more spaces means it separates rooms. Weaker than a
-   declaration — a wall onto an unmodelled Wintergarten reads as external — so
-   it is second, and it says so in every entry it decides.
-
-The route travels with each element because the two are not equally trustworthy
-and a reader who cannot tell them apart cannot weight them. It also surfaces
-findings that no total would: in the sample house the ground slab
-``3cUkl32yn9qRSPvBJVyWgQ`` declares ``Pset_SlabCommon.IsExternal = False`` and is
-therefore **not** in the envelope here, all 146.199 m² of it — because IFC's
-``IsExternal`` means "gegen Außenluft" while OIB 6 counts a Bodenplatte gegen
-Erdreich as part of the thermal envelope. That is a finding about the export the
-architect can act on, and it is named rather than silently corrected: overruling
-a declaration with our own guess is the substitution this package exists to
-prevent.
-
-## How an area is measured, and against what it was checked
-
-Each element is measured on its own dominant plane:
-
-- **Vertical elements** (walls, panes, windows, doors) — the union of the faces
-  lying in that plane, i.e. ``operators._clear_opening_area``, the same
-  projection the daylight operators use. For a wall that is the elevation area
-  with the window and door holes already subtracted, which is what makes
-  wall + opening add back up to the gross facade instead of double-counting it:
-  the sample house's south wall measures 19.254 m² against a gross
-  8.955 × 2.821 = 25.262 m² and its door (3.809) and window (2.190) close the
-  gap to the millimetre.
-- **Horizontal elements** (slabs, roofs) — two numbers, because a pitched or
-  curved roof has two and an energy calculation wants the larger.
-  ``projectedArea`` is ``operators._footprint_area``, the plan projection;
-  ``area`` is the developed surface, the one-sided sum over the faces that are
-  not vertical.
-
-Both routes are checked against a declaration this module does not otherwise
-use. ``Pset_RoofCommon`` of the sample house's roof states
-``TotalArea = 117.4305`` and ``ProjectedArea = 108.1177``; measured here they
-come out at **117.3984** (0.03 % apart) and **108.1157** (0.002 % apart). Two
-independent statements about a 390-triangle curved shell agreeing to that is the
-only reason the developed area is trusted as the primary one.
-
-## What is left out, and by how much
-
-Curtain-wall **mullions** (``IfcMember``) are not counted: the brief for the
-envelope is walls, slabs, roofs, windows, doors and panes. In the sample house
-that is 20 members totalling 1.311 m², which is why its west facade comes back
-at a window-to-wall ratio of 1.0 — a fully glazed elevation with no opaque area
-at all in the count. The caveat names the number so nobody has to rediscover it.
-"""
-
 from __future__ import annotations
 
 from typing import Any
@@ -140,13 +49,6 @@ SLOPE_REPORT_FRACTION = 0.01
 
 
 def _declared_u_value(element: Any) -> tuple[float | None, str | None]:
-    """The declared ``ThermalTransmittance`` and the pset it was declared in.
-
-    Read, never derived. The pset PATH comes back with the value for the same
-    reason :class:`~ifc_spatial.model.DeclaredQuantity` carries one: a reviewer
-    checking a U-value needs to find it in their own software, and
-    ``Pset_WallCommon`` and a vendor pset are not equally authoritative.
-    """
     psets = ue.get_psets(element, qtos_only=False) or {}
     for pset_name, values in psets.items():
         if not isinstance(values, dict):
@@ -158,24 +60,6 @@ def _declared_u_value(element: Any) -> tuple[float | None, str | None]:
 
 
 def _developed_horizontal_area(triangles: np.ndarray) -> float:
-    """The developed (abgewickelte) area of a floor or roof shell, in m².
-
-    The one-sided sum over the non-vertical faces, taken for both signs with the
-    larger winning — the same fold ``operators._footprint_area`` performs, and
-    for the same reason: the winding of an exported mesh does not reliably say
-    which side faces the weather, and a Revit ``IfcSpace`` really does come out
-    inside out.
-
-    Why this rather than the projection, for the number that goes into A: a
-    curved or pitched roof loses its slope in plan. The sample house's roof is
-    390 triangles over a barrel, and the two differ by 8.6 % — 117.398 m² of
-    surface against 108.116 m² of footprint. Heat leaves through the surface.
-
-    Why the projection is still reported beside it: this sum cannot union, so a
-    slab modelled as one solid with its screed on top would count both of its
-    horizontal faces. The projection cannot double-count and the developed area
-    cannot lose a slope, so both travel and the caveat names the difference.
-    """
     normals, areas = triangle_normals_areas(triangles)
     upward = normals[:, 2]
     return max(
@@ -185,21 +69,6 @@ def _developed_horizontal_area(triangles: np.ndarray) -> float:
 
 
 def _element_area(model: SpatialModel, element: Any) -> dict[str, Any]:
-    """This element's envelope area, on whichever of its two planes is larger.
-
-    The branch is decided by measurement rather than by IFC type, because the
-    type is not a reliable statement about orientation — an ``IfcSlab`` can be a
-    wall panel and an ``IfcRoof`` in this file is a curved shell whose largest
-    vertical face is a 4.5 m² fascia. Both candidate areas are computed and the
-    bigger one is the element's face: the sample house's ground slab measures
-    7.9 m² vertically against 146.2 m² in plan, its north wall 27.4 m²
-    vertically against 4.1 m² in plan, and neither needs a type to say so.
-
-    Returns a dict with ``area`` (``None`` when nothing could be measured),
-    ``projectedArea`` — the projection onto that same plane, identical to
-    ``area`` for a planar element and smaller for a sloped or curved one —
-    ``via`` in German, and ``horizontal``.
-    """
     geometry = model.geometry(element.GlobalId)
     if geometry is None:
         reason = model.geometry_failure(element.GlobalId) or ""
@@ -249,31 +118,6 @@ ROUTE_UNDECIDED = "undetermined"
 
 
 def _external_route(model: SpatialModel, element: Any) -> tuple[bool | None, str, str]:
-    """Whether this element separates inside from outside, what route said so,
-    and the sentence that route wrote.
-
-    Openings and panes go to :func:`~ifc_spatial.operators._faces_outside`
-    untouched — declaration on the element, then the host wall's declaration,
-    then the count of spaces the opening touches. Everything else runs the same
-    ladder without the middle rung, which does not apply to a wall:
-
-    1. ``Pset_*Common.IsExternal`` on the element itself.
-    2. The number of spaces it bounds. Exactly one and the other face is
-       outside, because no ``IfcSpace`` is ever modelled outdoors; two or more
-       and it is a Trennbauteil. Zero decides nothing — an element the export
-       assigned to no room is not thereby an external one.
-
-    Note that rung 2 is not always geometry: :func:`~ifc_spatial.operators.enclosed_by`
-    answers from ``IfcRelSpaceBoundary`` when the export writes them (as
-    ``floor-slab-and-window.ifc`` does, which has boundaries and no bodies at
-    all) and derives them from the solids only when it must. Its provenance is
-    carried through instead of being assumed, because "die Datei sagt, diese Wand
-    begrenzt zwei Räume" and "wir haben zwei Räume daran gemessen" are different
-    claims.
-
-    ``None`` is a real answer and must be reported as such. Guessing here is how
-    a 146 m² floor slab silently joins or leaves an envelope area.
-    """
     if element.is_a() in _OPENING_TYPES:
         outside, why = _faces_outside(model, element)
         if outside is None:
@@ -321,12 +165,6 @@ def _external_route(model: SpatialModel, element: Any) -> tuple[bool | None, str
 
 
 def _survey(model: SpatialModel) -> list[dict[str, Any]]:
-    """Every candidate envelope element, classified and measured, once.
-
-    Shared by all three operators so that they cannot disagree with each other
-    about which wall is external — three separate scans is three chances for the
-    orientation report and the A/V ratio to be built on different sets.
-    """
     found: list[dict[str, Any]] = []
     for element in model.file.by_type("IfcProduct"):
         kind = _KIND_OF_TYPE.get(element.is_a())
@@ -353,16 +191,6 @@ def _survey(model: SpatialModel) -> list[dict[str, Any]]:
 
 
 def _no_envelope(method: str, surveyed: list[dict[str, Any]]) -> Answer[Any]:
-    """Nothing in this file could be placed on the outside — a named refusal.
-
-    Deliberately not an empty envelope. "Dieses Gebäude hat keine Außenbauteile"
-    is a statement about a building; the truth is a statement about an export
-    that declares no ``IsExternal`` and models no rooms to derive it from. The
-    two cases are told apart, because they send the architect to different
-    settings: a file with no candidate elements at all (an infrastructure model,
-    a structure-only export) is not a file whose walls forgot to say which side
-    they face.
-    """
     if not surveyed:
         return undecidable(
             from_=[],
@@ -398,33 +226,6 @@ def _no_envelope(method: str, surveyed: list[dict[str, Any]]) -> Answer[Any]:
 
 
 def thermal_envelope(model: SpatialModel) -> Answer[dict[str, Any]]:
-    """Which elements form the boundary between heated inside and outside.
-
-    The first thing an OIB 6 calculation needs and the one thing this engine had
-    nothing for. Every element is placed by the ladder in :func:`_external_route`
-    — declaration first, geometry second — and every entry says which rung
-    decided it, because "the architect wrote IsExternal = True" and "it touches
-    one room, so probably" are not the same claim and a total that mixes them
-    without saying so cannot be argued with.
-
-    Returned grouped by kind, with each element's own area, its declared U-value
-    where the file states one, and the two lists that make the total checkable:
-    ``interior`` (decided, and left out) and ``undetermined`` (not decided,
-    and therefore neither counted nor discarded).
-
-    On the sample house the declared route decides all 23 candidates outright —
-    5 walls, 2 curtain-wall shells, 6 panes, 4 windows, 3 doors, 2 slabs and
-    1 roof. 17 of them are external and 15 of those carry a measurable area,
-    **225.700 m²** in total; the two without one are the curtain-wall shells,
-    which legitimately have no body of their own. The two slabs are not in the
-    envelope at all: both declare ``IsExternal = False``, including the
-    146.199 m² ground slab, which is exactly the finding an architect wants back
-    rather than an area quietly adjusted to look right.
-
-    No threshold, no U-value limit, no verdict. A U-value that the file declares
-    is repeated; a U-value that it does not is absent, never derived from the
-    layers.
-    """
     method = "thermalEnvelope()"
     surveyed = _survey(model)
     outside = [e for e in surveyed if e["external"] is True]
@@ -501,47 +302,6 @@ def thermal_envelope(model: SpatialModel) -> Answer[dict[str, Any]]:
 
 
 def envelope_area_by_orientation(model: SpatialModel) -> Answer[dict[str, Any]]:
-    """The envelope area per compass bearing, opaque and transparent apart.
-
-    A facade's glass fraction is what an energy balance turns on — solar gain in
-    one direction, transmission loss in every direction — so the split is the
-    point of the operator and the totals are a by-product of it. Each bearing
-    reports ``opaque``, ``transparent``, ``total`` and the
-    **window-to-wall ratio** ``transparent / total``.
-
-    Measured on the sample house, whose north wall
-    ``3cUkl32yn9qRSPvBJVyWw5`` bears 0°:
-
-    ======  ========  =============  =====
-    Bearing  opak      transparent    WWR
-    ======  ========  =============  =====
-    N        27.408    6.574          19.4 %
-    O        17.981    0.000           0.0 %
-    S        23.062   15.673          40.5 %
-    W         0.000   17.604         100.0 %
-    ======  ========  =============  =====
-
-    The 100 % on the west is not a bug and not rounded away: that elevation is a
-    curtain wall whose three panes are the entire facade, and the mullions that
-    would be its opaque share are ``IfcMember`` and out of scope. A caveat says
-    so, because a WWR of 1.0 read without that sentence is a modelling error
-    rather than a building.
-
-    ## Without a declared north
-
-    ``operators.azimuth`` refuses without
-    ``IfcGeometricRepresentationContext.TrueNorth``, and it is right to: a
-    building rotated 40° would be reported as having a south facade it does not
-    have, and nothing in the answer would show it. So this operator does not
-    invent one either. On such a file — ``house-with-rooms.ifc`` is one — the
-    areas still come back, opaque and transparent still separated, with
-    ``orientationKnown`` false, no ``byOrientation`` at all, and the German
-    remedy for setting the north. Withholding a correct total area over a
-    compass question nobody asked would be the worse failure.
-
-    Horizontal elements have no bearing by construction and are reported under
-    ``ohneAusrichtung`` rather than folded into a direction.
-    """
     method = "envelopeAreaByOrientation()"
     surveyed = _survey(model)
     outside = [e for e in surveyed if e["external"] is True]
@@ -668,21 +428,6 @@ def envelope_area_by_orientation(model: SpatialModel) -> Answer[dict[str, Any]]:
 
 
 def _space_volume(model: SpatialModel, space: Any) -> float | None:
-    """The volume of one space solid, in m³, straight off its triangulation.
-
-    The divergence theorem over the mesh — ``Σ a · (b × c) / 6``, absolute — and
-    not ``ifcopenshell.util.shape.get_volume``, which agrees to the last bit
-    (129.98706250000038 m³ for this file's living room, both ways) and is unsafe
-    to call here. ``get_volume`` takes the live ``Triangulation``, whose ``verts``
-    and ``faces`` are views into the shape's C++ buffer; ``SpatialModel`` hands
-    that out from :meth:`~ifc_spatial.model.SpatialModel.triangulation` and then
-    OVERWRITES ``_shapes[global_id]`` the next time
-    :meth:`~ifc_spatial.model.SpatialModel.geometry` is called for the same
-    element, which frees the buffer under the caller's feet. Measured on this
-    fixture: ``get_volume`` returns 129.987 before the ``geometry()`` call and
-    raises ``IndexError: list index out of range`` after it. ``ElementGeometry``
-    holds NumPy copies and cannot be pulled out from under anyone.
-    """
     geometry = model.geometry(space.GlobalId)
     if geometry is None or len(geometry.triangles) == 0:
         return None
@@ -692,47 +437,6 @@ def _space_volume(model: SpatialModel, space: Any) -> float | None:
 
 
 def compactness(model: SpatialModel) -> Answer[dict[str, Any]]:
-    """The A/V ratio — envelope area over heated volume, in 1/m.
-
-    A standard OIB 6 input and the reciprocal of the *charakteristische Länge*
-    ``l_c = V/A``, which is reported beside it because half the Austrian
-    literature is written in one and half in the other.
-
-    A and V both come back separately, and that is not decoration: a ratio whose
-    two inputs are invisible cannot be checked by the person who signs it, and
-    the two inputs here are not measured the same way and do not sit on the same
-    reference surface.
-
-    ## Which volume, said out loud
-
-    **The volume is the net one.** It is the sum of the ``IfcSpace`` solids —
-    room air, bounded by the finished inner faces — and it is preferred over
-    everything else because it is the only volume in the file that was modelled
-    rather than inferred. A GROSS volume is bounded by the outer face of the
-    construction and is larger by the whole build-up: with 290 mm external walls
-    and a 470 mm floor, the difference on a house this size is tens of cubic
-    metres. An energy calculation names which of the two it wants, and this one
-    is the net one — so a caller that needs gross has to add the construction
-    itself, from a number this module does not have.
-
-    A is measured on the OUTER faces of the envelope elements. So the ratio
-    mixes an outer-face area with an inner-face volume and is therefore slightly
-    LARGER than a consistently gross A/V. Stated rather than corrected: the
-    correction needs a thickness per element that only the layer sets know, and
-    inventing one would put a fabricated number where a measured one belongs.
-
-    Where the spaces declare a volume, the measured one is triangulated against
-    it — agreement raises confidence, disagreement is a finding about the export.
-    On the sample house all four spaces declare ``BaseQuantities.GrossVolume``
-    and every one of them matches the mesh exactly (129.987 / 38.542 / 21.734 /
-    76.466 m³, summing to 266.728 m³), so the two routes agree.
-
-    Measured on the sample house: **A = 225.700 m², V = 266.728 m³,
-    A/V = 0.846 1/m**, characteristic length l_c = 1.182 m.
-
-    No threshold. OIB 6 relates a permitted Heizwärmebedarf to l_c; that
-    relation belongs to the Bestimmung and not to a measuring instrument.
-    """
     method = "compactness()"
     surveyed = _survey(model)
     outside = [e for e in surveyed if e["external"] is True]

@@ -1,5 +1,3 @@
-"""Step 2a of ADR-0182 phase 4, deploy 2: points written before deploy 1 get ``document_id`` from the old key."""
-
 from __future__ import annotations
 
 from knowledge_layer.vector_store import DOCUMENT_ID_FIELD

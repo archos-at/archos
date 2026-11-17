@@ -222,7 +222,6 @@
  "app/manifest.spec.ts": 210,
  "app/page.spec.ts": 50,
  "app/providers.spec.tsx": 100,
- "app/storage-rename-boot.spec.ts": 20,
  "app/theme-boot.spec.ts": 20,
  "bff/a2a/agent-card.spec.ts": 10,
  "bff/a2a/task-mapping.spec.ts": 10,

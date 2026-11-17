@@ -1,5 +1,3 @@
-"""How every chat turn ended, whichever door it came through: docs/observability/posthog-events.md."""
-
 from __future__ import annotations
 
 import logging

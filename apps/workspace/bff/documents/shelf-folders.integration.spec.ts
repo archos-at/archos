@@ -41,7 +41,7 @@ describe.skipIf(!url)('shelf folders against Postgres', () => {
       userId: USER,
       organizationId,
       role: 'member',
-      permissions: ['org:archiv:manage'],
+      permissions: ['org:office_shelf:manage'],
     }) as unknown as import('@/lib/auth/types').AuthorizedSession
   const inTenant = <T>(run: () => Promise<T>, organizationId = ORG): Promise<T> =>
     withTenant({ organizationId, userId: USER }, run)

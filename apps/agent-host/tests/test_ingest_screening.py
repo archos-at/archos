@@ -9,7 +9,10 @@ from fastapi import APIRouter
 from fastapi import FastAPI
 from httpx import ASGITransport
 from httpx import AsyncClient
-from knowledge_layer.ingest import screening as job_screening
+from knowledge_layer.ingest import MAX_TERM_CHARS
+from knowledge_layer.ingest import MAX_TERMS
+from knowledge_layer.ingest import MIN_TERM_CHARS
+from knowledge_layer.ingest import ScreeningRules
 from pydantic import ValidationError
 
 from agent.knowledge.base import PreparedIngestJob
@@ -46,9 +49,9 @@ class TestScreeningPolicy:
             ScreeningPolicy(content_terms=[term])
 
     def test_the_bounds_are_the_ones_the_job_applies(self):
-        assert request_models.SCREENING_MAX_TERMS == job_screening.MAX_TERMS
-        assert request_models.SCREENING_MIN_TERM_CHARS == job_screening.MIN_TERM_CHARS
-        assert request_models.SCREENING_MAX_TERM_CHARS == job_screening.MAX_TERM_CHARS
+        assert request_models.SCREENING_MAX_TERMS == MAX_TERMS
+        assert request_models.SCREENING_MIN_TERM_CHARS == MIN_TERM_CHARS
+        assert request_models.SCREENING_MAX_TERM_CHARS == MAX_TERM_CHARS
 
     def test_at_most_two_hundred_terms(self):
         ScreeningPolicy(content_terms=[f"Begriff {n}" for n in range(200)])
@@ -88,9 +91,7 @@ class TestJobConfig:
         assert config["screening"] == {"content_terms": [], "detectors": ["credit_card"]}
 
     def test_the_job_reads_back_what_the_route_wrote(self):
-        rules = job_screening.ScreeningRules.from_config(
-            _job_config(_request(screening=_POLICY), None, None)["screening"]
-        )
+        rules = ScreeningRules.from_config(_job_config(_request(screening=_POLICY), None, None)["screening"])
         assert rules is not None
         assert rules.terms == ("Gehaltsabrechnung", "Honorarvereinbarung")
         assert rules.detectors == ("iban", "at_svnr")

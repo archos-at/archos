@@ -10,7 +10,7 @@ authz-catalog Job.
 |---|---|---|---|---|
 | `documents.scope` and four sibling tables | `archiv` | `office_shelf` | migration 0170 (deploy) | `LEGACY_DOCUMENT_SCOPES` |
 | Two append-only logs (`document_access_log`, `document_quarantine_decisions`) | `archiv` | both accepted | migration 0171 widens the CHECK; old rows stay | `modernizeDocumentScope` |
-| Permission slug | `org:archiv:manage` | `org:office_shelf:manage` | steps 1 to 3 below | every check accepts either (`acceptedPermissionSlugs`) |
+| Permission slug | `org:archiv:manage` | `org:office_shelf:manage` | done, see below | none: only the new slug is checked |
 | Collection name prefix (Qdrant `scope` payload, `documents.collection_name`) | `archiv_<org>` | `office_shelf_<org>` | steps 4 to 6 below | `OFFICE_SHELF_COLLECTION_PREFIXES` |
 | Object keys | `org/<org>/archiv/doc/...` | `org/<org>/office_shelf/doc/...` | nothing to do | see below |
 
@@ -24,30 +24,11 @@ purger deletes `org/<org>/` as a whole, so both spellings go together.
 
 ## Permission `org:archiv:manage` to `org:office_shelf:manage`
 
-Safe order, one step per release train. The code accepts either slug the whole
-time, so no step can lock anybody out.
-
-1. **Deploy.** The authz-catalog Job (`grid-app-authz-catalog`, compose service
-   `workos-authz`) creates `org:office_shelf:manage` and gives the Admin role
-   both slugs. The Knowledge Manager role holds both. The old slug stays in the
-   catalog, marked `deprecated`.
-2. **Re-grant custom roles that hold the old slug.** Custom roles an office built
-   itself are not in the catalog, so the Job does not touch them. From
-   `apps/workspace`:
-
-   ```bash
-   WORKOS_API_KEY=sk_... bun run regrant:office-shelf             # lists the roles, writes nothing
-   WORKOS_API_KEY=sk_... bun run regrant:office-shelf -- --apply  # adds the new slug to each; keeps the old one
-   ```
-
-   The script covers environment roles and every organization's own roles. It
-   stops if the new slug does not exist yet (step 1 not done). It is idempotent.
-3. **Later release: remove the old slug.** After a full release with nobody
-   holding the old slug only (re-run the dry run: it must list nothing), delete
-   `org:archiv:manage` from `catalog.ts`, the `RENAMED_PERMISSIONS` entry in
-   `permissions.ts`, the Knowledge Manager role's second slug and the
-   `permission-labels.ts` row. Remove the permission in the WorkOS dashboard by
-   hand: the provisioner never deletes.
+Done. Every role that held the old slug also held the new one (checked on
+production and staging, 2026-11-17), so the old slug is in
+`apps/workspace/bff/authz/retired-permissions.ts`: the authz-catalog Job takes it
+off every role and deletes it from WorkOS on the next deploy, and every check
+reads `org:office_shelf:manage` alone.
 
 Audit: new rows use the actions `office_shelf.document.uploaded|deleted|renamed`.
 The WorkOS audit schemas for them are created by the deploy

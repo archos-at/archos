@@ -62,13 +62,12 @@ target-version = "py314"
 #
 # Except what runs outside the project venv, on the runner's own `python3`
 # (3.12 on ubuntu-24.04) or `uv run --no-project`: CI's scripts, the hook
-# checkers, the release-note tool and the Chroma exporter (`uvx --python 3.12`).
+# checkers and the release-note tool.
 # On py314 the formatter writes `except A, B:` (PEP 758), a SyntaxError there.
 [tool.ruff.per-file-target-version]
 "ci/**/*.py" = "py312"
 "scripts/check_*.py" = "py312"
 "scripts/release_notes*.py" = "py312"
-"deploy/migration/**/*.py" = "py312"
 
 [tool.ruff.lint]
 
@@ -197,13 +196,11 @@ ignore_imports = [
   "agent.core.register -> knowledge_layer.estate",
   "agent.knowledge.collection_pages -> knowledge_layer.chunk_positions",
   "agent.knowledge.collection_pages -> knowledge_layer.vector_store",
-  "agent.knowledge.collection_pages -> knowledge_layer.vector_store.reads",
   "agent.knowledge.folder_cards.inputs -> knowledge_layer.browse",
   "agent.knowledge.folder_cards.worker -> knowledge_layer.browse",
-  "agent.knowledge.folder_cards.worker -> knowledge_layer.vector_store.folders",
   "agent.knowledge.folder_cards.worker -> knowledge_layer.vector_store",
   "agent.knowledge.scoping -> knowledge_layer.search",
-  "agent.oib_sync -> knowledge_layer.ingest.adapter",
+  "agent.oib_sync -> knowledge_layer.ingest",
   "agent.tools.cross_project.hit_judge -> knowledge_layer.search",
   "agent.tools.cross_project.register -> knowledge_layer.search",
   "agent.tools.look.reading -> knowledge_layer.ingest",

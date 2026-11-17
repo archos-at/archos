@@ -1,5 +1,3 @@
-"""Tests for deep researcher graph and middleware factory helpers."""
-
 from unittest.mock import MagicMock
 from unittest.mock import patch
 
@@ -37,9 +35,8 @@ from agent.common import LLMRole
 from agent.skills import SkillRuntime
 
 
-@tool
+@tool(description="Search the web for information.")
 def web_search_tool(query: str) -> str:
-    """Search the web for information."""
     return f"Results for: {query}"
 
 
@@ -56,7 +53,6 @@ def _llm_provider() -> LLMProvider:
 
 
 def _deferred_schemas(middleware: list) -> list:
-    """Schemas of the DeferredStructuredOutputMiddleware instances in a middleware stack."""
     return [m.strategy.schema for m in middleware if isinstance(m, DeferredStructuredOutputMiddleware)]
 
 
@@ -124,7 +120,6 @@ def _graph_context(
 
 
 def test_tool_set_keeps_helper_researcher_and_writer_tools_separate():
-    """Factory tool grouping keeps source tools away from writer-only helpers."""
     _, tool_set, _ = _tool_set_and_middleware()
 
     assert tool_set.source_tool_names == {"web_search_tool"}
@@ -135,7 +130,6 @@ def test_tool_set_keeps_helper_researcher_and_writer_tools_separate():
 
 
 def test_middleware_set_adds_orchestrator_batch_tool_name():
-    """The orchestrator sanitizer accepts run_research_batch while shared stacks accept source tools."""
     registry, tool_set, middleware_set = _tool_set_and_middleware()
 
     researcher_sanitizer = _sanitizer(middleware_set.researcher)
@@ -162,7 +156,6 @@ def _pruning_middleware(middleware: list[object]) -> ToolResultPruningMiddleware
 
 
 def test_tool_retry_never_re_executes_run_research_batch_and_skips_value_errors():
-    """Deliberate tool error signals reach the model instead of amplifying retries."""
     _, _, middleware_set = _tool_set_and_middleware()
 
     stacks = (
@@ -180,7 +173,6 @@ def test_tool_retry_never_re_executes_run_research_batch_and_skips_value_errors(
 
 
 def test_writer_pruning_middleware_scales_with_research_volume():
-    """The writer stack keeps enough tool results for plan + every note + verified sources."""
     _, _, middleware_set = _tool_set_and_middleware()
 
     writer_pruning = _pruning_middleware(middleware_set.writer)
@@ -194,7 +186,6 @@ def test_writer_pruning_middleware_scales_with_research_volume():
 
 
 def test_subagents_route_tools_and_writer_skills():
-    """Source-router excludes source tools, planner receives source tools, and writer receives configured skills."""
     runtime = DeepAgentsRuntime(
         skills=DeepResearchSkillsConfig(
             agents={"writer-agent": ("synthesis",)},
@@ -230,7 +221,6 @@ def test_subagents_route_tools_and_writer_skills():
 
 
 def test_skill_filesystem_permissions_filter_unassigned_skill_collections():
-    """Filesystem tools only expose skill collections assigned to the current agent."""
     permissions = skill_filesystem_permissions(["/skills/synthesis/"])
     entries = [
         {"path": "/skills/research/", "is_dir": True, "size": 0, "modified_at": ""},
@@ -245,7 +235,6 @@ def test_skill_filesystem_permissions_filter_unassigned_skill_collections():
 
 
 def test_graph_uses_researcher_config_key_for_researcher_skills():
-    """The researcher runnable uses the public `researcher` skill config key."""
     registry, tool_set, middleware_set = _tool_set_and_middleware()
     runtime = DeepAgentsRuntime(skills=DeepResearchSkillsConfig(agents={"researcher-agent": ("oib",)}))
     fake_graph = MagicMock()
@@ -281,7 +270,6 @@ def _skills_sources(middleware) -> list[str] | None:
 
 
 def test_the_office_skills_go_to_the_writer_alone():
-    """An office skill is an instruction about the answer, and the writer writes it (ADR-0135)."""
     from agent.skills.models import Skill
 
     runtime = DeepAgentsRuntime(
@@ -308,7 +296,6 @@ def test_a_run_without_skills_mounts_none_and_gates_nothing():
 
 
 def test_graph_passes_checkpointer_through_alongside_inmemory_store():
-    """checkpointer (execution-state durability) and store (longterm memory) are independent (T3-8)."""
     registry, tool_set, middleware_set = _tool_set_and_middleware()
     runtime = DeepAgentsRuntime()
     fake_graph = MagicMock()
@@ -343,7 +330,6 @@ def test_graph_passes_checkpointer_through_alongside_inmemory_store():
 
 
 def test_graph_defaults_checkpointer_to_none():
-    """Omitting checkpointer preserves current in-memory-only behavior."""
     registry, tool_set, middleware_set = _tool_set_and_middleware()
     runtime = DeepAgentsRuntime()
     fake_graph = MagicMock()
@@ -372,7 +358,6 @@ def test_graph_defaults_checkpointer_to_none():
 
 
 def test_subagents_can_disable_source_router():
-    """The source-router subagent can be omitted without changing the rest of the workflow."""
     provider = _llm_provider()
     provider.get = MagicMock(wraps=provider.get)
 
@@ -392,7 +377,6 @@ def test_subagents_can_disable_source_router():
 
 
 def test_researcher_runnable_uses_rendered_prompt_and_runtime_middleware():
-    """Researcher runnable construction stays behavior-compatible but has a smaller interface."""
 
     class FakeSummarizationMiddleware(AgentMiddleware):
         pass
@@ -441,8 +425,6 @@ def test_researcher_runnable_uses_rendered_prompt_and_runtime_middleware():
 
 
 class _FakeModelRequest:
-    """Minimal stand-in for the ModelRequest the middleware sees (messages + override)."""
-
     def __init__(self, messages):
         self.messages = messages
 
@@ -465,8 +447,6 @@ async def _sent_messages(middleware: ToolResultPruningMiddleware, messages: list
 
 
 class TestToolResultPruningCacheStability:
-    """Truncation must be monotonic: once a message is sent truncated, its bytes never change again."""
-
     @pytest.mark.asyncio
     async def test_truncated_message_stays_byte_identical_as_history_grows(self):
         middleware = ToolResultPruningMiddleware(keep_last_n=2, max_chars=100)
@@ -523,8 +503,6 @@ def _look_call(idx: int, **args) -> AIMessage:
 
 
 class TestToolResultPruningImages:
-    """An image result is measured by its text, and an old one becomes a stub, never cut base64."""
-
     async def test_recent_image_result_is_sent_intact(self):
         middleware = ToolResultPruningMiddleware(keep_last_n=2, max_chars=100)
         messages = [_look_call(0, file_name="plan.pdf", page_number=3), _image_result(0)]

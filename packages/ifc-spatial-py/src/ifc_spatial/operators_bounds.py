@@ -1,5 +1,3 @@
-"""Hosting and space boundaries: which element fills which opening, and each space's bounding surfaces."""
-
 from __future__ import annotations
 
 from typing import Any
@@ -26,13 +24,6 @@ from .model import SpatialModel
 
 
 def hosts(model: SpatialModel, global_id: str) -> Answer[list[ElementRef]]:
-    """Openings cut out of this element — the window and door reveals in a wall.
-
-    ``IfcElement.HasOpenings`` → ``IfcRelVoidsElement.RelatedOpeningElement``.
-    Returns the OPENINGS, not what fills them: an opening with no filler is a
-    hole, and telling the two apart matters for a wall-area takeoff. Chain
-    :func:`filler_of` on each result for the windows and doors.
-    """
     method = f"hosts({global_id})"
     subject = _require(model, global_id, method)
     kind = model.kind_of(subject)
@@ -62,11 +53,6 @@ def hosts(model: SpatialModel, global_id: str) -> Answer[list[ElementRef]]:
 
 
 def filler_of(model: SpatialModel, opening_global_id: str) -> Answer[list[ElementRef]]:
-    """What fills this opening — the window, door or louvre placed in the hole.
-
-    An empty result on an opening that exists is a real finding: unfilled
-    openings are how a wall ends up with an area a schedule cannot account for.
-    """
     method = f"fillerOf({opening_global_id})"
     subject = _require(model, opening_global_id, method)
     if model.kind_of(subject) != "opening":
@@ -89,20 +75,6 @@ def filler_of(model: SpatialModel, opening_global_id: str) -> Answer[list[Elemen
 
 
 def hosted_in(model: SpatialModel, global_id: str) -> Answer[list[ElementRef]]:
-    """The wall or slab this window or door sits in.
-
-    Computed, not declared: IFC never states "this window is in that wall". It
-    states that the wall is voided by an opening (``IfcRelVoidsElement``) and
-    that the opening is filled by the window (``IfcRelFillsElement``), and this
-    walks the two hops — ``FillsVoids → RelatingOpeningElement → VoidsElements →
-    RelatingBuildingElement``. The distinction is worth carrying: the answer is
-    only as good as the export's opening bookkeeping, and an agent quoting it in
-    front of a building authority must be able to say so.
-
-    A list rather than one element because a filler CAN legitimately sit in more
-    than one opening (a window band split across two wall segments); one result
-    is the normal case, not a guarantee.
-    """
     method = f"hostedIn({global_id})"
     subject = _require(model, global_id, method)
     kind = model.kind_of(subject)
@@ -155,37 +127,6 @@ def hosted_in(model: SpatialModel, global_id: str) -> Answer[list[ElementRef]]:
 
 
 def bounds(model: SpatialModel, space_global_id: str) -> Answer[list[ElementRef]]:
-    """The elements bounding this space — its walls, floor, ceiling, and the
-    windows and doors in them when the export writes 2nd-level boundaries.
-
-    Declared route first: ``IfcSpace.BoundedBy`` → ``IfcRelSpaceBoundary``.
-
-    BESSER: when the export writes none — which is the common case, and the case
-    of this fixture — the TS package needs a whole derived-boundary pass over the
-    tessellation before ``bounds()`` answers at all. Here the fallback is one
-    ``geom.tree.select(space, extend=0.05)`` against the real solids, filtered to
-    the elements that actually BOUND rather than sit inside: an element bounds the
-    space when it reaches outside the space's own extent. That is what keeps the
-    dining chairs out of the list and the roof in it.
-
-    ## One element, one entry
-
-    A 2nd-level export publishes one ``IfcRelSpaceBoundary`` row PER BOUNDARY
-    SURFACE, so one window bounding one room arrives two, three or six times.
-    The list this returns is a list of ELEMENTS, and every consumer aggregates
-    it: `light_entry_area` summed the same 2.190 m² window twice and reported
-    the bedroom at 28.41 % against a true 14.21 %; `daylight._facade_candidates`
-    credited the north wall 4.3802 m² of aperture „aus 2 Öffnung(en)" for a
-    single window — enough to outrank a genuinely larger facade and measure the
-    depth in the wrong direction; `fire.separating_elements` listed one wall
-    twice under `separating` and `ohneFeuerwiderstand` and answered „6 Bauteile"
-    one way round and „4 Bauteile" the other. The duplicate is an artefact of
-    how the export writes geometry, never a second element, so it is removed
-    here rather than in each of the six call sites — the next consumer would
-    otherwise inherit the same defect on the day it is written.
-
-    The FIRST occurrence is kept, so the file's own order survives.
-    """
     method = f"bounds({space_global_id})"
     subject = _require(model, space_global_id, method)
     if model.kind_of(subject) != "space":
@@ -230,12 +171,6 @@ def bounds(model: SpatialModel, space_global_id: str) -> Answer[list[ElementRef]
 
 
 def _too_big_to_derive(model: SpatialModel, method: str, subject_id: str) -> Answer[Any]:
-    """This export has no space boundaries and is too large to derive them.
-
-    A refusal stated before anything is started, because once an OCCT offset is
-    running there is no way to stop it — see
-    :data:`~ifc_spatial.model.DERIVED_BOUNDARY_MAX_PRODUCTS`.
-    """
     return undecidable(
         from_=[subject_id],
         method=method,

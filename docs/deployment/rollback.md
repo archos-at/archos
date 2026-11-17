@@ -74,9 +74,9 @@ A rollback changes the **images**. It keeps the current **program** (what
   drops the views.
 - **The program is not rolled back.** For a fault in `deploy/pulumi` itself,
   revert the change on `develop` (staging) or in a PR to `prod`.
-- **The vector-store floor refuses some tags.** A backend from before the Chroma
-  removal (ADR-0115) cannot run under today's program, and the deploy says so.
-  The way back across it: [qdrant-runbook.md, "Rollback"](qdrant-runbook.md#rollback).
+- **Not across the Chroma removal.** A backend from before it (ADR-0115) cannot
+  run under today's program, and nothing checks for it any more: never pin a tag
+  built before 2026-10-18 ([qdrant-runbook.md, "Chroma, retired"](qdrant-runbook.md#chroma-retired)).
 - **Not across the move to Hatchet.** An image rollback from a release on
   Hatchet to one before it leaves no scheduler and workers scaled on a backlog
   the old code never writes ([hatchet.md, "Cutover"](hatchet.md#cutover-from-the-claim-queues)).

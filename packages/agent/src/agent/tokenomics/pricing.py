@@ -8,28 +8,16 @@ from pydantic import Field
 
 
 class ModelPriceConfig(BaseModel):
-    """Per-token prices for one model, in USD per 1 M tokens."""
-
     input_per_1m_tokens: float
     output_per_1m_tokens: float
     cached_input_per_1m_tokens: float | None = None
 
 
 class ToolPriceConfig(BaseModel):
-    """Per-call price for one tool (e.g. a search API)."""
-
     cost_per_call: float = 0.0
 
 
 class PricingRegistryConfig(BaseModel):
-    """
-    Pricing table read from the ``tokenomics.pricing`` section of the eval
-    config YAML.  ``models`` is keyed by the exact model name that appears in
-    agent-runtime traces (e.g. ``"azure/openai/gpt-5.2"``).  ``default`` is used as a
-    fallback when no model key matches.  ``tools`` is keyed by tool name as it
-    appears in the trace.
-    """
-
     models: dict[str, ModelPriceConfig] = Field(default_factory=dict)
     tools: dict[str, ToolPriceConfig] = Field(default_factory=dict)
     default: ModelPriceConfig | None = None
@@ -37,14 +25,11 @@ class PricingRegistryConfig(BaseModel):
 
 @dataclass(frozen=True)
 class ModelPrice:
-    """Resolved per-token prices for a single model."""
-
     input_per_1m_tokens: float
     cached_input_per_1m_tokens: float
     output_per_1m_tokens: float
 
     def cost(self, prompt_tokens: int, cached_tokens: int, completion_tokens: int) -> float:
-        """Return USD cost for one LLM call."""
         uncached = max(0, prompt_tokens - cached_tokens)
         return (
             uncached * self.input_per_1m_tokens
@@ -53,35 +38,15 @@ class ModelPrice:
         ) / 1_000_000
 
     def cache_savings(self, cached_tokens: int) -> float:
-        """USD saved vs. paying full input price for cached tokens."""
         return cached_tokens * (self.input_per_1m_tokens - self.cached_input_per_1m_tokens) / 1_000_000
 
 
 @dataclass(frozen=True)
 class ToolPrice:
-    """Resolved per-call price for a single tool."""
-
     cost_per_call: float = 0.0
 
 
 class PricingRegistry:
-    """
-    Maps model names to :class:`ModelPrice` objects and tool names to
-    :class:`ToolPrice` objects.
-
-    Model lookup order:
-    1. Exact match on ``model_name``.
-    2. Substring match — useful for versioned or provider-prefixed names
-       (e.g. ``"azure/openai/gpt-5.2"`` matches key ``"gpt-5.2"``).
-    3. ``default`` price, if configured.
-    4. :class:`KeyError`.
-
-    Tool lookup order:
-    1. Exact match on ``tool_name``.
-    2. Substring match (key in name, or name in key).
-    3. Zero-cost default (tool costs are optional — no KeyError raised).
-    """
-
     def __init__(
         self,
         prices: dict[str, ModelPrice],
@@ -122,7 +87,6 @@ class PricingRegistry:
 
     @classmethod
     def from_dict(cls, raw: dict[str, Any]) -> PricingRegistry:
-        """Convenience constructor: pass the raw ``tokenomics.pricing`` dict."""
         return cls.from_config(PricingRegistryConfig(**raw))
 
     def get(self, model_name: str) -> ModelPrice:
@@ -144,11 +108,6 @@ class PricingRegistry:
         )
 
     def get_tool(self, tool_name: str) -> ToolPrice:
-        """Return the :class:`ToolPrice` for ``tool_name``.
-
-        Never raises — returns a zero-cost :class:`ToolPrice` if no match is
-        found, so unconfigured tools simply contribute $0.
-        """
         if tool_name in self._tools:
             return self._tools[tool_name]
         best: ToolPrice | None = None

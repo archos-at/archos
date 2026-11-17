@@ -151,10 +151,9 @@ it is private.
    shards on small runners, one job on a large one.
 10. **Pin what drifts**: the runner image (or the PostgreSQL major the RLS suite
    installs), so a GitHub image update cannot turn develop red overnight.
-11. **Staging rolls in parallel**: `chromaMigration` is still `true` on dev, so
-    the API and chat tiers wait for the migrate Job (~80 s of the serial
-    `pulumi up` chain); prod has it off. Turning it off is a stack config
-    change after the Qdrant import is verified on staging.
+11. **Staging rolls in parallel**: done. The one-time Chroma migration flag that
+    made the API and chat tiers wait for its Job is gone, with the Job, from
+    every stack and from the program.
 
 Not adopted, with the reason: shorter readiness soaks on staging (staging is the
 prod rehearsal); canary or blue-green (at one to two replicas a canary is half
@@ -173,7 +172,6 @@ is on the critical path of something above.
 | Squash merges only | 4 of 32 push runs missed reuse on two-parent merge commits, and their subjects break Conventional Commits on develop | the same ruleset, allowed merge methods |
 | GitHub plan once private | The merge queue and artifact attestations on a private repository need Enterprise Cloud; without it slices 2 and 3 take their plan-independent forms | billing |
 | The ARC scale set | Set `CI_RUNNER` to it when it exists, and `DEPLOY_RUNNER` to runners outside the cluster they deploy to. Its runner image needs Docker, python3, jq, gh, curl and git, and persistent volumes for the caches in slice 9 | `vars.CI_RUNNER`, `vars.DEPLOY_RUNNER` |
-| Turn `chromaMigration` off on dev | Unblocks parallel rollouts on staging (slice 11) once the Qdrant import is verified there | `deploy/pulumi/Pulumi.dev.yaml` |
 
 ## How to tell whether it worked
 

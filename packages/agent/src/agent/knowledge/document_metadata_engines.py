@@ -16,7 +16,6 @@ from agent.knowledge.document_metadata_constants import logger
 
 
 def _get_or_create_sync_engine(cls, db_url: str):
-    """Get or create a sync SQLAlchemy engine with TTL-based caching."""
     with cls._cache_lock:
         cls._cleanup_stale_engines(cls._sync_engine_cache)
 
@@ -44,7 +43,6 @@ def _get_or_create_sync_engine(cls, db_url: str):
 
 
 def _get_or_create_async_engine(cls, db_url: str):
-    """Get or create an async SQLAlchemy engine with TTL-based caching."""
     with cls._cache_lock:
         cls._cleanup_stale_engines(cls._async_engine_cache)
 
@@ -70,7 +68,6 @@ def _get_or_create_async_engine(cls, db_url: str):
 
 
 def _cleanup_stale_engines(cls, cache: dict[str, tuple[Any, float]]):
-    """Remove engines that haven't been used recently."""
     now = time.monotonic()
     stale_keys = [key for key, (_, last_used) in cache.items() if now - last_used > ENGINE_CACHE_TTL_SECONDS]
     for key in stale_keys:
@@ -94,16 +91,6 @@ def _cleanup_stale_engines(cls, cache: dict[str, tuple[Any, float]]):
 
 
 async def dispose_engine_async(cls, db_url: str):
-    """Awaitable variant of :meth:`dispose_engine` for callers inside a
-    running event loop.
-
-    The synchronous variant can only *schedule* the close of an async
-    engine (``loop.create_task``); when the caller's loop is about to shut
-    down — e.g. an async test's teardown — that task never runs, the
-    aiosqlite connection stays open and a Windows SQLite temp file remains
-    locked. Awaiting the dispose directly closes it before the caller
-    proceeds.
-    """
     with cls._cache_lock:
         engine = cls._sync_engine_cache.pop(db_url, (None,))[0]
         if engine:
@@ -121,14 +108,6 @@ async def dispose_engine_async(cls, db_url: str):
 
 
 def dispose_engine(cls, db_url: str):
-    """Dispose the cached engines for one db_url (e.g. temp-file teardown).
-
-    Unlike ``dispose_all_engines`` this leaves every other cached store
-    intact — engine caches are shared process-globally, so tests that point
-    the store at a fresh temp SQLite file must release exactly that file's
-    handle before removing the directory (Windows: unlink of an open SQLite
-    file fails with PermissionError).
-    """
     import asyncio
 
     with cls._cache_lock:
@@ -153,7 +132,6 @@ def dispose_engine(cls, db_url: str):
 
 
 def dispose_all_engines(cls):
-    """Dispose all cached engines (for shutdown)."""
     import asyncio
 
     with cls._cache_lock:

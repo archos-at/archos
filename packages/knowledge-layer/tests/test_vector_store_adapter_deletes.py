@@ -5,8 +5,8 @@ from unittest.mock import MagicMock
 
 import pytest
 from knowledge_layer.ingest import LlamaIndexIngestor
+from knowledge_layer.ingest import _PreviousVersion
 from knowledge_layer.ingest import adapter as adapter_module
-from knowledge_layer.ingest.adapter import _PreviousVersion
 from knowledge_layer.vector_store import store as store_module
 from knowledge_layer_testing.vector_store import FakeEmbedder
 from knowledge_layer_testing.vector_store import record

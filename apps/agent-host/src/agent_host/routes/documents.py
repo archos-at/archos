@@ -1,12 +1,3 @@
-"""Document management endpoints.
-
-Every ingestor and metadata-store call here is synchronous: Qdrant reads, SQL
-through a sync engine, the ingest-status store. The handlers are coroutines on
-the API's one event loop, so each such call goes through ``asyncio.to_thread``.
-Called inline, one slow vector-store listing stalled every other request the worker
-was serving, chat streams included, not only the listing.
-"""
-
 import asyncio
 import logging
 import os
@@ -70,30 +61,6 @@ def _merge_summaries(
     summaries: list[AvailableDocument],
     held_names: Callable[[], set[str] | None] | None = None,
 ) -> list[FileInfo]:
-    """Attach persisted per-document summaries, tags and folder onto the file list.
-
-    DocumentMetadataStore (SQL, keyed by ``(collection, filename)``) is the source of
-    truth for the one-sentence summary, the controlled ingestion tags and the
-    ``folder_path`` the document is filed under (ADR-0049); ``list_files`` only
-    knows what the vector store holds. The join key is the
-    filename, unique within the summaries table, so a straight lookup is safe.
-    A file without a stored summary/tags/folder is left untouched; already-populated
-    values are never overwritten. Topics (Themen), the camera's capture facts, the ingest's
-    reading (``dossier``, ``doc_references``, ``coverage``) and the
-    title-block facts (``revision_facts``: Plannummer, Index, Datum, Maßstab, Planinhalt read from the
-    Plankopf) travel the same way, and so do the Fassungen: the confirmed link
-    (``superseded_by``, and ``supersedes`` as its reverse), the change summary with
-    the file name it compared against, and the agent's open suggestion. A suggestion
-    a person dismissed, or one about a file that is gone or already replaced, is
-    not sent.
-
-    A document ingested before the Fassung step existed has no stored suggestion. When
-    ``held_names`` is given, one is derived on read for it (``fassungen.derive_suggestions``):
-    the same title-block ``document_number`` with a later Index or date (``basis: title_block``), else
-    the Index or date in the file names (``basis: name``). It is never stored, never made for a pair a
-    person dismissed or linked, and never names a held or in-flight file; ``held_names`` returning
-    ``None`` suppresses it. Without ``held_names`` nothing is derived.
-    """
     if not summaries:
         return files
     doc_by_name = {doc.file_name: doc for doc in summaries}
@@ -136,10 +103,9 @@ def _merge_summaries(
 def _attach_derived_suggestions(
     files: list[FileInfo], summaries: list[AvailableDocument], held_names: Callable[[], set[str] | None]
 ) -> None:
-    """Fill ``revision_suggestion`` of the files that have none from the collection's own rows (on read)."""
-    from knowledge_layer.ingest import revisions
+    from knowledge_layer.ingest import derive_suggestions
 
-    derived = revisions.derive_suggestions(summaries, held_names)
+    derived = derive_suggestions(summaries, held_names)
     for file in files:
         suggestion = derived.get(file.file_name)
         if suggestion is not None and file.revision_suggestion is None:
@@ -147,22 +113,16 @@ def _attach_derived_suggestions(
 
 
 def _held_names_of(collection_name: str) -> Callable[[], set[str] | None]:
-    """The reader of a collection's held and in-flight file names, for suggestions derived on read."""
 
     def held() -> set[str] | None:
-        from knowledge_layer.ingest import revisions
+        from knowledge_layer.ingest import held_file_names
 
-        return revisions.held_file_names(collection_name)
+        return held_file_names(collection_name)
 
     return held
 
 
 def _open_suggestion(doc: AvailableDocument, known: dict[str, AvailableDocument]) -> dict[str, Any] | None:
-    """The agent's suggestion for ``doc`` as the BFF gets it, or ``None`` when there is nothing to offer.
-
-    Nothing to offer: it was dismissed, the older file is no longer in the
-    collection, this document already replaces it, or it was replaced by another.
-    """
     suggestion = doc.revision_suggestion
     if not suggestion or suggestion.get("dismissed"):
         return None
@@ -175,13 +135,6 @@ def _open_suggestion(doc: AvailableDocument, known: dict[str, AvailableDocument]
 async def _request_change_summary(
     older: AvailableDocument, newer: AvailableDocument, organization_id: str | None
 ) -> str | None:
-    """What changed from ``older`` to ``newer``, German bullet lines, or ``None``. Never raises.
-
-    The same prompt and parser as ingestion's (``document_revisions``), posted over
-    the summary gateway like the other utility routes and traced as a
-    ``change-summary`` generation (ADR-0089). A person is waiting on the
-    confirmation, so the call queues as interactive (ADR-0081).
-    """
     before = RevisionDocument(
         file_name=older.file_name, summary=older.summary or "", doc_class=older.doc_class, tags=tuple(older.tags or ())
     )
@@ -219,7 +172,6 @@ async def _request_change_summary(
 
 
 def _checked_tags(raw: list[str]) -> list[str]:
-    """A person's controlled tags, de-duplicated; 400 when one is off the vocabulary or there are too many."""
     deduped: list[str] = []
     for tag in raw:
         if tag not in deduped:
@@ -248,13 +200,6 @@ def _checked_tags(raw: list[str]) -> list[str]:
 
 
 def _checked_topics(raw: list[str]) -> list[str]:
-    """A person's topics as ingestion would store them.
-
-    Each goes through :func:`normalize_topic` (400 listing the ones that are not a
-    term), is de-duplicated by case keeping the first spelling, and a topic that
-    restates a controlled tag is dropped: that word is already a tag, and a
-    filter should find it in one place. 400 when more than ``MAX_TOPICS`` remain.
-    """
     invalid = [raw_topic for raw_topic in raw if normalize_topic(raw_topic) is None]
     if invalid:
         raise HTTPException(
@@ -287,10 +232,6 @@ def _checked_topics(raw: list[str]) -> list[str]:
 
 
 async def _refuse_revision(collection_name: str, newer: AvailableDocument, older: AvailableDocument) -> dict[str, Any]:
-    """The ``linked=false`` half of the Fassung route: lift the link, drop its change line, dismiss the suggestion.
-
-    Answers the link ``older`` has and the change line ``newer`` has once this is done.
-    """
     superseded_by, change_summary, change_basis = older.superseded_by, newer.change_summary, newer.change_basis
     if older.superseded_by == newer.file_name:
         await asyncio.to_thread(set_document_superseded_by, collection_name, older.file_name, None)
@@ -310,7 +251,6 @@ def _no_summary_404(collection_name: str, file_name: str) -> HTTPException:
 
 
 def _unlink_all(paths: list[str]) -> None:
-    """Remove the temp files of a submission that never reached the ingestion job."""
     for path in paths:
         try:
             os.unlink(path)
@@ -319,7 +259,6 @@ def _unlink_all(paths: list[str]) -> None:
 
 
 async def _spool_upload(file: UploadFile, temp_paths: list[str], original_filenames: list[str]) -> None:
-    """Write one uploaded file to a temp path. Both lists grow in place, so a failure part-way still cleans up."""
     original_filename = file.filename or "unknown"
     original_filenames.append(original_filename)
     suffix = f"_{original_filename}" if original_filename else ""
@@ -335,11 +274,6 @@ async def upload_documents(
     files: list[UploadFile] = File(..., description="Files to upload"),
     ingestor: BaseIngestor = Depends(_require_ingestor),
 ) -> UploadResponse:
-    """
-    Upload documents to a collection.
-
-    Returns a job ID for polling the ingestion status.
-    """
     if not files:
         raise HTTPException(status_code=400, detail="No files provided")
 
@@ -386,13 +320,6 @@ async def list_documents(
     response: Response,
     ingestor: BaseIngestor = Depends(_require_ingestor),
 ) -> list[FileInfo]:
-    """List all documents in a collection.
-
-    When the metadata store cannot be read the files are still listed, without their
-    summaries and readings, and the ``X-Grid-Reading-Unavailable: 1`` header says so: a
-    reader that projects the readings (the BFF's search facets) must keep what it has
-    instead of taking the empty fields as "nothing was read".
-    """
     await require_collection(ingestor, collection_name)
 
     try:
@@ -417,8 +344,6 @@ async def get_document_visual_details_route(
     http_request: Request,
     ingestor: BaseIngestor = Depends(_require_ingestor),
 ) -> dict:
-    """The drawing, image and chart descriptions ingestion produced for a document, read as the office the
-    BFF names (ADR-0163). Fail-open: an empty list when the lookup fails or there are no visual chunks."""
     from .internal_auth import read_as_internal_office
 
     try:
@@ -449,27 +374,6 @@ async def update_document_tags_route(
     request: UpdateTagsRequest,
     ingestor: BaseIngestor = Depends(_require_ingestor),
 ) -> dict[str, Any]:
-    """Replace the controlled tags on a single document's summary row.
-
-    Follows the documents-router auth model (end-user access is enforced at
-    the BFF; this route only requires the knowledge API to be configured).
-    The ingestion vocabulary (``ALLOWED_TAGS``) is the contract: a user edit
-    can never introduce an off-vocabulary tag.
-
-    - Tags outside ``ALLOWED_TAGS`` → 400 listing the offending values.
-    - More than ``MAX_TAGS`` tags (after dedup) → 400 (the BFF zod already
-      caps this, so a normal user never reaches it).
-    - An empty list is allowed and clears the tags.
-    - ``topics``, when sent, is normalised by :func:`_checked_topics` (400
-      for a non-term or too many) and stored as a person's topics. Sent
-      alone, it leaves the tags as they are; sent with ``tags``, both change.
-    - No summary row for ``(collection, file_name)`` → 404 (the summary is
-      the anchor; there is nothing to tag without one).
-    The summary itself is never modified.
-
-    The tags and topics are stored as a PERSON's choice, so a later re-ingest
-    keeps them instead of writing the classifier's guess back over the correction.
-    """
     topics = _checked_topics(request.topics) if request.topics is not None else None
     write_tags = "tags" in request.model_fields_set or request.topics is None
     tags = _checked_tags(request.tags) if write_tags else None
@@ -504,7 +408,6 @@ async def _linked_revision_response(
     older: AvailableDocument,
     organization_id: str | None,
 ) -> dict[str, Any]:
-    """The answer to a confirmed link: the change line told onto ``newer``, or what ``newer`` already says."""
     change = await _request_change_summary(older, newer, organization_id)
     if change:
         await asyncio.to_thread(set_document_change_summary, collection_name, request.newer, change, request.older)
@@ -522,32 +425,6 @@ async def put_revision_route(
     ingestor: BaseIngestor = Depends(_require_ingestor),
     x_grid_organization_id: str | None = Header(default=None),
 ) -> dict[str, Any]:
-    """A person's decision about a suggestion from the agent (or a name series): ``newer`` replaces ``older``.
-
-    Follows the documents-router auth model: end-user access is enforced at the
-    BFF. Both files must have a metadata row in THIS collection, and differ.
-    Nothing here merges stored bytes: the older file stays whole and readable
-    by name, and only drops out of the ranked search.
-
-    - ``linked=true``: ``older.superseded_by = newer``; a suggestion on ``newer``
-      that pointed at ``older`` is cleared; when ``older`` was replaced by another
-      file until now, that file's change line told against ``older`` goes. The
-      loop check and these writes are one locked transaction
-      (``link_document_revision``), so two concurrent confirmations cannot store
-      A over B and B over A. A link that would close a loop (the newer file
-      already replaced by the older, directly or through others) is a 409. Then
-      what changed is written by the summary model (traced as ``change-summary``)
-      onto ``newer`` with ``change_basis = older``. A model failure leaves the
-      link in place and ``change_summary`` null.
-    - ``linked=false``: the link ``older -> newer`` is lifted when it exists, the
-      change summary written against ``older`` goes with it, and ``older`` is added
-      to the files ``newer`` refused (``dismissed_of``), so a later reading does not
-      offer the pair again, whatever else was refused before. An open suggestion
-      about another file stays open.
-
-    Returns ``{"superseded_by", "change_summary", "change_basis"}``: the link ``older``
-    has and the change line ``newer`` has after the call (``null`` when none).
-    """
     if request.newer == request.older:
         raise HTTPException(status_code=400, detail="A file cannot replace itself")
     documents = {doc.file_name: doc for doc in await get_available_documents_async(collection_name)}
@@ -586,26 +463,6 @@ async def update_document_display_title_route(
     request: UpdateDisplayTitleRequest,
     ingestor: BaseIngestor = Depends(_require_ingestor),
 ) -> dict[str, str | None]:
-    """Set the user-facing ``display_title`` on one document's metadata row.
-
-    The tenant-scoped twin of the base-corpus rename
-    (``/v1/admin/oib/documents/{file_name}/display-title``): same factory
-    seam, same store, same effect — retrieval prefers a stored
-    ``display_title`` over the filename when it builds a citation chip, so a
-    rename shows up there immediately and NOTHING is re-ingested. The
-    document's ``file_name`` stays its identity; only the label moves.
-
-    Follows the documents-router auth model: end-user access is enforced at
-    the BFF, which resolves the caller's permission on the document before
-    it addresses this route by collection.
-
-    - A null or blank title clears the override, restoring the derived
-      default (``guess_display_title``).
-    - No metadata row for ``(collection, file_name)`` → 404. The summary is
-      the anchor, as it is for tags: a document that was never summarized
-      has nothing to carry a title. The BFF treats that as non-fatal — the
-      rename it stores on its own row is the durable one.
-    """
     new_title = (request.display_title or "").strip() or None
 
     updated = await asyncio.to_thread(set_document_display_title, collection_name, file_name, new_title)
@@ -637,24 +494,6 @@ async def update_document_folder_path_route(
     request: UpdateFolderPathRequest,
     ingestor: BaseIngestor = Depends(_require_ingestor),
 ) -> dict[str, str | None]:
-    """Set one document's ``folder_path`` — the per-document half of ADR-0049.
-
-    The subtree mirror below moves a FOLDER and everything under it; this
-    moves a DOCUMENT between folders that both already exist. Both are
-    needed and neither substitutes for the other: a document leaving
-    ``Brandschutz`` for ``Statik`` shares no path prefix with its former
-    neighbours, so a prefix rewrite cannot express it.
-
-    Same shape as the display-title mirror: UPDATE-only, nothing
-    re-ingested, and the metadata row's summary is the anchor — a document
-    that was never summarized has nothing to carry a folder, which is a 404
-    the BFF treats as non-fatal because its own ``documents.folder_id`` is
-    the durable record of where the file lives.
-
-    Follows the documents-router auth model: end-user access is enforced at
-    the BFF, which has already checked ``project:documents:write`` on the
-    project that owns this collection.
-    """
     new_path = (request.folder_path or "").strip() or None
 
     updated = await asyncio.to_thread(set_document_folder_path, collection_name, file_name, new_path)
@@ -688,27 +527,6 @@ async def rewrite_folder_paths_route(
     request: RewriteFolderPathRequest,
     ingestor: BaseIngestor = Depends(_require_ingestor),
 ) -> dict[str, Any]:
-    """Mirror a project-folder rename, move or delete onto document metadata.
-
-    The sibling of the display-title mirror
-    (``PATCH .../documents/{f}/display-title``): same store, same
-    no-re-ingest property, one call instead of one per document. The BFF's
-    ``project_folders.path`` is MATERIALISED, so renaming or re-parenting a
-    folder rewrites the whole subtree there in a single prefix replace; this
-    endpoint is that same operation applied to the backend's
-    ``document_metadata.folder_path``.
-
-    - ``from_path`` matches the folder itself AND everything under
-      ``from_path/`` — a folder called ``Plan`` never drags ``Plangrundlagen``
-      along.
-    - ``to_path`` null/blank re-files the subtree at the project root, which
-      is what a folder DELETE does to its direct children.
-    - Nothing filed under the path is not an error: ``{"updated": 0}``.
-
-    Follows the documents-router auth model: end-user access is enforced at
-    the BFF, which has already checked ``project:documents:write`` on the
-    project that owns this collection before it addresses this route.
-    """
     updated = await asyncio.to_thread(
         rewrite_document_folder_paths, collection_name, request.from_path, request.to_path
     )
@@ -725,15 +543,6 @@ async def delete_files(
     request: DeleteFilesRequest,
     ingestor: BaseIngestor = Depends(_require_ingestor),
 ) -> dict[str, Any]:
-    """Delete files from a collection by ID.
-
-    ``permanent`` (default ``false``) says nobody will undo this delete. Without it
-    the files' chunks and metadata rows go, but the Fassung facts a person made (a
-    confirmed link, refused suggestions, the change line against a linked Fassung)
-    are kept for the file's return, and links other files hold to it stay: an
-    archive, the folder bin and a publish purge and then read the document again.
-    With it, those facts go and the files it replaced are current again for good.
-    """
     await require_collection(ingestor, collection_name)
 
     if not request.file_ids and not request.documents:
@@ -773,7 +582,6 @@ async def delete_files(
 
 
 def add_document_routes(router: APIRouter):
-    """Add document management routes to the FastAPI app."""
     router.post(
         "/v1/collections/{collection_name}/documents",
         response_model=UploadResponse,

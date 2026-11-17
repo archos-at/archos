@@ -1,4 +1,4 @@
-"""Give every Qdrant point with only ``grid_document_id`` the key ``document_id``: drop after release 2026-W50."""
+# drop after release 2026-W50: gives every Qdrant point with only grid_document_id the key document_id
 
 from __future__ import annotations
 
@@ -19,7 +19,9 @@ DEFAULT_PAGE_SIZE = 500
 
 def main(argv: list[str] | None = None) -> int:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)-8s %(message)s", stream=sys.stdout)
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(
+        description="Give every Qdrant point that has only grid_document_id the key document_id."
+    )
     parser.add_argument("physical", choices=["all", *(p.value for p in Physical)], help="Which physical collection.")
     parser.add_argument("--apply", action="store_true", help="Write. Without it nothing is changed.")
     parser.add_argument("--page-size", type=int, default=DEFAULT_PAGE_SIZE)

@@ -1,9 +1,3 @@
-"""What an ingest request says about a mail: the filed thread, or the message an attachment came with (ADR-0137).
-
-Kept apart from ``requests.py`` so the mail vocabulary reads in one place; ``IngestRequest``
-carries both models as optional fields.
-"""
-
 from typing import Annotated
 from typing import Literal
 from uuid import UUID
@@ -22,13 +16,6 @@ _MailDomain = Annotated[str, StringConstraints(strip_whitespace=True, max_length
 
 
 class MailThreadFacts(BaseModel):
-    """The document is a filed E-Mail-Verlauf (ADR-0137): one Markdown section per message.
-
-    Its chunks are stamped ``source_format: mail`` (the lane ``project_mail``), and the
-    record lands on the metadata row, where the newest message's date becomes the
-    document's own date. No address and no text: what a heading says is in the bytes.
-    """
-
     model_config = ConfigDict(extra="forbid")
 
     latest_sent_at: AwareDatetime = Field(
@@ -39,17 +26,6 @@ class MailThreadFacts(BaseModel):
 
 
 class MailOrigin(BaseModel):
-    """The message a filed attachment came with, as the receive step established it (ADR-0137).
-
-    Stored on the attachment's metadata row and printed by ``list_files`` and
-    ``read_passage``: the signing domain when the sender was verified, and
-    otherwise the From domain with „Domain nicht bestätigt“. A forwarded message
-    names its author in ``from_*`` and ``sent_at`` (never confirmed) and its
-    forwarder in ``forwarded_by_*`` and ``forwarded_at``; the signature and the
-    trust are the forward's. Display names and domains only; any other key, an
-    address included, is refused.
-    """
-
     model_config = ConfigDict(extra="forbid")
 
     sent_at: AwareDatetime = Field(..., description="The message's send time, clamped by the BFF.")
@@ -73,7 +49,6 @@ class MailOrigin(BaseModel):
     @field_validator("from_name", "forwarded_by_name")
     @classmethod
     def _no_address(cls, value: str | None) -> str | None:
-        """A name that is an address would print one: refused, the BFF sends the name or nothing."""
         if value is not None and "@" in value:
             raise ValueError("a mail name must be a display name, never an address")
         return value

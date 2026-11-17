@@ -1,5 +1,3 @@
-"""Terms, slack and caveats the fire operators share, each named once."""
-
 from __future__ import annotations
 
 NOT_OCCUPIED_TERMS: tuple[str, ...] = (

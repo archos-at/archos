@@ -1,3 +1,3 @@
-"""The MCP mode header the BFF still reads from older clients: drop after release 2026-W48."""
+# drop after release 2026-W48
 
 LEGACY_MODE_HEADER = "x-piloti-mcp-mode"

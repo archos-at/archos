@@ -1,88 +1,3 @@
-"""Enforcement for the consolidated, signed ``X-Grid-Request-Context`` envelope.
-
-User-mandated requirement (2026-07-16): a workflow-invoking request from a
-WorkOS-authenticated user MUST carry the consolidated context envelope —
-without it we cannot verify who the user is, which organization they belong
-to, and what model overrides the organization has configured, so the request
-is not valid. This module is the FAIL-CLOSED enforcement point for that rule.
-
-Design
-------
-``RequestContextEnvelopeMiddleware`` is a raw ASGI middleware, following the
-same pattern as ``agent_host.auth.middleware.AuthMiddleware`` (not Starlette's
-``BaseHTTPMiddleware``, which buffers the response body and breaks SSE
-streaming — several routes here stream). It is registered in
-``plugin.py::AgentHostWorker.build_app`` and must be added to the app BEFORE
-``AuthMiddleware`` is added: Starlette's ``add_middleware`` inserts each
-middleware as the new OUTERMOST layer, so whichever is added *last* runs
-*first* on the way in. Adding this middleware first (so ``AuthMiddleware`` is
-added after, becoming the outer layer) means ``AuthMiddleware`` always
-resolves ``scope["state"]["user"]`` before this middleware reads it for HTTP
-requests.
-
-For WebSocket upgrades, ``AuthMiddleware`` deliberately no-ops (see its
-module docstring) — the real handshake auth lives in
-``agent_host.chat_socket.authenticate_websocket_connection``, which this module
-does not import. Instead,
-for the ``/websocket`` path this middleware independently re-runs the same
-``resolve_request_user`` classification the WS handshake will *also* run,
-purely to decide whether an authenticated JWT caller is present and must
-therefore carry the envelope — it never itself validates token *authenticity*
-beyond that classification, so no auth behavior changes; a request that fails
-this check today would also have failed (or been treated as internal by) the
-downstream handshake.
-
-Enforcement matrix
--------------------
-Enforcement (403 / WS policy-violation close) applies only when ALL of:
-
-1. ``REQUIRE_AUTH=true`` (the same flag ``AuthMiddleware``/``plugin.py`` read);
-2. the resolved caller is a WorkOS-authenticated user (``user["type"] ==
-   "jwt"``, set by ``JWTValidator.validate`` — see ``auth/jwt_validator.py``);
-3. the request path is NOT one of the ``ENVELOPE_EXEMPT_*_PATH_PREFIXES``
-   below;
-4. no valid envelope is present (see ``RequestContext.from_envelope``
-   in ``agent.project_context`` — the single verify function this module
-   calls, shared with the runtime ``from_context()`` parse path).
-
-**Deny by default.** Condition 3 used to be the opposite: an allowlist of
-ENFORCED paths (the async job submit, the internal skills submit, the agent runtime's
-``/generate``). Every workflow endpoint the agent runtime mounts that nobody had listed —
-``/chat``, ``/chat/stream``, ``/v1/chat``, ``/v1/chat/stream``,
-``/v1/chat/completions``, ``/v1/workflow``, ``/v1/workflow/stream`` — ran a
-full agent turn for a signed-in member with no organization, no budget, no
-disabled sources and no model overrides, reached through the BFF's v1 proxy
-with nothing but the member's cookie. A path a future agent-runtime release adds would
-have been open the same way. Now a JWT caller needs the envelope everywhere
-except the short list of paths that run no workflow and that a BFF proxy
-legitimately forwards with the member's bearer and no envelope. Those agent-runtime
-routes are no longer mounted at all (``agent_host.plugin.AgentHostConfig``: a turn
-runs on the chat socket alone); deny by default is what still closes a route
-a later agent-runtime release adds.
-
-EXEMPT (enforcement never applies):
-
-- anonymous mode (``REQUIRE_AUTH=false``);
-- internal-token-authenticated service calls — either because
-  ``AuthMiddleware`` already classified the caller as ``"internal"``/
-  ``"unverified_jwt"`` (not ``"jwt"``), or because the request explicitly
-  carries a valid ``x-internal-token`` matching ``INTERNAL_API_TOKEN``
-  (the name ``routes/internal_auth.py`` and ``routes/config_info.py`` read);
-- the ``ENVELOPE_EXEMPT_HTTP_PATH_PREFIXES``: health, collection/document
-  management and ingestion status, the data-source listing, the agent-type
-  listing and the drafts reader. Adding a path here is a statement that it
-  cannot start an agent turn and decides nothing from the envelope. The job
-  routes fail the second half: they authorize a job by the scope the envelope
-  signs (ADR-0084), so they are enforced like the submit.
-
-Fail-open note (dev): when ``INTERNAL_API_TOKEN`` is unset,
-``RequestContext.from_envelope`` skips HMAC verification but still
-requires the envelope header to be present and well-formed — so local dev
-without the token configured still exercises the "did every producer
-remember to attach the envelope" contract, just without the integrity check
-that requires a shared secret to perform.
-"""
-
 from __future__ import annotations
 
 import hmac
@@ -138,12 +53,6 @@ def _header(headers: dict[bytes, bytes], name: str) -> str | None:
 
 
 def _is_internal_token_call(headers: dict[bytes, bytes]) -> bool:
-    """True when the request carries a valid internal-service token.
-
-    Checked independently of ``AuthMiddleware``'s caller classification so
-    this exemption holds even in configurations where a service call happens
-    to also present a bearer token that resolves to ``type != "internal"``.
-    """
     secret = os.environ.get("INTERNAL_API_TOKEN")
     if not secret:
         return False
@@ -162,20 +71,6 @@ def _has_valid_envelope(headers: dict[bytes, bytes]) -> bool:
 
 
 class RequestContextEnvelopeMiddleware:
-    """Fail-closed enforcement of the signed context envelope (see module docstring).
-
-    Args:
-        app: The inner ASGI application.
-        require_auth: Mirrors ``AuthMiddleware``'s ``REQUIRE_AUTH`` flag — when
-            ``False`` (anonymous-mode deployments), enforcement never applies.
-        validators: Same validator chain passed to ``AuthMiddleware``, needed
-            here only to independently classify WebSocket callers (see module
-            docstring) since ``AuthMiddleware`` skips WS scopes entirely.
-        external_hostnames: Same set ``AuthMiddleware`` uses to decide which
-            requests are "external"; defaults to the ``EXTERNAL_HOSTNAMES``
-            env var like ``AuthMiddleware`` does.
-    """
-
     def __init__(
         self,
         app: ASGIApp,

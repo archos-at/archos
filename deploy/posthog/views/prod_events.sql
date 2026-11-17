@@ -1,5 +1,7 @@
 -- Production's events, every kind: browser, server, agent and the Langfuse export.
 -- Staging shares the project; this is the one place that tells them apart.
+-- Every event names its Pulumi stack in `deployment` (`prod`, `dev`) from the deploy
+-- that added it; the host lists below only place the events from before that deploy.
 -- Production changed host on 2026-11-15 (app.piloti.at to app.archos.tech).
 SELECT
     e.uuid AS uuid,
@@ -18,6 +20,15 @@ SELECT
         -- not arrayFirst: a lambda here stops the outer time filter narrowing the scan.
         nullIf(extract(coalesce(e.properties.langfuse_tags, ''), 'app_host:([a-z0-9.-]+)'), '')
     ) AS app_host,
+    coalesce(
+        e.properties.deployment,
+        nullIf(extract(coalesce(e.properties.langfuse_tags, ''), 'deployment:([a-z0-9_-]+)'), ''),
+        multiIf(
+            app_host IN ('app.archos.tech', 'app.piloti.at'), 'prod',
+            app_host IN ('app.dev.archos.tech', 'app.dev.piloti.at'), 'dev',
+            NULL
+        )
+    ) AS deployment,
     coalesce(e.properties.organization_id, e.`$group_0`) AS organization_id
 FROM events AS e
-WHERE app_host IN ('app.archos.tech', 'app.piloti.at')
+WHERE deployment = 'prod'

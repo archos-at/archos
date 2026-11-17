@@ -1,30 +1,3 @@
-"""The agent's read tools, served to the BFF for other agents (ADR-0122).
-
-``POST /v1/internal/tools/{name}`` runs one of ``BACKEND_READ_TOOLS`` (knowledge
-search, passage reading, the file browser, page images, the two BIM tools, RIS)
-with the arguments in the body, and answers what the tool returned. The BFF's
-MCP server is the only caller: an outside agent reaches this agent's best reads
-through ``/api/mcp`` and the BFF forwards the call here
-(``apps/workspace/bff/agent-api/backend-operations.ts``).
-
-Two credentials, as for every act of a person on this tier:
-
-* the internal token (``INTERNAL_API_TOKEN``) says the caller is the BFF;
-* the signed ``X-Grid-Request-Context`` envelope says WHO asked and what they
-  may read: the organization, the user, the project and the collection scope
-  the BFF checked before it signed. The tools read all of it from the turn
-  context, so it is laid there exactly as a chat turn lays it, from the
-  VERIFIED envelope and nothing the request set itself.
-
-An envelope that is missing, badly signed, unnamed for a user or an
-organization, or older than the BFF's own verifier accepts is a 403: the tools
-would otherwise run with no person and no scope. This tier verifies and forwards; it never
-builds or signs an envelope (ADR-0108).
-
-Only an allowlisted READ runs. A write is a BFF route, because the BFF is the
-single writer of ``app`` (ADR-0003) and a person gates it.
-"""
-
 from __future__ import annotations
 
 import logging
@@ -63,19 +36,10 @@ INTERNAL_TOOL_PATH = "/v1/internal/tools/{name}"
 
 
 class ToolCall(BaseModel):
-    """The body: the tool's own arguments, validated against the tool's input schema."""
-
     arguments: dict[str, Any] = Field(default_factory=dict)
 
 
 def _verified_context(request: Request) -> RequestContext:
-    """The envelope's context, or a 403 saying why there is none.
-
-    The bar every reader that trusts the envelope holds it to (``jobs.access.verified_envelope``):
-    signed with the shared secret, naming the user and the organization, and inside the
-    BFF verifier's window in both directions. Here no user is asserted by the caller, so the
-    envelope names the user it speaks for.
-    """
     secret = os.environ.get("INTERNAL_API_TOKEN")
     context = RequestContext.from_envelope(
         request.headers.get(REQUEST_CONTEXT_ENVELOPE_HEADER),
@@ -97,12 +61,6 @@ def _verified_context(request: Request) -> RequestContext:
 
 @contextmanager
 def _turn_headers(request: Request, context: RequestContext) -> Iterator[None]:
-    """Lay the verified context where the tools read a turn's, for the duration of one call.
-
-    The tools read ``Context.get().metadata.headers``. The envelope travels as it
-    arrived (its signature covers those bytes) and the three identity headers come
-    from what it VERIFIED, so a header the caller set beside it never reaches a tool.
-    """
     from starlette.datastructures import Headers
 
     from nat.plugin_api import ContextState
@@ -128,16 +86,6 @@ def _turn_headers(request: Request, context: RequestContext) -> Iterator[None]:
 
 @contextmanager
 def _metered_call() -> Iterator[None]:
-    """One door call as one bounded, booked unit of work, the way a chat turn is.
-
-    The usage ledger: every model call a tool makes (a ``look``'s reading, a
-    search's rerank) is booked to the person and organization the envelope
-    verified, inside their budget, and reaches the BFF's budget gate, which
-    refuses the next door call once it is spent. The image budget: a call gets
-    a fresh one of :data:`DOOR_LOOKS_PER_CALL`, so one ``document-look`` costs one
-    look, its reading included. The door's
-    calls themselves are bounded by the budget, not by a per-call price.
-    """
     from agent.common.cost_tracking import track_llm_costs
     from agent.common.image_view_budget import begin_image_view_budget
     from agent.common.image_view_budget import end_image_view_budget
@@ -151,20 +99,12 @@ def _metered_call() -> Iterator[None]:
 
 
 def _wire(result: Any) -> Any:
-    """What a tool returned, as JSON: text stays text, content blocks stay blocks.
-
-    The evidence tools end their text with a ``## Trace-Lanes`` JSON line. It is
-    the product's own trace (the derivation reads the records the renderer filed,
-    never this line) and noise to an outside agent, so the door drops it here;
-    the in-product path never passes through this route and keeps it.
-    """
     if isinstance(result, str):
         return strip_trace_lanes(result)
     return to_jsonable_python(result, fallback=str)
 
 
 def add_internal_tool_routes(router: APIRouter) -> None:
-    """Add the read-tool route to the knowledge router."""
 
     @router.post(
         INTERNAL_TOOL_PATH,

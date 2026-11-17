@@ -7,8 +7,8 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from knowledge_layer.search import _CHUNK_TRUNCATE_CHARS
 from knowledge_layer.search import format_results
-from knowledge_layer.search.grounding_hits import _CHUNK_TRUNCATE_CHARS
 
 from agent.citations.entries import SourceEntry
 from agent.citations.extraction import extract_sources_from_tool_result

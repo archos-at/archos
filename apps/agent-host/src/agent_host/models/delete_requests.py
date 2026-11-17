@@ -1,19 +1,13 @@
-"""The body of a delete of files or documents from a collection."""
-
 from pydantic import BaseModel
 from pydantic import Field
 
 
 class DocumentToDelete(BaseModel):
-    """A workspace document whose chunks go: by its id, and by its name for chunks that carry no id."""
-
     id: str = Field(..., min_length=1, description="The workspace document's id (`documents.id`)")
     file_name: str = Field(..., min_length=1, description="The name its chunks are stored under")
 
 
 class DeleteFilesRequest(BaseModel):
-    """Request body for batch file deletion."""
-
     file_ids: list[str] = Field(..., description="List of file IDs to delete")
     documents: list[DocumentToDelete] = Field(
         default_factory=list,

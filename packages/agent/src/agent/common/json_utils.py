@@ -1,5 +1,3 @@
-"""JSON utility functions."""
-
 import json
 import logging
 import re
@@ -9,20 +7,6 @@ logger = logging.getLogger(__name__)
 
 
 def extract_json(text: str) -> dict[str, Any] | None:
-    """
-    Extract JSON from text, handling markdown code blocks and other formats.
-
-    Tries multiple strategies to extract JSON:
-    1. Parse as raw JSON
-    2. Extract from ```json code blocks
-    3. Find first { to last } substring
-
-    Args:
-        text: Text that may contain JSON.
-
-    Returns:
-        Parsed JSON dict, or None if extraction fails.
-    """
     if not text:
         return None
 

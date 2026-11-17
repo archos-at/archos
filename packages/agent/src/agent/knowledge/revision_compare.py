@@ -1,27 +1,3 @@
-"""What changed between two Fassungen of one page, read off the pictures (CONTEXT.md, „Fassung").
-
-``document_revisions`` tells what changed from two *descriptions*; this module
-is the other half, for the compare view: both page images go to a vision model
-in one call and come back as boxes on the NEWER page plus a few German
-sentences. Everything here is pure (prompt, parsing, cache identity) so the
-route that posts the images stays thin and the parsing is tested without a model.
-
-**A box is a claim, so a malformed one is dropped, never repaired into
-something plausible.** The model is asked for ``x, y, w, h`` as fractions of
-the page (``0, 0`` is the top left). Each of the four must lie in ``0..1``
-(:data:`EDGE_TOLERANCE` of overshoot is rounding, clamped); a box that sits
-outside the page is a hallucination or a percentage written as a count, and
-clamping ``w = 40`` to the page edge would draw a large box the model never
-meant. What survives is at most :data:`MAX_REGIONS` boxes, and a box that
-runs over the page edge is trimmed to it.
-
-**"Nothing changed" is an answer.** When no box and no sentence survives, the
-summary is :data:`NO_CHANGE_TEXT`, so the person is told there is no visible
-change instead of being shown an empty panel that could mean "the call
-failed". A reply that is not the requested JSON at all is ``None`` (a failure),
-which the caller never caches.
-"""
-
 from __future__ import annotations
 
 import hashlib
@@ -76,8 +52,6 @@ COMPARE_PROMPT = "\n".join(
 
 @dataclass(frozen=True)
 class CompareRegion:
-    """One change, boxed on the newer page in page-relative ``0..1`` coordinates."""
-
     page: int
     x: float
     y: float
@@ -91,8 +65,6 @@ class CompareRegion:
 
 @dataclass(frozen=True)
 class CompareResult:
-    """What a comparison of one page pair says: the boxes and the words."""
-
     regions: tuple[CompareRegion, ...]
     summary: tuple[str, ...]
 
@@ -101,7 +73,6 @@ class CompareResult:
 
     @classmethod
     def from_dict(cls, data: Any) -> CompareResult | None:
-        """A result read back from the cache, or ``None`` when the entry is not one (a stale shape)."""
         if not isinstance(data, Mapping):
             return None
         raw_regions, raw_summary = data.get("regions"), data.get("summary")
@@ -117,7 +88,6 @@ class CompareResult:
 
 
 def build_messages(older_data_url: str, newer_data_url: str) -> list[dict[str, Any]]:
-    """The one user message: the instruction, then the older page, then the newer page."""
     return [
         {
             "role": "user",
@@ -133,28 +103,15 @@ def build_messages(older_data_url: str, newer_data_url: str) -> list[dict[str, A
 
 
 def traceable(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """``messages`` with every inline image replaced by its size and hash, for the Langfuse input.
-
-    A page image is megabytes of base64: a trace holds the prompt and what was
-    sent (how many images, how large), never the pixels of a customer's drawing.
-    """
     return redact_inline_images(messages)
 
 
 def cache_key(model: str, collection: str, page: int, older_jpeg: bytes, newer_jpeg: bytes) -> str:
-    """The cache identity of one comparison: what was compared, on which page, by which model and prompt.
-
-    The two pictures are part of it as content hashes, not file names: a name
-    re-uploaded with other bytes is another comparison, and the same two
-    pictures asked again cost no model call. The collection keeps one
-    organization's results out of another's reach.
-    """
     older, newer = (hashlib.sha256(jpeg).hexdigest() for jpeg in (older_jpeg, newer_jpeg))
     return f"revision-compare:v{PROMPT_VERSION}:{model}:{collection}:p{page}:{older}:{newer}"
 
 
 def _number(value: Any) -> float | None:
-    """A finite float, or ``None``. A ``bool`` is not a coordinate."""
     if isinstance(value, bool) or not isinstance(value, int | float):
         return None
     return float(value) if math.isfinite(value) else None
@@ -165,10 +122,6 @@ def _in_page(value: float) -> bool:
 
 
 def _box(item: Mapping[str, Any]) -> tuple[float, float, float, float] | None:
-    """``(x, y, w, h)`` of a change, or ``None`` when it is malformed or off the page.
-
-    The four may also arrive as ``"box": [x, y, w, h]``.
-    """
     raw = item.get("box")
     if isinstance(raw, list) and len(raw) == 4:
         values = [_number(value) for value in raw]
@@ -215,13 +168,6 @@ def _says_no_change(lines: tuple[str, ...]) -> bool:
 
 
 def parse_compare(data: Mapping[str, Any], page: int) -> CompareResult:
-    """The boxes and sentences of a model's reply (already a JSON object), defensively.
-
-    A change without a label, or whose box is malformed or off the page, is
-    dropped; at most :data:`MAX_REGIONS` boxes are kept. A model that claims no
-    change but still boxed one is believed on the boxes: the summary then
-    names them instead of denying them.
-    """
     regions = _regions(data.get("changes"), page)
     summary = _summary(data.get("summary"))
     if regions and (not summary or _says_no_change(summary)):

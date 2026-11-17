@@ -1,50 +1,3 @@
-"""Licensed text reaches a model only inside the call, and leaves it only as short quotes.
-
-An office may hold text it licensed rather than owns: its copy of an ÖNORM or a
-DIN, a paid commentary. The office carries the licence and we promised it zero
-retention for that text (feld72, "zero retention for norms"): no licensed body
-rests in a trace, a log, a cache, a checkpoint, a job payload, an analytics event
-or an export. Only a quote of at most the licence's ``quote_max_chars`` may
-persist, and only with the answer that quotes it.
-
-The mark is the point's (or the document row's) ``licence_class``, one of
-:data:`LICENCE_CLASSES`; the office layer writes it at upload (design 4.7), and
-:func:`licence_from_metadata` reads it, failing closed on a value it does not
-know. This module is everything that follows from the mark, in four moves:
-
-1. **A reference, not the text.** When a grounding block renders a licensed hit
-   (``common/grounding_block.py``), the body becomes one reference token
-   (:func:`licensed_body`) and the text is filed in this turn's
-   :class:`LicensedCapture`, an in-memory map that lives as long as the turn and
-   is never serialised. So the ``ToolMessage``, the checkpoint, the agent runtime's
-   span of the tool call, the Herleitung and the next turn's history all hold the
-   token. A turn whose capture does not allow text (the ``licensed-seam`` flag is
-   off, or the caller opened none: deep research, intake, a job) gets the hit's
-   place and no text, which is what "gelistet, kein Text" means for a model.
-2. **Expanded inside the call.** The chat-request contract (``llm_factory``)
-   calls :func:`expand_messages` on the messages it is about to send. LangChain has
-   already reported them to every callback, Langfuse's included, so the trace
-   logs the token and only the provider sees the text: whole, never cut, and only on a request pinned
-   to zero-retention endpoints, whose terms cover the provider's short-lived prompt cache (identical
-   bytes on every call of a turn, so the later calls read the norm from it). Licensed text is not
-   carried between turns: a later turn reads a reference's passage again from its document
-   (``licensed_recall``), hash-checked against the reference, and only while the copy is still licensed
-   and attested; anything else expands to :data:`EXPIRED_NOTE`.
-3. **Capped on the way out.** A call that expanded anything returns through
-   :class:`QuoteCap`, a shingle matcher that lets a run of licensed text through
-   up to the passage's ``quote_max_chars`` and drops the rest, in the answer, the
-   reasoning and every tool call's arguments, before LangChain hands a token or a
-   result to a callback.
-4. **Redacted where it is traced directly.** A generation recorded outside the
-   agent runtime (``observability.direct_trace``) passes its payloads through
-   :func:`trace_payload`: capped against this turn's licensed text, and replaced
-   by metadata (length and sha256) inside :func:`licensed_ingest`, the scope an
-   ingest of a licensed document runs in, since the page reads ARE the text.
-
-The cap is a floor, not a judgement: it bounds how much of a passage a single
-quote can carry, it does not decide whether a quote is fair.
-"""
-
 from __future__ import annotations
 
 import hashlib
@@ -128,13 +81,10 @@ EXPIRED_NOTE = "[Licensed text from an earlier turn, not carried over. Search or
 
 
 def passage_digest(text: str) -> str:
-    """The reference id of ``text``: the same passage, the same id."""
     return "lp_" + hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
 
 
 class LicenceTerms(BaseModel):
-    """What a passage's licence allows: its class, and the longest quote of it an answer may carry."""
-
     model_config = ConfigDict(frozen=True)
 
     licence_class: str
@@ -148,17 +98,10 @@ class LicenceTerms(BaseModel):
 
     @property
     def model_readable(self) -> bool:
-        """Whether any model call may read this text: always for a public class, for a licensed one only attested."""
         return not self.licensed or self.ai_processing
 
 
 def licence_from_metadata(metadata: Mapping[str, Any] | None) -> LicenceTerms | None:
-    """The terms a point's payload (or a document row's fields) states, or ``None`` for an unmarked one.
-
-    Fails CLOSED: a class this module does not know is read as ``licensed``, since a
-    writer that marked a passage meant something by it, and a cap that is not a
-    positive number is the default.
-    """
     raw = (metadata or {}).get(LICENCE_CLASS_KEY)
     if not raw:
         return None
@@ -175,8 +118,6 @@ def licence_from_metadata(metadata: Mapping[str, Any] | None) -> LicenceTerms | 
 
 @dataclass
 class LicensedCapture:
-    """One turn's licensed passages, by reference. In memory only; never serialised."""
-
     text_allowed: bool
     passages: dict[str, tuple[str, int]] = field(default_factory=dict)
     read_any: bool = False
@@ -205,12 +146,10 @@ _capture: ContextVar[LicensedCapture | None] = ContextVar("licensed_capture", de
 
 
 def begin_licensed_capture(*, text_allowed: bool) -> Token:
-    """Open this turn's capture. LangGraph copies the context per node, so the container is set once and mutated."""
     return _capture.set(LicensedCapture(text_allowed=text_allowed))
 
 
 def end_licensed_capture(token: Token) -> None:
-    """Close the capture and drop every passage it held."""
     capture = _capture.get()
     if capture is not None:
         capture.passages.clear()
@@ -220,7 +159,6 @@ def end_licensed_capture(token: Token) -> None:
 
 
 def _emit_capped_score(capped: int) -> None:
-    """``licensed-quote-capped`` for a turn that read licensed text: how many quotes of it a reply had cut."""
     try:
         from agent.observability.langfuse_scores import RuntimeScore
         from agent.observability.langfuse_scores import emit_scores
@@ -231,12 +169,10 @@ def _emit_capped_score(capped: int) -> None:
 
 
 def current_capture() -> LicensedCapture | None:
-    """This turn's capture, or ``None`` outside a turn that opened one."""
     return _capture.get()
 
 
 def licensed_body(body: str, terms: LicenceTerms | None, *, anchor: str | None = None) -> str:
-    """What a hit's fence holds: ``body``, or for a licensed one a reference (with ``anchor``, recallable) or a note."""
     if terms is None or not terms.licensed:
         return body
     if not terms.ai_processing:
@@ -251,11 +187,6 @@ def licensed_body(body: str, terms: LicenceTerms | None, *, anchor: str | None =
 
 
 def mark_licensed_turn() -> None:
-    """Mark the turn that read licensed text, once: a trace tag (the judges skip it) and a technical step.
-
-    The step rests with the answer (``messages.metadata``, slot :data:`LICENSED_TRACE_TAG`): the lessons distiller
-    reads it to take no vote on such an answer (design E44). Ids and nothing else: no text, no file name.
-    """
     from agent.common.turn_status import emit_technical
     from agent.observability.langfuse_trace_attributes import add_trace_tag
     from agent.observability.turn_outcome import record_turn_tag
@@ -266,7 +197,6 @@ def mark_licensed_turn() -> None:
 
 
 def licence_line(terms: LicenceTerms | None) -> str | None:
-    """The ``Licence:`` header value of a licensed hit; ``None`` for any other."""
     if terms is None or not terms.licensed:
         return None
     if not terms.ai_processing:
@@ -276,8 +206,6 @@ def licence_line(terms: LicenceTerms | None) -> str | None:
 
 
 def quotable(body: str, terms: LicenceTerms | None) -> str | None:
-    """What of ``body`` may persist as a quote (the citation registry): all of a public one, the cap of an
-    attested licensed one, nothing of an unattested one."""
     if terms is None or not terms.licensed:
         return body or None
     return (body[: terms.quote_max_chars] or None) if terms.ai_processing else None
@@ -313,18 +241,6 @@ def _expand_content(
 
 
 def expand_messages(messages: Any, *, zero_retention: bool) -> tuple[Any, QuoteCap | None]:
-    """``messages`` with each reference replaced by its text, and the cap for the reply; ``(messages, None)`` when none.
-
-    The text is the passage whole, as its tool returned it: the model reads what the question needs, and
-    only what the answer quotes back is capped. It goes only to a request pinned to zero-retention
-    endpoints (``zero_retention``, ADR-0074), whose terms cover the provider's short-lived prompt cache; any
-    other request (an organization that switched retention limits off, a BYOK endpoint) gets
-    :data:`NOT_ZERO_RETENTION_NOTE` instead. Expansion is deterministic, so every call of a turn sends the
-    same bytes and the provider's prompt cache serves the norm to the later calls.
-
-    A message with no reference is returned as the same object, so a call that
-    touches no licensed text sends exactly what it sent before.
-    """
     if not isinstance(messages, list):
         return messages, None
     capture = _capture.get()
@@ -357,15 +273,6 @@ _ESCAPES = {"n": "\n", "t": "\t", "r": "\r", "b": "\b", "f": "\f"}
 
 
 class QuoteCap:
-    """Caps every run of licensed text in a stream at its passage's ``quote_max_chars``.
-
-    A run is a stretch of output whose every :data:`SHINGLE_CHARS`-character window
-    (case and whitespace normalised) occurs in a licensed passage. Its first
-    ``quote_max_chars`` characters pass; the rest are dropped and :data:`CAP_MARKER`
-    is written once where the cut is. The window keeps following the model while
-    it drops, so a run that goes on stays cut.
-    """
-
     def __init__(self, passages: Iterable[tuple[str, int]], capture: LicensedCapture | None = None) -> None:
         self._capture = capture
         self._grams: dict[str, int] = {}
@@ -383,22 +290,15 @@ class QuoteCap:
         self.chunk_capper: Any = None
 
     def stream(self, *, json_raw: bool = False) -> _Run:
-        """A matcher for one channel (the answer, the reasoning, one tool call's arguments).
-
-        ``json_raw``: the channel is JSON text (a tool call's argument fragments); escape
-        sequences are read as the characters they stand for and never cut.
-        """
         return _Run(self, json_raw=json_raw)
 
     def cap_text(self, text: str, *, json_raw: bool = False) -> str:
-        """``text`` with every licensed run in it capped."""
         return self.stream(json_raw=json_raw).feed(text) if self._grams else text
 
     def gram_cap(self, gram: str) -> int | None:
         return self._grams.get(gram)
 
     def shares_shingle(self, text: str) -> bool:
-        """Whether ``text`` holds any :data:`SHINGLE_CHARS`-character window of a licensed passage."""
         norm = _normalised_text(text)
         return any(norm[start : start + SHINGLE_CHARS] in self._grams for start in range(len(norm) - SHINGLE_CHARS + 1))
 
@@ -417,7 +317,6 @@ class _Run:
         self._escape = ""
 
     def _logical(self, char: str) -> tuple[str | None, bool]:
-        """The character ``char`` stands for (None while an escape is still open), and whether it may be cut."""
         if not self._json_raw:
             return char, True
         if self._escape == "\\":
@@ -449,7 +348,6 @@ class _Run:
         return "".join(out)
 
     def _cut(self) -> str:
-        """What a dropped character leaves: the marker, once per run."""
         if self._marked:
             return ""
         self._marked = True
@@ -459,7 +357,6 @@ class _Run:
         return CAP_MARKER
 
     def _advance(self, logical: str) -> bool:
-        """Move the window by one character; True when that character lies past its run's cap."""
         norm = _normalised(logical)
         if norm == " " and self._last == " ":
             return self._length > 0 and self._cap is not None and self._past()
@@ -478,7 +375,6 @@ class _Run:
         return False
 
     def _past(self) -> bool:
-        """Past this run's cap, or past what the whole reply may quote."""
         return self._length > self._cap or self._owner.quoted >= self._owner.budget
 
 
@@ -486,25 +382,11 @@ _metadata_only: ContextVar[bool] = ContextVar("licensed_ingest", default=False)
 _reads_refused: ContextVar[bool] = ContextVar("licensed_reads_refused", default=False)
 
 
-class UnattestedLicensedText(RuntimeError):
-    """A model call inside the ingest of a licensed document the office has not attested for AI processing."""
+class UnattestedLicensedText(RuntimeError): ...
 
 
 @contextmanager
 def licensed_document_scope(terms: LicenceTerms | None) -> Iterator[None]:
-    """The scope work on ONE document runs in (its ingest, a look at its page): what its model calls may do.
-
-    For a licensed document, every model call in the scope:
-
-    - goes to zero-retention endpoints, whatever the organization's setting: the OpenRouter transports pin it
-      (``openrouter._pinned_request``) and the chat contract refuses an unpinned call (``llm_factory``);
-    - reaches OpenRouter or nothing: a BYOK endpoint is outside our zero-retention terms and is refused;
-    - is traced as metadata only (length, sha256): its prompt and reply ARE the licensed text. The generation,
-      its model, usage and cost are still recorded.
-
-    One the office has not attested for AI processing may reach no model at all (design 4.7): every call is
-    refused, so it is never transcribed, embedded, summarised or looked at.
-    """
     licensed = terms is not None and terms.licensed
     traced = _metadata_only.set(licensed or _metadata_only.get())
     refused = _reads_refused.set((licensed and not terms.ai_processing) or _reads_refused.get())
@@ -519,16 +401,10 @@ licensed_ingest = licensed_document_scope
 
 
 def licensed_scope_active() -> bool:
-    """Whether the work in flight is on a licensed document (:func:`licensed_document_scope`)."""
     return _metadata_only.get()
 
 
 def refuse_unattested_model_read(url: str | None = None, *, openrouter: bool = True) -> None:
-    """Raise when a model request may not leave inside a licensed scope. Called by every OpenRouter transport.
-
-    Refused: any request for an unattested licensed document, and one to an endpoint that is not OpenRouter
-    (``openrouter`` False: a BYOK base URL) for an attested one.
-    """
     if _reads_refused.get():
         raise UnattestedLicensedText(
             "this document is licensed and its licence is not attested for AI processing: no model may read it"
@@ -540,7 +416,6 @@ def refuse_unattested_model_read(url: str | None = None, *, openrouter: bool = T
 
 
 def trace_payload(text: str) -> str:
-    """A payload as a direct trace may record it: metadata inside :func:`licensed_ingest`, else capped."""
     if _metadata_only.get():
         digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
         return json.dumps({"licensed": "metadata only", "chars": len(text), "sha256": digest})
@@ -556,7 +431,6 @@ WEB_SEARCH_REFUSAL = (
 
 
 def refused_outbound_query(query: str) -> str | None:
-    """The refusal for an outbound query (a web search) that shares a shingle with this turn's licensed text."""
     capture = _capture.get()
     cap = capture.quote_cap() if capture is not None else None
     return WEB_SEARCH_REFUSAL if cap is not None and cap.shares_shingle(query) else None

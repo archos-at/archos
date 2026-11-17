@@ -1,15 +1,3 @@
-"""The two memory writers, run for real against a faked write endpoint.
-
-Nothing of the product is copied here. The reflection pass is
-``agent.memory.reflection.run_memory_reflection`` (its prompt, its schema, its
-sanitiser, its writes); the tool pass binds the ``remember`` tool that
-``agent.memory.register.project_memory_remember`` yields and runs its body on
-whatever the model calls it with. Only ``bff_http.post_json`` is replaced: the
-one function both writers' clients send through, so the client-side checks
-(the secret and personal-data shapes) still run and a note is counted only
-when it would have left the process.
-"""
-
 from __future__ import annotations
 
 import contextlib
@@ -33,7 +21,6 @@ _raw_reply: ContextVar[list[str] | None] = ContextVar("memory_shelves_raw_reply"
 
 
 def _recording_post_json(path: str, payload: dict[str, Any], **_: Any) -> dict[str, Any]:
-    """Stand in for the BFF: record which shelf the note reached, and answer as a created row."""
     writes = _writes.get()
     shelf = "personal" if path.endswith("/personal-memory") else str(payload.get("scope"))
     note = {"shelf": shelf, "kind": payload.get("kind"), "content": payload.get("content")}
@@ -44,7 +31,6 @@ def _recording_post_json(path: str, payload: dict[str, Any], **_: Any) -> dict[s
 
 @contextlib.contextmanager
 def faked_turn() -> Iterator[None]:
-    """A signed-in person in a project, with every memory write recorded and none sent."""
     from agent import project_context
     from agent.common import bff_http
     from agent.memory import reflection
@@ -76,7 +62,6 @@ def faked_turn() -> Iterator[None]:
 
 
 def _proposed_by_reflection(raw: str) -> list[dict[str, Any]]:
-    """The findings as the model wrote them, before the production sanitiser."""
     from agent.common.json_utils import extract_json
 
     parsed = extract_json(raw)
@@ -94,7 +79,6 @@ def _proposed_by_reflection(raw: str) -> list[dict[str, Any]]:
 
 
 async def reflect_once(llm: Any, case: dict[str, Any]) -> dict[str, Any]:
-    """One real reflection pass over the case's exchange."""
     from agent.common.bff_http import SignedEnvelope
     from agent.memory.reflection import run_memory_reflection
 
@@ -118,7 +102,6 @@ async def reflect_once(llm: Any, case: dict[str, Any]) -> dict[str, Any]:
 
 @contextlib.asynccontextmanager
 async def remember_tool():
-    """The production ``remember`` tool as a LangChain tool: its description, its schema, its body."""
     from langchain_core.tools import StructuredTool
 
     from agent.memory.register import ProjectMemoryRememberConfig
@@ -135,7 +118,6 @@ async def remember_tool():
 
 
 async def _run_call(tool: Any, arguments: dict[str, Any]) -> str:
-    """The tool's own answer to one call; a schema refusal reads as the tool loop would hand it back."""
     from pydantic import ValidationError
 
     try:
@@ -145,7 +127,6 @@ async def _run_call(tool: Any, arguments: dict[str, Any]) -> str:
 
 
 async def remember_once(llm: Any, tool: Any, case: dict[str, Any]) -> dict[str, Any]:
-    """One turn's first model step with the tool bound: does it call ``remember``, and with which scope."""
     from langchain_core.messages import HumanMessage
     from langchain_core.messages import SystemMessage
 

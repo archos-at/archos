@@ -1,37 +1,3 @@
-"""``show_in_viewer``: the agent proposes to move the asker's own document viewer (ADR-0144).
-
-When an answer rests on a place in a document („Baubeschreibung S. 4“), the
-person's next move is to go there. This tool lets the agent take them: open a
-document at a page, mark a passage or a box on it, open a comparison of two
-Fassungen, or select an element of a building model. Each is one action of an
-allow-list (``wire_v2.ViewerActionName``) and travels as one AG-UI frontend tool
-call, the ``viewer_action`` event. The asker's live page runs it on their own
-screen, announces it in the chat with a way back, and runs nothing for anyone
-else: not a spectator, not a replay, not another agent.
-
-It exists for a turn only when the asking page declared it can run it
-(``user_message.client_tools``, AG-UI's ``RunAgentInput.tools``;
-``common/client_tools``). A phone, a tab one release older, a background run
-and an agent at the door declare nothing, and the model is not offered the tool
-there (``core/turn_tools.tools_in_scope``). It proposes ONE place per
-turn: the page runs it after the answer has arrived, and a second call is
-refused.
-
-What this tier decides is only WHICH document and WHERE. The document is
-resolved the way ``look`` resolves one (``look/resolve.py``) and read through
-the BFF in the person's session (the canvas route's ``list``, which loads the
-row with ``findDocumentForSession`` and admits it against the conversation's
-audience), once: when resolving it already asked, that answer stands. A
-document the person cannot see comes back refused and no event is sent. A chat
-attachment is refused too: it is on no shelf, so the page's own read
-(``GET /api/documents/{id}``, which lists shelves) could never open it, and a
-proposal the page must refuse is not one to send. The browser reads the
-document again before it moves anything, so a stale or forged event cannot open
-what the reader may not see.
-
-Its own entry point (``viewer_tools`` in the root ``pyproject.toml``).
-"""
-
 from __future__ import annotations
 
 import logging
@@ -116,7 +82,6 @@ def _is_attachment(resolved: Resolved) -> bool:
 
 
 async def _read_as_person(resolved: Resolved) -> None:
-    """The BFF's own visibility, in the person's session, worded as the READ it is; a 403 or 404 is a refusal."""
     assert resolved.target is not None and resolved.signed is not None
     try:
         await call({"op": "list"}, resolved.target, resolved.signed)
@@ -129,7 +94,6 @@ async def _read_as_person(resolved: Resolved) -> None:
 
 
 async def _visible(document: str) -> Resolved:
-    """The workspace document ``document`` names, read as the person; ``Refused`` when the page could not open it."""
     envelope()
     resolved = await resolve_document(document)
     if isinstance(resolved, str):
@@ -162,7 +126,6 @@ async def _build(
     against: str,
     element: str,
 ) -> ViewerActionValue:
-    """The checked call, or ``Refused`` with the sentence the model reads."""
     if action not in ACTIONS:
         raise Refused(NOT_ON_THE_LIST.format(actions=", ".join(f"`{a}`" for a in ACTIONS)), "not_allowed")
     resolved = await _visible(document)
@@ -200,7 +163,6 @@ async def run_show_in_viewer(
     against: str = "",
     element: str = "",
 ) -> str:
-    """Propose one viewer action to the asker's page; the sentence the model reads back."""
     if not client_tool_declared(TOOL):
         _observe(action, outcome="not_declared")
         return NOT_DECLARED
@@ -218,17 +180,14 @@ async def run_show_in_viewer(
 
 
 def _observe(action: str, *, outcome: str, page: bool = False) -> None:
-    """One ``show_in_viewer`` observation: which action and what became of it. Never the passage or the name."""
     emit_step_span(TOOL, {"action": action if action in ACTIONS else "unknown", "page": page}, {"outcome": outcome})
 
 
-class ShowInViewerConfig(FunctionBaseConfig, name="show_in_viewer"):
-    """Configuration for ``show_in_viewer``. It has none: the allow-list is the wire's."""
+class ShowInViewerConfig(FunctionBaseConfig, name="show_in_viewer"): ...
 
 
 @register_function(config_type=ShowInViewerConfig)
 async def show_in_viewer(config: ShowInViewerConfig, _builder: Builder):
-    """Agent-runtime function: ``show_in_viewer``, bound to the agent in chat only."""
 
     async def _show_in_viewer(
         action: str,

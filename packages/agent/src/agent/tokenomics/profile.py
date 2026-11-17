@@ -12,13 +12,6 @@ PHASE_ORDER = (PHASE_ORCHESTRATOR, PHASE_PLANNER, PHASE_RESEARCHER)
 
 @dataclass
 class PhaseStats:
-    """
-    Token and cost totals for one (phase, model) combination within a single
-    workflow run.  Multiple models can contribute to the same phase (e.g.
-    if the orchestrator LLM is swapped mid-run), so the primary grouping key
-    is ``(phase, model)``.
-    """
-
     phase: str
     model: str
     llm_calls: int = 0
@@ -43,11 +36,6 @@ class PhaseStats:
 
 @dataclass
 class RequestProfile:
-    """
-    All tokenomics data for a single workflow run, pre-aggregated along the
-    dimensions needed by the tokenomics HTML report.
-    """
-
     request_index: int
     question: str
     duration_s: float
@@ -70,7 +58,6 @@ class RequestProfile:
 
     @property
     def grand_total_cost_usd(self) -> float:
-        """LLM token costs + tool API call costs combined."""
         return self.total_cost_usd + self.total_tool_cost_usd
 
     @property
@@ -82,14 +69,12 @@ class RequestProfile:
         return sum(self.tool_calls.values())
 
     def phases_for(self, phase: str) -> list[PhaseStats]:
-        """Return all PhaseStats entries matching ``phase`` (may span models)."""
         return [p for p in self.phases if p.phase == phase]
 
     def cost_for_phase(self, phase: str) -> float:
         return sum(p.cost_usd for p in self.phases_for(phase))
 
     def tokens_for_phase(self, phase: str) -> tuple[int, int, int]:
-        """Return (prompt, cached, completion) totals for a phase."""
         prompt = sum(p.prompt_tokens for p in self.phases_for(phase))
         cached = sum(p.cached_tokens for p in self.phases_for(phase))
         completion = sum(p.completion_tokens for p in self.phases_for(phase))

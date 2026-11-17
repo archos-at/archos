@@ -5,9 +5,9 @@ from types import SimpleNamespace
 
 import pytest
 from knowledge_layer.ingest import LlamaIndexIngestor
+from knowledge_layer.ingest import _PreviousVersion
 from knowledge_layer.ingest import adapter as adapter_module
 from knowledge_layer.ingest import deferred_files as deferred_files_module
-from knowledge_layer.ingest.adapter import _PreviousVersion
 from knowledge_layer.vector_store import store as store_module
 from knowledge_layer_testing import reingest as harness
 from knowledge_layer_testing.reingest import _seed_previous_version

@@ -1,38 +1,3 @@
-"""Where a chat turn's context sits in the request: a stable head and a turn note (ADR-0177).
-
-WHY
-===
-A provider caches the prefix of a request: the tool schemas, the system
-prompt, then the messages. The turn layout sent one turn context right before
-the newest question, holding the project, the office, the inventory and what
-only this turn has (the date, the asker, the open file). Most of it is the same
-on every turn of a project, yet it sat after the history and was sent new on
-every turn, so two turns, or two conversations of one project, shared nothing
-past the system prompt but the history the window happened to keep.
-
-The conversation layout, the default, splits it in two:
-
-* the **conversation context**, what the project and the office set
-  (:data:`CONVERSATION_VALUES`), one message right after the system prompt,
-  with a cache breakpoint at its end. The same bytes on every turn and in every
-  conversation of the project until a file settles or the profile changes;
-* the **turn note**, what this turn varies (:data:`TURN_VALUES`), right before
-  the question where the turn context was, request-only as before. The project
-  context's memory part goes here too (:func:`split_project_context`): the BFF
-  picks and orders the memory notes by their relevance to the question.
-
-Nothing else changes: what is stored, the write-back, the history window.
-Every value the template reads is in exactly one of the two sets, held by a test
-that parses the template, so a new value cannot land in the head unseen and
-rewrite it every turn.
-
-Ported from the unmerged ``feat/chat-conversation-context-layout`` branch: its
-stable head only. Its first variant, storing each turn's note with its question
-and moving the window in steps, was measured there to save ~1.8k new tokens per
-follow-up and carry ~43k more history every round re-reads, a loss by the
-seventh turn; it is not here.
-"""
-
 from __future__ import annotations
 
 import os
@@ -87,11 +52,6 @@ _CONVERSATION_TAG = "conversation_context"
 
 
 def context_layout(template: str) -> str:
-    """The layout a turn renders ``template`` in: :data:`TURN_LAYOUT` when asked for by name.
-
-    Also for a template without the ``<turn_context>`` tags (a test's, a
-    benchmark's): with nothing to retag, the head would be a second copy of it.
-    """
     value = (os.environ.get(LAYOUT_ENV) or "").strip().lower()
     if value == TURN_LAYOUT or f"<{_TURN_TAG}>" not in template:
         return TURN_LAYOUT
@@ -99,11 +59,6 @@ def context_layout(template: str) -> str:
 
 
 def split_values(values: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
-    """The template values of the conversation context and of the turn's note. Pure.
-
-    Every value goes to exactly one part; in the other it is absent, or a switch
-    in the setting that renders nothing (deep research on, not confined).
-    """
     conversation = {key: (None if key in TURN_VALUES else value) for key, value in values.items()}
     conversation["current_datetime"] = ""
     note = {key: (value if key in TURN_VALUES else _QUIET_IN_NOTE.get(key)) for key, value in values.items()}
@@ -111,15 +66,6 @@ def split_values(values: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]
 
 
 def _inventories(values: dict[str, Any]) -> tuple[str, str]:
-    """The conversation's inventory, and the turn's part of it.
-
-    The head lists every settled file on every shelf in scope: the same bytes
-    until a file settles. The note carries what a turn varies: the files still
-    being read. A question that lists ONE shelf gets that shelf's inventory in
-    its note and none in the head: with every shelf in view, the model read
-    OIB filenames out as the Büroablage (``render_inventory_block``'s
-    ``focus_shelf``), so on that turn the head gives up its cache.
-    """
     from agent.knowledge.inventory import get_listing_shelf
     from agent.knowledge.inventory import in_scope_shelves_from_context
     from agent.knowledge.inventory import render_inventory_block
@@ -144,12 +90,6 @@ _MEMORY_PART_HEADERS = (
 
 
 def split_project_context(composed: str | None) -> tuple[str | None, str | None]:
-    """The project context as (profile, memory part). Pure.
-
-    The profile is the same for every question of the project; the memory part
-    is not (``buildProjectMemoryDigest`` ranks unpinned notes by the question),
-    so only the profile may sit in the stable head.
-    """
     if not composed:
         return None, None
     starts = [index for header in _MEMORY_PART_HEADERS if (index := composed.find(header)) >= 0]
@@ -159,7 +99,6 @@ def split_project_context(composed: str | None) -> tuple[str | None, str | None]
 
 
 def layout_values(values: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
-    """The template values of the conversation context and of the turn's note, inventories included."""
     conversation, note = split_values(values)
     conversation["document_inventory"], note["document_inventory"] = _inventories(values)
     conversation["project_context"], note["project_context"] = split_project_context(values.get("project_context"))
@@ -167,7 +106,6 @@ def layout_values(values: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any
 
 
 def as_conversation_context(rendered: str) -> str | None:
-    """A turn-context render of the conversation's values, tagged as the conversation context; None when empty."""
     inner = rendered.replace(f"<{_TURN_TAG}>", "").replace(f"</{_TURN_TAG}>", "")
     if not inner.strip():
         return None

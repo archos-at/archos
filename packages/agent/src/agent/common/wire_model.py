@@ -1,9 +1,3 @@
-"""The two base models every chat wire v2 model stands on (``common/wire_v2.py``).
-
-Split out of ``wire_v2`` so that module can keep its contract without passing
-the size limit; nothing but the wire builds on them.
-"""
-
 from __future__ import annotations
 
 from typing import Any
@@ -23,15 +17,6 @@ def _is_const(annotation: Any) -> bool:
 
 
 class WireModel(BaseModel):
-    """Closed models: a field the contract does not name is a producer bug.
-
-    A frame omits every field at its default (:func:`wire_v2.to_frame` dumps with
-    ``exclude_defaults``) except the ``const`` ones, which are the discriminators
-    (``v``, ``type``, ``name``, ``kind``) and must always be on the wire. The
-    reader's schema restores the defaults, so the frame stays minimal and still
-    parses to the same value.
-    """
-
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     @model_serializer(mode="wrap")
@@ -46,11 +31,4 @@ class WireModel(BaseModel):
 
 
 class OpenWireModel(BaseModel):
-    """A payload whose full contract lives elsewhere (cards, sources, ledger).
-
-    The wire names the fields it routes on and passes the rest through; the
-    owning contract validates the whole (``answerCardSchema``, the citation wire,
-    ``sanitizeAnswerMeta``).
-    """
-
     model_config = ConfigDict(extra="allow", frozen=True)

@@ -35,12 +35,6 @@ function stacksByZone(): Map<string, Array<{ file: string; config: StackConfig }
 }
 
 describe("committed stack files", () => {
-  it("leave the one-shot Chroma migration off, so the base-corpus sync and the vector reconcile run", () => {
-    for (const { file, config } of stacks()) {
-      expect(str(config, "chromaMigration"), `${file} sets the Chroma migration flag`).toBeUndefined();
-    }
-  });
-
   it("finds the stacks it is meant to compare", () => {
     expect(stacks().map((s) => s.file)).toEqual(
       expect.arrayContaining(["Pulumi.dev.yaml", "Pulumi.prod.yaml"]),

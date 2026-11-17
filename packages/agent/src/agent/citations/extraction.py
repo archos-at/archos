@@ -1,10 +1,3 @@
-"""From a tool result to ``SourceEntry`` records: the structured reader first, then the registered text parsers.
-
-The TOOL side is structured: an evidence tool states
-:class:`~agent.common.grounding_block.GroundingHit` records and this module reads the fields (ADR-0061).
-The text parsers serve a replayed turn, whose result is only text.
-"""
-
 from __future__ import annotations
 
 import logging
@@ -31,44 +24,6 @@ def extract_sources_from_tool_result(
     source_id: str | None = None,
     artifact: Any = None,
 ) -> list[SourceEntry]:
-    """Extract sources from a tool's output.
-
-    Strategy:
-    00. If the result carries its records on ``ToolMessage.artifact``
-       (``common.citation_collector``, the filesystem tools, ADR-0133), copy
-       their fields. The artifact travels with the message, so it holds for a
-       message whose text the turn's capture no longer knows.
-    0. If this exact text was rendered from a grounding block during this turn,
-       copy the fields off the records the producer stated (ADR-0061). No
-       parsing, and nothing the passage body can forge.
-    1. If a registered parser matches the tool name, use it (for special
-       formats like knowledge layer citation keys). Its answer is final,
-       including an empty one: a knowledge, RIS or read_passage text with no
-       ``Citation:`` line states no source, and the URLs it happens to contain
-       belong to a passage body or to an error message. A web search's sources
-       are its result records (``web_results.py``), never an address in a page.
-    2. For a tool with no registered parser, fall back to the generic URL
-       extractor, which finds all URLs in any tool output regardless of format.
-    3. If neither produces entries, register the tool result itself as a
-       non-URL citation source.
-
-    Step 0 misses for everything that holds the text without the records: a
-    turn replayed from Postgres, a registry hydrated from the shared cache, the
-    job runner's callback. Those fall through to the text parsers below, which
-    is what the parsers are still there for.
-
-    A new source tool works without a parser when its output contains URLs, and
-    registers every one: a tool that returns a page's text needs its own parser.
-
-    The non-URL fallback is permissive on purpose: callers (Piloti and
-    deep researchers) are responsible for deciding which tool calls are
-    eligible to contribute sources, typically by limiting capture to the
-    agent's loaded tool set. The optional ``source_id`` is stored on the
-    returned entries when callers have resolved this tool to a configured
-    data source via
-    :func:`agent.common.data_source_registry.get_source_id_for_tool`,
-    but it does not gate the fallback.
-    """
     from agent.common.citation_collector import hits_from_artifact
 
     carried = hits_from_artifact(artifact)
@@ -105,11 +60,6 @@ _BATCH_QUERY_HEADING_RE = re.compile(r"\A\s*##\s*Query:[^\n]*\n?", re.IGNORECASE
 
 
 def _split_batch_output_bodies(content: str) -> list[str] | None:
-    """Split batch source-tool output into per-query bodies.
-
-    Returns None when content is not batch-formatted (i.e. any section does
-    not start with a "## Query:" heading).
-    """
     sections = _BATCH_SECTION_SEPARATOR_RE.split(content.strip())
     bodies: list[str] = []
     for section in sections:
@@ -121,12 +71,6 @@ def _split_batch_output_bodies(content: str) -> list[str] | None:
 
 
 def _is_non_citable_status_output(content: str) -> bool:
-    """Return whether content is a tool status/error message, not evidence.
-
-    Understands the batched source-tool output format: a batch whose items ALL
-    errored (or returned nothing) is a status report, not citable evidence.
-    A batch with at least one substantive item stays citable.
-    """
     batch_bodies = _split_batch_output_bodies(content)
     if batch_bodies is not None:
         return all(not body.strip() or _is_status_message(body) for body in batch_bodies)
@@ -134,7 +78,6 @@ def _is_non_citable_status_output(content: str) -> bool:
 
 
 def _is_status_message(content: str) -> bool:
-    """Return whether a single tool output (or batch item body) is a status message."""
     stripped = content.strip()
     normalized = re.sub(r"\s+", " ", stripped).rstrip(".").lower()
     if not normalized:
@@ -154,7 +97,6 @@ def _is_status_message(content: str) -> bool:
 
 
 def _look_entry(hit: GroundingHit, tool_name: str) -> SourceEntry:
-    """A look's hit as a PLACE: the reading in ``read``, no passage, no score."""
     entry = _entry_from_hit_fields(hit, tool_name)
     entry.read = hit.body.strip() or None
     entry.chunk_text = None
@@ -169,7 +111,6 @@ def _entry_from_hit(hit: GroundingHit, tool_name: str) -> SourceEntry:
 
 
 def _keep_licensed_text(hit: GroundingHit) -> None:
-    """File an attested licensed passage whole on the turn's registry, so a quote of it verifies past its excerpt."""
     from agent.citations.session import get_session_registry
 
     registry = get_session_registry()
@@ -178,19 +119,6 @@ def _keep_licensed_text(hit: GroundingHit) -> None:
 
 
 def _entry_from_hit_fields(hit: GroundingHit, tool_name: str) -> SourceEntry:
-    """One captured grounding hit as a registry entry, by field copy.
-
-    The structured twin of :func:`_kl_entry`, and the reason the text parsers
-    below no longer run on a live turn. Every value here is the one the
-    producer stated, so the only work left is the registry's emptiness
-    convention: ``""`` and ``None`` mean the same thing to every reader
-    downstream, and the entry states ``None``.
-
-    ``url`` stays unset: a passage read at a legal database is cited by its
-    key, not by its link. Giving it one would move it onto the registry's URL
-    identity and out of the document dedup. The address the producer states
-    travels as ``public_url``, which is no identity.
-    """
     _keep_licensed_text(hit)
     return SourceEntry(
         citation_key=hit.citation_key.strip(),
@@ -234,17 +162,6 @@ _TITLE_NEAR_URL_PATTERNS = [
 
 
 def _extract_title_for_url(content: str, url: str, blocks: list[str] | None = None) -> str | None:
-    """Try to extract a title associated with a URL from the surrounding content.
-
-    Finds the title pattern **closest to** (and preceding) the URL within its
-    text block.  This prevents a single block containing multiple search
-    results from assigning the first result's title to every URL.
-
-    ``blocks`` may be supplied pre-split (by the same
-    ``re.split(r"\\n\\n---\\n\\n|\\n\\n\\n", content)``) so a URL-heavy caller
-    splits the content once instead of once per URL; when ``None`` the content
-    is split here, preserving standalone callers' behaviour.
-    """
     if blocks is None:
         blocks = re.split(r"\n\n---\n\n|\n\n\n", content)
     for block in blocks:
@@ -270,13 +187,6 @@ def _extract_title_for_url(content: str, url: str, blocks: list[str] | None = No
 
 
 def _parse_generic_urls(content: str, tool_name: str) -> list[SourceEntry]:
-    """Extract all URLs from any tool output, regardless of format.
-
-    This is the universal fallback. It finds every URL in the content
-    and registers it. Works for Tavily XML, paper search markdown,
-    plain text with links, or any future source format. Also attempts to
-    extract titles from common patterns near each URL.
-    """
     seen: set[str] = set()
     entries: list[SourceEntry] = []
     blocks = re.split(r"\n\n---\n\n|\n\n\n", content)

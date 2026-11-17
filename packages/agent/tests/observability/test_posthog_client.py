@@ -37,6 +37,7 @@ def configured_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("OTEL_SERVICE_NAME", "grid-agent-worker")
     monkeypatch.setenv("GIT_SHA", "abc1234")
     monkeypatch.setenv(trace_context.APP_HOST_ENV, "app.dev.archos.tech")
+    monkeypatch.setenv(trace_context.DEPLOYMENT_ENV, "dev")
 
 
 @pytest.fixture
@@ -92,6 +93,7 @@ def test_builds_one_client_with_the_promised_options(configured_env: None, fake_
             "service": "grid-agent-worker",
             "release": "abc1234",
             "app_host": "app.dev.archos.tech",
+            "deployment": "dev",
         },
         "in_app_modules": ["agent", "agent_host"],
     }
@@ -102,6 +104,7 @@ def test_absent_super_properties_are_omitted(monkeypatch: pytest.MonkeyPatch) ->
     monkeypatch.delenv("OTEL_SERVICE_NAME", raising=False)
     monkeypatch.delenv("GIT_SHA", raising=False)
     monkeypatch.delenv(trace_context.APP_HOST_ENV, raising=False)
+    monkeypatch.delenv(trace_context.DEPLOYMENT_ENV, raising=False)
 
     assert posthog_client.super_properties() == {}
 
@@ -163,12 +166,11 @@ def test_every_event_carries_the_super_properties_and_no_geoip(sent: list[dict[s
     assert properties["service"] == "grid-agent-worker"
     assert properties["release"] == "abc1234"
     assert properties["app_host"] == "app.dev.archos.tech"
+    assert properties["deployment"] == "dev"
     assert properties["$geoip_disable"] is True
 
 
 def test_an_exception_names_the_deployment_it_came_from(sent: list[dict[str, Any]]) -> None:
-    # Staging and production both run APP_ENV=production: without app_host a
-    # production filter on it drops every Python error.
     posthog_client.capture_exception(ValueError("x"))
 
     assert sent[0]["event"] == "$exception"

@@ -1,5 +1,3 @@
-"""Data aggregation helpers for the tokenomics report."""
-
 from __future__ import annotations
 
 from collections import defaultdict
@@ -281,13 +279,6 @@ def _build_report_data(
 
 
 def _build_comparison_data(run_datas: list[dict]) -> dict:
-    """Return an A-vs-B comparison block to embed in the primary run's report_data.
-
-    Only the first two runs are compared.  The per-query list is the UNION of
-    both runs' query IDs so that queries unique to one run are still visible in
-    the table (with null for the missing side).  The delta bar chart in the
-    report only renders bars for queries present in both runs.
-    """
     a = run_datas[0]
     b = run_datas[1]
 

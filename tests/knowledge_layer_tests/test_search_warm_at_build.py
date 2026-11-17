@@ -30,7 +30,13 @@ async def test_the_warm_up_initialises_the_retriever_off_the_loop():
 async def test_the_search_body_modules_are_imported_by_the_warm_up():
     await register._warm_search_path(_Retriever())
 
-    for module in register._SEARCH_PATH_MODULES:
+    for module in (
+        "knowledge_layer.browse.tool",
+        "knowledge_layer.search.folder_channel",
+        "knowledge_layer.read_passage.tool",
+        "knowledge_layer.search.requery",
+        "agent.observability.retrieval_trace",
+    ):
         assert module in sys.modules, module
 
 
