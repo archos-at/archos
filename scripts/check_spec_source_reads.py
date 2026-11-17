@@ -73,6 +73,7 @@ PARSERS = (
     "@/test-utils/source-ast",
     "./source-ast",
     "@/test-utils/sql-statements",
+    "postcss",
     "./sql-statements",
 )
 
