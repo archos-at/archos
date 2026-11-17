@@ -69,7 +69,7 @@ export function HostFrame({
     const door = fakeDoor(proposal, log)
     const bridge = new AppBridge(
       null,
-      { name: 'piloti-dev-host', version: '1.0.0' },
+      { name: 'dev-host', version: '1.0.0' },
       { serverTools: {}, updateModelContext: { text: {} } },
       { hostContext: { ...hostContext, platform: 'web', displayMode: 'inline', containerDimensions: { maxHeight: 2000 } } },
     )

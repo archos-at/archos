@@ -122,7 +122,7 @@ describe('AgentReading', () => {
       expect(screen.getByRole('button', { name: 'Correct' })).toBeInTheDocument()
     })
 
-    it('offers Assign instead of Correct when Piloti found no type, and opens the editor from it', async () => {
+    it('offers Assign instead of Correct when the agent found no type, and opens the editor from it', async () => {
       const user = userEvent.setup()
       render(<AgentReading file={fileFixture({ tags: [] })} canManage />)
 

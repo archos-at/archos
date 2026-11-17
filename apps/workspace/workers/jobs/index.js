@@ -1,6 +1,6 @@
 // @ts-check
 /**
- * GRID BFF job worker — the entry point of the `bff-jobs` pool (ADR-0079, ADR-0150).
+ * BFF job worker — the entry point of the `bff-jobs` pool (ADR-0079, ADR-0150).
  *
  * Dedicated pod (frontend image, `node workers/jobs/index.js`), internal only:
  * no Service, no HTTPRoute. It imports the BFF's services, bundled at image

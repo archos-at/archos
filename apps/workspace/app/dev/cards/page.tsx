@@ -441,7 +441,7 @@ function Gallery() {
         />
       </Section>
 
-      {/* Delegation: work Piloti took on, with the deadline the person named
+      {/* Delegation: work the agent took on, with the deadline the person named
           and a link to the thread the run writes into. Presentational on
           purpose — the row exists by the time the card renders, so there is
           nothing to accept (see `TaskCreatedCard`'s header). */}
@@ -546,9 +546,9 @@ function Gallery() {
         )}
       </Section>
 
-      {/* A system card the annotations tool pushes: what Piloti did on a
+      {/* A system card the annotations tool pushes: what the agent did on a
           document. Two proposed marks (a box, a point) to take over or discard
-          one by one, and an answer in an existing thread; then what Piloti did
+          one by one, and an answer in an existing thread; then what the agent did
           at the person's request: a mark set open, two changes with their
           notes and an undo, and a deletion. The gallery's
           document does not exist, so the live read fails soft: the marks stay

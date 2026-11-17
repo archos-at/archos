@@ -193,7 +193,7 @@ beforeEach(() => {
 })
 
 describe('DocumentRevisions — the header says where the newest Fassung stands', () => {
-  it('gives a plain upload no state word and no track: nobody approved it, Piloti answers from it', async () => {
+  it('gives a plain upload no state word and no track: nobody approved it, the agent answers from it', async () => {
     renderSection({
       viewer: reviewer,
       client: clientOf([makeVersion(1, 'published', { approvedBy: 'user_author', publishedBy: 'user_author' })]),
@@ -226,7 +226,7 @@ describe('DocumentRevisions — the header says where the newest Fassung stands'
     expect(screen.getByTestId('document-lifecycle-position')).toHaveTextContent('Schritt 4 von 4: Veröffentlicht')
   })
 
-  it('describes the newest Fassung and names the older one Piloti still answers from, so header and rows agree', async () => {
+  it('describes the newest Fassung and names the older one the agent still answers from, so header and rows agree', async () => {
     await renderOpen({
       viewer: viewOnly,
       client: clientOf([
@@ -433,7 +433,7 @@ describe('DocumentRevisions — shut at rest, open when it is the reader’s tur
     expect(await toggle()).toHaveAttribute('aria-expanded', 'false')
   })
 
-  it('opens itself for Piloti’s suggestion, which is waiting for an answer', async () => {
+  it('opens itself for the agent’s suggestion, which is waiting for an answer', async () => {
     renderSection({
       file: fileFixture({
         revision: facts({ suggestion: { of: ref('doc_0', 'Grundriss_B.pdf'), confidence: 0.9, reason: '', basis: 'name' } }),
@@ -537,7 +537,7 @@ describe('DocumentRevisions — one numbered timeline', () => {
     expect(compareOpened.mock.calls[0]?.[1]).toMatchObject({ filename: 'EG_Index_C_2026-08-14.pdf' })
   })
 
-  it('tags rows with their index, says „aktuell" only on the one Piloti answers from, and never „Ersetzt"', async () => {
+  it('tags rows with their index, says „aktuell" only on the one the agent answers from, and never „Ersetzt"', async () => {
     await renderOpen({ file: fileFixture({ filename: 'EG_Index_C_2026-08-14.pdf', revision: linked }), canManage: true })
 
     const rows = await screen.findAllByTestId('revision-timeline-row')
@@ -645,7 +645,7 @@ describe('DocumentRevisions — one numbered timeline', () => {
     expect(await screen.findByTestId('document-version-comment')).toHaveTextContent('Außerhalb des Auftrags.')
   })
 
-  it('says what changed against the Fassung it replaced, by number, with Piloti’s caveat attached once', async () => {
+  it('says what changed against the Fassung it replaced, by number, with the agent’s caveat attached once', async () => {
     await renderOpen({
       file: fileFixture({
         revision: facts({
@@ -878,7 +878,7 @@ describe('DocumentRevisions — one visible action per row, the rest behind ⋯'
 })
 
 describe('DocumentRevisions — the decisions on the newest Fassung', () => {
-  it('shows Freigeben and Änderungen anfordern, and keeps Piloti überarbeiten lassen and Ablehnen behind ⋯', async () => {
+  it('shows Freigeben and Änderungen anfordern, and keeps the delegate-revision action and Ablehnen behind ⋯', async () => {
     renderSection({ viewer: reviewer, client: clientOf([makeVersion(1, 'published'), reviewed(2, 'in_review')]) })
 
     expect(await screen.findByRole('button', { name: 'Freigeben' })).toBeInTheDocument()
@@ -915,7 +915,7 @@ describe('DocumentRevisions — the decisions on the newest Fassung', () => {
     )
   })
 
-  it('delegates the revision to Piloti from the ⋯, on the same route, with the one extra field', async () => {
+  it('delegates the revision to the agent from the ⋯, on the same route, with the one extra field', async () => {
     const requestChanges = vi.fn().mockResolvedValue(makeVersion(1, 'changes_requested'))
     renderSection({ viewer: reviewer, client: clientOf([reviewed(1, 'in_review')], { requestChanges }) })
 
@@ -1022,7 +1022,7 @@ describe('DocumentRevisions — the decisions on the newest Fassung', () => {
     expect(await screen.findByTestId('document-lifecycle-state')).toHaveTextContent('Freigegeben')
   })
 
-  it('says why Piloti may not revise a draft in a restricted folder', async () => {
+  it('says why the agent may not revise a draft in a restricted folder', async () => {
     const reason = 'Dieses Dokument liegt in einem Ordner mit eingeschränktem Zugriff.'
     const requestChanges = vi
       .fn()
@@ -1215,7 +1215,7 @@ describe('DocumentRevisions — links between documents', () => {
   })
 })
 
-describe('DocumentRevisions — Piloti’s suggestion', () => {
+describe('DocumentRevisions — the agent’s suggestion', () => {
   const suggested = (basis: 'name' | 'content' | 'title_block', reason = '') =>
     fileFixture({
       revision: facts({ suggestion: { of: ref('doc_0', 'Grundriss_B.pdf'), confidence: 0.9, reason, basis } }),
@@ -1234,7 +1234,7 @@ describe('DocumentRevisions — Piloti’s suggestion', () => {
     expect(await screen.findByTestId('revision-suggestion')).toHaveTextContent(copy.preview.revision.basisTitleBlock)
   })
 
-  it('says Piloti read both documents when the basis is the content, and adds its reason', async () => {
+  it('says the agent read both documents when the basis is the content, and adds its reason', async () => {
     renderSection({ file: suggested('content', 'Gleicher Grundriss, neue Maße.') })
 
     const card = await screen.findByTestId('revision-suggestion')

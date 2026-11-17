@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 
+from agent.skills.legacy_names import LEGACY_METADATA_KEYS
 from agent.skills.models import MAX_DESCRIPTION_CHARS
 from agent.skills.models import MAX_TITLE_CHARS
 from agent.skills.models import SKILL_METADATA_KEYS
@@ -170,16 +171,41 @@ def test_build_skill_from_payload_rejects_garbage() -> None:
 
 
 def test_reserved_key_registry() -> None:
-    assert SKILL_METADATA_KEYS == {
-        "grid-agents",
-        "grid-cards",
-        "grid-title",
-        "grid-hidden",
-        "grid-auto-invoke",
-        "grid-catalog",
+    new_names = {"agents", "cards", "title", "hidden", "auto-invoke", "catalog"}
+    assert SKILL_METADATA_KEYS == new_names | {LEGACY_METADATA_KEYS[name] for name in new_names}
+    assert LEGACY_METADATA_KEYS["execution"] not in SKILL_METADATA_KEYS
+    assert LEGACY_METADATA_KEYS["schedulable"] not in SKILL_METADATA_KEYS
+
+
+def test_a_skill_with_only_the_new_keys_reads_the_same_as_one_with_only_the_old() -> None:
+    new_keys = {
+        "agents": "deep_researcher",
+        "catalog": "curated",
+        "hidden": "true",
+        "cards": "calculation",
+        "title": "Skizze",
     }
-    assert "grid-execution" not in SKILL_METADATA_KEYS
-    assert "grid-schedulable" not in SKILL_METADATA_KEYS
+    old_keys = {LEGACY_METADATA_KEYS[key]: value for key, value in new_keys.items()}
+    new_skill = build_skill_from_payload({"name": "x", "description": "d", "body": "b", "metadata": new_keys})
+    old_skill = build_skill_from_payload({"name": "x", "description": "d", "body": "b", "metadata": old_keys})
+    assert preferred_cards(new_skill.metadata) == preferred_cards(old_skill.metadata) == ("calculation",)
+    assert skill_hidden(new_skill.metadata) is True
+    assert skill_hidden(old_skill.metadata) is True
+    assert skill_title(new_skill) == skill_title(old_skill) == "Skizze"
+
+
+def test_the_new_key_wins_when_both_spellings_are_present() -> None:
+    old = LEGACY_METADATA_KEYS["hidden"]
+    assert skill_hidden({"hidden": "false", old: "true"}) is False
+    assert skill_hidden({"hidden": "true", old: "false"}) is True
+
+
+def test_a_new_key_is_validated_under_its_own_name() -> None:
+    with pytest.raises(SkillValidationError, match="cards"):
+        build_skill_from_payload(
+            {"name": "x", "description": "d", "body": "b", "metadata": {"cards": "gibt_es_nicht"}},
+            origin="platform",
+        )
 
 
 def _with_title(value: str) -> str:

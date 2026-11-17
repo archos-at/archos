@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-"""Validate AI-Q repo-local agent skill bundles.
+"""Validate repo-local agent skill bundles.
 
 Checks every skill directory under one or more roots (default ``skills``)
 for a well-formed ``SKILL.md`` and bundle layout. Runs fully offline with no

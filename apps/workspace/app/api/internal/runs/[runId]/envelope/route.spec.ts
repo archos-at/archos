@@ -81,7 +81,7 @@ function call(runId: string = RUN, init: { body?: string; token?: string | null 
   const headers: Record<string, string> = { 'Content-Type': 'application/json' }
   if (init.token !== null) headers['x-grid-internal-token'] = init.token ?? SECRET
   return POST(
-    new Request(`https://grid.test/api/internal/runs/${runId}/envelope`, {
+    new Request(`https://example.test/api/internal/runs/${runId}/envelope`, {
       method: 'POST',
       headers,
       ...(init.body !== undefined ? { body: init.body } : {}),

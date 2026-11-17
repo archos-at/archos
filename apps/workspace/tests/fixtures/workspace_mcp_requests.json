@@ -15,7 +15,7 @@
     {
       "name": "search",
       "method": "POST",
-      "path": "/api/mcp",
+      "path": "/api/mcp?mode=search",
       "headers": {
         "accept": "application/json, text/event-stream",
         "content-type": "application/json",
@@ -42,7 +42,7 @@
     {
       "name": "describe",
       "method": "POST",
-      "path": "/api/mcp",
+      "path": "/api/mcp?mode=search",
       "headers": {
         "accept": "application/json, text/event-stream",
         "content-type": "application/json",
@@ -68,7 +68,7 @@
     {
       "name": "call_write",
       "method": "POST",
-      "path": "/api/mcp",
+      "path": "/api/mcp?mode=search",
       "headers": {
         "accept": "application/json, text/event-stream",
         "content-type": "application/json",
@@ -103,7 +103,7 @@
     {
       "name": "call_read",
       "method": "POST",
-      "path": "/api/mcp",
+      "path": "/api/mcp?mode=search",
       "headers": {
         "accept": "application/json, text/event-stream",
         "content-type": "application/json",
@@ -130,7 +130,7 @@
     {
       "name": "report_missing",
       "method": "POST",
-      "path": "/api/mcp",
+      "path": "/api/mcp?mode=search",
       "headers": {
         "accept": "application/json, text/event-stream",
         "content-type": "application/json",

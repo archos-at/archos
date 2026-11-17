@@ -2,10 +2,13 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { readDrop } from '../lib/dropped-entries'
+import { LEGACY_FOLDER_DRAG_TYPE } from './legacy-drag-types'
 import { useDragEnd } from './use-drag-end'
 
 export const DOCUMENT_DRAG_TYPE = 'application/x-document-id'
-export const FOLDER_DRAG_TYPE = 'application/x-grid-folder-id'
+export const FOLDER_DRAG_TYPE = 'application/x-folder-id'
+
+const FOLDER_DRAG_TYPES = [FOLDER_DRAG_TYPE, LEGACY_FOLDER_DRAG_TYPE]
 
 const dragTypes = (dataTransfer: DataTransfer | null): string[] =>
   dataTransfer ? Array.from(dataTransfer.types ?? []) : []
@@ -15,9 +18,13 @@ export function isExternalFileDrag(dataTransfer: DataTransfer | null): boolean {
 }
 
 export function draggedFolderId(dataTransfer: DataTransfer | null): string | null {
-  const prefix = `${FOLDER_DRAG_TYPE}:`
-  const carrier = dragTypes(dataTransfer).find((type) => type.startsWith(prefix))
-  return carrier ? carrier.slice(prefix.length) : null
+  const types = dragTypes(dataTransfer)
+  for (const folderType of FOLDER_DRAG_TYPES) {
+    const prefix = `${folderType}:`
+    const carrier = types.find((type) => type.startsWith(prefix))
+    if (carrier) return carrier.slice(prefix.length)
+  }
+  return null
 }
 
 export interface InternalDragSource {
@@ -149,7 +156,7 @@ export function useFolderDropTarget({
       const source = internalDragSource()
       if (onlyFromElsewhere && (!source || source.from === folderId)) return null
       if (types.includes(DOCUMENT_DRAG_TYPE)) return 'document'
-      if (!onDropFolder || !types.includes(FOLDER_DRAG_TYPE)) return null
+      if (!onDropFolder || !FOLDER_DRAG_TYPES.some((folderType) => types.includes(folderType))) return null
       const dragged = draggedFolderId(event.dataTransfer)
       if (!dragged) return null
       if (canAcceptFolder && !canAcceptFolder(dragged, folderId)) return null
@@ -208,7 +215,8 @@ export function useFolderDropTarget({
           if (documentId) onDropDocument(documentId, folderId)
           return
         }
-        const dragged = event.dataTransfer.getData(FOLDER_DRAG_TYPE)
+        const dragged =
+          event.dataTransfer.getData(FOLDER_DRAG_TYPE) || event.dataTransfer.getData(LEGACY_FOLDER_DRAG_TYPE)
         if (dragged) onDropFolder?.(dragged, folderId)
       },
     },

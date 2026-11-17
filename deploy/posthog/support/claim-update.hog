@@ -1,4 +1,4 @@
-// Marks a Piloti feedback alert in Slack as claimed once its Support ticket is assigned.
+// Marks a feedback alert in Slack as claimed once its Support ticket is assigned.
 // Trigger: $conversation_ticket_assigned with assignee_type = user.
 // The alerts are found in the channel's history by the ticket id, so every
 // alert of the ticket is rewritten, whichever automation posted it.

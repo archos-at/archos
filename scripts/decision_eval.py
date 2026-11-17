@@ -121,8 +121,8 @@ class Row:
 
     @property
     def skill_loaded(self) -> bool:
-        from agent.agents.piloti.decisions import SKILL_FIT_THRESHOLD
-        from agent.agents.piloti.decisions import SKILL_THRESHOLD
+        from agent.core.decisions import SKILL_FIT_THRESHOLD
+        from agent.core.decisions import SKILL_THRESHOLD
 
         return bool(
             self.skill
@@ -166,11 +166,11 @@ def load_follow_ups(path: Path) -> list[dict[str, Any]]:
 
 
 async def _evaluate(questions_path: Path, follow_ups_path: Path | None = None) -> list[Row]:
-    from agent.agents.piloti.decisions import TurnFacts
-    from agent.agents.piloti.decisions import decide_turn
     from agent.cards.catalog import card_index_entries
     from agent.cards.envelope import ENVELOPE_SHAPE_TYPES
     from agent.common.norm_registry import oib_families
+    from agent.core.decisions import TurnFacts
+    from agent.core.decisions import decide_turn
     from agent.skills.builtin import discover_builtin_skills
     from agent.skills.resolver import _skill_applies_to_agent
     from scripts.loop_eval import load_questions

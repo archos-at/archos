@@ -32,8 +32,8 @@ describe('ViewerPanel', () => {
   })
 
   it('pins a footer action outside the scroll area', () => {
-    panel({ footer: <button type="button">Piloti fragen</button> })
-    expect(screen.getByRole('button', { name: 'Piloti fragen' })).toBeInTheDocument()
+    panel({ footer: <button type="button">Agent fragen</button> })
+    expect(screen.getByRole('button', { name: 'Agent fragen' })).toBeInTheDocument()
   })
 })
 

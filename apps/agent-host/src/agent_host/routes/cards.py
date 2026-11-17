@@ -1,9 +1,9 @@
 """The card catalog as an endpoint: what the agent can render, and how to ask for more.
 
-``GET /v1/platform/cards`` lists every Grid card type — its purpose, its fields
+``GET /v1/platform/cards`` lists every response card type — its purpose, its fields
 (type, required, description, constraints) and a worked example where one
 exists — plus the GitHub link for requesting a card, or a value on an existing
-card, that the catalog does not carry yet. Grid's answers are only as rich as
+card, that the catalog does not carry yet. The agent's answers are only as rich as
 this list, so "which figures can it actually show me?" is a question the product
 should answer itself instead of sending someone to read
 ``packages/agent/src/agent/cards/models.py``.

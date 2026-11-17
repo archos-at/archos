@@ -269,7 +269,7 @@ describe('FilingStep', () => {
     })
   })
 
-  describe("Piloti's open filing suggestions", () => {
+  describe("the agent's open filing suggestions", () => {
     const [permits] = INTAKE_FILING
     const onSettled = vi.fn()
     const filing = (entries = suggestionsByFolder(INTAKE_FILING)) => ({ filing: { entries, onSettled } })

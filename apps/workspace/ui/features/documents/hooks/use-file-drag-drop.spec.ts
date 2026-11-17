@@ -21,6 +21,8 @@ vi.mock('@/shared/context', () => ({
 }))
 
 import { checkDraggedFilesSupported } from '../validation'
+import { FOLDER_DRAG_TYPE } from './use-document-drag'
+import { LEGACY_FOLDER_DRAG_TYPE } from './legacy-drag-types'
 
 function createMockDragEvent(files: File[] = [], items: DataTransferItem[] = []): React.DragEvent {
   return {
@@ -284,15 +286,11 @@ describe('useFileDragDrop — an in-app drag is not an upload', () => {
     expect(result.current.isUnsupportedDrag).toBe(false)
   })
 
-  test('ignores a folder drag entirely', () => {
+  test.each([FOLDER_DRAG_TYPE, LEGACY_FOLDER_DRAG_TYPE])('ignores a folder drag entirely (%s)', (type) => {
     const onDrop = vi.fn()
     const { result } = renderHook(() => useFileDragDrop({ onDrop }))
 
-    act(() =>
-      result.current.dragHandlers.onDragEnter(
-        createInternalDragEvent('application/x-grid-folder-id'),
-      ),
-    )
+    act(() => result.current.dragHandlers.onDragEnter(createInternalDragEvent(type)))
 
     expect(result.current.isDragging).toBe(false)
   })

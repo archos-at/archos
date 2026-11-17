@@ -1,4 +1,4 @@
-"""Grid cross-cutting request-context headers (backlog T3-9).
+"""Cross-cutting request-context headers (backlog T3-9).
 
 The Next.js BFF sends a family of internal ``X-Grid-*`` headers on every
 submission path (WS upgrade in ``server.js``, the async-jobs REST proxy, the

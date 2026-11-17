@@ -208,7 +208,7 @@ describe('buildProposalDecisionsBlock with server proposals', () => {
     expect(lines?.[3]).toMatch(/^- \[accepted \| profile \| 2026-09-01\] "Fluchtniveau anpassen \(.*: → 4\)"$/)
   })
 
-  it('carries the reason Piloti gave for a file move into the line', async () => {
+  it('carries the reason the agent gave for a file move into the line', async () => {
     vi.mocked(listRecentDecidedProposals).mockResolvedValue([
       row({
         kind: 'file_operation',

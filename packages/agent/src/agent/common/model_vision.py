@@ -15,7 +15,7 @@ Two halves:
 * **Which model.** Piloti's tools node binds the turn's resolved chat model id
   around its tool calls (:func:`chat_model_scope`), because the tools run as
   children of that node and a value set beside the LLM call would die at the
-  node boundary (``agents/piloti/AGENTS.md``).
+  node boundary (``core/AGENTS.md``).
 * **What it accepts.** OpenRouter's public model catalog
   (``GET /api/v1/models``, ``architecture.input_modalities``), read at most
   once per :data:`_CATALOG_TTL_SECONDS` and cached by model id for the process.

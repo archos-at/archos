@@ -512,7 +512,7 @@ export function DocumentRevisions({
         </SectionLabel>
 
         {/* ONE region, divided by what each part asks: where the document
-            stands, the decision, Piloti's suggestion, the history, and the
+            stands, the decision, the agent's suggestion, the history, and the
             one-way door. They used to run together as one undivided column
             that widened into a card only while something was asked, so the
             section changed material, and width, under the reader's eye.

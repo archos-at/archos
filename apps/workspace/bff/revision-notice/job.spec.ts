@@ -45,7 +45,7 @@ const session = {
   userId: 'editor',
   email: 'e@x.test',
   organizationId: ORG,
-  featureFlags: ['piloti-notices'],
+  featureFlags: ['revision-suggestions'],
 } as unknown as AuthorizedSession
 
 const doc = (id: string, filename: string): Document =>
@@ -173,7 +173,7 @@ describe('noticeRevision', () => {
     [
       'the switch off',
       () => vi.mocked(resolvePinnedRequesterSession).mockResolvedValue({ ...session, featureFlags: [] }),
-      'piloti-notices is off',
+      'revision-suggestions is off',
     ],
     ['a held document', () => vi.mocked(findDocumentInOrg).mockResolvedValue(null), 'gone or held'],
     [
@@ -186,7 +186,7 @@ describe('noticeRevision', () => {
       'a restricted folder',
       () =>
         vi.mocked(changedRevisionPages).mockRejectedValue(
-          new UnprocessableError('Documents in a restricted folder cannot be compared by Piloti'),
+          new UnprocessableError('Documents in a restricted folder cannot be compared by the agent'),
         ),
       'restricted folder',
     ],

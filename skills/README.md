@@ -20,7 +20,7 @@ Today there is one: `verify-on-dev`, the loop of acting on dev through the
 office MCP door and reading the resulting Langfuse trace through the platform
 MCP gateway, which only an agent holding those two servers can run.
 
-Piloti's own skills, the ones the product reads at run time, are a different
+The agent's own skills, the ones the product reads at run time, are a different
 thing and live in `packages/agent/src/agent/skills/` (ADR-0046).
 
 ## Adding one

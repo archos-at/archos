@@ -3,7 +3,7 @@
 ``POST /v1/internal/tools/{name}`` runs one of ``BACKEND_READ_TOOLS`` (knowledge
 search, passage reading, the file browser, page images, the two BIM tools, RIS)
 with the arguments in the body, and answers what the tool returned. The BFF's
-MCP server is the only caller: an outside agent reaches Piloti's best reads
+MCP server is the only caller: an outside agent reaches this agent's best reads
 through ``/api/mcp`` and the BFF forwards the call here
 (``apps/workspace/bff/agent-api/backend-operations.ts``).
 

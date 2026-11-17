@@ -19,6 +19,7 @@ import { skillsCopy } from '@/i18n/namespaces/skills'
 import { cn } from '@/lib/utils'
 import type { SkillListItem } from '@/adapters/api/skills-client'
 import { agentScopeLabelKey } from '../lib/agent-scope'
+import { readMetadata } from '@/lib/skills/legacy-names'
 
 interface SkillDetailProps {
   skill: SkillListItem | null
@@ -48,7 +49,7 @@ export function SkillDetail({
   const t = useTranslations(skillsCopy)
   const tCommon = useTranslations(commonCopy)
   const isOrg = skill !== null && skill.id !== null
-  const scopeKey = skill ? agentScopeLabelKey(skill.metadata['grid-agents']) : null
+  const scopeKey = skill ? agentScopeLabelKey(readMetadata(skill.metadata, 'agents')) : null
 
   return (
     <Sheet open={open} onOpenChange={(next) => !next && onClose()}>

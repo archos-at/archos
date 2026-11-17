@@ -153,7 +153,7 @@ export default function FileAskSplitPreview(): JSX.Element {
                   it renders its signed-out/empty state, which is enough: the
                   subject under test is the width of its column. */}
               <>
-                {/* Drives the `arrive` variant the way Ask Piloti does: the
+                {/* Drives the `arrive` variant the way an agent ask does: the
                     peek is opened AFTER the split has already mounted cold. */}
                 <button
                   type="button"

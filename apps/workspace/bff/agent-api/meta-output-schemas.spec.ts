@@ -15,7 +15,7 @@ import { PRODUCT_NAME } from '@/lib/brand'
 
 const session = {
   userId: 'user_1',
-  email: 'a@piloti.test',
+  email: 'a@example.test',
   name: null,
   accessToken: '',
   organizationId: 'org_1',
@@ -24,7 +24,7 @@ const session = {
   permissions: [],
   featureFlags: null,
 }
-const principal: AgentPrincipal = { actor: 'external_agent', clientId: 'c', scopes: ['piloti:sensitive'], session }
+const principal: AgentPrincipal = { actor: 'external_agent', clientId: 'c', scopes: ['documents:sensitive'], session }
 
 beforeAll(() => {
   Object.defineProperty(globalThis, 'crypto', { value: webcrypto, configurable: true })
@@ -47,7 +47,7 @@ type Rpc = {
 async function rpc(method: string, params: Record<string, unknown> = {}, mode: 'search' | 'tools' = 'search'): Promise<Rpc> {
   const handler = createMcpHandler(() => buildMcpServer(principal, mode), { responseMode: 'json' })
   const response = await handler.fetch(
-    new Request('https://app.piloti.test/api/mcp', {
+    new Request('https://app.example.test/api/mcp', {
       method: 'POST',
       headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream' },
       body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
@@ -117,10 +117,10 @@ describe('icons', () => {
   const THEMES = (icons: { theme?: string }[]) => icons.map((icon) => icon.theme).sort()
 
   it('shows the server its title, icons and, with a pinned origin, its website, on initialize', async () => {
-    vi.stubEnv('WORKOS_REDIRECT_URI', 'https://app.piloti.test/callback')
+    vi.stubEnv('WORKOS_REDIRECT_URI', 'https://app.example.test/callback')
     const handler = createAgentDoorHandler(() => undefined)
     const response = await handler.fetch(
-      new Request('https://app.piloti.test/api/mcp', {
+      new Request('https://app.example.test/api/mcp', {
         method: 'POST',
         headers: { 'content-type': 'application/json', accept: 'application/json', 'mcp-protocol-version': '2025-11-25' },
         body: JSON.stringify({
@@ -134,8 +134,8 @@ describe('icons', () => {
     )
     const info = ((await response.json()) as Rpc).result?.serverInfo as { title: string; websiteUrl?: string; icons: { src: string; theme?: string; mimeType?: string }[] }
     expect(info.title).toBe(PRODUCT_NAME)
-    expect(info.websiteUrl).toBe('https://app.piloti.test')
-    expect(info.icons[0]).toMatchObject({ src: 'https://app.piloti.test/icons/icon-192.png', mimeType: 'image/png', sizes: ['192x192'] })
+    expect(info.websiteUrl).toBe('https://app.example.test')
+    expect(info.icons[0]).toMatchObject({ src: 'https://app.example.test/icons/icon-192.png', mimeType: 'image/png', sizes: ['192x192'] })
     expect(info.icons.map((icon) => icon.mimeType)).toContain('image/svg+xml')
     expect(THEMES(info.icons.filter((icon) => icon.theme))).toEqual(['dark', 'light'])
   })

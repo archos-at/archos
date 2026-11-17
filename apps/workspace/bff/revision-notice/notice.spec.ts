@@ -89,7 +89,7 @@ describe('proposalsFrom', () => {
     expect(proposalsFrom([comparison(1, [], ['keine sichtbare Änderung'])], OLDER)).toEqual([])
   })
 
-  it('does not propose again what Piloti already proposed there (a retried notice)', () => {
+  it('does not propose again what the agent already proposed there (a retried notice)', () => {
     const [first] = proposalsFrom([comparison(2)], OLDER)
     const existing = [{ ...first, w: first.w ?? null, h: first.h ?? null, authorKind: 'piloti' }]
 

@@ -289,7 +289,7 @@ function CarriedFrom({
                   >
                     {carryWords(annotation, annotation.carryTarget).label}
                   </Button>
-                  {/* Fixed in this document: closed where it was set, by the person, never by Piloti. */}
+                  {/* Fixed in this document: closed where it was set, by the person, never by the agent. */}
                   <Button
                     type="button"
                     variant="ghost"

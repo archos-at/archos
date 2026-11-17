@@ -326,7 +326,7 @@ const FileListRowItem = memo(function FileListRowItem({
               )}
               {/* What is still open on its pages; a press opens the review, not the row. */}
               <OpenMarksChip file={file} name={documentDisplayName(file)} className="self-center" />
-              {/* Where Piloti would file it: the same chip as on the card,
+              {/* Where the agent would file it: the same chip as on the card,
                   right after the name, so the row keeps its one height. */}
               <FilingSuggestionSlot documentId={file.id} className="max-w-[45%] shrink-0 self-center" />
               {/* The summary on the name's line, in what is left of it (Gmail's snippet): one 40px row, not two lines.

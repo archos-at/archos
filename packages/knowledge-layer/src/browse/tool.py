@@ -290,7 +290,7 @@ async def list_files(config: ListFilesConfig, _builder: Builder):
             sort (str | None): folder (default) | name | newest.
             offset (int | None): Start of the page; the result names the next one.
             limit (int | None): Page size, default 40, at most 100.
-            topic (str | None): A Thema Piloti recognised (e.g. "Attika", "Holzrahmenbau"); matches part of a topic.
+            topic (str | None): A Thema the agent recognised (e.g. "Attika", "Holzrahmenbau"); matches part of a topic.
             revisions_of (str | None): A file name; returns that document's chain of Fassungen instead of a listing.
             compare_to (str | None): With `revisions_of`: compare that Fassung with this one (a file name of the
                 same chain, or "previous" for the one before) and return what changed, page by page.

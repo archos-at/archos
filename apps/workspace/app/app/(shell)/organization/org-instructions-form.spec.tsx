@@ -28,7 +28,7 @@ const body = (): Record<string, unknown> =>
   JSON.parse(fetchMock.mock.calls[0][1].body as string) as Record<string, unknown>
 
 describe('the instruction editor', () => {
-  test('shows what the organization already told Piloti', () => {
+  test('shows what the organization already told the agent', () => {
     render(<OrgInstructionsForm initialInstructions="Assume Vienna." />)
     expect(box()).toHaveValue('Assume Vienna.')
     expect(saveButton()).toBeDisabled()

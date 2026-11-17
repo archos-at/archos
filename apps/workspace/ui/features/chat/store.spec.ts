@@ -6,6 +6,7 @@ import {
   readStoredChat,
 } from './stores/chat-storage'
 import type { Conversation } from './types'
+import { PRODUCT_NAME } from '@/lib/brand'
 
 const STORAGE_KEY = 'chat-store'
 const mockLayoutState = vi.hoisted(() => ({
@@ -920,11 +921,11 @@ describe('useChatStore', () => {
     test('setComposerPrefill carries structured mentions alongside the text', () => {
       useChatStore
         .getState()
-        .setComposerPrefill('@Piloti ', [{ targetId: 'agent:piloti', display: 'Piloti' }])
+        .setComposerPrefill(`@${PRODUCT_NAME} `, [{ targetId: 'agent:piloti', display: PRODUCT_NAME }])
 
       expect(useChatStore.getState().composerPrefill).toEqual({
-        text: '@Piloti ',
-        mentions: [{ targetId: 'agent:piloti', display: 'Piloti' }],
+        text: `@${PRODUCT_NAME} `,
+        mentions: [{ targetId: 'agent:piloti', display: PRODUCT_NAME }],
       })
     })
 

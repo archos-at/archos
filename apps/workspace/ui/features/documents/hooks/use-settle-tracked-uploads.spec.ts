@@ -62,7 +62,7 @@ describe('useSettleTrackedUploads', () => {
       vi.useRealTimers()
     })
 
-    it('settles from its own status while „Von Piloti" narrows the listing', async () => {
+    it('settles from its own status while the agent filter narrows the listing', async () => {
       vi.useFakeTimers()
       const row = upload({})
       useDocumentsStore.setState({ trackedFiles: [row] })

@@ -1,10 +1,10 @@
 """Live turn-shape eval for the two behaviours ADR-0052 moved from code into the prompt.
 
 ADR-0052 deleted the intent classifier: every turn enters
-Piloti with every tool bound, and what the turn IS is decided by the model
+the agent with every tool bound, and what the turn IS is decided by the model
 with the tools in hand. Two things that used to be routing are now the model's
 judgment, pinned only by the ``<output_contract>`` block of
-``packages/agent/src/agent/agents/piloti/prompts/piloti.j2``:
+``packages/agent/src/agent/core/prompts/system.j2``:
 
 1. a greeting or a question about the assistant is a direct reply, and calls
    no data-source tool;
@@ -16,12 +16,12 @@ measured (ledger row 5): a commissioned Aktenvermerk is WRITTEN rather than
 described, a revision edits the draft instead of writing a second one, and
 „leg das ins Projekt ab" files it. Their prompts and their one assertion live
 in ``tests/fixtures/drafting_turns.py``, shared with the scripted-LLM pair in
-``packages/agent/tests/agents/piloti/test_agent.py`` that runs them in CI — two
+``packages/agent/tests/core/test_agent.py`` that runs them in CI — two
 harnesses asking different questions would stop being the same eval the first
 time either was edited.
 
 This file is the eval the ADR said those behaviours lacked. It builds the real
-``ChatAgent`` on the real system prompt against Piloti's own
+``ChatAgent`` on the real system prompt against the agent's own
 model through OpenRouter, with STUB tools in place of the retrieval stack: the
 stubs return a plausible hit, so nothing here needs a corpus, a database or a
 RIS connection. The trace the assertions read is the turn's own transcript,
@@ -57,9 +57,6 @@ import pytest
 from langchain_core.messages import HumanMessage
 from langchain_core.tools import tool
 
-from agent.agents.piloti.agent import ChatAgent
-from agent.agents.piloti.answer_pipeline import this_turn
-from agent.agents.piloti.models import ResearchAgentState
 from agent.cards.registry import CardRegistry
 from agent.cards.registry import reset_card_registry
 from agent.cards.registry import set_card_registry
@@ -69,6 +66,9 @@ from agent.common.data_source_registry import populate_from_config
 from agent.common.data_source_registry import reset_registry
 from agent.common.llm_factory import apply_openrouter_structured_defaults
 from agent.common.llm_factory import enforce_chat_request_contract
+from agent.core.agent import ChatAgent
+from agent.core.answer_pipeline import this_turn
+from agent.core.models import ResearchAgentState
 from tests.fixtures.drafting_turns import DRAFTING_CASES
 from tests.fixtures.drafting_turns import FILE
 from tests.fixtures.drafting_turns import assert_turn_shape
@@ -184,7 +184,7 @@ _TRANSPORT_ERRORS = (openai.APIConnectionError, openai.RateLimitError, openai.In
 
 
 def _research_model_name() -> str:
-    """Piloti's model as the OIB config would boot it.
+    """The agent's model as the OIB config would boot it.
 
     Read from ``research_llm.model_name`` rather than hard-coded here, so the
     eval follows the boot floor when it moves (``${DEFAULT_MODEL:-…}``

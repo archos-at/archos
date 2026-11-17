@@ -81,7 +81,7 @@ def test_the_scan_sees_the_known_call_sites():
     scanned = {_rel(p) for p in _python_files()}
     assert "packages/agent/src/agent/common/llm_factory.py" in scanned
     assert "packages/knowledge-layer/src/ingest/adapter.py" in scanned
-    assert "packages/agent/src/agent/agents/piloti/register.py" in scanned
+    assert "packages/agent/src/agent/core/register.py" in scanned
 
 
 @pytest.mark.parametrize("path", _python_files(), ids=_rel)

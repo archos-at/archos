@@ -14,6 +14,8 @@ from agent.turn.response import turn_answer_message_id
 
 from .client import CanvasRequestError
 from .client import post_canvas
+from .legacy_reasons import LEGACY_AGENT_DIRECT_EDITS_OFF_CODE
+from .legacy_reasons import LEGACY_AGENT_DIRECT_EDITS_OFF_REASON
 from .target import Target
 
 logger = logging.getLogger(__name__)
@@ -60,7 +62,7 @@ DELETE_KEPT = (
 ASSIGNEE_UNCLEAR = (
     "Unclear who is meant ({detail}). Ask the person whom they mean, then use the full name; nothing was changed."
 )
-PILOTI_ACTS_OFF = "piloti-acts-off"
+AGENT_DIRECT_EDITS_OFF = "agent-direct-edits-off"
 PROPOSE_ONLY_MARK = (
     "Not set: This office lets you only propose annotations. Set them with `mark` without `open` as a "
     "proposal and tell the person they can take it over in the document."
@@ -101,8 +103,9 @@ def refusal_for(exc: CanvasRequestError, operation: str) -> Refused:
     """A BFF refusal as the sentence the model relays."""
     if exc.reason == "no-document-subject":
         return Refused(NO_DOCUMENT, "no_document_subject")
-    if exc.reason == PILOTI_ACTS_OFF:
-        return Refused(PROPOSE_ONLY_MARK if operation == "create" else PROPOSE_ONLY_CHANGE, "piloti_acts_off")
+    if exc.reason in (AGENT_DIRECT_EDITS_OFF, LEGACY_AGENT_DIRECT_EDITS_OFF_REASON):
+        message = PROPOSE_ONLY_MARK if operation == "create" else PROPOSE_ONLY_CHANGE
+        return Refused(message, LEGACY_AGENT_DIRECT_EDITS_OFF_CODE)
     if exc.reason in ("assignee-unknown", "assignee-ambiguous"):
         return Refused(ASSIGNEE_UNCLEAR.format(detail=exc), "assignee_unclear")
     if exc.reason in DELETE_KEPT_REASONS:

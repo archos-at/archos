@@ -38,7 +38,8 @@ describe('ConnectAgentCard', () => {
     render(<ConnectAgentCard state={F.ready} guideHref={GUIDE} />)
 
     await userEvent.click(screen.getByRole('tab', { name: 'Claude Code' }))
-    expect(screen.getByText(`claude mcp add --transport http piloti ${URL_OK}`)).toBeInTheDocument()
+    expect(screen.getByText(`claude mcp add --transport http workspace ${URL_OK}`)).toBeInTheDocument()
+    expect(screen.getByText('Start Claude Code, type /mcp and choose workspace.')).toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('tab', { name: 'Cursor' }))
     expect(screen.getByText(/"mcpServers"/)).toHaveTextContent(`"url": "${URL_OK}"`)

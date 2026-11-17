@@ -36,7 +36,7 @@ from agent.memory.shown_notes import ShownNotes
 from agent.stages import TurnFacts
 
 if TYPE_CHECKING:
-    from agent.agents.piloti.models import ConversationState
+    from agent.core.models import ConversationState
 
 
 def answer_message_id(conversation_id: str | None, turn_id: str | None) -> str:

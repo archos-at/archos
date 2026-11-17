@@ -245,7 +245,7 @@ export function UploadTray({ files, onRetry, onCancel, onCancelAll, onDismiss, o
         testId="upload-tray-track"
       />
 
-      {/* Where Piloti would file the batch, one line per target folder. Not
+      {/* Where the agent would file the batch, one line per target folder. Not
           inside the fold: collapsing the rows does not answer the question. */}
       <FilingViewBar documentIds={documentIds} minFiles={1} className="px-4 pb-1 pt-2.5" />
 
@@ -445,7 +445,7 @@ function UploadRow({
           <p className="min-w-0 text-xs text-foreground" data-testid="upload-row-name">
             <MiddleTruncate text={file.fileName} tail={ROW_NAME_TAIL} />
           </p>
-          {/* Where Piloti would file it, while the person is still at the
+          {/* Where the agent would file it, while the person is still at the
               upload: the chip, as on the card, on the row's one line. */}
           {!isFailed && !isHeldBack && (
             <FilingSuggestionSlot documentId={file.serverFileId} className="max-w-[60%] shrink-0" />

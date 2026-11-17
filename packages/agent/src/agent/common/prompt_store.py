@@ -4,14 +4,14 @@ WHAT IS MANAGED, AND WHY ONLY THAT HALF
 =======================================
 Piloti sends two prompt messages: the SYSTEM prompt, a static half that is
 byte-identical for every tenant and every turn, and the TURN CONTEXT
-(``agents/piloti/prompts/piloti.j2``), which Jinja renders per turn from that
+(``core/prompts/system.j2``), which Jinja renders per turn from that
 turn's state and which is sent right before the newest human message. Only the
 static half is worth managing remotely — it is the half a prompt author wants
 to change without shipping a release, and the half whose bytes must not move
 for a provider's prefix cache to hit.
 
 **Git is the source of truth for that half** (ADR-0060 (a)).
-``agents/piloti/prompts/chat_static.md`` is what review reads and what code
+``core/prompts/chat_static.md`` is what review reads and what code
 that depends on the prompt's wording is written against (the envelope's field
 order the answer stream reads, ADR-0066). ``scripts/prompts_push.py``
 (``task prompts:push -- --label <l> --apply``) publishes it to Langfuse as a

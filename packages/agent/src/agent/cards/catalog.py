@@ -1,6 +1,6 @@
 """Single, framing-agnostic description of the card catalog for the LLM.
 
-Grid describes the SAME discriminated-union card schema to the model on two
+The app describes the SAME discriminated-union card schema to the model on two
 surfaces — the mid-turn ``emit_card`` tool (:mod:`agent.cards.register`) and
 the post-hoc batch generator (:mod:`agent.cards.prompt` /
 :mod:`agent.cards.generate`). This module owns the one representation they
@@ -437,7 +437,7 @@ def model_facing_card_types() -> frozenset[str]:
     The union minus :data:`SYSTEM_CARD_TYPES`.
     It is exposed separately because other surfaces need to answer "may a
     skill/author name this card?" without parsing the rendered catalog text:
-    the skills substrate validates ``grid-cards`` against it (see
+    the skills substrate validates ``cards`` against it (see
     :mod:`agent.skills.models`), and the editor's picker derives the same
     set from the generated Zod schemas. One definition of "advertisable", so a
     new card type appears everywhere at once and a system card can never be
@@ -555,7 +555,7 @@ def describe_card_catalog() -> dict[str, Any]:
     :func:`render_card_catalog` renders the same models as prose for the model
     and omits the system cards, because a model that reads about them can
     fabricate them. A human catalog has the opposite need: it must list every
-    card the product can render — a platform owner asking "can Grid show me X?"
+    card the product can render — a platform owner asking "can it show me X?"
     is not served by a list with holes in it — so system cards are included and
     flagged (``emittedBy``) rather than hidden.
 
@@ -819,7 +819,7 @@ def card_index_entries(
     """``(type, first docstring line)`` per content card the answering model may emit.
 
     The same rows :func:`render_card_index` prints, as data: what a decision
-    over "which card would this answer earn" (``agents/piloti/decisions.py``)
+    over "which card would this answer earn" (``core/decisions.py``)
     needs as its criteria, without parsing the rendered index back.
     """
     from agent.cards.models import AnswerCard

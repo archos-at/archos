@@ -21,8 +21,6 @@ from uuid import uuid4
 from langchain_core.tools import BaseTool
 from langgraph.types import Checkpointer
 
-from agent.agents.piloti.markers import ConfidenceLevel
-from agent.agents.piloti.markers import detect_and_strip_confidence_marker
 from agent.citations.entries import EmptySourceRegistryError
 from agent.citations.session import get_session_registry
 from agent.citations.session import reset_session_registry
@@ -40,6 +38,8 @@ from agent.common.turn_status import end_lane_capture
 from agent.common.turn_status import get_lane_captures
 from agent.common.turn_status import step_scope
 from agent.common.turn_status import subagent_run
+from agent.core.markers import ConfidenceLevel
+from agent.core.markers import detect_and_strip_confidence_marker
 from agent.observability.citation_scores import emit_citation_line_scores
 from agent.observability.langfuse_trace_attributes import begin_trace_contributions
 from agent.observability.langfuse_trace_attributes import end_trace_contributions

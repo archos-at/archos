@@ -75,8 +75,29 @@ export const stripUrlQuery = (url: string): string => {
   return cut === -1 ? url : url.slice(0, cut)
 }
 
-const SECRET_HEADER =
-  /^(?:authorization|proxy-authorization|cookie|set-cookie|x-grid-.*|x-workos-.*|x-api-key|.*token.*|.*secret.*)$/i
+export const SERVICE_HEADER_NAMES = [
+  'x-answer-message-id',
+  'x-budget',
+  'x-collection-scope',
+  'x-context-transport',
+  'x-disabled-sources',
+  'x-feature-memory-reflection',
+  'x-locale',
+  'x-model-overrides',
+  'x-org-instructions',
+  'x-organization-id',
+  'x-project-context',
+  'x-project-id',
+  'x-project-memory',
+  'x-request-context',
+  'x-request-context-sig',
+  'x-user-id',
+]
+
+const SECRET_HEADER = new RegExp(
+  `^(?:authorization|proxy-authorization|cookie|set-cookie|x-grid-.*|x-workos-.*|x-api-key|.*token.*|.*secret.*|${SERVICE_HEADER_NAMES.join('|')})$`,
+  'i'
+)
 
 const NO_BODY_PATH =
   /^\/api\/(?:organization\/llm-credentials|internal|auth|organization\/audit-portal|platform\/audit-portal)(?:\/|$)/

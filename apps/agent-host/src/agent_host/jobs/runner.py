@@ -586,7 +586,7 @@ def _resolve_worker_tool_refs(fn_config: Any) -> list[str]:
     while validation elsewhere reported the inherited tools as available. This
     matches the two other resolution sites (the sync agent build in
     deep_researcher/register.py and the chat-route validator in
-    piloti/conversation_register.py), which both treat an empty list as "inherit".
+    core/conversation_register.py), which both treat an empty list as "inherit".
     """
     tool_refs = getattr(fn_config, "tools", None)
     if not tool_refs:
@@ -1020,7 +1020,7 @@ def _get_agent_state_class(agent) -> type | None:
 def _bound_card_registry() -> Iterator[CardRegistry]:
     """Bind a fresh per-job ``CardRegistry`` for the agent run, and unbind it after.
 
-    The chat turn does the same around ``agent.run`` (``piloti/conversation_register.py``),
+    The chat turn does the same around ``agent.run`` (``core/conversation_register.py``),
     with a conversation-scoped registry it clears per turn. A job has no
     conversation of its own to key on and runs once, so a fresh registry is the
     per-turn state here — the ``ContextVar`` rule in ``packages/agent/src/agent/AGENTS.md``.
@@ -1070,7 +1070,7 @@ async def _run_report_passes(
     organization_id: str | None,
     **reflection_kwargs: Any,
 ) -> tuple[CardGenerationResult, ReportAnatomy, dict[str, Any] | None]:
-    """The model calls over a finished report: grid cards, anatomy, follow-ups, then reflection.
+    """The model calls over a finished report: response cards, anatomy, follow-ups, then reflection.
 
     The first three are independent and best-effort, so they run together. The
     reflection reads the report WITH its findings, after the extraction: a
@@ -1158,7 +1158,7 @@ async def _propose_report_follow_ups(
 
 
 async def _generate_answer_cards(llm: Any, query: str, report: str) -> CardGenerationResult:
-    """Generate Grid response cards from the final report.
+    """Generate response cards from the final report.
 
     Best-effort: never raises, so card generation can never crash or fail the
     job. It does say when it LOST — ``failed`` on the result — because a run
@@ -1195,7 +1195,7 @@ async def _run_deep_research_reflection(
 
     The synchronous chat path runs a post-answer reflection stage for
     chat/meta turns but deliberately skips deep-research jobs (see
-    piloti/conversation_register.py, ``not deep_research_job_id``) because the report
+    core/conversation_register.py, ``not deep_research_job_id``) because the report
     does not exist until the async job completes. This closes that gap on the
     worker, where the report and the submitting identity are both in hand.
 

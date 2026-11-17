@@ -280,7 +280,7 @@ describe('fileGeneratedDocument', () => {
           }),
         })
 
-      it('files a publishable Piloti document under piloti/<document id>/', async () => {
+      it('files a publishable agent document under piloti/<document id>/', async () => {
         const result = await fileDocument()
 
         const row = admittedRow()

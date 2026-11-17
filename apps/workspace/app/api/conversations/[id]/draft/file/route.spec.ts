@@ -63,7 +63,7 @@ const fetchMock = vi.fn()
 
 const post = (body: unknown) =>
   POST(
-    new Request('https://grid.example/api/conversations/conv-1/draft/file', {
+    new Request('https://example.test/api/conversations/conv-1/draft/file', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),

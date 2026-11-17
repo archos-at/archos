@@ -111,7 +111,7 @@ const ROUTES: Array<{ pattern: RegExp; method: string; handler: Handler; params:
 ]
 
 const run = async (path: string, init?: RequestInit) => {
-  const url = new URL(path, 'https://grid.test')
+  const url = new URL(path, 'https://example.test')
   const method = init?.method ?? 'GET'
   const route = ROUTES.find((entry) => entry.pattern.test(url.pathname) && entry.method === method)
   if (!route) throw new Error(`no route for ${method} ${url.pathname}`)
@@ -280,7 +280,7 @@ describe('rewording one’s own reply', () => {
     expect(markInboxItemsInertAnchoredOn).not.toHaveBeenCalled()
   })
 
-  it('never wakes Piloti: an @Piloti added in an edit is not kept', async () => {
+  it('never wakes the agent: an @agent added in an edit is not kept', async () => {
     await editReply('doc_1', 'ann_1', 'rep_1', { body: `@${PRODUCT_NAME} @Anna Berger bitte prüfen`, mentions: [AGENT, ANNA] }, { run })
 
     expect(updateAnnotationReply).toHaveBeenCalledWith('org_1', 'ann_1', 'rep_1', expect.any(String), {
@@ -290,7 +290,7 @@ describe('rewording one’s own reply', () => {
     expect(insertAnnotationReply).not.toHaveBeenCalled()
   })
 
-  it('keeps an @Piloti the reply already had, while Piloti has not taken it up', async () => {
+  it('keeps an @agent the reply already had, while the agent has not taken it up', async () => {
     withReplies([replyRow({ body: `@${PRODUCT_NAME} stimmt das?`, mentions: [AGENT], addressesAgent: true })])
     vi.mocked(findWake).mockResolvedValue(wake('suppressed'))
 
@@ -353,7 +353,7 @@ describe('who may change a reply, and when', () => {
     expect(deleteAnnotationReply).not.toHaveBeenCalled()
   })
 
-  it('refuses Piloti’s reply, even one posted for this person: that goes by undo', async () => {
+  it('refuses the agent’s reply, even one posted for this person: that goes by undo', async () => {
     withReplies([replyRow({ authorKind: 'piloti', mentions: [] })])
 
     expect(await Promise.all(both())).toEqual([
@@ -378,7 +378,7 @@ describe('who may change a reply, and when', () => {
     ])
   })
 
-  it('refuses a reply to Piloti that Piloti answered after', async () => {
+  it('refuses a reply to the agent that the agent answered after', async () => {
     withReplies([
       replyRow({ body: `@${PRODUCT_NAME} stimmt das?`, mentions: [AGENT], addressesAgent: true }),
       replyRow({ id: 'rep_2', authorKind: 'piloti', body: 'Ja.', mentions: [], createdAt: new Date('2026-10-01T09:01:00Z') }),
@@ -405,7 +405,7 @@ describe('who may change a reply, and when', () => {
     }
   )
 
-  it('refuses an answer on Piloti’s own Rückfrage once its wake ran, with no @Piloti in it', async () => {
+  it('refuses an answer on the agent’s own Rückfrage once its wake ran, with no @agent in it', async () => {
     withReplies([replyRow({ body: 'Ja, 1,00 m.', mentions: [] })], {
       authorKind: 'piloti',
       kind: 'question',
@@ -428,7 +428,7 @@ describe('who may change a reply, and when', () => {
     }
   )
 
-  it('does not ask after Piloti for a reply that was not for it, whatever Piloti wrote since', async () => {
+  it('does not ask after the agent for a reply that was not for it, whatever the agent wrote since', async () => {
     withReplies([
       replyRow(),
       replyRow({ id: 'rep_2', authorKind: 'piloti', body: 'Notiz', mentions: [], createdAt: new Date('2026-10-01T09:01:00Z') }),

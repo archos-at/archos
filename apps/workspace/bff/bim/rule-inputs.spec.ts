@@ -31,7 +31,7 @@ function element(overrides: Partial<BimElement> & Pick<BimElement, 'ifcType'>): 
     objectType: 'Basic Wall',
     tag: 'W-01',
     typeName: 'AW 38',
-    storeyGlobalId: '0GridGeoStEG000000001',
+    storeyGlobalId: '0TestGeoStEG000000001',
     storeyName: 'Erdgeschoss',
     containerGlobalId: null,
     containerKind: 'storey',

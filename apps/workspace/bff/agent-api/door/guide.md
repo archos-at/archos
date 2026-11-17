@@ -13,7 +13,7 @@
 - **Memory and skills.** Project and organization memory is what the office asked {productName} to keep; skills are the office's written procedures. Before you act on office work, find the procedure with `skill-search` and load it with `skill-get`, then follow it.
 - **Building law.** The OIB guidelines (1 to 6), Austrian law through RIS, and the norms an office uploads.
 
-The office's German words for all of this are in `piloti://glossary`.
+The office's German words for all of this are in `workspace://glossary`.
 
 ## Reading what documents and the law say
 

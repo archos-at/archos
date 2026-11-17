@@ -1,10 +1,10 @@
 # What the north star sounds like: worked answers
 
 [`agent-capabilities.md`](agent-capabilities.md) describes the north star in
-seven scenes: talking to Piloti feels like talking to the most experienced
+seven scenes: talking to the agent feels like talking to the most experienced
 architect in the office. This document shows what that means for single turns.
 Each exemplar is one question an architect asks in the Hubergasse project,
-what Piloti does to answer it, and the answer it gives, written out in full.
+what the agent does to answer it, and the answer it gives, written out in full.
 
 This is the star, not today's behaviour. Several exemplars use moves that have
 not landed yet (a look card in the chat, a Herleitung step per look, a canvas
@@ -32,8 +32,8 @@ match what ships today: lower it only when the star itself was wrong.
 
 ### Conventions in the exemplars
 
-- Prose of this document is English. The question and Piloti's answer are
-  German, as an architect asks and as Piloti answers people.
+- Prose of this document is English. The question and the agent's answer are
+  German, as an architect asks and as the agent answers people.
 - **Trajectory** lists the model's own tool calls in order, with the
   arguments that matter. Calls in one numbered step run in the same round. The
   round-0 prefetch is not listed. `look` carries `question=` whenever a value is stated off the drawing
@@ -44,7 +44,7 @@ match what ships today: lower it only when the star itself was wrong.
   A look card carries no `[[card:N]]` marker: look cards land after the whole
   answer, and `[N]` on the sentence that states the value opens that look's
   place.
-  Where Piloti writes a non-breaking space between a number and its unit, this
+  Where the agent writes a non-breaking space between a number and its unit, this
   document writes an ordinary space so it stays readable in an editor.
   `[[card:N]]` places a card. The envelope fields that matter follow the answer.
 - Legal Fundstellen (a Punkt, a definition) are what the answer must cite
@@ -56,7 +56,7 @@ match what ships today: lower it only when the star itself was wrong.
   comes from, in plain German and without labels: what a document says („laut
   Brandschutzkonzept“, with `[N]`), what a drawing shows („abgelesen“, with the
   crop), what the law requires (a cited passage, always), what a workspace
-  record says („laut Dateiliste“, never `[N]`), and what is Piloti's own
+  record says („laut Dateiliste“, never `[N]`), and what is the agent's own
   inference („nach meiner Einschätzung“, „überschlägig“). This is ADR-0125's
   provenance class made audible.
 
@@ -104,7 +104,7 @@ Grundrisse's is planted: a row that reads the Schnitt must not answer 1:100.
 | [ns-escape-route-law](#ns-escape-route-law) | 2 | project fact against OIB-RL 2 | files | pf-mixed-law |
 | [ns-gk-unstated](#ns-gk-unstated) | 2, 1 | the decisive fact no document states | files | ns-gk-unstated |
 | [ns-propose-move](#ns-propose-move) | 1 | a write as a proposal | files | ns-propose-move (`proposals`) |
-| [ns-chat-ask](#ns-chat-ask) | 4 | an outside agent asks Piloti | files | ns-chat-ask (the chat turn the ask starts; the door is `service.spec.ts`) |
+| [ns-chat-ask](#ns-chat-ask) | 4 | an outside agent asks the agent | files | ns-chat-ask (the chat turn the ask starts; the door is `service.spec.ts`) |
 | [ns-trivial](#ns-trivial) | restraint | a trivial question stays fast | files | pf-locate-name |
 | [ns-notice-new-document](#ns-notice-new-document) | 5 | notice unasked | files | ns-notice-new-document, ns-notice-agrees (`trigger`, `marks`) |
 | [ns-notice-agrees](#ns-notice-agrees) | 5 | stay silent when all agrees | files | ns-notice-agrees (`trigger`, `marks`) |
@@ -183,7 +183,7 @@ the six folders) under the table. Each `[N]` opens the page. No look card.
 - Present Index A's content as the project's, or call Index A „ungültig“ (it
   is the older Fassung, still readable).
 - Take any value from the neighbours' Gutachten for this house.
-- Call a document a „Plan“ in Piloti's own words; the Unterordner is named
+- Call a document a „Plan“ in the agent's own words; the Unterordner is named
   „Pläne“ because the office named it so.
 - Cite a folder card with `[N]`: a listing is a record, named in the prose.
 
@@ -697,7 +697,7 @@ Eine Tür in der Wand zwischen Schlafen und Kind [1]. In Index A ist die Wand an
 
 `kind: direct` · `confidence: high` („Bereich in beiden Fassungen angesehen“)
 
-**Cards and places.** On the canvas the box glows while Piloti looks, for
+**Cards and places.** On the canvas the box glows while the agent looks, for
 everyone who has the document open. The look card holds two items, the box on
 Index B and the same box on Index A. Both open at that region.
 
@@ -734,7 +734,7 @@ open; (b) in the canvas chat with EP-01_Grundrisse_Index-B.pdf open at page 1.
 2. `look(…, page=2, region=[0.03, 0.76, 0.20, 0.10], question="Maß an der Galerie")`.
 
 On the canvas (b), the page turns to 2 for the person and the region glows
-while Piloti reads; from the chat (a), it glows for any colleague who has the
+while the agent reads; from the chat (a), it glows for any colleague who has the
 document open.
 
 **Herleitung.** The same lines on both surfaces:
@@ -963,7 +963,7 @@ Vorgeschlagen: Schreiben_MA37_Baubeginn.pdf von Korrespondenz/Behörde nach Beh�
 **Cards and places.** A proposal card: the file, from and to, „Übernehmen“
 and „Verwerfen“. After „Übernehmen“ the card shows it done, and the next
 turn's `PROPOSAL_DECISIONS` says „angenommen“. Asked „Erledigt?“ next turn,
-Piloti answers from that record („Ja, angenommen; das Schreiben liegt jetzt in
+the agent answers from that record („Ja, angenommen; das Schreiben liegt jetzt in
 Behörde.“) and proposes nothing again.
 
 **Must not.**
@@ -985,11 +985,11 @@ no direct write route called, judge `pending`, „Behörde“. Langfuse: `work-r
 
 ### ns-chat-ask
 
-**Scene** 4 · **Capability** an outside agent consults Piloti · **Fixture** files · **Row** `ns-chat-ask` (the turn the ask starts)
+**Scene** 4 · **Capability** an outside agent consults the agent · **Fixture** files · **Row** `ns-chat-ask` (the turn the ask starts)
 
 **Setting.** The project lead drafts a letter to the Bauherr in Claude, which
 is connected to the office's MCP door (`/api/mcp`) as that person. Claude has
-no access to the documents' text and asks Piloti.
+no access to the documents' text and asks the agent.
 
 **Question** (from Claude, through `agent-ask-create`):
 
@@ -1002,11 +1002,11 @@ no access to the documents' text and asks Piloti.
 - Inside, the same turn a typed question gets: `read_passage(document="Bescheid_MA37_Baubewilligung.pdf", page=1)`.
   The inventory names the Bescheid, so it is read, not searched.
 
-**Herleitung** (in the ask's thread, which the person can open in Piloti):
+**Herleitung** (in the ask's thread, which the person can open in the agent):
 
 > Gelesen: Baubewilligung, S. 1
 
-**Answer** (what Claude receives, citations as links that open the page in Piloti):
+**Answer** (what Claude receives, citations as links that open the page in the agent):
 
 ```md
 Zahl **MA 37/567812-2026-1**, Bescheid vom 28.04.2026 [1]. Bewilligt sind die Einreichpläne EP-01 und EP-02 in Index B vom 03.02.2026 [1].
@@ -1018,13 +1018,13 @@ Zahl **MA 37/567812-2026-1**, Bescheid vom 28.04.2026 [1]. Bewilligt sind die Ei
 `kind: direct` · `confidence: high` („aus dem Bescheid belegt“)
 
 **Cards and places.** For Claude, the citation is a link to the page. In
-Piloti, the ask is a private thread of the person with the same answer and
+the agent, the ask is a private thread of the person with the same answer and
 Herleitung, so what Claude wrote into the letter can be traced back.
 
 **Must not.**
 
 - A different answer, or a thinner one, because the caller is an agent.
-- Piloti calling `piloti-ask` itself, or an ask running a write: a write goes
+- The agent calling `piloti-ask` itself, or an ask running a write: a write goes
   through the door's operation with the person's yes.
 - Asking Claude a clarifying question: `ask_user` refuses on a headless turn,
   so the ask answers or says what it could not establish.
@@ -1082,10 +1082,10 @@ the suite's distribution; `file-tools-used` = `none` or `navigate`.
 **Scene** 5 · **Capability** notice without being asked · **Fixture** files · **Rows** `ns-notice-new-document` and `ns-notice-agrees` (needs `trigger`, `marks`)
 
 **Setting.** No question. On 02.06.2026 Brandschutzkonzept_Hubergasse14.pdf
-is uploaded into Gutachten/Brandschutz. Piloti reads every upload anyway; at
+is uploaded into Gutachten/Brandschutz. The agent reads every upload anyway; at
 the north star, it also checks a new document against what it depends on.
 
-**Trigger.** The upload. Piloti runs a headless turn on the project's behalf.
+**Trigger.** The upload. The agent runs a headless turn on the project's behalf.
 
 **Today** ([ADR-0130](../adr/0130-piloti-notices-a-new-fassung.md), behind
 `piloti-notices`): the visual half only. A Fassung linked to an older one is
@@ -1097,7 +1097,7 @@ names, which is this trajectory and the next slice.
 
 1. `read_passage(document="Brandschutzkonzept_Hubergasse14.pdf", pages="1-14")`
    and, with its cursor, the rest.
-2. The Konzept names its basis, EP-01 and EP-02 in Index B; Piloti checks the
+2. The Konzept names its basis, EP-01 and EP-02 in Index B; the agent checks the
    Konzept's numbers against that Fassung:
    `knowledge_search(match="exact", query="Wohnungen gesamt", folder="Einreichung")`.
 3. `canvas__mark` on page 2 of the Konzept, as a Vorschlag, at the line
@@ -1119,7 +1119,7 @@ Neues Brandschutzkonzept (Fassung 1, Stand 20.02.2026) gelesen. Zwei Stellen pas
 - [3] oib-richtlinien_begriffsbestimmungen_ausgabe_mai_2023.pdf, p.<Seite>
 ```
 
-On the Konzept, two marks in Piloti's colour, each „Vorschlag, noch nicht
+On the Konzept, two marks in the agent's colour, each „Vorschlag, noch nicht
 übernommen“, with the same sentence and the sources in its thread.
 
 **Must not.**
@@ -1177,13 +1177,13 @@ not called, no look, the answer holds „Agrees“.
 
 **Setting.** Months later, a new project of the same office. A letter of the
 Baubehörde arrives and is uploaded into Korrespondenz. In the Hubergasse the
-project lead accepted Piloti's proposal to move the MA 37's letter from
+project lead accepted the agent's proposal to move the MA 37's letter from
 Korrespondenz/Behörde to Behörde ([ns-propose-move](#ns-propose-move)), and
 declined nothing similar since.
 
 **Trajectory.**
 
-1. Piloti reads the upload, recognises a Schreiben der Behörde, and recalls
+1. The agent reads the upload, recognises a Schreiben der Behörde, and recalls
    the office's convention from its notes (`remember`, kind convention,
    verified by two accepted proposals).
 2. `propose_file_change(operation="move", document="<Schreiben>", target_folder="Behörde")`,
@@ -1195,7 +1195,7 @@ declined nothing similar since.
 Vorgeschlagen: das Schreiben der Baubehörde nach Behörde, zum Bescheid. So legen Sie Behördenschreiben ab: In der Hubergasse haben Sie das Schreiben der MA 37 dorthin verschoben.
 ```
 
-The proposal card, and under „Was Piloti über das Büro weiß“ the convention
+The proposal card, and under „Was {productName} über das Büro weiß“ the convention
 as one line a person can edit or delete.
 
 **Must not.**
@@ -1233,7 +1233,7 @@ with the question, the answer and the Herleitung.
    record named in the prose. Nothing cited that the turn did not read.
 6. **It says where each sentence comes from.** What the document says, what
    the drawing shows, what the law requires (always a cited passage), what is
-   Piloti's own estimate. A reading of a drawing, a record or an estimate never
+   the agent's own estimate. A reading of a drawing, a record or an estimate never
    carries a statement about the law.
 7. **Its confidence is a grading of the answer against its evidence**, naming
    what is not belegt and the source each statement was checked against. Uncertainty is said once, concretely,

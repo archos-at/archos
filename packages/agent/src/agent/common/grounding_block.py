@@ -132,12 +132,12 @@ class GroundingHit(BaseModel):
 
     @property
     def authored_by(self) -> str | None:
-        """``"agent"`` for a Piloti document, ``None`` for everything else.
+        """``"agent"`` for an agent-authored document, ``None`` for everything else.
 
         Derived rather than stored so it cannot disagree with
         :attr:`provenance`. Fails CLOSED the way the text path does: unknown
         and human are the same value here, and only a parsed provenance buys a
-        document its Piloti lane and its verdict ban.
+        document its agent lane and its verdict ban.
         """
         return AGENT_AUTHOR if self.provenance is not None else None
 
@@ -175,7 +175,7 @@ def strip_trace_lanes(text: str) -> str:
 
     The lanes reach the Herleitung as the ``sources`` step the renderer emits,
     and the citation registry reads the records the renderer filed under the
-    block's bytes before anything strips them. The Piloti model reads neither; it reads the passages and
+    block's bytes before anything strips them. The model reads neither; it reads the passages and
     the ``Citation:`` keys. Yet the line travelled in every ``ToolMessage``, so
     a search with sixteen hits put ~1 000 tokens of ``{"lanes": …}`` into the
     transcript and re-sent them on every later call of the turn, and into the

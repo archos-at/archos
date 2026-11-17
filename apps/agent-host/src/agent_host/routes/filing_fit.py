@@ -1,4 +1,4 @@
-"""Where an upload belongs: Piloti's filing judgement, one bounded call per upload batch.
+"""Where an upload belongs: the agent's filing judgement, one bounded call per upload batch.
 
 ``POST /v1/filing-fit`` is the model half of the filing suggestion
 (``docs/architecture/proposed-changes.md``, „Ablage"). The BFF

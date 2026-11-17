@@ -1,0 +1,207 @@
+import pytest
+from agent_testing.conversation import turn
+from langchain_core.messages import AIMessage
+from langchain_core.messages import HumanMessage
+
+from agent.agents.deep_researcher.models import DeepResearchAgentState
+from agent.core.conversation import CONFINED_DEEP_RESEARCH_NOTE
+from agent.core.conversation import DEEP_RESEARCH_UNAVAILABLE_NOTE
+from agent.core.conversation import ConversationGraph
+from agent.core.conversation import _finalize_answer
+from agent.core.models import ConversationState
+from agent.core.models import ResearchAgentState
+from agent.turn.commission import CommissionRefused
+
+
+async def _unused_research(_state):  # pragma: no cover - the commission path never reaches it
+    raise AssertionError("the answering agent must not run on the commission path")
+
+
+def _signals(**fields) -> ResearchAgentState:
+    fields.setdefault("escalation_requested", True)
+    return ResearchAgentState(messages=[], **fields)
+
+
+class TestFinalizeAnswerWithoutDeepResearch:
+    def test_the_partial_answer_survives_and_says_no_run_is_coming(self):
+        update = _finalize_answer(
+            AIMessage(content="Nach OIB 2 gilt X [1]."),
+            _signals(answer_citation_grounded=True),
+            deep_research_allowed=False,
+        )
+
+        assert update["escalate_to_deep"] is False
+        assert update["messages"][0].content.startswith("Nach OIB 2 gilt X [1].")
+        assert DEEP_RESEARCH_UNAVAILABLE_NOTE in update["messages"][0].content
+        assert "answer_confidence" in update
+
+    def test_a_hand_off_sentence_is_replaced_rather_than_contradicted(self):
+        update = _finalize_answer(
+            AIMessage(content="Dafür starte ich eine Tiefenrecherche zu den Brandschutzanforderungen."),
+            _signals(answer_is_handoff=True),
+            deep_research_allowed=False,
+        )
+
+        assert update["messages"][0].content == DEEP_RESEARCH_UNAVAILABLE_NOTE
+        assert "Tiefenrecherche zu den Brandschutz" not in update["messages"][0].content
+        assert update["escalate_to_deep"] is False
+
+    def test_an_empty_hand_off_becomes_the_note(self):
+        update = _finalize_answer(AIMessage(content="   "), _signals(), deep_research_allowed=False)
+
+        assert update["escalate_to_deep"] is False
+        assert update["messages"][0].content == DEEP_RESEARCH_UNAVAILABLE_NOTE
+        assert update.get("routing_decision") != "error"
+
+    def test_an_empty_answer_with_no_ask_is_still_an_error_turn(self):
+        update = _finalize_answer(
+            AIMessage(content="   "), _signals(escalation_requested=False), deep_research_allowed=False
+        )
+
+        assert update["routing_decision"] == "error"
+
+    def test_an_answer_that_never_asked_is_untouched(self):
+        update = _finalize_answer(
+            AIMessage(content="Eine direkte Antwort."),
+            _signals(escalation_requested=False),
+            deep_research_allowed=False,
+        )
+
+        assert update["messages"][0].content == "Eine direkte Antwort."
+        assert DEEP_RESEARCH_UNAVAILABLE_NOTE not in update["messages"][0].content
+
+    def test_a_tenant_with_the_flag_still_escalates(self):
+        update = _finalize_answer(AIMessage(content="Partial."), _signals(), deep_research_allowed=True)
+
+        assert update["escalate_to_deep"] is True
+        assert DEEP_RESEARCH_UNAVAILABLE_NOTE not in update["messages"][0].content
+
+    def test_a_confined_turn_says_why_instead_of_blaming_the_workspace(self):
+        update = _finalize_answer(
+            AIMessage(content="Dafür starte ich eine Tiefenrecherche."),
+            _signals(answer_is_handoff=True),
+            deep_research_allowed=False,
+            confined=True,
+        )
+
+        assert update["escalate_to_deep"] is False
+        assert update["messages"][0].content == CONFINED_DEEP_RESEARCH_NOTE
+        assert "eingeschränktem Zugriff" in CONFINED_DEEP_RESEARCH_NOTE
+
+    def test_allowed_is_the_default_so_no_caller_withdraws_it_by_forgetting(self):
+        assert _finalize_answer(AIMessage(content="Partial."), _signals())["escalate_to_deep"] is True
+
+
+class TestShouldEscalate:
+    def test_the_bit_set_without_the_capability_ends_the_turn(self):
+        state = ConversationState(messages=[], escalate_to_deep=True, deep_research_allowed=False)
+        assert ConversationGraph._should_escalate(state) == "END"
+
+    def test_the_bit_set_with_the_capability_routes(self):
+        state = ConversationState(messages=[], escalate_to_deep=True, deep_research_allowed=True)
+        assert ConversationGraph._should_escalate(state) == "deep_research"
+
+
+class TestEndToEnd:
+    @pytest.fixture
+    def deep_fn(self):
+        async def deep(state):
+            deep.ran = True
+            return DeepResearchAgentState(messages=list(state.messages) + [AIMessage(content="Deep report.")])
+
+        deep.ran = False
+        return deep
+
+    def _research_asking_to_escalate(self, answer: str, seen: dict):
+        async def research(state_input):
+            seen["deep_research_allowed"] = state_input.deep_research_allowed
+            return ResearchAgentState(
+                messages=list(state_input.messages) + [AIMessage(content=answer)],
+                escalation_requested=True,
+                answer_citation_grounded=True,
+            )
+
+        return research
+
+    async def _run(self, research, deep_fn, thread_id: str, *, allowed: bool) -> ConversationState:
+        graph = ConversationGraph(research_fn=research, deep_research_fn=deep_fn, clarifier_fn=None)
+        state = ConversationState(
+            messages=[HumanMessage(content="Erstell mir einen Bericht.")],
+            deep_research_allowed=allowed,
+        )
+        return await turn(graph, state, thread_id=thread_id)
+
+    @pytest.mark.asyncio
+    async def test_no_flag_means_no_hand_off_and_an_answer_instead(self, deep_fn):
+        seen: dict = {}
+        result = await self._run(
+            self._research_asking_to_escalate("Soweit die Quellen tragen: X [1].", seen),
+            deep_fn,
+            "gate-1",
+            allowed=False,
+        )
+
+        assert deep_fn.ran is False, "deep research ran for a tenant that does not have it"
+        assert result.messages[-1].content != "Deep report."
+        assert DEEP_RESEARCH_UNAVAILABLE_NOTE in result.messages[-1].content
+        assert result.escalate_to_deep is False
+        assert seen["deep_research_allowed"] is False
+
+    @pytest.mark.asyncio
+    async def test_the_flag_still_reaches_deep_research(self, deep_fn):
+        seen: dict = {}
+        result = await self._run(self._research_asking_to_escalate("Partial.", seen), deep_fn, "gate-2", allowed=True)
+
+        assert deep_fn.ran is True
+        assert result.messages[-1].content == "Deep report."
+        assert seen["deep_research_allowed"] is True
+
+
+class TestCommissionRefusal:
+    @staticmethod
+    def _graph(refusal: CommissionRefused, deep_fn):
+        async def commission(_state):
+            raise refusal
+
+        return ConversationGraph(
+            research_fn=_unused_research,
+            deep_research_fn=deep_fn,
+            clarifier_fn=None,
+            commission_run_fn=commission,
+        )
+
+    @pytest.fixture
+    def deep_fn(self):
+        async def deep(state):
+            deep.ran = True
+            return DeepResearchAgentState(messages=list(state.messages) + [AIMessage(content="Deep report.")])
+
+        deep.ran = False
+        return deep
+
+    @pytest.mark.asyncio
+    async def test_forbidden_never_falls_back_to_running_it_in_process(self, deep_fn):
+        graph = self._graph(CommissionRefused("forbidden", "not for this tenant"), deep_fn)
+
+        update = await graph._commission_run(ConversationState(messages=[HumanMessage(content="Bericht?")]))
+
+        assert deep_fn.ran is False, "a forbidden commission was answered by running deep research"
+        assert update["messages"][0].content == DEEP_RESEARCH_UNAVAILABLE_NOTE
+        assert update["routing_decision"] == "meta"
+
+    @pytest.mark.asyncio
+    async def test_a_confined_conversation_is_told_why_and_never_run_in_process(self, deep_fn):
+        graph = self._graph(CommissionRefused("confined", "Aus dieser Unterhaltung …"), deep_fn)
+
+        update = await graph._commission_run(ConversationState(messages=[HumanMessage(content="Bericht?")]))
+
+        assert deep_fn.ran is False, "a confined thread's run was answered by running deep research in process"
+        assert update["messages"][0].content == CONFINED_DEEP_RESEARCH_NOTE
+
+    @pytest.mark.asyncio
+    async def test_a_transport_failure_still_falls_back(self, deep_fn):
+        graph = self._graph(CommissionRefused("unreachable", "the task API did not answer"), deep_fn)
+
+        await graph._commission_run(ConversationState(messages=[HumanMessage(content="Bericht?")]))
+
+        assert deep_fn.ran is True

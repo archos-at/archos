@@ -823,7 +823,7 @@ describe('transitionDocumentVersion — effects', () => {
   })
 })
 
-describe('ingestPublished — what publishing a Piloti document does to the index', () => {
+describe('ingestPublished — what publishing an agent document does to the index', () => {
   const approved = () =>
     version({ state: 'approved', approvedBy: 'user_approver', approvedAt: new Date('2026-09-01T10:00:00Z') })
   const publishedVersion = () =>
@@ -1367,7 +1367,7 @@ describe('request_changes and the revision task', () => {
       vi.mocked(folderRestrictsReading).mockResolvedValue(true)
     })
 
-    it('refuses „Piloti überarbeiten lassen" with the reason, before the decision is recorded', async () => {
+    it('refuses the agent revision action with the reason, before the decision is recorded', async () => {
       vi.mocked(getAccessibleDocument).mockResolvedValue(restricted)
       vi.mocked(findDocumentVersion).mockResolvedValue(version({ originConversationId: null }))
 

@@ -211,7 +211,7 @@ def test_state_backend_still_reads_through_the_one_hook_the_skills_backend_overr
 
 
 def test_skills_middleware_takes_our_template_and_renders_outside_an_agent() -> None:
-    """Piloti renders the catalog with ``before_agent`` + ``modify_request``, without hosting the middleware."""
+    """The agent renders the catalog with ``before_agent`` + ``modify_request``, without hosting the middleware."""
     from deepagents.middleware.skills import SkillsMiddleware
 
     from agent.skills.models import Skill

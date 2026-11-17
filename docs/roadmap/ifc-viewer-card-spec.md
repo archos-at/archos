@@ -20,7 +20,7 @@
 > Original text follows.
 >
 > Build-ready design for a card that renders an architect's **actual IFC/BIM
-> model** in the browser, with GRID's compliance findings overlaid. This is the
+> model** in the browser, with the app's compliance findings overlaid. This is the
 > domain-native "3D model" no generic tool has. Scoped separately because it is a
 > mini-project (WASM, a conversion/caching pipeline), not a phase-1 schematic.
 > Forward-looking — not yet built.
@@ -30,7 +30,7 @@
 Architects already produce **IFC** models (the open BIM exchange format). A card
 that loads the project's IFC and lets the agent **point at real geometry** —
 "this stairwell exceeds the 40 m Fluchtweg", highlighted on the actual model — is
-unmatched by any generic file tool and turns GRID from "reads your PDFs" into
+unmatched by any generic file tool and turns the app from "reads your PDFs" into
 "understands your building."
 
 ## The hard truth (from the library research)

@@ -1,5 +1,5 @@
 """
-Agent-runtime plugin registration for unified AI-Q API.
+Agent-runtime plugin registration for the unified API.
 
 One plugin, two web roles (``PROCESS_ROLE``, ``roles.WebRole``, ADR-0082 step B):
 
@@ -150,7 +150,7 @@ def _load_validators_from_entry_points() -> list:
             return [MyValidator(...)]
 
     This is the recommended way to add validators from a private package that
-    has the public aiq-api repo as a git submodule.
+    has the public API repo as a git submodule.
     """
     from importlib.metadata import entry_points
 
@@ -182,7 +182,7 @@ WORKFLOW_ROUTE_FIELDS = (
 
 class AgentHostConfig(FastApiFrontEndConfig, name="agent_host"):
     """
-    Configuration for unified AI-Q API endpoints.
+    Configuration for unified API endpoints.
 
     Knowledge API:
         Automatically enabled when a knowledge_retrieval function is configured.
@@ -360,7 +360,7 @@ def _add_request_middleware(app: FastAPI, *, validators: list, require_auth: boo
 
 class AgentHostWorker(FastApiFrontEndPluginWorker):
     """
-    Worker that adds the AI-Q routes of one web role to the FastAPI app.
+    Worker that adds the API routes of one web role to the FastAPI app.
 
     ``api``:
     - Knowledge API routes (collections, documents) - uses factory singleton
@@ -554,7 +554,7 @@ class AgentHostWorker(FastApiFrontEndPluginWorker):
 
 
 class AgentHostPlugin(FastApiFrontEndPlugin):
-    """Plugin that adds unified AI-Q API endpoints to the FastAPI server."""
+    """Plugin that adds unified API endpoints to the FastAPI server."""
 
     def __init__(self, full_config: Config, config: AgentHostConfig):
         super().__init__(full_config=full_config)
@@ -567,5 +567,5 @@ class AgentHostPlugin(FastApiFrontEndPlugin):
 
 @register_front_end(config_type=AgentHostConfig)
 async def register_agent_host(config: AgentHostConfig, full_config: Config):
-    """Register unified AI-Q API with the agent runtime's framework."""
+    """Register the unified API with the agent runtime's framework."""
     yield AgentHostPlugin(full_config=full_config, config=config)

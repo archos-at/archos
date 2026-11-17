@@ -98,7 +98,7 @@ async def test_the_card_is_shown_without_asking_the_proposals_route_for_anything
     await workspace.run_call("folder-rename", CALL_INPUT)
 
     paths = {request.full_url for request in server.requests}
-    assert paths == {"http://bff.test/api/mcp"}
+    assert paths == {"http://bff.test/api/mcp?mode=search"}
 
 
 async def test_the_same_call_repeated_shows_one_card(server, registry) -> None:

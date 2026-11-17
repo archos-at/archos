@@ -28,7 +28,7 @@ CHAT_SCOPE = (
     "Inputs: `query`, a search query in the documents' language (topic, Land, year), not the person's message. "
     "`path=` limits it to a mount, folder or document (`/law/oib/`, `/project/Gutachten/`); without it every "
     "mount is searched. `doc_class=` (a Dokumentart key, `oib_guideline`), `title_contains=`, `document_type=` (a "
-    "kind Piloti recognised, `fire_safety_concept`) and `refers_to=` (a norm, law or plan number the document "
+    "kind the agent recognised, `fire_safety_concept`) and `refers_to=` (a norm, law or plan number the document "
     "cites) narrow further. Ranked passages are a sample, not every mention: for exact wording, every "
     "occurrence, or to show a term stands nowhere, use `grep`. "
 )

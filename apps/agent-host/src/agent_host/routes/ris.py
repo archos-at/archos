@@ -3,8 +3,8 @@
 WHY THIS EXISTS AT ALL. A RIS citation is the one source in this product that
 the answer can point at and the reader cannot check without leaving: the chip
 carried an ``https://www.ris.bka.gv.at/…`` URL, so it opened a browser tab —
-Piloti's own viewer, the passage rail and the copy-as-Zitat actions all sitting
-one surface behind — and a RIS document Piloti had already fetched, parsed and
+the app's own viewer, the passage rail and the copy-as-Zitat actions all sitting
+one surface behind — and a RIS document the agent had already fetched, parsed and
 grounded on could not be shown by the product that grounded on it (#622).
 
 The text is not new work. ``ris_fetch_document`` reads exactly this, and this

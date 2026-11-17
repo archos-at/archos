@@ -69,7 +69,7 @@ const SEES_EVERY_ROW: Record<string, string> = {
   'lib/projects/folder-bin-repository.ts#listRestoringDocumentPage':
     'The `restore_folder_bin` job re-dispatches the rows its restore stamped; a quarantined row is never stamped. Rows to a job.',
   'lib/projects/folder-derived-repository.ts#listReportsDerivedFrom':
-    "Piloti's own reports drawn from a purged folder: the purge marks every one of them, and none of them is an upload.",
+    "The agent's own reports drawn from a purged folder: the purge marks every one of them, and none of them is an upload.",
   'lib/authz/folder-access-repository.ts#listProjectDocumentCollections':
     'Which retrieval collections a project uses, for folder access decisions. Collection names, never a document.',
   'lib/authz/folder-access-repository.ts#countIfcDocumentsInFolders':
@@ -112,7 +112,7 @@ const KEYED_BY_A_READ_DOCUMENT: Record<string, string> = {
   'lib/documents/version-repository.ts#nextVersionNumber|documentVersions': 'The key of an upload that is replacing this document. A number, no fact.',
   'lib/documents/version-repository.ts#allocateVersionNumber|documentVersions': 'Inside the insert of a new version. A number, no fact.',
   'lib/projects/folder-derived-repository.ts#listReportsDerivedFrom|documentVersions':
-    "Piloti's own reports drawn from a purged folder (see SEES_EVERY_ROW): none of them is an upload.",
+    "The agent's own reports drawn from a purged folder (see SEES_EVERY_ROW): none of them is an upload.",
   'lib/storage/repository.ts#versionOverheadByScope|documentVersions': 'Quota: version bytes, every row.',
   'lib/storage/repository.ts#versionOverheadBytes|documentVersions': 'Quota: version bytes, every row.',
 
@@ -200,7 +200,7 @@ const ELEVATED_READERS: Record<string, { makes: string[]; why: string }> = {
   },
   'lib/documents/repository/lookup-by-ref.ts#findDocumentAuthoredByRef': {
     makes: ['internal:identity'],
-    why: "Idempotency of Piloti's filing by its run reference, which a unique index answers over every row.",
+    why: "Idempotency of the agent's filing by its run reference, which a unique index answers over every row.",
   },
   'lib/inbound-mail/review-read-repository.ts#findDocumentIdByStoredName': {
     makes: ['internal:identity'],
@@ -244,15 +244,15 @@ const ELEVATED_READERS: Record<string, { makes: string[]; why: string }> = {
   },
   'lib/documents/agent-document.ts#fileAgentDocumentDraft': {
     makes: ['internal:just-written'],
-    why: "Reads back Piloti's own document it just filed.",
+    why: "Reads back the agent's own document it just filed.",
   },
   'lib/documents/research-report.ts#openReviewRound': {
     makes: ['internal:just-written'],
-    why: "Reads back Piloti's report it just filed, to open its review.",
+    why: "Reads back the agent's report it just filed, to open its review.",
   },
   'lib/tasks/service.ts#fileResultFor': {
     makes: ['internal:just-written'],
-    why: "Reads back the task result it just filed as Piloti's document.",
+    why: "Reads back the task result it just filed as the agent's document.",
   },
 }
 

@@ -691,7 +691,7 @@ function ThreadMessages({
       <ScrollArea className={cn('min-h-0 flex-1', FIT_VIEWPORT)}>
         <div ref={contentRef} className="flex flex-col gap-4 p-4" data-testid="feedback-thread-messages" data-chat-surface="feedback">
           {/* The chat's own attributed message: the header names who spoke
-              (you, a colleague, or the team member). Unlike the Piloti chat
+              (you, a colleague, or the team member). Unlike the agent's chat
               this is a two-party conversation, so the team speaks from the left. */}
           {messages.map((message, index) => {
             const previous = messages[index - 1]

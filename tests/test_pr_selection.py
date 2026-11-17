@@ -8,7 +8,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 TESTS = {
-    "packages/agent/tests/test_prompt.py": "PROMPT = 'agents/piloti/prompts/chat_static.md'",
+    "packages/agent/tests/test_prompt.py": "PROMPT = 'core/prompts/chat_static.md'",
     "tests/test_grounding.py": "FIXTURE = ROOT / 'tests/fixtures/citation_pipeline/grounding_block.txt'",
     "tests/test_decisions_eval.py": "CASES = sorted((ROOT / 'tests' / 'fixtures' / 'decisions').rglob('*.json'))",
     "tests/test_visual_eval.py": "SHAPES = list((ROOT / 'tests' / 'fixtures' / 'visual').iterdir())",
@@ -99,10 +99,7 @@ def test_a_file_named_only_by_its_basename_still_counts(mod):
 
 
 def test_package_data_no_test_names_forces_the_full_suite(mod):
-    assert (
-        mod.decide_python(["packages/agent/src/agent/agents/piloti/prompts/unnamed.md"], TESTS, recorded=True)[0]
-        == "full"
-    )
+    assert mod.decide_python(["packages/agent/src/agent/core/prompts/unnamed.md"], TESTS, recorded=True)[0] == "full"
 
 
 def test_a_fixture_selects_the_tests_that_read_it(mod):

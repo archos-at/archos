@@ -1,10 +1,10 @@
 # Product feedback and the inbox's platform lane
 
-A member can send the people who run Piloti a bug report, an idea, praise or a
+A member can send the people who run the agent a bug report, an idea, praise or a
 question from anywhere in the app. The platform owners are told in their inbox
 and in Slack, every report opens a ticket in PostHog Support, and the owners
 answer and work through the reports in PostHog and on **Platform → Feedback**.
-The member reads the answer, and replies, under **Mein Feedback** in Piloti.
+The member reads the answer, and replies, under **Mein Feedback** in the agent.
 PostHog Support is the one record of where a report stands and of what was said
 (ADR-0118 and its amendment). This is separate
 from the thumbs on an answer (`answer_feedback`, which feeds platform lessons).
@@ -125,11 +125,11 @@ The page reads PostHog live and keeps no status of its own.
 - **„Übernehmen" on a row** assigns its ticket to the reader through the same
   `claimProductFeedbackTicket` the Slack button uses, offered while the ticket
   is open and not the reader's yet. „In PostHog öffnen" links the ticket.
-  Answering stays in PostHog: Piloti does not reply for the team.
+  Answering stays in PostHog: The agent does not reply for the team.
 - **The members list** (`/api/organizations/@current/members/`, which needs
   `organization_member:read`) is cached in the server process for five
   minutes, keyed by PostHog host and project: it is the personal key's own
-  organization, the same for every Piloti tenant. A claim that misses the cache
+  organization, the same for every tenant. A claim that misses the cache
   reads the list again. „Meine" without a readable members list falls back to
   the local log; a reader nobody in PostHog has gets an empty list that says
   so (`viewerNotInPosthog`).
@@ -227,7 +227,7 @@ the phone's action key says „Senden", a press on Send keeps the keyboard up).
   `$conversation_message_sent` for it, which a later slice can route into the
   inbox (a workflow or webhook into the BFF).
 
-## The reply notice: PostHog pokes, Piloti reads
+## The reply notice: PostHog pokes, the agent reads
 
 A member learns that the team answered without opening „Mein Feedback": every team
 reply becomes a `feedback.replied` row in their inbox, pushed like any inbox

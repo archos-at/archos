@@ -2,6 +2,7 @@ import type { UserSession } from '@/lib/auth/types'
 import { isAuthRequired } from '@/lib/auth/auth-required'
 import { NextResponse } from 'next/server'
 import { featureDisabledProblem } from './feature-disabled'
+import { LEGACY_FLAG_KEYS } from './legacy-feature-flags'
 
 export const FEATURE_FLAGS = {
   modelConfiguration: 'runtime-model-config',
@@ -19,15 +20,15 @@ export const FEATURE_FLAGS = {
   mailImport: 'mail-import',
   memoryReflection: 'memory-reflection',
   postAnswerFollowUps: 'post-answer-follow-ups',
-  pilotiWakes: 'piloti-wakes',
-  agentActs: 'piloti-acts',
-  agentNotices: 'piloti-notices',
+  threadReplies: 'agent-thread-replies',
+  agentActs: 'agent-direct-edits',
+  agentNotices: 'revision-suggestions',
   agentMcp: 'agent-mcp',
   agentMcpAccess: 'agent-mcp-access',
   agentMcpSecrets: 'agent-mcp-secrets',
   agentMcpControls: 'agent-mcp-controls',
   platformAgentMcp: 'platform-agent-mcp',
-  agentAsk: 'piloti-ask',
+  agentAsk: 'agent-requests',
   folderCards: 'folder-cards',
   officeConventions: 'office-conventions',
   licensedSeam: 'licensed-seam',
@@ -47,15 +48,15 @@ export const FLAG_KINDS: Readonly<Record<KnownFeatureFlag, 'entitlement' | 'roll
   collaboration: 'entitlement',
   skills: 'entitlement',
   'mail-import': 'entitlement',
-  'piloti-wakes': 'entitlement',
-  'piloti-acts': 'entitlement',
-  'piloti-notices': 'entitlement',
+  'agent-thread-replies': 'entitlement',
+  'agent-direct-edits': 'entitlement',
+  'revision-suggestions': 'entitlement',
   'agent-mcp': 'entitlement',
   'agent-mcp-access': 'entitlement',
   'agent-mcp-secrets': 'entitlement',
   'agent-mcp-controls': 'entitlement',
   'platform-agent-mcp': 'entitlement',
-  'piloti-ask': 'entitlement',
+  'agent-requests': 'entitlement',
   'folder-cards': 'entitlement',
   'office-conventions': 'entitlement',
   'licensed-seam': 'entitlement',
@@ -83,13 +84,19 @@ export function unauthenticatedDefault(flag: KnownFeatureFlag): boolean {
   return FLAG_KINDS[flag] === 'rollout'
 }
 
+export function acceptedFlagKeysOf(flag: KnownFeatureFlag): readonly string[] {
+  const legacy = LEGACY_FLAG_KEYS[flag]
+  return legacy === undefined ? [flag] : [flag, legacy]
+}
+
 export function isFeatureEnabled(
   session: Pick<UserSession, 'featureFlags'>,
   flag: KnownFeatureFlag
 ): boolean {
   if (!flagsFromWorkOS()) return unauthenticatedDefault(flag)
-  if (session.featureFlags === null) return false // stale token — re-auth picks flags up
-  return session.featureFlags.includes(flag)
+  const held = session.featureFlags
+  if (held === null) return false // stale token — re-auth picks flags up
+  return acceptedFlagKeysOf(flag).some((key) => held.includes(key))
 }
 
 export function isProjectKnowledgePageEnabled(session: Pick<UserSession, 'featureFlags'>): boolean {
@@ -109,7 +116,7 @@ export function isOfficeStandardsEnabled(session: Pick<UserSession, 'featureFlag
 }
 
 export function isAgentWakesEnabled(session: Pick<UserSession, 'featureFlags'>): boolean {
-  return isFeatureEnabled(session, FEATURE_FLAGS.pilotiWakes)
+  return isFeatureEnabled(session, FEATURE_FLAGS.threadReplies)
 }
 
 export function isAgentAskEnabled(session: Pick<UserSession, 'featureFlags'>): boolean {

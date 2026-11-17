@@ -96,7 +96,7 @@ class TestEveryChannelRefusesIt:
         assert [card["type"] for card in validate_cards([_payload(card_type), GOOD])] == ["ifc_model_picker"]
 
     def test_the_dsml_salvage_drops_it(self, card_type):
-        from agent.agents.piloti.dsml import _salvage_card
+        from agent.core.dsml import _salvage_card
 
         registry = get_or_create_card_registry(f"conv-dsml-retired-{card_type}")
         registry.clear()

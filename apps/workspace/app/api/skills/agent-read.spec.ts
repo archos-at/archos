@@ -22,7 +22,7 @@ import { readSkill, searchSkills } from '@/lib/skills/service'
 
 const session = {
   userId: 'user-1',
-  email: 'test@grid.com',
+  email: 'test@example.test',
   name: null,
   accessToken: '',
   organizationId: 'org-1',
@@ -32,7 +32,7 @@ const session = {
   featureFlags: null,
 }
 const outside: AgentPrincipal = { actor: 'external_agent', clientId: 'c', scopes: [], session }
-const piloti: AgentPrincipal = { actor: 'piloti', clientId: null, scopes: [], session }
+const agent: AgentPrincipal = { actor: 'piloti', clientId: null, scopes: [], session }
 
 function operation(name: string) {
   const op = findOperation(name)
@@ -56,9 +56,9 @@ describe('an outside agent finds the office’s procedures on its own', () => {
     expect(found(outside, 'read skill').slice(0, 3)).toContain('skill-get')
   })
 
-  it('is not offered to Piloti, which reads skills with its own read_file', () => {
-    expect(found(piloti, 'office procedure')).not.toContain('skill-search')
-    expect(found(piloti, 'office procedure')).not.toContain('skill-get')
+  it('is not offered to the agent, which reads skills with its own read_file', () => {
+    expect(found(agent, 'office procedure')).not.toContain('skill-search')
+    expect(found(agent, 'office procedure')).not.toContain('skill-get')
   })
 })
 

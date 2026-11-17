@@ -128,7 +128,7 @@ const ROUTES: Array<{ pattern: RegExp; method: string; handler: Handler }> = [
 ]
 
 const run = async (path: string, init?: RequestInit) => {
-  const url = new URL(path, 'https://grid.test')
+  const url = new URL(path, 'https://example.test')
   const method = init?.method ?? 'GET'
   const route = ROUTES.find((entry) => entry.pattern.test(url.pathname) && entry.method === method)
   if (!route) throw new Error(`no route for ${method} ${url.pathname}`)
@@ -1042,7 +1042,7 @@ describe('the audit trail of a proposal', () => {
     vi.mocked(findConversationInOrg).mockResolvedValue({ id: CONVERSATION } as Partial<Conversation> as Conversation)
   })
 
-  it('records an apply once, as the decider, with how it went and for whom Piloti proposed it', async () => {
+  it('records an apply once, as the decider, with how it went and for whom the agent proposed it', async () => {
     vi.mocked(resolveProjectDocumentsByName).mockImplementation(async (_s, _p, names) =>
       names.includes('Schnitt A-A.pdf') ? [listed('doc_aa', 'Schnitt A-A.pdf')] : []
     )
@@ -1099,7 +1099,7 @@ describe('the audit trail of a proposal', () => {
     expect(recordAuditEvent).not.toHaveBeenCalled()
   })
 
-  it('records a filed proposal once, as the person Piloti acted for, and a repeated card not again', async () => {
+  it('records a filed proposal once, as the person the agent acted for, and a repeated card not again', async () => {
     vi.mocked(insertProposedChange).mockResolvedValueOnce({ row: row({ onBehalfOf: 'user_1' }), created: true })
     await createProposal(SESSION as never, {
       projectId: PROJECT,

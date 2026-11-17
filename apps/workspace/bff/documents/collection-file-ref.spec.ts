@@ -35,7 +35,7 @@ describe('collectionFileRef', () => {
     expect(collectionFileRef({ ...row, authoredBy: 'agent' })).toBeNull()
   })
 
-  it('names the pair for a PUBLISHED Piloti document under its namespace', () => {
+  it('names the pair for a PUBLISHED agent document under its namespace', () => {
     expect(collectionFileRef(publishedAgent)).toMatchObject({
       collectionName: 'proj_abc',
       filename: 'piloti/doc_1/aktenvermerk-2026-09-01.md',
@@ -52,7 +52,7 @@ describe('collectionFileRef', () => {
     ).toBeNull()
   })
 
-  it('is not fooled by a name that merely mentions piloti', () => {
+  it('is not fooled by a name that merely mentions the namespace', () => {
     expect(collectionFileRef({ ...publishedAgent, filename: 'piloti-bericht.md' })).toBeNull()
     expect(collectionFileRef({ ...publishedAgent, filename: 'x/piloti/doc_1/a.md' })).toBeNull()
   })

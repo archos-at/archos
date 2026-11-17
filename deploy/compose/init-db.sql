@@ -1,5 +1,5 @@
 -- =============================================================================
--- Piloti - Database Initialization (idempotent — safe to re-run)
+-- Database Initialization (idempotent — safe to re-run)
 -- =============================================================================
 --
 -- Run by the backend init container on every pod start. All statements are

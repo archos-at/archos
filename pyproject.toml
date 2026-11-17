@@ -192,8 +192,8 @@ ignore_imports = [
   "agent.knowledge.licences -> knowledge_layer.estate",
   # Known bypasses of the port, from before this contract. Route each one
   # through the port and delete its line; a new one fails the build.
-  "agent.agents.piloti.register -> knowledge_layer.chat_binding",
-  "agent.agents.piloti.register -> knowledge_layer.estate",
+  "agent.core.register -> knowledge_layer.chat_binding",
+  "agent.core.register -> knowledge_layer.estate",
   "agent.knowledge.collection_pages -> knowledge_layer.chunk_positions",
   "agent.knowledge.collection_pages -> knowledge_layer.vector_store",
   "agent.knowledge.collection_pages -> knowledge_layer.vector_store.reads",

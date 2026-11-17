@@ -256,7 +256,7 @@ class TestDeepResearcherAgent:
                 callbacks=callbacks,
                 enable_citation_verification=False,
                 skills=DeepResearchSkillsConfig(agents={"researcher-agent": ("research",)}),
-                sandbox=DeepResearchSandboxConfig(app_name="custom-aiq"),
+                sandbox=DeepResearchSandboxConfig(app_name="custom-sandbox"),
                 domain_catalog_path="configs/domain_catalogs/deep_research_domain_catalog.yml",
                 enable_source_router=False,
                 max_research_concurrency=2,
@@ -340,7 +340,7 @@ class TestDeepResearcherAgent:
             writer_llm="writer-llm",
             enable_citation_verification=False,
             skills=DeepResearchSkillsConfig(agents={"writer-agent": ("synthesis",)}),
-            sandbox=DeepResearchSandboxConfig(app_name="custom-aiq", packages=["matplotlib", "pillow"]),
+            sandbox=DeepResearchSandboxConfig(app_name="custom-sandbox", packages=["matplotlib", "pillow"]),
             max_research_concurrency=2,
             max_concurrent_source_tool_calls=3,
             max_source_tool_batch_size=4,
@@ -360,7 +360,7 @@ class TestDeepResearcherAgent:
         assert config.enable_source_router is False
         assert config.sandbox is not None
         assert config.sandbox.provider == "modal"
-        assert config.sandbox.app_name == "custom-aiq"
+        assert config.sandbox.app_name == "custom-sandbox"
         assert config.sandbox.packages == ("matplotlib", "pillow")
 
     def test_register_resolves_named_runtime_config_refs(self):
@@ -371,7 +371,7 @@ class TestDeepResearcherAgent:
         from agent.agents.deep_researcher.register import resolve_deep_research_runtime_config
 
         skills = DeepResearchSkillsConfig(agents={"writer-agent": ("synthesis",)})
-        sandbox = DeepResearchSandboxConfig(app_name="custom-aiq")
+        sandbox = DeepResearchSandboxConfig(app_name="custom-sandbox")
         builder = MagicMock()
         builder.get_function_config.side_effect = {
             "deep_research_skills": skills,
@@ -716,7 +716,7 @@ class TestDeepResearcherAgent:
         real_tool,
         mock_create_deep_agent,
     ):
-        """Every deep research prompt names Piloti, a colleague in a planning office, and anchors citations."""
+        """Every deep research prompt names the agent, a colleague in a planning office, and anchors citations."""
         with (
             patch(
                 "agent.agents.deep_researcher.factory.create_deep_agent",

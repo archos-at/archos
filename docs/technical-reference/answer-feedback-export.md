@@ -58,7 +58,7 @@ The organization's name, ASCII-spelled (`Planungsbüro Huber` →
 `planungsbuero-huber`), is in the name when exactly one is selected.
 `_gefiltert` says the file holds less than its name promises: a ratings filter,
 a project, or more than one organization. At most 5,000 votes, newest first; a
-cut file says `_erste-5000` and carries `X-Grid-Export-Truncated: 5000`.
+cut file says `_erste-5000` and carries `X-Export-Truncated: 5000`.
 
 ### The weekly table and filters
 
@@ -67,7 +67,7 @@ table (the workbook's **Wochen** sheet and `summary=weekly`) applies the scope
 (range, organizations, projects) and the topic, which narrow answers and votes
 alike. It does not apply the verdict, reason, mode, confidence, note or search
 filters: they describe a vote, not an answer. The workbook's overview says which
-were left out; the CSV names them in `X-Grid-Export-Ignored-Filters`
+were left out; the CSV names them in `X-Export-Ignored-Filters`
 (`verdict,reason`). The weekly range starts on the Monday of `from`'s ISO week,
 so its first row is a whole week, and ends with `to`. It has its own cap of
 5,000 rows, newest week first, so a cut drops the oldest weeks.
@@ -179,7 +179,7 @@ its readers.
 | `lesson_id` | Platform lesson distilled from the vote | id | `platform_lesson_reports.lesson_id` |
 | `lesson_status` | `candidate`, `active`, `retired`, or `skipped` | text | `platform_lessons.status`, `platform_lesson_reports.outcome` |
 | `lessons_holdout` | Lessons experiment arm; empty when none ran | 1/0 | `answer_feedback.lessons_holdout` |
-| `app_url` | The answer in its conversation in Piloti | link | app origin + conversation deep link |
+| `app_url` | The answer in its conversation in the app | link | app origin + conversation deep link |
 | `langfuse_trace_url` | The answer's trace in Langfuse | link | `LANGFUSE_PUBLIC_URL`, `LANGFUSE_PROJECT_ID` |
 | `trace_id` | Langfuse/OTel trace id | id | `messages.metadata.trace_id` |
 

@@ -428,7 +428,7 @@ describe('the triage list reads PostHog', () => {
 })
 
 describe('the active support cases', () => {
-  const ANNA = { id: 7, email: 'anna@piloti.test', name: 'Anna Wallner' }
+  const ANNA = { id: 7, email: 'anna@example.test', name: 'Anna Wallner' }
   const MARIA = { id: 9, email: 'Maria@Buero.test', name: 'Maria Huber' }
 
   function withTicket(...tickets: SupportTicket[]): void {
@@ -498,7 +498,7 @@ describe('the active support cases', () => {
   it('names each assignee from the PostHog members, and marks the reader’s own', async () => {
     vi.mocked(listPosthogMembers).mockResolvedValue([ANNA, MARIA])
     withTicket(
-      ticket({ id: 't-anna', assignee: { type: 'user', id: 7, email: 'anna@piloti.test' } }),
+      ticket({ id: 't-anna', assignee: { type: 'user', id: 7, email: 'anna@example.test' } }),
       ticket({ id: 't-mine', assignee: { type: 'user', id: 9, email: 'maria@buero.test' } }),
       ticket({ id: 't-team', assignee: { type: 'role', id: 'r-1', name: 'Support' } })
     )
@@ -506,7 +506,7 @@ describe('the active support cases', () => {
     const list = await listProductFeedbackForPlatform(session, {})
 
     expect(list.reports.map((report) => report.ticket?.assignee)).toEqual([
-      { type: 'user', name: 'Anna Wallner', email: 'anna@piloti.test', isViewer: false },
+      { type: 'user', name: 'Anna Wallner', email: 'anna@example.test', isViewer: false },
       { type: 'user', name: 'Maria Huber', email: 'maria@buero.test', isViewer: true },
       { type: 'role', name: 'Support', email: null, isViewer: false },
     ])
@@ -515,7 +515,7 @@ describe('the active support cases', () => {
   it('shows an assignee by email while the members cannot be read, and still lists', async () => {
     vi.mocked(listPosthogMembers).mockRejectedValue(new PosthogSupportUnavailableError('HTTP 403', 403))
     vi.spyOn(console, 'warn').mockImplementation(() => undefined)
-    withTicket(ticket({ assignee: { type: 'user', id: 7, email: 'anna@piloti.test' } }))
+    withTicket(ticket({ assignee: { type: 'user', id: 7, email: 'anna@example.test' } }))
 
     const list = await listProductFeedbackForPlatform(session, {})
 
@@ -523,7 +523,7 @@ describe('the active support cases', () => {
     expect(list.reports[0]?.ticket?.assignee).toEqual({
       type: 'user',
       name: null,
-      email: 'anna@piloti.test',
+      email: 'anna@example.test',
       isViewer: false,
     })
   })

@@ -265,13 +265,13 @@ needed job succeeded or was skipped by the path filter.
 ## The live turn-shape eval
 
 ADR-0052 deleted the intent router, so two things that used to be code are now
-Piloti's reading of its own prompt: a greeting or a question
-about the assistant answers without calling a search tool, and a commissioned
+the agent's reading of its own prompt: a greeting or a question
+about the agent answers without calling a search tool, and a commissioned
 report („erstelle mir einen vollständigen Prüfbericht …") escalates to deep
 research before it retrieves anything.
 [`evals/turn-shapes/test_turn_shapes_live.py`](../../evals/turn-shapes/test_turn_shapes_live.py)
 pins both, plus a control question that must still search. It runs the real
-agent on the real prompt against Piloti's own model through OpenRouter, with
+agent on the real prompt against the agent's own model through OpenRouter, with
 stub tools in place of retrieval, and reads the trace from the turn's own
 transcript (every tool call the model asked for), so the assertion is on the
 trace rather than on the prose.
@@ -939,7 +939,7 @@ measured on 2026-09-24, and the effort A/B:
 
 ### The workspace set
 
-**The workspace set** (`-- --set workspace`, ADR-0123) asks Piloti for office
+**The workspace set** (`-- --set workspace`, ADR-0123) asks the agent for office
 work through its MCP door: reads, writes that must come back as proposals with
 the right input, two writes in one turn, an ambiguous target it must ask about,
 German and English, and follow-up turns in one conversation (a row's `turns`
@@ -947,7 +947,7 @@ run in order; the checkpointer carries the history between processes). Each
 run sits in the current project of a fixture office
 (`apps/workspace/tests/fixtures/workspace/office.json`) as an admin, with a
 signed envelope. `scripts/turn_census/fixture_workspace.py` serves the door from
-the catalog production shows Piloti (`catalog.json`, written by
+the catalog production shows the agent (`catalog.json`, written by
 `workspace-eval.fixture.spec.ts`) and the turn context with the WORKSPACE block
 the production renderer writes (`rendered.json`); a follow-up turn's block lists
 what the run filed, as production would. A search ranks as `discovery.ts` does

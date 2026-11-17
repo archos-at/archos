@@ -114,11 +114,11 @@ describe('audit schema coverage', () => {
     expect(registered.filter((type) => !emittable.has(type))).toEqual([])
   })
 
-  it('keeps every word anyone wrote out of what Piloti did: ids, numbers, kinds and counts only', () => {
+  it('keeps every word anyone wrote out of what the agent did: ids, numbers, kinds and counts only', () => {
     const CONTENT = /body|content|text|note|title|label|name|summary|payload|path|comment|value|rationale/i
-    const piloti = Object.entries(REGISTRY).filter(([action]) => action.startsWith('piloti.'))
-    expect(piloti.length).toBeGreaterThanOrEqual(9)
-    for (const [action, schema] of piloti) {
+    const agentEntries = Object.entries(REGISTRY).filter(([action]) => action.startsWith('piloti.'))
+    expect(agentEntries.length).toBeGreaterThanOrEqual(9)
+    for (const [action, schema] of agentEntries) {
       expect(Object.keys(schema.metadata ?? {}).filter((key) => CONTENT.test(key)), action).toEqual([])
     }
   })

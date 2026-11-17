@@ -10,7 +10,7 @@
 
 ## The problem
 
-Piloti reads images that arrive three ways — a rendered PDF page, a raster
+The agent reads images that arrive three ways — a rendered PDF page, a raster
 embedded in a PDF, an uploaded image file — and has to turn each into something
 retrievable and citable. Two failures shaped this design:
 

@@ -117,7 +117,7 @@ const ROUTES: Record<string, RouteDisposition> = {
   },
   'a2a/route.ts': {
     exempt:
-      'the A2A server answers with JSON-RPC text: an ask, its answer text and the names of documents Piloti filed, read through the piloti-ask routes as the person (lib/a2a/request-handler.ts); it never hands a file’s bytes.',
+      'the A2A server answers with JSON-RPC text: an ask, its answer text and the names of documents the agent filed, read through the piloti-ask routes as the person (lib/a2a/request-handler.ts); it never hands a file’s bytes.',
   },
   'v1/[...path]/route.ts': { exempt: 'proxy of the allowlisted JSON endpoints of the agent service (lib/proxy/v1-allowlist); no file bytes.' },
   'knowledge-base/documents/[fileName]/route.ts': { exempt: 'the platform’s shared knowledge base (norms), served from the agent service; not an organization’s document.' },

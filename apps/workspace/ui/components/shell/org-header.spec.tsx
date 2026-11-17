@@ -145,7 +145,7 @@ describe('OrgHeader — on a phone', () => {
 describe('the organization switcher', () => {
   test('is handed to the avatar menu, and the header band carries none', () => {
     const organizations = [
-      { id: 'org_1', name: 'GRID Test', current: true },
+      { id: 'org_1', name: 'Test Office', current: true },
       { id: 'org_2', name: 'feld72 Architekten', current: false },
     ]
     render(<OrgHeader {...baseProps} organizations={organizations} />)

@@ -6,7 +6,7 @@ it is listed in the `data_source_registry`. Everything below applies to both;
 the last sections are only for a data source.
 
 Before adding one, read the principles in
-[agent-tool-surface.md](agent-tool-surface.md#1-principles). Piloti binds about
+[agent-tool-surface.md](agent-tool-surface.md#1-principles). The agent binds about
 twenty tools, and every one is paid for on every call: consolidate what a
 person thinks of as one act, and prefer extending an existing tool to adding a
 second one beside it.
@@ -103,7 +103,7 @@ functions:
     _type: my_tool        # the config class's name=
     max_results: 10
 
-  shallow_research_agent:  # Piloti, the chat agent
+  shallow_research_agent:  # the agent
     tools:
       - my_tool_instance
 
@@ -140,7 +140,7 @@ functions:
   a result back to its source, and a result it cannot map is never captured as
   a citable source.
 - A conversation that switches the source off does not unbind the tool on
-  Piloti: the call is refused with one sentence the model can repeat, so the
+  the agent: the call is refused with one sentence the model can repeat, so the
   tool payload and its prompt-cache shard stay the same
   (`packages/agent/src/agent/common/data_sources.py`). Deep research drops the tool
   instead, because its workers have no point at which to refuse.

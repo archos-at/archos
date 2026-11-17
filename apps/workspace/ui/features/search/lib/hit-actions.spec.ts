@@ -5,7 +5,7 @@ import { documentHitActionEntries, documentHitActions } from './hit-actions'
 
 const labels = {
   open: 'Öffnen',
-  ask: 'Piloti fragen',
+  ask: 'Den Agenten fragen',
   openCurrent: 'Aktuelle Fassung öffnen',
   openPoints: 'Offene Punkte',
   showInFolder: 'Im Ordner zeigen',

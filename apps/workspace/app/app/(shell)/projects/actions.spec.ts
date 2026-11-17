@@ -67,7 +67,7 @@ describe('createProject (server action)', () => {
     expect(revalidatePath).toHaveBeenCalledWith('/app', 'layout')
   })
 
-  it('lands a project Piloti sets up on its setup page, with what the form said about it', async () => {
+  it('lands a project the agent sets up on its setup page, with what the form said about it', async () => {
     await expect(
       createProject({}, form({ name: 'Seestadt', setup: 'piloti', description: 'Wohnbau mit Tiefgarage', federal_state: 'vienna' }))
     ).rejects.toThrow('NEXT_REDIRECT /app/projects/p1/setup')

@@ -1,7 +1,7 @@
 # Knowledge Layer
 
-Piloti's knowledge layer: it reads the office's documents and the legal corpus,
-and finds the passages Piloti cites.
+The agent's knowledge layer: it reads the office's documents and the legal corpus,
+and finds the passages the agent cites.
 
 For comprehensive documentation, see [`KNOWLEDGE-LAYER-SETUP.md`](./KNOWLEDGE-LAYER-SETUP.md).
 
@@ -33,11 +33,11 @@ the embedding client and the environment knobs both sides use, `view_image`,
 
 There is one: `llamaindex` (LlamaIndex for loading and chunking, Qdrant as the
 one vector store, embeddings and the VLM through OpenRouter). It is the production backend, and it has been since the
-first commit: every Piloti deployment has run on it.
+first commit: every deployment has run on it.
 
 This package once also carried a second backend, a client for NVIDIA's hosted
-retrieval service that came with the AI-Q template. Its README row called it
-"Production, multi-user", which was never true of Piloti: no Piloti deployment
+retrieval service that came with the upstream template. Its README row called it
+"Production, multi-user", which was never true of this package: no deployment
 ever ran it, and it could not run the product's retrieval. It was deleted in
 [ADR-0072](../../docs/adr/0072-the-knowledge-layer-has-one-backend-llamaindex.md).
 

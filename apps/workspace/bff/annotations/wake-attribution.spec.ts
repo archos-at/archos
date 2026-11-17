@@ -61,14 +61,14 @@ describe('wakeOfReply', () => {
 })
 
 describe('wakeSpansFor', () => {
-  it('reads nothing while no mark carries a Piloti reply', async () => {
+  it('reads nothing while no mark carries an agent reply', async () => {
     vi.mocked(listAnsweringWakes).mockClear()
     const spans = await wakeSpansFor('org_1', 'doc_1', [{ replies: [{ authorKind: 'person' }] } as never])
     expect(spans).toEqual([])
     expect(listAnsweringWakes).not.toHaveBeenCalled()
   })
 
-  it('reads the document’s wakes once a Piloti reply is there, and survives a failed read', async () => {
+  it('reads the document’s wakes once an agent reply is there, and survives a failed read', async () => {
     vi.mocked(listAnsweringWakes).mockResolvedValueOnce([wake()])
     const records = [{ replies: [{ authorKind: 'piloti' }] } as never]
     expect(await wakeSpansFor('org_1', 'doc_1', records)).toEqual([wake()])

@@ -36,6 +36,6 @@ export interface AnswerFeedbackView {
   traceId?: string | null
 }
 
-export const EXPORT_TRUNCATED_HEADER = 'X-Grid-Export-Truncated'
+export const EXPORT_TRUNCATED_HEADER = 'X-Export-Truncated'
 
-export const EXPORT_IGNORED_FILTERS_HEADER = 'X-Grid-Export-Ignored-Filters'
+export const EXPORT_IGNORED_FILTERS_HEADER = 'X-Export-Ignored-Filters'

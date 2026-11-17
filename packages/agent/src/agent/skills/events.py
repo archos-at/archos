@@ -86,12 +86,12 @@ def emit_skill_activated(skill: Skill) -> None:
     only when ``read_file`` hands a body over or the model names a pinned body
     it followed, so the line is a report of delivery, never of an intention.
 
-    A skill with no ``grid-title`` is technical: an id like
+    A skill with no ``title`` is technical: an id like
     ``oib-brandschutznachweis-2024`` in a status line is worse than silence,
     and inventing a title from it would make a missing name indistinguishable
     from a real one.
 
-    A ``grid-hidden`` skill is technical too, even with a title. Some skills
+    A ``hidden`` skill is technical too, even with a title. Some skills
     apply on every answer (a house voice is the type case), so their live line
     is noise on every turn. The step still fires and carries its title, so the
     disclosure names it and the reasoning view can surface it. Hidden is never

@@ -128,7 +128,7 @@ enforces every rule marked *lint*, and each failure says how to fix it.
    translated from German into German, which is how 344 German sentences ended
    up on `/en/changelog`. The check counts German and English function words
    outside quotation marks, so an English note may quote a German label such as
-   „Von Piloti erstellt“. It agrees with `py3langid` on every note in the repo.
+   „Von {productName} erstellt“. It agrees with `py3langid` on every note in the repo.
 2. **For the architect.** Say what they can now do, or what stopped going wrong
    for them. Not how you did it.
 3. **At most two sentences and 400 characters.** *(lint)* One for what
@@ -149,10 +149,10 @@ enforces every rule marked *lint*, and each failure says how to fix it.
    part)* A customer entry that names a vulnerability, a remote-code flaw, a CVE,
    an exploit, a permission bypass or data loss fails the lint
    (`SEVERE_PATTERNS`). The list is short on purpose, so most severe fixes pass
-   it: the question to ask is whether a reader would learn that Piloti once
+   it: the question to ask is whether a reader would learn that the agent once
    lost, kept or showed what it should not have. If so, it is an `incident`.
 8. **Plain words.** *(lint)* A customer entry does not name the services under
-   Piloti, the formats they speak, or the mechanics of shipping and running
+   the product, the formats they speak, or the mechanics of shipping and running
    software. The list is `PUBLIC_JARGON` in
    [`scripts/release_notes.py`](../../scripts/release_notes.py); the failure
    names the word it found. The classes are below.
@@ -162,7 +162,7 @@ enforces every rule marked *lint*, and each failure says how to fix it.
 `PUBLIC_JARGON` is the source of truth. If this section and the list disagree,
 the list is right and this section is stale. It holds four classes:
 
-- **The services under Piloti:** databases, object storage, the model gateway,
+- **The infrastructure services:** databases, object storage, the model gateway,
   the tracing platform, and the platforms we run them on.
 - **Interfaces and formats:** how one program talks to another, and the data it
   sends. API, SDK, webhook, endpoint, socket, JSON, YAML, schema, payload.
@@ -173,7 +173,7 @@ the list is right and this section is stale. It holds four classes:
   prompt, cache, queue, configuration, environment variable, feature flag,
   latency, trace, metric, rate limit.
 
-The German terms are the same classes in German. The Piloti screens' own words
+The German terms are the same classes in German. The UI's own words
 are not on the list: Papierkorb, Quarantäne, Archiv, Steckbrief, Fassung and the
 rest are how the reader knows the product, so they stay.
 
@@ -207,7 +207,7 @@ features:
   # Good: what the reader can do, in the words of the UI.
   - >
     Whole folders can now be uploaded, with Ordner hochladen or by dragging the
-    folder onto the file list. Files Piloti cannot read are rejected one by one.
+    folder onto the file list. Files the agent cannot read are rejected one by one.
 
   # Bad: German. Write the English; keep your German for de.json (see below).
   - >
@@ -217,7 +217,7 @@ fixes:
   # Good: the effect, then why it matters.
   - >
     Uploading a corrected document under the same name now replaces the old one
-    instead of adding a second copy that Piloti could no longer find.
+    instead of adding a second copy that the agent could no longer find.
 
   # Bad: the mechanism, and a module name.
   - >

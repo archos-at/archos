@@ -24,6 +24,7 @@ from typing import Any
 
 from agent.common import cache as shared_cache
 from agent.skills.builtin import discover_builtin_skills
+from agent.skills.legacy_names import metadata_value
 from agent.skills.models import MAX_NAME_CHARS
 from agent.skills.models import Skill
 from agent.skills.models import SkillValidationError
@@ -55,7 +56,7 @@ def _cache_ttl_seconds() -> float:
     return float(ttl) if ttl > 0 else float(_DEFAULT_TTL_SECONDS)
 
 
-METADATA_CATALOG = "grid-catalog"
+METADATA_CATALOG = "catalog"
 CATALOG_CURATED = "curated"
 
 
@@ -66,11 +67,11 @@ def _is_curated(skill: Skill) -> bool:
     typo in this key must not silently expose an internal instruction to every
     tenant as something they can switch off.
     """
-    return (skill.metadata.get(METADATA_CATALOG) or "").strip().lower() == CATALOG_CURATED
+    return (metadata_value(skill.metadata, METADATA_CATALOG) or "").strip().lower() == CATALOG_CURATED
 
 
 def _agent_allows(skill: Skill, agent: str | None) -> bool:
-    """Respect the ``grid-agents`` metadata: absent = all agents.
+    """Respect the ``agents`` metadata: absent = all agents.
 
     Both sides go through :func:`canonical_agent`: the stored names because a
     row may predate the ``shallow_researcher`` → ``researcher`` rename, and the
@@ -80,7 +81,7 @@ def _agent_allows(skill: Skill, agent: str | None) -> bool:
     """
     if agent is None:
         return True
-    allowed = skill.metadata.get("grid-agents")
+    allowed = metadata_value(skill.metadata, "agents")
     if not allowed:
         return True
     agent = canonical_agent(agent)
@@ -88,7 +89,7 @@ def _agent_allows(skill: Skill, agent: str | None) -> bool:
     unknown = names - KNOWN_AGENTS
     if unknown:
         logger.warning(
-            "Skill %r lists unknown agent(s) in grid-agents: %s (known: %s)",
+            "Skill %r lists unknown agent(s) in agents: %s (known: %s)",
             skill.name,
             sorted(unknown),
             sorted(KNOWN_AGENTS),
@@ -102,18 +103,18 @@ def _agent_allows(skill: Skill, agent: str | None) -> bool:
 def _skill_applies_to_agent(skill: Skill, agent: str | None) -> bool:
     """Whether ``skill`` is offered to ``agent``.
 
-    ONE gate, and it is ``grid-agents``. A skill is available to every agent
+    ONE gate, and it is ``agents``. A skill is available to every agent
     unless it says otherwise in so many words.
 
     Nothing else narrows a skill, and no other key may: a skill knows nothing
     about time or output format. Which agent a JOB runs on follows from the
     job's own ``output`` choice (see ``routes/skills.py::_OUTPUT_AGENT_TYPES``),
     and the picker then offers only the skills this gate resolves for that
-    agent. Unreserved leftovers such as ``grid-execution`` in a stored org row
+    agent. Unreserved leftovers such as ``execution`` in a stored org row
     are ignored here, exactly as any other free-form metadata key is.
 
     Deep-only leftovers that call ``execute`` and write ``/shared/`` say so
-    with ``grid-agents: deep_researcher``, which is the mechanism for exactly
+    with ``agents: deep_researcher``, which is the mechanism for exactly
     this and is checked by ``_agent_allows``.
     """
     return _agent_allows(skill, agent)
@@ -167,7 +168,7 @@ class SkillResolver:
     def always_on(self) -> tuple[Skill, ...]:
         """The builtins that run for every org: the pipeline's own machinery.
 
-        A builtin marked ``grid-catalog: curated`` is NOT machinery — it is a
+        A builtin marked ``catalog: curated`` is NOT machinery — it is a
         capability the platform offers organizations, and it runs only for the
         ones that switched it on. That decision lives in the BFF
         (``curated_skill_activations``), so an activated curated skill arrives
@@ -270,7 +271,7 @@ def resolve_served_skills(agent: str, organization_id: str | None) -> tuple[Skil
     The builtin FILES are dropped because on the deep path they already have a
     delivery mechanism of their own — ``deepagents_runtime`` mounts
     ``skills/builtin`` at ``/skills/`` and the YAML assigns collections per
-    DeepAgents subagent, which is a finer gate than ``grid-agents`` can express.
+    DeepAgents subagent, which is a finer gate than ``agents`` can express.
     Serving them through this channel as well would hand the WRITER the research
     skills whose instructions call ``execute``.
 
