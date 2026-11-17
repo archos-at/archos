@@ -198,7 +198,7 @@ turns every inbox row anchored on it inert, leaves a hole in the numbering a
 Protokoll cites, and for a carried mark cuts the link that carries the point
 on. So even its author deletes a mark only while nobody but the author and
 the agent has written in its thread, and while it neither went on to another
-document nor came from one (`deleteRefusalOf`, `lib/annotations/service.ts`;
+document nor came from one (`deleteRefusalOf`, `lib/annotations/annotation-access.ts`;
 the rule undo always kept, below, now kept for every delete). Otherwise
 `DELETE` is `409` with `details.reason` `mark-discussed` or `mark-carried`.
 The view says it before anyone tries: `canDelete` is false and
@@ -427,7 +427,7 @@ place with its words and whom it mentions, as a mark is reworded, and a delete
 is confirmed, as a mark's is (`ConfirmDialog`). An edited reply says
 „bearbeitet“ beside its time (`editedAt`). Both go through
 `PATCH`/`DELETE …/replies/{replyId}` (`editReply` and `deleteOwnReply` in
-`lib/annotations/service.ts`, the typed client's `editReply` and
+`lib/annotations/annotation-replies.ts`, the typed client's `editReply` and
 `deleteReply`), and tell the room, which re-reads.
 
 The server refuses, and the menu is not offered:
@@ -490,7 +490,7 @@ are listed and drawn only as ghosts (above), and the people working on them are 
 check (`document.new_revision`, [`revisions.md`](revisions.md#notifications)).
 A mark that still holds goes on with the new Fassung: „Auf aktuelle Fassung
 übernehmen“ in its card's first line, for whoever may edit an open mark
-(`carryToCurrent`, `lib/annotations/service.ts`). It keeps its place on the
+(`carryToCurrent`, `lib/annotations/annotation-carry.ts`). It keeps its place on the
 page: a position never changes under someone who read it, so a mark that no
 longer fits is resolved and set again instead.
 
@@ -533,7 +533,7 @@ longer fits is resolved and set again instead.
 What the review offers is what the server would do. Each mark of a list or a
 write's answer carries `carryTarget`: the document this reader's carry lands
 on, named as they see it, or null where the carry would be refused or do
-nothing (`carryWayOf` and `carryTargetOf`, `lib/annotations/service.ts`): a
+nothing (`carryWayOf` and `carryTargetOf`, `lib/annotations/annotation-views.ts`): a
 mark that is not open, a reader who may not write its document, a mark on the
 current Fassung of a document nothing replaces; across, a replacing document
 the reader may not write, and a mark the agent works. The target is the end of the
@@ -1098,7 +1098,7 @@ news until a person takes it over. Taking it over (`proposed → open`, or
 reopening a dismissed proposal nobody stood behind, the moves that set
 `accepted_by`) tells them then, as a mark the agent set for whoever took it over
 (`created_piloti`, folded with the marks the agent set for them; `traceChange` in
-`lib/annotations/service.ts`), less its Zuständige, who hears
+`lib/annotations/annotation-notifications.ts`), less its Zuständige, who hears
 `annotation.assigned_to_you`.
 
 `piloti.work_done` names what woke the agent as its variant; a delegation's end
@@ -1453,7 +1453,7 @@ the cursor carries the last row's keys as Postgres wrote them, opaque on the
 wire and refused (400) when it is not one the service wrote.
 
 **One view.** Each row is the view a document's own list carries: the list
-projection (`documentAnnotationViews` in `service.ts`, which
+projection (`documentAnnotationViews` in `annotation-views.ts`, which
 `listAnnotations` uses too) runs per document of the page, with what this
 reader may do on that document (`canWriteDocument`, so `canEdit`,
 `canDelete` and `carryTarget` are that document's), plus `documentName`. The
