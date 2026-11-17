@@ -27,7 +27,6 @@ from urllib.parse import parse_qs
 from urllib.parse import urlparse
 
 from langchain_core.exceptions import OutputParserException
-from pydantic import AliasChoices
 from pydantic import BaseModel
 from pydantic import Field
 from pydantic import ValidationError
@@ -122,17 +121,12 @@ def _build_search_params(
 
 
 class RisSearchInput(BaseModel):
-    """The arguments of one ``ris_search`` call, as the model sees them.
-
-    ``federal_state`` was ``bundesland``; the old name is read for one release
-    (remove the alias after) so a cached tool schema or a replayed call from
-    before the rename still validates.
-    """
+    """The arguments of one ``ris_search`` call, as the model sees them."""
 
     query: str
     application: str = "BrKons"
     title: str = ""
-    federal_state: str = Field(default="", validation_alias=AliasChoices("federal_state", "bundesland"))
+    federal_state: str = ""
     date_from: str = ""
     date_to: str = ""
     page: int = 1

@@ -293,6 +293,3 @@ export async function callOperation(
     return { status: response.status, ok: response.ok || isRedirectBody(body), body }
   })
 }
-
-/** @deprecated The old name; it validates and returns the original input. Use {@link validateOperationInput}. */
-export const parseOperationInput = validateOperationInput
