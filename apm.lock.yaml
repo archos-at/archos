@@ -1,5 +1,5 @@
 lockfile_version: '1'
-generated_at: '2026-11-17T10:35:33.379316+00:00'
+generated_at: '2026-11-17T10:37:57.425432+00:00'
 apm_version: 0.28.0
 dependencies:
 - repo_url: _local/verify-on-dev
@@ -12,8 +12,8 @@ dependencies:
   - .claude/skills/verify-on-dev
   - .claude/skills/verify-on-dev/SKILL.md
   deployed_file_hashes:
-    .agents/skills/verify-on-dev/SKILL.md: sha256:f4ee52d4e72c9b28f60681fde7b53b93e4c67acd646474129607f083d3cc2cb5
-    .claude/skills/verify-on-dev/SKILL.md: sha256:f4ee52d4e72c9b28f60681fde7b53b93e4c67acd646474129607f083d3cc2cb5
+    .agents/skills/verify-on-dev/SKILL.md: sha256:ca21db93db96798b073d747b34ea7d5f4ed3c3f38836051822d99894a2d1145a
+    .claude/skills/verify-on-dev/SKILL.md: sha256:ca21db93db96798b073d747b34ea7d5f4ed3c3f38836051822d99894a2d1145a
   source: local
   local_path: ./skills/verify-on-dev
 - repo_url: anthropics/skills
@@ -3461,7 +3461,7 @@ deployments:
   owners:
   - ./skills/verify-on-dev
   active_owner: ./skills/verify-on-dev
-  content_hash: sha256:f4ee52d4e72c9b28f60681fde7b53b93e4c67acd646474129607f083d3cc2cb5
+  content_hash: sha256:ca21db93db96798b073d747b34ea7d5f4ed3c3f38836051822d99894a2d1145a
 - kind: project-relative
   target: agent-skills
   value: .agents/skills/writing-for-agents
@@ -5765,7 +5765,7 @@ deployments:
   owners:
   - ./skills/verify-on-dev
   active_owner: ./skills/verify-on-dev
-  content_hash: sha256:f4ee52d4e72c9b28f60681fde7b53b93e4c67acd646474129607f083d3cc2cb5
+  content_hash: sha256:ca21db93db96798b073d747b34ea7d5f4ed3c3f38836051822d99894a2d1145a
 - kind: project-relative
   target: claude
   value: .claude/skills/writing-for-agents
