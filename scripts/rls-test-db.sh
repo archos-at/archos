@@ -222,7 +222,6 @@ TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app"
     bff/projects/collection-placement.integration.spec.ts \
     bff/projects/folder-visibility.integration.spec.ts \
     bff/documents/shelf-folders.integration.spec.ts \
-    bff/projects/folder-bin.integration.spec.ts \
     bff/documents/stuck-processing.integration.spec.ts \
     bff/documents/retry-policy.integration.spec.ts \
     bff/project-profile/profile-bindings.integration.spec.ts \
@@ -339,6 +338,8 @@ $PSQL -d grid_app -v ON_ERROR_STOP=1 -q -c "DELETE FROM bff_job_queue" >/dev/nul
 # platform suite above publishes too: alone, so neither publish meets the other's.
 # The visibility suite reads the owner's URL to check the office predicate with
 # the row policy bypassed (`store/visibility.ts`).
+# The Papierkorb suites sweep the same deletion queue (`claimable()` in each), so
+# they run one at a time too.
 echo "==> running the job-queue and scheduling suites one file at a time as app_rw"
 TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app" \
 TEST_OWNER_DATABASE_URL="postgres://app_owner@127.0.0.1:$PORT/grid_app" \
@@ -349,7 +350,13 @@ TEST_OWNER_DATABASE_URL="postgres://app_owner@127.0.0.1:$PORT/grid_app" \
     bff/scheduling/repository.integration.spec.ts \
     bff/base-knowledge/chain/chain.integration.spec.ts \
     bff/base-knowledge/store/visibility.integration.spec.ts \
-    bff/base-knowledge/golden/golden-run.integration.spec.ts
+    bff/base-knowledge/golden/golden-run.integration.spec.ts \
+    bff/projects/folder-bin.integration.spec.ts \
+    bff/projects/folder-bin-restore.integration.spec.ts \
+    bff/projects/folder-bin-purge.integration.spec.ts \
+    bff/projects/folder-bin-queue.integration.spec.ts \
+    bff/projects/folder-service.bin.integration.spec.ts \
+    bff/organizations/deleted-folder-content-service.integration.spec.ts
 
 # A function, a table and a view created by a superuser (a restore, a hand-run
 # script) are what made `ALTER FUNCTION … RENAME` in migration 0190 fail on
