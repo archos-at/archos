@@ -1,9 +1,0 @@
-# drop after release 2026-W49: Wave B1's last TS/JS source splits; each line holds a file at its size until it is split under 600 lines. docs/contributing/code-conventions.md#size-limits
-apps/workspace/app/dev/annotations/page.tsx 1223
-apps/workspace/bff/agent-api/discovery.ts 672
-apps/workspace/bff/documents/version-repository.ts 720
-apps/workspace/bff/inbox/service.ts 607
-apps/workspace/bff/product-feedback/service.ts 619
-apps/workspace/ui/features/bim/components/use-model-stage-controller.tsx 625
-apps/workspace/ui/features/cards/schematics/DimensionDiagramCard.tsx 656
-apps/workspace/ui/features/documents/components/review/thread-card.tsx 1104

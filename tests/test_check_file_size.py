@@ -281,17 +281,3 @@ def test_the_real_tree_holds_at_its_baseline(checker, monkeypatch, capsys):
     monkeypatch.chdir(ROOT)
 
     assert checker.main([]) == 0, capsys.readouterr().err
-
-
-def test_a_pending_split_holds_a_script_file_until_it_shrinks_away(checker, repo, capsys):
-    add(repo, "src/big.ts", "const a = 1\n" * 700)
-    (repo / "ci" / "size_pending.txt").write_text("# drop after release 2026-W49\nsrc/big.ts 700\n")
-    assert checker.main([]) == 0
-
-    add(repo, "src/big.ts", "const a = 1\n" * 701)
-    assert checker.main([]) == 1
-    assert "src/big.ts: grew from 700 to 701 lines while pending its split" in capsys.readouterr().err
-
-    add(repo, "src/big.ts", "const a = 1\n" * 10)
-    assert checker.main([]) == 1
-    assert "src/big.ts: under the limit or gone, so remove its line from ci/size_pending.txt" in capsys.readouterr().err

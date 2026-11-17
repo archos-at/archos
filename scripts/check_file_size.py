@@ -19,7 +19,6 @@ from pathlib import Path
 FILE_LIMIT = 600
 FUNCTION_LIMIT = 60
 BASELINE = Path("ci/size_baseline.json")
-PENDING = Path("ci/size_pending.txt")
 SCRIPT_SUFFIXES = (".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs")
 SUFFIXES = (".py", *SCRIPT_SUFFIXES)
 
@@ -242,26 +241,6 @@ def compare(current: dict[str, int], baseline: dict[str, int], limit: int, what:
     return findings
 
 
-def load_pending(path: Path) -> dict[str, int]:
-    if not path.exists():
-        return {}
-    rows = (line.split("#", 1)[0].split() for line in path.read_text(encoding="utf-8").splitlines())
-    return {row[0]: int(row[1]) for row in rows if len(row) == 2}
-
-
-def held_by_pending(current: dict[str, int], pending: dict[str, int]) -> tuple[set[str], list[str]]:
-    held, findings = set(), []
-    for key, allowed in sorted(pending.items()):
-        size = current.get(key)
-        if size is None:
-            findings.append(f"{key}: under the limit or gone, so remove its line from {PENDING}.")
-        elif size > allowed:
-            findings.append(f"{key}: grew from {allowed} to {size} lines while pending its split. Split it.")
-        else:
-            held.add(key)
-    return held, findings
-
-
 def check(current: Sizes, baseline: Sizes) -> list[str]:
     return compare(current.files, baseline.files, FILE_LIMIT, "file") + compare(
         current.functions, baseline.functions, FUNCTION_LIMIT, "function"
@@ -340,8 +319,7 @@ def main(argv: list[str] | None = None) -> int:
         baseline = tightened(current, baseline)
         write_baseline(root / BASELINE, baseline)
 
-    held, pending_findings = held_by_pending(current.files, load_pending(root / PENDING))
-    findings = [f for f in check(current, baseline) if f.split(":", 1)[0] not in held] + pending_findings
+    findings = check(current, baseline)
     slack = [f for f in findings if "so lower its" in f or "remove its baseline entry" in f]
     findings = [f for f in findings if f not in slack]
     if findings:
