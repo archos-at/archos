@@ -43,7 +43,10 @@ const kernel: {
   wedged: false,
 }
 
-const gpu: { failWith: Error | null } = { failWith: null }
+const gpu: { failWith: Error | null; finalizing: Promise<void> | null } = {
+  failWith: null,
+  finalizing: null,
+}
 
 const loadOrder: string[] = []
 let capturedFrame = -1
@@ -117,6 +120,10 @@ vi.mock('@ifc-lite/renderer', () => ({
         clearColorOverrides: vi.fn(),
         getEntityBoundingBox: () => null,
         setLodBuildsEnabled: () => loadOrder.push('setLodBuildsEnabled'),
+        finalizeStreamingAsync: async () => {
+          loadOrder.push('finalizeStreaming')
+          if (gpu.finalizing) await gpu.finalizing
+        },
       }
     }
     getGPUDevice() {
@@ -181,6 +188,7 @@ beforeEach(() => {
   disposed.geometry = 0
   kernel.booting = null
   gpu.failWith = null
+  gpu.finalizing = null
   kernel.hold = null
   kernel.failWith = null
   kernel.wedged = false
@@ -573,7 +581,17 @@ describe('capturing the view', () => {
 
 describe('lifecycle', () => {
   it('frees the geometry kernel once the model has streamed, and the renderer on unmount', async () => {
-    const { unmount } = await mountLoaded()
+    let finish = () => {}
+    gpu.finalizing = new Promise((resolve) => {
+      finish = resolve
+    })
+    const { unmount } = render(
+      <IfcViewerCanvas sourceUrl="https://example.test/model.ifc" elements={ELEMENTS} />
+    )
+    await waitFor(() => expect(loadOrder).toContain('finalizeStreaming'))
+    expect(disposed.geometry).toBe(1)
+    finish()
+    await waitFor(() => expect(renders.length).toBeGreaterThan(0))
     expect(disposed.geometry).toBe(1)
     expect(disposed.renderer).toBe(0)
     unmount()
