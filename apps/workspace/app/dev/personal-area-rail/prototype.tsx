@@ -10,10 +10,14 @@ import {
   BookMarked,
   ChevronRight,
   Folder,
+  FolderInput,
   FolderLock,
   Library,
   LayoutGrid,
   LockKeyhole,
+  MoreHorizontal,
+  PencilLine,
+  Trash2,
   MessageSquare,
   Plus,
   X,
@@ -109,17 +113,43 @@ export function NavRow({ icon: Icon, label, active = false, within = false, badg
 
 const SUB_ROW = 'relative flex h-8 min-w-0 items-center gap-2 rounded-control pl-[39px] pr-3 text-[13px]'
 
-export function ChatRow({ chat, current = false, showProject = false, indent = true, markOwn = false }: { chat: Chat; current?: boolean; showProject?: boolean; indent?: boolean; markOwn?: boolean }): JSX.Element {
+export function ThreadMenu({ className }: { className?: string }): JSX.Element {
+  return (
+    <div className={cn('bg-sheet shadow-md text-foreground absolute z-50 w-60 rounded-[16px] p-1.5 text-[13px] font-normal', className)}>
+      <div className="flex h-9 items-center gap-2.5 rounded-control px-2.5">
+        <PencilLine className="text-muted-foreground size-4 shrink-0" aria-hidden />
+        Umbenennen
+      </div>
+      <div className="flex h-9 items-center gap-2.5 rounded-control px-2.5">
+        <FolderInput className="text-muted-foreground size-4 shrink-0" aria-hidden />
+        In ein Projekt verschieben
+      </div>
+      <div className="bg-desk mx-1 my-1 h-px" />
+      <div className="text-destructive flex h-9 items-center gap-2.5 rounded-control px-2.5">
+        <Trash2 className="size-4 shrink-0" aria-hidden />
+        Löschen
+      </div>
+    </div>
+  )
+}
+
+export function ChatRow({ chat, current = false, showProject = false, indent = true, markOwn = false, hovered = false, menuOpen = false }: { chat: Chat; current?: boolean; showProject?: boolean; indent?: boolean; markOwn?: boolean; hovered?: boolean; menuOpen?: boolean }): JSX.Element {
   const tag = showProject ? shortName(chat.project) : undefined
   return (
     <li className="relative list-none">
-      <a href="#" className={cn(SUB_ROW, !indent && 'pl-3', current ? 'text-foreground font-medium' : 'text-muted-foreground hover:bg-selected hover:text-foreground')}>
+      <a href="#" className={cn(SUB_ROW, !indent && 'pl-3', current ? 'text-foreground font-medium' : hovered ? 'bg-selected text-foreground' : 'text-muted-foreground hover:bg-selected hover:text-foreground')}>
         {current && <span aria-hidden className="bg-sheet absolute inset-0 rounded-control shadow-xs" />}
         <span className="relative min-w-0 flex-1 truncate">{chat.title}</span>
         {chat.shared && <UsersRound aria-label="Geteilt" className="relative size-3.5 shrink-0" />}
         {tag && <span className="text-muted-foreground text-meta relative max-w-[84px] shrink-0 truncate font-normal">{tag}</span>}
         {markOwn && !tag && <UserRound aria-label="Ohne Projekt" className="text-muted-foreground relative size-3.5 shrink-0" />}
+        {hovered && (
+          <span className={cn('relative -mr-1.5 flex size-6 shrink-0 items-center justify-center rounded-control', menuOpen && 'bg-pressed')}>
+            <MoreHorizontal aria-label="Mehr" className="size-4" />
+          </span>
+        )}
       </a>
+      {menuOpen && <ThreadMenu className="right-0 top-full mt-1" />}
     </li>
   )
 }
@@ -379,18 +409,24 @@ const person = (userId: string, name: string): ResourceAccessEntry => ({
 })
 const SHARED_WITH = [person('anna', 'Anna Berger'), person('florian', 'Florian Huber')]
 
-export function ChatHeader({ title, shared = false }: { title: string; shared?: boolean }): JSX.Element {
+export function ChatHeader({ title, shared = false, menuOpen = false, changed = '17.11.2026' }: { title: string; shared?: boolean; menuOpen?: boolean; changed?: string }): JSX.Element {
   return (
     <header className="flex items-start justify-between gap-3 px-8 pb-2 pt-2">
-      <div className={cn(PILL, 'min-w-0')}>
-        <span className="truncate px-2.5 text-sm font-medium">{title}</span>
+      <div className={cn(PILL, 'relative min-w-0')}>
+        <span className="truncate pl-2.5 pr-1 text-sm font-medium">{title}</span>
+        <span className={cn('flex size-7 shrink-0 items-center justify-center rounded-control', menuOpen && 'bg-selected')}>
+          <MoreHorizontal aria-label="Mehr" className="size-4" />
+        </span>
+        <div aria-hidden className="bg-border mx-1 h-4 w-px shrink-0" />
+        <span className="text-muted-foreground shrink-0 pl-1 pr-2.5 text-xs">Geändert am {changed}</span>
+        {menuOpen && <ThreadMenu className="left-0 top-full mt-1.5" />}
       </div>
       <div className={cn(PILL, 'shrink-0')}>
         <div className="flex items-center gap-1 pl-1.5 pr-1.5">
           {shared ? (
             <ParticipantStrip entries={SHARED_WITH} currentUserId="anna" />
           ) : (
-            <span className="text-muted-foreground inline-flex items-center gap-1.5 pl-0.5 text-xs font-medium">
+            <span className="inline-flex items-center gap-1.5 pl-0.5 text-xs font-medium">
               <LockKeyhole className="size-3.5" aria-hidden />
               Nur Sie
             </span>
@@ -406,11 +442,11 @@ export function ChatHeader({ title, shared = false }: { title: string; shared?: 
   )
 }
 
-export function Page({ me, fresh = false, shared = false, noneLabel = 'Ohne Projekt' }: { me: boolean; fresh?: boolean; shared?: boolean; noneLabel?: string }): JSX.Element {
+export function Page({ me, fresh = false, shared = false, menuOpen = false, noneLabel = 'Ohne Projekt' }: { me: boolean; fresh?: boolean; shared?: boolean; menuOpen?: boolean; noneLabel?: string }): JSX.Element {
   const across = me && noneLabel === 'Alle Projekte'
   return (
     <main className="flex min-h-0 min-w-0 flex-1 flex-col">
-      <ChatHeader title={fresh ? 'Neuer Chat' : shared ? 'Abgleich Statik, Planstand Oktober' : me ? 'Rampenneigung Tiefgarage' : 'Fluchtweglänge im Erdgeschoss'} shared={shared} />
+      <ChatHeader title={fresh ? 'Neuer Chat' : shared ? 'Abgleich Statik, Planstand Oktober' : me ? 'Rampenneigung Tiefgarage' : 'Fluchtweglänge im Erdgeschoss'} shared={shared} menuOpen={menuOpen} />
       <div className="flex flex-1 items-center justify-center px-8">
         {across && <p className="text-muted-foreground max-w-md text-center text-sm">An kein Projekt gebunden. {PRODUCT} kann in allen Ihren Projekten nachsehen, auch in abgeschlossenen.</p>}
       </div>
