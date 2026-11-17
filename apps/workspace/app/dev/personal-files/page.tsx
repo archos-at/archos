@@ -1,0 +1,263 @@
+'use client'
+
+/**
+ * PROTOTYPE, not for merge: three ways a person's own files could work (concept for ticket 81), drawn with the
+ * Dateien page's real parts. `?v=page` is a Dateien page of the person's own under „Mein Bereich“, `?v=chat` has no
+ * page and works from the chat, `?v=office` is a folder of the person's own inside the Büroablage.
+ */
+
+import type { JSX, ReactNode } from 'react'
+import { useState } from 'react'
+import { useSearchParams } from 'next/navigation'
+import { Check, FileText, Folder, FolderInput, LayoutGrid, LockKeyhole, Paperclip, Plus, Upload, Zap } from 'lucide-react'
+
+import { ProjectSectionActions, ProjectSectionFrame } from '@/components/shell/project-section-frame'
+import { ProjectSwitcher } from '@/components/shell/project-switcher'
+import { SidebarBrand } from '@/components/shell/sidebar-brand'
+import { Sidebar, SidebarContent, SidebarHeader, SidebarMenu, SidebarProvider, SidebarRail } from '@/components/ui/sidebar'
+import { FileBrowserPane } from '@/features/documents/components/file-browser-pane'
+import { FileFilterMenu } from '@/features/documents/components/file-filter-menu'
+import { FilesHeaderControls } from '@/features/documents/components/files-header-controls'
+import type { FileItem, FolderItem } from '@/features/documents/components/project-file-workspace'
+import { ProjectUppyUpload } from '@/features/documents/components/project-uppy-upload'
+import { useFileSearch } from '@/features/documents/hooks/use-file-search'
+import type { FileView } from '@/features/documents/hooks/use-view-preference'
+import { NO_FILE_FILTERS } from '@/features/documents/lib/file-filters'
+import { projectSearchScope } from '@/features/documents/lib/file-shelf'
+import { DEFAULT_FILE_SORT } from '@/features/documents/lib/file-sort'
+import { I18nProvider } from '@/i18n'
+import { makeFile, useFixtureFolderNav } from '../file-browser/fixtures'
+import { ALL_CHATS, ChatRow, Foot, GroupLabel, MoreRow, NavRow, PROJECTS } from '../personal-area-rail/prototype'
+
+const OWN = { id: 'none', name: 'Mein Bereich' }
+
+const OWN_FOLDERS: FolderItem[] = [
+  { id: 'o-templates', parentId: null, name: 'Vorlagen', path: '/Vorlagen' },
+  { id: 'o-notes', parentId: null, name: 'Notizen', path: '/Notizen' },
+  { id: 'o-training', parentId: null, name: 'Weiterbildung', path: '/Weiterbildung' },
+]
+const OWN_FILES: FileItem[] = [
+  makeFile('o1', 'Leitfaden_Bauherrengespraech.pdf', '', { fileSize: 420_000, createdAt: '2026-11-03T09:00:00Z' }),
+  makeFile('o2', 'Checkliste_Einreichung_Wien.pdf', '', { fileSize: 180_000, createdAt: '2026-10-21T09:00:00Z' }),
+  makeFile('o3', 'Vorlage_Besprechungsprotokoll.pdf', '', { folderId: 'o-templates' }),
+  makeFile('o4', 'Vorlage_Maengelliste.pdf', '', { folderId: 'o-templates' }),
+  makeFile('o5', 'Notizen_Jour-fixe.pdf', '', { folderId: 'o-notes' }),
+  makeFile('o6', 'Seminar_Holzbau_2026.pdf', '', { folderId: 'o-training' }),
+]
+
+const OFFICE_FOLDERS: FolderItem[] = [
+  { id: 'f-own', parentId: null, name: 'Meine Dateien (nur Sie)', path: '/Meine Dateien' },
+  { id: 'f-plan', parentId: null, name: 'Planung', path: '/Planung' },
+  { id: 'f-law', parentId: null, name: 'Baurecht', path: '/Baurecht' },
+]
+const OFFICE_FILES: FileItem[] = [
+  makeFile('f1', 'Referenzprojekt_Stadthaus-Wien.pdf', ''),
+  makeFile('f2', 'Statik_Standardpositionen.pdf', ''),
+  ...OWN_FILES.map((file) => ({ ...file, id: `own-${file.id}`, folderId: 'f-own' })),
+  makeFile('f3', 'Bürostandard_Garagen.pdf', '', { folderId: 'f-plan' }),
+  makeFile('f4', 'Bauordnung_Kommentar.pdf', '', { folderId: 'f-law' }),
+]
+
+/** The rail the concept settled on for now: the switcher names the project or „Mein Bereich“, the chats are the reader's own. */
+function Rail({ own, ownFiles = false, officeShelfOpen = false, openChat = null }: { own: boolean; ownFiles?: boolean; officeShelfOpen?: boolean; openChat?: number | null }): JSX.Element {
+  return (
+    <SidebarProvider className="h-full min-h-0 w-auto shrink-0">
+      <Sidebar collapsible="icon" data-scope="project" aria-label="Navigation">
+        <SidebarHeader className="shrink-0 gap-0 p-0 px-3">
+          <SidebarBrand iconRail={false} />
+          <div className="mt-1 flex items-center">
+            <ProjectSwitcher projects={[OWN, ...PROJECTS]} activeProjectId={own ? 'none' : 'p-1'} />
+          </div>
+        </SidebarHeader>
+        <SidebarContent className="mt-3 flex-1 gap-0 overflow-y-auto px-3 py-px">
+          {(ownFiles || !own) && (
+            <SidebarMenu className="mb-6 gap-0.5">
+              <NavRow icon={Folder} label="Dateien" active={own && ownFiles && openChat === null && !officeShelfOpen} />
+              {!own && <NavRow icon={LayoutGrid} label="Übersicht" />}
+              {!own && <NavRow icon={Zap} label="Automatisierung" />}
+            </SidebarMenu>
+          )}
+          <a href="#" className="bg-sheet shadow-press flex h-9 shrink-0 items-center justify-center gap-2 rounded-control text-sm font-medium">
+            <Plus className="size-4" aria-hidden />
+            Neuer Chat
+          </a>
+          <GroupLabel>Chats</GroupLabel>
+          <ul className="flex flex-col gap-0.5">
+            {ALL_CHATS.map((chat, index) => (
+              <ChatRow key={chat.title} chat={chat} current={index === openChat} showProject indent={false} />
+            ))}
+            <MoreRow label="Alle Chats" indent={false} />
+          </ul>
+        </SidebarContent>
+        <Foot officeShelfOpen={officeShelfOpen} />
+        <SidebarRail aria-label="Breite ändern" />
+      </Sidebar>
+    </SidebarProvider>
+  )
+}
+
+function Browser({ files, folders }: { files: FileItem[]; folders: FolderItem[] }): JSX.Element {
+  const [view, setView] = useState<FileView>('cards')
+  const [selected, setSelected] = useState<string | null>(null)
+  const folderNav = useFixtureFolderNav(folders, null)
+  const search = useFileSearch(projectSearchScope('proj-demo'))
+  const level = files.filter((file) => (file.folderId ?? null) === folderNav.currentFolderId)
+  return (
+    <FileBrowserPane
+      files={level}
+      searchFiles={files}
+      uploadControl={<ProjectUppyUpload onUpload={() => {}} isUploading={false} allowFolders />}
+      selectedFileId={selected}
+      onSelectFile={setSelected}
+      isLoading={false}
+      search={search}
+      view={view}
+      onViewChange={setView}
+      folderNav={folderNav}
+      selection={{ active: false, selectedIds: new Set(), onToggle: () => {}, onStart: () => {} }}
+    />
+  )
+}
+
+/** Who reads this place: the same pill the chat carries. */
+function OnlyYou(): JSX.Element {
+  return (
+    <span className="bg-sheet shadow-press text-name inline-flex h-7 items-center gap-1.5 rounded-full px-2.5">
+      <LockKeyhole className="size-3.5" aria-hidden />
+      Nur Sie
+    </span>
+  )
+}
+
+/** A: a Dateien page of the person's own, the project's page with another owner. */
+function OwnPage(): JSX.Element {
+  const [view, setView] = useState<FileView>('cards')
+  const search = useFileSearch(projectSearchScope('proj-demo'))
+  return (
+    <>
+      <Rail own ownFiles />
+      <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+        <div className="absolute right-8 top-9 z-10">
+          <OnlyYou />
+        </div>
+        <ProjectSectionFrame projectId="dev" projectName="Mein Bereich" pathname="/app/projects/dev/files">
+          <ProjectSectionActions>
+            <FilesHeaderControls
+              phone={false}
+              view={view}
+              onViewChange={setView}
+              renderFilter={(compact) => <FileFilterMenu canCollaborate filters={NO_FILE_FILTERS} onFiltersChange={() => {}} sort={DEFAULT_FILE_SORT} onSortChange={() => {}} compact={compact} />}
+              search={{ value: search.query, onChange: search.setQuery, onSubmit: search.run, onClear: search.clear }}
+              upload={<ProjectUppyUpload onUpload={() => {}} isUploading={false} allowFolders />}
+            />
+          </ProjectSectionActions>
+          <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">
+            <Browser files={OWN_FILES} folders={OWN_FOLDERS} />
+          </div>
+        </ProjectSectionFrame>
+      </div>
+    </>
+  )
+}
+
+function MenuRow({ icon: Icon, children, picked = false }: { icon: typeof Upload; children: ReactNode; picked?: boolean }): JSX.Element {
+  return (
+    <div className={`text-name flex h-9 items-center gap-2.5 rounded-control px-2.5 ${picked ? 'bg-desk' : ''}`}>
+      <Icon className="text-muted-foreground size-4 shrink-0" aria-hidden />
+      <span className="min-w-0 flex-1 truncate">{children}</span>
+    </div>
+  )
+}
+
+/** B: no page. A file in a chat is kept with one press, and the composer's paperclip offers what was kept. */
+function FromChat(): JSX.Element {
+  return (
+    <>
+      <Rail own openChat={0} />
+      <main className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <header className="flex flex-col gap-1 px-8 pb-4 pt-6">
+          <span className="text-muted-foreground text-meta">Mein Bereich</span>
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-pane-title">Rampenneigung Tiefgarage</h1>
+            <OnlyYou />
+          </div>
+        </header>
+        <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-4 px-8">
+          <div className="bg-desk text-name self-end rounded-[16px] px-3 py-2">Prüf das bitte gegen meinen Leitfaden.</div>
+          <div className="bg-sheet shadow-sm flex items-center gap-3 self-end rounded-[10px] px-3 py-2">
+            <FileText className="text-muted-foreground size-4" aria-hidden />
+            <span className="text-name">Leitfaden_Garagen.pdf</span>
+            <span className="shadow-press text-name inline-flex h-7 items-center gap-1.5 rounded-control px-2.5">
+              <FolderInput className="size-3.5" aria-hidden />
+              In meine Dateien
+            </span>
+          </div>
+        </div>
+        <div className="relative mx-auto mb-8 w-full max-w-2xl px-8">
+          <div className="absolute bottom-full left-8 mb-2 flex items-end gap-2">
+            <div className="bg-sheet shadow-md w-60 rounded-[16px] p-1.5">
+              <MenuRow icon={Upload}>Vom Computer hochladen</MenuRow>
+              <MenuRow icon={Folder} picked>
+                Aus meinen Dateien
+              </MenuRow>
+              <MenuRow icon={Folder}>Aus einem Projekt</MenuRow>
+            </div>
+            <div className="bg-sheet shadow-md w-72 rounded-[16px] p-1.5">
+              <div className="text-muted-foreground text-meta px-2.5 pb-1 pt-1.5 font-medium">Meine Dateien</div>
+              {OWN_FILES.slice(0, 4).map((file, index) => (
+                <div key={file.id} className="text-name flex h-9 items-center gap-2.5 rounded-control px-2.5">
+                  <FileText className="text-muted-foreground size-4 shrink-0" aria-hidden />
+                  <span className="min-w-0 flex-1 truncate">{file.filename}</span>
+                  {index === 0 && <Check className="size-4 shrink-0" aria-hidden />}
+                </div>
+              ))}
+              <div className="text-muted-foreground text-name flex h-9 items-center px-2.5">Alle verwalten …</div>
+            </div>
+          </div>
+          <div className="bg-sheet border-field-border flex flex-col gap-3 rounded-[10px] border p-3">
+            <span className="text-muted-foreground text-sm">Frage stellen …</span>
+            <div className="text-name flex flex-wrap items-center gap-1.5">
+              <span className="bg-desk inline-flex size-7 items-center justify-center rounded-control">
+                <Paperclip className="size-4" aria-hidden />
+              </span>
+              <span className="text-muted-foreground text-meta mx-1">Grundlage</span>
+              {['Wissen', 'Büroablage'].map((label) => (
+                <span key={label} className="bg-desk inline-flex h-7 items-center rounded-full px-2.5">
+                  {label}
+                </span>
+              ))}
+              <span className="shadow-press inline-flex h-7 items-center rounded-full px-2.5">+ Projekt</span>
+            </div>
+          </div>
+        </div>
+      </main>
+    </>
+  )
+}
+
+/** C: no new place. The Büroablage holds one folder per person that only that person can open. */
+function InOfficeShelf(): JSX.Element {
+  return (
+    <>
+      <Rail own={false} officeShelfOpen />
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+        <header className="flex flex-col gap-1 px-8 pb-2 pt-6">
+          <h1 className="text-page-title">Büroablage</h1>
+          <p className="text-muted-foreground text-sm">Gemeinsame Dokumente, die jedem Projekt Ihrer Organisation zur Verfügung stehen</p>
+        </header>
+        <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">
+          <Browser files={OFFICE_FILES} folders={OFFICE_FOLDERS} />
+        </div>
+      </div>
+    </>
+  )
+}
+
+export default function PersonalFilesPreview(): JSX.Element {
+  const variant = useSearchParams()?.get('v') ?? 'page'
+  return (
+    <I18nProvider initialLocale="de" fixedLocale>
+      <div className="bg-background text-foreground flex h-dvh overflow-hidden">{variant === 'office' ? <InOfficeShelf /> : variant === 'chat' ? <FromChat /> : <OwnPage />}</div>
+    </I18nProvider>
+  )
+}
