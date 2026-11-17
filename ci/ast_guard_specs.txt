@@ -1,0 +1,4 @@
+# Specs (and their helper) that read source files, each a structural guard over the tree that parses
+# the code with a real parser. scripts/check_spec_source_reads.py fails any other spec that reads source
+# text, and any line here whose spec imports no parser. docs/contributing/code-conventions.md#specs-test-behaviour
+apps/workspace/tests/test-utils/source-ast.ts
