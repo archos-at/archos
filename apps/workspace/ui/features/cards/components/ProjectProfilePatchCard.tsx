@@ -22,30 +22,12 @@ interface ProjectProfilePatchCardProps {
   rationale: string
   patch: ProjectProfilePatchOperation[]
   projectId?: string | null
-  /** Message this card belongs to — keys its persisted decision. */
   messageId?: string
-  /** Stable identity of this card within that message (`cardKey`). */
   cardKey: string
-  /**
-   * Whether this surface requires the answer to be persisted. With no owning
-   * message the card then shows WHAT is proposed and offers nothing — see
-   * `AnswerCards.decisionsMustPersist`.
-   */
   decisionsMustPersist?: boolean
-  /** The stored proposal this card is a receipt of (ADR-0105). Absent: the fallback below. */
   proposalId?: string | null
 }
 
-/**
- * Agent-proposed update to the project brief. The change is applied only when
- * the user accepts — the agent can never silently rewrite a project fact
- * (docs/architecture/project-memory-design.md §11.7: propose, never auto-apply).
- *
- * A card with a `proposal_id` is the receipt of a stored `project_profile`
- * proposal (ADR-0105) and is drawn by {@link ProfilePatchReceipt}: the server
- * applies the patch in the deciding person's session and records who decided
- * and when. Without one it is the fallback below.
- */
 export function ProjectProfilePatchCard({ proposalId, ...props }: ProjectProfilePatchCardProps) {
   return proposalId ? (
     <ProfilePatchReceipt
@@ -60,14 +42,6 @@ export function ProjectProfilePatchCard({ proposalId, ...props }: ProjectProfile
   )
 }
 
-/**
- * FALLBACK for answers older than server proposals (and for a proposal the
- * agent could not store): the browser applies the patch through the reader's
- * own session. Accept/Reject is recorded on the owning message
- * (`useCardDecision`) rather than in local state, so an applied patch stays
- * applied across reloads instead of re-offering a button that would write it to
- * the brief a second time. Kept as it was for those answers.
- */
 function BrowserAppliedProfileCard({
   title,
   rationale,
@@ -81,22 +55,14 @@ function BrowserAppliedProfileCard({
   const { decision, decide, canDecide } = useCardDecision(messageId, cardKey, {
     mustPersist: decisionsMustPersist,
   })
-  // Sent with the patch: the server refuses a proposal from a thread that drew
-  // on a restricted folder, because the brief is read by the whole project.
   const conversationId = useChatStore((state) => selectCardConversationId(state, messageId))
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  // The before/after rows are DERIVED from the patch + current profile — never
-  // from a model-supplied preview — so what the user consents to is exactly what
-  // gets written. The current profile is fetched once; on failure it stays null
-  // and the "Before" column is hidden rather than guessed.
   const profile = useCurrentProfile(projectId)
 
   const rows = useMemo(() => buildPatchPreviewRows(patch, profile), [patch, profile])
 
   const handleAccept = async () => {
-    // A second press while the first is in flight is ignored, not refused by
-    // `disabled` — see the buttons below.
     if (isSubmitting) return
     if (!projectId) {
       setError(t('profilePatchCard.noProject'))
@@ -111,17 +77,10 @@ function BrowserAppliedProfileCard({
         body: JSON.stringify(conversationId ? { patch, conversationId } : { patch }),
       })
       if (!res.ok) {
-        // A 409 is NOT success. The server answers 200 with `alreadyApplied` for the
-        // one conflict that is (a colleague in this shared thread accepting the same
-        // card, so the brief already holds the change); every other version conflict
-        // means this patch was dropped, and settling as accepted here would hide a
-        // change that never landed behind a card that can no longer be retried.
         const body = await res.json().catch(() => ({}))
         throw new Error(body.error || `${t('profilePatchCard.applyFailed')} (${res.status})`)
       }
       setIsSubmitting(false)
-      // Every answer in the thread binds the profile (`:project[key]`): the
-      // value it asked for appears in each of them now, not on a reload.
       invalidateProjectFacts(projectId)
       decide('accepted')
     } catch (e) {
@@ -167,8 +126,6 @@ function BrowserAppliedProfileCard({
           next reader of this proposal would be offered the same write again. The
           question is put where the answer has a home, which is the thread. */}
       {canDecide && (
-        // The note takes its own line above the buttons (DECISION_ROW stacks on
-        // a phone), so it never sits beside them four words to a line.
         <div className={DECISION_ROW}>
           {!projectId && (
             <p className="text-xs text-muted-foreground sm:mr-auto sm:min-w-[16rem] sm:flex-1">{t('profilePatchCard.noProject')}</p>
@@ -195,7 +152,7 @@ function BrowserAppliedProfileCard({
           </Button>
           <Button
             type="button"
-            variant="outline"
+            variant="secondary"
             size="sm"
             onClick={handleReject}
             aria-disabled={isSubmitting || undefined}

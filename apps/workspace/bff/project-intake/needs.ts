@@ -46,8 +46,8 @@ export interface ComputeNeedsOptions {
   dismissed: ReadonlyArray<{ key: string; value: ProjectPrimitiveValue }>
   /** Keys a person marked „nicht bekannt"; not a need. Defaults to the profile's `unknowns`. */
   unknownKeys?: ReadonlyArray<string>
-  /** The setup records the site selects its classification from; the shipped pack by default. */
-  records?: readonly StoredRuleset[]
+  /** The released setup records the site selects its classification from. */
+  records: readonly StoredRuleset[]
 }
 
 type Answers = Record<string, ProjectPrimitiveValue>

@@ -1,11 +1,3 @@
-"""Four ways to find nothing, four things to say. None of them is empty.
-
-An empty tool result is the one output that reliably produces an invented
-citation: the model has a question, no evidence, and nothing telling it what to
-do instead. Each shape below gets its own vocabulary, and each ends in one
-concrete retry.
-"""
-
 from __future__ import annotations
 
 import pytest
@@ -16,7 +8,6 @@ pytestmark = pytest.mark.asyncio
 
 
 async def test_nothing_matched_anywhere_still_says_what_was_searched(lookup, monkeypatch):
-    """No catalog entry, no live hit: the miss names the terms and the Land."""
     from ris_adapter_testing.lookup import FakePlanner
 
     lookup.with_llms(monkeypatch, planner=FakePlanner(suchworte="Stellplatzverpflichtung"))
@@ -37,7 +28,6 @@ async def test_an_unresolved_federal_state_is_the_first_thing_the_retry_asks_for
 
 
 async def test_a_catalog_entry_with_no_full_text_is_named_and_not_invented(lookup, catalog):
-    """The catalog's own honest case: the norm exists, its text is not in RIS."""
     from ris_adapter_testing.lookup import norm_entry
 
     catalog(
@@ -85,10 +75,8 @@ async def test_a_web_only_catalog_entry_hands_the_web_tool_its_next_move(lookup,
 
 
 async def test_a_document_that_was_read_but_answers_nothing_returns_its_index(lookup, catalog, monkeypatch):
-    """The RIS twin of `read_passage`'s Gliederung — labelled as an index."""
     from ris_adapter_testing.lookup import FakePicker
 
-    # The picker names no §: nothing in the table of contents answers this.
     lookup.with_llms(monkeypatch, picker=FakePicker())
 
     output = await lookup.run(question="Was sagt die Bauordnung zur Grunderwerbsteuer?", jurisdiction="Wien")
@@ -120,7 +108,6 @@ async def test_a_failed_live_search_is_a_miss_with_a_retry_not_an_exception(look
 
 
 async def test_a_live_hit_that_cannot_be_fetched_is_named_as_unread(lookup, monkeypatch):
-    """The fetch failed; the miss still says which document it was."""
     from ris_adapter_testing.lookup import FakePlanner
 
     lookup.with_llms(monkeypatch, planner=FakePlanner())
@@ -145,8 +132,6 @@ async def test_a_live_hit_that_cannot_be_fetched_is_named_as_unread(lookup, monk
 
 
 class TestActionRow:
-    """One ``law`` row per call (ADR-0132): the question, the § asked for, how many passages were cut."""
-
     @pytest.fixture
     def rows(self, monkeypatch):
         bodies = []

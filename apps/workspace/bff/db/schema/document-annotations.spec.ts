@@ -2,15 +2,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The index a document's wakes are read by (migration 0149), written in three
- * places that nothing else makes agree: the drizzle table, the migration, and
- * the journal that decides whether the migration runs at all.
- *
- * `listLatestWakes` and `listAnsweringWakes` filter `piloti_wakes` by the
- * document. Without an index that leads with `document_id` each read scans the
- * organization's wakes, which is the cost this pins away.
- */
 
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -18,7 +9,6 @@ import { getTableConfig, IndexedColumn } from 'drizzle-orm/pg-core'
 import { describe, expect, it } from 'vitest'
 import { pilotiWakes } from './document-annotations'
 
-// Built under the table's old name (0149); 0189 renamed both.
 const BUILT_AS = 'idx_piloti_wakes_document_annotation_created'
 const NAME = 'idx_agent_wakes_document_annotation_created'
 const read = (file: string) => readFileSync(join(process.cwd(), 'migrations', file), 'utf8')

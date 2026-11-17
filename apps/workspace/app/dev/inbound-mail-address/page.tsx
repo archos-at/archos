@@ -35,7 +35,7 @@ export default function InboundMailAddressDevPage({ searchParams }: { searchPara
     <I18nProvider initialLocale={locale} fixedLocale>
       <main className="bg-background min-h-dvh px-4 py-8 md:px-8" data-testid="inbound-mail-address-preview">
         <div className="mx-auto flex max-w-3xl flex-col gap-4">
-          <Button type="button" variant="outline" size="sm" className="w-fit" onClick={() => setOpen(true)}>
+          <Button type="button" variant="secondary" size="sm" className="w-fit" onClick={() => setOpen(true)}>
             Per E-Mail senden …
           </Button>
           <InboundMailAddressCard key={variant} projectId={PROJECT_ID} projectName={PROJECT_NAME} client={cardClient} />

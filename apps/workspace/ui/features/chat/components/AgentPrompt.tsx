@@ -1,21 +1,3 @@
-/**
- * AgentPrompt — the turn's open question (`interaction_request`, chat wire v2).
- *
- * Two shapes exist: `text` (answered in the composer, or with the inline plan
- * buttons when the text is the research-plan envelope) and `choice` (answered
- * by picking an option, which sends the option's `id`).
- *
- * ## How an answer lands
- *
- * The decision (the plan's controls, the instruction and the buttons) and the
- * receipt share one slot: the decision fades out, the slot takes the receipt's
- * height in the frame nothing is visible, and the receipt fades in. A plan the
- * reader answered folds to one line, „Plan freigegeben · 5 Abschnitte", with
- * the plan as approved behind a disclosure, because a tall card of disabled
- * controls above the run it started is a dead weight the reader scrolls past.
- * A choice prompt keeps its options in place: the chosen one is the receipt.
- */
-
 'use client'
 
 import { type FC, type ReactNode, useCallback, useMemo, useState } from 'react'
@@ -44,38 +26,16 @@ import {
 } from './PlanChecklist'
 import type { StoredPromptOption } from '@/lib/conversations/message-prompt'
 
-/**
- * The byte-stable approval envelope (`researcher/clarify.py`
- * `format_plan_for_user`): approve, a quick shallow answer instead, or cancel.
- */
 const APPROVAL_PROMPT_RE =
   /Reply\s+\*{0,2}approve\*{0,2}\s+to proceed,\s+\*{0,2}shallow\*{0,2}\s+for a quick answer instead/i
 
-/**
- * Strips the WHOLE envelope line, whichever variant wrote it. The previous
- * strip regex ended at "to cancel", which left the dangling tail ", or
- * provide feedback to revise the plan." in the rendered bubble — the envelope
- * is one line, so consume it to the line end and show localized copy instead.
- */
 const APPROVAL_PROMPT_STRIP_RE = /[ \t]*Reply\s+\*{0,2}approve\*{0,2}\s+to proceed,[^\n]*/i
 
-/**
- * The English scaffolding around the (user-language) plan title and sections.
- * Byte-stable like the envelope, and localized here for the same reason: a
- * German-speaking user deciding about a German plan should not be doing it
- * under an English "Research Plan Preview" header.
- */
 const PLAN_HEADER_RE = /\*\*Research Plan Preview\*\*/
 const PLAN_TITLE_LABEL_RE = /\*\*Title:\*\*/
 const PLAN_SECTIONS_LABEL_RE = /\*\*Sections:\*\*/
-/** The whole sections block (label and numbered lines), for a plan drawn as controls. */
 const PLAN_SECTIONS_BLOCK_RE = /\*\*[^*\n]+\*\*\s*\n(?:\s*\d+\.\s[^\n]*\n?)+/
 
-/**
- * Keyword the user's click sent, mapped to the dictionary key of a
- * human-readable receipt. Without this the answered bubble echoed the raw
- * wire keyword ("Ihre Antwort: reject") back into a German conversation.
- */
 const APPROVAL_RESPONSE_KEYS: Record<string, string> = {
   approve: 'agentPrompt.responseApproved',
   shallow: 'agentPrompt.responseShallow',
@@ -83,28 +43,12 @@ const APPROVAL_RESPONSE_KEYS: Record<string, string> = {
 }
 
 export interface AgentPromptProps {
-  /** The question the agent asked. */
   content: string
-  /** `choice` prompts carry options; a pick sends the option's `id`. */
   options?: StoredPromptOption[]
-  /** Whether the prompt has been responded to */
   isResponded?: boolean
-  /** The answer: the typed text, or the chosen option's `id`. */
   response?: string
-  /** Timestamp (Date or ISO string from persisted state) */
   timestamp?: Date | string
-  /**
-   * Whether THIS reader is the person the agent asked (ADR-0037).
-   *
-   * Defaults to true, which is right for a live prompt: the browser holding the
-   * socket is the addressee by construction. It is false only for a colleague in a
-   * shared thread reading a prompt restored from the server — and for them the
-   * actions must not render, because the agent tier refuses an answer from anybody
-   * but the addressee (`_may_answer_interaction`), so a button would be offering a
-   * refusal.
-   */
   isAddressee?: boolean
-  /** Who was asked, for the read-only line a colleague sees instead of buttons. */
   addresseeName?: string | null
 }
 
@@ -123,19 +67,12 @@ export const AgentPrompt: FC<AgentPromptProps> = ({
   const isApprovalPrompt = APPROVAL_PROMPT_RE.test(content)
   const showApprovalButtons =
     isApprovalPrompt && !isResponded && !!respondToInteractionFn && isAddressee
-  // Replace the English envelope sentence and the English plan scaffolding
-  // with localized copy; the plan title/sections themselves are already in the
-  // user's language (the planner writes them that way).
-  // The plan as data, when the backend sent it beside the text: the card
-  // renders it as controls, and the approval carries the reader's edits.
   const plan = useMemo(
     () => (isApprovalPrompt ? parsePlanFence(content) : null),
     [content, isApprovalPrompt]
   )
   const [editedPlan, setEditedPlan] = useState<PlanShape | null>(null)
   const shownPlan = editedPlan ?? plan
-  // The Rahmen: the composer's Datengrundlage, read off the layout store the
-  // composer writes. The approval carries the ids; the card shows the names.
   const enabledSourceIds = useLayoutStore((s) => s.enabledDataSourceIds)
   const availableSources = useLayoutStore((s) => s.availableDataSources)
   const frame = useMemo(() => {
@@ -144,7 +81,6 @@ export const AgentPrompt: FC<AgentPromptProps> = ({
     const labels = ids.map((id) => (availableSources ?? []).find((s) => s.id === id)?.name ?? id)
     return { ids, labels }
   }, [plan, enabledSourceIds, availableSources])
-  // An edited approval is the keyword plus JSON; the receipt keys off the keyword.
   const displayContent = isApprovalPrompt
     ? stripPlanFence(content)
         .replace(APPROVAL_PROMPT_STRIP_RE, '')
@@ -153,24 +89,16 @@ export const AgentPrompt: FC<AgentPromptProps> = ({
         .replace(PLAN_SECTIONS_LABEL_RE, `**${t('agentPrompt.planSectionsLabel')}**`)
         .trim()
     : content
-  // With the plan drawn as controls, the numbered list above it would say the
-  // sections twice; the text keeps the title and loses the list.
   const bubbleContent = plan
     ? displayContent.replace(PLAN_SECTIONS_BLOCK_RE, '').trim()
     : displayContent
 
-  // The answered bubble's echo. Approval prompts answer with wire keywords;
-  // show what the click meant, not the keyword. Every other prompt echoes the
-  // user's own words unchanged.
   const responseKey =
     isApprovalPrompt && response
       ? APPROVAL_RESPONSE_KEYS[response.trim().toLowerCase().split(/\s/)[0] ?? '']
       : undefined
   const responseLabel = responseKey ? t(responseKey) : response
 
-  // Each handler refuses once the prompt is answered: a prompt takes one
-  // answer, and a second `interaction_response` is never what a late click
-  // meant (the decision is also inert while it fades; see AnswerSlotBody).
   const handleApprove = useCallback(() => {
     if (isResponded) return
     respondToInteractionFn?.(
@@ -188,8 +116,6 @@ export const AgentPrompt: FC<AgentPromptProps> = ({
     respondToInteractionFn?.('cancel')
   }, [isResponded, respondToInteractionFn])
 
-  // The plan as it was decided: the reader's edits while this mount holds
-  // them, else what the reply carried (a reload has only the reply).
   const decidedPlan = useMemo(
     () => (plan ? (editedPlan ?? planFromReply(plan, response)) : null),
     [plan, editedPlan, response]
@@ -212,9 +138,6 @@ export const AgentPrompt: FC<AgentPromptProps> = ({
   )
 
   return (
-    // No entrance of its own: the thread row owns it, gated on whether the
-    // message is new. A CSS entrance here replayed on every mount, so a
-    // restored prompt rose again on every thread switch.
     <div className="flex w-full justify-start">
       <div className="flex max-w-[85%] flex-col">
         <div className="bg-card flex flex-col gap-3 overflow-hidden break-words rounded-surface rounded-bl-md p-4">
@@ -243,8 +166,6 @@ export const AgentPrompt: FC<AgentPromptProps> = ({
             <BranchOptions
               options={optionLabels}
               selected={isResponded ? selectedLabel : undefined}
-              // A colleague sees the choices as a settled list, not a picker: the
-              // question is not theirs to answer.
               isResponded={isResponded || !isAddressee}
               onSelect={isAddressee && respondToInteractionFn ? handleSelect : undefined}
               digitShortcuts={isAddressee}
@@ -313,7 +234,7 @@ export const AgentPrompt: FC<AgentPromptProps> = ({
                       {t('agentPrompt.startResearch')}
                     </Button>
                     <Button
-                      variant="outline"
+                      variant="secondary"
                       size="sm"
                       onClick={handleShallow}
                       aria-label={t('agentPrompt.answerShallowAria')}
@@ -348,9 +269,6 @@ export const AgentPrompt: FC<AgentPromptProps> = ({
   )
 }
 
-/**
- * Display the user's response after submission
- */
 const ResponseDisplay: FC<{ response?: string }> = ({ response }) => {
   const t = useTranslations(chatCopy)
   if (!response) return null
@@ -365,27 +283,12 @@ const ResponseDisplay: FC<{ response?: string }> = ({ response }) => {
   )
 }
 
-/**
- * One slot for the decision and the receipt that replaces it. Out on the exit
- * curve, in on the quick one, never both at once (`mode="wait"`): the slot's
- * height changes in the frame between, while nothing in it is visible, so the
- * card resizes once instead of sliding two contents over each other. Mounted
- * already answered (a restored thread), it paints the receipt with no motion.
- */
 const AnswerSlot: FC<{ answered: boolean; children: ReactNode }> = ({ answered, children }) => (
   <AnimatePresence mode="wait" initial={false}>
     <AnswerSlotBody key={answered ? 'answered' : 'open'}>{children}</AnswerSlotBody>
   </AnimatePresence>
 )
 
-/**
- * One content of the slot. While it fades out, AnimatePresence keeps rendering
- * the children it last had, buttons and handlers from before the answer
- * included, so the leaving decision is taken out of reach (`inert`: no click,
- * no focus, no key) and out of the accessibility tree for its last 180ms, the
- * way ProposalShell retires a question. Otherwise a second click on the
- * approve button during the fade sends a second `interaction_response`.
- */
 const AnswerSlotBody: FC<{ children: ReactNode }> = ({ children }) => {
   const reduced = useReducedMotion()
   const present = useIsPresent()
@@ -403,11 +306,6 @@ const AnswerSlotBody: FC<{ children: ReactNode }> = ({ children }) => {
   )
 }
 
-/**
- * An answered plan as one line: what was decided, and the plan as approved
- * behind a disclosure the reader opens (a user-initiated expand, the one kind
- * of height change the thread animates).
- */
 const PlanRecord: FC<{
   label?: string
   plan: PlanShape

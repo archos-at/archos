@@ -1,24 +1,3 @@
-/**
- * The wrapper that makes an answer's citations interactive.
- *
- * Two things have to be true at once for a citation to feel like one object:
- * the inline `[3]` and the chip under the answer must READ the same model
- * ({@link CitationScope}), and the markdown renderer must be willing to hand
- * its in-page anchors to something that knows what they mean
- * ({@link InPageAnchorProvider}).
- *
- * It carries the answer's FILE references on the same door: a filename the
- * prose names (`pd8280-2.pdf`) reaches `FileReferenceLink` through the same
- * in-page-anchor provider a citation does, because both are things the answer
- * knows about its own text that the markdown renderer must not learn.
- *
- * It also honours a shared link: arriving with `?cite=…` opens the named
- * document at the named page, in the answer that actually holds it. Every other
- * answer on screen sees the same parameter and stands down — by document
- * identity rather than position, and, when several answers cite the same
- * document, by a single claim so one link opens exactly one dialog.
- */
-
 'use client'
 
 import { useEffect, useMemo, useRef, useSyncExternalStore, type FC, type ReactNode } from 'react'
@@ -55,11 +34,6 @@ import { SourceDocumentDialog } from './source-preview/source-document-dialog'
 
 const NO_FILE_REFERENCES: FileReferenceResolver = () => null
 
-/**
- * An excerpt's margin: the source its `[N]` resolves to (`CitationExcerptSource`),
- * or nothing at all for a number that resolves to no document, so the excerpt
- * does not hold an empty margin column open.
- */
 const excerptSourceRenderer = (documents: CitedDocument[]): ExcerptSourceRenderer => {
   const byNumber = referencesByNumber(documents)
   return function renderExcerptSource(props) {
@@ -69,10 +43,6 @@ const excerptSourceRenderer = (documents: CitedDocument[]): ExcerptSourceRendere
   }
 }
 
-/**
- * „Dazu fragen" on an open row of a check: the row's own words become a
- * question in the composer, as `requirement_checklist`'s undecided rows did.
- */
 const renderRowAction: RowActionRenderer = ({ subject, detail }) => (
   <AskAboutChip subject={subject} missing={detail} />
 )
@@ -80,11 +50,6 @@ const renderRowAction: RowActionRenderer = ({ subject, detail }) => (
 export const AnswerCitations: FC<{
   documents: CitedDocument[]
   anchorPrefix: string
-  /**
-   * Resolves a filename the prose names to a document the reader can open.
-   * Omitted on a surface that has not built the index — every anchor then falls
-   * through to the plain link, exactly as before file references existed.
-   */
   resolveFileReference?: FileReferenceResolver
   children: ReactNode
 }> = ({ documents, anchorPrefix, resolveFileReference, children }) => {
@@ -99,10 +64,6 @@ export const AnswerCitations: FC<{
           <CitationMarker
             href={href}
             fallback={
-              // Not a citation. It may still be a file this answer named, which
-              // is a different kind of reference to a different kind of thing —
-              // and if it is neither, the plain scroll anchor stands rather than
-              // dressing up something we cannot describe.
               <FileReferenceLink
                 href={href}
                 fallback={
@@ -130,12 +91,6 @@ export const AnswerCitations: FC<{
             if (element) {
               return <IfcElementChip link={element}>{label}</IfcElementChip>
             }
-            // An `/api/…` href is a DOWNLOAD, not a route. Rendered as a
-            // `next/link` it was prefetched by the intersection observer 200px
-            // before it scrolled into view — firing a full, unrate-limited
-            // compliance run and BCF build per link, with no click and no
-            // intent. A plain anchor with `download` is also what the reader
-            // actually wants: a file, not a navigation.
             if (href.startsWith('/api/')) {
               return (
                 <a
@@ -167,20 +122,6 @@ export const AnswerCitations: FC<{
   )
 }
 
-/**
- * The citation this page was linked to, if this answer is the one holding it.
- *
- * Opened once per arrival: dismissing must not immediately reopen it, and the
- * URL is deliberately left alone so a reload still lands in the same place —
- * the link is an address, and rewriting it out from under the reader would make
- * the back button lie.
- *
- * "The one holding it" is a claim, not a coincidence: a document cited by two
- * answers in the same conversation resolves in BOTH, and two dialogs for one
- * source stacked on top of each other is not a viewing session. The earliest
- * answer that actually holds the document owns the link ({@link claimLink});
- * the rest resolve it and stand down.
- */
 const useLinkedCitation = (
   documents: CitedDocument[]
 ): { ref: CitationRef | null; dismiss: () => void } => {
@@ -197,12 +138,9 @@ const useLinkedCitation = (
   useEffect(() => {
     if (!value || !holds) return
     claimLink(id, value)
-    // Released on unmount so a link whose owner left the message list is picked
-    // up by another answer holding the same document.
     return () => releaseLink(id, value)
   }, [value, holds, id])
 
-  // Unowned — the previous owner unmounted — and this answer holds it.
   useEffect(() => {
     if (value && holds && !owner) claimLink(id, value)
   }, [value, holds, owner, id])
@@ -213,20 +151,6 @@ const useLinkedCitation = (
   }
 }
 
-// ---------------------------------------------------------------------------
-// Who owns the current `?cite=` link
-// ---------------------------------------------------------------------------
-
-/**
- * One claim on the link, outside React.
- *
- * The answers competing for it are siblings with no common owner below the chat
- * page, so the alternative is threading a provider through the message list for
- * a single string. There is only ever one link in the address bar, and both
- * facts about it — who is showing it and whether the reader is done with it —
- * belong to the LINK rather than to any one answer: a dismissal held per answer
- * would simply hand the dialog to the next answer that cites the document.
- */
 const claim: { value: string | null; owner: number | null; dismissed: boolean } = {
   value: null,
   owner: null,
@@ -253,10 +177,7 @@ const subscribeToClaim = (listener: () => void): (() => void) => {
 
 const notify = (): void => listeners.forEach((listener) => listener())
 
-/** Take the link, unless an earlier answer has this one or it was dismissed. */
 const claimLink = (id: number, value: string): void => {
-  // A different link is a new request (a second shared URL pasted into the bar),
-  // so neither the previous owner's claim nor its dismissal carries over.
   if (claim.value !== value) {
     claim.value = value
     claim.owner = id
@@ -275,7 +196,6 @@ const releaseLink = (id: number, value: string): void => {
   notify()
 }
 
-/** The reader closed the viewer: this link is spent until a new one arrives. */
 const dismissLink = (value: string): void => {
   claim.value = value
   claim.owner = null

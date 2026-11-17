@@ -17,19 +17,12 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '
 import { SummaryBlock } from './filing-atoms'
 import type { FolderNode } from './folder-tree'
 
-/** One folder whose access is shown: one the project has, or one the choice would create. */
 export interface AccessRow {
   path: string
   name: string
-  /** The project's folder; absent while the choice has not created it yet. */
   folder: FolderItem | null
 }
 
-/**
- * The folders worth a look, from the project's folders and the choice: the top
- * of the project folder (the subfolders of a single root folder, as the office
- * server's project folder arrives), each once, the project's own first.
- */
 export function accessRows(projectFolders: readonly FolderItem[], chosen: readonly FolderNode[]): AccessRow[] {
   const roots = projectFolders.filter((folder) => folder.parentId === null)
   const [onlyRoot] = roots
@@ -52,20 +45,12 @@ export function accessRows(projectFolders: readonly FolderItem[], chosen: readon
 export interface AccessSummaryProps {
   projectId: string
   rows: readonly AccessRow[]
-  /** The reader manages the project, so may change who opens a folder. */
   canManage: boolean
   loadFailed: boolean
-  /** The folder at this path, created as the upload would create it. */
   ensureFolder: (path: string) => Promise<FolderItem>
-  /** A folder's access changed, or a folder was created: read the folders again. */
   onChanged: () => void
 }
 
-/**
- * Wer welchen Ordner öffnen darf, as one block of the summary card: whether
- * every folder is open to everyone by project role or which are restricted,
- * and one quiet link to the folders with who opens each (ADR-0088, ADR-0097).
- */
 export function AccessSummary(props: AccessSummaryProps): JSX.Element {
   const { rows, canManage, loadFailed } = props
   const t = useTranslations(intakeFilingStepCopy)
@@ -96,14 +81,6 @@ export function AccessSummary(props: AccessSummaryProps): JSX.Element {
   )
 }
 
-/**
- * The folders with who opens each, and the way to change it in the access
- * dialog Dateien uses. A folder the choice would create can be restricted
- * before its files arrive: it is created first, exactly as the upload would
- * create it, so its documents are read into the restricted collection from the
- * start rather than moved there afterwards. The sheet steps aside while the
- * dialog is open, so one overlay holds the focus at a time.
- */
 function AccessSheet({
   projectId,
   rows,
@@ -167,7 +144,7 @@ function AccessSheet({
                         <Button
                           type="button"
                           size="sm"
-                          variant="outline"
+                          variant="secondary"
                           aria-label={t('access.changeAria', { name: row.name })}
                           onClick={() => row.folder && change(row.folder)}
                         >
@@ -177,7 +154,7 @@ function AccessSheet({
                         <BusyButton
                           type="button"
                           size="sm"
-                          variant="outline"
+                          variant="secondary"
                           icon={<Lock aria-hidden />}
                           busy={creating === row.path}
                           blocked={creating !== null}
@@ -205,7 +182,6 @@ function AccessSheet({
         projectId={projectId}
         folder={dialogFolder}
         onSaved={() => {
-          // The dialog says what it saved and moved; the summary reads it again.
           setDialogFolder(null)
           onChanged()
         }}

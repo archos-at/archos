@@ -99,7 +99,6 @@ describe('recordMemoryJudgeVerdict', () => {
       { verdict: 'none', judgedCollections: [CONTRACTS], drawnCollections: [] }
     )
 
-    // No project to resolve the collections against.
     expect(findProjectInOrg).not.toHaveBeenCalled()
     expect(recordAuditEvent).toHaveBeenCalledWith({
       organizationId: 'org-1',

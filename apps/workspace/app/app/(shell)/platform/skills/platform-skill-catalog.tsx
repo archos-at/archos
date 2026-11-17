@@ -194,7 +194,7 @@ export function PlatformSkillCatalog(): JSX.Element {
   const headerActions = canManage ? (
     <div className="flex flex-wrap items-center gap-2">
       {!categoriesFailed ? (
-        <Button size="sm" variant="outline" onClick={() => setCategoriesOpen(true)}>
+        <Button size="sm" variant="secondary" onClick={() => setCategoriesOpen(true)}>
           <Tags aria-hidden />
           {tSkills('toolbox.categories.button')}
         </Button>

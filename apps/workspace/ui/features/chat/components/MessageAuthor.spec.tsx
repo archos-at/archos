@@ -16,23 +16,16 @@ describe('MessageAuthor', () => {
 
     expect(screen.getByText('You')).toBeInTheDocument()
     expect(screen.queryByText('Max Mustermann')).not.toBeInTheDocument()
-    // "Y" on every one of your own discs would read as a bug.
     expect(screen.getByTestId('message-author-initials')).toHaveTextContent('MM')
   })
 
   test('colours the disc from the USER ID, so it survives a rename and a reorder', () => {
-    // Colouring by position in a list makes a colleague change colour whenever
-    // somebody is invited, which destroys the recognition the disc is for; keying
-    // on the name would change it on a rename. Both are the id's job. (The colour
-    // values themselves are `color-mix()` against theme tokens, which the test DOM
-    // does not implement — their derivation is pinned in avatar-identity.spec.ts.)
     expect(avatarColorStyle('user_anna')).toEqual(avatarColorStyle('user_anna'))
     expect(avatarColorStyle('user_anna')).not.toEqual(avatarColorStyle('user_tobias'))
 
     render(<MessageAuthor userId="user_anna" name="Anna Berger" />)
     render(<MessageAuthor userId="user_anna" name="A. Berger" />)
 
-    // Same person, same disc, whichever form of the name the directory returns.
     expect(screen.getAllByTestId('message-author-initials')).toHaveLength(2)
   })
 
@@ -51,8 +44,6 @@ describe('MessageAuthor', () => {
   test('falls back to a neutral disc for a message with no author', () => {
     render(<MessageAuthor />)
 
-    // No identity to derive a colour from, so the disc says so rather than
-    // pretending to identify somebody.
     expect(screen.getByTestId('message-author-initials')).toHaveTextContent('?')
   })
 
@@ -65,7 +56,6 @@ describe('MessageAuthor', () => {
   test('a grouped continuation draws no header but stays attributable', () => {
     render(<MessageAuthor userId="user_anna" name="Anna Berger" grouped />)
 
-    // No visible chrome — that IS the grouping (spec CC-4 / the Slack pattern).
     expect(screen.queryByTestId('message-author')).not.toBeInTheDocument()
     expect(screen.getByText('Continued from Anna Berger')).toHaveClass('sr-only')
   })

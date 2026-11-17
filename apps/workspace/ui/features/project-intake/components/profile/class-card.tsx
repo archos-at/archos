@@ -17,19 +17,9 @@ import { leadDerivation, REASON_INPUT_IDS, reasonInputs, shortLabel } from './pr
 
 interface ClassCardProps {
   derivations: readonly DerivationReview[]
-  /** Go to the Rückfragen, where a missing input is asked. */
   onAnswer: () => void
 }
 
-/**
- * The Gebäudeklasse as a result: the class big and why in one line. Nothing to
- * click to confirm it: „Alles übernehmen und abschließen“ in the footer takes
- * it with the values it rests on, and changing an input changes it. How it was
- * worked out (every input, which ones only suggested, the Fundstelle) folds
- * open under „Wie gerechnet?". With several Bauwerke a switch picks which
- * one's class is shown; a Hochhaus has none, and a class still open says
- * what it lacks and where that is asked.
- */
 export function ClassCard({ derivations, onAnswer }: ClassCardProps): JSX.Element {
   const t = useTranslations(intakeProfileStepCopy)
   const tIntake = useTranslations(projectIntakeCopy)
@@ -79,7 +69,6 @@ export function ClassCard({ derivations, onAnswer }: ClassCardProps): JSX.Elemen
   )
 }
 
-/** The big tile: ink for a class, quiet while it is open. */
 function ClassTile({ value, highRise = false }: { value: number | null; highRise?: boolean }): JSX.Element {
   const t = useTranslations(intakeProfileStepCopy)
   const known = value !== null || highRise

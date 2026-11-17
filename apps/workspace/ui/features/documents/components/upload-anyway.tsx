@@ -1,18 +1,5 @@
 'use client'
 
-/**
- * „Trotzdem hochladen" in the message that says the name screening kept files
- * back (ADR-0086), wherever that message stands: the Files view, the chat's
- * composer, the side panel's sources.
- *
- * A name is a weak signal: `Lüftungssteuerung` contains `Steuer`. So the person
- * who dropped the file may send it anyway, one press for the files of that
- * upload, as the folder upload's checkbox already lets them per file. The
- * server audits the release and still reads the content through the content
- * screen, which holds a file that really is sensitive. Reads the upload store,
- * so it shows exactly while that message does.
- */
-
 import type { JSX } from 'react'
 import { AlertCircle, Upload, X } from 'lucide-react'
 
@@ -47,7 +34,6 @@ export function UploadAnywayButton({ className }: { className?: string }): JSX.E
   )
 }
 
-/** The Files view's upload problem, under the header: what went wrong, and „Trotzdem hochladen" when it can. */
 export function UploadProblemAlert({ message, onDismiss }: { message: string; onDismiss: () => void }): JSX.Element {
   const t = useTranslations(filesCopy)
   return (

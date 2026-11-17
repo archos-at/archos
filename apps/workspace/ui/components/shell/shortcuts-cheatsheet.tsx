@@ -1,21 +1,5 @@
 'use client'
 
-/**
- * The keyboard-shortcuts cheatsheet (`?`).
- *
- * Every row comes from the shortcut registry (`shortcuts.ts`) — including the
- * navigation group, which the registry derives from the same IA the rail and
- * the ⌘K palette render. Nothing here is a hand-maintained list, so the sheet
- * cannot go stale behind the app again: a new project section arrives with its
- * jump key, its label and its icon already correct, and a flag-gated section
- * disappears from the sheet exactly when it disappears from the rail.
- *
- * The layout is a two-column card of grouped rows on desktop (the whole set
- * fits without scrolling), collapsing to one column on mobile. Keycaps come
- * from the shared {@link ShortcutKeys} renderer so a chord / leader /
- * alternative / range never gets a second homemade `<kbd>`.
- */
-
 import * as React from 'react'
 import { Keyboard } from 'lucide-react'
 
@@ -40,16 +24,6 @@ import {
   type ShortcutSection,
 } from './shortcuts'
 
-/**
- * Deal the groups into two columns of roughly equal height, preserving order.
- *
- * Greedy by weight (rows + heading) rather than a fixed "navigation goes
- * right": the navigation group grows and shrinks with the user's feature flags,
- * so any hard-coded placement would be balanced for exactly one org. CSS
- * `columns-2` would balance on its own, but a group taller than the column gets
- * split across the fold — the tall navigation group is precisely the one that
- * must stay whole.
- */
 function splitColumns(sections: ShortcutSection[]): [ShortcutSection[], ShortcutSection[]] {
   const columns: [ShortcutSection[], ShortcutSection[]] = [[], []]
   const weights = [0, 0]
@@ -61,11 +35,6 @@ function splitColumns(sections: ShortcutSection[]): [ShortcutSection[], Shortcut
   return columns
 }
 
-/**
- * Resolve a row's label from whichever dictionary owns it. Built once in the
- * sheet and passed down, so a row does not construct three translators of
- * which two go unused.
- */
 function useLabelResolver(): (label: ShortcutRow['label']) => string {
   const tNav = useTranslations(navCopy)
   const tCollab = useTranslations(collaborationCopy)
@@ -81,7 +50,6 @@ function useLabelResolver(): (label: ShortcutRow['label']) => string {
   )
 }
 
-/** One shortcut: icon + what it does on the left, the keys on the right. */
 function Row({ row, mod, label }: { row: ShortcutRow; mod: string; label: string }) {
   const Icon = row.icon
 
@@ -115,6 +83,7 @@ export function ShortcutsCheatsheet({
   showKnowledge = false,
   showSkills = false,
   canAccessOfficeShelf = false,
+  canAccessOfficeStandards = false,
   canCollaborate = false,
   canAccessInbox = false,
   inboundMail = false,
@@ -124,7 +93,6 @@ export function ShortcutsCheatsheet({
   const resolveLabel = useLabelResolver()
   const mod = useModifierLabel()
 
-  // Recomputed only when the capability flags change — the registry is pure.
   const sections = React.useMemo(
     () =>
       shortcutSections({
@@ -132,11 +100,12 @@ export function ShortcutsCheatsheet({
         showKnowledge,
         showSkills,
         canAccessOfficeShelf,
+        canAccessOfficeStandards,
         canCollaborate,
         canAccessInbox,
         inboundMail,
       }),
-    [canViewOrganization, showKnowledge, showSkills, canAccessOfficeShelf, canCollaborate, canAccessInbox, inboundMail],
+    [canViewOrganization, showKnowledge, showSkills, canAccessOfficeShelf, canAccessOfficeStandards, canCollaborate, canAccessInbox, inboundMail],
   )
   const columns = React.useMemo(() => splitColumns(sections), [sections])
 
@@ -153,7 +122,7 @@ export function ShortcutsCheatsheet({
               surface that opens on its own (see EmptyState). */}
           <DialogHeader className="flex-row items-start gap-3.5 space-y-0 px-6 pt-6 pb-5 text-left">
             <span
-              className="flex size-9 shrink-0 items-center justify-center rounded-control border border-border bg-surface-raised  shadow-xs"
+              className="flex size-9 shrink-0 items-center justify-center rounded-control border border-border bg-surface-raised"
               aria-hidden
             >
               <Keyboard className="size-4.5 text-muted-foreground" />

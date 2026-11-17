@@ -1,14 +1,3 @@
-/**
- * The re-ingest half of `useDocumentActions`: what the reader is told when the
- * server refuses.
- *
- * A 409 used to read as "could not be restarted, please try again" whatever
- * its reason. For a document that was already running or already finished that
- * advice is wrong twice: there is nothing to retry, and every further click
- * answers 409 again. The server now says which (`details.code`), and the hook
- * turns it into the real state plus a fresh listing.
- */
-
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, renderHook } from '@/test-utils'
 import { http, HttpResponse } from 'msw'
@@ -32,7 +21,6 @@ function setup() {
   const onReingested = vi.fn()
   const changed = vi.fn()
   const unsubscribe = onDocumentsChanged(changed)
-  // `office_shelf` carries the copy in this change; the same keys are asked of `files`.
   const hook = renderHook(() => useDocumentActions({ document: DOCUMENT, scope: 'officeShelf', onReingested }))
   return { hook, onReingested, changed, unsubscribe }
 }

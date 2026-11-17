@@ -1,8 +1,3 @@
-/**
- * What the E-Mail-Eingang says about a sender. What it asks before filing is
- * the server's (`lib/inbound-mail/sender-risk.spec.ts` holds the C2 table).
- */
-
 import { describe, expect, it } from 'vitest'
 import type { InboundMailSenderView } from '@/lib/inbound-mail/inbound-mail-wire'
 import { followOffered, senderDisplayName, senderFlagLines, senderTone, senderTrustLine } from './sender'
@@ -33,7 +28,6 @@ describe('senderTrustLine', () => {
       name: 'DI Petra Weber',
       basis: 'rejected_signature',
     })
-    // A member's name on an outsider's address outranks the outsider's own confirmed domain.
     expect(senderTrustLine(sender({ flags: ['claims_member_name'] }), 'member_name').kind).toBe('impersonation')
     expect(senderTrustLine(sender({ trust: 'member_unverified', reason: 'dkim_none', signerDomain: null }), null).kind).toBe('member_unverified')
     expect(senderTrustLine(sender({ trust: 'external_unverified', reason: 'dkim_none', signerDomain: null }), null).kind).toBe('unverified')

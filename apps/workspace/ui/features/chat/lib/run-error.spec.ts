@@ -5,9 +5,7 @@ import { describe, expect, it } from 'vitest'
 import { getErrorMeta } from './error-registry'
 import { isZdrPolicyRefusal, runErrorCard } from './run-error'
 
-/** OpenRouter's documented refusal when no endpoint satisfies `provider.zdr`. */
 const OPENROUTER_REFUSAL = 'No endpoints found matching your data policy (Zero data retention). Visit https://openrouter.ai/settings/privacy'
-/** `ZDR_MODEL_REFUSED_MESSAGE` in packages/agent/src/agent/common/canned_replies.py, verbatim. */
 const CANNED_REFUSAL =
   'Diese Frage konnte nicht beantwortet werden, weil das eingestellte Modell keinen Anbieter ohne Datenspeicherung hat und Ihre Organisation Zero Data Retention verlangt. Eine Administratorin oder ein Administrator muss unter Organisation → Modelle ein Modell mit Zero-Data-Retention-Anbieter wählen.'
 
@@ -21,8 +19,6 @@ describe('isZdrPolicyRefusal', () => {
     expect(isZdrPolicyRefusal(text)).toBe(true)
   })
 
-  // Internal faults that merely MENTION ZDR are bugs to retry and report, not
-  // "an admin must choose a model".
   it.each([
     'ZdrRoutingError: cannot pin provider for request',
     'ZDR policy lookup failed: HTTP 500',
@@ -41,7 +37,6 @@ describe('runErrorCard', () => {
   it('maps a data-policy refusal to its own non-retryable code, keeping the raw text as details', () => {
     const card = runErrorCard({ code: 'workflow_error', message: OPENROUTER_REFUSAL })
     expect(card).toEqual({ code: 'agent.zdr_refused', details: OPENROUTER_REFUSAL })
-    // No `message`: the banner renders the localized registry copy instead.
     expect(card.message).toBeUndefined()
     expect(getErrorMeta(card.code).retryable).toBe(false)
     expect(getErrorMeta(card.code).messageKey).toBe('errorRegistry.zdrRefused.message')

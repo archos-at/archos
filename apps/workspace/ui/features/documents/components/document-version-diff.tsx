@@ -1,48 +1,5 @@
 'use client'
 
-/**
- * What changed between two versions of a document, line by line.
- *
- * ## Why this replaced the side-by-side
- *
- * „Was hat sich geändert" is the entire review gesture, and the panel used to
- * answer it with two texts and a note saying differences are not marked. That
- * note was honest — the repository carried no diff implementation, and pairing
- * rows by index is wrong the moment a line is inserted — but it left the reader
- * doing the comparison by eye on a twelve-page Aktenvermerk. The alignment now
- * comes from `diff` (jsdiff) through `lib/documents/version-diff`, so this file
- * has one job: showing rows somebody can read.
- *
- * ## Why there is no red and no green
- *
- * The design language spends chroma on exactly one thing — provenance — and an
- * editorial change is not provenance (`docs/design/design-language.md`:
- * "Provenance signals are the only chroma"). It is the same reasoning that
- * keeps `document-version-badge.tsx` monochrome, and the same conclusion: a
- * green wash here would read as a source signal and would collide with
- * „Projektwissen" three centimetres away.
- *
- * So the difference is carried by SHAPE, three ways at once, because any one of
- * them alone fails somebody:
- *
- *   - a left rule — solid ink for an added line, dashed and quiet for a removed
- *     one. Solid means it is there; dashed means it is gone. Legible in a
- *     monochrome print and in the committed screenshots;
- *   - a `+` / `−` marker in the gutter, which is the convention every reader of
- *     a patch already has;
- *   - ink weight: an added line is body ink, a removed line is muted.
- *
- * Each changed row also carries an `sr-only` word, so nothing here depends on
- * seeing a glyph.
- *
- * ## Why line numbers on both sides
- *
- * They are the reason the diff is trustworthy: after an insert the two columns
- * disagree, and seeing them disagree is what tells the reader the alignment is
- * real rather than positional. They fold away under `sm` where they would cost
- * more width than they buy.
- */
-
 import type { JSX } from 'react'
 import { useMemo } from 'react'
 import { SectionLabel } from '@/components/ui/section-label'
@@ -52,19 +9,14 @@ import { cn } from '@/lib/utils'
 import { DIFF_MAX_ROWS, diffVersionText, type DiffRow } from '@/lib/documents/version-diff'
 
 export interface DocumentVersionDiffProps {
-  /** The older version: its number, and its text. */
   from: { versionNumber: number; content: string }
-  /** The newer version. */
   to: { versionNumber: number; content: string }
   className?: string
 }
 
-/** Per-kind chrome. One place, so a row cannot be styled two ways. */
 const ROW_STYLES = {
   added: 'bg-accent text-foreground',
   removed: 'bg-surface-sunken text-muted-foreground',
-  // Unchanged lines keep the container's own ground, so the two fills above are
-  // the only ones on screen and both read as a mark rather than as a material.
   context: 'text-muted-foreground',
 } as const satisfies Record<'added' | 'removed' | 'context', string>
 
@@ -72,8 +24,6 @@ const MARKERS = { added: '+', removed: '−', context: ' ' } as const
 
 export function DocumentVersionDiff({ from, to, className }: DocumentVersionDiffProps): JSX.Element {
   const t = useTranslations(filesCopy)
-  // Diffing is O(n·d) over two whole documents, and the panel re-renders on
-  // every unrelated state change in the version list above it.
   const diff = useMemo(() => diffVersionText(from.content, to.content), [from.content, to.content])
 
   return (

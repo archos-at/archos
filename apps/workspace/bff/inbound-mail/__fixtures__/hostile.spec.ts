@@ -1,20 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The hostile corpus (ADR-0137 §10): every message an attacker or a broken
- * mailer can send, through every pure transport module, each with its outcome
- * AND its budget. A budget is counted work (messages parsed, parts visited,
- * bytes sniffed and hashed, DNS lookups), never elapsed time: a clock-based
- * budget passes on a fast laptop and fails in CI, and a loop that quietly
- * became quadratic stays green on both.
- *
- * Cases owned elsewhere: Message-ID reuse and staging after a thrown parse
- * (the receive job), thread matching and quoted statements (`lib/mail-thread`),
- * the Python reader's caps (`apps/agent-host/tests/mail/`), and EICAR's
- * verdict (the malware scanner). Here EICAR only has to reach the scanner as an
- * ordinary staged part.
- */
 import { describe, expect, it } from 'vitest'
 import { redactProjectAddresses } from '../address'
 import { classifyAutomaticMail } from '../automatic-mail'
@@ -68,7 +54,6 @@ async function authenticate(raw: string | Uint8Array, txt: Record<string, string
   return { result, lookups: dns.lookups.length }
 }
 
-/** A part nested `depth` multiparts deep. */
 function nestedMultipart(depth: number): Part {
   let part: Part = BODY
   for (let i = 0; i < depth; i += 1) part = multipart('mixed', [part])
@@ -156,7 +141,6 @@ describe('hostile: names and charsets', () => {
         BODY,
         filePart('application/pdf', pdf('a'), ['Content-Disposition: attachment; filename="=?x-unknown?Q?Pl=E4n.pdf?="']),
         filePart('application/pdf', pdf('b'), ['Content-Disposition: attachment; filename="=?utf-7?Q?+AOQ-rger.pdf?="']),
-        // Raw 8-bit bytes in the name (written out as latin1 below): invalid UTF-8.
         filePart('application/pdf', pdf('c'), ['Content-Disposition: attachment; filename="Gr\xfcn\xff.pdf"']),
       ]),
       { Subject: '=?utf-8?B?/w==?= Betreff' }

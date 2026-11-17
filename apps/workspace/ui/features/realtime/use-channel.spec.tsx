@@ -1,9 +1,3 @@
-/**
- * One channel in a component: what goes up says whether it is motion, and a
- * channel that closed says nothing more under its peer, whoever still holds
- * its `send`.
- */
-
 import { act, render, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { UpstreamBase } from '@/lib/realtime/types'
@@ -60,7 +54,6 @@ describe('useChannel', () => {
     expect(posts.at(-1)?.msg.presence).toBe('gone')
     const said = posts.length
 
-    // A timer that outlived the component (the cursor chat's linger) still holds `send`.
     send({ cursor: null, chat: null })
     send({ selected: null })
     vi.advanceTimersByTime(30_000)

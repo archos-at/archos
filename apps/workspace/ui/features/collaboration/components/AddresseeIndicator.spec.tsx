@@ -16,14 +16,8 @@ const line = () => screen.getByTestId('composer-addressee')
 describe('AddresseeIndicator — the composer says where the message goes', () => {
   test('says nothing in the default case — silence is what makes the rest legible', () => {
     render(<AddresseeIndicator mentions={[]} awaitingHuman={false} />)
-    // The routing is unchanged and still reported as `agent`; what went is the
-    // sentence about it. A statement made on every thread forever is furniture,
-    // and it sat under a composer that has none left.
     expect(line()).toHaveAttribute('data-mode', 'agent')
-    // Nothing at all here: this render passes no `onMentionSomeone`, so not even
-    // the `@` offer is on the line (a solo thread grows no furniture, NF-8).
     expect(line()).toBeEmptyDOMElement()
-    // Nothing to announce, so nothing announces itself.
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
   })
 
@@ -47,9 +41,6 @@ describe('AddresseeIndicator — the composer says where the message goes', () =
 
   test('an explicit @Piloti overrides the wait — that is the documented way back', () => {
     render(<AddresseeIndicator mentions={[AGENT]} awaitingHuman />)
-    // The routing still changes out of `thread`, which is the load-bearing part
-    // (MN-9.3). It simply no longer says so: the user typed the mention, so the
-    // line would be reading their own keystroke back to them.
     expect(line()).toHaveAttribute('data-mode', 'agent')
     expect(line()).not.toHaveTextContent('everyone in the chat')
   })
@@ -72,15 +63,6 @@ describe('AddresseeIndicator — the composer says where the message goes', () =
   })
 })
 
-/**
- * The `@` affordance (spec MN-3's missing discovery story).
- *
- * Nothing in the product taught that you can tag a colleague — no button, no icon,
- * no tooltip, no onboarding. A user had to already know to type `@`, which means the
- * feature this whole slice is built around was reachable only by people who had been
- * told about it. It sits on the line that already states the routing, because "this
- * goes to Piloti" is exactly the moment somebody might want it to go to a person.
- */
 describe('AddresseeIndicator — teaching that @ exists', () => {
   test('offers it in the default state', async () => {
     const user = userEvent.setup()
@@ -102,8 +84,6 @@ describe('AddresseeIndicator — teaching that @ exists', () => {
   })
 
   test('steps aside once somebody is already tagged', () => {
-    // The line has something more important to say, and the picker is one keystroke
-    // away regardless.
     render(
       <AddresseeIndicator
         mentions={[{ targetId: 'u-anna', display: 'Anna Weber' }]}
@@ -132,9 +112,6 @@ describe('AddresseeIndicator — teaching that @ exists', () => {
     expect(screen.queryByTestId('composer-mention-offer')).not.toBeInTheDocument()
   })
 
-  // Ticket #38, R2: the offer had a line of its own under the actions, so a phone's
-  // composer stacked into rows. Only a statement takes a line; the bare offer
-  // stands in the action row and folds to its `@` in a narrow card.
   describe('placement in the composer row', () => {
     test('the bare offer stands in the action row, not on a line of its own', () => {
       render(<AddresseeIndicator mentions={[]} awaitingHuman={false} onMentionSomeone={vi.fn()} />)
@@ -152,7 +129,6 @@ describe('AddresseeIndicator — teaching that @ exists', () => {
       render(<AddresseeIndicator mentions={[]} awaitingHuman={false} onMentionSomeone={vi.fn()} />)
       const offer = screen.getByTestId('composer-mention-offer')
       const label = within(offer).getByText('mention a colleague')
-      // A container query against the composer card's `@container`, not the window.
       expect(label.className).toContain('sr-only')
       expect(label.className).toContain('@md:not-sr-only')
       expect(offer).toHaveAccessibleName('mention a colleague')

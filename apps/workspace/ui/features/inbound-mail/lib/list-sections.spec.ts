@@ -1,12 +1,3 @@
-/**
- * How the waiting list is arranged: „Bereit“ before „Braucht Sie“, by the
- * server's `incompleteReason` (never an impersonation, whatever it says); the
- * server's thread groups split along that line and placed where their first
- * mail stands; unconfirmed and automatic mail in a quiet group at the end
- * (never an impersonation); and the keyboard's order skipping the headings
- * and the quiet group while it is closed.
- */
-
 import { describe, expect, it } from 'vitest'
 import { listPage, mail, summaryOf, thread } from '@/app/dev/inbound-mail/fixtures'
 import { isQuietMail, listSections, visibleMails } from './list-sections'
@@ -47,7 +38,6 @@ describe('listSections', () => {
     const sections = sectionsOf([a, held, b, heldToo, c])
     const groups = sections.filter((section) => section.kind === 'thread')
     expect(groups).toHaveLength(2)
-    // Filed now, the ready half takes the thread's next Fassungen from the group's first on.
     expect(groups[0]).toMatchObject({ firstVersion: 4, lastVersion: 6 })
     expect(groups[0].kind === 'thread' && groups[0].mails.map((mail) => mail.id)).toEqual(expect.arrayContaining([a.id, b.id, c.id]))
     expect(groups[1].kind === 'thread' && groups[1].mails.map((mail) => mail.id).sort()).toEqual([held.id, heldToo.id].sort())

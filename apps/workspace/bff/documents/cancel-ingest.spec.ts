@@ -1,12 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * `cancelDocumentIngest`: what the stop did, and the status the document holds
- * afterwards. The queue's word and the row's are two facts, because the write
- * that settles the row `cancelled` is a compare-and-set a concurrent report can
- * win, and the caller is told both.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { makeDocument } from '@/test-utils/db-fixtures'
@@ -60,12 +54,9 @@ describe('cancelDocumentIngest', () => {
       { status: 'pending', jobId: 'job_1' },
     )
     expect(onDocumentsSettled).toHaveBeenCalledWith('org_1', [{ id: 'doc_1', status: 'cancelled' }])
-    // Its own write is the answer: the row is not read a second time.
     expect(getAccessibleDocument).toHaveBeenCalledTimes(1)
   })
 
-  // The read ended as the stop went out and a report settled the row first:
-  // the queue stopped a job, and the document says completed.
   it('answers the status the document holds when a report settled the row first', async () => {
     queueAnswers('cancelled')
     vi.mocked(setDocumentReconciledStatus).mockResolvedValue(false)

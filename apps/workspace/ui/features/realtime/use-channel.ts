@@ -1,28 +1,5 @@
 'use client'
 
-/**
- * One live channel in a component (ADR-0110): its status, who the server takes
- * this tab to be, the gossip roster when the channel has presence, and a
- * throttled `send`.
- *
- * The channel reaches the server through a {@link ChannelLink}: by default the
- * tab's shared connection (`./connection`), or a scripted stand-in in specs and
- * `/dev` previews.
- *
- * The roster is an external store (`roster`): its snapshot moves once per
- * animation frame at most, and only what subscribes to it re-renders, through
- * {@link useSnapshot} or {@link useRosterSelector} with a selector that says
- * what it reads. The component that opened the channel does not re-render
- * when a pointer moves, so a room of pointers redraws the pointers, not the
- * surface under them. A peer that did not change keeps its entry object
- * (`./presence`), so a selector can compare peers by identity.
- *
- * Once the channel closes (unmount, a disabled hook, another link), this tab's
- * peer has said `gone`, and nothing more goes up under its `peerId`: a late
- * send from a timer that outlived the component would put the peer back in
- * everyone's roster for a lease, a ghost of a tab that left.
- */
-
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import type { RealtimeSelf, UpstreamBase } from '@/lib/realtime/types'
 import {
@@ -33,20 +10,16 @@ import {
 } from './connection'
 import { createRoster, type PeerEvent, type RosterEntry } from './presence'
 
-/** One channel's share of the stream, as a link delivers it. */
 export type ChannelFrame =
   | { kind: 'event'; event: unknown }
   | { kind: 'welcome'; self: RealtimeSelf }
   | { kind: 'revoked' }
 
-/** How one channel reaches the server. The seam specs and `/dev` previews script. */
 export interface ChannelLink<TUp extends UpstreamBase = UpstreamBase> {
-  /** Open the channel. Returns the close. */
   connect(handlers: { onFrame: (frame: ChannelFrame) => void; onOpen: () => void; onDrop: () => void }): () => void
   post(msg: TUp, options?: ChannelPostOptions): void
 }
 
-/** The production link: the channel on the tab's shared connection. */
 export function realtimeLink<TUp extends UpstreamBase>(
   ch: string,
   connection: RealtimeConnection = getRealtimeConnection()
@@ -71,25 +44,15 @@ export function realtimeLink<TUp extends UpstreamBase>(
 }
 
 export interface SendOptions {
-  /**
-   * Send at most once per this many ms, always the latest message, and the
-   * last one for sure. A throttled lane is motion: the connection sheds it
-   * while the server refuses the channel's motion. Unthrottled is a claim.
-   */
   throttleMs?: number
-  /** Messages throttle per lane; a pointer must not wait behind a scroll. Default `default`. */
   lane?: string
 }
 
 export interface ChannelOptions<E, S> {
   enabled: boolean
-  /** Defaults to {@link realtimeLink}. Keep it stable (memoize): a new link reconnects. */
   link?: ChannelLink
-  /** The channel's vocabulary: an event, or null to drop what does not parse. */
   parse(event: unknown): E | null
-  /** Every parsed event, including those the roster consumed. */
   onEvent?(event: E): void
-  /** A gossip roster: peers' state, folded from their events. Keep it stable. */
   presence?: {
     refreshMs: number
     leaseMs?: number
@@ -98,17 +61,11 @@ export interface ChannelOptions<E, S> {
   }
 }
 
-/**
- * A value that changes outside React, read with `useSyncExternalStore`: the
- * roster of a channel, and what a feature derives from it. `get` returns the
- * same snapshot until a listener is told it moved.
- */
 export interface SnapshotStore<T> {
   get(): T
   subscribe(listener: () => void): () => void
 }
 
-/** A store whose snapshot the owner sets. */
 export function createSnapshotStore<T>(initial: T): SnapshotStore<T> & { set(next: T): void } {
   let snapshot = initial
   const listeners = new Set<() => void>()
@@ -128,20 +85,12 @@ export function createSnapshotStore<T>(initial: T): SnapshotStore<T> & { set(nex
   }
 }
 
-/** A store that never moves: a fixed roster for specs and previews. */
 export const fixedStore = <T,>(value: T): SnapshotStore<T> => ({ get: () => value, subscribe: () => () => {} })
 
-/** The whole snapshot: re-renders whenever it moves. */
 export function useSnapshot<T>(store: SnapshotStore<T>): T {
   return useSyncExternalStore(store.subscribe, store.get, store.get)
 }
 
-/**
- * What `select` reads of a store, re-rendering only when that changed by
- * `equal` (default `Object.is`). The selector may be an inline closure: it is
- * run again when the snapshot or the selector changes, and a result equal to
- * the last keeps the last one's identity.
- */
 export function useStoreSelector<T, R>(
   store: SnapshotStore<T>,
   select: (snapshot: T) => R,
@@ -160,12 +109,10 @@ export function useStoreSelector<T, R>(
   return useSyncExternalStore(store.subscribe, read, read)
 }
 
-/** Two lists with the same items, by identity, in the same order: a selector's `equal` over roster entries. */
 export function sameItems<T>(a: readonly T[], b: readonly T[]): boolean {
   return a.length === b.length && a.every((item, index) => Object.is(item, b[index]))
 }
 
-/** What a selector reads of a channel's roster; see {@link useStoreSelector}. */
 export const useRosterSelector = <S, R>(
   roster: SnapshotStore<readonly RosterEntry<S>[]>,
   select: (entries: readonly RosterEntry<S>[]) => R,
@@ -179,7 +126,6 @@ const newPeerId = () =>
     ? crypto.randomUUID().replace(/-/g, '').slice(0, 20)
     : Math.random().toString(36).slice(2, 22).padEnd(12, '0')
 
-/** A sender that sends at most once per `interval`, always the latest value, and the last one for sure. */
 function throttle<T>(interval: number, send: (value: T) => void) {
   let last = 0
   let pending: { value: T } | null = null
@@ -224,7 +170,6 @@ export function useChannel<E extends PeerEvent, S = undefined>(
   handlers.current = { parse, onEvent }
   const lanes = useRef(new Map<string, ReturnType<typeof throttle<Message>>>())
   const roster = useRef<ReturnType<typeof createRoster<E, S>> | null>(null)
-  /** The link the channel is open on; null once it closed, undefined before it first opened. */
   const openOn = useRef<ChannelLink | null | undefined>(undefined)
 
   const commit = useCallback(() => {
@@ -286,7 +231,6 @@ export function useChannel<E extends PeerEvent, S = undefined>(
       for (const lane of lanesNow.values()) lane.cancel()
       lanesNow.clear()
       list?.stop()
-      // After the `gone`: whatever is still on its way under this peer stays here.
       openOn.current = null
       roster.current = null
       close()
@@ -301,12 +245,10 @@ export function useChannel<E extends PeerEvent, S = undefined>(
     []
   )
 
-  /** Say something in the channel; the tab's `peerId` is added. */
   const send = useCallback(
     (msg: Message, { throttleMs = 0, lane = 'default' }: SendOptions = {}) => {
       if (!active || !link) return
       const deliver = (value: Message) => {
-        // A send that outlived the channel (a component's timer, a stale callback) says nothing.
         if (openOn.current !== undefined && openOn.current !== link) return
         link.post({ ...value, peerId } as UpstreamBase, { motion: throttleMs > 0 })
       }
@@ -324,7 +266,6 @@ export function useChannel<E extends PeerEvent, S = undefined>(
     [active, link, peerId]
   )
 
-  /** How many others (that `which` accepts) are in the channel now, from the roster's ref: no render needed to ask. */
   const peerCount = useCallback(
     (which?: (peer: RosterEntry<S>['peer']) => boolean) =>
       which ? (roster.current?.entries().filter((entry) => which(entry.peer)).length ?? 0) : (roster.current?.size ?? 0),
@@ -335,7 +276,6 @@ export function useChannel<E extends PeerEvent, S = undefined>(
     peerId,
     status: active ? status : ('offline' as ChannelStatus),
     self,
-    /** Who else is here, as a store; see {@link useSnapshot} and {@link useRosterSelector}. */
     roster: store as SnapshotStore<readonly RosterEntry<S>[]>,
     send,
     peerCount,

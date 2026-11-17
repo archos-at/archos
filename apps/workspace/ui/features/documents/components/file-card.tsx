@@ -23,6 +23,7 @@ import { RevisionCount, OlderRevisionBadge, isOlderRevisionEntry } from './revis
 import { revisionCount } from '../lib/revision-chain'
 import { documentBadgeState } from '../lib/document-lifecycle'
 import { DocumentStatusBadge, isCitableStatus, isSettlingStatus } from './document-status'
+import { BaseKnowledgeChip } from './base-knowledge-chip'
 import { SemanticMatch } from './semantic-match'
 import { useIngestFailureText } from './ingest-failure-notice'
 import { FileTileBody, FileTileFooter, FileTileMedia, TileShell } from './file-tile'
@@ -33,64 +34,26 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { FileName } from './file-name'
 import { OpenMarksChip } from './open-marks-chip'
 
-/** Provenance tint per corpus, from the shared `--source-*` token family. */
 const SOURCE_TINT: Record<'project' | 'office', CSSProperties> = {
   project: sourceTint('project'),
   office: sourceTint('office'),
 }
 
-/** Thumbnail request lifecycle for a single card. */
 type ThumbState = 'loading' | 'ready' | 'none' | 'error'
 
-/**
- * Module-level de-dup cache — one thumbnail resolution per file id for the page
- * lifetime, mirroring the `indexCache` pattern in `use-surfaced-documents`. It
- * stops the request thrashing when a card's file object is remapped each render.
- * A genuine failure rejects and is evicted so a later mount can retry; a
- * resolved "no thumbnail" (null url) stays cached — unless the document was
- * still being read when we asked (see {@link loadThumbnail}).
- */
 const thumbnailCache = new Map<string, { url: Promise<string | null>; expiresAtMs?: number }>()
 
-/**
- * How long before a signed url's `exp` it stops being handed out: a card that
- * mounts must still be able to fetch it.
- */
 const EXPIRY_MARGIN_MS = 60_000
 
-/**
- * When a signed image url stops working, from its `exp` (seconds), or
- * undefined for a url that carries none (a presigned object-store fallback).
- *
- * The cache used to keep a resolved url for the page's lifetime, but a signed
- * url lives an hour or two. A tab left open replayed urls that had expired days
- * earlier (#366: `exp` of Sep 8, requested Sep 18). The route answered 403
- * with a JSON body, and Next's image optimizer, which never looks at the
- * status, logged "isn't a valid image" for it.
- */
 export function signedUrlExpiresAtMs(url: string): number | undefined {
   const exp = Number(new URL(url, 'http://relative.invalid').searchParams.get('exp'))
   return Number.isFinite(exp) && exp > 0 ? exp * 1000 : undefined
 }
 
-/** Test hook — clears the module cache between specs. */
 export const resetThumbnailCache = (): void => {
   thumbnailCache.clear()
 }
 
-/**
- * Resolve a file's thumbnail url. `/api/documents/{id}/thumbnail` returns 200
- * with `{ url: null }` (or 404) when no thumbnail exists — that's NOT a failure,
- * it resolves to `null`. Any other non-ok status (5xx, network) rejects into the
- * genuine-error state so the card can tell "no thumbnail" from "failed to load".
- *
- * `provisional` marks a document that is still being ingested. "No thumbnail"
- * is then an answer about right now, not about the file: the page render lands
- * during ingestion, so a card that asked a second too early would otherwise keep
- * the sketch placeholder for the whole page lifetime and only show the real
- * preview after a reload. Such a miss is evicted so the re-ask that follows the
- * status transition actually reaches the route.
- */
 function loadThumbnail(fileId: string, provisional = false): Promise<string | null> {
   const existing = thumbnailCache.get(fileId)
   if (existing && !(existing.expiresAtMs !== undefined && Date.now() >= existing.expiresAtMs - EXPIRY_MARGIN_MS)) {
@@ -111,34 +74,15 @@ function loadThumbnail(fileId: string, provisional = false): Promise<string | nu
       if (url) entry.expiresAtMs = signedUrlExpiresAtMs(url)
       return url
     })
-  // Evict a rejected resolution so a later mount can retry (a success stays
-  // cached until its signature expires).
   promise.catch(() => thumbnailCache.delete(fileId))
   entry.url = promise
   thumbnailCache.set(fileId, entry)
   return promise
 }
 
-/**
- * Lazy-load the thumbnail image for a file card. While the request is in flight
- * a skeleton shows (never a jump straight to the fallback). When no thumbnail
- * exists it falls back to a WARM, content-aware placeholder — an image gets a
- * soft tile + format chip, never a lone glyph that mimics a broken image. Only a
- * GENUINE failure (5xx / network / broken image url) shows a distinct
- * "couldn't load" treatment. The route is scope-aware, so this serves both
- * project uploads and Büroablage documents by id.
- *
- * `visible` false holds the request (and the skeleton) until the card has been
- * on screen: a folder of two thousand documents asked for two thousand
- * thumbnails on open, nearly all for cards nobody had scrolled to. Absent
- * means asked at once, for a surface that only ever shows a handful.
- */
 export function ThumbnailWithFallback({ file, visible = true }: { file: FileItem; visible?: boolean }) {
   const t = useTranslations(filesCopy)
   const kind = inferDocumentKind(file)
-  // Office files too: ingest renders their `_thumb.jpg` from the PDF rendition
-  // (ADR-0070). One uploaded before that, or with conversion off, has none, and
-  // the route answers `{ url: null }` — the kind sketch below, not a failure.
   const canHaveThumbnail =
     file.contentType === 'application/pdf' ||
     (file.contentType ?? '').startsWith('image/') ||
@@ -151,7 +95,6 @@ export function ThumbnailWithFallback({ file, visible = true }: { file: FileItem
       setState('none')
       return
     }
-    // Off screen so far: stay the skeleton, ask once the card is seen.
     if (!visible) return
     let cancelled = false
     setState('loading')
@@ -171,22 +114,10 @@ export function ThumbnailWithFallback({ file, visible = true }: { file: FileItem
     return () => {
       cancelled = true
     }
-    // `file.status` is a dependency, not noise: it is the signal that a document
-    // which had no preview when the page loaded has finished being read, and so
-    // the moment to ask the route again.
   }, [file.id, canHaveThumbnail, file.status, visible])
 
   if (state === 'ready' && imgUrl) {
     return (
-      // `fill` against the card's positioned thumbnail well: the URL announces
-      // no intrinsic dimensions, and this is the shape next/image gives you for
-      // that — it supplies the inset-0 sizing the plain tag used to spell out by
-      // hand. `sizes` describes the card's well so the optimizer picks a width
-      // for it rather than assuming the viewport.
-      //
-      // The thumbnail route hands back a same-origin signed path, which is what
-      // makes it optimizable at all; `unoptimized` covers the fallback to a
-      // presigned object-store URL when signing is unavailable.
       <Image
         src={imgUrl}
         alt=""
@@ -194,12 +125,7 @@ export function ThumbnailWithFallback({ file, visible = true }: { file: FileItem
         sizes="(min-width: 1280px) 240px, (min-width: 768px) 33vw, 50vw"
         unoptimized={!isOptimizerEligible(imgUrl)}
         className="object-cover"
-        // A url that resolves but won't render is a genuine failure, not "no thumbnail".
         onError={() => {
-          // …but the URL itself may be stale rather than the document imageless
-          // (a thumbnail object replaced after we resolved it): evict it so a
-          // later mount re-resolves instead of replaying the same poisoned URL
-          // on every remount (#366, #395).
           thumbnailCache.delete(file.id)
           setState('error')
         }}
@@ -228,56 +154,26 @@ export interface FileCardProps {
   isSelected: boolean
   onSelect: () => void
   locale: string
-  /** Present on a search result: the passage and its page, WHY it matched. */
   match?: { snippet: string; page: number | null; query?: string | null }
-  /** Coarse corpus for a provenance chip in the metadata row (project vs Büroablage). */
   source?: 'project' | 'office' | null
-  /** Localized label for the provenance chip. */
   sourceLabel?: string
-  /** Accessible label for the click action (defaults to the filename content). */
   ariaLabel?: string
-  /** Dim + progress cursor while an action (e.g. opening) resolves. */
   isBusy?: boolean
-  /** Extra footer content on the left of the size · time strip. */
   footerLead?: ReactNode
-  /** Drop the size · time footer (chat surfacing — Files-browser chrome). */
   hideFooter?: boolean
-  /** Override the card's test id (e.g. the Archiv surface keeps its own). */
   testId?: string
-  /**
-   * Rename / delete / download, rendered on the card so the reader does not
-   * have to open the preview to act on a file (#435). Must be a control of
-   * its own — this card is a `<button>`, so the slot sits beside it.
-   */
   actions?: ReactNode
-  /**
-   * Let this card be dragged onto a folder. Off by default: a card that lifts
-   * under the finger where nothing can receive it promises a move the surface
-   * cannot make — the Archiv, for one, has no folders at all.
-   */
   draggable?: boolean
-  /**
-   * The listing is in selection mode: the card is picked or not, a press
-   * toggles it (the caller's `onSelect`), the ⋯ steps aside and nothing drags.
-   * Absent is the ordinary card.
-   */
   selection?: { checked: boolean }
-  /** Where it lies (its folder), first on the meta line: a search's results span every folder. */
   where?: string
 }
 
-/**
- * The tick on a card in selection mode, where the ⋯ was. Ink when picked, a
- * hollow ring when not: shape and fill, never colour alone, and the card is the
- * target, so the mark is not a control of its own (`pointer-events-none`).
- */
 function SelectionMark({ checked }: { checked: boolean }) {
   return (
     <span
       aria-hidden
       className={cn(
-        // A square, as every other checkbox of the page (the list's, the E-Mail-Eingang's): one shape for one pick.
-        'pointer-events-none absolute right-3.5 top-3.5 z-[1] flex size-5 items-center justify-center rounded-inline border shadow-2xs transition-colors duration-quick ease-out motion-reduce:transition-none',
+        'pointer-events-none absolute right-3.5 top-3.5 z-[1] flex size-5 items-center justify-center rounded-inline border transition-colors duration-quick ease-out motion-reduce:transition-none',
         checked ? 'border-primary bg-primary text-primary-foreground' : 'border-(--ds-line-strong) bg-background'
       )}
       data-testid="file-card-check"
@@ -288,20 +184,6 @@ function SelectionMark({ checked }: { checked: boolean }) {
   )
 }
 
-/**
- * One document tile (paper on a desk): the document's first page as a white
- * sheet with an edge and elevation 1, what is open on its pages and what is in
- * progress on the sheet's foot, then the name (13/20/500, up to two lines, cut
- * in the middle) and one meta line, format · size · age, on the page. No
- * description: that is the list view's and the preview's. Shared by the Files
- * browser and the chat `document_grid` surfacing card, which passes
- * {@link FileCardProps.hideFooter} and keeps the summary as its second line;
- * ranking chrome ({@link FileCardProps.match}) stays in Files search.
- *
- * Memoised: the Files grid holds thousands of these and re-renders on every
- * poll and selection. The thumbnail is asked for once the card has been on
- * screen (`useSeenOnce`), not on mount.
- */
 export const FileCard = memo(function FileCard({
   file,
   isSelected,
@@ -323,26 +205,14 @@ export const FileCard = memo(function FileCard({
   const t = useTranslations(filesCopy)
   const name = documentDisplayName(file)
   const ext = fileExtensionLabel(file.filename)
-  // A search hit carries no size; „0 B“ would be a wrong fact.
   const hasSize = typeof file.fileSize === 'number'
   const isFailed = file.status === 'failed'
   const failureText = useIngestFailureText(isFailed ? file.errorMessage : null)
-  // The card is one click target, so it carries no disclosure: the sentence
-  // shows, the stored text is the tooltip, and the preview pane has „Details".
   const failureReason = isFailed ? (failureText?.sentence ?? t('ingestFailure.unknown')) : undefined
-  // A badge only when the document is NOT simply citable — being read, failed,
-  // held, never indexed. „Zitierbar" is the normal state; on every card it was
-  // a status nobody browsing a folder was asking about. The list view's status
-  // column is where every document's state is spelled out.
   const showStatus = !!file.status && !isCitableStatus(file.status)
-  // A Dateien tile is the sheet, the name and one meta line (paper on a desk, principle 8): the summary is the list
-  // view's second column and the preview's, and on a tile it made seven documents fill a 900px screen. Only a card
-  // without the meta line (the chat's `document_grid`, `hideFooter`) keeps it, as the line that says why it is shown.
-  // The summary is the last thing ingestion produces: there, skeleton lines hold its slot while it is on its way.
   const showSummary = !match && !isFailed && Boolean(hideFooter)
   const isAwaitingSummary = showSummary && !file.summary && isSettlingStatus(file.status)
   const [mediaRef, seen] = useSeenOnce<HTMLDivElement>()
-  // A filing decision in view would move this file: outlined, nothing else, so the tile keeps its size.
   const lit = useFilingHighlighted(file.id)
 
   return (
@@ -350,14 +220,10 @@ export const FileCard = memo(function FileCard({
       interactive
       className={cn(
         'group/card',
-        // Chosen: the hover's fill held (the keyboard's own ring is the button's focus-visible).
-        (isSelected || selection?.checked) && 'bg-accent',
+        (isSelected || selection?.checked) && 'bg-selected',
         isBusy && 'cursor-progress opacity-70',
         lit && HIGHLIGHT_OUTLINE
       )}
-      // Dragging is opt-in per surface: the Archiv has no folders to drop into,
-      // and a card that lifts under the finger where nothing can receive it is
-      // an affordance for a capability that is not there.
       {...(draggable && !selection ? documentDragProps(file.id, file.folderId ?? null) : {})}
     >
       {selection && <SelectionMark checked={selection.checked} />}
@@ -366,7 +232,7 @@ export const FileCard = memo(function FileCard({
           since it is a press of its own that opens the review. A line of its own under the summary left every other
           tile of its row a 50px hole. */}
       <div className={cn('absolute left-3.5 z-[1] max-w-[calc(100%-1.75rem)]', showStatus ? 'top-[78px]' : 'top-[102px]')}>
-        <OpenMarksChip file={file} name={name} className="bg-background" />
+        <OpenMarksChip file={file} name={name} className="bg-background hover:bg-desk" />
       </div>
       {actions && !selection && (
         <div
@@ -410,17 +276,6 @@ export const FileCard = memo(function FileCard({
               <DocumentStatusBadge
                 status={file.status}
                 queueAhead={file.queueAhead}
-                // At the foot of the thumbnail, not the head: the sketch drawn when
-                // there is no picture puts its title bar at the top, and a badge
-                // there read as part of the placeholder rather than as a status.
-                // The 80% alpha is load-bearing: this badge floats over a document
-                // thumbnail, and with `backdrop-blur-sm` it frosts the image
-                // underneath instead of hiding it. Every status's ink is its
-                // signal colour on a light ground, a failed read included
-                // (the badge's tinted `danger`), so the frost needs no repaint.
-                // Capped at the well's width less its insets: on a phone's
-                // two-column grid „Wartet · 3 Dateien davor" ran into the
-                // card's edge; now its word ends in an ellipsis instead.
                         className="absolute bottom-2 left-2 h-5 max-w-[calc(100%-1rem)] border-transparent bg-background px-1.5 py-0 text-[11px] font-medium leading-none"
               />
             )}
@@ -470,7 +325,6 @@ export const FileCard = memo(function FileCard({
               </div>
             ) : (
               (documentBadgeState({ versionState: file.versionState, versionCount: file.versionCount, authoredBy: file.authoredBy }) !== null || revisionCount(file) > 1) && (
-                // One height with a badge or without (a 20px chip beside plain text jumped the line by 3px).
                 <div className="mt-1 flex min-h-5 min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
                   {(file.versionCount ?? 0) > 1 && (
                     <DocumentVersionStateBadge
@@ -494,9 +348,6 @@ export const FileCard = memo(function FileCard({
                 {failureReason}
               </p>
             ) : isAwaitingSummary ? (
-              // Two bars on the two lines the summary will occupy. Decorative:
-              // the badge beside the thumbnail already says "Processing" in
-              // words, and a screen reader should hear that once, not twice.
               <div className="mt-[7px] space-y-[7px]" aria-hidden data-testid="file-card-summary-skeleton">
                 <Skeleton className="h-[7px] w-full rounded-surface" />
                 <Skeleton className="h-[7px] w-[58%] rounded-surface" />
@@ -525,14 +376,14 @@ export const FileCard = memo(function FileCard({
       {!hideFooter && (
         <FileTileFooter
           onClick={onSelect}
-          // `mt-auto` (the footer's own): the grid stretches a row's tiles to one height, so every meta line of a row
-          // stands on one baseline, the empty line under a one-line name beside a two-line one (finding 7).
           className="@container/foot group/foot cursor-pointer flex-wrap items-start justify-start gap-1.5 pt-0.5 text-xs text-muted-foreground"
           data-testid="file-card-footer"
         >
           {/* Left, under the name: one edge for everything on the tile. */}
           <span className="flex min-w-0 items-center gap-1.5 empty:hidden">
             <FilingSuggestionSlot documentId={file.id} className="min-w-[4.5rem]" />
+            {/* A link of its own, so it sits here beside the card's button and never inside it. */}
+            <BaseKnowledgeChip file={file} />
             {/* Who has it, then the facts, one line joined by the dot: „Unvergeben PNG“ read as one phrase. */}
             {footerLead}{footerLead && <FactDot />}
           </span>
@@ -561,7 +412,6 @@ export const FileCard = memo(function FileCard({
   )
 })
 
-/** What the name's first line leaves at its end for the ⋯ (32px, 2px off the tile's edge, its glyph 8px in) and a 4px gap. */
 const TILE_ACTIONS_INSET = 24
 
 function FactDot(): JSX.Element {

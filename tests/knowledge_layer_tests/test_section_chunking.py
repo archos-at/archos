@@ -1,17 +1,3 @@
-"""Heading-aware chunking of tenant PDFs (``ingest/section_chunking``).
-
-Before it, every PDF that was not an OIB Richtlinie became one Document per page, cut
-by ``SentenceSplitter(1024/128)``: a section beginning at the foot of a page was split
-from its body, the overlap never crossed a page, and one window blended several
-requirements. These tests pin the three things that can go wrong with a structure-aware
-chunker: cutting on something that is not a heading (a list item, ``1.200 m²``, a
-running footer), cutting a document that has no real structure (the fallback gates),
-and losing the page a chunk cites.
-
-The PDFs are hand-built with real fonts and sizes (``pdf_fixtures``), so the heading
-detector reads the same pdfplumber characters it reads in production.
-"""
-
 from __future__ import annotations
 
 from typing import Any
@@ -56,9 +42,6 @@ class TestPdfSections:
         assert styles[pages[0]["text"].splitlines()[1]][1] == 0.0
 
     def test_a_page_whose_styles_cannot_be_read_keeps_its_text(self, tmp_path, monkeypatch):
-        """Styles are read inside the per-page reader, where a raise counts the page as
-        unreadable and drops its text. They are optional: the page keeps its text and
-        has no styles, and its headings are then read from the numbering alone."""
         import pdfplumber.page
 
         def _broken(self, *args, **kwargs):
@@ -123,7 +106,6 @@ class TestPdfSections:
         assert not any("Seite 2" in doc.text for doc in konzept)
 
     def test_an_oib_file_keeps_the_per_page_path(self, tmp_path):
-        """The base corpus's non-Punkt files (glossary, list of standards) are not re-cut."""
         name = "oib-rl_begriffsbestimmungen_ausgabe_mai_2023.pdf"
         glossary = [[("B", 14, f"Begriff {n.upper()}"), *body_lines(n, 5)] for n in "abcd"]
         pages = _pages_of(write_pdf(tmp_path / name, [[*glossary[0], *glossary[1]], glossary[2], glossary[3]]))
@@ -163,15 +145,10 @@ class TestHeadingRecognition:
     @pytest.mark.parametrize(
         ("text", "size", "bold"),
         [
-            # A list item: a bare number in body type.
             ("1 Stück Brandschutztür liefern", 10.0, False),
-            # German thousands separator.
             ("1.200 m² Netto-Grundfläche je Geschoß", 10.0, False),
-            # A sentence, even in bold.
             ("Die Wände sind in REI 90 auszuführen.", 10.0, True),
-            # Smaller than the body: a footnote or caption.
             ("Quelle", 8.0, True),
-            # A contents-page entry.
             ("3.2 Brandabschnitte ........ 7", 10.0, False),
             ("2.1 im obersten Geschoß", 10.0, False),
         ],
@@ -180,7 +157,6 @@ class TestHeadingRecognition:
         assert sc.classify(_line(text, size, bold), 10.0) is None
 
     def test_without_font_information_a_bare_number_counts(self):
-        """An OCR text layer has no styles; its numbering is all there is."""
         assert sc.classify(Line(1, "1 Allgemeines"), None) == ("1", "Allgemeines")
 
     def test_a_heading_wrapped_over_two_lines_is_one_heading(self):
@@ -203,12 +179,6 @@ class TestHeadingRecognition:
         assert headings[0].span == 3
 
     def test_a_long_run_in_heading_type_is_a_block_not_a_heading(self):
-        """A plan sheet's legend, set large: joined it was one 470-token "heading".
-
-        The breadcrumb metadata carried it three times (clause_id, clause_title,
-        clause_path), past the splitter's chunk size, and the whole file failed
-        (2026-10, ``WR_25003_P1240_0.pdf``).
-        """
         legend = [
             "STB-Fertigteil",
             "FDUK FUNDAMENT UNTERKANTE",
@@ -236,7 +206,6 @@ class TestHeadingRecognition:
             *[_line(f"Satz {n} im Text.") for n in range(20)],
         ]
         levels = {heading.label: heading.level for heading in sc.find_headings(lines).values()}
-        # The title is level 0: every chapter nests under it rather than closing it.
         assert levels == {"Titel": 0, "1 Kapitel": 1, "1.1 Abschnitt": 2, "Randbemerkung": 2}
 
     def test_repeated_addresses_are_disambiguated(self):
@@ -257,8 +226,6 @@ WRAPPED_SENTENCES = [
 
 
 class TestWrappedSentencesAreNotHeadings:
-    """A body line that happens to open with a locator is a sentence, styled or not."""
-
     @pytest.mark.parametrize("text", WRAPPED_SENTENCES)
     def test_in_body_type(self, text):
         assert sc.classify(_line(text), 10.0) is None
@@ -302,7 +269,6 @@ class TestWrappedSentencesAreNotHeadings:
 
 
 def _transcribed_pages() -> list[dict[str, Any]]:
-    """Three transcribed pages; each body line differs in words, not only in numbers (running-footer check)."""
     words = ["Fluchtweg", "Brandwand", "Stiegenhaus", "Rauchabzug", "Löschwasser", "Zufahrt", "Türen", "Decken"]
 
     def body(page: int) -> str:
@@ -349,8 +315,6 @@ def _stream(headings: int, body_per_section: int, preamble: int = 0) -> list[Lin
 
 
 class TestFallbackGates:
-    """``structure_is_usable``: each gate on its own, at its threshold."""
-
     def _usable(self, lines: list[Line]) -> bool:
         return sc.structure_is_usable(lines, sc.build_sections(lines, sc.find_headings(lines)))
 
@@ -361,11 +325,9 @@ class TestFallbackGates:
         assert not self._usable(_stream(sc.MIN_HEADINGS - 1, 5))
 
     def test_headings_covering_too_little_of_the_text_are_not(self):
-        # Three short sections after a long unheaded preamble: under half the text is sectioned.
         assert not self._usable(_stream(3, 2, preamble=40))
 
     def test_mostly_headings_is_a_form_not_an_outline(self):
-        # One body line per heading: half the lines are headings, above the share cap.
         assert sc.MAX_HEADING_LINE_SHARE < 0.5
         assert not self._usable(_stream(6, 1))
 

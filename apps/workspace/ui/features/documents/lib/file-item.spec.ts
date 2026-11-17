@@ -34,7 +34,6 @@ describe('refreshedFileFields', () => {
   })
 
   it('never moves a terminal status back to settling on a stale read', () => {
-    // The listing drain answered from before the open file's own poll did.
     expect(refreshedFileFields(file({ status: 'completed' }), { status: 'processing' })).toBeNull()
     expect(
       refreshedFileFields(file({ status: 'failed', errorMessage: 'Kaputt' }), {
@@ -72,7 +71,6 @@ describe('toFileItem revisionFacts', () => {
     const facts = { documentNumber: 'A-101', revision: 'C', revisionDate: '2026-03-14', page: 2 }
 
     expect(toFileItem({ ...file(), revisionFacts: facts }).revisionFacts).toEqual(facts)
-    // A row from a listing that did not read the sheet says nothing, and the item says `null`.
     expect(toFileItem(file()).revisionFacts).toBeNull()
   })
 })

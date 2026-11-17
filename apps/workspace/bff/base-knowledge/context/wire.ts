@@ -10,10 +10,18 @@
 import { z } from 'zod'
 import { useApplicabilitySchema } from '../wire/project-law'
 import { CONNECTING_FACTORS, COVERAGE_LEVELS, EDITION_ROLES, GATE_STATES, SITE_UNKNOWN_REASONS, TEXT_STATUSES } from '../wire/vocab'
-import { sourceRefSchema } from '../chain/source-refs'
+import { MAX_SOURCE_REFS, sourceRefSchema } from '../chain/source-refs'
 
-/** Most uses a turn carries (design §5.5: works ≤ 40). */
-export const MAX_CONTEXT_USES = 40
+/**
+ * Most uses a turn carries, binding first: a bound on the payload, not on the
+ * law. The resolver resolves every use and the chain text words them all; a
+ * site with more (a Land whose administrative regulation lists hundreds of
+ * standards) still answers, and a citation of a use past it reads no role.
+ */
+export const MAX_CONTEXT_USES = 500
+
+/** The longest issuer a use carries: the record's own bound (`knowledge_work_revisions.issuer`, 200). */
+export const MAX_ISSUER_CHARS = 200
 
 /** What the turn may claim about the law of its site: in the vocabulary (`wire/vocab.ts`), so the intake's wire reads it too. */
 export { GATE_STATES, type GateState } from '../wire/vocab'
@@ -106,8 +114,10 @@ export const contextUseSchema = z
     designation: z.string().nullable(),
     /** The edition's label (`Ausgabe Mai 2023`); null for law read live at its source. */
     editionLabel: z.string().nullable(),
+    /** Who issues the work, as its record names it: the publisher a citation of its text names; null when the record states none. */
+    issuer: z.string().max(MAX_ISSUER_CHARS).nullable(),
     /** The work's identifiers at its source, sorted by scheme and value; [] when the record states none. */
-    sourceRefs: z.array(sourceRefSchema).max(8),
+    sourceRefs: z.array(sourceRefSchema).max(MAX_SOURCE_REFS),
     /** Where a person opens the edition's text: the page its manifestation cites first; null when none does. */
     sourceUrl: z.string().max(2000).nullable(),
     /** The language of the edition's held text (BCP 47, `de`, `fr-CH`); null where no text is held (law read live at its source). */
@@ -130,11 +140,29 @@ export const procedureContextSchema = z
     procedureType: z.string().nullable(),
     filedOn: z.string().nullable(),
     decidedOn: z.string().nullable(),
-    /** The reference day per legislating node; `undetermined` until a reviewed rule names it (design §5.4, "nicht bestimmt" until `full`). */
+    /** The reference day per legislating node: the filing day once it has come (`filed_on`, an assumption), else `undetermined` until a reviewed rule names it (design §5.4). */
     referenceDates: z.record(
       z.string(),
       z.object({ date: z.iso.date().nullable(), basis: z.enum(['undetermined', 'filed_on']) }).strict(),
     ),
+  })
+  .strict()
+
+/** Most sources a turn carries, and the longest configuration of one (`context/sources.ts`). */
+export const MAX_CONTEXT_SOURCES = 8
+export const MAX_SOURCE_CONFIG_CHARS = 64_000
+
+/**
+ * A released public source a law lookup may read for this turn (country-as-data plan, step 4): its
+ * record key, the revision read, its country, and its configuration without fixtures, in the shape
+ * `public_sources.source.Source` reads. Which source answers is its country, never a table in code.
+ */
+export const contextSourceSchema = z
+  .object({
+    key: z.string().min(1).max(80),
+    revisionId: z.string().min(1).max(80),
+    country: z.string().regex(/^[A-Z]{2}$/),
+    config: z.record(z.string(), z.unknown()),
   })
   .strict()
 
@@ -176,6 +204,17 @@ export const knowledgeContextSchema = z
       )
       .max(MAX_CONTEXT_USES)
       .optional(),
+    /**
+     * The released sources with a law lookup of the countries the turn reads
+     * (`retrieval.countries`). Absent where the turn reads no country's law.
+     */
+    sources: z.array(contextSourceSchema).max(MAX_CONTEXT_SOURCES).optional(),
+    /**
+     * The keys of released sources the turn could not carry (a configuration over
+     * {@link MAX_SOURCE_CONFIG_CHARS}, or past {@link MAX_CONTEXT_SOURCES}): a lookup
+     * says it could not read them, and the trace names them. Absent when none was left out.
+     */
+    sourcesDropped: z.array(z.string().max(80)).max(MAX_CONTEXT_SOURCES).optional(),
   })
   .strict()
 
@@ -185,4 +224,5 @@ export type UseRoute = z.infer<typeof useRouteSchema>
 export type ContextUse = z.infer<typeof contextUseSchema>
 export type ProcedureContext = z.infer<typeof procedureContextSchema>
 export type KnowledgeContext = z.infer<typeof knowledgeContextSchema>
+export type ContextSource = z.infer<typeof contextSourceSchema>
 export type UseLabel = (typeof USE_LABELS)[number]

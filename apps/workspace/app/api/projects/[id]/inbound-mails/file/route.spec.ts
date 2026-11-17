@@ -1,10 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * `/api/projects/[id]/inbound-mails/file`: the decision body is the wire's, parsed here; every
- * rule of C2 is the service's (`decision.spec.ts`). Answers 202: the job files.
- */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const session = {

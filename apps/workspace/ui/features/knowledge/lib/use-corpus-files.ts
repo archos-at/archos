@@ -1,12 +1,5 @@
 'use client'
 
-/**
- * Session-cached list of base-corpus files (name + state) for citation →
- * PDF resolution. One fetch per browser session, shared by every card; a
- * failed fetch resolves to an empty list so citations quietly keep their
- * external-link fallback.
- */
-
 import { useEffect, useState } from 'react'
 import { getKnowledgeBase } from '@/adapters/api/knowledge-client'
 import type { CorpusFileCandidate } from './resolve-corpus-file'
@@ -25,7 +18,6 @@ function fetchCorpusFiles(): Promise<CorpusFileCandidate[]> {
   return cache
 }
 
-/** Test hook. */
 export function resetCorpusFilesCache(): void {
   cache = null
 }

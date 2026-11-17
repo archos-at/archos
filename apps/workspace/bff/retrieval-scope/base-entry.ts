@@ -8,6 +8,7 @@
 
 import 'server-only'
 import { corpusCountriesFor } from '@/lib/base-knowledge/context/corpus-countries'
+import { contextForPage } from '@/lib/base-knowledge/context/service'
 import { resolveBaseCollectionName, type ScopedCollection } from './collection-scope'
 
 /**
@@ -16,6 +17,20 @@ import { resolveBaseCollectionName, type ScopedCollection } from './collection-s
  */
 export async function baseCorpusCountries(organizationId: string | null | undefined): Promise<string[]> {
   return organizationId ? corpusCountriesFor(organizationId) : []
+}
+
+/**
+ * The countries a project's request may read of the base corpus: the office's, narrowed to the ones the
+ * project's own knowledge context reads (ADR-0173, `retrieval.countries`). Signing the narrowed list holds
+ * for every reader of the scope, a turn or run that binds its context and a door, proxy or job read that
+ * binds none: a project placed where the office holds no country reads none, an unplaced one reads the
+ * office's countries as information (`site_unknown`). A context that cannot be read narrows to none.
+ */
+export async function projectCorpusCountries(organizationId: string | null | undefined, projectId: string): Promise<string[]> {
+  const office = await baseCorpusCountries(organizationId)
+  if (!organizationId || office.length === 0) return office
+  const site = new Set((await contextForPage(organizationId, projectId)).retrieval.countries)
+  return office.filter((country) => site.has(country))
 }
 
 /** `names` as signed scope entries: the base collection carries its shelf and countries, the rest stay bare names. */

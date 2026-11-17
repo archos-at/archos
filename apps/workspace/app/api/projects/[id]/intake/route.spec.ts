@@ -1,15 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The intake's person routes, driven through the TYPED CLIENT (ADR-0055): the
- * setup page uses the same functions, so a path, a verb or a field the two
- * disagreed on fails here. The service is mocked at its seam (its rules are
- * `lib/project-intake/service.spec.ts`); what is pinned is that each route
- * parses its body strictly, calls its one service function with the caller's
- * session, answers the shape the client parses, and passes a refusal through
- * with its code and reason.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 

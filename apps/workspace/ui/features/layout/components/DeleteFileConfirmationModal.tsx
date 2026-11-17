@@ -1,10 +1,3 @@
-/**
- * DeleteFileConfirmationModal Component
- *
- * Confirmation dialog displayed before deleting a file. A thin wrapper over the
- * shared ConfirmDialog primitive — the confirm anatomy lives in one place.
- */
-
 'use client'
 
 import { type FC } from 'react'
@@ -14,20 +7,12 @@ import { commonCopy } from '@/i18n/namespaces/common'
 import { researchCopy } from '@/i18n/namespaces/research'
 
 export interface DeleteFileConfirmationModalProps {
-  /** Whether the modal is open */
   open: boolean
-  /** Callback when open state changes */
   onOpenChange: (open: boolean) => void
-  /** Callback when delete is confirmed */
   onConfirm: () => void
-  /** Name of the file being deleted, shown in the dialog copy */
   fileName?: string
 }
 
-/**
- * Dialog for confirming file deletion.
- * Displays a warning message with Cancel and Delete actions.
- */
 export const DeleteFileConfirmationModal: FC<DeleteFileConfirmationModalProps> = ({
   open,
   onOpenChange,

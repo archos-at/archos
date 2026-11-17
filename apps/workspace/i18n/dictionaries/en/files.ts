@@ -1,5 +1,7 @@
 /** files namespace — populated during component i18n. */
 export const files = {
+  /** A Büroablage file that is one of the office's standards (ADR-0163). */
+  baseKnowledge: { label: 'Office standard', open: 'Open as an office standard: edition, licence, last check' },
   uploadZone: {
     clickToUpload: 'Click to upload',
     orDragAndDrop: ' or drag and drop',

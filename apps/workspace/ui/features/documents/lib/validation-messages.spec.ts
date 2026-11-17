@@ -1,14 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The validator's findings, said in the reader's language.
- *
- * Asserted in GERMAN throughout. The English dictionary reads almost exactly
- * like the validator's own hard-coded strings, so an English assertion would
- * pass whether or not the wiring exists — which is the bug this pins: the
- * English message used to be spliced straight into a German sentence.
- */
 
 import { describe, expect, it } from 'vitest'
 import { translatorFor } from '@/i18n/namespace'
@@ -27,7 +19,6 @@ const context = (overrides: Partial<ValidationContext> = {}): ValidationContext 
   ...overrides,
 })
 
-/** A File of a stated size without allocating the bytes. */
 const file = (name: string, size: number): File =>
   Object.defineProperty(new File(['x'], name, { type: 'application/pdf' }), 'size', { value: size })
 
@@ -48,7 +39,6 @@ describe('summarizeValidation', () => {
 
     const summary = summarizeValidation(result, t)
     expect(summary).toContain('das Limit liegt bei')
-    // The validator's own English is what used to reach the reader.
     expect(summary).not.toMatch(/exceeds|limit\b/)
     expect(result.summary).toMatch(/exceeds/)
   })
@@ -72,7 +62,6 @@ describe('summarizeValidation', () => {
 
     const already = validateFileUpload(
       [file('Plan.pdf', 10)],
-      // A chat's attachments: a durable shelf asks about a known name instead.
       context({ existingFileNames: new Set(['Plan.pdf']), durableCorpus: false }),
       config,
       'de'
@@ -91,12 +80,6 @@ describe('summarizeValidation', () => {
   })
 
   it('says how much room is left when the session is already crowded', () => {
-    // A SESSION context, not a durable one: the batch total-size cap is the
-    // chat session's, because a project or Archiv upload is bounded by the
-    // organization's quota instead (see `durableCorpus` in `validation.ts`).
-    // Left on a durable corpus, this ceiling rejected a real Einreichung
-    // wholesale in an org with terabytes to spare. The message it produces is
-    // still the right one where the cap genuinely applies.
     const result = validateFileUpload(
       [file('Plan.pdf', 40 * 1024 * 1024)],
       context({ existingTotalSize: 90 * 1024 * 1024, durableCorpus: false }),

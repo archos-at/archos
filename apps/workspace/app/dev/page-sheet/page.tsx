@@ -31,7 +31,7 @@ export default function PageSheetDevPage(): JSX.Element {
       {/* The page the sheet covers. */}
       <div className="space-y-4 p-8">
         <h1 className="text-lg font-semibold">/dev/page-sheet — the page underneath</h1>
-        <Button variant="outline" onClick={() => setOpen(true)} data-testid="reopen-sheet">
+        <Button variant="secondary" onClick={() => setOpen(true)} data-testid="reopen-sheet">
           Reopen sheet
         </Button>
         {Array.from({ length: 8 }).map((_, index) => (

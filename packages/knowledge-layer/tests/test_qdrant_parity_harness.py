@@ -1,17 +1,3 @@
-"""The Qdrant parity harness end to end, on its sample corpus, against a real Qdrant.
-
-``task be:eval:qdrant-parity`` measures the retrieval gates (design doc §10); this
-keeps the instrument itself from rotting. It runs the whole measurement: Qdrant
-filled through ingestion's own write, the production retriever reading it, every
-gate computed and rendered beside the Chroma path's reference numbers. The sample
-corpus is a dozen synthetic chunks with hashed vectors, so the numbers are wiring;
-what is asserted is that the store holds every chunk and that the exact mode and
-the phrase channel behave as the report claims.
-
-Same server contract as ``test_qdrant_store.py``: ``QDRANT_TEST_URL``, skipped
-locally without it, failed on CI.
-"""
-
 from __future__ import annotations
 
 import os
@@ -44,7 +30,6 @@ def test_the_store_holds_every_chunk(report):
 
 
 def test_find_text_returns_what_a_full_regex_scan_returns_for_every_phrase(report):
-    """The server narrows by the pattern's literal words first; it must never narrow a match away."""
     differing = [row["phrase"] for row in report["exact"] if not row["identical"]]
     assert differing == []
     assert all(row["regex_scan"] for row in report["exact"] if row["phrase"] in ("REI 90", "Geschoss"))
@@ -57,8 +42,6 @@ def test_the_retriever_answers_from_the_store_without_embedding_and_honours_the_
 
 
 def test_the_phrase_index_keeps_numbers_and_codes(report):
-    """The tokenizer regression: a multilingual tokenizer dropped digits, so „REI 90“
-    matched REI 60 and „5.1.1“ / „§ 8“ matched nothing."""
     rows = {row["phrase"]: row for row in report["exact"]}
     for phrase in ("REI 90", "5.1.1", "§ 8", "EI2 30-C"):
         assert rows[phrase]["phrase_index_misses"] == 0, phrase
@@ -92,7 +75,5 @@ def test_the_ranking_sweep_measures_every_variant_against_the_baseline(report):
 
 
 def test_every_variant_serves_the_true_cosine_as_the_score(report):
-    """``Chunk.score`` is printed in the grounding block and compared against
-    thresholds: whatever the fusion and the quantized read, it stays the exact cosine."""
     errors = {name: result["cosine_error"]["max"] for name, result in report["variants"].items()}
     assert all(error < 1e-4 for error in errors.values()), errors

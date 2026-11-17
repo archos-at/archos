@@ -26,7 +26,7 @@ const Eyebrow: FC<{ children: React.ReactNode }> = ({ children }) => (
 )
 
 const FramingFlowNode: FC<NodeProps<Node<FramingData>>> = ({ data }) => (
-  <div className="bg-card w-[var(--banner-w)] max-w-full rounded-surface border px-4 py-3 text-left shadow-xs">
+  <div className="bg-card w-[var(--banner-w)] max-w-full rounded-surface px-4 py-3 text-left shadow-xs">
     <Eyebrow>
       <span className="inline-flex items-center gap-1.5">{data.label}</span>
     </Eyebrow>
@@ -46,24 +46,8 @@ const FramingFlowNode: FC<NodeProps<Node<FramingData>>> = ({ data }) => (
   </div>
 )
 
-/**
- * One checkpoint layer, and the control that folds the fan under it.
- *
- * The whole card is the target, because "the step" is what a reader points at —
- * so the control is a stretched overlay button rather than a chevron in the
- * corner. It carries its own `aria-label` (the card's body is a conclusion, not
- * a control name) and reports the state through `aria-expanded`, which is what
- * makes it keyboard-operable at all: React Flow is configured with
- * `nodesFocusable={false}` and `disableKeyboardA11y`, so a node is only ever
- * reachable through a real `<button>` inside it.
- *
- * There is deliberately no `aria-controls`: the fan is a SIBLING node in the
- * React Flow pane, not a descendant of this card, and its column elements carry
- * `data-id` rather than `id`. Pointing at an id that does not exist is worse
- * than pointing at nothing.
- */
 const RoundFlowNode: FC<NodeProps<Node<RoundData>>> = ({ data }) => (
-  <div className="bg-card relative w-[var(--banner-w)] max-w-full rounded-surface border px-4 pt-3 pb-2 text-left shadow-xs">
+  <div className="bg-card relative w-[var(--banner-w)] max-w-full rounded-surface px-4 pt-3 pb-2 text-left shadow-xs">
     {data.targets.map((h) => (
       <Handle
         key={h.id}
@@ -82,8 +66,6 @@ const RoundFlowNode: FC<NodeProps<Node<RoundData>>> = ({ data }) => (
         data-testid="reasoning-round-toggle"
         className={cn(
           'absolute inset-0 z-10 cursor-pointer rounded-surface outline-none',
-          // Inset: the banner spans the content width, and an offset ring is
-          // clipped by the pane on both sides.
           FOCUS_RING_INSET
         )}
       />
@@ -146,13 +128,6 @@ const RoundFlowNode: FC<NodeProps<Node<RoundData>>> = ({ data }) => (
   </div>
 )
 
-/**
- * One fan-out column. Exactly two edges touch it — framing → column and
- * column → assessment — both centred, so the connector is always a straight
- * drop no matter how many cards the column carries. Stacked cards are joined by
- * a short hairline in the same ink as the edges, so the stack reads as "these
- * were searched together", not as a sequence of steps.
- */
 const SourceColumnFlowNode: FC<NodeProps<Node<SourceColumnData>>> = ({ data }) => {
   const stack = (
     <div role="list" aria-label={data.groupLabel} className="flex w-full flex-col">
@@ -204,11 +179,6 @@ const SourceColumnFlowNode: FC<NodeProps<Node<SourceColumnData>>> = ({ data }) =
   )
 }
 
-/**
- * One document of a fan. Tapping it (it opens its preview, as it always did)
- * also lights up the rows of the calls that returned it; a card no call names
- * (the prefetch's, or a turn stored before `call_id`) links to nothing.
- */
 const FanSlotCard: FC<{
   slot: Extract<ColumnSlot, { type: 'card' }>
   live: boolean
@@ -236,16 +206,6 @@ const FanSlotCard: FC<{
   )
 }
 
-/**
- * The round's uncited documents as one dashed card: „+2 abgerufen, nicht
- * zitiert“ with their names. While the answer runs nothing is cited yet, so it
- * reads „+2 weitere“. A button: it opens the folded cards in place.
- *
- * Open, it is no longer a card: the cards it held stand above it, and what
- * remains is the way back, a plain muted line under the last of them. The
- * button's name is what it shows (the count and the names, never a label that
- * hides them); the tab describes it.
- */
 const UncitedFoldCard: FC<{
   slot: Extract<ColumnSlot, { type: 'fold' }>
   onToggle: () => void
@@ -291,7 +251,7 @@ const UncitedFoldCard: FC<{
         aria-expanded={false}
         aria-describedby={tabId}
         className={cn(
-          'bg-muted/40 duration-snap pointer-fine:hover:bg-muted flex min-h-11 w-full min-w-0 flex-col rounded-control border border-dashed px-3 py-2.5 text-left transition-[background-color,scale] ease-out outline-none active:scale-[0.985] motion-reduce:transition-none',
+          'bg-muted/40 duration-snap pointer-fine:hover:bg-desk flex min-h-11 w-full min-w-0 flex-col rounded-control border border-dashed px-3 py-2.5 text-left transition-[background-color,scale] ease-out outline-none active:scale-[0.985] motion-reduce:transition-none',
           FOCUS_RING
         )}
       >
@@ -309,10 +269,8 @@ const UncitedFoldCard: FC<{
 const FindingsFlowNode: FC<NodeProps<Node<FindingsData>>> = ({ data }) => (
   <div
     className={cn(
-      'bg-card w-[var(--banner-w)] max-w-full rounded-surface border px-4 py-3 text-left shadow-xs',
-      // Pending reads as in-flight rather than as an empty result: dashed
-      // hairline, no fill — the same visual grammar the uncited fold uses.
-      data.pending && 'border-dashed bg-transparent shadow-none'
+      'bg-card w-[var(--banner-w)] max-w-full rounded-surface px-4 py-3 text-left shadow-xs',
+      data.pending && 'border border-dashed bg-transparent shadow-none'
     )}
   >
     {data.targets.map((h) => (
@@ -382,9 +340,6 @@ const FindingsFlowNode: FC<NodeProps<Node<FindingsData>>> = ({ data }) => (
       </dl>
     )}
     {data.truncation && (
-      // Same muted register as the lines above it: this is a fact about the
-      // evidence, not a warning — the node is not tinted, bordered or
-      // iconified for it, because "the search stopped" is not an error.
       <p className="border-base text-muted-foreground mt-1.5 border-t pt-1.5 text-xs leading-relaxed">
         {data.truncation.before}
         {data.truncation.step && (

@@ -9,7 +9,6 @@ import {
   prepareSitePhotos,
 } from './site-photo'
 
-/** 2026-10-15 14:32:05 local time, as a phone stamps a fresh capture. */
 const TAKEN = new Date(2026, 9, 15, 14, 32, 5)
 
 const photo = (name: string, type = 'image/jpeg', lastModified = TAKEN.getTime()) =>

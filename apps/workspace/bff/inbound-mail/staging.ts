@@ -29,8 +29,12 @@ export const READ_URL_TTL_SECONDS = 15 * 60
 export async function stagingBucketFor(organizationId: string): Promise<string> {
   try {
     return await ensureTenantBucketChecked(bucketAdminS3Client, organizationId)
-  } catch {
-    throw new ServiceUnavailableError('Object storage is unavailable', { reason: 'storage-unavailable' })
+  } catch (cause) {
+    // The cause rides along: the webhook names its class and code in the log
+    // line and in PostHog. Dropping it hid a refused bucket for two days.
+    const error = new ServiceUnavailableError('Object storage is unavailable', { reason: 'storage-unavailable' })
+    error.cause = cause
+    throw error
   }
 }
 

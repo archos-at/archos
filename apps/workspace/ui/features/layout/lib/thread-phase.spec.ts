@@ -1,7 +1,3 @@
-/**
- * One answer to "is the thread empty?", for the greeting and the composer's
- * lift alike: a thread whose messages are on their way is not empty.
- */
 import { afterEach, describe, expect, test } from 'vitest'
 import type { ChatMessage } from '@/features/chat/types'
 import {

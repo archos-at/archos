@@ -114,7 +114,6 @@ describe.skipIf(!url)('a project’s Offene Punkte against live Postgres', () =>
   const label = (records: readonly ProjectAnnotationRecord[]) =>
     records.map((record) => `${record.document.filename}#${record.number}`)
 
-  /** Every page of a read, chained by its cursor. */
   async function drain(overrides: Partial<ProjectAnnotationPageQuery>): Promise<string[]> {
     const rows: string[] = []
     let cursor: ProjectAnnotationPageQuery['cursor'] = null
@@ -146,7 +145,6 @@ describe.skipIf(!url)('a project’s Offene Punkte against live Postgres', () =>
           values (${ORG}, ${ids.project}::uuid, 'Vertraulich', 'Vertraulich') returning id`)
       )
     )
-    // Lower case first: the order is the shown name case-folded, so „a-…" comes before „B-…".
     ids.a = await document(ids.project, 'a-Grundriss.pdf')
     ids.b = await document(ids.project, 'B-Schnitt.pdf')
     ids.heldOwn = await document(ids.project, 'held-own.pdf', { createdBy: READER, status: 'quarantined' })
@@ -254,11 +252,8 @@ describe.skipIf(!url)('a project’s Offene Punkte against live Postgres', () =>
           ...overrides,
         })
       )
-    // The reader's own held upload is in their list, and nobody else may open it.
     expect(await reaches()).toBe(true)
-    // Narrowed to what sits in the root and passed screening: nothing to hide.
     expect(await reaches({ assigneeUserId: READER })).toBe(false)
-    // A member who may read the restricted folder sees its document in the list; it is restricted for the others.
     const third = { reader: memberReader(`${READER}_third`), hiddenFolderIds: [] }
     expect(await reaches(third)).toBe(true)
     expect(await reaches({ ...third, restrictedFolderIds: [] })).toBe(false)

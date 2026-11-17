@@ -31,7 +31,7 @@ vars:
   # agent-browser CLI (UI screenshots), pinned like APM_VERSION. Read by
   # .claude/hooks/session-start.sh and scripts/cloud-setup.sh with awk, so keep
   # this one-line `NAME: value` shape.
-  AGENT_BROWSER_VERSION: 0.27.0
+  AGENT_BROWSER_VERSION: 0.43.0
   WEBSITE: apps/website
   CMS: apps/cms
   # go-task ships its own POSIX shell, so command SYNTAX is already portable and

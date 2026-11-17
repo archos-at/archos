@@ -19,10 +19,6 @@ afterEach(() => {
 })
 
 describe('MetaLine', () => {
-  // The line pulls a 12px gutter (`-ml-3`) into its clipped left edge so the
-  // dot of a part that starts a wrapped line is cut away. Any part with a
-  // narrower gutter loses the difference from its own content when it is the
-  // one that starts the line: the phone showed half a folder icon („ↄ Brandschutz“).
   it('gives every part, lead or not, the full gutter the line clips', () => {
     const { container } = render(
       <MetaLine
@@ -47,8 +43,6 @@ describe('MetaLine', () => {
 })
 
 describe('FieldShortcut', () => {
-  // The field said „Strg K“ from its own dictionary entry while the palette's
-  // „Alle Treffer“ row said „Ctrl ↵“ from the shell's: one key, two names.
   it('names the control key as the shell does, in the reader\'s language', () => {
     vi.spyOn(window.navigator, 'platform', 'get').mockReturnValue('Win32')
     const { container } = inGerman(<FieldShortcut />)
@@ -108,8 +102,6 @@ describe('ChoiceStrip', () => {
 })
 
 describe('leadUpToMatch', () => {
-  // The palette shows a passage on one line, about forty characters of it: a
-  // match past that was cut off, and the line said nothing about why it matched.
   it('starts a long lead-in a few words before the first match, on a word boundary', () => {
     const lead = 'Laut Gutachten der MA 37 vom Oktober beträgt die maximale '
     const shown = leadUpToMatch([

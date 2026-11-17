@@ -1,11 +1,3 @@
-"""A source filed by its key keeps its citation when the answer adds its link.
-
-Seen in the answer-suite sweep, on every Bauordnung question: the RIS tool
-prints ``Source URL:`` beside ``Citation:``, the model writes ``Title - URL``
-as the prompt asks, and the registry files RIS passages by key. The verifier
-removed both sources as ``url_not_in_registry`` and paid a repair pass for it.
-"""
-
 from agent.citations.entries import SourceEntry
 from agent.citations.registry import SourceRegistry
 from agent.citations.verification import verify_citations
@@ -92,10 +84,8 @@ def test_drop_url_leaves_no_dangling_separator_or_label():
     assert drop_url(f"- [1] Bauordnung für Wien, § 63 | {LAW}", LAW) == "- [1] Bauordnung für Wien, § 63"
     assert drop_url(f"- [1] Bauordnung für Wien, § 63 (Source: {LAW})", LAW) == "- [1] Bauordnung für Wien, § 63"
     assert drop_url(f"Titel ({LAW})", LAW) == "Titel"
-    # A link in square brackets leaves no empty ``[]`` behind.
     assert drop_url(f"- [1] Wiener Bauordnung, § 5 [{LAW}]", LAW) == "- [1] Wiener Bauordnung, § 5"
     assert drop_url(f"- [1] [{LAW}] - Wiener Bauordnung", LAW) == "- [1] Wiener Bauordnung"
-    # A link sharing its parentheses keeps them for what else they hold.
     link = "https://www.ris.bka.gv.at/x?a=1"
     assert drop_url(f"BO-Wien § 5 ({link}, 2024)", link) == "BO-Wien § 5 (2024)"
     assert drop_url(f"BO-Wien § 5 (2024, {link})", link) == "BO-Wien § 5 (2024)"

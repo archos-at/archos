@@ -42,8 +42,6 @@ describe('offersFileNote', () => {
   })
 
   test('a legacy envelope with no kind is never guessed at', () => {
-    // Threads older than `answer_meta.kind` would otherwise put this chip under
-    // every greeting they contain.
     expect(offersFileNote({ projectId: 'p1', body: long })).toBe(false)
   })
 

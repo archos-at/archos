@@ -68,7 +68,7 @@ def gate_policy(state: str) -> GatePolicy:
 #: Most leaves, packs and uses kept; the BFF's own bounds.
 MAX_LEAVES = 8
 MAX_PACKS = 16
-MAX_USES = 40
+MAX_USES = 500
 
 #: Longest chain text kept: the BFF's own bound (``MAX_CONTEXT_TEXT_CHARS``), which cuts at a line and says so.
 MAX_TEXT_CHARS = 16_000
@@ -106,8 +106,9 @@ class UseRoute:
 
 @dataclass(frozen=True)
 class SourceRef:
-    """One identity of an edition in a legal database, from its manifestation records: ``ris_gesetzesnummer``
-    (``20000006``), ``ris_dokumentnummer``, ``eli`` (``https://…``). How each is matched: ``citations/roles.py``."""
+    """One identifier of a work at its source, as its record states it: ``scheme`` is an open word (``eli``, a
+    law number) that a source record declares under its ``identifiers``, and ``value`` is compared whole with
+    what that source reads off a passage's address (:func:`use_for_source_ref`). No scheme is named in code."""
 
     scheme: str
     value: str
@@ -125,7 +126,9 @@ class EditionUse:
     corpus_files: tuple[str, ...] = ()
     designation: str | None = None
     edition_label: str | None = None
-    #: The edition's identities in a legal database: what a RIS passage is matched by (``citations/roles.py``).
+    #: Who issues the work, as its record names it: the publisher a citation of the edition's text names.
+    issuer: str | None = None
+    #: The work's identifiers at its source: what a passage read live there is matched by (:func:`use_for_source_ref`).
     source_refs: tuple[SourceRef, ...] = ()
     #: Whether the edition's own scope (``applicability``) leaves it open for this project: a person's check
     #: (``check``), a building fact not yet known (``open``), or ``not_applicable``. False when the edition
@@ -151,6 +154,24 @@ class EditionUse:
     text_status: str | None = None
 
 
+#: Most sources a turn carries (``MAX_CONTEXT_SOURCES`` in the TypeScript wire).
+MAX_SOURCES = 8
+
+
+@dataclass(frozen=True)
+class LawSource:
+    """A released public source a law lookup may read this turn: its key, the revision, its country, its record.
+
+    ``config`` is the record as ``public_sources.source.Source`` reads it, without the fixtures that proved it
+    before release (``public_sources.source.parse_released_source``). Which source answers is its country.
+    """
+
+    key: str
+    revision_id: str
+    country: str
+    config: dict = field(default_factory=dict, compare=False, hash=False)
+
+
 @dataclass(frozen=True)
 class KnowledgeContext:
     """What the turn may claim about the law of its site, and what it may retrieve."""
@@ -161,10 +182,12 @@ class KnowledgeContext:
     coverage: str | None = None
     #: The first leaf's country (ISO 3166-1 alpha-2); None when no site is placed.
     site_country: str | None = None
+    #: The site is an assumption of the profile (``certainty`` ``unverified``), not a confirmed fact.
+    site_assumed: bool = False
     chains: dict[str, tuple[str, ...]] = field(default_factory=dict)
     packs: dict[str, int] = field(default_factory=dict)
     retrieval_countries: frozenset[str] = frozenset()
-    #: Per procedure, per node: the reference day's basis (``undetermined`` until a reviewed rule names it).
+    #: Per procedure, per node: the reference day (a filing day that has come), else its basis (``undetermined``).
     reference_dates: dict[str, dict[str, str]] = field(default_factory=dict)
     uses: tuple[EditionUse, ...] = ()
     #: The chain text the BFF rendered for the site: the turn's ``<building_law>`` block. None when nothing binds.
@@ -174,6 +197,10 @@ class KnowledgeContext:
     updated_since_last_answer: tuple[str, ...] = ()
     #: Law on the chain whose edition at the date the records cannot name, as ``work_id=reason``: no edition is assumed.
     undetermined: tuple[str, ...] = ()
+    #: The released sources with a law lookup of the countries the turn reads; empty where it reads none.
+    sources: tuple[LawSource, ...] = ()
+    #: Released sources the BFF could not carry this turn (too large, or past the cap): never read silently.
+    sources_dropped: tuple[str, ...] = ()
 
     @property
     def withholds_law(self) -> bool:
@@ -267,6 +294,7 @@ def _use(raw: object) -> EditionUse | None:
         corpus_files=_strings(raw.get("corpusFiles")),
         designation=_text(raw.get("designation")),
         edition_label=_text(raw.get("editionLabel")),
+        issuer=_text(raw.get("issuer")),
         source_refs=_source_refs(raw.get("sourceRefs")),
         scope_unsettled=_scope_unsettled(raw.get("applicability")),
         date=_day(raw.get("date")),
@@ -306,6 +334,18 @@ def _undetermined(value: object) -> tuple[str, ...]:
     )
 
 
+def _sources(value: object) -> tuple[LawSource, ...]:
+    """``sources`` as the BFF sends them; an item of any other shape is dropped. Pure."""
+    items = value if isinstance(value, list) else []
+    return tuple(
+        LawSource(key=item["key"], revision_id=item["revisionId"], country=item["country"], config=item["config"])
+        for item in items[:MAX_SOURCES]
+        if isinstance(item, dict)
+        and all(_text(item.get(name)) for name in ("key", "revisionId", "country"))
+        and isinstance(item.get("config"), dict)
+    )
+
+
 def parse_knowledge_context(raw: object) -> KnowledgeContext:
     """The turn context's ``knowledgeContext``; anything not its shape is ``knowledge_unavailable``. Pure."""
     if not isinstance(raw, dict):
@@ -320,6 +360,7 @@ def parse_knowledge_context(raw: object) -> KnowledgeContext:
     leaves = [leaf for leaf in gate.get("leaves") or [] if isinstance(leaf, dict)][:MAX_LEAVES]
     coverage = leaves[0].get("coverage") if leaves and isinstance(leaves[0].get("coverage"), str) else None
     site_country = leaves[0].get("country") if leaves and isinstance(leaves[0].get("country"), str) else None
+    site_assumed = bool(leaves) and leaves[0].get("certainty") == "unverified"
     chains_raw = raw.get("chains")
     chains = {str(leaf): _strings(chain) for leaf, chain in chains_raw.items()} if isinstance(chains_raw, dict) else {}
     packs = {
@@ -335,6 +376,7 @@ def parse_knowledge_context(raw: object) -> KnowledgeContext:
         reason=gate.get("reason") if isinstance(gate.get("reason"), str) else None,
         coverage=coverage,
         site_country=site_country,
+        site_assumed=site_assumed,
         chains=chains,
         packs=packs,
         retrieval_countries=frozenset(countries),
@@ -344,6 +386,8 @@ def parse_knowledge_context(raw: object) -> KnowledgeContext:
         date=raw.get("date") if isinstance(raw.get("date"), str) else None,
         updated_since_last_answer=_strings(raw.get("updatedSinceLastAnswer"))[:MAX_PACKS],
         undetermined=_undetermined(raw.get("undetermined")),
+        sources=_sources(raw.get("sources")),
+        sources_dropped=_strings(raw.get("sourcesDropped"))[:MAX_SOURCES],
     )
 
 
@@ -362,6 +406,8 @@ def trace_metadata(context: KnowledgeContext) -> dict[str, object]:
         "base_updated_since_last_answer": ",".join(context.updated_since_last_answer),
         "building_law_uses": len(context.uses),
         "undetermined_editions": ";".join(context.undetermined),
+        "law_sources": ",".join(f"{source.key}@{source.revision_id}" for source in context.sources),
+        "law_sources_dropped": ",".join(context.sources_dropped),
     }
 
 
@@ -395,11 +441,6 @@ def get_turn_knowledge_context() -> KnowledgeContext | None:
 def turn_knowledge_context() -> KnowledgeContext:
     """The turn's context; ``knowledge_unavailable`` when none is bound, so a reader fails closed."""
     return _turn_knowledge_context.get() or UNAVAILABLE
-
-
-#: The country no office is entitled to (ISO 3166-1 user-assigned): a base-corpus chunk whose text no
-#: release names, or whose ingest job named no country, carries it and is read by nobody (fail closed).
-UNRELEASED_COUNTRY = "ZZ"
 
 
 class _Unscoped:
@@ -480,6 +521,18 @@ def _belongs_to_no_request(request: RequestContext) -> bool:
         and request.user_id is None
         and request.envelope_header is None
     )
+
+
+def binding_editions() -> frozenset[str]:
+    """The editions that bind at the turn's site, by record id; empty without a bound context or a binding edition.
+
+    Retrieval prefers their passages (``vector_store.boost.ranking_formula``): a preference, never a filter,
+    so a question about another edition still finds it.
+    """
+    context = _turn_knowledge_context.get()
+    if context is None:
+        return frozenset()
+    return frozenset(use.edition_id for use in context.uses if use.role == "binding" and use.edition_id)
 
 
 def base_corpus_readable() -> bool | None:
@@ -574,13 +627,24 @@ def covered_sentences(countries: frozenset[str]) -> str:
     )
 
 
+#: Said where the site that decides the law is an assumption: quiet, never a routine caveat (ADR-0158).
+ASSUMED_SITE_NOTE = (
+    "The site this law is read for is an assumption in the project memory, not a confirmed fact. Do not "
+    "mention that as a routine caveat. Only where the answer would be different in another Land or country, "
+    "say once which site the answer assumes and ask the person to confirm it."
+)
+
+
 def gate_note(context: KnowledgeContext) -> str | None:
-    """What the turn context says about the gate (ADR-0173 §4.6); None for core or full with nothing moved. Pure."""
+    """What the turn context says about the gate (ADR-0173 §4.6); None for core or full on a confirmed site with
+    nothing moved. Pure."""
     note = _GATE_NOTES.get(context.gate)
     covered = covered_sentences(context.retrieval_countries)
     lines = [note.format(country=context.site_country or "the site's country", covered=covered)] if note else []
     if note:
         lines.append(WEB_IS_INFORMATION)
+    if context.site_assumed and gate_policy(context.gate).may_bind:
+        lines.append(ASSUMED_SITE_NOTE)
     if context.updated_since_last_answer:
         lines.append(
             "The building-law base was updated since this conversation's last answer "

@@ -2,23 +2,9 @@
  * @vitest-environment node
  */
 
-/**
- * Nothing outside `i18n` imports the whole dictionary.
- *
- * A pull request runs the specs whose import graph reaches a changed file. When
- * every component reached the aggregate (`dictionaries/index.ts`, `en/index.ts`,
- * `de/index.ts`), a one-word copy change re-ran about 590 specs; with each
- * caller importing its namespace from `@/i18n/namespaces/`, a change to
- * `en/chat.ts` re-runs the specs that render chat copy
- * (docs/audit/blast-radius-2026-10.md §7.1). One value import of the aggregate
- * in a widely imported module undoes that for every namespace at once. A type
- * import is free: the transform drops it.
- */
-
 import { readFileSync, globSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
-/** Files that read every namespace on purpose, and why. */
 const ALLOWED: Record<string, string> = {
   'bff/navigation/describe-path.spec.ts':
     'checks that every label the path describer can return resolves, across the namespaces it names',

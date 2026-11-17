@@ -1,11 +1,3 @@
-"""A push reuses a pull request's green result only when that run proves the same tree.
-
-`ci/reuse_green_run.py` decides whether CI and Security on a push to `develop`
-may skip their jobs. Every way the decision can go wrong skips a check that
-never ran, so each refusal is pinned here against fake API responses, and so is
-the fallback: an error is a miss, and a miss runs everything.
-"""
-
 from __future__ import annotations
 
 import importlib.util
@@ -53,7 +45,6 @@ def artifact(**overrides) -> dict:
 
 
 def fake_api(*, artifacts: list[dict], run: dict | None = None, blob: str = BLOB):
-    """A GitHub API that knows one run and one workflow file, and records what was asked."""
     calls: list[str] = []
 
     def get(path: str):
@@ -91,7 +82,6 @@ def test_no_artifact_for_the_tree_is_a_miss(reuse):
 
 
 def test_an_artifact_for_another_name_is_ignored(reuse):
-    # The API filters by name, but the decision must not trust that it did.
     other = artifact(name=f"ci-green-{'d' * 40}")
 
     assert decide(reuse, fake_api(artifacts=[other], run=green_run()))[0] is False
@@ -109,8 +99,6 @@ def test_an_expired_artifact_is_a_miss(reuse):
     [("completed", "failure"), ("completed", "cancelled"), ("completed", "skipped"), ("in_progress", None)],
 )
 def test_a_run_that_did_not_conclude_success_is_a_miss(reuse, status, conclusion):
-    # The marker is uploaded by the gate job before the run ends. A run that was
-    # cancelled or failed afterwards (or is still going) proves nothing.
     run = green_run(status=status, conclusion=conclusion)
 
     assert decide(reuse, fake_api(artifacts=[artifact()], run=run))[0] is False
@@ -142,9 +130,6 @@ def test_the_run_path_may_carry_its_ref(reuse):
 
 
 def test_a_run_whose_workflow_file_differs_is_a_miss(reuse):
-    # A pull request runs the workflow from its own branch, so an unreviewed PR
-    # could edit the upload step to mint a marker for any tree. Pinning the file
-    # to the pushed commit's copy closes that.
     hit, message = decide(reuse, fake_api(artifacts=[artifact()], run=green_run(), blob="e" * 40))
 
     assert not hit

@@ -1,17 +1,3 @@
-/**
- * Render tests for the card that carries a derivation.
- *
- * Two things are worth asserting through a mounted tree, and only two — the
- * arithmetic itself is covered far more cheaply in `../lib/calculate.spec.ts`:
- *
- *   1. The card PRINTS what it computed, not what it was handed. A model can
- *      state operands and a limit and nothing else, so the result appearing on
- *      screen can only have come from the renderer.
- *   2. A click reveals and NOTHING else happens. The card is presentational
- *      („nicht zurück zum LLM … ich klick das und sehe mehr"), so the negative
- *      assertions — no fetch, no send — are the contract.
- */
-
 import { render as rtlRender, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ReactElement } from 'react'
@@ -30,7 +16,6 @@ vi.mock('@/features/chat/store', () => {
   return { useChatStore }
 })
 
-/** The reader is Austrian; the copy comes from the dictionary, so pin the locale. */
 const render = (ui: ReactElement) =>
   rtlRender(
     <I18nProvider initialLocale="de" fixedLocale>
@@ -76,8 +61,6 @@ describe('CalculationCard', () => {
       />
     )
 
-    // 2 × 17 + 30. Nothing in the props says 64; the only way it can be on
-    // screen is that the card worked it out.
     expect(screen.getByText('64')).toBeInTheDocument()
     expect(screen.getByText('17')).toBeInTheDocument()
     expect(screen.getByText('30')).toBeInTheDocument()
@@ -90,8 +73,6 @@ describe('CalculationCard', () => {
     expect(screen.getByText('erfüllt')).toBeInTheDocument()
     unmount()
 
-    // Same operands, a limit the result misses — and the card says so without
-    // anything in the payload having changed its mind.
     render(<CalculationCard title="Schrittmaß" steps={SCHRITTMASS} limit={{ comparator: '<=', value: 60 }} />)
     expect(screen.getByText('nicht erfüllt')).toBeInTheDocument()
   })
@@ -99,7 +80,6 @@ describe('CalculationCard', () => {
   it('carries the measured band into the result it computed', () => {
     render(<CalculationCard title="Schrittmaß" steps={SCHRITTMASS} limit={null} />)
 
-    // 2 × (17 ± 0,5) → ±1 cm on the sum, in Austrian notation.
     expect(screen.getByText('±1 cm')).toBeInTheDocument()
   })
 
@@ -158,8 +138,6 @@ describe('CalculationCard', () => {
       />
     )
 
-    // An expander that opens onto nothing teaches the reader the chevrons are
-    // decorative, and then they stop clicking the ones that are not.
     expect(screen.queryByRole('button')).not.toBeInTheDocument()
     expect(screen.getByText('3')).toBeInTheDocument()
   })

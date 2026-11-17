@@ -1,10 +1,3 @@
-"""``match_modes``: the answer suite's switch between the ways of finding (ADR-0127).
-
-An eval knob: the ``semantic`` arm keeps ranked search only. A literal-only search is
-refused: the ``grep`` arm unbinds the search instead (ADR-0133 slice 6). Production keeps
-every mode, so the default is the test that nothing narrows by accident.
-"""
-
 from __future__ import annotations
 
 from unittest.mock import MagicMock
@@ -23,7 +16,6 @@ class TestTheConfigField:
         assert KnowledgeRetrievalConfig().match_modes == ["meaning", "exact", "regex"]
 
     def test_an_override_string_is_a_list(self):
-        # `nat run --override … match_modes exact,regex`: the key is new to the YAML, so the value stays a string.
         config = KnowledgeRetrievalConfig(match_modes="meaning, exact")
         assert config.match_modes == ["meaning", "exact"]
 

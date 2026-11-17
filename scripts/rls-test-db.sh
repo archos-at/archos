@@ -139,6 +139,19 @@ restore_rls_role_names() {
   OWNER=grid_app_owner
 }
 
+# The release transfer suite (rollover-to-prod, step 2) moves a country's release
+# from one deployment to another: two fresh copies of the migrated database,
+# taken before any suite writes to it, one per deployment.
+# The carry suite (ADR-0181) carries released bundles into a third, the deployment they are carried to.
+RELEASE_DATABASES="grid_app_release_source grid_app_release_target grid_app_carry_target"
+release_databases() {
+  local name
+  for name in $RELEASE_DATABASES; do
+    $PSQL -q -v ON_ERROR_STOP=1 -c "CREATE DATABASE $name TEMPLATE grid_app OWNER $OWNER;"
+  done
+}
+RELEASE_URLS="TEST_RELEASE_SOURCE_DATABASE_URL=postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app_release_source TEST_RELEASE_TARGET_DATABASE_URL=postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app_release_target TEST_CARRY_DATABASE_URL=postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app_carry_target"
+
 # `--only <spec…>`: the migrated cluster and the restricted role, for the specs
 # named and nothing else. For one suite while you work on it, and for the
 # measurements that are not part of the gate (`task workspace:search:latency`). The
@@ -147,7 +160,9 @@ restore_rls_role_names() {
 if [ "${1:-}" = "--only" ]; then
   shift
   rename_rls_roles
+  release_databases
   echo "==> running $* as app_rw"
+  env $RELEASE_URLS \
   TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app" \
   TEST_OWNER_DATABASE_URL="postgres://app_owner@127.0.0.1:$PORT/grid_app" \
     npx vitest run "$@"
@@ -169,6 +184,7 @@ fi
 # name, so a suite cannot arrive here unrun.
 echo "==> renaming the row-level-security roles as the deploy does, after the migrations"
 rename_rls_roles
+release_databases
 # Site resolution: alone and first. It asserts that no territory record holds a
 # Gemeinde yet (no_territory), and the platform suite in the batch below releases
 # that territory; in one batch whichever ran first decided the outcome (seen
@@ -176,7 +192,7 @@ rename_rls_roles
 echo "==> running the site-resolution suite as app_rw"
 TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app" \
   npx vitest run bff/site-resolution/site-resolution.integration.spec.ts
-echo "==> running the isolation, BIM query, memory consolidation, profile-binding, legal-hold, chat-erasure, restricted-use, cross-project use, similar passages, project intake, run-reconciler, usage-ledger, answer-feedback, restricted memory, download-log, Papierkorb, closed-project, Steckbrief, Ausmisten, upload batches, quarantine decisions, the agent's proposed operations and solo reads, restricted-feedback, revision-subject, the hold on a document, permit-record, push subscription, inbox paging, Anmerkungen, Offene Punkte, folder cards and search providers, workspace search, inbound mail and mail thread suites as app_rw"
+echo "==> running the isolation, BIM query, memory consolidation, personal memory, profile-binding, legal-hold, chat-erasure, restricted-use, cross-project use, similar passages, project intake, run-reconciler, usage-ledger, answer-feedback, restricted memory, download-log, Papierkorb, closed-project, Steckbrief, Ausmisten, upload batches, quarantine decisions, the agent's proposed operations and solo reads, restricted-feedback, revision-subject, the hold on a document, permit-record, push subscription, inbox paging, Anmerkungen, Offene Punkte, folder cards and search providers, workspace search, inbound mail and mail thread suites as app_rw"
 TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app" \
   npx vitest run \
     bff/db/tenant-isolation.integration.spec.ts \
@@ -186,11 +202,15 @@ TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app"
     bff/bim/model-kinds-repository.integration.spec.ts \
     bff/projects/memory-service.integration.spec.ts \
     bff/projects/memory-restricted.integration.spec.ts \
+    bff/personal-memory/personal-memory.integration.spec.ts \
+    bff/personal-memory/personal-memory-topics.integration.spec.ts \
+    bff/projects/memory-topics.integration.spec.ts \
     bff/documents/document-versions.integration.spec.ts \
     bff/documents/list-page.integration.spec.ts \
     bff/documents/quarantine-listing.integration.spec.ts \
     bff/documents/visibility.integration.spec.ts \
     bff/documents/local-work-ownership.integration.spec.ts \
+    bff/documents/dispatch-failure-race.integration.spec.ts \
     bff/upload-batches/upload-batches.integration.spec.ts \
     bff/authz/folder-access.integration.spec.ts \
     bff/projects/collection-placement.integration.spec.ts \
@@ -217,9 +237,11 @@ TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app"
     bff/agent-api/operation-proposals.integration.spec.ts \
     bff/agent-api/read-gate.integration.spec.ts \
     bff/project-intake/repository.integration.spec.ts \
+    bff/project-intake/setup-records.integration.spec.ts \
     bff/changes/repository.integration.spec.ts \
     bff/push/repository.integration.spec.ts \
     bff/agent-asks/repository.integration.spec.ts \
+    bff/turns/turn-steps.integration.spec.ts \
     bff/residency/processing-policy.integration.spec.ts \
     bff/inbox/repository.integration.spec.ts \
     bff/project-experience/readable-files.integration.spec.ts \
@@ -248,9 +270,11 @@ TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app"
     bff/mail-thread/follow.integration.spec.ts \
     bff/mail-thread/archive.integration.spec.ts \
     bff/base-knowledge/store/repository.integration.spec.ts \
+    bff/base-knowledge/store/office-editions.integration.spec.ts \
     bff/base-knowledge/store/rulesets.integration.spec.ts \
     bff/base-knowledge/platform/platform.integration.spec.ts \
     bff/base-knowledge/platform/approve-alone.integration.spec.ts \
+    bff/base-knowledge/platform/single-operator.integration.spec.ts \
     bff/base-knowledge/platform/texts.integration.spec.ts \
     bff/base-knowledge/platform/organization-countries.integration.spec.ts
 
@@ -284,6 +308,15 @@ echo "==> running the PDF source suite as app_rw"
 TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app" \
   npx vitest run bff/agent-api/pdf-source-door.integration.spec.ts
 
+# A country's release, exported from one deployment's database and imported as a
+# draft into another's (rollover-to-prod, step 2). Its own two databases.
+echo "==> running the release transfer suite as app_rw"
+env $RELEASE_URLS npx vitest run bff/base-knowledge/platform/release-transfer.integration.spec.ts
+
+# Reviewed releases carried to a deployment by the promotion (ADR-0181): its own database.
+echo "==> running the knowledge carry suite as app_rw"
+env $RELEASE_URLS npx vitest run bff/base-knowledge/platform/carry.integration.spec.ts
+
 # The tenant suites above may leave queued jobs behind: Ausmisten bins a
 # subfolder, and a Papierkorb delete queues its purge takeover and a refused
 # one its restore. The job-queue suites claim from the whole table and expect
@@ -308,7 +341,8 @@ TEST_OWNER_DATABASE_URL="postgres://app_owner@127.0.0.1:$PORT/grid_app" \
     bff/jobs-queue/orchestrator.integration.spec.ts \
     bff/scheduling/repository.integration.spec.ts \
     bff/base-knowledge/chain/chain.integration.spec.ts \
-    bff/base-knowledge/store/visibility.integration.spec.ts
+    bff/base-knowledge/store/visibility.integration.spec.ts \
+    bff/base-knowledge/golden/golden-run.integration.spec.ts
 
 # A function, a table and a view created by a superuser (a restore, a hand-run
 # script) are what made `ALTER FUNCTION … RENAME` in migration 0190 fail on
@@ -4100,3 +4134,271 @@ SQL
 apply_in dq_0227 0227_deletion_queue_pending_has_attempts.sql
 check_in dq_0227 "SELECT status || '/' || attempts FROM deletion_queue WHERE entity_id = 'f-c-failed'" "pending/9" "0227 applies again after its down, repairing a row stranded meanwhile"
 echo "==> 0227 pending deletions keep an attempt and its down migration verified"
+# 0228: golden cases as records, and golden runs (ADR-0165 amendment). What the
+# service does is golden-run.integration.spec.ts (registered above); here, what
+# the database itself holds: a golden case is a platform record whose body is
+# never rewritten; a run's case is asked before it is settled, a settled one
+# has a verdict with its result or a failure and never both, and one
+# conversation answers one case. The down drops it all, and 0228 applies again.
+# ---------------------------------------------------------------------------
+echo "==> verifying 0228 golden cases and its down migration on gc_0228"
+migrate_until gc_0228 0228_golden_cases
+CR="c0000000-0000-4000-8000-000000000228"
+RV="e0000000-0000-4000-8000-000000000228"
+RUN_ID="a0000000-0000-4000-8000-000000000228"
+ASK="b0000000-0000-4000-8000-000000000228"
+sql_in gc_0228 <<SQL
+INSERT INTO knowledge_change_requests (id, title, country_id, created_by) VALUES ('$CR', 'XA', 'XA', 'user_author');
+INSERT INTO knowledge_records (id, organization_id, type, country_id, created_by) VALUES ('golden_case:xa-stair', NULL, 'golden_case', 'XA', 'user_author');
+INSERT INTO knowledge_revisions (revision_id, record_id, record_type, organization_id, created_by, change_request_id)
+  VALUES ('$RV', 'golden_case:xa-stair', 'golden_case', NULL, 'user_author', '$CR');
+INSERT INTO knowledge_golden_case_revisions (revision_id, record_id, organization_id, question, language, context, expected, must_not, tags)
+  VALUES ('$RV', 'golden_case:xa-stair', NULL, 'How long may the escape route be?', 'en', '{}', '{"values": []}', '[]', '{fixture}');
+INSERT INTO knowledge_golden_runs (id, country_id, asked_in, started_by) VALUES ('$RUN_ID', 'XA', 'org_platform', 'user_author');
+INSERT INTO knowledge_golden_run_cases (run_id, record_id, revision_id, position) VALUES ('$RUN_ID', 'golden_case:xa-stair', '$RV', 0);
+SQL
+refused_in gc_0228 "INSERT INTO knowledge_records (id, organization_id, type, created_by) VALUES ('golden_case:office', 'org_a', 'golden_case', 'user_a')" "knowledge_records_platform_types" "an office owning a golden case"
+refused_in gc_0228 "UPDATE knowledge_golden_case_revisions SET question = 'Another question?'" "append-only" "a golden case's question rewritten"
+refused_in gc_0228 "UPDATE knowledge_golden_run_cases SET ask_id = '$ASK' WHERE run_id = '$RUN_ID'" "knowledge_golden_run_cases_asked" "a case asked with no conversation"
+refused_in gc_0228 "UPDATE knowledge_golden_run_cases SET settled_at = now(), passed = true WHERE run_id = '$RUN_ID'" "knowledge_golden_run_cases_settled" "a verdict with no result"
+refused_in gc_0228 "UPDATE knowledge_golden_run_cases SET settled_at = now(), passed = false, result = '{}', failure = 'failed: no answer' WHERE run_id = '$RUN_ID'" "knowledge_golden_run_cases_settled" "a verdict and a failure at once"
+sql_in gc_0228 <<SQL
+UPDATE knowledge_golden_run_cases SET ask_id = '$ASK', conversation_id = 's_golden_0228', asked_at = now() WHERE run_id = '$RUN_ID';
+INSERT INTO knowledge_golden_runs (id, country_id, asked_in, started_by) VALUES ('a1000000-0000-4000-8000-000000000228', 'XA', 'org_platform', 'user_author');
+SQL
+refused_in gc_0228 "INSERT INTO knowledge_golden_run_cases (run_id, record_id, revision_id, position, ask_id, conversation_id, asked_at) VALUES ('a1000000-0000-4000-8000-000000000228', 'golden_case:xa-stair', '$RV', 0, gen_random_uuid(), 's_golden_0228', now())" "knowledge_golden_run_cases_conversation" "a second case in one conversation"
+sql_in gc_0228 <<SQL
+UPDATE knowledge_golden_run_cases SET settled_at = now(), passed = true, result = '{"checks": []}' WHERE run_id = '$RUN_ID';
+SQL
+check_in gc_0228 "SELECT count(*) FROM knowledge_golden_run_cases WHERE passed" "1" "0228: a case asked, then settled with its verdict"
+apply_in gc_0228 0228_golden_cases.down.sql
+check_in gc_0228 "SELECT count(*) FROM information_schema.tables WHERE table_name LIKE 'knowledge_golden_%'" "0" "0228 down drops the golden tables"
+check_in gc_0228 "SELECT count(*) FROM knowledge_records WHERE type = 'golden_case'" "0" "0228 down drops the golden cases"
+apply_in gc_0228 0228_golden_cases.sql
+check_in gc_0228 "SELECT count(*) FROM information_schema.tables WHERE table_name LIKE 'knowledge_golden_%'" "3" "0228 applies again after its down"
+echo "==> 0228 golden cases and its down migration verified"
+# ---------------------------------------------------------------------------
+# Migration 0229: personal memory (ADR-0180). The table comes up under
+# row-level security with a policy that names the person, for reads and for
+# writes; a kind or provenance outside the vocabulary, a blank note and a second
+# note of one person with the same normalized text are refused, while a
+# colleague may hold the same sentence. Who reads whose row is proven as the
+# runtime role in personal-memory.integration.spec.ts above. The down drops the
+# table with every note in it, and 0229 applies again, twice, empty.
+# ---------------------------------------------------------------------------
+echo "==> verifying the 0229 personal memory table and its down migration on pm_0229"
+migrate_until pm_0229 0229_personal_memory
+check_in pm_0229 "SELECT relrowsecurity::text FROM pg_class WHERE relname = 'personal_memory'" "true" "0229 brings the table up under row-level security"
+check_in pm_0229 "SELECT (pg_get_expr(polqual, polrelid) LIKE '%current_user_id()%' AND pg_get_expr(polwithcheck, polrelid) LIKE '%current_user_id()%')::text FROM pg_policy WHERE polrelid = 'personal_memory'::regclass AND polname = 'tenant_isolation'" "true" "0229: the policy names the person, for reads and for writes"
+sql_in pm_0229 <<<"INSERT INTO personal_memory (organization_id, user_id, kind, content) VALUES ('org_0229', 'user_a', 'preference', 'Answers in short paragraphs.')"
+PM225="INSERT INTO personal_memory (organization_id, user_id, kind, content, provenance_type) VALUES ('org_0229', 'user_a'"
+refused_in pm_0229 "$PM225, 'decision', 'A project kind', 'agent')" "personal_memory_kind_known" "a project kind was accepted"
+refused_in pm_0229 "$PM225, 'profile', 'Leads the reviews', 'profile_graduation')" "personal_memory_provenance_known" "an unknown provenance was accepted"
+refused_in pm_0229 "$PM225, 'profile', '   ', 'agent')" "personal_memory_content_bounded" "a blank note was accepted"
+refused_in pm_0229 "$PM225, 'preference', 'answers in SHORT paragraphs', 'agent')" "uniq_personal_memory_owner_content" "the same sentence was kept twice for one person"
+sql_in pm_0229 <<<"INSERT INTO personal_memory (organization_id, user_id, kind, content) VALUES ('org_0229', 'user_b', 'preference', 'Answers in short paragraphs.')"
+check_in pm_0229 "SELECT count(*) FROM personal_memory" "2" "0229: a colleague holds the same sentence in a row of their own"
+apply_in pm_0229 0229_personal_memory.down.sql
+check_in pm_0229 "SELECT count(*) FROM information_schema.tables WHERE table_name = 'personal_memory'" "0" "0229 down drops the table"
+apply_in pm_0229 0229_personal_memory.sql
+apply_in pm_0229 0229_personal_memory.sql   # up twice: idempotent
+check_in pm_0229 "SELECT relrowsecurity::text || ':' || (SELECT count(*) FROM personal_memory) FROM pg_class WHERE relname = 'personal_memory'" "true:0" "0229 applies again after its down, twice, secured and empty"
+echo "==> 0229 personal memory table and its down migration verified"
+# ---------------------------------------------------------------------------
+# Migration 0230: a conversation can be temporary (ADR-0180 rule 2). Every
+# conversation that existed keeps memory as before, and the flag is never
+# null. The down drops the column and leaves the conversations; which ones
+# were temporary is forgotten, so after 0230 applies again none is.
+# ---------------------------------------------------------------------------
+echo "==> verifying the 0230 temporary flag and its down migration on tc_0230"
+migrate_before tc_0230 0230_conversation_temporary
+sql_in tc_0230 <<<"INSERT INTO conversations (id, organization_id, created_by) VALUES ('s_0230', 'org_0230', 'user_1')"
+apply_in tc_0230 0230_conversation_temporary.sql
+apply_in tc_0230 0230_conversation_temporary.sql   # up twice: idempotent
+check_in tc_0230 "SELECT temporary::text FROM conversations WHERE id = 's_0230'" "false" "0230: a conversation that existed keeps memory as before"
+refused_in tc_0230 "UPDATE conversations SET temporary = NULL WHERE id = 's_0230'" "not-null constraint" "a flag that is neither on nor off"
+sql_in tc_0230 <<<"UPDATE conversations SET temporary = true WHERE id = 's_0230'"
+apply_in tc_0230 0230_conversation_temporary.down.sql
+check_in tc_0230 "SELECT count(*) FROM information_schema.columns WHERE table_name = 'conversations' AND column_name = 'temporary'" "0" "0230 down drops the column"
+check_in tc_0230 "SELECT count(*) FROM conversations WHERE id = 's_0230'" "1" "0230 down leaves the conversation"
+apply_in tc_0230 0230_conversation_temporary.sql
+check_in tc_0230 "SELECT temporary::text FROM conversations WHERE id = 's_0230'" "false" "0230 applies again after its down, and no conversation is temporary"
+echo "==> 0230 temporary flag and its down migration verified"
+
+# ---------------------------------------------------------------------------
+# Migration 0231: a personal note knows the answer it was saved under
+# (ADR-0180: every save is visible on the answer that caused it). A note that
+# existed belongs to no answer, and the column takes an answer's id (a uuid)
+# or nothing. The policy still names the person. The down drops the column
+# and leaves the notes; which answer each was saved under is forgotten.
+# ---------------------------------------------------------------------------
+echo "==> verifying the 0231 source message column and its down migration on pm_0231"
+migrate_before pm_0231 0231_personal_memory_source_message
+sql_in pm_0231 <<<"INSERT INTO personal_memory (organization_id, user_id, kind, content) VALUES ('org_0231', 'user_a', 'preference', 'Answers in short paragraphs.')"
+apply_in pm_0231 0231_personal_memory_source_message.sql
+apply_in pm_0231 0231_personal_memory_source_message.sql   # up twice: idempotent
+check_in pm_0231 "SELECT coalesce(source_message_id::text, 'none') FROM personal_memory WHERE organization_id = 'org_0231'" "none" "0231: a note that existed belongs to no answer"
+sql_in pm_0231 <<<"INSERT INTO personal_memory (organization_id, user_id, kind, content, source_message_id) VALUES ('org_0231', 'user_a', 'profile', 'Leads the fire safety reviews.', '4f9c1d2e-3b4a-5c5d-8e6f-7a8b9c0d1e2f')"
+refused_in pm_0231 "INSERT INTO personal_memory (organization_id, user_id, kind, content, source_message_id) VALUES ('org_0231', 'user_a', 'profile', 'Signs the submissions.', 'not-an-answer-id')" "invalid input syntax for type uuid" "an answer id that is no uuid was accepted"
+check_in pm_0231 "SELECT (pg_get_expr(polqual, polrelid) LIKE '%current_user_id()%')::text FROM pg_policy WHERE polrelid = 'personal_memory'::regclass AND polname = 'tenant_isolation'" "true" "0231: the policy still names the person"
+apply_in pm_0231 0231_personal_memory_source_message.down.sql
+check_in pm_0231 "SELECT count(*) FROM information_schema.columns WHERE table_name = 'personal_memory' AND column_name = 'source_message_id'" "0" "0231 down drops the column"
+check_in pm_0231 "SELECT count(*) FROM personal_memory WHERE organization_id = 'org_0231'" "2" "0231 down leaves the notes"
+apply_in pm_0231 0231_personal_memory_source_message.sql
+check_in pm_0231 "SELECT count(*) FROM personal_memory WHERE organization_id = 'org_0231' AND source_message_id IS NULL" "2" "0231 applies again after its down, and no note belongs to an answer"
+echo "==> 0231 source message column and its down migration verified"
+
+# ---------------------------------------------------------------------------
+# Migration 0232: a personal note is unique per person by a stored key that
+# the service computes (`personalContentKey`), not by 0229's `[^a-z0-9]+`
+# expression, which folded every note with no ASCII letter to ''. A note that
+# existed gets a key; the key is never blank; two notes with no ASCII letter
+# are two rows. The down is lossy: of the notes 0229's index folds together,
+# the newest per person stays.
+# ---------------------------------------------------------------------------
+echo "==> verifying the 0232 content key and its down migration on pm_0232"
+migrate_before pm_0232 0232_personal_memory_content_key
+PM228="INSERT INTO personal_memory (organization_id, user_id, kind, content, content_key) VALUES ('org_0232', 'user_a', 'preference'"
+sql_in pm_0232 <<<"INSERT INTO personal_memory (organization_id, user_id, kind, content) VALUES ('org_0232', 'user_a', 'preference', 'Answers in short paragraphs.')"
+sql_in pm_0232 <<<"INSERT INTO personal_memory (organization_id, user_id, kind, content) VALUES ('org_0232', 'user_a', 'preference', 'Привет')"
+apply_in pm_0232 0232_personal_memory_content_key.sql
+apply_in pm_0232 0232_personal_memory_content_key.sql   # up twice: idempotent
+check_in pm_0232 "SELECT content_key FROM personal_memory WHERE content = 'Answers in short paragraphs.'" "answers in short paragraphs" "0232: an existing note is keyed as the service keys it"
+check_in pm_0232 "SELECT count(*) FROM personal_memory WHERE organization_id = 'org_0232' AND btrim(content_key) <> ''" "2" "0232: every existing note has a key"
+check_in pm_0232 "SELECT count(*) FROM pg_indexes WHERE tablename = 'personal_memory' AND indexname = 'uniq_personal_memory_owner_content'" "0" "0232 drops the expression index"
+sql_in pm_0232 <<<"$PM228, 'Здравствуйте, отвечайте кратко', 'здравствуйте отвечайте кратко')"
+refused_in pm_0232 "$PM228, 'answers in short paragraphs', 'answers in short paragraphs')" "uniq_personal_memory_owner_content_key" "the same key was kept twice for one person"
+refused_in pm_0232 "$PM228, '!!!', ' ')" "personal_memory_content_key_present" "a blank key was accepted"
+refused_in pm_0232 "INSERT INTO personal_memory (organization_id, user_id, kind, content) VALUES ('org_0232', 'user_a', 'profile', 'Leads the reviews.')" "not-null constraint" "a note without a key was accepted"
+check_in pm_0232 "SELECT count(*) FROM personal_memory WHERE organization_id = 'org_0232'" "3" "0232: two notes with no ASCII letter are two rows"
+check_in pm_0232 "SELECT (pg_get_expr(polqual, polrelid) LIKE '%current_user_id()%')::text FROM pg_policy WHERE polrelid = 'personal_memory'::regclass AND polname = 'tenant_isolation'" "true" "0232: the policy still names the person"
+apply_in pm_0232 0232_personal_memory_content_key.down.sql
+check_in pm_0232 "SELECT count(*) FROM information_schema.columns WHERE table_name = 'personal_memory' AND column_name = 'content_key'" "0" "0232 down drops the column"
+check_in pm_0232 "SELECT string_agg(content, ' | ' ORDER BY content) FROM personal_memory WHERE organization_id = 'org_0232'" "Answers in short paragraphs. | Здравствуйте, отвечайте кратко" "0232 down keeps the newest of the notes 0229's index folds together"
+check_in pm_0232 "SELECT count(*) FROM pg_indexes WHERE tablename = 'personal_memory' AND indexname = 'uniq_personal_memory_owner_content'" "1" "0232 down restores the expression index"
+apply_in pm_0232 0232_personal_memory_content_key.sql
+check_in pm_0232 "SELECT count(*) FROM personal_memory WHERE organization_id = 'org_0232' AND content_key IS NOT NULL" "2" "0232 applies again after its down, and every note has a key"
+echo "==> 0232 content key and its down migration verified"
+# 0233: one operator alone, on a deployment that says so. Without the setting a
+# request is never single without its second review, by update or insert; with
+# it (the dev stack's BFF sets it per transaction) it is. The down hands such a
+# request its second review back and restores 0214's CHECK; 0233 applies again.
+# ---------------------------------------------------------------------------
+echo "==> verifying 0233 one operator alone and its down migration on so_0233"
+migrate_before so_0233 0233_knowledge_single_operator
+SO_0228=c0000000-0000-4000-8000-000000000228
+sql_in so_0233 <<<"INSERT INTO knowledge_change_requests (id, title, country_id, created_by) VALUES ('$SO_0228', 'dev alone', 'AT', 'user_author');"
+apply_in so_0233 0233_knowledge_single_operator.sql
+apply_in so_0233 0233_knowledge_single_operator.sql   # up twice: idempotent, the trigger included
+check_in so_0233 "SELECT knowledge_single_operator()" "f" "0228: off unless the transaction says so"
+refused_in so_0233 "UPDATE knowledge_change_requests SET approval = 'single' WHERE id = '$SO_0228'" "owes a second review" "a request made single without its second review"
+refused_in so_0233 "INSERT INTO knowledge_change_requests (id, title, country_id, created_by, approval) VALUES (gen_random_uuid(), 'born single', 'AT', 'user_author', 'single')" "owes a second review" "a request inserted single without its second review"
+sql_in so_0233 <<SQL
+BEGIN;
+SELECT set_config('knowledge.single_operator', 'on', true);
+UPDATE knowledge_change_requests SET approval = 'single' WHERE id = '$SO_0228';
+COMMIT;
+SQL
+check_in so_0233 "SELECT approval || '/' || coalesce(second_review, '-') FROM knowledge_change_requests WHERE id = '$SO_0228'" "single/-" "0228: one operator's request is single and owes nothing"
+apply_in so_0233 0233_knowledge_single_operator.down.sql
+check_in so_0233 "SELECT approval || '/' || coalesce(second_review, '-') FROM knowledge_change_requests WHERE id = '$SO_0228'" "single/due" "0228 down: the request owes its second review again"
+check_in so_0233 "SELECT count(*) FROM pg_proc WHERE proname = 'knowledge_single_operator'" "0" "0228 down drops the setting's reader"
+apply_in so_0233 0233_knowledge_single_operator.sql
+check_in so_0233 "SELECT count(*) FROM pg_trigger WHERE tgname = 'knowledge_change_requests_starts_four_eyes'" "1" "0228 applies again after its down"
+echo "==> 0233 one operator alone and its down migration verified"
+
+# ---------------------------------------------------------------------------
+# Migration 0234: a country's citation style is a ruleset of the purpose
+# `citation_style` (`citation_style.v1`). The payload serves that purpose and no
+# other. The down deletes the records that held one, by cascade (revisions are
+# append-only), and 0234 applies again.
+# ---------------------------------------------------------------------------
+echo "==> verifying the 0234 citation style and its down migration on cs_0234"
+migrate_until cs_0234 0234_citation_style_rulesets
+apply_in cs_0234 0234_citation_style_rulesets.sql   # up twice: idempotent
+CS_CR="c0000000-0000-4000-8000-000000000234"
+CS_RV="e0000000-0000-4000-8000-000000000234"
+sql_in cs_0234 <<SQL
+INSERT INTO knowledge_change_requests (id, title, country_id, created_by) VALUES ('$CS_CR', 'XA', 'XA', 'user_author');
+INSERT INTO knowledge_records (id, organization_id, type, country_id, created_by) VALUES ('ruleset:xa-citation-style', NULL, 'ruleset', 'XA', 'user_author');
+INSERT INTO knowledge_revisions (revision_id, record_id, record_type, organization_id, created_by, change_request_id)
+  VALUES ('$CS_RV', 'ruleset:xa-citation-style', 'ruleset', NULL, 'user_author', '$CS_CR');
+INSERT INTO knowledge_ruleset_revisions (revision_id, record_id, organization_id, purpose, territory_ids, valid_from, payload_schema, payload)
+  VALUES ('$CS_RV', 'ruleset:xa-citation-style', NULL, 'citation_style', '{XA}', '2026-01-01', 'citation_style.v1', '{"styles": []}');
+SQL
+refused_in cs_0234 "INSERT INTO knowledge_ruleset_revisions (revision_id, record_id, organization_id, purpose, territory_ids, valid_from, payload_schema, payload) VALUES (gen_random_uuid(), 'ruleset:xa-citation-style', NULL, 'terminology', '{XA}', '2026-01-01', 'citation_style.v1', '{}')" "knowledge_ruleset_revisions_citation_style_purpose" "a citation style under another purpose"
+apply_in cs_0234 0234_citation_style_rulesets.down.sql
+check_in cs_0234 "SELECT count(*) FROM knowledge_records WHERE id = 'ruleset:xa-citation-style'" "0" "0234 down drops the record that held a citation style"
+refused_in cs_0234 "INSERT INTO knowledge_ruleset_revisions (revision_id, record_id, organization_id, purpose, territory_ids, valid_from) VALUES (gen_random_uuid(), 'ruleset:none', NULL, 'citation_style', '{XA}', '2026-01-01')" "knowledge_ruleset_revisions_purpose_known" "the citation_style purpose after the down"
+apply_in cs_0234 0234_citation_style_rulesets.sql
+check_in cs_0234 "SELECT count(*) FROM pg_constraint WHERE conname = 'knowledge_ruleset_revisions_citation_style_purpose'" "1" "0234 applies again after its down"
+echo "==> 0234 citation style and its down migration verified"
+
+# ---------------------------------------------------------------------------
+# Migration 0235: a territory states its time zone (`zone`). The down drops the
+# column (lossy: every stated zone goes), and 0235 applies again.
+# ---------------------------------------------------------------------------
+echo "==> verifying the 0235 territory zone and its down migration on tz_0235"
+migrate_until tz_0235 0235_territory_zone
+apply_in tz_0235 0235_territory_zone.sql   # up twice: idempotent
+check_in tz_0235 "SELECT count(*) FROM information_schema.columns WHERE table_name = 'knowledge_territory_revisions' AND column_name = 'zone'" "1" "0235 adds the zone column"
+apply_in tz_0235 0235_territory_zone.down.sql
+check_in tz_0235 "SELECT count(*) FROM information_schema.columns WHERE table_name = 'knowledge_territory_revisions' AND column_name = 'zone'" "0" "0235 down drops the zone column"
+apply_in tz_0235 0235_territory_zone.sql
+check_in tz_0235 "SELECT count(*) FROM information_schema.columns WHERE table_name = 'knowledge_territory_revisions' AND column_name = 'zone'" "1" "0235 applies again after its down"
+echo "==> 0235 territory zone and its down migration verified"
+
+# ---------------------------------------------------------------------------
+# Migration 0236: the records policy reads the entitlement and the reach as one
+# set each (`knowledge_entitled_countries()`, `knowledge_reached_ids()`), not
+# 0211's per-row `knowledge_country_entitled` and walk. The down restores 0228's
+# policy and drops both functions (lossless; the per-row functions stay defined
+# throughout), and 0236 applies again. That the sets answer what the per-row
+# functions answer is `visibility.integration.spec.ts`'s.
+# ---------------------------------------------------------------------------
+echo "==> verifying the 0236 sets read once and its down migration on rr_0236"
+migrate_until rr_0236 0236_reached_records_once
+apply_in rr_0236 0236_reached_records_once.sql   # up twice: idempotent
+RR_SETS="SELECT count(*) FROM pg_policies WHERE tablename = 'knowledge_records' AND qual LIKE '%knowledge_reached_ids()%' AND qual LIKE '%knowledge_entitled_countries()%'"
+RR_ROWS="SELECT count(*) FROM pg_policies WHERE tablename = 'knowledge_records' AND (qual LIKE '%knowledge_reached_by_relation(id)%' OR qual LIKE '%knowledge_country_entitled(country_id)%')"
+check_in rr_0236 "$RR_SETS" "1" "0236 reads the entitlement and the reach as sets in the records policy"
+check_in rr_0236 "$RR_ROWS" "0" "0236 leaves no per-row function in the records policy"
+check_in rr_0236 "SELECT (pg_get_functiondef('knowledge_reached_ids()'::regprocedure) LIKE '%knowledge_entitled_countries()%')::text" "true" "0236 seeds the reach from the entitled set"
+check_in rr_0236 "SELECT count(*) FROM pg_proc WHERE proname IN ('knowledge_reached_by_relation', 'knowledge_country_entitled')" "2" "0236 keeps the per-row functions defined for the previous build"
+apply_in rr_0236 0236_reached_records_once.down.sql
+check_in rr_0236 "$RR_SETS" "0" "0236 down takes the sets out of the records policy"
+check_in rr_0236 "$RR_ROWS" "1" "0236 down restores 0228's per-row policy"
+check_in rr_0236 "SELECT count(*) FROM pg_proc WHERE proname IN ('knowledge_reached_ids', 'knowledge_entitled_countries')" "0" "0236 down drops both set functions"
+apply_in rr_0236 0236_reached_records_once.sql
+check_in rr_0236 "$RR_SETS" "1" "0236 applies again after its down"
+echo "==> 0236 sets read once and its down migration verified"
+
+# ---------------------------------------------------------------------------
+# Migration 0238: a memory note belongs to a topic (ADR-0180). A note that
+# existed has none; the column takes text of 1 to 40 characters with no
+# surrounding space, or nothing; the topic indexes exist. The down drops the
+# column (lossy: every topic goes), and 0238 applies again.
+# ---------------------------------------------------------------------------
+echo "==> verifying the 0238 memory topics and their down migration on mt_0238"
+migrate_before mt_0238 0238_memory_topics
+sql_in mt_0238 <<<"INSERT INTO personal_memory (organization_id, user_id, kind, content, content_key) VALUES ('org_0238', 'user_a', 'preference', 'Answers in short paragraphs.', 'answers in short paragraphs')"
+sql_in mt_0238 <<<"INSERT INTO project_memory (scope, organization_id, kind, content) VALUES ('organization', 'org_0238', 'decision', 'Bauanträge gehen digital ein.')"
+apply_in mt_0238 0238_memory_topics.sql
+apply_in mt_0238 0238_memory_topics.sql   # up twice: idempotent
+check_in mt_0238 "SELECT coalesce(topic, 'none') FROM personal_memory WHERE organization_id = 'org_0238'" "none" "0238: a personal note that existed has no topic"
+check_in mt_0238 "SELECT coalesce(topic, 'none') FROM project_memory WHERE organization_id = 'org_0238'" "none" "0238: a project note that existed has no topic"
+sql_in mt_0238 <<<"UPDATE personal_memory SET topic = 'Brandschutz' WHERE organization_id = 'org_0238'"
+sql_in mt_0238 <<<"UPDATE project_memory SET topic = 'Stellplätze' WHERE organization_id = 'org_0238'"
+refused_in mt_0238 "UPDATE personal_memory SET topic = ' Brandschutz' WHERE organization_id = 'org_0238'" "personal_memory_topic_bounded" "a personal topic with a leading space was accepted"
+refused_in mt_0238 "UPDATE project_memory SET topic = 'Brandschutz ' WHERE organization_id = 'org_0238'" "project_memory_topic_bounded" "a project topic with a trailing space was accepted"
+refused_in mt_0238 "UPDATE personal_memory SET topic = '' WHERE organization_id = 'org_0238'" "personal_memory_topic_bounded" "an empty personal topic was accepted"
+refused_in mt_0238 "UPDATE project_memory SET topic = repeat('x', 41) WHERE organization_id = 'org_0238'" "project_memory_topic_bounded" "a 41-character project topic was accepted"
+check_in mt_0238 "SELECT count(*) FROM pg_indexes WHERE indexname IN ('idx_personal_memory_topic', 'idx_project_memory_topic')" "2" "0238: both topic indexes exist"
+check_in mt_0238 "SELECT (pg_get_expr(polqual, polrelid) LIKE '%current_user_id()%')::text FROM pg_policy WHERE polrelid = 'personal_memory'::regclass AND polname = 'tenant_isolation'" "true" "0238: the personal policy still names the person"
+apply_in mt_0238 0238_memory_topics.down.sql
+check_in mt_0238 "SELECT count(*) FROM information_schema.columns WHERE column_name = 'topic' AND table_name IN ('personal_memory', 'project_memory')" "0" "0238 down drops both topic columns"
+check_in mt_0238 "SELECT count(*) FROM personal_memory WHERE organization_id = 'org_0238'" "1" "0238 down leaves the personal notes"
+check_in mt_0238 "SELECT count(*) FROM project_memory WHERE organization_id = 'org_0238'" "1" "0238 down leaves the project notes"
+apply_in mt_0238 0238_memory_topics.sql
+check_in mt_0238 "SELECT count(*) FROM personal_memory WHERE organization_id = 'org_0238' AND topic IS NULL" "1" "0238 applies again after its down, and no note has a topic"
+echo "==> 0238 memory topics and their down migration verified"

@@ -470,7 +470,7 @@ function StorageRow({
 
   return (
     <>
-      <TableRow className={cn('align-top', editing && 'bg-muted/40 hover:bg-muted/40 border-b-0')}>
+      <TableRow className={cn('align-top', editing && 'bg-desk hover:bg-desk border-b-0')}>
         <TableCell className="w-full max-w-0 py-3">
           <div className="truncate font-medium">{name}</div>
           {/* The id, under a name; an organization without a name already shows it. */}
@@ -545,7 +545,7 @@ function StorageRow({
       {editing ? (
         // The editor takes a row of its own under the organization, so it has
         // the width for a field, two actions and an error at every viewport.
-        <TableRow className="bg-muted/40 hover:bg-muted/40">
+        <TableRow className="bg-desk hover:bg-desk">
           <TableCell colSpan={5} className="pb-3 pt-0">
             <LimitsEditor
               name={name}

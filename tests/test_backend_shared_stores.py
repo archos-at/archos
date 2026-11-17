@@ -1,13 +1,3 @@
-"""Every backend role points at the same shared stores.
-
-The backend image runs four process types, selected by ``PROCESS_ROLE``: ``chat``,
-``api``, ``worker`` and ``ingest-worker``. Data one role writes is read by
-another. A role that lacks one of the variables below silently falls back to a
-process-local store (a per-process cache, an in-memory draft store) or fails
-to start (no Qdrant URL), and the roles stop seeing each other's data. This reads the Compose
-files and the Pulumi backend env, so the check runs without Docker.
-"""
-
 from __future__ import annotations
 
 import re
@@ -47,13 +37,11 @@ def _pair(item: str) -> tuple[str, str]:
 
 
 def _environment(services: dict, service: str) -> dict[str, str]:
-    """A service's environment, with what it inherits through ``extends`` underneath."""
     definition = services[service]
     extends = definition.get("extends")
     parent = extends if isinstance(extends, str) else (extends or {}).get("service")
     inherited = _environment(services, parent) if parent else {}
     raw = definition.get("environment") or []
-    # A list item without `=` passes the host's variable through; it has no value here.
     if isinstance(raw, dict):
         own = {k: "" if v is None else str(v) for k, v in raw.items()}
     else:
@@ -62,14 +50,12 @@ def _environment(services: dict, service: str) -> dict[str, str]:
 
 
 def _default(value: str) -> str:
-    """The innermost default of a Compose ``${VAR:-${OLD_VAR:-default}}``, or the value itself."""
     while match := WRAPPED_DEFAULT.fullmatch(value):
         value = match.group(1)
     return value
 
 
 def _backend_services(name: str) -> list[tuple[str, str, dict[str, str]]]:
-    """``(service, role, resolved environment)`` for every service that runs a backend role."""
     services = _load(name)
     found = []
     for service in services:
@@ -80,15 +66,12 @@ def _backend_services(name: str) -> list[tuple[str, str, dict[str, str]]]:
 
 
 def _backend_function(name: str) -> str:
-    """``export function backendEnv(`` through its closing brace, plus the helpers it spreads in."""
     source = PULUMI_CONFIG.read_text()
     start = re.search(r"^export function backendEnv\(", source, re.MULTILINE)
     assert start, f"{PULUMI_CONFIG}: no `export function backendEnv(`; move this test with the backend env"
     end = re.search(r"^\}", source[start.end() :], re.MULTILINE)
     assert end, f"{PULUMI_CONFIG}: backendEnv has no closing brace at column 0; this test cannot find its end"
     body = source[start.start() : start.end() + end.end()]
-    # A store's variables may come from a helper spread into the list
-    # (`env.push(...backendQdrantEnv(w))`): read those helpers too.
     for helper in re.findall(r"\.\.\.(\w+)\(", body):
         found = re.search(rf"^(?:export )?function {helper}\(", source, re.MULTILINE)
         if found:
@@ -125,7 +108,6 @@ def test_the_dsns_are_postgres_urls(name):
             value = _default(env.get(var, ""))
             if POSTGRES_URL.match(value):
                 continue
-            # Print the scheme only: the rest of a DSN carries credentials.
             scheme = value.partition("://")[0] if "://" in value else "(no scheme)"
             problems.append(
                 f"{name}: service {service} (PROCESS_ROLE={role}) {var} is not a postgres URL (scheme {scheme!r})"

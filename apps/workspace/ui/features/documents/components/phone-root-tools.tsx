@@ -1,13 +1,5 @@
 'use client'
 
-/**
- * A phone's level of Dateien: „Auswählen“ and „Ordner anlegen“ as the first
- * entries of the header's ⋯ (iOS Files' order), not as a row of two presses
- * above the brief, at the root and inside a folder alike (the header names the
- * folder and its ← goes up). The hook gives the entries and the dialog
- * „Ordner anlegen“ opens, in the level the reader stands in.
- */
-
 import type { JSX } from 'react'
 import { useState } from 'react'
 import { CheckSquare, FolderPlus } from 'lucide-react'
@@ -21,11 +13,8 @@ export function usePhoneRootTools({
   onStartSelection,
   onCreateFolder,
 }: {
-  /** A phone, at any level, with the folder tree in. */
   active: boolean
-  /** „Auswählen“, where there is something to pick; absent otherwise. */
   onStartSelection?: () => void
-  /** „Ordner anlegen“, where the reader may create one here; absent otherwise. */
   onCreateFolder?: (name: string) => Promise<boolean>
 }): { entries: ActionMenuEntry[]; dialog: JSX.Element | null } {
   const t = useTranslations(filesCopy)

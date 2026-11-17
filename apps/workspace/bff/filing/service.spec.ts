@@ -99,7 +99,6 @@ beforeEach(() => {
   vi.mocked(findProjectInOrg).mockResolvedValue(makeProject({ id: 'proj-1', status: 'active' }))
   vi.mocked(listProjectFolders).mockResolvedValue(FOLDERS)
   vi.mocked(listOfficeShelfFolders).mockResolvedValue([])
-  // „Honorare" has an own access list: not every member reads it.
   vi.mocked(listProjectFolderTree).mockResolvedValue([
     { id: 'f-bescheide', parentId: null, accessMode: 'inherit', everyoneReads: false },
     { id: 'f-honorare', parentId: null, accessMode: 'custom', everyoneReads: false },

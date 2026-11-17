@@ -10,11 +10,6 @@ const operation = (name: string) => {
   return op
 }
 
-/**
- * Art. 50(2) AI Act on the door: every operation whose answer carries a
- * model's text marks it in `_meta`, and the same operation with no such text
- * in its answer (the control) is not marked.
- */
 describe('the AI mark on a door result', () => {
   it('marks a written project summary, and not an empty one', () => {
     const op = operation('project-summary-generate')

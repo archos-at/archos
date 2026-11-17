@@ -115,7 +115,6 @@ describe('createProject', () => {
     )
 
     expect(insertProject).toHaveBeenCalledWith(expect.objectContaining({ startedOn: '2019-03-01' }))
-    // The repository write, not setProjectStatus: no FGA check right after the grant.
     expect(requireProjectAccess).not.toHaveBeenCalled()
     expect(setProjectStatusInOrg).toHaveBeenCalledWith('p1', 'org_1', 'active', {
       status: 'closed',
@@ -124,7 +123,6 @@ describe('createProject', () => {
       outcome: 'completed',
       endedOn: '2022-08-01',
     })
-    // Closed only once the creator holds the project.
     expect(assignRole.mock.invocationCallOrder[0]).toBeLessThan(setProjectStatusInOrg.mock.invocationCallOrder[0])
     expect(recordAuditEvent.mock.calls.map(([event]) => (event as { action: string }).action)).toEqual([
       'project.created',

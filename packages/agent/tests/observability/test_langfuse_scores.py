@@ -1,5 +1,3 @@
-"""Runtime checks as Langfuse scores (ADR-0089)."""
-
 import re
 import typing
 from pathlib import Path
@@ -164,8 +162,6 @@ class TestThreadReplyScores:
 
 
 class TestOneListOfNames:
-    """A score name exists in the definitions, the BFF and the docs, or nowhere."""
-
     def test_definitions_are_unique_and_typed(self):
         names = [definition.name for definition in SCORE_DEFINITIONS]
 
@@ -178,8 +174,6 @@ class TestOneListOfNames:
         [("answer-confidence", "answer_confidence"), ("confidence-capped", "answer_confidence_capped_reason")],
     )
     def test_every_category_a_turn_can_emit_is_declared(self, score, field):
-        """Review of #1582: ``law_unsettled`` was emitted and declared nowhere. Every value the turn's wire type
-        allows reaches ``turn_outcome_scores``, so each must be a declared category (and ``none`` for a cap)."""
         allowed = {arg for arg in typing.get_args(TurnResult.model_fields[field].annotation) if arg is not type(None)}
         values = {value for arg in allowed for value in (typing.get_args(arg) or (arg,))}
         categories = next(d for d in SCORE_DEFINITIONS if d.name == score).categories
@@ -191,8 +185,6 @@ class TestOneListOfNames:
 
     def test_every_score_the_bff_writes_is_defined(self):
         source = "\n".join(path.read_text() for path in (REPO / "apps/workspace/bff/langfuse").glob("*.ts"))
-        # Every score module names its score in one `*_SCORE_NAME` constant, so a new one is found
-        # without this test knowing its name; the literals catch a name written inline.
         constants = set(re.findall(r"""_SCORE_NAME = ['"]([a-z-]+)['"]""", source))
         literals = set(
             re.findall(
@@ -269,7 +261,6 @@ class TestFileToolsUsed:
         ],
     )
     def test_a_literal_search_is_navigation_as_the_eval_arms_count_it(self, tools, literal, expected):
-        """The files eval's navigate arm is list, read and LITERAL search; ranked search is the search arm."""
         from agent.observability.langfuse_scores import file_tool_scores
 
         [score] = file_tool_scores(tools, literal)

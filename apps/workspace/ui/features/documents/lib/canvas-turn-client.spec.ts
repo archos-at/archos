@@ -1,23 +1,11 @@
-/**
- * The canvas's turn client against a scripted socket and a recorded `fetch`.
- *
- * What is pinned: the conversation exists before the socket opens, the
- * question is stored as a row of it, and the `user_message` carries the
- * document, the box and the thread; answer events fold into one view; every
- * question ends (refused, unanswered twice, silent twice, stopped); one turn
- * at a time; a gap in the stream is attached from the last seq folded; a
- * question whose server reads neither its box nor its thread says so.
- */
-
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { CONNECTION_WAIT_NOTE_AFTER_MS } from '@/adapters/api/connection-wait'
 import type { TurnSocket, TurnSocketOptions } from '@/adapters/api/turn-socket'
 import type { ClientMessage } from '@/adapters/api/wire-v2'
-import type { TurnView } from '@/features/chat/lib/turn-fold'
+import type { TurnView } from '@/lib/turns/turn-fold'
 import { eventOf, frameOf } from '@/test-utils/wire-v2-fixtures'
 import { CANVAS_ACK_TIMEOUT_MS, CanvasTurnError, canvasDegradations, createCanvasTurnClient } from './canvas-turn-client'
 
-/** A socket the test plays: opens on connect, records what is sent, delivers frames on cue. */
 function scriptedSocket() {
   const sent: ClientMessage[] = []
   let options: TurnSocketOptions | null = null
@@ -51,7 +39,6 @@ function scriptedSocket() {
   }
 }
 
-/** A `fetch` that answers 201 (or what `status` says) and records each request. */
 function recordedFetch(status: (path: string) => number = () => 201) {
   const calls: Array<{ path: string; body: unknown }> = []
   const run = vi.fn(async (path: string, init?: RequestInit) => {
@@ -189,7 +176,6 @@ describe('the canvas turn client', () => {
 
     await vi.advanceTimersByTimeAsync(CANVAS_ACK_TIMEOUT_MS)
     expect(socket.socket.reconnect).toHaveBeenCalledTimes(1)
-    // The reopened socket said hello: the question went out again.
     expect(socket.sent.filter((message) => message.type === 'user_message')).toHaveLength(2)
     expect(last().phase).toBe('running')
 
@@ -230,7 +216,6 @@ describe('the canvas turn client', () => {
       shown: { seq: 2, chars: 8 },
     })
     expect(last()).toMatchObject({ phase: 'finished', outcome: 'cancelled', text: 'Eine Tür' })
-    // Free again.
     await expect(client.ask({ text: 'Noch eine', region: REGION }, 'turn-2')).resolves.toBeUndefined()
   })
 
@@ -367,14 +352,12 @@ describe('a turn that goes silent', () => {
     socket.deliver(1, { type: 'RUN_STARTED', message_id: 'a-1' })
     expect(views.at(-1)?.phase).toBe('running')
 
-    // The socket drops under the turn: nothing for a drop the first attempt mends.
     socket.options()?.onStatus?.('reconnecting')
     vi.advanceTimersByTime(CONNECTION_WAIT_NOTE_AFTER_MS - 1)
     expect(restoring).toEqual([])
     socket.options()?.onStatus?.('connecting')
     vi.advanceTimersByTime(1)
     expect(restoring).toEqual([true])
-    // The turn is still the person's to wait on: the client has not failed it.
     expect(views.at(-1)?.phase).toBe('running')
     socket.options()?.onStatus?.('open')
     expect(restoring).toEqual([true, false])

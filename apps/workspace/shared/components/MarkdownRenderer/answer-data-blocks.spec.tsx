@@ -1,11 +1,3 @@
-/**
- * Specs render in the English dictionary; the answer's own words stay German.
- *
- * The blocks that draw the record rather than the model's words: the project's
- * values (`:project[key]`, `:::cases{by=…}` and its ruler), the composer
- * prefills of „ergänzen" and „Als Aufgabe", „Gesucht in" from the retrieval
- * ledger, the subsumption's three parts, and the server's quote stamps.
- */
 import { fireEvent, render, screen, within } from '@/test-utils'
 import type { ReactNode } from 'react'
 import { describe, expect, it, vi } from 'vitest'
@@ -93,7 +85,6 @@ describe(':::cases{by=…}', () => {
     expect(rows[0]).not.toHaveAttribute('data-active')
     expect(within(rows[1]).getByTestId('status-mark')).toHaveAttribute('data-case', 'holds')
     expect(within(rows[1]).getByTestId('status-mark')).toHaveTextContent('applies')
-    // The model wrote „trifft zu" on GK 3: overruled, never drawn beside the renderer's mark.
     const overruled = within(rows[0]).getByTestId('status-mark')
     expect(overruled).toHaveAttribute('data-case', 'overruled')
     expect(overruled).toHaveTextContent('does not apply')
@@ -188,7 +179,6 @@ describe(':::not-found', () => {
     expect(within(panes[0] as HTMLElement).getByTestId('searched-list')).toHaveTextContent('OIB-Richtlinie 2 · S. 4')
     expect(panes[0]).toHaveTextContent('Bauordnung für Wien')
     expect(panes[1]).toHaveTextContent('Außenwandbekleidungen')
-    // The pane says „Entscheidet"; the sentence keeps only who.
     expect(panes[2]).toHaveTextContent('die Baubehörde im Einzelfall.')
     expect(panes[2]).not.toHaveTextContent('Entscheidet:')
   })
@@ -238,7 +228,6 @@ describe('quote stamps', () => {
     const stamp = screen.getByTestId('quote-stamp')
     expect(stamp).toHaveAttribute('data-status', 'verbatim')
     expect(stamp).toHaveTextContent('Wording verified [1]')
-    // No margin here, so the stamp itself says where the wording stands.
     expect(stamp).toHaveTextContent('Pkt. 3.1 · S. 4')
   })
 

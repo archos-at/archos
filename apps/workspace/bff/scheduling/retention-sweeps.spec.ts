@@ -87,7 +87,6 @@ describe('sweepFristReminder', () => {
   it('queues the reminders whenever it runs: the hour is the cron\'s, not a gate here', async () => {
     vi.spyOn(console, 'log').mockImplementation(() => {})
     const { sweepFristReminder } = await import('./sweeps')
-    // 15:00 in Vienna: a retry after backoff, or a run somebody triggered by hand.
     const afternoon = new Date('2026-07-15T13:00:00Z')
 
     await sweepFristReminder(afternoon)

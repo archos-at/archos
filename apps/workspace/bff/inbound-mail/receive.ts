@@ -144,6 +144,9 @@ const REFUSALS: ReadonlySet<DeliveryOutcomeCode> = new Set([
 export class InboundMailRejectedError extends ApiError {
   constructor(readonly outcome: Extract<DeliveryOutcomeCode, 'unknown_address' | 'switched_off' | 'too_large'>) {
     super(outcome === 'too_large' ? 413 : 404, outcome === 'too_large' ? 'PAYLOAD_TOO_LARGE' : 'NOT_FOUND', rejectText(configuredPublicSiteOrigin()))
+    // Spelled out: `ApiError` names itself by `new.target.name`, which the
+    // production bundle minifies (dev's first named refusal read `A`).
+    this.name = 'InboundMailRejectedError'
   }
 }
 
@@ -151,6 +154,7 @@ export class InboundMailRejectedError extends ApiError {
 class InboundMailRetryError extends ServiceUnavailableError {
   constructor(readonly outcome: Extract<DeliveryOutcomeCode, 'paused' | 'misconfigured' | 'unavailable'>, message: string) {
     super(message, { reason: outcome })
+    this.name = 'InboundMailRetryError'
   }
 }
 
@@ -159,6 +163,7 @@ class StagedBytesCapError extends ApiError {
   readonly outcome = 'cap_reached' as const
   constructor() {
     super(429, 'RATE_LIMITED', 'Too much mail is waiting for this address', { reason: 'cap-reached' })
+    this.name = 'StagedBytesCapError'
   }
 }
 
@@ -170,12 +175,32 @@ export function inboundMailPaused(env: Readonly<Record<string, string | undefine
 /** What one delivery did, for its one log line: ids, sizes and codes, never a name or an address. */
 interface Trail {
   outcome: DeliveryOutcomeCode
+  /** The last step the delivery started; a refusal happened there. */
+  stage: DeliveryStage
   organizationId: string | null
   addressId: string | null
   mailId: string | null
   bytes: number
   error: string | null
 }
+
+/**
+ * The steps of a delivery, in order, as `inbound_mail_refused.stage` and the
+ * log line name them. With `error` (the class and code chain, never a message)
+ * a refusal says where it failed and why without anyone reading a pod's log:
+ * `unavailable` alone hid a refused storage bucket for two days in 2026-11.
+ */
+export const DELIVERY_STAGES = [
+  'envelope',
+  'address',
+  'feature',
+  'limits',
+  'bucket',
+  'reception',
+  'body',
+  'complete',
+] as const
+export type DeliveryStage = (typeof DELIVERY_STAGES)[number]
 
 export interface ReceiveContext {
   request: Request
@@ -188,7 +213,15 @@ export interface ReceiveContext {
  */
 export async function receiveInboundMail(context: ReceiveContext, now: () => Date = () => new Date()): Promise<Response> {
   const started = Date.now()
-  const trail: Trail = { outcome: 'unavailable', organizationId: null, addressId: null, mailId: null, bytes: 0, error: null }
+  const trail: Trail = {
+    outcome: 'unavailable',
+    stage: 'envelope',
+    organizationId: null,
+    addressId: null,
+    mailId: null,
+    bytes: 0,
+    error: null,
+  }
   try {
     const answer = await acceptDelivery(context, trail, now)
     return Response.json({ status: answer.outcome }, { status: answer.outcome === 'duplicate' ? 200 : 202 })
@@ -205,7 +238,7 @@ function refusalResponse(error: unknown, request: Request, trail: Trail): Respon
   // Never hand an unknown error to the logger or the client: a database
   // error's message carries the statement's parameters (the envelope sender).
   const known = error instanceof ApiError ? error : new InboundMailRetryError('unavailable', 'Try again later')
-  if (!(error instanceof ApiError)) trail.error = errorName(error)
+  if (!(error instanceof ApiError) || UNEXPLAINED.has(trail.outcome)) trail.error = describeError(error)
   const response = errorResponse(known, request)
   if (known instanceof InboundMailRejectedError) response.headers.set(VERDICT_HEADER, VERDICT_REJECT)
   if (REFUSALS.has(trail.outcome)) {
@@ -213,7 +246,7 @@ function refusalResponse(error: unknown, request: Request, trail: Trail): Respon
       event: 'inbound_mail_refused',
       distinctId: null,
       organizationId: trail.organizationId,
-      properties: { reason: trail.outcome },
+      properties: { reason: trail.outcome, stage: trail.stage, error: trail.error },
     })
   }
   return response
@@ -231,16 +264,39 @@ function outcomeOf(error: unknown): DeliveryOutcomeCode {
   return 'unavailable'
 }
 
+/** The outcomes whose answer alone does not say what failed: their error is described even when it is an `ApiError`. */
+const UNEXPLAINED: ReadonlySet<DeliveryOutcomeCode> = new Set(['unavailable', 'misconfigured'])
+
+/** How many causes `describeError` follows. */
+const CAUSE_DEPTH = 4
+
 /** The class and code of an error, never its message. */
 function errorName(error: unknown): string {
   if (!(error instanceof Error)) return typeof error
-  const code = 'code' in error && typeof error.code === 'string' ? `:${error.code}` : ''
-  return `${error.name}${code}`
+  const fields = error as Error & { code?: unknown; Code?: unknown; $metadata?: { httpStatusCode?: unknown } }
+  const code = typeof fields.code === 'string' ? fields.code : typeof fields.Code === 'string' ? fields.Code : null
+  const status = typeof fields.$metadata?.httpStatusCode === 'number' ? fields.$metadata.httpStatusCode : null
+  return `${error.name}${code ? `:${code}` : ''}${status ? `:http${status}` : ''}`
+}
+
+/**
+ * The error and its causes, outermost first (`A < B < C`): classes, codes and
+ * an object store's HTTP status, never a message, since a message can carry an
+ * envelope address or an organization's name. Exported for its spec.
+ */
+export function describeError(error: unknown): string {
+  const names: string[] = []
+  let current: unknown = error
+  for (let depth = 0; depth < CAUSE_DEPTH && current !== undefined && current !== null; depth += 1) {
+    names.push(errorName(current))
+    current = current instanceof Error ? current.cause : undefined
+  }
+  return names.join(' < ')
 }
 
 function logDelivery(trail: Trail, ms: number): void {
   const line =
-    `[inbound-mail] delivery outcome=${trail.outcome} org=${trail.organizationId ?? '-'} ` +
+    `[inbound-mail] delivery outcome=${trail.outcome} stage=${trail.stage} org=${trail.organizationId ?? '-'} ` +
     `address=${trail.addressId ?? '-'} mail=${trail.mailId ?? '-'} bytes=${trail.bytes} ms=${ms}` +
     (trail.error ? ` error=${trail.error}` : '')
   if (trail.outcome === 'accepted' || trail.outcome === 'duplicate') {
@@ -298,6 +354,7 @@ async function acceptDelivery(
   let envelope: Envelope | null = null
   try {
     envelope = readEnvelope(request)
+    trail.stage = 'address'
     const token = envelope.token
     address = await withPlatformAccess('inbound mail: the address token names the project before any organization is known', () =>
       findActiveAddressByToken(token),
@@ -325,8 +382,10 @@ async function acceptForAddress(
   trail: Trail,
   now: () => Date,
 ): Promise<{ outcome: 'accepted' | 'duplicate' }> {
+  trail.stage = 'feature'
   await requireFeature(address.organizationId)
   const length = signature.contentLength
+  trail.stage = 'limits'
   if (length > MAX_RAW_MESSAGE_BYTES) throw new InboundMailRejectedError('too_large')
   await enforceInboundLimits(signature, address, length)
 
@@ -334,9 +393,11 @@ async function acceptForAddress(
   trail.mailId = mailId
   trail.bytes = length
   const owner = { organizationId: address.organizationId, projectId: address.projectId }
+  trail.stage = 'bucket'
   const bucket = await stagingBucketFor(address.organizationId)
   const key = inboundMailStagingKey(owner, mailId, 'raw.eml')
   const receivedAt = now()
+  trail.stage = 'reception'
   await insertReception({
     id: mailId,
     ...owner,
@@ -349,7 +410,9 @@ async function acceptForAddress(
     expiresAt: new Date(receivedAt.getTime() + INBOUND_MAIL_WAIT_DAYS * DAY_MS),
   })
 
+  trail.stage = 'body'
   const raw = await stageRawMessage(request, signature, bucket, key, mailId)
+  trail.stage = 'complete'
   const delivery = deliveryKey(raw, mailId)
   const held = await findMailIdByDeliveryKey(address.addressId, delivery)
   const outcome = held
@@ -371,8 +434,10 @@ async function requireFeature(organizationId: string): Promise<void> {
   let featureFlags: string[]
   try {
     featureFlags = await enabledFlagsForOrganization(organizationId)
-  } catch {
-    throw new InboundMailRetryError('unavailable', 'The office’s settings could not be read')
+  } catch (cause) {
+    const error = new InboundMailRetryError('unavailable', 'The office’s settings could not be read')
+    error.cause = cause
+    throw error
   }
   if (!isFeatureEnabled({ featureFlags }, FEATURE_FLAGS.inboundMail)) throw new InboundMailRejectedError('switched_off')
 }
@@ -429,7 +494,9 @@ async function storeRaw(bucket: string, key: string, body: ReadableStream<Uint8A
     await putRawMessage(bucket, key, body, length)
   } catch (error) {
     if (error instanceof ApiError) throw error
-    throw new InboundMailRetryError('unavailable', 'Object storage is unavailable')
+    const refusal = new InboundMailRetryError('unavailable', 'Object storage is unavailable')
+    refusal.cause = error
+    throw refusal
   }
 }
 

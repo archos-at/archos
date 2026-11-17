@@ -1,13 +1,3 @@
-"""The envelope's cards reach the turn's registry, and the prose's markers reach them.
-
-Through ``finalize_answer``, because the seam is the order: registration is
-what turns the array's numbers into registry positions, and it has to run
-before the suppression floor and the callout resolver read the prose. A card
-the validator refuses is repaired ONCE on the small model and never by a
-round; a card that still fails is dropped, recorded, and its marker removed
-so no later card slides onto its place.
-"""
-
 from __future__ import annotations
 
 import json
@@ -73,9 +63,6 @@ async def test_sound_cards_register_in_array_order_and_the_markers_stay(card_reg
 
 @pytest.mark.asyncio
 async def test_the_array_lands_after_the_tool_cards_and_its_markers_follow(card_registry):
-    """A draft the turn filed sits at position 1. The model follows the taught
-    rule and numbers its two cards after the handed marker, 2 and 3; each
-    lands on its own card, and the draft keeps its marker."""
     card_registry.add({"type": "document_draft", "title": "Aktenvermerk"})
     handed = "Draft written. Write [[card:1]] where the file belongs."
     prose = (
@@ -101,15 +88,12 @@ async def test_the_array_lands_after_the_tool_cards_and_its_markers_follow(card_
 
 @pytest.mark.asyncio
 async def test_a_model_that_ignores_the_offset_is_read_by_array_number(card_registry):
-    """Numbers at or below the handed marker that a tool did not hand out can
-    only be array numbers; a clash with a handed number stays the tool's."""
     card_registry.add({"type": "document_draft", "title": "Aktenvermerk"})
     card_registry.add({"type": "document_draft", "title": "Protokoll"})
     handed = "Drafts written. Write [[card:2]] where the file belongs."
 
     final = await finalize_answer(_messages([BASIS, TABLE_RIGHT], handed), registry=_sources(), tools=[], repair=None)
 
-    # `[[card:1]]` is array card 1 (ifc_model_picker, position 3); `[[card:2]]` was handed.
     assert "[[card:3]]" in final.content and "[[card:2]]" in final.content
     assert "[[card:1]]" not in final.content
 
@@ -141,7 +125,6 @@ async def test_a_card_that_still_fails_is_dropped_recorded_and_its_marker_remove
     )
 
     assert [card["type"] for card in card_registry.snapshot()] == ["ifc_model_picker"]
-    # The dropped card's marker is gone; the second card is now position 1.
     assert "[[card:2]]" not in final.content
     assert final.content.count("[[card:1]]") == 1
     recorded = [step.detail for step in emitted.steps if step.id.startswith("status:card:invalid")]
@@ -167,7 +150,6 @@ async def test_no_registry_bound_ships_the_answer_without_cards():
 
 @pytest.mark.asyncio
 async def test_a_marker_a_tool_handed_out_last_turn_is_not_taken_this_turn(card_registry):
-    """The transcript carries the previous turn; its `[[card:1]]` belongs to that turn's registry."""
     from langchain_core.messages import HumanMessage
 
     previous_turn = [
@@ -186,10 +168,6 @@ async def test_a_marker_a_tool_handed_out_last_turn_is_not_taken_this_turn(card_
 
 @pytest.mark.asyncio
 async def test_a_retired_card_is_laid_out_as_markdown_at_its_marker_not_dropped(card_registry):
-    """Guardrail 8: a model that reached for a retired type out of habit put
-    content in it that may be nowhere else. The card cannot register, so its
-    content lands at its marker as Markdown, and no later card slides onto its
-    place."""
     retired = {
         "type": "typed_table",
         "title": "Mindestmaße",

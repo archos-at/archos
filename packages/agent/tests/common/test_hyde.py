@@ -1,10 +1,3 @@
-"""Tests for agent.common.hyde — the HyDE-as-channel experiment (backlog item 14).
-
-The contract under test: the channel fires ONLY for queries with no exact
-identifier SHAPE (never vocabulary), the draft prompt carries no entities,
-and every draft failure reads as "no draft" (fail-open to the baseline).
-"""
-
 import asyncio
 from types import SimpleNamespace
 
@@ -18,8 +11,6 @@ from agent.common.hyde import should_draft
 
 
 class _FakeLLM:
-    """Recording chat-model double: canned reply, optional delay or error."""
-
     def __init__(self, reply: str = "", delay: float = 0.0, error: Exception | None = None) -> None:
         self.reply = reply
         self.delay = delay
@@ -77,8 +68,6 @@ class TestHasExactIdentifier:
         assert should_draft(query, enabled=True) is True
 
     def test_bare_paragraph_glyph_still_gates_out(self) -> None:
-        # No number, so no exact term — but the glyph alone already marks
-        # identifier intent by shape, and drafting beside it is pure noise.
         assert has_exact_identifier("Das § Symbol allein") is True
 
 
@@ -91,9 +80,6 @@ class TestShouldDraft:
 
 
 class TestDraftPromptHygiene:
-    """The prompt states the register, never the entities: no word lists, no
-    examples that could steer the draft toward (or away from) a designation."""
-
     def test_prompt_has_no_identifier_shape(self) -> None:
         import re
 

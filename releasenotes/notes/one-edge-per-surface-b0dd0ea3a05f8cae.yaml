@@ -1,0 +1,7 @@
+---
+# area: general
+improvements:
+  - >
+    Cards, menus, popovers, dialogs and notices across the app draw one thin
+    edge again instead of two lines on top of each other, so pages such as the
+    project overview, the chat and the settings look calmer.

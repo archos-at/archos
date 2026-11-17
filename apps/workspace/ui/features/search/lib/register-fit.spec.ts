@@ -11,7 +11,6 @@ describe('fitColumns', () => {
   it('serves the name first, then each column up to its longest value, and leaves the rest to the name', () => {
     const author: ColumnFit = { min: 6, want: 11 }
     const project: ColumnFit = { min: 5, want: 15 }
-    // 40 rem: minimums 12 + 6 + 5 = 23; the name to 14 (+2), the author to 11 (+5), the project to 15 (+10).
     expect(fitColumns([name, author, project], 40)).toEqual([null, 11, 15])
   })
 
@@ -23,7 +22,6 @@ describe('fitColumns', () => {
   it('shares what is left in reading order when not every want fits', () => {
     const author: ColumnFit = { min: 6, want: 11 }
     const project: ColumnFit = { min: 5, want: 15 }
-    // 30 rem: 23 of minimums, 2 to the name, the remaining 5 to the author.
     expect(fitColumns([name, author, project], 30)).toEqual([null, 11, 5])
   })
 

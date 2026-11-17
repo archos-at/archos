@@ -1,15 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The name probe's two routes, driven THROUGH the typed client (ADR-0055), so
- * the client and the handlers cannot disagree about a path, a verb or a field.
- *
- * The probe exists because the upload planner compared dropped names against
- * the listing the browser had loaded — paged, filterable, archived rows left
- * out — while the server's upload versions a same-name document in every one
- * of those cases.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -99,7 +90,6 @@ describe('POST /api/documents/name-matches', () => {
   })
 
   it('splits a pick past the cap into probes the route accepts, one match per document', async () => {
-    // One POST with every name was a 400 past the cap, and nothing uploaded.
     const names = Array.from({ length: NAME_PROBE_MAX_NAMES + 5 }, (_, i) => `f${i}.pdf`)
     expect(await client.project('proj_1', names)).toEqual([MATCH])
     const batches = vi.mocked(probeProjectDocumentNames).mock.calls.map(([, , batch]) => batch.length)

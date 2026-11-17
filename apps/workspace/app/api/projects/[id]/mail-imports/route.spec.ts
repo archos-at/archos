@@ -1,11 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The import list's HTTP contract (ADR-0131 rule 3): `limit` and `cursor` reach
- * the service as the schema read them, and a cursor this list did not write, or
- * a page larger than the cap, is a 400 rather than a first page nobody asked for.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { NextRequest } from 'next/server'

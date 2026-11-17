@@ -1,20 +1,3 @@
-"""`POST /v1/ingest` carries who wrote a document and who released it (ADR-0054).
-
-The second crossing point after ``folder_path``, and the one with the sharper
-failure. The BFF is the sole authority on authorship; the Python tier reads what
-it is told. If the four keys do not survive into the job config, a document
-Piloti wrote and a person approved reaches the index looking exactly like a
-stamped Gutachten — the retrieval side has nothing else to go on, and its
-documented posture is fail-open.
-
-The names are the contract and both sides pin it: the BFF twin is
-``dispatch.spec.ts`` ("sends the four provenance keys for a published Piloti
-document"), and the parser is ``agent.common.provenance``. ``file_name`` is
-asserted here for the same reason — it is the chunk join key every purge
-addresses, and deriving it from the presigned URL is a guess about a string the
-BFF already knows.
-"""
-
 from unittest.mock import MagicMock
 
 import httpx
@@ -63,7 +46,6 @@ def app(mock_ingestor, monkeypatch):
 
 async def _ingest(app, body: dict) -> httpx.Response:
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        # The request downloads nothing (the job does), so nothing to stub.
         return await client.post("/v1/ingest", json=body)
 
 
@@ -85,9 +67,6 @@ async def test_the_four_keys_reach_the_ingest_job_config(app, mock_ingestor):
 
 @pytest.mark.asyncio
 async def test_the_stated_file_name_is_what_the_chunks_are_filed_under(app, mock_ingestor):
-    # The presigned URL's last segment is `aktenvermerk-2026-09-01.md` — the
-    # OBJECT KEY's basename, which the BFF flattened. Filing chunks under it
-    # would file them under a name no purge ever asks for.
     response = await _ingest(app, _AGENT_FILED)
 
     assert response.status_code == 202
@@ -96,8 +75,6 @@ async def test_the_stated_file_name_is_what_the_chunks_are_filed_under(app, mock
 
 @pytest.mark.asyncio
 async def test_without_a_stated_name_the_url_still_decides(app, mock_ingestor):
-    # Every caller predating the field, and the IFC digest dispatch, which
-    # genuinely ingests a different file than the row names.
     response = await _ingest(
         app,
         {
@@ -122,18 +99,12 @@ async def test_a_human_document_carries_no_provenance_at_all(app, mock_ingestor)
 
     assert response.status_code == 202
     config = _config(mock_ingestor)
-    # Absent, not null-valued. `parse_agent_provenance` returns None for
-    # anything unmarked, and a human document must stay byte-for-byte what it
-    # was through the whole pipeline.
     for key in ("authored_by", "approved_by", "approved_at", "producer"):
         assert key not in config
 
 
 @pytest.mark.asyncio
 async def test_a_non_agent_author_carries_nothing_either(app, mock_ingestor):
-    # The one value the retrieval side acts on is the token `agent`. Anything
-    # else is an unmarked document, and half a provenance — an approver with no
-    # author — is worse than none: it would travel as data nothing reads.
     response = await _ingest(
         app,
         {
@@ -152,9 +123,6 @@ async def test_a_non_agent_author_carries_nothing_either(app, mock_ingestor):
 
 @pytest.mark.asyncio
 async def test_an_agent_document_with_no_approver_still_states_its_author(app, mock_ingestor):
-    # The lifecycle CHECK forbids a published version with no approver, so this
-    # should not happen — and a route that assumed it could not would be a route
-    # that drops the author when it does.
     response = await _ingest(
         app,
         {

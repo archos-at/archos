@@ -19,13 +19,14 @@ from agent.citations.registry import SourceRegistry
 
 
 def is_legal_database_source(entry: SourceEntry) -> bool:
-    """Whether a source came from a legal-database tool (RIS): its tool name, or the collection ``ris_lookup`` states.
+    """Whether a source came from a legal-database tool: its tool name, or the collection the law lookup states.
 
     A display fact about where a passage was read, never about what it is at the site: the same text
     found by web search is a web source.
     """
     name = (entry.tool_name or "").lower()
-    if name.startswith("ris_") or "ris_search" in name or "ris_fetch" in name:
+    # ``ris_lookup`` is the law lookup's name in a turn stored before the rename.
+    if name.startswith(("law_lookup", "ris_")) or "ris_search" in name or "ris_fetch" in name:
         return True
     return (entry.collection or "").lower().startswith("ris/")
 
@@ -133,7 +134,7 @@ def source_origin_token(entry: SourceEntry) -> str:
     string when the origin is not cleanly identifiable, so callers emit no token
     and the frontend falls open to plain, unlabeled text.
     """
-    # RIS first: a ``ris_lookup`` passage is a grounding-block hit, so it is a
+    # RIS first: a ``law_lookup`` passage is a grounding-block hit, so it is a
     # ``knowledge_layer`` entry too, and checked second it went out as ``[KB]``
     # on every Bauordnung answer the suite read.
     if is_legal_database_source(entry):

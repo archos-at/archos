@@ -1,13 +1,3 @@
-"""``look``: which file it reads, from which collection, and who sees the box glow (ADR-0128).
-
-The bytes are a real one-page PDF; only the lookups, the object-store fetch and
-the canvas POST are faked. What is under test is which file ``look`` picks in
-each context (a base-corpus file with no envelope, an inventory name in a chat,
-the document open on the canvas, the conversation's subject, a file only a
-collection probe finds), that it goes through the renderer's scope check,
-budget and region crop, and that the glow is sent for a workspace document only.
-"""
-
 from __future__ import annotations
 
 import knowledge_layer.view_image as view
@@ -26,7 +16,6 @@ from agent.tools.look import resolve
 from agent.tools.look.register import DESCRIPTION
 from agent.tools.look.register import run_look
 
-# The look suites' fixtures, under the names these tests ask for.
 stored = look.stored
 room = look.room
 
@@ -57,7 +46,6 @@ class TestWhichFile:
 
         result = await run_look(page=1)
 
-        # The room hears what Piloti reads while the subject's name is read for the render.
         assert sorted(payload["op"] for payload, _ in calls) == ["list", "look"]
         assert {"op": "look", "page": 1} in [payload for payload, _ in calls]
         assert isinstance(result, list) and "Rendered page 1 of 'Grundriss_EG.pdf'" in result[0]["text"]
@@ -151,7 +139,6 @@ class TestTheRenderersChecks:
         assert "Collection:" not in result  # the model is never asked for a collection
 
     async def test_a_look_reports_the_collection_it_read(self, stored, monkeypatch) -> None:
-        """What ``admit_tool_results`` admits: a restricted folder's page reaches the model only once admitted."""
         reported: list[list[str]] = []
         monkeypatch.setattr(view, "note_collections_read", lambda collections: reported.append(list(collections)))
         set_turn_intent(file_name="Grundriss_EG.pdf", document_id=DOCUMENT)
@@ -217,7 +204,6 @@ class TestTheRoom:
         assert isinstance(result, list)
 
     async def test_a_look_outside_a_chat_turn_never_glows(self, stored, monkeypatch, calls) -> None:
-        """The door and a background run send no ``leave``: a glow from them would stay on the canvas."""
         from agent.tools.look import register
 
         monkeypatch.setattr(register, "current_canvas_presence", lambda: None)
@@ -229,8 +215,6 @@ class TestTheRoom:
 
 
 class TestTheRow:
-    """One ``look`` row per call (ADR-0132): started, then settled under the same id with the document it read."""
-
     @staticmethod
     def _one_call(emitted) -> tuple:
         actions = [step for step in emitted.steps if step.kind == "action"]
@@ -247,7 +231,6 @@ class TestTheRow:
         started, finished = self._one_call(emitted)
         assert (started.pages, started.target) == ("1", None)
         assert (finished.status, finished.target, finished.document_id) == ("ok", "Grundriss_EG.pdf", DOCUMENT)
-        # The row finds its crop: the same name and id as the `look` step.
         look = next(step for step in emitted.steps if step.kind == "look")
         assert look.document_name == finished.target and look.document_id == finished.document_id
 
@@ -270,7 +253,6 @@ class TestTheRow:
         assert (finished.status, finished.target) == ("error", "Erfunden.pdf")
 
     async def test_an_unadmitted_restricted_file_carries_no_id(self, stored, monkeypatch, emitted, lookups) -> None:
-        """The row settles before the round is admitted: no resolved file name, no id (ADR-0088)."""
         restricted = "proj_1_r0123456789ab"
         monkeypatch.setattr(resolve, "probe_collections", lambda: [restricted])
 
@@ -285,13 +267,11 @@ class TestTheRow:
         finished = self._one_call(emitted)[1]
         assert lookups == [(restricted, "gehaltsliste.pdf")]  # the resolver knew the id; the row does not say it
         assert (finished.status, finished.target, finished.document_id) == ("ok", "gehaltsliste.pdf", None)
-        # Nor does a `look` step: its name, id and reading wait for the admission too.
         assert [step for step in emitted.steps if step.kind == "look"] == []
 
     async def test_an_admitted_restricted_file_is_named_with_its_id(
         self, stored, monkeypatch, emitted, lookups
     ) -> None:
-        """Once the turn admitted the folder, the row and the `look` step name the file and its id."""
         from agent.knowledge.restricted_use import RestrictedUse
         from agent.knowledge.restricted_use import bind_restricted_use
         from agent.knowledge.restricted_use import reset_restricted_use

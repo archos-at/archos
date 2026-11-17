@@ -2,28 +2,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The authorization coverage gate (ADR-0038).
- *
- * The audit that produced ADR-0038 found 117 route files enforcing access four
- * different ways, and no mechanism that noticed when one of them enforced
- * nothing at all. `tsc` now blocks the common case — `apiRoute` will not compile
- * without an `authz` declaration — but a type cannot see a route that skips the
- * factories entirely, which is exactly what the eighteen platform routes used to
- * do. This spec closes that gap.
- *
- * It asserts three things about EVERY `app/api/**\/route.ts`:
- *
- *   1. Every exported HTTP method comes from one of the four factories, or is
- *      listed in {@link HAND_ROLLED} with the gate it applies written down.
- *   2. Every `apiRoute` call declares `authz`, and every `publicApiRoute` call
- *      declares `why`.
- *   3. The hand-rolled list does not GROW. Shrinking it is always fine.
- *
- * Adding a route without a posture fails here. That is the point: the failure
- * arrives at the person adding the route, in the same commit, instead of at a
- * customer's penetration tester.
- */
 
 import { describe, expect, it } from 'vitest'
 import { readdirSync, readFileSync } from 'node:fs'
@@ -32,7 +10,6 @@ import { dirname, join, relative } from 'node:path'
 
 const API_DIR = dirname(fileURLToPath(import.meta.url))
 
-/** Every `route.ts` under `app/api`, found without a glob dependency. */
 function findRouteFiles(dir: string): string[] {
   const found: string[] = []
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -45,14 +22,6 @@ function findRouteFiles(dir: string): string[] {
 
 const HTTP_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'] as const
 
-/**
- * Routes that legitimately predate or sit outside the factories, each with the
- * gate it actually applies. Every entry was read and verified when ADR-0038
- * landed; the reason is the record of that reading.
- *
- * Shrinking this map is the goal. Growing it should require the same argument
- * these four entries carry — a genuine reason the factory contract cannot hold.
- */
 const HAND_ROLLED: Record<string, string> = {
   'v1/[...path]/route.ts':
     'transport pass-through to the backend: resolves the session, forwards only the method and path shapes in lib/proxy/v1-allowlist (404 for the rest), and validates the collection scope per method via lib/proxy/collection-authz. Returns upstream responses verbatim, so it cannot use the factory’s JSON serialization.',
@@ -70,11 +39,6 @@ const HAND_ROLLED: Record<string, string> = {
     'the AuthKit OAuth callback. It runs BEFORE a session exists — that is what it creates — so no session-based posture can apply.',
   'auth/signin/route.ts':
     'the sign-in entry point behind /?sign-in (the landing site’s Anmelden target). It runs BEFORE a session exists — it mints the AuthKit authorization redirect and its PKCE cookie, which only a Route Handler may write — so no session-based posture can apply.',
-  // The three platform routes that used to sit here — model-defaults,
-  // model-defaults/models and audit-portal — now go through `platformApiRoute`,
-  // which already does the owner gate, the tenant slot, the platform scope and
-  // the 403 mapping. There was never a reason the factory contract could not
-  // hold for them; only three copies of it written out by hand.
 }
 
 interface RouteFacts {
@@ -91,9 +55,6 @@ function collectRoutes(): RouteFacts[] {
     const file = relative(API_DIR, absolute).replace(/\\/g, '/')
     const source = readFileSync(absolute, 'utf8')
     for (const method of HTTP_METHODS) {
-      // Any exported handler counts — `export const GET = <anything>` as well as
-      // `export async function GET(`. Detecting only the factories would let a
-      // route that exports a bare handler slip through as "not a route".
       const viaConst = new RegExp(`export const ${method}\\s*=`).test(source)
       const viaFunction = new RegExp(`export async function ${method}\\s*\\(`).test(source)
       if (!viaConst && !viaFunction) continue
@@ -101,7 +62,6 @@ function collectRoutes(): RouteFacts[] {
         `export const ${method}\\s*=\\s*(apiRoute|platformApiRoute|internalApiRoute|publicApiRoute)`
       ).exec(source)
 
-      // Isolate this export so a sibling's declaration cannot vouch for it.
       const start =
         source.indexOf(`export const ${method}`) >= 0
           ? source.indexOf(`export const ${method}`)
@@ -125,7 +85,6 @@ const ROUTES = collectRoutes()
 
 describe('API authorization coverage', () => {
   it('finds the route surface (guards against a broken glob silently passing)', () => {
-    // A glob that matches nothing would make every assertion below vacuous.
     expect(ROUTES.length).toBeGreaterThan(100)
   })
 
@@ -148,8 +107,6 @@ describe('API authorization coverage', () => {
         (route.factory === 'apiRoute' || route.factory === 'publicApiRoute') && !route.declaresAuthz
     ).map((route) => `${route.file} [${route.method}]`)
 
-    // tsc already refuses to compile these; this keeps the failure legible and
-    // catches a declaration that is present but empty.
     expect(silent).toEqual([])
   })
 
@@ -167,14 +124,11 @@ describe('API authorization coverage', () => {
   })
 
   it('platform routes go through platformApiRoute, never a bare session read', () => {
-    // The gate must run before the handler. A platform route that resolves its
-    // own session is the pattern ADR-0038 removed.
     const offenders = ROUTES.filter(
       (route) =>
         route.file.startsWith('platform/') &&
         route.factory !== null &&
         route.factory !== 'platformApiRoute' &&
-        // answer-feedback keeps its gate in the service, which is declared.
         !route.file.startsWith('platform/answer-feedback/')
     ).map((route) => `${route.file} [${route.method}] uses ${route.factory}`)
 

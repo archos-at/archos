@@ -1,5 +1,3 @@
-"""A latent vendor switched on in a deployment people sign in to stops the boot."""
-
 from __future__ import annotations
 
 from pathlib import Path

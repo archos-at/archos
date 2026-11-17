@@ -16,6 +16,7 @@ from agent.knowledge import AvailableDocument
 from ..markers import CONFIDENCE_RULE_VERSION
 from ..markers import CappedReason
 from ..markers import ConfidenceLevel
+from ..markers import answer_ceiling
 from ..markers import checked_confidence_capped_reason
 from ..markers import surface_checked_confidence
 
@@ -190,6 +191,10 @@ class ResearchAgentState(BaseModel):
     # building-law source while the gate withholds a binding claim or the coverage is open. The law gate
     # caps the surfaced level to medium with the ``law_unsettled`` reason (``markers``).
     answer_law_unsettled: bool = False
+    # What the answer itself names as open, unchecked or unresolved, as the answer check read its prose and
+    # its confidence reason (``common/claim_judge.py``). Any one caps the surfaced level to medium, and the
+    # self-report caps it to its own level, both with the ``open_point`` reason (``markers.answer_ceiling``).
+    answer_open_points: list[str] = []
     # The SECOND kind of grounding: whether THIS turn produced at least one
     # `declared`/`computed` answer from the IFC model (see
     # ``piloti.grounding``). An IFC measurement carries a provenance,
@@ -371,24 +376,27 @@ class ResearchAgentState(BaseModel):
 
     @property
     def answer_confidence(self) -> ConfidenceLevel | None:
-        """The answer check's level under the quote gate (ADR-0139); None when no check graded the answer.
+        """The answer check's level under the gates (ADR-0139); None when no check graded the answer.
 
-        The self-report ``answer_confidence_marker`` sets no level: it only
-        says the answer is one to grade, and the check runs then.
+        The self-report ``answer_confidence_marker`` says the answer is one to
+        grade and is a ceiling: the check may lower it, never raise it. An open
+        point the check read in the answer holds it to medium.
         """
         return surface_checked_confidence(
             _checked_level(self.confidence_check),
             quotes_verified=self.answer_quotes_verified,
             citation_grounded=self.answer_citation_grounded,
             law_unsettled=self.answer_law_unsettled,
+            ceiling=answer_ceiling(self.answer_open_points, self.answer_confidence_marker),
         )
 
     @property
     def answer_confidence_capped_reason(self) -> CappedReason | None:
-        """``quote_unverified`` or ``law_unsettled`` when a gate lowered the check's level; else None."""
+        """``quote_unverified``, ``law_unsettled`` or ``open_point`` when a gate lowered the checked level."""
         return checked_confidence_capped_reason(
             _checked_level(self.confidence_check),
             quotes_verified=self.answer_quotes_verified,
             citation_grounded=self.answer_citation_grounded,
             law_unsettled=self.answer_law_unsettled,
+            ceiling=answer_ceiling(self.answer_open_points, self.answer_confidence_marker),
         )

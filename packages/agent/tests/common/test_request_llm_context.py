@@ -1,17 +1,3 @@
-"""The four per-request LLM dials are read in a THREAD, not on the event loop.
-
-``get_model_overrides_from_context``, ``get_reasoning_efforts``,
-``get_org_llm_credential_from_context`` and ``get_zdr_only_from_context`` are
-header-first, but each falls back to a blocking BFF call under a threading
-lock. Called from a coroutine, a cold miss stalls every turn the worker is
-serving. What is asserted is WHERE each ran — the shape of
-``packages/agent/tests/agents/piloti/test_prompt_render_off_the_loop.py`` — for the
-reader itself and for the two agents that used to call them inline: the
-clarifier (``Clarifier.__call__`` → ``deps_for``) and deep research
-(``run_deep_research``). Chat (``piloti/register._active_provider``) is covered
-by ``test_active_provider.py``, which goes through the same reader.
-"""
-
 from __future__ import annotations
 
 import threading
@@ -38,7 +24,6 @@ _READERS = (
 
 @pytest.fixture
 def threads(monkeypatch):
-    """Each reader answers as an inactive request and records the thread it ran on."""
     seen: dict[str, threading.Thread] = {}
     answers = {
         "get_model_overrides_from_context": {},
@@ -66,7 +51,6 @@ def _assert_off_the_loop(seen: dict[str, threading.Thread]) -> None:
 
 
 def _identity_provider() -> MagicMock:
-    """A provider double whose whole override chain answers itself: nothing applies."""
     provider = MagicMock(spec=LLMProvider)
     provider.with_model_overrides.return_value = provider
     provider.with_reasoning_efforts.return_value = provider
@@ -139,8 +123,6 @@ class TestTheAgentsReadThroughIt:
 
 
 class TestTurnEffort:
-    """The asker's level lands on the chat answer's group only."""
-
     def test_no_stated_level_leaves_the_platform_efforts(self):
         efforts = {"shallow_research": "medium", "clarifier": "low"}
 

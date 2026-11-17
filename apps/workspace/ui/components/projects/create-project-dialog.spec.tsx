@@ -10,8 +10,6 @@ vi.mock('next/navigation', () => ({
   usePathname: () => '/app/projects',
 }))
 
-// The form pulls in a server action; the dialog behaviour under test does not
-// depend on it, so stub it out to keep the test focused and hermetic.
 vi.mock('./create-project-form', () => ({
   CreateProjectForm: ({ onCancel }: { onCancel?: () => void }) => (
     <div data-testid="create-project-form">
@@ -30,10 +28,8 @@ describe('CreateProjectDialog', () => {
   test('auto-opens when defaultOpen and strips ?new=1 on close', async () => {
     render(<CreateProjectDialog defaultOpen />)
 
-    // Auto-opened: the form is visible.
     expect(await screen.findByTestId('create-project-form')).toBeDefined()
 
-    // Close via Escape.
     await userEvent.keyboard('{Escape}')
 
     await waitFor(() => expect(replace).toHaveBeenCalledWith('/app/projects', { scroll: false }))
@@ -42,7 +38,6 @@ describe('CreateProjectDialog', () => {
   test('does not rewrite the URL when it was not auto-opened', async () => {
     render(<CreateProjectDialog />)
 
-    // Open then close the manually-triggered dialog.
     await userEvent.click(screen.getByRole('button', { name: /New project/i }))
     expect(await screen.findByTestId('create-project-form')).toBeDefined()
     await userEvent.keyboard('{Escape}')
@@ -84,7 +79,6 @@ describe('CreateProjectDialog', () => {
     render(<CreateProjectDialog />)
     await userEvent.click(screen.getByRole('button', { name: /New project/i }))
 
-    // The form is stubbed here: Radix focuses its first focusable, the Cancel button.
     const cancel = await screen.findByRole('button', { name: 'Cancel' })
     await waitFor(() => expect(cancel).toHaveFocus())
   })

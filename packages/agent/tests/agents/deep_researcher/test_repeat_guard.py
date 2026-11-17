@@ -1,16 +1,3 @@
-"""A run fetches each passage once: the second identical query is not researched.
-
-An orchestrator that loses track of its own submitted-query ledger (prompt prose
-is the only thing that kept it) re-submits a query the run already has notes
-for, and the batch spends a whole researcher worker on it. The guard is the chat
-loop's, lifted: ``common.retrieval_rounds.repeat_fetches`` over the call each
-query stands for.
-
-Withholding means ANSWERING. The repeat gets the note its first execution
-returned, in the array the orchestrator reads back — never a short array, which
-it reads as a partial failure and resubmits.
-"""
-
 from __future__ import annotations
 
 import json
@@ -53,7 +40,6 @@ def _note(topic: str) -> dict[str, Any]:
 
 
 def _counting_runnable() -> Any:
-    """A worker that answers with a note naming the call that produced it."""
     calls: list[str] = []
 
     async def _invoke(state: dict[str, Any], config: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -92,7 +78,6 @@ class TestTheSecondSubmissionIsAnswered:
 
     @pytest.mark.asyncio
     async def test_a_withheld_round_announces_nothing(self):
-        """A batch of only repeats fetched nothing, so it is no layer of the spine."""
         runnable = _counting_runnable()
         rounds = RetrievalRounds()
         tool = _batch_tool(runnable, rounds)
@@ -104,7 +89,6 @@ class TestTheSecondSubmissionIsAnswered:
 
     @pytest.mark.asyncio
     async def test_a_same_batch_duplicate_is_answered_by_its_first_occurrence(self):
-        """Two identical queries in one batch are the same guess said twice."""
         runnable = _counting_runnable()
         rounds = RetrievalRounds()
         tool = _batch_tool(runnable, rounds)
@@ -132,7 +116,6 @@ class TestWhatTheGuardLeavesAlone:
 
     @pytest.mark.asyncio
     async def test_an_unsignable_query_is_never_withheld(self):
-        """A web query is not the same bytes twice, so nothing signs it."""
         runnable = _counting_runnable()
         tool = _batch_tool(runnable, RetrievalRounds())
 
@@ -143,7 +126,6 @@ class TestWhatTheGuardLeavesAlone:
 
     @pytest.mark.asyncio
     async def test_a_failed_query_signs_nothing_so_its_retry_runs(self):
-        """The rule the chat loop applies to a failed fetch: no result, no signature."""
         attempts: list[str] = []
 
         async def _invoke(state: dict[str, Any], config: dict[str, Any] | None = None) -> dict[str, Any]:

@@ -1,12 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Asking Piloti through the real SDK on the 2026-07-28 era: progress while the
- * door waits, the tasks extension (SEP-2663) over the stored ask, and every
- * other call still one JSON body. The routes are the dispatcher's mock; the
- * catalog, exposure, policy, server and handler are the real ones.
- */
 import { webcrypto } from 'node:crypto'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -41,7 +35,6 @@ const piloti: AgentPrincipal = { actor: 'piloti', clientId: null, scopes: [], se
 const ASK_ID = '0d7b3a5e-7c1c-4a4e-9a63-6a4a1f5f1c11'
 
 beforeAll(() => {
-  // The shared setup file swaps `crypto` for a stub with no randomUUID.
   Object.defineProperty(globalThis, 'crypto', { value: webcrypto, configurable: true })
 })
 
@@ -64,15 +57,12 @@ function view(state: AskState, extra: Partial<AskView> = {}): AskView {
   }
 }
 
-/** The ask's routes: `create` answers `working`, each `get` the next state in `gets`. */
 function askRoutes(gets: AskState[], create: AskState = 'working') {
   const queue = [...gets]
   vi.mocked(callOperation).mockImplementation(async (op, input) => {
-    // The dispatcher refuses an input its operation cannot take before the route runs.
     validateOperationInput(op, input)
     if (op.name === 'agent-ask-create') return { status: 202, ok: true, body: view(create) }
     if (op.name === 'agent-ask-get') {
-      // A read that does not end the ask takes its time, as the route's wait does.
       await new Promise((resolve) => setTimeout(resolve, 5))
       return { status: 200, ok: true, body: view(queue.shift() ?? 'completed') }
     }
@@ -90,7 +80,6 @@ const handler = createAgentDoorHandler(() => undefined)
 
 const TASKS = { extensions: { [TASKS_EXTENSION]: {} } }
 
-/** One 2026-07-28 request: the envelope in `_meta`, and the standard headers SEP-2243 asks for. */
 async function modern(
   method: string,
   params: Record<string, unknown>,
@@ -122,7 +111,6 @@ async function modern(
 
 type Message = { method?: string; params?: Record<string, unknown>; result?: Record<string, unknown>; error?: { code: number; message: string } }
 
-/** The JSON-RPC messages of a body: one JSON object, or the `data:` lines of an SSE stream. */
 function messagesOf(raw: string): Message[] {
   const data = raw.split('\n').filter((line) => line.startsWith('data:'))
   return data.length ? data.map((line) => JSON.parse(line.slice(5)) as Message) : [JSON.parse(raw) as Message]
@@ -148,7 +136,6 @@ describe('progress while Piloti answers', () => {
     const result = last(messages).result as { structuredContent: AskView; isError?: boolean }
     expect(result.isError).toBeUndefined()
     expect(result.structuredContent).toMatchObject({ id: ASK_ID, state: 'completed' })
-    // The ask is started without the route's own wait; the door waits, in reads short enough to report between.
     expect(calls('agent-ask-create')[0][1]).toMatchObject({ body: { waitSeconds: 0 } })
     for (const [, input] of calls('agent-ask-get')) {
       expect(input).toMatchObject({ params: { id: ASK_ID } })
@@ -192,7 +179,6 @@ describe('progress while Piloti answers', () => {
     const result = last(messages).result as { isError: boolean; content: { text: string }[] }
     expect(result.isError).toBe(true)
     expect(result.content[0].text).toMatch(/question/)
-    // Handed to today's call with the input as given (no `waitSeconds: 0` of the door's own), and refused there.
     expect(calls('agent-ask-create').map(([, input]) => input)).toEqual([{ body: { question: '' } }])
     expect(calls('agent-ask-get')).toHaveLength(0)
   })
@@ -207,7 +193,6 @@ describe('every other call answers one JSON body', () => {
     ['resources/list', {}, undefined],
     ['prompts/list', {}, undefined],
   ])('%s %j', async (method, params, name) => {
-    // A progress token alone does not stream a call whose wait is not ours.
     const { type, messages } = await modern(method, params, { name, meta: { progressToken: 'p' } })
     expect(type).toMatch(/^application\/json/)
     expect(messages).toHaveLength(1)
@@ -218,7 +203,6 @@ describe('every other call answers one JSON body', () => {
 describe('the tasks extension (SEP-2663)', () => {
   it('is advertised on the 2026-07-28 era to an agent that may ask Piloti, and to nobody else', async () => {
     const offered = await modern('server/discover', {})
-    // MCP Apps is echoed only to a client that declared it renders them (`mcp-apps.ts`); this one declared nothing.
     expect((last(offered.messages).result as { capabilities: { extensions?: object } }).capabilities.extensions).toEqual({
       [TASKS_EXTENSION]: {},
     })
@@ -319,12 +303,6 @@ describe('the 2025-era path', () => {
   })
 })
 
-/**
- * Art. 50(2) AI Act: an answer a model wrote for this call is marked on the
- * wire, in `_meta`, whichever path the door answers it by. The positive
- * control is the ask that has no answer yet: same operation, no mark, so a
- * mark on every result would fail here.
- */
 describe('the AI mark on an answer', () => {
   it('marks the answer streamed after progress', async () => {
     const { messages } = await modern('tools/call', askCall(), { name: 'call-operation', meta: { progressToken: 'p1' } })

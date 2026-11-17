@@ -1,12 +1,5 @@
 'use client'
 
-/**
- * The quiet line above the Dateien shelf: „2 E-Mails warten auf Ablage ·
- * Ansehen“. The material of the agent's suggestions (card surface, one hairline,
- * no shadow), so above the grid it reads as part of the page, not as a
- * dialog that wants an answer first. Only while something waits.
- */
-
 import type { JSX } from 'react'
 import Link from 'next/link'
 import { Mail } from 'lucide-react'

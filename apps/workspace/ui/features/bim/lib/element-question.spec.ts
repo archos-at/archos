@@ -1,11 +1,3 @@
-/**
- * The model ↔ chat round trip.
- *
- * Out: a selected element becomes a question that still identifies the element
- * in a session that never saw the click. Back: a link an answer wrote is
- * recognised — and, more importantly, a link that only LOOKS internal is not.
- */
-
 import { describe, expect, it } from 'vitest'
 import {
   buildElementQuestion,
@@ -87,9 +79,6 @@ describe('parseElementLink', () => {
   })
 
   it('keeps only the path of a foreign URL, so a chip can never leave the app', () => {
-    // The host is not this module's business — its caller has already
-    // established the href is same-origin — but the result is a PATH, so even
-    // if that ever changed the worst case is a link to our own model page.
     const link = parseElementLink('https://evil.example/app/projects/p1/model?element=abc')
     expect(link).toEqual({ projectId: 'p1', view: { element: 'abc' } })
     expect(elementLinkHref(link!).startsWith('/app/')).toBe(true)
@@ -98,9 +87,6 @@ describe('parseElementLink', () => {
 
 describe('a link that cannot be parsed', () => {
   it('degrades instead of throwing on a malformed percent-escape', () => {
-    // `decodeURIComponent('100%')` is a URIError, not a fallback — and this
-    // runs during render, from the citation renderer inside an assistant
-    // answer. One stray `%` in one markdown link took the whole reply down.
     expect(() => parseElementLink('/app/projects/100%/files?element=abc')).not.toThrow()
     expect(parseElementLink('/app/projects/100%/files?element=abc')).toBeNull()
   })

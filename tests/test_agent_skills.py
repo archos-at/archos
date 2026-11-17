@@ -1,9 +1,3 @@
-"""Repo-local agent skills under skills/ must pass the skill validator.
-
-This guards the maintainer skill set in CI's pytest job, in addition to the
-pre-commit hook, since the skills-eval workflow is scoped to skills/ only.
-"""
-
 import importlib.util
 import os
 import sys
@@ -17,31 +11,24 @@ VALIDATOR = REPO_ROOT / "scripts" / "validate_skills.py"
 
 
 def _load_validator():
-    """Dynamically import scripts/validate_skills.py and return the module."""
     spec = importlib.util.spec_from_file_location("validate_skills", VALIDATOR)
     if spec is None:
         raise RuntimeError(f"failed to create import spec for {VALIDATOR}")
     if spec.loader is None:
         raise RuntimeError(f"import spec loader missing for {VALIDATOR}")
     module = importlib.util.module_from_spec(spec)
-    # Register before exec so dataclasses can resolve annotations under
-    # `from __future__ import annotations` during dynamic import.
     sys.modules[spec.name] = module
     spec.loader.exec_module(module)
     return module
 
 
 def test_agent_skills_are_valid():
-    """Assert every skill bundle under skills/ passes structural validation."""
     validator = _load_validator()
     report = validator.validate_roots([SKILLS_ROOT])
-    # Zero is a valid count: a skill of our own exists only for agent-specific
-    # procedure (docs/contributing/agent-skills.md), and today there is none.
     assert report.errors == [], "skill validation errors:\n" + "\n".join(report.errors)
 
 
 def _make_bundle(root: Path, name: str, *, body: str = "", newline: str = "\n") -> Path:
-    """Create a minimal, otherwise-valid skill bundle under root and return its directory."""
     bundle = root / name
     bundle.mkdir(parents=True)
     skill_md = (
@@ -51,13 +38,11 @@ def _make_bundle(root: Path, name: str, *, body: str = "", newline: str = "\n") 
         f"---{newline}{newline}"
         f"{body}{newline}"
     )
-    # newline="" keeps our explicit line endings so the CRLF case stays CRLF on disk.
     (bundle / "SKILL.md").write_text(skill_md, encoding="utf-8", newline="")
     return bundle
 
 
 def test_validator_flags_bundle_link_escape(tmp_path):
-    """A relative bundle link that traverses out of its bundle directory is an error."""
     validator = _load_validator()
     root = tmp_path / "skills"
     _make_bundle(root, "escape-skill", body="See [oops](references/../../secret.md).")
@@ -66,7 +51,6 @@ def test_validator_flags_bundle_link_escape(tmp_path):
 
 
 def test_validator_flags_unreadable_skill_md(tmp_path):
-    """An unreadable SKILL.md is reported rather than crashing the validator."""
     validator = _load_validator()
     root = tmp_path / "skills"
     skill_md = _make_bundle(root, "unreadable-skill") / "SKILL.md"
@@ -82,7 +66,6 @@ def test_validator_flags_unreadable_skill_md(tmp_path):
 
 
 def test_validator_accepts_crlf_frontmatter(tmp_path):
-    """CRLF line endings in frontmatter are valid; the regex matches `\\r?\\n` by design."""
     validator = _load_validator()
     root = tmp_path / "skills"
     _make_bundle(root, "crlf-skill", body="# body", newline="\r\n")

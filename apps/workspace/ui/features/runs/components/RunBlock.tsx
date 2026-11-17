@@ -1,67 +1,3 @@
-/**
- * RunBlock — the Laufblock: one element for everything a run is, in the thread
- * that commissioned it.
- *
- * A stand at the top — the result's title, the elapsed time, a thin track of
- * the five phases and ONE line saying where the run is — and, behind the
- * chevron, the rounds it did as a hairline-separated list, the phases it
- * finished as acts, and the reviewer's words. Seven states, one block:
- * angelegt, läuft, wartet, fertig, fehlgeschlagen, abgebrochen, unterbrochen.
- *
- * ## One truth
- *
- * It renders ONLY from the {@link RunLedger} it is handed. It folds no events,
- * keeps no store and opens no stream — a live run is the same ledger replaced
- * in place by whoever holds the subscription (`useRunLedger`), so a live block,
- * a reload and a shared thread cannot tell three stories. `live` says only
- * whether a stream is attached; every visible state comes from the ledger.
- *
- * ## The grammar it borrows
- *
- * The document lifecycle's stand, which is the surface in this product that had
- * already solved „where does this stand": a track whose walked segments are
- * filled, the state NAMED in one muted line under it, and the history below as
- * `Item` rows with hairlines rather than as stacked cards (`ItemList`, the same
- * atoms `document-revisions.tsx` composes). The track itself is the shared
- * atom, `components/ui/stage-track.tsx`, lifted out of that stand when this
- * block needed the same shape — two surfaces showing the same thing compose the
- * same atom, or they drift on the first token retune.
- *
- * The document chips stay the „Belegt durch" chips (`SourceSignalChip` +
- * `AuthorityTag`), painted by the shelf the ledger stated: provenance is the
- * one thing the design language spends colour on, and which documents a run
- * read is its whole claim to being checkable.
- *
- * ## What it refuses to show
- *
- * No tool names — the ledger carries none, on purpose. No identifiers. No
- * numbers except the two tallies and the clock. One ambient loop: the glyph.
- * And no second account of the state — the word appears in the status line and
- * nowhere else, because a state said twice stops reading as one fact. That is
- * what „stripped down" bought: the old header said it four ways (glyph, bold
- * word, phase summary, footer sentence) before the reader got to the work.
- *
- * ## How a change reads
- *
- * The block is replaced ledger by ledger, and every difference between two
- * ledgers is one small fixed move, never decoration (design language, Motion
- * vocabulary). What moves is what CHANGED; what was already on screen stays
- * where it is:
- *
- * - Arrival: the turn's fade-and-rise.
- * - A phase completes: its segment fills — a colour transition on the track —
- *   and the line under it names the next one.
- * - A round arrives: its row rises, the document chips cascade (capped), the
- *   open points last.
- * - The run lands: `landingDelays` queues the glyph, the status line, the fold
- *   and the closing rows so they play in that order.
- *
- * Nothing replays: rows are keyed by step id, so a re-render is the same
- * element with new props, and `AnimatePresence initial={false}` on every list
- * means a block that mounts finished paints in one frame. Under reduced motion
- * every one of these is the change with no motion.
- */
-
 'use client'
 
 import type { JSX } from 'react'
@@ -132,83 +68,32 @@ export interface RunBlockReview {
 
 export interface RunBlockProps {
   ledger: RunLedger
-  /** The result's title (task goal / question); falls back to „Auftrag". */
   title?: string | null
-  /** Enables „Im Projekt anzeigen" on a filed result. */
   projectId?: string | null
-  /**
-   * This run's result WILL be filed into the project. Only the commissioning
-   * side knows — a task run files, an escalated chat question answers inline —
-   * so it is never inferred here, and an unclaimed run promises no destination.
-   */
   filesToProject?: boolean
   review?: RunBlockReview | null
-  /** A stream is attached. Affects nothing visible: state comes from the ledger. */
   live?: boolean
-  /**
-   * What the run's own stream is doing, when there is one (`useRunLedger`).
-   * `live` and absent say the same thing — nothing to report — and the other
-   * two put ONE muted line in the block: the live view broke, the run did not.
-   * Silence there would read as a run that stopped.
-   */
   connection?: 'live' | 'reconnecting' | 'lost' | null
-  /** Default: open while live, collapsed once terminal. */
   defaultOpen?: boolean
-  /** waiting: focus the composer. */
   onAnswer?: () => void
-  /** fehlgeschlagen / cancelled: offered only when provided. */
   onRetry?: () => void
-  /**
-   * Stop a run still going. Offered only while it IS going and only when a
-   * caller hands one in, so a block with nothing to stop shows no way to stop
-   * it rather than a control that refuses. Nothing here is optimistic: the
-   * block keeps saying what the ledger says until the fold says it stopped.
-   */
   onCancel?: (() => void | Promise<void>) | null
-  /**
-   * „Jetzt schreiben": stop researching and write from what is there. Offered
-   * only while the run is researching — the one phase where it changes what
-   * happens — and only when a caller hands one in.
-   */
   onWriteNow?: (() => void | Promise<void>) | null
-  /**
-   * „Unterlage hinzufügen": name one more document as Grundlage while the run
-   * goes. Offered while the run is going and a caller hands one in; opens the
-   * caller's picker, which is why it takes nothing.
-   */
   onAddDocument?: (() => void) | null
-  /**
-   * Why the last „Unterlage hinzufügen" did not take, worded for the reader;
-   * shown under the status line, where the add was pressed. Absent or null
-   * when it took.
-   */
   addDocumentFailure?: string | null
-  /**
-   * Open one Grundlage document from the receipt — as a dialog over the thread.
-   * Absent, the receipt names the document and nothing opens.
-   */
   onOpenDocument?: ((doc: RunLedgerDoc) => void) | null
-  /**
-   * „Bericht fortschreiben": a new run on the same subject, briefed with this
-   * run's findings, so a changed project fact re-reads the Befunde instead of
-   * re-commissioning the work from scratch. Offered on a finished report only.
-   */
   onContinue?: (() => void | Promise<void>) | null
-  /** fertig & unreviewed: „Prüfen". */
   reviewHref?: string | null
-  /** fertig & reviewed: „Bericht öffnen". */
   reportHref?: string | null
   className?: string
 }
 
-/** The muted interpunct between clauses of one line. */
 const Sep: FC = () => (
   <span aria-hidden className="text-muted-foreground/50">
     {' · '}
   </span>
 )
 
-/** The tallies as clauses, empty ones dropped: „3 Runden · 9 Dokumente". */
 function talliesLabel(t: Translator, tallies: RunTallies): string {
   return [
     tallies.rounds > 0 ? t('tallies.rounds', { count: tallies.rounds }) : null,
@@ -219,20 +104,10 @@ function talliesLabel(t: Translator, tallies: RunTallies): string {
     .join(' · ')
 }
 
-/** The clauses of one line, empty ones dropped. */
 function clauses(...parts: (string | null)[]): string {
   return parts.filter((part): part is string => !!part).join(' · ')
 }
 
-/**
- * The ONE line that says where the run stands — the stand's own sentence, under
- * the track, exactly where the document lifecycle puts „was fehlt noch".
- *
- * While the run is going it leads with the PHASE rather than with „Läuft",
- * because the phase is the informative half and „läuft" is already said by the
- * turning glyph beside the title. A terminal state leads with its word and adds
- * the one fact the reader needs next: where the report is, why it stopped.
- */
 function statusLine(
   t: Translator,
   ledger: RunLedger,
@@ -266,7 +141,6 @@ function statusLine(
   }
 }
 
-/** „Bis dahin: Planen, Recherchieren (2 Runden, 6 Dokumente)". */
 function completedBeforeLabel(
   t: Translator,
   ledger: RunLedger,
@@ -286,15 +160,6 @@ function completedBeforeLabel(
   return t('completedBefore', { phases: named.join(', ') })
 }
 
-/**
- * What the walked segments are coloured by — the lifecycle stand's own rule:
- * ink while nothing has been asserted, a register once something has.
- *
- * `interrupted` is `settled` and not a third colour: there IS a report, only a
- * narrower one, and the line under the track is what says so. The palette holds
- * no further chroma family that is not a provenance source, and borrowing the
- * Büroablage gold for it would put an archive collision back as a colour.
- */
 function trackTone(status: RunStatus): StageTrackTone {
   switch (status) {
     case 'done':
@@ -309,12 +174,6 @@ function trackTone(status: RunStatus): StageTrackTone {
   }
 }
 
-/**
- * One document a step reached, as the „Belegt durch" chip: family tint from
- * the shelf, the authority badge when the name earns one, then the name and the
- * places read. A re-read document says so in the chip instead of counting
- * again.
- */
 const DocChip: FC<{ doc: RunLedgerDoc; reduced: boolean }> = ({ doc, reduced }) => {
   const t = useTranslations(runsCopy)
   const { tint, authority } = docProvenance(doc)
@@ -358,30 +217,12 @@ const DocChip: FC<{ doc: RunLedgerDoc; reduced: boolean }> = ({ doc, reduced }) 
   )
 }
 
-/**
- * A document chip that WRAPS instead of ellipsising. The chip's tail is where it
- * was read: the section, the page, „bereits gelesen". On a 393px phone a long
- * Richtlinie title filled the line and the tail was cut to "· …", so the one
- * piece of the reference a reader checks was the piece the layout dropped. A
- * two-line chip is wider evidence than a one-line one; a clipped locus is none.
- * Overrides the base chip's `truncate` on the pill and on its label.
- */
 const WRAPPING_CHIP =
   'h-auto min-h-6 items-start overflow-visible! whitespace-normal! text-clip! rounded-xl py-0.5 text-left ' +
   '[&>svg]:mt-[3px] [&>span]:overflow-visible! [&>span]:whitespace-normal! [&>span]:text-clip! [&>span]:[overflow-wrap:anywhere]'
 
-/** A plain fade, for the chips and the line that follow a round's rise. */
 const FADE = { hidden: { opacity: 0 }, visible: { opacity: 1 } }
 
-/**
- * One research round, as a row of the list: its intent, the documents it
- * reached, what stayed open.
- *
- * A round that arrives while the block is on screen rises in, and its chips
- * cascade after it — capped at `staggerMaxSteps`, so a round with nine
- * documents is not nine beats long — with the open points last, because they
- * are the sentence the round ends on.
- */
 const RoundRow: FC<{ step: RunStep; index: number; reduced: boolean }> = ({
   step,
   index,
@@ -456,7 +297,6 @@ const RoundRow: FC<{ step: RunStep; index: number; reduced: boolean }> = ({
   )
 }
 
-/** The one line a finished phase folds to, after its name. */
 function doneLine(t: Translator, phase: RunPhase, tallies: RunTallies): string | null {
   switch (phase) {
     case 'planning':
@@ -472,30 +312,18 @@ function doneLine(t: Translator, phase: RunPhase, tallies: RunTallies): string |
   }
 }
 
-/** The live line of an active phase that has no rounds to show for itself. */
 function liveLine(t: Translator, phase: RunPhase): string | null {
   if (phase === 'checking') return t('phaseLine.checkingLive')
   if (phase === 'writing') return t('phaseLine.writingLive')
   return null
 }
 
-/**
- * What each phase did, as acts: the phase, what it produced, how long it took.
- *
- * `dt`/`dd` rows at the document history's own weight — this is the same kind
- * of fact („eingereicht von X am Y") in another vocabulary, and writing it as a
- * second kind of list would make two shapes for one idea. Recherchieren is
- * skipped when it has rounds: the list above IS its account, and repeating the
- * tally here would be the same number twice on one screen.
- */
 const PhaseActs: FC<{
   ledger: RunLedger
   live: boolean
   tallies: RunTallies
 }> = ({ ledger, live, tallies }) => {
   const t = useTranslations(runsCopy)
-  // Its own clock, like `RunElapsed`: only a phase without an end measures to
-  // now, and only this list says so.
   const now = useRunClock(live)
   const { locale } = useLocale()
   const rows = RUN_PHASES.flatMap((phase) => {
@@ -541,15 +369,6 @@ const PhaseActs: FC<{
   )
 }
 
-/**
- * The elapsed figure in the stand, with the run's clock inside it.
- *
- * A leaf on purpose: the clock ticks once a second while the run is live, and
- * at the block's root every tick re-rendered the whole block (the rounds, the
- * chips, the footer) for one changed number. A terminal run's figure is on the
- * ledger and shows from the first paint; a live one waits for the mounted
- * clock (see useRunClock).
- */
 const RunElapsed: FC<{ ledger: RunLedger; live: boolean }> = ({ ledger, live }) => {
   const t = useTranslations(runsCopy)
   const now = useRunClock(live)
@@ -594,11 +413,6 @@ export function RunBlock({
   const status = runDisplayStatus(ledger)
   const live = isLiveStatus(status)
 
-  // The landing. A status that CHANGES while the block is on screen is a turn
-  // in the run's story, and its moves are queued so they read in order
-  // (`lib/choreography`). A block that mounts already finished shows its
-  // ending at once: there was no turn to watch, and a staged reveal of facts
-  // that were true before the reader arrived is theatre.
   const landedFromRef = useRef(status)
   const landingRef = useRef<LandingDelays | null>(null)
   if (status !== landedFromRef.current) {
@@ -610,10 +424,6 @@ export function RunBlock({
   const statusWord = t(`status.${status}`)
   const name = title?.trim() || t('block.untitled')
 
-  // Open-state policy, the Herleitung bar's: open while live, folded once
-  // terminal; the reader's own toggle wins over both; entering `waiting` always
-  // opens, because the stand says a question is waiting and the body is where
-  // the round that asked it sits.
   const [open, setOpen] = useState<boolean>(status === 'waiting' || (defaultOpen ?? live))
   const userToggledRef = useRef(false)
   const autoOpenedRef = useRef(defaultOpen ?? live)
@@ -625,9 +435,6 @@ export function RunBlock({
       const shouldFold = !userToggledRef.current && autoOpenedRef.current
       autoOpenedRef.current = false
       if (!shouldFold) return
-      // The body folds only after the stand has said what happened — the
-      // track's last segment, the glyph, the line. Folding first would pull the
-      // reader's eye off the very phase that was finishing.
       const after = landingRef.current?.fold
       if (after === null || after === undefined) {
         setOpen(false)
@@ -648,9 +455,6 @@ export function RunBlock({
     setOpen(next)
   }
 
-  // The ONE action that fits the state, and the quiet way out beside it — both
-  // at the document panel's own button weight (`h-7 text-xs`), so neither
-  // shouts across a thread.
   const reviewed = !!review
   const fileHref =
     status === 'done' && projectId && ledger.result?.fileId
@@ -688,8 +492,6 @@ export function RunBlock({
         <Link href={reportHref}>{t('action.openReport')}</Link>
       </Button>
     ) : (status === 'failed' || status === 'cancelled') && onRetry && !isZdrPolicyRefusal(ledger.error?.reason) ? (
-      // A zero-data-retention refusal fails the same way on every retry: the
-      // reason already says an admin must choose a ZDR model.
       <Button
         size="sm"
         variant="ghost"
@@ -700,9 +502,6 @@ export function RunBlock({
         {t('action.retry')}
       </Button>
     ) : fileHref ? (
-      // Nothing else fits and the report was filed: the way to it belongs in
-      // the stand rather than behind the chevron, because the line above has
-      // just said where it is.
       <Button size="sm" variant="ghost" className="h-7 gap-1.5 px-2 text-xs" asChild>
         <Link href={fileHref} data-testid="run-file-link">
           <FileText className="size-3.5" aria-hidden />
@@ -715,7 +514,7 @@ export function RunBlock({
     onWriteNow && live && activePhase(ledger) === 'researching' ? (
       <Button
         size="sm"
-        variant="outline"
+        variant="secondary"
         className="h-7 px-2 text-xs"
         onClick={() => void onWriteNow()}
         data-testid="run-action-write-now"
@@ -740,7 +539,6 @@ export function RunBlock({
 
   const receipt = basisReceipt(ledger)
 
-  // A closed project commissions nothing (ADR-0090): say so where „Bericht fortschreiben“ would be.
   const closedProject = useCurrentProject()?.status === 'closed'
   const carryForward: ReactNode =
     closedProject && (status === 'done' || status === 'interrupted') ? (
@@ -773,20 +571,11 @@ export function RunBlock({
       </Button>
     ) : null
 
-  // Only while the run is going: a finished run's dead stream is not news.
   const connectionLine =
     streaming && (connection === 'reconnecting' || connection === 'lost')
       ? t(`connection.${connection}`)
       : null
 
-  // `filesToProject` is a CLAIM a caller makes, never inferred. It used to
-  // default to „there is a project", which made every freshly-commissioned run
-  // in a chat promise „Ergebnis kommt ins Projekt" — including an escalated
-  // question whose report lands inline in the thread, which the `done` line
-  // then correctly contradicts (`doneFiled` vs `doneInline`). A block that
-  // promises a destination at the start and names a different one at the end
-  // has spent the reader's trust to say nothing. Unclaimed, it says only that
-  // the run is angelegt, which is the part that is true either way.
   const line = statusLine(t, ledger, status, tallies, filesToProject ?? false)
   const before =
     status === 'failed' || status === 'cancelled'
@@ -813,10 +602,6 @@ export function RunBlock({
       data-testid="run-block"
       data-status={status}
       className={cn(
-        // No entrance of its own: the thread row that holds the block owns it,
-        // gated on whether the message is new. A CSS entrance on this root
-        // replayed on every mount, so a restored run rose again on every
-        // thread switch.
         'border-border bg-card w-full overflow-hidden rounded-xl border',
         className
       )}
@@ -1054,8 +839,6 @@ export function RunBlock({
               </p>
             )}
             {reviewLine && review && (
-              /* The reviewer's words, quoted on the run they are about —
-                 the same adjunct a version row renders under itself. */
               <Quote
                 as="p"
                 className="flex items-start gap-1.5 text-xs leading-[1.5]"

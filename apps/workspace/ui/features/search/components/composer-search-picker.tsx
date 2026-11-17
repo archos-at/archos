@@ -1,14 +1,5 @@
 'use client'
 
-/**
- * The composer's `#` picker: the ⌘K palette's live results
- * (`PaletteSearchResults`, the hits drawn by the search's own `HitRow`) in
- * the panel the composer's `@` and `/` pickers open above it, with their
- * keyboard contract. The composer keeps the focus and forwards ↑ ↓ ↵ ⇥ Esc
- * through `ComposerSearchPickerHandle`; a pick goes to `onPick` instead of
- * opening the hit.
- */
-
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 
 import { Command, CommandList } from '@/components/ui/command'
@@ -20,24 +11,19 @@ import { PaletteSearchResults, paletteHits, paletteHitValue } from './palette-se
 import { PaletteStatusLine } from './palette-atoms'
 import { COMPOSER_COMMAND_CLASS, ComposerPickerFrame } from './search-atoms'
 
-/** Hits the composer shows: one kind, so more of it than the palette's three. */
 export const COMPOSER_PICKER_HITS = 6
 
 export interface ComposerSearchPickerHandle {
-  /** Move the selection by `delta`, wrapping at both ends. */
   move: (delta: number) => void
-  /** Pick the selected hit. False when there is none. */
   selectActive: () => boolean
 }
 
-/** The ids the composer's textarea points at while the picker is open. */
 export interface ComposerSearchPickerAria {
   listboxId: string | null
   activeOptionId: string | null
 }
 
 export interface ComposerSearchPickerProps {
-  /** What follows `#`. */
   query: string
   search: PaletteSearch
   onPick: (hit: SearchHit) => void
@@ -77,7 +63,6 @@ export const ComposerSearchPicker = forwardRef<ComposerSearchPickerHandle, Compo
     [active, hits.length, onPick]
   )
 
-  // cmdk names its own option ids; the selected one is read off the DOM after each render.
   const reported = useRef<ComposerSearchPickerAria>({ listboxId: null, activeOptionId: null })
   useEffect(() => {
     if (!onAriaChange) return

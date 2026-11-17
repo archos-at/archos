@@ -1,10 +1,3 @@
-"""The pen of the permitting memory: a document's text in, a validated permit record out.
-
-The model is the reader, so these tests pin the contract around it and never its
-wording: the schema it is held to, what it is shown, and that no fault reaches
-the ingest.
-"""
-
 from __future__ import annotations
 
 import json
@@ -25,7 +18,6 @@ from agent.knowledge.permit_extraction import extract_permit_record
 from agent.knowledge.permit_extraction import is_permit_decision
 from agent.knowledge.permit_extraction import pages_with_markers
 
-# docs/design/permitting-memory.md, "Contract": the kinds the tables' CHECK constraints allow.
 CONTRACT_RECORD_KINDS = ["approval", "information_request", "refusal", "other"]
 CONTRACT_REQUIREMENT_KINDS = ["condition", "information_request", "note"]
 
@@ -42,8 +34,6 @@ def _fixture_text(document_id: str) -> str:
 
 
 class FakeLLM:
-    """Records the bound response_format and the messages; answers with ``reply``."""
-
     def __init__(self, reply: Any = None, raises: Exception | None = None):
         self.reply = reply
         self.raises = raises
@@ -115,8 +105,6 @@ def test_the_call_demands_a_strict_json_schema():
 
 
 def test_the_call_brings_its_own_output_budget():
-    # The summary model it runs on is capped at one sentence (100 tokens); a record with
-    # Auflagen was cut off mid-object and never landed.
     llm = FakeLLM(_record())
     extract_permit_record("Text", llm, file_name="m.pdf")
 
@@ -187,7 +175,6 @@ def test_blank_optionals_are_stored_as_absent():
 
 
 def test_a_notice_without_its_issuer_is_still_a_record():
-    # A scan without its letterhead: the model writes "" for the authority it cannot read.
     record = extract_permit_record("Text", FakeLLM(_record(authority="")), file_name="scan.pdf")
 
     assert record is not None

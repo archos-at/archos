@@ -1,11 +1,3 @@
-/**
- * The brand surfaces pass axe with the WCAG 2.0 to 2.2 A and AA rule sets.
- *
- * jsdom has no layout, so `color-contrast` cannot run here; it is held by the
- * browser audit over the /dev routes (`scripts/a11y-audit.mjs`, `task
- * workspace:a11y`). Everything structural (names, roles, headings, landmarks)
- * is checked here on every run.
- */
 import { render } from '@testing-library/react'
 import axe from 'axe-core'
 import { describe, expect, it } from 'vitest'

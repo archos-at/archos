@@ -1,5 +1,3 @@
-"""The one repair (ADR-0067): which quotes it may correct, which corrections hold, where they go."""
-
 from __future__ import annotations
 
 import asyncio
@@ -51,10 +49,8 @@ def test_a_misremembered_quote_is_close_and_an_invented_one_is_not():
 def test_a_correction_holds_only_when_it_is_the_passage_verbatim():
     assert accept(MISQUOTE, CORRECT, PASSAGE) == CORRECT
     assert accept(MISQUOTE, f"„{CORRECT}“", PASSAGE) == CORRECT  # quotation marks are not wording
-    # One digit off passes the verifier's fuzzy threshold; it is not the passage.
     assert accept(MISQUOTE, CORRECT.replace("2,10", "2,50"), PASSAGE) is None
     assert accept(MISQUOTE, "NONE", PASSAGE) is None
-    # Verbatim, but another sentence of the passage: not a correction of this quote.
     assert accept(MISQUOTE, "Danach ein Satz über Podeste und Stufen in Gebäudeklasse 4", PASSAGE) is None
 
 
@@ -73,9 +69,6 @@ def test_an_attribution_problem_is_not_selected():
 
 
 def test_a_passage_from_a_source_the_sentence_does_not_cite_is_never_used():
-    # Two Bundesländer with near-identical texts. The quote cites Tirol [1],
-    # but its wording is closest to Salzburg's passage. Correcting against that
-    # would put Salzburg's words, and its value, under Tirol's citation.
     misquote = "Die lichte Durchgangshöhe bei Treppen muss wenigstens 2,50 m betragen"
     tirol = "Treppen: eine Durchgangshöhe von 2,20 m ist einzuhalten, gemessen lotrecht über der Stufenvorderkante."
     registry = SourceRegistry()
@@ -93,16 +86,11 @@ def test_a_passage_from_a_source_the_sentence_does_not_cite_is_never_used():
 @pytest.mark.parametrize(
     ("cited", "other"),
     [
-        # A cited filename that contains another Bundesland's filename.
         ("NÖ Bauordnung.pdf, p.4", "Bauordnung.pdf, p.4"),
-        # The same with RIS keys.
         ("Steiermärkisches Baugesetz, § 5", "Baugesetz, § 5"),
     ],
 )
 def test_a_source_whose_name_is_inside_the_cited_one_is_not_cited(cited, other):
-    # The line cites Niederösterreich; Bauordnung.pdf is only a substring of
-    # its name. Read by a filename scan, it counted as cited and its closer
-    # passage was chosen, the patch putting its words under [1].
     misquote = "Die lichte Durchgangshöhe bei Treppen muss wenigstens 2,50 m betragen"
     own = "Treppen: eine Durchgangshöhe von 2,20 m ist einzuhalten, gemessen lotrecht über der Stufenvorderkante."
     registry = SourceRegistry()
@@ -138,10 +126,6 @@ def test_a_slow_patch_leaves_the_quote_as_it_was(monkeypatch):
 
 
 def test_the_page_quoted_is_chosen_over_a_page_sharing_one_long_phrase():
-    # Both pages belong to the cited document, so both are candidates. Page 4
-    # shares one long contiguous phrase with the misquote (higher coverage),
-    # page 3 is the sentence it misremembers (higher closeness). Ranked by
-    # coverage, page 4 was chosen and select() dropped the quote unpatched.
     page_4 = "Die lichte Durchgangshöhe bei Treppen muss der Nutzung entsprechen, Aufzüge sind ausgenommen."
     registry = SourceRegistry()
     registry.add(SourceEntry(citation_key="oib.pdf, p.3", chunk_text=PASSAGE, source_type="knowledge_layer"))
@@ -160,13 +144,10 @@ FIRE_WALL_MISQUOTE = "Als Brandabschnitt gilt der Raum „zwischen Brandwänden�
 
 
 def test_a_quotation_mark_that_is_the_passages_wording_is_kept():
-    # The closing “ is the passage's; stripping it spliced an unbalanced „.
     assert accept(FIRE_WALL_MISQUOTE, FIRE_WALL, FIRE_WALL_PASSAGE, span=f"»{FIRE_WALL_MISQUOTE}«") == FIRE_WALL
 
 
 def test_a_correction_that_would_nest_the_enclosing_marks_is_refused():
-    # Inside „…“, the correction's own „…“ closes the quote early: the verifier
-    # would re-read only „zwischen Brandwänden“, and the patch ship unchecked.
     assert accept(FIRE_WALL_MISQUOTE, FIRE_WALL, FIRE_WALL_PASSAGE, span=f"„{FIRE_WALL_MISQUOTE}“") is None
 
 
@@ -176,8 +157,6 @@ WRAPPED_PASSAGE = (
 
 
 def test_a_correction_copied_from_a_wrapped_passage_keeps_the_table_row_whole():
-    # A PDF passage carries its line breaks and hyphen wraps. Copied as the
-    # model returns it, the correction split the row into three lines.
     wrapped = "Die lichte Durchgangs-\nhöhe von Treppen muss\nmindestens 2,10 m betragen"
     registry = SourceRegistry()
     registry.add(SourceEntry(citation_key="oib.pdf, p.3", chunk_text=WRAPPED_PASSAGE, source_type="knowledge_layer"))
@@ -222,5 +201,4 @@ def test_a_quote_the_patch_never_corrects_gets_no_nearest_passage():
     assert (too_long.reason, too_long.nearest, too_long.nearest_closeness) == ("too_long", None, 0.0)
     assert (uncited.reason, uncited.nearest) == ("uncited", None)
     assert misquoted.nearest is not None
-    # A caller that never patches asks for none.
     assert all(quote.nearest is None for quote in verify_quoted_spans(answer, registry, with_nearest=False))

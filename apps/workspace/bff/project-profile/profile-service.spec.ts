@@ -93,11 +93,6 @@ describe('checkProjectConsistency authorization (FB-13)', () => {
   it('requires a profile write — the pre-save check runs only for editors', async () => {
     await checkProjectConsistency(session, 'proj-1', { freeText: [] })
 
-    // Aligned with generateProjectSummary; viewers cannot save the wizard, so the
-    // check must not be reachable with the broader project:view. Any-of, not the
-    // bare umbrella: the profile is structured project knowledge, so the
-    // permission is `project:memory:write`, with the deprecated `project:edit`
-    // still accepted for roles provisioned before the ADR-0038 split.
     expect(requireProjectAccess).toHaveBeenCalledWith(session, 'proj-1', [
       'project:memory:write',
       'project:edit',
@@ -118,8 +113,6 @@ describe('checkProjectConsistency backend fetch is time-bounded (fail-open)', ()
   const mockFetch = vi.fn()
 
   beforeEach(() => {
-    // clearAllMocks preserves the module-factory default (requireProjectAccess
-    // resolves to undefined); only call history is cleared.
     vi.clearAllMocks()
     vi.stubGlobal('fetch', mockFetch)
   })
@@ -147,12 +140,10 @@ describe('checkProjectConsistency backend fetch is time-bounded (fail-open)', ()
   })
 
   it('degrades a timeout abort to the same fail-open result as a network error', async () => {
-    // AbortSignal.timeout() rejects fetch with a DOMException named TimeoutError.
     mockFetch.mockRejectedValue(new DOMException('The operation timed out.', 'TimeoutError'))
 
     const result = await checkProjectConsistency(session, 'proj-1', { freeText: [] })
 
-    // Identical fail-open shape to a plain transport failure — the wizard saves anyway.
     expect(result).toEqual({ findings: null, error: 'check_request_failed' })
   })
 
@@ -185,7 +176,6 @@ describe('saveProjectProfile optimistic concurrency (If-Match)', () => {
     expect(updateProjectProfileIfVersion).toHaveBeenCalledTimes(1)
     const [, , expectedVersion, values] = vi.mocked(updateProjectProfileIfVersion).mock.calls[0]
     expect(expectedVersion).toBe(5)
-    // A full replace invalidates the old prose; the Overview regenerates it.
     expect((values as { profileDisplay: { summary: string } }).profileDisplay.summary).toBe('')
   })
 
@@ -197,8 +187,6 @@ describe('saveProjectProfile optimistic concurrency (If-Match)', () => {
   it('drops the bindings of removed buildings inside the profile write, not after it', async () => {
     await saveProjectProfile(session, 'proj-1', storedProfile, 5)
 
-    // Handed to the versioned update, which runs it in its own transaction
-    // under the row lock: committed with the profile or not at all.
     const inTransaction = vi.mocked(updateProjectProfileIfVersion).mock.calls[0][4]
     expect(inTransaction).toBeDefined()
     expect(deleteBindingsOutsideBuildings).not.toHaveBeenCalled()
@@ -230,15 +218,6 @@ describe('saveProjectProfile optimistic concurrency (If-Match)', () => {
   })
 })
 
-/**
- * Fix 1 (WP-C): every profile write path must drop BOTH profile-derived caches,
- * not just `promptview:` — otherwise the structured `federal_state` served on the
- * WS handshake stays stale for the 5-min TTL after a location change.
- *
- * `@/lib/cache` is mocked here, so `./prompt-view` runs for real and we assert
- * the EXACT keys handed to `invalidateCached`. (prompt-view.spec.ts additionally
- * proves the same wiring against a real in-memory cache.)
- */
 describe('profile writes invalidate both profile-derived cache keys (Fix 1)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -261,7 +240,6 @@ describe('profile writes invalidate both profile-derived cache keys (Fix 1)', ()
   })
 })
 
-// The legacy fact key is stored data from before migration 0159, not a name of ours.
 const LEGACY_ADDRESS_KEY = 'standort_adresse'
 
 describe('patchProjectProfile reads a legacy row through the new names', () => {
@@ -315,11 +293,8 @@ describe('generateProjectSummary', () => {
     const [url, init] = mockFetch.mock.calls[0]
     expect(url).toBe('http://backend:8000/v1/generate-summary')
     const body = JSON.parse(String((init as RequestInit).body))
-    // Labels, not machine tokens: "federal_state=vienna" must never leak into the prose.
     expect(body.profile_text).toBe('Bundesland: Wien')
     expect(body.locale).toBe('de')
-    // The locale is persisted alongside the prose so a later UI language switch
-    // can trigger exactly one regeneration.
     expect(setProjectProfileSummaryInOrg).toHaveBeenCalledWith(
       'proj-1',
       'org-1',
@@ -336,7 +311,6 @@ describe('generateProjectSummary', () => {
 
     await generateProjectSummary(session, 'proj-1')
 
-    // Mirrors the backend's own default so the stored locale matches the prose.
     expect(setProjectProfileSummaryInOrg).toHaveBeenCalledWith(
       'proj-1',
       'org-1',

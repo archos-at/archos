@@ -1,7 +1,3 @@
-/**
- * The wizard on a phone: the module list is one bar that opens a sheet, instead
- * of a strip of nine tiles above the first question.
- */
 import { render, screen, waitFor, within } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -32,13 +28,11 @@ describe('ProjectIntakeWizard on a phone', () => {
     const picker = await screen.findByTestId('intake-module-picker')
     expect(picker).toHaveTextContent(`Modul ${stages[0].id}`)
     expect(picker).toHaveTextContent(`1/${stages.length}`)
-    // Finger-sized, and hidden once the rail has the room (`lg`).
     expect(picker).toHaveClass('min-h-11', 'lg:hidden')
 
     await user.click(picker)
     const sheet = await screen.findByRole('dialog')
     const rows = within(sheet).getAllByRole('button', { name: /./ })
-    // Every module is a row of the sheet (the close control is the extra one).
     expect(within(sheet).getAllByRole('listitem')).toHaveLength(stages.length)
     expect(rows.length).toBeGreaterThanOrEqual(stages.length)
   })

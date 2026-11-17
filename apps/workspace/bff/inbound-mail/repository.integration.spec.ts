@@ -28,7 +28,6 @@ const STAMP = Date.now().toString(36)
 const ORG = `org_inbound_repo_${STAMP}`
 const OTHER_ORG = `org_inbound_repo_other_${STAMP}`
 const USER = 'user_01J0REPOSPEC0000000000000A'
-/** A fresh 12-letter base32 token per run, so reruns never meet the global unique index. */
 const token = (seed: string) => (STAMP + seed).replace(/[^a-z2-7]/g, 'a').padEnd(12, 'q').slice(-12)
 
 describe.skipIf(!url)('the E-Mail-Eingang’s receive SQL against Postgres', () => {
@@ -104,7 +103,6 @@ describe.skipIf(!url)('the E-Mail-Eingang’s receive SQL against Postgres', () 
   })
 
   afterAll(async () => {
-    // Projects cascade to every row this spec wrote; the purge path is the platform's.
     await withPlatformAccess('test cleanup', () =>
       db.execute(sql`DELETE FROM projects WHERE organization_id IN (${ORG}, ${OTHER_ORG})`),
     )
@@ -267,7 +265,6 @@ describe.skipIf(!url)('the E-Mail-Eingang’s receive SQL against Postgres', () 
 
       const counts = await inTenant(() => waitingMailCounts([projectId, otherProjectId]))
       expect(counts.get(projectId)).toBe(before + 1)
-      // Another tenant's project is not visible here, so it is absent rather than zero.
       expect(counts.has(otherProjectId)).toBe(false)
     })
 
@@ -317,7 +314,6 @@ describe.skipIf(!url)('the E-Mail-Eingang’s receive SQL against Postgres', () 
           VALUES (${ORG}, ${USER}, 'S-101_B.pdf', ${`k/inbound/${STAMP}/b`}, ${`coll_inbound_${STAMP}`}, 'completed', 'project',
                   ${projectId}::uuid, ${'b'.repeat(64)}, ${'b'.repeat(64)}, 'clean') RETURNING id`)
       ).id
-      // The same bytes, held by the content gate: never a candidate.
       await one(sql`
         INSERT INTO documents (organization_id, created_by, filename, storage_key, collection_name, status, scope, project_id, content_hash)
         VALUES (${ORG}, ${USER}, 'Gehalten.pdf', ${`k/inbound/${STAMP}/h`}, ${`coll_inbound_${STAMP}`}, 'quarantined', 'project',
@@ -409,7 +405,6 @@ describe.skipIf(!url)('the E-Mail-Eingang’s receive SQL against Postgres', () 
       `${new Date(mail.updatedAt).toISOString()}|${parts.map((part) => `${part.id}:${part.state}`).join(',')}`
     const actor = { decidedBy: PERSON, via: 'app' as const, proposalId: null }
 
-    /** A mail held with its text and one clean attachment, through the receive side's own statements. */
     async function heldMail(): Promise<{ mailId: string; textId: string; fileId: string }> {
       const mailId = crypto.randomUUID()
       await reception(mailId)

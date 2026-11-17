@@ -7,15 +7,8 @@ import { Button } from '@/components/ui/button'
 import { useTranslations } from '@/i18n'
 import { intakeReadingStepCopy } from '@/i18n/namespaces/intake-reading-step'
 
-/** The project's chat: usable from the first minute, whatever the reading is doing. */
 export const projectChatHref = (projectId: string): string => `/app/projects/${encodeURIComponent(projectId)}/chat`
 
-/**
- * The calm band at the foot of the step: one sentence on what the person need
- * not do (wait; Piloti tells them when it is done, `piloti.intake_ready`), and
- * the chat, which works now. Quiet on purpose: the one primary action is the
- * footer's.
- */
 export function ReadingChatBand({
   projectId,
   message,
@@ -24,9 +17,7 @@ export function ReadingChatBand({
 }: {
   projectId: string
   message: string
-  /** The reading still runs and Piloti will tell the person: the bell. */
   notify: boolean
-  /** Piloti has not finished reading: the chat is „schon jetzt" there. */
   early: boolean
 }): JSX.Element {
   const t = useTranslations(intakeReadingStepCopy)
@@ -40,7 +31,7 @@ export function ReadingChatBand({
         {notify && <BellRing aria-hidden className="mt-0.5 size-[18px] shrink-0 sm:mt-0" />}
         <p className="min-w-0 text-sm">{message}</p>
       </div>
-      <Button asChild variant="outline" className="bg-card h-11 shrink-0 text-[13px] sm:h-[34px] sm:px-3">
+      <Button asChild variant="secondary" className="bg-card h-11 shrink-0 text-[13px] sm:h-[34px] sm:px-3">
         <Link href={projectChatHref(projectId)} aria-label={t('chat.aria')} data-testid="reading-ask-chat">
           <MessageSquare aria-hidden className="size-3.5" />
           {early ? t('chat.early') : t('chat.label')}

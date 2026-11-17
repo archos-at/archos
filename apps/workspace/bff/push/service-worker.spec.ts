@@ -2,16 +2,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * `public/sw.js`, the service worker (ADR-0112), as plain logic and as a
- * registered worker.
- *
- * The first half loads the file as a module and tests its pure functions. The
- * second half runs the whole file in a sandbox that stands in for the worker's
- * global scope, fires its events, and checks what it asks the browser to do:
- * which is also how "no fetch handler" and "no cache" are held, as facts about
- * the file rather than intentions in a comment.
- */
 
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
@@ -106,7 +96,6 @@ describe('the application server key', () => {
   })
 })
 
-/** The worker's global scope, as far as sw.js touches it. */
 function boot(options: { windows?: unknown[]; fetchImpl?: (url: string, init?: Record<string, unknown>) => Promise<unknown> } = {}) {
   const listeners: Record<string, (event: Record<string, unknown>) => void> = {}
   const shown: Array<{ title: string; options: Record<string, unknown> }> = []
@@ -309,8 +298,6 @@ describe('the registered worker', () => {
     expect(created.unsubscribe).toHaveBeenCalled()
   })
 
-  // Without the old address nothing proves the browser was the signed-in
-  // person's device; posting it would hand whoever is signed in the browser.
   it('claims nothing for a change that names no old subscription, and drops the new one', async () => {
     const fresh = { toJSON: () => ({ endpoint: 'https://fcm.googleapis.com/fcm/send/fresh', keys: {} }), unsubscribe: vi.fn(async () => true) }
     const harness = boot({

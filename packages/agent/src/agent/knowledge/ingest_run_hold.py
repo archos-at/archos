@@ -7,7 +7,11 @@ has it yet. Without a word the row would read as lost after
 job waits its turn. So the dispatch holds the row for as long as the run may
 wait and retry (``held_until``, read by ``ingest_status_store._stale_predicate``),
 and the run's last attempt releases it, from when on the row lives only while
-its worker beats, as every running job's does.
+its worker beats, as every running job's does. A person's cancel releases it
+too (``ingest_status_store._write_cancelled``). Until one of the two, a live
+row is never stale: with the defaults the hold is 110,700 s from the trigger
+(``ingest_workflow.hold_seconds``, 30 h 45 min), not the 120 s of a row that
+only a heartbeat vouches for.
 
 ``run_id`` is the Hatchet run the job is, for a person's cancel
 (``agent_host.jobs.ingest_dispatch.cancel``): stored once, never sent to the BFF.

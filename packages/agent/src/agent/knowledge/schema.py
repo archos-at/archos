@@ -150,9 +150,12 @@ class JobState(StrEnum):
     PROCESSING = "processing"
     COMPLETED = "completed"
     FAILED = "failed"
-    #: A person stopped the job before it finished (``claim_queue.CANCELLED``).
-    #: Terminal, and neither a failure nor a success: nothing went wrong, but
-    #: nothing was indexed either. A reader shows it as its own state.
+    #: A person stopped the job before it finished, or a newer upload of its
+    #: document replaced it (``ingest_status_store.cancelled``,
+    #: ``ingest_execution.settle_superseded``). Terminal, and neither a failure
+    #: nor a success: nothing went wrong, and the files it had not finished
+    #: were not indexed. Files that finished before the stop keep ``success``
+    #: and their chunks. A reader shows it as its own state.
     CANCELLED = "cancelled"
 
 

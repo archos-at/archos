@@ -36,8 +36,8 @@
  */
 
 import { parseWireEvent, type ShownAnswer, type WireEvent } from '@/adapters/api/wire-v2'
-import { foldTurnEvents } from '@/features/chat/lib/turn-fold'
-import { stoppedAnswer } from '@/features/chat/lib/stopped-answer'
+import { foldTurnEvents } from '@/lib/turns/turn-fold'
+import { stoppedAnswer } from '@/lib/turns/stopped-answer'
 import { CONVERSATION_PLACEHOLDER, TURN_PLACEHOLDER, type FrameKind, type TurnScript } from './turn-script'
 
 export interface SocketProbeSink {

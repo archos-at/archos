@@ -46,23 +46,17 @@ vi.mock('server-only', () => ({}))
 const STAMP = Date.now()
 const ORG = `org_xp_${STAMP}`
 const OTHER_ORG = `${ORG}_other`
-/** Owner of every chat: opens both projects, on every restricted folder's list. */
 const OWNER = `user_xp_owner_${STAMP}`
-/** Opens the other project, on no folder's list. */
 const MEMBER = `user_xp_member_${STAMP}`
-/** Opens the other project and is on every restricted folder's list. */
 const CLEARED = `user_xp_cleared_${STAMP}`
-/** Opens only the chat's own project. */
 const OUTSIDER = `user_xp_outsider_${STAMP}`
 
 const holders = new Set([OWNER, CLEARED])
-/** Every restricted folder made here: its list in WorkOS holds OWNER and CLEARED as folder-reader. */
 const listed = new Set<string>()
 const clearanceFor = (userId: string): FolderClearance => ({
   levels: holders.has(userId) ? Object.fromEntries([...listed].map((folderId) => [folderId, 'read' as const])) : {},
   seesEverything: false,
 })
-/** Who may open the OTHER project: everyone named here (and nobody else). */
 const opensOther = new Set([OWNER, MEMBER, CLEARED])
 const ids = { own: '', other: '', closed: '' }
 
@@ -139,7 +133,6 @@ describe.skipIf(!url)('cross-project use against Postgres (migration 0125)', () 
       { organizationId: ORG, resourceType: 'conversation', resourceId: conversationId, subjectUserId, role: 'collaborator', grantedBy: OWNER },
       executor
     )
-  /** The audience key of the conversation now: the reach a lookup would have computed. */
   const keyOf = async (conversationId: string) => {
     const { readConversationAudience } = await import('./restricted-use-repository')
     return crossUse.audienceKey(await inOrg(ORG, () => readConversationAudience(db, ORG, conversationId)))
@@ -174,7 +167,6 @@ describe.skipIf(!url)('cross-project use against Postgres (migration 0125)', () 
     )
     return Number(Array.from(rows)[0]?.n)
   }
-  /** A folder of `projectId` with its own access list (OWNER and CLEARED on it), as a folder closed to most of the office. */
   const restrictedFolder = async (projectId: string, name: string) => {
     const [row] = Array.from(
       await inOrg(ORG, () =>
@@ -187,7 +179,6 @@ describe.skipIf(!url)('cross-project use against Postgres (migration 0125)', () 
     listed.add(String(row.id))
     return String(row.id)
   }
-  /** A project that is closed now with a restricted folder (a closed project takes no new folder, so it closes last). */
   const closedProjectWithRestrictedFolder = async (name: string) => {
     const [project] = Array.from(
       await inOrg(ORG, () =>
@@ -305,8 +296,6 @@ describe.skipIf(!url)('cross-project use against Postgres (migration 0125)', () 
     await admit(open, [], ids.other, undefined, openAnswer)
 
     expect(await marks(restrictedAnswer)).toBe(1)
-    // Another project's open content is not restricted use: the project record
-    // stays outside `conversation_restricted_use`.
     expect(await marks(openAnswer)).toBe(0)
   })
 
@@ -345,8 +334,6 @@ describe.skipIf(!url)('cross-project use against Postgres (migration 0125)', () 
     await setStatus(ids.other, 'closed')
     try {
       await admit(id, [folderId], ids.other)
-      // The project restricts nobody now; its restricted folder still does,
-      // and the agent's own evidence only knows this project's folders.
       expect(await inOrg(ORG, () => use.recordedSourceProjects(id, ORG))).toEqual([])
       expect(await inOrg(ORG, () => crossUse.drewOnOtherProjects(id, ORG))).toBe(true)
       expect(await reasonOf(inOrg(ORG, () => crossUse.requireMayRememberFrom(id, ORG)))).toBe('CROSS_PROJECT_MEMORY')

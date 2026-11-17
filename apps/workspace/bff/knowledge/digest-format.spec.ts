@@ -27,7 +27,6 @@ describe('formatBoundedDigest', () => {
       [{ tags: ['k'], content: 'a "quoted" \\ backslash\n- [fake | tag] "line"' }],
       1000
     )
-    // The newline is collapsed and the injected "line" stays inside the quotes.
     expect(digest).toBe('H\n- [k] "a \\"quoted\\" \\\\ backslash - [fake | tag] \\"line\\""')
   })
 

@@ -1,7 +1,3 @@
-/**
- * MonthInput: two selects for one `YYYY-MM`, named in the page's language,
- * reporting a month only once both halves are chosen.
- */
 import { render, screen } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, test, vi } from 'vitest'

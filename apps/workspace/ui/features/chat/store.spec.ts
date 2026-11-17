@@ -16,7 +16,6 @@ const mockLayoutState = vi.hoisted(() => ({
 
 const mockDiscardSessionResources = vi.hoisted(() => vi.fn())
 
-// Mock the layout store
 vi.mock('@/features/layout/store', () => ({
   useLayoutStore: {
     getState: () => mockLayoutState,
@@ -27,8 +26,6 @@ vi.mock('@/features/documents/discard-session-resources', () => ({
   discardSessionDocumentsResources: mockDiscardSessionResources,
 }))
 
-// The interrupted-turn recovery refetches server history before deciding to
-// show the banner; default to an empty server history so the banner path runs.
 const mockConversationsClient = vi.hoisted(() => ({
   list: vi.fn().mockResolvedValue([]),
   get: vi.fn().mockResolvedValue(undefined),
@@ -38,7 +35,6 @@ const mockConversationsClient = vi.hoisted(() => ({
   listMessages: vi.fn().mockResolvedValue([]),
   createMessage: vi.fn().mockResolvedValue(undefined),
   createMessages: vi.fn().mockResolvedValue(undefined),
-  // No frames in the replay stream: no turn still working to wait for.
   newestFrameAge: vi.fn().mockResolvedValue(null),
 }))
 vi.mock('@/adapters/api/conversations-client', () => ({
@@ -47,7 +43,6 @@ vi.mock('@/adapters/api/conversations-client', () => ({
 
 describe('useChatStore', () => {
   beforeEach(() => {
-    // Clear localStorage before each test
     useChatStore.persist.clearStorage()
     mockLayoutState.setEnabledDataSources.mockClear()
     mockLayoutState.enabledDataSourceIds = ['web_search']
@@ -56,7 +51,6 @@ describe('useChatStore', () => {
       { id: 'knowledge_base', requires_auth: true },
     ]
     mockDiscardSessionResources.mockClear()
-    // Reset store to initial state before each test
     useChatStore.setState({
       currentUserId: null,
       currentConversation: null,
@@ -74,7 +68,6 @@ describe('useChatStore', () => {
 
   afterEach(() => {
     vi.useRealTimers()
-    // Clean up localStorage after each test
     useChatStore.persist.clearStorage()
   })
 
@@ -407,9 +400,6 @@ describe('useChatStore', () => {
     })
 
     test('selectConversation keeps a conversation whose messages are still on the server', () => {
-      // Storage evicted its messages (or the server list brought it without
-      // them): opened and left before they arrived, it looks upload-only and
-      // used to be deleted, on the server too.
       markAwaitingServerMessages('evicted')
       const evicted: Conversation = {
         id: 'evicted',
@@ -540,11 +530,6 @@ describe('useChatStore', () => {
     })
 
     test('restores a subject file without inventing a filename from the title', () => {
-      // `conversation.title` is the filename only until addUserMessage
-      // overwrites it with the first thing the user typed. Reusing it here
-      // restored the subject as "fass das dokument zusammen" and sent that
-      // string on the wire as `focus_file_name`, matching no document — and
-      // the bar's own repair lookup skipped, because a title was present.
       const conv: Conversation = {
         id: 'conv-1',
         userId: 'user-1',
@@ -713,7 +698,6 @@ describe('useChatStore', () => {
       const message = useChatStore.getState().addUserMessage('Hello')
 
       expect(useChatStore.getState().isLoading).toBe(true)
-      // currentUserMessageId is updated to the new message
       expect(useChatStore.getState().currentUserMessageId).toBe(message.id)
     })
   })
@@ -761,7 +745,6 @@ describe('useChatStore', () => {
     })
 
     test('deleteConversation removes session from localStorage', async () => {
-      // Create conversations and wait for persist
       const conv1: Conversation = {
         id: 'conv-persist-1',
         userId: 'user-1',
@@ -784,14 +767,12 @@ describe('useChatStore', () => {
         conversations: [conv1, conv2],
       })
 
-      // Wait for Zustand persist to sync to localStorage
       await vi.waitFor(() => {
         const parsed = readStoredChat(STORAGE_KEY)!
         expect(parsed).not.toBeNull()
         expect(parsed.state.conversations).toHaveLength(2)
       })
 
-      // Verify initial localStorage state
       const beforeDelete = readStoredChat(STORAGE_KEY)!
       expect(beforeDelete.state.conversations.map((c: Conversation) => c.id)).toContain(
         'conv-persist-1'
@@ -800,29 +781,23 @@ describe('useChatStore', () => {
         'conv-persist-2'
       )
 
-      // Delete the first conversation
       useChatStore.getState().deleteConversation('conv-persist-1')
 
-      // Wait for Zustand persist to sync the deletion to localStorage
       await vi.waitFor(() => {
         const parsed = readStoredChat(STORAGE_KEY)!
         expect(parsed.state.conversations).toHaveLength(1)
       })
 
-      // Verify localStorage was updated correctly
       const afterDelete = readStoredChat(STORAGE_KEY)!
 
-      // The deleted session should NOT be in localStorage
       expect(afterDelete.state.conversations.map((c: Conversation) => c.id)).not.toContain(
         'conv-persist-1'
       )
 
-      // The other session should still be in localStorage
       expect(afterDelete.state.conversations.map((c: Conversation) => c.id)).toContain(
         'conv-persist-2'
       )
 
-      // currentConversation should be cleared since we deleted the current one
       expect(afterDelete.state.currentConversation).toBeNull()
     })
 
@@ -841,23 +816,19 @@ describe('useChatStore', () => {
         conversations: [conv],
       })
 
-      // Wait for initial persist (currentConversation stored as ID string)
       await vi.waitFor(() => {
         const parsed = readStoredChat(STORAGE_KEY)!
         expect(parsed).not.toBeNull()
         expect(parsed.state.currentConversation).toBe('conv-current')
       })
 
-      // Delete the current conversation
       useChatStore.getState().deleteConversation('conv-current')
 
-      // Wait for persist to sync
       await vi.waitFor(() => {
         const parsed = readStoredChat(STORAGE_KEY)!
         expect(parsed.state.conversations).toHaveLength(0)
       })
 
-      // Verify currentConversation is cleared in localStorage
       const stored = readStoredChat(STORAGE_KEY)!
       expect(stored.state.currentConversation).toBeNull()
       expect(stored.state.conversations).toHaveLength(0)
@@ -947,8 +918,6 @@ describe('useChatStore', () => {
     })
 
     test('setComposerPrefill carries structured mentions alongside the text', () => {
-      // The hand-off banner's prefill renders `@Piloti …`: the mention must
-      // travel with the text or the send routes as a plain message (MN-3).
       useChatStore
         .getState()
         .setComposerPrefill('@Piloti ', [{ targetId: 'agent:piloti', display: 'Piloti' }])
@@ -975,8 +944,6 @@ describe('useChatStore', () => {
     })
 
     test('consumeComposerPrefill preserves an empty-string prefill as a distinct value', () => {
-      // Empty string is a valid (if unusual) prefill and must not be conflated
-      // with "nothing queued" -- consume returns it once, then null.
       useChatStore.getState().setComposerPrefill('')
 
       expect(useChatStore.getState().consumeComposerPrefill()).toEqual({ text: '' })
@@ -1062,7 +1029,6 @@ describe('useChatStore', () => {
     const makeConv = (id: string, userId: string, projectId?: string | null): Conversation => ({
       id,
       userId,
-      // undefined models legacy pre-scoping sessions restored from storage
       ...(projectId !== undefined && { projectId }),
       title: `Conv ${id}`,
       messages: [],
@@ -1178,15 +1144,11 @@ describe('useChatStore', () => {
         useChatStore.getState().deleteAllConversations()
 
         const state = useChatStore.getState()
-        // Another project's history must survive a project-scoped delete-all.
         expect(state.conversations.map((c) => c.id).sort()).toEqual(['b-1', 'other-user'])
         expect(state.currentConversation).toBeNull()
       })
 
       test('keeps a foreign-project current conversation untouched', () => {
-        // Defensive: currentConversation should never point at another
-        // project after the guards, but delete-all must still not clear it
-        // blindly if state is inconsistent.
         const foreignCurrent = makeConv('b-1', 'user-1', 'proj-b')
         useChatStore.setState({
           currentUserId: 'user-1',
@@ -1236,8 +1198,6 @@ describe('useChatStore', () => {
 
         useChatStore.getState().deleteAllConversations()
 
-        // In-scope sessions (proj-a + unscoped legacy) and their drafts are gone;
-        // the other project's session and its draft are untouched.
         expect('a-1' in useChatStore.getState().composerDrafts).toBe(false)
         expect('legacy' in useChatStore.getState().composerDrafts).toBe(false)
         expect(useChatStore.getState().getComposerDraft('b-1')).toBe('other project')
@@ -1259,7 +1219,6 @@ describe('useChatStore', () => {
         const state = useChatStore.getState()
         expect(state.projectId).toBe('proj-a')
         expect(state.currentConversation).toBeNull()
-        // The session itself is NOT deleted — it stays available in its own project.
         expect(state.conversations.map((c) => c.id)).toEqual(['b-1'])
       })
 

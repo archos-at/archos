@@ -1,20 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The change record's routes and service (ADR-0109), driven through the TYPED
- * CLIENT (ADR-0055): the card uses the same two functions, so a path, a field
- * or a refusal code the two disagreed on would fail here.
- *
- * The record's repository is an in-memory fake that keeps the undo claim a
- * compare-and-swap on `undone_at IS NULL` and holds every row to the CHECKs of
- * migration 0142. The annotations service is a fake over an in-memory set of
- * marks at its seam (`listAnnotations`, `updateAnnotation`, `createAnnotation`),
- * with `updateAnnotation`'s compare-and-swap on `expectedStatus`; its real
- * state machine (`transition`) decides which status moves have a way back.
- * What is under test is that undo reads the object first, refuses what moved
- * on, and runs the inverse through THAT service as the person clicking.
- */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -75,7 +61,6 @@ const ROUTES: Array<{ pattern: RegExp; method: string; keys: string[]; handler: 
   { pattern: /^\/api\/piloti-changes\/([^/]+)\/undo$/, method: 'POST', keys: ['id'], handler: undo },
 ]
 
-/** `fetch` as the browser's client calls it, answered by the route handlers. */
 async function serve(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
   const url = new URL(String(input), 'https://grid.test')
   const method = init?.method ?? 'GET'
@@ -147,7 +132,6 @@ const reply = (patch: Partial<AnnotationReplyView> = {}): AnnotationReplyView =>
   ...patch,
 })
 
-/** A mark Piloti set open for user_1, the person clicking: accepted by them in the same move. */
 const setOpenForAsker = (patch: Partial<AnnotationView> = {}) =>
   mark({ authorKind: 'piloti', status: 'open', createdBy: 'user_1', acceptedBy: 'user_1', canDelete: true, ...patch })
 
@@ -170,7 +154,6 @@ const row = (extra: Partial<AgentChangeRow> = {}): AgentChangeRow => ({
   ...extra,
 })
 
-/** The CHECKs of migration 0142, held against every row the fake stores. */
 function assertChecks(stored: AgentChangeRow): void {
   expect(stored.objectKind !== 'annotation_reply' || stored.op === 'create', 'agent_changes_reply_is_created').toBe(true)
   expect(stored.objectKind !== 'annotation' || stored.objectId === stored.annotationId, 'agent_changes_annotation_is_object').toBe(true)
@@ -182,14 +165,12 @@ function assertChecks(stored: AgentChangeRow): void {
   expect(stored.undoneAt === null, 'agent_changes_undo_complete').toBe(stored.undoneBy === null)
 }
 
-/** The record, in memory, with the repository's compare-and-swap. */
 let changes: Map<string, AgentChangeRow>
 const put = (next: AgentChangeRow) => {
   assertChecks(next)
   changes.set(next.id, next)
   return next
 }
-/** The marks, by document, as the reader sees them. */
 let documents: Map<string, Map<string, AnnotationView>>
 const marksOf = (documentId: string) => documents.get(documentId) ?? new Map<string, AnnotationView>()
 const current = (id = MARK) => marksOf(DOC).get(id)
@@ -231,7 +212,6 @@ beforeEach(() => {
     if (!documents.has(documentId)) throw new NotFoundError()
     return { annotations: [...marksOf(documentId).values()], canAnnotate: true, pilotiWakes: false }
   })
-  // A person's PATCH: compare-and-swap on the status the caller saw.
   vi.mocked(updateAnnotation).mockImplementation(async (_session, documentId, id, input: UpdateAnnotationRequest) => {
     const before = marksOf(documentId).get(id)
     if (!before) throw new NotFoundError()
@@ -245,7 +225,6 @@ beforeEach(() => {
     if (!marksOf(documentId).delete(id)) throw new NotFoundError()
     return null
   })
-  // A reply goes for the person it was posted for, and only while it says what the caller saw.
   vi.mocked(deleteReply).mockImplementation(async (session, documentId, id, replyId, options) => {
     const held = marksOf(documentId).get(id)
     const found = held?.replies.find((candidate) => candidate.id === replyId)
@@ -292,7 +271,6 @@ describe('GET /api/conversations/[id]/messages/[messageId]/changes', () => {
       undoneByName: null,
       canUndo: true,
     })
-    // A mark Piloti set open for the asker has moved on here (it is resolved now), so there is nothing to undo.
     expect(read[0].canUndo).toBe(false)
     expect(requireResourceAccess).toHaveBeenCalledWith(SESSION, 'conversation', CONVERSATION, 'viewer')
     expect(listTurnChangeRows).toHaveBeenCalledWith('org_1', CONVERSATION, ANSWER)
@@ -401,7 +379,6 @@ describe('POST /api/piloti-changes/[id]/undo', () => {
   })
 
   it("refuses `moved-on` when a colleague changed the mark since, and changes nothing", async () => {
-    // Piloti reworded it; a colleague reworded it again.
     documents.get(DOC)?.set(MARK, mark({ body: 'Anders' }))
     put(row({ before: { body: 'Alt' }, after: { body: 'Neu' } }))
 
@@ -440,7 +417,6 @@ describe('POST /api/piloti-changes/[id]/undo', () => {
     documents.get(DOC)?.set(MARK, proposed)
     put(row({ op: 'create', before: null, after: markState(proposed) }))
     await undoChange(change(1))
-    // The service's `annotation dismissed` is the one score of that decision.
     expect(recordDecisionScore).not.toHaveBeenCalled()
 
     put(row({ id: change(2) }))
@@ -591,7 +567,6 @@ describe('POST /api/piloti-changes/[id]/undo', () => {
 
 describe('an undo in the audit trail', () => {
   const audited = (): AuditEventInput[] => vi.mocked(recordAuditEvent).mock.calls.map(([input]) => input)
-  // Whatever was emitted, WorkOS would accept: every target type and key is registered.
   afterEach(() => {
     for (const [input] of vi.mocked(recordAuditEvent).mock.calls) expectRegistered(input)
   })

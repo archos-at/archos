@@ -1,15 +1,5 @@
 'use client'
 
-/**
- * A month: two selects, Monat and Jahr, holding `YYYY-MM`.
- *
- * Not `<input type="month">`: desktop Safari has none and shows a bare text
- * field expecting `2026-03`, and Chrome names the months in the operating
- * system's language rather than the page's. Month names come from `Intl` in
- * the page's locale. The value is reported once both halves are chosen; a
- * clearable input reports `''` when cleared.
- */
-
 import { useEffect, useMemo, useState, type JSX } from 'react'
 import { X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -17,23 +7,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { cn } from '@/lib/utils'
 
 export interface MonthInputProps {
-  /** `YYYY-MM`, or `''` for none. */
   value: string
   onChange: (value: string) => void
   locale: string
-  /** Id of the month select, for a `FieldLabel htmlFor`. */
   id?: string
   monthLabel: string
   yearLabel: string
-  /** Shown on an unset half. */
   placeholder?: { month: string; year: string }
-  /** Offers a clear button, labelled so. */
   clearLabel?: string
-  /** The years offered, inclusive. Defaults to forty years back and five ahead. */
   fromYear?: number
   toYear?: number
   disabled?: boolean
-  /** Marks both halves invalid, for a field showing an error. */
   invalid?: boolean
   className?: string
 }
@@ -77,7 +61,6 @@ export function MonthInput({
     const first = fromYear ?? now - 40
     const chosen = Number(parts.year)
     const range = Array.from({ length: last - first + 1 }, (_, index) => String(last - index))
-    // A stored year outside the range is still shown, never silently dropped.
     return chosen && !range.includes(parts.year) ? [parts.year, ...range] : range
   }, [fromYear, toYear, parts.year])
 

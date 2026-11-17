@@ -1,18 +1,5 @@
 'use client'
 
-/**
- * The viewer Piloti's viewer actions move (ADR-0144), mounted once with the chat.
- *
- * It registers the runner (`lib/viewer-action-runner.ts`) with the chat's
- * viewer actions and holds the Fassung comparison a `compare_revisions` opens.
- * Nothing renders while no comparison is open. The room check is the peek's own
- * (`peekHasRoom`), and the host tells the chat whenever it changes, so a
- * citation's „Neben dem Chat öffnen“ and the page's declared client tools follow
- * a rotated phone or a route change at once. A route change also tells the
- * chat where the page is now, so an action that left the chat for a view the
- * person has since left stops offering „Zurücknehmen“.
- */
-
 import { useEffect, useRef, type JSX } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { noteViewerLocation, noteViewerRoom, registerViewerActionRunner } from '@/features/chat/lib/viewer-actions'
@@ -45,7 +32,6 @@ export function ViewerActionHost(): JSX.Element | null {
 
   const hasRoom = room.current
   useEffect(() => noteViewerRoom(hasRoom), [hasRoom])
-  // A route change may have left the model view an action opened: its „Zurücknehmen“ goes (ADR-0144).
   useEffect(() => noteViewerLocation(), [pathname])
 
   return compareElement

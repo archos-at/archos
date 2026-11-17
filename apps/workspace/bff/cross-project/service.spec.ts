@@ -1,18 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The cross-project lookups (ADR-0094), with the audience's reach, the
- * project's own search and the stores mocked: a project out of reach is
- * invisible (the reach decides, and the search never reaches it); a shared
- * chat gets no restricted folder; the record is checked against the audience
- * the reach was computed for; the conversation's own project is left out; the
- * `similar` scope walks the most alike projects first; one call searches a
- * bounded page of projects in one grouped query and says where the next
- * starts; every hit names its project and status; the filters hold; a failed
- * search is an upstream error, never "nothing found". The reach itself:
- * `audience-reach.spec.ts`.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AuthorizedSession } from '@/lib/auth/types'
@@ -22,32 +10,22 @@ vi.mock('server-only', () => ({}))
 
 const state = vi.hoisted(() => ({
   reachable: [] as Project[],
-  /** Projects of the organization out of the audience's reach: they exist, the lookups must not see them. */
   outOfReach: [] as Project[],
   restrictedFolders: true,
   hits: new Map<string, Array<Record<string, unknown>>>(),
-  /** Rows of a project's documents the backend did NOT hit: same-named siblings in other collections. */
   siblingRows: new Map<string, Array<Record<string, unknown>>>(),
   failing: new Set<string>(),
-  /** Per project, restricted collections the reader is cleared for beyond those its hits came from. */
   cleared: new Map<string, string[]>(),
   recorded: [] as Array<{ projectIds: readonly string[]; folderIds: readonly string[] }>,
   recordedFor: [] as string[],
-  /** What the decisions repository answers, and the scopes it was asked with. */
   decisions: [] as Array<Record<string, unknown>>,
   decisionScopes: [] as Array<{ projectId: string; readableFolderIds: readonly string[] }>,
-  /** What the permit repository answers, and the scopes it was asked with. */
   permits: [] as Array<Record<string, unknown>>,
   permitScopes: [] as Array<{ projectId: string; readableFolderIds: readonly string[] }>,
-  /** Per project, the folders the asker may read (solo chat only). */
   readable: new Map<string, string[]>(),
-  /** Restricted collection → source folder, for the project whose folder tree is asked. */
   folders: new Map<string, string>(),
-  /** Whether the grouped search fails upstream (Qdrant down): the real client throws an UpstreamError. */
   groupedFails: false,
-  /** Projects whose hits cannot be joined to their rows (Postgres down). */
   hydrateFails: new Set<string>(),
-  /** The grouped search's ranking, as hit ids best first; unset ranks by score. */
   ranking: null as string[] | null,
   groupedCalls: [] as Array<{
     collections: string[]
@@ -55,11 +33,9 @@ const state = vi.hoisted(() => ({
     snippetMaxChars?: number
     options: { filters?: { document_types?: string[]; disciplines?: string[] }; boost?: unknown }
   }>,
-  /** Every project `planProjectSearch` was asked to authorize, in order. */
   planned: [] as string[],
   hydrating: 0,
   hydratePeak: 0,
-  /** Every project whose hits were joined to its rows, with how. */
   hydrated: [] as Array<{ projectId: string; forModel?: boolean }>,
 }))
 
@@ -85,7 +61,6 @@ vi.mock('./decisions-repository', () => ({
     return state.decisions
   }),
 }))
-// The live folder judgement is live-access.spec's subject; here it carries the clearance through.
 vi.mock('@/lib/permits/live-access', () => ({
   liveFolderAccess: vi.fn(async (_org: string, _projectId: string, readableFolderIds: readonly string[]) => ({
     visibleFolderIds: null,
@@ -105,14 +80,9 @@ vi.mock('@/lib/projects/repository', () => ({
     async (id: string) => [...state.reachable, ...state.outOfReach].find((project) => project.id === id) ?? null
   ),
 }))
-// Only the backend call and the row lookup are replaced; the join is the real
-// `joinHitsToFiles`. A mock that handed back already-joined hits carrying their
-// own `collectionName` is what let a hit from a restricted folder's collection
-// be labelled with an open collection (a newer same-named row) unnoticed.
 vi.mock('@/lib/documents/semantic-search', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/documents/semantic-search')>()
   const projectOf = (projectId: string) => [...state.reachable, ...state.outOfReach].find((one) => one.id === projectId)
-  // The rows the database answers for a project: its hit documents and any same-named siblings.
   const rowsOf = (projectId: string) =>
     [
       ...(state.hits.get(projectId) ?? []).map(({ snippet: _snippet, page: _page, score: _score, ...row }) => ({
@@ -129,7 +99,6 @@ vi.mock('@/lib/documents/semantic-search', async (importOriginal) => {
       if (state.failing.has(projectId)) throw new Error('access withdrawn')
       const found = projectOf(projectId)
       if (!found) throw new Error('not found')
-      // Cleared restricted collections: every non-own collection the project's hits came from.
       const restricted = [
         ...new Set(
           (state.hits.get(projectId) ?? [])
@@ -143,10 +112,6 @@ vi.mock('@/lib/documents/semantic-search', async (importOriginal) => {
         collections: [found.collectionName, ...restricted, ...(state.cleared.get(projectId) ?? [])],
       }
     }),
-    // What `POST /v1/collections/search` answers (`_ranked_group_hits`): the
-    // chunks' tags filtered inside the query, at most `filesPerCollection`
-    // documents per collection, every document ordered ACROSS collections by
-    // its place in the one fused ranking (`state.ranking`, else the score).
     fetchGroupedSemanticHits: vi.fn(
       async (
         _organizationId: string,
@@ -330,7 +295,6 @@ describe('searchAcrossProjects', () => {
 
     expect(state.recorded).toEqual([{ projectIds: [one.id], folderIds: [] }])
     expect(state.recorded[0].projectIds).not.toContain(three.id)
-    // Checked under the lock against the audience the reach was computed for.
     expect(state.recordedFor).toEqual(['audience-key'])
   })
 
@@ -361,11 +325,6 @@ describe('searchAcrossProjects', () => {
     expect(state.recorded).toEqual([{ projectIds: [one.id], folderIds: [] }])
   })
 
-  // Filenames are unique per collection, not per project: a restricted folder has
-  // its own collection, so „GF intern/Protokoll.pdf" and a NEWER root „Protokoll.pdf"
-  // coexist. The backend hit comes from the GF collection; a join on the name alone
-  // handed it to the root row and labelled it with the open collection, which a
-  // shared chat keeps and records nowhere.
   describe('a restricted passage and a newer same-named open document', () => {
     const GF_COLLECTION = 'proj_1_rabcdef012345'
     const newerOpenRow = () => ({
@@ -381,7 +340,6 @@ describe('searchAcrossProjects', () => {
     function arrange() {
       const [one] = state.reachable
       state.folders.set(GF_COLLECTION, 'folder-gf')
-      // The backend found the passage in the GF collection only.
       state.hits.set(one.id, [hit('protokoll', 0.9, { collectionName: GF_COLLECTION, snippet: 'Honorar GF intern' })])
       state.siblingRows.set(one.id, [newerOpenRow()])
       return one
@@ -394,7 +352,6 @@ describe('searchAcrossProjects', () => {
       const result = await searchAcrossProjects(caller(), search({}))
 
       expect(result.hits).toEqual([])
-      // Nothing was handed out, so nothing names a project or a folder.
       expect(state.recorded.flatMap((handOut) => [...handOut.projectIds, ...handOut.folderIds])).toEqual([])
     })
 
@@ -533,7 +490,6 @@ describe('searchAcrossProjects', () => {
     await searchAcrossProjects(caller(), search({}))
 
     expect(state.groupedCalls[0].snippetMaxChars).toBe(CROSS_PROJECT_SNIPPET_CHARS)
-    // Screened documents only, never the asker's held uploads in that project.
     expect(state.hydrated.map((call) => call.projectId)).toEqual([one.id, two.id])
     expect(state.hydrated.every((call) => call.forModel)).toBe(true)
   })
@@ -560,8 +516,6 @@ describe('searchAcrossProjects', () => {
   })
 
   it('walks the closed projects most like the current one first, as the catalog lists them', async () => {
-    // The turn's precedent prefetch searches `closed`: newest first, it searched
-    // the eight newest closed projects and missed the catalog's closest ones.
     const closed = { status: 'closed' as const, closedAt: new Date(), closedBy: OWNER }
     const profile = (federalState: string) => ({
       facts: { federal_state: { value: federalState, confidence: 'confirmed' as const, source: 'onboarding' as const, updatedAt: '' } },
@@ -590,18 +544,15 @@ describe('searchAcrossProjects', () => {
       search({ scope: 'closed', order: [third.id, running.id, '99999999-0000-4000-8000-000000000099'] })
     )
 
-    // The running project stays out of a closed search whatever the order says.
     expect(state.planned).toEqual([third.id, first.id, second.id])
   })
 
   it('narrows by the PROJECT’s period before searching, not by when a file was uploaded', async () => {
-    // Projekt 1 began 2026-02-15, Projekt 2 2026-03-15, Projekt 3 2026-04-15; all still open.
     const result = await searchAcrossProjects(caller(), search({ to: '2026-03-31' }))
 
     expect(state.planned).toEqual([state.reachable[0].id, state.reachable[1].id])
     expect(result.projectsInScope).toBe(2)
 
-    // The Steckbrief's Beginn and Abschluss win over the day the project was created in Piloti.
     state.reachable = [project(1, { startedOn: '2015-03-01', endedOn: '2017-06-01' }), project(2)]
     state.planned = []
     await searchAcrossProjects(caller(), search({ from: '2015-01-01', to: '2018-01-01' }))
@@ -667,7 +618,6 @@ describe('searchAcrossProjects in one grouped query (ADR-0116)', () => {
   })
 
   it('stops adding projects before the collections pass the backend’s cap, and pages the rest', async () => {
-    // Each project brings its own collection and 19 restricted folders: 40 of them would be 800.
     state.reachable = Array.from({ length: CROSS_PROJECT_PAGE_PROJECTS }, (_, index) => project(index + 1))
     for (const one of state.reachable) {
       state.cleared.set(one.id, Array.from({ length: 19 }, (_, n) => `${one.collectionName}_r${String(n).padStart(12, '0')}`))
@@ -679,7 +629,6 @@ describe('searchAcrossProjects in one grouped query (ADR-0116)', () => {
     expect(BACKEND_SEARCH_MAX_COLLECTIONS).toBe(500)
     expect(state.groupedCalls[0].collections).toHaveLength(fitting * 20)
     expect(first).toMatchObject({ projectsSearched: fitting, nextOffset: fitting, projectsInScope: CROSS_PROJECT_PAGE_PROJECTS })
-    // Decisions and permits are read over the projects searched, so a deferred one is not answered twice.
     expect(state.decisionScopes.map((scope) => scope.projectId)).toEqual(state.reachable.slice(0, fitting).map((one) => one.id))
 
     state.groupedCalls = []
@@ -781,7 +730,6 @@ describe('searchAcrossProjects in one grouped query (ADR-0116)', () => {
 
   it('still drops a hit whose document row no longer carries the tag: the search’s copy may lag', async () => {
     const [one] = state.reachable
-    // The chunk still says Bescheid; a person retagged the document since.
     state.hits.set(one.id, [hit('a', 0.9, { tags: ['Detail'], chunkTags: ['Bescheid'] }), hit('b', 0.8, { tags: ['Bescheid'] })])
 
     const result = await searchAcrossProjects(caller(), search({ documentTypes: ['Bescheid'] }))
@@ -815,7 +763,6 @@ describe('searchAcrossProjects in one grouped query (ADR-0116)', () => {
         work_type: SIMILARITY_WEIGHTS.workType,
       },
     })
-    // `all` walks newest first by definition: nothing to be like.
     expect(state.groupedCalls[1].options.boost).toBeNull()
   })
 })
@@ -861,7 +808,6 @@ describe('the decisions other projects recorded', () => {
     const evidence = [{ fileName: 'Bescheid.pdf', page: '3' }]
     state.decisions = [
       decision(one.id, { confirmed: false, verification: 'source_grounded', evidence }),
-      // A person confirming a drafted decision makes it theirs: the person outranks the documents.
       decision(two.id, { confirmed: true, verification: 'source_grounded', evidence }),
       decision(three.id, { confirmed: false, verification: 'unverified' }),
     ]
@@ -999,7 +945,6 @@ describe('listLookupProjects', () => {
       ['Projekt 2', null, true, 'proj_2'],
     ])
     expect(all.projects[0].period).toEqual({ start: '2026-02-15', end: null })
-    // The conversation's own project is not another project: not recorded.
     expect(state.recorded).toEqual([{ projectIds: [one.id], folderIds: [] }])
 
     const graz = await listLookupProjects(caller(), crossProjectListRequestSchema.parse({ query: 'graz' }))
@@ -1012,7 +957,6 @@ describe('listLookupProjects', () => {
       crossProjectListRequestSchema.parse({ from: '2026-03-01', status: 'active', limit: 1 })
     )
 
-    // Open periods overlap every later day, so all three match.
     expect(result.total).toBe(3)
     expect(result.projects).toHaveLength(1)
     expect(state.recorded).toEqual([{ projectIds: [state.reachable[0].id], folderIds: [] }])
@@ -1109,7 +1053,6 @@ describe('periodOverlaps', () => {
 describe('the project facts a lookup narrows by', () => {
   type Facts = Record<string, unknown>
   const closed = { status: 'closed' as const, closedAt: new Date(), closedBy: OWNER }
-  /** A profile with these confirmed facts and these agent suggestions, as the intake and the extractor write them. */
   const profileOf = (facts: Facts, suggested: Facts = {}): Project['profile'] => ({
     facts: Object.fromEntries(
       Object.entries(facts).map(([key, value]) => [
@@ -1134,14 +1077,12 @@ describe('the project facts a lookup narrows by', () => {
   })
   const TIROL_GK4_WOHNEN = { projectFacts: { federal_state: ['tyrol'], building_class: [4], uses: ['residential'] } }
 
-  /** Five projects: two match Tirol + GK 4 + Wohnen (one through a suggestion), three miss one fact each. */
   function office(): Project[] {
     return [
       project(1, { ...closed, profile: profileOf({ federal_state: 'tyrol', building_class: 4, uses: ['residential', 'office'] }) }),
       project(2, { profile: profileOf({ federal_state: 'tyrol', building_class: 3, uses: ['residential'] }) }),
       project(3, { ...closed, profile: profileOf({ federal_state: 'tyrol', uses: ['residential'] }, { building_class: 'GK 4' }) }),
       project(4, { profile: profileOf({ federal_state: 'vienna', building_class: 4, uses: ['residential'] }) }),
-      // No Gebäudeklasse recorded at all: it cannot match a filter on it.
       project(5, { profile: profileOf({ federal_state: 'tyrol', uses: ['residential'] }) }),
     ]
   }
@@ -1158,14 +1099,11 @@ describe('the project facts a lookup narrows by', () => {
     expect(state.groupedCalls[0].collections).toEqual(['proj_1', 'proj_3'])
     expect(result).toMatchObject({ projectsInScope: 2, projectsSearched: 2, nextOffset: null })
     expect(result.hits.map((found) => found.filename)).toEqual(['a.pdf'])
-    // Decisions and permits are read over the same narrowed page, never a project the filter left out.
     expect(state.decisionScopes.map((scope) => scope.projectId)).toEqual([one.id, three.id])
     expect(state.permitScopes.map((scope) => scope.projectId)).toEqual([one.id, three.id])
   })
 
   it('selects exactly the projects whose mirrored copy the grouped search’s own fact filter would match', async () => {
-    // The copy on every chunk is `projectFactsOf` (project-facts-mirror.ts); the backend's filter is
-    // any of within a fact and all of across facts. Postgres and the copy agree on a fresh mirror.
     state.reachable = office()
     const wanted = TIROL_GK4_WOHNEN.projectFacts
     const mirrorMatches = (copy: ReturnType<typeof projectFactsOf>) =>
@@ -1206,7 +1144,6 @@ describe('the project facts a lookup narrows by', () => {
 
     await searchAcrossProjects(caller(current.id), search({ scope: 'similar', projectFacts: { federal_state: ['tyrol'] } }))
 
-    // The most alike first among the projects the facts left; the Viennese one is out, however alike.
     expect(state.planned).toEqual([high.id, low.id])
     expect(state.groupedCalls[0].options.boost).toMatchObject({ facts: { federal_state: 'tyrol', building_class: [4] } })
   })

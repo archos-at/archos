@@ -133,16 +133,6 @@ describe('documentsForRound', () => {
   })
 })
 
-/**
- * The fan under a round, once the backend states what that round returned.
- *
- * `documentsForRound` matches filenames, so every round that touched a file
- * drew the same turn-level card: the same aggregate count, the same cited
- * page. A second round re-opening four files at new pages was four identical
- * cards a second time. The ledger says which documents a round returned and at
- * which passages; `roundFan` folds them to ONE slot per document carrying its
- * loci, and falls back to the filename match for any round it does not cover.
- */
 describe('roundFan', () => {
   const doc = (id: string, fileName: string): CitedDocument => ({
     id,
@@ -163,11 +153,6 @@ describe('roundFan', () => {
     sourceNames,
   })
 
-  /**
-   * The wire the Python half writes, not a copy of it — the same fixture
-   * `message-retrieval-ledger.spec.ts` pins the sanitizer against. Sanitized
-   * first, because that is the only shape a renderer ever sees.
-   */
   const ledger = sanitizeRetrievalLedger(
     JSON.parse(
       readFileSync(
@@ -198,8 +183,6 @@ describe('roundFan', () => {
   })
 
   test('five opens of one document are ONE card listing its five loci', () => {
-    // The shape this fold exists for: five Punkte of one Richtlinie used to be
-    // five identical cards, which reads as five fetches of the same file.
     const clauses = ['Pkt. 3.1', 'Pkt. 3.2', 'Pkt. 3.3', 'Pkt. 3.4', 'Pkt. 3.5']
     const entry = {
       ...ledger[2]!,
@@ -213,7 +196,6 @@ describe('roundFan', () => {
   })
 
   test('a search that only ranked a file does not make the later open a repeat', () => {
-    // Round 0 listed both files; round 1 is the first to read into them.
     expect(roundFan(rounds[0]!, [oib, konzept], ledger).map((s) => s.loci)).toEqual([
       [{ repeat: false }],
       [{ repeat: false }],
@@ -231,9 +213,6 @@ describe('roundFan', () => {
   })
 
   test('a round that re-lists one passage and finds another marks only the first', () => {
-    // Round 0 ranked the file at p.12; this round ranks it there again and
-    // reaches p.60 for the first time. One card, two loci, one marker — the
-    // claim a document-level verdict cannot make.
     const entry = {
       ...ledger[2]!,
       docs: [
@@ -251,8 +230,6 @@ describe('roundFan', () => {
   })
 
   test('a turn stored before the backend stamped passages falls back to newDocs', () => {
-    // Old rows are replayed from Postgres and must still say something true:
-    // the document-level verdict, applied to every locus of that document.
     const entry = {
       ...ledger[1]!,
       docs: [
@@ -269,8 +246,6 @@ describe('roundFan', () => {
   })
 
   test('a ledger doc with no card keeps its slot and its loci', () => {
-    // The answer-repair pass reads after the cards are built; a slot dropped
-    // here would have the round claim it read one file when it read two.
     const fan = roundFan(rounds[1]!, [oib], ledger)
     expect(fan.map((slot) => slot.card?.id)).toEqual(['oib', undefined])
     expect(fan[1]).toMatchObject({

@@ -5,8 +5,6 @@ import { describe, test, expect } from 'vitest'
 import { formatTime } from './format-time'
 
 describe('formatTime', () => {
-  // Local-time constructor so the wall-clock value is TZ-independent: both the
-  // Date and the formatter use the runtime's local timezone.
   const date = new Date(2024, 0, 15, 15, 35)
 
   test('renders German times in 24-hour format', () => {

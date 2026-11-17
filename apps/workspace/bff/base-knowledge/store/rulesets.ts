@@ -12,7 +12,7 @@
  */
 
 import 'server-only'
-import { and, eq, isNotNull, sql } from 'drizzle-orm'
+import { and, eq, inArray, isNotNull, sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
 import { withTenant } from '@/lib/db/tenant-context'
 import {
@@ -65,6 +65,7 @@ const KIND_OF_SCHEMA = {
   'fact_sources.v1': 'fact_sources',
   'advice_policy.v1': 'advice_policy',
   'terminology.v1': 'terminology',
+  'citation_style.v1': 'citation_style',
 } as const satisfies Record<RulesetPayloadSchema, string>
 
 /**
@@ -126,6 +127,9 @@ export function rulesetFromRow(row: RulesetRow): StoredRuleset | null {
   return parsed.success ? { id: row.recordId, values: parsed.data } : null
 }
 
+/** The purposes a project's setup reads: its facts, the documents that settle them, and its building classification. */
+export const SETUP_PURPOSES = ['fact_definitions', 'fact_sources', 'classification'] as const satisfies readonly RulesetPurpose[]
+
 export interface RulesetRead {
   rulesets: StoredRuleset[]
   /** More than {@link MAX_RULESETS} matched: the read is incomplete, and a decision from it is not to be trusted. */
@@ -159,6 +163,43 @@ export async function readRulesetsInForce(
           recordReadable('knowledge_records', organizationId),
           eq(knowledgeRulesetRevisions.purpose, query.purpose),
           sql`${knowledgeRulesetRevisions.territoryIds} && ${sql.param([...query.territoryIds])}::text[]`
+        )
+      )
+      .orderBy(knowledgeRecords.id)
+      .limit(MAX_RULESETS + 1)
+  )
+  const rulesets: StoredRuleset[] = []
+  const unreadable: string[] = []
+  for (const { body } of rows.slice(0, MAX_RULESETS)) {
+    const ruleset = rulesetFromRow(body)
+    if (ruleset) rulesets.push(ruleset)
+    else unreadable.push(body.recordId)
+  }
+  return { rulesets, unreadable, truncated: rows.length > MAX_RULESETS }
+}
+
+/**
+ * Every setup record in force that this organization reads (ADR-0169): the
+ * released ones of the countries it is entitled to, and its own. No territory
+ * filter: which country a project is in is only known from these very records
+ * (a geocoded Land names its country by the subdivisions a record lists), and
+ * a country has a handful. The caller selects on the project's chain.
+ */
+export async function readSetupRulesetsInForce(organizationId: string): Promise<RulesetRead> {
+  const rows = await withTenant({ organizationId }, () =>
+    getDb()
+      .select({ body: knowledgeRulesetRevisions })
+      .from(knowledgeRecords)
+      .innerJoin(
+        knowledgeRulesetRevisions,
+        eq(knowledgeRulesetRevisions.revisionId, knowledgeRecords.headRevisionId)
+      )
+      .where(
+        and(
+          eq(knowledgeRecords.type, 'ruleset'),
+          isNotNull(knowledgeRecords.headRevisionId),
+          recordReadable('knowledge_records', organizationId),
+          inArray(knowledgeRulesetRevisions.purpose, [...SETUP_PURPOSES])
         )
       )
       .orderBy(knowledgeRecords.id)

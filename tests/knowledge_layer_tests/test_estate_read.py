@@ -1,16 +1,3 @@
-"""``read_file`` on the estate: the backend, the stored page text and its fallback (ADR-0133, ADR-0134).
-
-What is pinned:
-
-* one backend instance serves every turn: the rows are the turn's, read per call;
-* a restricted document's guessed path gets the very answer a path that does not exist gets, and
-  resolves once this turn may name its collection (listing hides, reading admits);
-* stored page text is read through the scoped lookup's storage key, and an ``index.json`` that
-  names another document or version is refused; without one the pages are rebuilt from chunks;
-* every block is one page, cites ``file, p.N``, states its ``Path:``, carries no line gutter, and
-  the records ride the call's artifact.
-"""
-
 from __future__ import annotations
 
 import json
@@ -61,7 +48,6 @@ class TestTenancy:
 
 class TestPrivacy:
     async def test_a_guessed_restricted_path_reads_exactly_like_a_miss(self) -> None:
-        """Nothing confirms it exists: not the text, not the status, not a suggestion (ADR-0088)."""
         backend = _backend(restricted=())
         guessed = await backend.read_file("/project/Personal/Vertrag.pdf.md")
         absent = await backend.read_file("/project/Personal/Vertrxg.pdf.md")
@@ -71,7 +57,6 @@ class TestPrivacy:
         assert "Vertrag" not in absent.text.split("\n", 1)[1]
 
     async def test_a_restricted_document_reads_once_its_collection_may_be_named(self, monkeypatch) -> None:
-        """The real loader: restricted rows are loaded only for collections the turn admitted."""
         backend = EstateBackend(
             SimpleNamespace(),
             rows_loader=lambda: _async([BSK]),
@@ -122,7 +107,6 @@ class TestTheBlocks:
         assert result.text.startswith("/project/Gutachten/Brandschutz/Brandschutzkonzept.pdf.md, pages 2-3 of 3. ")
 
     async def test_a_body_is_the_page_verbatim_with_no_line_gutter(self) -> None:
-        """Quote verification compares against the body, so a gutter would break a quote across a line."""
         result = await _backend().read_file("/project/Gutachten/Brandschutz/Brandschutzkonzept.pdf.md", pages="2")
         assert result.hits[0].body == PAGES[2]
         assert "\n2.1 Rettungsweg\nDer Fluchtweg" in result.text
@@ -269,7 +253,6 @@ class TestStoredPages:
 
 
 def _render_pages(pages: dict[int, str], *, document_id: str, version: int) -> tuple[bytes, dict]:
-    """``pages.md`` and ``index.json`` in the writer's schema 1 (``page_text_store.render``)."""
     body = bytearray()
     entries = []
     for number in range(1, max(pages) + 1):

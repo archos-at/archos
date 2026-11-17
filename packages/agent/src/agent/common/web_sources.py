@@ -10,11 +10,11 @@ model sees it, and says what it did.
 Nothing here names a country, a site or a file-name convention. What is a work's own source and what is a
 copy is read from data:
 
-- **the source records**, read in one place (:func:`configured_sources`, through ``public_sources``'
-  loader): ``hosts`` are a source's own, ``copy_hosts`` republish it. The agent has no reader of the
-  platform's source records yet (the BFF's ``source-service`` has no Python counterpart): when a source
-  moves there, this one function changes, and until it does an unreadable record set means no host is
-  known as a copy, never a failed search;
+- **the source records**, read in one place (:func:`configured_sources`): the repository's, through
+  ``public_sources``' loader, and the released ones the turn's knowledge context carries
+  (``KnowledgeContext.sources``, ADR-0174 amendment 2026-11-11). ``hosts`` are a source's own,
+  ``copy_hosts`` republish it. An unreadable repository record set means no host of it is known as a
+  copy, never a failed search;
 - **the works the turn holds**, each with its designation: the editions of the turn's knowledge context
   (``knowledge_context.EditionUse``: designation, corpus files, legal-database identities), the documents of
   the base shelf (``inventory.get_norm_families``) and the laws the norm registry points at in a legal
@@ -156,7 +156,12 @@ def _sources_under(root: str) -> tuple[SourceHosts, ...]:
 
 
 def configured_sources() -> tuple[SourceHosts, ...]:
-    """The source records, read once per process and directory; none when they cannot be read (logged)."""
+    """The repository's source records (read once per process and directory), then the turn's released ones."""
+    return _repository_sources() + _turn_sources()
+
+
+def _repository_sources() -> tuple[SourceHosts, ...]:
+    """The repository's source records; none when they cannot be read (logged)."""
     try:
         from public_sources.source import sources_dir
 
@@ -164,6 +169,21 @@ def configured_sources() -> tuple[SourceHosts, ...]:
     except Exception:  # noqa: BLE001 - a search must not fail because a record did not load
         logger.warning("web_sources: the source records could not be read; no host is known as a copy", exc_info=True)
         return ()
+
+
+def _turn_sources() -> tuple[SourceHosts, ...]:
+    """The released source records the turn carries, as their configuration states them (``copy_hosts``)."""
+    from agent.common.knowledge_context import turn_knowledge_context
+
+    return tuple(
+        SourceHosts(
+            title=str(source.config.get("title") or source.key),
+            country=source.country,
+            hosts=tuple(source.config.get("hosts") or ()),
+            copy_hosts=tuple(source.config.get("copy_hosts") or ()),
+        )
+        for source in turn_knowledge_context().sources
+    )
 
 
 def _registry_hosts() -> set[str]:
@@ -175,14 +195,23 @@ def _registry_hosts() -> set[str]:
     return {host_of(url) for entry in entries for url in (entry.citation_url, entry.full_law_url, entry.source_url)}
 
 
+#: The European Legislation Identifier: the one scheme whose value is an address (``platform/wire.ts`` checks it).
+_ELI = "eli"
+
+
 def own_source_hosts() -> frozenset[str]:
     """The hosts a work's own text is read from: every configured source's, the hosts the norm registry points
-    at, and the hosts the turn's records name for an edition (an identity that is an address, such as an ELI)."""
+    at, and the host of a work's ELI. Only ``eli`` is an address by its standard: any other scheme is an open word
+    whose value no rule makes a URL, so its value names no host to trust."""
     from agent.common.knowledge_context import turn_knowledge_context
 
     hosts = {host for source in configured_sources() for host in source.hosts} | _registry_hosts()
     for use in turn_knowledge_context().uses:
-        hosts.update(host_of(ref.value) for ref in use.source_refs if ref.value.lower().startswith("https://"))
+        hosts.update(
+            host_of(ref.value)
+            for ref in use.source_refs
+            if ref.scheme == _ELI and ref.value.lower().startswith("https://")
+        )
     return frozenset(host for host in hosts if host)
 
 

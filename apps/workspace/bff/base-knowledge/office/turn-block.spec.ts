@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { BaseKnowledgeEntry } from '../wire'
 import { projectTerritory } from './authority'
 import { BASE_KNOWLEDGE_HEADER, MAX_TURN_ENTRIES, renderBaseKnowledgeBlock } from './turn-block'
+import { AT_SUBDIVISIONS } from '@/lib/project-intake/at-setup.fixtures'
 
 function entry(overrides: Partial<BaseKnowledgeEntry['values']> = {}, rest: Partial<BaseKnowledgeEntry> = {}): BaseKnowledgeEntry {
   return {
@@ -13,6 +14,10 @@ function entry(overrides: Partial<BaseKnowledgeEntry['values']> = {}, rest: Part
     status: 'confirmed',
     proposedBy: 'person',
     confirmedBy: 'user_1',
+    confirmedByName: null,
+    folderId: null,
+    workId: 'work_1',
+    editions: [],
     textUse: 'used',
     aiProcessingAttestedAt: '2026-11-01T00:00:00.000Z',
     createdAt: '2026-11-01T00:00:00.000Z',
@@ -22,6 +27,8 @@ function entry(overrides: Partial<BaseKnowledgeEntry['values']> = {}, rest: Part
       designation: 'ÖNORM B 1600:2017',
       editionLabel: '2017-04-01',
       issuedOn: '2017-04-01',
+      inForceFrom: null,
+      inForceTo: null,
       territoryIds: [],
       issuer: 'Austrian Standards',
       addressees: [],
@@ -38,9 +45,9 @@ function entry(overrides: Partial<BaseKnowledgeEntry['values']> = {}, rest: Part
   }
 }
 
-const VIENNA = projectTerritory({ federalState: 'vienna' })
-const GRAZ = projectTerritory({ federalState: 'styria' })
-const UNKNOWN = projectTerritory({})
+const VIENNA = projectTerritory({ federalState: 'vienna' }, AT_SUBDIVISIONS)
+const GRAZ = projectTerritory({ federalState: 'styria' }, AT_SUBDIVISIONS)
+const UNKNOWN = projectTerritory({}, AT_SUBDIVISIONS)
 
 describe('the base knowledge a turn carries', () => {
   it('names the standard, its edition, its file and its last check', () => {

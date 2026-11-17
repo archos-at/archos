@@ -35,13 +35,11 @@ from .schema import LICENCE_CLASS_FIELD
 from .schema import LICENCE_CLASSES
 from .schema import OFFICE_FIELD
 from .schema import QUOTE_MAX_CHARS_FIELD
+from .schema import RELEASED_FIELD
 from .scope import is_tenant_scope
 from .store import get_store
 
 logger = logging.getLogger(__name__)
-
-#: The country no office is entitled to: an unmarked base-corpus text (``agent.common.knowledge_context``).
-UNRELEASED_COUNTRY = "ZZ"
 
 
 def facts_by_file(scope: str, file_names: Iterable[str] | None = None) -> dict[str, dict[str, Any]]:
@@ -74,7 +72,7 @@ def enrichment(scope: str, config: Mapping[str, Any] | None = None) -> dict[str,
     chunks were written: what a collection's ``updated_at`` is read from,
     and what the 24-hour reaper of conversation uploads measures. The licence
     mark (``licence_class``, ``ai_processing_attested``, ``quote_max_chars``,
-    ``knowledge_edition_id``) is copied from the job
+    ``knowledge_edition_id``, ``country_id``, ``released``) is copied from the job
     when it names one, so a re-ingest keeps what
     ``PUT /v1/collections/{c}/knowledge-mark`` set.
     """
@@ -121,11 +119,14 @@ def licence_mark(scope: str, config: Mapping[str, Any]) -> dict[str, Any]:
     country = config.get(COUNTRY_FIELD)
     if isinstance(country, str) and re.fullmatch(r"[A-Z]{2}", country):
         mark[COUNTRY_FIELD] = country
-    elif not is_tenant_scope(scope):
+    elif country is not None:
+        logger.error("Qdrant: the ingest job for %s names an unknown country %r; not written", scope, country)
+    released = config.get(RELEASED_FIELD)
+    if isinstance(released, bool):
+        mark[RELEASED_FIELD] = released
+    elif not is_tenant_scope(scope) and COUNTRY_FIELD not in mark:
         # A base-corpus text whose job names no country is read by nobody until a release marks it (ADR-0173).
-        if country is not None:
-            logger.error("Qdrant: the ingest job for %s names an unknown country %r; marked unreleased", scope, country)
-        mark[COUNTRY_FIELD] = UNRELEASED_COUNTRY
+        mark[RELEASED_FIELD] = False
     if isinstance(config.get(AI_PROCESSING_FIELD), bool):
         mark[AI_PROCESSING_FIELD] = config[AI_PROCESSING_FIELD]
     cap = config.get(QUOTE_MAX_CHARS_FIELD)

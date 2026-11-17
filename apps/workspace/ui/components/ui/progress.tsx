@@ -9,7 +9,6 @@ import { TONE_INK, type MeterTone } from './segment-meter'
 const Progress = React.forwardRef<
   React.ElementRef<typeof ProgressPrimitive.Root>,
   React.ComponentPropsWithoutRef<typeof ProgressPrimitive.Root> & {
-    /** Fill in a feedback tone's ink (`segment-meter.tsx`) instead of the primary colour. */
     tone?: MeterTone
   }
 >(({ className, value, tone, ...props }, ref) => (

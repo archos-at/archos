@@ -1,17 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * A zip writer is only correct if something else can read what it wrote, so
- * these tests parse the archive back out of the bytes rather than asserting on
- * offsets. The reader here is deliberately independent of the writer: it walks
- * the END-OF-CENTRAL-DIRECTORY record and the central directory, which is how
- * every real unzip finds entries, so a writer that only happens to produce
- * self-consistent local headers still fails.
- *
- * Checked against Info-ZIP (`unzip -t`) and Python's `zipfile` during
- * development; those cannot run in vitest, hence the reader below.
- */
 
 import { describe, expect, it } from 'vitest'
 import { createZip, crc32, type ZipEntry } from './zip'
@@ -24,7 +13,6 @@ interface ReadEntry {
 
 const decoder = new TextDecoder()
 
-/** Read entries the way an unzip does: EOCD → central directory → local data. */
 function readZip(bytes: Uint8Array): ReadEntry[] {
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
 
@@ -79,8 +67,6 @@ describe('createZip', () => {
   })
 
   it('round-trips non-ASCII content and paths as UTF-8', () => {
-    // A German ledger is all Umlaute; a writer that only handled ASCII would
-    // pass every other test in this file.
     const entries = readZip(
       createZip([{ path: 'grüße/prüfbuch.bcf', content: 'Öffnungsmaß — 0,90 m ≥ 0,80 m' }])
     )
@@ -98,9 +84,6 @@ describe('createZip', () => {
   })
 
   it('produces byte-identical output for identical input', () => {
-    // The property the BCF exporter depends on: an unchanged ledger must
-    // export to a file a reviewer can diff against the last one. A clock in
-    // the header would break this and nothing else would notice.
     expect(createZip(sample)).toEqual(createZip(sample))
   })
 
@@ -134,7 +117,6 @@ describe('createZip', () => {
   it('marks a trailing-slash entry as a directory', () => {
     const bytes = createZip([{ path: 'topic/', content: '' }])
     const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
-    // External attributes live at +38 in the central directory header.
     let at = -1
     for (let i = bytes.length - 22; i >= 0; i -= 1) {
       if (view.getUint32(i, true) === 0x06054b50) { at = view.getUint32(i + 16, true); break }
@@ -143,8 +125,6 @@ describe('createZip', () => {
   })
 
   it('refuses a traversing path, not just an absolute one', () => {
-    // The guard rejected '', '/x' and backslashes — and accepted the one shape
-    // that actually escapes a target directory on extraction.
     expect(() => createZip([{ path: '../../etc/passwd', content: 'x' }])).toThrow(
       /Invalid zip entry path/
     )
@@ -157,8 +137,6 @@ describe('createZip', () => {
 
 describe('crc32', () => {
   it('matches the published check value', () => {
-    // The IEEE 802.3 check value for "123456789" — the standard vector every
-    // CRC-32 implementation is expected to reproduce.
     expect(crc32(new TextEncoder().encode('123456789'))).toBe(0xcbf43926)
   })
 

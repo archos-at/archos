@@ -1,16 +1,5 @@
 'use client'
 
-/**
- * The control row above the Quarantäne list (ADR-0086): which findings it
- * shows, and what to do with the files picked.
- *
- * A check that misreads one kind of number holds many files for the same
- * reason. Filtering by the finding („Kartennummer") and picking all of them
- * turns twenty decisions into one, which the server takes as one request
- * (`POST /api/quarantine/decisions`). Picking is capped at what one request
- * decides; the row says so when the cap bites.
- */
-
 import type { JSX } from 'react'
 import { RotateCcw, Trash2, X } from 'lucide-react'
 
@@ -21,7 +10,6 @@ import { useTranslations } from '@/i18n'
 import { organizationCopy } from '@/i18n/namespaces/organization'
 import type { QuarantineQueueItem } from '@/adapters/api/upload-screening-client'
 
-/** What a row was held for, as the filter offers it. */
 export const FINDING_FILTERS = [
   'term',
   'iban',
@@ -34,7 +22,6 @@ export const FINDING_FILTERS = [
 ] as const
 export type FindingFilter = 'all' | (typeof FINDING_FILTERS)[number]
 
-/** The findings a row was held for: its reasons' kinds, and `unscreened` when its reading ended without a verdict. */
 export function findingsOfItem(item: QuarantineQueueItem): ReadonlySet<FindingFilter> {
   const kinds = new Set<FindingFilter>((item.verdict?.reasons ?? []).map((reason) => reason.kind))
   if (item.held === 'unscreened') kinds.add('unscreened')
@@ -42,11 +29,9 @@ export function findingsOfItem(item: QuarantineQueueItem): ReadonlySet<FindingFi
 }
 
 export interface QuarantineSelectionProps {
-  /** How many rows each finding holds, for the filters that hold any. */
   counts: ReadonlyMap<FindingFilter, number>
   filter: FindingFilter
   onFilterChange: (filter: FindingFilter) => void
-  /** How many rows are shown, how many of them are picked, and how many one request takes. */
   shown: number
   selected: number
   limit: number
@@ -54,7 +39,6 @@ export interface QuarantineSelectionProps {
   onClear: () => void
   onRelease: () => void
   onDelete: () => void
-  /** Screen the selection again with the rules in force now: what no longer matches goes through. */
   onRecheck: () => void
 }
 
@@ -132,7 +116,7 @@ export function QuarantineSelection({
               {t('quarantine.recheck')}
             </Button>
             <Button
-              variant="outline"
+              variant="secondary"
               size="sm"
               onClick={onRelease}
               data-testid="quarantine-release-selected"

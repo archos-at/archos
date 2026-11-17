@@ -1,5 +1,3 @@
-"""The in-flight measurement: an HTTP request is counted from entry until its response finishes, per role."""
-
 from __future__ import annotations
 
 import asyncio
@@ -19,7 +17,6 @@ from agent_host.inflight import InFlightMiddleware
 
 @pytest.fixture
 def reader(monkeypatch):
-    """Instruments on a local provider: the global one can be set once per process."""
     reader = InMemoryMetricReader()
     provider = MeterProvider(metric_readers=[reader])
     monkeypatch.setattr(inflight, "_instruments", inflight._Instruments(provider.get_meter("test")))
@@ -28,7 +25,6 @@ def reader(monkeypatch):
 
 
 def _points(reader, name) -> dict[tuple[str, str], object]:
-    """Every data point of one metric, keyed by (role, kind)."""
     data = reader.get_metrics_data()
     if data is None:
         return {}
@@ -48,7 +44,6 @@ def _gauge(reader, role: str, kind: str) -> float | None:
 
 
 def _app(role: str, reader) -> tuple[FastAPI, dict[str, float | None]]:
-    """A FastAPI app behind the middleware, and what the gauge read while each handler ran."""
     app = FastAPI()
     app.add_middleware(InFlightMiddleware, role=role)
     during: dict[str, float | None] = {}

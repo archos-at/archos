@@ -1,13 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The Policy Decision Point's own spec.
- *
- * `decide.ts` shipped with ADR-0038 as the front door across the tiers and had
- * no test of any kind: security-critical dispatch resting on review alone. These
- * are the properties the module claims in its own header, asserted.
- */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
@@ -105,15 +98,11 @@ describe('claims tiers', () => {
   })
 
   it('routes the platform tier through the PER-PERMISSION check', async () => {
-    // Not a binary "is this platform staff": the read-only support role must be
-    // able to hold the view permission and not the manage one.
     hasPlatformPermission.mockImplementation(
       async (_s: unknown, permission: string) => permission === 'platform:organizations:view'
     )
     await expect(can(session(), 'platform:organizations:view')).resolves.toBe(true)
     await expect(can(session(), 'platform:settings:manage')).resolves.toBe(false)
-    // The permission the route asked for is the one that reaches the check —
-    // it is not collapsed into a single "is this platform staff" question.
     expect(hasPlatformPermission).toHaveBeenCalledWith(
       expect.anything(),
       'platform:settings:manage'
@@ -121,8 +110,6 @@ describe('claims tiers', () => {
   })
 
   it('never implies a platform permission from an org role', async () => {
-    // `hasPermission`'s table holds environment-scoped ORG roles only, so no
-    // tenant role can reach the platform tier by implication.
     hasPlatformPermission.mockResolvedValue(false)
     await expect(can(session({ role: 'admin' }), 'platform:settings:manage')).resolves.toBe(false)
   })

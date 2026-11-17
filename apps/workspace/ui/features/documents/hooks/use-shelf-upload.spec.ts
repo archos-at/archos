@@ -1,9 +1,3 @@
-/**
- * A drop on a shelf goes where it was aimed, and no drop is lost: one made
- * while the shelf is busy waits its turn, and what a drop could not hand over
- * is said.
- */
-
 import { act, renderHook } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { FolderItem } from '../file-types'
@@ -13,11 +7,6 @@ vi.mock('sonner', () => ({
   toast: { info: vi.fn(), warning: vi.fn(), error: vi.fn(), success: vi.fn(), loading: vi.fn(), dismiss: vi.fn() },
 }))
 
-/**
- * The plan step stood in for: every drop is planned and goes straight to the
- * upload, unless a test holds the dialog open. What is decided there has its
- * own spec (`use-upload-decision.spec.ts`).
- */
 const decision = vi.hoisted(() => ({
   open: false,
   pending: false,
@@ -71,7 +60,6 @@ function setup(overrides: Partial<ShelfUploadOptions> = {}) {
   return { ...hook, uploadFiles, rerender }
 }
 
-/** Where each uploaded file was filed, as the upload was told. */
 const filed = (uploadFiles: ReturnType<typeof setup>['uploadFiles']) =>
   uploadFiles.mock.calls.flatMap(([files, options]) =>
     files.map((file) => ({ name: file.name, folderId: options?.folderIdFor?.(file), path: options?.folderPathFor?.(file) }))

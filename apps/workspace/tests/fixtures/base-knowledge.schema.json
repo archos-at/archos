@@ -13,7 +13,8 @@
         "territory",
         "authority",
         "relation",
-        "source"
+        "source",
+        "golden_case"
       ]
     },
     "knowledge_work_revisions.kind": {
@@ -81,7 +82,8 @@
         "fact_definitions",
         "fact_sources",
         "advice_policy",
-        "terminology"
+        "terminology",
+        "citation_style"
       ]
     },
     "knowledge_ruleset_revisions.payload_schema": {
@@ -91,7 +93,8 @@
         "fact_definitions.v1",
         "fact_sources.v1",
         "advice_policy.v1",
-        "terminology.v1"
+        "terminology.v1",
+        "citation_style.v1"
       ]
     },
     "knowledge_territory_revisions.kind": {
@@ -145,7 +148,8 @@
       "type": "string",
       "enum": [
         "app",
-        "elicitation"
+        "elicitation",
+        "carried"
       ]
     },
     "knowledge_release_moves.channel": {
@@ -160,6 +164,23 @@
       "enum": [
         "publish",
         "rollback"
+      ]
+    },
+    "knowledge_release_moves.decision_source": {
+      "type": "string",
+      "enum": [
+        "app",
+        "elicitation",
+        "carried"
+      ]
+    },
+    "knowledge_review_decisions.decision_source": {
+      "type": "string",
+      "enum": [
+        "app",
+        "elicitation",
+        "agent",
+        "carried"
       ]
     },
     "knowledge_index_runs.state": {

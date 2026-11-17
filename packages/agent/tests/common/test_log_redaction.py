@@ -1,17 +1,3 @@
-"""The presigned-URL sink filter.
-
-A presigned S3 URL is a live bearer credential to a tenant's object plus the
-tenant path (org / project / document ids). The convention "never log the URL"
-held at the call sites someone checked; it never held where the URL arrived
-inside an exception. `str(httpx.HTTPStatusError)` embeds the request URL, so
-`logger.error("failed: %s", e)` leaked the credential without naming it.
-
-These tests pin the guarantee at the sink: whatever a call site does, a handler
-cannot emit a signed URL. The asymmetry that matters is that a false negative is
-a leaked credential in a log aggregator, while a false positive is a slightly
-less useful log line — so the filter errs toward redacting the whole URL.
-"""
-
 from __future__ import annotations
 
 import logging
@@ -37,8 +23,6 @@ class TestScrub:
         scrubbed = scrub_presigned_urls(f"GET {SIGNED} failed")
 
         assert PRESIGNED_REDACTED in scrubbed
-        # The signature is the credential; the path is the tenant. Neither
-        # survives, because a half-redacted URL still publishes one of them.
         assert "deadbeefcafebabe" not in scrubbed
         assert "org_01H8" not in scrubbed
         assert scrubbed == f"GET {PRESIGNED_REDACTED} failed"
@@ -59,8 +43,6 @@ class TestScrub:
     @pytest.mark.parametrize(
         "text",
         [
-            # An unsigned URL is not a credential. Redacting it would cost the
-            # operator the one useful field and buy nothing.
             "posting to http://otel-collector:4318/v1/traces",
             "see https://docs.example.test/storage#quota",
             "http://seaweedfs:8333/grid-documents/org/o1/doc.pdf",
@@ -72,8 +54,6 @@ class TestScrub:
         assert scrub_presigned_urls(text) == text
 
     def test_does_not_fire_on_a_filename_containing_the_word_signature(self) -> None:
-        # A tenant chooses its filenames. Matching the word anywhere in the
-        # query would let one of them trigger redaction of an unsigned URL.
         url = "http://seaweedfs:8333/grid-documents/org/o1/signature-page.pdf?response-type=inline"
         assert scrub_presigned_urls(url) == url
 
@@ -119,7 +99,6 @@ class TestFilter:
         logging.getLogger("test.log_redaction").info("%(url)s failed", {"url": SIGNED})
         assert sink.lines == [f"{PRESIGNED_REDACTED} failed"]
 
-    # The leak that actually happened: nobody logged the URL, the exception did.
     def test_scrubs_the_traceback_of_an_exception_carrying_the_url(self, sink: _Capture) -> None:
         try:
             raise RuntimeError(f"Client error '403 Forbidden' for url '{SIGNED}'")
@@ -132,8 +111,6 @@ class TestFilter:
         assert PRESIGNED_REDACTED in emitted
 
     def test_never_drops_a_record(self, sink: _Capture) -> None:
-        # Redaction that silences a line trades one invisible failure for
-        # another; the filter always returns True.
         logging.getLogger("test.log_redaction").warning("something happened")
         assert sink.lines == ["something happened"]
 

@@ -34,6 +34,7 @@ const editionUse = (workId: string, editionId: string | null, corpusFiles: strin
   corpusFiles,
   designation: null,
   editionLabel: null,
+  issuer: null,
   sourceRefs: [],
   sourceUrl: null,
   route: null,
@@ -81,7 +82,6 @@ describe('the editions an answer used', () => {
     const records = citedRecords({
       sources: [
         { file_name: 'renamed.pdf', work_id: 'work:oib-rl-6', edition_id: 'edition:oib-rl-6-2025' },
-        // Law read live at its source: a work, no edition, no file.
         { citation_key: 'Building Act, § 12', work_id: 'work:building-act' },
         'junk',
       ],
@@ -91,7 +91,6 @@ describe('the editions an answer used', () => {
       ['work:oib-rl-6', 'edition:oib-rl-6-2025'],
       ['work:building-act', null],
     ])
-    // A work cited WITH an edition is that edition only: it never drags in the work's live text.
     expect(editionUsesOf(context, new Set(), { editionIds: new Set(), liveWorkIds: new Set(['work:oib-rl-6']) })).toEqual([])
   })
 
@@ -117,7 +116,6 @@ describe('the editions an answer used', () => {
   })
 
   it('records the pack sequences the turn was answered on, not a release that landed since (E42)', async () => {
-    // The turn read AT at 41; AT 42 was released before the answer persisted. The snapshot is the turn's.
     turnContextOf.mockResolvedValue(CONTEXT)
     await recordEditionUses('org_1', 'project_1', 'conv_1', [
       { id: 'm1', role: 'assistant', metadata: { sources: [{ file_name: 'OIB-RL6-2025.pdf' }] } },

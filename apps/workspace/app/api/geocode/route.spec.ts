@@ -1,12 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * `GET /api/geocode`, driven through the TYPED CLIENT (ADR-0055): the project
- * creation dialog uses the same `createGeocodingClient`, so a path or a field
- * the two disagreed on would fail here. The provider is a stubbed `fetch`
- * answering with Photon responses captured from photon.komoot.io.
- */
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 

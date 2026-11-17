@@ -1,13 +1,3 @@
-"""What each process of ``test_ddl_concurrency`` runs.
-
-A module of its own, because ``multiprocessing`` ("spawn") imports the target by
-name in the child and the test modules are collected with ``importlib`` mode.
-Imports of the code under test are inside the functions: a child must import
-THIS checkout's packages, and only after :func:`worker` has put them first on
-its path (``agent_host`` is a workspace package the venv may have installed from
-another checkout).
-"""
-
 from __future__ import annotations
 
 import sys
@@ -17,7 +7,6 @@ from pathlib import Path
 _REPO = Path(__file__).resolve().parents[1]
 _TIMEOUT_SECONDS = 120
 
-#: site -> the tables its ensure function must leave behind.
 SITES: dict[str, tuple[str, ...]] = {
     "ingest_status_store": ("ingest_jobs",),
     "research_runs": ("research_orchestrator_runs",),
@@ -148,7 +137,6 @@ _engines: weakref.WeakSet = weakref.WeakSet()
 
 
 def _track_engines() -> None:
-    """Remember every sync engine this process opens, so :func:`_dispose_engines` can close them."""
     from sqlalchemy.engine import Engine
 
     original = Engine.__init__
@@ -161,18 +149,12 @@ def _track_engines() -> None:
 
 
 def _dispose_engines() -> None:
-    """Close the pools of the round just finished: fifty databases would otherwise hold fifty open."""
     for engine in list(_engines):
         if not engine.dialect.is_async:
             engine.dispose()
 
 
 def worker(index: int, barrier, tasks: list[tuple[str, str]], results) -> None:
-    """Ensure each ``(site, url)`` in turn, released together with the other workers by ``barrier``.
-
-    Puts ``(site, url, index, error, ensured)`` on ``results``: ``error`` is the
-    exception that escaped, ``ensured`` whether the site marked ``url`` as ensured.
-    """
     sys.path[:0] = [str(_REPO / "src"), str(_REPO / "apps" / "agent-host" / "src")]
     _track_engines()
     for site, url in tasks:

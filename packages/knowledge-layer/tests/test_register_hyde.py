@@ -1,11 +1,3 @@
-"""HyDE-as-channel wiring (backlog item 14): config defaults, draft seam, fusion.
-
-The production half of the ratchet: the channel is default-off, the draft
-seam never calls the model for identifier-shaped queries and degrades to the
-baseline on any failure, and hyde channels join the merge APPENDED after the
-original query's — the original is always retrieved.
-"""
-
 from types import SimpleNamespace
 
 from knowledge_layer.register import KnowledgeRetrievalConfig
@@ -102,8 +94,6 @@ def _result(chunks: list[Chunk], *, query: str = "frage") -> RetrievalResult:
 
 class TestHydeFusion:
     def test_original_chunks_are_always_retrieved(self):
-        """The HyDE channels join APPENDED: whatever the baseline retrieved
-        survives the widened merge (fused upward when both agree)."""
         baseline = _result([_chunk("a", "a.pdf"), _chunk("b", "b.pdf")])
         hyde = _result([_chunk("b", "b.pdf"), _chunk("c", "c.pdf")])
         merged = fusion.merge_results([baseline, hyde], "frage", 16, "test")

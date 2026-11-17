@@ -1,5 +1,3 @@
-"""The decision model proposes the plan's genre and depth; the planner is told."""
-
 import json
 from unittest.mock import patch
 

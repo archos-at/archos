@@ -132,3 +132,95 @@ export function jaccardSimilarity(a: Set<string>, b: Set<string>): number {
   for (const token of a) if (b.has(token)) shared++
   return shared / (a.size + b.size - shared)
 }
+
+/**
+ * What a near-duplicate is to the note it resembles.
+ *
+ * - `same`: the new note asserts nothing the old one does not (its tokens and
+ *   its numbers are all in the old note, in the same polarity). The old text
+ *   stays; only its recency is refreshed.
+ * - `corrected`: the two differ in what they ASSERT: a number, a date, a
+ *   negation, a comparison mark, or a word swapped for another in an
+ *   otherwise identical sentence ("in Lärche" → "in Eiche"). The new note
+ *   replaces the old one.
+ * - `restated`: the same statement in other words, as far as text can tell:
+ *   a pair only the vector matched, or one that only ADDS words („Ein
+ *   Flachdach ist gewünscht“). It merges like `same`: superseding every
+ *   rewording would retire a note's recall history each time the agent says
+ *   it again.
+ *
+ * Why it is not a polarity check alone: "Die Attika ist 1,10 m hoch" and
+ * "… 1,20 m hoch" share every token but one and carry no negation, so they
+ * merged, the stale value stayed and came back looking freshly confirmed.
+ */
+export type AssertionRelation = 'same' | 'restated' | 'corrected'
+
+/** One number as written: digits, with any `.` or `,` groups. */
+const NUMBER_SHAPE = /\d+(?:[.,]\d+)*/g
+/** `1.200` or `12.500.000`: a point every three digits groups thousands. */
+const POINT_THOUSANDS = /^\d{1,3}(?:\.\d{3})+$/
+/** Marks that turn a bound around without adding a word. */
+const COMPARISON_MARKS = /[<>≤≥≠±]/g
+
+/**
+ * One written number in a comparable form: German decimal comma and thousands
+ * point read as a value (`1,10` is `1.1`, `1.200,50` is `1200.5`), anything
+ * with several separators of one kind kept as written (a date `12.03.2027`, a
+ * clause `3.2.1`).
+ */
+function canonicalNumber(written: string): string {
+  const points = written.split('.').length - 1
+  const commas = written.split(',').length - 1
+  let value: string | null = null
+  if (commas === 1 && (points === 0 || written.indexOf(',') > written.lastIndexOf('.'))) {
+    value = written.replace(/\./g, '').replace(',', '.')
+  } else if (commas === 0 && POINT_THOUSANDS.test(written)) {
+    value = written.replace(/\./g, '')
+  } else if (commas === 0 && points <= 1) {
+    value = written
+  }
+  return value === null ? written : String(Number.parseFloat(value))
+}
+
+/** The numbers a note states, in the order it states them. */
+export function assertedNumbers(content: string): string[] {
+  return (content.match(NUMBER_SHAPE) ?? []).map(canonicalNumber)
+}
+
+function isSubsequence(part: readonly string[], whole: readonly string[]): boolean {
+  let at = 0
+  for (const value of whole) if (at < part.length && value === part[at]) at++
+  return at === part.length
+}
+
+const comparisonMarks = (content: string): string => (content.match(COMPARISON_MARKS) ?? []).join('')
+
+/**
+ * Classify `incoming` against the `existing` note it nearly duplicates. Meant
+ * for a pair a similarity gate already matched (cosine, or token overlap at
+ * `NEAR_DUP_JACCARD_THRESHOLD`); it does not judge similarity itself, except
+ * that a lexically near pair in which each side has a word the other lacks
+ * is a deliberate edit of that sentence, hence `corrected`.
+ *
+ * Numbers are compared as an ordered sequence, so "2 Stiegen, 3 Aufzüge" does
+ * not pass for "3 Stiegen, 2 Aufzüge". What it cannot see: two notes with the
+ * same words and numbers in another order ("A vor B" / "B vor A"), a
+ * correction that only adds a word with no number in it ("Bauteil B" →
+ * "Bauteil B und C"), and a
+ * paraphrase that swaps a name while sharing few tokens with the old note.
+ */
+export function assertionRelation(incoming: string, existing: string): AssertionRelation {
+  if (
+    polaritySignature(incoming) !== polaritySignature(existing) ||
+    comparisonMarks(incoming) !== comparisonMarks(existing) ||
+    !isSubsequence(assertedNumbers(incoming), assertedNumbers(existing))
+  ) {
+    return 'corrected'
+  }
+  const incomingTokens = contentTokens(incoming)
+  const existingTokens = contentTokens(existing)
+  if ([...incomingTokens].every((token) => existingTokens.has(token))) return 'same'
+  // A word swapped in a near sentence („in Lärche“ → „in Eiche“): each side has a word the other lacks.
+  const swapped = [...existingTokens].some((token) => !incomingTokens.has(token))
+  return swapped && jaccardSimilarity(incomingTokens, existingTokens) >= NEAR_DUP_JACCARD_THRESHOLD ? 'corrected' : 'restated'
+}

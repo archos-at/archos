@@ -1,14 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Every page server-renders through MainLayout → AnswerCards → A2uiCard. Since
- * `@a2ui/react` 0.13 each catalog component is a custom element whose class is
- * defined when the module loads, so importing it on the server throws
- * `HTMLElement is not defined` and takes every page down with it. Only
- * `react-catalog.tsx` may import `@a2ui/react`, and only the browser loads it;
- * this pins that the server side of the seam still imports and renders.
- */
 import { renderToString } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 

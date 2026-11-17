@@ -2,17 +2,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * A wire module is a contract, nothing else (ADR-0055, ADR-0122).
- *
- * `lib/**\/*-wire.ts` holds the zod schema a route parses and the MCP catalog
- * describes, so the route, the agent surface and the browser read one shape.
- * That only works while the module stays pure: one import of the database
- * layer or of `server-only` and the browser can no longer share it, and every
- * spec that mocks `@/lib/db/schema` breaks on a constant it never asked for.
- * A tuple a schema needs lives in a vocabulary module the drizzle table also
- * imports (`lib/projects/memory-vocabulary.ts` is the pattern).
- */
 
 import { readdirSync, readFileSync } from 'node:fs'
 import { dirname, join, relative } from 'node:path'

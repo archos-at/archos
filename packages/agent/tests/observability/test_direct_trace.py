@@ -1,5 +1,3 @@
-"""A direct model call becomes one Langfuse generation, or nothing when there is no collector (ADR-0089)."""
-
 from __future__ import annotations
 
 import json
@@ -149,7 +147,6 @@ async def test_no_session_is_claimed_without_a_conversation(exporter):
 
     (span,) = _spans(exporter)
     assert "langfuse.session.id" not in span.attributes
-    # No usage object, no invented zeros.
     assert "langfuse.observation.usage_details" not in span.attributes
 
 
@@ -205,8 +202,6 @@ async def test_a_broken_tracer_never_raises_into_the_route(monkeypatch, exporter
 
 
 class TestObservedSpan:
-    """A unit of background work (one ingested file) is one trace, its model calls nested under it."""
-
     def test_a_generation_inside_the_span_is_its_child_and_one_outside_is_a_root(self, exporter):
         with direct_trace.observed_span("ingest-file", metadata={"file_type": "pdf", "job_id": "job-1"}) as span:
             with direct_trace.observed_generation("ingest-vision", model="m", messages=[]) as generation:
@@ -224,7 +219,6 @@ class TestObservedSpan:
         assert parent.attributes["langfuse.trace.metadata.seconds_vision"] == 25.4
 
     def test_a_nested_generation_never_claims_its_files_trace(self, exporter):
-        """Langfuse reads trace attributes off any span: a child that wrote them renamed the file's trace."""
         with direct_trace.observed_span("ingest-file", metadata={"job_id": "job-1"}):
             with direct_trace.observed_generation("ingest-vision", model="m", messages=[]) as generation:
                 generation.finish({"choices": [{"message": {"content": "ok"}, "finish_reason": "stop"}]})

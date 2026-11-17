@@ -2,27 +2,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Cross-language contract: the frontend must parse what the backend emits.
- *
- * Two formats cross the Python→TypeScript boundary, so no single test can
- * exercise both ends:
- *
- *  1. the verified report's sources section with its `[KB]`/`[RIS]`/`[Web]`
- *     origin tokens (`citations.verification.verify_citations`)
- *  2. the wire source payload (`citations.wire.source_entry_to_wire`)
- *
- * The Herleitung's lanes are no longer parsed from tool output: they arrive as
- * typed `sources` steps (chat wire v2), held by `contracts/wire/v2`.
- *
- * Both sides assert against the SAME checked-in fixtures, produced by one real
- * pipeline run. The Python counterpart —
- * `packages/agent/tests/common/test_citation_pipeline_contract.py`
- * (`TestSharedWireFixturesAreCurrent`) — proves the fixtures are still what the
- * backend emits; this spec proves the frontend still understands them. Change a
- * format and exactly one of the two fails, which is the only way this drift
- * becomes visible before a user sees an unlabelled or mis-tinted source.
- */
 
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
@@ -33,7 +12,6 @@ import { buildCitationModel } from './citations'
 import { splitReportSources } from '@/features/layout/lib/report-citations'
 import type { WireCitationSource } from '../types'
 
-// apps/workspace/ui/features/chat/lib → repo root is six levels up.
 const HERE = dirname(fileURLToPath(import.meta.url))
 const FIXTURE_DIR = resolve(HERE, '../../../../../../tests/fixtures/citation_pipeline')
 const fixture = (name: string): string =>

@@ -46,9 +46,6 @@ export function QuestionField({
     return <UploadField question={question} projectId={projectId} />
   }
   if (question.type === 'document_role') {
-    // A role question has no answer in the profile: the binding lives in
-    // `document_roles`. Without a role it has nothing to bind, so it renders
-    // as the plain pointer rather than a control that cannot work.
     if (!question.role) return <UploadField question={question} projectId={projectId} />
     return (
       <div className="flex flex-col gap-2">
@@ -73,7 +70,6 @@ export function QuestionField({
   )
 }
 
-/** Upload slot — directs the user to the project's Files tab (v1: no in-wizard upload). */
 export function UploadField({
   question,
   projectId,
@@ -87,7 +83,7 @@ export function UploadField({
       <span className="text-sm font-medium">{question.label}</span>
       <Link
         href={`/app/projects/${projectId}/files`}
-        className="border-border bg-muted/20 text-muted-foreground hover:border-primary/50 hover:bg-primary/5 hover:text-foreground inline-flex max-w-md items-center gap-3 rounded-control border border-dashed px-4 py-3 text-sm transition-colors duration-quick ease-out motion-reduce:transition-none"
+        className="border-border bg-muted/20 text-muted-foreground hover:border-primary/50 hover:bg-desk hover:text-foreground inline-flex max-w-md items-center gap-3 rounded-control border border-dashed px-4 py-3 text-sm transition-colors duration-quick ease-out motion-reduce:transition-none"
       >
         <FolderOpen className="text-primary size-4 shrink-0" aria-hidden />
         <span>{t('intake.upload.hint')}</span>
@@ -96,7 +92,6 @@ export function UploadField({
   )
 }
 
-/** Confirmed-brief facts that look derived. The class is not computed here. */
 export function InfoPlaceholder({ question }: { question: ProjectIntakeQuestion }) {
   const t = useTranslations(projectsCopy)
   return (

@@ -28,9 +28,25 @@ describe('recordSchemas', () => {
     expect(text).not.toContain('"examples":{"default":[]')
   })
 
+  it('writes the citation once, and every record’s citations reference it', () => {
+    expect(all.citation).toMatchObject({ type: 'object' })
+    for (const [type, schema] of Object.entries(all.recordTypes)) expect(JSON.stringify(schema), type).toContain('"items":{"$ref":"#/citation"}')
+    expect(JSON.stringify(all.recordTypes)).not.toContain('platform-knowledge-citation-capture')
+  })
+
   it('carries no table for a type that has none', () => {
     const work = recordSchemas(['work'])
     expect(Object.keys(work.recordTypes)).toEqual(['work'])
-    expect(work).not.toHaveProperty('$defs')
+    expect(JSON.stringify(work)).not.toContain('decision_table')
+  })
+
+  it('writes a sub-schema the types repeat once, and every use of it references it', () => {
+    const shared = Object.entries(all.$defs ?? {}).filter(([name]) => name.startsWith('shared_'))
+    expect(shared.length).toBeGreaterThan(0)
+    const text = JSON.stringify(all.recordTypes)
+    for (const [name, schema] of shared) {
+      expect(text).toContain(`"$ref":"#/$defs/${name}"`)
+      expect(text).not.toContain(JSON.stringify(schema))
+    }
   })
 })

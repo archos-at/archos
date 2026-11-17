@@ -1,5 +1,3 @@
-"""Tests for the OGD-RIS client: response parsing, document fetching, URL building."""
-
 import json
 
 import httpx
@@ -53,7 +51,6 @@ BR_KONS_RESPONSE = {
                     }
                 },
                 {
-                    # Single-child variant: ContentUrl is a dict, not a list.
                     "Data": {
                         "Metadaten": {
                             "Technisch": {"ID": "JWT_2020130074", "Applikation": "Vwgh"},
@@ -120,7 +117,6 @@ class TestParseSearchResponse:
 
         assert hit.document_number == "JWT_2020130074"
         assert hit.application == "Vwgh"
-        # No Kurztitel/Titel — falls back to the Geschaeftszahl.
         assert hit.title == "Ra 2019/05/0068"
         assert hit.metadata["Entscheidungsdatum"] == "2021-04-15"
         assert hit.content_urls == {"Html": "https://www.ris.bka.gv.at/x/JWT_2020130074.html"}
@@ -176,13 +172,6 @@ class TestHtmlToText:
         assert "\n\n\n" not in text
 
     def test_drops_the_ris_page_furniture_when_the_document_container_is_present(self):
-        # The shape of a real ``GeltendeFassung.wxe`` page: an accesskey menu and
-        # a navigation bar BEFORE ``#content``. Measured against the Bauordnung
-        # für Wien (2026-09-04) the furniture is only ~672 characters against
-        # 759,015 of law — and all of it sits at the FRONT, which is where it does
-        # the damage: it is what the in-app reader opens on, what the agent reads
-        # first inside its ``max_chars`` window, and what gets ingested into the
-        # session collection as retrievable text that is not law.
         html = (
             "<html><head><title>Bauordnung für Wien</title></head><body>"
             "<div id='skiplinks'>Seitenbereiche: Zum Inhalt (Accesskey 0)</div>"
@@ -200,9 +189,6 @@ class TestHtmlToText:
         assert "Impressum" not in text
 
     def test_drops_the_screen_reader_twin_of_every_marker(self):
-        # RIS's own markup, 2026-09-24: the visible marker is aria-hidden and a
-        # spoken twin sits beside it. Kept, the twins were a third of the
-        # Bauordnung für Wien and cut § 63 off at lit. e.
         html = (
             "<div id='content'><span aria-hidden='true'>a)</span><span class='sr-only'>Litera a</span>"
             "<div>Baupläne (<span aria-hidden='true'>§ 118 Abs. 1 Z 16</span>"
@@ -215,9 +201,6 @@ class TestHtmlToText:
         assert "Litera" not in text and "Paragraph 118" not in text
 
     def test_keeps_the_whole_document_when_there_is_no_container(self):
-        # A ``/Dokumente/…`` page, an XML payload, or a future RIS template may
-        # carry no ``#content``. Absence is not an error — the whole document is
-        # then the answer, exactly as it was before.
         html = "<html><body><h1>§ 5</h1><p>Stellplätze sind vorzusehen.</p></body></html>"
 
         _, text = html_to_text(html)
@@ -372,15 +355,6 @@ class TestRisClientFetch:
         assert calls["count"] == 1
 
     async def test_cache_max_entries_zero_disables_the_in_process_cache(self):
-        """Turning the cache off must not crash, and must actually turn it off.
-
-        ``GET /v1/ris/document`` reads through the SHARED cache, so its
-        process-global client asks for no second copy — up to 64 documents of
-        up to two million characters each, resident per worker, for bytes
-        Dragonfly already holds. The eviction branch ran unguarded on
-        ``len({}) >= 0`` and ``min`` over an empty dict raises, so the only way
-        to ask for that failed on the first fetch.
-        """
         calls = {"count": 0}
 
         def handler(request: httpx.Request) -> httpx.Response:
@@ -408,20 +382,6 @@ class TestRisClientFetch:
             await client.fetch_document_text("http://www.ris.bka.gv.at/doc.html")
 
     async def test_a_redirect_off_ris_is_refused_before_it_is_followed(self):
-        """The allow-list bounds the FETCH, not just the request.
-
-        The client follows redirects, and the URL check used to run once, on the
-        caller's string. So a RIS endpoint that reflects a query parameter into
-        ``Location`` — and the citizen application is query-driven WebForms
-        throughout — reduced the allow-list to a formality: the second hop went
-        wherever the response said, and its body came back to the caller. From
-        inside the cluster that reaches cloud metadata, the backend's own
-        internal API, Dragonfly and the object store.
-
-        It was survivable while only the agent called this, with URLs it had
-        just received FROM RIS. ``GET /v1/ris/document`` takes the URL from a
-        signed-in user, which is what makes this a gate rather than a nicety.
-        """
         hops: list[str] = []
 
         def handler(request: httpx.Request) -> httpx.Response:
@@ -435,13 +395,9 @@ class TestRisClientFetch:
         with pytest.raises(RisError, match="Only https"):
             await client.fetch_document_text("https://www.ris.bka.gv.at/GeltendeFassung.wxe?Abfrage=x")
 
-        # The point is not only that it raised — it is that the second request
-        # was never made. A check that ran after the fetch would still have the
-        # response in hand, and an SSRF is the request, not the return value.
         assert hops == ["https://www.ris.bka.gv.at/GeltendeFassung.wxe?Abfrage=x"]
 
     async def test_a_redirect_within_ris_is_still_followed(self):
-        """RIS redirects between its own hosts; the gate must not break that."""
 
         def handler(request: httpx.Request) -> httpx.Response:
             if request.url.host == "ris.bka.gv.at":
@@ -476,13 +432,10 @@ class TestRisClientFetch:
             await client.fetch_document_text("https://www.ris.bka.gv.at/Dokumente/x/y.html")
 
     async def test_json_fixture_is_serializable(self):
-        # Guard against fixtures drifting into non-JSON shapes.
         assert json.loads(json.dumps(BR_KONS_RESPONSE))
 
 
 def test_a_hit_on_the_ogd_host_is_read_on_the_public_one():
-    # OGD-RIS began stating ogd.ris.bka.gv.at (2026-09): a 301 to the public
-    # host, on no allow-list, and written into the catalog by its builder.
     from ris_adapter.client import _parse_hit
 
     hit = _parse_hit(
@@ -502,7 +455,6 @@ def test_a_hit_on_the_ogd_host_is_read_on_the_public_one():
 
 
 async def test_a_url_on_the_ogd_host_is_fetched_from_the_public_one():
-    # Search text cached before the rewrite still carries ogd URLs for days.
     seen = []
 
     def handler(request: httpx.Request) -> httpx.Response:

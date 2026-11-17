@@ -1,6 +1,6 @@
 # Citations an architect can rely on
 
-Status: designed 2026-11-11; slice 1 is built, the others follow in the order below.
+Status: designed 2026-11-11; slice 1 is built, slice 2's record and interpreter are built (the line's form is a style record), the others follow in the order below.
 The gap table was measured at `develop` `ac5936621` (2026-11-11); its file and line references are of that commit.
 Marks: **V** verified by reading the code, **L** observed in a live answer on dev (test office, read-only), **I** inferred, not verified.
 
@@ -14,6 +14,17 @@ records, the source records and the turn's knowledge context. For citations that
   was read as. A corpus point is marked with its edition at ingest (`knowledge_edition_id`); a live source's
   producer finds the work by the identifier the work's record carries. Role, route, edition label and dates
   are read off the knowledge context by that id. Nothing is decided by matching a URL, a host or a file name.
+- **An identifier scheme is a word in the records, never a list in code.** A work's `identifiers` are an open
+  map `{<scheme>: <value>}` (scheme `^[a-z][a-z0-9_]{0,39}$`, value up to 300 characters, at most eight); a
+  source record declares how its addresses state each scheme (`identifiers: {<scheme>: {query: <param>}}`),
+  and a scheme means something exactly where a source record names it. Only `eli` is checked further (a URL
+  ending with `/`), because ELI is a European standard, not a country's. A work may name a scheme before its
+  source is onboarded: it finds nothing until one is (`platform/wire.ts`, `chain/source-refs.ts`).
+  `designation` is never a scheme (`wire/source.ts`): the work's own designation is stored beside its
+  identifiers. Only an `eli` value names a host the web screen trusts as the work's own
+  (`web_sources.own_source_hosts`). Known debt: a passage is matched by a value read from a query parameter
+  and compared whole, so no source record reads an ELI off a path yet, and a value's shape per scheme (a law
+  number's digits) is checked nowhere; both belong on the source record's `identifiers`, as data.
 - **The public address is display.** It is offered to a reader and printed in an exported document. It
   decides no role.
 - **The form of a citation is a style per country, work kind and language, held in records.** Section 3 is
@@ -200,7 +211,7 @@ Severity: **S1** an architect sees a wrong or unusable citation; **S2** degraded
 | G18 | E9 | The per-source copy button uses the quote form whenever a snippet exists (`CopyCitation.tsx:147-153`), which is nearly always. That form is "„<up to 1,200 characters of the retrieved chunk>" — Titel, S. x" (`source-citation.ts:322-333`, `wire.py:205-220`): the chunk, not the quoted sentence, in quotation marks, cut at a word; no Punkt, no §. **New.** **V** | S1 |
 | G19 | E9 | Law form: "Titel, § 63 Abs 1, in: Rechtsinformationssystem des Bundes (RIS), abgerufen am …" (`source-citation.ts:298-300`). No "idF", no LGBl./BGBl. number, § after the title. Not how a Stellungnahme cites (section 3). **V** | S2 |
 | G20 | E9 | Door evidence is `{documentId, name, page, url}` (`answer-evidence.ts:59-64`): no Punkt, edition, role or quote, and `url` for a document is the asker's private thread. The architect's own agent cannot write a proper reference. **New.** **V** | S2 |
-| G21 | E9, E12 | The model check cites "OIB 2 3 — Titel" (`bff/bim/rules.ts:1371`). Rules hold `richtlinie: 'OIB 4', clause: '2.2'` and thresholds from the 2023 texts with no edition in the data (`rules.ts:384-390`, comment at `:298`), and "every OIB-Richtlinie binds in Austria" (`:387`). Prüfbuch, BCF and the checks export state pass or fail against one edition whatever binds at the site and date. **New.** **V** (click-through from a rule to its passage not checked, **I**) | S1 |
+| G21 | E9, E12 | The model check cites "OIB 2 3 — Titel" (`bff/bim/rules.ts:1371`). Rules hold `richtlinie: 'OIB 4', clause: '2.2'` and thresholds from the 2023 texts with no edition in the data (`rules.ts:384-390`, comment at `:298`), and "every OIB-Richtlinie binds in Austria" (`:387`). Prüfbuch, BCF and the checks export state pass or fail against one edition whatever binds at the site and date. Since country-as-data step 9 the rules name the record's designation and edition (`OIB-Richtlinie 4, Ausgabe Mai 2023`) and judge only where that edition binds, a hint elsewhere (`bff/bim/rule-basis.ts`). **New.** **V** (click-through from a rule to its passage not checked, **I**) | S1 |
 | G22 | E9, E2 | Documents the agent writes are free Markdown through the draft tools; `verify_citations` has two callers only, chat and deep research (grep over `packages/agent/src/agent`). An Aktenvermerk or Stellungnahme draft carries whatever references the model typed, unverified and unformatted. **New.** **V** (by absence) | S1 |
 | G23 | E9 | A measurement copies as a document title: `toCslItem` has no branch for kind `measurement` (`source-citation.ts:196-258`), so model, element, method and tolerance are lost outside the chip. Decided: a model value carries a source (decision 4). **New.** **V** | S2 |
 | G24 | E20 | Citation keys use the English "p." in German answers (prompt, `:93`); the UI localises, stored text does not. Chips have `aria-label` (`ris-preview-chip.tsx`, `citation-face.tsx`). Keyboard order, inline `[N]` naming and the dialog's focus handling were not audited. **V / I** | S3 |
@@ -249,7 +260,7 @@ agent, wire, store, UI. A passage read at a legal database gets its role and can
 
 | Hop | What it carries now | Where |
 |---|---|---|
-| Records to the turn | Each use of the knowledge context adds `route` (the declaring instrument: work id, designation, edition label, provision), `roleSince`, `language`, `textStatus` beside `date`, `freshness`, `lastCheckedAt`, `labels`, `sourceUrl` | `bff/base-knowledge/context/resolve.ts`, `context/wire.ts` |
+| Records to the turn | Each use of the knowledge context adds `route` (the declaring instrument: work id, designation, edition label, provision), `roleSince`, `language`, `textStatus` beside `date`, `freshness`, `lastCheckedAt`, `labels`, `sourceUrl`. The chain text the model reads states the same day on each binding line ("since 2024-02-23"), from the one derivation `chain/text.ts` `roleSinceOf`, so the model never looks the day up on the web | `bff/base-knowledge/context/resolve.ts`, `context/wire.ts`, `chain/text.ts` |
 | The agent's copy of the turn | `EditionUse` keeps all of them; only `connectsBy` is dropped, with its reason, and a parity test fails a field that is neither read nor on the drop list | `common/knowledge_context.py`, `tests/common/test_knowledge_context_parity.py` |
 | A retrieved passage | `GroundingHit.work_id`, `edition_id`, `public_url`, `revision` as record fields the model never reads. A corpus point's edition is its `knowledge_edition_id`; a legal-database passage's work is the one whose record carries the identifier the source's own record reads off the document (`identifiers` in the source record, `use_for_source_ref`); an office or project document states the index and day its name carries | `common/grounding_block.py`, `knowledge-layer/src/search/grounding_hits.py`, `ris-adapter/src/lookup/render.py`, `public-sources/src/source.py` |
 | The registry | `SourceEntry` keeps them, through the session cache too, and stamps `retrieved_at` once on a source read live | `citations/entries.py`, `registry.py`, `session.py` |
@@ -303,6 +314,66 @@ an import-graph spec that fails a second formatter. `answer-text.spec.ts`: no fi
 door text. i18n key coverage.
 **Langfuse.** None of its own; `edition-named` from slice 1 is its measure. Release note, captures of chip,
 peek and the Word page.
+
+**Built (the record and its interpreter).** The form is a ruleset of purpose `citation_style`
+(`citation_style.v1`, migration 0234): a ruleset rather than a record type, because a ruleset already carries
+territories, validity, review and release and needs no body table of its own. Per language it holds which
+sources are a standard or a law (`kinds`, matched by authority, tint, lane prefix or origin), who publishes a
+standard and where a law is read, one template per kind of line, the bare-locus and page labels, the quote
+form, the edition phrase and the date form. `bff/base-knowledge/wire/citation-style.ts` is its schema and
+`apps/workspace/shared/citation-style.ts` the interpreter, which names no country; `ui/features/chat/lib/source-citation.ts` only maps the citation model onto
+it. Austria's form is its record, `configs/knowledge-packs/at-citation-styles.json`, a change request of its
+own. Readers: the chip's copy and the document dialog's quote (`useCitationStyles`, from
+`GET /api/citations/style`, the operation `citation-style-get`), the copy-all export (Fachtext, quotes,
+CSL-JSON and the APA, BibTeX and RIS it feeds), and an outside agent's ask evidence (`AskSource.citation`).
+The gate is `shared/citation-lines.fixture.spec.ts` over `apps/workspace/tests/fixtures/citation-lines/`:
+the same citations, Austria in German from its record (byte for byte the lines the code wrote before), and
+the synthetic country XA in English and French, on all three surfaces.
+
+*Buy, not build.* citation-js was already the CSL renderer here (APA, BibTeX, RIS on the BFF). A CSL style
+does not fit the line: the chip formats in the browser, synchronously, and citation-js cannot be bundled for
+the browser at all (`bff/citations/render.ts`); CSL has no variable for a country's locus grammar or edition
+phrase, which only the CSL-M extensions of Juris-M add (**I**, from knowledge; citeproc-js was not measured).
+The interpreter fills templates, each a list of segments printed only when all their fields have a value; CSL-JSON stays its output. The formatter went from 193 lines of code to 164, the record's schema (`bff/base-knowledge/wire/citation-style.ts`) beside it.
+
+*Fallback, delete after rollover.* Until a style is released on an environment, lines are written in
+`shared/citation-style.fallback.json`, which a spec holds equal to a pack's record. Delete it, with
+`FALLBACK_CITATION_STYLES` (`shared/citation-style-fallback.ts`) and the `null` answer of `bff/citations/style.ts`, once Austria's record is
+published on prod.
+
+*A text of a released edition is named by its records (2026-11-12).* A text attached to a manifestation
+reaches the corpus as `<manifestationKey>-<12 hex>.pdf` with document class `other` and no display title.
+Its hit therefore took the file name as its title (`knowledge_layer/search/grounding_hits.py`, display title
+or file name) and the lane `building_law_base` (`doc_class_vocabulary.py`), which a style's law kind matches
+by its lane prefix `building_law`: the line read "oib-rl-6-2015-text-….pdf, Pkt. 3.1, S. 9, in:
+Rechtsinformationssystem des Bundes (RIS)." (L on dev, reproduced by the `recorded-text` case of the
+citation-lines fixture). Now each use carries the work's `issuer` (`context/resolve.ts`, `contextUseSchema`),
+the citation wire carries it beside `designation` and `edition_label` (`citations/roles.role_fields`), and a
+source whose line names an edition (`edition_id` and `designation`) and that has no title of its own (none,
+or its file name) is written as a `standard` whatever its lane: its title the designation and the edition
+label, its publisher the issuer, its place the `place` of the style's kind whose `publisher` is that issuer
+(`shared/citation-style.ts` `recordedName`). A work whose record names no issuer, or one the style spells
+otherwise, keeps the publisher of the standard kind its lane matches. The chip takes the same title
+(`citations/model.ts`). Law read live always carries its own title, so it keeps that title and its source even
+where `use_for_source_ref` hands it the use of a held edition of its work (`knowledge_context.py`). Where
+no use reaches a passage the file name and lane stay the fallback: a gate of `none` carries no uses at all
+(`resolve.ts`, so a country whose territory states no coverage cites its texts by file name, the warning
+`country_states_no_coverage` on its change request), and neither does a turn replayed from its text without
+the session cache (`edition_id` has no line). Austria's style prints a publisher only with its place (one
+segment, `" ({publisher}, {place})"`), so an issuer the style names no place for is left out, never guessed.
+
+*Not yet, and why.* The Word export (`bff/answer-export/citations.ts`), the copy-answer Markdown
+(`lib/answer-markdown.ts`) and the peek still label a source from i18n ("S. {page}") rather than the line:
+moving them changes what they print today, so each is its own change against this fixture. The style chosen
+is the office's home country's, not the source's: an EU or a foreign source is written in the office's form
+until a citation carries its work's country. "Abs." with dots (decision 1) and the law's Fundstelle with
+"idF" are revisions of Austria's record, not code, once a law's locus arrives as units rather than text (the
+RIS adapter writes "Abs 1"); the locus vocabulary and the "ohne Fundstelle" mark (decision 2) join the
+record with slice 3, which is their first reader. Two edges are not as before: an edition word that is not
+German ("Ausgabe Février 2023") is now read as one, where the old pattern took only a-z and umlauts; and a
+segment with an empty field drops whole, so a template cannot yet say "(publisher[, place])" (the guide
+says to write a kind of its own). Terminology and the answer register did not fall out of
+this record: they are the prompt's, and stay the next slice of plan row 6.
 
 ### Slice 3. What the sentence says is what opens
 

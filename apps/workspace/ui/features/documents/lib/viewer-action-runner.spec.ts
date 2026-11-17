@@ -1,8 +1,3 @@
-/**
- * The runner of a viewer action (ADR-0144): the person's own read decides what
- * may open, the viewer moves the way the person's own clicks move it, and every
- * undo says whether it put anything back.
- */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ViewerActionCall, ViewerActionName } from '@/features/chat/lib/viewer-actions'
 import { useChatStore } from '@/features/chat/store'
@@ -41,7 +36,6 @@ const call = (name: ViewerActionName, args: Partial<ViewerActionCall['args']> = 
   },
 })
 
-/** `GET /api/documents/{id}` over these rows; an id not among them is a 404 (or `status`). */
 const documents = (rows: Row[], status = 404) =>
   vi.fn(async (input: RequestInfo | URL) => {
     const id = decodeURIComponent(String(input).split('/').pop() ?? '')
@@ -248,7 +242,6 @@ describe('a model element', () => {
     })
     const outcome = await createViewerActionRunner(deps(documents([model]), { currentHref: () => here, navigate })).run(focus)
     if (outcome.outcome !== 'shown') throw new Error('expected shown')
-    // The stage keeps its view in the query and rewrites it as the person works in it (`router.replace`).
     here = '/app/projects/proj-1/files?model=Haus+A.ifc&element=0aB&cam=iso'
 
     expect(outcome.undoable?.()).toBe(true)
@@ -263,7 +256,6 @@ describe('a model element', () => {
     })
     const outcome = await createViewerActionRunner(deps(documents([model]), { currentHref: () => here, navigate })).run(focus)
     if (outcome.outcome !== 'shown') throw new Error('expected shown')
-    // Another model on the same page is not the view this action opened.
     here = '/app/projects/proj-1/files?model=Haus+B.ifc'
     expect(outcome.undoable?.()).toBe(false)
     here = '/app/projects/proj-1/chat'

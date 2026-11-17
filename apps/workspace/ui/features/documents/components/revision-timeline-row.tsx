@@ -12,59 +12,27 @@ import { Quote } from '@/components/ui/quote'
 import { changeLines } from '@/lib/documents/revision-timeline'
 
 export interface RevisionTimelineRowProps {
-  /** „Fassung 3": what the row is called. Unambiguous on its own, never „Diese Fassung". */
   label: string
-  /** „Index C" or „Stand 14.08.2026", beside the label, when the name or title block says one. */
   tag?: string | null
-  /** „aktuell", on the one Fassung Piloti answers from, and nowhere else. */
   marker?: string | null
-  /** A state worth saying on this row (In Prüfung, Abgelehnt …). Never „Ersetzt": every older row is older. */
   badge?: ReactNode
-  /** The newest Fassung: its dot is ink, every other one quiet. */
   newest?: boolean
-  /** The row's own file, when it is another document than the one open. Middle-truncated: the index and extension survive. */
   filename?: string | null
-  /**
-   * Characters of the file name kept whole at its end: from where it first
-   * differs from the open document's name (`distinguishingTailLength`), so the
-   * index survives the cut.
-   */
   filenameTail?: number
-  /** Who did what and when, one line each („Hochgeladen von Anna Berger · 14.08.2026"). Already worded; never a raw id. */
   acts?: readonly string[]
-  /** The reviewer's words, quoted on the Fassung they are about. */
   comment?: string | null
-  /** „Geändert gegenüber Fassung 2:" above the change lines. */
   changeCaption?: string | null
-  /** What changed in it, as the model wrote it (bullet lines). */
   change?: string | null
-  /** Under the change lines: that Piloti read them, and that a person checks the values. */
   changeHint?: string | null
   changeTestId?: string
-  /** The ONE visible action (Öffnen). Everything else is in {@link menu}. */
   action?: ReactNode
-  /** Herunterladen, Vergleichen, Verknüpfung lösen: behind the row's ⋯. */
   menu?: readonly ActionMenuEntry[]
-  /** The ⋯ button's accessible name („Weitere Aktionen zu Fassung 3"). */
   menuLabel?: string
-  /** Under the row's own content: a text comparison. */
   children?: ReactNode
-  /** The last row draws no line below its dot. */
   last?: boolean
-  /** `data-*` the specs and the preview read the row by. */
   dataset?: Readonly<Record<string, string | undefined>>
 }
 
-/**
- * One Fassung in the timeline: its number, its index, who did what and when,
- * what changed in it, one visible action and a ⋯ for the rest. The rail is
- * 248px of content, so every fact appears once: the date is on the act line,
- * the file name only where it is another document, the state only where it is
- * worth a word.
- *
- * Presentational. Which rows exist and in which order is `lib/documents/revision-timeline.ts`;
- * what the actions do belongs to `document-revisions.tsx`.
- */
 export function RevisionTimelineRow({
   label,
   tag,
@@ -181,7 +149,6 @@ function ChangeList({ text }: { text: string }): JSX.Element {
   )
 }
 
-/** The quiet link-button a row's one visible action is. 44px catchment under a finger. */
 export function RowAction({
   children,
   asChild,
@@ -189,7 +156,6 @@ export function RowAction({
 }: Omit<ComponentProps<typeof Button>, 'variant' | 'size' | 'className'>): JSX.Element {
   return (
     <Button
-      // A link (`asChild`) is not a form button: no `type` on an anchor.
       type={asChild ? undefined : 'button'}
       asChild={asChild}
       variant="link"

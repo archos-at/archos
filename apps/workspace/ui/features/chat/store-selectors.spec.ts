@@ -1,9 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Tests for chat store session busy selectors
- */
 
 import { describe, it, expect, beforeEach } from 'vitest'
 import { useChatStore, selectHasRecoverableConnectionError } from './store'
@@ -63,8 +60,6 @@ describe('ChatStore - Session Busy Selectors', () => {
     })
 
     it('does not count a live run as busy: the run is a message with its own stop', () => {
-      // ADR-0062: the person keeps chatting beside the run, and a run whose
-      // terminal event was lost must not hold its thread hostage.
       const conv = conversation('session-1', [liveRunMessage])
       useChatStore.setState({ conversations: [conv], currentConversation: null })
       expect(useChatStore.getState().isSessionBusy('session-1')).toBe(false)
@@ -332,7 +327,6 @@ describe('dismissConnectionErrors', () => {
 
   it('does nothing when no current conversation exists', () => {
     useChatStore.setState({ currentConversation: null })
-    // Should not throw
     useChatStore.getState().dismissConnectionErrors()
     expect(useChatStore.getState().currentConversation).toBeNull()
   })

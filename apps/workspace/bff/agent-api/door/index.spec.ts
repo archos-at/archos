@@ -1,10 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The door's resources and prompts through the real SDK, for an outside agent
- * and for Piloti's own client.
- */
 import { webcrypto } from 'node:crypto'
 import { createMcpHandler } from '@modelcontextprotocol/server'
 import { beforeAll, describe, expect, it, vi } from 'vitest'

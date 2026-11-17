@@ -1,12 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * A proposal as a live channel (`proposal:<id>`): who may be in it (whoever may
- * read the proposal, by the service's own rule), what travels on it (one hint,
- * from the server), and that a decision published by the service reaches a
- * listener of the channel's topic.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 

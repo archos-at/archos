@@ -1,14 +1,3 @@
-"""The summary-reconcile sweep forgets rows whose chunks are gone, and nothing else.
-
-Module under test: ``agent_host.routes.maintenance.reconcile_orphaned_summaries``.
-
-The agent's document inventory is the summaries table; retrieval is the
-vector store. A summary row with no chunks behind it lists a file the agent
-cannot read (the rows ``delete_file`` orphaned before it learned to forget
-both together). These tests pin what the sweep forgets, what it must keep,
-and that one broken collection never costs the others their sweep.
-"""
-
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -23,8 +12,6 @@ from agent_host.routes.maintenance import reconcile_orphaned_summaries
 
 
 class _Ingestor:
-    """The two reads the sweep makes of the vector store, scripted per collection."""
-
     def __init__(self, chunk_counts: dict[str, int], files: dict[str, list[tuple[str, FileStatus]]]):
         self._chunk_counts = chunk_counts
         self._files = files
@@ -44,7 +31,6 @@ class _Ingestor:
 
 @pytest.fixture
 def world(monkeypatch):
-    """Summaries and vector store as plain dicts the test scripts."""
     summaries: dict[str, list[str]] = {}
     unregistered: list[tuple[str, str]] = []
     in_flight: dict[str, list[str]] = {}
@@ -108,7 +94,6 @@ async def test_dry_run_reports_and_touches_nothing(world):
 
 @pytest.mark.asyncio
 async def test_a_tracked_file_in_any_status_keeps_its_summary(world):
-    """A failed or still-ingesting file has no chunks YET; that is not an orphan."""
     world.summaries["proj_a"] = ["failed.pdf", "ingesting.pdf"]
     world.ingestor = _Ingestor(
         {"proj_a": 1},
@@ -123,7 +108,6 @@ async def test_a_tracked_file_in_any_status_keeps_its_summary(world):
 
 @pytest.mark.asyncio
 async def test_a_file_whose_ingest_is_in_flight_is_not_judged(world):
-    """The summary can land before the chunks do; the ingest-status store says a file is coming."""
     world.summaries["proj_a"] = ["uploading.pdf"]
     world.ingestor = _Ingestor({"proj_a": 3}, {"proj_a": [("other.pdf", FileStatus.SUCCESS)]})
     world.in_flight["proj_a"] = ["uploading.pdf"]
@@ -135,7 +119,6 @@ async def test_a_file_whose_ingest_is_in_flight_is_not_judged(world):
 
 @pytest.mark.asyncio
 async def test_matches_a_chunk_name_stored_encoded_or_with_a_temp_prefix(world):
-    """The row and its chunks were written by one ingest, but not always under one spelling."""
     world.summaries["proj_a"] = ["Zürich Plan.pdf", "schnitt.pdf"]
     world.ingestor = _Ingestor(
         {"proj_a": 4},
@@ -159,14 +142,6 @@ async def test_forgets_an_encoded_row_under_its_stored_spelling(world):
 
 @pytest.mark.asyncio
 async def test_a_collection_the_store_holds_no_chunk_of_keeps_every_summary(world):
-    """Absent is not proof of deletion: Qdrant lists no collection without points.
-
-    During the move from Chroma, every collection the import has not reached
-    yet is absent, and so is one a restore has not brought back. Forgetting its
-    rows would wipe summaries, tags, Dokumentart and folders the vectors cannot
-    give back. Deleting a whole collection is the purge route's job, which
-    clears the rows itself (``clear_collection_summaries``).
-    """
     world.summaries["proj_gone"] = ["a.pdf", "b.pdf"]
     world.ingestor = _Ingestor({"proj_other": 5}, {})
 
@@ -193,7 +168,6 @@ async def test_a_collection_listed_with_zero_chunks_is_absent_too(world):
 
 @pytest.mark.asyncio
 async def test_a_store_that_holds_no_point_at_all_is_a_503(world):
-    """A fresh or not yet imported store lists nothing. Nothing can be judged against it."""
     world.summaries["proj_a"] = ["a.pdf"]
     world.summaries["proj_b"] = ["b.pdf"]
     world.ingestor = _Ingestor({}, {})
@@ -218,7 +192,6 @@ async def test_a_store_whose_collections_all_count_zero_is_a_503(world):
 
 @pytest.mark.asyncio
 async def test_inside_a_held_collection_only_files_the_store_lacks_are_forgotten(world):
-    """Partly imported store: proj_a is in, proj_b is not. Only proj_a is judged."""
     world.summaries["proj_a"] = ["live.pdf", "ghost.pdf"]
     world.summaries["proj_b"] = ["waiting.pdf"]
     world.ingestor = _Ingestor({"proj_a": 7}, {"proj_a": [("live.pdf", FileStatus.SUCCESS)]})
@@ -232,9 +205,6 @@ async def test_inside_a_held_collection_only_files_the_store_lacks_are_forgotten
 
 @pytest.mark.asyncio
 async def test_an_empty_listing_of_a_collection_that_holds_chunks_is_a_failure_not_a_purge(world):
-    """``list_files`` answers ``[]`` for an unreachable collection too. The store
-    just reported chunks there, so an empty listing is a failed read — and a
-    failed read must not forget every summary the collection has."""
     world.summaries["proj_a"] = ["live.pdf"]
     world.ingestor = _Ingestor({"proj_a": 40}, {"proj_a": []})
 
@@ -263,7 +233,6 @@ async def test_fails_per_collection_and_sweeps_the_others(world):
 
 @pytest.mark.asyncio
 async def test_scopes_to_the_collections_the_caller_names(world):
-    """The BFF passes the collections it chunk-reconciled; the OIB corpus is never in that list."""
     world.summaries["proj_a"] = ["ghost.pdf"]
     world.summaries["oib_knowledge"] = ["ghost.pdf"]
     world.ingestor = _Ingestor({"proj_a": 1, "oib_knowledge": 1}, {"proj_a": [], "oib_knowledge": []})
@@ -281,7 +250,6 @@ async def test_scopes_to_the_collections_the_caller_names(world):
 
 @pytest.mark.asyncio
 async def test_a_vector_store_that_cannot_be_listed_fails_the_whole_request(world):
-    """Nothing can be judged, so nothing is forgotten — not even by accident."""
     world.summaries["proj_a"] = ["ghost.pdf"]
     world.ingestor = _Ingestor({}, {})
     world.ingestor.list_collections_raises = ConnectionError("chroma down")
@@ -302,7 +270,6 @@ async def test_no_active_ingestor_is_a_503(world):
 
 
 def test_the_route_is_registered_beside_purge_with_the_same_guard():
-    """The BFF calls it by path; a typo here is a 404 that looks like a backend outage."""
     from fastapi import APIRouter
 
     from agent_host.routes.maintenance import add_maintenance_routes

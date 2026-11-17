@@ -1,15 +1,5 @@
 'use client'
 
-/**
- * In-app source PDF viewer — a wide dialog around `PdfDocumentView`. Used by
- * clicked chat citations and the knowledge pages so users can read the actual
- * document the assistant grounded on.
- *
- * `page` opens the document there; `highlight` additionally lights up the cited
- * passage ON that page (see `pdf-document-view.tsx` for why the browser's own
- * viewer could never do the second thing).
- */
-
 import type { ReactNode } from 'react'
 import Image from 'next/image'
 import { ExternalLink } from 'lucide-react'
@@ -32,101 +22,26 @@ import type { PageRegion } from '../lib/page-region'
 export interface PdfViewerDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  /** Base-corpus PDF filename served by /api/knowledge-base/documents. */
   fileName: string
-  /** 1-based page to jump to (browser PDF viewer fragment). */
   page?: number | null
-  /** Optional heading; defaults to the filename. */
   title?: string
-  /**
-   * Explicit document URL to render (e.g. a presigned preview URL for a
-   * project-uploaded file). When set it overrides the base-corpus path built
-   * from `fileName`, letting non-corpus surfaces (the Files preview pane) reuse
-   * this viewer. `page` is appended as a `#page=N` fragment when provided.
-   */
   src?: string
-  /**
-   * Render the source as an image (next/image in a scrollable frame) instead of
-   * the PDF view. Lets the Files preview pane reuse this dialog to enlarge
-   * standalone image uploads (FB-15a). `page`/`highlight` do not apply;
-   * `regions` do, as shares of the image.
-   */
   isImage?: boolean
-  /**
-   * The cited passage's own text. When set, the viewer finds it on `page` and
-   * marks it — the difference between "your evidence is on page 12" and "your
-   * evidence is this sentence". Callers that only know a page leave it unset
-   * and the viewer opens exactly as it always did.
-   */
   highlight?: string | null
-  /**
-   * CSS colour for that mark, so it wears the provenance tint of the chip that
-   * opened the dialog (e.g. `var(--source-law)`).
-   */
   highlightColor?: string
-  /**
-   * Boxes to mark on `page` — or on the image, in image mode — for a passage
-   * read off a picture of the page rather than out of its text (issue #433).
-   * Worn in `highlightColor`, like a passage mark.
-   */
   regions?: readonly PageRegion[] | null
-  /**
-   * Turns a passage the reader selects in the document into the text they want
-   * on their clipboard — passed straight through to the document view, which
-   * owns the affordance. Unset, no such offer is made.
-   */
   quoteFormat?: (quote: { text: string; page: number }) => string
-  /**
-   * Look for passages like the one the reader selects („Im Büro behandelt"),
-   * passed straight through to the document view like `quoteFormat`. Unset,
-   * no such offer is made.
-   */
   onFindSimilar?: (passage: { text: string; page: number }) => void
-  /**
-   * Skip the Next image optimizer for `isImage` mode. Defaults to TRUE, which
-   * is the safe answer for any caller that has not thought about it: `src` here
-   * can be a presigned object-store URL on an un-allow-listed host, or this
-   * app's own cookie-authenticated corpus route — the optimizer fetches with a
-   * headerless internal request and would fail on both. Pass `false` only for a
-   * src the optimizer can actually serve, i.e. the same-origin signed image
-   * path from `/api/documents/[id]/preview`.
-   */
   imageUnoptimized?: boolean
-  /**
-   * Optional chip rendered inline before the title (WS-9 source preview:
-   * the provenance-tinted document-type chip). Purely additive — omitted,
-   * the header renders exactly as before.
-   */
   headerChip?: ReactNode
-  /**
-   * Optional controls for the document on show — the copy actions. Separate
-   * from `headerChip` because the two behave differently when the row runs out
-   * of width: the chip says WHAT this is and stays with the title, the actions
-   * wrap to a line of their own. Passed together, they crowded the title out of
-   * a phone header entirely and then collided with the close button.
-   */
   headerActions?: ReactNode
-  /**
-   * Optional content rendered between the header and the document frame
-   * (WS-9: the tinted "Fundstelle"/cited-passage box). Purely additive.
-   */
   children?: ReactNode
-  /**
-   * Optional panel rendered ALONGSIDE the document frame rather than above it
-   * (the citation passage rail). Content that the reader consults while reading
-   * has to stay on screen while they read — put it in `children` and it becomes
-   * a band they scroll past once and then cannot reach.
-   */
   aside?: ReactNode
 }
 
 export function PdfViewerDialog({ open, onOpenChange, fileName, page, title, src: srcOverride, isImage, imageUnoptimized = true, highlight, highlightColor, regions, quoteFormat, onFindSimilar, headerChip, headerActions, children, aside }: PdfViewerDialogProps) {
   const t = useTranslations(knowledgeCopy)
   const baseSrc = srcOverride ?? `/api/knowledge-base/documents/${encodeURIComponent(fileName)}`
-  // The fragment is for the "open in new tab" link and the image branch, which
-  // both hand the URL to the BROWSER's viewer. The in-app view takes `page` as
-  // a prop instead — it scrolls itself, and to the passage rather than the page
-  // when it can find one.
   const src = page && !isImage ? `${baseSrc}#page=${page}` : baseSrc
 
   return (
@@ -195,8 +110,6 @@ export function PdfViewerDialog({ open, onOpenChange, fileName, page, title, src
           {aside}
           {open &&
             (isImage ? (
-              // The same stage a PDF lies on, so an enlarged image and an
-              // enlarged PDF are one surface with different things on it.
               <InsetStage className="min-h-0 w-full flex-1 overflow-auto overscroll-contain p-3">
                 {/* The source streams at whatever size it happens to be, so
                     there is no intrinsic ratio to declare: 0/0 plus explicit

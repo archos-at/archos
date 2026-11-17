@@ -1,12 +1,3 @@
-"""The brand-prose ratchet counts the retired names and a typed-out current name, and leaves history alone.
-
-`scripts/check_brand_prose.py` is the copy half of ADR-0149: no retired product name
-(Piloti, AI-Q, GRID) in what a person or an agent reads, and the current name only as
-`{productName}`/`PRODUCT_NAME` outside the brand's own files and the public documents.
-These run it on a scratch repository, so the real tree's baseline is not what they
-depend on.
-"""
-
 from __future__ import annotations
 
 import importlib.util
@@ -55,13 +46,10 @@ def _add(repo: Path, path: str, text: str) -> None:
         ("GRID operates the platform", 1),
         ("Grid platform and Grid agent", 2),
         ("image grid-oib-backend", 1),
-        # CSS and the English word never count.
         ("display: grid; grid-template-columns: 1fr", 0),
         ("<div className='grid grid-cols-2'>", 0),
         ("a Grid of cards, the document grid", 0),
-        # Identifiers are the brand-names check's business, not this one's.
         ("pilotiWakes piloti_wakes GRID_URL AIQ_API", 0),
-        # A link to an ADR file keeps the filename it has.
         ("[ADR-0146](0146-piloti-draws-sketches-in-excalidraws-own-format.md)", 0),
     ],
 )
@@ -70,11 +58,9 @@ def test_retired_names_are_words_not_css(checker, text: str, hits: int) -> None:
 
 
 def test_an_import_path_into_the_chat_package_is_an_identifier_not_copy(checker) -> None:
-    # The package path is a wire name the checkpointer restores by; check_brand_names ratchets it.
     assert (
         checker.count_retired("from agent.agents.piloti.history import trim\nimport agent.agents.piloti as chat\n") == 0
     )
-    # What is imported, and the path anywhere but an import line, still count.
     assert checker.count_retired("from agent.agents.piloti.cards import piloti\n") == 1
     assert checker.count_retired("see agent.agents.piloti.history\n") == 1
 
@@ -82,7 +68,6 @@ def test_an_import_path_into_the_chat_package_is_an_identifier_not_copy(checker)
 def test_a_marked_line_may_quote_an_old_name_in_backticks(checker) -> None:
     assert checker.count_retired("`piloti://guide` became `workspace://guide` <!-- brand-history -->") == 0
     assert checker.count_retired("`piloti://guide` became `workspace://guide`") == 1
-    # The marker covers backticks only: prose on the same line still counts.
     assert checker.count_retired("Piloti said `piloti` <!-- brand-history -->") == 1
 
 
@@ -182,7 +167,7 @@ def test_the_ratchet_refuses_growth_and_follows_every_cleanup(checker, repo: Pat
     assert checker.main([]) == 1
 
     _add(repo, "apps/workspace/ui/a.tsx", "const t = PRODUCT_NAME\n")
-    assert checker.main([]) == 1  # below the baseline until --update lowers it
+    assert checker.main([]) == 0  # a shrink passes; --update locks it in
     assert checker.main(["--update"]) == 0
     assert json.loads((repo / "ci/brand_prose_baseline.json").read_text()) == {}
 

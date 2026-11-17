@@ -1,0 +1,729 @@
+/**
+ * Two answers as the server stored them (2026-11-12, a dev environment), trimmed:
+ * the rows the Herleitung header misread. `UNBACKED` cites two sources and its
+ * answer check rated it low for two unbacked statements; `ASKED_BACK` read the
+ * office's documents and then asked for the site; `CITED_QUESTION` is a cited,
+ * complete answer whose last line invites a correction, which is no Rückfrage. `/dev/derivation` maps them through
+ * `mapServerMessageToChatMessage`, as a reload does.
+ */
+
+import type { ServerMessageInput } from '@/features/chat/lib/server-message-mapper'
+
+export interface StoredAnswer {
+  question: string
+  answer: ServerMessageInput
+}
+
+export const UNBACKED: StoredAnswer = {
+  question:
+    'Wie hoch muss die Absturzsicherung eines Balkons im 3. Obergeschoß mindestens sein, und welche Ausgabe der OIB-Richtlinie 4 gilt hier seit wann?',
+  answer: {
+    id: '585ddd7a-f68c-5126-a489-065826ae29f3',
+    role: 'assistant',
+    content:
+      'Für den Balkon im Burgenland beträgt die Mindesthöhe **1,00 m**; bei einer Absturzhöhe von **mehr als 12 m** sind es **1,10 m**, jeweils gemessen ab der Standfläche [1]. Aus dem 3. Obergeschoß allein lässt sich die maßgebliche Absturzhöhe nicht bestimmen.\n\n\n\nBei einer Brüstung mit mindestens 20 cm oberer Tiefe darf die Höhe um die halbe Brüstungstiefe reduziert werden; 85 cm dürfen dabei nicht unterschritten werden [1].\n\n**Geltende Ausgabe:** Im Burgenland gilt die OIB-Richtlinie 4, **Ausgabe April 2019**, seit **10. April 2021**. Die Novelle LGBl. Nr. 22/2021 wurde am 9. April 2021 kundgemacht; § 43 Abs. 6 der Bauverordnung bestimmt das Inkrafttreten am folgenden Tag [2]. Die Ausgabe Mai 2023 ist hier nicht die verbindliche Ausgabe.\n\nDie tatsächliche Absturzhöhe ist anhand des Gelände- und Balkonanschlusses zu prüfen. Bei einer Bauführung im Bestand sind außerdem die Anwendbarkeit und allfällige Übergangsbestimmungen gesondert zu prüfen.\n\n## Quellen\n- [1] [KB] oib-rl-4-2019-text-bfe3f994b9b6.pdf, p.11\n- [2] [RIS] Burgenländische Bauverordnung 2008, § 43 (Fassung 2016-10-25)\n',
+    createdAt: '2026-11-12T08:55:09.237Z',
+    metadata: {
+      messageType: 'agent_response',
+      citations: {
+        v: 1,
+        sources: [
+          {
+            kind: 'building_law',
+            lane: 'building_law_base',
+            page: 11,
+            role: 'binding',
+            tool: 'knowledge_search',
+            as_of: '2026-11-12',
+            route: {
+              work_id: 'work:bgld-bauvo',
+              provision: 'Bgld. BauVO 2008 idF LGBl. 22/2021',
+              designation: 'Bgld. BauVO 2008',
+            },
+            score: 1,
+            shelf: 'base',
+            title: 'OIB-Richtlinie 4, Ausgabe April 2019',
+            clause: '4.2',
+            number: 1,
+            origin: 'kb',
+            content: '[KB] oib-rl-4-2019-text-bfe3f994b9b6.pdf, p.11',
+            snippet:
+              '4 Schutz vor Absturzunfällen › 4.2 Anforderungen an Absturzsicherungen\n\n4.2.1 Die Höhe der Absturzsicherung hat mindestens 1,00 m, ab einer Absturzhöhe von mehr als 12 m\nmindestens 1,10 m zu betragen. Bei Wohnungstreppen genügt eine Höhe der Absturzsicherung\nvon 90 cm. Die Höhe der Absturzsicherung wird von der Standfläche gemessen. Bei Absturzsicherungen mit einer oberen Tiefe von mindestens 20 c',
+            work_id: 'work:oib-rl-4',
+            language: 'de',
+            file_name: 'oib-rl-4-2019-text-bfe3f994b9b6.pdf',
+            freshness: 'check_due',
+            collection: 'oib_knowledge',
+            edition_id: 'edition:oib-rl-4-2019',
+            lane_label: 'Basisdokument',
+            role_since: '2021-04-10',
+            designation: 'OIB-Richtlinie 4',
+            document_id: 'doc:oib_knowledge:oib-rl-4-2019-text-bfe3f994b9b6.pdf',
+            role_labels: ['check_overdue', 'unchecked_since'],
+            source_type: 'knowledge_layer',
+            text_status: 'authentic',
+            citation_key: 'oib-rl-4-2019-text-bfe3f994b9b6.pdf, p.11',
+            edition_label: 'Ausgabe April 2019',
+            binding_status: 'declared_binding',
+          },
+          {
+            kind: 'building_law',
+            lane: 'building_law_ris',
+            tool: 'law_lookup',
+            score: 1,
+            shelf: 'base',
+            title: 'Burgenländische Bauverordnung 2008',
+            clause: '§ 43',
+            number: 2,
+            origin: 'ris',
+            content: '[RIS] Burgenländische Bauverordnung 2008, § 43 (Fassung 2016-10-25)',
+            snippet:
+              '§ 43\nInkrafttreten und Übergangsbestimmungen\n(1)\nDiese Verordnung tritt am auf die Kundmachung folgenden Monatsersten, frühestens jedoch mit dem In-Kraft-Treten des Gesetzes\nLGBl. Nr. 53/2008\n(Burgenländische Baugesetz-Novelle 2008) in Kraft.\n(2)\nGleichzeitig tritt die Verordnung der Burgenländischen Landesregierung vom 2. Feber 1998, mit der Vorschriften über die Zulässigkeit von Bauvorhaben erla',
+            revision: {
+              date: '2016-10-25',
+            },
+            collection: 'ris/LrKons/Burgenland',
+            lane_label: 'Rechtsquelle (RIS)',
+            public_url:
+              'https://www.ris.bka.gv.at/GeltendeFassung.wxe?Abfrage=LrBgld&Gesetzesnummer=20000684',
+            document_id:
+              'doc:ris/lrkons/burgenland:burgenländische bauverordnung 2008, § 43 (fassung 2016-10-25)',
+            source_type: 'knowledge_layer',
+            citation_key: 'Burgenländische Bauverordnung 2008, § 43 (Fassung 2016-10-25)',
+            retrieved_at: '2026-11-12',
+            binding_status: 'unknown',
+          },
+        ],
+      },
+      answerMeta: {
+        v: 1,
+        kind: 'ruling',
+        verdict: {
+          value: '1,00 m bzw. 1,10 m',
+          subject: 'Mindesthöhe der Balkon-Absturzsicherung',
+          reference: {
+            edition: 'Ausgabe April 2019',
+            section: 'Punkt 4.2.1',
+            document: 'OIB-Richtlinie 4',
+          },
+        },
+      },
+      provenance: {
+        confidenceCheck: {
+          level: 'low',
+          status: 'judged',
+          findings: [
+            {
+              reason:
+                'Die angeführte Passage zu § 43 ist eine Fassung von 2016 und enthält weder LGBl. Nr. 22/2021 noch ein Inkrafttreten der Ausgabe April 2019. Keine Passage im Belegblock belegt das behauptete Datum oder die landesrechtliche Geltung dieser Ausgabe.',
+              source: '[2] Burgenländische Bauverordnung 2008, § 43 (Fassung 2016-10-25)',
+              problem: 'unbacked',
+              statement:
+                'Im Burgenland gilt die OIB-Richtlinie 4, Ausgabe April 2019, seit 10. April 2021; LGBl. Nr. 22/2021 wurde am 9. April kundgemacht und § 43 Abs. 6 setzt das Inkrafttreten auf den Folgetag.',
+            },
+            {
+              reason:
+                'Die Belege zeigen den Text der Ausgabe Mai 2023, enthalten aber keine Passage dazu, welche Ausgabe im Burgenland verbindlich ist. Damit ist die zentrale Aussage zur geltenden Ausgabe nicht belegt.',
+              source: 'none',
+              problem: 'unbacked',
+              statement: 'Die Ausgabe Mai 2023 ist hier nicht die verbindliche Ausgabe.',
+            },
+          ],
+        },
+        answerConfidence: 'low',
+        answerConfidenceReason:
+          'Die Rechtsgrundlagen sind belegt; die tatsächliche Absturzhöhe ist nicht bekannt.',
+        answerConfidenceVersion: 2,
+        routingDecision: 'shallow',
+        retrievalLedger: [
+          {
+            key: 'status.retrieval.withQuery',
+            docs: [
+              {
+                name: 'oib-rl_4_ausgabe_mai_2023.pdf',
+                shelf: 'base',
+                title: 'OIB-Richtlinie 4, Ausgabe Mai 2023',
+                detail: 'Pkt. 0 p.4',
+                repeat: false,
+              },
+              {
+                name: 'erlaeuterungen_oib-rl_4_ausgabe_mai_2023.pdf',
+                shelf: 'base',
+                title: 'Erläuterungen zu OIB-Richtlinie 4, Ausgabe Mai 2023',
+                detail: 'p.4',
+                repeat: false,
+              },
+              {
+                name: 'erlaeuterungen_oib-rl_4_ausgabe_mai_2023.pdf',
+                shelf: 'base',
+                title: 'Erläuterungen zu OIB-Richtlinie 4, Ausgabe Mai 2023',
+                detail: 'p.3',
+                repeat: false,
+              },
+              {
+                name: 'oib-rl-4-erlaeuterungen-2023-text-50805c4014e5.pdf',
+                shelf: 'base',
+                title: 'OIB-Richtlinie 4 - Erläuterungen, Ausgabe Mai 2023',
+                detail: 'Pkt. Nutzungssicherheit und Barrierefreiheit › Allgemeines p.4',
+                repeat: false,
+              },
+              {
+                name: 'oib-rl-4-erlaeuterungen-2019-text-fd42ad249c36.pdf',
+                shelf: 'base',
+                title: 'OIB-Richtlinie 4 - Erläuterungen, Ausgabe April 2019',
+                detail: 'Pkt. Nutzungssicherheit und Barrierefreiheit › Allgemeines p.4',
+                repeat: false,
+              },
+            ],
+            hits: 27,
+            index: 0,
+            query: 'Wie hoch muss die Absturzsicher…',
+            tools: ['knowledge_search', 'knowledge_search'],
+            corpora: ['knowledge'],
+            newDocs: [
+              'oib-rl_4_ausgabe_mai_2023.pdf',
+              'erlaeuterungen_oib-rl_4_ausgabe_mai_2023.pdf',
+              'oib-rl-4-erlaeuterungen-2023-text-50805c4014e5.pdf',
+              'oib-rl-4-erlaeuterungen-2019-text-fd42ad249c36.pdf',
+              'oib-rl-4-2023-text-7ad87c47e2b7.pdf',
+            ],
+            documents: 6,
+          },
+          {
+            key: 'status.retrieval.withQuery',
+            docs: [
+              {
+                name: 'oib-rl-4-2019-text-bfe3f994b9b6.pdf',
+                shelf: 'base',
+                title: 'OIB-Richtlinie 4, Ausgabe April 2019',
+                detail: 'Pkt. 4.2 p.11',
+                repeat: true,
+              },
+              {
+                name: 'oib-rl-4-2019-text-bfe3f994b9b6.pdf',
+                shelf: 'base',
+                title: 'OIB-Richtlinie 4, Ausgabe April 2019',
+                detail: 'Pkt. 4.2 p.12',
+                repeat: true,
+              },
+              {
+                name: 'https://www.ris.bka.gv.at/GeltendeFassung.wxe?Abfrage=LrBgld&Gesetzesnummer=20000684',
+                title: 'Burgenländische Bauverordnung 2008',
+                detail: '§ 36',
+                repeat: false,
+              },
+              {
+                name: 'https://www.ris.bka.gv.at/GeltendeFassung.wxe?Abfrage=LrBgld&Gesetzesnummer=20000684',
+                title: 'Burgenländische Bauverordnung 2008',
+                detail: '§ 39',
+                repeat: false,
+              },
+              {
+                name: 'Burgenländische Bauverordnung 2008, § 36 (Fassung 2021-04-10)',
+                shelf: 'base',
+                repeat: false,
+              },
+            ],
+            hits: 8,
+            index: 1,
+            query: 'Welche Ausgabe der OIB-Richtlin…',
+            tools: ['law_lookup', 'law_lookup', 'read_file'],
+            reason: 'Ich prüfe die Höhe und die Ausnahmen in der Ausgabe April 2019.',
+            corpora: ['ris', 'knowledge'],
+            newDocs: [
+              'https://www.ris.bka.gv.at/GeltendeFassung.wxe?Abfrage=LrBgld&Gesetzesnummer=20000684',
+              'Burgenländische Bauverordnung 2008, § 36 (Fassung 2021-04-10)',
+              'Burgenländische Bauverordnung 2008, § 39 (Fassung 2021-04-10)',
+              'Burgenländische Bauverordnung 2008, § 36 (Fassung 2026-11-05)',
+              'Burgenländische Bauverordnung 2008, § 39 (Fassung 2026-11-05)',
+            ],
+            documents: 6,
+          },
+          {
+            key: 'status.retrieval.withQuery',
+            docs: [
+              {
+                name: 'https://www.austrian-standards.at/de/shop/oib-richtlinie-4-2019-04~p2476090',
+                title: 'OIB Richtlinie 4:2019 04 | Austrian Standards',
+                repeat: false,
+              },
+              {
+                name: 'https://www.austrian-standards.at/de/shop/oib-richtlinie-4-2019-04~p2476091',
+                title: 'OIB Richtlinie 4:2019 04 | Austrian Standards',
+                repeat: false,
+              },
+              {
+                name: 'https://www.austrian-standards.at/de/shop/oib-richtlinie-2-2-2019-04~p2476078',
+                title: 'OIB Richtlinie 2.2:2019 04 | Austrian Standards',
+                repeat: false,
+              },
+              {
+                name: 'https://www.austrian-standards.at/de/shop/oib-richtlinie-2-2019-04~p2476064',
+                title: 'OIB Richtlinie 2:2019 04 | Austrian Standards',
+                repeat: false,
+              },
+              {
+                name: 'https://www.austrian-standards.at/de/shop/oib-richtlinie-6-2018-02~p2401713',
+                title: 'OIB Richtlinie 6:2018 02 | Austrian Standards',
+                repeat: false,
+              },
+            ],
+            hits: 10,
+            index: 2,
+            query: 'Welche Inkrafttretensregel enth…',
+            tools: ['law_lookup', 'web_search_tool', 'law_lookup', 'grep'],
+            corpora: ['ris', 'web', 'documents'],
+            newDocs: [
+              'https://www.austrian-standards.at/de/shop/oib-richtlinie-4-2019-04~p2476090',
+              'https://www.austrian-standards.at/de/shop/oib-richtlinie-4-2019-04~p2476091',
+              'https://www.austrian-standards.at/de/shop/oib-richtlinie-2-2-2019-04~p2476078',
+              'https://www.austrian-standards.at/de/shop/oib-richtlinie-2-2019-04~p2476064',
+              'https://www.austrian-standards.at/de/shop/oib-richtlinie-6-2018-02~p2401713',
+            ],
+            documents: 10,
+          },
+          {
+            key: 'status.retrieval.withQuery',
+            docs: [
+              {
+                name: 'https://www.austrian-standards.at/de/shop/oib-richtlinie-2-2019-04~p2476064',
+                title: 'OIB Richtlinie 2:2019 04 | Austrian Standards',
+                repeat: true,
+              },
+              {
+                name: 'https://www.austrian-standards.at/de/shop/oib-richtlinie-6-2018-02~p2401713',
+                title: 'OIB Richtlinie 6:2018 02 | Austrian Standards',
+                repeat: true,
+              },
+              {
+                name: 'https://www.austrian-standards.at/de/shop/oib-richtlinie-2-leitfaden-2015-03~p2132686',
+                title: 'OIB Richtlinie 2 - Leitfaden:2015 03 | Austrian Standards',
+                repeat: false,
+              },
+              {
+                name: 'https://repositum.tuwien.at/bitstream/20.500.12708/19568/1/Skolud%20Matthias%20-%202021%20-%20Brandschutzrechtliche%20Rahmenbedingungen%20holzbasierter...pdf',
+                title: 'Brandschutzrechtliche Rahmenbedingungen holzbasierter ...',
+                repeat: true,
+              },
+              {
+                name: 'https://www.meta-wissen-holzbau.at/normen_recht/SitePages/Besonders%20f%C3%BCr%20den%20Holzbau%20relevante%20Regelungen%20in%20den%20OIB-Richtlinien.aspx',
+                title:
+                  'Normen & Recht - Besonders für den Holzbau relevante Regelungen in den OIB-Richtlinien',
+                repeat: false,
+              },
+            ],
+            hits: 14,
+            index: 3,
+            query: 'Was sagt die Bauverordnung zum…',
+            tools: ['law_lookup', 'web_search_tool', 'ls'],
+            corpora: ['ris', 'web', 'knowledge'],
+            newDocs: [
+              'https://www.austrian-standards.at/de/shop/oib-richtlinie-2-leitfaden-2015-03~p2132686',
+              'https://www.meta-wissen-holzbau.at/normen_recht/SitePages/Besonders%20f%C3%BCr%20den%20Holzbau%20relevante%20Regelungen%20in%20den%20OIB-Richtlinien.aspx',
+              'https://www.austrian-standards.at/de/shop/oib-begriffsbestimmungen-2019-04~p2476113',
+              'https://www.ag.ch/de/themen/planen-bauen/baurecht/bauverordnung-(bauv)',
+              'https://www.ris.bka.gv.at/GeltendeFassung.wxe?Abfrage=LrBgld&Gesetzesnummer=20000684',
+            ],
+            documents: 13,
+          },
+          {
+            key: 'status.retrieval.withQuery',
+            docs: [
+              {
+                name: 'https://www.oerok.gv.at/fileadmin/user_upload/Bilder/2.Reiter-Raum_u._Region/2.Daten_und_Grundlagen/Rechtssammlung/2_Rechtschronik_2021-I.pdf',
+                title: 'Rechtschronik 2021-I (1. Halbjahr 2021)',
+                repeat: false,
+              },
+              {
+                name: 'https://repositum.tuwien.at/bitstream/20.500.12708/19568/1/Skolud%20Matthias%20-%202021%20-%20Brandschutzrechtliche%20Rahmenbedingungen%20holzbasierter...pdf',
+                title: 'Brandschutzrechtliche Rahmenbedingungen holzbasierter ...',
+                repeat: true,
+              },
+              {
+                name: 'https://www.hagebau-wallner.at/popup.aspx?r=403%24ebau%24%24PARA%24%24107%24%24357%24%242392%24%2411328%24%24%24%24%40%40',
+                title: 'hagebau Baurechtsdatenbank - Heizungs',
+                repeat: false,
+              },
+              {
+                name: 'https://volksanwaltschaft.gv.at/fileadmin/user_upload/Downloads/Berichte/LT/W/43-wien-bericht-2021_bf-1.pdf',
+                title: 'Bericht der Volksanwaltschaft an den Wiener Landtag 2021',
+                repeat: false,
+              },
+              {
+                name: 'https://www.wien.gv.at/ma08/infodat/2022/167915.pdf',
+                title: 'Bericht der Volksanwaltschaft an den Wiener Landtag 2021',
+                repeat: false,
+              },
+            ],
+            hits: 11,
+            index: 4,
+            query: 'Was lautet die Inkrafttretens-…',
+            tools: ['law_lookup', 'web_search_tool', 'law_lookup'],
+            corpora: ['ris', 'web'],
+            newDocs: [
+              'https://www.oerok.gv.at/fileadmin/user_upload/Bilder/2.Reiter-Raum_u._Region/2.Daten_und_Grundlagen/Rechtssammlung/2_Rechtschronik_2021-I.pdf',
+              'https://www.hagebau-wallner.at/popup.aspx?r=403%24ebau%24%24PARA%24%24107%24%24357%24%242392%24%2411328%24%24%24%24%40%40',
+              'https://volksanwaltschaft.gv.at/fileadmin/user_upload/Downloads/Berichte/LT/W/43-wien-bericht-2021_bf-1.pdf',
+              'https://www.wien.gv.at/ma08/infodat/2022/167915.pdf',
+              'https://www.bmimi.gv.at/dam/jcr:b2c25693-eac7-43e0-8a79-df98574ce6d4/SP-V_S1_Umweltbericht.pdf',
+            ],
+            documents: 11,
+          },
+        ],
+      },
+    },
+  },
+}
+
+export const ASKED_BACK: StoredAnswer = {
+  question:
+    'Welche Ausgabe der OIB-Richtlinie 6 galt für eine Einreichung am 1. Oktober 2026, und welche gilt für eine Einreichung heute? Seit wann?',
+  answer: {
+    id: '00f26922-8f90-585c-8b6a-952c7a741c38',
+    role: 'assistant',
+    content:
+      'Welche Ausgabe an den beiden Tagen galt und seit wann, lässt sich ohne den Standort des Bauvorhabens nicht bestimmen. Die Übernahme der OIB-Richtlinie und mögliche Übergangsbestimmungen hängen vom anwendbaren Landesrecht ab.\n\nIn welchem Land und Bundesland liegt das Bauvorhaben?',
+    createdAt: '2026-11-12T08:52:16.091Z',
+    metadata: {
+      messageType: 'agent_response',
+      provenance: {
+        confidenceCheck: {
+          level: 'medium',
+          status: 'judged',
+          findings: [
+            {
+              reason:
+                'Die Evidenz enthält zwar einen Eintrag zur OIB-Richtlinie 6, Ausgabe 2025, aber keine Passage zu ihrer Geltung, zum Inkrafttreten oder zu landesrechtlichen Übernahmen und Übergangsbestimmungen. Daher ist weder die behauptete Standortabhängigkeit belegt noch die erbetene zeitliche Einordnung beantwor',
+              source: 'none',
+              problem: 'unbacked',
+              statement:
+                'Ohne Standort lässt sich nicht bestimmen, welche Ausgabe am 1. Oktober 2026 und heute galt; die Übernahme und Übergangsbestimmungen hängen vom anwendbaren Landesrecht ab.',
+            },
+          ],
+        },
+        answerConfidence: 'medium',
+        answerConfidenceReason:
+          'Der Standort und damit das anwendbare Landesrecht sind nicht bestätigt',
+        answerConfidenceVersion: 2,
+        routingDecision: 'shallow',
+        retrievalLedger: [
+          {
+            key: 'status.retrieval.withQuery',
+            docs: [
+              {
+                name: 'Übersicht_Baurecht_Wien.jpg',
+                shelf: 'office_shelf',
+                detail: 'p.1',
+                repeat: false,
+              },
+              {
+                name: 'Planungsbericht_2024-118_LPH5_RevC.pdf',
+                shelf: 'office_shelf',
+                detail: 'p.3',
+                repeat: false,
+              },
+              {
+                name: 'Planungsbericht_2024-118_LPH5_RevC.pdf',
+                shelf: 'office_shelf',
+                detail: 'p.1',
+                repeat: false,
+              },
+              {
+                name: 'Planungsbericht_2024-118_LPH5_RevC.pdf',
+                shelf: 'office_shelf',
+                detail: 'p.2',
+                repeat: false,
+              },
+              {
+                name: 'pro clima 01_Holzmassivbau_Sockeldetails.pdf',
+                shelf: 'office_shelf',
+                detail: 'Pkt. OKFFB GOK p.1',
+                repeat: false,
+              },
+            ],
+            hits: 18,
+            index: 0,
+            query: 'Welche Ausgabe der OIB-Richtlin…',
+            tools: ['knowledge_search'],
+            corpora: ['knowledge'],
+            newDocs: [
+              'Übersicht_Baurecht_Wien.jpg',
+              'Planungsbericht_2024-118_LPH5_RevC.pdf',
+              'pro clima 01_Holzmassivbau_Sockeldetails.pdf',
+              'Ifc2x3_SampleCastle.ifc',
+              '021-01 GR_UG-1. Untergeschoss.pdf',
+            ],
+            documents: 9,
+          },
+        ],
+      },
+    },
+  },
+}
+
+export const CITED_QUESTION: StoredAnswer = {
+  question:
+    'Welche Mindestanforderung an den Trittschallschutz gilt für eine Wohnungstrenndecke, und welcher maximale U-Wert für die oberste Geschoßdecke gegen einen unbeheizten Dachraum?',
+  answer: {
+    id: '372a4715-5584-5817-be54-c36bbc1d8b94',
+    role: 'assistant',
+    content:
+      'Für einen **Neubau** in Salzburg gelten unter den folgenden Voraussetzungen:\n\n- **Wohnungstrenndecke:** Für die Übertragung aus einem Raum einer anderen Wohnung in einen Aufenthaltsraum beträgt der höchstzulässige bewertete Standard-Trittschallpegel **LʼnT,w ≤ 48 dB**, wenn die Räume nicht durch eine Tür oder ein anderes öffenbares Bauteil verbunden sind. Für einen Nebenraum als Empfangsraum gilt **≤ 53 dB** [1].\n- **Oberste Geschoßdecke:** Gegen einen **durchlüfteten oder ungedämmten Dachraum** beträgt der maximale U-Wert **0,20 W/(m²·K)** für die Decke eines konditionierten Raums [2]. Allein „unbeheizt“ legt noch nicht fest, ob der Dachraum unter diese Zeile fällt; für Decken gegen unbeheizte Gebäudeteile nennt die Richtlinie **0,40 W/(m²·K)** [2].\n\nBei Bauführungen im Bestand sind die abweichenden Regelungen zu prüfen: Für den Schallschutz betrifft das den rechtmäßigen Bestand [3], für den Wärmeschutz die Art der Renovierung und den gewählten Nachweis [4]. Die landesrechtliche Verbindlicherklärung der genannten OIB-Ausgaben ist im Plattformdatensatz noch nicht an ihrer Quelle geprüft.\n\nHandelt es sich um einen Neubau oder um eine Maßnahme im Bestand, und ist der Dachraum durchlüftet oder ungedämmt?\n\n## Quellen\n- [1] [KB] oib-rl_5_ausgabe_mai_2023.pdf, p.7\n- [2] [KB] oib-rl-6-2015-text-e7e0e19b89e4.pdf, p.8\n- [3] [KB] oib-rl_5_ausgabe_mai_2023.pdf, p.11\n- [4] [KB] oib-rl-6-2015-text-e7e0e19b89e4.pdf, p.9\n',
+    createdAt: '2026-11-12T08:52:32.824Z',
+    metadata: {
+      messageType: 'agent_response',
+      citations: {
+        v: 1,
+        sources: [
+          {
+            kind: 'building_law',
+            lane: 'building_law_oib',
+            page: 7,
+            tool: 'knowledge_search',
+            score: 0.5766872,
+            shelf: 'base',
+            title: 'OIB-Richtlinie 5, Ausgabe Mai 2023',
+            clause: '2.5',
+            number: 1,
+            origin: 'kb',
+            content: '[KB] oib-rl_5_ausgabe_mai_2023.pdf, p.7',
+            snippet:
+              'OIB-Richtlinie 5 — Schallschutz\n2 Baulicher Schallschutz\n\n2.5 Anforderungen an den Trittschallschutz in Gebäuden\nDer bewertete Standard-Trittschallpegel LʼnT,w in Räumen darf folgende Werte nicht überschreiten:\nHöchst zulässiger bewerteter Standard-Trittschallpegel LʼnT,w in Gebäuden\nLʼnT,w [dB]\nohne / mit Verbindung der Räume\nzu aus\ndurch eine Türe\noder sonstiges\nöffenbares Bauteil\nRäumen anderer',
+            file_name: 'oib-rl_5_ausgabe_mai_2023.pdf',
+            collection: 'oib_knowledge',
+            lane_label: 'OIB-Richtlinie',
+            document_id: 'doc:oib_knowledge:oib-rl_5_ausgabe_mai_2023.pdf',
+            source_type: 'knowledge_layer',
+            citation_key: 'oib-rl_5_ausgabe_mai_2023.pdf, p.7',
+            binding_status: 'unknown',
+          },
+          {
+            kind: 'building_law',
+            lane: 'building_law_base',
+            page: 8,
+            role: 'binding',
+            tool: 'knowledge_search',
+            as_of: '2026-11-12',
+            route: {
+              work_id: 'work:sbg-btv',
+              provision: '§ 1 S.BTV 2025, LGBl Nr 83/2026',
+            },
+            score: 1,
+            shelf: 'base',
+            title: 'OIB-Richtlinie 6, Ausgabe März 2015',
+            clause: 'Anforderungen an wärmeübertragende Bauteile › U-Wert Bauteil [W/m²K]',
+            number: 2,
+            origin: 'kb',
+            content: '[KB] oib-rl-6-2015-text-e7e0e19b89e4.pdf, p.8',
+            snippet:
+              '[TABLE from page 8] (Teil 2 von 2)\n\n|  | Bauteil | U-Wert [W/m²K] |\n|---|---|---|\n| 19 | DECKEN und DACHSCHRÄGEN jeweils gegen Außenluft und gegen Dachräume (durchlüftet oder ungedämmt) (6) | 0,20 |\n| 20 | DECKEN gegen unbeheizte Gebäudeteile (6) | 0,40 |\n| 21 | DECKEN gegen getrennte Wohn- und Betriebseinheiten (6) | 0,90 |\n| 22 | DECKEN innerhalb von Wohn- und Betriebseinheiten (6) | – |\n| 23 | ',
+            work_id: 'work:oib-rl-6',
+            language: 'de',
+            file_name: 'oib-rl-6-2015-text-e7e0e19b89e4.pdf',
+            freshness: 'check_due',
+            collection: 'oib_knowledge',
+            edition_id: 'edition:oib-rl-6-2015',
+            lane_label: 'Basisdokument',
+            role_since: '2026-09-01',
+            designation: 'OIB-Richtlinie 6',
+            document_id: 'doc:oib_knowledge:oib-rl-6-2015-text-e7e0e19b89e4.pdf',
+            role_labels: ['check_overdue', 'unchecked_since'],
+            source_type: 'knowledge_layer',
+            text_status: 'authentic',
+            citation_key: 'oib-rl-6-2015-text-e7e0e19b89e4.pdf, p.8',
+            edition_label: 'Ausgabe März 2015',
+            binding_status: 'declared_binding',
+          },
+          {
+            kind: 'building_law',
+            lane: 'building_law_oib',
+            page: 11,
+            tool: 'read_file',
+            score: 1,
+            shelf: 'base',
+            title: 'OIB-Richtlinie 5, Ausgabe Mai 2023',
+            clause: '6',
+            number: 3,
+            origin: 'kb',
+            content: '[KB] oib-rl_5_ausgabe_mai_2023.pdf, p.11',
+            snippet:
+              'OIB-Richtlinie 5 — Schallschutz\n\n6 Bauführungen im Bestand\nBei Änderungen an bestehenden Bauwerken mit Auswirkungen auf bestehende Bauwerksteile sind\nfür die bestehenden Bauwerksteile Abweichungen von den aktuellen Anforderungen dieser OIB-\nRichtlinie zulässig, wenn das ursprüngliche Anforderungsniveau des rechtmäßigen Bestandes\nnicht verschlechtert wird.',
+            file_name: 'oib-rl_5_ausgabe_mai_2023.pdf',
+            collection: 'oib_knowledge',
+            lane_label: 'OIB-Richtlinie',
+            document_id: 'doc:oib_knowledge:oib-rl_5_ausgabe_mai_2023.pdf',
+            source_type: 'knowledge_layer',
+            citation_key: 'oib-rl_5_ausgabe_mai_2023.pdf, p.11',
+            binding_status: 'unknown',
+          },
+          {
+            kind: 'building_law',
+            lane: 'building_law_base',
+            page: 9,
+            role: 'binding',
+            tool: 'read_file',
+            as_of: '2026-11-12',
+            route: {
+              work_id: 'work:sbg-btv',
+              provision: '§ 1 S.BTV 2025, LGBl Nr 83/2026',
+            },
+            score: 1,
+            shelf: 'base',
+            title: 'OIB-Richtlinie 6, Ausgabe März 2015',
+            number: 4,
+            origin: 'kb',
+            content: '[KB] oib-rl-6-2015-text-e7e0e19b89e4.pdf, p.9',
+            snippet:
+              '4.5 Anforderungen bei Einzelmaßnahmen\nBei der Renovierung eines Gebäudes oder Gebäudeteiles sowie bei der Erneuerung eines Bauteiles\ndürfen bei konditionierten Räumen maximale Wärmedurchgangskoeffizienten (U-Werte), die nach\neiner der beiden folgenden Methoden ermittelt werden, nicht überschritten werden:\n(a) Vor der Erneuerung eines Bauteiles oder vor der Renovierung eines Gebäudes oder Gebäudete',
+            work_id: 'work:oib-rl-6',
+            language: 'de',
+            file_name: 'oib-rl-6-2015-text-e7e0e19b89e4.pdf',
+            freshness: 'check_due',
+            collection: 'oib_knowledge',
+            edition_id: 'edition:oib-rl-6-2015',
+            lane_label: 'Basisdokument',
+            role_since: '2026-09-01',
+            designation: 'OIB-Richtlinie 6',
+            document_id: 'doc:oib_knowledge:oib-rl-6-2015-text-e7e0e19b89e4.pdf',
+            role_labels: ['check_overdue', 'unchecked_since'],
+            source_type: 'knowledge_layer',
+            text_status: 'authentic',
+            citation_key: 'oib-rl-6-2015-text-e7e0e19b89e4.pdf, p.9',
+            edition_label: 'Ausgabe März 2015',
+            binding_status: 'declared_binding',
+          },
+        ],
+      },
+      answerMeta: {
+        v: 1,
+        kind: 'walkthrough',
+        topic: 'Tritt- und Wärmeschutz',
+        context: 'Salzburg · Annahme Neubau',
+      },
+      provenance: {
+        confidenceCheck: {
+          level: 'medium',
+          status: 'judged',
+          findings: [
+            {
+              reason:
+                'Die Passagen belegen die Werte in den genannten OIB-Ausgaben, aber nicht deren landesrechtliche Verbindlicherklärung in Salzburg. Der Antworttext räumt selbst ein, dass diese noch nicht an der Quelle geprüft wurde.',
+              source: '[1], [2]',
+              problem: 'unbacked',
+              statement:
+                'Für einen Neubau in Salzburg gelten die zitierten OIB-Anforderungen verbindlich.',
+            },
+          ],
+        },
+        answerConfidence: 'medium',
+        answerConfidenceReason:
+          'Neubau und Beschaffenheit des Dachraums sind nicht bestätigt; die landesrechtliche Verbindlicherklärung ist ungeprüft',
+        answerConfidenceVersion: 2,
+        routingDecision: 'shallow',
+        retrievalLedger: [
+          {
+            key: 'status.retrieval.withQuery',
+            docs: [
+              {
+                name: 'oib-rl_6_ausgabe_mai_2023.pdf',
+                shelf: 'base',
+                title: 'OIB-Richtlinie 6, Ausgabe Mai 2023',
+                detail: 'Pkt. 0 p.4',
+                repeat: false,
+              },
+              {
+                name: 'oib-rl-6-erlaeuterungen-2025-text-2dadb8409815.pdf',
+                shelf: 'base',
+                title: 'OIB-Richtlinie 6 - Erläuterungen, Ausgabe September 2025',
+                detail:
+                  'Pkt. zu 2010/31/EU vom 30.01.2024 › Zu den einzelnen Bestimmungen der OIB-Richtlinie 6 Zu Punkt 0: Vorbemerkungen p.6',
+                repeat: false,
+              },
+              {
+                name: 'oib-rl-6-erlaeuterungen-2023-text-6c4d7688b63a.pdf',
+                shelf: 'base',
+                title: 'OIB-Richtlinie 6 - Erläuterungen, Ausgabe Mai 2023',
+                detail: 'p.10',
+                repeat: false,
+              },
+              {
+                name: 'oib-rl-6-leitfaden-2019-text-a202e184b495.pdf',
+                shelf: 'base',
+                title: 'OIB-Richtlinie 6 - Leitfaden, Ausgabe April 2019',
+                detail: 'Pkt. OIB-RL 6 › OIB-330.6-028/19 APRIL 2019 p.1',
+                repeat: false,
+              },
+              {
+                name: 'oib-rl_5_ausgabe_mai_2023.pdf',
+                shelf: 'base',
+                title: 'OIB-Richtlinie 5, Ausgabe Mai 2023',
+                detail: 'Pkt. 0 p.4',
+                repeat: false,
+              },
+            ],
+            hits: 30,
+            index: 0,
+            query: 'Welche Mindestanforderung an de…',
+            tools: ['knowledge_search', 'knowledge_search', 'knowledge_search'],
+            corpora: ['knowledge'],
+            newDocs: [
+              'oib-rl_6_ausgabe_mai_2023.pdf',
+              'oib-rl-6-erlaeuterungen-2025-text-2dadb8409815.pdf',
+              'oib-rl-6-erlaeuterungen-2023-text-6c4d7688b63a.pdf',
+              'oib-rl-6-leitfaden-2019-text-a202e184b495.pdf',
+              'oib-rl_5_ausgabe_mai_2023.pdf',
+            ],
+            documents: 14,
+          },
+          {
+            key: 'status.retrieval.withQuery',
+            docs: [
+              {
+                name: 'oib-rl_5_ausgabe_mai_2023.pdf',
+                shelf: 'base',
+                title: 'OIB-Richtlinie 5, Ausgabe Mai 2023',
+                detail: 'Pkt. 6 p.11',
+                repeat: true,
+              },
+              {
+                name: 'oib-rl-6-2015-text-e7e0e19b89e4.pdf',
+                shelf: 'base',
+                title: 'OIB-Richtlinie 6, Ausgabe März 2015',
+                detail: 'p.6',
+                repeat: false,
+              },
+              {
+                name: 'oib-rl-6-2015-text-e7e0e19b89e4.pdf',
+                shelf: 'base',
+                title: 'OIB-Richtlinie 6, Ausgabe März 2015',
+                detail: 'p.7',
+                repeat: false,
+              },
+              {
+                name: 'oib-rl-6-2015-text-e7e0e19b89e4.pdf',
+                shelf: 'base',
+                title: 'OIB-Richtlinie 6, Ausgabe März 2015',
+                detail: 'p.8',
+                repeat: true,
+              },
+              {
+                name: 'oib-rl-6-2015-text-e7e0e19b89e4.pdf',
+                shelf: 'base',
+                title: 'OIB-Richtlinie 6, Ausgabe März 2015',
+                detail: 'p.9',
+                repeat: false,
+              },
+            ],
+            hits: 5,
+            index: 1,
+            query: 'Welche Ausgaben der OIB-Richtli…',
+            tools: ['read_file', 'read_file', 'law_lookup'],
+            corpora: ['knowledge', 'ris'],
+            newDocs: ['oib-rl-6-2015-text-e7e0e19b89e4.pdf'],
+            documents: 2,
+          },
+        ],
+      },
+    },
+  },
+}

@@ -552,6 +552,11 @@ export const collaboration = {
         title: '{actor} assigned {subject} to you',
         body: 'You are responsible for this file.',
       },
+      /** A project admin took ownership (ADR-0032 decision 5). {subject} is the chat or file. */
+      ownershipTaken: {
+        title: '{actor} took ownership of “{subject}”',
+        body: 'As a project admin. You remain an owner; the takeover is recorded in the audit trail.',
+      },
       // ADR-0086: everything an upload brought in has been read. {subject}
       // is where it went (a project name, "Büroablage" or "Chat").
       uploadCompleted: {

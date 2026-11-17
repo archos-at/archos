@@ -8,23 +8,24 @@ import { OfficeShelfWorkspace } from './office-shelf-workspace'
 import { useOfficeShelfDocuments } from '../hooks/use-office-shelf-documents'
 import { shelfGet, shelfPost } from '@/test-utils/shelf-handlers'
 
-/**
- * The completion toast is an assertion here, not decoration: it is the only
- * moment the Archiv tells a user that the file they uploaded became usable.
- */
+function deskWidth(width: number): void {
+  vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({ width, height: 32, top: 0, left: 0, right: width, bottom: 32, x: 0, y: 0, toJSON: () => ({}) })
+}
+afterEach(() => {
+  vi.restoreAllMocks()
+})
+
 const toastSuccess = vi.fn()
 const toastError = vi.fn()
 vi.mock('sonner', () => ({
   toast: {
     success: (...args: unknown[]) => toastSuccess(...args),
     error: (...args: unknown[]) => toastError(...args),
-    // The "reading the ZIP…" toast, which stays up while an archive is unpacked.
     loading: vi.fn(() => 'reading'),
     dismiss: vi.fn(),
   },
 }))
 
-/** The URL the workspace reads (`?folder=`, `?doc=`); a test sets it before rendering. */
 let currentSearch = ''
 const routerPush = vi.fn()
 vi.mock('next/navigation', () => ({
@@ -48,7 +49,6 @@ vi.mock('../hooks/use-office-shelf-documents', () => ({
   })),
 }))
 
-// useFileDragDrop reads accepted MIME types from AppConfig for its drag affordance.
 vi.mock('@/shared/context', () => ({
   useAppConfig: () => ({
     authRequired: true,
@@ -104,14 +104,11 @@ beforeEach(() => {
 })
 
 describe('OfficeShelfWorkspace — library listing', () => {
-  // Ticket #38, topic 14: a Büroablage document is shown as a project's is. The
-  // gold kind chip and the tags restated as „Aus …" labelled it twice.
   it('loads the Archiv into the shared card grid, with the cards a project shows and nothing added', async () => {
     render(<OfficeShelfWorkspace canManage />)
 
     expect(await screen.findByText('brandschutz-gutachten.pdf')).toBeInTheDocument()
     expect(screen.getAllByTestId('file-card')).toHaveLength(2)
-    // A tile is the sheet, the name and one meta line, as a project's: its summary is the list's and the preview's.
     expect(screen.queryByText('Brandschutzkonzept für mehrgeschossigen Holzbau.')).not.toBeInTheDocument()
     expect(screen.queryByText('From: Brandschutz · Gutachten')).not.toBeInTheDocument()
     expect(screen.queryByTestId('office-shelf-provenance')).not.toBeInTheDocument()
@@ -122,20 +119,20 @@ describe('OfficeShelfWorkspace — library listing', () => {
     render(<OfficeShelfWorkspace canManage trailingActions={<button type="button">Close</button>} />)
     const header = await screen.findByTestId('office-shelf-header')
     expect(within(header).getByRole('heading', { level: 1, name: /Office filing/ })).toBeInTheDocument()
-    // The gold Archive mark is gone; every glyph left in the header belongs to a control.
     for (const glyph of header.querySelectorAll('svg')) expect(glyph.closest('button, a, label, input, [role="group"]')).not.toBeNull()
     expect(within(header).getByTestId('office-shelf-controls')).toBeInTheDocument()
     expect(within(header).getByRole('button', { name: 'Close' })).toBeInTheDocument()
   })
 
-  it('pins the row with „All files" and „New folder" while the listing scrolls', async () => {
+  it('puts the level\u2019s tools in the tool row under the title', async () => {
+    deskWidth(1200)
     render(<OfficeShelfWorkspace canManage />)
-    const row = await screen.findByTestId('folder-breadcrumb-row')
-    expect(row).toHaveClass('sticky', 'top-0', 'z-10', 'bg-background')
+    const row = within(screen.getByTestId('office-shelf-header')).getByTestId('files-tool-row')
+    expect(row).toHaveAttribute('data-tier', 'wide')
+    expect(await within(row).findByRole('button', { name: /create folder/i })).toBeInTheDocument()
+    expect(screen.queryByTestId('folder-breadcrumb-row')).not.toBeInTheDocument()
   })
 
-  // The count is the shelf's, counted by the server (ADR-0102): the listing on
-  // screen is one level's first page and could not say it.
   it('states how much the Archiv holds beside its title', async () => {
     const folderTally = { readable: 2390, reading: 0, failed: 10, held: 0, unindexed: 0, latest: null }
     server.use(
@@ -168,8 +165,6 @@ describe('OfficeShelfWorkspace — library listing', () => {
     expect(requests[0].get('limit')).toBe('100')
   })
 
-  // The category chips are the shared filter menu's „Kategorie" now, over the
-  // tags the loaded documents really carry — on every shelf.
   it('filters the grid by a tag the documents carry', async () => {
     const user = userEvent.setup()
     render(<OfficeShelfWorkspace canManage />)
@@ -188,8 +183,6 @@ describe('OfficeShelfWorkspace — library listing', () => {
     expect(await screen.findByText(/documents couldn't be loaded/i)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /try again/i })).toBeInTheDocument()
   })
-  // A level is read page by page (ADR-0102): the next page is the reader's to
-  // ask for, never drained up front.
   it('reads the next page of the level when the reader asks for it', async () => {
     const cursors: Array<string | null> = []
     server.use(
@@ -226,7 +219,6 @@ describe('OfficeShelfWorkspace — permissions', () => {
     expect(screen.queryByRole('button', { name: /upload/i })).not.toBeInTheDocument()
 
     const user = userEvent.setup()
-    // Each card keeps a download-only overflow menu; rename/delete stay gone.
     const triggers = screen.getAllByTestId('document-actions-trigger')
     expect(triggers.length).toBeGreaterThan(0)
     await user.click(triggers[0])
@@ -236,21 +228,8 @@ describe('OfficeShelfWorkspace — permissions', () => {
   })
 })
 
-/**
- * An Archiv upload has to stop saying "Wird verarbeitet…" on its own.
- *
- * The Archiv asked for its list on mount and once more from `onComplete` —
- * which fires when the BYTES land, i.e. the moment extraction STARTS. An `.ifc`
- * has no ingest job at all (`beginModelExtraction` returns a null job id), so
- * the upload orchestrator never watched it either: every model uploaded here
- * sat at "Processing" until someone reloaded the page, and the ingestion-
- * complete toast never fired. The project Files workspace had a settling poll
- * for exactly this; both surfaces now share it.
- */
 describe('OfficeShelfWorkspace — a settling document settles on screen', () => {
-  /** How many times the whole Archiv list has been asked for. */
   let documentCalls = 0
-  /** How many times the settling row's own status has been asked for. */
   let statusCalls = 0
 
   const corpus = (status: string) =>
@@ -302,13 +281,9 @@ describe('OfficeShelfWorkspace — a settling document settles on screen', () =>
 
     await vi.advanceTimersByTimeAsync(4_100)
     await waitFor(() => expect(statusCalls).toBe(1))
-    // The badge the user is actually looking at clears, without a reload: a
-    // citable document carries no badge on its card.
     await waitFor(() => expect(screen.queryByText('Reading')).not.toBeInTheDocument())
-    // The poll never drained the listing again.
     expect(documentCalls).toBe(1)
 
-    // Everything is terminal now, so the polling stops.
     await vi.advanceTimersByTimeAsync(12_000)
     expect(statusCalls).toBe(1)
     expect(documentCalls).toBe(1)
@@ -338,8 +313,6 @@ describe('OfficeShelfWorkspace — a settling document settles on screen', () =>
   })
 
   it('keeps at most one poll in flight, however slow the endpoint is', async () => {
-    // `setInterval` would fire again whether or not the previous refresh had
-    // come back, letting an older response land after a newer one.
     let inFlight = 0
     let peak = 0
     const gate: { release: (() => void) | null } = { release: null }
@@ -362,7 +335,6 @@ describe('OfficeShelfWorkspace — a settling document settles on screen', () =>
     render(<OfficeShelfWorkspace canManage />)
     await waitFor(() => expect(documentCalls).toBe(1))
 
-    // Three poll windows pass while the first status read is still hanging.
     await vi.advanceTimersByTimeAsync(13_000)
     expect(statusCalls).toBe(1)
     expect(peak).toBe(1)
@@ -396,8 +368,6 @@ describe('OfficeShelfWorkspace — a settling document settles on screen', () =>
   })
 
   it('reloads quietly when an upload finishes on any surface', async () => {
-    // The orchestrator tells every subscriber, so a chat attachment finishing
-    // lands here too. A skeleton over the Archiv for it is a flash for nothing.
     const gate: { release: (() => void) | null } = { release: null }
     server.use(
       shelfGet('office_shelf', '/api/documents', async () => {
@@ -415,8 +385,6 @@ describe('OfficeShelfWorkspace — a settling document settles on screen', () =>
     await waitFor(() => expect(documentCalls).toBe(2))
     expect(screen.getByText('Haus-A.ifc')).toBeInTheDocument()
 
-    // And the callback is one function for the life of the page, so the
-    // orchestrator subscription is not re-made on every render.
     const callbacks = new Set(vi.mocked(useOfficeShelfDocuments).mock.calls.map(([options]) => options?.onComplete))
     expect(callbacks.size).toBe(1)
 
@@ -424,16 +392,6 @@ describe('OfficeShelfWorkspace — a settling document settles on screen', () =>
   })
 })
 
-/**
- * A late answer must never overwrite a newer one.
- *
- * `useSettlingRefresh` serialises its OWN polls, so at most one poll is in
- * flight — but nothing coordinated that poll with a FOREGROUND load. A slow
- * status read carrying `processing` could land after a newer load had already
- * brought back `ready`, putting the "Wird gelesen…" badge back on a document
- * the user had just been told was citable — and, because the row read as
- * unsettled again, restarting the poll that was supposed to have stopped.
- */
 describe('OfficeShelfWorkspace — only the newest answer may win', () => {
   afterEach(() => {
     vi.useRealTimers()
@@ -457,12 +415,6 @@ describe('OfficeShelfWorkspace — only the newest answer may win', () => {
       canManage: true,
     })
 
-  /**
-   * Let the released response travel msw → fetch → React, WITHOUT letting the
-   * 4 s settling poll fire. If a stale answer regressed the badge, a restarted
-   * poll would heal it and the test would pass while the user still saw the
-   * flicker.
-   */
   const flushWithoutPolling = async () => {
     for (let i = 0; i < 20; i++) await vi.advanceTimersByTimeAsync(50)
   }
@@ -476,8 +428,6 @@ describe('OfficeShelfWorkspace — only the newest answer may win', () => {
         documentCalls += 1
         return corpus(documentCalls === 1 ? 'processing' : 'ready')
       }),
-      // The POLL is held open until a newer load has already answered
-      // `ready`, then answers the stale `processing`.
       http.get('/api/documents/:id/status', async () => {
         statusCalls += 1
         await new Promise<void>((resolve) => (gate.release = resolve))
@@ -489,25 +439,20 @@ describe('OfficeShelfWorkspace — only the newest answer may win', () => {
     render(<OfficeShelfWorkspace canManage />)
     expect(await screen.findByText('Reading')).toBeInTheDocument()
 
-    // The settling poll goes out and hangs.
     await vi.advanceTimersByTimeAsync(4_100)
     await waitFor(() => expect(statusCalls).toBe(1))
 
-    // Meanwhile the upload orchestrator finishes and asks for the list again.
     const onComplete = vi.mocked(useOfficeShelfDocuments).mock.calls.at(-1)?.[0]?.onComplete
     expect(onComplete).toBeTypeOf('function')
     onComplete?.()
     await waitFor(() => expect(documentCalls).toBe(2))
     await waitFor(() => expect(screen.queryByText('Reading')).not.toBeInTheDocument())
 
-    // Now the stale poll answers. It is older than what is on screen, so it
-    // must not commit.
     gate.release?.()
     await flushWithoutPolling()
 
     expect(screen.queryByText('Reading')).not.toBeInTheDocument()
 
-    // …and it must not resurrect the poll either.
     await vi.advanceTimersByTimeAsync(8_000)
     expect(statusCalls).toBe(1)
     expect(documentCalls).toBe(2)
@@ -532,7 +477,6 @@ describe('OfficeShelfWorkspace — a link to one document', () => {
   })
 })
 
-/** Open the Archiv preview for a document and the preview-header actions menu. */
 async function openActions(user: ReturnType<typeof userEvent.setup>, filename: string) {
   await user.click(await screen.findByText(filename))
   const dialog = await screen.findByRole('dialog')
@@ -554,14 +498,11 @@ describe('OfficeShelfWorkspace — file operations', () => {
     await openActions(user, 'brandschutz-gutachten.pdf')
     await user.click(await screen.findByRole('menuitem', { name: /delete/i }))
 
-    // The question names the file, and the answer says what is lost.
     expect(await screen.findByText('Delete “brandschutz-gutachten.pdf”?')).toBeInTheDocument()
     expect(screen.getByText(/removes the document for the whole organization/i)).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: /cancel/i }))
     expect(deleted).toBe(false)
-    // The card is still in the grid (the preview header names it too, hence
-    // "all").
     expect(screen.getAllByText('brandschutz-gutachten.pdf').length).toBeGreaterThan(0)
   })
 
@@ -600,27 +541,17 @@ describe('OfficeShelfWorkspace — file operations', () => {
     await user.type(field, 'Fassade Nord')
     await user.click(screen.getByTestId('rename-submit'))
 
-    // The extension is the pane's, not the typist's: it is a fact about the
-    // bytes and survives whatever is typed into the stem.
     await waitFor(() => expect(patched).toHaveLength(1))
     expect(patched[0]).toEqual({
       id: 'doc-2',
       body: { displayName: 'Fassade Nord.pdf' },
     })
-    // Both the card and the preview header carry the new name.
     expect((await screen.findAllByText('Fassade Nord.pdf')).length).toBeGreaterThan(0)
   })
 })
 
-/**
- * The Archiv answers a same-name file the way a project's Dateien does (U1):
- * it asks for a new version, from the shelf itself — asked of the server by
- * name (`POST /api/office-shelf/documents/name-matches`), since the listing on screen
- * is paged — and never refuses or replaces on one browser's memory.
- */
 describe('OfficeShelfWorkspace — a file the Archiv already holds', () => {
   let probed: string[][]
-  /** What the probe answers from: the Archiv's documents, by exact name. */
   let shelf: Array<{ id: string; filename: string; lifecycle?: 'active' | 'archived' }>
 
   beforeEach(() => {
@@ -720,14 +651,6 @@ describe('OfficeShelfWorkspace — a file the Archiv already holds', () => {
     expect(probed).toEqual([['brandschutz-gutachten.pdf']])
   })
 
-  /*
-   * One file whose name continues a document under another name (ADR-0099):
-   * two named outcomes, and the answer reaches the upload. The second button
-   * changes the plan AND confirms, and the hook applies only a plan that matches
-   * the one the reader was shown, so the confirm has to wait for the plan to
-   * carry the answer; a same-tick confirm would refuse with „Die Vorschau hat
-   * sich geändert" or send the old tick.
-   */
   describe('one file that continues a document', () => {
     const OLDER = 'doc-older-b'
     beforeEach(() => {
@@ -780,8 +703,6 @@ describe('OfficeShelfWorkspace — a file the Archiv already holds', () => {
     })
   })
 
-  // Paged listing: the oldest Archiv document may not be loaded, and the upload
-  // versions it anyway. The probe is what knows.
   it('asks about a same-name document the loaded listing does not hold', async () => {
     shelf = [{ id: 'doc-old', filename: 'alt-norm.pdf', lifecycle: 'archived' }]
     render(<OfficeShelfWorkspace canManage />)
@@ -802,7 +723,6 @@ describe('OfficeShelfWorkspace — a file the Archiv already holds', () => {
     const fresh = new File(['x'], 'neu.pdf', { type: 'application/pdf' })
     pick(fresh)
 
-    // The folder it lands in rides along for the upload screening (ADR-0086).
     await waitFor(() =>
       expect(mockUploadFiles).toHaveBeenCalledWith([fresh], expect.objectContaining({ folderPathFor: expect.any(Function) }))
     )
@@ -810,11 +730,6 @@ describe('OfficeShelfWorkspace — a file the Archiv already holds', () => {
   })
 })
 
-/**
- * The Archiv is organised the way a project's Dateien is: same folders, same
- * moves, same URL. These are the Archiv's own routes under the shared workspace;
- * the behaviour itself is pinned once, in the project workspace's spec.
- */
 describe('OfficeShelfWorkspace — folders', () => {
   const FOLDERS = [
     { id: 'f-1', projectId: null, name: 'Planung', parentId: null, path: 'Planung' },
@@ -837,7 +752,6 @@ describe('OfficeShelfWorkspace — folders', () => {
 
     expect(await screen.findByTestId('folder-card-f-1')).toBeInTheDocument()
     expect(screen.getByText('fassadendetail.pdf')).toBeInTheDocument()
-    // Filed two levels down: not at the root.
     expect(screen.queryByText('brandschutz-gutachten.pdf')).not.toBeInTheDocument()
   })
 
@@ -857,6 +771,19 @@ describe('OfficeShelfWorkspace — folders', () => {
     expect(screen.queryByText('fassadendetail.pdf')).not.toBeInTheDocument()
   })
 
+  it('names the open folder in the header, with the office over the way there and the way up', async () => {
+    currentSearch = 'folder=f-2'
+    render(<OfficeShelfWorkspace canManage organizationName="Atelier Nord" />)
+
+    const header = screen.getByTestId('office-shelf-header')
+    expect(await within(header).findByRole('heading', { level: 1, name: /^Statik/ })).toBeInTheDocument()
+    const crumb = within(header).getByTestId('page-header-crumb')
+    expect(crumb).toHaveTextContent('Atelier Nord')
+    expect(within(crumb).getByRole('button', { name: 'Planung' })).toBeInTheDocument()
+    fireEvent.click(within(header).getByTestId('page-header-up'))
+    expect(new URLSearchParams(String(routerPush.mock.calls.at(-1)?.[0]).split('?')[1]).get('folder')).toBe('f-1')
+  })
+
   it('creates a folder on the Archiv route', async () => {
     const user = userEvent.setup()
     const posted: unknown[] = []
@@ -869,6 +796,7 @@ describe('OfficeShelfWorkspace — folders', () => {
         )
       })
     )
+    deskWidth(1200)
     render(<OfficeShelfWorkspace canManage />)
     await screen.findByTestId('folder-card-f-1')
 
@@ -919,7 +847,6 @@ describe('OfficeShelfWorkspace — folders', () => {
 
     expect(screen.queryByRole('button', { name: /new folder/i })).not.toBeInTheDocument()
     expect(screen.queryByTestId('folder-actions-f-1')).not.toBeInTheDocument()
-    // Not draggable: a tile that lifts promises a move this viewer cannot make.
     expect(screen.getByTestId('folder-card-f-1')).not.toHaveAttribute('draggable', 'true')
   })
 })

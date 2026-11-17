@@ -348,6 +348,13 @@ What it was made of, and what was done about each:
   of a collection's forty payload indexes is a sync (now `--tmpfs
   /qdrant/storage`). 228 s, then 144 s with the stub, then 104 s with both.
   Measure the suite with `QDRANT_TEST_URL` set, or the number is not CI's.
+  The tmpfs has no size of its own, so it is the kernel's default, half the
+  runner's memory (about 7.8 GiB on the 16 GB runner), and an empty test
+  collection takes about 300 MiB of it. The testmon run, the whole core suite
+  in one job, kept every test module's pair until its process exited, filled
+  it at 27 collections, and failed every push to `develop` from 2026-11-11 to
+  11-12 (`No space left on device: WAL buffer size exceeds available disk
+  space`). The fixture now holds one module's pair per process.
 - **The `sources` suite (the Python packages) is Qdrant collection setup.** About 130 tests each create and
   drop collections, and each collection was ~47 sequential payload-index
   calls. It runs in its own job beside the shards.

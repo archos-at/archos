@@ -58,10 +58,6 @@ const row = (id: string, filename: string) => ({
   tags: null,
 })
 
-/**
- * Record every name the project by-name resolver is asked for, and every file
- * the peek opens.
- */
 function observe() {
   const asked: string[] = []
   const opened: string[] = []
@@ -82,16 +78,8 @@ function observe() {
 
 const sameName = (a: string, b: string) => a.toLowerCase() === b.toLowerCase()
 
-/** A name no test answer cites, so the control's request cannot be mistaken for one. */
 const CONTROL_FILE = 'Kontrolle.pdf'
 
-/**
- * The positive control: a later answer that DOES cite one file, awaited until
- * its peek opens. The hook resolves answers in order through one pipeline, so
- * once the control has gone all the way through, anything the answer under
- * test was going to ask for has been asked — on any runner, however slow. A
- * fixed sleep proved nothing when it expired first.
- */
 async function flushWithControl() {
   const messages = useChatStore.getState().currentConversation?.messages ?? []
   act(() => {
@@ -166,8 +154,6 @@ describe('useCitationPeek', () => {
       currentConversation: conversation([answer({ isStreaming: true })]),
     })
     renderHook(() => useCitationPeek({ projectId: 'proj-1' }))
-    // Nothing to peek is nothing to resolve: no document is asked for by name,
-    // and only the control ever opens.
     await flushWithControl()
     unsubscribe()
     expect(asked.map((name) => name.toLowerCase())).toEqual([CONTROL_FILE.toLowerCase()])
@@ -184,8 +170,6 @@ describe('useCitationPeek', () => {
       ]),
     })
     renderHook(() => useCitationPeek({ projectId: 'proj-1' }))
-    // Nothing to peek is nothing to resolve: no document is asked for by name,
-    // and only the control ever opens.
     await flushWithControl()
     unsubscribe()
     expect(asked.map((name) => name.toLowerCase())).toEqual([CONTROL_FILE.toLowerCase()])
@@ -209,8 +193,6 @@ describe('useCitationPeek', () => {
       ]),
     })
     renderHook(() => useCitationPeek({ projectId: 'proj-1' }))
-    // Nothing to peek is nothing to resolve: no document is asked for by name,
-    // and only the control ever opens.
     await flushWithControl()
     unsubscribe()
     expect(asked.map((name) => name.toLowerCase())).toEqual([CONTROL_FILE.toLowerCase()])

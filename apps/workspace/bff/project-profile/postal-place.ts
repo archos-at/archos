@@ -77,8 +77,13 @@ export interface PostalPlace {
 }
 
 /** The Land a typed address names, or null when it names none this table can tell. */
+/** Whether an address names another country: no postal Land places it, and nothing should assume one for it. */
+export function namesAnotherCountry(address: string): boolean {
+  return FOREIGN.test(address)
+}
+
 export function postalPlaceOf(address: string): PostalPlace | null {
-  if (FOREIGN.test(address)) return null
+  if (namesAnotherCountry(address)) return null
   for (const { code, place } of postalPairs(address)) {
     const places = postalTable().get(code)
     if (!places || !place) continue

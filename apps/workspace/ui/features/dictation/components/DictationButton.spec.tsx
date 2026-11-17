@@ -1,10 +1,3 @@
-/**
- * The microphone button against a fake browser: a `MediaRecorder` that records
- * whatever the test hands it, a microphone that grants or refuses, and an
- * optional level meter. What it pins is the contract with the composer: text
- * through `onTranscript`, a message through `onError`, nothing for silence.
- */
-
 import { act, fireEvent, render, screen, waitFor } from '@/test-utils'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { MAX_DICTATION_SECONDS } from '@/lib/dictation/contract'
@@ -18,11 +11,8 @@ class FakeRecorder {
   static supported = ['audio/webm;codecs=opus', 'audio/webm']
   static isTypeSupported = (type: string) => FakeRecorder.supported.includes(type)
   static last: FakeRecorder | null = null
-  /** A recorder that hands over its data but never reports that it stopped. */
   static reportsStop = true
-  /** A recorder that hung outright: its stop hands over nothing either. */
   static flushesOnStop = true
-  /** What `start` was given: the timeslice. */
   static startedWith: unknown[] = []
   state: 'inactive' | 'recording' = 'inactive'
   mimeType: string
@@ -39,7 +29,6 @@ class FakeRecorder {
     this.state = 'recording'
   }
 
-  /** What a recorder with a timeslice does while it runs: hand over a piece. */
   slice(bytes: number) {
     this.ondataavailable?.({ data: new Blob([new Uint8Array(bytes)], { type: this.mimeType }) })
   }
@@ -63,7 +52,6 @@ function installBrowser() {
   vi.stubGlobal('fetch', fetchMock)
 }
 
-/** A Web Audio meter that reads `level` on every sample. */
 function installMeter(level: number) {
   class FakeAudioContext {
     state = 'running'
@@ -119,7 +107,6 @@ afterEach(() => {
   Reflect.deleteProperty(window.navigator, 'permissions')
 })
 
-/** A microphone the test answers by hand: an open permission prompt. */
 function pendingMicrophone() {
   let grant!: (granted: MediaStream) => void
   let refuse!: (error: unknown) => void
@@ -192,7 +179,6 @@ describe('DictationButton', () => {
 
     const bars = screen.getByTestId('dictation-recording').querySelectorAll('[aria-hidden="true"] > span')
     expect(bars).toHaveLength(WAVE_BARS)
-    // The newest sample is on the right and is a raised voice: full height.
     expect((bars[bars.length - 1] as HTMLElement).style.transform).toBe('scaleY(1.00)')
   })
 
@@ -239,8 +225,6 @@ describe('DictationButton', () => {
     )
   })
 
-  // A touch screen has no hover: the tooltip never shows there, and a disabled
-  // button answers a finger with nothing. Pressing it has to say why.
   test('pressing an unavailable microphone hands the reason to the composer, and records nothing', async () => {
     FakeRecorder.supported = []
     const onExplain = vi.fn()
@@ -426,13 +410,11 @@ describe('DictationButton', () => {
     expect(fetchMock).toHaveBeenCalledOnce()
     const form = fetchMock.mock.calls[0][1]?.body as FormData
     const audio = form.get('audio') as File
-    // One blob of every slice in order, typed as the recorder's container.
     expect(audio.size).toBe(1000)
     expect(audio.type).toBe('audio/webm;codecs=opus')
   })
 
   test('does not slice a recording in a container the sliced file was never measured in', async () => {
-    // Safari records MP4. Until its slices went through the transcription, it records as it always did.
     FakeRecorder.supported = ['audio/mp4']
     installMeter(0.2)
     renderButton()

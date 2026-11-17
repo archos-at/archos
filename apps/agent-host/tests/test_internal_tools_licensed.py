@@ -1,13 +1,3 @@
-"""An office's licensed copy at the agent door: the read tools give an outside agent its place, never its text.
-
-The door (``POST /v1/internal/tools/{name}``) runs the agent's read tools for the BFF's MCP server. It opens no
-turn capture (ADR-0164), so a licensed passage the tools render reaches the outside agent listed only: the
-document, the page, the clause, and a note instead of the text. These tests drive the real route with tools
-that render through the real producers: ``format_results`` (what ``knowledge-search`` and ``passage-read``
-answer with) and look's ``_blocks_for`` (what ``document-look`` answers with). Each has a positive control: an
-unmarked passage reaches the agent whole.
-"""
-
 from __future__ import annotations
 
 import base64
@@ -44,8 +34,6 @@ class _Query(BaseModel):
 
 
 class _Tool:
-    """A read tool whose answer is rendered, inside the door's call, by ``render``."""
-
     input_schema = _Query
 
     def __init__(self, render) -> None:
@@ -67,7 +55,6 @@ def _chunk(**licence: Any) -> SimpleNamespace:
 
 
 def _rendered(**licence: Any):
-    """What knowledge-search and passage-read answer: the real renderer over one retrieved chunk."""
 
     async def render() -> str:
         from knowledge_layer.search import format_results

@@ -1,25 +1,5 @@
 'use client'
 
-/**
- * „Als Skizze bearbeiten": a drawing Piloti made, opened in Excalidraw so a
- * person can rework it and file their own version into the project. The
- * drawing is a flow or a Gliederung laid out as a sketch (`sketchFromModel`),
- * or a sketch Piloti drew itself (an ```excalidraw fence, ADR-0146).
- *
- * The canvas (`sketch-canvas.tsx`) is loaded with `next/dynamic` when the
- * dialog opens, never before, so a chat with diagrams in it downloads none of
- * Excalidraw until someone asks to edit one (ADR-0141).
- *
- * Filing is the existing one: `useDiagramFiling` posts to
- * `POST /api/projects/{id}/diagrams` (the `diagram-file` operation) with
- * `sourceKind: 'excalidraw'` and `edited: true`, so the files say a person
- * edited them, and the turn's trace gets a `diagram-filed: edited` score.
- *
- * A close with unsaved changes asks once, in place. Excalidraw keeps no draft
- * of its own here (its local storage is the excalidraw.com app's, not the
- * component's), so a stray Escape would otherwise throw the work away.
- */
-
 import dynamic from 'next/dynamic'
 import { useCallback, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
@@ -31,7 +11,6 @@ import { useDiagramTheme } from '../use-diagram-theme'
 import { DiagramFilingControls } from '../components/diagram-filing-controls'
 import type { SketchCanvasHandle } from './sketch-canvas'
 
-/** While the canvas chunk loads, and in its place when it could not be loaded (offline, a stale deploy). */
 function CanvasLoading({ error }: { error?: Error | null }) {
   const t = useTranslations(diagramsCopy)
   return (
@@ -49,11 +28,8 @@ const SketchCanvas = dynamic(() => import('./sketch-canvas'), {
 export interface SketchDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  /** The fence the drawing came from: its title names the file. */
   source: string
-  /** The starting scene as Excalidraw skeletons, laid out once per opening by the caller. */
   elements: readonly object[]
-  /** A title the fence states outside its source (a sketch fence's `title`). */
   title?: string | null
 }
 
@@ -88,8 +64,6 @@ export function SketchDialog({ open, onOpenChange, source, elements, title }: Sk
     <Dialog open={open} onOpenChange={requestClose}>
       <DialogContent
         mobilePresentation="fullscreen"
-        // Escape is the canvas's (deselect, leave a tool), not the dialog's: a close
-        // by Escape mid-drawing was one keystroke from the discard question.
         onEscapeKeyDown={(event) => event.preventDefault()}
         data-testid="sketch-dialog"
         className="flex h-[90dvh] w-[calc(100vw-2*max(2.5vw,env(safe-area-inset-left),env(safe-area-inset-right)))] max-w-[calc(100vw-2*max(2.5vw,env(safe-area-inset-left),env(safe-area-inset-right)))] flex-col gap-3 overflow-hidden p-4 sm:max-w-[calc(100vw-2*max(2.5vw,env(safe-area-inset-left),env(safe-area-inset-right)))] sm:p-5 phone:h-dvh phone:max-h-dvh phone:w-screen phone:gap-2 phone:p-0"

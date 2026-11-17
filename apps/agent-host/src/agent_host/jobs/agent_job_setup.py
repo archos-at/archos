@@ -23,7 +23,9 @@ from agent.project_context import PROJECT_MEMORY_HEADER
 from agent.project_context import compose_project_context
 
 from .run_envelope import envelope_headers_for_run
+from .run_result import TEMPORARY_CONVERSATION_KEY
 from .run_result import extract_result
+from .run_result import is_temporary_conversation
 from .runner import WORKER_IDENTITY_HEADERS
 from .runner import _b64url_encode_text
 from .runner import _create_llm_provider
@@ -349,6 +351,9 @@ def trace_metadata(request: JobRequest, run: RunContext) -> tuple[Any, Any]:
             "parent_workflow_name": request.parent_function_name,
         }
     )
+    if is_temporary_conversation(request.usage_context):
+        # ADR-0180: nothing is kept from this run, said on its trace (the reflection is skipped).
+        workflow.provided_metadata[TEMPORARY_CONVERSATION_KEY] = True
     if not request.parent_span_id or request.parent_span_id == "root":
         return workflow, None
     parent = TraceMetadata(

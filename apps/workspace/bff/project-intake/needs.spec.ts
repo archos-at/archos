@@ -15,6 +15,7 @@ import {
 } from './needs'
 import { needSchema, type Need } from './types'
 import { BUILDING_CLASS_INPUTS } from './derivations.oracle'
+import { AT_SETUP_RECORDS } from './at-setup.fixtures'
 
 const at = '2026-10-14T08:00:00.000Z'
 
@@ -24,7 +25,6 @@ function profileWith(
   unknowns: string[] = []
 ): ProjectProfile {
   const profile = emptyProjectProfile()
-  // Placed in Austria unless a test says otherwise: the class, and what decides it, binds only there.
   profile.facts.country = { value: 'at', confidence: 'confirmed', source: 'onboarding', updatedAt: at }
   for (const [key, value] of Object.entries(facts)) {
     profile.facts[key] = { value, confidence: 'confirmed', source: 'onboarding', updatedAt: at }
@@ -42,7 +42,7 @@ function profileWith(
   return profile
 }
 
-const active: ComputeNeedsOptions = { mode: 'active', dismissed: [] }
+const active: ComputeNeedsOptions = { mode: 'active', dismissed: [], records: AT_SETUP_RECORDS }
 
 function needs(profile: ProjectProfile, options: Partial<ComputeNeedsOptions> = {}): Need[] {
   return computeNeeds(profile, projectIntakeDefinitionV1, { ...active, ...options })
@@ -68,11 +68,8 @@ describe('computeNeeds', () => {
       buildingId: 'bldg1',
       decisive: false,
     })
-    // The building questions wait for C1. A project nothing places needs its site
-    // first (ADR-0158): no law, and so no building class, is known before it.
     expect(found.has('storeys_above_ground@bldg1')).toBe(false)
     expect(found.get('federal_state')).toMatchObject({ type: 'single_select', state: 'open', decisive: true })
-    // Only questions that write a value; every need is one the contract accepts.
     for (const need of list) expect(() => needSchema.parse(need), need.key).not.toThrow()
     expect(
       list.every((need) => !need.options?.some((option) => option.label.startsWith('noch offen')))
@@ -91,7 +88,6 @@ describe('computeNeeds', () => {
     const keys = new Map(opened.map((need) => [need.key, need.decisive]))
     expect(keys.get('storeys_above_ground@bldg1')).toBe(true)
     expect(keys.get('escape_level_m@bldg1')).toBe(true)
-    // Listed before, so not opened by it; and nothing opened twice.
     expect(keys.has('building_type@bldg1')).toBe(false)
     expect(new Set(opened.map((need) => need.key)).size).toBe(opened.length)
     expect(opened.findIndex((need) => !need.decisive)).toBeGreaterThan(opened.findLastIndex((need) => need.decisive))
@@ -170,7 +166,6 @@ describe('computeNeeds', () => {
     expect(
       byKey(needs(profileWith(building, {}, ['escape_level_m@bldg1']))).has('escape_level_m@bldg1')
     ).toBe(false)
-    // An explicit list replaces the profile's.
     expect(
       byKey(needs(profileWith(building, {}, ['escape_level_m@bldg1']), { unknownKeys: [] })).has(
         'escape_level_m@bldg1'
@@ -188,7 +183,6 @@ describe('computeNeeds', () => {
       'attached',
       'terraced',
     ])
-    // B3_weise: `open` is the offene Bebauungsweise, `noch_offen` the deferral.
     expect(found.get('development_pattern')?.options?.map((option) => option.token)).toEqual([
       'open',
       'semi_detached',
@@ -212,7 +206,6 @@ describe('computeNeeds', () => {
       'units_over_400@bldg1',
     ])
     expect(list.slice(0, 3).map((need) => need.key)).toEqual(decisive)
-    // Open and read by the derivation, but no value of them changes the class here.
     expect(byKey(list).get('uses@bldg1')?.decisive).toBe(false)
     expect(byKey(list).has('access_three_sides@bldg1')).toBe(false)
   })
@@ -227,7 +220,6 @@ describe('computeNeeds', () => {
         'units_under_400@bldg1': true,
       })
     )
-    // No unit above 400 m²: at 7 to 11 m it is GK 4 whatever the count, so only the Fluchtniveau decides.
     expect(list.filter((need) => need.decisive).map((need) => need.key)).toEqual([
       'escape_level_m@bldg1',
     ])
@@ -245,7 +237,6 @@ describe('computeNeeds', () => {
         { 'escape_level_m@bldg1': 6 }
       )
     )
-    // FN ≤ 7 with 300 m²: GK 2 whatever the units, so nothing is decisive any more.
     expect(list.filter((need) => need.decisive)).toEqual([])
     expect(byKey(list).get('escape_level_m@bldg1')).toMatchObject({
       state: 'suggested',

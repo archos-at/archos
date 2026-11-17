@@ -1,5 +1,3 @@
-"""ADR-0064 use 10: rank by fingerprint, verify against the question; reorder, never drop."""
-
 from __future__ import annotations
 
 import pytest
@@ -49,7 +47,6 @@ def test_the_catalog_parses_into_its_project_lines_and_its_tail():
 
 
 def test_the_fitting_lines_move_ahead_each_group_keeping_the_likeness_order():
-    """A partition, not a sort: four Holzbau projects scoring 0.77-0.80 keep the fingerprint's order."""
     lines, _ = parse_catalog(CATALOG)
 
     ordered = reorder(lines, [0.78, 0.30, 0.95])

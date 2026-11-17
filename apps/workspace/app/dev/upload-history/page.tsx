@@ -63,7 +63,7 @@ export default function UploadHistoryDevPage(): JSX.Element {
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-10 px-4 py-8 md:px-8" data-testid="upload-history-preview">
       <div>
-        <h1 className="text-lg font-semibold">Projekt-Einstellungen — Uploads</h1>
+        <h1 className="text-page-title font-medium phone:text-section">Projekt-Einstellungen — Uploads</h1>
         <p className="text-muted-foreground mt-1 text-sm">
           The project&apos;s upload history (ADR-0086). Own uploads link to their summary.
         </p>

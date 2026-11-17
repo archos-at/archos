@@ -1,11 +1,3 @@
-/**
- * The name gate as one upload batch meets it (ADR-0086): which files go, which
- * the office's terms keep back, and the sentence that says so.
- *
- * A file the reader released (`screeningReleased`) goes unscreened here; the
- * server screens it again and audits the release. Pure.
- */
-
 import type { Translator } from '@/i18n/translate'
 import type { UploadScreeningPolicy } from '@/lib/upload-screening/policy'
 import { screenUploadName, type NameMatch } from '@/lib/upload-screening/name-screen'
@@ -14,7 +6,6 @@ import { describeScreenedOut } from '@/lib/upload-screening/quarantine'
 export interface NameScreenedFiles {
   allowed: File[]
   stopped: Array<{ file: File; matches: NameMatch[] }>
-  /** What the reader is told about the stopped files; null when none were. */
   message: string | null
 }
 
@@ -41,10 +32,6 @@ export function screenFileNames(
   return { allowed, stopped, message: describeScreenedOut(stopped, t) }
 }
 
-/**
- * „Trotzdem hochladen" for the files the name gate stopped: the same batch
- * again, with these files released. Null when none were stopped.
- */
 export function uploadAnywayOffer<Options extends { screeningReleased?: (file: File) => boolean }>(
   stopped: File[],
   options: Options | undefined,

@@ -1,20 +1,5 @@
 'use client'
 
-/**
- * „Original (.eml)“ of one filed mail (ADR-0137, D6): evidence kept beside its
- * section, downloaded by whoever may read the thread.
- *
- * What the entry knows decides the first word: an archive entry has no
- * original („Kein Original: aus dem E-Mail-Archiv übernommen“, the route's
- * `gone`), an infected one is said and offers nothing, a scan still running
- * says so. A clean one is a button, and the download is a fetch: the route
- * scans the whole message again on every request, so a 409
- * `original_not_clean` (a signature that arrived since) or `gone` comes back
- * as a sentence in place of the button, not as a JSON file in the downloads
- * folder. Its warning is said before the press: it opens in a mail program,
- * which loads images from outside.
- */
-
 import type { JSX } from 'react'
 import { useId, useState } from 'react'
 import { toast } from 'sonner'
@@ -25,7 +10,6 @@ import { useTranslations } from '@/i18n'
 import type { MailThreadEntryView } from '@/lib/mail-thread/mail-thread-wire'
 import { mailThreadCopy } from '@/i18n/namespaces/mail-thread'
 
-/** What the original of an entry is, before and after a download asked the route. */
 export type OriginalState = 'available' | 'not_clean' | 'scanning' | 'gone'
 
 export function originalState(entry: Pick<MailThreadEntryView, 'original'>): OriginalState {
@@ -48,7 +32,6 @@ export interface EntryOriginalProps {
 
 export function EntryOriginal({ entry, download }: EntryOriginalProps): JSX.Element {
   const t = useTranslations(mailThreadCopy)
-  // The route's answer outranks what the entry said when it was read.
   const [answered, setAnswered] = useState<OriginalState | null>(null)
   const [busy, setBusy] = useState(false)
   const hintId = useId()
@@ -69,7 +52,6 @@ export function EntryOriginal({ entry, download }: EntryOriginalProps): JSX.Elem
 
   if (state === 'not_clean') {
     return (
-      // It cannot be had: the signal red on the glyph, the words in ink.
       <FactLine icon={ShieldAlert} tone="danger" testId="mail-entry-original" data-state="not_clean">
         {t('original.notClean')}
       </FactLine>

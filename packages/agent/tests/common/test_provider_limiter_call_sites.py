@@ -1,33 +1,3 @@
-"""Every chat model and embedding client passes the provider limiter (ADR-0081).
-
-``test_openrouter_call_sites`` is the ratchet on zero data retention; this is the
-same ratchet on the limiter. The limiter is only a ceiling if nothing calls a
-model around it, and "nothing" is a claim that review alone cannot keep: a new
-agent that builds its own ``ChatOpenAI``, or a script that builds its own
-embedding client, goes out ungated and nothing says so until the provider does.
-
-The seams that carry the limiter, one per call-site shape:
-
-- a LangChain chat model: ``llm_factory.get_langchain_llm``, whose
-  ``enforce_chat_request_contract`` makes every ``_generate`` / ``_stream`` take a
-  slot. A model built any other way never passes it;
-- an OpenAI SDK client, which is every embedding, vision and rerank call:
-  ``openrouter.openai_client`` / ``pinned_http_client``, whose transport takes the
-  slot;
-- the embedding client: ``knowledge_layer.embedding.make_embed_model``,
-  which hands those transports to llama-index.
-
-- a utility call that shapes its own JSON body (a title, a summary, the decision
-  model, the reranker): ``openrouter.limited_async_http_client``, which takes the
-  slot and leaves the data policy to the body. A raw ``httpx`` client talking to
-  OpenRouter is the one way around the limiter that is not a model object, so the
-  third scan fails on it.
-
-The first three tests scan the source, the rest are behavioural: they send a call
-through each seam and watch the pool, so a seam that is rewired to skip the
-limiter fails here even though every name still matches.
-"""
-
 from __future__ import annotations
 
 import json
@@ -53,8 +23,6 @@ SCANNED = [
     ROOT / "scripts",
 ]
 
-#: Building a chat model by hand, or acquiring one from the agent runtime without the seam.
-#: Every one of them yields a model the contract subclass never wraps.
 CHAT_MODEL = re.compile(
     r"\b(?:ChatOpenAI|AzureChatOpenAI|ChatNVIDIA|ChatAnthropic|ChatGoogleGenerativeAI|ChatMistralAI|ChatOllama"
     r"|ChatLiteLLM|ChatBedrock|ChatBedrockConverse|ChatDeepSeek|ChatOpenRouter)\(|\binit_chat_model\(|\.get_llm\("
@@ -71,19 +39,15 @@ CHAT_MODEL_HOMES = {
     ),
 }
 
-#: Building an embedding client by hand. Its HTTP client must come from the seam.
 EMBEDDING_CLIENT = re.compile(r"\b[A-Za-z]*Embeddings?\(|\.embeddings\.create\(")
 EMBEDDING_CLIENT_HOMES = {
     "packages/knowledge-layer/src/embedding.py": "make_embed_model hands llama-index the limited transports",
     "packages/agent/src/agent/common/openrouter.py": "mentions `.embeddings` in a docstring only",
 }
-#: A match that is not a client: a class that merely has "Embedding" in its name.
 NOT_A_CLIENT = re.compile(r"\b(?:Mock|Fake|Stub|Noop)\w*Embedding|\bQueryEmbedding\(|\b_InflightEmbedding\(")
 
 
-#: A raw httpx client or one-shot call.
 RAW_HTTPX = re.compile(r"\bhttpx\.(?:Async)?Client\(|\bhttpx\.(?:post|request|stream|put|patch)\(")
-#: Signs a file sends requests to a model: an endpoint path, the host, or a body shaped for OpenRouter.
 MODEL_TRAFFIC = re.compile(
     r"/chat/completions|/audio/transcriptions|[\"']/rerank[\"']|/api/alpha/decisions|\.responses\.[\w.]*create\("
     r"|openrouter\.ai|\brequest_body\(|\bPLATFORM_FIXED\.apply\(|\bZERO_DATA_RETENTION\b"
@@ -99,7 +63,6 @@ RAW_HTTPX_HOMES = {
 def _python_files() -> list[Path]:
     files: list[Path] = []
     for base in SCANNED:
-        # Tests and their support packages (`testing/`) are not call sites.
         files.extend(p for p in base.rglob("*.py") if not {"tests", "testing"} & set(p.relative_to(ROOT).parts))
     return files
 
@@ -109,14 +72,12 @@ def _rel(path: Path) -> str:
 
 
 def _code(path: Path) -> str:
-    """The file without comments, so a docstring or comment naming a class is not a construction."""
     return "\n".join(
         line for line in path.read_text(encoding="utf-8").splitlines() if not line.lstrip().startswith("#")
     )
 
 
 def test_the_scan_sees_the_known_call_sites():
-    """Guards the test itself: a glob that silently matched nothing would pass everything."""
     scanned = {_rel(p) for p in _python_files()}
     assert "packages/agent/src/agent/common/llm_factory.py" in scanned
     assert "packages/knowledge-layer/src/ingest/adapter.py" in scanned
@@ -165,17 +126,12 @@ def test_no_raw_httpx_call_reaches_a_model_endpoint(path: Path):
 
 
 def test_the_allowlists_name_files_that_exist():
-    """A stale entry would quietly exempt whatever file next takes that path."""
     for rel in [*CHAT_MODEL_HOMES, *EMBEDDING_CLIENT_HOMES, *RAW_HTTPX_HOMES]:
         assert (ROOT / rel).is_file(), rel
 
 
-# --------------------------------------------------------------- behavioural
-
-
 @pytest.fixture
 def pool(monkeypatch):
-    """A one-slot pool on a Redis with Lua, and a way to see how many slots are held."""
     client = fakeredis.FakeRedis(server=fakeredis.FakeServer(), decode_responses=True)
     monkeypatch.setattr(
         pl.cache, "eval_script", lambda script, keys, args: client.eval(script, len(keys), *keys, *args)
@@ -265,7 +221,6 @@ def test_every_pinned_client_is_built_on_the_limited_transport(make):
 
 
 async def test_a_chat_model_from_the_seam_holds_a_slot_for_every_call(pool, monkeypatch):
-    """`get_langchain_llm` through a real agent-runtime builder: what every agent in the fleet is handed."""
     from langchain_openai import ChatOpenAI
 
     import nat.plugins.langchain.llm  # noqa: F401 - registers the agent runtime's LangChain clients
@@ -279,7 +234,6 @@ async def test_a_chat_model_from_the_seam_holds_a_slot_for_every_call(pool, monk
         seen.append(pool())
         return httpx.Response(500, json={"error": {"message": "stub", "code": 500}})
 
-    # Whatever transport LangChain built (it adds socket options and proxy mounts), the call ends here.
     monkeypatch.setattr(httpx.AsyncHTTPTransport, "handle_async_request", serve)
     config = OpenAIModelConfig(
         model_name="vendor/model",
@@ -299,7 +253,6 @@ async def test_a_chat_model_from_the_seam_holds_a_slot_for_every_call(pool, monk
 
 
 async def test_a_per_request_copy_of_a_seam_model_still_holds_a_slot(pool):
-    """The model-override and ZDR seams `model_copy` the model; the copy must keep the limiter."""
     from agent_testing.llm_factory import _resolved_through_nat
 
     from agent.common.model_overrides import override_model
@@ -309,11 +262,7 @@ async def test_a_per_request_copy_of_a_seam_model_still_holds_a_slot(pool):
     assert getattr(type(copy), "__request_contract__", False)
 
 
-# ------------------------------------------------- the limiter-only client
-
-
 def _serving(monkeypatch, pool, sent: list[tuple[int, dict]]) -> None:
-    """Answer every socket-level request, noting the held slots and the body it carried."""
 
     async def serve(self, request: httpx.Request) -> httpx.Response:
         sent.append((pool(), json.loads(request.content or b"{}")))
@@ -323,7 +272,6 @@ def _serving(monkeypatch, pool, sent: list[tuple[int, dict]]) -> None:
 
 
 async def test_the_limited_client_holds_a_slot_and_leaves_the_body_alone(pool, monkeypatch):
-    """An organization that switched ZDR off keeps its choice: the transport only takes the slot."""
     from agent.common.openrouter import limited_async_http_client
 
     sent: list[tuple[int, dict]] = []

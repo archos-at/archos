@@ -1,12 +1,3 @@
-"""The claim substrate is generic over its table: a second queue is a second table, nothing else.
-
-The ingestion queue's scenarios (fair order, cap, reap, upgrade) are
-``tests/knowledge_layer_tests/test_ingest_queue.py``. These pin what the
-research queue will rely on when it adopts the substrate: that a queue built
-with another table and lane name behaves the same and touches nothing of the
-ingestion queue's.
-"""
-
 from __future__ import annotations
 
 import os
@@ -23,7 +14,6 @@ _TABLES = ("research_claims", "research_claim_turns", "other_claims", "other_cla
 
 
 def test_the_postgres_branch_ran_where_it_is_required():
-    """CI's ``task be:test:postgres`` sets the guard: there a missing database fails instead of skipping green."""
     if os.environ.get("TEST_POSTGRES_REQUIRED"):
         assert _POSTGRES, "TEST_POSTGRES_URL is unset while TEST_POSTGRES_REQUIRED is set"
 
@@ -77,7 +67,6 @@ def test_a_queue_keeps_its_own_fairness_and_priority(url):
 
     claimed = [queue.claim_next(f"w{i}", **CLAIM) for i in range(3)]
 
-    # Lanes alternate (fewest running, then longest unserved); inside a lane, interactive first.
     assert [c.lane for c in claimed] == ["org-a", "org-b", "org-a"]
     assert [c.job_id for c in claimed if c.lane == "org-a"] == ["a-live", "a-bulk"]
 
@@ -85,11 +74,6 @@ def test_a_queue_keeps_its_own_fairness_and_priority(url):
 def _created_at(queue: claim_queue.ClaimQueue, url: str, job_id: str, at: str) -> None:
     with queue._engine_for(url).begin() as conn:
         conn.execute(text(f"UPDATE {queue.table} SET created_at = :at WHERE job_id = :id"), {"at": at, "id": job_id})
-
-
-# The next two scenarios are the lane order every claim shares: the same two run in
-# tests/knowledge_layer_tests/test_ingest_queue.py and in the BFF's
-# apps/workspace/bff/jobs-queue/queue.integration.spec.ts. Priority never picks the lane.
 
 
 def test_a_lane_is_ranked_by_its_oldest_job_not_its_best_priority(url):
@@ -181,7 +165,6 @@ def test_a_table_from_before_lanes_gains_one_and_its_rows_wait_in_a_lane_of_thei
 
     claim = queue.claim_next("w1", **CLAIM)
     assert (claim.job_id, claim.lane, claim.priority) == ("old", claim_queue.NO_LANE, claim_queue.PRIORITY_INTERACTIVE)
-    # A replica on the code that wrote the old table inserts no lane and still enqueues.
     with queue._engine_for(url).begin() as conn:
         conn.execute(text("INSERT INTO research_claims (job_id, payload) VALUES ('older-code', 'p')"))
     assert queue.counts()["queued"] == 1

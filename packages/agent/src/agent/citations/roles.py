@@ -136,10 +136,11 @@ def role_fields(use: EditionUse | None) -> dict[str, Any]:
     """The wire fields a source carries for its edition's role here; empty without one, so the payload is unchanged.
 
     Everything a citation's status line states, from the records and nowhere else (design §6.7): which
-    edition (``designation``, ``edition_label``), what it is here (``role``), through which instrument
-    (``route``) and from which day (``role_since``), as of which day that was resolved (``as_of``), and how
-    current the platform's check of it is (``last_checked_at``, ``freshness``, ``role_labels``), and which text
-    it is (``language``, ``text_status``). A field the records do not state is absent, never guessed. Pure.
+    edition (``designation``, ``edition_label``) and who issues it (``issuer``), what it is here (``role``),
+    through which instrument (``route``) and from which day (``role_since``), as of which day that was resolved
+    (``as_of``), and how current the platform's check of it is (``last_checked_at``, ``freshness``,
+    ``role_labels``), and which text it is (``language``, ``text_status``). A field the records do not state
+    is absent, never guessed. Pure.
     """
     if use is None:
         return {}
@@ -151,6 +152,7 @@ def role_fields(use: EditionUse | None) -> dict[str, Any]:
         "edition_id": use.edition_id,
         "designation": use.designation,
         "edition_label": use.edition_label,
+        "issuer": use.issuer,
         "route": (
             {
                 key: value

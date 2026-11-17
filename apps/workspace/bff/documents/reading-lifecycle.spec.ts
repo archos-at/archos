@@ -1,11 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The declared moves of `documents.status` (ADR-0179), held to the three
- * things that already say something about them: a statechart interpreter, the
- * phases of `DOCUMENT_STATUS_FACTS`, and the quarantine rule of migrations 0122 and 0225.
- */
 import { describe, expect, it } from 'vitest'
 import { createMachine, transition } from 'xstate'
 import { DOCUMENT_STATUSES, DOCUMENT_STATUS_FACTS, type DocumentStatus } from './document-status'
@@ -67,7 +62,6 @@ describe('the lifecycle and the phases of the status facts agree', () => {
   })
 
   it('a reviewer releases a row at rest and never one in flight (`heldAtRest` reads the same phases)', () => {
-    // `uploaded` is the target, so the row it lands on is not a move.
     expect(statusesAccepting('release')).toEqual(atRest)
   })
 

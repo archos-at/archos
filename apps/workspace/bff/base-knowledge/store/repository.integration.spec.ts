@@ -38,6 +38,8 @@ const VALUES = {
   designation: 'ÖNORM B 1600:2017',
   editionLabel: '2017-04-01',
   issuedOn: '2017-04-01',
+  inForceFrom: null,
+  inForceTo: null,
   territoryIds: [],
   issuer: 'Austrian Standards',
   addressees: [],
@@ -101,7 +103,6 @@ describe.skipIf(!url)('base knowledge records against Postgres', () => {
   it('reads a proposal back to its office, and to no other office', async () => {
     const { documentId, ids } = await propose()
     const mine = await repo.readOfficeEntries(ORG, [documentId])
-    // Positive control: without it, an empty read below would prove nothing.
     expect(mine).toHaveLength(1)
     expect(mine[0]).toMatchObject({ workId: ids.workId, confirmed: false, values: VALUES })
     expect(await repo.readOfficeEntries(OTHER_ORG, [documentId])).toEqual([])
@@ -115,7 +116,6 @@ describe.skipIf(!url)('base knowledge records against Postgres', () => {
     const { documentId } = await propose()
     const context = { organizationId: ORG, createdBy: 'user_bk', provenance: { proposedBy: 'reading' as const }, terms: {} }
     await expect(repo.insertProposedEntry(documentId, VALUES, context)).rejects.toMatchObject({ name: 'ConflictError' })
-    // Positive control: another document still takes an entry.
     await expect(propose()).resolves.toMatchObject({ ids: { workId: expect.any(String) } })
   })
 
@@ -125,7 +125,6 @@ describe.skipIf(!url)('base knowledge records against Postgres', () => {
     const { documentId } = await propose()
     const [row] = await as(ORG, () => db.execute<{ filename: string }>(sql`SELECT filename FROM documents WHERE id = ${documentId}`))
     expect(await office.shelfNameHasEntry(ORG, String(row.filename), reader)).toBe(true)
-    // Positive control: an unrecorded name, and the same name in another office, are free.
     expect(await office.shelfNameHasEntry(ORG, 'not-recorded.pdf', reader)).toBe(false)
     expect(await office.shelfNameHasEntry(OTHER_ORG, String(row.filename), reader)).toBe(false)
   })
@@ -172,7 +171,6 @@ describe.skipIf(!url)('base knowledge records against Postgres', () => {
     ]) {
       await expect(as(ORG, () => db.execute(statement))).rejects.toThrow()
     }
-    // A record changes its head only.
     await expect(as(ORG, () => db.execute(sql`UPDATE knowledge_records SET created_by = 'x' WHERE id = ${ids.workId}`))).rejects.toThrow()
   })
 

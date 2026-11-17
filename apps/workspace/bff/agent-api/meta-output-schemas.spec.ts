@@ -1,11 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Output schemas and icons, through the real SDK: the three meta-tools declare
- * what they answer and always answer it; the icons are on the server, the
- * meta-tools, the prompts and the resources, and `tools` mode stays in budget.
- */
 
 import { webcrypto } from 'node:crypto'
 import { createMcpHandler } from '@modelcontextprotocol/server'
@@ -140,14 +135,12 @@ describe('icons', () => {
     const info = ((await response.json()) as Rpc).result?.serverInfo as { title: string; websiteUrl?: string; icons: { src: string; theme?: string; mimeType?: string }[] }
     expect(info.title).toBe(PRODUCT_NAME)
     expect(info.websiteUrl).toBe('https://app.piloti.test')
-    // PNG first, from the pinned origin: the one format every client must render.
     expect(info.icons[0]).toMatchObject({ src: 'https://app.piloti.test/icons/icon-192.png', mimeType: 'image/png', sizes: ['192x192'] })
     expect(info.icons.map((icon) => icon.mimeType)).toContain('image/svg+xml')
     expect(THEMES(info.icons.filter((icon) => icon.theme))).toEqual(['dark', 'light'])
   })
 
   it('puts one icon per meaning on the meta-tools, the prompts and the resources', async () => {
-    // The meta-tools; the proposal card's tools (ADR-0142) are drawn by the card, and carry none.
     const tools = ((await rpc('tools/list')).result?.tools as { name: string; icons?: { src: string; theme?: string }[] }[]).filter(
       (tool) => tool.icons
     ) as { icons: { src: string; theme?: string }[] }[]

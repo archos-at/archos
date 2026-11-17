@@ -39,6 +39,12 @@
  *   - work-live → the same turn mid-step 2: the look still runs.
  *   - folded   → the same turn with the panel closed: counts and one warning.
  *   - no-research → a turn that looked nothing up: one line, no graph.
+ *   - unbacked → a stored answer, as a reload maps it: two sources cited, and
+ *     the answer check found two statements unbacked (the header's warning).
+ *   - asked-back → a stored answer that read the office's documents, then
+ *     asked for the site: not „Ohne Recherche“, and not done.
+ *   - cited-question → a stored, cited answer whose last line invites a
+ *     correction of its assumption: complete, so no Rückfrage.
  *   - failed   → a failed RIS call beside a search that worked.
  *   - single-read → one read, cited: the header is the Herleitung.
  *   - many-calls → eleven calls in one step: ×7, worst first, „+N weitere“.
@@ -71,6 +77,8 @@ import {
   singleReadCitations,
   singleReadScene,
 } from '@/test-utils/work-list-scenes'
+import { mapServerMessageToChatMessage } from '@/features/chat/lib/server-message-mapper'
+import { ASKED_BACK, CITED_QUESTION, UNBACKED, type StoredAnswer } from '../_fixtures/stored-answers'
 
 const step: StoredThinkingStep = {
   id: 'kb',
@@ -423,6 +431,25 @@ const manyCallsCommon = {
   userQuestion: 'Prüf bitte alle Pläne auf die Brandabschnitte der Garage.',
 }
 
+// A stored answer, as the thread hands it to the Herleitung after a reload:
+// the same mapper, the same props as `chat-message-list`. No steps: a restored
+// turn carries none.
+const storedCommon = ({ question, answer }: StoredAnswer) => {
+  const message = mapServerMessageToChatMessage(answer)
+  return {
+    steps: [],
+    isThinking: false as const,
+    defaultOpen: false,
+    userQuestion: question,
+    answerConfidence: message?.answerConfidence,
+    citations: message?.citations,
+    confidenceCheck: message?.confidenceCheck,
+    answerText: message?.content,
+    answerId: message?.id,
+    retrievalLedger: message?.retrievalLedger,
+  }
+}
+
 export default function DerivationPreviewPage() {
   if (process.env.NODE_ENV !== 'development') {
     notFound()
@@ -447,6 +474,12 @@ export default function DerivationPreviewPage() {
             ? foldedCommon
             : variant === 'no-research'
               ? noResearchCommon
+              : variant === 'unbacked'
+                ? storedCommon(UNBACKED)
+                : variant === 'asked-back'
+                  ? storedCommon(ASKED_BACK)
+                  : variant === 'cited-question'
+                    ? storedCommon(CITED_QUESTION)
               : variant === 'failed'
                 ? failedCommon
                 : variant === 'single-read'
@@ -479,6 +512,12 @@ export default function DerivationPreviewPage() {
             ? '/dev/derivation?variant=folded — panel closed: counts and the one warning'
             : variant === 'no-research'
               ? '/dev/derivation?variant=no-research — answered without research'
+              : variant === 'unbacked'
+                ? '/dev/derivation?variant=unbacked — stored answer, two statements unbacked'
+                : variant === 'asked-back'
+                  ? '/dev/derivation?variant=asked-back — stored answer that asks for the site'
+                  : variant === 'cited-question'
+                    ? '/dev/derivation?variant=cited-question — cited answer closing with a question'
               : variant === 'failed'
                 ? '/dev/derivation?variant=failed — a failed RIS call'
                 : variant === 'single-read'

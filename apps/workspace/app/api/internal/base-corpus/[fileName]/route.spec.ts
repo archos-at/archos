@@ -4,8 +4,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { DeleteObjectCommand } from '@aws-sdk/client-s3'
 
-// The route factory (`@/lib/api/handler`) statically imports the session
-// guard, which pulls in authkit; internal routes never call it.
 vi.mock('@/lib/auth/require-auth', () => ({
   requireAuthorizedSession: vi.fn(),
 }))
@@ -67,7 +65,6 @@ describe('DELETE /api/internal/base-corpus/[fileName]', () => {
   })
 
   it('is idempotent: deleting again, or a key that was never there, is still a success', async () => {
-    // S3 DeleteObject answers 204 for a missing key, so the SDK resolves.
     expect((await call('gone.pdf')).status).toBe(200)
     expect((await call('gone.pdf')).status).toBe(200)
     expect(send).toHaveBeenCalledTimes(2)

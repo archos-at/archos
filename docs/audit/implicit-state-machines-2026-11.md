@@ -137,7 +137,7 @@ Paths are under `apps/workspace/` unless they start with a package.
 
 | Flow | States | Where (`ui/` unless noted) | Note |
 |---|---|---|---|
-| Chat turn view | running, finished, failed + streaming, interaction, outcome | `features/chat/lib/turn-fold.ts` | statechart candidate |
+| Chat turn view | running, finished, failed + streaming, interaction, outcome | `bff/turns/turn-fold.ts` | statechart candidate |
 | Composer flags (two definitions of "streaming") | stop, sending, send | `messages-store.ts`, `turn-projection.ts` | |
 | Thinking header | nine labels from six inputs | `features/chat/components/ChatThinking.tsx` | a priority ladder |
 | Turn socket | connecting, open, reconnecting, failed, incompatible, outdated, suspended, offline, closed | `adapters/api/turn-socket-machine.ts` | on XState since this sweep (read) |
@@ -380,11 +380,11 @@ scout and found sound. What is ugly is the ingest job's status row.
 
 | What | Where | Trust |
 |---|---|---|
-| The row is written by an unconditional upsert that vouches for it ("the write wins over a row another replica settled"), so a stopped run's late write can turn a person's cancel back into processing | `knowledge/ingest_status_store.py` `put` | `put` read; the path from the adapter is the scout's |
-| A stop mark survives a failed cancel, so a later supersede is treated as a person's stop | `knowledge/ingest_dispatch.py`, `ingest_workflow.py` | scout, traced |
-| A settle reads the row and then puts it, with no compare-and-set | `knowledge/ingest_execution.py` | scout, small window |
-| Why a job was cancelled is spread over four fields, two of which nothing reads | the ingest status model | scout |
-| `JobState` and `FileStatus` are typed again in TypeScript with no parity test | | scout, by grep |
+| The row is written by an unconditional upsert that vouches for it ("the write wins over a row another replica settled"), so a stopped run's late write can turn a person's cancel back into processing | `knowledge/ingest_status_store.py` `put` | **Real, fixed** in the run, not in `put`. The revival was not a late write in a small window: the cancel clears `owner`, so the stopped worker's next heartbeat (30 s) took the row for a wrongly settled one and wrote it back, which is the deliberate rule ("the owner, while it lives, is right about its job") applied to a cancel. Now a run that has been told to stop writes no live or failed status again and may still write `completed` (`knowledge-layer/src/ingest/adapter.py` `_persist`, `_told_to_stop`); the cancel also releases the row's hold (`_write_cancelled`), and `ingest_dispatch.cancel` answers `finished` when the job ended in the race. `put` stays unconditional, so an outsider's `interrupted` is still the live owner's to overwrite. `tests/knowledge_layer_tests/test_ingest_robustness.py` (a stopped run's beat, progress, failure and `completed`; the owner's rule for a Hatchet-run job), `test_ingest_status_store.py`, `apps/agent-host/tests/test_ingest_dispatch.py`. **Open**: a write that lands between the cancel's settle and the cancel reaching the worker makes the row `processing` again; the run's last word (`ingest_workflow._stopped`) settles it once more, and if the worker dies first the row now reads `interrupted` after 120 s instead of staying held for up to 30 h 45 min |
+| A stop mark survives a failed cancel, so a later supersede is treated as a person's stop | `agent_host/jobs/ingest_dispatch.py`, `knowledge/ingest_workflow.py` | **Real, deliberately left.** Clearing the mark when the cancel fails is not safe either: `cancel_run` raises on a REST timeout after the engine may have taken the cancel, and the run would then record a person's stop as superseded with no push. A stale mark costs one settle push that names a job the document no longer points at |
+| A settle reads the row and then puts it, with no compare-and-set | `knowledge/ingest_execution.py` | **Real, deliberately left**: `settle_timed_out`, `fail_unreadable` and `settle_superseded` each have a window of milliseconds in which a cancel can be overwritten, and the BFF's document stays `cancelled` in all three. The one case with a lasting effect (`reopen` after a stopped run's `failed` write) needed that write, which a stopped run no longer makes |
+| Why a job was cancelled is spread over four fields, two of which nothing reads | the ingest status model | **Real, cosmetic, deliberately left**: `metadata.cancelled`, `metadata.superseded` and `metadata.retrying_after` have no reader outside tests, the BFF reads `status` only, and the `person:` prefix on `run_id` is the one field that decides anything. Removing the unread keys changes three tests and no behaviour |
+| `JobState` and `FileStatus` are typed again in TypeScript with no parity test | `ui/adapters/api/documents-schemas.ts`, `ui/features/documents/utils.ts` | **Real, closed with a test**, no drift found: the two zod enums and `mapBackendStatus` are held to the Python enums by `tests/knowledge_layer_tests/test_ingest_state_parity.py`. The BFF types neither; it compares strings (see below) |
 
 ### Where a record's state lives
 
@@ -394,13 +394,59 @@ statuses are sticky", read), the job events are its history, the Hatchet run is
 execution, the run ledger is derived with "first final word stands", and the
 workspace's run row is reconciled to the job store.
 
-A document is the weak one. The truth for "is it read" is a JSON status in
-`ingest_jobs`, written without a guard; the truth for "can it be found" is the
-vector store; and what the office sees, `documents.status`, is a copy kept in
-step by one push and five fallbacks (settle push, stale-pending,
-stuck-processing, lost-job, ingest-recovery, heal), reconciled in
-`bff/documents/reconcile-status.ts`, which is over 1,100 lines. The order to
-fix it in: guard the ingest row's writes as research's are (a write names the
-state it leaves, a final status sticks); define the states once and generate
-the TypeScript copy; then give the workspace's copy one settle function that
-the push and every fallback call.
+A document has three truths: "is it read" is a JSON status in `ingest_jobs`;
+"can it be found" is the vector store; and what the office sees is
+`documents.status`, a copy of the first. An earlier version of this paragraph
+said that copy was "kept in step by one push and five fallbacks" and asked for
+one settle function. That overstated it, from a scout's list nobody had read
+against the code. Two readers costed the fix on 2026-11-11, in the code and
+without changing it, and the author of this page re-checked what follows.
+
+One function writes a job's outcome: `setDocumentReconciledStatus`
+(`bff/documents/repository/reconcile.ts`), a compare-and-set on the status the
+read saw and on the ingest job id. It has six call sites: four inside
+`reconcileDocumentStatuses` (`bff/documents/reconcile-status.ts`) and two beside
+it in `bff/documents/reingest.ts`, a person's re-read and a person's stop. The
+settle push, the stale-pending sweep, the upload-batch sweep and every read are
+callers of the reconciler, not writers of their own; lost-job and the "Job ID
+not found" heal are passes inside it. Stuck-processing and ingest-recovery are
+a different thing: they act on `processing`, the status the reconciler leaves
+alone by rule, read the BFF's own job queue and never the backend's job, and
+write through `markDocumentIngestFailed`. Of eleven recent defects in this area
+(one reader's count from the history of `reconcile-status.ts` and its
+neighbours since 2026-10-28, not re-read by the author), eight were in the
+decision, what the backend's answer means or that nobody asked, and one would
+have been prevented by a single settle function.
+
+The three steps this page named, and what became of each:
+
+1. **Guard the ingest row's writes.** Done as the small version in #1637: the
+   first row of the Python table above. A final status does not stick there, on
+   purpose: a read that finished must still overwrite a cancel.
+2. **Define the states once and generate the TypeScript copy.** Costed and
+   reduced to the parity test in the Python table's last row. Generation
+   changes nothing at runtime: the list is baked in at build time, so an open
+   tab or an older pod meets a new state exactly as before, and the BFF types
+   no list at all. A Python transition table would document a rule the store
+   deliberately does not enforce (`ingest_status_store.py`: the owner, while it
+   lives, is right about its job).
+3. **One settle function for the workspace's copy.** Costed and not built. The
+   guards in the writers' `WHERE`s are of four kinds (the job compare-and-set,
+   local-work ownership, held-at-rest with the content hash, a compare-and-set
+   on the collection), and the declared graph (`reading-lifecycle.ts`) permits
+   nearly every move from every state but `quarantined`, so `canTransition`
+   would add almost nothing. Done instead: a ratchet,
+   `bff/documents/status-writers.spec.ts`. Eleven functions in six files set the
+   column (ten updates and the insert at birth); each is listed with its guard,
+   `setDocumentReconciledStatus` may be named only by the reconcile and
+   `reingest.ts`, and a twelfth writer or a third caller fails the spec.
+
+Still open, each with where it comes from:
+
+| What | Source |
+|---|---|
+| Split `reconcile-status.ts` along its seams (what a job status or a listing entry means; the collection listing and its cache; the orchestrator). About 620 lines moved, no behaviour change, and it takes the file off the size baseline (683 counted lines against 600). After the production promotion, not into it | the costing; the seams were read by its reader only |
+| The stamp window: `markDocumentProcessing` drops the row's job name and the new job's id is stamped after the enqueue, and in between an extraction job counts a row that names no job as its own (`unnamedCounts`) | **Run against Postgres on 2026-11-11, closed but for one case, nothing changed for it** (`bff/documents/dispatch-failure-race.integration.spec.ts`, second half). The sweep and `failDocumentsOfDeadJob` cannot act in the window: both go by the name the row carries (`stillOwnedBy` without `unnamedCounts` compares NULL, the listing joins on `metadata.bffJobId`), and `markDocumentProcessing` renews `updated_at`, so the sweep's quarter of an hour starts again. A running job of the same bytes may fail the row, and that is not the wrong job: `queueDocumentWork` names that very job next (`findOpenJobId`). A job for replaced bytes cannot fail it (the storage key). It could SETTLE it, through the dispatch's unguarded job write; that was reproduced and is fixed with the row below. Left open: a job on its last attempt writes its failure inside the window and the queue buries it before the new round looks for an open job, both between two consecutive statements of `queueDocumentWork`. The row then reads `failed` with the true reason and offers the retry again; the new job finds it not `processing` and leaves. Closing it needs the enqueue and the stamp in one transaction, which changes the queue's contract for a retry that has to be pressed twice |
+| A dispatch's late `failed` can land over a newer `pending` job | **Reproduced against Postgres and fixed on 2026-11-11** (the same spec, first half, through the real `dispatchIngest` with only the backend's answer scripted). A request that hung (`BACKEND_FETCH_TIMEOUT_MS`, asked twice: up to 20 s) wrote `failed` over the job of a second dispatch, over a read that had already finished, and over new bytes; the row kept the newer job's id, and neither the settle push nor the stale-pending sweep nor the reconcile's compare-and-set reached it again. The same dispatch succeeding late wrote its job over the newer one (`setDocumentIngestJob` had no compare either). Fix: `dispatchIngest` passes what it read of the row before it asked (`DispatchStart`: ingest job id and storage key), and both writes carry `unchangedSinceDispatch` in their `WHERE` (`bff/documents/repository/mutations.ts`). Of the ten call sites that pass no owner, the two in `dispatchIngest` changed. The other eight were left: five write straight after reading the row, about a fact no newer read changes (no stored bytes in `unarchive.ts`, `folder-bin-jobs.ts` and `ingest-recovery.ts`, no converter in `document-dispatch.ts`, a re-point refused in `collection-placement.ts`), and three sit in a `catch` that runs when a dispatch threw (a presign, the queue or the database), never for a backend that did not answer, which `dispatchIngest` records itself. Those three can still fail a row a concurrent dispatch took, in the milliseconds of a thrown error; not reproduced, not guarded |
+| A backend job status the BFF does not know falls through to "in progress" in `resolveJobOutcome` and leaves the row `pending`, asked about on every read, for good. The parity test fails the change that adds a state on one side and names the readers; nothing stops a deployed BFF meeting a newer backend | read by the author (`reconcile-status.ts`, `resolveJobOutcome`) |
+| The cancel route and the re-read heal run `onDocumentsSettled` themselves and skip what the reconcile also runs for a moved row (`shelf.changed` to colleagues, the search projection, `document_ingest_finished`) | the costing, not re-read by the author |

@@ -1,7 +1,3 @@
-/**
- * The inbox list's data hook over the typed client: one slice at a time, and
- * older pages kept below the first when the reader asks for them.
- */
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 
@@ -59,7 +55,6 @@ describe('useInboxList', () => {
     expect(inbox.list).toHaveBeenLastCalledWith({ filter: 'all', cursor: 'c1' })
     expect(result.current.hasMore).toBe(true)
 
-    // A mutation re-reads the first page; the older rows stay, the cursor too.
     await act(() => result.current.markRead(['a']))
     expect(result.current.items.map((item) => item.id)).toEqual(['a', 'b', 'c', 'd'])
 
@@ -76,7 +71,6 @@ describe('useInboxList', () => {
     act(() => result.current.loadMore())
     await waitFor(() => expect(result.current.items.map((item) => item.id)).toEqual(['a', 'b', 'c', 'd']))
 
-    // A new row arrives on top: „b“ moves to the second page, which now starts there.
     pages.first = page(['new', 'a'], 'c2')
     pages.c2 = page(['b', 'c'], 'c3')
     pages.c3 = page(['d'], null)
@@ -84,6 +78,19 @@ describe('useInboxList', () => {
 
     await waitFor(() => expect(result.current.items.map((item) => item.id)).toEqual(['new', 'a', 'b', 'c']))
     expect(result.current.hasMore).toBe(true)
+  })
+
+  it('never shows one filter’s rows under another: a switch is loading from its first render', async () => {
+    const inbox = client({ first: page(['a'], null) })
+    const { result, rerender } = renderHook(({ filter }) => useInboxList(true, filter, inbox), {
+      initialProps: { filter: 'all' as InboxListFilter },
+    })
+    await waitFor(() => expect(result.current.items.map((item) => item.id)).toEqual(['a']))
+    rerender({ filter: 'archived' })
+    expect(result.current.items).toEqual([])
+    expect(result.current.loading).toBe(true)
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.items.map((item) => item.id)).toEqual(['a'])
   })
 
   it('drops an older page that arrives after the filter changed', async () => {

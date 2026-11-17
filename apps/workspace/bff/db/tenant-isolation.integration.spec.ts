@@ -1,20 +1,3 @@
-/**
- * Opt-in integration test: the tenant boundary, exercised through the REAL
- * `getDb()` against a REAL Postgres with every migration applied (ADR-0041).
- *
- * Unit tests can show that the context is plumbed. Only this can show that the
- * database refuses, which is the entire claim. It therefore connects as
- * `app_rw` — the role the BFF actually runs as — because connecting as the
- * owner would pass every assertion below while proving nothing: owners are
- * exempt from row-level security.
- *
- *   TEST_DATABASE_URL=postgres://app_rw@host:port/app \
- *     npx vitest run bff/db/tenant-isolation.integration.spec.ts
- *
- * Setting up that database is `task db:test:rls` (see Taskfile.yml), which
- * builds a throwaway cluster, applies the migration chain and runs this file.
- */
-
 import { sql } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 
@@ -25,19 +8,12 @@ const url = process.env.TEST_DATABASE_URL
 const ORG_A = `org_rls_a_${Date.now()}`
 const ORG_B = `org_rls_b_${Date.now()}`
 
-/**
- * drizzle wraps every driver failure in a `DrizzleQueryError` whose message is
- * just "Failed query: …", so the refusal we care about — the Postgres error, or
- * our own `MissingTenantContextError` — is one or more links down `.cause`.
- * Asserting on the wrapper would pass for ANY failed query, including a typo.
- */
 function rootCause(error: unknown): Error {
   let current = error as Error
   while (current?.cause instanceof Error) current = current.cause
   return current
 }
 
-/** Await a promise that must reject, and return the underlying reason. */
 async function rejectionCause(run: () => PromiseLike<unknown>): Promise<Error> {
   try {
     await run()
@@ -47,21 +23,6 @@ async function rejectionCause(run: () => PromiseLike<unknown>): Promise<Error> {
   throw new Error('expected the query to be refused, but it succeeded')
 }
 
-/**
- * The suite below is opt-in, and `describe.skipIf` exits 0 when it skips. That
- * makes a green `tenant-isolation` job indistinguishable from one that ran
- * nothing — a typo'd variable, a renamed script or a dropped `env:` line would
- * silently remove every isolation guarantee from the merge gate. This asserts
- * the suite actually ran.
- *
- * The trigger is deliberately NOT `CI`: this file is part of the ordinary unit
- * suite too, and the six unit shards run in CI with no database anywhere near
- * them, so keying on `CI` fails whichever shard happens to own this file. The
- * marker is set by the `tenant-isolation` JOB rather than by
- * `scripts/rls-test-db.sh`, so that the job — the thing wired into the merge
- * gate — is what demands a database, and a harness that stops handing one over
- * still fails here instead of quietly skipping.
- */
 describe('the isolation suite is not silently skipped in CI', () => {
   it('has a database to run against', () => {
     if (!process.env.RLS_SUITE_REQUIRED) return
@@ -93,9 +54,6 @@ describe.skipIf(!url)('tenant isolation against live Postgres', () => {
     MissingTenantContextError = context.MissingTenantContextError
     db = await loadDb()
 
-    // Seed both tenants. Writing rows for org B from inside org B's own context
-    // is itself part of the contract: WITH CHECK has to accept a row that
-    // matches the active tenant.
     for (const org of [ORG_A, ORG_B]) {
       await withPlatformAccess('test seed: create organizations across tenants', async () => {
         await db.execute(
@@ -112,9 +70,6 @@ describe.skipIf(!url)('tenant isolation against live Postgres', () => {
   })
 
   afterAll(async () => {
-    // `beforeAll` may have thrown before `db` was assigned. Cleaning up then
-    // raises a TypeError that REPLACES the real setup failure in the output,
-    // which is the one worth reading.
     if (!db) return
     await withPlatformAccess('test teardown', async () => {
       await db.execute(sql`delete from projects where organization_id in (${ORG_A}, ${ORG_B})`)
@@ -126,24 +81,6 @@ describe.skipIf(!url)('tenant isolation against live Postgres', () => {
     await closeDb()
   })
 
-  /**
-   * The cheapest test here, and the one that would have caught the worst bug in
-   * this feature's history: a policy on `project_folders` that referenced
-   * `project_folders` is rejected by Postgres outright —
-   * "infinite recursion detected in policy" — and because `documents`' policy
-   * joined that table, BOTH were completely unreadable for the runtime role.
-   * Every other test passed, because none of them touched those two tables.
-   *
-   * So: every secured table, selected as the role the app actually uses. Not a
-   * sample.
-   */
-  /**
-   * Two permissive policies on one table OR together, so a second isolation
-   * policy silently widens the first. 0191 renamed `grid_tenant_isolation` to
-   * `tenant_isolation`, and `secure_table` drops both names before it creates
-   * one; this holds every table under row-level security to exactly one, by
-   * the new name, and no policy to the old prefix.
-   */
   it('gives every table under row-level security exactly one isolation policy', async () => {
     const rows = await withPlatformAccess('test: count isolation policies', () =>
       db.execute(sql`
@@ -179,12 +116,6 @@ describe.skipIf(!url)('tenant isolation against live Postgres', () => {
     const names = [...secured].map((row) => String(row.table_name))
     expect(names.length).toBeGreaterThanOrEqual(28)
 
-    // The one documented exception set: the lesson tables are secured AND
-    // deliberately unreadable for the tenant role (0068 revokes the platform
-    // helper's SELECT — see the migration's comment). Their posture has its
-    // own test below ('hides the lesson tables from tenants entirely'), which
-    // fails if the revoke disappears, so excluding them here does not leave
-    // them untested — it leaves them tested for the OPPOSITE claim.
     const tenantInvisible = new Set([
       'platform_lessons',
       'platform_lesson_reports',
@@ -205,11 +136,6 @@ describe.skipIf(!url)('tenant isolation against live Postgres', () => {
     expect(broken, 'These tables are inside the boundary but cannot be read.').toEqual([])
   })
 
-  /**
-   * The reason this feature exists. The query has NO tenant predicate — it is
-   * the mistake a repository makes when someone forgets the WHERE clause — and
-   * it still cannot see another tenant's rows.
-   */
   it('confines a query that forgot its WHERE clause to the active tenant', async () => {
     const fromA = await withTenant({ organizationId: ORG_A }, () =>
       db.execute(sql`select organization_id from projects`)
@@ -223,9 +149,6 @@ describe.skipIf(!url)('tenant isolation against live Postgres', () => {
   })
 
   it('isolates rows keyed to a person, not an organization', async () => {
-    // `user_preferences` is the only table whose rule is grid.user_id. Both the
-    // policy and the app-side SET LOCAL for that setting could be deleted with
-    // a green suite before this existed.
     await withTenant({ organizationId: ORG_A, userId: 'user_one' }, () =>
       db.execute(
         sql`insert into user_preferences (workos_user_id, prefs) values ('user_one', '{"a":1}')
@@ -258,10 +181,6 @@ describe.skipIf(!url)('tenant isolation against live Postgres', () => {
   })
 
   it('keeps a tenant-scoped row isolated even when its optional FK is NULL', async () => {
-    // The org clause is load-bearing precisely BECAUSE the FK clause is
-    // `project_id IS NULL OR EXISTS(...)`: for a project-less row that half is
-    // TRUE for everyone, so dropping the org half would make the row globally
-    // readable while every FK test still passed.
     const id = `conv_orphan_${ORG_A}`
     await withTenant({ organizationId: ORG_A }, () =>
       db.execute(
@@ -292,11 +211,6 @@ describe.skipIf(!url)('tenant isolation against live Postgres', () => {
     expect(cause.message).toMatch(/row-level security/i)
   })
 
-  /**
-   * Product feedback (0100): a tenant sees only the reports written from it,
-   * the platform bypass sees all of them, and the CHECKs hold the bounds the
-   * form counts against.
-   */
   it('keeps product feedback inside its tenant, and its CHECKs hold', async () => {
     for (const org of [ORG_A, ORG_B]) {
       await withTenant({ organizationId: org, userId: `user_${org}` }, () =>
@@ -319,8 +233,6 @@ describe.skipIf(!url)('tenant isolation against live Postgres', () => {
     )
     expect(new Set([...seenByPlatform].map((row) => row.organization_id))).toEqual(new Set([ORG_A, ORG_B]))
 
-    // The triage list's keyset cursor is a JS Date (milliseconds); a stored
-    // microsecond would let the next page skip a report in the same millisecond.
     const subMillisecond = await withPlatformAccess('test: feedback precision', () =>
       db.execute(
         sql`select count(*)::int as n from product_feedback
@@ -340,7 +252,6 @@ describe.skipIf(!url)('tenant isolation against live Postgres', () => {
     )
     expect(blank.message).toMatch(/product_feedback_message_not_blank/)
 
-    // The ticket id is browser-adjacent input that becomes a link on the platform page (0155).
     const notAnId = await rejectionCause(() =>
       withTenant({ organizationId: ORG_A }, () =>
         db.execute(
@@ -376,7 +287,6 @@ describe.skipIf(!url)('tenant isolation against live Postgres', () => {
     )
     expect(new Set([...seenBySweep].map((row) => row.organization_id))).toEqual(new Set([ORG_A, ORG_B]))
 
-    // The in-flight mail is always the one at the cursor.
     const behind = await rejectionCause(() =>
       withTenant({ organizationId: ORG_A }, () =>
         db.execute(sql`update mail_imports set inflight_position = 3, next_position = 4 where organization_id = ${ORG_A}`)
@@ -384,7 +294,6 @@ describe.skipIf(!url)('tenant isolation against live Postgres', () => {
     )
     expect(behind.message).toMatch(/mail_imports_inflight_at_cursor/)
 
-    // An ended import says when; a running one does not.
     const undated = await rejectionCause(() =>
       withTenant({ organizationId: ORG_A }, () =>
         db.execute(sql`update mail_imports set status = 'failed' where organization_id = ${ORG_A}`)
@@ -392,7 +301,6 @@ describe.skipIf(!url)('tenant isolation against live Postgres', () => {
     )
     expect(undated.message).toMatch(/mail_imports_completed_at/)
 
-    // Only an import that ended carries a reason.
     const reasonWhileRunning = await rejectionCause(() =>
       withTenant({ organizationId: ORG_A }, () =>
         db.execute(sql`update mail_imports set error_code = 'quota' where organization_id = ${ORG_A}`)
@@ -405,16 +313,7 @@ describe.skipIf(!url)('tenant isolation against live Postgres', () => {
     )
   })
 
-  /**
-   * The E-Mail-Eingang and the E-Mail-Verlauf (migration 0196, ADR-0137), as
-   * the runtime role: each tenant sees its own mail, threads and follows, and
-   * the database refuses every way of filing mail without a person's decision.
-   * `scripts/rls-test-db.sh` proves each of 0196's refusals as the owner; this
-   * proves the ones the review-first promise rests on through the app's own
-   * connection (DECISION §10, ratchet 1).
-   */
   it('keeps inbound mail inside its tenant, and refuses a filing no person decided', async () => {
-    // People are WorkOS user ids: 0196 refuses every other shape.
     const person = (org: string) => `user_01J0TENANT${org === ORG_A ? 'A' : 'B'}${'0'.repeat(15)}`
     type Seeded = { project: string; mail: string; text: string; file: string; thread: string; follow: string }
     const seeded = new Map<string, Seeded>()
@@ -464,7 +363,6 @@ describe.skipIf(!url)('tenant isolation against live Postgres', () => {
     const a = seeded.get(ORG_A)!
     const b = seeded.get(ORG_B)!
     const inA = <T,>(run: () => Promise<T>) => withTenant({ organizationId: ORG_A, userId: person(ORG_A) }, run)
-    /** A refusal's rule: a CHECK names it in the message, a trigger in the error's constraint field. */
     const refusedBy = async (run: () => Promise<unknown>) => {
       const cause = (await rejectionCause(() => inA(run))) as Error & { constraint_name?: string }
       return `${cause.constraint_name ?? ''} ${cause.message}`
@@ -475,7 +373,6 @@ describe.skipIf(!url)('tenant isolation against live Postgres', () => {
       expect([...seen].map((row) => row.organization_id), table).toEqual([ORG_A])
     }
 
-    // No system actor decides (RT-S7).
     expect(
       await refusedBy(() =>
         db.execute(
@@ -484,7 +381,6 @@ describe.skipIf(!url)('tenant isolation against live Postgres', () => {
         )
       )
     ).toMatch(/inbound_mail_decisions_decider_is_person/)
-    // An agent's card carries no acknowledgement (RT-S5).
     expect(
       await refusedBy(() =>
         db.execute(
@@ -493,7 +389,6 @@ describe.skipIf(!url)('tenant isolation against live Postgres', () => {
         )
       )
     ).toMatch(/inbound_mail_decisions_agent_cards_file_clean/)
-    // A follow decision is the follower's own (D31).
     expect(
       await refusedBy(() =>
         db.execute(
@@ -502,7 +397,6 @@ describe.skipIf(!url)('tenant isolation against live Postgres', () => {
         )
       )
     ).toMatch(/inbound_mail_decisions_follower_fkey/)
-    // A part is filed only on a person's file decision about it, and only once it scanned clean.
     expect(
       await refusedBy(() =>
         db.execute(
@@ -527,13 +421,11 @@ describe.skipIf(!url)('tenant isolation against live Postgres', () => {
     expect(await refusedBy(() => claim(dismissal.id))).toMatch(/inbound_mail_parts_decision_files/)
     const [filing] = await decide('file')
     expect(await refusedBy(() => claim(filing.id))).toMatch(/inbound_mail_parts_filed_is_clean/)
-    // Nobody is shown a mail whose raw message was not scanned (RT-S3).
     expect(
       await refusedBy(() =>
         db.execute(sql`update inbound_mails set raw_scan_status = 'pending', raw_scanned_at = null where id = ${a.mail}`)
       )
     ).toMatch(/inbound_mails_waiting_is_scanned/)
-    // A decision is append-only, and no tenant session deletes mail or a decision.
     expect(
       await refusedBy(() => db.execute(sql`update inbound_mail_decisions set folder_path = 'Anderswo' where id = ${filing.id}`))
     ).toMatch(/inbound_mail_decisions_immutable/)
@@ -541,7 +433,6 @@ describe.skipIf(!url)('tenant isolation against live Postgres', () => {
     expect(await refusedBy(() => db.execute(sql`delete from inbound_mail_decisions where id = ${filing.id}`))).toMatch(
       /permission denied/
     )
-    // Writing into the other tenant is refused by the policy.
     expect(
       await refusedBy(() =>
         db.execute(
@@ -550,7 +441,6 @@ describe.skipIf(!url)('tenant isolation against live Postgres', () => {
         )
       )
     ).toMatch(/row-level security/)
-    // afterAll deletes the projects, which cascades through all eight tables.
   })
 
   it('updates and deletes nothing in another tenant', async () => {
@@ -565,13 +455,6 @@ describe.skipIf(!url)('tenant isolation against live Postgres', () => {
     expect([...survived].map((row) => row.name)).toEqual([`project of ${ORG_B}`])
   })
 
-  /**
-   * `SET LOCAL` is a UTILITY statement; `SELECT set_config(...)` is a query, and
-   * Postgres refuses `SET TRANSACTION ISOLATION LEVEL` after any query. So an
-   * earlier version of the context broke isolation levels for tenant scopes
-   * while leaving the platform path (already `SET LOCAL ROLE`) working — the
-   * kind of asymmetry that hides for a long time.
-   */
   it('still allows an isolation level to be set on the transaction', async () => {
     const rows = await withTenant({ organizationId: ORG_A }, () =>
       db.transaction((tx) => tx.execute(sql`select organization_id from projects`), {
@@ -582,9 +465,6 @@ describe.skipIf(!url)('tenant isolation against live Postgres', () => {
   })
 
   it('refuses a setting value that is not a plain identifier', async () => {
-    // `SET LOCAL` takes no bind parameters, so the value is interpolated. It is
-    // validated rather than escaped: anything that could carry quoting fails
-    // closed instead of reaching the server.
     const cause = await rejectionCause(() =>
       withTenant({ organizationId: "org_a'; drop table projects; --" }, () =>
         db.execute(sql`select 1`)
@@ -619,8 +499,6 @@ describe.skipIf(!url)('tenant isolation against live Postgres', () => {
     await withTenant({ organizationId: ORG_A }, async () => {
       await db.execute(sql`select 1`)
     })
-    // A pooled connection is reused; transaction-local settings must not ride
-    // along to whoever borrows it next.
     const cause = await rejectionCause(() => db.execute(sql`select 1`))
     expect(cause).toBeInstanceOf(MissingTenantContextError)
   })
@@ -639,14 +517,6 @@ describe.skipIf(!url)('tenant isolation against live Postgres', () => {
     expect(cause.message).toMatch(/permission denied/i)
   })
 
-  /**
-   * The lesson tables are tighter than the platform-table norm: 0068 revokes
-   * even the tenant READ grant, because nothing tenant-facing queries them
-   * (the injected digest is built under the platform role) and a CANDIDATE
-   * lesson is exactly the text the auditor model flagged as possibly
-   * identifying. This test is what keeps that revoke from being "simplified"
-   * away as an inconsistency with the other platform_* tables.
-   */
   it('hides the lesson tables from tenants entirely, in both directions', async () => {
     for (const table of [
       'platform_lessons',
@@ -660,23 +530,12 @@ describe.skipIf(!url)('tenant isolation against live Postgres', () => {
       )
       expect(cause.message, `${table} must not be tenant-readable`).toMatch(/permission denied/i)
     }
-    // The platform role still reads them — that is where the pipeline runs.
-    // Read, not counted: the suites share one database and run in parallel,
-    // and `feedback/repository.integration.spec.ts` holds a lesson row for a
-    // moment, so a count of 0 passed only when the timing was lucky.
     const rows = await withPlatformAccess('test: lesson register read', () =>
       db.execute(sql`select count(*)::int as n from platform_lessons`)
     )
     expect([...rows][0]).toMatchObject({ n: expect.any(Number) })
   })
 
-  /**
-   * A row's own organization_id is not the whole rule. Nothing stopped a tenant
-   * from REFERENCING another tenant's row, and the FKs cascade: org A could
-   * attach its conversation to org B's project, and org B deleting that project
-   * — an ordinary, authorised action — would destroy org A's data. The policies
-   * validate the referenced row's organization for exactly this reason.
-   */
   it('refuses to reference another tenant\'s row', async () => {
     const [projectOfB] = [
       ...(await withTenant({ organizationId: ORG_B }, () =>
@@ -713,9 +572,6 @@ describe.skipIf(!url)('tenant isolation against live Postgres', () => {
       )
     })
 
-    // The UPDATE that used to be accepted: the row keeps its own organization,
-    // but the project underneath it becomes another tenant's. WITH CHECK now
-    // rejects it outright rather than letting it through.
     const cause = await rejectionCause(() =>
       withTenant({ organizationId: ORG_A }, () =>
         db.execute(
@@ -755,8 +611,6 @@ describe.skipIf(!url)('tenant isolation against live Postgres', () => {
       )
     })
 
-    // `messages` has no organization_id of its own; the policy resolves tenancy
-    // through the parent conversation.
     const seenByB = await withTenant({ organizationId: ORG_B }, () =>
       db.execute(sql`select content from messages`)
     )
@@ -770,10 +624,6 @@ describe.skipIf(!url)('tenant isolation against live Postgres', () => {
         )
       )
     )
-    // Since 0031 this is refused by the composite foreign key rather than the
-    // policy: the row's organization defaults to the active tenant, and
-    // `(conv_of_A, ORG_B)` is not a pair that exists in `conversations`. A
-    // stronger refusal than the policy's, and it fires before it.
     expect(cause.message).toMatch(/row-level security|violates foreign key/i)
 
     await withPlatformAccess('test cleanup', async () => {
@@ -781,12 +631,6 @@ describe.skipIf(!url)('tenant isolation against live Postgres', () => {
       await db.execute(sql`delete from conversations where id = ${conversationId}`)
     })
   })
-  /**
-   * Folders belong to a SHELF and a TENANT, and the database holds both
-   * (migration 0102, ADR-0078). The Archiv has no project to carry "same project
-   * implies same tenant", so the tenant is a column, the policy reads it, and
-   * composite keys tie a parent and a document to the folder's own shelf.
-   */
   describe('folders of a shelf', () => {
     const OFFICE_SHELF_FOLDER_A = `00000000-0000-4000-8000-0000000a0001`
     const PROJECT_FOLDER_A = `00000000-0000-4000-8000-0000000a0002`
@@ -875,8 +719,6 @@ describe.skipIf(!url)('tenant isolation against live Postgres', () => {
           db.execute(sql`update documents set folder_id = ${OFFICE_SHELF_FOLDER_A} where id = ${DOC_OFFICE_SHELF_B}`),
         ),
       )
-      // Either the policy (the folder is invisible to B) or the key; the folder
-      // never attaches.
       expect(cause.message).toMatch(/row-level security|violates foreign key/i)
     })
 
@@ -965,7 +807,6 @@ describe.skipIf(!url)('tenant isolation against live Postgres', () => {
       )
       expect(duplicate.message).toMatch(/uniq_project_folders_parent_name/)
 
-      // The same name in another tenant's Archiv is a different folder.
       await withTenant({ organizationId: ORG_B }, () =>
         db.execute(
           sql`insert into project_folders (organization_id, scope, name, path)

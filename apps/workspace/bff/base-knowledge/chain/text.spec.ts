@@ -11,7 +11,7 @@ import { graphFromProposals } from './from-proposals'
 import type { BuildingInputs } from '../rulesets/applicability'
 import { appliesWhenTableSchema } from '../wire/applies-when'
 import { resolveChain } from './resolve'
-import { MAX_NAME_CHARS, nameOf, renderChainText } from './text'
+import { BINDING_HEADER, MAX_NAME_CHARS, nameOf, renderChainText } from './text'
 
 const records = [
   { type: 'territory', id: 'AT', kind: 'country', name: 'Österreich' },
@@ -44,6 +44,7 @@ const records = [
     from: { type: 'work', key: 'wbtv' },
     to: { type: 'edition', key: 'oib-rl-2-2023' },
     provision: '§ 1 WBTV 2023',
+    validFrom: '2024-02-23',
   },
   {
     type: 'relation',
@@ -70,16 +71,40 @@ describe('the chain text', () => {
     expect(text('AT-9')).toBe(
       [
         "Building law at this site, Wien (AT-9, AT), on 2026-11-10, from the platform's reviewed records. What binds outranks what explains: law in force (Gesetz, Verordnung) > a model code, standard or guideline only where a law makes it binding, and only in the edition the route names > guidance, interpretation and information, which add no requirement. Information from an authority shows its practice, not a norm.",
-        'Binding here:',
-        '- Bauordnung für Wien, edition Fassung 2024: law of AT-9, in force',
+        BINDING_HEADER,
+        '- Bauordnung für Wien, edition Fassung 2024: law of AT-9, in force, this edition since 2024-01-01',
         '- Wiener Bautechnikverordnung, the consolidated text in force at its source: ordinance of AT-9, in force',
-        '- OIB-Richtlinie 2 „Brandschutz“, edition Ausgabe Mai 2023: declared binding by Wiener Bautechnikverordnung (§ 1 WBTV 2023)',
+        '- OIB-Richtlinie 2 „Brandschutz“, edition Ausgabe Mai 2023: declared binding by Wiener Bautechnikverordnung (§ 1 WBTV 2023) since 2024-02-23',
         '  - pkt_3.1 does not apply here; Wiener Bautechnikverordnung par_4 applies instead',
         'Interpretation:',
         '- Kommentar zur Bauordnung für Wien, edition 2019: interpretation only, on edition Fassung 2018; never the source of a requirement',
         '1 other edition is not in force here and is information only.',
       ].join('\n'),
     )
+  })
+
+  it('tells the answer to state since when each binding edition binds, and through what, from the records alone', () => {
+    const header = text('AT-9').split('\n')[1]
+    expect(header).toBe(BINDING_HEADER)
+    for (const words of [
+      'states the day its line gives',
+      "the route's instrument",
+      'even if not asked',
+      "the records' own, never a web page's",
+      'the records name none',
+      'not when the law began to bind',
+    ]) {
+      expect(header, words).toContain(words)
+    }
+    expect(text('AT-9')).toContain('declared binding by Wiener Bautechnikverordnung (§ 1 WBTV 2023) since 2024-02-23')
+  })
+
+  it('says a filing day is the reference date only as an assumption, and nothing of it on today', () => {
+    const filed = renderChainText(graph, resolveChain(graph, 'AT-9', '2023-06-01'), 'AT-9', undefined, true)
+    expect(filed.split('\n')[0]).toContain(
+      "on 2023-06-01, the filing day taken as the reference date (an assumption; transitional law not checked: say so), from the platform's",
+    )
+    expect(text('AT-9')).not.toContain('filing day')
   })
 
   it('names a law whose edition is not determined, and why, instead of leaving it out silently', () => {
@@ -135,10 +160,10 @@ describe('the chain text', () => {
     const at = (inputs: BuildingInputs['inputs']) =>
       renderChainText(scoped, resolveChain(scoped, 'AT-9', '2026-11-10', { buildings: [{ buildingId: 'bldg1', inputs }] }), 'AT-9')
     expect(at({})).toContain(
-      "(§ 1 WBTV 2023); applies only if the building's escape_level_m put it in scope, not yet known: ask for it, and do not say it binds or does not bind before then",
+      "(§ 1 WBTV 2023) since 2024-02-23; applies only if the building's escape_level_m put it in scope, not yet known: ask for it, and do not say it binds or does not bind before then",
     )
-    expect(at({ escape_level_m: 30 })).toContain("(§ 1 WBTV 2023); applies to this project by its building's escape_level_m")
+    expect(at({ escape_level_m: 30 })).toContain("(§ 1 WBTV 2023) since 2024-02-23; applies to this project by its building's escape_level_m")
     expect(at({ escape_level_m: 9 })).not.toContain('Ausgabe Mai 2023')
-    expect(text('AT-9')).toContain('(§ 1 WBTV 2023)\n')
+    expect(text('AT-9')).toContain('(§ 1 WBTV 2023) since 2024-02-23\n')
   })
 })

@@ -17,8 +17,6 @@ function tile() {
   }
 }
 
-// #1055: clicking into the rename field opened the folder, because the field
-// sat inside the tile's open button and the click bubbled to it.
 describe('renaming a folder in place', () => {
   it('keeps the grid tile closed when the name field is clicked', () => {
     const props = tile()
@@ -58,11 +56,6 @@ describe('renaming a folder in place', () => {
   })
 })
 
-/**
- * Every way up is a drop target: the back control, „Alle Dateien", each
- * ancestor. A document moves there, desktop files upload there, and a level
- * the reader may only read takes neither and says why.
- */
 describe('the breadcrumb as a drop target', () => {
   const TREE: FolderItem[] = [
     { id: 'f1', parentId: null, name: 'Planung', path: 'Planung' },

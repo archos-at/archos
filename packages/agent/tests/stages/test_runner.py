@@ -1,11 +1,3 @@
-"""Contract tests for the post-answer stage runner.
-
-No LLM, no socket, no request context: a matrix of ``TurnFacts`` against stub
-handlers, asserting exactly one ``StageOutcome`` per declared stage and one
-profiler span carrying that outcome — including for the stages that never ran,
-which is the data the primitive exists to produce.
-"""
-
 import asyncio
 from unittest.mock import patch
 
@@ -25,7 +17,6 @@ _GROUP = AgentGroup.MEMORY_REFLECTION
 
 @pytest.fixture(autouse=True)
 def _isolated_registry():
-    """Each test declares its own stages; the built-in ones stay out of the way."""
     saved = dict(registry._STAGES)
     registry._STAGES.clear()
     runner._claimed_keys.clear()
@@ -72,14 +63,12 @@ def _spec(handler, *, stage_id="probe", gate=None, **overrides) -> StageSpec:
 
 
 async def _run_all(facts, *, llms=None):
-    """Schedule every registered stage and collect the outcomes."""
     tasks = runner.schedule_post_answer_stages(facts, llms=llms if llms is not None else {_GROUP: object()})
     outcomes = await asyncio.gather(*tasks)
     return {outcome.stage_id: outcome for outcome in outcomes}
 
 
 def _spans(post):
-    """Every span posted to the ledger during the call, by name."""
     spans = []
     for call in post.call_args_list:
         spans.extend(call.args[0]["spans"])
@@ -179,7 +168,6 @@ class TestGatingAndFlags:
             raise RuntimeError("gate bug")
 
         _spec(lambda ctx: _returns({"a": 1}), gate=_explode)
-        # The call site is on the answer path and calls this synchronously.
         assert runner.schedule_post_answer_stages(_facts(), llms={_GROUP: object()}) == []
 
 
@@ -194,8 +182,6 @@ class TestObservability:
             await _run_all(facts)
 
         by_name = {span["name"]: span for span in _spans(post)}
-        # A stage that RAN also reports what it spent — including zero, which is
-        # itself the fact that the handler declined without asking the model.
         assert by_name["stage:ran"]["metadata"] == {
             "stage": "ran",
             "outcome": "empty",
@@ -213,10 +199,6 @@ class TestObservability:
 
     @pytest.mark.asyncio
     async def test_a_named_empty_keeps_its_reason_on_the_span(self):
-        """Two stages can produce "nothing" for opposite reasons — the model
-        returned no questions, or it returned four unusable ones. One `empty`
-        bucket for both makes the number the stage exists to produce unreadable,
-        so the handler may name the case."""
         _spec(lambda ctx: _returns(StageEmpty("model_declined")))
         with patch("agent.common.profiler._post_profiler_spans") as post:
             outcomes = await _run_all(_facts())
@@ -233,10 +215,6 @@ class TestObservability:
 
     @pytest.mark.asyncio
     async def test_the_span_carries_what_the_stage_spent(self):
-        """`llm_usage_events` has no stage dimension — it records tokens against
-        the conversation, so two stages on one turn are one undifferentiated
-        pair of rows. "What does this stage cost per turn" is only a GROUP BY if
-        the number sits on the span that already knows which stage it was."""
         from agent.common import cost_tracking
 
         async def _spend(ctx):
@@ -313,8 +291,6 @@ class TestBackpressureAndIdempotency:
 
     @pytest.mark.asyncio
     async def test_without_a_turn_identity_nothing_is_suppressed(self):
-        """A CLI/REST turn has no ws_parent_id. Keying on the conversation alone
-        would silence every turn after the first."""
         _spec(lambda ctx: _returns(None))
         first = await _run_all(_facts(ws_parent_id=None))
         second = await _run_all(_facts(ws_parent_id=None))
@@ -380,16 +356,6 @@ class TestFrameDelivery:
 
     @pytest.mark.asyncio
     async def test_wiring_the_delivery_changes_nothing_that_lands_in_the_spans(self):
-        """The telemetry slice 4 is gated on must not move when a stage starts
-        delivering.
-
-        The empty rate, the gate's skip reasons and the per-turn cost are the
-        numbers that decide whether the card gets retired. `delivery` is a
-        property of where the outcome GOES, never of how it was reached, so the
-        span a `frame` stage writes must be indistinguishable from the one the
-        same handler wrote while it was `silent`. If it is not, the week of
-        measurement that licensed this flip was measuring something else.
-        """
         from agent.stages import delivery
 
         async def _sink(conversation_id, turn_id, value):
@@ -469,7 +435,6 @@ async def _returns(value):
 
 
 def _usage_response(*, prompt: int, completion: int, cost: float):
-    """A LangChain LLMResult carrying OpenRouter's usage accounting."""
     from langchain_core.outputs import LLMResult
 
     return LLMResult(
@@ -487,8 +452,6 @@ def _usage_response(*, prompt: int, completion: int, cost: float):
 
 
 class TestStageSpendNamesTheAnswer:
-    """A post-answer stage's spend is billed to the answer it follows."""
-
     def test_the_answer_id_is_derived_from_the_turn(self):
         from agent.stages.runner import _answer_message_id
         from agent.stages.spec import TurnFacts

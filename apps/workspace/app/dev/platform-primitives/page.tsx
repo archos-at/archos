@@ -94,10 +94,10 @@ function Preview(): JSX.Element {
             clearSelectionLabel="Clear"
             selectionActions={
               <>
-                <Button variant="outline" size="sm">
+                <Button variant="secondary" size="sm">
                   Reclassify
                 </Button>
-                <Button variant="outline" size="sm" className="text-destructive">
+                <Button variant="secondary" size="sm" className="text-destructive">
                   <Trash2 className="size-3.5" aria-hidden />
                   Delete
                 </Button>

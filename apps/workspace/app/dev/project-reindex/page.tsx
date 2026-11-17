@@ -43,7 +43,7 @@ export default function ProjectReindexDevPage(): JSX.Element {
                 the derived chunks answers are grounded on. Use this after a change to how documents are indexed.
               </p>
             </div>
-            <Button variant="outline" disabled className="shrink-0">
+            <Button variant="secondary" disabled className="shrink-0">
               <RefreshCw className="size-4 animate-spin" aria-hidden="true" />
               Re-indexing…
             </Button>

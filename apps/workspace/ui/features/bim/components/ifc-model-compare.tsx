@@ -1,20 +1,5 @@
 'use client'
 
-/**
- * Revision comparison, as a panel on the model page.
- *
- * The question this answers — "what changed since the version the authority
- * already has" — is the one an architect asks at every resubmission, and it is
- * the one thing in the product that is strictly impossible on documents: two
- * plan sets redrawn from a changed model look different everywhere and
- * identical where it matters, while two IFC files carry the same GlobalId on
- * the same wall and can simply be subtracted.
- *
- * The comparison runs on demand, not on load: it reads both models' element
- * rows in full, which is worth doing when asked and not worth doing because
- * somebody opened the page.
- */
-
 import type { JSX } from 'react'
 import { useEffect, useRef, useState } from 'react'
 import { ArrowRight, GitCompare } from 'lucide-react'
@@ -37,31 +22,13 @@ import type { BimModelHeaderView } from '../hooks/use-bim-model'
 import { shortIfcType } from '../lib/model-index'
 
 export interface IfcModelCompareProps {
-  /** The model on screen — treated as the NEWER revision. */
   modelId: string
-  /** Every other ready model in scope, offered as the older revision. */
   candidates: readonly BimModelHeaderView[]
-  /**
-   * A comparison the timeline asked for: `{ baseModelId, at }`. The panel
-   * selects that base and runs immediately.
-   *
-   * `at` is a monotonically increasing token rather than a boolean, because
-   * asking for the SAME comparison twice ("compare with previous", read it,
-   * click it again) has to re-run — a changed base id alone would not.
-   */
   requested?: { baseModelId: string; at: number } | null
 }
 
-/** How many rows each bucket shows before the count speaks for the rest. */
 const VISIBLE_ROWS = 8
 
-/**
- * "… 492 weitere", when a bucket showed only part of itself.
- *
- * `total` is the comparison's own count, NOT the array length: `compare.ts`
- * slices each bucket at 500 before it ever reaches this panel, so a remainder
- * computed from the array is a remainder of a cap.
- */
 function DiffElided({ shown, total }: { shown: number; total: number }): JSX.Element | null {
   const t = useTranslations(bimCopy)
   const listed = Math.min(shown, VISIBLE_ROWS)
@@ -82,30 +49,11 @@ export function IfcModelCompare({
   const t = useTranslations(bimCopy)
   const [baseModelId, setBaseModelId] = useState<string>(candidates[0]?.id ?? '')
   const [state, setState] = useState<'idle' | 'loading' | 'error'>('idle')
-  /**
-   * The result, and the revision it is a result ABOUT.
-   *
-   * Carried together on purpose. The base is a control the reader can change
-   * after a run, so reading the caption off `baseModelId` would relabel a
-   * finished comparison every time the select moves — "+17 Bauteile" against
-   * one revision, presented as the difference to another, on the screen an
-   * office resubmits from.
-   */
   const [comparison, setComparison] = useState<
     { result: BimComparison; baseModelId: string } | null
   >(null)
   const heading = useRef<HTMLHeadingElement>(null)
 
-  /**
-   * Which run the panel is showing.
-   *
-   * Both entry points can fire while a request is out — the button is only
-   * disabled while `loading`, and the timeline can request a comparison at any
-   * moment — and this request reads two full element sets, so the slow one is
-   * routinely the one started first. Without a ticket the later answer is
-   * overwritten by the earlier, and the panel settles on a comparison the
-   * reader did not ask for last.
-   */
   const generation = useRef(0)
   useEffect(
     () => () => {
@@ -114,23 +62,11 @@ export function IfcModelCompare({
     []
   )
 
-  /**
-   * A different building is a different question.
-   *
-   * Switching model in the rail does not remount this panel, so a finished
-   * comparison stayed on screen — with its "Verglichen mit v1" caption — while
-   * the stage showed v3, and `baseModelId` still held a revision that is no
-   * longer among the candidates: the select rendered blank and "Vergleichen"
-   * would have run a comparison nobody chose. The sibling `useBimComplianceDiff`
-   * resets on exactly this transition, for exactly this reason.
-   */
   useEffect(() => {
     generation.current += 1
     setComparison(null)
     setState('idle')
     setBaseModelId(candidates[0]?.id ?? '')
-    // Keyed on the model, not on the candidate list: the list is a new array
-    // identity on every render of the parent.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [modelId])
 
@@ -151,27 +87,16 @@ export function IfcModelCompare({
     }
   }
 
-  /** What the result on screen was actually measured against. */
   const ranAgainst = comparison
     ? (candidates.find((candidate) => candidate.id === comparison.baseModelId)?.filename ?? null)
     : null
 
-  // A comparison requested from the timeline: select the base, run it, and
-  // bring the panel into view — the button that asked for it is elsewhere on
-  // the page, and results that appear off-screen read as a button that did
-  // nothing.
   useEffect(() => {
     if (!requested?.baseModelId) return
     setBaseModelId(requested.baseModelId)
     void run(requested.baseModelId)
     heading.current?.scrollIntoView({ block: 'nearest' })
-    // And focus, not only scroll. The comment above is about a button that
-    // reads as having done nothing — which is exactly what the timeline's
-    // "mit Vorgänger vergleichen" reads as to a reader who cannot see the
-    // panel scroll into view somewhere else on the page.
     heading.current?.focus()
-    // Keyed on the request token: re-running the same comparison is a valid
-    // thing to ask for, and `run` is redefined every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [requested?.baseModelId, requested?.at])
 
@@ -179,7 +104,6 @@ export function IfcModelCompare({
     <section aria-labelledby="bim-compare-heading" className="space-y-2">
       <h2
         ref={heading}
-        // Programmatically focusable, not a Tab stop — see the request effect.
         tabIndex={-1}
         id="bim-compare-heading"
         className="flex items-center gap-2 text-sm font-medium focus-visible:outline-none"

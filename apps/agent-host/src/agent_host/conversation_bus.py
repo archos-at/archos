@@ -204,12 +204,18 @@ _IN_MEMORY_STREAMS = 256
 class InMemoryTransport:
     """Process-local transport. This IS the fail-open / single-node path, and the
     test double for multi-replica (two ConversationBus instances share this one
-    module-global broker, so a publish on one is delivered to the other)."""
+    module-global broker, so a publish on one is delivered to the other).
 
-    def __init__(self) -> None:
+    ``clock`` is what a key's TTL is measured on. A test that asserts a key
+    outlives its TTL only because it is renewed passes a clock it advances
+    itself, so a stalled event loop cannot expire the key between two renewals.
+    """
+
+    def __init__(self, clock: Callable[[], float] = time.monotonic) -> None:
         self._subs: dict[str, list[asyncio.Queue[str]]] = {}
         self._streams: OrderedDict[str, list[str]] = OrderedDict()
         self._keys: dict[str, tuple[str, float]] = {}
+        self._clock = clock
 
     async def publish(self, channel: str, data: str) -> None:
         for q in list(self._subs.get(channel, ())):
@@ -240,7 +246,7 @@ class InMemoryTransport:
         return list(self._streams.get(stream, ()))
 
     def _live_keys(self) -> dict[str, tuple[str, float]]:
-        now = time.monotonic()
+        now = self._clock()
         self._keys = {k: held for k, held in self._keys.items() if held[1] > now}
         return self._keys
 
@@ -248,7 +254,7 @@ class InMemoryTransport:
         keys = self._live_keys()
         if key in keys:
             return False
-        keys[key] = (value, time.monotonic() + ttl)
+        keys[key] = (value, self._clock() + ttl)
         return True
 
     async def get(self, key: str) -> str | None:
@@ -260,7 +266,7 @@ class InMemoryTransport:
         held = keys.get(key)
         if held is None or held[0] != value:
             return False
-        keys[key] = (value, time.monotonic() + ttl)
+        keys[key] = (value, self._clock() + ttl)
         return True
 
     async def delete_if_value(self, key: str, value: str) -> bool:

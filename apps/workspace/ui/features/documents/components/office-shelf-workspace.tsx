@@ -1,49 +1,39 @@
 'use client'
 
-import { useMemo, type ReactNode } from 'react'
+import { useMemo, type JSX, type ReactNode } from 'react'
+import { ChevronRight } from 'lucide-react'
 import { CountPill } from '@/components/ui/count-pill'
 import { PageHeader } from '@/components/ui/page-header'
 import { SECTION_HEADER_CLASS } from '@/components/shell/project-section-frame'
+import { SECTION_CONTENT_WIDTH } from '@/components/shell/section-layout'
+import { SectionPlaceScope, SectionPlaceUp, useSectionPlace } from '@/components/shell/section-place'
+import { SectionToolRow, SectionToolRowScope } from '@/components/shell/section-tool-row'
 import { useTranslations } from '@/i18n'
+import { cn } from '@/lib/utils'
 import { officeShelfCopy } from '@/i18n/namespaces/office-shelf'
 import { createDocumentNameProbeClient } from '@/lib/documents/name-probe-client'
 import { useOfficeShelfDocuments } from '../hooks/use-office-shelf-documents'
+import { usePhoneLayout } from '../hooks/use-phone-layout'
 import { OFFICE_SHELF_ENDPOINTS, type FileShelf } from '../lib/file-shelf'
 import { FileWorkspace } from './file-workspace'
 import { SearchWorkspace, ShelfSearchBack, useShelfSearchMode } from '@/features/search'
 
 interface OfficeShelfWorkspaceProps {
-  /** Whether the viewer may change the Archiv (holds `org:office_shelf:manage`). */
   canManage: boolean
-  /** Whether an `.ifc` here can reach the model workspace (`ifc-models`). */
   showModels?: boolean
-  /**
-   * Controls beside the header, after the upload button. The Archiv sheet slots
-   * its close control here so the workspace's own header stays the sheet's ONE
-   * header instead of gaining a twin above it.
-   */
   trailingActions?: ReactNode
+  organizationName?: string | null
 }
 
-/**
- * The office Archiv: {@link FileWorkspace} over the organization's shelf.
- *
- * It is a project's Dateien with the project taken out, and it looks it: the
- * project section's header (title, subtitle, controls), the same cards and rows.
- * What it adds is the count beside the title, the sheet's close control, and the
- * permission model: a member without `org:office_shelf:manage` gets
- * the read-only view (list, folders, search, filters, preview, download).
- * There is no assignment (collaboration is project-scoped) and no „Frage zur
- * Datei" (there is no project chat to ask in).
- */
 export function OfficeShelfWorkspace({
   canManage,
   showModels = false,
   trailingActions,
+  organizationName = null,
 }: OfficeShelfWorkspaceProps) {
   const t = useTranslations(officeShelfCopy)
   const probe = useMemo(() => createDocumentNameProbeClient(), [])
-  // „Suche“ in place of the listing (`?mode=search`), scoped to the shelf and the open folder.
+  const phone = usePhoneLayout()
   const search = useShelfSearchMode()
 
   const shelf: FileShelf = {
@@ -53,9 +43,6 @@ export function OfficeShelfWorkspace({
     projectId: null,
     canManage,
     canCollaborate: false,
-    // Only managers drive the upload engine; no collection for a read-only
-    // viewer keeps its orchestrator effects inert (no background calls that
-    // would 403 for them anyway).
     useUpload: ({ collectionName, folderId, onComplete }) =>
       useOfficeShelfDocuments({
         collectionName: canManage ? collectionName : undefined,
@@ -89,41 +76,74 @@ export function OfficeShelfWorkspace({
   }
 
   return (
-    <FileWorkspace
-      shelf={shelf}
-      onOpenSearch={search.open}
-      renderHeader={(controls, { count }) => (
-        // The project section's header band and PageHeader, so the Büroablage
-        // reads as the same kind of store. The count stays with the title: it is
-        // a property of the store, and the one number a reader wants before they
-        // filter. The sheet's close sits beside the header, top right on a phone
-        // too, where the thumb looks for the way out.
-        <div className={SECTION_HEADER_CLASS} data-testid="office-shelf-header">
-          <div className="flex min-w-0 items-start gap-3 sm:items-end">
-            <PageHeader
-              className="flex-1"
-              title={
-                <span className="inline-flex min-w-0 items-center gap-2">
-                  {t('title')}
-                  {count !== null && count > 0 && <CountPill data-testid="office-shelf-document-count" count={count} />}
-                </span>
-              }
-              subtitle={t('subtitle')}
-              action={
-                // `max-w-full` keeps the controls inside the card: on a phone the
-                // header stacks and the controls take the full width under the title.
-                <div
-                  className="flex min-w-0 max-w-full items-center justify-end gap-2 max-sm:w-full [&>*]:max-w-full"
-                  data-testid="office-shelf-controls"
-                >
-                  {controls}
-                </div>
-              }
-            />
-            {trailingActions && <div className="flex shrink-0 items-center">{trailingActions}</div>}
-          </div>
+    <SectionPlaceScope root={t('title')}>
+      <SectionToolRowScope enabled={!phone}>
+        <FileWorkspace
+          shelf={shelf}
+          onOpenSearch={search.open}
+          renderHeader={(controls, { count }) => (
+            <OfficeShelfHeader controls={controls} count={count} phone={phone} trailingActions={trailingActions} organizationName={organizationName} />
+          )}
+        />
+      </SectionToolRowScope>
+    </SectionPlaceScope>
+  )
+}
+
+function OfficeShelfHeader({
+  controls,
+  count,
+  phone,
+  trailingActions,
+  organizationName,
+}: {
+  controls: ReactNode
+  count: number | null
+  phone: boolean
+  trailingActions?: ReactNode
+  organizationName: string | null
+}): JSX.Element {
+  const t = useTranslations(officeShelfCopy)
+  const place = useSectionPlace()
+  return (
+    <div className={cn(SECTION_HEADER_CLASS, SECTION_CONTENT_WIDTH)} data-testid="office-shelf-header">
+      <PageHeader
+        title={
+          place ? (
+            place.title
+          ) : (
+            <span className="inline-flex min-w-0 items-center gap-2">
+              {t('title')}
+              {count !== null && count > 0 && <CountPill data-testid="office-shelf-document-count" count={count} />}
+            </span>
+          )
+        }
+        titleClassName="line-clamp-2"
+        titleTooltip={place?.title}
+        titleAside={place?.count && <span className="text-muted-foreground text-[13px] leading-5 tabular-nums phone:hidden">{place.count}</span>}
+        crumb={
+          phone ? (
+            place?.phoneTrail
+          ) : organizationName ? (
+            <>
+              <span className="max-w-[16rem] shrink-0 truncate" title={organizationName}>{organizationName}</span>
+              {place && <ChevronRight className="size-3 shrink-0" aria-hidden />}
+              {place?.trail}
+            </>
+          ) : (
+            place?.trail
+          )
+        }
+        crumbClassName={phone ? 'text-[13px] leading-5' : undefined}
+        titleStart={place ? <SectionPlaceUp up={place.up} /> : undefined}
+        action={trailingActions}
+        actionInline
+      />
+      <SectionToolRow className="mt-4">
+        <div className="flex min-w-0 flex-1" data-testid="office-shelf-controls">
+          {controls}
         </div>
-      )}
-    />
+      </SectionToolRow>
+    </div>
   )
 }

@@ -15,7 +15,7 @@
   "bff/bim/model-service.bcf.spec.ts": 1,
   "bff/bim/query.ts": 2,
   "bff/bim/rules.spec.ts": 3,
-  "bff/bim/rules.ts": 13,
+  "bff/bim/rules.ts": 3,
   "bff/cache/index.spec.ts": 2,
   "bff/conversations/agent-answer-metadata.spec.ts": 1,
   "bff/conversations/agent-answer-metadata.ts": 1,

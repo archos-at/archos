@@ -5,7 +5,6 @@ import { MainScrollMemory } from './main-scroll-memory'
 let pathname = '/app/projects'
 vi.mock('next/navigation', () => ({ usePathname: () => pathname }))
 
-/** jsdom keeps no scroll offset, so the landmark gets a plain one. */
 function mountMain(): HTMLElement {
   const main = document.createElement('main')
   main.id = 'main-content'
@@ -44,7 +43,6 @@ describe('MainScrollMemory', () => {
     main.dispatchEvent(new Event('scroll'))
     await frame()
 
-    // A link: Next owns that scroll; the memory leaves it alone.
     go('/app/inbox', false)
     view.rerender(<MainScrollMemory />)
     main.scrollTop = 1200

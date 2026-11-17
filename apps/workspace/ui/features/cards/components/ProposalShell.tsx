@@ -15,19 +15,8 @@ import { useHeightGlide } from '@/components/motion/height-glide'
 import { cn } from '@/lib/utils'
 import { CARD_SHELL } from './card-chrome'
 
-/** A proposal card's lifecycle state. */
 type ProposalTone = 'pending' | 'accepted' | 'dismissed'
 
-/**
- * An outcome's glyph, beside the receipt's words. `pending` has none: the
- * question is the state.
- *
- * Lifecycle is its own axis (`answer-card-charter.md` §A3), and it used to be an
- * accent edge whose colour tracked the state. Side stripes are discouraged
- * (design-language.md, "Emphasis without a stripe"), and an edge said the
- * outcome in colour alone; the glyph says it in shape, the receipt in words,
- * and the verdict colour only reinforces both (WCAG 1.4.1).
- */
 const OUTCOME_GLYPH: Record<ProposalTone, LucideIcon | null> = {
   pending: null,
   accepted: CircleCheck,
@@ -40,18 +29,12 @@ const OUTCOME_INK: Record<ProposalTone, string> = {
   dismissed: 'text-muted-foreground',
 }
 
-/** A question breathes more than its one-line receipt. */
 const TONE_GAP: Record<ProposalTone, string> = {
   pending: 'gap-3',
   accepted: 'gap-2',
   dismissed: 'gap-2',
 }
 
-/**
- * One state's content. While it leaves it is out of reach: unclickable and
- * hidden from assistive tech, so a second press cannot land on a question
- * that has already been answered, and the receipt is the only thing read.
- */
 function ProposalBody({
   ref,
   tone,
@@ -90,31 +73,6 @@ function ProposalBody({
   )
 }
 
-/**
- * The shared shell for user-confirmed proposal cards (`project_profile_patch`,
- * `memory_proposal`, `file_operation_proposal`): a card on the quiet card
- * ground whose receipt carries the outcome's glyph — a green check once
- * accepted, a muted minus once dismissed (see OUTCOME_GLYPH above). The cards
- * used to hand-roll this identical `motion.div` + `Card p-5 shadow-xs` chrome
- * and state machine; this owns it once so they can't drift.
- *
- * THE ANSWER IS ONE CARD CHANGING, not one card replaced by another. A card
- * returns `<ProposalShell tone=…>` from each branch, so React keeps this one
- * instance across the decision, and the shell turns the swap into motion:
- *
- *  - the question cross-fades into its receipt (`popLayout`: the outgoing body
- *    leaves the flow at once and fades out over the incoming one);
- *  - the card glides from the question's height to the receipt's
- *    (`useHeightGlide`), so the answer below is drawn up, not yanked — the
- *    reader pressed a button, and the 120px under it used to vanish in the
- *    frame they pressed it.
- *
- * And the keyboard is not dropped. The control the reader pressed leaves with
- * the question, and a focused node that leaves the document hands focus to
- * `<body>`, so the next Tab started from the top of the page. When focus was
- * inside the card, it moves to the receipt (`tabIndex={-1}`, no scroll), which
- * is also what makes a screen reader read the outcome.
- */
 export function ProposalShell({
   tone,
   className,
@@ -131,9 +89,6 @@ export function ProposalShell({
   const exit = useMotionToken(motionQuickExit)
   useHeightGlide(frameRef, tone)
 
-  // The swap's commit: the outgoing body is still in the document (exiting),
-  // so the focus it holds is still readable here, and the incoming body's ref
-  // is already attached.
   useLayoutEffect(() => {
     if (previousTone.current === tone) return
     previousTone.current = tone
@@ -144,10 +99,6 @@ export function ProposalShell({
   }, [tone])
 
   return (
-    // No entrance of its own. A card the reader watches arrive is faded in by
-    // its slot (`CardSlot`) and a new turn by its thread row; a root fade here
-    // replayed on every remount (a restored thread, a re-render by position)
-    // and doubled the slot's fade on a live one.
     <Card
       className={cn(CARD_SHELL, 'p-5', className)}
     >

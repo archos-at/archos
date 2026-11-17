@@ -38,7 +38,6 @@ interface PgError {
   constraint_name?: string
 }
 
-/** The Postgres error under drizzle's wrapper: the first link that carries a SQLSTATE. */
 function pgError(error: unknown): PgError {
   let current: unknown = error
   for (let depth = 0; depth < 10 && current; depth += 1) {
@@ -50,7 +49,6 @@ function pgError(error: unknown): PgError {
   throw new Error(`no SQLSTATE on the error: ${String(error)}`)
 }
 
-/** Await a write that must be refused, and return the error it was refused with. */
 async function refusal(write: () => PromiseLike<unknown>): Promise<unknown> {
   try {
     await write()
@@ -75,7 +73,6 @@ describe.skipIf(!url)('root_sort_runs against Postgres', () => {
   let withPlatformAccess: typeof import('@/lib/db/tenant-context').withPlatformAccess
   let db: ReturnType<typeof import('@/lib/db').getDb>
 
-  // One project per case, so the cases cannot see each other's in-work runs.
   const projects: Record<'roundTrip' | 'unique' | 'conditional' | 'checks' | 'rls' | 'cascade' | 'officeShelf' | 'stalled' | 'fresh' | 'young' | 'cursor' | 'progress' | 'waiting', string> = {
     stalled: '',
     fresh: '',
@@ -253,7 +250,6 @@ describe.skipIf(!url)('root_sort_runs against Postgres', () => {
     const refused = await refusal(() => officeRun(ORG_A, 'grouping'))
     expect(isUniqueViolation(refused, IN_WORK_INDEX)).toBe(true)
 
-    // A project shelf is a different scope; the Archiv run does not block it.
     const project = await repo.insertRootSortRun({
       organizationId: ORG_A,
       scope: 'project',
@@ -264,11 +260,9 @@ describe.skipIf(!url)('root_sort_runs against Postgres', () => {
     })
     expect(project.status).toBe('judging')
 
-    // The index is per organization: another org's Archiv is not blocked.
     const officeB = await officeRun(ORG_B, 'judging')
     expect(officeB.status).toBe('judging')
 
-    // Once the first Archiv run leaves work, a new one is admitted.
     await repo.updateRootSortRun(ORG_A, officeA.id, ['judging'], { status: 'applied' })
     const officeAgain = await officeRun(ORG_A, 'undoing')
     expect(officeAgain.status).toBe('undoing')
@@ -329,7 +323,6 @@ describe.skipIf(!url)('root_sort_runs against Postgres', () => {
     expect(pgError(tooMany)).toMatchObject({ code: '23514', constraint_name: 'root_sort_runs_lists_bounded' })
     expect((await repo.findRootSortRun(ORG_A, run.id))?.newFolders).toEqual([])
 
-    // The boundary itself is admitted: 12 is the most one proposal answers.
     const twelve = await repo.updateRootSortRun(ORG_A, run.id, ['judging'], { newFolders: thirteen.slice(0, 12) })
     expect(twelve?.newFolders).toHaveLength(12)
   })
@@ -376,10 +369,8 @@ describe.skipIf(!url)('root_sort_runs against Postgres', () => {
     const stalledShelf = { kind: 'project' as const, projectId: projects.stalled }
     const waitingShelf = { kind: 'project' as const, projectId: projects.fresh }
 
-    // A run whose job is gone (finished or never queued), quiet for two hours.
     const stalled = await insert(projects.stalled, 'applying')
     await age(stalled.id)
-    // A run as quiet, whose job is queued behind a backlog: it is not stalled.
     const jobId = randomUUID()
     const waiting = await insert(projects.fresh, 'judging')
     await repo.updateRootSortRun(ORG_A, waiting.id, ['judging'], { jobId })
@@ -387,10 +378,8 @@ describe.skipIf(!url)('root_sort_runs against Postgres', () => {
       db.execute(sql`insert into bff_job_queue (job_id, kind, lane) values (${jobId}, 'root_sort', ${ORG_A})`)
     )
     await age(waiting.id)
-    // A run just started, whose job is being queued: inside the grace.
     const young = await insert(projects.young, 'judging')
 
-    // Another organization's sweep reaches nothing of this one.
     expect(await repo.failStalledRootSortRuns(ORG_B, stalledShelf)).toEqual([])
 
     const ended = await repo.failStalledRootSortRuns(ORG_A, stalledShelf)
@@ -401,7 +390,6 @@ describe.skipIf(!url)('root_sort_runs against Postgres', () => {
     expect(await repo.failStalledRootSortRuns(ORG_A, waitingShelf)).toEqual([])
     expect((await repo.findRootSortRun(ORG_A, waiting.id))?.status).toBe('judging')
 
-    // Once its job is dead, the waiting run is stalled too.
     await withTenant({ organizationId: ORG_A, userId: ME }, () =>
       db.execute(sql`update bff_job_queue set status = 'dead', dead_at = now() where job_id = ${jobId}`)
     )
@@ -422,7 +410,6 @@ describe.skipIf(!url)('root_sort_runs against Postgres', () => {
       documentIds: [],
     })
     expect(await repo.updateRootSortRun(ORG_A, run.id, ['applying'], { cursor: 100 }, { cursor: 0 })).not.toBeNull()
-    // A slice that read cursor 0 and finished late writes nothing over the one after it.
     expect(await repo.updateRootSortRun(ORG_A, run.id, ['applying'], { cursor: 100 }, { cursor: 0 })).toBeNull()
     expect((await repo.findRootSortRun(ORG_A, run.id))?.cursor).toBe(100)
     await repo.updateRootSortRun(ORG_A, run.id, ['applying'], { status: 'applied' })
@@ -440,18 +427,14 @@ describe.skipIf(!url)('root_sort_runs against Postgres', () => {
     const progressOf = async () => (await repo.findRootSortRun(ORG_A, run.id))?.progressDone
     await repo.recordRootSortProgress(ORG_A, run.id, { status: 'judging', cursor: 0 }, 60)
     expect(await progressOf()).toBe(60)
-    // A chunk that finished out of order writes a smaller count: it is kept at the larger.
     await repo.recordRootSortProgress(ORG_A, run.id, { status: 'judging', cursor: 0 }, 30)
     expect(await progressOf()).toBe(60)
-    // A slice the runner gave up on (it read cursor 0, the run is at 180 now) writes nothing.
     await repo.updateRootSortRun(ORG_A, run.id, ['judging'], { cursor: 180, progressDone: 180 })
     await repo.recordRootSortProgress(ORG_A, run.id, { status: 'judging', cursor: 0 }, 400)
     expect(await progressOf()).toBe(180)
-    // Nor does a write for a step the run has left.
     await repo.updateRootSortRun(ORG_A, run.id, ['judging'], { status: 'applying', cursor: 0, progressDone: 0 })
     await repo.recordRootSortProgress(ORG_A, run.id, { status: 'judging', cursor: 0 }, 400)
     expect(await progressOf()).toBe(0)
-    // The column refuses a negative count.
     const refused = await refusal(() => repo.updateRootSortRun(ORG_A, run.id, ['applying'], { progressDone: -1 }))
     expect(pgError(refused)).toMatchObject({ code: '23514', constraint_name: 'root_sort_runs_progress_done_check' })
     await repo.updateRootSortRun(ORG_A, run.id, ['applying'], { status: 'applied' })
@@ -465,7 +448,6 @@ describe.skipIf(!url)('root_sort_runs against Postgres', () => {
       db.execute(sql`insert into bff_job_queue (job_id, kind, lane) values (${jobId}, 'root_sort', ${ORG_A})`)
     )
     expect(await repo.isRootSortJobWaiting(ORG_A, jobId)).toBe(true)
-    // Another organization does not see this lane's job.
     expect(await repo.isRootSortJobWaiting(ORG_B, jobId)).toBe(false)
     await withPlatformAccess('test: claim it', () =>
       db.execute(sql`update bff_job_queue set status = 'claimed', claimed_by = 'w1', claimed_at = now(), heartbeat_at = now() where job_id = ${jobId}`)

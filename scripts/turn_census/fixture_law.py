@@ -45,18 +45,41 @@ def territory_of(federal_state: str | None) -> str:
     return TERRITORY_OF_STATE.get(federal_state or "", DEFAULT_TERRITORY)
 
 
+#: The key a turn-context answer states its site under, when the question names one (a golden case's territory).
+SITE = "site_territory"
+
+
 def with_law(answer: dict[str, Any], project: dict[str, Any] | None = None) -> dict[str, Any]:
-    """A turn-context answer with the ``knowledgeContext`` of ``project``'s Land in its data."""
-    territory = territory_of(((project or {}).get("facts") or {}).get("federal_state"))
-    data = {**answer.get("data", {}), **_law()[territory]}
-    return {**answer, "data": data}
+    """A turn-context answer with the ``knowledgeContext`` of its site in its data.
+
+    The site is the one the answer states (:data:`SITE`, a golden case's territory), else ``project``'s Land.
+    A stated site the fixture holds no law for, or none at all, gets no law: the turn then reads none.
+    """
+    rest = {key: value for key, value in answer.items() if key != SITE}
+    if SITE in answer:
+        law = _law().get(str(answer[SITE]), {})
+    else:
+        law = _law()[territory_of(((project or {}).get("facts") or {}).get("federal_state"))]
+    return {**rest, "data": {**answer.get("data", {}), **law}}
 
 
 class _LawOnly:
-    """The norm set's turn context: no project, no memory; ``FixtureBFF`` adds Vienna's law (``fixture_law.py``)."""
+    """The norm sets' turn context: no project, no memory; ``FixtureBFF`` adds the law of the site (``fixture_law.py``).
+
+    Vienna's unless the question stated its own site (``territory``, a golden case's), which :meth:`place` records.
+    """
+
+    def __init__(self) -> None:
+        self._sites: dict[str, str | None] = {}
+
+    def place(self, conversation: str, territory: str | None) -> None:
+        self._sites[conversation] = territory
 
     def turn_context(self, conversation: str | None) -> dict[str, Any]:
-        return {"data": {"projectContext": None, "projectMemory": None, "orgInstructions": None}}
+        answer: dict[str, Any] = {"data": {"projectContext": None, "projectMemory": None, "orgInstructions": None}}
+        if conversation in self._sites:
+            answer[SITE] = self._sites[conversation]
+        return answer
 
 
 def start_law_bff(out: Path, envelope: Callable[..., tuple[str, str]]) -> tuple[Any, Any]:
@@ -72,9 +95,12 @@ def start_law_bff(out: Path, envelope: Callable[..., tuple[str, str]]) -> tuple[
     from fixture_bff import FixtureBFF
 
     token = secrets.token_hex(16)
-    bff = FixtureBFF(token, out / "requests.jsonl", workspace=_LawOnly()).start()
+    workspace = _LawOnly()
+    bff = FixtureBFF(token, out / "requests.jsonl", workspace=workspace).start()
 
     def env_for(conversation_id: str, question: dict) -> dict[str, str]:
+        if "territory" in question:
+            workspace.place(conversation_id, question["territory"])
         office = {"organizationId": "org_suite_vienna", "userId": "user_suite"}
         header, signature = envelope(office, conversation_id, token, {"id": None})
         return {

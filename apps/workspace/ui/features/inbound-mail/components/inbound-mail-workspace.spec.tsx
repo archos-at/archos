@@ -1,11 +1,3 @@
-/**
- * Dateien › E-Mail-Eingang: the list beside the open mail, its states, the
- * keyboard (J/K walk, X selects, Enter opens, ⌫ asks to dismiss the
- * selection), „Bereit“ and „Braucht Sie“, and filing as suggested, by one
- * row's press, the „Bereit“ heading, a thread group or a selection: one rule
- * for all of them, only for complete mails, never for an impersonation.
- */
-
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import userEvent from '@testing-library/user-event'
 
@@ -116,7 +108,6 @@ describe('InboundMailWorkspace', () => {
     const file = vi.spyOn(client, 'file')
     const press = screen.getByTestId('thread-group-file')
     expect(press).toHaveTextContent('File the first 20 as revisions 4–23')
-    // The section is this one thread: its press would file the same mails, so only the thread's is offered.
     expect(screen.queryByTestId('readiness-file-all')).toBeNull()
     await userEvent.click(press)
     await userEvent.click(await screen.findByTestId('bulk-file-confirm'))
@@ -130,10 +121,8 @@ describe('InboundMailWorkspace', () => {
     expect(screen.getByTestId('readiness-needs_you')).toHaveTextContent('Needs you4')
     const nameStop = screen.getByTestId(`inbound-mail-row-${DETAIL_VARIANTS['name-stop'].view.id}`)
     expect(within(nameStop).getByTestId('inbound-mail-row-reason')).toHaveTextContent('Check an attachment')
-    // The server's first reason: the Statik the sender cannot vouch for as the next Fassung comes before the thread.
     const unvouched = screen.getByTestId(`inbound-mail-row-${DETAIL_VARIANTS['unverified-thread'].view.id}`)
     expect(within(unvouched).getByTestId('inbound-mail-row-reason')).toHaveAttribute('data-reason', 'needs_person')
-    // The forged mail says its stop in red instead, and is never one press away.
     const forged = screen.getByTestId(`inbound-mail-row-${DETAIL_VARIANTS['impersonation-colleague'].view.id}`)
     expect(within(forged).queryByTestId('inbound-mail-row-reason')).toBeNull()
     expect(within(forged).queryByTestId('inbound-mail-row-file')).toBeNull()
@@ -147,7 +136,6 @@ describe('InboundMailWorkspace', () => {
     expect(claimed).toHaveAttribute('data-reason', 'claimed')
     expect(claimed).toHaveTextContent('Waiting for Miriam Huber')
     expect(within(screen.getByTestId('readiness-others')).getByText('Waiting for others')).toBeInTheDocument()
-    // The forgery stays where the reader acts on it: dismissing it is theirs to do.
     expect(screen.getByTestId('readiness-needs_you')).toBeInTheDocument()
     expect(within(row('not-filed')).getByTestId('inbound-mail-row-reason')).toHaveTextContent('Not filed directly · Choose a folder')
     unmount()
@@ -215,7 +203,6 @@ describe('InboundMailWorkspace', () => {
   it('teaches the address when nothing ever arrived, and says „all done“ otherwise', async () => {
     renderWorkspace('empty')
     expect(await screen.findByTestId('inbound-mail-never')).toHaveTextContent('No mail to this project yet')
-    // Never used, the page is about the address: it stands in the empty list with one press that copies it.
     expect(await screen.findByTestId('inbound-mail-address')).toHaveTextContent('project+bauplatz-12.k3x7q2m9p4ab@inbox.example.org')
     expect(screen.getByTestId('address-copy')).toBeInTheDocument()
   })
@@ -236,7 +223,6 @@ describe('InboundMailWorkspace', () => {
     fireEvent.keyDown(window, { key: 'j' })
     const row = await screen.findByTestId(`inbound-mail-row-${id}`)
     expect(row).toHaveAttribute('data-focused', 'true')
-    // The keyboard's row wears the kit's cursor ring (`Item`), not a bar down its leading edge.
     expect(row).toHaveAttribute('data-cursor', 'true')
     expect(row.querySelector('[aria-hidden].absolute.left-0')).toBeNull()
     fireEvent.keyDown(window, { key: 'x' })
@@ -270,7 +256,6 @@ describe('InboundMailWorkspace', () => {
     expect(within(row).getByTestId('inbound-mail-row-impersonation')).toHaveTextContent('Poses as Miriam Huber · do not file')
     const other = screen.getByTestId(`inbound-mail-row-${DETAIL_VARIANTS['member-verified'].view.id}`)
     expect(within(other).getByTestId('inbound-mail-row-checkbox')).toBeInTheDocument()
-    // Walk to it with J and press X: nothing is selected.
     for (let step = 0; step < 10 && row.dataset.focused !== 'true'; step += 1) {
       fireEvent.keyDown(window, { key: 'j' })
       await waitFor(() => expect(screen.getAllByTestId(/^inbound-mail-row-/).some((candidate) => candidate.dataset.focused === 'true')).toBe(true))

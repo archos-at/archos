@@ -1,16 +1,5 @@
 'use client'
 
-/**
- * The read side of the Budgets card (`app/app/(shell)/organization/
- * budget-usage-card.tsx`): the two meters, the 30-day trend and the model mix,
- * drawn from one `UsageResponse`. Split out so the platform's per-organization
- * view (`app/app/(shell)/platform/organizations/[id]`) shows an office exactly
- * the charts the office sees, from the same component, rather than a lookalike
- * that drifts on the first retune. Why each chart has the form it has is the
- * card's module note; the palette is the token block at the end of
- * `globals.css`, scoped by `spend-viz`.
- */
-
 import { type FC, type ReactNode, useMemo } from 'react'
 import { AlertTriangle } from 'lucide-react'
 
@@ -28,7 +17,6 @@ import { BudgetMeter } from './budget-meter'
 export type BudgetUnit = 'credit' | 'token'
 
 export interface SpendWindow {
-  /** In the organization's unit (`UsageResponse.unit`). */
   amount: number
   events: number
 }
@@ -45,30 +33,23 @@ export interface MemberSpend {
   month: SpendWindow
 }
 
-/** What `/api/organization/usage` (and the platform's per-organization twin) answers. */
 export interface UsageResponse {
   unit: BudgetUnit
   summary: { day: SpendWindow; month: SpendWindow; perModel: ModelSpend[] }
   perMember: MemberSpend[] | null
   orgBudget: { dailyLimit: number | null; monthlyLimit: number | null; explicit: boolean }
   status: { blocked: boolean; blockedScope: string | null }
-  /** 30-day daily series — present for budget admins only. */
   dailyTrend?: Array<{ day: string } & SpendWindow> | null
 }
 
-/** Documented categorical slots in `globals.css`. The 9th model folds to Other. */
 const SPEND_SLOT_COUNT = 8
 const OTHER_KEY = '__other__'
 
-/** The one gap width in this card — segment separation is negative space. */
 const SEGMENT_GAP_CLASS = 'border-r-2 border-card last:border-r-0'
 
-/** One model's spend in both windows, in the organization's unit. */
 interface ModelSeries {
   key: string
-  /** Empty for the folded tail — the renderer supplies the translated label. */
   label: string
-  /** 1-based palette slot; the folded tail sorts after every real slot. */
   slot: number
   colorVar: string
   dayAmount: number
@@ -77,20 +58,13 @@ interface ModelSeries {
   monthEvents: number
 }
 
-/** Palette order — what the bar stacks in, because adjacency is validated. */
 const bySlot = (a: ModelSeries, b: ModelSeries): number => a.slot - b.slot
-/** Reading order — what the table lists in; rows don't touch, so rank is free. */
 const byMonthSpend = (a: ModelSeries, b: ModelSeries): number => {
   if (a.key === OTHER_KEY) return 1
   if (b.key === OTHER_KEY) return -1
   return b.monthAmount - a.monthAmount
 }
 
-/**
- * Slot assignment is alphabetical by model id and happens BEFORE any filtering,
- * so a model that spent nothing today still owns its color for the month bar —
- * the two windows never disagree about what blue means.
- */
 function buildModelSeries(perModel: ModelSpend[]): ModelSeries[] {
   const byModelId = [...perModel].sort((a, b) => a.model.localeCompare(b.model))
   const series: ModelSeries[] = []
@@ -134,12 +108,6 @@ function buildModelSeries(perModel: ModelSpend[]): ModelSeries[] {
   return series
 }
 
-/**
- * Part-to-whole across models for the month. Full width so a 3% model is still
- * a slice you can aim at; 2px of card colour between fills rather than a stroke
- * around them, because a border is ink that isn't data. Hit target is the whole
- * segment including its gap, and the values it shows also live in the table.
- */
 const CompositionBar: FC<{
   segments: ModelSeries[]
   total: number
@@ -186,11 +154,6 @@ const CompositionBar: FC<{
   )
 }
 
-/**
- * The table twin of the composition bar: legend, table view and contrast relief
- * in one object. Values are tabular because they are a column; the swatch beside
- * the name is what carries identity, never coloured text.
- */
 const SpendTable: FC<{
   segments: ModelSeries[]
   otherLabel: string
@@ -261,8 +224,6 @@ const SpendTable: FC<{
   )
 }
 
-/** Right-aligned mini stat with its own micro-label — table headers can't get
- * lost when rows stack on mobile. */
 export const Stat: FC<{ label: string; children: ReactNode }> = ({ label, children }) => (
   <div className="flex min-w-14 flex-col items-end">
     <SectionLabel>{label}</SectionLabel>
@@ -285,21 +246,14 @@ export const UsageSkeleton: FC = () => (
   </div>
 )
 
-/** The organization's unit, and every way this surface writes an amount in it. */
 export interface SpendFormat {
   onOwnKey: boolean
-  /** The number alone, for a column whose header names the unit. */
   formatBare: (value: number) => string
-  /** The number with its unit: "1.234 Credits". */
   amountLabel: (value: number) => string
   requestsLabel: (count: number) => string
   unitWord: string
 }
 
-/**
- * One unit per organization, decided by the server: tokens on an own key,
- * credits otherwise. Every number on the card goes through this.
- */
 export function useSpendFormat(unit: BudgetUnit): SpendFormat {
   const t = useTranslations(organizationCopy)
   const { locale } = useLocale()
@@ -318,22 +272,15 @@ export function useSpendFormat(unit: BudgetUnit): SpendFormat {
   }, [unit, locale, t])
 }
 
-/**
- * Jobs 1–3 of the card: is the office about to be cut off, is it getting
- * worse, and where does the spend go. Renders inside a `TooltipProvider` and a
- * `spend-viz` scope, which the caller owns.
- */
 export const UsageOverviewView: FC<{ usage: UsageResponse }> = ({ usage }) => {
   const t = useTranslations(organizationCopy)
   const { onOwnKey, amountLabel, requestsLabel } = useSpendFormat(usage.unit)
 
   const modelSeries = useMemo(() => buildModelSeries(usage.summary.perModel), [usage])
-  /** Only models that actually spent this month can be a slice of it. */
   const monthSeries = useMemo(
     () => modelSeries.filter((series) => series.monthAmount > 0),
     [modelSeries]
   )
-  /** Stacked in palette order; listed in spend order. See the card's module note. */
   const monthStack = useMemo(() => [...monthSeries].sort(bySlot), [monthSeries])
   const monthRanked = useMemo(() => [...monthSeries].sort(byMonthSpend), [monthSeries])
   const monthTotal = monthSeries.reduce((sum, series) => sum + series.monthAmount, 0)
@@ -341,8 +288,6 @@ export const UsageOverviewView: FC<{ usage: UsageResponse }> = ({ usage }) => {
   return (
     <>
       {usage.status.blocked && (
-        // A sentence, not a badge: a badge cannot wrap, and this one ran
-        // 25px past the card on a phone.
         <Alert variant="destructive" data-testid="budget-blocked">
           <AlertTriangle aria-hidden />
           <AlertDescription>{t('budgets.overLimit')}</AlertDescription>

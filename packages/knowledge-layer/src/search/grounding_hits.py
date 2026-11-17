@@ -19,6 +19,8 @@ logger = logging.getLogger(__name__)
 # mid-table, losing rows the LLM needs to quote. Set to 2500 to keep most table
 # rows intact within one chunk. Value chosen as a named constant (#no-magic).
 _CHUNK_TRUNCATE_CHARS = 2500
+#: The same bound, public: what a producer outside the package (the law lookup) cuts a passage to.
+PASSAGE_MAX_CHARS = _CHUNK_TRUNCATE_CHARS
 
 
 def _hit_provenance(chunk):

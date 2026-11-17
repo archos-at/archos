@@ -1,21 +1,5 @@
 'use client'
 
-/**
- * The two tables an architect already keeps by hand, and the facts a model can
- * fill into the project brief.
- *
- * Everything else on the model page answers "what is in this file". These three
- * answer "what do I do with it": a Raumbuch goes into the Einreichung, a
- * Massenermittlung into the Kostenschätzung, and the derived facts into the
- * brief every later compliance answer is computed from.
- *
- * All three follow one rule: **a number that is missing is shown as missing.**
- * The room count next to a floor-area total is not decoration — it is the
- * difference between a total you can submit and one that quietly excludes four
- * rooms whose area the model never published. Every total here states how many
- * rows it could not see.
- */
-
 import type { JSX } from 'react'
 import { useMemo, useState } from 'react'
 import { AlertTriangle, Download, Ruler, Sparkles, Table2 } from 'lucide-react'
@@ -43,15 +27,6 @@ import {
   type BimRoomSchedule,
 } from '@/lib/bim/schedule'
 
-/**
- * A failure with a way out.
- *
- * Every panel here used to render one red sentence and stop. The drawer's tab
- * state is sticky, so switching away and back does not refetch and the only
- * recovery was closing the whole stage — which nothing suggested. The stage's
- * own comment states the rule: "Every error state in this viewer used to be
- * terminal."
- */
 function PanelError({ text, onRetry }: { text: string; onRetry?: () => void }): JSX.Element {
   const t = useTranslations(bimCopy)
   return (
@@ -66,10 +41,8 @@ function PanelError({ text, onRetry }: { text: string; onRetry?: () => void }): 
   )
 }
 
-/** Rows shown before the panel folds; a 400-room model must not own the page. */
 const VISIBLE_ROOMS = 60
 
-/** Take-off groups shown before the table folds. */
 const VISIBLE_TAKEOFF_ROWS = 40
 
 function useNumberFormat(): (value: number | null, digits?: number) => string {
@@ -81,28 +54,13 @@ function useNumberFormat(): (value: number | null, digits?: number) => string {
   }, [locale])
 }
 
-// ---------------------------------------------------------------------------
-// Raumbuch
-// ---------------------------------------------------------------------------
-
 export interface IfcRoomScheduleProps {
-  /**
-   * The query read only part of the building.
-   *
-   * Load-bearing on this surface: the `Gesamt` row is a building total, and
-   * over a capped room list it is a partial sum labelled as a complete one —
-   * a Flächenaufstellung that can go into an Einreichung. The file's own
-   * header says "every total here states how many rows it could not see"; it
-   * stated `roomsWithoutArea` and not this.
-   */
   truncated?: boolean
   schedule: BimRoomSchedule | null
   isLoading: boolean
   error: string | null
-  /** Re-runs the query behind this panel — see `PanelError`. */
   onRetry?: () => void
   filename: string
-  /** Selecting a row selects the room everywhere else on the page. */
   onSelect?: (globalId: string) => void
   selectedGlobalId?: string | null
 }
@@ -123,12 +81,6 @@ export function IfcRoomSchedule({
 
   const download = (): void => {
     if (!schedule) return
-    // Built in the browser from the rows on screen, so the file and the table
-    // cannot disagree — and a BOM, because Excel reads a UTF-8 CSV without one
-    // as Latin-1 and turns every "Grundfläche" into "GrundflÃ¤che".
-    // `truncated` travels into the file: the banner above the table says the
-    // sums are not building figures, and the downloaded version was the one
-    // copy of this Flächenaufstellung with no warning on it.
     const blob = new Blob([`\uFEFF${roomScheduleToCsv(schedule, { truncated })}`], {
       type: 'text/csv;charset=utf-8',
     })
@@ -202,17 +154,6 @@ export function IfcRoomSchedule({
                 </tr>
               </thead>
               {schedule.storeys.map((storey) => {
-                /**
-                 * A storey is never dropped, only its rooms are.
-                 *
-                 * The budget used to cut the map itself: once 60 rooms had
-                 * been rendered every later storey returned `null` — heading,
-                 * rooms AND `Summe Geschoß` all gone — while the `Gesamt` row
-                 * below still counted them. A reader adding the visible
-                 * subtotals got a number that did not reach the total, with
-                 * nothing on screen naming the missing floors, and an expand
-                 * button that reads as "more rows in the storeys I can see".
-                 */
                 const visible = expanded
                   ? storey.rooms
                   : storey.rooms.slice(0, Math.max(0, VISIBLE_ROOMS - rendered))
@@ -247,9 +188,9 @@ export function IfcRoomSchedule({
                         onClick={onSelect ? () => onSelect(room.globalId) : undefined}
                         className={`border-t ${
                           onSelect
-                            ? 'cursor-pointer transition-colors duration-quick ease-out hover:bg-muted motion-reduce:transition-none'
+                            ? 'cursor-pointer transition-colors duration-quick ease-out hover:bg-hover motion-reduce:transition-none'
                             : ''
-                        } ${room.globalId === selectedGlobalId ? 'bg-muted' : ''}`}
+                        } ${room.globalId === selectedGlobalId ? 'bg-selected hover:bg-selected' : ''}`}
                       >
                         <td className="px-2 py-1">
                           {/*
@@ -269,9 +210,6 @@ export function IfcRoomSchedule({
                             <button
                               type="button"
                               onClick={(event) => {
-                                // The row's handler would fire again otherwise
-                                // — harmless today, and a re-selection loop the
-                                // first time the row handler does more.
                                 event.stopPropagation()
                                 onSelect(room.globalId)
                               }}
@@ -347,28 +285,16 @@ export function IfcRoomSchedule({
   )
 }
 
-// ---------------------------------------------------------------------------
-// Massenermittlung
-// ---------------------------------------------------------------------------
-
 export interface IfcQuantityTakeoffProps {
-  /** The query read only part of the building — see the Raumbuch's note. */
   truncated?: boolean
   rows: BimQuantityRow[] | null
   isLoading: boolean
   error: string | null
-  /** Re-runs the query behind this panel — see `PanelError`. */
   onRetry?: () => void
   quantity: string
   onQuantityChange: (quantity: string) => void
   byMaterial: boolean
   onByMaterialChange: (byMaterial: boolean) => void
-  /**
-   * The unit symbols the MODEL declares, so the value column can say what it
-   * is counting. Absent ones stay absent rather than defaulting to `m²`: a
-   * file that declares no AREAUNIT publishes raw model values, and labelling
-   * those is worse than leaving them bare.
-   */
   units: { area: string; volume: string; length: string }
 }
 
@@ -386,20 +312,9 @@ export function IfcQuantityTakeoff({
 }: IfcQuantityTakeoffProps): JSX.Element {
   const t = useTranslations(bimCopy)
   const format = useNumberFormat()
-  // The name and the unit of the quantity on screen. A Massenermittlung that
-  // says `NetSideArea · 412` cannot be read into a Kostenschätzung; one that
-  // says `Netto-Seitenfläche · 412 m²` can.
   const quantityUnit = units[BIM_TAKEOFF_DIMENSION[quantity] ?? 'area'] ?? ''
   const incomplete = (rows ?? []).reduce((sum, row) => sum + row.missing, 0)
   const [expandedRows, setExpandedRows] = useState(false)
-  /**
-   * The only table on this surface that had no cap.
-   *
-   * Grouped by type it is fifty rows; with "nach Material trennen" the group
-   * key is `type · material`, which on real material strings runs to thousands
-   * of distinct groups — every one of them rendered, in a 26 rem drawer.
-   * Everything else here caps (300, 60, 25, 8) and says what it left out.
-   */
   const visibleRows = expandedRows ? (rows ?? []) : (rows ?? []).slice(0, VISIBLE_TAKEOFF_ROWS)
 
   return (
@@ -522,22 +437,11 @@ export function IfcQuantityTakeoff({
   )
 }
 
-// ---------------------------------------------------------------------------
-// Derived project facts
-// ---------------------------------------------------------------------------
-
 export interface IfcProfileSuggestionsProps {
   suggestions: BimProfileSuggestion[] | null
   isLoading: boolean
   error: string | null
-  /** Re-runs the query behind this panel — see `PanelError`. */
   onRetry?: () => void
-  /** Opens the chat with a question that asks the agent to apply these. */
-  /**
-   * Where "übernehmen" asks the question, or `null` when there is no project
-   * to ask it in (the Archiv). The suggestions are still worth reading — they
-   * are facts about the model — so the panel stays and only the button goes.
-   */
   askHref: string | null
 }
 

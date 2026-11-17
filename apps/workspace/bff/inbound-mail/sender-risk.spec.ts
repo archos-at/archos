@@ -1,10 +1,3 @@
-/**
- * What a sender asks of the person before filing (C2, RT-X6), written once:
- * the decision refuses by it, the views carry it, the suggest job skips by it.
- * The C2 table below is the one the E-Mail-Eingang used to restate in the
- * browser; it now pins the server's function.
- */
-
 import { describe, expect, it } from 'vitest'
 import type { SenderFlag, SenderReason, SenderTrust } from './inbound-mail-vocabulary'
 import { claimsMemberName, impersonationOf, senderNeedsAcknowledgement, senderRiskLevel, type SenderFacts } from './sender-risk'

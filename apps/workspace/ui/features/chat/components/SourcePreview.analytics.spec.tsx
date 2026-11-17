@@ -28,10 +28,6 @@ const ref = (overrides: Partial<CitationSource>, locusKeySuffix = ''): CitationR
   return { document, locus: locus && locusKeySuffix ? { ...locus, key: `${locus.key}${locusKeySuffix}` } : locus }
 }
 
-/**
- * `citation_opened` is the step from an answer to its evidence: counted when
- * the viewer is actually showing, as an enum and a flag, never a name.
- */
 describe('SourceDocumentDialog analytics', () => {
   beforeEach(() => {
     vi.mocked(capturePosthog).mockClear()

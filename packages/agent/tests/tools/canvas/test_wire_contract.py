@@ -1,16 +1,3 @@
-"""The canvas wire, validated against the schemas the contract lives in.
-
-ADR-0055 read from this side: there is no Pydantic twin of a request body. The
-Anmerkungen ops are ``apps/workspace/tests/fixtures/document-annotations.schema.json``,
-serialised from ``lib/annotations/types.ts``; the room ops are
-``tests/fixtures/canvas/room-ops.schema.json``, the contract as agreed with the
-BFF until it exports them too. What this file asserts is that the bodies the
-tools really build validate against those, so a field renamed on the TS side
-fails here rather than as a 400 the reader sees as „Piloti konnte keine
-Anmerkung setzen“. Every op runs through the tool itself, because a literal dict
-would be a second description of the contract.
-"""
-
 from __future__ import annotations
 
 import json
@@ -66,13 +53,11 @@ def annotations() -> dict[str, Any]:
 
 
 def _validator(schema: dict[str, Any], name: str) -> Draft202012Validator:
-    """A validator for one named definition, resolving ``$ref`` against the whole file, formats asserted."""
     return Draft202012Validator({**schema["$defs"][name], "$defs": schema["$defs"]}, format_checker=FormatChecker())
 
 
 @pytest.mark.parametrize("name", ANNOTATION_DEFS)
 def test_the_fixture_is_where_the_contract_lives(annotations: dict[str, Any], name: str) -> None:
-    """A guard on the guard: a renamed or moved definition must fail loudly, not silently pass."""
     assert name in annotations["$defs"]
 
 
@@ -90,7 +75,6 @@ def test_the_fixture_is_where_the_contract_lives(annotations: dict[str, Any], na
     ],
 )
 def test_the_answers_these_tests_fake_are_the_routes_own(annotations, name, body) -> None:
-    """The fakes would otherwise drift from the route and test a shape it never sends."""
     _validator(annotations, name).validate(body)
 
 
@@ -139,7 +123,6 @@ async def test_update_validates_by_id_and_by_number(annotations, monkeypatch, ca
     by_number, by_id = calls[1][0], calls[2][0]
     for payload in (by_number, by_id):
         _validator(annotations, "InternalAnnotationRequest").validate(payload)
-    # Looked up by number, the mark is changed only if it still stands as it was read.
     assert by_number["expectedStatus"] == "open" and "expectedStatus" not in by_id
 
 

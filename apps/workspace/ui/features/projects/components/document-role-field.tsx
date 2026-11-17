@@ -1,23 +1,5 @@
 'use client'
 
-/**
- * Bind a document to a role, from inside the wizard.
- *
- * What this replaces was a `<Link>` to the Files page dressed as an upload
- * control: the question said "Bebauungsplan ablegen", the click navigated away,
- * and nothing about the project ever recorded which file that was. The known
- * issue in the handover package ("B-Plan-Upload funktioniert nicht") was not a
- * broken upload — there was no upload.
- *
- * Two ways in, because architects arrive in both states: the file is already in
- * the project (pick it) or it is on their machine (drop it, and the binding is
- * made when ingestion accepts it).
- *
- * An upload from here is an upload like any other (ADR-0086): it opens a batch
- * before the first file goes and seals it after the last, so the uploader gets
- * the same inbox notice and summary, and the project's history lists it.
- */
-
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { Camera, CheckCircle2, FileText, Loader2, Paperclip, Upload, X } from 'lucide-react'
 import { toast } from 'sonner'
@@ -56,19 +38,12 @@ import type { PendingRoleBind } from '../lib/pending-role-binds'
 interface DocumentRoleFieldProps {
   projectId: string
   role: DocumentRole
-  /** The building this binding belongs to, for a `building` role. */
   scopeInstanceId?: string | null
-  /** Rendered above the control; the question supplies its own label. */
   label?: string
-  /**
-   * The building is not saved yet (`pending-role-binds`): a choice is held by
-   * the wizard and made on its save, instead of being refused by the server.
-   */
   deferred?: {
     pending: readonly PendingRoleBind[]
     onDefer: (documentId: string, filename: string) => void
     onDiscard: (bind: PendingRoleBind) => void
-    /** Hands an upload to the wizard, whose save waits for it (`createUploadTracker`). */
     track: (work: Promise<unknown>) => void
   }
 }
@@ -100,14 +75,6 @@ export function DocumentRoleField({
     [bindings, role, scopeInstanceId]
   )
 
-  /**
-   * Run an action and surface a rejection.
-   *
-   * `bind`, `unbind` and `uploadAndBind` were every one of them invoked with a
-   * bare `void`, so a network error or a malformed response rejected into
-   * nothing: the upload flow could leave a file uploaded and unbound while the
-   * UI reported no failure at all.
-   */
   const run = useCallback(
     (action: Promise<void>) => {
       void action.catch(() => toast.error(tRole('actionFailed')))
@@ -123,7 +90,6 @@ export function DocumentRoleField({
           documentId,
           filename ?? (known ? documentLabel({ displayName: known.displayName ?? null, filename: known.filename }) : documentId)
         )
-        // The upload is a real document now, and the picker should offer it.
         await refresh({ afterWrite: true })
         return
       }
@@ -134,19 +100,11 @@ export function DocumentRoleField({
           ;({ replaced } = await bindDocumentRole(projectId, { documentId, role, scopeInstanceId }))
         } catch (error) {
           if (!(error instanceof DocumentRoleRequestError)) throw error
-          // The envelope's `error` is English and for the log; the toast says
-          // it in the reader's language (`i18n/raw-error-copy.spec.ts`).
           console.warn('[document-role] binding refused:', error.status, error.body)
           toast.error(tRole('bindFailed'))
-          // The upload may have succeeded even though the binding did not.
-          // Returning without refreshing left the new file out of `documents`,
-          // so this mounted field could not offer it for a retry.
           await refresh({ afterWrite: true })
           return
         }
-        // A single-holder role displaces whatever held it. Naming the document
-        // that stopped being the Bebauungsplan is the whole reason the service
-        // returns it rather than swallowing the replacement.
         for (const previous of replaced) {
           toast.info(tRole('replaced', { name: documentLabel(previous), role: definition.label }))
         }
@@ -183,11 +141,6 @@ export function DocumentRoleField({
       if (list.length === 0) return
       setBusy(true)
       try {
-        // The office's name screen, before a byte leaves (ADR-0086): a file it
-        // holds back is not sent, exactly as on the Files page. The server
-        // repeats the check, but only after the bytes have arrived. The file
-        // lands at the project root, so its name is all there is to screen.
-        // A policy that cannot be read sends nothing.
         let policy: UploadScreeningPolicy
         try {
           policy = await loadUploadScreeningPolicy()
@@ -201,7 +154,6 @@ export function DocumentRoleField({
           if (verdict.blocked) screenedOut.push({ file, matches: verdict.matches })
           return !verdict.blocked
         })
-        // Null: no summary, and the upload goes ahead regardless.
         const batchId =
           allowed.length > 0
             ? await openUploadBatch({
@@ -215,11 +167,7 @@ export function DocumentRoleField({
             : null
         let unchanged = 0
         let failed = 0
-        // Stopped by the server's repeat of the name check (422): not uploaded,
-        // like the stops above, and counted by term, not as failures (ADR-0086).
         const serverStopped: Array<{ file: File; matches: NameMatch[] }> = []
-        // Files whose upload answered, so a request that threw leaves the
-        // rest counted as not arrived when the batch is sealed.
         let answered = 0
         try {
           for (const file of allowed) {
@@ -242,8 +190,6 @@ export function DocumentRoleField({
             const body = (await response.json()) as { documentId?: string; unchanged?: boolean }
             if (body.unchanged) unchanged += 1
             const documentId = body.documentId
-            // No id means the upload succeeded but we cannot name what to bind.
-            // Say so rather than reporting a binding that does not exist.
             if (!documentId) {
               toast.error(tRole('uploadedUnbound', { name: file.name }))
               continue
@@ -269,8 +215,6 @@ export function DocumentRoleField({
     [bind, projectId, tFiles, tRole]
   )
 
-  // An upload for a building not saved yet binds when it answers; the wizard's
-  // save waits for it, so a quick „Speichern“ cannot leave the file unbound.
   const upload = useCallback(
     (files: FileList | File[]) => {
       const work = uploadAndBind(files)
@@ -280,11 +224,6 @@ export function DocumentRoleField({
     [deferred, run, uploadAndBind]
   )
 
-  // A slot that holds one document takes one file. Binding all of them made
-  // each replace the last, silently keeping only the final file; now the
-  // reader is told which one was taken. Refused while a write is in flight:
-  // the other controls are disabled, and two overlapping writes to a
-  // single-holder slot leave whichever finishes LAST as the holder.
   const takeDrop = useCallback(
     (dropped: File[]) => {
       if (dropped.length === 0) return
@@ -407,7 +346,7 @@ export function DocumentRoleField({
         />
         <Button
           type="button"
-          variant="outline"
+          variant="secondary"
           size="sm"
           disabled={busy}
           onClick={() => inputRef.current?.click()}
@@ -440,7 +379,7 @@ export function DocumentRoleField({
         />
         <Button
           type="button"
-          variant="outline"
+          variant="secondary"
           size="sm"
           disabled={busy}
           className="pointer-fine:hidden"

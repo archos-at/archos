@@ -1,17 +1,3 @@
-/**
- * Sign-in entry route.
- *
- * Regression cover for the RSC cookie-write bug: /?sign-in used to resolve
- * the AuthKit authorization URL inside the root page's Server Component
- * render — where cookies().set() is forbidden — and every visit threw into
- * the app-wide error boundary instead of reaching WorkOS. The page now only
- * redirects here; this handler performs the actual sign-in initiation in a
- * Route Handler, the context where AuthKit's PKCE cookie write is legal.
- *
- * It is also where the proxy sends a navigation that AuthKit's own middleware
- * redirected without a verifier cookie, carrying the page to come back to.
- */
-
 import { describe, test, expect, vi, beforeEach } from 'vitest'
 import { NextRequest } from 'next/server'
 

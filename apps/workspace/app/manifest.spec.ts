@@ -2,14 +2,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The installed app's chrome agrees with itself: the manifest, the
- * `theme-color` meta and the paper token are one colour, and iOS gets the
- * standalone metadata it reads from `<head>` rather than from the manifest.
- *
- * The manifest once carried an olive (`#2a301f`) that matched no token, so an
- * installed Piloti opened with a dark title band over a light app.
- */
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, test, vi } from 'vitest'
@@ -38,9 +30,6 @@ describe('installed app chrome', () => {
   })
 
   test('THEME_COLOR is still the --background token of each theme', () => {
-    // The app's layer ("Paper on a desk", the last block of the file) sets --background to var(--paper)
-    // over the brand's surface, so the cascade's answer is the last --background and the --paper of each
-    // theme. `theme-boot.ts` states the contract.
     const tokens = readFileSync(join(__dirname, '..', 'ui', 'styles', 'tokens.css'), 'utf8')
     const backgrounds = [...tokens.matchAll(/^\s*--background:\s*([^;]+);/gm)].map((m) => m[1].trim())
     const papers = [...tokens.matchAll(/^\s*--paper:\s*(#[0-9a-f]{6});/gim)].map((m) => m[1])
@@ -50,7 +39,6 @@ describe('installed app chrome', () => {
   })
 
   test('the light paper is the brand\u2019s surface (the corporate design), so the installed app opens on the brand ground', () => {
-    // Round 3 darkened the paper to #f6f5f3 and the pilot offices saw the app drift off the brand (2026-11-10).
     const brand = readFileSync(join(__dirname, '..', 'shared', 'brand', 'tokens.vars.css'), 'utf8')
     expect(THEME_COLOR.light).toBe(/--ds-surface:\s*(#[0-9a-f]{6});/.exec(brand)?.[1])
   })

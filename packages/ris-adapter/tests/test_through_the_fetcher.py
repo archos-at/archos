@@ -1,12 +1,3 @@
-"""RIS is read through the public-source fetcher, and from nowhere else (ADR-0162 amendment).
-
-The request RIS sees is the one ``RisClient`` builds (URL, query, order), made
-from the fetcher's pod; without a fetcher configured a RIS request is refused,
-because there is no in-process path any more. What the fetcher guards (hosts at
-every hop, public addresses only, a DNS answer that changes) is tested in
-``packages/public-sources/tests/test_egress.py``, where the guard runs.
-"""
-
 from __future__ import annotations
 
 import httpx

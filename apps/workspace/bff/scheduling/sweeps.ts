@@ -9,6 +9,7 @@
  */
 
 import 'server-only'
+import { endLostAsks } from '@/lib/agent-asks/service'
 import { exportUsageToPosthog } from '@/lib/analytics/usage-export'
 import { enqueueDueReminders } from '@/lib/annotations/due-reminders'
 import { sweepOrphanedCollaborationRows } from '@/lib/collaboration/cleanup'
@@ -95,6 +96,12 @@ export function projectMailLines(result: InboundMailSweepResult): string[] {
     lines.push(`project mail ${sweep}: ${parts.join(', ')}`)
   }
   return lines
+}
+
+/** End the asks of every organization whose turn never reported its end, by the rule a read applies (`endLostAsks`). */
+export async function sweepLostAsks(): Promise<void> {
+  const ended = await endLostAsks()
+  if (ended > 0) report(`agent asks: ended ${ended} ask(s) whose turn never reported its end`)
 }
 
 export async function reconcileRuns(): Promise<void> {

@@ -2,21 +2,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * `migrations/meta/_journal.json` is the list `drizzle-kit migrate` actually
- * executes — the `.sql` files on disk are inert without an entry pointing at
- * them. That asymmetry is silent in every check we run: the migration is in the
- * diff, review sees it, `workspace:build` and `workspace:test` pass, and the deploy's migrate
- * step reports success having skipped the file entirely. The table simply never
- * exists, and the first symptom is a 500 from the route that queries it
- * (issue #283: `relation "platform_retrieval_settings" does not exist`, from a
- * migration merged one commit earlier).
- *
- * So the journal is pinned here instead of trusted: every forward migration
- * file has an entry, every entry has a file, and the two agree on order. This
- * is deliberately a filesystem test with no database — the failure it exists to
- * catch is a bookkeeping mismatch, visible long before anything connects.
- */
 import fs from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
@@ -33,11 +18,6 @@ const journal: { entries: JournalEntry[] } = JSON.parse(
   fs.readFileSync(path.join(DRIZZLE_DIR, 'meta/_journal.json'), 'utf8'),
 )
 
-/**
- * Forward migrations only. A `*.down.sql` is the hand-run rollback companion
- * (`0019_org_archiv.down.sql` and friends) — drizzle never applies those, so
- * they must NOT appear in the journal.
- */
 const migrationFiles = fs
   .readdirSync(DRIZZLE_DIR)
   .filter((name) => name.endsWith('.sql') && !name.endsWith('.down.sql'))
@@ -48,7 +28,6 @@ describe('drizzle migration journal', () => {
   it('has an entry for every forward migration file', () => {
     const journalled = new Set(journal.entries.map((entry) => entry.tag))
     const unapplied = migrationFiles.filter((tag) => !journalled.has(tag))
-    // Naming the files makes the fix obvious: add them to meta/_journal.json.
     expect(unapplied).toEqual([])
   })
 
@@ -58,12 +37,6 @@ describe('drizzle migration journal', () => {
     expect(dangling).toEqual([])
   })
 
-  /**
-   * Two branches that each add the next migration both pick the same number.
-   * When the journal merges without a textual conflict, both files land with
-   * one `idx`, every check above still passes, and the order they apply in is
-   * whatever `when` happens to say. One number per migration, no gaps.
-   */
   it('numbers migrations uniquely and without gaps', () => {
     const prefixes = migrationFiles.map((tag) => tag.slice(0, 4))
     const shared = prefixes.filter((prefix, index) => prefixes.indexOf(prefix) !== index)
@@ -79,23 +52,6 @@ describe('drizzle migration journal', () => {
     }
   })
 
-  /**
-   * `when` — not the hash, not `idx` — is what drizzle compares to decide
-   * whether a migration has already run:
-   *
-   *   if (!lastDbMigration || Number(lastDbMigration.created_at) < migration.folderMillis)
-   *
-   * against `select … order by created_at desc limit 1`. So an entry whose
-   * `when` is less than OR EQUAL TO an already-applied one is skipped — and
-   * skipped SILENTLY, with `migrate()` reporting success. This repo stamps
-   * hand-picked round midnight-UTC values rather than `drizzle-kit generate`'s
-   * `Date.now()`, which makes an exact collision between two migrations authored
-   * the same day not just possible but likely. Verified: two entries sharing a
-   * `when` leave the second's table uncreated; +1 ms applies it.
-   *
-   * This is the same failure class as issue #283 (a migration in the diff that
-   * never runs) on the axis the tests above do not cover.
-   */
   it('has strictly increasing, unique `when` timestamps', () => {
     const whens = journal.entries.map((entry) => entry.when)
     const duplicated = whens.filter((value, index) => whens.indexOf(value) !== index)

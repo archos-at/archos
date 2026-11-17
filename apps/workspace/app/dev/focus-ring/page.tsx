@@ -52,7 +52,7 @@ export default function FocusRingDevPage(): JSX.Element {
               <SelectItem value="en">English</SelectItem>
             </SelectContent>
           </Select>
-          <Button data-testid="ring-button" variant="outline">
+          <Button data-testid="ring-button" variant="secondary">
             A button
           </Button>
         </CardContent>

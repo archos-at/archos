@@ -1,14 +1,3 @@
-/**
- * BranchOptions — the shared "Folgewege" branch-picker grid.
- *
- * ONE visual source of truth for a multiple-choice clarifier ("Folgefrage"),
- * used by BOTH the live clarifier bubble (`AgentPrompt`) and the trace's
- * `BranchesNode`, so the clarifier looks the same wherever it appears. Each
- * option is a selectable card with a letter badge (→ check when chosen),
- * matching the v6 prototype's Folgewege node; selected/answered/dimmed states
- * are handled here so callers only supply data + a select handler.
- */
-
 'use client'
 
 import { type FC, useEffect } from 'react'
@@ -17,16 +6,9 @@ import { cn } from '@/lib/utils'
 
 export interface BranchOptionsProps {
   options: string[]
-  /** The chosen option text, if the prompt was answered. */
   selected?: string
-  /** True once answered — cards lock and non-selected ones dim. */
   isResponded?: boolean
-  /** Fires the chosen option; omit for a read-only render. */
   onSelect?: (option: string) => void
-  /**
-   * Enable 1–9 digit keyboard shortcuts (the live clarifier). Off for the
-   * in-trace echo so two live listeners never fight over digits.
-   */
   digitShortcuts?: boolean
 }
 
@@ -37,9 +19,6 @@ export const BranchOptions: FC<BranchOptionsProps> = ({
   onSelect,
   digitShortcuts = false,
 }) => {
-  // Digit shortcuts (1–9) mirror the visible badges. Scoped so it never hijacks
-  // digits meant for the composer or another control (skips editable focus +
-  // modifier chords), and only while the prompt is live and interactive.
   useEffect(() => {
     if (!digitShortcuts || !onSelect || isResponded) return
     const handleDigit = (e: globalThis.KeyboardEvent) => {
@@ -74,18 +53,14 @@ export const BranchOptions: FC<BranchOptionsProps> = ({
             key={`${option}-${i}`}
             type="button"
             onClick={() => interactive && onSelect?.(option)}
-            // `aria-disabled`, not `disabled`: the pick answers the prompt and
-            // locks every card in the same render, and Chrome blurs a focused
-            // button that becomes disabled, dropping keyboard focus to <body>.
-            // The click is already guarded on `interactive` above.
             aria-disabled={!interactive || undefined}
             aria-pressed={isSelected}
             className={cn(
               'flex items-start gap-2.5 rounded-control border px-3.5 py-3 text-left',
-              'transition-[border-color,box-shadow,opacity] duration-quick ease-out motion-reduce:transition-none',
+              'transition-[border-color,opacity] duration-quick ease-out motion-reduce:transition-none',
               'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
-              isSelected ? 'border-primary shadow-sm' : 'shadow-xs',
-              interactive ? 'cursor-pointer hover:border-input hover:shadow-sm' : 'cursor-default',
+              isSelected && 'border-primary',
+              interactive ? 'cursor-pointer hover:border-input' : 'cursor-default',
               dimmed && 'opacity-60'
             )}
           >

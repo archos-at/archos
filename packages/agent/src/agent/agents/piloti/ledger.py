@@ -168,8 +168,9 @@ def _claims_without_records(final: FinalAnswer) -> list[BindingClaim]:
     """The answer's sentences that state law without the records (``common/binding_claims.py``), scored."""
     if not final.answered:
         return []
-    claims = turn_binding_claims(final.content, [(source.entry, source.number) for source in final.cited])
-    score_answer(claims, law_cited_from_web(source.entry for source in final.cited))
+    cited = [(source.entry, source.number) for source in final.cited]
+    claims = turn_binding_claims(final.content, cited)
+    score_answer(claims, law_cited_from_web(final.content, cited))
     return claims
 
 
@@ -198,6 +199,7 @@ def assemble_result(
         "answer_citation_grounded": final.citation_grounded,
         "answer_measurement_grounded": measurement_grounded,
         "confidence_check": final.confidence_check,
+        "answer_open_points": list(final.open_points),
         "answer_lookup_found_nothing": final.lookup_found_nothing,
         "answer_quotes_verified": final.quotes_verified,
         # A sentence that states law without the records caps like law the records do not settle.

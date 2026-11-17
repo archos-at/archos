@@ -56,7 +56,6 @@ describe('groupSkillsByCategory', () => {
       [skill({ name: 'orphan', categoryId: 'cat-gone' }), skill({ name: 'plain' })],
       [category({ id: 'cat-1', name: 'Recherche' }), category({ id: 'cat-2', name: 'Leer' })],
     )
-    // Neither category has members; both skills close the list unsorted.
     expect(groups).toHaveLength(1)
     expect(groups[0].category).toBeNull()
     expect(groups[0].skills.map((s) => s.name).sort()).toEqual(['orphan', 'plain'])

@@ -16,7 +16,6 @@ vi.mock('@/lib/db', () => ({
   getDb: vi.fn(),
 }))
 
-// A write into a chat collection is authorized on its conversation.
 vi.mock('@/lib/sharing/access', () => ({
   requireResourceAccess: vi.fn(),
 }))
@@ -35,10 +34,6 @@ const mockRequireProjectAccess = vi.mocked(requireProjectAccess)
 const mockGetDb = vi.mocked(getDb)
 const mockRequireResourceAccess = vi.mocked(requireResourceAccess)
 
-/**
- * Mock the drizzle project lookup used by validateCollectionName for
- * proj_<id> collections: db.select().from().where().limit(1) -> rows.
- */
 function mockDbProjectLookup(rows: Array<{ id: string }>): void {
   mockGetDb.mockReturnValue({
     select: () => ({
@@ -195,10 +190,6 @@ describe('/api/v1/[...path]', () => {
   })
 
   describe('collection name validation', () => {
-    // No product client uploads or deletes through the proxy: every shelf has
-    // a first-party route that writes and removes the document row, runs the
-    // file-type gate and charges the quota. So no write into a collection's
-    // files is forwarded, whatever the collection (`lib/proxy/v1-allowlist.ts`).
     it.each([
       ['POST', 'proj_proj-1'],
       ['DELETE', 'proj_proj-1'],

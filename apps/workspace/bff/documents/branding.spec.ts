@@ -1,29 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * What every file Piloti produces says about itself.
- *
- * Three claims are worth a test here, and one of them is not about behaviour at
- * all.
- *
- * **The default resolves.** Nothing overrides anything today, so the resolver's
- * whole job is to hand back the platform's own words with the organization's
- * name in them — and the placeholder substitution is where that quietly goes
- * wrong, because a template that fails to substitute still returns a plausible
- * string.
- *
- * **The override merges.** The seam is the reason this module exists rather
- * than a constant, and a seam nothing exercises is a seam that has never run.
- * The stub below is the whole of what an admin surface will one day write into
- * `organizations.settings`.
- *
- * **The prose is not Markdown.** This is the one that will actually catch
- * somebody. The same sentences are pasted verbatim into a `.md` file AND laid
- * out as a PDF text run, and the next person to edit them will be writing
- * German, not thinking about a lexer. A `|` opens a table, a leading `#` opens
- * a heading, a backtick opens a fence — in one of the two formats, silently.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -42,7 +19,6 @@ import { PRODUCT_NAME } from '@/lib/brand'
 
 const noSettings = { displayName: null, defaultLocale: 'de', settings: {} }
 
-/** The shape an admin surface will one day write into the jsonb bag. */
 const storedOverride = (settings: Record<string, unknown>): void => {
   getOrgSettings.mockResolvedValue({ ...noSettings, settings })
 }
@@ -64,17 +40,12 @@ describe('the platform default', () => {
   })
 
   it('names the product alone when there is no organization to name', async () => {
-    // An anonymous deployment, or WorkOS unreachable. „Erstellt mit Piloti für"
-    // with nothing after it is worse than not naming an office at all.
     const branding = await resolveDocumentBranding({ organizationName: null, locale: 'de' })
     expect(branding.headerLine).toBe(`Erstellt mit ${PRODUCT_NAME}`)
     expect(branding.headerLine).not.toContain('{')
   })
 
   it('says who carries the content, which is nobody until somebody approves it', async () => {
-    // ADR-0047's rule about a byline, in the file rather than in the app: the
-    // marking says how much to trust this, and the prose says who is answerable
-    // for it. They are different sentences and this is the second one.
     const branding = await resolveDocumentBranding({ organizationName: 'X', locale: 'de' })
     expect(branding.prose).toContain('Verantwortung')
     expect(branding.prose).toContain('freigibt')
@@ -82,8 +53,6 @@ describe('the platform default', () => {
   })
 
   it('leaves the marking’s generator name alone, because it is an interface', async () => {
-    // Overridable copy would be a tenant able to make its own documents
-    // undetectable while every printed word still said they were marked.
     storedOverride({
       [ORGANIZATION_BRANDING_SETTINGS_KEY]: { copy: { de: { productName: 'Bürotool' } } },
     })
@@ -110,9 +79,6 @@ describe('the language the document is in', () => {
   })
 
   it('inherits the office’s own language when the caller has none', async () => {
-    // The agent's internal route sends no locale cookie and no Accept-Language,
-    // so a document filed from a chat turn would otherwise carry an English
-    // header line on a German Aktenvermerk for every tenant.
     const branding = await resolveDocumentBranding({
       organizationId: 'org_1',
       organizationName: 'Musterbüro',
@@ -121,8 +87,6 @@ describe('the language the document is in', () => {
   })
 
   it('lets an explicit language beat the office’s default', async () => {
-    // Explicit beats inherited — the same order ADR-0014/0022 resolve a model
-    // in. A filed report passes the locale its cover facts are already in.
     const branding = await resolveDocumentBranding({
       organizationId: 'org_1',
       organizationName: 'Musterbüro',
@@ -132,9 +96,6 @@ describe('the language the document is in', () => {
   })
 
   it('carries every field in every language the app supports', () => {
-    // A language added to the app with no document copy behind it would file
-    // documents with an empty header line and nobody would see it until one
-    // reached a Behörde.
     for (const locale of locales) {
       const template = PLATFORM_DOCUMENT_BRANDING.copy[locale]
       for (const value of Object.values(template)) {
@@ -150,9 +111,6 @@ describe('the override seam', () => {
       copy: { de: { header: '{organization} · erstellt mit {product}' } },
     })
     expect(merged.copy.de.header).toBe('{organization} · erstellt mit {product}')
-    // The office asked for a header line, not for the platform's prose to go
-    // away. A merge that replaced the whole template would file a document with
-    // no statement about who is answerable for it.
     expect(merged.copy.de.prose).toBe(PLATFORM_DOCUMENT_BRANDING.copy.de.prose)
     expect(merged.copy.en).toEqual(PLATFORM_DOCUMENT_BRANDING.copy.en)
   })
@@ -173,8 +131,6 @@ describe('the override seam', () => {
   })
 
   it('keeps an organization name from rewriting the line it appears on', async () => {
-    // Only the two known placeholders are substituted, and only once — so an
-    // office called `{product}` gets its name printed, not the product's.
     storedOverride({})
     const branding = await resolveDocumentBranding({
       organizationId: 'org_1',
@@ -194,9 +150,6 @@ describe('the override seam', () => {
   })
 
   it('falls back to the platform copy when the stored override is malformed', async () => {
-    // Added matter, exactly as the report's cover facts are: a settings row
-    // somebody hand-edited must not cost a user the filing of a document a
-    // twelve-minute run just produced.
     const logged = vi.spyOn(console, 'error').mockImplementation(() => {})
     storedOverride({ [ORGANIZATION_BRANDING_SETTINGS_KEY]: { copy: { de: { header: 42 } } } })
 
@@ -228,12 +181,6 @@ describe('the override seam', () => {
 })
 
 describe('the prose survives both formats', () => {
-  /**
-   * Characters that mean something to a Markdown lexer at the start of a line
-   * or in the middle of one. `-` and `.` are deliberately absent: a hyphen only
-   * opens a list at the start of a line followed by a space, and these strings
-   * are inserted as a paragraph, never as a first line.
-   */
   const MARKDOWN_ACTIVE = /[|`*_#[\]<>]/
 
   it('has no Markdown in any line that is printed as prose', () => {

@@ -13,14 +13,10 @@ import {
 
 describe('reasoning effort catalog', () => {
   it("exposes OpenRouter's unified levels, cheapest first", () => {
-    // Order is load-bearing: the admin form renders the levels in it, so a
-    // reordering would silently present "more expensive" as "less".
     expect(REASONING_EFFORTS).toEqual(['none', 'minimal', 'low', 'medium', 'high', 'xhigh'])
   })
 
   it('has a translated label for every level in both dictionaries', async () => {
-    // Labels live in i18n, not here: hardcoding them in the catalog is how the
-    // card ended up rendering German level names beside English group names.
     const [de, en] = await Promise.all([
       import('@/i18n/dictionaries/de/platform'),
       import('@/i18n/dictionaries/en/platform'),
@@ -36,9 +32,6 @@ describe('reasoning effort catalog', () => {
   })
 
   it('rejects provider-native tier names', () => {
-    // DeepSeek's "max" is the concrete trap the config file warns about:
-    // OpenRouter rejects/ignores provider-native names, so only the unified
-    // vocabulary may ever be stored.
     expect(isReasoningEffort('max')).toBe(false)
     expect(validateReasoningEffort('max')).toMatch(/not a reasoning effort/)
     expect(validateReasoningEffort('MEDIUM')).toMatch(/not a reasoning effort/)
@@ -53,8 +46,6 @@ describe('reasoning effort catalog', () => {
   })
 
   it('matches the cross-language contract fixture', () => {
-    // The Python parity test reads the same file and asserts it against `_EFFORTS`. A level added
-    // here without the backend counterpart fails there.
     expect([...REASONING_EFFORTS]).toEqual(catalogFixture)
   })
 })
@@ -62,7 +53,6 @@ describe('reasoning effort catalog', () => {
 describe('chat effort dial', () => {
   it('offers every unified level but none, cheapest first', async () => {
     const { CHAT_EFFORTS } = await import('./catalog')
-    // The dial renders its stops in this order, left to right.
     expect(CHAT_EFFORTS).toEqual(REASONING_EFFORTS.filter((effort) => effort !== 'none'))
   })
 

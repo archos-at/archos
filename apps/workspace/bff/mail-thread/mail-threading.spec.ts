@@ -1,13 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The threading ladder and the pre-selection matrix (DECISION D11, RT-S1).
- * The fixtures are taken from the rules they test: RFC 5322 §3.6.4 for ids,
- * RFC 5256 §2.1 for the base subject, RFC 8621 §3 for membership, MS-OXOMSG
- * for the Thread-Index, and the hostile corpus of DECISION §10 for what a
- * stranger may write.
- */
 
 import { existsSync, readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
@@ -113,7 +106,6 @@ describe('baseSubject', () => {
   })
 })
 
-/** A Thread-Index header: reserved byte, FILETIME, GUID, child blocks. */
 function threadIndex(guid: number[], children = 0): string {
   const bytes = [1, 0x01, 0xd9, 0x3a, 0x11, 0x22, ...guid, ...Array.from({ length: children * 5 }, () => 7)]
   return btoa(String.fromCharCode(...bytes))
@@ -127,10 +119,6 @@ interface ThreadIndexVector {
   guid: string
 }
 
-/**
- * The vector the mail archive reader's test reads too (`test_mail_archive_reader.py`). Read at runtime, because
- * `shared/` is outside the UI image's build context.
- */
 function loadThreadIndexVector(): ThreadIndexVector {
   for (let dir = process.cwd(); ; dir = dirname(dir)) {
     const candidate = join(dir, 'contracts', 'thread-index.json')
@@ -225,7 +213,6 @@ describe('matchThread', () => {
       strength: 'thread_index',
       headers: ['thread-index'],
     })
-    // The hostile corpus: a forged Thread-Index with another subject is no candidate.
     expect(matchThread(message({ threadIndexGuid: guid, baseSubject: 'zahlung' }), [thread()])).toEqual([])
   })
 
@@ -284,7 +271,6 @@ describe('threadPreselection: the matrix', () => {
     subject: ['subject'],
   }
 
-  /** The decision's matrix, written out: which (strength, trust, header signed) pre-select. */
   function expected(strength: ThreadMatchStrength, trust: SenderTrust, signed: boolean): boolean {
     if (strength !== 'reference' && strength !== 'thread_index') return false
     if (trust === 'member_verified') return true
@@ -431,12 +417,10 @@ describe('domainOf', () => {
   })
 
   it('gives an internationalized domain one form, whichever spelling the mail used', () => {
-    // RFC 6532 lets a header carry the U-label; DNS, DKIM `d=` and most clients write the A-label.
     expect(domainOf('mueller@müller.at')).toBe('xn--mller-kva.at')
     expect(domainOf('mueller@xn--mller-kva.at')).toBe('xn--mller-kva.at')
     expect(domainOf('Mueller@MÜLLER.AT')).toBe('xn--mller-kva.at')
     expect(domainOf('<mueller@XN--MLLER-KVA.AT.>')).toBe('xn--mller-kva.at')
-    // UTS #46 folds width too: a full-width spelling is the same name, not a look-alike that passes.
     expect(domainOf('a@ｍüller.at')).toBe('xn--mller-kva.at')
     expect(domainOf('a@bücher.straße.de')).toBe(domainOf('a@xn--bcher-kva.xn--strae-oqa.de'))
   })

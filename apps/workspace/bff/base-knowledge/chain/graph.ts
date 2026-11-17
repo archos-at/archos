@@ -34,13 +34,15 @@ export interface GraphWork {
   kind: KnowledgeWorkKind
   title: string
   designation: string | null
+  /** Who issues it, as its record names it; absent or null when the record states none. */
+  issuer?: string | null
   /** Where it applies; empty for a standards body's work. */
   territoryIds: readonly string[]
   /** A directive's addressees, by the territory each decides for. */
   addresseeTerritoryIds: readonly string[]
   /** What it attaches to (0213); absent reads as the site. */
   connectsBy?: readonly ConnectingFactor[]
-  /** Its identifiers at its source (`ris_gesetzesnummer`, `eli`): how a passage read live finds it; absent reads as none. */
+  /** Its identifiers at its source, by the scheme its source record declares (`eli`, a law number): how a passage read live finds it; absent reads as none. */
   sourceRefs?: readonly SourceRef[]
   /** The first day whose edition is held (0206); absent or null: no earlier than the oldest edition present. */
   historyAvailableFrom?: string | null
@@ -147,6 +149,4 @@ export interface ResolvedChain {
   uses: readonly EditionUse[]
   /** Law on the chain left out because its edition at the date is unknown, never guessed (`time/editions.ts`). */
   undetermined: readonly UndeterminedLaw[]
-  /** More uses than one resolution returns: what was left out reads as nothing, so a caller fails closed. */
-  truncated: boolean
 }

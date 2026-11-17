@@ -22,7 +22,9 @@ that need no words run (a web-only sentence that names a held work or cites a co
 
 The cap is the law gate's own: ``answer_law_unsettled`` (``markers``, at most medium), so the reader sees
 one reason, not two. The record is two Langfuse scores, ``binding-claim-without-records`` and
-``law-cited-from-web``.
+``law-cited-from-web``. The second is wider than the web-only rule: a sentence that names a held work and
+cites a web page beside its own source still cites the web for law the records hold (:func:`law_cited_from_web`).
+It is recorded, never removed: a citation is not dropped after the prose settled (ADR-0067).
 """
 
 from __future__ import annotations
@@ -63,6 +65,9 @@ Run = tuple[str, ...]
 Reason = Literal["web_only", "gate_may_not_bind"]
 
 _SENTENCE_END_RE = re.compile(r"(?<=[.!?])\s+(?=\S)")
+#: A day written "23. Februar 2024": its dot ends no sentence (dev, 2026-11-12, cut a date from its citation).
+_DAY_BEFORE_RE = re.compile(r"\b\d{1,2}\.$")
+_MONTH_YEAR_AFTER_RE = re.compile(r"[^\W\d_]+\s+\d{4}\b")
 
 
 class _LocaleTerms(BaseModel):
@@ -146,8 +151,20 @@ def sentences(content: str) -> list[str]:
     body = content[: section.start()] if section else content
     found: list[str] = []
     for line in body.splitlines():
-        found.extend(part.strip() for part in _SENTENCE_END_RE.split(line) if part.strip())
+        found.extend(part.strip() for part in _split_line(line) if part.strip())
     return found
+
+
+def _split_line(line: str) -> list[str]:
+    """One line cut at its sentence ends, never inside a written date."""
+    parts: list[str] = []
+    start = 0
+    for end in _SENTENCE_END_RE.finditer(line):
+        if _DAY_BEFORE_RE.search(line, 0, end.start()) and _MONTH_YEAR_AFTER_RE.match(line, end.end()):
+            continue
+        parts.append(line[start : end.start()])
+        start = end.end()
+    return [*parts, line[start:]]
 
 
 def is_web_source(entry: SourceEntry) -> bool:
@@ -234,12 +251,32 @@ def turn_binding_claims(content: str | None, cited: Iterable[tuple[SourceEntry, 
         return []
 
 
-def law_cited_from_web(cited: Iterable[SourceEntry]) -> list[str]:
-    """The works the answer cites from a web page that is a copy of them or only names them, each once."""
+def law_cited_from_web(
+    content: str | None,
+    cited: Iterable[tuple[SourceEntry, int | None]],
+    *,
+    works: Sequence[HeldWork] | None = None,
+) -> list[str]:
+    """The works the answer cites a web page for, each once.
+
+    A page that is a copy of a held work or only names one (``web_sources.copied_work``), and a page a
+    sentence cites while it names a held work: the records hold that law, so its edition, its binding and
+    the day it binds from are read there, never from the web (dev, 2026-11-12: a professional body's newsletter
+    cited beside the legal database for the day a guideline binds, a day the records held).
+    """
     from agent.common.web_sources import copied_work
 
-    works = (copied_work(entry.url, entry.title) for entry in cited if entry.url and is_web_source(entry))
-    return list(dict.fromkeys(work for work in works if work))
+    pairs = list(cited)
+    copies = (copied_work(entry.url, entry.title) for entry, _ in pairs if entry.url and is_web_source(entry))
+    web = {number for entry, number in pairs if number is not None and is_web_source(entry)}
+    held = tuple(held_works() if works is None else works)
+    named = (
+        named_work("", sentence, held)
+        for sentence in sentences(content or "")
+        if web & set(map(int, INLINE_CITATION_RE.findall(sentence)))
+    )
+    designations = [*copies, *(work.designation for work in named if work is not None)]
+    return list(dict.fromkeys(work for work in designations if work))
 
 
 def score_answer(claims: Sequence[BindingClaim], web_law: Sequence[str]) -> None:

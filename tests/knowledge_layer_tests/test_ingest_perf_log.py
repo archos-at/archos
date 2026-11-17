@@ -1,12 +1,3 @@
-"""``[ingest-perf]``: one line per file, the stages it reached, in a fixed order.
-
-Log-only and model-free. The unit tests drive the two helpers directly (the clock
-monkeypatched, so no timing assertion is flaky); the integration test reuses the
-offline ingest harness to prove two things at once: a clean file's line names its
-stages, and a file the upload screen holds never reaches the table pass — the
-saving Change A buys, read straight off the log.
-"""
-
 from __future__ import annotations
 
 import logging
@@ -45,7 +36,6 @@ def test_the_log_lists_the_stages_in_the_fixed_order(caplog):
     with caplog.at_level(logging.INFO, logger=_LOGGER):
         adapter._log_ingest_perf("Plan.pdf", {"write": 2.0, "text": 1.0, "screen": 0.5})
 
-    # A fixed order, so two files' lines compare; absent stages are simply skipped.
     assert _perf_lines(caplog) == ["[ingest-perf] Plan.pdf text=1.000 screen=0.500 write=2.000"]
 
 
@@ -53,7 +43,6 @@ def test_the_transcription_of_scans_is_a_stage_of_its_own(caplog):
     with caplog.at_level(logging.INFO, logger=_LOGGER):
         adapter._log_ingest_perf("Scan.pdf", {"renders": 1.0, "ocr": 42.0, "screen": 0.5})
 
-    # Page transcription is a vision call per scanned page; its seconds were missing from the line.
     assert _perf_lines(caplog) == ["[ingest-perf] Scan.pdf screen=0.500 ocr=42.000 renders=1.000"]
 
 
@@ -82,6 +71,5 @@ def test_a_clean_file_logs_its_stages_and_a_held_one_stops_before_tables(tmp_pat
         detail = _ingest(calls, _pdf(held_dir, "Gehaltsabrechnung Maerz 2026", "Brutto 4.200,00 EUR"), "A.pdf", _TERMS)
     [held] = _perf_lines(caplog)
     assert detail.screening == "quarantined"
-    # The screen held it, so the table pass never ran: no `tables=` on the line.
     assert "text=" in held and "screen=" in held
     assert "tables=" not in held and "embedding=" not in held

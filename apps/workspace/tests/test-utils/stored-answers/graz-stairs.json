@@ -1,0 +1,117 @@
+{
+  "$comment": "A stored building-law answer as conversation-message-list returned it on dev (2026-11-12, s_23b13350): the answer cites a corpus text by file name, its records carry designation, edition label and the adopting act. Author fields dropped, snippets shortened. Read by /dev/derivation-records and its spec.",
+  "question": {
+    "id": "09c84a40-5cb2-4554-9f2f-6a66ace6b229",
+    "role": "user",
+    "content": "Welche maximale Stufenhöhe und welcher Mindestauftritt gelten für eine Haupttreppe in diesem Projekt? Welche Ausgabe der OIB-Richtlinie 4 ist hier verbindlich?",
+    "createdAt": "2026-11-12T08:02:22.373Z",
+    "metadata": { "messageType": "user" }
+  },
+  "answer": {
+    "id": "79c9562a-906a-5412-a9ab-7aa5575cc839",
+    "role": "assistant",
+    "content": "Für eine Haupttreppe, **ausgenommen eine Wohnungstreppe**, beträgt die Stufenhöhe höchstens **18 cm** und der Stufenauftritt mindestens **27 cm** [1]. Es handelt sich um Fertigmaße [2].\n\nFür eine Wohnungstreppe gelten höchstens **20 cm** Stufenhöhe und mindestens **24 cm** Auftritt [1]. Welche Treppenart im Projekt vorliegt, ist anhand der Planung zu bestätigen.\n\nIn der Steiermark ist die OIB-Richtlinie 4, **Ausgabe April 2019**, maßgeblich. § 1 StBTV 2020 verweist auf diese Ausgabe; die authentische Kundmachung wurde nicht geprüft [3].\n\n## Quellen\n- [1] [KB] oib-rl-4-2019-text-bfe3f994b9b6.pdf, p.10\n- [2] [KB] oib-rl-4-2019-text-bfe3f994b9b6.pdf, p.4\n- [3] [RIS] Steiermärkische Bautechnikverordnung 2020 – StBTV 2020, § 1 (Fassung 2020-09-01)\n",
+    "createdAt": "2026-11-12T08:02:57.229Z",
+    "metadata": {
+      "messageType": "agent_response",
+      "citations": {
+        "v": 1,
+        "sources": [
+          {
+            "kind": "building_law", "lane": "building_law_base", "page": 10, "role": "binding", "tool": "knowledge_search", "as_of": "2026-11-12",
+            "route": { "work_id": "work:stmk-btv", "provision": "StBTV 2020", "designation": "StBTV" },
+            "score": 1, "shelf": "base", "title": "oib-rl-4-2019-text-bfe3f994b9b6.pdf", "clause": "Tabelle 3", "number": 1, "origin": "kb",
+            "content": "[KB] oib-rl-4-2019-text-bfe3f994b9b6.pdf, p.10",
+            "snippet": "Tabelle 3: Stufenhöhe und Stufenauftritt\n\n| Treppenarten | Stufenhöhe in cm Höchstmaß | Stufenauftritt in cm Mindestmaß |\n|---|---|---|\n| Haupttreppen, ausgenommen Wohnungstreppen | 18 | 27 |\n| Wohnungstreppen | 20 | 24 |",
+            "work_id": "work:oib-rl-4", "language": "de", "file_name": "oib-rl-4-2019-text-bfe3f994b9b6.pdf", "freshness": "check_due", "collection": "oib_knowledge",
+            "edition_id": "edition:oib-rl-4-2019", "lane_label": "Basisdokument", "role_since": "2020-09-01", "designation": "OIB-Richtlinie 4",
+            "document_id": "doc:oib_knowledge:oib-rl-4-2019-text-bfe3f994b9b6.pdf", "role_labels": ["check_overdue", "unchecked_since"],
+            "source_type": "knowledge_layer", "text_status": "authentic", "citation_key": "oib-rl-4-2019-text-bfe3f994b9b6.pdf, p.10",
+            "edition_label": "Ausgabe April 2019", "binding_status": "declared_binding"
+          },
+          {
+            "kind": "building_law", "lane": "building_law_base", "page": 4, "role": "binding", "tool": "read_file", "as_of": "2026-11-12",
+            "route": { "work_id": "work:stmk-btv", "provision": "StBTV 2020", "designation": "StBTV" },
+            "score": 1, "shelf": "base", "title": "oib-rl-4-2019-text-bfe3f994b9b6.pdf", "number": 2, "origin": "kb",
+            "content": "[KB] oib-rl-4-2019-text-bfe3f994b9b6.pdf, p.4",
+            "snippet": "0 Vorbemerkungen\nAlle in dieser Richtlinie angeführten Maße verstehen sich als Fertigmaße nach Vollendung der Bauführung.",
+            "work_id": "work:oib-rl-4", "language": "de", "file_name": "oib-rl-4-2019-text-bfe3f994b9b6.pdf", "freshness": "check_due", "collection": "oib_knowledge",
+            "edition_id": "edition:oib-rl-4-2019", "lane_label": "Basisdokument", "role_since": "2020-09-01", "designation": "OIB-Richtlinie 4",
+            "document_id": "doc:oib_knowledge:oib-rl-4-2019-text-bfe3f994b9b6.pdf", "role_labels": ["check_overdue", "unchecked_since"],
+            "source_type": "knowledge_layer", "text_status": "authentic", "citation_key": "oib-rl-4-2019-text-bfe3f994b9b6.pdf, p.4",
+            "edition_label": "Ausgabe April 2019", "binding_status": "declared_binding"
+          },
+          {
+            "kind": "building_law", "lane": "building_law_ris", "tool": "law_lookup", "score": 1, "shelf": "base",
+            "title": "Steiermärkische Bautechnikverordnung 2020 – StBTV 2020", "clause": "§ 1", "number": 3, "origin": "ris",
+            "content": "[RIS] Steiermärkische Bautechnikverordnung 2020 – StBTV 2020, § 1 (Fassung 2020-09-01)",
+            "snippet": "§ 1\nRichtlinien des Österreichischen Instituts für Bautechnik (OIB-Richtlinien)\n… jeweils Ausgabe April 2019 …",
+            "revision": { "date": "2020-09-01" }, "collection": "ris/LrKons/Steiermark", "lane_label": "Rechtsquelle (RIS)",
+            "public_url": "https://www.ris.bka.gv.at/GeltendeFassung.wxe?Abfrage=LrStmk&Gesetzesnummer=20001611",
+            "document_id": "doc:ris/lrkons/steiermark:steiermärkische bautechnikverordnung 2020 – stbtv 2020, § 1 (fassung 2020-09-01)",
+            "source_type": "knowledge_layer", "citation_key": "Steiermärkische Bautechnikverordnung 2020 – StBTV 2020, § 1 (Fassung 2020-09-01)",
+            "retrieved_at": "2026-11-12", "binding_status": "unknown"
+          }
+        ]
+      },
+      "provenance": {
+        "confidenceCheck": { "level": "high", "status": "judged", "findings": [] },
+        "retrievalLedger": [
+          {
+            "key": "status.retrieval.withQuery", "hits": 28, "index": 0, "query": "Welche maximale Stufenhöhe und…", "tools": ["knowledge_search", "knowledge_search"], "corpora": ["knowledge"], "documents": 10,
+            "docs": [
+              { "name": "oib-rl_4_ausgabe_mai_2023.pdf", "shelf": "base", "title": "OIB-Richtlinie 4, Ausgabe Mai 2023", "detail": "Pkt. Tabelle 3 p.10", "repeat": false },
+              { "name": "oib-rl_4_ausgabe_mai_2023.pdf", "shelf": "base", "title": "OIB-Richtlinie 4, Ausgabe Mai 2023", "detail": "Pkt. 3.2.1 p.10", "repeat": false },
+              { "name": "erlaeuterungen_oib-rl_4_ausgabe_mai_2023.pdf", "shelf": "base", "title": "Erläuterungen zu OIB-Richtlinie 4, Ausgabe Mai 2023", "detail": "p.9", "repeat": false },
+              { "name": "oib-rl-4-2019-text-bfe3f994b9b6.pdf", "shelf": "base", "detail": "Pkt. Tabelle 3 p.10", "repeat": false },
+              { "name": "oib-rl-4-2023-text-7ad87c47e2b7.pdf", "shelf": "base", "detail": "Pkt. Tabelle 3 p.10", "repeat": false },
+              { "name": "oib-rl-4-2019-text-bfe3f994b9b6.pdf", "shelf": "base", "detail": "Pkt. 3.2 p.10", "repeat": false },
+              { "name": "oib-rl-4-erlaeuterungen-2023-text-50805c4014e5.pdf", "shelf": "base", "detail": "Pkt. Zu Punkt 2: Erschließung und Fluchtwege › Treppen und Rampen p.9", "repeat": false },
+              { "name": "Übersicht_Baurecht_Wien.jpg", "shelf": "office_shelf", "detail": "p.1", "repeat": false },
+              { "name": "250124_PerspektivischerSchnitt.pdf", "shelf": "office_shelf", "detail": "p.1", "repeat": false },
+              { "name": "Planungsbericht_2024-118_LPH5_RevC.pdf", "shelf": "office_shelf", "detail": "p.1", "repeat": false },
+              { "name": "Ifc2x3_SampleCastle.ifc", "shelf": "office_shelf", "repeat": false },
+              { "name": "oib-rl-4-erlaeuterungen-2019-text-fd42ad249c36.pdf", "shelf": "base", "detail": "Pkt. Nutzungssicherheit und Barrierefreiheit › Allgemeines p.4", "repeat": false }
+            ],
+            "newDocs": ["oib-rl_4_ausgabe_mai_2023.pdf", "erlaeuterungen_oib-rl_4_ausgabe_mai_2023.pdf", "oib-rl-4-2019-text-bfe3f994b9b6.pdf", "oib-rl-4-2023-text-7ad87c47e2b7.pdf", "oib-rl-4-erlaeuterungen-2023-text-50805c4014e5.pdf", "Übersicht_Baurecht_Wien.jpg", "250124_PerspektivischerSchnitt.pdf", "Planungsbericht_2024-118_LPH5_RevC.pdf", "Ifc2x3_SampleCastle.ifc", "oib-rl-4-erlaeuterungen-2019-text-fd42ad249c36.pdf"]
+          },
+          {
+            "key": "status.retrieval.withQuery", "hits": 5, "index": 1, "query": "Welche Ausgabe der OIB-Richtlin…", "tools": ["law_lookup", "read_file"], "reason": "Ich prüfe die Ausgabe 2019, ihren Geltungsbereich und Tabelle 3.", "corpora": ["ris", "knowledge"], "documents": 3,
+            "docs": [
+              { "name": "oib-rl-4-2019-text-bfe3f994b9b6.pdf", "shelf": "base", "detail": "p.1", "repeat": false },
+              { "name": "oib-rl-4-2019-text-bfe3f994b9b6.pdf", "shelf": "base", "detail": "p.4", "repeat": false },
+              { "name": "oib-rl-4-2019-text-bfe3f994b9b6.pdf", "shelf": "base", "detail": "p.10", "repeat": false },
+              { "name": "https://www.ris.bka.gv.at/Dokumente/Landesnormen/LST40026378/LST40026378.html", "title": "Steiermärkische Bautechnikverordnung 2020 – StBTV 2020", "repeat": false },
+              { "name": "Steiermärkische Bautechnikverordnung 2020 – StBTV 2020 (Fassung 2020-09-01)", "shelf": "base", "repeat": false }
+            ],
+            "newDocs": ["oib-rl-4-2019-text-bfe3f994b9b6.pdf", "https://www.ris.bka.gv.at/Dokumente/Landesnormen/LST40026378/LST40026378.html", "Steiermärkische Bautechnikverordnung 2020 – StBTV 2020 (Fassung 2020-09-01)"]
+          },
+          {
+            "key": "status.retrieval.withQuery", "hits": 3, "index": 2, "query": "Was regelt § 2 der Steiermärkis…", "tools": ["law_lookup"], "corpora": ["ris"], "documents": 3,
+            "docs": [
+              { "name": "https://www.ris.bka.gv.at/Dokumente/Landesnormen/LST40026371/LST40026371.html", "title": "Steiermärkische Bautechnikverordnung 2020 – StBTV 2020", "repeat": false },
+              { "name": "https://www.ris.bka.gv.at/Dokumente/Landesnormen/LST40026372/LST40026372.html", "title": "Steiermärkische Bautechnikverordnung 2020 – StBTV 2020", "repeat": false },
+              { "name": "Steiermärkische Bautechnikverordnung 2020 – StBTV 2020 (Fassung 2020-09-01)", "shelf": "base", "repeat": true }
+            ],
+            "newDocs": ["https://www.ris.bka.gv.at/Dokumente/Landesnormen/LST40026371/LST40026371.html", "https://www.ris.bka.gv.at/Dokumente/Landesnormen/LST40026372/LST40026372.html"]
+          },
+          {
+            "key": "status.retrieval.withQuery", "hits": 4, "index": 3, "query": "Was regelt § 1 StBTV 2020 zu de…", "tools": ["law_lookup", "law_lookup"], "corpora": ["ris"], "documents": 3,
+            "docs": [
+              { "name": "https://www.ris.bka.gv.at/GeltendeFassung.wxe?Abfrage=LrStmk&Gesetzesnummer=20001611", "title": "Steiermärkische Bautechnikverordnung 2020 – StBTV 2020", "detail": "§ 2", "repeat": false },
+              { "name": "Steiermärkische Bautechnikverordnung 2020 – StBTV 2020, § 2 (Fassung 2020-09-01)", "shelf": "base", "repeat": false },
+              { "name": "https://www.ris.bka.gv.at/GeltendeFassung.wxe?Abfrage=LrStmk&Gesetzesnummer=20001611", "title": "Steiermärkische Bautechnikverordnung 2020 – StBTV 2020", "detail": "§ 1", "repeat": false },
+              { "name": "Steiermärkische Bautechnikverordnung 2020 – StBTV 2020, § 1 (Fassung 2020-09-01)", "shelf": "base", "repeat": false }
+            ],
+            "newDocs": ["https://www.ris.bka.gv.at/GeltendeFassung.wxe?Abfrage=LrStmk&Gesetzesnummer=20001611", "Steiermärkische Bautechnikverordnung 2020 – StBTV 2020, § 2 (Fassung 2020-09-01)", "Steiermärkische Bautechnikverordnung 2020 – StBTV 2020, § 1 (Fassung 2020-09-01)"]
+          }
+        ],
+        "routingDecision": "shallow",
+        "skillsActivated": ["safety-in-use"],
+        "answerConfidence": "high",
+        "answerConfidenceReason": "Grenzmaße und Ausgabe sind belegt; die Treppenart im Projekt ist nicht bestätigt",
+        "answerConfidenceVersion": 2
+      }
+    }
+  }
+}

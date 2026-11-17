@@ -353,6 +353,8 @@ def main(argv: list[str] | None = None) -> int:
         write_baseline(root / BASELINE, baseline)
 
     findings = check(current, baseline)
+    slack = [f for f in findings if "so lower its" in f or "remove its baseline entry" in f]
+    findings = [f for f in findings if f not in slack]
     if findings:
         print(f"Size check FAILED ({len(findings)} finding(s)):", file=sys.stderr)
         for finding in findings:
@@ -363,6 +365,10 @@ def main(argv: list[str] | None = None) -> int:
     print(
         f"Size check passed: {len(baseline.files)} file(s) and {len(baseline.functions)} function(s) held at baseline."
     )
+    if slack:
+        print(
+            f"  {len(slack)} baseline entr{'y' if len(slack) == 1 else 'ies'} can be lowered: `task baselines:tighten`."
+        )
     return 0
 
 

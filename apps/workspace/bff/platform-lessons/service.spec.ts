@@ -1,10 +1,3 @@
-/**
- * The sweep's decision tree — the part of the pipeline where a wrong branch
- * poisons the fleet or silently drops a report. Repository and distiller are
- * mocked; what is under test is which of them gets called with what, per
- * outcome (docs/architecture/platform-failure-learning.md).
- */
-
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
@@ -23,8 +16,6 @@ vi.mock('@/lib/cache', () => ({
   invalidateCached: vi.fn(async () => undefined),
 }))
 vi.mock('@/lib/knowledge/embeddings', () => ({
-  // Unembedded by default: the sweep must work on the lexical path, and each
-  // test that cares about semantic matching opts in explicitly.
   embedNote: vi.fn(async () => null),
   enrichForEmbedding: (content: string) => content,
 }))
@@ -259,8 +250,6 @@ describe('kickLessonDistillation', () => {
   it('runs both effectiveness passes on every sweep: recurrence flagging and quiet-addressed retirement', async () => {
     vi.mocked(listUnprocessedDownvotes).mockResolvedValue([])
     await kickLessonDistillation()
-    // Threshold and quiet window ride through from the service constants —
-    // the repository owns the SQL, the service owns the policy numbers.
     expect(flagIneffectiveActiveLessons).toHaveBeenCalledWith(3, 'system:distiller')
     expect(retireQuietAddressedLessons).toHaveBeenCalledWith(14, 'system:distiller')
   })
@@ -274,9 +263,6 @@ describe('kickLessonDistillation', () => {
   })
 
   it('stops retrying a report this process has failed on three times', async () => {
-    // A permanently failing report at the oldest-first head must not wedge
-    // the queue: after MAX_ATTEMPTS_PER_PROCESS deferrals it is skipped and
-    // the reports behind it get the slots.
     vi.mocked(listUnprocessedDownvotes).mockResolvedValue([DOWNVOTE])
     vi.mocked(distillReport).mockResolvedValue(outcome({ error: 'llm_request_failed' }))
     for (let attempt = 0; attempt < 3; attempt++) await kickLessonDistillation()
@@ -287,9 +273,6 @@ describe('kickLessonDistillation', () => {
   })
 
   it('prefers semantic candidates over the popularity window', async () => {
-    // The rank window answers "which lessons are popular"; the matcher needs
-    // "which lesson is this report about". When the embedder is reachable the
-    // semantic set is what reaches the distiller.
     vi.mocked(listUnprocessedDownvotes).mockResolvedValue([DOWNVOTE])
     vi.mocked(embedNote).mockResolvedValue({ vector: [0.1, 0.2], fingerprint: 'model-a' })
     vi.mocked(listSemanticLessonCandidates).mockResolvedValue([
@@ -367,12 +350,6 @@ describe('buildPlatformLessonsInjection', () => {
     expect(await buildPlatformLessonsInjection()).toEqual({ digest: null, lessonIds: [] })
   })
 
-  /**
-   * Migrations 0120 and 0124 retire the lessons created from a vote on an
-   * answer that drew on a restricted folder. A digest cached before they ran
-   * still holds them, and is shared by every replica: it must not be injected
-   * for the rest of its TTL.
-   */
   it('does not inject a digest cached before restricted lessons were withdrawn', async () => {
     const stale = 'PLATFORM_LESSONS v1\n- [inaccurate | 1x] "Zimmerer-Honorar 48.000 EUR."'
     vi.mocked(getCached).mockImplementationOnce(async (key, _ttl, loader) =>

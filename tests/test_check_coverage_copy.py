@@ -1,5 +1,3 @@
-"""The website claims a country's law only as far as its pack's coverage goes (ADR-0173, design §1.3)."""
-
 from __future__ import annotations
 
 import importlib.util

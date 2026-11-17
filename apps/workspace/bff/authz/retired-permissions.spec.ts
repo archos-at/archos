@@ -8,7 +8,6 @@ import { RETIRED_PERMISSIONS } from './retired-permissions'
 
 describe('retired permissions', () => {
   it('names no permission the catalog declares or a role holds', () => {
-    // The provisioning script would create it and then delete it, every deploy.
     const live = new Set([
       ...ALL_PERMISSION_SPECS.map((permission) => permission.slug),
       ...ROLES.flatMap((role) => role.permissions),

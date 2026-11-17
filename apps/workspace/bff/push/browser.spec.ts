@@ -114,8 +114,6 @@ describe('forgetting this browser, as sign-out does', () => {
     Reflect.deleteProperty(navigator, 'clearAppBadge')
   })
 
-  // A slow server used to outlast sign-out's budget with the browser still
-  // subscribed, so the next person on the computer got the last one's inbox.
   it('unsubscribes, closes what is shown and clears the badge even when the server never answers', async () => {
     const order: string[] = []
     const { notification, subscription, clearAppBadge } = browserWith(order)

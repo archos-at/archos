@@ -1,24 +1,5 @@
 'use client'
 
-/**
- * A project's Offene Punkte: the open Anmerkungen of every document of the
- * project on one page, grouped by document, for the Jour fixe, which is held
- * per project and not per sheet. Reached from the Dateien header, as the
- * Papierkorb is.
- *
- * Each row is the review list's own (`MarkRowContent`), as a link into that
- * document's Prüfansicht at the mark (`reviewFilesHref`: Dateien with `doc`,
- * `review` and `mark`, which the pane already answers). The filters are the
- * Jour fixe's two questions, whose points are mine and what is due; the
- * Protokoll carries what the filters show.
- *
- * The filters are in the page's address (`assignee=me`, `due=…`, replaced
- * without a server render), and every link into a review carries that
- * address as `back`: closing the review returns here, to the same selection,
- * rather than leaving the reader in Dateien. The list is read again when the
- * page comes back (`useProjectMarks`).
- */
-
 import { useState, type JSX } from 'react'
 import { usePathname, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
@@ -51,7 +32,6 @@ import { ProjectProtocolMenu } from './project-protocol-menu'
 type AssigneeChoice = 'all' | 'me'
 type DueChoice = 'all' | ProjectMarkDue
 
-/** The filters the page opens with, and the server reads its first page for. */
 export const OPEN_POINTS_DEFAULT_FILTERS: ProjectMarksFilters = {}
 
 const filtersOf = (assignee: AssigneeChoice, due: DueChoice): ProjectMarksFilters => ({
@@ -59,7 +39,6 @@ const filtersOf = (assignee: AssigneeChoice, due: DueChoice): ProjectMarksFilter
   ...(due === 'all' ? {} : { due }),
 })
 
-/** The filters the page's address names; anything else is the default. */
 function choicesOf(params: Pick<URLSearchParams, 'get'> | null): { assignee: AssigneeChoice; due: DueChoice } {
   const due = params?.get('due')
   return {
@@ -68,10 +47,6 @@ function choicesOf(params: Pick<URLSearchParams, 'get'> | null): { assignee: Ass
   }
 }
 
-/**
- * The chips picked, as the two filters: „Für Sie“ on or off, and the one due chip, the newest when both are picked.
- * „Alle“ is picked exactly when nothing else is, and pressing it clears the rest.
- */
 function choicesFromChips(
   next: readonly string[],
   previous: { assignee: AssigneeChoice; due: DueChoice }
@@ -82,13 +57,8 @@ function choicesFromChips(
   return { assignee: next.includes('me') ? 'me' : 'all', due: dues.find((value) => value !== previous.due) ?? dues[0] ?? 'all' }
 }
 
-/** The chip that stands for no filter. */
 const ALL_CHIP = 'all'
 
-/**
- * This page's address with the filters on it, leaving out the defaults and
- * keeping any other param: the `back` of every link into a review.
- */
 function hrefOf(pathname: string, current: string, assignee: AssigneeChoice, due: DueChoice): string {
   const params = new URLSearchParams(current)
   if (assignee === 'me') params.set('assignee', ASSIGNEE_ME)
@@ -99,7 +69,6 @@ function hrefOf(pathname: string, current: string, assignee: AssigneeChoice, due
   return query ? `${pathname}?${query}` : pathname
 }
 
-/** The marks by document, in the order the documents first appear (the list is ordered by document). */
 function byDocument(marks: readonly ProjectMarkView[]): { documentId: string; documentName: string; marks: ProjectMarkView[] }[] {
   const groups = new Map<string, { documentId: string; documentName: string; marks: ProjectMarkView[] }>()
   for (const mark of marks) {
@@ -112,11 +81,8 @@ function byDocument(marks: readonly ProjectMarkView[]): { documentId: string; do
 
 export interface OpenPointsPanelProps {
   projectId: string
-  /** The reader, so a mention of them stands out. */
   currentUserId: string | null
-  /** The first page the server read for {@link OPEN_POINTS_DEFAULT_FILTERS}; null when that read failed. */
   initial: ProjectMarksResponse | null
-  /** „Im Projekt ablegen": the project's name for the file, where the reader may file into the root; null, not offered. */
   filing?: { projectName: string } | null
 }
 
@@ -128,11 +94,6 @@ export function OpenPointsPanel({ projectId, currentUserId, initial, filing = nu
   const [due, setDueState] = useState<DueChoice>(() => choicesOf(searchParams).due)
   const current = searchParams?.toString() ?? ''
   const here = hrefOf(pathname, current, assignee, due)
-  /**
-   * A filter changes the list and the address, so Back from a review comes back to it. The
-   * address is replaced with `history.replaceState`, which Next's router follows (`useSearchParams`
-   * reads it) without rendering the page on the server again: the list reads itself.
-   */
   const choose = (next: { assignee: AssigneeChoice; due: DueChoice }) => {
     setAssigneeState(next.assignee)
     setDueState(next.due)
@@ -218,8 +179,6 @@ export function OpenPointsPanel({ projectId, currentUserId, initial, filing = nu
         ) : (
           <>
             {byDocument(list.marks).map((group) => (
-              // A document's points under its name, on the page: no box and no line under the heading. The rows bleed by
-              // their inset, so the numbers stand on the edge under the document's glyph.
               <section key={group.documentId} aria-label={group.documentName} className="flex flex-col" data-testid="open-points-document">
                 {/* The glyph on the column's edge in the points' 24px marker column, so the name stands on their text's
                     edge. A line as tall as its tonal press (32px, 44px under touch): an overhanging fill reached the first
@@ -249,7 +208,7 @@ export function OpenPointsPanel({ projectId, currentUserId, initial, filing = nu
                           { documentId: mark.documentId, annotationId: mark.id },
                           { back: here }
                         )}
-                        className={cn(markRowClassName(), 'hover:bg-desk')}
+                        className={cn(markRowClassName(), 'hover:bg-hover')}
                         data-testid="open-point-row"
                       >
                         <MarkRowContent annotation={mark} viewerId={currentUserId} showPage marker="verdict" columns />
@@ -275,5 +234,4 @@ export function OpenPointsPanel({ projectId, currentUserId, initial, filing = nu
   )
 }
 
-/** A hairline under each point, the one inset rule: from its text (10px row inset + 24px marker + 12px gap) to the row's end. */
 const ROW_HAIRLINE_MARKS = `${ROW_HAIRLINE} [--row-text:46px] [--row-end:10px]`

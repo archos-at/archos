@@ -10,10 +10,8 @@ import { settingsCopy } from '@/i18n/namespaces/settings'
 import { formatCredits, formatTokens } from '@/lib/format'
 import type { ProjectUsageView } from '../settings/usage-settings'
 
-/** Models named in the tile; the Usage section lists every one. */
 const TOP_MODELS = 3
 
-/** The tighter of the project's and the organization's monthly limit. */
 function monthlyCeiling(usage: ProjectUsageView): number | null {
   const project = usage.projectLimit?.monthlyLimit ?? null
   const org = usage.orgLimit.monthlyLimit
@@ -22,12 +20,6 @@ function monthlyCeiling(usage: ProjectUsageView): number | null {
   return Math.min(project, org)
 }
 
-/**
- * Spend this month: the figure, the meter against what would stop it, and the
- * models it went to. No trend here: the hero's activity chart already shows
- * how the month went, and two lookalike column charts side by side read as one
- * thing drawn twice.
- */
 export function UsageTile({
   usage,
   href,
@@ -60,7 +52,6 @@ export function UsageTile({
       <div className="flex items-end justify-between gap-4">
         <BentoFigure
           value={withUnit(usage.month.amount)}
-          // With a ceiling the meter below states "x of y"; without one, say so.
           caption={ceiling === null ? t('project.overview.usage.noLimit') : undefined}
         />
       </div>

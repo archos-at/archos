@@ -28,7 +28,6 @@ describe('WhatsNewNotice', () => {
     const notice = await screen.findByRole('dialog', { name: 'New this week' })
     expect(notice).toHaveTextContent('Ctrl+K now searches everything your office holds.')
     expect(screen.getByRole('link', { name: 'See everything new' })).toHaveAttribute('href', '/app/whats-new')
-    // Focus moves to its first action, so a keyboard reader lands on it.
     await waitFor(() => expect(screen.getByRole('button', { name: "Don't show again" })).toHaveFocus())
     expect(capturePosthog).toHaveBeenCalledWith('whats_new_shown', { week: '2026-W44' })
   })

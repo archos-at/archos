@@ -11,8 +11,6 @@ describe('isInHoldoutSlice', () => {
   })
 
   it('treats a missing conversation as treated, never as control', () => {
-    // A turn with no conversation key cannot be assigned an arm; counting it
-    // as control would silently deny it lessons AND pollute the comparison.
     expect(isInHoldoutSlice('', 50)).toBe(false)
   })
 
@@ -29,8 +27,6 @@ describe('isInHoldoutSlice', () => {
   })
 
   it('is monotonic — raising the percentage never removes a conversation', () => {
-    // Otherwise raising the holdout would reshuffle both arms and invalidate
-    // every measurement taken before the change.
     const ids = Array.from({ length: 500 }, (_, index) => `conv-${index}`)
     for (const id of ids) {
       if (isInHoldoutSlice(id, 10)) expect(isInHoldoutSlice(id, 25)).toBe(true)
@@ -38,11 +34,6 @@ describe('isInHoldoutSlice', () => {
   })
 
   it('agrees with the Python twin on a pinned vector', () => {
-    // Both tiers must reach the same verdict from the same key: this tier
-    // decides whether to INJECT, the BFF decides how to LABEL the vote, and a
-    // disagreement mislabels every measurement. The expectations below are
-    // produced by packages/agent/src/agent/common/platform_lessons.py::is_in_holdout_slice
-    // and pinned by packages/agent/tests/common/test_platform_lessons.py.
     expect(isInHoldoutSlice('conv-8', 10)).toBe(true)
     expect(isInHoldoutSlice('conv-12', 10)).toBe(true)
     expect(isInHoldoutSlice('conv-16', 10)).toBe(true)

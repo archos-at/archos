@@ -1,12 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Piloti in the document room, and the server's snapshot of who is there:
- * Piloti is one peer per conversation, stamped by the server with the person
- * it acts for, and impossible for a browser to be or to name; and the snapshot holds what people last said about
- * their page, view, selection and draft, per organization, bounded and TTL'd.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -162,7 +156,6 @@ describe('roomSnapshot', () => {
       expect.objectContaining({ peerId: 'piloti-conv_42', kind: 'piloti', forName: 'Anna Berger', page: null, selected: null }),
     ])
 
-    // A selection alone changes only the selection.
     await sendToChannel(SESSION, { ch: 'doc:doc_1', msg: { peerId: 'peer_anna_001', selected: null } })
     expect((await roomSnapshot('doc_1', 'org_1'))[0]).toMatchObject({ selected: null, viewport: { page: 3, y: 0.4 } })
   })

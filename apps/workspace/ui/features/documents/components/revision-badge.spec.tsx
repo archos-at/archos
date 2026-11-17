@@ -27,7 +27,6 @@ const doc = (revision: RevisionLinks | null): FileItem =>
     revision,
   }) as FileItem
 
-/** A current Fassung that replaces `count - 1` older ones, as the BFF's history walk reports them. */
 const current = (olderCount: number): RevisionLinks => ({
   ...EMPTY_REVISION_LINKS,
   supersedes: [ref('v1')],

@@ -19,31 +19,22 @@ import { intakeReadingStepCopy } from '@/i18n/namespaces/intake-reading-step'
 import { usePressed } from '../../hooks/use-pressed'
 import type { ReadingDocuments } from './reading-milestones'
 
-/** What the person may do about the documents from here; absent, the link is not drawn. */
 export interface DocumentTools {
-  /** Read what is not read yet (new documents, or the rest a reading left). */
   reread?: { busy: boolean; onReread: () => void | Promise<void> }
 }
 
-/** Adding documents to the project, through its own upload. */
 export interface AddDocumentsProps {
   projectId: string
   uploading: boolean
   onFiles: (files: File[]) => void
 }
 
-/**
- * „Dokumente hinzufügen": a quiet link with the project's own upload behind
- * it, files or a whole folder. The upload control is drawn hidden; the link's
- * menu opens its pickers, so there is one upload and no second button.
- */
 export function AddDocuments({
   projectId,
   uploading,
   onFiles,
   className,
 }: AddDocumentsProps & {
-  /** The link's look where it sits (the footer's aside); a quiet inline link by default. */
   className?: string
 }): JSX.Element {
   const t = useTranslations(intakeReadingStepCopy)
@@ -98,21 +89,12 @@ export function AddDocuments({
   )
 }
 
-/**
- * The documents under the heading: a determinate bar, „9 von 23 gelesen",
- * and, once the reading is over, one quiet line under it with what is left
- * unread and the way to read it now.
- */
 export function ReadingDocumentsBar({
   documents,
   showUnread,
   tools,
 }: {
   documents: ReadingDocuments
-  /**
-   * Say what is left unread. Not while a reading runs (it is reading it), and
-   * not after a failed one, whose unread count still holds what it opened.
-   */
   showUnread: boolean
   tools: DocumentTools
 }): JSX.Element {

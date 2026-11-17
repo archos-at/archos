@@ -1,5 +1,3 @@
-"""The connect-retrying client the ingest worker uses for the BFF and the object store."""
-
 from __future__ import annotations
 
 import socket
@@ -38,8 +36,6 @@ def _closed_port() -> int:
 
 
 def test_a_refused_connect_is_tried_again_before_it_raises(monkeypatch):
-    """Each refused connect is repeated CONNECT_RETRIES times, then the error
-    surfaces. The backoff sleeps are skipped; the number of connects is the contract."""
     connects = _count_connects(monkeypatch)
     port = _closed_port()
     with connect_retrying_client(read_timeout=1.0) as client, pytest.raises(httpx.ConnectError):
@@ -48,7 +44,6 @@ def test_a_refused_connect_is_tried_again_before_it_raises(monkeypatch):
 
 
 def _count_connects(monkeypatch) -> list[int]:
-    """Count TCP connects made through httpcore's sync backend; backoff sleeps are skipped."""
     connects: list[int] = []
     real_connect = SyncBackend.connect_tcp
 
@@ -101,9 +96,6 @@ def test_the_presence_check_retries_a_refused_connect(monkeypatch):
 
 
 def test_a_host_whose_retries_were_spent_fails_fast_until_its_window_passes(monkeypatch):
-    """One job makes several fail-open calls; against a host that stays down each
-    used to wait out its own retries, and a job outlasted its deadline. The second
-    call now fails at once, without a connect, until HOST_DOWN_SECONDS have passed."""
     connects = _count_connects(monkeypatch)
     url = f"http://127.0.0.1:{_closed_port()}/api/internal/x"
     with connect_retrying_client(read_timeout=1.0) as client:

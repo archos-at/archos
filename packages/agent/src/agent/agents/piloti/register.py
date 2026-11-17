@@ -518,8 +518,8 @@ async def _run_turn(deployment: _Deployment, state: ResearchAgentState) -> Resea
     # same tool payload and lands on one prompt-cache shard instead of one per
     # toggle combination. No `data_sources is not None` guard, for the same
     # reason as before: an org's toggle applies to a request that asked for
-    # "all tools".
-    disabled_sources = unavailable_source_ids(state.data_sources) | law_sources_withheld()
+    # "all tools". The law lookup reads the turn's own released source (ADR-0174, 2026-11-11 amendment).
+    disabled_sources = unavailable_source_ids(state.data_sources) | law_sources_withheld(reads_turn_sources=True)
     _warn_if_nothing_is_reachable(disabled_sources)
     is_valid, unavailable_tools = _tool_availability(deployment, deployment.tools)
     if not is_valid:

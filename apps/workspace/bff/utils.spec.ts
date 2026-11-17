@@ -6,7 +6,6 @@ import { TYPE_SCALE, cn } from './utils'
 
 describe('cn', () => {
   it('keeps a type-scale size beside a text colour, and lets a later size win', () => {
-    // RATCHET: tailwind-merge read an unknown `text-*` as a colour and dropped `text-name` next to `text-foreground`.
     expect(cn('text-name text-foreground')).toBe('text-name text-foreground')
     expect(cn('text-muted-foreground text-meta')).toBe('text-muted-foreground text-meta')
     expect(cn('text-sm', 'text-section')).toBe('text-section')

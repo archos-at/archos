@@ -1,15 +1,3 @@
-"""Tests for the OIB base-corpus admin routes.
-
-Covers the non-blocking upload (explicit + guessed doc_class, invalid → 400),
-safe ZIP extraction (happy path + zip-slip + non-pdf skip), the reclassify
-PATCH endpoint (updates / validates / 404), delete, re-ingest, the PDF route and
-the corpus export. Uses a tmp-sqlite summary store, an in-memory stand-in for the
-BFF and SeaweedFS with a real corpus table, ingest queue and status store (a real
-Postgres when ``TEST_CORPUS_DB`` is set), and a fake ingestor that can only
-PREPARE a job: an upload or a re-ingest must leave a job in the queue and ingest
-nothing in the route's own process.
-"""
-
 import hashlib
 import io
 import os
@@ -51,17 +39,12 @@ _COLLECTION = "oib_knowledge"
 
 
 def _job_done(name: str, sha256: str, chunk_format_version: int) -> bool:
-    """A job for ``name`` prepared at the file's current mark and finished: what ``oib_sync`` records."""
     corpus_store.begin_job(name)
     return corpus_store.mark_ingested(name, sha256, chunk_format_version)
 
 
 @pytest.fixture
 def summary_db():
-    # ignore_cleanup_errors: the SQLite engine's connection (and its -wal/-shm
-    # sidecar files) may not be released the instant the fixture tears down, so
-    # rmtree can hit a transient "Directory not empty". Tolerate it rather than
-    # let a teardown race fail an otherwise-passing test (seen flaky on py3.13).
     with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmpdir:
         db_url = f"sqlite:///{Path(tmpdir) / 'oib.db'}"
         DocumentMetadataStore._tables_initialized.discard(db_url)
@@ -75,8 +58,6 @@ def store(summary_db):
 
 
 class _FakeBucket:
-    """The BFF's presigned upload and delete, and SeaweedFS, as a dict."""
-
     def __init__(self):
         self.objects: dict[str, bytes] = {}
         self.deletes: list[str] = []
@@ -103,7 +84,6 @@ class _FakeBucket:
 
 @pytest.fixture
 def bucket(monkeypatch, tmp_path):
-    """The corpus: a fake bucket, a fresh table and an empty cache directory."""
     fake = _FakeBucket()
     monkeypatch.setenv("SUMMARY_DB", os.environ.get("TEST_CORPUS_DB") or f"sqlite:///{tmp_path / 'corpus.db'}")
     monkeypatch.setenv(corpus_store.CACHE_DIR_ENV, str(tmp_path / "cache"))
@@ -126,8 +106,6 @@ def cache_dir(tmp_path):
 
 
 class _FakeIngestor:
-    """Can prepare a job (a PENDING status, as the real ingestor does) and delete chunks; it never ingests."""
-
     supports_durable_jobs = True
     backend_name = "fake"
 
@@ -216,11 +194,9 @@ async def test_upload_explicit_doc_class_persists(app, ingestor, bucket, cache_d
     assert body["kind"] == "file"
     assert body["file_name"] == "plan.pdf"
     assert body["doc_class"] == "oib_guide"
-    # Stored in the shared corpus before the response: the object, the row, this replica's cache.
     assert bucket.objects == {"base-corpus/plan.pdf": _pdf_bytes()}
     assert corpus_store.get_file("plan.pdf") is not None
     assert (cache_dir / "plan.pdf").is_file()
-    # One job on the ingest queue, carrying the admin's Dokumentart; nothing ingested here.
     assert ingestor.names == ["plan.pdf"]
     assert ingestor.prepared[0].config["doc_class"] == "oib_guide"
     assert len(waiting_runs()) == 1
@@ -254,7 +230,6 @@ async def test_upload_invalid_doc_class_400(app, bucket, ingestor):
         )
 
     assert res.status_code == 400
-    # Nothing was stored for the rejected upload.
     assert bucket.objects == {}
     assert corpus_store.get_file("plan.pdf") is None
     assert ingestor.prepared == []
@@ -294,7 +269,6 @@ async def test_zip_happy_path_and_skips(app, ingestor, bucket):
     assert accepted_names == {"a.pdf", "b.pdf"}
     rejected = [m for m in body["members"] if m["status"] == "rejected"]
     assert rejected[0]["file_name"] == "notes.txt"
-    # Both PDFs are stored by basename.
     assert set(bucket.objects) == {"base-corpus/a.pdf", "base-corpus/b.pdf"}
     assert set(corpus_store.list_files()) == {"a.pdf", "b.pdf"}
     assert sorted(ingestor.names) == ["a.pdf", "b.pdf"]
@@ -303,7 +277,6 @@ async def test_zip_happy_path_and_skips(app, ingestor, bucket):
 
 @pytest.mark.asyncio
 async def test_zip_slip_member_rejected(app, bucket):
-    # zipfile.writestr won't normalize a traversal path, so it lands verbatim.
     content = _build_zip({"../escape.pdf": _pdf_bytes(), "ok.pdf": _pdf_bytes()})
 
     async with _client(app) as client:
@@ -318,7 +291,6 @@ async def test_zip_slip_member_rejected(app, bucket):
     assert body["rejected"] == 1
     rejected = [m for m in body["members"] if m["status"] == "rejected"][0]
     assert "unsafe" in rejected["reason"].lower()
-    # The traversal target was never stored.
     assert set(bucket.objects) == {"base-corpus/ok.pdf"}
 
 
@@ -329,7 +301,6 @@ async def _upload(app, name: str, content: bytes, content_type: str):
 
 @pytest.mark.asyncio
 async def test_a_name_the_corpus_keeps_takes_the_same_bytes_and_no_others(app, bucket, ingestor):
-    """A corpus file is immutable in the tier that writes it (ADR-0165): a reviewer's bytes stay the published ones."""
     reviewed = _pdf_bytes(b"%PDF-1.4 the text a reviewer read")
     assert (await _upload(app, "oib-rl-2.pdf", reviewed, "application/pdf")).status_code == 200
 
@@ -344,12 +315,6 @@ async def test_a_name_the_corpus_keeps_takes_the_same_bytes_and_no_others(app, b
 
 @pytest.mark.asyncio
 async def test_a_zip_sent_as_a_pdf_replaces_no_file(app, bucket):
-    """The reported attack: `innocent.pdf`, `Content-Type: application/zip`, a ZIP body holding a named text.
-
-    The BFF hashed one file, `innocent.pdf`, and let it through; this tier read the content type, extracted the
-    member and replaced the text. Both tiers now decide by the bytes, the name has to agree, and a member that
-    reaches the store under a name it keeps is refused there.
-    """
     reviewed = _pdf_bytes(b"%PDF-1.4 the text a reviewer read")
     assert (await _upload(app, "at-oib-rl-2-2019.pdf", reviewed, "application/pdf")).status_code == 200
     archive = _build_zip({"at-oib-rl-2-2019.pdf": _pdf_bytes(b"%PDF-1.4 the attacker's text")})
@@ -376,7 +341,6 @@ async def test_the_content_type_decides_nothing_about_an_upload(app, bucket):
 
 @pytest.mark.asyncio
 async def test_a_zip_that_holds_one_path_twice_is_refused_whole(app, bucket):
-    """zipfile keeps the first copy of a path and the BFF's reader the last: two tiers, two files."""
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w") as zf, pytest.warns(UserWarning, match="Duplicate name"):
         zf.writestr("F.pdf", _pdf_bytes(b"%PDF-1.4 the copy this tier would store"))
@@ -387,14 +351,12 @@ async def test_a_zip_that_holds_one_path_twice_is_refused_whole(app, bucket):
 
     assert res.status_code == 400 and "twice" in res.json()["detail"]
     assert bucket.objects == {}
-    # Positive control: the same base name in two folders is two paths, and the first is kept as before.
     folders = _build_zip({"a/F.pdf": _pdf_bytes(), "b/F.pdf": _pdf_bytes()})
     assert (await _upload(app, "bulk.zip", folders, "application/zip")).json()["accepted"] == 1
 
 
 @pytest.mark.asyncio
 async def test_a_plain_upload_cannot_take_the_name_an_attached_text_would_get(app, bucket):
-    """`<key>-<12 hex>.pdf` says what its bytes are: other bytes under it would hold the name against the real text."""
     text = _pdf_bytes(b"%PDF-1.4 the publisher's text")
     honest = f"at-oib-rl-6-2015-text-{hashlib.sha256(text).hexdigest()[:12]}.pdf"
     squatted = "at-oib-rl-6-2015-text-0123456789ab.pdf"
@@ -409,13 +371,11 @@ async def test_a_plain_upload_cannot_take_the_name_an_attached_text_would_get(ap
     rejected = [m for m in archive.json()["members"] if m["status"] == "rejected"]
     assert [(m["file_name"], "sha256" in m["reason"]) for m in rejected] == [(squatted, True)]
     assert set(bucket.objects) == {"base-corpus/ok.pdf"}
-    # Positive controls: the name of these very bytes, and a name that only looks similar.
     assert (await _upload(app, honest, text, "application/pdf")).status_code == 200
     assert (await _upload(app, "oib-rl-6-2015.pdf", other, "application/pdf")).status_code == 200
 
 
 def _zip_with_raw_names(members: dict[str, bytes]) -> bytes:
-    """A ZIP whose member names are written as given: `ZipInfo` itself would cut one at a NUL."""
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w") as zf:
         for name, data in members.items():
@@ -427,7 +387,6 @@ def _zip_with_raw_names(members: dict[str, bytes]) -> bytes:
 
 @pytest.mark.asyncio
 async def test_a_zip_member_two_readers_would_name_differently_is_kept_under_no_name(app, bucket):
-    """The second attack: `x.pdf\0y.pdf`. The BFF's reader keeps the NUL, zipfile cuts the name to `x.pdf`."""
     reviewed = _pdf_bytes(b"%PDF-1.4 the text a reviewer read")
     assert (await _upload(app, "x.pdf", reviewed, "application/pdf")).status_code == 200
     archive = _zip_with_raw_names(
@@ -489,7 +448,6 @@ async def test_a_zip_member_the_queue_refuses_is_rejected_and_the_others_go_on(a
             raise ingest_dispatch.QueueUnavailable("could not queue it")
         return real(prepared)
 
-    # The route hands this enqueue to oib_sync; it is bound where the route module imports it.
     monkeypatch.setattr(oib_routes, "enqueue_only", create_autospec(real, side_effect=enqueue))
     content = _build_zip({"good.pdf": _pdf_bytes(), "bad.pdf": _pdf_bytes()})
 
@@ -527,7 +485,6 @@ async def test_an_upload_hatchet_cannot_take_is_an_error_not_an_in_process_inges
 
     assert res.status_code == 500
     assert "ConnectionError" in res.json()["detail"]
-    # The file is kept: the next sync cycle hands it over as soon as Hatchet is back.
     assert corpus_store.get_file("plan.pdf") is not None
     assert bucket.objects == {"base-corpus/plan.pdf": _pdf_bytes()}
     assert len(waiting_runs()) == 0
@@ -563,7 +520,6 @@ async def test_patch_doc_class_updates(app, store):
 
 @pytest.mark.asyncio
 async def test_a_person_setting_the_doc_class_clears_the_suggestion(app, store):
-    """ADR-0064 use 8: once someone has decided, the page has nothing left to offer."""
     register_summary(_COLLECTION, "plan.pdf", "A plan.")
     store.set_doc_class_suggestion(_COLLECTION, "plan.pdf", "law")
 
@@ -627,7 +583,6 @@ async def test_patch_display_title_blank_clears_override(app, store):
 
     assert res.status_code == 200
     assert res.json() == {"file_name": "plan.pdf", "display_title": None}
-    # Cleared → the derived default applies again on read.
     assert store.get_display_title(_COLLECTION, "plan.pdf") is None
 
 
@@ -640,11 +595,6 @@ async def test_patch_display_title_missing_row_404(app):
         )
 
     assert res.status_code == 404
-
-
-# ---------------------------------------------------------------------------
-# Delete: there is one kind, and it deletes
-# ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
@@ -739,11 +689,6 @@ async def test_a_store_that_cannot_delete_the_object_is_a_500_and_the_document_i
     assert corpus_store.get_file("custom.pdf") is None
 
 
-# ---------------------------------------------------------------------------
-# Sync, run by hand
-# ---------------------------------------------------------------------------
-
-
 @pytest.mark.asyncio
 async def test_the_manual_sync_runs_one_cycle_and_reports_its_counts(app, monkeypatch):
     monkeypatch.setattr(
@@ -774,16 +719,6 @@ async def test_a_manual_sync_that_breaks_is_a_500(app, monkeypatch):
     assert res.status_code == 500
 
 
-# ---------------------------------------------------------------------------
-# Subset re-ingest
-#
-# The change detector gates on the sha256 of the PDF bytes, so it is a no-op for a file
-# that has not changed. That is right for "has anything new arrived" and wrong after a
-# change to how chunks are BUILT — which is when an admin needs exactly these
-# documents rebuilt and nothing else.
-# ---------------------------------------------------------------------------
-
-
 @pytest.mark.asyncio
 async def test_reingest_queues_only_the_named_documents(app, ingestor):
     for name in ("a.pdf", "b.pdf", "c.pdf"):
@@ -800,7 +735,6 @@ async def test_reingest_queues_only_the_named_documents(app, ingestor):
     assert body["unknown"] == []
     assert sorted(ingestor.names) == ["a.pdf", "c.pdf"], "b.pdf was not selected and must not be touched"
     assert len(waiting_runs()) == 2
-    # Queued documents read as not ingested (PENDING in the status panel) until their chunks are rebuilt.
     assert corpus_store.get_file("a.pdf").ingested_sha256 is None
     assert corpus_store.get_file("b.pdf").ingested_sha256 is not None
 
@@ -817,7 +751,10 @@ async def test_reingest_records_the_country_and_edition_the_platform_sent(app, i
         )
 
     assert response.status_code == 200
-    assert corpus_store.get_mark("a.pdf") == corpus_store.FileMark(country_id="DE", edition_id="edition:baybo-2025")
+    assert response.json()["released"] == ["a.pdf"]  # the BFF refuses an answer without it
+    assert corpus_store.get_mark("a.pdf") == corpus_store.FileMark(
+        country_id="DE", edition_id="edition:baybo-2025", released=True
+    )
     assert refused.status_code == 422
 
 
@@ -837,7 +774,6 @@ async def test_reingesting_twice_while_the_first_job_waits_is_still_one_job(app,
 
 @pytest.mark.asyncio
 async def test_reingest_reports_unknown_names_instead_of_failing_the_request(app, ingestor):
-    """One stale name must not discard a selection of twenty."""
     corpus_store.put("a.pdf", _pdf_bytes())
 
     async with _client(app) as client:
@@ -864,11 +800,6 @@ async def test_reingest_rejects_an_empty_selection(app):
     async with _client(app) as client:
         response = await client.post("/v1/admin/oib/reingest", json={"file_names": []})
     assert response.status_code == 422, "an empty selection is a client bug, not a no-op"
-
-
-# ---------------------------------------------------------------------------
-# The source PDF route
-# ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
@@ -918,8 +849,6 @@ async def test_the_pdf_route_refuses_what_is_not_a_plain_pdf_name(app):
 
 
 class TestCorpusExport:
-    """The corpus as one .tar.gz for a CI ingest; never served without a configured token."""
-
     @pytest.fixture
     def corpus(self, monkeypatch, cache_dir, bucket):
         from agent_host.routes import oib as oib_routes
@@ -995,15 +924,9 @@ class TestCorpusExport:
         assert list(scratch.iterdir()) == []
 
 
-# ---------------------------------------------------------------------------
-# The source PDF is served to whom it is released (ADR-0173)
-# ---------------------------------------------------------------------------
-
 _INTERNAL_TOKEN = "an-internal-token-of-this-test"
 _INTERNAL = {"x-internal-token": _INTERNAL_TOKEN}
 
-#: One file per class a corpus holds, with the mark each carries. The countries are invented: the
-#: rule reads the mark and the caller's countries, and knows no country of its own.
 _RELEASED_HERE = "released-here.pdf"
 _FILE_CLASSES = {
     _RELEASED_HERE: "QA",
@@ -1015,7 +938,6 @@ _FILE_CLASSES = {
 
 @pytest.fixture
 def corpus(app, bucket, monkeypatch):
-    """A corpus holding one file of each class, and the internal token the BFF calls with."""
     monkeypatch.setenv("INTERNAL_API_TOKEN", _INTERNAL_TOKEN)
     monkeypatch.setenv("APP_ENV", "development")
     for name, country in _FILE_CLASSES.items():
@@ -1050,7 +972,6 @@ async def test_a_file_the_office_may_not_read_answers_as_a_file_that_is_not_ther
 
     assert missing.status_code == 404
     assert res.status_code == 404
-    # A name cannot tell whether the file exists: the two answers are the same bytes.
     assert res.content == missing.content
 
 

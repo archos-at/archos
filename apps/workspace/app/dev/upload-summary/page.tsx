@@ -78,7 +78,7 @@ function Preview(): JSX.Element {
           Opened from the inbox row „Ihr Upload ist gelesen“ (ADR-0086). Inline below; the real route dialog with{' '}
           <code>?dialog=1</code>.
         </p>
-        <Button asChild variant="outline" size="sm">
+        <Button asChild variant="secondary" size="sm">
           <Link href="/dev/upload-summary?dialog=1">Als Dialog öffnen</Link>
         </Button>
       </div>

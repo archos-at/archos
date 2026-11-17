@@ -21,7 +21,6 @@ import { classifyIngestFailure } from '@/features/documents/lib/ingest-failure'
 
 const t = translatorFor(filesCopy, 'de')
 
-/** A row from before migration 0148 that its backfill could not convert: only the message says why. */
 const parseQuarantine = (errorMessage: string | null) => quarantineVerdictOf({ errorMessage })
 
 const stored =
@@ -107,9 +106,7 @@ describe('the legacy message', () => {
       'quarantined:{"reasons":[{"kind":"term","term":"Lohnzettel","count":80,"pages":[1,2,3],"pages_truncated":true}]}'
     )
     expect(cut?.reasons[0]).toEqual({ kind: 'term', term: 'Lohnzettel', count: 80, pages: [1, 2, 3], pages_truncated: true })
-    // A verdict stored before the field existed lists every page, and still parses.
     expect(parseQuarantine(stored)?.reasons[0].pages_truncated).toBeUndefined()
-    // A field of the wrong type is a malformed verdict, not a guess.
     expect(
       parseQuarantine('quarantined:{"reasons":[{"kind":"term","term":"L","pages":[1],"pages_truncated":"yes"}]}')
     ).toBeNull()

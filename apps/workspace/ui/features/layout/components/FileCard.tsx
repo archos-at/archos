@@ -1,13 +1,3 @@
-/**
- * FileCard Component
- *
- * Expandable card displaying a file artifact from deep research.
- * Shows filename header with expandable content view.
- *
- * SSE Events:
- * - artifact.update (type: "file"): Creates card with filename and content
- */
-
 'use client'
 
 import { type FC, useState } from 'react'
@@ -18,48 +8,32 @@ import { useLocale, useTranslations } from '@/i18n'
 import { researchCopy } from '@/i18n/namespaces/research'
 import { formatTime } from '@/shared/utils/format-time'
 
-/** File artifact information from SSE events */
 export interface FileInfo {
-  /** Unique identifier for this file */
   id: string
-  /** File name/path */
   filename: string
-  /** File content */
   content: string
-  /** When file was created/updated */
   timestamp?: Date | string
 }
 
 interface FileCardProps {
-  /** File artifact information */
   file: FileInfo
 }
 
-/**
- * Get file extension for display styling
- */
 const getFileExtension = (filename: string): string => {
   const parts = filename.split('.')
   return parts.length > 1 ? parts[parts.length - 1].toLowerCase() : ''
 }
 
-/**
- * Check if file content should be rendered as markdown
- */
 const isMarkdownFile = (filename: string): boolean => {
   const ext = getFileExtension(filename)
   return ['md', 'markdown'].includes(ext)
 }
 
-/**
- * Expandable card showing a file artifact's details.
- */
 export const FileCard: FC<FileCardProps> = ({ file }) => {
   const [isExpanded, setIsExpanded] = useState(false)
   const t = useTranslations(researchCopy)
   const { locale } = useLocale()
 
-  // Content preview (first 100 chars)
   const contentPreview = file.content
     ? file.content.substring(0, 100).replace(/\n/g, ' ') + (file.content.length > 100 ? '...' : '')
     : ''

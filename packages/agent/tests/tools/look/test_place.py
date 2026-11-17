@@ -1,10 +1,3 @@
-"""A look at a project or office document registers a citable place (ADR-0125, amendment of 2026-10-22).
-
-The round trip: the tool's text is a grounding block; a live turn reads the
-record filed under its hash, a replayed turn parses the text, and both register
-the same place, which the wire draws as a place (``regions``) and never as law.
-"""
-
 from __future__ import annotations
 
 from types import SimpleNamespace

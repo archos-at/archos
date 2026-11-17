@@ -1,12 +1,13 @@
-import { findProjectProfile, findProjectPromptView } from '@/lib/projects/repository'
+import { findProjectProfile, findProjectProfileInOrg, findProjectPromptView } from '@/lib/projects/repository'
+import { contextForPage } from '@/lib/base-knowledge/context/service'
+import { profileAsTheLawShows } from '@/lib/project-intake/derivation-view'
+import { projectIntakeDefinitionV1 } from './intake-definition'
 import { loadDocumentRolesPromptSection } from '@/lib/document-roles/prompt-loader'
 import { loadUnreadableDocumentsSection } from './unreadable-section'
 import { getCached, invalidateCached } from '@/lib/cache'
 import { buildProjectBriefView } from './brief-view'
-import { normalizeLegacyPromptView } from './legacy-names'
+import { normalizeLegacyProfile, normalizeLegacyPromptView } from './legacy-names'
 import { isValidFederalStateToken } from './intake-conditions'
-import { salvageProjectProfile } from './salvage'
-import { siteCountry, type SiteCountry } from './site'
 import { ProjectProfileSchema } from './types'
 import type {
   ProjectAssumption,
@@ -47,8 +48,6 @@ const promptViewCacheKey = (projectId: string, organizationId: string | null | u
   `promptview-v2:${organizationId ?? ANONYMOUS_TENANT}:${projectId}`
 const federalStateCacheKey = (projectId: string, organizationId: string | null | undefined) =>
   `federal-state:${organizationId ?? ANONYMOUS_TENANT}:${projectId}`
-const siteCountryCacheKey = (projectId: string, organizationId: string | null | undefined) =>
-  `site-country:${organizationId ?? ANONYMOUS_TENANT}:${projectId}`
 
 /**
  * Cached read of the project-context prompt view injected into the agent on
@@ -69,7 +68,7 @@ export async function loadProjectPromptView(
 
   const build = async (): Promise<string | null> => {
     const [stored, documents] = await Promise.all([
-      findProjectPromptView(projectId, organizationId),
+      storedViewAsTheLawShows(projectId, organizationId),
       // Appended here rather than baked into the stored view, because a role
       // binding changes without the profile changing. `buildProjectPromptView`
       // runs at profile-save; a document declared afterwards would never reach
@@ -94,6 +93,21 @@ export async function loadProjectPromptView(
     loadUnreadableDocumentsSection(projectId, organizationId),
   ])
   return [view, unreadable].filter(Boolean).join('\n\n') || null
+}
+
+/**
+ * The stored view, or, where the project's gate names no law, the view of the profile without its derived
+ * classes: the agent reads no Gebäudeklasse the Steckbrief hides (`profileAsTheLawShows`, the one rule).
+ * The stored classes stay; a gate that names law again serves the stored view as before.
+ */
+async function storedViewAsTheLawShows(projectId: string, organizationId: string | null | undefined): Promise<string | null> {
+  const stored = await findProjectPromptView(projectId, organizationId)
+  if (!organizationId || !stored) return stored
+  const [{ gate }, state] = await Promise.all([contextForPage(organizationId, projectId), findProjectProfileInOrg(projectId, organizationId)])
+  if (!state) return stored
+  const profile = normalizeLegacyProfile(state.profile) as ProjectProfile
+  const shown = profileAsTheLawShows(profile, projectIntakeDefinitionV1, gate.state)
+  return shown === profile ? stored : buildProjectPromptView(shown)
 }
 
 export async function invalidateProjectPromptViewCache(
@@ -141,7 +155,6 @@ export async function invalidateProjectProfileCaches(
     [
       ...tenantVariants(promptViewCacheKey, projectId, organizationId),
       ...tenantVariants(federalStateCacheKey, projectId, organizationId),
-      ...tenantVariants(siteCountryCacheKey, projectId, organizationId),
     ].map((key) => invalidateCached(key))
   )
 }
@@ -175,26 +188,6 @@ export async function loadProjectFederalState(
       return typeof value === 'string' && isValidFederalStateToken(value) ? value : null
     }
   )
-}
-
-/**
- * Where the project is (`siteCountry`), cached like the federal state and
- * dropped with it on every profile write. `null` for no project, or one its
- * profile does not place. The retrieval scope reads it: the Austrian corpus
- * is searched only for a project placed in Austria (ADR-0158). The cache holds
- * `''` for an unplaced project, since it does not store a null.
- */
-export async function loadProjectSiteCountry(
-  projectId: string | undefined,
-  organizationId: string | null | undefined
-): Promise<SiteCountry> {
-  if (!projectId) return null
-  const country = await getCached(siteCountryCacheKey(projectId, organizationId), PROMPT_VIEW_CACHE_TTL_MS, async () => {
-    const profile = await findProjectProfile(projectId, organizationId)
-    const parsed = profile ? salvageProjectProfile(profile).profile : null
-    return parsed ? (siteCountry(parsed) ?? '') : ''
-  })
-  return country || null
 }
 
 export function buildProjectPromptView(profile: ProjectProfile): string {

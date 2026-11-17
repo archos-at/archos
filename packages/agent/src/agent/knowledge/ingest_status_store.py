@@ -50,13 +50,35 @@ the owner's ``heartbeat`` refreshes fewer rows than it asked for, which is how
 the adapter learns to re-write its jobs within one beat rather than at its next
 status change.
 
+A RUN THAT HAS BEEN TOLD TO STOP WRITES NO LIVE OR FAILED STATUS AGAIN. This is
+the same mechanism seen from the other side. A person's cancel clears ``owner``
+like every settle, so to the worker it looks exactly like another replica's
+wrong ``interrupted``, and nothing in the row says which of the two happened.
+The worker can tell: its run was cancelled (the claim guard ``run_prepared``
+is given, false for a person's stop, a newer upload and a timeout alike), or it
+was not. So the rule above is the owner's only while its run goes on, and the
+adapter's ``_persist`` drops every write of a stopped run except ``completed``:
+its next beat used to turn the person's ``cancelled`` back into ``processing``
+within thirty seconds, and a failure after the stop ended the row ``failed``.
+``completed`` is still written over ``cancelled``, because a single-file job
+past its last ownership check has its chunks indexed, and a row frozen at
+``cancelled`` would report a searchable file as stopped (the BFF re-checks a
+cancelled document for thirty minutes and adopts it, ``resolveCancelledRow``).
+``put`` stays unconditional; the check is where the knowledge is, in the run.
+One gap stays open: a write that lands after the cancel settled the row and
+before the cancel reached the worker makes the row live again until the run's
+own last word (``ingest_workflow._stopped``) settles it once more.
+
 A JOB HATCHET HOLDS IS WAITING, NOT LOST. Written PENDING by the replica that
 accepted it, it is vouched for by nobody until a worker runs it, so the dispatch
 holds its row (``ingest_run_hold``): before ``held_until`` it is never stale.
 The last attempt releases the hold, so a worker lost on it leaves the row to
-settle interrupted. A person's cancel settles the row ``cancelled`` at once,
-and the worker that stops settles it again; either tells the BFF
-(``ingest_settle_push``), as the run's last word on any other end does.
+settle interrupted. A person's cancel settles the row ``cancelled`` at once and
+releases the hold with it (a cancelled run is not tried again, and a row its
+dying worker wrote live once more must not stay held for the rest of the
+schedule). The run that stops settles the row again when it finds it live;
+either tells the BFF (``ingest_settle_push``), as the run's last word on any
+other end does.
 """
 
 from __future__ import annotations
@@ -352,7 +374,14 @@ def put(status: IngestionJobStatus) -> bool:
 
 
 def _write_cancelled(conn, url: str, job_id: str) -> bool:
-    """Write ``cancelled`` over a live row; whether there was one."""
+    """Write ``cancelled`` over a live row; whether there was one.
+
+    The hold goes with the owner: a cancelled run is not tried again, so nothing
+    is left to vouch for. Should its worker write the row live once more and
+    then die (see the module docstring), the row is stale after
+    ``STALE_AFTER_SECONDS`` like any other, not held for the rest of the run's
+    schedule (``ingest_workflow.hold_seconds``, over thirty hours).
+    """
     status = _read(conn, job_id)
     if status is None or not _is_live(status):
         return False
@@ -360,8 +389,8 @@ def _write_cancelled(conn, url: str, job_id: str) -> bool:
         # _now is a dialect-chosen literal; values are bound.
         # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
         text(
-            f"UPDATE ingest_jobs SET status_json = :status_json, updated_at = {_now(url)}, owner = NULL "
-            "WHERE job_id = :job_id"
+            f"UPDATE ingest_jobs SET status_json = :status_json, updated_at = {_now(url)}, owner = NULL, "
+            "held_until = NULL WHERE job_id = :job_id"
         ),
         {"job_id": job_id, "status_json": cancelled(status).model_dump_json(warnings=False)},
     )
@@ -372,11 +401,13 @@ def _write_cancelled(conn, url: str, job_id: str) -> bool:
 def settle_cancelled(job_id: str) -> bool:
     """Settle a live row as ``cancelled``; whether one was live. Never raises.
 
-    For a run that ended because the queue stopped it (``QueueSource._finish``):
-    the worker abandoned before writing anything, so the row is still live and
-    ``cancelled`` is the honest state — not the ``interrupted`` a lost owner
-    leaves. Best effort: a row another writer already settled (a job that
-    finished in the race) is left as it is.
+    Called twice for a person's stop: by the cancel itself
+    (``agent_host.jobs.ingest_dispatch.cancel``), and by the run that sees
+    itself cancelled (``ingest_workflow._stopped``), in case it wrote the row
+    live again before the cancel reached it. ``cancelled`` is the honest state,
+    not the ``interrupted`` a lost owner leaves. Best effort: a row another
+    writer already settled (a job that finished in the race) is left as it is,
+    and False also covers a write that failed.
     """
     url = _db_url()
     if not url:

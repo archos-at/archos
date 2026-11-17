@@ -1,0 +1,6 @@
+---
+# area: general
+fixes:
+  - >
+    A file whose reading you stopped no longer reappears as failed after you
+    reload the page.

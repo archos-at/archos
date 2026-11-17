@@ -1,7 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import { fitName, MIN_HEAD } from './fit-name'
 
-// One unit a character: a line of 20 holds twenty characters.
 const measure = (text: string) => Array.from(text).length
 
 describe('fitName', () => {
@@ -17,7 +16,6 @@ describe('fitName', () => {
   })
 
   test('never breaks inside a word: a compound wider than the line is cut, not split', () => {
-    // „Baustellenbesprechun/g.pdf“ was the tile breaking where the width ran out.
     const fitted = fitName('Bericht_01_Baustellenbesprechung.pdf', { width: 20, lines: 2, measure })
     for (const line of fitted.lines) expect(line.length).toBeLessThanOrEqual(20)
     expect(fitted.lines.join('')).not.toMatch(/Baustellenbesprechun$/)
@@ -33,7 +31,6 @@ describe('fitName', () => {
   })
 
   test('the ellipsis is never lost and never stands apart from the head', () => {
-    // „RStand-2026-11-03.pdf“ (the ellipsis gone) and „202…   gültig)“ (a gap after it) were MiddleTruncate's.
     const fitted = fitName('Rauchabschnitte_Tiefgarage_Ebene-2_Variantenvergleich_Stand-2026-11-03.pdf', { width: 18, lines: 2, measure })
     const drawn = fitted.lines.join('\n')
     expect(drawn).toContain('…')

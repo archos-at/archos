@@ -1,15 +1,3 @@
-/**
- * The chat socket's driver over the REAL socket client, against servers that
- * do not behave: the one the dev deploy rolled back to (the agent runtime's stock socket,
- * which accepts the upgrade, ignores `?v=2`, never says hello and answers a
- * `user_message` with a frame of its own dialect), and a v2 server that says
- * hello and then never answers. In both the page used to show „Denkt nach…"
- * forever. Every one of these ends, visibly, on a clock.
- *
- * `use-websocket-chat.spec.ts` drives the driver through a mocked socket; this
- * file stubs only `WebSocket`, so the hello gate, the ladder and the driver's
- * deadlines run together.
- */
 import { act, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { HELLO_TIMEOUT_MS } from '@/adapters/api/turn-socket'
@@ -19,7 +7,6 @@ interface Sent {
   message_id?: string
 }
 
-/** One server connection. `behave` decides what the server does. */
 class FakeSocket {
   static instances: FakeSocket[] = []
   static behave: (socket: FakeSocket) => void = () => undefined
@@ -116,7 +103,6 @@ const tick = (ms: number) => act(async () => void (await vi.advanceTimersByTimeA
 beforeEach(() => {
   vi.useFakeTimers()
   vi.spyOn(console, 'warn').mockImplementation(() => undefined)
-  // The gave-up explanation asks a same-origin endpoint; there is none here.
   vi.stubGlobal('fetch', vi.fn(async () => new Response('{}', { status: 404 })))
   FakeSocket.instances = []
   vi.stubGlobal('WebSocket', FakeSocket)
@@ -150,7 +136,6 @@ const ask = async () => {
 
 describe('a server that does not speak wire v2 (NAT stock socket)', () => {
   beforeEach(() => {
-    // Silent on open; a user_message gets the agent runtime's error frame back.
     FakeSocket.behave = (socket) => {
       socket.onSend = (message) =>
         socket.receive({ type: 'error_message', id: message.message_id, status: 'complete', content: { code: 'invalid_message' } })

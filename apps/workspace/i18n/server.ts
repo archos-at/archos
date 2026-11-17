@@ -34,7 +34,7 @@ const requestLocale = cache(async (): Promise<Locale> => {
  * Resolve the active locale for the current request. An agent's call through
  * the MCP server (`lib/agent-api/dispatch.ts`) reads English, whatever the
  * person saved: a model reads the answer, and anything an agent reads is
- * English (AGENTS.md, "Industry standard first"). A job slice reads the
+ * English (working-style.md, "Industry standard first"). A job slice reads the
  * default locale: it has no request, and so no person's cookie or header.
  */
 export async function getLocale(): Promise<Locale> {

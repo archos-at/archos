@@ -1,9 +1,3 @@
-/**
- * The Steckbrief tile and its editor (ADR-0091): the tile summarizes, the
- * dialog edits; members are listed without being typed in, only people
- * without an account are added, and the editor offers only what the server
- * allows and sends months and nothing more.
- */
 import { render, screen, within } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, test, vi } from 'vitest'
@@ -62,7 +56,6 @@ describe('ProjectRecord', () => {
     expect(within(people).getByText('Statik · Huber ZT GmbH')).toBeInTheDocument()
     expect(within(people).getByText('former')).toBeInTheDocument()
     expect(screen.getByText('3 people · 1 former')).toBeInTheDocument()
-    // Nothing is edited on the dashboard.
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
   })
 

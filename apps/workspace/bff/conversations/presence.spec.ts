@@ -1,20 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Composing presence: who may claim it, and who hears about it.
- *
- * Four properties are worth a test each, because each one is a way this feature
- * could quietly become something it is not:
- *
- *  1. a solo thread must publish nothing at all (spec NF-8 — a user who never
- *     shares anything cannot notice collaboration exists);
- *  2. a viewer must not be able to announce a draft that can never be sent;
- *  3. the typist is `session.userId`, never anything the caller supplied;
- *  4. the per-user budget both binds this endpoint — it is the highest-frequency
- *     one in the product and this is its only bound — and is spent only where a
- *     broadcast can actually follow.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -63,8 +49,6 @@ describe('publishTypingPresence', () => {
     vi.mocked(isCollaborationEnabled).mockReturnValue(true)
     vi.mocked(countGrantsForResource).mockResolvedValue(0)
     vi.mocked(resolveParticipants).mockResolvedValue([ME, ANNA])
-    // Within budget by default, so every other test here exercises the behaviour
-    // it is actually about.
     vi.mocked(consumeLimit).mockResolvedValue(allowedDecision(TYPING_LIMIT))
   })
 
@@ -94,8 +78,6 @@ describe('publishTypingPresence', () => {
   })
 
   it('publishes nothing for a solo thread', async () => {
-    // Private, no grants: there is nobody to tell, and a user who never shares
-    // must not be able to notice this feature exists.
     allowAccess('private')
     vi.mocked(countGrantsForResource).mockResolvedValue(0)
 
@@ -114,27 +96,16 @@ describe('publishTypingPresence', () => {
   })
 
   it('sheds the broadcast once the caller is past the typing budget', async () => {
-    // The only bound on the highest-frequency endpoint in the product: one call
-    // resolves access, counts grants, resolves participants and then publishes
-    // once per participant onto everybody's open stream. Past the budget none of
-    // that reaches anyone — shedding presence is free, it is worthless a second
-    // later anyway.
     allowAccess('organization')
     vi.mocked(consumeLimit).mockResolvedValue(refusedDecision(TYPING_LIMIT))
 
     await publishTypingPresence(session, CONVERSATION_ID, true)
 
     expect(publishToUsers).not.toHaveBeenCalled()
-    // Charged to the person, not the thread — otherwise a flood spread over many
-    // conversations would never meet a ceiling.
     expect(consumeLimit).toHaveBeenCalledWith(TYPING_LIMIT, memberSubject(session))
   })
 
   it('never spends the budget on a private thread, which publishes nothing anyway', async () => {
-    // The limiter sits BELOW the solo-thread exit on purpose. Above it, typing
-    // alone in a private thread — which costs nothing past that point — would
-    // spend the same per-user budget that a shared thread's presence depends on,
-    // so a long solo draft could shed presence in a thread somebody is watching.
     allowAccess('private')
     vi.mocked(countGrantsForResource).mockResolvedValue(0)
 
@@ -145,9 +116,6 @@ describe('publishTypingPresence', () => {
   })
 
   it('refuses a caller who may not contribute', async () => {
-    // `requireResourceAccess(..., 'collaborator')` throws for a viewer, and the
-    // denial is a 404 rather than a 403 — a refusal must not confirm the thread
-    // exists.
     vi.mocked(requireResourceAccess).mockRejectedValue(new NotFoundError())
 
     await expect(publishTypingPresence(session, CONVERSATION_ID, true)).rejects.toBeInstanceOf(

@@ -38,7 +38,6 @@ vi.mock('@/lib/upload-batches/service', async (importOriginal) => ({
   acceptedUploadBatchId,
 }))
 
-// What each door checks before admission: the caller may write here.
 vi.mock('./shelf-authz', () => ({ requireShelfWrite: vi.fn() }))
 vi.mock('./shelf-collection', () => ({ shelfCollectionName: vi.fn(async () => 'proj_abc') }))
 vi.mock('@/lib/authz/folder-access', async (importOriginal) => ({
@@ -67,7 +66,6 @@ const ALL_GATES = ['name', 'type', 'size', 'quota']
 const file = () => new File([new Uint8Array([1, 2, 3])], 'plan.pdf', { type: 'application/pdf' })
 const request = () => new Request('https://grid.example/api/documents/upload', { method: 'POST' })
 
-/** Stops the door right after admission, so a pass is observable without storage. */
 class PastAdmission extends Error {}
 
 const DOORS = {

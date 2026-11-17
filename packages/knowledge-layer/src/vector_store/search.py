@@ -37,7 +37,7 @@ from qdrant_client import models
 
 from .boost import Boost
 from .boost import boosted
-from .boost import likeness_formula
+from .boost import ranking_formula
 from .payload import paragraph_key
 from .schema import DENSE
 from .schema import LEXICAL
@@ -270,22 +270,30 @@ def hybrid_search(
     exact_terms: Sequence[str] = (),
     candidates: int | None = None,
 ) -> list[Hit]:
-    """The fused ranking over ``scopes``, read as ``office_id`` (``scope.ScopeRead``), best first."""
+    """The fused ranking over ``scopes``, read as ``office_id`` (``scope.ScopeRead``), best first.
+
+    A passage of an edition that binds at the turn's site is preferred in every channel, never required
+    (``boost.ranking_formula``).
+    """
     opened = _opened(store, scopes, office_id)
     if opened is None or limit <= 0:
         return []
     read, alias = opened
     query_filter = read.filter(filters)
-    prefetch = _prefetches(
-        scopes,
-        query_filter,
-        vector,
-        lexical_text,
-        exact_terms,
-        candidates or limit,
-        RANKING,
-        store.bm25_length(scopes[0]),
-    )
+    formula = ranking_formula(None, _binding_editions())
+    prefetch = [
+        boosted(channel, formula)
+        for channel in _prefetches(
+            scopes,
+            query_filter,
+            vector,
+            lexical_text,
+            exact_terms,
+            candidates or limit,
+            RANKING,
+            store.bm25_length(scopes[0]),
+        )
+    ]
     result = store.client.query_points(
         alias,
         prefetch=prefetch,
@@ -296,6 +304,13 @@ def hybrid_search(
     cosines = _cosines(store, alias, read, vector, [point.id for point in result.points])
     hits = [_hit(point, cosines) for point in result.points]
     return _cosine_ordered_ties(hits)[:limit] if RANKING.cosine_tie_break else hits
+
+
+def _binding_editions() -> frozenset[str]:
+    """The editions that bind at the turn's site (``knowledge_context.binding_editions``); empty outside a turn."""
+    from agent.common.knowledge_context import binding_editions
+
+    return binding_editions()
 
 
 def _tie_slack(limit: int) -> int:
@@ -335,7 +350,8 @@ def grouped_search(
 
     ``filters`` narrow every channel inside the scope (tags, project facts): a pre-filter, so nothing
     is fetched to be dropped afterwards. ``boost`` rescores each channel by the passage's project's
-    likeness to the current one before the fusion (``boost.py``); the fusion stays the main query, so
+    likeness to the current one before the fusion, and a binding edition's passage is preferred as in
+    :func:`hybrid_search` (``boost.py``); the fusion stays the main query, so
     the ranking stays global on a sharded collection. ``exact_terms`` are the single-collection
     search's exact-term channels („§ 8“, „REI 90“).
     """
@@ -344,9 +360,9 @@ def grouped_search(
         return []
     read, alias = opened
     query_filter = read.filter(filters)
-    likeness = likeness_formula(boost)
+    formula = ranking_formula(boost, _binding_editions())
     prefetch = [
-        boosted(channel, likeness)
+        boosted(channel, formula)
         for channel in _prefetches(
             scopes, query_filter, vector, lexical_text, exact_terms, candidates, RANKING, store.bm25_length(scopes[0])
         )

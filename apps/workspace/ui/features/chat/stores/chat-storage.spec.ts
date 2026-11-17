@@ -1,14 +1,3 @@
-/**
- * The chat store's storage keeps one key per conversation's messages and a
- * small index for the rest, so a write costs the conversation that changed,
- * and a full quota costs the oldest conversations' messages (which the server
- * holds) instead of the whole history.
- *
- * Regression: the whole history was one key. Forty conversations with real
- * cards and citations are about 5 MB; past the quota `setItem` threw and the
- * recovery wiped every stored session (React performance audit, 2026-09).
- */
-
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import type { StorageValue } from 'zustand/middleware'
 import type { ChatMessage, Conversation } from '../types'
@@ -35,7 +24,6 @@ const text = (id: string, content: string, extra: Partial<ChatMessage> = {}): Ch
   ...extra,
 })
 
-/** A conversation updated `minute` minutes past nine, with one answer of `size` characters. */
 const conv = (id: string, minute: number, size = 100): Conversation => ({
   id,
   userId: 'u1',
@@ -61,7 +49,6 @@ const value = (
 
 const quotaError = (): Error => Object.assign(new Error('The quota has been exceeded.'), { name: 'QuotaExceededError' })
 
-/** Make localStorage refuse any write that would take it past `limit` characters. */
 const withQuota = (limit: number) => {
   const original = localStorage.setItem.bind(localStorage)
   return vi.spyOn(localStorage, 'setItem').mockImplementation((key: string, next: string) => {
@@ -143,14 +130,11 @@ describe('chat storage, one key per conversation', () => {
     const error = vi.spyOn(console, 'error').mockImplementation(() => {})
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
 
-    // A newer conversation arrives that does not fit beside the rest.
     const fresh = conv('fresh', 9, 2_000)
     storage.setItem(KEY, value([fresh, open, mid, old], open, drafts))
 
-    // The oldest went; the open one, however old, stays; the new one is in.
     expect(messageKeys()).toEqual(['fresh', 'mid', 'open'])
     const stored = readStoredChat(KEY)!.state
-    // The list, the titles and the drafts: all still there.
     expect(stored.conversations.map((c) => c.id)).toEqual(['fresh', 'open', 'mid', 'old'])
     expect(stored.composerDrafts).toEqual(drafts)
     expect(stored.conversations.find((c) => c.id === 'old')?.title).toBe('Sitzung old')
@@ -244,7 +228,6 @@ describe('an older stored shape: the index is kept, the cached messages are drop
     vi.useRealTimers()
   })
 
-  /** What the single-key storage wrote: the whole history under `KEY`, the open conversation as its id. */
   const legacy = (conversations: Conversation[], openId: string | null) =>
     JSON.stringify({
       state: { currentUserId: 'u1', conversations, currentConversation: openId, composerDrafts: { b: 'halb geschrieben' } },
@@ -257,7 +240,6 @@ describe('an older stored shape: the index is kept, the cached messages are drop
     expect(restored?.state.conversations[0]?.enabledDataSourceIds).toEqual(['web_search'])
     expect(restored?.state.currentConversation?.id).toBe('b')
     expect(restored?.state.composerDrafts).toEqual({ b: 'halb geschrieben' })
-    // A cache of the server, read again when a conversation is opened.
     expect(restored?.state.conversations.map((c) => c.messages)).toEqual([[], []])
     expect(isAwaitingServerMessages('a') && isAwaitingServerMessages('b')).toBe(true)
     expect(localStorage.getItem(KEY)).toBeNull()

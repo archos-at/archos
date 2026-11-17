@@ -1,7 +1,3 @@
-/**
- * The review kept current: polling while Piloti reads, the answer of a decision
- * replacing the view, and what a refused or failed call says.
- */
 import { act, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { toast } from 'sonner'

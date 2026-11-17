@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, test } from 'vitest'
 import { RENAMED_STORAGE_KEYS, RENAMED_STORAGE_PREFIXES, STORAGE_RENAME_BOOT_SCRIPT } from './storage-rename-boot'
 
 const run = (): void => {
-  // Shipped into <head> as a string; evaluating it is what the browser does.
   new Function(STORAGE_RENAME_BOOT_SCRIPT)()
 }
 

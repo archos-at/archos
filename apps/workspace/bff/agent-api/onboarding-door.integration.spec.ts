@@ -111,7 +111,6 @@ describe.skipIf(!url)('an operator’s agent onboards AT-9 through the platform 
     })
   const cite = ({ capture, ...citation }: CaseCitation) => (capture ? { captureId: captureIds.get(capture), ...citation } : citation)
 
-  /** The backend's public-source reader, answering from the case's pages as the api tier would. */
   function stubPublicSourceReader() {
     vi.stubGlobal('fetch', async (target: string | URL | Request, init?: RequestInit) => {
       const address = typeof target === 'string' ? target : target instanceof URL ? target.href : target.url
@@ -166,16 +165,14 @@ describe.skipIf(!url)('an operator’s agent onboards AT-9 through the platform 
     expect(text).toContain('idempotencyKey')
 
     const shapes = await ok(author, 'platform-knowledge-schema-get', {})
-    expect(Object.keys(shapes.recordTypes as object).sort()).toEqual(['authority', 'edition', 'manifestation', 'relation', 'ruleset', 'source', 'territory', 'work'])
+    expect(Object.keys(shapes.recordTypes as object).sort()).toEqual(['authority', 'edition', 'golden_case', 'manifestation', 'relation', 'ruleset', 'source', 'territory', 'work'])
     expect(shapes.maxBatch).toBe(200)
     expect((shapes.checks as { code: string }[]).map((check) => check.code)).toEqual(['KC-1', 'KC-3', 'KC-5', 'KC-6', 'KC-7'])
 
-    // Fail closed on an unknown record type, as an RFC 9457 problem.
     const unknownType = await door(author, 'platform-knowledge-schema-get', { query: { type: 'office_copy' } })
     expect(unknownType.ok).toBe(false)
     expect(unknownType.problem?.status).toBe(400)
 
-    // The door split (ADR-0160): an office's workspace is on no operation this door lists.
     const listing = await door(author, 'project-list', {})
     expect(listing.ok).toBe(false)
   })
@@ -225,7 +222,6 @@ describe.skipIf(!url)('an operator’s agent onboards AT-9 through the platform 
     const dry = await ok(author, 'platform-territory-import', { params: { changeRequestId: requestId }, body: { format: 'iso3166', captureId, rows, dryRun: true } })
     expect(dry).toMatchObject({ dryRun: true, valid: true })
 
-    // Positive control for KC-6 on the import: a name the list does not hold.
     const madeUp = await ok(author, 'platform-territory-import', {
       params: { changeRequestId: requestId },
       body: { format: 'iso3166', captureId, rows: [{ code: 'AT-9', name: 'Wienerland' }], dryRun: true },
@@ -260,7 +256,6 @@ describe.skipIf(!url)('an operator’s agent onboards AT-9 through the platform 
     const written = await ok(author, 'platform-knowledge-records-propose', { idempotencyKey: `propose-${RUN}`, params: { changeRequestId: requestId }, body })
     expect((written.results as { status: string }[]).every((result) => result.status === 'written')).toBe(true)
 
-    // A retry after a timeout, with a fresh key: the proposal itself is idempotent.
     const resent = await ok(author, 'platform-knowledge-records-propose', { idempotencyKey: `propose-again-${RUN}`, params: { changeRequestId: requestId }, body })
     expect((resent.results as { status: string }[]).map((result) => result.status)).toEqual(['unchanged', 'unchanged', 'unchanged', 'unchanged'])
 
@@ -293,29 +288,23 @@ describe.skipIf(!url)('an operator’s agent onboards AT-9 through the platform 
     await ok(expert, 'platform-knowledge-change-request-review', { params: { changeRequestId: requestId }, body: { decisions: verdicts(false) } }, { person: 'yes' })
     const approve = { params: { changeRequestId: requestId }, body: { decision: 'approve', role: 'domain_expert' } }
 
-    // The author's yes is no approval: four eyes.
     const own = await door(author, 'platform-knowledge-change-request-decide', approve, { person: 'yes' })
     expect(own.problem).toMatchObject({ status: 409 })
 
-    // A client that cannot ask the person is told where they decide it, and nothing changes.
     const cannotAsk = await door(expert, 'platform-knowledge-change-request-decide', approve, { elicits: false })
     expect(cannotAsk.ok).toBe(false)
     expect(cannotAsk.body).toMatchObject({ decision: 'person_required', changed: false })
 
-    // The person says no: nothing changes.
     const declined = await door(expert, 'platform-knowledge-change-request-decide', approve, { person: 'no' })
     expect(declined.body).toMatchObject({ decision: 'declined', changed: false })
 
-    // The person says yes, but nobody checked the pages nobody fetched: refused by the database.
     const unchecked = await door(expert, 'platform-knowledge-change-request-decide', approve, { person: 'yes' })
     expect(unchecked.problem).toMatchObject({ status: 409 })
     expect(unchecked.problem?.detail).toContain('operator-supplied')
 
-    // Nobody checks their own source: the author's agent, even with the author's yes, is refused.
     const review = { params: { changeRequestId: requestId }, body: { decisions: verdicts(true) } }
     const ownCheck = await door(author, 'platform-knowledge-change-request-review', review, { person: 'yes' })
     expect(ownCheck.problem).toMatchObject({ status: 409 })
-    // And a source check dispatched with no yes at all is refused at the route.
     const { callOperation } = await import('./dispatch')
     const { findOperation } = await import('./catalog')
     const bare = await callOperation(findOperation('platform-knowledge-change-request-review')!, review, expert.session, 'agent', {})
@@ -364,7 +353,6 @@ describe.skipIf(!url)('an operator’s agent onboards AT-9 through the platform 
     const update = await door(expert, 'platform-skill-update', { params: { skillId: 'any' }, body: { published: true } }, { elicits: false })
     expect(update.body).toMatchObject({ decision: 'person_required', changed: false })
 
-    // The routes hold it whatever path the call took: an edit or a delete dispatched with no yes is refused.
     const { callOperation } = await import('./dispatch')
     const { findOperation } = await import('./catalog')
     for (const [name, input] of [

@@ -20,7 +20,16 @@ changed is how it is wired and bounded:
 - it delivers a **frame** as well as writing its rows (slice 4b). The write is
   still the durable act and still the source of truth; the frame tells the turn
   that caused it what was written, which is what let the per-answer memory poll
-  be deleted rather than merely reduced (§5.1, §1.7).
+  be deleted rather than merely reduced (§5.1, §1.7);
+- the frame also lists what the ``remember`` tool wrote to project or
+  organization memory WHILE the answer was written (``provenance: agent``), so
+  every shared note of a turn is on that turn's answer. A turn with such notes
+  gets its frame even where the reflection pass itself is declined. A personal
+  note never rides the frame (ADR-0180): it is stored with the answer's id and
+  only its owner's browser asks for it.
+- the frame is also stored on the answer by this tier (``durable_frame.py``),
+  not only by the browser that receives it, so a note saved after the person
+  left the chat is still shown under its answer.
 
 See docs/architecture/post-answer-stages.md and
 docs/architecture/project-memory-design.md.
@@ -30,15 +39,22 @@ from __future__ import annotations
 
 import logging
 from typing import Any
+from typing import Literal
 
 from pydantic import BaseModel
 from pydantic import Field
 
 from agent.common.canned_replies import NON_ANSWER_PREFIXES
 from agent.common.model_overrides import AgentGroup
+from agent.knowledge.project_memory import begin_turn_memory_log
+from agent.knowledge.project_memory import end_turn_memory_log
+from agent.knowledge.project_memory import turn_memory_notes
+from agent.knowledge.project_memory import turn_refreshed_memory_ids
+from agent.stages.durable_frame import schedule_durable_frame
 from agent.stages.registry import register_stage
 from agent.stages.spec import GateDecision
 from agent.stages.spec import StageContext
+from agent.stages.spec import StageEmpty
 from agent.stages.spec import StageSpec
 from agent.stages.spec import TurnFacts
 
@@ -86,23 +102,48 @@ _SKIP_ROUTES = {"meta", "error"}
 #: disable the stage for the replica.
 REFLECTION_TIMEOUT_S = 45.0
 
+#: The stage's wire id, also what the BFF's internal stage route accepts.
+MEMORY_REFLECTION_STAGE_ID = "memory_reflection"
+
+#: The most in-turn notes one frame lists. The tool is not bounded per turn;
+#: the frame is stored on a message, and the BFF caps the list again.
+MAX_NOTED_ITEMS = 6
+
 
 class MemoryReflectionItem(BaseModel):
-    """One ``project_memory`` row this stage wrote, as the reader sees it.
+    """One ``project_memory`` row this turn wrote, as the reader sees it.
 
     ``content`` rides along and not just the id, because the surface this
     payload feeds — the „Piloti hat sich gemerkt" chip — renders the item's own
     words. Sending ids alone would make the browser ask the database for text
     the writer already had in hand, which is the round trip §5.1 is removing.
+
+    The four optional fields are absent for the common case (a project note
+    this stage added), so a frame stored before they existed reads the same.
+    A restricted note rides the frame like an open one: the frame is stored on
+    the answer of a turn that drew on the same restricted folders, and that
+    conversation's readers are already held to them (ADR-0087, ADR-0093).
     """
 
     id: str = Field(description="Id of the project_memory row.")
     kind: str = Field(description="decision | constraint | open_question | derived_fact | preference.")
     content: str = Field(description="The finding, verbatim as it was written.")
+    provenance: Literal["agent"] | None = Field(
+        default=None, description="'agent': the remember tool wrote it during the answer. Absent: this stage did."
+    )
+    scope: Literal["organization"] | None = Field(
+        default=None, description="'organization': everyone in the office reads it. Absent: the project's members."
+    )
+    supersedes: str | None = Field(
+        default=None, description="The earlier note this one retired, quoted. Absent when it retired none."
+    )
+    restricted: Literal[True] | None = Field(
+        default=None, description="True: restricted memory, shown only to people cleared for its folders."
+    )
 
 
 class MemoryReflectionPayload(BaseModel):
-    """What the stage produced: the memory items it wrote, in write order.
+    """What the turn wrote to shared memory: the tool's notes first, then this stage's, each in write order.
 
     The DB write stays the source of truth — this payload is a notification of
     what happened, never a transfer of authority. ``app`` stays
@@ -117,12 +158,30 @@ class MemoryReflectionPayload(BaseModel):
 
 
 def _gate(facts: TurnFacts) -> GateDecision:
+    """Whether the stage has anything to do: a reflection pass, or in-turn notes to report.
+
+    A turn whose ``remember`` calls wrote shared notes owes its answer the
+    record of them even where reflection is declined (a direct reply, a short
+    answer, a turn outside a project); the handler then reports and reflects
+    on nothing.
+    """
+    decision = _reflection_gate(facts)
+    if not decision.run and facts.noted_this_turn:
+        return GateDecision.proceed()
+    return decision
+
+
+def _reflection_gate(facts: TurnFacts) -> GateDecision:
     """The existing predicate, moved verbatim, plus the truncation skip.
 
     Deterministic Python over facts the backend already has — never a model's
     opinion about its own answer. Each failed condition names itself, so the
     gate's own correctness is measurable rather than assumed.
     """
+    if facts.temporary:
+        # ADR-0180: a temporary conversation keeps nothing. The BFF refuses
+        # the write too; skipping here saves the model call and names why.
+        return GateDecision.skip("temporary_conversation")
     if facts.run_id:
         # The turn only commissioned the work; the run reflects on its own
         # report, on the worker, once that report exists.
@@ -165,38 +224,84 @@ def digest_with_turn_writes(memory_digest: str | None, written: tuple[str, ...])
     return "\n".join(([memory_digest.rstrip()] if memory_digest else []) + lines)
 
 
-async def _handler(ctx: StageContext) -> dict[str, Any] | None:
-    """One reflection pass. ``None`` when the turn established nothing durable —
-    the common, correct outcome, recorded as ``empty`` rather than invented into
-    a payload."""
+async def _reflected_items(ctx: StageContext) -> tuple[list[dict[str, Any]], str | None]:
+    """One reflection pass: the frame items of the project rows it created, and which nothing an empty list is.
+
+    The pass writes under a memory log of its own, so each row's outcome (an
+    earlier note retired, restricted memory, a restated note only refreshed) is
+    read from what the BFF answered, and a personal note it keeps is stored
+    with this answer's id.
+    """
     from agent.memory.reflection import run_memory_reflection
+    from agent.turn.response import answer_message_id
 
     facts = ctx.facts
-    if facts.drew_on_other_projects:
-        # ADR-0094: nothing from a conversation that drew on another project is
-        # remembered (the BFF refuses the write too), so the model call is saved.
-        return None
-    recorded = await run_memory_reflection(
-        llm=ctx.llm,
-        query=facts.query,
-        answer=facts.answer,
-        project_id=facts.project_id,
-        organization_id=facts.organization_id,
-        conversation_id=facts.conversation_id,
-        memory_digest=digest_with_turn_writes(facts.memory_digest, facts.remembered_this_turn),
-        restriction=facts.restriction,
-    )
-    if not recorded:
-        # `None` is `empty` — the common, correct outcome for a turn that
-        # established nothing durable, and a first-class success rather than a
-        # failure to invent output.
-        return None
-    return {"items": [dict(item) for item in recorded]}
+    answer_id = answer_message_id(facts.conversation_id, facts.ws_parent_id) if facts.ws_parent_id else None
+    token = begin_turn_memory_log(answer_message_id=answer_id)
+    try:
+        recorded = await run_memory_reflection(
+            llm=ctx.llm,
+            query=facts.query,
+            answer=facts.answer,
+            project_id=facts.project_id,
+            organization_id=facts.organization_id,
+            conversation_id=facts.conversation_id,
+            memory_digest=digest_with_turn_writes(facts.memory_digest, facts.remembered_this_turn),
+            restriction=facts.restriction,
+            personal_memory=facts.personal_memory,
+            envelope=facts.envelope,
+        )
+        created = {note.id: note for note in turn_memory_notes()}
+        refreshed = turn_refreshed_memory_ids()
+    finally:
+        end_turn_memory_log(token)
+    # The frame is stored on the answer's message, which everyone the
+    # conversation is shared with reads: it carries the project's rows only.
+    # A note written to the asker's personal memory never rides it (ADR-0180).
+    items: list[dict[str, Any]] = []
+    for item in recorded or []:
+        if item.get("about") == "person" or item["id"] in refreshed:
+            continue
+        note = created.get(item["id"])
+        items.append(note.frame_item(in_turn=False) if note else {key: item[key] for key in ("id", "kind", "content")})
+    if items or not recorded:
+        return items, None
+    # Kept something, none of it for the frame: a note about the person, or a
+    # note the project already held.
+    personal = any(item.get("about") == "person" for item in recorded)
+    return items, "personal_notes_only" if personal else "restated_notes_only"
+
+
+async def _handler(ctx: StageContext) -> dict[str, Any] | StageEmpty | None:
+    """What the turn wrote to shared memory, after one reflection pass where the turn earns one.
+
+    ``None`` when the turn established nothing durable — the common, correct
+    outcome, recorded as ``empty`` rather than invented into a payload.
+    """
+    facts = ctx.facts
+    noted = [note.frame_item(in_turn=True) for note in facts.noted_this_turn[:MAX_NOTED_ITEMS]]
+    reflected: list[dict[str, Any]] = []
+    empty_reason: str | None = None
+    # ADR-0094: nothing from a conversation that drew on another project is
+    # remembered (the BFF refuses the write too), so the model call is saved.
+    if _reflection_gate(facts).run and not facts.drew_on_other_projects:
+        reflected, empty_reason = await _reflected_items(ctx)
+    items = [*noted, *reflected]
+    if items:
+        payload = {"items": items}
+        # The frame reaches the answer through the browser only while one is
+        # attached to the conversation; this write holds when none is. Detached:
+        # it neither delays the frame nor can fail the stage (`durable_frame.py`).
+        schedule_durable_frame(facts, MEMORY_REFLECTION_STAGE_ID, payload)
+        return payload
+    # `None` is `empty` — a first-class success rather than a failure to invent
+    # output. A pass that kept only personal or restated notes names itself.
+    return StageEmpty(empty_reason) if empty_reason else None
 
 
 MEMORY_REFLECTION = register_stage(
     StageSpec(
-        id="memory_reflection",
+        id=MEMORY_REFLECTION_STAGE_ID,
         agent_group=AgentGroup.MEMORY_REFLECTION,
         # Unchanged from the pre-stage wiring: this migration is not a
         # user-visible change, so the flag that governed it still does.

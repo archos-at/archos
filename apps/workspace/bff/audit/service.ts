@@ -186,6 +186,11 @@ export const SYSTEM_ACTORS = {
    * a person's id (migration 0196).
    */
   inboundMail: 'system:inbound_mail',
+  /**
+   * The promotion's carry of a release reviewed on another deployment (ADR-0181): it writes, reviews, approves and
+   * publishes the carried change request here, on the source deployment's decisions. Rule-based, no model.
+   */
+  knowledgeCarry: 'system:knowledge-carry',
 } as const
 
 function requestContext(request?: Request): { location: string; userAgent?: string } {

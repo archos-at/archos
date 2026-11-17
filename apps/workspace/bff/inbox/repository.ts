@@ -433,7 +433,7 @@ export async function countPendingInboxItems(
         typeFilter(types),
       ),
     )
-  // count() arrives as a string from the driver; coerce at the boundary (AGENTS.md).
+  // count() arrives as a string from the driver; coerce at the boundary (code-conventions.md).
   return Number(row?.count ?? 0)
 }
 
@@ -465,7 +465,7 @@ export async function countInboxFilters(
         typeFilter(types),
       ),
     )
-  // count() arrives as a string from the driver; coerce at the boundary (AGENTS.md).
+  // count() arrives as a string from the driver; coerce at the boundary (code-conventions.md).
   return { requests: Number(row?.requests ?? 0), unread: Number(row?.unread ?? 0) }
 }
 

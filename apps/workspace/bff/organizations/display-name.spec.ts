@@ -10,7 +10,6 @@ vi.mock('server-only', () => ({}))
 vi.mock('@/lib/workos/client', () => ({ getWorkOS: () => ({ organizations: { getOrganization }, userManagement: { listOrganizationMemberships } }) }))
 vi.mock('./repository', () => ({ findOrganization: vi.fn(async () => null), upsertOrganization: vi.fn() }))
 vi.mock('@/lib/cache', () => ({
-  // Stores what the loader returns, like the real cache, including null.
   getCached: vi.fn(async (key: string, _ttl: number, load: () => Promise<unknown>) => {
     if (store.has(key)) return store.get(key)
     const value = await load()

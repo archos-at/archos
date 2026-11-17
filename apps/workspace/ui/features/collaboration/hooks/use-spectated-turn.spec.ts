@@ -1,18 +1,9 @@
-/**
- * When the live view opens, when it stays shut, and how it gives up.
- *
- * The gating is the part worth pinning: this is the only connection in the
- * collaboration feature that carries a token stream, so "opens for a colleague's
- * turn and for nothing else" is a cost property as much as a correctness one.
- */
-
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { frameOf } from '@/test-utils/wire-v2-fixtures'
 import { useSpectatedTurn } from './use-spectated-turn'
 import { CARD_PREVIEW_FIXTURES } from '@/features/cards/preview-fixtures'
 
-/** A controllable stand-in for the browser's EventSource. */
 class FakeEventSource {
   static instances: FakeEventSource[] = []
   onmessage: ((event: { data: string }) => void) | null = null
@@ -36,7 +27,6 @@ function frame(seq: number, body: Record<string, unknown>, turnId = 'turn-1') {
   return { kind: 'frame', payload: frameOf(seq, body, turnId) }
 }
 
-/** A tool step, replaced by id on every update. */
 function toolStep(id: string, status: 'running' | 'ok' = 'running') {
   return { type: 'STEP_STARTED', step: { id, kind: 'tool', tool: 'ris_search', status } }
 }
@@ -75,8 +65,6 @@ describe('useSpectatedTurn', () => {
     const { result } = renderHook(() =>
       useSpectatedTurn({ conversationId: 'conv_1', enabled: true })
     )
-    // Connected, no frames: the caller must still be rendering the banner, not an
-    // empty box where the answer will be.
     expect(result.current.live).toBe(false)
 
     act(() => FakeEventSource.instances[0].emit(frame(1, delta('Ja, '))))
@@ -85,8 +73,6 @@ describe('useSpectatedTurn', () => {
   })
 
   it('goes live on a masthead alone, before the first word', async () => {
-    // A direct reply opens with its masthead: something to show, and the
-    // banner must give way to it.
     const { result } = renderHook(() =>
       useSpectatedTurn({ conversationId: 'conv_1', enabled: true })
     )
@@ -117,7 +103,6 @@ describe('useSpectatedTurn', () => {
 
     act(() => source.emit(frame(1, delta('Ja, '))))
     act(() => source.emit(frame(2, delta('ab drei Geschossen.'))))
-    // A reconnect re-delivering seq 2 must not duplicate the tokens.
     act(() => source.emit(frame(2, delta('ab drei Geschossen.'))))
 
     await waitFor(() => expect(result.current.turn?.text).toBe('Ja, ab drei Geschossen.'))
@@ -130,16 +115,11 @@ describe('useSpectatedTurn', () => {
     )
     const source = FakeEventSource.instances[0]
 
-    // A single long-running tool call: each update replaces the step by id,
-    // so the step count and the text stand still. Watching those reads this as
-    // minutes of silence and tears the turn banner down mid-turn.
     act(() => source.emit(frame(1, toolStep('tool:1'))))
     act(() => source.emit(frame(2, toolStep('tool:1'))))
     act(() => source.emit(frame(3, toolStep('tool:1'))))
-    // A replayed frame counts too: the socket delivered it, so the turn is alive.
     act(() => source.emit(frame(3, toolStep('tool:1'))))
 
-    // The premise: nothing a caller could derive from `turn` moved.
     expect(result.current.turn?.stepOrder).toHaveLength(1)
     expect(result.current.turn?.text).toBe('')
     expect(onFrame).toHaveBeenCalledTimes(4)
@@ -153,8 +133,6 @@ describe('useSpectatedTurn', () => {
 
     act(() => source.emit({ kind: 'unsupported' }))
 
-    // Closed, so EventSource does not reconnect into a stream that will answer
-    // the same way; and nothing reported, so the caller falls back to the banner.
     await waitFor(() => expect(source.closed).toBe(true))
     expect(result.current.live).toBe(false)
     expect(result.current.turn).toBeNull()
@@ -193,8 +171,6 @@ describe('useSpectatedTurn', () => {
     act(() => FakeEventSource.instances[0].emit(frame(1, delta('Halb geschriebene '))))
     await waitFor(() => expect(result.current.turn?.text).toBe('Halb geschriebene '))
 
-    // The persisted answer is what renders from here on; a leftover live copy
-    // would show the same answer twice.
     rerender({ enabled: false })
     await waitFor(() => expect(result.current.turn).toBeNull())
   })
@@ -220,16 +196,11 @@ describe('reconnect policy', () => {
   })
 
   it('backs off, and gives up rather than hammering the route', () => {
-    // The server sends `retry: 2000`, so leaving reconnection to the browser
-    // means every observer of every running turn retries in lockstep twice a
-    // second — each attempt costing an authorization read and a fresh cache
-    // subscriber. The hook takes control instead.
     vi.useFakeTimers()
     try {
       renderHook(() => useSpectatedTurn({ conversationId: 'conv_1', enabled: true }))
       expect(FakeEventSource.instances).toHaveLength(1)
 
-      // Six failures, each given far more time than any backoff step needs.
       for (let round = 0; round < 6; round += 1) {
         const live = FakeEventSource.instances.at(-1)!
         act(() => live.onerror?.())
@@ -239,8 +210,6 @@ describe('reconnect policy', () => {
         })
       }
 
-      // One initial connection plus a bounded number of retries — never one per
-      // two seconds, and never unbounded.
       expect(FakeEventSource.instances.length).toBeGreaterThan(1)
       expect(FakeEventSource.instances.length).toBeLessThanOrEqual(5)
     } finally {
@@ -249,16 +218,12 @@ describe('reconnect policy', () => {
   })
 
   it('does not spend the budget on failures separated by working stretches', () => {
-    // A long turn can drop and recover several times. Without resetting the
-    // ladder on evidence the connection works, four failures spread over an hour
-    // exhaust it and the observer loses the live view for the rest of the turn.
     vi.useFakeTimers()
     try {
       renderHook(() => useSpectatedTurn({ conversationId: 'conv_1', enabled: true }))
 
       for (let round = 0; round < 8; round += 1) {
         const live = FakeEventSource.instances.at(-1)!
-        // Proof the connection works, then a drop.
         act(() => live.emit(frame(round + 1, delta('x'))))
         act(() => live.onerror?.())
         act(() => {
@@ -266,8 +231,6 @@ describe('reconnect policy', () => {
         })
       }
 
-      // Every drop was preceded by a working connection, so every one of them
-      // reconnected: 1 initial + 8 retries.
       expect(FakeEventSource.instances).toHaveLength(9)
     } finally {
       vi.useRealTimers()
@@ -286,7 +249,6 @@ describe('reconnect policy', () => {
       act(() => {
         vi.advanceTimersByTime(60_000)
       })
-      // The pending retry must not open a stream for a thread nobody is watching.
       expect(FakeEventSource.instances).toHaveLength(1)
     } finally {
       vi.useRealTimers()

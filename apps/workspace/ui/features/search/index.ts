@@ -1,8 +1,3 @@
-/**
- * The workspace search (ADR-0136, `docs/design/document-search.md`): one
- * organism at every scope. Routes import from here.
- */
-
 export { SearchWorkspace, type SearchWorkspaceProps } from './components/search-workspace'
 export { SearchWorkspaceView, type SearchWorkspaceViewProps } from './components/search-workspace-view'
 export { ShelfSearchBack } from './components/shelf-search-toggle'

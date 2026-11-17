@@ -1,20 +1,9 @@
 /**
  * @vitest-environment node
  */
-/**
- * `documentExistsInCollection` answers the ingest pipeline's one question:
- * is the document this ingest was dispatched for still there? A "no" makes the
- * pipeline discard what it just indexed, so the predicate must not be narrower
- * than the set of rows that are really indexed. The presign lookup beside it
- * filters on `authored_by = 'user'`; this one must not, because a published
- * machine-authored version is ingested too (ADR-0054).
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-// Which columns the WHERE compares, recorded at `eq` itself: a drizzle
-// condition tree reaches every column of the table through each column's
-// back-reference, so walking it cannot show that a predicate is absent.
 const compared = vi.hoisted(() => [] as string[])
 let rows: unknown[] = []
 
@@ -65,8 +54,6 @@ describe('documentExistsInCollection', () => {
     expect(compared).toEqual(['id', 'collection_name', 'lifecycle'])
   })
 
-  // An archived document's chunks were purged; a job still running when it
-  // was archived must take its own back out.
   it('asks for a document still in the working set', async () => {
     await documentExistsInCollection(DOC_ID, 'proj_1')
     expect(compared).toContain('lifecycle')

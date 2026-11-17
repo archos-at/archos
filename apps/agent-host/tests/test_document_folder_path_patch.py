@@ -1,14 +1,3 @@
-"""`PATCH /v1/collections/{c}/documents/{f}/folder-path` — moving ONE document.
-
-The per-document half of ADR-0049, and it is not covered by the subtree mirror
-beside it: that one rewrites a path PREFIX, and a document leaving `Brandschutz`
-for `Statik` shares no prefix with where it was. Both exist, neither substitutes
-for the other.
-
-The BFF twin is `src/lib/documents/move-to-folder.spec.ts`, which asserts the
-same `folder_path` body against the same URL.
-"""
-
 import asyncio
 import tempfile
 from pathlib import Path
@@ -82,7 +71,6 @@ async def _patch(app, file_name: str, body: dict):
 
 @pytest.mark.asyncio
 async def test_a_document_moves_between_unrelated_folders(app, store):
-    # The case the subtree rewrite cannot express: no shared prefix.
     _file(store, "a.pdf", "Brandschutz/Fluchtwege")
 
     response = await _patch(app, "a.pdf", {"folder_path": "Statik"})
@@ -129,8 +117,6 @@ async def test_it_moves_only_the_named_document(app, store):
 
 @pytest.mark.asyncio
 async def test_a_document_with_no_summary_row_is_a_404(app, store):
-    # The summary is the anchor, as it is for tags and the display title. The
-    # BFF treats this as non-fatal: its own `documents.folder_id` is durable.
     response = await _patch(app, "never-summarised.pdf", {"folder_path": "Statik"})
 
     assert response.status_code == 404

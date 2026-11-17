@@ -1,23 +1,3 @@
-/**
- * The `file_operation_proposal` card when it carries a `proposal_id`: a
- * receipt of a proposed change the server holds (ADR-0105).
- *
- * What this file holds the card to:
- *
- * 1. **The object is the truth.** The card reads the proposal when it is shown
- *    and draws its status, its result per row and who decided it.
- * 2. **Accept asks the server.** It POSTs `/api/proposals/[id]/apply` and runs
- *    nothing in the browser: no document, folder or assignment route.
- * 3. **A colleague who was faster wins.** A 409 re-reads the proposal and
- *    shows their decision instead of an error.
- * 4. **Nothing lands in `cardInteractions`.** A decision recorded on the
- *    message would be a second truth beside the object.
- * 5. **A colleague's decision shows without a reload.** While the proposal is
- *    open the card listens on `proposal:<id>` (ADR-0110); a hint, or the
- *    channel coming up, re-reads the object. A decided card listens to nothing.
- *
- * Rendered without an `I18nProvider`, so the dictionary falls back to `en`.
- */
 import { render, screen, waitFor } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
@@ -158,7 +138,6 @@ describe('FileOperationProposalCard with a proposal_id — what it shows', () =>
     expect(newFolder).toHaveTextContent('New folder')
     expect(newFolder).toHaveTextContent('Korrespondenz')
     expect(screen.getByTestId('file-operation-new-folder-description')).toHaveTextContent('Briefe und Mails mit Behörden')
-    // The reason shows where there is one, and only there.
     expect(screen.getAllByTestId('file-operation-row-reason')).toHaveLength(1)
     expect(screen.getByTestId('file-operation-row-reason')).toHaveTextContent('Ein Brief an die Behörde.')
     expect(screen.getAllByTestId('file-operation-row')).toHaveLength(2)
@@ -236,9 +215,7 @@ describe('FileOperationProposalCard with a proposal_id — deciding', () => {
     expect(screen.getAllByTestId('file-operation-row-ok')).toHaveLength(2)
     expect(screen.getByTestId('proposal-decided-by')).toHaveTextContent(/^Applied by Mia Huber · /)
     expect(requests).toEqual([`GET /api/proposals/${PROPOSAL_ID}`, `POST /api/proposals/${PROPOSAL_ID}/apply`])
-    // The Files list is told, as it is after a browser-side apply.
     expect(changed).toHaveBeenCalledTimes(1)
-    // The object is the truth: nothing is recorded on the message.
     expect(setCardDecision).not.toHaveBeenCalled()
     unsubscribe()
   })
@@ -358,7 +335,6 @@ describe('FileOperationProposalCard with a proposal_id — live', () => {
     expect(await screen.findByRole('button', { name: 'Apply' })).toBeInTheDocument()
     const stream = await openStream()
     expect(stream.url).toContain(`ch=${encodeURIComponent(CHANNEL)}`)
-    // The channel coming up reads once more: a decision between the first read and the subscription.
     await waitFor(() => expect(gets()).toHaveLength(2))
     expect(screen.getByRole('button', { name: 'Apply' })).toBeInTheDocument()
 
@@ -375,7 +351,6 @@ describe('FileOperationProposalCard with a proposal_id — live', () => {
     expect(screen.queryByRole('button', { name: 'Apply' })).toBeNull()
     expect(screen.queryByTestId('proposal-overtaken')).toBeNull()
     expect(gets()).toHaveLength(3)
-    // A colleague's apply changed files too: the Files list is told, once.
     expect(changed).toHaveBeenCalledTimes(1)
     expect(requests.some((line) => line.startsWith('POST'))).toBe(false)
     unsubscribe()
@@ -406,7 +381,6 @@ describe('FileOperationProposalCard with a proposal_id — live', () => {
     await waitFor(() => expect(requests).toHaveLength(2))
     stream.onerror?.(new Event('error'))
     served.current = proposal(decidedByAnna('dismissed'))
-    // The ladder reopens the stream; a new source announces itself live.
     await waitFor(() => expect(FakeEventSource.instances).toHaveLength(2), { timeout: 4000 })
     FakeEventSource.instances[1].open()
 
@@ -435,7 +409,6 @@ describe('FileOperationProposalCard with a proposal_id — live', () => {
     render(card)
 
     expect(await screen.findByTestId('proposal-decided-by')).toBeInTheDocument()
-    // Longer than the connection's debounce: a channel that was wanted would have opened by now.
     await new Promise((resolve) => setTimeout(resolve, 400))
 
     expect(FakeEventSource.instances).toHaveLength(0)

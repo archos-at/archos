@@ -1,7 +1,3 @@
-/**
- * Filing from the setup page is Dateien's own upload at the project root; the
- * only thing added is taking the folder dropped on the create dialog.
- */
 import { renderHook } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { handOverDroppedFiles, takeDroppedFiles } from '@/features/documents/lib/dropped-file-handover'

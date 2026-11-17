@@ -1,26 +1,3 @@
-/**
- * The `/name` picker, through the real composer.
- *
- * The pure half is covered directly (`features/skills/lib/slash-command.spec.ts`);
- * what this file covers is the WIRING — that picking a skill writes the token
- * into the message TEXT and nothing else, that editing the token away takes the
- * reference back off, and that a message which merely begins with a slash is
- * still an ordinary message.
- *
- * "And nothing else" is the assertion that matters most here, because it is the
- * one that used to be false. The envelope carried `skills: ['name']`, the
- * backend lifted it onto `force_skills`, and the turn HAD to apply the skill.
- * That was removed together with the platform's `standard` delivery tier
- * (migration 0088): a skill is a capability the model may reach for, and what
- * an office always wants applied is a standing instruction, which lives in the
- * platform prompt and in the organization's own instruction block instead. The
- * name reaches the model as the text it is.
- *
- * A separate file from `InputArea.spec.tsx` on purpose: that suite is already
- * the slowest in the project (the repo's own working notes call it out), and it
- * mounts the whole tree per test. Nothing here needs its fixtures.
- */
-
 import { render, screen, waitFor } from '@/test-utils'
 import { within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -86,14 +63,6 @@ beforeEach(() => {
 
 const composer = () => screen.getByRole('textbox')
 
-/**
- * Pick a row by skill name.
- *
- * Not `findByText`: the picker splits the name around a `<mark>` to emphasise
- * the typed fragment, so the name is never one contiguous text node. The row
- * carries its name as a data attribute precisely so a test does not have to
- * care how it is highlighted.
- */
 const option = async (name: string): Promise<HTMLElement> => {
   const picker = await screen.findByTestId('slash-command-picker')
   const row = picker.querySelector<HTMLElement>(`[data-skill-name="${name}"]`)
@@ -110,8 +79,6 @@ describe('the composer’s / invocation', () => {
 
     const picker = await screen.findByTestId('slash-command-picker')
     expect(await option('oib-brandschutz')).toBeInTheDocument()
-    // The description is the level-1 metadata the agent also sees; the menu
-    // shows exactly that and no body.
     expect(picker).toHaveTextContent('Bei Anfragen zu Fluchtwegen.')
   })
 
@@ -134,15 +101,11 @@ describe('the composer’s / invocation', () => {
     await user.click(await option('oib-brandschutz'))
 
     await waitFor(() => expect(composer()).toHaveValue('/oib-brandschutz '))
-    // The chip states the consequence the bare token cannot.
     expect(await screen.findByTestId('invoked-skill-chip')).toBeInTheDocument()
 
     await user.type(composer(), 'Stiegenhaus prüfen')
     await user.click(screen.getByRole('button', { name: /send message/i }))
 
-    // ONE argument: the text. No `skills` field, and no options object at all —
-    // the composer's fast path is the literal single-argument call it has
-    // always been, and a picked skill no longer pushes it off that path.
     expect(mockSendMessage).toHaveBeenCalledWith('/oib-brandschutz Stiegenhaus prüfen')
   })
 

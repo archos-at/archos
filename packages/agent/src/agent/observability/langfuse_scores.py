@@ -34,6 +34,7 @@ import logging
 import os
 import uuid
 from collections.abc import Iterable
+from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from dataclasses import field
@@ -183,7 +184,7 @@ SCORE_DEFINITIONS: tuple[ScoreDefinition, ...] = (
         "CATEGORICAL",
         "Which guard lowered the surfaced confidence, or none.",
         categories=(
-            *("none", "ungrounded", "quote_unverified", "law_unsettled"),
+            *("none", "ungrounded", "quote_unverified", "law_unsettled", "open_point"),
             *("normative_claim_uncited", "measurement_only", "citation_fallback"),  # retired; stored turns carry them
         ),
     ),
@@ -224,6 +225,13 @@ SCORE_DEFINITIONS: tuple[ScoreDefinition, ...] = (
         "steer-count",
         "NUMERIC",
         "How many notes the asker typed into this turn while it ran; written only on a steered turn.",
+        min_value=0,
+    ),
+    ScoreDefinition(
+        "turn-slots-stranded",
+        "NUMERIC",
+        "Admission slots the turn's workflow still held when the turn ended (its teardown outran its bound), "
+        "given back then rather than renewed for as long as the teardown ran; written only when one was.",
         min_value=0,
     ),
     ScoreDefinition(
@@ -285,10 +293,29 @@ SCORE_DEFINITIONS: tuple[ScoreDefinition, ...] = (
         categories=("low", "medium", "high"),
     ),
     ScoreDefinition(
+        "confidence-open-points",
+        "NUMERIC",
+        "How many open points the answer check read in the answer itself (its prose or its confidence reason): "
+        "something it states is open, unchecked or unresolved and its main point depends on. Above zero caps the "
+        "surfaced level at medium (confidence-capped open_point); the comment names them. Written with "
+        "confidence-judged-level.",
+        min_value=0,
+    ),
+    ScoreDefinition(
         "confidence-judge-unavailable",
         "BOOLEAN",
         "On a turn whose answer was to be graded: true when the answer check could not run (no model, a "
         "timeout, an error, an unreadable reply) and the turn surfaced no level.",
+    ),
+    ScoreDefinition(
+        "confidence-judge-unavailable-reason",
+        "CATEGORICAL",
+        "Written with confidence-judge-unavailable true: why the answer check gave no level. no_judge (no "
+        "model resolved), timeout (past its time limit), error (the call raised; the comment names the "
+        "exception class), unparseable (a reply that is no check; the comment says whether it stopped at the "
+        "output budget), no_reply (an empty reply). The comment and metadata carry the elapsed ms and the "
+        "characters of evidence and answer the prompt held.",
+        categories=("no_judge", "timeout", "error", "unparseable", "no_reply"),
     ),
     ScoreDefinition(
         "claims-by-class",
@@ -448,11 +475,29 @@ def work_unfiled_scores(dropped: int) -> list[RuntimeScore]:
     return [RuntimeScore("work-proposals-unfiled", float(max(0, dropped)))]
 
 
-def answer_check_scores(level: str | None) -> list[RuntimeScore]:
-    """The answer check's level, or that it was unavailable (``common/claim_judge.py``, ADR-0139)."""
+def answer_check_scores(level: str | None, open_points: Sequence[str] = ()) -> list[RuntimeScore]:
+    """The answer check's level and the open points it read, or that it was unavailable (ADR-0139)."""
     if level is None:
         return [_boolean("confidence-judge-unavailable", True)]
-    return [_boolean("confidence-judge-unavailable", False), RuntimeScore("confidence-judged-level", level)]
+    named = RuntimeScore(
+        "confidence-open-points", float(len(open_points)), comment="; ".join(open_points)[:500] or None
+    )
+    return [_boolean("confidence-judge-unavailable", False), RuntimeScore("confidence-judged-level", level), named]
+
+
+def answer_check_unavailable_scores(reason: dict[str, Any]) -> list[RuntimeScore]:
+    """Why the answer check gave no level (``claim_judge.Unavailable.to_wire``), with the call's facts."""
+    facts = [
+        reason.get("error_type"),
+        f"finish_reason {reason['finish_reason']}" if reason.get("finish_reason") else None,
+        "truncated at the output budget" if reason.get("truncated") else None,
+        f"{reason['elapsed_ms']} ms" if reason.get("elapsed_ms") is not None else None,
+        f"evidence {reason['evidence_chars']} chars" if reason.get("evidence_chars") is not None else None,
+        f"answer {reason['answer_chars']} chars" if reason.get("answer_chars") is not None else None,
+    ]
+    comment = "; ".join(fact for fact in facts if fact) or None
+    metadata = {key: value for key, value in reason.items() if key != "cause"}
+    return [RuntimeScore("confidence-judge-unavailable-reason", reason["cause"], comment=comment, metadata=metadata)]
 
 
 def dropped_citation_scores(dropped: int) -> list[RuntimeScore]:

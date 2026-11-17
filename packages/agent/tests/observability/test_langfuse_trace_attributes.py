@@ -1,17 +1,3 @@
-"""
-Langfuse session/user attribution (ADR-0044).
-
-Two things are worth pinning here, and they are not the same thing:
-
-1. **The mapping** — which Grid identity field becomes which Langfuse
-   attribute. Get a name wrong and Langfuse silently ignores the attribute:
-   traces still arrive, they are just anonymous. Nothing errors, so only a test
-   catches it.
-2. **The pipeline position** — the processor must run BEFORE the agent runtime's redaction
-   processor, or attributes naming a person can never be redacted while
-   `redaction_attributes` still claims to cover them.
-"""
-
 import json
 
 import pytest
@@ -44,21 +30,9 @@ class TestAttributeMapping:
         }
 
     def test_omits_absent_fields_rather_than_inventing_placeholders(self):
-        """
-        The agent runtime writes the string "unknown" for its own absent context fields. Doing
-        that here would be actively wrong: Langfuse would group every anonymous
-        request into one shared session — inventing a conversation that never
-        happened.
-        """
         assert langfuse_attributes_for(organization_id=None, project_id=None, conversation_id=None) == {}
 
     def test_never_blanks_out_the_session_id_nat_already_set(self):
-        """
-        The agent runtime's span exporter sets `session.id` from the conversation id at span
-        creation. When our own read comes back empty we must add nothing, not
-        write an empty `langfuse.session.id` — Langfuse prefers the prefixed
-        attribute, so an empty one would OVERRIDE a good value.
-        """
         attributes = langfuse_attributes_for(organization_id="org_456", project_id=None, conversation_id=None)
 
         assert SESSION_ID_ATTRIBUTE not in attributes
@@ -66,17 +40,10 @@ class TestAttributeMapping:
     def test_tags_the_tenant_so_the_trace_list_can_filter_on_it(self):
         attributes = langfuse_attributes_for(organization_id="org_456", project_id=None, conversation_id=None)
 
-        # A list, not a comma-joined string: Langfuse expects an array here and
-        # renders a joined string as one long single tag.
         assert attributes[TAGS_ATTRIBUTE] == ["org:org_456"]
 
 
 class TestUserAttributionIsNats:
-    """The user half is the agent runtime's since 1.9 (#2152): the span exporter stamps `user.id`,
-    which Langfuse maps to the trace's user, from the session's `user_id`, and the
-    chat socket opens every session with the verified subject
-    (`test_chat_socket.py` pins that half)."""
-
     def test_nat_puts_the_session_user_on_every_span(self):
         from nat.data_models.intermediate_step import IntermediateStep
         from nat.data_models.intermediate_step import IntermediateStepPayload
@@ -108,7 +75,6 @@ class TestUserAttributionIsNats:
         assert span.attributes["user.id"] == "user_01VERIFIED"
         assert any(key.endswith(".user.id") for key in span.attributes)
 
-        # With identity attributes off (the default), neither reaches the trace store.
         import asyncio
 
         from agent.observability.langfuse_trace_attributes import UserIdentityStripProcessor
@@ -118,8 +84,6 @@ class TestUserAttributionIsNats:
 
 
 class TestAvailabilityGate:
-    """Availability = flag AND capability. The flag is the deployment's."""
-
     def test_defaults_to_off(self, monkeypatch):
         monkeypatch.delenv(IDENTITY_ATTRIBUTES_ENV, raising=False)
         assert identity_attributes_enabled() is False
@@ -131,11 +95,6 @@ class TestAvailabilityGate:
 
     @pytest.mark.parametrize("value", ["", "false", "1", "yes"])
     def test_anything_else_leaves_it_off(self, monkeypatch, value):
-        """
-        Deliberately strict. This gate controls whether user identifiers are
-        written into a telemetry store, so an ambiguous value must fail closed
-        rather than be generously interpreted.
-        """
         monkeypatch.setenv(IDENTITY_ATTRIBUTES_ENV, value)
         assert identity_attributes_enabled() is False
 
@@ -156,11 +115,6 @@ class TestProcessor:
         assert result.attributes[SESSION_ID_ATTRIBUTE] == "conv_abc"
 
     async def test_a_broken_context_degrades_the_trace_instead_of_failing_export(self, monkeypatch):
-        """
-        Enrichment sits in the export pipeline. An exception escaping it would
-        take out span export for the whole process, which is a far worse outcome
-        than a span with no tenant on it.
-        """
         from nat.data_models.span import Span
 
         def explode():
@@ -186,12 +140,6 @@ class TestPipelineWiring:
             assert "langfuse_trace_attributes" not in exporter._processor_names
 
     async def test_runs_ahead_of_redaction_when_the_tier_is_on(self, monkeypatch):
-        """
-        The ordering IS the control. Attributes added after the redaction pass
-        can never be redacted, so listing a `langfuse.trace.metadata.*` key in
-        `redaction_attributes` would configure something with no effect — a
-        privacy setting that silently does nothing.
-        """
         monkeypatch.setenv(IDENTITY_ATTRIBUTES_ENV, "true")
 
         async with otelcollector_redaction_telemetry_exporter(_make_config(), None) as exporter:
@@ -201,11 +149,6 @@ class TestPipelineWiring:
             assert positions["langfuse_trace_attributes"] < positions["header_redaction"]
 
     async def test_identity_attributes_are_actually_redactable(self, monkeypatch):
-        """
-        The consequence of the ordering above, asserted end-to-end rather than
-        by position: with redaction forced and the tenant key listed, the tenant
-        must come out redacted.
-        """
         from nat.data_models.span import Span
 
         monkeypatch.setenv(IDENTITY_ATTRIBUTES_ENV, "true")
@@ -225,9 +168,6 @@ class TestPipelineWiring:
 
         async with otelcollector_redaction_telemetry_exporter(config, None) as exporter:
             span = Span(name="llm-call")
-            # Addressed by NAME, not slice: the pipeline grows (usage
-            # attribution sits between identity and redaction now) and a
-            # positional slice would silently stop exercising redaction.
             by_name = {name: exporter._processors[pos] for name, pos in exporter._processor_names.items()}
             span = await by_name["langfuse_trace_attributes"].process(span)
             span = await by_name["header_redaction"].process(span)
@@ -236,15 +176,6 @@ class TestPipelineWiring:
 
 
 class TestToolContributions:
-    """Facts a TOOL recorded about what it did (ADR-0045).
-
-    The gap is specific to the IFC tools: their work happens in the BFF, which
-    exports OTel logs and no traces, so the span Langfuse receives is a
-    duration and a rendered string. Everything that would explain a slow or a
-    wrong answer — which model, which operation, whether the answer covered the
-    whole building — is otherwise unrecoverable from the trace.
-    """
-
     @pytest.fixture(autouse=True)
     def _clean(self):
         from agent.observability.langfuse_trace_attributes import reset_contributions
@@ -271,9 +202,6 @@ class TestToolContributions:
         }
 
     def test_a_tool_tag_joins_the_organization_tag_rather_than_replacing_it(self):
-        # "Show me this organization's traces" and "show me the turns that read
-        # a building model" are both trace-list filters, and losing the first to
-        # gain the second would be a bad trade in a multi-tenant store.
         from agent.observability.langfuse_trace_attributes import _CONTRIBUTED
         from agent.observability.langfuse_trace_attributes import add_trace_tag
 
@@ -290,8 +218,6 @@ class TestToolContributions:
         assert attributes[TAGS_ATTRIBUTE] == ["org:org_456", "feature:ifc"]
 
     def test_absent_values_are_dropped_here_too(self):
-        # Same rule as the identity fields: Langfuse renders what it is given,
-        # and `ifc_model=None` reads as a model actually called "None".
         from agent.observability.langfuse_trace_attributes import _CONTRIBUTED
         from agent.observability.langfuse_trace_attributes import record_trace_metadata
 
@@ -305,7 +231,6 @@ class TestToolContributions:
         ) == {"langfuse.trace.metadata.ifc_op": "overview"}
 
     def test_recording_never_raises_into_the_turn(self):
-        # Telemetry enrichment must not be able to fail the answer it describes.
         from agent.observability.langfuse_trace_attributes import add_trace_tag
         from agent.observability.langfuse_trace_attributes import record_trace_metadata
 
@@ -325,15 +250,6 @@ class TestToolContributions:
 
 
 class TestContributionIsolation:
-    """A reused worker must not hand job N's tags to job N+1, across tenants.
-
-    Workers reuse processes: without a per-job bind/reset in ``finally`` (see
-    ``DeepResearcherAgent.run``) the ContextVar still holds job N's dict when
-    job N+1 starts. And without copy-on-write, ``asyncio.create_task`` snapshots
-    the var's OBJECT reference, so a later in-place ``update``/``append`` rewrites
-    an already-snapshotted export task and a concurrent researcher's writes.
-    """
-
     @pytest.fixture(autouse=True)
     def _clean(self):
         from agent.observability.langfuse_trace_attributes import reset_contributions
@@ -343,7 +259,6 @@ class TestContributionIsolation:
         reset_contributions()
 
     def test_next_job_starts_clean_after_previous_job_contributed(self):
-        # Job N on a reused worker contributes, then its `finally` restores.
         from agent.observability.langfuse_trace_attributes import add_trace_tag
         from agent.observability.langfuse_trace_attributes import begin_trace_contributions
         from agent.observability.langfuse_trace_attributes import end_trace_contributions
@@ -358,8 +273,6 @@ class TestContributionIsolation:
         finally:
             end_trace_contributions(job_n)
 
-        # Job N+1 on the SAME process/context starts fresh — no org tag bleed
-        # into another tenant's traces.
         job_n_plus_1 = begin_trace_contributions()
         try:
             fresh = snapshot_contributions()
@@ -382,8 +295,6 @@ class TestContributionIsolation:
         from agent.observability.langfuse_trace_attributes import record_trace_metadata
         from agent.observability.langfuse_trace_attributes import snapshot_contributions
 
-        # Parent contributes first so both children inherit the SAME dict object.
-        # With in-place mutation both appends land in that shared object.
         record_trace_metadata(ifc_op="base")
 
         async def worker_a():
@@ -417,8 +328,6 @@ class TestContributionIsolation:
             await asyncio.sleep(0.05)
             return snapshot_contributions()
 
-        # `create_task` snapshots the context NOW (span END); the tool's later
-        # writes must not rewrite that snapshot.
         task = asyncio.create_task(export_reader())
         record_trace_metadata(ifc_op="late")
         add_trace_tag("feature:ifc")
@@ -443,14 +352,6 @@ class TestContributionIsolation:
 
 
 class TestUsageObservationMapping:
-    """Input/output/total (+cost) onto generation observations.
-
-    Production showed empty `usageDetails`/`costDetails` on every generation:
-    The agent runtime's exporter sets only `llm.token_count.*` (token-only, and zero
-    whenever `usage_metadata` was absent), while Langfuse's OTel ingestion
-    maps `gen_ai.usage.*` / `langfuse.observation.*`. These pin the mirror.
-    """
-
     def test_provider_verbatim_counts_and_exclusive_detail_buckets(self):
         import json
 
@@ -472,11 +373,8 @@ class TestUsageObservationMapping:
             model="openrouter/deepseek-v4",
         )
 
-        # gen_ai.* stays provider-verbatim (Langfuse normalizes that path itself).
         assert attributes[GEN_AI_USAGE_INPUT_TOKENS] == 1204
         assert attributes[GEN_AI_USAGE_OUTPUT_TOKENS] == 331
-        # usage_details is stored VERBATIM, so its buckets are exclusive:
-        # input excludes cached, output excludes reasoning.
         assert json.loads(attributes[OBSERVATION_USAGE_DETAILS]) == {
             "input": 692,
             "output": 203,
@@ -544,7 +442,6 @@ class TestExtractProviderUsage:
         }
 
     def test_missing_cost_reports_none_not_zero(self):
-        """A missing cost is unknown, not free — zero would read as free."""
         import json
 
         from agent.observability.langfuse_trace_attributes import extract_provider_usage
@@ -557,7 +454,6 @@ class TestExtractProviderUsage:
         assert usage["cost_usd"] is None
 
     def test_responses_path_ingests_the_carried_provider_cost(self):
-        """No provider usage object on the Responses path: the cost carrier's ``cost`` is the span's cost."""
         import json
 
         from agent.common.cost_tracking import RESPONSES_ACCOUNTING_KEY
@@ -587,21 +483,6 @@ class TestExtractProviderUsage:
 
 
 class TestUsageComesFromTheResponseSideOnly:
-    """Only ``chat_responses`` may be read: the input side is an older call's usage.
-
-    A span's ``nat.metadata`` is the LLM_START payload merged with the LLM_END
-    one (``nat/observability/exporter/span_exporter.py``), so it holds both
-    ``chat_inputs`` — the whole prompt, earlier AIMessages and the
-    ``response_metadata``/``usage_metadata`` of the calls that produced them
-    included — and ``chat_responses``, this call's output. Scanning the whole
-    payload for a usage object let the prompt history answer for the response:
-    a Responses-API generation leaves only LangChain's normalized usage on its
-    own side, the provider-preferred pass found none there and took the
-    provider-shaped one out of an earlier message instead. Five generations in
-    one production turn then reported byte-identical counts (30511/77,
-    reasoning 38) while the context grew every round.
-    """
-
     PREVIOUS_ANSWER = {
         "prompt_tokens": 30511,
         "completion_tokens": 77,
@@ -657,7 +538,6 @@ class TestUsageComesFromTheResponseSideOnly:
         }
 
     def test_usage_only_on_the_input_side_is_absent(self):
-        """Falling through to ``llm.token_count.*`` beats reporting another call's numbers."""
         from agent.observability.langfuse_trace_attributes import extract_provider_usage
 
         assert extract_provider_usage(self._metadata(inputs=True, responses=False)) is None
@@ -676,16 +556,6 @@ class TestUsageComesFromTheResponseSideOnly:
 
 
 class TestResponsesApiSpanUsage:
-    """A Responses-API generation leaves only LangChain's normalized usage.
-
-    langchain-openai builds no ``llm_output`` there and keeps ``usage`` out of
-    ``response_metadata``, so the provider object never reaches the span. Before
-    this fallback existed the scan found nothing, the exporter's bare
-    ``llm.token_count.*`` took over, and every Piloti research generation
-    rendered with input/output/total and no cache bucket — which is exactly
-    what two production trace exports showed.
-    """
-
     METADATA = json.dumps(
         {
             "chat_responses": [
@@ -736,7 +606,6 @@ class TestResponsesApiSpanUsage:
         )
         details = json.loads(attributes[OBSERVATION_USAGE_DETAILS])
         assert details["input_cached_tokens"] == 35072
-        # The buckets are exclusive, so Langfuse cannot bill a token twice.
         assert details["input"] == 41883 - 35072
         assert details["output"] == 514 - 192
 
@@ -764,7 +633,6 @@ class TestResponsesApiSpanUsage:
             }
         )
         usage = extract_provider_usage(metadata)
-        # Only the provider object carries `cost`, so it must not be shadowed.
         assert usage["prompt_tokens"] == 10
         assert usage["cost_usd"] == 0.5
 
@@ -818,7 +686,6 @@ class TestUsageAttributeProcessor:
         assert span.attributes["gen_ai.request.model"] == "openrouter/deepseek-v4"
 
     async def test_a_decision_span_gains_its_tokens_cost_and_model_from_its_own_output(self):
-        """Jev bypasses LangChain (ADR-0064): its usage rides the decide.* observation's output."""
         from agent.observability.decision_trace import decision_observation
         from agent.observability.langfuse_trace_attributes import UsageAttributeProcessor
         from nat.data_models.span import Span
@@ -876,8 +743,6 @@ class TestUsageAttributeProcessor:
         assert json.loads(span.attributes["langfuse.observation.cost_details"]) == {"total": 0.00214}
 
     async def test_metadata_recovers_usage_when_counts_are_zero(self):
-        """The production symptom: `usage_metadata` absent, counts zeroed,
-        provider object still in the metadata. The span must still land usage."""
         import json
 
         from agent.observability.langfuse_trace_attributes import UsageAttributeProcessor
@@ -930,15 +795,12 @@ class TestUsagePipelineWiring:
         async with otelcollector_redaction_telemetry_exporter(_make_config(), None) as exporter:
             positions = exporter._processor_names
 
-            # Usage counts are not personal data: no env gate, unlike identity.
             assert "usage_attributes" in positions
             assert "langfuse_trace_attributes" not in positions
             assert positions["usage_attributes"] < positions["header_redaction"]
 
 
 class TestPosthogSessionLink:
-    """Langfuse's PostHog export reads ``trace.metadata.$posthog_session_id`` as the event's ``$session_id``."""
-
     SESSION = "0199d7f2-5b3a-7c4e-9a1d-3e8f2b6c5d70"
 
     def test_the_metadata_key_is_the_one_langfuse_reads(self):
@@ -1004,8 +866,6 @@ class TestPosthogSessionLink:
 
 
 class TestLessonsMetadata:
-    """The holdout is analysable from the exported observation events (ADR-0100)."""
-
     LESSON_A = "3f2504e0-4f89-11d3-9a0c-0305e82c3301"
     LESSON_B = "9b2f6c1a-7d3e-4c1b-8a55-1f0e2d3c4b5a"
 
@@ -1047,7 +907,6 @@ class TestLessonsMetadata:
 
 
 def test_cache_writes_ride_their_own_usage_bucket():
-    """``input`` stays exclusive: a written token is billed once, in its own bucket."""
     from agent.observability.usage_details import OBSERVATION_USAGE_DETAILS
     from agent.observability.usage_details import usage_observation_attributes
 
