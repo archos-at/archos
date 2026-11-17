@@ -1,6 +1,7 @@
 
 
 import type { Camera, Renderer, SceneContents } from '@ifc-lite/renderer'
+import { capturePosthogException } from '@/lib/analytics/posthog'
 
 export type RendererLike = Pick<
   Renderer,
@@ -66,4 +67,26 @@ export function modelBoundsMetres(
   if (!bounds) return null
   if (!Number.isFinite(bounds.min.y) || !Number.isFinite(bounds.max.y)) return null
   return { minMetres: bounds.min.y, maxMetres: bounds.max.y }
+}
+
+export function guardedKernel() {
+  let kernel: { dispose(): void } | null = null
+  let released = false
+  const release = () => {
+    released = true
+    const held = kernel
+    kernel = null
+    try {
+      held?.dispose()
+    } catch (error) {
+      capturePosthogException(error, { source: 'ifc-viewer-dispose' })
+    }
+  }
+  return {
+    hold(next: { dispose(): void }) {
+      kernel = next
+      if (released) release()
+    },
+    release,
+  }
 }

@@ -3,7 +3,7 @@ import type { RenderOptions } from '@ifc-lite/renderer'
 import { useLocale, useTranslations } from '@/i18n'
 import { bimCopy } from '@/i18n/namespaces/bim'
 
-import { capturePosthog } from '@/lib/analytics/posthog'
+import { capturePosthog, capturePosthogException } from '@/lib/analytics/posthog'
 import type { BimViewerElement, Rgba } from '../lib/model-index'
 import { MeasureOverlay } from '../lib/measure-overlay'
 import { completeMeasurement, MEASURE_SNAP_OPTIONS, type MeasureAnchor, type MeasureSnapKind, type Measurement } from '../lib/viewer-measure'
@@ -12,7 +12,7 @@ import { unwrapModelSource } from '../lib/model-source'
 import { captureFrameOptions, interactiveFrameOptions } from '../lib/viewer-performance'
 import { observeViewerTheme, readViewerTheme, VIEWER_CLEAR_COLOR, viewerEnhancement, viewerEnhancementCompact, viewerEnvironment } from '../lib/viewer-scene'
 
-import { RendererLike, HOVER_BUDGET_MS, KEY_ORBIT_PX, KEY_PAN_PX, modelBoundsMetres } from './ifc-viewer-canvas-helpers'
+import { guardedKernel, RendererLike, HOVER_BUDGET_MS, KEY_ORBIT_PX, KEY_PAN_PX, modelBoundsMetres } from './ifc-viewer-canvas-helpers'
 
 export interface IfcViewerCanvasProps {
   sourceUrl: string
@@ -83,7 +83,6 @@ export function useIfcViewerCanvasController(props: IfcViewerCanvasProps) {
   const overlaySvgRef = useRef<SVGSVGElement | null>(null)
   const overlayLabelsRef = useRef<HTMLDivElement | null>(null)
   const rendererRef = useRef<RendererLike | null>(null)
-  const geometryRef = useRef<{ dispose(): void } | null>(null)
   const [ready, setReady] = useState(false)
   const [hovering, setHovering] = useState(false)
   const [dragging, setDragging] = useState(false)
@@ -248,6 +247,8 @@ export function useIfcViewerCanvasController(props: IfcViewerCanvasProps) {
       if (!cancelled) onStatusRef.current?.(status)
     }
 
+    const kernel = guardedKernel()
+
     const run = async () => {
       const startedAt = performance.now()
       report({ phase: 'downloading', percent: 0, meshCount: 0 })
@@ -269,11 +270,10 @@ export function useIfcViewerCanvasController(props: IfcViewerCanvasProps) {
         if (cancelled) return
 
         const geometry = new GeometryProcessor()
-        geometryRef.current = geometry
         const renderer: RendererLike = new Renderer(canvas)
         rendererRef.current = renderer
         try {
-          await Promise.all([geometry.init(), renderer.init()])
+          await Promise.all([geometry.init().then(() => kernel.hold(geometry)), renderer.init()])
         } catch (error) {
           renderer.destroy()
           if (rendererRef.current === renderer) rendererRef.current = null
@@ -310,6 +310,7 @@ export function useIfcViewerCanvasController(props: IfcViewerCanvasProps) {
           report({ phase: 'parsing', percent: null, meshCount })
           requestFrame()
         }
+        kernel.release()
         if (cancelled) return
 
         streamingRef.current = false
@@ -340,6 +341,7 @@ export function useIfcViewerCanvasController(props: IfcViewerCanvasProps) {
         requestFrame()
       } catch (error) {
         if (controller.signal.aborted) return
+        capturePosthogException(error, { source: 'ifc-viewer-load' })
         report({
           phase: 'error',
           percent: null,
@@ -349,7 +351,7 @@ export function useIfcViewerCanvasController(props: IfcViewerCanvasProps) {
       }
     }
 
-    void run()
+    void run().finally(() => kernel.release())
 
     return () => {
       cancelled = true
@@ -360,8 +362,7 @@ export function useIfcViewerCanvasController(props: IfcViewerCanvasProps) {
       cameraLoopRef.current = null
       rendererRef.current?.destroy()
       rendererRef.current = null
-      geometryRef.current?.dispose()
-      geometryRef.current = null
+      kernel.release()
       setReady(false)
       setHovering(false)
     }
@@ -980,7 +981,6 @@ export function useIfcViewerCanvasController(props: IfcViewerCanvasProps) {
     frameAt,
     frameOptions,
     frameRef,
-    geometryRef,
     handleDoubleClick,
     handleKeyDown,
     handlePointerCancel,
