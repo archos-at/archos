@@ -198,7 +198,7 @@ export function useInputAreaController({
     mayChatInProject: canChatInProject,
     isBusy,
     isResponseMode,
-    otherPersonsTurnName: Boolean(otherPersonsTurnName),
+    otherPersonsTurn: Boolean(otherPersonsTurnName),
     ownTurnStreaming: showStop,
   })
 
