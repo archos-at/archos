@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 class CardRegistry:
+    """Accumulates validated card dicts emitted during a single turn."""
 
     def __init__(self) -> None:
         self._cards: list[dict[str, Any]] = []

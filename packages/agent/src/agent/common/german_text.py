@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 from collections.abc import Sequence
 
+#: Measured on the 776-page base corpus: ``OIB`` 95%, ``punkt`` 27.8% (noise) against ``Geschoß`` 23.2% (core noun); 0.2 silenced ``Geschoss``.
 DEFAULT_DF_CEILING_RATIO = 0.25
 
 DEFAULT_DF_CEILING_MIN_TOTAL = 25
@@ -17,6 +18,7 @@ _S_ENDINGS = frozenset("bdfghklmnrt")
 
 _SUFFIXES = ("ern", "em", "er", "en", "es", "e")
 
+#: 2 let ``of`` match German chunks through the 0.6% of pages with English ÖNORM titles.
 _MIN_TERM_LENGTH = 3
 
 

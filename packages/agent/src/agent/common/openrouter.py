@@ -58,6 +58,7 @@ def targets_openrouter(url: object) -> bool:
     return host == OPENROUTER_HOST or host.endswith(f".{OPENROUTER_HOST}")
 
 
+# Page reading left at default reasoning spent 45k of 67k ``look_reading`` output tokens thinking (signals W5, 2026-11-02).
 VISION_REASONING = {"effort": "low"}
 
 

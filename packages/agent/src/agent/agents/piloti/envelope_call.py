@@ -49,6 +49,7 @@ NO_TOOL_CALLS = "none"
 
 
 async def ainvoke_synthesis(binding: Any, messages: list[Any], live: Any, json_mode_with_tools: bool = False) -> Any:
+    # Anthropic, 2026-11-09: dropping tools or switching response_format invalidates the prompt cache.
     from agent.turn.answer_stream import streaming_call
 
     answering, config = streaming_call(binding.llm_with_tools.bind(tool_choice=NO_TOOL_CALLS), live=live)

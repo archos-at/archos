@@ -66,6 +66,7 @@ UnavailableCause = Literal["no_judge", "timeout", "error", "unparseable", "no_re
 
 JUDGE_TIMEOUT_S = 12.0
 EVIDENCE_BUDGET_CHARS = 60_000
+#: Dev QC 2026-11-12: two ``project-base-get`` reads of 40,000 characters made an 80,000-character prompt with no room for a passage.
 RECORD_MAX_CHARS = 12_000
 RECORDS_BUDGET_CHARS = 24_000
 _CUT = " [cut for length]"

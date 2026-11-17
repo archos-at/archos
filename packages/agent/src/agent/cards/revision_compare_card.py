@@ -19,6 +19,7 @@ MAX_REVISION_SUMMARY = 8
 
 
 class RevisionCompareChange(CardModel):
+    """One change, boxed on the page (the same frame on both Fassungen)."""
 
     model_config = ConfigDict(regex_engine="python-re")
 
@@ -38,6 +39,12 @@ class RevisionCompareChange(CardModel):
 
 
 class RevisionCompareCard(CardModel):
+    """The same page of an older and a newer Fassung, side by side, with the changes boxed on each.
+
+    System-emitted (``tools/workspace/cards.py``) from a ``document-revision-compare``
+    result; the model cannot emit it (``SYSTEM_CARD_TYPES``). The boxes were found
+    on the newer page and are drawn at the same place on the older one.
+    """
 
     model_config = ConfigDict(regex_engine="python-re")
 

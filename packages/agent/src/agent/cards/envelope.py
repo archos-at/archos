@@ -120,6 +120,7 @@ def _turn_is_confined() -> bool:
 
 @dataclass(frozen=True)
 class CardRefusal:
+    """What the validator could not accept about one card, and why."""
 
     kind: str
     card_type: str

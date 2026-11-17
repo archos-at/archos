@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 
 _PUBLISHED_STEM_RE = re.compile(r"^(?:(erlaeuterungen|aenderungen)(?:_|-zu-))?oib-(?:rl|richtlinie)_")
+# Names read off https://www.oib.or.at/richtlinien/oib-richtlinien-<year>/oib-richtlinie-<n> on 2026-11-10; each item page also lists a 2015 diff PDF that a pattern would misread as the 2015 Richtlinie.
 PUBLISHED_EDITIONS = {
     "richtlinie_1_12.04.19_0": "oib-rl_1_ausgabe_april_2019",
     "oib-rl-2-brandschutz-2019": "oib-rl_2_ausgabe_april_2019",

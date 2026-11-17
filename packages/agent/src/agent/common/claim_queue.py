@@ -188,6 +188,7 @@ class ClaimQueue:
             _execute_constant(conn, statement)
         self._add_missing_columns(conn, ts)
         ensure_status_guard(conn, t, born=QUEUED, live=(QUEUED, CLAIMED), retired=RETIRED)
+        # CREATE INDEX IF NOT EXISTS takes a SHARE lock before checking the name; run on every start it wedged the queue (2026-10-11).
         present = present_indexes(conn, t)
         for name, columns in (
             (f"ix_{t}_status_created", "status, created_at"),

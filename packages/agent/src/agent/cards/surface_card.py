@@ -178,6 +178,17 @@ def _check_single_parent(components: list[dict[str, Any]]) -> None:
 
 
 class SurfaceCard(CardModel):
+    """Several cards composed into one A2UI surface: variants as tabs, related cards side by side.
+
+    `components` is an A2UI v0.9 component list (a2ui.org): flat, each entry
+    `{"id", "component", …props}`, children referenced by id, exactly one
+    `"id": "root"`. Containers are `Row` and `Column` (`children`: ids) and
+    `Tabs` (`tabs`: `[{title, child}]`); `Text` (`text`: Markdown) holds what
+    the answer would write in prose, a table or a list; every other component
+    is a card, named by its type, with that card's own fields as props. Validated twice: the
+    structure by `a2ui-core` (unique ids, a root, no dangling reference, no
+    cycle, no orphan), each card by its own model.
+    """
 
     type: Literal["surface"]
     title: str | None = Field(

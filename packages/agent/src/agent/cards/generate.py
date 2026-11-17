@@ -73,6 +73,15 @@ async def _ainvoke_card_llm(llm: Any, messages: list[Any]) -> Any:
 
 @dataclass(frozen=True)
 class CardGenerationResult:
+    """What post-hoc card generation produced, and whether it was TRIED and lost.
+
+    ``cards`` is ``None`` whenever nothing usable came out. ``failed`` separates
+    the two ways that happens: the model was never asked (no LLM, empty inputs)
+    or answered that the report warrants no cards — ordinary, not failed — from a
+    timeout, a provider error, unparseable output or a batch in which no card
+    survived validation. The job runner records the second kind as a degraded
+    reason on the answer; the first kind is not a caveat.
+    """
 
     cards: list[dict[str, Any]] | None
     failed: bool = False

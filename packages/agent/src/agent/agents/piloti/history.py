@@ -68,6 +68,7 @@ def trim_message_history(
     )
 
 
+# Remove this table, replay_retired_look_names and its test after 2026-12-01.
 _RETIRED_LOOK_NAMES: dict[str, dict[str, str | None]] = {
     "view_knowledge_image": {"file_name": "document", "page_number": "page", "collection": None},
     "canvas__look": {},
@@ -123,6 +124,7 @@ def _with_look_calls(message: AIMessage) -> AIMessage:
     return message.model_copy(update=update)
 
 
+# Anthropic, Context editing, 2026-11-09: clearing invalidates the cache, so prune once per batch.
 PRUNE_BATCH_TURNS = 4
 
 TRIM_TO_SHARE = 0.625

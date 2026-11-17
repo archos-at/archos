@@ -26,6 +26,7 @@ CACHE_CONTROL_FIELD = "cache_control"
 PROMPT_CACHE_OPTIONS_FIELD = "prompt_cache_options"
 _NO_CACHE_WRITES = {"mode": "explicit"}
 
+# OpenAI GPT from 5.6 on caches and bills the write unasked (OpenRouter prompt caching guide, 2026-10-07).
 AUTOMATIC_WRITE_FAMILIES = ("openai",)
 _AUTOMATIC_WRITES_FROM = (5, 6)
 _GPT_VERSION = re.compile(r"gpt-(\d+)(?:\.(\d+))?")

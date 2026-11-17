@@ -32,6 +32,7 @@ CAUSES: dict[str, str] = {
     "other": "None of the above, or no way to tell from what was written.",
 }
 
+#: Measured 2026-09-26 on 16 down-votes (``tests/fixtures/decisions/feedback_causes.yaml``): 16/16 right at 0.8.
 CAUSE_THRESHOLD = 0.8
 SLOT = "feedback_causes"
 CAUSE_QUESTION = (

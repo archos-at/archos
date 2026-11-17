@@ -22,6 +22,7 @@ _GERMAN_CHARS = frozenset("äöüßÄÖÜ")
 
 _WORD_RE = re.compile(r"[^\W\d_]+", re.UNICODE)
 
+# Measured: "fire-brigade access road" expanded to nothing against a spaced glossary form and ranked its answer 119th.
 _PUNCTUATION_RE = re.compile(r"[^\w]+", re.UNICODE)
 
 _lock = threading.Lock()

@@ -33,6 +33,7 @@ def refuse_data_urls(value: Any, path: str = "card") -> None:
 
 
 class LookDocument(CardModel):
+    """The document looked at: its id when it is a workspace document, its file name, its shelf."""
 
     model_config = ConfigDict(regex_engine="python-re")
 
@@ -49,6 +50,7 @@ class LookDocument(CardModel):
 
 
 class LookItem(CardModel):
+    """One place on the document: a look the agent took, or a box or pointer it showed the room (`reference`)."""
 
     model_config = ConfigDict(regex_engine="python-re")
 
@@ -108,6 +110,11 @@ class LookItem(CardModel):
 
 
 class LookCard(CardModel):
+    """Where the agent looked on one document in this turn, and what it showed the room there.
+
+    System-emitted (``tools/look/cards.py``) once the answer is final, from the
+    looks the answer relies on; the model cannot emit it (``SYSTEM_CARD_TYPES``).
+    """
 
     type: Literal["look"] = "look"
     document: LookDocument
