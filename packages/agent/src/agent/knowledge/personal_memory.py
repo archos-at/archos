@@ -1,15 +1,3 @@
-"""Personal memory client: the agent's one write to a person's own notes (ADR-0180).
-
-A note about the person asking (how they want the agent to work, their role,
-what they said in confidence) is kept where only they read it:
-``POST /api/internal/personal-memory``. The BFF takes the owner from the turn's
-signed envelope and never from the body, so this client has no ``user_id``
-argument to get wrong, and a run without an envelope cannot write at all.
-
-The read side is not here: the person's ``PERSONAL_MEMORY v1`` block arrives
-with the turn context (``turn/context_client.py``).
-"""
-
 from __future__ import annotations
 
 import logging
@@ -39,8 +27,6 @@ _MAX_CONTENT_CHARS = 2000
 
 @dataclass(frozen=True)
 class PersonalMemoryWrite:
-    """A personal note the BFF stored."""
-
     id: str
     created: bool
 
@@ -54,15 +40,6 @@ def insert_personal_memory_item(
     provenance_type: str = "agent",
     topic: str | None = None,
 ) -> PersonalMemoryWrite | None:
-    """Record one note in the personal memory of the person the envelope names.
-
-    Returns the stored note, or None in exactly one case: ``content`` matches a
-    secret shape (:func:`looks_like_secret`) and nothing was sent. Raises
-    :class:`TemporaryConversationError` when the conversation keeps nothing, and
-    :class:`agent.common.bff_http.BffError` (a ``RuntimeError``) for
-    configuration, refusal (401 without a valid envelope) and transport
-    failures. Blocking; call via ``asyncio.to_thread``.
-    """
     if kind not in VALID_PERSONAL_KINDS:
         raise ValueError(f"Invalid kind '{kind}'. Must be one of: {sorted(VALID_PERSONAL_KINDS)}")
     if provenance_type not in VALID_PROVENANCES:
@@ -106,22 +83,11 @@ ForgetRefusal = Literal["not_found", "curated"]
 
 @dataclass(frozen=True)
 class PersonalMemoryForget:
-    """What the BFF did with a forget: the note it removed, or why it removed none."""
-
     removed_id: str | None
     refused: ForgetRefusal | None
 
 
 def forget_personal_memory_item(*, envelope: bff_http.SignedEnvelope, content: str) -> PersonalMemoryForget:
-    """Remove the note of the envelope's person that says ``content``.
-
-    ``content`` is the note's text as the turn's ``PERSONAL_MEMORY`` block
-    showed it; the BFF matches it with case and punctuation folded and guesses
-    at nothing. A note the person wrote or pinned is refused (``curated``):
-    theirs to remove in the panel. Raises :class:`agent.common.bff_http.BffError`
-    for configuration, refusal and transport failures. Blocking; call via
-    ``asyncio.to_thread``.
-    """
     body = bff_http.post_json(
         INTERNAL_PERSONAL_MEMORY_FORGET_PATH,
         {"content": content.strip()[:_MAX_CONTENT_CHARS]},

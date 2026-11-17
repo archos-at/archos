@@ -1,20 +1,3 @@
-"""The explicit per-document classification ("Dokumentart" / doc_class).
-
-Unlike the free-form ``tags`` of :mod:`agent.knowledge.document_classification`
-(document type + OIB discipline), the doc_class is a SINGLE, human-settable label describing what role a document
-plays in the norm hierarchy. It is the authoritative signal preferred over the
-filename guess (``norm_registry.oib_doc_class``) everywhere: stored on the
-summaries row, stamped into chunk metadata, shown to the LLM, and used by the
-lane/SourceKind classifiers. Each doc_class maps to exactly one fine lane key
-(see ``norm_registry._OIB_CLASS_LANES``/``_RANK_LANES`` and ADR-0026).
-
-Ordered + immutable so callers cannot mutate the vocabulary and any future
-edit endpoint validates against the same closed set. Fail-open: an unknown
-value validates to False and callers fall back to :data:`DEFAULT_DOC_CLASS`.
-
-``document_classification`` re-exports every name here.
-"""
-
 from __future__ import annotations
 
 DOCUMENT_CLASS_LABELS: dict[str, str] = {
@@ -47,7 +30,6 @@ DEFAULT_DOC_CLASS = "other"
 
 
 def is_valid_doc_class(value: str | None) -> bool:
-    """Return whether ``value`` is a member of the closed doc_class vocabulary."""
     return value in DOCUMENT_CLASS_LABELS
 
 
@@ -67,7 +49,6 @@ QDRANT_DOC_CLASSES: dict[str, str] = {current: legacy for legacy, current in LEG
 
 
 def canonical_doc_class(value: object) -> str | None:
-    """The current key for ``value`` (current or legacy); ``None`` for anything else, blank included."""
     if not isinstance(value, str):
         return None
     key = LEGACY_DOC_CLASSES.get(value.strip(), value.strip())
@@ -75,5 +56,4 @@ def canonical_doc_class(value: object) -> str | None:
 
 
 def qdrant_doc_class(value: str) -> str:
-    """The spelling the vector store holds for ``value``; a value outside the vocabulary as given."""
     return QDRANT_DOC_CLASSES.get(value, value)

@@ -1,20 +1,3 @@
-"""The ranking sweep: the Qdrant path under each candidate ``search.Ranking``, per question.
-
-``task be:eval:qdrant-parity -- --variants all`` runs it after the gates, over the
-collection the gates just built, so every variant reads the same points and the
-same index. Each variant swaps ``knowledge_layer.vector_store.search.RANKING`` for the
-duration of its run and reads through ``LlamaIndexRetriever._retrieve_sync``, the
-production path, so a variant measures exactly what production would serve with
-those settings.
-
-Per variant it records the primary measures the adoption rule reads (golden nDCG@10
-and MRR, hard-case R-precision through full retrieval), the overview cohorts, recall@1,
-the store-call latency, how far each hit's served score is from the true cosine
-(numpy over the stored vectors), and the per-question numbers the diff against the
-baseline is built from. Adoption is a person's decision on that diff; this module
-only measures (``qdrant-gates-2026-10.md``, "Ranking sweep").
-"""
-
 from __future__ import annotations
 
 import contextlib
@@ -38,15 +21,12 @@ REPEAT = "baseline_repeat"
 
 
 def plain(**settings: Any) -> Any:
-    """A ``search.Ranking`` without the cosine tie-break: production's ranking before the sweep, plus ``settings``."""
     from knowledge_layer.vector_store import Ranking
 
     return Ranking(cosine_tie_break=False, **settings)
 
 
 def catalogue() -> dict[str, Any]:
-    """Every named variant: a ``search.Ranking``, None for dense alone (the adapter's ``hybrid_search`` off),
-    or a ``decompound.Variant``."""
     from knowledge_layer.vector_store import Ranking
 
     return {
@@ -79,7 +59,6 @@ def catalogue() -> dict[str, Any]:
 
 
 def select(names: str) -> dict[str, Any]:
-    """The variants named in a comma list (``all`` for every one); the baseline always comes first."""
     known = catalogue()
     if names.strip() == "all":
         return known
@@ -92,7 +71,6 @@ def select(names: str) -> dict[str, Any]:
 
 @contextlib.contextmanager
 def ranking(retriever: Any, setting: Any) -> Iterator[None]:
-    """``search.RANKING`` set to ``setting`` for the block; None turns the lexical channels off instead."""
     from knowledge_layer.vector_store import search
 
     saved, saved_hybrid = search.RANKING, retriever.hybrid_search
@@ -121,7 +99,6 @@ def measure(
     files: Any,
     scope: str = SCOPE,
 ) -> dict[str, Any]:
-    """One variant's scores and per-question detail. ``units``/``files`` collapse a chunk list (``runner.Corpus``)."""
     filters = channels.base_filters(sorted(inputs.excluded))
     answerable = [j for j in inputs.judgements if j.graded]
     rows = {chunk.chunk_id: row for row, chunk in enumerate(inputs.chunks)}
@@ -213,7 +190,6 @@ def measure(
 
 
 def _moved(base: dict[str, Any], other: dict[str, Any], key: str, *, lower_is_better: bool = False) -> list[str]:
-    """Ids whose ``key`` got worse from ``base`` to ``other`` (a missing rank is worst)."""
     worse: list[str] = []
     for qid, row in base.items():
         before, after = row[key] if isinstance(row, dict) else row, other[qid]
@@ -229,7 +205,6 @@ def _moved(base: dict[str, Any], other: dict[str, Any], key: str, *, lower_is_be
 
 
 def diff(base: dict[str, Any], other: dict[str, Any]) -> dict[str, dict[str, list[str]]]:
-    """Per question set, which questions got worse and which better against the baseline."""
     out: dict[str, dict[str, list[str]]] = {}
     out["golden_first_rank"] = {
         "worse": _moved(base["per_golden"], other["per_golden"], "first", lower_is_better=True),
@@ -255,7 +230,6 @@ def diff(base: dict[str, Any], other: dict[str, Any]) -> dict[str, dict[str, lis
 
 
 def run(inputs: Any, retriever: Any, relevant_counts: dict[str, int], names: str, rounds: int, depth: int) -> dict:
-    """Every selected variant, measured, and each diffed against the baseline."""
     from oib_retrieval.qdrant_parity.runner import Corpus
 
     chosen = select(names)
@@ -298,7 +272,6 @@ def run(inputs: Any, retriever: Any, relevant_counts: dict[str, int], names: str
 
 
 def render(results: dict[str, Any]) -> list[str]:
-    """The sweep as the markdown table the gate report quotes, then each variant's per-question moves."""
     cohorts = sorted(results[BASELINE]["overview"])
     lines = ["## Ranking sweep (Qdrant path, full retrieval)\n"]
     head = ["variant", "settings", "nDCG@10", "MRR", "recall@1", "hard R-prec"]

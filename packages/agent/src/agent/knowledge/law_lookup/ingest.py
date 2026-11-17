@@ -1,11 +1,3 @@
-"""[5] The full text into the session collection.
-
-Best-effort (a lookup must succeed even when ingestion cannot), once per
-session per document (a marker in the shared cache). It is what keeps a passage
-answer from costing the conversation the rest of the law: ``read_passage``
-reopens any other provision of a document that is in the session collection.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -29,12 +21,6 @@ _NAME_TITLE_CHARS = 60
 
 
 async def ingest_documents(documents: list[FetchedDocument], enabled: bool, law: LawSource, ttl: int) -> str | None:
-    """Ingest every fetched document; return the first stored name, or ``None``.
-
-    The name is what the model is told to reach for later, so the FIRST one is
-    the one reported: naming both would put a list in a sentence that exists to
-    give the reader one handle.
-    """
     if not enabled:
         return None
     names = [await ingest_one(fetched, law, ttl) for fetched in documents]
@@ -42,7 +28,6 @@ async def ingest_documents(documents: list[FetchedDocument], enabled: bool, law:
 
 
 async def ingest_one(fetched: FetchedDocument, law: LawSource, ttl: int) -> str | None:
-    """Ingest one fetched document once per session; returns its stored name."""
     document = fetched.document
     file_name = safe_document_name(fetched.candidate.document_number or document.url, document.title, law)
     collection = _session_collection()
@@ -60,14 +45,6 @@ async def ingest_one(fetched: FetchedDocument, law: LawSource, ttl: int) -> str 
 
 
 def document_anchor(reference: str, law: LawSource) -> str:
-    """The document number a reference identifies: a bare number, or read out of a source URL.
-
-    A number and a URL for the same document MUST anchor the same name: the
-    ingest marker is keyed on the fetched URL, so otherwise a URL fetch reusing a
-    number fetch's ingestion would report a file name that was never stored. A
-    URL whose identity cannot be read contributes no anchor rather than a
-    mangled URL; so does one ``urlparse`` refuses.
-    """
     ref = (reference or "").strip()
     if ref.lower().startswith(("http://", "https://")):
         ref = _reference_in_url(ref, law)
@@ -75,7 +52,6 @@ def document_anchor(reference: str, law: LawSource) -> str:
 
 
 def _reference_in_url(url: str, law: LawSource) -> str:
-    """The reference a URL carries in a query parameter the record names, or in the document path."""
     try:
         parsed = urlparse(url)
     except ValueError:
@@ -91,13 +67,6 @@ def _reference_in_url(url: str, law: LawSource) -> str:
 
 
 def safe_document_name(reference: str, title: str, law: LawSource) -> str:
-    """A stable, filesystem- and citation-friendly name for an ingested document.
-
-    The name becomes a CITATION KEY the reader sees, so it is both legible and
-    stable across fetches: the document number anchors it, so two fetches of
-    the same law converge on one document instead of piling up date-stamped
-    copies.
-    """
     base = re.sub(r"[^\w.\- ]+", "_", clean_title(title, law)).strip("_ ").replace(" ", "_")
     base = re.sub(r"[._\-]+$", "", base[:_NAME_TITLE_CHARS])
     parts = [part for part in (base, document_anchor(reference, law)) if part]
@@ -108,7 +77,6 @@ def safe_document_name(reference: str, title: str, law: LawSource) -> str:
 
 
 def _session_collection() -> str | None:
-    """The per-session knowledge collection name, or None outside a session."""
     from agent.knowledge.base import SESSION_COLLECTION_PREFIX
     from nat.plugin_api import Context
 
@@ -125,7 +93,6 @@ def _session_collection() -> str | None:
 
 
 def _ingest_sync(text: str, file_name: str, source_url: str, collection: str | None) -> str | None:
-    """Write the document to a temp file and submit it to the active ingestor; None when unavailable."""
     from agent.knowledge.factory import get_active_ingestor
 
     ingestor = get_active_ingestor()

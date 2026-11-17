@@ -1,18 +1,3 @@
-"""Tests for the second kind of grounding: whether a tool result is a measurement.
-
-:func:`tool_result_is_measurement` must not call a refusal, an outage, a
-heuristic or an undecidable finding "evidence" — those are the ways a guess
-gets stamped.
-
-Nothing here writes a tool result by hand. Every fixture is either a real
-:class:`ifc_spatial.envelope.Answer` put through ``measure_register._render``,
-or — for the refusals that matter most — the engine's own output over the
-repository's IFC fixtures. Hand-written prose is how the previous version of
-this suite stayed green while every refusal in production granted grounding:
-its undecidable fixture said „Räume exportieren", and the real remedies say
-„…dessen Höhe gemessen werden könnte".
-"""
-
 import functools
 from pathlib import Path
 from unittest.mock import AsyncMock
@@ -40,11 +25,6 @@ NO_STOREYS = FIXTURES / "road-ifc4x3.ifc"
 
 @pytest.fixture(scope="module")
 def run():
-    """One ``ifc_measure`` result, straight out of the engine and the renderer.
-
-    One parse per fixture file for the whole module, exactly as a conversation
-    would do it.
-    """
     engine = pytest.importorskip("ifc_spatial.tools", reason="the spatial engine is not installed")
     tools = engine.create_tools()
     handles: dict[Path, str] = {}
@@ -59,18 +39,6 @@ def run():
 
 
 def _answer(**kwargs) -> dict:
-    """One real :class:`Answer` as the engine would hand it over.
-
-    Guarded, because CI's backend job does not install ``ifc-spatial-py``: the
-    engine lives in a separate package with its own heavy geometry stack. The
-    ``run`` fixture guards the tests that drive the engine, but the fixtures
-    built HERE are real ``Answer`` envelopes and import it too — so without this
-    the module raised ImportError during collection and took twelve tests down
-    with it, including ones that never touch geometry. Skipping is right rather
-    than faking an ``Answer``: the whole point of this suite is that the
-    detector reads what the renderer actually writes, and a hand-built
-    stand-in is how the previous version stayed green over a live defect.
-    """
     envelope = pytest.importorskip("ifc_spatial.envelope", reason="the spatial engine is not installed")
 
     kwargs.setdefault("from_", ["3cUkl32yn9qRSPvBJVyWcE"])
@@ -79,15 +47,6 @@ def _answer(**kwargs) -> dict:
 
 
 class TestMeasurementDetectionAgainstTheRealRenderer:
-    """Drift guard: the detector reads what ``ifc_measure`` actually returns.
-
-    The result states its own evidence count (``measurement_evidence``), and
-    nothing but this test couples the renderer that writes that line to the gate
-    that reads it. So the fixtures are built by ``_render`` from real
-    ``Answer`` envelopes — a changed trailer turns this red instead of silently
-    switching every measured answer back to "low".
-    """
-
     def test_computed_answer_is_measurement_grounding(self):
         result = _render(
             "measure", _answer(value=2.7, unit="m", tolerance=0.005, provenance="computed", decidable=True)
@@ -103,7 +62,6 @@ class TestMeasurementDetectionAgainstTheRealRenderer:
         assert tool_result_is_measurement("ifc_measure", result) is True
 
     def test_inferred_answer_is_not_grounding(self):
-        """„vermutlich" is a heuristic — the renderer itself calls it no Feststellung."""
         result = _render(
             "measure",
             _answer(value=0.9, unit="m", tolerance=None, provenance="inferred", confidence=0.6, decidable=True),
@@ -111,7 +69,6 @@ class TestMeasurementDetectionAgainstTheRealRenderer:
         assert tool_result_is_measurement("ifc_measure", result) is False
 
     def test_undecidable_finding_is_not_grounding(self):
-        """A ``decidable: false`` result is a fact about the EXPORT, carrying no number."""
         envelope = pytest.importorskip("ifc_spatial.envelope", reason="the spatial engine is not installed")
         MissingFact = envelope.MissingFact
 
@@ -134,27 +91,12 @@ class TestMeasurementDetectionAgainstTheRealRenderer:
 
 
 class TestMeasurementDetectionAgainstTheRealEngine:
-    """The refusals that shipped as evidence, reproduced from the real engine.
-
-    Three of ``ifc_measure``'s renderers write „gemessen"/„deklariert" into
-    prose that explains why NOTHING could be measured: a survey's head renders
-    „gemessen: clearHeight an 0 von 4 Bauteilen", an element profile's head
-    renders „gemessen an Wand X" whatever its aspects say, and `fire`'s
-    Fluchtniveau remedy ends „…dessen Höhe gemessen werden könnte". Under the
-    old vocabulary match all three granted measurement grounding, so a model
-    that invented a number on top of a refusal surfaced at "medium".
-
-    No payload here is written by hand — the engine runs over the repository's
-    own fixtures, so the German is whatever the product actually emits.
-    """
-
     def test_a_survey_that_measured_something_is_grounding(self, run):
         result = run(HOUSE, "survey", measure="clearHeight", roomKind="alle")
         assert "an 4 von 4 Bauteilen" in result
         assert tool_result_is_measurement("ifc_measure", result) is True
 
     def test_a_survey_that_measured_nothing_is_not_grounding(self, run):
-        """0 of 2 — and the head still opens with „gemessen:"."""
         result = run(NO_GEOMETRY, "survey", measure="clearHeight", roomKind="alle")
         assert result.startswith("gemessen: clearHeight an 0 von 2 Bauteilen")
         assert tool_result_is_measurement("ifc_measure", result) is False
@@ -166,7 +108,6 @@ class TestMeasurementDetectionAgainstTheRealEngine:
         assert tool_result_is_measurement("ifc_measure", result) is False
 
     def test_an_undecidable_escape_level_is_not_grounding(self, run):
-        """The report that started this: a refusal whose REMEDY says „gemessen"."""
         result = run(NO_STOREYS, "fire", kind="escape_level")
         assert result.startswith("NICHT ENTSCHEIDBAR")
         assert "gemessen werden könnte" in result
@@ -174,8 +115,6 @@ class TestMeasurementDetectionAgainstTheRealEngine:
 
 
 class TestMeasurementDetectionRejectsFailures:
-    """Every ``ifc_measure`` failure path stays un-grounded."""
-
     @staticmethod
     def _error_texts():
         from agent.tools.bim.failures import unreadable_text
@@ -210,23 +149,11 @@ class TestMeasurementDetectionIsScopedToTheMeasuringTool:
         assert MEASUREMENT_TOOL_NAMES == frozenset({"ifc_measure"})
 
     def test_another_tool_quoting_the_word_grants_nothing(self):
-        """A web result that happens to say „gemessen" is not a measurement.
-
-        The provenance contract belongs to ``ifc_measure``'s renderer; prose
-        from anywhere else carries no tolerance, no method and no GlobalIds.
-        """
         text = "Laut Forum wurde die Raumhöhe mit 2,70 m gemessen."
         assert tool_result_is_measurement("web_search_tool", text) is False
         assert tool_result_is_measurement("ifc_query", text) is False
 
     def test_the_evidence_line_is_read_off_the_LAST_line_only(self):
-        """A tool result is full of text out of the IFC file.
-
-        Room names, remedy sentences and briefing prose all travel inside it, so
-        an evidence marker recognised anywhere in the body would let a file's
-        own contents claim evidence the engine never produced. The renderer
-        always writes the trailer last.
-        """
         refusal = _render(
             "survey",
             {
@@ -245,14 +172,6 @@ class TestMeasurementDetectionIsScopedToTheMeasuringTool:
         assert tool_result_is_measurement("ifc_measure", refusal) is False
 
     def test_a_group_qualified_name_still_grants_grounding(self):
-        """The agent runtime delivers a grouped/MCP tool as ``bim__ifc_measure``.
-
-        An exact compare against the bare name made measurement grounding a
-        function of deployment topology: under function-group or MCP prefixing
-        every measured answer silently fell back to the "low" floor this gate
-        exists to lift. Resolved through ``tool_calls.tool_basename``, the same
-        way the steering hold and the live status line resolve a name.
-        """
         result = _render(
             "measure", _answer(value=2.7, unit="m", tolerance=0.005, provenance="computed", decidable=True)
         )
@@ -261,9 +180,8 @@ class TestMeasurementDetectionIsScopedToTheMeasuringTool:
         assert tool_result_is_measurement("bim__ifc_query", result) is False
 
 
-@tool
+@tool(description="Measure the project's IFC/BIM model and report the provenance.")
 def ifc_measure(operation: str) -> str:
-    """Measure the project's IFC/BIM model and report the provenance."""
     return _MEASURE_RESULT.pop(0) if _MEASURE_RESULT else _measured_line()
 
 
@@ -272,14 +190,6 @@ _MEASURE_RESULT: list[str] = []
 
 @functools.lru_cache(maxsize=1)
 def _measured_line() -> str:
-    """Built on FIRST USE, not at import.
-
-    `_answer` imports `ifc_spatial.envelope`. Computed at module scope, a
-    missing spatial engine turns collection of this file into an ImportError,
-    so the `pytest.importorskip` guards inside the tests never get to run and
-    the whole module errors instead of skipping — which is the opposite of what
-    those guards are for.
-    """
     return _render("measure", _answer(value=2.7, unit="m", tolerance=0.005, provenance="computed", decidable=True))
 
 
@@ -290,15 +200,6 @@ _REFUSED_LINE = (
 
 
 class TestMeasurementSignalReachesTheState:
-    """``answer_measurement_grounded``.
-
-    The signal is written by the tools node (the only place that sees raw tool
-    results) and echoed by ``run()`` alongside ``answer_citation_grounded``, so
-    both kinds of grounding reach the chat node by one path. ``ifc_measure`` is
-    deliberately not a data source — it produces no citable passage — which is
-    exactly why the citation gate could never see it.
-    """
-
     @pytest.fixture(autouse=True)
     def _reset_data_source_registry(self):
         reset_registry()
@@ -323,7 +224,6 @@ class TestMeasurementSignalReachesTheState:
 
     @staticmethod
     def _call(*ids: str):
-        """One assistant turn asking for ``len(ids)`` measurements (default one)."""
         return AIMessage(
             content="",
             tool_calls=[
@@ -358,14 +258,6 @@ class TestMeasurementSignalReachesTheState:
 
     @pytest.mark.asyncio
     async def test_a_refusal_beside_a_measurement_does_not_un_measure_it(self, mock_llm_provider, mock_llm):
-        """Both results land in ONE tools-node call, the refusal LAST.
-
-        The agent batches calls, so a single node invocation routinely carries a
-        good measurement and a rejected one together. Reading the signal off the
-        last result — rather than OR-ing across the batch — silently drops the
-        measurement the answer is actually built on, and the turn falls back to
-        "low" for evidence it does hold.
-        """
         _MEASURE_RESULT.extend([_measured_line(), _REFUSED_LINE])
         result = await self._run(
             mock_llm_provider,
@@ -376,7 +268,6 @@ class TestMeasurementSignalReachesTheState:
 
     @pytest.mark.asyncio
     async def test_grounding_survives_a_later_barren_iteration(self, mock_llm_provider, mock_llm):
-        """And across iterations: a second, fruitless call does not erase the first."""
         _MEASURE_RESULT.extend([_measured_line(), _REFUSED_LINE])
         result = await self._run(
             mock_llm_provider,
@@ -396,14 +287,6 @@ class TestMeasurementSignalReachesTheState:
 
     @pytest.mark.asyncio
     async def test_a_refused_measurement_plus_an_invented_number_grounds_nothing(self, mock_llm_provider, mock_llm):
-        """The report this fix came from, through the whole agent.
-
-        `fire kind=escape_level` on an export without storeys refuses, and the
-        remedy sentence ends „…dessen Höhe gemessen werden könnte". The model
-        then writes a number that is in no file anywhere. Nothing was measured,
-        so nothing may be measurement-grounded — otherwise the invention rides
-        out at "medium".
-        """
         engine = pytest.importorskip("ifc_spatial.tools", reason="the spatial engine is not installed")
         tools = engine.create_tools()
         handle = engine.call(tools, "open_model", {"path": str(NO_STOREYS)})["model"]
@@ -422,18 +305,6 @@ class TestMeasurementSignalReachesTheState:
 
 
 class TestTheBibliographyStripIsNotAnEscapeHatch:
-    """S2. What `prose_without_references` is allowed to throw away.
-
-    The brake reads the answer's PROSE, so a reference list is removed first —
-    „- [1] Wiener Bauordnung — https://ris…" is a pointer, not a claim, and the
-    single-source fallback appends one to every answer it grounds.
-
-    Cutting at the LAST heading match assumed the heading was the last thing in
-    the answer. It is a rule about position, and the model controls position:
-    write „**Quellen:**", then keep writing, and every sentence after it left
-    the text before the brake saw it.
-    """
-
     def test_prose_after_a_reference_heading_is_not_a_reference(self):
         content = (
             "Die Höhe beträgt 2,20 m.\n\n"
@@ -460,11 +331,6 @@ class TestTheBibliographyStripIsNotAnEscapeHatch:
         ],
     )
     def test_a_genuinely_trailing_list_is_still_removed(self, content):
-        """The regression this strip exists to prevent, still prevented.
-
-        Leaving the bibliography in made every fallback-grounded answer read as
-        normative and floored purely descriptive measured answers to "low".
-        """
         kept = prose_without_references(content)
         assert kept.strip() == "Die Höhe beträgt 2,20 m."
 
@@ -483,14 +349,6 @@ class TestTheBibliographyStripIsNotAnEscapeHatch:
         ],
     )
     def test_list_punctuation_alone_does_not_make_a_line_a_reference(self, content):
-        """S1. „- " is available to any sentence the model writes.
-
-        Accepting any bullet, any numbered entry and any indented line as a
-        bibliography entry reopened the door this class exists to close: the
-        model writes „**Quellen:**", then writes its verdict as a list item, and
-        the verdict left the text before the brake ever read it. A reference has
-        to point at something — a URL or a „[n]" marker.
-        """
         kept = prose_without_references(content)
         assert "Raum" in kept
 

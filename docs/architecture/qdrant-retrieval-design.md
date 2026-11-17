@@ -47,7 +47,7 @@ enforced them, through collection names:
 
 These are the full findings of the 2026-10-13 audit of the Chroma-era layer,
 condensed; the line numbers are that code's. Paths are
-relative to `packages/knowledge-layer/src/` unless they are absolute.
+relative to `packages/knowledge-layer/src/knowledge_layer/` unless they are absolute.
 
 **Domain needs we keep**, whatever store sits underneath:
 - the signed scope envelope (ADR-0047/0084)
@@ -761,7 +761,7 @@ itself.
 
 | Part | Where |
 |---|---|
-| The store: two collections behind aliases, dense + German BM25, TurboQuant, strict mode, payload indexes created before data | `packages/knowledge-layer/src/vector_store/schema.py`, `store.py` |
+| The store: two collections behind aliases, dense + German BM25, TurboQuant, strict mode, payload indexes created before data | `packages/knowledge-layer/src/knowledge_layer/vector_store/schema.py`, `store.py` |
 | Every read filter from one function, refusing an empty scope | `vector_store/scope.py` |
 | Hybrid search in one Query API call (dense, BM25 with per-scope IDF, exact-term phrase channels, RRF k=60) and the true cosine per hit | `vector_store/search.py` — `hybrid_search` |
 | Retrieval, exact search (`find_text`) and the health check reading Qdrant under `VECTOR_BACKEND=qdrant`; the chunk contract unchanged | `search/retriever.py` — `_qdrant_chunks`, `_find_text_sync`, `health_check` |

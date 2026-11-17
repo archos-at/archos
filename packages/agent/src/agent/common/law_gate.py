@@ -1,16 +1,3 @@
-"""What a turn may say about building law, read from its knowledge context alone (ADR-0173, ADR-0175).
-
-Which country's law applies, which edition binds and whether the legal-database tools may run is the
-BFF's to resolve: the knowledge context (``knowledge_context.py``) and the chain text with every
-edition's role (``citations/roles.py``). Nothing here reads the project's text for a country or a
-Land, and nothing defaults to one. With no context bound the gate reads ``knowledge_unavailable``:
-no verdict, no edition named binding, the legal-database tools withheld, and the gate's note.
-
-What stays in code is method, which holds in every country: what binds outranks what explains, a
-requirement comes only from a normative text, a plot's plans settle a parcel question. A country's
-own law, its editions and its doctrine are records in its pack, and reach the prompt as the chain text.
-"""
-
 from __future__ import annotations
 
 from collections.abc import Iterable
@@ -30,39 +17,21 @@ BUILDING_LAW_TAG = "<building_law>"
 
 
 def law_sources_withheld(*, reads_turn_sources: bool = False) -> frozenset[str]:
-    """The legal-database sources this turn may not consult: each one whose country the gate does not allow.
-
-    Joined to the switched-off sources, so a call is refused at the tools node with the same notice
-    (the chat agent) or the tool is not offered (deep research), and the gate's note says why.
-
-    ``reads_turn_sources``: the caller's lookup reads the released source the turn carries for its country
-    (``agent.knowledge.law_lookup``, the chat binding), so it is not withheld where the turn carries one of a
-    country it may read; the lookup checks its fallback record's own country itself. Deep research's tools read
-    their database directly and stay gated by its country.
-    """
     if reads_turn_sources and turn_carries_readable_source():
         return frozenset()
     return frozenset(source for source, country in LAW_SOURCE_COUNTRIES.items() if not law_tools_allowed(country))
 
 
 def turn_carries_readable_source() -> bool:
-    """Whether the turn carries a released law source of a country it may read (``KnowledgeContext.sources``)."""
     return any(law_tools_allowed(source.country) for source in turn_knowledge_context().sources)
 
 
 def withheld_notice(source_id: str, label: str) -> str | None:
-    """What a call to a legal database the gate withholds is answered with; None when the gate lets it run.
-
-    It names what is missing, so the answer can say so: never that the source is "switched off", which reads
-    as a setting the person could change (QC on staging: „RIS ist deaktiviert"). The answer then says what it
-    could not read and holds its confidence below high.
-    """
     country = LAW_SOURCE_COUNTRIES.get(source_id.lower())
     return None if country is None else withheld_notice_for_country(country, label)
 
 
 def withheld_notice_for_country(country: str, label: str) -> str | None:
-    """:func:`withheld_notice` for a source known by its country (a source record's territory)."""
     if law_tools_allowed(country):
         return None
     context = turn_knowledge_context()
@@ -79,12 +48,6 @@ def withheld_notice_for_country(country: str, label: str) -> str | None:
 
 
 def law_unsettled(cited: Iterable[SourceEntry]) -> bool:
-    """Whether an answer citing ``cited`` rests on building law the turn's records do not settle.
-
-    The gate withholds a binding claim, or the coverage is open (uncurated), and at least one cited source
-    is building law (``source_kinds``). The answer check's level is then capped (``markers``, staging QC F6):
-    structurally, so the grader is handed no new vocabulary.
-    """
     if gate_policy(turn_knowledge_context().gate).settled:
         return False
     from agent.citations.source_identity import source_lane
@@ -94,22 +57,16 @@ def law_unsettled(cited: Iterable[SourceEntry]) -> bool:
 
 
 def jurisdiction_note() -> str | None:
-    """The gate's note for this turn (``knowledge_context.gate_note``); None for core or full with nothing moved."""
     return gate_note(turn_knowledge_context())
 
 
 def building_law_block(chain_text: str | None) -> str | None:
-    """The ``<building_law>`` block of a turn: the chain text the BFF rendered, or None without one. Pure.
-
-    A gate that withholds law shows none, whatever text came with it: the note speaks instead.
-    """
     if not chain_text or not chain_text.strip() or turn_knowledge_context().withholds_law:
         return None
     return f"{BUILDING_LAW_TAG}\n{chain_text.strip()}\n</building_law>"
 
 
 def turn_building_law_block() -> str | None:
-    """This turn's ``<building_law>`` block, from its knowledge context's chain text."""
     return building_law_block(turn_knowledge_context().text)
 
 
@@ -148,7 +105,6 @@ grandfathering and transitional provisions may apply and must be checked."""
 
 
 def research_doctrine() -> str:
-    """The research prompts' ``{{ norm_doctrine }}``: the method, then the gate's note or the turn's building law."""
     parts = [LEGAL_METHOD, jurisdiction_note(), turn_building_law_block()]
     return "\n\n".join(part for part in parts if part)
 

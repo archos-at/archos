@@ -1,47 +1,3 @@
-"""``file_draft``: the working directory's one door into the project.
-
-Everything else under ``tools/documents/`` stays inside the conversation. This
-tool is the seam: it files a draft as a draft version, and with ``submit=True``
-it then submits that version for review.
-
-**It was two tools, and the reason it is one is the sequence.** Filing and
-submitting were ``file_draft`` and ``submit_draft``, and a submit was always
-preceded by a filing of the same path — the second tool refused an unfiled
-draft and named the first. A pair that is always called in that order is one
-operation with a parameter, and every turn that carried both schemas paid for
-the second on every call.
-
-What the split protected is kept, in the parameter's shape rather than in a
-second verb. **Filing and submitting are different promises to the reader.**
-Filing produces a draft nobody has to look at; submitting opens an inbox item
-on a named reviewer and asks a person to spend attention — and once it is
-``in_review`` the draft can no longer be replaced. A boolean is exactly the
-shape a model fills in from the surrounding sentence: „leg das ab und schick es
-gleich rum" and „leg das ab" differ by four words. So ``submit`` defaults to
-``False``, the description says that „ablegen" alone is not a request for
-review, and a ``reviewer`` without ``submit=True`` is refused rather than read
-as one — a name is the strongest hint a model has, and a guess from it would
-mail a half-finished Aktenvermerk to a Ziviltechniker.
-
-**Submitting a draft that has not moved since it was filed only submits.** The
-store remembers which draft version was filed
-(``draft_store.FILED_AT_DRAFT_VERSION_KEY``); when that is still the current
-one there is nothing to file, and an ``update`` of the same bytes would only
-write a second object and trip If-Match over a person's edit in the Files pane.
-Every refusal the old ``submit_draft`` gave on that path is given unchanged.
-
-There is deliberately no ``note``. The wire carries the version,
-``reviewerUserIds`` and a ``reviewer`` NAME
-(``internalDocumentVersionRequestSchema``) and nothing else, so a note argument
-would be a parameter the API discards — a lie in the signature, and the model
-would put the substance of its handover into it. ``reviewer`` is there only
-because the route grew somewhere to put it.
-
-What this module may NOT do is in ``packages/agent/src/agent/tools/AGENTS.md``: it echoes
-the BFF-signed envelope and never signs, and the BFF decides identity and
-permission. See ``filing.py`` for why.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -118,7 +74,6 @@ _NOT_SUBMITTABLE_NOW = (
 
 
 def _slug(path: str) -> str:
-    """A short stable name for the idempotency reference, from the file name."""
     name = path.rsplit("/", 1)[-1]
     name = re.sub(r"\.md$", "", name, flags=re.IGNORECASE)
     slug = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
@@ -126,29 +81,10 @@ def _slug(path: str) -> str:
 
 
 def _filing_hash(conversation_id: str, path: str) -> str:
-    """The browser tier's collision suffix, mirrored byte for byte.
-
-    ``apps/workspace/bff/conversations/draft-filing.ts::filingReference``
-    mints the same key over the same normalized path; the two tiers must agree
-    or a long key files this draft beside the browser's copy as a duplicate
-    document.
-    """
     return hashlib.sha256(f"{conversation_id}\0{path}".encode()).hexdigest()[:8]
 
 
 def filing_reference(conversation_id: str, path: str) -> str:
-    """The BFF's idempotency key: ``{conversation}-{slug}``, bounded.
-
-    Two turns of one conversation writing „Aktenvermerk" must land on ONE
-    document with two versions, which is what makes this key the conversation's
-    and not the turn's.
-
-    Past :data:`MAX_REF_CHARS` the tail is replaced by a hash of
-    ``conversation_id\\0normalized_path`` rather than truncated: two long keys
-    sharing a prefix would otherwise collapse onto one reference and file two
-    documents as one. The browser truncates the same way, over the same
-    normalized path — changing either side alone re-opens the duplicate.
-    """
     normalized = path.strip().lstrip("/")
     raw = f"{conversation_id}-{_slug(normalized)}"
     if len(raw) <= MAX_REF_CHARS:
@@ -158,8 +94,6 @@ def filing_reference(conversation_id: str, path: str) -> str:
 
 
 class _Refused(Exception):
-    """A model-facing refusal, raised where it is discovered."""
-
     def __init__(self, message: str) -> None:
         super().__init__(message)
         self.message = message
@@ -173,14 +107,6 @@ def _envelope() -> SignedEnvelope:
 
 
 def _conversation_id() -> str:
-    """The conversation this turn belongs to, agreed by both of its sources.
-
-    The working directory is namespaced by the agent runtime's conversation id, so that is the
-    id that finds the file. The verified envelope carries one too, and the BFF
-    authorizes on ITS copy — so a disagreement means one of the two is about a
-    different conversation, and filing the wrong conversation's draft under this
-    one's reference is not a failure anybody would notice afterwards.
-    """
     live = project_context.get_conversation_id_from_context()
     if not live:
         raise _Refused(_NO_CONVERSATION)
@@ -192,7 +118,6 @@ def _conversation_id() -> str:
 
 
 async def _draft(path: str) -> tuple[DraftBackend, DraftUsage]:
-    """The backend and the stored state of one path, or a refusal."""
     if not path.startswith(DRAFT_ROOT) or ".." in path:
         raise _Refused(
             f"Error: `{path}` is not in the working directory. Only what was written under `{DRAFT_ROOT}` can be filed."
@@ -219,21 +144,6 @@ async def _post(
     conflict: str | None = None,
     failure: str = _CALL_FAILED,
 ) -> dict[str, Any]:
-    """The blocking call, off the event loop, with the refusal already worded.
-
-    ``bad_request`` is the sentence a ``400`` gets instead of the generic one.
-    It exists for exactly one caller: a submit that NAMED a reviewer, where the
-    only validation the BFF can fail is resolving that name against the
-    project's members. The generic wording („Error filing") would send
-    the model looking for a filing problem the reader could not act on, when
-    what happened is that nobody in the project is called that.
-
-    ``conflict`` is the sentence a ``409`` gets: the version's live state does
-    not allow the operation, which only the BFF knows.
-
-    ``failure`` is the generic wording, with ``{error}`` for the transport's
-    sentence; see :data:`_SUBMIT_FAILED_AFTER_FILING` for the one other.
-    """
     try:
         return await asyncio.to_thread(post_document_version, payload, envelope)
     except FilingError as exc:
@@ -245,7 +155,6 @@ async def _post(
 
 
 async def _create(path: str, usage: DraftUsage, title: str, envelope: SignedEnvelope) -> dict[str, str]:
-    """First filing of this path: one ``create``, plus an ``update`` if it existed."""
     body = await _post(
         {
             "op": "create",
@@ -265,7 +174,6 @@ async def _create(path: str, usage: DraftUsage, title: str, envelope: SignedEnve
 
 
 async def _update(usage: DraftUsage, filing: dict[str, str], envelope: SignedEnvelope) -> dict[str, str]:
-    """Replace the bytes of the open version this path already has."""
     body = await _post(
         {
             "op": "update",
@@ -316,30 +224,14 @@ _REVIEWER_WITHOUT_SUBMIT = (
 )
 
 
-class FileDraftConfig(FunctionBaseConfig, name="file_draft"):
-    """Configuration for the ``file_draft`` tool."""
+class FileDraftConfig(FunctionBaseConfig, name="file_draft"): ...
 
 
 async def _refile(usage: DraftUsage, envelope: SignedEnvelope) -> dict[str, str]:
-    """A path this conversation has filed before: replace the open version's bytes.
-
-    No check of the remembered state first: it is a copy from the last filing,
-    and after „Änderungen anfordern" it still says ``in_review`` while the live
-    version is open again. The BFF decides, and its 409 is worded in ``_update``.
-    """
     return await _update(usage, usage.filing, envelope)
 
 
 def _submit_payload(filing: dict[str, str], reviewer: str) -> dict[str, Any]:
-    """The submit body: the version, and at most the NAME of a person.
-
-    ``reviewerUserIds`` stays empty and ``reviewer`` carries the name as the
-    user said it, because this tier has no member roster — the same reason
-    `propose_file_change` forwards a name instead of resolving one. The BFF
-    matches it against the project's members; a name nobody has comes back 400
-    and never as a guess. Without one the route submits to the project's
-    EDITORS, which is what the tool's own sentence has to say.
-    """
     payload: dict[str, Any] = {
         "op": "submit",
         "documentId": filing[FILED_DOCUMENT_KEY],
@@ -372,7 +264,6 @@ async def _submit(
     *,
     failure: str = _CALL_FAILED,
 ) -> dict[str, str]:
-    """Submit the filed version, remember its new state, and return that record."""
     body = await _post(
         _submit_payload(filing, reviewer),
         envelope,
@@ -388,7 +279,6 @@ async def _submit(
 async def _submit_unchanged(
     backend: DraftBackend, path: str, usage: DraftUsage, reviewer: str, envelope: SignedEnvelope
 ) -> str:
-    """``submit=True`` on a draft the project already holds: submit, and nothing else."""
     submitted = await _submit(backend, path, usage.filing, reviewer, envelope, failure=_SUBMIT_FAILED_AFTER_FILING)
     emit_draft_card(path=path, content=usage.content or "", version=usage.version or 1, filing=submitted)
     return (
@@ -398,7 +288,6 @@ async def _submit_unchanged(
 
 
 async def _file(path: str, title: str, *, submit: bool, reviewer: str) -> str:
-    """The whole of ``file_draft``, with every refusal raised where it is found."""
     path = modernize_draft_path(path)
     _project_or_refuse()
     envelope = _envelope()
@@ -444,17 +333,6 @@ async def run_file_draft(
     submit: bool = False,
     reviewer: str | None = None,
 ) -> str:
-    """File one working-directory draft into the project, and submit it for review when asked.
-
-    ``reviewer`` is a display name or an email exactly as the user said it,
-    valid only with ``submit``. It is never resolved here — see
-    :func:`_submit_payload` — and an empty one means the BFF submits to the
-    project's editors.
-
-    Module-level, and the tool below is a one-line wrapper around it, so the
-    refusal paths are reachable by a test without going through the agent
-    runtime's generator — the refusals are most of what this tool is.
-    """
     try:
         return await _file(path, title or "", submit=submit, reviewer=reviewer or "")
     except _Refused as refused:

@@ -1,12 +1,3 @@
-"""A dozen synthetic chunks and labels: the harness's own test corpus.
-
-Small enough that both stores index it in well under a second, and written to
-carry every hard-case shape the real fixture names (``§``, dotted Punkt numbers,
-ALLCAPS codes, a closed compound, ß and umlaut spellings), so a test can assert
-what each channel and the exact mode do with them without the licensed corpus.
-The vectors are the ``hashed`` stand-in: wiring, never retrieval quality.
-"""
-
 from __future__ import annotations
 
 import numpy as np
@@ -95,7 +86,6 @@ def overview_entries() -> list[overview.GoldenEntry]:
 
 
 def inputs(hard_cases_path) -> Inputs:
-    """The sample corpus with labels, embedded by the offline stand-in."""
     sample = Inputs(
         chunks=chunks(),
         doc_vectors=np.zeros((0, 0), dtype=np.float32),  # filled by embed_inputs below

@@ -1,22 +1,3 @@
-"""``task be:eval:qdrant-parity``: run the Qdrant retrieval gates on the OIB corpus.
-
-    .venv/bin/python -m oib_retrieval.qdrant_parity.runner --out /tmp/qdrant-parity
-
-Needs: the corpus in ``data/oib`` (operator-provided), a Qdrant 1.19 server
-(``--qdrant-url``, default ``$QDRANT_TEST_URL`` or ``http://localhost:6333``), and
-for ``--embedder production`` (the default) an OpenRouter key.
-
-Chroma left the stack in one change (ADR-0115). Where a gate once compared against
-the Chroma path (its Postgres German mirror, its full retrieval, its latency), it
-now compares against that path's numbers from the final gate run, ``baseline.py``,
-printed beside every Qdrant row; the exact mode compares ``find_text`` with a full
-regex scan of the corpus, which is what Chroma's ``$regex`` was.
-
-What it measures, how, and what it does not: ``docs/audit/qdrant-gates-2026-10.md``
-and the package docstring. Results are printed as markdown and written as
-``results.json`` + ``report.md`` under ``--out``.
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -72,8 +53,6 @@ EXTRA_EXACT_PHRASES = (
 
 @dataclass
 class Inputs:
-    """Everything one run reads: the corpus, the labels, the vectors."""
-
     chunks: list[IndexedChunk]
     doc_vectors: np.ndarray
     judgements: list[qrels.Judgements]
@@ -88,7 +67,6 @@ class Inputs:
 
 
 def indexed_chunks(raw: Sequence[corpus.Chunk]) -> list[IndexedChunk]:
-    """The harness chunks with UUID ids (a chunk id that is a UUID is its own Qdrant point id)."""
     return [
         IndexedChunk(
             chunk_id=str(uuid.uuid5(_CHUNK_NAMESPACE, chunk.chunk_id)),
@@ -125,8 +103,6 @@ def embed_inputs(inputs: Inputs, embedder: Embedder) -> None:
 
 
 class Corpus:
-    """Lookups over the indexed chunks under production's base filter."""
-
     def __init__(self, chunks: Sequence[IndexedChunk], excluded: frozenset[str]):
         self.chunks = list(chunks)
         self.by_id = {chunk.chunk_id: chunk for chunk in chunks}
@@ -160,7 +136,6 @@ def _graded(judgements: Sequence[qrels.Judgements]) -> list[dict]:
 
 
 def measure_lexical(inputs: Inputs, corpus_view: Corpus, retriever: Any) -> dict[str, Any]:
-    """G1b ranking half: Qdrant BM25 alone, golden and hard cases (the reference is ``baseline``)."""
     filters = channels.base_filters(sorted(inputs.excluded))
     german = [j for j in inputs.judgements if j.entry.language == "de"]
 
@@ -186,7 +161,6 @@ def measure_lexical(inputs: Inputs, corpus_view: Corpus, retriever: Any) -> dict
 
 
 def measure_exact(inputs: Inputs, corpus_view: Corpus, retriever: Any) -> list[dict[str, Any]]:
-    """Exact mode: Qdrant ``find_text`` vs a full regex scan vs the phrase index alone, per phrase."""
     filters = channels.base_filters(sorted(inputs.excluded))
     phrases = list(dict.fromkeys([case.query for case in inputs.hard_cases] + list(EXTRA_EXACT_PHRASES)))
     allowed = [chunk for chunk in corpus_view.chunks if corpus_view.allowed(chunk)]
@@ -212,7 +186,6 @@ def measure_exact(inputs: Inputs, corpus_view: Corpus, retriever: Any) -> list[d
 
 
 def measure_hybrid(inputs: Inputs, retriever: Any, rounds: int) -> dict[str, Any]:
-    """Hybrid recall through the production retriever, and its store-call latency over ``rounds`` passes."""
     filters = channels.base_filters(sorted(inputs.excluded))
     answerable = [j for j in inputs.judgements if j.graded]
     questions = [j.entry.question for j in answerable] + [e.question for e in inputs.overview]
@@ -252,11 +225,6 @@ def measure_hybrid(inputs: Inputs, retriever: Any, rounds: int) -> dict[str, Any
 
 
 def measure_hybrid_hard(inputs: Inputs, retriever: Any, relevant: dict[str, int]) -> list[evaluation.HardCaseScore]:
-    """The hard cases through the FULL retrieval: what an architect typing „§ 3“ gets back.
-
-    G1b scores the lexical channel alone; this asks the question the gate exists
-    for, with every channel the retrieval fuses (dense, BM25, the exact term).
-    """
     filters = channels.base_filters(sorted(inputs.excluded))
     return [
         evaluation.score_hard_case(
@@ -284,7 +252,6 @@ def _overview_scores(entries: Sequence[Any], rankings: dict[str, list[Any]]) -> 
 
 
 def measure_dimension(inputs: Inputs, corpus_view: Corpus, client: Any | None) -> dict[str, Any]:
-    """G6: recall at 3072 vs 1024 (exact and through Qdrant's index, float and TurboQuant)."""
     answerable = [j for j in inputs.judgements if j.graded]
     queries = np.stack([inputs.query_vectors[j.entry.question] for j in answerable])
     docs = inputs.doc_vectors / np.linalg.norm(inputs.doc_vectors, axis=1, keepdims=True)
@@ -353,11 +320,6 @@ def run(
     with_dimension: bool = True,
     variant_names: str | None = None,
 ) -> dict[str, Any]:
-    """Index the corpus into Qdrant from ``inputs``, measure every gate, return the results dict.
-
-    ``variant_names`` (a comma list, or ``all``) also runs the ranking sweep
-    (``variants.py``) over the same collection.
-    """
     corpus_view = Corpus(inputs.chunks, inputs.excluded)
     fingerprint = stores.identity(inputs.model, inputs.base_url)
     report: dict[str, Any] = {
@@ -434,7 +396,6 @@ def verdicts(report: dict[str, Any]) -> list[evaluation.Verdict]:
 
 
 def _plain(value: Any) -> Any:
-    """The results as JSON-ready plain data."""
     if isinstance(value, evaluation.RankScores):
         return value.as_dict()
     if isinstance(value, evaluation.HardCaseScore):
@@ -457,7 +418,6 @@ def _fmt(value: Any) -> str:
 def _hard_tables(
     lines: list[str], hard: dict[str, list[dict]], relevant_counts: dict[str, int], reference: dict[str, Any]
 ) -> None:
-    """Per-case P@10 / R-precision per channel, then the means over the gating cases and the reference's."""
     names = list(hard)
     lines.append("| case | kind | relevant | " + " | ".join(f"{n} P@10 / R-prec" for n in names) + " |")
     lines.append("|---|---|---|" + "---|" * len(names))
@@ -484,7 +444,6 @@ def _hard_tables(
 
 
 def _reference_note(report: dict[str, Any]) -> str:
-    """Whether the reference rows describe this run's corpus at all."""
     note = f"Reference rows: the Chroma path, {report.get('reference', baseline.SOURCE)}."
     if report["embedder"]["name"] != "production" or report["corpus"]["dimension"] != dimension.FULL:
         note += " This run is not on the production embedder, so they describe another corpus: read them as labels."
@@ -500,7 +459,6 @@ def _scores_row(label: str, s: dict[str, Any], subset: str) -> str:
 
 
 def render_markdown(report: dict[str, Any]) -> str:
-    """The results as the markdown tables the gate report quotes, the Chroma path's numbers beside them."""
     lines: list[str] = []
     env = report.get("environment", {})
     lines.append("## Environment\n")
@@ -616,7 +574,9 @@ def load_inputs(embedder_name: str, cache_dir: Path) -> Inputs:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description="``task be:eval:qdrant-parity``: run the Qdrant retrieval gates on the OIB corpus."
+    )
     parser.add_argument("--embedder", choices=("production", "hashed"), default="production")
     parser.add_argument("--qdrant-url", default=os.environ.get("QDRANT_TEST_URL") or "http://localhost:6333")
     parser.add_argument("--rounds", type=int, default=5, help="timed passes over every question (G2)")

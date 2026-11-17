@@ -1,40 +1,3 @@
-"""Scrub presigned object-storage URLs out of log records, at the sink.
-
-## Why this is a filter and not a rule
-
-A presigned S3 URL is a live bearer credential: anyone holding the string can
-fetch (or overwrite) the object until it expires, with no user, org or IP
-binding. It also carries the tenant path — org, project and document ids — in
-plain sight.
-
-The previous defence was a convention: *never log ``file_ref``*. Conventions
-hold at the call sites someone checked. They do not hold at the call sites that
-arrive later, and they never held at the ones that log an exception rather than a
-URL — ``str(httpx.HTTPStatusError)`` embeds the full request URL, so
-``logger.error("failed: %s", e)`` leaked the credential without ever naming it,
-and ``exc_info=True`` put it in the traceback too.
-
-A leak here produces no symptom, so the number of holes only grows. This module
-moves the guarantee from "everyone remembers" to "the sink refuses": install the
-filter on the handlers and no call site has to be careful, including the ones
-nobody has written yet.
-
-It is a floor, not a licence. Call sites should still log the document id and the
-byte count rather than the URL — a filter can only catch shapes it knows, and the
-cheapest URL to keep out of a log is the one that was never put there.
-
-## What counts as presigned
-
-Any ``http(s)://`` run whose query string carries a SigV4 or SigV2 signature
-parameter. The WHOLE url is replaced rather than just the signature value,
-because a half-redacted URL still publishes the tenant path, and because a
-partial scrub invites reasoning about which half was sensitive.
-
-Lives beside :func:`agent.common.db_utils.redact_db_url` for the same reason
-that one exists: redaction belongs in one place per secret shape, importable by
-every tier (``agent_host`` already imports ``redact_db_url`` from here).
-"""
-
 from __future__ import annotations
 
 import logging
@@ -69,7 +32,6 @@ def _is_signed(url: str) -> bool:
 
 
 def _strip_trailing_punctuation(url: str) -> tuple[str, str]:
-    """Split a matched run into the URL and any prose punctuation it absorbed."""
     trailing = ""
     while url and url[-1] in ".,;:!?)]}":
         trailing = url[-1] + trailing
@@ -78,12 +40,6 @@ def _strip_trailing_punctuation(url: str) -> tuple[str, str]:
 
 
 def scrub_presigned_urls(text: str) -> str:
-    """Replace every signed object-storage URL in ``text`` with a marker.
-
-    Unsigned URLs pass through untouched: a collector endpoint or a docs link in
-    a log line is not a credential, and redacting it would make the logs less
-    useful for no gain.
-    """
     if "http" not in text:
         return text
 
@@ -99,20 +55,6 @@ def _scrub_value(value: Any) -> Any:
 
 
 class PresignedUrlFilter(logging.Filter):
-    """Rewrites records so no handler downstream can emit a presigned URL.
-
-    Attached to HANDLERS rather than to loggers, and that is load-bearing: a
-    filter on a logger only sees records created by that logger, not the ones
-    propagated up from its children, so a logger-level filter would miss almost
-    everything. A handler sees every record that reaches it.
-
-    Three fields carry text: the format string, its arguments, and the formatted
-    exception. ``record.msg`` and ``record.args`` are scrubbed in place. For the
-    exception, the traceback is rendered and scrubbed here rather than left to
-    the formatter, because ``str(httpx.HTTPStatusError)`` is exactly where the
-    URLs that nobody logged on purpose live.
-    """
-
     def filter(self, record: logging.LogRecord) -> bool:
         if isinstance(record.msg, str):
             record.msg = scrub_presigned_urls(record.msg)
@@ -133,12 +75,6 @@ class PresignedUrlFilter(logging.Filter):
 
 
 def install_presigned_url_scrubbing(logger: logging.Logger | None = None) -> None:
-    """Attach the filter to every handler on ``logger`` (root by default).
-
-    Idempotent: re-running after a handler is added covers the new one and
-    leaves the rest alone, which is what makes it safe to call from more than
-    one entry point.
-    """
     target = logger if logger is not None else logging.getLogger()
     for handler in target.handlers:
         if not any(isinstance(existing, PresignedUrlFilter) for existing in handler.filters):

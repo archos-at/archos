@@ -684,8 +684,6 @@ class TestAStreamedChatCompletionKeepsItsCost:
 
 
 class TestAStreamedCallNamesItsModelOnce:
-    """OpenRouter repeats ``finish_reason`` on its usage chunk; the ledger booked the model twice from 2026-11-11."""
-
     MODEL = "openai/gpt-6.1-terra"
 
     def _llm(self, finish_chunks: int):

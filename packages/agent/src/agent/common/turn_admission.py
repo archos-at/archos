@@ -1,79 +1,3 @@
-"""Concurrency admission for interactive chat turns — ADR-0040 layer L3.
-
-## The gap this closes
-
-Async research jobs have had admission control since the scaling review
-(``MAX_ACTIVE_JOBS_PER_ORG`` in ``agent_host.jobs.queue``): a deliberate ceiling
-on how many long runs one organization may run at once. Interactive chat turns
-had none. A single shared conversation with ten members answering at once starts
-ten multi-agent runs, and the only thing that
-ever said no was the ADR-0015 euro budget — that is, after the money was spent.
-
-## Why concurrency and not a rate
-
-A rate limit is the wrong shape for work that lasts. "Thirty turns per five
-minutes" happily admits a fourth, fifth and sixth simultaneous research run at a
-steady trickle, because it counts arrivals rather than occupancy. What actually
-runs out here is *capacity*: LLM concurrency, Postgres connections, the agent
-worker's CPU. So this is a semaphore — slots held for the duration of the turn
-and returned when it ends. The rate limits upstream (ADR-0040 L2/L2b) bound how
-fast turns may *arrive*; this bounds how many may be *running*.
-
-## Partitioning
-
-The interactive pool is deliberately SEPARATE from the async-job pool rather
-than a share of one total. That is the partition: a queue full of deep-research
-jobs cannot consume the capacity interactive chat needs, and a busy chat hour
-cannot block scheduled research. It is the same idea as
-``Netflix/concurrency-limits`` partitions and Kubernetes' API Priority &
-Fairness levels — reserve for the latency-sensitive work rather than hoping it
-wins the race.
-
-## Leases, renewed while the turn runs
-
-Slots are held in a sorted set scored by when the holder last vouched for them,
-and a slot older than ``TURN_LEASE_SECONDS`` is dropped on the next
-acquire. A plain increment/decrement pair leaks a slot forever whenever a
-replica is OOM-killed mid-turn, and the pool shrinks silently until nobody can
-chat. A lease self-heals.
-
-The lease is RENEWED, every third of it, for as long as the turn runs
-(:func:`admit_turn_async`). It used to be taken once, which made the lease carry
-two jobs that pull opposite ways: it had to outlast the longest turn (a deep
-research fallback runs 40 minutes, the chat deadline is 45) or a live turn's
-slot was reclaimed and the pool over-admitted, and it had to be short so a
-killed replica's slots came back soon. 900 s did neither. Renewed, the lease
-only has to outlast a few missed renewals, so it is short, and no turn is too
-long for it.
-
-## The slot is the turn's, not its workflow's
-
-A turn ends for its reader when its terminal goes out; its workflow may still
-be unwinding then. The chat socket waits only a bounded time for that teardown
-(``agent_host.workflow_stream.PRODUCER_TEARDOWN_SECONDS``) and leaves a
-teardown that hangs (a checkpoint flush or a call on a dead connection) to
-finish in its own task. The admission scope sits inside that workflow
-(``agent.turn.admission.answer_turn``), so a slot taken there used to be held,
-and renewed every third of a lease, for as long as the abandoned teardown
-lived: with no bound at all, an organization lost one of its slots for every
-such turn until the replica restarted, and was told "several answers in
-progress" with nothing running. So the stream that owns the workflow hands a
-:class:`TurnSlots` to it (:func:`bind_turn_slots`), every admission in the
-turn records its slots there, and when the turn is over the owner gives back
-whatever is still held (:func:`return_turn_slots`). The lease stays the bound
-for a replica that dies; this is the bound for a turn that ended.
-
-The trade is deliberate: the slot goes back when the turn ends, not when its
-work does. A workflow that swallowed its cancel and goes on calling models runs
-without a slot, so the organization may run one turn over its limit while it
-does. That is rarer and cheaper than the leak (the usual case is a teardown
-stuck on a dead connection, which calls nothing), and the stream scores every
-such turn ``turn-slots-stranded``, so it is seen rather than assumed.
-
-Fails OPEN, like every other layer except the budget: a cache outage must never
-be the reason chat stops.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -107,7 +31,6 @@ TURN_LEASE_SECONDS = int(os.environ.get("TURN_LEASE_SECONDS", "120"))
 
 
 def _renew_interval() -> float:
-    """Renew three times per lease, so two missed renewals still hold the slot."""
     return max(TURN_LEASE_SECONDS / 3, 0.01)
 
 
@@ -119,13 +42,6 @@ def _org_key(organization_id: str) -> str:
 
 
 class TurnAdmissionError(RuntimeError):
-    """Raised when a chat turn is refused for lack of a concurrency slot.
-
-    The caller turns this into a friendly chat response — the same treatment
-    ``BudgetExceededError`` gets. A refused turn has started nothing, so
-    retrying is safe.
-    """
-
     def __init__(self, message: str, retry_after_seconds: int = 15):
         super().__init__(message)
         self.retry_after_seconds = retry_after_seconds
@@ -140,7 +56,6 @@ _local_lock = threading.Lock()
 
 
 def reset_local_slots() -> None:
-    """Clear the in-process slot table. Test-support only."""
     with _local_lock:
         _local_slots.clear()
 
@@ -173,12 +88,6 @@ def _local_release(key: str, member: str) -> None:
 
 
 def _acquire(key: str, limit: int, member: str) -> bool:
-    """Take one slot from `key`, or report the pool full.
-
-    Fails OPEN: when the shared store cannot answer, `eval_script` returns None
-    and we admit the turn. An admission control that turns a cache blip into
-    "chat is down" is worse than one that occasionally over-admits.
-    """
     now = time.time()
     try:
         result = cache.eval_script(_ACQUIRE_LUA, [key], [now, TURN_LEASE_SECONDS, limit, member])
@@ -191,29 +100,11 @@ def _acquire(key: str, limit: int, member: str) -> bool:
 
 
 def _release(key: str, member: str) -> None:
-    """Return one slot, to whichever pool is actually holding it.
-
-    Both paths run unconditionally, because the store's availability can change
-    between acquire and release: a turn admitted against the LOCAL table while
-    Dragonfly was down would otherwise never hand its slot back once Dragonfly
-    recovered (the script returns a ZREM count of 0, not None), and the replica
-    pool would shrink by one for a full lease every time the store flapped.
-    `_local_release` is a no-op when the member is absent, so running both is
-    free.
-    """
     cache.eval_script(_RELEASE_LUA, [key], [member])
     _local_release(key, member)
 
 
 def _renew_all(held: list[str], member: str, released: Callable[[], bool] = lambda: False) -> None:
-    """Re-stamp every slot this turn holds, in the store and the local table.
-
-    Both, for the reason `_release` runs both: the store may have come or gone
-    since the acquire. A slot that is no longer there was reclaimed, which means
-    renewals stopped for a whole lease; that is logged, never re-taken. Unless
-    ``released`` says its turn gave it back meanwhile (`return_turn_slots`): a
-    renewal that raced that release found nothing, and nothing went wrong.
-    """
     now = time.time()
     for key in held:
         try:
@@ -228,13 +119,6 @@ def _renew_all(held: list[str], member: str, released: Callable[[], bool] = lamb
 
 @dataclass
 class TurnSlots:
-    """The admission slots one chat turn holds, by member, for whoever ends the turn to hand back.
-
-    Touched on the event loop only; the store calls go to a worker thread.
-    ``closed`` once the turn is over: a renewal stops, and an admission the
-    unwinding workflow still attempts is refused.
-    """
-
     held: dict[str, list[str]] = field(default_factory=dict)
     closed: bool = False
 
@@ -243,7 +127,6 @@ _TURN_SLOTS: ContextVar[TurnSlots | None] = ContextVar("turn_slots", default=Non
 
 
 def bind_turn_slots(slots: TurnSlots) -> None:
-    """Record this context's admissions in ``slots``. Call it in the task that runs the workflow, before it starts."""
     _TURN_SLOTS.set(slots)
 
 
@@ -253,12 +136,6 @@ def _release_stranded(stranded: list[tuple[str, list[str]]]) -> None:
 
 
 async def return_turn_slots(slots: TurnSlots) -> int:
-    """The turn is over: give back every slot it still holds. How many it still held, 0 when its admission had ended.
-
-    A slot still held here belongs to a workflow that outlived its turn's
-    teardown bound; without this it would be renewed for as long as that
-    teardown runs, which can be the life of the replica.
-    """
     slots.closed = True
     stranded = list(slots.held.items())
     slots.held.clear()
@@ -268,7 +145,6 @@ async def return_turn_slots(slots: TurnSlots) -> int:
 
 
 async def _keep_renewing(held: list[str], member: str, owner: TurnSlots | None = None) -> None:
-    """Renew the turn's slots until cancelled, or until its turn is over. A failed round is logged, not fatal."""
     while True:
         await asyncio.sleep(_renew_interval())
         if owner is not None and owner.closed:
@@ -280,7 +156,6 @@ async def _keep_renewing(held: list[str], member: str, owner: TurnSlots | None =
 
 
 def _pools(organization_id: str | None) -> list[tuple[str, int, str]]:
-    """`(key, limit, refusal message)` for each pool that applies to this turn."""
     pools: list[tuple[str, int, str]] = []
     if MAX_ACTIVE_TURNS > 0:
         pools.append(
@@ -317,20 +192,6 @@ def _local_count(key: str, now: float) -> int:
 
 
 def active_turns() -> int | None:
-    """How many chat turns are running fleet-wide right now, or None when that cannot be known.
-
-    The scaling signal for the chat tier (ADR-0080): KEDA reads it, through
-    ``GET /v1/internal/chat-occupancy``, and sizes the tier to it. It is the
-    size of the global admission pool, the one number every replica already
-    keeps for the cap, so no replica needs to report its own.
-
-    With no shared store configured (``REDIS_URL`` unset: a single process)
-    this replica's own table is the whole fleet. With one configured but
-    unreachable the answer is None, not this replica's share: a quarter of the
-    real number would read as a quiet fleet and scale it in under its turns.
-    Only the global pool is counted, so ``MAX_ACTIVE_TURNS`` of 0 or less
-    (admission off) reads as 0.
-    """
     now = time.time()
     if not os.environ.get("REDIS_URL"):
         return _local_count(_GLOBAL_KEY, now)
@@ -351,19 +212,6 @@ def _release_all(held: list[str], member: str) -> None:
 
 
 def _acquire_all(organization_id: str | None, member: str) -> tuple[list[str], str | None]:
-    """Take every pool this turn needs, or none of them.
-
-    Returns `(held, refusal)`: the keys actually held, and the refusal message
-    when a pool was full. On refusal the partial acquisition is rolled back
-    before returning, so `held` is empty and the caller has nothing to clean up
-    — a tenant sitting at its own limit must not leave the global slot it took
-    on the way in.
-
-    One function rather than a loop at each call site because the async manager
-    runs this in a worker thread: acquisition has to be atomic from the event
-    loop's point of view, or a cancellation landing between two acquires leaves
-    a slot held by a turn that will never run.
-    """
     held: list[str] = []
     for key, limit, message in _pools(organization_id):
         if not _acquire(key, limit, member):
@@ -374,13 +222,6 @@ def _acquire_all(organization_id: str | None, member: str) -> tuple[list[str], s
 
 
 def _release_abandoned(acquisition: asyncio.Task, member: str) -> None:
-    """Hand back slots taken by an acquisition nobody is waiting for any more.
-
-    Runs as the done-callback of a shielded `_acquire_all` whose awaiter was
-    cancelled — a client that hung up while the store round trip was in flight.
-    The worker could not be stopped, so it may well have taken the slots; this
-    is the only code left that knows about them.
-    """
     if acquisition.cancelled():
         return
     if acquisition.exception() is not None:
@@ -397,12 +238,6 @@ def _release_abandoned(acquisition: asyncio.Task, member: str) -> None:
 
 @contextmanager
 def admit_turn(organization_id: str | None) -> Iterator[None]:
-    """Hold an interactive-turn slot for the duration of the block.
-
-    Raises `TurnAdmissionError` when the global or the organization's pool is
-    full. Synchronous, and it does not renew the lease, so it suits only a block
-    shorter than `TURN_LEASE_SECONDS`. A chat turn wants `admit_turn_async`.
-    """
     member = uuid.uuid4().hex
     held, refusal = _acquire_all(organization_id, member)
     if refusal is not None:
@@ -415,31 +250,6 @@ def admit_turn(organization_id: str | None) -> Iterator[None]:
 
 @asynccontextmanager
 async def admit_turn_async(organization_id: str | None) -> AsyncIterator[None]:
-    """`admit_turn`, off the event loop.
-
-    The store calls underneath are the synchronous `redis` client, and a chat
-    turn runs inside an async generator serving a live WebSocket. Up to four
-    blocking round trips (two acquires, two releases) at the 500 ms socket
-    timeout would stall EVERY other conversation this replica is streaming, not
-    just this one — the classic way a protective control becomes the outage.
-
-    `asyncio.to_thread` keeps the semantics identical (same ordering, same
-    partial-acquisition rollback, same `finally`) and moves the waiting to a
-    worker thread.
-
-    One asymmetry with the sync version, and it drives the shape below:
-    `asyncio.to_thread` cannot cancel the worker. A client that hangs up
-    mid-acquire cancels this coroutine while the thread runs on and quite
-    possibly takes the slot — which would then be held by a turn that never
-    runs, until the lease expires. A few of those at once and the pool is gone.
-
-    Two things prevent that. Acquisition is ONE thread hop (`_acquire_all`), so
-    there is no half-acquired state for a cancellation to land in. And the task
-    is shielded, so on cancellation the release is chained onto its completion
-    rather than raced against it: the slots go back whenever the worker
-    finishes, in the right order, without this coroutine having to survive to
-    see it.
-    """
     member = uuid.uuid4().hex
     acquisition = asyncio.create_task(asyncio.to_thread(_acquire_all, organization_id, member))
     try:

@@ -171,8 +171,6 @@ def test_every_event_carries_the_super_properties_and_no_geoip(sent: list[dict[s
 
 
 def test_an_exception_names_the_deployment_it_came_from(sent: list[dict[str, Any]]) -> None:
-    # Staging and production both run APP_ENV=production: without app_host a
-    # production filter on it drops every Python error.
     posthog_client.capture_exception(ValueError("x"))
 
     assert sent[0]["event"] == "$exception"

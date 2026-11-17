@@ -47,15 +47,18 @@ def stack(monkeypatch):
             pytest.fail("QDRANT_TEST_URL is unset on CI: the Qdrant service container is missing")
         pytest.skip("QDRANT_TEST_URL not set")
     from knowledge_layer.search import LlamaIndexRetriever
-    from knowledge_layer.vector_store import schema
-    from knowledge_layer.vector_store import store as store_module
+    from knowledge_layer.vector_store import ALIASES
+    from knowledge_layer.vector_store import FIRST_VERSION
+    from knowledge_layer.vector_store import Physical
+    from knowledge_layer.vector_store import get_store
+    from knowledge_layer.vector_store import reset_store
 
     suffix = uuid.uuid4().hex[:8]
-    monkeypatch.setitem(schema.ALIASES, schema.Physical.CORPUS, f"route_corpus_{suffix}")
-    monkeypatch.setitem(schema.ALIASES, schema.Physical.OFFICE, f"route_office_{suffix}")
+    monkeypatch.setitem(ALIASES, Physical.CORPUS, f"route_corpus_{suffix}")
+    monkeypatch.setitem(ALIASES, Physical.OFFICE, f"route_office_{suffix}")
     monkeypatch.setenv("QDRANT_URL", url)
     monkeypatch.delenv("REQUIRE_AUTH", raising=False)
-    store_module.reset_store()
+    reset_store()
     retriever = LlamaIndexRetriever({"embed_model": "test-model", "embed_base_url": "https://test"})
     retriever._initialized = True
     retriever.hybrid_search = False
@@ -66,14 +69,14 @@ def stack(monkeypatch):
     add_document_search_routes(router)
     add_project_facts_routes(router)
     app.include_router(router)
-    store = store_module.get_store(retriever._identity())
+    store = get_store(retriever._identity())
     yield app, store
     clear_active_retriever()
-    for physical in schema.Physical:
-        name = schema.ALIASES[physical] + schema.FIRST_VERSION
+    for physical in Physical:
+        name = ALIASES[physical] + FIRST_VERSION
         if store.client.collection_exists(name):
             store.client.delete_collection(name)
-    store_module.reset_store()
+    reset_store()
 
 
 def _put(store, scope: str, *files: tuple[str, float]) -> None:

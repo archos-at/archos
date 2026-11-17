@@ -7,13 +7,13 @@ from knowledge_layer.register import KnowledgeRetrievalConfig
 from knowledge_layer.register import knowledge_retrieval
 from knowledge_layer.search import SUFFICIENT
 from knowledge_layer.search import SufficiencyVerdict
+from knowledge_layer.search import _parse_verdict
 from knowledge_layer.search import coverage_gap
 from knowledge_layer.search import decisions as decisions_module
 from knowledge_layer.search import judge_sufficiency
 from knowledge_layer.search import requery as requery_module
 from knowledge_layer.search import requery_notice
 from knowledge_layer.search import results as results_module
-from knowledge_layer.search.requery import _parse_verdict
 
 from agent.common.retrieval_settings import reset_retrieval_settings_cache
 

@@ -111,7 +111,7 @@ functions:
     collection_name: ${COLLECTION_NAME:-default}
 ```
 
-> **Note:** To add config fields, edit `KnowledgeRetrievalConfig` in `packages/knowledge-layer/src/register.py`. An older config that still sets `backend: llamaindex` loads unchanged; the key is ignored.
+> **Note:** To add config fields, edit `KnowledgeRetrievalConfig` in `packages/knowledge-layer/src/knowledge_layer/register.py`. An older config that still sets `backend: llamaindex` loads unchanged; the key is ignored.
 
 #### Multimodal Extraction
 
@@ -359,7 +359,7 @@ The summary store uses SQLAlchemy and follows the same pattern as the jobs datab
 
 To customize summary generation, modify the `generate_summary()` method in your adapter. See reference implementations:
 
-- **LlamaIndex**: `packages/knowledge-layer/src/ingest/adapter.py` (search for `generate_summary`)
+- **LlamaIndex**: `packages/knowledge-layer/src/knowledge_layer/ingest/adapter.py` (search for `generate_summary`)
 
 Key customization points:
 - LLM model selection and prompt template
@@ -428,10 +428,10 @@ packages/agent/src/agent/knowledge/
 | `schema.py` | Universal data models - backends convert native formats to these |
 | `factory.py` | Registration decorators + factory functions for instantiation |
 
-### Backend Adapters (`packages/knowledge-layer/src/`)
+### Backend Adapters (`packages/knowledge-layer/src/knowledge_layer/`)
 
 ```
-packages/knowledge-layer/src/
+packages/knowledge-layer/src/knowledge_layer/
     <backend_name>/
         __init__.py      # Imports adapter to trigger registration
         adapter.py       # @register_retriever/@register_ingestor decorated classes
@@ -439,10 +439,10 @@ packages/knowledge-layer/src/
         pyproject.toml   # Optional: isolated dependencies
 ```
 
-### Agent runtime integration (`packages/knowledge-layer/src/`)
+### Agent runtime integration (`packages/knowledge-layer/src/knowledge_layer/`)
 
 ```
-packages/knowledge-layer/src/
+packages/knowledge-layer/src/knowledge_layer/
     register.py      # @register_function exposes retrieval to agents
 ```
 

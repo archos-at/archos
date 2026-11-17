@@ -1,20 +1,3 @@
-"""The store, filled from one set of vectors, and the retriever that reads it.
-
-Everything here builds the production objects rather than lookalikes:
-
-* **Qdrant**: the production collection shape (``vector_store/schema.py``: dense + server
-  BM25 with ``BM25_OPTIONS``, TurboQuant 4-bit, strict mode, payload indexes),
-  under uniquely named aliases so a shared server is never touched outside them,
-  filled through ingestion's own write (``vector_store/writes.py`` ``write_chunks``,
-  one call per file, as ``_ingest_job`` makes it).
-* **The retriever**: ``LlamaIndexRetriever`` with its query-embedding cache
-  pre-filled, so ``_retrieve_sync`` runs the store path with no embedding call in
-  it.
-
-Chroma left the stack in one change (ADR-0115), so there is no second store to
-fill: what the Chroma path measured is the fixed reference in ``baseline.py``.
-"""
-
 from __future__ import annotations
 
 import contextlib
@@ -26,6 +9,7 @@ from collections.abc import Iterator
 from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
+from unittest import mock
 
 import numpy as np
 
@@ -36,8 +20,6 @@ SCOPE = "oib_parity"
 
 @dataclass(frozen=True)
 class IndexedChunk:
-    """One chunk as the store holds it."""
-
     chunk_id: str
     text: str
     file_name: str
@@ -46,7 +28,6 @@ class IndexedChunk:
 
 
 def identity(model: str, base_url: str) -> dict[str, str]:
-    """The embedder fingerprint the collection records, as production computes it."""
     from knowledge_layer.embedding import embed_fingerprint_metadata
 
     return embed_fingerprint_metadata(model, base_url)
@@ -54,36 +35,32 @@ def identity(model: str, base_url: str) -> dict[str, str]:
 
 @contextlib.contextmanager
 def isolated_qdrant(url: str, api_key: str | None = None) -> Iterator[str]:
-    """The knowledge layer's Qdrant store on uniquely named aliases; collections dropped on exit.
-
-    The aliases are the one name the package addresses each physical collection by,
-    so renaming them for the run puts every read and write of the production code
-    on throwaway collections. Yields the run's suffix.
-    """
+    from knowledge_layer.vector_store import ALIASES
+    from knowledge_layer.vector_store import FIRST_VERSION
+    from knowledge_layer.vector_store import Physical
     from knowledge_layer.vector_store import make_client
     from knowledge_layer.vector_store import reset_store
-    from knowledge_layer.vector_store import schema
 
     suffix = uuid.uuid4().hex[:8]
-    saved = dict(schema.ALIASES)
+    saved = dict(ALIASES)
     saved_env = {key: os.environ.get(key) for key in ("QDRANT_URL", "QDRANT_API_KEY")}
     os.environ["QDRANT_URL"] = url
     if api_key:
         os.environ["QDRANT_API_KEY"] = api_key
-    for physical in schema.Physical:
-        schema.ALIASES[physical] = f"parity_{suffix}_{physical.value}"
+    for physical in Physical:
+        ALIASES[physical] = f"parity_{suffix}_{physical.value}"
     reset_store()
     try:
         yield suffix
     finally:
         client = make_client()
-        for physical in schema.Physical:
+        for physical in Physical:
             with contextlib.suppress(Exception):
-                name = schema.ALIASES[physical] + schema.FIRST_VERSION
+                name = ALIASES[physical] + FIRST_VERSION
                 if client.collection_exists(name):
                     client.delete_collection(name)
-        schema.ALIASES.clear()
-        schema.ALIASES.update(saved)
+        ALIASES.clear()
+        ALIASES.update(saved)
         for key, value in saved_env.items():
             if value is None:
                 os.environ.pop(key, None)
@@ -92,29 +69,29 @@ def isolated_qdrant(url: str, api_key: str | None = None) -> Iterator[str]:
         reset_store()
 
 
-def fill_qdrant(chunks: Sequence[IndexedChunk], vectors: np.ndarray, fingerprint: dict[str, str]) -> int:
-    """Write the corpus the way ingestion writes a file's chunks; returns the points Qdrant holds.
+@contextlib.contextmanager
+def _no_person_facts() -> Iterator[None]:
+    from agent import knowledge
 
-    One ``write_chunks`` per file, with the chunk ids as the point ids. A
-    benchmark corpus has no metadata store behind it, so the lookup of
-    person-set facts finds none, which is what it would find. The id sets are
-    compared afterwards, not only the counts: equal counts can hide a swap.
-    """
+    with (
+        mock.patch.object(knowledge, "get_documents", lambda scope, file_names: []),
+        mock.patch.object(knowledge, "get_available_documents", lambda scope: []),
+    ):
+        yield
+
+
+def fill_qdrant(chunks: Sequence[IndexedChunk], vectors: np.ndarray, fingerprint: dict[str, str]) -> int:
     from knowledge_layer.vector_store import ChunkRecord
     from knowledge_layer.vector_store import get_store
-    from knowledge_layer.vector_store import writes
+    from knowledge_layer.vector_store import write_chunks
 
     by_file: dict[str, list[ChunkRecord]] = {}
     for chunk, vector in zip(chunks, vectors, strict=True):
         record = ChunkRecord(chunk.chunk_id, chunk.text, [float(value) for value in vector], dict(chunk.metadata))
         by_file.setdefault(chunk.file_name, []).append(record)
-    original = writes.facts_by_file
-    writes.facts_by_file = lambda scope, file_names=None: {}
-    try:
+    with _no_person_facts():
         for file_name, records in by_file.items():
-            writes.write_chunks(SCOPE, file_name, records, identity=fingerprint)
-    finally:
-        writes.facts_by_file = original
+            write_chunks(SCOPE, file_name, records, identity=fingerprint)
     stored = set(get_store(fingerprint).chunk_ids(SCOPE))
     expected = {chunk.chunk_id for chunk in chunks}
     if stored != expected:
@@ -126,16 +103,12 @@ def fill_qdrant(chunks: Sequence[IndexedChunk], vectors: np.ndarray, fingerprint
 
 
 def wait_until_indexed(timeout_s: float = 600.0) -> dict[str, Any]:
-    """Block until the corpus collection's optimizer is idle; its index state for the report.
-
-    Until HNSW and the quantized copy are built a search is a brute-force scan, so a
-    latency or recall measured earlier would not be of the configuration under test.
-    """
+    from knowledge_layer.vector_store import ALIASES
+    from knowledge_layer.vector_store import Physical
     from knowledge_layer.vector_store import get_store
-    from knowledge_layer.vector_store import schema
 
     client = get_store().client
-    alias = schema.ALIASES[schema.Physical.CORPUS]
+    alias = ALIASES[Physical.CORPUS]
     deadline = time.monotonic() + timeout_s
     info = client.get_collection(alias)
     while time.monotonic() < deadline:
@@ -154,11 +127,6 @@ def wait_until_indexed(timeout_s: float = 600.0) -> dict[str, Any]:
 
 
 def retriever(model: str, base_url: str, queries: Sequence[str], query_vectors: np.ndarray) -> Any:
-    """``LlamaIndexRetriever`` over the process-wide Qdrant store, its query-embedding cache holding every query.
-
-    ``_retrieve_sync`` then runs exactly as in production, minus the embedding round
-    trip: the store calls are what is timed and scored.
-    """
     from knowledge_layer.search import LlamaIndexRetriever
     from llama_index.core.embeddings import MockEmbedding
 

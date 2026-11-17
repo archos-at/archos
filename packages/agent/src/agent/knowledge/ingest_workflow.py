@@ -1,67 +1,3 @@
-"""The ``ingest-document`` workflows: ingestion jobs on Hatchet (ADR-0150).
-
-The thin layer between the orchestrator and the job, and the only module of
-ingestion that imports ``hatchet_sdk``. It declares the workflows, triggers a
-run for each accepted job (``trigger``), cancels one (``cancel_run``) and serves
-them on the ingest-worker tiers (``serve``).
-
-Two workflows, the same steps: ``ingest-document`` on the standard pool and
-``ingest-document-heavy`` on the high-memory pool (``pool=highmem``), whose
-``index`` costs a whole worker (``slot_cost``). ``trigger`` picks by the
-original's size (``INGEST_HEAVY_FILE_BYTES``), which the BFF states at dispatch.
-
-Each is a DAG of two steps, so a crash repeats only the step it happened in:
-
-* ``index``: fetch, read, summarise, embed and write the job's files
-  (``ingest_execution.run_job``). Its output is the job id and the status it
-  ended with, nothing of the document.
-* ``settle`` (after ``index``): tell the BFF (``ingest_execution.settle``), with
-  retries of its own, so a BFF that is away for a moment costs a retried call,
-  never a re-indexed file. ``settle-failed``, the workflow's failure handler,
-  tells it the same about a job that failed for good.
-
-``index`` is one step because the adapter holds a file's pages, text and chunks
-in memory from the download to the write (``LlamaIndexIngestor._ingest_job``).
-Its costly middle, reading the pages, is already persisted: every vision and
-transcription result is cached by content hash in Dragonfly for 30 days
-(``knowledge_layer.ingest.processing``), so a repeated ``index`` reads its
-pages from the cache. What a run does is ``ingest_execution``'s; Temporal, the
-documented exit, would replace this file and nothing below it.
-
-What Hatchet holds of a job is its id, its document's id, its organisation (the
-fairness key), its priority and the payload the API tier already encrypted
-(``payload_crypto``, ``JOB_PAYLOAD_KEK``): never a file name or a byte of a document.
-
-* **Fairness:** one tenant-scoped concurrency limit, ``ingest-org``, keyed on
-  ``input.organization_id`` with ``GROUP_ROUND_ROBIN`` and shared by both
-  workflows: each organisation runs at most ``max_runs_per_org()`` jobs
-  fleet-wide, heavy or not, and a free slot goes to the organisations in turn.
-  A job with no organisation runs in ``PLATFORM_LANE``.
-* **A re-upload supersedes:** a second tenant-scoped limit, ``ingest-supersede``,
-  ``CANCEL_IN_PROGRESS`` with one run per ``input.document_id``: a newer upload
-  of a document cancels the run still indexing the old bytes, which records
-  itself superseded (``ingest_execution.settle_superseded``), never as a
-  person's cancel and never as a failure. A job carries one document (one
-  ``file_ref`` per ``POST /v1/ingest``, one corpus file per job); one without a
-  document id is keyed on its own job id, so it supersedes nothing.
-* **Priority:** ``interactive`` runs as ``Priority.HIGH``, ``bulk`` as
-  ``Priority.LOW``, inside the organisation's turn.
-* **Retries:** per step, with exponential backoff: ``RETRIES`` more attempts of
-  ``index`` for a failure that may pass, ``SETTLE_RETRIES`` of ``settle``. A
-  failure of the bytes raises ``NonRetryableException``. What a step raises
-  reaches Hatchet as the exception's class and failure category only, ``from
-  None`` (``task_failures``); the message is logged here and nowhere else.
-* **Credits in flight:** the provider's 402 for credits that requests in flight
-  hold is waited out, not retried at once: the attempt pauses new ``index``
-  starts for ``CREDIT_PAUSE`` (the rate-limit key ``ingest-provider-credits``,
-  which every ``index`` consumes) and raises ``RetryAfterException`` for
-  ``CREDIT_WAIT``. Those count against the step's retries (the SDK says so), so
-  ``index`` has ``CREDIT_WAIT_RETRIES`` more of them, and an ordinary failure is
-  final after ``ORDINARY_ATTEMPTS`` attempts however many retries remain.
-* **Idempotency:** one live run per job id, so asking twice for the base
-  corpus's deterministic ids starts one run.
-"""
-
 from __future__ import annotations
 
 import logging
@@ -140,8 +76,6 @@ PRIORITIES: dict[str, Priority] = {"interactive": Priority.HIGH, "bulk": Priorit
 
 
 class IngestDocumentInput(BaseModel):
-    """What a run carries: ids, the fairness and supersede keys, the priority, and the encrypted payload."""
-
     job_id: str
     organization_id: str
     document_id: str | None = None
@@ -158,34 +92,28 @@ def _int_env(name: str, default: int, floor: int) -> int:
 
 
 def max_job_seconds() -> int:
-    """``INGEST_MAX_JOB_SECONDS``; unset, not a number or below one is the default."""
     return _int_env("INGEST_MAX_JOB_SECONDS", 7200, floor=1)
 
 
 def heavy_file_bytes() -> int:
-    """``INGEST_HEAVY_FILE_BYTES``: the original's size from which a job runs heavy; 0 is never."""
     return _int_env("INGEST_HEAVY_FILE_BYTES", DEFAULT_HEAVY_FILE_BYTES, floor=0)
 
 
 def heavy_worker_slots() -> int:
-    """``INGEST_HEAVY_WORKER_SLOTS``: a high-memory worker's slots, all of which its ``index`` takes."""
     return _int_env("INGEST_HEAVY_WORKER_SLOTS", 1, floor=1)
 
 
 def max_runs_per_org() -> int:
-    """The per-organisation ``max_runs``: ``INGEST_MAX_PER_ORG``, or ``DEFAULT_MAX_RUNS_PER_ORG``."""
     return per_org_cap_from_env() or DEFAULT_MAX_RUNS_PER_ORG
 
 
 def hold_seconds() -> int:
-    """How long the status row is vouched for: the wait for a worker, then every attempt and its backoff."""
     ordinary = ORDINARY_ATTEMPTS * (max_job_seconds() + BACKOFF_MAX_SECONDS)
     waits = CREDIT_WAIT_RETRIES * int((CREDIT_WAIT + CREDIT_PAUSE).total_seconds())
     return int(SCHEDULE_TIMEOUT.total_seconds()) + ordinary + waits
 
 
 def organization_limit(name: str, max_runs: int) -> ConcurrencyExpression:
-    """A tenant-scoped limit of ``max_runs`` per ``input.organization_id``; a free slot goes to them in turn."""
     return ConcurrencyExpression(
         name=name,
         expression="input.organization_id",
@@ -196,7 +124,6 @@ def organization_limit(name: str, max_runs: int) -> ConcurrencyExpression:
 
 
 def concurrency() -> list[ConcurrencyExpression]:
-    """Both workflows' limits, in one order (the SDK: chains that share tenant-scoped limits order them alike)."""
     return [
         organization_limit(ORG_LIMIT, max_runs_per_org()),
         ConcurrencyExpression(
@@ -210,7 +137,6 @@ def concurrency() -> list[ConcurrencyExpression]:
 
 
 def workflow_options(heavy: bool = False) -> dict[str, Any]:
-    """A workflow's declaration, as ``Hatchet.workflow`` takes it."""
     return {
         "name": HEAVY_WORKFLOW_NAME if heavy else WORKFLOW_NAME,
         "input_validator": IngestDocumentInput,
@@ -220,14 +146,12 @@ def workflow_options(heavy: bool = False) -> dict[str, Any]:
 
 
 def credit_rate_limit_key(client: Any) -> str:
-    """The rate-limit key every ``index`` consumes, in this stack's Hatchet namespace (keys are not namespaced)."""
     config = getattr(client, "config", None)
     namespace = getattr(config, "namespace", "") or ""
     return f"{namespace}{CREDIT_RATE_LIMIT_KEY}"
 
 
 def index_options(heavy: bool = False, *, rate_limit_key: str = CREDIT_RATE_LIMIT_KEY) -> dict[str, Any]:
-    """The ``index`` step, as ``Workflow.task`` takes it; the heavy one needs a high-memory worker to itself."""
     options: dict[str, Any] = {
         "name": INDEX_STEP,
         "execution_timeout": timedelta(seconds=max_job_seconds()),
@@ -245,7 +169,6 @@ def index_options(heavy: bool = False, *, rate_limit_key: str = CREDIT_RATE_LIMI
 
 
 def settle_options() -> dict[str, Any]:
-    """The ``settle`` step and the failure handler: short, and tried again on their own."""
     return {
         "execution_timeout": SETTLE_TIMEOUT,
         "retries": SETTLE_RETRIES,
@@ -259,7 +182,6 @@ _declared: dict[bool, tuple[object, Any]] | None = None
 
 
 def ingest_workflow(heavy: bool = False) -> Any:
-    """The ``ingest-document`` (or ``-heavy``) workflow on this process's Hatchet client."""
     global _declared
     client = orchestrator_client.client()
     with _lock:
@@ -289,7 +211,6 @@ def _declare(client: Any, heavy: bool) -> Any:
 
 
 def settle_step(job_id: str) -> dict[str, Any]:
-    """Tell the BFF; an answer that a retry would only repeat (a 4xx) is not tried again."""
     try:
         return {"job_id": job_id, "settled": ingest_execution.settle(job_id)}
     except bff_http.BffRefusedError as refused:
@@ -303,35 +224,21 @@ def settle_step(job_id: str) -> dict[str, Any]:
 
 
 def _sanitized(job_id: str, error: Exception, *, retry: bool = True) -> Exception:
-    """``error`` as Hatchet may store it: class and category, no message; logged in full (``orchestrator_client``).
-
-    Tried again under the step's policy while ``retry``: a failure of the bytes
-    ends as a FAILED status the step reads (``_ended``), not as an exception.
-    """
     return orchestrator_client.sanitized(f"Ingestion job {job_id}", error, retry=retry)
 
 
 def workflow_for(byte_size: int | None) -> bool:
-    """Whether a job whose original is ``byte_size`` bytes runs heavy; an unknown size does not."""
     threshold = heavy_file_bytes()
     return bool(threshold) and byte_size is not None and byte_size >= threshold
 
 
-class WorkflowNotRegistered(RuntimeError):
-    """No worker has registered the workflow yet: a run triggered now would be dropped, not queued."""
+class WorkflowNotRegistered(RuntimeError): ...
 
 
 _registered: dict[bool, object] = {}
 
 
 def require_registered(heavy: bool) -> None:
-    """Raise ``WorkflowNotRegistered`` unless a worker registered the workflow (asked once per process).
-
-    The engine answers a trigger of a workflow it does not know with a run id
-    and then creates nothing, so a job sent before the first ingest worker came
-    up would wait for a run that never was. The caller treats the refusal as
-    Hatchet being away (``ingest_dispatch`` runs the job itself).
-    """
     ingest_workflow(heavy)
     client = orchestrator_client.client()
     if _registered.get(heavy) is client:
@@ -353,15 +260,6 @@ def trigger(
     document_id: str | None = None,
     byte_size: int | None = None,
 ) -> bool:
-    """Start a run for an accepted job; whether this call started one (one already live starts none).
-
-    ``payload`` is the job as ``ingest_dispatch.encode`` stores it, encrypted.
-    ``byte_size`` (the original's, as the BFF stated it) picks the workflow;
-    ``document_id`` is what a later upload of the document supersedes. The run's
-    metadata carries the trigger span's ``traceparent`` (``orchestrator_tracing``).
-    Raises when Hatchet cannot be reached or no worker registered the workflow
-    yet; the caller decides what that costs.
-    """
     rank = priority if priority in PRIORITIES else "interactive"
     heavy = workflow_for(byte_size)
     require_registered(heavy)
@@ -386,13 +284,10 @@ def trigger(
 
 
 def cancel_run(run_id: str) -> None:
-    """Cancel a run by its id, through the SDK's runs API. Raises when Hatchet cannot be reached in time."""
     orchestrator_client.within_rest_timeout(lambda: orchestrator_client.client().runs.cancel(run_id))
 
 
 class _Runtime:
-    """What the served workflow runs with: set once by ``serve`` in the worker process."""
-
     ingestor: BaseIngestor | None = None
     decode: Callable[[str], PreparedIngestJob] | None = None
 
@@ -402,7 +297,6 @@ _monotonic = time.monotonic
 
 
 def execute(run: IngestDocumentInput, ctx: Context) -> dict[str, Any]:
-    """One attempt of the ``index`` step (see the module docstrings here and in ``ingest_execution``)."""
     ingestor, decode = _runtime.ingestor, _runtime.decode
     if ingestor is None or decode is None:
         raise RuntimeError("the ingest-document workflow runs only in a process that serves it")
@@ -431,7 +325,6 @@ def execute(run: IngestDocumentInput, ctx: Context) -> dict[str, Any]:
 
 
 def _settled_before(job_id: str, attempt: int) -> dict[str, Any] | None:
-    """A retry of a job an earlier attempt settled for good does nothing again (a timeout the engine retries)."""
     if attempt <= 1:
         return None
     status = ingest_status_store.get(job_id)
@@ -443,12 +336,10 @@ def _settled_before(job_id: str, attempt: int) -> dict[str, Any] | None:
 
 
 def _may_wait(ctx: Context) -> bool:
-    """Whether a retry is left to wait for credits with."""
     return ctx.attempt_number < ctx.max_attempts
 
 
 def _wait_for_credits(prepared: PreparedIngestJob, failed: Any, ctx: Context) -> RetryAfterException:
-    """The 402 for credits in flight: pause new starts, keep the row waiting, and try again after ``CREDIT_WAIT``."""
     job_id = prepared.job_id
     logger.warning("Ingestion job %s met the provider's in-flight credit limit; waiting %s", job_id, CREDIT_WAIT)
     ingest_execution.reopen(prepared, failed or ingest_status_store.get(job_id) or prepared.status, ctx.attempt_number)
@@ -462,7 +353,6 @@ def _wait_for_credits(prepared: PreparedIngestJob, failed: Any, ctx: Context) ->
 
 
 def _stopped(job_id: str, elapsed: float, final: bool) -> dict[str, Any]:
-    """The run was cancelled: by its timeout, by a person (``ingest_dispatch.cancel``), or by a newer upload."""
     if elapsed >= max_job_seconds() - 1:
         logger.error("Ingestion job %s ran past %ds and was stopped", job_id, max_job_seconds())
         if final:
@@ -490,7 +380,6 @@ def _ended(prepared: PreparedIngestJob, status, ctx: Context, final: bool) -> di
 
 
 def _credits_in_flight(status) -> bool:
-    """Whether the job's failure is the provider's in-flight credit 402, on a failed file or the job."""
     messages = [d.error_message for d in status.file_details if d.retryable] or [status.error_message]
     return any(credits_in_flight(message) for message in messages)
 
@@ -504,19 +393,6 @@ def serve(
     also: Sequence[Any] = (),
     durable_slots: int | None = None,
 ) -> None:
-    """Run the ingest worker of ``pool``: ``slots`` steps at once, until SIGTERM has drained them. Blocks.
-
-    ``also`` are further workflows the worker serves beside ingestion, and
-    ``durable_slots`` the slots their durable tasks share, counted apart from
-    ``slots``: the one second pool a worker has (the folder card builder,
-    ``folder_cards.workflow``, whose header holds the evidence).
-
-    The standard pool serves ``ingest-document``, the high-memory pool (``HEAVY_POOL``)
-    ``ingest-document-heavy``, labelled ``pool=highmem`` so the heavy ``index``
-    finds it. ``lifespan`` builds the ingestor (the agent runtime's workflow) on
-    the worker's own event loop and keeps it for the worker's life. The SDK owns
-    the signals: on SIGTERM it stops taking runs and waits for the ones it holds.
-    """
     _runtime.decode = decode
     heavy = pool == HEAVY_POOL
     client = orchestrator_client.client()

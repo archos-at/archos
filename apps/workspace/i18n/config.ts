@@ -6,8 +6,6 @@ export const defaultLocale: Locale = 'en'
 
 export const LOCALE_COOKIE = 'locale'
 
-export const LEGACY_LOCALE_COOKIE = 'grid-locale'
-
 export const LOCALE_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 365
 
 export const localeNames: Record<Locale, string> = {

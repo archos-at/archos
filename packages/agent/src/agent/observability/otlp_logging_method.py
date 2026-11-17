@@ -21,30 +21,11 @@ def ensure_registered() -> None:
 
 
 class _OtelSdkFilter(logging.Filter):
-    """Drops records emitted by the OTel SDK itself.
-
-    Without this, a failed log export logs a warning through the very handler
-    that triggered it, feeding the next export attempt — an amplification loop
-    against an unreachable collector.
-    """
-
     def filter(self, record: logging.LogRecord) -> bool:
         return not record.name.startswith("opentelemetry")
 
 
 class _NatBuildFailureItemizationFilter(logging.Filter):
-    """Keeps one ERROR per failed workflow build instead of one per line.
-
-    ``nat.builder.workflow_builder._log_build_failure`` reports a failed build
-    as a dozen ``logger.error`` calls: a header, then every built and every
-    remaining component on its own line, then ``Original error`` with the
-    traceback. Each record is an ERROR, so err2issue filed one startup failure
-    as eleven issues (#742-#752), none of which carried the cause. Only the
-    ``Original error`` record is exported; the itemization still reaches stdout
-    through the other handlers. If the agent runtime renames the function, nothing matches
-    and every line is exported again: this fails towards reporting.
-    """
-
     def filter(self, record: logging.LogRecord) -> bool:
         if record.funcName != "_log_build_failure" or not record.name.startswith("nat."):
             return True
@@ -52,18 +33,6 @@ class _NatBuildFailureItemizationFilter(logging.Filter):
 
 
 class OtlpLoggingMethodConfig(LoggingBaseConfig, name="otelcollector_logs"):
-    """Ships runtime logs to the OTLP collector (ADR-0029), which forwards WARN and above to PostHog Logs.
-
-    It is also the seam that installs the process's ``MeterProvider``
-    (``otlp_metrics``): every agent-runtime process passes it, and the ``grid.queue.*``,
-    ``grid.provider.*`` and ``grid.boot.*`` instruments then reach the
-    collector, which forwards them to PostHog Metrics. The provider outlives
-    this workflow on purpose; see ``otlp_metrics``.
-
-    `endpoint` is Optional because `${OTEL_EXPORTER_OTLP_ENDPOINT:-}`
-    interpolates to None (not "") when the observability tier is not deployed.
-    """
-
     endpoint: str | None = Field(
         default=None,
         description="OTLP traces endpoint (…/v1/traces); the /v1/logs sibling is derived from it.",

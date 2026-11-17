@@ -1,9 +1,3 @@
-"""The base corpus's two tables in the knowledge database, and how the file table gets a column added later.
-
-``agent.corpus_store`` reads and writes them and documents what each column means; this module
-only says what the tables are. Both are created on first use, under the schema lock.
-"""
-
 from __future__ import annotations
 
 from sqlalchemy import BigInteger
@@ -53,7 +47,6 @@ ADDED_MARK_COLUMNS = {"released": "BOOLEAN"}
 
 
 def _create(conn, table: Table, added: dict[str, str]) -> None:
-    """``table``, and the columns one created before them lacks (additive; old replicas ignore them)."""
     conn.execute(CreateTable(table, if_not_exists=True))
     present = present_columns(conn, table.name)
     for name, column_type in added.items():
@@ -63,10 +56,8 @@ def _create(conn, table: Table, added: dict[str, str]) -> None:
 
 
 def create_files(conn) -> None:
-    """The file table, and the columns one created before them lacks."""
     _create(conn, files, ADDED_FILE_COLUMNS)
 
 
 def create_marks(conn) -> None:
-    """The mark table, and the columns one created before them lacks."""
     _create(conn, marks, ADDED_MARK_COLUMNS)

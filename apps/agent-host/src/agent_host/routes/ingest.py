@@ -1,5 +1,3 @@
-"""URL-based ingestion endpoint for documents stored in SeaweedFS."""
-
 import asyncio
 import hashlib
 import logging
@@ -32,7 +30,6 @@ logger = logging.getLogger(__name__)
 
 
 def add_ingest_routes(router: APIRouter):
-    """Add URL-based ingestion routes to the FastAPI app."""
 
     @router.post(
         "/v1/ingest",
@@ -53,27 +50,6 @@ def add_ingest_routes(router: APIRouter):
         ingestor: BaseIngestor = Depends(_require_ingestor),
         x_grid_organization_id: str | None = Header(default=None),
     ) -> dict:
-        """
-        Submit a job that downloads the presigned URL.
-
-        The BFF upload route writes the file to SeaweedFS and calls this endpoint
-        with a presigned URL so the Python backend can ingest it into the
-        knowledge index. ``folder_path`` (optional) is the materialised
-        project-folder path the document is filed under; it is stamped onto the
-        document's metadata row so surfacing and retrieval can see the filing.
-        ``file_name`` (optional) is the document's identity inside the
-        collection as the BFF knows it; without it the name is derived from the
-        presigned URL's last path segment, which is the object key's basename.
-        ``authored_by``/``approved_by``/``approved_at``/``producer`` (optional,
-        all four together) are the provenance of a document the agent wrote and a
-        person released (ADR-0054); they are stamped onto every chunk and onto
-        the document metadata row, and absent means "a human wrote this".
-        ``x-grid-organization-id`` (forwarded by the BFF for
-        per-project/Archiv uploads) is threaded into the job so the VLM used
-        during ingestion resolves the org's BYOK credential and runtime model
-        override — the ingest thread is detached from the request, so the org
-        id must be captured here and carried in the job config.
-        """
         if not request.collection:
             raise HTTPException(status_code=400, detail="collection is required")
 
@@ -88,13 +64,6 @@ def add_ingest_routes(router: APIRouter):
 
 
 async def _submit(ingestor: BaseIngestor, request: IngestRequest, config: dict) -> str:
-    """Submit the job with the original as a deferred download; 500 when that fails.
-
-    Nothing is downloaded here: the BFF aborts this request after ten seconds
-    and asks once more, so a download inside it was a false "failed" for any
-    file slower than that, and for a retry landing on another replica while
-    the first was still downloading. See ``DeferredObjectDownload``.
-    """
     original = DeferredObjectDownload(request.file_ref)
     try:
         job_id = await asyncio.to_thread(_submit_durably, ingestor, [original], request.collection, config)
@@ -106,10 +75,6 @@ async def _submit(ingestor: BaseIngestor, request: IngestRequest, config: dict) 
 
 
 def _submit_durably(ingestor: BaseIngestor, files: list, collection: str, config: dict) -> str:
-    """Prepare the job and hand it to the durable, fair queue (``jobs.ingest_dispatch``).
-
-    An ingestor that cannot run a job in another process submits it as always.
-    """
     if getattr(ingestor, "supports_durable_jobs", False) is not True:
         return ingestor.submit_job(files, collection, config=config)
     from ..jobs import ingest_dispatch
@@ -120,7 +85,6 @@ def _submit_durably(ingestor: BaseIngestor, files: list, collection: str, config
 
 
 def _job_config(request: IngestRequest, organization_id: str | None, dispatch_key: str | None) -> dict:
-    """The job config this request carries; no URL in it survives a ``repr``."""
     config: dict = {
         "cleanup_files": True,
         "original_filenames": [request.file_name or _extract_filename(request.file_ref)],
@@ -151,14 +115,6 @@ def _job_config(request: IngestRequest, organization_id: str | None, dispatch_ke
 
 
 def _tenant_config(request: IngestRequest, organization_id: str | None) -> dict[str, str]:
-    """Whose job this is: the organization, and the project and user its spend is booked to.
-
-    The org id, so the detached ingest thread resolves the tenant's BYOK VLM
-    credential and runtime model override. The project and the user are who the
-    job's model spend is booked to beside the organization (`_ingest_cost_scope`):
-    attribution on the usage ledger only, never authorization, and only ever
-    within that organization, so neither is stated without it.
-    """
     if not organization_id:
         return {}
     config = {"organization_id": organization_id}
@@ -170,16 +126,6 @@ def _tenant_config(request: IngestRequest, organization_id: str | None) -> dict[
 
 
 def _filing_choice_config(request: IngestRequest) -> dict[str, str]:
-    """Where and as what the person filed this document, for the job's config.
-
-    - ``folder_path``: the folder it was filed into, as the BFF's materialised path
-      (ADR-0049), stamped onto the metadata row: a folder is part of what the agent
-      must know about a document, not only of how the object is keyed.
-    - ``revision_of``: this file replaces that one (CONTEXT.md, "Fassung"). The job
-      writes the confirmed link once the file has been read.
-    - ``document_type``: what this document is (its type tag). The job stores it as
-      the person's type tag, which no classifier pass replaces.
-    """
     choices = {
         "folder_path": (request.folder_path or "").strip(),
         "revision_of": (request.revision_of or "").strip(),
@@ -189,12 +135,6 @@ def _filing_choice_config(request: IngestRequest) -> dict[str, str]:
 
 
 def _mail_config(request: IngestRequest) -> dict:
-    """A filed mail's facts for the job's config (ADR-0137), or nothing.
-
-    The Verlauf's chunks carry its format, and its row and an attachment's row carry
-    what a reader attributes a passage by. Plain JSON, so both ride the durable queue's
-    payload unchanged; the job stores them through the store's normaliser.
-    """
     config: dict = {}
     if request.mail_thread is not None:
         config["source_format"] = MAIL_SOURCE_FORMAT
@@ -205,20 +145,6 @@ def _mail_config(request: IngestRequest) -> dict:
 
 
 def _dispatch_key(request: IngestRequest) -> str | None:
-    """What makes two dispatches the same one: the document, the object it names,
-    and the collection it is written into.
-
-    Not the document alone: a re-upload keeps the document id and writes its
-    bytes under a new key (ADR-0054), and must be indexed even while the
-    previous version's job still runs. Not without the collection: a document
-    moved across a folder restriction (ADR-0087) is dispatched again with the
-    same id and object into its new collection, and joining a live job still
-    writing into the old one would index nothing where it now belongs. The
-    object path is the presigned URL without its query, so the signature, which
-    differs on every signing, is not part of it. Hashed, because the path names
-    the tenant and the key is stored in the shared status table. None without a
-    document id (the OIB corpus sync), which keeps that caller's behaviour.
-    """
     if not request.document_id:
         return None
     path = urlparse(request.file_ref).path
@@ -230,7 +156,6 @@ _dispatch_slots: dict[str, tuple[asyncio.Lock, int]] = {}
 
 @asynccontextmanager
 async def _dispatch_slot(dispatch_key: str | None) -> AsyncIterator[None]:
-    """Serialise the dispatches of one key on this replica; no-op without a key."""
     if dispatch_key is None:
         yield
         return
@@ -248,8 +173,6 @@ async def _dispatch_slot(dispatch_key: str | None) -> AsyncIterator[None]:
 
 
 async def _live_job(ingestor: BaseIngestor, dispatch_key: str | None) -> str | None:
-    """The live job for this key, if the ingestor knows one. Never raises: a failed
-    lookup is a dispatch that submits, which is what every dispatch did before."""
     if dispatch_key is None:
         return None
     try:
@@ -261,29 +184,6 @@ async def _live_job(ingestor: BaseIngestor, dispatch_key: str | None) -> str | N
 
 
 class DeferredObjectDownload:
-    """A gated object-store GET the ingest job runs when it reaches the file.
-
-    Why deferred: the BFF aborts ``POST /v1/ingest`` after ten seconds, asks
-    once more, and marks the row failed when that times out too, while this
-    route may still go on to submit the job; everything slow between the
-    request and the job id is a false failure waiting to happen. The original
-    (``file_ref``) and its PDF rendition (``extraction_ref``, ADR-0071) are
-    each up to tens of megabytes, so the route gates both URLs and hands the
-    job this object instead of the bytes (``knowledge_layer.ingest.deferred_files``).
-
-    The URL is a presigned GET, a bearer credential: it lives in a private slot
-    and never in ``repr``, so a job config that is logged, printed or shown in
-    a traceback carries ``<deferred object download>`` and nothing a reader
-    could replay. Calling it downloads to a new temp file, which the caller
-    then owns and deletes, and raises on any failure. Without a ``suffix`` the
-    temp file's extension is inferred from the response's content type, as the
-    job's parser dispatches by it.
-
-    The job runs when the bounded ingest pool reaches it, which can be minutes
-    after this request, so the BFF signs these URLs to outlive the queue
-    (an hour, ``dispatchIngest``).
-    """
-
     __slots__ = ("_suffix", "_url")
 
     def __init__(self, url: str, suffix: str | None = None) -> None:
@@ -294,17 +194,10 @@ class DeferredObjectDownload:
         return "<deferred object download>"
 
     def to_payload(self) -> dict[str, str | None]:
-        """The URL and suffix, for the durable ingest queue's ENCRYPTED payload only."""
         return {"url": self._url, "suffix": self._suffix}
 
     @classmethod
     def from_payload(cls, data: dict) -> DeferredObjectDownload:
-        """Rebuild one from a queue payload, through the same SSRF gates a request meets.
-
-        A row in the queue is not a request this route validated a moment ago:
-        without a KEK it is plaintext anyone who can write the table can forge,
-        so the gates run again before the worker requests anything.
-        """
         url = data["url"]
         assert_fetchable_object_store_url(url)
         return cls(url, data.get("suffix"))
@@ -341,13 +234,6 @@ def _get_original_once(url: str) -> httpx.Response:
 
 
 def _get_original(url: str) -> httpx.Response:
-    """GET the object, again when the store cut the response short.
-
-    Connect failures are retried by the transport, before any byte is sent. A
-    reset mid-response (``RemoteProtocolError``, ``ReadError``; PostHog Logs,
-    2026-11-02 14:44 to 14:47, 118 failed downloads) reached the store, so the
-    retry is a second GET, which is safe for a presigned object and never a write.
-    """
     for _ in range(_DOWNLOAD_RESPONSE_ATTEMPTS - 1):
         try:
             return _get_original_once(url)
@@ -357,16 +243,6 @@ def _get_original(url: str) -> httpx.Response:
 
 
 def _provenance_config(request: IngestRequest) -> dict[str, str]:
-    """The provenance keys this request carries, empty fields dropped.
-
-    The four names are spelled in ``agent.common.provenance`` and read back
-    from chunk metadata by the same module; this route neither renames nor
-    validates them, because a route that re-spells a metadata key is where the
-    BFF and the parser silently stop agreeing. An ``authored_by`` that is not
-    ``agent`` is dropped along with the rest: the one value the retrieval side
-    acts on is that token, so anything else is an unmarked document and must not
-    arrive carrying half a provenance.
-    """
     from agent.common.provenance import AGENT_AUTHOR
     from agent.common.provenance import KEY_APPROVED_AT
     from agent.common.provenance import KEY_APPROVED_BY
@@ -386,15 +262,6 @@ def _provenance_config(request: IngestRequest) -> dict[str, str]:
 
 
 def _infer_suffix(content_type: str, url: str) -> str:
-    """Infer file extension from content-type or URL path.
-
-    The suffix lands directly in the temp filename the ingestion job writes
-    (``NamedTemporaryFile(suffix=...)``), so it must be a plain extension and
-    nothing else. Two defences: it is derived from a fixed map when possible,
-    and the URL-path fallback is scrubbed to ``[a-zA-Z0-9.]`` with a length
-    cap — a hostile path segment (``.pdf/../../etc``, ``.exe%2f..``) can no
-    longer smuggle separators or traversal into the temp path.
-    """
     content_map = {
         "application/pdf": ".pdf",
         "text/plain": ".txt",
@@ -425,16 +292,6 @@ def _infer_suffix(content_type: str, url: str) -> str:
 
 
 def _extract_filename(url: str) -> str:
-    """Extract the real filename from a (presigned) URL path.
-
-    The path segment is percent-encoded by the S3 presigner (a storage key
-    ``.../doc/{id}/Zürich Plan.pdf`` becomes ``.../Z%C3%BCrich%20Plan.pdf``),
-    so the basename must be URL-decoded. This value is persisted as the chunk
-    ``file_name`` metadata, and deletion matches chunks by that exact string
-    against the raw DB filename. Skipping the decode stored the encoded form,
-    so any document whose name contained a space or non-ASCII character (common
-    in the German OIB corpus) could never have its vectors deleted.
-    """
     path = urlparse(url).path
     filename = unquote(os.path.basename(path))
     if not filename or filename == "/":

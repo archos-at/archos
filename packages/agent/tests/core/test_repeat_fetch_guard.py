@@ -1,34 +1,3 @@
-"""A turn fetches each passage once: the second identical call is not made.
-
-Within one turn the model re-asks for what it already holds — the same
-``read_passage(document, clause)`` a round later, the same ``knowledge_search``
-query with the same narrowing. Until now only prompt prose forbade it ("a
-second identical search is wasted"), and prose does not hold: the call is
-charged when the model emits it and never refunded, so a re-fetch costs the
-round that would have found the thing it was still missing.
-
-The guard is built on ONE pure derivation (``common.retrieval_rounds.repeat_fetches``) read in
-BOTH nodes — the agent node decides what to charge, the tools node what to run.
-It is the only guard on that seam now that the round-zero fan-out cap is gone.
-So these tests go through the COMPILED
-GRAPH and assert both halves; a unit test of either one passes while they
-disagree, and a disagreement means either a charge for a call nothing executed
-or a call nothing paid for.
-
-The transcript invariant is pinned here too. The AIMessage keeps every tool
-call it made and each one gets exactly one result — the withheld ones get the
-FIRST execution's own result back, behind one line saying it is the earlier one
-— because a provider rejects a tool result with no matching call, and rejects
-an un-answered call too.
-
-What a withheld repeat is ANSWERED with is the other half of the guard. A tool
-delivers an answer; a sentence pointing at the transcript ("das Ergebnis oben
-ist die Antwort") asks the model to go and find something, and a model that
-cannot find it asks a third time. So the cached result comes back verbatim, and
-the retry the notice was trying to talk the model out of has nothing left to
-want.
-"""
-
 from __future__ import annotations
 
 from unittest.mock import AsyncMock
@@ -60,7 +29,7 @@ RAN: list[str] = []
 STAMPS: list[tuple[str, int | None]] = []
 
 
-@tool
+@tool(description="Search the OIB knowledge corpus.")
 def knowledge_search(
     query: str,
     doc_class: str | None = None,
@@ -69,7 +38,6 @@ def knowledge_search(
     folder: str | None = None,
     filters: dict | None = None,
 ) -> str:
-    """Search the OIB knowledge corpus."""
     if query in FAILING_QUERIES:
         FAILING_QUERIES.discard(query)
         RAN.append(f"knowledge_search:{query}|{file_name or ''}:failed")
@@ -82,9 +50,8 @@ def knowledge_search(
     return f"Treffer zu: {query}"
 
 
-@tool
+@tool(description="Open a named passage of a known document.")
 def read_passage(document: str, clause: str | None = None, page: int | None = None) -> str:
-    """Open a named passage of a known document."""
     RAN.append(f"read_passage:{document}|{clause or ''}|{page or ''}")
     STAMPS.append(("read_passage", current_retrieval_round()))
     return f"Passage aus {document}"
@@ -93,23 +60,20 @@ def read_passage(document: str, clause: str | None = None, page: int | None = No
 FAILING_QUERIES: set[str] = set()
 
 
-@tool
+@tool(description="Search Austrian law in RIS.")
 def ris_search_tool(query: str) -> str:
-    """Search Austrian law in RIS."""
     RAN.append(f"ris_search_tool:{query}")
     return f"RIS-Treffer zu: {query}"
 
 
-@tool
+@tool(description="Search the web.")
 def web_search_tool(query: str) -> str:
-    """Search the web."""
     RAN.append(f"web_search_tool:{query}")
     return f"Web-Treffer zu: {query}"
 
 
-@tool
+@tool(description="Emit a UI card.")
 def emit_card(kind: str) -> str:
-    """Emit a UI card."""
     RAN.append(f"emit_card:{kind}")
     STAMPS.append(("emit_card", current_retrieval_round()))
     return "Karte erstellt"
@@ -132,7 +96,6 @@ def _clean_slate():
 
 @pytest.fixture(autouse=True)
 def _bypass_citation_pipeline():
-    """The answer pipeline is not what these tests are about."""
     with (
         patch.object(SourceRegistry, "all_sources", return_value=[SourceEntry(url="https://example.com")]),
         patch("agent.core.answer_pipeline.verify_citations") as verify,
@@ -153,7 +116,6 @@ def _agent(llm: MagicMock) -> ChatAgent:
 
 @pytest.fixture
 def scripted_agent():
-    """A ChatAgent whose LLM plays a fixed script of tool rounds."""
 
     def build(*rounds: AIMessage) -> ChatAgent:
         llm = MagicMock()
@@ -167,7 +129,6 @@ def scripted_agent():
 
 @pytest.fixture
 def steps(emitted):
-    """Every body the producers wrote during the test (``tests/conftest.py``)."""
     return emitted
 
 
@@ -193,12 +154,10 @@ def _answer_for(result, call_id: str) -> str:
 
 
 def _is_repeat_notice(text: str) -> bool:
-    """Whether a tool result is the guard's answer rather than a fresh fetch."""
     return text.startswith(_REPEAT_FETCH_PREFIX) or text == _REPEAT_FETCH_MESSAGE
 
 
 def _asked(result) -> list[str]:
-    """Every tool-call id the model asked for, in order."""
     return [call["id"] for m in result.messages if isinstance(m, AIMessage) for call in (m.tool_calls or [])]
 
 
@@ -233,7 +192,6 @@ class TestTheSecondIdenticalFetch:
         assert record.channel == turn_status.CHANNEL_TECHNICAL
 
     async def test_two_identical_calls_in_ONE_batch_run_once(self, scripted_agent):
-        """The first occurrence runs; the rest are the same guess said twice."""
         agent = scripted_agent(
             _batch(
                 _call("read_passage", "a", document="OIB-Richtlinie 2", clause="3.5.2"),
@@ -249,7 +207,6 @@ class TestTheSecondIdenticalFetch:
         assert result.tool_iterations == 1
 
     async def test_case_whitespace_and_a_trailing_dot_are_the_same_passage(self, scripted_agent):
-        """How the model typed the address is not part of the address."""
         agent = scripted_agent(
             _batch(_call("read_passage", "a", document="OIB-Richtlinie 2.pdf", clause="3.5.2.")),
             _batch(_call("read_passage", "b", document="  oib-richtlinie 2.PDF ", clause="3.5.2")),
@@ -262,8 +219,6 @@ class TestTheSecondIdenticalFetch:
         assert _answer_for(result, "b") == f"{_REPEAT_FETCH_PREFIX}\n\nPassage aus OIB-Richtlinie 2.pdf"
 
     async def test_every_call_still_gets_exactly_one_result(self, scripted_agent):
-        """The transcript invariant: a provider rejects an un-answered call and
-        rejects a result with no call, so the two sets must be equal."""
         agent = scripted_agent(
             _batch(
                 _call("knowledge_search", "a", query="Fluchtweg"),
@@ -294,7 +249,6 @@ class TestWhatIsNotARepeat:
         assert result.tool_iterations == 2
 
     async def test_the_same_query_narrowed_to_another_file_is_another_search(self, scripted_agent):
-        """A narrowing argument changes which corpus answers, so it is identity."""
         agent = scripted_agent(
             _batch(_call("knowledge_search", "a", query="Fluchtweg")),
             _batch(_call("knowledge_search", "b", query="Fluchtweg", file_name="Brandschutz.pdf")),
@@ -308,7 +262,6 @@ class TestWhatIsNotARepeat:
         assert result.tool_iterations == 2
 
     async def test_a_tool_that_is_not_a_fetch_is_never_withheld(self, scripted_agent):
-        """Two identical cards are two cards. Only a passage is the same bytes twice."""
         agent = scripted_agent(
             _batch(_call("emit_card", "a", kind="legal_basis")),
             _batch(_call("emit_card", "b", kind="legal_basis")),
@@ -323,13 +276,6 @@ class TestWhatIsNotARepeat:
 
 class TestTheGuardIsTheOnlyOneOnTheSeam:
     async def test_a_batch_keeps_everything_but_its_own_duplicate(self, scripted_agent):
-        """A first round of three searches runs three searches, minus the repeat.
-
-        Nothing caps a round's fan-out any more: the budget bounds what a turn
-        may spend without judging the shape of one round. What is still withheld
-        is only the call whose answer the turn already holds — here the second
-        „Fluchtweg", identical to the first in the same batch.
-        """
         agent = scripted_agent(
             _batch(
                 _call("knowledge_search", "a", query="Fluchtweg"),
@@ -349,15 +295,6 @@ class TestTheGuardIsTheOnlyOneOnTheSeam:
 
 
 class TestAFailedFetchIsNotAFetch:
-    """The guard withholds a repeat because the answer is already above.
-
-    That is only true when something was fetched. Both retrieval tools answer
-    an unreachable store with prose asking the model to RETRY the identical
-    call — so a failure that signed itself as executed turned the tool's own
-    instruction into a call the guard refused, and the passage was never read
-    at all. Nothing in the answer would have said so.
-    """
-
     async def test_the_retry_of_a_failed_search_runs(self, scripted_agent):
         FAILING_QUERIES.add("Fluchtweglänge GK4")
         agent = scripted_agent(
@@ -376,8 +313,6 @@ class TestAFailedFetchIsNotAFetch:
         assert _answer_for(result, "b") == "Treffer zu: Fluchtweglänge GK4"
 
     async def test_a_third_call_after_the_retry_succeeded_is_withheld_again(self, scripted_agent):
-        """The exemption is the failure, not the query: once it answers, the
-        guard is back."""
         FAILING_QUERIES.add("Fluchtweglänge GK4")
         agent = scripted_agent(
             _batch(_call("knowledge_search", "a", query="Fluchtweglänge GK4")),
@@ -394,15 +329,6 @@ class TestAFailedFetchIsNotAFetch:
 
 class TestTheLoopStillTerminates:
     async def test_a_model_that_repeats_forever_reaches_synthesis(self):
-        """A withheld fetch is free; the round that asked for it is not.
-
-        The round cost an LLM call and two graph steps and nothing ran to pay
-        for them, so it is charged one ROUND — the budget it was trying to
-        spend. That is what ends this loop: the model walks into the ceiling in
-        at most `ceiling` rounds and is forced into synthesis, instead of
-        running until ``GraphRecursionError`` and leaving the reader no answer
-        at all.
-        """
         rounds = {"n": 0}
 
         async def _reply(messages, **_kwargs):
@@ -427,38 +353,17 @@ class TestTheLoopStillTerminates:
 
 class TestTheNoticeItself:
     def test_the_prefix_labels_the_result_and_says_what_to_do_next(self):
-        """It must read as the EARLIER result, not as a second agreeing one.
-
-        Two answers that look independent are two sources to a model counting
-        agreement, which is exactly the false confidence the guard is supposed
-        to save the turn from paying for twice.
-        """
         assert "already" in _REPEAT_FETCH_PREFIX
         assert "not executed again" in _REPEAT_FETCH_PREFIX
         assert "different" in _REPEAT_FETCH_PREFIX
 
     def test_the_fallback_still_says_the_answer_is_already_there(self):
-        """When the turn does not hold the result, an error string would invite
-        a retry of the identical call."""
         assert "already" in _REPEAT_FETCH_MESSAGE
         assert "result above" in _REPEAT_FETCH_MESSAGE
         assert "different" in _REPEAT_FETCH_MESSAGE
 
 
 class TestWhatTheSurvivingCallIsFiledUnder:
-    """The round stamp is derived from the calls that RUN, never from the raw message.
-
-    The two nodes agree about which calls are withheld; the stamp has to agree
-    too. The agent node decides „is this a retrieval round?" off what SURVIVED
-    the guards — a round whose only fetch was withheld announces nothing and
-    advances no counter — while the tools node used to ask the same question of
-    the AIMessage, which still carries every call the model asked for. A round
-    of [duplicate fetch, emit_card] therefore answered „yes" on one side and
-    „no" on the other, and the card's result was filed under the PREVIOUS
-    round's search: a layer of the Herleitung gaining a fact that belongs to
-    nothing it did.
-    """
-
     async def test_a_surviving_action_call_is_not_filed_under_the_last_search(self, scripted_agent):
         agent = scripted_agent(
             _batch(_call("read_passage", "a", document="OIB-Richtlinie 2", clause="3.5.2")),
@@ -477,8 +382,6 @@ class TestWhatTheSurvivingCallIsFiledUnder:
         ]
 
     async def test_a_round_that_still_fetches_keeps_its_own_number(self, scripted_agent):
-        """The guard took one call; the round is still a fetch round, and the
-        search that survived is filed under the round that announced it."""
         agent = scripted_agent(
             _batch(_call("knowledge_search", "a", query="Fluchtweg")),
             _batch(

@@ -12,7 +12,7 @@ Older, deeper material is still right and is linked rather than repeated:
 ADR-0076 (the claim queue, superseded), ADR-0117 (the page pipeline, proposed,
 not built), ADR-0150 (Hatchet, which now runs the job: section 7).
 
-Short forms: **A** is `packages/knowledge-layer/src/ingest/adapter.py`, **S** is
+Short forms: **A** is `packages/knowledge-layer/src/knowledge_layer/ingest/adapter.py`, **S** is
 `apps/workspace/bff/documents/service.ts` as it stood before it was split (its `S:N` line references are from then; `dispatchDocument` is now in `document-dispatch.ts`, `dispatchIngest` in `ingest-dispatch.ts`), **D** is
 `apps/agent-host/src/agent_host/jobs/ingest_dispatch.py`.
 
@@ -108,15 +108,6 @@ priority), mail import, a quarantine release, an unarchive, a published agent
 version. IFC models take a side road (`bim_extract`) and come back as a Markdown
 digest. A failure to start is final at once: `markDocumentIngestFailed("Ingestion
 could not be started")` (S:526).
-
-A queue row moves through four statuses, and the database holds it to them
-(`common/claim_queue_schema.py`, a trigger installed with the table): a row is born
-`queued`; a live row (`queued` or `claimed`) may be claimed, given back, cancelled
-or retired `dead`; a retired row (`dead` or `cancelled`) never changes status again
-and leaves only when `purge_retired` deletes it. Any other write fails with
-`check_violation`, whichever code path issued it. The status store's `ingest_jobs`
-has no such guard on purpose: there the owner's late write wins over a row another
-replica settled as interrupted.
 
 ## 3. Inside one file
 

@@ -1,17 +1,3 @@
-"""The „Grundstücke“ pages: every parcel of a Katastralmappe, as text (ADR-0152).
-
-The drawing shows the parcels; this lists them, with what the map alone can
-tell: the number, the cadastral community, which cadastre it is in, its area as
-drawn, and the parcels that share a boundary with it in this extract. It is real
-text on a PDF page of the rendition, so the index reads it and a citation opens
-at it: what makes "how big is 123/4, and who are its neighbours?" answerable
-from the uploaded file, with nothing else built for it.
-
-Set on A4 upright sheets in the same frame and title block as the drawing. The
-area is labelled for what it is: computed from the boundary as drawn, graphic in
-the Grundsteuerkataster, and never the land register's Flächenausmaß.
-"""
-
 from __future__ import annotations
 
 from collections.abc import Iterator
@@ -50,7 +36,6 @@ _FAINT = "#d9d6d2"
 
 
 def table_sheet() -> Sheet:
-    """A4 upright, the sheet every list page is set on."""
     width, height = PAPERS_MM["A4"]
     return Sheet("A4", (height, width), None)
 
@@ -60,7 +45,6 @@ def rows_per_page(sheet: Sheet) -> int:
 
 
 def draw_parcel_pages(parcels: list[Parcel], facts: SheetFacts) -> Iterator[Figure]:
-    """One figure per page of the list, at most ``MAX_PAGES`` of them, made as they are asked for."""
     sheet = table_sheet()
     per_page = rows_per_page(sheet)
     chunks = [parcels[start : start + per_page] for start in range(0, len(parcels), per_page)][:MAX_PAGES]

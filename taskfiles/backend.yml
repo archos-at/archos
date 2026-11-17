@@ -414,8 +414,7 @@ tasks:
 
   be:test:postgres:
     desc: >-
-      The claim-queue suites' Postgres branch (production's SQL), the research
-      cutover's row locks against the old claim, the rename of
+      The folder card builder's Postgres branch (production's SQL), the rename of
       the row-level-security roles, and the metadata store's mail records, against a
       throwaway cluster. Needs PostgreSQL server binaries.
     cmds:
@@ -423,8 +422,6 @@ tasks:
       # in the one scratch database.
       - >-
         bash scripts/rls-test-db.sh --exec "{{.PY}}" -X faulthandler -m pytest -q
-        packages/agent/tests/common/test_claim_queue.py
         packages/agent/tests/knowledge/folder_cards
         tests/test_postgres_rename_legacy_names.py
         packages/agent/tests/knowledge/test_mail_facts.py
-        apps/agent-host/tests/test_research_cutover.py

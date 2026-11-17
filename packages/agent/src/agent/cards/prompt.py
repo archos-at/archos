@@ -1,5 +1,3 @@
-"""Shared prompt builder for post-hoc Grid response card generation."""
-
 from agent.cards.catalog import CHAT_ONLY_CARD_TYPES
 from agent.cards.catalog import render_card_catalog
 from agent.cards.catalog import render_card_doctrine
@@ -30,45 +28,6 @@ built: the substance the report turns on first."""
 
 
 def build_card_generation_prompt() -> str:
-    """Build a system prompt for batch card generation from a finished report.
-
-    Renders the same catalog AND the same trigger doctrine as the ``emit_card``
-    tool (:func:`agent.cards.catalog.render_card_catalog` and
-    :func:`~agent.cards.catalog.render_card_doctrine`), so neither the card
-    shapes nor the question of which content takes which card can drift between
-    the two surfaces. The doctrine matters most here: this path produces cards
-    for the LONGEST answers Grid writes, and until it rendered the doctrine its
-    entire instruction was "only include a card when it adds real value" — the
-    disclaimer that left fifteen diagram renderers unused everywhere else.
-
-    Three things are this path's own, and all three follow from it being
-    post-hoc — handed a question and a finished report, with no tool output, no
-    answer being written and no skill runtime:
-
-    * The ``[[card:N]]`` placement contract is withheld and replaced by an
-      ordering rule, because there is no text to place a marker into.
-    * The IFC triggers are withheld (``include_ifc_triggers=False``), matching
-      the model-backed cards this path is already not shown.
-    * The per-card craft is withheld (``include_craft=False``) and the grounding
-      rule leads instead, with a short post-hoc-truthful craft block standing in:
-      the shared craft is written for an agent still composing the answer, and
-      the only judgement available here is a test over the report as handed.
-
-    The IFC cards are withheld because this path is handed only the question
-    and the finished answer TEXT — no tool output. Every field that identifies
-    something in those cards is an IFC GlobalId, a rule id or a model file
-    name, none of which can be derived from prose; the model would have to
-    scavenge them out of the answer or invent them, and an id that resolves to
-    nothing renders as a missing element. The ``emit_card`` tool keeps them,
-    because its caller has the ``ifc_query`` rows in context.
-
-    ``ifc_model_picker`` is the one IFC card whose shape is NOT withheld: it
-    carries a heading and no file name, so there is nothing in it to invent.
-    Only its trigger goes, because that trigger is a live "show me the model"
-    intent in the turn being answered and instructs the model to emit the card
-    instead of writing the file names as prose — a trade unavailable once the
-    prose is written.
-    """
     return (
         "You are a structured-output assistant. Given a user question and the finished report that "
         'answered it, produce Grid response cards as a JSON object of the form {"cards": [ ...card '

@@ -1,36 +1,3 @@
-"""Cross-cutting request-context headers (backlog T3-9).
-
-The Next.js BFF sends a family of internal ``X-Grid-*`` headers on every
-submission path (WS upgrade in ``server.js``, the async-jobs REST proxy, the
-workflow-scheduler's internal submit) carrying the caller's org/project
-identity, collection scope, project context/memory, per-org model overrides,
-budget snapshot, and org-disabled data sources. In Python and the agent runtime these headers
-are accessed lowercased via ``Context`` metadata.
-
-``RequestContext`` (below) is the single dataclass + parse function that
-reads ALL of them in one place, mirroring the TS builder at
-``apps/workspace/bff/request-context.ts`` (see that module's docstring for
-the full header-inventory table and encodings). The two are pinned together
-by the contract fixture ``apps/workspace/tests/fixtures/request_context.json``::
-
-    X-Grid-Project-Context: base64url(<project context string>)
-    X-Grid-Org-Instructions: base64url(<the office's standing instructions>)
-
-When a header is missing the system falls back to ``None``/defaults, and
-prompt templates skip the corresponding context block.
-
-Canonical *runtime* parsers for ``collection_scope``, ``model_overrides``,
-``budget``, and ``disabled_sources`` continue to live in their own modules —
-``knowledge/scoping.py``, ``common/model_overrides.py``,
-``common/cost_tracking.py``, ``common/data_sources.py`` respectively. Those
-modules are owned elsewhere; ``RequestContext`` parses the same headers
-independently (not by importing them) purely so the contract fixture can pin
-the wire format from the Python side without creating a dependency on
-modules this file doesn't own. Agent code that needs model overrides,
-budget, or disabled sources should keep calling those modules' own
-accessors, not ``RequestContext``.
-"""
-
 import base64
 import hashlib
 import hmac
@@ -97,16 +64,6 @@ logger = logging.getLogger(__name__)
 
 
 def _normalize_federal_state(value: Any) -> str | None:
-    """Validate a raw envelope `federalState` value against the token vocabulary.
-
-    The German tokens (`wien`) are what an envelope minted by an older BFF, or one a
-    long-running job still carries, names; they are read as the English ones.
-
-    Anything that isn't a known token — wrong type, typo, stale/unknown value
-    from a future frontend — is treated as absent (debug-logged) so a caller
-    always gets either a trustworthy token or `None`, never a raw
-    unvalidated string.
-    """
     if not isinstance(value, str):
         return None
     token = normalize_profile_token("federal_state", value.strip().lower())
@@ -118,7 +75,6 @@ def _normalize_federal_state(value: Any) -> str | None:
 
 
 def normalize_project_context(value: str | None, *, max_chars: int = 4000) -> str | None:
-    """Normalize and limit project context string."""
     if not value:
         return None
     value = value.strip()
@@ -131,14 +87,6 @@ def normalize_project_context(value: str | None, *, max_chars: int = 4000) -> st
 
 
 def normalize_org_instructions(value: str | None) -> str | None:
-    """Bound the office's instruction block, marking it when it had to be cut.
-
-    Separate from :func:`normalize_project_context` because the two degrade
-    differently. Project context is a brief the renderer may quietly shorten at
-    a line break; an instruction block is a list of things somebody asked for,
-    and dropping the last two without saying so leaves the model reading a
-    complete-looking set that is not the set the office wrote.
-    """
     if not value:
         return None
     text = value.strip()
@@ -150,7 +98,6 @@ def normalize_org_instructions(value: str | None) -> str | None:
 
 
 def _read_header(name: str) -> str | None:
-    """Read a raw header value from agent-runtime Context metadata."""
     try:
         from nat.plugin_api import Context
 
@@ -164,10 +111,6 @@ def _read_header(name: str) -> str | None:
 
 
 def _base64url_decode_text(raw: str) -> str:
-    """Base64url-decode *raw* to text, falling back to *raw* unchanged if
-    decoding — or the decoded bytes not being valid UTF-8 — fails (older
-    proxy sending a raw, unencoded value).
-    """
     try:
         padded = raw + "=" * (-len(raw) % 4)
         return base64.urlsafe_b64decode(padded.encode("ascii")).decode("utf-8")
@@ -176,13 +119,6 @@ def _base64url_decode_text(raw: str) -> str:
 
 
 def _read_encoded_header(name: str) -> str | None:
-    """Read a base64url-encoded multi-line header (falls back to raw).
-
-    ``x-grid-project-context`` and ``x-grid-project-memory`` carry MULTI-LINE
-    text; server.js base64url-encodes them because Node rejects newlines in
-    header values. Decode here; if decoding fails (older proxy sending raw
-    single-line values), fall back to the raw string.
-    """
     raw = _read_header(name)
     if not raw:
         return None
@@ -190,12 +126,6 @@ def _read_encoded_header(name: str) -> str | None:
 
 
 def _read_json_header(name: str) -> Any | None:
-    """Base64url-decode + JSON-parse a structured header value.
-
-    Absent or malformed values decode to ``None`` — a caller asking "what did
-    the org configure" must never see an exception just because a header was
-    missing or mangled; that must read the same as "nothing configured".
-    """
     raw = _read_header(name)
     if not raw:
         return None
@@ -207,7 +137,6 @@ def _read_json_header(name: str) -> Any | None:
 
 
 def _normalize_raw_id(value: str | None) -> str | None:
-    """Trim a raw single-value header (org/user/project id) to None-or-str."""
     if not value:
         return None
     value = value.strip()
@@ -225,7 +154,6 @@ def _one_line(value: Any) -> str | None:
 
 
 def _as_requester(value: Any) -> dict[str, str | None] | None:
-    """The envelope's ``requester``, each field one bounded line; None when it names nobody."""
     if not isinstance(value, dict):
         return None
     requester = {field: _one_line(value.get(field)) for field in ("name", "email", "organizationName")}
@@ -239,22 +167,6 @@ def _as_str_list(value: Any) -> list[str] | None:
 
 
 def _as_scope_entries(value: Any) -> list[Any] | None:
-    """The raw ``collectionScope`` payload, in either wire shape (ADR-0047).
-
-    Current shape: ``[{"collection": "s_9f2a", "shelf": "session"}, …]`` — the
-    shelf travels as data. Legacy shape: a bare array of collection names, which
-    states no shelf at all. Entries may be mixed while a rollout is in flight.
-    An entry in NEITHER shape (an object with no ``collection``, a number)
-    rejects the payload wholesale, exactly as ``_as_str_list`` did: the scope is
-    an authorization boundary, so an UNREADABLE one is no scope at all.
-
-    A BLANK name (``""``, ``{"collection": "   "}``) is a different case and is
-    kept here on purpose: it is perfectly readable and simply names no
-    collection, so it is dropped per-entry by :func:`_scope_names` instead of
-    voiding an otherwise valid payload. Same rule, same reasoning, as the twin
-    parser ``agent.knowledge.scoping._parse_scope_payload`` — see its
-    docstring for why a blank name is not an unreadable one.
-    """
     if not isinstance(value, list):
         return None
     for item in value:
@@ -267,13 +179,6 @@ def _as_scope_entries(value: Any) -> list[Any] | None:
 
 
 def _scope_names(entries: list[Any] | None) -> list[str] | None:
-    """Collection names of :func:`_as_scope_entries`' output, shelves dropped.
-
-    A blank name is dropped rather than projected: it authorizes nothing, and
-    emitting ``""`` here would put an entry in this list that the resolver
-    (``agent.knowledge.scoping._parse_scope_payload``) skips — the two sides
-    of the seam would then disagree about what the same payload means.
-    """
     if entries is None:
         return None
     names = [item if isinstance(item, str) else item["collection"] for item in entries]
@@ -291,32 +196,18 @@ def _as_dict(value: Any) -> dict[str, Any] | None:
 
 
 def _as_epoch_millis(value: Any) -> int | None:
-    """The envelope's ``issuedAt`` as an int, or ``None`` when it is not a number.
-
-    A bool is rejected explicitly: ``isinstance(True, int)`` is true in Python,
-    and ``issuedAt: true`` would otherwise become the timestamp 1.
-    """
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         return None
     return int(value)
 
 
 def _read_memory_reflection_flag() -> bool:
-    """Fails closed: absent/anything-but-'true' header → False, so a missing
-    header (older proxy, non-WS entrypoint) keeps the stage off rather than
-    silently on.
-    """
     raw = _read_header(MEMORY_REFLECTION_FEATURE_HEADER)
     return (raw or "").strip().lower() == "true"
 
 
 @dataclass(frozen=True)
 class RequestContext:
-    """Every ``X-Grid-*`` cross-cutting context header for one request,
-    parsed in one place. See the module docstring for scope/ownership notes
-    and the TS twin (``apps/workspace/bff/request-context.ts``).
-    """
-
     organization_id: str | None = None
     user_id: str | None = None
     project_id: str | None = None
@@ -339,18 +230,6 @@ class RequestContext:
 
     @classmethod
     def from_context(cls) -> RequestContext:
-        """Read every ``X-Grid-*`` header from the current agent-runtime Context in one
-        pass. This is the low-level parse the module-level accessor
-        functions below (``get_project_id_from_context`` etc.) delegate to —
-        call this directly when you need more than one field, so the request
-        is only walked once.
-
-        The signed ``X-Grid-Request-Context`` envelope (see
-        ``from_envelope``) takes precedence when present and valid: an
-        invalid signature is treated as an ABSENT envelope (logged as a
-        WARNING — a tamper signal) and this method falls back to parsing the
-        individual headers below, exactly as before the envelope existed.
-        """
         envelope = cls.from_envelope(
             _read_header(REQUEST_CONTEXT_ENVELOPE_HEADER),
             _read_header(REQUEST_CONTEXT_ENVELOPE_SIG_HEADER),
@@ -384,29 +263,6 @@ class RequestContext:
         sig: str | None,
         secret: str | None,
     ) -> RequestContext | None:
-        """Parse + verify the signed ``X-Grid-Request-Context`` envelope.
-
-        Returns ``None`` (treated as ABSENT by every caller — ``from_context``
-        falls back to the individual headers, and the enforcement middleware
-        in ``agent_host`` treats it as "no envelope") when:
-
-        - ``header_value`` is missing/blank;
-        - the base64url payload fails to decode or does not parse as a JSON
-          object;
-        - ``secret`` is configured (the normal, production case) and ``sig``
-          is missing or does not match the HMAC-SHA256 of the raw JSON —
-          logged as a WARNING, since a present-but-wrong signature is a
-          tamper signal worth surfacing, not routine absence.
-
-        When ``secret`` is falsy (``INTERNAL_API_TOKEN`` unset — dev
-        only), signature verification is skipped and the envelope is
-        accepted on shape alone: the token is how the two BFF/backend
-        processes share a secret, so without it there is nothing to verify
-        against, but that must not silently disable the envelope mechanism
-        itself. The enforcement middleware documents the same fail-open
-        choice at its call site: envelope PRESENCE is still required for
-        authenticated requests even when signature verification is skipped.
-        """
         if not header_value:
             return None
 
@@ -459,27 +315,6 @@ class RequestContext:
 
     @classmethod
     def from_headers(cls, headers: dict[str, str], *, secret: str | None = None) -> RequestContext:
-        """Parse a ``RequestContext`` from an explicit header map instead
-        of a live agent-runtime Context.
-
-        This is the cross-language contract-test entry point: the fixture at
-        ``apps/workspace/tests/fixtures/request_context.json`` carries
-        ``{name, input, headers}`` cases; the TS side asserts
-        ``buildRequestContextHeaders(input) == headers`` and the Python
-        side (``packages/agent/tests/test_project_context.py``) asserts
-        ``RequestContext.from_headers(headers)`` matches ``input``. A
-        producer that forgets a header, or that encodes one differently,
-        fails this fixture instead of silently degrading in production.
-
-        Header names are matched case-insensitively, mirroring how the
-        ASGI/WS layer populates ``Context.metadata.headers``.
-
-        When the header map carries a signed envelope
-        (``X-Grid-Request-Context`` / ``-Sig``), it takes precedence over the
-        individual headers, exactly like ``from_context`` — pass ``secret``
-        to verify it (omit/None to skip verification, e.g. when a test case
-        only exercises the individual-header path).
-        """
         lower = {k.lower(): v for k, v in headers.items()}
 
         def raw(name: str) -> str | None:
@@ -528,101 +363,41 @@ class RequestContext:
 
 
 def get_profile_context_from_context() -> str | None:
-    """Read just the intake-profile context (``X-Grid-Project-Context``).
-
-    The profile changes rarely and via a fresh handshake, so the connection-time
-    header value is fine. Memory, by contrast, is re-served per turn (see
-    ``compose_project_context``).
-    """
     return RequestContext.from_context().project_context
 
 
 def get_memory_digest_from_context() -> str | None:
-    """Read the memory digest that rode the WS-upgrade header.
-
-    This is the connection-time snapshot; it is frozen for the connection's life.
-    The chat entrypoint re-fetches a live digest each turn and only falls back to
-    this header value when the live fetch is unavailable.
-    """
     return RequestContext.from_context().project_memory
 
 
 def compose_project_context(context: str | None, memory: str | None) -> str | None:
-    """Combine intake-profile context and the memory digest into one blob.
-
-    Composed in one place so every caller and prompt template picks memory up
-    transparently as part of the single ``project_context`` value.
-    """
     if context and memory:
         return f"{context}\n\n{memory}"
     return context or memory
 
 
 def get_project_context_from_context() -> str | None:
-    """Compose the injected agent context from the request headers.
-
-    Combines the intake-profile context (``X-Grid-Project-Context``) with the
-    connection-time project memory core digest (``X-Grid-Project-Memory``, see
-    docs/architecture/project-memory-design.md). Used as the fallback when a
-    per-turn live memory fetch is not available.
-    """
     ctx = RequestContext.from_context()
     return compose_project_context(ctx.project_context, ctx.project_memory)
 
 
 def get_org_instructions_from_context() -> str | None:
-    """Read the office's standing instructions (``X-Grid-Org-Instructions``).
-
-    Already bounded and marked when it was cut, so every caller renders the
-    same text and nothing downstream has to remember the cap.
-    """
     return RequestContext.from_context().org_instructions
 
 
 def get_project_id_from_context() -> str | None:
-    """Read the current project's id (``X-Grid-Project-Id``).
-
-    Used by project-scoped tools (e.g. ``remember``) to write rows for the
-    right project. None outside a project-scoped conversation.
-    """
     return RequestContext.from_context().project_id
 
 
 def get_organization_id_from_context() -> str | None:
-    """Read the caller's organization id (``X-Grid-Organization-Id``).
-
-    Set by server.js on the WS upgrade for authenticated sessions. Used by
-    organization-scoped memory writes. None in anonymous mode.
-    """
     return RequestContext.from_context().organization_id
 
 
 def get_memory_reflection_enabled_from_context() -> bool:
-    """Whether the async memory-reflection stage is enabled for this request.
-
-    The BFF evaluates the ``memory-reflection`` WorkOS feature flag per-org (or an
-    env fallback) at the WS upgrade and forwards the result as
-    ``x-grid-feature-memory-reflection``. Fails closed: absent/anything-but-'true'
-    header → False, so a missing header (older proxy, non-WS entrypoint) keeps the
-    stage off rather than silently on.
-    """
     return RequestContext.from_context().memory_reflection_enabled
 
 
 def get_user_message_id_from_context() -> str | None:
-    """Best-effort read of the WebSocket ``user_message`` id of the active turn.
-
-    This is the ``parent_id`` the browser minted for the turn and the only id the
-    browser and the agent tier genuinely share, so it is what identifies a turn
-    to anything that runs after the answer (see
-    ``docs/architecture/post-answer-stages.md``). The agent runtime sets it on the session
-    (``Context.user_message_id``) from the front end's ``_message_parent_id``.
-
-    Returns ``None`` off the WebSocket path (CLI, REST, job worker) and for the agent runtime's
-    ``"default_id"`` placeholder — a constant shared by every turn of every
-    conversation is not an identity, and treating it as one would collapse all of
-    them onto a single key.
-    """
     try:
         from nat.plugin_api import Context
 
@@ -639,21 +414,6 @@ def get_user_message_id_from_context() -> str | None:
 
 
 def get_signed_request_context() -> RequestContext | None:
-    """The verified ``X-Grid-Request-Context`` envelope for this request, or None.
-
-    For a reader of a field that DECIDES something for the tenant: the model an
-    agent group runs on, the budget left, the sources the organization switched
-    off. When an envelope arrived, those come from it and nowhere else. The
-    individual ``x-grid-*`` headers are unsigned, and a client talking to the WS
-    proxy directly could set them; `server.js` now strips them, but a reader that
-    trusts the signature does not depend on the proxy remembering to.
-
-    ``None`` off the BFF (a job worker whose run carries no envelope, which
-    injects its own headers; the CLI; an eval) — only then may the reader fall
-    back to the individual header. A worker run that does carry one injects
-    the bytes the BFF signed for its requester (ADR-0108), and reads it here
-    exactly as a chat turn does.
-    """
     return RequestContext.from_envelope(
         _read_header(REQUEST_CONTEXT_ENVELOPE_HEADER),
         _read_header(REQUEST_CONTEXT_ENVELOPE_SIG_HEADER),
@@ -662,23 +422,11 @@ def get_signed_request_context() -> RequestContext | None:
 
 
 def get_request_envelope_from_context() -> tuple[str | None, str | None]:
-    """The signed envelope EXACTLY as it arrived: ``(header, signature)``.
-
-    For a tool that calls back into the BFF. It echoes these two strings and
-    signs nothing of its own — the BFF verifies them with the same secret and
-    reads the acting user out of the verified payload (ADR-0054 §4). Both are
-    ``None`` off an authenticated chat turn (a CLI run, an eval, a job worker
-    run that carries no requester's envelope), which is a refusal at the tool
-    and never a reason to fall back to the individual headers: those are
-    unsigned, so a caller could choose them. A worker run that carries one
-    (ADR-0108) returns the bytes the BFF signed, echoed by the worker.
-    """
     ctx = RequestContext.from_context()
     return ctx.envelope_header, ctx.envelope_signature
 
 
 def get_conversation_id_from_context() -> str | None:
-    """Best-effort read of the active conversation id for provenance."""
     try:
         from nat.plugin_api import Context
 

@@ -5,7 +5,7 @@ hosts:
   jusline.at: a site that republishes a legal source's texts (a source record's copy_hosts), never fetched
   lexfind.at: a site that republishes a legal source's texts (a source record's copy_hosts), never fetched
   data.legilux.public.lu: the JOLux ontology's namespace in Fedlex's SPARQL query, never fetched
-  docs.oasis-open.org: the Akoma Ntoso XML namespace (packages/public-sources/src/engines/akn.py), never fetched
+  docs.oasis-open.org: the Akoma Ntoso XML namespace (packages/public-sources/src/public_sources/engines/akn.py), never fetched
   publications.europa.eu: EU language-authority IRIs in Fedlex's SPARQL query, compared as identifiers, never fetched
   cv.iptc.org: an IPTC digital-source-type vocabulary term in AI provenance metadata, never fetched
   iptc.org: an XMP namespace in AI provenance metadata, never fetched
@@ -21,22 +21,18 @@ hosts:
   esm.sh: Excalidraw's font fallback CDN; copy-excalidraw-assets.mjs stages every font so it is never fetched
   gateway.envoyproxy.io: a Kubernetes API group name, never fetched
   integrate.api.nvidia.com: the removed NIM host, named so config_validation can refuse an llm entry on it
-  ma37.wien.gv.at: an example sender domain in a docstring
   wien.gv.at: a source link in a docstring and the registry, shown to people
   schema.org: a structured-data vocabulary identifier, never fetched
   www.sitemaps.org: an XML namespace, never fetched
   www.dsb.gv.at: a link to the Austrian data protection authority, shown to people
-  accounts.google.com: an example issuer in a docstring
   app.example.at: an example address in a comment
   piloti.at: our own domain
-  arxiv.org: an example in a docstring
   cdn.plot.ly: the tokenomics report (a developer tool) loads plotly when a developer opens it
   ec.europa.eu: a link on the legal page (the EU complaint platform)
   errors.pydantic.dev: a link inside pydantic error text
   json-schema.org: a JSON Schema dialect identifier, never fetched
   www.w3.org: an XML namespace, never fetched
   schemas.openxmlformats.org: an Office XML namespace, never fetched
-  langfuse.com: links to Langfuse documentation in comments
   www.oib.or.at: a link to the OIB guidelines, shown to people
   www.openstreetmap.org: a link a person may click to see a photo's location; the app loads nothing from it
   www.wien.gv.at: a source link in the norm registry, shown to people

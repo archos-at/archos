@@ -57,7 +57,7 @@ Checked against pypdfium2 5.14.0 and pdfminer as installed; the declared floor i
   has edges and no stroke; AutoCAD SHX text is plotted as linework, so a vector
   page can have no characters at all.
 * **PDFium is not thread-safe.** Every call holds `pdfium_lock`
-  (`knowledge_layer.ingest.pdfium_lock`), which `look` shares. Copy raw points out
+  (`knowledge_layer.ingest.pdfium_guard`), which `look` shares. Copy raw points out
   under the lock in one pass and do all Python work outside it.
 
 The frame mapping, after subtracting the box origin:
@@ -93,7 +93,7 @@ fixtures of slice 1.
      makes for its own;
    * `look` reads characters only, never paths.
 2. **The reader lives in `knowledge_layer`, the measuring in `agent`.**
-   `packages/knowledge-layer/src/sheet/` holds everything that touches PDFium or
+   `packages/knowledge-layer/src/knowledge_layer/sheet/` holds everything that touches PDFium or
    pdfminer. Three things make that true rather than said:
    * the package lists its modules by hand (`packages/knowledge-layer/pyproject.toml`,
      `[tool.setuptools] packages`): add `knowledge_layer.sheet`, or it does not

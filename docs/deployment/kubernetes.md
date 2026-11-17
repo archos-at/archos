@@ -1571,7 +1571,7 @@ below lands.
 ### 6.2 The highest-impact code change (do this first)
 
 Per scaling-review §6.2, the single biggest capacity defect is that
-`LlamaIndexRetriever.retrieve` (`packages/knowledge-layer/src/search/retriever.py`)
+`LlamaIndexRetriever.retrieve` (`packages/knowledge-layer/src/knowledge_layer/search/retriever.py`)
 does a **synchronous** embedding call + vector query on the only event loop —
 one user's retrieval stalls every other user's chat stream. Wrapping it in
 `asyncio.to_thread` (hours of work, no behaviour change) is the difference
@@ -1616,8 +1616,8 @@ The token-heavy workload (deep research) now scales out:
 - **A drain gives work back.** On SIGTERM the worker waits
   `agentWorkerDrainSeconds` for the runs it holds; Hatchet reassigns what a lost
   worker held, up to the task's retries, and the on-failure task writes FAILURE
-  when they are spent. The old `research_job_queue` table is kept until the
-  cutover drains it ([`hatchet.md`](hatchet.md), "Cutover from the claim queues").
+  when they are spent. The old `research_job_queue` table stays, unread, until
+  a migration drops it ([`hatchet.md`](hatchet.md), "Cutover from the claim queues").
 
 `agentWorkerMinReplicas` /
 `agentWorkerMaxReplicas` / `agentWorkerConcurrency` size the worker tier.
@@ -1636,7 +1636,7 @@ lost on restart, and then a claim queue of our own (ADR-0076). Now:
   priority and the encrypted payload, never document text. When a job ends the
   worker pushes `POST /api/internal/ingest/settled`, so the document's status
   does not wait for someone to read it. The claim queue it replaced,
-  `ingest_job_queue`, is kept until the cutover drains it.
+  `ingest_job_queue`, stays, unread, until a migration drops it.
 - **A dedicated `ingest-worker` tier** (same image, `PROCESS_ROLE=ingest-worker`,
   no port, no PVC) runs them, and it is the only process that does: the `chat`
   and `api` roles only start runs (ADR-0082), so a PDF's parse never shares

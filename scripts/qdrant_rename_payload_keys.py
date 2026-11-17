@@ -1,25 +1,3 @@
-"""Rewrite the German payload keys of every point in place to their English names (ADR-0115).
-
-Points written before the rename hold ``punkt_id`` / ``punkt_path`` / ``punkt_title`` / ``punkt_parent_id`` /
-``punkt_depth``, ``richtlinie``, ``chunking: "punkt"`` and a ``project_facts`` object with German keys
-(``bundesland`` ...) and German tokens (``wien`` ...). New points carry the English ones, and reads accept both
-(``knowledge_layer.vector_store.schema.LEGACY_FIELDS``). This script ends the "both":
-
-    python scripts/qdrant_rename_payload_keys.py all                  # DRY RUN: counts, writes nothing
-    python scripts/qdrant_rename_payload_keys.py all --apply          # create the indexes, rewrite, verify
-    python scripts/qdrant_rename_payload_keys.py all --verify         # counts only; exit 1 while any legacy key is left
-
-It reads the environment the backend reads: ``QDRANT_URL`` and ``QDRANT_API_KEY``. Without ``--apply`` it
-writes nothing at all, not even the payload indexes. With it, per collection: the payload indexes the English
-names need (idempotent, the same call the backend makes at start), then for each point one request that SETS
-the English fields and one that DELETES the German keys, in that order, so an interrupted run leaves a point
-readable under both names and the next run finishes it. A second run changes nothing. Vectors are not read or
-written. The full procedure is ``docs/deployment/qdrant-payload-rename-runbook.md``.
-
-EXIT CODES: ``0`` done (``--apply``: no legacy key is left; dry run: always); ``1`` legacy keys remain after
-``--apply`` or under ``--verify``; ``2`` Qdrant could not be reached.
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -28,9 +6,9 @@ import sys
 from collections import Counter
 
 from knowledge_layer.vector_store import Physical
+from knowledge_layer.vector_store import current_collection
 from knowledge_layer.vector_store import legacy_remaining
 from knowledge_layer.vector_store import make_client
-from knowledge_layer.vector_store import rebuild
 from knowledge_layer.vector_store import rename_collection
 
 logger = logging.getLogger("qdrant_rename_payload_keys")
@@ -39,7 +17,9 @@ DEFAULT_PAGE_SIZE = 256
 
 
 def _parse_args(argv: list[str] | None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description=__doc__.split("\n", 1)[0])
+    parser = argparse.ArgumentParser(
+        description="Rewrite the German payload keys of every point in place to their English names (ADR-0115)."
+    )
     parser.add_argument("physical", choices=["all", *(p.value for p in Physical)], help="Which physical collection.")
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--apply", action="store_true", help="Write. Without it nothing is changed.")
@@ -62,7 +42,7 @@ def main(argv: list[str] | None = None) -> int:
     physicals = list(Physical) if args.physical == "all" else [Physical(args.physical)]
     try:
         client = make_client()
-        collections = {physical: rebuild.current_collection(client, physical) for physical in physicals}
+        collections = {physical: current_collection(client, physical) for physical in physicals}
     except Exception as exc:  # noqa: BLE001 - unreachable and alias-less are the same hard stop
         logger.error("Could not read the aliases from Qdrant: %s", exc)
         return 2

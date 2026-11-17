@@ -69,7 +69,7 @@ workspace packages.
 
 `register.py` defines a `FunctionBaseConfig` subclass whose `name=` becomes the
 YAML `_type`, and an async `@register_function` that yields a `FunctionInfo`.
-`packages/tavily-web-search/src/register.py` is the worked example.
+`packages/tavily-web-search/src/tavily_web_search/register.py` is the worked example.
 
 - **The description is the contract.** The function's docstring becomes the
   description the model reads; a docstring `Args:` section never reaches it.

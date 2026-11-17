@@ -1,17 +1,3 @@
-"""DXF bytes in, the PDF rendition out (ADR-0152).
-
-``POST /v1/renditions/dxf`` is the converter the BFF calls for a DXF, where it
-calls Gotenberg for an office file (ADR-0070): the BFF reads the original from
-the object store, posts its bytes here, checks that what comes back is a PDF and
-stores it as ``_render.pdf``. This route keeps nothing and decides no access;
-the BFF has done both. Internal-token only, like every service-to-service route.
-
-The original's name travels in ``x-filename`` (URL-encoded) and becomes the
-page's title, never a path. Answers: ``413`` past :data:`MAX_DXF_BYTES`, ``422``
-for bytes no reader can open or a drawing with nothing in it, ``504`` when the
-page is not drawn within :data:`RENDER_TIMEOUT_S`.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -45,13 +31,11 @@ _RENDERS = ThreadPoolExecutor(max_workers=1, thread_name_prefix="dxf-render")
 
 
 def source_name(raw_filename: str | None) -> str:
-    """The original's name without any path, or a neutral one."""
     name = PurePosixPath(unquote(raw_filename or "").replace("\\", "/")).name.strip()
     return name[:160] or "DXF-Datei"
 
 
 def page_title(raw_filename: str | None) -> str:
-    """The original's name without its extension or any path, made readable."""
     name = source_name(raw_filename)
     stem = name[: -len(".dxf")] if name.lower().endswith(".dxf") else name
     return " ".join(stem.replace("_", " ").split())[:120] or "DXF-Datei"
@@ -62,7 +46,6 @@ def _convert(data: bytes, raw_filename: str | None) -> bytes:
 
 
 def add_drawing_rendition_routes(router: APIRouter) -> None:
-    """Add the DXF rendition route."""
 
     @router.post(
         DXF_RENDITION_PATH,

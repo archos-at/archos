@@ -48,7 +48,6 @@ class TestRelease:
 
 
 class TestDeploymentTag:
-    # Staging and production both run APP_ENV=production; only the host tells them apart in PostHog.
     def test_the_app_host_names_the_deployment(self, monkeypatch):
         monkeypatch.setenv("POSTHOG_APP_HOST", " App.Dev.Example.Test ")
         assert deployment_tags() == ["app_host:app.dev.example.test"]
