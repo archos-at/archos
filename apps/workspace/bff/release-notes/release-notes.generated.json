@@ -40,6 +40,14 @@
           }
         },
         {
+          "section": "fixes",
+          "area": "documents",
+          "text": {
+            "en": "A document the agent wrote and you published no longer drops out of search after the weekly cleanup. Until now it could only be found again once it was published anew.",
+            "de": "Ein vom Agenten erstelltes und von Ihnen veröffentlichtes Dokument verschwindet nach der wöchentlichen Bereinigung nicht mehr aus der Suche. Bislang lässt es sich erst wieder finden, wenn es erneut veröffentlicht wird."
+          }
+        },
+        {
           "section": "deprecations",
           "area": "agents",
           "text": {
