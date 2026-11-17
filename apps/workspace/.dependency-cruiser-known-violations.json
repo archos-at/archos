@@ -2793,23 +2793,6 @@
   {
     "type": "dependency",
     "from": "ui/features/documents/components/review/document-review.tsx",
-    "to": "ui/features/chat/lib/turn-events.ts",
-    "unresolvedTo": "@/features/chat/lib/turn-events",
-    "dependencyTypes": [
-      "aliased",
-      "aliased-tsconfig",
-      "aliased-tsconfig-paths",
-      "local",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "feature-deep-import"
-    }
-  },
-  {
-    "type": "dependency",
-    "from": "ui/features/documents/components/review/document-review.tsx",
     "to": "ui/features/knowledge/components/pdf-document-view.tsx",
     "unresolvedTo": "@/features/knowledge/components/pdf-document-view",
     "dependencyTypes": [
