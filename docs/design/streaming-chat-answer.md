@@ -147,7 +147,7 @@ prose streams.
   their stored shape (`StoredThinkingStep`). At `RUN_FINISHED` it calls the
   store's `settleTurn`.
 - Diagrams: only the fence the text still ends inside is streaming
-  (`isOpenFence` in `MarkdownRenderer.tsx`), and it holds its place with a
+  (`isOpenFence` in `MarkdownRenderer/streaming-markdown.ts`), and it holds its place with a
   skeleton (`DrawingSkeleton`) in the frame the drawing will be drawn in,
   guessed from the fence's first keyword until the parse says. Every closed
   fence is drawn while the answer streams. The skeleton grows into the drawing
