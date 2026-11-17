@@ -187,6 +187,7 @@ export function dmarcFinding(name: string, txt: string[], expected?: string): Fi
   const records = txt.filter((t) => /^v=DMARC1\s*(;|$)/i.test(t.trim()));
   const finding = (status: Finding["status"], detail: string): Finding => ({ gate: "G0", name: `one DMARC record at ${name} (public DNS)`, status, detail });
   if (records.length === 0) return finding("fail", "none: inboundMailDmarc (or dnsDmarc) unset, or DNS has not propagated");
+  // RFC 7489 §6.6.3: a receiver that finds several DMARC records applies none.
   if (records.length > 1) return finding("fail", `${records.length} records, so receivers apply none: ${records.join(" | ")}`);
   if (expected !== undefined && normalizeDmarc(records[0]) !== normalizeDmarc(expected)) {
     return finding("fail", `${records[0]}; expected ${expected}`);

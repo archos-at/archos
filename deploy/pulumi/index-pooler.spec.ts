@@ -147,6 +147,7 @@ describe("Postgres routing", () => {
       return (cluster.inputs.spec as { postgresql: { parameters: Record<string, string> } }).postgresql.parameters;
     };
 
+    // 2026-10 incident: with the OS default (7200 s idle) a dead node kept its sessions and advisory locks for 16 to 55 minutes.
     it("finds a dead client in about two minutes, through TCP keepalives", () => {
       expect(parameters()).toMatchObject({
         tcp_keepalives_idle: "60",
@@ -220,6 +221,7 @@ describe("Postgres routing", () => {
       expect(pdb, "a PDB for the poolers").toBeDefined();
       const pdbSpec = pdb!.inputs.spec as { maxUnavailable: number; selector: { matchLabels: Record<string, string> } };
       expect(pdbSpec.maxUnavailable).toBe(1);
+      // 2026-10-12: CloudNativePG overwrites the template labels on its pods, so a selector on them matched no pooler.
       expect(pdbSpec.selector.matchLabels).toEqual({ "cnpg.io/poolerName": POOLER });
       expect(spec().template.spec.topologySpreadConstraints[0].labelSelector.matchLabels).toEqual({
         "cnpg.io/poolerName": POOLER,

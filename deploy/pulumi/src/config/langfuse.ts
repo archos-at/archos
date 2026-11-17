@@ -176,6 +176,7 @@ export function loadLangfuse(
     domain: langfuseDomain,
     webImage:
       cfg.get("langfuseWebImage") ??
+      // Digest read from the registry on 2026-11-03; 26.8 is a moving tag upstream, so the pin stays until a trivy-clean bump.
       "ghcr.io/langfuse/langfuse@sha256:0814758db3db8e923f733be3884e7d7a9e3afd60568d874a610d78aae47476c5",
     workerImage:
       cfg.get("langfuseWorkerImage") ??

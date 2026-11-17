@@ -236,6 +236,7 @@ describe("the program constructs in the split topology", () => {
   };
 
   it("reserves what an ingest worker holds while it parses, not its idle floor", () => {
+    // 2026-10: at a 1536Mi request three workers packed onto one 16 GB node, grew to 4-6 GB each against a 6Gi limit, and the node went NotReady.
     const [container] = podOf("kubernetes:apps/v1:Deployment", "ingest-worker").spec.containers;
 
     expect(container.resources.requests.memory).toBe("4Gi");

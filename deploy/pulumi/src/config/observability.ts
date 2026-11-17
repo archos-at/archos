@@ -40,6 +40,7 @@ export function loadObservability(
     enabled: collectorEnabled,
     collectorImage:
       cfg.get("collectorImage") ??
+      // Digest of the 0.165.0 tag as of 2026-11-14; bumped from 0.163.2 for go-jose and x/net advisories found by trivy.
       "otel/opentelemetry-collector-contrib@sha256:e40d61f10c9a617cca1ffd1be4d7e2b3a4b0f0001798ff07e58cabe82e618cea",
     oidcIssuer: otelOidcIssuer,
     oidcClientId: otelOidcClientId,

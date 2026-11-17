@@ -5,6 +5,7 @@ import type { DeployConfig } from "../config";
 
 type EnvVar = k8s.types.input.core.v1.EnvVar;
 
+// One shared key let a bulk ingest hold the balance: OpenRouter answered 402 to every tier (2026-10-12, 10-19, 11-02).
 export const OPENROUTER_SECRET_KEY: Record<ModelWorkload, string> = {
   chat: "OPENROUTER_API_KEY", // pragma: allowlist secret (Secret key name, not a credential)
   research: "OPENROUTER_RESEARCH_API_KEY", // pragma: allowlist secret (Secret key name, not a credential)

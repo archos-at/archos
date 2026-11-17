@@ -88,6 +88,7 @@ export function loadWorkers(
       ),
     },
     ingestWorker: {
+      // Measured 4 to 6 GB on prod while parsing (2026-10); at 1536Mi three workers packed onto one 16 GB node and it went NotReady.
       resources: {
         requestsCpu: cfg.get("ingestWorkerRequestsCpu") ?? "500m",
         requestsMemory: cfg.get("ingestWorkerRequestsMemory") ?? "4Gi",

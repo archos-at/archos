@@ -18,6 +18,7 @@ export const CLICKHOUSE_PASSWORD_SECRET_KEY = "clickhouse-password"; // pragma: 
 
 const SECRET_NAME = "clickhouse-auth"; // pragma: allowlist secret (Kubernetes Secret resource name, not a credential)
 
+// system.trace_log alone grew to 17 GiB on dev and filled its volume in August 2026.
 const SYSTEM_LOG_TTL_DAYS = 14;
 
 const PROMETHEUS_XML = `<clickhouse>

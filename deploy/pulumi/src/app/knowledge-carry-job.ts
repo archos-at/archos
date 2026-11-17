@@ -58,6 +58,7 @@ export function runKnowledgeCarry(
         namespace: w.namespace,
         annotations: {
           "pulumi.com/skipAwait": "true",
+          // prod 2026-11-14: foreground deletion kept the old Job until its pod was gone, so the replace met "already exists".
           "pulumi.com/deletionPropagationPolicy": "background",
         },
       },

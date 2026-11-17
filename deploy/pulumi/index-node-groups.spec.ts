@@ -101,6 +101,7 @@ describe("worker-group placement with prod's knobs", () => {
 
   it("places every workload, the stores on data and ingestion on batch", () => {
     const selectors = nodeSelectors();
+    // 2026-10-12: an unplaced pod landed on the 32 GB data nodes (frontend tier); a group cannot be tainted.
     const unplaced = workloads().filter((w) => !(w in selectors));
     const groupOf = (w: string): string => {
       const found = selectors[w] ?? [];

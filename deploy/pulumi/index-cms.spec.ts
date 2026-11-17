@@ -178,6 +178,7 @@ describe("the CMS, switched on", () => {
     expect(secret.metadata.namespace).toBe("cms");
     expect(secret.type).toBe("kubernetes.io/dockerconfigjson");
     const pod = podOf("kubernetes:apps/v1:Deployment", "cms") as PodSpec & { imagePullSecrets?: Array<{ name: string }> };
+    // 2026-11-05 first deploy: no pull Secret in `cms`, GHCR answered 401 and the pod sat in ImagePullBackOff.
     expect(pod.imagePullSecrets).toEqual([{ name: secret.metadata.name }]);
   });
 

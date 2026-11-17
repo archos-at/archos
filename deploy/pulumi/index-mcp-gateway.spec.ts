@@ -12,6 +12,8 @@ import { LEGACY_PROJECT, objectName } from "./src/names";
 
 const key = (name: string): string => `${LEGACY_PROJECT}:${name}`;
 
+// Locally: curl -sSfLo /tmp/ag.json https://raw.githubusercontent.com/agentgateway/agentgateway/v1.7.0/schema/config.json
+// with AGENTGATEWAY_SCHEMA=/tmp/ag.json AGENTGATEWAY_SCHEMA_VERSION=v1.7.0.
 const SCHEMA_PATH = process.env.AGENTGATEWAY_SCHEMA;
 
 const DOMAIN = "dev.example.test";

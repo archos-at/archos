@@ -35,6 +35,7 @@ function hostOf(endpoint: string): string {
   }
 }
 
+// The in-cluster SeaweedFS pod restarted five times on 2026-11-02, on the same Delete-reclaim storage as the database it would restore.
 export const PRODUCTION_STACK = "prod";
 
 export function refuseInClusterAppArchive(

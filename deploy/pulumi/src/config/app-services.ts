@@ -1,6 +1,7 @@
 import * as pulumi from "@pulumi/pulumi";
 import { bool, num } from "../config/readers";
 
+// The provider answers 402 to every caller of a key once its in-flight requests could exceed the balance (2026-11-02).
 export type ModelWorkload = "chat" | "research" | "ingest";
 
 export const OPENROUTER_KEY_CONFIG: Record<ModelWorkload, string> = {
