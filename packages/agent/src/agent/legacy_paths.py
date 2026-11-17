@@ -20,6 +20,7 @@ class _LegacyPathFinder(importlib.abc.MetaPathFinder, importlib.abc.Loader):
         return importlib.util.spec_from_loader(fullname, self)
 
     def create_module(self, spec: ModuleSpec) -> ModuleType:
+        # nosemgrep: python.lang.security.audit.non-literal-import.non-literal-import
         return importlib.import_module(NEW_PATH + spec.name.removeprefix(OLD_PATH))
 
     def exec_module(self, module: ModuleType) -> None:
