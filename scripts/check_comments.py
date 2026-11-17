@@ -61,9 +61,24 @@ def tracked_sources(root: Path) -> list[str]:
     return [path for path in out.splitlines() if is_checked(path) and (root / path).is_file()]
 
 
+def script_metadata_lines(source: str) -> set[int]:
+    found, inside = set(), False
+    for number, row in enumerate(source.split("\n"), start=1):
+        if row.strip() == "# /// script":
+            inside = True
+        if inside:
+            found.add(number)
+        if inside and row.strip() == "# ///":
+            inside = False
+    return found
+
+
 def prose_comment_count(path: str, source: str) -> int:
     rows = source.split("\n")
-    return sum(1 for number in comment_lines(path, source) if not DIRECTIVE.search(rows[number - 1]))
+    kept = script_metadata_lines(source)
+    return sum(
+        1 for number in comment_lines(path, source) if number not in kept and not DIRECTIVE.search(rows[number - 1])
+    )
 
 
 @functools.cache

@@ -14,6 +14,7 @@ from check_comments import DIRECTIVE  # noqa: E402
 from check_comments import _comment_nodes  # noqa: E402
 from check_comments import _kind  # noqa: E402
 from check_comments import _parser  # noqa: E402
+from check_comments import script_metadata_lines  # noqa: E402
 
 MODEL_FACING = re.compile(
     r"__doc__|getdoc|@tool|\.tool\(|from_function|FunctionInfo|StructuredTool|BaseModel|TypedDict|"
@@ -43,13 +44,14 @@ def _docstring_spans(tree: ast.Module, lines: list[str]) -> list[tuple[int, int,
 
 
 def _comment_lines(source: str) -> set[int]:
-    found = set()
+    found: set[int] = set()
+    kept = script_metadata_lines(source)
     for token in tokenize.generate_tokens(io.StringIO(source).readline):
         if token.type != tokenize.COMMENT or token.line[: token.start[1]].strip():
             continue
         if token.start[0] == 1 and token.string.startswith("#!"):
             continue
-        if not DIRECTIVE.search(token.string):
+        if token.start[0] not in kept and not DIRECTIVE.search(token.string):
             found.add(token.start[0])
     return found
 

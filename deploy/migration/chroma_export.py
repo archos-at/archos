@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+# /// script
+# requires-python = ">=3.11"
+# dependencies = ["chromadb==1.5.9"]
+# ///
 """Export every Chroma collection, vectors included, to the neutral format ``piloti-vectors/1``.
 
 The one place Chroma code still runs (ADR-0115). The product no longer
