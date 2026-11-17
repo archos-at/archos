@@ -277,8 +277,8 @@ class TestGetCheckpointer:
         from langgraph.checkpoint.base import empty_checkpoint
         from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 
-        from agent.agents.piloti.models import ConversationState
         from agent.common import _build_checkpointer_serde
+        from agent.core.models import ConversationState
         from agent.knowledge.schema import AvailableDocument
 
         with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
@@ -331,8 +331,8 @@ class TestGetCheckpointer:
         from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
         from pydantic import BaseModel
 
-        from agent.agents.piloti.models import ConversationState
         from agent.common import _build_checkpointer_serde
+        from agent.core.models import ConversationState
 
         class RetiredStateType(BaseModel):
             answer: str

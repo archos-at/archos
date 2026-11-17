@@ -22,16 +22,16 @@ import {
   tokenVerifier,
 } from './principal'
 
-const DOMAIN = 'auth.piloti.test'
+const DOMAIN = 'auth.example.test'
 const ISSUER = `https://${DOMAIN}`
-const RESOURCE = 'https://app.piloti.test/api/mcp'
-const A2A_RESOURCE = 'https://app.piloti.test/api/a2a'
+const RESOURCE = 'https://app.example.test/api/mcp'
+const A2A_RESOURCE = 'https://app.example.test/api/a2a'
 const SECRET = 'internal-token-for-tests' // pragma: allowlist secret
 const KID = 'test-key'
 
 const session: AuthorizedSession = {
   userId: 'user_1',
-  email: 'a@piloti.test',
+  email: 'a@example.test',
   name: null,
   accessToken: '',
   organizationId: 'org_1',
@@ -115,7 +115,7 @@ describe('external agent (bearer token)', () => {
     expect(response.status).toBe(401)
     expect(response.headers.get('www-authenticate')).toMatch(/^Bearer /)
     expect(response.headers.get('www-authenticate')).toContain(
-      'resource_metadata="https://app.piloti.test/.well-known/oauth-protected-resource/api/mcp"',
+      'resource_metadata="https://app.example.test/.well-known/oauth-protected-resource/api/mcp"',
     )
   })
 
@@ -149,7 +149,7 @@ describe('external agent (bearer token)', () => {
   })
 
   it('keeps the platform door’s audience apart from the office doors’, both ways (ADR-0126)', async () => {
-    const PLATFORM_RESOURCE = 'https://app.piloti.test/api/platform/mcp'
+    const PLATFORM_RESOURCE = 'https://app.example.test/api/platform/mcp'
     const office = tokenVerifier(DOMAIN, ISSUER, { jwks }, 'mcp')
     const platform = tokenVerifier(DOMAIN, ISSUER, { jwks }, 'platform')
     await expect(office.verifyAccessToken(await token({}, { aud: PLATFORM_RESOURCE }))).rejects.toThrow()
@@ -161,11 +161,11 @@ describe('external agent (bearer token)', () => {
   })
 
   it('refuses a foreign audience on the A2A door too, and points it at the A2A door’s metadata', async () => {
-    for (const aud of ['https://other.example/api/a2a', 'https://other.example/api/mcp', 'https://app.piloti.test/api/other']) {
+    for (const aud of ['https://other.example/api/a2a', 'https://other.example/api/mcp', 'https://app.example.test/api/other']) {
       const { response } = challengeOf(await resolvePrincipal(bearerAt(A2A_RESOURCE, await token({}, { aud })), { jwks }))
       expect(response.status, aud).toBe(401)
       expect(response.headers.get('www-authenticate')).toContain(
-        'resource_metadata="https://app.piloti.test/.well-known/oauth-protected-resource/api/a2a"',
+        'resource_metadata="https://app.example.test/.well-known/oauth-protected-resource/api/a2a"',
       )
     }
     expect(resolvePinnedRequesterSession).not.toHaveBeenCalled()
@@ -269,7 +269,7 @@ describe('external agent (bearer token)', () => {
   })
 })
 
-describe('Piloti in-product (internal token and envelope)', () => {
+describe('The in-product agent (internal token and envelope)', () => {
   function envelope(overrides: { issuedAt?: number } = {}) {
     const { header, signature } = buildRequestContextEnvelope(
       {
@@ -287,11 +287,11 @@ describe('Piloti in-product (internal token and envelope)', () => {
     }
   }
 
-  const piloti = (headers: Record<string, string>) =>
+  const inProduct = (headers: Record<string, string>) =>
     new Request(RESOURCE, { method: 'POST', headers: { 'x-grid-internal-token': SECRET, ...headers } })
 
-  it('resolves a verified envelope to Piloti, with its conversation and project', async () => {
-    const result = await resolvePrincipal(piloti(envelope()), { jwks })
+  it('resolves a verified envelope to the in-product agent, with its conversation and project', async () => {
+    const result = await resolvePrincipal(inProduct(envelope()), { jwks })
     expect(result).toEqual({
       actor: 'piloti',
       session,
@@ -306,14 +306,14 @@ describe('Piloti in-product (internal token and envelope)', () => {
 
   it('reads the answer id the turn names, and ignores one that is not a uuid', async () => {
     const answer = '0b8f3c2e-5d1a-4c6b-9e7f-1a2b3c4d5e6f'
-    const named = await resolvePrincipal(piloti({ ...envelope(), [ANSWER_MESSAGE_HEADER]: answer }), { jwks })
+    const named = await resolvePrincipal(inProduct({ ...envelope(), [ANSWER_MESSAGE_HEADER]: answer }), { jwks })
     expect(named).toMatchObject({ actor: 'piloti', answerMessageId: answer })
-    const junk = await resolvePrincipal(piloti({ ...envelope(), [ANSWER_MESSAGE_HEADER]: 'drop table' }), { jwks })
+    const junk = await resolvePrincipal(inProduct({ ...envelope(), [ANSWER_MESSAGE_HEADER]: 'drop table' }), { jwks })
     expect(junk).toMatchObject({ actor: 'piloti', answerMessageId: null })
   })
 
   it('refuses the service token alone', async () => {
-    const { response } = challengeOf(await resolvePrincipal(piloti({}), { jwks }))
+    const { response } = challengeOf(await resolvePrincipal(inProduct({}), { jwks }))
     expect(response.status).toBe(401)
   })
 
@@ -328,13 +328,13 @@ describe('Piloti in-product (internal token and envelope)', () => {
 
   it('refuses an envelope outside its window', async () => {
     const stale = envelope({ issuedAt: Date.now() - 7 * 60 * 60 * 1000 })
-    const { response } = challengeOf(await resolvePrincipal(piloti(stale), { jwks }))
+    const { response } = challengeOf(await resolvePrincipal(inProduct(stale), { jwks }))
     expect(response.status).toBe(401)
   })
 
   it('refuses an envelope whose person has left', async () => {
     vi.mocked(resolvePinnedRequesterSession).mockResolvedValue(null)
-    const { response } = challengeOf(await resolvePrincipal(piloti(envelope()), { jwks }))
+    const { response } = challengeOf(await resolvePrincipal(inProduct(envelope()), { jwks }))
     expect(response.status).toBe(403)
   })
 })

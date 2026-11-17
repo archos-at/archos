@@ -1,6 +1,7 @@
 import { getWorkOS } from './client'
 import { getCached, invalidateCached } from '@/lib/cache'
 import {
+  acceptedFlagKeysOf,
   FEATURE_FLAGS,
   flagsFromWorkOS,
   unauthenticatedDefault,
@@ -30,7 +31,8 @@ export async function isOrgFeatureEnabled(
   if (!flagsFromWorkOS()) return unauthenticatedDefault(flag)
   if (!organizationId || !process.env.WORKOS_API_KEY) return false
   try {
-    return (await enabledSlugsForOrg(organizationId)).has(flag)
+    const enabled = await enabledSlugsForOrg(organizationId)
+    return acceptedFlagKeysOf(flag).some((key) => enabled.has(key))
   } catch (error) {
     console.warn(`[FeatureFlags] evaluation of "${flag}" failed; treating it as off`, error)
     return false

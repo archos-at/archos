@@ -23,7 +23,7 @@ MCP gateway, which only an agent holding those two servers can run; and
 schema. PostHog also serves that one as a project skill, published by hand
 ([`../deploy/posthog/README.md`](../deploy/posthog/README.md#skills)).
 
-Piloti's own skills, the ones the product reads at run time, are a different
+The agent's own skills, the ones the product reads at run time, are a different
 thing and live in `packages/agent/src/agent/skills/` (ADR-0046).
 
 ## Adding one

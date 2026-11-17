@@ -117,7 +117,7 @@ describe('ProjectStep', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
-  test('adds an external person without a Piloti account, with a Funktion and a company', async () => {
+  test('adds an external person without a workspace account, with a Funktion and a company', async () => {
     const user = userEvent.setup()
     renderStep('fresh')
     await user.click(await screen.findByRole('button', { name: 'External person' }))

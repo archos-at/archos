@@ -1,4 +1,4 @@
-"""``canvas``: Piloti's hands on a document, as an agent-runtime function group.
+"""``canvas``: the agent's hands on a document, as an agent-runtime function group.
 
 Eight tools, the way a person works a document on the review canvas: see who
 is in the ``room`` and where, ``point`` and ``highlight`` to show what is meant,
@@ -39,17 +39,17 @@ and ``highlight`` add a ``reference`` item to the document's ``look`` card
 
 ## Parity, with light reporting
 
-What the person asks for, Piloti does under that person's rights, through the
+What the person asks for, the agent does under that person's rights, through the
 same service a person's PATCH runs (``lib/annotations/agent.ts``): set a mark
 open, resolve, reopen, dismiss, take over, assign, date, reword, delete one
-the person set. Each change posts the model's ``note`` as Piloti's reply in the
+the person set. Each change posts the model's ``note`` as the agent's reply in the
 mark's thread, and the card lists it with an undo. Findings of its own stay
 proposals.
 
-Parity is the office's choice: with the organization switch ``piloti-acts``
-off (the default), the BFF refuses ``create``, ``update`` and ``delete`` with
-``piloti-acts-off``, and the result tells the model to propose the mark, or
-that the person makes the change themselves (``calls.refusal_for``).
+Parity is the office's choice: with the organization switch ``agent-direct-edits``
+off (the default), the BFF refuses ``create``, ``update`` and ``delete``, and
+the result tells the model to propose the mark, or that the person makes the
+change themselves (``calls.refusal_for``).
 """
 
 from __future__ import annotations
@@ -215,7 +215,7 @@ async def run_room(document: str = "") -> str:
 
 
 async def run_point(page: int, x: float, y: float, label: str = "", document: str = "") -> str:
-    """Move Piloti's pointer, for everyone in the document."""
+    """Move the agent's pointer, for everyone in the document."""
 
     async def body() -> str:
         payload = point_payload(page, x, y, label)
@@ -324,7 +324,7 @@ async def run_update(
         result = await call({"op": "update", "annotationId": annotation_id, **change, **guard}, target, signed)
         if result.get("noted"):
             record_canvas_activity(document_of(result, target), [changed_item(result, change["note"])])
-            note_thread_post(annotation_id)  # the note is Piloti's reply in that thread
+            note_thread_post(annotation_id)  # the note is the agent's reply in that thread
         observe("update", {"fields": sorted(set(change) - {"note"})}, marks_observation("update", result))
         return render_updated(result)
 

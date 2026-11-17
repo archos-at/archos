@@ -683,7 +683,7 @@ describe('InputArea', () => {
     expect(lastDropZone()).toMatchObject({ disabled: false, refusal: null })
   })
 
-  test('says why a drop is refused while Piloti answers, instead of letting it vanish', () => {
+  test('says why a drop is refused while the agent answers, instead of letting it vanish', () => {
     mockIsStreaming = true
     vi.mocked(useIsCurrentSessionBusy).mockReturnValue(true)
     render(
@@ -1204,7 +1204,7 @@ describe('InputArea', () => {
           } as unknown as ReturnType<typeof useWebSocketChat>)
         beforeEach(() => mockSteer.mockClear())
 
-        test('says Enter steers Piloti, with a small chip by the field, and keeps Stop', () => {
+        test('says Enter steers the agent, with a small chip by the field, and keeps Stop', () => {
           offerSteering()
           startOwnTurn()
           render(<InputArea isAuthenticated={true} connectionMode="sse" />)
@@ -1889,7 +1889,7 @@ describe('InputArea', () => {
     const composer = () => screen.getByPlaceholderText(`Ask ${PRODUCT_NAME} about this project …`)
     const addressee = () => screen.getByTestId('composer-addressee')
 
-    test('says nothing about a plain message, which goes to Piloti', () => {
+    test('says nothing about a plain message, which goes to the agent', () => {
       render(<InputArea isAuthenticated canCollaborate connectionMode="sse" />)
 
       expect(addressee()).toHaveAttribute('data-mode', 'agent')
@@ -1916,7 +1916,7 @@ describe('InputArea', () => {
       expect(screen.getByTestId('composer-mention-offer')).toBeInTheDocument()
     })
 
-    test('says the message goes to the CHAT while the thread awaits a person, and how to reach Piloti', () => {
+    test('says the message goes to the CHAT while the thread awaits a person, and how to reach the agent', () => {
       mockAwaitingPending = [{ id: 'r-1' }]
       publishThreadSharing('session-1', true)
       render(<InputArea isAuthenticated canCollaborate connectionMode="sse" />)
@@ -1927,7 +1927,7 @@ describe('InputArea', () => {
       )
     })
 
-    test('typing @Piloti while awaiting flips the line back to the agent', async () => {
+    test('typing the agent mention while awaiting flips the line back to the agent', async () => {
       const user = userEvent.setup()
       mockAwaitingPending = [{ id: 'r-1' }]
       publishThreadSharing('session-1', true)
@@ -1943,7 +1943,7 @@ describe('InputArea', () => {
       expect(screen.queryByTestId('composer-agent-hint')).not.toBeInTheDocument()
     })
 
-    test('tagging a person AND Piloti names both and drops the "stays quiet" claim', async () => {
+    test('tagging a person AND the agent names both and drops the "stays quiet" claim', async () => {
       const user = userEvent.setup()
       render(<InputArea isAuthenticated canCollaborate connectionMode="sse" />)
 

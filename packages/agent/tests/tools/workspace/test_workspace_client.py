@@ -14,6 +14,7 @@ import pytest
 from agent.common import bff_http
 from agent.tools.workspace import client
 from agent.tools.workspace import register as workspace
+from agent.tools.workspace.legacy_names import LEGACY_MODE_HEADER
 
 SECRET = "workspace-test-secret"  # noqa: S105 - test fixture value  # pragma: allowlist secret
 
@@ -126,9 +127,9 @@ async def test_the_request_is_one_stateless_tools_call_in_search_mode(monkeypatc
     await workspace.run_call("project-get", {"params": {"id": "p1"}})
 
     (request,) = sent
-    assert request.full_url == "http://bff.test/api/mcp"
+    assert request.full_url == "http://bff.test/api/mcp?mode=search"
     assert header(request, "X-internal-token") == SECRET
-    assert header(request, "X-piloti-mcp-mode") == "search"
+    assert header(request, LEGACY_MODE_HEADER) == "search"
     assert json.loads(request.data) == {
         "jsonrpc": "2.0",
         "id": 1,

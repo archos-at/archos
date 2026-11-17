@@ -321,12 +321,12 @@ class TestTheFiveWaysAModelIsNotResolved:
                         "ifcType": "IfcWall",
                         "name": "Aussenwand Nord",
                         "storeyName": "Erdgeschoss",
-                        "globalId": "0GridFixtureWall0001",
+                        "globalId": "0TestFixtureWall0001",
                     }
                 ],
             }
         )
-        assert "IfcWall „Aussenwand Nord“ · Erdgeschoss · GlobalId 0GridFixtureWall0001" in rendered
+        assert "IfcWall „Aussenwand Nord“ · Erdgeschoss · GlobalId 0TestFixtureWall0001" in rendered
 
     def test_a_partial_whole_model_answer_is_not_advice_to_narrow_the_query(self):
         from agent.tools.bim.register import _truncation_note
@@ -436,13 +436,13 @@ class TestElementLinks:
                         "ifcType": "IfcWall",
                         "name": "Aussenwand Nord",
                         "storeyName": "Erdgeschoss",
-                        "globalId": "0GridFixtureWall0001",
+                        "globalId": "0TestFixtureWall0001",
                     }
                 ],
             },
             "p1",
         )
-        assert "Link: /app/projects/p1/model?model=haus-a.ifc&element=0GridFixtureWall0001" in rendered
+        assert "Link: /app/projects/p1/model?model=haus-a.ifc&element=0TestFixtureWall0001" in rendered
 
     def test_one_element_carries_its_own_link(self):
         rendered = _render(
@@ -452,7 +452,7 @@ class TestElementLinks:
                 "model": {"filename": "haus-a.ifc"},
                 "summary": "IfcWall „Aussenwand Nord“.",
                 "element": {
-                    "globalId": "0GridFixtureWall0001",
+                    "globalId": "0TestFixtureWall0001",
                     "storeyName": "Erdgeschoss",
                     "materials": [],
                     "properties": {},
@@ -461,7 +461,7 @@ class TestElementLinks:
             },
             "p1",
         )
-        assert "Link: /app/projects/p1/model?model=haus-a.ifc&element=0GridFixtureWall0001" in rendered
+        assert "Link: /app/projects/p1/model?model=haus-a.ifc&element=0TestFixtureWall0001" in rendered
 
     def test_no_project_context_renders_no_link_line(self):
         rendered = _render(
@@ -562,7 +562,7 @@ class TestComplianceOperation:
                         "richtlinie": "OIB 4",
                         "failures": [
                             {
-                                "globalId": "0GridFixtureDoor00001",
+                                "globalId": "0TestFixtureDoor00001",
                                 "name": "T-14",
                                 "reading": "Breite 0.7 m — Schwellwert ≥ 0,80 m",
                             }
@@ -573,8 +573,8 @@ class TestComplianceOperation:
             "p1",
         )
         assert "Breite 0.7 m — Schwellwert ≥ 0,80 m" in rendered
-        assert "element=0GridFixtureDoor00001" in rendered
-        assert "hl=fail%3A0GridFixtureDoor00001" in rendered
+        assert "element=0TestFixtureDoor00001" in rendered
+        assert "hl=fail%3A0TestFixtureDoor00001" in rendered
 
     def test_a_rule_that_left_work_behind_prints_the_id_the_card_asks_for(self):
         rendered = _render(
@@ -945,7 +945,7 @@ class TestWhatTheTraceRecords:
             {
                 "resolved": True,
                 "model": {"filename": "haus.ifc"},
-                "elements": [{"globalId": "0GridFixture00Wall0001", "name": "Aussenwand Nord"}],
+                "elements": [{"globalId": "0TestFixture00Wall0001", "name": "Aussenwand Nord"}],
                 "summary": "…",
             },
         )
@@ -953,7 +953,7 @@ class TestWhatTheTraceRecords:
         rendered = repr(self._recorded())
         assert "Aussenwand" not in rendered
         assert "Fluchttuer" not in rendered
-        assert "0GridFixture00Wall0001" not in rendered
+        assert "0TestFixture00Wall0001" not in rendered
 
 
 class TestTheToolBody:

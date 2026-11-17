@@ -11,8 +11,10 @@ var READ_PATH = '/api/inbox/read'
 var READ_WAIT_MS = 400
 
 /** The page-to-worker and worker-to-page message types. */
-var MESSAGE_CLOSE = 'piloti:close-notifications'
-var MESSAGE_NAVIGATE = 'piloti:navigate'
+var MESSAGE_CLOSE = 'close-notifications'
+var MESSAGE_NAVIGATE = 'navigate'
+var INBOX_TAG = 'inbox'
+var LEGACY_NAMES = { close: 'piloti:close-notifications', navigate: 'piloti:navigate', tag: 'piloti-inbox' } // drop after release 2026-W48
 
 function isString(value) {
   return typeof value === 'string' && value.length > 0
@@ -49,7 +51,7 @@ function parseMessage(text) {
     title: isString(data.title) ? data.title : GENERIC_TITLE,
     body: isString(data.body) ? data.body : '',
     url: isString(data.url) ? data.url : INBOX_PATH,
-    tag: isString(data.tag) ? data.tag : 'piloti-inbox',
+    tag: isString(data.tag) ? data.tag : INBOX_TAG,
     itemId: isString(data.itemId) ? data.itemId : '',
   }
 }
@@ -83,6 +85,10 @@ function pickWindow(windows, origin) {
   return visible.length > 0 ? visible[0] : ours[0] || null
 }
 
+function currentTag(tag) {
+  return tag === LEGACY_NAMES.tag ? INBOX_TAG : tag
+}
+
 /**
  * Which of these notifications a close request names: all of them, the items it
  * lists (a notification remembers its inbox item in `data.itemId`), or the tags.
@@ -90,10 +96,10 @@ function pickWindow(windows, origin) {
 function notificationsToClose(notifications, request) {
   if (request && request.all === true) return notifications
   var itemIds = request && Array.isArray(request.itemIds) ? request.itemIds : []
-  var tags = request && Array.isArray(request.tags) ? request.tags : []
+  var tags = request && Array.isArray(request.tags) ? request.tags.map(currentTag) : []
   return notifications.filter(function (notification) {
     var itemId = notification.data && notification.data.itemId
-    return tags.indexOf(notification.tag) !== -1 || (isString(itemId) && itemIds.indexOf(itemId) !== -1)
+    return tags.indexOf(currentTag(notification.tag)) !== -1 || (isString(itemId) && itemIds.indexOf(itemId) !== -1)
   })
 }
 
@@ -151,7 +157,9 @@ async function openItem(scope, rawUrl) {
   } catch (error) {
     // Fall through to the message.
   }
-  client.postMessage({ type: MESSAGE_NAVIGATE, url: target.slice(scope.location.origin.length) })
+  var path = target.slice(scope.location.origin.length)
+  client.postMessage({ type: MESSAGE_NAVIGATE, url: path })
+  client.postMessage({ type: LEGACY_NAMES.navigate, url: path })
 }
 
 /**
@@ -228,7 +236,7 @@ function register(scope) {
   })
   scope.addEventListener('message', function (event) {
     var request = event.data
-    if (!request || request.type !== MESSAGE_CLOSE) return
+    if (!request || (request.type !== MESSAGE_CLOSE && request.type !== LEGACY_NAMES.close)) return
     event.waitUntil(
       scope.registration.getNotifications().then(function (notifications) {
         notificationsToClose(notifications, request).forEach(function (notification) {
@@ -241,6 +249,8 @@ function register(scope) {
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
+    INBOX_TAG: INBOX_TAG,
+    LEGACY_NAMES: LEGACY_NAMES,
     MESSAGE_CLOSE: MESSAGE_CLOSE,
     MESSAGE_NAVIGATE: MESSAGE_NAVIGATE,
     READ_PATH: READ_PATH,

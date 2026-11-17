@@ -75,7 +75,7 @@ describe('AgentResponse', () => {
     resetDecidedProposals()
   })
 
-  describe('the „Piloti noted“ chip for a memory card the server decides', () => {
+  describe('the agent-noted chip for a memory card the server decides', () => {
     const NOTE = 'Fluchtweg über den Innenhof'
     const card = {
       type: 'memory_proposal',

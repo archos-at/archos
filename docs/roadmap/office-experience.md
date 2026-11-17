@@ -1,4 +1,4 @@
-# Büroerfahrung: the office as Piloti's memory
+# Büroerfahrung: the office as the product's memory
 
 > **Status:** product direction, 7 Oct 2026. It replaces
 > [`cross-project-rag-vision.md`](cross-project-rag-vision.md) (July 2026). That
@@ -23,11 +23,11 @@ that never meets data delivers nothing.
 
 | The planner's moment | What they should get | Today | Why |
 |---|---|---|---|
-| „Wie haben wir das gelöst?" | The comparable projects' solutions, cited, as precedent | **Built, barely delivered** | Search, catalog and access work; the turn decision prefetches the reference projects when a precedent is likely; other projects' recorded decisions come first, found by meaning in any language. The ranking reads every building of a project as the wizard stores it (until 8 Oct it read only Bundesland and kind of work). But the catalog lists only CLOSED projects that live in Piloti, and closing only arrived with ticket 1. The Gebäudeklasse is left open in the wizard on purpose (a wrong class is a wrong requirement); only an agent proposal a person accepts writes it. In a real office today the catalog is empty or thin |
-| „Fragt die Behörde das wieder nach?" | The office's past Nachforderungen and Auflagen for this Behörde | **Built, not delivered** | A document a person or the classifier tagged „Bescheid" is read once at ingest into a permit record: the Behörde, the Gemeinde from the letterhead, the date, each Auflage or Nachforderung with its evidence (ADR-0095). The record carries the document's folder restriction and is found by meaning in the cross-project lookup. In the eval every permit question cites the right project in every run; one English run left a dimension out. It delivers only what lies in Piloti and is tagged; an archive is slice E. The Gemeinde is read off the letterhead, not matched to a register |
+| „Wie haben wir das gelöst?" | The comparable projects' solutions, cited, as precedent | **Built, barely delivered** | Search, catalog and access work; the turn decision prefetches the reference projects when a precedent is likely; other projects' recorded decisions come first, found by meaning in any language. The ranking reads every building of a project as the wizard stores it (until 8 Oct it read only Bundesland and kind of work). But the catalog lists only CLOSED projects that live in the app, and closing only arrived with ticket 1. The Gebäudeklasse is left open in the wizard on purpose (a wrong class is a wrong requirement); only an agent proposal a person accepts writes it. In a real office today the catalog is empty or thin |
+| „Fragt die Behörde das wieder nach?" | The office's past Nachforderungen and Auflagen for this Behörde | **Built, not delivered** | A document a person or the classifier tagged „Bescheid" is read once at ingest into a permit record: the Behörde, the Gemeinde from the letterhead, the date, each Auflage or Nachforderung with its evidence (ADR-0095). The record carries the document's folder restriction and is found by meaning in the cross-project lookup. In the eval every permit question cites the right project in every run; one English run left a dimension out. It delivers only what lies in the app and is tagged; an archive is slice E. The Gemeinde is read off the letterhead, not matched to a register |
 | Starting a project | Similar projects, typical Auflagen, Gutachten, durations | **Not built** | Depends on the two rows above |
 | A tender | Reference sheets | **Not built** | No Bausumme or BGF fields |
-| A colleague leaves | Their projects' lessons stay | **Built, not drafted** | The close dialog carries the closing debrief: the fingerprint with its open facts named, the project's decisions to confirm, a lesson to record. Confirmed ones are cited elsewhere as a person's. Piloti does not yet DRAFT the debrief (what went wrong, the Auflagen and their outcome); a person reviews what the memory already holds |
+| A colleague leaves | Their projects' lessons stay | **Built, not drafted** | The close dialog carries the closing debrief: the fingerprint with its open facts named, the project's decisions to confirm, a lesson to record. Confirmed ones are cited elsewhere as a person's. The agent does not yet DRAFT the debrief (what went wrong, the Auflagen and their outcome); a person reviews what the memory already holds |
 | Trusting the answer | Every precedent with project, year, edition; never confused with the norm | **Mostly** | Project, status and Bundesland are on every source, and a precedent from another Land is marked by the tool as decided under another Bauordnung. The prompt says „Präzedenzfall, nicht Norm". The edition a precedent was decided under is not known, so edition drift is said only when the answer can see a date |
 | Nothing leaks | A colleague never sees what they may not read | **Delivered** | Audience search, record at hand-out, read-time judges; 24 access rules each with a test that fails without it |
 | Knowing it works | A measured answer quality for precedent questions | **Built** | `suite.py --set precedent`: 32 questions, 16 held out, in three offices (the default house with 24 other projects and 74 documents, a Vienna office conversion, an office with no past project). The fixture ranks with the production embedder and no relevance floor; meanings go to a judge, and a judge that cannot answer is a failure; `cites` ignores a name the question already holds; `real_projects` catches an invented project in the source lines (one named only in the prose is not caught). **Baseline 8 Oct (8c6e706), 64 runs:** cites 46/46, no invented project 64/64, said „nichts Vergleichbares" 12/12, looked when it should 48/48, edition caveat 5/6, stayed out on norm questions 6/8 (one definition question sits on the prefetch threshold), answer envelope 60/64 (2/54 before), no unwanted project 88/92: all four misses are one correct answer („keine Nachforderung der BH Kufstein", Mödling named as the contrast) that a word check misreads, left as is because the question is held out. Held-out scored as the tuned questions; the judge answered all 18. **Not comparable with earlier figures:** the 7 Oct baseline (cites 18/24, 2 of 30 answers replaced by a canned error) and an earlier 8 Oct run (cites 38/38, 9/9) had fewer questions, an office of 8 projects, a cites check 10 of 23 groups passed by repeating the question, and left a judge's non-answer out of the count. The held-out questions are not untouched: the `wien-uebernahme` check was moved from a word list to the judge after the run that first scored it (69bae5e), and d76de7e changed the expectations of 10 of the 16 held-out questions after they had run (cite options re-worded to a name the question does not hold, `evidence` added), so the held-out figures here are the first scored on their current expectations |
@@ -59,7 +59,7 @@ That reorders the next work. Before any new capability:
 
 ## The thesis
 
-**Piloti's unit of value is the office, not the project.**
+**The product's unit of value is the office, not the project.**
 
 A planning office's competitive substance is how it builds. That knowledge
 lives in:
@@ -81,8 +81,8 @@ office's last fifteen years. So:
   office's data. The exceptions are Nomic, which searches US drawings across a
   firm, and ERP proposal tools. Nobody covers permitting knowledge.
 * **This is the retention, not a network effect.** Be precise about the claim.
-  One office's corpus makes Piloti expensive to leave: after two years it knows
-  things no other tool does. It does not make Piloti better for other offices
+  One office's corpus makes the product expensive to leave: after two years it knows
+  things no other tool does. It does not make the product better for other offices
   (a16z, "The Empty Promise of Data Moats"). The defensible part is the depth
   of workflow built on that corpus: Einreichung, Nachforderung, Wettbewerb. The
   only plausible pooled effect is an **opt-in, anonymised Verfahrensdauer
@@ -139,7 +139,7 @@ survey PDF (ZT-Kammer), and FHNW (GKS).
 | **Surfaces beyond chat** | **missing** | Experience appears only when someone asks. |
 
 The safe pipe exists. What flows through it is thin, and it is thinnest exactly
-where the value is: in old projects nobody fed into Piloti.
+where the value is: in old projects nobody fed into the app.
 
 ## What it could give: six capabilities
 
@@ -164,7 +164,7 @@ the answer, not a passage among others:
 
 When a project is created, its fingerprint (Bundesland, Gemeinde,
 Gebäudeklasse, Bauweise, use, kind of work) is known from intake. At that
-moment Piloti shows:
+moment the agent shows:
 - the most similar past projects;
 - what the Behörde demanded there;
 - which Gutachten were needed;
@@ -205,7 +205,7 @@ they answer the question a planner actually asks.
 ### 4. Behörde und Gemeinde: permitting memory, the strongest case
 
 Across an office's projects, the same Baubehörden recur. From Bescheide,
-correspondence and the Steckbrief period, Piloti can learn:
+correspondence and the Steckbrief period, the agent can learn:
 - which Auflagen each authority typically sets;
 - what it asks for in a Vorprüfung;
 - how long it takes.
@@ -224,7 +224,7 @@ authority to be honest about the numbers.
 
 For a Wettbewerb or a tender, the office needs reference sheets: comparable
 projects from a period, with values, role, period and client confirmation.
-Piloti already holds the period and the people (the Steckbrief). With the
+The app already holds the period and the people (the Steckbrief). With the
 fingerprint and the Bausumme it can draft the sheets for the projects most like
 the tender's, as a document the office checks and files.
 
@@ -239,16 +239,16 @@ Experience that repeats should become office standard:
 - an Auflage met the same way every time;
 - a Gutachter who is always used.
 
-Piloti proposes promotion. A person confirms it, and the standard moves to
+The agent proposes promotion. A person confirms it, and the standard moves to
 the Büro shelf and organization memory, both of which already exist. From
 then on it is answered as „so machen wir das", not as one precedent among
 several.
 
 The opposite also matters. When projects contradict each other, or a
-standard is contradicted by a newer Bescheid, Piloti says so.
+standard is contradicted by a newer Bescheid, the agent says so.
 
 The loop is closed by **the closing debrief**. When a project is closed
-(ticket 1's close action), Piloti drafts:
+(ticket 1's close action), the agent drafts:
 - the Steckbrief's missing facts;
 - the decisions worth keeping;
 - what went wrong;
@@ -264,14 +264,14 @@ fingerprint it shows is the one the ranking reads (`lib/cross-project/fingerprin
 so what it asks for is exactly what makes the project findable. It asks; it
 never blocks the close.
 
-*Still needed:* the draft. Piloti proposing the missing facts, what went wrong,
+*Still needed:* the draft. The agent proposing the missing facts, what went wrong,
 and the Auflagen with their outcome, from the project's own Bescheide, needs
 the sieve and the pen of step 2. Also a promotion card, and the decision
 schema.
 
 ## Augmentation: three levels, not one search box
 
-"Cross-project search" undersells it. Piloti augments three things, and
+"Cross-project search" undersells it. The agent augments three things, and
 each one feeds the next.
 
 ### Augment the archive: enrich it once, backwards, cheaply
@@ -312,7 +312,7 @@ blocks a step, and always names its project, year and edition.
 ### Augment the people: the office's heads, written down
 
 * **The closing debrief** turns the Projektabschlussgespräch into ten minutes of
-  confirming what Piloti drafted, including the why that Staab says a detail
+  confirming what the agent drafted, including the why that Staab says a detail
   database lacks.
 * **A new colleague** asks „Wie macht unser Büro das?" and gets the office's
   answer with its projects, not the internet's.
@@ -326,7 +326,7 @@ Jev (TypeSafe's decision model, ADR-0064) answers typed questions about a
 state: yes/no, a choice of up to 255, a level on a rubric. It answers in under
 a second, with a probability, for almost nothing. That is the exact shape of
 most of the augmentation work, which is why it matters more here than anywhere
-else in Piloti. Its documented limits decide what it may NOT do.
+else in the app. Its documented limits decide what it may NOT do.
 
 | Use | Jev's question | Rule it obeys | State (10 Oct) |
 |---|---|---|---|
@@ -368,7 +368,7 @@ missing today, and that is where the value is. So the first investment is not
 in smarter retrieval but in **turning an office's archive into experience**:
 
 1. **Archiv-Import, or connecting the archive.**
-   - **What it does:** an office points Piloti at its project archive, one
+   - **What it does:** an office points the agent at its project archive, one
      folder per project.
    - **What each folder becomes:** a closed project with its documents
      ingested and tagged (the classifier exists).
@@ -382,7 +382,7 @@ in smarter retrieval but in **turning an office's archive into experience**:
      bought where possible.
 2. **Fingerprint extraction.**
    - **What it does:** from each project's documents (Einreichplan,
-     Baubeschreibung, Bescheid, Energieausweis), Piloti extracts the
+     Baubeschreibung, Bescheid, Energieausweis), the agent extracts the
      fingerprint facts as *agent-suggested* values. The profile already
      distinguishes `assumptions` (agent_suggested) from confirmed `facts`.
    - **Who confirms:** a person, in one table for all imported projects.
@@ -441,14 +441,14 @@ months and euros, and its value is not a promise about the future.
 
 ## Horizons
 
-| Horizon | What Piloti is to the office |
+| Horizon | What the product is to the office |
 |---|---|
-| **Now (Oct 2026)** | A colleague that reads the office's past projects safely, where they are held in Piloti |
+| **Now (Oct 2026)** | A colleague that reads the office's past projects safely, where they are held in the app |
 | **Next (3–6 months)** | The office's archive, read and annotated. Precedent and permitting memory in answers and in the Einreichcheck. A closing debrief that captures the why |
 | **Later (6–18 months)** | The colleague who has worked on every project: at project start, in drafting, in plan and model review, in tenders. Office standards emerge from repeated solutions, and contradictions surface |
 | **Future** | Permitting becomes a data exchange. Vienna's BIM-based permit work (BRISE-Vienna) and the Länder's digital Einreichung point to authorities answering in structured form. An office whose Nachforderungen are already structured data learns from every procedure automatically. An opt-in, anonymised Verfahrensdauer benchmark per Behörde across offices becomes possible. It is the only pooled signal, and never content |
 
-The direction holds across all four horizons. Piloti moves from answering
+The direction holds across all four horizons. The product moves from answering
 when asked, to being present when deciding, to closing the loop with the
 authority. The access model and the "only add" rule stay unchanged.
 
@@ -466,4 +466,4 @@ authority. The access model and the "only add" rule stay unchanged.
    asking `project:memory:write`, which every project admin and editor holds.
    A Projektleiter-only confirmation would need a role the office assigns.
 4. **Numbers about authorities.** Counts like „6 von 8" invite
-   over-reading. What is the minimum sample before Piloti states a pattern?
+   over-reading. What is the minimum sample before the agent states a pattern?

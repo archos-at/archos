@@ -1,5 +1,5 @@
 # =============================================================================
-# Piloti - Docker Compose
+# Docker Compose
 # =============================================================================
 #
 # Services:
@@ -616,7 +616,7 @@ services:
   # `document.generated` is emitted with the THROWING emitter: a rejected event
   # does not thin the audit trail, it unfiles the document the trail was about
   # (apps/workspace/bff/documents/generated.ts). An unreconciled environment
-  # therefore serves a Piloti that files nothing, silently, and there is no
+  # therefore serves an app that files nothing, silently, and there is no
   # rolling update here whose availability the ordering would cost — the stack
   # comes up as a unit, and where WORKOS_API_KEY is set WorkOS is already a hard
   # dependency of it (nobody can log in without one).
@@ -820,7 +820,7 @@ services:
         condition: service_completed_successfully
       # Wait for the WorkOS audit schemas before serving. A rejected
       # `document.generated` event unfiles the document it was about, so an
-      # unreconciled environment serves a Piloti that files nothing.
+      # unreconciled environment serves an app that files nothing.
       audit-schemas:
         condition: service_completed_successfully
       chat:
@@ -1189,7 +1189,7 @@ services:
       start_period: 120s
     restart: unless-stopped
 
-  # Renames the databases and the owner role from their AI-Q names to jobs,
+  # Renames the databases and the owner role from their legacy names to jobs,
   # checkpoints and agent (ADR-0145 row 10d), once, before anything that
   # connects starts: every service that waits on postgres waits on this too.
   # A volume made with the new names, and the second run, change nothing. The

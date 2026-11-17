@@ -1,4 +1,4 @@
-"""Piloti's filesystem tools: one namespace over the estate and the drafts (ADR-0133).
+"""The agent's filesystem tools: one namespace over the estate and the drafts (ADR-0133).
 
 Deep Agents' ``FilesystemMiddleware`` builds the tools; this module configures it
 and replaces the result text where the text is evidence:

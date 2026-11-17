@@ -29,16 +29,12 @@ Over every text file git tracks:
   (``archos-at/archos``) are not the name as copy and are left out.
 
 Never counted: a host name under the old domain (``OLD_HOSTS``), which the domain cutover
-moves; in the three legal notices (``LEGAL_CONTINUITY_FILES``), the former name
-in exactly "(vormals Piloti)" or "(formerly Piloti)". A link to an ADR file (``0146-piloti-draws-….md``), whose filename
-is history; on a line carrying ``<!-- brand-history -->``, anything in
-backticks, which is how a later record quotes an old name; and the module path
-of a Python ``from``/``import`` line into the chat agent's package
-(``IMPORT_PATH``). That path is an identifier nobody reads as copy, kept on
-purpose because the checkpointer restores a graph by it (the agent's AGENTS.md,
-"Move or rename a package under agents/"), and ``check_brand_names.py`` already
-ratchets it. Counted here too, it made every new test of that package a new hit
-this check refuses, so none could be written.
+moves; the Pulumi project and stack ``grid-oib`` (``EXTERNAL_NAMES``), an
+infrastructure name the owner kept (ADR-0182 decision 4); in the three legal
+notices (``LEGAL_CONTINUITY_FILES``), the former name in exactly "(vormals Piloti)"
+or "(formerly Piloti)". A link to an ADR file (``0146-piloti-draws-….md``), whose
+filename is history; on a line carrying ``<!-- brand-history -->``, anything in
+backticks, which is how a later record quotes an old name.
 
 History is not rewritten
 ------------------------
@@ -162,6 +158,7 @@ URL = re.compile(r"\b(?:https?|git|ssh)://\S+|\b[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
 OWN_NAMES = re.compile(r"(?i)\barchos-at(?:/archos)?\b|\b(?:[\w-]+\.)*archos\.tech\b")
 # nosemgrep: python.lang.security.audit.regex-dos.regex_dos
 OLD_HOSTS = re.compile(r"(?i)\b(?:[\w-]+\.)*piloti\.(?:at|test)\b")
+EXTERNAL_NAMES = re.compile(r"(?<![\w-])grid-oib(?![\w-])")
 
 BINARY_SUFFIXES = (
     ".png", ".jpg", ".jpeg", ".gif", ".webp", ".avif", ".ico", ".icns", ".woff", ".woff2", ".ttf", ".otf",
@@ -185,19 +182,16 @@ def name_lines(text: str) -> str:
     return "\n".join(text[start : (text.find("\n", start) + 1 or len(text) + 1) - 1] for start in sorted(starts))
 
 
-IMPORT_PATH = re.compile(r"^(\s*(?:from|import)\s+)agent\.agents\.piloti(?!\w)(?:\.\w+)*", re.M)
-
-
 def scrub(text: str) -> str:
-    """``text`` without what never counts: ADR filenames, import paths, and backticks on a marked line."""
-    text = IMPORT_PATH.sub(r"\1", ADR_LINK.sub(" ", text))
+    """``text`` without what never counts: ADR filenames, and backticks on a marked line."""
+    text = ADR_LINK.sub(" ", text)
     if LINE_MARKER not in text:
         return text
     return "\n".join(BACKTICKED.sub(" ", line) if LINE_MARKER in line else line for line in text.split("\n"))
 
 
 def count_retired(text: str) -> int:
-    return len(RETIRED.findall(OLD_HOSTS.sub(" ", scrub(text))))
+    return len(RETIRED.findall(EXTERNAL_NAMES.sub(" ", OLD_HOSTS.sub(" ", scrub(text)))))
 
 
 def count_current(text: str) -> int:

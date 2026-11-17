@@ -22,6 +22,9 @@ from agent.common import bff_http
 from agent.tools.canvas import calls as canvas_calls
 from agent.tools.canvas import client as canvas_client
 from agent.tools.canvas.client import CanvasRequestError
+from agent.tools.canvas.legacy_reasons import LEGACY_AGENT_DIRECT_EDITS_OFF_CODE
+from agent.tools.canvas.legacy_reasons import LEGACY_AGENT_DIRECT_EDITS_OFF_ERROR_CODE
+from agent.tools.canvas.legacy_reasons import LEGACY_AGENT_DIRECT_EDITS_OFF_REASON
 from agent.tools.canvas.register import DESCRIPTIONS
 from agent.tools.canvas.register import run_delete
 from agent.tools.canvas.register import run_mark
@@ -181,10 +184,10 @@ class TestADelete:
         assert registry.snapshot() == []
 
 
-def _acts_off() -> CanvasRequestError:
-    return CanvasRequestError(
-        "This organization has Piloti propose only.", status=403, code="PILOTI_ACTS_OFF", reason="piloti-acts-off"
-    )
+def _acts_off(
+    code: str = LEGACY_AGENT_DIRECT_EDITS_OFF_ERROR_CODE, reason: str = LEGACY_AGENT_DIRECT_EDITS_OFF_REASON
+) -> CanvasRequestError:
+    return CanvasRequestError("This organization has ARCHOS propose only.", status=403, code=code, reason=reason)
 
 
 class TestAnOfficeThatHasAgentProposeOnly:
@@ -195,6 +198,26 @@ class TestAnOfficeThatHasAgentProposeOnly:
 
         assert result.startswith("Not set")
         assert "only propose" in result and "`mark` without `open`" in result and "take it over" in result
+        assert registry.snapshot() == []
+
+    async def test_the_reason_the_bff_names_now_is_refused_the_same_way(self, monkeypatch, calls, registry) -> None:
+        answering(monkeypatch, calls, _acts_off(code="AGENT_DIRECT_EDITS_OFF", reason="agent-direct-edits-off"))
+
+        result = await run_mark([PROPOSAL], open=True)
+
+        assert result.startswith("Not set")
+        assert "only propose" in result and "`mark` without `open`" in result
+        assert registry.snapshot() == []
+
+    async def test_a_change_under_the_reason_named_now_is_left_to_the_person(
+        self, monkeypatch, calls, registry
+    ) -> None:
+        answering(monkeypatch, calls, _acts_off(code="AGENT_DIRECT_EDITS_OFF", reason="agent-direct-edits-off"))
+
+        result = await run_update(ANNOTATION, NOTE, status="resolved")
+
+        assert result.startswith("Not changed")
+        assert "themselves" in result and "do not retry" in result
         assert registry.snapshot() == []
 
     async def test_the_proposal_it_asks_for_goes_through(self, monkeypatch, calls, registry) -> None:
@@ -252,13 +275,13 @@ class TestAnOfficeThatHasAgentProposeOnly:
 
         await run_delete(ANNOTATION)
 
-        assert spans == [("canvas.delete", {"step": "delete"}, {"refused": "piloti_acts_off"})]
+        assert spans == [("canvas.delete", {"step": "delete"}, {"refused": LEGACY_AGENT_DIRECT_EDITS_OFF_CODE})]
 
     def test_the_bff_envelope_is_read_into_the_reason(self) -> None:
         body = {
-            "error": "This organization has Piloti propose only.",
-            "code": "PILOTI_ACTS_OFF",
-            "details": {"reason": "piloti-acts-off", "op": "update"},
+            "error": "This organization has ARCHOS propose only.",
+            "code": LEGACY_AGENT_DIRECT_EDITS_OFF_ERROR_CODE,
+            "details": {"reason": LEGACY_AGENT_DIRECT_EDITS_OFF_REASON, "op": "update"},
         }
         exc = urllib.error.HTTPError("http://frontend/api", 403, "Forbidden", {}, io.BytesIO(json.dumps(body).encode()))
 
@@ -266,7 +289,11 @@ class TestAnOfficeThatHasAgentProposeOnly:
             bff_http.BffRefusedError("refused", status=exc.code, body=bff_http._error_envelope(exc))
         )
 
-        assert (refusal.status, refusal.code, refusal.reason) == (403, "PILOTI_ACTS_OFF", "piloti-acts-off")
+        assert (refusal.status, refusal.code, refusal.reason) == (
+            403,
+            LEGACY_AGENT_DIRECT_EDITS_OFF_ERROR_CODE,
+            LEGACY_AGENT_DIRECT_EDITS_OFF_REASON,
+        )
 
     @pytest.mark.parametrize("tool", ["mark", "update", "delete"])
     def test_each_acting_tool_says_so_in_its_description(self, tool) -> None:

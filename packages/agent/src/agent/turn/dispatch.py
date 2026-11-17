@@ -20,7 +20,7 @@ from agent.turn.commission import CommissionedRun
 from agent.turn.commission import commission_research_run
 
 if TYPE_CHECKING:
-    from agent.agents.piloti.models import ConversationState
+    from agent.core.models import ConversationState
 
 logger = logging.getLogger(__name__)
 

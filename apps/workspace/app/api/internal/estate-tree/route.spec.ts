@@ -58,7 +58,7 @@ function envelopeHeaders(secret = SECRET) {
 }
 
 function request(body: unknown, headers: Record<string, string> = envelopeHeaders(), token: string | null = SECRET) {
-  return new Request('https://grid.test/api/internal/estate-tree', {
+  return new Request('https://example.test/api/internal/estate-tree', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...(token ? { 'x-grid-internal-token': token } : {}), ...headers },
     body: JSON.stringify(body),

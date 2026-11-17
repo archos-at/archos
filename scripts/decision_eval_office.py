@@ -11,7 +11,7 @@ office's experience (ADR-0094, ADR-0096, docs/roadmap/office-experience.md):
     whether round 0 searches the office's closed projects before the model
     asks (``TurnDecisions.wants_reference``).
 ``fit``
-    Rank, then verify (use 10, ``agents/piloti/reference_fit.py``): the
+    Rank, then verify (use 10, ``core/reference_fit.py``): the
     catalog is ranked by fingerprint, then one ``fits`` noul per line reorders
     it for THIS question. Measured as whether a project the answer must cite
     lands in the first page a closed search walks (8 projects).
@@ -189,14 +189,14 @@ def _precedent_cases() -> list[tuple[str, str, str, bool, bool]]:
 
 
 async def evaluate_precedent() -> dict[str, Any]:
-    from agent.agents.piloti.decisions import PRECEDENT_THRESHOLD
-    from agent.agents.piloti.decisions import PRECEDENT_THRESHOLD_LAW
-    from agent.agents.piloti.decisions import TurnFacts
-    from agent.agents.piloti.decisions import decide_turn
     from agent.cards.catalog import card_index_entries
     from agent.cards.envelope import ENVELOPE_SHAPE_TYPES
     from agent.common.norm_registry import oib_families
     from agent.common.project_facts import facts_from_project_context
+    from agent.core.decisions import PRECEDENT_THRESHOLD
+    from agent.core.decisions import PRECEDENT_THRESHOLD_LAW
+    from agent.core.decisions import TurnFacts
+    from agent.core.decisions import decide_turn
     from agent.skills.builtin import discover_builtin_skills
     from agent.skills.resolver import _skill_applies_to_agent
     from scripts.decision_eval import CORPUS_FILES
@@ -290,12 +290,12 @@ class FitRow:
 
 
 async def evaluate_fit() -> dict[str, Any]:
-    from agent.agents.piloti.reference_fit import FITS_QUESTION
-    from agent.agents.piloti.reference_fit import SLOT
-    from agent.agents.piloti.reference_fit import line_state
-    from agent.agents.piloti.reference_fit import parse_catalog
-    from agent.agents.piloti.reference_fit import reorder
     from agent.common.decisions import decide_many
+    from agent.core.reference_fit import FITS_QUESTION
+    from agent.core.reference_fit import SLOT
+    from agent.core.reference_fit import line_state
+    from agent.core.reference_fit import parse_catalog
+    from agent.core.reference_fit import reorder
 
     office, rendered = _office()
     names = {project["id"]: project["name"] for project in office["projects"]}

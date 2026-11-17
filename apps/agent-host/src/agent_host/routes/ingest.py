@@ -65,7 +65,7 @@ def add_ingest_routes(router: APIRouter):
         collection as the BFF knows it; without it the name is derived from the
         presigned URL's last path segment, which is the object key's basename.
         ``authored_by``/``approved_by``/``approved_at``/``producer`` (optional,
-        all four together) are the provenance of a document Piloti wrote and a
+        all four together) are the provenance of a document the agent wrote and a
         person released (ADR-0054); they are stamped onto every chunk and onto
         the document metadata row, and absent means "a human wrote this".
         ``x-grid-organization-id`` (forwarded by the BFF for

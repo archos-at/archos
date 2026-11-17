@@ -18,9 +18,6 @@ from dataclasses import dataclass
 from dataclasses import field
 from typing import Any
 
-from agent.agents.piloti.markers import ConfidenceLevel
-from agent.agents.piloti.markers import answer_confidence_capped_reason
-from agent.agents.piloti.markers import surface_answer_confidence
 from agent.citations.entries import lost_citations
 from agent.citations.quote_verification import verify_quoted_spans
 from agent.citations.references import expand_grouped_citations
@@ -40,6 +37,9 @@ from agent.common.turn_notices import DEGRADED_BASIS_UNREAD
 from agent.common.turn_notices import DEGRADED_NO_VALID_CITATIONS
 from agent.common.turn_notices import DEGRADED_UNVERIFIED_QUOTES
 from agent.common.turn_notices import emit_answer_degraded
+from agent.core.markers import ConfidenceLevel
+from agent.core.markers import answer_confidence_capped_reason
+from agent.core.markers import surface_answer_confidence
 from agent.skills import SkillRuntime
 
 logger = logging.getLogger(__name__)

@@ -439,7 +439,7 @@ describe('the ingest dispatch sends the document folder path', () => {
     expect(bodyOf(0).file_name).toBe('piloti/doc-1/aktenvermerk-2026-09-01.md')
   })
 
-  it('sends the four provenance keys for a published Piloti document', async () => {
+  it('sends the four provenance keys for a published agent document', async () => {
     vi.mocked(findDocumentInOrg).mockResolvedValue(
       makeDocument({
         authoredBy: 'agent',

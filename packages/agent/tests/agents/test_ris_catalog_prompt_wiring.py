@@ -11,7 +11,7 @@ from agent.common.norm_registry import reset_registry_cache
 from agent.common.prompt_utils import render_prompt_template
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
-CHAT_TEMPLATE = REPO_ROOT / "packages" / "agent" / "src" / "agent" / "agents" / "piloti" / "prompts" / "piloti.j2"
+CHAT_TEMPLATE = REPO_ROOT / "packages" / "agent" / "src" / "agent" / "core" / "prompts" / "system.j2"
 DEEP_TEMPLATE = (
     REPO_ROOT / "packages" / "agent" / "src" / "agent" / "agents" / "deep_researcher" / "prompts" / "researcher.j2"
 )

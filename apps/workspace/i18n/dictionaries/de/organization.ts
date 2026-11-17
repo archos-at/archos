@@ -150,7 +150,7 @@ export const organization: typeof en.organization = {
       permissionCountOne: '1 Berechtigung',
       permissionCountOther: '{count} Berechtigungen',
       platformNotice:
-        'Nur für Plattform-Personal. Diese Rollen liegen in der Organisation „GRID Platform“ und können hier nicht vergeben werden.',
+        'Nur für Plattform-Personal. Diese Rollen liegen in der Plattform-Organisation und können hier nicht vergeben werden.',
     },
     permissions: {
       title: 'Berechtigungen',

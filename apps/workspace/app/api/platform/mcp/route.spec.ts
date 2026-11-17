@@ -44,10 +44,10 @@ import { POST as officePOST } from '../../mcp/route'
 import { platformOverviewCalls } from '@/lib/agent-api/test-operations'
 import { DELETE, GET, POST } from './route'
 
-const DOMAIN = 'auth.piloti.test'
-const OFFICE = 'https://app.piloti.test/api/mcp'
-const A2A = 'https://app.piloti.test/api/a2a'
-const PLATFORM = 'https://app.piloti.test/api/platform/mcp'
+const DOMAIN = 'auth.example.test'
+const OFFICE = 'https://app.example.test/api/mcp'
+const A2A = 'https://app.example.test/api/a2a'
+const PLATFORM = 'https://app.example.test/api/platform/mcp'
 const PLATFORM_ORG = 'org_platform'
 const SECRET = 'internal-token-for-tests' // pragma: allowlist secret
 const KID = 'test-key'
@@ -114,7 +114,7 @@ beforeEach(() => {
   process.env.WORKOS_AUTHKIT_DOMAIN = DOMAIN
   process.env.MCP_RESOURCE_URL = OFFICE
   process.env.INTERNAL_API_TOKEN = SECRET
-  process.env.WORKOS_REDIRECT_URI = 'https://app.piloti.test/api/auth/callback'
+  process.env.WORKOS_REDIRECT_URI = 'https://app.example.test/api/auth/callback'
   vi.mocked(resolvePinnedRequesterSession).mockResolvedValue(operator)
   vi.mocked(isOrgFeatureEnabled).mockResolvedValue(true)
   vi.mocked(getPlatformOrganizationId).mockResolvedValue(PLATFORM_ORG)
@@ -134,7 +134,7 @@ describe('who may knock', () => {
     const response = await POST(rpc(PLATFORM, 'tools/list', {}))
     expect(response.status).toBe(401)
     expect(response.headers.get('www-authenticate')).toContain(
-      'resource_metadata="https://app.piloti.test/.well-known/oauth-protected-resource/api/platform/mcp"',
+      'resource_metadata="https://app.example.test/.well-known/oauth-protected-resource/api/platform/mcp"',
     )
     expect(enforceLimit).not.toHaveBeenCalled()
   })
@@ -191,7 +191,7 @@ describe('who may knock', () => {
     expect((await POST(rpc(PLATFORM, 'tools/list', {}, await bearer()))).status).toBe(403)
   })
 
-  it('never takes Piloti’s own credential', async () => {
+  it('never takes the agent’s own credential', async () => {
     const { header, signature } = buildRequestContextEnvelope(
       { organizationId: PLATFORM_ORG, userId: 'user_ops', conversationId: 'conv_1', issuedAt: Date.now() },
       SECRET,

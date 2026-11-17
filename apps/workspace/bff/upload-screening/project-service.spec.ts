@@ -105,7 +105,7 @@ describe('saveProjectUploadScreening', () => {
     expect(JSON.stringify(vi.mocked(recordAuditEvent).mock.calls)).not.toContain('Wettbewerb')
   })
 
-  it("fails rather than measuring the change against Piloti's suggestion when the office list cannot be read", async () => {
+  it("fails rather than measuring the change against the agent's suggestion when the office list cannot be read", async () => {
     given({ manage: true })
     vi.mocked(getUploadScreeningPolicy).mockRejectedValue(new Error('db down'))
     await expect(

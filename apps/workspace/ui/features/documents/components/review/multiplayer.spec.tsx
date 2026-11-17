@@ -68,7 +68,7 @@ function reviewWith(peers: RoomPeerState[], annotations: AnnotationView[] = []):
     sendCursor: () => {},
     sendDraft: () => {},
   }
-  const piloti: Partial<DocumentReview['piloti']> = { asks: [], openId: null, compose: () => 'ask_1', open: () => {} }
+  const agent: Partial<DocumentReview['piloti']> = { asks: [], openId: null, compose: () => 'ask_1', open: () => {} }
   const review: Partial<DocumentReview> = {
     annotations,
     tool: 'select',
@@ -77,7 +77,7 @@ function reviewWith(peers: RoomPeerState[], annotations: AnnotationView[] = []):
     hoveredId: null,
     filter: 'open',
     room: room as DocumentReview['room'],
-    piloti: piloti as DocumentReview['piloti'],
+    piloti: agent as DocumentReview['piloti'],
     select: () => {},
     setDraft: () => {},
     hover: () => {},
@@ -121,7 +121,7 @@ describe('a colleague’s pointer', () => {
     expect([...dots].map((dot) => dot.textContent)).toEqual(['A'])
   })
 
-  it("parks Piloti's pointer once the answer is in and it has stopped moving, never while it works", () => {
+  it("parks the agent's pointer once the answer is in and it has stopped moving, never while it works", () => {
     const rested = { activity: null, movedAt: 1_000 }
     const later = 1_000 + AGENT_REST_MS + 1
     expect(agentResting(rested, later, false)).toBe(true)
@@ -168,10 +168,10 @@ describe('the marks the others have open', () => {
     expect(screen.getByTestId('review-peer-selection-tag')).toHaveTextContent('Anna +1')
   })
 
-  it('groups by mark and leaves Piloti out: it says what it does with its own pointer', () => {
-    const piloti: RoomPeer = { peerId: 'piloti-c', userId: 'user_anna', name: 'Piloti', kind: 'piloti' }
+  it('groups by mark and leaves the agent out: it says what it does with its own pointer', () => {
+    const agent: RoomPeer = { peerId: 'agent-c', userId: 'user_anna', name: 'Agent', kind: 'piloti' }
     const selections = peerSelections(
-      [person(ANNA, { selected: 'ann_1' }), person(JAKOB, { selected: 'ann_2' }), person(piloti, { selected: 'ann_1' })],
+      [person(ANNA, { selected: 'ann_1' }), person(JAKOB, { selected: 'ann_2' }), person(agent, { selected: 'ann_1' })],
       'user_me'
     )
     expect([...selections.entries()].map(([mark, states]) => [mark, states.map((state) => state.peer.userId)])).toEqual([

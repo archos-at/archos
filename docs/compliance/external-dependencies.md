@@ -10,7 +10,7 @@
 
 ## Statement on runtime AI-model switching (OpenRouter)
 
-> **Piloti's effective AI-model provider is dynamic, not fixed.** Organization admins
+> **The agent's effective AI-model provider is dynamic, not fixed.** Organization admins
 > can re-point each of the six agent groups (`intent`, `clarifier`,
 > `shallow_research`, `deep_research`, `deep_research_router`, `memory_reflection`)
 > at **any model in the OpenRouter public catalog at runtime** (ADR-0014). The

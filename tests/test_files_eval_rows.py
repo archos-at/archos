@@ -197,7 +197,7 @@ class TestTheArms:
         assert pairs["functions.shallow_research_agent.tools"] == "web_search_tool,knowledge_search,look"
         assert pairs["functions.knowledge_search.match_modes"] == "meaning"
         assert pairs["functions.shallow_research_agent.filesystem"] == "null"
-        from agent.agents.piloti.register import ResearchAgentConfig
+        from agent.core.register import ResearchAgentConfig
 
         assert ResearchAgentConfig(llm="x", filesystem="null").filesystem is None
         assert ResearchAgentConfig(llm="x", filesystem="knowledge_search").filesystem == "knowledge_search"
@@ -235,7 +235,7 @@ class TestTheArms:
     def test_the_overrides_name_keys_the_config_and_its_schema_accept(self):
         from knowledge_layer.register import KnowledgeRetrievalConfig
 
-        from agent.agents.piloti.register import ResearchAgentConfig
+        from agent.core.register import ResearchAgentConfig
 
         for arm in ("semantic", "grep"):
             pairs = dict(files_eval.arm_overrides(arm, self.TOOLS))

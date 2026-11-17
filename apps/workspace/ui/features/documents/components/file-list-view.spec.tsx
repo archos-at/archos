@@ -218,7 +218,7 @@ describe('FileListView', () => {
       expect(screen.queryByTestId('file-list-approval-empty')).not.toBeInTheDocument()
     })
 
-    it('shows a Piloti draft’s state — triage must see what waits', () => {
+    it('shows an agent draft’s state — triage must see what waits', () => {
       renderList([
         doc('Bericht.pdf', {
           authoredBy: 'agent',

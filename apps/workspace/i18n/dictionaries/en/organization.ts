@@ -147,7 +147,7 @@ export const organization = {
       permissionCountOne: '1 permission',
       permissionCountOther: '{count} permissions',
       platformNotice:
-        'Platform staff only. These roles live in the GRID Platform organization and cannot be assigned here.',
+        'Platform staff only. These roles live in the platform organization and cannot be assigned here.',
     },
     permissions: {
       title: 'Permissions',

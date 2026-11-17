@@ -33,7 +33,7 @@ describe('isAgentDocumentFilename', () => {
     expect(isAgentDocumentFilename(agentDocumentFilename('doc_1', 'a.md'))).toBe(true)
   })
 
-  it('rejects a name that merely mentions piloti', () => {
+  it('rejects a name that merely mentions the namespace', () => {
     for (const name of ['piloti-bericht.md', 'x/piloti/doc_1/a.md', 'Piloti/doc_1/a.md', 'apiloti/a.md']) {
       expect(isAgentDocumentFilename(name), name).toBe(false)
     }

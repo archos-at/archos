@@ -111,7 +111,7 @@ async function leave(input: {
 export async function noticeRevision(organizationId: string, payload: RevisionNoticePayload): Promise<NoticeOutcome> {
   const session = await resolvePinnedRequesterSession({ ...payload.actor, organizationId })
   if (!session) return skipped('the person is no longer a member')
-  if (!isAgentNoticesEnabled(session)) return skipped('piloti-notices is off for the organization')
+  if (!isAgentNoticesEnabled(session)) return skipped('revision-suggestions is off for the organization')
 
   const [newer, older] = await Promise.all([
     findDocumentInOrg(payload.newerId, organizationId, SCREENED_ONLY),

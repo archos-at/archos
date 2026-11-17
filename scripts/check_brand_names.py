@@ -45,12 +45,10 @@ What is not a hit
 - The Kubernetes and Compose tier names `aiq-agent` and `aiq-api`
   (``PENDING_INFRA_NAMES``), until the deploy rename (ADR-0145 row 10c) moves
   them in its three operator-applied deploys.
-- The module path on a Python ``from``/``import`` line into the chat agent's
-  package (``IMPORT_PATH``). The package's directory is the identifier, kept on
-  purpose because the checkpointer restores a graph by it, and is counted once
-  under its ``dir/`` key; every import of it is a consequence of that one name.
-  Counted per import, each new test of the package was a new hit only a
-  ``--rebaseline`` could admit. The path anywhere else still counts.
+- The external names the owner kept (``EXTERNAL_NAMES``, ADR-0182 decision 4):
+  the Pulumi project and stack `grid-oib`, the buckets `grid-documents` and
+  `grid-org-<id>`, the Qdrant aliases `piloti_corpus` and `piloti_office`.
+- A legacy module's text, whose header says ``drop after release N`` (``LEGACY_HEADER``).
 - History and copy (``EXCLUDED``): ADRs, audits, release notes, migrations,
   the i18n dictionaries and the site's content, published assets, lockfiles,
   and Markdown, whose paths and names follow the code they describe.
@@ -104,6 +102,8 @@ EXCLUDED = re.compile(
             r"^apps/agent-host/entrypoint\.py$|^tests/test_(entrypoint_roles|no_legacy_env_names)\.py$|^apps/workspace/scripts/legacy-env-names\.",
             r"^deploy/pulumi/src/names\.ts$",
             r"^apps/workspace/bff/http/legacy-header-names\.|^apps/agent-host/src/agent_host/legacy_headers\.py$",
+            r"^apps/workspace/ui/features/documents/hooks/legacy-drag-types\.ts$",
+            r"^apps/workspace/bff/agent-api/legacy-names\.|^packages/agent/src/agent/tools/workspace/legacy_names\.py$",
             r"^packages/brand/identity\.json$|^apps/[^/]+/(.*/)?identity\.json$|^packages/agent/src/agent/common/identity\.json$",
             r"^tests/test_legacy_headers\.py$",
             r"^deploy/postgres/rename-legacy-names\.sh$|^deploy/pulumi/src/data/postgres-rename\.ts$",
@@ -117,11 +117,16 @@ EXCLUDED = re.compile(
 )
 
 URL = re.compile(r"\b(?:https?|git|ssh)://\S+|\bgit@[\w.-]+:\S+")
+LEGACY_HEADER = re.compile(r"(?i)drop after release\s+\S+")
 HOST = re.compile(r"\.(?:at|ai|app|com|de|dev|eu|io|net|org|tech)$")
 PENDING_INFRA_NAMES = re.compile(r"(?<![A-Za-z0-9])(?:aiq-agent|aiq-api)(?![A-Za-z0-9])")
 REPOSITORY = re.compile(
     r"\bgrid-check/grid-oib-agent\b|\bgrid-oib-agent\b|\bgrid-check\b|(?<![\w.-])archos-at(?:/archos(?![\w-]))?(?![\w-])",
     re.IGNORECASE,
+)
+EXTERNAL_NAMES = re.compile(
+    r"(?<![\w-])grid-oib(?![\w-])|(?<![\w-])grid-documents(?![\w-])|(?<![\w-])grid-org(?![\w])(?:-[\w-]*)?"
+    r"|(?<![\w-])piloti_(?:corpus|office)(?!\w)"
 )
 BRAND = re.compile("|".join(BRANDS), re.IGNORECASE)
 TOKEN_CHARS = frozenset("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_.-")
@@ -168,9 +173,6 @@ def branded_tokens(text: str) -> list[str]:
     return tokens
 
 
-IMPORT_PATH = re.compile(r"^(\s*(?:from|import)\s+)agent\.agents\.piloti(?!\w)(?:\.\w+)*", re.M)
-
-
 def _without_exempt_names(text: str) -> str:
     """``text`` with URLs, the repository's own name and the pending infra names blanked.
 
@@ -183,10 +185,10 @@ def _without_exempt_names(text: str) -> str:
     lowered = text.lower()
     if "grid-" in lowered or "archos-at" in lowered:
         text = REPOSITORY.sub(" ", text)
+    if "grid-" in text or "piloti_" in text:
+        text = EXTERNAL_NAMES.sub(" ", text)
     if "aiq-a" in text:
         text = PENDING_INFRA_NAMES.sub(" ", text)
-    if "agent.agents." in text:
-        text = IMPORT_PATH.sub(r"\1", text)
     return text
 
 
@@ -217,7 +219,9 @@ def measure(root: Path, paths: list[str]) -> dict[str, int]:
         directories.update(str(parent) for parent in pure.parents if str(parent) != ".")
         counts[path] += count_text(pure.name)
         if is_content(path):
-            counts[path] += count_text((root / path).read_text(encoding="utf-8", errors="replace"))
+            text = (root / path).read_text(encoding="utf-8", errors="replace")
+            if not LEGACY_HEADER.search("\n".join(text.split("\n", 15)[:15])):
+                counts[path] += count_text(text)
     for directory in directories:
         counts[f"{directory}/"] += count_text(PurePosixPath(directory).name)
     return {key: count for key, count in counts.items() if count}

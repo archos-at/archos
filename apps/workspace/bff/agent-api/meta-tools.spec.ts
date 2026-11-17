@@ -11,7 +11,7 @@ import { AGENT_DOMAINS } from './operation'
 
 const FIXTURE = resolve(__dirname, '../../../../packages/agent/src/agent/tools/workspace/meta_tools.json')
 
-describe('the meta-tools Piloti reads', () => {
+describe('the meta-tools the in-product agent reads', () => {
   it('are the committed fixture', () => {
     const generated =
       JSON.stringify(

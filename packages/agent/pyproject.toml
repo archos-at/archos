@@ -104,12 +104,12 @@ viz = [
 
 [project.entry-points."nat.plugins"]
 # Named for the job, with no product name. `researcher*` and not `piloti*`
-# although the package moved to `agents/piloti`: an entry-point name is what the
+# although the package moved to `core`: an entry-point name is what the
 # installed dist-info carries, and a stale `<pkg>.egg-info/entry_points.txt`
 # from an older checkout is exactly the ModuleNotFoundError-from-nowhere in
 # `docs/contributing/gotchas.md` (re-run `uv sync` after this rename).
-researcher_conversation = "agent.agents.piloti.conversation_register"
-researcher = "agent.agents.piloti.register"
+researcher_conversation = "agent.core.conversation_register"
+researcher = "agent.core.register"
 deep_researcher = "agent.agents.deep_researcher.register"
 data_source_registry = "agent.common.data_source_registry"
 project_memory = "agent.memory.register"
@@ -130,7 +130,7 @@ drawings = "agent.tools.drawings.register"
 files = "agent.tools.files.register"
 # The working directory's door into the project (`file_draft`, which files a
 # draft and, with `submit`, sends it for review). Its OTHER four verbs are stock
-# DeepAgents tools bound directly by Piloti's register and are not NAT
+# DeepAgents tools bound directly by the agent's register and are not NAT
 # functions at all, so this entry point covers exactly the one that calls the BFF.
 documents = "agent.tools.documents.register"
 # Delegation (`create_task`). Its own entry point rather than a member of
@@ -150,11 +150,11 @@ canvas = "agent.tools.canvas.register"
 # as an image the model sees, in every context. Its own entry point, not a
 # member of the canvas group: a deployment without one keeps the other.
 look = "agent.tools.look.register"
-# `show_in_viewer` (`tools/viewer`, ADR-0144): Piloti proposes to move the asker's
+# `show_in_viewer` (`tools/viewer`, ADR-0144): the agent proposes to move the asker's
 # own document viewer, one allow-listed action as an AG-UI frontend tool call.
 # Its own entry point: it reuses `look`'s resolver, and a deployment can drop it alone.
 viewer = "agent.tools.viewer.register"
-# Piloti as a client of its own MCP server (`workspace` function group,
+# The agent as a client of its own MCP server (`workspace` function group,
 # `tools/workspace`, ADR-0122): search, describe and call the operations a person
 # can do in the product. Its own entry point: it calls the BFF's `/api/mcp`, and a
 # deployment without it keeps every other tool.
@@ -163,7 +163,7 @@ workspace = "agent.tools.workspace.register"
 # research worker reads it by name and runs the agent; NAT only has to know the
 # type, or `load_config` refuses the YAML that names it.
 project_intake = "agent.agents.intake.register"
-# Grid telemetry `_type`s named in the shipped YAML. They register at import
+# Telemetry `_type`s named in the shipped YAML. They register at import
 # via NAT decorators and used to ride in on `chat_researcher.register`. After
 # that package dissolved, `load_config` in a clean interpreter (the container's
 # `start_web.py`) raised ValidationError and the pod CrashLoopBackOff'd.

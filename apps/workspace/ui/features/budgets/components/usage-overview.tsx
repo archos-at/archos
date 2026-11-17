@@ -294,7 +294,7 @@ export const UsageOverviewView: FC<{ usage: UsageResponse }> = ({ usage }) => {
         </Alert>
       )}
 
-      {/* An organization on its own key pays its provider, not Piloti: say
+      {/* An organization on its own key pays its provider, not the platform: say
           so once, where the reader would otherwise look for credits. */}
       {onOwnKey && (
         <p className="text-muted-foreground text-xs" data-testid="budget-own-key-note">

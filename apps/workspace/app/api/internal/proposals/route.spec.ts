@@ -90,7 +90,7 @@ const MOVE: InternalProposalRequest = {
 
 const post = (body: unknown, token = SECRET) =>
   POST(
-    new Request('https://grid.test/api/internal/proposals', {
+    new Request('https://example.test/api/internal/proposals', {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-grid-internal-token': token },
       body: JSON.stringify(body),
@@ -115,7 +115,7 @@ afterEach(() => {
 })
 
 describe('POST /api/internal/proposals', () => {
-  it('files the proposal in the envelope’s project and conversation, as Piloti for the asker', async () => {
+  it('files the proposal in the envelope’s project and conversation, as the agent for the asker', async () => {
     const response = await post(MOVE)
 
     expect(response.status).toBe(200)

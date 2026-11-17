@@ -66,10 +66,8 @@ EXEMPT (enforcement never applies):
 - internal-token-authenticated service calls — either because
   ``AuthMiddleware`` already classified the caller as ``"internal"``/
   ``"unverified_jwt"`` (not ``"jwt"``), or because the request explicitly
-  carries a valid ``x-internal-token``/``x-grid-internal-token`` matching
-  ``INTERNAL_API_TOKEN`` (the two internal-auth header names used
-  elsewhere in this codebase — ``routes/internal_auth.py`` and
-  ``routes/config_info.py`` respectively);
+  carries a valid ``x-internal-token`` matching ``INTERNAL_API_TOKEN``
+  (the name ``routes/internal_auth.py`` and ``routes/config_info.py`` read);
 - the ``ENVELOPE_EXEMPT_HTTP_PATH_PREFIXES``: health, collection/document
   management and ingestion status, the data-source listing, the agent-type
   listing and the drafts reader. Adding a path here is a statement that it
@@ -104,6 +102,7 @@ from agent.project_context import RequestContext
 
 from .auth.middleware import _load_external_hostnames
 from .auth.middleware import resolve_request_user
+from .legacy_headers import legacy_name
 
 logger = logging.getLogger(__name__)
 
@@ -121,7 +120,7 @@ ENVELOPE_EXEMPT_WEBSOCKET_PATH_PREFIXES: tuple[str, ...] = ()
 
 _WS_POLICY_VIOLATION = 1008
 
-_INTERNAL_TOKEN_HEADER_NAMES: tuple[bytes, ...] = (b"x-internal-token", b"x-grid-internal-token")
+_INTERNAL_TOKEN_HEADER_NAMES: tuple[bytes, ...] = (legacy_name(b"x-internal-token"), b"x-internal-token")
 
 
 def _path_matches(path: str, prefixes: tuple[str, ...]) -> bool:

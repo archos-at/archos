@@ -87,7 +87,7 @@ const show = (initial: ProjectMarksResponse | null = PAGE) =>
     </SectionActionsInline>
   )
 
-const backOf = (href: string | null) => new URL(href ?? '', 'https://piloti.test').searchParams.get('back')
+const backOf = (href: string | null) => new URL(href ?? '', 'https://example.test').searchParams.get('back')
 const HERE = '/app/projects/proj_1/files/open-points'
 
 describe('OpenPointsPanel', () => {
@@ -101,7 +101,7 @@ describe('OpenPointsPanel', () => {
     ])
     const rows = within(documents[0]).getAllByTestId('open-point-row')
     expect(rows).toHaveLength(2)
-    const row = new URL(rows[0].getAttribute('href') ?? '', 'https://piloti.test')
+    const row = new URL(rows[0].getAttribute('href') ?? '', 'https://example.test')
     expect(`${row.pathname}?${row.searchParams.toString()}`).toBe(
       `/app/projects/proj_1/files?doc=doc_a&review=1&mark=doc_a_1&back=${encodeURIComponent(HERE)}`
     )

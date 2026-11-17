@@ -116,7 +116,7 @@ whole month.
 `platform_llm_cost_and_revenue_daily`. An agent asking a spend question finds
 them first (`metric-list`), and once approved runs them as the canonical answer.
 
-**Inside Piloti** the same per-organization view is Platform → Übersicht → an
+**Inside the app** the same per-organization view is Platform → Übersicht → an
 organization's name (`/app/platform/organizations/[id]`, `platform:usage:view`),
 drawn with the office's own Budgets components.
 
@@ -206,7 +206,7 @@ Rules the numbers follow, so an answer is read right:
 - **Dictation is in the ledger and in `amount`, but `billed` is false**: no budget
   counts it, and its `credits` are 0. `cost_usd` still carries what it cost.
 - **The latest hour is up to 70 minutes behind**; the snapshot is up to an hour
-  old. The Budgets page in Piloti is live.
+  old. The Budgets page in the app is live.
 
 ## Changing it
 

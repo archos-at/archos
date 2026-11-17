@@ -8,8 +8,8 @@ a Mangel) and a thread of replies under it.
 
 ## A proposal is not a finding
 
-Piloti's marks are born ``proposed`` (the CHECKs of migration 0138 hold it on
-the BFF side): they appear on the document as Piloti's suggestions, and count
+The agent's marks are born ``proposed`` (the CHECKs of migration 0138 hold it on
+the BFF side): they appear on the document as the agent's suggestions, and count
 only once a person takes one over („übernehmen“) or dismisses it
 („verwerfen“). VISION.md principle 4, suggest then confirm. So the ``mark``
 result leads with what has NOT happened, the way ``propose_file_change`` does:
@@ -17,20 +17,20 @@ a model told „gesetzt“ writes an answer claiming the defects are recorded.
 
 ## What the person asked for is done in their name
 
-„There should not be any difference between what Piloti does and what a human
-does": when the person ASKS for a mark, a change or a deletion, Piloti does it
+„There should not be any difference between what the agent does and what a human
+does": when the person ASKS for a mark, a change or a deletion, the agent does it
 under that person's own rights, through the same service a person's PATCH
 runs. A mark set on request is born open with the asker as ``accepted_by``
 (``mark`` with ``open``); a change (``update``) posts the model's ``note`` as
-Piloti's reply in the mark's thread, in the same request; a deletion is
-allowed for exactly the marks the asker set. Findings Piloti makes on its own
+the agent's reply in the mark's thread, in the same request; a deletion is
+allowed for exactly the marks the asker set. Findings the agent makes on its own
 initiative stay proposals; the tool descriptions say which is which.
 
-Only where the office allows it: with the organization switch ``piloti-acts``
+Only where the office allows it: with the organization switch ``agent-direct-edits``
 off (the default) the BFF refuses ``create``, ``update`` and ``delete``, and
-Piloti proposes the mark or leaves the change to the person (``calls.py``).
+the agent proposes the mark or leaves the change to the person (``calls.py``).
 
-A reply lands at once, marked as Piloti's: it changes no state. All of these
+A reply lands at once, marked as the agent's: it changes no state. All of these
 are read by everyone who opens the document, so all pass the restricted-folder
 rule first (``policy.py``).
 """

@@ -1827,7 +1827,7 @@ describe('ChatArea — the awaiting banner is reachable', () => {
     expect(screen.queryByTestId('awaiting-banner')).not.toBeInTheDocument()
   })
 
-  test('"ask Piloti instead" pre-fills rather than sending, like every other hand-off action', async () => {
+  test('"ask the agent instead" pre-fills rather than sending, like every other hand-off action', async () => {
     const user = userEvent.setup()
     mockAwaitingPending = [pendingRequest()]
     setThread(waitingThread())
@@ -1903,7 +1903,7 @@ describe('ChatArea — the hand-back offer', () => {
     }
   })
 
-  test('offers to let Piloti carry on once the person who was asked has answered', () => {
+  test('offers to let the agent carry on once the person who was asked has answered', () => {
     setThread(resolvedThread())
 
     render(<ChatArea isAuthenticated canCollaborate />)
@@ -1938,7 +1938,7 @@ describe('ChatArea — the hand-back offer', () => {
     expect(screen.getByTestId('handback-offer')).toBeInTheDocument()
   })
 
-  test('accepting PRE-FILLS the composer with @Piloti and never sends', async () => {
+  test('accepting PRE-FILLS the composer with the agent mention and never sends', async () => {
     const user = userEvent.setup()
     setThread(resolvedThread())
 
@@ -2063,7 +2063,7 @@ describe('ChatArea — the engagement notice is reachable', () => {
     expect(screen.queryByTestId('engagement-notice')).not.toBeInTheDocument()
   })
 
-  test('a multi-person ask-mode thread is OFFERED mention, and still answers to Piloti', () => {
+  test('a multi-person ask-mode thread is OFFERED mention, and still answers to the agent', () => {
     mockSharedThread = {
       ...INERT_SHARED_THREAD,
       shared: true,

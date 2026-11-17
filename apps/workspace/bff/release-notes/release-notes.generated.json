@@ -24,6 +24,32 @@
   ],
   "releases": [
     {
+      "id": "2026-W47",
+      "kind": "week",
+      "version": null,
+      "date": "2026-11-16",
+      "dateEnd": "2026-11-22",
+      "summary": null,
+      "notes": [
+        {
+          "section": "improvements",
+          "area": "agents",
+          "text": {
+            "en": "When you connect your own AI assistant to the workspace, the setup steps now suggest the server name „workspace“. Assistants you have already connected keep the name you gave them and need no change.",
+            "de": "Wenn Sie Ihren eigenen KI-Assistenten mit dem Workspace verbinden, schlagen die Einrichtungsschritte jetzt den Servernamen „workspace“ vor. Bereits verbundene Assistenten behalten den von Ihnen vergebenen Namen und müssen nicht geändert werden."
+          }
+        },
+        {
+          "section": "deprecations",
+          "area": "agents",
+          "text": {
+            "en": "An assistant connected to your workspace now reads its guide, catalog and project overviews under new addresses that start with „workspace://“. The old addresses keep working until the end of 2026, so connected assistants have time to pick up the new ones on their own.",
+            "de": "Ein mit Ihrem Workspace verbundener Assistent ruft seine Anleitung, den Katalog und Projektübersichten jetzt unter neuen Adressen ab, die mit „workspace://“ beginnen. Die alten Adressen funktionieren bis Ende 2026 weiter, damit verbundene Assistenten Zeit haben, selbst auf die neuen umzusteigen."
+          }
+        }
+      ]
+    },
+    {
       "id": "2026-W46",
       "kind": "week",
       "version": null,

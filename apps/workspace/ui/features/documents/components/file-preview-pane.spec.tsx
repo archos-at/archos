@@ -124,7 +124,7 @@ describe('FilePreviewPane', () => {
     expect(screen.queryByText('Seestadt D12 · closed')).toBeNull()
   })
 
-  it('keeps what acts on the file in the header, and what Piloti made of it in the rail', () => {
+  it('keeps what acts on the file in the header, and what the agent made of it in the rail', () => {
     render(
       <FilePreviewPane
         file={{ ...mockFile, tags: ['Grundriss'] }}
@@ -151,7 +151,7 @@ describe('FilePreviewPane', () => {
     expect(screen.getByText('Responsible')).toBeInTheDocument()
   })
 
-  it('shows the status chip only when Piloti cannot quote the document', () => {
+  it('shows the status chip only when the agent cannot quote the document', () => {
     const { unmount } = render(<FilePreviewPane file={mockFile} projectId="proj-1" />)
     expect(screen.queryByText('Citable')).toBeNull()
     unmount()
@@ -316,7 +316,7 @@ describe('FilePreviewPane', () => {
       })
     })
 
-    it('offers no similar passages in a document Piloti has not read', async () => {
+    it('offers no similar passages in a document the agent has not read', async () => {
       pdf.pages = [{ items: [fakeTextRun('Die Fluchttreppe wird als Außentreppe ausgeführt', 700, 300)] }]
       presigned()
       render(<FilePreviewPane file={{ ...mockFile, status: 'processing' }} projectId="proj-1" />)
@@ -393,7 +393,7 @@ describe('FilePreviewPane', () => {
     })
   })
 
-  describe('"Read by Piloti" panel', () => {
+  describe('the "Read by" panel', () => {
     it('renders the AI summary and the reading facts inside the panel when present', () => {
       render(
         <FilePreviewPane
@@ -892,7 +892,7 @@ describe('FilePreviewPane', () => {
       expect(screen.queryByRole('textbox', { name: /add tag/i })).toBeNull()
     })
 
-    it('says Piloti did not recognise a type, and offers Assign to a manager', async () => {
+    it('says the agent did not recognise a type, and offers Assign to a manager', async () => {
       render(<FilePreviewPane file={{ ...mockFile, tags: [] }} projectId="proj-1" />)
 
       const panel = within(screen.getByRole('region', { name: `Read by ${PRODUCT_NAME}` }))
@@ -1443,7 +1443,7 @@ describe('FilePreviewPane', () => {
       expect(within(screen.getByRole('region', { name: `Read by ${PRODUCT_NAME}` })).getByText('Fire safety')).toBeInTheDocument()
     })
 
-    it('says the document is still being read instead of an empty "Read by Piloti"', () => {
+    it('says the document is still being read instead of an empty "Read by" panel', () => {
       vi.spyOn(globalThis, 'fetch').mockResolvedValue(previewResponse)
       render(<FilePreviewPane file={{ ...mockFile, status: 'processing' }} projectId="proj-1" />)
 
@@ -1544,7 +1544,7 @@ describe('FilePreviewPane', () => {
   })
 })
 
-describe('FilePreviewPane — a report Piloti wrote', () => {
+describe('FilePreviewPane — a report the agent wrote', () => {
   const generated = {
     id: 'doc-9',
     filename: 'Tiefenrecherche_Brandschutz.pdf',
@@ -1577,7 +1577,7 @@ describe('FilePreviewPane — a report Piloti wrote', () => {
     expect(screen.getAllByText('Filed')).toHaveLength(1)
   })
 
-  it('drops the „Von Piloti gelesen" section, which would be a false claim', () => {
+  it('drops the read-by section, which would be a false claim', () => {
     render(<FilePreviewPane file={generated} projectId="proj-1" showMetadataPanel />)
 
     expect(screen.queryByText(`Read by ${PRODUCT_NAME}`)).not.toBeInTheDocument()
@@ -1592,14 +1592,14 @@ describe('FilePreviewPane — a report Piloti wrote', () => {
     expect(discuss).toHaveAttribute('title', `Created by ${PRODUCT_NAME} — not in the knowledge base`)
   })
 
-  it('calls a published Piloti document what it is: in the knowledge base', () => {
+  it('calls a published agent document what it is: in the knowledge base', () => {
     render(<FilePreviewPane file={{ ...generated, status: 'completed' }} projectId="proj-1" />)
 
     const discuss = screen.getByRole('button', { name: `Discuss with ${PRODUCT_NAME}` })
     expect(discuss).not.toHaveAttribute('title', `Created by ${PRODUCT_NAME} — not in the knowledge base`)
   })
 
-  it('names Piloti only for a document Piloti wrote', () => {
+  it('names the agent only for a document the agent wrote', () => {
     render(<FilePreviewPane file={{ ...generated, authoredBy: 'user', status: 'stored' }} projectId="proj-1" />)
 
     const discuss = screen.getByRole('button', { name: `Discuss with ${PRODUCT_NAME}` })

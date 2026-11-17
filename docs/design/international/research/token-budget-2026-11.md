@@ -80,7 +80,7 @@ Windows: advice on prompts, tool descriptions and context must be dated **on or 
 
 | Block | Tokens (o200k) | Where |
 |---|---|---|
-| **System prompt, rendered** | **10,685** (chars/4 gives 10,540) | `agents/piloti/prompts/chat_static.md` (4,905) plus `{{ answer_envelope_schema }}` (5,780) | <!-- brand-history -->
+| **System prompt, rendered** | **10,685** (chars/4 gives 10,540) | `core/prompts/chat_static.md` (4,905) plus `{{ answer_envelope_schema }}` (5,780) | <!-- brand-history -->
 | ↳ CARDS contract | **4,812** (45 % of the system prompt) | `cards/envelope.py:114` `render_envelope_cards_contract` |
 | ↳ ↳ shapes of `calculation` + `formula`, with worked examples | 2,506 | `cards/envelope.py:71` `ENVELOPE_SHAPE_TYPES` |
 | ↳ KINDS, FIELDS, CITATIONS, the three examples | 1,818 (examples alone 673) | `chat_static.md:80-117` |
@@ -90,7 +90,7 @@ Windows: advice on prompts, tool descriptions and context must be dated **on or 
 | ↳ `ifc_measure` | **5,974** (description 2,449) | `tools/bim/measure_description.py`, `measure_input.py` |
 | ↳ `ifc_query` | 2,170 | |
 | ↳ `dxf_measure` 1,092 · `knowledge_search` 1,037 · `project_lookup` 957 · `list_files` 872 · `canvas__mark` 670 · `ris_lookup_tool` 587 · `grep` 549 · … | | |
-| ↳ outside a project, without the two IFC tools | 12,654 | `agents/piloti/turn_tools.py:25` | <!-- brand-history -->
+| ↳ outside a project, without the two IFC tools | 12,654 | `core/turn_tools.py:25` | <!-- brand-history -->
 | **Static prefix total** | **≈ 22.8k (no project) to 31.0k (project)**, as bound for chat | |
 
 Notes on the tool count:
@@ -100,7 +100,7 @@ Notes on the tool count:
 
 ### Per turn, dynamic
 
-- **Turn context** (`prompts/piloti.j2`). It is rendered once per turn and sent as a human message right before the question (`prompt.py:425-452`). It is not stored. The bounds are in code: <!-- brand-history -->
+- **Turn context** (`prompts/system.j2`). It is rendered once per turn and sent as a human message right before the question (`prompt.py:425-452`). It is not stored. The bounds are in code: <!-- brand-history -->
 
   | Part | Bound | Where |
   |---|---|---|
@@ -164,7 +164,7 @@ Cost estimates use the measured turn profile above, OpenRouter list prices (O3) 
 ### 1. Put an explicit cache breakpoint at the end of the static system block
 
 - **Where:**
-  - `agents/piloti/prompt.py:447`: send `SystemMessage(content=[{"type":"text","text":prompt.system,"cache_control":{"type":"ephemeral"}}])`. <!-- brand-history -->
+  - `core/prompt.py:447`: send `SystemMessage(content=[{"type":"text","text":prompt.system,"cache_control":{"type":"ephemeral"}}])`. <!-- brand-history -->
   - `common/prompt_caching.py:51` and `:120-135`: replace the "no per-block breakpoint" rule. Keep the top-level automatic marker; it takes a second slot of the four.
   - `configs/config_oib_openrouter.yml:162`: move `research_llm` to `api_type: chat_completion`, or emit `prompt_cache_breakpoint` on the Responses `input_text`.
   - `prompt_caching._system_text` already canonicalises list content, so the key stays stable.
@@ -195,7 +195,7 @@ Cost estimates use the measured turn profile above, OpenRouter list prices (O3) 
 That ADR is numbered 0154 only on the unmerged branch `origin/feat/chat-conversation-context-layout`; on develop, `docs/adr/0154` is a different, accepted ADR (agentgateway, 2026-11-05). It needs a new number when it lands.
 
 - **Where:**
-  - `agents/piloti/history.py:89-106`: `trim_messages(strategy="last")` re-trims every turn, which moves the start of history once a conversation passes 40k tokens. <!-- brand-history -->
+  - `core/history.py:89-106`: `trim_messages(strategy="last")` re-trims every turn, which moves the start of history once a conversation passes 40k tokens. <!-- brand-history -->
   - `history.py:175-222`: `prune_tool_results` rewrites the turn before last on every turn.
   - The **unmerged** branch `origin/feat/chat-conversation-context-layout` (the proposed context-layout ADR, `status: proposed`, 2026-11-04) moves the project and office blocks to one message after the system prompt. It measured a follow-up's new characters dropping from 41–44k to 14–17k.
 - **Guidance:**
@@ -222,7 +222,7 @@ That ADR is numbered 0154 only on the unmerged branch `origin/feat/chat-conversa
 
 ### 5. Bind the IFC and DXF tools only when the project holds such a model
 
-- **Where:** `agents/piloti/turn_tools.py:25-46`. Narrow `_PROJECT_MODEL_TOOLS` (today `ifc_query` and `ifc_measure` only) from "inside a project" to "a project with an `.ifc` document", and **add** `dxf_measure` to the gated set under "a project with a `.dxf` document": today it is bound in every scope, so its 1,092 tokens are saved only if it joins the set, using the turn's inventory or a BFF flag. Whether a project has a model is a stable fact of that project, so an org still lands on a handful of cache shards. <!-- brand-history -->
+- **Where:** `core/turn_tools.py:25-46`. Narrow `_PROJECT_MODEL_TOOLS` (today `ifc_query` and `ifc_measure` only) from "inside a project" to "a project with an `.ifc` document", and **add** `dxf_measure` to the gated set under "a project with a `.dxf` document": today it is bound in every scope, so its 1,092 tokens are saved only if it joins the set, using the turn's inventory or a BFF flag. Whether a project has a model is a stable fact of that project, so an org still lands on a handful of cache shards. <!-- brand-history -->
 - **Guidance:**
   - A5 (≥ 11-09): selection accuracy degrades past 30–50 tools; above 10k tokens of definitions, load on demand. The agent binds 34 tools at ~20.8k tokens.
   - A12: unused definitions cost money, not correctness.
@@ -234,7 +234,7 @@ That ADR is numbered 0154 only on the unmerged branch `origin/feat/chat-conversa
 
 ### 6. Take the `calculation` and `formula` card shapes out of the static prompt
 
-- **Where:** set `cards/envelope.py:71` to `ENVELOPE_SHAPE_TYPES = ()`. The decision layer already attaches the shapes of likely cards per turn (`agents/piloti/decisions.py` header; the `card_shapes_block` in `piloti.j2`). <!-- brand-history -->
+- **Where:** set `cards/envelope.py:71` to `ENVELOPE_SHAPE_TYPES = ()`. The decision layer already attaches the shapes of likely cards per turn (`core/decisions.py` header; the `card_shapes_block` in `system.j2`). <!-- brand-history -->
 - **Guidance:**
   - A22 (09-02): system-prompt instructions only for content relevant to about ⅓ of traffic, the rest on demand.
   - A1: few-shot examples where they mirror the case.
@@ -245,7 +245,7 @@ That ADR is numbered 0154 only on the unmerged branch `origin/feat/chat-conversa
 
 ### 7. Keep forced synthesis on the same tool binding
 
-- **Where:** `agents/piloti/agent.py:1274-1310`. The truncation path calls `binding.llm` without tools and adds `response_format` (`envelope_call.py:68-89`). That changes the tools block, which invalidates the whole cached prefix, and on Claude a format change invalidates the conversation's cache as well (A14). So the longest call of a truncated turn is a full rewrite. The fix: keep the bound tools, use `tool_choice: "none"`, and rely on the fenced contract (rung 3) instead of switching formats. <!-- brand-history -->
+- **Where:** `core/agent.py:1274-1310`. The truncation path calls `binding.llm` without tools and adds `response_format` (`envelope_call.py:68-89`). That changes the tools block, which invalidates the whole cached prefix, and on Claude a format change invalidates the conversation's cache as well (A14). So the longest call of a truncated turn is a full rewrite. The fix: keep the bound tools, use `tool_choice: "none"`, and rely on the fenced contract (rung 3) instead of switching formats. <!-- brand-history -->
 - **Guidance:** A6 (a tool change invalidates everything; a `tool_choice` change invalidates only messages); A14.
 - **Saving:** the whole context of truncated turns (60–150k tokens) moves from write to read. Size it first from how often `research_truncated` fires.
 - **Quality:** neutral. Envelope validity rests on the parser rather than on strict JSON.
@@ -260,7 +260,7 @@ That ADR is numbered 0154 only on the unmerged branch `origin/feat/chat-conversa
   - "You MUST match the language… e.g. If the query is in Chinese…";
   - `planner.j2` (5 MUST/NEVER), `orchestrator.j2` (2), `research_clarification.j2` (4).
 
-  `chat_static.md` and `piloti.j2` were already audited (`docs/audit/prompt-value-audit-2026-10.md`); these were not. <!-- brand-history -->
+  `chat_static.md` and `system.j2` were already audited (`docs/audit/prompt-value-audit-2026-10.md`); these were not. <!-- brand-history -->
 - **Guidance:**
   - A12 (≥ 11-09): a mandatory step procedure, "be maximally thorough" and contradictions cost money and accuracy on current models.
   - A21 (09-08): mandatory procedures and emphasis boosters are anti-patterns; the prompt audit measured −9 % cost and +2 pp accuracy.

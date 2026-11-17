@@ -76,7 +76,7 @@ const clip = (text: string, max: number) => {
 
 function requireEnabled(session: AuthorizedSession): void {
   if (isAgentAskEnabled(session)) return
-  throw new ForbiddenError('Asking ' + PRODUCT_NAME + ' from another agent is not enabled for this organization (piloti-ask).', {
+  throw new ForbiddenError('Asking ' + PRODUCT_NAME + ' from another agent is not enabled for this organization (agent-requests).', {
     reason: 'piloti-ask-off',
   })
 }

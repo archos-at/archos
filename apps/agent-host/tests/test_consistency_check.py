@@ -43,7 +43,7 @@ def _llm_response(content: str):
     return mock_response
 
 
-_FREE_TEXT = [{"field": "Tell Grid more", "value": "This is an eight-storey tower with a rooftop bar."}]
+_FREE_TEXT = [{"field": "Further notes", "value": "This is an eight-storey tower with a rooftop bar."}]
 _STRUCTURED = [
     {"field": "Building class", "value": "GK1"},
     {"field": "Above-ground floors", "value": "2"},
@@ -62,7 +62,7 @@ async def test_consistency_check_returns_findings(app):
         {
             "findings": [
                 {
-                    "fields": ["Tell Grid more", "Above-ground floors"],
+                    "fields": ["Further notes", "Above-ground floors"],
                     "severity": "inconsistency",
                     "explanation": "The note describes an eight-storey tower but the floor count says two.",
                 }
@@ -81,7 +81,7 @@ async def test_consistency_check_returns_findings(app):
     assert len(data["findings"]) == 1
     finding = data["findings"][0]
     assert finding["severity"] == "inconsistency"
-    assert finding["fields"] == ["Tell Grid more", "Above-ground floors"]
+    assert finding["fields"] == ["Further notes", "Above-ground floors"]
     assert "eight" in finding["explanation"]
     mock_post.assert_called_once()
 
@@ -123,7 +123,7 @@ async def test_consistency_check_empty_findings_when_consistent(app):
 @pytest.mark.asyncio
 async def test_consistency_check_tolerates_code_fenced_json(app):
     inner = json.dumps(
-        {"findings": [{"fields": ["Tell Grid more"], "severity": "warning", "explanation": "Double-check."}]}
+        {"findings": [{"fields": ["Further notes"], "severity": "warning", "explanation": "Double-check."}]}
     )
     mock_post = AsyncMock(return_value=_llm_response(f"```json\n{inner}\n```"))
 
@@ -317,7 +317,7 @@ async def test_prose_around_the_object_is_tolerated(app):
             {
                 "findings": [
                     {
-                        "fields": ["Tell Grid more"],
+                        "fields": ["Further notes"],
                         "severity": "inconsistency",
                         "explanation": "Eight storeys contradicts two above-ground floors.",
                     }
@@ -341,9 +341,9 @@ async def test_prose_around_the_object_is_tolerated(app):
 @pytest.mark.asyncio
 async def test_reply_truncated_by_the_token_cap_is_recovered(app):
     content = (
-        '{"findings": [{"fields": ["Tell Grid more"], "severity": "warning", '
+        '{"findings": [{"fields": ["Further notes"], "severity": "warning", '
         '"explanation": "Eight storeys contradicts two above-ground floors."}, '
-        '{"fields": ["Tell Grid more"], "severity": "warning", "explanation": "A rooftop bar in a GK1'
+        '{"fields": ["Further notes"], "severity": "warning", "explanation": "A rooftop bar in a GK1'
     )
     mock_post = AsyncMock(return_value=_llm_response(content))
 

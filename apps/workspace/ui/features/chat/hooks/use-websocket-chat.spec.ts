@@ -999,7 +999,7 @@ describe('a socket that is reconnecting', () => {
   })
 })
 
-describe('Piloti’s viewer actions', () => {
+describe('the agent’s viewer actions', () => {
   const recorded = wireEvents('turn-viewer-action.jsonl')
   const VIEWER_CONVERSATION = recorded[0]!.conversation_id
   const finishedAt = recorded.findIndex((event) => event.type === 'RUN_FINISHED')

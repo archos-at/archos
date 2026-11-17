@@ -31,6 +31,7 @@ from typing import Any
 
 from agent.common import bff_http
 from agent.common.bff_http import SignedEnvelope
+from agent.tools.workspace.legacy_names import LEGACY_MODE_HEADER
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +39,6 @@ MCP_PATH = "/api/mcp"
 
 PROTOCOL_VERSION = "2025-11-25"
 
-MODE_HEADER = "x-piloti-mcp-mode"
 SEARCH_MODE = "search"
 
 ANSWER_MESSAGE_HEADER = "X-Answer-Message-Id"
@@ -75,7 +75,7 @@ def request_headers(envelope: SignedEnvelope, answer_message_id: str | None = No
     headers = {
         "Accept": "application/json, text/event-stream",
         "MCP-Protocol-Version": PROTOCOL_VERSION,
-        MODE_HEADER: SEARCH_MODE,
+        LEGACY_MODE_HEADER: SEARCH_MODE,
         **envelope.headers(),
     }
     if answer_message_id:
@@ -157,6 +157,7 @@ def call_tool_result(
             MCP_PATH,
             timeout=REQUEST_TIMEOUT_SECONDS,
             body=body,
+            query={"mode": SEARCH_MODE},
             headers=request_headers(envelope, answer_message_id),
         )
         message = _jsonrpc_from(response.body.decode("utf-8"), response.content_type)

@@ -9,6 +9,15 @@ from typing import Any
 
 import pytest
 
+from agent.common import MODEL_OVERRIDES_HEADER
+from agent.project_context import COLLECTION_SCOPE_HEADER
+from agent.project_context import ORGANIZATION_ID_HEADER
+from agent.project_context import PROJECT_CONTEXT_HEADER
+from agent.project_context import PROJECT_ID_HEADER
+from agent.project_context import PROJECT_MEMORY_HEADER
+from agent.project_context import REQUEST_CONTEXT_ENVELOPE_HEADER
+from agent.project_context import REQUEST_CONTEXT_ENVELOPE_SIG_HEADER
+from agent.project_context import USER_ID_HEADER
 from agent_host.jobs import agent_job
 from agent_host.jobs import agent_job_setup
 from agent_host.jobs import job_outcome
@@ -182,8 +191,59 @@ def test_the_scope_headers_are_base64url_so_german_text_survives(monkeypatch):
 
     agent_job_setup._inject_scope_headers(object(), request, SimpleNamespace(type="deep_research_agent"))
 
-    assert json.loads(_decoded(injected["x-grid-collection-scope"])) == ["p_1"]
-    assert "„Hof“" in _decoded(injected["x-grid-project-context"])
+    assert json.loads(_decoded(injected["x-collection-scope"])) == ["p_1"]
+    assert "„Hof“" in _decoded(injected["x-project-context"])
+
+
+def test_each_scope_header_goes_under_its_new_name_and_the_old_one_its_readers_read(monkeypatch):
+    injected: dict[str, str] = {}
+    monkeypatch.setattr(agent_job_setup, "_inject_worker_headers", lambda _state, headers: injected.update(headers))
+    request = _request(collection_scope=["p_1"], project_context="Hof", model_overrides={"research": "m"})
+
+    agent_job_setup._inject_scope_headers(object(), request, SimpleNamespace(type="deep_research_agent"))
+
+    assert injected[COLLECTION_SCOPE_HEADER] == injected["x-collection-scope"]
+    assert injected[PROJECT_CONTEXT_HEADER] == injected["x-project-context"]
+    assert injected[MODEL_OVERRIDES_HEADER] == injected["x-model-overrides"]
+    assert len(injected) == 6
+
+
+@pytest.mark.asyncio
+async def test_the_identity_and_envelope_headers_go_under_both_names(monkeypatch):
+    injected: dict[str, str] = {}
+    monkeypatch.setattr(agent_job_setup, "_inject_worker_headers", lambda _state, headers: injected.update(headers))
+
+    async def envelope(*_args: Any, **_kwargs: Any) -> dict[str, str]:
+        return {REQUEST_CONTEXT_ENVELOPE_HEADER: "header", REQUEST_CONTEXT_ENVELOPE_SIG_HEADER: "signature"}
+
+    monkeypatch.setattr(agent_job_setup, "envelope_headers_for_run", envelope)
+    identity = {"project_id": "proj-1", "organization_id": "org-1", "user_id": "user-1"}
+
+    await agent_job_setup._inject_identity_headers(object(), _request(usage_context={"identity": identity}))
+
+    assert injected == {
+        "x-project-id": "proj-1",
+        PROJECT_ID_HEADER: "proj-1",
+        "x-organization-id": "org-1",
+        ORGANIZATION_ID_HEADER: "org-1",
+        "x-user-id": "user-1",
+        USER_ID_HEADER: "user-1",
+        "x-request-context": "header",
+        REQUEST_CONTEXT_ENVELOPE_HEADER: "header",
+        "x-request-context-sig": "signature",
+        REQUEST_CONTEXT_ENVELOPE_SIG_HEADER: "signature",
+    }
+
+
+@pytest.mark.asyncio
+async def test_the_project_memory_goes_under_both_names(monkeypatch):
+    injected: dict[str, str] = {}
+    monkeypatch.setattr(agent_job_setup, "_inject_worker_headers", lambda _state, headers: injected.update(headers))
+    encoded = base64.urlsafe_b64encode(b"Notiz").decode().rstrip("=")
+
+    await agent_job_setup._inject_memory_header(object(), _request(project_memory="Notiz"))
+
+    assert injected == {"x-project-memory": encoded, PROJECT_MEMORY_HEADER: encoded}
 
 
 class _Store:

@@ -34,7 +34,7 @@ vi.mock('@/lib/citations/style', () => ({ citationStylesFor: vi.fn(async () => n
 vi.mock('@/lib/turns/headless-turn', () => ({
   runHeadlessTurn: vi.fn(),
   cancelHeadlessTurn: vi.fn(),
-  chatSocketUrl: vi.fn(() => 'ws://aiq-agent:8000/websocket'),
+  chatSocketUrl: vi.fn(() => 'ws://agent.example.test:8000/websocket'),
 }))
 vi.mock('@/lib/turns/turn-context', async () => {
   const actual = await vi.importActual<typeof import('@/lib/turns/turn-context')>('@/lib/turns/turn-context')
@@ -84,6 +84,7 @@ import {
 } from './service'
 import { CHAT_TURN_DEADLINE_SECONDS, DEFAULT_ASK_MAX_SECONDS } from './ask-wire'
 import { PRODUCT_NAME } from '@/lib/brand'
+import { legacyHeaderName } from '@/lib/http/legacy-header-names'
 
 const SECRET = 'internal-secret'
 const ORG = 'org_1'
@@ -100,7 +101,7 @@ const SESSION: AuthorizedSession = {
   organizationMembershipId: 'om_1',
   role: 'member',
   permissions: [],
-  featureFlags: ['piloti-ask'],
+  featureFlags: ['agent-requests'],
 }
 
 let row: AgentAskRow
@@ -157,7 +158,7 @@ beforeEach(() => {
     memoryReflectionEnabled: false,
   }))
   vi.mocked(runHeadlessTurn).mockResolvedValue({ kind: 'started' })
-  vi.mocked(chatSocketUrl).mockReturnValue('ws://aiq-agent:8000/websocket')
+  vi.mocked(chatSocketUrl).mockReturnValue('ws://agent.example.test:8000/websocket')
 })
 
 afterEach(() => {
@@ -207,7 +208,7 @@ describe('askAgent', () => {
     })
     expect(request.requires).toEqual(ASK_REQUIRES)
     expect(request.headers['x-chat-mode']).toBe('headless')
-    expect(request.headers['x-aiq-mode']).toBe('headless')
+    expect(request.headers[legacyHeaderName('x-chat-mode')]).toBe('headless')
     const context = verifyRequestContextEnvelope(
       request.headers['x-request-context'],
       request.headers['x-request-context-sig'],
@@ -231,7 +232,7 @@ describe('askAgent', () => {
     expect(Object.keys(turnRequest().headers)).not.toContain('x-turn-door')
   })
 
-  it('waits for the turn’s outcome and answers with Piloti’s message', async () => {
+  it('waits for the turn’s outcome and answers with the agent’s message', async () => {
     vi.mocked(findAsk).mockImplementation(async () => {
       if (row.state === 'working') row = { ...row, state: 'completed', endedAt: new Date() }
       return row

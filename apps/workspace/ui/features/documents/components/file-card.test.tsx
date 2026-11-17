@@ -319,7 +319,7 @@ describe('FileCard while the document is still being read', () => {
   })
 })
 
-describe('FileCard for a report Piloti wrote', () => {
+describe('FileCard for a report the agent wrote', () => {
   const generated: FileItem = {
     ...file('g1', 'Tiefenrecherche_Brandschutz.pdf', 'application/pdf'),
     status: 'stored',
@@ -461,7 +461,7 @@ describe('FileCard and the version state badge', () => {
     expect(screen.getByTestId('document-version-badge')).toHaveTextContent('In review')
   })
 
-  it('stays silent on a first draft Piloti wrote — one version is no history', () => {
+  it('stays silent on a first draft the agent wrote — one version is no history', () => {
     render(
       <FileCard
         file={{

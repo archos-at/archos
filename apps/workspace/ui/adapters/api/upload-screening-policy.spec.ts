@@ -28,7 +28,7 @@ const serve = (policy: UploadScreeningPolicy) => () =>
   Response.json({ policy, suggested: false, suggestion: SUGGESTED_SCREENING_POLICY })
 
 describe('loadUploadScreeningPolicy', () => {
-  it("rejects instead of screening with Piloti's suggestion when the policy cannot be read", async () => {
+  it("rejects instead of screening with the agent's suggestion when the policy cannot be read", async () => {
     respond = () => Response.json({ error: { message: 'down' } }, { status: 503 })
 
     await expect(loadUploadScreeningPolicy()).rejects.toBeInstanceOf(UploadScreeningPolicyUnavailableError)

@@ -85,12 +85,12 @@ async def _nat_tools(out: dict[str, dict[str, Any]]) -> None:
     from agent.agents.intake.lookups import make_intake_lookup_tools
     from agent.agents.intake.reading import make_read_document_tool
     from agent.agents.intake.tools import make_intake_tools
-    from agent.agents.piloti import register as chat_register
-    from agent.agents.piloti.clarify import ClarifierSettings
-    from agent.agents.piloti.clarify import resolve_tools
     from agent.common.agent_tools import load_agent_tools
     from agent.common.backend_tools import BACKEND_READ_TOOLS
     from agent.common.backend_tools import describe_backend_tool
+    from agent.core import register as agent_register
+    from agent.core.clarify import ClarifierSettings
+    from agent.core.clarify import resolve_tools
     from nat.builder.workflow_builder import WorkflowBuilder
     from nat.data_models.config import Config
     from nat.runtime.loader import PluginTypes
@@ -116,7 +116,7 @@ async def _nat_tools(out: dict[str, dict[str, Any]]) -> None:
             await builder.add_function(name, config)
 
         chat_config = builder.get_function_config("shallow_research_agent")
-        chat = chat_register._chat_bound(await chat_register._load_tools(chat_config, builder), chat_config, builder)
+        chat = agent_register._chat_bound(await agent_register._load_tools(chat_config, builder), chat_config, builder)
         out.update(_tool_entries("chat", chat))
 
         deep_config = builder.get_function_config("deep_research_agent")
@@ -209,11 +209,11 @@ def _response_formats(out: dict[str, dict[str, Any]]) -> None:
     from agent.agents.deep_researcher.anatomy import ReportAnatomyDraft
     from agent.agents.deep_researcher.models.subagent_contracts import ResearchNotes
     from agent.agents.deep_researcher.models.subagent_contracts import ResearchPlan
-    from agent.agents.piloti.models.clarify import ClarificationResponse
-    from agent.agents.piloti.models.clarify import PlanResponse
     from agent.common.answer_envelope import render_envelope_response_format
     from agent.common.claim_judge import CheckReply
     from agent.common.llm_factory import strict_json_response_format
+    from agent.core.models.clarify import ClarificationResponse
+    from agent.core.models.clarify import PlanResponse
     from agent.knowledge.dossier import DossierReply
     from agent.knowledge.folder_cards.build import CardReply
     from agent.knowledge.law_lookup.picker import PassagePlan

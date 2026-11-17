@@ -6,7 +6,7 @@ import { foldSpectatedEvent } from '../lib/spectator-frames'
 import { SpectatedTurn } from './SpectatedTurn'
 import { CARD_PREVIEW_FIXTURES } from '@/features/cards/preview-fixtures'
 
-const LABEL = 'Piloti beantwortet die Frage von Anna Berger…'
+const LABEL = 'Der Agent beantwortet die Frage von Anna Berger…'
 
 function turn(overrides: Partial<TurnView> = {}): TurnView {
   return { ...initialTurnView('turn-1', 'conv_1'), messageId: 'a', ...overrides }

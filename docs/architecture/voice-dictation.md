@@ -174,7 +174,7 @@ measurement). The BFF then:
 
 What bounds the spend instead is the per-member `DICTATION_LIMIT` (120 an hour,
 6 a minute) and the provider limiter. An organization on its own key pays its
-provider for dictation like for every other call; Piloti bills it nothing.
+provider for dictation like for every other call; the agent bills it nothing.
 
 Tenant-facing usage views read the ledger, so a dictation row shows there with
 0 credits. Its tokens are counted in those views and in no budget.

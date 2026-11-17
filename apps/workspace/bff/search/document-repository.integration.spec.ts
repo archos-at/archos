@@ -515,7 +515,7 @@ describe.skipIf(!url)('the search documents SQL against Postgres', () => {
       expect(unchanged.rows[0].changedFacts).toEqual([])
     })
 
-    it('counts the documents in reach Piloti has not read, whatever the filters, and none it may not see', async () => {
+    it('counts the documents in reach the agent has not read, whatever the filters, and none it may not see', async () => {
       expect(await repo.countUnreadDocuments(officeReach(), false)).toBe(2)
       expect(await repo.countUnreadDocuments(officeReach(), true)).toBe(2)
       const p2Only: SearchReach = { ...officeReach(), projects: officeReach().projects.slice(1), officeShelf: null }

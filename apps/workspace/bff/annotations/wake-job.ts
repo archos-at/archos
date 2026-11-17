@@ -214,7 +214,7 @@ export async function runAgentWake(
     organizationId,
   })
   if (!session) return end('suppressed', 'the person is no longer a member')
-  if (!wakesEnabled(session)) return end('suppressed', 'piloti-wakes is off for the organization')
+  if (!wakesEnabled(session)) return end('suppressed', 'agent-thread-replies is off for the organization')
   const doc = await writableDocument(session, payload.documentId)
   if (!doc) return end('suppressed', 'the person may no longer write the document')
   const mark = await findDocumentAnnotation(organizationId, doc.id, payload.annotationId)

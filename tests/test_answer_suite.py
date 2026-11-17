@@ -658,7 +658,7 @@ def test_ingest_reports_a_file_whose_job_failed_instead_of_waiting_for_it(monkey
 
 def test_the_turn_decisions_precedent_is_read_off_its_log_line():
     line = (
-        "INFO agent.agents.piloti.decisions: Turn decision in 431 ms: evidence=0.97 corpus=referenz(0.92) "
+        "INFO agent.core.decisions: Turn decision in 431 ms: evidence=0.97 corpus=referenz(0.92) "
         "families=[] skill=None cards=[] self_contained=0.9 precedent=0.83\n"
     )
 

@@ -1,7 +1,7 @@
 """Memory reflection, declared as a post-answer stage.
 
 This is the migration of the bespoke block that used to sit inline in
-``agents/piloti/conversation_register.py`` (schedule + gate) and in
+``core/conversation_register.py`` (schedule + gate) and in
 ``project_memory/reflection.schedule_memory_reflection`` (semaphore, pending cap,
 cost/profile tracking). **What it does is unchanged** — the same predicate, the
 same prompt, the same writes through the same token-guarded endpoint. What
@@ -97,7 +97,7 @@ class MemoryReflectionItem(BaseModel):
     """One ``project_memory`` row this turn wrote, as the reader sees it.
 
     ``content`` rides along and not just the id, because the surface this
-    payload feeds — the „Piloti hat sich gemerkt" chip — renders the item's own
+    payload feeds — the remembered-item chip — renders the item's own
     words. Sending ids alone would make the browser ask the database for text
     the writer already had in hand, which is the round trip §5.1 is removing.
 

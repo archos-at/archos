@@ -142,7 +142,7 @@ describe("PostHog logs in the collector, enabled", () => {
 });
 
 describe("PostHog logs in the collector, by default and off", () => {
-  it("ships WARN+ to Piloti's project when the stack sets nothing", async () => {
+  it("ships WARN+ to the platform's project when the stack sets nothing", async () => {
     const { collector } = await deploy({});
     expect(collector).toContain(`${POSTHOG_DEFAULT_HOST}/i/v1/logs`);
     expect(collector).toContain(POSTHOG_DEFAULT_PROJECT_TOKEN);
@@ -222,7 +222,7 @@ describe("the Python tiers' PostHog pair", () => {
     expect(posthogEnv(appCfg("", "", "0193f5a6-rel"))).toEqual([]);
   });
 
-  it("reaches chat, api and agent-worker, Piloti's project by default, and nothing once opted out", async () => {
+  it("reaches chat, api and agent-worker, the platform's project by default, and nothing once opted out", async () => {
     const withPosthog = async (values: Record<string, string>, name: string, type: string) => {
       await deploy(values);
       const spec = (await resolve(find(type, name).inputs.spec)) as any;

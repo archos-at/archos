@@ -12,7 +12,7 @@
 # limitations under the License.
 
 # =============================================================================
-# AIQ Blueprint UI - Production Dockerfile
+# Workspace UI - Production Dockerfile
 # =============================================================================
 #
 # Multi-stage build for the Next.js frontend application.

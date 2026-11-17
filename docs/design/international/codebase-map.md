@@ -113,12 +113,12 @@ Paths are relative to `/home/user/archos`.
 | C3 | `load_registry` globs `*/registry.yml` and **merges every country**; `render_block_for_prompt` takes no country. The admin store is read only for `at` (`load_norms_file`) | `norm_registry.py:431-466`, `:561-578` [V] | S2 |
 | C4 | `BUNDESLAENDER`, `FEDERAL_STATE_TOKENS` (with `outside_austria → None`) and the `bundesland=` legacy regex | `norm_registry.py:93-125` [V] | S3 (copies) |
 | C5 | `RequestContext` federal-state whitelist `_FEDERAL_STATE_TOKENS`; unknown tokens are dropped silently | `project_context.py:192-238` [V] | S2 |
-| C6 | OIB applicability verdicts (GK 1-5, Fluchtniveau bands 7/11/22, sub-codes 2.1-2.3). `render_project_block` is called **directly** by the agent (`agents/piloti/prompt.py:43, 363`) and by `render_block_for_prompt` (`norm_registry.py:713`), never through `profile.applicability`, and with **no country check**. A German project gets OIB verdicts | `common/applicability.py:252, 462-479` [V] | S3 (TS twin C17) | <!-- brand-history -->
+| C6 | OIB applicability verdicts (GK 1-5, Fluchtniveau bands 7/11/22, sub-codes 2.1-2.3). `render_project_block` is called **directly** by the agent (`core/prompt.py:43, 363`) and by `render_block_for_prompt` (`norm_registry.py:713`), never through `profile.applicability`, and with **no country check**. A German project gets OIB verdicts | `common/applicability.py:252, 462-479` [V] | S3 (TS twin C17) | <!-- brand-history -->
 | C7 | Trigger hints name Vienna's Kleingartengesetz and Garagengesetz for any Land | `applicability.py:77-96` [V] | S1, correctness defect for non-Vienna projects |
 | C8 | `oib_doc_class` called directly by `citations/binding.py:248`, `norm_registry.py:891,1049,1312` and `knowledge-layer/.../ingest/adapter.py:1302`, so the `corpus_doc_class` hook is bypassed | [V] | S2 |
 | C9 | `lane_for_hit`: hard-coded hosts `ris.bka.gv.at` and `wien.gv.at`, `"Baurecht"` fallback | `norm_registry.py:~1290-1327` [S] | S2 |
 | C10 | Binding classification: RIS host regex, `ris_` tool names, OIB doc classes | `citations/binding.py:29-41, 137, 225-282` [S] | S2 |
-| C11 | `parcel_note(documents)` called **without a country** by both the agent (`agents/piloti/prompt.py:499`) and the deep researcher (`agents/deep_researcher/factory.py:170`) | [V] | S1 | <!-- brand-history -->
+| C11 | `parcel_note(documents)` called **without a country** by both the agent (`core/prompt.py:499`) and the deep researcher (`agents/deep_researcher/factory.py:170`) | [V] | S1 | <!-- brand-history -->
 | C12 | Permit extraction: `FederalStateToken` Literal of 9 AT values, prompt "a building project in Austria", tag `Bescheid` | `knowledge/permit_extraction.py:59, 200, 269` [V] | S2 |
 | C13 | Closed-project fingerprint prompts say "in Austria" three times; `oibEdition` fact | `knowledge/project_experience.py:225, 235, 246` [V]; `bff/references/types.ts:78` [S] | S2 |
 | C14 | RIS adapter: hosts, document-number grammar, ~40 OGD silos, nine `_FEDERAL_STATE_PARAMS`, `FassungVom` **only for `BrKons`** (federal), not `LrKons` (Land law) | `packages/ris-adapter/src/client.py:38-51`, `register.py:81-90, 129-166` [V for 129-166] | S2 (one adapter per source, by design) |
@@ -148,11 +148,11 @@ Paths are relative to `/home/user/archos`.
 
 | # | Coupling | Path | Sev |
 |---|---|---|---|
-| P1 | The agent's `<building_law>` chain (Gesetz > Verordnung > OIB > ÖNORM > Leitfaden; MA 37; "Outside Austria … OIB and RIS do not bind: give comparative guidance") and `<voice>` ("Austrian technical German … Sie-Form", decimal comma). This repo file is the **bundled fallback**. The live text is the Langfuse prompt `piloti-system-static` (`agents/piloti/prompt.py:79-83`) [V] | `agents/piloti/prompts/chat_static.md` | S3 | <!-- brand-history -->
+| P1 | The agent's `<building_law>` chain (Gesetz > Verordnung > OIB > ÖNORM > Leitfaden; MA 37; "Outside Austria … OIB and RIS do not bind: give comparative guidance") and `<voice>` ("Austrian technical German … Sie-Form", decimal comma). This repo file is the **bundled fallback**. The live text is the Langfuse prompt `piloti-system-static` (`core/prompt.py:79-83`) [V] | `core/prompts/chat_static.md` | S3 | <!-- brand-history -->
 | P2 | `NORM_DOCTRINE` and `JURISDICTION_GROUNDING` constants (Landesbauordnung, OIB, RIS, MA 37, `wien.gv.at/flaechenwidmung`). Only the deep researcher reads them, through `doctrine_for` (`deep_researcher/factory.py:168`) | `norm_registry.py:131-200` [V partial] | S1 (already registry-overridable) |
 | P3 | Deep-research prompts open with "a colleague in an Austrian architecture and planning office" | `agents/deep_researcher/prompts/{orchestrator,researcher,planner,writer}.j2:1` [S] | S1 |
 | P4 | Intake agent: Bundesland, Geschoße, Fluchtniveau, Gebäudeklasse; summary "in German" | `agents/intake/prompts/system.j2` [V] | S1 |
-| P5 | `piloti.j2` turn context: `oib_applicability` and "Bundesland/OIB edition" in reference projects | `agents/piloti/prompts/piloti.j2:60-91` [S] | S1 | <!-- brand-history -->
+| P5 | `system.j2` turn context: `oib_applicability` and "Bundesland/OIB edition" in reference projects | `core/prompts/system.j2:60-91` [S] | S1 | <!-- brand-history -->
 | P6 | Tool descriptions with OIB, GK and "Austria runs UTC+1/+2" | `tools/bim/measure_input.py:176`, `tools/cross_project/register.py:332, 776`, `tools/bim/register.py:222`, `tools/documents/tools.py:142-172` (`/law/oib/` mount) [S] | S1 each |
 | P7 | MCP door copy: `knowledge-base-get`, `norm-list` ("Austrian laws", `federalState` "Wien"), `project-standards-get` (OIB), `bim-check-*` ("OIB rule catalogue"), `door/prompts/building-law-check.md`, `door/guide.md`, `discovery.ts:627-631` | `apps/workspace/bff/agent-api/...` [S] | S2 |
 | P8 | German canned replies and German HyDE / query expansion tie answers to the German corpus | `common/canned_replies.py:14-36`, `common/hyde.py`, `common/query_expansion.py` [S] | S2 |
@@ -280,7 +280,7 @@ So 6 of 11 fields have no reader. The contract fails its own docstring, which li
 | ADR-0025: "Bundesland vocabulary and doctrine move to data when country #2 ships" | doctrine overridable; Bundesland is code and validated in `_validated_entries` | partly stale |
 | `backend-deep-dive.md` §6b: `resolve_country` handles `at/de/ch/other` | `other` resolves to `at` | wrong [S per scout 01, consistent with V regex] |
 | `agentic-project-intake.md`: typed line kept as `standort_adresse`; intake records `oib_edition` | key is `site_address`; no intake writer of `oib_edition` | stale [V] |
-| `piloti.j2:4` calls the static prompt `piloti_static.md` | file `chat_static.md` (fallback), Langfuse name `piloti-system-static` | naming drift [V] | <!-- brand-history -->
+| `system.j2:4` calls the static prompt `piloti_static.md` | file `chat_static.md` (fallback), Langfuse name `piloti-system-static` | naming drift [V] | <!-- brand-history -->
 | ADR-0116: every filter carries `office_id` | `scope_filter` keys on `scope` only | wrong [V] |
 | `qdrant-retrieval-design.md` §4: `country`, `edition` corpus fields | absent from schema | design, not built [V] |
 | `agent-surface.md:371`: RIS texts withheld | `law-lookup` external | doc stale [V] |
@@ -428,7 +428,7 @@ The ADR's own diagnosis: "the machinery re-modeled knowledge that already lives 
 4. The prompt view renders every fact as `- key=value` under `confirmed:` and derives `country=at` for legacy profiles (`prompt-view.ts:181-203`).
 5. `RequestContext` has `federal_state`, no `country` (`project_context.py:192-238, 462, 610`).
 6. `load_registry` merges all `*/registry.yml`; the store is read only for `at`; the admin routes take no country; the store table is keyed by country (`norm_registry.py:431-578`, `routes/norms.py:109-163`, `norm_store.py:189-248`).
-7. OIB applicability runs with no country gate, called directly by the agent and the deep researcher (`applicability.py:462-479`, `piloti/prompt.py:353-366`, `norm_registry.py:713`). The TS twin has no `country` reference. <!-- brand-history -->
+7. OIB applicability runs with no country gate, called directly by the agent and the deep researcher (`applicability.py:462-479`, `core/prompt.py:353-366`, `norm_registry.py:713`). The TS twin has no `country` reference. <!-- brand-history -->
 8. Trigger hints are Vienna-specific (`applicability.py:77-96`).
 9. `parcel_note` is called without a country in both agents.
 10. The the agent static prompt hard-codes the Austrian chain and voice. It is the bundled fallback for the Langfuse prompt `piloti-system-static`. <!-- brand-history -->

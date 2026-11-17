@@ -83,7 +83,7 @@ def _merge_summaries(
     title-block facts (``revision_facts``: Plannummer, Index, Datum, Maßstab, Planinhalt read from the
     Plankopf) travel the same way, and so do the Fassungen: the confirmed link
     (``superseded_by``, and ``supersedes`` as its reverse), the change summary with
-    the file name it compared against, and Piloti's open suggestion. A suggestion
+    the file name it compared against, and the agent's open suggestion. A suggestion
     a person dismissed, or one about a file that is gone or already replaced, is
     not sent.
 
@@ -158,7 +158,7 @@ def _held_names_of(collection_name: str) -> Callable[[], set[str] | None]:
 
 
 def _open_suggestion(doc: AvailableDocument, known: dict[str, AvailableDocument]) -> dict[str, Any] | None:
-    """Piloti's suggestion for ``doc`` as the BFF gets it, or ``None`` when there is nothing to offer.
+    """The agent's suggestion for ``doc`` as the BFF gets it, or ``None`` when there is nothing to offer.
 
     Nothing to offer: it was dismissed, the older file is no longer in the
     collection, this document already replaces it, or it was replaced by another.
@@ -522,7 +522,7 @@ async def put_revision_route(
     ingestor: BaseIngestor = Depends(_require_ingestor),
     x_grid_organization_id: str | None = Header(default=None),
 ) -> dict[str, Any]:
-    """A person's decision about a Piloti suggestion (or a name series): ``newer`` replaces ``older``.
+    """A person's decision about a suggestion from the agent (or a name series): ``newer`` replaces ``older``.
 
     Follows the documents-router auth model: end-user access is enforced at the
     BFF. Both files must have a metadata row in THIS collection, and differ.

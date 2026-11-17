@@ -82,6 +82,7 @@ from agent_host.conversation_bus import InMemoryTransport
 from agent_host.conversation_bus import force_multi_replica_for_tests
 from agent_host.conversation_bus import reset_bus_for_tests
 from agent_host.internal_api import ChatScreening
+from agent_host.legacy_headers import legacy_header
 from nat.plugin_api import InteractionPrompt
 
 CONV = "conv-1"
@@ -1600,7 +1601,7 @@ async def test_the_hello_names_nothing_it_accepts_while_the_additive_fields_are_
 
 async def test_the_hello_names_the_canvas_fields_by_default(harness, monkeypatch):
     """Unset, the hello says it reads the canvas's box, thread target and notes: without them a
-    canvas question reaches Piloti without its box and never answers in its thread."""
+    canvas question reaches the agent without its box and never answers in its thread."""
     monkeypatch.delenv("WIRE_V2_ADDITIVE_FIELDS", raising=False)
     sock = harness().connect()
     await until(lambda: sock.frames)
@@ -2508,7 +2509,7 @@ async def test_the_hello_offers_steering_and_the_wake_fields():
 
 
 async def test_a_note_is_read_by_the_real_graph_in_its_next_round_and_holds_back_a_write(harness, monkeypatch):
-    """End to end: socket → inbox → Piloti's compiled graph → ``steer_applied`` on the asker's socket.
+    """End to end: socket → inbox → the agent's compiled graph → ``steer_applied`` on the asker's socket.
 
     The model chose to look AND mark the door; the asker typed while it was
     deciding. The mark is held, the look runs, the next request carries the
@@ -2522,12 +2523,12 @@ async def test_a_note_is_read_by_the_real_graph_in_its_next_round_and_holds_back
     from langchain_core.messages import ToolMessage
     from langchain_core.tools import tool
 
-    from agent.agents.piloti.agent import ChatAgent
-    from agent.agents.piloti.models import ResearchAgentState
     from agent.citations.entries import SourceEntry
     from agent.citations.registry import SourceRegistry
     from agent.common import LLMProvider
     from agent.common.steering import HELD_FOR_STEER
+    from agent.core.agent import ChatAgent
+    from agent.core.models import ResearchAgentState
 
     ran: list[str] = []
     requests: list[list] = []
@@ -2569,15 +2570,15 @@ async def test_a_note_is_read_by_the_real_graph_in_its_next_round_and_holds_back
     llm.ainvoke = AsyncMock(side_effect=respond)
     provider = MagicMock(spec=LLMProvider)
     provider.get = MagicMock(return_value=llm)
-    agent = ChatAgent(llm_provider=provider, tools=[look, mark], system_prompt="Du bist Piloti.")
+    agent = ChatAgent(llm_provider=provider, tools=[look, mark], system_prompt="Du bist der Agent.")
 
     async def graph_turn(request, ask):
         bodies: asyncio.Queue = asyncio.Queue()
         monkeypatch.setattr("agent.common.turn_status.get_stream_writer", lambda: bodies.put_nowait)
         with (
             patch.object(SourceRegistry, "all_sources", return_value=[SourceEntry(url="https://example.com")]),
-            patch("agent.agents.piloti.answer_pipeline.verify_citations") as verify,
-            patch("agent.agents.piloti.answer_pipeline.sanitize_report") as sanitize,
+            patch("agent.core.answer_pipeline.verify_citations") as verify,
+            patch("agent.core.answer_pipeline.sanitize_report") as sanitize,
         ):
             verify.side_effect = lambda content, reg, reference_sources=None, **_: MagicMock(
                 verified_report=content, removed_citations=[]
@@ -2621,7 +2622,7 @@ async def test_an_if_idle_question_never_supersedes_and_may_be_sent_again_later(
     await until(lambda: gate.calls)
     wake = h.connect()
 
-    wake.client(type="user_message", message_id="w1", text="@Piloti?", if_idle=True)
+    wake.client(type="user_message", message_id="w1", text="@agent?", if_idle=True)
     await until(lambda: wake.rejected())
     assert wake.rejected() == [{"of": "user_message", "code": "busy", "message": chat_socket.BUSY_REFUSAL}]
     assert not gate.torn_down  # the typed turn runs on
@@ -2629,7 +2630,7 @@ async def test_an_if_idle_question_never_supersedes_and_may_be_sent_again_later(
 
     gate.release.set()
     await until(lambda: _last(asker) == "RUN_FINISHED")
-    wake.client(type="user_message", message_id="w1", text="@Piloti?", if_idle=True)
+    wake.client(type="user_message", message_id="w1", text="@agent?", if_idle=True)
     await until(lambda: _last(wake, "w1") == "RUN_FINISHED")
     assert wake.events("w1")[-1]["outcome"] == "answered"  # the same id ran: the refusal claimed nothing
 
@@ -2642,7 +2643,7 @@ async def test_an_if_idle_question_is_busy_while_another_replica_runs_the_conver
     await until(lambda: gate.calls)
     wake = harness(gate.turn, relay).connect()
 
-    wake.client(type="user_message", message_id="w1", text="@Piloti?", if_idle=True)
+    wake.client(type="user_message", message_id="w1", text="@agent?", if_idle=True)
     await until(lambda: wake.rejected())
 
     assert [value["code"] for value in wake.rejected()] == ["busy"]
@@ -2653,7 +2654,7 @@ async def test_an_if_idle_question_is_busy_while_another_replica_runs_the_conver
 
 async def test_an_idle_conversation_runs_an_if_idle_question(harness):
     sock = harness().connect()
-    sock.client(type="user_message", message_id="w1", text="@Piloti?", if_idle=True)
+    sock.client(type="user_message", message_id="w1", text="@agent?", if_idle=True)
     await until(lambda: _last(sock, "w1") == "RUN_FINISHED")
 
     assert sock.events("w1")[-1]["outcome"] == "answered"
@@ -2663,7 +2664,7 @@ async def test_the_event_that_woke_a_turn_is_on_its_trace(harness):
     seen: list = []
     sock = harness(_contributions_seen_by(seen)).connect()
     trigger = {"kind": "thread_mention", "event_id": "reply-7", "annotation_id": "a-1"}
-    sock.client(type="user_message", message_id="t1", text="@Piloti?", trigger=trigger)
+    sock.client(type="user_message", message_id="t1", text="@agent?", trigger=trigger)
     await until(lambda: _last(sock) == "RUN_FINISHED")
 
     assert seen[0]["metadata"]["turn_trigger"] == "thread_mention"
@@ -2681,8 +2682,9 @@ async def test_a_typed_turn_names_no_trigger(harness):
     assert not [tag for tag in seen[0]["tags"] if tag.startswith("trigger:")]
 
 
-async def test_a_headless_socket_s_caller_skips_the_clarifier_and_says_it_is_headless():
-    sock = FakeSocket(headers=[(b"x-aiq-mode", b"headless")])
+@pytest.mark.parametrize("name", [b"x-chat-mode", legacy_header("x-chat-mode").encode()])
+async def test_a_headless_socket_s_caller_skips_the_clarifier_and_says_it_is_headless(name):
+    sock = FakeSocket(headers=[(name, b"headless")])
 
     caller, code = await authenticate_websocket_connection(sock)
 
@@ -3045,7 +3047,7 @@ async def test_a_thread_question_the_model_left_unanswered_is_answered_in_the_th
     harness, thread_posts, bff, persisted
 ):
     sock = harness(_thread_turn()).connect(headers=[*SIGNED, *HEADLESS])
-    sock.client(type="user_message", message_id=WAKE, text="@Piloti reicht die Tür?", **THREAD)
+    sock.client(type="user_message", message_id=WAKE, text="@agent reicht die Tür?", **THREAD)
     await until(lambda: bff.outcomes)
     await _settle_background()
 

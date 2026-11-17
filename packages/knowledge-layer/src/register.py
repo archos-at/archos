@@ -591,7 +591,7 @@ async def knowledge_retrieval(config: KnowledgeRetrievalConfig, _builder: Builde
                 corpus (building law) included. For "is X in OUR documents" pass
                 "project" or "office" (or both in turn); an exact or regex answer
                 also counts matches and documents per shelf.
-            document_type (str | None): Only documents Piloti read to be this kind,
+            document_type (str | None): Only documents the agent judged to be this kind,
                 the "Type:" `list_files` prints with underscores (e.g.
                 "fire_safety_concept", "building_description", "permit",
                 "submission_drawing"). Project and office documents only.

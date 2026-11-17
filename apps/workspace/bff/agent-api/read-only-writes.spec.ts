@@ -69,7 +69,7 @@ describe('a sensitive read', () => {
 describe('the operations the audit corrected', () => {
   const find = (name: string) => AGENT_OPERATIONS.find((op) => op.name === name)
 
-  it('project-experience-extract writes the profile and project memory, so Piloti proposes it', () => {
+  it('project-experience-extract writes the profile and project memory, so the in-product agent proposes it', () => {
     expect(find('project-experience-extract')).toBeDefined()
     expect(annotationsOf(find('project-experience-extract')!).readOnlyHint).toBe(false)
   })

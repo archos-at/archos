@@ -3,8 +3,8 @@ from unittest.mock import patch
 
 from langchain_core.messages import HumanMessage
 
-from agent.agents.piloti.conversation_register import ChatDeepResearcherConfig
-from agent.agents.piloti.models import ConversationState
+from agent.core.conversation_register import ChatDeepResearcherConfig
+from agent.core.models import ConversationState
 from agent.turn.commission import CommissionedRun
 from agent.turn.dispatch import build_run_commissioner
 
