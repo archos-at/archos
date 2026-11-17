@@ -3,7 +3,8 @@
 /**
  * PROTOTYPE, not for merge: three ways a person's own files could work (concept for ticket 81), drawn with the
  * Dateien page's real parts. `?v=page` is a Dateien page of the person's own under „Mein Bereich“, `?v=chat` has no
- * page and works from the chat, `?v=office` is a folder of the person's own inside the Büroablage.
+ * page and works from the chat, `?v=office` is a folder of the person's own inside the Büroablage, and `?v=switch` is
+ * one Dateien page with a switch between the project's files and the person's own (`&shelf=own`).
  */
 
 import type { JSX, ReactNode } from 'react'
@@ -27,9 +28,10 @@ import { projectSearchScope } from '@/features/documents/lib/file-shelf'
 import { DEFAULT_FILE_SORT } from '@/features/documents/lib/file-sort'
 import { I18nProvider } from '@/i18n'
 import { makeFile, useFixtureFolderNav } from '../file-browser/fixtures'
+import { REAL_FILES, REAL_FOLDERS } from '../files-page/fixtures'
 import { ALL_CHATS, ChatRow, Foot, GroupLabel, MoreRow, NavRow, PROJECTS } from '../personal-area-rail/prototype'
 
-const OWN = { id: 'none', name: 'Mein Bereich' }
+const OWN = { id: 'none', name: 'Alle Projekte' }
 
 const OWN_FOLDERS: FolderItem[] = [
   { id: 'o-templates', parentId: null, name: 'Vorlagen', path: '/Vorlagen' },
@@ -59,7 +61,7 @@ const OFFICE_FILES: FileItem[] = [
 ]
 
 /** The rail the concept settled on for now: the switcher names the project or „Mein Bereich“, the chats are the reader's own. */
-function Rail({ own, ownFiles = false, officeShelfOpen = false, openChat = null }: { own: boolean; ownFiles?: boolean; officeShelfOpen?: boolean; openChat?: number | null }): JSX.Element {
+function Rail({ own, ownFiles = false, officeShelfOpen = false, openChat = null, projectFilesOpen = false }: { own: boolean; ownFiles?: boolean; officeShelfOpen?: boolean; openChat?: number | null; projectFilesOpen?: boolean }): JSX.Element {
   return (
     <SidebarProvider className="h-full min-h-0 w-auto shrink-0">
       <Sidebar collapsible="icon" data-scope="project" aria-label="Navigation">
@@ -72,7 +74,7 @@ function Rail({ own, ownFiles = false, officeShelfOpen = false, openChat = null 
         <SidebarContent className="mt-3 flex-1 gap-0 overflow-y-auto px-3 py-px">
           {(ownFiles || !own) && (
             <SidebarMenu className="mb-6 gap-0.5">
-              <NavRow icon={Folder} label="Dateien" active={own && ownFiles && openChat === null && !officeShelfOpen} />
+              <NavRow icon={Folder} label="Dateien" active={projectFilesOpen || (own && ownFiles && openChat === null && !officeShelfOpen)} />
               {!own && <NavRow icon={LayoutGrid} label="Übersicht" />}
               {!own && <NavRow icon={Zap} label="Automatisierung" />}
             </SidebarMenu>
@@ -126,6 +128,40 @@ function OnlyYou(): JSX.Element {
       <LockKeyhole className="size-3.5" aria-hidden />
       Nur Sie
     </span>
+  )
+}
+
+/** D: one Dateien page. A track beside the title switches between the project's files and the person's own. */
+function SwitchPage({ own }: { own: boolean }): JSX.Element {
+  const [view, setView] = useState<FileView>('cards')
+  const search = useFileSearch(projectSearchScope('proj-demo'))
+  const project = PROJECTS[0]!
+  return (
+    <>
+      <Rail own={false} projectFilesOpen />
+      <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+        <div className="absolute right-8 top-8 z-10 flex items-center gap-3">
+          {own && <OnlyYou />}
+          <div className="bg-desk text-name flex rounded-control p-0.5 font-medium">
+            <span className={own ? 'text-muted-foreground px-3 py-1.5' : 'bg-sheet shadow-xs rounded-[4px] px-3 py-1.5'}>{project.short}</span>
+            <span className={own ? 'bg-sheet shadow-xs rounded-[4px] px-3 py-1.5' : 'text-muted-foreground px-3 py-1.5'}>Meine Dateien</span>
+          </div>
+        </div>
+        <ProjectSectionFrame projectId="dev" projectName={own ? 'Meine Dateien' : project.name} pathname="/app/projects/dev/files" inboundMail={!own}>
+          <ProjectSectionActions>
+            <FilesHeaderControls
+              phone={false}
+              view={view}
+              onViewChange={setView}
+              renderFilter={(compact) => <FileFilterMenu canCollaborate filters={NO_FILE_FILTERS} onFiltersChange={() => {}} sort={DEFAULT_FILE_SORT} onSortChange={() => {}} compact={compact} />}
+              search={{ value: search.query, onChange: search.setQuery, onSubmit: search.run, onClear: search.clear }}
+              upload={<ProjectUppyUpload onUpload={() => {}} isUploading={false} allowFolders />}
+            />
+          </ProjectSectionActions>
+          <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">{own ? <Browser key="own" files={OWN_FILES} folders={OWN_FOLDERS} /> : <Browser key="project" files={REAL_FILES} folders={REAL_FOLDERS} />}</div>
+        </ProjectSectionFrame>
+      </div>
+    </>
   )
 }
 
@@ -254,10 +290,11 @@ function InOfficeShelf(): JSX.Element {
 }
 
 export default function PersonalFilesPreview(): JSX.Element {
-  const variant = useSearchParams()?.get('v') ?? 'page'
+  const params = useSearchParams()
+  const variant = params?.get('v') ?? 'page'
   return (
     <I18nProvider initialLocale="de" fixedLocale>
-      <div className="bg-background text-foreground flex h-dvh overflow-hidden">{variant === 'office' ? <InOfficeShelf /> : variant === 'chat' ? <FromChat /> : <OwnPage />}</div>
+      <div className="bg-background text-foreground flex h-dvh overflow-hidden">{variant === 'switch' ? <SwitchPage own={params?.get('shelf') === 'own'} /> : variant === 'office' ? <InOfficeShelf /> : variant === 'chat' ? <FromChat /> : <OwnPage />}</div>
     </I18nProvider>
   )
 }

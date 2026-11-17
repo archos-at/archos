@@ -43,6 +43,7 @@ import {
   SidebarRail,
 } from '@/components/ui/sidebar'
 import { InboxBadge } from '@/features/collaboration/components'
+import identity from '@/shared/brand/identity.json'
 import { cn } from '@/lib/utils'
 
 const ME = { id: 'me', name: 'Mein Bereich' }
@@ -54,6 +55,7 @@ export const PROJECTS = [
 ]
 const USER = { name: 'Anna Berger', email: 'anna.berger@example.at' }
 const OFFICE = 'Musterarchitektur ZT GmbH'
+const PRODUCT = identity.name
 
 interface Chat {
   title: string
@@ -379,10 +381,12 @@ export function Foot({ personalDoor = false, officeShelfOpen = false }: { person
 /** The page beside the rail: enough of a chat to say where the reader is and who reads along. */
 function Page({ me, fresh = false, noneLabel = 'Ohne Projekt' }: { me: boolean; fresh?: boolean; noneLabel?: string }): JSX.Element {
   const project = PROJECTS[0]!.name
+  // „Alle Projekte“: the chat is bound to no project and may look into every one the reader can open.
+  const across = me && noneLabel === 'Alle Projekte'
   return (
     <main className="flex min-h-0 min-w-0 flex-1 flex-col">
       <header className="flex flex-col gap-1 px-8 pb-4 pt-6">
-        <span className="text-muted-foreground text-meta">{me ? noneLabel : project}</span>
+        <span className="text-muted-foreground text-meta">{across ? 'Projektübergreifend' : me ? noneLabel : project}</span>
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="text-pane-title">{fresh ? 'Neuer Chat' : me ? 'Rampenneigung Tiefgarage' : 'Fluchtweglänge im Erdgeschoss'}</h1>
           <span className="bg-sheet shadow-press text-name inline-flex h-7 items-center gap-1.5 rounded-full px-2.5">
@@ -390,6 +394,7 @@ function Page({ me, fresh = false, noneLabel = 'Ohne Projekt' }: { me: boolean; 
             Nur Sie
           </span>
         </div>
+        {across && <p className="text-muted-foreground mt-1 text-sm">An kein Projekt gebunden. {PRODUCT} kann in allen Ihren Projekten nachsehen, auch in abgeschlossenen.</p>}
       </header>
       <div className="flex-1" />
       <div className="mx-auto mb-8 w-full max-w-2xl px-8">
@@ -403,7 +408,8 @@ function Page({ me, fresh = false, noneLabel = 'Ohne Projekt' }: { me: boolean; 
                 {fresh && label === PROJECTS[0]!.short && <X className="text-muted-foreground size-3.5" aria-label="Projekt entfernen" />}
               </span>
             ))}
-            {me && <span className="shadow-press inline-flex h-7 items-center rounded-full px-2.5">+ Projekt</span>}
+            {across && <span className="bg-desk inline-flex h-7 items-center gap-1 rounded-full px-2.5">Alle Projekte<X className="text-muted-foreground size-3.5" aria-hidden /></span>}
+            {me && !across && <span className="shadow-press inline-flex h-7 items-center rounded-full px-2.5">+ Projekt</span>}
           </div>
         </div>
       </div>
