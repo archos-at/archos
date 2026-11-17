@@ -101,7 +101,7 @@ export function installOtelCollector(
         ...(cfg.posthog.tracesEnabled
           ? [posthogTraces(cfg.posthog.host, cfg.posthog.projectToken, pulumi.getStack())]
           : []),
-        ...(cfg.posthog.logsEnabled ? [posthogLogs(cfg.posthog.host, cfg.posthog.projectToken)] : []),
+        ...(cfg.posthog.logsEnabled ? [posthogLogs(cfg.posthog.host, cfg.posthog.projectToken, pulumi.getStack())] : []),
         ...(qdrant ? [qdrantScrape(qdrant)] : []),
         ...(metrics
           ? [
@@ -424,9 +424,12 @@ export const POSTHOG_LOG_REDACTION = {
  * prefix) and withholds the message itself and every other attribute. The full
  * line stays in the pod's own log, inside the cluster.
  */
-export function posthogLogs(host: string, projectToken: string): CollectorFragment {
+export function posthogLogs(host: string, projectToken: string, environment: string): CollectorFragment {
   return {
     processors: {
+      "resource/logs_environment": {
+        attributes: [{ key: "deployment.environment.name", value: environment, action: "insert" }],
+      },
       "filter/warn_and_above": {
         error_mode: "ignore",
         log_conditions: ["log.severity_number < SEVERITY_NUMBER_WARN"],
@@ -446,7 +449,7 @@ export function posthogLogs(host: string, projectToken: string): CollectorFragme
     pipelines: {
       "logs/posthog": {
         receivers: [OTLP_RECEIVER],
-        processors: ["filter/warn_and_above", "transform/posthog_redact"],
+        processors: ["filter/warn_and_above", "transform/posthog_redact", "resource/logs_environment"],
         exporters: ["otlp_http/posthog"],
       },
     },

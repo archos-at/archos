@@ -27,9 +27,20 @@ const LICENSED = "Fluchtwege sind so anzuordnen, dass sie von jeder Stelle eines
 
 describe("the PostHog logs pipeline", () => {
   it("runs the redaction after the severity filter and before the exporter", () => {
-    const fragment = posthogLogs("https://eu.i.posthog.com", "phc_test");
-    expect(fragment.pipelines?.["logs/posthog"]?.processors).toEqual(["filter/warn_and_above", "transform/posthog_redact"]);
+    const fragment = posthogLogs("https://eu.i.posthog.com", "phc_test", "dev");
+    expect(fragment.pipelines?.["logs/posthog"]?.processors).toEqual([
+      "filter/warn_and_above",
+      "transform/posthog_redact",
+      "resource/logs_environment",
+    ]);
     expect(fragment.processors?.["transform/posthog_redact"]).toBe(POSTHOG_LOG_REDACTION);
+  });
+
+  it("names the stack on every log, so dev and prod stay apart in the one project", () => {
+    const fragment = posthogLogs("https://eu.i.posthog.com", "phc_test", "prod");
+    expect(fragment.processors?.["resource/logs_environment"]).toEqual({
+      attributes: [{ key: "deployment.environment.name", value: "prod", action: "insert" }],
+    });
   });
 
   it("keeps no attribute that carries a message", () => {
@@ -66,7 +77,7 @@ describe.skipIf(!OTELCOL_BIN)("the real collector withholds office text from Pos
     const dir = mkdtempSync(join(tmpdir(), "posthog-redact-"));
     out = join(dir, "exported.jsonl");
     port = await freePort();
-    const fragment = posthogLogs("https://eu.i.posthog.com", "phc_test");
+    const fragment = posthogLogs("https://eu.i.posthog.com", "phc_test", "dev");
     const config = {
       receivers: { otlp: { protocols: { http: { endpoint: `127.0.0.1:${port}` } } } },
       processors: fragment.processors,
