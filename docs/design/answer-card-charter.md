@@ -470,7 +470,7 @@ Rationale beyond aesthetics: this is the one card that is **not evidence** and m
 
 #### IFC cards (`ifc_viewer`, `ifc_schedule`, `ifc_element`, `ifc_diff`, `ifc_compliance`, `ifc_model_picker`)
 **Job.** Point at the actual building.
-**Grammar.** Leave the interiors alone. They are a coherent family already, and their identity is structural: they contain live data the agent never supplied (IfcDataCards.tsx:5–11). Only ask: adopt the common shell so the reader does not meet a sixth chrome.
+**Grammar.** Leave the interiors alone. They are a coherent family already, and their identity is structural: they contain live data the agent never supplied (`features/cards/components/ifc-data-cards/`). Only ask: adopt the common shell so the reader does not meet a sixth chrome.
 **Effort: S each, shell swap only.**
 
 ### B2. The three newest cards — built 2026-08-19, and what remains
