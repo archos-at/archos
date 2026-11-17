@@ -11,10 +11,9 @@ ROOT = Path(__file__).resolve().parents[1]
 def _purge(tmp_path: Path, name: str, text: str) -> str:
     target = tmp_path / name
     target.write_text(text, encoding="utf-8")
-    script = ["node", str(ROOT / "scripts/purge_comments.mjs")]
-    if name.endswith(".py"):
-        script = [sys.executable, str(ROOT / "scripts/purge_comments.py")]
-    subprocess.run([*script, str(target)], check=True, capture_output=True)
+    subprocess.run(
+        [sys.executable, str(ROOT / "scripts/purge_comments.py"), str(target)], check=True, capture_output=True
+    )
     return target.read_text(encoding="utf-8")
 
 
@@ -40,3 +39,9 @@ def test_a_docstring_only_body_becomes_an_ellipsis(tmp_path):
     out = _purge(tmp_path, "d.py", 'def f():\n    """Only."""\n\n\nclass C:\n    """Doc."""\n    X = 1\n')
     ast.parse(out)
     assert "    ..." in out and '"""' not in out and "X = 1" in out
+
+
+def test_a_module_docstring_sharing_its_line_keeps_the_code_after_it(tmp_path):
+    for text in ['"""Doc."""; X = 1\n', '"""\U0001f407\U0001f407\U0001f407"""; X = 1\n']:
+        out = _purge(tmp_path, "e.py", text)
+        assert out == text

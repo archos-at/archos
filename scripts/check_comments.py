@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import argparse
+import functools
 import json
 import re
 import subprocess
@@ -12,7 +13,12 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import tree_sitter_javascript  # noqa: E402
+import tree_sitter_typescript  # noqa: E402
 from check_file_size import comment_lines  # noqa: E402
+from tree_sitter import Language  # noqa: E402
+from tree_sitter import Node  # noqa: E402
+from tree_sitter import Parser  # noqa: E402
 
 BASELINE = Path("ci/comment_baseline.json")
 FREE = 3
@@ -60,25 +66,48 @@ def prose_comment_count(path: str, source: str) -> int:
     return sum(1 for number in comment_lines(path, source) if not DIRECTIVE.search(rows[number - 1]))
 
 
-def _script_counts(root: Path, paths: list[str]) -> dict[str, int]:
-    counts: dict[str, int] = {}
-    for start in range(0, len(paths), 400):
-        batch = paths[start : start + 400]
-        out = subprocess.run(
-            ["node", str(Path(__file__).with_name("purge_comments.mjs")), "--count", *batch],
-            cwd=root,
-            capture_output=True,
-            text=True,
-            check=True,
-        ).stdout
-        counts.update(json.loads(out))
-    return counts
+@functools.cache
+def _parser(kind: str) -> Parser:
+    grammars = {
+        "tsx": tree_sitter_typescript.language_tsx,
+        "ts": tree_sitter_typescript.language_typescript,
+        "js": tree_sitter_javascript.language,
+    }
+    return Parser(Language(grammars[kind]()))
+
+
+def _kind(path: str) -> str:
+    return "tsx" if path.endswith(".tsx") else "ts" if path.endswith(".ts") else "js"
+
+
+def _comment_nodes(node: Node) -> list[Node]:
+    found, stack = [], [node]
+    while stack:
+        current = stack.pop()
+        if current.type == "comment":
+            found.append(current)
+        stack.extend(current.children)
+    return found
+
+
+def script_prose_lines(path: str, source: bytes) -> int:
+    rows = source.split(b"\n")
+    lines: set[int] = set()
+    for comment in _comment_nodes(_parser(_kind(path)).parse(source).root_node):
+        text = source[comment.start_byte : comment.end_byte].decode("utf-8", "replace")
+        (first, start_col), (last, end_col) = comment.start_point, comment.end_point
+        alone = not rows[first][:start_col].strip() and not rows[last][end_col:].strip()
+        if alone and not DIRECTIVE.search(text):
+            lines.update(range(first, last + 1))
+    return len(lines)
 
 
 def measure(root: Path, paths: list[str]) -> dict[str, int]:
     python = [path for path in paths if path.endswith(".py")]
     counts = {p: prose_comment_count(p, (root / p).read_text(encoding="utf-8", errors="replace")) for p in python}
-    counts.update(_script_counts(root, [path for path in paths if not path.endswith(".py")]))
+    for path in paths:
+        if not path.endswith(".py"):
+            counts[path] = script_prose_lines(path, (root / path).read_bytes())
     return counts
 
 
