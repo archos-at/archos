@@ -1,4 +1,4 @@
-// The MCP surface's old names, read beside the new ones: drop after release 2026-W48.
+// The MCP surface's old names, read beside the new ones: drop after release 2026-W50.
 
 export const LEGACY_MODE_HEADER = 'x-piloti-mcp-mode'
 

@@ -366,8 +366,10 @@ infra:
   - 'packages/agent/src/agent/knowledge/ingest_workflow.py'
   - 'packages/knowledge-layer/src/knowledge_layer/embedding.py'
   - 'packages/knowledge-layer/src/knowledge_layer/ingest/adapter.py'
+  - 'packages/knowledge-layer/src/knowledge_layer/ingest/limits.py'
   - 'packages/knowledge-layer/src/knowledge_layer/ingest/page_reads.py'
   - 'packages/knowledge-layer/src/knowledge_layer/ingest/vision_calls.py'
+  - 'packages/knowledge-layer/src/knowledge_layer/ingest/vision_credentials.py'
   # End of the files this tier's tests read.
 # The two standalone IFC packages (ADR-0045). Their own family rather than a
 # line in `backend:` or `workspace:`, because they are outside BOTH workspaces —

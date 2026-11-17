@@ -806,8 +806,8 @@ their own listing block: those agents route and plan, they never emit
 citations.
 
 **Silent summary-row loss on double LLM failure — fixed 2026-07-16**:
-ingestion (`packages/knowledge-layer/src/knowledge_layer/ingest/adapter.py`, ~lines
-1795–1965) runs summary generation and tag classification as two concurrent
+ingestion (`packages/knowledge-layer/src/knowledge_layer/ingest/enrichment.py`, and the
+fallback in `packages/knowledge-layer/src/knowledge_layer/ingest/document_facts.py`) runs summary generation and tag classification as two concurrent
 calls to the same `summary_llm`; both independently swallow
 exceptions/timeouts and return `None` on failure. Previously the
 deterministic, text-derived fallback summary only kicked in when `not
