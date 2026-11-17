@@ -449,7 +449,7 @@ both wrote the same object key. Now:
 
 - the number is allocated INSIDE the inserting transaction, under a
   per-document advisory lock (`allocateVersionNumber`,
-  `lib/documents/version-repository.ts`, key `document_versions:<document id>`).
+  `lib/documents/version-repository/insert.ts`, key `document_versions:<document id>`).
   Neither insert accepts a number from its caller; the type does not have the
   field;
 - the object key is unique per WRITE, not per number: `…/doc/<id>/v<n>/<write
@@ -594,7 +594,7 @@ boundary, so it is deliberately not in that list.
 One review round on one version. A submit opens a round (`outcome = 'requested'`);
 an approval, a request for changes or a rejection decides it. Written in the
 transaction that swaps the version's `state` (`compareAndSwapVersionState`,
-`lib/documents/version-repository.ts`), so a round and the state it describes
+`lib/documents/version-repository/state-swap.ts`), so a round and the state it describes
 cannot disagree.
 
 | Column | Type | Constraints | Notes |
