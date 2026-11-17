@@ -46,19 +46,14 @@ from urllib.parse import urlunsplit
 from pydantic import AfterValidator
 from pydantic import StringConstraints
 
-#: The longest URL accepted. A SigV4 presigned GET is a few hundred
-#: characters; the bound keeps a hostile value from being parsed at length.
 MAX_URL_LENGTH = 8192
 
-#: The variables naming the store's endpoints, in-network and browser-facing.
 ENDPOINT_VARIABLES = ("SEAWEED_ENDPOINT", "SEAWEED_PUBLIC_ENDPOINT")
 
 _DEFAULT_PORTS = {"http": 80, "https": 443}
 
-#: Printable ASCII without the space and the backslash: everything a presigned URL is made of.
 _URL_CHARACTERS = frozenset(chr(code) for code in range(0x21, 0x7F)) - {"\\"}
 
-#: An origin as RFC 6454 defines it: scheme, host, port.
 Origin = tuple[str, str, int]
 
 
@@ -76,8 +71,6 @@ def object_store_origins() -> frozenset[Origin]:
         try:
             origins.add(_origin(endpoint))
         except ObjectStoreUrlError:
-            # An endpoint without a scheme or host trusts nothing; the store's
-            # own client reports the misconfiguration where it is used.
             continue
     return frozenset(origins)
 
@@ -139,12 +132,10 @@ def _origin(url: str, field: str = "url") -> Origin:
 
 
 def _validated(url: str) -> str:
-    # The field's name is in the validation error's location already.
     assert_fetchable_object_store_url(url, field="the URL")
     return url
 
 
-#: A presigned URL into the object store, as a request model's field type.
 ObjectStoreUrl = Annotated[
     str,
     StringConstraints(min_length=1, max_length=MAX_URL_LENGTH),

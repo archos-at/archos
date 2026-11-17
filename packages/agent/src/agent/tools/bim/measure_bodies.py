@@ -12,8 +12,6 @@ from agent.tools.bim.measure_render import _render_answer
 from agent.tools.bim.rendering import listed
 from agent.tools.bim.rendering import render_unresolved
 
-# ── the payload shapes ───────────────────────────────────────────────────────
-
 
 def _is_profile(payload: Any) -> bool:
     """`element_profile`: many measures over ONE element."""
@@ -208,9 +206,6 @@ def _body_lines(operation: str, payload: Any) -> list[str]:
         return _batch_lines(payload)
     if isinstance(payload, dict) and "decidable" in payload:
         return _render_answer(payload)
-    # Never `str(payload)`: a raw dict dump strips the provenance verbs, which
-    # is the defect this renderer exists to prevent. A shape nobody renders is
-    # a bug to fix, and a test should be what finds it.
     raise TypeError(f"ifc_measure: no renderer for the {operation!r} payload ({type(payload).__name__})")
 
 

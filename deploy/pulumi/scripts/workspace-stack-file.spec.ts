@@ -5,14 +5,6 @@ import { load } from "js-yaml";
 // @ts-expect-error -- a plain .mjs script with no type declarations
 import { workspaceStackFile } from "./workspace-stack-file.mjs";
 
-/**
- * The `workspace` stack file is derived from the legacy one at deploy time
- * (ADR-0147), so the two projects plan with the same configuration while both
- * exist. Pinned here against the real committed stack files, not a fixture:
- * a new key added to Pulumi.dev.yaml has to come through, and a `secure:`
- * value, which opens only under the legacy stack's key, never does.
- */
-
 type StackFile = { environment?: string[]; config: Record<string, unknown> };
 
 for (const stack of ["dev", "prod"]) {

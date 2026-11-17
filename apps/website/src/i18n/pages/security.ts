@@ -1,7 +1,3 @@
-/**
- * Copy of the data security page, both locales. `{name}` is the brand name, filled by
- * `withName`. Text only: the page's structure lives in `src/views/SecurityView.astro`.
- */
 const de = {
   title: 'Datensicherheit',
   description:

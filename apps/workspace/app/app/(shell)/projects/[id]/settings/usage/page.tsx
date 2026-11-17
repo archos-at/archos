@@ -18,11 +18,6 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: t('project.nav.usage') }
 }
 
-/**
- * Settings → Usage & budget. Open to whoever may set the project's limit: its
- * admins and the organization's budget admins (`saveBudgetPolicy`). Everyone
- * else gets a 404, as for any section the nav does not offer them.
- */
 export default async function ProjectUsageSettingsPage({
   params,
 }: PageProps): Promise<JSX.Element> {

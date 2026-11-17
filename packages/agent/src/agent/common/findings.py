@@ -24,17 +24,12 @@ from pydantic import Field
 
 FINDINGS_VERSION = 1
 
-#: Whether the requirement is met, in the reader's words on the wire.
 FindingStatus = Literal["met", "not_met", "open", "not_applicable"]
-#: How the finding stands on its evidence: quoted from a source, derived from
-#: cited values, or still without a source.
 FindingGrounding = Literal["sourced", "derived", "open"]
 
 FINDING_STATUSES: tuple[FindingStatus, ...] = ("met", "not_met", "open", "not_applicable")
 FINDING_GROUNDINGS: tuple[FindingGrounding, ...] = ("sourced", "derived", "open")
 
-#: Spellings written before the English names (messages stored by an older
-#: build, a pod that has not rolled yet). Read-only: nothing writes these.
 LEGACY_FINDING_STATUS: dict[str, FindingStatus] = {
     "erfuellt": "met",
     "nicht_erfuellt": "not_met",
@@ -73,9 +68,6 @@ class Finding(BaseModel):
 
     requirement: str = Field(min_length=1, max_length=MAX_LABEL_CHARS, description="the requirement, as a noun phrase")
     value: str | None = Field(default=None, max_length=MAX_VALUE_CHARS, description="the copyable value, e.g. 'REI 60'")
-    #: The verdict, when the report judged the requirement. None for a row a
-    #: Vergleich or an Aktenvermerk states without judging it: the matrix is a
-    #: list of Ergebnisse then, not of Befunde.
     status: FindingStatus | None = None
     grounding: FindingGrounding
     reference: FindingReference | None = None

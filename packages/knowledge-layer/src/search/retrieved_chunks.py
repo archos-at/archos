@@ -30,7 +30,6 @@ def unit_score(score: Any) -> float:
     return min(1.0, max(0.0, value))
 
 
-#: ``content_type`` metadata values with a content type of their own; anything else is text.
 _CONTENT_TYPES = {
     "table": ContentType.TABLE,
     "image": ContentType.IMAGE,
@@ -47,13 +46,11 @@ def chunk_from_node(raw_result: Any) -> Chunk:
     try:
         if raw_result is None:
             raise ValueError("raw_result is None")
-        # LlamaIndex returns NodeWithScore objects
         node = getattr(raw_result, "node", None)
         if node is None:
             raise ValueError("raw_result.node is None")
         score = raw_result.score if hasattr(raw_result, "score") else 0.0
 
-        # Extract metadata (node.metadata can be None or non-dict for some nodes)
         _meta = getattr(node, "metadata", None)
         metadata = _meta if isinstance(_meta, dict) else {}
         file_name = metadata.get("file_name", "unknown")
@@ -99,9 +96,6 @@ def _display_citation(
 ) -> str:
     """The citation a reader sees for a hit: the page, and what on it (a table, an image, a drawing, a text anchor)."""
     if content_type == ContentType.TABLE and "table_index" not in metadata:
-        # A captioned table (``captioned_tables``) is addressed by its
-        # ``clause_id`` („Tabelle 3"), not by an index on the page, and
-        # is cited by the page key every other hit renders under.
         return f"{file_name}, p.{page_number}" if page_number else file_name
     if content_type == ContentType.TABLE:
         table_idx = metadata.get("table_index", 0)
@@ -114,7 +108,6 @@ def _display_citation(
         return f"{file_name}, p.{page_number}, {drawing_type}"
     if not page_number:
         return file_name
-    # Add text anchor for easier verification (Ctrl+F in source)
     text_preview = content[:40].replace("\n", " ").strip()
     if text_preview:
         return f"{file_name}, p.{page_number} ('{text_preview}...')"

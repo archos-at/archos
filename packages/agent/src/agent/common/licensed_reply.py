@@ -16,7 +16,6 @@ from typing import Any
 
 from agent.common.licensed_text import QuoteCap
 
-#: ``additional_kwargs`` keys whose strings are JSON text (a tool call's ``function.arguments``).
 _JSON_KEYS = frozenset({"arguments", "args"})
 
 
@@ -80,7 +79,6 @@ class ChunkCap:
                 else chunk
                 for chunk in chunks
             ]
-            # A chunk derives ``tool_calls`` from its chunks when it is built, so rebuild it rather than copy it.
             fields = message.model_dump(exclude={"tool_calls", "invalid_tool_calls", "tool_call_chunks"})
             return type(message)(**{**fields, **update})
         calls = getattr(message, "tool_calls", None)

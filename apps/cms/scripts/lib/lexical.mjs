@@ -31,7 +31,6 @@ const INLINE_FORMAT = { strong: FORMAT.bold, emphasis: FORMAT.italic, delete: FO
 /** Inline mdast children as Lexical inline nodes, formats accumulated down the tree. */
 function inline(nodes, where, format = 0) {
   return nodes.flatMap((node) => {
-    // A soft line break in the source is a space on the page; Lexical keeps no newline in text.
     if (node.type === 'text') return node.value ? [text(node.value.replace(/[ \t]*\n[ \t]*/g, ' '), format)] : [];
     if (node.type === 'inlineCode') return [text(node.value, format | FORMAT.code)];
     if (node.type === 'break') return [{ type: 'linebreak', version: 1 }];
@@ -57,7 +56,6 @@ function listItems(list, where) {
       else throw new Error(`${where(child)}: a ${child.type} inside a list item has no form in a post's body`);
     }
     const items = [element('listitem', inlines, { value: value++ })];
-    // Lexical nests a list as the only child of a list item of its own.
     for (const list of nested) items.push(element('listitem', [list], { value: value++ }));
     return items;
   });

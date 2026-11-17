@@ -3,20 +3,6 @@
 import type { JSX } from 'react'
 import type { SkillCategoryListItem } from '@/adapters/api/skills-client'
 
-/**
- * Dev preview for the Agent Skills tab. Renders the REAL SkillsPanel — the org's
- * skills and nothing else, since everything schedule-shaped lives in the Tasks
- * tab — with a fetch shim serving `/api/skills`, so every row variant is
- * reviewable without a backend: two of the platform's offers at the top (one
- * taken up, one not, one of them categorized), then an org skill in play and
- * one switched off, one of them on the org's own category.
- *
- * The pipeline's own builtins are deliberately absent from the fixture, because
- * they are absent from the endpoint: they are machinery, they carry no
- * `grid-catalog`, and no organization decides anything about them.
- * Not linked from anywhere and 404s outside development (see ../layout.tsx).
- */
-
 import { I18nProvider } from '@/i18n'
 import { SkillsPanel } from '@/features/skills/components/skills-panel'
 
@@ -54,7 +40,6 @@ const SKILLS = [
     updatedAt: '2026-07-16T09:00:00Z',
   },
   {
-    // Switched off: the card stays legible, goes quiet, and says so on its tray.
     id: 'skill-2',
     name: 'escape-routes',
     description: 'Verifies escape route widths and lengths against OIB-Richtlinie 2.3.',
@@ -68,8 +53,6 @@ const SKILLS = [
     updatedAt: '2026-07-12T10:00:00Z',
   },
   {
-    // An offer this org took up. No id — it is a file, and the switch stores
-    // only the decision.
     id: null,
     name: 'oib-fire-check',
     description: 'Checks a project against the OIB fire-safety guideline (OIB-Richtlinie 2).',
@@ -83,7 +66,6 @@ const SKILLS = [
     updatedAt: null,
   },
   {
-    // An offer it has not taken up — the default for anything curated.
     id: null,
     name: 'energy-certificate-check',
     description: 'Reviews the energy certificate against OIB-Richtlinie 6.',
@@ -102,15 +84,8 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
   const w = window as unknown as { __skillsPanelShim?: boolean }
   if (!w.__skillsPanelShim) {
     w.__skillsPanelShim = true
-    // Mutable working copies: the manager's create/rename/remove run against
-    // these, so the preview shows the interaction rather than an error toast.
-    // Annotated rather than inferred from the seed: the shim CREATES
-    // categories too, and a created one has no slug (only the seeded
-    // platform ones do). Inference from `CATEGORIES` alone narrows `slug`
-    // to `string` and rejects the very rows this shim exists to make.
     const categories: SkillCategoryListItem[] = [...CATEGORIES]
 
-    /** The JSON body the BFF clients send — unparseable means no fields. */
     const parseJsonBody = (body: BodyInit | null | undefined): { name?: unknown } => {
       if (typeof body !== 'string') return {}
       try {
@@ -156,9 +131,6 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
         }
         return Response.json({ category: categories[index] })
       }
-      // The activation switch. Without this the PATCH reaches the real backend,
-      // fails, and the switch rolls back with an error toast — so the preview
-      // could not show the one interaction this surface is about.
       if (url.startsWith('/api/skills/curated/')) {
         return Response.json({ skill: null })
       }

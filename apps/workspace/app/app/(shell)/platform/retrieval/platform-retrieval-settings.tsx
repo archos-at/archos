@@ -1,25 +1,5 @@
 'use client'
 
-/**
- * Platform → retrieval: how many chunks/results each search fetches.
- *
- * The retrieval counts used to be literals in the workflow YAML or hard-coded
- * tool constants, so tuning recall/context-size trade-offs meant a commit and
- * a backend redeploy. Here it is one save: adjust a count and every
- * organization's searches follow on their next request.
- *
- * A setting left at its boot default is not stored at all — the PUT sends only
- * the pins, and the backend resolves each missing key against its own YAML/
- * constant fallback. That keeps "reset to default" a deletion, not a write of
- * a number that could drift away from the shipped default later.
- *
- * Number fields keep the TEXT the owner typed as their draft. Parsing on every
- * keystroke snapped a cleared field straight back to its default, so "delete
- * the 10, type 25" read as 1025-ish fumbling. The text is validated against
- * the setting's range, an invalid value says why under the field, and Save
- * stays off until every field parses.
- */
-
 import { type FC, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Lock, RotateCcw, SlidersHorizontal } from 'lucide-react'
 import { toast } from 'sonner'
@@ -70,7 +50,6 @@ interface PayloadDto {
   settings: SettingDto[]
 }
 
-/** The typed text as a whole number in range, or null when it is not one. */
 export function parseSettingValue(
   raw: string,
   definition: Pick<DefinitionDto, 'min' | 'max' | 'allowedValues'>
@@ -114,8 +93,6 @@ export const PlatformRetrievalSettings: FC = () => {
       setDraft(draftOf(body))
       loaded.current = true
     } catch {
-      // A failed refresh keeps the rows; only a first load with nothing to
-      // show becomes the error state.
       if (first) setError(true)
       else toast.error(t('retrieval.loadError'))
     } finally {
@@ -135,7 +112,6 @@ export const PlatformRetrievalSettings: FC = () => {
     [payload]
   )
 
-  /** Each setting's parsed draft; null where the typed text is not valid. */
   const parsed = useMemo(
     () =>
       new Map(
@@ -148,7 +124,6 @@ export const PlatformRetrievalSettings: FC = () => {
   )
   const invalid = [...parsed.values()].some((value) => value === null)
 
-  // Compared per key on the parsed value: "07" and "7" are the same setting.
   const dirty = useMemo(
     () =>
       definitions.some(
@@ -161,9 +136,6 @@ export const PlatformRetrievalSettings: FC = () => {
   const handleSave = useCallback(async () => {
     setSaving(true)
     try {
-      // Whole-set semantics on the server: a key absent from the body is
-      // cleared. So a draft value equal to its boot default is omitted — it
-      // should ride the shipped default, not pin a copy of it.
       const settings = Object.fromEntries(
         definitions
           .map(

@@ -1,11 +1,4 @@
 #!/usr/bin/env node
-// Screenshot every route of the built website, full page, at each width.
-//   bun run capture [--base URL] [--out DIR] [--widths 1440,390] [--only /path-prefix]
-// Default: builds, serves it with the production server (runtime/server.mjs, what the Dockerfile
-// runs) on a free port, captures, stops the server. Every image is loaded before the shot (lazy
-// ones too) and the scrollbar is hidden, so a 390 shot is 390 px of layout, as on a phone.
-// Needs the agent-browser CLI on PATH. Chromium comes from AGENT_BROWSER_EXECUTABLE_PATH,
-// defaulting to /opt/pw-browsers/chromium where that file exists.
 import { spawnSync, spawn } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, readdirSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
@@ -25,7 +18,6 @@ if (!env.AGENT_BROWSER_EXECUTABLE_PATH && existsSync('/opt/pw-browsers/chromium'
   env.AGENT_BROWSER_EXECUTABLE_PATH = '/opt/pw-browsers/chromium';
 }
 
-// One agent-browser call, in our one session. Stdin is closed and the call has a hard timeout.
 function ab(...args) {
   const r = spawnSync('agent-browser', ['--session', SESSION, ...args], {
     env, encoding: 'utf8', timeout: CALL_MS, stdio: ['ignore', 'pipe', 'pipe'],
@@ -40,8 +32,6 @@ function routes() {
   return [...new Set(locs.map((m) => new URL(m[1]).pathname))].filter((p) => p.startsWith(ONLY)).sort();
 }
 
-// Hide the scrollbar (a phone's is an overlay), load every lazy image and wait until all are
-// decoded, then report the horizontal overflow. `eval` awaits the promise.
 const SETTLE = `(async () => {
   document.documentElement.style.scrollbarWidth = 'none';
   for (const img of document.images) img.loading = 'eager';

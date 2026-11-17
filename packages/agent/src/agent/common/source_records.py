@@ -68,7 +68,5 @@ class SourceRevision(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    #: The index as it reads to a person (``C``, ``12``); None when only a day is known.
     index: str | None = None
-    #: ISO ``YYYY-MM-DD``; None when only an index is known.
     date: str | None = None

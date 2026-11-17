@@ -34,7 +34,6 @@ from ris_adapter.lookup.trace import LookupTrace
 
 logger = logging.getLogger(__name__)
 
-#: Passages returned per call, across at most :data:`MAX_DOCUMENTS` documents.
 MAX_PASSAGES = 6
 MAX_DOCUMENTS = 2
 
@@ -92,8 +91,6 @@ def _addressed(section: Section, address: Address) -> list[tuple[Section, str]]:
     """
     if not address.subsection or len(section.body) > SECTION_MAX_CHARS:
         return [(section, address.subsection)]
-    # An Absatz the § does not carry resolves to the whole § already: a second
-    # pick would be the same passage under the same citation key.
     if not subsection_body(section, address.subsection)[1]:
         return [(section, address.subsection)]
     return [(section, address.subsection), (section, "")]

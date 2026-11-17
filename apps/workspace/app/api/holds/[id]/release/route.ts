@@ -1,8 +1,3 @@
-/**
- * Release a legal hold (compliance managers only).
- * Thin handler; all logic lives in `@/lib/compliance/service`.
- */
-
 import { apiRoute } from '@/lib/api/handler'
 import { ORG_PERMISSIONS } from '@/lib/authz/permissions'
 import { releaseHold } from '@/lib/compliance/service'

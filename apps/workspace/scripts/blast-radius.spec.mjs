@@ -59,7 +59,6 @@ describe('violations', () => {
   it('fails a module that became a hub without being recorded, past the same slack a hub has', () => {
     const limit = ceilingOf(THRESHOLD)
 
-    // Crossing the threshold by the few specs another pull request added is not a new hub.
     expect(violations({ 'src/new.ts': limit }, {})).toEqual([])
     expect(violations({ 'src/new.ts': limit + 1 }, {})).toEqual([
       `src/new.ts: a new hub, reached by ${limit + 1} specs (limit ${limit})`,
@@ -78,7 +77,6 @@ describe('violations', () => {
   })
 
   it('lets every count grow with the suite, and holds the growth beyond it', () => {
-    // A tenth more specs: a hub recorded at 500 may reach 550, and 605 with its slack.
     expect(violations({ 'src/hub.ts': 605 }, { 'src/hub.ts': 500 }, 1.1)).toEqual([])
     expect(violations({ 'src/hub.ts': 606 }, { 'src/hub.ts': 500 }, 1.1)).toHaveLength(1)
     expect(violations({ 'src/new.ts': ceilingOf(THRESHOLD * 1.1) }, {}, 1.1)).toEqual([])

@@ -48,9 +48,6 @@ def _mark(collection: str, update: KnowledgeMarkUpdate) -> int | None:
     from knowledge_layer.vector_store import QUOTE_MAX_CHARS_FIELD
     from knowledge_layer.vector_store import RELEASED_FIELD
 
-    # The corpus row first, chunks or none, collection or none: the row is what the PDF read and the listing
-    # decide by, so a text withdrawn before it was indexed is withdrawn there too, and its next ingest stamps the mark.
-    # A row written is no 404 (0 chunks): the BFF then takes a 404 as a backend that wrote nothing, and retries.
     remembered = _remember_corpus_country(collection, update)
     store = _store()
     chunks = store.count(collection, {"file_name": update.file_name}) if store.exists(collection) else 0
@@ -63,8 +60,6 @@ def _mark(collection: str, update: KnowledgeMarkUpdate) -> int | None:
         KNOWLEDGE_EDITION_FIELD: update.edition_id,
     }
     named = update.model_fields_set
-    # The licence mark is one statement: naming any of it sets all four, None clearing. A base-corpus
-    # text's country and released flag travel alone and leave the licence fields as they are (ADR-0173).
     payload = (
         dict(licence) if named & {"licence_class", "ai_processing_attested", "quote_max_chars", "edition_id"} else {}
     )

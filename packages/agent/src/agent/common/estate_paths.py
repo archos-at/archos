@@ -43,10 +43,8 @@ from typing import Literal
 
 Mount = Literal["drafts", "skills", "project", "office", "chat", "law"]
 
-#: The estate mounts, in the order ``ls("/")`` lists them.
 ESTATE_MOUNTS: tuple[Mount, ...] = ("project", "office", "chat", "law")
 
-#: Where each mount is rooted. ``/law/`` holds one corpus today, the OIB's.
 MOUNT_ROOTS: dict[Mount, str] = {
     "project": "/project/",
     "office": "/office/",
@@ -56,10 +54,8 @@ MOUNT_ROOTS: dict[Mount, str] = {
     "skills": "/skills/",
 }
 
-#: The drafts' root before it had an English name; stored turns still carry it.
 LEGACY_DRAFT_ROOT = "/entwuerfe/"
 
-#: Shelf wire value (``common.source_kinds.Shelf``) -> mount.
 SHELF_MOUNTS: dict[str, Mount] = {
     "project": "project",
     "office_shelf": "office",
@@ -67,19 +63,14 @@ SHELF_MOUNTS: dict[str, Mount] = {
     "base": "law",
 }
 
-#: Mount -> shelf wire value, the inverse.
 MOUNT_SHELVES: dict[Mount, str] = {mount: shelf for shelf, mount in SHELF_MOUNTS.items()}
 
-#: Files that are text already keep their own name; everything else is served as its text, ``<name>.md``.
 TEXT_EXTENSIONS = (".txt", ".md", ".csv")
 
-#: The prefix an agent-filed document's file name carries (``piloti/<name>``); no such directory is shown.
 AGENT_FILED_PREFIX = "piloti/"
 
-#: The four tools that take a path, and which argument holds it.
 PATH_ARGUMENTS: dict[str, str] = {"ls": "path", "glob": "path", "grep": "path", "read_file": "file_path"}
 
-#: The two that write; they only ever reach ``/drafts/``.
 WRITE_TOOLS = frozenset({"write_file", "edit_file"})
 
 _PERCENT_ESCAPE = re.compile(r"%[0-9A-Fa-f]{2}")
@@ -192,7 +183,6 @@ def call_mount(tool: str, args: Any) -> Mount | Literal["estate"] | None:
     return mount if mount is not None else "estate"
 
 
-#: The verbs a binding holds when it reads the estate by path (ADR-0133); the drafts' verbs alone do not.
 ESTATE_VERBS = frozenset({"ls", "glob", "grep", "read_file"})
 
 
@@ -216,11 +206,8 @@ class EstatePath:
     """A canonical estate path, cut into what resolution reads."""
 
     path: str
-    #: ``None`` for the root ``/`` (and for ``/law/``, the corpus directory above ``/law/oib/``).
     mount: Mount | None
-    #: Folder segments below the mount root, in the path's own spelling.
     folders: tuple[str, ...]
-    #: The last segment, or ``None`` when the path names a directory (ends in ``/`` or is a mount root).
     leaf: str | None
 
     @property

@@ -46,7 +46,6 @@ logger = logging.getLogger(__name__)
 
 DOSSIER_VERSION = 1
 
-#: The generation's name in Langfuse.
 GENERATION_NAME = "document-dossier"
 
 DOCUMENT_TYPES = (
@@ -108,23 +107,11 @@ MAX_FACTS = 24
 MAX_QUOTE_CHARS = 240
 MAX_TEXT_CHARS = 300
 
-#: The digest's size. About 4000 tokens: the whole of a 40-page document at a few
-#: lines a page, where the summary used to read 4000 characters of two chunks.
 MAX_DIGEST_CHARS = 16_000
-#: What one page gets at least, so the tail of a long document is not starved by its head.
 MIN_PAGE_CHARS = 160
 
-#: Output budget of one dossier. The summary model it runs on is capped at one
-#: sentence (``summary_llm.max_tokens``), and a dossier is a JSON object. The
-#: model reasons even at ``reasoning_effort: none`` (its reasoning cannot be
-#: switched off, ``llm_factory._REASONING_MANDATORY``), and reasoning tokens are
-#: spent from this same budget: 3000 ran out mid-reasoning on a 40-page document
-#: ("the length limit was reached"). Sized like the permit extraction on the same
-#: model (``permit_extraction.MAX_OUTPUT_TOKENS``); a clipped reply is retried once
-#: with the budget doubled (:func:`_invoke_with_length_retry`).
 MAX_OUTPUT_TOKENS = 8000
 
-#: What each document type is, as the model reads it: the German name an office uses first.
 _TYPE_GUIDE = {
     "submission_drawing": "Einreichplan or Entwurfsplan: a floor plan, section or elevation drawn for the permit",
     "construction_drawing": "Ausführungsplan, Polierplan, Werkplan, Detailplan",
@@ -204,7 +191,6 @@ def _text(value: Any, limit: int = MAX_TEXT_CHARS) -> str | None:
 
 
 class _Strict(BaseModel):
-    # ``forbid`` puts ``additionalProperties: false`` in the schema, which strict output requires.
     model_config = ConfigDict(extra="forbid")
 
 
@@ -379,7 +365,6 @@ def write_dossier(digest: str, llm: Any, *, file_name: str) -> dict[str, Any] | 
             generation.finish({"choices": [{"message": {"content": text}}], "usage": _usage(response)})
         return parse_dossier(text)
     except ContentFilterFinishReasonError:
-        # The provider's filter refused this digest; the same digest is refused again, so no retry.
         logger.warning(
             "Dossier for %s not written: the provider's content filter rejected the request "
             "(ContentFilterFinishReasonError); the document is ingested without a dossier",
@@ -442,7 +427,6 @@ def lifted_drawing_facts(analyses: Iterable[tuple[int | None, dict[str, Any]]]) 
     for page, analysis in analyses:
         for segment in _segments_of(analysis):
             for quantity in segment.get("quantities") or []:
-                # Only what is printed on the sheet: a value the model inferred is not a statement.
                 if quantity.get("source") != "text":
                     continue
                 key = _quantity_key(quantity)
@@ -489,7 +473,6 @@ def _quantity_key(quantity: dict[str, Any]) -> str | None:
     return next((key for words, key in _QUANTITY_KEYS if any(word in said for word in words)), None)
 
 
-#: Changes kept per dossier: what a person reads in a side panel and an inbox line.
 MAX_CHANGES = 12
 
 

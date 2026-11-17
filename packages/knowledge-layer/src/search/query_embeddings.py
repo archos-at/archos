@@ -10,12 +10,6 @@ from collections.abc import Callable
 
 from knowledge_layer.env import env_int
 
-# @environment_variable QUERY_EMBED_CACHE_SIZE
-# @category Knowledge Layer
-# @type int
-# @default 512
-# @required false
-# Maximum cached query embeddings per retriever (LRU).
 EMBED_CACHE_MAX = env_int("QUERY_EMBED_CACHE_SIZE", 512, minimum=0)
 
 
@@ -64,9 +58,6 @@ class QueryEmbeddingCache:
         outcome: its vector, or its exception re-raised. ``compute`` is bounded
         by the embed model's own timeout and retries, so the wait is.
         """
-        # With the LRU off (``max_entries`` 0) the owner's entry is evicted as
-        # it lands, but the in-flight record still carries the vector to every
-        # waiter: parallel searches for one query embed it once.
         with self._lock:
             cached = self._cache.get(key)
             if cached is not None:

@@ -76,7 +76,6 @@ except ImportError:  # adapter used standalone, without the Grid agent package
 
 logger = logging.getLogger(__name__)
 
-# Applications serving consolidated (legally non-binding, informational) texts.
 _KONSOLIDIERT_APPLICATIONS = frozenset({"BrKons", "LrKons"})
 
 _KONSOLIDIERT_NOTE = (
@@ -120,11 +119,6 @@ def _build_search_params(
         "date_to": date_to.strip(),
     }
     return search_terms(args)
-
-
-# ---------------------------------------------------------------------------
-# Search planning via strict structured outputs
-# ---------------------------------------------------------------------------
 
 
 class RisSearchInput(BaseModel):
@@ -246,7 +240,6 @@ def _make_planner(llm):
     """
 
     async def _plan(query: str, application: str, title: str, federal_state: str, date_from: str, date_to: str):
-        # Resolve overrides/credentials per call: they are request-scoped (headers).
         structured = _apply_org_llm_policy(llm).with_structured_output(RisSearchPlan, method="json_schema", strict=True)
         request = (
             f"Research request: {query}\n"
@@ -262,12 +255,6 @@ def _make_planner(llm):
         try:
             return await structured.ainvoke(messages)
         except ValidationError, OutputParserException:
-            # strict=True is not honored by every OpenRouter-served model, so a
-            # garbled JSON payload can still reach the parser. Retry once with an
-            # explicit corrective instruction; a second failure propagates to the
-            # caller's outer fail-open (which reverts to the caller arguments).
-            # TODO(follow-up): re-evaluate switching method= away from json_schema
-            #   once alternatives are validated against the live model fleet.
             logger.warning("ris_search planner: invalid structured output, retrying once", exc_info=True)
             corrective = [
                 *messages,
@@ -328,10 +315,6 @@ def _format_hit(index: int, hit: RisHit) -> str:
     if source_url:
         lines.append(f"Source: {source_url}")
     if hit.fetch_url:
-        # The ADDRESS of the full text, not an instruction to go and get it.
-        # The sequence this used to teach ("then call ris_fetch_document") is
-        # inside `ris_lookup` now; deep research, which still drives these three
-        # tools itself, needs the address and can read a fact.
         lines.append(f"Full text at document number: {hit.document_number or hit.fetch_url}")
     if hit.full_law_url:
         lines.append(f"Entire consolidated law (all paragraphs): {hit.full_law_url}")
@@ -441,8 +424,6 @@ async def ris_search(tool_config: RisSearchToolConfig, builder: Builder):
         Returns:
             str: Numbered document references with citation URLs and fetch instructions.
         """
-        # Platform-tunable counts (Platform → Retrieval), resolved per call;
-        # fail-open to the YAML build-time values.
         from agent.common.retrieval_settings import get_retrieval_setting
 
         max_results = get_retrieval_setting("ris.max_results", tool_config.max_results)
@@ -459,15 +440,8 @@ async def ris_search(tool_config: RisSearchToolConfig, builder: Builder):
             catalog = load_registry(tool_config.catalog_path or None)
             if catalog is not None:
                 matches = match_entries(catalog, query)
-                # An explicitly non-default application narrows the pointers to
-                # that application ("BrKons" is the signature default, so it is
-                # indistinguishable from "not specified" and filters nothing).
                 if application != "BrKons":
                     matches = [m for m in matches if m.application == application]
-                # Jurisdiction: the explicit federal_state argument wins, else the
-                # state named in the query. Other states' law is dropped and the
-                # project's own state sorts first — never hand a Tyrolean
-                # project the Viennese Bauordnung.
                 detected_federal_state = extract_federal_state(federal_state) or extract_federal_state(query)
                 matches = focus_entries(matches, detected_federal_state)
                 if matches:
@@ -493,14 +467,6 @@ async def ris_search(tool_config: RisSearchToolConfig, builder: Builder):
                         "explicit application, or a date) to force a live RIS search."
                     )
                     return "\n".join(lines)
-        # Live-search read-through cache: skips both the planner LLM and the RIS
-        # API for a repeat of the exact same search. The catalog shortcut above
-        # is local and already free, so it is deliberately not cached here.
-        #
-        # The cache entry carries the HITS beside the text, so a repeat search
-        # still feeds the per-round ledger: the model receives the same
-        # documents either way, and a round whose evidence silently vanished
-        # from the account would make the ledger lie exactly on repeats.
         search_key = search_cache_key(
             "|".join([application, query, title, federal_state, date_from, date_to, str(page)])
         )
@@ -509,9 +475,6 @@ async def ris_search(tool_config: RisSearchToolConfig, builder: Builder):
             _capture_lane_hits(_cache_hits(cached_search.get("hits")))
             return cached_search["text"]
         if isinstance(cached_search, str) and cached_search:
-            # A legacy entry written before the hits rode along: the text is
-            # still good, the hits are not reconstructible — capture nothing
-            # rather than inventing a round's evidence.
             return cached_search
 
         effective = {
@@ -596,10 +559,6 @@ async def ris_search(tool_config: RisSearchToolConfig, builder: Builder):
             "text of a law (all paragraphs) at its 'Entire consolidated law' URL."
         )
         output = "\n".join(lines)
-        # Only successful, non-empty results are cached (errors / "no documents
-        # found" returned earlier and are never stored). The hits ride along so
-        # a cache repeat can still feed the per-round ledger (see the read
-        # above); a legacy string entry stays readable either way.
         await cache_set_json(search_key, {"text": output, "hits": hit_triples}, ris_cache_ttl_seconds())
         return output
 
@@ -633,8 +592,6 @@ def _format_catalog_entry(index: int, entry: NormEntry) -> str:
         if entry.full_law_url:
             lines.append(f"Entire consolidated law (all paragraphs): {entry.full_law_url}")
     elif entry.source_url:
-        # Non-RIS source (authority_info etc.): a plain link — NOT fetchable
-        # via ris_fetch_document; the agent reads it with the web tools.
         lines.append(f"Not in RIS - web source: {entry.source_url}")
     else:
         lines.append("Not in RIS - no accessible full text (reference only, say so openly)")
@@ -694,12 +651,7 @@ async def ris_catalog_lookup(tool_config: RisCatalogLookupToolConfig, builder: B
             return (
                 "Error: RIS catalog unavailable (file missing or invalid) - use ris_search (live RIS search) instead."
             )
-        # Jurisdiction filter BEFORE truncation: for "Bauordnung Tirol" the nine
-        # state codes all match the generic "bauordnung" topic, and without the
-        # filter the catalog-order head (Wien, NÖ, ...) would crowd Tirol out of
-        # max_matches entirely.
         matches = focus_entries(match_entries(catalog, topic), extract_federal_state(topic))
-        # Platform-tunable cap (Platform → Retrieval), resolved per call.
         from agent.common.retrieval_settings import get_retrieval_setting
 
         matches = matches[: get_retrieval_setting("ris_catalog.max_matches", tool_config.max_matches)]
@@ -753,28 +705,12 @@ class RisFetchDocumentToolConfig(FunctionBaseConfig, name="ris_fetch_document"):
     cache_ttl_seconds: float = Field(default=3600.0, description="How long fetched documents are cached in memory")
 
 
-# A RIS page title routinely reads
-# "RIS - Wiener Garagengesetz 2008 - Landesrecht konsolidiert Wien, Fassung vom 28.07.2026".
-# Two parts of that must not reach the document name:
-#
-#  * the leading "RIS - ", which doubled up under our own "RIS_" prefix and
-#    produced "RIS_RIS_-_…";
-#  * the trailing "Fassung vom <date>" stamp, which is the RETRIEVAL date. It
-#    made the same law ingest as a NEW document on every new day, so a session
-#    accumulated near-duplicate snapshots and a citation pointed at whichever
-#    day's copy happened to be retrieved.
 _RIS_TITLE_PREFIX_RE = re.compile(r"^\s*RIS\s*[-–—:]+\s*", re.IGNORECASE)
 _RIS_TITLE_REVISION_RE = re.compile(r"[,;]?\s*Fassung\s+vom\s+[\d.]+\s*$", re.IGNORECASE)
 
-#: Room for the readable part of the name, leaving space for the document
-#: number that anchors it.
 _RIS_NAME_TITLE_CHARS = 60
 
 
-#: A RIS URL carries the document's identity either as a query parameter
-#: (`Dokument.wxe?…&Dokumentnummer=NOR40217157`,
-#: `GeltendeFassung.wxe?…&Gesetzesnummer=10008935`) or in the content path
-#: (`/Dokumente/Bundesnormen/NOR40217157/NOR40217157.html`).
 _RIS_URL_ID_PARAMS = ("dokumentnummer", "gesetzesnummer")
 _RIS_DOCUMENT_PATH_RE = re.compile(r"/Dokumente/[^/]+/([^/]+)/", re.IGNORECASE)
 
@@ -824,8 +760,6 @@ def _safe_document_name(reference: str, title: str) -> str:
     """
     base = _RIS_TITLE_REVISION_RE.sub("", _RIS_TITLE_PREFIX_RE.sub("", title or ""))
     base = re.sub(r"[^\w.\- ]+", "_", base).strip("_ ").replace(" ", "_")
-    # Trim on the truncation boundary too: cutting mid-token used to leave a
-    # trailing "." that collided with the extension ("…vom_28..txt").
     base = re.sub(r"[._\-]+$", "", base[:_RIS_NAME_TITLE_CHARS])
 
     parts = [part for part in (base, _document_anchor(reference)) if part]
@@ -925,12 +859,6 @@ async def ris_fetch_document(tool_config: RisFetchDocumentToolConfig, builder: B
                 url = reference
             else:
                 url = build_document_url(reference, application)
-            # Shared-cache read-through: an identical document fetched earlier
-            # (this turn, an earlier turn, another replica, before a restart) is
-            # served without the network download. Fail-open — a cache miss/error
-            # just falls through to the live fetch. Shared with the reader route
-            # (`GET /v1/ris/document`), which is why it is a function and not
-            # written out here; see `fetch_document_cached`.
             document = await fetch_document_cached(client, url)
         except RisError as exc:
             return f"Error: RIS document fetch failed - {exc}"
@@ -941,9 +869,6 @@ async def ris_fetch_document(tool_config: RisFetchDocumentToolConfig, builder: B
         ingested_name: str | None = None
         if tool_config.ingest_into_knowledge:
             file_name = _safe_document_name(reference, document.title)
-            # Don't re-ingest (re-patch) the same document into the same session
-            # on every back-and-forth turn — once it's in the collection, just
-            # reference it. The marker is best-effort; without it we ingest.
             collection = _resolve_session_collection()
             marker = ingested_marker_key(collection, document.url) if collection else None
             already_ingested = bool(marker) and bool(await cache_get_json(marker))

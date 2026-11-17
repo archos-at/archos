@@ -31,15 +31,9 @@ from pydantic import BaseModel
 from pydantic import ConfigDict
 from pydantic import Field
 
-#: The five phases a run walks, in order. ASCII keys; the German with its
-#: umlauts is rendered from the frontend's dictionaries, because a key with an
-#: umlaut in it arrives differently normalised depending on who serialised it.
 RUN_PHASES: tuple[str, ...] = ("planning", "researching", "checking", "writing", "filed")
 RunPhase = Literal["planning", "researching", "checking", "writing", "filed"]
 
-#: The seven display states a run is shown in. NOT ``task_runs.status`` — that
-#: column is the row's lifecycle and keeps its own CHECK; these are what the
-#: reader is told.
 RUN_STATUSES: tuple[str, ...] = (
     "created",
     "running",
@@ -59,16 +53,8 @@ RunStatus = Literal[
     "interrupted",
 ]
 
-#: The states a run has ended in. An ended ledger stays ended.
 TERMINAL_RUN_STATUSES: tuple[str, ...] = ("done", "failed", "cancelled", "interrupted")
 
-#: Every status move a writer makes, by the status it leaves. The hand-written
-#: mirror of ``RUN_LEDGER_LIFECYCLE`` in ``run-ledger-types.ts``; the fixture
-#: carries that table as ``x-lifecycle`` and the test pins this one to it. The
-#: BFF applies the same table to what this tier sends, so a status that is no
-#: move here would be dropped there. ``done`` to ``interrupted`` is the one
-#: move between two endings: a finished run whose answer was cut off and
-#: salvaged.
 RUN_STATUS_MOVES: dict[str, tuple[str, ...]] = {
     "created": ("running", "waiting", "done", "failed", "cancelled"),
     "running": ("waiting", "done", "failed", "cancelled", "interrupted"),
@@ -101,14 +87,10 @@ MAX_LOCUS_CHARS = 128
 MAX_LOCI_PER_DOC = 20
 MAX_OPEN_POINTS = 20
 MAX_OPEN_POINT_CHARS = 200
-#: What a round established, one claim per line, so a run is readable at
-#: minute three: the researcher's notes state them and the fold copies them.
 MAX_FINDINGS_PER_STEP = 8
 MAX_FINDING_CHARS = 200
 MAX_ERROR_REASON_CHARS = 400
 MAX_REFERENCE_ID_CHARS = 128
-#: The Grundlage the reader named, mirrored from ``plan_documents`` so the
-#: block can print the receipt (read with loci, or unread) beside the steps.
 MAX_BASIS_DOCS = 20
 
 
@@ -129,12 +111,7 @@ class RunLedgerDoc(_Wire):
     name: str = Field(max_length=MAX_NAME_CHARS)
     title: str | None = Field(default=None, max_length=MAX_TITLE_CHARS)
     shelf: str | None = Field(default=None, max_length=MAX_SHELF_CHARS)
-    #: The pages or Punkte this step reached the document at. Several, because a
-    #: step is a longer unit than a retrieval round and reaches one file in more
-    #: than one place.
     loci: list[str] = Field(default_factory=list, max_length=MAX_LOCI_PER_DOC)
-    #: An earlier step already reached this document — the producer's own
-    #: verdict, which is the only side that can reach it.
     repeat: bool | None = None
 
 
@@ -176,8 +153,6 @@ class RunError(_Wire):
     """Why a run stopped, and what it had finished by then."""
 
     reason: str = Field(max_length=MAX_ERROR_REASON_CHARS)
-    #: Derived by the BFF from the phases that actually ended, never believed
-    #: from the wire — it is sent for a reader that has only this payload.
     completed_before: list[RunPhase] = Field(default_factory=list, alias="completedBefore")
 
 
@@ -190,8 +165,6 @@ class RunLedger(_Wire):
     steps: list[RunStep] = Field(default_factory=list, max_length=MAX_STEPS)
     result: RunResult | None = None
     error: RunError | None = None
-    #: The documents the reader named as Grundlage (loci empty: the receipt is
-    #: read off the steps). Absent when none was named.
     basis: list[RunLedgerDoc] | None = Field(default=None, max_length=MAX_BASIS_DOCS)
     started_at: str = Field(alias="startedAt")
     updated_at: str = Field(alias="updatedAt")
@@ -227,7 +200,6 @@ class RunLedgerAppendRequest(_Wire):
     steps: list[RunStep] | None = Field(default=None, max_length=MAX_STEPS)
     phases: list[RunPhaseEntry] | None = Field(default=None, max_length=len(RUN_PHASES))
     status: RunStatus | None = None
-    #: The whole Grundlage list as it now stands (a live addition re-sends it).
     basis: list[RunLedgerDoc] | None = Field(default=None, max_length=MAX_BASIS_DOCS)
 
 

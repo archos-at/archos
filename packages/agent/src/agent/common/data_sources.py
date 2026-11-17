@@ -27,21 +27,14 @@ from .data_source_registry import get_all_sources
 from .data_source_registry import get_source
 from .data_source_registry import get_source_id_for_tool
 
-# Default to web_search when no data sources specified
 DEFAULT_DATA_SOURCES: list[str] = ["web_search"]
 
-# Org-disabled data sources (ADR-0022): the BFF resolves the org's web-search
-# setting at the WS upgrade and forwards the disabled ids base64url-encoded.
 DISABLED_SOURCES_HEADER = "x-grid-disabled-sources"
 
 logger = logging.getLogger(__name__)
 
-#: The filesystem tools that read the office's documents (ADR-0133). They are not agent-runtime functions, so the
-#: data-source registry does not list them; they belong to the source the ranked search belongs to, because
-#: they read its scope.
 FILESYSTEM_READ_TOOLS = frozenset({"ls", "glob", "grep", "read_file"})
 
-#: The tool whose source the filesystem tools share.
 ESTATE_SOURCE_TOOL = "knowledge_search"
 
 _GROUP_SEPARATORS = ("__", ".")
@@ -165,7 +158,6 @@ def disabled_source_notice(tool_name: str, disabled: Iterable[str], args: Any = 
     label = meta.name if meta else source_id.replace("_", " ").title()
     from agent.common.law_gate import withheld_notice
 
-    # A legal database the knowledge context withholds is not switched off: say what is missing (ADR-0175).
     if (gated := withheld_notice(source_id, label)) is not None:
         return gated
     return (
@@ -241,7 +233,6 @@ def filter_tools_by_sources(
         name = getattr(tool, "name", "")
         source_id = get_source_id_for_tool(name)
         if source_id is None:
-            # Not a data source tool (e.g., "think", calculator) -> always include.
             filtered.append(tool)
             continue
         source_key = source_id.lower()

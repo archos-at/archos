@@ -56,68 +56,13 @@ from .operators import _geometry_or_answer
 from .operators import _require
 from .operators import _wrong_kind
 
-# ── budgets ─────────────────────────────────────────────────────────────────
-#
-# Not tolerances — the tolerances are `operators.DIMENSION_TOLERANCE` and
-# `operators.TESSELLATION_TOLERANCE` and are reused as they stand. These bound
-# COST, in the same spirit as `model.CONTACT_BUDGET_SECONDS`: a refusal that
-# names its reason is an answer, and a request that never returns is not.
-
-#: Above this product of triangle counts, :func:`clear_width` refuses before it
-#: starts rather than after it has run.
-#:
-#: The pre-filter is a per-triangle box test, so the work is bounded by
-#: ``len(A) × len(B)`` box comparisons however well the pruning goes. Measured on
-#: the sample house: the worst pair of real elements in it is chair against chair
-#: at 3 618 × 3 618 ≈ 13.1 M, and that pair costs under 0.05 s. The limit sits two
-#: orders of magnitude above it, which is roughly 40 000 × 40 000 — around a
-#: second of pure box arithmetic before a single exact triangle test — because
-#: past that point the honest answer is that this operator is the wrong tool and
-#: a BVH is the right one.
 CLEARANCE_MAX_TRIANGLE_PAIRS = 1_600_000_000
 
-#: Seconds one :func:`clear_width` may spend in the pruning loop.
-#:
-#: The admission test above bounds the box arithmetic but not the exact
-#: triangle-pair tests, and those are unbounded in the SHAPE of the two meshes:
-#: two long, finely tessellated, nearly parallel surfaces keep every candidate
-#: alive because every one of them really is near-minimal. The budget is
-#: checkable here — unlike the OCCT offsets in ``model.space_contacts``, this
-#: loop is Python and regains control between triangles — so it is checked, and
-#: an overrun becomes an undecidable that names the elapsed time.
 CLEARANCE_BUDGET_SECONDS = 20.0
 
-#: Degrees below which an oriented box and the axis-aligned box are the same box.
-#:
-#: Measured, not assumed: every wall, window and door of the sample house comes
-#: out of the rotating-caliper search at |angle| < 1e-13 °, because their hull
-#: edges really are on the model axes. So anything above floating-point noise is
-#: a real skew — the threshold is set at half a degree, which over a 14.1 m wall
-#: (the sample house's north wall) is 12 cm of end deviation, enough to be a
-#: modelling fact rather than a rounding artefact.
 AXIS_ALIGNED_DEGREES = 0.5
 
-#: Below this, a triangle has no area and is dropped before any distance test.
-#: Degenerate triangles are common in exported meshes and they poison the
-#: closest-point arithmetic (the barycentric denominator goes to zero) while
-#: contributing no surface.
 _MIN_TRIANGLE_AREA = 1e-12
-
-# ════════════════════════════════════════════════════════════════════════════
-# triangle-soup minimum distance — the primitive `geom.tree.clash_*` does not
-# supply on this wheel
-# ════════════════════════════════════════════════════════════════════════════
-#
-# §7 of the design doc maps a true clearance onto
-# `geom.tree.clash_clearance_many`. It returns an EMPTY TUPLE for every input on
-# the shipped 0.8.5 wheel and does not raise — verified again here, not taken on
-# trust: `clash_collision_many`, `clash_clearance_many` and
-# `clash_intersection_many` all return `()` for the sample house's bedroom
-# against its living room, two spaces 95 mm apart, at any clearance. The cause is
-# visible in the wrapper: the module has no `has_occ` symbol at all, i.e. this
-# build carries no OCCT clash kernel. A primitive that answers "keine Kollision"
-# by failing silently is the single most dangerous thing this library could be
-# built on, so the distance is computed from the triangulations instead.
 
 
 def _closest_on_triangles(points: np.ndarray, tris: np.ndarray) -> np.ndarray:
@@ -183,14 +128,9 @@ def _closest_between_segments(
 
     s = np.where(np.abs(denominator) < 1e-30, 0.0, np.clip((b * f - c * e) / den_safe, 0.0, 1.0))
     t = (b * s + f) / e_safe
-    # Ericson clamps t into [0, 1] and then re-solves s for the clamped t. Doing
-    # it the other way round returns a point pair that is on the segments but not
-    # the nearest one, and the error is small enough to look plausible.
     s = np.where(t < 0.0, np.clip(-c / a_safe, 0.0, 1.0), s)
     s = np.where(t > 1.0, np.clip((b - c) / a_safe, 0.0, 1.0), s)
     t = np.clip(t, 0.0, 1.0)
-    # A degenerate first segment (a zero-length edge) has no parameter to solve
-    # for; the whole distance is then point-to-segment.
     degenerate = a < 1e-30
     s = np.where(degenerate, 0.0, s)
     t = np.where(degenerate, np.clip(f / e_safe, 0.0, 1.0), t)
@@ -230,8 +170,6 @@ def _segments_hit_triangles(p: np.ndarray, q: np.ndarray, tris: np.ndarray) -> n
     return ~parallel & (u >= 0.0) & (v >= 0.0) & (u + v <= 1.0) & (t >= 0.0) & (t <= 1.0)
 
 
-#: The 3 × 3 edge pairing of two triangles, as index arrays — 9 combinations run
-#: as one batch rather than as nine calls. See :func:`_triangle_distances`.
 _EDGE_A = np.repeat([0, 1, 2], 3)
 _EDGE_B = np.tile([0, 1, 2], 3)
 
@@ -265,14 +203,12 @@ def _triangle_distances(tri: np.ndarray, tris: np.ndarray) -> tuple[np.ndarray, 
     count = len(tris)
     rows = np.arange(count)
 
-    # 9 edge-edge pairs, laid out as (9, count, …) and flattened.
     p1 = np.broadcast_to(tri[_EDGE_A][:, None, :], (9, count, 3)).reshape(-1, 3)
     q1 = np.broadcast_to(tri[(_EDGE_A + 1) % 3][:, None, :], (9, count, 3)).reshape(-1, 3)
     p2 = tris[:, _EDGE_B, :].transpose(1, 0, 2).reshape(-1, 3)
     q2 = tris[:, (_EDGE_B + 1) % 3, :].transpose(1, 0, 2).reshape(-1, 3)
     edge_a, edge_b = _closest_between_segments(p1, q1, p2, q2)
 
-    # 3 vertices of `tri` against every triangle of `tris`, and the reverse.
     vertices_a = np.broadcast_to(tri[:, None, :], (3, count, 3)).reshape(-1, 3)
     repeated = np.broadcast_to(tris, (3, count, 3, 3)).reshape(-1, 3, 3)
     near_b = _closest_on_triangles(vertices_a, repeated)
@@ -288,8 +224,6 @@ def _triangle_distances(tri: np.ndarray, tris: np.ndarray) -> tuple[np.ndarray, 
     point_a = on_a.reshape(15, count, 3)[which, rows]
     point_b = on_b.reshape(15, count, 3)[which, rows]
 
-    # Only worth running where something could still be positive. Two solids that
-    # already touch at a vertex or an edge are done.
     if (best > 0.0).any():
         ends_a = np.broadcast_to(np.roll(tri, -1, axis=0)[:, None, :], (3, count, 3)).reshape(-1, 3)
         ends_b = np.roll(tris, -1, axis=1).transpose(1, 0, 2).reshape(-1, 3)
@@ -297,9 +231,6 @@ def _triangle_distances(tri: np.ndarray, tris: np.ndarray) -> tuple[np.ndarray, 
         hit |= _segments_hit_triangles(vertices_b, ends_b, fixed).reshape(3, count).any(axis=0)
         if hit.any():
             best = np.where(hit, 0.0, best)
-            # The witness of a crossing lies on both surfaces; the midpoint of the
-            # nearest vertex/edge pair is inside the intersection region and is
-            # the honest thing to point at.
             middle = (point_a + point_b) / 2.0
             point_a = np.where(hit[:, None], middle, point_a)
             point_b = np.where(hit[:, None], middle, point_b)
@@ -375,8 +306,6 @@ def _soup_distance(
     lo_b, hi_b = tris_b.min(axis=1), tris_b.max(axis=1)
     whole_b = (lo_b.min(axis=0), hi_b.max(axis=0))
 
-    # Lower bound of every A triangle against the whole of B — both the sort key
-    # and the break test.
     outer = np.maximum(lo_a - whole_b[1], whole_b[0] - hi_a)
     outer_bound = np.linalg.norm(np.maximum(outer, 0.0), axis=1)
     order = np.argsort(outer_bound)
@@ -405,15 +334,8 @@ def _soup_distance(
             point_a = pa[winner]
             point_b = pb[winner]
         if best <= 0.0:
-            # Touching or interpenetrating. Nothing can be smaller, and carrying
-            # on would only be an expensive way to find another zero.
             break
     return best, point_a, point_b, tested, False
-
-
-# ════════════════════════════════════════════════════════════════════════════
-# the operators
-# ════════════════════════════════════════════════════════════════════════════
 
 
 def clear_width(model: SpatialModel, a_global_id: str, b_global_id: str) -> Answer[dict[str, Any]]:
@@ -631,9 +553,6 @@ def _aperture_polygon(model: SpatialModel, element: Any) -> tuple[Any, np.ndarra
     across = np.cross(normal, up)
 
     normals, _ = triangle_normals_areas(geo.triangles)
-    # Only faces lying IN the aperture plane. The reveal (the prism's side walls)
-    # is perpendicular to it and projects to slivers that would inflate the union
-    # — and, for a width, would widen it by the wall thickness.
     facing = geo.triangles[np.abs(normals @ normal) > 0.9]
     if len(facing) == 0:
         return None
@@ -753,11 +672,6 @@ def clear_opening_width(model: SpatialModel, opening_or_filler_global_id: str) -
     width = float(max_x - min_x)
     height = float(max_y - min_y)
     area = float(polygon.area)
-    # 1.000 for a rectangular opening. Below it, the aperture is narrower than
-    # `width` over part of its height — a Rundbogen, a trapezoid, a mullioned
-    # opening whose union has a notch — and the width is then the widest point
-    # rather than a passable width. All three sample-house openings come out at
-    # exactly 1.0.
     filled = area / (width * height) if width > 0 and height > 0 else 0.0
 
     caveat = (
@@ -941,18 +855,12 @@ def oriented_extent(model: SpatialModel, global_id: str) -> Answer[dict[str, Any
     low, high = geo.box
     height = float(high[2] - low[2])
 
-    # Bearing conventions taken verbatim from `operators.azimuth`: `true_north` is
-    # the angle from +Y toward +X, north = (sin θ, cos θ), east is north turned
-    # 90° clockwise. An AXIS has no direction, so the bearing is folded into
-    # [0, 180): a wall running north-south is at 0°, not at 0° and 180°.
     theta = model.true_north if model.true_north is not None else 0.0
     north = np.array([math.sin(theta), math.cos(theta)])
     east = np.array([north[1], -north[0]])
     bearing = math.degrees(math.atan2(float(axis @ east), float(axis @ north)))
     bearing = math.fmod(math.fmod(bearing, 180.0) + 180.0, 180.0)
 
-    # How far the oriented box is turned out of the axis-aligned one. A rectangle
-    # maps onto itself every 90°, so the deviation lives in [0, 45].
     from_model_y = math.degrees(math.atan2(float(axis[0]), float(axis[1])))
     quarter = math.fmod(math.fmod(from_model_y, 90.0) + 90.0, 90.0)
     deviation = min(quarter, 90.0 - quarter)

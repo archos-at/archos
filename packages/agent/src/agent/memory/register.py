@@ -62,9 +62,6 @@ from nat.plugin_api import register_function
 
 logger = logging.getLogger(__name__)
 
-# Tool-result string returned once the confirmation card has been shown. It must
-# make clear to the model that NOTHING was saved — the user decides through their
-# own authenticated session.
 _CARD_SHOWN_RESULT = (
     "A confirmation was shown to the user asking whether to remember this org-wide or save it to "
     "this project. It has NOT been saved yet — do not claim it was saved; the user decides."
@@ -74,8 +71,6 @@ _ORG_DISABLED_RESULT = (
     "deployment; the finding was NOT saved. Tell the user that firm-wide rules "
     "currently have to be added by hand in the organization memory panel. Do not retry."
 )
-#: A conversation that drew on another project (ADR-0094) remembers nothing:
-#: project and organization memory are read by people who may not open it.
 _CROSS_PROJECT_RESULT = (
     "Not saved: This conversation draws on other projects, so nothing from it is saved "
     "to project or office memory. Tell the user so in one sentence if they asked you "
@@ -90,8 +85,6 @@ _NO_PROJECT_RESULT = (
     "Error: no project in scope for this conversation — memory can only be "
     "recorded in project-scoped chats. Do not retry."
 )
-#: ADR-0180. The flag arrives with the turn context; the BFF's refusal
-#: (``TEMPORARY_CONVERSATION``) maps to the same words when it arrived late.
 _TEMPORARY_RESULT = "Not saved: this conversation is temporary, nothing from it is kept. Do not retry."
 _PERSONAL_NO_ENVELOPE_RESULT = (
     "Error: the finding was NOT saved. Personal memory belongs to a signed-in person, and this "
@@ -109,9 +102,6 @@ _SECRET_RESULT = (
     "Not saved: the finding looks like a secret (a password, a key, an account or identity number), "
     "and no memory keeps one. Do not retry."
 )
-#: The project and organization shelves are read by other people, so the
-#: personal-data check refuses the write; the tool used to answer this case
-#: with "unknown project".
 _PERSONAL_DATA_RESULT = (
     "Not saved: the finding looks like personal data or a secret (an email address, a phone number, "
     "an account or identity number, a password), and {scope} memory is read by other people. If it is "
@@ -129,7 +119,6 @@ _PERSONAL_CURATED_RESULT = (
     "Not changed: the person wrote or pinned that note themselves, so only they remove or edit it, in "
     "their personal memory settings. Tell them so; do not record a contradicting note."
 )
-#: Who reads a finding in each scope, said in every success result.
 _READERS = {
     "personal": "only this person can read it",
     "project": "the project's members can read it",
@@ -141,14 +130,6 @@ _RESTRICTED_NO_PROJECT_RESULT = (
     "can only be kept in a project, but no project is in scope. Do not retry."
 )
 
-#: A failed write that is the transport's fault, not the caller's. Narrow on
-#: purpose: ``ValueError`` from the client means this tool's vocabulary and
-#: ``knowledge.project_memory``'s have drifted apart, which is a defect that
-#: must surface rather than be dressed up as "memory is unavailable".
-#: ``OSError`` covers ``urllib.error.URLError``/``HTTPError`` and socket
-#: timeouts; ``RuntimeError`` covers the missing-token configuration error and
-#: ``OrgMemoryDisabledError``; ``JSONDecodeError`` covers a 200 with a body the
-#: client could not read.
 _WRITE_FAILURES = (OSError, RuntimeError, json.JSONDecodeError)
 
 
@@ -162,14 +143,6 @@ def _normalized(value: object) -> object:
     return value.strip().lower() if isinstance(value, str) else value
 
 
-# The three vocabularies as the model sees them. Declaring them as ``Literal``
-# puts an ``enum`` in the tool's JSON schema — so a provider constrains the
-# argument before it is ever sent — and turns anything outside it into a
-# validation error the tool loop hands back for the model to correct. The tool
-# used to rewrite an out-of-vocabulary ``scope`` to ``"project"`` and
-# ``confidence`` to ``"medium"`` in silence, which quietly moved a finding into
-# a different scope than the one that was asked for.
-# ``tests/.../test_register.py`` pins each set against the client's ``VALID_*``.
 SharedScopeName = Literal["project", "organization"]
 ScopeName = Literal["project", "organization", "personal"]
 
@@ -218,9 +191,6 @@ def _turn_restriction_evidence() -> RestrictionEvidence:
     answering from; what could be listed is the turn's uncapped inventory.
     """
     scope = scoping.get_collection_scope_from_context()
-    # What earlier turns of the conversation were shown of restricted memory
-    # (`memory/shown_notes.py`): evidence even in a turn whose scope no longer
-    # holds the folder the note came from.
     earlier = turn_shown_notes()
     if not restricted_collections_in(scope) and earlier.empty:
         return RestrictionEvidence()
@@ -236,8 +206,6 @@ def _turn_restriction_evidence() -> RestrictionEvidence:
         scope,
         source_collections=(source.collection for source in sources),
         listed_documents=get_turn_documents(),
-        # Restricted memory in the prompt: the digest's `restricted` lines and
-        # what this turn already stored as restricted.
         restricted_notes=(
             *restricted_digest_notes(memory_client.turn_memory_digest()),
             *memory_client.turn_restricted_memory_writes(),
@@ -262,7 +230,6 @@ def _restricted_target(target: _Target, project_id: str | None) -> _Target | str
     return _Target("project", project_id, target.organization_id)
 
 
-#: What a ``memory`` proposal and its card hold of a superseded note (the contract's cap).
 MAX_SUPERSEDES_CHARS = 500
 
 
@@ -287,7 +254,6 @@ async def _emit_memory_proposal_card(
         return False
 
     if len(supersedes) > MAX_SUPERSEDES_CHARS:
-        # A quote cut short would match nothing, so the card proposes the note alone.
         logger.warning("remember: the superseded note is too long for a proposal; proposing the note alone")
         supersedes = ""
     card = {
@@ -297,7 +263,6 @@ async def _emit_memory_proposal_card(
         "kind": kind,
         "confidence": confidence,
         "supersedes": supersedes or None,
-        # The browser files the note under it when the proposal is not stored (the fallback).
         "topic": memory_client.memory_topic(topic) or None,
     }
     try:
@@ -308,7 +273,6 @@ async def _emit_memory_proposal_card(
     payload = {"scope": "organization", "kind": kind, "content": content, "confidence": confidence}
     if supersedes:
         payload["supersedes"] = supersedes
-    # The BFF resolves the topic against the shelf the note lands on (accepting it); absent when none.
     if kept_topic := memory_client.memory_topic(topic):
         payload["topic"] = kept_topic
     proposal_id = await add_card(registry, validated, kind="memory", payload=payload)
@@ -340,9 +304,6 @@ async def _write_failed(
     judge's "none" the trail never saw. Everything else gets an honest error
     string (:func:`_failure_result`).
     """
-    # Never a card for a restricted finding: accepting it writes open memory
-    # through the user's own session, which is the leak by another door.
-    # `org_denied` is only ever an organization-scoped write.
     if (
         not restricted
         and isinstance(exc, memory_client.OrgMemoryDisabledError)
@@ -365,8 +326,6 @@ def _failure_result(exc: Exception, *, kind: str, content: str, confidence: str,
     if isinstance(exc, memory_client.TemporaryConversationError):
         return _TEMPORARY_RESULT
     if isinstance(exc, memory_client.CrossProjectMemoryRefusedError):
-        # No card: accepting one would write the finding through the reader's
-        # own session, the same leak by another door.
         return _CROSS_PROJECT_RESULT
     org_denied = isinstance(exc, memory_client.OrgMemoryDisabledError)
     if org_denied:
@@ -380,9 +339,6 @@ def _success_result(kind: str, scope: str, *, supersedes: bool, restricted: bool
     """The tool result for a write that landed: where it was saved, and who can read it."""
     result = f"Recorded {kind} in {scope} memory"
     if supersedes:
-        # Deliberately not claiming the old entry WAS retired: the frontend ignores
-        # a quote it cannot resolve, or one naming a human-curated entry, and this
-        # call does not learn which happened.
         result += ", replacing the earlier note where it still matched"
     if not restricted:
         return f"{result}; {_READERS[scope]}."
@@ -480,7 +436,6 @@ async def _remember_shared(
 ) -> str:
     """Record a finding in project or organization memory, restricted when the turn's evidence says so."""
     if drew_on_other_projects():
-        # ADR-0094; the BFF refuses the write too.
         return _CROSS_PROJECT_RESULT
     project_id = project_context.get_project_id_from_context()
     target = _resolve_target(scope, project_id, project_context.get_organization_id_from_context())
@@ -509,13 +464,8 @@ async def _remember_shared(
             content=content,
             confidence=confidence,
             conversation_id=project_context.get_conversation_id_from_context(),
-            # Retires the entry this finding corrects. The frontend resolves
-            # the quote and ignores it when nothing matches or the target is
-            # human-curated, so the write lands either way.
             supersedes_content=supersedes or None,
-            # ADR-0087: served and shown only to people cleared for all of these.
             restricted_collections=restriction,
-            # Audited by the BFF with the item it was about (AI Act).
             restriction_judge=decision.judge.as_payload() if decision.judge else None,
             topic=topic,
         )
@@ -530,7 +480,6 @@ async def _remember_shared(
             topic=topic,
         )
     if item_id is None:
-        # The personal-data shapes were refused before the write, so None is the 404.
         return _UNKNOWN_PROJECT_RESULT
     logger.info("Recorded %s memory item %s (%s, restricted=%s)", target.scope, item_id, kind, restriction)
     return _success_result(
@@ -643,8 +592,6 @@ async def project_memory_remember(tool_config: ProjectMemoryRememberConfig, buil
         """Record one durable finding in personal, project or organization memory."""
         content = content.strip()[: tool_config.max_content_chars]
         if scope == "personal" and supersedes.strip() and not content:
-            # The person asked to drop a note: nothing is written, so a
-            # temporary conversation may still remove one.
             return await _remember_personal(kind, content, supersedes.strip())
         if not content:
             return "Error: content must not be empty."

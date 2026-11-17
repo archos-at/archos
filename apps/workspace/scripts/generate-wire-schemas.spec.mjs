@@ -72,7 +72,6 @@ describe('generate-wire-schemas', () => {
     expect(buildWireSchemaModule(root)).toContain(
       '"reason": z.union([z.enum(["ungrounded","law_unsettled"]), z.null()]).default(null).catch(null)'
     )
-    // The generated module: a capped reason added after this bundle was built still lets the turn settle.
     const { turnResultSchema } = await import('../ui/adapters/api/wire-v2.generated')
     const parsed = turnResultSchema.parse({
       message_id: 'm1',

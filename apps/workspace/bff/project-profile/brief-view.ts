@@ -1,10 +1,3 @@
-// Pure, isomorphic view-model builder for the Project Brief panel. Turns the
-// raw ProjectProfile into the human-readable fact sheet the Overview renders:
-// intake-question labels instead of raw fact keys, option labels instead of
-// enum values, facts grouped in intake-stage order, unknowns and assumptions
-// resolved to the same labels. Deriving at render time (rather than reading the
-// stored profile_display) means every project benefits immediately — no
-// re-save required.
 import { BUILDING_ID_IN_KEY, buildingTag } from './intake-building-keys'
 import { flattenIntakeQuestions } from './intake-conditions'
 import { projectIntakeDefinitionV1 } from './intake-definition'
@@ -31,7 +24,6 @@ export interface BriefAssumption {
   key: string
   label: string
   value: string
-  /** The machine value ("wohnen"), for writing back on confirm. */
   rawValue: ProjectAssumption['value']
   reason: string
   source: ProjectAssumption['source']
@@ -43,35 +35,25 @@ export interface BriefMissingFact {
 }
 
 export interface ProjectBriefView {
-  /** Facts grouped by intake stage, in intake order; only non-empty groups. */
   groups: BriefFactGroup[]
-  /** What Grid should focus on (goal option labels), when captured. */
   focusAreas: string[]
-  /** Free-text goal detail, when captured. */
   goalDetails: string | null
-  /** Unanswered intake questions, with human labels. */
   missing: BriefMissingFact[]
-  /** Agent-suggested values awaiting confirmation. */
   assumptions: BriefAssumption[]
-  /** Captured facts vs captured + still-missing, for the completeness caption. */
   answeredCount: number
   totalCount: number
 }
 
-/** Fact keys that are rendered elsewhere on the page (header), not in the sheet. */
 const HIDDEN_FACT_KEYS = new Set(['project_name'])
 
-/** Structural facts hidden from the sheet (used only to name scope instances). */
 function isHiddenFactKey(key: string): boolean {
   return HIDDEN_FACT_KEYS.has(key) || key.startsWith('building_name@')
 }
 
-/** The base (scope-suffix-stripped) form of a storage key: `x@bldg1@residential` → `x`. */
 function baseKeyOf(key: string): string {
   return key.split('@')[0]
 }
 
-/** Fallback label for a fact key no intake question covers (e.g. agent-added). */
 function humanizeKey(key: string): string {
   const label = baseKeyOf(key).replaceAll('_', ' ')
   return label.charAt(0).toUpperCase() + label.slice(1)
@@ -93,7 +75,6 @@ export function buildProjectBriefView(rawProfile: unknown): ProjectBriefView {
   const profile: ProjectProfile = parsed.success ? parsed.data : ProjectProfileSchema.parse({})
   const byKey = questionByFactKey()
 
-  // Facts grouped by intake stage, in definition order; unmatched keys go last.
   const groups: BriefFactGroup[] = projectIntakeDefinitionV1.stages.map((stage) => ({
     id: stage.id,
     title: stage.title,
@@ -103,9 +84,6 @@ export function buildProjectBriefView(rawProfile: unknown): ProjectBriefView {
   const other: BriefFactGroup = { id: 'other', title: 'Additional context', facts: [] }
 
   const factKeys = Object.keys(profile.facts)
-  // Facts are ordered by the intake position of their BASE key (so a scoped
-  // `storeys_above_ground@bldg1` sits with module C), scope instances kept
-  // together; keys no question covers are appended, sorted.
   const orderedBaseKeys = flattenIntakeQuestions(projectIntakeDefinitionV1)
     .map((question) => question.writesTo?.match(/^\/facts\/([^/]+)/)?.[1])
     .filter((key): key is string => Boolean(key))
@@ -116,7 +94,6 @@ export function buildProjectBriefView(rawProfile: unknown): ProjectBriefView {
     return ra === rb ? a.localeCompare(b) : ra - rb
   })
 
-  /** " · <building name>" suffix for a scoped key, when it names one. */
   const scopeSuffix = (key: string): string => {
     const m = key.match(BUILDING_ID_IN_KEY)
     if (!m) return ''
@@ -139,7 +116,6 @@ export function buildProjectBriefView(rawProfile: unknown): ProjectBriefView {
     ;(entry ? groupById.get(entry.stageId)! : other).facts.push(view)
   }
 
-  // Goals: focus areas rendered via their option labels.
   const focusQuestion = flattenIntakeQuestions(projectIntakeDefinitionV1).find(
     (q) => q.id === 'focus_areas'
   )
@@ -187,15 +163,6 @@ export function buildProjectBriefView(rawProfile: unknown): ProjectBriefView {
   }
 }
 
-/**
- * Plain-text, human-readable profile rendering fed to the summary LLM. Uses the
- * same label resolution as the Project Brief panel — question labels ("Building
- * class") and option labels ("Open land (Freiland)") instead of raw keys and
- * enum tokens — so the generated prose can't leak machine vocabulary like
- * "escape_level" or "deviating_development_plan" into the sentence. Unknowns
- * and unconfirmed assumptions are deliberately excluded: the summary should
- * describe what the project IS, not enumerate what's missing.
- */
 export function buildProjectSummaryText(rawProfile: unknown): string {
   const parsed = ProjectProfileSchema.safeParse(rawProfile ?? {})
   const profile: ProjectProfile = parsed.success ? parsed.data : ProjectProfileSchema.parse({})

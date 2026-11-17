@@ -1,28 +1,12 @@
-/**
- * Rechtsdokumente — Deutsch (maßgebliche Sprachfassung für den
- * österreichischen Markt). Strukturelles Gegenstück zu `./en.ts`.
- *
- * Betreiberangaben kommen aus packages/brand/identity.json. Die Gesellschaft ist
- * in Gründung: Firmenbuchnummer, Firmenbuchgericht und UID gibt es noch nicht,
- * und der Text sagt das so wie das Impressum der Website
- * (apps/website/src/i18n/pages/imprint.ts). Kein Wert steht in eckigen Klammern;
- * was nicht belegt ist, ist ein TODO(owner) im Kommentar. Diese Texte entstanden im
- * Rahmen des Compliance-Reviews 2026-07 (docs/compliance/) und sind
- * Vorlagen, keine Rechtsberatung: vor Verwendung anwaltlich prüfen lassen.
- */
-
 import type { LegalContent } from '../types'
 import { PRODUCT_NAME, withProductName } from '@/lib/brand'
 import { SUBPROCESSOR_PAGE } from './subprocessors.generated'
 import identity from '@/shared/brand/identity.json'
 
-// Betreiber, Anschrift und Kontakt aus der einen Quelle der Marke (packages/brand/identity.json),
-// wie im Impressum der Website.
 const OPERATOR = identity.legalEntity
 const ADDRESS = `${identity.street}, ${identity.postalCode} ${identity.city}, Österreich`
 const EMAIL = identity.email
 
-// Tabellen und Listen der Seite „Subunternehmer“, erzeugt aus configs/subprocessors/ (scripts/generate_subprocessor_pages.py).
 const PAGE = withProductName(SUBPROCESSOR_PAGE.de)
 
 export const de: LegalContent = {
@@ -37,7 +21,6 @@ export const de: LegalContent = {
         paragraphs: [
           `${OPERATOR}, ${ADDRESS}.`,
           `Kontakt: ${EMAIL}`,
-          // Wortlaut wie im Impressum der Website (apps/website/src/i18n/pages/imprint.ts).
           'Rechtsform: Flexible Kapitalgesellschaft (FlexCo), in Gründung. Firmenbuch: Noch nicht eingetragen. Firmenbuchnummer, Firmenbuchgericht und UID-Nummer ergänzen wir nach der Eintragung.',
           // TODO(owner): die Aufsichtsbehörde gemäß ECG nach Eintragung und Gewerbeanmeldung nennen.
           'Unternehmensgegenstand: Entwicklung und Betrieb von Software für Architektur- und Planungsbüros. Die Aufsichtsbehörde gemäß ECG ergänzen wir nach der Eintragung. Anwendbare gewerberechtliche Vorschriften: Gewerbeordnung 1994, abrufbar unter ris.bka.gv.at.',
@@ -283,7 +266,6 @@ export const de: LegalContent = {
     sections: [
       {
         heading: 'Externe Auftragsverarbeiter',
-        // Zeilen aus dem Datenfluss-Register (configs/subprocessors/*.yaml), nicht hier bearbeiten.
         table: PAGE.processors,
         notice:
           'Dynamische Modellanbieter: Da Organisations-Administratorinnen und -Administratoren das KI-Modell zur Laufzeit wechseln können (siehe KI-Transparenzhinweis), ist der tatsächliche vorgelagerte Modellanbieter nicht fest. Der gesamte KI-Verkehr läuft stets über OpenRouter; die Menge möglicher vorgelagerter Anbieter ist auf den OpenRouter-Katalog beschränkt; die für Ihre Organisation aktive Auswahl ist für Ihre Administratorinnen und Administratoren einsehbar, jede Änderung wird audit-protokolliert, und das antwortende Modell wird je Anfrage festgehalten.',

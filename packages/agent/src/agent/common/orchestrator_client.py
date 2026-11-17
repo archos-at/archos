@@ -33,9 +33,6 @@ logger = logging.getLogger(__name__)
 _lock = threading.Lock()
 _client: Hatchet | None = None
 
-#: The longest a REST call to the engine may take. The SDK's REST client sets no
-#: connect timeout, so an address that swallows the SYN holds the caller until
-#: the OS gives up (about two minutes), on a person's cancel among others.
 REST_TIMEOUT_SECONDS = 15.0
 _rest_pool = ThreadPoolExecutor(max_workers=4, thread_name_prefix="orchestrator-rest")
 

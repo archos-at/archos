@@ -196,16 +196,13 @@ class TestQueryDigestResubmissionCap:
             researcher_tool_names={"web_search_tool"},
         )
 
-        # Exhaust the budget
         for _ in range(MAX_QUERY_SUBMISSIONS):
             await batch_tool.ainvoke({"queries": [_make_query("over limit")]})
 
-        # This call should produce a terminal note, not raise
         result = await batch_tool.ainvoke({"queries": [_make_query("over limit")]})
 
         payload = json.loads(result)
         assert len(payload) == 1
-        # Terminal notes have no findings and a specific summary
         assert payload[0]["summary"] != ""
         assert "nicht recherchiert werden" in payload[0]["summary"]
 
@@ -221,14 +218,8 @@ class TestQueryDigestResubmissionCap:
         )
 
         for _ in range(MAX_QUERY_SUBMISSIONS + 1):
-            # Submit two different queries each time
             await batch_tool.ainvoke({"queries": [_make_query("query A"), _make_query("query B")]})
 
-        # Both should now be terminal on the next invocations, but we already
-        # consumed the last allowed run in the loop above. The sub-calls above
-        # used all budgets and each already succeeded. Let's verify they
-        # succeeded throughout (each call had a mix of ok queries).
-        # Actually let's just verify the final single-query call returns terminal:
         result = await batch_tool.ainvoke({"queries": [_make_query("query A")]})
         payload = json.loads(result)
         assert "nicht recherchiert werden" in payload[0]["summary"]
@@ -244,11 +235,9 @@ class TestQueryDigestResubmissionCap:
             researcher_tool_names={"web_search_tool"},
         )
 
-        # Exhaust the budget for query "stale"
         for _ in range(MAX_QUERY_SUBMISSIONS):
             await batch_tool.ainvoke({"queries": [_make_query("stale")]})
 
-        # Mixed batch: stale (terminal) + fresh (runs normally)
         result = await batch_tool.ainvoke({"queries": [_make_query("stale"), _make_query("fresh")]})
 
         payload = json.loads(result)
@@ -280,8 +269,6 @@ class TestTerminalUnresearchableNote:
         note = _terminal_unresearchable_note(q)
         assert note.findings is not None
         assert note.summary.strip() != ""
-        # Would not raise: note.findings (empty) and note.summary.strip() (non-empty)
-        # satisfies: not (not note.findings and not note.summary.strip())
 
 
 class TestResearchNoteTruncation:
@@ -316,7 +303,6 @@ class TestResearchNoteTruncation:
         q = _make_query("big test")
         note = self._big_note()
         _path, content = _research_note_files([q], [note])[0]
-        # Parses as JSON and round-trips through the ResearchNotes contract.
         reparsed = ResearchNotes.model_validate(json.loads(content.decode("utf-8")))
         assert "[... truncated:" in reparsed.summary
 
@@ -365,22 +351,12 @@ class TestTotalCharBudget:
     async def test_total_budget_truncates_oldest_oversized(self):
         """When total oversized chars exceed budget, oldest oversized messages are truncated first."""
         middleware = ToolResultPruningMiddleware(keep_last_n=10, max_chars=100, total_char_budget=300)
-        # 4 oversized messages each 200 chars > max_chars=100, total=800 > budget=300.
         messages = [
             ToolMessage(content="x" * 200, tool_call_id=f"tc{i}", name=f"tool{i}", id=f"msg{i}") for i in range(4)
         ]
 
         sent = await self._sent(middleware, list(messages))
 
-        # All 4 fit in keep_last_n=10, so none evicted by keep-last-N.
-        # Total=800 > 300 budget ÔåÆ truncate oldest until under budget.
-        # Truncated msg ÔåÆ max_chars(100) + suffix Ôëê 122 chars.
-        # After msg0 truncated: total Ôëê 800-200+122 = 722. Still > 300.
-        # After msg1 truncated: total Ôëê 722-200+122 = 644. Still > 300.
-        # After msg2 truncated: total Ôëê 644-200+122 = 566. Still > 300.
-        # After msg3 truncated: total Ôëê 566-200+122 = 488. Still > 300.
-        # All 4 truncated, but total 488 > 300. Budget is a soft ceiling;
-        # verify at least the oldest was truncated.
         assert sent[0].content.endswith("[... truncated ...]")
 
     @pytest.mark.asyncio
@@ -393,7 +369,6 @@ class TestTotalCharBudget:
 
         sent = await self._sent(middleware, list(messages))
 
-        # Total=800 < budget=900, so no total-budget truncation.
         assert all(len(m.content) == 200 for m in sent)
 
     @pytest.mark.asyncio
@@ -406,8 +381,6 @@ class TestTotalCharBudget:
 
         sent = await self._sent(middleware, list(messages))
 
-        # keep_last_n=3 → msg0 (oldest oversized) evicted by keep-last-N;
-        # total-char budget=0 means no additional truncation beyond that.
         assert sent[0].content.endswith("[... truncated ...]")
         assert len(sent[1].content) == 200
 
@@ -473,8 +446,6 @@ class TestBudgetThroughBatchToolPath:
         async def handler(request):
             nonlocal executions
             executions += 1
-            # What the tool layer returns when the tracker is already exceeded:
-            # the batch tool raising through, exactly as production does.
             await batch_tool.ainvoke({"queries": [_make_query()]})
             raise AssertionError("unreachable: batch tool must raise")
 
@@ -511,10 +482,8 @@ class TestAddedDocumentsReachTheOrchestrator:
             result = await batch_tool.ainvoke({"queries": [_make_query("first")]})
             assert result.startswith(ADDED_DOCUMENTS_NOTICE.split("{lines}")[0].rstrip("\n"))
             assert "- Nachtrag — nachtrag.pdf" in result
-            # The notes still follow, as JSON, after the notice.
             payload = json.loads(result.split("\n\n", 1)[1])
             assert payload[0]["query_topic"] == "test"
-            # Drained: the next batch says nothing about it.
             again = await batch_tool.ainvoke({"queries": [_make_query("second")]})
             assert not again.startswith(ADDED_DOCUMENTS_NOTICE[:20])
         finally:
@@ -544,7 +513,6 @@ class TestWriteNowIsHonouredOnlyByARefusal:
         token = bind_write_now(signal)
         try:
             await batch_tool.ainvoke({"queries": [_make_query("first")]})
-            # A request that lands after the last batch cut nothing.
             signal.set()
             assert write_now_honoured() is False
             assert await batch_tool.ainvoke({"queries": [_make_query("second")]}) == WRITE_NOW_NOTICE

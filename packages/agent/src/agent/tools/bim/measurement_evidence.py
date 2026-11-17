@@ -32,14 +32,8 @@ from __future__ import annotations
 
 import re
 
-#: The provenances that constitute EVIDENCE. ``inferred`` is excluded on
-#: purpose — the renderer calls it „ein Vorschlag zur Bestätigung, keine
-#: Feststellung", and a heuristic must not raise anybody's confidence.
 EVIDENCE_PROVENANCES: frozenset[str] = frozenset({"declared", "computed"})
 
-#: The opening of the trailer line. Changing it changes the contract, and
-#: ``packages/agent/tests/agents/piloti/test_grounding.py`` pins both
-#: sides of it against real renderer output.
 MEASUREMENT_EVIDENCE_PREFIX = "Messwerte in diesem Ergebnis:"
 
 _EVIDENCE_LINE_RE = re.compile(rf"^{re.escape(MEASUREMENT_EVIDENCE_PREFIX)}\s+([1-9]\d*)\b")

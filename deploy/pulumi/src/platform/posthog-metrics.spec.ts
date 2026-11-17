@@ -5,15 +5,6 @@ import { parseCollectorConfig, pipeline } from "../test-support/collector";
 import type { CollectorConfig } from "./collector-config";
 import { loadConfig } from '../config'
 
-/**
- * Every metric to PostHog Metrics, through the gateway collector.
- *
- * What goes wrong here is quiet. A metrics pipeline missing a source drops that
- * source with no error anywhere; series without the stack's name mix dev into
- * prod in the one project; a gateway that reads the API without an identity
- * gets 403 on every watch, logs it, and reports no workloads.
- */
-
 const RESOURCES: Array<{ type: string; name: string; inputs: Record<string, unknown> }> = [];
 
 pulumi.runtime.setMocks(

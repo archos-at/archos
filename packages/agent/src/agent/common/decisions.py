@@ -63,39 +63,12 @@ from agent.common.openrouter import limited_async_http_client
 
 logger = logging.getLogger(__name__)
 
-# @environment_variable DECISIONS_ENABLED
-# @category Agent
-# @type bool
-# @default true
-# @required false
-# Whether the decision model (Jev, ADR-0064) is consulted at all. `false`
-# runs every turn exactly as it ran before the decisions existed.
 ENABLED_ENV = "DECISIONS_ENABLED"
 
-# @environment_variable DECISIONS_MODEL
-# @category Agent
-# @type str
-# @default typesafe/jev-1.13
-# @required false
-# The decision model id on OpenRouter's Decisions endpoint.
 MODEL_ENV = "DECISIONS_MODEL"
 
-# @environment_variable DECISIONS_URL
-# @category Agent
-# @type str
-# @default https://openrouter.ai/api/alpha/decisions
-# @required false
-# The Decisions endpoint. Only needed to point at a mock or a proxy; the
-# default is derived from the resolved OpenRouter base URL.
 URL_ENV = "DECISIONS_URL"
 
-# @environment_variable DECISIONS_API_KEY
-# @category Agent
-# @type str
-# @default (OPENROUTER_API_KEY)
-# @required false
-# A dedicated key for the Decisions endpoint. Falls back to OPENROUTER_API_KEY
-# through the shared credential resolver, BYOK first.
 DEDICATED_ENV = "DECISIONS_API_KEY"  # pragma: allowlist secret
 
 DEFAULT_MODEL = "typesafe/jev-1.13"
@@ -104,42 +77,25 @@ _FALLBACK_KEY_ENV = "OPENROUTER_API_KEY"
 _DEFAULT_BASE_URL = "https://openrouter.ai/api/v1"
 _OPENROUTER_HOST = "openrouter.ai"
 
-#: Upper bound on one decision call. The vendor's envelope is 70-500 ms; a
-#: call past this is a call the reader would feel, and the answer it would
-#: have given is worth strictly less than the second.
 DEFAULT_TIMEOUT_S = 1.5
 
-#: How many decisions ``decide_many`` keeps in flight. TypeSafe's own
-#: re-ranking cookbook ran twelve.
 DEFAULT_CONCURRENCY = 12
 
-#: The cost-ledger role a decision is filed under (``cost_tracking``): the
-#: calls do not go through LangChain, so they are recorded by hand, like the
-#: reranker's.
 USAGE_ROLE_DECISION = "decision"
 
-#: Why a decision was not made. Stable tokens for the technical record.
 SKIPPED_DISABLED = "disabled"
 SKIPPED_NO_KEY = "no_key"
 SKIPPED_BYOK_HOST = "byok_host"
 SKIPPED_BREAKER = "breaker"
 SKIPPED_TIMEOUT = "timeout"
 SKIPPED_ERROR = "error"
-#: The caller did not ask: a first message of fewer than three words (Piloti).
 SKIPPED_TOO_SHORT = "too_short"
 
-#: Consecutive failures before the breaker opens, and how long it stays open.
-#: Module-level: the failure is the endpoint's, not one caller's.
 _BREAKER_THRESHOLD = 5
 _BREAKER_COOLDOWN_S = 300.0
 _breaker_lock = threading.Lock()
 _consecutive_failures = 0
 _breaker_open_until = 0.0
-
-
-# ---------------------------------------------------------------------------
-# Questions
-# ---------------------------------------------------------------------------
 
 
 def noul(instructions: str, *, true: str, false: str) -> dict[str, Any]:
@@ -159,11 +115,6 @@ def score(instructions: str, levels: Sequence[str]) -> dict[str, Any]:
     if not 2 <= len(levels) <= 10:
         raise ValueError("a score needs between 2 and 10 levels")
     return {"type": "score", "instructions": instructions, "criteria": list(levels)}
-
-
-# ---------------------------------------------------------------------------
-# Answers
-# ---------------------------------------------------------------------------
 
 
 @dataclass(frozen=True)
@@ -231,11 +182,6 @@ def _probability(value: Any) -> float | None:
     if not math.isfinite(number):
         return None
     return min(1.0, max(0.0, number))
-
-
-# ---------------------------------------------------------------------------
-# The call
-# ---------------------------------------------------------------------------
 
 
 @dataclass(frozen=True)
@@ -352,11 +298,7 @@ def _context_organization_id() -> str | None:
         return None
 
 
-#: The keep-alive client, one per event loop. Measured on 2026-09-22 against
-#: the live endpoint: a client built per call answered in ~430 ms, of which
-#: ~370 ms was the TLS handshake; the same call on a warm connection took
-#: ~60 ms. Keyed by loop because an httpx client is bound to the loop that
-#: opened its connections, and the test runner opens a new loop per test.
+# Measured 2026-09-22: a client per call answered in ~430 ms (~370 ms TLS handshake), a warm connection in ~60 ms.
 _shared_client: tuple[Any, Any] | None = None
 
 
@@ -372,9 +314,6 @@ async def _client(timeout: float, transport: Any) -> AsyncIterator[Any]:
     """
     import httpx
 
-    # Every client queues for a provider slot (ADR-0081) in the class of the
-    # caller's task: a decision inside a chat turn is chat, one inside an ingest
-    # job is that job's class.
     if transport is not None:
         async with limited_async_http_client(timeout=timeout, inner=transport) as owned:
             yield owned
@@ -402,8 +341,6 @@ async def _post(
 ) -> _Outcome:
     import httpx
 
-    # Pinned for every organization (`openrouter.PLATFORM_FIXED`): the decision
-    # model is the platform's, and its one endpoint (TypeSafe) is ZDR.
     body = PLATFORM_FIXED.apply({"model": endpoint.model, "state": state, "questions": dict(questions)})
     started = time.monotonic()
     try:
@@ -421,8 +358,6 @@ async def _post(
         return _Outcome(skipped=SKIPPED_ERROR, detail=type(exc).__name__)
     latency_ms = int((time.monotonic() - started) * 1000)
     if response.status_code != 200:
-        # 4xx is ours (a malformed question) and must not open the breaker
-        # against the endpoint; 5xx/429/529 is theirs and does.
         if response.status_code >= 500 or response.status_code == 429:
             _record_failure()
         logger.warning("Decision endpoint answered HTTP %s", response.status_code)
@@ -461,9 +396,6 @@ def _record_cost(decision: Decision, *, byok: bool) -> None:
             prompt_tokens=decision.input_tokens,
             completion_tokens=decision.output_tokens,
             cost_usd=decision.cost_usd or 0.0,
-            # The ledger's vocabulary (`COST_SOURCES` in the BFF schema): a
-            # value outside it, as `"provider"` was, has the internal endpoint
-            # refuse the whole batch, and with it up to four other calls.
             cost_source="usage_field" if decision.cost_usd is not None else "missing",
             is_byok=byok,
         )
@@ -478,8 +410,6 @@ def _record(slot: str, detail: dict[str, Any]) -> None:
     emit_technical(f"decision:{slot}", **detail)
 
 
-#: How many answer summaries one ``decide_many`` observation carries: a batch
-#: of passages or candidates is bounded, but an observation must stay small.
 _OBSERVED_ANSWERS_MAX = 24
 
 
@@ -605,8 +535,6 @@ def decide_blocking(
     from concurrent.futures import ThreadPoolExecutor
     from contextvars import copy_context
 
-    # In the caller's context, so the decision's cost reaches its tracker (a
-    # ContextVar a fresh thread would not see) and lands on the ledger.
     with ThreadPoolExecutor(max_workers=1) as pool:
         return pool.submit(copy_context().run, _run).result()
 

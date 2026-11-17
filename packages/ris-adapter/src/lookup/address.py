@@ -29,28 +29,14 @@ PARAGRAPH_RE = re.compile(r"§+\s*(\d+[a-z]?)")
 ARTICLE_RE = re.compile(r"\bArt(?:ikel)?\.?\s*(\d+[a-z]?)\b", re.IGNORECASE)
 SUBSECTION_RE = re.compile(r"\bAbs(?:atz|\.)?\s*(\d+[a-z]?)\b", re.IGNORECASE)
 
-#: A LIST of §§ or Artikel: "§§ 75 und 81", "§§ 2, 3", "§§ 63 bis 65",
-#: "§ 5 und § 7", "§ 5 Abs 2 und § 7", "Art. 5 und 7". Every one it names is
-#: addressed. Read as one it dropped all but the first and left "und 81" in the
-#: law's name, and the agent spent a round fetching the § it had already asked
-#: for. Read by a cursor from the first § the caller named (:func:`_list_from`),
-#: not by one regex: whether "und 3" continues the §§ or the Absatz before it
-#: depends on what came just before.
 _SIGNED = {
     "§": re.compile(r"\s*§+\s*(\d+)([a-z]?)\b", re.IGNORECASE),
     "Art": re.compile(r"\s*\bArt(?:ikel)?\.?\s*(\d+)([a-z]?)\b", re.IGNORECASE),
 }
-#: An item with no sign of its own: at most three digits (a year is not a §).
 _BARE = re.compile(r"\s*(\d{1,3})([a-z]?)\b", re.IGNORECASE)
-#: After a comma, "2. Satz" is an ordinal, not § 2.
 _ORDINAL_AHEAD = re.compile(r"\.\s*\w")
 _JOIN_RE = re.compile(r"\s*(,|\bund\b|\bsowie\b|\bu\.|\bbis\b|–|-)", re.IGNORECASE)
 _RANGE_JOINS = frozenset({"bis", "–", "-"})
-#: What narrows one § ("Abs 2", "Abs. 2 und 3", "Z 4 und Z 6", "lit. b und c",
-#: ", 2. Satz"). The items joined after it are more of the same qualifier, signed
-#: again or not, never more §§: read as a § list, "und c" and "und Abs 3" were
-#: left in the law's name. A litera continues with a lower-case letter, the
-#: others with a number; neither takes a "§", so "und § 7" stays the list's.
 _QUALIFIER_JOIN = r"\s*(?:,|\bund\b|\bbis\b|–|-)\s*"
 _QUALIFIER_RE = re.compile(
     r"\s*(?:"
@@ -61,37 +47,16 @@ _QUALIFIER_RE = re.compile(
     r"|,?\s*\d+\.\s*Satz\b)",
     re.IGNORECASE,
 )
-#: An Absatz with a list after it, where no § stands before it: taken out of
-#: the law's name whole, so no "und 3" is left to be read as the law.
 _SUBSECTION_LIST_RE = re.compile(r"\bAbs(?:atz|\.)?\s*\d+[a-z]?(?:\s*(?:,|und|bis|–|-)\s*\d+[a-z]?)*", re.IGNORECASE)
 
-#: The word that introduced a later § reference ("§ 3 BO Wien, siehe §§ 75 und
-#: 81"), left dangling once that list is cut out. The law name is the live RIS
-#: search's title, and "BO Wien, siehe" matches no law. The space before a
-#: closing parenthesis is taken only WITH the parenthesis: a bare ``\s*\)?``
-#: lets two repetitions share the same spaces, which backtracks exponentially
-#: on "(s. (s. (s. …" (CodeQL py/redos).
 _TRAILING_REFERENCE_RE = re.compile(
     r"(?:[\s,;]+(?:siehe|vgl\.?|s\.)|\s*\(\s*(?:siehe|vgl\.?|s\.)(?:\s*\))?)+$", re.IGNORECASE
 )
 
-#: How many §§ one list may address: the tool's own passage budget
-#: (``extract.MAX_PASSAGES``). A longer list or range addresses its first six,
-#: and the result says which it did not read (``Address.unread``).
 MAX_ADDRESSED_SECTIONS = 6
 
-#: A bare RIS document number as an ``instrument=`` argument ("NOR40217157",
-#: "JWT_2020130074_20210415J00"). The four-digit lookahead is load-bearing:
-#: without it "Bauordnung" reads as a document number, and a NAMED LAW is then
-#: treated as an address nothing can resolve — the catalog is skipped and the
-#: question misses. Every RIS document number carries a year-length run of
-#: digits; no law's short title does.
 _DOCUMENT_NUMBER_RE = re.compile(r"^(?=[A-Za-z0-9_.\-]*\d{4})[A-Za-z]{2,4}[A-Za-z0-9_.\-]{4,}$")
 
-#: Where the assumed Bundesland came from, in precedence order. The reader of a
-#: miss needs the PROVENANCE, not just the value: a wrong jurisdiction is the
-#: commonest silent RIS failure, and ``focus_entries`` drops other states' law
-#: without saying so.
 FEDERAL_STATE_FROM_ARGUMENT = "jurisdiction argument"
 FEDERAL_STATE_FROM_INSTRUMENT = "instrument argument"
 FEDERAL_STATE_FROM_QUESTION = "the question"
@@ -104,9 +69,7 @@ class Address:
 
     kind: str = ""  # "§" | "Art" | ""
     number: str = ""
-    #: Every § the caller named, ``number`` first; one entry for a single §.
     numbers: tuple[str, ...] = ()
-    #: The §§ a list named past :data:`MAX_ADDRESSED_SECTIONS`, not read.
     unread: tuple[str, ...] = ()
     subsection: str = ""
     law: str = ""
@@ -126,9 +89,6 @@ class Address:
         return self.numbers or ((self.number,) if self.number else ())
 
 
-#: A range is expanded in full, so every § past the first six is named as not
-#: read. This bounds only nonsense input ("§§ 1 bis 999999"): past it the range
-#: ends here, which no law reaches.
 _MAX_RANGE_SPAN = 1000
 
 
@@ -155,7 +115,6 @@ def _list_from(text: str, kind: str, start: int) -> tuple[tuple[str, ...], int]:
     items, end = [first.group(1) + first.group(2).lower()], first.end()
     while True:
         qualified = False
-        # "Abs 1 Z 2 lit. a" is three qualifiers on one item; each is consumed.
         while qualifier := _QUALIFIER_RE.match(text, end):
             qualified, end = True, qualifier.end()
         join = _JOIN_RE.match(text, end)
@@ -223,8 +182,6 @@ def parse_address(question: str, instrument: str, jurisdiction: str) -> Address:
     is what the caller chose to state as an address, while the question is
     prose that may mention a § in passing.
     """
-    # A URL a search stated on the OGD host (cached text keeps it for days)
-    # addresses the same document as its public-host twin.
     instrument = public_host((instrument or "").strip())
     url = instrument if is_ris_url(instrument) else ""
     number = instrument if not url and _DOCUMENT_NUMBER_RE.match(instrument) else ""
@@ -235,8 +192,6 @@ def parse_address(question: str, instrument: str, jurisdiction: str) -> Address:
         kind, section, where = _first_section(source)
     items = _list_from(source, kind, where)[0] if kind else ()
     listed = items if len(items) > 1 else ()
-    # An Absatz narrows ONE §; with a list it would narrow all of them to the
-    # same number, which is never what "§ 5 Abs 2 und § 7" means.
     subsection = None if listed else (SUBSECTION_RE.search(instrument) or SUBSECTION_RE.search(question or ""))
     federal_state, federal_state_source = assumed_federal_state(jurisdiction, instrument, question or "")
     return Address(
@@ -258,8 +213,6 @@ def _law_name(instrument: str, url: str, number: str) -> str:
     if url or number:
         return ""
     rest = instrument
-    # Every § or Artikel list goes, with its Absätze: the first is the
-    # address, any later one a reference the law's name does not contain.
     for _ in range(8):
         kind, _number, where = _first_section(rest)
         if not kind:

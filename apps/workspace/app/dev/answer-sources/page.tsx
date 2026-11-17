@@ -1,32 +1,5 @@
 'use client'
 
-/**
- * Answer-sources dev preview: the "Belegt durch" provenance row, which is where
- * the two-level citation model becomes visible.
- *
- * The defect this surface existed to produce: an answer citing ONE Richtlinie
- * at four pages rendered FOUR rows — the first complete (display title, OIB
- * badge, indigo accent, openable) and the rest degraded to a raw corpus
- * filename with no badge and the wrong tint, because the structured citations
- * were deduplicated to the DOCUMENT level and then matched one-to-one against
- * the answer's written source list, which is at the LOCUS level.
- *
- * Each block below is a case that used to break, rendered through the real
- * component with fixture data:
- *
- *   1. ONE DOCUMENT, FOUR PAGES — one chip, "S. 5, 12, 18, 22", markers 1–4.
- *      Every inline [N] anchors to it; nothing is degraded and nothing is lost.
- *   2. MIXED PROVENANCE — OIB corpus, RIS, Büroablage, project upload and a web
- *      page side by side, each in its own family with its authority badge.
- *   3. WRITTEN LIST ONLY — the answer's `## Quellen` section with no structured
- *      wire at all. This is the case that produced the raw filenames; it now
- *      resolves to the same title, tint and badge as the structured path.
- *   4. NO SOURCES — the honest "Lücke" row a substantive but ungrounded answer
- *      must show instead of quietly rendering nothing.
- *
- * Not linked anywhere; the `/dev` server layout 404s it outside development.
- */
-
 import type { FC, ReactNode } from 'react'
 import { AnswerSourcesRow } from '@/features/chat/components/AnswerSourcesRow'
 import { AnswerCitations } from '@/features/chat/components/AnswerCitations'
@@ -38,7 +11,6 @@ const at = new Date('2026-07-28T14:30:00')
 
 const OIB_FILE = 'oib-rl_2.1_ausgabe_mai_2023.pdf'
 
-/** One structured wire source — one LOCUS of a document. */
 const locus = (page: number, number: number): CitationSource => ({
   id: `oib-${page}`,
   content: `[KB] ${OIB_FILE}, p.${page}`,
@@ -58,7 +30,6 @@ const locus = (page: number, number: number): CitationSource => ({
   timestamp: at,
 })
 
-/** The same loci as the answer's written `## Quellen` list spells them. */
 const writtenEntry = (page: number, number: number): ReportSourceEntry => ({
   number,
   markdown: `${OIB_FILE}, p.${page}`,
@@ -140,7 +111,6 @@ const Block: FC<{ title: string; note: string; children: ReactNode }> = ({
   </section>
 )
 
-/** One provenance row, built through the real derivation the answer uses. */
 const Row: FC<{ inputs: CitationInputs; anchorPrefix: string; routing?: 'shallow' | 'deep' }> = ({
   inputs,
   anchorPrefix,

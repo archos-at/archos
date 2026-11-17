@@ -23,7 +23,6 @@ def main(argv: list[str] | None = None) -> int:
     test.add_argument("ids", nargs="*", help="source ids (default: every source)")
     test.add_argument("--dir", default=None, help="sources directory (default: configs/sources)")
     args = parser.parse_args(argv)
-    # A developer's or CI's run of recorded fixtures, no backend role: a fixture PDF is parsed here.
     allow_parsing_here()
 
     try:

@@ -24,7 +24,6 @@ from __future__ import annotations
 
 _SVNR_WEIGHTS = (3, 7, 9, 0, 5, 8, 4, 2, 1, 6)
 
-#: Labels of a social-security number, folded (``content_screen.fold``), matched at a word start.
 SVNR_LABELS: tuple[str, ...] = (
     "svnr",
     "sv-nr",

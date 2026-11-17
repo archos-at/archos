@@ -95,16 +95,13 @@ class SSEConnectionManager:
         """
         logger.info("SSE connection manager shutting down, %d active connections", len(self._active_connections))
 
-        # Signal shutdown to all generators
         self._shutdown_event.set()
 
         if not self._active_connections:
             return
 
-        # Give connections a moment to notice the shutdown signal
         await asyncio.sleep(0.1)
 
-        # Cancel any remaining connections
         async with self._lock:
             tasks_to_cancel = list(self._active_connections)
 
@@ -113,7 +110,6 @@ class SSEConnectionManager:
                 task.cancel()
                 logger.debug("Cancelled SSE connection task")
 
-        # Wait for all tasks to complete
         if tasks_to_cancel:
             try:
                 await asyncio.wait_for(
@@ -132,7 +128,6 @@ class SSEConnectionManager:
         self._shutdown_event.clear()
 
 
-# Global instance for the application
 _connection_manager: SSEConnectionManager | None = None
 
 

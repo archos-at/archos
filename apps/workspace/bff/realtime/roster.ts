@@ -1,46 +1,16 @@
-/**
- * Who is in a channel right now, kept on the server so it can be read without
- * being in the channel (ADR-0110): the snapshot Piloti reads when it is asked
- * about what a person is looking at.
- *
- * The browsers' roster is gossip and stays so; this is a side record of the
- * same claims, written from what the server relays (`./send`, and the agent
- * path in `./document-channel`). It is NOT state to converge on either: TTL'd,
- * bounded, lossy, and correct only to within a second or so.
- *
- * ## Shape in Dragonfly
- *
- * One hash per channel and organization, `rt:roster:<org>:<channel key>`, one
- * field per peer and fact (`<peerId>|id`, `<peerId>|page`, …). A fact is its
- * own field so two replicas relaying two facts of one peer never overwrite each
- * other, and no write reads first. The `id` field carries the claim's expiry;
- * a peer whose claim ran out is dropped (and deleted) on read. The hash itself
- * expires {@link KEY_TTL_MS} after the last write, and holds at most
- * {@link MAX_PEERS} peers: a new peer past that is not recorded.
- *
- * Writes are coalesced per process and flushed every {@link FLUSH_MS}, so a
- * pointer moving twelve times a second costs one write a second at most.
- * Without `REDIS_URL` the same record is kept in this process.
- */
-
 import 'server-only'
 import { createRedisClient } from '@/lib/redis/connect.js'
 import type { RealtimePeer } from './types'
 
-/** The facts kept per peer. All but `peer` and `expiresAt` are optional. */
 export interface RosterFacts {
-  /** The page the pointer was last on. */
   page?: number | null
   viewport?: { page: number; y: number } | null
-  /** The Anmerkung (or other mark) the peer has selected. */
   selected?: string | null
-  /** The region the peer is dragging out, with its page. */
   draft?: { page: number; x: number; y: number; w: number; h: number } | null
 }
 
 export interface RosterEntry extends Required<RosterFacts> {
   peer: RealtimePeer
-  /** When the claim runs out, ms since the epoch. */
   expiresAt: number
 }
 
@@ -49,7 +19,6 @@ export const KEY_TTL_MS = 60_000
 export const FLUSH_MS = 1_000
 const FACTS = ['page', 'viewport', 'selected', 'draft'] as const
 
-/** The backing store: a hash per roster, fields set and deleted, read whole. */
 export interface RosterBackend {
   write(key: string, set: Record<string, string>, remove: string[], ttlMs: number, maxIds: number): Promise<void>
   read(key: string): Promise<Record<string, string>>
@@ -57,8 +26,6 @@ export interface RosterBackend {
 }
 
 export const rosterKey = (organizationId: string, channelKey: string) => `rt:roster:${organizationId}:${channelKey}`
-
-// ── coalescing ──────────────────────────────────────────────────────────────
 
 type Pending = { set: Map<string, string>; remove: Set<string> }
 const pending = new Map<string, Pending>()
@@ -82,7 +49,6 @@ function scheduleFlush(): void {
   ;(timer as { unref?: () => void }).unref?.()
 }
 
-/** Record a peer's claim and any facts it carries. `ttlMs`: how long the claim holds. */
 export function noteRosterPeer(key: string, peer: RealtimePeer, ttlMs: number, facts: RosterFacts = {}): void {
   const entry = pendingFor(key)
   const id = `${peer.peerId}|id`
@@ -97,7 +63,6 @@ export function noteRosterPeer(key: string, peer: RealtimePeer, ttlMs: number, f
   scheduleFlush()
 }
 
-/** A peer left. */
 export function forgetRosterPeer(key: string, peerId: string): void {
   const entry = pendingFor(key)
   for (const fact of ['id', ...FACTS]) {
@@ -107,7 +72,6 @@ export function forgetRosterPeer(key: string, peerId: string): void {
   scheduleFlush()
 }
 
-/** Write what is pending. Never throws. */
 export async function flushRoster(): Promise<void> {
   if (timer) clearTimeout(timer)
   timer = null
@@ -123,7 +87,6 @@ export async function flushRoster(): Promise<void> {
   )
 }
 
-/** The peers in a roster now, at most {@link MAX_PEERS}, longest-present claim first. Never throws: `[]` on failure. */
 export async function readRoster(key: string, now = Date.now()): Promise<RosterEntry[]> {
   let fields: Record<string, string>
   try {
@@ -172,9 +135,6 @@ function safeJson(raw: string): unknown {
   }
 }
 
-// ── backends ────────────────────────────────────────────────────────────────
-
-/** The record in this process: one replica, development, tests. */
 export function createInProcessRosterBackend(now: () => number = Date.now): RosterBackend {
   const hashes = new Map<string, { fields: Map<string, string>; expiresAt: number }>()
   const live = (key: string) => {
@@ -218,9 +178,7 @@ interface RedisCommands {
   on(event: string, listener: (error: unknown) => void): unknown
 }
 
-/** Dragonfly: the record every replica shares. */
 export function createRedisRosterBackend(url: string): RosterBackend {
-  // A roster write is a second late or not at all; queue it rather than lose it to a dropped connection.
   const client = createRedisClient(url, 'realtime roster', { commandTimeout: 1000, queueWhileDown: true }) as RedisCommands
   return {
     async write(key, set, remove, ttlMs, maxIds) {
@@ -228,7 +186,6 @@ export function createRedisRosterBackend(url: string): RosterBackend {
       const newIds = fields.filter(([field]) => field.endsWith('|id'))
       let admitted = set
       if (newIds.length > 0) {
-        // Bound the roster: a new peer past the cap is not recorded. Racy by a write or two across replicas, which is fine.
         const known = new Set(await client.hkeys(key))
         let room = maxIds - [...known].filter((field) => field.endsWith('|id')).length
         admitted = {}
@@ -271,7 +228,6 @@ function getBackend(): RosterBackend {
   return backend
 }
 
-/** Test seam: a backend (or the default again), and nothing pending. */
 export function __setRosterBackendForTests(next: RosterBackend | null): void {
   if (timer) clearTimeout(timer)
   timer = null

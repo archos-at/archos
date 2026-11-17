@@ -1,14 +1,3 @@
-/**
- * Consulting Piloti (ADR-0124): an agent acting for a person asks Piloti, the
- * office's colleague, a question, and Piloti answers in a turn run as that
- * person. In the `conversations` domain because the ask is a conversation: the
- * person's own private thread, readable in Piloti like any other.
- *
- * Piloti in-product never runs these (the recursion lock): its writes are
- * proposals, and `lib/proposals/operation-applier.ts` refuses to file or apply
- * an ask. The names are `AGENT_ASK_OPERATIONS` in `lib/agent-asks/ask-wire.ts`.
- */
-
 import {
   askParamsSchema,
   ASK_WAIT_SECONDS,

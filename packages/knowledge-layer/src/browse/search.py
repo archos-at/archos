@@ -13,10 +13,8 @@ from agent.common.source_kinds import canonical_shelf_value
 
 from .turn import _entry_shelf
 
-# Logs under the name browse always had, so a filter on that name still catches these records.
 logger = logging.getLogger("knowledge_layer.browse.tool")
 
-#: ``shelf=`` of a literal search as the person-facing word, and the stored shelf it means.
 SEARCH_SHELVES = {
     "project": "project",
     "office": "office_shelf",

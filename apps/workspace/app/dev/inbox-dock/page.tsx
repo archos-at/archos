@@ -1,21 +1,5 @@
 'use client'
 
-/**
- * Dev preview of the Postfach docked beside the page (ADR-0148): the real
- * shell (`AppShellChrome`) with the real `InboxDock` in its start slot, served
- * by the shared fixture inbox. No backend, so the page beside the dock is a
- * stand-in that says what goes there; in the product it is the entry's own
- * place, the chat at the message or the review at the mark.
- *
- * `?dock=closed` shows the same shell with the dock put away, which is how a
- * reader without it sees the page. `?page=file` opens the real file preview
- * over the page, as an entry about a mark does: it covers the page from the
- * dock's edge (`--page-inset-start`) and leaves the dock in view and usable.
- * Its document cannot load here (no backend); its frame is what is shown.
- * `?page=chat` puts the real chat beside the dock, as following a chat entry
- * does: the real `ChatArea` on the shared-thread preview's conversation.
- */
-
 import type { JSX } from 'react'
 import { useEffect, useState } from 'react'
 import { notFound } from 'next/navigation'
@@ -34,7 +18,6 @@ import { ChatArea } from '@/features/layout/components'
 import { installInboxShim } from '../_fixtures/inbox-items'
 import { installSharedThreadShim, seedSharedThread } from '../_fixtures/shared-thread'
 
-/** The document an entry about a mark opens. */
 const PLAN: FileItem = {
   id: 'd-eg-c',
   filename: 'Grundriss EG Index C.pdf',
@@ -62,7 +45,6 @@ installSharedThreadShim()
 export default function InboxDockPreviewPage(): JSX.Element {
   if (process.env.NODE_ENV !== 'development') notFound()
 
-  // Opened after mount, as a reader's click would: the server renders the dock closed.
   const [ready, setReady] = useState(false)
   const [page, setPage] = useState<string | null>(null)
   useEffect(() => {

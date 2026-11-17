@@ -1,24 +1,5 @@
 'use client'
 
-/**
- * Dev preview for Platform → cards. Renders the REAL gallery with a fixture
- * catalog so the states that matter can be reviewed and screenshotted without
- * a backend:
- *
- *  - a schematic card previewed as it appears in an answer (`stair_diagram`),
- *  - a structured card with its values expanded is one click away,
- *  - an INTERACTIVE, system-emitted card (`memory_proposal`) carrying both
- *    badges — and inert, because a gallery must not be able to fire a write,
- *  - a card that needs real data (`ifc_viewer`), described rather than faked.
- *
- * The card bodies are the shared preview fixtures, not copies: what the
- * platform page renders is what this screenshot shows.
- *
- * A module-scope fetch shim (browser + dev only) serves the catalog payload —
- * see `/dev/platform-models` for why it is installed at module scope and never
- * torn down. Not linked from anywhere and 404s outside development.
- */
-
 import type { JSX } from 'react'
 import { notFound } from 'next/navigation'
 import { PlatformCards } from '@/app/app/(shell)/platform/cards/platform-cards'

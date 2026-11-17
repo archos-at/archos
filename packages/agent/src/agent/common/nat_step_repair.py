@@ -191,8 +191,6 @@ class SpanClosingProfilerHandler(LangchainProfilerHandler):
         logger.debug("LangChain run %s retrying: %s", run_id, retry_state)
 
 
-# Steps that have ENDED, per run (keyed weakly by the run's event stream, so a
-# turn's set dies with the turn). See ``install_step_stack_repair``.
 _ENDED_STEPS: weakref.WeakKeyDictionary[object, set[str]] = weakref.WeakKeyDictionary()
 
 

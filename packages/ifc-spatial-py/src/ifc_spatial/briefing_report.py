@@ -36,8 +36,6 @@ from ifc_spatial.briefing_text import _wrap
 
 from .model import SpatialModel
 
-# ── briefing() ──────────────────────────────────────────────────────────────
-
 
 def briefing(model: SpatialModel, *, dialect_sample_size: int = DIALECT_SAMPLE_SIZE) -> Briefing:
     """Compute the précis. Deterministic, and free of geometry.
@@ -53,11 +51,6 @@ def briefing(model: SpatialModel, *, dialect_sample_size: int = DIALECT_SAMPLE_S
     doors = _by_type(model, "IfcDoor")
     nodes = _nodes_of(model)
 
-    # Storey occupancy, counted from the RESOLVED storey rather than from the
-    # containment relation: an element contained in a space is still on a
-    # storey, and `SpatialModel.storey_of` walks containment and aggregation to
-    # find it. Counting the relation would under-report every model whose
-    # exporter nests elements inside spaces or assemblies.
     elements_per_storey: dict[str, int] = {}
     spaces_per_storey: dict[str, int] = {}
     kind_counts: dict[str, int] = {}
@@ -185,9 +178,6 @@ def briefing(model: SpatialModel, *, dialect_sample_size: int = DIALECT_SAMPLE_S
     )
 
 
-# ── render_briefing() ───────────────────────────────────────────────────────
-
-
 def render_briefing(model: SpatialModel, *, dialect_sample_size: int = DIALECT_SAMPLE_SIZE) -> str:
     """The text block the agent gets in context. The single most important
     function in this module.
@@ -216,8 +206,6 @@ def render_briefing(model: SpatialModel, *, dialect_sample_size: int = DIALECT_S
         for index, text in enumerate(body):
             lines.append(f"{label:<10}{text}" if index == 0 else f"{'':<10}{text}")
 
-    # GEBÄUDE ─ identity first, so a briefing pasted into a transcript can still
-    # be matched to the file it describes six turns later.
     identity = [
         b.source_name or "Datei ohne Namen im IFC-Header",
         b.schema,
@@ -229,10 +217,6 @@ def render_briefing(model: SpatialModel, *, dialect_sample_size: int = DIALECT_S
         " · ".join(identity),
         " · ".join(
             [
-                # A missing spatial container is named by its ENTITY, never
-                # counted as zero: "0 Gebäude" is a sentence about a building
-                # site, "kein IfcBuilding" is a sentence about this export —
-                # which is the true one.
                 _plural(b.totals["buildings"], "Gebäude", "Gebäude")
                 if b.totals["buildings"] > 0
                 else "kein IfcBuilding",
@@ -246,8 +230,6 @@ def render_briefing(model: SpatialModel, *, dialect_sample_size: int = DIALECT_S
         ),
     )
 
-    # GESCHOSSE ─ the names an agent must not invent. A model with no storey
-    # structure says so; it never renders as an empty list.
     if not b.storeys:
         add("GESCHOSSE", "keine IfcBuildingStorey — dieser Export enthält keine Geschoßgliederung")
     else:
@@ -266,9 +248,6 @@ def render_briefing(model: SpatialModel, *, dialect_sample_size: int = DIALECT_S
             else "keine Geschoßhöhen: weniger als zwei Geschoße veröffentlichen eine Höhenlage",
         )
 
-    # BAUTEILE ─ the type vocabulary. An agent filtering on
-    # `IfcWallStandardCase` in an IFC4 file that only has `IfcWall` gets
-    # nothing; this block is where it finds out which spelling this file uses.
     if not b.by_type:
         add("BAUTEILE", "keine Bauteile im Modell — dieser Export enthält keine IfcProduct-Instanzen")
     else:
@@ -278,8 +257,6 @@ def render_briefing(model: SpatialModel, *, dialect_sample_size: int = DIALECT_S
             *_wrap(cells, " · ", f"(+{b.types_omitted} weitere Typen)" if b.types_omitted > 0 else None),
         )
 
-    # RÄUME ─ every count here is `n von m` with the responsible relation named,
-    # so a zero can be read as a statement about the export and not the building.
     if b.totals["spaces"] == 0:
         add(
             "RÄUME",
@@ -300,9 +277,6 @@ def render_briefing(model: SpatialModel, *, dialect_sample_size: int = DIALECT_S
         )
         add("", "Aufenthaltsraum ist eine rechtliche Einstufung — dieser Vorschlag ersetzt keine Prüfung")
 
-    # ÖFFNUNGEN ─ window↔wall is the relation most exports drop, and its absence
-    # is the difference between "no window in this wall" and "no relation in
-    # this file".
     openings = next((c for c in b.coverage if c.id == "oeffnungenMitWand"), None)
     if b.totals["windows"] + b.totals["doors"] == 0:
         add("ÖFFNUNGEN", "keine IfcWindow/IfcDoor — Öffnungen wurden nicht exportiert")
@@ -311,10 +285,6 @@ def render_briefing(model: SpatialModel, *, dialect_sample_size: int = DIALECT_S
         if openings:
             add("", _coverage_line(openings))
 
-    # DIALEKT ─ the reason this module exists. Absolute counts, not percentages
-    # of a population nobody defined: the scan measures fill against every
-    # scanned element, so "3 %" for a wall property would be arithmetic on the
-    # wrong denominator, printed as a fact.
     if not b.dialect:
         add("DIALEKT", "keine Merkmale gefunden — dieser Export schreibt keine Property Sets an Bauteile")
     else:
@@ -326,13 +296,6 @@ def render_briefing(model: SpatialModel, *, dialect_sample_size: int = DIALECT_S
         if b.dialect_omitted > 0:
             add("", f"(+{b.dialect_omitted} weitere Merkmale, nach Befüllung sortiert)")
 
-    # FEHLT ─ what the DIALEKT block structurally cannot show. A property absent
-    # from the file has no row to appear in, and a filter on it returns nothing
-    # that looks exactly like a real negative answer.
-    # Suppressed when the dialect is empty: the DIALEKT block has already said
-    # that this export writes no property sets at all, and repeating every
-    # decisive property underneath it would imply nine separate findings where
-    # there is one.
     if b.absent_properties and b.dialect:
         add(
             "FEHLT",
@@ -340,7 +303,6 @@ def render_briefing(model: SpatialModel, *, dialect_sample_size: int = DIALECT_S
         )
         add("", 'nirgends in dieser Datei befüllt — eine Abfrage darauf liefert leer, nicht „nein"')
 
-    # BLIND ─ the honesty budget.
     spots = b.blind_spots[:MAX_BLIND_SPOTS]
     if spots:
         add("BLIND", *[f"{s.what} → {s.consequence}; Abhilfe: {s.remedy}" for s in spots])

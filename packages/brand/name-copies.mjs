@@ -16,7 +16,6 @@ export const MARK_COPIES = [
 
 /** `{ path, pattern }`: the pattern's two groups stay, the name goes between them. */
 export const NAME_COPIES = [
-  // The notification title when a push payload carries none.
   { path: 'apps/workspace/public/sw.js', pattern: /(\nvar GENERIC_TITLE = ')[^']*(')/ },
 ]
 

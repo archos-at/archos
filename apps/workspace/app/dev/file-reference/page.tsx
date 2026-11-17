@@ -1,34 +1,5 @@
 'use client'
 
-/**
- * Dev preview for file references — the filenames an answer writes into its own
- * prose, rendered through the real `AgentResponse`.
- *
- * The three things this surface exists to show:
- *
- *   1. A FILENAME IS A CONTROL. „Beginnen Sie mit pd8280-2.pdf" names a
- *      document the reader owns; before this it was dead text and the way to
- *      act on it was Dateien, the search box and the name typed back in.
- *   2. A FILE REFERENCE IS NOT A CITATION, AND MUST NOT LOOK LIKE ONE. Both
- *      appear here in the same paragraph: the tinted numeric pill carries a
- *      claim about a passage, the quiet named chip carries none. The click
- *      verbs differ too — a citation previews first, a file reference opens.
- *   3. A NAME THAT RESOLVES TO NOTHING STAYS PROSE. `Konzept-Entwurf.pdf` is in
- *      this answer and in nobody's project, so it renders exactly as written.
- *
- * The reading-order table is deliberate rather than decorative: this is the
- * shape the agent actually writes for "which document first", and a filename in
- * a table cell is the case a raw-markdown rewrite would have missed.
- *
- * The three document lists are stubbed over `window.fetch` at MODULE SCOPE —
- * the resolution index fetches from a mount effect, so a shim installed in a
- * parent effect would race the first load. Fixtures cover all three shelves,
- * because which shelf a file sits on is one of the facts the peek exists to
- * state.
- *
- * Not linked anywhere; the `/dev` server layout 404s it outside development.
- */
-
 import { useEffect, type FC, type ReactNode } from 'react'
 import { AgentResponse } from '@/features/chat/components/AgentResponse'
 import { useChatStore } from '@/features/chat/store'
@@ -113,7 +84,6 @@ if (typeof window !== 'undefined') {
   }
 }
 
-/** One cited passage, so a citation pill sits beside the file chips. */
 const citations: CitationSource[] = [
   {
     id: 'oib-1',
@@ -135,12 +105,6 @@ const citations: CitationSource[] = [
   },
 ]
 
-/**
- * An answer in the shape the agent actually writes one: a reading order in
- * prose, the same order as a comparison table, and a list of what is still
- * missing. Nine filenames, on three different shelves, one of them owned by
- * nobody.
- */
 const answer = [
   'Das Projekt ist ein Wiener GK-5-Wohnbau-Zubau in Holzbauweise mit 12 m Fluchtniveau [1].',
   'Die beste Lesereihenfolge ist der Bebauungsplan pd8280-2.pdf, danach die',
@@ -178,13 +142,6 @@ const Block: FC<{ title: string; note: string; children: ReactNode }> = ({
   </section>
 )
 
-/**
- * The chat context the resolution index is scoped to.
- *
- * The peek that a hover opens is captured by the harness's own `hover` target
- * (`file-reference-peek`), with a real cursor — so there is nothing here to
- * simulate it with, and nothing that could go stale pretending to.
- */
 const Stage: FC = () => {
   useEffect(() => {
     useChatStore.setState({ projectId: 'proj-lacknergasse' })

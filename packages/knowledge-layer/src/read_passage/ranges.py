@@ -13,41 +13,18 @@ from knowledge_layer.chunk_positions import body
 from knowledge_layer.chunk_positions import repeated_head
 from knowledge_layer.chunk_positions import split_prefix
 
-#: The two filter families a ranged read can use, recorded in its cursor so a continuation reads the
-#: same set: a range on ``reading_order``, or the ``page_label`` strings of a document written before
-#: that field existed.
 ORDER_FILTERS = "order"
 
 LABEL_FILTERS = "label"
 
 _FILTER_KINDS = (ORDER_FILTERS, LABEL_FILTERS)
 
-#: How many chunks one locator fetch may return per collection.
-#:
-#: A Punkt is one chunk in 935 of the corpus's 946 cases and at most a handful
-#: in the rest (``ingest/clause_chunking``), and a page of a Richtlinie holds
-#: a few. The number is a guard against a pathological document rather than a
-#: relevance budget: the metadata filter has already decided WHICH chunks exist,
-#: so this only bounds how many of them travel.
 _MAX_PASSAGE_CHUNKS = 12
 
-#: How many characters one ranged read returns (about 6k tokens). Past it the read stops at a
-#: chunk boundary and ends with a ``cursor`` the model passes back to continue.
 _MAX_READ_CHARS = 24_000
 
-#: The most pages one ranged read may ask for. A 14-page document is read in one round of
-#: a few calls; past this the model splits the range, which costs one round whatever it fans out into.
 _MAX_RANGE_PAGES = 30
 
-#: How many pages before the requested one a chunk may start and still reach it.
-#:
-#: A section or Punkt chunk is filed under the page its text STARTS on
-#: (``page_label``) and records where it ends (``page_end``), so page 2 of a
-#: report whose section runs from page 1 to 3 is held by a chunk labelled 1.
-#: The store cannot compare the stored strings as numbers, so a page read asks
-#: for the labels of this window and keeps the chunks whose range covers the
-#: page. A chunk is at most ~640 tokens, so it spans more than a page or two
-#: only across near-empty pages; eight is a bound, not an estimate.
 _PAGE_SPAN_WINDOW = 8
 
 
@@ -154,7 +131,6 @@ def _neighbours(previous: Any, chunk: Any) -> bool:
     if before.get("collection") != after.get("collection") or before.get("chunking") != after.get("chunking"):
         return False
     before_ordinal, after_ordinal = _chunk_ordinal(previous), _chunk_ordinal(chunk)
-    # A chunk without an ordinal has no known predecessor: legacy chunks of a page are ordered by id.
     return before_ordinal is not None and after_ordinal is not None and after_ordinal - before_ordinal == 1
 
 

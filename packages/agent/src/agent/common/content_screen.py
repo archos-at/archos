@@ -173,20 +173,14 @@ from agent.common.svnr_numbers import valid_at_svnr
 logger = logging.getLogger(__name__)
 
 Detector = Literal["iban", "at_svnr", "credit_card", "de_svnr", "de_tax_id"]
-#: Detectors in the order their findings are reported.
 DETECTORS: tuple[str, ...] = ("iban", "at_svnr", "credit_card", "de_svnr", "de_tax_id")
 
-#: Bounds the request model enforces too (``agent_host.models.requests.ScreeningPolicy``).
 MAX_TERMS = 200
 MIN_TERM_CHARS = 2
 MAX_TERM_CHARS = 80
 
-#: What a masked sample hides a group of characters behind.
 MASK = "••••"
 
-#: What a masked span is replaced with, by rule kind. Domain data, in German,
-#: defined here once: the TypeScript twin and the shared fixture are held to it.
-#: None of them may match a term or a detector (they are protected regions).
 PLACEHOLDERS: dict[str, str] = {
     "iban": "[IBAN entfernt]",
     "at_svnr": "[SV-Nummer entfernt]",
@@ -199,9 +193,6 @@ PLACEHOLDERS: dict[str, str] = {
 _PLACEHOLDER_RE = re.compile("|".join(re.escape(placeholder) for placeholder in PLACEHOLDERS.values()))
 
 
-# ------------------------------------------------------------------- characters
-# WHITESPACE, the digit and separator readers: agent.common.screen_chars.
-
 _SPACE_RUN = re.compile(f"[{WHITESPACE}]+")
 
 _FOLD_TABLE = str.maketrans({"ς": "σ", "ä": "ae", "ö": "oe", "ü": "ue", "ß": "ss"})
@@ -211,17 +202,10 @@ def _split_words(text: str) -> list[str]:
     return [word for word in _SPACE_RUN.split(text) if word]
 
 
-# --------------------------------------------------------------------- reading
-
-#: Characters that print as nothing and sit inside words in extracted text: the
-#: soft hyphen, the zero-width space, non-joiner and joiner, the word joiner and
-#: the byte-order mark. A reading leaves them out.
 IGNORABLE = "\u00ad\u200b\u200c\u200d\u2060\ufeff"
-#: Hyphens a line may be broken at; with a letter or digit on both sides of the break they are not part of the text.
 _BREAK_HYPHENS = "-\u2010\u2011"
 
 
-#: Where a reading may differ from the text: an invisible character, or a hyphen that may break a line.
 _DROP_SITE = re.compile(f"[{_BREAK_HYPHENS}{IGNORABLE}]")  # the ASCII hyphen first: not a range
 
 
@@ -238,7 +222,6 @@ class _Reading:
     """
 
     text: str
-    #: Original index of each reading character; ``None`` when the reading is the text itself.
     starts: list[int] | None = None
     soft: frozenset[int] = frozenset()
 
@@ -315,15 +298,10 @@ def _read(text: str) -> _Reading:
         starts.append(index)
         before = text[index]
         if end > index:
-            # A capital after the break is a compound written with its hyphen
-            # (``Büro-`` + line break + ``Honorar``): only the break goes.
             cursor = end
     parts.append(text[cursor:])
     starts.extend(range(cursor, len(text)))
     return _Reading("".join(parts), starts, frozenset(soft))
-
-
-# ------------------------------------------------------------------------- fold
 
 
 def _clusters(text: str) -> Iterator[tuple[int, int]]:
@@ -369,16 +347,12 @@ def _term_words(term: str) -> tuple[str, ...]:
     return tuple(_split_words(fold(term)))
 
 
-# ------------------------------------------------------------------------ rules
-
-
 @dataclass(frozen=True)
 class ScreeningRules:
     """The terms and detectors a text is screened against. Build with ``build`` or ``from_config``."""
 
     terms: tuple[str, ...] = ()
     detectors: tuple[str, ...] = ()
-    #: One per term, same order: the term's folded words, matched literally.
     patterns: tuple[tuple[str, ...], ...] = field(default=(), repr=False, compare=False)
 
     @classmethod
@@ -416,9 +390,6 @@ class ScreeningRules:
         return cls.build(terms, detectors)
 
 
-#: The rules a chat message is screened with when the office's policy could not
-#: be had: every detector, no terms. A privacy control fails closed, and the
-#: detectors need no list to be right.
 DETECTORS_ONLY: ScreeningRules = ScreeningRules(detectors=DETECTORS)
 
 
@@ -460,13 +431,6 @@ def _normalised_terms(terms: Iterable[str]) -> tuple[str, ...]:
     return tuple(kept.values())[:MAX_TERMS]
 
 
-# --------------------------------------------------------------------- detectors
-
-#: Every country that issues IBANs, and the one length its IBANs have: the SWIFT
-#: IBAN registry, plus the countries that issue IBANs outside it (French
-#: territories, several African states), as ``schwifty`` 2026.7.3 lists them. A
-#: country not listed here issues no IBAN, so a candidate from it is not one.
-#: The TypeScript twin and the shared fixture hold the same table.
 IBAN_LENGTHS: dict[str, int] = {
     "AD": 24, "AE": 23, "AL": 28, "AO": 25, "AT": 20, "AX": 18, "AZ": 28, "BA": 20, "BE": 16, "BF": 28,
     "BG": 22, "BH": 22, "BI": 27, "BJ": 28, "BL": 27, "BR": 29, "BY": 28, "CF": 27, "CG": 27, "CH": 21,
@@ -483,22 +447,13 @@ IBAN_LENGTHS: dict[str, int] = {
     "UA": 29, "VA": 22, "VG": 24, "WF": 27, "XK": 20, "YE": 30, "YT": 27,
 }  # fmt: skip
 
-#: Where an IBAN may start: an ASCII letter followed by one, not right after a
-#: digit. A label may stand against it (``IBAN:AT61``, ``SWIFTAT61``): the country
-#: fixes the length and the check digits decide, so the boundary adds no precision.
-#: The parse is :func:`_iban_at`.
 _IBAN_START = re.compile(r"(?<!\d)[A-Za-z](?=[A-Za-z])")
 _IBAN_AT = re.compile(r"[A-Za-z](?=[A-Za-z])")
-#: Where a social-security number may start: a digit not right after another.
 _SVNR_START = re.compile(r"(?<!\d)\d")
 _SVNR_AT = re.compile(r"\d")
 _SVNR_MARKS = "-./"
-#: What may join the groups of a card number: spaces, never a tab (a tab is a
-#: table cell), one ``-`` or ``.``.
 _CARD_SPACE = "".join(char for char in _HORIZONTAL_SPACE if char != "\t")
-#: A maximal run of digit groups joined like that: where a card may be printed.
 _CARD_RUN = re.compile(rf"\d(?:(?:[{_CARD_SPACE}]+|[-.])?\d)*")
-#: The same, where ONE line break may also join two groups: a card wrapped at a line end.
 _WRAPPED_CARD_RUN = re.compile(
     rf"\d(?:(?:[{_CARD_SPACE}]+|[-.]|[{_CARD_SPACE}]*(?:\r\n|[{_LINE_BREAKS}])[{_CARD_SPACE}]*)?\d)*"
 )
@@ -608,9 +563,6 @@ def _cut_runs(run: str, cuts: list[int]) -> Iterator[list[tuple[str, int, int]]]
     bounds = [0, *cuts, len(run)]
     for a, b in zip(bounds, bounds[1:], strict=False):
         yield [(digits, start + a, end + a) for digits, start, end in _digit_groups(run[a:b])]
-
-
-# ------------------------------------------------------------------------- spans
 
 
 @dataclass(frozen=True)
@@ -748,11 +700,8 @@ _DETECTOR_SPANS = {
 }
 
 
-#: A single-word term this long (folded) still matches with one space or hyphen inside it…
 _SPLIT_TERM_MIN = 8
-#: …where each part keeps at least this many characters.
 _TERM_FRAGMENT = 3
-#: What may split such a term: a space, or one hyphen (folded text keeps U+2010 for U+2011).
 _TERM_JOINERS = " -\u2010\u2011"
 
 
@@ -885,15 +834,11 @@ def _outside_ibans(spans: list[Span]) -> list[Span]:
     return [span for span in spans if span.kind not in _NUMBER_KINDS or not inside(span)]
 
 
-#: The detectors whose digits an IBAN can hold: never reported inside one.
 _NUMBER_KINDS = ("at_svnr", "credit_card", "de_svnr", "de_tax_id")
 
 
 def _overlaps_any(span: Span, regions: list[tuple[int, int]]) -> bool:
     return any(span.start < end and start < span.end for start, end in regions)
-
-
-# ------------------------------------------------------------------------ masking
 
 
 @dataclass(frozen=True)

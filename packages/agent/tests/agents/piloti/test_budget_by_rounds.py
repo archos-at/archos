@@ -50,7 +50,6 @@ from agent.common.cost_tracking import CostTracker
 from agent.common.cost_tracking import UsageEvent
 from agent.common.cost_tracking import cost_tracker_var
 
-#: A prompt the template cannot break. What is under test is the budget.
 _PROMPT = "Du bist Piloti."
 
 RAN: list[str] = []
@@ -215,7 +214,6 @@ class TestTheCeilingIsRounds:
 
         assert result.tool_iterations == 3
         assert result.research_truncated is True
-        # Three rounds of two calls: the calls are not what ran out.
         assert len(RAN) == 6
         (record,) = [step for step in steps.steps if step.id == "status:budget"]
         assert (record.detail["ceiling"], record.detail["spent"], record.detail["rounds"]) == (3, 3, 3)
@@ -268,8 +266,6 @@ class TestTheInputTokenStop:
         (record,) = [step for step in steps.steps if step.id == "status:budget:input"]
         assert (record.detail["limit"], record.detail["spent"], record.detail["rounds"]) == (1000, 1500, 0)
         assert record.detail["truncated"] is True
-        # Technical, like the round record: whether the READER is told is a
-        # product decision, and a live key would make it silently.
         assert record.channel == turn_status.CHANNEL_TECHNICAL
         assert "key" not in record
 
@@ -353,8 +349,6 @@ class TestTheRoundWidthCap:
         result = await _run(agent)
 
         assert len(RAN) == 2
-        # The FIRST two, not a sample: the model emits its most important call
-        # first, and a guard that reordered the round would be researching.
         assert set(RAN) == {"read_passage:Dok 0|", "read_passage:Dok 1|"}
         assert result.tool_iterations == 1
 

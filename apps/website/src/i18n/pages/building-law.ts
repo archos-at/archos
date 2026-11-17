@@ -1,21 +1,3 @@
-/**
- * Copy of the building law page, both locales. `{name}` is the brand name, filled by
- * `withName`. Text only: images, links and structure live in `src/views/BuildingLawView.astro`.
- *
- * Name no edition or date of the legal corpus here: nothing on the site's side verifies it.
- * Claim no country's law and no older version of a law by hand: the country lines are generated
- * from the coverage the country packs state (`coverage.generated.ts`, ADR-0173), and
- * scripts/check_coverage_copy.py fails copy here that names another country.
- * Evidence for each claim (Belegpflicht):
- * - corpus: OIB-Richtlinien, Austrian law via RIS, a curated norm register, norms an office
- *   uploads itself, cited at the passage: VISION.md ("Building law and norms"); the nine states:
- *   configs/sources/at/ris/source.yml (the Landesrecht filter, table federal_state);
- * - one click opens the passage: owner decision D16;
- * - the project's facts (Bundesland, Gebäudeklasse, uses) asked at setup, OIB-Richtlinien derived:
- *   VISION.md ("Starting a project");
- * - an Einschätzung is marked as one, nothing ungrounded as fact: VISION.md principle 3;
- * - Aktenvermerk drafted into the project, valid with a person's Freigabe: VISION.md ("Writing").
- */
 import { coverageCopy } from './coverage.generated'
 
 const de = {

@@ -1,12 +1,3 @@
-/**
- * Step 4, Rückfragen, drawn from fixtures (`/dev/project-setup?step=questions&state=<name>`)
- * and in its specs. The location register is computed by the real register
- * from a profile, so a fixture cannot drift from the register's data: the
- * Aufstockung in Wien the other fixtures describe, a project whose address was
- * typed without a geocoder (no Bundesland yet), a reading still running, a
- * past project, and a round with everything settled.
- */
-
 import { computeNeeds } from '@/lib/project-intake/needs'
 import { locationRegisterFor, type LocationRegisterInput } from '@/lib/project-intake/location-register'
 import type { IntakeMode, IntakeView, LocationRegisterView } from '@/lib/project-intake/types'
@@ -39,13 +30,11 @@ function registerOf(
   location: LocationRegisterInput['location'],
   mode: IntakeMode = 'active'
 ): LocationRegisterView {
-  // The build's records, as an office whose country is not published yet reads them.
   const records = SHIPPED_SETUP_RECORDS
   const needs = computeNeeds(profile, projectIntakeDefinitionV1, { mode, dismissed: [], records })
   return locationRegisterFor({ profile, location, mode, needs, records })
 }
 
-/** The Aufstockung in Wien: a Bestand with Wohnungen, Zubau and Umbau; the reading found the Widmung. */
 const VIENNA_STOREY_ADDITION = {
   country: 'at',
   federal_state: 'vienna',
@@ -60,30 +49,24 @@ const REGISTER_READY = registerOf(
   FIXTURE_LOCATION
 )
 
-/** The review after the reading: decisive questions and the location's documents. */
 export const QUESTIONS_READY: IntakeView = { ...INTAKE_READY, locationRegister: REGISTER_READY }
 
-/** The address was typed and no geocoder answered: the Bundesland and the Vorhaben are asked first. */
 export const QUESTIONS_TYPED_ADDRESS: IntakeView = {
   ...INTAKE_READY,
   location: null,
   questions: [],
   openQuestions: [OPEN_PHASE],
-  // Placed in Austria, the Land still open: a project nothing places gets no document until it is (ADR-0169).
   locationRegister: registerOf(profileOf({ site_address: 'Hauptstraße 4, 3420 Kritzendorf', country: 'at' }), null),
 }
 
-/** The agent still reads: the round says so and takes what is already known. */
 export const QUESTIONS_READING: IntakeView = { ...INTAKE_READING, locationRegister: REGISTER_READY }
 
-/** A past project: no Bundesland was found, so it is the one question; no document is requested. */
 export const QUESTIONS_CLOSING: IntakeView = {
   ...INTAKE_CLOSING,
   location: null,
   locationRegister: registerOf(profileOf({ work_type: ['new_build'] }), null, 'closing'),
 }
 
-/** Everything settled: every request has its values, every decisive question an answer. */
 export const QUESTIONS_DONE: IntakeView = {
   ...INTAKE_READY,
   contradictions: [],

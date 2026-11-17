@@ -9,15 +9,9 @@ from __future__ import annotations
 import json
 from typing import Any
 
-#: OTel GenAI semconv usage keys Langfuse maps to ``usageDetails`` (it
-#: normalizes cache buckets server-side, so these stay provider-verbatim).
 GEN_AI_USAGE_INPUT_TOKENS = "gen_ai.usage.input_tokens"
 GEN_AI_USAGE_OUTPUT_TOKENS = "gen_ai.usage.output_tokens"
-#: The model a generation ran on — what Langfuse matches against its model
-#: price table to infer ``costDetails`` when no cost is ingested.
 GEN_AI_REQUEST_MODEL = "gen_ai.request.model"
-#: Flat Langfuse-style keys, stored verbatim (no server normalization), so
-#: their buckets must already be exclusive — see ``usage_observation_attributes``.
 OBSERVATION_USAGE_DETAILS = "langfuse.observation.usage_details"
 OBSERVATION_COST_DETAILS = "langfuse.observation.cost_details"
 OBSERVATION_MODEL_NAME = "langfuse.observation.model.name"

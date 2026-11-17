@@ -43,8 +43,6 @@ METADATA_PREFIX = "langfuse.trace.metadata."
 TAGS_ATTRIBUTE = "langfuse.trace.tags"
 OBSERVATION_OUTPUT_ATTRIBUTE = "langfuse.observation.output"
 
-#: Bound on the answer text written as the root's output. Langfuse stores it in
-#: ClickHouse per observation; a report-length answer is still well inside.
 _MAX_OUTPUT_CHARS = 32_000
 
 _TURN_OUTCOME: contextvars.ContextVar[dict[str, Any] | None] = contextvars.ContextVar("turn_outcome", default=None)
@@ -60,10 +58,7 @@ def end_turn_outcome(token: contextvars.Token[dict[str, Any] | None]) -> None:
     _TURN_OUTCOME.reset(token)
 
 
-#: Where :func:`record_turn_facts` keeps its facts inside the box, apart from the
-#: terminal's attributes, which :func:`_fill` replaces wholesale.
 _FACTS = "__turn_facts__"
-#: Where :func:`record_turn_tag` keeps its tags, united with the terminal's on the root.
 _TAGS = "__turn_tags__"
 
 
@@ -198,9 +193,6 @@ def outcome_metadata(*, outcome: str, result: Any) -> dict[str, Any]:
         "answer_confidence": getattr(result, "answer_confidence", None),
         "answer_confidence_capped": getattr(result, "answer_confidence_capped_reason", None),
         "answer_sources": len(getattr(result, "sources", None) or []),
-        # The office's experience reaching an answer (docs/roadmap/office-experience.md):
-        # how many cited sources came from another project, and from how many projects.
-        # Counts, never ids: the trace list slices by them.
         "answer_precedent_sources": len(precedents) or None,
         "answer_precedent_projects": len(set(precedents)) or None,
         "answer_cards": len(getattr(result, "cards", None) or []),
@@ -213,7 +205,6 @@ def outcome_metadata(*, outcome: str, result: Any) -> dict[str, Any]:
         "skills_activated": list(getattr(result, "skills_activated", None) or []) or None,
         "reasoning_effort": getattr(result, "reasoning_effort", None),
         "handed_off_to_run": True if getattr(result, "run", None) is not None else None,
-        # The answer's shape, `work` for an operations turn (ADR-0123), and its report's size.
         "answer_kind": _answer_kind(getattr(result, "answer_meta", None)),
         **_work_counts(getattr(result, "answer_meta", None)),
     }

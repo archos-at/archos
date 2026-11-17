@@ -1,17 +1,5 @@
 'use client'
 
-/**
- * Dev gallery for the project intake wizard: renders the whole wizard offline
- * (no auth / DB / API) via `definitionOverride`, so its atomic field components
- * — number_tri with answer modes, yes_no_open, chip multi-select, document-role
- * slot, derivation placeholder, Bauwerk cards, review — can be reviewed and
- * screenshotted in one place. Not linked from anywhere; 404 outside development.
- *
- * `?variant=bestand` seeds a Bestandsgebäude and opens Modul C, which is where
- * the v1.2 catalog put its largest new block (CB1–CB7_*) and where a screenshot
- * is the only way to see the conditional block actually unfold.
- */
-
 import { notFound } from 'next/navigation'
 import { use } from 'react'
 
@@ -26,7 +14,6 @@ const fact = (value: unknown) => ({
   updatedAt: '2026-08-01T00:00:00.000Z',
 })
 
-/** A Bestandsgebäude mid-Sanierung: enough to unfold Modul C's whole block. */
 const EXISTING_PROFILE: ProjectProfile = {
   facts: {
     project_name: fact('Demo · Hoftrakt Lacknergasse'),

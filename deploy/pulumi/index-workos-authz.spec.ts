@@ -5,17 +5,6 @@ import * as pulumi from "@pulumi/pulumi";
 import { baseStackConfig } from "./src/test-support/stack-config";
 import { DependencyGraph } from "./src/test-support/dependency-graph";
 
-/**
- * The WorkOS authorization rollout is part of the deploy
- * (`src/app/workos-authz-jobs.ts`): the catalog Job creates the permissions and
- * roles, and the folder-grants carry-over (ADR-0097) runs only after the
- * frontend that reads folder roles has rolled out. Run earlier, a list
- * narrowed in the old dialog would come back wider, and nothing in a green
- * `pulumi up` would say so.
- *
- * Nothing here contacts a cluster. It reads what the SDK registers.
- */
-
 const JOB = "kubernetes:batch/v1:Job";
 const DEPLOYMENT = "kubernetes:apps/v1:Deployment";
 const UI = resolve(__dirname, "../../apps/workspace");

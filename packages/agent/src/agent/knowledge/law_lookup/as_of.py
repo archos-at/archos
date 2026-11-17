@@ -23,7 +23,6 @@ from datetime import date
 from datetime import datetime
 
 _ISO = re.compile(r"(\d{4})-(\d{2})-(\d{2})")
-#: An ISO timestamp, read as its day: an API may state a date as one. Nothing else after a date is accepted.
 _ISO_TIMESTAMP = re.compile(r"(\d{4})-(\d{2})-(\d{2})T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?")
 _DOTTED = re.compile(r"(\d{1,2})\.(\d{1,2})\.(\d{4})")
 

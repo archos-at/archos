@@ -1,19 +1,8 @@
-/**
- * A country's release as one self-describing bundle (rollover-to-prod, step 2): exported from the deployment that
- * reviewed and published it, imported into another as a draft change request that is reviewed there again. Shared
- * by the routes and the catalog (ADR-0055).
- *
- * Records travel as the proposals they were published from: they name each other by key (`<type>:<key>`, a
- * territory by its id), which re-resolves on any deployment. Captures travel with their text, so KC-6 checks every
- * quote there again. A text travels as its name, URL and sha256, never its bytes.
- */
-
 import { z } from 'zod'
 import { countryIdSchema, proposedRecordSchema } from './wire'
 
 export const RELEASE_BUNDLE_FORMAT = 'knowledge-release/1'
 
-/** The most records one bundle carries: a country is a few hundred. */
 export const MAX_BUNDLE_RECORDS = 5000
 
 const sha256Schema = z.string().regex(/^[0-9a-f]{64}$/, 'a sha256 in lower-case hex')
@@ -57,7 +46,6 @@ export const releaseBundleSchema = z.object({
 export type ReleaseBundle = z.infer<typeof releaseBundleSchema>
 export type BundleText = z.infer<typeof bundleTextSchema>
 
-/** The import's form fields, beside the bundle file (`files[0]`). */
 export const releaseImportFields = {
   title: z.string().trim().min(1).max(200).optional().describe('The draft’s title; "Import of <country> release <seq>" when absent.'),
 }
@@ -66,12 +54,9 @@ export type ReleaseImportBody = { bundle: ReleaseBundle; title?: string }
 
 export interface ReleaseImportResult {
   changeRequestId: string
-  /** `created`: a new draft; `unchanged`: this bundle was imported already into that request, nothing was written. */
   status: 'created' | 'unchanged'
-  /** Where that request stands: `draft` for a new one; an earlier import may be submitted, approved or published. */
   requestStatus: string
   records: number
   captures: number
-  /** The texts to attach before the draft validates, each with the sha256 its bytes must have. */
   texts: BundleText[]
 }

@@ -51,11 +51,8 @@ logger = logging.getLogger(__name__)
 
 _FOLDER_NAMESPACE = uuid.UUID("0f6a3c52-7d1e-4b8a-9c2f-5e4d3b2a1f09")
 
-#: Folders one search may name. A routing hint, not a result list.
 FOLDER_HITS = 3
-#: Key facts embedded with the abstract (the builder writes at most eight).
 _FACTS_EMBEDDED = 8
-#: Payload keys a folder hit reads back.
 _HIT_FIELDS = ["folder_path", "abstract", "status"]
 
 
@@ -176,7 +173,6 @@ class FolderHit:
     folder_path: str
     abstract: str
     status: str
-    #: Cosine of the query to the card's vector.
     score: float
 
 
@@ -227,7 +223,6 @@ def search_folders(
     return hits[:limit]
 
 
-#: Characters of an abstract one ``Folder:`` line carries.
 _ABSTRACT_CHARS = 280
 
 

@@ -1,8 +1,3 @@
-/**
- * Restore a folder from the Papierkorb with its access, subfolders and
- * documents (ADR-0088). `restoredTo: 'root'` when its parent is gone.
- */
-
 import { apiRoute } from '@/lib/api/handler'
 import { restoreFolderFromBin } from '@/lib/projects/folder-bin'
 

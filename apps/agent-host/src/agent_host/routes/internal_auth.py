@@ -24,23 +24,9 @@ from agent.project_context import ORGANIZATION_ID_HEADER
 
 logger = logging.getLogger(__name__)
 
-# Well-known default shipped in docker-compose for local development. It must
-# never authenticate anything outside a dev environment.
 _DEV_DEFAULT_TOKEN = "grid-internal-dev-token"
 _DEV_APP_ENVS = {"development", "dev", "local"}
 
-#: Both spellings of the internal-token header, in the order they are tried.
-#:
-#: This guard read ``x-internal-token`` ONLY, while every caller in the repo —
-#: the BFF's skill submit and model-config fetch, and each of the nine Python
-#: clients under ``packages/agent/src/agent`` — sends ``x-grid-internal-token``. So the
-#: routes this guard protects rejected every real request with a 403. Nothing
-#: caught it because the two sides are tested separately and each test pinned
-#: its own spelling, and because the ASGI envelope middleware
-#: (``context_envelope._INTERNAL_TOKEN_HEADER_NAMES``) already accepts both —
-#: so a request got far enough to look healthy before the route guard refused
-#: it. Accepting both here matches that middleware and the sibling guard in
-#: ``routes/config_info.py``.
 _TOKEN_HEADERS: tuple[str, ...] = ("x-grid-internal-token", "x-internal-token")
 
 
@@ -59,9 +45,6 @@ def _require_internal_token(request: Request) -> None:
             app_env,
         )
         raise HTTPException(status_code=503, detail="Internal API disabled")
-    # Constant-time compare: a plain != leaks the token via response timing.
-    # Every candidate header is compared even after one matches, so the number
-    # of comparisons does not depend on which spelling the caller used.
     matched = False
     for name in _TOKEN_HEADERS:
         provided = request.headers.get(name) or ""

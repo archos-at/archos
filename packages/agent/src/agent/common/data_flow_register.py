@@ -26,7 +26,6 @@ import yaml
 
 REGISTER_DIR = Path("configs") / "subprocessors"
 
-#: Values of an activation variable that leave the vendor off.
 OFF_VALUES = frozenset({"", "0", "false", "no", "off"})
 
 

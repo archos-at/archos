@@ -37,27 +37,14 @@ from agent.common.message_utils import content_to_text
 
 logger = logging.getLogger(__name__)
 
-#: The controlled tag that sends a document here (``DOCUMENT_TYPE_TAGS``).
 PERMIT_DECISION_TAG = "Bescheid"
 
-#: How much of the document the model reads. A Bescheid is two to eight pages,
-#: roughly 3-4 kB each, so 24 000 characters (about 6 000 tokens) reads a normal
-#: one whole while a pasted archive PDF cannot make one call cost without bound.
-#: What lies past the cap is not read; the Auflagen of a notice sit up front.
 MAX_TEXT_CHARS = 24_000
 
-#: The bounds the BFF validates (``POST /api/internal/permit-records``).
 MAX_REQUIREMENTS = 60
 MAX_CONTENT_CHARS = 1000
-#: Output budget of one extraction. It runs on the summary model, whose own cap
-#: (``summary_llm.max_tokens``, 100) is sized for one sentence: a notice with a
-#: few Auflagen was cut off mid-object and failed the schema, so no record landed.
 MAX_OUTPUT_TOKENS = 8000
 
-#: Intake vocabulary for ``federal_state`` (``norm_registry.FEDERAL_STATE_TOKENS``,
-#: without ``outside_austria``): the Austrian Länder. A notice from an authority
-#: outside Austria (a German Baugenehmigung) is recorded too, with no Land: the
-#: field names an Austrian Land or nothing, never a guess.
 FederalStateToken = Literal[
     "vienna",
     "lower_austria",
@@ -72,9 +59,6 @@ FederalStateToken = Literal[
 RecordKind = Literal["approval", "information_request", "refusal", "other"]
 RequirementKind = Literal["condition", "information_request", "note"]
 
-#: The kinds as they were stored before migration 0166. A record read from an older BFF carries them;
-#: :func:`canonical_record_kind` and :func:`canonical_requirement_kind` map them so a German kind is
-#: never written again. Remove after one release.
 LEGACY_RECORD_KINDS: dict[str, str] = {
     "bewilligung": "approval",
     "nachforderung": "information_request",
@@ -105,7 +89,6 @@ def is_permit_decision(tags: Iterable[str] | None) -> bool:
     return PERMIT_DECISION_TAG in (tags or ())
 
 
-#: The type the classifier picks when it cannot tell: no evidence that a document is not a Bescheid.
 _UNDECIDED_TYPE = "Sonstiges"
 
 
@@ -135,8 +118,6 @@ def _blank_to_none(value: Any) -> Any:
 class PermitRequirement(BaseModel):
     """One item a notice grants, demands or points out."""
 
-    # ``forbid`` is what puts ``additionalProperties: false`` in the generated
-    # schema, which strict structured output requires.
     model_config = ConfigDict(extra="forbid")
 
     kind: RequirementKind = Field(

@@ -1,28 +1,3 @@
-/**
- * A reviewed release of another deployment, carried here once by the promotion (ADR-0181, amending ADR-0176):
- * the owner's decision that production gets building law exactly as dev released it, with no review session on
- * production. Run by the promotion's carry Job (`scripts/knowledge-carry.ts`), never by a route or the door.
- *
- * Per bundle, in the manifest's order (a union before the countries that lie in it):
- *
- * 1. Verify: the file's uncompressed sha256 and its facts are the manifest's (`./carry-manifest.ts`), every bundle
- *    before anything is written.
- * 2. Skip: on the deployment that released it (nothing to carry there), or where stable already holds a request
- *    carried from this very bundle. Refuse where this deployment released the country itself: its own review wins.
- * 3. Import into a draft marked `carried_from` (`importReleaseAs`), as `system:knowledge-carry`.
- * 4. Attach each text from its URL through the platform's text import: the public-source fetcher, the bytes held
- *    to the bundle's sha256 (other bytes are refused, `TEXT_NOT_RELEASED`). Capture again what the import left open
- *    (a source fixture recorded from a capture). Validate; any problem stops here, leaving a draft no office reads.
- * 5. Submit, accept every claim with its source checked, and approve alone (`decision_source = 'carried'`), with a
- *    reason naming the source release, its seq, the bundle's sha256 and the promotion. The process runs with
- *    `KNOWLEDGE_SINGLE_OPERATOR=true` (its own pod's environment, nowhere else), so migration 0233 counts the
- *    carry's own verdicts and leaves no second review due: the promotion PR's review of the bundle was the look.
- * 6. Publish to preview, then stable; enqueue each text's index run; wait until the corpus holds every text
- *    ingested with the country's mark; give each the document class and title it has on the source.
- *
- * A rerun resumes from where the request stands, so a failed Job is run again, not repaired by hand.
- */
-
 import 'server-only'
 import { sql } from 'drizzle-orm'
 import { recordAuditEvent, SYSTEM_ACTORS } from '@/lib/audit/service'
@@ -55,18 +30,14 @@ import { type CarriedBundle, type CarryManifest, CarryRefused, checkCarryOrder, 
 import { retireLegacyCopies, settleTexts, type CarryLog } from './carry-finish'
 import { proposedRecordSchema, type ProposedRecord } from './wire'
 
-/** Who the carry writes as: no person, and the trail says so. */
 export const CARRY_ACTOR = SYSTEM_ACTORS.knowledgeCarry
 
 const CARRIED = { by: CARRY_ACTOR, decisionSource: 'carried' as const }
 
 export interface CarryContext {
-  /** This deployment's name (its stack): the source deployment carries nothing to itself. */
   deployment: string
-  /** The promotion that carries the bundles, as the trail names it (the image tag it deployed). */
   promotion: string
   log: CarryLog
-  /** How long the carry waits for the corpus to ingest a country's texts. */
   waitMs: number
   pollMs?: number
 }
@@ -78,7 +49,6 @@ export interface CarryOutcome {
   why: string
 }
 
-/** Something went wrong after the bundles were verified: the request stays where it stopped, and a rerun resumes it. */
 export class CarryFailed extends Error {
   override name = 'CarryFailed'
 }
@@ -93,7 +63,6 @@ const carriedFromOf = (manifest: CarryManifest, entry: CarriedBundle, promotion:
 const reasonOf = (from: CarriedFrom, countryId: string) =>
   `Carried from the ${from.sourceDeployment} release of ${countryId} (seq ${from.sourceSeq}, bundle sha256 ${from.sha256}) by the promotion ${from.promotion}: reviewed and approved there, the bundle reviewed in the promotion PR (ADR-0181).`
 
-/** Carry every bundle of the manifest. `readFile` reads a bundle file by its manifest name. */
 export async function runCarry(manifest: CarryManifest, readFile: (file: string) => Promise<Buffer>, ctx: CarryContext): Promise<CarryOutcome[]> {
   if (manifest.bundles.length === 0) {
     ctx.log('nothing to carry', { manifest: 'no bundles' })
@@ -106,13 +75,11 @@ export async function runCarry(manifest: CarryManifest, readFile: (file: string)
   }
   checkCarryOrder(bundles.map((bundle) => ({ countryId: bundle.countryId, requires: bundle.requires.flatMap((row) => (row.countryId ? [row.countryId] : [])) })))
   if (ctx.deployment === manifest.sourceDeployment) return sourceDeploymentSkips(manifest, bundles, ctx)
-  // Without it, migration 0233 would ask for a second person: the carry is the one process that sets it.
   if (!singleOperator()) throw new CarryRefused('KNOWLEDGE_SINGLE_OPERATOR is not true in the carry process; the carry Job sets it on its own pod')
   const outcomes: CarryOutcome[] = []
   for (const [index, entry] of manifest.bundles.entries()) {
     const outcome = await carryCountry(bundles[index]!, carriedFromOf(manifest, entry, ctx.promotion), ctx)
     if (outcome.changeRequestId) {
-      // A run the stable publish opened but no job carries (a crash between the two, or an enqueue that failed) is handed on again.
       const resumed = await resumeIndexRuns(await getPlatformOrganizationId(), outcome.changeRequestId)
       if (resumed.enqueued + resumed.failed > 0) ctx.log('index runs resumed', { changeRequestId: outcome.changeRequestId, ...resumed })
       await settleTexts(entry, outcome.changeRequestId, ctx)
@@ -123,7 +90,6 @@ export async function runCarry(manifest: CarryManifest, readFile: (file: string)
   return outcomes
 }
 
-/** On the deployment the bundles came from there is nothing to carry; it says whether its stable still equals each. */
 async function sourceDeploymentSkips(manifest: CarryManifest, bundles: readonly ReleaseBundle[], ctx: CarryContext): Promise<CarryOutcome[]> {
   const outcomes: CarryOutcome[] = []
   for (const bundle of bundles) {
@@ -136,7 +102,6 @@ async function sourceDeploymentSkips(manifest: CarryManifest, bundles: readonly 
   return outcomes
 }
 
-/** The published request carried from this bundle, if stable holds one. */
 async function heldCarry(sha256: string): Promise<string | null> {
   const [row] = await platformTransaction((tx) =>
     tx.execute<{ id: string }>(sql`
@@ -146,7 +111,6 @@ async function heldCarry(sha256: string): Promise<string | null> {
   return row?.id ?? null
 }
 
-/** A stable record of the country that this deployment released itself: a carry never writes over its own review. */
 async function ownRelease(countryId: string): Promise<string | null> {
   const [row] = await platformTransaction((tx) =>
     tx.execute<{ id: string }>(sql`
@@ -180,11 +144,9 @@ async function carryCountry(bundle: ReleaseBundle, from: CarriedFrom, ctx: Carry
   return { countryId, status: 'carried', changeRequestId: id, why: 'published to stable' }
 }
 
-/** Texts attached from their URLs, source fixtures captured here, validated green, submitted. */
 async function prepareDraft(id: string, bundle: ReleaseBundle, ctx: CarryContext): Promise<void> {
   for (const text of bundle.texts) {
     const current = await platformTransaction((tx) => draftManifestation(tx, id, `manifestation:${text.manifestationKey}`))
-    // Attached in this request already (a rerun): its origin is set. An import only names the released file.
     if (current?.text?.origin && current.text.sha256 === text.sha256) continue
     if (!text.url || !text.sourceId) throw new CarryRefused(`${text.fileName} was uploaded on the source; the carry attaches only a text it can fetch from its URL`)
     const attached = await attachTextFromUrl(CARRY_ACTOR, id, { manifestationKey: text.manifestationKey, sourceId: text.sourceId, url: text.url }, 'agent')
@@ -204,7 +166,6 @@ async function prepareDraft(id: string, bundle: ReleaseBundle, ctx: CarryContext
 
 type SourceRecord = Extract<ProposedRecord, { type: 'source' }>
 
-/** A source fixture the import left open (`{captureId: null}`): fetched here through that source, and named. */
 async function captureFixtures(id: string, ctx: CarryContext): Promise<void> {
   const sources = await platformTransaction(async (tx) =>
     newestPerRecord(await requestRevisions(tx, id)).flatMap((revision) => {
@@ -235,7 +196,6 @@ async function captureFixtures(id: string, ctx: CarryContext): Promise<void> {
   }
 }
 
-/** Every claim accepted with its source checked, then approved alone in each role the request needs. */
 async function approveCarried(id: string, from: CarriedFrom, countryId: string, ctx: CarryContext): Promise<void> {
   const view = await readChangeRequest(id)
   if (!view) throw new CarryFailed(`${id} is gone`)
@@ -252,7 +212,6 @@ async function approveCarried(id: string, from: CarriedFrom, countryId: string, 
   const reason = reasonOf(from, countryId)
   for (const role of ['domain_expert', 'counsel', 'privacy_reviewer'] as const) {
     if ((await findChangeRequest(id))?.status !== 'submitted') break
-    // A rerun after a role's approval committed skips that role: a second approval in it is refused (knowledge_approvals_once).
     const approved = (await readChangeRequest(id))?.approvals.some((approval) => approval.role === role) ?? false
     if (approved) continue
     if (role !== 'domain_expert' && !(await platformTransaction((tx) => awaitedApprovalRoles(tx, id))).includes(role)) continue
@@ -269,7 +228,6 @@ async function approveCarried(id: string, from: CarriedFrom, countryId: string, 
   }
 }
 
-/** Preview (unless a rerun finds it there), then stable, then each text's index run. */
 async function publishCarried(id: string, ctx: CarryContext): Promise<void> {
   const previewed = (await readChangeRequest(id))?.releases.some((move) => move.channel === 'preview' && move.action === 'publish') ?? false
   if (!previewed) {
@@ -284,7 +242,6 @@ async function publishCarried(id: string, ctx: CarryContext): Promise<void> {
   if (indexing.failed > 0) throw new CarryFailed(`${indexing.failed} index run(s) of ${id} were not enqueued; platform-knowledge-index-status names them`)
 }
 
-/** The carry's own line in the platform organization's trail, as the system actor. */
 async function carryAudit(action: KnowledgeAuditAction, targetId: string, metadata: Record<string, string | number | boolean>): Promise<void> {
   const organizationId = await getPlatformOrganizationId()
   if (!organizationId) return

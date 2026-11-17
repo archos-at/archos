@@ -98,9 +98,7 @@ from agent.common.openrouter import limited_async_http_client  # noqa: E402
 
 MODEL = "typesafe/jev-1.14"
 URL = "https://openrouter.ai/api/alpha/decisions"
-#: TypeSafe gates image input behind this header while it is experimental.
 IMAGE_HEADER = {"TypeSafe-Danger-Zone-Images": "true"}
-#: Jev's image bounds: each side 280-1568 px; a larger image is refused, not resized.
 MAX_SIDE = 1568
 RENDER_DPI = 100
 
@@ -143,12 +141,10 @@ QUESTIONS: dict[str, dict[str, Any]] = {
     },
 }
 
-#: The view each fixture file shows, by the word its file name carries.
 FIXTURE_VIEW = {"Grundrisse": "floor_plan", "Schnitt": "section"}
 
 FLOOR_TITLE_COVERAGE = 0.9
 FLOOR_TITLE_IOU = 0.6
-#: The element kinds that are the drawing's own ink on a fixture page.
 DRAWING_INK = ("room", "door")
 
 
@@ -166,8 +162,6 @@ def ask(image: Any, key: str) -> tuple[dict[str, Any], float, float | None]:
 
 
 async def _ask(image: Any, key: str) -> tuple[dict[str, Any], float, float | None]:
-    # Pinned to zero data retention like every decision (``decisions._post``), and through
-    # the provider limiter's client like every OpenRouter call.
     body = PLATFORM_FIXED.apply(
         {
             "model": MODEL,
@@ -236,8 +230,6 @@ def grade_page(answers: dict[str, Any], page: dict[str, Any], file_name: str) ->
         misses.append(f"page kind {kind}")
     if view != expected_view(file_name):
         misses.append(f"view {view}")
-    # The drawing's gold is its ink: the rooms and doors drawn. The spec's ``plan_area``
-    # is a nominal frame nothing is drawn on, and a box around ink is tighter than it.
     title, plan = gold_box(page, "title_block"), gold_box(page, *DRAWING_INK)
     title_answer, plan_answer = answer_edges(answers["title_block"]), answer_edges(answers["plan_area"])
     print(

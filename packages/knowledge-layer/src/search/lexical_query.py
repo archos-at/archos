@@ -9,9 +9,6 @@ from collections.abc import Sequence
 
 logger = logging.getLogger(__name__)
 
-#: Entries in the exact-term document-frequency cache before it is cleared. The live
-#: key set is a handful of terms per collection; the cap only bounds a pathological
-#: run of one-off terms.
 _EXACT_TERM_DF_CACHE_MAX = 512
 
 

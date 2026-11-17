@@ -1,5 +1,3 @@
-"""A network for tests that must go through the real guard: DNS answered by a table, sockets by recorded bytes."""
-
 from __future__ import annotations
 
 import httpcore
@@ -9,8 +7,6 @@ from public_sources.egress import PublicOnlyBackend
 
 
 class PlainHttpsForMock(httpx.AsyncBaseTransport):
-    """Hands the guarded transport an http URL so the mock stream needs no TLS; the host is unchanged."""
-
     def __init__(self, inner: httpx.AsyncBaseTransport) -> None:
         self.inner = inner
 
@@ -20,11 +16,6 @@ class PlainHttpsForMock(httpx.AsyncBaseTransport):
 
 
 def scripted_network(addresses: dict[str, list[str]], answer: bytes, dialled: list[str]) -> httpx.AsyncBaseTransport:
-    """The guarded transport over a resolver of ``addresses`` and sockets that each answer ``answer``.
-
-    Every address the guard dials is appended to ``dialled``, so a test shows
-    which hop was refused before a connection was opened.
-    """
 
     async def resolve(host: str, port: int) -> list[str]:
         return addresses[host]
@@ -38,6 +29,5 @@ def scripted_network(addresses: dict[str, list[str]], answer: bytes, dialled: li
             return None
 
     transport = GuardedTransport(PublicOnlyBackend(inner=_Answering(), resolver=resolve))
-    # Plain-text mock streams: no TLS handshake to fake, so the client speaks http to the mock.
     transport._pool._ssl_context = None
     return PlainHttpsForMock(transport)

@@ -60,33 +60,20 @@ from dataclasses import dataclass
 from typing import Any
 from typing import Literal
 
-#: The function group the workspace tools are registered under (``configs``,
-#: ``function_groups.workspace``) and its one tool that reads or proposes.
-#: Matched on the QUALIFIED name: the bare basename ``call`` says nothing.
 WORKSPACE_GROUP = "workspace"
 WORKSPACE_CALL = "call"
 _QUALIFIED_CALL_NAMES = (f"{WORKSPACE_GROUP}__{WORKSPACE_CALL}", f"{WORKSPACE_GROUP}.{WORKSPACE_CALL}")
 
-#: ``list_files`` (knowledge layer), however the group qualified it, and the
-#: operation name its records carry. The most listing text kept per call.
 LISTING_TOOL = "list_files"
 LISTING_MAX_CHARS = 12_000
-#: How a listing refusal starts (bad argument, unknown shelf); no listing, no record.
 _LISTING_REFUSALS = re.compile(r"^(?:`\w+` must be|Invalid |Unknown )", re.IGNORECASE)
 
-#: The drawing tool (``tools/drawings``, ADR-0153), and how each of its answers starts.
-#: An answer is read off the drawing's geometry, so it is a read, like a listing.
 DRAWING_TOOL = "dxf_measure"
 _DRAWING_ANSWER_START = "File: "
 
-#: The server's text for a write it filed as a proposal (``discovery.ts``).
 PROPOSED_PREFIX = "Proposed"
-#: How a read's text starts: the route's JSON, whole or capped.
 _JSON_STARTS = ("{", "[")
 
-#: The markers the workspace's wire puts on what Piloti wrote: a stored
-#: answer's ``role``, a Kommentar's or a Dokument's ``authoredBy``, a thread
-#: message's ``authorKind``. Matched casefolded.
 _AGENT_AUTHORED: dict[str, frozenset[str]] = {
     "role": frozenset({"assistant"}),
     "authoredby": frozenset({"agent", "piloti"}),
@@ -103,11 +90,8 @@ RecordOutcome = Literal["read", "proposed"]
 class WorkspaceRecord:
     """One workspace call or listing this turn: what it read or proposed, as the text the answer check reads."""
 
-    #: The operation the model called (``project-members-list``), as it named it.
     operation: str
     outcome: RecordOutcome
-    #: What the result held, Piloti's own words taken out: the route's JSON, the
-    #: proposed input, or the listing's lines.
     text: str
 
     def to_wire(self) -> dict[str, Any]:
@@ -126,7 +110,6 @@ def is_listing_call(tool_name: str) -> bool:
     return name == LISTING_TOOL or name.endswith(f"__{LISTING_TOOL}")
 
 
-#: The filesystem verbs that list the estate (ADR-0133 slice 6), read like ``list_files`` was.
 ESTATE_LISTING_TOOLS = ("ls", "glob")
 
 
@@ -223,8 +206,6 @@ def record_from_result(operation: str, arguments: dict[str, Any], text: str) -> 
     return _read_record(operation, stripped)
 
 
-#: How the tool names the proposal it filed, after the server's „Proposed …"
-#: (``tools/workspace/register._show_proposal``): „Proposal <uuid>: <summary>.".
 _PROPOSAL_ID_RE = re.compile(
     r"\bProposal ([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\b"
 )

@@ -1,20 +1,3 @@
-"""The two precedent checks a pattern cannot read, asked of a model.
-
-„The references hold nothing comparable" and „that precedent was decided under
-an older edition" are meanings, not words. A phrase list read them both ways
-wrong on the precedent eval's own answers (7 Oct 2026): it missed „kein
-dokumentierter Fall", and it took a cited precedent's own caveat („keine
-Vorgabe für Ihr Projekt") for „nothing found" in 11 of 65 answers that cited
-one. Every phrase added for the last miss made the next false pass likelier,
-which is tuning the instrument to the answers it grades.
-
-So the judge gets the question, the answer and one yes/no question about
-meaning, in English, whatever language the answer is in. It is checked the
-way the patterns were (`tests/test_precedent_eval.py` holds the fake; the
-validation against real answers is in the testing doc). A judge that cannot
-answer returns None and the check is left out of the run, never guessed.
-"""
-
 from __future__ import annotations
 
 import json
@@ -28,7 +11,6 @@ from agent.common.openrouter import PLATFORM_FIXED
 JUDGE_MODEL = os.environ.get("SUITE_JUDGE_MODEL", "openai/gpt-6-luna")
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 
-#: One question per check, about what the answer MEANS. Neither names a phrase.
 RUBRICS: dict[str, str] = {
     "says_none": (
         "Does the ANSWER tell the reader that the office's past or reference projects hold nothing "
@@ -41,13 +23,11 @@ RUBRICS: dict[str, str] = {
         "another law or another Bundesland, or that the rules may have changed since, so it must be checked "
         "before it is reused?"
     ),
-    # The workspace eval (`workspace_eval.py`): what an office-operations answer says about its writes.
     "pending": (
         "The assistant cannot change the workspace itself: every change it asks for is a proposal that waits "
         "until the person accepts it. Does the ANSWER present the change the QUESTION is about as proposed or "
         "waiting for the person's acceptance, and nowhere claim that it has already been made?"
     ),
-    # The office-file eval (`files_eval.py`): a search that came back empty must be reported as empty.
     "none_found": (
         "Does the ANSWER tell the reader that nothing was found: that the thing the QUESTION asks about "
         "is written nowhere in the documents searched? Answer no when it names a passage that says it."
@@ -56,8 +36,6 @@ RUBRICS: dict[str, str] = {
         "Does the ANSWER ask the reader which of several people, documents or projects is meant (or otherwise "
         "ask for the one detail it needs) instead of choosing one itself?"
     ),
-    # The office-file set's mail rows (`files_questions.yaml`, `pf-mail-*`, ADR-0137): a filed
-    # E-Mail-Verlauf is evidence from named senders, and only a signature makes a sender the Behörde.
     "attributes_mail": (
         "Does the ANSWER attribute what it reports from an e-mail to that e-mail, naming who sent it or on which "
         "date (for example 'according to the e-mail from X of 12 May'), rather than stating it as a bare fact "
@@ -75,8 +53,6 @@ RUBRICS: dict[str, str] = {
         "the ANSWER avoid presenting the waiver as the authority's position: it either leaves the waiver out, "
         "or reports it only together with the warning that its sender is not confirmed?"
     ),
-    # The north-star set (`north_star_eval.py`, docs/architecture/north-star-answers.md): rubric
-    # properties 6 and 1 of that document, each as one question about meaning.
     "separates_sources": (
         "Does the ANSWER keep apart what a project document states, what the law or a guideline requires, and "
         "what is the writer's own estimate or inference, so a reader can tell which is which; and does it say "
@@ -88,7 +64,6 @@ RUBRICS: dict[str, str] = {
         "Does the ANSWER point out, on its own, that two of the project's documents disagree on a fact (a "
         "number, a count, an index or a date), naming both values or both documents?"
     ),
-    # The edition set (`edition_eval.py`, market requirements R3 and R5): which edition of a rule binds.
     "abstains": (
         "The assistant does not hold the text of the rule the QUESTION asks about for that day or that "
         "territory. Does the ANSWER say so plainly, and avoid presenting the text or requirements of another "
@@ -96,7 +71,6 @@ RUBRICS: dict[str, str] = {
         "names what it lacks and at most points to where the text can be found; no when it answers from a "
         "substituted text."
     ),
-    # The QUESTION's last line is "CLAIM: …", the fact the answer must state (read off the records).
     "binding": (
         "The QUESTION ends with a line starting 'CLAIM:'. Does the ANSWER state, as what applies on the day and "
         "in the place the QUESTION asks about, what the CLAIM says? Answer no when the answer names that edition "
@@ -125,16 +99,13 @@ def _api_key() -> str | None:
 
 
 def available() -> bool:
-    """Whether a judge can be asked: a key is set."""
     return _api_key() is not None
 
 
 def ask(kind: str, question: str, answer: str, *, timeout: float = 60.0) -> bool | None:
-    """The judge's yes or no on one check, or None when it could not answer."""
     key = _api_key()
     if key is None or kind not in RUBRICS or not answer.strip():
         return None
-    # Through the OpenRouter seam like every model call: pinned to zero data retention.
     body = PLATFORM_FIXED.apply(
         {
             "model": JUDGE_MODEL,
@@ -145,7 +116,6 @@ def ask(kind: str, question: str, answer: str, *, timeout: float = 60.0) -> bool
             ],
         }
     )
-    # Into the residency cell's zone, or refused outside it, like every model call (ADR-0167).
     url, _route = residency.enforce(OPENROUTER_URL)
     request = urllib.request.Request(
         url,
@@ -154,8 +124,6 @@ def ask(kind: str, question: str, answer: str, *, timeout: float = 60.0) -> bool
         method="POST",
     )
     try:
-        # The URL is the fixed OPENROUTER_URL constant above, at most moved to its zone's host; nothing a
-        # caller passes reaches it, so no file:// or other scheme can be smuggled in.
         # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
         with urllib.request.urlopen(request, timeout=timeout) as response:
             reply = json.loads(response.read().decode("utf-8"))

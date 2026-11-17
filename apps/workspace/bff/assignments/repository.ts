@@ -1,8 +1,3 @@
-/**
- * Assignments repository — who is on the hook for a shareable resource (ADR-0047).
- * No authorization here; the service owns that.
- */
-
 import 'server-only'
 import { and, eq, inArray } from 'drizzle-orm'
 import { getDb } from '@/lib/db'

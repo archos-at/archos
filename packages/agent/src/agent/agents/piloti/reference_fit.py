@@ -39,25 +39,14 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-#: The decision slot (``status:decision:reference_fit``, ``decide.reference_fit``).
 SLOT = "reference_fit"
 
-#: Fewer catalog lines than this are not worth a reorder.
 MIN_LINES = 2
 
-#: p(fits) at or above which a line counts as fitting and moves ahead.
-#: Nothing is dropped below it. Measured (``scripts/decision_eval_office.py
-#: fit``, 10 Oct 2026, 19 questions whose answer must cite a closed project):
-#: the cited project ranked first in 10/19 by fingerprint alone; partitioned
-#: at 0.5 in 14/19, at 0.6 in 16/19 (MRR 0.695 → 0.893), and no question got
-#: worse at either; at 0.7 and 0.8 two did, the fit splitting projects that
-#: are all alike enough.
 FIT_THRESHOLD = 0.6
 
-#: How long a catalog line may be in the state.
 LINE_CHARS = 400
 
-#: A line of the catalog: ``- <name> (id <uuid>)<rest>``.
 _LINE = re.compile(r"^- (?P<name>.+?) \(id (?P<id>[0-9a-fA-F-]{36})\)(?P<rest>.*)$")
 
 FITS_QUESTION = {
@@ -90,7 +79,6 @@ class CatalogLine:
 class ReferenceFit:
     """The fit of each catalog project, and the catalog reordered by it."""
 
-    #: ``(project_id, p)`` in the new order; ``p`` None where the line was not scored.
     ranked: tuple[tuple[str, float | None], ...]
     catalog: str
 

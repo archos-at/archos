@@ -18,20 +18,11 @@ from knowledge_layer.search import PASSAGE_MAX_CHARS
 
 from agent.knowledge.law_lookup.locus import Grammar
 
-#: The bound for a provision the caller NAMED. A provision is what a lawyer
-#: cites and what the agent asked for; cut at the corpus chunk bound above, a
-#: named one arrived as its first fifth and the agent spent three more lookups
-#: asking for the rest. 8000 characters (about 2k tokens) holds nearly every
-#: provision of a building code whole; a ranked pick the agent did not name
-#: keeps the chunk bound.
 SECTION_MAX_CHARS = 8000
 
-#: Headings listed per document, for the picker and for a miss.
 MAX_HEADINGS = 120
 
-#: A part marker at the start of a line: the boundary a passage is cut on.
 SUBSECTION_LINE_RE = re.compile(r"(?m)^\(\s*(\d+[a-z]?)\s*\)")
-#: A line that can serve as a provision's heading: short, and not a sentence.
 _HEADING_MAX_CHARS = 120
 
 __all__ = [
@@ -80,8 +71,6 @@ def split_sections(text: str, grammar: Grammar) -> list[Section]:
         )
         for position, (index, match) in enumerate(starts)
     ]
-    # A bare marker line ABOVE the provision it names matches this grammar too,
-    # and would otherwise contribute a section with no text in it.
     return _one_section_per_label([s for s in sections if _has_text(s, grammar)], grammar)
 
 

@@ -136,8 +136,6 @@ class AskUserGuard:
     def claim(self, conversation_id: str | None, turn_id: str | None) -> str | None:
         """Claim the single ask_user slot; a refusal reason, or None on success."""
         if not conversation_id:
-            # No conversation scope (CLI/batch): nothing to collide with, and a
-            # global guard would serialize unrelated runs in the same process.
             return None
         with self._lock:
             if conversation_id in self._pending_conversations:
@@ -169,9 +167,6 @@ class AskUserGuard:
             self._pending_conversations.clear()
 
 
-#: The process-wide guard: the agent runtime registers ``ask_user`` once per process, and the
-#: pending-slot condition is a property of the transport, not of a tool
-#: instance. Module-level by the registry rule: it has a reset for tests.
 _guard = AskUserGuard()
 
 
@@ -244,8 +239,6 @@ async def _prompt_user(manager: Any, question: str, labels: list[str]) -> Any:
     try:
         return await manager.prompt_user_input(build_human_prompt(question, labels))
     except NotImplementedError as exc:
-        # No HITL callback bound (async job runner, REST entrypoint, CLI): the
-        # prompt would never be shown and the future never resolved.
         logger.info("ask_user called with no user-interaction callback bound; question dropped")
         raise _Undeliverable("No channel to ask the user is available here.") from exc
     except TimeoutError as exc:
@@ -256,9 +249,6 @@ async def _prompt_user(manager: Any, question: str, labels: list[str]) -> Any:
         raise _Undeliverable("The question could not be delivered.") from exc
 
 
-#: What the model is told on a turn an event woke (``X-Chat-Mode: headless``):
-#: nobody holds the socket, so a prompt would wait out its thirty minutes. The
-#: question belongs where the event happened, in the thread.
 _HEADLESS = (
     "Nobody is watching this turn live: it was started by an event, not typed, so a question here would "
     "never be answered. Do not wait. If you need something from the person, ask it where you were "
@@ -289,8 +279,6 @@ def _reply_for(answer: str, option_count: int) -> str:
             "which assumption you made."
         )
     logger.info("ask_user: user answered a %d-option question", option_count)
-    # Quoted so the model treats it as the user's words rather than as an
-    # instruction from the tool, and told not to re-ask.
     return f'The user answered: "{answer}". Continue your answer using this. Do not ask again this turn.'
 
 

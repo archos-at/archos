@@ -1,23 +1,5 @@
 'use client'
 
-/**
- * Dev preview for the upload surface and the explorer's detail view.
- *
- * The tray is rendered in every stage it can be in, because the whole point of
- * the rework is that those stages LOOK different — the old bar drew one
- * determinate track across all of them and therefore had to invent a value for
- * most. Reading top to bottom you should be able to tell, without any copy:
- *
- *   1. bytes are moving and there is a real position  → determinate track, %
- *   2. the backend is reading and no position exists  → sweep, elapsed, no %
- *   3. it is finished                                 → a mark, no track
- *   4. something failed                               → the reason and a retry
- *   5. something was held back                        → what was found, no retry
- *
- * Backend-free: every fixture is a plain `TrackedFile`. Not linked from
- * anywhere and 404s outside development.
- */
-
 import { notFound } from 'next/navigation'
 import { UploadTray } from '@/features/documents/components/upload-tray'
 import { LiveRun } from './live-run'
@@ -25,8 +7,6 @@ import { FileListView } from '@/features/documents/components/file-list-view'
 import type { TrackedFile } from '@/features/documents/types'
 import type { FileItem } from '@/features/documents/components/project-file-workspace'
 
-// The held row asks what this reader may do about it: answer „decide", so the
-// preview shows „Trotzdem zulassen", and allow it when asked (ADR-0086).
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
   const w = window as unknown as { __heldShim?: boolean }
   if (!w.__heldShim) {
@@ -34,7 +14,6 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
     const real = window.fetch.bind(window)
     window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
-      // The fixture's held document only: a real held file in this tab is asked for real.
       if (url === '/api/documents/doc-h2/quarantine') return Response.json({ canReview: true, canAskForReview: false })
       if (url === '/api/documents/doc-h2/quarantine/release')
         return Response.json({ id: 'doc-h2', status: 'processing', jobId: null })
@@ -52,7 +31,6 @@ const file = (overrides: Partial<TrackedFile> & Pick<TrackedFile, 'id' | 'fileNa
   ...overrides,
 })
 
-/** Mid-transfer: one file sending, one queued behind the concurrency limit. */
 const TRANSFERRING: TrackedFile[] = [
   file({
     id: 't1',
@@ -73,21 +51,18 @@ const TRANSFERRING: TrackedFile[] = [
   file({ id: 't5', fileName: 'Energieausweis.pdf', fileSize: 0.9 * MB, status: 'success' }),
 ]
 
-/** Handed over: the bytes are in, the backend is indexing. No percentage exists. */
 const PROCESSING: TrackedFile[] = [
   file({ id: 'p1', fileName: 'Brandschutzkonzept_Wohnbau-Nord.pdf', fileSize: 4.8 * MB, status: 'ingesting' }),
   file({ id: 'p2', fileName: 'Fluchtwegplan_EG-2OG.pdf', fileSize: 1.2 * MB, status: 'ingesting' }),
   file({ id: 'p3', fileName: 'Energieausweis.pdf', fileSize: 0.9 * MB, status: 'success' }),
 ]
 
-/** Settled and clean — this is the state that retires itself after a moment. */
 const DONE: TrackedFile[] = [
   file({ id: 'd1', fileName: 'Brandschutzkonzept_Wohnbau-Nord.pdf', fileSize: 4.8 * MB, status: 'success' }),
   file({ id: 'd2', fileName: 'Fluchtwegplan_EG-2OG.pdf', fileSize: 1.2 * MB, status: 'success' }),
   file({ id: 'd3', fileName: 'Energieausweis.pdf', fileSize: 0.9 * MB, status: 'success' }),
 ]
 
-/** Settled with a problem — never auto-retires; the row carries the recovery. */
 const PARTIAL: TrackedFile[] = [
   file({ id: 'x1', fileName: 'Brandschutzkonzept_Wohnbau-Nord.pdf', fileSize: 4.8 * MB, status: 'success' }),
   file({
@@ -101,10 +76,6 @@ const PARTIAL: TrackedFile[] = [
   file({ id: 'x3', fileName: 'Fluchtwegplan_EG-2OG.pdf', fileSize: 1.2 * MB, status: 'canceled' }),
 ]
 
-/**
- * Settled with a file the content check held back (ADR-0086), and one stored
- * and not read. Neither is a failure: no retry, no red, and the batch stays.
- */
 const HELD: TrackedFile[] = [
   file({ id: 'h1', fileName: 'Brandschutzkonzept_Wohnbau-Nord.pdf', fileSize: 4.8 * MB, status: 'success' }),
   file({
@@ -143,10 +114,6 @@ const doc = (
   ...overrides,
 })
 
-/**
- * A set of drawings that is NUMBERED — `Plan_2` before `Plan_10` is the whole
- * argument for a numeric collator, and it is only visible with both present.
- */
 const LISTING: FileItem[] = [
   doc('l1', 'Einreichplan_2_Regelgeschoss.pdf', {
     summary: 'Regelgeschoss mit Wohnungstrennwänden REI 60.',

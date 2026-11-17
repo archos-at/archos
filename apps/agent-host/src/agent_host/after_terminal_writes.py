@@ -19,19 +19,15 @@ from agent_host import workflow_stream
 
 logger = logging.getLogger(__name__)
 
-#: Background writes after a terminal still in flight: the answer row and what
-#: follows it. The loop holds only weak references.
 PERSIST_TASKS: set[asyncio.Task[Any]] = set()
 
-#: How long a drain waits, after its turns ended, for those writes: the outcome
-#: notice's retries (``internal_retry``). Inside the pod's slack
-#: (``BACKEND_DRAIN_SLACK_SECONDS``, 60) together with the cancel grace (15 s).
 DRAIN_AFTER_TERMINAL_SECONDS = 30.0
 
-#: How much longer than the workflow's teardown bound a drain waits for the turns it cancelled.
 DRAIN_CANCEL_MARGIN_SECONDS = 5.0
 
 
+# A flat 10 s ended before a cancelled turn sent its terminal, and the ask it served read working
+# for 47 minutes (dev, 2026-11-12).
 def drain_cancel_grace() -> float:
     """How long a drain waits for the turns it cancelled to reach their terminal (``ChatRegistry.drain``).
 

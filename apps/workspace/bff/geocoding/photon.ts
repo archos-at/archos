@@ -1,57 +1,28 @@
-/**
- * Photon (OSM, komoot) as the address search adapter.
- *
- * `parsePhotonResponse` is pure: a Photon FeatureCollection in, Austrian
- * `GeocodeResult`s out. `searchPhoton` is the one network call and never
- * throws; a failed search is an empty one, logged.
- *
- * Austria only (product decision). Photon is asked for the Austrian bounding
- * box and every hit is checked against `countrycode` anyway, because the box
- * also covers parts of the neighbouring countries. A second country is a new
- * filter and a new state mapping, nothing more.
- */
-
 import { z } from 'zod'
 import { findIntakeQuestion } from '@/lib/project-profile/intake-conditions'
 import { projectIntakeDefinitionV1 } from '@/lib/project-profile/intake-definition'
 import { foldDiacritics, latinize } from '@/lib/text/latinize'
 import { GEOCODE_DEFAULT_LIMIT, GEOCODE_MAX_LIMIT, type GeocodeKind, type GeocodeResult } from './types'
 
-/** minLon,minLat,maxLon,maxLat: Austria, a little generous. */
 const AUSTRIA_BBOX = '9.53,46.37,17.16,49.02'
 
-/** Photon answers in well under a second; an autocomplete that waits longer is useless. */
 const PHOTON_TIMEOUT_MS = 4_000
 
-/** A proxy in front of a Photon may redirect (http to https, a trailing slash). */
 const MAX_REDIRECTS = 2
 
-/**
- * komoot's public instance (ADR-0151) asks callers to name themselves and
- * blocks anonymous heavy use. Product-neutral, no contact address.
- */
 export const PHOTON_USER_AGENT = 'architecture-workspace-address-search/1.0'
 
-/**
- * `A2_land` options that name a Land, read off the wizard's own question so
- * the mapping cannot drift from it. The "outside Austria" option is no Land.
- */
 const LAND_OPTIONS: ReadonlyArray<{ token: string; keys: string[] }> = (
   findIntakeQuestion(projectIntakeDefinitionV1, 'A2_land')?.options ?? []
 )
   .filter((option) => option.value !== 'outside_austria')
   .map((option) => ({ token: option.value, keys: [...matchKeys(option.label), option.value] }))
 
-/**
- * Case- and diacritic-insensitive: "Kärnten", "Kaernten" and "Karnten" are
- * one Land. Two spellings, because `ä` folds to `a` and spells out to `ae`.
- */
 function matchKeys(value: string): string[] {
   const squash = (spelled: string) => spelled.toLowerCase().replace(/\s+/g, ' ').trim()
   return [squash(latinize(value)), squash(foldDiacritics(value))]
 }
 
-/** The intake token for a state label, or null. */
 function federalStateToken(state: string | null): string | null {
   if (!state) return null
   const keys = matchKeys(state)
@@ -60,7 +31,6 @@ function federalStateToken(state: string | null): string | null {
 
 const text = z.string().trim().min(1).optional().catch(undefined)
 
-/** Lenient on purpose: one odd feature must not cost the person the other suggestions. */
 const featureSchema = z.object({
   properties: z.object({
     type: text,
@@ -86,13 +56,11 @@ function kindOf(properties: Properties): GeocodeKind {
   return properties.type === 'street' ? 'street' : 'place'
 }
 
-/** The Gemeinde: Photon's `city`, or the hit itself when it is the town ("type": "city"). */
 function municipalityOf(properties: Properties): string | null {
   if (properties.city) return properties.city
   return properties.type === 'city' ? (properties.name ?? null) : null
 }
 
-/** "Straße Nr, PLZ Ort". A town hit is just "PLZ Ort": its name is the Ort. */
 function labelOf(properties: Properties, municipality: string | null): string | null {
   const place = [properties.postcode, municipality].filter(Boolean).join(' ')
   const firstLine = properties.housenumber
@@ -115,7 +83,6 @@ function toResult(raw: unknown): GeocodeResult | null {
   const label = labelOf(properties, municipality)
   if (!label || !(Math.abs(lat) <= 90) || !(Math.abs(lon) <= 180)) return null
 
-  // Vienna is a city-state: Photon names no state for it, only the city.
   const federalState =
     federalStateToken(properties.state ?? null) ?? (municipality && federalStateToken(municipality) === 'vienna' ? 'vienna' : null)
   const state = properties.state ?? (federalState === 'vienna' ? 'Wien' : null)
@@ -133,7 +100,6 @@ function toResult(raw: unknown): GeocodeResult | null {
   }
 }
 
-/** Austrian hits of a Photon response, one per label, in the provider's order. Malformed input gives `[]`. */
 export function parsePhotonResponse(json: unknown): GeocodeResult[] {
   const collection = collectionSchema.safeParse(json)
   if (!collection.success) return []
@@ -151,22 +117,18 @@ export function parsePhotonResponse(json: unknown): GeocodeResult[] {
 export interface PhotonSearchOptions {
   limit?: number
   signal?: AbortSignal
-  /** Replaces `fetch`; the specs' seam. */
   fetchImpl?: typeof fetch
 }
 
 function photonUrl(baseUrl: string, query: string, limit: number): URL {
   const url = new URL('api/', baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`)
   url.searchParams.set('q', query)
-  // Hits collapse (one street, many POIs) and the box spills over the border,
-  // so ask for more than the caller wants and cut afterwards.
   url.searchParams.set('limit', String(Math.min(limit * 2, GEOCODE_MAX_LIMIT * 2)))
   url.searchParams.set('lang', 'de')
   url.searchParams.set('bbox', AUSTRIA_BBOX)
   return url
 }
 
-/** GET with redirects followed only within the configured origin: a query is client data. */
 async function fetchSameOrigin(url: URL, signal: AbortSignal, fetchImpl: typeof fetch): Promise<Response> {
   let target = url
   for (let hop = 0; hop <= MAX_REDIRECTS; hop += 1) {
@@ -184,11 +146,6 @@ async function fetchSameOrigin(url: URL, signal: AbortSignal, fetchImpl: typeof 
   throw new Error('too many redirects')
 }
 
-/**
- * Search Photon at `baseUrl`. Never throws: any failure (timeout, refusal,
- * bad JSON, a redirect off the host, the public instance throttling us) is
- * logged and answers `[]`, so the dialog keeps the typed line as the address.
- */
 export async function searchPhoton(
   baseUrl: string,
   query: string,

@@ -8,19 +8,9 @@ from pydantic import model_validator
 from agent.cards.card_model import CardModel
 from agent.cards.proposal_cards import PROPOSAL_ID_PATTERN
 
-#: How many operations one card may carry. A tidying turn proposes a handful;
-#: past that the card stops being a decision the reader can actually read
-#: before answering, and „alles verschieben" is not a proposal, it is a job.
 MAX_FILE_OPERATIONS = 8
 
 
-#: The four operations, each an `operation` value of the one tool that emits
-#: them, `propose_file_change` (four tools, one per kind, until they merged).
-#:
-#: A fifth, `set_doc_class`, was here and is gone. A project document has no
-#: doc_class route for an Accept to run, so the card drew the proposal and no
-#: control — a decision the reader could read and could not take. It comes back
-#: with the route, not before it.
 FileOperationKind = Literal["move", "rename", "create_folder", "assign"]
 
 

@@ -1,19 +1,4 @@
-/**
- * Runs — how a run reads in the thread that commissioned it (the Laufblock).
- *
- * A run's ledger (`lib/runs/run-ledger-types.ts`) carries ASCII keys: `planen`,
- * `laeuft`. These are the words the reader sees for them, and the sentences
- * each status owes the reader. The vocabulary rule is the one `workflow-names`
- * set: no identifier reaches the reader, every phase is a word, every status a
- * word plus a sentence, and a number appears only where it changes what the
- * reader does next.
- *
- * `runs.completedBefore` is the difference between „failed" and something a
- * person can act on: which phases were done when the run stopped, so what is
- * already there is not re-commissioned.
- */
 export const runs = {
-  /** The five phases, as the rail and the phase list name them. */
   phase: {
     planning: 'Planning',
     researching: 'Researching',
@@ -21,7 +6,6 @@ export const runs = {
     writing: 'Writing',
     filed: 'Filed',
   },
-  /** The seven display states — the bold word in the header. */
   status: {
     created: 'Starting',
     running: 'Running',
@@ -31,35 +15,24 @@ export const runs = {
     cancelled: 'Cancelled',
     interrupted: 'Interrupted',
   },
-  /**
-   * The second clause of the status line — the one fact the state owes the
-   * reader after its own word. The word itself is `status.*`, said once.
-   */
   line: {
-    /** angelegt, inside a project: where the result will end up. */
     filing: 'result goes to the project',
     waiting: 'answer below in the thread',
     doneFiled: 'report filed in Project › Reports',
     doneInline: 'the report is here in the thread',
-    /** Leads with the word itself, because the reason has to follow it. */
     failed: 'Failed: {reason}',
     cancelled: 'stopped at your request',
     interrupted: 'report written from what was there',
   },
-  /** What was already done when the run stopped. */
   completedBefore: 'Done so far: {phases}',
-  /** The research phase with its tallies inside the list above. */
   completedBeforeTallies: '{phase} ({rounds}, {docs})',
   step: {
-    /** A step whose runner stated no intent. */
     fallback: 'Research round {n}',
     round: 'Round {n}',
-    /** A document a step reached a second time. */
     repeat: 'already read',
     openPoints: 'Open:',
     findings: 'Established so far',
   },
-  /** The one line a finished phase folds to, and the live line of an active one. */
   phaseLine: {
     planning: 'Research plan drawn up',
     checking: 'Citations checked against the sources',
@@ -72,7 +45,6 @@ export const runs = {
     docs: '{count, plural, one {# document} other {# documents}}',
     findings: '{count, plural, one {# finding} other {# findings}}',
   },
-  /** The one action that fits the state, at the right end of the header. */
   action: {
     answer: 'Answer',
     review: 'Review',
@@ -80,22 +52,11 @@ export const runs = {
     openInProject: 'Show in project',
     retry: 'Start again',
     openInThread: 'Open in thread',
-    /** The quiet way out of a run still going. Never the loud one: see `cancel`. */
     cancel: 'Stop',
     writeNow: 'Write now',
     continue: 'Update report',
-    /** In place of „Update report“ in a closed project (ADR-0090): a run would file into it. */
     continueClosed: 'Closed project: no new research',
   },
-  /**
-   * Stopping a run. The confirmation says what survives, because the fear that
-   * stops a hand on this button is losing the two rounds already researched —
-   * and they are kept.
-   */
-  /**
-   * The Unterlagen: the documents the reader named for the run. The receipt
-   * says which were read and where; the picker over the thread names more.
-   */
   documents: {
     receiptLabel: 'Documents named for this task',
     receipt: '{read} of {total} named documents read',
@@ -134,18 +95,12 @@ export const runs = {
     confirm: 'Stop task',
     keep: 'Keep running',
   },
-  /** What a reviewer said, under the result. The reason is theirs, verbatim. */
   review: {
     accepted: 'Accepted by {name}',
     acceptedAnon: 'Accepted',
     rejected: 'Sent back: {reason}',
     rejectedAnon: 'Sent back',
   },
-  /**
-   * The live view's own state, never the run's. Both sentences say the same
-   * thing first, because it is the thing a reader fears: the work is still
-   * going. Only the line into it broke.
-   */
   connection: {
     reconnecting:
       'The live view lost its connection and is reconnecting. The task is still running.',

@@ -80,7 +80,6 @@ from agent.knowledge.document_metadata_store import DocumentMetadataStore
 logger = logging.getLogger(__name__)
 
 CACHE_DIR_ENV = "BASE_CORPUS_CACHE_DIR"
-# A cache that may vanish at any restart, by design: the table and the bucket are the record.
 DEFAULT_CACHE_DIR = "/tmp/base-corpus"
 
 _UPLOAD_URL_PATH = "/api/internal/base-corpus/upload-url"
@@ -94,7 +93,6 @@ _CHUNK_BYTES = 1024 * 1024
 _initialized: set[str] = set()
 _INIT_LOCK = threading.Lock()
 
-# sha256 of a cache file keyed by path, valid while (size, mtime_ns) hold.
 _SHA_CACHE: dict[str, tuple[int, int, str]] = {}
 _SHA_LOCK = threading.Lock()
 
@@ -141,11 +139,6 @@ class FileRow:
         return self.ingested_sha256 != self.sha256 or self.chunk_format_version != chunk_format_version
 
 
-# ----------------------------------------------------------------------------
-# Small helpers
-# ----------------------------------------------------------------------------
-
-
 def cache_dir() -> Path:
     """This process's cache of corpus files (``BASE_CORPUS_CACHE_DIR``), read at call time."""
     return Path(os.environ.get(CACHE_DIR_ENV, "").strip() or DEFAULT_CACHE_DIR)
@@ -186,16 +179,9 @@ def _require_name(name: str) -> None:
         raise CorpusStoreError(f"not a corpus file name: {name!r}")
 
 
-# ----------------------------------------------------------------------------
-# The table
-# ----------------------------------------------------------------------------
-
-
 def _db_url() -> str:
     url = os.environ.get("SUMMARY_DB") or os.environ.get("NAT_JOB_STORE_DB_URL")
     if not url:
-        # A silent fall back to a local SQLite file would bring back exactly the
-        # per-replica state the corpus store exists to remove.
         raise CorpusStoreError("the base corpus needs SUMMARY_DB (the shared knowledge database)")
     return url
 
@@ -204,7 +190,6 @@ def _ensure_table(url: str) -> None:
     with _INIT_LOCK:
         if url in _initialized:
             return
-        # Replicas that first touch the table together would race the CREATE.
         engine = DocumentMetadataStore._get_or_create_sync_engine(url)
         ensure_schema(engine, _files.name, _create_files)
         ensure_schema(engine, _marks.name, _create_marks)
@@ -250,7 +235,6 @@ def _upsert_file(row: FileRow) -> None:
     """Record ``row``'s bytes. A replaced file keeps its ingested hash, so it reads as stale until re-ingested."""
     values = {"storage_key": row.storage_key, "sha256": row.sha256, "size_bytes": row.size_bytes}
     with _transaction() as conn:
-        # `ON CONFLICT` is in the dialect's own INSERT, not the generic one.
         insert = postgresql.insert if conn.dialect.name == "postgresql" else sqlite.insert
         conn.execute(
             insert(_files)
@@ -323,9 +307,7 @@ def begin_job(name: str) -> FileMark | None:
     return FileMark.of(record) if record is not None else None
 
 
-#: The country of the corpus that predates ``country_id``: it held Austria alone (ADR-0173).
 LEGACY_CORPUS_COUNTRY = "AT"
-#: The row that records the one-time backfill ran; a name no PDF can have.
 _BACKFILL_DONE = "__legacy_country_backfill_done__"
 
 
@@ -360,7 +342,6 @@ def get_mark(name: str) -> FileMark | None:
 def released_to(name: str, countries: Iterable[str]) -> bool:
     """Whether a reader of ``countries`` reads ``name``: its release mark names one of them and does not withhold
     it; unmarked, nobody's."""
-    # The file-level form of ``vector_store.scope.corpus_country_condition`` (ADR-0173).
     mark = get_mark(name)
     return mark is not None and mark.released is not False and mark.country_id in set(countries)
 
@@ -413,11 +394,6 @@ def forget_ingested(name: str | None = None) -> None:
         conn.execute(statement)
 
 
-# ----------------------------------------------------------------------------
-# BFF writes and object-store reads. Module-level so a test can replace each.
-# ----------------------------------------------------------------------------
-
-
 def _bff() -> tuple[str, dict[str, str]]:
     base_url = os.environ.get(_FRONTEND_INTERNAL_URL_ENV, "").strip()
     token = os.environ.get(_INTERNAL_TOKEN_ENV, "").strip()
@@ -435,7 +411,6 @@ def _request_upload_url(name: str) -> tuple[str, str]:
         )
         data = response.json() if response.status_code == 200 else {}
     except (httpx.HTTPError, ValueError) as e:
-        # Class name only: an httpx error's text embeds the request URL.
         raise CorpusStoreError(f"upload-url request for {name} failed: {type(e).__name__}") from e
     if response.status_code != 200:
         raise CorpusStoreError(f"upload-url request for {name} was refused (HTTP {response.status_code})")
@@ -459,7 +434,6 @@ def _put_object(upload_url: str, data: bytes) -> None:
 def _delete_object(name: str) -> None:
     base_url, headers = _bff()
     try:
-        # Encoded exactly once: the BFF's router decodes the path parameter once.
         response = httpx.delete(
             f"{base_url}{_DELETE_PATH}{quote(name, safe='')}", headers=headers, timeout=_BFF_TIMEOUT_SECONDS
         )
@@ -486,11 +460,6 @@ def _download_object(storage_key: str, out: BinaryIO) -> None:
         raise
     except Exception as e:  # noqa: BLE001 - botocore raises many types; the caller needs one
         raise CorpusStoreError(f"download of {storage_key} failed: {type(e).__name__}") from e
-
-
-# ----------------------------------------------------------------------------
-# The cache
-# ----------------------------------------------------------------------------
 
 
 @contextlib.contextmanager
@@ -548,11 +517,6 @@ def ensure_local(name: str) -> Path | None:
     return target
 
 
-# ----------------------------------------------------------------------------
-# Writes
-# ----------------------------------------------------------------------------
-
-
 def put(name: str, data: bytes) -> FileRow:
     """Store a PDF in the corpus, and keep this process's copy in the cache.
 
@@ -583,11 +547,6 @@ def remove(name: str) -> None:
     (cache_dir() / name).unlink(missing_ok=True)
 
 
-# ----------------------------------------------------------------------------
-# The download an ingest job runs
-# ----------------------------------------------------------------------------
-
-#: Every corpus object's key starts here (the BFF's ``buildBaseCorpusStorageKey``).
 _KEY_PREFIX = "base-corpus/"
 
 

@@ -25,7 +25,6 @@ from collections.abc import Mapping
 from collections.abc import Sequence
 from typing import Any
 
-#: The step-name prefix every decision observation carries; ``trace_context`` keys its type off it.
 DECISION_SPAN_PREFIX = "decide."
 
 

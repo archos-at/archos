@@ -27,8 +27,6 @@ logger = logging.getLogger(__name__)
 
 _CHECKPOINT_TABLES = ("checkpoint_writes", "checkpoint_blobs", "checkpoints")
 
-# Distinct advisory-lock id for the checkpoint reaper (its own DB, so it never
-# collides with the jobs-DB locks in routes/job_reaper.py). "AIQCKPT" in hex.
 _PG_CHECKPOINT_LOCK_ID = 0x41495143_4B505400
 
 
@@ -67,7 +65,6 @@ def reap_idle_threads(dsn: str | None, retention_seconds: int, now: datetime | N
             return 0
 
         is_pg = _is_postgres(dsn)
-        # The last-activity timestamp lives inside the checkpoint payload.
         ts_expr = "checkpoint->>'ts'" if is_pg else "json_extract(checkpoint, '$.ts')"
         cutoff = _cutoff_iso(retention_seconds, now)
 
@@ -80,7 +77,6 @@ def reap_idle_threads(dsn: str | None, retention_seconds: int, now: datetime | N
                     return 0
             stale_ids = list(
                 conn.execute(
-                    # ts_expr is a dialect-chosen literal; the cutoff is bound.
                     # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
                     text(f"SELECT thread_id FROM checkpoints GROUP BY thread_id HAVING MAX({ts_expr}) < :cutoff"),
                     {"cutoff": cutoff},
@@ -89,7 +85,6 @@ def reap_idle_threads(dsn: str | None, retention_seconds: int, now: datetime | N
             if not stale_ids:
                 return 0
             for table in _CHECKPOINT_TABLES:
-                # Fixed table names (LangGraph schema); thread ids are bound.
                 conn.execute(
                     # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
                     text(f"DELETE FROM {table} WHERE thread_id IN :ids").bindparams(  # noqa: S608

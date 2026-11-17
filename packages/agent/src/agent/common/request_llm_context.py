@@ -143,10 +143,5 @@ async def _read_zdr_only() -> bool:
     except residency.ResidencyViolation:
         raise  # an organization this cell may not serve: the turn stops here, it is not a lookup failure
     except Exception:  # noqa: BLE001 - fails CLOSED, unlike its three siblings
-        # A missing override costs the org its model choice; a missing ZDR bit
-        # sends the org's prompts to endpoints that may retain them, which is
-        # the ADR-0014 control itself. The "BFF is down" path already answers
-        # True inside `resolve_org_zdr_only`; reaching here means the lookup
-        # itself broke unexpectedly, so it logs at error rather than debug.
         logger.error("ZDR lookup failed; pinning ZDR routing for this turn", exc_info=True)
         return True

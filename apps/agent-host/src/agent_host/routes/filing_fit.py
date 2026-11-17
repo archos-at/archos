@@ -88,11 +88,8 @@ from .generate_summary import _llm_settings
 
 logger = logging.getLogger(__name__)
 
-#: The generation's name in Langfuse (``docs/observability/langfuse.md``).
 TRACE_NAME = "filing-fit"
 
-#: Most documents one call judges: one upload batch's worth of decisions a
-#: person can take in one look. The BFF sends the batch in slices of this size.
 MAX_DOCUMENTS = 60
 MAX_FOLDERS = 300
 MAX_CONVENTIONS = 80
@@ -121,7 +118,6 @@ SYSTEM_PROMPT = (
     "good answer."
 )
 
-#: Appended to SYSTEM_PROMPT for ``purpose: sort``: a person sorting the shelf root, not an upload.
 SORT_INSTRUCTIONS = (
     "This is not an upload. A person built these folders to sort the shelf root into, and asked you to place "
     "every document of the batch. Propose a folder for every document that has a plausible home, even when "
@@ -129,7 +125,6 @@ SORT_INSTRUCTIONS = (
     "deepest one. Prefer an existing folder, and name a CONVENTIONS folder only when no existing folder fits."
 )
 
-#: Appended to SYSTEM_PROMPT for ``basis: mail``: files that came with a mail, not an upload.
 MAIL_INSTRUCTIONS = (
     "This is not an upload. The DOCUMENTS are the attachments of one e-mail that reached the project's "
     "address and waits for a person to file it; none of them is in a folder yet. You see only their file "
@@ -145,13 +140,11 @@ MAIL_INSTRUCTIONS = (
     '"reason": "<one short sentence a person reads>"}.'
 )
 
-#: The decision slot a move's folder is scored under (``decide.filing-fit``).
 SCORE_SLOT = "filing-fit"
 SCORE_QUESTION = (
     "Which folder of this architecture office's shelf does this document belong in? Choose none when no folder fits."
 )
 SCORE_NONE = "No folder of this shelf fits the document."
-#: One option per folder plus "none" is the decision model's 255-option ceiling.
 MAX_SCORED_FOLDERS = 254
 MAX_OPTION = 300
 
@@ -203,9 +196,6 @@ class FilingTrace(BaseModel):
     batch_id: str = Field(..., min_length=1, max_length=64)
     project_id: str | None = Field(None, max_length=64)
     shelf: Annotated[Literal["project", "office_shelf"], BeforeValidator(_legacy_shelf)] = "project"
-    #: A mail's sender class (ADR-0137, amendment of 2026-11-03). ``verified_writer``: the
-    #: suggestion is filed by its sender's own filing, without a click, so no decision score
-    #: follows it. Metadata only; the model never reads it.
     sender_class: Literal["verified_writer", "unverified_writer", "office_member", "external"] | None = None
 
 
@@ -216,7 +206,6 @@ class MailContext(BaseModel):
 
     subject: str | None = Field(None, max_length=998, description="Masked by the office's content check.")
     sender_domain: str | None = Field(None, max_length=253)
-    #: The id the mail's own text is placed under, when it starts a new E-Mail-Verlauf; ``None`` otherwise.
     text_id: str | None = Field(None, min_length=1, max_length=64)
 
 
@@ -224,13 +213,11 @@ class FilingFitRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     basis: Literal["name", "content", "mail"]
-    #: ``sort``: a person sorting the shelf root, every document of the batch placed where it fits.
     purpose: Literal["upload", "sort"] = "upload"
     locale: str = Field("de", max_length=16)
     folders: list[FilingFolder] = Field(default_factory=list, max_length=MAX_FOLDERS)
     conventions: list[FilingConvention] = Field(default_factory=list, max_length=MAX_CONVENTIONS)
     documents: list[FilingDocument] = Field(..., max_length=MAX_DOCUMENTS)
-    #: The mail of ``basis: mail``, and only of it.
     mail: MailContext | None = None
     trace: FilingTrace
 
@@ -260,13 +247,9 @@ class FilingMove(BaseModel):
     id: str
     folder: str
     reason: str
-    #: The folder is a convention the shelf does not have yet: applying creates it.
     new: bool = False
-    #: The description a new folder is created with (the convention's).
     description: str | None = None
-    #: Jev's probability that this folder is the one (``purpose: sort`` only); ``None`` when not scored.
     confidence: float | None = None
-    #: The Dokumentart the model names (``basis: mail`` only), one of ``DOCUMENT_TYPE_TAGS``.
     type: str | None = None
 
 
@@ -290,8 +273,6 @@ def _without_empty(fields: dict[str, Any]) -> dict[str, Any]:
 def _mail_lines(mail: MailContext) -> list[str]:
     """The sections only a mail request has: the mail, the types to choose from, and the text to place."""
     lines = ["", "MAIL", json.dumps(_without_empty(mail.model_dump(exclude={"text_id"})), ensure_ascii=False)]
-    # Each type with what it covers, the classifier's own criteria: a bare list read a Nachweis or a
-    # Berechnung as „Sonstiges“, where the office's vocabulary files it as a Gutachten (D14's run of 20).
     types = {tag: DOCUMENT_TYPE_CRITERIA[tag] for tag in DOCUMENT_TYPE_TAGS}
     lines += ["", "TYPES", json.dumps(types, ensure_ascii=False)]
     if mail.text_id:
@@ -332,7 +313,6 @@ def parse_moves(data: dict[str, Any], request: FilingFitRequest) -> list[FilingM
         return None
     documents = {document.id: document for document in request.documents}
     if request.mail is not None and request.mail.text_id:
-        # The mail's text is in no folder yet, like its attachments.
         documents[request.mail.text_id] = FilingDocument(id=request.mail.text_id, file="-")
     existing = {_path_key(folder.path): folder.path for folder in request.folders}
     conventions = {_path_key(convention.path): convention for convention in request.conventions}
@@ -429,8 +409,6 @@ async def score_moves(
     candidates = _candidate_folders(request)
     if not moves or len(candidates) > MAX_SCORED_FOLDERS:
         return [None] * len(moves)
-    # No catch: `decide_many` already answers None for a call that failed, so
-    # anything raised here is a fault in this code and must be seen.
     keys = {path_key: f"f{index}" for index, path_key in enumerate(candidates)}
     options = {keys[path_key]: _option(path, description) for path_key, (path, description) in candidates.items()}
     options["none"] = SCORE_NONE
@@ -524,7 +502,6 @@ def add_filing_fit_routes(router: APIRouter) -> None:
         payload = _request_body(cred, request)
         headers = {"Content-Type": "application/json", "Authorization": f"Bearer {cred.api_key}"}
         metadata = _trace_metadata(request)
-        # The name basis runs while the person still looks at the upload, and so does a sort.
         limiter = provider_limiter.INTERACTIVE if sorting or request.basis == "name" else provider_limiter.BULK
         trace_id: str | None = None
         try:

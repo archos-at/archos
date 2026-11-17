@@ -35,7 +35,6 @@ export interface TopicRenameDialogProps {
   onRename: (to: string) => Promise<boolean>
 }
 
-// The caller alone picks the merge targets: never a restricted topic name the reader may not see.
 export function TopicRenameDialog({
   open,
   topic,

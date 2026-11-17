@@ -54,7 +54,6 @@ _INTERNAL_TOKEN_ENV = "INTERNAL_API_TOKEN"
 _PRESIGN_PATH = "/api/internal/document-text-upload-url"
 _HTTP_TIMEOUT_SECONDS = 15.0
 
-#: The two parts of the stored text, as the presign route names them.
 PAGES_PART = "pages.md"
 INDEX_PART = "index.json"
 
@@ -67,14 +66,11 @@ class Slot:
     document_id: str
     version: int | None
     content_hash: str | None
-    #: Where the part lives, for the ingest's read-back of its parsed document (``parsed_store``).
     storage_key: str | None = None
     storage_bucket: str | None = None
 
 
-#: ``(document_id, collection, part, organization_id) -> Slot``, or ``None`` when there is none.
 Presigner = Callable[[str, str, str, str | None], Slot | None]
-#: ``(upload_url, body, content_type)``; raises on any failure.
 Uploader = Callable[[str, bytes, str], None]
 
 
@@ -195,7 +191,6 @@ def request_slot(document_id: str, collection: str, part: str, organization_id: 
             storage_bucket=data.get("storageBucket") if isinstance(data.get("storageBucket"), str) else None,
         )
     except Exception as e:  # noqa: BLE001 - fail-open contract
-        # Class name only: an httpx error's text embeds the request URL.
         logger.warning("page_text_store: presign failed for document %s: %s", document_id, type(e).__name__)
         return None
 
@@ -249,7 +244,6 @@ def store_page_text(
         upload(index_slot.upload_url, json.dumps(index, ensure_ascii=False).encode("utf-8"), "application/json")
         return True
     except Exception as e:  # noqa: BLE001 - fail-open contract
-        # Class name only: a failed PUT's text renders the presigned URL, a live credential.
         logger.warning("page_text_store: storing the page text of %s failed (%s)", document_id, type(e).__name__)
         return False
 

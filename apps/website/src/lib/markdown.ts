@@ -1,9 +1,3 @@
-/**
- * Markdown from a CMS block's text field as HTML: CommonMark with GitHub's tables,
- * strikethrough and autolinks, through micromark. Raw HTML in the source is escaped, never
- * passed through (micromark's default), so an editor or an agent cannot put a script or a
- * style on the page; the Content-Security-Policy would refuse one anyway.
- */
 import { micromark } from 'micromark';
 import { gfm, gfmHtml } from 'micromark-extension-gfm';
 

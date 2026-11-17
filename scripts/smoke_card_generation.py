@@ -1,20 +1,3 @@
-"""Live smoke test for Grid card generation.
-
-Reconstructs the minimal real path the job runner takes to derive cards from
-a finished report (``agent_host.jobs.runner._generate_answer_cards`` →
-``agent.cards.generate``) without needing the full agent-runtime builder/graph:
-build the shared card-generation system prompt from ``agent.cards.prompt``,
-call the real OpenRouter chat/completions endpoint with the ``card_llm`` model
-configured in ``configs/config_oib_openrouter.yml``, and validate the response
-through the real ``agent.cards.models.validate_cards``.
-
-Run inside the backend Docker image so it has deps + the OPENROUTER_API_KEY:
-
-    docker run --rm --env-file deploy/.env \
-        -v "F:/GRID/grid-oib-agent/scripts:/smoke:ro" \
-        backend:local python /smoke/smoke_card_generation.py
-"""
-
 from __future__ import annotations
 
 import json
@@ -27,7 +10,6 @@ from agent.cards.generate import _parse_cards_text
 from agent.cards.models import validate_cards
 from agent.cards.prompt import build_card_generation_prompt
 
-# The `card_llm` model in configs/config_oib_openrouter.yml.
 MODEL_NAME = "openai/gpt-6-luna"
 BASE_URL = "https://openrouter.ai/api/v1"
 
@@ -99,8 +81,6 @@ def main() -> None:
     print("\n--- Raw LLM response (first 2000 chars) ---")
     print(raw_text[:2000])
 
-    # Use the real production parser so the smoke test mirrors the live path
-    # (object wrapper, bare array, or prose-wrapped JSON all handled).
     parsed = _parse_cards_text(raw_text)
     if parsed is None:
         print("\nFAIL: Could not parse any cards from the LLM output.")

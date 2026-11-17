@@ -13,11 +13,6 @@ import {
 } from "./former-domain";
 import { LEGACY_PROJECT, objectName } from "../names";
 
-/**
- * The domain move's redirect (`app/former-domain.ts`, docs/deployment/domain-cutover.md).
- * Off by default; set, the former apex and app host answer 301 to their new twins.
- */
-
 type Resource = { kind?: string; metadata: { name: string }; spec: Record<string, unknown> };
 const ROUTES: Resource[] = [];
 const POLICIES: Resource[] = [];
@@ -103,7 +98,6 @@ describe("agents on the former host", () => {
     });
     expect(formerMcpGatewayHost(moving, { ...gateway, enabled: false })).toBeUndefined();
     expect(formerMcpGatewayHost(hosts, gateway)).toBeUndefined();
-    // An overridden host off the stack's apex has no derivable twin.
     expect(formerMcpGatewayHost(moving, { enabled: true, domain: "mcp.elsewhere.org" })).toBeUndefined();
     expect(formerHostnames(moving, gateway)).toEqual([
       "old.example.org",

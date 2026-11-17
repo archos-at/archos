@@ -1,10 +1,3 @@
-/**
- * Where an office's standard can apply, as choices for the form („Gilt in“):
- * the office's countries and the subdivisions its setup records name, each
- * with its label. A country is data (ADR-0162), so the list comes from the
- * records and the office's entitlements, never from a table in code.
- */
-
 import 'server-only'
 import { readSetupRecords } from '@/lib/project-intake/setup-records'
 import { subdivisionLabels } from '@/lib/project-intake/setup-scope'

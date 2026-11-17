@@ -1,6 +1,5 @@
 import type { JSX, ReactNode } from 'react'
 
-/** One labelled block of the atoms preview. */
 export function Section({
   title,
   description,

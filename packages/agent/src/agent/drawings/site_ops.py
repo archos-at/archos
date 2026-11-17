@@ -28,7 +28,6 @@ from .site import Site
 
 OPERATIONS = ("overview", "parcels", "parcel", "setbacks", "buildable", "distance", "texts", "layers")
 
-#: Shared edges shorter than this are a corner, not a boundary between two parcels (metres).
 _EDGE_M = 0.5
 
 
@@ -208,7 +207,6 @@ def shared_edges(site: Site, parcel: Parcel) -> list[tuple[str, BaseGeometry]]:
     """Each neighbour and the boundary it shares with this parcel; ``""`` for the part with no neighbour in the file."""
     own = parcel.polygon.boundary
     edges: list[tuple[str, BaseGeometry]] = []
-    # By geometry, not by name alone: a neighbour's number may also name a parcel in another KG.
     for other in (other for other in site.parcels if other.number in parcel.neighbours and other is not parcel):
         if other.polygon is None:
             continue
@@ -349,8 +347,6 @@ def _inset(site: Site, parcel: Parcel, default_m: float, by_neighbour: dict[str,
     """The parcel minus a band along each boundary part, as wide as that part's setback (in drawing units)."""
     keyed = {site.label(found): value for name, value in by_neighbour.items() if (found := site.parcel(name))}
     unit = site.metres_per_unit or 1.0
-    # Round ends, not flat: the band is every point closer to that boundary part than its setback,
-    # which at a re-entrant corner is a quarter circle a flat band leaves out (buildable too large).
     bands = [
         edge.buffer(keyed.get(neighbour, default_m) / unit)
         for neighbour, edge in shared_edges(site, parcel)

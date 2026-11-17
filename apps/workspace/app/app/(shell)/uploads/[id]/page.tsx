@@ -1,15 +1,3 @@
-/**
- * One upload's summary, the hard-load arrival (ADR-0086). An inbox row's
- * soft navigation never reaches this page: `(shell)/@overlay/(.)uploads/[id]`
- * opens the same dialog above whatever page the reader was on. This page
- * serves a pasted or reloaded link, where the dialog stands alone and closing
- * it lands where the upload went.
- *
- * The session is required here so a signed-out reader is sent to sign in
- * rather than shown a summary that answers 401. Whose summary it is, the
- * endpoint decides (`getUploadSummary`, the uploader only).
- */
-
 import type { JSX } from 'react'
 import { type Metadata } from 'next'
 import { withPageSession } from '@/lib/auth/require-auth'

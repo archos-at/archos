@@ -15,23 +15,12 @@ from agent.common import turn_status
 logger = logging.getLogger(__name__)
 
 
-#: Slot for the budget-exhaustion record. Its own slot, so it never overwrites
-#: a retrieval line and its own step id keeps it apart.
 BUDGET_SLOT = "budget"
 
 
-#: Slot for the INPUT-TOKEN stop. Its own slot rather than :data:`BUDGET_SLOT`,
-#: for the reason ``budget:deep`` has one: two step records sharing a name
-#: collapse into one row, and these two answer different
-#: questions — "the investigation was cut off" against "the turn got
-#: expensive". Counting them together would make either unanswerable.
 INPUT_BUDGET_SLOT = "budget:input"
 
 
-#: Slot prefix for the family-coverage record. The family key is part of the
-#: STEP ID, like ``status:checkpoint:N`` and for the same reason: a turn that
-#: touched OIB-RL 2 and OIB-RL 4 must leave two countable records, and two steps
-#: sharing an id collapse into one row.
 COVERAGE_SLOT = "coverage"
 
 
@@ -58,10 +47,6 @@ def emit_family_coverage(*, family: str, listed: int, opened: int) -> None:
     turn_status.emit_technical(f"{COVERAGE_SLOT}:{family}", family=family, listed=listed, opened=opened)
 
 
-#: Slot prefix for the duplicate-fetch guard. The round is part of the STEP
-#: ID, like ``status:checkpoint:N`` and for the same reason: a turn that
-#: re-asked for the same passage in three separate rounds must leave three
-#: countable records, and two steps sharing an id collapse into one row.
 REPEAT_FETCH_SLOT = "repeat"
 
 
@@ -82,8 +67,6 @@ def emit_repeat_fetch(*, round_index: int, withheld: int) -> None:
     turn_status.emit_technical(f"{REPEAT_FETCH_SLOT}:{round_index}", round=round_index, withheld=withheld)
 
 
-#: Slot prefix for the switched-off-source refusal. Per round, like
-#: :data:`REPEAT_FETCH_SLOT` and for the same dedupe reason.
 REFUSED_SOURCE_SLOT = "refused"
 
 
@@ -105,10 +88,6 @@ def emit_refused_source(*, round_index: int, withheld: int) -> None:
     turn_status.emit_technical(f"{REFUSED_SOURCE_SLOT}:{round_index}", round=round_index, withheld=withheld)
 
 
-#: Slot prefix for the per-round WIDTH cap. Per round for the dedupe reason
-#: above, and its own slot rather than :data:`BUDGET_SLOT`: the two answer
-#: different questions — "the turn ran out of budget" against "one round asked
-#: for more calls at once than a round may run".
 WIDTH_CAP_SLOT = "width"
 
 
@@ -128,8 +107,6 @@ def emit_width_cap(*, round_index: int, kept: int, withheld: int) -> None:
     turn_status.emit_technical(f"{WIDTH_CAP_SLOT}:{round_index}", round=round_index, kept=kept, withheld=withheld)
 
 
-#: Slot prefix for the writes a steering note held back (``common/steering.py``).
-#: Per round, beside ``repeat``, ``refused`` and ``width``.
 STEERED_SLOT = "steered"
 
 
@@ -224,67 +201,36 @@ def emit_input_budget_exhausted(
     )
 
 
-#: Slot for the DEEP researcher's own budget record. Its own slot rather than
-#: :data:`BUDGET_SLOT` because a deep run is cut off by different things — a
-#: wall clock and a graph step limit, not a tool-call ceiling — and collapsing
-#: the two under one step id would drop one.
 DEEP_BUDGET_SLOT = "budget:deep"
 
 
-#: Why a deep run stopped early. Stable tokens, not prose: they are counted.
 CUTOFF_WALL_CLOCK = "wall_clock"
 
 
 CUTOFF_STEP_LIMIT = "step_limit"
 
 
-#: The per-run completion-token ceiling (``budget_guard.RunBudgetExceededError``)
-#: or a USD budget (``cost_tracking.BudgetExceededError``) aborted the run
-#: mid-batch. Salvaged like the clock/steps — the partial report still ships
-#: marked — but counted apart: a budget that fires is a sizing signal, not a
-#: slow run.
 CUTOFF_RUN_BUDGET = "run_budget"
 
 
-#: A timeout that came from BELOW — a provider or transport call that timed out
-#: and escaped the graph — rather than from this run's own budget. Salvaged the
-#: same way, counted separately: reporting a 30-second provider timeout as a
-#: 2400-second budget overrun makes "how often do runs exhaust their budget?"
-#: unanswerable, and that question is the reason the budget is tunable.
 CUTOFF_UPSTREAM_TIMEOUT = "upstream_timeout"
 
 
-#: The reader asked for the report to be written from what was there
-#: („Jetzt schreiben"). Salvaged like the others and marked, but it is the
-#: reader's choice, not a limit, and the banner says so.
 CUTOFF_USER_REQUESTED = "user_requested"
 
 
-#: Ways a finished deep answer is weaker than a clean one. Also stable tokens.
 DEGRADED_NO_REPORT_FILE = "no_report_file"
 
 
 DEGRADED_NO_VALID_CITATIONS = "no_valid_citations"
 
 
-#: One or more quoted spans could not be verified verbatim against any retrieved
-#: passage. The quotes still ship — annotated inline — but the answer no longer
-#: ships silently: without this token a salvaged report with fabricated quotes
-#: read exactly like a verified one.
 DEGRADED_UNVERIFIED_QUOTES = "unverified_quotes"
 
 
-#: The report is whole, but the proposals the job derives from it post-hoc
-#: (Grid cards) could not be produced. Job path only: the chat path emits its
-#: cards mid-turn as a tool step, so it has nothing to derive and nothing to
-#: fail silently. Without this token a run whose card model timed out looked
-#: exactly like a run whose report warranted no proposals.
 DEGRADED_CARDS_GENERATION_FAILED = "cards_generation_failed"
 
 
-#: A document the reader named as Grundlage was never reached: the run has no
-#: passage from it. The report names the document; the token is what the chip
-#: and the dashboard read.
 DEGRADED_BASIS_UNREAD = "basis_unread"
 
 
@@ -342,33 +288,18 @@ def emit_answer_degraded(*, agent: str, reasons: list[str]) -> None:
     turn_status.emit_technical("degraded", agent=agent, degraded=True, reasons=list(reasons))
 
 
-#: Slot for a verdict the envelope gate refused. Its own slot so it never
-#: overwrites another status line, and the step id it produces is
-#: ``status:verdict:dropped``.
 VERDICT_DROPPED_SLOT = "verdict:dropped"
 
 
-#: Why a verdict was refused. A stable token, not prose: it is counted.
-#: The Fundstelle the model named resolved to a document AGENT wrote — office
-#: knowledge the office approved, never a source for a normative value.
 VERDICT_DROP_AGENT_AUTHORED = "agent_authored_reference"
 
 
-#: The verdict named NO Fundstelle at all on a turn that retrieved something
-#: AGENT wrote. The agent-authored gate above can only judge a reference it
-#: was given, so without this token the cheapest way past it is to omit the
-#: reference — and an unattributed headline on such a turn is the same claim,
-#: with the evidence that would have failed it left out.
 VERDICT_DROP_UNREFERENCED_WITH_AGENT_SOURCE = "unreferenced_with_agent_source"
 
 
-#: Slot for a card the answer envelope carried that the validator refused.
 CARD_INVALID_SLOT = "card:invalid"
 
 
-#: What became of the refused card. Stable tokens: they are counted, and the
-#: rate of ``repaired`` against ``dropped`` is the number that says whether the
-#: shapes the envelope teaches up front (``ENVELOPE_SHAPE_TYPES``) are the right ones.
 CARD_INVALID_REPAIRED = "repaired"
 
 
@@ -393,12 +324,6 @@ def emit_card_invalid(*, card_type: str, index: int, outcome: str) -> None:
     turn_status.emit_technical(f"{CARD_INVALID_SLOT}:{index}", cardType=card_type, outcome=outcome)
 
 
-#: Slot for any other anatomy field the envelope gate refused (summary,
-#: topic, context, takeaways). Same channel and reasoning as the verdict
-#: slot: the reader keeps the prose, the operator needs the rate. A summary
-#: dropped for length is a standfirst the reader never sees, and how often
-#: the model overshoots the limit is what decides whether the limit or the
-#: prompt wording is wrong.
 ANATOMY_DROPPED_SLOT = "anatomy:dropped"
 
 

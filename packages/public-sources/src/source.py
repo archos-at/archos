@@ -43,11 +43,7 @@ from pydantic import ValidationInfo
 from pydantic import field_validator
 from pydantic import model_validator
 
-#: The license classes the licensed seam keys on (design 3.4, shared with S1/S2).
 Licence = Literal["public_open", "public_restricted", "licensed"]
-#: What may leave the cluster towards the source. ``public_only``: nothing about a
-#: tenant beyond the search terms the operation declares. ``site_keyed``: a site
-#: point too, which needs a privacy review and a register row (design 6.4).
 DataFlow = Literal["public_only", "site_keyed"]
 
 DEFAULT_SOURCES_DIR = "configs/sources"
@@ -68,7 +64,6 @@ def url_on_hosts(url: str, hosts: tuple[str, ...] | list[str]) -> bool:
     return parsed.scheme == "https" and (parsed.hostname or "") in hosts and not parsed.username and port in (None, 443)
 
 
-#: The validation context of a released record read without its fixtures (:func:`parse_released_source`).
 _RELEASED = "released"
 
 
@@ -85,9 +80,7 @@ class Terms(_Strict):
 
     url: str
     licence: Licence
-    #: The attribution the terms require, verbatim; empty when none is required.
     attribution: str = ""
-    #: The day a person last read the terms page. A monitor hashes that page too.
     checked: date
 
 
@@ -101,12 +94,8 @@ class Probe(_Strict):
 class Monitor(_Strict):
     """How a change at the source is noticed. Deterministic: no model call (design 4.2)."""
 
-    #: ``sha256`` compares the bytes, ``etag`` the validator the server states,
-    #: ``version`` the version label the engine reads (an ELI point in time, a
-    #: consolidation date). ``none`` for a source nobody watches yet.
     kind: Literal["none", "sha256", "etag", "version"] = "sha256"
     interval_hours: int = Field(default=24, ge=1, le=24 * 31)
-    #: What :mod:`public_sources.monitor` fetches; a source without one is not watched (ADR-0174).
     probe: Probe | None = None
 
 
@@ -135,7 +124,6 @@ class InlineResponse(_Strict):
         return base64.b64decode(self.text) if self.encoding == "base64" else self.text.encode("utf-8")
 
 
-#: The most text a recording carries: what a citation capture keeps (``public_sources.pdf.MAX_TEXT_CHARS``).
 MAX_RECORDING_CHARS = 2_000_000
 
 
@@ -150,9 +138,7 @@ class CapturedResponse(_Strict):
     fixture awaits its recording and is not run (:mod:`public_sources.fixtures`).
     """
 
-    #: The capture's id; ``None`` while it is not taken (a draft is proposed first, so its hosts can be fetched).
     capture_id: str | None = Field(pattern=r"^[0-9a-fA-F-]{36}$")
-    #: The capture's content type and text, handed over for a check; never kept in a record.
     content_type: str = ""
     text: str | None = Field(default=None, max_length=MAX_RECORDING_CHARS)
 
@@ -161,7 +147,6 @@ class CapturedResponse(_Strict):
         return self.capture_id is not None and self.text is not None
 
 
-#: Headers a key may never be sent under (held again by the BFF's ``REFUSED_CREDENTIAL_HEADERS``).
 REFUSED_CREDENTIAL_HEADERS = frozenset(
     {
         "host",
@@ -197,7 +182,6 @@ class Credential(_Strict):
     """
 
     header: str = Field(pattern=r"^[A-Za-z][A-Za-z0-9-]{1,40}$")
-    #: Written before the key, e.g. ``Bearer `` (with its space); empty for a bare key.
     prefix: str = Field(default="", max_length=20)
 
     @field_validator("header")
@@ -222,19 +206,13 @@ class Fixture(_Strict):
     name: str
     operation: str
     args: dict[str, str] = Field(default_factory=dict)
-    #: A file under ``fixtures/`` (a repository record); the response itself, or the capture the
-    #: platform took of it (a database record).
     responses: dict[str, str | InlineResponse | CapturedResponse]
-    #: What the engine's result must show: ``kind`` (``search`` or ``document``),
-    #: ``title``, ``min_hits``/``min_passages``, ``anchors`` (present, in order),
-    #: ``contains`` (substrings of the text), ``version``.
     expect: dict[str, Any]
 
 
 class AddressIdentifier(_Strict):
     """Where an address at this source states one of a work's identifiers."""
 
-    #: The query parameter that carries it, matched without regard to case.
     query: str = Field(min_length=1, max_length=80)
 
 
@@ -243,33 +221,19 @@ class Source(_Strict):
 
     id: str
     title: str
-    #: ISO 3166-1 alpha-2, or an ISO 3166-2 subdivision (``DE-BY``).
     territory: str
     protocol: str
     format: str
-    #: Every host the source may reach, exact DNS names. A redirect off this
-    #: list is refused at every hop, and the fetcher refuses it again.
     hosts: tuple[str, ...]
-    #: Hosts that republish this source's texts (a law mirror, an aggregator), exact DNS names, never
-    #: reached by a fetch. A web hit on one is a copy of what this source holds: it is not handed on as
-    #: a source where this source can be read, and labelled as a copy where it cannot
-    #: (``agent.common.web_sources``). A subdomain of a listed host counts as that host.
     copy_hosts: tuple[str, ...] = ()
     data_flow: DataFlow = "public_only"
-    #: How a work's identifier is read from the address of a passage at this source, by the scheme the
-    #: knowledge records name it under (a work's ``identifiers``). A citation finds its work by it; a scheme
-    #: no source lists is matched nowhere.
     identifiers: dict[str, AddressIdentifier] = Field(default_factory=dict)
     terms: Terms
     monitor: Monitor = Monitor()
-    #: The protocol's configuration, validated by that access type's model.
     access: dict[str, Any]
-    #: The format engine's configuration, validated by that engine's model.
     engine: dict[str, Any] = Field(default_factory=dict)
     fixtures: tuple[Fixture, ...]
-    #: Where a keyed source takes its key; ``None`` for an open one.
     credential: Credential | None = None
-    #: How a law lookup reads this source (:mod:`public_sources.lookup`); ``None`` for a source no lookup reads.
     lookup: Lookup | None = None
 
     _directory: Path | None = PrivateAttr(default=None)
@@ -346,8 +310,6 @@ class Source(_Strict):
         for field, table in named.items():
             if table and table not in tables:
                 raise ValueError(f"{field} {table!r} is not a table of the access")
-
-    # -- reading ----------------------------------------------------------
 
     @property
     def directory(self) -> Path:
@@ -475,7 +437,6 @@ def load_sources(path: str | os.PathLike[str] | None = None) -> dict[str, Source
         except SourceError as exc:
             raise SourceError(f"{file}: {exc}") from exc
         if any(not isinstance(r, str) for fixture in source.fixtures for r in fixture.responses.values()):
-            # A capture belongs to a change request, and a file is what a reviewer of the repository reads.
             raise SourceError(f"{file}: a repository record's fixtures name files under fixtures/")
         if source.id in sources:
             raise SourceError(f"{file}: source id {source.id!r} is used twice")

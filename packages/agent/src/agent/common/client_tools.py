@@ -20,7 +20,6 @@ from contextvars import ContextVar
 from dataclasses import dataclass
 from dataclasses import field
 
-#: The frontend tools this server knows. A name the page sends that is not here is ignored.
 KNOWN_CLIENT_TOOLS: frozenset[str] = frozenset({"show_in_viewer"})
 
 

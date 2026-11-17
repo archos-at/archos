@@ -1,17 +1,3 @@
-/**
- * The findings of a report (`metadata.findings`), made durable and bounded.
- *
- * One Befund per requirement the report read against the project: what it
- * requires, the copyable value, whether it is met, how it stands on its
- * evidence, where it is written and which `[N]` carries it. The backend
- * extracts the list off the finished report (`agents/deep_researcher/anatomy.py`)
- * under the contract in `common/findings.py`; the shared fixture
- * `tests/fixtures/findings/wire_payload.json` pins the two sides to one shape.
- *
- * Sanitized on write and again on read, like `answerMeta`: this lands in
- * message jsonb and is rendered as a table.
- */
-
 export const FINDINGS_VERSION = 1
 
 export const FINDING_STATUSES = ['met', 'not_met', 'open', 'not_applicable'] as const
@@ -20,12 +6,6 @@ export type FindingStatus = (typeof FINDING_STATUSES)[number]
 export const FINDING_GROUNDINGS = ['sourced', 'derived', 'open'] as const
 export type FindingGrounding = (typeof FINDING_GROUNDINGS)[number]
 
-/**
- * The spellings messages carried before the English names. Rows stored by an
- * older build (and written by a pod that has not rolled yet) still hold them;
- * the migration rewrites the table once, this keeps the rows in flight
- * readable. Read-only: nothing writes these.
- */
 export const LEGACY_FINDING_STATUS: Readonly<Record<string, FindingStatus>> = {
   erfuellt: 'met',
   nicht_erfuellt: 'not_met',
@@ -56,11 +36,6 @@ export interface FindingReference {
 export interface Finding {
   requirement: string
   value?: string
-  /**
-   * The verdict, when the report judged the requirement. Absent for a row a
-   * Vergleich or an Aktenvermerk states without judging it — the matrix is
-   * then a list of Ergebnisse, not of Befunde.
-   */
   status?: FindingStatus
   grounding: FindingGrounding
   reference?: FindingReference
@@ -106,8 +81,6 @@ const sanitizeFinding = (value: unknown): Finding | null => {
   const status = oneOf(legacy(value.status, LEGACY_FINDING_STATUS), FINDING_STATUSES)
   const grounding = oneOf(legacy(value.grounding, LEGACY_FINDING_GROUNDING), FINDING_GROUNDINGS)
   if (!requirement || !grounding) return null
-  // A status the contract does not know is dropped as a whole row: a wrong
-  // verdict is worse than none. An ABSENT status is a row without one.
   if (value.status !== undefined && value.status !== null && !status) return null
   const citations = Array.isArray(value.citations)
     ? value.citations
@@ -127,7 +100,6 @@ const sanitizeFinding = (value: unknown): Finding | null => {
   return out
 }
 
-/** Reduce an untrusted findings payload to the contract, or null when nothing survives. */
 export function sanitizeFindings(input: unknown): Findings | null {
   if (!isRecord(input) || !Array.isArray(input.items)) return null
   const items = input.items
@@ -139,8 +111,6 @@ export function sanitizeFindings(input: unknown): Findings | null {
   return { v, items }
 }
 
-/** How many findings carry each status, for the matrix's summary line. */
-/** Whether any row carries a verdict: the matrix is Befunde then, Ergebnisse otherwise. */
 export const hasFindingStatuses = (findings: Findings): boolean =>
   findings.items.some((item) => item.status !== undefined)
 

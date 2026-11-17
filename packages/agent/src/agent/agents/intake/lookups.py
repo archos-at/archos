@@ -30,20 +30,17 @@ from pydantic import Field
 from agent.project_context import get_project_id_from_context
 from agent.tools.workspace.register import read_operation
 
-#: Tool name → the catalog operation it runs through the door.
 INTAKE_LOOKUPS: dict[str, str] = {
     "site_resolve": "site-resolve",
     "project_base_get": "project-base-get",
     "classification_evaluate": "classification-evaluate",
 }
 
-#: Lookups the agent holds as native tools: tool name → the operation the door offers outside agents instead.
 NATIVE_LOOKUPS: dict[str, str] = {
     "knowledge_search": "knowledge-search",
     "law_lookup": "law-lookup",
 }
 
-#: Longest result handed back to the model; a lookup's answer is a few records.
 MAX_RESULT_CHARS = 12_000
 
 

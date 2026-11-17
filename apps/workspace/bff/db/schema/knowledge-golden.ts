@@ -1,13 +1,3 @@
-/**
- * Golden cases as platform records, and the runs that score them (migration
- * 0228, ADR-0165 amendment): a case's body, one run of a country's cases, and
- * one case of a run with its verdict.
- *
- * All three are platform-private. The body is append-only like every revision
- * body; the SQL holds the invariants (a case is asked before it is settled, a
- * settled case has a verdict or a failure, one case per conversation).
- */
-
 import { bigint, boolean, integer, jsonb, pgTable, primaryKey, text, timestamp, uuid } from 'drizzle-orm/pg-core'
 import type { GoldenCaseContext, GoldenCaseExpected, GoldenCaseMustNot, GoldenCaseResult } from '@/lib/base-knowledge/wire/golden-case'
 

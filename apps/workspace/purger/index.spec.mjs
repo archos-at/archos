@@ -25,7 +25,6 @@ function reachable() {
 }
 
 function purgerOver(sql, streak) {
-  // The deps are never reached: no row is ever claimed.
   return createPurger({ sql, deps: /** @type {never} */ ({}), streak })
 }
 
@@ -111,9 +110,6 @@ function queueWithOneFolder() {
 
 describe('a purge and its record are one transaction', () => {
   it('marks the row purged in the transaction the purge ran in, not in one after it', async () => {
-    // As a write of its own it could fail alone after the purge committed. On
-    // the last attempt the row of an erased folder then went `failed`: from
-    // the catch that records a failed purge, or from the reap 15 minutes on.
     spies()
     const { sql, statements } = queueWithOneFolder()
     const deps = {

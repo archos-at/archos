@@ -23,7 +23,6 @@ from ris_adapter.lookup.trace import LookupTrace
 
 logger = logging.getLogger(__name__)
 
-#: Documents downloaded per call.
 MAX_FETCHES = 2
 
 

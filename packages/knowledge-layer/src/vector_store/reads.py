@@ -45,9 +45,6 @@ from .store import get_store
 
 logger = logging.getLogger(__name__)
 
-#: How many chunks a fetch reads when it must read a whole set (or a whole tie
-#: group) to order it. A guard, not a budget: one document's chunks, or one
-#: page's, stay far below it.
 WHOLE_SET_CAP = 4096
 
 
@@ -125,7 +122,6 @@ def _document_key(hit: Hit) -> DocumentPosition:
     return document_position(hit.payload, hit.chunk_id)
 
 
-#: The office condition a read carries (``reading_office.office_read``): empty for the corpus.
 Office = Sequence[models.Filter]
 
 

@@ -1,18 +1,5 @@
 'use client'
 
-/**
- * Platform → maintenance: the base corpus's indexing, across every country.
- *
- * A text enters the corpus only inside a change request of its country
- * (Platform → Länder), so nothing here adds or deletes one. What is left is the
- * upkeep that has no country: is each file indexed (four numbers, then the
- * table with its state, its country and its request), and the two actions that
- * redo the indexing, Sync and Re-index. Both cost money (every page goes
- * through OCR, VLM captioning and embedding again), so both ask first and say
- * what they cover. A row's detail sheet keeps the title and Dokumentart edits.
- * Read-only platform staff see the corpus and none of the write controls.
- */
-
 import { SortableHead } from '@/components/ui/sortable-head'
 import { Fragment, type JSX } from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -78,7 +65,6 @@ import type {
   KnowledgeFileState,
 } from '@/lib/knowledge/service'
 
-/** Sorting a status column alphabetically is useless; sort it by urgency. */
 const STATE_ORDER: KnowledgeFileState[] = [
   'failed',
   'inconsistent',
@@ -88,21 +74,18 @@ const STATE_ORDER: KnowledgeFileState[] = [
   'removed',
 ]
 
-/** States that need the owner to act: re-index, or remove. */
 const ATTENTION_STATES: ReadonlySet<KnowledgeFileState> = new Set([
   'failed',
   'inconsistent',
   'stale',
   'removed',
 ])
-/** States a re-index can fix. A removed file has no source left to re-read. */
 const REINGESTABLE_STATES: ReadonlySet<KnowledgeFileState> = new Set([
   'failed',
   'inconsistent',
   'stale',
 ])
 
-/** How many names a confirm dialog lists before it says "and N more". */
 const CONFIRM_LIST_MAX = 5
 
 const PAGE_SIZE = 10
@@ -121,8 +104,6 @@ export function BaseKnowledge(): JSX.Element {
   const placement = useCorpusPlacement() // which country, edition and change request each file belongs to
 
   const [status, setStatus] = useState<KnowledgeBaseStatus | null>(null)
-  // Set only when there is nothing on screen to keep; a failed REFRESH keeps
-  // the last good list and says so in a toast.
   const [hasError, setHasError] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
 
@@ -137,15 +118,11 @@ export function BaseKnowledge(): JSX.Element {
   const [isSyncing, setIsSyncing] = useState(false)
   const [syncConfirmOpen, setSyncConfirmOpen] = useState(false)
   const [isReingesting, setIsReingesting] = useState(false)
-  // The confirm dialog holds a SNAPSHOT of its targets, taken when it opens,
-  // so a poll that changes the list does not change what it asks about.
   const [pendingReingest, setPendingReingest] = useState<string[]>([])
 
-  // Optimistic edits, applied over the fetched status until a refetch confirms them.
   const [docClassOverrides, setDocClassOverrides] = useState<Record<string, DocClass>>({})
   const [displayTitleOverrides, setDisplayTitleOverrides] = useState<Record<string, string>>({})
 
-  // The NAME, not the row, so an edit or a poll shows in the open sheet.
   const [detailName, setDetailName] = useState<string | null>(null)
   const [viewerFile, setViewerFile] = useState<string | null>(null)
 
@@ -162,7 +139,6 @@ export function BaseKnowledge(): JSX.Element {
     hasDataRef.current = true
     setStatus(next)
     setHasError(false)
-    // Drop any optimistic override the backend now agrees with.
     setDocClassOverrides((prev) => {
       if (Object.keys(prev).length === 0) return prev
       const byName = new Map(next.files.map((f) => [f.fileName, f]))
@@ -175,8 +151,6 @@ export function BaseKnowledge(): JSX.Element {
   }, [])
 
   const load = useCallback(async (): Promise<void> => {
-    // Only the newest request may write: a slow answer to an earlier load must
-    // not overwrite a later one.
     const seq = ++loadSeqRef.current
     setIsRefreshing(true)
     try {
@@ -195,7 +169,6 @@ export function BaseKnowledge(): JSX.Element {
     void load()
   }, [load])
 
-  // An answer arriving after unmount is dropped.
   useEffect(
     () => () => {
       loadSeqRef.current += 1
@@ -203,7 +176,6 @@ export function BaseKnowledge(): JSX.Element {
     []
   )
 
-  // Files with any optimistic doc_class / display-title edit applied.
   const files = useMemo<KnowledgeFile[]>(() => {
     const all = status?.files ?? []
     if (
@@ -215,7 +187,6 @@ export function BaseKnowledge(): JSX.Element {
     return all.map((f) => {
       let next = f
       if (docClassOverrides[f.fileName]) next = { ...next, docClass: docClassOverrides[f.fileName] }
-      // An empty override means "cleared": the reload brings the derived default.
       if (f.fileName in displayTitleOverrides) {
         next = { ...next, displayTitle: displayTitleOverrides[f.fileName] || null }
       }
@@ -226,8 +197,6 @@ export function BaseKnowledge(): JSX.Element {
   const ingest = useIngestWatch(fetchStatus, applyStatus, files)
 
   const handleSync = useCallback(() => {
-    // A full sync can take minutes, so the dialog closes and the toolbar
-    // carries the running state instead of a locked modal.
     setSyncConfirmOpen(false)
     setIsSyncing(true)
     fetch('/api/platform/knowledge/sync', { method: 'POST' })
@@ -245,12 +214,6 @@ export function BaseKnowledge(): JSX.Element {
       })
   }, [load, t])
 
-  /**
-   * Rebuild the chunks of the confirmed documents. Distinct from Sync, which
-   * gates on each PDF's sha256 and does nothing for an unchanged file; this is
-   * the remedy after a change to how chunks are BUILT. The backend queues and
-   * returns; each document reads `pending` until its chunks exist again.
-   */
   const handleReingest = useCallback(() => {
     const names = [...pendingReingest]
     setPendingReingest([])
@@ -266,7 +229,6 @@ export function BaseKnowledge(): JSX.Element {
         const body = (await r.json()) as { queued?: unknown }
         const queued = Array.isArray(body.queued) ? body.queued.map(String) : []
         if (queued.length === 0) {
-          // Nothing started: the selection stays, the admin may want to retry.
           toast.error(t('knowledgeAdmin.bulkReingestNothing'))
           return
         }
@@ -281,7 +243,6 @@ export function BaseKnowledge(): JSX.Element {
       })
   }, [ingest, load, pendingReingest, t])
 
-  /** PATCH one document's Dokumentart, optimistically, reverting on failure. */
   const patchDocClass = useCallback(
     async (fileName: string, nextClass: DocClass): Promise<boolean> => {
       setDocClassOverrides((prev) => ({ ...prev, [fileName]: nextClass }))
@@ -360,7 +321,6 @@ export function BaseKnowledge(): JSX.Element {
           delete next[file.fileName]
           return next
         })
-      // Optimistic; an empty draft clears the override so the default returns.
       setDisplayTitleOverrides((prev) => ({ ...prev, [file.fileName]: nextTitle }))
       fetch(
         `/api/platform/knowledge/documents/${encodeURIComponent(file.fileName)}/display-title`,
@@ -387,7 +347,6 @@ export function BaseKnowledge(): JSX.Element {
   const byName = useMemo(() => new Map(files.map((f) => [f.fileName, f])), [files])
   const detailFile = detailName ? (byName.get(detailName) ?? null) : null
 
-  // The Dokumentart filter offers the classes actually present, with counts.
   const presentClasses = useMemo(() => {
     const counts = new Map<DocClass, number>()
     for (const f of files) {
@@ -425,7 +384,6 @@ export function BaseKnowledge(): JSX.Element {
       switch (sortKey) {
         case 'document':
           return (f.displayTitle ?? f.fileName).toLowerCase()
-        // Canonical DOC_CLASSES order puts the binding OIB classes first.
         case 'class':
           return DOC_CLASSES.indexOf(resolveDocClass(f.docClass))
         case 'state':
@@ -435,7 +393,6 @@ export function BaseKnowledge(): JSX.Element {
       }
     }
     return [...matched].sort((a, b) => {
-      // By country first: a file is the text of one country's record, and the table says which.
       const group = placement.compare(a.fileName, b.fileName)
       if (group !== 0) return group
       const left = rank(a)
@@ -446,7 +403,6 @@ export function BaseKnowledge(): JSX.Element {
     })
   }, [files, query, typeFilter, stateFilter, sortKey, sortDir, placement])
 
-  // A filter change can strand the viewport past the end of the result set.
   const safeOffset = offset >= filtered.length ? 0 : offset
   const page = filtered.slice(safeOffset, safeOffset + PAGE_SIZE)
   const allOnPageSelected = page.length > 0 && page.every((f) => selected.includes(f.fileName))
@@ -474,7 +430,6 @@ export function BaseKnowledge(): JSX.Element {
 
   const isBusy = isSyncing
   const hasDocuments = files.length > 0
-  // The empty state must not swallow in-flight indexing progress.
   const showEmpty =
     !hasDocuments &&
     ingest.items.length === 0 &&
@@ -696,7 +651,6 @@ export function BaseKnowledge(): JSX.Element {
                       {canManage ? (
                         <TableHead className="w-10">
                           <Checkbox
-                            // A partial page selection reads as indeterminate, not as nothing.
                             checked={
                               allOnPageSelected
                                 ? true
@@ -827,7 +781,6 @@ export function BaseKnowledge(): JSX.Element {
         onRename={handleRename}
         onReclassify={handleReclassify}
         onView={(file) => {
-          // Close the sheet first: stacking two modal focus traps strands keyboard users.
           setDetailName(null)
           setViewerFile(file.fileName)
         }}
@@ -881,12 +834,6 @@ export function BaseKnowledge(): JSX.Element {
   )
 }
 
-/**
- * The four numbers that answer "is the base corpus healthy?". Skeletons of the
- * same box on the first load; nothing when the load failed (the card below
- * carries the error and the retry).
- */
-/** The targets of a bulk confirm, by name, capped with "and N more". */
 function NameList({ names }: { names: readonly string[] }): JSX.Element {
   const t = useTranslations(platformCopy)
   const shown = names.slice(0, CONFIRM_LIST_MAX)
@@ -905,7 +852,6 @@ function NameList({ names }: { names: readonly string[] }): JSX.Element {
   )
 }
 
-/** What a confirmed action costs, stated before the click. */
 function CostNote({ children }: { children: string }): JSX.Element {
   return (
     <Alert variant="warning">

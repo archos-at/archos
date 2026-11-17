@@ -44,11 +44,9 @@ from agent.project_context import get_organization_id_from_context
 
 logger = logging.getLogger(__name__)
 
-#: The generation's name in Langfuse.
 TRACE_NAME = "look-reading"
 PROMPT_VERSION = 1
 
-#: Put to a model that takes no images when the caller asked nothing in particular.
 DEFAULT_QUESTION = "What does this region show: labels, dimensions, symbols, counts?"
 
 MAX_READINGS = 8
@@ -238,7 +236,6 @@ async def read_region(jpeg: bytes, question: str, *, region: bool = False) -> Re
     return reading
 
 
-#: The kinds whose lines carry a value a sentence repeats; a label with a digit in it is a code („EP-01", „1:50").
 VALUE_KINDS = ("dimension", "count", "date")
 MAX_CARD_VALUE_LINES = 2
 

@@ -30,9 +30,6 @@ from fastapi import Request
 from pydantic import BaseModel
 from pydantic import Field
 
-# The internal-token guard is shared with the skills submit route. Re-exported
-# here so existing imports (and tests) of these names from routes.maintenance
-# keep working while a single implementation lives in one place.
 from .internal_auth import _DEV_APP_ENVS  # noqa: F401 - re-export for backwards compatibility
 from .internal_auth import _DEV_DEFAULT_TOKEN  # noqa: F401 - re-export for backwards compatibility
 from .internal_auth import _require_internal_token
@@ -61,9 +58,6 @@ async def _purge_jobs(collection_name: str) -> int:
     dsn = _jobs_dsn()
     if dsn is None:
         return 0
-    # Escape LIKE metacharacters so a caller cannot pass e.g. "%" (or a name
-    # containing "_") and match — and delete — job rows across every project /
-    # org. ESCAPE '\' pairs with the escaped pattern below.
     escaped = collection_name.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
     pattern = f"%{escaped}%"
     async with await psycopg.AsyncConnection.connect(dsn) as conn:
@@ -108,10 +102,6 @@ class ReconcileSummariesRequest(BaseModel):
     dry_run: bool = Field(default=False, description="Report the orphans without forgetting them.")
 
 
-# Same two divergences ``delete_file`` normalises away before it compares a
-# stored chunk name with a requested one: the temp-upload prefix and
-# percent-encoding. A summary row and its chunks were written by the same
-# ingest, but not always under the same spelling.
 _TMP_PREFIX = re.compile(r"^tmp.{8}_")
 
 
@@ -139,15 +129,8 @@ def _reconcile_one_collection(
         return []
 
     files = ingestor.list_files(collection)
-    # ``list_files`` answers ``[]`` for a collection it could not reach as
-    # well as for an empty one. The store reported chunks a moment ago, so an
-    # empty listing here is a failed read, not an empty collection — and
-    # a failed read must not forget every summary the collection has.
     if not files:
         raise RuntimeError("file listing came back empty for a collection that holds chunks")
-    # ANY tracked status keeps a summary: a file that failed or is still
-    # ingesting has no chunks yet and is not an orphan. Neither is a file
-    # whose ingest is still running.
     held = {_normalized_name(f.file_name) for f in files}
     for name in in_flight_files([collection]).get(collection, []):
         held.add(_normalized_name(name))
@@ -181,15 +164,11 @@ async def reconcile_orphaned_summaries(collections: list[str] | None, *, dry_run
     if ingestor is None:
         raise HTTPException(status_code=503, detail="No active ingestor; summaries cannot be reconciled")
     try:
-        # Store reads are synchronous; keep them off the event loop so a long
-        # sweep does not stall every other request the API is serving.
         live_chunk_counts = {info.name: info.chunk_count for info in await asyncio.to_thread(ingestor.list_collections)}
     except Exception as exc:
         logger.warning("reconcile-summaries: could not list vector-store collections: %s", exc)
         raise HTTPException(status_code=503, detail="Vector store unavailable; nothing reconciled") from exc
     if not any(count > 0 for count in live_chunk_counts.values()):
-        # An empty store is a fresh or not yet imported one far more often than
-        # an office that deleted everything; refusing costs nothing either way.
         logger.warning("reconcile-summaries: the vector store holds no point; nothing reconciled")
         raise HTTPException(status_code=503, detail="Vector store holds no point; nothing reconciled")
 
@@ -235,9 +214,6 @@ async def reconcile_orphaned_summaries(collections: list[str] | None, *, dry_run
     }
 
 
-#: Collections one ``refresh-document-facts`` call may name. The BFF's sweep
-#: sends its live collections in batches no larger, so one call stays well
-#: inside its timeout.
 REFRESH_FACTS_MAX_COLLECTIONS = 100
 
 
@@ -268,7 +244,6 @@ async def refresh_document_facts(collections: list[str]) -> dict[str, Any]:
     failures: list[dict[str, str]] = []
     for collection in targets:
         try:
-            # Store reads and writes are synchronous; keep them off the event loop.
             files_refreshed += await asyncio.to_thread(writes.copy_facts, collection)
         except Exception as exc:
             logger.warning("refresh-document-facts: %s failed: %s", collection, exc)
@@ -326,10 +301,6 @@ def add_maintenance_routes(router: APIRouter) -> None:
         _require_internal_token(request)
 
         collection_deleted = False
-        # Unambiguous outcome for the caller: "deleted" (removed now),
-        # "not_found" (already gone — idempotent success) or "failed" (existed
-        # but delete_collection returned falsy). The purger must retry on
-        # "failed" rather than orphan the collection.
         collection_status = "not_found"
         jobs_deleted = 0
 
@@ -341,9 +312,6 @@ def add_maintenance_routes(router: APIRouter) -> None:
             try:
                 exists = ingestor is not None and await asyncio.to_thread(ingestor.get_collection, body.collection_name)
             except Exception as e:
-                # The store cannot say whether the collection exists. Answering
-                # "not_found" here would tell the purger the project is gone while
-                # its vectors stay behind; a 503 makes it retry the whole purge.
                 logger.warning(
                     "Purge of '%s' could not reach the vector store: %s", body.collection_name, type(e).__name__
                 )
@@ -351,8 +319,6 @@ def add_maintenance_routes(router: APIRouter) -> None:
             if exists:
                 collection_deleted = await asyncio.to_thread(ingestor.delete_collection, body.collection_name)
                 collection_status = "deleted" if collection_deleted else "failed"
-            # delete_collection clears summaries too, but run it explicitly so a
-            # previously half-failed purge (collection gone, summaries left) heals.
             await asyncio.to_thread(clear_collection_summaries, body.collection_name)
             jobs_deleted = await _purge_jobs(body.collection_name)
 

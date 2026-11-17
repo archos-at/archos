@@ -1,41 +1,14 @@
 import * as k8s from "@pulumi/kubernetes";
 import { PolicyPack, ReportViolation, validateResourceOfType } from "@pulumi/policy";
 
-/**
- * CrossGuard guardrails for the Grid OIB stack.
- *
- * These run as part of `pulumi preview` / `pulumi up` in CI
- * (`--policy-pack ./policy`), so a change that would ship an unsafe rollout
- * fails the deploy at plan time — before anything touches the cluster.
- *
- * The point is not to re-state what the program already does. It is that the
- * program's rollout settings are easy to drop: a new workload written by
- * copy-pasting an old one, a "temporary" strategy tweak, an upstream chart
- * bump. Every rule below encodes a failure this stack has a concrete reason to
- * fear, and points at where the reasoning lives.
- *
- * `mandatory` blocks the deploy; `advisory` prints a warning and continues.
- * Promote an advisory rule once the stack satisfies it everywhere.
- */
-
 type PodSpec = k8s.types.output.core.v1.PodSpec;
 type Container = k8s.types.output.core.v1.Container;
 
-/**
- * The slice of a Deployment/StatefulSet the pod-level rules care about. Both
- * kinds share it, but their generated arg types are nominally distinct, so the
- * shared rules run against this structural view.
- */
 interface WorkloadProps {
   metadata?: { name?: string };
   spec?: { template?: { spec?: PodSpec } };
 }
 
-/**
- * Register one pod-level check against BOTH workload kinds we author directly.
- * (Helm-rendered charts — cert-manager, Envoy Gateway, CNPG — arrive as a
- * single opaque `Release` resource and are out of scope here by construction.)
- */
 function forEachWorkload(check: (workload: WorkloadProps, report: ReportViolation) => void) {
   return [
     validateResourceOfType(k8s.apps.v1.Deployment, (props, _args, report) =>
@@ -55,30 +28,14 @@ function containersOf(pod: PodSpec | undefined): Container[] {
   return [...(pod.containers ?? []), ...(pod.initContainers ?? [])];
 }
 
-/**
- * StatefulSets that have carried `podManagementPolicy` since they were created,
- * with the value they were created with. Writing the field is only a replace
- * when it CHANGES an existing object, so a StatefulSet born with it and never
- * changed is safe. Qdrant needs `Parallel`: under `OrderedReady` the second
- * peer waits on the first one's readiness while the first waits on a quorum
- * (deploy/pulumi/src/data/qdrant.ts). Add an entry only for a StatefulSet that
- * does not exist yet anywhere, in the same change that creates it.
- */
 const CREATED_WITH_POD_MANAGEMENT_POLICY: Record<string, string> = { qdrant: "Parallel" };
 
-/**
- * Deployments a vendor's release manifest creates, referenced by URL rather than
- * copied into the repo, so their soak is upstream's to set. Each is exempt from
- * the soak in `deployment-rollout-gated`, with the reason that is safe. Keep it to
- * controllers no request is served by; index-policy.spec.ts holds the list.
- */
 const UPSTREAM_SOAK_EXEMPT: Record<string, string> = {
   "rabbitmq-cluster-operator":
     "Reconciles RabbitmqCluster objects and serves nothing (deploy/pulumi/src/platform/rabbitmq.ts); " +
     "the brokers keep serving while it restarts.",
 };
 
-/** An image reference is immutable if it is digest-pinned or version-tagged. */
 function isImmutableRef(image: string): boolean {
   if (image.includes("@sha256:")) return true;
   const tag = image.split("/").pop()?.split(":")[1];
@@ -124,7 +81,6 @@ export default new PolicyPack("grid-oib-guardrails", {
           const spec = deployment.spec;
           if (!spec) return;
           const name = deployment.metadata?.name ?? "<unnamed>";
-          // `replicas` is unset on HPA-owned workloads; those are multi-replica.
           const replicas = spec.replicas ?? 2;
           const type = spec.strategy?.type ?? "RollingUpdate";
 
@@ -140,9 +96,6 @@ export default new PolicyPack("grid-oib-guardrails", {
           }
 
           const maxUnavailable = spec.strategy?.rollingUpdate?.maxUnavailable;
-          // Kubernetes defaults maxUnavailable to 25% when unset — a silent
-          // capacity dip, which is exactly what this rule exists to catch. It
-          // rounds down, so at one replica the default is 0 and the pod surges.
           if (replicas === 1 && maxUnavailable === undefined) return;
           if (maxUnavailable === undefined || String(maxUnavailable) !== "0") {
             report(

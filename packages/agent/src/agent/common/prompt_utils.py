@@ -42,7 +42,6 @@ def load_prompt(path: Path, name: str) -> str:
     Raises:
         PromptError: If the prompt file cannot be found.
     """
-    # Try exact name first, then with .j2 extension
     prompt_path = path / name
     if not prompt_path.exists() and not name.endswith(".j2"):
         prompt_path = path / f"{name}.j2"
@@ -87,15 +86,9 @@ def render_prompt_template(template: str, **kwargs: Any) -> str:
             docs,
             in_scope_shelves=scoped or None,
             focus_shelf=get_listing_shelf(),
-            # Files whose ingestion has not finished. The caller passes them
-            # when it knows; every other caller renders exactly as before.
             in_flight=kwargs.get("in_flight_documents"),
         )
     if "answer_envelope_schema" not in kwargs:
-        # Same injection pattern as the inventory above: the envelope schema is
-        # rendered from the models that validate it (one source of truth), and
-        # defaulting it HERE means no caller can render a prompt whose
-        # <answer_envelope> section silently teaches an empty schema.
         from agent.common.answer_envelope import render_envelope_schema
 
         kwargs["answer_envelope_schema"] = render_envelope_schema()

@@ -44,35 +44,14 @@ from agent.skills import SkillRuntime
 
 logger = logging.getLogger(__name__)
 
-#: How much salvaged report is worth shipping. Below this the "report" is a
-#: stub — a heading, a half sentence, the writer's opening line — and handing it
-#: to a reader under a "was cut off" banner would be worse than the honest
-#: failure: it looks like an answer. A cutoff with less than this raises the
-#: original error instead.
 MIN_SALVAGE_REPORT_CHARS = 200
 
-#: The ceiling a run that never finished gathering its evidence may reach. Deep
-#: research is the ONE path that knows it was cut off, and a report salvaged at
-#: the wall clock — or written without the sources that would have proved it —
-#: has not seen what it set out to see. "high" is reserved for a claim checked
-#: against a retrieved passage, so an incomplete run cannot earn it from
-#: whatever it happened to reach first.
 _INCOMPLETE_EVIDENCE_CONFIDENCE_CEILING: ConfidenceLevel = "medium"
 
-#: Ordering used only to clamp DOWN. Spelled out here rather than reached into
-#: the markers module for, so this file can never end up RAISING a self-report —
-#: the one thing the overconfidence guard exists to make impossible.
 _CONFIDENCE_RANK: dict[str, int] = {"low": 0, "medium": 1, "high": 2}
 
-#: The banner's opening, in the report and in the length check that ignores it.
 _HONESTY_BANNER_PREFIX = "> **Hinweis:**"
 
-#: Why a reader is told the run stopped, as the clause after "wurde …".
-#: Deliberately coarse: the operator channel carries the token, the reader gets
-#: the kind of cause and nothing that pretends to be an error taxonomy. An
-#: upstream timeout is NOT a time limit — a source did not answer — and calling
-#: it one had readers asking for a longer budget on runs that died in three
-#: minutes.
 _CUTOFF_CAUSE_CLAUSES = {
     CUTOFF_WALL_CLOCK: "wegen des erreichten Zeitlimits",
     CUTOFF_STEP_LIMIT: "wegen des erreichten Schritt-Limits",
@@ -80,9 +59,6 @@ _CUTOFF_CAUSE_CLAUSES = {
     CUTOFF_RUN_BUDGET: "wegen des erreichten Recherche-Budgets",
     CUTOFF_USER_REQUESTED: "auf Ihren Wunsch",
 }
-#: The same clauses for a report the writer wrote in English: the banner
-#: follows the report's language, detected off the report itself, so an
-#: English report is not opened by a German sentence.
 _HONESTY_BANNER_PREFIX_EN = "> **Note:**"
 _CUTOFF_CAUSE_CLAUSES_EN = {
     CUTOFF_WALL_CLOCK: "at the time limit",
@@ -93,11 +69,6 @@ _CUTOFF_CAUSE_CLAUSES_EN = {
 }
 
 _OUTPUT_PATHS = ("/shared/output.md", "/output.md")
-
-
-# ---------------------------------------------------------------------------
-# Reading the graph state
-# ---------------------------------------------------------------------------
 
 
 def _file_text(entry: Any) -> str | None:
@@ -148,11 +119,6 @@ def replace_last_message_content(result: Any, content: str) -> None:
     messages[-1] = type(last_msg)(content=content)
 
 
-# ---------------------------------------------------------------------------
-# Labelling
-# ---------------------------------------------------------------------------
-
-
 def _cap_for_incomplete_evidence(
     level: ConfidenceLevel | None,
     *,
@@ -201,8 +167,6 @@ def _prepend_honesty_banner(
             if english
             else f"Diese Recherche wurde{cause_clause} vorzeitig beendet, der folgende Bericht ist daher unvollständig."
         )
-    # An unread Grundlage is said by its own section at the foot of the report
-    # (`_append_unread_grundlage`); it is not a verification failure.
     if any(reason != DEGRADED_BASIS_UNREAD for reason in degraded_reasons or ()):
         sentences.append(
             "The statements could not be fully verified and are only partly reliable."
@@ -238,8 +202,6 @@ def _summarize_removed_citations(removed_citations: list[dict[str, Any]]) -> dic
     ``None`` so the ``citations_removed`` field stays absent. Shape matches the
     chat researcher's ``_normalize_citations_removed`` reader.
     """
-    # A merged duplicate cost the reader nothing (its [N] now points at the
-    # line it duplicated), so it is not reported as a removal.
     removed_citations = lost_citations(removed_citations)
     if not removed_citations:
         return None
@@ -251,11 +213,6 @@ def _summarize_removed_citations(removed_citations: list[dict[str, Any]]) -> dic
         if len(reasons) >= 5:
             break
     return {"count": len(removed_citations), "reasons": reasons}
-
-
-# ---------------------------------------------------------------------------
-# Citations → wire sources
-# ---------------------------------------------------------------------------
 
 
 def _registry_entry(registry: Any, citation: dict[str, Any]) -> Any:
@@ -372,11 +329,6 @@ def _apply_renumbering(
     return [_renumbered(source, renumber_map) for source in kept]
 
 
-# ---------------------------------------------------------------------------
-# Verification
-# ---------------------------------------------------------------------------
-
-
 @dataclass(frozen=True)
 class Verification:
     """What citation verification established about one report.
@@ -438,8 +390,6 @@ def verify_report(report: str, registry: Any, reference_sources: list[Any]) -> V
         )
     report = verification.verified_report
     degraded_reasons: list[str] = []
-    # Deep research never patches, so it asks for no nearest passage. A quote no passage holds stays,
-    # with no marker in the prose (ADR-0125, amended 2026-11-10): the report is degraded instead.
     unverified_quotes = verify_quoted_spans(report, registry, with_nearest=False)
     if unverified_quotes:
         logger.info(
@@ -448,9 +398,6 @@ def verify_report(report: str, registry: Any, reference_sources: list[Any]) -> V
         )
         degraded_reasons.append(DEGRADED_UNVERIFIED_QUOTES)
     if not verification.valid_citations:
-        # Over-aggressive verification is a real possibility, so this is not a
-        # failure — but a report with nothing provably grounded no longer
-        # ships silently.
         logger.warning(
             "Citation verification found no valid citations in writer-agent output; "
             "returning the generated report without failing the job. "
@@ -495,21 +442,13 @@ def record_citation_ledger(verification: Verification, registry: Any, self_confi
             verification.quotes_verified,
         ),
         source_origins=[source_origin_token(entry).strip("[]").lower() or None for entry in registry_sources],
-        # The retrieval lane of each CITED source: only the wire entries carry
-        # it, since the lane is derived during serialisation.
         source_lanes=[source.get("lane") for source in verification.wire_sources],
         source_tools=[entry.tool_name or None for entry in registry_sources],
-        # Source IDENTITIES (URL / document key) — never report prose.
         retrieved_source_labels=[label for label in map(source_label, registry_sources) if label],
         cited_source_labels=[
             label for label in ((c.get("citation_key") or c.get("url")) for c in verification.valid_citations) if label
         ],
     )
-
-
-# ---------------------------------------------------------------------------
-# The finished answer
-# ---------------------------------------------------------------------------
 
 
 @dataclass(frozen=True)
@@ -524,8 +463,6 @@ class FinalizedReport:
     confidence: ConfidenceLevel | None
     confidence_reason: str | None
     confidence_capped_reason: str | None
-    #: The Grundlage the run did not reach, by file name. Empty when every
-    #: named document has a passage in the registry, or none was named.
     basis_unread: list[str] = field(default_factory=list)
 
 

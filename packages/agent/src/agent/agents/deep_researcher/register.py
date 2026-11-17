@@ -181,11 +181,6 @@ def resolve_deep_research_runtime_config(
     return skills, sandbox
 
 
-# ---------------------------------------------------------------------------
-# Registration-time construction
-# ---------------------------------------------------------------------------
-
-
 async def _resolve_tools(builder: Builder, tool_refs: list[str], exclude_tools: list[str]) -> list:
     return await load_agent_tools(builder, tool_refs, exclude_tools)
 
@@ -210,7 +205,6 @@ async def _explicit_tools(builder: Builder, config: DeepResearchAgentConfig) -> 
     return tools
 
 
-#: The optional per-role LLMs, with the role and group each is configured under.
 _ROLE_LLM_FIELDS: tuple[tuple[str, LLMRole, AgentGroup], ...] = (
     ("source_router_llm", LLMRole.ROUTER, AgentGroup.DEEP_RESEARCH_ROUTER),
     ("researcher_llm", LLMRole.RESEARCHER, AgentGroup.DEEP_RESEARCH),
@@ -327,11 +321,6 @@ class LazyTools:
             return tools, agent
 
 
-# ---------------------------------------------------------------------------
-# Request time
-# ---------------------------------------------------------------------------
-
-
 def _agent_for_request(
     blueprint: _AgentBlueprint,
     prebuilt: DeepResearcherAgent,
@@ -358,23 +347,16 @@ def _agent_for_request(
 async def run_deep_research(state: DeepResearchAgentState, lazy: LazyTools) -> DeepResearchAgentState:
     """Run deep research for one request against the resolved tool set."""
     tools, agent = await lazy.get()
-    # A legal database runs only where the run's knowledge context allows its country (ADR-0175).
     disabled = set(get_disabled_sources_from_context()) | law_sources_withheld()
     selected_tools = filter_tools_by_sources(tools, state.data_sources, disabled)
-    # Read off the loop: each per-org dial can fall back to a blocking BFF call.
     llm_context = await read_request_llm_context()
     active_agent = _agent_for_request(lazy.blueprint, agent, tools, selected_tools, llm_context)
     if all_mapped_tools_filtered_out(tools, selected_tools, state.data_sources):
         logger.warning("Deep research received data_sources with no matching tools")
-    # At least one tool must be available, or the agent would reason about
-    # tools it cannot call. ``selected_tools`` already reflects data_sources.
     is_valid, _, unavailable_tools = validate_tool_availability(selected_tools, research_type="deep research")
     if not is_valid:
         error_msg = format_user_facing_tool_error("deep research", unavailable_tools)
         return DeepResearchAgentState(messages=state.messages + [AIMessage(content=error_msg)])
-    # One look budget per run (`look`, ADR-0128): a run on the job worker enters
-    # no chat turn, and an unbound budget is no cap at all. A run inside a turn
-    # gets its own too, so its researchers cannot spend the turn's looks.
     budget = begin_image_view_budget()
     try:
         return await active_agent.run(state)
@@ -415,9 +397,6 @@ async def deep_research_agent(config: DeepResearchAgentConfig, builder: Builder)
     yield FunctionInfo.from_fn(_run, description="Deep research agent for comprehensive multi-phase research.")
 
 
-########################################################
-# Deep Research Workflow (Wrapper for Evaluation)
-########################################################
 class DeepResearchWorkflowConfig(FunctionBaseConfig, name="deep_research_workflow"):
     """Configuration for the deep research workflow wrapper.
 

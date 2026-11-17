@@ -1,23 +1,8 @@
 import type { JSX, ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 
-/**
- * The layout of the interaction-states preview: one family of controls per
- * block, one control per row, one state per column.
- *
- * A cell marks the state it shows with `data-force`. Nothing on the page reads
- * it: the capture script does, and forces that pseudo-class through the
- * browser's own protocol (`CSS.forcePseudoState`), so every column is the real
- * component under a real `:hover`, `:active` or `:focus-visible`, all at once.
- * Opened by hand, the page is the same grid at rest and answers the pointer.
- */
-
 export type ForcedState = 'hover' | 'active' | 'focus'
 
-/**
- * Wraps what a cell shows in a state. `target` narrows the forced state to
- * some descendants (one tab of a strip); without it the whole content takes it.
- */
 export function Forced({
   state,
   target,
@@ -37,15 +22,11 @@ export function Forced({
 }
 
 export interface StateRowSpec {
-  /** What the control is, as the product names it. */
   label: string
-  /** Where it stands in the product, or what it is for. */
   note?: string
-  /** One cell per column; `null` where the state does not exist for this control. */
   cells: readonly (ReactNode | null)[]
 }
 
-/** One family: its name, the one rule its hover follows, and its controls by state. */
 export function Family({
   id,
   title,
@@ -59,7 +40,6 @@ export function Family({
   rule: string
   columns: readonly string[]
   rows: readonly StateRowSpec[]
-  /** A family whose cells are wide (a strip of tabs, a list) gets fewer, wider columns. */
   wide?: boolean
 }): JSX.Element {
   return (

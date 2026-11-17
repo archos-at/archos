@@ -7,7 +7,6 @@ import { afterAll, beforeAll, test } from 'vitest';
 import { bearerToken, EDGE_PERMISSION, edgeSettings, edgeStrategy, holdsPermission, newcomerRole } from '../src/auth/edge';
 import { gatewayKeyGrants } from '../src/provision';
 
-/** A stand-in for AuthKit: its JWKS, and a UserInfo that knows one person. */
 let issuer = '';
 let server: Server;
 let sign: (claims: Record<string, unknown>, iss?: string) => Promise<string>;
@@ -31,7 +30,6 @@ beforeAll(async () => {
 });
 afterAll(() => server.close());
 
-/** The two Local API calls the strategy makes, over an in-memory users table. */
 function fakePayload(users: Array<{ id: number; email: string; role: string }>) {
   const created: Array<Record<string, unknown>> = [];
   const payload = {

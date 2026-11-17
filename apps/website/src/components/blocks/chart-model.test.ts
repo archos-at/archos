@@ -1,7 +1,3 @@
-/**
- * The chart's geometry: the value scale and its ticks, the number format of both languages,
- * the marks, and the labels a narrow column cannot hold.
- */
 import { describe, expect, test } from 'bun:test';
 import { BAR_CAP, PLOT_HEIGHT, PLOT_WIDTH, chartModel, decimalsIn, formatValue, minorLabels, valueScale } from './chart-model';
 import type { ChartBlock } from './contracts';

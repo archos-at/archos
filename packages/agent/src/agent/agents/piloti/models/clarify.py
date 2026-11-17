@@ -70,12 +70,6 @@ class ClarificationResponse(_StrictContract):
         "null otherwise.",
     )
     options: list[str] = Field(
-        # The options are a *duplicate* of the choices already spelled out in
-        # clarification_question, not a replacement: the question carries the
-        # framing sentence and the skip line, the options carry the pickable
-        # labels. Empty even when clarification is needed, because a question
-        # with no enumerable answers is a perfectly valid clarification and
-        # inventing labels for it would put words in the user's mouth.
         description="Short label of each offered answer (the pickable part only, not the explanation). "
         "Empty when the question has no enumerable answers, and always when needs_clarification is false.",
     )
@@ -105,9 +99,6 @@ class ClarificationResponse(_StrictContract):
         """Check if the response is valid (has question when needed)."""
         if self.needs_clarification:
             return bool(self.clarification_question)
-        # Nothing is being asked, so there is nothing to offer answers to.
-        # Options here mean the model contradicted itself; treating that as
-        # invalid keeps a stale picker from being shown next to no question.
         return not self.options
 
 
@@ -184,10 +175,5 @@ class ClarifyResult:
 
     research_context: str
     outcome: PlanOutcome | None = None
-    #: The Rahmen the reader approved the plan under: the composer's
-    #: Datengrundlage at the moment of approval, carried onto the run. None
-    #: when the reply named none (an older client), and the turn's own stays.
     data_sources: list[str] | None = None
-    #: The Unterlagen the reader named on the plan, resolved against the turn's
-    #: inventory. None when none were named.
     documents: PlanDocuments | None = None

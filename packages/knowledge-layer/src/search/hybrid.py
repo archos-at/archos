@@ -18,7 +18,6 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-#: RRF constant k from the paper. 60 is the canonical value.
 RRF_K = 60
 
 try:
@@ -60,8 +59,6 @@ def fuse_with_ranks(
     """
     scores: dict[str, float] = {}
     best: dict[str, Any] = {}
-    # Minimum rank the chunk reached in ANY channel -- it is updated on every channel,
-    # so it is not the rank of the first channel that saw the chunk.
     best_rank: dict[str, int] = {}
 
     for channel in channels:
@@ -76,8 +73,6 @@ def fuse_with_ranks(
                 best_rank[chunk_id] = rank
             scores[chunk_id] = scores.get(chunk_id, 0.0) + 1.0 / (k + rank + 1)
 
-    # ``reverse=True`` over ``(score, -best_rank)`` resolves an equal-score tie toward the
-    # SMALLER best_rank, i.e. the better rank. The negation is load-bearing, not a typo.
     ordered = sorted(scores, key=lambda cid: (scores[cid], -best_rank[cid]), reverse=True)
     if top_n is not None:
         ordered = ordered[:top_n]
@@ -113,9 +108,6 @@ try:
     from agent.common.german_text import DEFAULT_DF_CEILING_MIN_TOTAL  # type: ignore
     from agent.common.german_text import DEFAULT_DF_CEILING_RATIO  # type: ignore
 except ImportError:  # knowledge_layer usable without the agent package
-    #: Mirrors ``agent.common.german_text`` for the standalone-package case only.
-    #: Change the numbers THERE; these exist so the import failure degrades to the same
-    #: behaviour rather than to no ceiling at all.
     DEFAULT_DF_CEILING_RATIO = 0.25  # type: ignore[assignment]
     DEFAULT_DF_CEILING_MIN_TOTAL = 25  # type: ignore[assignment]
 

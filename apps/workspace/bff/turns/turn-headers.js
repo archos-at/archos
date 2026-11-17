@@ -19,7 +19,6 @@
  * in by path (`deploy/Dockerfile`).
  */
 
-// `require`, not `import`: `server.js` loads this file as CommonJS at startup.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const crypto = require('crypto')
 
@@ -168,7 +167,6 @@ function turnContextHeaders(data, { issuedAt, secret }) {
   const headers = {}
   if (data.header) headers['x-collection-scope'] = data.header
   const authenticated = Boolean(data.organizationId && data.userId)
-  // Who the caller is, so the backend knows without a token lookup.
   if (data.organizationId) {
     headers['x-organization-id'] = data.organizationId
     if (data.userId) headers['x-user-id'] = data.userId
@@ -185,14 +183,9 @@ function turnContextHeaders(data, { issuedAt, secret }) {
     }
   }
   if (data.projectId) headers['x-project-id'] = data.projectId
-  // Always sent, so the backend fails closed when it is absent.
   headers['x-feature-memory-reflection'] = data.memoryReflectionEnabled ? 'true' : 'false'
-  // Per-org model overrides and the remaining budget, JSON then base64url;
-  // decoded in agent (model_overrides.py, cost_tracking.py). Absent is the
-  // workflow defaults and no cap.
   if (data.modelOverrides) headers['x-model-overrides'] = base64urlJson(data.modelOverrides)
   if (data.budget) headers['x-budget'] = base64urlJson(data.budget)
-  // Sources the organization switched off (web search, ADR-0022).
   if (Array.isArray(data.disabledSources) && data.disabledSources.length > 0) {
     headers['x-disabled-sources'] = base64urlJson(data.disabledSources)
   }
@@ -203,8 +196,6 @@ function turnContextHeaders(data, { issuedAt, secret }) {
         organizationId: data.organizationId,
         userId: data.userId,
         projectId: data.projectId,
-        // Shelf-bearing entries when the resolver supplied them, bare names
-        // otherwise: the envelope is the copy `scoping.py` trusts (ADR-0047).
         collectionScope: data.scopedCollections ?? data.scope,
         projectContext: data.projectContext,
         projectMemory: data.projectMemory,
@@ -214,9 +205,6 @@ function turnContextHeaders(data, { issuedAt, secret }) {
         disabledSources: data.disabledSources,
         memoryReflectionEnabled: data.memoryReflectionEnabled,
         federalState: data.federalState,
-        // The conversation the BFF authorized, not the raw query param: a
-        // caller-chosen value must never sit inside a signature a write route
-        // trusts.
         conversationId: data.conversationId,
         issuedAt,
         contextTransport: authenticated ? 'bff' : undefined,

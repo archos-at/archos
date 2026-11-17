@@ -20,13 +20,8 @@ from typing import Any
 
 PROJECT_ID = "eval-project"
 ORGANIZATION_ID = "eval-organization"
-#: The name ``configs/config_oib_openrouter.yml`` binds the tool under (`functions.remember`).
 TOOL_NAME = "remember"
 
-#: The frame of the tool pass. The eval's own words, and deliberately thin: the
-#: chat agent's system prompt names ``remember`` only for corrections, so what
-#: steers the shelf in a turn is the tool's description and schema, which are
-#: the production objects. This says where the conversation is and no more.
 TOOL_PASS_SYSTEM = (
     "You are the assistant of an architecture office. You are talking with one member of the office "
     "inside one of its projects. Answer briefly, in the person's language. Call a tool only when its "
@@ -129,7 +124,6 @@ async def remember_tool():
     from agent.memory.register import ProjectMemoryRememberConfig
     from agent.memory.register import project_memory_remember
 
-    # No judge model: the eval's turn has no restricted folder in scope, so the judge is never asked.
     async with project_memory_remember(ProjectMemoryRememberConfig(), None) as info:
 
         async def call(**arguments: Any) -> str:
@@ -167,7 +161,6 @@ async def remember_once(llm: Any, tool: Any, case: dict[str, Any]) -> dict[str, 
         arguments = dict(tool_call.get("args") or {})
         proposed.append(
             {
-                # The schema's default is what an omitted scope means.
                 "shelf": str(arguments.get("scope") or "project").strip().lower(),
                 "kind": arguments.get("kind"),
                 "content": str(arguments.get("content") or ""),

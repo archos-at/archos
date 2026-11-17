@@ -238,11 +238,8 @@ class TestOneMixedRound:
             turn=TurnConfig(disabled_sources=frozenset({"web_search"})),
         )
 
-        # Round two's survivors run in parallel, so their execution order is not part of the contract.
         assert RAN[0] == "knowledge_search:Fluchtweg"
         assert sorted(RAN[1:]) == ["knowledge_search:kaputt:failed", "read_passage:OIB-RL 4|2.1"]
-        # What ran first, in the ToolNode's order; then the withheld calls, in
-        # the order repeats, refused, over width, held for the steer.
         assert _transcript(result) == [
             ("s0", "Treffer zu: Fluchtweg"),
             ("k1", f"{FETCH_FAILED_MARKER} Knowledge search failed for query='kaputt'."),
@@ -255,9 +252,6 @@ class TestOneMixedRound:
         ]
         assert "Web-Suche is switched off" in dict(_transcript(result))["w1"]
         assert result.tool_iterations == 2
-        # The records, as found: the steer hold is stamped with the round the
-        # agent node already advanced to (2), the other three with the round
-        # they were withheld in (1).
         assert emitted_steps(emitted) == [
             "status:retrieval:0",
             "status:checkpoint:0",

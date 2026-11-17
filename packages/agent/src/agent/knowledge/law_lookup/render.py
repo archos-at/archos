@@ -146,13 +146,11 @@ def _hit(passage: Passage, law: LawSource) -> GroundingHit:
         doc_class=DOC_CLASS,
         display_title=passage.title,
         folder_path=None,
-        # The locus as a lawyer reads it: the same string the citation key carries and the chip shows.
         clause=passage.clause_label or None,
         score=passage.score,
         content_type="text",
         provenance=None,
         stored_image_index=None,
-        # The consolidated-text note rides as its own header line, never inside a quotable body.
         status_note=passage.status_note or None,
         body=body,
         body_truncated=truncated,

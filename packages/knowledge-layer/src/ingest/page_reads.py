@@ -44,15 +44,6 @@ from knowledge_layer.env import env_int
 
 logger = logging.getLogger(__name__)
 
-# @environment_variable INGEST_PAGE_READ_PARALLELISM
-# @category Knowledge Layer
-# @type int
-# @default 16
-# @required false
-# Threads one file's page reads share: its scan transcriptions and its drawing,
-# image and raster analyses, streamed through one pool. The fleet's vision pool
-# (`VLM_FLEET_CONCURRENCY`) stays the cap on calls in flight; this bounds a
-# file's threads and the rendered pages it holds (twice this many at most).
 INGEST_PAGE_READ_PARALLELISM = env_int("INGEST_PAGE_READ_PARALLELISM", 16, minimum=1)
 
 _CURRENT: contextvars.ContextVar[FilePageReads | None] = contextvars.ContextVar("file_page_reads", default=None)
@@ -110,7 +101,6 @@ class FilePageReads:
             else:
                 owner = False
         if not owner:
-            # A copy: the two callers attach the result to two records.
             return copy.deepcopy(pending.result())
         try:
             result = live()

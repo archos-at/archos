@@ -1,17 +1,6 @@
-/**
- * The content blocks whose contracts the website keeps in
- * apps/website/src/components/blocks/contracts.ts (and README.md there): one
- * block per entry of its `BLOCK_PARSERS`, the slug its `blockType`, the field
- * names its JSON keys, and its limits as field validation, so an editor sees a
- * problem while writing instead of a block that does not appear.
- *
- * An image is an upload here plus its alt text; the website turns the two into
- * the contract's `BlockImage` before parsing.
- */
 import type { Block, Field } from 'payload';
 import { options } from '../fields/choices';
 
-/** The coarse source kinds (packages/agent/src/agent/common/source_kinds.py), as the contract mirrors them. */
 export const SOURCE_KINDS = ['building_law', 'office', 'project', 'web', 'measurement'] as const;
 
 const text = (name: string, maxLength: number, extra: Partial<Field> = {}): Field => ({ name, type: 'text', maxLength, ...extra }) as Field;

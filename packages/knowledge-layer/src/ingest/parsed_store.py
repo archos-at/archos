@@ -48,18 +48,8 @@ logger = logging.getLogger(__name__)
 SCHEMA_VERSION = 1
 PARSED_PART = "parsed.json"
 
-# @environment_variable INGEST_PARSED_MAX_BYTES
-# @category Knowledge Layer
-# @type int
-# @default 33554432
-# @required false
-# Largest parsed document (text, triage and tables of one PDF version, JSON) an
-# ingest stores beside the version for a retry to read back instead of parsing
-# the PDF again (`ingest/parsed_store.py`). Larger is not stored, and logged;
-# 0 turns the store off.
 PARSED_MAX_BYTES = env_int("INGEST_PARSED_MAX_BYTES", 32 * 1024 * 1024, minimum=0)
 
-#: The modules whose code produces what is stored: any change to one is a new pipeline.
 _PASS_MODULES = ("adapter.py", "captioned_tables.py", "section_chunking.py", "page_triage.py", "parsed_store.py")
 
 
@@ -90,11 +80,6 @@ def pipeline_version() -> str:
     if _PIPELINE is None:
         _PIPELINE = _pipeline_version()
     return _PIPELINE
-
-
-# ---------------------------------------------------------------------------
-# The codec: exact for every type the pass produces (tuples and PageTable included)
-# ---------------------------------------------------------------------------
 
 
 def _encode(value: Any) -> Any:
@@ -156,11 +141,6 @@ def decode_triage(data: dict[str, Any] | None) -> Any:
     return None if data is None else PdfTriage({int(number): PageKind(kind) for number, kind in data.items()})
 
 
-# ---------------------------------------------------------------------------
-# One file's artefact: read back, recorded into, written once
-# ---------------------------------------------------------------------------
-
-
 _UNSET: Any = object()
 
 
@@ -202,11 +182,8 @@ class ParsedDocument:
         )
 
 
-#: ``(document_id, collection, part, organization_id) -> slot | None`` (``page_text_store.request_slot``).
 Presigner = Callable[[str, str, str, str | None], Any]
-#: ``(bucket, key) -> bytes | None``.
 Fetcher = Callable[[str | None, str], bytes | None]
-#: ``(upload_url, body, content_type)``; raises on failure (``page_text_store.put_part``).
 Uploader = Callable[[str, bytes, str], None]
 
 
@@ -250,7 +227,6 @@ class ParsedStore:
                 return None
             return ParsedDocument.from_body(json.loads(raw), content_hash)
         except Exception as exc:  # noqa: BLE001 - no artefact: the pass runs as before
-            # Class name only: an S3 error's text can carry the bucket and key.
             logger.info("parsed_store: no parsed document read for %s (%s)", self.document_id, type(exc).__name__)
             return None
 
@@ -281,11 +257,6 @@ class ParsedStore:
                 "parsed_store: storing the parsed document of %s failed (%s)", self.document_id, type(exc).__name__
             )
             return False
-
-
-# ---------------------------------------------------------------------------
-# The seams the pipeline calls instead of the passes themselves
-# ---------------------------------------------------------------------------
 
 
 @dataclasses.dataclass

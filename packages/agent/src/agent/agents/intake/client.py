@@ -47,17 +47,14 @@ logger = logging.getLogger(__name__)
 
 INTAKE_PATH = "/api/internal/project-intake"
 
-#: One call. ``record`` runs the derivation after writing, so it is given longer than a proposal insert.
 REQUEST_TIMEOUT_SECONDS = 30
 
-#: Bounds of the contract (``types.ts``), restated where the body is built.
 MAX_RECORD_VALUES = 20
 MAX_SUMMARY_CHARS = 2000
 MAX_DOCUMENTS_READ = 500
 MAX_FILE_NAME_CHARS = 512
 MAX_QUOTE_CHARS = 400
 
-#: The 409 reason the BFF answers when the run is no longer the intake's current reading.
 STALE_READING = "stale-reading"
 
 IntakeOp = Literal["needs", "record", "withdraw", "progress", "finish"]

@@ -123,18 +123,6 @@ async def test_an_admitted_result_reaches_the_model_and_confines_the_conversatio
     assert use.confined is True
 
 
-# ---------------------------------------------------------------------------
-# The side channel, through the agent runtime's real tool wrapper and the compiled graph
-# ---------------------------------------------------------------------------
-#
-# A tool reports what it read (`note_collections_read`); the ToolNode's call
-# wrapper stamps it onto the result; the tools node admits it. Each half has a
-# unit test, and each would pass with the join broken: a wrapper the ToolNode
-# never runs, or a note the wrapper's context never sees because the agent runtime ran the
-# tool in a context of its own. Only a call through the agent runtime's LangChain wrapper and
-# the compiled graph can fail on that (docs/contributing/gotchas.md).
-
-
 class _QuietReaderConfig(FunctionBaseConfig, name="test_fixture_quiet_restricted_reader"):
     pass
 
@@ -144,7 +132,6 @@ async def _quiet_reader(config: _QuietReaderConfig, builder: Builder):
     async def _read(query: str) -> str:
         """Read a restricted folder and say so only on the side channel."""
         note_collections_read([VERTRAEGE])
-        # No `Collection:` line: the text alone would let this through.
         return "Das Honorar beträgt pauschal 48.000 € netto."
 
     yield FunctionInfo.from_fn(_read, description="Search the project's documents.")

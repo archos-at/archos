@@ -1,14 +1,3 @@
-/**
- * Similar-projects fixtures, shared by the `/dev/similar-projects` and
- * `/dev/settings` previews, under „Verglichen nach" (this project's
- * fingerprint, a suggested Gebäudeklasse marked, two facts open with the link
- * to the briefing): a Holzbau project in Niederösterreich whose OIB edition and
- * shared GK were only suggested from its documents, with decisions of all three
- * origins and a permit with its Auflagen; a running period with a confirmed
- * edition and nothing recorded; and, apart from them, a closed project that
- * shares nothing.
- */
-
 import { fingerprintOf } from '@/lib/cross-project/fingerprint'
 import type { SimilarProject, SimilarProjectsPage } from '@/lib/references/types'
 
@@ -91,7 +80,6 @@ export const SIMILAR_PROJECTS: SimilarProject[] = [
 
 const confirmed = (value: string | string[]) => ({ value, confidence: 'confirmed' as const, source: 'onboarding' as const, updatedAt: '' })
 
-/** This project: Land and Bauweise confirmed, the class only read from its documents, uses and kind of work open. */
 const BASIS = fingerprintOf({
   facts: { federal_state: confirmed('lower_austria'), construction_method: confirmed(['timber']) },
   goals: {},
@@ -101,8 +89,6 @@ const BASIS = fingerprintOf({
   },
 })
 
-/** The section with these projects, the unrelated one apart, and three more closed projects left out. */
 export const SIMILAR_PAGE: SimilarProjectsPage = { basis: { facts: BASIS, missing: 2, editable: true }, projects: SIMILAR_PROJECTS, more: 3 }
 
-/** The same project in an office with no closed project yet. */
 export const EMPTY_SIMILAR_PAGE: SimilarProjectsPage = { ...SIMILAR_PAGE, projects: [], more: 0 }

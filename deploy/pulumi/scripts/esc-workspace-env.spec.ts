@@ -4,16 +4,6 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-/**
- * The workspace ESC environment (ADR-0147), made by esc-workspace-env.sh and
- * run here against a `pulumi` stub that keeps one fake environment on disk.
- *
- * Pinned: the legacy environment is only ever read; the key rename saves the
- * definition back only when it holds ciphertext; each step runs once, so a
- * second run writes nothing; and the legacy stack file's secure values reach
- * the clone through the legacy stack's own decryption.
- */
-
 const SCRIPT = join(__dirname, "esc-workspace-env.sh");
 const ROOT = mkdtempSync(join(tmpdir(), "esc-workspace-env-"));
 const BIN = join(ROOT, "bin");
@@ -38,9 +28,6 @@ beforeAll(() => {
     LEGACY_FILE,
     ["environment:", "  - grid-oib/dev", "config:", "  grid-oib:baseDomain: dev.example.test", "  grid-oib:cloudflareApiToken:", "    secure: AAABAxyz", ""].join("\n"),
   );
-  // The stub: `env get <dst> --definition` reads $STATE/def, `env clone`
-  // writes it, `env edit --file -` replaces it, `env set` appends a marker,
-  // `env get <dst> <path>` answers from the markers.
   writeFileSync(
     join(BIN, "pulumi"),
     `#!/usr/bin/env bash
@@ -100,7 +87,6 @@ describe("esc-workspace-env.sh", () => {
     const writes = run().calls.filter((c) => WRITES.test(c));
     expect(writes.length).toBeGreaterThan(0);
     for (const w of writes) {
-      // clone names the legacy environment as its SOURCE, the only place it appears.
       const target = w.startsWith("env clone ") ? w.split(" ")[3] : w.split(" ")[2];
       expect(target, w).toMatch(/^(acme\/)?workspace\/dev$/);
     }

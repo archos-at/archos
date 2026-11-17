@@ -65,7 +65,6 @@ def _span_context(question: str, address: Address, trace: LookupTrace, passages:
         "tool": "ris_lookup",
         "normalized_query": re.sub(r"\s+", " ", question or "").strip().casefold(),
         "documents_fetched": len(trace.fetched),
-        # Whether this call cost an extractor LLM call at all: a named § does not.
         "deterministic": address.has_section,
     }
     if address.federal_state:
@@ -74,7 +73,6 @@ def _span_context(question: str, address: Address, trace: LookupTrace, passages:
     if trace.application:
         context["application"] = trace.application
     if trace.as_of:
-        # A past day (ADR-0171): which day, and how many hits were versions of other days.
         context["as_of"] = trace.as_of
         context["versions_dropped"] = trace.versions_dropped
     if not passages:

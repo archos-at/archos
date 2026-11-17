@@ -4,17 +4,6 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { UploadTray } from '@/features/documents/components/upload-tray'
 import type { TrackedFile } from '@/features/documents/types'
 
-/**
- * One batch played from drop to settled, above a stand-in listing, so the
- * tray's transitions can be watched (and recorded) the way the workspace shows
- * them: queued → sending → read → settled → retired.
- *
- * Two uploads at a time, like the real concurrency limit. The bytes move at a
- * fixed simulated rate; reading takes a few seconds per file; one file ends
- * held back and one fails, so the batch settles with something to act on. A
- * clean run (`?clean=1`) settles green and retires itself after six seconds.
- */
-
 const MB = 1_000_000
 const TICK_MS = 100
 const BYTES_PER_TICK = 0.35 * MB

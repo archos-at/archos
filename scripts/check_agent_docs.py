@@ -54,21 +54,14 @@ import subprocess
 import sys
 from pathlib import Path
 
-# The import line Claude Code expands. Anchored: an `@AGENTS.md` inside a code
-# span or a sentence is not an import, and neither is a bare mention.
 IMPORT_RE = re.compile(r"^\s*@(?:\./)?AGENTS\.md\s*$", re.MULTILINE)
 
-# A mention of the file that is NOT an import. Catches the original bug.
 BARE_MENTION_RE = re.compile(r"^\s*(?:\./)?AGENTS\.md\s*$", re.MULTILINE)
 
 MD_LINK_RE = re.compile(r"\[[^\]]*\]\(([^)#]+)(?:#[^)]*)?\)")
 
-# Directories that exist only after `task setup` and are gitignored. A link into
-# one of them resolves on the author's machine and nowhere else.
 GENERATED = ("node_modules/", ".claude/", ".agents/", "apm_modules/", ".venv/")
 
-# Vendored verbatim, so its links resolve upstream and not here; the
-# markdown-link-check hook excludes it for the same reason (.pre-commit-config.yaml).
 LINKS_NOT_CHECKED = frozenset({"packages/agent/src/agent/skills/review/skill-check/SKILL.md"})
 
 BASELINE = Path("ci/agent_docs_baseline.json")
@@ -139,7 +132,6 @@ def check_links(doc: Path, tracked: set[str], errors: list[str]) -> None:
         if target.startswith(("http://", "https://", "mailto:", "<")):
             continue
         if "<" in target:
-            # A template placeholder such as `references/<topic>.md`.
             continue
         if any(seg in target for seg in GENERATED):
             errors.append(

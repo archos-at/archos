@@ -22,7 +22,6 @@ from agent.cards.registry import get_card_registry
 
 CARD_TYPE = "canvas_activity"
 
-#: How much of a reply the card quotes.
 EXCERPT_CHARS = 300
 
 

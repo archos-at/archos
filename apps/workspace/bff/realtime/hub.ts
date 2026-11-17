@@ -1,47 +1,18 @@
-/**
- * The process's one way onto Dragonfly pub/sub for live channels (ADR-0110).
- *
- * `publish(topic, payload)` reaches every listener of the topic on every
- * replica; `subscribe(topic, listener)` returns its release. Behind that:
- *
- * - **One subscriber connection and one publisher per process**, opened lazily
- *   and only with `REDIS_URL`. A topic is SUBSCRIBEd when its first listener
- *   arrives and UNSUBSCRIBEd when its last one leaves, so a hundred viewers of
- *   one document on this replica are one subscription, and a thousand open
- *   streams are still one connection. The per-user hints (`lib/events/bus.ts`)
- *   ride on it too.
- * - **In-process loopback, always.** A publish is delivered to this process's
- *   listeners directly, which is all a single replica (development, one pod)
- *   needs, and goes to Dragonfly for the others. A remote message carries the
- *   publishing process's id, and the replica that published it drops its own
- *   echo instead of delivering it twice.
- * - **Never throws.** What travels here is company and hints, not state: a lost
- *   message costs a pointer frame or one refetch that the next hint repeats.
- *
- * The transport is a seam (`EventTransport` from `lib/events/bus`), so the
- * ref-counting and the echo rule are tested without Redis (`hub.spec.ts`) and
- * once against a real `redis-server` (`hub.redis.spec.ts`).
- */
-
 import 'server-only'
 import { randomUUID } from 'node:crypto'
 import type { EventTransport } from '@/lib/events/bus'
 import { createRedisClient } from '@/lib/redis/connect.js'
 
-/** A listener receives the payload as published (loopback) or as parsed JSON (another replica). */
 export type HubListener = (payload: unknown) => void
 
-/** This process, on every message it sends to the others. */
 const PROCESS_ID = randomUUID()
 
 interface Topic {
   listeners: Set<HubListener>
-  /** The remote subscription's release, once it is up; null when there is none. */
   remote: Promise<(() => Promise<void>) | null>
 }
 
 const topics = new Map<string, Topic>()
-/** A topic's last UNSUBSCRIBE still in flight: a new SUBSCRIBE waits for it, or it would undo the new one. */
 const releasing = new Map<string, Promise<void>>()
 
 let remote: EventTransport | null | undefined
@@ -76,12 +47,10 @@ function onRemote(name: string, raw: string): void {
   } catch {
     return
   }
-  // Our own publish already went out through the loopback.
   if (!message || typeof message !== 'object' || message.origin === PROCESS_ID) return
   deliver(topics.get(name), message.payload)
 }
 
-/** Publish to a topic on every replica. Never throws. */
 export async function publish(topic: string, payload: unknown): Promise<void> {
   deliver(topics.get(topic), payload)
   const transport = getRemote()
@@ -93,10 +62,6 @@ export async function publish(topic: string, payload: unknown): Promise<void> {
   }
 }
 
-/**
- * Listen to a topic. Returns the release, which MUST be called and is
- * idempotent. The CALLER authorizes: the hub carries whatever it is given.
- */
 export function subscribe(name: string, listener: HubListener): () => void {
   let topic = topics.get(name)
   if (!topic) {
@@ -134,14 +99,12 @@ export function subscribe(name: string, listener: HubListener): () => void {
   }
 }
 
-/** How many topics this process listens to, and to how many listeners: for tests and diagnostics. */
 export function hubStats(): { topics: number; listeners: number } {
   let listeners = 0
   for (const topic of topics.values()) listeners += topic.listeners.size
   return { topics: topics.size, listeners }
 }
 
-/** Test seam: a transport (or none), and no topics. Resolves once every pending release has run. */
 export async function __setHubTransportForTests(next: EventTransport | null): Promise<void> {
   await Promise.all([...releasing.values()])
   topics.clear()
@@ -149,18 +112,7 @@ export async function __setHubTransportForTests(next: EventTransport | null): Pr
   remote = next
 }
 
-/**
- * One subscriber connection and one publisher for the whole process.
- *
- * A first command matters here: the first viewer of a document after a deploy
- * subscribes before the connection is up, and refusing it would leave that
- * viewer deaf to other replicas until they reload. So commands queue until the
- * connection is up (`enableOfflineQueue`) and are bounded by `commandTimeout`
- * (docs/contributing/gotchas.md, „Stream isn't writeable"). ioredis
- * re-subscribes every channel on reconnect by itself.
- */
 export class SharedRedisTransport implements EventTransport {
-  // ioredis has no types we import here: it is required lazily, so bundles without REDIS_URL never load it.
   private readonly subscriber: RedisLike
   private readonly publisher: RedisLike
   private readonly handlers = new Map<string, Set<(payload: string) => void>>()
@@ -208,7 +160,6 @@ export class SharedRedisTransport implements EventTransport {
     }
   }
 
-  /** Close both connections: for tests. */
   disconnect(): void {
     this.subscriber.disconnect()
     this.publisher.disconnect()

@@ -146,86 +146,41 @@ from .quote_patch import quote_patcher
 
 logger = logging.getLogger(__name__)
 
-# Imported from outside this package under this name
-# (``packages/agent/tests/agents/test_composer_subject_reaches_prompts.py``).
 _shelf_label = shelf_label
 
-#: Cumulative INPUT tokens one turn may spend before synthesis is forced.
-#: Rounds bound how far the investigation goes; this bounds what it COSTS, and
-#: without it nothing does — a round is now one decision however many calls it
-#: fans out into. Sized well above the worst turn we have measured (288 583
-#: prompt tokens over eight calls, on „was weißt du über die OIB 2"), because a
-#: bound that fires on a hard question is a hobble; it is here to stop a
-#: runaway, not to shape a turn. 0 disables it.
 _DEFAULT_MAX_INPUT_TOKENS_PER_TURN = 600_000
 
-#: The one line that goes in FRONT of the result a withheld repeat is answered
-#: with. The guard used to answer a repeat with a scolding and a pointer at the
-#: transcript ("das Ergebnis oben ist die Antwort"), which asks the model to go
-#: and find something it already asked for — and a model that cannot find it
-#: asks a third time. A tool delivers an answer, so the repeat is answered with
-#: the ANSWER: the first execution's own text, verbatim, labelled as the earlier
-#: result so nothing reads as a second, agreeing retrieval. Still uncharged,
-#: still never run again.
 _REPEAT_FETCH_PREFIX = (
     "Repeated call: this call already ran identically in this turn and was not executed "
     "again. Below is its earlier result, unchanged — continue with a different place "
     "or a different question."
 )
 
-#: The fallback when the turn no longer holds the first execution's text (the
-#: tools node was driven directly, or that call answered with nothing at all).
-#: An INSTRUCTION for the same
-#: reason: a retry of the identical call would buy the turn nothing.
 _REPEAT_FETCH_MESSAGE = (
     "Not executed: this call already ran identically in this turn; "
     "the result above is the answer — continue with a different place or a different question, "
     "not with a repetition"
 )
 
-#: What a same-batch repeat of a FAILED fetch is answered with. The turn holds
-#: no result for it — the first occurrence ran and the store did not answer —
-#: so :data:`_REPEAT_FETCH_MESSAGE` would point at a result that does not
-#: exist, which is the one thing the guard must never do (a failure signs
-#: nothing, precisely so the retry stays available). Says what happened and
-#: when the call may be made again.
 _FAILED_FETCH_REPEAT_MESSAGE = (
     "Not executed: this call was already included once in this round, and that first "
     "attempt failed — there is no result. You can make it again in the next round "
     "or choose a different place."
 )
 
-#: How many tool calls ONE round may actually run. A runaway guard, not a
-#: doctrine: a round costs one whatever it fans out into, and a model opening
-#: all five members of a Richtlinien-Familie at once is using its round well.
-#: What this bounds is the shape nothing else sees — sixty parallel calls into
-#: the vector store, which ``max_input_tokens_per_turn`` only notices at the
-#: START of the next round, by which time the fan-out has already been served.
-#: 0 disables it.
 _DEFAULT_MAX_CALLS_PER_ROUND = 12
 
-#: What a call beyond the width cap is answered with. An INSTRUCTION, like the
-#: two notices above: the call was not refused, it was not RUN THIS ROUND, and
-#: the useful next move is to ask for it again in the next one.
 _WIDTH_CAP_MESSAGE = (
     "Not executed: this round requested more parallel calls than a round may "
     "run. The first calls of the round ran; this one did not. Make it again in the next "
     "round if you still need it after the results above."
 )
 
-#: Why the loop stopped early. Stable tokens, not prose: they are counted, and
-#: they name two different sizing questions. ``rounds`` is the investigation
-#: being cut off — the worst failure this product has. ``input_tokens`` is the
-#: turn getting expensive, which is the bound that replaced the per-call budget
-#: and should fire on a runaway, never on a hard question.
 CUTOFF_ROUNDS = "rounds"
 CUTOFF_INPUT_TOKENS = "input_tokens"
 
-#: Where the turn's binding rides on the LangGraph config (``configurable``),
-#: so the compiled graph is shared across turns and never rebuilt.
 _TURN_BINDING_KEY = "piloti_turn"
 
-#: The trace tag every turn a person steered carries (``common/steering.py``).
 STEERED_TAG = "steered"
 
 _SYNTHESIS_ANCHOR = (
@@ -248,23 +203,7 @@ class TurnConfig:
 
     llm_provider: LLMProvider | None = None
     tools: Sequence[BaseTool] | None = None
-    #: Data sources this conversation may not consult — the org's ADR-0022
-    #: toggles plus whatever the request did not select. The tool set does NOT
-    #: shrink for them: a call to a switched-off source is answered with one
-    #: sentence saying so (:func:`disabled_source_notice`) instead of the tool
-    #: disappearing from the binding. Two reasons, both measured. A tool set
-    #: that varies per toggle combination is a separate ``prompt_cache_key``
-    #: shard (``common/prompt_caching.py``) on a workload that is ~99 % input
-    #: tokens and re-sends its prefix 3-8 times per turn; and a capability the
-    #: model is told about and then refused is a fact it can say out loud,
-    #: where an absent tool is one it has to infer.
     disabled_sources: frozenset[str] = frozenset()
-    #: The fetches to run as ROUND 0, before the first LLM call: what the
-    #: turn-start decision (``decisions.py``, ADR-0064) says the model's first
-    #: round would ask for anyway. Tool-call dicts (``name``, ``args``), run
-    #: through the real tools node so the guards, the capture, the round
-    #: stamp and the duplicate-fetch answer all apply; the round costs no
-    #: budget, because no LLM decision was spent on it.
     prefetch: tuple[dict[str, Any], ...] = ()
 
 
@@ -278,22 +217,10 @@ class TurnBinding:
     tools_info: list[dict[str, str]]
     tool_node: ToolNode
     source_tool_names: frozenset[str]
-    #: Tool-calling ROUNDS — LLM decisions that asked for tools — at which
-    #: synthesis is forced. Not calls: a round of five parallel fetches is the
-    #: model using its round well, and it costs one.
     ceiling: int
-    #: Cumulative INPUT tokens this turn may spend before synthesis is forced.
-    #: The bound that protects the user's bill, since rounds no longer do:
-    #: one round of twelve fetches is cheap in rounds and is not cheap.
     max_input_tokens: int = 0
-    #: How many calls of ONE round are actually run. Read in BOTH nodes, like
-    #: :attr:`disabled_sources`, so the round the agent node charges is the
-    #: round the tools node executes. 0 disables the cap.
     max_calls_per_round: int = 0
-    #: See :attr:`TurnConfig.prefetch`. Read once, in :meth:`ChatAgent.run`.
     prefetch: tuple[dict[str, Any], ...] = ()
-    #: See :attr:`TurnConfig.disabled_sources`. Read in BOTH nodes, so the
-    #: round the agent node announces is the round the tools node runs.
     disabled_sources: frozenset[str] = frozenset()
 
 
@@ -308,7 +235,6 @@ def _call_args(call: Any) -> Any:
     return call.get("args") if isinstance(call, dict) else getattr(call, "args", None)
 
 
-#: How a ``read_file`` of a skill appears in a run's shape, apart from a draft read.
 SKILL_READ_SHAPE = "read_skill"
 
 
@@ -429,8 +355,6 @@ def _drop_withheld(
             max_calls,
             state.retrieval_round,
         )
-    # By identity: two parallel calls to one tool can be equal dicts, and
-    # ``in`` would then drop the occurrence that is supposed to run.
     withheld = {id(call) for call in (*repeats, *(call for call, _ in refused), *over_width)}
     if not withheld:
         return calls
@@ -517,13 +441,6 @@ def _charge_tool_calls(
         rounds,
         ceiling,
     )
-    # The same fact, said to the USER instead of the log: one line per ROUND.
-    # The checkpoint sentence rides as ``reason`` so the Herleitung can draw a
-    # conclusion instead of the search query. Two channels carry it and
-    # ``emit_retrieval`` ranks them: the ``conclusion`` ARGUMENT the retrieval
-    # tools declare (what the prompt asks for), and — passed here — the prose
-    # the model wrote beside its calls, which is the fallback for a model that
-    # narrates instead of filling the slot.
     conclusion = assistant_checkpoint(response)
     searched = emit_retrieval(
         calls,
@@ -531,9 +448,6 @@ def _charge_tool_calls(
         conclusion=conclusion,
     )
     retrieval_round = state.retrieval_round + (1 if searched else 0)
-    # The stored half of the same announcement: same calls (post withholding),
-    # same conclusion, same slot — the ledger join reads this, never a
-    # re-derivation, so it cannot describe a different round than the frame.
     record = record_round_announcement(
         round_index=state.retrieval_round,
         calls=calls,
@@ -565,9 +479,6 @@ def _executing_retrieval_round(state: ResearchAgentState, ran: Sequence[Any]) ->
     calls = [call for call in ran if isinstance(call, dict)]
     if not is_retrieval_round(calls):
         return None
-    # max(): the graph always runs agent→tools, so 0 here means the announcement
-    # itself did not happen (a test driving the tools node directly). Round 0 is
-    # the honest reading of "the first fetch of this run" — never a negative.
     return max(state.retrieval_round - 1, 0)
 
 
@@ -692,17 +603,8 @@ class _RoundSplit:
 
     ran: list[Any]
     repeats: list[Any]
-    #: ``(call, the sentence that answers it)`` for every call addressing a
-    #: source this conversation switched off.
     refused: list[tuple[Any, str]]
-    #: The calls past the round's width cap: not refused, just not run THIS
-    #: round, and the model is told it may ask again next round.
     over_width: list[Any]
-    #: The WRITE calls held back because a steering note arrived after the
-    #: model chose them (:meth:`held_for_steer`). Decided in the tools node
-    #: only: it is about WHEN the note arrived, which the agent node that
-    #: charged the round could not know. A write is never a fetch, so the
-    #: round's announcement and its stamp are the same with or without it.
     steered: list[Any] = field(default_factory=list)
 
     @property
@@ -948,15 +850,12 @@ def _capture_sources(
     if tool_name not in source_tool_names:
         return
     source_id = source_id_for_call(tool_name)
-    # `look` is no data source: it registers the PLACE it read, when it read a
-    # project or office document (`tools/look/place.py`), and nothing else.
     if source_id is None and not is_look_tool(tool_name):
         logger.debug("[CitationRegistry] Skipping non-data-source tool result from %s", tool_name)
         return
     sources = extract_sources_from_tool_result(tool_name, content, source_id=source_id, artifact=artifact)
     for source in sources:
         registry.add(source)
-    # A place is no retrieval: it must not ground a trailer value or count as a retrieved source.
     record_turn_capture([source for source in sources if not is_look_place(source)])
     if sources:
         logger.info(
@@ -982,7 +881,6 @@ def _bind_registry() -> tuple[SourceRegistry, Any]:
     return registry, set_session_registry(registry)
 
 
-#: What the model reads beside the round-0 calls: their provenance, the one place it is said.
 PREFETCH_NOTE = (
     "Passages retrieved automatically for this message follow. Use them if they answer the question; "
     "search further if they don't."
@@ -1004,10 +902,6 @@ class ChatAgent:
         >>> result = await agent.run(ResearchAgentState(messages=[HumanMessage(content="What is CUDA?")]))
     """
 
-    #: The state model ``run`` takes. Declared rather than derived: the async
-    #: job runner used to spell it out of the class name, so renaming the class
-    #: silently handed the agent a bare dict instead of a state object
-    #: (``agent_host.jobs.runner._get_agent_state_class``).
     state_model = ResearchAgentState
 
     def __init__(
@@ -1077,8 +971,6 @@ class ChatAgent:
         self._boot = self._bind_turn(self.llm_provider, tuple(self.tools))
         self._graph = self._build_graph()
 
-    # -- bindings ---------------------------------------------------------------
-
     @property
     def _llm_with_tools(self) -> Any:
         """The boot binding: every boot tool, bound once at construction."""
@@ -1117,8 +1009,6 @@ class ChatAgent:
             llm_with_tools=self._bind_research_tools(llm, tools),
             tools=tools,
             tools_info=self.tools_info if boot_tools else build_tools_info(tools),
-            # Every call reports the collections it read onto its result, which
-            # is what `admit_tool_results` admits in the tools node (ADR-0088).
             tool_node=ToolNode(
                 list(tools), handle_tool_errors=render_tool_error, awrap_tool_call=report_collections_read
             ),
@@ -1147,14 +1037,9 @@ class ChatAgent:
             return base
         return replace(base, disabled_sources=frozenset(turn.disabled_sources), prefetch=tuple(turn.prefetch))
 
-    # -- graph ------------------------------------------------------------------
-
     def _build_graph(self) -> CompiledStateGraph:
         """Compile the two-node loop once; turns vary through the config."""
         builder = StateGraph(ResearchAgentState)
-        # Round 0 first: the fetches the turn-start decision named, run
-        # through the tools node before the model's first call (ADR-0064). A
-        # no-op step on a turn with nothing to prefetch.
         builder.set_entry_point("prefetch")
         builder.add_node("prefetch", self._prefetch_node)
         builder.add_node("agent", self._agent_node)
@@ -1175,18 +1060,7 @@ class ChatAgent:
         llm_with_tools = binding.llm_with_tools
         prompt = cached_turn_prompt(state)
         if prompt is None:
-            # In a THREAD, because the render resolves the static half through
-            # the prompt store: with Langfuse prompt management on, that is one
-            # bounded HTTP call (2 s) on the first render of a TTL window, and
-            # a blocking call inside a coroutine stalls every other turn this
-            # worker is serving, not only this one. ``to_thread`` copies the
-            # context, so every ContextVar the render reads is the turn's own,
-            # and nothing in it depends on the thread it runs on.
-            # ``register.py`` moves its blocking reads the same way.
             prompt = await asyncio.to_thread(render_turn_prompt, self.system_prompt, state, tools_info)
-        # What the person typed since the last decision, read before this one
-        # (``common/steering.py``). Never into ``state.messages``: only into
-        # the request, at the index it arrived at, every round from now on.
         taken = _take_steering(state)
         steering = state.steering if taken is None else taken
         cutoff = _turn_cutoff(state, binding)
@@ -1194,17 +1068,11 @@ class ChatAgent:
             return await self._forced_synthesis(state, binding, prompt, cutoff=cutoff, steering=steering)
 
         messages = request_messages(prompt, state.messages, steering)
-        # Every round may be the answer, and only its tokens say so; each
-        # streams, and the reader shows nothing from a round that is not an
-        # envelope.
         answering, call_config = streaming_call(llm_with_tools, live=_live_answer(state))
         if self.envelope_json_mode_with_tools:
             response = await ainvoke_with_envelope_json_mode(answering, messages, call_config)
         else:
             response = await ainvoke(answering, messages, call_config)
-        # The tool calls are over and the answer is being written. Without
-        # this the live line keeps showing the last retrieval event through
-        # the whole synthesis call.
         if _starts_synthesis(response, state):
             emit_synthesis()
         rounds, retrieval_round, round_record = _charge_tool_calls(
@@ -1237,8 +1105,6 @@ class ChatAgent:
         """
         shape = _tool_call_shape(state.messages)
         input_tokens = _turn_input_tokens()
-        # The rule is a keyword match on "token" in a logged string; these are
-        # counts of input tokens against the turn's budget, not a credential.
         # nosemgrep: python.lang.security.audit.logging.logger-credential-leak.python-logger-credential-disclosure
         logger.warning(
             "Forcing synthesis (%s): ceiling=%d rounds_spent=%d input_tokens=%d/%d skill_calls=%d shape=%s",
@@ -1283,16 +1149,8 @@ class ChatAgent:
         (``envelope_call.ainvoke_synthesis``), so the cached prefix holds.
         """
         self._record_cutoff(state, binding, cutoff)
-        # This call IS the synthesis, by construction (no tool call, anchored on
-        # the answer), so the status goes out before it rather than after: the
-        # final generation is the longest call of the turn, and the live line
-        # would otherwise show the last retrieval event through all of it.
-        # The one gate `_starts_synthesis` keeps applies here too: a turn that
-        # never researched has no synthesis phase to narrate.
         if state.tool_iterations > 0:
             emit_synthesis()
-        # Anchored at the end to combat "Loss in the Middle".
-        # The notes keep their places; the anchor stays last.
         messages = [
             *request_messages(prompt, state.messages, steering),
             HumanMessage(content=_SYNTHESIS_ANCHOR),
@@ -1338,42 +1196,21 @@ class ChatAgent:
         """
         binding = self._turn_binding(config)
         split = _split_round(state, binding.disabled_sources, binding.max_calls_per_round)
-        # Derived before the steering hold, from what the agent node charged: a
-        # held write is never a fetch, so the stamp is the same either way.
         executing_round = _executing_retrieval_round(state, split.ran)
         split = _hold_writes_for_steer(state, split)
         withheld = split.withheld
-        # The model answering this turn rides into its tools beside the round
-        # stamp, for the same node-boundary reason: an image view asks whether
-        # it can see at all (`common/model_vision.py`).
         with retrieval_round_scope(executing_round), chat_model_scope(model_name_of(binding.llm)):
             result = await binding.tool_node.ainvoke(_without_dropped_calls(state, withheld) if withheld else state)
         registry = get_session_registry()
         if registry is None:
             raise RuntimeError("ChatAgent graph invoked outside run(): no source registry is bound")
-        # Restricted content is admitted for the conversation BEFORE anything
-        # reads it (ADR-0087, ADR-0088): a result carrying a restricted
-        # collection that is not admitted (not drawable this turn, refused
-        # because a share raced it, or no restricted use bound) is replaced by a
-        # notice here, so neither the source registry nor the model ever sees it.
         ran_messages = await admit_tool_results(list(result.get("messages", [])))
         measured = self._capture_round(ran_messages, binding, registry, state)
-        # AFTER the capture, which files the sources under the bytes the tool
-        # returned: from here on the transcript, the repeat-fetch answers and
-        # the next turn's history carry the passages without the lanes JSON
-        # the model never reads (``strip_trace_lanes``). The frontend's copy is
-        # the agent-runtime tool step, recorded when the tool returned, and unaffected.
         ran_messages = [_without_trace_lanes(message) for message in ran_messages]
         result = {**result, "messages": ran_messages}
         failed_ids = failed_call_ids(ran_messages)
-        # Merged BEFORE the notices are built: a call repeated inside its own
-        # batch is answered with the result its first occurrence just returned.
         fetch_results = {**state.fetch_results, **_fetch_results(split.ran, ran_messages, failed_ids)}
         if withheld:
-            # AFTER the capture loop, deliberately: a withholding notice is not
-            # a tool result and must never be mined for citation keys — and it
-            # carries the earlier result verbatim now, so mining it would
-            # register every passage of that fetch a second time.
             result = {**result, "messages": [*ran_messages, *split.notices(fetch_results)]}
         result = {
             **result,
@@ -1401,21 +1238,14 @@ class ChatAgent:
             if not isinstance(message, ToolMessage) or not message.content:
                 continue
             if getattr(message, "status", None) == "error":
-                # A call that raised returned no evidence, whatever its text
-                # says. Read as a result it contributes the error's own words:
-                # a pydantic message links to its error index, and that link
-                # used to register as a web source card nobody had searched.
                 continue
             tool_name = getattr(message, "name", "") or ""
-            # A look answers in blocks (text, then the image): its text is the grounding block.
             content = content_to_text(message.content) if isinstance(message.content, list) else str(message.content)
             measured = measured or tool_result_is_measurement(tool_name, content)
             _capture_sources(
                 tool_name, content, binding.source_tool_names, registry, getattr(message, "artifact", None)
             )
         return measured
-
-    # -- the turn ---------------------------------------------------------------
 
     def _graph_config(self, binding: TurnBinding) -> dict[str, Any]:
         config: dict[str, Any] = {
@@ -1465,8 +1295,6 @@ class ChatAgent:
         if not binding.prefetch:
             return {}
         bound = {tool.name for tool in binding.tools}
-        # Unique per turn, not per index: the last turn's transcript stays in the
-        # history with its calls, and a provider refuses two calls under one id.
         turn_key = uuid.uuid4().hex[:8]
         calls = [
             {"name": str(call["name"]), "args": dict(call.get("args") or {}), "id": f"prefetch-{turn_key}-{index}"}
@@ -1482,8 +1310,6 @@ class ChatAgent:
             return {}
         searched = emit_retrieval(split.ran, round_index=state.retrieval_round, conclusion=None, prefetch=True)
         record = record_round_announcement(round_index=state.retrieval_round, calls=split.ran, conclusion=None)
-        # The counter moves as the agent node moves it, so the tools node
-        # derives round 0 for these calls (``_executing_retrieval_round``).
         announced = announced.model_copy(
             update={
                 "retrieval_round": state.retrieval_round + (1 if searched else 0),
@@ -1523,27 +1349,12 @@ class ChatAgent:
         (see ``bim.measurement_sources``).
         """
         binding = self._resolve_turn(turn)
-        # Which static half THIS turn renders, when it is the bundled fallback:
-        # that is no prompt link, because it names no prompt Langfuse holds, so
-        # the trace metadata is where an operator sees it. Resolved and stamped
-        # here, in the turn's own context, because the render itself runs in a
-        # worker thread whose copied context discards every ContextVar write.
-        # The box is bound BEFORE the resolve, so the identity this turn renders
-        # with, including the render thread's own resolution, lands in it and
-        # is what this turn's generation spans name.
         prompt_link = begin_turn_prompt_link()
-        # The static half is the system prompt every call of every turn of
-        # this tenant shares; naming it keeps the provider's cache key, and so
-        # its shard, stable across turns while the turn context (already-read
-        # digest, date, inventory) moves in its own message.
         stable_prefix = begin_stable_prefix(await stamp_static_prompt_for_turn(state.messages))
         registry, registry_token = _bind_registry()
         turn_capture = begin_turn_capture()
         measurement_capture = begin_measurement_capture()
         lane_capture = begin_lane_capture()
-        # What each evidence tool STATED, filed under the bytes it returned, so
-        # the citation registry copies fields instead of re-parsing the text an
-        # evidence tool wrote (ADR-0061).
         grounding_capture = await open_grounding_capture(state.licensed_text_allowed, state.messages)
         try:
             graph_result = await self._graph.ainvoke(state, config=self._graph_config(binding))
@@ -1560,9 +1371,6 @@ class ChatAgent:
             if registry_token is not None:
                 reset_session_registry(registry_token)
 
-        # Before the answer is finalised, because the question it answers is
-        # about the RESEARCH: how much of a Richtlinien-Familie this turn read
-        # against how much of it the inventory listed.
         _report_family_coverage(turn_sources)
 
         final = await finalize_answer(
@@ -1576,9 +1384,6 @@ class ChatAgent:
             check=turn_check(state, self.claim_judge_llm),
         )
         self._emit_final_report(final)
-        # The "already read" digest, appended at turn end: this turn's captures
-        # merged over the incoming lines, so the next turn re-opens with
-        # `read_passage` instead of re-searching.
         merged_digest = merge_digest(state.already_read_digest, turn_sources, _turn_index(state))
         result = assemble_result(
             graph_result,

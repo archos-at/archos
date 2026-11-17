@@ -44,8 +44,6 @@ from .qrels import load_clause_index
 
 logger = logging.getLogger(__name__)
 
-#: Scored at production's ``top_k`` so this number and the runner's are read at the same
-#: depth even though they measure different stages.
 DEFAULT_K = 16
 
 DEFAULT_FORBIDDEN_PREFIXES = ("aenderungen_",)
@@ -109,12 +107,6 @@ class OIBRetrievalEvaluator(BaseEvaluator):
                 reasoning={"error": "No 'relevant' Punkt labels in expected_output for this case."},
             )
 
-        # A malformed label is a DATASET defect, and it must be scored as one rather than
-        # ending the run. These labels come from the eval dataset, not from the validated
-        # committed golden set, so `raw["richtlinie"]`, `int(raw["grade"])`,
-        # `PunktLabel.__post_init__` and `index.units` are all reachable with bad input --
-        # and one bad row raising here aborts every remaining item. The `labels is None`
-        # branch above already establishes the intended handling.
         graded: dict[Unit, int] = {}
         try:
             for raw in labels:
@@ -132,10 +124,6 @@ class OIBRetrievalEvaluator(BaseEvaluator):
         forbidden_hits = [unit for unit in cited if unit in self.forbidden]
         relevant = frozenset(graded)
 
-        # A should-refuse case (empty labels) is scored on ABSTENTION: citing nothing is
-        # the correct answer, and every citation is a wrong one. Scoring it with nDCG
-        # would give a full marks to an answer that cited ten irrelevant pages, because
-        # the ideal DCG is zero either way.
         if not relevant:
             score = 1.0 if not cited else 0.0
         else:
@@ -152,9 +140,6 @@ class OIBRetrievalEvaluator(BaseEvaluator):
             "k": self.k,
             "question": item.input_obj,
         }
-        # A forbidden citation is disqualifying, not a deduction: the change-log documents
-        # read exactly like requirements, so an answer sourced from one is confidently
-        # wrong and no amount of otherwise-correct citation redeems it.
         if forbidden_hits:
             score = 0.0
         return EvalOutputItem(id=item_id, score=score, reasoning=reasoning)
@@ -166,10 +151,6 @@ class OIBRetrievalEvaluator(BaseEvaluator):
         errored = 0
         for output_item in base_output.eval_output_items:
             reasoning = output_item.reasoning if isinstance(output_item.reasoning, dict) else {}
-            # An error item carries only "error": neither `cited_units` nor `should_refuse`
-            # is present, so it used to be counted as an answer that cited nothing. A
-            # dataset defect must not be reported as a model that failed to cite -- that
-            # reads as a retrieval regression and sends the reader to the wrong place.
             if "error" in reasoning:
                 errored += 1
                 continue

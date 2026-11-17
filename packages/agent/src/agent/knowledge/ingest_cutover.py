@@ -48,14 +48,10 @@ logger = logging.getLogger(__name__)
 
 TABLE = "ingest_job_queue"
 _WORKER = "hatchet-cutover"
-#: The old workers' stale window (``INGEST_CLAIM_STALE_SECONDS``' default).
 _STALE_SECONDS = 180
-#: Jobs one pass hands over at most; the next pass, a minute later, takes the rest.
 BATCH = 500
-#: How a payload ``payload_crypto`` encrypted begins.
 _ENCRYPTED = "enc:"
 
-#: A trigger: (job id, organisation id, priority, payload) -> whether it started a run.
 Trigger = Callable[[str, str | None, str, str], bool]
 
 
@@ -87,7 +83,6 @@ def live_rows() -> int:
     if not url or not _table_exists(url):
         return 0
     with _engine(url).connect() as conn:
-        # Only the module constant is interpolated.
         # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
         query = text(f"SELECT COUNT(*) FROM {TABLE} WHERE status IN ('queued', 'claimed')")
         return int(conn.execute(query).scalar_one())

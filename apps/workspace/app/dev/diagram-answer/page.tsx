@@ -1,38 +1,5 @@
 'use client'
 
-/**
- * Dev preview — a diagram Piloti drew, inside an answer.
- *
- * Three panels, in the order a reader meets them:
- *
- *  1. **Drawn.** A process flow written as mermaid in the answer. Mermaid's
- *     parser reads it into a model (`features/diagrams/parse-mermaid.ts`) and
- *     this product's own `FlowDiagram` draws it, with no „Schematisch — ohne
- *     Maßangabe." line: that line is a claim about a drawing's geometry, and
- *     these views have none. Under it only the „Im Projekt ablegen" action,
- *     which appears because the panel is wrapped in a filing target the way an
- *     answer inside a project is. Mermaid's SVG is drawn only when the reader
- *     files it (`renderPaperDiagram`), on paper, and it carries the line in its
- *     own text.
- *  2. **Not drawable.** The model wrote broken mermaid, which it does. The
- *     reader gets the source they would have seen anyway plus one quiet line.
- *     Never a red box.
- *  3. **Still arriving.** CommonMark runs an unclosed fence to the end of its
- *     container, so a half-written diagram LOOKS complete on every token, and
- *     drawing it would flash a parse error. While the fence is open
- *     (`isOpenFence`) `MermaidDiagram` holds the drawing's place with
- *     `DrawingSkeleton`, not with the source: a code block turning into a
- *     picture when its fence closed was the largest jump a streamed answer
- *     made (ADR-0066).
- *
- * The drawing paints no ground of its own: the card surface shows through in
- * both themes (`components/mermaid-diagram.tsx`, „The drawing has no ground of
- * its own"). Only the filed copy is drawn on paper, whatever the theme.
- *
- * Pinned to German (`I18nProvider initialLocale="de" fixedLocale`): the copy
- * under review is the German copy. 404s outside development.
- */
-
 import { notFound } from 'next/navigation'
 import { I18nProvider } from '@/i18n'
 import { MarkdownRenderer } from '@/shared/components/MarkdownRenderer'

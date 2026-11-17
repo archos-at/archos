@@ -1,14 +1,3 @@
-/**
- * Agent profiler — cross-organization conversation directory for the
- * platform owner's dashboard. Platform owners only; tenant admins get 403.
- * Same gate shape as `api/platform/overview/route.ts`.
- *
- * Read in the Answer-quality scope (`lib/quality/scope.ts`: `from`, `to`,
- * repeatable `org` and `project`; a bad range is a 400). `q` searches within
- * it. `conversation` asks whether that one conversation is in the scope; the
- * answer comes back as `selected`, whatever the search or the list's cap.
- */
-
 import { NextResponse } from 'next/server'
 import { platformApiRoute } from '@/lib/api/platform-handler'
 import { PLATFORM_PERMISSIONS } from '@/lib/authz/permissions'

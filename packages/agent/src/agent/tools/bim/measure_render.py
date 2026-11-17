@@ -31,9 +31,6 @@ def _provenance_line(answer: dict[str, Any]) -> str:
         missing = answer.get("missing") or {}
         what = missing.get("what") or "the required information"
         remedy = missing.get("remedy") or ""
-        # `missing.what` is the engine's own phrase (German, sometimes negated:
-        # „keine IfcSpace-Elemente"). It is put after a colon, never into a
-        # sentence of ours, so its grammar cannot turn the finding around.
         return (
             f"UNDECIDABLE: this export cannot answer it — missing: {what}. "
             "This is a finding about the EXPORT, not about the building." + (f" Remedy: {remedy}" if remedy else "")
@@ -50,8 +47,6 @@ def _provenance_line(answer: dict[str, Any]) -> str:
         confidence = answer.get("confidence")
         band = f" (confidence {_num(confidence)})" if confidence is not None else ""
         return f"vermutlich: {text}{band} — a proposal for confirmation, not a finding."
-    # The tolerance is always a scalar in the value's unit, whatever shape the
-    # value itself has — so it takes the plain unit, not the parenthesised one.
     band = f" (±{_tolerance_text(tolerance)}{' ' + unit if unit else ''})" if tolerance is not None else ""
     return f"gemessen{band}: {text} — computed from the geometry, not declared."
 
@@ -67,13 +62,8 @@ def _value_with_unit(answer: dict[str, Any]) -> str:
     """
     unit = answer.get("unit")
     value = answer.get("value")
-    # A declared figure is the file's own statement and is never re-rounded; a
-    # measured one is shown to its band and no further.
     decimals = _decimals(answer.get("tolerance")) if answer.get("provenance") == "computed" else None
     text = _value_text(value, decimals)
-    # A unit belongs after a NUMBER. Appended to a list or to a set of named
-    # numbers it produces "2 Einträge m" and "sill=0.9, head=2.11 m", the second
-    # of which reads as though only the last figure carried the unit.
     scalar = isinstance(value, (int, float)) and not isinstance(value, bool)
     suffix = (f" {unit}" if scalar else f" ({unit})") if unit else ""
     return f"{text}{suffix}"
@@ -100,13 +90,6 @@ def _trailer(answer: dict[str, Any]) -> list[str]:
     if answer.get("method"):
         lines.append(f"Method: {answer['method']}")
     return lines
-
-
-# ── the special answer shapes ────────────────────────────────────────────────
-#
-# Three operators answer with a structured value that `_value_text` would
-# flatten into „results=17 Einträge": the light-entry area, the egress path and
-# the door graph. Each gets its own headline in place of the provenance line.
 
 
 def _render_light_entry(answer: dict[str, Any], list_limit: int) -> list[str]:
@@ -194,8 +177,6 @@ def _render_door_graph(answer: dict[str, Any], list_limit: int) -> list[str]:
     )
     return lines + _trailer(answer)
 
-
-#: (does the value have this shape, how to render it) — first match wins.
 
 _ANSWER_SHAPES: tuple[tuple[Callable[[Any], bool], Callable[[dict[str, Any], int], list[str]]], ...] = (
     (lambda v: isinstance(v, dict) and "lightEntryArea" in v, _render_light_entry),

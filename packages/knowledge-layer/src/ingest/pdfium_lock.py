@@ -58,7 +58,6 @@ def close_bitmap(bitmap: Any) -> None:
     goes with it; the caller vouches it holds no view of that buffer, so the
     warning is switched off for this close (its ``warn_on_close`` exists for that).
     """
-    # A PdfBitmap always has close(); a test double standing in for one may not.
     close = getattr(bitmap, "close", None)
     if close is None:
         return

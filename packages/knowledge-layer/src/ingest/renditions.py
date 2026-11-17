@@ -25,23 +25,10 @@ from knowledge_layer.ingest.deferred_files import run_deferred_download
 
 logger = logging.getLogger(__name__)
 
-#: The formats indexed ONLY from their rendition. Mirrors
-#: ``RENDITION_INDEXED_EXTENSIONS`` in ``apps/workspace/bff/documents/preview-types.ts``,
-#: the one place the BFF decides which dispatches carry ``extraction_ref``;
-#: there is no shared schema, so a format added there without being added here
-#: still works (a rendition present is always read), while one added here and
-#: not there fails every upload of it. Spreadsheets with a structure of their
-#: own (.xlsx/.xlsm) are absent on purpose: their sheets are read by openpyxl.
-#: A ``.dxf`` is here because it has no reader of its own at all: its rendition
-#: is a page the backend draws itself (ADR-0152), with the drawing's text written
-#: into it as a text layer, so its parcel numbers and labels are what is indexed.
 RENDITION_INDEXED_EXTENSIONS = frozenset(
     {".docx", ".docm", ".doc", ".odt", ".rtf", ".pptx", ".pptm", ".ppt", ".odp", ".xls", ".ods", ".dxf"}
 )
 
-#: The file error for such a format with no rendition to read. A stable,
-#: machine-readable prefix, like ``vlm_not_configured``: the failed-document UX
-#: and anyone grepping logs key on it.
 OFFICE_RENDITION_REQUIRED = (
     "office_rendition_required: Word, presentation and DXF files are indexed from their PDF "
     "rendition, and none could be read (conversion disabled or failed, or the download failed)"
@@ -57,10 +44,6 @@ def requires_rendition(file_name: str, file_path: str) -> bool:
     return (Path(file_name).suffix or Path(file_path).suffix).lower() in RENDITION_INDEXED_EXTENSIONS
 
 
-#: The per-file rendition lists a job config may carry, positional like
-#: ``original_filenames``: the one a document is READ from (``extraction_paths``,
-#: ADR-0071) and the one only its thumbnail is drawn from (``preview_paths``, an
-#: office original indexed from its own bytes, a spreadsheet).
 RENDITION_CONFIG_LISTS = ("extraction_paths", "preview_paths")
 
 

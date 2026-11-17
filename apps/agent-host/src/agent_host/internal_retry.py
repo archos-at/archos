@@ -29,13 +29,8 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-#: The pauses between attempts: three attempts over about 25 seconds, plus the
-#: time each request takes. Long enough to ride out a BFF rollout's restart and
-#: the gap between a submit and the row that records it; short enough that a
-#: worker is not held on a write the reconciler will make anyway.
 RETRY_DELAYS_SECONDS: tuple[float, ...] = (5.0, 20.0)
 
-#: Statuses that say "try again", not "no". 404 is added per call, below.
 _RETRYABLE_STATUSES = frozenset({408, 425, 429, 500, 502, 503, 504})
 
 

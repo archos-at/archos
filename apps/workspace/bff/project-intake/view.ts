@@ -1,18 +1,3 @@
-/**
- * The review as `GET /api/projects/[id]/intake` answers it (ADR-0111): the
- * intake row, the profile as it stands and the needs computed from it, turned
- * into an `IntakeView`. Pure; the service loads, this shapes.
- *
- * Every fact and suggestion under a key one of the wizard's questions writes
- * is shown in that question's module, with where it was found and what else
- * was found for it. A value with alternatives is a contradiction, listed again
- * on top. The questions are the decisive needs nothing has filled (a
- * `suggested` or `confirmed` need is not a question). The class of each
- * building is shown once, in `derivations`, with the inputs it read and the
- * ones it lacks, never again in the modules; a contested class is still listed
- * among the contradictions.
- */
-
 import type { ProjectIntakeDefinition, ProjectIntakeQuestion, ProjectIntakeStage } from '@/lib/project-profile/intake-types'
 import { formatIntakeAnswer, labelForProfileKey } from '@/lib/project-profile/intake-vocabulary'
 import type { ProjectAssumption, ProjectFact, ProjectProfile } from '@/lib/project-profile/types'
@@ -35,7 +20,6 @@ import {
   type SuggestionState,
 } from './types'
 
-/** Where a base key is asked: its module, and the question (none for a derived key). */
 interface KeyHome {
   stage: ProjectIntakeStage
   question: ProjectIntakeQuestion | null
@@ -49,7 +33,6 @@ function stageQuestions(stage: ProjectIntakeStage): ProjectIntakeQuestion[] {
   ]
 }
 
-/** Base key → its module and question, from the definition: the profile keys questions write, and the derived ones. */
 export function keyHomes(definition: ProjectIntakeDefinition): Map<string, KeyHome> {
   const homes = new Map<string, KeyHome>()
   for (const stage of definition.stages) {
@@ -99,7 +82,6 @@ function suggestionOf(
   }
 }
 
-/** Every value on the profile under a key the definition knows, with the module it belongs to, facts first. */
 function profileItems(
   profile: ProjectProfile,
   definition: ProjectIntakeDefinition,
@@ -119,10 +101,8 @@ function profileItems(
   return items
 }
 
-/** The derived class: shown and decided in `derivations`, so not again in its module. */
 const isDerivedClass = (item: Suggestion) => item.baseKey === BUILDING_CLASS_RULE
 
-/** Every value on the profile under a key the definition knows, grouped by module in the wizard's order; the derived class is not among them. */
 export function suggestionGroups(
   profile: ProjectProfile,
   definition: ProjectIntakeDefinition,
@@ -138,7 +118,6 @@ export function suggestionGroups(
     .map((stage) => ({ stage: stage.id, title: stage.title, items: byStage.get(stage.id) ?? [] }))
 }
 
-/** Each building's derivation, with the suggestion of its class: the row the review confirms it through. */
 function derivationReviews(
   profile: ProjectProfile,
   definition: ProjectIntakeDefinition,
@@ -157,7 +136,6 @@ function derivationReviews(
   }))
 }
 
-/** The values with a different value found beside them, in the modules' order, the derived class included. */
 function contestedItems(
   profile: ProjectProfile,
   definition: ProjectIntakeDefinition,
@@ -170,7 +148,6 @@ function contestedItems(
     .map(({ item }) => item)
 }
 
-/** What a reading leaves to review, counted as the row stores it at the end of a reading. */
 export function intakeCounts(
   profile: ProjectProfile,
   definition: ProjectIntakeDefinition,
@@ -190,25 +167,17 @@ export interface IntakeViewInput {
   profile: ProjectProfile
   definition: ProjectIntakeDefinition
   needs: readonly Need[]
-  /** The released setup records the review reads its classification and location register from (`readSetupRecords`). */
   records: readonly StoredRuleset[]
   unreadDocuments: number
   canDecide: boolean
   canComplete: boolean
-  /** Step 3: the readable documents and the unread ones among them, for the live „x von y". Absent: none. */
   readingDocuments?: { readable: readonly ReadingDocument[]; unread: readonly ReadingDocument[] }
-  /**
-   * Step 5: the law at the project's site from the records (`projectLawFor`).
-   * Absent: the card is left out. Where its gate names no law, no class is
-   * derived or shown either (ADR-0169's amendment).
-   */
   applicableLaw?: ProjectLaw
 }
 
 const iso = (value: Date | string | null | undefined): string | null =>
   value ? new Date(value).toISOString() : null
 
-/** The review. */
 export function buildIntakeView(input: IntakeViewInput): IntakeView {
   const { row, definition, needs } = input
   const lawWithheld = input.applicableLaw ? !gateNamesLaw(input.applicableLaw.gate) : false
@@ -236,32 +205,18 @@ export function buildIntakeView(input: IntakeViewInput): IntakeView {
     derivations: derivationReviews(profile, definition, needs, lawWithheld, input.records),
     canDecide: input.canDecide,
     canComplete: input.canComplete,
-    // Step 5, Steckbrief: the law at the site, from the platform's records.
     ...(input.applicableLaw ? { applicableLaw: input.applicableLaw } : {}),
-    // Step 4, Rückfragen: what the location decides, and the documents for it.
     locationRegister: locationRegisterFor({ profile, location: row.location ?? null, mode: row.mode, needs, records: input.records }),
     setupPublished: !setupUnpublished(profile, input.records),
     readingProgress: readingProgressOf(input),
   }
 }
 
-// ---------------------------------------------------------------------------
-// Step 3, Erfassung (`reading`): the reading's live milestones
-// ---------------------------------------------------------------------------
-
-/** A readable document, as far as the reading's progress needs one. */
 export interface ReadingDocument {
   documentId: string
   fileName: string
 }
 
-/**
- * How far the current or last reading got through what it had before it.
- * Opened: the readable documents whose name the run reported opening (the
- * finish merges by name too, `mergeDocumentsRead`). Before it: the documents
- * no finished reading has read, and the ones it opened (a reading may open a
- * document read before, and then it counts on both sides). Pure.
- */
 export function readingDocumentProgress(
   readingFiles: readonly string[],
   readable: readonly ReadingDocument[],
@@ -280,7 +235,6 @@ export function readingDocumentProgress(
 
 type SiteSource = NonNullable<ReadingProgress['site']['source']>
 
-/** Where a Bundesland came from: an address register in the cell, the address search at creation, a document, or a person. */
 function siteSource(entry: ProjectFact | ProjectAssumption, confirmed: boolean, row: ProjectIntakeRow): SiteSource {
   const kinds = new Set((entry.evidence ?? []).map((evidence) => evidence.kind))
   if (kinds.has('register')) return 'register'
@@ -290,18 +244,11 @@ function siteSource(entry: ProjectFact | ProjectAssumption, confirmed: boolean, 
   return 'person'
 }
 
-/** The Gemeinde an address register confirmed (ADR-0172), or null: a `municipality` fact from anywhere else is not read here. */
 function registerMunicipality(profile: ProjectProfile): string | null {
   const fact = profile.facts.municipality
   return fact?.evidence?.some((evidence) => evidence.kind === 'register') ? String(fact.value) : null
 }
 
-/**
- * „Standort ermittelt": the Bundesland as a person reads it, the Gemeinde the
- * address search named, and the address, from the profile first (what a
- * reading found or a person said) and the intake's geocoder result second.
- * Pure.
- */
 export function readingSite(
   row: ProjectIntakeRow,
   profile: ProjectProfile,
@@ -325,7 +272,6 @@ export function readingSite(
   }
 }
 
-/** Step 3's block of the view. */
 function readingProgressOf(input: IntakeViewInput): ReadingProgress {
   const documents = input.readingDocuments ?? { readable: [], unread: [] }
   return {

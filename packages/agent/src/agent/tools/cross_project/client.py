@@ -27,9 +27,6 @@ SEARCH_PATH = "/api/internal/cross-project/search"
 PROJECTS_PATH = "/api/internal/cross-project/projects"
 BRIEF_PATH = "/api/internal/cross-project/brief"
 
-#: A search authorizes up to forty projects on the BFF, ranks their collections
-#: in one grouped query and joins each project's hits to its rows. Generous, so
-#: a slow page is an answer rather than a timeout the model retries.
 REQUEST_TIMEOUT_SECONDS = 30
 
 

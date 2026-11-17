@@ -143,7 +143,6 @@ def add_cleanup_proposal_routes(router: APIRouter) -> None:
         headers = {"Content-Type": "application/json", "Authorization": f"Bearer {cred.api_key}"}
 
         try:
-            # A person waits on the close dialog, so the call queues as interactive (ADR-0081).
             async with (
                 observed_generation(
                     "cleanup-proposal", model=cred.model, messages=payload.get("messages")

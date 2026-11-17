@@ -45,7 +45,6 @@ MAX_OPEN = 2
 IDLE_SECONDS = 300
 JANITOR_SECONDS = 60
 
-#: In-network object store requests: no proxy, generous read time for a cold block.
 _CLIENT = httpx.Client(timeout=httpx.Timeout(60.0, connect=10.0), trust_env=False)
 
 
@@ -56,7 +55,6 @@ class _Open:
     size: int
     used_at: float
     holders: int = 0
-    #: Dropped from the cache while held; the last holder closes it.
     evicted: bool = False
 
 
@@ -101,7 +99,6 @@ def _acquire(key: str, url: str, size: int) -> _Open:
     with _lock:
         raced = _open.get(key)
         if raced is not None and raced.size == size:
-            # Another request opened it meanwhile; keep theirs, drop ours.
             raced.holders += 1
             dropped, entry = opened, raced
         else:

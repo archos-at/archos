@@ -265,9 +265,6 @@ const recordAnimations = async (cdp) => {
       return 'gone'
     }
   }
-  // What the animation moves. A CSS transition is named after its property; a
-  // Web Animation (motion.dev's WAAPI path) or a CSS animation is asked for its
-  // keyframes, which is how the reduced-motion audit tells a fade from a move.
   const properties = async (animation) => {
     if (animation.type === 'CSSTransition') return animation.name || '?'
     try {
@@ -286,10 +283,6 @@ const recordAnimations = async (cdp) => {
       return '?'
     }
   }
-  // A turn starts thousands of animations (a caret, shimmers, every chip).
-  // Resolving the element of each one is two CDP round trips and flooded the
-  // session until the run timed out, so only the first few elements per
-  // distinct timing are named; the rest are counted.
   const named = new Map()
   cdp.on('Animation.animationStarted', async ({ animation }) => {
     const source = animation.source ?? {}
@@ -351,7 +344,6 @@ const printAnimations = (started) => {
     const flag = miss || offDuration || offEasing ? '!' : ' '
     if (miss) misses += 1
     const loop = animation.iterations === null || animation.iterations === Infinity ? ' infinite' : ''
-    // A spring's `linear(…)` lists dozens of stops; its head is enough to recognise it.
     const easing = animation.easing.length > 48 ? `${animation.easing.slice(0, 45)}…` : animation.easing
     console.log(
       `  ${flag} ${animation.type} ${animation.name} [${animation.properties}] ${animation.duration}ms${offDuration ? '(off-token)' : ''} ${easing}${offEasing ? '(off-token)' : ''}${loop}${miss ? ` (reduced motion: ${miss})` : ''} ×${animation.count} ${animation.node}`
@@ -367,15 +359,12 @@ const measure = async (browser, viewportName) => {
     reducedMotion: reducedMotion ? 'reduce' : 'no-preference',
     colorScheme,
   })
-  // The dev server's HMR socket, passed through except for its close: a dev
-  // server restarting mid-turn must not reload the page being measured.
   await context.routeWebSocket(/\/_next\//, (ws) => {
     ws.connectToServer().onClose(() => {})
   })
   const page = await context.newPage()
   const errors = []
   page.on('pageerror', (error) => errors.push(error.message))
-  // CDP is Chromium's: WebKit runs unthrottled and without the animation audit.
   const cdp = browserName === 'chromium' ? await context.newCDPSession(page) : null
   if (cdp && viewport.cpuThrottle > 1) await cdp.send('Emulation.setCPUThrottlingRate', { rate: viewport.cpuThrottle })
   const animations = cdp && auditAnimations ? await recordAnimations(cdp) : null
@@ -385,7 +374,6 @@ const measure = async (browser, viewportName) => {
     const deadline = Date.now() + TIMEOUT_MS
     let scrolled = reader !== 'scroll'
     for (;;) {
-      // `--reload` navigates mid-run: an evaluate that loses its page is asked again.
       const state = await page
         .evaluate(() => {
           const probe = window.__streamSocket

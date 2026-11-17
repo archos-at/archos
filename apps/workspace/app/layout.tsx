@@ -1,13 +1,3 @@
-/**
- * Root Layout
- *
- * The root layout for the entire application.
- * Sets up the HTML structure, global styles, and providers.
- *
- * Server-side environment variables are read here and passed to client
- * providers, enabling runtime configuration without rebuilding.
- */
-
 import { type ReactNode } from 'react'
 import { type Metadata, type Viewport } from 'next'
 import localFont from 'next/font/local'
@@ -33,7 +23,6 @@ import { postHogConfigFromEnv, type PostHogConfig, type PostHogIdentity } from '
 import { getOrganizationDisplayName } from '@/lib/organizations/service'
 import { configuredPublicSiteOrigin } from '@/lib/public-site'
 
-/** The corporate design's face, served from the synced brand copy (packages/brand). */
 const bodySans = localFont({
   src: '../shared/brand/fonts/GeneralSans-Variable.woff2',
   weight: '200 700',
@@ -41,21 +30,6 @@ const bodySans = localFont({
   display: 'swap',
 })
 
-/**
- * Not preloaded. A preload is a promise that the page uses the file within
- * seconds of load, and mono is set only by code, keycaps and admin tables —
- * nothing on the first paint of the chat. Preloaded on every route, it was a
- * console warning on every route. It still loads the moment something uses it,
- * and `swap` shows the fallback stack (`--font-mono` in tokens.css) meanwhile.
- *
- * The full font from the vendor's `geist` package, not the Google Fonts copy:
- * Geist Mono's default 0 is slashed, and only the full font carries the
- * stylistic set (ss09) with the plain 0 that tokens.css switches on. The Google
- * subset strips every stylistic set, so `Geist_Mono` from `next/font/google`
- * brings the struck-through zero back (`tests/mono-plain-zero.spec.ts`).
- * `adjustFontFallback: false` as in the package's own loader: the generated
- * fallback is metric-matched to Arial, which is no stand-in for a monospace.
- */
 const geistMono = localFont({
   src: '../node_modules/geist/dist/fonts/geist-mono/GeistMono-Variable.woff2',
   weight: '100 900',
@@ -65,34 +39,11 @@ const geistMono = localFont({
   adjustFontFallback: false,
 })
 
-/**
- * Mobile-first viewport: edge-to-edge rendering on notched devices
- * (safe-area insets are handled per-surface with env() padding).
- *
- * `interactiveWidget: 'resizes-content'` is what makes the on-screen keyboard
- * part of the layout instead of something that happens on top of it. The shell
- * is `h-dvh overflow-hidden` with the composer at the bottom of a flex column,
- * and under the browser default (`resizes-visual`) the keyboard does not change
- * the layout viewport at all: `dvh` keeps reporting the full screen, so the
- * shell keeps laying itself out to a height that is now partly behind the
- * keyboard, and the composer goes with it. The browser then rescues the focused
- * field by shifting the visual viewport, which leaves the app's own chrome
- * half-scrolled and the transcript in a position nothing in our code chose.
- *
- * `resizes-content` shrinks the layout viewport instead, so `h-dvh` becomes the
- * space actually left above the keyboard and the existing flex column does the
- * rest: the transcript gets shorter and the composer sits on the keyboard,
- * which is what every messaging surface does and what this one was built to do.
- */
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
   interactiveWidget: 'resizes-content',
-  // The browser UI (Android's status bar, Safari's tab bar) takes the app's
-  // paper or charcoal instead of a default white band above a dark app. The
-  // media pair answers 'system'; an explicit choice that disagrees with the OS
-  // is corrected by providers.tsx once React runs.
   themeColor: [
     { media: '(prefers-color-scheme: light)', color: THEME_COLOR.light },
     { media: '(prefers-color-scheme: dark)', color: THEME_COLOR.dark },
@@ -101,44 +52,24 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   title: {
-    // Bare landing/auth routes render this; nested routes (e.g. a project)
-    // override `template` so their titles read "<Section> — Piloti".
     default: `${PRODUCT_NAME} — Workspace for planning offices`,
     template: `%s — ${PRODUCT_NAME}`,
   },
   description:
     'Workspace for planning offices: projects, files, the building model, tasks and research, with Office filing and building law at hand. Every answer cites its source.',
-  // Icons come from the file conventions beside this layout (favicon.ico,
-  // icon.svg, apple-icon.png) and manifest.ts; all are rendered from
-  // packages/brand/mark.svg. The app is behind sign-in: see robots.ts.
   robots: { index: false, follow: false },
-  // Added to the home screen, iOS runs the app standalone under this name. The
-  // status bar is `default`: dark glyphs on the warm paper, which `themeColor`
-  // above paints behind it. `black-translucent` would draw white glyphs over
-  // the paper, and the shell already clears the status bar itself
-  // (`env(safe-area-inset-top)` on every top band), so it would buy nothing.
   appleWebApp: { capable: true, title: PRODUCT_NAME, statusBarStyle: 'default' },
   applicationName: PRODUCT_NAME,
 }
 
-/**
- * Whether standalone image upload is offered to this session (WorkOS
- * `image-upload` flag, FB-15a). Read tolerantly — an unauthenticated route or a
- * session-lookup failure must never break the layout; it reads as a session
- * without the claim (off where people sign in, on where nobody does).
- */
 const isImageUploadEnabled = async (): Promise<boolean> =>
   isSessionFlagEnabled(FEATURE_FLAGS.imageUpload)
 
-/** Whether IFC model upload is offered to this session (WorkOS `ifc-models`). */
 const isIfcUploadEnabled = async (): Promise<boolean> =>
   isSessionFlagEnabled(FEATURE_FLAGS.ifcModels)
 
 const isSessionFlagEnabled = async (flag: KnownFeatureFlag): Promise<boolean> => {
   try {
-    // Own slot, like every other entry point: the root layout gets no route
-    // factory either, and `getUserSession` publishes the tenant into whatever
-    // slot is open — with none, into an ambient binding that does not survive.
     return await runWithTenantSlot(async () => {
       const session = await getUserSession()
       return isFeatureEnabled(session ?? { featureFlags: null }, flag)
@@ -148,13 +79,6 @@ const isSessionFlagEnabled = async (flag: KnownFeatureFlag): Promise<boolean> =>
   }
 }
 
-/**
- * The per-file upload limit of this session's organization, the number the
- * upload routes enforce (`assertFileSizeAllowed`). `undefined` means the
- * deployment default: a public page, a session without an organization, or a
- * read that failed. Failing to the default is safe in both directions, because
- * the server judges every file against the real number regardless.
- */
 const getSessionMaxUploadBytes = async (): Promise<number | undefined> => {
   try {
     return await runWithTenantSlot(async () => {
@@ -167,16 +91,6 @@ const getSessionMaxUploadBytes = async (): Promise<number | undefined> => {
   }
 }
 
-/**
- * Who the server already knows the visitor is, for PostHog's `bootstrap`: with
- * it the first pageview is identified, where an id handed over only after
- * hydration left that pageview on an anonymous person.
- *
- * `null` for a signed-out visitor (no bootstrap, no profile), when analytics is
- * off (no lookup is spent on it), when auth is off (there is no person), and on any failure: the browser then
- * identifies after AuthKit restores its session, as it did before. Non-personal
- * fields only; no email, no name.
- */
 const getPosthogIdentity = async (
   posthog: PostHogConfig,
   locale: string
@@ -199,15 +113,7 @@ const getPosthogIdentity = async (
   }
 }
 
-/**
- * Runtime configuration from server-side environment variables.
- * These values can be changed at runtime without rebuilding the container.
- */
 const getAppConfig = async (locale: string): Promise<AppConfig> => {
-  // Image upload = flag AND capability; IFC upload = flag alone (extraction runs
-  // in this process, so there is no capability to derive). Resolved server-side
-  // so the picker and validation share ONE accepted-types list with the upload
-  // allow-list.
   const [imageUploadEnabled, vlmAvailable, ifcUploadEnabled, maxFileSizeBytes] = await Promise.all([
     isImageUploadEnabled(),
     isVlmConfigured(),
@@ -223,15 +129,8 @@ const getAppConfig = async (locale: string): Promise<AppConfig> => {
       ifcUploadEnabled,
       maxFileSizeBytes,
     }),
-    // Read server-side per request: the Docker image builds with no env
-    // files, so a client-side `process.env.NEXT_PUBLIC_*` read would bake
-    // `undefined` into the bundle and silently disable analytics on every
-    // deployed environment. Empty values keep the client disabled (fail-open).
-    // Replay, its sample rate and the first-party proxy switch are read here
-    // for the same reason as the host and token (`posthog-config.ts`).
     posthog,
     posthogIdentity: await getPosthogIdentity(posthog, locale),
-    // The website's origin for the help links into it (LANDING_URL, runtime).
     publicSiteUrl: configuredPublicSiteOrigin(),
   }
 }

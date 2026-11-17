@@ -23,11 +23,8 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
-#: The only grouping ``knowledge_search`` offers. Qdrant's own word for the parameter.
 GROUP_BY_DOCUMENT = "document"
 
-#: Candidates a grouped search ranks per document it shows: the pool must hold
-#: more documents than the answer, or grouping returns fewer lines than asked.
 GROUP_OVERFETCH = 4
 
 
@@ -36,9 +33,7 @@ class DocumentGroup:
     """One document of a grouped search: its best passage, and what else of the pool it held."""
 
     best: Any
-    #: Passages of the ranked pool from this document, the best one included.
     passages: int
-    #: The pages those passages sit on, ascending; empty when none states a page.
     pages: tuple[int, ...]
 
 
@@ -92,7 +87,6 @@ def group_by_document(ordered: Sequence[Any], pool: Sequence[Any] = ()) -> list[
     return [DocumentGroup(chunk, counts[key], tuple(sorted(pages.get(key, ())))) for key, chunk in best.items()]
 
 
-#: Pages one row of the trailer names before it counts the rest.
 _PAGES_SHOWN = 8
 
 

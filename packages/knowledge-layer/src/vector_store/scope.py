@@ -71,8 +71,6 @@ from .schema import SCOPE_FIELD
 from .schema import TENANT_PREFIXES
 from .schema import TEXT_FIELDS
 
-#: Which points a read is over: chunks (every read's default), folder card points, or both
-#: (only a write or a delete that names a whole scope).
 PointKind = Literal["chunk", "folder", "any"]
 
 _RANGE_OPERATORS = {"$gt": "gt", "$gte": "gte", "$lt": "lt", "$lte": "lte"}
@@ -96,9 +94,6 @@ def _range(field: str, op: str, value: Any) -> models.FieldCondition:
 
 
 def _match(field: str, value: Any) -> models.FieldCondition:
-    # A list is any of its values, whatever the field's type: coerced whole it
-    # became the string "['a', 'b']" on a keyword field (the project facts'
-    # lists) and matched nothing.
     if isinstance(value, (list, tuple, set)):
         return _match_any(field, value)
     coerced = coerce_field(field, value)
@@ -180,7 +175,6 @@ def _field_exact(field: str, condition: Any) -> models.Filter:
             raise ValueError(f"Filter on {field!r}: $exists needs true or false, got {value!r}")
         empty = models.IsEmptyCondition(is_empty=models.PayloadField(key=field))
         return models.Filter(must_not=[empty]) if value else models.Filter(must=[empty])
-    # $nin of nothing excludes nothing.
     return models.Filter(must_not=[_match_any(field, value)] if value else [])
 
 
@@ -274,7 +268,6 @@ def corpus_country_condition(scopes: Sequence[str]) -> models.Filter | None:
     countries = corpus_countries()
     if countries is UNSCOPED:
         return None
-    # An empty set matches nothing; Qdrant refuses an empty MatchAny, so a value no point carries stands in.
     allowed = sorted(countries) or ["__none__"]
     released = models.Filter(
         must=[models.FieldCondition(key=COUNTRY_FIELD, match=models.MatchAny(any=allowed))],

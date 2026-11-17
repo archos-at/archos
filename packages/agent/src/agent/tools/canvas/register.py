@@ -103,7 +103,6 @@ from .target import resolve_target
 
 logger = logging.getLogger(__name__)
 
-#: The instance name the config gives the group: the model sees ``canvas__<tool>``.
 GROUP = "canvas"
 
 _DOCUMENT = (
@@ -321,7 +320,6 @@ async def run_update(
         _shared_write_allowed("update")
         target, signed = await _target(document)
         annotation_id, seen = await _annotation_ref(annotation, target, signed, "update")
-        # A mark looked up by its number is changed only if it still stands as it was read.
         guard = {"expectedStatus": seen} if seen else {}
         result = await call({"op": "update", "annotationId": annotation_id, **change, **guard}, target, signed)
         if result.get("noted"):

@@ -1,26 +1,5 @@
 'use client'
 
-/**
- * Platform → cards: what the agent can actually put on screen.
- *
- * Grid answers in prose plus cards, and the card set is the ceiling on how
- * richly it can answer anything. That ceiling used to be legible only from
- * `cards/models.py`, so the question "can Grid show me a Stellplatznachweis?"
- * had no answer inside the product — and the follow-up ("it can't; how do I
- * ask for it?") had none either.
- *
- * Every entry is a REAL render: the sample card goes through the same
- * `AnswerCards` dispatcher chat uses, so this page cannot show a card that the
- * renderers do not produce. The values each card carries come from the
- * catalog endpoint, which derives them from the Pydantic union — nothing on
- * this page is a second hand-maintained list.
- *
- * The previews are inert (see `InertPreview`): a `memory_proposal`'s "Yes"
- * writes an org-scoped memory and a `project_profile_patch`'s "Accept" applies
- * a JSON Patch. In a gallery those buttons are decoration, and decoration must
- * not be able to fire a write.
- */
-
 import { type FC, useCallback, useEffect, useMemo, useState } from 'react'
 import { ExternalLink, Image as ImageIcon, LayoutGrid, Lock, MousePointerClick } from 'lucide-react'
 
@@ -57,22 +36,12 @@ interface CatalogDto {
   featureRequest: { repository: string; url: string; label: string }
 }
 
-/**
- * A preview that cannot be operated.
- *
- * `inert` removes the whole subtree from hit-testing, focus order and the
- * accessibility tree, which is what a picture of a card should be. React 19
- * knows the attribute, so it is a plain prop. `pointer-events-none` alone
- * would leave the buttons keyboard-reachable, and a tabbed-to "Yes" still
- * writes.
- */
 const InertPreview: FC<{ children: React.ReactNode }> = ({ children }) => (
   <div inert className="pointer-events-none select-none">
     {children}
   </div>
 )
 
-/** The external "request a card" link, saying it leaves Piloti for a new tab. */
 const RequestCardLink: FC<{ url: string; variant: 'default' | 'secondary' }> = ({ url, variant }) => {
   const t = useTranslations(platformCopy)
   return (
@@ -212,8 +181,6 @@ export const PlatformCards: FC = () => {
         ))}
       </ul>
       {featureRequest ? (
-        // Repeated at the foot deliberately: the reader who has scrolled every
-        // card and not found theirs is exactly the one with a request to file.
         <div className="flex flex-col gap-3 border-t pt-5 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-muted-foreground text-sm">{featureRequest.label}</p>
           <RequestCardLink url={featureRequest.url} variant="default" />

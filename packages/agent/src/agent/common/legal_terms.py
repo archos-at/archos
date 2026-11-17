@@ -19,11 +19,8 @@ _PARAGRAPH = "§"
 _OIB_GUIDELINE_TOKEN = "oib-richtlinie"
 _MIN_ALLCAPS_LEN = 3
 
-#: Quote characters that open/close a quoted phrase (straight + German low/high pairs).
 _QUOTE_OPEN: dict[str, str] = {'"': '"', "'": "'", "„": "“", "‚": "‘"}
 
-#: Punctuation stripped from token edges before classification. Internal characters
-#: (the hyphen in ``OIB-Richtlinie``, the ``§`` sign) are never touched.
 _EDGE_PUNCT = ".,;:!?()[]{}<>«»\"'„“‚‘"
 
 
@@ -176,8 +173,6 @@ def extract_exact_terms(query: str, *, max_terms: int = 3) -> list[str]:
         elif len(token) >= _MIN_ALLCAPS_LEN and token.isupper():
             found.append((start, token))
         elif len(token) >= _MIN_ALLCAPS_LEN and _is_casefold_identifier(token, following):
-            # Backlog item 13: the trailing number is shape evidence, not term content —
-            # "OIB 2" yields bare "OIB" on the arm above, so this arm emits the same.
             found.append((start, token.upper()))
 
     found.sort(key=lambda item: item[0])

@@ -1,43 +1,16 @@
-/**
- * A closed subset of JsonLogic (jsonlogic.com), evaluated under Kleene's
- * strong three-valued logic (ADR-0166). Pure.
- *
- * JsonLogic is the format: a condition is JSON a record can hold, a reviewer
- * can read and any JsonLogic library can run. No library evaluates it in three
- * values: each reads a missing variable as `null` and goes on, so
- * `{"<=": [{"var": "storeys"}, 3]}` is quietly true for a building whose
- * storeys nobody has entered. That is the one thing a classification may not
- * do, so the evaluation is ours and `json-logic-js`, the reference
- * implementation, is the oracle the specs hold it to on every fully known input.
- *
- * An unknown fact is `null` or absent. An expression over one is unknown unless
- * the known part already decides it (`false and ?` is false, `true or ?` is
- * true), and an unknown value carries the facts it waits for: exactly those a
- * question could still change (ticket 30).
- *
- * The subset is closed and typed, so the oracle and this file agree wherever
- * both answer: `and`, `or` and `!` take booleans, comparisons take two numbers
- * or two strings (an ISO date compares as text), arithmetic takes numbers, and
- * `in` looks in a list. Anything else is refused when the table is written and
- * thrown when it is run, never read as false.
- */
-
 import type { FactType } from '@/lib/base-knowledge/wire/vocab'
 
 export type Scalar = number | string | boolean
 export type Value = Scalar | readonly Scalar[]
 
-/** A value, or the facts it is still waiting for. */
 export type Kleene = { known: true; value: Value } | { known: false; waitsFor: ReadonlySet<string> }
 
 export type Facts = Readonly<Record<string, unknown>>
 
-/** A condition or a fact the evaluator cannot run. A ruleset that throws this decides nothing. */
 export class RulesetEvaluationError extends Error {
   override name = 'RulesetEvaluationError'
 }
 
-/** The operators of the subset with their arities: [min, max]. */
 export const OPERATORS = {
   var: [1, 1],
   and: [1, 64],
@@ -62,10 +35,8 @@ export const OPERATORS = {
 } as const satisfies Record<string, readonly [number, number]>
 export type Operator = keyof typeof OPERATORS
 
-/** The deepest nesting a condition may have: deeper is refused, never a stack overflow. */
 export const MAX_DEPTH = 32
 
-/** `""` names the current element inside `all`, `some` and `none`. */
 const ELEMENT = ''
 
 const known = (value: Value): Kleene => ({ known: true, value })
@@ -83,12 +54,10 @@ function isOperator(name: string): name is Operator {
   return Object.hasOwn(OPERATORS, name)
 }
 
-/** JsonLogic lets a single argument go unwrapped (`{"!": x}`); the subset reads both. */
 function argumentsOf(raw: unknown): unknown[] {
   return Array.isArray(raw) ? raw : [raw]
 }
 
-/** The one operator of a JsonLogic node, or null for a literal. */
 function operation(expression: unknown): { op: string; args: unknown[] } | null {
   if (expression === null || typeof expression !== 'object' || Array.isArray(expression))
     return null
@@ -99,10 +68,6 @@ function operation(expression: unknown): { op: string; args: unknown[] } | null 
   return { op, args: argumentsOf((expression as Record<string, unknown>)[op]) }
 }
 
-/**
- * The static type of an expression: what the subset lets each operator take.
- * `scalar` is a list element, which `===` and `in` compare and nothing else reads.
- */
 type StaticType = 'boolean' | 'number' | 'string' | 'list' | 'scalar'
 
 const STATIC_TYPE_OF_FACT: Record<FactType, StaticType> = {
@@ -120,13 +85,6 @@ interface Checked {
 
 const problem = (message: string): Checked => ({ type: null, problems: [message] })
 
-/**
- * What is wrong with a condition, as messages; empty when it is in the subset,
- * every `var` names a declared input (or the element, inside a list operator),
- * every operator gets operands of the types it takes, and the whole is a
- * boolean. Checked when a table is written, so a mistyped condition is refused
- * then, not first noticed on the day its facts are answered.
- */
 export function checkExpression(
   expression: unknown,
   declared: ReadonlyMap<string, FactType>
@@ -186,7 +144,6 @@ function typeOfVar(
     return element
       ? { type: element, problems: [] }
       : problem('var "" is only the element inside all, some or none')
-  // As in JsonLogic, a predicate's data is the element: the table's facts are out of its reach.
   if (element) return problem(`inside all, some or none only the element is read, not ${name}`)
   const type = declared.get(name)
   return type
@@ -194,7 +151,6 @@ function typeOfVar(
     : problem(`var ${name} is not a declared input`)
 }
 
-/** Each operand must have its expected type (`scalar` accepts any of number, string, boolean or element). */
 function expecting(
   op: string,
   operands: readonly Checked[],
@@ -242,7 +198,6 @@ function typeOfOperation(
   }
 }
 
-/** A fact as the evaluator reads it: its value, unknown, or a refusal when its type is not the declared one. */
 export function readFact(key: string, type: FactType, raw: unknown): Kleene {
   if (raw === null || raw === undefined) return waiting([key])
   const fits =
@@ -262,7 +217,6 @@ interface Scope {
   depth: number
 }
 
-/** The facts of a table's inputs, each read against its declared type. */
 export function scopeOf(
   inputs: readonly { key: string; type: FactType }[],
   facts: Facts
@@ -279,7 +233,6 @@ export function scopeOf(
   )
 }
 
-/** Evaluate one condition in three values. Throws {@link RulesetEvaluationError} outside the subset. */
 export function evaluateExpression(
   expression: unknown,
   facts: ReadonlyMap<string, Kleene>
@@ -337,7 +290,6 @@ function asBoolean(value: Value, op: string): boolean {
   return value
 }
 
-/** Kleene's strong `and` / `or`: a deciding known operand wins over every unknown one. */
 function connective(op: 'and' | 'or', values: readonly Kleene[]): Kleene {
   const decider = op === 'or'
   const waitsFor = new Set<string>()
@@ -350,13 +302,11 @@ function connective(op: 'and' | 'or', values: readonly Kleene[]): Kleene {
   return waitsFor.size > 0 ? waiting(waitsFor) : known(!decider)
 }
 
-/** `all`, `some` and `none` over a list: `and`, `or` and `not or` of the predicate per element. */
 function quantify(op: 'all' | 'some' | 'none', args: readonly unknown[], scope: Scope): Kleene {
   const list = evaluate(args[0], deeper(scope))
   if (!list.known) return list
   if (!Array.isArray(list.value)) throw new RulesetEvaluationError(`${op} takes a list`)
   const items = list.value as readonly Scalar[]
-  // JsonLogic's own reading of the empty list: `all` of nothing is false.
   if (items.length === 0) return known(op === 'none')
   const each = items.map((element) => evaluate(args[1], { ...deeper(scope), element }))
   const any = connective(op === 'all' ? 'and' : 'or', each)
@@ -372,7 +322,6 @@ function numbers(op: string, values: readonly Value[]): number[] {
   })
 }
 
-/** Two numbers or two strings: what `<` compares the same way in JsonLogic and here. */
 function comparable(op: string, values: readonly Value[]): readonly (number | string)[] {
   const kind = typeof values[0]
   if ((kind !== 'number' && kind !== 'string') || values.some((value) => typeof value !== kind)) {

@@ -1,26 +1,3 @@
-/**
- * KC-7 (ADR-0174): a proposed source record parses as its access type and
- * engine read it, its hosts cover every URL it names, and each recorded fixture
- * passes, with no live call. `packages/public-sources` holds the one validator
- * (`Source`, the access types, the engines, the fixture runner), so the kit
- * asks the api tier (`POST /v1/public-sources/check`) rather than keeping a
- * second copy here.
- *
- * Run before the kit's transaction, never inside it: a check is seconds, and a
- * request's lock must not wait on another tier. Unknown fails closed: an api
- * tier that cannot answer is a KC-7 problem on every source it did not check.
- *
- * **A fixture's response may be a capture the platform took** (ADR-0174,
- * amendment 2026-11-11): the record names a citation capture by id, and this
- * module hands the capture's content type and text to the check, so nobody
- * pastes a document's bytes. The capture must be a `fetched` one of the same
- * change request, of that very URL, through this source, and must have kept
- * text. A fixture that names no capture yet (`captureId: null`) awaits it: a
- * proposal into a draft is written all the same, because the source's hosts
- * open to its request only once it is proposed and the capture is fetched
- * through them; validate and submit hold it as a KC-7 problem.
- */
-
 import 'server-only'
 import { isCapturedResponse, sourceConfigOf } from '@/lib/base-knowledge/wire/source'
 import { CaptureFetchError, callPublicSources, refusalDetail } from './capture-fetch'
@@ -30,11 +7,9 @@ import { platformTransaction } from './store'
 import { kitProblem, type Problem } from './validate'
 import type { ProposedRecord } from './wire'
 
-/** What the api tier's check answers. */
 export interface SourceCheck {
   valid: boolean
   problems: { fixture: string | null; detail: string }[]
-  /** `awaiting`: the URLs whose capture is not recorded; such a fixture was not run and is not `ok`. */
   fixtures: { name: string; ok: boolean; requested: string[]; awaiting?: string[] }[]
 }
 
@@ -45,7 +20,6 @@ function checkOf(body: unknown): SourceCheck | null {
   return body as unknown as SourceCheck
 }
 
-/** Run one configuration's check; throws {@link CaptureFetchError} when the api tier cannot answer. */
 export async function checkSourceConfig(config: Record<string, unknown>): Promise<SourceCheck> {
   const answer = await callPublicSources('/v1/public-sources/check', { config })
   const check = answer.status === 200 ? checkOf(answer.body) : null
@@ -53,10 +27,6 @@ export async function checkSourceConfig(config: Record<string, unknown>): Promis
   return check
 }
 
-/**
- * A built-in source: one of the repository's own (`configs/sources`), an engine's configuration the agent's tools
- * read and that is reviewed as code, never a platform record (ADR-0174, "Which kind a source is").
- */
 export interface BuiltInSource {
   sourceKey: string
   title: string
@@ -68,14 +38,11 @@ export interface BuiltInSource {
   licence: string
   monitor: { kind: string; intervalHours: number }
   credentialHeader: string | null
-  /** Its recorded fixtures, run once per api-tier process: the check KC-7 runs on a record. */
   fixtures: SourceCheck
 }
 
-/** How long source-status waits for the built-in list before it lists the records alone: it is read once per process. */
 export const BUILT_IN_TIMEOUT_MS = 5_000
 
-/** The built-in sources as the api tier lists them; throws {@link CaptureFetchError} when it cannot answer. */
 export async function builtInSources(): Promise<BuiltInSource[]> {
   const answer = await callPublicSources('/v1/public-sources/built-in', {}, BUILT_IN_TIMEOUT_MS)
   if (answer.status === 200 && isRecord(answer.body) && Array.isArray(answer.body.sources)) {
@@ -86,16 +53,11 @@ export async function builtInSources(): Promise<BuiltInSource[]> {
 
 type SourceRecord = Extract<ProposedRecord, { type: 'source' }>
 
-/** A capture's content type and text, as the check reads a fixture's recording. */
 export interface Recording {
   contentType: string
   text: string
 }
 
-/**
- * `config` (as `sourceConfigOf` writes it and a revision keeps it) with each capture a fixture names handed over:
- * its content type and text beside its id. A capture not in `recordings` stays an id, and its fixture is not run.
- */
 export function withRecordings(config: Record<string, unknown>, recordings: ReadonlyMap<string, Recording>): Record<string, unknown> {
   if (!Array.isArray(config.fixtures) || recordings.size === 0) return config
   const handedOver = (response: unknown) => {
@@ -110,7 +72,6 @@ export function withRecordings(config: Record<string, unknown>, recordings: Read
   return { ...config, fixtures }
 }
 
-/** The capture ids a stored configuration's fixtures name. */
 function namedCaptureIds(config: Record<string, unknown>): string[] {
   const fixtures = Array.isArray(config.fixtures) ? config.fixtures : []
   return fixtures.flatMap((fixture: unknown) =>
@@ -123,11 +84,6 @@ function namedCaptureIds(config: Record<string, unknown>): string[] {
 const usable = (capture: RecordingCapture): capture is RecordingCapture & { text: string } =>
   capture.basis === 'fetched' && capture.text !== null && isPdf(capture.contentType) && !isCut(capture.note)
 
-/**
- * A stored source's configuration with its fixtures' recordings, for `source-test`: the captures its revision names,
- * of `changeRequestId` for a source under test, wherever they are for a published one (its request validated them,
- * and a capture never changes). A capture that is gone or kept no text leaves its fixture awaiting, never passing.
- */
 export async function recordedConfig(config: Record<string, unknown>, changeRequestId: string | null): Promise<Record<string, unknown>> {
   const ids = namedCaptureIds(config)
   if (ids.length === 0) return config
@@ -137,7 +93,6 @@ export async function recordedConfig(config: Record<string, unknown>, changeRequ
   return withRecordings(config, recordings)
 }
 
-/** RFC 6901: a URL as one reference token of a JSON Pointer. */
 const pointerToken = (value: string) => value.replace(/~/g, '~0').replace(/\//g, '~1')
 
 const CAPTURE_HINT = (record: SourceRecord, url: string) =>
@@ -145,7 +100,6 @@ const CAPTURE_HINT = (record: SourceRecord, url: string) =>
   'change request (the source must be proposed in it first, which opens its hosts to this request for 24 hours), then ' +
   'propose the record again with the answer’s captureId in this response.'
 
-/** Why `capture` cannot be the recording of `url` for `record`, or null when it can. */
 function refusedRecording(record: SourceRecord, url: string, captureId: string, capture: RecordingCapture | undefined): string | null {
   if (!capture) return `names capture ${captureId}, which is no capture of this change request.`
   if (capture.basis !== 'fetched') return `names capture ${captureId}, a text an operator supplied: a fixture is what the platform fetched itself.`
@@ -160,14 +114,9 @@ function refusedRecording(record: SourceRecord, url: string, captureId: string, 
 interface Recordings {
   recordings: Map<string, Recording>
   problems: Problem[]
-  /** What still waits for its capture, in words: a draft's proposal is written with these open. */
   awaiting: string[]
 }
 
-/**
- * The recordings `record`'s fixtures name, each held to its URL, its source and this request, and what is wrong
- * with the rest. `draft` is a proposal: a response that names no capture yet waits (no problem) instead of failing.
- */
 async function recordingsOf(record: SourceRecord, changeRequestId: string | null, draft: boolean): Promise<Recordings> {
   const named = record.fixtures.flatMap((fixture, index) =>
     Object.entries(fixture.responses).flatMap(([url, response]) => (isCapturedResponse(response) ? [{ index, fixture: fixture.name, url, captureId: response.captureId }] : [])),
@@ -195,7 +144,6 @@ async function recordingsOf(record: SourceRecord, changeRequestId: string | null
 async function checkedSource(record: SourceRecord, changeRequestId: string | null, draft: boolean): Promise<{ problems: Problem[]; awaiting: string[] }> {
   const { recordings, problems, awaiting } = await recordingsOf(record, changeRequestId, draft)
   try {
-    // A fixture whose capture is missing or refused is not run by the check; what is wrong with it is said above.
     const check = await checkSourceConfig(withRecordings(sourceConfigOf(record), recordings))
     const found = check.problems.map((problem) => {
       const index = problem.fixture ? record.fixtures.findIndex((fixture) => fixture.name === problem.fixture) : -1
@@ -208,17 +156,11 @@ async function checkedSource(record: SourceRecord, changeRequestId: string | nul
   }
 }
 
-/** KC-7's answer for a batch: each source's problems, and what each still waits for, by record id. */
 export interface SourceChecks {
   checks: Map<string, Problem[]>
   awaiting: Map<string, string[]>
 }
 
-/**
- * KC-7 for every source record of `records`, by record id: what `validateProposal` takes as `sourceChecks`.
- * `changeRequestId` is the request whose captures a fixture may name; `draft` a proposal into it, which may still
- * await a capture (see the module comment).
- */
 export async function sourceChecksOf(records: readonly ProposedRecord[], changeRequestId: string | null = null, draft = false): Promise<SourceChecks> {
   const sources = records.filter((record): record is SourceRecord => record.type === 'source')
   const checked = await Promise.all(sources.map(async (record) => [recordIdOf(record), await checkedSource(record, changeRequestId, draft)] as const))

@@ -1,15 +1,5 @@
 'use client'
 
-/**
- * Keyboard-shortcuts preference card (profile page).
- *
- * The per-user (inner) gate of the shortcuts feature: a device-local toggle,
- * default ON, persisted in localStorage via {@link useShortcutsPreference}.
- * The card itself is only rendered where the shortcuts are mounted, for a
- * session with an organization (outer gate, enforced by the server component
- * that mounts this island).
- */
-
 import { Keyboard } from 'lucide-react'
 
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'

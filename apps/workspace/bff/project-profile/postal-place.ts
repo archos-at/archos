@@ -1,26 +1,6 @@
-/**
- * The Bundesland a typed Austrian address names, read from its Postleitzahl
- * and the place after it, with nothing sent anywhere.
- *
- * Address search is off unless a deployment names a geocoder (ADR-0159), and
- * a typed address alone places no project (ADR-0158). An Austrian office's
- * every new project would then start without a Land, and without the OIB
- * verdicts that hang on it. A PLZ is public, deterministic data: this module
- * reads it from a table shipped with the code (`austrian-postal-codes.json`,
- * written by `scripts/generate_austrian_postal_codes.py` from GeoNames' postal
- * codes, https://www.geonames.org, CC BY 4.0).
- *
- * The code alone is not enough: Switzerland and Liechtenstein use four digits
- * too, so "8001 Zürich" would read as Styria. The place after the code must be
- * one the table lists for it, and a code that serves two Länder answers only
- * through a place that sits in one. Whatever this returns is a suggestion
- * (`intake-seed.ts` stores it as an unconfirmed assumption the person
- * confirms), never a fact. Pure.
- */
-
+// Austrian postal codes: GeoNames, https://www.geonames.org, CC BY 4.0.
 import lines from './austrian-postal-codes.json'
 
-/** Code → place key → federal_state token. Built once, on first use. */
 let table: Map<string, Map<string, string>> | null = null
 
 function postalTable(): Map<string, Map<string, string>> {
@@ -38,7 +18,6 @@ function postalTable(): Map<string, Map<string, string>> {
   return table
 }
 
-/** The form a place name is compared in; the generator's `place_key`, line for line. */
 export function placeKey(name: string): string {
   return name
     .split(',')[0]
@@ -51,10 +30,8 @@ export function placeKey(name: string): string {
     .join(' ')
 }
 
-/** A country other than Austria named in the line: such an address is never read as Austrian. */
 const FOREIGN = /\b(?:schweiz|switzerland|suisse|svizzera|liechtenstein|deutschland|germany|italien|italia|italy|slowenien|slovenia|ungarn|hungary|tschechien|czechia|slowakei|slovakia)\b|(?:^|[\s,])(?:CH|FL|D|DE|I|IT|SLO|SI|H|HU|CZ|SK)-\d/i
 
-/** Every "PLZ Ort" pair in the line, the last first: the postal part of an address closes it. */
 function postalPairs(address: string): Array<{ code: string; place: string }> {
   const pairs = [...address.matchAll(/(?:^|[\s,])(?:A-|AT-)?(\d{4})\s+([^\d,;]+)/gi)].map((match) => ({
     code: match[1],
@@ -63,21 +40,16 @@ function postalPairs(address: string): Array<{ code: string; place: string }> {
   return pairs.reverse()
 }
 
-/** Whether a typed place is the listed one: the same words, or one of them the other followed by more. */
 function samePlace(typed: string, listed: string): boolean {
   return typed === listed || typed.startsWith(`${listed} `) || listed.startsWith(`${typed} `)
 }
 
 export interface PostalPlace {
-  /** The A2_land token. */
   federalState: string
   code: string
-  /** The place as typed, normalised. */
   place: string
 }
 
-/** The Land a typed address names, or null when it names none this table can tell. */
-/** Whether an address names another country: no postal Land places it, and nothing should assume one for it. */
 export function namesAnotherCountry(address: string): boolean {
   return FOREIGN.test(address)
 }

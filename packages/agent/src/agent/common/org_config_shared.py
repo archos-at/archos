@@ -15,18 +15,6 @@ from agent.common.residency import policy_to_json
 
 logger = logging.getLogger(__name__)
 
-# Bounds the write-after-delete race window: a fetch that started BEFORE an
-# admin save (reading the pre-save rows) can complete AFTER the BFF's delete
-# and re-populate L2 with the stale record, which then serves every replica
-# until this TTL expires. 60s caps that staleness; it cannot be zero because
-# L2 is also the cold-start path that keeps a fresh replica off the BFF.
-#
-# RESIDUAL RACE (accepted): delete-then-repopulate as above, plus a replica
-# whose L1 still holds the pre-save entry serves it for up to L1 10s after the
-# save regardless of L2. Worst case after an admin save is therefore ~L1 + L2
-# staleness on a replica that lost the race; the common case is seconds via
-# the delete. Direct-SQL or out-of-band writes skip the delete entirely and
-# always pay the full TTLs — see docs/architecture/org-model-configuration.md.
 _SHARED_TTL_SECONDS = 60.0
 
 

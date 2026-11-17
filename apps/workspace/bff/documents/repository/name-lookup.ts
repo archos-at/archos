@@ -1,5 +1,3 @@
-/** Revision counterparts and document name probes. */
-
 import 'server-only'
 import { and, asc, desc, eq, inArray, or, sql, type SQL } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
@@ -11,7 +9,6 @@ import { documents, type DocumentAuthor, type DocumentLifecycle } from '@/lib/db
 import { documentVisibleTo, type DocumentReader } from '../visibility'
 import { DOCUMENT_LIST_LIMIT, type ListProjectDocumentsOptions, outsideHiddenFolders } from './list'
 
-/** A document a Fassung link may point to, as the resolution needs it. */
 export interface RevisionCounterpartRow {
   id: string
   filename: string
@@ -20,23 +17,6 @@ export interface RevisionCounterpartRow {
   createdAt: Date | null
 }
 
-/**
- * The documents of ONE collection named `filenames` that `reader` may see, for
- * resolving a Fassung link's file names to documents (`revision-links-loader.ts`).
- *
- * The link is stored by file name in the backend's index, which knows nothing
- * of who may read what, so this is where a name becomes a document or stays a
- * string nobody sees: held rows (`documentVisibleTo`, ADR-0086) and archived
- * ones are not found. The folder rule (ADR-0087) is the caller's, from the
- * project it reads each row's `projectId` for; a row's folder is returned for
- * exactly that. Person-uploaded rows only: a machine-authored row owns no
- * chunks of its own, so no link of the index can name it.
- *
- * Every name is looked up, in queries of at most {@link FILENAME_LOOKUP_MAX_NAMES}
- * names each: a page of a few hundred documents references more names than one
- * query carries, and a name left out was a link silently lost (the older
- * Fassung shown as current, the count wrong).
- */
 export async function findRevisionCounterparts(
   organizationId: string,
   collectionName: string,
@@ -52,7 +32,6 @@ export async function findRevisionCounterparts(
   return [...byId.values()]
 }
 
-/** One bounded query of {@link findRevisionCounterparts}: at most {@link FILENAME_LOOKUP_MAX_NAMES} names. */
 async function findRevisionCounterpartChunk(
   organizationId: string,
   collectionName: string,
@@ -87,7 +66,6 @@ async function findRevisionCounterpartChunk(
   )
 }
 
-/** One row of a name probe (`name-probe-types.ts` is its wire shape). */
 export interface DocumentNameMatchRow {
   id: string
   filename: string
@@ -112,21 +90,9 @@ export const documentNameMatchColumns = {
   lifecycle: documents.lifecycle,
 }
 
-/** Names per probe query; a longer probe runs several bounded queries. */
 const NAME_PROBE_CHUNK = 500
-/** Rows per probe query: one identity match per name plus room for aliases. */
 const NAME_PROBE_ROW_LIMIT = NAME_PROBE_CHUNK * 4
 
-/**
- * The rows answering to any of `names`, as the upload planner compares them:
- * the filename in either Unicode form (IDENTITY — what the upload replaces),
- * or the filename or rename case-folded (RECOGNITION — the planner's
- * `duplicate`). See `name-match.ts` for the two keys.
- *
- * Person-uploaded rows only, and every lifecycle: exactly the rows
- * `findLiveDocumentByFilename` would version, so the plan cannot promise „Neu"
- * for a file the server is about to put on an archived document.
- */
 function nameProbeWhere(names: readonly string[]): SQL | undefined {
   const exact = [...new Set(names.flatMap(documentNameVariants))]
   const folded = [...new Set(names.flatMap((name) => documentNameVariants(documentAliasKey(name))))]
@@ -140,10 +106,6 @@ function nameProbeWhere(names: readonly string[]): SQL | undefined {
   )
 }
 
-/**
- * Run a name probe in bounded chunks and merge the answers (a document can
- * answer to names in two chunks; it is returned once).
- */
 export async function probeDocumentNames(
   names: readonly string[],
   query: (where: SQL | undefined, limit: number) => Promise<DocumentNameMatchRow[]>,
@@ -157,7 +119,6 @@ export async function probeDocumentNames(
   return [...byId.values()]
 }
 
-/** The documents of a shelf answering to any of `names` — see {@link nameProbeWhere}. */
 export async function findDocumentsByNames(
   shelf: DocumentShelf,
   organizationId: string,
@@ -174,8 +135,6 @@ export async function findDocumentsByNames(
           and(
             shelfDocumentWhere(shelf, organizationId),
             ...outsideHiddenFolders(hiddenFolderIds),
-            // The probe answers with the digest: somebody else's unscreened
-            // file would let a member confirm its contents by hash (ADR-0086).
             documentVisibleTo(reader),
             where,
           ),
@@ -186,7 +145,6 @@ export async function findDocumentsByNames(
   )
 }
 
-/** The project documents answering to any of `names` — see {@link nameProbeWhere}. */
 export function findProjectDocumentsByNames(
   projectId: string,
   organizationId: string,

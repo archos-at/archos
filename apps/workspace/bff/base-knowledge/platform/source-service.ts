@@ -1,21 +1,3 @@
-/**
- * A country's public sources on the platform door (ADR-0174, design §4.5):
- * `source-test`, `source-status` and `source-credential-set`, beside the
- * change-request flow that proposes and publishes a source record.
- *
- * - **source-test** runs the record's recorded fixtures (no live call) and, on
- *   request, one live probe: the source as the request under test holds it
- *   (its `testing` hosts, usable by that request alone for 24 hours), else as
- *   published. A key nothing registers is a 404: no egress to an unregistered host.
- * - **source-status** lists every configured source: its hosts and their
- *   state, its monitor's last check, the freshness lag, whether a key is set
- *   (never the key), and the open request a monitor filed.
- * - **source-credential-set** stores a key write-only, on the person's yes.
- *
- * Reads take `platform:settings:view`, the live probe and the key
- * `platform:knowledge:write` (`requirePlatform`).
- */
-
 import 'server-only'
 import { and, eq, inArray } from 'drizzle-orm'
 import { NotFoundError, ServiceUnavailableError, UnprocessableError } from '@/lib/api/errors'
@@ -45,7 +27,6 @@ import {
 import { requirePlatform } from './service-gate'
 import { platformTransaction } from './store'
 
-/** What one probe saw (`POST /v1/public-sources/probe`). */
 export interface ProbeAnswer {
   changed: boolean
   termsChanged: boolean
@@ -60,7 +41,6 @@ export interface ProbeAnswer {
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null
 
-/** One probe of a registered source against what was seen last. Throws {@link CaptureFetchError} on any failure. */
 export async function probeSource(
   configured: { config: Record<string, unknown>; credential?: string },
   previous: { etag?: string | null; sha256?: string | null; version?: string | null; termsSha256?: string | null },
@@ -86,11 +66,9 @@ export interface SourceTestView {
   hosts: string[]
   usableUntil: string | null
   fixtures: SourceCheck
-  /** One live probe, when asked: what the monitor would see now. Nothing is stored. */
   live: { ok: true; url: string; bytes: number; sha256: string; etag: string; version: string; anchors: string[]; termsUnwatched: string } | { ok: false; detail: string } | null
 }
 
-/** Run a source's fixtures, and one live probe when asked, as `changeRequestId` (testing) or published. */
 export async function testPlatformSource(
   session: UserSession | null,
   sourceKey: string,
@@ -109,7 +87,6 @@ export async function testPlatformSource(
   const { source, configured } = found
   let fixtures: SourceCheck
   try {
-    // A fixture may name a capture the platform took: its text goes with the check (a testing source's from its own request).
     fixtures = await checkSourceConfig(await recordedConfig(source.config, source.state === 'testing' ? (body.changeRequestId ?? null) : null))
   } catch (error) {
     if (!(error instanceof CaptureFetchError)) throw error
@@ -146,16 +123,10 @@ async function liveProbe(configured: { config: Record<string, unknown>; credenti
 
 export interface SourceStatusView {
   sourceKey: string
-  /**
-   * `record`: a platform record, proposed and published through the door. `built_in`: one of the repository's own
-   * sources, an engine's configuration reviewed as code; read-only here, with no record, key or monitor of the platform's.
-   */
   origin: 'record' | 'built_in'
-  /** The platform record; null for a built-in source. */
   recordId: string | null
   countryId: string
   state: 'active' | 'testing'
-  /** The request a testing source is proposed in; null for a published one. */
   changeRequestId: string | null
   hosts: { host: string; state: 'active' | 'testing' | 'expired'; usableUntil: string | null }[]
   dataFlow: 'public_only' | 'site_keyed'
@@ -165,19 +136,15 @@ export interface SourceStatusView {
     checkedAt: string | null
     okAt: string | null
     failure: string | null
-    /** Whole days since the last successful check (or since publication, before one); null for an unwatched or draft source. */
     freshnessLagDays: number | null
   }
   credential: CredentialView
-  /** The open request a monitor filed for this source, if any. */
   openMonitorRequestId: string | null
-  /** A built-in source's recorded fixtures, as KC-7 runs them on a record; null for a record (`source-test` runs its). */
   fixtures: SourceCheck | null
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
-/** Whole days between `since` and `now`; what `freshness-lag-days` scores. */
 export function lagDays(since: Date, now: Date): number {
   return Math.max(0, Math.floor((now.getTime() - since.getTime()) / DAY_MS))
 }
@@ -215,7 +182,6 @@ function statusOf(
   }
 }
 
-/** A built-in source in the status's shape: active on its hosts, watched by no platform monitor, keyed by nothing stored. */
 function builtInStatusOf(source: BuiltInSource): SourceStatusView {
   return {
     sourceKey: source.sourceKey,
@@ -233,7 +199,6 @@ function builtInStatusOf(source: BuiltInSource): SourceStatusView {
   }
 }
 
-/** The built-in sources' statuses, or why the api tier could not list them. */
 async function builtInStatuses(sourceKey: string | undefined): Promise<{ views: SourceStatusView[]; unavailable: string | null }> {
   try {
     const views = (await builtInSources()).filter((source) => !sourceKey || source.sourceKey === sourceKey).map(builtInStatusOf)
@@ -244,10 +209,6 @@ async function builtInStatuses(sourceKey: string | undefined): Promise<{ views: 
   }
 }
 
-/**
- * Every source, or the one `sourceKey` names: the built-in ones first, then the platform's records, published and
- * proposed. `builtInUnavailable` says why the built-in ones are missing when the api tier could not list them.
- */
 export async function platformSourceStatus(
   session: UserSession | null,
   query: { sourceKey?: string },
@@ -288,11 +249,6 @@ export async function platformSourceStatus(
   return { sources: all, builtInUnavailable: builtIn.unavailable }
 }
 
-/**
- * Store a source's key, write-only, on the person's yes. The source must be a
- * platform record (proposed or published); the answer says only that a key is
- * set and its last four characters.
- */
 export async function setPlatformSourceCredential(
   session: UserSession | null,
   sourceKey: string,

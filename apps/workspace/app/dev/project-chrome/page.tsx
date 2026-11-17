@@ -1,26 +1,5 @@
 'use client'
 
-/*
- * A client component only because `SearchField` is a controlled input and this
- * fixture hands it a no-op `onChange`. As a server component the page threw
- * "Event handlers cannot be passed to Client Component props" and returned 500,
- * so this preview could not be captured at all until it became a client
- * component.
- */
-
-/**
- * Dev preview for the shared project-section chrome: title + subtitle +
- * actions, one fixture per section that uses it. No breadcrumb — the rail
- * already names where a section sits, and a trail repeating it here cost
- * every page a row for something the reader was not missing.
- *
- * Chat is the documented exception and is not shown. Archiv and Inbox are
- * org-scoped (OrgTopbar, not the project rail) but they share the same
- * PageHeader molecule, so they sit in their own group at the bottom.
- *
- * Not linked from anywhere; the `/dev` layout 404s this outside development.
- */
-
 import type { JSX } from 'react'
 import type { ReactNode } from 'react'
 

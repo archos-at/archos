@@ -53,7 +53,6 @@ def citation_scores(events: Iterable[Any]) -> list[RuntimeScore]:
     return scores
 
 
-#: The source kind whose citations state an edition and a role (``common/source_kinds.py``).
 _BUILDING_LAW_KIND = "building_law"
 
 

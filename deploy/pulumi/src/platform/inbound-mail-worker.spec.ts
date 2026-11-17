@@ -19,26 +19,10 @@ import worker, {
   VERDICT_REJECT,
   type Env,
 } from "./inbound-mail-worker.js";
-// Imports, not `node:fs`: this spec is also checked against the Workers
-// runtime types (tsconfig.worker.json), which have no Node modules.
 import addressContract from "../../../../contracts/inbound-address.json";
 import contract from "../../../../contracts/inbound-mail-contract.json";
 import signatureVectors from "../../../../contracts/inbound-mail-signature.json";
 import publicSite from "../../../../contracts/public-site.json";
-
-/**
- * The Email Worker's whole job: sign the message exactly as the BFF verifies
- * it, and map the BFF's answer to accept, reject or retry. A reject is
- * permanent (the sender's server gives up and the mail is lost); a throw is
- * temporary (it retries for days). So every branch is pinned here against a
- * stubbed `fetch`, the request against the shared signature vectors, and the
- * rule the spec guards above all is that only an explicit
- * `x-inbound-verdict: reject` on a 4xx ever bounces.
- *
- * Type-checked against `@cloudflare/workers-types` by `tsconfig.worker.json`,
- * so the fake message below is the runtime's `ForwardableEmailMessage`, not a
- * shape this file made up.
- */
 
 const VECTOR = signatureVectors.vectors[0];
 
@@ -52,10 +36,8 @@ const ENV: Env = {
   LANDING_URL: "https://site.example.test",
 };
 
-/** The bounce text for `ENV`: the contract's first case is its origin. */
 const REJECT_TEXT = contract.rejectText.cases[0].text;
 
-/** The handler never touches the execution context. */
 const CTX = {} as ExecutionContext;
 
 const PROJECT_ADDRESS = "project+riverside.k3m7q2xw4pab@inbox.example.test";
@@ -108,7 +90,6 @@ const respond =
 
 const REJECT = { [VERDICT_HEADER]: VERDICT_REJECT };
 
-/** The headers the Worker sent, as a plain record. */
 function sentHeaders(fetchMock: FetchMock): Record<string, string> {
   return Object.fromEntries(new Headers(fetchMock.mock.calls[0][1]?.headers).entries());
 }
@@ -148,8 +129,6 @@ describe("inbound mail worker: the contract file", () => {
 
 describe("inbound mail worker: the signed request", () => {
   it.each(signatureVectors.vectors)("produces the vector's request byte for byte: $name", async (vector) => {
-    // The Worker reads the clock for `created`; only Date is faked, so the
-    // abort timer stays real.
     vi.useFakeTimers({ now: vector.created * 1000, toFake: ["Date"] });
     const fetchMock = stubFetch(respond(202));
     const body = bytesOf(vector.bodyBase64);
@@ -167,8 +146,6 @@ describe("inbound mail worker: the signed request", () => {
     const [url, init] = fetchMock.mock.calls[0];
     expect(String(url)).toBe(vector.expected.url);
     expect(init?.method).toBe("POST");
-    // Content-Length is the runtime's, from the fixed-length body; the
-    // signature covers the value it will send.
     const { "content-length": contentLength, ...signedRest } = vector.expected.headers;
     expect(sentHeaders(fetchMock)).toEqual(signedRest);
     const sent = init?.body;
@@ -291,8 +268,6 @@ describe("inbound mail worker: the verdict contract", () => {
   });
 
   it("accepts a 2xx even if it carries the reject header", async () => {
-    // Any 2xx means the BFF took the mail; bouncing it would tell the sender
-    // it was lost when it was not.
     stubFetch(respond(202, REJECT));
     const { message, setReject } = fakeMessage();
     await expect(deliver(message)).resolves.toBeUndefined();
@@ -338,8 +313,6 @@ describe("inbound mail worker: the verdict contract", () => {
   });
 
   it.each([302, 500, 503])("ignores the reject header outside 4xx: %i throws", async (status) => {
-    // The verdict is a 4xx's qualifier. A 5xx or a redirect with the header is
-    // not a refusal the BFF can stand behind, so it stays a retry.
     stubFetch(respond(status, REJECT));
     const { message, setReject } = fakeMessage();
     await expect(deliver(message)).rejects.toThrow(String(status));
@@ -357,7 +330,6 @@ describe("inbound mail worker: the verdict contract", () => {
   );
 
   it("gives up on a hung BFF after the timeout, and throws rather than rejects", async () => {
-    // The fetch carries the abort signal; a fetch it aborts rejects with it.
     const fetchMock = stubFetch(() =>
       Promise.reject(new DOMException("The operation timed out.", "TimeoutError")),
     );
@@ -406,7 +378,6 @@ describe("inbound mail worker: the bounce texts", () => {
       stubFetch(respond(404, REJECT));
       const { message, setReject } = fakeMessage();
       const env: Env = { ...ENV, LANDING_URL: site ?? undefined };
-      // A missing or malformed origin is a refusal without links, never a throw.
       await expect(deliver(message, env)).resolves.toBeUndefined();
       expect(setReject).toHaveBeenCalledWith(text);
     },
@@ -439,7 +410,6 @@ describe("inbound mail worker: the bounce texts", () => {
   });
 });
 
-/** The address contract both sides run (see its `$comment`). */
 interface AddressContract {
   localPart: string;
   domain: string;
@@ -449,12 +419,10 @@ interface AddressContract {
 
 const ADDRESSES: AddressContract = addressContract;
 
-/** The bindings the address contract's cases are run with. */
 const CONTRACT_ENV: Env = { ...ENV, ADDRESS_DOMAIN: ADDRESSES.domain, ADDRESS_LOCAL_PART: ADDRESSES.localPart };
 
 describe("inbound mail worker: which recipients reach the BFF", () => {
   it("uses the token pattern of contracts/inbound-address.json", () => {
-    // The BFF's address.spec.ts checks its own pattern against the same file.
     expect(TOKEN_PATTERN).toBe(ADDRESSES.tokenPattern);
   });
 
@@ -472,8 +440,6 @@ describe("inbound mail worker: which recipients reach the BFF", () => {
   it.each(ADDRESSES.cases.filter((c) => !c.project))(
     "refuses any other address itself, without a request: $recipient",
     async ({ recipient }) => {
-      // Subaddressing hands the Worker every `project+<anything>` on the receiving
-      // domain. Only project addresses are the BFF's business.
       const fetchMock = stubFetch(respond(202));
       const { message, setReject } = fakeMessage(recipient);
       await expect(deliver(message, CONTRACT_ENV)).resolves.toBeUndefined();
@@ -488,7 +454,6 @@ describe("inbound mail worker: its address bindings", () => {
   it.each(["ADDRESS_DOMAIN", "ADDRESS_LOCAL_PART"] as const)(
     "asks the sender to retry, never bounces, while %s is unbound",
     async (name) => {
-      // A misconfigured script is our fault: a bounce would lose the mail.
       const fetchMock = stubFetch(respond(202));
       const { message, setReject } = fakeMessage();
       await expect(deliver(message, { ...ENV, [name]: "" })).rejects.toThrow(/not bound/);

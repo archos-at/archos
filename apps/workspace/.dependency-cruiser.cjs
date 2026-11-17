@@ -1,15 +1,4 @@
 // @ts-check
-// The module seams of the UI, checked by dependency-cruiser in `task workspace:lint`
-// (`bun run lint:seams`). Why each rule exists, and how the baselines move:
-// docs/contributing/module-seams.md.
-//
-// The layers point one way: app → features → components → lib. lib is the
-// headless core the routes, the agent door and every feature share, so it knows
-// no UI; components is the shared kit, so it knows no feature; a feature
-// reaches another only through that feature's index, and never in a circle (the
-// circle is checked by scripts/module-seams-reporter.mjs, which this tool cannot
-// express). Edges that broke a rule before the check existed are listed in
-// `.dependency-cruiser-known-violations.json`. That list may only shrink.
 const fs = require('node:fs');
 const path = require('node:path');
 
@@ -100,8 +89,6 @@ module.exports = {
     includeOnly: '^(app|bff|ui|i18n|shared|types|utils)/',
     exclude: { path: [TEST_FILE] },
     doNotFollow: { path: 'node_modules' },
-    // Keep `import type` edges: a type-only import still couples two modules,
-    // and `client-imports-server-only` has to tell the two kinds apart.
     tsPreCompilationDeps: true,
     tsConfig: { fileName: 'tsconfig.json' },
     enhancedResolveOptions: {
@@ -109,9 +96,6 @@ module.exports = {
       conditionNames: ['import', 'require', 'node', 'default', 'types'],
       extensions: ['.ts', '.tsx', '.d.ts', '.js', '.jsx', '.mjs', '.cjs'],
     },
-    // The ratchet: regenerating the baseline only removes entries, and an entry
-    // whose violation is gone fails the check until it is removed, so a fixed
-    // edge cannot quietly come back.
     baseline: { mode: 'shrink-only', staleEntriesSeverity: 'error' },
   },
 };

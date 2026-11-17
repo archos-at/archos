@@ -27,23 +27,14 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-#: How much of a model-authored value is kept: long enough to name a
-#: measurement, short enough that a pasted paragraph cannot fill a disk.
 MAX_VALUE_CHARS = 120
 
-#: Beyond this the ledger stops accepting rows. The ledger is advisory; the
-#: disk it shares is not.
 MAX_BYTES = 8 * 1024 * 1024
 
-#: A value shaped like a NAME — the only shape that is exported. German letters
-#: are in the class because the vocabulary this surface refuses is German.
 _NAME_SHAPED = re.compile(r"^[\w .\-]{1,60}$", re.UNICODE)
 
-#: Exported in place of a value that is not name-shaped.
 UNEXPORTABLE = "<nicht exportierbar>"
 
-#: Past this many distinct misses the process stops escalating: a model that
-#: invents a fresh word every turn must not page all night.
 MAX_ESCALATIONS = 50
 
 
@@ -117,7 +108,6 @@ def record_gap(*, surface: str, field: str, asked_for: Any, known: Any = ()) -> 
     """
     value = _one_line(asked_for)
     if not value:
-        # "The model sent nothing" is a bug in the caller, not a feature request.
         return
     row = {
         "at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),

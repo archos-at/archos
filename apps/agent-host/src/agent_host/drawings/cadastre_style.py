@@ -32,16 +32,13 @@ from pathlib import Path
 from ezdxf.document import Drawing
 from ezdxf.entities import DXFGraphic
 
-#: The colours of BEV's plot column (black, red, green, blue, grey), as print
-#: colours: the plot column names ACI 1, 3 and 5, which are the screen's pure
-#: #ff0000, #00ff00 and #0000ff and read as a CAD screen, not a plotted sheet.
 INK = (26, 26, 26)
 BUILDING_RED = (192, 57, 43)
 LAND_USE_GREEN = (62, 140, 80)
+# Plot colours, text scale and point marks follow BEV Schnittstellenbeschreibung v2.6 (§6 plot column, §4, §3.8, §9.2).
 OTHER_BLUE = (43, 87, 151)
 BOUNDARY_GREY = (110, 110, 110)
 
-#: Colour, line weight (1/100 mm) and whether dash-dotted, per layer, after BEV's plot column.
 PLOT_STYLE: dict[str, tuple[tuple[int, int, int], int, bool]] = {
     "GG": (INK, 35, False),  # Grundstücksgrenze
     "KG": (BOUNDARY_GREY, 70, True),  # Katastralgemeindegrenze and every rank above
@@ -80,10 +77,8 @@ def label_colour(layer: str) -> str:
     return "#{:02x}{:02x}{:02x}".format(*colour)
 
 
-#: The administrative boundaries' dash-dot, in millimetres on paper: dash, gap, dot, gap.
 _DASH_DOT_MM = (6.0, -1.2, 0.0, -1.2)
 
-#: Text height on paper, in millimetres, by layer. Anything else keeps its own.
 TEXT_HEIGHT_MM: dict[str, float] = {
     "GN": 2.4,  # parcel numbers
     "PN": 2.2,
@@ -98,10 +93,8 @@ TEXT_HEIGHT_MM: dict[str, float] = {
     "WP": 1.3,
 }
 
-#: Below this a point number's height is BEV's "suppressed" marker, in metres.
 _SUPPRESSED_TEXT_HEIGHT_M = 0.1
 
-#: Light red of the analogue map's buildings.
 BUILDING_FILL = "#f4dcd7"
 
 
@@ -111,7 +104,6 @@ class PointMark:
 
     x: float
     y: float
-    #: ``cross`` (unmarked), ``stroked`` (marked), ``circle`` (indirectly marked), ``triangle`` (fixed point).
     mark: str
 
 

@@ -77,14 +77,8 @@ def extract_sources_from_tool_result(
 
     block = get_grounding_block(content)
     if block is not None:
-        # Block order is load-bearing: ``SourceRegistry.add`` merges a repeated
-        # (collection, filename, page) onto the entry that arrived first.
         return [_entry_from_hit(hit, tool_name) for hit in block.hits]
 
-    # An error or a no-result report is not evidence, whatever it links to.
-    # Checked before the parsers and the URL extractor. Until 2026-09-24 it ran
-    # after them, and "Error: Web search is unavailable ... Get an API key from
-    # https://tavily.com/" registered tavily.com as a citable source (answer suite).
     if _is_non_citable_status_output(content):
         return []
 
@@ -94,24 +88,16 @@ def extract_sources_from_tool_result(
             return parser_fn(content, tool_name)
         except Exception:
             logger.warning("Parser failed for tool %s, falling back to generic", tool_name, exc_info=True)
-    # Generic fallback: extract all URLs from content
     entries = _parse_generic_urls(content, tool_name)
     if entries:
         return entries
 
-    # Non-URL fallback: register the tool result itself as a source whenever
-    # the tool produced non-empty output. The caller has already decided
-    # this tool is eligible to contribute sources (typically by limiting
-    # capture to the agent's loaded tool set).
     if content.strip():
         return [SourceEntry(citation_key=tool_name, source_type=TOOL_RESULT_SOURCE_TYPE, tool_name=tool_name)]
 
     return []
 
 
-# Batch source-tool output format (see deep_researcher's
-# _format_batch_tool_output): "## Query: <q>\n<body>" sections joined by
-# "\n\n---\n\n".
 _BATCH_SECTION_SEPARATOR_RE = re.compile(r"\n\s*---\s*\n")
 
 
@@ -157,14 +143,6 @@ def _is_status_message(content: str) -> bool:
         return True
     if normalized == "search returned no results" or normalized.endswith(" search returned no results"):
         return True
-    # No-result outputs from source tools (e.g. the RIS adapter's
-    # "No RIS documents found for query ...") are status reports, not evidence,
-    # and must not become citations. The known no-result prefixes only qualify
-    # when the body actually has the shape of a terse status line — a SINGLE,
-    # reasonably SHORT line, matching the real RIS no-result output. A multi-line
-    # or long body that merely LEADS with one of these phrases (e.g. "No results
-    # found for the exact phrase, however: <records>") carries substantive
-    # content and must survive as citable evidence.
     is_terse_status_line = "\n" not in stripped and len(normalized) <= 300
     return is_terse_status_line and normalized.startswith(
         (
@@ -224,10 +202,6 @@ def _entry_from_hit_fields(hit: GroundingHit, tool_name: str) -> SourceEntry:
         doc_class=(hit.doc_class or "").strip() or None,
         authored_by=hit.authored_by,
         source_format=(hit.source_format or "").strip() or None,
-        # The body as EVIDENCE: no truncation marker (the renderer adds it) and
-        # no surrounding blank lines, so ``verify_quoted_spans`` matches an
-        # answer's quote against the passage and nothing else.
-        # A licensed body persists with the answer's sources only as far as a quote may reach.
         chunk_text=quotable(hit.body.strip(), hit.licence),
         clause=(hit.clause or "").strip() or None,
         score=hit.score,
@@ -245,32 +219,16 @@ def _entry_from_hit_fields(hit: GroundingHit, tool_name: str) -> SourceEntry:
     )
 
 
-# Generic URL extractor — works for any tool output format.
-# Commas are valid URL path characters (RFC 3986 sub-delim) and appear in real
-# URLs like https://weathercams.faa.gov/map/-122.31167,47.22287,10/...; we
-# include them in the match and rely on URL_TRIM_CHARS below to strip any
-# comma that's actually sentence punctuation. ``]`` stays excluded here
-# because it almost always terminates a markdown link rather than appearing
-# in a path.
 _GENERIC_URL_RE = re.compile(r"https?://[^\s<>\"'\]]+")
 
 
-# Trailing characters to strip from a captured URL.  Covers sentence
-# punctuation and the closing chars of common Markdown wrappers — ``]`` for
-# ``[https://...]`` and ``>`` for ``<https://...>``.  Used at every site that
-# captures a URL via a permissive regex (registration and verification).
 URL_TRIM_CHARS = ".,;)]>"
 
 
-# Patterns for extracting titles near URLs in common tool output formats
 _TITLE_NEAR_URL_PATTERNS = [
-    # Tavily: <title>\nSome Title\n</title>
     re.compile(r"<title>\s*\n?(.*?)\n?\s*</title>", re.DOTALL | re.IGNORECASE),
-    # Paper search: N. **Title** (Year)
     re.compile(r"^\d+\.\s+\*\*(.+?)\*\*", re.MULTILINE),
-    # Additional title patterns: --- Title ---
     re.compile(r"^---\s+(.+?)\s+---$", re.MULTILINE),
-    # Key-value: Title: Some Title
     re.compile(r"^Title:\s*(.+)$", re.MULTILINE),
 ]
 
@@ -287,7 +245,6 @@ def _extract_title_for_url(content: str, url: str, blocks: list[str] | None = No
     splits the content once instead of once per URL; when ``None`` the content
     is split here, preserving standalone callers' behaviour.
     """
-    # Find the block of text containing this URL (split by --- or double newlines)
     if blocks is None:
         blocks = re.split(r"\n\n---\n\n|\n\n\n", content)
     for block in blocks:
@@ -301,10 +258,8 @@ def _extract_title_for_url(content: str, url: str, blocks: list[str] | None = No
                 title = title_match.group(1).strip()
                 if not title or title == url:
                     continue
-                # Prefer titles that appear before (and closest to) the URL
                 distance = url_pos - title_match.end()
                 if distance < 0:
-                    # Title appears after the URL — use large penalty
                     distance = abs(distance) + 10000
                 if distance < best_distance:
                     best_distance = distance
@@ -324,9 +279,6 @@ def _parse_generic_urls(content: str, tool_name: str) -> list[SourceEntry]:
     """
     seen: set[str] = set()
     entries: list[SourceEntry] = []
-    # Split the content into blocks ONCE here (same regex as
-    # ``_extract_title_for_url``) so title extraction is O(content) rather than
-    # O(urls × content) on URL-heavy tool outputs (e.g. large ris_fetch results).
     blocks = re.split(r"\n\n---\n\n|\n\n\n", content)
     for match in _GENERIC_URL_RE.finditer(content):
         url = unescape(match.group(0)).rstrip(URL_TRIM_CHARS)

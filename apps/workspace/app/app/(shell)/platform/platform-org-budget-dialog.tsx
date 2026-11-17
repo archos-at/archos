@@ -1,17 +1,5 @@
 'use client'
 
-/**
- * Platform → overview → one organization's allowance.
- *
- * Read by everyone who reaches the directory; written only with
- * `platform:organizations:manage`. The server reports `canManage` per request,
- * and the shell's permission context says the same thing before the request
- * lands, so the two are combined: either one saying no hides the write path.
- *
- * Each limit is read by `parseDecimalInput`. Blank is unlimited and the hint
- * says so; anything that is not a number is a field error and Save stays off.
- */
-
 import type { JSX } from 'react'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
@@ -42,7 +30,6 @@ import { formatDecimalInput, parseDecimalInput } from '@/lib/text/parse-decimal'
 type LimitDraft =
   { ok: true; value: number | null } | { ok: false; message: 'invalid' | 'ambiguous' }
 
-/** Blank is unlimited; a number must also pass the wire schema's range. */
 const readLimit = (raw: string, locale: string): LimitDraft => {
   const parsed = parseDecimalInput(raw, locale)
   if (parsed.status === 'blank') return { ok: true, value: null }

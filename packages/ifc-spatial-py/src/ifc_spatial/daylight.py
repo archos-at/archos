@@ -61,54 +61,15 @@ from .geometry import triangle_normals_areas
 from .model import AIR_TYPES
 from .model import SpatialModel
 
-# ── the error model ─────────────────────────────────────────────────────────
-# The geometric tolerances are the ones `operators.py` already states, imported
-# rather than restated so that a room's depth and a wall's length carry the same
-# stated error. Only the two constants below are new, and both are new because
-# nothing in `operators.py` measures the thing they bound.
-
-#: Published accuracy of the solar position algorithm used here, in degrees.
-#: Michalsky (1988), *The Astronomical Almanac's algorithm for approximate solar
-#: position (1950–2050)*, Solar Energy 40(3):227–235: 0.01° over 1950–2050. This
-#: deliberately does NOT reuse ``operators.AZIMUTH_TOLERANCE_DEGREES`` (3°) —
-#: that number is tessellation error on a facade normal, an entirely different
-#: quantity that happens to share a unit, and 3° on a sun position would be six
-#: solar diameters.
 SOLAR_TOLERANCE_DEGREES = 0.01
-#: Outside Michalsky's validated span the polynomial drifts. The value is still
-#: returned, with this tolerance and a caveat, because the drift is gradual —
-#: refusing outright would be a bigger lie than a widened error bar.
 SOLAR_TOLERANCE_DEGREES_EXTRAPOLATED = 0.1
 
-#: Grid resolution for the overhead scan, per axis. 5 × 5 = 25 rays, matching
-#: :func:`~ifc_spatial.operators.clear_height`'s default so the two operators
-#: can miss the same narrow downstand and nobody has to reconcile two answers.
 OVERHEAD_SAMPLES = 5
-#: How far above/below the subject's own extent a scan ray starts, metres. Large
-#: enough to clear the tessellation of the subject's own top face, small enough
-#: that it cannot jump a real contact.
 OVERHEAD_OFFSET = 0.01
-#: A second facade carrying at least this share of the winner's aperture makes
-#: the room a corner room, and the caveat says the choice was close.
 CORNER_ROOM_SHARE = 0.5
-#: Relative gap between depth × width and the measured floor area above which the
-#: room is not a rectangle and the product must not be read as its area. Tight —
-#: half a percent — because both numbers come out of the SAME tessellation and
-#: share its error, so the difference between them is shape and not noise. At the
-#: 2 % that would be defensible for two independent measurements, the sample
-#: house's living room passes at 1.23 % and gets called rectangular; it has a
-#: 0.639 m² notch out of one corner.
 RECTANGULARITY_TOLERANCE = 0.005
 
-#: Curtain-wall glazing is carried by these types, and they are NOT counted as
-#: apertures — see :func:`_facade_candidates` for why, and for what is said
-#: about it instead.
 CURTAIN_WALL_TYPES = ("IfcPlate", "IfcMember", "IfcCurtainWall")
-
-
-# ════════════════════════════════════════════════════════════════════════════
-# room depth
-# ════════════════════════════════════════════════════════════════════════════
 
 
 def _footprint_points(triangles: np.ndarray) -> np.ndarray | None:
@@ -223,14 +184,6 @@ def _facade_candidates(model: SpatialModel, space_global_id: str, bounding: list
         if declared is False:
             continue
         if declared is not True:
-            # Not declared. Measure the wall rather than drop it — the same
-            # question `_faces_outside` asks two loops below for the apertures,
-            # which makes it odd that the wall selection ever answered it
-            # differently. `AC20-FZK-Haus.ifc` declares `IsExternal` on none of
-            # its 26 walls, so this `continue` refused **all seven rooms** of a
-            # real single-family house with „keine als außenliegend deklarierte
-            # Wand begrenzt diesen Raum" — a sentence about a wall that is named
-            # `Wand-Ext-ERDG-1` in the file it is describing.
             rooms = op.enclosed_by(model, element.GlobalId)
             if not rooms.decidable or not rooms.value:
                 continue
@@ -542,18 +495,7 @@ def _depth_caveat(
         second = runners[0]
         share = float(second["apertureArea"]) / best if best > 0 else 0.0
         listed = ", ".join(f"{c['name'] or c['globalId']} ({float(c['apertureArea']):.3f} m²)" for c in runners[:3])
-        # `candidates` is every external wall bounding the room — the first loop
-        # of `_facade_candidates` enters a blank gable with apertureArea 0.0 so
-        # that a caller may still name it. Counting those under the words
-        # „Außenwände mit Öffnungen" told the reader a room with one window and
-        # three blank external walls had four daylight facades, and the ranking
-        # printed right beside the sentence shows only one. The total is kept in
-        # the parenthesis: a wall that carries no opening is still a wall the
-        # depth could be measured to.
         with_openings = [c for c in candidates if float(c["apertureArea"]) > 0]
-        # Only the three largest runners-up are named, so the sentence must not
-        # read as the whole list — see `Answer.caveat`: a caller that drops the
-        # qualifier is reporting a subset as a total.
         more = "" if len(runners) <= 3 else f" (die 3 größten von {len(runners)})"
         parts.append(
             f"Dieser Raum hat {len(with_openings)} Außenwand/Außenwände mit Öffnungen (von "
@@ -631,11 +573,6 @@ def _depth_caveat(
     return " ".join(parts)
 
 
-# ════════════════════════════════════════════════════════════════════════════
-# above / below
-# ════════════════════════════════════════════════════════════════════════════
-
-
 def _is_excluded(element: Any) -> bool:
     """Air and furniture — the two classes that make an overhead ray lie.
 
@@ -681,24 +618,11 @@ def _overhead(model: SpatialModel, global_id: str, upward: bool, samples: int) -
             x = float(low[0] + (high[0] - low[0]) * (ix + 0.5) / samples)
             y = float(low[1] + (high[1] - low[1]) * (iy + 0.5) / samples)
 
-            # Is this grid point really over the element? The bounding box of an
-            # L-shaped room, a pitched roof or a curved wall covers plan area the
-            # element does not occupy, and a ray from there reports what is above
-            # the BOX. The test is a short ray back into the element rather than
-            # a point-inside test, because the point just above the top face is
-            # by construction outside the solid — a `tree.select` there answers
-            # nothing.
             hits_back = tree.select_ray((x, y, start_z), back, length=thickness + 2 * OVERHEAD_OFFSET)
             if not any(model.file.by_id(h.instance.id()).GlobalId == global_id for h in hits_back):
                 continue
             tested += 1
 
-            # Elements whose solid already contains the ray's origin are in
-            # CONTACT, and their gap is zero. Without this the ray starts inside
-            # them and OCCT returns the far side: the sample house's window
-            # `…VyWcE` sits in a wall whose parapet it touches, and the exit face
-            # of that parapet is at floor level — reported as "0.90 m below the
-            # window", which is the sill height and not a clearance at all.
             here = {e.GlobalId for e in tree.select((x, y, start_z))}
             seen: set[str] = set()
             for global_id_here in here:
@@ -826,11 +750,6 @@ def below(model: SpatialModel, global_id: str, samples: int = OVERHEAD_SAMPLES) 
     return _overhead(model, global_id, upward=False, samples=samples)
 
 
-# ════════════════════════════════════════════════════════════════════════════
-# sun position
-# ════════════════════════════════════════════════════════════════════════════
-
-
 def _by_type(model: SpatialModel, ifc_type: str) -> list[Any]:
     """``file.by_type`` that survives a schema which has never heard of the type.
 
@@ -871,7 +790,6 @@ def _compound_angle(value: Any) -> float | None:
     sign = -1.0 if any(part < 0 for part in parts) else 1.0
     magnitude = abs(parts[0]) + abs(parts[1]) / 60.0 + abs(parts[2]) / 3600.0
     if len(parts) > 3:
-        # The fourth component is millionths of an arc second.
         magnitude += abs(parts[3]) / 3.6e9
     return sign * magnitude
 
@@ -960,9 +878,6 @@ def _solar_azimuth_altitude(when: dt.datetime, latitude: float, longitude: float
     right_ascension = math.atan2(math.cos(obliquity) * math.sin(ecliptic_longitude), math.cos(ecliptic_longitude))
     declination = math.asin(math.sin(obliquity) * math.sin(ecliptic_longitude))
 
-    # Greenwich mean sidereal time. The fractional part of `n` already carries
-    # the UT hours at 1.0027 sidereal days per solar day; adding `hour` supplies
-    # the remaining one solar rotation, which is Michalsky's own arrangement.
     gmst = (6.697375 + 0.0657098242 * n + hour) % 24.0
     local_sidereal = (gmst + longitude / 15.0) % 24.0
     hour_angle = math.radians((local_sidereal * 15.0 - math.degrees(right_ascension) + 180.0) % 360.0 - 180.0)
@@ -1112,9 +1027,6 @@ def sun_position(
         north_source = "IfcMapConversion.XAxisAbscissa/XAxisOrdinate (Gitternord)"
     direction: list[float] | None = None
     if north is not None:
-        # North and east in model coordinates, the same construction
-        # `operators.azimuth` uses to turn a model normal into a bearing — read
-        # backwards here, from a bearing to a model direction.
         north_vector = np.array([math.sin(north), math.cos(north), 0.0])
         east_vector = np.array([north_vector[1], -north_vector[0], 0.0])
         bearing = math.radians(sun["azimuth"])

@@ -1,13 +1,3 @@
-/**
- * Documents API Client
- *
- * Collection reads, file listing and ingest-job polling for the
- * project and Archiv collections, through the `/api/v1` proxy. Uploads do not
- * or deletes go through here: every shelf uploads and deletes through its
- * first-party routes, and a chat's attachments are also read through
- * `session-documents-client`.
- */
-
 import { apiConfig } from './config'
 import {
   CollectionInfoSchema,
@@ -29,53 +19,18 @@ const getDocumentsBaseUrl = (): string => {
   return isBrowser ? '/api/v1' : apiConfig.documentsBaseUrl
 }
 
-// ============================================================================
-// Types
-// ============================================================================
-
 export interface DocumentsClientOptions {
-  /** Auth token for API requests */
   authToken?: string
 }
 
-// ============================================================================
-// Helpers
-// ============================================================================
-
-/**
- * Parse API error response and throw a consistent error
- */
 async function handleApiError(response: Response, context: string): Promise<never> {
   const error = await response.json().catch(() => ({}))
   throw new Error(error?.error?.message || `${context}: ${response.statusText}`)
 }
 
-// ============================================================================
-// Client Factory
-// ============================================================================
-
-/**
- * Create a documents API client
- *
- * @param options - Client options including auth token
- * @returns Documents client with all API methods
- *
- * @example
- * ```typescript
- * const { idToken } = useAuth()
- * const client = createDocumentsClient({ authToken: idToken })
- *
- * // Create collection
- * const collection = await client.createCollection('proj_123')
- *
- * // Poll for status
- * const status = await client.getJobStatus(job_id)
- * ```
- */
 export const createDocumentsClient = (options: DocumentsClientOptions = {}) => {
   const { authToken } = options
 
-  // Helper to create headers
   const getHeaders = (includeContentType = true): Record<string, string> => {
     const headers: Record<string, string> = {}
     if (authToken) {
@@ -88,13 +43,7 @@ export const createDocumentsClient = (options: DocumentsClientOptions = {}) => {
   }
 
   return {
-    // --------------------------------------------------------------------------
-    // Collection Management
-    // --------------------------------------------------------------------------
 
-    /**
-     * Create a new collection
-     */
     async createCollection(name: string, description?: string): Promise<CollectionInfo> {
       const response = await fetch(getCollectionsUrl(), {
         method: 'POST',
@@ -110,9 +59,6 @@ export const createDocumentsClient = (options: DocumentsClientOptions = {}) => {
       return CollectionInfoSchema.parse(data)
     },
 
-    /**
-     * Get a specific collection by name
-     */
     async getCollection(name: string, signal?: AbortSignal): Promise<CollectionInfo | null> {
       const response = await fetch(`${getCollectionsUrl()}/${name}`, {
         method: 'GET',
@@ -132,9 +78,6 @@ export const createDocumentsClient = (options: DocumentsClientOptions = {}) => {
       return CollectionInfoSchema.parse(data)
     },
 
-    /**
-     * List files in a collection
-     */
     async listFiles(collectionName: string, signal?: AbortSignal): Promise<FileInfo[]> {
       const response = await fetch(`${getCollectionsUrl()}/${collectionName}/documents`, {
         method: 'GET',
@@ -148,10 +91,7 @@ export const createDocumentsClient = (options: DocumentsClientOptions = {}) => {
 
       const data = await response.json()
 
-      // API might return array directly OR wrapped in {files: [...]}
-      // Handle both cases
       if (Array.isArray(data)) {
-        // Validate each file individually
         return data.map((file) => FileInfoSchema.parse(file))
       }
 
@@ -159,17 +99,6 @@ export const createDocumentsClient = (options: DocumentsClientOptions = {}) => {
       return validated.files
     },
 
-    // --------------------------------------------------------------------------
-    // Job Status (Polling)
-    // --------------------------------------------------------------------------
-
-    /**
-     * Get ingestion job status
-     *
-     * @param jobId - Job ID from uploadFiles response
-     * @param signal - Optional AbortSignal for cancellation
-     * @returns Job status with file progress details
-     */
     async getJobStatus(jobId: string, signal?: AbortSignal): Promise<IngestionJobStatus | null> {
       const response = await fetch(`${getDocumentsBaseUrl()}/documents/${jobId}/status`, {
         method: 'GET',

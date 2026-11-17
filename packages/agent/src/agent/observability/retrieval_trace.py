@@ -35,9 +35,6 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-#: Hard ceiling on picks recorded per search, independent of the platform's
-#: admin-tunable top_k. A pathological setting must not be able to balloon one
-#: observation into megabytes of JSON.
 PICK_LIMIT = 50
 
 
@@ -84,13 +81,7 @@ def build_retrieval_input(
         "candidate_k": candidate_k,
         "top_k": top_k,
         "reranked": reranked,
-        # The relevance floor is the only stage that can empty an otherwise
-        # non-empty result, so its toll belongs next to the picks.
         "dropped_by_floor": dropped_by_floor,
-        # The alternative formulations the retrieval loop fanned out to after
-        # judging the first pool insufficient. Absent on a one-shot search, so
-        # "how often does the loop fire, and on which questions" is a query
-        # over the traces rather than a guess.
         "requery_queries": list(requery_queries) if requery_queries else None,
     }
     return _compact(payload)
@@ -191,8 +182,6 @@ def emit_step_span(
         finally:
             if started:
                 try:
-                    # Same UUID, immediately: closes the span this call opened so the next
-                    # real END still pops exactly one frame.
                     manager.push_intermediate_step(
                         IntermediateStepPayload(
                             UUID=step_id,

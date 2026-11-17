@@ -1,29 +1,3 @@
-/**
- * What an operation call names: the projects, documents, folders and
- * conversations its input points at (ADR-0122, ADR-0093, ADR-0094).
- *
- * Two gates ask it, each about a different person:
- *
- *  - The read gate (`read-gate.ts`, `conversation-audience.ts`): a read in a
- *    conversation of Piloti's may reach only what the conversation's audience
- *    may read (ADR-0094). What it names is resolved to where it lives
- *    (`placesOf`), judged against the audience's reach, and recorded on the
- *    conversation before it runs; a proposal in a shared conversation is held
- *    to the same reach.
- *  - The proposal (`operation-proposals.ts`): a write Piloti proposes may only
- *    name what the person whose turn it is may read, so a member's Piloti cannot
- *    put a card in front of an admin that changes a project the member cannot
- *    see (`requireTargetsReadable`). The card then names each target for its
- *    reader (`describeTargets`), not only by id.
- *
- * Read from the operation's own path (`/api/projects/[id]/…` names a project)
- * and from its query and body, by key (`projectId`, `documentId`, `folderId`,
- * `conversationId`, `modelId`, a held mail's `mailId`, a `mailThreadId`, and a `resourceType`/`resourceId` or
- * `entityType`/`entityId` pair), at any depth up to {@link MAX_DEPTH}. A key
- * this file does not know names nothing: the route's own check still applies,
- * as it does to every call.
- */
-
 import 'server-only'
 import { NotFoundError } from '@/lib/api/errors'
 import type { AuthorizedSession } from '@/lib/auth/types'
@@ -44,14 +18,12 @@ export interface OperationTarget {
   id: string
 }
 
-/** What a call's input looks like here: the dispatcher's `{ params, query, body }`. */
 export interface TargetInput {
   params?: Record<string, unknown>
   query?: Record<string, unknown>
   body?: unknown
 }
 
-/** A path segment, and what the `[param]` after it names. */
 const PATH_SEGMENT_TARGETS: Readonly<Record<string, TargetType>> = {
   projects: 'project',
   documents: 'document',
@@ -60,12 +32,10 @@ const PATH_SEGMENT_TARGETS: Readonly<Record<string, TargetType>> = {
   models: 'bim_model',
   'upload-batches': 'upload_batch',
   proposals: 'proposal',
-  // A held mail and a mail thread live in their project (ADR-0137); the path names the project too.
   'inbound-mails': 'inbound_mail',
   'mail-threads': 'mail_thread',
 }
 
-/** An input key, and what its value (a string or a list of strings) names. */
 export const KEY_TARGETS: Readonly<Record<string, TargetType>> = {
   projectId: 'project',
   projectIds: 'project',
@@ -75,17 +45,13 @@ export const KEY_TARGETS: Readonly<Record<string, TargetType>> = {
   folderIds: 'folder',
   conversationId: 'conversation',
   modelId: 'bim_model',
-  // The model a comparison or a compliance diff reads beside the one in the path (`lib/bim/query.ts`).
   baseModelId: 'bim_model',
-  // What a decision about held mail names (`inbound-mail-file`, `inbound-mail-dismiss`, ADR-0137).
   mailId: 'inbound_mail',
   mailIds: 'inbound_mail',
   mailThreadId: 'mail_thread',
-  // The document an attachment is filed as the next Fassung of.
   revisionOf: 'document',
 }
 
-/** The values a `resourceType` / `entityType` takes that name something here. */
 const TYPED_TARGETS: Readonly<Record<string, TargetType>> = {
   project: 'project',
   document: 'document',
@@ -93,9 +59,7 @@ const TYPED_TARGETS: Readonly<Record<string, TargetType>> = {
   conversation: 'conversation',
 }
 
-/** How deep the body is searched. The schemas this catalog holds nest two levels at most. */
 const MAX_DEPTH = 4
-/** Most targets one call may name; beyond it the call is refused, never half-checked. */
 export const MAX_TARGETS = 50
 
 export class TooManyTargetsError extends Error {
@@ -152,10 +116,6 @@ function valueTargets(value: unknown, depth: number, into: OperationTarget[]): v
   }
 }
 
-/**
- * Everything `input` names for `op`, each once, path first. Throws
- * {@link TooManyTargetsError} past {@link MAX_TARGETS}.
- */
 export function targetsOf(op: Pick<AgentOperation, 'path'>, input: TargetInput): OperationTarget[] {
   const found = pathTargets(op, input.params)
   valueTargets(input.query, 0, found)
@@ -187,18 +147,10 @@ function namesUntyped(value: unknown, depth: number): boolean {
   return here || Object.values(value).some((inner) => namesUntyped(inner, depth + 1))
 }
 
-/**
- * Whether `input` names a resource by a type this file cannot place (a
- * `resourceType` of `project_folder`, an `entityType` of `annotation`): the
- * call reaches something {@link targetsOf} does not list. The read gate
- * refuses such a read, because it cannot tell which project's content the
- * answer carries.
- */
 export function namesUntypedResource(input: TargetInput): boolean {
   return namesUntyped(input.params, 0) || namesUntyped(input.query, 0) || namesUntyped(input.body, 0)
 }
 
-/** Where each target lives, in the caller's tenant scope; a target that does not exist there is `null`. */
 export async function placesOf(
   organizationId: string,
   userId: string,
@@ -207,12 +159,6 @@ export async function placesOf(
   return Promise.all(targets.map((target) => findTargetPlace(organizationId, userId, target)))
 }
 
-/**
- * Refuse (404, as every route refuses what a reader may not see) unless
- * `session`'s person may read every target: the project, the document on its
- * shelf, the folder, the conversation. A target that does not exist is refused
- * too: there is nothing to propose against it. Call in the tenant scope.
- */
 export async function requireTargetsReadable(
   session: AuthorizedSession,
   targets: readonly OperationTarget[],
@@ -253,12 +199,10 @@ async function readableName(session: AuthorizedSession, target: OperationTarget)
     }
     return null
   } catch {
-    // Not readable for this reader, or gone: the card shows the id alone.
     return null
   }
 }
 
-/** A folder's name, as the read gate judges it (`requireTargetsReadable`): its project, and the folder's own access. */
 async function readableFolderName(session: AuthorizedSession, folderId: string): Promise<string | null> {
   const folder = await findFolderName(session.organizationId, folderId)
   if (!folder) return null
@@ -269,7 +213,6 @@ async function readableFolderName(session: AuthorizedSession, folderId: string):
   return folder.name
 }
 
-/** The input keys that name a person of the office, by WorkOS user id. Labels only: no gate reads them. */
 const PERSON_KEYS: ReadonlySet<string> = new Set(['userId', 'userIds', 'memberId', 'assigneeId'])
 
 function personIds(value: unknown, depth: number, into: Set<string>): void {
@@ -285,15 +228,8 @@ function personIds(value: unknown, depth: number, into: Set<string>): void {
   }
 }
 
-/** The names a person of the office is shown by: the organization directory, keyed by user id. */
 export type PersonNames = ReadonlyMap<string, { name: string }>
 
-/**
- * The targets of a proposed call, named for `session`'s person where they may
- * read them, and the people it names (`userId`), from `people` (the
- * organization directory the caller already holds; a person outside it keeps
- * the id). Call in the tenant scope.
- */
 export async function describeTargets(
   session: AuthorizedSession,
   op: Pick<AgentOperation, 'path'>,

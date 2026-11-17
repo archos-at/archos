@@ -1,8 +1,3 @@
-/**
- * The route-fate table (redirects.mjs) against the pages this site builds: every 301 lands
- * on a page in one hop, no live page is redirected away, and the plan's rows are there.
- * The built server is asked the same in scripts/check-route-fates.mjs (`bun run check:routes`).
- */
 import { describe, expect, test } from 'bun:test';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
@@ -12,7 +7,6 @@ import { CATEGORY_IDS, blogPath } from './categories';
 
 const CONTENT = join(import.meta.dir, '../content/blog');
 
-/** Every path the build serves as a page or a file an old address may land on. */
 function livePaths(): Set<string> {
   const live = new Set<string>(['/sign-in', '/llms.txt']);
   for (const route of Object.values(ROUTES)) {
@@ -92,7 +86,6 @@ describe('route fates', () => {
     const detail = [...ROUTE_FATES.keys()].filter((path) =>
       /^\/(vergleich|anwendungen|fuer|baurecht|glossar|en\/(comparisons|use-cases|for|building-law|glossary))\/[^/]+$/.test(path),
     );
-    // 10 comparisons, 10 use cases, 3 audiences, 9 states, 10 glossary entries, per locale.
     expect(detail.length).toBe(42 * 2);
   });
 

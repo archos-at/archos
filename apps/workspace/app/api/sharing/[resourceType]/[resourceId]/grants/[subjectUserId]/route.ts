@@ -1,11 +1,3 @@
-/**
- * Revoke one person's grant (spec SH-12, SH-13).
- *
- * The same endpoint serves "remove Anna" and "leave this chat": the service
- * distinguishes them by whether the subject is the caller, because leaving needs
- * no ownership while removing someone else does. Thin adapter (ADR-0017).
- */
-
 import { apiRoute } from '@/lib/api/handler'
 import { requireCollaborationEnabled } from '@/lib/authz/feature-flags'
 import { revokeResourceAccess } from '@/lib/sharing/service'

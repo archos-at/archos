@@ -1,4 +1,3 @@
-/** Das Recht eines Landes als Baum: Gebiete, die Akte, die dort Ausgaben verbindlich machen, und die Aussage jedes Akts. */
 export const lawMap = {
   title: 'Rechtslage',
   open: 'Rechtslage öffnen',

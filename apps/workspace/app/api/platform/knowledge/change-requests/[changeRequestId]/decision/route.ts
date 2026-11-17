@@ -1,9 +1,3 @@
-/**
- * Approve or reject a submitted change request (ADR-0165): the person's own
- * yes, refused at the server without it (`requirePersonDecision`), and never
- * from a person who wrote a revision in it (four eyes).
- */
-
 import { parseJsonBody } from '@/lib/api/handler'
 import { platformApiRoute } from '@/lib/api/platform-handler'
 import { PLATFORM_PERMISSIONS } from '@/lib/authz/permissions'

@@ -1,32 +1,5 @@
 'use client'
 
-/**
- * Dev preview — the proposal cards as receipts of a proposal the server holds
- * (ADR-0105): files, a memory note, a change to the project facts, and an
- * action of the agent catalog (ADR-0122), whose long value „Übernehmen“ waits on.
- *
- * `/dev` has no backend, so the proposals API is faked
- * (`../_fixtures/fake-proposals.ts`) with the real response shape: pressing
- * „Übernehmen“ or „Verwerfen“ moves the proposal as the server would, and the
- * card shows who decided it and when. Per kind, judge:
- *
- *  - **Open**: the question reads before the buttons; „Übernehmen?“ wraps onto
- *    its own line on a phone rather than sitting under the primary button.
- *  - **Decided by a colleague**: „Übernommen von Anna · 14:02“, results per
- *    row for files (one failed, with its reason), the change as made for the
- *    project facts (no „vorher“ once it holds).
- *  - **Read only**: no buttons, and the line that says why.
- *  - Memory: the kind and confidence, where the note goes, „Ersetzt: …“ for a
- *    correction, and „Nur im Projekt merken“ beside „Übernehmen“.
- *  - Project facts: before → after derived from the PATCH against the profile,
- *    never from a model's preview.
- *
- * The last panel is the card of an answer without a stored proposal: read-only.
- *
- * Pinned to German (`I18nProvider initialLocale="de" fixedLocale`): the copy
- * under review is the German copy. 404s outside development.
- */
-
 import { notFound } from 'next/navigation'
 import { I18nProvider } from '@/i18n'
 import { FileOperationProposalCard } from '@/features/cards/components/FileOperationProposalCard'

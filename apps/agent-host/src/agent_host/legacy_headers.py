@@ -25,7 +25,6 @@ from starlette.types import Receive
 from starlette.types import Scope
 from starlette.types import Send
 
-#: The service headers' new names, lower-case, as they arrive.
 SERVICE_HEADERS: frozenset[bytes] = frozenset(
     name.encode("ascii")
     for name in (

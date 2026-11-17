@@ -1,35 +1,4 @@
 #!/usr/bin/env python3
-"""Held-out check for the decision-model annotations (ADR-0064, uses 4, 8 and 9): does the wording generalise?
-
-WHY THIS EXISTS
----------------
-The criteria and thresholds of the decision model's uses were tuned on the
-labelled sets under tests/fixtures/decisions/ and the loop-eval questions
-(decision_eval.py, decision_eval_offpath.py). A number measured on
-the set a wording was tuned on says little about the next question. The
-sets under tests/fixtures/decisions/holdout/ were written blind to the
-wording — from plain label definitions, by someone who had not seen the
-criteria or the tuning sets — and this script scores the CURRENT code on them
-at the thresholds the code ships with.
-
-THE RULE: NEVER TUNE ON THESE SETS
-----------------------------------
-Change a criterion because the tuning sets or production say so, then run
-this to see whether it generalised. A change made to fix a held-out row makes
-the held-out set a tuning set; when that happens, write a new held-out set.
-The floors below sit just under the 2026-09-26 result so a regression fails;
-they are not targets.
-
-IT NEEDS A KEY, NOT A BACKEND
------------------------------
-OPENROUTER_API_KEY (or DECISIONS_API_KEY); a few cents. Exit 0
-when every floor holds.
-
-THE LAST RUN
-------------
-2026-09-26, two runs, identical: tags 24/24 types, 13 of 14 disciplines, no
-false one; Dokumentart 13/13; feedback causes 20/24 (1 wrong, 3 unlabelled).
-"""
 
 from __future__ import annotations
 

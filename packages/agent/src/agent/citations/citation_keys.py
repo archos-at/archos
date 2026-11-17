@@ -16,28 +16,15 @@ from agent.common.source_kinds import shelf_for_qualifier
 logger = logging.getLogger(__name__)
 
 
-# The page token must be a separate word (preceded by a comma or whitespace
-# and followed by a delimiter or end), so filenames containing "p" + digits
-# (e.g. "Top2.pdf", "wp2023.pdf") are not truncated into bogus page refs.
 PAGE_RE = re.compile(r"[,\s]\s*(?:p\.?|page)\s*(\d+)(?=\s*(?:[,)\]]|$))", re.IGNORECASE)
 
 
-# Optional shelf qualifier a citation key carries when one filename was retrieved
-# from more than one shelf in the same turn: `Plan.pdf (Projektwissen), p.3`.
-# Only the known qualifiers match, so a parenthetical that is part of a real
-# filename ("Bescheid (Kopie).pdf") is never mistaken for one. The alternation is
-# built from the LEGACY table and the retired names too („Büroarchiv"), because
-# those strings are persisted inside citation keys in existing messages and must
-# keep parsing (ADR-0047: German is rendering, and a versioned reader keeps
-# reading what was already written).
 _SCOPE_QUALIFIER_ALTERNATION = "|".join(re.escape(label) for label in READABLE_QUALIFIERS)
 
 
-#: The qualifier at the END of a key's filename part (parsing a whole key).
 _SCOPE_QUALIFIER_RE = re.compile(rf"\s*\(({_SCOPE_QUALIFIER_ALTERNATION})\)\s*$", re.IGNORECASE)
 
 
-#: The qualifier at the START of the text FOLLOWING a filename (scanning a line).
 SCOPE_QUALIFIER_TOKEN_RE = re.compile(rf"\s*\(({_SCOPE_QUALIFIER_ALTERNATION})\)", re.IGNORECASE)
 
 
@@ -56,7 +43,6 @@ def parse_citation_ref(key: str) -> tuple[str, Shelf | None, int | None]:
     """
     page_match = PAGE_RE.search(key)
     page = int(page_match.group(1)) if page_match else None
-    # Filename is everything before the page reference (or the whole key)
     if page_match:
         filename = key[: page_match.start()].rstrip(", ").strip()
     else:
@@ -79,11 +65,9 @@ def key_file_names(key: str, filename: str) -> list[str]:
     return from_path[0] if from_path is not None else [filename]
 
 
-#: Where an estate path starts inside a citation key or a source line.
 _ESTATE_PATH_START_RE = re.compile(r"/(?:project|office|chat|law/oib)/")
 
 
-#: An estate path up to its leaf's extensions (``Plan.pdf.md``, ``Notiz.v2.md``), where a delimiter follows.
 _ESTATE_PATH_LEAF_RE = re.compile(
     r"[^\n]*?(?:\.(?:pdf|md|txt|csv|docx?|xlsx?|pptx?|ifc|dwg|dxf|png|jpe?g|tiff?|eml|msg|html?))+(?=[\s,;)\]]|$)",
     re.IGNORECASE,
@@ -167,8 +151,4 @@ class ParsedURL:
     entry: SourceEntry
 
 
-#: A page stated after a display TITLE, the way a German answer writes it
-#: (``S. 12``) as well as the key's own ``p.12``. Read on the title branch
-#: only: ``PAGE_RE`` is part of the citation-key grammar every key parser
-#: shares, and teaching it German would move every key's bytes.
 TITLE_PAGE_RE = re.compile(r"[,\s]\s*(?:S\.|p\.?|page)\s*(\d+)(?=\s*(?:[,)\]]|$))", re.IGNORECASE)

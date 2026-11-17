@@ -69,7 +69,6 @@ from agent.knowledge.title_block import same_document
 
 logger = logging.getLogger(__name__)
 
-#: How far back a quarantine verdict is looked for in the job store.
 HELD_LOOKBACK_SECONDS = 30 * 24 * 3600
 
 
@@ -103,7 +102,6 @@ def revision_facts_from_documents(documents: Sequence[Any]) -> dict[str, Any] | 
     return identifying or (readings[0][1] if readings else None)
 
 
-#: The confidence of a suggestion read from the file names alone (no model was asked).
 NAME_SERIES_CONFIDENCE = 0.9
 
 
@@ -220,7 +218,6 @@ def _pairs(rows: Sequence[Any]) -> list[tuple[Any, Any, dict[str, Any]]]:
     by_block = _title_block_pair(rows)
     covered = {newer.file_name for newer, _, _ in by_block}
     pairs = by_block + [pair for pair in _name_pairs(rows) if pair[0].file_name not in covered]
-    # A stored suggestion that is still open already speaks for the file.
     return [pair for pair in pairs if not _has_open_suggestion(pair[0])]
 
 

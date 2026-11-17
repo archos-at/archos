@@ -1,13 +1,3 @@
-/**
- * The wire of the office's base knowledge (ADR-0163): the entry a person or an
- * agent reads, and the bodies that propose, confirm, edit and check one. Pure
- * zod, shared by the routes, the agent operations and the UI client.
- *
- * An entry is one held copy with its work and edition: what kind of source it
- * is, which Ausgabe, where it applies, which authority a directive binds, the
- * licence it is held under and when somebody last checked it was current.
- */
-
 import { z } from 'zod'
 import {
   KNOWLEDGE_CHECK_RESULTS,
@@ -16,7 +6,6 @@ import {
   type KnowledgeCheckResult,
 } from '@/lib/base-knowledge/wire/vocab'
 
-/** ISO 3166-1 alpha-2 or 3166-2 (`AT`, `AT-9`, `DE-BY`). */
 const territoryId = z
   .string()
   .trim()
@@ -25,7 +14,6 @@ const territoryId = z
 
 const isoDate = z.iso.date()
 
-/** A page of entries: the default and the most one call returns. */
 export const ENTRY_PAGE = 50
 export const MAX_ENTRY_PAGE = 200
 
@@ -34,7 +22,6 @@ export const addresseeSchema = z.object({
   territoryId: territoryId.describe('Where it decides, e.g. AT-9.'),
 })
 
-/** The values a person confirms; every field optional on a proposal, where the reading fills the rest. */
 const entryFields = {
   kind: z
     .enum(OFFICE_WORK_KINDS)
@@ -67,7 +54,6 @@ export type ProposeEntryBody = z.infer<typeof proposeEntryBodySchema>
 export type Addressee = z.infer<typeof addresseeSchema>
 export type EntryValues = z.infer<typeof entryValuesSchema>
 
-/** A confirmation may change any proposed value; a licensed copy needs the office's attestation. */
 export const confirmEntryBodySchema = entryValuesSchema
   .partial()
   .extend({
@@ -83,16 +69,9 @@ export const confirmEntryBodySchema = entryValuesSchema
   .strict()
 export type ConfirmEntryBody = z.infer<typeof confirmEntryBodySchema>
 
-/**
- * A change to a confirmed entry's descriptive values. The licence class and the
- * office's statements are not among them: they decide whether the text reaches
- * a model, so they change only through `licenceEntryBodySchema`, the person's
- * own call (ADR-0163).
- */
 export const updateEntryBodySchema = entryValuesSchema.omit({ licenceClass: true }).partial().strict()
 export type UpdateEntryBody = z.infer<typeof updateEntryBodySchema>
 
-/** A change to a confirmed copy's licence: its class, and the office's statements on it. */
 export const licenceEntryBodySchema = confirmEntryBodySchema
   .pick({ licenceClass: true, licenceAttested: true, aiProcessingAttested: true })
   .strict()
@@ -106,7 +85,6 @@ export const recordCheckBodySchema = z
   .strict()
 export type RecordCheckBody = z.infer<typeof recordCheckBodySchema>
 
-/** What needs somebody's attention: a proposal to confirm, a check due, a copy whose text is not used. */
 export const ENTRY_ATTENTION = ['proposed', 'check_due', 'metadata_only'] as const
 export type EntryAttention = (typeof ENTRY_ATTENTION)[number]
 
@@ -141,26 +119,18 @@ export interface EntryCheck {
   note: string | null
 }
 
-/** How fresh the entry's last check is. */
 export interface Freshness {
-  /** Days between checks for this kind (365 standards, 180 directives). */
   intervalDays: number
   lastCheck: EntryCheck | null
-  /** When the next check is due; null before the first one. */
   dueAt: string | null
-  /** The last check is older than the interval, or none was ever made, or it found a problem. */
   overdue: boolean
 }
 
-/** One edition of a standard the office holds (an edition record of its work, ADR-0163 amendment). */
 export interface EntryEdition {
-  /** The entry of that edition. */
   id: string
   editionLabel: string
-  /** When it starts: its in-force date, else its issue date; null when neither is known. */
   startsOn: string | null
   status: 'proposed' | 'confirmed'
-  /** The edition the platform's rule (`newestInForce`) puts in force today; answers pick by the project's reference date. */
   inForceToday: boolean
 }
 
@@ -170,34 +140,20 @@ export interface BaseKnowledgeEntry {
   copyId: string
   documentId: string
   fileName: string
-  /** `proposed` until a person confirms the values; only confirmed entries reach answers. */
   status: 'proposed' | 'confirmed'
   values: EntryValues
-  /**
-   * `metadata_only` for a licensed copy until the office states that its licence
-   * covers processing by the hosted AI services: its text is not indexed, read
-   * or quoted, and answers say the office holds it but its text is not used.
-   */
   textUse: 'used' | 'metadata_only'
-  /** When the office stated that, or null. */
   aiProcessingAttestedAt: string | null
-  /** Who suggested the entry: the masthead reading, an agent or a person. Confirming keeps it. */
   proposedBy: 'reading' | 'agent' | 'person'
-  /** The user who confirmed the values in force, or last changed them; null while proposed or for an entry confirmed before this was kept. */
   confirmedBy: string | null
   freshness: Freshness
-  /** The work this edition belongs to: `base-knowledge-edition-as-of` takes it. */
   workId: string
-  /** Every edition of the work the office holds, this one included, newest first (`office/work-editions.ts`). */
   editions: EntryEdition[]
-  /** The office shelf folder its document is filed in; null at the shelf root. */
   folderId: string | null
-  /** The display name of `confirmedBy`; null when nobody confirmed or the directory cannot be read. */
   confirmedByName: string | null
   createdAt: string
 }
 
-/** How many entries, in the folder asked for (all folders without one), need what. */
 export interface EntryCounts {
   all: number
   proposed: number
@@ -207,41 +163,27 @@ export interface EntryCounts {
 
 export interface BaseKnowledgeList {
   canManage: boolean
-  /** Before `attention`, `kind` and `q` narrow the page, so a filter can show what it would find. */
   counts: EntryCounts
-  /**
-   * Where an entry can apply, to pick from rather than type: the office's
-   * countries (label null: the client names a country by its locale) and the
-   * subdivisions its records name, with their labels.
-   */
   territories: { id: string; label: string | null }[]
-  /** Entries filed directly in each office shelf folder, over every entry the reader sees: what a folder tile holds. */
   folderCounts: Record<string, number>
   entries: BaseKnowledgeEntry[]
-  /** Where the next page starts, or null on the last page. */
   nextCursor: string | null
 }
 
-/** A folder of the office's base knowledge: the standards root's subtree on the office shelf. */
 export interface BaseKnowledgeFolder {
   id: string
   parentId: string | null
   name: string
-  /** The folder's path on the office shelf, root first. */
   path: string
   description: string | null
 }
 
 export interface BaseKnowledgeFolders {
-  /** The standards root folder; null until the first upload or folder creates it. */
   rootId: string | null
-  /** The folders below the root on this page, by path. */
   folders: BaseKnowledgeFolder[]
-  /** Where the next page starts, or null on the last page. */
   nextCursor: string | null
 }
 
-/** A page of folders: the default and the most one call returns. */
 export const FOLDER_PAGE = 200
 
 export const listFoldersQuerySchema = z
@@ -261,7 +203,6 @@ export const createFolderBodySchema = z
   .strict()
 export type CreateFolderBody = z.infer<typeof createFolderBodySchema>
 
-/** The most entries one bulk call changes; the rest is a second call. */
 export const MAX_BULK_ENTRIES = 50
 
 export const bulkEntriesBodySchema = z
@@ -279,7 +220,6 @@ export type BulkEntriesBody = z.infer<typeof bulkEntriesBodySchema>
 export interface BulkEntryResult {
   entryId: string
   ok: boolean
-  /** Why this one was refused; the others still ran. */
   error: string | null
 }
 

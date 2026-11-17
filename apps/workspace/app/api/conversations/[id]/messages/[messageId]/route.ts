@@ -1,9 +1,3 @@
-/**
- * Conversation message detail API — record the user's answers to an answer's
- * interactive cards, and the answer's own provenance. Thin handler; all logic
- * lives in `@/lib/conversations/service`.
- */
-
 import { z } from 'zod'
 import { apiRoute, parseJsonBody } from '@/lib/api/handler'
 import { BadRequestError } from '@/lib/api/errors'
@@ -12,7 +6,6 @@ import { updateMessageDetail } from '@/lib/conversations/service'
 
 type Params = { id: string; messageId: string }
 
-/** `messages.id` is a uuid column — a malformed id must 400, not blow up in SQL. */
 const messageIdSchema = z.guid()
 
 export const PATCH = apiRoute<Params>(

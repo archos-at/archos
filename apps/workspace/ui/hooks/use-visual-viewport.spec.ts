@@ -7,9 +7,6 @@ import {
   VISUAL_VIEWPORT_HEIGHT_VAR,
 } from './use-visual-viewport'
 
-// A minimal VisualViewport: the hook reads height, scale and offsetTop and
-// listens for resize/scroll. jsdom has none, which is also the "browser without
-// the API" case.
 class FakeVisualViewport extends EventTarget {
   height = 800
   scale = 1
@@ -24,8 +21,6 @@ const published = (): string =>
 describe('useVisualViewport', () => {
   let viewport: FakeVisualViewport
   let scrollTo: ReturnType<typeof vi.fn>
-  // Pending animation frames, flushed by hand: the write is coalesced to one
-  // per frame, and the specs decide when a frame happens.
   let frames: FrameRequestCallback[]
 
   const flushFrame = (): void => {
@@ -78,7 +73,6 @@ describe('useVisualViewport', () => {
     ['a vaul drawer', 'data-vaul-drawer'],
     ['a popover', 'data-radix-popper-content-wrapper'],
   ])("a field in %s keeps Safari's pan, which is what reveals it", (_, attribute) => {
-    // The overlay is fixed to the screen; a shorter shell does not move it.
     const host = document.createElement('div')
     host.innerHTML = `<div ${attribute}><input /></div>`
     document.body.append(host)

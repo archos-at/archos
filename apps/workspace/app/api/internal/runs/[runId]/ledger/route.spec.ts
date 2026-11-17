@@ -130,7 +130,6 @@ describe('POST /api/internal/runs/[runId]/ledger', () => {
   it('hands a refusal to the caller as a typed error it can act on', async () => {
     vi.mocked(applyRunLedgerOp).mockRejectedValue(new NotFoundError('Unknown run'))
 
-    // A ledger flush must never fail a run; the caller decides from this typed error.
     await expect(client.append(RUN, {})).rejects.toMatchObject({
       name: 'RunLedgerError',
       status: 404,

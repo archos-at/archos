@@ -33,7 +33,6 @@ logger = logging.getLogger(__name__)
 
 CARD_TYPE = "operation_proposal"
 
-#: ``structuredContent.decision`` of a write the server proposed instead of running.
 PROPOSE_DECISION = "propose"
 
 
@@ -97,11 +96,6 @@ def emit_operation_proposal_card(proposal: OperationProposal, call_input: dict[s
     return True
 
 
-# ---------------------------------------------------------------------------
-# The revision_compare card (ADR-0128, slice V10)
-# ---------------------------------------------------------------------------
-
-#: The catalog operation whose result the card shows.
 REVISION_COMPARE_OPERATION = "document-revision-compare"
 REVISION_COMPARE_CARD_TYPE = "revision_compare"
 

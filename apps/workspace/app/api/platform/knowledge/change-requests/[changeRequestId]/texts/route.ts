@@ -1,11 +1,3 @@
-/**
- * Attach a text to a manifestation of a draft change request from a URL
- * (ADR-0165, "Texts are attached in the request"): the PDF is fetched and read
- * by the public-source fetcher, on a host of the configured source, kept in
- * the base corpus where nobody reads it until the request is published, and
- * named by the manifestation. Nothing is fetched or parsed in this tier.
- */
-
 import { parseJsonBody } from '@/lib/api/handler'
 import { platformApiRoute } from '@/lib/api/platform-handler'
 import { PLATFORM_PERMISSIONS } from '@/lib/authz/permissions'

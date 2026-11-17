@@ -51,24 +51,12 @@ from .schema import SCOPE_FIELD
 from .schema import TEXT_FIELD
 from .schema import TEXT_STEM_FIELD
 
-#: LlamaIndex's own keys on a stored node. ``_node_content`` is a second, JSON
-#: copy of the whole node including its text; ``doc_id``/``ref_doc_id``/
-#: ``document_id`` name LlamaIndex's source Document, not the BFF document
-#: (that one is ``grid_document_id``).
 LLAMA_INTERNAL_KEYS = frozenset({"_node_content", "_node_type", "doc_id", "ref_doc_id", "document_id"})
 
-#: Fields multi-valued by nature: a scalar is wrapped, so a filter can match any.
 LIST_FIELDS = frozenset({"tags", "topics", FOLDER_FIELD, PARAGRAPH_FIELD, "references", "dossier_facts", "parties"})
 
-#: Payload field keeping the Dokumentart the chunk was ingested with (its own
-#: ``doc_class`` metadata, "" for none), so clearing a person's class can put
-#: back what ``hit_metadata.hit_doc_class`` falls back to (``writes.refresh_facts``).
-#: Stored, not indexed: nothing filters on it.
 CHUNK_DOC_CLASS_FIELD = "chunk_doc_class"
 
-#: A ``§`` reference in chunk text: the number the way ``legal_terms`` reads a
-#: query's (``3``, ``3a``, ``12.1``). The letter counts only when no further
-#: letter follows, so "§ 3Abs" is ``§ 3``; "§§ 3" is ``§ 3``.
 _PARAGRAPH_REF = re.compile(r"§+\s*(\d+(?:\.\d+)?(?:[a-z](?![a-z]))?)", re.IGNORECASE)
 
 _TRUE_STRINGS = frozenset({"true", "1", "yes", "ja"})
@@ -85,7 +73,6 @@ class ChunkRecord:
     text: str
     embedding: list[float]
     metadata: dict[str, Any] = field(default_factory=dict)
-    #: The chunk's place in its file (``schema.CHUNK_ORDINAL_FIELD``); None when the writer does not know it.
     ordinal: int | None = None
 
 
@@ -193,13 +180,9 @@ def document_facts(document: Any | None) -> dict[str, Any]:
     }
     if doc_class := getattr(document, "doc_class", None):
         facts["doc_class"] = qdrant_doc_class(doc_class)
-    # The folder is stated even at the root (None, []), so a file moved to the
-    # root stops matching the folder it left. ``doc_class`` is not: without a
-    # stored class the chunk's own one stands, as it does for the post-filter.
     folder_path = getattr(document, "folder_path", None) or None
     facts["folder_path"] = folder_path
     facts[FOLDER_FIELD] = folder_ancestors(folder_path)
-    # Stated even when unknown (None), so a date a person or a re-read removed stops matching a range.
     facts[DOCUMENT_DATE_FIELD] = _document_date(document)
     facts[ADDED_AT_FIELD] = as_rfc3339(getattr(document, "added_at", None))
     facts.update(reading_facts(document))
@@ -283,7 +266,6 @@ def _document_date(document: Any) -> str | None:
     return None
 
 
-#: The lifecycle states a project can be in (ADR-0098), as the BFF writes them.
 PROJECT_STATUSES = ("active", "paused", "closed")
 
 
@@ -332,10 +314,8 @@ def build_payload(scope: str, record: ChunkRecord, enrichment: Mapping[str, Any]
         coerced = coerce_field(key, value)
         if coerced is not None:
             typed[key] = coerced
-    # The vector store holds the German spelling of a Dokumentart until its rebuild (qdrant_doc_class).
     if isinstance(typed.get("doc_class"), str):
         typed["doc_class"] = qdrant_doc_class(typed["doc_class"])
-    # Derived from whichever folder won, never taken from a writer.
     typed[FOLDER_FIELD] = folder_ancestors(typed.get("folder_path"))
     typed[SCOPE_FIELD] = scope
     typed[TEXT_FIELD] = record.text or ""
@@ -349,9 +329,6 @@ def build_payload(scope: str, record: ChunkRecord, enrichment: Mapping[str, Any]
     return typed
 
 
-#: Fields an ingest job or the metadata store decides, never the chunk itself.
-#: :func:`chunk_own_payload` leaves them out, so a backfill that refreshes a
-#: point's own fields cannot strip what ingestion or a person put there.
 ENRICHED_FIELDS = frozenset(
     {"office_id", "project_id", "grid_document_id", "folder_path", FOLDER_FIELD, "tags", "topics", "superseded"}
     | {"doc_class", INDEXED_AT_FIELD, *DATETIME_FIELDS}
@@ -368,11 +345,6 @@ def chunk_own_payload(scope: str, record: ChunkRecord) -> dict[str, Any]:
     return {key: value for key, value in build_payload(scope, record).items() if key not in ENRICHED_FIELDS}
 
 
-#: Fields the store adds for filtering. A hit's metadata leaves them out, so a
-#: chunk read back carries the metadata the chunker gave it; the facts
-#: themselves are read from the metadata store, their authority. The one job
-#: field a hit keeps is ``grid_document_id``: it is the document's identity, which
-#: grouping (``document_groups.document_key``) and the BFF join a hit by.
 STORE_ONLY_FIELDS = frozenset(
     {TEXT_FIELD, TEXT_STEM_FIELD, SCOPE_FIELD, CHUNK_ID_FIELD, READING_ORDER_FIELD}
     | {"office_id", "project_id"}
@@ -406,7 +378,6 @@ def chunk_metadata(payload: Mapping[str, Any]) -> dict[str, Any]:
         metadata.pop("doc_class", None)
         if payload[CHUNK_DOC_CLASS_FIELD]:
             metadata["doc_class"] = payload[CHUNK_DOC_CLASS_FIELD]
-    # A point holds the German spelling until the vector store is rebuilt; a hit speaks the current one.
     if isinstance(metadata.get("doc_class"), str):
         metadata["doc_class"] = canonical_doc_class(metadata["doc_class"]) or metadata["doc_class"]
     return _english_clause_keys(metadata)

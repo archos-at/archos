@@ -43,41 +43,10 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-#: How much document text crosses the wire.
-#:
-#: MEASURED, because the first number here was a guess and the guess broke the
-#: product's own primary document. At 400,000 characters this cap truncated the
-#: Bauordnung für Wien (759,595 characters) at 53%, and § 108 of that law sits at
-#: character 524,079 — so a citation to it opened a reader that did not contain
-#: the cited paragraph, marked nothing, and said "gekürzt". Worse than the
-#: browser tab it replaced.
-#:
-#: The real distribution (fetched 2026-09-04, after the page furniture is
-#: dropped): Steiermärkisches Baugesetz 20,914 · NÖ Bauordnung 2014 433,820 ·
-#: Bauordnung für Wien 759,595 · ABGB 971,067 · ASVG 4,294,779. So the building
-#: law this product is for tops out under a million characters.
-#:
-#: What bounds it is the CLIENT, and specifically the passage matcher — which
-#: the first version of this comment asserted was not the constraint, having
-#: measured the wrong thing. Chromium lays a `white-space: pre-wrap` text node
-#: out in 226 ms at 760k and 630 ms at 2M, which is survivable; but
-#: `locatePassageInText` folds every character before that, on the main thread,
-#: inside the `useMemo` that renders the dialog — 68 ms at 400k, 106 ms at 600k,
-#: 160 ms at 1M and 386 ms at 2M on a server CPU, so several times that on a
-#: phone, with the intermediate arrays to match. The response size says the same
-#: thing more cheaply: 2M characters of German is roughly 2 MB of JSON.
-#:
-#: One million covers every consolidated building law measured — the Wiener
-#: Bauordnung with 30% headroom, the ABGB whole — and clips only the genuinely
-#: enormous federal codes. Those are clipped AROUND THE CITED PASSAGE (see
-#: :func:`_clip_around_passage`), so no citation can land outside its own text
-#: whatever this number is set to; that is what makes lowering it safe, and it
-#: is why the number may be tuned to the client rather than to the corpus.
+# Measured 2026-09-04: Bauordnung für Wien is 759,595 characters and a 400,000 cap cut off § 108;
+# the client passage matcher is the bound.
 MAX_DOCUMENT_TEXT_CHARS = 1_000_000
 
-#: How much of the cited passage is used to find it. Enough to be distinctive in
-#: a statute that repeats its own phrasing; short enough that the extractors'
-#: disagreements later in a long sentence cannot break the match.
 _PASSAGE_ANCHOR_WORDS = 12
 
 
@@ -103,9 +72,6 @@ def _passage_offset(text: str, passage: str) -> int | None:
     first = pattern.search(text)
     if first is None:
         return None
-    # Legal text repeats its own phrasing constantly, and a phrase that occurs
-    # twice points at two places: centring the window on one of them silently
-    # would be a guess presented as an answer. The head is the honest fallback.
     if pattern.search(text, first.end()) is not None:
         return None
     return first.start()
@@ -129,24 +95,6 @@ def _clip_around_passage(text: str, passage: str) -> tuple[str, bool]:
     return text[begin : begin + MAX_DOCUMENT_TEXT_CHARS], True
 
 
-#: One client for the process.
-#:
-#: ``httpx.AsyncClient`` owns a connection pool; building one per request leaks
-#: the pool until GC. Created lazily so importing this module needs no event
-#: loop, and never closed on purpose — its lifetime is the process's.
-#:
-#: The client's own in-memory cache is kept, and kept SMALL. This route reads
-#: through the shared one (``fetch_document_cached``), so the default 64 entries
-#: were a second copy of bytes Dragonfly already has — and a bigger one than the
-#: response: the client caches the UNCLIPPED ``RisDocument``, bounded by
-#: ``max_document_bytes`` (10 MB) rather than by ``MAX_DOCUMENT_TEXT_CHARS``, so
-#: a worker could hold well over half a gigabyte of consolidated law.
-#:
-#: Not zero, though, which is where this first landed. ``cache.py`` fails OPEN
-#: when Dragonfly is absent: every read is a miss and every write a no-op, so on
-#: a deployment without it an empty client cache turns each dialog open into a
-#: live fetch from ris.bka.gv.at. A few entries keep that deployment working and
-#: still bound the memory.
 _RIS_CLIENT: RisClient | None = None
 
 
@@ -196,10 +144,6 @@ def add_ris_routes(router: APIRouter) -> None:
                 url = build_document_url(reference, application)
             document = await fetch_document_cached(_client(), url)
         except RisError as exc:
-            # The client's refusals are all statements about the REQUEST — a
-            # non-RIS host, a PDF-only document, a reference that is neither a
-            # number nor a URL — so they are the caller's to fix and a 400 says
-            # so. A 502 here would send the BFF looking for an outage.
             logger.info("ris document fetch refused: %s", exc)
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
         except Exception as exc:

@@ -16,7 +16,6 @@ from __future__ import annotations
 
 from .score_definition import ScoreDefinition
 
-#: The Langfuse dataset a golden case is an item of; the golden run links each answer's trace to it.
 GOLDEN_CASES_DATASET = "golden-cases"
 
 GOLDEN_SCORE_DEFINITIONS: tuple[ScoreDefinition, ...] = (

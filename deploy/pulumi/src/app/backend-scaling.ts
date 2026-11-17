@@ -7,51 +7,16 @@ import { SCALER_POLLING_SECONDS, installTriggerAuth } from "./keda-scaling";
 import { PORT } from "../constants";
 import { CHAT_TIER } from "./tier-names";
 
-/** The route that reports the fleet's running chat turns (`agent_host/routes/chat_occupancy.py`). */
 export const OCCUPANCY_PATH = "/v1/internal/chat-occupancy";
 
-/** The field of its JSON answer KEDA reads: `{"activeTurns": 7, "maxActiveTurns": 24}`. */
 export const OCCUPANCY_FIELD = "activeTurns";
 
-/** The header KEDA sends the shared internal token in (`agent_host/routes/internal_auth.py`). */
 export const OCCUPANCY_TOKEN_HEADER = "x-internal-token";
 
-/**
- * The URL KEDA polls. The operator runs in its own namespace, so the Service name
- * is fully qualified: a bare `chat` resolves there to nothing and the scaler
- * errors on every poll. Through the tier's load-balanced Service, so any ready
- * replica answers (the count is Dragonfly's, not the replica's).
- */
 export function occupancyUrl(namespace: pulumi.Input<string>, tier: string = CHAT_TIER): pulumi.Output<string> {
   return pulumi.interpolate`http://${tier}.${namespace}.svc.cluster.local:${PORT.backend}${OCCUPANCY_PATH}`;
 }
 
-/**
- * The scale-out of the chat tier: a KEDA ScaledObject on its StatefulSet, under
- * the tier's `name` (ADR-0080).
- *
- * SCALED ON TURNS IN FLIGHT, beside CPU. A chat turn mostly waits on a model, so
- * CPU alone says little about how close the tier is to its admission cap
- * (`MAX_ACTIVE_TURNS`). The `metrics-api` trigger asks the backend how many
- * turns run fleet-wide and holds `turnsPerReplica` of them per replica; the cpu
- * trigger adds replicas for the work that is not a turn (retrieval, ingest
- * status, the REST routes). The HPA takes the larger answer of the two.
- *
- * SLOW IN, FAST OUT. A replica leaving drains for up to `drainSeconds`, and which
- * one leaves is the highest ordinal, not the idlest, so scale-in is a pod at a
- * time after a long stabilisation window. A turn on the leaving replica keeps
- * running and publishing until it ends; its readers move to another replica.
- *
- * `fallback` is deliberately absent, the one ScaledObject here without it: KEDA
- * honours it only for AverageValue triggers and refuses it beside a `cpu`
- * trigger, and the cpu trigger is what covers the work that is not a turn. A
- * trigger that cannot be read makes the HPA hold the current count rather than
- * scale in, which is what a blind chat tier should do anyway: its replicas hold
- * live sockets and running turns, and the fallback's only other move would be to
- * add replicas to a tier whose own route is the thing that failed.
- * `keda-scaling.spec.ts` holds the rule: every ScaledObject has `fallback`
- * unless it has a cpu trigger.
- */
 export function installBackendScaling(
   w: AppWiring,
   cfg: DeployConfig,
@@ -61,8 +26,6 @@ export function installBackendScaling(
 ): { scaledObject: k8s.apiextensions.CustomResource; auth: k8s.apiextensions.CustomResource } {
   const labels = commonLabels(name);
 
-  // The route is internal-token only. The operator reads the token from the
-  // same Secret the pods get it from, so a rotation reaches both.
   const auth = installTriggerAuth(w, {
     name: `${name}-occupancy-auth`,
     parameter: "apiKey",
@@ -97,7 +60,6 @@ export function installBackendScaling(
         triggers: [
           {
             type: "metrics-api",
-            // AverageValue: the count divided by the replicas it is spread over.
             metricType: "AverageValue",
             metadata: {
               url: occupancyUrl(w.namespace, name),

@@ -67,17 +67,8 @@ logger = logging.getLogger(__name__)
 _MAX_CONTENT_CHARS = 500
 _MAX_ANSWER_CHARS = 4000
 _MAX_QUERY_CHARS = 2000
-# The existing memory digest grows as project memory accumulates; every other
-# input to this prompt is already sliced, so cap the digest too — otherwise the
-# background reflection LLM call's token cost grows unbounded with memory size.
-# Head-sliced to match the query/answer slices above (the digest's ordering is
-# owned by the BFF, so we don't assume newest-first/last).
 _MAX_DIGEST_CHARS = 6000
-#: The personal block is at most 1,500 characters on the wire (ADR-0180).
 _MAX_PERSONAL_CHARS = 1600
-#: The rating a finding gets when the model did not supply a usable one. The
-#: recall scorer weighs salience at 2 of 5.5 total, so the midpoint leaves the
-#: finding neutral rather than wrong.
 _NEUTRAL_IMPORTANCE = 5
 
 
@@ -92,8 +83,6 @@ def _one_of(value: Any, allowed: set[str], fallback: str) -> str:
     return text if text in allowed else fallback
 
 
-#: The kinds that say on their own that a finding is about the project. A
-#: ``preference`` does not: it may be the team's or one person's.
 _PROJECT_ONLY_KINDS = frozenset({"decision", "constraint", "open_question", "derived_fact"})
 
 
@@ -126,10 +115,6 @@ def _clamped_importance(value: Any) -> int:
 class _ReflectionFinding(BaseModel):
     """One durable finding proposed by the reflection stage, about the project or about the person."""
 
-    # ``forbid`` is what makes the generated json_schema carry
-    # ``additionalProperties: false``, which OpenRouter's strict mode requires.
-    # Parsing stays forgiving via the validator below, so the strict wire
-    # contract never costs a usable finding on the plain-call fallback.
     model_config = ConfigDict(extra="forbid")
 
     about: Literal["project", "person"] = Field(
@@ -191,16 +176,11 @@ class _ReflectionFinding(BaseModel):
             return data
         known = {key: value for key, value in data.items() if key in cls.model_fields}
         known["kind"] = _lowered(known.get("kind"))
-        # Unreadable and undecidable stays None and fails validation: dropped.
         known["about"] = _about(known.get("about"), known["kind"])
         if known["about"] == "person" and known["kind"] not in VALID_PERSONAL_KINDS:
-            # Personal memory has two kinds; whatever else was named is a fact about the person.
             known["kind"] = "profile"
         known["content"] = str(known.get("content") or "").strip()[:_MAX_CONTENT_CHARS]
         known["confidence"] = _one_of(known.get("confidence"), VALID_CONFIDENCES, "medium")
-        # Importance, elicited at write time the way Generative Agents rates
-        # poignancy: one integer from the SAME structured call, so it costs
-        # nothing extra. Stored as salience in [0,1].
         known["importance"] = _clamped_importance(known.get("importance"))
         known["supersedes"] = str(known.get("supersedes") or "").strip()
         known["topic"] = memory_topic(known.get("topic"))
@@ -225,7 +205,6 @@ def _build_user_prompt(query: str, answer: str, memory_digest: str | None, perso
     existing = memory_digest.strip() if memory_digest else "(no project memory recorded yet)"
     if len(existing) > _MAX_DIGEST_CHARS:
         existing = existing[:_MAX_DIGEST_CHARS] + "\n… (project memory truncated)"
-    # Bounded by the BFF and again at intake (``turn/context_client.py``); cut here for any other caller.
     personal = (personal_memory or "").strip()[:_MAX_PERSONAL_CHARS] or "(no personal memory recorded yet)"
     return (
         "## Existing project memory\n"
@@ -244,8 +223,6 @@ def _normalize(text: str) -> str:
     return re.sub(r"[^a-z0-9äöüß]+", " ", text.lower()).strip()
 
 
-#: One rendered digest line: ``- [kind | confidence | verification] "content"``
-#: (the BFF's ``formatDigestLines``). The content group is the whole quoted body.
 _DIGEST_ENTRY_RE = re.compile(r'^\s*-\s*\[[^\]]*\]\s*"(.*)"\s*$')
 
 
@@ -288,21 +265,15 @@ def _person_finding(
 ) -> _ReflectionFinding | None:
     """A finding about the person as it may be written to their personal memory, or None."""
     if not can_write_personal:
-        # No signed envelope names the person (a worker run, an eval): there is
-        # no personal memory to write to, and the project's is not a fallback.
         logger.info("Memory reflection: dropped a personal finding; no envelope names its owner")
         return None
-    # A quote retires a personal note only when it names one whole note the
-    # model was shown; anything else is dropped from the finding, as for project memory.
     if finding.supersedes and _normalize(finding.supersedes) not in personal_entries:
         logger.info("Memory reflection: ignoring a supersedes quote that is not a shown personal note")
         finding = finding.model_copy(update={"supersedes": ""})
     if not finding.content:
-        # A removal alone: the person asked to drop a note. Nothing left to drop is nothing to do.
         return finding if finding.supersedes else None
     if _content_in_digest(finding.content, normalized_personal):
         return None
-    # A note about the person is the point, so the contact shapes pass; a secret never does.
     if looks_like_secret(finding.content):
         logger.warning("Memory reflection: dropped a personal %s finding matching a secret pattern", finding.kind)
         return None
@@ -330,7 +301,6 @@ def _finding_from_entry(
     except ValidationError:
         return None
     if finding.about == "person":
-        # Before the digest check: a removal has no content to find there.
         if finding.content and _content_in_digest(finding.content, normalized_digest):
             return None
         return _person_finding(
@@ -341,21 +311,13 @@ def _finding_from_entry(
         )
     if not finding.content:
         return None
-    # Never re-store something already sitting in the digest we showed the LLM
-    # (its `this turn` lines hold what the tool wrote to either memory).
     if _content_in_digest(finding.content, normalized_digest):
         return None
     if finding.kind == "profile":
-        # Contradicts itself: `profile` is a personal kind. Not guessed either way.
         return None
     if looks_like_personal_data(finding.content):
         logger.warning("Memory reflection: dropped a %s finding matching a PII/secret pattern", finding.kind)
         return None
-    # A supersede quote retires an existing entry, so it is only honoured when it
-    # names one COMPLETE entry of the digest the model was shown. A hallucinated,
-    # paraphrased or truncated quote is dropped (the finding is still recorded)
-    # rather than sent on to be fuzzy-matched against a real item — the ≥0.7
-    # Jaccard resolver would resolve a partial quote too.
     if not finding.supersedes or _normalize(finding.supersedes) in digest_entries:
         return finding
     logger.info("Memory reflection: ignoring a supersedes quote that is not a shown digest entry")
@@ -442,7 +404,6 @@ async def _write_finding(
     decision = decision or RestrictionDecision(None)
     item_id = await asyncio.to_thread(
         insert_memory_item,
-        # Always project scope — org-wide writes are excluded (audit S1).
         scope="project",
         project_id=project_id,
         organization_id=organization_id,
@@ -450,18 +411,11 @@ async def _write_finding(
         content=finding.content,
         confidence=finding.confidence,
         conversation_id=conversation_id,
-        # Tag reflection writes so the UI can distinguish them from a
-        # deliberate in-turn `remember` ('agent') call.
         provenance_type="distillation",
         salience=round(finding.importance / 10.0, 2),
-        # Retires the entry this finding corrects (frontend resolves the quote;
-        # unresolvable or human-curated targets are left alone).
         supersedes_content=finding.supersedes or None,
         topic=finding.topic,
-        # ADR-0087: a finding from a turn that could read restricted folders
-        # is served only to people cleared for the ones it draws on.
         restricted_collections=decision.restriction,
-        # The judge's verdict, audited by the BFF with the item (AI Act).
         restriction_judge=decision.judge.as_payload() if decision.judge else None,
     )
     if not item_id:

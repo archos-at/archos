@@ -45,38 +45,11 @@ from agent.profile_names import normalize_profile_token
 
 PROJECT_CONTEXT_HEADER = "x-grid-project-context"
 PROJECT_MEMORY_HEADER = "x-grid-project-memory"
-# The memory header carries the bounded digest (≤1800 chars) AND the block of
-# decisions the project made about the agent's proposals (≤900 chars), so the
-# cap is the sum with room for the separator — never a silent truncation of
-# the second block.
 MEMORY_HEADER_MAX_CHARS = 3000
-#: The office's own standing instructions for this turn, base64url-encoded like
-#: the two blocks above it (Node rejects newlines in a header value).
-#:
-#: Preferences on FORM, FOCUS and WORKFLOW — "Antworten kurz", "immer die
-#: Bauordnung zuerst", "Entwürfe in unsere Gliederung" — written by the
-#: organization and sent per turn. It is text the agent reads, never a decision
-#: it obeys: the prompt frames it below the rules it may not override, and an
-#: instruction can never supply a normative value (that comes from a document
-#: retrieved this turn, and from nowhere else).
-#:
-#: It replaced the two ways a skill used to be FORCED onto a turn (the fleet's
-#: ``delivery: standard`` tier and the request's ``skills`` array). A standing
-#: instruction is prompt text, cheap and always present; a skill is a working
-#: method the model picks out of its catalog when the question calls for one.
 ORG_INSTRUCTIONS_HEADER = "x-grid-org-instructions"
 
-#: Hard ceiling on the office block, applied HERE at decode rather than trusted
-#: from the sender: it lands in every turn's system prompt, so an unbounded
-#: value is unbounded cost on every question this organization ever asks (the
-#: repo rule for any prompt block built from rows — see ``AGENTS.md``). The
-#: same number is enforced BFF-side at the edit boundary; this one is the
-#: backstop for anything that reaches the tier another way.
 ORG_INSTRUCTIONS_MAX_CHARS = 1500
 
-#: What a cut block says about itself, in the English of the surrounding
-#: scaffolding. Present so the MODEL knows it is reading a fragment — an
-#: instruction that stops mid-sentence otherwise reads as a complete one.
 ORG_INSTRUCTIONS_TRUNCATED_MARKER = f"[Cut off at {ORG_INSTRUCTIONS_MAX_CHARS} characters — the rest was not sent.]"
 
 PROJECT_ID_HEADER = "x-grid-project-id"
@@ -84,121 +57,27 @@ MEMORY_REFLECTION_FEATURE_HEADER = "x-grid-feature-memory-reflection"
 ORGANIZATION_ID_HEADER = "x-grid-organization-id"
 USER_ID_HEADER = "x-grid-user-id"
 
-# Consolidated signed context envelope (backlog T3-9 follow-up, 2026-07-16).
-# `X-Grid-Request-Context` carries base64url(JSON) of the SAME fields the
-# individual x-grid-* headers above carry (minus the internal token, which is
-# deliberately out of scope — see the module docstring), and
-# `X-Grid-Request-Context-Sig` carries the hex HMAC-SHA256 of the raw JSON
-# keyed on INTERNAL_API_TOKEN. Minted in one place on the TS side
-# (`buildRequestContextEnvelope` in `apps/workspace/bff/request-context.ts`,
-# duplicated with a pinning comment in `server.js` because it is plain
-# CommonJS). Producers DUAL-WRITE: the envelope is sent ALONGSIDE the
-# individual headers during the transition; `from_context`/`from_headers`
-# below prefer the envelope when present+valid, mirroring the individual
-# headers otherwise.
 REQUEST_CONTEXT_ENVELOPE_HEADER = "x-grid-request-context"
 REQUEST_CONTEXT_ENVELOPE_SIG_HEADER = "x-grid-request-context-sig"
 
-#: What each project-scoped tool needs from the request context to run at all,
-#: keyed by the agent-runtime function TYPE (`_type:` in the config — the stable identity;
-#: the name a config binds it under is the config's choice), as the headers
-#: that carry it. DECLARATIVE, so a test can check every entry path that binds
-#: a tool supplies what it needs: the chat path sets these on the WebSocket
-#: upgrade, the job worker injects them from the run's identity
-#: (`agent_host.jobs.runner.WORKER_IDENTITY_HEADERS`) and, when the run carries
-#: one, the requester's signed envelope (`WORKER_ENVELOPE_HEADERS`). `remember` answered "no
-#: project in scope" on every deep-research run for weeks because this
-#: contract lived in two hand-maintained lists that nothing compared.
 TOOL_CONTEXT_REQUIREMENTS: dict[str, tuple[str, ...]] = {
     "project_memory_remember": (PROJECT_ID_HEADER, ORGANIZATION_ID_HEADER),
-    # The write-side workspace tool (`tools/files/`). It proposes a change to a
-    # PROJECT's workspace — folders are project-scoped, and the reader's session
-    # applies the change against a project — so a run without the project
-    # header can only refuse, and refusing on every unattended run is the
-    # failure this table was written for. The envelope names the person the
-    # proposal is filed for: the BFF stores it as a server proposal under that
-    # person (ADR-0105, `tools/proposals_client.py`), and without one the tool
-    # can offer nothing and says so. Supplied as for `file_draft` below.
     "propose_file_change": (PROJECT_ID_HEADER, REQUEST_CONTEXT_ENVELOPE_HEADER, REQUEST_CONTEXT_ENVELOPE_SIG_HEADER),
-    # Filing a draft into the project, and with `submit` sending it for review
-    # (`tools/documents/register.py`). The project header is what makes a filing ADDRESSABLE — a draft is filed INTO
-    # a project — so a run without it can only refuse.
-    #
-    # The signed envelope is what makes it an act OF SOMEBODY: the BFF files in
-    # the pinned session of the person the envelope names. An entry path
-    # supplies it by FORWARDING one the BFF minted, never by building one: the
-    # chat path from the turn's live session, the job worker from the
-    # requester's envelope the run carries (ADR-0108, `agent_host.jobs.run_envelope`).
-    # A run that carries none injects none, and the tool refuses — see the
-    # `_NO_ENVELOPE` refusal in `tools/documents/filing.py`.
     "file_draft": (PROJECT_ID_HEADER, REQUEST_CONTEXT_ENVELOPE_HEADER, REQUEST_CONTEXT_ENVELOPE_SIG_HEADER),
-    # Delegating work (`tools/tasks/register.py`). A task hangs off a PROJECT —
-    # `tasks.project_id` is NOT NULL and carries the tenant predicate — so a run
-    # without the project header can only refuse. The envelope names the
-    # requester the task is pinned to, supplied as for `file_draft` above.
     "create_task": (PROJECT_ID_HEADER, REQUEST_CONTEXT_ENVELOPE_HEADER, REQUEST_CONTEXT_ENVELOPE_SIG_HEADER),
-    # Reading OTHER projects (`tools/cross_project/`, ADR-0094). The BFF decides
-    # the reach from the person the envelope names; no project header, because
-    # the projects it reads are not the conversation's.
     "project_lookup": (REQUEST_CONTEXT_ENVELOPE_HEADER, REQUEST_CONTEXT_ENVELOPE_SIG_HEADER),
-    # The review canvas (`tools/canvas/`, the `canvas` function group): a
-    # document's Anmerkungen and its room, worked on as the person the envelope
-    # names (ADR-0105). No project header: the document is named by the model
-    # or resolved by the BFF from the conversation, and may belong to no
-    # project (an Archiv or session upload). The envelope is supplied as for
-    # `file_draft` above; without one every canvas tool refuses.
     "document_canvas": (REQUEST_CONTEXT_ENVELOPE_HEADER, REQUEST_CONTEXT_ENVELOPE_SIG_HEADER),
-    # The asker's viewer (`tools/viewer/`, ADR-0144): the document is read once
-    # through the canvas route as the person the envelope names, so a document
-    # they cannot see is refused before anything reaches their page.
     "show_in_viewer": (REQUEST_CONTEXT_ENVELOPE_HEADER, REQUEST_CONTEXT_ENVELOPE_SIG_HEADER),
-    # Piloti's own MCP server (`tools/workspace/`, the `workspace` function group,
-    # ADR-0122). Every call echoes the envelope and the BFF runs the operation as
-    # the person it names; no project header, because an operation names its own
-    # project in its parameters. Without an envelope every tool refuses.
     "workspace_tools": (REQUEST_CONTEXT_ENVELOPE_HEADER, REQUEST_CONTEXT_ENVELOPE_SIG_HEADER),
-    # The Erfassungs-Agent (`agents/intake/`, ADR-0111): an agent, not a tool,
-    # keyed here because its tools (`intake_needs`, `record_values`,
-    # `finish_intake`, `read_document`) are built by the agent and have no agent-runtime
-    # type of their own. Every one of them acts as the person whose upload or
-    # click started the run: the intake API takes the project and that person
-    # from the envelope, and `read_document` reads the collection scope signed
-    # into it. Only ever a background run, so the worker supplies it from the
-    # envelope the run carries (ADR-0108); a run without one ends before its
-    # first model call, having read and recorded nothing.
     "project_intake_agent": (REQUEST_CONTEXT_ENVELOPE_HEADER, REQUEST_CONTEXT_ENVELOPE_SIG_HEADER),
 }
 
 
-# Mirrored (not imported) from their owning modules — see the module
-# docstring above for why. Values must stay byte-identical to
-# knowledge/scoping.py, common/model_overrides.py, common/cost_tracking.py,
-# and common/data_sources.py; the contract fixture is what catches drift.
 COLLECTION_SCOPE_HEADER = "x-grid-collection-scope"
 MODEL_OVERRIDES_HEADER = "x-grid-model-overrides"
 BUDGET_HEADER = "x-grid-budget"
 DISABLED_SOURCES_HEADER = "x-grid-disabled-sources"
 
-# `federalState` (backlog T3-9 follow-up, 2026-07-16, user-mandated): the
-# validated jurisdiction token the intake wizard collects (PR #71) as a
-# structured project-profile fact, carried STRUCTURED on the signed envelope
-# instead of being re-parsed out of the `project_context` prompt text. This
-# is ENVELOPE-ONLY by design — unlike the headers above there never was an
-# individual `X-Grid-Federal-State` header to dual-write (see
-# `apps/workspace/bff/request-context.ts`'s module docstring for the TS
-# side of this decision), so `from_context`/`from_headers`'s legacy
-# individual-header fallback path simply has no source for it and leaves it
-# `None` — a pre-envelope caller falls through to
-# `agent.common.norm_registry.extract_federal_state`'s existing prompt-text
-# parsing exactly as before this field existed.
-#
-# Vocabulary mirrored (not imported) from `ris_catalog.py`'s
-# `_FEDERAL_STATE_TOKENS` / the intake wizard's `federal_state` question options
-# (`apps/workspace/bff/project-profile/intake-definition.ts`) — same
-# "parse independently, don't import" rationale as the headers above. An
-# unrecognized token is treated as absent (debug-logged, not raised): a
-# forward-incompatible token from a newer frontend must degrade to "no
-# structured signal" rather than break the request.
 _FEDERAL_STATE_TOKENS = frozenset(
     {
         "vienna",
@@ -335,8 +214,6 @@ def _normalize_raw_id(value: str | None) -> str | None:
     return value or None
 
 
-#: A name, an address or an office is one line of a few words; it reaches the
-#: system prompt verbatim, so anything longer, or spread over lines, is cut.
 REQUESTER_FIELD_MAX_CHARS = 120
 
 
@@ -444,55 +321,20 @@ class RequestContext:
     user_id: str | None = None
     project_id: str | None = None
     collection_scope: list[str] | None = None
-    #: The same scope with each entry's SHELF still attached, when the producer
-    #: sent the ADR-0047 object shape (``{"collection", "shelf"}``); the bare
-    #: legacy strings otherwise. ``collection_scope`` above is its names-only
-    #: projection, kept for every consumer that only authorizes on the name.
     collection_scope_entries: list[Any] | None = None
     project_context: str | None = None
     project_memory: str | None = None
-    #: The organization's standing instructions for this turn, already bounded
-    #: (:data:`ORG_INSTRUCTIONS_MAX_CHARS`). Rendered as its own tenant-varying
-    #: prompt section; see :data:`ORG_INSTRUCTIONS_HEADER`.
     org_instructions: str | None = None
     model_overrides: dict[str, str] | None = None
     budget: dict[str, Any] | None = None
     disabled_sources: list[str] | None = None
     memory_reflection_enabled: bool = False
     federal_state: str | None = None
-    #: The chat turn this request belongs to (ADR-0054). Envelope-only, like
-    #: `federal_state`: it is a field a BFF WRITE route authorizes on, so it may
-    #: never arrive as an unsigned header a caller could choose.
     conversation_id: str | None = None
-    #: Epoch MILLISECONDS the envelope was minted. Inside the signed bytes, so
-    #: its age cannot be edited without breaking the signature. Parsed but NOT
-    #: enforced here: this tier has accepted envelopes without one since before
-    #: the field existed. A reader that GRANTS access on the envelope enforces
-    #: the window itself and fails closed on a missing value, as the BFF
-    #: verifier (`verifyRequestContextEnvelope`) does: the job routes do so
-    #: in `agent_host.jobs.access.signed_job_scope` (ADR-0084).
     issued_at: int | None = None
-    #: The envelope EXACTLY as it arrived — the base64url header and its hex
-    #: signature, unparsed.
-    #:
-    #: Retained so a tool that calls back into the BFF can ECHO the signed bytes
-    #: rather than re-sign them. That distinction is the whole identity story of
-    #: ADR-0054 §4: the BFF minted this envelope from a real session, and the
-    #: internal document route reads the acting user out of it and files in that
-    #: person's pinned session. A Python tier that re-signed a payload of its own
-    #: would be choosing the user id — with a secret that authenticates the
-    #: SERVICE — which is precisely the wider principal the signature exists to
-    #: deny it. So: echo, never sign.
     envelope_header: str | None = None
     envelope_signature: str | None = None
-    #: Growing prompt blocks are fetched per turn from the BFF when this
-    #: signed, envelope-only marker is present. Legacy producers omit it.
     context_transport: Literal["bff"] | None = None
-    #: Who ``user_id`` is, by name (envelope-only): ``name``, ``email`` and
-    #: ``organizationName``, each a bounded single line or None. The BFF signs it
-    #: from the session the envelope is minted for, live or pinned, so it reaches
-    #: the turns no access token does (a scheduled run, a woken thread). None
-    #: when the envelope names nobody. Read by ``turn.context.user_info_for``.
     requester: dict[str, str | None] | None = None
 
     @classmethod
@@ -606,13 +448,9 @@ class RequestContext:
             budget=_as_dict(payload.get("budget")),
             disabled_sources=_as_str_list(payload.get("disabledSources")),
             memory_reflection_enabled=bool(payload.get("memoryReflectionEnabled", False)),
-            # `bundesland` is the field name an envelope minted before the English names carries.
             federal_state=_normalize_federal_state(payload.get("federalState", payload.get("bundesland"))),
             conversation_id=_normalize_raw_id(payload.get("conversationId")),
             issued_at=_as_epoch_millis(payload.get("issuedAt")),
-            # The bytes as received, not re-encoded from `payload`: a re-encode
-            # would reorder keys, drop whitespace, and produce something the
-            # signature no longer covers.
             envelope_header=header_value,
             envelope_signature=sig,
             context_transport="bff" if payload.get("contextTransport") == "bff" else None,

@@ -1,17 +1,3 @@
-/**
- * Voice dictation, server side: one recording in, the composer's text out.
- *
- * The BFF owns who may dictate and how much; the Python route
- * (`apps/agent-host/src/agent_host/routes/dictation.py`) owns the provider call,
- * because that is where the organization's credential, its data policy and the
- * provider limiter already live. Nothing here touches a budget: dictation is
- * booked on the ledger by the backend as an unbilled activity, and the
- * `DICTATION_LIMIT` rate limit on the route is its bound instead.
- *
- * Every failure is an `ApiError` the composer shows inline; none of them
- * touches the chat.
- */
-
 import 'server-only'
 import {
   BadRequestError,
@@ -28,17 +14,13 @@ import {
   type DictationResult,
 } from './contract'
 
-/** The Python route's bound on a reported duration; a recording stops at 45 s. */
 const MAX_REPORTED_DURATION_MS = 120_000
 
-/** Two provider attempts of 25 s each, plus the hop. */
 const BACKEND_TIMEOUT_MS = 60_000
 
 export interface DictationInput {
   audio: Blob
-  /** What the browser measured; the ledger keeps it when the provider reports no duration. */
   durationMs: number | null
-  /** The member's UI language: a wording hint only, never the transcription language. */
   locale: string | null
 }
 
@@ -47,7 +29,6 @@ interface BackendDictationResponse {
   error?: string | null
 }
 
-/** The backend's failure codes, as the error the composer shows. */
 function toApiError(code: string): Error {
   switch (code) {
     case 'audio_too_large':
@@ -71,7 +52,6 @@ function checkedFormat(audio: Blob): string {
 
 async function postToBackend(session: AuthorizedSession, body: object): Promise<Response> {
   const backendUrl = getBackendUrl()
-  // Outside the try: a deployment without the token is a 503, not a 502 for the recording.
   const serviceHeaders = internalServiceHeaders(backendUrl)
   try {
     return await fetch(`${backendUrl}/v1/dictation`, {
@@ -79,7 +59,6 @@ async function postToBackend(session: AuthorizedSession, body: object): Promise<
       headers: {
         'Content-Type': 'application/json',
         ...serviceHeaders,
-        // Whose credential and data policy, and whose ledger row.
         'x-organization-id': session.organizationId,
         'x-user-id': session.userId,
       },
@@ -92,7 +71,6 @@ async function postToBackend(session: AuthorizedSession, body: object): Promise<
   }
 }
 
-/** Transcribe one recording for the member's composer. Throws an `ApiError` on every failure. */
 export async function transcribeDictation(
   session: AuthorizedSession,
   input: DictationInput,

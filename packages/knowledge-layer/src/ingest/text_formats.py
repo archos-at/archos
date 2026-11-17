@@ -49,8 +49,6 @@ TEXT_EXTENSIONS = frozenset({".txt"})
 DELIMITED_EXTENSIONS = frozenset({".csv", ".tsv"})
 SUPPORTED_EXTENSIONS = MARKDOWN_EXTENSIONS | TEXT_EXTENSIONS | DELIMITED_EXTENSIONS
 
-#: Characters of Markdown per CSV row group, header included: the same budget a
-#: captioned PDF table's group gets (``captioned_tables.MAX_CHUNK_CHARS``).
 _MAX_GROUP_CHARS = 1600
 _MAX_CELL_CHARS = 500
 
@@ -88,9 +86,6 @@ def _document(text: str, metadata: dict[str, Any]) -> Document:
     document = Document(text=text, metadata=metadata)
     apply_exclusions(document)
     return document
-
-
-# --- Markdown ---------------------------------------------------------------------------
 
 
 def _markdown_sections(lines: list[str]) -> list[tuple[list[str], int, list[Line]]]:
@@ -155,8 +150,6 @@ def markdown_documents(text: str, base: dict[str, Any]) -> list[Document]:
         body_lines = lines[1:] if path else lines
         documents.extend(_packed_documents(body_lines, path, order, {**base, **locator}))
         if "clause_depth" in locator and not any(line.text.strip() for line in body_lines):
-            # A chapter whose content is all in subsections: its own chunk is the
-            # breadcrumb, which is what puts it in the Gliederung.
             line = lines[0].position
             metadata = {**base, **locator, "content_type": "text", "chunking": "section"}
             metadata.update({"section_order": order, "line_start": line, "line_end": line})
@@ -184,9 +177,6 @@ def _packed_documents(lines: list[Line], path: list[str], order: int, base: dict
         }
         documents.append(_document(f"{header}{body}".strip(), metadata))
     return documents
-
-
-# --- Plain text ---------------------------------------------------------------------------
 
 
 def _paragraph_lines(text: str) -> list[Line]:
@@ -232,9 +222,6 @@ def text_documents(text: str, base: dict[str, Any]) -> list[Document]:
     return documents
 
 
-# --- CSV ----------------------------------------------------------------------------------
-
-
 def _dialect(sample: str, extension: str) -> Any:
     if extension == ".tsv":
         return csv.excel_tab
@@ -267,15 +254,12 @@ def delimited_documents(text: str, extension: str, base: dict[str, Any], label: 
     rows = read_delimited(text, extension)
     if not rows:
         return []
-    # Cells the length bound shortens are read by nothing, the upload screen
-    # included; counted so the file can only claim a partial check (ADR-0086).
     cut = sum(
         1
         for record in csv.reader(io.StringIO(text, newline=""), _dialect(text[:8192], extension))
         for cell in record
         if len(re.sub(r"\s+", " ", cell).strip()) > _MAX_CELL_CHARS
     )
-    # A lone row is data under no header, not a header over no data.
     header_rows = 1 if len(rows) > 1 else 0
     table = Table("", "", [cells for _line, cells in rows], page_start=0, page_end=0, header_rows=header_rows)
     lines = [line for line, _cells in rows[header_rows:]]

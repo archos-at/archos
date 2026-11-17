@@ -104,7 +104,6 @@ def _process_artifact_update(
     artifact_type = data.get("type")
     content = data.get("content")
 
-    # Track citation sources and uses for accurate counts (with validation)
     if artifact_type == "citation_source":
         url = data.get("url") or content
         if _is_valid_url(url):

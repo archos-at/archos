@@ -43,27 +43,18 @@ from dataclasses import field
 from dataclasses import replace
 from typing import Any
 
-#: The info string of a fence the model writes, and of one the server refused.
 SKETCH_FENCE_INFO = "excalidraw"
 REFUSED_SKETCH_FENCE_INFO = "excalidraw-refused"
 
-#: A sketch is a few dozen elements; a model that writes 32 KiB of them has not
-#: written a sketch anybody reads, and it has spent ~8k output tokens doing it.
 MAX_SKETCH_SOURCE_BYTES = 32 * 1024
 MAX_SKETCH_ELEMENTS = 150
-#: Excalidraw's canvas is unbounded; a skeleton coordinate past this is a typo
-#: or an attempt to make the browser lay out a scene nobody can see.
 MAX_SKETCH_COORDINATE = 10_000
 MAX_SKETCH_TEXT_CHARS = 500
 MAX_SKETCH_POINTS = 200
 MAX_SKETCH_TITLE_CHARS = 120
 
-#: The skeleton types a sketch may hold. ``freedraw`` is not one: the skeleton
-#: takes it only as a full element (pressures, simulated flags), and a ``line``
-#: with ``points`` and ``roughness`` draws the same hand.
 SKETCH_ELEMENT_TYPES: tuple[str, ...] = ("rectangle", "ellipse", "diamond", "text", "arrow", "line", "frame")
 
-#: Why a fence was refused, one word each, the same words as the browser's.
 SKETCH_REFUSALS: tuple[str, ...] = (
     "too-large",
     "malformed-json",
@@ -79,7 +70,6 @@ SKETCH_REFUSALS: tuple[str, ...] = (
     "dangling-binding",
 )
 
-#: A number with a unit of length or area: „3,5 m“, „30 m²“, „120cm“.
 _DIMENSION = re.compile(r"\d(?:[.,]\d+)?\s*(?:mm|cm|dm|km|m²|m2|m³|m)(?![a-zäöüß])", re.IGNORECASE)
 
 
@@ -88,7 +78,6 @@ class SketchCheck:
     """One fence's verdict: drawn or refused (and why), what it holds."""
 
     refusal: str | None = None
-    #: The body was escaped twice (``{\\"title\\": …``) and was read once unescaped.
     unescaped: bool = False
     elements: int = 0
     kinds: dict[str, int] = field(default_factory=dict)
@@ -207,9 +196,6 @@ def _checked(scene: Any) -> SketchCheck:
     )
 
 
-#: A body whose JSON was escaped twice: a model writing the fence inside the
-#: envelope's ``answer`` string sometimes escapes its quotes once too often, and
-#: the reader then gets ``{\"title\": …``. Seen on dev on 2026-10-27.
 _OVER_ESCAPED = re.compile(r'^\s*[\[{][\s\[{]*\\"')
 _ESCAPE = re.compile(r'\\(["\\/bfnrt])')
 _UNESCAPED = {'"': '"', "\\": "\\", "/": "/", "b": "\b", "f": "\f", "n": "\n", "r": "\r", "t": "\t"}
@@ -230,7 +216,6 @@ def check_sketch(body: str) -> SketchCheck:
         return SketchCheck(refusal="too-large")
     unescaped = bool(_OVER_ESCAPED.match(body))
     try:
-        # ``NaN`` and ``Infinity`` are not JSON, and the browser's parser refuses them.
         scene = json.loads(_unescaped_once(body) if unescaped else body, parse_constant=_not_json)
     except ValueError:
         return SketchCheck(refusal="malformed-json")

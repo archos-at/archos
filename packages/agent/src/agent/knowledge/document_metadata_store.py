@@ -133,7 +133,6 @@ class DocumentMetadataStore:
     _sync_engine_cache: dict[str, tuple[Any, float]] = {}
     _cache_lock = threading.Lock()
     _tables_initialized: set[str] = set()
-    #: Serialises :meth:`link_revision` on SQLite, which has no advisory lock (dev and tests run one process).
 
     _link_lock = threading.Lock()
 
@@ -142,8 +141,6 @@ class DocumentMetadataStore:
         self._sync_engine = self._get_or_create_sync_engine(db_url)
         self._ensure_table_sync()
         logger.info("DocumentMetadataStore initialized: %s", redact_db_url(db_url))
-
-    #: The keys a ``capture`` object may carry, and the type each must have.
 
     _CAPTURE_TYPES: dict[str, type | tuple[type, ...]] = {
         "captured_at": str,
@@ -163,10 +160,6 @@ class DocumentMetadataStore:
     @classmethod
     def _cleanup_stale_engines(cls, cache: dict[str, tuple[Any, float]]):
         return engines_impl._cleanup_stale_engines(cls, cache)
-
-    # ------------------------------------------------------------------
-    # Schema management (create fresh · rename legacy · backfill columns)
-    # ------------------------------------------------------------------
 
     def _is_postgres(self) -> bool:
         return schema_impl._is_postgres(self)
@@ -354,10 +347,6 @@ class DocumentMetadataStore:
 
     def rewrite_folder_paths_moved(self, collection: str, from_path: str, to_path: str | None) -> tuple[int, list[str]]:
         return folders_impl.rewrite_folder_paths_moved(self, collection, from_path, to_path)
-
-    # ------------------------------------------------------------------
-    # Column-level helpers (shared by tags/doc_class/display_title accessors)
-    # ------------------------------------------------------------------
 
     def _update_column(self, collection: str, filename: str, column: str, value: Any) -> bool:
         return fields_impl._update_column(self, collection, filename, column, value)

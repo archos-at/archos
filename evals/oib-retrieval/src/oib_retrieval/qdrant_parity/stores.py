@@ -31,8 +31,6 @@ import numpy as np
 
 logger = logging.getLogger(__name__)
 
-#: The logical collection the parity corpus is indexed under. Not ``oib_knowledge``:
-#: that name switches on the static result cache, which would time the cache.
 SCOPE = "oib_parity"
 
 
@@ -52,9 +50,6 @@ def identity(model: str, base_url: str) -> dict[str, str]:
     from knowledge_layer.embedding import embed_fingerprint_metadata
 
     return embed_fingerprint_metadata(model, base_url)
-
-
-# ---------------------------------------------------------------- Qdrant
 
 
 @contextlib.contextmanager
@@ -156,9 +151,6 @@ def wait_until_indexed(timeout_s: float = 600.0) -> dict[str, Any]:
         "indexed_vectors": int(info.indexed_vectors_count or 0),
         "segments": int(info.segments_count or 0),
     }
-
-
-# ---------------------------------------------------------------- the retriever
 
 
 def retriever(model: str, base_url: str, queries: Sequence[str], query_vectors: np.ndarray) -> Any:

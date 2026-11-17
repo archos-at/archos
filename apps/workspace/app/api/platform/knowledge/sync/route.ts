@@ -1,8 +1,3 @@
-/**
- * Platform knowledge management — trigger an incremental base-corpus re-sync
- * (new/changed PDFs are re-ingested). Platform owners only.
- */
-
 import { NextResponse } from 'next/server'
 import { platformApiRoute } from '@/lib/api/platform-handler'
 import { PLATFORM_PERMISSIONS } from '@/lib/authz/permissions'

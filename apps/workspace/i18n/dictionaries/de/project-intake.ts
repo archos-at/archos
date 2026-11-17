@@ -1,10 +1,5 @@
 import type { en } from '../en'
 
-/**
- * projectIntake namespace: die Seite „Projekterfassung" (`/app/projects/[id]/setup`),
- * auf der Piloti die Dokumente eines Projekts liest und Sie prüfen, was es
- * gefunden hat (ADR-0111).
- */
 export const projectIntake: typeof en.projectIntake = {
   status: {
     waiting: 'Warten auf Dokumente',
@@ -89,7 +84,6 @@ export const projectIntake: typeof en.projectIntake = {
     decisiveHint: 'Entscheidet über die Gebäudeklasse',
     empty: 'Noch nichts gefunden. {productName} listet seine Vorschläge hier auf, sobald es ein Dokument gelesen hat.',
   },
-  // Ablage: die offenen Ablagevorschläge des Projekts, dieselben wie in Dateien.
   filing: {
     heading: 'Ablage',
     description:

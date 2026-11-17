@@ -63,7 +63,6 @@ from ..look.resolve import resolve_document
 
 logger = logging.getLogger(__name__)
 
-#: The name the model calls.
 TOOL = "show_in_viewer"
 
 ACTIONS: tuple[str, ...] = get_args(ViewerActionName)
@@ -131,7 +130,6 @@ async def _read_as_person(resolved: Resolved) -> None:
 
 async def _visible(document: str) -> Resolved:
     """The workspace document ``document`` names, read as the person; ``Refused`` when the page could not open it."""
-    # No person, no screen: a run without the turn's envelope (CLI, eval, a background run) shows nothing.
     envelope()
     resolved = await resolve_document(document)
     if isinstance(resolved, str):
@@ -140,7 +138,6 @@ async def _visible(document: str) -> Resolved:
         raise Refused(SESSION_ATTACHMENT.format(name=resolved.file_name), "attachment")
     if resolved.target is None or resolved.signed is None or not resolved.target.document_id:
         raise Refused(NOT_A_WORKSPACE_DOCUMENT.format(name=resolved.file_name), "not_workspace")
-    # Resolving an id already read it through the BFF (for its name); a second read would answer the same.
     if not resolved.read_by_bff:
         await _read_as_person(resolved)
     return resolved
@@ -212,7 +209,6 @@ async def run_show_in_viewer(
     except Refused as refused:
         _observe(action, outcome=refused.code)
         return refused.message
-    # Claimed at the send, not before the reads: of two calls in one round, the first to finish is the one.
     if not claim_once(TOOL):
         _observe(action, outcome="once")
         return ONCE

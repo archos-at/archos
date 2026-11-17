@@ -1,13 +1,3 @@
-/**
- * The Unterlagen a reader names for a run: the plan card's Grundlage (read in
- * full) and Ausgeschlossen (never used). The mirror of
- * `packages/agent/src/agent/common/plan_documents.py`, bounded the same way, so a list the
- * card sends is a list every tier accepts.
- *
- * Identity is the knowledge layer's own: the file name as the inventory lists
- * it (ADR-0047). The shelf and the title travel beside it for display.
- */
-
 import { z } from 'zod'
 import { modernizePlan } from './plan-vocabulary'
 
@@ -27,7 +17,6 @@ export const planDocumentSchema = z
 export type PlanDocument = z.infer<typeof planDocumentSchema>
 
 export const planDocumentsSchema = z.preprocess(
-  // A tab opened before the rename still sends `grundlage` / `ausgeschlossen`.
   modernizePlan,
   z
     .object({
@@ -39,18 +28,11 @@ export const planDocumentsSchema = z.preprocess(
 
 export type PlanDocuments = z.infer<typeof planDocumentsSchema>
 
-/** The label a document is shown under: its title when it has one, else its name. */
 export const planDocumentLabel = (doc: PlanDocument): string => doc.title ?? doc.name
 
-/** Nothing named on either list. */
 export const isEmptyPlanDocuments = (docs: PlanDocuments | null | undefined): boolean =>
   !docs || (docs.basis.length === 0 && docs.excluded.length === 0)
 
-/**
- * Reduce an untrusted payload to the contract, or null when nothing survives.
- * A name on both lists is excluded (the stricter intention wins); the caps
- * apply after deduplication, case-folded.
- */
 export function sanitizePlanDocuments(input: unknown): PlanDocuments | null {
   const parsed = z
     .object({ basis: z.array(z.unknown()).optional(), excluded: z.array(z.unknown()).optional() })

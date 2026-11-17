@@ -35,7 +35,6 @@ import os
 
 logger = logging.getLogger(__name__)
 
-#: What the line says when nothing stamped a commit into the image.
 UNKNOWN_SHA = "unknown"
 
 

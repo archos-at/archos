@@ -20,7 +20,6 @@ from typing import Any
 
 from .calls import Refused
 
-#: Mirrors the canvas: a pointer's label is a few words, a highlight's one line.
 MAX_POINT_LABEL = 80
 MAX_HIGHLIGHT_LABEL = 120
 _EDGE_SLACK = 0.02

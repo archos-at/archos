@@ -58,14 +58,12 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-#: The file beside a country's ``registry.yml`` that holds the words.
 CLAIM_TERMS_FILE = "claim_terms.yml"
 
 Run = tuple[str, ...]
 Reason = Literal["web_only", "gate_may_not_bind"]
 
 _SENTENCE_END_RE = re.compile(r"(?<=[.!?])\s+(?=\S)")
-#: A day written "23. Februar 2024": its dot ends no sentence (dev, 2026-11-12, cut a date from its citation).
 _DAY_BEFORE_RE = re.compile(r"\b\d{1,2}\.$")
 _MONTH_YEAR_AFTER_RE = re.compile(r"[^\W\d_]+\s+\d{4}\b")
 
@@ -75,13 +73,9 @@ class _LocaleTerms(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    #: Says a text applies: "verbindlich", "in Kraft", "binding".
     binding: list[str] = []
-    #: States a requirement: "muss", "mindestens", "must".
     requirement: list[str] = []
-    #: Names an edition of a text: "Ausgabe", "Fassung", "edition".
     edition: list[str] = []
-    #: Turns a statement into its denial or into an open question: "nicht", "unklar", "not".
     negation: list[str] = []
 
 

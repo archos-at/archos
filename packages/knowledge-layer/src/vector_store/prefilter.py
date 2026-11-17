@@ -55,7 +55,6 @@ from typing import Any
 
 from agent.knowledge.document_classification import qdrant_doc_class
 
-#: Payload field the folder filter matches (see :func:`folder_ancestors`).
 FOLDER_FIELD = "folder_ancestors"
 
 
@@ -91,13 +90,9 @@ class Pushdown:
     """The narrowing one ``knowledge_search`` call sends into the Qdrant query."""
 
     doc_class: str | None = None
-    #: The folder as :func:`folder_key` spells it.
     folder: str | None = None
-    #: False when the caller named a file: naming one is the way back to an older Fassung.
     hide_superseded: bool = True
-    #: The dossier's document type the passages' documents must have (``payload.reading_facts``).
     document_type: str | None = None
-    #: ``kind:key`` values (``payload.reference_value``): the document must refer to one of them.
     references: tuple[str, ...] = ()
 
     def clauses(self, *, user_shelf: bool) -> list[dict[str, Any]]:
@@ -107,12 +102,10 @@ class Pushdown:
         """
         clauses: list[dict[str, Any]] = []
         if self.doc_class:
-            # The vector store still holds the German spelling until its rebuild (qdrant_doc_class).
             clauses.append({"doc_class": qdrant_doc_class(self.doc_class)})
         if self.folder:
             clauses.append({FOLDER_FIELD: self.folder})
         if self.hide_superseded and user_shelf:
-            # ``$ne`` keeps a point the mirror has not stamped yet (scope.py).
             clauses.append({"superseded": {"$ne": True}})
         if self.document_type:
             clauses.append({"document_type": self.document_type})

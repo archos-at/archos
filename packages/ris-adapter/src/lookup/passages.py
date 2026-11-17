@@ -21,18 +21,8 @@ from ris_adapter.register import _RIS_TITLE_PREFIX_RE
 from ris_adapter.register import _RIS_TITLE_REVISION_RE
 from ris_adapter.register import _legal_status_note
 
-#: The doc_class every RIS passage carries. Human-set classes beat filename
-#: guesses everywhere else in this repo; here the producer KNOWS the class, and
-#: stating it is what puts the hit in the Rechtsquelle lane instead of "unknown"
-#: (``norm_registry.lane_for_hit`` reads doc_class first).
 DOC_CLASS = "law"
 
-#: What the ``Relevance Score:`` line means for RIS. It is NOT a similarity:
-#: this tool resolves an ADDRESS, it does not embed anything. A passage the
-#: caller named by § scores :data:`SCORE_ADDRESSED`; a passage the picker
-#: ranked scores :data:`SCORE_RANKED_TOP` minus its rank. The line is emitted
-#: because it is also the header/body delimiter of the grounding grammar
-#: (``citations.grounding_text._kl_block_header``).
 SCORE_ADDRESSED = 1.0
 SCORE_RANKED_TOP = 0.9
 SCORE_RANK_STEP = 0.05
@@ -50,13 +40,11 @@ class Passage:
     body: str
     score: float
     status_note: str = ""
-    #: The day this text is in force from, as the source stated it; empty when it stated none.
     version_date: str = ""
 
 
 def build_passages(selections: list[Selection], address: Address) -> list[Passage]:
     """Render every selected section into a citable passage."""
-    # The list budget is per call, so it divides by the picks of EVERY document.
     limit = _passage_limit(address, sum(len(selection.picks) for selection in selections))
     return [passage for selection in selections for passage in _passages_for(selection, address, limit)]
 
@@ -88,9 +76,6 @@ def _passages_for(selection: Selection, address: Address, limit: int) -> list[Pa
     return out
 
 
-#: What a LIST of named §§ may return in one call, all passages together. One
-#: named § gets SECTION_MAX_CHARS; six of them at that size were ~48k
-#: characters in one tool result, re-sent with every later call of the turn.
 LIST_MAX_CHARS = 2 * SECTION_MAX_CHARS
 
 
@@ -100,7 +85,6 @@ def _passage_limit(address: Address, picks: int) -> int:
         return PASSAGE_MAX_CHARS
     if len(address.sections) <= 1:
         return SECTION_MAX_CHARS
-    # Never more than a single named § gets: a list whose other §§ the law lacks is one §.
     return min(SECTION_MAX_CHARS, max(PASSAGE_MAX_CHARS, LIST_MAX_CHARS // max(picks, 1)))
 
 

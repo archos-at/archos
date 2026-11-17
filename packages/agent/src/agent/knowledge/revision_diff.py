@@ -38,7 +38,6 @@ from typing import Literal
 
 from agent.common.brand import PRODUCT_NAME
 
-#: Title-block fields in the order the report names them, with their German labels.
 TITLE_BLOCK_LABELS: tuple[tuple[str, str], ...] = (
     ("document_number", "Nummer"),
     ("revision", "Index"),
@@ -47,19 +46,13 @@ TITLE_BLOCK_LABELS: tuple[tuple[str, str], ...] = (
     ("title", "Inhalt"),
 )
 
-#: Bounds of the rendered report. The model reads it on every call; a drawing set
-#: of sixty sheets must not become sixty paragraphs.
 MAX_PAGES_SHOWN = 10
 MAX_LINES_PER_PAGE = 4
 MAX_VALUES_PER_PAGE = 6
 MAX_LINE_CHARS = 160
 
-#: Two lines are one line that changed, rather than one removed and one added,
-#: when this much of them agrees.
 LINE_PAIR_RATIO = 0.5
 
-#: A number with an optional unit, as plans and reports print them: „38 m“,
-#: „2,50“, „1.250 mm“, „30 %“, „REI 90“ keeps its number.
 _VALUE = re.compile(
     r"\d+(?:[.,]\d+)*(?:\s?(?:m²|m2|m³|m3|mm|cm|dm|km|m|%|‰|kN|kg|t|°C|°|dB|kW|W|h|min|s|l|lx))?(?![\w²³])"
 )
@@ -74,7 +67,6 @@ class RevisionChunk:
     page: str
     content_type: str
     text: str = ""
-    #: The parsed ``drawing_data`` of a visual chunk, or ``None``.
     structured: Mapping[str, Any] | None = None
 
 
@@ -88,7 +80,6 @@ class FieldChange:
 
 @dataclass(frozen=True)
 class ValueChange:
-    #: What the value is about: the words before it in the line, or the drawing's object and property.
     subject: str
     older: str
     newer: str
@@ -102,7 +93,6 @@ class PageChange:
     removed_lines: tuple[str, ...] = ()
     added_lines: tuple[str, ...] = ()
     values: tuple[ValueChange, ...] = ()
-    #: From Piloti's reading of a drawing on this page.
     drawing_values: tuple[ValueChange, ...] = ()
     annotations_added: tuple[str, ...] = ()
     annotations_removed: tuple[str, ...] = ()
@@ -115,17 +105,9 @@ class RevisionDiff:
     older_page_count: int
     newer_page_count: int
     unchanged_pages: int
-    #: Whether either side carried printed text / a drawing reading at all. A
-    #: report that found no change in a scan with no text must not read as "the
-    #: same document".
     has_text: bool
     has_drawing: bool
     notes: tuple[str, ...] = field(default=())
-
-
-# ---------------------------------------------------------------------------
-# Pages
-# ---------------------------------------------------------------------------
 
 
 @dataclass
@@ -191,7 +173,6 @@ def _pages(chunks: Sequence[RevisionChunk]) -> list[_Page]:
         page = pages.setdefault(chunk.page, _Page(label=chunk.page))
         if chunk.content_type == "text":
             for line in _text_lines(chunk.text):
-                # Chunks of one page overlap; a line read twice is one line.
                 if not page.lines or page.lines[-1] != line:
                     page.lines.append(line)
         if chunk.structured:
@@ -305,11 +286,6 @@ def _align(older: list[_Page], newer: list[_Page]) -> tuple[list[PageChange], in
     return changes, unchanged
 
 
-# ---------------------------------------------------------------------------
-# Title block
-# ---------------------------------------------------------------------------
-
-
 def diff_title_blocks(older: Mapping[str, Any] | None, newer: Mapping[str, Any] | None) -> tuple[FieldChange, ...]:
     """The title-block fields that differ; a field only one side prints counts as a change."""
     older = older or {}
@@ -321,11 +297,6 @@ def diff_title_blocks(older: Mapping[str, Any] | None, newer: Mapping[str, Any] 
         if old_value != new_value:
             changes.append(FieldChange(field=key, label=label, older=old_value, newer=new_value))
     return tuple(changes)
-
-
-# ---------------------------------------------------------------------------
-# The whole compare
-# ---------------------------------------------------------------------------
 
 
 def diff_revisions(
@@ -384,15 +355,9 @@ def chunk_from_store(text: str | None, metadata: Mapping[str, Any] | None) -> Re
             parsed = None
         structured = parsed if isinstance(parsed, Mapping) else None
     if content_type != "text" and structured is None:
-        # A caption with no structure is prose a model wrote: not compared.
         return None
     page = str(metadata.get("page_label") or "")
     return RevisionChunk(page=page, content_type=content_type, text=text or "", structured=structured)
-
-
-# ---------------------------------------------------------------------------
-# Rendering
-# ---------------------------------------------------------------------------
 
 
 def _clip(text: str) -> str:

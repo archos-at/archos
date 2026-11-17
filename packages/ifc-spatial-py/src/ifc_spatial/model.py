@@ -55,11 +55,6 @@ from .envelope import ElementRef
 from .parser_refusal import parser_refusal
 from .project_units import project_unit_scale
 
-# ── kinds ───────────────────────────────────────────────────────────────────
-#
-# The TS graph types every node so that an operator aimed at the wrong kind can
-# say which kind it wanted. The same classification, from the IFC type alone.
-
 _SPATIAL_KINDS = {
     "IfcProject": "project",
     "IfcSite": "site",
@@ -69,8 +64,6 @@ _SPATIAL_KINDS = {
     "IfcSpatialZone": "space",
 }
 
-#: Entities that occupy volume without being solid. A space is air and an opening
-#: is a subtraction; neither blocks a ray and neither obstructs a light prism.
 AIR_TYPES = {
     "IfcSpace",
     "IfcSpatialZone",
@@ -81,41 +74,10 @@ AIR_TYPES = {
 }
 
 
-#: Above this, :class:`SpatialModel` refuses the file instead of reading it.
-#:
-#: A coarse backstop, and knowingly so: size is a poor predictor of cost. The
-#: corpus has a 22 MB Revit export that costs 208 s and **3.2 GB** and a 49 MB
-#: ArchiCAD export with the same number of products that costs 17 s and 941 MB —
-#: Revit's swept solids with boolean subtractions are expensive to build and
-#: ArchiCAD's are not. Bytes are simply the only quantity knowable before the
-#: parser has run, so they are what the admission test can use.
-#:
-#: The line is drawn between the two files the corpus measured on either side of
-#: it: the 49 MB ArchiCAD export completes in 32 s and under 1 GB, and the
-#: 151 MB Revit export needs **5.3 GB and 5.8 minutes** before it can answer a
-#: single question. Both are legitimate files; only one of them belongs anywhere
-#: near a request. Raise ``max_bytes`` explicitly in a worker that can afford it.
 MAX_FILE_BYTES = 64 * 1024 * 1024
 
-#: Seconds :meth:`SpatialModel.space_contacts` may spend before it gives up and
-#: reports the model-wide contact map as incomplete. One ``tree.select`` offset
-#: per space costs 0.5–2 s, so a 99-space office model spent **212 s** here
-#: before this bound existed — inside one call to ``opens_to`` on one window.
 CONTACT_BUDGET_SECONDS = 30.0
 
-#: Above this many ``IfcProduct`` entities, deriving space boundaries from the
-#: solids is refused outright rather than started.
-#:
-#: The time budget above can only be checked BETWEEN offsets, because one
-#: ``tree.select(space, extend=…)`` is a single OCCT call with no interruption
-#: point — not even ``SIGALRM`` reaches it, since a Python signal handler runs
-#: only when the interpreter regains control. So the budget bounds the loop and
-#: nothing bounds one offset. Measured: on the 1 090-product office export an
-#: offset costs ~2.1 s, and on the 3 729-product Trapelo export a **single**
-#: offset ran for over 200 s without returning. The threshold sits at the low
-#: end of that unmeasured gap, deliberately: the cost of being wrong here is a
-#: refusal that names its reason, and the cost of being wrong the other way is a
-#: request that never comes back.
 DERIVED_BOUNDARY_MAX_PRODUCTS = 2000
 
 
@@ -185,8 +147,6 @@ def _preflight(path: str, max_bytes: int) -> None:
     if size > max_bytes:
         raise ModelTooLargeError(path, size, max_bytes)
 
-    # A failed read stays an `OSError`, as in `getsize` above: it says nothing
-    # about the bytes, so it must not reach a person as a refusal of the file.
     with open(path, "rb") as handle:
         head = handle.read(64)
         handle.seek(max(0, size - 4096))
@@ -287,15 +247,9 @@ class ElementGeometry:
     """One element's triangulated body, in world coordinates and metres."""
 
     global_id: str
-    #: (V, 3) vertices.
     verts: np.ndarray
-    #: (F, 3) vertex indices.
     faces: np.ndarray
-    #: ((minx, miny, minz), (maxx, maxy, maxz)).
     box: tuple[np.ndarray, np.ndarray]
-    #: Area-weighted centroid. NOT the vertex mean: a duplicated-vertex mesh
-    #: pulls that toward whichever faces were densely tessellated, which cost the
-    #: TS package 33 cm on the living-room/bedroom distance before it was fixed.
     centroid: np.ndarray
 
     @property
@@ -308,7 +262,6 @@ class ElementGeometry:
 class Storey:
     global_id: str
     name: str | None
-    #: Declared ``IfcBuildingStorey.Elevation``, converted to metres.
     elevation: float | None
 
 
@@ -324,13 +277,9 @@ class DeclaredQuantity:
     """
 
     path: str
-    #: In SI — m for a length, m² for an area, m³ for a volume.
     value: float
-    #: Exactly as written in the file.
     raw: float
-    #: ``value == raw * scale``.
     scale: float
-    #: The declared unit's own name, when the file names one.
     unit_label: str | None
 
 
@@ -354,20 +303,11 @@ def _unit_scale_to_si(unit: Any) -> float:
             return scale
         unit = factor.UnitComponent
     if unit is not None and unit.is_a("IfcSIUnit"):
-        # An SI prefix on an AREA or VOLUME unit is raised to the dimension of
-        # that unit. `CENTI` on `SQUARE_METRE` is 1e-4, not 1e-2 — a centimetre
-        # is a hundredth of a metre, so a square centimetre is a ten-thousandth
-        # of a square metre. Applied linearly it made a correct declared area
-        # come out 100x wrong, which `triangulate` then published as a 99 %
-        # „WIDERSPRUCH zwischen zwei Wegen zu dieser Zahl" — a fabricated
-        # finding against a file that was right.
         dimension = _UNIT_DIMENSION.get(getattr(unit, "UnitType", None), 1)
         scale *= uu.get_prefix_multiplier(unit.Prefix) ** dimension
     return scale
 
 
-#: How many times a length appears in each unit type, which is the power its
-#: SI prefix has to be raised to.
 _UNIT_DIMENSION = {"AREAUNIT": 2, "VOLUMEUNIT": 3}
 
 
@@ -392,7 +332,6 @@ class SpatialModel:
         try:
             self.file = ifcopenshell.open(path)
             self.open_seconds = time.perf_counter() - t0
-            # In here because a unit the file cannot state is a broken file too.
             self.unit_scale = project_unit_scale(self.file, path)
         except ModelUnreadableError, MemoryError, OSError:  # no memory or a failed read: no refusal of the file
             raise
@@ -403,26 +342,15 @@ class SpatialModel:
         self._settings.set("use-world-coords", True)
 
         self._geometry: dict[str, ElementGeometry | None] = {}
-        #: Why a body could not be built, per GlobalId. See
-        #: :meth:`geometry_failure`.
         self._geometry_failure: dict[str, str] = {}
-        #: False once :meth:`space_contacts` has run out of budget — the
-        #: model-wide map is then a SUBSET and every operator reading it must say
-        #: so rather than report a short list as a complete one.
         self.contacts_complete = True
         self.contacts_covered = 0
-        # The shapes we own, kept alive on purpose: ``util.shape``'s vertex and
-        # face readers hand back NumPy views over the C++ buffer, so letting the
-        # shape be collected turns a later `get_footprint_area` into an
-        # IndexError over recycled memory. Measured, not theorised.
         self._shapes: dict[str, Any] = {}
         self._space_contacts: dict[float, dict[str, set[str]]] = {}
         self._pass_done = False
         self.geometry_seconds = 0.0
         self.contact_seconds = 0.0
         self.tree_seconds = 0.0
-
-    # ── identity ────────────────────────────────────────────────────────────
 
     def by_id(self, global_id: str, method: str) -> Any:
         """The entity, or :class:`UnknownElementError`. Never a silent ``None``.
@@ -478,8 +406,6 @@ class SpatialModel:
     def refs(self, elements: Iterable[Any], via: str | None = None) -> list[ElementRef]:
         return [self.ref(e, via) for e in elements if getattr(e, "GlobalId", None)]
 
-    # ── relations the file states outright ──────────────────────────────────
-
     def storey_of(self, element: Any) -> Any | None:
         """The storey this element belongs to, through containment OR aggregation.
 
@@ -519,9 +445,6 @@ class SpatialModel:
                 Storey(
                     global_id=s.GlobalId,
                     name=s.Name,
-                    # Elevations are in the file's own length unit — 2500.0 in a
-                    # millimetre model. Everything else in this package is
-                    # metres, so the datum is converted once, here.
                     elevation=None if elevation is None else float(elevation) * self.unit_scale,
                 )
             )
@@ -559,19 +482,10 @@ class SpatialModel:
         site = self.file.by_type("IfcSite")
         if any(s.RefLatitude and s.RefLongitude for s in site):
             return True
-        # `by_type` RAISES for a class the file's schema does not define, and
-        # `IfcMapConversion` is IFC4+. So on every IFC2X3 export this property
-        # threw `RuntimeError: Entity with name 'IfcMapConversion' not found in
-        # schema 'IFC2X3'` instead of returning False — and being a
-        # `cached_property`, it took its caller with it rather than degrading.
-        # An older schema is not a georeferencing failure; it is a schema that
-        # cannot express one.
         try:
             return bool(self.file.by_type("IfcMapConversion"))
         except RuntimeError:
             return False
-
-    # ── geometry ────────────────────────────────────────────────────────────
 
     def geometry(self, global_id: str) -> ElementGeometry | None:
         """This element's triangulated body, or ``None`` when it never had one.
@@ -609,16 +523,6 @@ class SpatialModel:
         if not getattr(element, "Representation", None) and not element.is_a("IfcSpace"):
             self._geometry_failure[global_id] = "no-representation"
             return None
-        # The shape this object already owns is REUSED, never rebuilt. Shaping
-        # again and overwriting `self._shapes[gid]` dropped the last reference to
-        # the previous shape, and `util.shape`'s readers hand back NumPy views
-        # over that shape's C++ buffer — so a triangulation already given to a
-        # caller died under them. Measured on the sample house's bedroom
-        # (3w0zWKm7n8SB1qbfwUzt0J): `get_volume(model.triangulation(gid))`
-        # returned 38.5420 m³, and after a following `model.geometry(gid)` the
-        # same object raised `IndexError: list index out of range`. That is the
-        # exact failure the "kept alive on purpose" note in `__init__` is about,
-        # and keeping the dict entry alive is not enough when we replace it.
         shape = self._shapes.get(global_id)
         if shape is None:
             try:
@@ -634,15 +538,11 @@ class SpatialModel:
 
     @staticmethod
     def _from_shape(global_id: str, geometry: Any) -> ElementGeometry | None:
-        # Copied, not viewed: ``get_vertices`` returns a view over the shape's
-        # own buffer, and the iterator recycles that buffer on the next step.
         verts = np.array(us.get_vertices(geometry), dtype=float)
         faces = np.array(us.get_faces(geometry), dtype=np.int64)
         if len(verts) == 0 or len(faces) == 0:
             return None
         tris = verts[faces]
-        # Area-weighted centroid: cross-product areas of every triangle, each
-        # triangle's own centroid weighted by it.
         cross = np.cross(tris[:, 1] - tris[:, 0], tris[:, 2] - tris[:, 0])
         areas = np.linalg.norm(cross, axis=1) / 2.0
         total = float(areas.sum())
@@ -765,8 +665,6 @@ class SpatialModel:
         key = round(contact, 6)
         contacts = self._space_contacts.setdefault(key, {})
         if not self.derivable_boundaries:
-            # Checked here as well as in the operators, because this is a public
-            # method and the admission test has to hold for whoever calls it.
             self.contacts_complete = False
             return contacts
         spaces = self.file.by_type("IfcSpace")
@@ -776,18 +674,10 @@ class SpatialModel:
             self.contacts_complete = True
             return contacts
         if not self.contacts_complete:
-            # A previous attempt already ran out of budget on this file. Trying
-            # again would spend the budget a second time to reach the same
-            # incomplete answer, so the incomplete map is returned as it stands
-            # and the flag keeps saying so.
             return contacts
 
         t0 = time.perf_counter()
         for space in outstanding:
-            # Checked between offsets, which is the only place it can be
-            # checked: an OCCT offset is a single C++ call with no interruption
-            # point, so one pathological solid can still overrun the budget. The
-            # bound is on the loop, not on the kernel.
             if time.perf_counter() - t0 > CONTACT_BUDGET_SECONDS:
                 self.contacts_complete = False
                 break
@@ -864,8 +754,6 @@ class SpatialModel:
             tree.add_iterator(iterator)
         self.tree_seconds = time.perf_counter() - t0
         return tree
-
-    # ── quantities the file declares ────────────────────────────────────────
 
     def declared_property(self, element: Any, names: Iterable[str]) -> Any:
         """The first non-null property value matching ``names``, across every pset.

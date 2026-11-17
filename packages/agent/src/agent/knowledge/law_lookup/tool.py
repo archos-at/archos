@@ -53,7 +53,6 @@ from nat.plugin_api import register_function
 
 logger = logging.getLogger(__name__)
 
-#: Sources (revisions) one bound tool keeps clients for; the oldest is let go past it.
 _MAX_BOUND = 16
 
 
@@ -110,8 +109,6 @@ async def law_lookup(tool_config: LawLookupToolConfig, builder: Builder):
         application: str = "",
         as_of: str = "",
     ) -> str:
-        # `conclusion` is deliberately unread: it is the derivation's checkpoint slot, read
-        # off the CALL; a tool that acted on it would turn a transparency field into a control channel.
         return await lookup.call(question, jurisdiction, instrument, application, as_of)
 
     try:
@@ -128,7 +125,6 @@ class _Bound:
     client: object
     search: Search
     picker: object
-    #: ``turn`` (the released record the turn carries) or ``repository`` (the fallback file), and the revision.
     origin: str = ""
     revision: str = ""
 
@@ -140,7 +136,6 @@ class _Lookup:
         self.config, self.llms = config, llms
         self.ttl = ttl_seconds(config.cache_ttl_days)
         self.bound: dict[str, _Bound] = {}
-        #: Let go of past the cap, closed with the tool.
         self.retired: list[_Bound] = []
 
     def _bind(self, key: str, law: LawSource, origin: str, revision: str) -> _Bound:
@@ -209,7 +204,6 @@ class _Lookup:
     ) -> str:
         law, tool = bound.law, self.config.tool_name
         address = parse_address(question, instrument, jurisdiction, law)
-        # Today or later is today's text, by the usual path; only a past day reads version documents (ADR-0171).
         now = today()
         current = bool(as_of) and reads_today(as_of, now)
         trace = LookupTrace(
@@ -223,8 +217,6 @@ class _Lookup:
         ingested = await ingest_documents(documents, self.config.ingest_into_knowledge, law, self.ttl)
         emit_lookup_span(question, address, trace, passages, tool)
         outcome.hits = len(passages)
-        # The call's notes go INSIDE the rendered block: its records are filed under the text it renders, and a
-        # line put before it afterwards loses them (``grounding_block.get_grounding_block``). A miss files none.
         notes = [line for line in (note, today_note(as_of, now) if current else "") if line]
         if not passages:
             return "\n".join([*notes, miss_message(question, address, trace, law)])

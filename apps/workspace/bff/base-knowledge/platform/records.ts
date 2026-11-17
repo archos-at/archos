@@ -1,11 +1,3 @@
-/**
- * A proposed platform record as the rows it becomes (ADR-0165): its record id,
- * the records it names, and its typed body. Pure.
- *
- * Ids are stable across proposals, so a batch resent after a repair lands on
- * the same records: `<type>:<key>`, and a territory's own id.
- */
-
 import { createHash } from 'node:crypto'
 import type { KnowledgeRecordType } from '@/lib/base-knowledge/wire/vocab'
 import { sourceConfigOf } from '@/lib/base-knowledge/wire/source'
@@ -16,12 +8,10 @@ export function recordIdOf(record: ProposedRecord): string {
   return record.type === 'territory' ? record.id : `${record.type}:${record.key}`
 }
 
-/** What a proposal names: the record it is, by key or id. */
 export function proposalKey(record: ProposedRecord): string {
   return record.type === 'territory' ? record.id : record.key
 }
 
-/** The records a proposal points at, by record id and the type each must have. */
 export function referencesOf(record: ProposedRecord): { id: string; type: KnowledgeRecordType }[] {
   switch (record.type) {
     case 'edition':
@@ -51,7 +41,6 @@ export function referencesOf(record: ProposedRecord): { id: string; type: Knowle
 
 const isSiteOnly = (factors: readonly string[]): boolean => factors.length === 1 && factors[0] === 'site'
 
-/** The typed body columns of the revision a proposal becomes. */
 export function bodyOf(record: ProposedRecord): Record<string, unknown> {
   switch (record.type) {
     case 'work':
@@ -67,7 +56,6 @@ export function bodyOf(record: ProposedRecord): Record<string, unknown> {
           ...(authorityKey ? { authorityId: `authority:${authorityKey}` } : {}),
         })),
         historyAvailableFrom: record.historyAvailableFrom,
-        // The site alone is the default column value, and no claim of its own (0213).
         ...(isSiteOnly(record.connectsBy) ? {} : { connectsBy: record.connectsBy }),
       }
     case 'edition':
@@ -93,16 +81,13 @@ export function bodyOf(record: ProposedRecord): Record<string, unknown> {
         kind: record.kind,
         name: record.name,
         parents: record.parents,
-        // For builds before 0219 only, derived from `parents` and never a claim of their own.
         parentIds: record.parents.filter((parent) => !parent.validFrom && !parent.validTo).map((parent) => parent.id),
         datedParents: record.parents.filter((parent) => parent.validFrom || parent.validTo),
         aliases: record.aliases,
         validFrom: record.validFrom,
         validTo: record.validTo,
-        // Only a stated coverage is a claim a reviewer decides; unstated inherits (0213).
         ...(record.coverageLevel === null ? {} : { coverageLevel: record.coverageLevel }),
         ...(record.municipalLaw === null ? {} : { municipalLaw: record.municipalLaw }),
-        // Only a stated zone is a claim; unstated inherits from the parent (0235).
         ...(record.zone === null ? {} : { zone: record.zone }),
       }
     case 'relation':
@@ -153,10 +138,8 @@ export function bodyOf(record: ProposedRecord): Record<string, unknown> {
   }
 }
 
-/** Body columns that are no claim a reviewer decides: keys and the copy's licence statements. */
 const NOT_CLAIMS = new Set(['revisionId', 'recordId', 'organizationId', 'terms', 'sha256', 'textStatus', 'parentIds', 'datedParents'])
 
-/** A column 0213 or 0235 added, left at what it says when nobody stated it: no claim, so older proposals review as they did. */
 function unstated(path: string, value: unknown): boolean {
   if (path === 'coverageLevel' || path === 'municipalLaw' || path === 'zone') return value === null || value === undefined
   if (path === 'connectsBy') return Array.isArray(value) && isSiteOnly(value as string[])
@@ -165,12 +148,6 @@ function unstated(path: string, value: unknown): boolean {
 
 const isObject = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value)
 
-/**
- * A source's configuration as a reviewer reads it: a recorded response carried
- * as base64 (a `pdf_document` source's PDF) shows its type, size and sha256 in
- * place of the bytes. Nobody reviews base64, and the bytes would fill the view
- * an agent reads past the door's result cap; the record keeps them whole.
- */
 function reviewedConfig(config: unknown): unknown {
   if (!isObject(config) || !Array.isArray(config.fixtures)) return config
   const digest = (response: unknown) => {
@@ -186,7 +163,6 @@ function reviewedConfig(config: unknown): unknown {
   return { ...config, fixtures }
 }
 
-/** The claims of a stored body: every column a reviewer accepts, edits or rejects, as the reviewer reads it. */
 export function claimsOf(body: Record<string, unknown>): { path: string; value: unknown }[] {
   return Object.entries(body)
     .filter(([path]) => !NOT_CLAIMS.has(path))

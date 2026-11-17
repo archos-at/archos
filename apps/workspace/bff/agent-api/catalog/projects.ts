@@ -1,20 +1,3 @@
-/**
- * The projects operations (ADR-0122), and the exemplar the other domain files
- * follow.
- *
- * Each entry names a route the UI already calls. The rules, in short (the long
- * form is `docs/architecture/agent-surface.md`):
- *
- * - `name` is `<entity>-<verb>`, kebab-case: `project-list`, `project-member-add`.
- * - `description` says when to call it, what comes back, and what to call next,
- *   in English, for a model. Name the identifiers it needs and where to get them.
- * - `body` IS the route's schema, imported from `lib/`. A schema that lives
- *   inside a route file moves to a `lib/<area>/*-wire.ts` module both import;
- *   a second hand-written copy is the drift ADR-0055 exists to prevent.
- * - `load` imports exactly the route file `path` names.
- * - `destructive` for anything a person confirms in the UI.
- */
-
 import { z } from 'zod'
 import {
   consistencyCheckSchema,
@@ -363,7 +346,6 @@ export const projectsOperations = [
         params: { id: '0d7b3a5e-7c1c-4a4e-9a63-6a4a1f5f1c11' },
         body: {
           patch: [
-            // A bare value is stored as a confirmed fact.
             { op: 'replace', path: '/facts/building_class', value: 'GK4' },
             { op: 'remove', path: '/unknowns/0' },
           ],
@@ -563,7 +545,6 @@ export const projectsOperations = [
     method: 'POST',
     path: '/api/projects/[id]/experience',
     params: projectParams,
-    // Not a read: extractProjectExperience patches the profile (patchProjectProfile) and writes draft decisions.
     idempotent: false,
     load: () => import('@/app/api/projects/[id]/experience/route'),
   },

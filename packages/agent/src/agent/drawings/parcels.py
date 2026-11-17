@@ -29,13 +29,10 @@ from shapely.ops import polygonize
 from shapely.ops import unary_union
 from shapely.strtree import STRtree
 
-#: Every boundary rank: together they form the closed network (§3.2).
 BOUNDARY_LAYERS = frozenset({"GG", "KG", "PG", "BG", "VG", "LG", "RG"})
 
-#: The parcel-number blocks that name an area: single-line and arrowed, in either cadastre (§3.3).
 _NUMBER_BLOCKS = {"GN1": False, "GNP": False, "GN1G": True, "GNPG": True}
 
-#: How far a shared edge must run for two parcels to count as neighbours, in metres: a corner is not a boundary.
 _NEIGHBOUR_EDGE_M = 0.5
 
 
@@ -45,12 +42,9 @@ class Parcel:
 
     number: str
     community: str
-    #: In the Grenzkataster (legally binding boundary) rather than the Grundsteuerkataster.
     boundary_cadastre: bool
-    #: Square metres from the drawn boundary, or None when its mesh is not closed in this file.
     area_m2: float | None
     neighbours: tuple[str, ...]
-    #: The mesh itself, in drawing units, for whoever measures against it (``site``); None when not closed.
     polygon: Polygon | None = field(default=None, compare=False, repr=False)
 
 

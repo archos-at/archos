@@ -1,29 +1,3 @@
-/**
- * Organization → People & access. Who is here, what role they hold, what that
- * role actually does.
- *
- * The three views are three halves of one question, and they are sub-tabs rather
- * than three routes because they are read together: an admin looks a person up,
- * does not recognise their role, and needs the role's meaning without losing the
- * roster. Splitting them across the section nav would put a page load between
- * "Billing Admin" and "what is a Billing Admin", and would imply three
- * permissions where there is one.
- *
- * A fourth tab, Eigene Rollen (ADR-0087), is the one that writes: the office's
- * own roles in WorkOS. It loads them itself, client-side, so a WorkOS hiccup
- * there leaves the other three views as they were.
- *
- * Only the roster is fetched here, and it is fetched best-effort. Roles and
- * permissions render from `lib/authz/catalog.ts` — the same array the
- * provisioning script applies to WorkOS — so a WorkOS listing hiccup degrades
- * the directory card to its error state and leaves the other two views, and the
- * management widget, working. The shape of an organization's access model stays
- * knowable even when WorkOS is not answering.
- *
- * Shell chrome and the section nav live in the shared `layout.tsx`; this page
- * only gates, fetches and names its section.
- */
-
 import type { JSX } from 'react'
 import { ShieldAlert } from 'lucide-react'
 
@@ -52,11 +26,6 @@ export default async function OrganizationAccessPage(): Promise<JSX.Element> {
       <PageHeader title={t('sections.access.title')} subtitle={t('sections.access.subtitle')} />
     )
 
-    // This is the gate. The shared layout deliberately is not one — it only omits
-    // the nav link — so a typed URL, a bookmark or a stale link lands here with no
-    // permission at all, and the roster fetch below must never run for them.
-    // Answer it politely rather than with a 403 wall, the same treatment the
-    // organization overview gives a non-admin.
     if (!canManageMembers(session)) {
       return (
         <div className="flex flex-col gap-6">

@@ -1,62 +1,4 @@
 import 'server-only'
-/**
- * What on a mark needs a person's attention, as inbox items (ADR-0035, ADR-0109).
- *
- * The call sites name the EVENT; this module decides which person gets which
- * item, and resolves items whose cause is gone. Every function is best-effort:
- * it never throws into the write that called it.
- *
- * | Event | Item | For |
- * |---|---|---|
- * | A woken turn on a delegated mark ended `answered` | `piloti.work_done` | who delegated it |
- * | … ended `failed` | `piloti.work_failed` | who delegated it |
- * | A woken turn on a mention or an answer ended `answered` | `piloti.work_done` | who mentioned or answered |
- * | … ended `failed` | `piloti.work_failed` | who mentioned or answered |
- * | The wake job was refused, or gave up, before a turn answered | `piloti.work_failed` | whoever woke Piloti |
- * | Any woken turn ended `stopped` | none: the person stopped it | |
- * | Piloti set a Rückfrage, or replied on its own open Rückfrage | `piloti.asks_you` | the mark's Zuständige, else the person its turn acted for |
- * | Piloti set another mark | none to the asker: ordinary work they asked for | |
- * | A person set marks on a document, Piloti set them for the person its turn acted for, or a person took over Piloti's proposal | `annotation.activity`, variant `created` (`created_piloti`), one counted row per document and per who set them | the document's people ({@link onMarksSet}: its Verantwortliche and its uploader), minus whoever acted, minus whom a mark already tells otherwise (its Zuständige, whom it mentions, whom Piloti's Rückfrage asks) |
- * | Piloti proposed marks nobody took over yet | none: a proposal is nobody's news until someone takes it over | |
- * | A person made someone the mark's Zuständige (setting it, changing it, or taking over Piloti's proposal that names one) | `annotation.assigned_to_you` | the new Zuständige, unless they did it themselves |
- * | Piloti did, for the person its turn acted for | `annotation.assigned_to_you`, variant `piloti` | the same |
- * | Someone else became responsible, or nobody | resolves the previous Zuständige's `annotation.assigned_to_you` | |
- * | Someone set, moved or cleared the date of a mark that has a Zuständige | `annotation.assigned_to_you`, variant `due` / `due_cleared` (`…_piloti` when Piloti did it for a person), folded into their row for the mark | the Zuständige, unless they did it themselves |
- * | The daily reminder (`./due-reminders.ts`): the date is today or tomorrow, or it has passed | `annotation.assigned_to_you`, variant `due_soon`, then `overdue`, folded into the same row, each once per date | the Zuständige |
- * | A person mentioned a colleague in a mark's text (setting it, or rewording it) or in a reply | `annotation.mentioned` | each person mentioned anew, minus whoever wrote it and minus a Zuständige the same write made responsible (who hears `annotation.assigned_to_you`) |
- * | A person or Piloti replied in the thread | `annotation.activity`, variant `reply` | the mark's participants ({@link markParticipants}), minus whoever acted (for Piloti, the person its turn acted for: on a wake, who woke it and hears `piloti.work_done`), minus who Piloti's open Rückfrage asks, minus whom the reply mentions (who hear `annotation.mentioned` instead) |
- * | Someone resolved, dismissed or reopened a mark | `annotation.activity`, variant `resolved` / `dismissed` / `reopened` | the mark's author, unless they did it |
- * | A person answered in the thread | resolves `piloti.asks_you`, for everyone, and their own `annotation.mentioned` | |
- * | The mark was resolved or dismissed | resolves everyone's `piloti.asks_you`, `annotation.assigned_to_you` and `annotation.mentioned` | |
- * | A mention was taken out of the text, or its reply deleted, and nothing left on the mark names that person | their `annotation.mentioned` turns inert | |
- * | A reply was deleted | every `annotation.activity` and `annotation.mentioned` row still quoting it (its `replyId`) counts one less and quotes nothing; a thread row that counted only it turns inert | |
- * | A reply was reworded | every row still quoting it quotes the new words, unresurfaced | |
- * | The mark was deleted | every row anchored on it turns inert, for everyone, but a „N Anmerkungen gesetzt“ row, which counts one less and turns inert only once it counts none | |
- *
- * The author's `annotation.activity` row says `yours: true`: a reply or a move
- * on a mark they wrote answers them, and is pushed as a result, not as activity.
- *
- * Every recipient of a person's news is asked whether they may open the
- * document now (`lib/documents/may-open.ts`, handed in as {@link MayOpen}):
- * someone who cannot read the folder is never told what a mark in it says.
- *
- * Piloti's own items belong to a Piloti turn, so they carry no actor: Piloti
- * did it, and an actor equal to the recipient would make `emitInboxItems` drop
- * the row. A person's items carry the person, and Piloti's act for a person
- * carries that person. They point at the document, anchored on the mark, and
- * `lib/inbox/targets` builds the link that opens the Prüfansicht at it. Access
- * is the document's, re-derived when the row is read. They carry the document's
- * name and the mark's number, so the row says which mark in which document; as
- * the excerpt, a Rückfrage carries Piloti's question, a reply what it says, and
- * everything else what the mark says. A row asking the Zuständige carries the
- * mark's date (`dueOn`, null without one), so the row says by when. Rows fold per mark and their payloads
- * merge, so every row names its `variant`: a failed wake the class of its
- * reason (`./wake-end-reason.ts`), so the notice says why in words the person
- * can act on, never the stored reason itself. A row a reply wrote
- * (`annotation.activity`, `annotation.mentioned`) names it as `replyId`, and
- * every other write to those rows clears it, so deleting the reply finds the
- * rows that still quote it and nothing else ({@link onReplyDeleted}).
- */
 
 import { findDocumentAnnotation, type AnnotationRecord } from './repository'
 import { isLive, type MarkMention } from './types'
@@ -76,21 +18,16 @@ import type { InboxItemType } from '@/lib/db/schema/inbox'
 import { AGENT_MENTION_ID } from '@/lib/mentions/types'
 import { describeResource } from '@/lib/sharing/registry'
 
-/** The mark an event is about. */
 export interface MarkRef {
   organizationId: string
   documentId: string
   annotationId: string
-  /** The mark's running number („Anmerkung 4“). */
   annotationNumber: number
-  /** The document's project; null on the Büroablage. */
   projectId: string | null
 }
 
-/** The payload keys that quote a text: what goes when the text does. */
 const QUOTE_KEYS = ['excerpt', 'mentions'] as const
 
-/** Longest question quoted in a row. */
 const EXCERPT_LENGTH = 160
 
 function excerptOf(text: string | null | undefined): string | null {
@@ -99,7 +36,6 @@ function excerptOf(text: string | null | undefined): string | null {
   return trimmed.length > EXCERPT_LENGTH ? `${trimmed.slice(0, EXCERPT_LENGTH - 1)}…` : trimmed
 }
 
-/** The document's name for the row, or null when it cannot be read (the row then names no file). */
 async function documentName(ref: MarkRef): Promise<string | null> {
   try {
     const found = await describeResource('document').describeRef(ref.documentId, ref.organizationId)
@@ -109,39 +45,17 @@ async function documentName(ref: MarkRef): Promise<string | null> {
   }
 }
 
-/** What a row about a mark says beyond the mark: its quote, its wording, and who did it (null: Piloti). */
 interface MarkItem {
   excerpt: string | null
-  /**
-   * Whom the quoted text mentions, as the server kept them, so the row draws
-   * the chips the thread draws. Written beside every excerpt, `[]` where the
-   * caller has none: rows fold per mark and their payloads merge, and an
-   * excerpt must never inherit the mentions of the one it replaced.
-   */
   mentions?: readonly MarkMention[]
-  /** Picks the row's wording, where its type has more than one. */
   variant?: string | null
   actorUserId?: string | null
-  /**
-   * Whose mark it is, when that matters to how the news reaches them: their
-   * row says `yours: true`, and the push policy then treats it as an answer to
-   * them (`InboxPushPolicy.yours`), not ambient activity.
-   */
   author?: string | null
-  /** Facts the row's words need beyond the mark's (its date), merged into the payload as given; null clears. */
   facts?: Record<string, string | number | null>
-  /**
-   * What the row folds on instead of the mark: new marks fold per document and
-   * per who set them (`set:<variant>:<actor>`), so fifteen marks are one row.
-   * The row still anchors on the mark the ref names (the newest), which is
-   * where its link opens the review.
-   */
   groupAnchor?: string
-  /** How many occurrences this one item stands for (`InboxEmission.occurrences`). */
   occurrences?: number
 }
 
-/** One item about a mark, addressed to each of these people. */
 async function emitAboutMark(
   type: InboxItemType,
   ref: MarkRef,
@@ -173,10 +87,8 @@ async function emitAboutMark(
   )
 }
 
-/** Which of these people may open the mark's document now (`mayOpenDocument`, bound to the writer's session and the document). */
 export type MayOpen = (userIds: readonly string[]) => Promise<ReadonlySet<string>>
 
-/** What of a mark says who takes part in it. */
 export type MarkPeople = Pick<AnnotationRecord, 'authorKind' | 'createdBy' | 'acceptedBy' | 'assigneeUserId' | 'delegatedBy'> &
   Partial<Pick<AnnotationRecord, 'mentions'>> & {
     replies: ReadonlyArray<
@@ -184,22 +96,9 @@ export type MarkPeople = Pick<AnnotationRecord, 'authorKind' | 'createdBy' | 'ac
     >
   }
 
-/**
- * Whose mark it is: the person who set it, or for Piloti's mark the person who
- * took it over or asked for it (`accepted_by`). A proposal nobody took over is
- * nobody's.
- */
 export const markAuthor = (mark: Pick<MarkPeople, 'authorKind' | 'createdBy' | 'acceptedBy'>): string | null =>
   mark.authorKind === 'person' ? mark.createdBy : mark.acceptedBy
 
-/**
- * Everyone a mark's thread concerns, once each: its author, its Zuständige,
- * who delegated it to Piloti, every person who replied, and every person its
- * text or a reply mentions (being asked into a thread is taking part in it,
- * as in the chat). Derived from the mark when something happens, never stored
- * as a list, so it is always today's thread. Pure. The one definition every
- * item about a mark's thread asks.
- */
 export function markParticipants(mark: MarkPeople): string[] {
   const mentioned = [mark.mentions ?? [], ...mark.replies.map((reply) => reply.mentions ?? [])]
     .flat()
@@ -215,21 +114,12 @@ export function markParticipants(mark: MarkPeople): string[] {
   return [...new Set(people.filter((userId): userId is string => Boolean(userId)))]
 }
 
-/** The people of `userIds` who may open the document, in order. */
 async function whoMayOpen(mayOpen: MayOpen, userIds: readonly string[]): Promise<string[]> {
   if (userIds.length === 0) return []
   const allowed = await mayOpen(userIds)
   return userIds.filter((userId) => allowed.has(userId))
 }
 
-/**
- * A wake on a mark ended: its turn's outcome (`lib/turns/outcome.ts`), or the
- * wake job giving up or being refused before a turn answered
- * (`./wake-job.ts`). `actorUserId` is the person whose act woke Piloti: who
- * mentioned it, answered it, or delegated the mark. Called once per wake, with
- * its final word. `reason` is the wake's stored reason for a failure;
- * `markText` what the mark says, quoted so the person knows which one it was.
- */
 export async function onWakeEnded(
   input: MarkRef & {
     actorUserId: string
@@ -239,16 +129,8 @@ export async function onWakeEnded(
     markText?: string | null
   }
 ): Promise<void> {
-  // A person stopped it, or took the mark back: they know.
   if (input.outcome === 'stopped') return
-  // A mention or an answer that got nothing back would otherwise vanish: the
-  // person asked Piloti something and waits in a thread that never says it
-  // failed. The copy (`agentWorkFailed`) is the same for all three triggers;
-  // what differs is why, and that is the variant.
   const type = input.outcome === 'answered' ? 'piloti.work_done' : 'piloti.work_failed'
-  // Always named: rows fold per mark and their payloads merge, so an absent
-  // variant would keep an earlier row's. A failure names its cause; work done
-  // names what woke it, and a delegation's end says the mark is back.
   const variant =
     input.outcome === 'failed' ? (wakeEndReasonKind('failed', input.reason ?? null) ?? 'error') : input.trigger
   await bestEffortInbox(`${type} for mark ${input.annotationId}`, input.organizationId, () =>
@@ -256,21 +138,10 @@ export async function onWakeEnded(
   )
 }
 
-/**
- * Whether Piloti's write waits on a person: its own Rückfrage, still live. An
- * answer to a person's question, or a reply on an ordinary mark, is work that
- * is shown in the thread and tells nobody to do anything.
- */
 function waitsOnPerson(mark: Pick<AnnotationRecord, 'kind' | 'authorKind' | 'status'>): boolean {
   return mark.kind === 'question' && mark.authorKind === 'piloti' && isLive(mark)
 }
 
-/**
- * Piloti wrote on a mark in a turn (`lib/annotations/agent.ts`): set a mark
- * (`question` when it is a question), or replied in its thread. `onBehalfOf`
- * is the person the turn acted for; `assigneeUserId` the mark's responsible
- * person, if any.
- */
 export async function onAgentWrote(
   input: MarkRef & {
     onBehalfOf: string
@@ -282,7 +153,6 @@ export async function onAgentWrote(
   if (input.what === 'mark') return
   await bestEffortInbox(`piloti.asks_you for mark ${input.annotationId}`, input.organizationId, async () => {
     const mark = await findDocumentAnnotation(input.organizationId, input.documentId, input.annotationId)
-    // Gone since: nobody can answer it.
     if (!mark) return
     if (!waitsOnPerson(mark)) return
     const written =
@@ -293,15 +163,6 @@ export async function onAgentWrote(
   })
 }
 
-/**
- * A person answered in a mark's thread, or the mark was resolved or dismissed
- * (`lib/annotations/service.ts`), by a person or by Piloti in their name:
- * whatever Piloti asked there is no longer waiting on anybody, since one
- * answer answers it for everyone, and a closed mark is nobody's to do. A
- * person who was mentioned has answered by answering (`answeredBy`): only
- * their own mention is settled, since a colleague asked in the same breath
- * has not.
- */
 export async function onMarkSettledByPerson(
   input: Pick<MarkRef, 'organizationId' | 'annotationId'> & { closed: boolean; answeredBy?: string | null }
 ): Promise<void> {
@@ -323,15 +184,6 @@ export async function onMarkSettledByPerson(
   })
 }
 
-/**
- * The mark was deleted: no row about it keeps a link to it, or a quote from
- * it. A „15 Anmerkungen gesetzt“ row anchored on it ({@link onMarksSet}, on
- * the newest it counts) is about the other fourteen too: it counts one less
- * and quotes nothing, no longer naming the mark (`related`), and goes inert
- * only once it counts none. It cannot cheaply be re-anchored on the next
- * newest (which marks a reader's row counts is not stored), so its link opens
- * the review without a mark selected.
- */
 export async function onMarkDeleted(input: Pick<MarkRef, 'organizationId' | 'annotationId'>): Promise<void> {
   const rows = { organizationId: input.organizationId, anchorId: input.annotationId }
   await bestEffortInbox(`clearing deleted mark ${input.annotationId}`, input.organizationId, async () => {
@@ -350,30 +202,17 @@ export async function onMarkDeleted(input: Pick<MarkRef, 'organizationId' | 'ann
   })
 }
 
-/**
- * Who did something to a mark: a person, or Piloti for the person its turn
- * acted for (`byAgent`; `actorUserId` is then that person). `markText` is
- * what the mark says, quoted so the reader knows which one it was.
- */
 export interface MarkAct extends MarkRef {
   actorUserId: string
   byAgent: boolean
   markText: string | null
 }
 
-/**
- * The mark's Zuständige changed, or a person took over Piloti's proposal that
- * already names one (`previousAssigneeUserId` is then null). The new one is
- * asked to act, unless they made themselves responsible or the mark is not
- * open (a proposal is nobody's yet, a closed mark nobody's to do); the
- * previous one is no longer asked.
- */
 export async function onAssigneeChanged(
   input: MarkAct & {
     previousAssigneeUserId: string | null
     assigneeUserId: string | null
     open: boolean
-    /** The mark's date, so the row says by when; null when it has none. */
     dueOn: string | null
   }
 ): Promise<void> {
@@ -392,19 +231,11 @@ export async function onAssigneeChanged(
       excerpt: excerptOf(input.markText),
       variant: input.byAgent ? 'piloti' : 'person',
       actorUserId: input.actorUserId,
-      // Handed anew, the Frist is reminded of anew: the payload merges, so the last reminder's stamp is cleared.
       facts: { dueOn: input.dueOn, reminder: null },
     })
   })
 }
 
-/**
- * The date of a mark that has a Zuständige was set, moved or cleared, and the
- * Zuständige stayed: they are told, in the row they have for the mark (the
- * shape of {@link onAssigneeChanged}, one row per mark), unless they changed it
- * themselves or the mark is not open. A change that also hands the mark to
- * someone new is that one's assignment, which carries the date.
- */
 export async function onDueChanged(
   input: MarkAct & { assigneeUserId: string | null; dueOn: string | null; open: boolean }
 ): Promise<void> {
@@ -416,24 +247,13 @@ export async function onDueChanged(
       excerpt: excerptOf(input.markText),
       variant,
       actorUserId: input.actorUserId,
-      // A date moved is reminded of anew, even back to one reminded of before: the stamp is cleared.
       facts: { dueOn: input.dueOn, reminder: null },
     })
   )
 }
 
-/** What the daily reminder says about a date: it is near (today or tomorrow), or it has passed. */
 export type DueReminder = 'due_soon' | 'overdue'
 
-/**
- * The daily reminder of a Zuständige's date (`./due-reminders.ts`): the
- * Zuständige is asked again in the row they have for the mark, worded by how
- * the date stands, the overdue reminder upgrading the earlier one. `reminder`
- * records which reminder for which date the row last carried, so the job tells
- * each once (`remindedFor`), and a moved date is reminded of anew. No actor:
- * the calendar did it. Unlike the rest of this module it throws: the job counts
- * what it could not tell, and the next day's run tells it.
- */
 export async function onMarkDue(
   input: MarkRef & { assigneeUserId: string; dueOn: string; reminder: DueReminder; markText: string | null }
 ): Promise<void> {
@@ -444,27 +264,15 @@ export async function onMarkDue(
   })
 }
 
-/** The stamp a row carries once it reminded of `dueOn` this way: the job's idempotency key, per mark and recipient. */
 export const remindedFor = (reminder: DueReminder, dueOn: string): string => `${reminder}:${dueOn}`
 
-/**
- * Someone answered in a mark's thread: its participants hear it, as one
- * counted row per mark, except whoever acted (for Piloti, the person its turn
- * acted for: on a wake, who woke it, and they hear `piloti.work_done`), when
- * Piloti follows up its own open Rückfrage, the Zuständige it asks
- * (`piloti.asks_you`), and whom the reply mentions (`mentioned`: they hear
- * `annotation.mentioned`, one row for one reply). `mark` is the mark as it
- * was read for the reply.
- */
 export async function onMarkReplied(
   input: MarkAct & {
     mark: MarkPeople & Pick<AnnotationRecord, 'kind' | 'status'>
     replyText: string
-    /** The reply, so the row it writes can be found again if it is deleted. */
     replyId?: string | null
     mayOpen: MayOpen
     mentioned?: readonly string[]
-    /** Whom the reply mentions, as the server kept them. */
     replyMentions?: readonly MarkMention[]
   }
 ): Promise<void> {
@@ -483,45 +291,16 @@ export async function onMarkReplied(
   })
 }
 
-/**
- * Who set new marks, as the row words it: a person, or Piloti for a person
- * (who asked for them, or took its proposal over). Piloti's proposals nobody
- * took over tell nobody: a proposal counts once someone takes it over.
- */
 export type MarksSetBy = 'created' | 'created_piloti'
 
-/** One new mark, and whom it already tells otherwise. */
 export interface SetMark {
   id: string
   number: number
   body: string
   mentions?: readonly MarkMention[]
-  /**
-   * The people this mark tells in a row of its own, who hear nothing more
-   * about it: the Zuständige a person's mark hands it to
-   * (`annotation.assigned_to_you`), whom its text mentions
-   * (`annotation.mentioned`), whom Piloti's Rückfrage asks (`piloti.asks_you`).
-   */
   toldOtherwise: readonly (string | null)[]
 }
 
-/**
- * New marks on a document tell the document's people: who is Verantwortlich
- * for it (ADR-0047) and who uploaded it, as a new Fassung does
- * (`lib/documents/revision-notify.ts`). Without it a review only reached the
- * room, and a mark nobody was assigned or mentioned on waited for somebody to
- * open the document.
- *
- * One counted row per document and per who set them (`groupAnchor`
- * `set:<by>:<actor>`), so a review of fifteen marks is one row, „Miriam hat
- * 15 Anmerkungen in „Grundriss EG“ gesetzt“, and one write of fifteen (Piloti's
- * batch) is one emission counting fifteen. The row anchors on the newest mark
- * the reader is told about, where its link opens the review. Whoever acted is
- * left out (for Piloti, the person who asked for them or took them over), as
- * is anybody a mark tells in a row of its own; everyone else must be able to
- * open the document now (`mayOpen`). Informational, like every
- * `annotation.activity`.
- */
 export async function onMarksSet(
   input: Omit<MarkRef, 'annotationId' | 'annotationNumber'> & {
     actorUserId: string
@@ -538,7 +317,6 @@ export async function onMarksSet(
       (userId): userId is string => Boolean(userId) && userId !== input.actorUserId
     )
     const recipients = await whoMayOpen(input.mayOpen, people)
-    // Each reader's own share of the marks: the ones no other row tells them about.
     const byShare = new Map<string, { newest: SetMark; count: number; recipients: string[] }>()
     for (const recipient of recipients) {
       const theirs = input.marks.filter((mark) => !mark.toldOtherwise.includes(recipient))
@@ -559,7 +337,6 @@ export async function onMarksSet(
           mentions: newest.mentions,
           variant: input.by,
           actorUserId: input.actorUserId,
-          // One counted row per document and per who set them (`MARKS_SET_GROUP_ANCHOR`).
           groupAnchor: `${MARKS_SET_GROUP_ANCHOR}${input.by}:${input.actorUserId}`,
           occurrences: count,
         }
@@ -568,7 +345,6 @@ export async function onMarksSet(
   })
 }
 
-/** Someone resolved, dismissed or reopened a mark: its author hears it, unless they did it. */
 export async function onMarkMoved(
   input: MarkAct & {
     move: 'resolved' | 'dismissed' | 'reopened'
@@ -584,26 +360,16 @@ export async function onMarkMoved(
       variant: input.move,
       actorUserId: input.actorUserId,
       author,
-      // The row folds per mark: it quotes the move now, no longer a reply.
       facts: { replyId: null },
     })
   )
 }
 
-/**
- * A person mentioned colleagues in a mark's text or in a reply: each of
- * `mentioned` (already the people the write mentions ANEW) is asked to look,
- * at the mark, unless they wrote it themselves. `text` is what mentions them,
- * quoted so the row says what they are asked about. Every one of them is asked
- * again whether they may open the document now, as every item about a mark is.
- */
 export async function onMarkMentioned(
   input: MarkAct & {
     mentioned: readonly string[]
     text: string
-    /** Whom `text` mentions, as the server kept them: the row draws them as chips. */
     mentions: readonly MarkMention[]
-    /** The reply `text` is, or absent for the mark's own text. */
     replyId?: string | null
     mayOpen: MayOpen
   }
@@ -620,20 +386,6 @@ export async function onMarkMentioned(
   )
 }
 
-/**
- * A reply was deleted: what it told is taken back, and only that.
- *
- * Whom it mentioned and nothing left on the mark names (`withdrawn`, computed
- * by the caller) have their `annotation.mentioned` turn inert
- * ({@link onMentionsWithdrawn}). Every other row that still quotes it
- * (`annotation.activity` for the thread, `annotation.mentioned` for whom
- * something else on the mark still asks, found by the `replyId` they carry)
- * counts one less and quotes nothing, without resurfacing: a colleague's
- * mention elsewhere on the mark still asks, and a thread row still holds the
- * replies before it. A thread row that counted only this reply goes inert:
- * its news is gone. A row a later reply or move wrote over names that one and
- * stays as it is.
- */
 export async function onReplyDeleted(
   input: Pick<MarkRef, 'organizationId' | 'annotationId'> & { replyId: string; withdrawn: readonly string[] }
 ): Promise<void> {
@@ -650,12 +402,6 @@ export async function onReplyDeleted(
   })
 }
 
-/**
- * A reply was reworded: every row that still quotes it (by its `replyId`)
- * quotes the new words and whom they mention, in place. Nothing new happened,
- * so no row resurfaces; whom the edit mentions anew is told by
- * {@link onMarkMentioned}, whom it no longer names by {@link onMentionsWithdrawn}.
- */
 export async function onReplyEdited(
   input: Pick<MarkRef, 'organizationId' | 'annotationId'> & {
     replyId: string
@@ -674,7 +420,6 @@ export async function onReplyEdited(
   )
 }
 
-/** Each of these people's `annotation.mentioned` on the mark turns inert, its quote wiped. */
 async function withdrawMentions(
   input: Pick<MarkRef, 'organizationId' | 'annotationId'> & { withdrawn: readonly string[] }
 ): Promise<void> {
@@ -688,13 +433,6 @@ async function withdrawMentions(
   }
 }
 
-/**
- * These people's mention on the mark is gone: the text that named them was
- * changed, and nothing left on the mark names them. Their
- * `annotation.mentioned` turns inert, its quote wiped, as a deleted mark's
- * rows do; nobody else's row is touched. A deleted reply's are withdrawn by
- * {@link onReplyDeleted}.
- */
 export async function onMentionsWithdrawn(
   input: Pick<MarkRef, 'organizationId' | 'annotationId'> & { userIds: readonly string[] }
 ): Promise<void> {

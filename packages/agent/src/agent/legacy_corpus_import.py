@@ -97,7 +97,6 @@ def main(argv: list[str] | None = None) -> int:
     logging.basicConfig(level=logging.INFO)
     counts = import_legacy_corpus(Path(args[0]), Path(args[1]) if len(args) == 2 else None)
     print(f"[legacy-corpus-import] {json.dumps(counts, sort_keys=True)}", flush=True)
-    # A failed store is worth the Job's retry: everything stored is skipped next time.
     return 1 if counts["failed"] else 0
 
 

@@ -5,16 +5,11 @@ import { joinClasses } from './join-classes';
 import { Wordmark } from './wordmark';
 
 export interface HeaderProps {
-  /** Plattform · Datensicherheit · Blog */
   links?: NavLink[];
-  /** href of the active page */
   current?: string;
-  /** Small secondary button, e.g. Login */
   login?: NavLink;
-  /** Small primary button, e.g. Demo anfragen — the page's one primary */
   cta?: NavLink;
   homeHref?: string;
-  /** default true: stays on top with the glass background */
   sticky?: boolean;
   className?: string;
 }

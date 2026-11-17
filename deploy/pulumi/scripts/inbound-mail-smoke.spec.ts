@@ -13,14 +13,6 @@ import {
   splitMbox,
 } from "./inbound-mail-smoke";
 
-/**
- * The launch-gate tool's own logic (`scripts/inbound-mail-smoke.ts`). The
- * gates themselves run against a deployed stack and are never run here; what
- * is pinned is that its probes are what they claim to be: signed exactly as
- * the Worker signs (the shared vectors), of exactly the size a gate names, and
- * that G9 counts only what the receiving server vouched for.
- */
-
 const SCRIPT = join(__dirname, "inbound-mail-smoke.ts");
 const VECTORS = JSON.parse(
   readFileSync(join(__dirname, "../../../contracts/inbound-mail-signature.json"), "utf8"),
@@ -123,9 +115,6 @@ describe("G9: the aligned DKIM share", () => {
   });
 });
 
-// Each case starts the script in its own `bun` process, which takes seconds on a
-// busy machine (a parallel `task verify`): past vitest's 5 s default it failed
-// the case with nothing wrong in it.
 describe("the command line", { timeout: 30_000 }, () => {
   const run = (...args: string[]) =>
     spawnSync("bun", [SCRIPT, ...args], { encoding: "utf8", env: { PATH: process.env.PATH ?? "" } });

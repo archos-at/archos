@@ -25,17 +25,6 @@ export interface Frontend {
   pdb: k8s.policy.v1.PodDisruptionBudget;
 }
 
-/**
- * Frontend: Next.js UI + BFF API routes + the WebSocket gateway (server.js),
- * all in one Node process per pod. Runs HORIZONTALLY: it is stateless once the
- * shared cache (Dragonfly/Redis) is wired — which it is — so an HPA scales it on
- * CPU. Command is overridden to `node server.js`; the image's default also runs
- * `drizzle-kit migrate`, which we deliberately move to the one-shot migration
- * Job to avoid replicas racing on migrations.
- *
- * A chat WS connection pins to whichever pod terminated its upgrade and stays
- * there for its lifetime, so no session affinity is required at the ingress.
- */
 export function installFrontend(
   w: AppWiring,
   cfg: DeployConfig,
@@ -45,15 +34,11 @@ export function installFrontend(
   const labels = commonLabels("frontend");
   const shutdown = gracefulShutdown(ROLLOUT.frontend, "node");
 
-  // Fail the preview, not production: a CPU request far below steady-state
-  // usage turns the HPA below into an on/off switch to maxReplicas.
   assertHpaTargetIsProportional(
     "frontend",
     cfg.frontend.resources,
     cfg.frontend.hpaCpuTargetPercent,
   );
-  // Memory is forwarded to the container verbatim, so an unparseable quantity or
-  // an inverted request/limit pair otherwise only fails at admission time.
   assertMemoryFitsLimit("frontend", cfg.frontend.resources);
 
   const admissionSecret = installMcpAdmissionSecret(cfg, w.provider, w.namespace);
@@ -62,34 +47,19 @@ export function installFrontend(
     {
       metadata: { name: "frontend", namespace: w.namespace, labels },
       spec: {
-        // Initial size; the HPA owns replica count thereafter.
         replicas: cfg.frontend.minReplicas,
         selector: { matchLabels: labels },
-        // Surge-only rolling update + a stability soak + a progress deadline.
         ...surgeRollout(ROLLOUT.frontend),
         template: {
           metadata: {
             labels,
-            // Rotating any credential in `grid-secrets` changes this annotation,
-            // which is what turns the rotation into an actual rolling update
-            // instead of a Secret nobody re-reads (rollout.ts).
-            // The Langfuse keys (when the tier is deployed) come from their own
-            // Secret, so their rotation is folded in here too.
             annotations: secretChecksumAnnotations(withLangfuseKeysChecksum(cfg, secrets.checksum)),
           },
           spec: {
             enableServiceLinks: false, // see platform/security.ts — service-link env collisions
             imagePullSecrets: w.imagePullSecrets,
-            // Keep serving after SIGTERM: preStop covers EndpointSlice
-            // propagation at the gateway, then server.js drains in-flight
-            // requests and WebSockets (SHUTDOWN_DRAIN_MS).
             terminationGracePeriodSeconds: shutdown.terminationGracePeriodSeconds,
-            // The frontend image runs as non-root UID 1001; make it explicit so
-            // the pod is Pod-Security "restricted"-ready.
             securityContext: { runAsNonRoot: true, runAsUser: UID.frontend, runAsGroup: UID.frontend },
-            // Spread replicas across worker nodes so a single node loss (or the
-            // provider's automatic upgrade node-replacement) never drops the
-            // whole frontend tier. Soft (ScheduleAnyway) — never blocks a deploy.
             topologySpreadConstraints: spreadAcrossNodes(labels),
             ...onNodeGroup(cfg.nodeGroups.app),
             containers: [
@@ -98,7 +68,6 @@ export function installFrontend(
                 image: frontendImage(cfg),
                 imagePullPolicy: appPullPolicy(cfg, frontendImage(cfg)),
                 securityContext: hardenedContainerSecurityContext(),
-                // Skip the image's built-in migrate; the Job owns migrations.
                 command: ["node", "server.js"],
                 ports: [{ containerPort: PORT.frontend, name: "http" }],
                 env: [...frontendEnv(w), ...platformMcpServerEnv(cfg), ...formerAgentOriginsEnv(cfg.ingress)],
@@ -124,14 +93,7 @@ export function installFrontend(
     {
       provider: w.provider,
       dependsOn: [secrets.secret, ...(admissionSecret ? [admissionSecret] : []), ...dependsOn],
-      // The HPA owns spec.replicas after creation — don't let `pulumi up` revert
-      // an autoscaling decision back to minReplicas.
       ignoreChanges: ["spec.replicas"],
-      // Surge-only rolling of up to `frontendMaxReplicas` pods, each soaking for
-      // minReadySeconds and draining for up to a full grace period, comfortably
-      // exceeds Pulumi's default 10m await. Keep this above
-      // progressDeadlineSeconds so the failure the operator sees is Kubernetes'
-      // real "ProgressDeadlineExceeded" reason, not an opaque Pulumi timeout.
       customTimeouts: { create: "20m", update: "20m" },
     },
   );
@@ -177,8 +139,6 @@ export function installFrontend(
     { provider: w.provider, dependsOn: deployment },
   );
 
-  // Cap voluntary disruptions at one pod so an automatic-upgrade node drain
-  // can't evict every frontend replica simultaneously.
   const pdb = installPdb("frontend", w.namespace, w.provider, labels, [deployment]);
 
   return { deployment, service, hpa, pdb };

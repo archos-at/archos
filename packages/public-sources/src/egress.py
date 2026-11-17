@@ -33,9 +33,7 @@ from typing import Any
 import httpcore
 import httpx
 
-#: Request headers a fetch may carry. Everything else is dropped.
 FORWARDED_HEADERS = frozenset({"accept", "accept-language", "if-none-match", "if-modified-since", "content-type"})
-#: The largest body one fetch may bring back.
 MAX_BODY_BYTES = 20 * 1024 * 1024
 USER_AGENT = "public-sources/0.1 (+https://data.gv.at; open government data reader)"
 
@@ -44,8 +42,6 @@ class EgressRefused(httpx.TransportError):
     """A fetch the guard refused: a host off the list, or an address that is not public."""
 
 
-#: Prefixes that translate to IPv4 behind a gateway (RFC 6052 NAT64). Python counts the
-#: well-known one as global, but ``64:ff9b::a00:1`` reaches 10.0.0.1 wherever NAT64 runs.
 _TRANSLATED_V6 = (ipaddress.ip_network("64:ff9b::/96"), ipaddress.ip_network("64:ff9b:1::/48"))
 
 
@@ -84,8 +80,6 @@ class PublicOnlyBackend(httpcore.AsyncNetworkBackend):
         try:
             addresses = await self._resolver(host, port)
         except OSError as exc:  # socket.gaierror (EAI_AGAIN, EAI_NONAME): a lookup failed, nothing was refused
-            # The connect error httpcore would raise had it resolved the name itself, so every caller
-            # keeps its handling of a transport failure (the RIS client retries it, then answers RisError).
             raise httpcore.ConnectError(f"{host} could not be resolved: {exc}") from exc
         if not addresses:
             raise EgressRefused(f"{host} does not resolve")

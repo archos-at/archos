@@ -5,17 +5,13 @@ import type { ReactNode, TouchEvent } from 'react';
 import { joinClasses } from './join-classes';
 
 export interface GalleryItem {
-  /** Topic in ink, e.g. "Suchen." */
   title: ReactNode;
-  /** Continuation in ink-muted, same sentence */
   text?: ReactNode;
-  /** Image or product screen filling the card */
   media?: ReactNode;
 }
 
 export interface GalleryProps {
   items: GalleryItem[];
-  /** Accessible name of the carousel */
   label?: string;
   id?: string;
   className?: string;

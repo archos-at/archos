@@ -1,8 +1,3 @@
-/**
- * The blocks' contracts: what each parser accepts, what it refuses and why, the chart's typed
- * table, and the source kinds against the agent's vocabulary. README.md's example payloads are
- * parsed here too, so the document cannot drift from the code.
- */
 import { describe, expect, test } from 'bun:test';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -122,7 +117,6 @@ describe('the contract document', () => {
 
 describe('source kinds', () => {
   test('mirror the agent’s vocabulary', () => {
-    // The generated copy exists in the repository, not in the website's image: compare where it can be read.
     const generated = join(import.meta.dir, '../../../../workspace/shared/vocabularies.generated.ts');
     if (!existsSync(generated)) return;
     const line = readFileSync(generated, 'utf8').match(/export const SOURCE_KINDS = \[(.*?)\] as const/);

@@ -4,25 +4,9 @@ import re
 from collections.abc import Callable
 from collections.abc import Sequence
 
-# Regions of the answer that are CODE, and therefore carry no quotations to
-# verify. A mermaid node label is written `A["Anwendungsbereich"]`, which the
-# ASCII branch of `QUOTED_SPAN_RE` reads as a quoted claim — so a sourced
-# answer carrying a diagram had every one of its labels flagged, and
-# the annotator of the time (gone since ADR-0125's amendment) inserted its marker after the closing quote,
-# i.e. INSIDE the bracket:
-#
-#     A["OIB-Richtlinie 2<br/>Brandschutz" [nicht wörtlich in der Quelle belegt]]
-#
-# That is not a mis-annotation, it is a syntax error: the diagram stops parsing,
-# the frontend falls back to printing the source, and the reader gets a code
-# listing where the answer promised a drawing. The same pass then reported the
-# labels as unverified quotes, which caps the turn's confidence to "low" — so
-# one diagram degraded the chip on an otherwise well-sourced answer.
 _FENCE_RE = re.compile(r"^[ \t]{0,3}(`{3,}|~{3,})")
 
 
-# Inline code, matched only outside fences. `\1` requires the same run length,
-# and the lookarounds keep a ``longer`` run from closing a shorter one.
 _INLINE_CODE_RE = re.compile(r"(?<!`)(`+)(?!`)(.+?)(?<!`)\1(?!`)", re.DOTALL)
 
 

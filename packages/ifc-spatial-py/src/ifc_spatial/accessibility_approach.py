@@ -28,10 +28,6 @@ from .operators import _geometry_or_answer
 from .operators import _require
 from .operators import _wrong_kind
 
-# ════════════════════════════════════════════════════════════════════════════
-# 4 — clear approach
-# ════════════════════════════════════════════════════════════════════════════
-
 
 def clear_approach(model: SpatialModel, door_global_id: str) -> Answer[dict[str, Any]]:
     """The free floor in front of a door, on each side, and what ends it.
@@ -157,11 +153,6 @@ def _approach_on(
     loose_depth = _strip_depth(frame, sign, base, width, free.furnished, reach)
 
     entry["depth"] = round(fixed_depth, 4)
-    # What ENDED the strip: the room, or something standing in it. The test is
-    # whether one step further leaves the room's own FOOTPRINT — not whether the
-    # bisection ran out of bracket, which it never does because the bracket is
-    # the room's diagonal. Told apart because "4.39 m and then the far wall" and
-    # "4.39 m and then a wardrobe" are different findings for the architect.
     beyond = _strip(frame, sign, base, width, fixed_depth + 0.01)
     entry["boundedByRoom"] = bool(beyond.difference(free.footprint).area > MIN_OBSTACLE_AREA)
     entry["limitedBy"] = _limiting(model, frame, sign, base, width, fixed_depth, free, loose=False)

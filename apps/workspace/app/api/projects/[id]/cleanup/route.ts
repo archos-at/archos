@@ -1,9 +1,3 @@
-/**
- * „Ausmisten" before a project closes (ADR-0092): the person's decision, which
- * puts what they chose into the Papierkorb, all or nothing. The proposal is
- * `./proposal`. Thin handler; the rules live in `cleanup-service`.
- */
-
 import { apiRoute, parseJsonBody } from '@/lib/api/handler'
 import { confirmCleanup } from '@/lib/projects/cleanup-service'
 import { confirmCleanupSchema } from '@/lib/projects/cleanup-wire'

@@ -1,19 +1,3 @@
-/**
- * LLM budget policies, in the organization's unit (ADR-0053): credits for a
- * platform-billed organization, tokens for one on its own key. The caller
- * never picks the unit — it follows the key mode — so the body carries bare
- * `dailyLimit` / `monthlyLimit` and the response says which unit they are in.
- *
- * GET — members see the org limits + their own member limit; budget admins
- *       additionally get every active member/project policy.
- * PUT — sets a policy. Org and member scopes: budget admins only. Project
- *       scope: budget admins or that project's admins.
- * DELETE — removes a scoped limit (fall back to the org limits alone).
- *
- * Thin handlers; gating, validation (422), and the audit trail live in
- * `@/lib/budgets/service`.
- */
-
 import { apiRoute, parseJsonBody } from '@/lib/api/handler'
 import { budgetDeleteSchema, budgetPutSchema } from '@/lib/organizations/organization-wire'
 import { getBudgetOverview, removeBudgetPolicy, saveBudgetPolicy } from '@/lib/budgets/service'

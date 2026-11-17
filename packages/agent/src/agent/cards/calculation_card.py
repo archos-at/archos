@@ -240,9 +240,6 @@ class CalculationCard(CardModel):
 
     @model_validator(mode="after")
     def _references_point_backwards(self) -> CalculationCard:
-        # A forward or self reference has no value to read, so the renderer
-        # would have nothing to compute; rejecting it here means an
-        # uncomputable card never reaches the client at all.
         for index, step in enumerate(self.steps, start=1):
             for operand in step.operands:
                 if operand.step is not None and operand.step >= index:

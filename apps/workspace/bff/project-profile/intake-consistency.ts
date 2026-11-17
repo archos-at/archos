@@ -1,20 +1,3 @@
-/**
- * Deterministic end-of-wizard intake consistency check (FB-13).
- *
- * Structured intake answers are checked HERE, on the client, with plain typed
- * predicates — no LLM, instant, no network. (The LLM half, in
- * `consistency_check.py`, only scrutinises free-text answers.)
- *
- * The rules are deliberately CONSERVATIVE: architects hate false positives, so
- * every rule only fires on an unambiguous contradiction, and a skipped / unknown
- * answer NEVER triggers anything.
- *
- * Findings carry i18n message KEYS (+ params), never prose — the wizard renders
- * them via the `projects.intake.consistency.*` dictionary in both locales.
- *
- * Pure and isomorphic — safe on the server or the client, no I/O.
- */
-
 import { answerKeyFor } from './intake-building-keys'
 import {
   buildingsFromAnswers,
@@ -47,7 +30,6 @@ export interface AiConsistencyFinding {
 
 export type ConsistencyFinding = DeterministicConsistencyFinding | AiConsistencyFinding
 
-/** A single answer sent to the free-text LLM check (label + rendered value). */
 export interface ConsistencyCheckField {
   field: string
   value: string
@@ -65,16 +47,6 @@ function questionById(
 function labelFor(definition: ProjectIntakeDefinition, id: string): string {
   return questionById(definition, id)?.label ?? id
 }
-
-// ---------------------------------------------------------------------------
-// Rule — fossil heat source on a new build (Erneuerbare-Wärme-Gesetz).
-//
-// E1 (Wärmeversorgung, per building) = "Gas (nur Bestand)" while the project's
-// A5 (Art des Vorhabens) contains Neubau is a hard conflict: the EWG forbids
-// fossil systems in new builds. This is the spec's own `fossil_konflikt`
-// derivation (wizard_spec derived_values), the one deterministic contradiction
-// that survives the move to derived building classes.
-// ---------------------------------------------------------------------------
 
 function checkFossilNewBuildConflict(
   answers: Answers,
@@ -99,10 +71,6 @@ function checkFossilNewBuildConflict(
   return findings
 }
 
-// ---------------------------------------------------------------------------
-// Public API.
-// ---------------------------------------------------------------------------
-
 export function checkIntakeConsistencyFromAnswers(
   answers: Answers,
   definition: ProjectIntakeDefinition = projectIntakeDefinitionV1
@@ -118,21 +86,10 @@ export function checkIntakeConsistency(
   return checkIntakeConsistencyFromAnswers(answers, definition)
 }
 
-// ---------------------------------------------------------------------------
-// Free-text collection for the LLM half.
-// ---------------------------------------------------------------------------
-
-/** Whether a question type is free text the LLM should scrutinise. */
 function isFreeText(question: ProjectIntakeQuestion): boolean {
   return question.type === 'text' || question.type === 'textarea'
 }
 
-/**
- * The free-text answers the LLM should scrutinise: every currently-applicable,
- * project-scope free-text question whose trimmed answer is at least `minLength`
- * characters. (Project-scope covers the guided free-text module G, where all the
- * substantive context lives.)
- */
 export function collectFreeTextFields(
   answers: Answers,
   definition: ProjectIntakeDefinition = projectIntakeDefinitionV1,
@@ -153,10 +110,6 @@ export function collectFreeTextFields(
   return fields
 }
 
-/**
- * The structured answers passed to the LLM as READ-ONLY context. Currently-
- * applicable, answered, non-free-text project-scope questions.
- */
 export function collectStructuredContextFields(
   answers: Answers,
   definition: ProjectIntakeDefinition = projectIntakeDefinitionV1
@@ -169,8 +122,6 @@ export function collectStructuredContextFields(
         isFreeText(question) ||
         question.type === 'info_placeholder' ||
         question.type === 'upload' ||
-        // A role question carries no answer to be inconsistent with: the
-        // binding lives in `document_roles`, not in the profile.
         question.type === 'document_role'
       )
         continue

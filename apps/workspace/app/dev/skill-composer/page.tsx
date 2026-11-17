@@ -1,35 +1,5 @@
 'use client'
 
-/**
- * Dev preview for the composer half of Agent Skills — the REAL
- * `SlashCommandPicker` above the REAL `InvokedSkillChip`, in the 680px column
- * the composer occupies, so the two are reviewed as the one gesture they are:
- * type `/`, pick a skill, and see what got attached to the message.
- *
- * Fetch-free by construction. The picker takes its skills as props (the
- * composer is what talks to `useInvocableSkills`), so unlike `/dev/skills-panel`
- * this route needs no shim at all.
- *
- * The query is deliberately non-empty (`/oib`): with an empty fragment nothing
- * is filtered and nothing is emphasised, so the `<mark>` that tells the reader
- * WHY a row is in the list could not appear in any screenshot. The fixture is
- * chosen so the same fragment is matched two ways — in the NAME of the two
- * `oib-…` skills (rank 0, and the only rows carrying an emphasised fragment)
- * and only in the DESCRIPTION of the other three (rank 2) — which is the
- * ranking the menu actually applies.
- *
- * Variants via `?variant=`:
- *   - default — the typed state plus the chip for the skill that was picked.
- *   - empty   — `skills={[]}`, the state an organisation sees before anyone has
- *               authored a skill. Worth its own target because that panel is the
- *               only place in the product that explains what a skill IS.
- *
- * Pinned to German: it is the product's primary language, so the evidence
- * carries that copy regardless of the capture machine's locale cookie. No
- * `notFound()` of its own — the `/dev` layout is a Server Component and gates
- * every preview route out of production on a server boundary.
- */
-
 import type { JSX } from 'react'
 import { useState } from 'react'
 import { useSearchParams } from 'next/navigation'
@@ -80,17 +50,12 @@ export default function SkillComposerPreviewPage(): JSX.Element {
   const variant = params?.get('variant') ?? 'default'
   const isEmpty = variant === 'empty'
 
-  // Operable rather than a still: picking a row moves the chip, which is the
-  // whole point of the pair being on one page.
   const [invoked, setInvoked] = useState<SlashCommandSkill>(SKILLS[0])
 
   return (
     <I18nProvider initialLocale="de" fixedLocale>
       <main
         data-testid="skill-composer-preview"
-        // The column the composer gets, on the page background rather than on a
-        // card: the picker ships as a floating panel, so a surface behind it
-        // would flatten the shadow that separates it from the thread.
         className="text-foreground mx-auto flex w-full max-w-[680px] flex-col gap-8 p-6"
       >
         <section className="flex flex-col gap-3">

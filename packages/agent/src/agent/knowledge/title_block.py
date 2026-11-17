@@ -31,16 +31,12 @@ from collections.abc import Sequence
 from datetime import date
 from typing import Any
 
-#: The title-block fields the vision model is asked for, in the order they are shown.
 TITLE_BLOCK_FIELDS = ("document_number", "revision", "revision_date", "scale", "title")
 
-#: Longest value kept per field. A title block is a stamp, not a paragraph.
 _MAX_LENGTHS = {"document_number": 60, "revision": 16, "revision_date": 10, "scale": 40, "title": 200}
 
-#: A document key shorter than this, or without a digit, says too little to join two documents on.
 _MIN_KEY_CHARS = 3
 
-#: Answers a model gives for "nothing printed there" instead of null.
 _EMPTY_WORDS = frozenset({"-", "–", "—", "n/a", "na", "null", "none", "unbekannt", "unknown", "keine", "k.a."})
 
 _REVISION_PREFIX = re.compile(r"^(?:index|idx|ind|revision|rev|version|ver|stand)\b\.?[\s:_-]*", re.IGNORECASE)
@@ -127,11 +123,6 @@ def identifies_document(facts: Mapping[str, Any] | None) -> bool:
     return bool(facts) and any(facts.get(key) for key in ("document_number", "revision", "revision_date"))
 
 
-# ---------------------------------------------------------------------------
-# Same document
-# ---------------------------------------------------------------------------
-
-
 def document_key(number: Any) -> str | None:
     """What two spellings of one number share: letters and digits, folded (``A-101`` = ``a 101`` = ``A101``).
 
@@ -150,11 +141,6 @@ def same_document(first: Mapping[str, Any] | None, second: Mapping[str, Any] | N
         return False
     key = document_key(first.get("document_number"))
     return key is not None and key == document_key(second.get("document_number"))
-
-
-# ---------------------------------------------------------------------------
-# Which is later
-# ---------------------------------------------------------------------------
 
 
 def revision_rank(revision: Any) -> tuple[str, int] | None:
@@ -214,11 +200,6 @@ def newest_first[T](
         return (value if index_leads else 0, str(facts.get("revision_date") or ""), value, tiebreak(item))
 
     return sorted(items, key=key, reverse=True)
-
-
-# ---------------------------------------------------------------------------
-# How it reads
-# ---------------------------------------------------------------------------
 
 
 def display_date(iso: str) -> str:

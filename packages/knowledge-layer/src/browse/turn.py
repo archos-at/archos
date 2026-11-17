@@ -20,7 +20,6 @@ from .rows import USER_SHELVES
 from .rows import FileRow
 from .rows import file_rows
 
-# Logs under the name browse always had, so a filter on that name still catches these records.
 logger = logging.getLogger("knowledge_layer.browse.tool")
 
 
@@ -75,9 +74,7 @@ class TurnRows:
     """The rows this turn may list, and what its restriction left."""
 
     rows: list[FileRow]
-    #: What „my files“ means this turn: the user shelves that remain.
     own_shelves: tuple[str, ...]
-    #: The shelves the turn allows when a restriction applied, else None.
     allowed: frozenset[str] | None = None
 
 
@@ -99,7 +96,6 @@ def restrict_rows_to_turn(rows: Sequence[FileRow]) -> TurnRows:
     kept = [row for row in rows if row.shelf is None or row.shelf in allowed]
     if not kept:
         return TurnRows(list(rows), USER_SHELVES)
-    # A law-only turn („nur Gesetz“) allows base alone: then base IS what it lists.
     own = tuple(shelf for shelf in USER_SHELVES if shelf in allowed)
     own = own or tuple(shelf for shelf in KNOWN_SHELVES if shelf in allowed) or USER_SHELVES
     return TurnRows(kept, own, frozenset(allowed))

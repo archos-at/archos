@@ -21,8 +21,6 @@ from .envelope import undecidable
 from .model import SpatialModel
 from .model import Storey
 
-# ── storey_heights() ────────────────────────────────────────────────────────
-
 
 def storey_heights(model: SpatialModel) -> Answer[list[dict[str, Any]]]:
     """Storey heights as the difference between consecutive declared elevations.
@@ -74,9 +72,6 @@ def storey_heights(model: SpatialModel) -> Answer[list[dict[str, Any]]]:
     if len(with_elevation) < 2:
         return undecidable(
             from_=[s.global_id for s in ordered],
-            # `provenance` on an undecidable records which ROUTE was attempted,
-            # and the route here is the declared elevation — no geometry is read
-            # on the way to this refusal either.
             provenance="declared",
             method=method,
             missing=MissingFact(
@@ -100,10 +95,6 @@ def storey_heights(model: SpatialModel) -> Answer[list[dict[str, Any]]]:
             {
                 "storey": storey.name or storey.global_id,
                 "elevation": storey.elevation,
-                # Rounded to the millimetre: the difference of two
-                # floating-point elevations produces 2.8499999999999996, and a
-                # height printed with sixteen digits reads as a precision this
-                # value does not have.
                 "height": None if nxt is None else round((nxt.elevation - storey.elevation) * 1000) / 1000,  # type: ignore[operator]
             }
         )
@@ -120,9 +111,6 @@ def storey_heights(model: SpatialModel) -> Answer[list[dict[str, Any]]]:
             f"{missing_elevation} Geschoß(e) ohne deklarierte Höhenlage sind nicht enthalten — die Liste ist "
             "kein vollständiges Geschoßverzeichnis."
         )
-    # A non-positive pitch is not a building; it is two storeys sharing an
-    # elevation or an inverted export. Worth surfacing, because every downstream
-    # height check would otherwise consume it as a measurement.
     suspicious = sum(1 for entry in value if entry["height"] is not None and entry["height"] <= 0)
     if suspicious > 0:
         caveat.append(
@@ -233,10 +221,6 @@ def inventory(model: SpatialModel, kind: RoomUseKind) -> Answer[list[RoomProposa
             "Gebäude keine hat — es heißt, dass die Benennung im Export nichts dazu sagt."
         )
 
-    # The envelope's single confidence is the mean of the per-room values, so a
-    # list built from three weak substring matches cannot present itself with
-    # the same authority as a list of exact hits. Per-room numbers stay in
-    # `value`; this one is what a renderer puts in front of the sentence.
     mean = 0.0 if not value else round(sum(r.confidence for r in value) / len(value) * 100) / 100
 
     return inferred(
@@ -310,9 +294,6 @@ def _heights_of(model: SpatialModel) -> dict[str, float]:
     out: dict[str, float] = {}
     if not answer.decidable or answer.value is None:
         return out
-    # `Answer.from_` carries the storeys in the order the values were derived,
-    # so the two lists line up by index without re-deriving which storey is
-    # which.
     for index, entry in enumerate(answer.value):
         if index < len(answer.from_) and entry["height"] is not None:
             out[answer.from_[index]] = entry["height"]

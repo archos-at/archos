@@ -67,29 +67,15 @@ logger = logging.getLogger(__name__)
 
 _RESPONSE_HEALING_PLUGIN = {"id": "response-healing"}
 
-#: Marks a chat-model class as already carrying the request contract, so
-#: resolving the same model twice does not stack wrappers.
 _CONTRACT_MARKER = "__request_contract__"
 
-#: One contract subclass per base chat-model class, not per instance — keeps
-#: ``type(llm)`` stable and cheap across the fleet's many resolutions.
 _CONTRACT_SUBCLASSES: dict[type, type] = {}
 
-#: A rate limit that arrives INSIDE a Responses stream, as an ``error`` event.
-#: langchain-openai raises it as a bare ``ValueError("rate_limit_exceeded: …")``
-#: that carries no status code and no "429", so the agent runtime's default filters (status
-#: codes, "Too Many Requests", "429") let it through and the turn ends on the
-#: generic error (GRID-check/grid-oib-agent#826). Matched on the provider's
-#: error code, which is what OpenRouter puts in front of the message.
 _STREAMED_RATE_LIMIT_MESSAGES = ("rate_limit_exceeded",)
 
 
-#: The effort a reasoning-off call is re-sent at when its model cannot stop
-#: reasoning. OpenRouter maps it to the lowest level the model supports.
 _REASONING_FLOOR = "minimal"
 
-#: Model ids a provider has refused reasoning-off for, in first-seen order.
-#: Process-lifetime and bounded, keyed by model id only: no tenant or turn data.
 _REASONING_MANDATORY: OrderedDict[str, None] = OrderedDict()
 _REASONING_MANDATORY_MAX = 64
 
@@ -361,15 +347,6 @@ def _chunk_capper(cap: Any) -> ChunkCap:
     return capper
 
 
-# Each entry point sends once more at the reasoning floor when the provider
-# refuses reasoning-off (`_needs_reasoning_floor`). A stream is re-sent only
-# if nothing of it was yielded yet; the refusal comes before the first chunk.
-# Licensed text (``common/licensed_text.py``) is expanded here, after LangChain has
-# reported the messages to every callback, and a call that expanded any returns
-# capped. langchain-core reports each streamed chunk after ``_astream`` yields it
-# (it passes no run manager down), so callbacks see the capped chunk. A caller that
-# does pass one down would have the implementation report before the cap, so a
-# capped stream withholds it and reports the capped chunk itself (``_capped_chunk``).
 def _contract_generate(base: type) -> Any:
     """The contract's ``_generate``, over ``base``'s."""
 
@@ -496,10 +473,6 @@ def _contract_subclass(base: type) -> type:
     _astream = _contract_astream(base)
 
     namespace: dict[str, Any] = {_CONTRACT_MARKER: True, "_generate": _generate, "_agenerate": _agenerate}
-    # LangChain decides whether a model can stream by comparing these attributes
-    # against BaseChatModel's (`_should_stream`). Defining them unconditionally
-    # would advertise streaming for models that do not implement it, so each
-    # override is added only when the base class actually provides one.
     if base._stream is not BaseChatModel._stream:
         namespace["_stream"] = _stream
     if base._astream is not BaseChatModel._astream:
@@ -533,17 +506,6 @@ def enforce_chat_request_contract(llm: Any) -> Any:
     return llm
 
 
-# NOTE on reasoning_effort: we deliberately do NOT translate effort values
-# per model family app-side. Configs use the OpenRouter/OpenAI-standard
-# vocabulary (none/minimal/low/medium/high/xhigh) and the value is passed
-# through verbatim — OpenRouter's unified reasoning API maps a requested
-# effort to the nearest level each model supports, per model, server-side
-# (https://openrouter.ai/docs/guides/best-practices/reasoning-tokens). An
-# app-side mapping table would duplicate (and inevitably drift from) that
-# contract; provider-native tier names like DeepSeek's "max" must NOT appear
-# in configs — OpenRouter rejects/ignores them (use "xhigh").
-
-
 async def get_langchain_llm(builder: Any, ref: Any) -> Any:
     """Resolve a LangChain chat model with fleet-wide OpenRouter defaults applied.
 
@@ -555,11 +517,6 @@ async def get_langchain_llm(builder: Any, ref: Any) -> Any:
     the instance), never here.
     """
     wrapped = await builder.get_llm(ref, wrapper_type=LLMFrameworkEnum.LANGCHAIN)
-    # The agent runtime 1.9 returns the chat model inside a `RunnableConfigurableFields` (its
-    # per-call `model_name` switch) and retry-patches that wrapper. Every
-    # hardening here, and every per-request copy in `model_overrides`, needs the
-    # chat model itself: on the wrapper they fail or no-op silently. So take it
-    # out and retry-patch it with the same settings the agent runtime used.
     config = builder.get_llm_config(ref)
     llm = patch_with_retry(
         wrapped.default,

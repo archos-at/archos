@@ -1,27 +1,3 @@
-/**
- * The change record — the rules (ADR-0109; `docs/architecture/document-annotations.md`).
- *
- * Every change Piloti APPLIES to an Anmerkung or a thread is one row with the
- * turn that made it. This module writes those rows for `lib/annotations/agent.ts`,
- * reads them back for a turn's card, and undoes one.
- *
- * - **Recording** happens right after the annotations service committed the
- *   change: that service runs its own transactions and offers its callers no
- *   hook into them, so the record cannot share one. A record that fails is
- *   logged, not thrown: the change itself landed, and failing the request
- *   would make the turn try it again. A turn without an answer id (an older
- *   agent) records nothing.
- * - **Reading** takes `viewer` on the conversation the turn ran in, and
- *   reading each change's document through the annotations read gate
- *   (`listAnnotations`, which reads the document through `getAccessibleDocument`):
- *   changes on a document the reader may not see are left out, silently.
- * - **Undo** is the same read, then a compare-and-swap against what Piloti left
- *   (`./undo`), then the inverse THROUGH THE ANNOTATIONS SERVICE as the person
- *   clicking, so every rule a person's own edit meets is met again. The undo
- *   is claimed on `undone_at IS NULL` before the inverse runs and given back if
- *   the inverse fails, so two undos at once leave one.
- */
-
 import 'server-only'
 import { ApiError, ConflictError, ForbiddenError, NotFoundError } from '@/lib/api/errors'
 import { createAnnotation, deleteAnnotation, deleteReply, listAnnotations, updateAnnotation } from '@/lib/annotations/service'
@@ -44,26 +20,16 @@ import { planUndo, type UndoPlan } from './undo'
 import type { ChangeState, AgentChangeObject, AgentChangeOp, AgentChangeView, UndoRefusal } from './types'
 import { PRODUCT_NAME } from '@/lib/brand'
 
-// ---------------------------------------------------------------------------
-// Recording
-// ---------------------------------------------------------------------------
-
-/** The turn a change was made in, from the verified envelope and the tool's body. */
 export interface ChangeOrigin {
   organizationId: string
   documentId: string
   conversationId: string
-  /** The answer message the turn writes; null from an agent older than the record. */
   answerMessageId: string | null
-  /** The person the turn acted for. */
   onBehalfOf: string
-  /** Their email, the name the audit trail shows for them. */
   onBehalfOfEmail?: string | null
-  /** The document's project; null on the Büroablage. */
   projectId?: string | null
 }
 
-/** One change a call applied. */
 export interface AppliedChange {
   objectKind: AgentChangeObject
   objectId: string
@@ -71,17 +37,11 @@ export interface AppliedChange {
   op: AgentChangeOp
   before: ChangeState | null
   after: ChangeState | null
-  /** The mark's running number, for the audit trail. */
   annotationNumber?: number | null
 }
 
 let warnedWithoutAnswer = false
 
-/**
- * Record what one of Piloti's calls applied, after it committed: a
- * `agent_changes` row each, then a `piloti.change.applied` audit event each
- * (`./audit`). Never throws: the change already stands.
- */
 export async function recordAgentChanges(origin: ChangeOrigin, changes: readonly AppliedChange[]): Promise<void> {
   if (changes.length === 0) return
   const rows = await insertLedgerRows(origin, changes)
@@ -102,17 +62,11 @@ export async function recordAgentChanges(origin: ChangeOrigin, changes: readonly
       annotationNumber: change.annotationNumber ?? null,
       before: change.before,
       after: change.after,
-      // One call changes each object once, so the object names its row.
       changeId: rows.find((row) => row.objectId === change.objectId)?.id ?? null,
     }))
   )
 }
 
-/**
- * The ledger rows written; none from an agent older than
- * the record (no answer id), and none when the insert failed. The change was
- * applied either way, so the audit trail still hears of it.
- */
 async function insertLedgerRows(origin: ChangeOrigin, changes: readonly AppliedChange[]): Promise<AgentChangeRow[]> {
   if (!origin.answerMessageId) {
     if (!warnedWithoutAnswer) {
@@ -142,14 +96,8 @@ async function insertLedgerRows(origin: ChangeOrigin, changes: readonly AppliedC
   }
 }
 
-// ---------------------------------------------------------------------------
-// Reading
-// ---------------------------------------------------------------------------
-
-/** A document's marks as this reader sees them, or null when the reader may not see the document. */
 interface DocumentMarks {
   marks: ReadonlyMap<string, AnnotationView>
-  /** The reader may set a mark here (what re-setting a deleted one takes). */
   canAnnotate: boolean
 }
 
@@ -167,7 +115,6 @@ type Names = ReadonlyMap<string, { name: string }>
 
 const nameOf = (names: Names, userId: string | null) => (userId ? (names.get(userId)?.name ?? null) : null)
 
-/** Whether this reader could run the plan: the service would refuse them otherwise. */
 function mayRun(plan: UndoPlan, marks: DocumentMarks, current: AnnotationView | undefined, userId: string): boolean {
   switch (plan.kind) {
     case 'recreate':
@@ -175,7 +122,6 @@ function mayRun(plan: UndoPlan, marks: DocumentMarks, current: AnnotationView | 
     case 'delete':
       return Boolean(current?.canDelete)
     case 'delete-reply':
-      // A reply goes only for the person it was posted for (`deleteReply`).
       return Boolean(current?.canEdit && current.replies.some((r) => r.id === plan.replyId && r.createdBy === userId))
     default:
       return Boolean(current?.canEdit)
@@ -205,7 +151,6 @@ function toView(row: AgentChangeRow, marks: DocumentMarks, names: Names, userId:
   }
 }
 
-/** The rows as this reader sees them, oldest first; rows on documents they may not see are left out. */
 async function viewsFor(session: AuthorizedSession, rows: readonly AgentChangeRow[]): Promise<AgentChangeView[]> {
   const documents = new Map<string, DocumentMarks | null>()
   for (const documentId of new Set(rows.map((row) => row.documentId))) {
@@ -218,7 +163,6 @@ async function viewsFor(session: AuthorizedSession, rows: readonly AgentChangeRo
   })
 }
 
-/** What the turn behind answer `messageId` in `conversationId` changed, as it stands now, for this reader. */
 export async function listTurnChanges(
   session: AuthorizedSession,
   conversationId: string,
@@ -229,16 +173,11 @@ export async function listTurnChanges(
   return viewsFor(session, rows)
 }
 
-// ---------------------------------------------------------------------------
-// Undo
-// ---------------------------------------------------------------------------
-
 const REFUSAL_MESSAGES: Record<UndoRefusal, string> = {
   'moved-on': 'This is no longer as ' + PRODUCT_NAME + ' left it, so undoing it would undo somebody else’s change.',
   'already-undone': 'Somebody undid this already.',
 }
 
-/** 409 with the refusal the card names (`moved-on`, `already-undone`); the route puts it on the wire. */
 export class UndoRefusedError extends ConflictError {
   constructor(
     readonly refusal: UndoRefusal,
@@ -248,7 +187,6 @@ export class UndoRefusedError extends ConflictError {
   }
 }
 
-/** The change, if this reader may see it: its conversation and its document. A 404 for "missing" and "not yours" alike. */
 async function loadReadable(
   session: AuthorizedSession,
   id: string
@@ -261,7 +199,6 @@ async function loadReadable(
   return { row, marks }
 }
 
-/** Run the inverse through the annotations service, as the person clicking. */
 async function runPlan(session: AuthorizedSession, row: AgentChangeRow, plan: UndoPlan): Promise<void> {
   switch (plan.kind) {
     case 'dismiss':
@@ -284,14 +221,8 @@ async function runPlan(session: AuthorizedSession, row: AgentChangeRow, plan: Un
   }
 }
 
-/** A failure of the inverse that means the object moved under it: a stale status, or a mark gone meanwhile. */
 const movedUnderneath = (error: unknown) => error instanceof ConflictError || error instanceof NotFoundError
 
-/**
- * Undo one change as `session`'s person, while the object is still as Piloti
- * left it. 409 `already-undone` / `moved-on` otherwise; 403 for a reader who
- * may not edit the mark.
- */
 export async function undoChange(session: AuthorizedSession, id: string): Promise<AgentChangeView> {
   const { row, marks } = await loadReadable(session, id)
   if (row.undoneAt) throw new UndoRefusedError('already-undone')
@@ -311,9 +242,6 @@ export async function undoChange(session: AuthorizedSession, id: string): Promis
   }
   auditUndoneChange(session, row, outcome.plan, current?.number ?? null)
 
-  // One decision, one score. Dismissing a proposal is the annotations service's
-  // own decision, and it scores `annotation dismissed` on the same trace; a
-  // second `change undone` for it would count one decision twice.
   if (outcome.plan.kind !== 'dismiss') {
     await recordDecisionScore({
       organizationId: session.organizationId,

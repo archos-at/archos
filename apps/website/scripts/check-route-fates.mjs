@@ -71,12 +71,9 @@ async function statusOf(path) {
 async function expect(path, fate) {
   checked += 1
   const response = await fetch(`${base}${path}`, { redirect: 'manual' })
-  // HEAD answers what GET answers, without the body (RFC 9110); Astro alone would say 308.
   const head = await fetch(`${base}${path}`, { method: 'HEAD', redirect: 'manual' })
   if (head.status !== response.status) problems.push(`${path}: HEAD ${head.status}, GET ${response.status}`)
   if (fate === 'gone') {
-    // Read the page's text as a crawler does, not its markup: a heading's words may each sit in
-    // their own element (MaskedWords), so a phrase never appears as one run of raw HTML.
     const text = (await response.text()).replace(/<[^>]*>/g, '').replace(/\s+/g, ' ')
     if (response.status !== 410) problems.push(`${path}: ${response.status}, expected 410`)
     else if (!/gibt es nicht mehr|no longer exists/.test(text)) problems.push(`${path}: 410 without the gone page`)

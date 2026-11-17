@@ -36,27 +36,9 @@ import { documents } from './documents'
 
 const list = (values: readonly string[]) => sql.raw(values.map((value) => `'${value}'`).join(', '))
 
-/**
- * Whom a text mentions (migration 0150): an array, and no longer than one
- * message may mention (`MAX_MENTIONS_PER_MESSAGE`). `CASE`, because Postgres
- * does not promise to read an `AND` left to right, and the length of a scalar
- * is an error, not a refusal.
- */
 const mentionsBounded = (column: AnyPgColumn) =>
   sql`CASE WHEN jsonb_typeof(${column}) = 'array' THEN jsonb_array_length(${column}) <= ${sql.raw(String(MAX_MENTIONS_PER_MESSAGE))} ELSE false END`
 
-/**
- * `document_annotations` — a mark set at a place on a page of a document, a
- * point or a region, by a person or proposed by Piloti (migration 0138;
- * CONTEXT.md „Anmerkung").
- *
- * Bound to the document and to the Fassung shown when it was set: a position
- * is true of the sheet somebody looked at. A document fact: every read is keyed
- * by a document its reader's rule already let through
- * (`documents/document-visibility.spec.ts`). The CHECKs carry the two rules no
- * code path may break: only Piloti proposes, and only a person takes a proposal
- * over.
- */
 export const documentAnnotations = pgTable(
   'document_annotations',
   {
@@ -73,7 +55,6 @@ export const documentAnnotations = pgTable(
     h: doublePrecision('h'),
     kind: text('kind').$type<AnnotationKind>().notNull(),
     body: text('body').notNull(),
-    /** Whom `body` mentions, as the server kept them (migration 0150, `lib/annotations/mentions.ts`). */
     mentions: jsonb('mentions').$type<MarkMention[]>().notNull().default([]),
     basis: text('basis'),
     authorKind: text('author_kind').$type<AnnotationAuthor>().notNull(),
@@ -87,20 +68,8 @@ export const documentAnnotations = pgTable(
     acceptedAt: timestamp('accepted_at', { withTimezone: true }),
     closedBy: text('closed_by'),
     closedAt: timestamp('closed_at', { withTimezone: true }),
-    /**
-     * Piloti is the delegate: it works the mark on this person's behalf
-     * (migration 0139, ADR-0105). The mark keeps its human assignee. Set by the
-     * person's own PATCH, cleared when Piloti replies (it hands the mark back)
-     * or the mark closes.
-     */
     delegatedBy: text('delegated_by'),
     delegatedAt: timestamp('delegated_at', { withTimezone: true }),
-    /**
-     * The mark this one was carried from, on the document this one's document
-     * replaced (migration 0151): Index B's mark, gone on with Index C. Once per
-     * source (`uniq_document_annotations_carried_from`); null when the source
-     * is gone.
-     */
     carriedFromId: uuid('carried_from_id'),
   },
   (table) => ({
@@ -123,7 +92,6 @@ export const documentAnnotations = pgTable(
     carriedOnce: uniqueIndex('uniq_document_annotations_carried_from')
       .on(table.carriedFromId)
       .where(sql`${table.carriedFromId} IS NOT NULL`),
-    /** The open marks with a Zuständige and a date, for the daily reminder (migration 0151). */
     dueIdx: index('idx_document_annotations_due')
       .on(table.dueOn)
       .where(sql`${table.status} = 'open' AND ${table.assigneeUserId} IS NOT NULL AND ${table.dueOn} IS NOT NULL`),
@@ -182,7 +150,6 @@ export const documentAnnotations = pgTable(
 export type DocumentAnnotationRow = typeof documentAnnotations.$inferSelect
 export type NewDocumentAnnotationRow = typeof documentAnnotations.$inferInsert
 
-/** `document_annotation_replies` — the thread under one Anmerkung, in order (migration 0138). */
 export const documentAnnotationReplies = pgTable(
   'document_annotation_replies',
   {
@@ -193,11 +160,8 @@ export const documentAnnotationReplies = pgTable(
     body: text('body').notNull(),
     createdBy: text('created_by').notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-    /** The reply addresses Piloti: the composer's mention chip, never a match on the text (migration 0139). */
     addressesAgent: boolean('addresses_agent').notNull().default(false),
-    /** Whom the reply mentions, as the server kept them (migration 0150, `lib/annotations/mentions.ts`). */
     mentions: jsonb('mentions').$type<MarkMention[]>().notNull().default([]),
-    /** When its author last changed its text, by the database's clock; null for one never changed (migration 0152). */
     editedAt: timestamp('edited_at', { withTimezone: true }),
   },
   (table) => ({
@@ -226,13 +190,6 @@ export const documentAnnotationReplies = pgTable(
 
 export type DocumentAnnotationReplyRow = typeof documentAnnotationReplies.$inferSelect
 
-/**
- * `agent_wakes` — one row per event on an Anmerkung that met a wake rule
- * (migration 0139, ADR-0106). Its id is the `bff_job_queue` job id and the
- * turn id, uuid5 of the event (`lib/annotations/wake-ids.ts`), so one event
- * wakes Piloti at most once. The queue forgets a finished job; this row keeps
- * what the wake came to, and the caps count it.
- */
 export const pilotiWakes = pgTable(
   'agent_wakes',
   {
@@ -241,16 +198,12 @@ export const pilotiWakes = pgTable(
     documentId: uuid('document_id').notNull(),
     annotationId: uuid('annotation_id').notNull(),
     triggerKind: text('trigger_kind').$type<AgentWakeTrigger>().notNull(),
-    /** The reply id, or the delegation's event id. */
     eventId: text('event_id').notNull(),
-    /** The person whose act is the event: the turn runs as them. */
     actorUserId: text('actor_user_id').notNull(),
     status: text('status').$type<AgentWakeStatus>().notNull().default('queued'),
-    /** Why it started no turn; set exactly when the status says so. */
     reason: text('reason'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     settledAt: timestamp('settled_at', { withTimezone: true }),
-    /** When it reached its final word: the turn's end, or the settle of one that never started (0141). */
     endedAt: timestamp('ended_at', { withTimezone: true }),
   },
   (table) => ({
@@ -260,7 +213,6 @@ export const pilotiWakes = pgTable(
       foreignColumns: [documentAnnotations.id],
     }).onDelete('cascade'),
     annotationIdx: index('idx_agent_wakes_annotation_created').on(table.annotationId, table.createdAt),
-    /** A document's wakes, the newest of each mark first (0149): `listLatestWakes`, `listAnsweringWakes`. */
     documentIdx: index('idx_agent_wakes_document_annotation_created').on(
       table.documentId,
       table.annotationId,

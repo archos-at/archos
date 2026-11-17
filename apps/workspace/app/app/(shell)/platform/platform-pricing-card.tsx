@@ -1,30 +1,5 @@
 'use client'
 
-/**
- * Platform → overview: the price list (ADR-0053).
- *
- * Two numbers turn what OpenRouter charges into what a tenant sees, and both
- * live here because they are one decision: the margin multiplier (price ÷
- * cost) and the credit price (USD of price per credit). With them sits the
- * allowance every organization is seeded with until its admins set their own
- * limits — a plan size is a platform decision, not a code constant.
- *
- * A save applies to the NEXT generation recorded, fleet-wide. Nothing on the
- * ledger is repriced: what a tenant was shown last month stays what it was.
- * That is also why the card shows the last few versions — the trail is the
- * answer to "since when has it been 2.5×".
- *
- * Until a platform owner saves once, the deployment runs on the boot floor
- * (margin 1, one credit = one US cent) and the card says so, rather than
- * presenting a decision nobody made as if someone had.
- *
- * Every field is read by `parseDecimalInput`, and a field that is not a number
- * is an error that blocks Save. It used to be read by `parseFloat`, which took
- * "2.5x" as 2.5 and "ten" as NaN, and NaN became `null`: on an allowance, `null`
- * is UNLIMITED, so a typo saved "no limit" for every new organization. Blank is
- * still unlimited on the two allowances, and the fields say so.
- */
-
 import type { JSX } from 'react'
 import { type FC, useCallback, useEffect, useMemo, useState } from 'react'
 import { Calculator } from 'lucide-react'
@@ -105,7 +80,6 @@ const FIELD_KEYS: readonly FieldKey[] = [
   'defaultOrgMonthlyCredits',
 ]
 
-/** A field's problem, as a dictionary key plus its variables. */
 interface FieldProblem {
   key:
     | 'numberField.notANumber'
@@ -120,10 +94,8 @@ interface Draft {
   problems: Partial<Record<FieldKey, FieldProblem>>
 }
 
-/** The worked example under the form — a cost every reader can picture. */
 const EXAMPLE_COST_USD = 0.04
 
-/** Credit prices go down to $0.0001, so a rate shows four places, not two. */
 const RATE_DIGITS = { maximumFractionDigits: 4 }
 
 const boundsFor = (key: FieldKey, bounds: BoundsDto): Bounds =>
@@ -133,7 +105,6 @@ const boundsFor = (key: FieldKey, bounds: BoundsDto): Bounds =>
       ? bounds.usdPerCredit
       : bounds.defaultCredits
 
-/** A bound as the reader writes numbers: "0,0001", "100.000.000". */
 const formatBound = (value: number, locale: string): string =>
   new Intl.NumberFormat(locale, { maximumFractionDigits: 4 }).format(value)
 
@@ -142,10 +113,8 @@ const rangeVars = ({ min, max }: Bounds, locale: string): Record<string, string>
   max: formatBound(max, locale),
 })
 
-/** The two rates are required; blank on an allowance is the explicit "unlimited". */
 const isRequired = (key: FieldKey): boolean => key === 'marginMultiplier' || key === 'usdPerCredit'
 
-/** Read every field strictly, against the bounds the server will apply. Pure. */
 export function readPricingDraft(inputs: Inputs, bounds: BoundsDto, locale: string): Draft {
   const draft: Draft = {
     values: {
@@ -185,7 +154,6 @@ const inputsFrom = (pricing: PricingDto, locale: string): Inputs => ({
   defaultOrgMonthlyCredits: formatDecimalInput(pricing.defaultOrgMonthlyCredits, locale),
 })
 
-/** The server's 422 names fields as `marginMultiplier: 0.1–50`; keep the ones we know. */
 const fieldsFromServerErrors = (errors: readonly string[]): FieldKey[] =>
   errors
     .map((error) => error.split(':')[0]?.trim())
@@ -209,7 +177,6 @@ export const PlatformPricingCard: FC<{ onSaved?: () => void }> = ({ onSaved }) =
     defaultOrgMonthlyCredits: '',
   })
   const [note, setNote] = useState('')
-  /** Fields the server refused on the last save, until they are edited. */
   const [serverRefused, setServerRefused] = useState<ReadonlySet<FieldKey>>(new Set())
 
   const load = useCallback(async () => {
@@ -270,8 +237,6 @@ export const PlatformPricingCard: FC<{ onSaved?: () => void }> = ({ onSaved }) =
         const errors = body?.details?.errors ?? []
         const refused = fieldsFromServerErrors(errors)
         setServerRefused(new Set(refused))
-        // The translated sentence leads; the server's own words are the
-        // secondary detail, and only when no field could carry them.
         toast.error(
           t('pricing.saveInvalid'),
           refused.length === 0 && errors.length > 0 ? { description: errors.join('; ') } : undefined
@@ -279,14 +244,10 @@ export const PlatformPricingCard: FC<{ onSaved?: () => void }> = ({ onSaved }) =
         return
       }
       if (!res.ok) throw new Error(String(res.status))
-      // The PUT answers with the new pricing view, so the card updates in place
-      // instead of reloading itself into a skeleton under the reader.
       const body = (await res.json()) as { pricing: PricingDto }
       setPayload((current) => (current ? { ...current, pricing: body.pricing } : current))
       setInputs(inputsFrom(body.pricing, locale))
       setNote('')
-      // Reported on the Save itself („Gespeichert"), and by the fields now
-      // holding the stored values; a toast in the corner said it twice.
       setSavedHere(true)
       onSaved?.()
     } catch {

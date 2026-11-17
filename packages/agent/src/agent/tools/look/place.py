@@ -46,7 +46,6 @@ class PlaceFacts:
     collection: str
     shelf: Shelf
     page: int
-    #: ``(x0, y0, x1, y1)`` shares of the page for a region crop of a page; None for an overview or an embedded image.
     box: tuple[float, float, float, float] | None = None
 
 
@@ -104,7 +103,6 @@ def render_place(facts: PlaceFacts, preamble: str, reading_rows: str, licence: A
         status_note=None,
         body=reading_rows,
         regions=(SourceRegion(box=facts.box),) if facts.box is not None else (),
-        # A licensed page's reading is its text: a reference in the transcript, the text only inside the call.
         licence=licence,
     )
     block = GroundingBlock(preamble=preamble, degraded_banner="", hits=(hit,), lanes=(), tool=TOOL)

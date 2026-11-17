@@ -20,8 +20,6 @@ describe('parseStaticUtilities', () => {
     expect(parseStaticUtilities(css)).toEqual([])
   })
 
-  // The body search must brace-match, not stop at the first `}` — otherwise a
-  // nested block would hide a `--modifier()` that comes after it.
   it('searches the whole block, including nested rules', () => {
     const css = `@utility fancy {\n  &:hover {\n    color: red;\n  }\n  border-color: --modifier(--alpha(x));\n}`
     expect(parseStaticUtilities(css)).toEqual([])
@@ -32,9 +30,6 @@ describe('parseStaticUtilities', () => {
     expect(parseStaticUtilities(css)).toEqual([])
   })
 
-  // A commented-out or merely discussed `--modifier(…)` exempts nothing: read as
-  // code it would make a static utility look modifier-capable, and the guard
-  // would then stop reporting every `bg-warning/15` in the tree.
   it('ignores a --modifier() that only appears inside a comment', () => {
     const css = `@utility bg-warning {\n  /* --modifier(--alpha(x)) would be needed for bg-warning/15 */\n  background-color: var(--warn);\n}`
     expect(parseStaticUtilities(css)).toEqual(['bg-warning'])
@@ -45,8 +40,6 @@ describe('parseStaticUtilities', () => {
     expect(parseStaticUtilities(css)).toEqual(['bg-warning'])
   })
 
-  // `//` is not a CSS comment: blanking it would swallow the rest of the line,
-  // and with it the `--modifier()` that exempts this utility.
   it('does not treat // in a URL as a comment', () => {
     const css = `@utility bg-warning {\n  background-image: url(https://example.test/x.png); border-color: --modifier(--alpha(x));\n}`
     expect(parseStaticUtilities(css)).toEqual([])
@@ -90,8 +83,6 @@ describe('findViolations', () => {
     expect(findViolations(`className="hairline-bg-info/15"`, names)).toEqual([])
   })
 
-  // The two fixed components carry comments naming the broken classes they
-  // replaced; the guard must not turn that documentation into a failure.
   it('ignores class names mentioned in comments', () => {
     const source = [
       '// `border-warning/40` matched nothing and fell back to the neutral border.',
@@ -114,8 +105,6 @@ describe('findViolations', () => {
 })
 
 describe('run', () => {
-  // The real tree must be clean apart from the documented baseline — this is the
-  // assertion that fails the moment someone reintroduces the defect anywhere in src/.
   it('finds no unexpected violations and no stale baseline entries in the repo', () => {
     expect(run()).toEqual({ unexpected: [], stale: [] })
   })

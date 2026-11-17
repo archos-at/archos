@@ -61,8 +61,6 @@ logger = logging.getLogger(__name__)
 
 CARD_TYPE = "file_operation_proposal"
 
-#: One lock per turn's registry: a call's card, its index and the request that
-#: names it are one step, so no sibling call of this tool is between them.
 _registry_locks: weakref.WeakKeyDictionary[CardRegistry, asyncio.Lock] = weakref.WeakKeyDictionary()
 
 

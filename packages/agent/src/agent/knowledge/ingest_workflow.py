@@ -113,44 +113,27 @@ HEAVY_WORKFLOW_NAME = "ingest-document-heavy"
 INDEX_STEP = "index"
 SETTLE_STEP = "settle"
 SETTLE_FAILED_STEP = "settle-failed"
-#: The worker pool's name, as Kubernetes names it.
 WORKER_NAME = "ingest-worker"
-#: The worker label a pool carries, and the high-memory pool's value of it.
 POOL_LABEL = "pool"
 STANDARD_POOL = "standard"
 HEAVY_POOL = "highmem"
-#: The tenant-scoped concurrency limits both workflows share, in this order in both.
 ORG_LIMIT = "ingest-org"
 SUPERSEDE_LIMIT = "ingest-supersede"
 
-#: Jobs one organisation may run at once, fleet-wide, when ``INGEST_MAX_PER_ORG``
-#: is 0. Sixteen is the prod fleet's document slots (8 ingest pods at 2 each), so
-#: an office alone may still use the whole fleet, as it could on the claim queue
-#: without a cap; round robin hands the next free slot to the next office.
 DEFAULT_MAX_RUNS_PER_ORG = 16
 RETRIES = 2
-#: Attempts an ordinary failure (a dropped worker, a timeout, a transient file failure) gets.
 ORDINARY_ATTEMPTS = RETRIES + 1
-#: Waits for in-flight credits one job may spend: ten minutes of them at ``CREDIT_WAIT``.
 CREDIT_WAIT_RETRIES = 10
 INDEX_RETRIES = RETRIES + CREDIT_WAIT_RETRIES
 CREDIT_WAIT = timedelta(seconds=60)
-#: How long new ``index`` starts wait once one has met the 402: half the retry's wait,
-#: so the jobs already running finish their calls and free the credits first.
 CREDIT_PAUSE = timedelta(seconds=30)
 CREDIT_RATE_LIMIT_KEY = "ingest-provider-credits"
-#: The key exists only to be paused, so its limit holds nothing back.
 CREDIT_RATE_LIMIT_PER_SECOND = 10_000
-#: The settle call is one short request; five tries over about four minutes.
 SETTLE_RETRIES = 5
 SETTLE_TIMEOUT = timedelta(seconds=30)
-#: Waits of 8 s, then 64 s, between attempts (Hatchet: factor ** retry count).
 BACKOFF_FACTOR = 8.0
 BACKOFF_MAX_SECONDS = 600
-#: How long a run may wait for a worker before Hatchet gives it up: the life of
-#: the presigned download URL the BFF signs (24 h), after which it could not read.
 SCHEDULE_TIMEOUT = timedelta(hours=24)
-#: The original's size from which a job runs on the high-memory pool.
 DEFAULT_HEAVY_FILE_BYTES = 40 * 1024 * 1024
 
 PRIORITIES: dict[str, Priority] = {"interactive": Priority.HIGH, "bulk": Priority.LOW}
@@ -161,9 +144,6 @@ class IngestDocumentInput(BaseModel):
 
     job_id: str
     organization_id: str
-    #: The document the job indexes, or the job's own id when it names none. None
-    #: only on a run an older release triggered, whose workflow version has no
-    #: supersede limit.
     document_id: str | None = None
     priority: Literal["interactive", "bulk"] = "interactive"
     payload: str
@@ -177,14 +157,6 @@ def _int_env(name: str, default: int, floor: int) -> int:
     return value if value >= floor else default
 
 
-# @environment_variable INGEST_MAX_JOB_SECONDS
-# @category Knowledge Layer
-# @type int
-# @default 7200
-# @required false
-# The longest one attempt of an ingestion job may run: the `execution_timeout` of
-# the `index` step of the `ingest-document` workflows. Past it Hatchet cancels the attempt, the job stops at
-# its next check, and the next attempt starts (the last one settles `interrupted`).
 def max_job_seconds() -> int:
     """``INGEST_MAX_JOB_SECONDS``; unset, not a number or below one is the default."""
     return _int_env("INGEST_MAX_JOB_SECONDS", 7200, floor=1)
@@ -264,7 +236,6 @@ def index_options(heavy: bool = False, *, rate_limit_key: str = CREDIT_RATE_LIMI
         "backoff_factor": BACKOFF_FACTOR,
         "backoff_max_seconds": BACKOFF_MAX_SECONDS,
         "rate_limits": [RateLimit(static_key=rate_limit_key, units=1)],
-        # On the task, not the workflow: the engine refuses tenant-scoped limits on a multi-task workflow.
         "concurrency": concurrency(),
     }
     if heavy:
@@ -284,7 +255,6 @@ def settle_options() -> dict[str, Any]:
 
 
 _lock = threading.Lock()
-#: Each workflow as declared on the client that declared it; rebuilt when the client changes (a test's fake).
 _declared: dict[bool, tuple[object, Any]] | None = None
 
 
@@ -351,7 +321,6 @@ class WorkflowNotRegistered(RuntimeError):
     """No worker has registered the workflow yet: a run triggered now would be dropped, not queued."""
 
 
-#: The client each workflow was last seen registered on; a registration outlives the worker that made it.
 _registered: dict[bool, object] = {}
 
 
@@ -404,7 +373,6 @@ def trigger(
         payload=payload,
     )
     ids = {"job_id": job_id, "document_id": run_input.document_id, "organization_id": run_input.organization_id}
-    # The row was written live a moment ago, so it is not stale before the hold lands.
     with orchestrator_tracing.linked_metadata("ingest-trigger", {**ids, "heavy": heavy}) as metadata:
         try:
             ref = ingest_workflow(heavy).run(
@@ -430,7 +398,6 @@ class _Runtime:
 
 
 _runtime = _Runtime()
-#: The clock an attempt's runtime is read on; a seam for the tests.
 _monotonic = time.monotonic
 
 
@@ -484,7 +451,6 @@ def _wait_for_credits(prepared: PreparedIngestJob, failed: Any, ctx: Context) ->
     """The 402 for credits in flight: pause new starts, keep the row waiting, and try again after ``CREDIT_WAIT``."""
     job_id = prepared.job_id
     logger.warning("Ingestion job %s met the provider's in-flight credit limit; waiting %s", job_id, CREDIT_WAIT)
-    # Back to waiting, so the next attempt runs it (``_settled_before``) and no reader settles it meanwhile.
     ingest_execution.reopen(prepared, failed or ingest_status_store.get(job_id) or prepared.status, ctx.attempt_number)
     ingest_run_hold.hold(job_id, None, hold_seconds())
     try:
@@ -503,11 +469,8 @@ def _stopped(job_id: str, elapsed: float, final: bool) -> dict[str, Any]:
             ingest_execution.settle_timed_out(job_id)
         return {"job_id": job_id, "status": "timed_out"}
     if not ingest_run_hold.stopped_by_person(job_id):
-        # The engine cancelled it for a newer run of the same document (``SUPERSEDE_LIMIT``).
         ingest_execution.settle_superseded(job_id)
         return {"job_id": job_id, "status": "superseded"}
-    # A person stopped it. The cancel settled the row; the run may have written
-    # it live again before it saw the cancel, so settle it once more.
     ingest_status_store.settle_cancelled(job_id)
     return {"job_id": job_id, "status": "cancelled"}
 
@@ -522,7 +485,6 @@ def _ended(prepared: PreparedIngestJob, status, ctx: Context, final: bool) -> di
         ingest_execution.reopen(prepared, status, ctx.attempt_number)
         raise RuntimeError(f"ingestion job {prepared.job_id} failed for the moment; tried again")
     if outcome.state == "failed":
-        # Failed for good; ``settle-failed`` tells the BFF. The category only: a message may name the file.
         raise NonRetryableException(f"ingestion job {prepared.job_id} failed for good")
     return {"job_id": prepared.job_id, "status": status.status.value}
 
@@ -568,7 +530,6 @@ def serve(
                 _runtime.ingestor = None
 
     orchestrator_tracing.instrument(getattr(client, "config", None))
-    # A static key must exist before a step consumes it; it is only ever paused.
     client.rate_limits.put(credit_rate_limit_key(client), CREDIT_RATE_LIMIT_PER_SECOND, RateLimitDuration.SECOND)
     worker = client.worker(
         f"{WORKER_NAME}-heavy" if heavy else WORKER_NAME,

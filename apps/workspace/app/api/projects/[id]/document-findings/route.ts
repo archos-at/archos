@@ -1,9 +1,3 @@
-/**
- * What a project's documents say about each other: missing documents and
- * drawings, contradicting facts, incomplete reads (`docs/architecture/document-dossier.md`).
- * Thin handler; the logic lives in `@/lib/documents/findings-service`.
- */
-
 import { apiRoute, parseQuery } from '@/lib/api/handler'
 import { getProjectDocumentFindings } from '@/lib/documents/findings-service'
 import { documentFindingsQuerySchema } from '@/lib/documents/findings-wire'

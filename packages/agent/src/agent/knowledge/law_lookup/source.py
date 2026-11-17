@@ -41,13 +41,9 @@ class LawSource:
 
     source: Source
     lookup: Lookup
-    #: The ``rest`` access type, configured from the record: it builds every request.
     access: object
-    #: The format engine, configured from the record: it reads every response.
     engine: object
     grammar: Grammar
-    #: What :func:`public_sources.routing.source_transport` is handed: the id of a repository record,
-    #: the record itself for a configured one (whose hosts the fetcher cannot look up).
     transport_key: str | Source
 
     @property

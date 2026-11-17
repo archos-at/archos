@@ -34,29 +34,15 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-#: The decision slot (``status:decision:experience_verify``, ``decide.experience_verify``).
 SLOT = "experience_verify"
 
-#: p(stated) below which a proposed token is not suggested: only a clear
-#: contradiction. Measured (``decision_eval_office.py verify``, 10 Oct 2026, 32
-#: hand-labelled quotes from the fixture office, 17 stating their value): no
-#: quote stating a wrong value scored above 0.32, but quotes that state the
-#: value only through what a reader knows scored low — „Stadtgemeinde
-#: Mödling" for Niederösterreich 0.24, „Klassenräume" for Bildung 0.19 in one
-#: run and 0.14 in the next. At 0.5 the check dropped 5-6 of 17 correct values.
-#: At 0.1 it keeps all 17 in both runs and still rejects the pen's realistic
-#: slips (5-6 of 15): Holzbau quoted as Massivbau 0.04, the 2019 edition offered
-#: as 2015 0.05, a factory hall offered as housing 0.03.
+# 2026-10-10, 32 labelled quotes: wrong <= 0.32, correct >= 0.14; 0.1 keeps all 17 correct, rejects slips (0.03-0.05).
 STATED_THRESHOLD = 0.1
 
-#: Keys the check leaves to the pen: their value may be derived, not stated.
-#: ``gebaeudeklasse`` is the name a BFF that has not rolled yet still sends.
 UNCHECKED_KEYS = frozenset({"building_class", "gebaeudeklasse"})
 
-#: How many of a value's quotes the decider reads.
 MAX_QUOTES = 3
 
-#: The facts as a German reader names them; the state carries the user's language, the question English.
 FACT_LABELS = {
     "federal_state": "Bundesland",
     "construction_method": "Bauweise",
@@ -64,7 +50,6 @@ FACT_LABELS = {
     "work_type": "Art des Vorhabens",
     "oib_edition": "OIB-Richtlinien-Ausgabe, nach der geplant wurde",
 }
-# The German keys a BFF that has not rolled yet still sends.
 FACT_LABELS.update(
     {
         "bundesland": FACT_LABELS["federal_state"],

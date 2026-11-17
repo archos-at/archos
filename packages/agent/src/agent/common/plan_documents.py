@@ -32,17 +32,12 @@ from pydantic import ConfigDict
 from pydantic import Field
 from pydantic import model_validator
 
-#: Enough for a Grundlage of a real submission (ten documents is a large one)
-#: and small enough that the plan card stays readable.
 MAX_PLAN_DOCUMENTS = 20
 MAX_DOCUMENT_NAME_CHARS = 256
 MAX_DOCUMENT_TITLE_CHARS = 256
 MAX_SHELF_CHARS = 64
 
 
-#: The German keys the lists carried before the English names. A pod that has
-#: not rolled yet, a task row frozen before the migration and a plan checkpoint
-#: still hold them; read-only, nothing writes these.
 LEGACY_PLAN_DOCUMENT_KEYS = {"grundlage": "basis", "ausgeschlossen": "excluded"}
 _LEGACY_KEYS = {new: old for old, new in LEGACY_PLAN_DOCUMENT_KEYS.items()}
 

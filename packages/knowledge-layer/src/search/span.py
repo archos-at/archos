@@ -109,8 +109,6 @@ def _fetch_fields(search: Any, merged: Any, overview: Any, coverage: Any) -> dic
         "tool": "knowledge_search",
         "prefiltered": search.pushdown.fields(user_shelves=bool(search.user_collections)),
         "normalized_query": normalized_query_for_span(search.query),
-        # How the store reads and fuses its channels (``vector_store/search.py``
-        # ``RANKING``): traces either side of a ranking change are told apart.
         "ranking": RANKING.label(),
     }
     named = {
@@ -125,7 +123,6 @@ def _fetch_fields(search: Any, merged: Any, overview: Any, coverage: Any) -> dic
     fields["requery_fired"] = bool(search.requery_fired)
     fields.update(_drop_fields(search))
     if overview is not None:
-        # "fetch": the members were read by filter, no embedding (ADR-0115).
         fields["family_read"] = "fetch" if overview.structural else "retrieve"
     if coverage is not None:
         fields["coverage"] = "insufficient"
@@ -147,7 +144,6 @@ def _drop_fields(search: Any) -> dict[str, int]:
     if search.dropped_by_family:
         fields["dropped_by_family"] = search.dropped_by_family
     if search.engine.drop_noise:
-        # Stated whenever the filter is on, zero included: a zero is a measurement.
         fields["dropped_as_noise"] = search.dropped_as_noise
     return fields
 

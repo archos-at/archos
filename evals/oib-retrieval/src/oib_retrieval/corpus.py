@@ -43,19 +43,13 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-#: Production's splitter settings (``knowledge_layer.ingest.adapter`` defaults).
 CHUNK_SIZE = 1024
 CHUNK_OVERLAP = 128
 
-#: The two chunking strategies under test. ``page`` is what shipped; ``punkt`` is the
-#: replacement. Names are used as arm labels throughout the report.
 ARM_PAGE = "page"
 ARM_CLAUSE = "punkt"
 ARMS = (ARM_PAGE, ARM_CLAUSE)
 
-#: What one cached page looks like. Bump it whenever ``_extract_text_from_pdf`` changes
-#: the keys or the text it returns, so every entry written by the old extractor misses.
-#: 2: captioned tables cut out of ``text`` into ``tables`` / ``table_boxes``.
 PAGE_SHAPE_VERSION = 2
 
 
@@ -238,9 +232,6 @@ def _chunks_from_documents(documents: list[Any], file_name: str, arm: str) -> li
         try:
             page = int(str(page_label))
         except TypeError, ValueError:
-            # A node with no usable page cannot be cited, so it cannot be scored either.
-            # Skipping it is the honest choice: counting it would let an arm pad its
-            # ranking with results the product could never show.
             logger.debug("Skipping chunk with unusable page_label %r in %s", page_label, file_name)
             continue
         chunks.append(

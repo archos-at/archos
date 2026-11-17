@@ -6,12 +6,6 @@ import { projects } from './projects'
 export const MAIL_IMPORT_STATUSES = ['uploading', 'queued', 'importing', 'completed', 'failed', 'cancelled'] as const
 export type MailImportStatus = (typeof MAIL_IMPORT_STATUSES)[number]
 
-/**
- * An import's lifecycle (ADR-0179). The browser sends the archive
- * (`uploading`), the person's last chunk queues it, the job imports it. A
- * person may cancel until it has ended; the job may end a run it has not yet
- * marked `importing`. Every end is final.
- */
 export const MAIL_IMPORT_LIFECYCLE = defineLifecycle<MailImportStatus, 'queue' | 'start' | 'complete' | 'fail' | 'cancel'>({
   id: 'mail-import',
   initial: 'uploading',
@@ -25,13 +19,6 @@ export const MAIL_IMPORT_LIFECYCLE = defineLifecycle<MailImportStatus, 'queue' |
   },
 })
 
-/**
- * Why a mail or one of its files was not filed. Kept in a JSON column, so no
- * CHECK holds the list. `screened`: the office's name screening (ADR-0086)
- * holds the name back, the Outlook folder path included. `access`: a folder
- * that turned read-only under the import. `name_taken`: a name another
- * document of the project claimed between the probe and the upload (ADR-0087).
- */
 export type MailImportSkipReason =
   | 'embedded_message'
   | 'type'
@@ -41,7 +28,6 @@ export type MailImportSkipReason =
   | 'access'
   | 'name_taken'
 
-/** Why an import ended without filing everything (migration 0108 holds the list). */
 export type MailImportErrorCode =
   | 'unreadable'
   | 'quota'
@@ -52,17 +38,11 @@ export type MailImportErrorCode =
   | 'upload_expired'
 
 export interface MailImportSkippedSample {
-  /** The mail's folder name (`<date time> – <sender>`), or `#<position>` for an item that could not be read. */
   mail: string
-  /** The file, when one file of a mail was skipped. */
   file: string | null
   reason: MailImportSkipReason
 }
 
-/**
- * An Outlook archive a member is filing into a project (ADR-0085). Migration
- * 0108 holds the bounds and says why each column exists.
- */
 export const mailImports = pgTable(
   'mail_imports',
   {
@@ -85,17 +65,13 @@ export const mailImports = pgTable(
     nextPosition: integer('next_position').notNull().default(0),
     inflightPosition: integer('inflight_position'),
     inflightFolderId: uuid('inflight_folder_id'),
-    /** Failures since the cursor last moved (migration 0108, "Retries are counted here"). */
     failureStreak: integer('failure_streak').notNull().default(0),
     mailsFiled: integer('mails_filed').notNull().default(0),
     filesFiled: integer('files_filed').notNull().default(0),
     itemsSkipped: integer('items_skipped').notNull().default(0),
     filesSkipped: integer('files_skipped').notNull().default(0),
-    /** E-Mail-Verläufe the import opened (D33, migration 0196). */
     threadsCreated: integer('threads_created').notNull().default(0),
-    /** Verläufe that were there before the import and took at least one of its mails. */
     threadsAppended: integer('threads_appended').notNull().default(0),
-    /** Mails whose text the project already held (the same Message-ID), so it was not filed again. */
     alreadyInProject: integer('already_in_project').notNull().default(0),
     skippedSamples: jsonb('skipped_samples').$type<MailImportSkippedSample[]>().notNull().default([]),
     errorCode: text('error_code').$type<MailImportErrorCode>(),

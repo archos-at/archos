@@ -2,10 +2,6 @@
 
 from agent.lazy_exports import lazy_exports
 
-# Loaded on first use (PEP 562): importing any submodule of this package
-# executes this file first, and the registrations pull in the whole agent
-# graph. The agent runtime finds them through the entry points in `pyproject.toml`, which
-# name the register modules themselves (docs/audit/blast-radius-2026-10.md).
 _LAZY = {
     "deep_research_agent": ".register",
 }

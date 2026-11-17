@@ -339,7 +339,6 @@ def find_tmp_upload_names(store, collection: str, filenames: list[str]) -> list[
         return []
     from sqlalchemy import text
 
-    # tmp + exactly eight characters + a literal underscore + the name.
     patterns = {f"p{index}": f"tmp{'_' * 8}\\_{_escape_like(name)}" for index, name in enumerate(names)}
     where = " OR ".join(f"filename LIKE :{key} ESCAPE '\\'" for key in patterns)
     try:

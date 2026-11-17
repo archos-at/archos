@@ -23,10 +23,6 @@ import { fileURLToPath } from 'node:url'
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const WEBSITE = join(REPO, 'apps/website')
 
-// ---------------------------------------------------------------------------
-// Copy rules (Markenbasis "Sprachregeln" and the design system's German copy rules)
-// ---------------------------------------------------------------------------
-
 /** Pictographs and emoji. Allowed typographic glyphs (→ ← · × © –) are outside these ranges. */
 const EMOJI = /[\p{Emoji_Presentation}\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B50}\u{2B55}]/u
 
@@ -120,10 +116,6 @@ export function stringLeaves(value, path = []) {
   return []
 }
 
-// ---------------------------------------------------------------------------
-// CSS rules (design system: colours only through tokens, app-only tokens stay in the app)
-// ---------------------------------------------------------------------------
-
 /** Token families that exist only in the workspace's layer (tokens.json "scope": "app"). */
 const APP_ONLY = /var\(--(?:shadow-(?:raised|floating|modal)|radius-(?:inline|control|surface|overlay|bubble|full|sm|lg|xl))\b/
 
@@ -149,10 +141,6 @@ export function cssFindings(css, defined) {
 export function definedProperties(tokensCss) {
   return new Set([...tokensCss.matchAll(/--([a-z0-9-]+)\s*:/g)].map((m) => m[1]))
 }
-
-// ---------------------------------------------------------------------------
-// Media rule: AI-generated images carry the AITag
-// ---------------------------------------------------------------------------
 
 /**
  * The website's AI-generated images, by file stem: Astro's <Image> serves them from
@@ -203,10 +191,6 @@ export function aiTagFindings(html) {
   }
   return out
 }
-
-// ---------------------------------------------------------------------------
-// Runner
-// ---------------------------------------------------------------------------
 
 function filesUnder(dir, suffix) {
   if (!existsSync(dir)) return []

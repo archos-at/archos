@@ -1,7 +1,3 @@
-/**
- * intakeQuestionsStep namespace: step 4, Rückfragen: one question at a time, only what changes the classification
- * (`/app/projects/[id]/setup`, ticket 26, `docs/design/project-setup-five-steps.md`).
- */
 export const intakeQuestionsStep = {
   heading: 'Questions',
   subtitle: 'Only what changes the classification',

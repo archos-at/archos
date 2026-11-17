@@ -15,19 +15,6 @@ from typing import Any
 from pydantic import BaseModel
 from pydantic import field_validator
 
-# The three inline constructs that are UNAMBIGUOUSLY markup: a link or image
-# target, a doubled emphasis delimiter, and a code span. Each is meaningless as
-# literal text in an Austrian legal citation, and each is something an LLM writes
-# into a JSON string without noticing that the string is not prose.
-#
-# What is deliberately NOT here is the ambiguous half of markdown. Single `*`
-# and `_` emphasis, a leading `- ` or `#`, and `<https://…>` autolinks all occur
-# for their own reasons in the text these fields carry — footnote markers in an
-# OIB table, a dash inside „§ 3 - Abs. 1“, a heading character in a Bescheid
-# reference. `original_text` is documented as a LITERAL excerpt from the source,
-# and mangling a verbatim legal quotation is a worse defect than an asterisk.
-# Doubled delimiters have no such second reading, which is why the line is drawn
-# there rather than at "everything CommonMark would call emphasis".
 _MD_LINK = re.compile(r"!?\[([^\]\n]*)\]\(\s*<?([^)\s]*)>?(?:\s+\"[^\"\n]*\")?\s*\)")
 
 

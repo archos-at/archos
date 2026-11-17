@@ -1,10 +1,3 @@
-/**
- * A search answer as `POST /api/search` gives it, for the `/dev/search`
- * preview and the organism's specs: Lena's Tuesday from
- * `docs/design/document-search.md`, two Wiener projects, the passage on S. 7,
- * the annotation on EP-03, yesterday's conversation about OIB-RL 2.
- */
-
 import type { DocumentHit, SearchResponse } from '@/lib/search/search-wire'
 import type { SavedSearchView } from '@/lib/search/saved-search-client'
 
@@ -257,11 +250,6 @@ export const SEARCH_FIXTURE_SAVED: SavedSearchView[] = [
 const drawing = (n: number, partial: Partial<DocumentHit> & Pick<DocumentHit, 'name'>): DocumentHit =>
   doc({ id: `d0000000-0000-4000-8000-0000000001${String(n).padStart(2, '0')}`, matchedOn: ['reading'], ...partial })
 
-/**
- * The rest of the Seestadt Einreichung, for the register at 09:10: a
- * Planliste has more than three rows. Only the register preview reads these;
- * the list's answer stays Lena's 08:55 search.
- */
 export const SEARCH_FIXTURE_REGISTER_DOCUMENTS: DocumentHit[] = [
   drawing(1, { name: 'EP-01_Lageplan', title: 'Lageplan', planNumber: 'EP-01', planIndex: 'A', planDate: '2026-09-12', scale: '1:500' }),
   drawing(2, { name: 'EP-02_Grundriss_KG', title: 'Grundriss Kellergeschoss', planNumber: 'EP-02', planIndex: 'B', planDate: '2026-10-01', scale: '1:100' }),

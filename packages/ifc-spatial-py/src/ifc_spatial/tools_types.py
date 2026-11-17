@@ -6,10 +6,6 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
-# `env`, not `envelope`: `envelope.py` is the ANSWER CONTRACT (`Answer`,
-# `computed`, `undecidable`) and `envelope_geometry.py` is the thermal envelope.
-# Two unrelated meanings of one word, one of which is imported from below.
-
 
 @dataclass(frozen=True)
 class ToolDef:

@@ -1,36 +1,12 @@
 import { dump } from "js-yaml";
 
-/**
- * An OpenTelemetry Collector configuration, built from fragments.
- *
- * Each consumer or source of telemetry (Langfuse, PostHog logs, PostHog
- * metrics, a scrape) is one {@link CollectorFragment}: the components it
- * needs and the pipelines that wire them. {@link composeCollectorConfig}
- * merges the fragments and adds what every collector in this stack carries,
- * so the invariants live in one place instead of in each caller:
- *
- * - **Every OTLP signal has a pipeline.** The OTLP receiver answers a signal
- *   no pipeline carries with an error, which every producer then logs on each
- *   export. A signal nothing consumes goes to the collector's own `nop`
- *   exporter, which accepts and discards.
- * - **Every pipeline starts with `memory_limiter` and ends its processors with
- *   `batch`,** in the order the collector requires: back-pressure first,
- *   batching last.
- * - **Names are unique.** Two fragments declaring one component name is a
- *   wiring mistake, and is refused here rather than silently overwritten.
- *
- * The result is serialised once, to YAML, by {@link renderCollectorConfig}.
- */
-
 export type Signal = "traces" | "logs" | "metrics";
 export const SIGNALS: readonly Signal[] = ["traces", "logs", "metrics"];
 
-/** A component's configuration, exactly as the collector reads it. */
 export type ComponentConfig = Record<string, unknown> | null;
 
 export interface Pipeline {
   receivers: string[];
-  /** The fragment's own processors; `memory_limiter` and `batch` are added around them. */
   processors?: string[];
   exporters: string[];
 }
@@ -39,7 +15,6 @@ export interface CollectorFragment {
   receivers?: Record<string, ComponentConfig>;
   processors?: Record<string, ComponentConfig>;
   exporters?: Record<string, ComponentConfig>;
-  /** Keyed `<signal>` or `<signal>/<name>`, as the collector names pipelines. */
   pipelines?: Record<string, Pipeline>;
 }
 
@@ -58,7 +33,6 @@ export const OTLP_GRPC_PORT = 4317;
 export const OTLP_HTTP_PORT = 4318;
 export const HEALTH_PORT = 13133;
 
-/** The receiver every producer sends to. */
 export const OTLP_RECEIVER = "otlp";
 
 const BASE_PROCESSORS: Record<string, ComponentConfig> = {
@@ -66,13 +40,6 @@ const BASE_PROCESSORS: Record<string, ComponentConfig> = {
   batch: { timeout: "5s", send_batch_size: 1024 },
 };
 
-/**
- * A bounded queue and a bounded retry for an exporter that leaves the cluster.
- * Exporters on one pipeline share a fate for back-pressure, so an unbounded
- * queue behind a slow consumer would grow collector memory until
- * `memory_limiter` refused the pipeline's traffic. Nothing here is in a request
- * path: dropped telemetry is the accepted failure.
- */
 export function boundedDelivery(queueSize: number): Record<string, unknown> {
   return {
     sending_queue: { enabled: true, queue_size: queueSize },
@@ -80,7 +47,6 @@ export function boundedDelivery(queueSize: number): Record<string, unknown> {
   };
 }
 
-/** Which signal a pipeline carries, from its name (`metrics/posthog` -> `metrics`). */
 export function pipelineSignal(name: string): Signal {
   const signal = name.split("/")[0] as Signal;
   if (!SIGNALS.includes(signal)) throw new Error(`collector pipeline "${name}" names no signal`);
@@ -94,11 +60,6 @@ function mergeUnique<T>(kind: string, into: Record<string, T>, from: Record<stri
   }
 }
 
-/**
- * Merge `fragments` into one configuration. `otlpReceiver` false builds a
- * collector that takes no OTLP at all (a scrape-only agent), which then needs
- * no pipeline per signal.
- */
 export function composeCollectorConfig(
   fragments: CollectorFragment[],
   { otlpReceiver = true }: { otlpReceiver?: boolean } = {},
@@ -152,7 +113,6 @@ export function composeCollectorConfig(
   };
 }
 
-/** The collector's config file. YAML for the operator reading the ConfigMap; nothing in it is anchored or folded. */
 export function renderCollectorConfig(config: CollectorConfig): string {
   return dump(config, { lineWidth: -1, noRefs: true, sortKeys: false });
 }

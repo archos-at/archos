@@ -8,7 +8,6 @@ export interface TimelineStep {
 
 export interface TimelineProps {
   steps: TimelineStep[];
-  /** Index of today's step, default 0 */
   current?: number;
   className?: string;
 }

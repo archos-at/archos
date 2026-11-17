@@ -34,8 +34,6 @@ import re
 from agent.common.content_screen import DETECTORS_ONLY
 from agent.common.content_screen import find_spans
 
-#: The kinds a refusal names, in the order they are looked for. The first five
-#: are the content screen's detectors.
 SECRET_KINDS = (
     "iban",
     "at_svnr",
@@ -56,8 +54,6 @@ _TOKEN = r"[^ \t\r\n ]+"
 
 _PRIVATE_KEY = re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----")
 
-#: Tokens that say what they are by their prefix: the shapes the providers
-#: document and gitleaks' default rules key on.
 _API_KEY = re.compile(
     r"(?<![A-Za-z0-9])(?:"
     r"sk[-_](?:live|test|proj|ant|or)[-_][A-Za-z0-9_-]{3,}"
@@ -73,26 +69,19 @@ _API_KEY = re.compile(
     r"|eyJ[A-Za-z0-9_-]{8,}\.eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}"
     r")"
 )
-#: A long unbroken run with no prefix to name it: judged by `_is_random_token`.
 _LONG_TOKEN = re.compile(r"(?<![A-Za-z0-9+=_-])[A-Za-z0-9+=_-]{24,}(?![A-Za-z0-9+=_-])")
 _TOKEN_SPLIT = re.compile(r"[-_]")
 _RANDOM_MIN_CHARS = 24
 _RANDOM_MIN_EACH = 6
 
-#: A word that says the next token is a credential. A long one may end a
-#: compound („WLAN-Passwort", „Serverkennwort"); a short one stands alone.
 _STRONG_LABEL = (
     r"(?:(?:passwor[dt]|passwd|kennwort|passphrase|losungswort|api[ _-]?key|api[ _-]?schl(?:ü|ue)ssel"
     rf"|client[ _-]?secret)|(?<![{_WORD}])(?:pw|pwd|secret|token))(?![{_WORD}])"
 )
-#: Group 1: an explicit ``:`` or ``=``. Group 2: the value.
 _LABELLED_VALUE = re.compile(
     rf"{_STRONG_LABEL}(?:{_SP}*([:=]){_SP}*|{_SP}+(?:(?:ist|lautet|is){_SP}+)?)({_TOKEN})",
     re.IGNORECASE,
 )
-#: A word that MAY introduce a credential („Projektserver-Zugang: …", „Login
-#: Planserver: …"): what follows its colon on the line (group 1) is searched
-#: for a token only a password looks like.
 _WEAK_LABEL = re.compile(
     r"(?:zugang(?:sdaten)?|log-?in|anmeld(?:ung|edaten)|account)[^:=\r\n]{0,30}[:=]([^\r\n]{0,80})",
     re.IGNORECASE,
@@ -115,7 +104,6 @@ _UPPER = re.compile(r"[A-ZÄÖÜ]")
 _DIGIT = re.compile(r"[0-9]")
 _ALL_DIGITS = re.compile(r"[0-9]+")
 
-#: A label of an identity or tax number (group 1: what follows on its line).
 _IDENTITY_LABEL = re.compile(
     rf"(?:steuernummer|steuer-?nr|(?<![{_WORD}])st\.?-?nr|personalausweis|reisepass|ausweisn(?:ummer|r)"
     r"|passn(?:ummer|r)|f(?:ü|ue)hrerschein|sozialversicherungsn(?:ummer|r)"
@@ -123,19 +111,10 @@ _IDENTITY_LABEL = re.compile(
     re.IGNORECASE,
 )
 _IDENTITY_MIN_DIGITS = 6
-#: A US social-security number as it is written, with its dashes. It has no
-#: checksum, so the unbroken nine digits are not counted: that is any order,
-#: article or file number.
 _US_SSN = re.compile(r"(?<![0-9-])[0-9]{3}-[0-9]{2}-[0-9]{4}(?![0-9-])")
 
 _EMAIL = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+")
-#: A date is a run of digits with separators too, and a deadline written
-#: 12/03/2027 is precisely what a project memory exists to carry: blanked
-#: before a phone number is looked for.
 _DATE_SHAPE = re.compile(r"(?<![0-9])(?:[0-9]{1,2}[./-][0-9]{1,2}[./-][0-9]{2,4}|[0-9]{4}-[0-9]{2}-[0-9]{2})(?![0-9])")
-#: A number someone can call says so: an international prefix, a trunk zero, or
-#: a label. A bare run of digit groups is a drawing number, a dimension chain or
-#: an article number far more often than a phone number in a planning office.
 _PHONE_INTERNATIONAL = re.compile(r"(?<![A-Za-z0-9])(?:\+|00)[1-9][0-9 ()/-]{5,}[0-9]")
 _PHONE_NATIONAL = re.compile(
     r"(?<![A-Za-z0-9.,/-])0[1-9](?:[0-9]{7,12}|[0-9]{0,4}[ /-]{1,3}\(?[0-9][0-9 ()/-]{3,}[0-9])(?![0-9])"

@@ -13,15 +13,7 @@ import hashlib
 import re
 from typing import Any
 
-#: A slash as one or two rounds of JSON may have escaped it: ``/``, ``\/``, ``\\\/``.
 _SLASH = r"\\{0,3}/"
-#: One inline image: the data URL, whatever carries it.
-#:
-#: * ``;base64,`` payloads, including a slash JSON escaped once or twice, and a payload wrapped into
-#:   lines (MIME's 76 characters) by a real line break or an escaped one (``\n``, ``\\n``);
-#: * media-type parameters before the payload (``;charset=utf-8``);
-#: * a payload that is not base64 (``data:image/svg+xml,%3Csvg…``), up to the first quote, space or
-#:   bracket that ends a URL.
 _DATA_URL = re.compile(
     rf"data:image{_SLASH}[A-Za-z0-9.+-]+(?:;[A-Za-z0-9.=_-]+)*?"
     rf"(?:;base64,(?:[A-Za-z0-9+=_-]|{_SLASH}|\\{{1,3}}[rn]|[\r\n])+"

@@ -1,28 +1,5 @@
 'use client'
 
-/**
- * Dev preview for read/write folder access in the project Files view
- * (ADR-0088, ADR-0097).
- *
- * The REAL `FileBrowserPane`, three times, as three people see one project:
- * a writer (Jana Weber, Projektleitung), a person who may only read two of the
- * folders (Tom Berger, Buchhaltung) and an organization admin. The lock on a
- * folder with its own list, saying in its tooltip whether every project member
- * reads it; „Nur lesen" on a folder the person may open but not change, whose
- * menu offers no write entries and which takes no drop; „Honorare" absent for
- * the two who may not read it. The admin's ⋯ menu carries „Zugriff…" and opens
- * the real `FolderAccessDialog`.
- *
- * A module-scope fetch shim (browser + dev only) serves the project's members
- * and each folder's list (`GET …/access`), answers the access PUT with three
- * documents moved, and applies the change to the fixture so the lock appears
- * or goes.
- *
- * `?dialog=custom` opens the dialog on „Verträge" (own list), and
- * `?dialog=inherit` on „Pläne" (inherits), for captures. Not linked from
- * anywhere and 404s outside development.
- */
-
 import { projectSearchScope } from '@/features/documents/lib/file-shelf'
 import type { JSX } from 'react'
 import { useEffect, useState } from 'react'
@@ -35,7 +12,6 @@ import type { FileItem, FolderItem } from '@/features/documents/components/proje
 import { useFileSearch } from '@/features/documents/hooks/use-file-search'
 import { SectionLabel } from '@/components/ui/section-label'
 
-/** `GET /api/projects/[id]/members`: the organization, each with their project role (null = none). */
 const MEMBERS = [
   { userId: 'u-claudia', name: 'Claudia Hofer', email: 'c.hofer@buero.example', role: 'project-admin' },
   { userId: 'u-jana', name: 'Jana Weber', email: 'j.weber@buero.example', role: 'project-editor' },
@@ -44,14 +20,6 @@ const MEMBERS = [
   { userId: 'u-max', name: 'Max Aigner', email: 'm.aigner@buero.example', role: null },
 ].map((member) => ({ ...member, organizationMembershipId: `om-${member.userId}`, profilePictureUrl: null }))
 
-/**
- * Each folder's own list (ADR-0097), as `GET …/access` answers it:
- *
- *   Pläne      — inherits the project
- *   Verträge   — Claudia Hofer: Bearbeiten, Jana Weber: Bearbeiten, Tom Berger: Lesen
- *   Honorare   — Claudia Hofer: Bearbeiten
- *   Statik     — alle Projektmitglieder lesen, Jana Weber: Bearbeiten
- */
 const INITIAL_ACCESS: Record<string, FolderAccessSetting> = {
   'f-plaene': { mode: 'inherit' },
   'f-vertraege': {
@@ -67,7 +35,6 @@ const INITIAL_ACCESS: Record<string, FolderAccessSetting> = {
   'f-statik': { mode: 'custom', everyoneReads: true, people: [{ userId: 'u-jana', level: 'write' }] },
 }
 
-/** The listing's view of a list: only whether everyone reads it. */
 const ownAccessOf = (access: FolderAccessSetting | undefined): FolderItem['ownAccess'] =>
   access?.mode === 'custom' ? { everyoneReads: access.everyoneReads } : null
 
@@ -86,12 +53,6 @@ const INITIAL_FOLDERS: FolderItem[] = [
   folderRow('f-statik', 'Statik'),
 ]
 
-/**
- * What three people see, as the server's listing would answer them: the
- * folders they may read, each with what they may do there. Fixed here rather
- * than computed, because the decision is the server's (`effectiveFolderLevel`)
- * and a preview that re-derived it would be a second copy of the rule.
- */
 const PERSONAS = {
   writer: {
     title: 'Jana Weber (Projekt-Editor)',

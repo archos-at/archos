@@ -1,19 +1,5 @@
 #!/usr/bin/env python3
 
-"""Every environment variable the queue workers read has a row in the env reference.
-
-``docs/contributing/obligations.md`` asks for a row in ``docs/deployment/environment-variables.md`` for
-every variable a change adds, and nothing checked it, so an operator tuning a
-worker found the knob only by reading its source. This checks the files that
-claim, heartbeat, reap and purge (``SCOPE``); a wider scope joins once it passes.
-
-A Python read is a literal passed to ``os.environ``/``getenv``, to an
-``*_env``/``_flag`` reader, or assigned to an ``*_ENV`` constant. A JavaScript or
-TypeScript read is ``env.NAME`` or ``env['NAME']``. A row is a table line that
-starts ``| `NAME` |``.
-
-Usage: python scripts/check_env_docs.py. Exit code 0 when every name has a row.
-"""
 
 from __future__ import annotations
 
@@ -35,7 +21,6 @@ SCOPE = (
     "apps/workspace/bff/mail-import/*.ts",
 )
 
-#: Read but not ours to document: the container runtime sets it.
 NOT_OURS = frozenset({"HOSTNAME"})
 
 _NAME = r"([A-Z][A-Z0-9_]*)"
@@ -46,14 +31,12 @@ DOC_ROW = re.compile(rf"^\|\s*`{_NAME}`\s*\|", re.MULTILINE)
 
 
 def names_read(path: str, source: str) -> set[str]:
-    """The environment variables ``source`` (the file at ``path``) reads."""
     if path.endswith(".py"):
         return set(PY_READ.findall(source)) | set(PY_CONST.findall(source))
     return {dotted or indexed for dotted, indexed in JS_READ.findall(source)}
 
 
 def undocumented(sources: dict[str, str], doc: str) -> dict[str, list[str]]:
-    """Each name read in ``sources`` with no row in ``doc``, with the files that read it."""
     rows = set(DOC_ROW.findall(doc))
     missing: dict[str, list[str]] = {}
     for path, source in sorted(sources.items()):

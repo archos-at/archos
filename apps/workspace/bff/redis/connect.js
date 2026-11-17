@@ -40,7 +40,6 @@ function createRedisClient(url, label, options = {}) {
   let downSince = null
   let attempts = 0
   client.on('ready', () => {
-    // ioredis reads this option on every command, so turning it off here takes effect at once.
     if (!options.queueWhileDown) client.options.enableOfflineQueue = false
     if (downSince !== null) {
       const seconds = Math.round((Date.now() - downSince) / 1000)

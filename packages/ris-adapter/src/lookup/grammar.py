@@ -14,28 +14,13 @@ from dataclasses import dataclass
 
 from knowledge_layer.search.grounding_hits import _CHUNK_TRUNCATE_CHARS as PASSAGE_MAX_CHARS
 
-#: The bound for a § the caller NAMED. A § is what a lawyer cites and what the
-#: agent asked for; cut at the corpus chunk bound above, § 63 BO Wien arrived
-#: as its first fifth and the agent spent three more lookups asking for the
-#: rest. 8000 characters (about 2k tokens) holds 187 of the 194 §§ of the
-#: Bauordnung für Wien whole; a ranked pick the agent did not name keeps the
-#: chunk bound.
 SECTION_MAX_CHARS = 8000
 
-#: § headings listed per document, for the picker and for a miss.
 MAX_HEADINGS = 120
 
-#: A line that STARTS a section of a consolidated law: "§ 63.", "§ 63a.",
-#: "Artikel 5", "Art. 5". RIS renders each of them as its own line. The number
-#: ends in a period or ends the line: "§ 65 Abs. 2 gilt sinngemäß." is a
-#: sentence that happens to open with a cross-reference, and read as a section
-#: start it replaced § 65 itself wherever a lookup kept the last § of a label.
 SECTION_LINE_RE = re.compile(r"^\s*(?:(§)+\s*|(Art)(?:ikel)?\.?\s*)(\d+[a-z]?)\s*(?:\.|$)", re.IGNORECASE)
-#: An Absatz marker at the start of a line — the boundary a passage is cut on.
 SUBSECTION_LINE_RE = re.compile(r"(?m)^\(\s*(\d+[a-z]?)\s*\)")
-#: The same marker where RIS runs it into the section head: "§ 63. (1) Dem …".
 SUBSECTION_INLINE_RE = re.compile(r"^\s*(?:§|Art(?:ikel)?\.?)\s*\d+[a-z]?\s*\.?\s*\(\s*(\d+[a-z]?)\s*\)")
-#: A line that can serve as a section's Überschrift: short, and not a sentence.
 _HEADING_MAX_CHARS = 120
 
 
@@ -73,9 +58,6 @@ def split_sections(text: str) -> list[Section]:
         )
         for position, (index, match) in enumerate(starts)
     ]
-    # A bare "Artikel 5" line ABOVE the section it names matches this grammar
-    # too, and would otherwise contribute a section with no text in it. A
-    # section whose body is only its own marker is a heading, not a provision.
     return _one_section_per_label([section for section in sections if _has_text(section)])
 
 

@@ -25,44 +25,30 @@ process that can be stopped (:mod:`.read`).
 
 from __future__ import annotations
 
-#: The largest raw message read, in bytes: the edge's own ceiling (DECISION A3).
+# Caps measured 2026-10-22 on one core: 20,000 tabs in one line took mail-parser-reply 1.36 7.5 s,
+# icalendar 7.3.0 parsed 2 MB in 4.9 s.
 MAX_MESSAGE_BYTES = 26 * 1024 * 1024
 
-#: The largest HTML body parsed, in bytes after transfer decoding (RT-S15).
 MAX_HTML_BYTES = 2 * 1024 * 1024
 
-#: The largest RTF body parsed, in bytes after transfer decoding (RT-S15).
 MAX_RTF_BYTES = 2 * 1024 * 1024
 
-#: The largest calendar part parsed, in bytes after transfer decoding (RT-S15).
 MAX_CALENDAR_BYTES = 256 * 1024
 
-#: Calendar parts read per message, and events kept across them. An invitation
-#: is one event; a message with more is a list, cut and marked ``truncated``.
 MAX_CALENDAR_PARTS = 5
 MAX_CALENDAR_EVENTS = 20
 
-#: The longest text handed to the reply splitter, in characters. A longer body
-#: is kept whole as the sender's own text, unsplit (``split`` is false).
 MAX_SPLIT_CHARS = 256 * 1024
 
-#: The longest run of horizontal whitespace the reply splitter sees. Its
-#: signature pattern starts with ``\\s*^``, which costs the square of a run.
 MAX_WHITESPACE_RUN = 16
 
-#: The longest own text kept, in characters: ``mail_thread_entries.own_text``'s CHECK.
 MAX_OWN_TEXT_CHARS = 524_288
 
-#: The longest quoted block kept, and how many are kept.
 MAX_QUOTED_CHARS = 524_288
 MAX_QUOTED_BLOCKS = 50
 
-#: How long one read may take, in seconds, before it is ``unreadable`` (timeout).
 READ_TIMEOUT_SECONDS = 20.0
 
-#: Reads running at once per process, each in its own child process: a
-#: burst of mail queues here instead of taking every core of the API pod.
 MAX_CONCURRENT_READS = 2
 
-#: How long fetching the raw message from the object store may take, in seconds.
 FETCH_TIMEOUT_SECONDS = 30.0

@@ -45,15 +45,8 @@ from agent.common.bff_http import SignedEnvelope
 
 logger = logging.getLogger(__name__)
 
-#: The one route. Its op set is `create` and nothing else: a machine may ASK for
-#: work, never judge it — reviewing a task is a session route, and a machine that
-#: could accept its own output would close the loop ADR-0051 exists to open.
 INTERNAL_TASKS_PATH = "/api/internal/tasks"
 
-#: Generous, like the filing call and for the same reason one step further along:
-#: creating a task RESOLVES a skill, builds the project's whole run context and
-#: submits a job to the backend queue. A turn that gave up early would leave the
-#: reader unsure whether the work was queued, which is worse than a refusal.
 REQUEST_TIMEOUT_SECONDS = 20
 
 

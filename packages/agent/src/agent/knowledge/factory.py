@@ -36,58 +36,22 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# =============================================================================
-# Default Backend Configuration (Set at Startup)
-# =============================================================================
-# These are read from environment variables at module load time.
-# The API layer uses these defaults - users don't need to specify per-request.
-#
-# NOTE: Backend-specific configuration (the Qdrant URL, the embedder) is
-# defined in each adapter, NOT here. The factory is backend-agnostic.
 
-# @environment_variable KNOWLEDGE_RETRIEVER_BACKEND
-# @category Knowledge Layer
-# @type str
-# @default llamaindex
-# @required false
-# Default retriever backend. Set at startup by knowledge_retrieval function.
 DEFAULT_RETRIEVER_BACKEND = os.environ.get("KNOWLEDGE_RETRIEVER_BACKEND", "llamaindex")
 
-# @environment_variable KNOWLEDGE_INGESTOR_BACKEND
-# @category Knowledge Layer
-# @type str
-# @default llamaindex
-# @required false
-# Default ingestor backend. Set at startup by knowledge_retrieval function.
 DEFAULT_INGESTOR_BACKEND = os.environ.get("KNOWLEDGE_INGESTOR_BACKEND", "llamaindex")
 
-# =============================================================================
-# Registry
-# =============================================================================
 
-# Registry for retriever adapters (class registry)
 _RETRIEVER_REGISTRY: dict[str, type[BaseRetriever]] = {}
 
-# Registry for ingestor adapters (class registry)
 _INGESTOR_REGISTRY: dict[str, type[BaseIngestor]] = {}
 
-# Singleton instances (cached for job state persistence)
-#
-# Retrievers are keyed on (backend, config fingerprint), NOT on backend alone:
-# two callers asking for the same backend with different persist dirs or embed
-# models must get different adapters, or one of them silently queries the wrong
-# store. See get_retriever.
 _RETRIEVER_INSTANCES: dict[tuple[str, str], BaseRetriever] = {}
 _retriever_instances_lock = threading.Lock()
 _INGESTOR_INSTANCES: dict[str, BaseIngestor] = {}
 
-# Active ingestor for the Knowledge API (set by knowledge_retrieval function)
 _ACTIVE_INGESTOR: BaseIngestor | None = None
 
-# Active retriever for the Knowledge API (lazily built from the active ingestor's
-# backend/config on first use — see get_active_retriever). Cached so a fresh
-# process serving /v1/collections/{c}/search initializes the retriever once and
-# reuses it (no per-request embed-client re-init).
 _ACTIVE_RETRIEVER: BaseRetriever | None = None
 _active_retriever_lock = threading.Lock()
 
@@ -157,8 +121,6 @@ def _retriever_identity(backend: str, config: dict[str, Any]) -> tuple[str, str]
     try:
         fingerprint = json.dumps(config, sort_keys=True, default=repr)
     except TypeError, ValueError:
-        # Exotic config (non-string keys). Fall back to a repr — coarser, but a
-        # key that always exists beats a factory that raises.
         fingerprint = repr(sorted(config.items(), key=lambda item: str(item[0])))
     return backend, fingerprint
 
@@ -221,7 +183,6 @@ def get_retriever(
         >>> retriever = get_retriever("llamaindex", {"embed_model": "openai/text-embedding-3-large"})
         >>> result = await retriever.retrieve("What is RAG?", "my_collection")
     """
-    # Use configured default if not specified
     backend = backend or DEFAULT_RETRIEVER_BACKEND
 
     if backend not in _RETRIEVER_REGISTRY:
@@ -236,12 +197,10 @@ def get_retriever(
         return cached
 
     with _retriever_instances_lock:
-        # Double-checked: another thread may have built it while we waited.
         cached = _RETRIEVER_INSTANCES.get(identity)
         if cached is not None:
             return cached
 
-        # Pass config directly to adapter - each adapter handles its own defaults
         adapter_cls = _RETRIEVER_REGISTRY[backend]
         instance = adapter_cls(config=config)
         _RETRIEVER_INSTANCES[identity] = instance
@@ -284,24 +243,20 @@ def get_ingestor(
         >>> ingestor = get_ingestor("llamaindex", {"embed_model": "openai/text-embedding-3-large"})
         >>> job_id = ingestor.submit_job(["/path/to/file.pdf"], "my_collection")
     """
-    # Use configured default if not specified
     backend = backend or DEFAULT_INGESTOR_BACKEND
 
     if backend not in _INGESTOR_REGISTRY:
         available = list(_INGESTOR_REGISTRY.keys())
         raise ValueError(f"Unknown ingestor backend: {backend}. Available backends: {available}")
 
-    # Return cached instance if available (singleton pattern for job persistence)
     if backend in _INGESTOR_INSTANCES:
         if config:
             logger.debug(f"Returning cached {backend} ingestor (config parameter ignored)")
         return _INGESTOR_INSTANCES[backend]
 
-    # Pass config directly to adapter - each adapter handles its own defaults
     adapter_cls = _INGESTOR_REGISTRY[backend]
     instance = adapter_cls(config=config or {})
 
-    # Cache the instance
     _INGESTOR_INSTANCES[backend] = instance
     logger.info(f"Created singleton ingestor instance for backend: {backend}")
 
@@ -411,7 +366,6 @@ def get_active_retriever() -> BaseRetriever:
         return _ACTIVE_RETRIEVER
 
     with _active_retriever_lock:
-        # Double-checked: another caller may have built it while we waited.
         if _ACTIVE_RETRIEVER is not None:
             return _ACTIVE_RETRIEVER
 
@@ -420,7 +374,6 @@ def get_active_retriever() -> BaseRetriever:
             backend: str | None = ingestor.backend_name
             config: dict[str, Any] | None = _retriever_config_from_ingestor(ingestor)
         else:
-            # No configured ingestor — fall back to env-driven factory defaults.
             backend = None
             config = None
 
@@ -444,29 +397,9 @@ def clear_active_retriever() -> None:
         _RETRIEVER_INSTANCES.clear()
 
 
-# =============================================================================
-# Document metadata store (SQLAlchemy-backed, Backend-Agnostic)
-# =============================================================================
-# Persistent per-document metadata (summary, tags, doc_class, display_title)
-# using configurable SQLite/PostgreSQL. Backends call register_summary() after
-# ingestion; agents call get_available_documents() for prompt context.
-#
-# Back-compat: the DB *file* (default ``summaries.db``), the ``SUMMARY_DB``
-# env var, and the agent-runtime ``summary_db`` config field keep their names so existing
-# databases/deployments are not orphaned — only the misnamed TABLE and store
-# CLASS were renamed to ``document_metadata`` (see document_metadata_store.py).
-
 _document_metadata_store: DocumentMetadataStore | None = None
-# Guards lazy init of _document_metadata_store. The default-init path is now
-# reachable from thread-pool workers (knowledge_search formats results via
-# asyncio.to_thread), so double-check under this lock to prevent two concurrent
-# cold-start callers each constructing a store/engine and one clobbering the
-# other. Steady state re-checks without contention.
 _document_metadata_store_lock = threading.Lock()
 
-# Default DB URL (used if configure_summary_db not called). The file keeps its
-# historical name so a default-path deployment's existing rows are migrated in
-# place, not orphaned.
 _DEFAULT_METADATA_DB = "sqlite+aiosqlite:///./summaries.db"
 
 
@@ -487,16 +420,7 @@ def _get_document_metadata_store() -> DocumentMetadataStore:
         from .document_metadata_store import DocumentMetadataStore
 
         with _document_metadata_store_lock:
-            # Double-checked: another caller may have initialized it while we
-            # waited for the lock.
             if _document_metadata_store is None:
-                # configure_summary_db() may not have run in this process (e.g. an
-                # ingestion thread/worker that never executed the agent-runtime registration
-                # in packages/knowledge-layer/src/register.py). Resolve the DB from
-                # the environment the same way ingest_status_store/leader_lock do,
-                # instead of silently falling back to a local SQLite file that in a
-                # container often isn't writable ("unable to open database file")
-                # and, worse, would split summaries away from the real Postgres.
                 db_url = os.environ.get("SUMMARY_DB") or os.environ.get("NAT_JOB_STORE_DB_URL") or _DEFAULT_METADATA_DB
                 _document_metadata_store = DocumentMetadataStore(db_url)
                 logger.info("Document metadata store initialized (lazy env fallback): %s", redact_db_url(db_url))
@@ -511,7 +435,6 @@ def _mirror_facts(collection: str, file_names: list[str] | None = None, *, folde
     instead of after. It never raises (``knowledge_layer.vector_store.writes.refresh_facts``).
     ``folders_only`` copies just the folder, all a folder move changed.
     """
-    # The folders these files sit in are dirty for their written card (ADR-0127); never raises.
     from .folder_cards import mark_files
 
     mark_files(collection, file_names)
@@ -539,7 +462,6 @@ def register_summary(
         return
     store = _get_document_metadata_store()
     store.register(collection, filename, summary, tags, topics)
-    # A row linked to this one reads as replaced again now that it is back.
     _mirror_facts(collection, [filename, *store.files_linked_to(collection, filename)])
 
 
@@ -636,7 +558,6 @@ def set_document_reading(
     written = _get_document_metadata_store().set_reading(
         collection, filename, dossier=dossier, references=references, coverage=coverage
     )
-    # The chunks were written before the reading existed; their copy of it is set here.
     if written:
         _mirror_facts(collection, [filename])
     return written
@@ -789,7 +710,6 @@ def set_document_folder_path(collection: str, filename: str, folder_path: str | 
     from .folder_cards import mark_folders
 
     store = _get_document_metadata_store()
-    # The folder it leaves is dirty too; read before the move overwrites it.
     left = (
         store.get_folder_paths_batch(collection, [filename]).get(filename) if folder_cards_enabled(collection) else None
     )
@@ -960,9 +880,6 @@ def reconcile_collection_summaries(
 
         summary = fallback_summary_from_text(text_sample) if text_sample else None
         if not summary:
-            # No usable text sample (no sampler on this backend, or the indexed
-            # chunks came back empty) — fall back to the filename itself so a
-            # row exists at all. Visibility beats a perfect summary here.
             summary = f"Indexed document: {file_name}"
 
         register_summary(collection, file_name, summary)
@@ -1000,7 +917,6 @@ def unregister_summary(collection: str, filename: str, *, permanent: bool = Fals
         store.get_folder_paths_batch(collection, [filename]).get(filename) if folder_cards_enabled(collection) else None
     )
     store.unregister(collection, filename, permanent=permanent)
-    # The folder it left is dirty for its written card (ADR-0127).
     mark_folders(collection, [left])
     if linked:
         _mirror_facts(collection, linked)
@@ -1024,11 +940,6 @@ def is_retriever_registered(name: str) -> bool:
 def is_ingestor_registered(name: str) -> bool:
     """Check if an ingestor backend is registered."""
     return name in _INGESTOR_REGISTRY
-
-
-# =============================================================================
-# Configuration Helpers
-# =============================================================================
 
 
 def get_default_retriever_backend() -> str:
@@ -1060,14 +971,6 @@ def get_knowledge_layer_config() -> dict[str, Any]:
     }
 
 
-# The retriever the knowledge search tool was built with. It can differ from
-# the active retriever (another config identity, another instance, another
-# embedding LRU), and a warm-up is only worth anything in the cache the search
-# will read. Set by the knowledge tool at build time; with two knowledge tools
-# of different config the last built wins, which wastes a warm-up on the other
-# one's turns but can serve nothing wrong: the embedding cache is keyed by model.
-# The tool clears it at teardown (``clear_search_retriever``), so a torn-down
-# tool's retriever is neither kept alive nor warmed.
 _SEARCH_RETRIEVER: BaseRetriever | None = None
 
 

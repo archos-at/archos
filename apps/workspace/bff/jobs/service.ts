@@ -1,23 +1,4 @@
-/**
- * Definitions service — the standing intent and the fire path (the arrival of
- * jobs + delegated tasks at one entity, migration 0086).
- *
- * A definition says what was asked, by whom, and what makes it run. A
- * `schedule` fires on its cron; a `once` definition is a delegation; a `manual`
- * one only runs when a person presses "Run now". This module owns the
- * definition CRUD and the single submission path (`fireJob`); the run
- * lifecycle, filing and review live next door in `@/lib/tasks/service` over
- * the same `task_runs` table.
- *
- * On the wire a definition is a TASK and one attempt a TASK RUN (ADR-0131,
- * `lib/tasks/task-wire.ts`), served at `/api/projects/[id]/tasks` and
- * `/api/projects/[id]/runs`; this module projects a definition onto that view
- * and answers a fire with the run's view, never the row.
- */
-
 import 'server-only'
-// Explicit, not the `crypto` global: this module is server-only and the global
-// is not guaranteed in every Node/test environment the service is loaded in.
 import { randomUUID } from 'node:crypto'
 import { captureServer } from '@/lib/analytics/posthog-server'
 import { requireProjectAccess } from '@/lib/authz/projects'
@@ -54,32 +35,12 @@ import {
   type PatchJobInput,
 } from './types'
 
-// ---------------------------------------------------------------------------
-// Feature gate
-// ---------------------------------------------------------------------------
-
-/**
- * Every session-facing call gates on the feature (routes do the same).
- * Definitions still ride the `skills` flag: they ship as one feature and are
- * turned on together, so a second flag would only add a way for them to
- * disagree.
- */
 function assertJobsFeatureOn(session: AuthorizedSession): void {
   if (requireSkillsEnabled(session)) {
     throw new ForbiddenError('Tasks are disabled.')
   }
 }
 
-// ---------------------------------------------------------------------------
-// Wire projections
-// ---------------------------------------------------------------------------
-
-/**
- * A definition as the wire names it: a task (`lib/tasks/task-wire.ts`). The
- * words are the wizard's (`name`, `prompt`, `output`) for the columns `title`,
- * `plan.prompt` and `kind`. The attached skill is named, never carried: its
- * body is the skill's own read.
- */
 function toTaskView(definition: TaskDefinition): TaskView {
   const skill = definition.plan.skill
   return {
@@ -102,11 +63,6 @@ function toTaskView(definition: TaskDefinition): TaskView {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Attached skill + schedule resolution
-// ---------------------------------------------------------------------------
-
-/** The attached skill, pinned as the snapshot pair the run will carry. */
 async function resolveAttachedSkill(
   skillName: string | null | undefined,
   organizationId: string,
@@ -118,7 +74,6 @@ async function resolveAttachedSkill(
   return { skillName: snapshot.name, skillSnapshot: snapshotOf(snapshot) }
 }
 
-/** next_run_at: the next future occurrence when scheduled + enabled, else null. */
 function computeNextRunAt(
   scheduleCron: string | null,
   timezone: string,
@@ -129,22 +84,6 @@ function computeNextRunAt(
   return enabled ? next : null
 }
 
-/**
- * Validate when this should run and compute the one column the scheduler scans.
- *
- * `next_run_at` means the same thing for all three triggers — "when the due
- * scan should next look at this row" — which is what lets ONE partial index and
- * ONE claim query serve both a cron and a one-shot (migration 0090):
- *
- *   - a cron gets its next occurrence, after the shape/timezone/min-interval
- *     check. There is no veto from the attached skill: whether something may
- *     run on a timer is a property of the work.
- *   - a one-shot gets its own due date, after the future/horizon check.
- *   - a manual definition gets NULL, and is never scanned.
- *
- * Paused is NULL in every case: an unscanned row cannot fire, so pausing needs
- * no second mechanism.
- */
 function resolveScheduleInputs(
   scheduleCron: string | null,
   scheduleTimezone: string,
@@ -162,32 +101,12 @@ function resolveScheduleInputs(
   return { nextRunAt: null }
 }
 
-/**
- * The trigger a definition has once its schedule columns are known.
- *
- * A cron wins over a due date — the write boundary already refuses both, so
- * reaching here with both is an invariant break, and picking the recurring
- * reading keeps it away from `task_definitions_due_only_when_once`.
- */
 function triggerFor(scheduleCron: string | null, dueAt: Date | null): DefinitionTrigger {
   if (scheduleCron) return 'schedule'
   if (dueAt) return 'once'
   return 'manual'
 }
 
-/**
- * Permissions attach to the TRIGGER (the decision in the follow-up plan):
- * creating or editing work is `project:edit`; giving it a recurring trigger —
- * unattended, REPEATED spend against somebody's budget — additionally needs
- * `project:skills:manage`. Two calls, not one array, because the two checks
- * have different subjects and this reads as what it is.
- *
- * A one-shot is deliberately NOT recurring here. It spends exactly once, and
- * anybody who may edit the task can already press "Run now" and spend that same
- * once; dating it for Friday moves when, not how much or how often. Gating it
- * like a cron would make the safer choice — schedule it instead of remembering
- * to press the button — the one that needs more rights.
- */
 async function requireDefinitionAccess(
   session: AuthorizedSession,
   projectId: string,
@@ -199,20 +118,6 @@ async function requireDefinitionAccess(
   }
 }
 
-// ---------------------------------------------------------------------------
-// CRUD
-// ---------------------------------------------------------------------------
-
-/**
- * A project's standing tasks — everything except a delegation.
- *
- * The filter is "a `once` definition WITHOUT a due date", not `trigger !==
- * 'once'`: since 0090 a `once` definition may be a one-shot somebody scheduled
- * for a date, and that belongs in the list it was created from. Only the
- * dateless kind — dispatched at creation from a chat — belongs to the run list
- * instead. The repository filters in SQL, so a page is never short
- * (`listDefinitionPage`).
- */
 export async function listJobs(
   session: AuthorizedSession,
   projectId: string,
@@ -261,17 +166,11 @@ export async function createJob(
   const definition = await repository.insertDefinition({
     projectId,
     organizationId: session.organizationId,
-    // Always a research run. The wizard used to ask „Chat oder Bericht?", but
-    // since ADR-0062 both land in a thread and the only surviving difference
-    // was whether anything was FILED — and a standing task whose result is not
-    // a deliverable is a standing task nobody reads. An older `chat` definition
-    // keeps its kind and keeps firing as one; nothing new is created that way.
     kind: 'deep-research',
     title: input.name,
     plan: {
       prompt: input.prompt,
       skill: attached.skillSnapshot,
-      // knowledge_layer is always included; the stored list is "additional sources".
       dataSources: withAlwaysOnSources(input.dataSources ?? null),
     },
     requesterUserId: session.userId,
@@ -298,22 +197,11 @@ export async function updateJob(
   if (!existing || existing.projectId !== projectId) throw new NotFoundError('Task not found.')
 
   const scheduleCron = patch.scheduleCron !== undefined ? patch.scheduleCron : existing.scheduleCron
-  // `undefined` keeps what the row has, an explicit `null` clears it — the same
-  // absent-vs-null contract `scheduleCron` above and `skillName` below follow.
-  // Without it, editing a one-shot's prompt would silently drop its due date
-  // and turn the task into a manual one.
   const dueAt = patch.dueAt !== undefined ? patch.dueAt : existing.dueAt
-  // Turning a definition INTO a recurring one is the permissioned act; editing
-  // an existing schedule's prompt is not. A patch that pins a cron (or keeps
-  // one) therefore asks for the stricter permission exactly when the RESULT is
-  // recurring.
   await requireDefinitionAccess(session, projectId, scheduleCron !== null)
 
   const scheduleTimezone = patch.scheduleTimezone ?? existing.scheduleTimezone
   const enabled = patch.enabled ?? existing.enabled
-  // A cron and a due date cannot coexist (the write boundary refuses both), so
-  // pinning one clears the other here rather than leaving a stale value for the
-  // CHECK constraint to reject as a 500.
   const effectiveDueAt = scheduleCron ? null : dueAt
   const { nextRunAt } = resolveScheduleInputs(
     scheduleCron,
@@ -370,11 +258,6 @@ export async function deleteJob(
   return { deleted: true }
 }
 
-// ---------------------------------------------------------------------------
-// Fire path (manual + scheduler share it)
-// ---------------------------------------------------------------------------
-
-/** Manual "Run now": fires an enabled definition with the caller's identity. */
 export async function runJobNow(
   session: AuthorizedSession,
   projectId: string,
@@ -386,120 +269,44 @@ export async function runJobNow(
   const definition = await repository.findDefinition(jobId, session.organizationId)
   if (!definition || definition.projectId !== projectId) throw new NotFoundError('Task not found.')
   if (!definition.enabled) throw new ConflictError('This task is disabled.')
-  // The run's VIEW, never the row: the row carries the composed prompt (a
-  // skill's whole body in a legacy plan), the backend's job id and the
-  // requester's email, none of which a caller acts on.
   const run = await fireJob(definition, 'manual', session.userId)
   const [view] = await toTaskRunViews(session.organizationId, [run])
   return { run: view }
 }
 
-/** What `buildFirePrompt` needs. The prompt, and since ADR-0060 nothing else. */
 export interface FirePromptInput {
   prompt: string
 }
 
-/**
- * The deterministic prompt a run is submitted with: the definition's prompt,
- * exactly as a person would have typed it into a new chat.
- *
- * It used to append the attached skill's whole body under the sentence
- * „Verwende dabei den folgenden Skill VERBINDLICH und vollständig." — forcing,
- * written out in German, in the one place a person was least likely to look.
- * A job could therefore impose a skill on a turn, which ADR-0060 says nothing
- * may do, "not the request, not the deployment, not a job", and which
- * `docs/architecture/agent-skills.md` already claimed jobs did not.
- *
- * A job that should run a playbook NAMES it in its prompt, with the same `/`
- * the chat composer has. The model reads the name among the words and decides,
- * the same decision it makes about every other skill in its catalog. That is
- * one mechanism instead of two, and it is the one that cannot lie about who
- * chose.
- */
 export function buildFirePrompt({ prompt }: FirePromptInput): string {
   return prompt.trim()
 }
 
-/**
- * One background run, as everything below the definition row needs it.
- * Delegated work reaches the same submission through `submitAgentRun` too —
- * it is the submission, not a second queue.
- */
 export interface AgentRunSpec {
   organizationId: string
   projectId: string
-  /** Whose identity the run carries — pinned, never `'scheduler'`. */
   userId: string
   ownerEmail: string | null
-  /**
-   * What the run's block in the thread is headed with: the definition's title
-   * or the delegated task's. Null when the caller has none; the block then
-   * shows its own word for an untitled run.
-   */
   title: string | null
-  /** The prompt exactly as it is submitted, skill body and decisions included. */
   prompt: string
-  /** The attached skill, or null for a plain prompt. */
   skillSnapshot: SkillSnapshot | null
   output: JobOutput
   dataSources: string[] | null
-  /**
-   * The `task_runs` row this submission is for, minted by the caller BEFORE the
-   * submission because the run's message id is derived from it.
-   */
   runId: string
-  /**
-   * The thread the work was commissioned in — the conversation a person was
-   * typing in, or the standing task's own thread — and the place this run's
-   * message goes. Null when there is nowhere to write: the run still runs, it
-   * just has no account of itself in any thread (ADR-0062).
-   */
   conversationId: string | null
-  /**
-   * What the commissioning turn settled with the person, for the worker's
-   * agent state: the approved plan in it binds the planner and the writer.
-   * Null for a scheduled or delegated run, which settled nothing first.
-   */
   clarifierResult?: string | null
-  /** The Unterlagen the reader named on the plan card. */
   documents?: PlanDocuments | null
-  /**
-   * Where the run goes inside its organization's queue (ADR-0079). Absent is
-   * `interactive`: somebody asked for this run and is waiting on it. A
-   * scheduled fire is `bulk`, so a sweep of twenty never makes a question wait.
-   */
   priority?: JobPriority
 }
 
-/**
- * What the submission produced: the backend's id, where the answer lands, and
- * the message the run writes into.
- */
 export interface SubmittedAgentRun {
   backendJobId: string
   conversationId: string | null
-  /** Null when the thread is unknown or the message could not be minted. */
   runMessageId: string | null
-  /** The backend queued the job for a free worker instead of starting it at once. */
   queued: boolean
 }
 
-/**
- * Build one run's context, submit it to the backend, and give the run its place
- * in the thread. Throws what `submitJob` throws (`JobSubmitError`,
- * `JobSubmitSkippedError`) and whatever a context lookup throws; every caller
- * records that on a run row, because a fire that never reached the agent is
- * still an attempt a person can see.
- *
- * The run's message is minted AFTER the backend accepted the submission, and
- * that order is the point: a fire the agent refused (an org cap, an unreachable
- * queue) leaves no empty assistant bubble in somebody's thread. Before this, the
- * same fire left a whole empty conversation behind.
- */
 export async function submitAgentRun(spec: AgentRunSpec): Promise<SubmittedAgentRun> {
-  // The backend refuses the same prompt with a 422 whose body is a validation
-  // dump, and that body is what the run row would show. Refused here first, in
-  // a sentence, before any context is built for a run that cannot start.
   if (spec.prompt.length > AGENT_RUN_INPUT_MAX_CHARS) {
     throw new JobSubmitError(
       `The run's prompt is ${spec.prompt.length} characters; a run accepts at most ${AGENT_RUN_INPUT_MAX_CHARS}`,
@@ -531,15 +338,6 @@ export async function submitAgentRun(spec: AgentRunSpec): Promise<SubmittedAgent
   return { backendJobId: jobId, conversationId, runMessageId, queued }
 }
 
-/**
- * The run's place in the thread, or null.
- *
- * Swallowed like the thread creation below it, and for the same reason: a run
- * whose narration could not be minted is a run that still ran. The worker falls
- * back to writing its report as an ordinary turn when the run has no message
- * (`jobs/conversation_output.py`), so the answer reaches the reader either way —
- * what is lost is the live ledger, not the work.
- */
 async function mintRunMessage(
   conversationId: string,
   runId: string,
@@ -554,37 +352,19 @@ async function mintRunMessage(
   }
 }
 
-/**
- * The single submission path (manual + scheduled).
- *
- * Context building sits inside the try: a transient DB/WorkOS failure surfaces
- * as an `error` run row, never as an unrecorded throw — the definition advances
- * past this occurrence regardless. A skip or an error is a `task_runs` row with
- * a terminal status, which is how a failed fire becomes visible in Aufgaben.
- */
 export async function fireJob(
   definition: TaskDefinition,
   trigger: TaskRunTrigger,
   actor: string,
 ): Promise<TaskRun> {
   const { organizationId, projectId } = definition
-  // Minted HERE, before anything is submitted, because the run's message id is
-  // derived from it (`runMessageId`) and the message is written while the run
-  // row is still being assembled. Every outcome below — running, skipped,
-  // errored — records this same id, so one fire is one id from end to end.
   const runId = randomUUID()
 
   try {
-    // What earlier runs of this definition were told "no" about, in the
-    // reviewer's words, so the rejection reaches the run instead of a log line.
     const decisions = await previousDecisionsBlock(definition)
     const firePrompt = [buildFirePrompt({ prompt: definition.plan.prompt }), decisions]
       .filter(Boolean)
       .join('\n\n')
-    // The definition's own thread, created on the first fire and found by id on
-    // every later one. A definition fired from here is a STANDING intent — a
-    // schedule, or a „Jetzt ausführen" somebody can press again — and its runs
-    // belong together in one place rather than in a new conversation per fire.
     const thread = await createTaskThread(definition)
     const submitted = await submitAgentRun({
       organizationId,
@@ -593,17 +373,11 @@ export async function fireJob(
       ownerEmail: definition.requesterEmail,
       title: definition.title,
       prompt: firePrompt,
-      // Dormant: a legacy row's snapshot is still recorded on the run so the
-      // history says what the job was configured with, and the submission's
-      // `skills` name list is a log line. Neither puts a body in front of the
-      // model any more.
       skillSnapshot: definition.plan.skill.name ? definition.plan.skill : null,
       output: definition.kind === 'deep-research' ? 'deep-research' : 'chat',
       dataSources: definition.plan.dataSources ?? null,
       runId,
       conversationId: thread,
-      // Nobody is waiting on a schedule: it queues behind the office's own
-      // questions. A person pressing „Jetzt ausführen" is waiting.
       priority: trigger === 'schedule' ? 'bulk' : 'interactive',
     })
     const { backendJobId, conversationId, runMessageId } = submitted
@@ -643,27 +417,15 @@ export async function fireJob(
   }
 }
 
-/** What one fire produced, as the row-writer below needs it. */
 interface FireOutcome {
   status: 'queued' | 'running' | 'skipped' | 'error'
   backendJobId: string | null
   error: string | null
   conversationId: string | null
-  /** The message the run narrates itself in; absent when nothing was submitted. */
   runMessageId?: string | null
-  /** Frozen into the run's plan when the submission succeeded. */
   firePrompt?: string
 }
 
-/**
- * Record the attempt — created BEFORE the outcome can arrive, with the backend
- * id the worker will report through. `firePrompt` is frozen into the run's plan
- * when submission succeeded; a skipped/error fire records the definition's plan
- * unchanged, because nothing was sent.
- *
- * The id is the caller's, not the column default: the run's message was derived
- * from it before this row existed.
- */
 async function recordRun(
   definition: TaskDefinition,
   trigger: TaskRunTrigger,
@@ -697,51 +459,10 @@ async function recordRun(
   return run
 }
 
-/**
- * The ONE thread a standing task owns — a real conversation the team opens,
- * reads and keeps typing into, not a rendering of a report (ADR-0062).
- *
- * Idempotent: the id is derived from the definition's id
- * (`lib/tasks/task-thread.ts`), so the first fire creates the row and every
- * later one finds it. There is no „does it exist" query and no unique index to
- * add — `conversations`' primary key plus `ON CONFLICT DO NOTHING` is the whole
- * mechanism, and two concurrent fires converge on one row.
- *
- * Returns the thread's id, or null when the insert threw. A delegation calls
- * this only when the person was NOT typing in a thread: work asked for in a
- * conversation belongs in that conversation.
- *
- * The title is the definition's at first fire and is not chased afterwards.
- * Renaming a schedule renames the schedule; the thread keeps the name the team
- * has been reading it under.
- *
- * **`createdBy` is the definition's requester — a real user id, never
- * 'scheduler' and never a synthetic one.** Four separate mechanisms read
- * `conversations.created_by` as a person, and a synthetic id breaks all four:
- * the sharing roster lists the creator as a participant, the last-owner
- * invariant refuses to leave a resource ownerless, `attributeLegacyAuthor`
- * names them as the author of pre-collaboration messages, and
- * `recordAuditEvent` requires an actor with a `userId: string`.
- *
- * **`visibility: 'project'` at creation, not 'private'.** ADR-0032 made
- * `private` the default so that sharing is a DELIBERATE act; this IS that act.
- * Two people following the run-history link would otherwise get a 404.
- *
- * **`jobId` stamps the provenance** — it is what lets the UI render the
- * definition's name and glyph instead of the owner's face, and what keeps the
- * OLD per-fire threads out of the owner's personal chat history. The standing
- * thread carries it too and is shown anyway: `isTaskThread` tells the two apart
- * from the id alone, and a task's one thread is a place the team goes back to.
- *
- * A failure here is logged and swallowed: a scheduled run must still run.
- */
 export async function createTaskThread(definition: TaskDefinition): Promise<string | null> {
   const id = taskThreadConversationId(definition.id)
 
   try {
-    // `insertConversation` answers null on an id conflict, which here means the
-    // thread is already there — the ordinary case from the second fire onwards.
-    // Either way the id is the answer.
     await insertConversation({
       id,
       organizationId: definition.organizationId,
@@ -758,14 +479,6 @@ export async function createTaskThread(definition: TaskDefinition): Promise<stri
   }
 }
 
-/**
- * The gate of a scheduled fire (`bff/scheduling/fire-definition.ts`): disabled
- * definition → `disabled`; the per-org `skills` flag is checked and anything
- * short of a yes records a `skipped` run (fail-closed); otherwise the run
- * fires. Every due definition is fired and this decision is left here, per
- * organization, so revoking an organization's flag pauses its schedules without
- * a deploy. `fireJob` itself never throws for a skip.
- */
 export async function fireScheduledJob(
   definition: TaskDefinition,
 ): Promise<{
@@ -776,11 +489,6 @@ export async function fireScheduledJob(
   if (!definition.enabled) {
     return { fired: false, reason: 'disabled' }
   }
-  // Only an active project runs its schedules (ADR-0098). A closed one is
-  // read-only and a run files into it (ADR-0090); a paused one was parked so
-  // that nothing runs and spends. The schedule stays, visibly skipped, so
-  // resuming or reopening resumes it: a recurring one at its next turn, a
-  // one-shot (which the claim retired) re-armed by the move back to active.
   const project = await findProjectInOrg(definition.projectId, definition.organizationId)
   if (project && !runsOnSchedule(project)) {
     const closed = isProjectClosed(project)
@@ -803,11 +511,6 @@ export async function fireScheduledJob(
   }
   const run = await fireJob(definition, 'schedule', 'scheduler')
   if (isActiveTaskRunStatus(run.status)) {
-    // `job_run_started` (ADR-0100): the schedule fired and the backend took the
-    // run. Personless — nobody pressed anything, the scheduler did — and only
-    // for a run that is live: a skip is a `task_runs` row, not a start. The
-    // matching `job_run_finished` comes from `recordRunOutcome`, under the id
-    // `run_id` here, so the two join into one run's duration and result.
     captureServer({
       event: 'job_run_started',
       distinctId: null,

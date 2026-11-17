@@ -1,17 +1,3 @@
-/**
- * The platform's side of the base knowledge records (migration 0205, ADR-0165):
- * the two record types only the platform owns (territories, authorities), the
- * change requests every platform revision is proposed in, the review verdicts
- * and approvals on them, the insert-only release moves that move a platform
- * head, the indexing runs of a published text, and the countries an office is
- * entitled to.
- *
- * The change-request tables are platform-private (RLS `false` for the runtime
- * role); `organizationCountries` is read by its office and written by the
- * platform only. The SQL holds the invariants (four eyes, head follows the
- * release, revisions only into a draft); this file only declares columns.
- */
-
 import { bigint, boolean, date, integer, jsonb, pgTable, primaryKey, text, timestamp, uuid } from 'drizzle-orm/pg-core'
 import type {
   ApprovalRole,
@@ -35,14 +21,12 @@ import type {
 } from '@/lib/base-knowledge/wire/vocab'
 import type { FetchSourceOrigin } from './knowledge-records'
 
-/** A territory's parent (migration 0219, design §3.2): `AT` lies in `EU` from 1995-01-01. Half-open; an absent date is open. */
 export interface TerritoryParent {
   id: string
   validFrom?: string | null
   validTo?: string | null
 }
 
-/** Paired clauses of a relation, AKN eIds (design §3.4): `{ from: 'par_4', to: 'pkt_3.1' }`. */
 export interface RelationAnchor {
   from?: string
   to?: string
@@ -54,24 +38,17 @@ export const knowledgeTerritoryRevisions = pgTable('knowledge_territory_revision
   organizationId: text('organization_id'),
   kind: text('kind').$type<TerritoryKind>().notNull(),
   name: text('name').notNull(),
-  /** Every parent, nearest first, each for an interval when it states one (0219): the one field anything reads. */
   parents: jsonb('parents').$type<TerritoryParent[]>().notNull().default([]),
-  /** Written beside `parents` for builds before 0219 only; drop with the contract migration. */
   parentIds: text('parent_ids').array().notNull().default([]),
-  /** Written beside `parents` for builds before 0219 only; drop with the contract migration. */
   datedParents: jsonb('dated_parents').$type<TerritoryParent[]>().notNull().default([]),
   aliases: jsonb('aliases').$type<Record<string, string>>().notNull().default({}),
   validFrom: date('valid_from'),
   validTo: date('valid_to'),
-  /** How far the platform's records go in this node (0213, design §4.6); NULL inherits from the parent. */
   coverageLevel: text('coverage_level').$type<CoverageLevel>(),
-  /** Whether the node's own municipal law is held (0213). */
   municipalLaw: boolean('municipal_law'),
-  /** The IANA zone a day is read in at this node (0235); NULL inherits from the nearest parent that states one. */
   zone: text('zone'),
 })
 
-/** How one instrument bears on another (migration 0211, design §3.5). Append-only like every body. */
 export const knowledgeRelationRevisions = pgTable('knowledge_relation_revisions', {
   revisionId: uuid('revision_id').primaryKey(),
   recordId: text('record_id').notNull(),
@@ -110,21 +87,16 @@ export const knowledgeChangeRequests = pgTable('knowledge_change_requests', {
   submittedAt: timestamp('submitted_at', { withTimezone: true }),
   decidedAt: timestamp('decided_at', { withTimezone: true }),
   publishedAt: timestamp('published_at', { withTimezone: true }),
-  /** An operator's, or a source monitor's (migration 0212, ADR-0174). */
   origin: text('origin').$type<ChangeRequestOrigin>().notNull().default('operator'),
   sourceRecordId: text('source_record_id'),
   monitorFinding: jsonb('monitor_finding').$type<Record<string, unknown>>(),
-  /** `single`: approved by its author through an override; a second review is owed (migration 0214, ADR-0176). */
   approval: text('approval').$type<ChangeRequestApproval>().notNull().default('four_eyes'),
-  /** NULL on a four-eyes request; `due` until another person confirms or disputes a single approval. */
   secondReview: text('second_review').$type<SecondReviewState>(),
   secondReviewBy: text('second_review_by'),
   secondReviewAt: timestamp('second_review_at', { withTimezone: true }),
-  /** Set only on a request the promotion's carry Job opened from another deployment's release (migration 0239, ADR-0181). */
   carriedFrom: jsonb('carried_from').$type<CarriedFrom>(),
 })
 
-/** Where a carried request came from: the bundle, the deployment that released it, its release seq, the promotion. */
 export interface CarriedFrom {
   sha256: string
   sourceDeployment: string
@@ -140,22 +112,17 @@ export const knowledgeReviewDecisions = pgTable('knowledge_review_decisions', {
   decision: text('decision').$type<ReviewDecision>().notNull(),
   note: text('note'),
   reviewer: text('reviewer').notNull(),
-  /** NULL only on verdicts written before migration 0208. */
   decisionSource: text('decision_source').$type<ReviewDecisionSource>(),
   decidedAt: timestamp('decided_at', { withTimezone: true }).notNull().defaultNow(),
-  /** The reviewer checked the cited capture against its source (0209); required for an operator-supplied one. */
   sourceChecked: boolean('source_checked').notNull().default(false),
 })
 
-/** A page as the product captured it for a citation (0209, ADR-0170): what KC-6 checks a quote against. */
 export const knowledgeCitationCaptures = pgTable('knowledge_citation_captures', {
   id: uuid('id').primaryKey(),
   changeRequestId: uuid('change_request_id').notNull(),
   basis: text('basis').$type<'fetched' | 'operator_supplied'>().notNull(),
   sourceId: text('source_id'),
-  /** What the fetch went through, recorded at fetch time (0224): only a built-in or a reviewed released source counts as fetched. */
   sourceOrigin: text('source_origin').$type<FetchSourceOrigin>(),
-  /** The source record's revision the fetch used: its released head, or the draft under test. */
   sourceRevisionId: uuid('source_revision_id'),
   url: text('url').notNull(),
   finalUrl: text('final_url'),
@@ -177,11 +144,9 @@ export const knowledgeApprovals = pgTable('knowledge_approvals', {
   role: text('role').$type<ApprovalRole>().notNull(),
   decisionSource: text('decision_source').$type<ReleaseDecisionSource>().notNull(),
   decidedAt: timestamp('decided_at', { withTimezone: true }).notNull().defaultNow(),
-  /** Set only on an author's own approval through the override (migration 0214): why no second person approved. */
   overrideReason: text('override_reason'),
 })
 
-/** One role's second review of a request approved alone (migration 0214, ADR-0176): append-only, once per role. */
 export const knowledgeSecondReviews = pgTable('knowledge_second_reviews', {
   id: uuid('id').primaryKey(),
   changeRequestId: uuid('change_request_id').notNull(),
@@ -213,7 +178,6 @@ export const knowledgeIndexRuns = pgTable('knowledge_index_runs', {
   changeRequestId: uuid('change_request_id').notNull(),
   state: text('state').$type<IndexRunState>().notNull().default('requested'),
   failure: text('failure'),
-  /** When the run handed its text to the corpus; a retry that finds it ingested then only titles it (0240). */
   handedAt: timestamp('handed_at', { withTimezone: true }),
   requestedAt: timestamp('requested_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),

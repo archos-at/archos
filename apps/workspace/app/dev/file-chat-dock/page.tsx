@@ -1,16 +1,5 @@
 'use client'
 
-/**
- * The asked file as a floating frame beside chat — Figma-quiet, same
- * hairline + shadow-xs language as the thread toolbar.
- *
- * Below `md`, and on a phone on its side, there is no dock: the peek never
- * renders on a phone (`file-preview-host.tsx`), and a 320px frame squeezed
- * beside a 33px chat was a state no reader ever sees. What a phone shows when
- * the reader taps the file pill is the full-screen reader, so that is what
- * this preview shows there.
- */
-
 import type { JSX } from 'react'
 import { Maximize2, X } from 'lucide-react'
 import { I18nProvider } from '@/i18n'

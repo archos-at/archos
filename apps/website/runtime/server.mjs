@@ -26,8 +26,6 @@ import { HEALTH_PATH, cmsImageOrigins, isPreviewPath, securityHeaders } from './
 import { analyticsOrigins, webAnalyticsConfig } from './web-analytics.mjs'
 import { goneStatus } from './gone.mjs'
 
-// The standalone entry starts its own server on import unless told not to.
-// Static imports are hoisted, so the flag has to be set before a dynamic one.
 process.env.ASTRO_NODE_AUTOSTART = 'disabled'
 const { handler } = await import('../dist/server/entry.mjs')
 
@@ -59,25 +57,19 @@ function setCacheControl(req, res) {
   if (value && isClientFile(pathname)) res.setHeader('Cache-Control', value)
 }
 
-// The policy names the PostHog origins only when this container has analytics on.
 const ANALYTICS = analyticsOrigins(webAnalyticsConfig(process.env))
 const CMS_ORIGINS = cmsImageOrigins(process.env)
 const SECURITY_HEADERS = securityHeaders(ANALYTICS, CMS_ORIGINS)
-// The blog's preview, framed by the CMS's admin panel (ADR-0155): its origin may frame it, nobody else.
 const PREVIEW_HEADERS = securityHeaders(ANALYTICS, CMS_ORIGINS, CMS_ORIGINS)
 
 const server = http.createServer((req, res) => {
   const pathname = (req.url ?? '/').split(/[?#]/, 1)[0]
   for (const [name, value] of isPreviewPath(pathname) && CMS_ORIGINS.length ? PREVIEW_HEADERS : SECURITY_HEADERS) res.setHeader(name, value)
-  // Liveness and readiness: the process answers. Cheap, uncached, never logged
-  // as a page view, and not dependent on any file in dist/.
   if ((req.url ?? '').split('?', 1)[0] === HEALTH_PATH) {
     res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' })
     res.end(req.method === 'HEAD' ? undefined : 'ok\n')
     return
   }
-  // HEAD is GET without the body (RFC 9110). Astro answers a redirect to a HEAD with 308 where
-  // the GET gets 301; Node already knows the request was HEAD and sends no body either way.
   if (req.method === 'HEAD') req.method = 'GET'
   setCacheControl(req, res)
   goneStatus(req, res)

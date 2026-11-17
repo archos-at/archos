@@ -36,19 +36,10 @@ from .generate_summary import _llm_settings
 
 logger = logging.getLogger(__name__)
 
-# How much of each message we hand the model. The first turn is enough to name
-# a chat, and long PDF-paste answers would otherwise blow the token budget for
-# a task that only needs the gist.
 _MAX_CHARS_PER_MESSAGE = 1200
 _MAX_TITLE_CHARS = 80
 
-# The answer itself is ~30 tokens, but `max_tokens` bounds the WHOLE completion:
-# any reasoning, preamble or code fence the model emits comes out of the same
-# budget. The previous 120 left almost no headroom for that, so a model that
-# thought before answering ran out mid-object and the reply arrived as
-# unparseable JSON (issue #233). Raised to a value a compliant model never
-# reaches — a completion is billed for the tokens produced, not the ceiling, so
-# the headroom is free for every reply that did not need it.
+# max_tokens bounds the whole completion; 120 ran out before the JSON closed (issue #233).
 _MAX_COMPLETION_TOKENS = 300
 
 SYSTEM_PROMPT = (
@@ -100,7 +91,6 @@ def _parse_llm_json(raw: str | None) -> tuple[str, list[str]]:
 
 def _clean_title(title: str) -> str:
     cleaned = title.strip().strip("\"'").strip()
-    # Drop a trailing period the model sometimes adds despite instructions.
     cleaned = cleaned.rstrip(".")
     if len(cleaned) > _MAX_TITLE_CHARS:
         cleaned = cleaned[: _MAX_TITLE_CHARS - 1].rstrip() + "…"
@@ -122,8 +112,6 @@ def add_generate_conversation_title_routes(router: APIRouter) -> None:
     )
     async def generate_conversation_title(
         request: GenerateConversationTitleRequest,
-        # Forwarded by the BFF so this route can reach the org's BYOK LLM
-        # credential; absent for anonymous/direct callers.
         x_grid_organization_id: str | None = Header(default=None),
     ) -> GenerateConversationTitleResponse:
         language = "German" if request.locale.lower().startswith("de") else "English"
@@ -131,8 +119,6 @@ def add_generate_conversation_title_routes(router: APIRouter) -> None:
         if not transcript:
             return GenerateConversationTitleResponse(title="", tags=[])
 
-        # Constrain tags to the caller's vocabulary; an empty allow-list means
-        # "title only" (the model is told the tag list is empty).
         allowed = [t.strip() for t in request.allowed_tags if isinstance(t, str) and t.strip()]
 
         cred = await asyncio.to_thread(_llm_settings, x_grid_organization_id)
@@ -149,11 +135,6 @@ def add_generate_conversation_title_routes(router: APIRouter) -> None:
                 "model": cred.model,
                 "temperature": 0.3,
                 "max_tokens": _MAX_COMPLETION_TOKENS,
-                # Constrain the ENDPOINT, not just the prompt. Asking for JSON in
-                # prose is a request a model is free to answer with a bare title or
-                # an apology; `json_object` is the same guard `consistency_check`
-                # already sends down this exact credential/base-URL chain, so the
-                # deployed endpoint is known to accept it.
                 "response_format": {"type": "json_object"},
                 "messages": [
                     {"role": "system", "content": SYSTEM_PROMPT},
@@ -196,12 +177,6 @@ def add_generate_conversation_title_routes(router: APIRouter) -> None:
         try:
             raw_title, raw_tags = _parse_llm_json(raw)
         except ValueError:
-            # `finish_reason` separates the two causes, which want opposite
-            # fixes: `length` means this model needs a bigger completion budget
-            # than `_MAX_COMPLETION_TOKENS` (it spent it before answering);
-            # anything else means it ignored the JSON contract. Without it the
-            # log said only "did not return usable JSON", which is why #233 had
-            # no diagnosis attached to three occurrences.
             logger.warning(
                 "Conversation-title LLM did not return usable JSON (finish_reason=%s, %d chars)",
                 finish_reason,
@@ -211,12 +186,7 @@ def add_generate_conversation_title_routes(router: APIRouter) -> None:
 
         title = _clean_title(raw_title)
         if not title:
-            # Well-formed JSON that names nothing. Not an error the caller can
-            # act on — it keeps its provisional first-message title either way —
-            # but a model doing this on every chat should be visible somewhere.
             logger.warning("Conversation-title LLM returned JSON without a usable title")
-        # Keep only tags the caller allowed, de-duplicated and capped at 3. The
-        # BFF re-validates too, but filtering here keeps the contract honest.
         allowed_set = set(allowed)
         seen: list[str] = []
         for tag in raw_tags:

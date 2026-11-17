@@ -26,7 +26,6 @@ function affinityEnabled(raw) {
   return !['0', 'false', 'no', 'off'].includes(value)
 }
 
-// FNV-1a: stable, dependency-free, well-distributed for short ids.
 function hashToIndex(str, mod) {
   let h = 0x811c9dc5
   for (let i = 0; i < str.length; i++) {
