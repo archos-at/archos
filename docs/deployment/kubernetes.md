@@ -31,7 +31,6 @@ their own namespaces.
 | `gotenberg` (office → PDF, ADR-0070; required to index Word, presentation, `.xls` and `.ods` files, ADR-0071; `gotenbergEnabled`, default on) | Deployment | `gotenbergReplicas` (sized to the `bff-jobs` pool's conversion ceiling, prod 2; §6.3c) | — | n/a (stateless. A conversion it drops fails that ingest retryably, so a rollout drains for up to 120s) |
 | `clamav` (clamd and freshclam, the malware scanner for what strangers send, ADR-0157; `malwareScanEnabled`, default off) | Deployment | 1 | emptyDir `/var/lib/clamav` (signatures, seeded from the image, then freshclam's) | n/a (fail closed: while no pod is ready every scan fails and is retried; ready only while its signatures are under 48 h old) |
 | `qdrant` (the vector store, ADR-0115; always deployed) | StatefulSet (`Parallel`) + PDB + `qdrant-snapshot` CronJob | `qdrantReplicas` (default 3, one per node; 1 runs without cluster mode) | RWO PVC `/qdrant/storage` per peer, `Retain` | Peers by hand, shards moved by the runbook ([`qdrant-runbook.md`](qdrant-runbook.md)) |
-| `chroma-migration` (one-shot copy of the retired Chroma store into Qdrant; `chromaMigration`, default off) | Job | 1 pod | exports from the still-running `chroma` Service over HTTP, awaited before the backend tiers roll; scratch is a generic ephemeral claim | n/a ([runbook](qdrant-runbook.md#migrating-from-chroma-on-kubernetes)) |
 | `seaweedfs` (filer + S3 gateway) | StatefulSet | 1 (`single`) / N (`split`) | RWO PVC `/data` (unused under the Postgres filer store) | See §4 |
 | `seaweedfs-master` (`split` only) | StatefulSet | 1 (3 = HA, untested) | RWO PVC `/data` (raft + volume-id sequence) | Odd replica counts only |
 | `seaweedfs-volume` (`split` only) | StatefulSet | N | RWO PVC `/data` per replica | `seaweedfsVolumeReplicas` — this is the object-capacity knob |
@@ -349,8 +348,8 @@ The 2026-10-12 run copied all seven PVCs: `grid-pg-1` to `-3`,
 `data-seaweedfs-0` (the documents), `data-chroma-0`, `data-clickhouse-0` and
 `data-aiq-agent-0`, about 30 GB in under three minutes. A new PVC in `grid` is
 included without any change here: the `data-qdrant-N` peers' volumes from the
-release that replaced Chroma with Qdrant, and `data-chroma-0` until it is
-deleted after the migration.
+release that replaced Chroma with Qdrant, and `data-chroma-0` while it
+exists.
 
 Each volume is snapshotted on its own, minutes apart, so a restore is
 crash-consistent per volume and not across them. Postgres recovers like after a
@@ -1882,7 +1881,7 @@ workload now spends its own:
 |---|---|---|---|
 | `openrouterChatKey` | the conversation | `aiq-agent` (chat), `aiq-api`, `frontend` and `bff-jobs` (model catalog reads only, no completions) | `OPENROUTER_API_KEY`, and on the Python tiers also `EMBED_API_KEY`, `VLM_API_KEY` |
 | `openrouterResearchKey` | research | `agent-worker` | the same three names |
-| `openrouterIngestKey` | ingestion (vision, transcription, embeddings, summaries) | `ingest-worker`, the Chroma migration Job | the same three names |
+| `openrouterIngestKey` | ingestion (vision, transcription, embeddings, summaries) | `ingest-worker` | the same three names |
 
 Each falls back to `openrouterApiKey` while unset, so a stack changes nothing
 until an operator sets one. The env names are the ones the code already reads;
@@ -2372,10 +2371,9 @@ re-running `pulumi up`:
   the vector index.
 
 Removing a protected resource from the program fails the `up` the same way.
-The release that replaced Chroma with Qdrant deletes the `chroma`
-StatefulSet, so on a stack with this on, unprotect it first (the runbook's
-"Migrating from Chroma on Kubernetes"); its claim `data-chroma-0` was never a
-Pulumi resource and stays. The same release also replaces the **SeaweedFS**
+The release that replaced Chroma with Qdrant deleted the `chroma`
+StatefulSet, so a stack with this on had to unprotect it first; its claim
+`data-chroma-0` was never a Pulumi resource. The same release also replaces the **SeaweedFS**
 StatefulSet: the `grid-qdrant` identity changes the rendered `s3.json`, so the
 plan re-creates the Secret and the StatefulSet that mounts it. Unprotect that
 one too
@@ -2421,7 +2419,7 @@ Three things are true of this whole table and are easy to miss:
 | SeaweedFS offsite documents backup (`seaweedfsBackupEnabled`) | **Destination's problem** | The mirror is pushed over `https://` (enforced at config load), so it is encrypted in transit. Whether the target bucket encrypts at rest is a property of that bucket, which this program does not configure. |
 | **SeaweedFS filer namespace** (`split` + `seaweedfsFilerStore: postgres`) | **No — and it is the key store** | The `seaweedfs_filer` database holds a decryption key for every encrypted chunk in the object store, in ordinary Postgres rows with no application-level encryption. Confidentiality at rest is the PVC's, exactly as for the three application databases. It is separated by *credential* rather than by encryption: its own role, its own database, `CONNECT` revoked from `PUBLIC`, so the application logins cannot reach it and it cannot reach `app`. Its inclusion in the PITR archive is the reason the `pgBackupEncryption` row above matters more than it used to. ADR-0043. |
 | Qdrant vector store | **No** | Persisted on a PVC per peer, no application-level encryption. It holds every office's chunk text beside the embeddings, so treat it as sensitive as the documents. Its shard snapshots in the `qdrant-snapshots` bucket inherit SeaweedFS's chunk encryption. |
-| Retained Chroma volume (`data-chroma-0`, until deleted after the migration) | **No** | The retired store's PVC, kept unmounted after the release that removed Chroma: the same chunk text and embeddings, until the runbook's last step deletes it. |
+| Retained Chroma volume (`data-chroma-0`, where not yet deleted) | **No** | The retired store's PVC, unmounted since the release that removed Chroma: the same chunk text and embeddings. Nothing reads it; delete it where `kubectl -n grid get pvc data-chroma-0` still finds it. |
 | Kubernetes Secrets in etcd | **Unknown to this repo — operator action** | Every credential above (DSNs, S3 keys, the KEKs themselves, the Dragonfly passwords) is a Kubernetes Secret, which is **base64, not encryption**. Encrypting them at rest needs an `EncryptionConfiguration` on the API server, which is a control-plane file on a managed cluster and is not reachable from this program. **Ask the provider whether etcd encryption-at-rest is enabled**, and treat the answer as the ceiling on every "encrypted" row in this table — the KEKs are stored there. |
 | **PVCs (all of them)** | **Unknown to this repo — operator action** | The StorageClass is provider-supplied (`grid-oib:storageClass`, e.g. `premium` / `single-replica`, Lightbits NVMe/TCP) and **nothing in this repo creates a StorageClass**. Kubernetes has no per-PVC encryption field: whether volumes are encrypted is decided by the StorageClass's `parameters`, which are fixed when the class is created. There is therefore no config key here that could enable it, and adding one would be a setting that does nothing. **Operator action:** obtain (or have the provider create) an encrypted StorageClass and point `grid-oib:storageClass` at it; `kubectl get storageclass <name> -o yaml` shows the parameters actually in force. This remains the control that actually matches "encrypted at rest", and it is the one ADR-0042 named as the better answer than volume-chunk encryption. |
 

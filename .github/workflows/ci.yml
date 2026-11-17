@@ -548,7 +548,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        suite: [agent_host, sources, migration and claim queues]
+        suite: [agent_host, sources, claim queues]
     services:
       qdrant:
         image: qdrant/qdrant:v1.19.2
@@ -576,16 +576,12 @@ jobs:
       - name: Python package suites (packages/knowledge-layer, public-sources, ris-adapter, tavily-web-search)
         if: matrix.suite == 'sources'
         run: task be:test:sources
-      - name: Chroma exporter and the one-time migration, end to end
-        if: matrix.suite == 'migration and claim queues'
-        run: task be:test:migration
-
       # The suites above run each claim queue on SQLite only: their Postgres
       # parameter skips without TEST_POSTGRES_URL, and production runs the
       # Postgres SQL. ubuntu-latest ships the server binaries; the RLS script
       # builds the throwaway cluster, as in the workspace job.
       - name: Claim queues on real Postgres
-        if: matrix.suite == 'migration and claim queues'
+        if: matrix.suite == 'claim queues'
         run: task be:test:postgres
         env:
           # Turns "the Postgres branch skipped" into a failure for THIS step only.

@@ -120,14 +120,9 @@ services:
       # ADR-0115): the chat and api roles read and write the same collections,
       # and the ingest worker writes what they read. The backend keeps no files:
       # the base corpus is in SeaweedFS and a table (ADR-0082), its cache is under
-      # /tmp. An installation that ran Chroma moves its vectors over once:
-      # see the Chroma migration in docs/deployment/qdrant-runbook.md.
+      # /tmp.
       QDRANT_URL: ${QDRANT_URL:-${GRID_QDRANT_URL:-${AIQ_QDRANT_URL:-http://qdrant:6333}}}
       QDRANT_API_KEY: ${QDRANT_API_KEY:-${GRID_QDRANT_API_KEY:-${AIQ_QDRANT_API_KEY:-}}}
-      # `true` only while an old store is imported into a Qdrant this release
-      # already runs against: the base-corpus sync then does not take the empty
-      # corpus collection for a reset (docs/deployment/qdrant-runbook.md).
-      VECTOR_IMPORT_PENDING: ${VECTOR_IMPORT_PENDING:-${GRID_VECTOR_IMPORT_PENDING:-${AIQ_VECTOR_IMPORT_PENDING:-}}}
       # Research jobs (ADR-0021) are claimed from Postgres by the `agent-worker`
       # service below: the chat role submits one, the api role streams and cancels it.
       # Encrypts DB-claimed job payloads at rest (AES-256-GCM). Empty = plaintext
@@ -1566,10 +1561,9 @@ services:
     restart: unless-stopped
 
 volumes:
-  # No `chroma_data` any more (ADR-0115). An installation that ran Chroma still
-  # has the volume (`compose_chroma_data` with the default project name):
-  # undeclared, `docker compose down -v` cannot remove it, and the migration
-  # reads it. Delete it by hand once the vectors are in Qdrant.
+  # No `chroma_data` any more (ADR-0115). An installation that ran Chroma may
+  # still have the volume (`compose_chroma_data` with the default project name):
+  # undeclared, `docker compose down -v` cannot remove it. Delete it by hand.
   qdrant_data:
     driver: local
   seaweedfs-data:

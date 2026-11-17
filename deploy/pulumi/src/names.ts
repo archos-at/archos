@@ -54,7 +54,6 @@ const TABLE = {
   auditSchemasJob: ["grid-app-audit-schemas", "app-audit-schemas"],
   authzCatalogJob: ["grid-app-authz-catalog", "app-authz-catalog"],
   folderGrantsJob: ["grid-app-folder-grants", "app-folder-grants"],
-  chromaMigrationJob: ["grid-chroma-migration", "chroma-migration"],
 } as const satisfies Record<string, readonly [string, string]>;
 
 export type NameKey = keyof typeof TABLE;

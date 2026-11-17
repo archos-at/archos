@@ -188,7 +188,6 @@
   "packages/knowledge-layer/src/search/rerank.py": 1,
   "packages/knowledge-layer/src/search/retriever.py": 2,
   "packages/knowledge-layer/src/vector_store/folders.py": 1,
-  "packages/knowledge-layer/src/vector_store/import_vectors.py": 3,
   "packages/knowledge-layer/src/vector_store/payload.py": 1,
   "packages/knowledge-layer/src/vector_store/rebuild.py": 1,
   "packages/knowledge-layer/src/vector_store/retrieval.py": 5,

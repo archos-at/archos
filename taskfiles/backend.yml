@@ -112,15 +112,6 @@ tasks:
       - cmd: '"{{.PY}}" -X faulthandler -m pytest {{.EXTRA}} -q {{.XDIST}}'
         if: '[ -n "{{.EXTRA}}" ]'
 
-  be:test:migration:
-    desc: The Chroma exporter and the whole move (exporter, importer, Qdrant), in a throwaway chromadb environment
-    cmds:
-      # chromadb is not a dependency of this repo (ADR-0115): the exporter's own
-      # PEP 723 pin decides the environment, and pytest's testpaths never reach
-      # deploy/, so no other task imports chromadb. The end-to-end test runs the
-      # importer in .venv and needs QDRANT_TEST_URL (skipped locally without it).
-      - uvx --python 3.12 --with-requirements deploy/migration/chroma_export.py --with pytest pytest deploy/migration/tests -q -p no:cacheprovider
-
   prompts:pull:
     desc: 'Bring a Langfuse prompt version into review: task prompts:pull [-- --label <label>]'
     cmds:

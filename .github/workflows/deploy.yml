@@ -85,10 +85,7 @@ on:
           sha-<40-hex> tag. Set it to a PREVIOUS build's tag to roll the cluster
           back without reverting code — the rollout is gated exactly like a
           forward deploy (surge, soak, drain). It deploys the CURRENT program
-          with the older images, so it is refused for a backend built for
-          another vector store than the program runs (vector-store-floor.sh):
-          to go back across the Chroma-to-Qdrant change, revert it on develop.
-          With target=prod it rolls PRODUCTION back the same way, behind the
+          with the older images. With target=prod it rolls PRODUCTION back the same way, behind the
           production reviewers, and the prod branch's next push restores the
           pin its Pulumi.prod.yaml holds (docs/deployment/rollback.md).
         required: false
@@ -369,9 +366,7 @@ jobs:
       # newest commit on develop's first-parent line whose tag GHCR has.
       # Then a guard: a resolved commit older than the one the stack last
       # deployed (stack output `deployedImages`) fails the job, unless it is an
-      # operator rollback. Below that, a floor even a rollback does not pass: a
-      # backend built for another vector store than this program runs
-      # (vector-store-floor.sh). deploy/pulumi/scripts/resolve-image-refs.{sh,spec.ts}.
+      # operator rollback. deploy/pulumi/scripts/resolve-image-refs.{sh,spec.ts}.
       - name: Resolve per-service image refs
         working-directory: deploy/pulumi
         run: |
@@ -774,10 +769,6 @@ jobs:
           # The CMS pulls the same tag when the stack runs it.
           cms_enabled="$(sed -n 's/^  grid-oib:cmsEnabled: *//p' Pulumi.prod.yaml | tr -d '"' | tr -d "'")"
           CMS_ENABLED="$cms_enabled" ./scripts/verify-image-tag.sh "$GITHUB_REPOSITORY_OWNER" "$tag"
-          # The backend must be built for the vector store this program runs:
-          # an older pin across the Chroma removal answers from an empty store.
-          owner="$(printf '%s' "$GITHUB_REPOSITORY_OWNER" | tr '[:upper:]' '[:lower:]')"
-          DEPLOY_SHA="$(git rev-parse HEAD)" ./scripts/vector-store-floor.sh "ghcr.io/${owner}/grid-oib-backend:${tag}"
           echo "PROD_IMAGE_TAG=$tag" >> "$GITHUB_ENV"
         env:
           GH_TOKEN: ${{ github.token }}

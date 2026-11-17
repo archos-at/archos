@@ -52,8 +52,6 @@ backend:
   - 'packages/public-sources/**'
   - 'packages/ris-adapter/**'
   - 'packages/tavily-web-search/**'
-  # The one-time Chroma exporter's own tests (`be:test:migration`).
-  - 'deploy/migration/**'
   - 'tests/**'
   - 'configs/**'
   - 'scripts/**'

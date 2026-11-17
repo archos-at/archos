@@ -48,7 +48,7 @@ BM25_DEFAULT_LENGTH: dict[str, float] = {"k": 1.2, "b": 0.75, "avg_len": 256.0}
 _BM25_LENGTH_KEYS = frozenset(BM25_DEFAULT_LENGTH)
 
 
-METADATA_KEYS = frozenset({"embed_fingerprint", "embed_model", "bm25_length", "vector_import"})
+METADATA_KEYS = frozenset({"embed_fingerprint", "embed_model", "bm25_length"})
 LEGACY_METADATA_PREFIX = "aiq:"
 
 
