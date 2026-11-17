@@ -46,7 +46,7 @@ const ORGANIZATION_DESTINATIONS: Partial<Record<InboxItemType, string>> = {
   'storage.quota_warning': '/app/organization/storage',
   'document.quarantined': '/app/organization/quarantine',
   'document.release_requested': '/app/organization/quarantine',
-  'piloti.proposal_waiting': '/app/office-shelf',
+  'agent.proposal_waiting': '/app/office-shelf',
 }
 
 function rootSortHref(shelfPath: string, runId: string | null | undefined): string {
@@ -112,8 +112,8 @@ const projectTarget: InboxTargetDescriptor = {
           const folder = anchor && !anchor.startsWith('import:') ? anchor : null
           return `/app/projects/${resourceId}/files${folder ? `?folder=${encodeURIComponent(folder)}` : ''}`
         }
-        if (context.itemType === 'piloti.proposal_waiting') return `/app/projects/${resourceId}/files`
-        if (context.itemType === 'piloti.intake_ready') return `/app/projects/${resourceId}/setup`
+        if (context.itemType === 'agent.proposal_waiting') return `/app/projects/${resourceId}/files`
+        if (context.itemType === 'agent.intake_ready') return `/app/projects/${resourceId}/setup`
         const mailLink = inboundMailLink(resourceId, context)
         if (mailLink) return mailLink
         if (context.itemType.startsWith('root_sort.')) {

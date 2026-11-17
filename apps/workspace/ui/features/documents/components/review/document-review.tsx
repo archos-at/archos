@@ -65,6 +65,7 @@ import { clearReviewParams, setReviewParams } from '../../lib/open-review'
 import { covers, ReviewStageContext, STAGE_FOOT, STAGE_HEAD, type StageBounds } from './review-stage'
 import { DraftCard, ThreadCard, type CardPlacement } from './thread-card'
 import { PRODUCT_NAME } from '@/lib/brand'
+import { isAgentKind } from '@/lib/agent-kind'
 
 type PaletteTool = ReviewTool | 'chat'
 
@@ -884,7 +885,7 @@ export function DocumentReviewMode({
     <ReviewExportMenu
       documentId={review.documentId}
       hasRevisions={annotations.some((annotation) => !annotation.onCurrentRevision)}
-      hasProposals={annotations.some((annotation) => annotation.authorKind === 'piloti' && !annotation.acceptedBy)}
+      hasProposals={annotations.some((annotation) => isAgentKind(annotation.authorKind) && !annotation.acceptedBy)}
       filing={protocolFiling && review.canAnnotate ? { target: protocolFiling, documentName } : null}
     />
   )

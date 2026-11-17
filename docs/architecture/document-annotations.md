@@ -764,11 +764,11 @@ person asked for is proposed instead (`canvas__mark` without `open`), and a
 change or a deletion is left to the person, in the document. Reads, the room,
 pointing, highlighting, replies and proposals never ask the flag.
 
-The CHECKs of migration 0138 hold on every path, unchanged:
+The CHECKs of migration 0138, renamed by migration 0242, hold on every path, unchanged:
 
-- `only_piloti_proposes`: a born-open mark is not `proposed`; a person's mark never is.
+- `only_agent_proposes`: a born-open mark is not `proposed`; a person's mark never is.
 - `acceptance_complete`: `accepted_by` and `accepted_at` are set together, on birth or by `transition()`.
-- `piloti_needs_a_person`: The agent's open or resolved mark carries `accepted_by`, the asker, because the person stood behind it by asking.
+- `agent_needs_a_person`: The agent's open or resolved mark carries `accepted_by`, the asker, because the person stood behind it by asking.
 - `closing_complete`: closing goes through `transition()`, which sets `closed_by`/`closed_at` to the asker and clears them on reopening.
 
 `apps/workspace/app/api/internal/document-annotations/route.spec.ts` runs the

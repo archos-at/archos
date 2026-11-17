@@ -92,6 +92,7 @@ env:
   NEXTAUTH_SECRET: Langfuse's sign-in secret, in the cluster
   NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: PostHog's public project token; the host it is sent to is in posthog.yaml
   POSTHOG_PROJECT_TOKEN: PostHog's public project token; the host it is sent to is in posthog.yaml
+  POSTHOG_APP_HOST: our own app's host, sent as the app_host label on the Python tiers' events (posthog.yaml)
   PUBLIC_POSTHOG_PROJECT_TOKEN: PostHog's public project token; the host it is sent to is in posthog.yaml
   OPENROUTER_KEY: read by development scripts as OPENROUTER_API_KEY (openrouter.yaml)
   PAYLOAD_SECRET: our own website CMS's secret

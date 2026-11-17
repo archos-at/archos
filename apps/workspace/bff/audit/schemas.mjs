@@ -41,6 +41,7 @@
 
 import { INBOUND_MAIL_AUDIT_SCHEMAS } from './schemas-inbound-mail.mjs'
 import { PLATFORM_KNOWLEDGE_AUDIT_SCHEMAS } from './schemas-platform-knowledge.mjs'
+import { LEGACY_AGENT_AUDIT_SCHEMAS } from './schemas-legacy-agent.mjs'
 export { AWAITING_EMITTER_AUDIT_ACTIONS } from './schemas-inbound-mail.mjs'
 
 /**
@@ -562,11 +563,11 @@ export const AUDIT_SCHEMAS = /** @type {const} */ ({
     targets: [{ type: 'conversation' }],
     metadata: { previousRole: 'string', via: 'string' },
   },
-  'piloti.wake.suppressed': {
+  'agent.wake.suppressed': {
     targets: [{ type: 'document_annotation' }],
     metadata: { documentId: 'string', trigger: 'string', status: 'string', reason: 'string', stage: 'string' },
   },
-  'piloti.change.applied': {
+  'agent.change.applied': {
     targets: [{ type: 'document_annotation' }, { type: 'document' }, { type: 'project' }, { type: 'conversation' }],
     metadata: {
       op: 'string',
@@ -578,7 +579,7 @@ export const AUDIT_SCHEMAS = /** @type {const} */ ({
       changeId: 'string',
     },
   },
-  'piloti.change.undone': {
+  'agent.change.undone': {
     targets: [{ type: 'document_annotation' }, { type: 'document' }, { type: 'conversation' }],
     metadata: {
       op: 'string',
@@ -593,11 +594,11 @@ export const AUDIT_SCHEMAS = /** @type {const} */ ({
     targets: [{ type: 'organization' }, { type: 'project' }, { type: 'document' }],
     metadata: { operation: 'string', decision: 'string', decisionSource: 'string', clientId: 'string' },
   },
-  'piloti.proposal.created': {
+  'agent.proposal.created': {
     targets: [{ type: 'proposed_change' }, { type: 'project' }, { type: 'conversation' }],
     metadata: { kind: 'string', operation: 'string', items: 'number', memoryScope: 'string', messageId: 'string' },
   },
-  'piloti.proposal.decided': {
+  'agent.proposal.decided': {
     targets: [{ type: 'proposed_change' }, { type: 'project' }, { type: 'conversation' }],
     metadata: {
       kind: 'string',
@@ -610,15 +611,15 @@ export const AUDIT_SCHEMAS = /** @type {const} */ ({
       messageId: 'string',
     },
   },
-  'piloti.mark.decided': {
+  'agent.mark.decided': {
     targets: [{ type: 'document_annotation' }, { type: 'document' }, { type: 'project' }],
     metadata: { decision: 'string', markNumber: 'number', markKind: 'string', onBehalfOf: 'string' },
   },
-  'piloti.wake.started': {
+  'agent.wake.started': {
     targets: [{ type: 'document_annotation' }, { type: 'document' }, { type: 'project' }, { type: 'conversation' }],
     metadata: { trigger: 'string', wakeId: 'string', markNumber: 'number', waits: 'number' },
   },
-  'piloti.wake.ended': {
+  'agent.wake.ended': {
     targets: [{ type: 'document_annotation' }, { type: 'document' }, { type: 'project' }, { type: 'conversation' }],
     metadata: {
       trigger: 'string',
@@ -631,7 +632,7 @@ export const AUDIT_SCHEMAS = /** @type {const} */ ({
       markNumber: 'number',
     },
   },
-  'piloti.wake.stopped': {
+  'agent.wake.stopped': {
     targets: [{ type: 'document_annotation' }, { type: 'document' }, { type: 'project' }, { type: 'conversation' }],
     metadata: { trigger: 'string', wakeId: 'string', wakeStatus: 'string', wokenBy: 'string', by: 'string' },
   },
@@ -643,7 +644,7 @@ export const AUDIT_SCHEMAS = /** @type {const} */ ({
     targets: [{ type: 'document' }],
     metadata: { subjectUserId: 'string' },
   },
-  ...INBOUND_MAIL_AUDIT_SCHEMAS, ...PLATFORM_KNOWLEDGE_AUDIT_SCHEMAS,
+  ...INBOUND_MAIL_AUDIT_SCHEMAS, ...PLATFORM_KNOWLEDGE_AUDIT_SCHEMAS, ...LEGACY_AGENT_AUDIT_SCHEMAS,
 })
 
 /** @typedef {keyof typeof AUDIT_SCHEMAS} AuditAction */

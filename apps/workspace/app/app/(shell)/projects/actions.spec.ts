@@ -77,6 +77,10 @@ describe('createProject (server action)', () => {
     )
   })
 
+  it('lands a project set up under the new agent name on the same setup page', async () => {
+    await expect(createProject({}, form({ name: 'Seestadt', setup: 'agent' }))).rejects.toThrow('NEXT_REDIRECT /app/projects/p1/setup')
+  })
+
   it('names the dialog\'s held drop in the redirect, so only this project\'s setup page takes it', async () => {
     const dropKey = 'new-project:11111111-1111-4111-8111-111111111111'
     await expect(createProject({}, form({ name: 'Seestadt', setup: 'piloti', dropKey }))).rejects.toThrow(

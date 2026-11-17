@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils'
 import { MarkBody } from './mark-body'
 import { useAgentByline } from './agent-attribution'
 import { markInk, pinLabel } from './review-page-layer'
+import { isAgentKind } from '@/lib/agent-kind'
 
 export const markRowClassName = (selected = false): string =>
   cn(
@@ -45,7 +46,7 @@ export function MarkRowContent({
   const overdue = isOverdue(annotation, localCalendarDay())
   const needsReader = isLive(annotation) && (overdue || isForReader(annotation, viewerId))
   const author =
-    annotation.authorKind === 'piloti' ? byline(annotation.createdByName) : (annotation.createdByName ?? t('review.someone'))
+    isAgentKind(annotation.authorKind) ? byline(annotation.createdByName) : (annotation.createdByName ?? t('review.someone'))
   const who = annotation.assigneeName ? (
     <span className="inline-flex min-w-0 items-center gap-0.5 whitespace-nowrap" data-testid="mark-row-assignee">
       <UserRound className="size-3 shrink-0" aria-hidden />

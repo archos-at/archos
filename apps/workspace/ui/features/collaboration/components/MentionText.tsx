@@ -7,7 +7,7 @@ import { HoverPeekPanel } from '@/components/ui/hover-peek-panel'
 import { useHoverPopover } from '@/hooks/use-hover-popover'
 import { useTranslations } from '@/i18n'
 import { collaborationCopy } from '@/i18n/namespaces/collaboration'
-import { AGENT_MENTION_ID } from '@/lib/mentions/types'
+import { isAgentMentionId } from '@/lib/mentions/types'
 import { motion, springPress } from '@/components/motion'
 import { cn } from '@/lib/utils'
 import { useMentionPerson } from '../context/mention-people'
@@ -55,7 +55,7 @@ function MentionPill({
 }): JSX.Element {
   const peek = useHoverPopover()
   const resolved = useMentionPerson(targetId)
-  const isAgent = targetId === AGENT_MENTION_ID
+  const isAgent = isAgentMentionId(targetId)
 
   if (!resolved) {
     return (

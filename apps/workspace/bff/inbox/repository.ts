@@ -5,7 +5,8 @@ import { conversations } from '@/lib/db/schema/conversations'
 import { documents } from '@/lib/db/schema/documents'
 import { inboxItems, type InboxItem, type InboxItemType, type NewInboxItem } from '@/lib/db/schema/inbox'
 import type { ShareableResourceType } from '@/lib/db/schema/resource-shares'
-import { INBOX_LIST_LIMIT, legacyInboxTypeAliases, type InboxListFilter } from './types'
+import { canonicalInboxType, INBOX_LIST_LIMIT, storedInboxTypesOf, type InboxListFilter } from './types'
+import { canonicalItem, canonicalRows, storedItem } from './canonical-rows'
 import { MARKS_SET_GROUP_ANCHOR } from './registry'
 
 export { INBOX_LIST_LIMIT }
@@ -14,7 +15,7 @@ export async function upsertInboxItem(values: NewInboxItem): Promise<InboxItem> 
   const db = getDb()
   const [row] = await db
     .insert(inboxItems)
-    .values(values)
+    .values(storedItem(values))
     .onConflictDoUpdate({
       target: [inboxItems.recipientUserId, inboxItems.groupKey],
       set: {
@@ -30,15 +31,15 @@ export async function upsertInboxItem(values: NewInboxItem): Promise<InboxItem> 
       },
     })
     .returning()
-  return row
+  return row && canonicalItem(row)
 }
 
 export async function upsertInboxItems(values: NewInboxItem[]): Promise<InboxItem[]> {
   if (values.length === 0) return []
   const db = getDb()
-  return db
+  return canonicalRows(db
     .insert(inboxItems)
-    .values(values)
+    .values(values.map(storedItem))
     .onConflictDoUpdate({
       target: [inboxItems.recipientUserId, inboxItems.groupKey],
       set: {
@@ -53,7 +54,7 @@ export async function upsertInboxItems(values: NewInboxItem[]): Promise<InboxIte
         inertAt: null,
       },
     })
-    .returning()
+    .returning())
 }
 
 export async function findInboxItemForRecipient(
@@ -72,7 +73,7 @@ export async function findInboxItemForRecipient(
       ),
     )
     .limit(1)
-  return row ?? null
+  return row ? canonicalItem(row) : null
 }
 
 export async function listTouchedOfType(
@@ -82,20 +83,20 @@ export async function listTouchedOfType(
   window: { from: Date; to: Date },
   limit: number,
 ): Promise<InboxItem[]> {
-  return getDb()
+  return canonicalRows(getDb()
     .select()
     .from(inboxItems)
     .where(
       and(
         eq(inboxItems.organizationId, organizationId),
         eq(inboxItems.recipientUserId, recipientUserId),
-        eq(inboxItems.type, type),
+        inArray(inboxItems.type, storedInboxTypesOf([type])),
         gte(inboxItems.updatedAt, window.from),
         lte(inboxItems.updatedAt, window.to),
       ),
     )
     .orderBy(desc(inboxItems.updatedAt))
-    .limit(limit)
+    .limit(limit))
 }
 
 export async function recipientsHoldingGroup(
@@ -186,7 +187,7 @@ export type InboxTypeScope = readonly InboxItemType[] | typeof EVERY_INBOX_TYPE
 function typeFilter(types: InboxTypeScope | undefined) {
   if (!types || types === EVERY_INBOX_TYPE) return undefined
   if (types.length === 0) return sql`false`
-  return inArray(inboxItems.type, [...types, ...legacyInboxTypeAliases(types)] as InboxItemType[])
+  return inArray(inboxItems.type, storedInboxTypesOf(types))
 }
 
 const listedAtMicros = sql<string>`(extract(epoch from ${inboxItems.updatedAt}) * 1000000)::bigint::text`
@@ -227,7 +228,7 @@ export async function listInboxItems(
 ): Promise<ListedInboxItem[]> {
   const { filter = 'all', cursor = null, limit = INBOX_LIST_LIMIT, types, projectId } = options
   const db = getDb()
-  return db
+  return canonicalRows(db
     .select({ ...getTableColumns(inboxItems), listedAtMicros })
     .from(inboxItems)
     .where(
@@ -243,7 +244,7 @@ export async function listInboxItems(
       ),
     )
     .orderBy(desc(inboxItems.updatedAt), desc(inboxItems.id))
-    .limit(limit)
+    .limit(limit))
 }
 
 function openRequestPredicate() {
@@ -565,7 +566,7 @@ export async function resolveOpenItemsAnchoredOn(input: {
     .where(
       and(
         eq(inboxItems.organizationId, input.organizationId),
-        inArray(inboxItems.type, [...input.types]),
+        inArray(inboxItems.type, storedInboxTypesOf(input.types)),
         eq(inboxItems.anchorId, input.anchorId),
         isNull(inboxItems.resolvedAt),
         input.recipientUserId ? eq(inboxItems.recipientUserId, input.recipientUserId) : undefined,
@@ -591,7 +592,7 @@ function anchoredRows(input: AnchoredRows) {
   const anchor = input.groupAnchor
   return and(
     eq(inboxItems.organizationId, input.organizationId),
-    inArray(inboxItems.type, [...input.types]),
+    inArray(inboxItems.type, storedInboxTypesOf(input.types)),
     eq(inboxItems.anchorId, input.anchorId),
     isNull(inboxItems.inertAt),
     input.recipientUserId ? eq(inboxItems.recipientUserId, input.recipientUserId) : undefined,
@@ -824,7 +825,7 @@ export async function archiveInboxItemsOfType(
     .where(
       and(
         eq(inboxItems.organizationId, organizationId),
-        eq(inboxItems.type, type),
+        inArray(inboxItems.type, storedInboxTypesOf([type])),
         isNull(inboxItems.archivedAt),
         options.exceptAnchorId === undefined
           ? undefined
@@ -850,5 +851,5 @@ export async function listInboxTypesForRecipient(
         isNull(inboxItems.archivedAt),
       ),
     )
-  return rows.map((row) => row.type)
+  return rows.map((row) => canonicalInboxType(row.type) as InboxItemType)
 }

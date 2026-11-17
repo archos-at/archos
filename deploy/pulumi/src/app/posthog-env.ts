@@ -9,6 +9,7 @@ export function posthogEnv(cfg: DeployConfig): EnvVar[] {
   return [
     { name: "POSTHOG_HOST", value: host },
     { name: "POSTHOG_PROJECT_TOKEN", value: projectToken },
+    { name: "POSTHOG_APP_HOST", value: cfg.ingress.appDomain },
     ...(releaseId === "" ? [] : [{ name: "POSTHOG_RELEASE_ID", value: releaseId }]),
   ];
 }

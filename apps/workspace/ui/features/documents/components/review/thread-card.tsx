@@ -64,6 +64,7 @@ import { useAgentByline } from './agent-attribution'
 import type { CardSide } from './review-page-layer'
 import { useFocusBackOnClose } from './focus-return'
 import { useCardFit } from './review-stage'
+import { isAgentKind, type AgentKind } from '@/lib/agent-kind'
 
 export const KIND_ICONS: Record<AnnotationKind, typeof TriangleAlert> = {
   hint: MessageSquareText,
@@ -86,7 +87,7 @@ function Message({
   editedAt,
   actions,
 }: {
-  authorKind: 'person' | 'piloti'
+  authorKind: 'person' | AgentKind
   name: string | null
   userId: string
   at: string
@@ -108,7 +109,7 @@ function Message({
     : undefined
   return (
     <div className="flex gap-2.5">
-      {authorKind === 'piloti' ? (
+      {isAgentKind(authorKind) ? (
         <AgentGlyph />
       ) : (
         <PersonAvatar
@@ -122,10 +123,10 @@ function Message({
         <p className="flex min-w-0 items-baseline gap-1.5 text-xs">
           <span
             className="text-foreground min-w-0 truncate font-medium"
-            data-testid={authorKind === 'piloti' ? 'thread-byline' : undefined}
-            title={authorKind === 'piloti' ? byline(name, { proposal }) : (name ?? undefined)}
+            data-testid={isAgentKind(authorKind) ? 'thread-byline' : undefined}
+            title={isAgentKind(authorKind) ? byline(name, { proposal }) : (name ?? undefined)}
           >
-            {authorKind === 'piloti' ? byline(name, { proposal }) : (name ?? t('review.someone'))}
+            {isAgentKind(authorKind) ? byline(name, { proposal }) : (name ?? t('review.someone'))}
           </span>
           <TimeAgo date={at} locale={locale} className="text-muted-foreground shrink-0 whitespace-nowrap" />
           {editedAt && (
@@ -790,7 +791,7 @@ export function ThreadCard({
   const proposed = annotation.status === 'proposed'
   const live = isLive(annotation)
   const { piloti } = review
-  const agentReplies = annotation.replies.filter((reply) => reply.authorKind === 'piloti').length
+  const agentReplies = annotation.replies.filter((reply) => isAgentKind(reply.authorKind)).length
   const threadAsk = piloti.asks.find(
     (ask) =>
       ask.replyInThread &&

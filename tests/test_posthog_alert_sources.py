@@ -25,3 +25,56 @@ def test_no_alert_query_reads_events_and_metrics_together() -> None:
         f"{mixed} read `events` and `posthog.metrics` in one query; PostHog refuses it and "
         "switches the alert off. Put metric rules in infrastructure-incidents.sql."
     )
+
+
+PULUMI = Path(__file__).resolve().parent.parent / "deploy" / "pulumi"
+POSTHOG = Path(__file__).resolve().parent.parent / "deploy" / "posthog"
+
+
+def _app_hosts(stack: str) -> tuple[str, str | None]:
+    text = (PULUMI / f"Pulumi.{stack}.yaml").read_text()
+    current = re.search(r"^\s*[\w-]+:baseDomain:\s*(\S+)", text, re.MULTILINE)
+    former = re.search(r"^\s*[\w-]+:formerBaseDomain:\s*(\S+)", text, re.MULTILINE)
+    assert current, f"Pulumi.{stack}.yaml has no baseDomain"
+    return f"app.{current.group(1)}", f"app.{former.group(1)}" if former else None
+
+
+def test_posthog_sql_naming_a_former_app_host_also_names_the_current_one() -> None:
+    stale = []
+    for stack in ("prod", "dev"):
+        current, former = _app_hosts(stack)
+        if former is None:
+            continue
+        stale += [
+            f"{path.relative_to(POSTHOG)} names '{former}' but not '{current}'"
+            for path in sorted(POSTHOG.rglob("*.sql"))
+            if f"'{former}'" in _code(path.read_text()) and f"'{current}'" not in _code(path.read_text())
+        ]
+    assert not stale, (
+        "Since a domain move PostHog records the new host only, so a filter on the former one reads "
+        "zero (2026-11-15: production alerts went blind). Match both hosts: " + "; ".join(stale)
+    )
+
+
+def _rules(sql: str) -> list[tuple[str, str]]:
+    blocks = re.split(r"\n(?=SELECT\n)", _code(sql))
+    return [(label.group(1), block) for block in blocks if (label := re.search(r"'([^']*for 15 min[^']*)'", block))]
+
+
+def test_every_15_minute_rule_needs_a_series_covering_the_window() -> None:
+    sql = (ALERTS / "platform-health.sql").read_text()
+    guard = re.findall(
+        r"minIf\(m\.timestamp, m\.timestamp > now\(\) - INTERVAL 15 MINUTE\) < now\(\) - INTERVAL 12 MINUTE"
+        r"\s+AND max\(m\.timestamp\) > now\(\) - INTERVAL 5 MINUTE AS spans15",
+        _code(sql),
+    )
+    assert len(guard) == sql.count("AS lo15,"), "every area reading lo15 defines spans15 over both ends of the window"
+    rules = _rules(sql)
+    assert rules, "no rule says 'for 15 min'"
+    guarded_ctes = {name for name, body in re.findall(r"\n(\w+) AS \((.*?)\n\)", _code(sql), re.S) if "spans15" in body}
+    unguarded = [
+        label
+        for label, block in rules
+        if "spans15" not in block and not set(re.findall(r"\bFROM (\w+)", block)) & guarded_ctes
+    ]
+    assert not unguarded, f"{unguarded} fire on a single sample: require spans15"
