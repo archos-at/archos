@@ -5,7 +5,7 @@ import { v5 as uuidv5 } from 'uuid'
 import type { InboundMailDecisionVia } from '@/lib/inbound-mail/inbound-mail-vocabulary'
 import { threadPreselection, type SenderEvidence, type ThreadMatch } from '@/lib/mail-thread/mail-threading'
 import { langfuseApiConfig } from './config'
-import { clientFor, environment, release } from './tool-call-trace'
+import { clientFor, deploymentTags, environment, release } from './tool-call-trace'
 
 export const MAIL_THREAD_MATCH_SCORE_NAME = 'mail-thread-match'
 
@@ -75,7 +75,7 @@ export function mailThreadMatchBatch(record: MailThreadMatchRecord, eventIds: [s
           timestamp,
           name: MAIL_THREAD_MATCH_SCORE_NAME,
           metadata,
-          tags: ['feature:inbound-mail', `strength:${strongest.strength}`, `via:${record.via}`],
+          tags: ['feature:inbound-mail', `strength:${strongest.strength}`, `via:${record.via}`, ...deploymentTags()],
           ...(env ? { environment: env } : {}),
           ...(rel ? { release: rel } : {}),
         },

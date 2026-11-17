@@ -75,6 +75,13 @@ describe('toolCallBatch', () => {
     vi.stubEnv('GIT_SHA', 'abc123')
     expect(toolCallBatch(call, ids).batch[0]).toMatchObject({ body: { environment: 'staging-eu', release: 'abc123' } })
   })
+
+  it('tags the trace with the deployment’s host, since staging and production share APP_ENV=production', () => {
+    vi.stubEnv('WORKOS_REDIRECT_URI', 'https://app.dev.example.test/api/auth/callback')
+    expect(toolCallBatch(call, ids).batch[0]?.body).toMatchObject({
+      tags: expect.arrayContaining(['feature:agent-mcp', 'app_host:app.dev.example.test']),
+    })
+  })
 })
 
 describe('posting', () => {
