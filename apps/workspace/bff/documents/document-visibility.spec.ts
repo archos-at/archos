@@ -41,8 +41,8 @@ const SEES_EVERY_ROW: Record<string, string> = {
   'lib/documents/repository/lookup.ts#listDocumentIdsForProject':
     "The sharing registry's `listIdsInProject`: a leaver's grants go on every document of the project, held ones included.",
   'lib/sharing/repository.ts#deleteOrphanedGrants': 'Orphan sweep: NOT EXISTS over every row, or a held document loses its grants.',
-  'lib/inbox/repository.ts#deleteOrphanedInboxItems': 'Orphan sweep: NOT EXISTS over every row, or a held document loses its inbox rows.',
-  'lib/inbox/repository.ts#projectScopePredicate':
+  'lib/inbox/inbox-item-writes.ts#deleteOrphanedInboxItems': 'Orphan sweep: NOT EXISTS over every row, or a held document loses its inbox rows.',
+  'lib/inbox/inbox-item-queries.ts#projectScopePredicate':
     "Narrows the recipient's own inbox rows to one project; the row exists either way and is redacted at read time by its target's access check.",
   'lib/mentions/repository.ts#deleteOrphanedMentionRequests':
     'Orphan sweep: NOT EXISTS over every row, or a held document loses its mention requests.',
@@ -292,7 +292,7 @@ function sourceFiles(dir?: string, found: string[] = []): string[] {
     if (entry.isDirectory()) {
       if (entry.name === 'node_modules' || entry.name === 'mocks' || entry.name === 'test-utils') continue
       sourceFiles(full, found)
-    } else if (/\.tsx?$/.test(entry.name) && !/\.(spec|test)\.tsx?$/.test(entry.name)) {
+    } else if (/\.tsx?$/.test(entry.name) && !/\.(spec|test|fixtures?)\.tsx?$/.test(entry.name)) {
       found.push(full)
     }
   }
@@ -318,7 +318,7 @@ function documentRelations(): Set<string> {
   const names = new Set<string>()
   const dir = srcPath('lib/db/schema')
   for (const file of readdirSync(dir)) {
-    if (!file.endsWith('.ts') || file.endsWith('.spec.ts')) continue
+    if (!file.endsWith('.ts') || /\.(spec|fixtures?)\.ts$/.test(file)) continue
     const tree = ts.createSourceFile(file, readFileSync(join(dir, file), 'utf8'), ts.ScriptTarget.Latest, true)
     const visit = (node: ts.Node) => {
       if (

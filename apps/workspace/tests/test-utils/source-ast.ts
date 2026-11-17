@@ -8,7 +8,7 @@ export { ts }
 export type ImportEdge = { specifier: string; names: string[]; typeOnly: boolean; node: ts.Node }
 
 const SCRIPT = /\.(ts|tsx|mts|cts|js|jsx|mjs|cjs)$/
-const TEST = /\.(spec|test)\.[cm]?[jt]sx?$|(^|\/)(test-utils|mocks|__tests__)\//
+const TEST = /\.(spec|test|fixtures?)\.[cm]?[jt]sx?$|(^|\/)(test-utils|mocks|__tests__|_?fixtures)\//
 
 export function parseSourceText(text: string, fileName = 'module.tsx'): ts.SourceFile {
   const kind = /\.tsx$|\.jsx$/.test(fileName) ? ts.ScriptKind.TSX : ts.ScriptKind.TS

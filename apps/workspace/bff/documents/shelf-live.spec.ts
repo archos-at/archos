@@ -8,7 +8,7 @@ import { describe, expect, it } from 'vitest'
 import { srcEntries, srcPath } from '@/test-utils/source-tree'
 
 const modules = srcEntries()
-  .filter((entry) => /\.tsx?$/.test(entry) && !/\.(spec|test)\.tsx?$/.test(entry))
+  .filter((entry) => /\.tsx?$/.test(entry) && !/\.(spec|test|fixtures?)\.tsx?$/.test(entry))
   .filter((entry) => !entry.includes('test-utils') && !entry.startsWith('app/dev'))
   .map((entry) => ({ path: entry.split('\\').join('/'), code: readFileSync(srcPath(entry), 'utf8') }))
   .reduce<{ path: string; code: string }[]>((units, module) => {
