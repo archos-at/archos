@@ -4,6 +4,7 @@ import * as tasks from '@/lib/tasks/repository'
 import { hatchetClient } from '@/lib/jobs-queue/orchestrator'
 import { setScheduledRunId } from './repository'
 
+// Engine v0.114.2, 2026-11-11: `scheduled.update` moves only `triggerAt`, keeping the old input, so a run is replaced, not rescheduled.
 export const FIRE_TASK_DEFINITION = 'fire-task-definition'
 
 export interface FireTaskDefinitionInput {

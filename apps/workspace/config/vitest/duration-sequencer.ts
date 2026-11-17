@@ -16,6 +16,7 @@ function median(values: number[]): number {
   return sorted[Math.floor(sorted.length / 2)]
 }
 
+// Measured in CI 2026-10-22: 259 files, and the slowest shard is the frontend's time on balance.
 export default class DurationSequencer extends BaseSequencer {
   override async shard(files: TestSpecification[]): Promise<TestSpecification[]> {
     const { config } = this.ctx

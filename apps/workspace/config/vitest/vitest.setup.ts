@@ -5,6 +5,7 @@ import { resetDatabase } from '../../tests/mocks/database'
 import { refuseNetwork } from './network-guard'
 
 // specs). A `@vitest-environment node` spec renders nothing for a DOM matcher
+// DOM setup costs ~0.17 s per file (measured 2026-10-22 on empty specs).
 const hasDom = typeof document !== 'undefined'
 if (hasDom) await import('@testing-library/jest-dom/vitest')
 const server = hasDom ? (await import('../../tests/mocks/server')).server : null

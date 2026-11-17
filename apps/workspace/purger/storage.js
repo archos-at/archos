@@ -115,6 +115,7 @@ async function deleteStoragePrefix(s3, bucket, prefix) {
         if (isMissingBucket(error)) return deleted
         throw error
       }
+      // Quiet:true returns only per-key errors; a 200 can still leave orphans (a GDPR-erasure failure), so throw and let the queue retry.
       if (res.Errors && res.Errors.length > 0) {
         const sample = res.Errors.slice(0, 3)
           .map((/** @type {{ Key?: string, Code?: string }} */ e) => `${e.Key}: ${e.Code}`)

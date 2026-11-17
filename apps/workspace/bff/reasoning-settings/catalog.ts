@@ -1,3 +1,4 @@
+// OpenRouter's unified levels, passed verbatim; it rejects provider-native names: https://openrouter.ai/docs/guides/best-practices/reasoning-tokens
 export const REASONING_EFFORTS = ['none', 'minimal', 'low', 'medium', 'high', 'xhigh'] as const
 
 export type ReasoningEffort = (typeof REASONING_EFFORTS)[number]

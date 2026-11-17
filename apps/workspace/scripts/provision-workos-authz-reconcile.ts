@@ -268,6 +268,7 @@ async function retireOne(run: Run, slug: string, holders: readonly Holder[]): Pr
   const { client } = run
   for (const holder of holders) {
     if (!holder.role.permissions.includes(slug)) continue
+    // https://workos.com/docs/reference/roles/custom-role/remove-permission and https://workos.com/docs/reference/roles/role/set-permissions
     if (holder.organizationId) {
       await client.authorization.removeOrganizationRolePermission(
         holder.organizationId,
@@ -285,6 +286,7 @@ async function retireOne(run: Run, slug: string, holders: readonly Holder[]): Pr
     run.applied.push(`removed retired permission ${slug} from role ${holder.role.slug}`)
     run.note(`  removed  ${slug} from role ${holder.role.slug}`)
   }
+  // https://workos.com/docs/reference/roles/permission/delete
   await client.authorization.deletePermission(slug)
   run.applied.push(`deleted retired permission ${slug}`)
   run.note(`  deleted  ${slug}`)

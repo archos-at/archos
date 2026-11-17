@@ -9,6 +9,7 @@ import { OFFICE_TIME_ZONE } from '@/lib/format'
 import { FIRE_TASK_DEFINITION, type FireTaskDefinitionInput } from './scheduled-runs'
 import * as sweeps from './sweeps'
 
+// Engine v0.114.2, 2026-11-11: crons honour a `CRON_TZ=<IANA zone> ` prefix (orchestrator.integration.spec.ts).
 const FIRES_PER_ORGANIZATION = 5
 
 export type TaskDeclarer = Pick<HatchetClient, 'task'>
