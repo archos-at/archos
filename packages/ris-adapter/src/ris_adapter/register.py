@@ -22,7 +22,6 @@ import re
 import tempfile
 from datetime import UTC
 from datetime import datetime
-from typing import Literal
 from urllib.parse import parse_qs
 from urllib.parse import urlparse
 
@@ -37,6 +36,7 @@ from nat.plugin_api import FunctionBaseConfig
 from nat.plugin_api import FunctionInfo
 from nat.plugin_api import LLMRef
 from nat.plugin_api import register_function
+from ris_adapter import descriptions
 from ris_adapter.cache import cache_get_json
 from ris_adapter.cache import cache_set_json
 from ris_adapter.cache import fetch_document_cached
@@ -50,6 +50,7 @@ from ris_adapter.client import RisError
 from ris_adapter.client import RisHit
 from ris_adapter.client import build_document_url
 from ris_adapter.client import search_terms
+from ris_adapter.search_plan import RisSearchPlan
 
 try:
     from agent.common.norm_registry import NormEntry
@@ -136,51 +137,6 @@ class RisSearchInput(BaseModel):
     date_from: str = ""
     date_to: str = ""
     page: int = 1
-
-
-class RisSearchPlan(BaseModel):
-    """Structured RIS search plan.
-
-    Requested from the planner LLM with ``response_format: json_schema`` +
-    ``strict: true`` (OpenRouter structured outputs). Not every OpenRouter-served
-    model honors strict schema mode, so a garbled JSON payload can still reach the
-    parser and raise ``ValidationError``; ``_make_planner`` guards that with a
-    bounded corrective retry. The enum constraints reject an invalid application
-    or Bundesland whenever the payload does parse.
-    """
-
-    application: Literal[
-        "BrKons",
-        "LrKons",
-        "BgblAuth",
-        "LgblAuth",
-        "Begut",
-        "RegV",
-        "Vfgh",
-        "Vwgh",
-        "Justiz",
-        "Bvwg",
-        "Lvwg",
-        "Dsk",
-        "Erlaesse",
-    ] = Field(description="RIS application to search")
-    suchworte: str = Field(description="German full-text search terms (precise legal terminology)")
-    titel: str = Field(default="", description="Optional filter on the norm/decision title, empty if unused")
-    federal_state: Literal[
-        "",
-        "Burgenland",
-        "Kärnten",
-        "Niederösterreich",
-        "Oberösterreich",
-        "Salzburg",
-        "Steiermark",
-        "Tirol",
-        "Vorarlberg",
-        "Wien",
-    ] = Field(default="", description="State filter for Landesrecht searches, empty if not state-specific")
-    date_from: str = Field(default="", description="YYYY-MM-DD or empty")
-    date_to: str = Field(default="", description="YYYY-MM-DD or empty")
-    reasoning: str = Field(default="", description="One short sentence: why this application and these terms")
 
 
 _PLANNER_SYSTEM_PROMPT = """You translate a legal research request into search parameters \
@@ -386,44 +342,6 @@ async def ris_search(tool_config: RisSearchToolConfig, builder: Builder):
         date_to: str = "",
         page: int = 1,
     ) -> str:
-        """Search the official Austrian legal information system RIS — the authoritative, always-current
-        source for Austrian federal law, state law, and court decisions.
-
-        WHEN TO USE THIS TOOL:
-        - The question turns on what an Austrian law, regulation, or court actually SAYS: exact
-          wording, scope, thresholds, obligations, penalties, validity, or applicable version.
-        - You need the precise legal anchor behind a requirement (law name, paragraph, Bundesland,
-          version). OIB-Richtlinien become binding via the state building laws found here.
-        - Building law: Bauordnungen, Bautechnikgesetze, and Garagengesetze are STATE law — search
-          application "LrKons" and always set the federal_state.
-        - Case law: how courts interpreted a provision (Vfgh, Vwgh, Justiz, Bvwg, Lvwg).
-
-        WHEN NOT TO USE:
-        - Content of the OIB-Richtlinien themselves or user-uploaded documents → knowledge_search.
-        - Non-Austrian law, news, products, or general facts → web search.
-
-        This returns document REFERENCES — title, application, document number, citation URL —
-        and never the wording of a provision. Nothing here is quotable: a reference is an address,
-        and a legal answer is grounded in the document that address names.
-
-        Args:
-            query (str): German legal search terms, e.g. "Stellplatzverpflichtung Garage". Use
-                statutory terminology, not colloquial phrasing.
-            application (str): RIS application: "BrKons" consolidated federal law (default),
-                "LrKons" consolidated state law, "BgblAuth" authentic federal gazette, "Begut"
-                draft bills, "RegV" government bills, "Vfgh"/"Vwgh"/"Justiz"/"Bvwg"/"Lvwg" case
-                law, "Dsk" data protection decisions, "Erlaesse" ministry decrees.
-            title (str): Optional title filter when a specific law is named, e.g. "Bauordnung für Wien".
-            federal_state (str): State filter for state-law searches ("Wien", "Tirol", ...). Required
-                practice for Bauordnung questions.
-            date_from (str): Optional YYYY-MM-DD. Case law: earliest decision date. "BrKons": the
-                version in force at this date.
-            date_to (str): Optional YYYY-MM-DD. Case law: latest decision date.
-            page (int): 1-based result page.
-
-        Returns:
-            str: Numbered document references with citation URLs and fetch instructions.
-        """
         from agent.common.retrieval_settings import get_retrieval_setting
 
         max_results = get_retrieval_setting("ris.max_results", tool_config.max_results)
@@ -565,7 +483,7 @@ async def ris_search(tool_config: RisSearchToolConfig, builder: Builder):
     try:
         yield FunctionInfo.from_fn(
             _ris_search,
-            description=_ris_search.__doc__,
+            description=descriptions.SEARCH_DESCRIPTION,
             input_schema=RisSearchInput,
         )
     finally:
@@ -620,30 +538,6 @@ async def ris_catalog_lookup(tool_config: RisCatalogLookupToolConfig, builder: B
     catalog_path = tool_config.catalog_path or None
 
     async def _ris_catalog_lookup(topic: str) -> str:
-        """Look up an Austrian building-law topic in the curated RIS catalog of verified norms.
-
-        WHEN TO USE THIS TOOL:
-        - Any question about Austrian building law: Bauordnungen,
-          Bautechnikgesetze/-verordnungen, and the adjacent federal acts. The catalog
-          maps topics to VERIFIED RIS pointers (application, document number, citation
-          URL, 'entire consolidated law' URL) - no keyword guessing, no wrong silo.
-        - What it returns is an ADDRESS per norm, never the text at it and never a
-          requirement: a pointer is not a provision and cannot be cited as one.
-
-        WHEN NOT TO USE:
-        - The catalog covers only the core building-relevant norms. For case law,
-          draft bills, gazettes, or anything beyond it, use ris_search (live RIS search).
-
-        Args:
-            topic (str): German building-law topic. ALWAYS name the Bundesland for
-                state-law topics (e.g. "Bauordnung Tirol", "Stellplatz Wien") — the
-                nine state building codes differ, and the lookup returns the named
-                state's law (plus federal law) instead of all nine.
-
-        Returns:
-            str: Verified pointer blocks (application, document number, citation URL,
-                entire-law URL) or guidance to use ris_search when nothing matches.
-        """
         if not _CATALOG_AVAILABLE:
             return "Error: RIS catalog lookup unavailable - catalog module not importable. Use ris_search."
         catalog = load_registry(catalog_path)
@@ -682,7 +576,7 @@ async def ris_catalog_lookup(tool_config: RisCatalogLookupToolConfig, builder: B
 
     yield FunctionInfo.from_fn(
         _ris_catalog_lookup,
-        description=_ris_catalog_lookup.__doc__,
+        description=descriptions.CATALOG_LOOKUP_DESCRIPTION,
     )
 
 
@@ -823,33 +717,6 @@ async def ris_fetch_document(tool_config: RisFetchDocumentToolConfig, builder: B
     client = RisClient(timeout=tool_config.timeout, cache_ttl_seconds=tool_config.cache_ttl_seconds)
 
     async def _ris_fetch_document(reference: str, application: str = "") -> str:
-        """Fetch the ENTIRE text of an Austrian law or court decision from RIS on demand.
-
-        WHEN TO USE THIS TOOL:
-        - You hold a RIS ADDRESS — a document number or a ris.bka.gv.at URL — and need the text
-          at it. A reference is not quotable; this is what turns one into a document.
-        - To load a complete consolidated law (every paragraph) from its 'Entire consolidated law'
-          URL, e.g. for a question spanning several sections.
-        - To re-read a document the user or an earlier step referenced.
-
-        WHEN NOT TO USE:
-        - For documents not hosted on ris.bka.gv.at (this tool only fetches RIS).
-        - When the relevant text is already fully present in this conversation.
-
-        The fetched document is also added to the session knowledge base (full text, not truncated),
-        so knowledge_search can retrieve and cite specific sections in later steps.
-
-        Args:
-            reference (str): RIS document number from ris_search (e.g. "NOR40217157",
-                "JWT_2020130074_20210415J00") or any https://www.ris.bka.gv.at/... URL from
-                ris_search results (document URL or 'Entire consolidated law' URL).
-            application (str): Only needed with a document number whose application cannot be
-                inferred: "BrKons", "LrKons", "Vfgh", "Vwgh", "Justiz", "Bvwg", "Lvwg", ...
-
-        Returns:
-            str: The document's full text (truncated if very long) with its citation URL,
-                retrieval date, and legal-status note.
-        """
         reference = (reference or "").strip()
         if not reference:
             return "Error: RIS document fetch failed - provide a document number or RIS URL from ris_search."
@@ -914,7 +781,7 @@ async def ris_fetch_document(tool_config: RisFetchDocumentToolConfig, builder: B
     try:
         yield FunctionInfo.from_fn(
             _ris_fetch_document,
-            description=_ris_fetch_document.__doc__,
+            description=descriptions.FETCH_DOCUMENT_DESCRIPTION,
         )
     finally:
         await client.aclose()

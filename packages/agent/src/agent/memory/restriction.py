@@ -246,9 +246,10 @@ class _NoteVerdict(BaseModel):
 
 
 class JudgeOutput(BaseModel):
-    """The judge's strict reply: one verdict per note, in any order."""
-
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={"description": "The judge's strict reply: one verdict per note, in any order."},
+    )
 
     notes: list[_NoteVerdict] = Field(description="One entry per note.")
 

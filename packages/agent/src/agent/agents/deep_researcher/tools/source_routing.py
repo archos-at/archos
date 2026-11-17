@@ -226,6 +226,11 @@ def source_catalog_payload(
     }
 
 
+LOOKUP_SOURCE_CATALOG_DESCRIPTION = (
+    "Return configured source domains, available source IDs, and exact source tool names."
+)
+
+
 def build_lookup_source_catalog_tool(
     tools: Sequence[BaseTool],
     *,
@@ -244,9 +249,8 @@ def build_lookup_source_catalog_tool(
         ensure_ascii=False,
     )
 
-    @tool
+    @tool(description=LOOKUP_SOURCE_CATALOG_DESCRIPTION)
     def lookup_source_catalog() -> str:
-        """Return configured source domains, available source IDs, and exact source tool names."""
         return catalog
 
     return lookup_source_catalog

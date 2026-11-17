@@ -116,9 +116,9 @@ def _blank_to_none(value: Any) -> Any:
 
 
 class PermitRequirement(BaseModel):
-    """One item a notice grants, demands or points out."""
-
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(
+        extra="forbid", json_schema_extra={"description": "One item a notice grants, demands or points out."}
+    )
 
     kind: RequirementKind = Field(
         description=(
@@ -159,9 +159,10 @@ class PermitRequirement(BaseModel):
 
 
 class PermitRecord(BaseModel):
-    """What one authority's notice in a building permit procedure says."""
-
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={"description": "What one authority's notice in a building permit procedure says."},
+    )
 
     kind: RecordKind = Field(
         description=(
@@ -242,9 +243,12 @@ class PermitRecord(BaseModel):
 
 
 class PermitExtraction(BaseModel):
-    """The strict reply: a record, or ``null`` when the document is not such a notice."""
-
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={
+            "description": "The strict reply: a record, or ``null`` when the document is not such a notice."
+        },
+    )
 
     record: PermitRecord | None = Field(
         description="null when the document is not an authority's notice in a building permit procedure."

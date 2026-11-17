@@ -113,9 +113,14 @@ def _clamped_importance(value: Any) -> int:
 
 
 class _ReflectionFinding(BaseModel):
-    """One durable finding proposed by the reflection stage, about the project or about the person."""
-
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={
+            "description": (
+                "One durable finding proposed by the reflection stage, about the project or about the person."
+            )
+        },
+    )
 
     about: Literal["project", "person"] = Field(
         description=(
@@ -188,14 +193,18 @@ class _ReflectionFinding(BaseModel):
 
 
 class ReflectionOutput(BaseModel):
-    """Strict structured-output contract for the memory-reflection stage.
-
-    Strict-valid (all fields required, no extras) so it can drive OpenRouter
-    native json_schema structured output. ``findings`` is an empty list when the
-    turn established nothing durable — the common, correct outcome.
-    """
-
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={
+            "description": (
+                "Strict structured-output contract for the memory-reflection stage.\n"
+                "\n"
+                "Strict-valid (all fields required, no extras) so it can drive OpenRouter\n"
+                "native json_schema structured output. ``findings`` is an empty list when the\n"
+                "turn established nothing durable — the common, correct outcome."
+            )
+        },
+    )
 
     findings: list[_ReflectionFinding] = Field(description="Durable findings; empty list if none.")
 

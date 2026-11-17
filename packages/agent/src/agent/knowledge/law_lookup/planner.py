@@ -16,6 +16,7 @@ from typing import Literal
 
 from langchain_core.exceptions import OutputParserException
 from pydantic import BaseModel
+from pydantic import ConfigDict
 from pydantic import Field
 from pydantic import ValidationError
 from pydantic import create_model
@@ -35,7 +36,7 @@ def plan_model(law: LawSource) -> type[BaseModel]:
     language = law.wording.language or lookup.language
     return create_model(
         "SearchPlan",
-        __doc__=f"A structured search of {law.wording.source}.",
+        __config__=ConfigDict(json_schema_extra={"description": f"A structured search of {law.wording.source}."}),
         collection=(Literal[collections], Field(description=f"{law.wording.source} collection to search")),
         terms=(str, Field(description=f"Full-text search terms in {language} (precise legal terminology)")),
         title=(str, Field(default="", description="Optional filter on the work's title, empty if unused")),

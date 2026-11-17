@@ -9,6 +9,7 @@ from typing import Annotated
 from typing import Any
 from typing import Literal
 
+from pydantic import ConfigDict
 from pydantic import Field
 from pydantic import field_validator
 from pydantic import model_validator
@@ -150,11 +151,16 @@ def _no_figure(value: str | None, field: str, *, name: bool = True) -> str | Non
 
 
 class FormulaInput(CardModel):
-    """One input of a named formula: the value the source gives, and whether the reader may change it.
-
-    The UNIT is the formula's, not this object's: it is stated in the field that
-    holds this input (``riser``: cm), and the renderer prints it.
-    """
+    model_config = ConfigDict(
+        json_schema_extra={
+            "description": (
+                "One input of a named formula: the value the source gives, and whether the reader may change it.\n"
+                "\n"
+                "The UNIT is the formula's, not this object's: it is stated in the field that\n"
+                "holds this input (``riser``: cm), and the renderer prints it."
+            )
+        }
+    )
 
     value: float | None = Field(
         default=None,
@@ -212,7 +218,9 @@ class FormulaInput(CardModel):
 
 
 class UValueLayer(CardModel):
-    """One homogeneous layer of a component, inside to outside."""
+    model_config = ConfigDict(
+        json_schema_extra={"description": "One homogeneous layer of a component, inside to outside."}
+    )
 
     label: str = Field(
         min_length=1, description="The layer's material, never its thickness: 'Mineralwolle', 'Stahlbeton'"
@@ -227,24 +235,29 @@ class UValueLayer(CardModel):
 
 
 class UValueFormula(CardModel):
-    """U = 1 / (R_si + Σ d/λ + R_se), for an opaque component of homogeneous layers (ÖNORM EN ISO 6946).
-
-    `component` picks the row of OIB-RL 6 Pkt. 4.4.1 the card holds the U-value
-    against, and with it the heat-flow direction for the surface resistances:
-    an external wall (row 1, horizontal), a ceiling or roof slope against
-    outside air (row 18, upward; a slope steeper than 60° counts as a wall),
-    a ceiling over outside air such as a passage (row 22, downward). Only
-    components against outside air: elsewhere R_se is not the standard's 0,04.
-    Air layers, inhomogeneous layers and the standard's corrections are out of
-    scope.
-
-    `measure` picks the requirement: a new build (Pkt. 4.4.1, the table), or a
-    renovation by single measures or the renewal of a component (Pkt. 4.5),
-    which without a Sanierungskonzept is the table value less 24 %. A major
-    renovation (größere Renovierung) is held to the energy figures of Pkt. 4.3,
-    not to a component's U-value, so the card computes U and does not judge it.
-    Unknown: the card cannot judge, because the bound depends on it.
-    """
+    model_config = ConfigDict(
+        json_schema_extra={
+            "description": (
+                "U = 1 / (R_si + Σ d/λ + R_se), for an opaque component of homogeneous layers (ÖNORM EN ISO 6946).\n"
+                "\n"
+                "`component` picks the row of OIB-RL 6 Pkt. 4.4.1 the card holds the U-value\n"
+                "against, and with it the heat-flow direction for the surface resistances:\n"
+                "an external wall (row 1, horizontal), a ceiling or roof slope against\n"
+                "outside air (row 18, upward; a slope steeper than 60° counts as a wall),\n"
+                "a ceiling over outside air such as a passage (row 22, downward). Only\n"
+                "components against outside air: elsewhere R_se is not the standard's 0,04.\n"
+                "Air layers, inhomogeneous layers and the standard's corrections are out of\n"
+                "scope.\n"
+                "\n"
+                "`measure` picks the requirement: a new build (Pkt. 4.4.1, the table), or a\n"
+                "renovation by single measures or the renewal of a component (Pkt. 4.5),\n"
+                "which without a Sanierungskonzept is the table value less 24 %. A major\n"
+                "renovation (größere Renovierung) is held to the energy figures of Pkt. 4.3,\n"
+                "not to a component's U-value, so the card computes U and does not judge it.\n"
+                "Unknown: the card cannot judge, because the bound depends on it."
+            )
+        }
+    )
 
     name: Literal["u_value"]
     component: FormulaComponent = Field(
@@ -266,7 +279,13 @@ class UValueFormula(CardModel):
 
 
 class StairStepRuleFormula(CardModel):
-    """2 × Stufenhöhe + Stufenauftritt = 62 ± 3 cm, and Tabelle 3's row for the stair (OIB-RL 4 Pkt. 3.2.1)."""
+    model_config = ConfigDict(
+        json_schema_extra={
+            "description": (
+                "2 × Stufenhöhe + Stufenauftritt = 62 ± 3 cm, and Tabelle 3's row for the stair (OIB-RL 4 Pkt. 3.2.1)."
+            )
+        }
+    )
 
     name: Literal["stair_step_rule"]
     stair_type: FormulaStairType = Field(
@@ -280,7 +299,9 @@ class StairStepRuleFormula(CardModel):
 
 
 class EscapeRouteSegment(CardModel):
-    """One leg of the escape route, measured along the walking line."""
+    model_config = ConfigDict(
+        json_schema_extra={"description": "One leg of the escape route, measured along the walking line."}
+    )
 
     label: str = Field(min_length=1, description="The leg, by its ends, never its length: 'Raum → Gang'")
     length: FormulaInput = Field(description="Length in m")
@@ -292,7 +313,11 @@ class EscapeRouteSegment(CardModel):
 
 
 class EscapeRouteLengthFormula(CardModel):
-    """The Gehweglänge, its legs added up, against 40 m (OIB-RL 2 Pkt. 5.1.1 and 5.1.2)."""
+    model_config = ConfigDict(
+        json_schema_extra={
+            "description": "The Gehweglänge, its legs added up, against 40 m (OIB-RL 2 Pkt. 5.1.1 and 5.1.2)."
+        }
+    )
 
     name: Literal["escape_route_length"]
     start: FormulaRouteStart = Field(
@@ -306,14 +331,19 @@ class EscapeRouteLengthFormula(CardModel):
 
 
 class DaylightRatioFormula(CardModel):
-    """Lichteintrittsfläche against the room's Bodenfläche (OIB-RL 3 Pkt. 9.1.1, 9.1.3, 9.1.4).
-
-    The required share is 12 %, raised to 15 % by an overhang over 1,50 m, by
-    2 % per started metre of overhang beyond 3,00 m, and by 1 % per started
-    metre of room depth beyond 5,00 m; the renderer derives it from the inputs.
-    The free light angle of 45° (Pkt. 9.1.2) is a precondition the card states
-    and does not check.
-    """
+    model_config = ConfigDict(
+        json_schema_extra={
+            "description": (
+                "Lichteintrittsfläche against the room's Bodenfläche (OIB-RL 3 Pkt. 9.1.1, 9.1.3, 9.1.4).\n"
+                "\n"
+                "The required share is 12 %, raised to 15 % by an overhang over 1,50 m, by\n"
+                "2 % per started metre of overhang beyond 3,00 m, and by 1 % per started\n"
+                "metre of room depth beyond 5,00 m; the renderer derives it from the inputs.\n"
+                "The free light angle of 45° (Pkt. 9.1.2) is a precondition the card states\n"
+                "and does not check."
+            )
+        }
+    )
 
     name: Literal["daylight_ratio"]
     opening_area: FormulaInput = Field(
@@ -350,7 +380,14 @@ COVERAGE_OF_GATE: dict[str, SiteCoverage] = {
 
 
 class SiteEdition(CardModel):
-    """One work that binds at the turn's site, and the edition that binds, as the knowledge context names them."""
+    model_config = ConfigDict(
+        json_schema_extra={
+            "description": (
+                "One work that binds at the turn's site, and the edition that binds, as the knowledge context names "
+                "them."
+            )
+        }
+    )
 
     designation: str
     edition_label: str | None = Field(
@@ -360,11 +397,18 @@ class SiteEdition(CardModel):
 
 
 class SiteBinding(CardModel):
-    """Which editions bind at the turn's site, stamped by the server on every formula card (never the model's).
-
-    The card judges a bound only where the edition its values come from is the one that binds here and the
-    coverage is settled; everywhere else it shows the value against the bound as a hint, with the reason.
-    """
+    model_config = ConfigDict(
+        json_schema_extra={
+            "description": (
+                "Which editions bind at the turn's site, stamped by the server on every formula card (never the "
+                "model's).\n"
+                "\n"
+                "The card judges a bound only where the edition its values come from is the one that binds here and "
+                "the\n"
+                "coverage is settled; everywhere else it shows the value against the bound as a hint, with the reason."
+            )
+        }
+    )
 
     coverage: SiteCoverage
     editions: list[SiteEdition] = Field(default_factory=list, max_length=MAX_SITE_EDITIONS)
@@ -401,22 +445,28 @@ def site_binding() -> dict[str, Any] | None:
 
 
 class FormulaCard(CardModel):
-    """Emit for a number worked out by one of four named rules, so the reader can ask "what if" on the card.
-
-    The rules: a U-value from its layers (u_value), the Schrittmaßregel and the
-    stair table (stair_step_rule), an escape route's Gehweglänge
-    (escape_route_length), the Lichteintrittsfläche against the Bodenfläche
-    (daylight_ratio). Anything else worked out is a `calculation`.
-
-    YOU SUPPLY THE CASE AND THE INPUTS, NEVER A NUMBER OF YOUR OWN. Name the
-    case the rule asks for (`stair_type`, `component`, `start`) and fill each
-    input from the project's documents, the user's own figures or the norm,
-    with `source` saying where it is written. An input you do not have stays
-    null: the card says it cannot judge, and the reader can enter an
-    assumption. The card computes, takes the bound from the Richtlinie's table
-    for that case, judges, and recomputes when the reader changes an input.
-    The title names the component („U-Wert Außenwand AW 01"), never a value.
-    """
+    model_config = ConfigDict(
+        json_schema_extra={
+            "description": (
+                'Emit for a number worked out by one of four named rules, so the reader can ask "what if" on the '
+                "card.\n"
+                "\n"
+                "The rules: a U-value from its layers (u_value), the Schrittmaßregel and the\n"
+                "stair table (stair_step_rule), an escape route's Gehweglänge\n"
+                "(escape_route_length), the Lichteintrittsfläche against the Bodenfläche\n"
+                "(daylight_ratio). Anything else worked out is a `calculation`.\n"
+                "\n"
+                "YOU SUPPLY THE CASE AND THE INPUTS, NEVER A NUMBER OF YOUR OWN. Name the\n"
+                "case the rule asks for (`stair_type`, `component`, `start`) and fill each\n"
+                "input from the project's documents, the user's own figures or the norm,\n"
+                "with `source` saying where it is written. An input you do not have stays\n"
+                "null: the card says it cannot judge, and the reader can enter an\n"
+                "assumption. The card computes, takes the bound from the Richtlinie's table\n"
+                "for that case, judges, and recomputes when the reader changes an input.\n"
+                'The title names the component („U-Wert Außenwand AW 01"), never a value.'
+            )
+        }
+    )
 
     type: Literal["formula"]
     title: str = Field(

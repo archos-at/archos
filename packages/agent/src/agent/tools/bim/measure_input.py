@@ -3,6 +3,7 @@
 from typing import Any
 
 from pydantic import BaseModel
+from pydantic import ConfigDict
 from pydantic import Field
 from pydantic import field_validator
 from pydantic import model_validator
@@ -27,7 +28,9 @@ from agent.tools.bim.measure_vocab import _record_misses
 
 
 class IfcMeasureInput(BaseModel):
-    """The arguments of one ``ifc_measure`` call, as the model sees them."""
+    model_config = ConfigDict(
+        json_schema_extra={"description": "The arguments of one ``ifc_measure`` call, as the model sees them."}
+    )
 
     operation: _literal(OPERATIONS) = Field(
         description=(

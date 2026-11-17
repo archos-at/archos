@@ -48,18 +48,22 @@ class _StrictContract(BaseModel):
 
 
 class ClarificationResponse(_StrictContract):
-    """
-    Structured response from the clarifier LLM.
-
-    Attributes:
-        needs_clarification: True if additional clarification is needed,
-            False if the agent has enough information to proceed.
-        clarification_question: The clarification question to ask the user.
-            Required when needs_clarification is True, null otherwise.
-        options: Short labels for the answers offered by the question, so the
-            UI can render a picker instead of asking the user to retype one of
-            them. Empty when the question has no enumerable answers.
-    """
+    model_config = ConfigDict(
+        json_schema_extra={
+            "description": (
+                "Structured response from the clarifier LLM.\n"
+                "\n"
+                "Attributes:\n"
+                "    needs_clarification: True if additional clarification is needed,\n"
+                "        False if the agent has enough information to proceed.\n"
+                "    clarification_question: The clarification question to ask the user.\n"
+                "        Required when needs_clarification is True, null otherwise.\n"
+                "    options: Short labels for the answers offered by the question, so the\n"
+                "        UI can render a picker instead of asking the user to retype one of\n"
+                "        them. Empty when the question has no enumerable answers."
+            )
+        }
+    )
 
     needs_clarification: bool = Field(
         description="True if additional clarification is needed from the user, "
@@ -108,15 +112,22 @@ def _require_every_property(schema: dict[str, Any]) -> None:
     schema["required"] = list(schema.get("properties", {}))
 
 
+PLAN_RESPONSE_DESCRIPTION = (
+    "Structured response from the planner LLM: the research plan preview.\n"
+    "\n"
+    "``sections`` are what the report will cover, in the order it will. The reader edits them, the genre and\n"
+    "the depth on the plan card before the run starts, and the approved plan\n"
+    "binds the planner and the writer."
+)
+
+
+def _plan_response_schema(schema: dict[str, Any]) -> None:
+    schema["description"] = PLAN_RESPONSE_DESCRIPTION
+    _require_every_property(schema)
+
+
 class PlanResponse(_StrictContract):
-    """Structured response from the planner LLM: the research plan preview.
-
-    ``sections`` are what the report will cover, in the order it will. The reader edits them, the genre and
-    the depth on the plan card before the run starts, and the approved plan
-    binds the planner and the writer.
-    """
-
-    model_config: ClassVar[ConfigDict] = {"extra": "forbid", "json_schema_extra": _require_every_property}
+    model_config: ClassVar[ConfigDict] = {"extra": "forbid", "json_schema_extra": _plan_response_schema}
 
     @model_validator(mode="before")
     @classmethod

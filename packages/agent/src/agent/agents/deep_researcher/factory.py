@@ -77,9 +77,11 @@ WRITER_AGENT = "writer-agent"
 GENERAL_PURPOSE_AGENT = "general-purpose"
 
 
-@tool
+THINK_DESCRIPTION = "Use this tool to reason through decisions, verify constraints, or plan next steps."
+
+
+@tool(description=THINK_DESCRIPTION)
 def think(thought: str) -> str:
-    """Use this tool to reason through decisions, verify constraints, or plan next steps."""
     return "Thought recorded."
 
 

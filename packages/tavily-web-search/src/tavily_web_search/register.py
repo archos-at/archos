@@ -173,6 +173,20 @@ def _refusing_licensed_text(search):
     return searched
 
 
+WEB_SEARCH_UNAVAILABLE_DESCRIPTION = "Web search tool (unavailable - missing TAVILY_API_KEY)."
+
+
+WEB_SEARCH_DESCRIPTION = (
+    "Retrieves relevant contexts from web search (using Tavily) for the given question.\n"
+    "\n"
+    "Args:\n"
+    "    question (str): The question to be answered. Will be truncated to 400 characters if longer.\n"
+    "\n"
+    "Returns:\n"
+    "    str: The web search results containing relevant documents and their URLs."
+)
+
+
 @register_function(config_type=TavilyWebSearchToolConfig)
 async def tavily_web_search(tool_config: TavilyWebSearchToolConfig, builder: Builder):
     from langchain_tavily import TavilySearch
@@ -191,7 +205,6 @@ async def tavily_web_search(tool_config: TavilyWebSearchToolConfig, builder: Bui
             _missing_key_warned = True
 
         async def _tavily_web_search_stub(question: str) -> str:
-            """Web search tool (unavailable - missing TAVILY_API_KEY)."""
             return (
                 "Error: Web search is unavailable because TAVILY_API_KEY is not set.\n"
                 "To enable this tool:\n"
@@ -202,7 +215,7 @@ async def tavily_web_search(tool_config: TavilyWebSearchToolConfig, builder: Bui
 
         yield FunctionInfo.from_fn(
             _tavily_web_search_stub,
-            description=_tavily_web_search_stub.__doc__,
+            description=WEB_SEARCH_UNAVAILABLE_DESCRIPTION,
         )
         return
 
@@ -224,14 +237,6 @@ async def tavily_web_search(tool_config: TavilyWebSearchToolConfig, builder: Bui
         return TavilySearch(**(tavily_kwargs | {"max_results": max_results}))
 
     async def _tavily_web_search(question: str) -> str:
-        """Retrieves relevant contexts from web search (using Tavily) for the given question.
-
-        Args:
-            question (str): The question to be answered. Will be truncated to 400 characters if longer.
-
-        Returns:
-            str: The web search results containing relevant documents and their URLs.
-        """
         outcome = ActionOutcome()
         row = ActionRow("web", query=question)
         try:
@@ -319,5 +324,5 @@ async def tavily_web_search(tool_config: TavilyWebSearchToolConfig, builder: Bui
 
     yield FunctionInfo.from_fn(
         _refusing_licensed_text(_tavily_web_search),
-        description=_tavily_web_search.__doc__,
+        description=WEB_SEARCH_DESCRIPTION,
     )

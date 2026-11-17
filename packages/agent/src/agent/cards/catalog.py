@@ -24,6 +24,8 @@ from typing import Literal
 from pydantic import BaseModel
 from pydantic_core import PydanticUndefined
 
+from agent.cards.card_model import card_description
+
 SYSTEM_CARD_TYPES = frozenset(
     {
         "memory_proposal",
@@ -569,7 +571,7 @@ def describe_card_catalog() -> dict[str, Any]:
     cards: list[dict[str, Any]] = []
     for card_cls in AnswerCard.__args__:
         type_value = getattr(card_cls.model_fields["type"].annotation, "__args__", ("?",))[0]
-        doc = (card_cls.__doc__ or "").strip()
+        doc = card_description(card_cls).strip()
         cards.append(
             {
                 "type": type_value,
@@ -654,7 +656,7 @@ def render_card_catalog(*, include_model_backed: bool = True, exclude: frozenset
         type_value = _card_type_of(card_cls)
         if type_value in withheld:
             continue
-        doc = (card_cls.__doc__ or "").strip().split("\n")[0]
+        doc = card_description(card_cls).strip().split("\n")[0]
         shape = _card_shape(card_cls, nested)
         card_lines.append(f'  - "{type_value}": {doc}\n      shape: {shape}')
 
@@ -807,7 +809,7 @@ def render_card_index(*, include_model_backed: bool = True, exclude: frozenset[s
         type_value = _card_type_of(card_cls)
         if type_value in withheld:
             continue
-        doc = (card_cls.__doc__ or "").strip().split("\n")[0]
+        doc = card_description(card_cls).strip().split("\n")[0]
         lines.append(f'  - "{type_value}": {doc}')
 
     return "Card types:\n" + "\n".join(lines) + _interactive_note()
@@ -832,7 +834,7 @@ def card_index_entries(
         type_value = _card_type_of(card_cls)
         if type_value in withheld:
             continue
-        entries.append((type_value, (card_cls.__doc__ or "").strip().split("\n")[0]))
+        entries.append((type_value, card_description(card_cls).strip().split("\n")[0]))
     return entries
 
 

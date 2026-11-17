@@ -87,7 +87,9 @@ def _text_or_none(value: Any) -> Any:
 
 
 class Evidence(_Wire):
-    """Where a value or decision is stated: the file, the page, and the words."""
+    model_config = ConfigDict(
+        json_schema_extra={"description": "Where a value or decision is stated: the file, the page, and the words."}
+    )
 
     file_name: str = Field(
         alias="fileName",
@@ -113,7 +115,11 @@ class Evidence(_Wire):
 
 
 class FingerprintValue(_Wire):
-    """One answered key: a token, or a list of tokens when the key is multi-valued."""
+    model_config = ConfigDict(
+        json_schema_extra={
+            "description": "One answered key: a token, or a list of tokens when the key is multi-valued."
+        }
+    )
 
     key: str = Field(description="The key asked, exactly as the keys list names it.")
     value: str | list[str] = Field(
@@ -125,7 +131,13 @@ class FingerprintValue(_Wire):
 
 
 class DraftedDecision(_Wire):
-    """A decision the project made, or a constraint it had to meet, with where the documents say so."""
+    model_config = ConfigDict(
+        json_schema_extra={
+            "description": (
+                "A decision the project made, or a constraint it had to meet, with where the documents say so."
+            )
+        }
+    )
 
     kind: DecisionKind = Field(
         description=(

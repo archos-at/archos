@@ -80,10 +80,15 @@ class _Verdict(BaseModel):
 
 
 class ReportAnatomyDraft(BaseModel):
-    """The strict-JSON shape the extraction asks for. Every field present,
-    optionals nullable, as the strict schema requires."""
-
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={
+            "description": (
+                "The strict-JSON shape the extraction asks for. Every field present,\n"
+                "optionals nullable, as the strict schema requires."
+            )
+        },
+    )
     kind: Literal["walkthrough", "ruling"]
     summary: str | None
     topic: str | None

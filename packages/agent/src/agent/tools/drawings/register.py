@@ -19,6 +19,7 @@ import logging
 from typing import Literal
 
 from pydantic import BaseModel
+from pydantic import ConfigDict
 from pydantic import Field
 
 from agent.common.action_outcome import ActionOutcome
@@ -72,7 +73,7 @@ TOOL_DESCRIPTION = (
 
 
 class DxfMeasureInput(BaseModel):
-    """What the model passes to ``dxf_measure``."""
+    model_config = ConfigDict(json_schema_extra={"description": "What the model passes to ``dxf_measure``."})
 
     operation: Operation = Field(description="What to measure; start with 'overview'.")
     document: str = Field(default="", description="The DXF's file name; empty for the open document or the subject.")

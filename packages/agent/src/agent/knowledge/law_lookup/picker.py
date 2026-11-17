@@ -10,6 +10,7 @@ never prose: the passages the answering model reads are cut out of the law by
 from __future__ import annotations
 
 from pydantic import BaseModel
+from pydantic import ConfigDict
 from pydantic import Field
 
 from agent.knowledge.law_lookup.planner import invoke_structured
@@ -17,14 +18,20 @@ from agent.knowledge.law_lookup.source import LawSource
 
 
 class PassagePick(BaseModel):
-    """One provision the picker believes answers the question."""
+    model_config = ConfigDict(
+        json_schema_extra={"description": "One provision the picker believes answers the question."}
+    )
 
     section: str = Field(description="The provision id exactly as listed")
     reason: str = Field(default="", description="One short sentence: why this provision")
 
 
 class PassagePlan(BaseModel):
-    """Ranked provision ids for one document. Strict structured output, like the search plan."""
+    model_config = ConfigDict(
+        json_schema_extra={
+            "description": "Ranked provision ids for one document. Strict structured output, like the search plan."
+        }
+    )
 
     picks: list[PassagePick] = Field(default_factory=list, description="Up to six provisions, best first")
 

@@ -36,9 +36,12 @@ def refuse_data_urls(value: Any, path: str = "card") -> None:
 
 
 class LookDocument(CardModel):
-    """The document looked at: its id when it is a workspace document, its file name, its shelf."""
-
-    model_config = ConfigDict(regex_engine="python-re")
+    model_config = ConfigDict(
+        regex_engine="python-re",
+        json_schema_extra={
+            "description": "The document looked at: its id when it is a workspace document, its file name, its shelf."
+        },
+    )
 
     id: str | None = Field(
         default=None,
@@ -53,9 +56,15 @@ class LookDocument(CardModel):
 
 
 class LookItem(CardModel):
-    """One place on the document: a look the agent took, or a box or pointer it showed the room (`reference`)."""
-
-    model_config = ConfigDict(regex_engine="python-re")
+    model_config = ConfigDict(
+        regex_engine="python-re",
+        json_schema_extra={
+            "description": (
+                "One place on the document: a look the agent took, or a box or pointer it showed the room "
+                "(`reference`)."
+            )
+        },
+    )
 
     origin: Literal["look", "reference"] = Field(
         default="look", description="`look`: the agent looked here; `reference`: the agent pointed the room here"
@@ -113,11 +122,16 @@ class LookItem(CardModel):
 
 
 class LookCard(CardModel):
-    """Where the agent looked on one document in this turn, and what it showed the room there.
-
-    System-emitted (``tools/look/cards.py``) once the answer is final, from the
-    looks the answer relies on; the model cannot emit it (``SYSTEM_CARD_TYPES``).
-    """
+    model_config = ConfigDict(
+        json_schema_extra={
+            "description": (
+                "Where the agent looked on one document in this turn, and what it showed the room there.\n"
+                "\n"
+                "System-emitted (``tools/look/cards.py``) once the answer is final, from the\n"
+                "looks the answer relies on; the model cannot emit it (``SYSTEM_CARD_TYPES``)."
+            )
+        }
+    )
 
     type: Literal["look"] = "look"
     document: LookDocument

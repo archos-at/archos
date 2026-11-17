@@ -18,7 +18,7 @@ class _StrictContract(BaseModel):
 
 
 class TaskAnalysis(_StrictContract):
-    """Planner analysis of the user's research request."""
+    model_config = ConfigDict(json_schema_extra={"description": "Planner analysis of the user's research request."})
 
     user_intent: str = Field(description="Brief statement of what the user wants to achieve.")
     explicit_requirements: list[str] = Field(description="Requirements explicitly stated by the user.")
@@ -28,7 +28,9 @@ class TaskAnalysis(_StrictContract):
 
 
 class AnswerComponent(_StrictContract):
-    """Required evidence or synthesis component for the final answer."""
+    model_config = ConfigDict(
+        json_schema_extra={"description": "Required evidence or synthesis component for the final answer."}
+    )
 
     id: str = Field(description="Stable component identifier, such as 'latest_price_anchor'.")
     name: str = Field(description="Short human-readable component name.")
@@ -36,7 +38,9 @@ class AnswerComponent(_StrictContract):
 
 
 class AnswerStrategy(_StrictContract):
-    """Planner guidance for the final answer shape and synthesis logic."""
+    model_config = ConfigDict(
+        json_schema_extra={"description": "Planner guidance for the final answer shape and synthesis logic."}
+    )
 
     answer_type: Literal[
         "inspection_report",
@@ -65,7 +69,7 @@ class AnswerStrategy(_StrictContract):
 
 
 class Constraint(_StrictContract):
-    """Lightweight final-answer requirement."""
+    model_config = ConfigDict(json_schema_extra={"description": "Lightweight final-answer requirement."})
 
     category: Literal["content", "source", "structure", "depth", "format", "exclusion"] = Field(
         description="Constraint category."
@@ -95,7 +99,9 @@ class SourceRoutingPlan(_StrictContract):
 
 
 class ResearchQuery(_StrictContract):
-    """Self-contained research query for a researcher worker."""
+    model_config = ConfigDict(
+        json_schema_extra={"description": "Self-contained research query for a researcher worker."}
+    )
 
     query: str = Field(description="Specific, self-contained search or document query.")
     subqueries: list[str] = Field(
@@ -135,7 +141,7 @@ class ResearchQuery(_StrictContract):
 
 
 class ResearchPlan(_StrictContract):
-    """Structured plan produced by the planner subagent."""
+    model_config = ConfigDict(json_schema_extra={"description": "Structured plan produced by the planner subagent."})
 
     task_analysis: TaskAnalysis = Field(description="Planner analysis of the user's request.")
     answer_strategy: AnswerStrategy = Field(description="Final answer shape and synthesis strategy.")
@@ -144,7 +150,7 @@ class ResearchPlan(_StrictContract):
 
 
 class ResearchSource(_StrictContract):
-    """Source used by a researcher worker."""
+    model_config = ConfigDict(json_schema_extra={"description": "Source used by a researcher worker."})
 
     id: int = Field(description="Integer source identifier used by findings in this note.")
     title: str = Field(description="Source title or document name.")
@@ -160,7 +166,7 @@ class ResearchSource(_StrictContract):
 
 
 class ResearchFinding(_StrictContract):
-    """Atomic finding captured from one or more sources."""
+    model_config = ConfigDict(json_schema_extra={"description": "Atomic finding captured from one or more sources."})
 
     claim: str = Field(description="Concise factual claim or analytical conclusion.")
     evidence: str = Field(description="Detailed supporting evidence, including dates, figures, names, and context.")
@@ -170,7 +176,7 @@ class ResearchFinding(_StrictContract):
 
 
 class ResearchGap(_StrictContract):
-    """Information gap identified during research."""
+    model_config = ConfigDict(json_schema_extra={"description": "Information gap identified during research."})
 
     description: str = Field(description="Missing or weakly supported information.")
     impact: str = Field(description="Why the gap matters for the final report.")
@@ -178,7 +184,7 @@ class ResearchGap(_StrictContract):
 
 
 class EvidenceJudgment(_StrictContract):
-    """Post-research judgment attached to a research note."""
+    model_config = ConfigDict(json_schema_extra={"description": "Post-research judgment attached to a research note."})
 
     relevance_score: int = Field(
         description="How useful this note is for the final answer, from 0 to 100.",
@@ -203,7 +209,7 @@ class EvidenceJudgment(_StrictContract):
 
 
 class ResearchNotes(_StrictContract):
-    """Structured notes produced by a researcher worker."""
+    model_config = ConfigDict(json_schema_extra={"description": "Structured notes produced by a researcher worker."})
 
     query_topic: str = Field(description="Short topic label for this research note.")
     target_components: list[str] = Field(description="Answer components these notes support.")

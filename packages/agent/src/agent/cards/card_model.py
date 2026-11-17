@@ -91,3 +91,7 @@ class CardModel(BaseModel):
     @classmethod
     def _flatten_text_markup(cls, value: Any) -> Any:
         return _flatten_markup_deep(value)
+
+
+def card_description(card_cls: type) -> str:
+    return card_cls.model_config.get("json_schema_extra", {}).get("description", "")

@@ -14,6 +14,7 @@ import logging
 
 from langchain_core.exceptions import OutputParserException
 from pydantic import BaseModel
+from pydantic import ConfigDict
 from pydantic import Field
 from pydantic import ValidationError
 
@@ -23,14 +24,18 @@ logger = logging.getLogger(__name__)
 
 
 class RisPassagePick(BaseModel):
-    """One § the picker believes answers the question."""
+    model_config = ConfigDict(json_schema_extra={"description": "One § the picker believes answers the question."})
 
     section: str = Field(description='The section id exactly as listed, e.g. "§ 63" or "Art 5"')
     reason: str = Field(default="", description="One short sentence: why this §")
 
 
 class RisPassagePlan(BaseModel):
-    """Ranked § ids for one document. Strict structured output, like RisSearchPlan."""
+    model_config = ConfigDict(
+        json_schema_extra={
+            "description": "Ranked § ids for one document. Strict structured output, like RisSearchPlan."
+        }
+    )
 
     picks: list[RisPassagePick] = Field(default_factory=list, description="Up to six §§, best first")
 

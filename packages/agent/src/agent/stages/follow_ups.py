@@ -154,28 +154,37 @@ class FollowUpsPayload(BaseModel):
 
 
 class _DraftQuestion(BaseModel):
-    """What the model is asked for: strict-JSON-valid, so it can drive
-    OpenRouter's native ``json_schema`` structured output.
-
-    Every field required and no extras, which is why ``hint`` is a required
-    string that may be empty rather than an optional one — the same compromise
-    ``ReflectionOutput.supersedes`` makes. The constraints live on
-    :class:`FollowUpQuestion`, one layer out: a schema the provider rejects
-    costs a whole stage run, while a question this layer lets through is dropped
-    by the sanitiser and counted.
-    """
-
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={
+            "description": (
+                "What the model is asked for: strict-JSON-valid, so it can drive\n"
+                "OpenRouter's native ``json_schema`` structured output.\n"
+                "\n"
+                "Every field required and no extras, which is why ``hint`` is a required\n"
+                "string that may be empty rather than an optional one — the same compromise\n"
+                "``ReflectionOutput.supersedes`` makes. The constraints live on\n"
+                ":class:`FollowUpQuestion`, one layer out: a schema the provider rejects\n"
+                "costs a whole stage run, while a question this layer lets through is dropped\n"
+                "by the sanitiser and counted."
+            )
+        },
+    )
 
     question: str = Field(description="The next question, complete and sendable, in the answer's language.")
     hint: str = Field(description="A half-line saying what asking this would get the reader, or an empty string.")
 
 
 class FollowUpsDraft(BaseModel):
-    """The model's raw proposal. ``items`` is empty when the answer opened
-    nothing — the outcome this slice exists to count."""
-
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={
+            "description": (
+                "The model's raw proposal. ``items`` is empty when the answer opened\n"
+                "nothing — the outcome this slice exists to count."
+            )
+        },
+    )
 
     items: list[_DraftQuestion] = Field(description="Two to four questions; an empty list if none qualify.")
 

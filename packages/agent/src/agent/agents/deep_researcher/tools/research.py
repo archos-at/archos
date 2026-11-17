@@ -554,6 +554,16 @@ def _withheld_notes(repeats: Sequence[str], results: dict[str, dict[str, Any]]) 
     return [results[signature] for signature in repeats if signature in results]
 
 
+RUN_RESEARCH_BATCH_DESCRIPTION = (
+    "Run planned research queries in parallel and return ResearchNotes JSON.\n"
+    "\n"
+    "Args:\n"
+    "    queries: The curated ResearchQuery objects to research in this batch.\n"
+    "    conclusion: ONE sentence: what the batches so far established and\n"
+    "        what this one still has to close. Empty on the first batch."
+)
+
+
 def build_research_batch_tool(
     *,
     researcher_runnable: Any,
@@ -576,19 +586,12 @@ def build_research_batch_tool(
     ledger: dict[str, int] = submission_counts if submission_counts is not None else {}
     retrieval: RetrievalRounds = rounds if rounds is not None else RetrievalRounds()
 
-    @tool
+    @tool(description=RUN_RESEARCH_BATCH_DESCRIPTION)
     async def run_research_batch(
         queries: list[ResearchQuery],
         conclusion: str = "",
         runtime: ToolRuntime = _NO_TOOL_RUNTIME,
     ) -> str:
-        """Run planned research queries in parallel and return ResearchNotes JSON.
-
-        Args:
-            queries: The curated ResearchQuery objects to research in this batch.
-            conclusion: ONE sentence: what the batches so far established and
-                what this one still has to close. Empty on the first batch.
-        """
         if not queries:
             return "[]"
         if write_now_requested():

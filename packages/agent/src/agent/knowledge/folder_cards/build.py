@@ -79,9 +79,12 @@ class _KeyFactReply(BaseModel):
 
 
 class CardReply(BaseModel):
-    """What the model returns. Strict: every property required, optionals nullable."""
-
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={
+            "description": "What the model returns. Strict: every property required, optionals nullable."
+        },
+    )
 
     abstract: str
     key_facts: list[_KeyFactReply]

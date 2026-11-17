@@ -54,6 +54,7 @@ from typing import Any
 from typing import Literal
 
 from pydantic import BaseModel
+from pydantic import ConfigDict
 from pydantic import Field
 from pydantic import ValidationError
 from pydantic import field_validator
@@ -130,7 +131,7 @@ class _Finding(BaseModel):
 
 
 class CheckReply(BaseModel):
-    """The structured output."""
+    model_config = ConfigDict(json_schema_extra={"description": "The structured output."})
 
     level: Level
     findings: list[_Finding]

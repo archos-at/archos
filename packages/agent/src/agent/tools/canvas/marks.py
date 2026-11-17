@@ -45,6 +45,7 @@ from typing import Literal
 
 from pydantic import BaseModel
 from pydantic import BeforeValidator
+from pydantic import ConfigDict
 from pydantic import ValidationError
 
 from .calls import ANNOTATION_GONE
@@ -67,7 +68,11 @@ Shape = Annotated[Literal["point", "region"], BeforeValidator(_normalized)]
 
 
 class AnnotationProposal(BaseModel):
-    """One finding: where on which page, what kind, what is wrong, what it rests on."""
+    model_config = ConfigDict(
+        json_schema_extra={
+            "description": "One finding: where on which page, what kind, what is wrong, what it rests on."
+        }
+    )
 
     page: int
     shape: Shape = "region"
