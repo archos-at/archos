@@ -642,7 +642,7 @@ def _is_excluded(element: Any) -> bool:
     Every entry of FURNISHING is tested, as ``clear_height`` does: in IFC2X3
     ``IfcFurniture`` and ``IfcSystemFurnitureElement`` are no subtypes of
     ``IfcFurnishingElement``, and a single-entry test would let an IFC2X3
-    chair decide what is above an element. Stairs and railings stay in,
+    chair decide what is above an element. Stairs, ramps and railings stay in,
     unlike in ``clear_height``: a stair above an element is something above
     it, while a stair standing in a room is no ceiling.
     """
