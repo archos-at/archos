@@ -1,6 +1,6 @@
 ---
 name: verify-on-dev
-description: The loop for checking what the deployed agent actually did. Exercise the change on dev through the office MCP door (a live ask, a tool call), then read that request's Langfuse trace through the platform MCP gateway and judge it. Use after a change reaches dev, to reproduce a reported answer or tool failure, or whenever you would otherwise guess at the agent's behaviour from the code or a local run.
+description: Test a change on dev and read the agent's Langfuse traces for it. Use when verifying behaviour after a deploy, or debugging an answer or tool call.
 ---
 
 # Verify on dev: act, then read the trace
