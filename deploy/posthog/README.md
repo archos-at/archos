@@ -153,9 +153,10 @@ What every query shares, as the `WITH` block at its top:
   same on Monday morning and on Thursday.
 - **Production is two properties.** A browser event carries `$host` and no
   `app_host`; a server event carries `app_host` and no `$host`. A filter on one
-  of them silently drops the other half. The Python services carry neither and
-  report `environment = production` on both stacks, so their errors cannot be
-  told apart by deployment.
+  of them silently drops the other half. The Python services carry `app_host`
+  (`POSTHOG_APP_HOST`) since the deploy of 2026-11-17; their earlier events carry
+  neither and report `environment = production` on both stacks, so those cannot
+  be told apart by deployment.
 - **Customers** are every office except `internal_offices`, the same ids as the
   project's „internal and test" filter (Settings → Project). A new internal
   office is added in both places. Cost is the exception: it is the platform's

@@ -104,9 +104,12 @@ Project 269895. Everything carries the tag `spend`.
   table, the members, and what the spend was for.
 
 Both take the SQL variables `piloti_deployment` (default: production's app host,
-`app.archos.tech`; pick `app.piloti.at` for months before the move) and,
+`app.archos.tech`) and,
 on the second, `piloti_organization`, a list filled from the organizations that
-spent in the last 90 days.
+spent in the last 90 days. Picking either production host selects both, so a
+month that spans the move (November 2026) counts the days on `app.piloti.at`
+too; the two latest-snapshot tiles read the current host only, which carries the
+whole month.
 
 **Data catalog** (proposed, waiting for a person to approve them):
 `org_llm_spend_month`, `org_budget_utilisation`,
