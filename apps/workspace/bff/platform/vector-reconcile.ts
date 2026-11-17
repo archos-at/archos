@@ -2,7 +2,8 @@ import 'server-only'
 import { eq } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
 import { withPlatformAccess } from '@/lib/db/tenant-context'
-import { documents } from '@/lib/db/schema/documents'
+import { documents, type DocumentAuthor } from '@/lib/db/schema/documents'
+import { collectionFileRef } from '@/lib/documents/collection-file-ref'
 import { getBackendUrl } from '@/lib/backend-proxy'
 import { internalServiceHeaders } from '@/lib/internal-auth'
 import { syncAllProjectFacts, type ProjectFactsSyncResult } from '@/lib/cross-project/project-facts-mirror'
@@ -49,6 +50,8 @@ function safeDecode(name: string): string {
   }
 }
 
+type LiveRow = { collectionName: string; filename: string; authoredBy: DocumentAuthor; publishedVersionId: string | null }
+
 async function liveFilenamesByCollection(): Promise<Map<string, Set<string>>> {
   const db = getDb()
   const rows = (await withPlatformAccess(
@@ -59,9 +62,10 @@ async function liveFilenamesByCollection(): Promise<Map<string, Set<string>>> {
           collectionName: documents.collectionName,
           filename: documents.filename,
           authoredBy: documents.authoredBy,
+          publishedVersionId: documents.publishedVersionId,
         })
         .from(documents),
-  )) as { collectionName: string; filename: string; authoredBy: string }[]
+  )) as LiveRow[]
 
   const byCollection = new Map<string, Set<string>>()
   for (const row of rows) {
@@ -70,7 +74,7 @@ async function liveFilenamesByCollection(): Promise<Map<string, Set<string>>> {
       names = new Set<string>()
       byCollection.set(row.collectionName, names)
     }
-    if (row.authoredBy === 'user') names.add(row.filename)
+    if (collectionFileRef(row)) names.add(row.filename)
   }
   return byCollection
 }
@@ -81,11 +85,16 @@ async function liveFilenamesIn(collectionName: string): Promise<Set<string>> {
     'vector reconciliation sweep: re-reading one collection before deleting its orphans',
     () =>
       db
-        .select({ filename: documents.filename, authoredBy: documents.authoredBy })
+        .select({
+          collectionName: documents.collectionName,
+          filename: documents.filename,
+          authoredBy: documents.authoredBy,
+          publishedVersionId: documents.publishedVersionId,
+        })
         .from(documents)
         .where(eq(documents.collectionName, collectionName)),
-  )) as { filename: string; authoredBy: string }[]
-  return new Set(rows.filter((row) => row.authoredBy === 'user').map((row) => row.filename))
+  )) as LiveRow[]
+  return new Set(rows.filter((row) => collectionFileRef(row)).map((row) => row.filename))
 }
 
 async function listStoredFilenames(collectionName: string): Promise<string[]> {
