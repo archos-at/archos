@@ -1,17 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The lifecycle routes, driven through the TYPED CLIENT rather than through
- * hand-built `Request`s.
- *
- * That is ADR-0055's claim under test, not a convenience: "the UI, the agent's
- * tools, the task runner and any later integration are equal clients of one
- * HTTP API with a typed client". A spec that posted its own JSON would assert
- * the handlers work and prove nothing about the client every other consumer
- * uses — and the two would be free to disagree about a path or a field name
- * with nothing to notice.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -33,7 +22,6 @@ vi.mock('@/lib/documents/lifecycle', () => ({
   transitionDocumentVersion: vi.fn(),
   toDocumentVersionView: (value: unknown) => value,
 }))
-// The byte half of the lifecycle lives next door (`version-content`).
 vi.mock('@/lib/documents/version-content', () => ({
   archiveDocument: vi.fn(),
   readVersionContent: vi.fn(),
@@ -64,11 +52,6 @@ import { POST as archive } from '../archive/route'
 
 type Handler = (request: Request, context?: { params?: Promise<Record<string, string>> }) => Promise<Response>
 
-/**
- * The routing table this suite stands in for Next.js with. Written out because
- * a spec that guessed which handler a path belongs to would pass while the app
- * mounted it somewhere else.
- */
 const ROUTES: Array<{ pattern: RegExp; method: string; handler: Handler; params: string[] }> = [
   { pattern: /^\/api\/documents\/([^/]+)\/versions$/, method: 'GET', handler: listVersions, params: ['id'] },
   { pattern: /^\/api\/documents\/([^/]+)\/versions$/, method: 'POST', handler: forkDraft, params: ['id'] },

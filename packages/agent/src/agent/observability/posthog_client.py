@@ -56,7 +56,6 @@ if TYPE_CHECKING:
 
 HOST_ENV = "POSTHOG_HOST"
 PROJECT_TOKEN_ENV = "POSTHOG_PROJECT_TOKEN"  # pragma: allowlist secret
-#: Packages whose frames error tracking treats as ours.
 IN_APP_MODULES = ["agent", "agent_host"]
 
 _client: Posthog | None = None

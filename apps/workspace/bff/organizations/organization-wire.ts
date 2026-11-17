@@ -1,11 +1,6 @@
-/**
- * The bodies and queries of the `/api/organization/*` routes, kept out of the
- * route files (a Next route exports handlers only) so each route and the MCP
- * catalog (`lib/agent-api/catalog/organization.ts`) parse against one schema.
- */
-
 import { z } from 'zod'
 import { locales } from '@/i18n/config'
+import { memoryTopicField } from '@/lib/memory-topics/wire'
 import { DELETED_FOLDER_CONTENT_POLICIES } from '@/lib/authz/folder-access-rule'
 import {
   PROJECT_MEMORY_CONFIDENCES,
@@ -20,14 +15,9 @@ import { CHAT_EFFORT_SETTING, CHAT_EFFORTS, isChatEffort } from '@/lib/reasoning
 import { PRODUCT_NAME } from '@/lib/brand'
 import { homeCountrySchema } from './home-country'
 
-// --- web search ------------------------------------------------------------
-
-/** `PUT /api/organization/web-search`: whether Piloti may search the web for this organization (ADR-0022). */
 export const webSearchPutSchema = z.object({
   enabled: z.boolean().describe('true lets ' + PRODUCT_NAME + ' search the web for this organization; false keeps every answer inside it.'),
 })
-
-// --- budgets ---------------------------------------------------------------
 
 const limitSchema = z.number().min(0).finite().nullable()
 
@@ -49,13 +39,9 @@ export const usageQuerySchema = z.object({
   projectId: z.string().optional(),
 })
 
-// --- deleted folder content ------------------------------------------------
-
 export const deletedFolderContentSchema = z.object({
   policy: z.enum(DELETED_FOLDER_CONTENT_POLICIES),
 })
-
-// --- download log ----------------------------------------------------------
 
 const day = z
   .string()
@@ -67,17 +53,13 @@ export const downloadLogQuerySchema = z.object({
   userId: z.string().min(1).max(128).optional(),
   document: z.string().trim().min(1).max(200).optional(),
   kind: z.enum(DOWNLOAD_LOG_KINDS).optional(),
-  /** First day shown (UTC), inclusive. */
   from: day.optional(),
-  /** Last day shown (UTC), inclusive: the query is below the start of the day after. */
   to: day.optional(),
   cursor: z.string().min(1).max(500).optional(),
   limit: z.coerce.number().int().min(1).max(ACCESS_LOG_MAX_LIMIT).optional(),
 })
 
 export const downloadLogRetentionSchema = z.object({ days: z.number().int() })
-
-// --- instructions ----------------------------------------------------------
 
 export const orgInstructionsSchema = z.object({
   instructions: z
@@ -88,13 +70,12 @@ export const orgInstructionsSchema = z.object({
     ),
 })
 
-// --- memory ----------------------------------------------------------------
-
 export const createOrgMemorySchema = z.object({
   kind: z.enum(PROJECT_MEMORY_KINDS),
   content: z.string().trim().min(1).max(2000),
   confidence: z.enum(PROJECT_MEMORY_CONFIDENCES).optional(),
   pinned: z.boolean().optional(),
+  topic: memoryTopicField.optional(),
 })
 
 export const patchOrgMemorySchema = z
@@ -105,10 +86,9 @@ export const patchOrgMemorySchema = z
     confidence: z.enum(PROJECT_MEMORY_CONFIDENCES).optional(),
     verification: z.enum(PROJECT_MEMORY_VERIFICATIONS).optional(),
     pinned: z.boolean().optional(),
+    topic: memoryTopicField.optional(),
   })
   .refine((value) => Object.keys(value).length > 0, { message: 'Empty patch' })
-
-// --- model configuration ---------------------------------------------------
 
 export const modelSearchQuerySchema = z.object({
   group: z.string().default(''),
@@ -118,16 +98,12 @@ export const modelSearchQuerySchema = z.object({
 export const modelConfigPutSchema = z.object({
   overrides: z.partialRecord(
     z.enum(AGENT_GROUP_IDS as [string, ...string[]]),
-    // BYOK-aware shape (`author/slug` OR provider-native id, ADR-0022);
-    // catalog membership is the real gate.
     z.object({ model: z.string().regex(MODEL_ID_PATTERN, 'not a plausible model id') }),
   ),
   comment: z.string().trim().max(500).nullable().optional(),
 })
 
 export const zdrPutSchema = z.object({ enabled: z.boolean() })
-
-// --- settings --------------------------------------------------------------
 
 export const orgSettingsPutSchema = z.object({
   displayName: z.string().trim().max(200).nullable().optional(),
@@ -144,7 +120,6 @@ export const orgSettingsPutSchema = z.object({
     .optional(),
 })
 
-/** `GET /api/organization/usage/notice`: the chat's usage notice, optionally for one project. */
 export const usageNoticeQuerySchema = z.object({
   projectId: z.string().max(120).optional(),
 })

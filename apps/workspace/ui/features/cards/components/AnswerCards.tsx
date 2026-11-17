@@ -35,81 +35,25 @@ import { FadeIn } from '@/components/motion'
 import { A2uiCard } from '@/features/a2ui/A2uiCard'
 
 interface AnswerCardsProps {
-  /**
-   * Parsed grid cards to render, in wire order. `undefined` holes are cards
-   * `validateAnswerCards` rejected: they hold their index so `[[card:N]]`
-   * markers and persisted `cardKey` decisions after them stay bound, and they
-   * render nothing.
-   */
   cards: (AnswerCard | undefined)[]
-  /** Optional project ID for patch card API calls. */
   projectId?: string | null
-  /**
-   * The message these cards belong to. Interactive cards key their persisted
-   * decision on it (`features/cards/card-decision.ts`); without it they
-   * still render and act, but the outcome doesn't survive a reload.
-   */
   messageId?: string
-  /**
-   * Which of `cards` to draw, by index. Defaults to all of them.
-   *
-   * The chat passes a SUBSET here: a card the answer placed inline with a
-   * `[[card:N]]` marker is already drawn in the prose, and only the rest fall
-   * back to this block. The array must stay whole and the indices original —
-   * `cardKey` is positional, so renumbering a filtered list would rename every
-   * persisted decision and re-open cards the user has already answered.
-   */
   indices?: readonly number[]
-  /**
-   * Whether an interactive card here MUST be able to persist its decision.
-   *
-   * Default (false) keeps the old behaviour: with no `messageId` the card still
-   * takes an answer and remembers it for this mount only — right for the
-   * `/dev/cards` gallery and previews, where nothing could be persisted and
-   * nothing is at stake.
-   *
-   * A surface that renders REAL cards passes true, and then an interactive card
-   * with no owning message draws itself without its actions rather than taking
-   * an answer it will drop. The deep-research report tab is that surface: its
-   * cards come from a job output, and the message that carries them
-   * (`card-owner.ts`) is not always loaded.
-   */
   decisionsMustPersist?: boolean
 }
 
 interface AnswerCardItemProps {
-  /** The card to draw. */
   card: AnswerCard
-  /** Its index in the message's `cards` array — its identity (see `cardKey`). */
   index: number
-  /** Optional project ID for patch card API calls. */
   projectId?: string | null
-  /** The message these cards belong to (see {@link AnswerCardsProps.messageId}). */
   messageId?: string
-  /** See {@link AnswerCardsProps.decisionsMustPersist}. */
   decisionsMustPersist?: boolean
 }
 
 interface AnswerCardViewProps extends AnswerCardItemProps {
-  /**
-   * The card's id inside a composed `surface`, absent for a lone card. A second
-   * guard only: every card that stores a decision under its `cardKey` is in
-   * `SURFACE_EXCLUDED_LEAVES` and never sits in a surface. Should one ever be
-   * allowed there, its leaves (which share the surface's `index`) still get
-   * distinct keys.
-   */
   leafId?: string
 }
 
-/**
- * One card, drawn directly: the per-type dispatch.
- *
- * Since ADR-0065 this is what A2UI's catalog calls for each card component
- * (`AnswerCardItem` below hands it to `A2uiCard`), and what a card falls back to
- * when A2UI will not draw it. Callers draw cards with `AnswerCardItem`. A
- * `surface` never reaches it: the catalog has no `surface` component and the
- * fallback never hands one down (`SURFACE_EXCLUDED_LEAVES`).
- */
 export const AnswerCardView: FC<AnswerCardViewProps> = ({
   card,
   index,
@@ -118,13 +62,12 @@ export const AnswerCardView: FC<AnswerCardViewProps> = ({
   decisionsMustPersist,
   leafId,
 }) => {
-  // The identity an interactive card's persisted decision is stored under.
   const key = leafId === undefined ? cardKey(card, index) : `${cardKey(card, index)}.${leafId}`
 
   if (card.type === 'formula') {
     return (
       <FadeIn distance={6}>
-        <FormulaCard title={card.title} formula={card.formula} note={card.note} />
+        <FormulaCard title={card.title} formula={card.formula} note={card.note} site_binding={card.site_binding} />
       </FadeIn>
     )
   }
@@ -352,9 +295,6 @@ export const AnswerCardView: FC<AnswerCardViewProps> = ({
           modelFile={card.model_file ?? null}
           storey={card.storey ?? null}
           note={card.note ?? null}
-          // Typed in `card-highlights.ts`, not here: the generated zod
-          // renders a nested `$ref` as `z.any()`, so every field read off
-          // a highlight would otherwise be unchecked.
           highlights={cardHighlightSpecs(card.highlights ?? [])}
           projectId={projectId ?? null}
         />
@@ -506,6 +446,7 @@ export const AnswerCardView: FC<AnswerCardViewProps> = ({
           content={card.content}
           kind={card.kind}
           confidence={card.confidence}
+          topic={card.topic}
           supersedes={card.supersedes}
           proposalId={card.proposal_id}
           messageId={messageId}
@@ -519,27 +460,8 @@ export const AnswerCardView: FC<AnswerCardViewProps> = ({
   return null
 }
 
-/**
- * One card slot, drawn through A2UI (ADR-0065).
- *
- * A lone card or a composed `surface`: `A2uiCard` turns it into an A2UI
- * surface on the Piloti catalog and draws it, and every card component in that
- * catalog comes back here, to `AnswerCardView`, for the pixels. Props and
- * identity are unchanged, so every caller keeps working and every stored
- * message renders through the same path.
- *
- * Split out of the stack so a card can also be drawn ALONE, wherever the answer
- * placed it — `AnswerCards` is then just the vertical stack of the leftovers.
- * `index` is passed rather than inferred for exactly that reason: an inline
- * card has no position in a list to be inferred from, and its identity must
- * still be the one the persisted decisions were keyed under.
- */
 export const AnswerCardItem: FC<AnswerCardItemProps> = ({ card, index, projectId, messageId, decisionsMustPersist }) => {
-  // The surface id must be unique within the page; an answer without a
-  // message id (a preview, a streaming draft) takes one from React instead.
   const fallbackId = useId()
-  // One renderer while its inputs hold: it is the value of A2UI's renderer
-  // context, and a new one re-renders every card component in the surface.
   const isSurface = card.type === 'surface'
   const render = useCallback(
     (leaf: AnswerCard, leafId: string) => (
@@ -557,11 +479,6 @@ export const AnswerCardItem: FC<AnswerCardItemProps> = ({ card, index, projectId
   return <A2uiCard card={card} surfaceKey={`${messageId ?? fallbackId}:${index}`} render={render} />
 }
 
-/**
- * Renders a list of Grid cards in a vertical stack. Since ADR-0069 a card is
- * an action or commitment, a to-scale schematic, a calculation, a live model
- * binding or a `surface`; everything else is the answer's Markdown.
- */
 export const AnswerCards: FC<AnswerCardsProps> = ({
   cards,
   projectId,
@@ -569,8 +486,6 @@ export const AnswerCards: FC<AnswerCardsProps> = ({
   indices,
   decisionsMustPersist,
 }) => {
-  // A subset renders under its ORIGINAL indices, never renumbered — see
-  // `AnswerCardsProps.indices`.
   const positions = indices ?? cards.map((_, index) => index)
   if (positions.length === 0) {
     return null

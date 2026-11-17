@@ -1,26 +1,3 @@
-/**
- * Saved searches (ADR-0136 slice 5): a person keeps a search question, and may
- * share it with the office.
- *
- * What sharing shares: the QUESTION, never an answer. A saved search stores
- * where to look and what to ask, no result, no document, no count. A colleague
- * who runs a shared one sends an ordinary `POST /api/search` as themselves, so
- * the reach (`reach.ts`) is theirs: they find what they may read and nothing
- * the owner could see beyond it. That is why any member may share one with the
- * whole office without a permission of its own.
- *
- * What a colleague's question still names: a project id in its scope or its
- * `projectIds` filter. A reader who may not view that project must not learn it
- * exists, so {@link listSavedSearches} hides a colleague's search scoped to such
- * a project (running it would answer 404 anyway) and drops such ids from its
- * filter. Document ids (`citedBy`, `citing`) stay: an id names no project, and
- * the reader's run applies their own reach to it.
- *
- * Who may change one: only its owner. Every write is keyed by the owner, so a
- * colleague's row, shared or not, answers 404 exactly as a missing one does:
- * a 403 would confirm the id exists.
- */
-
 import 'server-only'
 import { ConflictError, NotFoundError, UnprocessableError } from '@/lib/api/errors'
 import { nextOffsetCursor, offsetPageOf } from '@/lib/api/offset-page'
@@ -60,16 +37,10 @@ export function toSavedSearchView(row: SavedSearchRow, readerUserId: string, own
   }
 }
 
-/** The projects a colleague's saved search names, in its scope and its filter. */
 function namedProjects(row: SavedSearchRow): string[] {
   return [...(row.scope.projectId ? [row.scope.projectId] : []), ...(row.query.filters?.projectIds ?? [])]
 }
 
-/**
- * A colleague's saved search as `viewable` lets the reader see it: null when
- * scoped to a project they may not view, else without such projects in its
- * filter. The reader's own is theirs whole.
- */
 export function savedSearchForReader(
   row: SavedSearchRow,
   readerUserId: string,
@@ -80,18 +51,10 @@ export function savedSearchForReader(
   const projectIds = row.query.filters?.projectIds
   if (!projectIds || projectIds.every((id) => viewable.has(id))) return row
   const kept = projectIds.filter((id) => viewable.has(id))
-  // Every named project hidden: the question without them would search wider than the owner asked.
   if (kept.length === 0) return null
   return { ...row, query: { ...row.query, filters: { ...row.query.filters, projectIds: kept } } }
 }
 
-/**
- * The reader's own and the office's shared saved searches, newest first, one
- * page. A colleague's is named by who saved it (the people directory, cached),
- * so the reader knows whose question they are about to run, and shows only the
- * projects the reader may view (`viewableProjects`, read only when a
- * colleague's names one).
- */
 export async function listSavedSearches(
   reader: SavedSearchOwner,
   query: ListSavedSearchesQuery,
@@ -124,7 +87,6 @@ export async function createSavedSearch(owner: SavedSearchOwner, input: CreateSa
   }
 }
 
-/** Rename or share the owner's own saved search; 404 for anyone else's. */
 export async function updateSavedSearch(
   owner: SavedSearchOwner,
   id: string,
@@ -140,7 +102,6 @@ export async function updateSavedSearch(
   }
 }
 
-/** Delete the owner's own saved search; 404 for anyone else's. */
 export async function deleteSavedSearch(owner: SavedSearchOwner, id: string): Promise<void> {
   if (!(await deleteOwnSavedSearch(owner, id))) throw new NotFoundError('Saved search not found')
 }

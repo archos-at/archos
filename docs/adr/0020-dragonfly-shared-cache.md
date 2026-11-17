@@ -117,5 +117,5 @@ any cache error, so the stack runs unchanged with the container stopped or
 ## References
 
 - `frontends/ui/src/lib/cache/index.ts`, `src/aiq_agent/common/cache.py`
-- `deploy/compose/docker-compose.yaml` / `docker-compose.coolify.yaml` (`dragonfly` service)
+- `deploy/compose/docker-compose.yaml` / `docker-compose.coolify.yaml` (`dragonfly` service; the Coolify file was deleted on 2026-11-11, ADR-0150)
 - https://www.dragonflydb.io/

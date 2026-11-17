@@ -26,14 +26,12 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-import math
 import re
 import uuid
 from collections import OrderedDict
 from collections.abc import Iterator
 from contextvars import ContextVar
 from contextvars import Token
-from dataclasses import dataclass
 
 from pydantic import BaseModel
 from pydantic import ConfigDict
@@ -55,6 +53,8 @@ from agent.common.provenance import provenance_label
 from agent.common.source_kinds import MAIL_LANE_LABEL
 from agent.common.source_kinds import MAIL_SOURCE_FORMAT
 from agent.common.source_kinds import Shelf
+from agent.common.source_records import SourceRegion
+from agent.common.source_records import SourceRevision
 from agent.common.turn_status import current_retrieval_round
 from agent.common.turn_status import emit_step
 from agent.common.wire_v2 import SourcesStep
@@ -62,62 +62,9 @@ from agent.common.wire_v2 import TraceLane
 
 logger = logging.getLogger(__name__)
 
-#: Appended to a body its producer had to cut. Protocol, not evidence: the
-#: renderer adds it and every reader takes it back off, so a quote is never
-#: matched against it.
 TRUNCATION_MARKER = "... [truncated]"
 
 
-@dataclass(frozen=True)
-class SourceRegion:
-    """Where on a page a passage sits, as a box the viewer can draw (issue #433).
-
-    ``box`` is ``(x0, y0, x1, y1)`` normalised 0-1 over the page AS THE VIEWER
-    SHOWS IT: a whole rendered PDF page, or a whole uploaded image, top-left
-    origin. That is the frame the visual analysis read the picture in, so the
-    box needs no conversion, and it is why a region is only ever produced for
-    those two frames (``knowledge_layer.search.grounding_hits._hit_regions``). An embedded
-    raster's box is relative to the raster, whose placement on the page is not
-    stored, so it gets none rather than a box in the wrong place.
-
-    The box is the model's approximation of one depiction on the sheet (a
-    Grundriss, a Schnitt), not a measurement and not the single object a query
-    named. ``label`` is that depiction's title as read off the sheet, when it
-    had one.
-
-    A dataclass, not a model, because it rides on ``SourceEntry`` and
-    ``dataclasses.asdict`` is how the session registry is cached.
-    """
-
-    box: tuple[float, float, float, float]
-    label: str | None = None
-
-    def to_wire(self) -> dict[str, object]:
-        """The citation wire's spelling: ``{"box": [...], "label": ...}``, label omitted when unknown."""
-        payload: dict[str, object] = {"box": list(self.box)}
-        if self.label:
-            payload["label"] = self.label
-        return payload
-
-    @classmethod
-    def from_cached(cls, value: object) -> SourceRegion | None:
-        """Rebuild one from its ``asdict`` form, or ``None`` for anything malformed."""
-        if not isinstance(value, dict):
-            return None
-        box = value.get("box")
-        if not isinstance(box, (list, tuple)) or len(box) != 4:
-            return None
-        try:
-            x0, y0, x1, y1 = (float(part) for part in box)
-        except TypeError, ValueError:
-            return None
-        if not all(math.isfinite(part) for part in (x0, y0, x1, y1)):
-            return None
-        label = value.get("label")
-        return cls(box=(x0, y0, x1, y1), label=label if isinstance(label, str) and label else None)
-
-
-#: How a project's status reads on the ``Projekt:`` line, and back.
 PROJECT_STATUS_LABELS: dict[str, str] = {"active": "laufend", "paused": "ruhend", "closed": "abgeschlossen"}
 
 
@@ -135,11 +82,7 @@ class SourceProject(BaseModel):
 
     id: str
     name: str
-    #: ``active``, ``paused`` or ``closed`` (ADR-0098).
     status: str
-    #: Its Bundesland as the model reads it, with a warning when it is not
-    #: the chat project's: a precedent from another Land was decided under
-    #: another Bauordnung. Rendered as the ``Bundesland:`` line.
     federal_state_note: str | None = None
 
 
@@ -160,74 +103,32 @@ class GroundingHit(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    #: The key the model copies into its answer, and the document identity the
-    #: registry dedups on. Carries the page and, when one filename arrived from
-    #: two shelves in one result set, the shelf qualifier.
     citation_key: str
-    #: The raw filename. Document identity for the fan-out and for preview
-    #: resolution; never prettified.
     file_name: str
-    #: 1-based page, or ``None`` when the document has no pagination. A
-    #: producer sets it only for a real page, so the renderer needs no second
-    #: ``> 0`` guard.
     page: int | None
     shelf: Shelf | None
     collection: str | None
     doc_class: str | None
-    #: The user-facing name on the ``Source:`` line. Falls back to the filename
-    #: for a document with no stored or derived title.
     display_title: str
-    #: Where the user filed the document (ADR-0049), or ``None`` at the root.
     folder_path: str | None
-    #: The locus in the document's own numbering, readable: ``3.5.2`` for the
-    #: corpus, ``§ 63 Abs 1`` for a law. Never squeezed to one token.
     clause: str | None
-    #: Required, because the ``Relevance Score:`` line is also the grammar's
-    #: header/body delimiter: a hit with no score would render a body that
-    #: reads as more header.
     score: float
-    #: One of the five :class:`~agent.knowledge.schema.ContentType` values.
     content_type: str
-    #: The provenance of an agent-authored, human-approved document, or
-    #: ``None`` for everything a human wrote (``common/provenance.py``).
     provenance: AgentProvenance | None
-    #: Index of a raster stored beside the document, for ``look``.
-    #: ``None`` when the hit carries no stored image.
     stored_image_index: int | None
-    #: A legal disclaimer about the document's status (RIS consolidated
-    #: versions). Its own header line, never inside the body: a body is text
-    #: the answer may quote.
     status_note: str | None
-    #: The passage itself, already cut to the producer's budget.
     body: str
-    #: Whether :attr:`body` was cut, which appends the truncation marker. The
-    #: marker is protocol and not evidence, so the reader drops it again.
     body_truncated: bool = False
-    #: The other project this hit came from (ADR-0094); ``None`` for every hit
-    #: of the turn's own scope, which renders no ``Projekt:`` line.
     project: SourceProject | None = None
-    #: Where on the page the passage sits, for the viewer to mark (issue #433).
-    #: Rendered as ``Region:`` lines in ``look``'s own frame (``[x, y, w, h]``,
-    #: shares of the page as shown), so the model can look again at the place
-    #: it cites by copying the numbers (ADR-0128). It reaches the registry by
-    #: the record lookup; a block read back by the text parser (a replayed turn)
-    #: carries none, and the viewer then opens at the page as before.
     regions: tuple[SourceRegion, ...] = ()
-    #: Last page of a passage that runs over a page break, when it is later than :attr:`page`. Rendered
-    #: as the range ``Page: 4–5``; the citation key keeps the start page, which is its identity.
     page_end: int | None = None
-    #: ``mail`` for a filed E-Mail-Verlauf (``source_kinds.MAIL_SOURCE_FORMAT``): sections headed by sender, date and
-    #: whether the domain was confirmed. The ``Format: mail — E-Mail`` line makes a passage one party's message, not the
-    #: document's finding, and ``lane_for_hit`` files it in the mail lane. ``None`` for every other document: no line.
     source_format: str | None = None
-    #: Where the model reads this document again (ADR-0133): its absolute estate path,
-    #: ``/project/Gutachten/Brandschutzkonzept.pdf.md``. Rendered as the ``Path:`` line, so
-    #: ``read_file`` can open the page around a hit. ``None`` renders nothing: a hit of
-    #: another project (not mounted), the web, RIS. Not the citation key: a path is how the
-    #: model FINDS a file, the key is what it cites.
     path: str | None = None
-    #: The licence (``common/licensed_text.py``): ``licensed`` renders a ``Licence:`` line and a reference.
     licence: LicenceTerms | None = None
+    work_id: str | None = None
+    edition_id: str | None = None
+    public_url: str | None = None
+    revision: SourceRevision | None = None
 
     @property
     def authored_by(self) -> str | None:
@@ -246,65 +147,24 @@ class GroundingBlock(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    #: The lines before the first hit: the count, and anything about the CALL
-    #: rather than about a passage (RIS states its assumed jurisdiction here).
     preamble: str
-    #: What is rendered ahead of everything and outside the grammar: the
-    #: requery notice when the search widened, and a partial-retrieval warning
-    #: when a layer dropped out. Empty when neither applies. It is part of the
-    #: block so the hash the reader looks up is the hash of the whole text.
     degraded_banner: str
     hits: tuple[GroundingHit, ...]
-    #: The fan-out, built by the producer from these same hits. The renderer
-    #: emits it as the tool's ``sources`` step and writes it as the
-    #: ``## Trace-Lanes`` line.
     lanes: tuple[TraceLane, ...]
-    #: The basename of the tool that returned this block (``knowledge_search``,
-    #: ``read_passage``, ``ris_lookup``): the ``sources`` step names it.
     tool: str
-    #: What is rendered after the lanes and outside the grammar: ``read_passage``
-    #: puts its ``## Gliederung`` index here, and the one line that replaces the
-    #: index for a document with no Punkte. Empty when neither applies. It is
-    #: part of the block for the same reason the banner is: the reader looks the
-    #: records up by the hash of the WHOLE text, so a producer that appended
-    #: these bytes itself fell back to the text parser.
     trailer: str = ""
-    #: Why the hits do NOT answer the question, when a judge that read them
-    #: against it said so (``knowledge_layer.search.requery.judge_coverage``). Rendered
-    #: as the ``Coverage: insufficient — …`` line under the preamble, so the
-    #: model reads the verdict before the passages rather than inferring it
-    #: from a score. The reason names how many hits were judged, and the claim
-    #: covers those only. ``None`` renders nothing: an unjudged block and a
-    #: covered one read as they always did.
     coverage_gap: str | None = None
 
 
-# ---------------------------------------------------------------------------
-# The renderer
-# ---------------------------------------------------------------------------
-
-
-#: The line that says a block's passages do not answer the question: one
-#: constant rather than a spelling each producer picks. English, like
-#: everything an agent reads.
 COVERAGE_GAP_LABEL = "Coverage: insufficient —"
 
-#: What the coverage line goes on to say, at the moment it matters. It used to
-#: be a rule in the system prompt, paid on every call of every turn; it is
-#: needed only on a block a judge found insufficient, which is exactly when the
-#: line is rendered (slice 6, ``prompt-value-audit-2026-10.md``).
 COVERAGE_GAP_NOTE = (
     "No passage here states what was asked: say so and what you searched. That is not „Nicht geregelt“; "
     "the rule may sit in a source this search does not cover."
 )
 
-#: Appended to the ``Herkunft:`` line of a agent-authored document, so every
-#: tool that returns one (a search hit, a grep passage, a read) says it where
-#: the passage is. The line still starts with the frozen ``Piloti-Dokument``
-#: token the text parser reads (``citations.grounding_text._parse_kl_authored_by``).
 AGENT_DOCUMENT_NOTE = "what the office decided, never a source for a normative value"
 
-#: The heading of the fan-out JSON every rendered block carries.
 TRACE_LANES_MARKER = "## Trace-Lanes"
 
 _TRACE_LANES_RE = re.compile(rf"\n*{re.escape(TRACE_LANES_MARKER)}\n[^\n]*\n*")
@@ -355,10 +215,6 @@ def render_grounding_block(block: GroundingBlock) -> str:
         lines.append(block.trailer)
     rendered = block.degraded_banner + "\n".join(lines)
     record_grounding_block(block, rendered)
-    # Every passage's collection is reported for the tool call that returns this
-    # block, which is what admits a restricted folder's passages before the
-    # model reads them (ADR-0088). Here and not in the producers, for the
-    # reason recording is: no evidence tool can render a hit and skip it.
     from agent.knowledge.restricted_use import note_collections_read
 
     note_collections_read(hit.collection for hit in block.hits)
@@ -489,7 +345,6 @@ def _header_lines(hit: GroundingHit) -> Iterator[str]:
     yield f"Relevance Score: {hit.score:.2f}"
 
 
-#: How many of a hit's boxes the model reads. ``look`` takes one to three regions per sheet.
 MAX_RENDERED_REGIONS = 3
 
 
@@ -513,12 +368,8 @@ def _project_line(project: SourceProject) -> str:
     return f"{_line(project.name)} — {_line(status)} (project_id {_key(project.id)})"
 
 
-#: The longest title a ``Source:`` line prints. A mail's subject is its Verlauf's
-#: title and the sender wrote it (up to 1 000 characters, ``inbound-mail/mime.ts``),
-#: outside the fence; a title is a name, and a paragraph there is somebody's prose.
 MAX_SOURCE_TITLE_CHARS = 200
 
-# The block delimiter as a header value might spell it mid-line.
 _MARKER_IN_VALUE_RE = re.compile(r"-{3,}(?=\s*Result\s+\d)", re.IGNORECASE)
 
 
@@ -569,25 +420,6 @@ def _doc_class_label(doc_class: str) -> str:
     return DOCUMENT_CLASS_LABELS.get(canonical_doc_class(doc_class) or doc_class, doc_class)
 
 
-# ---------------------------------------------------------------------------
-# Per-turn capture (ContextVar), keyed by the rendered bytes
-# ---------------------------------------------------------------------------
-#
-# Modelled on ``turn_status`` lane capture: one mutable container set once per
-# turn, mutated by whichever task renders a block. LangGraph builds every node
-# task with ``copy_context()``, so a container swapped in mid-turn would not
-# reach the tools node. The container is set at the top of the run and only
-# ever mutated.
-#
-# The agent runtime's tool wrapper is the reason the records travel this way rather than on
-# ``ToolMessage.artifact``: it rebuilds the message from the string a tool
-# returned and drops the artifact, so a structured payload put there never
-# reaches the middleware. See docs/contributing/gotchas.md.
-
-#: How many blocks one turn may hold. A turn runs a bounded number of retrieval
-#: rounds; the cap is what keeps a runaway loop from holding every result set
-#: it ever rendered. The oldest entry goes first, which is the one least likely
-#: to still be looked up.
 _MAX_CAPTURED_BLOCKS = 64
 
 _captured_blocks: ContextVar[OrderedDict[str, GroundingBlock] | None] = ContextVar(

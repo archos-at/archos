@@ -1,14 +1,3 @@
-"""The precedent eval's harness: the part of it a CI machine can run.
-
-`scripts/turn_census/suite.py --set precedent` needs a model key to RUN. What
-is testable offline is everything around the agent: that the fixture BFF
-answers the routes a cross-project turn reads in their wire shape and drops
-every other route as today's suite does, that the envelope the suite mints is
-one the agent accepts, that the question set only expects facts the fixture
-office holds, and how the checks read an answer. An eval that misreads a turn
-reports its own bugs as the agent's (docs/roadmap/office-experience.md, step A).
-"""
-
 from __future__ import annotations
 
 import json
@@ -109,11 +98,9 @@ class TestTheFixtureBff:
         assert all(0 < len(found["requirements"]) <= 6 for found in body["permits"])
 
     def test_a_question_nothing_answers_still_gets_the_nearest_passages_as_in_production(self, bff):
-        """No relevance floor: production hands the nearest passages over and the agent judges, so the eval does too."""
         _, body = _post(bff, "/api/internal/cross-project/search", {"query": "Feuerwehraufzug Hochhaus", "limit": 5})
 
         assert 0 < len(body["hits"]) <= 5
-        # Without an embedder only shared tokens rank a decision, and none shares one.
         assert body["decisions"] == []
 
     def test_the_listing_and_the_brief_answer_in_their_wire_shapes(self, bff):
@@ -154,7 +141,6 @@ class TestTheFixtureBff:
 
 
 def test_the_fixture_permit_records_are_of_documents_the_office_holds_and_the_ingest_typed_permit_decision():
-    """`permits.json` is the pen's output over the office: a record for a document that is not one is a stale render."""
     permits = json.loads(
         (REPO_ROOT / "apps" / "workspace" / "tests" / "fixtures" / "precedent" / "permits.json").read_text()
     )
@@ -170,7 +156,6 @@ def test_the_fixture_permit_records_are_of_documents_the_office_holds_and_the_in
     assert permits["records"], "no record at all: render_fixture_permits.py has not been run"
     assert set(permits["records"]) <= set(documents)
     assert set(permits["records"]) <= permit_decisions
-    # A Bescheid with no record would be a fixture office the production ingest does not produce.
     assert set(permits["records"]) == permit_decisions
 
 
@@ -191,7 +176,6 @@ def test_the_envelope_the_suite_mints_is_one_the_agent_accepts():
 
 
 def test_every_project_a_question_expects_is_in_its_scenarios_office():
-    """An expectation is a fact read off the office the question sits in, never a name it does not hold."""
     for question in suite.load_precedent_questions():
         office = FixtureOffice(scenario=question.get("scenario") or "default")
         folded = suite._normal(" ".join(project["name"] for project in office.projects.values()))
@@ -200,7 +184,6 @@ def test_every_project_a_question_expects_is_in_its_scenarios_office():
 
 
 def test_the_questions_hold_a_held_out_share_in_every_scenario():
-    """Overfitting shows only beside questions nobody tuned on, in an office nobody tuned on."""
     questions = suite.load_precedent_questions()
     assert sum(bool(q.get("holdout")) for q in questions) >= len(questions) // 3
     for scenario in {q.get("scenario") for q in questions if q.get("scenario")}:
@@ -229,7 +212,6 @@ class TestTheScenarios:
 
 
 def _concept_embedder(concepts: dict[str, list[str]]):
-    """A deterministic stand-in for the embedding model: one axis per concept, a text on every axis it names."""
     axes = list(concepts)
 
     def embed(texts: list[str]) -> list[list[float]]:
@@ -348,7 +330,6 @@ class TestTheChecks:
         ]
 
     def test_a_meaning_no_judge_could_read_is_a_recorded_failure_never_a_missing_check(self):
-        """`says_none` 9/9 once hid a tenth run: a judge that could not answer dropped the check from the count."""
         for judge in (None, lambda *_: None):
             run = self._run([], "Nichts Vergleichbares.")
 
@@ -404,7 +385,6 @@ class TestTheChecks:
 
 
 def test_a_lookup_counts_for_the_run_it_served_however_it_was_asked_for(tmp_path):
-    """A round-0 prefetch shows in no model call; what the fixture served is what the turn read."""
     from fixture_bff import lookups_served
 
     office = FixtureOffice().office
@@ -434,14 +414,12 @@ def test_a_lookup_counts_for_the_run_it_served_however_it_was_asked_for(tmp_path
 
 
 def _repeating(question: dict) -> tuple[suite.Run, str]:
-    """The run of an answer that says nothing but the question, and that answer as the checks read it."""
     run = suite.Run(question_id=str(question["id"]), run=1, answer=str(question["question"]))
     return run, suite._normal(run.answer)
 
 
 class TestCites:
     def test_an_answer_that_only_repeats_the_question_cites_nothing(self):
-        """8 of 19 groups passed on exactly that: the question names the town, the check looked for the town."""
         questions = [q for q in suite.load_precedent_questions() if q["expect"].get("cites")]
         assert questions
         for question in questions:
@@ -467,7 +445,6 @@ class TestCites:
         assert checks["cites:Wiener Straße"] is True
 
     def test_a_word_of_the_question_is_no_alternative_even_inside_a_longer_group(self):
-        """`hold-dachgeschoss-auflagen` listed „Dachgeschoßausbau", the word its own question uses."""
         expect = {"cites": [["Dachgeschoßausbau", "Neubaugasse"]]}
         question = "Welche Auflagen gab es bei unserem Dachgeschoßausbau?"
         repeated = suite.Run(question_id="q", run=1, answer=question)
@@ -520,7 +497,6 @@ class TestTheProjectsAnAnswerNames:
         assert checks == {"real_projects": False}
 
     def test_a_real_project_the_scenarios_office_does_not_hold_is_invented_there(self):
-        """The empty office holds no other project: a source naming Baden there came from nowhere."""
         run = suite.Run(question_id="q", run=1, answer=SOURCES)
         names = FixtureOffice(scenario="leeres-buero").project_names()
 
@@ -556,16 +532,11 @@ def _with_evidence() -> list[dict]:
 
 
 def _searched(question: dict) -> list[str]:
-    """The documents the fixture search hands back for the question as asked: the tool's default scope and limit.
-
-    Token channel only (no embedder): deterministic, and what a CI machine has.
-    """
     office = FixtureOffice(scenario=question.get("scenario") or "default")
     return [hit["documentId"] for hit in office.search({"query": question["question"], "scope": "similar"})["hits"]]
 
 
 def _inverted(real):
-    """A ranking that is wrong the other way round: the worst passage first, its score the lowest."""
 
     def rank(self, query, texts):
         return [
@@ -617,13 +588,11 @@ class TestTheFixtureOfficeIsLargeEnoughToTestRanking:
                 assert owner["id"] in first_page, (question["id"], document_id)
 
     def test_the_real_ranking_brings_the_evidence_into_the_hits(self):
-        """Among the 30 and more passages of the first page, ten are returned: the answering one must be among them."""
         missed = [q["id"] for q in _with_evidence() if not set(q["expect"]["evidence"]) & set(_searched(q))]
 
         assert missed == []
 
     def test_inverted_scores_lose_nearly_all_of_it(self, monkeypatch):
-        """The revert-check of the scores: passages merge by score, so a search that scores badly must fail here."""
         monkeypatch.setattr(FixtureOffice, "_rank", _inverted(FixtureOffice._rank))
 
         kept = [q["id"] for q in _with_evidence() if set(q["expect"]["evidence"]) & set(_searched(q))]

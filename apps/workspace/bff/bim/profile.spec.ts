@@ -1,14 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Derived project facts.
- *
- * `storeys_above_ground` picks a Gebäudeklasse and a Gebäudeklasse decides what
- * the fire-safety answer is, so the interesting assertions are the refusals: the
- * suggestion that is NOT made when the model does not support it, and the
- * confidence that stays medium even when the arithmetic is exact.
- */
 
 import { describe, expect, it } from 'vitest'
 import { deriveProfileSuggestions, renderProfileSuggestions } from './profile'
@@ -85,8 +77,6 @@ describe('deriveProfileSuggestions', () => {
   })
 
   it('bands the Fluchtniveau from the highest OCCUPIED storey', () => {
-    // A model with an empty roof-plane storey at 12 m would otherwise jump a
-    // band and, with it, a Gebäudeklasse.
     const derived = deriveProfileSuggestions({
       summary: summary([...HOUSE, storey('Dachebene', 12, 0)]),
       spaceNames: [],
@@ -103,9 +93,6 @@ describe('deriveProfileSuggestions', () => {
   })
 
   it('never claims better than medium confidence on the Fluchtniveau', () => {
-    // The regulation means the floor level of the topmost storey with an escape
-    // route. A storey elevation is a proxy for that, and the difference decides
-    // a Gebäudeklasse — so this stays a proposal however exact the number is.
     const derived = deriveProfileSuggestions({ summary: summary(HOUSE), spaceNames: [] })
     expect(suggestion(derived, 'escape_level')?.confidence).toBe('medium')
   })
@@ -143,8 +130,6 @@ describe('deriveProfileSuggestions', () => {
   })
 
   it('offers the room count as the room count, at the lowest confidence', () => {
-    // Rooms are not Nutzungseinheiten — a flat is several rooms — and the
-    // evidence line has to say so.
     const derived = deriveProfileSuggestions({ summary: summary(HOUSE, 12), spaceNames: [] })
     const units = suggestion(derived, 'unit_count')
     expect(units?.value).toBe(12)

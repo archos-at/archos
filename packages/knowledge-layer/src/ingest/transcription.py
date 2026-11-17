@@ -30,18 +30,11 @@ from agent.common.cost_tracking import USAGE_ROLE_INGEST_TRANSCRIPTION
 
 logger = logging.getLogger(__name__)
 
-#: Bumped whenever the prompt or the reply handling changes: it is part of the
-#: cache identity, so a new prompt is never answered from the old one's cache.
 PROMPT_VERSION = 1
 
-#: The file failure for a scan with no vision model to read it. Same
-#: ``reason: text`` shape as the image path's, so the failed-document UX offers
-#: the same remedy instead of "no content extracted".
 SCAN_NEEDS_VLM = "vlm_not_configured: scanned PDF pages need a vision model to be transcribed (VLM_API_KEY)"
 
-#: Reply that says the page carries no text worth indexing (blank, a photo).
 NO_TEXT_MARKER = "[KEIN TEXT]"
-#: Reply that says the page is a plan or technical drawing, not a text page.
 DRAWING_MARKER = "[ZEICHNUNG]"
 
 TRANSCRIPTION_PROMPT = f"""Du bist ein OCR-System. Transkribiere den Text dieser gescannten Dokumentseite wortgetreu.
@@ -65,19 +58,8 @@ Sonderfälle — dann antwortest du NUR mit der Markierung:
 - Die Seite ist überwiegend ein Plan, eine technische Zeichnung, ein Schnitt, eine Ansicht
   oder ein Foto (nicht ein Textdokument mit einer kleinen Abbildung): {DRAWING_MARKER}"""
 
-# @environment_variable OCR_MODEL
-# @category Knowledge Layer
-# @type string
-# @default (the ingestion VLM model)
-# @required false
-# Model that transcribes scanned and garbled PDF pages. Unset, the ingestion
-# VLM transcribes them (VLM_MODEL, or the org's `ingest_vlm` override).
-# Same endpoint and key as the VLM.
 OCR_MODEL_ENV = "OCR_MODEL"
 
-#: Output budget for one page. A dense A4 page is ~900 German words, ~1 800
-#: tokens; tables in Markdown roughly double that. ``_vlm_chat_create`` doubles
-#: it once more on truncation.
 _MAX_TOKENS = 4096
 
 _FAILURE_PREFIX = "[transcription -"
@@ -268,11 +250,6 @@ def _submit_transcriptions(
     return futures
 
 
-# ---------------------------------------------------------------------------
-# The ingestion step: triage, transcribe, merge
-# ---------------------------------------------------------------------------
-
-
 @dataclass
 class PageRoutes:
     """Where the triage sent each page of one PDF, and what came of it.
@@ -326,7 +303,6 @@ def _merge_transcriptions(
     return kept
 
 
-#: ``route_pdf_pages`` measures the PDF itself unless handed a triage.
 _UNMEASURED: Any = object()
 
 
@@ -363,8 +339,6 @@ def route_pdf_pages(
         triage = page_triage.triage_pdf(pdf_path, page_texts, min_text_chars=min_text_chars, min_paths=min_paths)
     garbled = {n for n, text in page_texts.items() if page_triage.text_quality(text).garbled}
     if triage is None:
-        # pdfium cannot open the file, so nothing can be rendered: the glyph
-        # ids still go, and the pages are counted as not transcribed.
         kept = _merge_transcriptions(text_pages, garbled, {})
         return PageRoutes(outcome=TranscriptionOutcome(failed=sorted(garbled)), garbled_kept=kept)
     routes = PageRoutes(

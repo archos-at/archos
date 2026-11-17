@@ -1,22 +1,13 @@
 'use client'
 
-/**
- * What step 1 reads beyond the intake view: the project's name and status, the
- * Steckbrief's people and, for whoever may manage the members, the roster with
- * its roles. Three independent reads in parallel; one failing never hides what
- * the others answered, and `reload` reads again after a write.
- */
-
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ParticipantsClient, ProjectBasics, ProjectRoster } from '@/lib/projects/participants-client'
 import type { ProjectRecordView } from '@/lib/projects/project-record-types'
 
 export interface ParticipantsState {
-  /** Still reading for the first time. */
   loading: boolean
   project: ProjectBasics | null
   peopleRecord: ProjectRecordView | null
-  /** Null while loading, when it failed, or when the reader may not manage the members. */
   roster: ProjectRoster | null
   reload: () => Promise<void>
 }
@@ -37,7 +28,6 @@ export function useParticipants(projectId: string, client: ParticipantsClient): 
       client.peopleRecord(projectId),
       client.roster(projectId),
     ])
-    // A slower earlier read never lands over a later one.
     if (mine !== generation.current) return
     setState((current) => ({
       loading: false,

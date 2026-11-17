@@ -1,0 +1,7 @@
+---
+# area: building-law
+operators:
+  - >
+    An operator's agent can now propose a source whose documents are PDFs of
+    any size: the source is proved by a capture the platform fetched itself,
+    named by its id, in place of the document's bytes pasted into the record.

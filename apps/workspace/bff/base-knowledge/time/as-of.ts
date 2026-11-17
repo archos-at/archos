@@ -1,24 +1,3 @@
-/**
- * Which edition of a work applied to a procedure (ADR-0171, design §3.6):
- * "what applied when this was submitted", with the edition named. Pure: the
- * caller reads the rulesets, editions and territory chain, this decides.
- *
- * 1. The reference date (Stichtag). The legislating node's `reference_date`
- *    ruleset names a procedure event, run on the one evaluator (`decide`). A
- *    node without a rule inherits only by saying `inherits: parent`; otherwise
- *    the answer is `no_reference_date_rule`, with the editions each known event
- *    would give, and no code default stands in.
- * 2. The walk. Starting from the edition in force on the earlier of filing and
- *    the reference date, every boundary (an edition coming into force) up to the
- *    decision, or today while the procedure is open, is crossed or not: by its
- *    transition table where the amending edition carries one, else by whether
- *    the reference date lies on or after it. Without transitions this is the
- *    edition in force on the reference date.
- *
- * Every unknown stays unknown: a missing date is asked for by name, never read
- * as today.
- */
-
 import type {
   DatedEdition,
   EditionRef,
@@ -91,7 +70,6 @@ export interface WorkInTime {
   editions: readonly DatedEdition[]
 }
 
-/** The procedure as the facts a reference-date or transition table reads. */
 export function procedureFacts(procedure: Procedure): Record<string, unknown> {
   const decidedOn = procedure.decidedOn
   const started = procedure.worksStartedOn
@@ -107,14 +85,12 @@ export function procedureFacts(procedure: Procedure): Record<string, unknown> {
 
 type ReferenceDateResult = { status: 'decided'; referenceDate: ReferenceDate } | Undetermined
 
-/** The reference date for `workId` under the node `chain` (legislating node first). */
 export function referenceDateOf(
   rulesets: readonly StoredRuleset[],
   query: { chain: readonly string[]; workId: string },
   facts: Facts
 ): ReferenceDateResult {
   const filedOn = facts.filed_on
-  // The rule in force when the procedure was filed decides; without the filing day there is no rule to pick.
   if (!isIsoDate(filedOn))
     return {
       status: 'undetermined',
@@ -162,7 +138,6 @@ export function referenceDateOf(
   }
 }
 
-/** The edition in force on `day`: the plain as-of answer, for a date rather than a procedure. */
 export function editionAsOf(work: WorkInTime, day: string): AsOfAnswer {
   const found = editionInForce(work.editions, day, work.historyAvailableFrom)
   if (found.status !== 'determined') return found
@@ -174,7 +149,6 @@ export function editionAsOf(work: WorkInTime, day: string): AsOfAnswer {
   }
 }
 
-/** Where no rule names the date: the edition each known event would give, so the answer shows both. */
 function candidatesByEvent(
   work: WorkInTime,
   facts: Facts
@@ -191,27 +165,20 @@ function candidatesByEvent(
   })
 }
 
-/** Where the procedure's window ends: its decision, today in the node's zone while open, null when unknown. */
 function windowEnd(
   procedure: Procedure,
-  territoryId: string,
+  chain: readonly string[],
+  zones: Readonly<Record<string, string>>,
   now: Date
 ): string | null | 'zone_unknown' {
   if (isIsoDate(procedure.decidedOn)) return procedure.decidedOn
   if (procedure.decidedOn !== 'pending') return null
-  const zone = zoneOf(territoryId)
+  const zone = zoneOf(chain, zones)
   return zone ? dayIn(zone, now) : 'zone_unknown'
 }
 
-/** How the walk reached its edition: by the reference date, or by a transition's own outcome. */
 type Reached = { by: 'reference_date' } | { by: 'old_law' } | { by: 'new_law'; on: string }
 
-/**
- * The walk's edition must be the one in force where it was reached: on the
- * reference date, or on the boundary a `new_law` crossed. Only an explicit
- * `old_law` keeps an edition past its end. So a repeal, a gap or two editions
- * in force on that day answer as `editionInForce` does, never as determined.
- */
 function unconfirmed(
   work: WorkInTime,
   current: DatedEdition,
@@ -230,14 +197,13 @@ function unconfirmed(
   }
 }
 
-/** The edition that applied to `procedure`, under the node `chain` (legislating node first). */
 export function editionForProcedure(input: {
   work: WorkInTime
   rulesets: readonly StoredRuleset[]
   chain: readonly string[]
   procedure: Procedure
-  /** Dated facts a work-targeted rule reads, e.g. governing_plan_adopted_on. */
   facts?: Facts
+  zones: Readonly<Record<string, string>>
   now: Date
 }): AsOfAnswer {
   const { work, procedure } = input
@@ -251,7 +217,7 @@ export function editionForProcedure(input: {
   const referenceDay = reference.referenceDate
   const filedOn = procedure.filedOn as string
   const start = filedOn < referenceDay.date ? filedOn : referenceDay.date
-  const end = windowEnd(procedure, input.chain[0] ?? '', input.now)
+  const end = windowEnd(procedure, input.chain, input.zones, input.now)
   if (end === 'zone_unknown') return { status: 'undetermined', reason: 'zone_unknown' }
   const last = end !== null && end < referenceDay.date ? referenceDay.date : end
   const first = editionInForce(work.editions, start, work.historyAvailableFrom)

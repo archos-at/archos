@@ -1,46 +1,3 @@
-/**
- * Who sees each capability (ADR-0122, amendment of 2026-10-21): the one file that decides it.
- *
- * One entry per operation, the catalog's (`catalog/`) and the agent's read
- * tools (`backend-operations.ts`). Three audiences, one column each:
- *
- *  - `external`: an outside agent on an office door (`/api/mcp`, the A2A door)
- *    and the OpenAPI document.
- *  - `agent`: the in-product agent on its workspace door. `true` offers it;
- *    `'native:<tool>'` says the agent does this with that native tool (its name in
- *    `configs/config_oib_openrouter.yml`, a group's as `<group>__<function>`),
- *    so the door hides the operation from the agent; `false` hides it for the
- *    `reason` the entry gives.
- *  - `platform`: platform staff on the platform door (ADR-0126). Only the
- *    `platform` domain, and that domain on no other door. Each console
- *    operation is platform-public or tenant content (`exposure/platform.ts`,
- *    ADR-0160); tenant content is on no door at all.
- *  - `app`: an MCP Apps view in an outside agent's host (ADR-0142). Set only
- *    on an app-only tool (`catalog/app-views.ts`): a control on a card the
- *    person presses, listed with `_meta.ui.visibility: ['app']` so the host
- *    keeps it from the model, and offered to no other audience.
- *
- * `withheld` keeps an operation in the catalog and on no door, with its
- * category and reason (the amendments' five categories); offering it again is
- * replacing the entry. Every entry that is not plainly offered to both office
- * audiences says why in `reason`.
- *
- * This decides VISIBILITY: what is listed, found, described and called.
- * `policy.ts` (`canSee`) reads it for every door. It does not decide whether a
- * proposal Piloti already filed may apply: the applier keeps its own reasons
- * (`lib/proposals/operation-applier.ts`), so hiding an operation behind a
- * native tool never fails a card the person is about to accept.
- *
- * `sensitivity` stays on the operation: it is a property of the act (it widens
- * access, touches a secret, turns a control down), and whether a caller may see
- * one is decided per call from the organization's opt-in flags and the token's
- * step-up scope, which no static file can know. The entries of sensitive
- * operations say the ceiling: never Piloti (`exposure.config.spec.ts` holds
- * that), an external agent only behind those guards.
- *
- * Changing an entry changes `tests/fixtures/exposure.json`, the docs' and Python's copy (command in its spec).
- */
-
 import type { BackendOperationName } from './backend-operations'
 import type { OperationName } from './catalog'
 import type { AppToolName } from './catalog/app-views'
@@ -50,6 +7,7 @@ import {
   CANVAS,
   DECISION,
   MEMORY,
+  PERSONAL_MEMORY,
   NATIVE_READ,
   OFFERED,
   SENSITIVE,
@@ -62,18 +20,6 @@ import { PLATFORM_EXPOSURE } from './exposure/platform'
 import { PLATFORM_KNOWLEDGE_EXPOSURE } from './exposure/platform-knowledge'
 import { PLATFORM_SKILL_EXPOSURE } from './exposure/platform-skills'
 
-/**
- * Why an operation is withheld from agents. `external-service`: a service we
- * only proxy or switch, which a calling agent already has its own tool for.
- * `product-config`: how the agent itself works for the office (models, keys,
- * budgets, policies, settings). `model-compute`: model work the caller can do
- * itself whose result is no office artifact. `ui-state`: this person's own
- * screen or device state. `evidence`: bytes kept as proof, which no model reads
- * (a mail's original `.eml`, ADR-0137; ADR-0122's amendment of 2026-10-22).
- * `tenant-content`: a console operation that reads what offices or their people
- * wrote, across offices; platform staff read it in the console in the browser,
- * and no agent client does, the operator's own included (ADR-0160).
- */
 export const WITHHELD_CATEGORIES = [
   'external-service',
   'product-config',
@@ -86,39 +32,24 @@ export type WithheldCategory = (typeof WITHHELD_CATEGORIES)[number]
 
 export interface Withholding {
   readonly category: WithheldCategory
-  /** One line a reviewer can disagree with. */
   readonly reason: string
 }
 
-/** A native tool of Piloti's, as the model binds it: `native:remember`, `native:canvas__mark`. */
 export type NativeTool = `native:${string}`
 
 export interface Exposure {
-  /** Offered to an outside agent on an office door, and in the OpenAPI document. */
   readonly external: boolean
-  /** Offered to in-product Piloti, or done by Piloti with the named native tool instead. */
   readonly agent: boolean | NativeTool
-  /** Offered on the platform door (the `platform` domain only). */
   readonly platform?: true
-  /** An app-only tool: offered to an MCP Apps view in an outside agent's host, never to a model (ADR-0142). */
   readonly app?: true
-  /** On no door at all, with why. */
   readonly withheld?: Withholding
-  /** Why the entry is not simply offered to both office audiences. */
   readonly reason?: string
 }
 
-/** On no door at all, for the amendment's `category` and a `reason` a reviewer can disagree with. */
 const withheld = (category: WithheldCategory, reason: string) =>
   ({ external: false, agent: false, withheld: { category, reason } }) as const satisfies Exposure
 
-/**
- * Every operation, in catalog order (domain, then name), then the read tools,
- * then the app-only tools.
- * A name that is no operation, or an operation without an entry, does not compile.
- */
 export const EXPOSURE = {
-  // projects
   'project-cleanup-confirm': OFFERED,
   'project-cleanup-propose': OFFERED,
   'project-consistency-check': OFFERED,
@@ -138,6 +69,7 @@ export const EXPOSURE = {
   'project-memory-create': { external: true, agent: 'native:remember', reason: MEMORY },
   'project-memory-delete': OFFERED,
   'project-memory-list': OFFERED,
+  'project-memory-topic-rename': OFFERED,
   'project-memory-update': OFFERED,
   'project-overview-get': OFFERED,
   'project-period-set': OFFERED,
@@ -158,7 +90,6 @@ export const EXPOSURE = {
   'project-upload-screening-get': withheld('product-config', 'a project’s upload screening override; how the agent treats uploads, set by a person'),
   'project-upload-screening-set': withheld('product-config', 'a project’s upload screening override; how the agent treats uploads, set by a person'),
 
-  // documents
   'deletion-list': OFFERED,
   'document-archive': OFFERED,
   'document-bin': OFFERED,
@@ -180,8 +111,6 @@ export const EXPOSURE = {
   'document-role-declare': OFFERED,
   'document-role-list': OFFERED,
   'project-document-findings': OFFERED,
-  // Piloti too: the filters (type, facts, references, register order) are what `knowledge_search` cannot ask, and the
-  // description says a passage is a pointer to read, not a source to quote.
   'workspace-search': OFFERED,
   'workspace-search-suggest': OFFERED,
   'workspace-search-export': OFFERED,
@@ -209,13 +138,11 @@ export const EXPOSURE = {
   'upload-batch-get': OFFERED,
   'upload-batch-open': OFFERED,
   'upload-batch-seal': OFFERED,
-  // saved searches (catalog/saved-searches.ts)
   'saved-search-create': OFFERED,
   'saved-search-delete': OFFERED,
   'saved-search-list': OFFERED,
   'saved-search-update': OFFERED,
 
-  // folders
   'office-shelf-folder-create': OFFERED,
   'office-shelf-folder-delete': OFFERED,
   'office-shelf-folder-ensure': OFFERED,
@@ -240,11 +167,9 @@ export const EXPOSURE = {
   'root-sort-run-get': OFFERED,
   'root-sort-run-undo': OFFERED,
 
-  // mail: `exposure-mail.ts`
   ...MAIL_EXPOSURE,
   ...BASE_KNOWLEDGE_EXPOSURE,
 
-  // review
   'annotation-create': { external: true, agent: 'native:canvas__mark', reason: CANVAS },
   'annotation-delete': { external: true, agent: 'native:canvas__delete', reason: CANVAS },
   'annotation-get': OFFERED,
@@ -278,11 +203,11 @@ export const EXPOSURE = {
   'project-annotation-list': OFFERED,
   'project-annotations-export': OFFERED,
 
-  // conversations
   'answer-feedback-list': OFFERED,
   'answer-feedback-retract': OFFERED,
   'answer-feedback-submit': OFFERED,
   'citation-format': withheld('model-compute', 'formats the sources it is sent as APA, BibTeX or RIS; any agent can do that itself'),
+  'citation-style-get': OFFERED,
   'conversation-create': OFFERED,
   'conversation-delete': OFFERED,
   'conversation-draft-file': OFFERED,
@@ -308,7 +233,6 @@ export const EXPOSURE = {
   'agent-ask-create': ASK,
   'agent-ask-get': ASK,
 
-  // collaboration
   'assignment-add': OFFERED,
   'assignment-candidate-list': OFFERED,
   'assignment-list': OFFERED,
@@ -340,10 +264,16 @@ export const EXPOSURE = {
   'sharing-grant-revoke': SENSITIVE,
   'sharing-grant-update': SENSITIVE,
   'sharing-visibility-set': SENSITIVE,
+  'personal-memory-clear': OFFERED,
+  'personal-memory-create': { external: true, agent: 'native:remember', reason: PERSONAL_MEMORY },
+  'personal-memory-delete': OFFERED,
+  'personal-memory-list': OFFERED,
+  'personal-memory-topic-delete': OFFERED,
+  'personal-memory-topic-rename': OFFERED,
+  'personal-memory-update': OFFERED,
   'user-preference-get': withheld('ui-state', 'the person’s interface preferences (language, active project); screen state'),
   'user-preference-update': withheld('ui-state', 'the person’s interface preferences (language, active project); screen state'),
 
-  // tasks
   'project-task-run-list': OFFERED,
   'task-create': { external: true, agent: 'native:create_task', reason: TASK },
   'task-delete': OFFERED,
@@ -358,7 +288,6 @@ export const EXPOSURE = {
   'task-run-write-now': OFFERED,
   'task-update': OFFERED,
 
-  // skills
   'skill-category-create': OFFERED,
   'skill-category-delete': OFFERED,
   'skill-category-list': OFFERED,
@@ -373,15 +302,13 @@ export const EXPOSURE = {
   'skill-review': withheld('model-compute', 'a model critiques a skill draft and stores nothing; the calling agent can review its own draft'),
   'skill-update': OFFERED,
 
-  // knowledge
   'site-resolve': OFFERED,
   'address-search': withheld('external-service', 'proxies a public geocoder; a calling agent has its own map and web tools'),
   'knowledge-base-get': OFFERED,
-  'norm-list': OFFERED,
   'knowledge-document-get': OFFERED,
+  'norm-list': OFFERED,
   'widget-token-get': withheld('external-service', 'mints a token for the WorkOS widgets the browser renders; the identity provider’s UI, not office work'),
 
-  // bim
   'bim-check-confirm': OFFERED,
   'bim-check-list': OFFERED,
   'bim-check-withdraw': OFFERED,
@@ -396,7 +323,6 @@ export const EXPOSURE = {
   'bim-model-source-get': OFFERED,
   'diagram-file': OFFERED,
 
-  // organization
   'organization-audit-portal-link-create': withheld('external-service', 'a link into the identity provider’s audit-log portal, not the office’s workspace'),
   'organization-budget-get': withheld('product-config', 'spend limits on the agent itself; a refused call says when one stops work'),
   'organization-budget-remove': withheld('product-config', 'spend limits on the agent itself; product configuration'),
@@ -438,29 +364,24 @@ export const EXPOSURE = {
   'organization-usage-notice-get': withheld('product-config', 'the budget window close to stopping the person; a refused call says so itself'),
   'organization-web-search-set': withheld('external-service', 'switches the web search provider the agent answers with; a calling agent has its own web search'),
   'organization-zdr-set': withheld('product-config', 'whether model providers may keep data; a product privacy setting a person decides'),
-  // What changed in the product (ADR-0156): read-only product news, the same for every office. Offered: an
-  // outside agent asked "can it do X now?" and the in-product agent asked "what's new?" both answer from it.
   'release-note-list': OFFERED,
   'release-summary-notice-get': withheld('ui-state', 'whether the person wants the weekly summary notice; their own setting'),
   'release-summary-notice-set': withheld('ui-state', 'whether the person wants the weekly summary notice; theirs to set'),
   'release-summary-seen-mark': withheld('ui-state', 'whether this person has closed the weekly summary notice; their own screen'),
   'release-summary-unseen-get': withheld('ui-state', 'which summary the notice still owes this person; release-note-list reads them'),
 
-  // platform: classified platform-public or tenant content, in `exposure/platform.ts` (ADR-0160)
   ...PLATFORM_EXPOSURE,
   ...PLATFORM_KNOWLEDGE_EXPOSURE,
   ...PLATFORM_SKILL_EXPOSURE,
 
-  // the agent’s read tools (`backend-operations.ts`)
   'knowledge-search': { external: true, agent: 'native:knowledge_search', reason: NATIVE_READ },
   'passage-read': { external: true, agent: 'native:read_file', reason: NATIVE_READ },
   'files-list': { external: true, agent: 'native:list_files', reason: NATIVE_READ },
   'document-look': { external: true, agent: 'native:look', reason: NATIVE_READ },
   'ifc-measure': { external: true, agent: 'native:ifc_measure', reason: NATIVE_READ },
   'dxf-measure': { external: true, agent: 'native:dxf_measure', reason: NATIVE_READ },
-  'law-lookup': { external: true, agent: 'native:ris_lookup_tool', reason: NATIVE_READ },
+  'law-lookup': { external: true, agent: 'native:law_lookup', reason: NATIVE_READ },
 
-  // the app-only tools of the door's MCP Apps views (`catalog/app-views.ts`)
   'proposal-card-apply': APP_ONLY,
   'proposal-card-dismiss': APP_ONLY,
 } as const satisfies Record<OperationName | BackendOperationName | AppToolName, Exposure>

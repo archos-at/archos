@@ -10,7 +10,6 @@ import {
   UNIQUE_VIOLATION,
 } from './errors'
 
-/** What drizzle throws: a `Failed query` wrapper with no code, the driver's error on `cause`. */
 function drizzleFailure(code: string, constraintName?: string): Error {
   return new Error('Failed query: insert into "documents" …\nparams: …', {
     cause: Object.assign(new Error('duplicate key value violates unique constraint'), {
@@ -23,8 +22,6 @@ function drizzleFailure(code: string, constraintName?: string): Error {
 describe('isUniqueViolation', () => {
   it('finds the SQLSTATE on the cause, where drizzle puts it', () => {
     const error = drizzleFailure(UNIQUE_VIOLATION, 'uniq_documents_live_name_per_collection')
-    // The regression: the wrapper itself carries no code, so `error.code` was
-    // never '23505' and every race backstop that read it was dead.
     expect((error as { code?: unknown }).code).toBeUndefined()
     expect(isUniqueViolation(error)).toBe(true)
   })

@@ -42,14 +42,11 @@ REQUEST_SECONDS = "grid.http.request_seconds"
 KIND_REQUEST = "request"
 KIND_STREAM = "stream"
 
-#: The job SSE routes (``routes/jobs.py``): ``.../stream`` and ``.../stream/{last_event_id}``.
 _STREAM_PATH = re.compile(r"^/v1/jobs/async/job/[^/]+/stream(?:/[^/]+)?$")
 
-#: Not requests this measures: the liveness probe, and the OpenAPI document and its viewers.
 _SKIPPED_EXACT = frozenset({"/health", "/openapi.json"})
 _SKIPPED_PREFIXES = ("/docs", "/redoc")
 
-#: Seconds, from a metadata read to a request that waits on a model call.
 _BUCKETS = (0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30, 60)
 
 

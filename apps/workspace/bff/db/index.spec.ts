@@ -5,11 +5,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
 
-/**
- * A stand-in for the postgres-js client, recording what is asked of it. The real
- * driver needs a server; what these tests pin is what the BFF SENDS: which
- * startup parameters, and which statements open each transaction.
- */
 const driver = vi.hoisted(() => {
   const calls: { options?: Record<string, unknown>; url?: string; transactions: string[][] } = { transactions: [] }
   const connection = {
@@ -72,13 +67,6 @@ describe('resolveDbPoolMax', () => {
   })
 })
 
-/**
- * The transaction pooler (ADR-0083) rejects `statement_timeout` in the startup
- * packet ("unsupported startup parameter"), so the BFF cannot open a connection
- * with it. It runs the timeout per transaction instead, in the same batch as the
- * tenant context, which is also the only form that survives a pooler handing the
- * server connection to another client between two transactions.
- */
 describe('contextStatement', () => {
   const TIMEOUT = "SET LOCAL statement_timeout = '30000'"
 
@@ -125,8 +113,6 @@ describe('the BFF client behind a transaction pooler', () => {
   })
 
   it('opens connections with no startup parameters of its own', () => {
-    // `connection` is how postgres-js sends them. Anything in it would be
-    // refused by the pooler at the first connection, on a deploy that built clean.
     expect(driver.calls.options).not.toHaveProperty('connection')
     expect(driver.calls.options).toMatchObject({ prepare: false })
   })
@@ -178,7 +164,6 @@ describe('the BFF client behind a transaction pooler', () => {
       await db.$client.unsafe('select 2', [])
     })
 
-    // One transaction per statement, each opened by the batch.
     expect(driver.calls.transactions).toHaveLength(2)
     for (const transaction of driver.calls.transactions) {
       expect(transaction[0]).toContain("SET LOCAL statement_timeout = '30000'")

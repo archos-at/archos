@@ -1,11 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Who could open one document: the shelf's rule, and inside a project the
- * folder's too. A project member who may not read a restricted folder is not
- * somebody a mark in it may be handed to, or told about.
- */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
@@ -31,7 +26,6 @@ import { isQuarantineReviewer } from './quarantine-reviewers'
 
 const session = { userId: 'user_me', organizationId: 'org_1' } as Partial<AuthorizedSession> as AuthorizedSession
 
-/** A person's upload whose bytes passed the office's screening, unless a test holds it. */
 const doc = (overrides: Partial<Document>): OpenableDocument => ({
   scope: 'project',
   projectId: 'proj_1',
@@ -72,7 +66,6 @@ describe('mayOpenDocument', () => {
     const allowed = await mayOpenDocument(session, doc({ scope: 'office_shelf', projectId: null }), ['user_a', 'user_gone'])
 
     expect(allowed).toEqual(new Set(['user_a']))
-    // One read of the organization's directory, never a lookup per person: a picker passes the whole directory in.
     expect(loadOrganizationDirectory).toHaveBeenCalledTimes(1)
     expect(loadOrganizationDirectory).toHaveBeenCalledWith('org_1')
     expect(userHoldsProjectPermission).not.toHaveBeenCalled()
@@ -108,15 +101,8 @@ describe('mayOpenDocument', () => {
   })
 })
 
-/**
- * Who could write one document: whom an Anmerkung may be handed to, since its
- * Zuständige must answer and close it. Never a role name: a permission on the
- * project and the folder's write, or on the Büroablage the curators' permission.
- */
 describe('mayWriteDocument', () => {
   beforeEach(() => {
-    // user_editor holds the narrow write permission, user_legacy only the older
-    // umbrella, user_reader may only view the project.
     vi.mocked(userHoldsProjectPermission).mockImplementation(async (_tenant, _project, userId, permission) => {
       if (permission === 'project:view') return userId !== 'user_outside'
       if (permission === 'project:documents:write') return userId === 'user_editor'
@@ -169,9 +155,6 @@ describe('mayWriteDocument', () => {
     expect(userHoldsProjectPermission).not.toHaveBeenCalled()
   })
 
-  // A held upload is written, as it is opened, only by its uploader and its
-  // quarantine's reviewers: a writer of the project may not be put on the hook
-  // for a file the project does not know exists yet.
   it('lets only the uploader and the reviewers write a held upload, and still asks them the shelf’s write', async () => {
     vi.mocked(isQuarantineReviewer).mockImplementation(async (_org, _doc, userId) => userId === 'user_reviewer')
     vi.mocked(userHoldsProjectPermission).mockImplementation(
@@ -184,7 +167,6 @@ describe('mayWriteDocument', () => {
       'user_editor',
     ])
 
-    // The reviewer passes the hold but holds no write permission; the editor writes the project but not this file.
     expect(allowed).toEqual(new Set(['user_uploader']))
     expect(isQuarantineReviewer).toHaveBeenCalledWith('org_1', expect.objectContaining({ projectId: 'proj_1' }), 'user_editor')
   })
@@ -196,11 +178,6 @@ describe('mayWriteDocument', () => {
   })
 })
 
-/**
- * A held upload (ADR-0086) exists only for its uploader and its quarantine's
- * reviewers: nobody else may be made responsible for it, mentioned on it, or
- * told what a mark on it says, however open its project or folder is.
- */
 describe('mayOpenDocument on a held upload', () => {
   beforeEach(() => {
     vi.mocked(isQuarantineReviewer).mockImplementation(async (_org, _doc, userId) => userId === 'user_reviewer')

@@ -1,14 +1,3 @@
-/**
- * The RIS reading copy, from the reader's side.
- *
- * `passage-highlight.spec.ts` pins the matcher and `test_ris_document_route.py`
- * pins what comes back over the wire. Nothing pinned the join: that the dialog
- * asks for the document only once it is OPEN, that it sends the cited passage
- * WITH the request (a Gesamtfassung is clipped around it server-side, so a
- * dropped parameter silently returns the wrong window), that the passage is
- * marked, and that the two ways of not showing a document say different things.
- */
-
 import { render, screen, waitFor } from '@/test-utils'
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
 import { RisDocumentDialog } from './ris-document-dialog'
@@ -59,15 +48,9 @@ describe('RisDocumentDialog', () => {
 
   test('the cited passage travels with the request and is marked in the text', async () => {
     const passage = 'Dieses Gesetz gilt für Bauvorhaben im Land Wien.'
-    // The dialog renders through a portal, so the mark is on `document`, never
-    // inside the render container.
     open({ highlight: passage })
 
     await waitFor(() => expect(document.querySelector('mark')).not.toBeNull())
-    // Punctuation is folded away on both sides before matching, so the span
-    // runs from the first matched character to the last — the trailing period
-    // is not part of it. Marking a character the matcher never compared would
-    // be the surface claiming more than the match does.
     expect(document.querySelector('mark')!.textContent).toBe(passage.replace(/\.$/, ''))
 
     const calls = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls

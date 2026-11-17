@@ -1,14 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Which fonts the root layout asks the browser to preload.
- *
- * `next/font` preloads a font on every route unless told not to, and a
- * preloaded file that the first paint does not use is a console warning on
- * every page load ("was preloaded using link preload but not used within a few
- * seconds"). The body face is on every first paint; mono is not.
- */
 import { describe, expect, test, vi } from 'vitest'
 
 const fontOptions = vi.hoisted(() => new Map<string, Record<string, unknown>>())

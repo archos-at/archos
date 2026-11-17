@@ -2,19 +2,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The sharing repository's ONE documented exception to "every tenant read is
- * org-scoped", pinned so the argument for it cannot die silently.
- *
- * `findGrantForSubject` queries by `(resourceType, resourceId, subjectUserId)`
- * with **no** organization predicate. The module note justifies that by its
- * caller: `resolveResourceAccess` has already established that the resource
- * belongs to the caller's organization, so re-checking would be a second lookup
- * for a fact just proven. That justification holds for exactly ONE caller — and
- * nothing in the type system notices when a second one appears, which is the
- * failure mode this file exists to catch. A future caller that has NOT proven
- * tenancy would turn this into a cross-tenant read of a grant row.
- */
 
 import { readFileSync, readdirSync, statSync } from 'fs'
 import path from 'path'
@@ -39,7 +26,6 @@ import { findGrantForSubject } from './repository'
 import { SOURCE_DIRS, srcKey, srcPath } from '@/test-utils/source-tree'
 
 
-/** Every production `.ts`/`.tsx` file under `src/` — specs and mocks excluded. */
 function productionSources(directory: string): string[] {
   const files: string[] = []
   for (const entry of readdirSync(directory)) {
@@ -65,10 +51,6 @@ describe('findGrantForSubject — the deliberate non-org-scoped read', () => {
       .filter((file) => /\bfindGrantForSubject\b/.test(readFileSync(file, 'utf8')))
       .map((file) => srcKey(file))
 
-    // If this fails, do not relax it: either the new caller has already resolved
-    // the resource's organization (say so in the module note and add it here), or
-    // it has not — in which case `findGrantForSubject` needs an `organizationId`
-    // parameter and the exception is over.
     expect(callers).toEqual(['lib/sharing/access.ts'])
   })
 
@@ -82,10 +64,7 @@ describe('findGrantForSubject — the deliberate non-org-scoped read', () => {
     expect(sql).toContain('"resource_shares"."resource_type" = $1')
     expect(sql).toContain('"resource_shares"."resource_id" = $2')
     expect(sql).toContain('"resource_shares"."subject_user_id" = $3')
-    // The exception itself: no organization predicate, because the caller above
-    // has already proven the resource is in the caller's organization.
     expect(sql).not.toContain('"resource_shares"."organization_id"')
-    // The 4th param is the `limit(1)`.
     expect(params.slice(0, 3)).toEqual(['conversation', 'conv_1', 'user_me'])
   })
 

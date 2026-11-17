@@ -45,6 +45,15 @@ evidence:
   - docs/adr/0118-posthog-support-is-the-record-for-product-feedback.md
   - apps/workspace/bff/product-feedback/service.ts
   - deploy/pulumi/src/platform/otel-collector.ts
+agreement:
+  entity: PostHog, Inc., USA (PostHog Cloud EU; entity and address per order form)
+  dpa: Offered at posthog.com/dpa; whether it applies with the terms or must be requested was not established
+  dpa_url: https://posthog.com/dpa
+  subprocessors: https://posthog.com/subprocessors
+  note: PostHog Cloud EU runs in AWS eu-central-1 (Frankfurt). Retention (events 12 months, recordings 30 days) is a project setting, not in this repository.
+  checked: '2026-11-11'
+  sources:
+    - https://posthog.com/blog/posthog-cloud-eu
 copy:
   name:
     de: PostHog, Inc.
@@ -67,8 +76,8 @@ copy:
     de: EU (Frankfurt); Konzern mit Sitz in den USA
     en: EU (Frankfurt); group headquartered in the USA
   required:
-    de: Ja (Produktanalyse, Fehlererfassung); Sitzungsaufzeichnung nur stichprobenweise und nur falls aktiviert; abschaltbar in den Profil-Einstellungen
-    en: Yes (product analytics, error tracking); session replay sampled and only if enabled; can be switched off in profile settings
+    de: Ja (Produktanalyse, Fehlererfassung); Sitzungsaufzeichnung nur falls vom Betreiber aktiviert, dann für jede Sitzung oder einen eingestellten Anteil; abschaltbar in den Profil-Einstellungen
+    en: Yes (product analytics, error tracking); session replay only if the operator enabled it, then for every session or a configured share; can be switched off in profile settings
 # PostHog's four flows (design §6.1).
 flows:
   - id: product-analytics

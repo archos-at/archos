@@ -1,21 +1,5 @@
 'use client'
 
-/**
- * Dev preview for „Alle Dateien in Ordner einsortieren“. Every state, all from
- * fixtures, no network:
- *
- * - the review (default; `?variant=unsure` opens it on „Nur unsichere anzeigen“):
- *   the real review organism (`RootSortReview`) with a folder tree, sure and
- *   unsure placements, new folder proposals and files that stay in the root;
- * - `?variant=working`: judging, with its count, time left and the files just
- *   placed; `starting` before the first call answers, `waiting` while the job
- *   waits for a slot, `grouping` with its running clock, `applying`;
- * - `?variant=done`: the outcome after files moved.
- *
- * German, pinned, as the copy is written for the German product. Not linked from
- * anywhere; the `/dev` layout 404s outside development.
- */
-
 import type { JSX, ReactNode } from 'react'
 import { use, useMemo, useState } from 'react'
 import {

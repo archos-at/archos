@@ -1,23 +1,3 @@
-"""Structural reads on Qdrant: ``read_passage`` and the family overview by filter, never by embedding.
-
-Against a real Qdrant (``test_qdrant_store.py`` says why and how). The corpus
-is seeded through the write ingestion uses (``writes.write_chunks``), shaped like the OIB
-corpus (Punkt chunks with ``clause_id``/``clause_depth``/``page_label``/
-``page_end``, a split Punkt, a captioned table in row groups) next to a
-page-chunked report, a workbook and a Markdown file.
-
-What is pinned:
-
-* every ``read_passage`` answer is the one the old path gave for the same
-  chunks (the old path: ``retrieve`` with the probe embedded, reached by
-  making ``fetch`` decline), apart from the ``Relevance Score:`` line, which
-  was the cosine to the probe and is now 1.00;
-* the structural path never calls the embedder;
-* a fetch cut in reading order keeps the document's real opening, ties are
-  never split, and points written before ``reading_order`` existed (or a
-  collection without its index) are ordered client-side to the same answer.
-"""
-
 from __future__ import annotations
 
 import importlib
@@ -153,8 +133,6 @@ def qdrant_env(qdrant_store, monkeypatch):
 
 
 class EmbedSpy:
-    """The query embedder, counting: the structural path must never reach it."""
-
     def __init__(self):
         self.queries: list[str] = []
 
@@ -191,7 +169,6 @@ def _seed(retriever: LlamaIndexRetriever, rows: list[dict[str, Any]], scope: str
 
 @pytest.fixture
 def corpus(retriever, monkeypatch):
-    """The seeded corpus, the documents registered for it, and ``read_passage`` pointed at both."""
     rows = [*_oib(), *_oib(OIB_21), *_report(), *_sheet(), *_markdown(), *_report(LONG, pages=200)]
     _seed(retriever, rows)
     documents = [
@@ -227,7 +204,6 @@ async def _read(**kwargs) -> str:
 
 
 def _old_path(monkeypatch, retriever: LlamaIndexRetriever) -> None:
-    """The path before this change: ``fetch`` declines, so ``read_passage`` embeds its probe and retrieves."""
 
     async def _declines(*args, **kwargs):
         return None
@@ -242,9 +218,6 @@ def _without_scores(text: str) -> str:
     return _SCORE_LINE.sub("Relevance Score: <score>", text)
 
 
-#: Every shape of read the locator has: outline, Punkt (split, table row groups,
-#: depth 2), page (a chunk running onto it), the whole-document fallback for a
-#: page-chunked report and a workbook, a Markdown outline and section, and the misses.
 READS = [
     {"document": OIB},
     {"document": OIB, "punkt": "3.5.2"},
@@ -267,12 +240,10 @@ async def test_read_passage_answers_exactly_as_the_old_path_for_the_same_chunks(
 
     _old_path(monkeypatch, corpus)
     old = [await _read(**kwargs) for kwargs in READS]
-    # The comparison is not vacuous: the old path did embed its probes.
     assert embed_spy.queries
 
     for kwargs, before, after in zip(READS, old, new, strict=True):
         assert _without_scores(after) == _without_scores(before), kwargs
-    # The one line that differs: a located passage matches, it is not ranked.
     assert "Relevance Score: 1.00" in new[1]
     assert "Teil 1 von 3" in new[2] and new[2].index("Teil 1 von 3") < new[2].index("Teil 3 von 3")
 
@@ -294,7 +265,6 @@ async def test_the_family_overview_reads_every_member_without_embedding(corpus, 
 
 
 async def test_the_whole_document_fallback_opens_a_long_document_at_its_first_pages(corpus):
-    """200 page chunks, more than the fetch bound (160): the cut is in reading order, so page 1 opens it."""
     out = await _read(document=LONG)
     pages = [int(number) for number in re.findall(r"^Page: (\d+)$", out, re.MULTILINE)]
     assert pages == list(range(1, rp._MAX_PASSAGE_CHUNKS + 1))
@@ -325,7 +295,6 @@ async def test_points_written_before_reading_order_are_ordered_client_side(retri
     _seed_pages(retriever, [4, 2, 1, 3, 1, 5])
     store = store_module.get_store()
     alias = store.alias(SCOPE)
-    # An older release wrote no `reading_order`: strip it from two points.
     some = store.client.scroll(alias, limit=2, with_payload=False)[0]
     store.client.delete_payload(alias, keys=[READING_ORDER], points=[point.id for point in some], wait=True)
 
@@ -342,7 +311,6 @@ async def test_a_collection_without_the_index_is_read_client_side_until_a_writer
     assert not store_module.get_store().has_index(SCOPE, READING_ORDER)
     assert _pages(reads.fetch(SCOPE, {"file_name": REPORT}, 1, READING_ORDER)) == [1]
 
-    # The next write puts the index back.
     schema.ensure_collection(store_module.get_store().client, schema.Physical.CORPUS, DIM, retriever._identity())
     store_module.reset_store()
     assert store_module.get_store().has_index(SCOPE, READING_ORDER)
@@ -357,14 +325,12 @@ async def test_fetch_needs_no_embedder_and_no_start_up(retriever, embed_spy):
 
 @pytest.mark.parametrize("label", ["3", " 12 ", "0", "-1", "Übersicht", "3.5", "", None])
 def test_reading_order_is_the_page_number_a_reader_sorts_by(label):
-    """The order a fetch cuts by is the leading term of ``read_passage``'s sort: ``Chunk.page_number or 0``."""
     metadata = {"file_name": REPORT} if label is None else {"file_name": REPORT, "page_label": label}
     payload = build_payload(SCOPE, ChunkRecord("c1", "text", [0.1] * DIM, metadata))
     chunk = LlamaIndexRetriever({"embed_model": "m", "embed_base_url": "u"})._chunk_from_hit(
         Hit("c1", "text", payload, 0.0, 1.0)
     )
     assert payload[READING_ORDER] == (chunk.page_number or 0) == reading_order(label)
-    # A reader never sees the field: the chunk's metadata is what the chunker wrote.
     assert READING_ORDER not in chunk_metadata(payload)
 
 
@@ -373,8 +339,6 @@ def _sections_read(text: str) -> list[str]:
 
 
 async def test_a_cursor_continues_on_the_key_the_read_sorts_by(corpus, monkeypatch):
-    """Page 1 sorts [text 4, text 5, table part 3, an unnumbered chunk of a later section]: a cut after
-    text 4 must deliver every other chunk on the continuation, on a real Qdrant."""
     file_name = "Statik.pdf"
     rows = [
         (_row("Abschnitt vier. " + "x" * 22_000, file_name, page_label="1"), 4),

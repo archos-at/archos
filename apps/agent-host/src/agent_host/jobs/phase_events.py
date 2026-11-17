@@ -48,9 +48,6 @@ from langchain_core.callbacks import BaseCallbackHandler
 
 logger = logging.getLogger(__name__)
 
-# Stable subagent-name contract from agent.agents.deep_researcher.factory
-# (PLANNER_AGENT / WRITER_AGENT). Duplicated rather than imported -- see
-# module docstring.
 PLANNER_AGENT_NAME = "planner-agent"
 WRITER_AGENT_NAME = "writer-agent"
 
@@ -162,23 +159,11 @@ class PhaseProgressCallback(BaseCallbackHandler):
             extra: dict[str, Any] = {"batch_index": self._research_batch_count}
             if isinstance(queries, list):
                 extra["batch_size"] = len(queries)
-            # WHAT this round is for, in the orchestrator's own words (the
-            # tool's ``conclusion`` argument: what the batches so far
-            # established and what this one still has to close). Carried here
-            # because this event is the earliest thing that reaches the runner
-            # at all — the run's ``retrieval_ledger`` states the same intent,
-            # but only once the graph has finished, and the run ledger's step
-            # has to name itself WHILE the reader is waiting
-            # (``jobs/run_ledger_fold.py``). Absent when the batch stated none.
             conclusion = inputs.get("conclusion") if isinstance(inputs, dict) else None
             if isinstance(conclusion, str) and conclusion.strip():
                 extra["conclusion"] = conclusion.strip()
             if self._max_research_concurrency:
                 extra["max_concurrency"] = self._max_research_concurrency
-            # Not deduped via _emit_once: unlike the other phases (entered
-            # exactly once per job), the orchestrator can call
-            # run_research_batch multiple times across planning iterations,
-            # and surfacing each batch's size is the point of this event.
             emit_phase_event(self._event_store, PHASE_RESEARCH_STARTED, **extra)
 
     def on_tool_end(self, output: Any, **kwargs: Any) -> None:

@@ -448,7 +448,7 @@ three); what remains is the search-before-reading, which §8.2 is about.
 
 | | Call | Needs |
 |---|---|---|
-| before | ① `use_skill(ifc-spatial-reasoning)` → ② `ifc_query(overview)` → ③ `ifc_measure(storeyHeight, Keller)` → ④ `emit_card` → ⑤ answer | ① the routing table between the two tools (the skill IS the vocabulary, `bim/AGENTS.md`) — ② the storey names, which ③ refuses to guess — ④ the measured value — ⑤ the marker |
+| before | ① `use_skill(ifc-spatial-reasoning)` → ② `ifc_query(overview)` → ③ `ifc_measure(storeyHeight, Keller)` → ④ `emit_card` → ⑤ answer | ① the routing table between the two tools (the skill IS the vocabulary, `docs/architecture/workspace-tools.md#the-bim-surface`) — ② the storey names, which ③ refuses to guess — ④ the measured value — ⑤ the marker |
 | after | ① `use_skill` → ② `ifc_query` → ③ `ifc_measure` → ④ answer + card | the skill body is 17 573 characters, over the inline cap on purpose; the model step is genuinely serial: the measure needs the storey name the overview returned |
 
 Five become four. The serial pair ② → ③ is real work and stays; the skill

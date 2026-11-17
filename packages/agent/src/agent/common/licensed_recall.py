@@ -37,7 +37,6 @@ from agent.common.licensed_text import passage_digest
 
 logger = logging.getLogger(__name__)
 
-#: How many references one turn reads again, at most: last turn's results, bounded by its rounds.
 MAX_RECALLED_PER_TURN = 64
 
 

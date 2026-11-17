@@ -1,33 +1,3 @@
-"""The proposal as a server object: what goes over the wire, as whom, and what happens when it cannot.
-
-Only the transport is faked (``bff_http._opener.open``), so the request the test
-reads is the one ``post_proposal`` really builds, headers included. The tool,
-the card and the client above the socket are the real ones. The client is
-shared by the three kinds (``file_operation``, ``memory``, ``project_profile``);
-the file tool is the one that drives it here, the other two callers have their
-own suites (``packages/agent/tests/memory/test_register.py``,
-``packages/agent/tests/cards/test_register_envelope_card.py``) and share the wire
-tests below.
-
-Five properties:
-
-* **The body is the contract's.** It validates against
-  ``apps/workspace/tests/fixtures/proposals.schema.json``, the JSON Schema the
-  BFF exports from ``lib/proposals/types.ts``, for every kind. No Pydantic twin.
-* **The card's index is its real position.** ``originCardIndex`` is where the
-  card sits in the turn's registry, even when a sibling tool adds a card while
-  the request is out.
-* **The envelope is echoed.** The two strings the turn arrived with go out
-  unchanged; nothing here signs.
-* **The card carries the id**, and every call opens its own card with its own
-  proposal, because a stored proposal cannot grow.
-* **Every failure is a notice and a failure.** No envelope, a 404 from an older
-  BFF, a network error: the card stays in the registry without ``proposal_id``
-  (the UI draws it read-only; its position is identity, so it is never taken
-  out), the browser executes nothing, and the tool tells the model it could not
-  propose.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -81,8 +51,6 @@ INVENTORY = [
 
 
 class FakeTransport:
-    """``_opener.open`` with the answers queued: a dict is a 200 body, an int an HTTP error, an exception raised."""
-
     def __init__(self, *answers: Any) -> None:
         self.answers = list(answers)
         self.requests: list[urllib.request.Request] = []
@@ -112,7 +80,6 @@ def registry():
 
 @pytest.fixture(autouse=True)
 def turn(monkeypatch):
-    """A project-scoped chat turn with a signed envelope and a service token."""
     monkeypatch.setattr(pc, "get_project_id_from_context", lambda: "p1")
     monkeypatch.setattr(pc, "get_request_envelope_from_context", lambda: (HEADER, SIGNATURE))
     monkeypatch.setattr(pc, "get_conversation_id_from_context", lambda: CONVERSATION)
@@ -144,12 +111,8 @@ def _created(proposal_id: str) -> dict[str, str]:
 
 
 def _branch(schema: dict[str, Any], kind: str) -> dict[str, Any]:
-    """The request definition's ``oneOf`` branch for ``kind``."""
     branches = schema["$defs"][REQUEST_DEF]["oneOf"]
     return next(branch for branch in branches if branch["properties"]["kind"]["const"] == kind)
-
-
-# ── The wire, against the contract ─────────────────────────────────────────
 
 
 @pytest.fixture(scope="module")
@@ -163,14 +126,12 @@ def proposals_schema() -> dict[str, Any]:
 
 
 def _validator(schema: dict[str, Any], name: str) -> Draft202012Validator:
-    """One named definition, ``$ref`` resolved against the whole file, formats asserted."""
     return Draft202012Validator({**schema["$defs"][name], "$defs": schema["$defs"]}, format_checker=FormatChecker())
 
 
 class TestTheWireContract:
     @pytest.mark.parametrize("name", [REQUEST_DEF, RESPONSE_DEF])
     def test_the_fixture_is_where_the_contract_lives(self, proposals_schema, name):
-        """A guard on the guard: a renamed definition must fail loudly, not pass silently."""
         assert name in proposals_schema["$defs"]
 
     @pytest.mark.parametrize(
@@ -216,7 +177,6 @@ class TestTheWireContract:
         assert not list(_validator(proposals_schema, RESPONSE_DEF).iter_errors(_created(FIRST)))
 
     def test_the_server_holds_no_more_rows_than_the_card_shows(self, proposals_schema):
-        """A proposal the card cannot draw in full would be applied unseen."""
         payload = _branch(proposals_schema, "file_operation")["properties"]["payload"]
         assert payload["properties"]["operations"]["maxItems"] == MAX_FILE_OPERATIONS
 
@@ -252,6 +212,16 @@ class TestTheWireContract:
                 },
             ),
             (
+                "memory",
+                {
+                    "scope": "project",
+                    "kind": "constraint",
+                    "content": "Stellplätze: zwölf im Tiefgaragengeschoss.",
+                    "confidence": "high",
+                    "topic": "Stellplätze",
+                },
+            ),
+            (
                 "project_profile",
                 {
                     "title": "Projektkontext aktualisieren: Gebäudeklasse",
@@ -274,7 +244,6 @@ class TestTheWireContract:
         assert body.get("originCardIndex") == index
 
     def test_the_contract_is_closed_so_a_stray_field_is_caught_here(self, proposals_schema):
-        """A guard on the guard: if the schema went loose, the tests above would pass for any body."""
         body = client.proposal_request(
             "memory", {"scope": "organization", "kind": "decision", "content": "x", "confidence": "low"}
         )
@@ -333,7 +302,6 @@ class TestTheRequest:
         assert "reason" not in empty_item
 
     async def test_the_envelope_is_echoed_byte_for_byte(self, registry, transport):
-        """Echo, never sign: the turn's two strings go out exactly as they arrived."""
         fake = transport(_created(FIRST))
         await _propose("assign", document="Grundriss OG.pdf", member="Anna Berger")
 
@@ -353,9 +321,6 @@ class TestTheRequest:
         assert uuid.UUID(answer_message_id(CONVERSATION, USER_MESSAGE))  # the id it would send is a UUID
 
 
-# ── The card's index ───────────────────────────────────────────────────────
-
-
 class TestTheIndexIsTheCardsRealPosition:
     async def test_it_counts_the_cards_the_tools_already_pushed(self, registry, transport):
         registry.add({"type": "document_draft"})
@@ -368,7 +333,6 @@ class TestTheIndexIsTheCardsRealPosition:
     async def test_a_sibling_card_added_while_the_request_is_out_does_not_move_it(
         self, monkeypatch, registry, transport
     ):
-        """The index is read when the card is placed, not when the answer comes back."""
         fake = transport(_created(FIRST))
         inner = fake.__call__
 
@@ -398,7 +362,6 @@ class TestTheIndexIsTheCardsRealPosition:
             assert sent["payload"]["operations"][0]["document"] == card["operations"][0]["document"]
 
     async def test_refused_parallel_calls_are_two_notices_asked_one_after_the_other(self, registry, transport):
-        """Nothing is merged into a sibling's card: each call asked, each left its own card, each reports failure."""
         fake = transport(404, 404)
         results = await asyncio.gather(
             _propose("move", document="Brandschutzkonzept.pdf", target_folder="Einreichung"),
@@ -417,9 +380,6 @@ class TestTheIndexIsTheCardsRealPosition:
         assert all(len(card["operations"]) == 1 for card in cards)
 
 
-# ── The card ────────────────────────────────────────────────────────────────
-
-
 class TestTheCardCarriesTheProposal:
     async def test_the_card_carries_the_id_and_the_result_still_claims_nothing(self, registry, transport):
         transport(_created(FIRST))
@@ -433,7 +393,6 @@ class TestTheCardCarriesTheProposal:
         assert "do not say it is done" in result
 
     async def test_a_second_call_is_a_second_proposal_never_a_grown_one(self, registry, transport):
-        """A stored proposal cannot grow; a card that grew on the client would show two moves and apply one."""
         fake = transport(_created(FIRST), _created(SECOND))
         await _propose("move", document="Brandschutzkonzept.pdf", target_folder="Einreichung")
         await _propose("move", document="Grundriss OG.pdf", target_folder="Einreichung")
@@ -450,7 +409,6 @@ class TestTheCardCarriesTheProposal:
         ]
 
     async def test_a_refusal_after_a_stored_proposal_leaves_its_own_notice(self, registry, transport):
-        """The stored card keeps its one row and its id; the refused call's row is not added to it."""
         transport(_created(FIRST), 503)
         await _propose("move", document="Brandschutzkonzept.pdf", target_folder="Einreichung")
         await _propose("move", document="Grundriss OG.pdf", target_folder="Einreichung")
@@ -458,9 +416,6 @@ class TestTheCardCarriesTheProposal:
         first, second = registry.snapshot()
         assert first["proposal_id"] == FIRST and len(first["operations"]) == 1
         assert "proposal_id" not in second and len(second["operations"]) == 1
-
-
-# ── No server proposal: a read-only notice, and a failure the model hears ──
 
 
 class TestEveryFailureIsANoticeAndAFailure:
@@ -509,7 +464,6 @@ class TestEveryFailureIsANoticeAndAFailure:
         assert card["operation"] == operation and "proposal_id" not in card
 
     async def test_the_function_returns_false_and_keeps_the_card_in_the_registry(self, registry, transport):
-        """Position is identity (`cardKey`, `originCardIndex`): the notice stays where it is."""
         registry.add({"type": "document_draft"})
         transport(503, _created(SECOND))
         item = {"folder_name": "Fotos", "parent_folder": "", "current": "Fotos"}
@@ -524,7 +478,6 @@ class TestEveryFailureIsANoticeAndAFailure:
         assert proposal["proposal_id"] == SECOND
 
     async def test_a_run_without_an_envelope_asks_nobody(self, monkeypatch, registry, transport):
-        """No acting person: nothing is sent, not even unsigned."""
         monkeypatch.setattr(pc, "get_request_envelope_from_context", lambda: (None, None))
         fake = transport()
         result = await _propose("move", document="Brandschutzkonzept.pdf", target_folder="Einreichung")
@@ -545,7 +498,6 @@ class TestEveryFailureIsANoticeAndAFailure:
         assert "could not be created" in result
 
     async def test_no_card_channel_stores_no_proposal(self, transport):
-        """A proposal nobody is shown is a row nobody decides."""
         fake = transport()
         result = await _propose("move", document="Brandschutzkonzept.pdf", target_folder="Einreichung")
 

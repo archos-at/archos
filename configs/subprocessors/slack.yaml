@@ -43,6 +43,14 @@ hog_files:
   - deploy/posthog/support/claim-update.hog
 evidence:
   - deploy/posthog/README.md
+agreement:
+  entity: To confirm from the workspace's billing details. For workspaces outside the US and Canada Slack's privacy policy names Slack Technologies Limited, Dublin, Ireland, not Slack Technologies, LLC
+  dpa: Slack states its DPA is available to every customer, on free and paid plans; standard contractual clauses through it
+  dpa_url: https://slack.com/blog/news/a-note-to-our-customers-on-international-data-transfers
+  subprocessors: https://slack.com/slack-subprocessors
+  checked: '2026-11-11'
+  sources:
+    - https://slack.com/privacy-policy
 copy:
   name:
     de: Slack Technologies, LLC

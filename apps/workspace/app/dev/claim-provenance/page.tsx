@@ -1,20 +1,5 @@
 'use client'
 
-/**
- * Dev preview: the confidence of an answer, as the answer check gives it (ADR-0139).
- *
- *   1. A CHECKED ANSWER through the real `AgentResponse`, and the chip on its
- *      own beside it, so its tooltip can be hovered without opening the
- *      details: the level, the statements the check found unbacked or
- *      contradicted, and the source each was checked against.
- *   2. A CHECK THAT COULD NOT RUN: no level, „Belegprüfung nicht verfügbar".
- *   3. A SEARCH THAT FOUND NOTHING: the answer shows, with the note under it,
- *      and the label „[Beleg nicht verifiziert]" where it cited anyway.
- *   4. A STORED ANSWER from before the check: its own level and copy.
- *
- * 404s outside development. Pinned to German.
- */
-
 import { notFound } from 'next/navigation'
 import type { FC, ReactNode } from 'react'
 import { I18nProvider } from '@/i18n'

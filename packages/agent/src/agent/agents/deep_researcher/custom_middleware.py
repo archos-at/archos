@@ -162,7 +162,6 @@ class EmptyContentFixMiddleware(AgentMiddleware):
         return await handler(request.override(messages=fixed_messages))
 
 
-# Common hallucinated tool name mappings
 _TOOL_NAME_ALIASES: dict[str, str] = {
     "open_file": "read_file",
     "find": "grep",
@@ -189,21 +188,18 @@ class ToolNameSanitizationMiddleware(AgentMiddleware):
         Returns the cleaned name if it maps to a valid tool,
         otherwise returns the original name unchanged.
         """
-        # 1. Strip <|channel|> and everything after
         if "<|channel|>" in name:
             candidate = name.split("<|channel|>", maxsplit=1)[0]
             if candidate in self.valid_tool_names:
                 logger.info("Sanitized tool name: '%s' -> '%s'", name, candidate)
                 return candidate
 
-        # 2. Strip dot suffix if base name is valid
         if "." in name:
             candidate = name.split(".", maxsplit=1)[0]
             if candidate in self.valid_tool_names:
                 logger.info("Sanitized tool name: '%s' -> '%s'", name, candidate)
                 return candidate
 
-        # 3. Map common hallucinated names
         if name in _TOOL_NAME_ALIASES:
             mapped = _TOOL_NAME_ALIASES[name]
             if mapped in self.valid_tool_names:
@@ -393,14 +389,7 @@ class SourceRegistryMiddleware(AgentMiddleware):
         self.registry = SourceRegistry()
         self._source_tool_names = source_tool_names or set()
         self._compact_source_keys: set[str] = set()
-        # The reader's Ausgeschlossen, keyed like the registry keys a file. A
-        # passage from one of them is refused HERE, before it is a source, so
-        # it can neither be cited nor quoted and a citation to it is stripped
-        # like one to a source that never existed.
         self._excluded_keys = {self._locator_key(name) for name in excluded_file_names if name and name.strip()}
-        # The documents THIS run captured a passage from. Not the active
-        # registry: in conversation mode that is the session's, and a document
-        # read in an earlier turn would count as read by this run.
         self._read_keys: set[str] = set()
         self._lock = asyncio.Lock()
 
@@ -483,17 +472,12 @@ class SourceRegistryMiddleware(AgentMiddleware):
         if not isinstance(result, ToolMessage) or not result.content:
             return result
         if getattr(result, "status", None) == "error":
-            # A failed call returned an error message, not evidence. Mining it
-            # registered whatever URL the message happened to carry, and a
-            # pydantic validation error links to its own error index.
             return result
         tool_call = getattr(request, "tool_call", None)
         tool_name = tool_call.get("name", "") if isinstance(tool_call, dict) else ""
         if tool_name not in self._source_tool_names:
             return result
         source_id = get_source_id_for_tool(tool_name)
-        # Parsed off the text the tool returned, before anything is cut: the
-        # structured records are filed under the hash of exactly these bytes.
         sources = extract_sources_from_tool_result(tool_name, str(result.content), source_id=source_id)
         sources = [s for s in sources if not self.is_excluded(s)]
         result = self._without_excluded_passages(result, tool_name)
@@ -542,11 +526,7 @@ class SourceRegistryMiddleware(AgentMiddleware):
         return compact_sources or sources
 
 
-#: A ``--- Result N ---`` hit of the grounding grammar (``common/grounding_block.py``).
 _RESULT_HEADER_RE = re.compile(r"^--- Result \d+ ---$", re.MULTILINE)
-#: Where a hit ends: the next hit, the lanes line, or the batch separator that
-#: opens the next query's section (``source_tool_batching``); never one inside a
-#: body's fence (``passage_fence.unfenced``), nor a bare ``---`` (a markdown rule).
 _RESULT_END_RE = re.compile(r"^(?:--- Result \d+ ---$|## Trace-Lanes$|---\n\n## Query:)", re.MULTILINE)
 _CITATION_LINE_RE = re.compile(r"^Citation: (.+)$", re.MULTILINE)
 
@@ -711,7 +691,6 @@ class ToolResultPruningMiddleware(AgentMiddleware):
         self.keep_last_n = keep_last_n
         self.max_chars = max_chars
         self.total_char_budget = total_char_budget
-        # message id -> permanently truncated content for that message.
         self._truncated_by_id: dict[str, str] = {}
 
     def _pruned(self, msg: Any) -> Any:

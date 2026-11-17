@@ -15,7 +15,6 @@ import { contentDigestOf } from '@/test-utils/signed-request'
 
 const BODY = new TextEncoder().encode('Subject: Stellplatznachweis\r\n\r\nim Anhang')
 
-/** A request whose body arrives in `chunks`, the way a socket delivers it. */
 function streamed(chunks: Uint8Array[]): Request {
   const body = new ReadableStream<Uint8Array>({
     start(controller) {
@@ -46,8 +45,6 @@ describe('readBoundedBody', () => {
     expect(Buffer.from(bytes).equals(Buffer.from(BODY))).toBe(true)
   })
 
-  // The proxy failure this exists for: Next hands the route the first N bytes
-  // as if they were the whole body. "At most N" passes that; equality does not.
   it('answers a short body with 503 body-truncated, never a shorter result', async () => {
     const short = streamed([BODY.subarray(0, 10)])
     const refused = await readBoundedBody(short, { expectedLength: BODY.byteLength, maxBytes: 1024 }).catch((error: unknown) => error)
@@ -91,7 +88,6 @@ describe('readBoundedBody', () => {
     ['names only algorithms we do not verify', 'md5=:AAAA:'],
     ['is not a structured dictionary', 'sha-256=not-bytes ((('],
     ['carries a string where bytes belong', 'sha-256="abc"'],
-    // An inherited property of a plain object, not an algorithm: once a 500 from createHash(Object).
     ['names an inherited key, not an algorithm', 'constructor=:AAAA:'],
   ])('refuses a Content-Digest that %s', async (_, contentDigest) => {
     await expect(readBoundedBody(streamed([BODY]), { expectedLength: BODY.byteLength, maxBytes: 1024, contentDigest })).rejects.toBeInstanceOf(BadDigestError)
@@ -113,8 +109,6 @@ describe('streamBodyTo', () => {
     expect(result).toBe(BODY.byteLength)
   })
 
-  // A consumer writing to object storage must see an error at the end, not a
-  // clean finish it would then commit.
   it('errors the stream itself on a short body, so the consumer fails too', async () => {
     let consumerSaw: unknown = null
     const refused = await streamBodyTo(streamed([BODY.subarray(0, 4)]), { expectedLength: BODY.byteLength, maxBytes: 1024 }, (body) =>

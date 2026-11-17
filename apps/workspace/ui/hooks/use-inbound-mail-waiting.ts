@@ -1,29 +1,5 @@
 'use client'
 
-/**
- * How many mails wait for this reader in a project's E-Mail-Eingang: the
- * number on the Dateien header entry, the rail, the phone's Dateien tab and
- * the quiet line above the shelf.
- *
- * ONE READ PER PROJECT, SHARED. Four surfaces show the same number on one
- * screen, so they share one module-level entry per project: the first to
- * mount reads, the others subscribe, and a decision anywhere refreshes it for
- * all (`refreshInboundMailWaiting`). The read is the list operation itself
- * (`inbound-mail-list`, one page of up to 50), so the count is honest per
- * reader in the `project-surfaces.md` sense: a reader who may not decide sees
- * a 404 and no number, never a count of mail they cannot open.
- *
- * Arrival is not pushed to the browser (the receive job publishes to the door
- * only), so the number is read again when the tab comes back into view and
- * once a minute while it is visible, never in a hidden tab.
- *
- * It lives below the features because the shell's rail and phone tab bar show
- * the number too, and `components/` may not reach into a feature
- * (docs/contributing/module-seams.md). So it reads through the typed client
- * (`adapters/api/inbound-mail-client.ts`) and takes any object with its `list`,
- * which the E-Mail-Eingang's own client is.
- */
-
 import { useCallback, useEffect, useSyncExternalStore } from 'react'
 import { ApiRequestError } from '@/adapters/api/api-error'
 import { listInboundMails } from '@/adapters/api/inbound-mail-client'
@@ -33,7 +9,6 @@ import {
   type InboundMailListView,
 } from '@/lib/inbound-mail/inbound-mail-wire'
 
-/** The one call the count needs: the list operation (`inbound-mail-list`). */
 export interface InboundMailListReader {
   list(projectId: string, query?: Partial<InboundMailListQuery>, signal?: AbortSignal): Promise<InboundMailListView>
 }
@@ -41,23 +16,18 @@ export interface InboundMailListReader {
 const listReader: InboundMailListReader = { list: listInboundMails }
 
 export interface InboundMailWaiting {
-  /** Mails waiting for a decision; null while unknown, or when the reader may not decide here. */
   count: number | null
-  /** More wait than one page holds: the count is a floor. */
   more: boolean
 }
 
 const UNKNOWN: InboundMailWaiting = { count: null, more: false }
-/** A read younger than this is reused by a surface that mounts. */
 const FRESH_MS = 30_000
-/** While the tab is visible, the number is read again this often. */
 export const WAITING_POLL_MS = 60_000
 
 interface Entry {
   state: InboundMailWaiting
   readAt: number
   inflight: Promise<void> | null
-  /** The reader may not decide here (404): asked once per page load, never again. */
   denied: boolean
   listeners: Set<() => void>
 }
@@ -84,12 +54,10 @@ function read(projectId: string, client: InboundMailListReader, force = false): 
       entry.state = { count: page.items.filter((mail) => mail.status === 'waiting').length, more: page.nextCursor !== null }
     })
     .catch((error: unknown) => {
-      // No right to decide here, or the office has the feature off: no number, ever.
       if (error instanceof ApiRequestError && (error.status === 404 || error.status === 403)) {
         entry.denied = true
         entry.state = UNKNOWN
       }
-      // Anything else keeps the last number: a blanked badge is worse than a stale one.
     })
     .finally(() => {
       entry.readAt = Date.now()
@@ -99,12 +67,10 @@ function read(projectId: string, client: InboundMailListReader, force = false): 
   return entry.inflight
 }
 
-/** Read the number again now, for every surface showing it (after a decision, a restore, an undo). */
 export function refreshInboundMailWaiting(projectId: string, client: InboundMailListReader = listReader): Promise<void> {
   return read(projectId, client, true)
 }
 
-/** Put a number in without a read: a preview, or a page that just read the list itself. */
 export function primeInboundMailWaiting(projectId: string, state: InboundMailWaiting): void {
   const entry = entryFor(projectId)
   entry.state = state
@@ -151,11 +117,6 @@ export function useInboundMailWaiting(
   return state
 }
 
-/**
- * The number as the shell last read it, without reading it: for a surface that
- * repeats what the rail already says (the chat's start), so it costs no request
- * and stays silent wherever the rail does (the feature off, no right to decide).
- */
 export function useInboundMailWaitingShown(projectId: string | null): InboundMailWaiting {
   const subscribe = useCallback(
     (listener: () => void) => {
@@ -170,7 +131,6 @@ export function useInboundMailWaitingShown(projectId: string | null): InboundMai
   return useSyncExternalStore(subscribe, snapshot, () => UNKNOWN)
 }
 
-/** Forget every entry. Specs only. */
 export function resetInboundMailWaitingForTests(): void {
   entries.clear()
 }

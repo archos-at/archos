@@ -1,60 +1,44 @@
-/**
- * The contract of a question another agent asks Piloti (ADR-0124): the routes
- * under `/api/agent-asks`, the MCP operations in
- * `lib/agent-api/catalog/consult.ts`, and the A2A door (`lib/a2a/`) all read
- * it from here. Pure: no database, no service (`lib/api/wire-modules.spec.ts`).
- *
- * The states are the A2A task states (specification 1.0, `TaskState`),
- * lowercase, so a task's state needs no translation table: `submitted` (the
- * question is recorded, the turn not yet started), `working`, and the four
- * terminal ones. Piloti never asks back mid-turn (`ask_user` refuses on a
- * headless turn), so `input-required` does not occur.
- */
-
 import { z } from 'zod'
+import { defineLifecycle } from '@/shared/lifecycle/define-lifecycle'
 import { conversationIdSchema } from '@/lib/session-documents/conversation-id'
 import { PRODUCT_NAME } from '@/lib/brand'
+import type { SOURCE_KINDS } from '@/shared/vocabularies.generated'
+
+type SourceKind = (typeof SOURCE_KINDS)[number]
 
 export const ASK_STATES = ['submitted', 'working', 'completed', 'canceled', 'failed', 'rejected'] as const
 export type AskState = (typeof ASK_STATES)[number]
 
-/** The states an ask never leaves. */
-export const TERMINAL_ASK_STATES: ReadonlySet<AskState> = new Set<AskState>(['completed', 'canceled', 'failed', 'rejected'])
+export const ASK_LIFECYCLE = defineLifecycle<AskState, 'start' | 'complete' | 'cancel' | 'fail' | 'reject'>({
+  id: 'agent-ask',
+  initial: 'submitted',
+  states: {
+    submitted: { on: { start: 'working', complete: 'completed', cancel: 'canceled', fail: 'failed', reject: 'rejected' } },
+    working: { on: { complete: 'completed', cancel: 'canceled', fail: 'failed', reject: 'rejected' } },
+    completed: { type: 'final' },
+    canceled: { type: 'final' },
+    failed: { type: 'final' },
+    rejected: { type: 'final' },
+  },
+})
+
+export const TERMINAL_ASK_STATES: ReadonlySet<AskState> = new Set<AskState>(ASK_LIFECYCLE.finalStates)
 
 export const isTerminalAskState = (state: AskState): boolean => TERMINAL_ASK_STATES.has(state)
 
-/**
- * The agent-catalog operations that ask Piloti. The recursion lock names them:
- * Piloti's own door never files one as a proposal and never applies one
- * (`lib/proposals/operation-applier.ts`), so a turn cannot ask Piloti again.
- */
 export const AGENT_ASK_OPERATIONS = ['agent-ask-create', 'agent-ask-get', 'agent-ask-cancel'] as const
 
 export const isAgentAskOperation = (name: string): boolean =>
   (AGENT_ASK_OPERATIONS as readonly string[]).includes(name)
 
-/** The longest question an agent may send: a long brief, not a document (attach those to the project). */
 export const MAX_QUESTION_CHARS = 8_000
 
-/** How long the asking request waits for the answer before it answers `working` and the agent polls. */
 export const ASK_WAIT_SECONDS = 40
 
-/**
- * The chat turn's own clock (`CHAT_TURN_DEADLINE_SECONDS` in
- * `apps/agent-host/src/agent_host/chat_socket.py`): a turn still running then is
- * ended `failed` by the socket, which reports it. `ask-wire.spec.ts` holds the two equal.
- */
 export const CHAT_TURN_DEADLINE_SECONDS = 2_700
 
-/** What the outcome notice of a turn that ran out of time may take to arrive: its retries (`internal_retry.py`). */
 const OUTCOME_NOTICE_GRACE_SECONDS = 120
 
-/**
- * How long an ask may stay open before it is ended `failed` when it is next read:
- * the turn's outcome notice was lost (a replica died mid-turn). The turn's own
- * deadline and the notice's grace, so an ask is never ended while its turn may
- * still answer, and never outlives it; `AGENT_ASK_MAX_SECONDS` overrides it.
- */
 export const DEFAULT_ASK_MAX_SECONDS = CHAT_TURN_DEADLINE_SECONDS + OUTCOME_NOTICE_GRACE_SECONDS
 
 export const createAskSchema = z
@@ -107,7 +91,6 @@ export const getAskQuerySchema = z
   .strict()
 export type GetAskQuery = z.infer<typeof getAskQuerySchema>
 
-/** A document Piloti filed while it answered: the A2A artifact beside the answer. */
 export interface AskDocument {
   documentId: string
   versionId: string
@@ -116,54 +99,39 @@ export interface AskDocument {
   contentType: string | null
 }
 
-/**
- * One source the answer cites: a document, and the page when the citation names
- * one. `documentId` is the answer's own document identity (what its citations
- * group on), not a workspace document id. `url` opens the cited page in Piloti
- * for the asker (the UI's `?cite=` link on their conversation), or is the
- * outbound address of a web or RIS source.
- */
 export interface AskSource {
   documentId: string
   name: string
   page?: number
+  clause?: string
+  kind: SourceKind
   url: string
+  citation: string
 }
 
-/** How far the answer rests on its sources, as the answer stored it (ADR-0125). */
 export interface AskConfidence {
   level: 'low' | 'medium' | 'high'
-  /** Why, in one sentence. */
   reason?: string
-  /** Set when a guard lowered the level; the guard's code. */
   cappedReason?: string
-  /** A search ran and found nothing: the answer is Piloti's own knowledge, not a document's. */
   lookupFoundNothing?: true
 }
 
-/** What the answer's message stores about its grounding. Each key is absent where the message has none. */
 export interface AskAnswerEvidence {
   sources?: AskSource[]
   confidence?: AskConfidence
 }
 
-/** What every ask route answers. */
 export interface AskView {
   id: string
-  /** The person's own thread the turn ran in; pass it back to continue (A2A `contextId`). */
   conversationId: string
   projectId: string | null
   state: AskState
-  /** The question as it was asked (the person's message in the thread). */
   question: string | null
-  /** Why it failed or was rejected. */
   reason: string | null
-  /** Piloti's answer, once `completed`; `text` is plain Markdown (`answer-text.ts`), not the chat's dialect. */
   answer: ({ messageId: string; text: string } & AskAnswerEvidence) | null
   documents: AskDocument[]
   createdAt: string
   updatedAt: string
   endedAt: string | null
-  /** While not terminal: how long to wait before asking again with agent-ask-get. */
   pollAfterSeconds: number | null
 }

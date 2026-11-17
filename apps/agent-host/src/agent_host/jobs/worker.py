@@ -37,23 +37,9 @@ from .runner import _update_status_if_not_terminal
 
 logger = logging.getLogger(__name__)
 
-# User-safe verdict for a quarantined payload. The stored blob was corrupt
-# (bad base64 / torn write), undecryptable (KEK rotation, tampered tag), forged
-# plaintext under KEK, or decoded to a non-dict — either way it can never run.
-# The full exception stays server-side in the logs; clients get this string via
-# job_info.error and the job.error event (same surfaces as runner failures).
 POISON_PAYLOAD_ERROR = "The job payload could not be decrypted or parsed and was quarantined."
 RETRIES_EXHAUSTED_ERROR = "research worker retries exhausted"
 
-#: Payload keys that ``run_agent_job`` no longer accepts, dropped at replay.
-#: A payload written by an earlier release is replayed as it was stored: by the
-#: cutover's re-dispatch of the old queue's rows (``jobs/requeue_legacy.py``),
-#: and by a Hatchet retry of a run started just before an upgrade. Without this
-#: such a job fails with a TypeError. ``scheduler_address`` is the Dask scheduler
-#: the release before #887 wrote; ``claim_owner`` is the claim queue's worker id,
-#: which the release before ADR-0150 wrote. Delete a name once no installation
-#: holds a payload that carries it. Only these names are dropped: an unknown key
-#: in a new payload must still fail.
 RETIRED_PAYLOAD_KEYS = frozenset({"scheduler_address", "claim_owner"})
 
 
@@ -152,15 +138,11 @@ async def record_exhausted_verdict(db_url: str, job_id: str) -> None:
     from nat.front_ends.fastapi.async_jobs.job_store import JobStatus
 
     try:
-        # Conditional: the run may have finalized itself (same sticky-terminal
-        # contract as the runner and the ghost-job reaper). Spelled as the enum:
-        # the agent runtime's JobStatus lookup is by value ("failure").
         written = await _update_status_if_not_terminal(
             _job_store(db_url), job_id, JobStatus.FAILURE, error=RETRIES_EXHAUSTED_ERROR
         )
         if written:
             logger.error("Job %s marked FAILURE after retry exhaustion", job_id)
-            # No run is left to report it: the BFF's run row closes here or never.
             await notify_job_outcome_from_access(
                 job_id=job_id, db_url=db_url, status="failure", error=RETRIES_EXHAUSTED_ERROR
             )
@@ -172,8 +154,6 @@ async def record_exhausted_verdict(db_url: str, job_id: str) -> None:
 
 def main() -> None:
     logging.basicConfig(level=os.environ.get("LOG_LEVEL", "INFO"))
-    # Its knowledge layer takes session advisory locks, which need the direct DSN
-    # (ADR-0083). It never LISTENs. Fail the boot, not the first lock.
     require_direct_dsns(listen=False)
     assert_no_latent_vendor()
     assert_residency()  # no model call outside the cell's zone (ADR-0167)

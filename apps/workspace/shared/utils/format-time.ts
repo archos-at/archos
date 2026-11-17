@@ -1,18 +1,3 @@
-/**
- * Shared timestamp formatting utility
- *
- * Formats Date objects or ISO string dates into a short time display (e.g. "03:35 PM").
- * Handles both Date objects and ISO string dates (from Zustand persist).
- *
- * Pass the active app locale so the rendered time matches the UI language
- * (e.g. 24-hour "15:35" for `de`). The param is optional — omitting it falls
- * back to the runtime default, so non-React callers and tests keep working.
- */
-
-// One formatter per locale. `toLocaleTimeString` with options builds a new
-// `Intl.DateTimeFormat` on every call, and an answer's footer formats its time
-// on every render: 107–145 ms of self time per streamed answer on a 4×
-// throttled phone (React performance audit, 2026-09).
 const formatters = new Map<string, Intl.DateTimeFormat>()
 
 const formatterFor = (locale: string | undefined): Intl.DateTimeFormat => {

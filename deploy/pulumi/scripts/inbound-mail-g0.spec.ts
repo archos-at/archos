@@ -20,13 +20,6 @@ import {
   type Rule,
 } from "./inbound-mail-g0";
 
-/**
- * Gate G0's read-only check (`scripts/inbound-mail-g0.ts`, run as
- * `inbound-mail-smoke.ts g0`). What is pinned: that a pass means what the
- * runbook says it means. The live answers of Cloudflare and DNS are never
- * fetched here; `g0Findings` runs on canned ones.
- */
-
 const DOMAIN = "inbox.example.org";
 const LOCAL = "project";
 const CF_MX = ["route1.mx.cloudflare.net", "route2.mx.cloudflare.net", "route3.mx.cloudflare.net"];
@@ -221,8 +214,6 @@ describe("g0Findings", () => {
   });
 });
 
-// It starts the script in its own `bun` process: seconds on a busy machine,
-// past vitest's 5 s default (see inbound-mail-smoke.spec.ts).
 describe("the command line", { timeout: 30_000 }, () => {
   it("stops on a missing input rather than guessing one", () => {
     const result = spawnSync("bun", [join(__dirname, "inbound-mail-smoke.ts"), "g0"], {

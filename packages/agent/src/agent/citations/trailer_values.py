@@ -13,27 +13,18 @@ from agent.citations.entries import SourceEntry
 logger = logging.getLogger(__name__)
 
 
-#: A measurement with its unit: ``100 cm``, ``1,10 m``, ``55 dB``, ``6 %``.
-#: The unit is what separates a copyable value from a locator — a bare number
-#: is a table, a Punkt or a paragraph, never something a reader builds from.
 _VALUE_ZAHL_RE = re.compile(
     r"\b\d+(?:[.,]\d+)?\s*(?:m²|m³|cm\b|mm\b|km\b|m\b|dB\b|%|°C\b|kWh\b|Stpl\.?\b|Stück\b|kg\b|\bh\b|min\b)",
     re.IGNORECASE,
 )
 
 
-#: A fire-resistance or building class: ``REI 60``, ``EI 30``, ``R 90``,
-#: ``F 90``, ``GK 4``, ``Gebäudeklasse 4``. The digit floor (2–3 for
-#: resistances) keeps ``R 2``-shaped fragments from firing.
 _VALUE_KLASSE_RE = re.compile(
     r"\b(?:REI|EI?|R|F)\s*-?\s*\d{2,3}\b|\bGK\s*\d\b|\b\w*klasse\s+\d\b",
     re.IGNORECASE,
 )
 
 
-#: A deadline span: ``4 Jahre``, ``sechs Wochen``, ``binnen``, ``unverzüglich``.
-#: Word-numbers are closed (ein–zwölf) because an open ``\w+`` before a time
-#: noun matches ``nächste Woche`` — a pointer, not a span.
 _VALUE_DEADLINE_RE = re.compile(
     r"\b\d+\s*(?:Tag|Woche|Monat|Jahr|Stunde|Minute|Sekunde)\w*\b"
     r"|\b(?:ein(?:e|er|em|en|es)?|zwei|drei|vier|fünf|sechs|sieben|acht|neun|zehn|elf|zwölf)"
@@ -43,8 +34,6 @@ _VALUE_DEADLINE_RE = re.compile(
 )
 
 
-#: A Fundstelle shorter than this, once normalised, is not a document name a
-#: substring test can judge — mirrors the verdict gate's own floor.
 _VALUE_MIN_MATCHABLE_NAME_CHARS = 4
 
 

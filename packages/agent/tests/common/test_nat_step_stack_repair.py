@@ -1,5 +1,3 @@
-"""A LangGraph turn under the agent runtime keeps every step's parent open (no span the exporter drops)."""
-
 from __future__ import annotations
 
 from typing import TypedDict
@@ -41,7 +39,6 @@ def _graph():
 
 
 def _orphans(events) -> list[str]:
-    """START steps whose parent had already ended: the ones the agent runtime's SpanExporter drops."""
     ended: set[str] = set()
     orphans: list[str] = []
     for event in events:
@@ -70,6 +67,5 @@ async def _run_turn() -> list:
 
 
 async def test_every_step_nests_under_an_open_parent():
-    """Without the repair the ``tools`` node, and all under it, START under the ended ``agent`` node."""
     install_step_stack_repair()
     assert _orphans(await _run_turn()) == []

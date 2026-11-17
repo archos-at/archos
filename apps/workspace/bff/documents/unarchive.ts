@@ -1,15 +1,3 @@
-/**
- * Bring an archived document back into the working set (ADR-0054, ADR-0131
- * rule 7): the reverse of `archiveDocument` (`./version-content`).
- *
- * Archiving kept the row, every version and every object, and purged only the
- * chunks, so unarchiving is the lifecycle flag and a read into the index again:
- * a person's upload as the bytes its row names, a Piloti document as its
- * published version, the same two dispatches a restore from the bin makes
- * (`projects/folder-bin-jobs.ts`). A file the upload screening holds is not
- * read: it waits for a reviewer, as it did before it was archived.
- */
-
 import 'server-only'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { filedInOf } from '@/lib/audit/document-names'
@@ -30,14 +18,9 @@ import { setDocumentLifecycle } from './version-repository'
 export interface UnarchiveDocumentResult {
   documentId: string
   lifecycle: 'active'
-  /**
-   * What the index was asked: `queued` (follow it with document-status), `held` (the screening holds it),
-   * `failed`, or `unchanged` for a document that was not archived.
-   */
   ingest: 'queued' | 'held' | 'failed' | 'unchanged'
 }
 
-/** Read an unarchived document into its collection again. Never throws: a failure is recorded on the row. */
 async function readAgain(organizationId: string, doc: Document): Promise<'queued' | 'held' | 'failed'> {
   if (doc.status === 'quarantined') return 'held'
   if (!collectionFileRef(doc) || !doc.storageKey) {
@@ -66,11 +49,6 @@ async function readAgain(organizationId: string, doc: Document): Promise<'queued
   }
 }
 
-/**
- * Unarchive a document: back in the default listings, and read into the index
- * again so it answers questions. The same permission archiving needs. A
- * document that is not archived is answered as it is, with nothing read again.
- */
 export async function unarchiveDocument(
   session: AuthorizedSession,
   documentId: string,

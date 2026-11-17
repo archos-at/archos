@@ -1,12 +1,3 @@
-/**
- * The words of the E-Mail-Eingang's seven notice types (ADR-0137, DECISION §9),
- * as a row and a push say them, in both languages: every type and every
- * variant it is emitted with reads a whole sentence naming the project, with
- * no placeholder left and no key printed. The rows carry the project's name
- * and codes only (`lib/inbound-mail/announce.ts`), so these sentences are
- * everything a lock screen ever shows of a mail.
- */
-
 import { describe, expect, it } from 'vitest'
 import { de } from '@/i18n/dictionaries/de'
 import { en } from '@/i18n/dictionaries/en'
@@ -16,7 +7,6 @@ import { inboxItemCopy } from './item-copy'
 import { INBOX_TYPE_DEFINITIONS } from './registry'
 import { INBOX_TYPE_PRESENTATION, type InboxItemType, type InboxItemView } from './types'
 
-/** Each type, and every variant it is emitted with (null: none). */
 const EMITTED: ReadonlyArray<[InboxItemType, ReadonlyArray<string | null>]> = [
   ['inbound_mail.waiting', [null, 'unconfirmed']],
   ['inbound_mail.expiring', [null, 'unconfirmed']],

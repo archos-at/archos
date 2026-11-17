@@ -50,12 +50,9 @@ from typing import Any
 from agent.common import residency
 from agent.common.image_redaction import redact_inline_images
 from agent.common.licensed_text import trace_payload
-from agent.observability.langfuse_trace_attributes import GEN_AI_REQUEST_MODEL
 from agent.observability.langfuse_trace_attributes import METADATA_PREFIX
-from agent.observability.langfuse_trace_attributes import OBSERVATION_MODEL_NAME
 from agent.observability.langfuse_trace_attributes import SESSION_ID_ATTRIBUTE
 from agent.observability.langfuse_trace_attributes import TAGS_ATTRIBUTE
-from agent.observability.langfuse_trace_attributes import usage_observation_attributes
 from agent.observability.otlp_resource import ENDPOINT_ENV
 from agent.observability.otlp_resource import resource_attributes
 from agent.observability.otlp_resource import signal_endpoint
@@ -64,32 +61,26 @@ from agent.observability.trace_context import OBSERVATION_STATUS_MESSAGE_ATTRIBU
 from agent.observability.trace_context import OBSERVATION_TYPE_ATTRIBUTE
 from agent.observability.trace_context import TRACE_NAME_ATTRIBUTE
 from agent.observability.trace_context import process_trace_attributes
+from agent.observability.usage_details import GEN_AI_REQUEST_MODEL
+from agent.observability.usage_details import OBSERVATION_MODEL_NAME
+from agent.observability.usage_details import usage_observation_attributes
 
 logger = logging.getLogger(__name__)
 
-#: Langfuse's observation-level input/output, which win over ``input.value``.
 INPUT_ATTRIBUTE = "langfuse.observation.input"
 OUTPUT_ATTRIBUTE = "langfuse.observation.output"
-#: Metadata of one observation, where a nested generation writes what a root writes on its trace.
 OBSERVATION_METADATA_PREFIX = "langfuse.observation.metadata."
-#: The served model, when the provider names one other than the requested id.
 GEN_AI_RESPONSE_MODEL = "gen_ai.response.model"
 
-#: What one span may carry of the prompt and of the reply, each.
 MAX_PAYLOAD_CHARS = 16_000
 TRUNCATION_MARKER = "…[truncated]"
 
-#: Every trace from here is filterable as "not a chat turn" in one click.
 AUXILIARY_SURFACE_TAG = "surface:auxiliary"
 
 _SCOPE = "agent.observability.direct_trace"
 
-#: The span a direct generation nests under: an ingest file's (:func:`observed_span`). Unset, a
-#: generation is its own root trace, as every route's is.
 _parent_span: ContextVar[Any | None] = ContextVar("direct_trace_parent_span", default=None)
 
-#: Where a unit of background work's trace continues (:func:`continued_from`): the trace a
-#: Hatchet trigger started. Unset, :func:`observed_span` starts a root trace.
 _parent_context: ContextVar[Any | None] = ContextVar("direct_trace_parent_context", default=None)
 
 _lock = threading.Lock()
@@ -234,6 +225,7 @@ def _usage_attributes(usage: Any) -> dict[str, Any]:
         completion_tokens=_count(usage.get("completion_tokens")),
         total_tokens=_count(usage.get("total_tokens")),
         cached_tokens=_count(_mapping(usage.get("prompt_tokens_details")).get("cached_tokens")),
+        cache_write_tokens=_count(_mapping(usage.get("prompt_tokens_details")).get("cache_write_tokens")),
         reasoning_tokens=_count(_mapping(usage.get("completion_tokens_details")).get("reasoning_tokens")),
         cost_usd=cost if isinstance(cost, int | float) and not isinstance(cost, bool) else None,
     )
@@ -329,7 +321,6 @@ class _ObservedGeneration:
 
     def __enter__(self) -> GenerationRecorder:
         self._span = _start_span(self._feature, self._attributes)
-        # The seam reports where the call inside this block went (``common/residency.record_route``).
         self._sink = residency.route_sink().set(functools.partial(_record_route, self._span))
         return GenerationRecorder(self._span)
 

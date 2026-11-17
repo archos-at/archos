@@ -1,4 +1,3 @@
-/** The workspace search: one page office-wide, the same search in a project's files and on the office shelf. */
 export const search = {
   title: 'Search',
   scope: {
@@ -13,9 +12,7 @@ export const search = {
       project: 'Search this project…',
       office_shelf: 'Search the office filing…',
     },
-    /** On a phone, where the long placeholder is cut mid-word. */
     placeholderShort: 'Search…',
-    /** The modifier key of the shortcut shown in the field, where the platform is not a Mac. */
     label: 'Search',
     clear: 'Clear search',
   },
@@ -49,10 +46,8 @@ export const search = {
   empty: {
     title: 'Nothing found',
     description: 'Try other words, or only the start of a drawing number: “EP” finds EP-03 and EP-05.',
-    /** When one kind is chosen above the results. */
     oneKind: 'Only {kind} are shown. The other kinds may hold a match.',
     allKinds: 'Show everything',
-    /** No match yet while shelves are still being read. */
     readingTitle: 'Nothing found yet',
     reading:
       '{count, plural, one {{productName} is still reading one shelf, so matches can still appear there.} other {{productName} is still reading # shelves, so matches can still appear there.}}',
@@ -68,7 +63,6 @@ export const search = {
   },
   notes: {
     buildingShort: '{count, plural, one {one shelf still being read} other {# shelves still being read}}',
-    /** The same, when a filter that is set depends on what Piloti reads there. */
     buildingFiltered:
       '{count, plural, one {one shelf still being read, the filters may miss documents there} other {# shelves still being read, the filters may miss documents there}}',
     contentPartial: 'The search through what the documents say covered only part of this scope.',
@@ -94,10 +88,8 @@ export const search = {
   matchedOn: {
     label: 'Found in',
     name: 'file name',
-    /** What Piloti read about the document: title, parties, place, title block, references. The file view calls it the summary. */
     reading: 'summary',
     content: 'content',
-    /** The content matches the question by meaning, without holding its words. */
     meaning: 'content (by meaning)',
   },
   annotation: {
@@ -140,11 +132,9 @@ export const search = {
   },
   filters: {
     title: 'More filters',
-    /** The rail's first group, always open. */
     keyTitle: 'Drawing number and revision',
     sheetTitle: 'Filters',
     sheetDescription: 'Narrow the results by kind, project, drawing number and more. They apply as you set them.',
-    /** The sheet's primary action: back to the answer, its size on the button. */
     showResults: '{count, plural, one {Show # result} other {Show # results}}',
     showNone: 'No results',
     clearAllShort: 'Clear all',

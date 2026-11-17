@@ -1,0 +1,6 @@
+---
+operators:
+  - >
+    Coolify is no longer a supported way to deploy. Its compose file had no
+    Hatchet engine, so background jobs and document ingest could not run on it.
+    Deploy with Docker Compose, using the hatchet profile, or with Kubernetes.

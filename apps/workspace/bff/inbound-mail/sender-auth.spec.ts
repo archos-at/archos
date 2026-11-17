@@ -1,12 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Sender authentication against REAL signatures: messages are DKIM-signed with
- * throwaway keys and mailauth verifies them against a fake DNS that publishes
- * the record each case needs (`__fixtures__/hostile.ts`). Nothing inside
- * mailauth is mocked, so what passes here passes in production.
- */
 import { describe, expect, it } from 'vitest'
 import {
   bytes,
@@ -70,7 +64,6 @@ describe('authenticateSender: what verifies', () => {
   })
 
   it('labels a subdomain’s signature verified, but files nothing directly with it: strict alignment only', async () => {
-    // A key for news.<domain>, as a newsletter service holds one, signs a member's From address.
     const raw = await sign(message(), { domain: `news.${MEMBER_DOMAIN}` })
     const auth = await authenticate(raw, keyFor(`news.${MEMBER_DOMAIN}`))
     const verdict = judgeSender(auth, { memberUserId: 'user_1', receivedAt: RECEIVED, sentAtHeader: SENT })

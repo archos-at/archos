@@ -25,7 +25,6 @@ logger = logging.getLogger(__name__)
 
 FOLDER_CARDS_PATH = "/api/internal/folder-cards"
 REQUEST_TIMEOUT_SECONDS = 15
-#: A listing waits this long for the cards before it renders tier 0 alone.
 READ_TIMEOUT_SECONDS = 3
 
 

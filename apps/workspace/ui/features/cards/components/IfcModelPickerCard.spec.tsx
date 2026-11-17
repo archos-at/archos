@@ -1,15 +1,3 @@
-/**
- * The model picker — tiles that open the viewer, offered instead of a prose
- * list of file names to retype.
- *
- * What is pinned here is that it lists only openable models, that each tile is
- * a real link into the viewer (so the click never round-trips the model), and
- * that it fails OPEN: a project with nothing to show renders nothing rather
- * than an empty picker, while a list that could not be read says so.
- *
- * Rendered in English — the default test locale.
- */
-
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import { IfcModelPickerCard } from './IfcModelPickerCard'
@@ -29,7 +17,6 @@ const model = (filename: string, status = 'ready', extra: Record<string, unknown
   ...extra,
 })
 
-/** Route the model-list request to its fixture. `never` holds the load open. */
 function stubFetch(models: unknown | 'fail' | 'never'): void {
   vi.stubGlobal(
     'fetch',
@@ -46,8 +33,6 @@ function stubFetch(models: unknown | 'fail' | 'never'): void {
 
 afterEach(() => vi.unstubAllGlobals())
 
-// `useProjectBimModels` collapses concurrent requests through a module-level
-// map keyed by project, so each render needs its own id.
 let nextProject = 0
 const picker = (props: Partial<React.ComponentProps<typeof IfcModelPickerCard>> = {}) =>
   render(
@@ -66,7 +51,6 @@ describe('IfcModelPickerCard', () => {
 
     const links = await screen.findAllByRole('link')
     expect(links).toHaveLength(2)
-    // The click opens the viewer client-side (buildModelHref), never a turn.
     expect(links[0]).toHaveAttribute('href', expect.stringContaining('/files?model=haus-a.ifc'))
     expect(links[1]).toHaveAttribute('href', expect.stringContaining('/files?model=haus-b.ifc'))
   })
@@ -85,8 +69,6 @@ describe('IfcModelPickerCard', () => {
   it('renders nothing — not an empty picker — when the project has no readable model', async () => {
     stubFetch({ models: [] })
     const { container } = picker()
-    // Wait for the list to settle, then assert the card drew nothing at all so
-    // the written answer carries the turn.
     await waitFor(() => expect(container.querySelector('section')).toBeNull())
     expect(screen.queryByRole('link')).not.toBeInTheDocument()
   })

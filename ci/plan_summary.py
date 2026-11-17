@@ -1,17 +1,3 @@
-"""Write the Plan job's decisions to the run summary, as Markdown on stdout.
-
-Every other job in ci.yml runs or skips on the Plan job's answers, and a skipped
-job reads as passed. So the run page states those answers and the reason for
-each: which commit the change was diffed against and why, whether a green pull
-request run was reused, which tiers run, which images are built and which are
-re-tagged, which pins trivy scans. A reviewer asking "why did the backend not
-run?" reads it here instead of in a step log.
-
-Reads the Plan job's step outputs from the environment (ci.yml passes them):
-EVENT, BASE, BASE_REASON, REUSED, TIERS (JSON object), BUILD, IMAGES, PINS
-(JSON lists).
-"""
-
 from __future__ import annotations
 
 import json

@@ -83,18 +83,12 @@ UI = "apps/workspace/"
 
 Get = Callable[[str], Any]
 
-# The cache key prefix the develop push saves the testmon databases under.
 CACHE_PREFIX = "testmon-"
-# How far before a green run's start a base commit still counts as possibly
-# unseen by it: the run checked out the base when it started, and a merge's
-# commit date is when it landed. Generous on purpose; it only widens the set.
 BASE_SLACK = datetime.timedelta(hours=1)
 
 PY_FULL = (
     "**/conftest.py",
     "conftest.py",
-    # A Python fixture is test data a parametrize reads at collection, before
-    # testmon records anything. A data fixture is matched by name below.
     "tests/fixtures/*.py",
     "tests/__init__.py",
     "uv.lock",
@@ -106,11 +100,9 @@ PY_FULL = (
     ".github/filters.yml",
     ".github/actions/setup-python-env/**",
     "ci/pr_selection.py",
-    # The claim-queue suites run on a throwaway Postgres this script builds.
     "scripts/rls-test-db.sh",
 )
 
-# Where testmon sees Python: the packages under test and the tests themselves.
 PY_TRACKED = (
     "tests/**",
     "apps/agent-host/src/**",
@@ -121,18 +113,12 @@ PY_TRACKED = (
     "evals/**",
 )
 
-# Where a test reads a non-Python file it does not import.
 PY_TEST_ROOTS = ("tests", "apps/agent-host/tests", "packages", "evals")
 
-# Test data. A test reads a fixture by name or a whole directory of them, so one
-# no test names, directly or by a directory, forces a full run.
 PY_FIXTURES = "tests/fixtures/"
 
-# A non-Python file under these that no test names is code testmon cannot see
-# (package data read at runtime), so it forces a full run rather than none.
 PY_PACKAGE_SRC = ("apps/agent-host/src/**", "packages/*/src/**", "evals/*/src/**", "evals/*/fixtures/**")
 
-# What every UI spec loads before its own imports, so no graph sees it.
 UI_FULL = (
     UI + "package.json",
     UI + "bun.lock",
@@ -141,7 +127,6 @@ UI_FULL = (
     UI + "next.config.ts",
     UI + "config/vitest/**",
     UI + "tests/mocks/**",
-    # Imported by the mock handlers the setup file installs.
     UI + "ui/adapters/api/documents-schemas.ts",
     UI + "ui/features/documents/types.ts",
     UI + "bff/upload-screening/policy.ts",
@@ -153,10 +138,6 @@ UI_FULL = (
     "ci/pr_selection.py",
 )
 
-# What a UI spec can read at all: its own tree, the configs and shared schemas
-# the BFF loads, the root scripts its walkers check, and the backend fixtures a
-# contract spec reads (`skills/resolve-payload-contract.spec.ts`). A change to none of
-# these since the last green run leaves every UI result standing.
 UI_INPUTS = (
     UI + "**",
     "configs/**",
@@ -166,10 +147,6 @@ UI_INPUTS = (
     "tests/fixtures/**",
 )
 
-# The spec files vitest collects (vitest.config.ts `include`). Vitest's `**/`
-# matches no directory too; fnmatch's needs one, so each glob also gets its
-# top-level form. Without it `tests/english-names.spec.ts`, which reads every
-# tracked file, was never found and ran on no selection at all.
 _SOURCE_DIRS = ("app", "bff", "ui", "i18n", "shared", "types", "utils")
 _VITEST_INCLUDE = (
     *(f"{root}/**/*.{kind}.{ext}" for root in _SOURCE_DIRS for kind in ("spec", "test") for ext in ("ts", "tsx")),
@@ -189,21 +166,13 @@ _VITEST_INCLUDE = (
 )
 UI_SPECS = _VITEST_INCLUDE + tuple(glob.replace("/**/", "/") for glob in _VITEST_INCLUDE)
 
-# A spec that reads the tree from disk: route and key walkers, migration and
-# schema checks. Their inputs are not imports, so no graph sees them. Each
 # declares them in a `// @disk-inputs:` line (globs relative to apps/workspace),
-# and runs only when a changed path matches one; one without the line runs on
-# every selection. config/vitest/disk-inputs.ts fails a spec that reads a path
-# its line does not declare, and scripts/declare-disk-inputs.mjs writes the line.
 READS_DISK = re.compile(
     r"""from ['"](?:node:)?fs(?:/promises)?['"]|require\(['"](?:node:)?fs|readdirSync|readFileSync|globSync"""
 )
 DISK_INPUTS = re.compile(r"^\s*//\s*@disk-inputs:\s*(.+)$", re.MULTILINE)
-# A spec that starts a process: what the child reads, no recorder sees, so it
-# never counts as declared.
 SPAWNS = re.compile(r"""['"](?:node:)?child_process['"]""")
 
-#: A disk reader's inputs, repo-relative, or None when it declares none.
 DiskReaders = dict[str, tuple[str, ...] | None]
 
 
@@ -213,8 +182,6 @@ def declared_inputs(source: str) -> tuple[str, ...] | None:
     if not found or SPAWNS.search(source):
         return None
     globs = (glob.strip() for glob in found.group(1).split(","))
-    # `*` is the only wildcard a declaration has; a Next route's `[...path]`
-    # is literal, and fnmatch would read it as a character class.
     return tuple(posixpath.normpath(posixpath.join(UI, glob)).replace("[", "[[]") for glob in globs if glob)
 
 
@@ -245,10 +212,6 @@ def _reads(path: str, file: str, text: str) -> bool:
 
 def _readers(path: str, test_files: dict[str, str]) -> set[str]:
     """The files under the test roots that name `path` (:func:`_reads`)."""
-    # Every spelling holds the file name or, for a fixture, a directory name,
-    # so one search per file rules most of them out before the spellings are
-    # tried: a re-run can bring hundreds of paths, and the Plan job, which
-    # every job waits for, would otherwise spend seconds on each.
     words = [Path(path).name]
     if path.startswith(PY_FIXTURES):
         words += Path(path).parent.relative_to(PY_FIXTURES).parts
@@ -257,8 +220,6 @@ def _readers(path: str, test_files: dict[str, str]) -> set[str]:
     }
 
 
-#: A module of a suite's support package (`<package>_testing`, ADR-0145 row 5),
-#: by the dotted name its importers use.
 SUPPORT_MODULE = re.compile(r"/testing/(?P<module>\w+_testing(?:/\w+)*)\.py$")
 
 
@@ -386,8 +347,6 @@ def previous_green(get: Get, repo: str, branch: str, head: str, is_ancestor: Cal
     return None
 
 
-# A reference: the changed paths, a description for the log, and which it is
-# ("base": the whole pull request; "green": since its last green run).
 Reference = tuple[list[str], str, str]
 
 

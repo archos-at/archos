@@ -73,11 +73,8 @@ logger = logging.getLogger(__name__)
 
 PROMPTS_DIR = Path(__file__).parent / "prompts"
 
-#: Tool calls one run may make before only ``finish_intake`` still runs.
 DEFAULT_MAX_TOOL_STEPS = 80
-#: Wall clock for one run. The BFF reconciles a reading older than 30 minutes; this ends well before.
 DEFAULT_MAX_RUN_SECONDS = 20 * 60
-#: The BFF's instruction text, carried into the first message, bounded.
 MAX_INSTRUCTION_CHARS = 500
 
 
@@ -117,6 +114,8 @@ def first_message(instruction: str, needs_body: dict[str, Any]) -> str:
     previous = " ".join(str(needs_body.get("previousSummary") or "").split())[: client.MAX_SUMMARY_CHARS]
     if previous:
         lines.append(f"What the last reading found (its own summary): {previous}")
+    if needs_body.get("setupPublished") is False:
+        lines.append("The country data for this project is not published yet: no questions or classes follow from it.")
     lines.append("")
     lines.append(render_needs(needs_body))
     return "\n".join(lines)
@@ -165,9 +164,7 @@ def fallback_summary(ended: str, session: IntakeSession, documents_read: int, la
 class ProjectIntakeAgent:
     """Reads a new project's documents and suggests its profile values, each with the page it is on."""
 
-    #: The runner builds this state from the job (``_get_agent_state_class``).
     state_model = IntakeAgentState
-    #: The run writes values to the profile, not a report: no post-report passes.
     produces_report = False
 
     def __init__(
@@ -239,7 +236,6 @@ class ProjectIntakeAgent:
             logger.warning("Project intake %s hit its time budget", session.job_id)
             return "time_budget", []
         except (BudgetExceededError, RunBudgetExceededError) as error:
-            # Out of budget is the office's limit at work, not a fault: no ERROR, no error-tracking issue.
             logger.info("Project intake %s stopped: %s", session.job_id, error)
             return "llm_budget", []
         except Exception:  # noqa: BLE001 — the run still finishes, with what it recorded
@@ -253,8 +249,6 @@ class ProjectIntakeAgent:
             return "no_job", "Die Erfassung konnte nicht starten: der Lauf hat keine Job-ID."
         reply = await client.call_intake("needs", client.needs_request(session.job_id))
         if not reply.ok:
-            # No identity, an identity the BFF refused, or no longer the current reading:
-            # nothing this run sends would be taken, finish included.
             if reply.reason == "no_envelope" or reply.stale or reply.status in (401, 403):
                 session.stale = reply.stale
                 return "refused", reply.refusal

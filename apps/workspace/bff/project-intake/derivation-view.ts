@@ -1,20 +1,5 @@
-/**
- * The building class per building, as the review shows it and as a reading
- * writes it (ADR-0111, „The Gebäudeklasse derivation"). Pure.
- *
- * The inputs are read by the reader `computeNeeds` weighs decisive needs
- * with (`buildingClassInputsFor`): through the wizard's answers, facts first
- * and suggestions under them, so the wizard's legacy bridges reach the
- * derivation and the class the review shows is the class the needs were
- * computed against. Each input says whether it is only suggested.
- *
- * Writing: when every input that matters has a value, the class is written as
- * the suggestion `building_class@bldgN` with `derivation` evidence. It is never
- * written over a confirmed class: a different one becomes an alternative on
- * the fact, as a document's would. A Hochhaus, or a building that is no
- * building, gets nothing.
- */
-
+import { gateNamesLaw } from '@/lib/base-knowledge/wire/project-law'
+import type { GateState } from '@/lib/base-knowledge/wire/vocab'
 import { answersFromProfile } from '@/lib/project-profile/intake-profile'
 import type { ProjectIntakeDefinition } from '@/lib/project-profile/intake-types'
 import type { DerivationEvidence, DerivationInput, ProfileAlternative } from '@/lib/project-profile/evidence-schema'
@@ -32,34 +17,20 @@ import {
 import { sameProfileValue, suggestedAssumption, withAlternative } from './profile-edits'
 import type { DerivationView } from './types'
 
-/** The profile key the class of one building is stored under. */
 export const buildingClassKey = (buildingId: string): string => `building_class@${buildingId}`
 
-/** Whether `key` holds a class, of a building or flat: derived here, never recorded by a reading. */
 export const isBuildingClassKey = (key: string): boolean => key.split('@')[0] === 'building_class'
 
-/** The reason a derived suggestion carries, beside its evidence. Read by a person and by the agent's prompt view. */
 export const derivedReason = (citation: string): string => `Abgeleitet: ${citation}`
 
-/**
- * The building classification the project's site selects (`setup-scope.ts`),
- * or null: a project nothing places, or one in a country with no
- * classification record, has no class to derive (ADR-0158, ADR-0169).
- */
 export function classificationFor(
   profile: ProjectProfile,
-  options: SetupScopeOptions = {}
+  options: SetupScopeOptions
 ): BuildingClassification | null {
   if (options.lawWithheld) return null
   return buildingClassificationOf(setupScopeOf(profile, options))
 }
 
-/**
- * The profile without a class a derivation wrote: where the knowledge context
- * withholds law, a person reading the profile sees no Gebäudeklasse the
- * classification would not give either. A class a document stated, or one a
- * person confirmed, stays.
- */
 export function withoutDerivedClasses(profile: ProjectProfile, definition: ProjectIntakeDefinition): ProjectProfile {
   let current = profile
   for (const buildingId of buildingIdsOf(profile, definition)) {
@@ -74,12 +45,14 @@ export function withoutDerivedClasses(profile: ProjectProfile, definition: Proje
   return current
 }
 
-/** The buildings the profile describes, in order (`bldg1` when it names none). */
+export function profileAsTheLawShows(profile: ProjectProfile, definition: ProjectIntakeDefinition, gate: GateState | null): ProjectProfile {
+  return gate === null || gateNamesLaw(gate) ? profile : withoutDerivedClasses(profile, definition)
+}
+
 export function buildingIdsOf(profile: ProjectProfile, definition: ProjectIntakeDefinition): string[] {
   return answersFromProfile(profile, definition).buildings.map((building) => building.id)
 }
 
-/** The class of one building under `classification`, and what it read. */
 export function deriveForBuilding(
   profile: ProjectProfile,
   definition: ProjectIntakeDefinition,
@@ -105,16 +78,10 @@ export function deriveForBuilding(
   }
 }
 
-/**
- * Every building's class. None unless the site selects a classification: the
- * OIB's Gebäudeklasse binds in Austria only, another country classifies by its
- * own record or not at all, and an unplaced project is asked for its site
- * first (ADR-0158).
- */
 export function deriveAll(
   profile: ProjectProfile,
   definition: ProjectIntakeDefinition,
-  options: SetupScopeOptions = {}
+  options: SetupScopeOptions
 ): DerivationView[] {
   const classification = classificationFor(profile, options)
   if (!classification) return []
@@ -123,11 +90,6 @@ export function deriveAll(
   )
 }
 
-/**
- * The buildings whose class may have moved when these keys changed: a
- * project-wide input moves every one. A change of site that selects another
- * classification is the caller's to see (`record.ts`), not a key's.
- */
 export function buildingsTouchedBy(
   keys: Iterable<string>,
   allBuildings: readonly string[],
@@ -158,21 +120,14 @@ function withoutDerivedSuggestion(profile: ProjectProfile, key: string): { profi
   return { profile: { ...profile, assumptions }, changed: true }
 }
 
-/**
- * The profile with the class of `buildingId` written as the derivation says,
- * and whether it changed. While the class is unknown, a class an earlier
- * derivation suggested goes with the inputs it was derived from (a reading
- * withdrew one); a confirmed class, or one a document stated, stays.
- */
 export function withDerivedClass(
   profile: ProjectProfile,
   definition: ProjectIntakeDefinition,
   buildingId: string,
   now: string,
-  options: SetupScopeOptions = {}
+  options: SetupScopeOptions
 ): { profile: ProjectProfile; changed: boolean } {
   const key = buildingClassKey(buildingId)
-  // A class binds only where the site's own record defines it, and an unplaced project is in no country yet: none is written.
   const classification = classificationFor(profile, options)
   if (!classification) return withoutDerivedSuggestion(profile, key)
   const view = deriveForBuilding(profile, definition, buildingId, classification)
@@ -182,7 +137,6 @@ export function withDerivedClass(
   const fact = profile.facts[key]
   if (fact) {
     if (sameProfileValue(fact.value, view.value)) return { profile, changed: false }
-    // A derived alternative replaces the one an earlier derivation left: the inputs moved, the class with them.
     const alternatives = withAlternative((fact.alternatives ?? []).filter((entry) => !isDerived(entry)), view.value, evidence, now)
     return { profile: { ...profile, facts: { ...profile.facts, [key]: { ...fact, alternatives } } }, changed: true }
   }

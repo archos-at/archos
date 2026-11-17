@@ -1,5 +1,3 @@
-"""Tests for custom middleware."""
-
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 from unittest.mock import MagicMock
@@ -27,8 +25,6 @@ from agent.common.data_source_registry import reset_registry
 
 
 class TestToolNameSanitizationMiddleware:
-    """Tests for ToolNameSanitizationMiddleware."""
-
     @pytest.fixture
     def valid_tool_names(self):
         return ["advanced_web_search_tool", "scholar_search_tool", "read_file", "write_file", "grep", "glob", "think"]
@@ -38,55 +34,43 @@ class TestToolNameSanitizationMiddleware:
         return ToolNameSanitizationMiddleware(valid_tool_names=valid_tool_names)
 
     def test_sanitize_channel_suffix(self, middleware):
-        """Strip <|channel|> and everything after it."""
         assert (
             middleware._sanitize_tool_name("advanced_web_search_tool<|channel|>commentary")
             == "advanced_web_search_tool"
         )
 
     def test_sanitize_channel_json_suffix(self, middleware):
-        """Strip <|channel|>json suffix."""
         assert middleware._sanitize_tool_name("advanced_web_search_tool<|channel|>json") == "advanced_web_search_tool"
 
     def test_sanitize_dot_suffix(self, middleware):
-        """Strip .commentary suffix when base name is valid."""
         assert middleware._sanitize_tool_name("advanced_web_search_tool.commentary") == "advanced_web_search_tool"
 
     def test_sanitize_dot_exec_suffix(self, middleware):
-        """Strip .exec suffix when base name is valid."""
         assert middleware._sanitize_tool_name("advanced_web_search_tool.exec") == "advanced_web_search_tool"
 
     def test_sanitize_scholar_search_channel(self, middleware):
-        """Strip channel suffix from scholar_search_tool too."""
         assert middleware._sanitize_tool_name("scholar_search_tool<|channel|>commentary") == "scholar_search_tool"
 
     def test_map_open_file_to_read_file(self, middleware):
-        """Map hallucinated open_file to read_file."""
         assert middleware._sanitize_tool_name("open_file") == "read_file"
 
     def test_map_find_to_grep(self, middleware):
-        """Map hallucinated find to grep."""
         assert middleware._sanitize_tool_name("find") == "grep"
 
     def test_map_find_file_to_glob(self, middleware):
-        """Map hallucinated find_file to glob."""
         assert middleware._sanitize_tool_name("find_file") == "glob"
 
     def test_passthrough_valid_name(self, middleware):
-        """Valid tool names pass through unchanged."""
         assert middleware._sanitize_tool_name("advanced_web_search_tool") == "advanced_web_search_tool"
 
     def test_passthrough_unknown_invalid_name(self, middleware):
-        """Unknown invalid names pass through unchanged (let framework report the error)."""
         assert middleware._sanitize_tool_name("totally_fake_tool") == "totally_fake_tool"
 
     def test_dot_suffix_with_invalid_base_passes_through(self, middleware):
-        """Dot suffix stripping only applies when base name is valid."""
         assert middleware._sanitize_tool_name("fake_tool.commentary") == "fake_tool.commentary"
 
     @pytest.mark.asyncio
     async def test_awrap_model_call_sanitizes_tool_calls(self, middleware):
-        """Integration: middleware sanitizes tool_calls in AIMessage."""
         from langchain.agents.middleware.types import ModelResponse
 
         ai_msg = AIMessage(
@@ -105,7 +89,6 @@ class TestToolNameSanitizationMiddleware:
 
     @pytest.mark.asyncio
     async def test_awrap_model_call_preserves_message_metadata(self, middleware):
-        """Sanitizing tool names keeps usage/metadata fields for usage accounting."""
         from langchain.agents.middleware.types import ModelResponse
 
         ai_msg = AIMessage(
@@ -133,7 +116,6 @@ class TestToolNameSanitizationMiddleware:
 
     @pytest.mark.asyncio
     async def test_awrap_model_call_no_tool_calls_passthrough(self, middleware):
-        """Messages without tool_calls pass through unchanged."""
         from langchain.agents.middleware.types import ModelResponse
 
         ai_msg = AIMessage(content="Just text, no tools")
@@ -148,8 +130,6 @@ class TestToolNameSanitizationMiddleware:
 
 
 class TestSelectiveToolRetryMiddleware:
-    """Tests for retry exclusions on deliberate tool error signals."""
-
     def _middleware(self, **kwargs) -> SelectiveToolRetryMiddleware:
         return SelectiveToolRetryMiddleware(
             max_retries=3,
@@ -169,7 +149,6 @@ class TestSelectiveToolRetryMiddleware:
 
     @pytest.mark.asyncio
     async def test_no_retry_tool_error_reaches_model_without_re_execution(self):
-        """run_research_batch failures are never re-executed below the LLM."""
         middleware = self._middleware()
         error = RuntimeError("run_research_batch failed for 1 of 3 researcher worker(s)")
         handler = AsyncMock(side_effect=error)
@@ -183,7 +162,6 @@ class TestSelectiveToolRetryMiddleware:
 
     @pytest.mark.asyncio
     async def test_no_retry_tool_success_passes_through(self):
-        """Successful no-retry tool calls return the handler result unchanged."""
         middleware = self._middleware()
         message = ToolMessage(content="[]", tool_call_id="tc1")
         handler = AsyncMock(return_value=message)
@@ -195,7 +173,6 @@ class TestSelectiveToolRetryMiddleware:
 
     @pytest.mark.asyncio
     async def test_value_error_is_never_retried(self):
-        """Deliberate ValueError signals reach the model immediately on any tool."""
         middleware = self._middleware()
         error = ValueError("run_research_batch accepts at most 6 curated queries")
         handler = AsyncMock(side_effect=error)
@@ -209,7 +186,6 @@ class TestSelectiveToolRetryMiddleware:
 
     @pytest.mark.asyncio
     async def test_transient_error_on_other_tools_is_retried(self):
-        """Genuinely transient failures on regular tools keep retrying."""
         middleware = self._middleware()
         handler = AsyncMock(
             side_effect=[
@@ -224,7 +200,6 @@ class TestSelectiveToolRetryMiddleware:
         assert result.content == "recovered"
 
     def test_sync_no_retry_tool_error_reaches_model_without_re_execution(self):
-        """The sync path mirrors the async no-retry behavior."""
         middleware = self._middleware()
         handler = MagicMock(side_effect=RuntimeError("partial batch failure"))
 
@@ -237,15 +212,6 @@ class TestSelectiveToolRetryMiddleware:
 
 
 class TestBudgetExhaustionIsTerminal:
-    """Backlog item 2 ratchet: budget exhaustion is terminal, never a retryable ToolMessage.
-
-    ``RunBudgetExceededError`` (token ceiling) raised inside ``run_research_batch``
-    used to fall into ``except Exception -> _handle_failure`` and return as
-    "failed after 1 attempt ... Please try again", so the orchestrator resubmitted
-    into an already-exceeded tracker until the wall clock. It must propagate so the
-    run salvages once, marked, instead of looping.
-    """
-
     def _middleware(self, **kwargs) -> SelectiveToolRetryMiddleware:
         return SelectiveToolRetryMiddleware(
             max_retries=3,
@@ -271,7 +237,6 @@ class TestBudgetExhaustionIsTerminal:
 
     @pytest.mark.asyncio
     async def test_no_retry_tool_budget_propagates_without_tool_message(self):
-        """The batch path: one execution, no ToolMessage, no retry loop."""
         middleware = self._middleware()
         handler = AsyncMock(side_effect=RunBudgetExceededError(ceiling=1000, used=1500))
 
@@ -291,7 +256,6 @@ class TestBudgetExhaustionIsTerminal:
 
     @pytest.mark.asyncio
     async def test_regular_tool_budget_is_not_retried(self):
-        """Even off the no-retry list, a budget error must not burn retries."""
         middleware = self._middleware()
         handler = AsyncMock(side_effect=RunBudgetExceededError(ceiling=1000, used=1500))
 
@@ -301,7 +265,6 @@ class TestBudgetExhaustionIsTerminal:
         handler.assert_awaited_once()
 
     def test_handle_failure_reraises_budget_as_safety_net(self):
-        """Exhausted-retry callers of _handle_failure still cannot launder a budget error."""
         middleware = self._middleware()
 
         with pytest.raises(RunBudgetExceededError):
@@ -314,8 +277,6 @@ class TestBudgetExhaustionIsTerminal:
 
 
 class TestToolVisibilityMiddleware:
-    """Tests for hiding tools from model requests."""
-
     def test_wrap_model_call_filters_hidden_tools(self):
         middleware = ToolVisibilityMiddleware(hidden_tool_names={"execute"})
         execute_tool = SimpleNamespace(name="execute")
@@ -351,27 +312,18 @@ class TestToolVisibilityMiddleware:
 
 
 class TestSourceRegistryMiddleware:
-    """Tests for SourceRegistryMiddleware allowlist + source extraction."""
-
     @pytest.fixture
     def source_tools(self):
         return {"advanced_web_search_tool", "knowledge_search", "scholar_search_tool"}
 
     @pytest.fixture(autouse=True)
     def _reset_data_source_registry(self):
-        """Keep the global data_source_registry clean across tests.
-
-        Tests that need a populated registry either depend on
-        ``_default_data_sources`` (via the ``middleware`` fixture) or
-        populate their own registry explicitly in the test body.
-        """
         reset_registry()
         yield
         reset_registry()
 
     @pytest.fixture
     def _default_data_sources(self):
-        """Populate the three default data sources used by the shared tests."""
         populate_from_config(
             [
                 {
@@ -407,12 +359,9 @@ class TestSourceRegistryMiddleware:
     def _make_tool_result(self, content: str):
         return ToolMessage(content=content, tool_call_id="tc1")
 
-    # -- URL extraction --
-
     @pytest.mark.asyncio
     async def test_url_source_captured(self, middleware):
-        """URLs in tool output are extracted and registered."""
-        content = "Found result at https://arxiv.org/abs/2401.00001"
+        content = '<Document href="https://arxiv.org/abs/2401.00001">\n<title>\nA paper\n</title>\nFound.\n</Document>'
         handler = AsyncMock(return_value=self._make_tool_result(content))
         request = self._make_request("advanced_web_search_tool")
 
@@ -424,8 +373,10 @@ class TestSourceRegistryMiddleware:
 
     @pytest.mark.asyncio
     async def test_multiple_urls_captured(self, middleware):
-        """Multiple URLs from a single tool call are all captured."""
-        content = "Result from https://a.com/page and also https://b.com/page"
+        content = "\n\n---\n\n".join(
+            f'<Document href="https://{host}/page">\n<title>\nA page\n</title>\nText.\n</Document>'
+            for host in ("a.com", "b.com")
+        )
         handler = AsyncMock(return_value=self._make_tool_result(content))
         request = self._make_request("advanced_web_search_tool")
 
@@ -436,7 +387,6 @@ class TestSourceRegistryMiddleware:
 
     @pytest.mark.asyncio
     async def test_knowledge_layer_citation_key_captured(self, middleware):
-        """Knowledge layer citation keys are captured via regex."""
         content = (
             "--- Result 1 ---\n"
             "Source: report.pdf\n"
@@ -454,11 +404,8 @@ class TestSourceRegistryMiddleware:
         assert len(sources) == 1
         assert sources[0].citation_key == "report.pdf, p.5"
 
-    # -- Allowlist filtering --
-
     @pytest.mark.asyncio
     async def test_think_tool_ignored(self, middleware):
-        """Internal tools not in the allowlist are ignored."""
         content = "Thinking about https://hallucinated.com"
         handler = AsyncMock(return_value=self._make_tool_result(content))
         request = self._make_request("think")
@@ -469,13 +416,6 @@ class TestSourceRegistryMiddleware:
 
     @pytest.mark.asyncio
     async def test_a_failed_call_contributes_no_source(self, middleware):
-        """An errored result is the failure's own words, not evidence.
-
-        Piloti hit this first: a call rejected by argument validation returned
-        pydantic's message, whose ``https://errors.pydantic.dev/...`` line was
-        captured as a web source and drawn as a source card. The gate is the
-        message STATUS, so it holds whatever the error happens to say.
-        """
         content = (
             "Error: the call was rejected. query: Field required. "
             "For further information visit https://errors.pydantic.dev/2.13/v/missing"
@@ -489,7 +429,6 @@ class TestSourceRegistryMiddleware:
 
     @pytest.mark.asyncio
     async def test_unknown_tool_ignored(self, middleware):
-        """Tools not in the allowlist are ignored."""
         content = "https://unknown.com/data"
         handler = AsyncMock(return_value=self._make_tool_result(content))
         request = self._make_request("some_random_tool")
@@ -500,14 +439,6 @@ class TestSourceRegistryMiddleware:
 
     @pytest.mark.asyncio
     async def test_allowlisted_tool_not_in_data_source_registry_is_still_captured(self):
-        """Agent-loaded tools are captured even when not declared under data_sources.
-
-        Tools may be passed directly to the agent (programmatically or via
-        `tools:` in YAML) without being declared under `data_sources:`. Their
-        outputs are still real, citable evidence and must contribute to the
-        citation registry.
-        """
-        # Autouse fixture already reset the registry; leave it empty.
         mw = SourceRegistryMiddleware(source_tool_names={"mcp_time__get_current_time"})
         content = "2026-05-11T14:30:00+09:00"
         handler = AsyncMock(return_value=self._make_tool_result(content))
@@ -522,7 +453,6 @@ class TestSourceRegistryMiddleware:
 
     @pytest.mark.asyncio
     async def test_registered_group_tool_without_urls_captured(self):
-        """Registered group child tools without URLs can be non-URL citation sources."""
         populate_from_config(
             [
                 {
@@ -548,7 +478,6 @@ class TestSourceRegistryMiddleware:
 
     @pytest.mark.asyncio
     async def test_registered_exact_data_source_tool_without_urls_captured(self):
-        """Any exact tool declared under data_sources can be a non-URL citation source."""
         populate_from_config(
             [
                 {
@@ -573,8 +502,8 @@ class TestSourceRegistryMiddleware:
 
     @pytest.mark.asyncio
     async def test_mixed_source_tools(self, middleware):
-        """Multiple tool calls — only allowlisted tools contribute sources."""
-        h1 = AsyncMock(return_value=self._make_tool_result("See https://a.com"))
+        record = '<Document href="https://a.com">\n<title>\nA page\n</title>\nText.\n</Document>'
+        h1 = AsyncMock(return_value=self._make_tool_result(record))
         h2 = AsyncMock(return_value=self._make_tool_result("See https://b.com"))
 
         await middleware.awrap_tool_call(self._make_request("advanced_web_search_tool"), h1)
@@ -584,7 +513,6 @@ class TestSourceRegistryMiddleware:
         assert urls == {"https://a.com", "https://b.com"}
 
     def test_get_verified_sources_defaults_to_research_note_compact_subset(self, middleware):
-        """The writer-facing source list prefers sources carried forward by ResearchNotes."""
         middleware.registry.add(SourceEntry(url="https://used.example/report", title="Used Report"))
         middleware.registry.add(SourceEntry(url="https://unused.example/report", title="Unused Report"))
         middleware.register_research_note_sources(
@@ -608,7 +536,6 @@ class TestSourceRegistryMiddleware:
         }
 
     def test_get_verified_sources_compact_matches_internal_citation_keys(self, middleware):
-        """Compact source filtering also works for URL-less internal citation keys."""
         middleware.registry.add(SourceEntry(citation_key="report.pdf, p.5", title="report.pdf"))
         middleware.registry.add(SourceEntry(citation_key="other.pdf, p.9", title="other.pdf"))
         middleware.register_research_note_sources(
@@ -625,12 +552,6 @@ class TestSourceRegistryMiddleware:
         assert "other.pdf, p.9" in full
 
     def test_compact_internal_citation_matches_across_pages(self, middleware):
-        """A note citing a different page of a registered document still rescues it.
-
-        The registry dedups knowledge-layer entries per file and keeps the
-        first-seen page (p.3); notes may carry any page of the same document
-        (p.12). Matching is per filename, not per full locator string.
-        """
         middleware.registry.add(SourceEntry(citation_key="handbuch.pdf, p.3", title="handbuch.pdf"))
         middleware.registry.add(SourceEntry(citation_key="other.pdf, p.9", title="other.pdf"))
         middleware.register_research_note_sources(
@@ -644,11 +565,8 @@ class TestSourceRegistryMiddleware:
         assert "handbuch.pdf, p.3" in compact
         assert "other.pdf" not in compact
 
-    # -- Edge cases --
-
     @pytest.mark.asyncio
     async def test_empty_content_skipped(self, middleware):
-        """Empty content is ignored gracefully."""
         handler = AsyncMock(return_value=self._make_tool_result(""))
         request = self._make_request("advanced_web_search_tool")
 
@@ -658,7 +576,6 @@ class TestSourceRegistryMiddleware:
 
     @pytest.mark.asyncio
     async def test_non_tool_message_passthrough(self, middleware):
-        """Non-ToolMessage results pass through without error."""
         handler = AsyncMock(return_value=AIMessage(content="just an AI reply"))
         request = self._make_request("advanced_web_search_tool")
 
@@ -669,7 +586,6 @@ class TestSourceRegistryMiddleware:
 
     @pytest.mark.asyncio
     async def test_default_empty_allowlist_captures_nothing(self):
-        """Middleware with no source_tool_names captures nothing."""
         mw = SourceRegistryMiddleware()
         content = "See https://should-not-be-captured.com"
         handler = AsyncMock(return_value=ToolMessage(content=content, tool_call_id="tc1"))
@@ -682,7 +598,6 @@ class TestSourceRegistryMiddleware:
 
     @pytest.mark.asyncio
     async def test_content_returned_unchanged(self, middleware):
-        """Tool result content is not modified by the middleware."""
         content = "Results from https://example.com/page"
         handler = AsyncMock(return_value=self._make_tool_result(content))
         request = self._make_request("advanced_web_search_tool")
@@ -693,8 +608,6 @@ class TestSourceRegistryMiddleware:
 
 
 class _FakeModelRequest:
-    """Minimal stand-in for the ModelRequest the middleware sees (messages + override)."""
-
     def __init__(self, messages, response_format=None):
         self.messages = messages
         self.response_format = response_format
@@ -707,21 +620,12 @@ class _FakeModelRequest:
 
 
 class TestDeferredStructuredOutputMiddleware:
-    """Strict structured output must bind only on the agent's exit turn (backlog T2-8).
-
-    Binding response_format on every tool-loop call makes constrained decoders
-    answer immediately with no tool calls; the middleware keeps the loop
-    format-free and re-issues only the final, no-tool-call turn with the
-    strict schema.
-    """
-
     @pytest.fixture
     def middleware(self):
         return DeferredStructuredOutputMiddleware(ResearchNotes)
 
     @pytest.mark.asyncio
     async def test_tool_call_turn_passes_through_without_formatting(self, middleware):
-        """A response with tool calls continues the loop untouched."""
         draft = AIMessage(content="", tool_calls=[{"name": "ris_search_tool", "args": {}, "id": "c1"}])
         response = SimpleNamespace(result=[draft], structured_response=None)
         handler = AsyncMock(return_value=response)
@@ -746,7 +650,6 @@ class TestDeferredStructuredOutputMiddleware:
 
     @pytest.mark.asyncio
     async def test_exit_turn_reissues_with_draft_and_strict_schema(self, middleware):
-        """The first no-tool-call turn is re-issued with the draft appended and the strict schema."""
         request = _FakeModelRequest([HumanMessage(content="q")])
         draft = AIMessage(content="researched findings ...")
         first = SimpleNamespace(result=[draft], structured_response=None)
@@ -767,7 +670,6 @@ class TestDeferredStructuredOutputMiddleware:
 
     @pytest.mark.asyncio
     async def test_formatting_failure_returns_draft_for_content_fallback(self, middleware):
-        """A provider schema rejection must not lose the researched draft."""
         draft = AIMessage(content='```json\n{"query_topic": "t"}\n```')
         first = SimpleNamespace(result=[draft], structured_response=None)
         handler = AsyncMock(side_effect=[first, RuntimeError("provider 400: schema rejected")])
@@ -777,15 +679,12 @@ class TestDeferredStructuredOutputMiddleware:
         assert result is first
 
     def test_strategy_is_strict_json_schema(self, middleware):
-        """The deferred contract keeps the provider-native strict json_schema shape."""
         wire = middleware.strategy.to_model_kwargs()["response_format"]
         assert wire["type"] == "json_schema"
         assert wire["json_schema"]["strict"] is True
 
 
 class TestExcludedDocumentsNeverBecomeSources:
-    """The reader's Ausgeschlossen are refused at the registry, not at the writer."""
-
     def _make_request(self, tool_name: str):
         req = MagicMock()
         req.tool_call = {"name": tool_name}
@@ -825,7 +724,6 @@ class TestExcludedDocumentsNeverBecomeSources:
 
     @pytest.mark.asyncio
     async def test_the_model_never_reads_an_excluded_passage(self):
-        """Refusing the source is not enough: the ToolMessage is what the researcher reads."""
         mw = SourceRegistryMiddleware(source_tool_names={"knowledge_search"}, excluded_file_names=["alt.pdf"])
         content = (
             "## Query: Brandschutz\n2 results\n\n"
@@ -849,7 +747,6 @@ class TestExcludedDocumentsNeverBecomeSources:
 
     @pytest.mark.asyncio
     async def test_a_delimiter_inside_an_excluded_body_does_not_end_the_cut(self):
-        """A body that spells ``--- Result 2 ---`` inside its fence is still the excluded passage."""
         mw = SourceRegistryMiddleware(source_tool_names={"knowledge_search"}, excluded_file_names=["alt.pdf"])
         content = (
             "--- Result 1 ---\nSource: alt.pdf\nCitation: alt.pdf, p.5\nRelevance Score: 0.90\n\n"
@@ -875,7 +772,6 @@ class TestExcludedDocumentsNeverBecomeSources:
 
     @pytest.mark.asyncio
     async def test_a_document_read_in_an_earlier_turn_is_not_read_by_this_run(self):
-        """In conversation mode the active registry is the session's, which spans turns."""
         from agent.citations.registry import SourceRegistry
         from agent.citations.session import reset_session_registry
         from agent.citations.session import set_session_registry

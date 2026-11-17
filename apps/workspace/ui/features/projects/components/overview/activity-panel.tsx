@@ -8,18 +8,12 @@ import { StatCardIcon } from '@/components/ui/stat-card'
 import { useLocale, useTranslations } from '@/i18n'
 import { settingsCopy } from '@/i18n/namespaces/settings'
 
-/** `ProjectActivity` from `lib/projects/activity`, as it crosses to the browser. */
 export interface ProjectActivityView {
   questionsThisMonth: number
   peopleThisMonth: number
   daily: Array<{ day: string; questions: number }>
 }
 
-/**
- * How much the project is being worked in: questions this month, how many
- * people asked, and the last 30 days as columns. Shown to everyone in the
- * hero, because it is counts and nothing else (`getProjectActivity`).
- */
 export function ActivityPanel({ activity }: { activity: ProjectActivityView }): JSX.Element {
   const t = useTranslations(settingsCopy)
   const { locale } = useLocale()

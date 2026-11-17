@@ -1,21 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The BYTE half of the lifecycle (ADR-0054): what a version's replacement is
- * rendered through, what it costs, when it is written, and what archiving does.
- *
- * Four things are asserted here, and they are different in kind:
- *
- *   - the AI-provenance marking survives an update. The Python tool sends raw
- *     Markdown and the branding is the filing seam's, so writing the body
- *     verbatim stripped the marking off every document Piloti revised;
- *   - the bytes are ADMITTED before they are written, as a delta;
- *   - the item's columns mirror the version that IS the item's bytes, and only
- *     that one — the quota ledger reads `documents.file_size`;
- *   - the internal read is scoped by the conversation the turn is running in,
- *     not by an organization the caller states.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { makeDocument } from '@/test-utils/db-fixtures'
@@ -24,6 +9,7 @@ import type { Document } from '@/lib/db/schema/documents'
 import type { AuthorizedSession } from '@/lib/auth/types'
 
 vi.mock('./access', () => ({ getAccessibleDocument: vi.fn() }))
+vi.mock('./reingest', () => ({ cancelDocumentIngest: vi.fn() }))
 vi.mock('./repository', () => ({ findDocumentInOrg: vi.fn(), markDocumentNotIndexed: vi.fn() }))
 vi.mock('./version-repository', () => ({
   findDocumentVersion: vi.fn(),
@@ -33,8 +19,6 @@ vi.mock('./version-repository', () => ({
 }))
 vi.mock('@/lib/storage/discard', () => ({ discardObject: vi.fn() }))
 vi.mock('@/lib/conversations/repository', () => ({ findConversationInOrg: vi.fn() }))
-// A subject in a folder every member may read admits nothing (ADR-0088); the
-// restricted case overrides `placementCollectionFor` and the admission.
 vi.mock('@/lib/authz/folder-access', async () => (await import('@/test-utils/folder-access')).openFolderAccessModule())
 vi.mock('@/lib/conversations/restricted-use', () => ({ admitRestrictedUse: vi.fn() }))
 vi.mock('@/lib/projects/repository', async (importOriginal) => ({
@@ -100,6 +84,7 @@ import {
   writeVersionContent,
 } from './version-content'
 import { NotFoundError } from '@/lib/api/errors'
+import { cancelDocumentIngest } from './reingest'
 import { AI_PROVENANCE_PROPERTIES } from '@/lib/ai-provenance'
 import { recordDocumentAccess } from '@/lib/download-log/service'
 import { maySeeHeld } from '@/lib/upload-screening/quarantine-reviewers'
@@ -166,14 +151,11 @@ function version(overrides: Partial<DocumentVersion> = {}): DocumentVersion {
 beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(getAccessibleDocument).mockResolvedValue(document)
-  // A member: not the uploader, not a reviewer (ADR-0086).
   vi.mocked(maySeeHeld).mockResolvedValue(false)
 })
 
 describe('versionWriteKey', () => {
   it('gives every re-upload a directory of its own, even when the number reads 1', () => {
-    // The number is a hint. It reads 1 while a concurrent first upload has its
-    // row but not its version; a plain key here would overwrite that upload.
     expect(versionWriteKey('org/o/session/s_1/doc/d/plan.pdf', 1, 'a1b2c3d4e5f6')).toBe( // pragma: allowlist secret (a write-id fixture, not a credential)
       'org/o/session/s_1/doc/d/v1/a1b2c3d4e5f6/plan.pdf',
     )
@@ -212,11 +194,6 @@ describe('versionWriteKey', () => {
 
 describe('renderVersionBytes — the marking survives an update', () => {
   it('re-renders an agent document through its producer, marking and all', async () => {
-    // The Python tool sends the model's raw Markdown; the branding line, the
-    // disclaimer and the marking belong to the FILING seam and were added when
-    // the first draft was written. Writing the body verbatim over them left the
-    // product saying nothing about its own authorship — the one failure
-    // `markingIsInBytes` exists to make impossible.
     const rendered = await renderVersionBytes(agentDocument, version(), '# Aktenvermerk\n\nGK 4.')
     const text = rendered.bytes.toString('utf8')
 
@@ -228,18 +205,11 @@ describe('renderVersionBytes — the marking survives an update', () => {
   })
 
   it('leaves a person’s own Markdown exactly as they wrote it', async () => {
-    // The same lie in the other direction: stamping „von Piloti erstellt" onto
-    // a file a person wrote.
     const rendered = await renderVersionBytes(document, version(), '# Von Hand\n')
     expect(rendered.bytes.toString('utf8')).toBe('# Von Hand\n')
   })
 })
 
-/**
- * The courtesy check's estimate. The ceiling is measured in the swap's own
- * transaction (`version-repository.spec.ts`); this only has to refuse the
- * obvious case before the bytes move, and it must not undercharge a fork.
- */
 describe('admitVersionBytes', () => {
   const published = makeDocument({
     ...document,
@@ -248,9 +218,6 @@ describe('admitVersionBytes', () => {
   })
 
   it('charges a freshly forked draft the FULL size, because the published bytes stay', async () => {
-    // The fork shares the published object, so its `fileSize` IS the published
-    // file's. `1_600 − 1_000` charged 600 for 1_600 new bytes; the loop of fork,
-    // write, reject, fork again was never checked at all when sizes matched.
     const fork = version({ id: 'ver_draft', storageKey: published.storageKey, fileSize: 1_000 })
     await admitVersionBytes('org_1', published, fork, 1_600)
     expect(assertWithinStorageQuota).toHaveBeenCalledWith('org_1', 1_600)
@@ -295,15 +262,6 @@ describe('admitVersionBytes', () => {
   })
 })
 
-/**
- * Two writers holding the same `If-Match` (the defect this block pins).
- *
- * `If-Match` is checked against a row read at the start, and the swap used to
- * filter on `state = 'draft'` alone — draft → draft — so both writers won and
- * both wrote ONE key, in either order. Now each write has its own object,
- * stored before the swap, and the swap asserts the state, key and hash that
- * were read.
- */
 describe('writeVersionContent — one object per write, swapped only if unchanged', () => {
   const rendered = {
     bytes: Buffer.from('# neu', 'utf8'),
@@ -363,8 +321,6 @@ describe('writeVersionContent — one object per write, swapped only if unchange
     expect(swapVersionContent).toHaveBeenCalledWith(
       expect.objectContaining({
         versionId: 'ver_draft',
-        // The expectation is the row AS READ — the loser of two writers holding
-        // one If-Match matches no row.
         expected: { state: 'draft', storageKey: draftKey, contentHash: 'sha256:alt' },
         patch: expect.objectContaining({
           state: 'draft',
@@ -427,8 +383,6 @@ describe('writeVersionContent — one object per write, swapped only if unchange
   })
 
   it('mirrors onto the item when the version IS the item’s bytes', async () => {
-    // `sum(documents.file_size)` is the hot half of the quota ledger, and the
-    // download path reads `documents.storage_key`.
     await writeVersionContent({
       organizationId: 'org_1',
       document: makeDocument({ ...agentDocument, publishedVersionId: null }),
@@ -455,7 +409,6 @@ describe('writeVersionContent — one object per write, swapped only if unchange
       writeVersionContent({ organizationId: 'org_1', document: item, version: read, rendered, stamp: {} }),
     ).rejects.toMatchObject({ status: 507 })
     expect(discardObject).toHaveBeenCalledWith('grid-org-1', putKeys()[0])
-    // The previous object is NOT touched: the row still names it.
     expect(discardObject).toHaveBeenCalledTimes(1)
   })
 
@@ -512,9 +465,6 @@ describe('readVersionForService — the conversation is part of the predicate', 
   })
 
   it('answers 404 for a conversation about a DIFFERENT document', async () => {
-    // The organization is something the caller STATES, and a version id is a
-    // uuid the caller supplies — so the organization alone let anything holding
-    // the internal token read any version's bytes.
     vi.mocked(findConversationInOrg).mockResolvedValue({
       subjectResourceType: 'document',
       subjectResourceId: 'doc_other',
@@ -530,7 +480,6 @@ describe('readVersionForService — the conversation is part of the predicate', 
       subjectResourceType: 'document',
       subjectResourceId: 'doc_1',
     } as never)
-    // The repository answers by the reader it is asked for (`documentVisibleTo`).
     const held = { ...agentDocument, status: 'quarantined' as const }
     vi.mocked(findDocumentInOrg).mockImplementation(async (_id, _org, reader) =>
       mayReadDocument(held, reader) ? held : null
@@ -540,8 +489,6 @@ describe('readVersionForService — the conversation is part of the predicate', 
     expect(s3Client.send).not.toHaveBeenCalled()
   })
 
-  // Held from upload until the screen passes, not from the verdict: a person's
-  // upload still on its way through the gate is no model's subject either.
   it('answers 404 for an upload whose screening has not passed yet (ADR-0086)', async () => {
     vi.mocked(findConversationInOrg).mockResolvedValue({
       subjectResourceType: 'document',
@@ -556,12 +503,6 @@ describe('readVersionForService — the conversation is part of the predicate', 
     expect(s3Client.send).not.toHaveBeenCalled()
   })
 
-  /**
-   * The verdict is about the item's bytes; the subject read returns a VERSION's
-   * (ADR-0086). A superseded version a person uploaded holds bytes no verdict
-   * on record judged: replaced while it was still being read, or after its
-   * reading failed. It reaches no model, however the item stands now.
-   */
   describe('the bytes the screen judged, not the item', () => {
     const screened = makeDocument({
       id: 'doc_1',
@@ -653,7 +594,6 @@ describe('readVersionForService — the conversation is part of the predicate', 
           conversationId: 'conv_1',
           userId: 'user_asker',
           projectId: 'proj_1',
-          // Marked in the admission's transaction, before the bytes leave (ADR-0093).
           answerMessageId: ANSWER_ID,
         },
         [RESTRICTED],
@@ -697,7 +637,6 @@ describe('archiveDocument', () => {
       expect.objectContaining({ filename: 'plan.pdf' }),
       expect.any(Number),
     )
-    // Reversible: an un-archive reads it again, and the Fassung links come back.
     expect(vi.mocked(purgeIngestedChunks).mock.calls[0]).toHaveLength(3)
     expect(recordAuditEvent).toHaveBeenCalledWith(
       expect.objectContaining({ metadata: expect.objectContaining({ chunksPurged: true }) }),
@@ -718,10 +657,60 @@ describe('archiveDocument', () => {
 
     expect(purgeIngestedChunks).not.toHaveBeenCalled()
     expect(recordAuditEvent).toHaveBeenCalledWith(
-      // `null` is "this row owns no chunks" and must not read as "the backend
-      // refused", which is what `false` means.
       expect.objectContaining({ metadata: expect.objectContaining({ chunksPurged: null }) }),
     )
+  })
+
+  describe('a document that is still being read', () => {
+    const reading = makeDocument({ id: 'doc_1', projectId: 'proj_1', status: 'pending' })
+
+    beforeEach(() => {
+      vi.mocked(getAccessibleDocument).mockResolvedValue(reading)
+      vi.mocked(purgeIngestedChunks).mockResolvedValue(true)
+    })
+
+    it('stops the read before it archives and purges, so the job writes no chunks afterwards', async () => {
+      vi.mocked(cancelDocumentIngest).mockResolvedValue({ id: 'doc_1', result: 'cancelled', status: 'cancelled' })
+
+      await archiveDocument(session, 'doc_1')
+
+      expect(cancelDocumentIngest).toHaveBeenCalledWith(session, 'doc_1')
+      const stopped = vi.mocked(cancelDocumentIngest).mock.invocationCallOrder[0]
+      expect(stopped).toBeLessThan(vi.mocked(setDocumentLifecycle).mock.invocationCallOrder[0])
+      expect(stopped).toBeLessThan(vi.mocked(purgeIngestedChunks).mock.invocationCallOrder[0])
+      expect(recordAuditEvent).toHaveBeenCalledWith(
+        expect.objectContaining({ metadata: expect.objectContaining({ readStopped: 'cancelled' }) }),
+      )
+    })
+
+    it('ends not indexed, not cancelled: the stop settles the row and the archive then says what the person asked for', async () => {
+      vi.mocked(cancelDocumentIngest).mockResolvedValue({ id: 'doc_1', result: 'cancelled', status: 'cancelled' })
+
+      await archiveDocument(session, 'doc_1')
+
+      expect(vi.mocked(cancelDocumentIngest).mock.invocationCallOrder[0]).toBeLessThan(
+        vi.mocked(markDocumentNotIndexed).mock.invocationCallOrder[0],
+      )
+    })
+
+    it('archives all the same when the queue cannot be reached, and says so on the trail', async () => {
+      vi.mocked(cancelDocumentIngest).mockRejectedValue(new Error('backend down'))
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+
+      const result = await archiveDocument(session, 'doc_1')
+
+      expect(result.lifecycle).toBe('archived')
+      expect(setDocumentLifecycle).toHaveBeenCalledWith('doc_1', 'org_1', 'archived')
+      expect(recordAuditEvent).toHaveBeenCalledWith(
+        expect.objectContaining({ metadata: expect.objectContaining({ readStopped: 'unreachable' }) }),
+      )
+      warn.mockRestore()
+    })
+  })
+
+  it('asks for no stop on a document that has come to rest', async () => {
+    await archiveDocument(session, 'doc_1')
+    expect(cancelDocumentIngest).not.toHaveBeenCalled()
   })
 
   it('archives even when the backend refuses, and says so on the trail', async () => {
@@ -762,8 +751,6 @@ describe('reading a version’s text, and the download log', () => {
     await expect(readVersionContent(session, 'doc_1', 'ver_1')).rejects.toMatchObject({ status: 503 })
   })
 
-  // A model reads this text, so a document whose screening has not passed
-  // answers 404 to its reviewer too (ADR-0086): no held text in a task.
   it.each([
     ['quarantined', { status: 'quarantined' as const, screeningOutcome: 'quarantined' as const }],
     ['still being screened', { status: 'processing' as const, screeningOutcome: null }],
@@ -787,8 +774,6 @@ describe('reading a version’s text, and the download log', () => {
     expect(s3Client.send).not.toHaveBeenCalled()
   })
 
-  // An earlier upload under the same name holds bytes no verdict on record
-  // judged: replaced while it was still being read, or after its reading failed.
   describe('an earlier upload whose bytes no verdict judged (ADR-0086)', () => {
     const screened = { ...document, contentHash: 'sha256:now', screenedHash: 'sha256:now', screeningOutcome: 'clean' as const }
 
@@ -846,8 +831,6 @@ describe('streamVersionFile — an earlier upload under the same name, as bytes'
       version({ state: 'superseded', contentType: 'application/pdf', storageKey: 'org/o/doc/d/v1/a/Werkvertrag.pdf' }),
     )
     vi.mocked(s3Client.send).mockResolvedValue({ Body: bytes() } as never)
-    // This earlier upload carries no verdict of its own, so it is the
-    // uploader's and the reviewers' to open: these cases read as one of them.
     vi.mocked(maySeeHeld).mockResolvedValue(true)
   })
 

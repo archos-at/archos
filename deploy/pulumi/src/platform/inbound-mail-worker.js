@@ -247,7 +247,6 @@ function isProjectRecipient(recipient, env) {
   const domain = asciiLower(env.ADDRESS_DOMAIN ?? "");
   const localPart = asciiLower(env.ADDRESS_LOCAL_PART ?? "");
   if (domain === "" || localPart === "") {
-    // A fault of ours, never the sender's: a retry, not a bounce.
     throw new Error("inbound-mail: ADDRESS_DOMAIN or ADDRESS_LOCAL_PART is not bound; asking the sender to retry");
   }
   const trimmed = recipient.trim().replace(/^<|>$/g, "");
@@ -345,6 +344,32 @@ async function signedHeaders({ url, body, envelopeTo, envelopeFrom, env }) {
   };
 }
 
+/** The BFF's correlation header: the same id is on its log line and its trace. */
+export const REQUEST_ID_HEADER = "x-request-id";
+
+/**
+ * One line per delivery for Cloudflare's Workers Logs (`observability.logs` in
+ * `inbound-mail.ts`, invocation logs off so no envelope address is stored):
+ * what the Worker did, the BFF's status and its request id, nothing about the
+ * message. Until 2026-11 the Worker logged nothing and observability was off,
+ * so two days of every delivery thrown back at the senders left no trace at
+ * Cloudflare; a refusal is now a line with the BFF's request id to follow.
+ *
+ * @param {"accepted" | "rejected" | "retry" | "unknown_address" | "paused"} outcome
+ * @param {Response | null} response
+ */
+function report(outcome, response) {
+  const line = {
+    event: "inbound_mail_delivery",
+    outcome,
+    status: response ? response.status : null,
+    verdict: response ? response.headers.get(VERDICT_HEADER) : null,
+    requestId: response ? response.headers.get(REQUEST_ID_HEADER) : null,
+  };
+  if (outcome === "retry") console.error(JSON.stringify(line));
+  else console.log(JSON.stringify(line));
+}
+
 /**
  * Whether the BFF's answer is an explicit, permanent refusal.
  *
@@ -364,10 +389,11 @@ export default {
   async email(message, env) {
     if (!isProjectRecipient(message.to, env)) {
       message.setReject(UNKNOWN_ADDRESS_TEXT);
+      report("unknown_address", null);
       return;
     }
     if (env.PAUSED === "true") {
-      // Before a byte is read: the sending server keeps the message.
+      report("paused", null);
       throw new Error("inbound-mail: deliveries are paused; asking the sender to retry");
     }
 
@@ -381,27 +407,33 @@ export default {
       env,
     });
 
-    // A network error or the timeout rejects here and propagates: Cloudflare
-    // answers the sending server with a temporary failure and it retries.
-    // The body is a Uint8Array, so the runtime sends the Content-Length the
-    // signature covers.
-    const response = await fetch(url, {
-      method: "POST",
-      headers,
-      body,
-      redirect: "manual",
-      signal: AbortSignal.timeout(BFF_TIMEOUT_MS),
-    });
+    /** @type {Response} */
+    let response;
+    try {
+      response = await fetch(url, {
+        method: "POST",
+        headers,
+        body,
+        redirect: "manual",
+        signal: AbortSignal.timeout(BFF_TIMEOUT_MS),
+      });
+    } catch (error) {
+      report("retry", null);
+      throw error;
+    }
 
-    if (response.status >= 200 && response.status < 300) return;
-
-    if (isExplicitReject(response)) {
-      message.setReject(rejectText(env.LANDING_URL));
+    if (response.status >= 200 && response.status < 300) {
+      report("accepted", response);
       return;
     }
 
-    // Not an explicit verdict: a misconfiguration, an outage or back-pressure
-    // on our side. Throw, so the sender retries and nothing is lost.
+    if (isExplicitReject(response)) {
+      message.setReject(rejectText(env.LANDING_URL));
+      report("rejected", response);
+      return;
+    }
+
+    report("retry", response);
     throw new Error(
       `inbound-mail: the BFF answered ${response.status} without a reject verdict; ` +
         "asking the sender to retry",

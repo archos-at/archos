@@ -34,16 +34,12 @@ logger = logging.getLogger(__name__)
 
 GENERATION_NAME = "folder-card"
 
-#: The wire contract's bounds (``apps/workspace/bff/folder-cards/types.ts``).
 MAX_ABSTRACT_CHARS = 600
 MAX_ABSTRACT_SENTENCES = 3
 MAX_KEY_FACTS = 8
 MAX_STATEMENT_CHARS = 300
 MAX_FACT_DOCUMENTS = 8
 MAX_PAGES_CHARS = 40
-#: Output budget of one card. The card runs on the summary model, whose own cap
-#: (``summary_llm.max_tokens``, 100) is one sentence: an abstract with eight key
-#: facts was cut off mid-object and failed the schema.
 MAX_OUTPUT_TOKENS = 2000
 
 SYSTEM_PROMPT = (
@@ -109,7 +105,6 @@ class FolderCardDraft:
     abstract: str
     key_facts: tuple[KeyFact, ...]
     abstract_hash: str
-    #: Facts the validator dropped for citing something that is not a child.
     dropped_facts: int = 0
 
 
@@ -127,11 +122,6 @@ class Generation:
     model: str
     tokens: int
     trace_id: str | None
-
-
-# ---------------------------------------------------------------------------
-# The prompt
-# ---------------------------------------------------------------------------
 
 
 def _document_line(document: Any) -> str:
@@ -205,11 +195,6 @@ def incremental_prompt(inputs: FolderInputs, change: Any, abstract: str, key_fac
     lines += _named("Changed subfolders", [_folder_line(folders[name]) for name in change.folders_changed])
     lines += _named("Removed subfolders", [f"- {name}/" for name in change.folders_removed])
     return "\n".join(lines)
-
-
-# ---------------------------------------------------------------------------
-# The call
-# ---------------------------------------------------------------------------
 
 
 def _usage(response: Any) -> dict[str, int]:
@@ -293,11 +278,6 @@ async def generate(
     return Generation(reply=reply, model=model, tokens=_tokens(response, prompt, text), trace_id=generation.trace_id)
 
 
-# ---------------------------------------------------------------------------
-# The guard
-# ---------------------------------------------------------------------------
-
-#: German abbreviations a full stop does not end a sentence after.
 _ABBREVIATIONS = re.compile(
     r"\b(z\. ?B|u\. ?a|d\. ?h|bzw|ca|inkl|vgl|gem|lt|Nr|Abs|Art|Pkt|Hr|Fr|Dipl|Ing|Mag|Dr|bspw|ggf|evtl)\.",
     re.IGNORECASE,

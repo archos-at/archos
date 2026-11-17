@@ -46,6 +46,30 @@ killed replica's slots came back soon. 900 s did neither. Renewed, the lease
 only has to outlast a few missed renewals, so it is short, and no turn is too
 long for it.
 
+## The slot is the turn's, not its workflow's
+
+A turn ends for its reader when its terminal goes out; its workflow may still
+be unwinding then. The chat socket waits only a bounded time for that teardown
+(``agent_host.workflow_stream.PRODUCER_TEARDOWN_SECONDS``) and leaves a
+teardown that hangs (a checkpoint flush or a call on a dead connection) to
+finish in its own task. The admission scope sits inside that workflow
+(``agent.turn.admission.answer_turn``), so a slot taken there used to be held,
+and renewed every third of a lease, for as long as the abandoned teardown
+lived: with no bound at all, an organization lost one of its slots for every
+such turn until the replica restarted, and was told "several answers in
+progress" with nothing running. So the stream that owns the workflow hands a
+:class:`TurnSlots` to it (:func:`bind_turn_slots`), every admission in the
+turn records its slots there, and when the turn is over the owner gives back
+whatever is still held (:func:`return_turn_slots`). The lease stays the bound
+for a replica that dies; this is the bound for a turn that ended.
+
+The trade is deliberate: the slot goes back when the turn ends, not when its
+work does. A workflow that swallowed its cancel and goes on calling models runs
+without a slot, so the organization may run one turn over its limit while it
+does. That is rarer and cheaper than the leak (the usual case is a teardown
+stuck on a dead connection, which calls nothing), and the stream scores every
+such turn ``turn-slots-stranded``, so it is seen rather than assumed.
+
 Fails OPEN, like every other layer except the budget: a cache outage must never
 be the reason chat stops.
 """
@@ -60,9 +84,13 @@ import threading
 import time
 import uuid
 from collections.abc import AsyncIterator
+from collections.abc import Callable
 from collections.abc import Iterator
 from contextlib import asynccontextmanager
 from contextlib import contextmanager
+from contextvars import ContextVar
+from dataclasses import dataclass
+from dataclasses import field
 
 from agent.common import cache
 from agent.common.lease_slots import ACQUIRE_LUA
@@ -71,33 +99,10 @@ from agent.common.lease_slots import RENEW_LUA
 
 logger = logging.getLogger(__name__)
 
-# @environment_variable MAX_ACTIVE_TURNS
-# @category Server
-# @type int
-# @default 24
-# @required false
-# Maximum interactive chat turns running concurrently across all organizations.
-# Its own pool, never shared with the research queue — that separation is what
-# stops background research from starving chat. 0 or negative disables.
 MAX_ACTIVE_TURNS = int(os.environ.get("MAX_ACTIVE_TURNS", "24"))
 
-# @environment_variable MAX_ACTIVE_TURNS_PER_ORG
-# @category Server
-# @type int
-# @default 6
-# @required false
-# Maximum concurrent interactive chat turns per organization, so one tenant
-# cannot occupy the interactive pool. 0 or negative disables the per-org cap.
 MAX_ACTIVE_TURNS_PER_ORG = int(os.environ.get("MAX_ACTIVE_TURNS_PER_ORG", "6"))
 
-# @environment_variable TURN_LEASE_SECONDS
-# @category Server
-# @type int
-# @default 120
-# @required false
-# How long an admission slot survives without its turn renewing it. A running
-# turn renews every third of this, so it bounds only how long a replica killed
-# mid-turn keeps its slots, not how long a turn may run.
 TURN_LEASE_SECONDS = int(os.environ.get("TURN_LEASE_SECONDS", "120"))
 
 
@@ -126,15 +131,10 @@ class TurnAdmissionError(RuntimeError):
         self.retry_after_seconds = retry_after_seconds
 
 
-# The lease scripts are shared with every fleet-wide slot pool (lease_slots).
 _ACQUIRE_LUA = ACQUIRE_LUA
 _RELEASE_LUA = RELEASE_LUA
 _RENEW_LUA = RENEW_LUA
 
-# Per-process fallback, used only when there is no shared store (local dev, a
-# single-replica compose stack, tests). It bounds this replica honestly and says
-# nothing about the fleet — with N replicas the effective ceiling is N x the
-# configured one. The same trade every other layer makes without a store.
 _local_slots: dict[str, dict[str, float]] = {}
 _local_lock = threading.Lock()
 
@@ -183,13 +183,9 @@ def _acquire(key: str, limit: int, member: str) -> bool:
     try:
         result = cache.eval_script(_ACQUIRE_LUA, [key], [now, TURN_LEASE_SECONDS, limit, member])
     except Exception:
-        # `eval_script` already swallows store errors; reaching here means
-        # something unexpected. Admit anyway — this is a protective control, and
-        # a bug in it must not become an outage.
         logger.warning("Turn admission check failed on %s; admitting", key, exc_info=True)
         return True
     if result is None:
-        # No shared store: bound this replica honestly rather than not at all.
         return _local_acquire(key, limit, member, now)
     return int(result) == 1
 
@@ -209,12 +205,14 @@ def _release(key: str, member: str) -> None:
     _local_release(key, member)
 
 
-def _renew_all(held: list[str], member: str) -> None:
+def _renew_all(held: list[str], member: str, released: Callable[[], bool] = lambda: False) -> None:
     """Re-stamp every slot this turn holds, in the store and the local table.
 
     Both, for the reason `_release` runs both: the store may have come or gone
     since the acquire. A slot that is no longer there was reclaimed, which means
-    renewals stopped for a whole lease; that is logged, never re-taken.
+    renewals stopped for a whole lease; that is logged, never re-taken. Unless
+    ``released`` says its turn gave it back meanwhile (`return_turn_slots`): a
+    renewal that raced that release found nothing, and nothing went wrong.
     """
     now = time.time()
     for key in held:
@@ -224,24 +222,63 @@ def _renew_all(held: list[str], member: str) -> None:
             logger.warning("Failed to renew turn slot on %s", key, exc_info=True)
             continue
         local = _local_renew(key, member, now)
-        if renewed is not None and int(renewed) == 0 and not local:
+        if renewed is not None and int(renewed) == 0 and not local and not released():
             logger.warning("Turn slot on %s was reclaimed while the turn still ran", key)
 
 
-async def _keep_renewing(held: list[str], member: str) -> None:
-    """Renew the turn's slots until cancelled. A failed round is logged, not fatal."""
+@dataclass
+class TurnSlots:
+    """The admission slots one chat turn holds, by member, for whoever ends the turn to hand back.
+
+    Touched on the event loop only; the store calls go to a worker thread.
+    ``closed`` once the turn is over: a renewal stops, and an admission the
+    unwinding workflow still attempts is refused.
+    """
+
+    held: dict[str, list[str]] = field(default_factory=dict)
+    closed: bool = False
+
+
+_TURN_SLOTS: ContextVar[TurnSlots | None] = ContextVar("turn_slots", default=None)
+
+
+def bind_turn_slots(slots: TurnSlots) -> None:
+    """Record this context's admissions in ``slots``. Call it in the task that runs the workflow, before it starts."""
+    _TURN_SLOTS.set(slots)
+
+
+def _release_stranded(stranded: list[tuple[str, list[str]]]) -> None:
+    for member, keys in stranded:
+        _release_all(keys, member)
+
+
+async def return_turn_slots(slots: TurnSlots) -> int:
+    """The turn is over: give back every slot it still holds. How many it still held, 0 when its admission had ended.
+
+    A slot still held here belongs to a workflow that outlived its turn's
+    teardown bound; without this it would be renewed for as long as that
+    teardown runs, which can be the life of the replica.
+    """
+    slots.closed = True
+    stranded = list(slots.held.items())
+    slots.held.clear()
+    if stranded:
+        await asyncio.to_thread(_release_stranded, stranded)
+    return len(stranded)
+
+
+async def _keep_renewing(held: list[str], member: str, owner: TurnSlots | None = None) -> None:
+    """Renew the turn's slots until cancelled, or until its turn is over. A failed round is logged, not fatal."""
     while True:
         await asyncio.sleep(_renew_interval())
+        if owner is not None and owner.closed:
+            return
         try:
-            await asyncio.to_thread(_renew_all, held, member)
+            await asyncio.to_thread(_renew_all, held, member, lambda: owner is not None and owner.closed)
         except Exception:  # pragma: no cover - _renew_all already contains its errors
             logger.warning("Turn slot renewal failed", exc_info=True)
 
 
-# The two pools a turn is admitted against, in acquisition order. Global first,
-# so a tenant sitting at its own limit cannot drain the shared pool with turns
-# that never ran: if the per-org slot is refused, the global one is handed back
-# on the way out.
 def _pools(organization_id: str | None) -> list[tuple[str, int, str]]:
     """`(key, limit, refusal message)` for each pool that applies to this turn."""
     pools: list[tuple[str, int, str]] = []
@@ -264,8 +301,6 @@ def _pools(organization_id: str | None) -> list[tuple[str, int, str]]:
     return pools
 
 
-# Drop expired leases, then count what is left: the fleet's running turns.
-# One script so the count never includes a lease that has already aged out.
 _COUNT_LUA = """
 local key = KEYS[1]
 local now = tonumber(ARGV[1])
@@ -349,8 +384,6 @@ def _release_abandoned(acquisition: asyncio.Task, member: str) -> None:
     if acquisition.cancelled():
         return
     if acquisition.exception() is not None:
-        # `_acquire_all` swallows store errors and admits; an exception here is
-        # a bug, and it means no slot was recorded to give back.
         return
     held, _refusal = acquisition.result()
     if not held:
@@ -412,15 +445,17 @@ async def admit_turn_async(organization_id: str | None) -> AsyncIterator[None]:
     try:
         held, refusal = await asyncio.shield(acquisition)
     except asyncio.CancelledError:
-        # Cannot reliably await anything once cancelled, so hand the cleanup to
-        # the task itself. `add_done_callback` fires after the worker returns,
-        # which is the ordering that matters: releasing before the acquire lands
-        # would ZREM nothing and strand the slot anyway.
         acquisition.add_done_callback(lambda task: _release_abandoned(task, member))
         raise
     if refusal is not None:
         raise TurnAdmissionError(refusal)
-    renewing = asyncio.create_task(_keep_renewing(held, member)) if held else None
+    owner = _TURN_SLOTS.get()
+    if owner is not None and held:
+        if owner.closed:
+            await asyncio.to_thread(_release_all, held, member)
+            raise TurnAdmissionError("This answer has already ended.")
+        owner.held[member] = held
+    renewing = asyncio.create_task(_keep_renewing(held, member, owner)) if held else None
     try:
         yield
     finally:
@@ -428,4 +463,6 @@ async def admit_turn_async(organization_id: str | None) -> AsyncIterator[None]:
             renewing.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await renewing
+        if owner is not None:
+            owner.held.pop(member, None)
         await asyncio.to_thread(_release_all, held, member)

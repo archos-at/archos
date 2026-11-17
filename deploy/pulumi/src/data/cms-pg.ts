@@ -1,17 +1,3 @@
-/**
- * `cms-pg` (ADR-0155): the CloudNativePG cluster the website's CMS keeps its
- * posts, revisions, users and configuration in, in the CMS's own namespace.
- *
- * Its own cluster rather than a database on the application's, for the reason
- * `background-work-pg.ts` gives and one more: the CMS is a public login page
- * with its own administrators, and nothing it can be talked into should share a
- * primary, a superuser or a backup with the offices' data.
- *
- * Built from the shared `cnpgClusterSpec` (`cnpg.ts`), small: one database and
- * its owner, no pooler (Payload pools per pod, `DATABASE_POOL_MAX`). The PITR
- * archive (`cmsPgBackup*`) has no in-cluster default and is meant for object
- * storage outside the cluster, as for `background-work-pg`.
- */
 import * as k8s from "@pulumi/kubernetes";
 import * as pulumi from "@pulumi/pulumi";
 import { DeployConfig } from "../config";
@@ -19,9 +5,7 @@ import { CMS } from "../config/cms";
 import { commonLabels } from "../platform/namespaces";
 import { cnpgClusterSpec, installBackupSecret, installCnpgScheduledBackup } from "./cnpg";
 
-/** The primary's Service, by FQDN: its certificate names it so, and the CMS verifies it. */
 export const CMS_PG_HOST = `${CMS.cluster}-rw.${CMS.namespace}.svc`;
-/** The Secret CloudNativePG writes the cluster's CA into (`<cluster>-ca`, key `ca.crt`). */
 export const CMS_PG_CA_SECRET = `${CMS.cluster}-ca`; // pragma: allowlist secret
 
 export interface CmsPostgres {
@@ -31,7 +15,6 @@ export interface CmsPostgres {
 export function installCmsPostgres(
   cfg: DeployConfig,
   provider: k8s.Provider,
-  /** The namespace, and the CNPG operator's webhook being ready (the app cluster). */
   dependsOn: pulumi.Resource[],
 ): CmsPostgres {
   const pg = cfg.cms.postgres;
@@ -81,7 +64,6 @@ export function installCmsPostgres(
     {
       provider,
       dependsOn: [owner, ...(backupSecret ? [backupSecret] : []), ...dependsOn],
-      // CloudNativePG owns the PVCs: deleting this CR drops every post.
       protect: cfg.protectDataResources,
     },
   );

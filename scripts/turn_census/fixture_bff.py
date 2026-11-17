@@ -1,45 +1,3 @@
-"""A fixture BFF for the precedent eval: the internal routes a cross-project turn reads, served from a fixture office.
-
-The answer suite runs the real agent with no BFF, so it cannot ask a single
-question about another project (docs/roadmap/office-experience.md, step A).
-This serves exactly the routes that question needs, from
-``apps/workspace/tests/fixtures/precedent/``:
-
-- ``POST /api/internal/turn-context``: the current project's PROJECT_CONTEXT
-  and the reference catalog, both as the production renderers wrote them
-  (``rendered.json``, from ``reference-brief.fixture.spec.ts``);
-- ``POST /api/internal/cross-project/{search,projects,brief}``: answered from
-  ``office.json`` (and the permit records of its Bescheide, ``permits.json``,
-  written by ``render_fixture_permits.py`` with the production pen), in the
-  routes' wire shape.
-
-Every OTHER internal route gets its connection dropped without an answer. That
-is exactly what a suite run sees today, with no BFF at all, so a run differs
-from the norm suite only by what this file serves.
-
-Search ranks as production does, by meaning: the deployment's own embedding
-model (``knowledge_layer``'s ``make_embed_model``, the note-embeddings
-route's), fused by reciprocal rank with a token channel (tokens weighted by how rare they are in the
-office's passages, so no list of function words decides), each searched
-project's nearest passages returned whatever their relevance, the decisions
-and the permit records' requirements ranked the same way. No word list and no threshold production does not have:
-on a question nothing answers, the agent is handed the nearest passages and
-must judge, as it is in production. Without an embedding key the token
-channel alone ranks, and the run's report says so.
-
-Every request is appended to ``requests.jsonl`` beside the run, so a check can
-read which lookups a turn made and with what arguments.
-
-``--set workspace`` hands it a ``fixture_workspace.FixtureWorkspace`` instead:
-then it serves Piloti's MCP door (``POST /api/mcp``) and a turn context with
-the WORKSPACE block, logs what the door answered beside each call, and drops
-every other route the same way. Every turn context carries its project's Land's law (``fixture_law.py``).
-
-Every set also files proposals: ``POST /api/internal/proposals`` (ADR-0105) records the proposal a tool
-asks for and answers with its id, as the BFF's route does, so a row can assert that a write was PROPOSED
-(:func:`proposals_filed`) and not made. Nothing is applied; the fixture has no one to accept it.
-"""
-
 from __future__ import annotations
 
 import json
@@ -61,38 +19,25 @@ import fixture_law
 ROOT = Path(__file__).resolve().parent.parent.parent
 FIXTURES = ROOT / "apps" / "workspace" / "tests" / "fixtures" / "precedent"
 
-#: The per-project page the BFF searched before ADR-0116 (8 projects). The BFF now ranks a page of
-#: `CROSS_PROJECT_PAGE_PROJECTS` (40, `lib/cross-project/types.ts`) in one grouped query; kept at 8 so
-#: census runs stay comparable with the earlier ones.
 PAGE_PROJECTS = 8
-#: The office as `office.json` describes it; the other scenarios are named under its `scenarios`.
 DEFAULT_SCENARIO = "default"
-#: As the former per-project search's cap, and `CROSS_PROJECT_MAX_DECISIONS` in `lib/cross-project/`.
 MAX_PER_PROJECT = 30
 MAX_DECISIONS = 6
-#: As `CROSS_PROJECT_MAX_PERMITS` and `CROSS_PROJECT_MAX_PERMIT_REQUIREMENTS` in `lib/cross-project/types.ts`.
 MAX_PERMITS = 8
 MAX_PERMIT_REQUIREMENTS = 6
-#: Reciprocal-rank constant, as `RRF_K` in `lib/knowledge/recall-scoring.ts`.
 RRF_K = 60
 _TOKEN = re.compile(r"[a-z0-9]+")
 
-#: The route a tool files a proposal at, and the harness ability it gives a row (``north_star_eval.HARNESS``).
 PROPOSALS_PATH = "/api/internal/proposals"
 ANNOTATIONS_PATH = "/api/internal/document-annotations"
-#: ``proposals``: a write filed as a proposal. ``marks``: the canvas ``mark`` tool's proposals, recorded
-#: (:func:`marks_proposed`).
 ABILITIES = frozenset({"proposals", "marks"})
-#: The kinds the route accepts (``lib/proposals/types.ts``), and the routes by which an agent could write instead.
 PROPOSAL_KINDS = frozenset({"file_operation", "memory", "project_profile"})
 WRITE_PATHS = ("/api/internal/document-versions", "/api/internal/document-annotations", "/api/internal/tasks")
 
-#: Texts to vectors, in order; None when the embedder could not answer.
 Embed = Callable[[list[str]], "list[list[float]] | None"]
 
 
 def production_embedder() -> Embed | None:
-    """The deployment's embedding model, built as the note-embeddings route builds it; None without a key."""
     try:
         from knowledge_layer.embedding import make_embed_model
         from knowledge_layer.embedding import resolve_embed_api_key
@@ -116,31 +61,20 @@ def production_embedder() -> Embed | None:
 
 
 def _fold(text: str) -> str:
-    """Lower-case, umlauts and ß spelled out, accents dropped: „Mödling" and „Moedling" are one word."""
     text = text.casefold().replace("ä", "ae").replace("ö", "oe").replace("ü", "ue").replace("ß", "ss")
     return "".join(c for c in unicodedata.normalize("NFKD", text) if not unicodedata.combining(c))
 
 
 def _tokens(text: str) -> set[str]:
-    """Every token, no language's stop words or stems: the channel that keeps „REI 90" and „OIB-RL 2" findable."""
     return set(_TOKEN.findall(_fold(text)))
 
 
 def _idf_weights(documents: list[set[str]]) -> dict[str, float]:
-    """How rare each token is among the documents: BM25's inverse document frequency, always positive.
-
-    Computed from the office's own passages, so „wie", „der" and „bei" weigh
-    little and „Fluchttreppe" much without a list of words that decides which
-    is which. Production's lexical channel prices words the same way
-    (Qdrant's server-side BM25, IDF per scope). Raw overlap let a passage that shared three function words with
-    the question outrank the one that held its only content word.
-    """
     counts = Counter(token for tokens in documents for token in tokens)
     return {token: math.log(1 + (len(documents) - n + 0.5) / (n + 0.5)) for token, n in counts.items()}
 
 
 def _overlap(a: set[str], b: set[str], weights: dict[str, float]) -> float:
-    """Jaccard overlap of two token sets, each token weighted by its rarity (a token no passage holds weighs most)."""
     if not a or not b:
         return 0.0
     unseen = max(weights.values(), default=1.0)
@@ -158,7 +92,6 @@ def _cosine(a: list[float], b: list[float]) -> float:
 
 
 def _fuse(dense: list[float | None], lexical: list[float]) -> list[float | None]:
-    """Reciprocal-rank fusion of the two channels, as `fuseHybridRelevance`: rank-only, an absent entry unranked."""
     fused = [0.0] * len(lexical)
     for channel in (dense, [value if value > 0 else None for value in lexical]):
         ranked = sorted((score, index) for index, score in enumerate(channel) if score is not None)
@@ -172,8 +105,6 @@ def _document_text(document: dict[str, Any]) -> str:
 
 
 class FixtureOffice:
-    """The fixture office and what the production renderers made of it."""
-
     def __init__(
         self, directory: Path = FIXTURES, scenario: str = DEFAULT_SCENARIO, embed: Embed | None = None
     ) -> None:
@@ -200,7 +131,6 @@ class FixtureOffice:
         )
 
     def project_names(self) -> list[str]:
-        """The names of every project this office holds, the chat's own included: what a source may name."""
         return [self.current["name"], *(project["name"] for project in self.projects.values())]
 
     def turn_context(self) -> dict[str, Any]:
@@ -228,7 +158,6 @@ class FixtureOffice:
             "collection": project["collection"],
             "address": project.get("facts", {}).get("site_address"),
             "period": {"start": project.get("startedOn") or "2013-01-01", "end": project.get("endedOn")},
-            # The BFF's oibEdition: a confirmed fact, else no edition (the fixture holds no agent suggestion).
             "oibEdition": (
                 {"value": str(project["facts"]["oib_edition"]), "confirmed": True}
                 if (project.get("facts") or {}).get("oib_edition")
@@ -248,7 +177,6 @@ class FixtureOffice:
         return ordered
 
     def _dense(self, query: str, texts: list[str]) -> list[float | None]:
-        """Each text's cosine to the query by the embedder, texts embedded once; all None without one."""
         if self.embed is None:
             return [None] * len(texts)
         missing = [text for text in dict.fromkeys([query, *texts]) if text not in self._vectors]
@@ -261,7 +189,6 @@ class FixtureOffice:
         return [_cosine(asked, self._vectors[text]) for text in texts]
 
     def _rank(self, query: str, texts: list[str]) -> list[tuple[int, float, float | None]]:
-        """(index, display score, fused relevance) per text, best first: as production ranks."""
         dense = self._dense(query, texts)
         asked = _tokens(query)
         lexical = [_overlap(asked, _tokens(text), self._weights) for text in texts]
@@ -273,7 +200,6 @@ class FixtureOffice:
         return sorted(scored, key=lambda entry: (entry[2] is not None, entry[2] or 0.0, entry[1]), reverse=True)
 
     def search(self, body: dict[str, Any]) -> dict[str, Any]:
-        """Each searched project's nearest passages, as `searchProjectDocuments` returns them: no relevance floor."""
         scope = self._in_scope(body)
         offset = int(body.get("offset") or 0)
         page = scope[offset : offset + PAGE_PROJECTS]
@@ -316,7 +242,6 @@ class FixtureOffice:
         }
 
     def _decisions(self, page: list[dict[str, Any]], query: str) -> list[dict[str, Any]]:
-        """The page's recorded decisions most relevant to the question, ranked as `searchProjectDecisions` ranks."""
         candidates = [(project, decision) for project in page for decision in project.get("decisions") or []]
         ranked = self._rank(query, [decision["content"] for _project, decision in candidates])
         return [
@@ -324,7 +249,6 @@ class FixtureOffice:
                 "project": self._ref(candidates[index][0]),
                 "collection": candidates[index][0]["collection"],
                 **candidates[index][1],
-                # The fixture's decisions are person-written; none was read from documents.
                 "origin": "person" if candidates[index][1]["confirmed"] else "agent",
                 "evidence": [],
             }
@@ -333,12 +257,6 @@ class FixtureOffice:
         ][:MAX_DECISIONS]
 
     def _permits(self, page: list[dict[str, Any]], query: str) -> list[dict[str, Any]]:
-        """The page's permit records whose requirements match best, ranked as `searchPermitRequirements` ranks them.
-
-        Requirements are ranked, over the text production ranks (the requirement,
-        its evidence, the record's authority and Gemeinde); a record ranks by its
-        best requirement and carries only the requirements that matched.
-        """
         candidates = [
             (project, document, record, requirement)
             for project in page
@@ -407,7 +325,6 @@ class FixtureOffice:
 
 
 def _conversation_of(envelope: str | None) -> str | None:
-    """The conversation a request's envelope names: which run asked, for the checks. Not verified: only read."""
     import base64
 
     if not envelope:
@@ -421,11 +338,6 @@ def _conversation_of(envelope: str | None) -> str | None:
 
 
 def lookups_served(log_path: Path, conversation_id: str) -> list[str]:
-    """The cross-project lookups this fixture answered for one conversation, in order: `search`, `projects`, `brief`.
-
-    What a turn READ, whoever asked for it: the model's own call, or the
-    turn decision's round-0 prefetch, which no model call shows.
-    """
     if not log_path.exists():
         return []
     served = []
@@ -441,7 +353,6 @@ def lookups_served(log_path: Path, conversation_id: str) -> list[str]:
 
 
 def proposals_filed(log_path: Path, conversation_id: str) -> list[dict[str, Any]]:
-    """The proposals this fixture stored for one conversation, in order: ``{id, kind, payload, ...}`` each."""
     return [
         entry["proposal"]
         for entry in _served(log_path, conversation_id)
@@ -450,7 +361,6 @@ def proposals_filed(log_path: Path, conversation_id: str) -> list[dict[str, Any]
 
 
 def writes_attempted(log_path: Path, conversation_id: str) -> list[str]:
-    """The paths of the direct write routes this conversation's turn called, served or not (a proposal is not one)."""
     return [
         str(e["path"])
         for e in _served(log_path, conversation_id, only_served=False)
@@ -463,11 +373,6 @@ def _is_write(path: str) -> bool:
 
 
 def marks_proposed(log_path: Path, conversation_id: str) -> list[dict[str, Any]]:
-    """The marks a conversation's turn proposed on a document (canvas ``propose``), in order.
-
-    A proposal is a suggestion the person takes over, not a write: it is read here and is not in
-    :func:`writes_attempted`.
-    """
     return [
         mark
         for entry in _served(log_path, conversation_id)
@@ -492,8 +397,6 @@ def _served(log_path: Path, conversation_id: str, *, only_served: bool = True) -
 
 
 class FixtureBFF:
-    """The fixture office behind a local HTTP server, on a free port, until :meth:`stop`."""
-
     def __init__(
         self,
         token: str,
@@ -503,19 +406,16 @@ class FixtureBFF:
         workspace: Any = None,
     ) -> None:
         self.embed = embed
-        #: ``fixture_workspace.FixtureWorkspace`` for ``--set workspace``: then this serves Piloti's MCP door
-        #: and a turn context with its WORKSPACE block, in place of the precedent office's routes.
         self.workspace = workspace
         self.office = office or FixtureOffice(embed=embed)
         self._offices = {self.office.scenario: self.office}
         self._scenario_of: dict[str, str] = {}
-        #: The proposals filed so far, by id: the route is idempotent on (answer, card), as the BFF's is.
         self._proposals: dict[str, dict[str, Any]] = {}
         self.token = token
         self.log_path = log_path
         self._lock = threading.Lock()
         self._server = ThreadingHTTPServer(("127.0.0.1", 0), self._handler())
-        self._thread = threading.Thread(target=self._server.serve_forever, daemon=True)
+        self._thread = threading.Thread(target=self._server.serve_forever, kwargs={"poll_interval": 0.01}, daemon=True)
 
     @property
     def url(self) -> str:
@@ -535,7 +435,6 @@ class FixtureBFF:
             sink.write(json.dumps(entry, ensure_ascii=False) + "\n")
 
     def assign(self, conversation_id: str, scenario: str) -> FixtureOffice:
-        """Answer this conversation from a scenario's office: which project the chat sits in, which exist."""
         with self._lock:
             if scenario not in self._offices:
                 self._offices[scenario] = FixtureOffice(scenario=scenario, embed=self.embed)
@@ -548,12 +447,6 @@ class FixtureBFF:
             return self._offices.get(scenario or "", self.office)
 
     def proposal(self, body: dict[str, Any], conversation: str | None) -> tuple[int, dict[str, Any]]:
-        """``POST /api/internal/proposals``, op ``create``: store the proposal, answer ``{id, status}``.
-
-        The same card of the same answer returns the first proposal, and nothing is applied: the status
-        stays ``proposed``. A body the route would refuse (an op other than ``create``, an unknown kind, no
-        payload) is a 422, so a tool that builds a wrong one fails here as it would against the BFF.
-        """
         payload = body.get("payload")
         if body.get("op") != "create" or body.get("kind") not in PROPOSAL_KINDS or not isinstance(payload, dict):
             return 422, {"error": "Invalid proposal request"}
@@ -574,11 +467,6 @@ class FixtureBFF:
         return 200, {"id": made["id"], "status": made["status"]}
 
     def annotations(self, body: dict[str, Any]) -> tuple[int, dict[str, Any]] | None:
-        """``POST /api/internal/document-annotations``: a ``list`` finds no marks, a ``propose`` is numbered back.
-
-        Only these two ops are served (the rest of the canvas, presence included, is dropped as before), and
-        nothing is stored on a document: the proposals are read from the request log (:func:`marks_proposed`).
-        """
         if body.get("op") == "list":
             return 200, {"annotations": []}
         proposals = body.get("proposals")
@@ -607,7 +495,6 @@ class FixtureBFF:
                 return 200, self.workspace.handle(body, conversation)
             if path == "/api/internal/turn-context":
                 return 200, fixture_law.with_law(self.workspace.turn_context(conversation))
-            # `--set visual`: where `look` finds a file's storage key.
             document_file = getattr(self.workspace, "document_file", None)
             if path == "/api/internal/document-file" and document_file is not None:
                 return document_file(body)
@@ -640,7 +527,6 @@ class FixtureBFF:
                 path, _, query = self.path.partition("?")
                 if query and not body:
                     body = {key: values[0] for key, values in urllib.parse.parse_qs(query).items()}
-                # `--set visual`: the object store the run reads sheets from, path-style S3, no signature checked.
                 objects = getattr(bff.workspace, "object_bytes", None)
                 blob = objects(path) if objects is not None and self.command == "GET" else None
                 if blob is not None:
@@ -655,14 +541,11 @@ class FixtureBFF:
                 answer = bff._answer(path, body, bff.office_for(conversation), conversation) if trusted else None
                 entry = {"path": path, "body": body, "served": answer is not None, "conversation": conversation}
                 if answer is not None and path == "/api/mcp":
-                    # What the door answered, so a check reads the proposals and refusals a turn met.
                     entry["result"] = answer[1].get("result")
                 if answer is not None and path == PROPOSALS_PATH and answer[0] == 200:
-                    # What was filed, so a check reads the proposal and not only that one was asked for.
                     entry["proposal"] = {**answer[1], "kind": body["kind"], "payload": body["payload"]}
                 bff._log(entry)
                 if answer is None:
-                    # As unreachable as today's suite's BFF: no status line at all.
                     self.close_connection = True
                     return
                 status, payload = answer

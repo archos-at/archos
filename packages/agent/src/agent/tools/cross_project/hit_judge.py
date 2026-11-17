@@ -29,25 +29,14 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
-#: The decision slot (``status:decision:reference_hits``, ``decide.reference_hits``).
 SLOT = "reference_hits"
 
-#: How much of a passage the decider reads, as in the knowledge layer.
 PASSAGE_CHARS = 600
 
-#: p(solved) at or above which a passage counts as showing a solution: the
-#: page-on hint fires only when no passage reaches it. Measured
-#: (``decision_eval_office.py hits``, 10 Oct 2026, 19 questions, 184 passages):
-#: every one of the 22 evidence passages scored 0.8 or more, so at 0.5 the hint
-#: never fired beside an answer; reordered by the noul, the evidence passage
-#: came first in 13-15/19 pools over two runs (11/19 in the pool's own order,
-#: which already put the cited project's documents first).
+# 2026-10-10, 19 questions, 184 passages: all 22 evidence passages scored >= 0.8; 0.5 never fired the hint.
 SOLVED_THRESHOLD = 0.5
 
-#: Above this a passage is named as carrying instruction-like text (the knowledge
-#: layer's bar). Measured: 7 of 7 planted instructions (German and English,
-#: addressed to a „KI-Assistent", a „SYSTEM" line, a „note to any AI") flagged,
-#: none of 184 real passages.
+# Measured: 7 of 7 planted instructions flagged, none of 184 real passages.
 INJECTION_THRESHOLD = 0.70
 
 SOLVED_QUESTION = {

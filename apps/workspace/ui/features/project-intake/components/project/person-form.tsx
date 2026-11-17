@@ -1,15 +1,5 @@
 'use client'
 
-/**
- * The form for one person on the project: an external added by hand (Name,
- * Funktion, Firma), or a member or an external described afterwards. A
- * member's name is their account's and is not edited here.
- *
- * Deliberately three fields, the Steckbrief's own minimum (ADR-0091): no
- * e-mail, no phone. The months a person worked on the project stay in the
- * Steckbrief's editor on the overview; the setup asks only what it needs.
- */
-
 import { useId, useState, type FormEvent, type JSX } from 'react'
 import { BusyButton } from '@/components/ui/busy-button'
 import { Button } from '@/components/ui/button'
@@ -25,10 +15,8 @@ export interface PersonDraft {
   company: string
 }
 
-/** The functions offered at one tap, as dictionary keys: the ones every project of an office has. */
 const COMMON_FUNCTIONS = ['client', 'lead', 'structural', 'physics', 'mep', 'electrical', 'fire', 'survey', 'supervision'] as const
 
-/** „Funktion im Projekt": free text, with the common ones a tap away. */
 export function FunctionField({
   value,
   onChange,
@@ -77,7 +65,6 @@ export function PersonForm({
   onCancel,
 }: {
   initial: PersonDraft
-  /** A member's name: shown, not edited. */
   fixedName: string | null
   busy: boolean
   submitLabel: string

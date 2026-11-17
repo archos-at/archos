@@ -1,39 +1,40 @@
-/**
- * The law at a project's site as a person reads it (ADR-0175): the gate of the
- * project's knowledge context and each of its uses with the role and qualifier
- * the turn reads, named by its work's designation and its edition's label. What
- * the Steckbrief and `project-base-get` show; it replaced the OIB verdict list.
- * Pure and zod, shared by the intake view and the operation's wire.
- */
-
 import { z } from 'zod'
-import { EDITION_ROLES, GATE_STATES, type GateState } from './vocab'
+import { APPLICABILITY_VERDICTS, EDITION_ROLES, GATE_STATES, type GateState } from './vocab'
 
-/** The gate states that name no law: the turn refuses, and so do the page, the classification and the intake. */
+export const useApplicabilitySchema = z
+  .object({
+    verdict: z.enum(APPLICABILITY_VERDICTS),
+    basis: z.array(z.string()).max(32),
+    open: z.array(z.string()).max(32),
+    provision: z.string().nullable(),
+  })
+  .strict()
+export type UseApplicability = z.infer<typeof useApplicabilitySchema>
+
 const REFUSING: ReadonlySet<GateState> = new Set(['organization_unplaced', 'site_unknown', 'not_entitled', 'knowledge_unavailable', 'none'])
 
-/** Whether a gate names law at the site. Pure. */
 export const gateNamesLaw = (gate: GateState): boolean => !REFUSING.has(gate)
 
-/** One use: the work and edition, the role and qualifier the turn reads, and the names a person reads. */
 export const projectLawUseSchema = z
   .object({
     workId: z.string(),
-    /** Null for law read live at its source: the consolidated text in force today. */
     editionId: z.string().nullable(),
     role: z.enum(EDITION_ROLES),
-    /** `uncurated`: binding law from an official source nobody reviewed; `office_maintained`: the office keeps this copy. */
     qualifier: z.enum(['uncurated', 'office_maintained']).nullable(),
     designation: z.string().nullable(),
     editionLabel: z.string().nullable(),
+    applicability: useApplicabilitySchema.nullable(),
+    sourceUrl: z.url().max(2000).nullable(),
   })
   .strict()
 
-/** The gate, and the uses where it names law: none where it refuses. At most MAX_CONTEXT_USES (40), as the context. */
+export const MAX_PROJECT_LAW_USES = 40
+
 export const projectLawSchema = z
   .object({
     gate: z.enum(GATE_STATES),
-    uses: z.array(projectLawUseSchema).max(40),
+    uses: z.array(projectLawUseSchema).max(MAX_PROJECT_LAW_USES),
+    factLabels: z.record(z.string(), z.string()),
   })
   .strict()
 

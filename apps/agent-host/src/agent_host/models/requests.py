@@ -27,8 +27,6 @@ from .mail_facts import MailThreadFacts
 
 logger = logging.getLogger(__name__)
 
-#: Bounds of an office's screening terms. The ingest job applies the same ones
-#: (``agent.common.content_screen``) to whatever reaches it.
 SCREENING_MAX_TERMS = 200
 SCREENING_MIN_TERM_CHARS = 2
 SCREENING_MAX_TERM_CHARS = 80
@@ -100,10 +98,8 @@ class ScreeningPolicy(BaseModel):
 
 ProjectStatus = Literal["active", "paused", "closed"]
 
-#: A token as the intake stores it (``lower_austria``, ``timber``).
 _FactToken = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=80)]
 
-#: A BFF document id as ``grid_document_id`` holds it: a UUID, lowercase as Postgres prints it.
 _DocumentId = Annotated[
     str,
     StringConstraints(
@@ -113,10 +109,8 @@ _DocumentId = Annotated[
     ),
 ]
 
-#: A document's file name as the chunks' ``file_name`` holds it.
 _FileName = Annotated[str, StringConstraints(min_length=1, max_length=500)]
 
-#: What a person names a reference by, or a ``kind:key`` token.
 _ReferenceText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
 
 
@@ -130,7 +124,6 @@ class ProjectFacts(BaseModel):
 
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
-    # The German names (``bundesland``) are what a BFF that has not rolled yet sends; read-only.
     federal_state: _FactToken | None = Field(
         None,
         validation_alias=AliasChoices("federal_state", "bundesland"),
@@ -282,8 +275,6 @@ class IngestRequest(KnowledgeMarkFields):
     )
     revision_of: str | None = Field(
         None,
-        # ``fassung_of`` is what a BFF that has not rolled yet sends (renamed with migration 0165);
-        # a request and a queued job carry either. Remove after one release.
         validation_alias=AliasChoices("revision_of", "fassung_of"),
         max_length=512,
         description=(
@@ -353,7 +344,6 @@ class SimilarityWeights(BaseModel):
 
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
-    # The German names are what a BFF that has not rolled yet sends; read-only.
     federal_state: float = Field(0, ge=0, le=100, validation_alias=AliasChoices("federal_state", "bundesland"))
     building_class: float = Field(0, ge=0, le=100, validation_alias=AliasChoices("building_class", "gebaeudeklasse"))
     building_class_adjacent: float = Field(
@@ -597,14 +587,8 @@ class GenerateConversationTitleResponse(BaseModel):
     )
 
 
-#: Ceiling on one dictation's audio, in bytes before base64. 45 seconds of the
-#: browser's Opus or AAC at 64 kbit/s is about 360 KB; the bound leaves room for
-#: a browser that ignores the requested bitrate. Mirrored by the BFF
-#: (``apps/workspace/bff/dictation/limits.ts``), which refuses first.
 MAX_DICTATION_AUDIO_BYTES = 4 * 1024 * 1024
 
-#: The container formats a browser's MediaRecorder produces, named the way the
-#: transcription endpoint names them (Safari's ``audio/mp4`` is ``m4a``).
 DictationAudioFormat = Literal["webm", "ogg", "m4a"]
 
 
@@ -614,7 +598,6 @@ class DictationRequest(BaseModel):
     audio_base64: str = Field(
         ...,
         min_length=1,
-        # base64 is 4 characters per 3 bytes.
         max_length=(MAX_DICTATION_AUDIO_BYTES * 4) // 3 + 4,
         description="The recording, base64-encoded (raw bytes, not a data URI)",
     )
@@ -650,9 +633,6 @@ class DictationResponse(BaseModel):
     )
 
 
-#: Ceiling on the sampled questions a digest request may carry. Enforced on the
-#: schema so an oversized list is refused at parse time; the route slices to the
-#: same bound for callers that are within it.
 MAX_DIGEST_SAMPLES = 60
 
 
@@ -732,9 +712,6 @@ class FeedbackDigestRequest(BaseModel):
     samples: list[FeedbackDigestSample] = Field(
         default_factory=list,
         description="Bounded sample of rated questions, both directions",
-        # Bounded at the schema, not only by the route's slice: an unknown
-        # verdict would otherwise fall silently into the "disliked" bucket, and
-        # an oversized list would be fully parsed before being truncated.
         max_length=MAX_DIGEST_SAMPLES,
     )
     locale: str = Field("de", description="UI locale ('de' or 'en') — the language the digest is written in")
@@ -944,20 +921,6 @@ class OibDocumentUploadResponse(BaseModel):
     members: list[OibUploadedMember] | None = Field(None, description="Per-member outcome (ZIP uploads).")
 
 
-class OibReingestResponse(BaseModel):
-    """Outcome of queueing a subset re-ingest.
-
-    Ingestion runs in the background exactly as it does for an upload, so ``status`` is
-    ``'pending'`` whenever anything was queued — the caller polls ``/v1/oib/status``,
-    where each queued document reads PENDING until its chunks are rebuilt.
-    """
-
-    status: str = Field(..., description="'pending' when at least one document was queued, else 'noop'.")
-    queued: list[str] = Field(default_factory=list, description="Basenames now re-ingesting.")
-    unknown: list[str] = Field(default_factory=list, description="Basenames that match no corpus document.")
-    message: str
-
-
 class OibDocumentDeleteResponse(BaseModel):
     """Response for deleting an OIB base-corpus document (chunks, row, object and cached copy)."""
 
@@ -965,8 +928,6 @@ class OibDocumentDeleteResponse(BaseModel):
     file_name: str
 
 
-#: Ceiling on the notes one embedding request may carry. Mirrors `_MAX_TEXTS`
-#: in `routes/note_embeddings.py`.
 MAX_NOTE_EMBEDDING_TEXTS = 64
 
 

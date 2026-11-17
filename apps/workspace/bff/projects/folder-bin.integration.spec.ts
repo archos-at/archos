@@ -39,8 +39,6 @@ vi.mock('@/lib/documents/collection-file-ref', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/documents/collection-file-ref')>()),
   purgeIngestedChunks: vi.fn(async () => true),
 }))
-// The document's own erasure is the document delete's (its specs cover the
-// object store); here it deletes the row, through the hold trigger.
 vi.mock('@/lib/documents/folder-path', () => ({ resolveDocumentFolderPath: vi.fn(async () => null) }))
 vi.mock('@/lib/documents/document-dispatch', () => ({
   dispatchDocument: vi.fn(async () => ({ jobId: 'job', status: 'pending' })),
@@ -55,10 +53,6 @@ vi.mock('@/lib/documents/document-edits', () => ({
 vi.mock('@/lib/documents/ingest-dispatch', () => ({
   INGEST_DISPATCH_FAILED_MESSAGE: 'dispatch failed',
 }))
-// Project permissions are WorkOS's; each session here states which it holds,
-// and a denial is the real one's: not found.
-// A closed project (ADR-0090) is stubbed the way `requireProjectAccess` decides
-// it: writes refused before anything else unless the caller asks as if active.
 const projectState = vi.hoisted(() => ({ closed: false }))
 vi.mock('@/lib/authz/projects', async () => {
   const { NotFoundError } = await import('@/lib/api/errors')
@@ -84,7 +78,6 @@ vi.mock('@/lib/authz/projects', async () => {
   }
 })
 vi.mock('@/lib/auth/membership-roles', () => ({ resolveMembershipRoles: vi.fn(async () => null) }))
-/** Each custom folder's list: membership → the level of the folder role it holds there. */
 const lists = vi.hoisted(() => new Map<string, Record<string, 'read' | 'write'>>())
 const levelsOf = vi.hoisted(
   () => (membershipId: string | null) =>
@@ -95,8 +88,6 @@ const levelsOf = vi.hoisted(
 vi.mock('@/lib/authz/folder-roles', () => ({
   heldFolderLevels: vi.fn(async (_org: string, membershipId: string) => levelsOf(membershipId)),
 }))
-// A machine's published document goes back by its version (the lifecycle's
-// specs cover the dispatch itself).
 vi.mock('@/lib/documents/lifecycle', () => ({
   redispatchPublishedVersion: vi.fn(async () => ({ jobId: 'job', status: 'pending' })),
 }))
@@ -107,13 +98,11 @@ const ORG = `org_bin_${STAMP}`
 const USER = `user_bin_${STAMP}`
 const COLLECTION = `proj_bin_${STAMP}`
 const CHAT = `s_bin_chat_${STAMP}`
-/** Memberships: the Geschäftsführung, the bookkeeper, the project lead. */
 const GF = 'om_gf'
 const BH = 'om_bh'
 const PL = 'om_pl'
 const PROJECT_WRITE = ['project:view', 'project:documents:write', 'project:edit']
 
-/** One documented boundary: a session fixture carries only what these services read. */
 const sessionOf = (userId: string, membershipId: string | null, permissions: string[]): AuthorizedSession =>
   ({
     userId,
@@ -128,7 +117,6 @@ const sessionOf = (userId: string, membershipId: string | null, permissions: str
 const gf = sessionOf('user_gf', GF, PROJECT_WRITE)
 const bh = sessionOf('user_bh', BH, PROJECT_WRITE)
 const pl = sessionOf('user_pl', PL, PROJECT_WRITE)
-/** On the Geschäftsführung's lists, and manages the project. */
 const manager = sessionOf('user_mgr', GF, [...PROJECT_WRITE, 'project:manage'])
 const admin = sessionOf('user_admin', null, ['org:projects:administer'])
 
@@ -155,10 +143,6 @@ describe.skipIf(!url)('the Papierkorb against live Postgres (migration 0115)', (
   const memory: Record<string, string> = {}
 
   const inOrg = <T>(run: () => PromiseLike<T>): Promise<T> => withTenant({ organizationId: ORG, userId: USER }, run) as Promise<T>
-  /**
-   * A module whose functions run in the organization's tenant scope, as a
-   * request's would (`getUserSession` opens it there).
-   */
   function inTenant<M extends object>(module: M): M {
     return new Proxy(module, {
       get(target, key) {
@@ -170,7 +154,6 @@ describe.skipIf(!url)('the Papierkorb against live Postgres (migration 0115)', (
   }
   const ids = (rows: Iterable<{ id: string }>): string[] => Array.from(rows).map((row) => String(row.id))
 
-  /** A folder; with `list`, its own access list, whose people WorkOS holds (`lists`). */
   async function insertFolder(name: string, parentId: string | null, path: string, list: Array<[string, 'read' | 'write']> | null): Promise<string> {
     const [id] = ids(
       await inOrg(() =>
@@ -263,7 +246,6 @@ describe.skipIf(!url)('the Papierkorb against live Postgres (migration 0115)', (
     await inOrg(() => db.execute(sql`UPDATE legal_holds SET released_at = now() WHERE organization_id = ${ORG} AND released_at IS NULL`))
   }
 
-  /** The purger's claim, run and rolled back: what it would take right now. */
   async function claimable(): Promise<string[]> {
     const { claimNext } = await import('../../purger/db.js')
     const client = postgres(url as string, { prepare: false, max: 1 })
@@ -286,7 +268,6 @@ describe.skipIf(!url)('the Papierkorb against live Postgres (migration 0115)', (
     return claimed
   }
 
-  /** The organization's queued `bff_job_queue` jobs of one kind, oldest first. */
   async function queuedJobs(kind: string) {
     const rows = await withPlatformAccess('test: read the job queue', () =>
       db.execute<{ job_id: string; priority: number; payload: Record<string, unknown>; not_before: string | null }>(sql`
@@ -305,7 +286,6 @@ describe.skipIf(!url)('the Papierkorb against live Postgres (migration 0115)', (
     return row
   }
 
-  /** Run a restore job the way the `bff-jobs` pool does: slice after slice from the saved payload, to the end. */
   async function runRestoreJob(session: AuthorizedSession, payload: Record<string, unknown>) {
     let state = payload as Parameters<typeof jobs.runRestoreFolderSlice>[1]
     for (let slice = 0; slice < 100; slice += 1) {
@@ -422,12 +402,9 @@ describe.skipIf(!url)('the Papierkorb against live Postgres (migration 0115)', (
         expect((await folders.listProjectFolders(projectId, session)).map((row) => row.name)).not.toContain('Archiv')
         expect(await visibleDocumentNames(session)).not.toContain('Plan.pdf')
         expect(await visibleDocumentNames(session)).not.toContain('Archiv.pdf')
-        // `getAccessibleDocument` asks exactly this for a document by id.
         expect(await access.isFolderVisibleTo(session, projectId, folder.officeShelf)).toBe(false)
       }
-      // The agent's service-token routes hide what no session may read.
       expect(await access.getRestrictedFolderIds(ORG, projectId)).toEqual(expect.arrayContaining([folder.plans, folder.officeShelf]))
-      // Everything else is where it was.
       expect(await visibleDocumentNames(pl)).toEqual(['Lageplan.pdf', 'Protokoll.pdf'])
     })
 
@@ -445,7 +422,6 @@ describe.skipIf(!url)('the Papierkorb against live Postgres (migration 0115)', (
       await bin.moveFolderToBin(pl, { projectId, folderId: folder.plans })
       const purged = vi.mocked(collectionRef.purgeIngestedChunks).mock.calls.map(([, ref]) => ref.filename).sort()
       expect(purged).toEqual(['Archiv.pdf', 'Plan.pdf'])
-      // Reversible: a restore reads them again, and their Fassung links come back (ADR-0099).
       for (const call of vi.mocked(collectionRef.purgeIngestedChunks).mock.calls) expect(call).toHaveLength(3)
       expect(await docsRepo.documentExistsInCollection(doc.plan, COLLECTION, ORG)).toBe(false)
       expect(await docsRepo.documentExistsInCollection(doc.sitePlan, COLLECTION, ORG)).toBe(true)
@@ -458,7 +434,6 @@ describe.skipIf(!url)('the Papierkorb against live Postgres (migration 0115)', (
       expect((await folderState(folder.officeShelf))?.deleted_at).toBeNull()
       expect(await visibleDocumentNames(pl)).toContain('Plan.pdf')
       expect((await queueRow(folder.plans))[0]?.status).toBe('restored')
-      // Read again by the restore's job, never left reading indexed without chunks.
       const [restore] = await queuedJobs('restore_folder_bin')
       expect((await documentRow(doc.plan)).metadata?.bffJobId).toBe(restore.job_id)
       await runRestoreJob(pl, restore.payload)
@@ -466,7 +441,6 @@ describe.skipIf(!url)('the Papierkorb against live Postgres (migration 0115)', (
         'Archiv.pdf',
         'Plan.pdf',
       ])
-      // The undo withdrew the takeover job: nothing is left to finish.
       expect(await queuedJobs('purge_binned_chunks')).toEqual([])
     })
 
@@ -478,19 +452,16 @@ describe.skipIf(!url)('the Papierkorb against live Postgres (migration 0115)', (
       })
       const before = Date.now()
       await bin.moveFolderToBin(pl, { projectId, folderId: folder.plans })
-      // While the request purged, the job was there, held back for the request.
       expect(during).toHaveLength(1)
       expect(during[0].priority).toBe(0)
       expect(new Date(String(during[0].not_before)).getTime()).toBeGreaterThanOrEqual(before + bin.BIN_PURGE_TAKEOVER_MS - 5_000)
       expect(during[0].payload).toMatchObject({ projectId, folderId: folder.plans, cursor: null })
-      // Done: the job is gone and the entry says so.
       expect(await queuedJobs('purge_binned_chunks')).toEqual([])
       const [entry] = await queueRow(folder.plans)
       expect(entry.payload).toMatchObject({ documents: 2, chunksPurgedAt: expect.any(String) })
     })
 
     it('is finished by its job when the request died half way, so it is not searchable for the grace period', async () => {
-      // The request is cut off after the bin committed: no purge confirmed, no undo.
       vi.mocked(collectionRef.purgeIngestedChunks).mockImplementation(async () => {
         throw new Error('the pod went away')
       })
@@ -510,7 +481,6 @@ describe.skipIf(!url)('the Papierkorb against live Postgres (migration 0115)', (
       expect((await queueRow(folder.plans))[0]?.payload).toMatchObject({ documents: 2, chunksPurgedAt: expect.any(String) })
       expect((await folderState(folder.plans))?.deleted_at).not.toBeNull()
 
-      // A second run finds the purge recorded and touches nothing.
       vi.mocked(collectionRef.purgeIngestedChunks).mockClear()
       await jobs.runPurgeBinnedChunksSlice(ORG, job.payload as never, { last: false })
       expect(collectionRef.purgeIngestedChunks).not.toHaveBeenCalled()
@@ -628,7 +598,6 @@ describe.skipIf(!url)('the Papierkorb against live Postgres (migration 0115)', (
           await gate
         })
       )
-      // Let the upload take its share of the bin lock before the delete asks.
       await new Promise((resolve) => setTimeout(resolve, 100))
       const deleting = bin.moveFolderToBin(pl, { projectId, folderId: folder.plans })
       await new Promise((resolve) => setTimeout(resolve, 200))
@@ -653,7 +622,6 @@ describe.skipIf(!url)('the Papierkorb against live Postgres (migration 0115)', (
       expect(await access.getHiddenFolderIds(pl, projectId)).toEqual(expect.arrayContaining([folder.contracts, folder.old]))
       expect(await access.canWriteFolder(bh, projectId, folder.contracts)).toBe(false)
       expect(await access.canWriteFolder(gf, projectId, folder.contracts)).toBe(true)
-      // Nothing is dispatched in the request: a job reads them, at bulk priority.
       expect(documentService.dispatchDocument).not.toHaveBeenCalled()
       const [job] = await queuedJobs('restore_folder_bin')
       expect(job.priority).toBe(1)
@@ -668,7 +636,6 @@ describe.skipIf(!url)('the Papierkorb against live Postgres (migration 0115)', (
     })
 
     it("counts a colleague's held upload only for the people who may see it (ADR-0086)", async () => {
-      // Still being screened, uploaded by somebody else: not the project's yet.
       await inOrg(() =>
         db.execute(sql`
           INSERT INTO documents (organization_id, created_by, filename, storage_key, collection_name, status, scope, project_id, folder_id)
@@ -679,7 +646,6 @@ describe.skipIf(!url)('the Papierkorb against live Postgres (migration 0115)', (
       const countFor = async (session: typeof gf) =>
         (await bin.listFolderBin(session, projectId)).entries.find((entry) => entry.folderId === folder.admin)?.documents
       expect(await countFor(gf)).toBe(3)
-      // The project's admin reviews its quarantine and counts it.
       expect(await countFor(manager)).toBe(4)
     })
 
@@ -693,16 +659,13 @@ describe.skipIf(!url)('the Papierkorb against live Postgres (migration 0115)', (
       for (const id of [doc.plan, doc.officeShelf]) {
         expect(await documentRow(id)).toMatchObject({ status: 'processing', metadata: expect.objectContaining({ bffJobId: job.job_id }) })
       }
-      // A file waiting on a reviewer was never indexed, and stays as it was.
       expect((await documentRow(quarantined)).status).toBe('quarantined')
-      // The job never ran (a rollout, a dead job): the stuck-processing sweep finds the rows.
       await withPlatformAccess('test: the job is gone', () => db.execute(sql`DELETE FROM bff_job_queue WHERE lane = ${ORG}`))
       const stuck = await docsRepo.listStuckProcessingDocuments(new Date(Date.now() + 60_000), 1000)
       expect(stuck.map((row) => row.id)).toEqual(expect.arrayContaining([doc.plan, doc.officeShelf]))
     })
 
     it('fails a restored document there is nothing to read from, rather than leaving it indexed with no chunks', async () => {
-      // A row with no stored object to read from (the column is NOT NULL; an empty key is the shape that reaches here).
       await inOrg(() => db.execute(sql`UPDATE documents SET storage_key = '' WHERE id = ${doc.officeShelf}::uuid`))
       await bin.moveFolderToBin(pl, { projectId, folderId: folder.plans })
       await bin.restoreFolderFromBin(pl, { projectId, folderId: folder.plans })
@@ -759,7 +722,6 @@ describe.skipIf(!url)('the Papierkorb against live Postgres (migration 0115)', (
       const listing = await bin.listFolderBin(bh, projectId)
       expect(listing.entries.map((entry) => [entry.name, entry.canRestore])).toEqual([['Verträge', false]])
       await expect(bin.restoreFolderFromBin(bh, { projectId, folderId: folder.contracts })).rejects.toMatchObject({ status: 403 })
-      // Someone who could not read it does not see it in the bin at all.
       expect((await bin.listFolderBin(pl, projectId)).entries).toEqual([])
       await expect(bin.restoreFolderFromBin(pl, { projectId, folderId: folder.contracts })).rejects.toMatchObject({ status: 404 })
     })
@@ -806,7 +768,6 @@ describe.skipIf(!url)('the Papierkorb against live Postgres (migration 0115)', (
       expect(result).toMatchObject({ documentsBinned: 1, foldersBinned: 1 })
       expect(await folderState(folder.officeShelf)).toMatchObject({ bin_root_id: folder.officeShelf })
       expect((await folderState(folder.officeShelf))?.deleted_at).not.toBeNull()
-      // Archiv.pdf stayed in its folder (into the bin), not in Pläne.
       const [row] = await inOrg(() =>
         db.execute<{ folder_id: string }>(sql`SELECT folder_id FROM documents WHERE id = ${doc.officeShelf}::uuid`)
       )
@@ -846,7 +807,6 @@ describe.skipIf(!url)('the Papierkorb against live Postgres (migration 0115)', (
   describe('a binned document is not handed to anyone (the download log’s readers all ask the folder rule first)', () => {
     it('refuses every reader, admins included, and a capability URL’s re-check, as not found', async () => {
       const documents = inTenant(await import('@/lib/documents/access'))
-      // Screened, with a verdict about the bytes it holds (ADR-0086).
       await inOrg(() => db.execute(sql`UPDATE documents SET screening_outcome = 'clean' WHERE id = ${doc.officeShelf}::uuid`))
       await bin.moveFolderToBin(pl, { projectId, folderId: folder.plans })
       for (const session of [pl, gf, manager, admin]) {
@@ -854,12 +814,8 @@ describe.skipIf(!url)('the Papierkorb against live Postgres (migration 0115)', (
         await expect(documents.getAccessibleDocument(session, doc.plan, 'write')).rejects.toMatchObject({ status: 404 })
       }
       expect(await access.isFolderVisibleToMember(ORG, projectId, folder.officeShelf, 'user_admin')).toBe(false)
-      // Restored, it is handed over again: at once when a verdict on record
-      // judged its bytes, though the restore reads it again.
       await bin.restoreFolderFromBin(pl, { projectId, folderId: folder.plans })
       await expect(documents.getAccessibleDocument(pl, doc.officeShelf)).resolves.toMatchObject({ id: doc.officeShelf })
-      // One with no verdict passes the hold only at rest (ADR-0086), so it is
-      // its uploader's and its reviewers' while it is read again, and everyone's after.
       await expect(documents.getAccessibleDocument(pl, doc.plan)).rejects.toMatchObject({ status: 404 })
       await expect(documents.getAccessibleDocument(manager, doc.plan)).resolves.toMatchObject({ id: doc.plan })
       await inOrg(() => db.execute(sql`UPDATE documents SET status = 'completed' WHERE id = ${doc.plan}::uuid`))
@@ -868,7 +824,6 @@ describe.skipIf(!url)('the Papierkorb against live Postgres (migration 0115)', (
   })
 
   describe('a chat that drew on a purged folder: the setting and the read-time conversation lock are one rule', () => {
-    /** A private chat of the GF, shared with BH, PL and the admin, whose answer cites Verträge. */
     async function chatOnVertraege(): Promise<string> {
       const id = `s_bin_lock_${STAMP}_${Math.random().toString(36).slice(2, 8)}`
       await inOrg(() =>
@@ -908,7 +863,6 @@ describe.skipIf(!url)('the Papierkorb against live Postgres (migration 0115)', (
       const id = await chatOnVertraege()
       await bin.moveFolderToBin(gf, { projectId, folderId: folder.contracts })
       await bin.purgeBinnedFolder(ORG, folder.contracts)
-      // The purge recorded the folder on the chat: from now on the rule judges it by it.
       expect(ids(await inOrg(() => db.execute<{ id: string }>(sql`
         SELECT folder_id AS id FROM conversation_restricted_folders WHERE conversation_id = ${id}`)))).toEqual([folder.contracts])
       await setting.saveDeletedFolderContentPolicy(admin, policy, new Request('http://test'))
@@ -921,7 +875,6 @@ describe.skipIf(!url)('the Papierkorb against live Postgres (migration 0115)', (
         locked[name] = answer.contentLocked
       }
       expect(locked).toEqual(expected)
-      // A locked reader is refused the content with RESOURCE_RIGHTS_LOST; a readable one is not.
       const refused = (Object.keys(expected) as Array<keyof typeof expected>).find((name) => expected[name])
       if (refused) {
         await expect(sharing.requireResourceAccess(people[refused], 'conversation', id, 'viewer')).rejects.toMatchObject({
@@ -988,6 +941,261 @@ describe.skipIf(!url)('the Papierkorb against live Postgres (migration 0115)', (
       const [row] = await queueRow(folder.plans)
       expect(row.status).toBe('purged')
       expect(row.payload.purged).toMatchObject({ documents: 2, folders: 2 })
+    })
+  })
+
+  describe('a queue row never reads as waiting while the purger will not take it (attempts at the cap)', () => {
+    async function giveUpOn(folderId: string): Promise<void> {
+      await withPlatformAccess('test: the purger gave up', () =>
+        db.execute(sql`UPDATE deletion_queue SET status = 'failed', attempts = 10, claimed_at = now() - interval '2 hours',
+                              purge_after = now() - interval '1 day'
+                       WHERE entity_type = 'folder' AND entity_id = ${folderId}`)
+      )
+    }
+
+    async function attemptsOf(folderId: string): Promise<{ status: string; attempts: number }> {
+      const [row] = await withPlatformAccess('test: read the attempts', () =>
+        db.execute<{ status: string; attempts: number }>(sql`
+          SELECT status, attempts FROM deletion_queue WHERE entity_type = 'folder' AND entity_id = ${folderId}`)
+      )
+      return { status: row.status, attempts: Number(row.attempts) }
+    }
+
+    it('„Endgültig löschen" that fails on a row the purger gave up on leaves it failed, not pending for nobody', async () => {
+      const edits = await import('@/lib/documents/document-edits')
+      await bin.moveFolderToBin(pl, { projectId, folderId: folder.plans })
+      await giveUpOn(folder.plans)
+      vi.mocked(edits.eraseProjectDocument).mockRejectedValueOnce(new Error('object store down'))
+
+      await expect(bin.purgeFolderFromBinNow(manager, { projectId, folderId: folder.plans })).rejects.toThrow('object store down')
+
+      expect((await attemptsOf(folder.plans)).status).toBe('failed')
+      expect(await claimable()).not.toContain(folder.plans)
+      await expect(bin.purgeFolderFromBinNow(manager, { projectId, folderId: folder.plans })).resolves.toMatchObject({ status: 'purged' })
+      expect((await attemptsOf(folder.plans)).status).toBe('purged')
+    })
+
+    it('a failed „Endgültig löschen" that spends the last attempt ends failed too', async () => {
+      const edits = await import('@/lib/documents/document-edits')
+      await bin.moveFolderToBin(pl, { projectId, folderId: folder.plans })
+      await withPlatformAccess('test: nine failed purges', () =>
+        db.execute(sql`UPDATE deletion_queue SET attempts = 9 WHERE entity_type = 'folder' AND entity_id = ${folder.plans}`)
+      )
+      vi.mocked(edits.eraseProjectDocument).mockRejectedValueOnce(new Error('object store down'))
+
+      await expect(bin.purgeFolderFromBinNow(manager, { projectId, folderId: folder.plans })).rejects.toThrow('object store down')
+
+      expect(await attemptsOf(folder.plans)).toEqual({ status: 'failed', attempts: 10 })
+    })
+
+    it('one with attempts left goes back to pending, and the purger takes it', async () => {
+      const edits = await import('@/lib/documents/document-edits')
+      await bin.moveFolderToBin(pl, { projectId, folderId: folder.plans })
+      vi.mocked(edits.eraseProjectDocument).mockRejectedValueOnce(new Error('object store down'))
+
+      await expect(bin.purgeFolderFromBinNow(manager, { projectId, folderId: folder.plans })).rejects.toThrow('object store down')
+
+      expect(await attemptsOf(folder.plans)).toEqual({ status: 'pending', attempts: 1 })
+      await withPlatformAccess('test: the backoff is over', () =>
+        db.execute(sql`UPDATE deletion_queue SET claimed_at = now() - interval '2 hours', purge_after = now() - interval '1 minute'
+                       WHERE entity_type = 'folder' AND entity_id = ${folder.plans}`)
+      )
+      expect(await claimable()).toContain(folder.plans)
+    })
+
+    it('the database refuses a pending row at the cap, so no row waits for a claim that never comes (migration 0227)', async () => {
+      await bin.moveFolderToBin(pl, { projectId, folderId: folder.plans })
+      await giveUpOn(folder.plans)
+
+      await expect(
+        withPlatformAccess('test: strand the row as the old release did', () =>
+          db.execute(sql`UPDATE deletion_queue SET status = 'pending', attempts = 11 WHERE entity_type = 'folder' AND entity_id = ${folder.plans}`)
+        )
+      ).rejects.toThrow()
+
+      expect(await attemptsOf(folder.plans)).toEqual({ status: 'failed', attempts: 10 })
+    })
+
+    it('a purge finished in a request is not pulled back by the late answer of a second holder', async () => {
+      await bin.moveFolderToBin(pl, { projectId, folderId: folder.plans })
+      const [{ id }] = await withPlatformAccess('test: the row id', () =>
+        db.execute<{ id: string }>(sql`SELECT id FROM deletion_queue WHERE entity_type = 'folder' AND entity_id = ${folder.plans}`)
+      )
+      await bin.purgeFolderFromBinNow(manager, { projectId, folderId: folder.plans })
+      expect((await attemptsOf(folder.plans)).status).toBe('purged')
+
+      const { markFailed, releaseHeld } = await import('../../purger/db.js')
+      const client = postgres(url as string, { prepare: false, max: 1 })
+      const claim = { id, claim_token: new Date().toISOString() }
+      try {
+        await markFailed(client as never, claim, 'folder purge answered 502')
+        await releaseHeld(client as never, claim)
+      } finally {
+        await client.end()
+      }
+
+      expect((await attemptsOf(folder.plans)).status).toBe('purged')
+    })
+  })
+
+  describe('a claim is a token: a holder whose claim was taken over changes nothing', () => {
+    type Claim = { id: string; entity_id: string; claim_token: string }
+
+    async function asPurger<T>(run: (client: never, queue: typeof import('../../purger/db.js')) => Promise<T>): Promise<T> {
+      const queue = await import('../../purger/db.js')
+      const client = postgres(url as string, { prepare: false, max: 1 })
+      try {
+        return await run(client as never, queue)
+      } finally {
+        await client.end()
+      }
+    }
+
+    async function purgerClaims(folderId: string): Promise<Claim> {
+      const entry = await asPurger((client, queue) =>
+        (client as unknown as ReturnType<typeof postgres>).begin(async (tx) => {
+          await tx.unsafe('SET LOCAL ROLE app_platform')
+          return (await queue.claimNext(tx as never)) as unknown as Claim | null
+        })
+      )
+      expect(entry?.entity_id).toBe(folderId)
+      return entry as Claim
+    }
+
+    async function setRow(folderId: string, set: ReturnType<typeof sql>): Promise<void> {
+      await withPlatformAccess('test: age or move the queue row', () =>
+        db.execute(sql`UPDATE deletion_queue SET ${set} WHERE entity_type = 'folder' AND entity_id = ${folderId}`)
+      )
+    }
+    const statusOf = async (folderId: string) => (await queueRow(folderId))[0].status
+    const giveUpOn = (folderId: string) =>
+      setRow(folderId, sql`status = 'failed', attempts = 10, claimed_at = now() - interval '2 hours', purge_after = now() - interval '1 day'`)
+    async function attemptsOf(folderId: string): Promise<{ status: string; attempts: number }> {
+      const [row] = await withPlatformAccess('test: read the attempts', () =>
+        db.execute<{ status: string; attempts: number }>(sql`
+          SELECT status, attempts FROM deletion_queue WHERE entity_type = 'folder' AND entity_id = ${folderId}`)
+      )
+      return { status: row.status, attempts: Number(row.attempts) }
+    }
+
+    it('every claim writes a new token, the takeover of a stale claim included', async () => {
+      await bin.moveFolderToBin(pl, { projectId, folderId: folder.plans })
+      await setRow(folder.plans, sql`purge_after = now() - interval '1 minute'`)
+
+      const first = await purgerClaims(folder.plans)
+      await setRow(folder.plans, sql`claimed_at = now() - interval '16 minutes'`)
+      const second = await purgerClaims(folder.plans)
+
+      expect(first.claim_token).toMatch(/^\d{4}-\d{2}-\d{2} /)
+      expect(second.claim_token).not.toBe(first.claim_token)
+
+      await asPurger(async (client, queue) => {
+        await queue.markFailed(client, first, 'folder purge answered 502')
+        await queue.markFailedPermanent(client, first, 'not in the bin')
+        await queue.releaseHeld(client, first)
+        await (client as unknown as ReturnType<typeof postgres>).begin(async (tx) => {
+          await tx.unsafe('SET LOCAL ROLE app_platform')
+          await queue.markPurged(tx as never, first)
+        })
+      })
+      expect(await statusOf(folder.plans)).toBe('purging')
+
+      await asPurger((client, queue) =>
+        (client as unknown as ReturnType<typeof postgres>).begin(async (tx) => {
+          await tx.unsafe('SET LOCAL ROLE app_platform')
+          await queue.markPurged(tx as never, second)
+        })
+      )
+      expect(await statusOf(folder.plans)).toBe('purged')
+    })
+
+    it('a request that fails after the purger took its claim over and purged does not fail the row of the erased folder', async () => {
+      const edits = await import('@/lib/documents/document-edits')
+      await bin.moveFolderToBin(pl, { projectId, folderId: folder.plans })
+      await setRow(folder.plans, sql`attempts = 8`)
+      let purger: Claim | undefined
+      const erase = vi.mocked(edits.eraseProjectDocument).getMockImplementation()
+      vi.mocked(edits.eraseProjectDocument).mockImplementationOnce(async () => {
+        await setRow(folder.plans, sql`claimed_at = now() - interval '16 minutes'`)
+        purger = await purgerClaims(folder.plans)
+        throw new Error('object store down')
+      })
+
+      await expect(bin.purgeFolderFromBinNow(manager, { projectId, folderId: folder.plans })).rejects.toThrow('object store down')
+      expect(await attemptsOf(folder.plans)).toEqual({ status: 'purging', attempts: 10 })
+
+      vi.mocked(edits.eraseProjectDocument).mockImplementation(erase!)
+      await inOrg(() => bin.purgeBinnedFolder(ORG, folder.plans))
+      await asPurger((client, queue) =>
+        (client as unknown as ReturnType<typeof postgres>).begin(async (tx) => {
+          await tx.unsafe('SET LOCAL ROLE app_platform')
+          await queue.markPurged(tx as never, purger as Claim)
+        })
+      )
+
+      expect(await statusOf(folder.plans)).toBe('purged')
+    })
+
+    it('a request on the last attempt that the reap failed while it still ran closes its own row when it finishes', async () => {
+      const edits = await import('@/lib/documents/document-edits')
+      await bin.moveFolderToBin(pl, { projectId, folderId: folder.plans })
+      await giveUpOn(folder.plans)
+      const erase = vi.mocked(edits.eraseProjectDocument).getMockImplementation()
+      vi.mocked(edits.eraseProjectDocument).mockImplementationOnce(async (...args) => {
+        await setRow(folder.plans, sql`status = 'failed', last_error = 'stranded in purging after max attempts (presumed purger crash)'`)
+        return erase!(...args)
+      })
+
+      await expect(bin.purgeFolderFromBinNow(manager, { projectId, folderId: folder.plans })).resolves.toMatchObject({ status: 'purged' })
+
+      expect(await statusOf(folder.plans)).toBe('purged')
+    })
+
+    describe('a row that reads failed, or would be reaped, for a folder the BFF provably purged', () => {
+      async function purgedButNotClosed(set: ReturnType<typeof sql>): Promise<void> {
+        await bin.moveFolderToBin(pl, { projectId, folderId: folder.plans })
+        await inOrg(() => bin.purgeBinnedFolder(ORG, folder.plans))
+        await setRow(folder.plans, set)
+      }
+      const stranded = sql`status = 'purging', attempts = 10, claimed_at = now() - interval '16 minutes'`
+
+      it('is closed purged before the reap would fail it', async () => {
+        await purgedButNotClosed(stranded)
+
+        const counts = await asPurger(async (client, queue) => [await queue.closeErased(client), await queue.reapStranded(client)])
+
+        expect(counts).toEqual([1, 0])
+        expect(await statusOf(folder.plans)).toBe('purged')
+      })
+
+      it('is closed purged when the failed attempt was recorded as failed', async () => {
+        await purgedButNotClosed(sql`status = 'failed', attempts = 10, last_error = 'the database system is shutting down'`)
+
+        expect(await asPurger((client, queue) => queue.closeErased(client))).toBe(1)
+        expect(await statusOf(folder.plans)).toBe('purged')
+      })
+
+      it('stays failed while the removal still owes traces: that cannot be told from the database', async () => {
+        await purgedButNotClosed(sql`status = 'purging', attempts = 10, claimed_at = now() - interval '16 minutes',
+          payload = coalesce(payload, '{}'::jsonb) || '{"derivedRemoval": {"removedAt": "2026-11-11T00:00:00.000Z", "conversationIds": ["s_owed"]}}'::jsonb`)
+
+        const counts = await asPurger(async (client, queue) => [await queue.closeErased(client), await queue.reapStranded(client)])
+
+        expect(counts).toEqual([0, 1])
+        expect(await statusOf(folder.plans)).toBe('failed')
+      })
+
+      it('leaves a stranded row whose folder is not purged to the reap, and a live final attempt alone', async () => {
+        await bin.moveFolderToBin(pl, { projectId, folderId: folder.plans })
+        await setRow(folder.plans, sql`status = 'purging', attempts = 10, claimed_at = now() - interval '1 minute'`)
+        expect(await asPurger((client, queue) => queue.closeErased(client))).toBe(0)
+        expect(await statusOf(folder.plans)).toBe('purging')
+
+        await setRow(folder.plans, stranded)
+        const counts = await asPurger(async (client, queue) => [await queue.closeErased(client), await queue.reapStranded(client)])
+        expect(counts).toEqual([0, 1])
+        expect(await statusOf(folder.plans)).toBe('failed')
+      })
     })
   })
 
@@ -1084,7 +1292,6 @@ describe.skipIf(!url)('the Papierkorb against live Postgres (migration 0115)', (
       expect(await restrictedUse.recordedRestrictedFolders(CHAT, ORG)).toEqual([folder.contracts])
       await setting.saveDeletedFolderContentPolicy(admin, 'project', new Request('http://test'))
       expect(await visibleTo(PL)).toContain(note)
-      // Readable by every member now: the conversation no longer restricts anyone.
       expect(await restrictedUse.recordedRestrictedFolders(CHAT, ORG)).toEqual([])
       await setting.saveDeletedFolderContentPolicy(admin, 'admins', new Request('http://test'))
       expect(await visibleTo(BH)).not.toContain(note)
@@ -1120,8 +1327,6 @@ describe.skipIf(!url)('the Papierkorb against live Postgres (migration 0115)', (
 
     beforeEach(async () => {
       await setting.saveDeletedFolderContentPolicy(admin, 'remove', new Request('http://test'))
-      // Even a BFF that somehow held Langfuse's keys must not call it: the
-      // deployment gives it neither the keys nor the network path.
       vi.stubEnv('LANGFUSE_HOST', 'http://langfuse.test')
       vi.stubEnv('LANGFUSE_PUBLIC_KEY', 'pk')
       vi.stubEnv('LANGFUSE_SECRET_KEY', 'sk') // pragma: allowlist secret (a stub Langfuse)
@@ -1132,6 +1337,21 @@ describe.skipIf(!url)('the Papierkorb against live Postgres (migration 0115)', (
     afterEach(() => {
       vi.unstubAllEnvs()
       vi.unstubAllGlobals()
+    })
+
+    it('hands the traces to the purger with its attempts started over, also when a person retried a row the purger gave up on', async () => {
+      message.cites = await insertAnswer('Laut Plan.pdf …', [{ collection: COLLECTION, file_name: 'Archiv.pdf' }])
+      await bin.moveFolderToBin(pl, { projectId, folderId: folder.plans })
+      await withPlatformAccess('test: the purger gave up', () =>
+        db.execute(sql`UPDATE deletion_queue SET status = 'failed', attempts = 10, claimed_at = now() - interval '2 hours'
+                       WHERE entity_type = 'folder' AND entity_id = ${folder.plans}`)
+      )
+
+      const result = await bin.purgeFolderFromBinNow(manager, { projectId, folderId: folder.plans }, new Request('http://test'))
+
+      expect(result.traceConversationIds).toEqual([CHAT])
+      expect((await queueRow(folder.plans))[0].status).toBe('pending')
+      expect(await claimable()).toContain(folder.plans)
     })
 
     it('deletes the notes, replaces the answers, marks the reports, records ids without content, and hands the traces to the purger', async () => {
@@ -1167,13 +1387,11 @@ describe.skipIf(!url)('the Papierkorb against live Postgres (migration 0115)', (
       const [other] = await inOrg(() => db.execute<{ content: string }>(sql`SELECT content FROM messages WHERE id = ${message.other}::uuid`))
       expect(other.content).toBe('Allgemein …')
       expect(langfuse).not.toHaveBeenCalled()
-      // A filed report stays, marked „Quelle gelöscht am …".
       const [kept] = await inOrg(() =>
         db.execute<{ metadata: Record<string, unknown> }>(sql`SELECT metadata FROM documents WHERE id = ${report}::uuid`)
       )
       expect(kept.metadata.sourceDeleted).toMatchObject({ folderId: folder.plans })
 
-      // The row is the purger's now, due at once, and the folder is gone from the Papierkorb.
       const [record] = await queueRow(folder.plans)
       expect(record.status).toBe('pending')
       expect(await claimable()).toContain(folder.plans)
@@ -1185,12 +1403,9 @@ describe.skipIf(!url)('the Papierkorb against live Postgres (migration 0115)', (
         reportIds: [report],
       })
       expect(record.payload.purged).toMatchObject({ tracesErased: 0, memoryNotes: 2 })
-      // The record holds no content: no answer text, no passage, no file name.
       const proof = JSON.stringify(record.payload)
       for (const content of ['Herr Muster', 'Plan.pdf', 'Archiv.pdf', 'aus dem Plan']) expect(proof).not.toContain(content)
 
-      // What the purger's own call is answered: done, with the counts, and the
-      // conversations whose traces it erases with its credentials.
       await expect(bin.purgeBinnedFolder(ORG, folder.plans)).resolves.toMatchObject({
         status: 'already-purged',
         counts: { documents: 2, memoryNotes: 2 },

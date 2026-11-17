@@ -1,17 +1,3 @@
-/**
- * What the CMS needs beyond its schema: the first administrator, the robots
- * whose API keys other systems hold, and the company's LinkedIn account. Run on
- * every start (`onInit` in payload.config.ts) and by `bun run provision`;
- * idempotent, and it never overwrites what a person changed, except a robot's
- * key, which the deployment owns and rotates.
- *
- *   CMS_ADMIN_EMAIL, CMS_ADMIN_PASSWORD  the first administrator, created only while there is no user
- *   CMS_WEBSITE_API_KEY                  the website's key (role `website`)
- *   CMS_SOCIAL_HANDOFF_API_KEY           the Buffer hand-off's key (role `social-handoff`)
- *   CMS_PLATFORM_MCP_API_KEY             the platform MCP gateway's MCP key, bound to an agent account
- *
- * A variable that is unset leaves its account as it is.
- */
 import { createHmac, randomBytes } from 'node:crypto';
 import type { Payload } from 'payload';
 import type { Role } from './access/roles';
@@ -23,7 +9,6 @@ export const ROBOTS: ReadonlyArray<{ email: string; name: string; role: Role; ke
   { email: 'social-handoff@robots.cms.invalid', name: 'Social hand-off', role: 'social-handoff', keyVariable: 'CMS_SOCIAL_HANDOFF_API_KEY' },
 ];
 
-/** Created when missing and never overwritten: Buffer's channel id is set in the admin panel once the page is connected. */
 export const SOCIAL_ACCOUNTS = [
   { key: DEFAULT_ACCOUNT_KEY, label: 'LinkedIn company page', network: 'linkedin' as const, maxLength: 3000, active: true },
 ];
@@ -47,7 +32,6 @@ async function ensureRobot(payload: Payload, robot: (typeof ROBOTS)[number], env
   const found = await payload.find({ collection: 'users', where: { email: { equals: robot.email } }, limit: 1 });
   const desired = { name: robot.name, role: robot.role, enableAPIKey: true, apiKey };
   const existing = found.docs[0];
-  // Payload keeps the key encrypted and finds it by this index (payload/dist/auth/strategies/apiKey.js).
   const index = createHmac('sha256', payload.secret).update(apiKey).digest('hex');
   const holdsKey = async (id: number) =>
     (await payload.count({ collection: 'users', where: { and: [{ id: { equals: id } }, { apiKeyIndex: { equals: index } }] } })).totalDocs === 1;
@@ -60,14 +44,8 @@ async function ensureRobot(payload: Payload, robot: (typeof ROBOTS)[number], env
   }
 }
 
-/**
- * The agent account behind the platform MCP gateway's `/cms/mcp` (ADR-0154):
- * platform staff's agents reach the CMS through the gateway, which presents
- * this one key. The account is an `agent`, so every write is a draft.
- */
 export const GATEWAY_AGENT = { email: 'platform-mcp@robots.cms.invalid', name: 'Platform MCP gateway', keyVariable: 'CMS_PLATFORM_MCP_API_KEY' };
 
-/** Every operation `MCP_OPTIONS` offers, switched on: the key may do what the server offers and the role allows. */
 export function gatewayKeyGrants(): Record<string, Record<string, boolean>> {
   const camel = (slug: string) => slug.replace(/[-_\s]+(.)?/g, (_, chr?: string) => (chr ? chr.toUpperCase() : ''));
   return Object.fromEntries(

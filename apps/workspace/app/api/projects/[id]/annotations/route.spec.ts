@@ -1,20 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * A project's Offene Punkte (`GET /api/projects/[id]/annotations`) and its
- * Protokoll (`…/export`), driven through the TYPED CLIENT and the real
- * handlers (ADR-0055).
- *
- * The project gate, the reader's folders and screening reader, the repository
- * and the document reader are mocked; under test are the rules between them:
- * the project gate comes first, the repository is asked with the reader's own
- * folders and screening reader (the SQL that uses them is proved against
- * Postgres in `project-repository.integration.spec.ts`), the filters reach it
- * as statuses, a Zuständige and a range of days on the office's calendar, a
- * page is bounded and its cursor is opaque and checked, and each row is a
- * document list's own view, with what this reader may do on THAT document.
- */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -141,7 +127,6 @@ let writable = new Set<string>([DOC_A])
 beforeEach(() => {
   vi.clearAllMocks()
   vi.useFakeTimers({ toFake: ['Date'] })
-  // 23:30 UTC on the 17th is already the 18th in Vienna: the office's day decides „überfällig".
   vi.setSystemTime(new Date('2026-10-17T23:30:00Z'))
   writable = new Set([DOC_A])
   vi.mocked(requireProjectAccess).mockResolvedValue({ role: 'project-viewer' } as Awaited<ReturnType<typeof requireProjectAccess>>)
@@ -242,7 +227,6 @@ describe('GET /api/projects/[id]/annotations', () => {
 
     const first = await listProjectAnnotations('proj_1', { assignee: 'me' }, { run })
     expect(first.restricted).toBe(true)
-    // The selection the page reads, asked over every page, against the folders not every member may read.
     expect(selectionReachesRestrictedDocuments).toHaveBeenCalledWith(
       'org_1',
       'proj_1',
@@ -253,7 +237,6 @@ describe('GET /api/projects/[id]/annotations', () => {
         restrictedFolderIds: ['folder_restricted'],
       })
     )
-    // A later page does not ask again.
     const later = await listProjectAnnotations('proj_1', { assignee: 'me' }, { run, cursor: first.nextCursor })
     expect(later.restricted).toBeUndefined()
     expect(selectionReachesRestrictedDocuments).toHaveBeenCalledTimes(1)
@@ -278,9 +261,7 @@ describe('GET /api/projects/[id]/annotations', () => {
     ])
     expect(marks[0]).toMatchObject({ assigneeName: 'Jakob Huber', dueOn: '2026-10-20', onCurrentRevision: true })
     expect(marks[1]).toMatchObject({ onCurrentRevision: false })
-    // What THIS reader may do is asked per document: Grundriss they may write, Schnitt only read.
     expect(marks.map((mark) => mark.canEdit)).toEqual([true, true, false])
-    // The directory is read once for the page, however many documents it holds.
     expect(loadOrganizationDirectory).toHaveBeenCalledTimes(1)
   })
 })

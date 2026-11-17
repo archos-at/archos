@@ -1,26 +1,5 @@
 'use client'
 
-/**
- * Dev preview for the mention pill and the person card behind it.
- *
- * The REAL `MentionText` inside a real `MentionPeopleProvider`, so the screenshot
- * is evidence about the shipping component and not about a mock. Four rows, each a
- * distinct decision:
- *
- *   1. a colleague — the quiet reference;
- *   2. YOU — the one mention that asks something of the reader, so it is filled ink;
- *   3. Piloti — the assistant, tinted between the two;
- *   4. someone no longer in the roster — deliberately NOT interactive, because a
- *      pill that opens an empty panel is worse than plain text.
- *
- * Plus the card itself, rendered open beside them: a popover cannot be captured in
- * a static screenshot, so `PersonPeek` is shown directly in the three shapes it
- * takes. What the pill opens and what is shown here is the same component.
- *
- * Not linked from anywhere; 404s outside development. Pinned to German — the
- * product's primary language — so the evidence carries the copy that ships.
- */
-
 import { notFound } from 'next/navigation'
 
 import { MentionText } from '@/features/collaboration/components/MentionText'

@@ -79,6 +79,7 @@ from agent.observability.langfuse_trace_attributes import record_trace_metadata
 from .answer_check import Answered
 from .answer_check import TurnCheck
 from .answer_check import check_answer
+from .answer_check import prose_without_references
 from .answer_shape import drop_restated_mindmaps
 from .dsml import strip_and_salvage_dsml_tool_calls
 from .markers import detect_and_strip_confidence_marker
@@ -89,18 +90,10 @@ from .quote_patch import select as select_quotes
 
 logger = logging.getLogger(__name__)
 
-#: The repair the agent injects (``quote_patch``, ADR-0067): ``(quote as
-#: written, the passage it came closest to)`` → the passage's own wording, or
-#: ``None`` to keep the marker. ``None`` as the function means the repair is off.
 RepairFn = QuotePatchFn
 
-#: The card repair the agent injects: ``(card as written, the refusal with the
-#: shape, the answer prose)`` → the corrected card object, or ``None`` to drop
-#: it. ``None`` as the function means a shape miss is dropped without a repair.
 CardRepairFn = Callable[[dict[str, Any], str, str], Awaitable[dict[str, Any] | None]]
 
-#: A ``[[card:N]]`` marker, with N captured: the envelope's own cards are
-#: addressed by these, and renumbered to their registry positions.
 _CARD_MARKER_NUMBER_RE = re.compile(r"\[\[card:(\d+)\]\]")
 
 
@@ -127,93 +120,20 @@ class FinalAnswer:
     quotes_verified: bool = True
     unverified_quote_count: int = 0
     escalation_requested: bool | None = None
-    #: The envelope said ``kind: "handoff"`` — the answer IS the hand-off and
-    #: nothing else. The prompt makes the two escalating shapes different:
-    #: an insufficiency escalation still writes its best partial answer, a
-    #: commissioned hand-off writes one sentence naming what will be researched.
-    #: Only the envelope can tell them apart; the prose cannot be matched on.
     answer_is_handoff: bool = False
     confidence_marker: str | None = None
     confidence_marker_reason: str | None = None
     escalation_reason: str | None = None
     source_lookup_attempted: bool = False
     answer_meta: dict[str, Any] | None = None
-    #: The envelope's ``skills_applied``: the inlined skills the model says it
-    #: followed. Names as written; the register hands them to the skill
-    #: runtime, which accepts only those whose body was in the prompt.
     skills_applied: tuple[str, ...] = ()
     cited: tuple[CitedSource, ...] = ()
     removed_citations: tuple[dict[str, Any], ...] = ()
-    #: One stamp per quote line of ``content``, in document order (``common/quote_stamps.py``).
     quote_stamps: tuple[dict[str, Any], ...] = ()
-    #: What the dialect validator repaired (``common/answer_dialect.py``), one entry per repair.
     dialect_repairs: tuple[dict[str, str], ...] = ()
-    #: What the answer check found (``common/claim_judge.py``, ADR-0139),
-    #: wire-ready: ``{"status": "judged", "level", "findings"}`` or
-    #: ``{"status": "unavailable"}``. None when the answer graded nothing.
     confidence_check: dict[str, Any] | None = None
-    #: A lookup ran and retrieved nothing, and the answer ships anyway, every
-    #: sentence labelled as the model's own knowledge (a ruling is refused instead).
+    open_points: tuple[str, ...] = ()
     lookup_found_nothing: bool = False
-
-
-# --------------------------------------------------------------------------
-# Text helpers
-# --------------------------------------------------------------------------
-
-#: A trailing reference list, in the headings this agent and the models it runs
-#: actually produce.
-_REFERENCES_SECTION_RE = re.compile(
-    r"\n\s*(?:\*\*(?:References|Sources|Quellen):?\*\*|#{2,3}\s+(?:References|Sources|Quellen))\s*(?:\n|$)",
-    re.IGNORECASE,
-)
-
-#: What a reference list is allowed to consist of: a blank line, or a line that
-#: carries an actual REFERENCE, a URL or a „[n]" citation marker. List
-#: punctuation is not enough and never was: „- " is available to any sentence,
-#: so accepting it let „- Damit ist der Raum unzulässig …" under a
-#: „**Quellen:**" heading count as a bibliography entry and leave the text
-#: before the brake ever read it.
-_REFERENCE_LINE_RE = re.compile(r"^\s*$|\[\d+\]|<?https?://")
-
-
-def prose_without_references(content: str) -> str:
-    """The answer's own sentences, with any trailing reference list removed.
-
-    The normative brake and the per-sentence stamps judge what the ANSWER
-    asserts, and a bibliography asserts nothing: a source line names the
-    instrument the brake's strong tier matches, so leaving it in floored
-    purely descriptive answers to "low" under a reason that was not true of a
-    single sentence the model wrote.
-
-    Only a genuinely TRAILING list is cut: a heading is a cut point only when
-    every line after it points at a source (a URL or a „[n]" marker) or is
-    blank; otherwise the search moves to the previous heading, and failing
-    that nothing is removed. Erring towards keeping text is the safe
-    direction: a reference line that survives costs a hedge, a verdict that
-    is dropped costs a claim about the law.
-
-    Known gap, left open deliberately: ANY tail line carrying a URL or a „[n]"
-    marker is cut, so a verdict smuggled into an all-references tail with a
-    marker on it („- Damit ist der Raum unzulässig [1]") is cut too. Keeping
-    the lines the normative brake fires on was measured and is inverted: a
-    compliance bibliography is a list of exactly the instrument names the
-    brake's strong tier matches (11 of 14 genuine entries fire). A real
-    finite-verb test needs a POS
-    tagger; a heuristic that cuts the wrong way is worse than the gap.
-    """
-    if not isinstance(content, str):
-        return ""
-    for match in reversed(list(_REFERENCES_SECTION_RE.finditer(content))):
-        tail = content[match.end() :]
-        if all(_REFERENCE_LINE_RE.search(line) for line in tail.splitlines()):
-            return content[: match.start()]
-    return content
-
-
-# --------------------------------------------------------------------------
-# Stages
-# --------------------------------------------------------------------------
 
 
 def answer_index(messages: Sequence[Any]) -> int | None:
@@ -395,9 +315,6 @@ async def _register_envelope_cards(
         logger.info("answer envelope carried %d card(s) with no card registry bound; dropped", len(raw))
         return content
     handed = _handed_markers(messages)
-    # Repairs run side by side: each is bounded by the card model's timeout,
-    # and in series three malformed cards would hold a final answer for three
-    # of them. Registration stays in array order.
     checked = await asyncio.gather(
         *(_checked_envelope_card(payload, index, content, card_repair) for index, payload in enumerate(raw))
     )
@@ -405,7 +322,6 @@ async def _register_envelope_cards(
     fallbacks: dict[int, str] = {}
     for index, validated in enumerate(checked):
         if validated is None:
-            # A retired type's content is laid out as Markdown rather than lost (guardrail 8).
             markdown = retired_card_markdown(raw[index])
             if markdown:
                 fallbacks[index + 1] = markdown
@@ -433,9 +349,6 @@ async def _checked_envelope_card(
 
     validated, refusal = validate_model_card(payload)
     card_type = refusal.card_type if refusal is not None else str(validated["type"])
-    # Only a SHAPE miss is repairable: a system or retired type is refused
-    # whatever its fields (a retired one is laid out as Markdown by the
-    # caller), and a non-object has no fields to fix.
     if validated is None and refusal is not None and refusal.kind == REFUSED_SHAPE and card_repair is not None:
         repaired = await card_repair(payload, refusal.for_repair(), content)
         if repaired is not None:
@@ -447,9 +360,6 @@ async def _checked_envelope_card(
         emit_card_invalid(card_type=card_type, index=index, outcome=CARD_INVALID_DROPPED)
         emit_scores([card_validity_score(outcome="dropped", card_type=card_type, index=index)], writer="piloti")
         return None
-    # A computing card that stated what it computes (a `result`, a formula's
-    # `limits`) validates, because validation drops unknown fields. Counted, so
-    # a model that keeps stating results is seen rather than silently corrected.
     stated = stated_result_fields(payload)
     if stated:
         logger.info("envelope card %d (%s): %d stated result field(s) removed", index, card_type, stated)
@@ -485,15 +395,6 @@ def _source_lookup_attempted(messages: Sequence[Any]) -> bool:
     )
 
 
-#: Data-source tools whose result is a record the BFF holds, not a passage
-#: search. `project_lookup` lists the office's projects, reads one project's
-#: brief, and reports a search over N projects that matched nothing: each is an
-#: answer in its own right („Eine Tiefgarage mit über 100 Stellplätzen hatten
-#: wir noch nicht"), and none need register a passage (a brief registers its
-#: facts as one source when it has any, a listing never does). Counting them as a failed
-#: retrieval replaced exactly the honest „nichts Vergleichbares" the feature
-#: promises with „versuchen Sie es noch einmal" (precedent eval, Oct 2026).
-#: Its passages, when it finds some, are cited like any other.
 RECORD_TOOLS = frozenset({"project_lookup"})
 
 
@@ -536,9 +437,6 @@ def _verify(
     ``with_nearest`` asks for each misquote's nearest cited passage, a search
     over every cited page that only a patch about to run reads.
     """
-    # Removed, never labelled (ADR-0125, amended 2026-11-10). The locus beside a marker is held to the
-    # passage it resolves to, and a source list the answer did not write is THIS turn's passages by
-    # content (``unlisted_citations``).
     verification = verify_citations(
         content, registry, reference_sources=numbering, drop_unresolved=True, check_locus=True
     )
@@ -565,8 +463,6 @@ async def _verify_with_quote_patch(
     card number and every other byte the reader has read stays put. What ships
     is re-verified, so an unpatched quote still carries its marker.
     """
-    # Off the loop: the quote check reads every cited passage, and the worker's
-    # one event loop serves every other turn meanwhile (the settle does the same).
     verified = await asyncio.to_thread(
         partial(_verify, with_nearest=patch is not None, numbering=numbering), content, registry
     )
@@ -575,15 +471,11 @@ async def _verify_with_quote_patch(
     candidates = select_quotes(verified.unverified_quotes)
     if not candidates:
         return verified
-    # Announced only for a quote it will try: an unattributed quote keeps its
-    # marker and is not "being corrected".
     emit_answer_repair(quotes=len(candidates))
     patched, count = await patch_quotes(verified.content, candidates, patch)
     emit_scores(quote_patch_scores(count), writer="piloti")
     if not count:
         return verified
-    # The second pass verifies text the first already stripped, so it sees none
-    # of the citations the first removed: carry them, or the ledger loses them.
     shipped = await asyncio.to_thread(partial(_verify, numbering=numbering), patched, registry)
     removed = [*verified.verification.removed_citations, *shipped.verification.removed_citations]
     return replace(shipped, verification=replace(shipped.verification, removed_citations=removed))
@@ -641,7 +533,6 @@ def _ground(verified: _Verified, registry: SourceRegistry) -> _Grounding:
     """
     content = verified.content
     if verified.unverified_quotes:
-        # Never a marker in the prose: the quote gate caps the answer's confidence instead (``markers._quote_cap``).
         logger.info(
             "Piloti: %d quoted span(s) not verbatim in any retrieved passage; confidence capped",
             len(verified.unverified_quotes),
@@ -652,8 +543,6 @@ def _ground(verified: _Verified, registry: SourceRegistry) -> _Grounding:
     }
     if verified.verification.valid_citations:
         cited = _cited_sources(verified.verification.valid_citations, registry)
-        # A place a look read is a citation and no grounding: only a retrieved
-        # passage lets an uncited legal sentence beside it count as supported.
         grounded = not cited or any(not is_look_place(source.entry) for source in cited)
         return _Grounding(content, citation_grounded=grounded, cited=cited, **common)
     return _Grounding(content, **common)
@@ -684,11 +573,6 @@ def _require_retrieval(lookup_attempted: bool, tools: Sequence[BaseTool], *, rul
     _, available_count, unavailable = validate_tool_availability(
         list(tools), research_type="research", enable_logging=False
     )
-    # Recorded before it becomes an error the user sees, so it lands on the
-    # platform dashboard beside the softer defects instead of only in the logs.
-    # ``agent="shallow"`` is the persisted `citation_events.agent` enum value
-    # (`shallow` | `deep`), not a name for this agent — the column and every row
-    # already written carry it, so the rename deliberately leaves it alone.
     citation_events.record_empty_registry(
         agent="shallow", unavailable_tools=unavailable, available_count=available_count
     )
@@ -749,20 +633,10 @@ def settle_streamed_citations(
     if not sources_text.strip() or not registry.all_sources():
         return None
     verified = _verify(prose.rstrip() + "\n\n" + sources_text.strip(), registry)
-    # A quote no retrieved passage holds is marked HERE, as the terminal frame
-    # marks it: settled without the check, it read as a real quotation until
-    # the terminal frame, seconds later, and the text changed under the reader
-    # when the marker arrived.
     grounding = _ground(verified, registry)
-    # The dialect held as the terminal holds it, so a block unwrapped there is
-    # not drawn here first.
     sanitized = sanitize_report(validate_dialect(grounding.content, kind).text)
-    # And the shape pass the terminal runs next: a mindmap that only redraws a
-    # table in the answer goes here, where it went seconds later before.
     content, _ = drop_restated_mindmaps(sanitized.sanitized_report)
     cited = _renumbered(grounding.cited, sanitized.renumber_map)
-    # The written source list travels WITH the prose, as it does in the
-    # terminal frame: the reader resolves a marker against that list.
     return SettledStream(
         content=content.rstrip(),
         sources=wire_sources(cited),
@@ -831,8 +705,6 @@ class LiveAnswer:
             prose_chars=len(prose),
             prose=prose,
             agent_authored_documents=agent_authored_document_names(self._registry),
-            # Provisional: gated again as it settles and once more by
-            # ``finalize_answer``, which records the drops.
             record=False,
         )
         if gated is None:
@@ -959,23 +831,8 @@ def _gated_meta(
     return reported
 
 
-#: Short-overview card floor. Below this a non-ruling answer without a
-#: copyable verdict has not earned cards: the prose IS the answer and a card
-#: under it is a trailer on a one-screen reply. It was 800 while a card cost
-#: a full-context LLM round (the describe_card + emit_card generations, ~2 s
-#: in the production trace) — a cost worth refusing on a short answer. Cards
-#: travel in the answer envelope now (``cards/envelope.py``) and cost no
-#: round, so what remains of the argument is the degenerate case: a
-#: two-sentence reply with a checklist hung under it. 400 characters is
-#: about three sentences, the length at which the prompt starts owing a
-#: `summary`; below the takeaway floor (600) on purpose, because a short
-#: answer with one table is richer than the same answer without it, and a
-#: table is not a takeaway list. Mechanical only — the prompt doctrine that
-#: teaches WHEN to emit is untouched.
 _CARD_SUPPRESS_MIN_PROSE_CHARS = 400
 
-#: The marker emit_card hands back (``[[card:N]]``); stripped when cards are
-#: suppressed so the reader never meets a marker with nothing behind it.
 _CARD_MARKER_RE = re.compile(r"\[\[card:\d+\]\]")
 
 
@@ -1011,11 +868,10 @@ def _suppress_cards(content: str, gated_meta: dict[str, Any] | None) -> tuple[st
     """Drop unearned cards on a short overview; ``(content, meta, suppressed)``.
 
     Clears the turn's card registry, the cards tools registered this turn
-    (fail-open when unbound), and strips
-    ``[[card:N]]`` markers so no dangling marker reaches the reader. Logs the
-    drop: a turn that came back with no cards must read as "suppressed", never
-    as "the model never tried". Mechanical — no prompt wording, no doctrine
-    change.
+    (fail-open when unbound), and strips ``[[card:N]]`` markers so no dangling
+    marker reaches the reader. Logs the drop: a turn that came back with no cards
+    must read as "suppressed", never as "the model never tried". Mechanical — no
+    prompt wording, no doctrine change.
 
     The drop is SPLIT: cards go, but the gated trailer goes only when it was
     never earned. At or above the takeaway floor the takeaways stay (with the
@@ -1023,27 +879,26 @@ def _suppress_cards(content: str, gated_meta: dict[str, Any] | None) -> tuple[st
     a warning or Frist the reader must see whatever the prose length — and to
     nothing when there is no callout either.
 
-    One veto, read off the registry snapshot before anything is cleared.
-    System cards are the product, not the trailer: ``document_draft``
-    (and every other ``SYSTEM_CARD_TYPES`` member) is pushed by the tool that
-    did the work, and a short drafting answer (kind=direct, <400 chars, no
-    verdict) matches the suppression floor exactly. Clearing the registry
-    there would eat the announcement of the work just done, so any system
-    card in the registry vetoes the whole suppression — cards, markers and
-    meta all stay. The answer's proof needs no veto: the Fundstelle the verdict
-    rests on is a cited blockquote in the prose (the retired ``legal_basis``
-    card's content), and suppression never touches the prose.
+    One veto, read off the registry snapshot before anything is cleared: any
+    ``FLOOR_EXEMPT_CARD_TYPES`` card keeps the cards, the markers and the meta,
+    and a ``surface`` counts by the leaves it holds (``is_floor_exempt``).
+    A tool's card is the product, not the trailer: a short drafting answer
+    (kind=direct, <400 chars, no verdict) matches the floor exactly, and
+    clearing it would eat the announcement of the work just done. A card that
+    shows the model is the answer to "zeig mir": clearing it left "im Modell
+    markiert" with nothing on screen, or "Wählen Sie das Modell aus" with no
+    tiles. The answer's proof needs no veto: the Fundstelle the verdict rests
+    on is a cited blockquote in the prose (the retired ``legal_basis`` card's
+    content), and suppression never touches the prose.
     """
     if not _should_suppress_meta_cards(content, gated_meta):
         return content, gated_meta, False
     try:
-        from agent.cards.catalog import SYSTEM_CARD_TYPES
+        from agent.cards.envelope import is_floor_exempt
         from agent.cards.registry import get_card_registry as _get_registry_for_guard
 
         _guard_registry = _get_registry_for_guard()
-        if _guard_registry is not None and any(
-            card.get("type") in SYSTEM_CARD_TYPES for card in _guard_registry.snapshot()
-        ):
+        if _guard_registry is not None and any(is_floor_exempt(card) for card in _guard_registry.snapshot()):
             logger.info("Piloti: answer cards suppressed: veto card present, keeping cards and meta")
             return content, gated_meta, False
     except Exception:
@@ -1068,23 +923,12 @@ def _suppress_cards(content: str, gated_meta: dict[str, Any] | None) -> tuple[st
         logger.debug("Card registry suppression skipped", exc_info=True)
     try:
         stripped = _CARD_MARKER_RE.sub("", content)
-        # A dropped own-line marker leaves a blank paragraph that reads as a
-        # rendering fault; collapse three-plus newlines to two.
         stripped = re.sub(r"\n{3,}", "\n\n", stripped).strip()
-        # Never fall back to the marker text: an answer whose prose was only
-        # markers has nothing left to say, and a `[[card:N]]` with no card
-        # behind it reaches the reader as that literal string.
         content = stripped
     except Exception:
         pass
     if prose_chars >= TAKEAWAYS_MIN_PROSE_CHARS:
-        # The takeaway window: the cards were unearned, but the takeaways were
-        # earned by length — keep the whole gated trailer.
         return content, gated_meta, True
-    # Below the takeaway floor the trailer shrinks to the callout alone. The
-    # ``[[callout]]`` marker resolves downstream against exactly this field
-    # (``resolve_callout_marker``), so returning ``None`` here would drop the
-    # marker with it and silence a warning the gates deliberately kept.
     kept = {key: value for key, value in (gated_meta or {}).items() if key in ("v", "callout")}
     return content, (kept if "callout" in kept else None), True
 
@@ -1135,19 +979,12 @@ async def finalize_answer(
     if index is None or not messages[index].content:
         return FinalAnswer(messages=list(messages), answered=False)
     extracted = _extract(content_to_text(messages[index].content))
-    # The envelope's cards, before verification: registration is what turns
-    # the array's numbers into registry positions, and the markers have to be
-    # the reader's before the suppression floor and the callout resolver read
-    # the prose.
     turn = this_turn(messages)
     with_cards = await _register_envelope_cards(extracted.meta, extracted.content, turn, card_repair)
     if with_cards != extracted.content:
         extracted = replace(extracted, content=with_cards)
-    lookup_attempted = _source_lookup_attempted(turn)
     sources = registry.all_sources()
     found_nothing = False
-    # A place a look registered is a source to cite, not a retrieval: a turn that
-    # only looked and found no passage still reports the failed lookup.
     if not any(not is_look_place(source) for source in sources):
         ruling = extracted.meta is not None and extracted.meta.kind == "ruling"
         found_nothing = _require_retrieval(_passage_lookup_attempted(turn), tools, ruling=ruling)
@@ -1156,7 +993,6 @@ async def finalize_answer(
         numbering = writer_numbering(extracted.content, turn)
         verified = await _verify_with_quote_patch(extracted.content, registry, repair, numbering)
     else:
-        # Nothing to resolve against: every [N] the model wrote is labelled.
         verified = _verify(extracted.content, registry)
     grounding = _ground(verified, registry)
 
@@ -1172,8 +1008,6 @@ async def finalize_answer(
         turn_sources=_trailer_captures(turn_sources),
         filed_proposals=filed_proposal_ids(turn),
     )
-    # The looks the answer relies on become `look` cards (ADR-0128), taken before
-    # the suppression can clear them and placed after it: they are evidence, not trailer.
     from agent.tools.look.cards import place_look_cards
     from agent.tools.look.cards import relied_readings
     from agent.tools.look.cards import take_looks
@@ -1183,14 +1017,12 @@ async def finalize_answer(
     content, meta, _cards_suppressed = _suppress_cards(content, meta)
     place_look_cards(looks, cited)
     content = resolve_callout_marker(content, has_callout=bool(meta and "callout" in meta))
-    # Stamped on the text the reader gets, with the [N] it shows. Off the loop,
-    # like the quote check it repeats: each line reads the registry's passages.
     pairs = [(source.entry, source.number) for source in cited if not is_look_place(source.entry)]
     stamps = await asyncio.to_thread(stamp_quote_lines, content, pairs, registry.all_sources())
     _emit_answer_scores(looks, looks_made, content, cited, readings := relied_readings(looks, cited), grounding)
     seen, quotes = [*_trailer_captures(turn_sources), *sources], grounding.unverified_quotes
     answered = Answered(messages, content, cited, seen, stamps, quotes, turn, measured_values, readings)
-    checked = await check_answer(answered, check) if extracted.confidence is not None else None
+    checked, open_points = await check_answer(answered, check, extracted.confidence, extracted.confidence_reason)
     final_messages = list(messages)
     final_messages[index] = messages[index].model_copy(update={"content": content})
     return FinalAnswer(
@@ -1205,7 +1037,7 @@ async def finalize_answer(
         confidence_marker=extracted.confidence,
         confidence_marker_reason=extracted.confidence_reason,
         escalation_reason=extracted.escalation_reason,
-        source_lookup_attempted=lookup_attempted,
+        source_lookup_attempted=_source_lookup_attempted(turn),
         answer_meta=meta,
         skills_applied=_skills_applied(extracted.meta),
         cited=cited,
@@ -1213,6 +1045,7 @@ async def finalize_answer(
         quote_stamps=tuple(stamps),
         dialect_repairs=tuple(dialect.repairs),
         confidence_check=checked,
+        open_points=open_points,
         lookup_found_nothing=found_nothing,
     )
 

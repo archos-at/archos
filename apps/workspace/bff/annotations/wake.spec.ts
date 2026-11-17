@@ -1,13 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * When an event on an Anmerkung wakes Piloti, and what enqueuing it writes
- * (ADR-0106): the closed rule list, the caps, and the one wake per event. The
- * queue and the wake record are mocked here; that the two commit or roll back
- * with the reply is held against a real database in
- * `repository.integration.spec.ts`.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -126,7 +119,6 @@ describe('enqueueWake', () => {
     })
     expect(insertWake).toHaveBeenCalledWith(TX, expect.objectContaining({ status: 'suppressed', reason: 'cap:mark-hour' }))
     expect(enqueueJob).not.toHaveBeenCalled()
-    // The window is the last hour, counted in the same transaction.
     expect(countWakes).toHaveBeenCalledWith(
       TX,
       expect.objectContaining({ annotationId: EVENT.annotationId, since: new Date('2026-10-13T09:00:00Z') })

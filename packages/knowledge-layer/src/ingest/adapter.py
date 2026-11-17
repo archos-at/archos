@@ -29,6 +29,7 @@ import base64
 import contextlib
 import dataclasses
 import hashlib
+import itertools
 import json
 import logging
 import os
@@ -82,6 +83,9 @@ from . import revisions
 from . import row_facts
 from .chunk_metadata import provenance_from_config
 from .chunk_metadata import stamp_chunk_metadata
+from .chunking_choice import is_released_text as _released
+from .chunking_choice import text_documents_for_pages
+from .chunking_choice import text_documents_for_pages as _chunk
 from .measures import INGEST_TRACE_NAME  # noqa: F401 - re-exported, the trace's name
 from .measures import file_trace as _file_trace
 from .measures import finish_file as _finish_file_trace
@@ -112,174 +116,50 @@ from .vision_calls import _vlm_client
 logger = logging.getLogger(__name__)
 
 
-# Default VLM model for image captioning: the house model every deployment
-# already holds a key for, so captioning needs no second credential. It takes
-# image input (verified on OpenRouter); caption quality on OIB tables and
-# drawings is still unevaluated, like its predecessor's was.
 DEFAULT_VLM_MODEL = os.environ.get("VLM_MODEL", "openai/gpt-6-luna")
-# Default VLM model base URL
 DEFAULT_VLM_BASE_URL = os.environ.get("VLM_BASE_URL", "https://openrouter.ai/api/v1")
 
 
-# Image extraction settings - filters out small icons/logos
 MIN_IMAGE_WIDTH_PX = 100
 MIN_IMAGE_HEIGHT_PX = 100
 
-# @environment_variable MAX_IMAGES_PER_DOCUMENT
-# @category Knowledge Layer
-# @type int
-# @default 64
-# @required false
-# Most embedded rasters per PDF sent to the VLM. Each one is a paid call, and a
-# photo catalogue or a scanned folder can hold hundreds. 64 is the BFF's
-# `MAX_STORED_IMAGES_PER_DOCUMENT` (apps/workspace/bff/s3.ts), so every raster
-# that is analysed can also be stored for `look`. The largest
-# are kept (see `cap_images`); the count left out is recorded on the file's
-# job status as `images_over_cap`. 0 analyses none.
 MAX_IMAGES_PER_DOCUMENT = env_int("MAX_IMAGES_PER_DOCUMENT", 64, minimum=0)
 
-# @environment_variable MAX_IMAGE_PIXELS
-# @category Knowledge Layer
-# @type int
-# @default 268435456
-# @required false
-# Refuse an embedded raster larger than this many pixels, decided from its
-# metadata before a single bitmap is allocated. pypdfium2 offers no
-# reduced-scale decode for an embedded image (`PdfImage.get_bitmap()` takes no
-# scale argument), so `width x height` from the image metadata is the only thing
-# that can stand between a pathological raster and the allocation it would make;
-# a PDFium bitmap is about 4 bytes a pixel, so one decode peaks near
-# `MAX_IMAGE_PIXELS * 4` bytes (1 GiB at the default). The default,
-# 268 435 456 px (256 MP, 2^28), admits every realistic architectural scan and
-# refuses only the pathological:
-#   A0 (841x1189 mm = 33.1x46.8 in) at 300 dpi = 9933x14043  = 139.5 MP  kept
-#   A0 at 400 dpi                             = 13244x18724 = 248.0 MP  kept
-#   A1 at 300 dpi                             = 7016x9933  =  69.7 MP  kept
-#   A2 at 600 dpi                             = 9921x14031 = 139.2 MP  kept
-#   A3 at 600 dpi                             = 7016x9921  =  69.6 MP  kept
-#   A4 at 300 dpi                             = 2480x3508  =   8.7 MP  kept
-#   A0 at 600 dpi                             = 19866x28087 = 558.0 MP  refused
-#   a 20000x20000 px raster (as in the OOM report) =  400.0 MP          refused
-# A raster refused here is counted on the file's job status as
-# `images_over_pixel_budget` and logged with its page, index and pixel size; its
-# page keeps its text layer. 0 refuses every embedded raster.
 MAX_IMAGE_PIXELS = env_int("MAX_IMAGE_PIXELS", 268_435_456, minimum=0)
 
-# Cap on the longest edge (px) of an image before it is JPEG-re-encoded and sent
-# to the VLM. Larger images are downscaled (aspect preserved, never upscaled) to
-# bound the VLM payload/token cost; smaller images pass through untouched. The
-# ORIGINAL dimensions are still recorded in the Document metadata.
 VLM_MAX_IMAGE_DIM = 1568
 
-# ---------------------------------------------------------------------------
-# Visual-page rendering (vector/scanned drawing capture).
-#
-# Text extraction (pdfplumber) and embedded-image extraction (pypdfium2 image
-# XObjects) BOTH miss vector-drawn CAD/architectural pages: the drawing is
-# thousands of path objects, not a raster image, and carries almost no
-# extractable text (often just a watermark). Such a page is rasterised in full
-# — every path, fill and label composited into one bitmap — and handed to the
-# VLM so the drawing's content, spatial relationships and scale are captured.
-# Detection + rendering is gated so ordinary text PDFs (the bulk OIB corpus)
-# are untouched and cost nothing extra.
-# ---------------------------------------------------------------------------
 
-# @environment_variable RENDER_VISUAL_PAGES
-# @category Knowledge Layer
-# @type bool
-# @default true
-# @required false
-# Render drawing pages (text-sparse AND vector-heavy, `page_triage`) to images
-# and analyse them with the drawing schema. Effective only when a VLM key
-# resolves. It does not govern transcription: scanned and garbled pages are
-# rendered and transcribed whatever this says, and MAX_OCR_PAGES=0 is the
-# switch that stops that.
 RENDER_VISUAL_PAGES = os.environ.get("RENDER_VISUAL_PAGES", "true").lower() == "true"
 
-# Long-edge target (px) for a full-page render before it is sent to the VLM.
-# ~2048px keeps linework, room labels and scale bars legible while staying at
-# or below the vision-encoder caps of current VLMs (above this the provider
-# just downsamples). Scale is computed per page from its point size so an A0
-# sheet and an A4 sheet both land near this target.
 PAGE_RENDER_MAX_DIM = env_int("PAGE_RENDER_MAX_DIM", 2048)
 
-# Page triage (`page_triage.classify_page`). A page with less watermark-stripped
-# text than this is "text-low": a scan when a raster covers most of it...
 VISUAL_PAGE_MIN_TEXT_CHARS = env_int("VISUAL_PAGE_MIN_TEXT_CHARS", 200, minimum=0)
-# ...a drawing when it also carries at least this many vector path objects (a
-# plan/section/elevation is typically hundreds-to-tens-of-thousands of paths).
-# Both, not either: a table-ruled text page has hundreds of cell borders.
 VISUAL_PAGE_MIN_PATHS = env_int("VISUAL_PAGE_MIN_PATHS", 300, minimum=0)
-# Hard cap on DRAWING pages rendered for the drawing analysis per document, to
-# bound VLM cost/latency on large plan sets. Pages past it are counted on the
-# file's job status (`drawing_pages_over_cap`); their text layer is still
-# indexed. Scanned pages are not drawings and are not under this cap.
 MAX_RENDERED_PAGES = env_int("MAX_RENDERED_PAGES", 20, minimum=0)
 
-# @environment_variable MAX_OCR_PAGES
-# @category Knowledge Layer
-# @type int
-# @default 500
-# @required false
-# Most scanned or garbled PDF pages transcribed by the vision model per
-# document. A page costs about $0.0007 with the default model. Pages past it
-# are counted on the file's job status (`pages_over_ocr_cap`), never dropped
-# quietly. 0 transcribes none: the OCR switch, independent of
-# RENDER_VISUAL_PAGES.
 MAX_OCR_PAGES = env_int("MAX_OCR_PAGES", 500, minimum=0)
 
 
-# pypdfium2 page-object type constants (the C API values are not always exposed
-# as Python attributes across versions).
 _PAGEOBJ_TEXT = 1
 _PAGEOBJ_PATH = 2
 _PAGEOBJ_IMAGE = 3
 
-# @environment_variable COLLECTION_TTL_HOURS
-# @category Knowledge Layer
-# @type float
-# @default 24
-# @required false
-# Hours before stale collections are deleted by the TTL cleanup thread.
 COLLECTION_TTL_HOURS = env_float("COLLECTION_TTL_HOURS", 24.0)
 
-# @environment_variable TTL_CLEANUP_INTERVAL_SECONDS
-# @category Knowledge Layer
-# @type int
-# @default 3600
-# @required false
-# Seconds between TTL cleanup runs.
 TTL_CLEANUP_INTERVAL_SECONDS = env_int("TTL_CLEANUP_INTERVAL_SECONDS", 3600)
 
-# Terminal jobs are retained this long for status polling/file listings, then
-# pruned so in-memory job tracking doesn't grow for the life of the process.
 JOB_RETENTION_SECONDS = 3600  # 1 hour
 
-# How long an ingest waits for a Bescheid's permit record (one structured model
-# call over the document, then the BFF embeds its requirements). Past it the
-# record is skipped, never the file.
 PERMIT_RECORD_TIMEOUT_SECONDS = 90
-#: How long storing a version's page text may take (two presigns, two PUTs).
 PAGE_TEXT_TIMEOUT_SECONDS = 30
 
 
-#: How long the document's dossier may take (``agent.knowledge.dossier``). It runs
-#: beside the summary, the tags and the topics, after the vision batch, and writes a
-#: JSON object where they write a line: about twice the summary's 30 s.
 DOSSIER_TIMEOUT_SECONDS = 60
-#: Dropping a record is one internal call, no model: it must never hold up an ingest.
 PERMIT_RECORD_DROP_TIMEOUT_SECONDS = 5
-#: The bound on one file's Fassung step (a suggestion for a new name, a change line for a re-upload).
 REVISION_TIMEOUT_SECONDS = 45
 
-# The per-file error of an attempt whose document was deleted while it indexed
-# (see `document_presence`). FAILED rather than SUCCESS so the end-of-job
-# summary reconciliation, which backfills a row for every successful file,
-# never writes one for a document that no longer exists.
 DOCUMENT_DELETED_DURING_INGEST = "document_deleted: the document was deleted while it was being ingested"
-#: The job carries the office's screening policy but it cannot be applied
-#: (``content_screen.screening_config_unusable``): the file is not read at all,
-#: so nothing of it reaches a model unchecked (ADR-0086, fail closed).
 SCREENING_UNAVAILABLE = (
     "screening_unavailable: the screening policy in this job could not be applied; nothing of the file was read"
 )
@@ -289,30 +169,11 @@ class _ClaimLost(Exception):  # noqa: N818 - a signal, not an error
     """The job's run was stopped (cancelled, or out of time); this run must write nothing more."""
 
 
-# A finished job's row in the shared status store is retained this long, then
-# pruned (`ingest_status_store.prune_expired`, on the heartbeat). It is the only
-# record of a file that failed, so the file drops off the listing with it.
-# SUCCESS files stay listed: `list_files` reads them from the indexed chunks.
-# Bounds the `ingest_jobs` table (scaling review phase-2, #13).
 FILE_TRACKING_RETENTION_SECONDS = env_int("FILE_TRACKING_RETENTION_SECONDS", 86400)  # 24h
 
-# The heartbeat prunes expired job rows every this many beats (hourly).
 _PRUNE_EVERY_BEATS = 120
 
-# Document summarization + tag-classification input limits live in the shared
-# agent.knowledge.document_classification module (CLASSIFY_MAX_INPUT_CHARS).
 
-
-# ---------------------------------------------------------------------------
-# Collection write versions (cross-replica).
-#
-# The premise the in-process counter rested on -- "one backend process owns the
-# store" -- is false: every backend replica and every research worker reads ONE
-# Qdrant cluster (QDRANT_URL). A version held in a module global is invisible
-# to every replica but its own, so a write here would leave the others serving
-# superseded results for the whole result-cache TTL. The version now lives in
-# the shared cache; these two functions are the adapter's seam onto it.
-# ---------------------------------------------------------------------------
 def bump_collection_version(collection_name: str) -> None:
     """Record a write so every replica's cached results for this collection stop matching."""
     from agent.knowledge import collection_version as _collection_version
@@ -400,13 +261,6 @@ def _get_vlm_api_key() -> str:
     return resolve_vlm_api_key()
 
 
-# =============================================================================
-# Multimodal Extraction Utilities
-# =============================================================================
-
-
-# PDFium C API constant: FPDF_PAGEOBJ_IMAGE = 3
-# Not always exposed as a Python attribute in pypdfium2 v5
 _PAGEOBJ_IMAGE = 3
 
 
@@ -547,7 +401,6 @@ def _image_candidates(
                 except Exception as e:
                     logger.debug(f"Could not size image {img_idx} on page {page_num}: {e}")
                     continue
-                # Filter small images (likely icons/logos)
                 if width < min_width or height < min_height:
                     continue
                 pixels = width * height
@@ -660,7 +513,6 @@ def _downscaled_raster(obj: Any) -> Any:
         size = image.size
         image.thumbnail((VLM_MAX_IMAGE_DIM, VLM_MAX_IMAGE_DIM))
         if image.size == size:
-            # thumbnail() left the view in place; detach it from the bitmap buffer
             image = image.copy()
         return image
     finally:
@@ -674,7 +526,6 @@ def _rss_mib() -> float | None:
             resident_pages = int(statm.read().split()[1])
         page_size = os.sysconf("SC_PAGE_SIZE")
     except OSError, ValueError, IndexError, AttributeError:
-        # Not Linux (no procfs, no os.sysconf): the line is simply not emitted.
         return None
     return resident_pages * page_size / (1024 * 1024)
 
@@ -718,10 +569,6 @@ def _raster_record(
     """One extracted raster as a JPEG record, or None when an identical one was already kept."""
     import io
 
-    # Downscale the longest edge to VLM_MAX_IMAGE_DIM before re-encoding
-    # (aspect preserved, never upscaled) to bound the VLM payload. thumbnail()
-    # is a no-op when already within bounds. Metadata still records the
-    # ORIGINAL size.
     pil_image.thumbnail((VLM_MAX_IMAGE_DIM, VLM_MAX_IMAGE_DIM))
     buf = io.BytesIO()
     pil_image.save(buf, format="JPEG", quality=95)
@@ -916,8 +763,6 @@ def _page_tables(page: Any, page_num: int, skip: list[tuple]) -> list[dict[str, 
             tables.append(
                 {
                     "table_text": markdown,
-                    # The raw rows, for the header-repeating row groups
-                    # ``uncaptioned_table_documents`` indexes.
                     "cells": table,
                     "page_number": page_num + 1,
                     "table_index": table_idx,
@@ -928,14 +773,6 @@ def _page_tables(page: Any, page_num: int, skip: list[tuple]) -> list[dict[str, 
     return tables
 
 
-# Substring counterparts of WATERMARK_LINE_PATTERNS, built from the very same
-# `_WATERMARK_PHRASES` fragments (unanchored, no ``^``/``$``/``.*``) so they can
-# be matched *anywhere inside* a line via ``re.search``/``re.sub``. VLM captions
-# weave the licence stamp into prose (e.g. "... a floor plan. VECTORWORKS
-# EDUCATIONAL VERSION overlaid ...") where the line-level filter never fires,
-# so the caption needs a substring scrub before it can become a document
-# summary. Sharing one source of phrases with WATERMARK_LINE_PATTERNS means the
-# two lists can never drift out of sync with each other.
 WATERMARK_PHRASE_PATTERNS = [re.compile(fragment, re.IGNORECASE) for fragment, _suffix in _WATERMARK_PHRASES]
 
 
@@ -957,9 +794,6 @@ def _scrub_watermark_phrases(text: str | None) -> str:
         scrubbed = text
         for pattern in WATERMARK_PHRASE_PATTERNS:
             scrubbed = pattern.sub(" ", scrubbed)
-        # Collapse whitespace left behind by the removals while preserving
-        # paragraph breaks: squeeze intra-line runs, trim each line, drop the
-        # blank lines a removed stamp leaves behind.
         scrubbed = re.sub(r"[^\S\n]+", " ", scrubbed)
         lines = [line.strip() for line in scrubbed.splitlines()]
         return "\n".join(line for line in lines if line).strip()
@@ -967,7 +801,6 @@ def _scrub_watermark_phrases(text: str | None) -> str:
         return text.strip()
 
 
-#: The splitter's chunk size and overlap, in tokens, when the job config names none.
 DEFAULT_CHUNK_SIZE = 1024
 DEFAULT_CHUNK_OVERLAP = 128
 
@@ -998,55 +831,6 @@ def text_chunks_for_pages(
     documents = text_documents_for_pages(text_pages, file_name, file_size)
     stamp_chunk_metadata(documents, doc_class=doc_class, provenance={}, chunk_size=chunk_size, file_name=file_name)
     return split_documents(documents, chunk_size=chunk_size, chunk_overlap=chunk_overlap)
-
-
-def text_documents_for_pages(text_pages: list[dict[str, Any]], file_name: str, file_size: int) -> list[Any]:
-    """Build the text Documents for one PDF, structure-aware where the document allows it.
-
-    A numbered corpus cut on its own outline yields one requirement per chunk instead of
-    roughly fifteen blended into a 1024-token block, and gives every chunk a Punkt to
-    cite rather than only a page. ``clause_documents`` returns ``None`` for anything
-    without a usable outline -- a glossary, a list of standards, any tenant upload.
-
-    A tenant PDF (anything not published by the OIB) is cut on its own headings FIRST
-    (``section_chunking``): sections that span pages, chunks with a breadcrumb and a page
-    each, overlap across page breaks, headings read from type as well as numbering. The
-    Punkt chunker used to claim any tenant report numbered ``1``, ``1.1``, ``2`` … by
-    numbering alone, and filed every piece of a long section under its first page; it
-    stays the path for the OIB's own files and the fallback after this one. Whatever
-    has no usable structure keeps the per-page path: one Document per page, its
-    captioned tables put back as Markdown after the text they were cut out of
-    (``page_text_with_tables``).
-
-    Extracted from ``_run_ingestion`` so the choice between the strategies is
-    testable without a job, a vector store or an embedder.
-    """
-    from knowledge_layer.ingest.clause_chunking import clause_documents
-    from knowledge_layer.ingest.section_chunking import section_documents
-    from llama_index.core import Document
-
-    from agent.common.norm_registry import oib_doc_class
-
-    sectioned = None if oib_doc_class(file_name) else section_documents(text_pages, file_name, file_size)
-    if sectioned is not None:
-        return sectioned
-    structured = clause_documents(text_pages, file_name, file_size)
-    if structured is not None:
-        return structured
-    from knowledge_layer.ingest.captioned_tables import page_text_with_tables
-
-    return [
-        Document(
-            text=page_text_with_tables(page["text"], page.get("tables") or []),
-            metadata={
-                "file_name": file_name,
-                "file_size": file_size,
-                "page_label": str(page["page_number"]),
-                "content_type": "text",
-            },
-        )
-        for page in text_pages
-    ]
 
 
 def page_texts_for_visual_heuristic(text_pages: list[dict[str, Any]]) -> dict[int, str]:
@@ -1089,7 +873,6 @@ def _looks_like_image(file_path: str) -> str | None:
         return "png"
     if header.startswith(b"\xff\xd8\xff"):
         return "jpeg"
-    # RIFF container with a WEBP payload; bytes 4-8 are the file size.
     if header.startswith(b"RIFF") and header[8:12] == b"WEBP":
         return "webp"
     return None
@@ -1115,10 +898,6 @@ def _read_image_as_jpeg(file_path: str, file_name: str) -> tuple[bytes, int, int
             raw = handle.read()
         with Image.open(io.BytesIO(raw)) as opened:
             opened.load()
-            # A phone stores a portrait photo as landscape pixels plus an EXIF
-            # Orientation tag. Apply it before anything reads the size or the
-            # pixels, or the vision model reads the photo on its side and the
-            # recorded dimensions are swapped.
             pil_image = ImageOps.exif_transpose(opened)
             width, height = pil_image.size
             rgb_image = pil_image.convert("RGB")
@@ -1155,9 +934,6 @@ def _build_image_caption_document(
         return None
     image_bytes, width, height = decoded
 
-    # Same content-hash cache as the PDF-embedded-image batch path: re-uploading
-    # an identical image skips the VLM call entirely (and the cache is scoped to
-    # the model). Function-scope import — processing imports this module lazily.
     from knowledge_layer.ingest import processing as _processing
 
     content_type, caption = _processing._cached_vlm_call(
@@ -1171,8 +947,6 @@ def _build_image_caption_document(
         extract_charts=extract_charts,
         model=vlm_model,
     )
-    # The caption is the file's ONLY content — a failure placeholder must fail
-    # the file (retryable via re-ingest) rather than index a content-free chunk.
     if _processing.is_failed_caption(caption):
         logger.error("VLM captioning failed for standalone image %s: %s", file_name, caption[:120])
         return None
@@ -1251,12 +1025,8 @@ def analyze_visual(
         if analysis:
             return (visual_analysis.content_type_for(analysis), caption, fields)
         if fields:
-            # v1 fallback shape: the legacy line format only ever described drawings.
             return ("drawing", caption, fields)
 
-    # Rare by design — the prompt types photos and diagrams itself — so the
-    # extra call costs little, and on a hard failure it is the difference
-    # between a captioned chunk and no chunk at all.
     logger.info("Structured visual analysis unusable; falling back to the caption prompt")
     content_type, legacy_caption = _processing._cached_vlm_call(
         image_bytes,
@@ -1272,8 +1042,6 @@ def analyze_visual(
     return (content_type, legacy_caption, {})
 
 
-#: Chunk-body prefix per content type. Kept as a map so every source spells the
-#: marker the same way — ``get_document_visual_details`` strips it back off.
 _VISUAL_PREFIXES = {"drawing": "DRAWING", "chart": "CHART", "image": "IMAGE"}
 _VISUAL_MARKER = re.compile(r"^\[(?:DRAWING|CHART|IMAGE) from page \d+\]\s*")
 
@@ -1429,7 +1197,6 @@ def _table_to_markdown(table: list[list[str]]) -> str:
     if not table or not table[0]:
         return ""
 
-    # Clean cells
     def clean_cell(cell):
         if cell is None:
             return ""
@@ -1437,15 +1204,12 @@ def _table_to_markdown(table: list[list[str]]) -> str:
 
     lines = []
 
-    # Header row
     header = [clean_cell(cell) for cell in table[0]]
     lines.append("| " + " | ".join(header) + " |")
     lines.append("| " + " | ".join(["---"] * len(header)) + " |")
 
-    # Data rows
     for row in table[1:]:
         cells = [clean_cell(cell) for cell in row]
-        # Pad if needed
         while len(cells) < len(header):
             cells.append("")
         lines.append("| " + " | ".join(cells[: len(header)]) + " |")
@@ -1468,7 +1232,6 @@ def _ingest_cost_scope(job_id: str, config: dict[str, Any]):
             "conversation_id": None,
             "message_id": None,
         },
-        # Unlimited, deliberately: see `_run_ingestion`.
         budget=BudgetSnapshot(),
         activity=USAGE_ACTIVITY_INGEST,
     )
@@ -1508,7 +1271,6 @@ def _analyze_image_with_vlm(
     if not api_key:
         return ("image", "[Image - VLM API key not set]")
 
-    # Single prompt that handles both classification and captioning
     if extract_charts:
         prompt = """Analyze this image and respond in the following format:
 
@@ -1540,7 +1302,6 @@ Provide a detailed, structured response."""
         )
 
     try:
-        # Encode image to base64
         image_b64 = base64.b64encode(image_bytes).decode("utf-8")
 
         client = _vlm_client(vlm_base_url, api_key)
@@ -1563,11 +1324,9 @@ Provide a detailed, structured response."""
 
         logger.debug(f"VLM analysis: {caption[:100]}...")
 
-        # Determine content type from response
         content_type = "image"
         if extract_charts:
             caption_lower = caption.lower()
-            # Check for chart indicators in the response
             if any(
                 indicator in caption_lower
                 for indicator in [
@@ -1594,7 +1353,6 @@ Provide a detailed, structured response."""
         return ("image", f"[Image - analysis failed: {str(e)[:50]}]")
 
 
-# Legacy function for backward compatibility
 def _caption_image_with_vlm(
     image_bytes: bytes,
     vlm_model: str = DEFAULT_VLM_MODEL,
@@ -1610,17 +1368,6 @@ def _caption_image_with_vlm(
         extract_charts=is_chart,
     )
     return caption
-
-
-# =============================================================================
-# Visual-page rendering (vector/scanned architectural drawings)
-# =============================================================================
-
-# The prompt + schema live in ``visual_analysis`` (domain-neutral kernel) and
-# ``visual_domains`` (the vocabulary each domain contributes). This module keeps the legacy
-# ``KEY: value`` parser below as the FALLBACK for replies that are not
-# parseable schema JSON — a weaker VLM (or an old cached caption) degrades to
-# earlier behaviour, never to a lost page.
 
 
 def _parse_drawing_fields(caption: str) -> dict[str, str]:
@@ -1655,9 +1402,6 @@ def _parse_drawing_fields(caption: str) -> dict[str, str]:
     return out
 
 
-#: Output budget of one drawing analysis. The schema-v5 JSON of a sheet with five
-#: or more views runs past 3000 tokens, and a truncated reply is asked again from
-#: the start (``_vlm_chat_create``), so the budget covers the dense sheet at once.
 DRAWING_ANALYSIS_MAX_TOKENS = 6000
 
 
@@ -1713,12 +1457,7 @@ def _analyze_drawing_page_with_vlm(
                     ],
                 }
             ],
-            # The JSON reply is bulkier than the legacy twelve-line format, and a
-            # truncated one is asked again from the start (_vlm_chat_create): a dense
-            # multi-view sheet measured 56 s with the retry against 25 s under budget.
-            # Unused budget costs nothing, so it is sized for the dense sheet.
             max_tokens=DRAWING_ANALYSIS_MAX_TOKENS,
-            # The cache key names the prompt (schema, vocabulary), never `context` or the page.
             prompt_id=visual_analysis.cache_prompt_type(registry),
         ).strip()
         if not reply:
@@ -1726,7 +1465,6 @@ def _analyze_drawing_page_with_vlm(
         logger.debug("Drawing VLM analysis: %s...", reply[:100])
         analysis = visual_analysis.parse_visual_analysis(reply, registry)
         if analysis is None:
-            # Legacy fallback: the reply is stored as-is and parsed line-wise.
             return (reply, _parse_drawing_fields(reply))
         fields: dict[str, Any] = visual_analysis.legacy_fields(analysis)
         fields["analysis"] = analysis
@@ -1761,11 +1499,6 @@ def _summary_from_drawing_fields(pages: list[dict[str, Any]]) -> str | None:
     if synth:
         return ("Technische Zeichnungen: " + "; ".join(synth[:5]))[:600].rstrip()
     return None
-
-
-# =============================================================================
-# Document Summarization
-# =============================================================================
 
 
 def _future_result(future, what: str, file_name: str, timeout: float = 30):
@@ -1837,8 +1570,6 @@ def _reading_of(
             seen.add((fact["key"], fact["value"]))
             facts.append(fact)
     reading = {**dossier, "facts": facts}
-    # The Fassung this one replaces (a re-upload under the name, or the one a person
-    # linked at upload): what the facts say differently now, without a model.
     if predecessor is not None:
         from agent.knowledge.dossier import fact_changes
 
@@ -1882,11 +1613,6 @@ def _generate_document_summary(text_content: str, file_name: str, llm=None) -> s
     from agent.knowledge.document_classification import summarize_document_text
 
     return summarize_document_text(text_content, file_name, llm)
-
-
-# =============================================================================
-# LlamaIndex Ingestor
-# =============================================================================
 
 
 _TMP_UPLOAD_PREFIX = re.compile(r"^tmp.{8}_")
@@ -2006,7 +1732,6 @@ def _read_human_set_fields(collection_name: str, found: dict[str, _PreviousVersi
             ("folder_path", get_document_folder_paths(collection_name, stored_names)),
             ("tags", person_tags),
             ("topics", person_topics),
-            # A person confirmed these (the link) or dismissed them (the suggestion).
             ("superseded_by", get_document_superseded_by(collection_name, stored_names)),
             ("revision_suggestion", get_document_revision_suggestions(collection_name, stored_names)),
         ):
@@ -2067,8 +1792,6 @@ def _merge_file_records(indexed: FileInfo | None, recorded: FileInfo | None) -> 
     )
 
 
-#: The payload a file listing reads per chunk: no text, no vectors.
-#: Points per page of a listing scroll: payload-limited records are small.
 _LISTING_PAGE = 2048
 
 
@@ -2089,7 +1812,6 @@ class _PdfScreen(NamedTuple):
         return {} if self.triage is None else {"triage": self.triage}
 
 
-#: The order ``[ingest-perf]`` lists a file's stages in, so two lines compare.
 _INGEST_PERF_ORDER = (
     "text",
     "tables",
@@ -2165,57 +1887,16 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
         TTL_CLEANUP_INTERVAL_SECONDS: Seconds between cleanup runs (default: 3600)
     """
 
-    # @environment_variable EMBED_MODEL
-    # @category Knowledge Layer
-    # @type str
-    # @default openai/text-embedding-3-large
-    # @required false
-    # Embedding model id for LlamaIndex vector encoding (the production
-    # compose default; ingest and query MUST share it, stored vectors are
-    # only comparable to vectors from the same model).
     DEFAULT_EMBED_MODEL = os.environ.get("EMBED_MODEL", "openai/text-embedding-3-large")
 
-    # @environment_variable EMBED_BASE_URL
-    # @category Knowledge Layer
-    # @type str
-    # @default https://openrouter.ai/api/v1
-    # @required false
-    # Embedding model base URL (OpenAI-compatible embeddings endpoint).
     DEFAULT_EMBED_BASE_URL = os.environ.get("EMBED_BASE_URL", "https://openrouter.ai/api/v1")
 
-    # @environment_variable EXTRACT_TABLES
-    # @category Knowledge Layer
-    # @type bool
-    # @default true
-    # @required false
-    # Index a PDF's uncaptioned tables as table chunks. On unless set to false.
     DEFAULT_EXTRACT_TABLES = env_switch("EXTRACT_TABLES")
 
-    # @environment_variable INGEST_MAX_WORKERS
-    # @category Knowledge Layer
-    # @type int
-    # @default 2
-    # @required false
-    # Maximum concurrent ingestion jobs per process. Excess uploads queue
-    # (job status stays PENDING) instead of each spawning a thread.
     INGEST_MAX_WORKERS = max(1, env_int("INGEST_MAX_WORKERS", 2))
 
-    # @environment_variable EXTRACT_IMAGES
-    # @category Knowledge Layer
-    # @type bool
-    # @default true
-    # @required false
-    # Analyse a PDF's embedded rasters with the VLM and index them. On unless
-    # set to false.
     DEFAULT_EXTRACT_IMAGES = env_switch("EXTRACT_IMAGES")
 
-    # @environment_variable EXTRACT_CHARTS
-    # @category Knowledge Layer
-    # @type bool
-    # @default true
-    # @required false
-    # Index a visual the VLM types as a chart as a `chart` chunk. On unless set
-    # to false; off, a chart is indexed as an image (see `indexed_visual_type`).
     DEFAULT_EXTRACT_CHARTS = env_switch("EXTRACT_CHARTS")
 
     backend_name = "llamaindex"
@@ -2224,50 +1905,32 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
     def __init__(self, config: dict[str, Any] | None = None):
         super().__init__(config)
 
-        # Configuration - read from env vars with fallback to class defaults
         self.embed_base_url = self.config.get("embed_base_url", self.DEFAULT_EMBED_BASE_URL)
         self.embed_model_name = self.config.get("embed_model", self.DEFAULT_EMBED_MODEL)
         self.chunk_size = self.config.get("chunk_size", 1024)
         self.chunk_overlap = self.config.get("chunk_overlap", 128)
 
-        # Multimodal extraction options
         self.extract_tables = self.config.get("extract_tables", self.DEFAULT_EXTRACT_TABLES)
         self.extract_images = self.config.get("extract_images", self.DEFAULT_EXTRACT_IMAGES)
         self.extract_charts = self.config.get("extract_charts", self.DEFAULT_EXTRACT_CHARTS)
         self.vlm_model = self.config.get("vlm_model", DEFAULT_VLM_MODEL)
         self.vlm_base_url = self.config.get("vlm_base_url", DEFAULT_VLM_BASE_URL)
 
-        # Document summarization options
         self.generate_summary_enabled = self.config.get("generate_summary", False)
         self.summary_llm = self.config.get("summary_llm")  # Resolved LangChain LLM (or None)
 
-        # The jobs this process runs, as its working copy. Not what answers a
-        # question about a file: that is the shared status store and Qdrant,
-        # because the process that asks is not the one that ran the job.
         self._jobs: dict[str, IngestionJobStatus] = {}
         self._lock = threading.RLock()  # RLock allows same thread to acquire multiple times
-        # Shared-store writes, one at a time (`_persist`), and the jobs whose
-        # latest write did not land, which the heartbeat writes again.
         self._persist_lock = threading.Lock()
         self._unpersisted: set[str] = set()
-        # Jobs this process prepared whose PENDING write did not land. Handed to
-        # `_unpersisted` when this process runs the job; a job Hatchet runs
-        # carries elsewhere is written by its worker's first status change.
         self._unstored_at_prepare: set[str] = set()
-        # Jobs run for Hatchet, and how to ask whether each run should
-        # go on (`run_prepared`).
         self._claim_guards: dict[str, Callable[[], bool]] = {}
 
-        # Bounded pool for the jobs only this process can run (local files: a RIS
-        # fetch, `upload_file`). Excess jobs wait PENDING instead of piling on
-        # threads. A document's job runs on Hatchet, fair between offices (ADR-0150).
         self._ingest_pool = ThreadPoolExecutor(self.INGEST_MAX_WORKERS, thread_name_prefix="llamaindex-ingest")
 
-        # Lazy-loaded components
         self._embed_model = None
         self._initialized = False
 
-        # Build mode description
         mode_parts = ["text"]
         if self.extract_tables:
             mode_parts.append("tables")
@@ -2279,7 +1942,6 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
 
         logger.info(f"LlamaIndexIngestor initialized: mode={mode}")
 
-        # Start background TTL cleanup task
         self._start_ttl_cleanup_task(COLLECTION_TTL_HOURS, TTL_CLEANUP_INTERVAL_SECONDS)
         self._start_ingest_heartbeat()
 
@@ -2296,11 +1958,9 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
     def _heartbeat_loop(self) -> None:
         self._settle_stranded_jobs()
         ingest_status_store.prune_expired(FILE_TRACKING_RETENTION_SECONDS)
-        beats = 0
-        while True:
+        for beats in itertools.count(1):
             time.sleep(ingest_status_store.HEARTBEAT_INTERVAL_SECONDS)
             self._beat()
-            beats += 1
             if beats % _PRUNE_EVERY_BEATS == 0:
                 ingest_status_store.prune_expired(FILE_TRACKING_RETENTION_SECONDS)
 
@@ -2315,10 +1975,6 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
         live = self._live_job_ids()
         refreshed = ingest_status_store.heartbeat(live)
         if refreshed is not None and refreshed < len(live):
-            # A row this process holds a live job for is not its own: another
-            # replica settled it as interrupted while this one could not beat,
-            # or its first write never landed. The owner is right about its
-            # job (`ingest_status_store`), so it writes the job again.
             logger.warning("Heartbeat refreshed %d of %d live ingest job(s); re-writing them", refreshed, len(live))
             with self._persist_lock:
                 self._unpersisted.update(live)
@@ -2334,11 +1990,20 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
         starts, so a retry can never put an older status over a newer one.
         Lock order: ``_persist_lock`` then ``_lock``, so never call this while
         holding ``_lock``. ``_persist_lock`` also guards ``_unpersisted``.
+
+        A run that was told to stop writes no live or failed status again
+        (``_told_to_stop``): whoever stopped it settled the row, and this write,
+        or the heartbeat's re-write of a row it no longer owns, would turn a
+        person's ``cancelled`` back into ``processing``. The skip counts as
+        stored, so the heartbeat does not try it again. ``completed`` is still
+        written: past the last ownership check the chunks are indexed, and the
+        row must say so (the BFF heals a stopped document from it).
         """
         with self._persist_lock:
             with self._lock:
                 snapshot = job.model_copy(deep=True)
-            if ingest_status_store.put(snapshot):
+            stopped = snapshot.status != JobState.COMPLETED and self._told_to_stop(job.job_id)
+            if stopped or ingest_status_store.put(snapshot):
                 self._unpersisted.discard(job.job_id)
             else:
                 self._unpersisted.add(job.job_id)
@@ -2385,9 +2050,6 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
         if self._initialized:
             return
 
-        # The whole stack, not just the import this method happens to need --
-        # otherwise a missing vector-store package is only discovered later, in
-        # a call site with no dependency diagnostic around it.
         dependencies.ensure_retrieval_dependencies()
 
         try:
@@ -2488,7 +2150,6 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
 
             job.processed_files = file_index + 1
 
-        # Persist outside the lock (DB I/O) so any replica can serve this status.
         self._persist(job)
 
     def _record_screening(
@@ -2633,7 +2294,6 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
         from knowledge_layer.ingest.screening import document_pages
 
         page_texts = page_texts_for_visual_heuristic(text_pages)
-        # Measured once per version: a retry reads the verdicts back (`parsed_store`).
         triage = parsed_store.current().triage(
             source_path, page_texts, min_text_chars=VISUAL_PAGE_MIN_TEXT_CHARS, min_paths=VISUAL_PAGE_MIN_PATHS
         )
@@ -2734,15 +2394,8 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
         from knowledge_layer.ingest.deferred_files import is_deferred
 
         job_id = job_id or str(uuid.uuid4())
-        # The REQUEST's config only: it travels with the job (the durable queue
-        # stores it), and this ingestor's own config holds live objects, the
-        # summary LLM among them. `_job_config` merges the two where it runs.
         job_config = dict(config or {})
 
-        # Validate file paths. The caller-supplied per-file list
-        # (original_filenames) is positional, so it must be filtered in
-        # lockstep — otherwise a single skipped path shifts every later file
-        # onto the wrong name (poisoning citations and delete-by-filename).
         original_filenames = job_config.get("original_filenames", [])
         validated_paths = []
         aligned_filenames = []
@@ -2756,14 +2409,12 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
             else:
                 logger.warning(f"File not found, skipping: {path}")
         original_filenames = aligned_filenames
-        # _run_ingestion re-reads this from the config; keep it aligned too.
         job_config["original_filenames"] = aligned_filenames
         from knowledge_layer.ingest.renditions import align_extraction_paths
 
         align_extraction_paths(job_config, kept_indices)
 
         if not validated_paths:
-            # Create failed job immediately
             job = IngestionJobStatus(
                 job_id=job_id,
                 status=JobState.FAILED,
@@ -2780,11 +2431,8 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
             self._persist(job)
             return PreparedIngestJob(job_id, job, [], collection_name, job_config)
 
-        # Create pending job with file details
-        # Use original filenames if provided, otherwise extract from path
         file_details = []
         for i, p in enumerate(validated_paths):
-            # Use original filename if available, otherwise fall back to path name
             if i < len(original_filenames):
                 file_name = original_filenames[i]
             else:
@@ -2807,19 +2455,12 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
             collection_name=collection_name,
             backend=self.backend_name,
             file_details=file_details,
-            # What `find_live_job` matches a retried dispatch against. Neither
-            # is a credential: the key is a digest (see the ingest route).
             metadata={
                 key: job_config[key] for key in ("dispatch_key", "document_id") if isinstance(job_config.get(key), str)
             },
         )
 
-        # Persist the initial PENDING status so a poll to any replica resolves it
-        # immediately, before any worker picks it up. Straight to the store,
-        # not `_persist`: this process may never run the job, and a failed
-        # write is retried only for the jobs a process runs.
         if not ingest_status_store.put(job):
-            # Whichever process adopts it retries the write on its heartbeat.
             with self._persist_lock:
                 self._unstored_at_prepare.add(job_id)
         return PreparedIngestJob(job_id, job, validated_paths, collection_name, job_config)
@@ -2845,8 +2486,6 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
                 self._job_config(prepared),
             )
         except RuntimeError as error:
-            # The pool is shutting down. Adopted and never run, the job would
-            # read PENDING for as long as this process beats for it.
             with self._lock:
                 job = self._jobs[prepared.job_id]
                 job.status = JobState.FAILED
@@ -2877,18 +2516,27 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
         finally:
             self._claim_guards.pop(prepared.job_id, None)
 
+    def _told_to_stop(self, job_id: str) -> bool:
+        """Whether the job's run was cancelled; a job this process's own pool runs has no guard and never is."""
+        guard = self._claim_guards.get(job_id)
+        return guard is not None and not guard()
+
     def _assert_still_owner(self, job_id: str) -> None:
         """Raise ``_ClaimLost`` when the job's run was stopped."""
-        guard = self._claim_guards.get(job_id)
-        if guard is not None and not guard():
+        if self._told_to_stop(job_id):
             raise _ClaimLost(job_id)
 
     def _abandon(self, job_id: str) -> None:
-        """Forget a job whose run was stopped: no status write, no heartbeat; whoever stopped it has the row."""
+        """Forget a job whose run was stopped: no status write and no heartbeat from here on.
+
+        Whoever stopped it has the row, and between the stop and this call
+        ``_persist`` already wrote nothing live over it. The run's own last
+        word is the workflow's (``ingest_workflow._stopped``). A write of it
+        still waiting for a retry is dropped by the next beat, as for any job
+        no longer tracked (``_retry_unpersisted``).
+        """
         with self._lock:
             self._jobs.pop(job_id, None)
-        with self._persist_lock:
-            self._unpersisted.discard(job_id)
         logger.warning("Ingestion job %s was stopped; this run ends without writing", job_id)
 
     def _job_config(self, prepared: PreparedIngestJob) -> dict[str, Any]:
@@ -2916,40 +2564,16 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
             for jid in stale:
                 del self._jobs[jid]
         if stale:
-            # Only this process's copy. The shared row outlives it: it is the
-            # record of a failed file other processes list, and
-            # `ingest_status_store.prune_expired` removes it on its own clock.
             logger.debug("Pruned %d completed job(s) from tracking", len(stale))
 
-    def get_job_status(self, job_id: str) -> IngestionJobStatus:
-        """Get current status of an ingestion job."""
+    def get_job_status(self, job_id: str) -> IngestionJobStatus | None:
+        """Get current status of an ingestion job, or None when no process and no shared record knows it."""
         self._prune_completed_jobs()
         with self._lock:
             local = self._jobs.get(job_id)
         if local is not None:
             return local.model_copy()
-        # Not on this replica: the job may have been accepted by another replica.
-        # Fall back to the shared store so status polls resolve from anywhere.
-        # A live row whose owning process is gone (a restart) comes back failed
-        # with the retryable reason `interrupted`, not in progress forever.
-        shared = ingest_status_store.get(job_id)
-        if shared is not None:
-            return shared
-        return IngestionJobStatus(
-            job_id=job_id,
-            status=JobState.FAILED,
-            submitted_at=datetime.utcnow(),
-            total_files=0,
-            processed_files=0,
-            collection_name="unknown",
-            backend=self.backend_name,
-            error_message="Job ID not found",
-            completed_at=datetime.utcnow().isoformat(),
-        )
-
-    # =========================================================================
-    # Collection Management Implementation
-    # =========================================================================
+        return ingest_status_store.get(job_id)
 
     def _embed_fingerprint_metadata(self) -> dict[str, str]:
         """The embedding identity to stamp on collections this ingestor writes."""
@@ -3004,9 +2628,6 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
         try:
             self._store().delete_scope(name)
             with self._lock:
-                # Purge the job tracking for the collection, here and in the
-                # shared store: if a deleted collection name is ever reused,
-                # list_files would resurrect old FAILED entries as phantom files.
                 self._jobs = {jid: job for jid, job in self._jobs.items() if job.collection_name != name}
             ingest_status_store.forget_collection(name)
 
@@ -3057,10 +2678,6 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
         corpus over it.
         """
         return self._collection_info(name)
-
-    # =========================================================================
-    # File Management Implementation
-    # =========================================================================
 
     def upload_file(
         self,
@@ -3152,36 +2769,23 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
         as "nothing was there" (``delete_files`` reports it under ``failed``).
         """
         file_name = self._file_name_of(file_id, collection_name)
-        # First, and raising: a delete that cannot reach the status store
-        # fails whole, before it has removed anything it could not retry.
         forgotten = ingest_status_store.forget_file(collection_name, file_name)
 
-        # Every stored spelling the delete's rule accepts: the exact name,
-        # a tmp-prefixed upload, a percent-encoded presigned-URL path.
         spellings = [
             stored
             for stored in self._store().file_counts(collection_name)
             if stored == file_name or _stored_name_matches(file_name, stored)
         ]
-        # By the ids the store holds now, never by name: what an ingest
-        # still running under the same name adds is left alone (the
-        # docstring above).
         chunk_ids = [chunk_id for chunk_id, _ in self._chunk_ids_of(collection_name, spellings)]
 
         from agent.knowledge import unregister_summary
 
         if not chunk_ids:
-            # No chunks. Whatever else the document left behind — the job
-            # record of a FAILED file, the summary row the inventory is
-            # built from — is forgotten regardless: a delete that returned
-            # early here left a file with no chunks in the agent's
-            # inventory for good, and every later delete took the same exit.
             if forgotten:
                 logger.info(f"Removed {forgotten} job record(s) of file {file_name}")
             else:
                 logger.warning(f"No chunks found for file_name={file_name}; clearing its summary")
             unregister_summary(collection_name, file_name, permanent=permanent)
-            # True only when something of the file was actually removed.
             return forgotten > 0
 
         self._store().delete_chunks(collection_name, chunk_ids)
@@ -3295,8 +2899,6 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
             content_type = meta.get("content_type")
             if not text:
                 continue
-            # Strip the "[DRAWING from page N]\n\n" / "[IMAGE …]" prefix so the FE
-            # shows the description, not the internal marker.
             body = text.split("\n\n", 1)[1] if "\n\n" in text else text
             try:
                 page = int(meta.get("page_label") or 0)
@@ -3310,8 +2912,6 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
                 segment_count = max(1, int(meta.get("segment_count") or 1))
             except TypeError, ValueError:
                 segment_count = 1
-            # The v2 structured payload rides along parsed, so the FE never
-            # has to know it is stored as a JSON string on the point.
             structured = None
             raw_data = meta.get("drawing_data")
             if raw_data:
@@ -3365,7 +2965,6 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
         from PIL import Image
         from PIL import ImageOps
 
-        # Longest-edge cap for the generated thumbnail (px).
         THUMBNAIL_MAX_DIM = 400
 
         is_pdf = _looks_like_pdf(file_path)
@@ -3376,8 +2975,6 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
 
         if is_pdf:
             try:
-                # Render at 2x (supersample) so the down-scaled thumbnail keeps
-                # crisp, anti-aliased text/lines instead of a soft 72-DPI page.
                 pil_image = _render_first_pdf_page(file_path, scale=2)
             except Exception:
                 logger.warning("Failed to render PDF page for thumbnail", exc_info=True)
@@ -3386,8 +2983,6 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
             try:
                 pil_image = Image.open(file_path)
                 pil_image.load()
-                # Upright, as the camera meant it (EXIF Orientation) — see
-                # `_read_image_as_jpeg`.
                 pil_image = ImageOps.exif_transpose(pil_image)
                 if pil_image.mode != "RGB":
                     pil_image = pil_image.convert("RGB")
@@ -3397,7 +2992,6 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
         else:
             return  # Not a previewable type
 
-        # Resize to max 400px on the longest edge, maintaining aspect ratio.
         pil_image.thumbnail((THUMBNAIL_MAX_DIM, THUMBNAIL_MAX_DIM))
         buf = io.BytesIO()
         pil_image.save(buf, format="JPEG", quality=80)
@@ -3411,18 +3005,8 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
                     headers={"Content-Type": "image/jpeg"},
                 )
                 resp.raise_for_status()
-            # NEVER log the upload URL, not even truncated. It is a presigned S3
-            # URL — a live bearer credential to that object with no user, org or
-            # IP binding. The `[:80]` prefix this used to print was not a
-            # control: the cut lands at a different place depending on how long
-            # the org/project/document ids in the key are, so whether the
-            # signature survived was luck, and the tenant path leaked in full for
-            # short keys. Same rule as the download side in
-            # apps/agent-host/src/agent_host/routes/ingest.py.
             logger.info("Uploaded thumbnail (%d bytes)", len(thumbnail_bytes))
         except Exception as error:
-            # The class only: an httpx error's text, and so its traceback,
-            # carries the upload URL.
             logger.warning("Failed to upload thumbnail: %s", type(error).__name__)
 
     def _find_previous_versions(self, collection_name: str, incoming_names: list[str]) -> dict[str, _PreviousVersion]:
@@ -3530,8 +3114,6 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
             bump_collection_version(collection_name)
             for stored in previous.stored_names:
                 if stored != file_name:
-                    # Permanent: this spelling never returns, and what a person set on
-                    # it was carried onto ``file_name`` (`_read_human_set_fields`).
                     unregister_summary(collection_name, stored, permanent=True)
             logger.info(
                 "Replaced previous version(s): removed %d chunk(s) of %s from %s after re-ingest",
@@ -3794,13 +3376,8 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
         from knowledge_layer.ingest.renditions import resolve_preview
         from knowledge_layer.ingest.renditions import resolve_rendition
 
-        # Originals and renditions this job downloaded itself: always its own
-        # to delete, whether or not it owns the caller's files.
         downloaded: list[str] = []
         try:
-            # Update job to processing, stamped with the reader that reads it:
-            # a file that fails `deterministic` here may read under a newer one
-            # (`knowledge_layer.ingest.reader_version`), and the BFF compares the two.
             from knowledge_layer.ingest.reader_version import INGEST_READER_VERSION
 
             with self._lock:
@@ -3810,27 +3387,15 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
                 job.reader_version = INGEST_READER_VERSION
             self._persist(job)
 
-            # Initialize components
             self._ensure_initialized()
 
-            # Resolved once: the splitter runs with it, and the metadata header is
-            # budgeted against it (`stamp_chunk_metadata`), never the default.
             chunk_size = config.get("chunk_size", self.chunk_size)
             chunk_overlap = config.get("chunk_overlap", self.chunk_overlap)
 
-            # Get multimodal settings from config or instance defaults
             extract_tables = config.get("extract_tables", self.extract_tables)
             extract_images = config.get("extract_images", self.extract_images)
             extract_charts = config.get("extract_charts", self.extract_charts)
 
-            # Resolve the VLM the SAME way the agent runtime's chat models resolve theirs —
-            # honouring org BYOK (key + base URL) and the org's runtime model
-            # override — so per-project/Archiv uploads use the tenant's own
-            # vision credential and chosen model. The org id is captured at the
-            # request boundary (/v1/ingest) into the job config, because this
-            # runs in a detached background thread with no request context. The
-            # org-agnostic paths (base OIB corpus sync) carry no org id and get
-            # the deployment default, exactly as before.
             organization_id = config.get("organization_id")
             vlm_cred = resolve_vlm_credential(organization_id)
             vlm_api_key = vlm_cred.api_key
@@ -3838,34 +3403,22 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
             base_vlm_model = config.get("vlm_model", self.vlm_model)
             vlm_override = _resolve_vlm_model_override(organization_id)
             vlm_model = vlm_override or base_vlm_model
-            # Scans and garbled pages are transcribed on the same endpoint and
-            # key; only the model may differ (OCR_MODEL).
             from knowledge_layer.ingest import transcription as _transcription
 
             ocr_model = _transcription.resolve_ocr_model(base_vlm_model, vlm_override)
 
-            # Refuse to add vectors from a different embedding space to an existing
-            # collection, before a single page is read or embedded. Retrieval
-            # performs the same check on the read path; without it here a
-            # misconfigured process could still WRITE foreign vectors, and the
-            # collection would then hold two spaces permanently. The write itself
-            # checks again when it creates the collection (`schema.ensure_collection`).
             from knowledge_layer.vector_store import get_store
 
             identity = self._embed_fingerprint_metadata()
             get_store(identity).check_identity(collection_name)
 
-            # Track extraction stats
             total_chunks = 0
             total_tables = 0
             total_charts = 0
             total_images = 0
 
-            # Original filenames for temp file uploads (avoids tmp prefix in metadata)
             original_filenames = config.get("original_filenames", [])
 
-            # The office's upload screening, applied to each file's locally
-            # extracted text before its first model call; None: not screened.
             from knowledge_layer.ingest.screening import ScreeningRules
             from knowledge_layer.ingest.screening import document_pages
 
@@ -3874,14 +3427,9 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
             screening_rules = ScreeningRules.from_config(config.get("screening"))
             screening_unusable = screening_config_unusable(config.get("screening"))
 
-            # Process each file, each under its own replacement lock (see
-            # _find_previous_versions), released when the file is done.
             kept_previous: list[str] = []
             for i, file_entry in enumerate(file_paths):
                 self._assert_still_owner(job_id)
-                # A document deleted while its job waited is not read at all:
-                # the download, OCR and vision calls would all be for chunks
-                # the check after indexing takes back out (below).
                 if self._deleted_while_indexing(config, collection_name):
                     self._update_file_status(job, i, FileStatus.FAILED, error=DOCUMENT_DELETED_DURING_INGEST)
                     logger.info("Skipped file %d of job %s: its document was deleted before it was read", i + 1, job_id)
@@ -3890,8 +3438,6 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
                     self._update_file_status(job, i, FileStatus.FAILED, error=SCREENING_UNAVAILABLE)
                     logger.warning("Held file %d of job %s: its screening policy could not be applied", i + 1, job_id)
                     continue
-                # The original first, and nothing else for it when that fails:
-                # its rendition is no use without the identity it carries.
                 file_path = resolve_original(file_entry, downloaded)
                 if file_path is None:
                     self._update_file_status(job, i, FileStatus.FAILED, error=ORIGINAL_DOWNLOAD_FAILED)
@@ -3900,33 +3446,19 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
                 previous = None
                 retired = False
                 deleted = False
-                # The chunk ids this attempt sent to the store; None until the
-                # write starts and again once the file is in.
                 attempted: list[str] | None = None
                 file_name = original_filenames[i] if i < len(original_filenames) else Path(file_path).name
                 file_started = time.monotonic()
                 _log_memory(f"file:start {file_name}")
-                # The PDF rendition the BFF made of a Word or presentation
-                # original (ADR-0071), when it sent one: every byte the PDF
-                # pipeline reads comes from `source_path`, while identity —
-                # `file_name`, `file_size`, the replacement lock, the purge key
-                # — stays the original's.
                 rendition = resolve_rendition(config, i, downloaded)
                 source_path = rendition or file_path
-                # ``[ingest-perf]``: this file's stage seconds, logged in the finally below.
                 stages: dict[str, float] = {}
-                # One Langfuse trace per file (ADR-0089): its stages, its coverage, its outcome,
-                # and every model call it makes nested under it. Closed in the finally below.
                 file_trace = _file_trace(file_name, config, job_id)
                 file_recorder = file_trace.__enter__()
                 coverage = None
                 try:
                     file_size = os.path.getsize(file_path)
 
-                    # A re-upload replaces its predecessor (same normalized file
-                    # name, this collection) once the new version is indexed —
-                    # see _find_previous_versions for why versions must not
-                    # coexist, and why the old one is kept until then.
                     from agent.knowledge.leader_lock import keyed_lock
 
                     file_scope.enter_context(keyed_lock(_replacement_lock_key(collection_name, file_name)))
@@ -3934,29 +3466,16 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
                         _normalized_file_name(file_name)
                     )
 
-                    # Explicit per-document classification ("Dokumentart").
-                    # Prefer a human-set stored class over the filename guess;
-                    # stamped into every chunk's metadata below and persisted to
-                    # the summaries row after ingestion. The guess is for the
-                    # base corpus only: on a project, session or Büroablage
-                    # upload a guessed "sonstiges" is not harmless — it labelled
-                    # every user document a "Basisdokument" in the Herleitung.
                     from agent.common.norm_registry import guess_doc_class
                     from agent.common.source_kinds import legacy_shelf_for_collection_name
                     from agent.knowledge import get_document_doc_class
 
-                    # What a person set on the replaced version's row: a row
-                    # under another spelling of the name is dropped when that
-                    # version is retired.
                     preserved = previous.preserved if previous else {}
                     row_doc_class = get_document_doc_class(collection_name, file_name)
                     stored_doc_class = row_doc_class or preserved.get("doc_class")
                     base_corpus = legacy_shelf_for_collection_name(collection_name) is None
-                    # The Dokumentart an admin chose at upload (`config["doc_class"]`, validated
-                    # by the route) beats a stored one and the guess: choosing is the point.
                     from agent.knowledge.document_classification import canonical_doc_class
 
-                    # A job queued before the English keys carries the German one.
                     explicit_doc_class = canonical_doc_class(config.get("doc_class"))
                     doc_class = (
                         explicit_doc_class or stored_doc_class or (guess_doc_class(file_name) if base_corpus else None)
@@ -3967,18 +3486,11 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
                         or Path(file_path).suffix.lower() == ".pdf"
                         or _looks_like_pdf(file_path)
                     )
-                    # Standalone image detection (magic bytes, else extension) —
-                    # only when it is not a PDF. Routes PNG/JPEG to VLM captioning
-                    # instead of the text reader (which would garble the binary).
                     from knowledge_layer.ingest.image_ingest import standalone_image_format
 
                     image_format = None if is_pdf else standalone_image_format(file_path, file_name)
                     is_image = image_format is not None
-                    # The image branch reads the camera facts; stored with the
-                    # metadata rows after indexing. Reset here, before the branch.
                     photo = None
-                    # How much of a PDF was read (`knowledge_layer.ingest.coverage`), set
-                    # after the vision batch; stored with the metadata rows.
                     coverage = None
 
                     mode_str = "multimodal" if is_image or (is_pdf and (extract_tables or extract_images)) else "text"
@@ -3989,28 +3501,15 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
                             job.file_details[i].status = FileStatus.INGESTING
                             job.file_details[i].progress_percent = (i / len(file_paths)) * 100
 
-                    # The card's thumbnail is drawn once the file's screening
-                    # has passed, never before (ADR-0086): a thumbnail is a
-                    # derivative of the content, and a quarantined file has
-                    # none. See `_thumbnail_after_screen`.
                     thumbnail_upload_url = config.get("thumbnail_upload_url")
 
                     all_documents = []
 
-                    # 1. Extract text content. PDFs use pdfplumber directly because
-                    # SimpleDirectoryReader can fall back to indexing raw PDF bytes
-                    # when optional LlamaIndex file readers are missing.
                     text_pages: list[dict[str, Any]] = []
-                    # What the PDF export dropped from the original (pptx
-                    # speaker notes), read before the screen so it is screened too.
                     companions: list[Any] = []
-                    # The PDF's uncaptioned tables. Read only once the text
-                    # layer has passed the screen below: a held file keeps them.
                     tables: list[dict[str, Any]] = []
                     table_documents: list[Any] = []
                     if is_pdf:
-                        # The text, triage and table passes, read back when a previous
-                        # attempt stored them for these bytes and this code (`parsed_store`).
                         from knowledge_layer.ingest import parsed_store
 
                         with _stage(stages, "text"):
@@ -4030,11 +3529,6 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
                         self._record_failed_pages(job, i, text_pages)
                         if rendition:
                             companions = _rendition_companions(file_path, file_name, file_size)
-                        # The upload screen: the last step before a page of
-                        # this file can reach a model (transcription, below).
-                        # The text layer and the companions are screened BEFORE
-                        # the table pass, so a file the screen holds never pays
-                        # for its tables (measured: 125 s of a 133-page PDF).
                         with _stage(stages, "screen"):
                             screen = self._screen_pdf(
                                 job,
@@ -4064,16 +3558,11 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
                                 for table in tables
                                 for document in uncaptioned_table_documents(table, file_name, file_size)
                             ]
-                            # The tables are text that will be embedded, so they
-                            # are screened too, still before any model call.
                             with _stage(stages, "screen"):
                                 held = self._screen_tables(job, i, screening_rules, table_documents, screen.checked)
                             if held:
                                 continue
                         parse.save()  # the screen passed: what was parsed is stored for a retry
-                        # Scans and garbled pages are transcribed here, one vision call
-                        # each, while the drawings the triage knows are already read on
-                        # the same pool (`page_reads`): the vision batch below gets them.
                         from knowledge_layer.ingest import page_reads
 
                         reads = file_scope.enter_context(page_reads.file_page_reads())
@@ -4101,12 +3590,6 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
                                 **screen.routing(),
                             )
                         self._record_file_counts(job, i, **page_routes.counts())
-                        # What the vision model read off scanned pages is text
-                        # too, screened before summaries, captions or embeddings
-                        # see it. The model that transcribed it has: the verdict
-                        # says so (`after_transcription`). A garbled page nobody
-                        # transcribed keeps its salvaged text, which reads only
-                        # now that the glyph ids are gone: screened as well.
                         changed = bool(page_routes.outcome.texts or page_routes.garbled_kept)
                         if changed and self._screen_transcribed(
                             job, i, screening_rules, text_pages, transcribed=bool(page_routes.outcome.texts)
@@ -4118,12 +3601,8 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
                             self._update_file_status(job, i, FileStatus.FAILED, error=error)
                             logger.warning("Scanned PDF not ingested (VLM not configured): %s", file_name)
                             continue
-                        text_documents = text_documents_for_pages(text_pages, file_name, file_size)
+                        text_documents = _chunk(text_pages, file_name, file_size, _released(config, collection_name))
                     elif is_image:
-                        # Standalone image: read by the vision model (a hard requirement:
-                        # no text to fall back on), that reading screened, then its
-                        # thumbnail drawn. `image_ingest` writes the status of a file
-                        # that stops there; the key is the org-aware (BYOK) one.
                         from knowledge_layer.ingest.image_ingest import read_standalone_image
 
                         vision = {"vlm_model": vlm_model, "vlm_base_url": vlm_base_url, "vlm_api_key": vlm_api_key}
@@ -4144,32 +3623,15 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
                         if image_docs is None:
                             continue
                         text_documents = image_docs
-                        # Keep the job-level visual counters accurate: the file
-                        # is ONE visual (an image/chart, or a drawing analysed
-                        # into per-segment chunks) — not a text chunk.
                         if image_docs[0].metadata.get("content_type") == "chart":
                             total_charts += 1
                         else:
                             total_images += 1
                     elif requires_rendition(file_name, file_path):
-                        # A Word or presentation file is indexed from its PDF
-                        # rendition and from nothing else (ADR-0071): one
-                        # extraction path, one page numbering, the one the
-                        # viewer opens. No rendition, no guess at the original.
                         self._update_file_status(job, i, FileStatus.FAILED, error=OFFICE_RENDITION_REQUIRED)
                         logger.warning("No PDF rendition to index %s from", file_name)
                         continue
                     else:
-                        # Spreadsheets with an extractor of their own first:
-                        # SimpleDirectoryReader's per-format readers are an
-                        # optional distribution this deployment does not
-                        # install, and its fallback reads raw bytes as text — an
-                        # .xlsx (a zip) became PK\x03… garbage that the binary
-                        # guard rejected. Plain-text formats (.txt/.md/.csv)
-                        # have a reader of their own too (``text_formats``):
-                        # the generic one read them UTF-8 with errors="ignore"
-                        # (a cp1252 export lost its umlauts) into ONE Document
-                        # with no locator.
                         from knowledge_layer.ingest import office_extractors
                         from knowledge_layer.ingest.text_formats import extract_text_format_documents
 
@@ -4190,13 +3652,9 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
 
                             text_documents = SimpleDirectoryReader(input_files=[file_path]).load_data()
 
-                            # Override file_name metadata (SimpleDirectoryReader uses temp path)
                             for doc in text_documents:
                                 doc.metadata["file_name"] = file_name
                                 doc.metadata["file_size"] = file_size
-                        # The upload screen, before anything reads `text_documents`.
-                        # Rows past the cap, columns past it and the tail of an
-                        # over-long cell were never read: not screened, not indexed.
                         cut = office_extractors.content_cut(text_documents)
                         checked = "partial" if over_cap or cut else "full"
                         with _stage(stages, "screen"):
@@ -4205,39 +3663,25 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
                             )
                         if held:
                             continue
-                        # An office original indexed from its own bytes has a
-                        # thumbnail only through its rendition (`preview_paths`).
                         if thumbnail_upload_url:
                             self._thumbnail_after_screen(thumbnail_upload_url, resolve_preview(config, i, downloaded))
 
                     all_documents.extend(text_documents)
                     logger.info(f"  Text extraction: {len(text_documents)} documents")
-                    # The rendition's companions (read above). Kept out of
-                    # `text_documents`, which feed the summary: notes are not
-                    # what the document says first.
                     all_documents.extend(companions)
 
-                    # Rendered visual/vector pages accumulate here; the summary reads them
-                    # for a text-sparse drawing PDF (`ingest_enrichment.summary_input`).
                     drawing_pages: list[dict[str, Any]] = []
 
-                    # 2. Tables (PDF only), read and screened with the text above
                     if is_pdf and extract_tables:
                         all_documents.extend(table_documents)
                         total_tables += len(tables)
                         logger.info(f"  Table extraction: {len(tables)} tables")
 
-                    # 3+4. Images and drawings: one batch of every vision call of the
-                    # file, on its page-read pool, content-hash cached.
                     if is_pdf:
                         from knowledge_layer.ingest import processing as _processing
 
                         drawing_pages_raw: list[dict[str, Any]] = []
                         if RENDER_VISUAL_PAGES and vlm_api_key:
-                            # Hand the renderer the already-extracted
-                            # (watermark-stripped) page texts: the PDF's text
-                            # layer is read once, and the visual heuristic's
-                            # "watermark-stripped text" threshold actually holds.
                             with _stage(stages, "renders"):
                                 drawing_pages_raw = _processing.render_visual_pages_no_vlm(
                                     source_path,
@@ -4252,9 +3696,6 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
                             if drawing_over_cap > 0:
                                 self._record_file_counts(job, i, drawing_pages_over_cap=drawing_over_cap)
 
-                        # Embedded rasters (no VLM yet): none from a page that is
-                        # rendered whole above or transcribed as a scan (its one
-                        # raster IS the page), at most MAX_IMAGES_PER_DOCUMENT.
                         with _stage(stages, "rasters"):
                             images, images_over_cap, images_over_pixel_budget = _embedded_images_for_analysis(
                                 source_path,
@@ -4294,11 +3735,6 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
                             vision_configured=bool(vlm_api_key) and RENDER_VISUAL_PAGES,
                         )
 
-                        # What each page says, stored once per version beside the file
-                        # (ADR-0134): the screen has passed and the drawings are read, so
-                        # this is the page as the pipeline read it. A re-chunk reads it
-                        # instead of the PDF; the agent's file reader serves it. Bounded,
-                        # fail-open, only for a document the BFF dispatched.
                         if config.get("document_id"):
                             from knowledge_layer.ingest import page_text_store
 
@@ -4322,12 +3758,6 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
                                 organization_id=organization_id,
                             )
 
-                        # Keep the rasters the VLM just captioned, beside the
-                        # document, so `look` can show one at
-                        # its own resolution rather than as a page render.
-                        # Only a document the BFF dispatched has an id and a
-                        # prefix to store under; the corpus sync has neither
-                        # and keeps captions only. Fail-open inside.
                         document_id = config.get("document_id")
                         if document_id and image_results:
                             from knowledge_layer.ingest import image_store as _image_store
@@ -4353,9 +3783,6 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
                         total_charts += visuals.charts
                         total_images += visuals.images
 
-                    # The summary, tags, topics and dossier start now and are collected after
-                    # the write (`ingest_enrichment`): no chunk carries them, so the document
-                    # is searchable without waiting for them. Closed with the file.
                     from knowledge_layer.ingest import enrichment as ingest_enrichment
 
                     from agent.knowledge.document_classification import DEFAULT_DOC_CLASS
@@ -4392,23 +3819,7 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
                         continue
                     all_documents = valid_documents
 
-                    # Stamp the explicit doc_class ("Dokumentart") into every
-                    # chunk's metadata (next to file_name) so it survives into
-                    # Chunk.metadata at retrieval and drives the lane/kind
-                    # classifiers ahead of the filename guess.
-                    #
-                    # Provenance rides in the same loop and is a SEPARATE axis
-                    # (ADR-0054): who wrote the document and who released it,
-                    # never what it is. It goes on the CHUNK because that is
-                    # where retrieval reads it — `norm_registry.lane_for_hit`
-                    # and the grounding block both see a chunk, not a metadata
-                    # row — and an empty dict for every human document leaves
-                    # those chunks byte-for-byte unchanged.
                     provenance = provenance_from_config(config)
-                    # The format rides the same loop for the same reason: a filed
-                    # E-Mail-Verlauf's chunks are placed in the mail lane where
-                    # retrieval reads them, and each `##` section the Markdown
-                    # chunker cut is one message (`text_formats.markdown_documents`).
                     stamp_chunk_metadata(
                         all_documents,
                         doc_class=doc_class,
@@ -4418,7 +3829,6 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
                         source_format=filed_mail.source_format_from_config(config),
                     )
 
-                    # Embedding is the expensive step; a run that lost its claim stops before it.
                     self._assert_still_owner(job_id)
                     from .chunk_identity import chunk_version
 
@@ -4427,11 +3837,7 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
                         records = self._embedded_records(
                             all_documents, chunk_size=chunk_size, chunk_overlap=chunk_overlap, version=version
                         )
-                    # The last moment a run that lost its claim can stop with
-                    # nothing of this file written: the new owner indexes it.
                     self._assert_still_owner(job_id)
-                    # Into Qdrant, the one store (ADR-0115). A failure fails the
-                    # file, and the attempt's ids are discarded below.
                     attempted = [record.chunk_id for record in records]
                     from knowledge_layer.vector_store import writes as qdrant_writes
 
@@ -4440,13 +3846,6 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
                             collection_name, file_name, records, identity=identity, config=config
                         )
 
-                    # The document may have been deleted while this attempt
-                    # ran: by a delete that did not wait for the replacement
-                    # lock, or one that landed after the upload and before
-                    # this dispatch. Its chunks go back out, by the same
-                    # difference a failure uses, and nothing is written to the
-                    # metadata row. The predecessor is NOT retired: under this
-                    # name it may already be a new document's first version.
                     if self._deleted_while_indexing(config, collection_name):
                         self._discard_partial_version(collection_name, file_name, attempted)
                         attempted = None
@@ -4459,9 +3858,6 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
                         )
                         continue
 
-                    # The nodes this attempt stored, not the Documents it handed
-                    # the splitter: a 40-page PDF is 40 Documents and several
-                    # hundred nodes, and the metadata row's chunk count said 40.
                     chunks_created = len(records)
                     total_chunks += chunks_created
 
@@ -4469,18 +3865,12 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
                     attempted = None
                     _log_memory(f"file:written {file_name} elapsed={time.monotonic() - file_started:.0f}s")
 
-                    # The new version is in the vector store: only now does the
-                    # one it replaces go. A second file of the same normalized
-                    # name later in this job finds THIS version as its previous.
                     self._retire_previous_version(collection_name, file_name, previous, [r.chunk_id for r in records])
                     retired = True
 
-                    # Searchable from here; what describes the file lands on its row now.
                     found = ingest_enrichment.collect_enrichment(enrichment, stages, file_name)
                     summary, tags, topics, dossier = found.summary, found.tags, found.topics, found.dossier
 
-                    # The vision model saw the pixels; the classifier only read
-                    # its caption. A photograph is a Foto whatever it shows.
                     if is_image and text_documents:
                         from agent.knowledge.document_classification import reconcile_image_tags
 
@@ -4490,40 +3880,17 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
                             segment_types=(doc.metadata.get("drawing_type") or "" for doc in text_documents),
                         )
 
-                    # A person's type at filing beats the classifier's, before the permit check reads it.
                     chosen_type, tags = chosen_document_type.apply(config, tags)
 
                     self._remember_permit(config, collection_name, file_name, tags, text_documents)
 
-                    # Standalone images must appear in the per-turn
-                    # available_documents list to be usable in chat (summaries
-                    # are the ONLY per-turn file visibility). If summarization is
-                    # disabled or failed, fall back to the VLM caption itself so
-                    # the image is never silently invisible.
                     if is_image and not summary and text_documents:
-                        # Scrub any licence/watermark stamp out of the caption
-                        # before it becomes the summary; if scrubbing empties it,
-                        # leave summary as None rather than emit an empty summary.
                         caption_text = _scrub_watermark_phrases(_strip_visual_marker(text_documents[0].get_content()))
                         summary = caption_text[:500] or None
 
-                    # Drawing PDFs (text-sparse) whose LLM summary failed fall
-                    # back to a deterministic, watermark-free summary synthesised
-                    # from the rendered-page drawing fields — better than the raw
-                    # text backstop below, which would surface a watermark or an
-                    # empty string.
                     if not summary and drawing_pages:
                         summary = _summary_from_drawing_fields(drawing_pages)
 
-                    # Structural "ingested ⇒ visible" backstop: ANY successfully
-                    # ingested text document must get a summary row, or it becomes
-                    # invisible to agents (available_documents is sourced SOLELY
-                    # from the summaries table). This fires whenever the LLM
-                    # summary is missing — summarization disabled, LLM failure, or
-                    # timeout — and deliberately does NOT require tag
-                    # classification to have succeeded; tags ride along
-                    # independently and may still be None. Standalone images
-                    # already fell back to their VLM caption above.
                     if not summary and text_documents:
                         from agent.knowledge.document_classification import fallback_summary_from_text
 
@@ -4532,24 +3899,12 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
                         fallback_source = f"{first_text}\n{last_text}" if last_text else first_text
                         summary = fallback_summary_from_text(fallback_source)
 
-                    # A person's choice in the upload dialog (ADR-0099): this file replaces
-                    # that one. A job is one file; a name meant for it is never read for
-                    # another. The base corpus has no Fassungen: it replaces by its own hash
-                    # registry.
-                    # ``fassung_of`` is the key a job queued before the rename carries.
                     confirmed_older = (config.get("revision_of") or config.get("fassung_of") or "").strip() or None
                     if base_corpus or len(file_paths) != 1:
                         confirmed_older = None
-                    # Whether the summary model reads Fassungen for this file: a suggestion,
-                    # a change line. The link a person chose never waits for it (below).
                     revision_model = bool(not base_corpus and self.generate_summary_enabled and self.summary_llm)
 
-                    # Store summary + tags in FileInfo and centralized registry
                     if summary:
-                        # The rows as they are BEFORE the new summary overwrites this
-                        # name's: the previous summary is what a re-upload's change
-                        # line is told against, and the other rows are the candidates
-                        # a new name may be a newer Fassung of (`revisions.py`).
                         revision_rows = (
                             revisions.read_rows(collection_name)
                             if not base_corpus and self.generate_summary_enabled and self.summary_llm
@@ -4558,14 +3913,11 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
                         summary_before = revisions.previous_summary(
                             revision_rows, previous.stored_names if previous else ()
                         )
-                        # Register in centralized summary registry (backend-agnostic).
-                        # Tags ride along in the same upsert (may be None).
                         from agent.knowledge import register_summary
                         from agent.knowledge import set_document_doc_class
                         from agent.knowledge import set_document_folder_path
 
                         register_summary(collection_name, file_name, summary, tags=tags, topics=topics)
-                        # Pages, title block, photo and mail, read off this Fassung (`row_facts`).
                         revision_facts = row_facts.store_read_facts(
                             collection_name,
                             file_name,
@@ -4575,8 +3927,6 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
                             replaced=previous is not None,
                         )
 
-                        # What the ingest read: the dossier, the references, the coverage.
-                        # Written together, so a re-ingest replaces the whole reading.
                         from agent.knowledge import set_document_reading
 
                         reading, references = _reading_of(
@@ -4590,33 +3940,18 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
                             collection_name, file_name, dossier=reading, references=references, coverage=coverage
                         )
 
-                        # Persist the doc_class onto the freshly-created summary
-                        # row, but never overwrite a human-set stored value —
-                        # only stamp the guess when none was stored. The class
-                        # carried from a row under another spelling is written
-                        # here too: that row goes when its version is retired.
                         if row_doc_class is None or explicit_doc_class is not None:
                             set_document_doc_class(collection_name, file_name, doc_class)
                         suggestion = _future_result(enrichment.doc_class, "Dokumentart suggestion", file_name)
-                        # A replaced version's row is kept under the same
-                        # name, so its old suggestion is cleared rather than
-                        # left standing for a document it no longer describes.
                         if suggestion or previous is not None:
                             from agent.knowledge import set_document_doc_class_suggestion
 
                             set_document_doc_class_suggestion(collection_name, file_name, suggestion)
 
-                        # The folder the BFF filed this document in, carried on
-                        # the job config from `POST /v1/ingest` (ADR-0049). It is
-                        # the materialised PATH, not a folder id, and it lands on
-                        # the metadata row rather than in the chunk vectors —
-                        # which is what lets a later rename re-file the document
-                        # with no re-ingest. Absent config means "project root".
                         folder_path = (config.get("folder_path") or "").strip() or None
                         folder_path = folder_path or preserved.get("folder_path")
                         if folder_path:
                             set_document_folder_path(collection_name, file_name, folder_path)
-                        # Tags a person chose survive the re-read, then the type chosen at filing.
                         chosen_document_type.carry_person_tags(collection_name, file_name, preserved, chosen_type, tags)
                         if "topics" in preserved:
                             from agent.knowledge import set_document_topics_by_person
@@ -4627,8 +3962,6 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
 
                             set_document_display_title(collection_name, file_name, preserved["display_title"])
                         elif base_corpus:
-                            # The starting name an admin can override: derived from the OIB file
-                            # name convention, nothing for a name that gives no confident default.
                             from agent.common.norm_registry import guess_display_title
                             from agent.knowledge import set_document_display_title
 
@@ -4636,23 +3969,11 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
                             if default_title:
                                 set_document_display_title(collection_name, file_name, default_title)
 
-                        # The same four keys on the document metadata row, so a
-                        # surface that reads the row rather than a chunk — the
-                        # collection listing, the agent's inventory — sees the
-                        # author too. The row is deleted with the chunks
-                        # (`unregister_summary` in `delete_file`), which is what
-                        # makes an archived version's provenance go with the
-                        # passages it described. A re-upload keeps the row, so
-                        # it overwrites the provenance, clearing it for a
-                        # version a person wrote.
                         if provenance or previous is not None:
                             from agent.knowledge import set_document_provenance
 
                             set_document_provenance(collection_name, file_name, provenance)
 
-                        # A person's confirmed link and a dismissed suggestion survive
-                        # the re-read, the way their tags do: the same-name row keeps
-                        # them by itself, this carries them from another spelling.
                         carried_link, carried_suggestion = revisions.carried_links(preserved)
                         if carried_link:
                             from agent.knowledge import set_document_superseded_by
@@ -4663,10 +3984,6 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
 
                             set_document_revision_suggestion(collection_name, file_name, carried_suggestion)
 
-                        # Fassungen: a new name may be a newer state of another document
-                        # (a suggestion), a re-upload says what changed (ADR-0054). Bounded,
-                        # fail-open, and only on a shelf of user documents: the base corpus
-                        # replaces by its own hash registry.
                         if revision_model:
                             self._bounded(
                                 "Fassung",
@@ -4688,9 +4005,6 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
 
                         logger.info(f"  Summary generated ({len(summary)} chars)")
 
-                    # The link a person chose at upload is theirs, whatever the summary model
-                    # could do: written without a summary (the row it waits for may come from
-                    # the reconciliation backfill) and without the model (no change line).
                     if confirmed_older and not (summary and revision_model):
                         self._bounded(
                             "Fassung",
@@ -4709,32 +4023,20 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
                     logger.info(f"Completed file {i + 1}/{len(file_paths)} ({chunks_created} chunks)")
 
                 except _ClaimLost:
-                    # Not this file's failure: the run as a whole stops (below).
                     raise
                 except Exception as e:
                     logger.exception(f"Error processing file {file_path}")
                     self._update_file_status(job, i, FileStatus.FAILED, error=str(e), exc=e)
                     self._discard_partial_version(collection_name, file_name, attempted, previous)
                 finally:
-                    # Where this file's wall time went, in one line. Logged here,
-                    # not on the success path, so a held or failed file shows the
-                    # stages it did reach: that is where the screening win reads.
                     _log_ingest_perf(file_name, stages)
                     _finish_file_trace(file_recorder, job, i, stages, coverage)
                     file_trace.__exit__(None, None, None)
                     _release_memory(file_name)
-                    # Still under the replacement lock: a quarantined re-upload
-                    # holds its whole document (ADR-0086) until a reviewer
-                    # acts, so its predecessor stops answering now.
                     if previous is not None and not retired and not deleted and self._quarantined(job, i):
                         self._retire_held_predecessor(collection_name, file_name, previous)
                         retired = True
                     file_scope.close()
-                    # A predecessor still here had a re-upload that did not
-                    # index (raised, or reported FAILED and skipped ahead); it
-                    # stays the version retrieval serves. Not so for a
-                    # deleted document: what answers to its name now is the
-                    # delete's business, or a new document's first version.
                     if previous is not None and not retired and not deleted:
                         kept_previous.append(file_name)
 
@@ -4743,7 +4045,6 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
                     "Kept the previous version of %s in %s: its re-upload did not index", name, collection_name
                 )
 
-            # Determine extraction mode
             mode_parts = ["text"]
             if extract_tables:
                 mode_parts.append("tables")
@@ -4756,19 +4057,6 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
             failed_files = [f for f in job.file_details if f.status == FileStatus.FAILED]
             successful_files = [f for f in job.file_details if f.status == FileStatus.SUCCESS]
 
-            # Mark job as terminal based on per-file results
-            # Reconciliation backstop, BEFORE the job reads as terminal: a caller
-            # that waits for COMPLETED and then lists the collection must find
-            # every row (the BFF's settle does exactly that). Catch any document that ingested
-            # successfully (visible/searchable in Qdrant) but whose summary row
-            # silently failed to register — e.g. both the LLM summary and tag
-            # classification calls failed. Runs at the end of every ingestion
-            # job inside the knowledge layer, so every caller (the Knowledge
-            # API, oib_sync, and any future caller)
-            # gets this for free without having to remember to call it. Scoped
-            # to THIS job's successful files: the unscoped mode's list_files
-            # reads every chunk metadata in the collection — O(collection) per
-            # single-file upload, painful on the large oib_knowledge corpus.
             if successful_files:
                 try:
                     from agent.knowledge.factory import reconcile_collection_summaries
@@ -4787,10 +4075,6 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
                     job.error_message = f"{len(failed_files)}/{len(job.file_details)} file(s) failed"
                 else:
                     job.status = JobState.COMPLETED
-                # NOTE: assigned as an isoformat STRING (assignment bypasses
-                # Pydantic coercion). get_file_status() depends on this — it
-                # calls datetime.fromisoformat(job.completed_at), which raises
-                # TypeError on a real datetime. Change both together.
                 job.completed_at = datetime.utcnow().isoformat()
                 job.metadata = {
                     **job.metadata,
@@ -4804,10 +4088,8 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
                     "extraction_mode": extraction_mode,
                 }
 
-            # Persist the terminal status so any replica serves the final result.
             self._persist(job)
 
-            # Invalidate any cached retrieval results for this collection.
             bump_collection_version(collection_name)
 
             logger.info(
@@ -4828,10 +4110,7 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
             self._persist(job)
 
         finally:
-            # Clean up temp files if requested
             if config.get("cleanup_files", False):
-                # The renditions are temp files of the same request, and this
-                # job owns them the same way.
                 handed = [path for path in file_paths if isinstance(path, str)]
                 for file_path in [*handed, *handed_rendition_paths(config)]:
                     try:
@@ -4851,8 +4130,3 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
     async def health_check(self) -> bool:
         """In-process ingestor - always healthy if code is running."""
         return True
-
-
-# =============================================================================
-# LlamaIndex Retriever
-# =============================================================================

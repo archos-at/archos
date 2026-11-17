@@ -11,20 +11,10 @@ import { projectIntakeCopy } from '@/i18n/namespaces/project-intake'
 import type { ProfileEvidence } from '@/lib/project-intake/types'
 import { cn } from '@/lib/utils'
 
-/**
- * The project whose documents the chips open. The page provides it once
- * (`IntakeSetupView`), so no section passes it down to the chip.
- */
 export const EvidenceProjectContext = createContext<string | undefined>(undefined)
 
 type DocumentEvidence = Extract<ProfileEvidence, { kind: 'document' }>
 
-/**
- * A document's evidence as the citation the chat's source chips are made of:
- * a project file, narrowed to the page and the quote. Nothing here is a
- * second kind of chip; it is the same reference, so the same hover peek, the
- * same viewer and the same provenance signal follow from it.
- */
 export function citationOfEvidence(evidence: DocumentEvidence): CitationRef {
   const locus = {
     key: `${evidence.fileName}#${evidence.page ?? 'quote'}`,
@@ -46,14 +36,6 @@ export function citationOfEvidence(evidence: DocumentEvidence): CitationRef {
   }
 }
 
-/**
- * Where a value was found, as chips: „Baubeschreibung.pdf, S. 3", which shows
- * the quote on hover or focus and opens the document at that page in the
- * viewer the chat's citations open, the address search, a derivation, or the
- * person's own answer. A value with no evidence shows no chip, never an empty
- * one. Only a document is a source, so only its chip wears the project
- * provenance signal; the others are neutral.
- */
 export function EvidenceChips({
   evidence,
   className,

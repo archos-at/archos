@@ -113,14 +113,8 @@ from .permit_records import plain_text
 
 logger = logging.getLogger(__name__)
 
-#: The tool's basename, as the ``sources`` step names it.
 PROJECT_LOOKUP_TOOL = "project_lookup"
 
-#: The ingestion tags' closed vocabularies, mirrored from
-#: ``knowledge/document_classification.py`` (the BFF validates against its own
-#: mirror, ``lib/documents/tag-vocabulary.ts``). Literal, so a provider
-#: constrains the argument before it is sent; ``tests/test_tag_vocabulary_parity.py``
-#: holds all three copies to the same order.
 DocumentType = Literal[
     "Bebauungsplan",
     "Flächenwidmungsplan",
@@ -153,13 +147,6 @@ def _normalized(value: object) -> object:
 Action = Annotated[Literal["search", "find", "brief"], BeforeValidator(_normalized)]
 Scope = Annotated[Literal["similar", "closed", "all", "named"], BeforeValidator(_normalized)]
 
-#: The project facts a lookup narrows by, as one flat token per value, with the
-#: label a reader sees. The intake wizard's own vocabularies
-#: (``intake-definition.ts``; the BFF validates against them, ``crossProjectFactsSchema``),
-#: „noch offen" and a site abroad left out because no project can match either.
-#: The five vocabularies share no token, so one flat list says which fact each
-#: value belongs to, and the schema the model sees stays one short enum.
-#: ``test_project_lookup.py`` holds these to the BFF's JSON Schema.
 _FACT_LABELS: dict[str, dict[str, str]] = {
     "federal_state": {token: label for token, label in FEDERAL_STATE_TOKENS.items() if label},
     "building_class": {f"gk{grade}": f"GK {grade}" for grade in range(1, 6)},
@@ -193,11 +180,9 @@ _FACT_LABELS: dict[str, dict[str, str]] = {
         "external_works": "Außenanlagen",
     },
 }
-#: Each token's fact, in the BFF's spelling.
 FACT_OF_TOKEN: dict[str, str] = {token: fact for fact, labels in _FACT_LABELS.items() for token in labels}
 _FACT_LABEL: dict[str, str] = {token: label for labels in _FACT_LABELS.values() for token, label in labels.items()}
 _GK_SPELLING = re.compile(r"^(?:gk|gebaeudeklasse)?[\s_]*([1-5])$")
-#: The five vocabularies share no German token either, so one flat map names each legacy token's English one.
 _LEGACY_FACT_TOKENS: dict[str, str] = {
     old: new
     for fact in _FACT_LABELS
@@ -221,7 +206,6 @@ def fact_token(value: object) -> object:
     if match := _GK_SPELLING.match(folded):
         return f"gk{match.group(1)}"
     token = folded.replace(" ", "_")
-    # A German token (``tirol``) from a prompt the model still remembers is read as the English one.
     return _LEGACY_FACT_TOKENS.get(token, token)
 
 
@@ -256,7 +240,6 @@ _NOT_FOUND = (
     "project_id from `<reference_projects>` or `find`."
 )
 
-#: Said once per answer that handed out content narrowing the chat's readers: the doors it shut.
 _CLOSED_DOORS = (
     "[This chat now relies on other running projects or on folders with their own access list: "
     "no project memory, no tasks, no deep research, no filing into the project, and shareable "
@@ -314,7 +297,6 @@ async def _call(path: str, payload: dict[str, Any]) -> dict[str, Any]:
         return await asyncio.to_thread(post_lookup, path, _with_answer(payload), envelope)
     except CrossProjectLookupError as exc:
         if exc.code == "CROSS_PROJECT_AUDIENCE_CHANGED":
-            # The BFF's own sentence (German): relayed to the reader as it is.
             raise _Refused(f"Not possible: {exc}", "audience_changed") from exc
         if exc.status == 404:
             raise _Refused(_NOT_FOUND, "not_found") from exc
@@ -329,7 +311,6 @@ def _federal_state_note(project: dict[str, Any]) -> str | None:
     Said by the tool, not left to the model: a precedent from another Land
     was decided under another Bauordnung, and nothing else on the hit shows it.
     """
-    # `bundesland` and the German token are what a BFF that has not rolled yet answers with.
     theirs = project.get("federal_state", project.get("bundesland"))
     if not isinstance(theirs, str) or not theirs:
         return None
@@ -353,11 +334,6 @@ def _source_project(project: dict[str, Any], name: str) -> SourceProject:
 
 def _status_label(status: object) -> str:
     return PROJECT_STATUS_LABELS.get(str(status), str(status))
-
-
-# ---------------------------------------------------------------------------
-# search
-# ---------------------------------------------------------------------------
 
 
 def project_facts_filter(values: list[str]) -> dict[str, list[str | int]]:
@@ -438,7 +414,6 @@ def search_payload(
     return payload
 
 
-#: What the backend appends to a passage it had to cut.
 _SNIPPET_ELLIPSIS = "…"
 
 
@@ -452,8 +427,6 @@ def _hit(raw: dict[str, Any]) -> GroundingHit | None:
     page = raw.get("page") if isinstance(raw.get("page"), int) and raw.get("page") > 0 else None
     snippet = str(raw.get("snippet") or "").strip()
     truncated = snippet.endswith(_SNIPPET_ELLIPSIS)
-    # The project qualifies the key: two projects' „Detail Traufe.pdf, p.2" are
-    # two documents, and the answer must be able to cite each.
     key = f"{filename} ({name})"
     return GroundingHit(
         citation_key=f"{key}, p.{page}" if page is not None else key,
@@ -500,7 +473,6 @@ def _search_preamble(
 
 _DECISION_KIND = {"decision": "Decision", "constraint": "Constraint"}
 
-#: The file name a project's recorded decisions are cited under: not a document, its memory.
 MEMORY_SOURCE_NAME = "Projektgedächtnis"
 
 
@@ -632,7 +604,6 @@ def _usable_hits(body: dict[str, Any]) -> list[dict[str, Any]]:
     return [raw for raw in raw_hits if isinstance(raw, dict) and _hit(raw) is not None]
 
 
-#: Said when the judge found no passage showing a solution and more projects remain.
 _PAGE_ON = (
     "[None of these passages shows how a comparable case was solved; they share words with the question rather. "
     "The same search with offset={offset} searches more projects.]"
@@ -651,13 +622,10 @@ def _render_search(
     body: dict[str, Any], verdicts: HitVerdicts | None = None, facts: dict[str, list[str | int]] | None = None
 ) -> str:
     usable = _usable_hits(body)
-    # Most telling first when the judge ran (ADR-0064 use 11); otherwise the BFF's score order.
     ordered = [usable[i] for i in verdicts.order()] if verdicts is not None else usable
     passages = tuple(hit for hit in (_hit(raw) for raw in ordered) if hit is not None)
     decisions, permits = _decisions(body), permits_of(body)
     permit_hits = _permit_hits(permits)
-    # The decisions first: short, comparable, and they say why. Then what the
-    # authorities demanded of past procedures, then the passages.
     hits = (*_decision_hits(decisions), *permit_hits, *passages)
     preamble = _search_preamble(body, passages, permit_hits, facts)
     if verdicts is not None:
@@ -672,8 +640,6 @@ def _render_search(
         return "\n".join([*preamble, "Keine passenden Dokumente, Entscheidungen oder Bescheide in diesen Projekten."])
     from knowledge_layer.search import trace_lanes_for_hits
 
-    # Handed out by the BFF, which recorded every one before it answered: what
-    # the admission lets through for this turn, and what shuts its doors.
     note_cross_project_hand_out(
         (hit.collection for hit in hits),
         restricting=_records_restrict(recorded)
@@ -688,11 +654,6 @@ def _render_search(
             tool=PROJECT_LOOKUP_TOOL,
         )
     )
-
-
-# ---------------------------------------------------------------------------
-# find and brief
-# ---------------------------------------------------------------------------
 
 
 def _period(raw: object) -> str:
@@ -758,7 +719,6 @@ def _render_find(body: dict[str, Any], facts: dict[str, list[str | int]] | None 
     return "\n".join(lines)
 
 
-#: The file name a project's brief is cited under: not a document, its confirmed facts.
 BRIEF_SOURCE_NAME = "Projektdaten"
 
 
@@ -801,7 +761,6 @@ def _render_brief(body: dict[str, Any]) -> str:
     facts = str(body.get("facts") or "").strip()
     content = "\n".join([*([f"Summary: {summary}"] if summary else []), facts or "No confirmed key facts."])
     if not (summary or facts) or not project.get("collection"):
-        # Nothing recorded is nothing to cite: the line stands as the answer.
         return "\n".join([preamble[0], content, *preamble[1:]])
     from knowledge_layer.search import trace_lanes_for_hits
 
@@ -832,11 +791,6 @@ def _reference_order() -> list[str]:
 
     turn = current_cross_project_turn()
     return list(turn.reference_order) if turn is not None else []
-
-
-# ---------------------------------------------------------------------------
-# Langfuse
-# ---------------------------------------------------------------------------
 
 
 def _project_ref(project: object) -> dict[str, str] | None:
@@ -907,11 +861,6 @@ def _observe(action: str, payload: dict[str, Any], outcome: dict[str, Any]) -> N
     emit_retrieval_span(tool_name=PROJECT_LOOKUP_TOOL, search_input={"action": action, **payload}, picks=outcome)
 
 
-# ---------------------------------------------------------------------------
-# The Herleitung row (ADR-0132)
-# ---------------------------------------------------------------------------
-
-
 def _only_project_name(records: list[Any]) -> str | None:
     """The project's name when every record is from one project, else None."""
     names = {
@@ -938,11 +887,6 @@ def record_outcome(action: str, body: dict[str, Any], outcome: ActionOutcome) ->
     project = body.get("project") if isinstance(body.get("project"), dict) else {}
     outcome.hits = 1 if project else 0
     outcome.target = plain_text(project.get("name")) or None
-
-
-# ---------------------------------------------------------------------------
-# The tool
-# ---------------------------------------------------------------------------
 
 
 async def _lookup(

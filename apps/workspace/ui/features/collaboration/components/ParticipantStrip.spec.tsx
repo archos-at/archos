@@ -5,8 +5,6 @@ import { render, screen } from '@/test-utils'
 import type { ResourceAccessEntry, ResourceRole } from '@/lib/sharing/types'
 import { ParticipantStrip, sortByRoleThenName } from './ParticipantStrip'
 
-/** Default locale in an unprovided test tree is `en`. */
-
 const entry = (
   userId: string,
   name: string,
@@ -30,7 +28,6 @@ describe('ParticipantStrip — solo threads', () => {
   test('renders nothing for a single participant', () => {
     render(<ParticipantStrip entries={[entry('u-me', 'Me', 'owner')]} onOpen={vi.fn()} />)
 
-    // A solo private chat must show no collaboration furniture at all.
     expect(screen.queryByTestId('participant-strip')).not.toBeInTheDocument()
   })
 
@@ -56,7 +53,6 @@ describe('ParticipantStrip — the stack', () => {
       .getAllByTestId('person-avatar')
       .map((avatar) => avatar.textContent?.trim())
 
-    // Matthias (owner) → Anna, Markus (collaborators, alphabetical) → Zoe (viewer).
     expect(initials).toEqual(['MB', 'AW', 'MH', 'ZV'])
   })
 
@@ -130,13 +126,6 @@ describe('ParticipantStrip — opening the overview', () => {
     expect(await screen.findByRole('tooltip')).toHaveTextContent('Matthias Bigl (you)')
   })
 })
-
-/*
- * The disc itself (identity colour, photo preference, `+N` bubble, overlap
- * geometry) is `@/components/ui/avatar-stack` and is specified there. What stays
- * here is what is genuinely the strip's: the solo rule, the roster ordering, and
- * being one control.
- */
 
 describe('sortByRoleThenName', () => {
   test('does not mutate its input (the roster comes straight from the server state)', () => {

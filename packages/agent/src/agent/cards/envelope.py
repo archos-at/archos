@@ -38,6 +38,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
+from agent.cards.catalog import MODEL_BACKED_CARD_TYPES
 from agent.cards.catalog import RETIRED_CARD_TYPES
 from agent.cards.catalog import SYSTEM_CARD_TYPES
 from agent.cards.catalog import render_card_details
@@ -55,25 +56,18 @@ from agent.common.tool_errors import render_error_detail
 
 logger = logging.getLogger(__name__)
 
-#: The card types whose FULL shape the envelope contract teaches up front.
-#:
-#: The whole catalog's shapes are far too much for a prefix re-sent on every
-#: call. `calculation` is the one content card an answer earns that Markdown
-#: cannot carry and whose shape is easy to get wrong (operands, a `factor`, a
-#: limit, no result field). `formula` stands beside it since ADR-0143: its
-#: shape is a discriminated `formula` with a case per rule (`stair_type`,
-#: `component`, `start`), and a model guessing it from the index line writes a
-#: `limits` list the card no longer takes. The cards that stood here before they were
-#: deleted (`legal_basis`, `condition_tree`, `process_map`) are written in the
-#: answer's Markdown now (``catalog.RETIRED_CARD_TYPES``). Every other type
-#: keeps its index line, and a miss on one of those is repaired by the small
-#: model rather than by a round.
-ENVELOPE_SHAPE_TYPES: tuple[str, ...] = ("calculation", "formula")
+ENVELOPE_SHAPE_TYPES: tuple[str, ...] = ()
 
-#: Composition (ADR-0065). Taught as prose plus one worked shape rather than
-#: through `render_card_details`: the model's `components` field is an A2UI
-#: list of objects, and the rendered field line ("list[object]") says nothing
-#: a model could fill it from.
+FLOOR_EXEMPT_CARD_TYPES = SYSTEM_CARD_TYPES | MODEL_BACKED_CARD_TYPES | {"ifc_model_picker"}
+
+
+def is_floor_exempt(card: dict[str, Any]) -> bool:
+    """Whether the short-answer floor must keep ``card``; a ``surface`` counts by the leaves it holds."""
+    if card.get("type") != "surface":
+        return card.get("type") in FLOOR_EXEMPT_CARD_TYPES
+    return any(leaf.get("component") in FLOOR_EXEMPT_CARD_TYPES for leaf in card.get("components", []))
+
+
 _COMPOSE_RULE = (
     "COMPOSE. Variants the reader picks ONE of to read (two designs, two Bundesländer, Bestand "
     "against Umbau, Außentreppe against zweites Treppenhaus) travel as ONE `surface` card, an A2UI "
@@ -99,9 +93,6 @@ _COMPOSE_RULE = (
     '{"id": "b", "component": "Text", "text": "1. …\\n2. …"}]}'
 )
 
-#: The marker rule the envelope's cards carry. Stated once, here, and rendered
-#: into the taught schema: it is about the ANSWER (where a card is drawn), and
-#: the envelope is where the answer is written.
 _MARKER_RULE = (
     "PLACEMENT. `[[card:N]]` alone on a line of `answer` draws the N-th card of your `cards` array at "
     "that point; a card with no marker lands after the whole answer. N counts your array from 1 — "
@@ -142,20 +133,12 @@ def render_envelope_cards_contract() -> str:
     )
 
 
-#: Why a card was refused. Stable tokens: the two channels word their
-#: refusals differently (a tool tells the model what to call next, the
-#: pipeline tells the repair what to fix) and both read the kind.
 REFUSED_NOT_AN_OBJECT = "not_an_object"
 REFUSED_SHAPE = "shape"
 REFUSED_SYSTEM_TYPE = "system_type"
 REFUSED_RETIRED_TYPE = "retired_type"
 REFUSED_CONFINED = "confined"
 
-#: Card types a turn whose scope holds a restricted folder's collection may not
-#: compose (ADR-0087): accepting one writes something the whole project reads.
-#: A ``project_profile_patch`` writes the project profile. (``memory_proposal``
-#: is a system card, and the ``remember`` tool never pushes one for a restricted
-#: finding.)
 CONFINED_CARD_TYPES = frozenset({"project_profile_patch"})
 
 
@@ -175,7 +158,6 @@ def _turn_is_confined() -> bool:
         use = current_restricted_use()
         if use is not None and use.confined:
             return True
-        # A conversation that drew on another project (ADR-0094) is confined the same way.
         if drew_on_other_projects():
             return True
         return bool(restricted_collections_in(get_collection_scope_from_context()))
@@ -189,11 +171,8 @@ class CardRefusal:
     """What the validator could not accept about one card, and why."""
 
     kind: str
-    #: The declared ``type``, ``"?"`` when the payload declared none.
     card_type: str
-    #: One clause per rejected field on a shape miss; empty otherwise.
     detail: str = ""
-    #: The type's FULL shape on a shape miss — what a retry or a repair needs.
     hint: str | None = None
 
     @property
@@ -238,9 +217,6 @@ def validate_model_card(payload: object) -> tuple[dict[str, Any] | None, CardRef
         return None, CardRefusal(REFUSED_NOT_AN_OBJECT, type(payload).__name__)
 
     card_type = str(payload.get("type", "?"))
-    # The closed channels first: a system card, or a type that no longer
-    # exists, is refused by its declared type, before a shape miss could send
-    # it to the repair model with nothing to repair it into.
     if card_type in SYSTEM_CARD_TYPES:
         logger.warning("card rejected: '%s' is system-emitted", card_type)
         return None, CardRefusal(REFUSED_SYSTEM_TYPE, card_type)
@@ -257,8 +233,6 @@ def validate_model_card(payload: object) -> tuple[dict[str, Any] | None, CardRef
         logger.warning("card rejected: a '%s' card failed validation: %s", card_type, detail)
         return None, CardRefusal(REFUSED_SHAPE, card_type, detail=detail, hint=_repair_hint(payload, card_type))
 
-    # What only the server fills is never the model's: an id it wrote would point
-    # a person's Accept at a proposal this turn did not make.
     for field in SERVER_FILLED_CARD_FIELDS:
         validated.pop(field, None)
     return validated, None

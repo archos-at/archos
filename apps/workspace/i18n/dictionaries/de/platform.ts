@@ -1,6 +1,5 @@
 import type { en } from '../en'
 
-/** Das plattformweite Dashboard des Plattform-Inhabers (ADR-0016). */
 export const platform: typeof en.platform = {
   title: 'Plattform',
   subtitle: 'Organisationsübergreifende Übersicht für den Plattform-Inhaber.',
@@ -154,15 +153,47 @@ export const platform: typeof en.platform = {
     wrongCount: 'nicht richtig: {count}',
     why: {
       own: 'Sie haben in diesem Antrag geschrieben, daher gibt ihn eine andere Person frei.',
-      ownUnchecked: 'Sie haben in diesem Antrag geschrieben, daher gibt ihn eine andere Person frei. Eine eingefügte, nicht abgerufene Seite prüft eine andere Person gegen ihre Quelle, bevor Sie ohne Zweitprüfung freigeben können.',
+      ownUnchecked:
+        'Sie haben in diesem Antrag geschrieben, daher gibt ihn eine andere Person frei. Eine Seite oder einen Text, die eingefügt, hochgeladen oder über eine Quelle abgerufen wurden, die noch niemand sonst geprüft hat, prüft eine andere Person gegen die Quelle, bevor Sie ohne Zweitprüfung freigeben können.',
       open: 'Noch zu prüfen: {count}',
       alone: 'Sie haben in diesem Antrag geschrieben: eine zweite Person gibt ihn frei, oder Sie geben ihn mit Grund ohne Zweitprüfung frei.',
       wrong: 'Nicht richtig: {count}. Ein Antrag mit falschem Eintrag kann nicht freigegeben werden.',
     },
+    warnings: {
+      country_states_no_coverage:
+        'Das Land nennt keine Abdeckung: Ein Standort darin bleibt beim Gate „none“, ohne verbindliche Ausgaben, außer eine Region auf seiner Kette nennt eine.',
+    },
     acceptAll: 'Alle richtig',
     acceptChecked: 'Mit der Quelle verglichen, alles richtig',
-    pastedHint: 'Diese Seite wurde eingefügt, nicht abgerufen. Öffnen Sie die Quelle und vergleichen Sie: „richtig“ heißt hier auch, dass der Text mit der Quelle übereinstimmt.',
+    pastedHint:
+      'Diese Seite wurde eingefügt oder über eine Quelle abgerufen, die noch niemand sonst geprüft hat. Öffnen Sie die Quelle und vergleichen Sie: „richtig“ heißt hier auch, dass der Text mit der Quelle übereinstimmt.',
+    unfetchedTextHint:
+      'Dieser Text wurde hochgeladen oder über eine Quelle abgerufen, die noch niemand sonst geprüft hat. Öffnen Sie ihn und vergleichen Sie ihn mit dem des Herausgebers: „richtig“ heißt hier auch, dass es dieser Text ist.',
     operatorSupplied: 'eingefügt, nicht abgerufen',
+    unreviewedSource: 'über eine ungeprüfte Quelle abgerufen',
+    draftsTitle: 'In Arbeit',
+    draftsDescription: 'Entwürfe, in die noch Einträge und Texte kommen. Öffnen Sie einen, um einer Ausgabe ihren Text anzuhängen.',
+    draftsLoadError: 'Die Entwürfe konnten nicht geladen werden',
+    draftsMore: 'Weitere Entwürfe anzeigen',
+    draftsLoadingMore: 'Weitere Entwürfe werden geladen …',
+    text: {
+      label: 'Text',
+      uploaded: 'hochgeladen',
+      fetched: 'abgerufen von {host}',
+      named: 'bereits im Basiswissen',
+      pages: '{count} Seiten',
+      missing: 'Noch kein Text angehängt.',
+      none: 'Ohne Text: Diese Ausgabe wird nur geführt, ihr Text ist nicht hinterlegt.',
+      attachHint: 'Der Text wird mit diesem Antrag freigegeben und unter {country} indexiert. Vorher liest ihn kein Büro.',
+      upload: 'PDF hochladen',
+      replace: 'Anderes PDF hochladen',
+      fromUrl: 'Von einer Adresse abrufen',
+      sourceLabel: 'Quelle',
+      sourcePlaceholder: 'Quelle, z. B. at-oib',
+      urlLabel: 'Adresse des PDF',
+      fetch: 'Abrufen',
+      attached: '{name} angehängt',
+    },
     checkAgainst: 'Vergleichen mit',
     noSource: 'Keine Quelle angegeben. Fragen Sie nach einer, bevor Sie etwas als richtig markieren.',
     unchecked: 'nicht geprüft',
@@ -229,6 +260,171 @@ export const platform: typeof en.platform = {
       },
     },
   },
+  countryPages: {
+    list: {
+      title: 'Alle Länder',
+      description: 'Jedes Land, wie weit es ist und was es als Nächstes braucht. Öffnen Sie ein Land, um daran zu arbeiten.',
+      emptyTitle: 'Noch kein Land',
+      emptyDescription: 'Ein Land erscheint hier, sobald ein Büro es als Heimatland hat oder ein Änderungsantrag dafür angelegt ist.',
+      stage: 'Stand',
+      next: 'Als Nächstes',
+    },
+    stage: {
+      not_started: 'Nicht begonnen',
+      in_progress: 'In Arbeit',
+      published: 'Veröffentlicht',
+    },
+    next: {
+      review: {
+        short: '{count, plural, one {# Antrag prüfen} other {# Anträge prüfen}}',
+        long: '{count, plural, one {Ein Änderungsantrag wartet} other {# Änderungsanträge warten}} auf Ihre Prüfung. Vergleichen Sie jede Angabe mit ihrer Quelle und geben Sie frei oder lehnen Sie ab.',
+      },
+      check_editions: {
+        short: '{count, plural, one {# Ausgabe prüfen} other {# Ausgaben prüfen}}',
+        long: '{count, plural, one {Eine veröffentlichte Ausgabe ist} other {# veröffentlichte Ausgaben sind}} länger nicht geprüft worden. Prüfen Sie, ob sie noch gilt.',
+      },
+      continue_drafts: {
+        short: '{count, plural, one {# Antrag in Arbeit} other {# Anträge in Arbeit}}',
+        long: '{count, plural, one {Ein Änderungsantrag ist} other {# Änderungsanträge sind}} in Arbeit. Hängen Sie fehlende Texte an und reichen Sie ihn zur Prüfung ein.',
+      },
+      start: {
+        short: 'Beginnen',
+        long: 'Für dieses Land ist noch nichts angelegt. Bitten Sie Ihren Assistenten an der Plattform-Schnittstelle, Einträge vorzuschlagen; sie kommen hier als Änderungsantrag zur Prüfung an.',
+      },
+      none: {
+        short: 'Nichts offen',
+        long: 'Nichts offen. Alles Veröffentlichte ist geprüft, und kein Antrag wartet.',
+      },
+    },
+    connectAssistant: 'Assistenten verbinden',
+    page: {
+      subtitle: 'Alles Wissen dieses Landes an einem Ort. Es ändert sich nur über einen geprüften Änderungsantrag.',
+      sectionsLabel: 'Bereiche des Landes',
+    },
+    sections: {
+      overview: 'Überblick',
+      works: 'Werke und Ausgaben',
+      sources: 'Quellen',
+      rules: 'Regeln',
+      review: 'Prüfung',
+      quality: 'Qualität',
+    },
+    overview: {
+      nextTitle: 'Als Nächstes',
+      works: 'Veröffentlichte Werke',
+      worksHint: '{editions} Ausgaben, {texts} mit Text',
+      open: 'Offene Anträge',
+      openHint: 'In Arbeit, eingereicht oder freigegeben',
+      due: 'Prüfung fällig',
+      dueHint: 'Veröffentlichte Ausgaben, deren Prüfung überfällig ist',
+      offices: 'Büros',
+      officesHint: 'Lesen dieses Land',
+      qualityTitle: 'Letzter Qualitätslauf',
+    },
+    addDocument: {
+      open: 'Dokument hinzufügen',
+      title: 'Dokument hinzufügen',
+      description: 'Ein PDF wird zum Text einer Ausgabe dieses Landes. Es kommt in den offenen Entwurf eines Änderungsantrags, wo es geprüft wird, bevor Büros es lesen.',
+      from: 'Herkunft',
+      fromUrl: 'Adresse beim Herausgeber',
+      fromUpload: 'Datei hochladen',
+      url: 'Adresse des PDFs',
+      urlWhy: 'Bevorzugt: Die Plattform lädt das PDF selbst, so ist seine Herkunft belegt und niemand muss die Datei mit der Quelle abgleichen.',
+      file: 'PDF-Datei',
+      publishedAt: 'Wo der Herausgeber es veröffentlicht',
+      titleText: 'Titelzeilen, wie das Dokument sie druckt',
+      titleTextWhy: 'Kopieren Sie die Zeilen mit Werk und Ausgabe aus dem PDF. Die Einträge zitieren sie. Die Plattform liest eine hochgeladene Datei nicht; die Prüfung gleicht diese Zeilen vor der Freigabe mit dem PDF ab.',
+      work: 'Werk',
+      newWork: 'Ein neues Werk',
+      pickWork: 'Werk wählen',
+      workTitle: 'Titel des Werks',
+      designation: 'Kurzbezeichnung (optional)',
+      kind: 'Was es ist',
+      kindWhy: 'Das bestimmt seine Rolle: Gesetz und Verordnung binden, eine Richtlinie leitet an, ein Kommentar enthält Erläuterungen.',
+      kinds: {
+        statute: 'Gesetz',
+        ordinance: 'Verordnung',
+        administrative_regulation: 'Verwaltungsvorschrift',
+        directive: 'EU-Richtlinie',
+        intergovernmental_agreement: 'Staatsvertrag',
+        model_code: 'Mustervorschrift',
+        technical_standard: 'Technische Norm',
+        guideline: 'Richtlinie',
+        commentary: 'Kommentar oder Erläuterungen',
+        authority_directive: 'Behördliche Weisung',
+      },
+      label: 'Ausgabe, wie gedruckt',
+      inForceFrom: 'Gilt ab',
+      confirm: 'Zum Änderungsantrag hinzufügen',
+      adding: 'Wird hinzugefügt …',
+      doneAdded: 'Zum Änderungsantrag „{title}“ hinzugefügt. Veröffentlicht wird es, sobald die Prüfung es freigibt.',
+      doneOpened: 'In einen neuen Änderungsantrag „{title}“ aufgenommen. Veröffentlicht wird es, sobald die Prüfung es freigibt.',
+      reviewNow: 'Jetzt prüfen',
+      errors: {
+        EDITION_EXISTS: 'Dieses Werk hat diese Ausgabe schon. Geben Sie die Ausgabe an, wie das Dokument sie druckt, oder prüfen Sie den Antrag, der sie enthält.',
+        HOST_NOT_ON_SOURCE: 'Diese Adresse gehört zu keiner Quelle dieses Landes. Nehmen Sie die Adresse des PDFs bei einer Quelle unter „Quellen“, oder laden Sie die Datei hoch.',
+        EGRESS_REFUSED: 'Von dieser Adresse darf die Plattform nicht laden. Nehmen Sie die Adresse des PDFs bei einer Quelle unter „Quellen“, oder laden Sie die Datei hoch.',
+        NOT_A_PDF: 'Das ist kein PDF. Geben Sie die Adresse des PDFs selbst an, oder laden Sie eine .pdf-Datei hoch.',
+        NOT_PRINTED: 'Das Dokument druckt die Bezeichnung oder die Ausgabe nicht so wie eingegeben. Schreiben Sie sie genau so, wie das Dokument sie druckt.',
+        failed: 'Das Dokument konnte nicht hinzugefügt werden. Bitte erneut versuchen.',
+      },
+    },
+    works: {
+      addTitle: 'Dokument hinzufügen',
+      addDescription: 'Ein Dokument wird zum Text einer Ausgabe, in einem Änderungsantrag, den die Prüfung freigibt. Offene Entwürfe stehen hier.',
+      attach: 'Text anhängen',
+      title: 'Werke und Ausgaben mit Text',
+      description: 'Jede Ausgabe mit dem Text, den die Büros lesen, oder dem Antrag, in dem er noch steckt.',
+      emptyTitle: 'Noch keine Texte',
+      emptyDescription: 'Sobald ein Änderungsantrag einer Ausgabe einen Text anhängt, steht er hier.',
+      work: 'Werk',
+      edition: 'Ausgabe',
+      text: 'Datei',
+      state: 'Stand',
+      released: 'Veröffentlicht',
+      unreleased: 'Nicht veröffentlicht',
+    },
+    sources: {
+      title: 'Quellen',
+      description: 'Woher die Texte und Angaben dieses Landes kommen, und ob die Überwachung sie zuletzt erreicht hat.',
+      emptyTitle: 'Noch keine Quelle',
+      emptyDescription: 'Eine Quelle wird in einem Änderungsantrag vorgeschlagen und getestet, bevor sie gilt.',
+      source: 'Quelle',
+      hosts: 'Adressen',
+      check: 'Letzte Prüfung',
+      states: { active: 'In Gebrauch', testing: 'Im Test' },
+      failing: 'Nicht erreichbar',
+      lag: 'vor {days, plural, one {# Tag} other {# Tagen}}',
+      unwatched: 'Nicht überwacht',
+    },
+    rules: {
+      title: 'Regeln',
+      description: 'Regelwerke: Gebäudeklasse, Fragen beim Projektanlegen, welche Ausgabe wo bindet.',
+      emptyTitle: 'Noch keine Regeln',
+      emptyDescription: 'Regelwerke kommen wie jeder Eintrag über einen Änderungsantrag.',
+      released: '{count, plural, one {# Regelwerk} other {# Regelwerke}} veröffentlicht.',
+    },
+    review: {
+      title: 'Änderungsanträge',
+      description: 'Jede Änderung an diesem Land. Öffnen Sie einen Antrag: Jede Angabe steht neben ihrer Quelle.',
+      emptyTitle: 'Noch kein Änderungsantrag',
+      emptyDescription: 'Ihr Assistent legt Änderungsanträge an der Plattform-Schnittstelle an; hier prüfen und veröffentlichen Sie sie.',
+      groups: {
+        waiting: 'Wartet auf Ihre Prüfung ({count})',
+        drafts: 'In Arbeit ({count})',
+        to_publish: 'Freigegeben, zu veröffentlichen ({count})',
+        done: 'Erledigt ({count})',
+      },
+      open: { waiting: 'Prüfen', drafts: 'Öffnen', to_publish: 'Veröffentlichen', done: 'Ansehen' },
+      records: '{count, plural, one {# Eintrag} other {# Einträge}}',
+    },
+    quality: {
+      title: 'Qualität',
+      description: 'Prüffragen mit erwarteter Antwort, die bei jeder Veröffentlichung laufen.',
+      emptyTitle: 'Noch keine Prüffragen',
+      none: 'Für dieses Land gibt es noch keine Prüffragen und keinen Lauf. Sobald Prüffragen als Einträge vorliegen, steht ihr letztes Ergebnis hier.',
+    },
+  },
   orgUsage: {
     open: 'Verbrauch von {name}',
     back: 'Plattform-Übersicht',
@@ -267,18 +463,9 @@ export const platform: typeof en.platform = {
     unitChanged: 'Die Budgeteinheit der Organisation wurde geändert. Schließen und öffnen Sie das Kontingent erneut, bevor Sie speichern.',
     saved: 'Organisationskontingent gespeichert.',
   },
-  /**
-   * Plattform → Basiswissen, neu aufgebaut auf den gemeinsamen Admin-Primitiven
-   * (SectionCard + DataToolbar + Table + Sheet + Pagination). Hier steht nur die
-   * Copy, die durch die neue Form dazugekommen ist; die Formulierungen, die den
-   * Umbau überlebt haben — Upload, Synchronisierung, Löschen, Dokumentart,
-   * Umbenennen — bleiben in `platform.knowledge`.
-   */
   knowledgeAdmin: {
-    // Der Upload ist jetzt eine Aktion, keine dauerhaft offene Ablagefläche.
     addDocuments: 'Dokumente hinzufügen',
     hideUpload: 'Upload ausblenden',
-    // Korpus-Kennzahlen.
     summaryDocuments: 'Dokumente',
     summaryDocumentsHint: '{count} davon verbindliche OIB-Grundlagen',
     summaryIndexed: 'Indexiert',
@@ -289,7 +476,6 @@ export const platform: typeof en.platform = {
     summaryIssues: 'Probleme',
     summaryIssuesHint: 'Brauchen eine Neuindexierung oder das Entfernen',
     summaryIssuesNone: 'Nichts zu tun',
-    // Werkzeugleiste.
     searchLabel: 'Dokumente filtern',
     searchClear: 'Filter zurücksetzen',
     typeFilterLabel: 'Dokumentart',
@@ -300,11 +486,17 @@ export const platform: typeof en.platform = {
     moreActions: 'Weitere Aktionen',
     reingestIssues: 'Probleme neu indexieren',
     readOnly: 'Nur Lesezugriff. Basisdokumente hinzufügen, ändern oder entfernen können nur Plattform-Admins.',
-    // Tabelle.
     colDocument: 'Dokument',
     colType: 'Dokumentart',
     colState: 'Status',
     colChunks: 'Abschnitte',
+    placement: {
+      unplaced: 'Keinem Land zugeordnet',
+      unplacedHint: 'Kein Eintrag des Plattformwissens nennt diese Dateien. Den Text einer Ausgabe hängen Sie in ihrem Änderungsantrag an.',
+      request: 'Antrag „{title}“',
+      released: 'freigegeben',
+      pending: 'noch nicht freigegeben',
+    },
     sortBy: 'Nach {column} sortieren',
     binding: 'Verbindlich',
     selectAll: 'Alle Dokumente auf dieser Seite auswählen',
@@ -313,7 +505,6 @@ export const platform: typeof en.platform = {
     range: '{from}–{to} von {total}',
     previous: 'Zurück',
     next: 'Weiter',
-    // Auswahl / Sammelaktionen.
     selectedCount: '{count} ausgewählt',
     clearSelection: 'Aufheben',
     bulkReclassify: 'Dokumentart ändern',
@@ -348,7 +539,6 @@ export const platform: typeof en.platform = {
     bulkDeleteDone: '{count, plural, one {# Dokument entfernt} other {# Dokumente entfernt}}',
     bulkDeleteFailed:
       '{count, plural, one {# Dokument konnte} other {# Dokumente konnten}} nicht entfernt werden',
-    // Detailbereich.
     detailClose: 'Schließen',
     detailChunks: 'Indexierte Abschnitte',
     detailSize: 'Größe',
@@ -356,7 +546,6 @@ export const platform: typeof en.platform = {
     detailDisplayTitle: 'Anzeigename',
     detailSummary: 'Zusammenfassung',
     detailFacts: 'Angaben',
-    // Leerzustand.
     emptyTitle: 'Noch keine Basisdokumente',
     emptyDescription:
       'Fügen Sie eine PDF hinzu oder ein ZIP mit vielen auf einmal — alle Projekte stützen ihre Antworten auf diesen Korpus.',
@@ -434,10 +623,6 @@ export const platform: typeof en.platform = {
       cancel: 'Abbrechen',
       delete: 'Löschen',
     },
-    /**
-     * Schritt 1 der Erfassung. Der Rang entscheidet über alles Weitere, daher
-     * wird er zuerst gefragt — in Klartext, nicht in Enum-Bezeichnungen.
-     */
     kinds: {
       legend: 'Um welche Art von Quelle handelt es sich?',
       hint: 'Die Art bestimmt, was der Katalog von Ihnen braucht und wo der Agent den Eintrag einordnet.',
@@ -591,21 +776,15 @@ export const platform: typeof en.platform = {
     noMatches: 'Keine Organisation passt zu dieser Suche.',
     noMatchesHint: 'Versuchen Sie einen anderen Namen oder setzen Sie die Suche zurück, um alle Organisationen zu sehen.',
     emptyHint: 'Organisationen erscheinen hier, sobald die erste angelegt wurde.',
-    // Das Verzeichnis liest eine Seite aus WorkOS. Das offen zu sagen ist ehrlicher als ein blankes „100+“.
     cappedTile: 'Nur die ersten {count} geladen, es gibt mehr',
     cappedNoMatchHint:
       'Es sind nur die ersten {count} Organisationen geladen, die gesuchte kann darunter fehlen. Versuchen Sie einen anderen Namen.',
     refreshError: 'Die Übersicht konnte nicht aktualisiert werden. Die angezeigten Zahlen sind womöglich veraltet.',
   },
-  // Der Wartungsbereich (Bereinigung verwaister Vektoren). Eigener Namensraum,
-  // damit Erklärung, Bestätigung und Ergebniszusammenfassung als eine Stimme
-  // gelesen – und übersetzt – werden können.
   vectorMaintenance: {
     title: 'Vektor-Wartung',
     description:
       'Den gemeinsamen Vektorspeicher mit dem Dokumentenkatalog abgleichen und indexierte Textabschnitte löschen, deren Dokument nicht mehr existiert.',
-    // Wer diese Seite braucht, versteht per Definition nicht, warum Suche und
-    // Katalog auseinanderlaufen — die Antwort steht deshalb hier.
     howTitle: 'Was der Abgleich macht',
     howBody:
       'Ein Dokument zu löschen sind zwei Schritte: zuerst seine indexierten Textabschnitte aus dem Vektorspeicher entfernen, dann seinen Eintrag aus dem Katalog. Wird der erste Schritt übersprungen oder schlägt er fehl, verschwindet der Eintrag, die Abschnitte bleiben aber zurück – in der App nirgends sichtbar, in der Suche jedoch weiterhin auffindbar und zitierbar. Der Abgleich durchläuft jede Sammlung, vergleicht sie mit dem Katalog und löscht die Abschnitte, zu denen es kein Dokument mehr gibt. Danach vergisst er den umgekehrten Rest: einen Eintrag im Dokumentinventar des Assistenten, zu dessen Datei keine Abschnitte mehr existieren – damit der Assistent keine Datei mehr auflistet, die er nicht lesen kann.',
@@ -776,7 +955,6 @@ export const platform: typeof en.platform = {
       timing: 'Der Ausführungsverlauf jedes Turns: welcher Schritt wie lange gedauert hat und wo es gescheitert ist.',
     },
   },
-  /** Plattform → Agenten: den eigenen Assistenten an die Konsole und an die MCP-Server im Cluster anschließen. */
   agents: {
     urlLabel: 'Adresse des MCP-Servers',
     urlCode: 'MCP-URL',
@@ -843,8 +1021,6 @@ export const platform: typeof en.platform = {
     lessons: 'Lektionen',
     feedback: 'Feedback',
     cards: 'Karten',
-    knowledge: 'Basiswissen',
-    norms: 'Normenkatalog',
     countries: 'Länder',
     storage: 'Speicher',
     maintenance: 'Wartung',
@@ -1083,11 +1259,7 @@ export const platform: typeof en.platform = {
     },
     countries: {
       title: 'Länder',
-      subtitle: 'Das Plattformwissen jedes Landes und die Prüfliste, über die es sich ändert.',
-    },
-    norms: {
-      title: 'Normenkatalog',
-      subtitle: 'Welche Rechtsquellen binden, wie sie eingestuft sind und wo sie im RIS liegen.',
+      subtitle: 'Jedes Land an einem Ort: wie weit es ist, was es braucht, und seine Änderungsanträge.',
     },
     storage: {
       title: 'Speicher',
@@ -1104,8 +1276,6 @@ export const platform: typeof en.platform = {
       subtitle: 'Ihren eigenen KI-Assistenten an die Betriebskonsole und an die MCP-Server im Cluster anschließen.',
     },
   },
-  /** Platform → Karten: das Darstellungsvokabular des Agenten, gerendert. */
-  /** Plattform → Lektionen: das Fehlerlern-Register (als Pflaster gerahmt). */
   lessons: {
     description:
       'Automatisch aus negativ bewerteten Antworten destilliert: Jede Meldung wird anonymisiert, gegen das Register abgeglichen und — wenn sie verallgemeinerbar ist und die Prüfung besteht — als Prozess-Hinweis aktiviert, den der Assistent bei jeder Antwort liest.',
@@ -1184,7 +1354,6 @@ export const platform: typeof en.platform = {
     emptyTitle: 'Keine Kartentypen',
     emptyDescription: 'Der Katalog dieser Installation ist leer. Fehlt eine Karte, fragen Sie sie an.',
   },
-  /** Plattform → Modelle: das flottenweite Standardmodell je Agentenbereich. */
   models: {
     title: 'Agentenbereiche',
     readOnly: 'Sie können diese Standards ansehen, aber nicht ändern.',
@@ -1200,7 +1369,6 @@ export const platform: typeof en.platform = {
     effortInheritWith: 'Workflow: {level}',
     description:
       'Das Modell, auf dem jeder Teil des Agenten läuft. Eine Änderung hier bewegt jede Organisation, die für diesen Teil kein eigenes Modell gewählt hat — ab ihrer nächsten Nachricht, ohne Deployment.',
-    // Zustand je Bereich.
     pinnedBadge: 'Plattform-Standard',
     yamlBadge: 'Workflow-Konfiguration',
     unknownFallback: 'Workflow-Konfiguration',
@@ -1213,14 +1381,11 @@ export const platform: typeof en.platform = {
     zdrListUnavailable:
       'Die Zero-Data-Retention-Liste konnte nicht geladen werden; deshalb lässt sich kein Modell prüfen. Bis sie wieder erreichbar ist, wird nichts angeboten oder gespeichert.',
     noZdrResults: 'Kein Modell mit Zero-Data-Retention-Endpunkt passt zu Ihrer Suche.',
-    // Denkstufe je Bereich — der zweite Hebel derselben Zeile.
     effortPinnedBadge: 'Plattform-Stufe',
     effortInherit: 'Workflow-Konfig.',
     effortClear: 'Denkstufe zurück zur Workflow-Konfiguration',
     effortSelectLabel: 'Denkstufe für {group}',
     effortSaveError: 'Die Denkstufen konnten nicht gespeichert werden.',
-    // Die Stufen selbst (OpenRouter-Vokabular). Der Hinweis nennt die Kosten,
-    // nicht nur den Namen — Denk-Tokens sind unsichtbar, bis die Rechnung kommt.
     levels: {
       none: {
         label: 'Aus',
@@ -1235,11 +1400,9 @@ export const platform: typeof en.platform = {
         hint: 'Maximales Nachdenken. Vervielfacht Kosten und Laufzeit über hunderte Agentenschritte.',
       },
     },
-    // Auswahl.
     searchPlaceholder: 'Modelle suchen…',
     contextWindow: 'Kontext',
     noResults: 'Kein passendes Modell gefunden.',
-    // Speichern.
     unsavedChanges: 'Nicht gespeicherte Änderungen.',
     note: 'Notiz',
     notePlaceholder: 'Warum diese Änderung? (optional)',
@@ -1254,12 +1417,10 @@ export const platform: typeof en.platform = {
       'Jede Organisation, die für diese Teile des Agenten kein eigenes Modell gewählt hat, wechselt mit ihrer nächsten Nachricht. Organisationen mit eigener Wahl bleiben unberührt. Geänderte Denkstufen gelten für JEDE Organisation — höhere Stufen vervielfachen versteckte Denk-Tokens und Laufzeit.',
     confirmSave: 'Standards ändern',
   },
-  /** Plattform → Abruf: die flottenweiten Abruf-Tiefen (Chunks/Ergebnisse je Suche). */
   retrieval: {
     title: 'Abruf-Tiefen',
     description:
       'Wie viele Chunks und Ergebnisse die einzelnen Suchen holen und zusammenführen. Eine Änderung hier gilt für jede Organisation — ab ihrer nächsten Anfrage, ohne Deployment.',
-    // Zustand je Einstellung.
     pinnedBadge: 'Angepasst',
     defaultBadge: 'Standard',
     defaultHint: 'Standard: {value}',
@@ -1274,7 +1435,6 @@ export const platform: typeof en.platform = {
     emptyDescription: 'Der Server meldet keine einstellbaren Werte. Prüfen Sie, ob das Backend den Katalog ausliefert.',
     reset: 'Zurück zum Standard',
     updatedBy: 'von {email}',
-    // Speichern.
     unsavedChanges: 'Nicht gespeicherte Änderungen.',
     note: 'Notiz',
     notePlaceholder: 'Warum diese Änderung? (optional)',
@@ -1428,8 +1588,6 @@ export const platform: typeof en.platform = {
     viewPdf: 'PDF ansehen',
     noMatch: 'Keine Dokumente entsprechen dem Filter.',
     clearFilters: 'Filter zurücksetzen',
-    // Dokumentarten. Deutsch identisch mit DOCUMENT_CLASS_LABELS im Backend
-    // (`lib/knowledge/doc-class.ts`); base-knowledge.spec.tsx prüft das.
     docClasses: {
       oib_guideline: 'OIB-Richtlinie',
       oib_guide: 'OIB-Leitfaden',
@@ -1491,10 +1649,6 @@ export const platform: typeof en.platform = {
     copyFailed: 'Kopieren in die Zwischenablage fehlgeschlagen',
     titleWithheld: 'Titel zurückgehalten: eingeschränkter Ordner',
   },
-  /**
-   * Zitations-Qualität (citation_events-Ledger): wie oft die Quellenprüfung in
-   * einen Recherche-Turn eingreifen musste — und warum.
-   */
   citations: {
     title: 'Zitations-Qualität',
     description:
@@ -1588,7 +1742,6 @@ export const platform: typeof en.platform = {
       },
     },
     export: 'Diagnose exportieren',
-    /** The scope a view is read in, after its date range: „1.–30. Sept. 2026 · 2 Organisationen“. */
     scopeLabel: {
       organizations: '{count, plural, one {# Organisation} other {# Organisationen}}',
       projects: '{count, plural, one {# Projekt} other {# Projekte}}',
@@ -1714,7 +1867,6 @@ export const platform: typeof en.platform = {
       deep: 'Tiefenrecherche',
     },
   },
-  /** Speicher: Verbrauch je Mandant und das begrenzende Kontingent. */
   storage: {
     title: 'Belegung je Organisation',
     description:
@@ -1729,7 +1881,6 @@ export const platform: typeof en.platform = {
     columnQuota: 'Kontingent',
     unlimited: 'Unbegrenzt',
     inherited: 'Plattform-Standard',
-    /** `count` wählt das Nomen, `formatted` ist dieselbe Zahl mit Tausendertrennung. */
     rowDocuments: '{count, plural, one {{formatted} Dokument} other {{formatted} Dokumente}}',
     rowOver: 'Kontingent erreicht, Uploads abgelehnt',
     rowNear: 'Fast voll',
@@ -1750,9 +1901,7 @@ export const platform: typeof en.platform = {
     empty: 'Noch keine Organisation hat Daten gespeichert.',
     hint: 'Kontingent leer lassen, um das Limit zu entfernen. Ein Kontingent unter der aktuellen Belegung wird abgelehnt, weil die Organisation es sonst nicht beheben könnte.',
     columnUploadLimit: 'Max. Dateigröße',
-    /** Organisation ohne eigene Obergrenze; `size` ist der Standard des Deployments. */
     uploadLimitDefault: 'Standard ({size})',
-    /** Schmale Ansicht, unter der Belegung. */
     uploadLimitShort: 'max. {size} je Datei',
     quotaFor: 'Kontingent für {org} in GB',
     uploadLimitFor: 'Max. Dateigröße für {org} in MB',

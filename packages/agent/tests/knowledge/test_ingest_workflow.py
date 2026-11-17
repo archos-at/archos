@@ -1,12 +1,3 @@
-"""The ``ingest-document`` workflow as we hand it to Hatchet, and one attempt of each step.
-
-No engine runs here: the fake client (``agent_testing.orchestrator_fake``) records
-the declaration, and a test calls a step's function with a fake ``Context``.
-What a real engine does with it (the retries, the cancel, the fairness and the
-cap) is ``test_ingest_workflow_engine.py``'s, the main evidence, which runs
-against one. These pin our own logic around one attempt.
-"""
-
 from __future__ import annotations
 
 import io
@@ -69,8 +60,6 @@ def _prepared(job_id: str = "job-1") -> PreparedIngestJob:
 
 
 class _Ingestor:
-    """Ends every job the way ``ends`` says, as the adapter would write it."""
-
     supports_durable_jobs = True
 
     def __init__(self, ends=None, *, while_running=None) -> None:
@@ -106,7 +95,6 @@ def _failed(retryable: bool, message: str):
 
 @pytest.fixture
 def serving(monkeypatch):
-    """The workflow as served: an ingestor, and a decode that hands back ``_prepared``."""
 
     def start(ingestor):
         monkeypatch.setattr(ingest_workflow._runtime, "ingestor", ingestor)
@@ -123,15 +111,10 @@ def _input(job_id: str = "job-1") -> IngestDocumentInput:
 
 
 def _index(_hatchet=None):
-    """One attempt of the ``index`` step: our function, called as the worker calls it."""
     return ingest_workflow.execute
 
 
-# ------------------------------------------------------------- wiring
-
-
 def test_the_dag_settles_after_indexing_and_on_failure(hatchet):
-    """The one wiring check without an engine: which step follows which. The rest is the engine tests'."""
     workflow = ingest_workflow.ingest_workflow()
 
     index = workflow.step("index")
@@ -157,9 +140,6 @@ async def test_the_workers_lifespan_holds_the_ingestor_for_the_steps(hatchet):
     with pytest.raises(StopAsyncIteration):
         await anext(worker_lifespan)
     assert ingest_workflow._runtime.ingestor is None
-
-
-# ------------------------------------------------------------- index step
 
 
 def test_a_completed_job_ends_the_step_with_ids_only(db, serving):
@@ -265,6 +245,15 @@ def test_a_last_attempt_out_of_time_settles_interrupted(db, serving, monkeypatch
     assert settled.error_message.startswith("interrupted:")
 
 
+def test_a_run_whose_status_nothing_holds_any_more_is_tried_again_not_a_crash(db, serving):
+    serving(_Ingestor())
+
+    with pytest.raises(RuntimeError, match="tried again"):
+        _index()(_input(), FakeContext(attempt=1, max_attempts=3))
+
+    assert ingest_status_store.get("job-1").status == JobState.PENDING
+
+
 def test_a_step_that_ends_without_a_final_status_is_tried_again(db, serving):
     serving(_Ingestor(lambda prepared: _status(prepared.job_id, JobState.PROCESSING)))
 
@@ -273,7 +262,6 @@ def test_a_step_that_ends_without_a_final_status_is_tried_again(db, serving):
 
 
 def test_a_job_that_raises_reaches_hatchet_as_a_class_and_a_category_and_is_tried_again(db, serving):
-    """``run_job``'s exception may name the file and its presigned URL; Hatchet stores neither."""
     url = "https://s3.example/uploads/Bauantrag.pdf?X-Amz-Signature=secret"
 
     def raises(prepared, still_owner):
@@ -299,9 +287,6 @@ def test_the_step_refuses_to_run_in_a_process_that_does_not_serve_it(monkeypatch
 
     with pytest.raises(RuntimeError, match="serves it"):
         _index()(_input(), FakeContext())
-
-
-# ------------------------------------------------------------ settle step
 
 
 class _Answer(io.BytesIO):
@@ -361,16 +346,12 @@ def test_without_a_service_token_nothing_is_sent(monkeypatch):
     sent.assert_not_called()
 
 
-# ------------------------------------------------- two workflows, one fairness
-
-
 def test_both_workflows_share_one_org_limit_and_one_supersede_limit(hatchet):
     standard, heavy = ingest_workflow.ingest_workflow(), ingest_workflow.ingest_workflow(heavy=True)
 
     assert standard.options["name"] == "ingest-document"
     assert heavy.options["name"] == "ingest-document-heavy"
     for workflow in (standard, heavy):
-        # The engine refuses tenant-scoped limits on a multi-task workflow, so they sit on index.
         assert "concurrency" not in workflow.options
         org, supersede = workflow.step("index").options["concurrency"]
         assert (org.name, org.expression, org.is_tenant_scoped) == ("ingest-org", "input.organization_id", True)
@@ -455,11 +436,8 @@ def test_the_heavy_pool_serves_the_heavy_workflow_with_its_label(hatchet, monkey
         2,
         "ingest-document",
     )
-    # The key exists before a step consumes it, and holds nothing back.
     assert {key for key, _, _ in hatchet.rate_limits.put_calls} == {"ingest-provider-credits"}
 
-
-# -------------------------------------------------------- credits in flight
 
 IN_FLIGHT = "Error code: 402 - insufficient credits: your requests in flight have reserved the remaining credits"
 
@@ -534,9 +512,6 @@ def test_a_retry_of_a_job_settled_for_good_runs_nothing(db, serving):
     assert ingestor.ran == []
 
 
-# ---------------------------------------------------------------- supersede
-
-
 def test_a_run_a_newer_upload_cancelled_is_superseded_not_a_persons_cancel(db, serving, monkeypatch):
     pushed = []
     monkeypatch.setattr(ingest_status_store.ingest_settle_push, "notify_settled", pushed.extend)
@@ -569,9 +544,6 @@ def test_a_persons_cancel_is_remembered_across_the_runs_own_writes(db):
     assert ingest_run_hold.mark_stopped_by_person("job-1") is False
 
 
-# --------------------------------------------------------------- the trace
-
-
 def test_each_file_trace_continues_the_trace_the_trigger_put_in_the_metadata(db, serving, monkeypatch):
     seen = []
     monkeypatch.setattr(
@@ -592,7 +564,6 @@ def _null():
 
 
 def test_a_trigger_before_any_worker_registered_the_workflow_is_refused_not_lost(hatchet, db):
-    # The engine answers such a trigger with a run id and creates nothing.
     hatchet.workflows.registered = False
     with pytest.raises(ingest_workflow.WorkflowNotRegistered):
         ingest_workflow.trigger("job-early", "org-a", "interactive", "sealed")

@@ -32,21 +32,13 @@ from agent.cards.registry import get_card_registry
 
 logger = logging.getLogger(__name__)
 
-# Fullwidth vertical bar (U+FF5C) — the DSML delimiter. A DSML tag looks like
-# ``<｜DSML｜...>`` (open) or ``</｜DSML｜...>`` (close).
 _BAR = "｜"
 _DSML_MARKER = f"<{_BAR}DSML{_BAR}"
 
-# An opening or closing DSML tag, e.g. ``<｜DSML｜invoke name="emit_card">`` or
-# ``</｜DSML｜invoke>``.
 _DSML_TAG_RE = re.compile(rf"</?{_BAR}DSML{_BAR}[^>]*>")
 
-# The start of a leaked tool-call region: a ``tool_calls`` wrapper or an
-# ``invoke`` opener.
 _REGION_START_RE = re.compile(rf"<{_BAR}DSML{_BAR}(?:tool_calls>|invoke\b)")
 
-# An ``emit_card`` invoke whose ``card_json`` parameter opener we can locate; the
-# JSON object itself is extracted by brace-balancing immediately after.
 _EMIT_CARD_PARAM_RE = re.compile(
     rf"<{_BAR}DSML{_BAR}invoke name=\"emit_card\">.*?"
     rf"<{_BAR}DSML{_BAR}parameter name=\"card_json\"[^>]*>",
@@ -110,9 +102,6 @@ def _consume_dsml_region(region: str) -> int:
     that follows it.
     """
     i = 0
-    # Position just past the last DSML token (tag or JSON payload). Whitespace
-    # after the final token belongs to any following prose, not to the region,
-    # so we never consume past ``last_end``.
     last_end = 0
     while i < len(region):
         if region[i].isspace():
@@ -133,16 +122,11 @@ def _salvage_card(card_json: str) -> None:
     conversation card registry. Fail-soft.
     """
     try:
-        # strict=False for the same reason emit_card parses with it: a raw
-        # newline inside a string is a multi-line mermaid source, not bad JSON.
         payload = json.loads(card_json, strict=False)
         if not isinstance(payload, dict):
             return
         validated = answer_card_adapter.validate_python(payload).model_dump(exclude_none=True)
         if validated.get("type") in SYSTEM_CARD_TYPES:
-            # System cards are emitted only by their owning tool on a sanctioned
-            # path — never salvage one from leaked model text. A retired type
-            # is no union member and already failed validation above.
             return
         registry = get_card_registry()
         if registry is None:
@@ -171,7 +155,6 @@ def strip_and_salvage_dsml_tool_calls(content: str) -> str:
     region_start = start_match.start()
     region = content[region_start:]
 
-    # Salvage every emit_card invocation before we discard the markup.
     for param_match in _EMIT_CARD_PARAM_RE.finditer(region):
         card_json, _ = _extract_balanced_json(region, param_match.end())
         if card_json:

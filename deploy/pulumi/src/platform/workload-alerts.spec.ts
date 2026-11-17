@@ -14,7 +14,6 @@ describe("the workload alert rules", () => {
     expect(rule.for).toBe("15m");
     expect(UNAVAILABLE_FOR_MINUTES).toBe(15);
     expect(rule.labels.severity).toBe("critical");
-    // A Deployment scaled to zero on purpose is not down; one wanting replicas and having none is.
     expect(rule.expr).toBe(
       'kube_deployment_spec_replicas{namespace="grid"} > 0 and kube_deployment_status_replicas_available{namespace="grid"} == 0',
     );

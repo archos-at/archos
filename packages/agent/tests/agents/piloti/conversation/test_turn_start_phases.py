@@ -1,13 +1,3 @@
-"""The seconds before the first model call: paid at boot where they can be, observable where they cannot.
-
-Measured on dev (2026-10-27): the first turn of a process took 9.2 s from the
-workflow span to the first model call, against 1.8 s on a later turn. Two of
-the causes were first-use costs inside the turn, and this pins that they are
-paid at boot: the tiktoken encoder (loaded inside the graph's first node, on
-the event loop) and the phases between the workflow span and the LangGraph run,
-which had no observation of their own, now each have one.
-"""
-
 from __future__ import annotations
 
 import threading
@@ -26,7 +16,6 @@ async def _shallow(state):
 
 @pytest.fixture
 def phases():
-    """The names of every Grid step pair pushed while the test runs."""
     from nat.plugin_api import ContextState
     from nat.utils.reactive.subject import Subject
 
@@ -50,7 +39,6 @@ class TestBootPaysTheEncoder:
 
         await workflow_harness["turn"](UserMessage(conversation_id="c", message_id="m", text="Hallo"), _shallow)
 
-        # Once per build (the harness builds once per turn), never on the loop.
         assert len(threads) == 1
         assert threads[0] is not loop_thread
 

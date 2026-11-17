@@ -1,10 +1,3 @@
-/**
- * Voice dictation — one recording from the chat composer in, cleaned text out.
- * Thin handler; the bounds and the backend call live in
- * `@/lib/dictation/service`. Multipart: `audio` (the recording), `durationMs`
- * and `locale` (the UI language, a wording hint only).
- */
-
 import { z } from 'zod'
 import { BadRequestError } from '@/lib/api/errors'
 import { apiRoute, parseFormData } from '@/lib/api/handler'
@@ -34,7 +27,6 @@ export const POST = apiRoute(
       sessionOnly: true,
       why: 'transcribes the caller’s own recording and returns it to them; it reads and writes no organization data',
     },
-    // Unbilled and outside every budget, so this is the bound on its cost.
     limits: { rule: DICTATION_LIMIT },
   },
 )

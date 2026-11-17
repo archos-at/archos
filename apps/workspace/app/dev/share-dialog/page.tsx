@@ -1,45 +1,5 @@
 'use client'
 
-/**
- * Dev preview for the share dialog (spec SH-17) — the REAL `ShareDialog` driven by
- * the real `useSharing` hook, with a module-scope fetch shim standing in for the
- * BFF. Not linked from anywhere; 404s outside development.
- *
- * The shim is installed at MODULE SCOPE on purpose: React runs a child's effects
- * before its parent's, so `useSharing` would fire its request before a parent
- * `useEffect` could install one — the shim would race and lose (see
- * `docs/ux/visual-screenshots.md` and `app/dev/document-grid/page.tsx`). It is
- * browser + dev guarded and idempotent via a `window.__sharingShim` flag, and it
- * answers the mutations too, so the controls are live in the preview.
- *
- * Variants, so each interesting surface is its own piece of evidence:
- *   - default            — an owner: visibility control, roster controls, invite
- *                          picker (including a colleague who is NOT in the project
- *                          and is therefore shown disabled with the reason, SH-19).
- *   - `?variant=viewer`  — a collaborator: no controls, but the full "who has
- *                          access" answer, and the Leave action.
- *   - `?variant=project` — the thread is project-wide, so the roster mixes derived
- *                          members (no per-person controls — there is no per-person
- *                          deny) with named grants, and narrowing back to private is
- *                          the confirmation that lists who loses access.
- *   - `?variant=invite`  — the same owner surface with a solo roster, so the invite
- *                          picker (all three candidate kinds, blocked row included)
- *                          fits on screen instead of below the fold.
- *   - `?variant=folders` — a chat that drew on a restricted folder (ADR-0088): Zoe,
- *                          still shared with, "hat keinen Zugriff mehr" on the
- *                          roster, and in the picker Ina, who may not read every
- *                          folder, disabled with the sentence and never the folder.
- *   - `?variant=failure` — a refused mutation (the last-owner invariant), because
- *                          "the change did not happen" must be visible.
- *   - `?variant=loading` — the skeleton.
- *
- * Pinned to German (`I18nProvider initialLocale="de" fixedLocale`): German is the product's
- * primary language, so the committed evidence must carry the copy most users
- * actually see — and the scaffolding around these previews is German already, so
- * without the pin a screenshot mixes both languages and the primary-language copy
- * cannot be reviewed at all.
- */
-
 import type { JSX } from 'react'
 import { useEffect, useState } from 'react'
 import { notFound } from 'next/navigation'
@@ -81,20 +41,12 @@ const entry = (
   grantedBy,
 })
 
-/**
- * One entry per access *reason*, and no more: three rows is enough to show the
- * grouping and keeps the whole surface — including the blocked invite row, which
- * is the point of SH-19 — above the fold in a 1200×900 screenshot. The larger,
- * scrolling rosters are covered by `/dev/access-overview`.
- */
 const ENTRIES: ResourceAccessEntry[] = [
   entry(ME, 'Matthias Bigl', 'owner', 'creator'),
   entry('u-anna', 'Anna Weber', 'collaborator', 'grant', ME),
-  // Granted by someone who is no longer on the roster → the anonymous fallback.
   entry('u-zoe', 'Zoe Vogel', 'viewer', 'grant', 'u-deactivated'),
 ]
 
-/** Project-wide: derived members alongside the named grants. */
 const PROJECT_ENTRIES: ResourceAccessEntry[] = [
   entry(ME, 'Matthias Bigl', 'owner', 'creator'),
   entry('u-anna', 'Anna Weber', 'collaborator', 'grant', ME),
@@ -102,7 +54,6 @@ const PROJECT_ENTRIES: ResourceAccessEntry[] = [
   entry('u-markus', 'Markus Hofer', 'viewer', 'visibility-project'),
 ]
 
-/** The folders variant: Zoe lost a folder this chat drew on since it was shared with her. */
 const FOLDER_ENTRIES: ResourceAccessEntry[] = ENTRIES.map((candidate) =>
   candidate.person.userId === 'u-zoe' ? { ...candidate, lostAccess: true } : { ...candidate, lostAccess: false },
 )
@@ -119,14 +70,12 @@ const CANDIDATES: ShareCandidate[] = [
     needsProjectAccess: false,
   },
   {
-    // In the organisation, NOT in the project: shown disabled with the reason.
     person: { userId: 'u-eva', name: 'Eva Ritter', email: 'eva@buero.at', profilePictureUrl: null },
     alreadyHasAccess: false,
     needsProjectAccess: true,
   },
 ]
 
-/** Ina reaches the project and not every folder the chat drew on. */
 const INA: ShareCandidate = {
   person: { userId: 'u-ina', name: 'Ina Praktikantin', email: 'ina@buero.at', profilePictureUrl: null },
   alreadyHasAccess: false,
@@ -138,14 +87,11 @@ const sharingState = (variant: Variant): ResourceSharingState => ({
   resourceType: 'conversation',
   resourceId: RESOURCE_ID,
   visibility: variant === 'project' ? 'project' : 'private',
-  // Conversations expose private/project in phase 1 — the dialog must offer
-  // exactly this and nothing more.
   allowedVisibilities: ['private', 'project'],
   myRole: variant === 'viewer' ? 'collaborator' : 'owner',
   canManage: variant !== 'viewer',
   canEscalate: false,
   shared: true,
-  // The invite variant is deliberately solo, so the picker is what the shot is of.
   entries:
     variant === 'invite'
       ? [ENTRIES[0]]
@@ -172,10 +118,7 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
         )
       }
       if (url.startsWith(`${base}/grants`) || url.startsWith(base)) {
-        // `loading` never answers, so the skeleton is what gets captured.
         if (variant === 'loading') return new Promise<Response>(() => {})
-        // `failure` refuses every mutation with a machine-readable reason, which
-        // is what the dialog localises.
         const method = (init?.method ?? 'GET').toUpperCase()
         if (variant === 'failure' && method !== 'GET') {
           return Response.json(
@@ -185,8 +128,6 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
         }
         return Response.json(sharingState(variant))
       }
-      // The live channel is deliberately absent: the dialog must render fully from
-      // the plain fetch (spec RT-3/RT-4), which is what a screenshot proves.
       if (url.startsWith('/api/stream')) {
         return new Response(null, { status: 404 })
       }
@@ -199,13 +140,10 @@ function Preview({ variant }: { variant: Variant }): JSX.Element {
   const sharing = useSharing('conversation', RESOURCE_ID, true)
   const [open, setOpen] = useState(true)
 
-  // The `failure` variant needs a refused mutation on screen, so it fires one as
-  // soon as the state has loaded. The shim answers it with `409 last-owner`.
   const loaded = Boolean(sharing.state)
   useEffect(() => {
     if (variant !== 'failure' || !loaded) return
     void sharing.changeRole('u-anna', 'viewer')
-    // Once is enough — this is a fixture, not a retry loop.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [variant, loaded])
 
@@ -226,7 +164,6 @@ function Preview({ variant }: { variant: Variant }): JSX.Element {
         resourceId={RESOURCE_ID}
         sharing={sharing}
         currentUserId={ME}
-        // The preview is not a chat page, so it names the address the real one derives.
         shareUrl={`https://piloti.example/app/projects/p-atrium/chat?session=${RESOURCE_ID}`}
       />
     </>
@@ -238,8 +175,6 @@ export default function ShareDialogDevPage(): JSX.Element {
     notFound()
   }
 
-  // Read the variant after mount (not during render) so server and client markup
-  // agree — the same trick the inbox preview uses.
   const [variant, setVariant] = useState<Variant | null>(null)
   useEffect(() => {
     setVariant(readVariant())

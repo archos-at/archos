@@ -44,7 +44,10 @@ const roles = vi.hoisted(() => ({ due: vi.fn(async (): Promise<{ role: string; s
 const REVISION = 'e0000000-0000-4000-8000-000000000001'
 vi.mock('./store', () => ({
   platformTransaction: async <T,>(fn: (tx: unknown) => Promise<T>) => fn({}),
-  lockChangeRequest: async (_tx: unknown, id: string) => ({ id, status: 'submitted', countryId: 'AT', approval: 'four_eyes', secondReview: null }),
+  lockChangeRequest: async (_tx: unknown, id: string) => {
+    const alone = writes.approval.mock.calls.some(([, input]) => (input as { overrideReason?: string }).overrideReason)
+    return { id, status: 'submitted', countryId: 'AT', approval: alone ? 'single' : 'four_eyes', secondReview: alone ? 'due' : null }
+  },
   requestAuthors: async () => new Set(['user_author']),
   secondReviewRoles: async () => roles.due(),
   insertSecondReview: writes.status,
@@ -67,6 +70,8 @@ vi.mock('./entitlements', () => ({
 const { enqueueDeindex } = vi.hoisted(() => ({ enqueueDeindex: vi.fn(async () => 0) }))
 vi.mock('./indexing', () => ({ enqueueIndexRuns: async () => ({ enqueued: 0, failed: 0 }), enqueueDeindex, readIndexStatus: vi.fn() }))
 vi.mock('./overview', () => ({ readOverview: vi.fn() }))
+const texts = vi.hoisted(() => ({ problems: vi.fn(async (..._args: unknown[]): Promise<unknown[]> => []) }))
+vi.mock('./onboarding', async (importOriginal) => ({ ...(await importOriginal<typeof import('./onboarding')>()), requestTextProblems: texts.problems }))
 
 import type { AuthorizedSession, UserSession } from '@/lib/auth/types'
 import { runAsActingSession, type ActingDecisionSource } from '@/lib/agent-api/acting-session'
@@ -76,11 +81,9 @@ import * as service from './service'
 
 const EXPERT = { userId: 'user_expert', email: 'expert@example.com', organizationId: 'org_platform' } as unknown as UserSession
 const REQUEST = 'c0000000-0000-4000-8000-000000000001'
-/** The author of the mocked request, approving it alone. */
 const OWNER = { userId: 'user_author', email: 'owner@example.com', organizationId: 'org_platform' } as unknown as UserSession
 const ALONE = { decision: 'approve' as const, role: 'domain_expert' as const, override: { reason: 'Nobody else on the platform team this week.' } }
 
-/** Every decision that runs only on the person's yes, as the route calls it. */
 const DECISIONS: [string, () => Promise<unknown>][] = [
   ['approve', () => service.decidePlatformChangeRequest(EXPERT, REQUEST, { decision: 'approve', role: 'domain_expert' })],
   ['reject', () => service.decidePlatformChangeRequest(EXPERT, REQUEST, { decision: 'reject', role: 'domain_expert' })],
@@ -184,6 +187,28 @@ describe("an approval's role", () => {
       secondReviewDue: [],
     })
     expect(writes.status).not.toHaveBeenCalled()
+  })
+})
+
+describe('an approval is given for the bytes the revisions name (ADR-0165)', () => {
+  const approver = { userId: 'user_expert', organizationId: 'org_platform' } as unknown as UserSession
+
+  it('refuses to approve, alone or not, while a text of the request is not the one that was proposed', async () => {
+    held.permissions = new Set(Object.values(PLATFORM_PERMISSIONS))
+    writes.approval.mockClear()
+    texts.problems.mockResolvedValueOnce([{ code: 'KC-1', pointer: '/corpusFile' }])
+    await expect(service.decidePlatformChangeRequest(approver, 'cr-1', { decision: 'approve' })).rejects.toMatchObject({
+      status: 409,
+      details: { problems: [{ code: 'KC-1', pointer: '/corpusFile' }] },
+    })
+    expect(writes.approval).not.toHaveBeenCalled()
+  })
+
+  it('does not ask the corpus for a reject', async () => {
+    held.permissions = new Set(Object.values(PLATFORM_PERMISSIONS))
+    texts.problems.mockClear()
+    await service.decidePlatformChangeRequest(approver, 'cr-1', { decision: 'reject' })
+    expect(texts.problems).not.toHaveBeenCalled()
   })
 })
 

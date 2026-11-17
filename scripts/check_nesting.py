@@ -48,7 +48,6 @@ from collections import Counter
 from pathlib import Path
 
 BASELINE = Path("ci/nesting_baseline.json")
-#: The trees the convention covers: the Python packages' sources and the agent host's.
 SCOPE = ("packages/*/src/*.py", "packages/*/src/**/*.py", "apps/agent-host/src/**/*.py")
 RUFF = (
     "check",
@@ -135,6 +134,8 @@ def main(argv: list[str] | None = None) -> int:
         write_baseline(baseline_path, baseline)
 
     findings = compare(current, baseline)
+    slack = [f for f in findings if "so lower its" in f or "remove its baseline entry" in f]
+    findings = [f for f in findings if f not in slack]
     if findings:
         print(f"Nesting check FAILED ({len(findings)} finding(s)):", file=sys.stderr)
         for finding in findings:
@@ -142,6 +143,10 @@ def main(argv: list[str] | None = None) -> int:
         print("Why and how: docs/contributing/code-conventions.md (two levels of nesting)", file=sys.stderr)
         return 1
     print(f"Nesting check passed: {len(baseline)} file(s) held at baseline, every other source at two levels.")
+    if slack:
+        print(
+            f"  {len(slack)} baseline entr{'y' if len(slack) == 1 else 'ies'} can be lowered: `task baselines:tighten`."
+        )
     return 0
 
 

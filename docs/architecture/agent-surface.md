@@ -538,6 +538,7 @@ makes it so, and where it lives:
 | Per-record results and `dryRun`; problems with an RFC 6901 `pointer`, a `code` and a `hint`; the same proposal again is `unchanged` | `platform-knowledge-records-propose`, `bff/base-knowledge/platform/validate.ts` |
 | The kit on a whole request, and submit only when green | `platform-knowledge-validate` |
 | Citations from captures of the request, KC-6 on every quote for every proposer and record type (three words or fifteen characters, found in the capture, naming what the record claims); a pasted source checked only by someone other than its author | `platform-knowledge-citation-capture`, `bff/base-knowledge/platform/onboarding.ts`, `validate.ts`, the 0208 and 0209 triggers |
+| An edition's text attached inside the draft, from a URL (fetched and read by the public-source fetcher, so no bytes travel in the tool call) or an upload; the kit refuses a manifestation naming a file the base corpus does not hold (KC-1 at `/corpusFile`), so no request is published before its text is there; a file name is one record's (`NAME_TAKEN`), carries the hash of its bytes and is never replaced, and the text is read (`text-get`) and approved only while the corpus keeps the bytes the revision names (`TEXT_CHANGED`, KC-1 on approve) | `platform-knowledge-text-import`, `platform-knowledge-text-upload`, `platform-knowledge-text-get`, `platform-knowledge-text-list`; `bff/base-knowledge/platform/texts.ts`, `text-checks.ts` |
 | The person's yes for a source check (`personDecidesWhen`), approve, publish, rollback, entitlement, home country, and a platform skill's publish, edit or delete; `decideAt` for a client that cannot ask | `personDecides` + `requiresPersonConfirmation` in `catalog/platform-knowledge.ts`, `catalog/platform-skills.ts`; `requirePersonDecision` at each route |
 | Four eyes with one deferral (ADR-0176): an author approves alone only with `override: {reason}`, `platform:knowledge:approve_alone` and the person's own yes, never on an agent's word; the request is marked `approval: single`, stays in the overview's `queue` until another person's review confirms or disputes it, and a disputed one is not published further (rollback stays the person's decision) | `decidePlatformChangeRequest` in `bff/base-knowledge/platform/service.ts`; the 0214 triggers; `approve-alone.integration.spec.ts` |
 | A country's sources as records (ADR-0174): KC-7 on the api tier, testing hosts usable by their own request for 24 hours, `source-test`, `source-status`, a write-only key on the person's yes, monitors that open change requests (`origin: monitor`) and never publish | `catalog/platform-sources.ts`; `bff/base-knowledge/platform/sources.ts`, `source-service.ts`, `source-checks.ts`, `monitor.ts` |
@@ -620,7 +621,7 @@ ceiling.
 | `canvas__mark`, `canvas__update`, `canvas__delete`, `canvas__reply` | `annotation-create`, `annotation-update`, `annotation-delete`, `annotation-reply-create` |
 | `ifc_query`, `ifc_measure` | `bim-model-query`, `ifc-measure` |
 | `dxf_measure` | `dxf-measure` |
-| `read_passage`, `list_files`, `look`, `ris_lookup_tool` | `passage-read`, `files-list`, `document-look`, `law-lookup` |
+| `read_file`, `list_files`, `look`, `law_lookup` | `passage-read`, `files-list`, `document-look`, `law-lookup` |
 
 Both paths stay open for the file operations Piloti also has `propose_file_change`
 for (move, rename, folders, assignments: the native tool refuses a chat in no
@@ -668,7 +669,7 @@ own and the page that runs it is the asker's. Regenerate with
 | 3. Workflows and skills | "Brief me on a project"; the office's own skills, found and read by the agent | MCP prompts, `lib/agent-api/door/`; `skill-search` and `skill-get` ([below](#the-offices-skills)) |
 
 The Python-only reads (`knowledge_search`, `read_passage`, `list_files`,
-`look`, `ifc_measure`, `dxf_measure`, `ris_lookup`) reach the
+`look`, `ifc_measure`, `dxf_measure`, `law_lookup`) reach the
 server in phase 2 through an internal backend endpoint, so an external agent
 searches with the retrieval Piloti uses.
 
@@ -1330,7 +1331,13 @@ door and the A2A door alike: the answer's directive fences, `[[card:N]]`
 markers and `:project[key]` bindings go through the same projection as the copy
 button (`stripDirectives`), a binding printing the project's value, and the
 verifier's German labels become English ones. The stored message keeps the
-dialect; the chat renders it.
+dialect; the chat renders it. `conversation-message-list` gives every
+assistant message's `content` through the same projection when an agent reads
+it (`conversations/messages-for-agent.ts`, on `actingReaderIsAgent()`), so an
+answer read back from its thread is the text `agent-ask-get` gave; before that
+a door-asked answer reached the agent with a literal `[[card:1]]` naming a
+card the list does not even carry without `include=metadata`. The browser
+reads the same route as a person and keeps the dialect.
 
 **The wait, on the 2026-07-28 era** (`ask-calls.ts`). The ask is the one door
 call whose wait is ours; `task-run-start`, the uploads and `document-reingest`

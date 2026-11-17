@@ -17,7 +17,7 @@ vars:
     tests/test_pr_selection.py tests/test_ci_filter_coverage.py packages/agent/tests/test_product_framing.py
     tests/test_repo_layout.py tests/test_ci_filter_reads.py tests/test_lead_time.py
     tests/test_check_brand_prose.py tests/test_migration_contract.py tests/test_dependabot_merge.py
-    tests/test_verify_plan.py
+    tests/test_verify_plan.py tests/test_test_servers_stop_fast.py tests/test_check_country_in_code.py
   # The Python packages under packages/ (ADR-0145 row 6): the uv workspace
   # members there, in the order of pyproject.toml's testpaths. ifc-spatial-py is
   # not one; it keeps its own lock and its own task (pkg:test).
@@ -265,6 +265,19 @@ tasks:
       # docs/contributing/testing-and-verification.md, "The intake eval".
       - '{{.PY}} -m scripts.intake_eval.run {{.CLI_ARGS}}'
 
+  be:eval:memory-shelves:
+    desc: 'Memory-shelves eval — which shelf (personal, project, organization) the reflection pass and the remember tool file a note on, with the leak rate of personal matters onto shared shelves (NEEDS OPENROUTER_API_KEY; no backend)'
+    cmds:
+      # ADR-0180's harm, measured: a note about a person on a shelf other
+      # people read. The real reflection pass and the real `remember` tool on
+      # tests/fixtures/memory_shelves/cases.yaml, 3 runs each, only the BFF
+      # write faked; about 420 short calls. Run before and after a change to
+      # either prompt, the tool's schema or the personal-data filter. Exit 1 =
+      # a leak or a kept secret was written; 3 = a run errored.
+      #   task be:eval:memory-shelves -- --runs 1 --only per-01 adv-sec-02
+      #   task be:eval:memory-shelves -- --report /tmp/memory_shelves_eval/<time>/results.json
+      - '{{.PY}} -m scripts.memory_shelves_eval.run {{.CLI_ARGS}}'
+
   be:eval:turn-census:
     desc: 'Turn census — run a chat question through the real agent and count every model call, token and second it cost; writes to /tmp/turn_census unless --out, takes --override KEY VALUE (NEEDS OPENROUTER_API_KEY and the corpus ingested locally)'
     cmds:
@@ -350,11 +363,20 @@ tasks:
       - '{{.PY}} -m coverage report --fail-under=65'
 
   be:test:durations:
-    desc: Re-record the core suite's per-test times that be:test:shard splits by
+    desc: Re-record the core suite's per-test times that be:test:shard splits by (NEEDS QDRANT_TEST_URL)
+    preconditions:
+      # Without a server the end-to-end ingest tests skip, and pytest-split
+      # stores a skipped test at the few milliseconds its skip took: the file
+      # would then weigh a third of CI's suite at nothing (2026-11-11).
+      - sh: '[ -n "$QDRANT_TEST_URL" ]'
+        msg: 'Set QDRANT_TEST_URL to a running Qdrant (docker run --rm -p 6333:6333 --tmpfs /qdrant/storage qdrant/qdrant:v1.19.2), or the recorded times are not what CI runs.'
     cmds:
       # Re-run when the shards' times in CI drift apart. Rounded to keep the
       # file's churn down; the split needs proportions, not precision.
-      - '{{.PY}} -X faulthandler -m pytest tests/ packages/agent/tests/ evals/ -q {{.XDIST}} --store-durations --durations-path tests/.test_durations'
+      # --clean-durations keeps only the tests of this run: without it the
+      # file only grows (1,086 of 20,206 entries were tests that no longer
+      # existed on 2026-11-11).
+      - '{{.PY}} -X faulthandler -m pytest tests/ packages/agent/tests/ evals/ -q {{.XDIST}} --store-durations --clean-durations --durations-path tests/.test_durations'
       - >-
         {{.PY}} -c "import json, pathlib; p = pathlib.Path('tests/.test_durations');
         d = json.loads(p.read_text()); p.write_text(json.dumps({k: round(v, 3) for k, v in sorted(d.items())}, indent=0) + chr(10))"
@@ -401,7 +423,8 @@ tasks:
 
   be:test:postgres:
     desc: >-
-      The claim-queue suites' Postgres branch (production's SQL), the rename of
+      The claim-queue suites' Postgres branch (production's SQL), the research
+      cutover's row locks against the old claim, the rename of
       the AI-Q databases, and the metadata store's mail records, against a
       throwaway cluster. Needs PostgreSQL server binaries.
     cmds:
@@ -413,3 +436,4 @@ tasks:
         packages/agent/tests/knowledge/folder_cards
         tests/test_postgres_rename_legacy_names.py
         packages/agent/tests/knowledge/test_mail_facts.py
+        apps/agent-host/tests/test_research_cutover.py

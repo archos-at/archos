@@ -1,10 +1,3 @@
-/**
- * What one answer's turn changed (ADR-0109): `GET` → `{ changes }`, each as it
- * stands now, with `canUndo` for the card's button. Changes on documents the
- * reader may not see are left out. Thin handler; the rules live in
- * `@/lib/changes/service`, the contract in `@/lib/changes/types`.
- */
-
 import { z } from 'zod'
 import { BadRequestError } from '@/lib/api/errors'
 import { apiRoute } from '@/lib/api/handler'
@@ -13,7 +6,6 @@ import type { TurnChangesResponse } from '@/lib/changes/types'
 
 type Params = { id: string; messageId: string }
 
-/** The answer id the backend derives is a uuid, and so is `origin_message_id`. */
 const messageIdSchema = z.guid()
 
 export const GET = apiRoute<Params>(

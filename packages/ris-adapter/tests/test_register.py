@@ -175,7 +175,6 @@ def fake_client(monkeypatch):
     _FakeClient.search_calls = []
     _FakeClient.fetch_calls = []
     monkeypatch.setattr("ris_adapter.register.RisClient", _FakeClient)
-    # Keep every live-search test on the live path even when a shipped catalog exists.
     monkeypatch.setattr("ris_adapter.register.load_registry", lambda path=None: None)
     return _FakeClient
 
@@ -227,8 +226,6 @@ class TestRisSearchTool:
             second = await _call(info, query="Garage Stellplatz")
 
         assert "Garagengesetz" in first and first == second
-        # The second identical search hit the shared cache — no second API call
-        # (and, when a planner is configured, no second planner-LLM call either).
         assert len(fake_client.search_calls) == 1
 
     async def test_no_results_message(self, fake_client):
@@ -301,6 +298,7 @@ class _SequenceStructuredLLM:
         self.sequence = list(sequence)
         self.structured_kwargs = None
         self.invocations = []
+        self.one_shot = []
 
     def with_structured_output(self, schema, **kwargs):
         self.structured_kwargs = {"schema": schema, **kwargs}
@@ -308,7 +306,10 @@ class _SequenceStructuredLLM:
 
         class _Structured:
             async def ainvoke(self, messages):
+                from agent.common import prompt_caching
+
                 outer.invocations.append(messages)
+                outer.one_shot.append(prompt_caching._ONE_SHOT.get())
                 item = outer.sequence.pop(0)
                 if isinstance(item, Exception):
                     raise item
@@ -323,7 +324,6 @@ def _builder_with_planner(llm):
 
     from nat.llm.openai_llm import OpenAIModelConfig
 
-    # The agent runtime 1.9 returns the chat model inside its configurable wrapper.
     builder = MagicMock(get_llm_config=MagicMock(return_value=OpenAIModelConfig(model_name="test-model")))
     builder.get_llm = AsyncMock(return_value=SimpleNamespace(default=llm))
     return builder
@@ -346,10 +346,8 @@ class TestRisSearchPlanner:
         async with ris_search(config, _builder_with_planner(llm)) as info:
             output = await _call(info, query="Wie viele Stellplätze brauche ich in Wien?")
 
-        # Strict structured outputs (OpenRouter response_format json_schema) requested.
         assert llm.structured_kwargs["method"] == "json_schema"
         assert llm.structured_kwargs["strict"] is True
-        # The plan, not the raw caller args, reached the API.
         call = fake_client.search_calls[0]
         assert call["application"] == "LrKons"
         assert call["params"]["Suchworte"] == "Stellplatzverpflichtung"
@@ -403,11 +401,10 @@ class TestRisSearchPlanner:
         async with ris_search(config, _builder_with_planner(llm)) as info:
             output = await _call(info, query="Wie viele Stellplätze brauche ich in Wien?", application="BrKons")
 
-        # Retried exactly once, and the corrective instruction was appended.
         assert len(llm.invocations) == 2
+        assert llm.one_shot == [True, True]
         corrective_texts = [m["content"] for m in llm.invocations[1] if m["role"] == "user"]
         assert any("invalid JSON" in text for text in corrective_texts)
-        # The successful second-attempt plan drove the search, not the caller args.
         call = fake_client.search_calls[0]
         assert call["application"] == "LrKons"
         assert call["params"]["Suchworte"] == "Stellplatzverpflichtung"
@@ -428,7 +425,6 @@ class TestRisSearchPlanner:
         async with ris_search(config, _builder_with_planner(llm)) as info:
             output = await _call(info, query="Garagengesetz", application="BrKons")
 
-        # Retried once (two invocations), both failed -> outer fail-open uses caller args.
         assert len(llm.invocations) == 2
         call = fake_client.search_calls[0]
         assert call["application"] == "BrKons"
@@ -569,7 +565,6 @@ class TestRisFetchDocumentTool:
             second = await _call(info, reference="https://www.ris.bka.gv.at/d")
 
         assert "Volltext" in first and first == second
-        # The second identical fetch hit the shared cache — only ONE network call.
         assert fake_client.fetch_calls == ["https://www.ris.bka.gv.at/d"]
 
     async def test_unresolvable_reference_returns_error(self, fake_client):
@@ -712,10 +707,6 @@ class TestRisCatalogLookupTool:
         assert "NOR87654321" not in output
 
     async def test_state_specific_topic_returns_that_state_not_the_catalog_head(self, monkeypatch):
-        # All nine state building codes share the generic "bauordnung" topic. A
-        # state-specific lookup must return THAT state (plus federal law) — not
-        # the first max_matches entries in catalog order, which would crowd the
-        # right state out entirely.
         catalog = NormRegistry(
             entries=[
                 _catalog_entry(),  # Wien, catalog head
@@ -744,7 +735,6 @@ class TestRisCatalogLookupTool:
         assert "NOR00000007" in output  # federal law is never dropped
         assert "NOR12345678" not in output  # Wien
         assert "NOR00000002" not in output  # NÖ
-        # The named state sorts before federal law.
         assert output.index("NOR00000006") < output.index("NOR00000007")
 
     async def test_catalog_unavailable(self, monkeypatch):
@@ -799,7 +789,6 @@ class TestRisSearchCatalogShortcut:
 
         assert fake_client.search_calls == []
         assert "NOR00000006" in output
-        # The explicitly requested state wins: no Viennese pointers for Tirol.
         assert "NOR12345678" not in output
 
     async def test_explicit_application_filters_pointers(self, fake_client, monkeypatch):
@@ -818,7 +807,6 @@ class TestRisSearchCatalogShortcut:
 
         assert fake_client.search_calls == []
         assert "NOR12345678" in output
-        # Explicit LrKons request -> federal pointers are not mixed in.
         assert "NOR00000007" not in output
 
     async def test_no_match_falls_through_to_live_search(self, fake_client, fake_catalog):
@@ -904,8 +892,6 @@ class TestPlatformRetrievalSettings:
 
     async def test_bff_outage_falls_back_to_config(self, fake_client, monkeypatch):
         fake_client.search_result = RisSearchResult(hits=[_sample_hit()], total=1, page=1, page_size=20)
-        # The real failure mode is an unreachable BFF: the resolver swallows it
-        # (it is contractually never-raising), so the config value stays in force.
         from agent.common import retrieval_settings
 
         def boom():
@@ -919,7 +905,6 @@ class TestPlatformRetrievalSettings:
 
         assert "Garagengesetz" in output
         assert fake_client.search_calls[0]["page_size"] == 20
-        # The resolver's cache is process-global; do not leave this outage in it.
         retrieval_settings.reset_retrieval_settings_cache()
 
     async def test_catalog_shortcut_respects_platform_max_results(self, fake_client, monkeypatch):

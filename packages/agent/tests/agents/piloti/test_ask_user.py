@@ -1,11 +1,3 @@
-"""Tests for the blocking ``ask_user`` interaction tool.
-
-The tool stops a live turn on a future somebody else has to resolve, so the
-failure modes matter more than the happy path: every one of them must return a
-short instruction to answer with a stated assumption instead of hanging,
-raising, or asking twice.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -28,11 +20,6 @@ from nat.plugin_api import MultipleChoiceOption
 
 @pytest.fixture(autouse=True)
 def _clean_guards():
-    """Reset the process-wide ask_user guard between tests.
-
-    It is keyed by conversation and turn id in production; in-process it
-    would otherwise carry one test's "already asked" claim into the next.
-    """
     ask_user_module.reset_ask_user_guard()
     yield
     ask_user_module.reset_ask_user_guard()
@@ -43,7 +30,6 @@ def _interaction_response(content) -> InteractionResponse:
 
 
 def _fake_context(prompt_user_input, *, conversation_id="conv-1", user_message_id="turn-1"):
-    """An agent-runtime context whose interaction manager is the given prompt callable."""
     manager = MagicMock()
     manager.prompt_user_input = prompt_user_input
     context = MagicMock()
@@ -56,12 +42,6 @@ def _fake_context(prompt_user_input, *, conversation_id="conv-1", user_message_i
 
 
 async def _call(prompt_user_input=None, *, context=None, **kwargs):
-    """Invoke the real tool body with a patched agent-runtime context.
-
-    The agent runtime folds a multi-argument tool fn into one generated pydantic input
-    model, so the call goes through `info.input_schema` — the same object the
-    LLM's tool call is validated into.
-    """
     async with ask_user(AskUserConfig(), MagicMock()) as info:
         payload = info.input_schema(**kwargs)
         if prompt_user_input is None and context is None:
@@ -72,11 +52,8 @@ async def _call(prompt_user_input=None, *, context=None, **kwargs):
 
 
 class TestAskUserAnswers:
-    """The two answer shapes a picker can produce must both come back as text."""
-
     @pytest.mark.asyncio
     async def test_picked_option_is_returned(self):
-        """A radio answer carries no `.text`; reading it wrong feeds the LLM junk."""
         prompt_user_input = AsyncMock(
             return_value=_interaction_response(
                 HumanResponseRadio(selected_option=MultipleChoiceOption(value="Castle.ifc", label="Castle.ifc"))
@@ -93,7 +70,6 @@ class TestAskUserAnswers:
 
     @pytest.mark.asyncio
     async def test_the_prompt_carries_the_options_as_structured_data(self):
-        """Without this the client has nothing to render buttons from."""
         prompt_user_input = AsyncMock(return_value=_interaction_response(HumanResponseText(text="Castle.ifc")))
 
         await _call(
@@ -109,7 +85,6 @@ class TestAskUserAnswers:
 
     @pytest.mark.asyncio
     async def test_free_text_answer_is_returned(self):
-        """The user may type something that is not one of the options."""
         prompt_user_input = AsyncMock(
             return_value=_interaction_response(HumanResponseText(text="Das dritte, aus dem Archiv"))
         )
@@ -120,7 +95,6 @@ class TestAskUserAnswers:
 
     @pytest.mark.asyncio
     async def test_declining_tells_the_agent_to_assume(self):
-        """ "skip"/"egal" means decide for me — the turn must still produce an answer."""
         prompt_user_input = AsyncMock(return_value=_interaction_response(HumanResponseText(text="egal")))
 
         result = await _call(prompt_user_input, question="Welches Modell?", options=["A.ifc", "B.ifc"])
@@ -130,7 +104,6 @@ class TestAskUserAnswers:
 
     @pytest.mark.asyncio
     async def test_options_may_arrive_as_a_json_string(self):
-        """Weaker models stringify list arguments; that is a slip, not a mistake."""
         prompt_user_input = AsyncMock(return_value=_interaction_response(HumanResponseText(text="A.ifc")))
 
         result = await _call(prompt_user_input, question="Welches Modell?", options='["A.ifc", "B.ifc"]')
@@ -140,16 +113,8 @@ class TestAskUserAnswers:
 
 
 class TestAskUserRefusals:
-    """Every refusal has to hand the agent a usable next move, never an error."""
-
     @pytest.mark.asyncio
     async def test_no_interaction_channel_degrades(self):
-        """The real agent-runtime default callback raises NotImplementedError.
-
-        Entrypoints without HITL (async job runner, REST, CLI) hit this. The
-        prompt would never be shown and no future would ever resolve, so the
-        tool must not wait on one.
-        """
         result = await _call(question="Welches Modell?", options=["A.ifc", "B.ifc"])
 
         assert "assumption" in result
@@ -157,7 +122,6 @@ class TestAskUserRefusals:
 
     @pytest.mark.asyncio
     async def test_timeout_degrades(self):
-        """An unanswered prompt expires in the transport; the turn still answers."""
         prompt_user_input = AsyncMock(side_effect=TimeoutError)
 
         result = await _call(prompt_user_input, question="Welches Modell?", options=["A.ifc", "B.ifc"])
@@ -167,7 +131,6 @@ class TestAskUserRefusals:
 
     @pytest.mark.asyncio
     async def test_unexpected_failure_is_swallowed(self):
-        """A raised exception inside a tool aborts a turn the user is watching."""
         prompt_user_input = AsyncMock(side_effect=RuntimeError("socket gone"))
 
         result = await _call(prompt_user_input, question="Welches Modell?", options=["A.ifc", "B.ifc"])
@@ -176,7 +139,6 @@ class TestAskUserRefusals:
 
     @pytest.mark.asyncio
     async def test_too_few_options_is_refused(self):
-        """One option is not a choice; that question belongs in the prose."""
         prompt_user_input = AsyncMock()
 
         result = await _call(prompt_user_input, question="Welches Modell?", options=["A.ifc"])
@@ -186,7 +148,6 @@ class TestAskUserRefusals:
 
     @pytest.mark.asyncio
     async def test_too_many_options_is_refused(self):
-        """A seven-way picker is not the "small, enumerable set" this is for."""
         prompt_user_input = AsyncMock()
 
         result = await _call(
@@ -209,16 +170,8 @@ class TestAskUserRefusals:
 
 
 class TestAskUserPendingSlot:
-    """One pending interaction per conversation is a hard transport constraint."""
-
     @pytest.mark.asyncio
     async def test_a_second_question_does_not_steal_the_pending_slot(self):
-        """Registering a second prompt orphans the first future.
-
-        The transport keeps ONE pending interaction per conversation and the
-        second registration overwrites the first — a question another
-        participant is looking at would silently stop being answerable.
-        """
         released = asyncio.Event()
         first_prompt_arrived = asyncio.Event()
 
@@ -245,7 +198,6 @@ class TestAskUserPendingSlot:
 
     @pytest.mark.asyncio
     async def test_only_one_question_per_turn(self):
-        """Asking twice in one turn reads as interrogation, and the doctrine is one."""
         prompt_user_input = AsyncMock(return_value=_interaction_response(HumanResponseText(text="A.ifc")))
         holder = _fake_context(prompt_user_input, conversation_id="conv-turn", user_message_id="turn-7")
 
@@ -258,7 +210,6 @@ class TestAskUserPendingSlot:
 
     @pytest.mark.asyncio
     async def test_a_new_turn_may_ask_again(self):
-        """The one-per-turn cap must not silence the tool for the whole conversation."""
         prompt_user_input = AsyncMock(return_value=_interaction_response(HumanResponseText(text="A.ifc")))
 
         first = await _call(
@@ -278,26 +229,13 @@ class TestAskUserPendingSlot:
 
 
 class TestToolDescriptionPrefersAskingWhenOptionsAreNameable:
-    """The description used to tell the model "an agent that asks before
-    answering is worse than one that answers and names its assumption" —
-    framing that pushed it to guess even when it could already enumerate the
-    real alternatives, which is exactly the case this tool exists for. This
-    locks in the calibration the other way: naming 2-6 real options and
-    picking wrong mattering is a reason to ask, not a reason to guess.
-    """
-
     def test_prefers_asking_when_options_would_change_the_answer(self):
         description = ask_user_module._TOOL_DESCRIPTION.lower()
 
         assert "prefer asking over silently guessing" in description
-        # The old hard "asking is worse" framing must be gone, not merely
-        # supplemented — a stray copy would keep pulling the model back.
         assert "worse than one that answers" not in description
 
     def test_keeps_the_necessity_and_frequency_guardrails(self):
-        """Loosening WHEN to ask must not loosen the unrelated guardrails:
-        still tool-answerable, still not already in context, still one ask
-        per turn, still never for an open-ended question."""
         description = ask_user_module._TOOL_DESCRIPTION.lower()
 
         assert "a search or another tool could" in description
@@ -307,8 +245,6 @@ class TestToolDescriptionPrefersAskingWhenOptionsAreNameable:
 
 
 class TestAHeadlessTurnIsNeverAsked:
-    """A turn an event woke (``X-Chat-Mode: headless``): nobody holds the socket to answer."""
-
     @pytest.mark.asyncio
     async def test_the_tool_refuses_without_prompting_and_points_at_the_thread(self):
         prompt_user_input = AsyncMock()

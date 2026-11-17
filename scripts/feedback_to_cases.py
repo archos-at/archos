@@ -63,8 +63,6 @@ def slug(question: str) -> str:
     return "-".join([*words, digest]).strip("-")
 
 
-#: The export prefixes a cell starting with one of these with an apostrophe, so a
-#: spreadsheet opens it as text (``apps/workspace/bff/text/csv-cell.ts``).
 _FORMULA_LEAD = ("=", "+", "-", "@", "\t", "\r")
 
 
@@ -125,8 +123,6 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("csv", type=Path, help="the feedback export")
     parser.add_argument("--out", type=Path, required=True, help="where to write the draft cases")
     args = parser.parse_args(argv)
-    # utf-8-sig: the export starts with a BOM (for Excel), which plain utf-8 would
-    # leave glued to the first header, so the first column never matched.
     with args.csv.open(encoding="utf-8-sig", newline="") as handle:
         cases = draft_cases(csv.DictReader(handle))
     args.out.write_text(render(cases), encoding="utf-8")

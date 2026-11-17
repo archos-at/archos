@@ -106,7 +106,7 @@ Chosen option 3.
   digest, with a stamp of the office's newest record revision and the
   platform's newest edition check, since neither moves a pack sequence; the
   resolved context is cached under
-  `knowledge-context-v3:<org>:<project>:<digest>` (the version moves with the cached shape), so a publish or a moved site
+  `knowledge-context-v<N>:<org>:<project>:<digest>` (the version moves with the cached shape), so a publish or a moved site
   is read on the next turn, and two offices with equal digests get two keys
   (`context/service.spec.ts`).
 - **Failure.** A read that throws gives `knowledge_unavailable`: retrieval,
@@ -140,7 +140,9 @@ Chosen option 3.
   `knowledge_search` reads only the countries the gate allows
   (`base_corpus_country_filter`), a chunk written before the field as Austrian.
   A rollback that leaves a text unreleased marks its chunks `ZZ`, which no
-  office reads. With the edition on the chunk, a search can read one edition's
+  office reads. (Amended by country-as-data row 7: it marks them
+  `released: false` and keeps their country; `ZZ` stays readable by nobody on
+  the points a rollback marked before the flag.) With the edition on the chunk, a search can read one edition's
   text (`filters={"knowledge_edition_id": …}`), the id from
   `base-knowledge-edition-as-of`; the tool's description says so with the
   country-neutral prompt, so the flag-off request stays as it was.

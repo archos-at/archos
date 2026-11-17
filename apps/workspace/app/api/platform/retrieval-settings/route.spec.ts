@@ -1,13 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The platform retrieval-settings endpoint. The contract worth pinning down:
- * only the platform owner may read or write it, the catalog validates every
- * value server-side (invalid pins surface as 422 with per-key errors), and an
- * omitted key is a *clear*, not a no-op — that is how a count goes back to the
- * build-time config default.
- */
 
 import { RETRIEVAL_SETTINGS } from '@/lib/retrieval-settings/catalog'
 import { beforeEach, describe, expect, it, vi } from 'vitest'

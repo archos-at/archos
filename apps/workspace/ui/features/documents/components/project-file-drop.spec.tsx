@@ -26,7 +26,6 @@ vi.mock('@/shared/context', () => ({
 
 const plan = new File(['%PDF'], 'Grundriss.pdf', { type: 'application/pdf' })
 
-/** A drag from the desktop: `Files` in `types` is what marks it as an upload. */
 function fileTransfer(files: File[]) {
   return { types: ['Files'], files, items: [] }
 }

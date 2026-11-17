@@ -1,5 +1,3 @@
-"""The process's Hatchet client: built once, and replaced for tests at one place."""
-
 from __future__ import annotations
 
 from agent.common import orchestrator_client

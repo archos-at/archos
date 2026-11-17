@@ -1,7 +1,3 @@
-/**
- * Copy of the blog, both locales. The listing's labels and the post page's
- * strings. Category names and descriptors live in src/lib/categories.ts.
- */
 const de = {
   title: 'Blog',
   hero: {

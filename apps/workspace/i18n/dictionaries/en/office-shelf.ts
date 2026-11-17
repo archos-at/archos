@@ -1,4 +1,3 @@
-/** Office filing (Büroablage): the org-wide, top-level, cross-project document store (ADR-0024). */
 export const officeShelf = {
   title: 'Office filing',
   subtitle: 'Shared documents available to every project in your organization',
@@ -6,8 +5,6 @@ export const officeShelf = {
   backToProject: 'Back to project',
   backToNamedProject: 'Back to {name}',
   toast: {
-    // Fired the instant async ingestion finishes and the document becomes
-    // citable across every project in the organization.
     ingestionComplete: '“{name}” is now in Office filing — citable',
   },
   workspace: {
@@ -25,8 +22,6 @@ export const officeShelf = {
     reingestConfirmDescription:
       '{productName} reads the file again from scratch, for example to pick up the pictures in Word and PowerPoint files. Until it is done, {productName} keeps answering from what it read before.',
     reingestConfirmAction: 'Read again',
-    // Stop a read that has not finished: the bytes stay, nothing was indexed,
-    // and a re-ingest reads them again. Neutral, never a destructive red.
     cancel: 'Stop reading',
     cancelling: 'Stopping…',
     cancelled: 'Reading “{name}” stopped',

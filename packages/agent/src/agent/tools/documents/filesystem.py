@@ -56,7 +56,6 @@ from .draft_store import modernize_draft_path
 
 logger = logging.getLogger(__name__)
 
-#: Said when a draft path is asked for on a turn with no working directory (a CLI run, an eval).
 NO_DRAFTS = "This turn has no working directory: /drafts/ exists only in a conversation."
 
 
@@ -199,7 +198,6 @@ class EstateReadFileSchema(BaseModel):
     conclusion: str = Field(default="", description=CONCLUSION_DESCRIPTION)
 
 
-#: A coroutine of one estate call: returns a ``knowledge_layer.estate.backend.ToolOutput``.
 EstateCall = Callable[[], Awaitable[Any]]
 
 
@@ -230,7 +228,6 @@ class DocumentFilesystem(FilesystemMiddleware):
     """
 
     def __init__(self, *, estate: Any = None, drafts: bool = True, **kwargs: Any) -> None:
-        # Set before the parent builds the tools, which it does in its constructor.
         self._estate = estate
         self._has_drafts = drafts
         super().__init__(**kwargs)
@@ -342,7 +339,6 @@ class DocumentFilesystem(FilesystemMiddleware):
             if _off_the_estate(path):
                 if not has_drafts and is_draft_path(path):
                     return _refusal("grep", runtime, NO_DRAFTS)
-                # The drafts are lines the answer wrote: the stock literal grep, never evidence.
                 return await stock.coroutine(
                     pattern=pattern,
                     runtime=runtime,
@@ -419,7 +415,6 @@ class DraftEditSchema(BaseModel):
     replace_all: bool = False
 
 
-#: The bare schema each stock tool is rebound with, by name.
 BARE_STOCK_SCHEMAS: dict[str, type[BaseModel]] = {"write_file": DraftWriteSchema, "edit_file": DraftEditSchema}
 
 

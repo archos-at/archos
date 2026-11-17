@@ -147,14 +147,8 @@ from .envelope import undecidable
 from .model import CONTACT_BUDGET_SECONDS
 from .model import SpatialModel
 
-#: The synthetic node standing for "outdoors". A GlobalId is 22 characters of
-#: base64; this is six letters, so it cannot collide with one — which matters,
-#: because the node id travels in the same list as real ids.
 OUTSIDE = "AUSSEN"
 
-#: How the OUTSIDE node names itself. It is deliberately an :class:`ElementRef`
-#: like every other node: a caller rendering the route must not need a special
-#: case for the one node that has no ``IfcSpace`` behind it.
 OUTSIDE_REF = ElementRef(
     global_id=OUTSIDE,
     ifc_type="—",
@@ -163,8 +157,6 @@ OUTSIDE_REF = ElementRef(
     via="synthetischer Knoten — außen liegt kein IfcSpace",
 )
 
-#: ``IfcDoorTypeEnum`` values that are a connection but not a walkable one.
-#: ``GATE`` is walkable and is not in here; ``TRAPDOOR`` needs a ladder.
 NON_TRAVERSABLE_DOOR_TYPES = frozenset({"TRAPDOOR"})
 
 _POLYLINE_CAVEAT = (
@@ -197,8 +189,6 @@ _CENTROID_CAVEAT = (
     "nicht konvexen Räumen kann dieser Punkt außerhalb des Raums liegen."
 )
 
-#: Where the memoised build hangs. On the model, not in a module-level table —
-#: see the module docstring for why the difference is not cosmetic.
 _MEMO_ATTR = "_ifc_spatial_circulation_build"
 
 
@@ -218,18 +208,11 @@ class DoorEdge:
     name: str | None
     ifc_type: str
     predefined_type: str | None
-    #: Node ids, sorted, so an edge has one spelling. :data:`OUTSIDE` sorts as
-    #: the plain string it is.
     a: str
     b: str
     length: float | None
     external: bool
-    #: How the door's rooms were resolved — the provenance of THIS edge.
     via: str
-    #: True when the door touched more than two spaces, which no real door does:
-    #: the derivation caught a neighbouring room at the contact tolerance. The
-    #: edges are kept (dropping a real external door would strand a room) and
-    #: the ambiguity is stated.
     ambiguous: bool = False
 
     def to_dict(self) -> dict[str, Any]:
@@ -259,13 +242,8 @@ class DoorGraph:
 
     nodes: tuple[ElementRef, ...]
     edges: tuple[DoorEdge, ...]
-    #: Doors whose rooms ``opens_to`` could not determine, each with the German
-    #: ``what`` it gave as the reason.
     unresolved: tuple[dict[str, Any], ...]
-    #: Doors deliberately not made into edges, each with the reason.
     excluded: tuple[dict[str, Any], ...]
-    #: Wall-clock seconds the build cost, first time. Reported because the cost
-    #: is unbounded in the model and a caller sizing a request needs the number.
     build_seconds: float = 0.0
 
     def to_dict(self) -> dict[str, Any]:
@@ -293,9 +271,6 @@ class _Build:
     provenance: str
     from_: list[str]
     caveat: str | None
-
-
-# ── the graph ───────────────────────────────────────────────────────────────
 
 
 def door_graph(model: SpatialModel) -> Answer[DoorGraph]:
@@ -344,11 +319,6 @@ def _build(model: SpatialModel) -> _Build:
     spaces = list(model.file.by_type("IfcSpace"))
     doors = list(model.file.by_type("IfcDoor"))
 
-    # Both of these are refusals about the EXPORT, and both have to come before
-    # anything is measured. An empty graph would render as "es gibt keinen Weg
-    # nach draußen", which is a statement about a building; "dieser Export
-    # enthält keine Türen" is a statement about a file, and only the second one
-    # is true.
     if not spaces:
         return _Build(
             graph=None,
@@ -380,12 +350,6 @@ def _build(model: SpatialModel) -> _Build:
             caveat=None,
         )
 
-    # The admission test, stated before the first offset rather than discovered
-    # during it. `opens_to` would reach the same refusal per door, but only
-    # after `space_contacts` has already been entered — and on a model this size
-    # a single OCCT offset has been measured at over 200 s with no interruption
-    # point. Reading `ProvidesBoundaries` on every door to find out whether the
-    # cheap route exists costs nothing.
     declared_route = any(getattr(door, "ProvidesBoundaries", None) for door in doors)
     if not declared_route and not model.derivable_boundaries:
         refusal = op._too_big_to_derive(model, "doorGraph()", doors[0].GlobalId)
@@ -459,10 +423,6 @@ def _build(model: SpatialModel) -> _Build:
         if len(rooms) == 1:
             outside, why = op._faces_outside(model, door)
             if outside is not True:
-                # One room and NOT declared external: the far side is a room the
-                # export did not model, not the open air. An OUTSIDE edge here
-                # would hand this room an exit it does not have, and a fabricated
-                # exit shortens every route behind it.
                 excluded.append(
                     {
                         "globalId": door.GlobalId,
@@ -513,18 +473,6 @@ def _build(model: SpatialModel) -> _Build:
                     )
                 )
 
-    # Checked AFTER the loop, because that is when the contact map has been
-    # asked for. A truncated map means some doors reported fewer rooms than they
-    # touch, and a graph missing edges is indistinguishable from a building
-    # missing doors — so nothing is returned rather than a subset.
-    #
-    # NOT gated on `derived_any`, and that was a bug for one revision: when the
-    # budget runs out, EVERY door comes back undecidable, so no edge is ever
-    # derived and a `derived_any` gate would let the truncation through as a
-    # graph with zero edges and a mild caveat — the exact "short list wearing
-    # the shape of a complete one" this library exists to prevent. The flag is
-    # only ever set by `space_contacts`, so it stays True when the declared
-    # route answered everything and nothing geometric was attempted.
     if not model.contacts_complete:
         total = len(spaces)
         return _Build(
@@ -597,9 +545,6 @@ def _graph_caveat(graph: DoorGraph, derived_any: bool) -> str:
     return caveat
 
 
-# ── geometry: the polyline, and nothing more ────────────────────────────────
-
-
 def _centre(model: SpatialModel, global_id: str) -> np.ndarray | None:
     geo = model.geometry(global_id)
     return None if geo is None else geo.centroid
@@ -634,11 +579,6 @@ def _traverse(model: SpatialModel, a: str, door_id: str, b: str) -> float | None
     return first + second
 
 
-# ── search ──────────────────────────────────────────────────────────────────
-
-
-#: One single-source search result: cost and hop count per node, and the edge
-#: each node was reached by.
 _Search = tuple[dict[str, tuple[float, int]], dict[str, tuple[str, DoorEdge]]]
 
 
@@ -707,9 +647,6 @@ def _shortest(graph: DoorGraph, start: str, goal: str) -> tuple[list[DoorEdge], 
     if goal in best:
         return _route(came, start, goal), None
     return None
-
-
-# ── the two operators an agent actually calls ───────────────────────────────
 
 
 def egress_path(model: SpatialModel, space_global_id: str) -> Answer[dict[str, Any]]:
@@ -820,10 +757,6 @@ def egress_path(model: SpatialModel, space_global_id: str) -> Answer[dict[str, A
     return computed(
         value,
         unit="m",
-        # The stated geometric error only: two centroids per leg, each carrying
-        # one coordinate tolerance. It is the SMALL error here by two orders of
-        # magnitude, and quoting it beside the caveat is the point — the number
-        # is precise and it is still not a Fluchtweglänge.
         tolerance=None if total is None else len(route) * op.DIMENSION_TOLERANCE,
         from_=[space_global_id, *[edge.global_id for edge in route]],
         method=method,
@@ -865,10 +798,6 @@ def reachable_from(model: SpatialModel, space_global_id: str) -> Answer[dict[str
         return _refuse(build, method)
     graph = build.graph
 
-    # Two passes over the whole graph, not one per room. Both are single-source,
-    # so asking "how far is every other room" costs the same as asking about one
-    # of them — and the alternative (a search per reported room) is quadratic in
-    # the rooms for an answer that is a single fan-out.
     by_hops, _ = _search(graph, space_global_id, unweighted=True)
     by_length, _ = _search(graph, space_global_id)
     by_id = {ref.global_id: ref for ref in graph.nodes}

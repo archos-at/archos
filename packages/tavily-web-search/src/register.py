@@ -2,6 +2,7 @@ import asyncio
 import functools
 import logging
 import os
+import re
 from typing import Any
 
 from pydantic import Field
@@ -48,7 +49,6 @@ except ImportError:
         return None
 
 
-# Track if we've already warned about missing API key to avoid duplicate warnings
 _missing_key_warned = False
 
 
@@ -95,8 +95,43 @@ def _screened(results: list) -> tuple[list, str, bool]:
         from agent.common.web_sources import screen
     except ImportError:
         return results, "", False
+    from agent.common.web_sources import score_withheld
+
     kept, withheld = screen(doc for doc in results if isinstance(doc, dict))
+    score_withheld(len(withheld))
     return kept, preamble(withheld), bool(withheld)
+
+
+_RECORD_TAG_RE = re.compile(r"<(/?(?:Document|title|source_note|Answer)\b)", re.IGNORECASE)
+
+
+def _inert(text: str) -> str:
+    """``text`` with every result-record tag in it defused: a page cannot write a record of its own."""
+    return _RECORD_TAG_RE.sub(r"&lt;\1", text)
+
+
+def _address(url: str) -> str:
+    """The address a record states: without a signed query (``agent.common.url_safety``), safe inside ``href``."""
+    try:
+        from agent.common.url_safety import strip_signed_query
+    except ImportError:
+        return url.replace('"', "%22")
+    return strip_signed_query(url).replace('"', "%22")
+
+
+def _record(doc: dict, content: str) -> str:
+    """One hit as the record the citation reader parses: its address and title, a note when it is a copy, its text.
+
+    The record header is the search's own statement; only it names a source. The text is the page's, and a
+    link inside it is not a source (``agent.citations.web_results``).
+    """
+    note = doc.get("source_note")
+    note_block = f"<source_note>\n{_inert(str(note))}\n</source_note>\n" if note else ""
+    return (
+        f'<Document href="{_address(str(doc.get("url") or ""))}">\n'
+        f"<title>\n{_inert(str(doc.get('title')))}\n</title>\n"
+        f"{note_block}{_inert(content)}\n</Document>"
+    )
 
 
 def _client_kwargs(tool_config: TavilyWebSearchToolConfig) -> dict:
@@ -145,9 +180,7 @@ async def tavily_web_search(tool_config: TavilyWebSearchToolConfig, builder: Bui
     if not os.environ.get("TAVILY_API_KEY") and tool_config.api_key:
         os.environ["TAVILY_API_KEY"] = tool_config.api_key.get_secret_value()
 
-    # Check if API key is available
     if not os.environ.get("TAVILY_API_KEY"):
-        # Log warning only once to avoid duplicate warnings when multiple tools use Tavily
         global _missing_key_warned
         if not _missing_key_warned:
             logger.warning(
@@ -157,7 +190,6 @@ async def tavily_web_search(tool_config: TavilyWebSearchToolConfig, builder: Bui
             )
             _missing_key_warned = True
 
-        # Yield a stub function that returns an error message
         async def _tavily_web_search_stub(question: str) -> str:
             """Web search tool (unavailable - missing TAVILY_API_KEY)."""
             return (
@@ -174,17 +206,9 @@ async def tavily_web_search(tool_config: TavilyWebSearchToolConfig, builder: Bui
         )
         return
 
-    # Build the Tavily client once per registration rather than per call.
-    # tavily_kwargs depends only on tool_config (constant after registration),
-    # and TavilySearch.ainvoke takes the query per call, so a single reused
-    # client is byte-identical in behavior. Latency: avoids a fresh TCP+TLS
-    # handshake to api.tavily.com on every web search (connection keep-alive).
     tavily_kwargs = _client_kwargs(tool_config)
     tavily_search = TavilySearch(**tavily_kwargs)
 
-    # Platform-tunable result count (Platform → Retrieval), resolved per call.
-    # The shared client covers the build-time default; an admin override builds
-    # a one-off client so the shared one is never mutated under concurrency.
     settings_key = "web.advanced_max_results" if tool_config.advanced_search else "web.max_results"
 
     def _max_results() -> int:
@@ -221,7 +245,6 @@ async def tavily_web_search(tool_config: TavilyWebSearchToolConfig, builder: Bui
     async def _search(question: str, outcome: ActionOutcome) -> str:
         client = _client_for(_max_results())
 
-        # Tavily API requires queries under 400 characters
         if len(question) > 400:
             question = question[:397] + "..."
 
@@ -240,7 +263,6 @@ async def tavily_web_search(tool_config: TavilyWebSearchToolConfig, builder: Bui
                 if not isinstance(search_docs, dict):
                     raise ValueError(f"Search returned unexpected response type: {type(search_docs).__name__}")
 
-                # Handle error responses from TavilySearch
                 if "error" in search_docs:
                     raise ValueError(f"Search error: {search_docs['error']}")
 
@@ -258,7 +280,6 @@ async def tavily_web_search(tool_config: TavilyWebSearchToolConfig, builder: Bui
                 except ImportError:  # standalone dist without the Grid agent package
                     capture_lane_hit = None
                 if capture_lane_hit is not None:
-                    # The per-round ledger reads this, never the prose.
                     for doc in results:
                         if not isinstance(doc, dict):
                             continue
@@ -268,15 +289,10 @@ async def tavily_web_search(tool_config: TavilyWebSearchToolConfig, builder: Bui
 
                 answer_text = header  # no provider summary when it was written from a withheld hit too
                 if search_docs.get("answer") and not withheld:
-                    answer_text += f"<Answer>\n{search_docs['answer']}\n</Answer>\n\n---\n\n"
+                    answer_text += f"<Answer>\n{_inert(str(search_docs['answer']))}\n</Answer>\n\n---\n\n"
 
                 web_search_results = "\n\n---\n\n".join(
-                    [
-                        f'<Document href="{doc.get("url", "")}">\n'
-                        f"<title>\n{doc.get('title')}\n</title>\n"
-                        f"{_truncate_content(doc.get('content') or '')}\n</Document>"
-                        for doc in results
-                    ]
+                    _record(doc, _truncate_content(doc.get("content") or "")) for doc in results
                 )
                 combined = answer_text + web_search_results
                 return combined if combined else "Search returned no results"
@@ -284,7 +300,6 @@ async def tavily_web_search(tool_config: TavilyWebSearchToolConfig, builder: Bui
             except Exception as e:
                 if attempt == tool_config.max_retries - 1:
                     outcome.failed = True
-                    # On final attempt, return a user-friendly error message
                     error_msg = str(e)
                     if isinstance(e, ValueError):
                         return error_msg
@@ -299,8 +314,6 @@ async def tavily_web_search(tool_config: TavilyWebSearchToolConfig, builder: Bui
                         return f"Error: Web search failed - {error_msg}"
                 await asyncio.sleep(2**attempt)
 
-        # Unreachable when max_retries >= 1 (enforced by config), but a tool
-        # must always hand the agent a string, never None.
         outcome.failed = True
         return "Error: Web search failed - no attempts were made"
 

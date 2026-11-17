@@ -1,15 +1,3 @@
-/**
- * The Outlook archive import (ADR-0085): start one, send the archive in parts,
- * complete it, cancel it, list a project's imports.
- *
- * Authorization is the upload path's: `project:documents:write` on the project
- * to start and send, `project:view` to see that imports exist. An import
- * belongs to the person who started it; only they send its parts, complete or
- * cancel it, and a holder of `org:projects:administer` may cancel anyone's,
- * because a stuck twenty-gigabyte upload must not wait for its owner to return.
- * The job that files it is `./job.ts`.
- */
-
 import 'server-only'
 import { randomUUID } from 'node:crypto'
 import { BadRequestError, ConflictError, ForbiddenError, NotFoundError } from '@/lib/api/errors'
@@ -18,7 +6,7 @@ import type { AuthorizedSession } from '@/lib/auth/types'
 import { isMailImportEnabled } from '@/lib/authz/feature-flags'
 import { hasPermission, ORG_PERMISSIONS } from '@/lib/authz/permissions'
 import { requireProjectAccess } from '@/lib/authz/projects'
-import type { MailImport } from '@/lib/db/schema/mail-imports'
+import { MAIL_IMPORT_LIFECYCLE, type MailImport } from '@/lib/db/schema/mail-imports'
 import { requireShelfWrite } from '@/lib/documents/shelf-authz'
 import { decodeDocumentListCursor, encodeDocumentListCursor } from '@/lib/documents/list-cursor'
 import { projectShelf } from '@/lib/documents/shelf'
@@ -51,18 +39,12 @@ import {
 } from './types'
 import { sealImportBatch } from './upload-batch'
 
-/**
- * One page of the project's imports, newest first (ADR-0131 rule 3). The
- * deployment's ceiling and part size ride along, so the dialog knows before a
- * start what it may send.
- */
 export async function listMailImports(
   session: AuthorizedSession,
   projectId: string,
   query: MailImportListQuery = {},
 ): Promise<MailImportList> {
   await requireProjectAccess(session, projectId, 'project:view')
-  // The schema refused a cursor this list did not write; one that reaches here decodes.
   const cursor = query.cursor ? decodeDocumentListCursor(query.cursor) : null
   const page = await repository.listProjectMailImports(session.organizationId, projectId, {
     limit: query.limit ?? MAIL_IMPORT_LIST_PAGE_SIZE,
@@ -91,9 +73,6 @@ export async function startMailImport(
     throw new ConflictError('An import of yours is still running in this project.', { importId: open.id })
   }
 
-  // The row first, the multipart upload second: the unique index refuses a
-  // second open import of this person before anything exists in the store, so
-  // a refused start leaves no orphan upload behind.
   const id = randomUUID()
   const staged = { bucket: await stagingBucket(session.organizationId), key: stagingKey(session.organizationId, projectId, id) }
   const row = await repository.insertMailImport({
@@ -122,7 +101,6 @@ export async function startMailImport(
   return uploadPlan(ready ?? { ...row, uploadId }, session, [])
 }
 
-/** The plan for a send that broke off: which parts the store already has. */
 export async function resumeMailImportUpload(
   session: AuthorizedSession,
   projectId: string,
@@ -148,7 +126,6 @@ export async function putMailImportPart(
   }
   const body = await readPart(request, expected, partNumber)
   await putStagedPart(staged(row), uploadIdOf(row), partNumber, body)
-  // Touch the row: an upload still receiving parts is not a stale one.
   await repository.updateMailImport(session.organizationId, row.id, ['uploading'], {})
   return { partNumber }
 }
@@ -176,7 +153,6 @@ export async function completeMailImportUpload(
   return toView(queued, session)
 }
 
-/** Whether `session` may cancel `row`: its starter, or whoever administers every project. */
 function mayCancel(row: MailImport, session: Pick<AuthorizedSession, 'userId' | 'role' | 'permissions'>): boolean {
   return row.userId === session.userId || hasPermission(session, ORG_PERMISSIONS.projectsAdminister)
 }
@@ -193,24 +169,18 @@ export async function cancelMailImport(
   if (!isOpen(row)) return toView(row, session)
 
   const now = new Date()
-  const cancelled = await repository.updateMailImport(session.organizationId, row.id, ['uploading', 'queued', 'importing'], {
+  const cancelled = await repository.updateMailImport(session.organizationId, row.id, MAIL_IMPORT_LIFECYCLE.sourcesOf('cancel'), {
     status: 'cancelled',
     completedAt: now,
     inflightPosition: null,
     inflightFolderId: null,
   })
   if (!cancelled) return toView((await repository.findMailImport(session.organizationId, projectId, importId)) ?? row, session)
-  // What was filed before the cancel still gets its summary.
   await sealImportBatch(cancelled)
   await discardStaging(cancelled)
   return toView(cancelled, session)
 }
 
-/**
- * Join the staged parts into the archive. Safe to call again: a join whose
- * answer was lost (likely, for 750 parts behind a proxy) leaves the upload
- * gone and the object there, and that is read as done when its size is right.
- */
 async function joinParts(row: MailImport): Promise<void> {
   let parts: UploadedPart[]
   try {
@@ -226,15 +196,10 @@ async function joinParts(row: MailImport): Promise<void> {
   await completeStagedUpload(staged(row), uploadIdOf(row), parts)
 }
 
-/**
- * Delete what an ended import left in storage: its parts, or its archive. A
- * running slice reading the archive meanwhile fails its read and, on the
- * retry, finds the import ended.
- */
 export async function discardStaging(row: MailImport): Promise<void> {
   if (row.uploadId) await abortStagedUpload(staged(row), row.uploadId)
   await deleteStagedArchive(staged(row))
-  await repository.updateMailImport(row.organizationId, row.id, ['completed', 'failed', 'cancelled'], {
+  await repository.updateMailImport(row.organizationId, row.id, MAIL_IMPORT_LIFECYCLE.finalStates, {
     uploadId: null,
     stagingDeletedAt: new Date(),
   })
@@ -270,12 +235,10 @@ export function toView(
   }
 }
 
-/** How many parts an archive of `sizeBytes` is sent in. */
 export function partCountFor(sizeBytes: number): number {
   return Math.max(1, Math.ceil(sizeBytes / MAIL_IMPORT_PART_BYTES))
 }
 
-/** The exact size part `partNumber` must have; throws for a number outside the archive. */
 export function expectedPartSize(sizeBytes: number, partNumber: number): number {
   const count = partCountFor(sizeBytes)
   if (!Number.isInteger(partNumber) || partNumber < 1 || partNumber > count) {
@@ -284,7 +247,6 @@ export function expectedPartSize(sizeBytes: number, partNumber: number): number 
   return partNumber < count ? MAIL_IMPORT_PART_BYTES : sizeBytes - MAIL_IMPORT_PART_BYTES * (count - 1)
 }
 
-/** The part numbers the store does not hold at their exact size. */
 export function missingParts(sizeBytes: number, parts: readonly UploadedPart[]): number[] {
   const held = new Map(parts.map((part) => [part.partNumber, part.size]))
   const missing: number[] = []
@@ -294,15 +256,6 @@ export function missingParts(sizeBytes: number, parts: readonly UploadedPart[]):
   return missing
 }
 
-/**
- * The part's body, exactly `expected` bytes, through `readBoundedBody`. A
- * chunked request declares no length, and the transport ceiling in front of
- * the route is the upload one (hundreds of megabytes), so the read stops the
- * moment the body passes `expected` instead of buffering whatever a client
- * sends: this route's 400, as for a declared length that is wrong. A body that
- * ends short was cut in transit and is `readBoundedBody`'s 503
- * `body-truncated`, which the browser's `sendPart` retries like any 5xx.
- */
 async function readPart(request: Request, expected: number, partNumber: number): Promise<Uint8Array> {
   try {
     return await readBoundedBody(request, { expectedLength: expected, maxBytes: expected })
@@ -334,7 +287,6 @@ function requireEnabled(session: AuthorizedSession): void {
   if (!isMailImportEnabled(session)) throw new ForbiddenError('Mail import is not enabled for this organization')
 }
 
-/** The import, when it is the caller's and still receiving parts. */
 async function ownedUpload(session: AuthorizedSession, projectId: string, importId: string): Promise<MailImport> {
   await requireShelfWrite(session, projectShelf(projectId))
   const row = await repository.findMailImport(session.organizationId, projectId, importId)

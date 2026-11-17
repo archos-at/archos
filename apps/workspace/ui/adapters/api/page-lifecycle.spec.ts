@@ -1,10 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The page as a reconnect reads it: hidden or offline is away, and visible,
- * online again or restored from the back/forward cache is a resume.
- */
 import { describe, expect, it, vi } from 'vitest'
 import {
   ALWAYS_ACTIVE,
@@ -24,6 +20,7 @@ const fakeGlobals = () => {
 }
 
 const pageshow = (persisted: boolean) => Object.assign(new Event('pageshow'), { persisted })
+const pagehide = (persisted: boolean) => Object.assign(new Event('pagehide'), { persisted })
 
 describe('browserPageLifecycle', () => {
   it('reads visibility and the network live', () => {
@@ -50,7 +47,6 @@ describe('browserPageLifecycle', () => {
     doc.dispatchEvent(new Event('visibilitychange'))
     expect(suspend).toHaveBeenCalledTimes(2)
 
-    // Visible, still offline: nothing to resume yet.
     doc.visibilityState = 'visible'
     doc.dispatchEvent(new Event('visibilitychange'))
     expect(resume).not.toHaveBeenCalled()
@@ -67,6 +63,30 @@ describe('browserPageLifecycle', () => {
     win.dispatchEvent(pageshow(false))
     expect(resume).not.toHaveBeenCalled()
     win.dispatchEvent(pageshow(true))
+    expect(resume).toHaveBeenCalledExactlyOnceWith('pageshow')
+  })
+
+  it('raises nothing for the pagehide of a page that is being discarded while still visible', () => {
+    const { win, globals } = fakeGlobals()
+    const suspend = vi.fn()
+    const page = browserPageLifecycle(globals)
+    page.subscribe({ resume: vi.fn(), suspend })
+    win.dispatchEvent(pagehide(false))
+    expect(suspend).not.toHaveBeenCalled()
+    expect(page.visible).toBe(true)
+  })
+
+  it('is away from the pagehide into the back/forward cache until the pageshow out of it', () => {
+    const { win, globals } = fakeGlobals()
+    const resume = vi.fn()
+    const suspend = vi.fn()
+    const page = browserPageLifecycle(globals)
+    page.subscribe({ resume, suspend })
+    win.dispatchEvent(pagehide(true))
+    expect(suspend).toHaveBeenCalledOnce()
+    expect(page.visible).toBe(false)
+    win.dispatchEvent(pageshow(true))
+    expect(page.visible).toBe(true)
     expect(resume).toHaveBeenCalledExactlyOnceWith('pageshow')
   })
 

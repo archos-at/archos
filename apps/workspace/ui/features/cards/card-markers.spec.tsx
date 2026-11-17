@@ -1,13 +1,3 @@
-/**
- * Run against the REAL parser, with the plugins the renderer uses.
- *
- * What is being tested is where a card ends up in a PARSED document — the
- * defect was a card that could only ever be a block above the answer — so a
- * test that stubbed the parse would only be testing the stub. The rendering
- * case goes one further and asserts against the DOM: a card is a `<div>`, and
- * splicing one into a paragraph is the mistake the line-based contract exists
- * to prevent.
- */
 import { describe, test, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { unified } from 'unified'
@@ -43,11 +33,9 @@ const value = (node: Node): string => {
   return typeof literal === 'string' ? literal : ''
 }
 
-/** The document's visible text — what the reader would actually read. */
 const text = (node: Node): string =>
   isParent(node) ? node.children.map(text).join('') : value(node)
 
-/** The card index every slot in the tree stands for, in document order. */
 const slots = (node: Node): number[] => {
   const data = (node as Node & { data?: { hName?: string; hProperties?: { index?: string } } }).data
   const here = data?.hName === MARKDOWN_SLOT_TAG ? [Number(data.hProperties?.index)] : []
@@ -55,7 +43,6 @@ const slots = (node: Node): number[] => {
   return [...here, ...node.children.flatMap(slots)]
 }
 
-/** Block-level shape of the document: node types, in order. */
 const blocks = (node: Node): string[] =>
   (node as Parent).children.map((child) => {
     const data = (child as Node & { data?: { hName?: string } }).data
@@ -71,8 +58,6 @@ describe('remarkCardMarkers', () => {
     expect(text(tree)).toBe('Die Steigung.Die Auftrittstiefe.')
   })
 
-  // The marker is 1-based (the agent counts its own emit_card calls from one),
-  // the array is not. Off by one here would draw the wrong card.
   test('resolves the marker number to the array index', () => {
     expect(slots(parse('[[card:3]]', 3))).toEqual([2])
   })
@@ -84,9 +69,6 @@ describe('remarkCardMarkers', () => {
     expect(slots(tree)).toEqual([1, 0])
   })
 
-  // A marker written without blank lines around it is still on its own line —
-  // remark just calls the whole thing one paragraph. Refusing it would punish
-  // the most likely way for the agent to get the format slightly wrong.
   test('splits a paragraph at a marker on a soft-broken line', () => {
     const tree = parse('Vor der Karte\n[[card:1]]\nNach der Karte', 1)
 
@@ -94,9 +76,6 @@ describe('remarkCardMarkers', () => {
     expect(text(tree)).toBe('Vor der KarteNach der Karte')
   })
 
-  // The card does not exist (yet): while streaming, the marker regularly lands
-  // frames before the card it names. Rendering nothing lets the same marker
-  // resolve on the next frame; leaving it as text would flash machine noise.
   test('renders nothing for a card that has not arrived', () => {
     const tree = parse('Antwort.\n\n[[card:2]]', 1)
 
@@ -109,9 +88,6 @@ describe('remarkCardMarkers', () => {
     expect(slots(parse('Antwort.\n\n[[card:9]]\n\nEnde.', 2))).toEqual([])
   })
 
-  // A card is a block. Placing one mid-sentence would nest a `<div>` inside a
-  // `<p>`, which the browser un-nests — so the marker goes and the card falls
-  // back to the block after the prose (`unplacedCardIndices` agrees below).
   test('strips a mid-sentence marker instead of splicing a block into it', () => {
     const tree = parse('Die Treppe [[card:1]] ist steil.', 1)
 
@@ -126,13 +102,9 @@ describe('remarkCardMarkers', () => {
 
     expect(slots(tree)).toEqual([])
     expect(text(tree)).toContain('[[card:1]]')
-    // …and the card is still shown, as the block after the prose.
     expect(unplacedCardIndices(source, 1)).toEqual([0])
   })
 
-  // Half-arrived syntax is smoothed the way `stabilizeStreamingMarkdown`
-  // smooths a half-arrived fence: the reader never watches `[[card:` type
-  // itself out one token at a time.
   test.each(['[[', '[[c', '[[card', '[[card:', '[[card:1', '[[card:1]'])(
     'hides the partial marker %j at the end of a streaming answer',
     (partial) => {
@@ -156,10 +128,8 @@ describe('remarkCardMarkers', () => {
       .use(remarkGfm)
       .use(remarkCardMarkers, { count: 0, pending: true })
       .runSync(unified().use(remarkParse).use(remarkGfm).parse(source))
-    // The place is held, and the marker is never read as text.
     expect(slots(pending)).toEqual([1])
     expect(text(pending)).toBe('Vor.Nach.')
-    // Once the answer is final, a marker with no card behind it is nothing.
     expect(slots(parse(source, 0))).toEqual([])
   })
 })
@@ -187,7 +157,6 @@ describe('placedCardIndices', () => {
 })
 
 describe('a placed card, rendered', () => {
-  /** The rendered answer as the reader reads it, whitespace collapsed. */
   const readable = (container: HTMLElement): string =>
     (container.textContent ?? '').replace(/\s+/g, ' ').trim()
 
@@ -202,8 +171,6 @@ describe('a placed card, rendered', () => {
     const { container } = renderAnswer('Die Steigung.\n\n[[card:1]]\n\nDer Auftritt.', 1)
 
     const card = screen.getByTestId('card-0')
-    // A card inside a `<p>` is the failure this whole contract avoids: the
-    // browser closes the paragraph around it and the answer reflows.
     expect(card.closest('p')).toBeNull()
     expect(readable(container)).toBe('Die Steigung. Karte Der Auftritt.')
   })
@@ -286,11 +253,6 @@ describe('hasPlacedCalloutMarker', () => {
 })
 
 describe('a rejected card in the middle keeps every marker and decision bound', () => {
-  // The ratchet for positional identity: the wire carries three cards, the
-  // middle one fails validation, and NOTHING after it may move. Markers stay
-  // bound to the cards they were written for (or draw nothing), and persisted
-  // decisions stay bound to the proposals they were made about (or are
-  // dropped) — never rebound onto the wrong card.
   const proposal = (content: string) => ({
     type: 'memory_proposal',
     title: 'Merken?',
@@ -323,15 +285,11 @@ describe('a rejected card in the middle keeps every marker and decision bound', 
     const cards = validated()
     const count = cards.length
 
-    // The prose claims indices 0 and 2; the hole at 1 falls to the fallback
-    // block, where it renders nothing.
     expect([...placedCardIndices(BODY, count)]).toEqual([0, 2])
     expect(unplacedCardIndices(BODY, count)).toEqual([1])
     expect(slots(parse(BODY, count))).toEqual([0, 2])
-    // What the slots resolve to: the proposals the markers were written for.
     expect(cards[0]).toMatchObject({ content: 'REI 90 prüfen' })
     expect(cards[2]).toMatchObject({ content: 'Fluchtniveau 9,80 m' })
-    // And the hole fails closed — the surface renders nothing for it.
     expect(cards[1]).toBeUndefined()
   })
 
@@ -341,14 +299,10 @@ describe('a rejected card in the middle keeps every marker and decision bound', 
       [key]: { decision, decidedAt: '2026-07-28T09:00:00.000Z' as const },
     })
 
-    // The key the reader's Yes was stored under still names the same proposal
-    // after re-validation (the reload path): index 2 is index 2.
     expect(cardKey({ type: 'memory_proposal' }, 2)).toBe('memory_proposal-2')
     expect(reconcileCardInteractions(decided('memory_proposal-2'), cards, validated())).toEqual(
       decided('memory_proposal-2'),
     )
-    // A decision recorded against the hole matches no card and is dropped —
-    // re-asking is recoverable, attributing it to a neighbour is not.
     expect(reconcileCardInteractions(decided('memory_proposal-1'), cards, validated())).toBeUndefined()
   })
 })

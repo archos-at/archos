@@ -48,64 +48,29 @@ from agent.common.cost_tracking import meter_openai_client
 
 logger = logging.getLogger(__name__)
 
-# @environment_variable VLM_TIMEOUT_SECONDS
-# @category Knowledge Layer
-# @type int
-# @default 180
-# @required false
-# Per-request timeout for VLM captioning calls. The OpenAI SDK default (~600s,
-# with 2 built-in retries) lets one hung provider pin an enrichment worker for
-# up to ~20 minutes; 180s with a single retry bounds a hung request to ~6
-# minutes. ``_vlm_chat_create`` may issue one extra request when the first
-# response comes back truncated, but that retry runs with SDK retries disabled,
-# so the ceiling for one caption is ~9 minutes — and only on the path where the
-# provider answered once and then hung. Retries are kept (rather than dropped to
-# 0) because a transient 429/5xx now costs an indexed chunk: failure
-# placeholders are skipped, not embedded. Clamped like the sibling knobs: a
-# misconfigured 0 or negative value would fail every VLM request immediately and
-# silently disable captioning altogether.
 VLM_REQUEST_TIMEOUT_SECONDS = max(1, env_int("VLM_TIMEOUT_SECONDS", 180))
 
-# @environment_variable VLM_FLEET_CONCURRENCY
-# @category Knowledge Layer
-# @type int
-# @default 32
-# @required false
-# Vision-model calls in flight across EVERY ingest process at once (a lease pool
-# on the shared cache, `common.lease_slots`); a call waits for a slot. This, not
-# the number of ingest workers, is what the provider sees, so scaling the ingest
-# tier out queues calls here instead of turning into upstream 429s. 0 disables.
-# Every vision call also holds a slot in its model's own provider-limiter pool
-# (`PROVIDER_MODEL_LIMIT_CEILING`, 32), so a pool above that never fills:
-# keep the two together.
 VLM_FLEET_CONCURRENCY = env_int("VLM_FLEET_CONCURRENCY", 32)
 
-# @environment_variable VLM_RATE_LIMIT_RETRIES
-# @category Knowledge Layer
-# @type int
-# @default 4
-# @required false
-# Retries of a vision-model call the provider rate-limited (HTTP 429), with
-# exponential backoff or the provider's Retry-After, before the caption fails.
 VLM_RATE_LIMIT_RETRIES = max(0, env_int("VLM_RATE_LIMIT_RETRIES", 4))
 
 _VLM_SLOT_KEY = "ingest:vlm:inflight"
 _VLM_BACKOFF_CAP_SECONDS = 60.0
 
-#: How long one page read may wait out in-flight-credit 402s, from its first attempt,
-#: the transport's own retries included. Waits 4, 8, 16, 32 s with jitter, cut at the budget.
 CREDIT_WAIT_BUDGET_SECONDS = 60.0
 
-#: The first wait is ``credit_retry.delay_seconds`` of this step (4 s): the transport
-#: already spent 1, 2 and 4 s on the same 402 before it reached us.
 _CREDIT_FIRST_STEP = 2
 
-#: The Langfuse name of one vision call made by an ingest (a drawing page, an image, a raster).
 VISION_GENERATION_NAME = "ingest-vision"
 
 
 def _vlm_slot():
-    """One of the fleet's ``VLM_FLEET_CONCURRENCY`` vision-call slots, for as long as the call may last.
+    """One of the fleet's ``VLM_FLEET_CONCURRENCY`` vision-call slots, for as long as the call lasts.
+
+    The call under the slot is not bounded by ``VLM_REQUEST_TIMEOUT_SECONDS``: that is
+    httpx's timeout per phase of one attempt, the SDK makes two attempts with a backoff
+    between, and each first waits for a provider slot. ``hold`` renews the lease while
+    the call runs, so the lease is only how long a dead worker's slot stays taken.
 
     Shared fairly between organisations (``lease_slots.FAIR_ACQUIRE_LUA``): an
     office's 300-sheet upload takes every slot while it is alone, and gives one
@@ -235,7 +200,6 @@ def _vlm_create_fairly(client, **request):
             with _vlm_slot():
                 return _observed_vlm_call(client, request)
         except Exception as error:
-            # The clock, or the waits when the clock is not moving (a test): whichever is further.
             spent = max(time.monotonic() - started, waited)
             wait = retry_wait(error, rate_limited=rate_limited, credit_waits=credit_waits, spent=spent)
             if wait is None:
@@ -316,8 +280,6 @@ def _vlm_chat_create(
 
     partial = choice.message.content or ""
     logger.warning("VLM response truncated at %d tokens; retrying with %d", max_tokens, max_tokens * 2)
-    # ``with_options`` is the OpenAI SDK's per-call override; guarded because
-    # the drawing/image call sites are exercised with lightweight fake clients.
     with_options = getattr(client, "with_options", None)
     retry_client = client
     if callable(with_options):

@@ -1,9 +1,3 @@
-/**
- * Set the key a public source is fetched with (ADR-0174): write-only, the
- * person's own yes, audited. The answer says only that a key is set and its
- * last four characters; only the fetch reads it.
- */
-
 import { BadRequestError } from '@/lib/api/errors'
 import { parseJsonBody } from '@/lib/api/handler'
 import { platformApiRoute } from '@/lib/api/platform-handler'

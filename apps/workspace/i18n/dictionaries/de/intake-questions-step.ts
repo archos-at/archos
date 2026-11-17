@@ -1,6 +1,5 @@
 import type { en } from '../en'
 
-/** intakeQuestionsStep: step 4, Rückfragen: one question at a time, only what changes the classification. */
 export const intakeQuestionsStep: typeof en.intakeQuestionsStep = {
   heading: 'Rückfragen',
   subtitle: 'Nur, was die Einstufung ändert',
@@ -16,6 +15,7 @@ export const intakeQuestionsStep: typeof en.intakeQuestionsStep = {
   },
   progress: '{done} von {total} erledigt',
   readingNote: '{productName} liest die Unterlagen noch. Was Sie schon wissen, können Sie jetzt beantworten.',
+  unpublishedNote: 'Die Länderdaten für dieses Projekt sind noch nicht veröffentlicht, deshalb folgen daraus noch keine Fragen.',
   closingNote: 'Ein abgeschlossenes Projekt: {productName} fragt nur das Wichtigste.',
   card: {
     position: 'Frage {index} von {total}',

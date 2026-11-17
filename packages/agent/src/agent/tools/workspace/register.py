@@ -49,12 +49,8 @@ logger = logging.getLogger(__name__)
 
 FEATURE_TAG = "feature:workspace-mcp"
 
-#: The ``shelf`` a workspace read carries in the retrieval ledger (``common/retrieval_ledger.py``). An English
-#: token, like every shelf: the UI words it for the reader (``chat.thinking.node.workspaceRead``), and the
-#: lane's ``name`` is the operation, the identifier the read ran.
 WORKSPACE_SHELF = "workspace"
 
-#: The server's tool names (kebab-case, fixed by the contract), by this group's function.
 SERVER_TOOLS = {
     "search": "search-operations",
     "describe": "describe-operation",
@@ -62,15 +58,9 @@ SERVER_TOOLS = {
     "report_missing": "report-missing-operation",
 }
 
-# Everything the model reads from these tools is English, one word per concept (AGENTS.md, "Industry
-# standard first"; the terms are in docs/glossary.md, "Agent surface and standard terms"). The model
-# answers the person in their language; it does not quote these sentences.
 
-#: A 429, from the door itself or from the route an operation runs. The limit is per minute and a round
-#: takes seconds, so the next round may well be served; this one is not.
 RATE_LIMITED = "Error: rate limited; nothing was changed. Call again in the next round, not in this one."
 
-#: How a route's own 429 reads once ``discovery.ts`` has worded it (``refusalResult``).
 _ROUTE_RATE_LIMITED = re.compile(r"\(HTTP 429\b")
 
 _NO_ENVELOPE = (
@@ -78,10 +68,6 @@ _NO_ENVELOPE = (
     "workspace on a person's behalf. Do not retry."
 )
 
-#: The meta-tools' words, written once by the server (``metaToolsFor`` in
-#: ``apps/workspace/bff/agent-api/discovery.ts``) and exported here by
-#: ``meta-tools.spec.ts`` (``UPDATE_FIXTURES=1``): the in-product variant, which
-#: never offers the ``platform`` domain. This file keeps no copy of its own.
 META_TOOLS_PATH = Path(__file__).with_name("meta_tools.json")
 
 
@@ -148,10 +134,9 @@ async def run_workspace(step: str, arguments: dict[str, Any], outcome: ActionOut
             "not retry in the same answer."
         )
     text = result.text
-    # `structured` is None for a tool-level refusal (`isError`): the call did not run.
-    outcome.failed = result.structured is None
+    outcome.failed = result.is_error
     observed: dict[str, Any] = {"chars": len(text)}
-    if result.structured is None and _ROUTE_RATE_LIMITED.search(text):
+    if result.is_error and _ROUTE_RATE_LIMITED.search(text):
         _observe(step, {"tool": SERVER_TOOLS[step], "operation": arguments.get("name")}, {"status": 429})
         return RATE_LIMITED
     if step == "call":
@@ -171,15 +156,13 @@ def _record_read(result: Any, arguments: dict[str, Any], outcome: dict[str, Any]
 
     Only a read. A proposal is no reading (its card stands for it), and a refusal read nothing.
     """
-    if "proposed" in outcome or result.structured is None:
+    if "proposed" in outcome or result.is_error:
         return
     operation = str(arguments.get("name") or "").strip()
     if operation:
         record_lane_hit(operation, shelf=WORKSPACE_SHELF)
 
 
-#: Appended when the server stored the proposal and this run has nowhere to draw its card. The person
-#: still finds it: the server told their inbox.
 _PROPOSED_WITHOUT_CARD = " The card could not be shown in this run; the proposal waits in the person's inbox."
 
 

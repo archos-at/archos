@@ -1,37 +1,3 @@
-/**
- * An ```` ```excalidraw ```` fence in an answer: the sketch Piloti drew, checked
- * and reduced to what the browser may hand Excalidraw (ADR-0146).
- *
- * The fence holds Excalidraw's element skeleton (`ExcalidrawElementSkeleton`,
- * the input of `convertToExcalidrawElements`), either as a bare array or as
- * `{ "title": …, "elements": [ … ] }`. This module is pure: it imports nothing
- * of Excalidraw, so the chat can decide what to show without downloading it.
- *
- * ## Two checks, one rule set
- *
- * `packages/agent/src/agent/common/sketch_fence.py` is the server's check and this is the
- * browser's. They refuse the same fences with the same word, held together by
- * `__fixtures__/sketch-fences.json`, which both test suites run. The server's
- * verdict is stored in the answer: a refused fence arrives retagged
- * `excalidraw-refused` and is shown as one quiet line, never as JSON. This one exists because a
- * fence still streaming, and every answer stored before the server checked,
- * arrive without that verdict.
- *
- * ## What reaches Excalidraw
- *
- * Only the fields in `ALLOWED_FIELDS`, with enumerated values held to their
- * enumeration and numbers to a range: a `link` (Excalidraw makes an element
- * clickable with it), `customData`, a `fileId` or anything else the model
- * wrote is dropped, not refused, because a sketch with one stray field is
- * still a sketch. Every text is set in Helvetica (`SKETCH_FONT_FAMILY`), the
- * type the filed SVG and PDF can show, so the file reads like the sketch.
- *
- * The doctrine (`diagram-sources.ts`) holds by subject, not by parse: a sketch
- * claims no dimension, and the reader is told so beside it. A label that reads
- * like a measurement is counted (`dimensionLabels`), as the server counts it.
- */
-
-/** The fence tag the model writes, and the one the server stores a refused sketch under. */
 export const SKETCH_FENCE_LANGUAGE = 'excalidraw'
 export const REFUSED_SKETCH_FENCE_LANGUAGE = 'excalidraw-refused'
 
@@ -42,13 +8,7 @@ export const MAX_SKETCH_TEXT_CHARS = 500
 export const MAX_SKETCH_POINTS = 200
 export const MAX_SKETCH_TITLE_CHARS = 120
 
-/** Excalidraw's `FONT_FAMILY.Helvetica`; why, in `features/diagrams/sketch/sketch-from-model.ts`. */
 const SKETCH_FONT_FAMILY = 2
-/**
- * The size a text gets when the fence names none. Excalidraw's own default is
- * 20, and at 20 a label in a 180-wide bubble broke mid-word („Kochen/Ess en")
- * in the first sketches a model wrote. 16 is the editor's (`SKETCH_FONT_SIZE`).
- */
 const SKETCH_TEXT_SIZE = 16
 
 export const SKETCH_ELEMENT_TYPES = ['rectangle', 'ellipse', 'diamond', 'text', 'arrow', 'line', 'frame'] as const
@@ -70,7 +30,6 @@ export const SKETCH_REFUSALS = [
 ] as const
 export type SketchRefusal = (typeof SKETCH_REFUSALS)[number]
 
-/** One skeleton element as it is handed to `convertToExcalidrawElements`. */
 export type SceneSkeleton = { type: SketchElementType } & Record<string, unknown>
 
 export type SketchFence =
@@ -78,12 +37,10 @@ export type SketchFence =
       ok: true
       title: string | null
       elements: SceneSkeleton[]
-      /** Labels that read like a measurement, which a sketch must not claim. */
       dimensionLabels: number
     }
   | { ok: false; refusal: SketchRefusal }
 
-/** A number with a unit of length or area, the server's `_DIMENSION`. */
 const DIMENSION = /\d(?:[.,]\d+)?\s*(?:mm|cm|dm|km|m²|m2|m³|m)(?![a-zäöüß])/i
 
 class Refused extends Error {
@@ -110,7 +67,6 @@ function coordinate(value: unknown, required: boolean): void {
 function text(value: unknown, required: boolean): string {
   if (value == null && !required) return ''
   if (typeof value !== 'string' || !value.trim()) throw new Refused('missing-text')
-  // Python counts code points; a string's length counts UTF-16 units.
   if ([...value].length > MAX_SKETCH_TEXT_CHARS) throw new Refused('text-too-long')
   return value
 }
@@ -146,7 +102,6 @@ function isSketchType(value: unknown): value is SketchElementType {
   return typeof value === 'string' && (SKETCH_ELEMENT_TYPES as readonly string[]).includes(value)
 }
 
-/** Check one element on its own; the words it shows. */
 function elementTexts(element: Json): string[] {
   const kind = element.type
   if (!isSketchType(kind)) throw new Refused('unsupported-element')
@@ -165,17 +120,12 @@ function elementTexts(element: Json): string[] {
   return [text(element.label.text, true)]
 }
 
-/** The ids an element points at: an arrow's bound ends, a frame's children. */
 function references(element: Json): unknown[] {
   if (element.type === 'frame') return element.children as unknown[]
   const ends = [element.start, element.end].filter((end) => end !== undefined && end !== null)
   if (ends.some((end) => !isObject(end))) throw new Refused('dangling-binding')
   return ends.map((end) => (end as Json).id)
 }
-
-// ---------------------------------------------------------------------------
-// What reaches Excalidraw: the allow-list, applied after the check passed.
-// ---------------------------------------------------------------------------
 
 const COLOR = /^(?:#[0-9a-f]{3,8}|transparent)$/i
 const ENUMS: Record<string, readonly (string | null)[]> = {
@@ -205,7 +155,6 @@ const ALLOWED_FIELDS: Record<SketchElementType, readonly string[]> = {
 }
 const LABEL_FIELDS = ['text', 'fontSize', 'textAlign', 'verticalAlign', 'strokeColor']
 
-/** One field's value as Excalidraw gets it, or `undefined` to drop it. */
 function kept(field: string, value: unknown): unknown {
   if (field === 'strokeColor' || field === 'backgroundColor') {
     return typeof value === 'string' && COLOR.test(value) ? value : undefined
@@ -236,7 +185,6 @@ function skeletonOf(element: Json): SceneSkeleton {
   const type = element.type as SketchElementType
   const out: SceneSkeleton = { type }
   for (const field of ALLOWED_FIELDS[type]) {
-    // A JSON null is an absent field, except where Excalidraw reads it (an arrow with no head).
     if (element[field] === undefined || (element[field] === null && !field.endsWith('Arrowhead'))) continue
     const value = kept(field, element[field])
     if (value !== undefined) out[field] = value
@@ -269,11 +217,6 @@ function checked(scene: unknown): SketchFence {
   }
 }
 
-/**
- * A body whose JSON was escaped twice (`{\"title\": …`): a model writing the
- * fence inside the envelope's `answer` string sometimes escapes its quotes once
- * too often. Read once unescaped, as the server does (`_OVER_ESCAPED`).
- */
 const OVER_ESCAPED = /^\s*[[{][\s[{]*\\"/
 const ESCAPE = /\\(["\\/bfnrt])/g
 const UNESCAPED: Record<string, string> = { '"': '"', '\\': '\\', '/': '/', b: '\b', f: '\f', n: '\n', r: '\r', t: '\t' }
@@ -282,7 +225,6 @@ function unescapedOnce(body: string): string {
   return OVER_ESCAPED.test(body) ? body.replace(ESCAPE, (_, char: string) => UNESCAPED[char]) : body
 }
 
-/** The verdict on one fence's body, and on a pass the skeletons to draw. */
 export function readSketchFence(body: string): SketchFence {
   if (new TextEncoder().encode(body).length > MAX_SKETCH_SOURCE_BYTES) return { ok: false, refusal: 'too-large' }
   let scene: unknown
@@ -299,7 +241,6 @@ export function readSketchFence(body: string): SketchFence {
   }
 }
 
-/** Where the element array starts in a fence still being written, or -1. */
 function arrayStart(text: string): number {
   const first = text.search(/\S/)
   if (first >= 0 && text[first] === '[') return first
@@ -307,7 +248,6 @@ function arrayStart(text: string): number {
   return key ? key.index + key[0].length - 1 : -1
 }
 
-/** The complete top-level objects of an array whose closing bracket has not arrived yet. */
 function completeObjects(text: string, from: number): string[] {
   const objects: string[] = []
   let depth = 0
@@ -332,16 +272,6 @@ function completeObjects(text: string, from: number): string[] {
   return objects
 }
 
-/**
- * The elements of a fence still being written, as far as they have arrived: the
- * sketch draws itself element by element while Piloti writes it, as Excalidraw's
- * own MCP app does.
- *
- * Lenient where `readSketchFence` refuses, because the fence is not finished: an
- * element that does not pass on its own is left out, and a binding to an id that
- * has not arrived yet is left off until it has. The finished fence is judged by
- * `readSketchFence` as a whole, and that verdict is the one that stays.
- */
 export function streamedSketchElements(written: string): SceneSkeleton[] {
   const partial = unescapedOnce(written)
   const at = arrayStart(partial)
@@ -372,7 +302,6 @@ export function streamedSketchElements(written: string): SceneSkeleton[] {
   })
 }
 
-/** Which kind of sketch fence a code block's class names, if any. */
 export function sketchFenceKind(className: string | undefined): 'sketch' | 'refused' | null {
   if (/(?:^|\s)language-excalidraw-refused(?:$|\s)/i.test(className ?? '')) return 'refused'
   if (/(?:^|\s)language-excalidraw(?:$|\s)/i.test(className ?? '')) return 'sketch'

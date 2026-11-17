@@ -6,17 +6,6 @@ import { formatBytes } from '@/lib/format'
 import { fileFormatMessage } from '../document-kind'
 import type { FileItem } from '../file-types'
 
-/**
- * What the file IS, in one quiet line under its name: "PDF · 12 Seiten ·
- * 2,4 MB". The name alone left the reader to infer the format from a suffix
- * the truncation had usually eaten, and the length of the document — the first
- * thing anyone wants to know before asking about it — appeared nowhere. A page
- * count is left out for images and models, where it means nothing.
- *
- * One hook for both headers that name an open document (the chat peek's and
- * the preview's), so the two say it in the same words. The preview used to
- * state the format and the size as two rows of a Properties list instead.
- */
 export function useFileFacts(file: FileItem): string {
   const t = useTranslations(filesCopy)
   const { locale } = useLocale()

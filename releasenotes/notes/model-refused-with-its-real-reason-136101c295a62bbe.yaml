@@ -1,0 +1,7 @@
+---
+fixes:
+  - >
+    When a building model is too large to measure or the file cannot be read,
+    the assistant now says so and gives the reason, instead of claiming a
+    temporary outage. You can split the model or export it again rather than
+    wait for an outage that was never there.

@@ -20,8 +20,6 @@ from typing import Literal
 
 ENDPOINT_ENV = "OTEL_EXPORTER_OTLP_ENDPOINT"
 SERVICE_NAME_ENV = "OTEL_SERVICE_NAME"
-#: The agent-runtime exporter's ``project`` default in ``configs/config_oib_openrouter.yml``,
-#: so every signal from an unnamed process sits under the chat turns' service.
 DEFAULT_SERVICE_NAME = "backend-chat"
 
 Signal = Literal["traces", "logs", "metrics"]

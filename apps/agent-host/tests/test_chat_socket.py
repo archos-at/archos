@@ -76,6 +76,7 @@ from agent_host.chat_socket import handshake_conversation_binding
 from agent_host.chat_socket import persist_turn_result
 from agent_host.chat_socket import turn_row_metadata
 from agent_host.conversation_bus import ConversationBus
+from agent_host.conversation_bus import InMemoryTransport
 from agent_host.conversation_bus import force_multi_replica_for_tests
 from agent_host.conversation_bus import reset_bus_for_tests
 from agent_host.internal_api import ChatScreening
@@ -86,11 +87,6 @@ _SECRET = "test-envelope-secret"  # pragma: allowlist secret (test signing key)
 _DISCONNECT = object()
 _NOT_JSON = object()
 USERS = {"tok-asker": {"sub": "user_asker", "name": "Anna Asker"}, "tok-colleague": {"sub": "user_colleague"}}
-
-
-# ---------------------------------------------------------------------------
-# Doubles
-# ---------------------------------------------------------------------------
 
 
 class _Validator:
@@ -112,9 +108,7 @@ class FakeSocket:
         self.scope = {"type": "websocket", "path": "/websocket", "headers": raw, "client": ("127.0.0.1", 1)}
         self.query_params = QueryParams(query)
         self.inbox: asyncio.Queue[Any] = asyncio.Queue()
-        #: Every frame written, in order, the hello included.
         self.frames: list[dict] = []
-        #: The turn events among them: everything but the hello.
         self.sent: list[dict] = []
         self.accepted = False
         self.closed_with: int | None = None
@@ -284,11 +278,6 @@ def _types(events: list[dict]) -> list[str]:
     return [event.get("name", event["type"]) for event in events]
 
 
-# ---------------------------------------------------------------------------
-# The route: the runtime's socket is off and unpatched, ours is mounted (DoD 5)
-# ---------------------------------------------------------------------------
-
-
 async def test_nat_s_socket_objects_are_nat_s_own_and_the_route_is_ours(monkeypatch):
     from fastapi import FastAPI
 
@@ -337,11 +326,6 @@ def test_a_config_that_asks_nat_for_a_socket_is_refused():
         AgentHostConfig(workflow=workflow)
 
 
-# ---------------------------------------------------------------------------
-# The handshake: version, identity, conversation
-# ---------------------------------------------------------------------------
-
-
 @pytest.mark.parametrize("query", ["", "v=1", "v=3"])
 async def test_any_other_wire_version_is_closed_4426(harness, query):
     sock = harness().connect(query=query)
@@ -364,7 +348,6 @@ async def test_the_first_frame_is_hello_before_any_client_message(harness, monke
     assert hello["name"] == "hello"
     assert hello["value"] == {"build": "abc1234", "accepts": list(ACCEPTED_CLIENT_FIELDS)}
     assert "user_message.posthog_session_id" in hello["value"]["accepts"]
-    # A connection frame, not a turn's: nothing a fold or a cursor could key on.
     assert not {"conversation_id", "turn_id", "seq"} & hello.keys()
     assert sock.sent == []
 
@@ -485,17 +468,11 @@ async def test_a_message_this_wire_does_not_have_is_answered_never_dropped(harne
 
     assert [value["of"] for value in sock.rejected()] == ["unknown"] * 3
     assert {value["code"] for value in sock.rejected()} == {"invalid_message"}
-    # The refusal names the turn the message named, so a client can tell which of its messages it was.
     assert sock.sent[0]["turn_id"] == "t9"
     assert h.sessions.opened == []
 
     sock.client(type="user_message", message_id="t1", text="?")
     await until(lambda: sock.events())  # the socket serves on
-
-
-# ---------------------------------------------------------------------------
-# A turn: stamped in order, run as the verified subject, persisted
-# ---------------------------------------------------------------------------
 
 
 async def test_a_turn_is_run_started_then_what_the_workflow_yields_in_seq_order(harness, persisted):
@@ -521,7 +498,6 @@ async def test_a_turn_is_run_started_then_what_the_workflow_yields_in_seq_order(
     assert persisted[0]["message_id"] == answer_message_id(CONV, "t1")
     assert persisted[0]["metadata"] == {
         "sources": [{"content": "c", "number": 1}],
-        # The trace the turn ran in, named by its answer (`observability.turn_trace`).
         "trace_id": uuid.UUID(answer_message_id(CONV, "t1")).hex,
     }
 
@@ -620,7 +596,6 @@ async def test_a_context_only_line_is_remembered_and_answers_nothing(harness, mo
     sock.client(type="user_message", message_id="t1", text="Atrium ist eigen.", context_only=True, author_name="X")
     await until(lambda: stored)
 
-    # The verified name, not the one the client claimed.
     assert stored == [(CONV, "Anna Asker: Atrium ist eigen.")]
     assert h.sessions.opened == []
     assert sock.sent == []
@@ -642,11 +617,6 @@ async def test_the_heartbeat_is_stamped_on_the_turn_and_stops_at_the_terminal(ha
     assert [event["seq"] for event in events] == list(range(1, len(events) + 1))
     assert _types(events)[-1] == "RUN_FINISHED"
     assert next(e for e in events if e.get("name") == "heartbeat")["value"] == {"every_ms": 20}
-
-
-# ---------------------------------------------------------------------------
-# Stop (DoD 6)
-# ---------------------------------------------------------------------------
 
 
 async def test_the_asker_s_stop_cancels_the_run_and_keeps_what_was_read(harness, persisted):
@@ -794,9 +764,9 @@ async def test_a_stop_for_no_running_turn_is_turn_not_found(harness):
     assert sock.rejected() == [{"of": "cancel_turn", "code": "turn_not_found"}]
 
 
-def _replicas() -> tuple[ChatRegistry, ChatRegistry, ConversationBus]:
+def _replicas(transport: InMemoryTransport | None = None) -> tuple[ChatRegistry, ChatRegistry, ConversationBus]:
     """Two replicas on one Dragonfly: the owner on the process bus, the relay on its own."""
-    owner_bus = force_multi_replica_for_tests()
+    owner_bus = force_multi_replica_for_tests(transport)
     relay_bus = ConversationBus(owner_bus._t, replica_id="relay")
     return ChatRegistry(owner_bus), ChatRegistry(relay_bus), relay_bus
 
@@ -821,11 +791,6 @@ async def test_a_stop_received_by_another_replica_is_authorised_by_the_owner(har
     await until(lambda: gate.torn_down)
     await until(lambda: asker.events()[-1]["type"] == "RUN_FINISHED")
     assert asker.events()[-1]["outcome"] == "cancelled"
-
-
-# ---------------------------------------------------------------------------
-# HITL
-# ---------------------------------------------------------------------------
 
 
 def _asking(answers: list[str]):
@@ -890,11 +855,6 @@ async def test_a_stop_while_asking_resolves_the_question_as_cancelled(harness):
 
     assert _types(sock.events())[-2:] == ["interaction_resolved", "RUN_FINISHED"]
     assert sock.events()[-2]["value"]["outcome"] == "cancelled"
-
-
-# ---------------------------------------------------------------------------
-# attach, replay, drop, spectators, stages
-# ---------------------------------------------------------------------------
 
 
 async def test_attach_replays_after_the_cursor_and_then_goes_live(harness):
@@ -1089,7 +1049,6 @@ async def test_a_failing_stage_never_changes_the_answer_frames(harness, one_fram
     stage_tasks: list[asyncio.Task] = []
 
     async def turn_with_stages(request, ask):
-        # The call site's order: schedule, then deliver the answer, with the stage in flight.
         stage_tasks.extend(runner.schedule_post_answer_stages(facts, llms={AgentGroup.MEMORY_REFLECTION: object()}))
         async for body in answering(request, ask):
             yield body
@@ -1120,11 +1079,6 @@ async def test_a_failing_stage_never_changes_the_answer_frames(harness, one_fram
     assert all(stage["seq"] > answer[-1]["seq"] for stage in stages)
 
 
-# ---------------------------------------------------------------------------
-# Every turn ends: deadline, places, one terminal, supervised loops, a bus down
-# ---------------------------------------------------------------------------
-
-
 async def _hung(request, ask):
     yield TextMessageStartBody(message_id="m")
     await asyncio.sleep(3600)  # a model call that never returns
@@ -1151,8 +1105,6 @@ async def test_a_hung_turn_ends_at_its_deadline_with_run_error(harness, monkeypa
     assert terminal["details"].startswith(chat_socket.DEADLINE_DETAILS)
     assert "too long" in terminal["message"]
     assert torn_down.is_set()  # the hung call was cancelled, not abandoned
-    # `run_turn` sends the terminal first and releases the turn after it, across
-    # an await: waited for, not read at once, or a loaded runner sees it held.
     await until(lambda: h.registry.running(CONV) is None)
     assert persisted == []
 
@@ -1285,7 +1237,6 @@ async def test_attach_while_the_bus_is_down_is_answered_and_the_socket_stays(har
     assert elsewhere.rejected() == [{"of": "attach", "code": "turn_not_found"}]
     assert not on_relay.tasks[0].done()  # answered, not closed 1011
 
-    # The replica running the turn replays it from its own sequencer.
     here = on_owner.connect()
     here.client(type="attach", turn_id="t1", after_seq=0)
     await until(lambda: here.events())
@@ -1367,17 +1318,35 @@ async def test_a_newer_question_on_another_replica_stops_the_stale_turn(harness)
     assert gate.torn_down
 
 
-# ---------------------------------------------------------------------------
-# One running turn per conversation across replicas (ADR-0080)
-# ---------------------------------------------------------------------------
-
-
 async def _holder(bus: ConversationBus):
     return await bus.running_holder(CONV)
 
 
 def _marker_held(bus: ConversationBus) -> bool:
     return bus._t._live_keys().get(f"conv:{CONV}:running") is not None
+
+
+def _marker_expiry(bus: ConversationBus) -> float:
+    """When the running marker expires on its transport's clock; minus infinity once it has."""
+    held = bus._t._live_keys().get(f"conv:{CONV}:running")
+    return held[1] if held else float("-inf")
+
+
+class MarkerClock:
+    """The clock a marker's TTL runs on, moved only by the test."""
+
+    def __init__(self) -> None:
+        self.now = 0.0
+
+    def __call__(self) -> float:
+        return self.now
+
+
+async def _advance_until_renewed(bus: ConversationBus, clock: MarkerClock, step: float) -> None:
+    """Move the marker's clock by ``step``, then wait for a renewal to push its expiry past where it was."""
+    before = _marker_expiry(bus)
+    clock.now += step
+    await until(lambda: _marker_expiry(bus) > before)
 
 
 async def test_a_second_question_on_another_replica_starts_only_after_the_first_turn_stopped(harness):
@@ -1441,16 +1410,26 @@ async def test_a_dead_owner_s_marker_expires_and_the_question_runs(harness, monk
 
 
 async def test_a_running_turn_keeps_its_marker_past_the_ttl_and_gives_it_back_at_the_end(harness, monkeypatch):
+    """Three TTLs pass on the marker's clock, half a TTL at a time, each half renewed: only the renewals hold it.
+
+    The marker's clock moves only between renewals. On the real clock, a
+    loaded xdist worker stalled the loop past the 150 ms TTL between two
+    renewals and the marker lapsed; production has seconds of slack there.
+    """
     from agent_host import conversation_bus
 
-    monkeypatch.setattr(conversation_bus, "RUNNING_TTL_SECONDS", 0.15)
-    owner, relay, relay_bus = _replicas()
+    ttl = 0.15  # the real-time renewal interval is a quarter of it, so the test stays fast
+    monkeypatch.setattr(conversation_bus, "RUNNING_TTL_SECONDS", ttl)
+    clock = MarkerClock()
+    owner, relay, relay_bus = _replicas(InMemoryTransport(clock=clock))
     gate = Gate()
     sock = harness(gate.turn, owner).connect()
     sock.client(type="user_message", message_id="t1", text="?")
     await until(lambda: gate.calls)
 
-    await asyncio.sleep(0.5)  # three TTLs: only the renewals hold it
+    for _ in range(6):
+        await _advance_until_renewed(relay_bus, clock, ttl / 2)
+    assert clock.now == pytest.approx(3 * ttl)  # the acquire's own expiry is two TTLs behind
     assert (await _holder(relay_bus)).turn_id == "t1"
 
     gate.release.set()
@@ -1583,11 +1562,6 @@ async def test_the_chat_session_manager_has_no_nat_semaphore(monkeypatch):
     assert manager in worker._session_managers  # shut down with the runtime's own
 
 
-# ---------------------------------------------------------------------------
-# The persisted row
-# ---------------------------------------------------------------------------
-
-
 def _result(**fields: Any) -> TurnResult:
     return TurnResult(message_id="m-1", **{"text": "Antwort", **fields})
 
@@ -1656,8 +1630,6 @@ async def test_the_level_reaches_the_frame_only_with_the_additive_fields_on(pers
 
 
 def test_the_level_the_turn_ran_at_is_kept_on_the_row():
-    # ``agent-answer-metadata.ts`` reads it back as ``reasoning_effort``, so a
-    # turn the asking tab never saw finish still offers the right thorough retry.
     finished = RunFinishedBody(outcome="answered", result=_result(reasoning_effort="low"))
 
     assert turn_row_metadata(finished) == {"reasoning_effort": "low"}
@@ -1676,8 +1648,6 @@ async def test_a_stopped_turn_keeps_the_level_the_asker_stated(persisted):
 
 
 def test_the_quote_stamps_are_kept_on_the_row_in_wire_spelling():
-    # ``agent-answer-metadata.ts`` reads them back as ``quote_stamps``; an
-    # unchecked stamp carries its status and wording alone.
     finished = RunFinishedBody(
         outcome="answered",
         result=_result(
@@ -1734,12 +1704,16 @@ async def test_a_turn_that_read_licensed_text_marks_its_row_from_the_workflow_s_
     from agent.observability import turn_outcome
     from agent_host.chat_socket import _persist_in_background
 
+    async def publish(_conversation_id: str, _frame: dict) -> bool:
+        return True
+
+    wire = chat_socket.TurnWire(CONV, "t1", publish)
     box = turn_outcome.begin_turn_outcome()
     try:
         contextvars.copy_context().run(turn_outcome.record_turn_tag, LICENSED_TRACE_TAG)
-        await _persist_in_background(CONV, "org-1", RunFinishedBody(outcome="answered", result=_result()))
+        await _persist_in_background(wire, "org-1", RunFinishedBody(outcome="answered", result=_result()))
         await _persist_in_background(
-            CONV,
+            wire,
             "org-1",
             RunFinishedBody(outcome="answered", result=_result().model_copy(update={"message_id": "m-2"})),
         )
@@ -1784,10 +1758,6 @@ def test_the_answer_id_is_stable_per_turn():
     assert answer_message_id(CONV, "t1") != answer_message_id(CONV, "t2")
 
 
-# ---------------------------------------------------------------------------
-# A restricted scope does not hold the socket hostage (ADR-0087, ADR-0088)
-# ---------------------------------------------------------------------------
-
 _RESTRICTED = "proj_8f2c3b1e_r22222222aaaa"
 
 
@@ -1814,10 +1784,6 @@ async def test_a_restricted_scope_runs_the_turn_on_the_same_socket(harness):
     assert sock.closed_with is None
     assert not hasattr(chat_socket, "conversation_confined_to")
 
-
-# ---------------------------------------------------------------------------
-# What may reach the model: the office's chat screening (ADR-0086)
-# ---------------------------------------------------------------------------
 
 _IBAN = "AT61 1904 3002 3457 3201"
 
@@ -1862,7 +1828,6 @@ async def test_a_question_reaches_the_agent_masked(harness, office):
     sock.client(type="user_message", message_id="t1", text=f"Gehaltsabrechnung für Anna, IBAN {_IBAN}")
     await until(lambda: _last(sock) == "RUN_FINISHED")
 
-    # What the workflow ran on is the turn's input, and so what its checkpoint keeps.
     assert seen == ["[Begriff entfernt] für Anna, IBAN [IBAN entfernt]"]
     assert office.asked == ["org_1"]  # the SIGNED organization's policy
 
@@ -1988,11 +1953,6 @@ async def test_an_office_that_switched_screening_off_is_not_masked(harness, monk
     assert seen == [f"IBAN {_IBAN}"]
 
 
-# ---------------------------------------------------------------------------
-# The owner fences itself (ADR-0080): no write after a newer turn could own the conversation
-# ---------------------------------------------------------------------------
-
-#: A short marker TTL and write bound, so the deadline (TTL - margin = 0.7 s) and the expiry (1.0 s) are reachable.
 FENCE_TTL = 1.0
 FENCE_WRITE_TIMEOUT = 0.2
 FENCE_SLACK = 0.1
@@ -2246,9 +2206,6 @@ async def test_an_owner_cut_off_from_dragonfly_past_its_window_cancels_itself_an
     sock = harness(gate.turn, a.registry).connect()
     sock.client(type="user_message", message_id="t1", text="?")
     await until(lambda: gate.calls)
-    # The prose the turn streamed before the cut reaches the socket on its own
-    # schedule; under load it arrived after `heard` was counted and read as
-    # sent past the cut. Count from once it is here.
     await until(lambda: "TEXT_MESSAGE_CONTENT" in [event["type"] for event in sock.events()])
     _bus_down(monkeypatch, shared, "expire_if_value", "publish", "xadd", "get")
     heard = len(sock.events())
@@ -2316,10 +2273,6 @@ async def test_a_finished_turn_takes_its_fence_off_so_the_stage_frames_behind_it
 
     assert not guard.fenced()
 
-
-# ---------------------------------------------------------------------------
-# The asker's PostHog session reaches the turn's trace metadata
-# ---------------------------------------------------------------------------
 
 _POSTHOG_SESSION = "0199d7f2-5b3a-7c4e-9a1d-3e8f2b6c5d70"
 
@@ -2395,11 +2348,6 @@ async def test_a_malformed_session_id_costs_the_replay_link_and_not_the_turn(har
     assert "$posthog_session_id" not in seen[0]["metadata"]
 
 
-# ---------------------------------------------------------------------------
-# Steering: a note for the running turn (``steer``), never a turn of its own
-# ---------------------------------------------------------------------------
-
-
 class Steered:
     """A turn that waits for its asker's notes, takes them as the agent node does, and says it read them."""
 
@@ -2451,7 +2399,6 @@ async def test_a_note_reaches_the_running_turn_and_is_acknowledged_on_its_seq(ha
     assert events[2]["value"] == {"steer_id": "s1", "text": "nicht die Tür, die Treppe"}
     assert events[3]["value"] == {"steer_id": "s1", "round": 2}
     assert [event["seq"] for event in events] == list(range(1, 6))
-    # Not a turn: nothing was superseded, claimed or opened for it.
     assert events[-1]["outcome"] == "answered"
     assert len(h.sessions.opened) == 1
     assert sock.rejected() == []
@@ -2664,11 +2611,6 @@ async def test_a_note_is_read_by_the_real_graph_in_its_next_round_and_holds_back
     assert sock.events()[-1]["result"]["text"] == "Die Treppe ist markiert."
 
 
-# ---------------------------------------------------------------------------
-# A turn an event woke (ADR-0105 draft §3(b)): if_idle and the trigger
-# ---------------------------------------------------------------------------
-
-
 async def test_an_if_idle_question_never_supersedes_and_may_be_sent_again_later(harness):
     gate = Gate()
     h = harness(gate.turn)
@@ -2747,10 +2689,6 @@ async def test_a_headless_socket_s_caller_skips_the_clarifier_and_says_it_is_hea
     assert caller["headless"] is True
 
 
-# ---------------------------------------------------------------------------
-# After the terminal: the outcome a headless caller waits for (ADR-0106, ADR-0109)
-# ---------------------------------------------------------------------------
-
 OUTCOME_SCHEMA = (
     Path(__file__).resolve().parents[3] / "apps" / "workspace" / "tests" / "fixtures" / "turn-outcome.schema.json"
 )
@@ -2813,6 +2751,61 @@ async def test_a_headless_turn_reports_its_outcome_once_after_its_row_is_written
     assert bff.rows_before == [1]  # the answer row went first
     outcome_contract["TurnOutcomeRequest"].validate(bff.outcomes[0])
     outcome_contract["TurnOutcomeResponse"].validate(bff.answer[1])
+
+
+async def test_a_headless_turn_hands_its_steps_over_after_its_row_and_its_outcome_does_not_wait_on_them(
+    harness, bff, persisted, monkeypatch
+):
+    handed: list[tuple[Any, ...]] = []
+    stuck = asyncio.Event()
+
+    async def steps(*args: Any) -> bool:
+        handed.append((*args, len(persisted)))
+        await stuck.wait()  # a slow or failing route, retried
+        return True
+
+    monkeypatch.setattr(chat_socket, "post_internal_turn_steps", steps)
+
+    async def stepping(request, ask):
+        yield StepStartedBody(step=ToolStep(id="tool:1", tool="knowledge_search"))
+        yield TextMessageStartBody(message_id="m")
+        yield TextMessageContentBody(message_id="m", delta="Antwort.")
+        yield StepFinishedBody(step=ToolStep(id="tool:1", tool="knowledge_search", status="ok"))
+        yield _finished(request, text="Antwort.")
+
+    sock = harness(stepping).connect(headers=HEADLESS)
+    sock.client(type="user_message", message_id=WAKE, text="?")
+    await until(lambda: bff.outcomes)  # told while the steps are still on their way
+
+    [(conversation_id, _organization_id, turn_id, frames, rows_before)] = handed
+    assert (conversation_id, turn_id) == (CONV, WAKE)  # the question is the turn's own row
+    assert [(frame["type"], frame["step"]["id"]) for frame in frames] == [
+        ("STEP_STARTED", "tool:1"),
+        ("STEP_FINISHED", "tool:1"),
+    ]
+    assert rows_before == 1  # after the answer row
+    stuck.set()
+    await _settle_background()
+
+
+async def test_a_turn_that_took_no_step_hands_nothing_over(harness, monkeypatch):
+    handed: list[tuple[Any, ...]] = []
+
+    async def steps(*args: Any) -> bool:
+        handed.append(args)
+        return True
+
+    monkeypatch.setattr(chat_socket, "post_internal_turn_steps", steps)
+
+    async def plain(request, ask):
+        yield _finished(request, text="Antwort.")
+
+    sock = harness(plain).connect()
+    sock.client(type="user_message", message_id="t1", text="?")
+    await until(lambda: _last(sock) == "RUN_FINISHED")
+    await _settle_background()
+
+    assert handed == []
 
 
 @pytest.mark.parametrize(
@@ -2921,8 +2914,6 @@ async def test_a_failing_bff_neither_breaks_nor_holds_the_turn(harness, bff, per
 
     assert sock.events(WAKE)[-1]["outcome"] == "answered"
     assert persisted and persisted[0]["text"] == "Antwort [1]."
-    # The outcome report starts after the row is written, so it is not among the tasks
-    # _settle_background waits for: under load the assertion ran before its first try.
     await until(lambda: bff.attempts >= 3)
     await asyncio.sleep(0.05)
     assert bff.attempts == 3  # retried briefly, then given up on and logged
@@ -2933,8 +2924,6 @@ async def test_a_failing_bff_neither_breaks_nor_holds_the_turn(harness, bff, per
 
 @pytest.mark.parametrize("drain_timeout", [5.0, 0.05], ids=["finishes", "cut_short"])
 async def test_a_drain_ends_only_once_the_outcome_of_its_headless_turn_is_reported(harness, monkeypatch, drain_timeout):
-    # A pod restart: the process exits when the drain returns, so an outcome
-    # still being posted then is lost and the ask reads `working` for good.
     reported: list[str] = []
 
     async def slow_notice(**report):
@@ -2957,6 +2946,53 @@ async def test_a_drain_ends_only_once_the_outcome_of_its_headless_turn_is_report
     assert reported == (["answered"] if drain_timeout > 1 else ["stopped"])
 
 
+def test_a_drain_waits_longer_than_the_workflow_teardown_of_the_turns_it_cancels():
+    """A cancelled turn sends its terminal, and starts the outcome notice, only once its teardown ends or runs out.
+
+    The wait was a flat 10 s, the teardown bound itself: a turn whose teardown
+    ran out reached its terminal after the drain had stopped waiting, the
+    process exited before the notice started, and six asks on dev read
+    `working` until a read ended them 47 minutes on (2026-11-12).
+    """
+    from agent_host import workflow_stream
+
+    assert after_terminal_writes.drain_cancel_grace() > workflow_stream.PRODUCER_TEARDOWN_SECONDS
+
+
+async def test_a_drain_reports_the_outcome_of_a_headless_turn_whose_teardown_hangs(harness, monkeypatch):
+    from agent_host import workflow_stream
+
+    monkeypatch.setattr(workflow_stream, "PRODUCER_TEARDOWN_SECONDS", 0.2)
+    monkeypatch.setattr(after_terminal_writes, "DRAIN_CANCEL_MARGIN_SECONDS", 0.3)
+    reported: list[str] = []
+
+    async def notice(**report):
+        reported.append(report["outcome"])
+        return True
+
+    monkeypatch.setattr(chat_socket, "post_internal_turn_outcome", notice)
+    started, unstuck = asyncio.Event(), asyncio.Event()
+
+    async def stubborn(request, ask):
+        try:
+            yield TextMessageStartBody(message_id="m")
+            started.set()
+            await asyncio.sleep(3600)
+        finally:
+            await asyncio.shield(unstuck.wait())  # a call on a connection that went away with its pod
+
+    h = harness(stubborn)
+    sock = h.connect(headers=HEADLESS)
+    sock.client(type="user_message", message_id=WAKE, text="?")
+    await until(started.is_set)
+    try:
+        assert await h.registry.drain(timeout=0.01) == 1
+    finally:
+        unstuck.set()
+
+    assert reported == ["stopped"]
+
+
 async def test_a_headless_turn_whose_id_no_wake_mints_reports_nothing(harness, bff, persisted):
     sock = harness().connect(headers=HEADLESS)
     sock.client(type="user_message", message_id="t1", text="?")
@@ -2965,10 +3001,6 @@ async def test_a_headless_turn_whose_id_no_wake_mints_reports_nothing(harness, b
 
     assert bff.attempts == 0
 
-
-# ---------------------------------------------------------------------------
-# After the terminal: a thread question answered in its thread
-# ---------------------------------------------------------------------------
 
 MARK = "33333333-0000-4000-8000-000000000003"
 MARKED_DOCUMENT = "11111111-0000-4000-8000-000000000001"
@@ -3023,7 +3055,6 @@ async def test_a_thread_question_the_model_left_unanswered_is_answered_in_the_th
         "answerMessageId": answer_message_id(CONV, WAKE),
         "documentId": MARKED_DOCUMENT,
     }
-    # Echo, never sign: the envelope's bytes exactly as the socket received them.
     assert (envelope.header, envelope.signature) == (SIGNED[0][1].decode(), SIGNED[1][1].decode())
     assert [report["outcome"] for report in bff.outcomes] == ["answered"]
 
@@ -3096,11 +3127,6 @@ async def test_one_turn_s_reply_is_not_the_next_turn_s(harness, thread_posts, pe
     assert [(payload["body"], payload["answerMessageId"]) for payload, _ in thread_posts] == [
         ("Zweite Antwort.", answer_message_id(CONV, WAKE_2))
     ]
-
-
-# ---------------------------------------------------------------------------
-# file-tools-used: which office-file moves a turn made (ADR-0127)
-# ---------------------------------------------------------------------------
 
 
 async def test_a_turn_that_listed_and_searched_scores_both(harness, monkeypatch):

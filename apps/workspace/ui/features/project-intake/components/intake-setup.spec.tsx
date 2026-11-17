@@ -1,8 +1,3 @@
-/**
- * The connected setup page: a project set up by hand says so, one Piloti sets
- * up is drawn in the five-step frame, and its documents are filed through the
- * project's own upload.
- */
 import { render, screen, waitFor } from '@/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { INTAKE_WAITING } from '@/app/dev/_fixtures/project-intake'
@@ -91,7 +86,6 @@ describe('IntakeSetup', () => {
     )
 
     expect(screen.getByTestId('intake-setup-head')).toHaveTextContent('Wohnanlage Gartenstraße 12')
-    // No documents yet: the Ablage, where they go in.
     expect(screen.getByTestId('intake-setup')).toHaveAttribute('data-step', 'filing')
     expect(screen.getByRole('navigation', { name: 'Steps of the setup' })).toBeInTheDocument()
   })

@@ -65,7 +65,8 @@ shareable resource types, and store resource-level grants in `grid_app`.**
    the project ladder (`project-viewer → viewer`, `project-editor → collaborator`,
    `project-admin → collaborator`). A project admin does **not** implicitly own every
    private resource in the project; they may **escalate** themselves to owner, and
-   that escalation is audited distinctly from a normal grant.
+   that escalation is audited distinctly from a normal grant. (Narrowed by the
+   2026-11-11 amendment below: only on a resource they can already read.)
 
 6. **Shareability is declared in one exhaustive registry** keyed by resource type,
    supplying: container resolution, permitted visibilities, default visibility, the
@@ -199,6 +200,40 @@ The relation that *did* need a new column is responsibility's neighbour, not
 access's: see [ADR-0047's 2026-08-20 addendum](0059-assignment-is-not-access.md).
 A generated report arrives with zero assignees and is never rendered as
 somebody's work until a human clicks `Zuweisen`.
+
+## Amendment (2026-11-11): a takeover needs read access, and the owners are told
+
+Decision 5 let a project admin escalate to owner, and the rejected alternative
+says why that is not implicit ownership. It did not say *of what*. The code read
+it as "any resource in their project": `resolveResourceAccess` answered
+`canEscalate: true` for a project admin with **no** role on a private chat, and
+`escalateToOwner` checked nothing else. The screens never offered it there (a
+private chat is listed only to its creator and grantees, and the share dialog
+needs `viewer`), but a POST of `{ escalate: true }` with a known id made the
+admin owner of a colleague's private chat and let them read it, and its owner
+learned of it only from a roster refresh. That is the implicit ownership the
+rejected alternative ruled out, one request away.
+
+**A takeover is possible only on a resource the caller can already read.**
+`canEscalate` is `mayTakeOwnership(projectRole, role)` in
+`apps/workspace/bff/sharing/access.ts`: a project admin with a role on the
+resource that is not yet `owner`. `escalateToOwner` asks for that role itself
+(`requireResourceAccess(..., 'viewer')`) before it consults `canEscalate`, so a
+private resource the admin is not party to answers `404` like every other denial
+in the module, writes no grant and leaves no audit record. In practice the
+takeover remains what it was for: making an admin the owner of a project-visible
+resource, or of one they were invited to with a weaker role. Both live in the
+shared resolution, so every shareable type holds it (a legacy `private`
+document as much as a chat).
+
+**The owners are told.** The takeover still adds an owner and removes none; it
+now also writes an inbox row, `resource.ownership_taken`, to each owner the
+resource had before (`apps/workspace/bff/sharing/ownership-notice.ts`), naming
+the admin. The row's time is the when; the audit record stays the evidence.
+
+A private resource a project admin needs and cannot read (its creator left, say)
+is not served by this path; that case belongs to the deactivation rule in the
+spec (SH-11 under "Person deactivated"), not to a takeover by id.
 
 ## References
 

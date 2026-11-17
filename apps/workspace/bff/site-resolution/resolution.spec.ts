@@ -24,7 +24,8 @@ import { houseKeysOf, narrow, outcomeOf, placeKeysOf } from './match'
 import { streetKey } from './normalize'
 import { parseAddress } from './parse'
 import { siteProfileOperations } from './profile'
-import { BEV_ADDRESS_REGISTER, federalStateToken, registerFor } from './registers'
+import { AT_SITE_REFERENCE, BEV_ADDRESS_REGISTER } from '@/lib/project-intake/at-setup.fixtures'
+import { registerFor, siteReferenceOf } from './registers'
 import type { RegisterRow } from './store'
 import type { RegisterSite } from './wire'
 
@@ -39,7 +40,6 @@ const ENTRIES: RegisterEntry[] = [...csvRecords(lines('ADRESSE.csv'))].flatMap((
 const RELEASE = { id: 'release', register: 'at-bev', referenceDate: '2025-10-01', attribution: bevAttribution('2025-10-01') }
 const ROWS: (RegisterRow & { streetKey: string })[] = ENTRIES.map((entry) => ({ release: RELEASE, ...entry }))
 
-/** What the SQL lookup returns for a line: the rows with its exact street key and one of its house keys. */
 function lookup(line: string) {
   const parsed = parseAddress(line)
   if (!parsed) throw new Error(`unparsed: ${line}`)
@@ -90,12 +90,25 @@ describe('the territory chain of a register address', () => {
     expect(BEV_ADDRESS_REGISTER.municipalityTerritory('60101')).toBe('AT:gkz:60101')
     expect(BEV_ADDRESS_REGISTER.stateOf('90001')).toBe('AT-9')
     expect(BEV_ADDRESS_REGISTER.stateOf('00001')).toBeNull()
-    expect(federalStateToken('AT-6')).toBe('styria')
+    expect(AT_SITE_REFERENCE.federalStateToken('AT-6')).toBe('styria')
+    expect(AT_SITE_REFERENCE.stateNames['AT-6']).toBe('Steiermark')
   })
 
-  it('hosts a register for Austria only: Germany is E31, not built', () => {
-    expect(registerFor('AT')?.id).toBe('at-bev')
-    expect(registerFor('DE')).toBeNull()
+  it('hosts the registers the published records describe: Austria’s, and none for a country without one', () => {
+    expect(registerFor(AT_SITE_REFERENCE, 'AT')?.id).toBe('at-bev')
+    expect(registerFor(AT_SITE_REFERENCE, 'DE')).toBeNull()
+    const none = siteReferenceOf([], '2026-11-10')
+    expect(registerFor(none, 'AT')).toBeNull()
+    expect(none.federalStateToken('AT-6')).toBeNull()
+  })
+
+  it('reads the BEV’s rules from the record: postcodes, the neighbour’s, the download', () => {
+    expect(BEV_ADDRESS_REGISTER.postcodeShape.test('1070')).toBe(true)
+    expect(BEV_ADDRESS_REGISTER.postcodeShape.test('10115')).toBe(false)
+    expect(BEV_ADDRESS_REGISTER.crossBorderPostcodes?.test('87567')).toBe(true)
+    expect(BEV_ADDRESS_REGISTER.downloadUrl('2025-10-01')).toBe(
+      'https://data.bev.gv.at/download/Adressregister/Archiv_Adressregister/Adresse_Relationale_Tabellen_Stichtagsdaten_20251001.zip'
+    )
   })
 })
 
@@ -203,7 +216,6 @@ describe('the profile a resolution writes', () => {
     const operations = siteProfileOperations({ status: 'unverified', typed: 'Herrengasse 999, 8010 Graz', reason: 'no_register_hit', statedCountry: null, candidates: [] }, 'user_1', now, personConfirmed)
     const removed = operations.filter((operation) => operation.op === 'remove' && operation.path.startsWith('/facts/')).map((operation) => operation.path)
     expect(removed).toEqual(['/facts/site_address'])
-    // The confirmed Land stands, so no postcode suggestion is laid beside it.
     expect(operations.filter((operation) => operation.op === 'add').map((operation) => operation.path)).toEqual(['/assumptions/site_address'])
   })
 

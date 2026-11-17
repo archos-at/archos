@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from dataclasses import replace
 from typing import Any
 
 from fastapi import APIRouter
@@ -45,13 +46,13 @@ def _mark(collection: str, update: KnowledgeMarkUpdate) -> int | None:
     from knowledge_layer.vector_store import KNOWLEDGE_EDITION_FIELD
     from knowledge_layer.vector_store import LICENCE_CLASS_FIELD
     from knowledge_layer.vector_store import QUOTE_MAX_CHARS_FIELD
+    from knowledge_layer.vector_store import RELEASED_FIELD
 
+    remembered = _remember_corpus_country(collection, update)
     store = _store()
-    if not store.exists(collection):
-        return None
-    chunks = store.count(collection, {"file_name": update.file_name})
+    chunks = store.count(collection, {"file_name": update.file_name}) if store.exists(collection) else 0
     if not chunks:
-        return None
+        return 0 if remembered else None
     licence = {
         LICENCE_CLASS_FIELD: update.licence_class,
         AI_PROCESSING_FIELD: update.ai_processing_attested,
@@ -59,28 +60,30 @@ def _mark(collection: str, update: KnowledgeMarkUpdate) -> int | None:
         KNOWLEDGE_EDITION_FIELD: update.edition_id,
     }
     named = update.model_fields_set
-    # The licence mark is one statement: naming any of it sets all four, None clearing. A base-corpus
-    # text's country travels alone and leaves the licence fields as they are (ADR-0173).
     payload = (
         dict(licence) if named & {"licence_class", "ai_processing_attested", "quote_max_chars", "edition_id"} else {}
     )
     if "country_id" in named:
         payload[COUNTRY_FIELD] = update.country_id
+    if "released" in named:
+        payload[RELEASED_FIELD] = update.released
     store.set_file_payloads(collection, {update.file_name: payload})
-    _remember_corpus_country(collection, update)
     return chunks
 
 
-def _remember_corpus_country(collection: str, update: KnowledgeMarkUpdate) -> None:
-    """A base-corpus text's country also goes on its corpus row, so a re-ingest stamps it again (ADR-0173)."""
+def _remember_corpus_country(collection: str, update: KnowledgeMarkUpdate) -> bool:
+    """A base-corpus text's country and released flag also go on its corpus row, so a re-ingest stamps them again
+    (ADR-0173). A field the body leaves out keeps the row's value. Whether a row was written."""
     from agent import corpus_store
     from agent.oib_sync import COLLECTION_NAME
 
-    if collection != COLLECTION_NAME or "country_id" not in update.model_fields_set:
-        return
+    named = update.model_fields_set
+    if collection != COLLECTION_NAME or not named & {"country_id", "released"}:
+        return False
     current = corpus_store.get_mark(update.file_name) or corpus_store.FileMark()
-    edition = update.edition_id if "edition_id" in update.model_fields_set else current.edition_id
-    corpus_store.set_mark(update.file_name, corpus_store.FileMark(country_id=update.country_id, edition_id=edition))
+    changed = {field: getattr(update, field) for field in ("country_id", "edition_id", "released") if field in named}
+    corpus_store.set_mark(update.file_name, replace(current, **changed))
+    return True
 
 
 def add_knowledge_mark_routes(router: APIRouter) -> None:
@@ -100,7 +103,8 @@ def add_knowledge_mark_routes(router: APIRouter) -> None:
         403 without the internal token. 422 for a licence class outside the
         three. 404 when the collection holds no chunk of the file. 409 when
         this process has no Qdrant store installed, 502 when the store
-        refuses. Idempotent: the same body twice writes the same payload.
+        refuses; a base-corpus country or released flag lands on the corpus row first, so such a body answers 200
+        with ``chunks`` 0 instead of 404. Idempotent: the same body twice writes the same payload.
         """
         _require_internal_token(http_request)
         try:
@@ -119,5 +123,6 @@ def add_knowledge_mark_routes(router: APIRouter) -> None:
             file_name=request.file_name,
             licence_class=request.licence_class,
             edition_id=request.edition_id,
+            released=request.released,
             chunks=chunks,
         )

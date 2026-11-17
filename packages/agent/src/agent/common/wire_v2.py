@@ -64,73 +64,24 @@ import json
 from typing import Annotated
 from typing import Any
 from typing import Literal
-from typing import get_args
-from typing import get_origin
 
 from pydantic import BaseModel
 from pydantic import BeforeValidator
-from pydantic import ConfigDict
 from pydantic import Field
-from pydantic import SerializationInfo
-from pydantic import SerializerFunctionWrapHandler
 from pydantic import TypeAdapter
 from pydantic import WithJsonSchema
-from pydantic import model_serializer
 from pydantic import model_validator
 
 from agent.common.source_kinds import LEGACY_SHELF_VALUES
+from agent.common.wire_model import OpenWireModel as _OpenModel
+from agent.common.wire_model import WireModel as _Model
 
-#: The only wire version. There is no ``v: 1`` reader anywhere (ADR-0068).
 WIRE_VERSION: Literal[2] = 2
 
-#: Close code for a socket that asked for another wire version (``?v=`` on the
-#: upgrade). The client maps it to "Piloti was updated, reload".
 CLOSE_CLIENT_OUTDATED = 4426
 
 Scalar = str | int | float | bool
 
-
-def _is_const(annotation: Any) -> bool:
-    return get_origin(annotation) is Literal and len(get_args(annotation)) == 1
-
-
-class _Model(BaseModel):
-    """Closed models: a field the contract does not name is a producer bug.
-
-    A frame omits every field at its default (:func:`to_frame` dumps with
-    ``exclude_defaults``) except the ``const`` ones, which are the discriminators
-    (``v``, ``type``, ``name``, ``kind``) and must always be on the wire. The
-    reader's schema restores the defaults, so the frame stays minimal and still
-    parses to the same value.
-    """
-
-    model_config = ConfigDict(extra="forbid", frozen=True)
-
-    @model_serializer(mode="wrap")
-    def _keep_consts(self, handler: SerializerFunctionWrapHandler, info: SerializationInfo) -> dict[str, Any]:
-        data = handler(self)
-        if info.exclude_defaults:
-            consts = {
-                name: getattr(self, name) for name, f in type(self).model_fields.items() if _is_const(f.annotation)
-            }
-            data = {**consts, **data}
-        return data
-
-
-class _OpenModel(BaseModel):
-    """A payload whose full contract lives elsewhere (cards, sources, ledger).
-
-    The wire names the fields it routes on and passes the rest through; the
-    owning contract validates the whole (``answerCardSchema``, the citation wire,
-    ``sanitizeAnswerMeta``).
-    """
-
-    model_config = ConfigDict(extra="allow", frozen=True)
-
-
-# ---------------------------------------------------------------------------
-# Payload value types
-# ---------------------------------------------------------------------------
 
 SourceKindKey = Literal["building_law", "office", "project", "web"]
 Channel = Literal["live", "technical"]
@@ -184,16 +135,8 @@ def card_key(card: dict[str, Any]) -> str:
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:16]
 
 
-# ---------------------------------------------------------------------------
-# Herleitung steps: compact, typed, one discriminated union on ``kind``
-# ---------------------------------------------------------------------------
-
-
 class _StepBase(_Model):
-    #: Stable within the turn and chosen by the producer (``status:retrieval:2``,
-    #: ``tool:call_abc``). The same id again REPLACES the row: newest wins.
     id: str = Field(min_length=1, max_length=200)
-    #: Which agent took the step. ``deep`` for in-process deep research.
     scope: Scope = "chat"
 
 
@@ -362,11 +305,6 @@ Step = Annotated[
 ]
 
 
-# ---------------------------------------------------------------------------
-# The answer's live state and the turn's result
-# ---------------------------------------------------------------------------
-
-
 class AnswerSnapshot(_Model):
     """The streamed prose settled (ADR-0066): it REPLACES text, citations and masthead; cards are untouched."""
 
@@ -412,8 +350,19 @@ class ConfidenceFinding(_Model):
     statement: str = Field(max_length=300)
     problem: Literal["unbacked", "contradicted"]
     reason: str = Field(max_length=300)
-    #: The evidence it was checked against, as the check labelled it; ``none`` when nothing addressed it.
     source: str = Field(max_length=200)
+
+
+class ConfidenceUnavailable(_Model):
+    """Why the answer check gave no level (``claim_judge.Unavailable``), and what its call looked like."""
+
+    cause: Literal["no_judge", "timeout", "error", "unparseable", "no_reply"]
+    error_type: str | None = Field(default=None, max_length=100)
+    finish_reason: str | None = Field(default=None, max_length=40)
+    truncated: bool = False
+    elapsed_ms: int | None = Field(default=None, ge=0)
+    evidence_chars: int | None = Field(default=None, ge=0)
+    answer_chars: int | None = Field(default=None, ge=0)
 
 
 class ConfidenceCheck(_Model):
@@ -422,6 +371,9 @@ class ConfidenceCheck(_Model):
     status: Literal["judged", "unavailable"]
     level: Literal["low", "medium", "high"] | None = None
     findings: list[ConfidenceFinding] = Field(default_factory=list)
+    unavailable_reason: ConfidenceUnavailable | None = Field(
+        default=None, json_schema_extra={"x-unknown-as-null": True}
+    )
 
 
 class TurnResult(_Model):
@@ -440,7 +392,9 @@ class TurnResult(_Model):
     answer_meta: dict[str, Any] | None = None
     answer_confidence: Literal["low", "medium", "high"] | None = None
     answer_confidence_reason: str | None = Field(default=None, max_length=300)
-    answer_confidence_capped_reason: Literal["ungrounded", "quote_unverified", "law_unsettled"] | None = None
+    answer_confidence_capped_reason: Literal["ungrounded", "quote_unverified", "law_unsettled", "open_point"] | None = (
+        Field(default=None, json_schema_extra={"x-unknown-as-null": True})
+    )
     routing_decision: Literal["meta", "shallow", "deep", "error"] | None = None
     escalation_reason: str | None = None
     citations_removed: CitationsRemoved | None = None
@@ -450,45 +404,19 @@ class TurnResult(_Model):
     skills_activated: list[str] = Field(default_factory=list)
     skills_hidden: list[str] = Field(default_factory=list)
     retrieval_ledger: list[dict[str, Any]] = Field(default_factory=list)
-    #: One stamp per quote line of ``text``, in document order.
     quote_stamps: list[QuoteStamp] = Field(default_factory=list)
-    #: What the answer check found; absent when the answer graded nothing (ADR-0139).
     confidence_check: ConfidenceCheck | None = None
-    #: Which rule computed ``answer_confidence``: 2 a checked answer (told
-    #: apart from a stored per-sentence turn by ``confidence_check``), 1 the
-    #: answer-level floors.
     answer_confidence_version: Literal[1, 2] | None = None
-    #: A lookup ran and found nothing; the answer is the model's own knowledge
-    #: and says so in a banner. False on every other turn.
     lookup_found_nothing: bool = False
-    #: ADR-0062: the run this turn commissioned instead of answering itself.
     run: RunHandoff | None = None
-    #: The thinking level the answering call RAN at, resolved (the asker's level,
-    #: else the platform's, else the role's configured one). Absent when the turn
-    #: made no answering call or its model sends none. The client records the
-    #: level it asked for, but only the asking tab has that; this reaches
-    #: observers and the persisted row too. A STOPPED turn's result carries the
-    #: level the asker stated instead, or None when they stated none: its graph
-    #: state is gone by then, and a stated level is the one the answering call
-    #: runs at, so the two differ only for a turn that stated none.
-    #: Withheld from the frame only while ``WIRE_V2_ADDITIVE_FIELDS`` is
-    #: set ``off``, the rollback (``agent_host.chat_socket.STAGED_SERVER_FIELDS``);
-    #: the row keeps it.
     reasoning_effort: Literal["none", "minimal", "low", "medium", "high", "xhigh"] | None = None
-
-
-# ---------------------------------------------------------------------------
-# Bodies (what producers say) and events (what the socket sends)
-# ---------------------------------------------------------------------------
 
 
 class Envelope(_Model):
     v: Literal[2] = WIRE_VERSION
     conversation_id: str = Field(min_length=1)
-    #: The id of the user message this turn answers (the client's `message_id`).
     turn_id: str = Field(min_length=1)
     seq: int = Field(ge=0)
-    #: Server clock, epoch milliseconds.
     ts: int = Field(ge=0)
 
 
@@ -528,8 +456,6 @@ class StateSnapshotBody(_Model):
     snapshot: AnswerSnapshot
 
 
-#: A subagent invocation's handle (AG-UI 1.0 ``SubagentRunId``): minted per
-#: invocation, so two runs of the same subagent carry two values.
 SubagentRunId = Annotated[str, Field(min_length=1, max_length=64)]
 
 
@@ -614,9 +540,6 @@ class RunErrorBody(_Model):
     code: Literal["workflow_error", "auth_error", "interaction_expired"]
     message: str
     details: str | None = None
-
-
-# --- CUSTOM (AG-UI's extension point), one model per `name` -----------------
 
 
 class MastheadValue(_Model):
@@ -712,11 +635,6 @@ class SteerAppliedValue(_Model):
     round: int = Field(ge=1)
 
 
-# --- Viewer actions: AG-UI frontend tool calls, allow-listed (ADR-0144) ------
-
-#: The allow-list: the only ways Piloti may move the asker's own document viewer.
-#: Each is a frontend tool in AG-UI's sense: Piloti names it and its arguments,
-#: and the asker's browser runs it on their own screen. No other name parses.
 ViewerActionName = Literal[
     "open_document",
     "highlight_passage",
@@ -725,7 +643,6 @@ ViewerActionName = Literal[
     "focus_ifc_element",
 ]
 
-#: What each action needs beyond the document; :class:`ViewerActionValue` holds a call to it.
 VIEWER_ACTION_REQUIRES: dict[str, tuple[str, ...]] = {
     "open_document": (),
     "highlight_passage": ("page", "passage"),
@@ -734,7 +651,6 @@ VIEWER_ACTION_REQUIRES: dict[str, tuple[str, ...]] = {
     "focus_ifc_element": ("element",),
 }
 
-#: The longest passage a highlight carries: a sentence or two, found on the page by the viewer.
 MAX_VIEWER_PASSAGE_CHARS = 400
 
 
@@ -882,10 +798,6 @@ class ViewerActionBody(_CustomBody):
     value: ViewerActionValue
 
 
-#: The optional client fields this server reads, as ``<type>.<field>``, named in
-#: the hello. The server reads client messages strictly (``extra="forbid"``), so
-#: a client sends an optional field only to a server whose hello names it: a tab
-#: that outlives a rolling deploy may be talking to a pod one release older.
 ACCEPTED_CLIENT_FIELDS: tuple[str, ...] = (
     "cancel_turn.shown",
     "user_message.posthog_session_id",
@@ -894,9 +806,6 @@ ACCEPTED_CLIENT_FIELDS: tuple[str, ...] = (
     "user_message.trigger",
     "user_message.if_idle",
     "user_message.client_tools",
-    # A whole message type, not a field: a server that does not name it refuses
-    # the frame (``invalid_message``), so the client keeps the note for the next
-    # question instead of sending it.
     "steer",
 )
 
@@ -926,13 +835,8 @@ class Hello(_Model):
     v: Literal[2] = WIRE_VERSION
     type: Literal["CUSTOM"] = "CUSTOM"
     name: Literal["hello"] = "hello"
-    #: Server clock, epoch milliseconds.
     ts: int = Field(ge=0)
     value: HelloValue
-
-
-# The events: the envelope plus the body. `stamp` is the only constructor the
-# handler uses; tests and fixtures validate through `WIRE_EVENT`.
 
 
 class RunStarted(Envelope, RunStartedBody):
@@ -1121,24 +1025,13 @@ _EVENT_OF_BODY: dict[type[BaseModel], type[Envelope]] = {
 
 def stamp(body: EventBody, *, conversation_id: str, turn_id: str, seq: int, ts: int) -> Envelope:
     """The event the socket sends for ``body``: the body under this turn's envelope."""
-    event_type = _EVENT_OF_BODY[type(body)]
-    return event_type(
-        conversation_id=conversation_id,
-        turn_id=turn_id,
-        seq=seq,
-        ts=ts,
-        **{name: getattr(body, name) for name in type(body).model_fields},
-    )
+    fields = {name: getattr(body, name) for name in type(body).model_fields}
+    return _EVENT_OF_BODY[type(body)](conversation_id=conversation_id, turn_id=turn_id, seq=seq, ts=ts, **fields)
 
 
 def to_frame(event: Envelope | Hello) -> dict[str, Any]:
     """The JSON object the socket writes: defaults omitted (never null), discriminators always present."""
     return event.model_dump(mode="json", exclude_defaults=True)
-
-
-# ---------------------------------------------------------------------------
-# Client -> server
-# ---------------------------------------------------------------------------
 
 
 def _legacy_focus_shelf(value: object) -> object:
@@ -1151,8 +1044,6 @@ class _ClientBase(_Model):
     conversation_id: str = Field(min_length=1)
 
 
-#: Rounding slack on the page edge: a box the canvas measured flush with the
-#: edge arrives as 0.30000000000000004 + 0.7 often enough.
 _EDGE_EPSILON = 1e-6
 
 
@@ -1337,7 +1228,6 @@ class CancelTurn(_ClientBase):
     )
 
 
-#: Bound on one steering note: a correction, not a second question.
 MAX_STEER_CHARS = 2000
 
 

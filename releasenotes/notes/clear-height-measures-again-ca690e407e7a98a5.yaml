@@ -1,0 +1,5 @@
+---
+fixes:
+  - >
+    Asking for a room's clear height in an IFC model now gives the measured
+    height again, instead of saying the calculation failed.

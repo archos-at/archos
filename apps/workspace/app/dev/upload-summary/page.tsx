@@ -1,20 +1,5 @@
 'use client'
 
-/**
- * Dev preview for the upload summary (ADR-0086): what an inbox row's
- * `upload.completed` opens. Renders the REAL components with fixtures:
- *
- *  - the mixed batch, still reading one file, laid out inline so a full-page
- *    capture shows all of it: every count, the document types, the excluded
- *    terms, three folder groups, and a file per outcome and screening note;
- *  - the same batch once settled;
- *  - the loading, not-found and error states;
- *  - `?dialog=1` opens the real route dialog over the page, fed by the
- *    module-scope fetch shim below (the summary and the project's name).
- *
- * Not linked from anywhere; `app/dev/layout.tsx` 404s it outside development.
- */
-
 import type { JSX } from 'react'
 import { Suspense } from 'react'
 import Link from 'next/link'
@@ -49,7 +34,6 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
   }
 }
 
-/** The dialog's header and body, drawn in place so the capture is not clipped to the viewport. */
 function InlineDialogFrame({ caption, meta, children }: { caption: string; meta?: React.ReactNode; children: React.ReactNode }) {
   return (
     <figure className="space-y-2">
@@ -78,7 +62,7 @@ function Preview(): JSX.Element {
           Opened from the inbox row „Ihr Upload ist gelesen“ (ADR-0086). Inline below; the real route dialog with{' '}
           <code>?dialog=1</code>.
         </p>
-        <Button asChild variant="outline" size="sm">
+        <Button asChild variant="secondary" size="sm">
           <Link href="/dev/upload-summary?dialog=1">Als Dialog öffnen</Link>
         </Button>
       </div>

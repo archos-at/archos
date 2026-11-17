@@ -18,33 +18,12 @@ function remember(key: string, top: number): void {
   }
 }
 
-/**
- * Back and Forward return the shell's `<main>` to where the reader left it.
- *
- * The shell scrolls `<main>`, not the window, and the browser only restores the
- * window. A link is handled by Next itself (its layout router scrolls the new
- * segment into view when the old offset hid its top), but a history traversal
- * is not: the restore reducer schedules no scroll, so Back landed on the
- * earlier page at whatever offset the page being left happened to have —
- * halfway down a project list because the settings page was scrolled. The
- * `BackLink` promise that `history.back()` restores the page as it was left
- * depended on this.
- *
- * Offsets are remembered per URL (path and query) for the life of the tab,
- * recorded as the reader scrolls. On a traversal the remembered offset is
- * applied in the commit that shows the page, and re-applied over the next
- * frames while the page streams in and is not yet tall enough to hold it.
- * Anything the reader does in that window (a wheel, a touch, a key) wins.
- * Renders nothing.
- */
 export function MainScrollMemory({ targetId = 'main-content' }: { targetId?: string }): null {
   const pathname = usePathname()
   const traversing = useRef(false)
   const restoring = useRef(false)
   const firstRun = useRef(true)
 
-  // Record as the reader scrolls, except while a traversal is being restored:
-  // the clamp of the old page's offset would be written under the new URL.
   useEffect(() => {
     const main = document.getElementById(targetId)
     if (!main) return
@@ -59,8 +38,6 @@ export function MainScrollMemory({ targetId = 'main-content' }: { targetId?: str
     let unclaimed = 0
     const onPopState = (): void => {
       traversing.current = true
-      // A traversal that changes no pathname (a hash, a query) never reaches
-      // the restore below; do not let it stop the recording for good.
       window.clearTimeout(unclaimed)
       unclaimed = window.setTimeout(() => {
         if (!restoring.current) traversing.current = false

@@ -1,15 +1,3 @@
-/**
- * The canvas's questions to Piloti: which driver carries each, and how an ask
- * moves from the box being drawn to the answer.
- *
- * What is pinned: one thread per person per document, the server's (ADR-0106);
- * over the chat, a question is a turn of the chat's conversation through the
- * chat's sender and read back from the chat store (never a second driver on
- * it); elsewhere it goes to the canvas client; a thread reply's entry goes
- * once its turn ended, unless its thread target never reached the server; a
- * turn that ended is read by its outcome (a refusal is not an answer).
- */
-
 import { act, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
@@ -18,14 +6,13 @@ import {
   type CanvasChatQuestion,
   type CanvasChatSteer,
 } from '@/features/chat/lib/canvas-bridge'
-import { initialTurnView, type TurnView } from '@/features/chat/lib/turn-fold'
+import { initialTurnView, type TurnView } from '@/lib/turns/turn-fold'
 import { useChatStore } from '@/features/chat/store'
 import type { CanvasQuestion, CanvasTurnClient, CanvasTurnClientOptions } from '../lib/canvas-turn-client'
 import { askRegionOf, statusOf, useCanvasAsk, type UseCanvasAskOptions } from './use-canvas-ask'
 
 const REGION = { page: 1, x: 0.1, y: 0.2, w: 0.3, h: 0.2 }
 
-/** A client that records its questions; the test plays its turns through `onTurn`. */
 function fakeClients() {
   type Steered = { text: string; region: unknown; onLeftover?: (text: string) => void }
   const made: Array<{
@@ -61,7 +48,6 @@ const finished = (turnId: string, text: string): TurnView => ({
   text,
 })
 
-/** The server's thread for this person and document: one id per document, as `POST …/thread` answers. */
 const resolveThread = vi.fn(async (documentId: string) => `s_thread_${documentId}`)
 
 const hook = (options: Partial<UseCanvasAskOptions> & Pick<UseCanvasAskOptions, 'createClient'>) =>
@@ -77,7 +63,6 @@ const hook = (options: Partial<UseCanvasAskOptions> & Pick<UseCanvasAskOptions, 
     })
   )
 
-/** Let the thread lookup and the ask behind it settle. */
 const flush = () => act(async () => {})
 
 beforeEach(() => {
@@ -128,7 +113,6 @@ describe('asking Piloti on the canvas', () => {
     await flush()
     expect(second.made[0].options.conversationId).toBe('s_thread_doc_1')
     expect(second.made[0].options.conversationId).toBe(first.made[0].options.conversationId)
-    // The server created it: the client creates nothing before its socket opens.
     expect(second.made[0].options.conversationExists).toBe(true)
     expect(resolveThread).toHaveBeenCalledWith('doc_1', 'Grundriss.pdf · Review')
 
@@ -165,7 +149,6 @@ describe('asking Piloti on the canvas', () => {
     })
     await flush()
     expect(made[0].asked[0].question).toMatchObject({ region: { ...REGION, annotation_id: 'ann_3' }, replyInThread: true })
-    // No card for a thread reply: the thread shows it.
     expect(result.current.openId).toBeNull()
 
     act(() => made[0].options.onTurn(finished(id, 'Ja.')))
@@ -327,7 +310,6 @@ describe('a question that went without part of itself', () => {
     expect(result.current.asks[0].degraded).toEqual(['region', 'thread'])
 
     act(() => made[0].options.onTurn(finished(id, 'Ja.')))
-    // Its answer is only here: the thread offers it, rather than it vanishing.
     expect(result.current.asks).toEqual([expect.objectContaining({ id, status: 'answered' })])
   })
 })

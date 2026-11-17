@@ -40,7 +40,6 @@ def web_search_tool(query: str) -> str:
     return f"Results for: {query}"
 
 
-# The shared per-run middleware stack (factory.build_common_middleware).
 _COMMON_MIDDLEWARE_CLASSES = {
     "EmptyContentFixMiddleware",
     "ToolNameSanitizationMiddleware",
@@ -526,7 +525,6 @@ class TestDeepResearcherAgent:
                 tools=[real_tool],
             )
 
-            # Should have planner, researcher, orchestrator, and writer prompts
             assert "planner" in agent._prompts
             assert "researcher" in agent._prompts
             assert "orchestrator" in agent._prompts
@@ -654,7 +652,6 @@ class TestDeepResearcherAgent:
             assert any(
                 m.__class__.__name__ == "ToolVisibilityMiddleware" for m in subagents["writer-agent"]["middleware"]
             )
-            # Our SkillsMiddleware, in the spec's middleware, takes the skills slot by name.
             assert "skills" not in subagents["writer-agent"]
             (writer_skills,) = [
                 m for m in subagents["writer-agent"]["middleware"] if m.__class__.__name__ == "SkillsMiddleware"
@@ -1050,7 +1047,6 @@ class TestDeepResearcherAgent:
                 }
             )
 
-        # Fail fast: no researcher worker is spawned for an unexecutable query.
         fake_runnable.ainvoke.assert_not_called()
 
     @pytest.mark.asyncio
@@ -1364,8 +1360,6 @@ class TestDeepResearcherAgent:
         assert len(notes) == 4
         assert len(seen_callbacks_per_call) == 4
 
-        # Every concurrent worker received its own fresh instance, never the
-        # shared original, and no two workers received the same instance.
         assert len(shared_cb.spawned) == 4
         assert len(set(id(cb) for cb in shared_cb.spawned)) == 4
         spawned_per_call = [callbacks[0] for callbacks in seen_callbacks_per_call]
@@ -1374,7 +1368,6 @@ class TestDeepResearcherAgent:
         for callbacks in seen_callbacks_per_call:
             spawned_cb, forwarded_cb = callbacks
             assert spawned_cb in shared_cb.spawned
-            # The plain callback (no for_new_run) is forwarded unchanged.
             assert forwarded_cb is passthrough_cb
 
     def test_researcher_invoke_state_carries_parent_files(self):
@@ -1583,7 +1576,7 @@ class TestDeepResearcherAgent:
             agent = DeepResearcherAgent(
                 llm_provider=mock_llm_provider,
                 tools=[real_tool],
-                max_run_seconds=1,
+                max_run_seconds=0.2,
             )
             state = DeepResearchAgentState(messages=[HumanMessage(content="Test query")])
             with pytest.raises(TimeoutError, match="wall-clock budget"):
@@ -1624,7 +1617,6 @@ class TestDeepResearcherAgent:
             with seeded_session_registry(SourceEntry(url="https://example.com")):
                 await agent.run(state)
 
-            # Callbacks should have been passed to the streamed invocation
             call_kwargs = mock_create_deep_agent.astream.call_args
             assert call_kwargs is not None
 
@@ -1704,7 +1696,6 @@ class TestDeepResearcherAgent:
             with seeded_session_registry(SourceEntry(url="https://example.com")):
                 result = await agent.run(state)
 
-            # Should handle empty messages
             assert result is not None
 
     @pytest.mark.asyncio
@@ -1739,8 +1730,6 @@ class TestDeepResearcherAgent:
             assert result.messages[0].content == "Original query"
             assert result.messages[1].content == "I'll help with that."
             assert result.messages[2].content == "Search results here"
-            # The LLM-written source line is labeled with the deterministic
-            # origin token (URL source → [Web]) injected by verify_citations.
             assert (
                 result.messages[3].content
                 == "Writer markdown [1].\n\n## Sources\n[1] [Web] Example: https://example.com\n"
@@ -1815,7 +1804,6 @@ class TestDeepResearcherAgent:
             agent = DeepResearcherAgent(
                 llm_provider=mock_llm_provider,
                 tools=[real_tool],
-                # Isolate the fallback path from the empty-source-registry gate.
                 enable_citation_verification=False,
             )
 
@@ -1851,8 +1839,6 @@ class TestDeepResearcherAgent:
             result = await agent.run(state)
 
         assert result.degraded_reasons == ["no_report_file"]
-        # The reader of the answer alone is told, too — in the report's language,
-        # and this salvaged message is English.
         assert result.messages[-1].content.startswith("> **Note:**")
         assert "did not persist a report file" in result.messages[-1].content
 
@@ -1878,7 +1864,6 @@ class TestDeepResearcherAgent:
 class TestDeepResearchCutoffSalvage:
     """A cut-off run ships what it has, marked — or fails loudly with nothing."""
 
-    #: Long enough to clear MIN_SALVAGE_REPORT_CHARS: a real partial report.
     PARTIAL_REPORT = (
         "## Zwischenstand\n\n"
         "Die Recherche hat die wesentlichen Anforderungen bereits erfasst und haelt "
@@ -1887,7 +1872,6 @@ class TestDeepResearchCutoffSalvage:
         "## Sources\n[1] Example: https://example.com"
     )
 
-    #: Below the bar: a stub under a truncation banner still reads as an answer.
     STUB_REPORT = "Zu kurz [1].\n\n## Sources\n[1] Example: https://example.com"
 
     @pytest.fixture
@@ -1934,7 +1918,7 @@ class TestDeepResearchCutoffSalvage:
             agent = DeepResearcherAgent(
                 llm_provider=mock_llm_provider,
                 tools=[real_tool],
-                max_run_seconds=1,
+                max_run_seconds=0.2,
             )
             state = DeepResearchAgentState(messages=[HumanMessage(content="Test query")])
             with seeded_session_registry(SourceEntry(url="https://example.com")):
@@ -1944,7 +1928,6 @@ class TestDeepResearchCutoffSalvage:
         assert result.truncation_reason == "wall_clock"
 
         answer = result.messages[-1].content
-        # The report itself says it is partial, so an exported PDF says it too.
         assert answer.startswith("> **Hinweis:**")
         assert "Zeitlimit" in answer
         assert "Zwischenstand" in answer
@@ -1967,7 +1950,7 @@ class TestDeepResearchCutoffSalvage:
             agent = DeepResearcherAgent(
                 llm_provider=mock_llm_provider,
                 tools=[real_tool],
-                max_run_seconds=1,
+                max_run_seconds=0.2,
             )
             state = DeepResearchAgentState(messages=[HumanMessage(content="Test query")])
             with seeded_session_registry(SourceEntry(url="https://example.com")):
@@ -2107,7 +2090,6 @@ class TestPerRunIsolation:
             assert first.source_registry_middleware is not second.source_registry_middleware
             assert first.tool_set is not second.tool_set
             assert first.middleware_set is not second.middleware_set
-            # The agent instance itself holds no per-run capture state anymore.
             assert not hasattr(agent, "source_registry_middleware")
 
     def test_prepare_run_middleware_starts_empty_even_after_prior_capture(self, mock_llm_provider):
@@ -2133,7 +2115,6 @@ class TestPerRunIsolation:
 
             assert second.source_registry_middleware.registry.all_sources() == []
             assert second.source_registry_middleware._compact_source_keys == set()
-            # And the first run's state is untouched by preparing the second.
             assert [s.url for s in first.source_registry_middleware.registry.all_sources()] == [
                 "https://run-one.example.com"
             ]
@@ -2165,10 +2146,8 @@ class TestPerRunIsolation:
             assert isinstance(first.callbacks[0], VerboseTraceCallback)
             assert first.callbacks[0] is not shared_callback
             assert first.callbacks[0] is not second.callbacks[0]
-            # Configuration carries over; per-run mutable state does not.
             assert first.callbacks[0].log_reasoning is False
             assert first.callbacks[0].max_chars == 123
-            # Callbacks without per-run state are reused unchanged.
             assert first.callbacks[1] is plain_callback
 
     @pytest.mark.asyncio
@@ -2188,18 +2167,12 @@ class TestPerRunIsolation:
 
             agent = DeepResearcherAgent(llm_provider=mock_llm_provider, tools=[web_search_tool])
 
-            # First run succeeds against a session-scoped registry (conversation mode).
             state = DeepResearchAgentState(messages=[HumanMessage(content="First request")])
             with seeded_session_registry(SourceEntry(url="https://run-one.example.com")):
                 first_result = await agent.run(state)
 
             assert "Deep research answer" in first_result.messages[-1].content
 
-            # Second run without a session registry sees none of the first
-            # run's sources: its fresh per-run registry is empty. An empty
-            # registry at the end of a run now fails loudly — which also proves
-            # the second run did not inherit run-one's captured source (it would
-            # otherwise have a non-empty registry and succeed).
             from agent.citations.entries import EmptySourceRegistryError
 
             state = DeepResearchAgentState(messages=[HumanMessage(content="Next request")])
@@ -2300,9 +2273,6 @@ class TestFinalMarkdownExtraction:
         pass run first)."""
         mock_agent = streaming_graph_mock(
             {
-                # No report file AND no usable message → genuine writer failure
-                # (a present message would instead degrade to it; covered
-                # separately by test_run_falls_back_to_last_message_*).
                 "messages": [],
                 "files": {},
             }
@@ -2366,10 +2336,7 @@ class TestDeepResearcherCitationVerification:
         ):
             agent = DeepResearcherAgent(llm_provider=mock_llm_provider, tools=[real_tool])
 
-            # Force the verifier to report "no valid citations" while leaving the report unchanged,
-            # so we can assert post-processing does not synthesize a citation.
             with (
-                # Pre-populate registry with the matching URL plus an unrelated tool source.
                 seeded_session_registry(
                     SourceEntry(
                         citation_key="weather_observation_tool",
@@ -2395,8 +2362,6 @@ class TestDeepResearcherCitationVerification:
                 state = DeepResearchAgentState(messages=[HumanMessage(content="What is CUDA?")])
                 result = await agent.run(state)
 
-        # The report itself is preserved verbatim; it now arrives under the
-        # honesty banner that says nothing in it is provably grounded.
         assert result.messages[-1].content.endswith(sanitized_report)
         assert "Citation verification found no valid citations" in caplog.text
 
@@ -2435,7 +2400,6 @@ class TestDeepResearcherCitationVerification:
                 result = await agent.run(state)
 
         assert result.degraded_reasons == ["no_valid_citations"]
-        # Not a cutoff: only the degradation is announced.
         assert result.research_truncated is None
         assert result.messages[-1].content.startswith("> **Hinweis:**")
         assert "eingeschränkt belastbar" in result.messages[-1].content
@@ -2568,7 +2532,6 @@ class TestDeepResearcherCitationVerification:
                 state = DeepResearchAgentState(messages=[HumanMessage(content="What is CUDA?")])
                 result = await agent.run(state)
 
-        # count is the raw removed count; reasons deduplicated in first-seen order.
         assert result.citations_removed == {
             "count": 3,
             "reasons": ["url_not_in_registry", "unverifiable"],
@@ -2654,7 +2617,6 @@ class TestApplyRenumberingDropsSanitizeDeaths:
         urls = [s["url"] for s in wire_sources]
         assert "https://bit.ly/abc123" not in urls
         assert urls == ["https://example.com/good", "https://example.com/other"]
-        # Survivor old [3] follows the prose to new [2].
         assert [s["number"] for s in wire_sources] == [1, 2]
 
     def test_unsafe_death_drops_chip_prose_has_no_orphan(self):
@@ -2708,12 +2670,10 @@ class TestApplyRenumberingDropsSanitizeDeaths:
             "Good [1]. Short [2].\n\n## Sources\n[1] Good: https://example.com/good\n[2] Short: https://bit.ly/abc123"
         )
         verification = verify_citations(report, registry)
-        # Both are real captured sources, so verification keeps both...
         assert len(verification.valid_citations) == 2
         wire_sources = _cited_sources_to_wire(registry, list(verification.valid_citations))
         assert len(wire_sources) == 2
 
-        # ...but sanitize deletes the shortener line as untrusted.
         sanitization = sanitize_report(verification.verified_report)
         assert sanitization.removed_citation_numbers == {2}
         wire_sources = _apply_renumbering(
@@ -2775,10 +2735,8 @@ class TestDeepResearcherQuoteVerification:
         )
         result = await self._run(mock_llm_provider, real_tool, markdown)
         output = result.messages[-1].content
-        # No marker in the prose (ADR-0125, amended 2026-11-10): the report is degraded instead.
         assert "[nicht wörtlich in der Quelle belegt]" not in output
         assert "unverified_quotes" in (result.degraded_reasons or [])
-        # Fail-open: the fabricated sentence is preserved verbatim.
         assert "automatischen Loeschanlage" in output
 
     @pytest.mark.asyncio
@@ -2843,17 +2801,12 @@ class TestSessionRegistryBinding:
         from agent.agents.deep_researcher.agent import DeepResearcherAgent
         from agent.citations.session import get_session_registry
 
-        # Citation verification off: this run captures no sources (the graph is a
-        # mock), and an unverifiable report is correctly a hard failure -- which
-        # is a different behaviour than the one under test here.
         agent = DeepResearcherAgent(
             llm_provider=mock_llm_provider, tools=[real_tool], enable_citation_verification=False
         )
         during = await self._run_capturing_registry(agent)
 
         assert during is not None, "the worker run bound no registry, so citations cannot be recognised"
-        # Reset afterwards: a research worker is reused, and a leaked registry would
-        # hand the next job a previous question's sources.
         assert get_session_registry() is None
 
     @pytest.mark.asyncio
@@ -2865,8 +2818,6 @@ class TestSessionRegistryBinding:
         with seeded_session_registry(SourceEntry(url="https://conversation.example")):
             conversation = get_session_registry()
             during = await self._run_capturing_registry(agent)
-            # The conversation's registry spans TURNS; narrowing it to this one
-            # run would lose cross-turn source continuity.
             assert during is conversation
             assert get_session_registry() is conversation
 
@@ -2881,8 +2832,6 @@ class TestDeepReportConfidence:
     back up, and a malformed marker costs nothing but the chip.
     """
 
-    #: A knowledge-base passage the fixtures below cite, so citation verification
-    #: and quote verification both have something real to check against.
     _KB_ENTRY = SourceEntry(
         citation_key="OIB-330.pdf, p.12",
         source_type="knowledge_layer",
@@ -2890,7 +2839,6 @@ class TestDeepReportConfidence:
         chunk_text="Die lichte Durchgangshoehe von Treppen muss mindestens 2,10 m betragen.",
     )
 
-    #: Long enough to clear MIN_SALVAGE_REPORT_CHARS on the cutoff path.
     _BODY = (
         "## Ergebnis\n\n"
         "Die lichte Durchgangshoehe von Treppen betraegt mindestens 2,10 m und ist "
@@ -2939,7 +2887,7 @@ class TestDeepReportConfidence:
                 llm_provider=mock_llm_provider,
                 tools=[real_tool],
                 callbacks=list(callbacks or []),
-                max_run_seconds=1 if cutoff else 0,
+                max_run_seconds=0.2 if cutoff else 0,
             )
             state = DeepResearchAgentState(messages=[HumanMessage(content="Treppenhoehe?")])
             with seeded_session_registry(self._KB_ENTRY):
@@ -2982,9 +2930,7 @@ class TestDeepReportConfidence:
         answer = result.messages[-1].content
         assert "CONFIDENCE" not in answer
         assert "Nur eine Quelle" not in answer
-        # The report itself is otherwise untouched.
         assert "2,10 m" in answer
-        # And the re-emitted report the frontend overwrites with is just as clean.
         assert emitter.emitted and "CONFIDENCE" not in emitter.emitted[-1]
 
     @pytest.mark.asyncio
@@ -2999,7 +2945,6 @@ class TestDeepReportConfidence:
 
         assert result.research_truncated is True
         assert result.answer_confidence == "medium"
-        # Truncation speaks through its own channel; it invents no cap token.
         assert result.answer_confidence_capped_reason is None
         assert "CONFIDENCE" not in result.messages[-1].content
 
@@ -3030,7 +2975,6 @@ class TestDeepReportConfidence:
         answer = result.messages[-1].content
         assert "CONFIDENCE" not in answer
         assert "Bauchgefuehl" not in answer
-        # Fail-open: the report still ships.
         assert "2,10 m" in answer
 
     @pytest.mark.asyncio
@@ -3081,7 +3025,6 @@ class TestDeepReportConfidence:
         answer = result.messages[-1].content
         assert answer.startswith("> **Hinweis:**")
         assert "eingeschränkt belastbar" in answer
-        # The quote itself still ships, never stripped, and never with a marker in the prose.
         assert "Loeschanlage haben" in answer and "[nicht wörtlich in der Quelle belegt]" not in answer
 
     @pytest.mark.asyncio
@@ -3143,9 +3086,6 @@ class TestCallbackRegistryHandover:
             artifacts = agent._prepare_run(DeepResearchAgentState(messages=[HumanMessage(content="Q")]))
 
         assert len(received) == 1, "the run built a registry and handed it to nobody"
-        # The ACCESSOR, not the registry object: the middleware swaps in a
-        # session-scoped registry mid-run, and a callback holding the first one
-        # would judge the report against a registry the run stopped using.
         assert callable(received[0])
         assert received[0]() is artifacts.source_registry_middleware.active_registry()
 
@@ -3235,9 +3175,6 @@ class TestReportSinkCannotUnmakeTheAnswer:
             with seeded_session_registry(SourceEntry(url="https://example.com")):
                 result = await agent.run(DeepResearchAgentState(messages=[HumanMessage(content="Q")]))
 
-        # The answer survives the display failing: run() RETURNED (rather than
-        # raising into the "nothing salvageable" path) and the verified report
-        # is on the message it replaced.
         assert result is not None
         assert result.messages, "a failing echo destroyed the answer"
         assert "Brandabschnitte" in str(result.messages[-1].content)
@@ -3263,14 +3200,11 @@ class TestSalvageBarExcludesOurOwnBanner:
         from agent.agents.deep_researcher.agent import MIN_SALVAGE_REPORT_CHARS
         from agent.agents.deep_researcher.agent import _salvaged_report_length
 
-        # A body inside the dangerous window: too short to be an answer, long
-        # enough that the banner would carry it over the bar.
         body = "Die Recherche fand nur einen Hinweis auf GK4."
         assert len(body) < MIN_SALVAGE_REPORT_CHARS
         banner = f"{_HONESTY_BANNER_PREFIX} Die Recherche wurde vorzeitig beendet (Zeitgrenze erreicht)."
         banner_text = f"{banner}\n\n{body}"
 
-        # The naive measure would pass it; the real one must not.
         assert _salvaged_report_length(banner_text) == len(body)
         assert _salvaged_report_length(banner_text) < MIN_SALVAGE_REPORT_CHARS
 
@@ -3283,7 +3217,6 @@ class TestSalvageBarExcludesOurOwnBanner:
         body = "x" * (MIN_SALVAGE_REPORT_CHARS - 30)
         banner = f"{_HONESTY_BANNER_PREFIX} " + ("y" * 120)
         combined = f"{banner}\n\n{body}"
-        # Naive: over the bar. Correct: under it.
         assert len(combined.strip()) >= MIN_SALVAGE_REPORT_CHARS
         assert _salvaged_report_length(combined) < MIN_SALVAGE_REPORT_CHARS
 
@@ -3330,7 +3263,6 @@ class TestUpstreamTimeoutIsNotTheBudget:
         from agent.agents.deep_researcher.agent import DeepResearcherAgent
         from agent.common.turn_notices import CUTOFF_UPSTREAM_TIMEOUT
 
-        # Raised from INSIDE the graph, immediately -- nowhere near the budget.
         graph = streaming_graph_mock(error=TimeoutError("provider read timed out"))
         seen: dict[str, object] = {}
 
@@ -3364,7 +3296,7 @@ class TestUpstreamTimeoutIsNotTheBudget:
             patch("agent.agents.deep_researcher.factory.create_deep_agent", return_value=graph),
             patch("agent.agents.deep_researcher.cutoff.emit_deep_research_cutoff", _capture),
         ):
-            agent = DeepResearcherAgent(llm_provider=mock_llm_provider, tools=[real_tool], max_run_seconds=1)
+            agent = DeepResearcherAgent(llm_provider=mock_llm_provider, tools=[real_tool], max_run_seconds=0.2)
             with pytest.raises(TimeoutError, match="wall-clock budget"):
                 await agent.run(DeepResearchAgentState(messages=[HumanMessage(content="Q")]))
 

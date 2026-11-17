@@ -1,13 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The `piloti_wake_stop` job (ADR-0106): a person took the mark back, so the
- * turn its wake started is stopped. Pinned here: it sends `cancel_turn`
- * for the wake's id in the thread of the person whose act woke Piloti, over a
- * socket whose signed envelope names that thread; a turn that already ended is
- * left alone; and a stop that landed nowhere throws, so the queue retries it.
- */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 

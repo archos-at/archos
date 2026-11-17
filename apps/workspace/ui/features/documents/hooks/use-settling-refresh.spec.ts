@@ -56,7 +56,6 @@ describe('useSettlingRefresh', () => {
     })
     expect(refresh).toHaveBeenCalledTimes(1)
 
-    // And the chain resumes from there.
     await act(async () => {
       await vi.advanceTimersByTimeAsync(1000)
     })

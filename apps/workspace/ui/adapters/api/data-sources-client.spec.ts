@@ -4,7 +4,6 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
 import { createDataSourcesClient } from './data-sources-client'
 
-// Mock the config - note: browser environment uses relative URLs
 vi.mock('./config', () => ({
   apiConfig: {
     baseUrl: '',

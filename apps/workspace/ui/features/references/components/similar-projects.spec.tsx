@@ -54,7 +54,6 @@ const CONFIRMED: SimilarProject = {
 
 const UNRELATED: SimilarProject = { ...CONFIRMED, id: 'proj-wels', name: 'Halle Wels', alike: false, sharedTraits: [] }
 
-/** A page whose current project has only its Land recorded: the briefing can still add the rest. */
 function page(projects: SimilarProject[], more = 0, editable = true): SimilarProjectsPage {
   const basis = fingerprintOf({
     facts: { federal_state: { value: 'niederoesterreich', confidence: 'confirmed', source: 'onboarding', updatedAt: '' } },
@@ -114,7 +113,6 @@ describe('SimilarProjects', () => {
 
   test('marks a shared trait only one side has from its documents as unconfirmed', () => {
     render(<SimilarProjects projectId="current" page={page([WOHNHAUS])} />)
-    // The edition and „GK 4“: two marks, the confirmed Land and Holzbau none.
     expect(screen.getAllByText(referencesCopy.messages.en.fields.unconfirmed)).toHaveLength(2)
   })
 

@@ -20,34 +20,20 @@ can share one implementation without a circular import.
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 from typing import Any
 from typing import Literal
 
 ESCALATION_MARKER = "[ESCALATE_TO_DEEP]"
 _ESCALATION_MARKER_RE = re.compile(re.escape(ESCALATION_MARKER))
 
-# The model ends every research answer with a self-assessment marker of the
-# form ``[CONFIDENCE:low|medium|high]``, optionally followed by ``| reason`` —
-# a one-clause justification (in the answer's language) the UI shows so the
-# reader understands WHY the level was chosen. The payload is bracketed and the
-# level case-insensitive; the level token is validated against the enum below so
-# a malformed value ("certain", empty, …) is stripped from the text but yields
-# no signal. A reason is only meaningful with a valid level.
 CONFIDENCE_MARKER_RE = re.compile(r"\[CONFIDENCE:\s*([^\]]*)\]", re.IGNORECASE)
 _VALID_CONFIDENCE_VALUES = frozenset({"low", "medium", "high"})
 
-# Hard bound on the surfaced justification: the prompt asks for one short
-# clause, but a rambling model must not bloat the wire payload or the chip.
 _CONFIDENCE_REASON_MAX_CHARS = 300
 
 ConfidenceLevel = Literal["low", "medium", "high"]
 
-# Control markers are only meaningful as answer *signals* when the model appends
-# them at the very end of its reply (the prompt contract). A marker that appears
-# earlier — e.g. quoted inside an explanation of the marker contract itself — is
-# body text, not a signal, and must be left intact. We therefore only treat (and
-# strip) marker occurrences that fall inside the TAIL REGION: the span covering
-# the last N non-empty lines of the content.
 _TAIL_REGION_LINES = 3
 
 
@@ -103,7 +89,6 @@ def detect_and_strip_escalation_marker(content: Any) -> tuple[Any, bool]:
     if not matches:
         return content, False
 
-    # Collapse trailing whitespace and any blank line left where the marker sat.
     stripped = _strip_matches(content, matches).rstrip()
     return stripped, True
 
@@ -169,48 +154,19 @@ def detect_and_strip_confidence_marker(content: Any) -> tuple[Any, ConfidenceLev
     return stripped, level, reason
 
 
-# ---------------------------------------------------------------------------
-# Overconfidence guard
-# ---------------------------------------------------------------------------
-#
-# What the platform surfaces as an answer's confidence. They live here, beside
-# the marker contract they interpret. Two rules, and a turn says which
-# (``answer_confidence_version`` on the wire):
-#
-# - **Chat** (:func:`surface_checked_confidence`, ADR-0139): the level the
-#   answer check (``common/claim_judge.py``) gave, under the hard quote gate.
-#   The self-report only says the answer is one to grade; it sets no level.
-#   No check, no level.
-# - **Deep research** (:func:`surface_answer_confidence`, rule 1): the
-#   answer-level floors over the self-report. Every chat turn stored before the
-#   check was computed under rule 1 or the per-sentence rule 2 (ADR-0125), and
-#   keeps the level it was stored with.
-
-#: The rule version a checked chat answer travels as. An open tab reads the
-#: field as ``1 | 2``; the check itself (``confidence_check`` on the turn)
-#: tells it apart from a stored rule-2 turn (docs/design/chat-wire-v2.md).
 CONFIDENCE_RULE_VERSION = 2
 
 
-#: Why a level was capped.
-#:
-#: - ``ungrounded``             no verified citation (rule 1).
-#: - ``quote_unverified``       a quoted span matched no retrieved passage.
-#: - ``law_unsettled``          the answer rests on building law the turn's records do not settle: the gate
-#:   withholds a binding claim, or the coverage is open (ADR-0175). Capped to ``medium``.
-#: - ``normative_claim_uncited``, ``measurement_only``, ``citation_fallback``:
-#:   no longer produced (rules 1 and 2 as chat ran them). Kept because stored
-#:   turns carry them.
 CappedReason = Literal[
     "ungrounded",
     "quote_unverified",
     "law_unsettled",
+    "open_point",
     "normative_claim_uncited",
     "measurement_only",
     "citation_fallback",
 ]
 
-#: The most an answer with a quote no passage holds can reach under a citation.
 MEASUREMENT_CONFIDENCE_CEILING: ConfidenceLevel = "medium"
 
 _CONFIDENCE_ORDER: tuple[ConfidenceLevel, ...] = ("low", "medium", "high")
@@ -261,22 +217,37 @@ def _quote_cap(quotes_verified: bool, citation_grounded: bool) -> ConfidenceLeve
     return MEASUREMENT_CONFIDENCE_CEILING if citation_grounded else "low"
 
 
+def answer_ceiling(open_points: Sequence[str], self_reported: ConfidenceLevel | None) -> ConfidenceLevel:
+    """The most the answer's own words allow: ``medium`` for an open point it names, never above its self-report.
+
+    The check grades whether the evidence backs each statement, and „die Bindung ist nicht geprüft" is backed by a
+    record that says so; what the answer itself says is open, or the level it gave itself (the prompt's ``medium``
+    is „an inference or a named gap", its ``low`` missing or conflicting evidence), is the answer saying it is not
+    settled. A check may lower that level, never raise it.
+    """
+    named = MEASUREMENT_CONFIDENCE_CEILING if open_points else "high"
+    return _at_most(named, self_reported) if self_reported is not None else named
+
+
 def surface_checked_confidence(
     checked: ConfidenceLevel | None,
     *,
     quotes_verified: bool = True,
     citation_grounded: bool = False,
     law_unsettled: bool = False,
+    ceiling: ConfidenceLevel = "high",
 ) -> ConfidenceLevel | None:
-    """The answer check's level under the quote gate and the law gate; ``None`` when the check gave none.
+    """The answer check's level under the quote gate, the law gate and the answer's own ceiling; ``None`` without one.
 
     The law gate is structural, like the quote gate: an answer that rests on building law the records do
-    not settle (``law_unsettled``) is at most ``medium``, whatever the grader read (staging QC, F6).
+    not settle (``law_unsettled``) is at most ``medium``, whatever the grader read (staging QC, F6). The
+    answer's own ``ceiling`` (:func:`answer_ceiling`) holds the level to what the answer itself claims.
     """
     if checked is None:
         return None
     quoted = _at_most(checked, _quote_cap(quotes_verified, citation_grounded))
-    return _at_most(quoted, MEASUREMENT_CONFIDENCE_CEILING) if law_unsettled else quoted
+    gated = _at_most(quoted, MEASUREMENT_CONFIDENCE_CEILING) if law_unsettled else quoted
+    return _at_most(gated, ceiling)
 
 
 def checked_confidence_capped_reason(
@@ -285,13 +256,22 @@ def checked_confidence_capped_reason(
     quotes_verified: bool = True,
     citation_grounded: bool = False,
     law_unsettled: bool = False,
+    ceiling: ConfidenceLevel = "high",
 ) -> CappedReason | None:
-    """``quote_unverified`` or ``law_unsettled`` for the gate that lowered the check's level, else ``None``."""
-    if surface_checked_confidence(checked, quotes_verified=quotes_verified, citation_grounded=citation_grounded) != (
-        checked
-    ):
+    """The gate that lowered the check's level: the quote gate, then the law gate, then the answer's own ceiling."""
+    quoted = surface_checked_confidence(checked, quotes_verified=quotes_verified, citation_grounded=citation_grounded)
+    if quoted != checked:
         return "quote_unverified"
-    surfaced = surface_checked_confidence(
+    gated = surface_checked_confidence(
         checked, quotes_verified=quotes_verified, citation_grounded=citation_grounded, law_unsettled=law_unsettled
     )
-    return "law_unsettled" if surfaced != checked else None
+    if gated != quoted:
+        return "law_unsettled"
+    surfaced = surface_checked_confidence(
+        checked,
+        quotes_verified=quotes_verified,
+        citation_grounded=citation_grounded,
+        law_unsettled=law_unsettled,
+        ceiling=ceiling,
+    )
+    return "open_point" if surfaced != gated else None

@@ -1,0 +1,8 @@
+---
+# area: agents
+fixes:
+  - >
+    An answer that ended no longer keeps counting against your office's answers
+    in progress, so a question asked right after it is no longer turned away
+    while nothing is running. A question your own agent asked now reads as
+    failed once its answer is lost, without anyone having to look at it first.

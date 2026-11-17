@@ -4,13 +4,9 @@ from __future__ import annotations
 
 from agent.lazy_exports import lazy_exports
 
-# What code outside this package imports, and from where: the names it imported
-# from the submodules when the package was laid out by job, measured. Loaded on
-# first use (PEP 562), so importing one submodule does not load the others, and
-# read from the submodule every time (`cache=False`), so a test that patches a
-# submodule is seen through the package too. A name missing here is imported
-# from its submodule, and `scripts/check_package_surfaces.py` counts that.
 _LAZY: dict[str, str] = {
+    "PASSAGE_MAX_CHARS": ".grounding_hits",
+    "trace_lanes_for_chunks": ".trace_lanes",
     "MIN_DEBRIS_SHARE": ".chunk_noise",
     "is_noise_chunk": ".chunk_noise",
     "judge_text": ".chunk_noise",
@@ -87,6 +83,7 @@ __all__ = [
     "KnowledgeSearch",
     "LlamaIndexRetriever",
     "MIN_DEBRIS_SHARE",
+    "PASSAGE_MAX_CHARS",
     "RRF_K",
     "SUFFICIENT",
     "SearchArgs",
@@ -133,6 +130,7 @@ __all__ = [
     "scores_decisively_strong",
     "selective_terms",
     "should_skip_judge",
+    "trace_lanes_for_chunks",
     "trace_lanes_for_hits",
     "unit_score",
     "without_noise",

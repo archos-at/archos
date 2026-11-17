@@ -1,11 +1,3 @@
-"""Age-based retention for the chat checkpoint store (P0 #1, chat side).
-
-Chat conversations have no terminal event, so their LangGraph checkpoints
-accumulate forever. ``reap_idle_threads`` drops whole threads whose newest
-checkpoint ``ts`` is older than the retention window, across all three
-checkpoint tables, and is a safe no-op when unconfigured.
-"""
-
 from __future__ import annotations
 
 import json
@@ -32,13 +24,11 @@ def _setup(dsn: str) -> None:
         conn.execute(text("CREATE TABLE checkpoints (thread_id TEXT, checkpoint_ns TEXT DEFAULT '', checkpoint TEXT)"))
         conn.execute(text("CREATE TABLE checkpoint_blobs (thread_id TEXT, channel TEXT)"))
         conn.execute(text("CREATE TABLE checkpoint_writes (thread_id TEXT, idx INTEGER)"))
-        # "stale" thread: two checkpoints, newest is 20 days old (> 14d window).
         for days in (25, 20):
             conn.execute(
                 text("INSERT INTO checkpoints (thread_id, checkpoint) VALUES ('stale', :c)"),
                 {"c": json.dumps({"ts": _ts(days)})},
             )
-        # "fresh" thread: last active an hour ago.
         conn.execute(
             text("INSERT INTO checkpoints (thread_id, checkpoint) VALUES ('fresh', :c)"),
             {"c": json.dumps({"ts": _ts(1 / 24)})},

@@ -1,14 +1,3 @@
-/**
- * One platform lesson: the audit drill-in and the owner mutations
- * (docs/architecture/platform-failure-learning.md). Thin adapters (ADR-0017).
- *
- * GET   — the lesson, its append-only event trail, and its provenance rows
- *         (feedback uuids + org hashes + anonymized summaries — never the raw
- *         reports; those stay behind the tenant boundary).
- * PATCH — activate / retire / edit / root-cause status. Audited to WorkOS
- *         (platform.lesson.updated) on top of the event trail.
- */
-
 import { z } from 'zod'
 import { NotFoundError } from '@/lib/api/errors'
 import { parseJsonBody } from '@/lib/api/handler'
@@ -19,7 +8,6 @@ import { updateLessonSchema } from '@/lib/platform-lessons/types'
 
 const lessonIdSchema = z.guid()
 
-/** A path segment that is not a uuid names nothing — 404, not a 500. */
 function parseLessonId(params: { lessonId?: string | string[] }): string {
   const parsed = lessonIdSchema.safeParse(params.lessonId)
   if (!parsed.success) throw new NotFoundError('Unknown lesson.')

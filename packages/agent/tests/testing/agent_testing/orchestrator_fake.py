@@ -1,11 +1,3 @@
-"""A stand-in for the Hatchet client, installed at its one fake point (``orchestrator_client.reset_for_tests``).
-
-No engine is reachable in a test run, so a test asserts what OUR code hands the
-SDK: the workflow's declaration and its steps, each run's input, metadata and
-priority, the runs it cancels, the worker it starts. The fake records those and
-runs nothing; a test calls a step's function itself.
-"""
-
 from __future__ import annotations
 
 import itertools
@@ -27,8 +19,6 @@ class FakeRun:
 
 @dataclass
 class FakeStep:
-    """A step as ``Workflow.task`` (or ``on_failure_task``) declared it."""
-
     options: dict[str, Any]
     fn: Any
     on_failure: bool = False
@@ -43,12 +33,9 @@ class FakeStep:
 
 @dataclass
 class FakeWorkflow:
-    """A workflow as ``Hatchet.workflow`` declared it, its steps, and the runs started of it."""
-
     options: dict[str, Any]
     steps: list[FakeStep] = field(default_factory=list)
     runs: list[FakeRun] = field(default_factory=list)
-    #: Raised by the next ``run`` instead of starting one, when set.
     refuse_with: BaseException | None = None
     _ids: Any = field(default_factory=lambda: itertools.count(1))
 
@@ -61,6 +48,9 @@ class FakeWorkflow:
         return run
 
     def task(self, **options):
+        return self._declare(options, on_failure=False)
+
+    def durable_task(self, **options):
         return self._declare(options, on_failure=False)
 
     def on_failure_task(self, **options):
@@ -96,6 +86,7 @@ class FakeWorker:
     workflows: list[Any]
     lifespan: Any
     labels: dict[str, Any] = field(default_factory=dict)
+    durable_slots: int | None = None
     started: bool = False
 
     def start(self) -> None:
@@ -111,11 +102,6 @@ class FakeRateLimits:
 
 
 class FakeWorkflows(list):
-    """The declared workflows, which also answer ``workflows.list`` as the engine would once a worker registered them.
-
-    ``registered = False`` is an engine no worker has registered anything on yet.
-    """
-
     registered = True
 
     def list(self, workflow_name: str | None = None, **_: Any) -> SimpleNamespace:
@@ -131,8 +117,6 @@ class FakeConfig:
 
 
 class FakeHatchet:
-    """What ``hatchet_sdk.Hatchet`` offers that our code calls."""
-
     def __init__(self) -> None:
         self.workflows: FakeWorkflows = FakeWorkflows()
         self.config = FakeConfig()
@@ -146,7 +130,7 @@ class FakeHatchet:
         return workflow
 
     def worker(self, name, slots=None, durable_slots=None, labels=None, workflows=None, lifespan=None):
-        worker = FakeWorker(name, slots, list(workflows or []), lifespan, dict(labels or {}))
+        worker = FakeWorker(name, slots, list(workflows or []), lifespan, dict(labels or {}), durable_slots)
         self.workers.append(worker)
         return worker
 
@@ -156,15 +140,12 @@ class FakeHatchet:
 
 
 def install() -> FakeHatchet:
-    """Install a fresh fake as the process's client; ``orchestrator_client.reset_for_tests(None)`` removes it."""
     fake = FakeHatchet()
     orchestrator_client.reset_for_tests(fake)  # type: ignore[arg-type]
     return fake
 
 
 class FakeContext:
-    """The ``Context`` a task function gets: the attempt, whether the run was cancelled, its metadata."""
-
     def __init__(
         self, *, attempt: int = 1, max_attempts: int = 3, cancelled: bool = False, metadata: dict | None = None
     ) -> None:
@@ -180,7 +161,6 @@ class FakeContext:
 
 
 def install_for(monkeypatch) -> FakeHatchet:
-    """A fresh fake for one test, undone with it, and the payload key a hand-over needs."""
     import base64
 
     from agent.knowledge import ingest_workflow
@@ -193,14 +173,12 @@ def install_for(monkeypatch) -> FakeHatchet:
 
 
 def waiting_runs() -> list[FakeRun]:
-    """The runs started that no worker has taken and nobody cancelled, oldest first."""
     fake = orchestrator_client.client()
     gone = {*getattr(fake, "taken", set()), *fake.runs.cancelled}
     return [run for run in fake.workflow_runs if run.workflow_run_id not in gone]
 
 
 def take_run(job_id: str | None = None) -> FakeRun | None:
-    """The next waiting run (of ``job_id``, when given), now taken; None when nothing waits."""
     runs = [run for run in waiting_runs() if job_id is None or run.input.job_id == job_id]
     if not runs:
         return None

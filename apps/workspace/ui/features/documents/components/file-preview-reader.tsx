@@ -35,15 +35,6 @@ import { askAboutFile } from '../lib/ask-about-file'
 
 import { CountPill } from '@/components/ui/count-pill'
 
-/**
- * What this reader can do about a held file, under its findings (ADR-0086).
- *
- * A reviewer allows it or deletes it here, looking at the page the check found
- * it on, with the same question the Quarantäne list asks. The uploader who may
- * not decide asks those who may. Which of the two is the server's answer
- * (`GET /api/documents/{id}/quarantine`), never a role read here; until it
- * lands, and for anyone else, nothing is offered.
- */
 export function HeldReview({
   documentId,
   scope,
@@ -52,9 +43,7 @@ export function HeldReview({
 }: {
   documentId: string
   scope: DocumentScope
-  /** The pane's document actions: its name, and the delete the menu uses. */
   actions: DocumentActions
-  /** The file was allowed and sent to be read, with this status. */
   onReleased: (status: string) => void
 }): JSX.Element | null {
   const t = useTranslations(filesCopy)
@@ -69,7 +58,6 @@ export function HeldReview({
     getQuarantineReviewAccess(documentId, controller.signal)
       .then(setAccess)
       .catch(() => {
-        // Not knowing offers nothing: both actions check for themselves anyway.
         if (!controller.signal.aborted) setAccess({ canReview: false, canAskForReview: false })
       })
     return () => controller.abort()
@@ -82,7 +70,6 @@ export function HeldReview({
       toast.success(tOrg('quarantine.released', { name: actions.name }))
       onReleased(status)
     } catch (error) {
-      // Someone else allowed or deleted it first: what was on screen was stale.
       const decided = error instanceof ApiRequestError && (error.status === 409 || error.status === 404)
       if (decided) notifyDocumentsChanged()
       toast.error(decided ? t('preview.heldDecided') : tOrg('quarantine.releaseError'))
@@ -162,8 +149,6 @@ export function AskColleagueButton({
         })
       }}
       onChanged={() => undefined}
-      // Full width in the rail, under the primary: the tonal secondary (D4), so the two Ask affordances read as one
-      // pair of presses. A bare centred word beside left-aligned content had no affordance.
       trigger={
         <Button type="button" variant="secondary" size="sm" className="h-8 w-full">
           {t('assignment.askColleague')}
@@ -173,13 +158,6 @@ export function AskColleagueButton({
   )
 }
 
-/**
- * The reader's header on a phone: the document's name across the whole width,
- * cut in the MIDDLE so a revision suffix (`…_1OG_C.pdf`) survives, the facts
- * and the state chips under it, and the close where every full-screen surface
- * on a phone keeps it. Nothing else competes with the name for the row; on a
- * phone on its side the actions join it, because there is no height for a bar.
- */
 export function ReaderHeader({
   name,
   title,
@@ -239,18 +217,9 @@ export function ReaderHeader({
   )
 }
 
-/**
- * What acts on the document from the reader: its details, the conversation
- * about it, and the file's own menu (download, rename, delete). One set of controls in two
- * places: a bar at the thumb in portrait, a cluster in the header on its side.
- * The details are a sheet over the document rather than a scroll under it, so
- * the drawing keeps the screen while the reader checks its Fassung.
- */
 export interface ReaderAnnotate {
   label: string
-  /** Live marks; none shows „Anmerken" alone. */
   count: number
-  /** The count in words, for a screen reader. */
   countLabel: string
   onClick: () => void
 }
@@ -268,7 +237,6 @@ export function ReaderActions({
   detailsLabel: string
   detailsOpen: boolean
   onDetails: () => void
-  /** The document's marks, where it can carry them. */
   annotate: ReaderAnnotate | null
   discuss: ReactNode
   menu: ReactNode
@@ -310,8 +278,6 @@ export function ReaderActions({
           variant="secondary"
           size={bar ? 'default' : 'sm'}
           className={cn('gap-1.5', bar ? 'h-11 min-w-11 shrink-0 px-3' : 'h-9 pointer-coarse:h-11')}
-          // On a narrow bar the words give way to the glyph and the count, so
-          // „Besprechen" keeps its label; the name stays for a screen reader.
           aria-label={annotate.count > 0 ? annotate.countLabel : annotate.label}
           onClick={annotate.onClick}
           data-testid="file-reader-annotate"
@@ -327,11 +293,6 @@ export function ReaderActions({
   )
 }
 
-/**
- * The rail, where it lives: beside or under the document on a wide screen,
- * and in a sheet from the bottom edge in the phone reader, so it is one tap
- * away without ever taking the document's height.
- */
 export function ReaderDetails({
   sheet,
   open,

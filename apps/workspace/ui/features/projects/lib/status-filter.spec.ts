@@ -1,10 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The projects list's status filter (ADR-0098): one segment per state, opening
- * on the active projects unless there are none.
- */
 import { describe, expect, it } from 'vitest'
 import { countByStatus, defaultProjectStatusFilter, filterProjectsByStatus, isProjectStatusFilter } from './status-filter'
 

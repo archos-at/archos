@@ -1,10 +1,3 @@
-/**
- * Closing with „Ausmisten" (ADR-0092), the dialog's third step (ADR-0098): the
- * proposal is labelled as an AI proposal, every item can be deselected, only
- * what stays selected goes to the Papierkorb, and nothing is removed before the
- * person confirms. Closing names the outcome and the Abschluss chosen in the
- * first step.
- */
 import { render, screen } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, test, vi } from 'vitest'
@@ -37,7 +30,6 @@ function stub(answer: CleanupProposal | null) {
   return fetchMock
 }
 
-/** What was sent to the Papierkorb: the confirmations, not the proposal request. */
 const posted = (fetchMock: ReturnType<typeof stub>) =>
   fetchMock.mock.calls
     .filter(([url, init]) => url === '/api/projects/p1/cleanup' && init?.method === 'POST')
@@ -45,7 +37,6 @@ const posted = (fetchMock: ReturnType<typeof stub>) =>
 
 const LIFECYCLE = { startedOn: '2023-04' as const, suggestedEndedOn: '2026-09' as const, suggestedOutcome: 'completed' as const }
 
-/** The dialog, walked to its third step, where the clear-out is decided. */
 async function renderAtCleanup(onClose: () => Promise<boolean>) {
   render(<CloseProjectDialog projectId="p1" lifecycle={LIFECYCLE} open onOpenChange={() => {}} onClose={onClose} />)
   await userEvent.click(screen.getByRole('button', { name: 'Next' }))
@@ -78,7 +69,6 @@ describe('CloseProjectDialog', () => {
     expect(screen.getByRole('combobox', { name: 'Completion' })).toHaveTextContent('September')
     expect(screen.getByRole('combobox', { name: 'Year' })).toHaveTextContent('2026')
     expect(screen.getByTestId('close-changes')).toHaveTextContent('become read-only')
-    // The proposal is a paid call: not for someone who only looked at step one.
     expect(fetchMock).not.toHaveBeenCalled()
     await userEvent.click(screen.getByRole('button', { name: 'Next' }))
     expect(fetchMock.mock.calls.map(([url]) => url)).toEqual(['/api/projects/p1/cleanup/proposal'])

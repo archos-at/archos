@@ -15,10 +15,7 @@ from pydantic import Field
 from pydantic import StringConstraints
 from pydantic import field_validator
 
-#: Who a mail is from, as far as the bytes and DNS could tell (``agent.knowledge.mail_facts.SENDER_TRUSTS``,
-#: the BFF's ``SENDER_TRUSTS``). Spelled out because a ``Literal`` must be; a test pins it to the tuple.
 SenderTrust = Literal["member_verified", "member_unverified", "external_verified", "external_unverified", "not_checked"]
-#: The locales a mail thread is rendered in (``agent.knowledge.mail_facts.MAIL_LOCALES``).
 MailLocale = Literal["de", "en"]
 _MailName = Annotated[str, StringConstraints(strip_whitespace=True, max_length=200)]
 _MailDomain = Annotated[str, StringConstraints(strip_whitespace=True, max_length=253)]

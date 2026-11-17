@@ -7,9 +7,7 @@ import { joinClasses } from './join-classes';
 export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label: string;
   hint?: string;
-  /** Replaces the hint, sets aria-invalid */
   error?: string;
-  /** Renders a <textarea> (Kontakt: Nachricht) */
   multiline?: boolean;
 }
 

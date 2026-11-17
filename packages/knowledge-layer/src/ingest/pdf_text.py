@@ -23,35 +23,8 @@ from knowledge_layer.env import env_int
 
 logger = logging.getLogger(__name__)
 
-# @environment_variable PDF_PAGE_MAX_OBJECTS
-# @category Knowledge Layer
-# @type int
-# @default 50000
-# @required false
-# Page objects (paths, text runs, rasters, counted by PDFium) past which a PDF
-# page's text is read by PDFium instead of pdfplumber. pdfplumber turns every
-# vector path into Python dicts and runs its table finder over every edge:
-# measured at about 4 KiB and 0.1 ms per object, so a CAD sheet of 500 000
-# paths costs about 2 GiB and minutes for its title block. Such a page keeps
-# its text, without captioned tables or line styles, and is counted on the
-# file's job status (`pages_read_without_layout`). 0 lifts the ceiling.
 PDF_PAGE_MAX_OBJECTS = env_int("PDF_PAGE_MAX_OBJECTS", 50_000, minimum=0)
 
-# Boilerplate / licence watermark lines stamped into the rendered output by
-# some CAD tools (Vectorworks/AutoCAD educational licences, "DRAFT", etc.).
-# Stripped before the text-length heuristic and before summarisation so a
-# drawing page that is 100% linework does not read as "has text" and so the
-# summary never describes the watermark instead of the drawing. Matched
-# case-insensitively against whole lines (leading/trailing whitespace ignored).
-#
-# Each entry is (phrase_fragment, line_suffix): the fragment is the bare
-# phrase regex (no anchors) and is the single source of truth for both the
-# whole-line patterns below and the substring patterns further down (used to
-# scrub the phrase out of VLM captions where it can appear mid-sentence). The
-# suffix is what follows the phrase to make a *whole line* match: most
-# watermarks are just the phrase itself (``\s*$``), but the Autodesk stamp is
-# often followed by extra trailing boilerplate on the same line, so it needs
-# ``.*$`` instead.
 _WATERMARK_PHRASES: list[tuple[str, str]] = [
     (r"vectorworks\s+educational\s+version", r"\s*$"),
     (r"educational\s+version", r"\s*$"),
@@ -105,9 +78,6 @@ class PdfTextPages(list):
         self.dense_pages = dense_pages or []
 
 
-#: The share of a PDF's pages that may fail to read before the file fails. Past
-#: it the index would hold a document with holes large enough to mislead: an
-#: answer grounded on what is left reads as the whole document.
 _MAX_FAILED_PAGE_FRACTION = 0.2
 
 
@@ -130,16 +100,11 @@ def _read_pdf_page(page, page_num: int, previous, pdf_path: str) -> tuple[dict[s
     """One page's text and captioned tables, and the table a next page may continue."""
     from knowledge_layer.ingest.captioned_tables import extract_page_tables
 
-    # Captioned tables are read as tables and cut out of the text, which would
-    # otherwise read them across their columns (``captioned_tables``).
-    # Fail-open: a page whose table finder raises is extracted exactly as before.
     try:
         found = extract_page_tables(page, page_num, previous)
     except Exception as exc:  # pragma: no cover - pdfplumber edge cases
         logger.warning("Table finding failed on page %d of %s: %s", page_num, pdf_path, exc)
         found = []
-    # Only the page right after a table can continue it: a page without one
-    # ends the chain, or a caption-less box pages later was appended to the old table.
     continued = found[-1][0] if found else None
     boxes = [tuple(bbox) for _table, bbox in found]
     source = page.filter(lambda obj, boxes=boxes: not _inside_any(obj, boxes)) if boxes else page
@@ -149,11 +114,8 @@ def _read_pdf_page(page, page_num: int, previous, pdf_path: str) -> tuple[dict[s
         return None, continued
     from knowledge_layer.ingest.section_chunking import extract_line_styles
 
-    # Font size and weight per line, for the heading-aware chunker of tenant PDFs.
     styles = extract_line_styles(source) if text else []
     entry = {"page_number": page_num, "text": text, "tables": tables, "table_boxes": boxes, "line_styles": styles}
-    # Rasters on the page, counted from what pdfplumber already parsed: the
-    # upload screen reads it to know whether the VLM will see unscreened images.
     entry["image_count"] = _raster_count(page)
     return entry, continued
 

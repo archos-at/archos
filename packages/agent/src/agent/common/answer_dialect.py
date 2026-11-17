@@ -50,8 +50,6 @@ from .sketch_fence import sketch_census
 
 logger = logging.getLogger(__name__)
 
-#: Blocks, written ``:::name`` … ``:::``. Mirrors ``DIRECTIVE_BLOCKS`` in
-#: ``answer-directives.ts``.
 DIRECTIVE_BLOCKS: tuple[str, ...] = (
     "check",
     "procedure",
@@ -64,22 +62,14 @@ DIRECTIVE_BLOCKS: tuple[str, ...] = (
     "subsumption",
 )
 
-#: The blocks the budget counts. ``details`` is disclosure, not a shape.
 PRIMARY_BLOCKS: frozenset[str] = frozenset(DIRECTIVE_BLOCKS) - {"details"}
 
-#: Inline markers and the word each prints as. Mirrors ``DIRECTIVE_MARKERS``.
 DIRECTIVE_MARKERS: dict[str, str] = {"current": "aktuell", "applies": "trifft zu", "recommended": "empfohlen"}
 
-#: The block a marker needs around it to mean anything.
 MARKER_PARENTS: dict[str, str] = {"current": "procedure", "applies": "cases", "recommended": "compare"}
 
-#: The inline project binding, ``:project[building_class]``.
 PROJECT_DIRECTIVE = "project"
 
-#: The keys ``:project[…]`` accepts, each with the project-profile fact it reads
-#: (``apps/workspace/bff/project-profile/intake-definition.ts`` writes them).
-#: Mirrors ``PROJECT_KEYS`` in ``answer-directives.ts``. No ``parcel_area_m2``:
-#: the profile records no Grundstücksfläche.
 PROJECT_KEYS: dict[str, str] = {
     "building_class": "building_class",
     "escape_level_m": "escape_level_m",
@@ -89,34 +79,21 @@ PROJECT_KEYS: dict[str, str] = {
     "gross_floor_area_m2": "gfa_above_ground",
 }
 
-#: ``kind`` → (primary blocks, diagrams) an answer of that kind may carry.
-#: A kind not here (no envelope) is not budgeted.
 BUDGET: dict[str, tuple[int, int]] = {
     "direct": (0, 0),
     "handoff": (0, 0),
     "ruling": (1, 0),
     "walkthrough": (2, 1),
-    # A work report's own structure is the `work` field; the prose may still
-    # hold one block (what someone has to hand in is an `:::actions`).
     "work": (1, 0),
 }
 
-#: How deep blocks nest and how many one answer opens (``MAX_DIRECTIVE_DEPTH`` /
-#: ``MAX_DIRECTIVE_BLOCKS`` in the frontend). Past either bound an opener is
-#: unwrapped: the renderer drops its fences, and so does the server.
 MAX_DIRECTIVE_DEPTH = 4
 MAX_DIRECTIVE_BLOCKS = 64
 
-#: A code fence opener and closer (``lib/text/code-fence.ts``): a backtick
-#: opener's info string holds no backtick, and a closer is bare.
 _FENCE_OPEN = re.compile(r"^[ \t]*(`{3,}|~{3,})(.*)$")
 _FENCE_CLOSE = re.compile(r"^[ \t]*(`{3,}|~{3,})[ \t]*$")
-#: A container opener: ``:::name``, optionally ``[label]`` and ``{attributes}``.
-#: A space after the colons (``::: check``) is a slip both readers repair.
 _OPENER = re.compile(r"^([ \t]*)(:{3,})[ \t]*([A-Za-z][\w-]*)(.*)$", re.ASCII)
-#: A container closer: colons alone on the line.
 _CLOSER = re.compile(r"^([ \t]*)(:{3,})[ \t]*$")
-#: A text directive (``TEXT_DIRECTIVE``). ASCII ``\w`` as in JavaScript.
 _TEXT_DIRECTIVE = re.compile(r"(^|[^\w:\\])(:)([A-Za-z][\w-]*)(?:\[([^\]\n]*)\])?(?:\{[^}\n]*\})?", re.ASCII)
 _LABEL = re.compile(r"^\[([^\]]*)\]")
 _ATTRS = re.compile(r"\{([^}\n]*)\}")
@@ -131,7 +108,6 @@ class _Block:
     label: str
     attrs: str
     parent: int | None
-    #: Past :data:`MAX_DIRECTIVE_DEPTH` or :data:`MAX_DIRECTIVE_BLOCKS`: unwrapped whatever its name.
     bounded: bool = False
 
 
@@ -165,11 +141,8 @@ class DialectResult:
     """The answer held to the dialect, with what was repaired and what it held."""
 
     text: str
-    #: Blocks by name as the model wrote them, and ``diagrams`` (mermaid fences).
     census: dict[str, int] = field(default_factory=dict)
-    #: One entry per repair: ``{"repair": …, "name": …}``.
     repairs: list[dict[str, str]] = field(default_factory=list)
-    #: One verdict per ``excalidraw`` fence, in order (``common/sketch_fence``).
     sketches: list[SketchCheck] = field(default_factory=list)
 
     def as_trace(self) -> dict[str, Any]:
@@ -216,7 +189,6 @@ def _scan(lines: Sequence[str]) -> tuple[list[_Block], list[bool], int, list[_Sk
             if is_sketch_fence(info):
                 sketch = _Sketch(index)
                 sketches.append(sketch)
-            # A sketch is a drawing too, and the budget counts drawings.
             diagrams += info.strip().lower().startswith("mermaid") or sketch is not None
             continue
         opener = _OPENER.match(line)
@@ -280,7 +252,6 @@ def _unwrap_set(blocks: Sequence[_Block], kind: str | None, repairs: list[dict[s
     for index, block in enumerate(blocks):
         if index in unwrap:
             continue
-        # A kind with no primary budget carries no block at all, not even details.
         if allowed == 0 or block.name in PRIMARY_BLOCKS:
             if allowed and kept < allowed:
                 kept += 1
@@ -315,10 +286,8 @@ def _inline(line: str, around: frozenset[str], repairs: list[dict[str, str]]) ->
         if name in DIRECTIVE_MARKERS and label is None:
             if MARKER_PARENTS[name] not in around:
                 repairs.append({"repair": "strip_marker", "name": name})
-                # The space before the marker goes with it (``[1] :current.`` → ``[1].``).
                 return "" if before.isspace() else before
             if name == "current":
-                # Kept: the step's provenance is the conversation's, not decidable here.
                 repairs.append({"repair": "current_unverified", "name": name})
         return match.group(0)
 
@@ -352,7 +321,6 @@ def validate_dialect(text: str, kind: str | None) -> DialectResult:
     unwrap = _unwrap_set(blocks, kind, repairs)
     budget = BUDGET.get(kind or "")
     if budget is not None and diagrams > budget[1]:
-        # A mermaid fence has no content-keeping degrade: logged, never removed.
         repairs.append({"repair": "diagrams_over_budget", "name": "excalidraw" if sketches else "mermaid"})
     _cases_keys(blocks, unwrap, repairs)
     around = _enclosing(blocks, unwrap, len(lines))
@@ -377,7 +345,6 @@ def validate_dialect(text: str, kind: str | None) -> DialectResult:
             out.extend(replaced[index])
             dropped = not replaced[index]
             continue
-        # A fence taken out between two blank lines leaves two; prose keeps one.
         if dropped and not line.strip() and out and not out[-1].strip():
             dropped = False
             continue

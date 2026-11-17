@@ -120,9 +120,6 @@ async def _submitted(req: JobSubmitRequest, request: Request, principal: Any, ex
     from ..jobs.submit import MissingPrincipalError
     from ..jobs.submit import submit_agent_job
 
-    # The envelope the BFF signed for this submit, carried so the run's
-    # person-acting tools act as the person who asked (ADR-0108). Only one
-    # that verifies for THIS principal; anything else and the run acts as nobody.
     request_envelope = capture_request_envelope(request.headers, user_id=principal.sub)
     try:
         job_id = await submit_agent_job(
@@ -133,18 +130,14 @@ async def _submitted(req: JobSubmitRequest, request: Request, principal: Any, ex
             job_id=req.job_id,
             expiry_seconds=expiry,
             data_sources=req.data_sources,
-            # Propagated to the research worker for requires_auth data sources.
             auth_token=get_auth_token(),
             request_envelope=request_envelope,
         )
     except JobAdmissionError as e:
         raise HTTPException(429, str(e), headers={"Retry-After": str(e.retry_after_seconds)})
     except DuplicateJobIdError as e:
-        # Caller-supplied job_id collides with an existing job; letting the
-        # submission proceed would rewrite the original job's ownership.
         raise HTTPException(409, str(e))
     except MissingPrincipalError as e:
-        # Static, user-safe message defined in jobs/submit.py.
         raise HTTPException(403, str(e))
     except RuntimeError:
         logger.exception("Runtime error submitting async %s job", req.agent_type)
@@ -220,8 +213,6 @@ class JobRouteHandlers:
             raise HTTPException(400, str(e))
 
         expiry = req.expiry_seconds if req.expiry_seconds is not None else self.default_expiry_seconds
-        # Authenticate the caller (raises 401/403 if unverified). The returned principal
-        # is also forwarded to submit_agent_job(...) for ownership recording.
         principal = require_verified_principal()
         validation_start = time.perf_counter()
         await validate_data_sources_for_agent(
@@ -298,17 +289,9 @@ class JobRouteHandlers:
 
         job = await authorize_job_access(self.job_store, self.db_url, job_id, _job_caller(request), "control")
 
-        # SUBMITTED is cancellable too: a job stuck before its first status
-        # transition would otherwise be un-cancellable while still consuming
-        # its organization's running-job quota.
         if job.status not in (JobStatus.RUNNING.value, JobStatus.SUBMITTED.value):
             raise HTTPException(400, f"Job not cancellable: {job_id} (status: {job.status})")
 
-        # Conditional, like every other terminal writer: the run may have
-        # finished between the read above and this write, and an unconditional
-        # write would relabel its SUCCESS as a cancel (and, with the report
-        # below, tell the BFF so). The loser of that race gets the same 400 as
-        # a job that had already ended.
         written = await _update_status_if_not_terminal(
             self.job_store, job_id, JobStatus.INTERRUPTED, error="cancelled by user"
         )
@@ -390,20 +373,11 @@ class JobRouteHandlers:
             try:
                 output = json.loads(job.output) if isinstance(job.output, str) else job.output
                 report = output.get("report")
-                # Gated on the report, not read independently: without one there
-                # is no report for these to be the cards OF, and a body saying
-                # `has_report: false` while carrying that report's citations
-                # describes a state the runner cannot produce — it writes both
-                # keys in the same `output` dict or neither.
                 cards = report_cards(output.get("cards")) if report else None
-                # Gated the same way, for the same reason: they are the sources
-                # OF this report, numbered as it cites them.
                 sources = report_sources(output.get("sources")) if report else None
             except json.JSONDecodeError, AttributeError:
                 pass
 
-        # Only when there is something to file. A poll that finds no report yet
-        # is the common case on this route and must not pay for a second read.
         project_collection = await get_job_project_collection(job_id, self.db_url) if report else None
 
         return JobReportResponse(
@@ -442,7 +416,6 @@ class JobRouteHandlers:
         clamped_limit = max(1, min(limit, 200))
         clamped_offset = max(0, offset)
 
-        # Mirrors authorize_job_access: access is only enforced when REQUIRE_AUTH=true.
         visible_to = caller if os.environ.get("REQUIRE_AUTH", "false").lower() == "true" else None
 
         loop = asyncio.get_running_loop()

@@ -4,7 +4,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { ListingFetchError, MAX_LISTING_PAGES, fetchListingPages } from './fetch-listing-pages'
 
-/** A fetch double answering a fixed sequence of page bodies (or statuses). */
 function pages(...answers: Array<{ documents?: string[]; nextCursor?: string | null } | number>) {
   const urls: string[] = []
   const fetcher = vi.fn(async (input: RequestInfo | URL) => {
@@ -65,7 +64,6 @@ describe('fetchListingPages', () => {
       fetcher,
       from: { cursor: 'c2', pagesRead: 1 },
     })
-    // Page one is never asked for again: the first request already carries the cursor.
     expect(urls).toEqual(['/api/documents?projectId=p&limit=500&cursor=c2', '/api/documents?projectId=p&limit=500&cursor=c3'])
     expect(result).toMatchObject({ documents: ['b', 'c'], truncated: false })
 

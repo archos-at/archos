@@ -88,10 +88,6 @@ pytestmark = [
     ),
 ]
 
-# The data sources the OIB config declares, with the same ids and tool names,
-# so ``source_lookup_attempted`` and source capture gate on them exactly as
-# they do in production (``data_source_registry`` is the second gate on
-# capture; a tool it does not know contributes no source).
 _DATA_SOURCES = [
     {
         "id": "web_search",
@@ -114,9 +110,6 @@ _DATA_SOURCES = [
 ]
 _DATA_SOURCE_TOOL_NAMES = frozenset(name for source in _DATA_SOURCES for name in source["tools"])
 
-# One plausible hit, in the exact layout ``knowledge_layer/search/results.py::format_results``
-# emits, so the citation parser registers it as a real source and the answer
-# on the control case has something to cite.
 _KNOWLEDGE_HIT = """\
 --- Result 1 ---
 Source: OIB-Richtlinie 4 – Nutzungssicherheit und Barrierefreiheit (Ausgabe April 2019)
@@ -187,9 +180,6 @@ def web_search_tool(query: str) -> str:
 
 _TOOLS = [knowledge_search, ris_search_tool, ris_fetch_tool, web_search_tool]
 
-# Transport, not behaviour: the one class of failure a rerun is allowed for.
-# ``APIConnectionError`` covers the timeout subclass; the two status errors are
-# the provider saying "not now", not the model saying anything.
 _TRANSPORT_ERRORS = (openai.APIConnectionError, openai.RateLimitError, openai.InternalServerError)
 
 
@@ -218,24 +208,17 @@ def _build_agent(extra_tools: list = []) -> ChatAgent:  # noqa: B006 - read-only
         model=_research_model_name(),
         base_url=_OPENROUTER_BASE_URL,
         api_key=os.environ["OPENROUTER_API_KEY"],
-        # The plumbing ``research_llm`` fixes in the config, which no override
-        # may touch: sampling, the low reasoning tier of the quick-answer path,
-        # a bounded request and the client-side retry count.
         temperature=1.0,
         reasoning_effort="low",
         timeout=120,
         max_retries=2,
     )
-    # What ``get_langchain_llm`` does to every fleet model at build time.
     llm = enforce_chat_request_contract(apply_openrouter_structured_defaults(llm))
     provider = LLMProvider()
     provider.set_default(llm, group=AgentGroup.RESEARCH)
     return ChatAgent(
         llm_provider=provider,
         tools=[*_TOOLS, *extra_tools],
-        # The repair pass re-searches after a failed verification. That is a
-        # second decision made by the pipeline, not the first one made by the
-        # model, and the first is what this eval measures.
         repair_pass=False,
     )
 
@@ -340,16 +323,6 @@ async def test_a_plain_domain_question_still_searches(agent):
     assert _data_source_calls(result), f"a domain question retrieved nothing; answer was: {_answer_text(result)[:400]}"
     assert result.source_lookup_attempted is True
     assert result.escalation_requested is False, result.answer_escalation_reason
-
-
-# --- The drafting turn shapes (ledger row 5) ---------------------------------
-#
-# The retrieval stubs above stand in for a corpus. These do NOT stub the
-# working directory: `write_file`, `edit_file` and the `document_draft` card
-# are the real ones over an in-memory store, because what the case is about is
-# the file that exists and the card the reader gets afterwards. Only the two
-# doors into the project are doubles, and only their HTTP half — the BFF
-# decides identity and permission, and this eval has no BFF.
 
 
 def _filing_stubs(backend):

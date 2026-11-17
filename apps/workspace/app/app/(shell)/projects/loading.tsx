@@ -5,22 +5,6 @@ import { ShellContent } from '@/components/shell'
 import { getTranslations } from '@/i18n/server'
 import { projectsCopy } from '@/i18n/namespaces/projects'
 
-/**
- * Route-level loading state for the projects list. The page is a server
- * component doing DB work, so without this the navigation gives no feedback.
- *
- * It draws the CONTENT COLUMN only. The rail, the `<main>` landmark and the
- * scroll container belong to the persistent shell and are already on screen
- * while this renders — a fallback that re-drew a topbar was drawing chrome that
- * no longer moves, and drawing it at the wrong height was how the profile
- * fallback shipped an 8px jump.
- *
- * Every block mirrors the real surface's box 1:1 (header `min-h-9` with a
- * search-width + button-width action, `RaisedCard` body/footer padding,
- * `h-11 rounded-lg` rows in a `space-y-1` list) so arrival swaps content
- * without moving it. All heights are fixed — nothing here sizes to content,
- * which is what keeps the fallback from collapsing and jumping (CLS).
- */
 export default async function ProjectsLoading(): Promise<JSX.Element> {
   const t = await getTranslations(projectsCopy)
   return (
@@ -45,10 +29,6 @@ export default async function ProjectsLoading(): Promise<JSX.Element> {
           <Skeleton className="mb-3 h-3 w-40" />
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3">
             {Array.from({ length: 3 }).map((_, i) => (
-              // A `RaisedCard` at rest: tray + laid-in body (`px-4 pb-3 pt-3.5`,
-              // title row with status chip, location line) + footer tab
-              // (`px-4 py-2.5`, timestamp + gear). `min-h-28` holds the card's
-              // ~114px even before the blocks paint.
               <div
                 key={i}
                 className="flex min-h-28 flex-col overflow-hidden rounded-lg border border-border bg-muted/50"

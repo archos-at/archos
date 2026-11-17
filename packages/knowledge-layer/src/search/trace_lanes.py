@@ -36,8 +36,6 @@ def _trace_lanes_for_chunks(
             chunk,
             resolved=resolved,
             resolved_titles=resolved_titles,
-            # Neither reaches the fan-out: it names documents by raw
-            # filename, so no citation key is built and no folder is read.
             resolved_folders={},
             ambiguous=set(),
         )
@@ -151,3 +149,6 @@ def _lane_source(hit, detail: str | None, *, opened: bool) -> TraceLaneSource:
     with lane_tool_scope(READ_PASSAGE_TOOL) if opened else nullcontext():
         record_lane_hit(source.name, title=source.title, detail=source.detail, shelf=source.shelf)
     return source
+
+
+trace_lanes_for_chunks = _trace_lanes_for_chunks

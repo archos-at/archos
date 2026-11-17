@@ -44,30 +44,12 @@ from agent.common.bff_http import SignedEnvelope
 
 logger = logging.getLogger(__name__)
 
-#: The one route. Its op set is closed (`create`, `update`, `submit`) on the BFF
-#: side, derived there from the transition table's `actor` field — approve,
-#: request changes, reject, publish and archive have no machine path at all.
 INTERNAL_DOCUMENT_VERSIONS_PATH = "/api/internal/document-versions"
 
-#: The READ side, and a different door: one version's bytes, by version id.
-#:
-#: No envelope, because nothing here acts as a person — the route writes nothing
-#: and the organization is the whole of its predicate, exactly as
-#: ``/api/internal/document-file`` works for a document's storage key. It lives
-#: beside the write door so the two halves of the lifecycle client are one file.
 INTERNAL_DOCUMENT_VERSION_CONTENT_PATH = "/api/internal/document-versions/{version_id}/content"
 
-#: Ceiling for the read. Shorter than the filing timeout because this one is on
-#: the TIME-TO-FIRST-BYTE path: it runs in the turn's setup gather, before the
-#: graph starts, and a subject that cannot be fetched costs the model one
-#: document rather than the answer. Five seconds is generous for one object
-#: fetch and short enough that an unreachable BFF does not become a hung chat.
 CONTENT_TIMEOUT_SECONDS = 5
 
-#: Generous next to a memory write and deliberately so: filing renders Markdown,
-#: admits a quota, writes an object to SeaweedFS and opens a version row. A turn
-#: that gave up at five seconds would leave the reader with a draft that may or
-#: may not have been filed, which is the one outcome worse than a refusal.
 REQUEST_TIMEOUT_SECONDS = 15
 
 

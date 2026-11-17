@@ -39,7 +39,6 @@ from public_sources.access.base import render
 from pydantic import Field
 from pydantic import model_validator
 
-#: Patterns an argument may be declared with, by name, so a record need not write regexes.
 NAMED_PATTERNS: dict[str, str] = {
     "date": r"\d{4}-\d{2}-\d{2}",
     "compact_date": r"\d{8}",
@@ -50,25 +49,18 @@ NAMED_PATTERNS: dict[str, str] = {
 
 class Sparql(Strict):
     endpoint: str
-    #: The query, a template over the arguments and tables. Every argument it
-    #: names must have a pattern, which is what keeps it a query and not an injection.
     query: str
-    #: The result variable holding the manifestation URL.
     binding: str = "file"
-    #: The result variable holding the version label, when the query selects one.
     version_binding: str = ""
 
 
 class ElIConfig(AccessConfig):
-    #: The ELI expression URI template, e.g. ``https://fedlex.data.admin.ch/eli/cc/{work}``.
     eli: str
     resolve: Literal["direct", "sparql"] = "direct"
     sparql: Sparql | None = None
-    #: Argument -> a pattern from :data:`NAMED_PATTERNS` or a regex. Arguments not listed are refused.
     args: dict[str, str]
     defaults: dict[str, str] = Field(default_factory=dict)
     tables: dict[str, Table] = Field(default_factory=dict)
-    #: The argument naming the point in time, copied to ``Fetched.version`` for a direct resolve.
     version_arg: str = ""
 
     def urls(self) -> list[str]:
@@ -97,6 +89,7 @@ def _pattern(spec: str) -> re.Pattern[str]:
 
 
 class HttpEli(AccessType):
+    served_operations = ("expression",)
     name = "http_eli"
     config_model = ElIConfig
 
@@ -109,8 +102,6 @@ class HttpEli(AccessType):
         for name, value in merged.items():
             if not _pattern(self.config.args[name]).fullmatch(value):
                 raise AccessError(f"{self.source.id}: argument {name}={value!r} does not match its pattern")
-        # A date argument is also offered as ``{<name>_compact}`` (YYYYMMDD), the
-        # form ELI paths use (``/20260701``) where queries use the ISO date.
         derived = {f"{k}_compact": v.replace("-", "") for k, v in merged.items() if self.config.args[k] == "date"}
         return {**derived, **merged}
 

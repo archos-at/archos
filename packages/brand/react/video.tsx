@@ -6,16 +6,13 @@ import { joinClasses } from './join-classes';
 
 export interface VideoProps {
   sources: { src: string; type: string }[];
-  /** Poster frame with no text in the centre (the play button sits there) */
   poster?: string;
   label?: string;
-  /** CSS aspect-ratio; default 2 / 1 */
   ratio?: string;
   loop?: boolean;
   className?: string;
 }
 
-/** Muted video with a poster, a centred play button and a progress bar. */
 export function Video({ sources, poster, label, ratio, loop = true, className }: VideoProps) {
   const video = useRef<HTMLVideoElement>(null);
   const fill = useRef<HTMLSpanElement>(null);

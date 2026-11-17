@@ -23,21 +23,21 @@ afterEach(() => vi.restoreAllMocks())
 
 describe('MemorySettings', () => {
   test('a reader without write access gets the list, no controls, and the reason', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue(Response.json({ items: [ITEM] }))
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(Response.json({ items: [ITEM], topics: [] }))
     render(<MemorySettings projectId="p1" canWrite={false} />)
 
     expect(await screen.findByText(ITEM.content)).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /add memory/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /add note/i })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Pin' })).not.toBeInTheDocument()
     expect(screen.getByText(/Changing it needs write access/)).toBeInTheDocument()
   })
 
   test('a writer gets the controls', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue(Response.json({ items: [ITEM] }))
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(Response.json({ items: [ITEM], topics: [] }))
     render(<MemorySettings projectId="p1" canWrite />)
 
     expect(await screen.findByText(ITEM.content)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /add memory/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /add note/i })).toBeInTheDocument()
     expect(screen.queryByText(/Changing it needs write access/)).not.toBeInTheDocument()
   })
 })

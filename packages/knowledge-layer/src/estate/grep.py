@@ -71,20 +71,14 @@ logger = logging.getLogger(__name__)
 OutputMode = Literal["files_with_matches", "content", "count"]
 OUTPUT_MODES: tuple[str, ...] = ("files_with_matches", "content", "count")
 
-#: Documents whose stored page text one grep reads to verify on (a range of pages each), and the seconds
-#: it may spend doing it; the rest are verified on their chunks' own text, which is still exact.
 MAX_STORED_VERIFY = 20
 STORED_VERIFY_SECONDS = 3.0
 
-#: Characters of one page a content-mode passage shows, a window around its first match.
 PASSAGE_CHARS = 2500
-#: How much of the window comes before the first match.
 PASSAGE_LEAD = 600
 
-#: Files one ``files_with_matches`` or ``count`` answer lists.
 MAX_LISTED_FILES = 50
 
-#: Lines the content mode's "lines around the matches" index shows.
 MAX_CONTEXT_INDEX_LINES = 40
 
 FOLDED = "case, ä/ae, ß/ss and hyphenation folded"
@@ -99,9 +93,7 @@ class DocumentMatches:
     shelf: str | None
     file: EstateFile | None
     pages: dict[int | None, int] = field(default_factory=dict)
-    #: ``stored`` (page text, ADR-0134) or ``chunks`` (own chunk text).
     verified_on: str = "chunks"
-    #: The page texts the content mode shows, by page.
     texts: dict[int | None, str] = field(default_factory=dict)
 
     @property
@@ -251,11 +243,9 @@ async def _search(
     chunks, gaps = await _candidates(retriever, entries, query, backend.search_config, parsed, narrowed)
     if isinstance(chunks, ToolOutput):
         return chunks
-    # A place whose scan never answered was not searched: it leaves the denominator, and the gap says so.
     unsearched = {gap.mount for gap in gaps if gap.reason in ("failed", "unavailable")}
     searched_files = [file for file in searched_files if MOUNT_ROOTS[file.mount].rstrip("/") not in unsearched]
     outcome.searched = len(searched_files)
-    # Whatever could not be served (a place, the deadline, the cap) leaves the row a floor, never a full count.
     outcome.incomplete = bool(gaps)
     matches = await _verify(chunks, query, searchable, backend)
     outcome.record(
@@ -264,12 +254,9 @@ async def _search(
         collections=[doc.collection for doc in matches],
     )
     if not matches:
-        # Most of the scope WAS searched: the row is "no hit, incomplete", not a failure (the text says the same).
         return ToolOutput(_no_match(query, where, len(searched_files), gaps), status="ok")
     from agent.knowledge.restricted_use import note_collections_read
 
-    # The listing names every matching file and counts its matches, which is content of each file it names:
-    # reported for the round's admission (ADR-0088), beside the passages a grounding block reports itself.
     note_collections_read(doc.collection for doc in matches)
     head = _summary(query, where, matches, len(searched_files), gaps)
     if output_mode == "content":
@@ -315,7 +302,6 @@ def _narrowing(
             and (fold(file.row.folder) == folder or fold(file.row.folder).startswith(folder + "/"))
         ]
         if not any(not file.restricted for file in files):
-            # A folder nothing listable is filed in is a folder that does not exist, restricted or not.
             return None, f'No folder "{parsed.path}". `ls("{MOUNT_ROOTS[parsed.mount]}")` lists what is there.'
     elif parsed is not None and parsed.mount is not None:
         if parsed.mount and not glob:
@@ -493,11 +479,6 @@ def _count(query: Query, text: str) -> int:
         return 0
 
 
-# ---------------------------------------------------------------------------
-# Rendering
-# ---------------------------------------------------------------------------
-
-
 def _display_path(doc: DocumentMatches) -> str:
     if doc.file is not None:
         return doc.file.path
@@ -635,11 +616,9 @@ def _context_index(picked: Sequence[tuple[DocumentMatches, int | None]], query: 
             break
         lines = _around(doc, page, query, context) if doc.texts.get(page) else []
         licence = file_licence(doc.file.row) if lines and doc.file is not None else None
-        # A licensed document's lines are its text: a reference, expanded only inside the model call (ADR-0164).
         out.extend([licensed_body("\n".join(lines), licence)] if licence is not None and licence.licensed else lines)
     if not out:
         return ""
-    # The lines are the documents' own text, so they sit in the passages' fence (``passage_fence``).
     body = fence("\n".join(out[:MAX_CONTEXT_INDEX_LINES]))
     return f"## Lines around the matches\n{body}\nCite the passages above, not these lines."
 

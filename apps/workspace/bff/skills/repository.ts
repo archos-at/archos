@@ -1,20 +1,9 @@
-/**
- * Skills repository — the only module that queries the `skills` table
- * (ADR-0017). Jobs and their runs live next door in `@/lib/jobs/repository`:
- * a job ATTACHES a skill, so the two are separate tables with separate owners.
- *
- * Repository rules: drizzle only; no HTTP, no auth, no WorkOS. Every query that
- * serves tenant data takes `organizationId` and scopes the WHERE clause with it
- * — tenancy is enforced in SQL. List queries are always bounded.
- */
-
 import 'server-only'
 import { and, asc, desc, eq } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
 import { curatedSkillActivations, type CuratedSkillActivation } from '@/lib/db/schema/curated-skill-activations'
 import { skills, type NewSkill, type Skill } from '@/lib/db/schema/jobs'
 
-/** Hard cap for an organization's skill list. */
 export const SKILLS_LIST_LIMIT = 100
 
 export async function insertSkill(values: NewSkill): Promise<Skill> {
@@ -36,7 +25,6 @@ export async function listSkillsInOrg(
     .limit(limit)
 }
 
-/** Load a skill scoped to an organization. */
 export async function findSkill(skillId: string, organizationId: string): Promise<Skill | null> {
   const db = getDb()
   const [row] = await db
@@ -47,7 +35,6 @@ export async function findSkill(skillId: string, organizationId: string): Promis
   return row ?? null
 }
 
-/** Load a skill by name scoped to an organization (name is unique per org). */
 export async function findSkillByName(
   name: string,
   organizationId: string,
@@ -61,7 +48,6 @@ export async function findSkillByName(
   return row ?? null
 }
 
-/** The columns a service may update on a skill. */
 export type SkillUpdate = Partial<
   Pick<
     Skill,
@@ -98,15 +84,6 @@ export async function deleteSkill(skillId: string, organizationId: string): Prom
   return deleted.length > 0
 }
 
-// ---------------------------------------------------------------------------
-// Platform-curated skill activations
-//
-// A platform skill is a FILE, so an org's decision about one cannot live on the
-// skill. It lives here: one row per curated skill the org has decided about,
-// and no row for the ones it has never been asked about.
-// ---------------------------------------------------------------------------
-
-/** Hard cap: an org cannot decide about more skills than the platform ships. */
 export const ACTIVATIONS_LIST_LIMIT = 200
 
 export async function listCuratedSkillActivations(
@@ -118,22 +95,10 @@ export async function listCuratedSkillActivations(
     .select()
     .from(curatedSkillActivations)
     .where(eq(curatedSkillActivations.organizationId, organizationId))
-    // Ordered because it is BOUNDED. Activation rows outlive the skills they
-    // name (a decision about a withdrawn skill is kept), so an org can in
-    // principle accumulate more than the cap — and an unordered truncation
-    // would drop a different arbitrary set each query, silently reading as
-    // "not activated" for whichever rows fell off.
     .orderBy(asc(curatedSkillActivations.skillName))
     .limit(limit)
 }
 
-/**
- * Record the org's decision about one curated skill.
- *
- * An upsert rather than an insert-or-update pair: a switch is idempotent by
- * nature — flipping it to the state it is already in must be a no-op, not a
- * unique violation the caller has to interpret.
- */
 export async function upsertCuratedSkillActivation(values: {
   organizationId: string
   skillName: string

@@ -1,9 +1,3 @@
-/**
- * The wizard's role field uploads straight to `/api/documents/upload`, so it
- * owes the same name screen the Files page applies before a byte leaves the
- * browser (ADR-0086): a file the office's policy holds back is not sent, and
- * the reader is told which and why.
- */
 import { fireEvent, render, screen, waitFor } from '@/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { toast } from 'sonner'
@@ -17,7 +11,6 @@ import { DocumentRoleField } from './document-role-field'
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), info: vi.fn(), success: vi.fn() } }))
 
-// The drop zone is `useFileDragDrop`'s, which reads the app's upload config.
 vi.mock('@/shared/context', () => ({
   useAppConfig: () => ({
     fileUpload: {
@@ -134,7 +127,6 @@ describe('DocumentRoleField upload', () => {
       expectedCount: 3,
       excluded: [{ term: 'Honorar', count: 1 }],
     })
-    // Opened before the first file went.
     expect(calls.findIndex(([url]) => url === '/api/upload-batches')).toBeLessThan(
       calls.findIndex(([url]) => url === '/api/documents/upload')
     )

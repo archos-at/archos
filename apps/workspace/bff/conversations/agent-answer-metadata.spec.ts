@@ -1,16 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The translation between the backend's wire spelling and the stored contract.
- *
- * What these tests pin is that an answer persisted by the BACKEND (the client
- * dropped mid-turn — the case where the server row is the only copy) comes back
- * carrying the same three trust signals a browser-persisted one does: the
- * source's authority fields, the confidence level WITH its reason, and the
- * locators a citation needs to be clickable. Plus the two properties that make
- * that safe: the stored blob always decodes, and nothing is invented.
- */
 import { describe, expect, it } from 'vitest'
 
 import { CITATIONS_PAYLOAD_VERSION, decodeCitations } from '@/features/chat/lib/citations'
@@ -20,7 +10,6 @@ import {
   provenanceFromBackendMetadata,
 } from './agent-answer-metadata'
 
-/** One source as `source_entry_to_wire` emits it for a knowledge-base passage. */
 const kbSource = (overrides: Record<string, unknown> = {}) => ({
   number: 1,
   document_id: 'oib-rl-2:2019',
@@ -65,8 +54,6 @@ describe('encodeBackendSources', () => {
     ])
     expect(ris?.sources[0].binding_note).toBe('In Wien durch die Bauordnung verbindlich erklärt.')
 
-    // The absence of a binding note is a fact about the registry, not a licence
-    // to derive one from `source_type`.
     const withoutNote = encodeBackendSources([kbSource()])
     expect(withoutNote?.sources[0]).not.toHaveProperty('binding_note')
   })
@@ -103,9 +90,6 @@ describe('encodeBackendSources', () => {
   })
 
   it('drops an entry the reader would choke on rather than losing the whole row', () => {
-    // `page: 0` fails the decoder's positive-int constraint, and the decoder
-    // parses the envelope as a unit — one bad entry would take every citation
-    // on the answer with it.
     const encoded = encodeBackendSources([
       kbSource({ page: 0 }),
       kbSource({ file_name: 'B.pdf', page: 4 }),
@@ -188,10 +172,6 @@ describe('provenanceFromBackendMetadata', () => {
   })
 
   it('carries the marks the run left on its own answer', () => {
-    // The jobs runner is the ONLY writer a deep-research answer ever has, so
-    // these four keys are not a backup of a live turn — they are the whole
-    // record. Undecoded, a salvaged, partially researched report reopened
-    // tomorrow rendered identically to a complete one.
     expect(
       provenanceFromBackendMetadata({
         research_truncated: true,
@@ -208,18 +188,12 @@ describe('provenanceFromBackendMetadata', () => {
   })
 
   it('reads only literal true as a cutoff', () => {
-    // Presence IS the fact. `false` on the row is one more default to
-    // interpret, and telling a reader their research was cut off when nothing
-    // recorded a cutoff is worse than telling them nothing.
     expect(
       provenanceFromBackendMetadata({ research_truncated: false, truncation_reason: 'wall_clock' })
     ).toEqual({ truncationReason: 'wall_clock' })
   })
 
   it('stores a stopped answer as stopped, and nothing else as one', () => {
-    // The agent tier persists a cancelled turn's partial prose with
-    // `stopped: true` (chat wire v2 §c). The mark moves into `provenance`, and
-    // the loose key leaves the row so the column holds one dialect.
     const result =
       normalizeAgentAnswerMetadata({ answer_confidence: 'medium', stopped: true }) ?? {}
     expect(result).not.toHaveProperty('stopped')
@@ -228,8 +202,6 @@ describe('provenanceFromBackendMetadata', () => {
   })
 
   it('carries the level the turn ran at, and only a level the dial offers', () => {
-    // Written by the socket-persistence path when the asking tab was gone, so
-    // the thorough retry still steps up from the level the turn really ran at.
     const result = normalizeAgentAnswerMetadata({ reasoning_effort: 'high' }) ?? {}
     expect(result).not.toHaveProperty('reasoning_effort')
     expect(result.provenance).toEqual({ reasoningEffort: 'high' })
@@ -237,8 +209,6 @@ describe('provenanceFromBackendMetadata', () => {
   })
 
   it('reads the cause even when the flag was lost, matching the backend extractor', () => {
-    // `jobs/runner._extract_answer_transparency` reads the two independently: a
-    // state that knows WHY it stopped still knows something true.
     expect(provenanceFromBackendMetadata({ truncation_reason: 'step_limit' })).toEqual({
       truncationReason: 'step_limit',
     })
@@ -332,8 +302,6 @@ describe('normalizeAgentAnswerMetadata', () => {
   })
 
   it('translates read_sources into the readSources envelope the mapper restores', () => {
-    // The backend-written row for a turn whose client dropped mid-turn must
-    // reopen with the same disclosure a live tab showed.
     const result = normalizeAgentAnswerMetadata({
       sources: [kbSource()],
       read_sources: [
@@ -355,9 +323,6 @@ describe('normalizeAgentAnswerMetadata', () => {
   })
 
   it('stores read_sources as identity + placement only — no prose, clause or score', () => {
-    // A document the answer never cited must not carry evidence text into the
-    // row: the passage surfaces read the stored envelope, and prose stored
-    // under an uncited document would let it ground highlights it never earned.
     const result = normalizeAgentAnswerMetadata({
       read_sources: [
         {
@@ -396,13 +361,11 @@ describe('normalizeAgentAnswerMetadata', () => {
     ]) {
       expect(stored).not.toHaveProperty(key)
     }
-    // Still decodable: the locator the disclosure renders survived.
     const decoded = decodeCitations(result?.readSources, new Date('2026-09-01T10:00:00.000Z'))
     expect(decoded![0]).toMatchObject({ fileName: 'OIB-RL-3.pdf', page: 4 })
   })
 
   it('stores the English names for a source an older pod still describes in German', () => {
-    // The kind has no German reader any more (migration 0163); the lane, binding and Punkt do.
     const result = normalizeAgentAnswerMetadata({
       sources: [
         kbSource({
@@ -425,8 +388,6 @@ describe('normalizeAgentAnswerMetadata', () => {
   })
 
   it('keeps storing the passage fields for cited sources', () => {
-    // The stripping above is read-only: a cited source still needs its
-    // passage, its Punkt and its score.
     const result = normalizeAgentAnswerMetadata({
       sources: [kbSource({ clause: '3.5.2', score: 0.87 })],
     })
@@ -439,10 +400,6 @@ describe('normalizeAgentAnswerMetadata', () => {
   })
 
   it("normalizes a row that carries ONLY the run's marks", () => {
-    // The row a cut-off deep run writes has no confidence and no sources to
-    // translate. If those were what triggered the translation, this row — the
-    // one that most needs it — would pass through untouched and the answer
-    // would reopen looking finished.
     const result = normalizeAgentAnswerMetadata({
       messageType: 'agent_response',
       research_truncated: true,
@@ -459,10 +416,6 @@ describe('normalizeAgentAnswerMetadata', () => {
   })
 
   it('translates the backend-written retrieval ledger into provenance, one dialect', () => {
-    // The row the socket-persistence path writes when the client had gone.
-    // Left untranslated, the snake_case key would sit in the column forever
-    // and a later tightening of the strip list would delete the ledger for
-    // exactly the turns it exists for.
     const result =
       normalizeAgentAnswerMetadata({
         messageType: 'agent_response',

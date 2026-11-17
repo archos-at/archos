@@ -5,8 +5,6 @@ import { describe, test, expect } from 'vitest'
 import { oibDisplayTitle, documentDisplayName, documentEdition, documentShortName } from './document-names'
 
 describe('oibDisplayTitle — mirror of norm_registry.guess_display_title', () => {
-  // Cases lifted from the backend docstring; both sides must agree or a card's
-  // name would change when a message is reloaded from storage.
   test.each([
     ['oib-rl_2_ausgabe_mai_2023.pdf', 'OIB-Richtlinie 2, Ausgabe Mai 2023'],
     ['oib-rl_2.3_ausgabe_mai_2023.pdf', 'OIB-Richtlinie 2.3, Ausgabe Mai 2023'],
@@ -14,7 +12,6 @@ describe('oibDisplayTitle — mirror of norm_registry.guess_display_title', () =
     ['oib-rl_2_leitfaden_ausgabe_mai_2023.pdf', 'OIB-Richtlinie 2 – Leitfaden, Ausgabe Mai 2023'],
     ['erlaeuterungen_oib-rl_2_ausgabe_mai_2023.pdf', 'Erläuterungen zu OIB-Richtlinie 2, Ausgabe Mai 2023'],
     ['aenderungen_oib-rl_5_ausgabe_mai_2023.pdf', 'Änderungen zu OIB-Richtlinie 5, Ausgabe Mai 2023'],
-    // OIB-RL 2.2 is the one part oib.or.at publishes under `oib-richtlinie_`.
     ['oib-richtlinie_2.2_ausgabe_mai_2023.pdf', 'OIB-Richtlinie 2.2, Ausgabe Mai 2023'],
     [
       'erlaeuterungen-zu-oib-richtlinie_2.2_ausgabe_mai_2023.pdf',
@@ -64,7 +61,6 @@ describe('documentDisplayName', () => {
   })
 
   test('leaves a name that has no known document extension intact', () => {
-    // A hostname from the URL-scan fallback must not lose its TLD.
     expect(documentDisplayName('ris.bka.gv.at', 'ris.bka.gv.at')).toBe('ris.bka.gv.at')
     expect(documentDisplayName('Konzept_v1.2')).toBe('Konzept v1.2')
   })

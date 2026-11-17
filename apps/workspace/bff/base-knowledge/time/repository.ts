@@ -1,16 +1,3 @@
-/**
- * The SQL of "which edition applied" (ADR-0171): a work's editions with their
- * in-force dates and transitions, and how far back its history is held. Runs as
- * the office (`withTenant`) and names the office's read itself
- * (`store/visibility.ts`): the same records the chain reads, so an edition
- * that binds there is one this path answers for. The layered RLS is the
- * backstop, not the filter.
- *
- * Fail closed on the stored data: a transition the current schema cannot read
- * is reported, never skipped, since skipping it would let the reference date
- * decide a boundary the transition decides.
- */
-
 import 'server-only'
 import { sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
@@ -21,10 +8,8 @@ import { readTerritoryParents } from '../platform/territories'
 import { recordReadable } from '../store/visibility'
 import type { WorkInTime } from './as-of'
 
-/** Most editions one work has; a consolidated law has one per in-force date, so this is generous. */
 export const MAX_EDITIONS = 500
 
-/** A `date` column as an ISO date, whichever form the driver returns it in. */
 export function isoDateOf(value: unknown): string | null {
   if (value === null || value === undefined) return null
   if (value instanceof Date) return value.toISOString().slice(0, 10)
@@ -46,13 +31,10 @@ interface EditionRow extends Record<string, unknown> {
 
 export interface WorkInTimeRead {
   work: WorkInTime
-  /** Editions whose transition the current schema cannot read. */
   unreadable: string[]
-  /** More than {@link MAX_EDITIONS}: the read is incomplete and decides nothing. */
   truncated: boolean
 }
 
-/** The work and its editions in force (at their heads), or null when the office sees no such work. */
 export async function readWorkInTime(
   organizationId: string,
   workId: string
@@ -92,7 +74,6 @@ export async function readWorkInTime(
   })
 }
 
-/** The legislating node and every territory it lies in on `date`, nearest first. */
 export async function readTerritoryChain(
   organizationId: string,
   territoryId: string,
@@ -102,4 +83,19 @@ export async function readTerritoryChain(
     readTerritoryParents(getDb(), organizationId, territoryId)
   )
   return chainAt(territoryId, date, (id) => parents.get(id))
+}
+
+export async function readTerritoryZones(
+  organizationId: string,
+  territoryIds: readonly string[]
+): Promise<Record<string, string>> {
+  if (territoryIds.length === 0) return {}
+  const rows = await withTenant({ organizationId }, () =>
+    getDb().execute<{ id: string; zone: string }>(sql`
+      SELECT r.id, t.zone
+      FROM knowledge_records r JOIN knowledge_territory_revisions t ON t.revision_id = r.head_revision_id
+      WHERE r.type = 'territory' AND r.id IN (${sql.join(territoryIds.map((id) => sql`${id}`), sql`, `)})
+        AND t.zone IS NOT NULL AND ${recordReadable('r', organizationId)}`)
+  )
+  return Object.fromEntries(rows.map((row) => [row.id, String(row.zone)]))
 }

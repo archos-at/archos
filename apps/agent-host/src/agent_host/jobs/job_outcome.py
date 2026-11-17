@@ -31,11 +31,13 @@ from .event_store import EventStore
 from .outcome_notify import notify_job_outcome
 from .phase_events import PHASE_DONE
 from .phase_events import emit_phase_event
+from .run_result import TEMPORARY_CONVERSATION_SKIP
 from .run_result import build_job_output
 from .run_result import extract_answer_transparency
 from .run_result import extract_result
 from .run_result import extract_skills_activated
 from .run_result import extract_verified_sources
+from .run_result import is_temporary_conversation
 from .run_result import mark_degraded
 from .runner import _DEGRADED_EVENT_FIELDS
 from .runner import JOB_DEGRADED_EVENT_TYPE
@@ -64,11 +66,26 @@ class JobOutcome:
     report: str
     cards: list[Any] | None
     transparency: dict[str, Any]
-    # The answer's structured provenance: the job output feeds the live Report
-    # panel, the thread turn the thread on reload, and both get this one list.
     sources: list[dict[str, Any]] | None
     skills_activated: list[str] | None
     output: Any
+
+
+def reflection_enabled(request: JobRequest) -> bool:
+    """Whether the run reflects on its report: the organization's flag, and never for a temporary conversation.
+
+    A temporary conversation keeps nothing (ADR-0180 rule 2). The BFF says so at
+    submit (``usage_context["temporary_conversation"]``), so the skip costs no
+    model call and is named in the log; the trace says it on the workflow span
+    (``agent_job_setup.trace_metadata``). A conversation switched to temporary
+    after the submit is not known here: the BFF's memory routes refuse its writes.
+    """
+    if not request.memory_reflection_enabled:
+        return False
+    if is_temporary_conversation(request.usage_context):
+        logger.info("Job %s: memory reflection skipped: %s", request.job_id, TEMPORARY_CONVERSATION_SKIP)
+        return False
+    return True
 
 
 async def persist(
@@ -88,9 +105,6 @@ async def persist(
     best-effort and none of them can fail the job.
     """
     report = extract_result(result)
-    # Grid cards, anatomy and follow-ups run together, then the memory reflection,
-    # which the chat path skips for deep jobs because the report exists only now.
-    # An agent that declares ``produces_report = False`` gets none of them.
     cards_result, anatomy, follow_ups = await _run_report_passes(
         produces_report=_produces_report(agent_cls),
         llm=models.llm,
@@ -99,9 +113,8 @@ async def persist(
         organization_id=request.organization_id,
         builder=builder,
         job_id=request.job_id,
-        # A scheduled job's submitter (the BFF) knows the flag, not the config's LLM ref.
         reflection_llm_ref=request.memory_reflection_llm or _workflow_reflection_llm_ref(config),
-        reflection_enabled=request.memory_reflection_enabled,
+        reflection_enabled=reflection_enabled(request),
         usage_context=request.usage_context,
         memory_digest=run.memory_digest,
         org_credential=models.org_credential,
@@ -117,7 +130,6 @@ async def persist(
     transparency = _transparency(scope, request, result, anatomy, follow_ups, cards_failed=cards_result.failed)
     if getattr(models.fn_config, "type", None) == "deep_research_agent":
         emit_phase_event(scope.event_store, PHASE_DONE)
-    # Flush buffered events before the status changes.
     if hasattr(scope.event_store, "flush"):
         scope.event_store.flush()
     sources = extract_verified_sources(result)
@@ -148,17 +160,11 @@ def _transparency(
             transparency["findings"] = anatomy.findings
         if follow_ups:
             transparency["stages"] = {"followUps": follow_ups}
-        # Post-hoc card generation is the runner's own step, so its failure is
-        # recorded here: the report is whole, the proposals derived from it are not.
         if cards_failed:
             mark_degraded(transparency, DEGRADED_CARDS_GENERATION_FAILED)
         if scope.event_store is not None and (
             transparency.get("research_truncated") or transparency.get("degraded_reasons")
         ):
-            # Its own event, NOT a status change: the run succeeded with a marked
-            # answer, and a live listener would otherwise learn it only by
-            # re-reading the finished job. Stable tokens only; the reader's caveat
-            # rides the report's own banner.
             data = {key: transparency[key] for key in _DEGRADED_EVENT_FIELDS if key in transparency}
             scope.event_store.store({"type": JOB_DEGRADED_EVENT_TYPE, "data": data})
     except Exception:
@@ -211,15 +217,10 @@ async def _write_thread_turn(scope: JobScope, request: JobRequest, outcome: JobO
         cards=outcome.cards,
         skills_activated=outcome.skills_activated,
         sources=outcome.sources,
-        # The same marks the job output got: the thread reads only this row, so
-        # a salvaged run would otherwise reopen tomorrow as a clean answer.
         transparency=outcome.transparency,
         expect_run=request.expect_run,
-        # The trace this run is in: the BFF scores votes on the report there.
         trace_id=current_trace_id_hex(),
     )
-    # The message the report was written into, for the run's ledger. No file id
-    # yet: this tier does not file the report.
     if scope.ledger is not None:
         scope.ledger.note_result(report_message_id=landed_in or None)
 
@@ -240,8 +241,6 @@ async def finish_failed(scope: JobScope, request: JobRequest, exc: Exception) ->
             scope.job_store, request.job_id, JobStatus.FAILURE, error=safe_error
         )
     verdict = JobStatus.FAILURE.value
-    # The conversation was created when the job fired; left alone, a failed run
-    # leaves an empty thread that reads as a broken product.
     if await _should_write_notice(
         job_store=scope.job_store, job_id=request.job_id, verdict=verdict, finalized=finalized
     ):
@@ -252,8 +251,6 @@ async def finish_failed(scope: JobScope, request: JobRequest, exc: Exception) ->
             notice=FAILURE_NOTICE,
             expect_run=request.expect_run,
         )
-    # A standing FAILURE (the reaper's) is reported by the reaper too; a repeat
-    # here is harmless.
     if await _should_notify_outcome(
         job_store=scope.job_store, job_id=request.job_id, verdict=verdict, finalized=finalized
     ):

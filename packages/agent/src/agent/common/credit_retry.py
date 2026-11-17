@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import random
 
-#: Retries after the first attempt; the waits are 1 s, 2 s, 4 s (about 7 s in all).
 MAX_RETRIES = 3
 BASE_DELAY_SECONDS = 1.0
 IN_FLIGHT_MARKER = "in-flight"

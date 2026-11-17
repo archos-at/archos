@@ -1,26 +1,17 @@
-/** Stuck, transient, failed and just-finished ingest documents. */
-
 import 'server-only'
-import { and, asc, eq, getTableColumns, inArray, isNull, lt, or, sql } from 'drizzle-orm'
+import { and, asc, eq, getTableColumns, inArray, isNull, like, lt, or, sql, type SQL } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
 import { withPlatformAccess, withTenant } from '@/lib/db/tenant-context'
 import { columnStatuses, IN_FLIGHT_DOCUMENT_STATUSES } from '../document-status'
+import { INTERRUPTED_REASON_PREFIX } from '../lost-job'
 import { documentShelf } from '../shelf'
 import { publishShelfChanged } from '../shelf-live'
 import { bffJobQueue } from '@/lib/db/schema/bff-job-queue'
 import { documents, type Document } from '@/lib/db/schema/documents'
-import { notQuarantined } from './mutations'
+import { statusAccepts, unchangedSinceDispatch, type DispatchStart } from './mutations'
+import { BACKGROUND_JOB_METADATA_FIELD, type LocalWorkOwnership } from '../local-work-ownership'
 
-/**
- * The in-flight documents dispatched as the ingest jobs `jobIds`, in every
- * organization: the settle push (`/api/internal/ingest/settled`) names jobs,
- * not documents or tenants. Discovery only, under platform access; the caller
- * reconciles each row inside its own organization. A job id no row carries
- * finds nothing, and a row that already came to rest is not in flight, so a
- * second push for the same job finds nothing either. Bounded by the ids: one
- * dispatch records one job id on one row (`setDocumentIngestJob`).
- */
-export async function listInFlightDocumentsForIngestJobs(jobIds: readonly string[]): Promise<Document[]> {
+export async function listSettleableDocumentsForIngestJobs(jobIds: readonly string[]): Promise<Document[]> {
   if (jobIds.length === 0) return []
   const db = getDb()
   return withPlatformAccess('settle push: finding the documents of ingest jobs that ended', () =>
@@ -29,7 +20,10 @@ export async function listInFlightDocumentsForIngestJobs(jobIds: readonly string
       .from(documents)
       .where(
         and(
-          inArray(documents.status, columnStatuses(IN_FLIGHT_DOCUMENT_STATUSES)),
+          or(
+            inArray(documents.status, columnStatuses(IN_FLIGHT_DOCUMENT_STATUSES)),
+            and(eq(documents.status, 'failed'), like(documents.errorMessage, `${INTERRUPTED_REASON_PREFIX}%`)),
+          ),
           inArray(sql`${documents.metadata} ->> 'ingestJobId'`, [...jobIds]),
         ),
       )
@@ -37,30 +31,16 @@ export async function listInFlightDocumentsForIngestJobs(jobIds: readonly string
   )
 }
 
-/** A document left at `processing` with no live job behind it. */
 export interface StuckProcessingDocument {
   id: string
   organizationId: string
-  /** `dead` when its job failed every attempt, `null` when it has none (a row from before jobs, or a lost enqueue). */
   jobStatus: 'dead' | null
+  jobId: string | null
   lastError: string | null
 }
 
-/**
- * Documents at `processing` since before `before` whose job is gone or dead,
- * oldest first. Platform scope by nature: the caller is a sweep over every
- * organization, and acts on each row inside its own.
- *
- * A row whose job is still `queued` or `claimed` is left out in the query, so
- * the batch is always rows that need something done. So is a row in a folder
- * that went to the Papierkorb (ADR-0088): it is hidden and its chunks were
- * purged, and restoring the folder marks it `processing` for the restore's
- * job again; a job queued for it here would only parse or convert a document
- * nobody may see. Once restored, a row that job never reached (it died, or its
- * requester lost access) is found here like any other.
- */
 export async function listStuckProcessingDocuments(
-  before: Date,
+  stranded: Date | { deadJobId: string },
   limit: number,
 ): Promise<StuckProcessingDocument[]> {
   const db = getDb()
@@ -70,6 +50,7 @@ export async function listStuckProcessingDocuments(
         id: documents.id,
         organizationId: documents.organizationId,
         jobStatus: bffJobQueue.status,
+        jobId: bffJobQueue.jobId,
         lastError: bffJobQueue.lastError,
       })
       .from(documents)
@@ -80,7 +61,7 @@ export async function listStuckProcessingDocuments(
       .where(
         and(
           eq(documents.status, 'processing'),
-          lt(documents.updatedAt, before),
+          stranded instanceof Date ? lt(documents.updatedAt, stranded) : eq(bffJobQueue.jobId, stranded.deadJobId),
           or(isNull(bffJobQueue.jobId), eq(bffJobQueue.status, 'dead')),
           sql`NOT EXISTS (SELECT 1 FROM project_folders f WHERE f.id = ${documents.folderId} AND f.deleted_at IS NOT NULL)`,
         ),
@@ -92,55 +73,59 @@ export async function listStuckProcessingDocuments(
     id: row.id,
     organizationId: row.organizationId,
     jobStatus: row.jobStatus === 'dead' ? 'dead' : null,
+    jobId: row.jobId ?? null,
     lastError: row.lastError ?? null,
   }))
 }
 
-/**
- * Persist an ingestion failure so status reads tell the truth. Without this a
- * document whose ingest dispatch never started would sit at 'uploaded' — which
- * the UI renders as a green "Ready" — forever (reconciliation only revisits
- * in-flight statuses, and there is no job id to reconcile against).
- *
- * A failure the BFF records itself (the dispatch did not start, the office
- * conversion or the IFC parse failed) carries no backend category, so it
- * clears the last one (migration 0134): a dispatch that never reached the
- * backend says nothing about the bytes, and an earlier `deterministic` left
- * standing would refuse the retry this failure deserves.
- */
+export type { LocalWorkOwnership } from '../local-work-ownership'
+
+export function stillOwnedBy(owned: LocalWorkOwnership): SQL | undefined {
+  const named = sql`${documents.metadata} ->> ${BACKGROUND_JOB_METADATA_FIELD}::text`
+  const jobId = owned.backgroundJobId
+  return and(
+    eq(documents.status, 'processing'),
+    ...(owned.storageKey ? [eq(documents.storageKey, owned.storageKey)] : []),
+    ...(jobId ? [owned.unnamedCounts ? sql`coalesce(${named}, ${jobId}) = ${jobId}` : sql`${named} = ${jobId}`] : []),
+  )
+}
+
+function failureLandsOn(from: LocalWorkOwnership | DispatchStart | undefined): SQL | undefined {
+  if (!from) return statusAccepts('fail')
+  if ('ingestJobId' in from) return and(statusAccepts('fail'), unchangedSinceDispatch(from))
+  return stillOwnedBy(from)
+}
+
 export async function markDocumentIngestFailed(
   documentId: string,
   organizationId: string,
   errorMessage: string,
-): Promise<void> {
+  from?: LocalWorkOwnership | DispatchStart,
+): Promise<boolean> {
   const db = getDb()
   const [row] = await withTenant({ organizationId }, () =>
     db
       .update(documents)
       .set({ status: 'failed', errorMessage, ingestFailureCategory: null, ingestRetryable: null, updatedAt: new Date() })
-      .where(and(eq(documents.id, documentId), eq(documents.organizationId, organizationId), notQuarantined))
+      .where(
+        and(
+          eq(documents.id, documentId),
+          eq(documents.organizationId, organizationId),
+          failureLandsOn(from),
+        ),
+      )
       .returning({ projectId: documents.projectId, scope: documents.scope }),
   )
-  // The one door every hard failure goes through (a dispatch refused, an IFC
-  // extraction that failed, a row stuck in processing): the badge turns red
-  // for everyone reading the shelf, not only for a tab that happens to poll it.
   if (row) publishShelfChanged(organizationId, documentShelf(row))
+  return Boolean(row)
 }
 
-/** What `document_ingest_finished` says about a row beyond the reconcile's own view. */
 export interface IngestAnnouncementFacts {
-  /** Dispatches of the row so far (`ingest_attempts`); null on a row from before the column. */
   attempt: number | null
-  /** The upload gesture that wrote the bytes, or null. */
   uploadBatchId: string | null
-  /** The stored file's size in bytes, or null: what an ingest's cost is divided by for cost per byte. */
   fileSize: number | null
 }
 
-/**
- * The attempt count and upload batch of the rows a read just settled, by id.
- * Fail-open: analytics must not fail a status read, so a failed read answers with no facts.
- */
 export async function findIngestAnnouncementFacts(
   organizationId: string,
   documentIds: string[],
@@ -172,13 +157,6 @@ export async function findIngestAnnouncementFacts(
   return facts
 }
 
-/**
- * Documents the backend took (`pending`, with a job id) and nobody has asked about
- * since `before`, oldest first, across every organization. Reconciliation is pull-only
- * (the backend pushes no result back), so a row whose office closed the tab, and which
- * no open upload batch names, stayed `pending` until somebody next read its shelf:
- * hours, or days. The caller reconciles each row inside its own organization.
- */
 export async function listStalePendingDocuments(before: Date, limit: number): Promise<Document[]> {
   const db = getDb()
   return withPlatformAccess('document sweep: finding dispatched ingests nobody has read back', () =>

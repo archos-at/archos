@@ -33,11 +33,6 @@ function ResizableHandle({
       data-slot="resizable-handle"
       className={cn(
         'group/separator relative flex w-px items-center justify-center bg-border after:absolute after:inset-y-0 after:left-1/2 after:w-2 after:-translate-x-1/2',
-        // The seam is a hairline at rest and stays one. It used to jump to
-        // `foreground` — near-black, the heaviest line on the page — the moment
-        // a pointer came near it. It warms on approach instead, and goes to
-        // full ink only while it is actually being dragged, which is the one
-        // moment the reader wants to see exactly where the edge is.
         'transition-colors duration-quick ease-out motion-reduce:transition-none',
         'hover:bg-foreground/40 active:bg-foreground/70 data-[separator=active]:bg-foreground/70',
         'focus-visible:outline-none',
@@ -50,12 +45,6 @@ function ResizableHandle({
     >
       {withHandle && (
         <div
-          // Shown when it is reached for, not always. A grip pill parked
-          // half-way down a 1px line is a permanent artifact hanging in the
-          // seam between two surfaces, and it sits PROUD of that line on both
-          // sides — so it reads as debris in whichever pane the eye is in.
-          // Hover, keyboard focus and the drag itself all bring it up, and the
-          // cursor already makes the same promise on approach.
           className={cn(
             'z-10 flex h-4 w-3 items-center justify-center rounded-control border border-border bg-background text-foreground',
             'opacity-0 transition-opacity duration-quick ease-out motion-reduce:transition-none',

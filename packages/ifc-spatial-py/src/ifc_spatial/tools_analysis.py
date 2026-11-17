@@ -21,17 +21,11 @@ from ifc_spatial.tools_types import ToolError
 
 from . import circulation as circ
 from . import daylight as dl
-
-# `env`, not `envelope`: `envelope.py` is the ANSWER CONTRACT (`Answer`,
-# `computed`, `undecidable`) and `envelope_geometry.py` is the thermal envelope.
-# Two unrelated meanings of one word, one of which is imported from below.
 from . import envelope_geometry as env
 from . import fire as fi
 from . import operators as op
 from .briefing import content_hash
 from .model import SpatialModel
-
-# ── the caption ─────────────────────────────────────────────────────────
 
 
 def _plan_note(drawn: Any) -> str:
@@ -64,9 +58,6 @@ def _plan_note(drawn: Any) -> str:
     return f"{head} — auf dieser Höhe erscheinen Tür- und Fensteröffnungen als Lücken in der Wand. {tail}"
 
 
-# ── fire (OIB 2) ────────────────────────────────────────────────────────
-
-
 def fire_op(resolve: Callable[[Any], SpatialModel], args: dict[str, Any]) -> Any:
     """The four OIB-2 operators behind one name.
 
@@ -75,11 +66,7 @@ def fire_op(resolve: Callable[[Any], SpatialModel], args: dict[str, Any]) -> Any
     is a name make a model choose a word instead of a question.
     """
     model = resolve(args.get("model"))
-    # Matched case-insensitively against the real keys rather than
-    # lowercased into them: `_lower` turned "compartmentArea" into
-    # "compartmentarea", which matched nothing and refused a correct call.
     wanted = str(args.get("what") or "escape_level").strip().lower()
-    # The German aspect token, accepted for one release. Remove after.
     wanted = "escape_level" if wanted == "fluchtniveau" else wanted
     what = next((k for k in FIRE_ASPECTS if k.lower() == wanted), wanted)
     ids = [part.strip() for part in str(args.get("globalId") or "").split(",") if part.strip()]
@@ -102,18 +89,8 @@ def fire_op(resolve: Callable[[Any], SpatialModel], args: dict[str, Any]) -> Any
     if what == "siteBoundary":
         return run(lambda: fi.distance_to_site_boundary(model, ids[0] if ids else None))
     if what == "doorGraph":
-        # No `globalId`, like `escape_level`: the graph IS the building. It
-        # was reachable from nothing while `egressPath` and `reachableFrom`
-        # — both of which are views ONTO it — were on the surface, so an
-        # agent could get a route and never the two lists that say how many
-        # doors the route-finder could not read. A route out of a graph with
-        # four unresolved doors is not wrong, it is unfounded, and the
-        # difference was invisible from here.
         return run(lambda: circ.door_graph(model))
     raise ToolError(f'what "{what}" gibt es nicht. Erlaubt: {", ".join(FIRE_ASPECTS)}')
-
-
-# ── envelope (OIB 6) ────────────────────────────────────────────────────
 
 
 def envelope_op(resolve: Callable[[Any], SpatialModel], args: dict[str, Any]) -> Any:
@@ -130,10 +107,6 @@ def envelope_op(resolve: Callable[[Any], SpatialModel], args: dict[str, Any]) ->
     can be measured, and the derivation is most of the answer.
     """
     model = resolve(args.get("model"))
-    # Matched case-insensitively against the real keys rather than
-    # lowercased into them — the same trap `fire_op` documents: lowercasing
-    # turns "areaByOrientation" into "areabyorientation", which matches no
-    # key and refuses a correct call.
     wanted = str(args.get("what") or "thermalEnvelope").strip().lower()
     what = next((k for k in ENVELOPE_ASPECTS if k.lower() == wanted), wanted)
     if what == "thermalEnvelope":
@@ -143,9 +116,6 @@ def envelope_op(resolve: Callable[[Any], SpatialModel], args: dict[str, Any]) ->
     if what == "compactness":
         return run(lambda: env.compactness(model))
     raise ToolError(f'what "{what}" gibt es nicht. Erlaubt: {", ".join(ENVELOPE_ASPECTS)}')
-
-
-# ── view ────────────────────────────────────────────────────────────────
 
 
 def view(resolve: Callable[[Any], SpatialModel], args: dict[str, Any]) -> Any:
@@ -174,8 +144,6 @@ def view(resolve: Callable[[Any], SpatialModel], args: dict[str, Any]) -> Any:
     )
     seconds = time.perf_counter() - started
     if drawn is None:
-        # Not an empty picture. A blank page and a broken renderer are
-        # indistinguishable to a reader, so the two must not share a result.
         raise ToolError(
             "Für dieses Geschoß gibt es nichts zu zeichnen — kein Bauteil dieses Geschoßes trägt "
             "Geometrie, oder der Geschoßname trifft nichts. Geschoßnamen stehen im Briefing."
@@ -197,22 +165,13 @@ def view(resolve: Callable[[Any], SpatialModel], args: dict[str, Any]) -> Any:
     }
 
 
-# ── draw ────────────────────────────────────────────────────────────────
-
-
 def draw(resolve: Callable[[Any], SpatialModel], args: dict[str, Any]) -> Any:
     import ifcopenshell.draw as drawing
 
     model = resolve(args.get("model"))
     settings = drawing.draw_settings(
-        # A landscape sheet, because a floor plan of a building that is
-        # wider than it is deep — which is most of them — otherwise arrives
-        # scaled down to fit a portrait page it never needed.
         width=float(args.get("widthMm") or 420.0),
         height=float(args.get("heightMm") or 297.0),
-        # No hidden-line projection. It is what makes `draw` slow and it
-        # produces an elevation-like overlay that reads as clutter in a
-        # plan; the cells and the poché are the drawing.
         include_projection=False,
         space_names=True,
     )
@@ -225,11 +184,6 @@ def draw(resolve: Callable[[Any], SpatialModel], args: dict[str, Any]) -> Any:
     data = drawing.main(settings, [model.file])
     seconds = time.perf_counter() - started
 
-    # The SVG goes to a file rather than into the reply. A whole-building
-    # plan is a few hundred kilobytes of path data — putting that in an
-    # agent's context would evict the conversation to deliver something the
-    # agent cannot read anyway. The host shows the file; the agent gets the
-    # facts about the drawing.
     directory = tempfile.mkdtemp(prefix="ifc-spatial-")
     path = os.path.join(directory, f"plan-{_short(content_hash(model))}.svg")
     with open(path, "wb") as handle:
@@ -244,9 +198,6 @@ def draw(resolve: Callable[[Any], SpatialModel], args: dict[str, Any]) -> Any:
             "Maße nicht aus dem Bild ablesen — dafür measure/distance verwenden."
         ),
     }
-
-
-# ── sun_position ────────────────────────────────────────────────────────
 
 
 def sun_position(resolve: Callable[[Any], SpatialModel], args: dict[str, Any]) -> Any:
@@ -347,10 +298,6 @@ def _light_incidence(model: SpatialModel, args: dict[str, Any]) -> Any:
             "die erforderliche Lichteintrittsfläche, es verbietet das Fenster nicht. Die Bewertung "
             "gehört zum Regelwerk."
         )
-        # `obstructions` already carries this warning, in its own words. Appending
-        # unconditionally printed it twice, and a caveat repeated is a caveat
-        # skimmed — the second copy teaches the reader that this paragraph is
-        # boilerplate, which is the opposite of what it is for.
         existing = payload.get("caveat") or ""
         if "kein Befund" not in existing:
             payload["caveat"] = f"{existing} {note}".strip() if existing else note

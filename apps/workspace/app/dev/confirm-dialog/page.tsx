@@ -1,11 +1,5 @@
 'use client'
 
-/**
- * ConfirmDialog dev preview: the shared destructive-confirm primitive shown
- * open, so the confirm anatomy (tone icon, copy, button order) is screenshot-
- * reviewable. 404s outside development.
- */
-
 import { notFound } from 'next/navigation'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 

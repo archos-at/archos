@@ -15,7 +15,6 @@ import { confidenceOf, type Confidence, type ConfidenceSource } from './confiden
 import { hasExcerpt } from './excerpt-loader'
 import { PageExcerpt } from './page-excerpt'
 
-/** The words for a confidence, from the step's own namespace. */
 export function useConfidenceLabel(): (confidence: Confidence) => string {
   const t = useTranslations(intakeProfileStepCopy)
   return (confidence) => {
@@ -27,14 +26,6 @@ export function useConfidenceLabel(): (confidence: Confidence) => string {
   }
 }
 
-/**
- * Everything that says why a value is believed, under the value: how sure it
- * is in words, where it was found (the chips open the document at the page),
- * and the excerpt of that page („Belegt statt behauptet“). The excerpt is the
- * first cited PDF page's, shown on demand, or from the start for a value the
- * person is asked to decide on its own (`excerptOpen`), where reading the
- * Fundstelle is the point.
- */
 export function ValueEvidence({
   item,
   evidence = item.evidence,
@@ -43,7 +34,6 @@ export function ValueEvidence({
   className,
 }: {
   item: ConfidenceSource
-  /** The evidence to show, when it is not the item's own (an alternative's). */
   evidence?: readonly ProfileEvidence[]
   confidence?: Confidence | null
   excerptOpen?: boolean

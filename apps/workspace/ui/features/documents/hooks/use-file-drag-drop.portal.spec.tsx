@@ -1,9 +1,3 @@
-/**
- * React bubbles a drag along the COMPONENT tree, so a dialog portalled out of
- * the zone's element still reached the zone: a file let go over a dialog opened
- * from a project page was sent to Dateien behind it, and one let go over a
- * dialog opened from the chat was attached to the conversation.
- */
 import { createPortal } from 'react-dom'
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { describe, expect, test, vi } from 'vitest'
@@ -42,7 +36,6 @@ describe('useFileDragDrop — a portal is not the zone', () => {
 
     fireEvent.dragEnter(screen.getByText('In a dialog'), { dataTransfer: transfer([plan]) })
     expect(screen.getByTestId('zone')).not.toHaveAttribute('data-dragging')
-    // `fireEvent` answers false when a handler cancelled the event: the zone did not claim it.
     const notCancelled = fireEvent.drop(screen.getByText('In a dialog'), { dataTransfer: transfer([plan]) })
 
     await act(async () => {

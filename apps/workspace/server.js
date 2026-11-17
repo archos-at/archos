@@ -27,46 +27,18 @@ const httpProxy = require('http-proxy')
 const { parse } = require('url')
 const crypto = require('crypto')
 
-// ── Boot identity (ledger item 1) ────────────────────────────────────────────
-// One greppable line naming the deployed commit and where the feature flags
-// come from (WorkOS, or the fixed defaults of a deployment that signs nobody
-// in), printed before this process serves anything. A pilot said a feature did
-// not work and nobody could say which build they were on, nor whether that
-// feature was switched on for them at all. Rationale in full: `bff/boot.ts`.
-//
-// DUPLICATED from `formatBootLine`/`flagSource`/`deployedSha` in that module,
-// for the same reason `bff/turns/turn-headers.js` duplicates the envelope builder: this file is
-// plain CommonJS (see the `require(...)` calls above) and cannot import a TS
-// module. `tests/lib/boot.test.ts` extracts THIS function from the source and
-// runs it against the TS one over the same table, so the two cannot print
-// different lines. Keep it pure and self-contained — the test instantiates it
-// with `new Function`, so a reference to anything outside its own body breaks
-// the pin rather than the line.
 function bootLogLine(env) {
   const sha = (env.GIT_SHA || '').trim() || 'unknown'
   const flags = (env.REQUIRE_AUTH || '').toLowerCase() === 'true' ? 'workos' : 'defaults'
   return `[boot] sha=${sha} flags=${flags}`
 }
 
-// ── The turn's headers, and the signed context envelope (ADR-0054, ADR-0106) ──
-// Every x-grid-* header this file forwards on a chat upgrade, and the one
-// consolidated, signed `X-Request-Context` envelope beside them, are built
-// by `turnContextHeaders` in `bff/turns/turn-headers.js` from the turn
-// context `/api/auth/websocket-scope` resolved. The BFF's wake job builds the
-// headers of the socket it opens as a person with the same function, so the
-// two producers of a chat turn cannot drift. The canonical envelope payload is
-// `buildRequestContextEnvelopePayload` in `bff/request-context.ts`;
-// `request-context.spec.ts` pins the CommonJS copy to it.
 const { turnContextHeaders } = require('./bff/turns/turn-headers.js')
 
 const dev = process.env.NODE_ENV !== 'production'
 const hostname = process.env.HOSTNAME || '0.0.0.0'
 const port = parseInt(process.env.PORT || '3000', 10)
 
-// The chat role's address. Required and never derived from BACKEND_URL: that is
-// the api role, and a socket sent there would connect to nothing that serves
-// one. A gateway that cannot say where chat is stops here, not at the first
-// reader's upgrade.
 const getBackendChatUrl = () => {
   const url = (process.env.BACKEND_CHAT_URL || '').trim()
   if (!url) {
@@ -82,20 +54,8 @@ const BACKEND_CHAT_URL = getBackendChatUrl()
 const BACKEND_WS_URL = BACKEND_CHAT_URL.replace(/^http/, 'ws')
 const NEXT_INTERNAL_URL = process.env.NEXT_INTERNAL_URL || 'http://localhost:3001'
 
-// ── Conversation affinity (horizontal aiq-agent scaling) ──
-// With CHAT_AFFINITY on (the default, ADR-0028) each conversation is pinned
-// to one aiq-agent pod by a stable hash of conversationId -> that pod's stable
-// DNS name, so the in-process socket, HITL future and running task are always
-// reachable. With it off (ADR-0080) every socket goes to the load-balanced
-// Service and the conversation bus decides, per turn, which replica runs it, so
-// the backend can autoscale. Either way a single replica, no pod template or no
-// conversationId reaches the load-balanced Service. The rule lives in
-// bff/proxy/backend-target.js.
 const { affinityEnabled, createBackendTargetPicker } = require('./bff/proxy/backend-target.js')
 const BACKEND_REPLICAS = Math.max(1, parseInt(process.env.BACKEND_REPLICAS || '1', 10) || 1)
-// Per-pod WS DNS template with a literal `{i}`, e.g.
-// an in-cluster headless-service pod address like
-// aiq-agent-{i}.aiq-agent-headless:8000 (ws, in-cluster only) supplied via env.
 // nosemgrep: javascript.lang.security.detect-insecure-websocket.detect-insecure-websocket
 const BACKEND_POD_WS_TEMPLATE = process.env.BACKEND_POD_WS_TEMPLATE || ''
 const CHAT_AFFINITY = affinityEnabled(process.env.CHAT_AFFINITY)
@@ -106,73 +66,27 @@ const pickBackendWsTarget = createBackendTargetPicker({
   serviceUrl: BACKEND_WS_URL,
 })
 
-// How many frontend replicas this deployment runs (Pulumi passes the min count).
-// Used only to loudly flag a multi-replica deploy that is missing the shared
-// cache (REDIS_URL) — where the read-through caches and the WS rate limiter
-// would silently diverge per pod. Defaults to 1 (single-node / dev).
 const FRONTEND_REPLICAS = Math.max(1, parseInt(process.env.FRONTEND_REPLICAS || '1', 10) || 1)
 
-// ── Metrics (OTLP to the collector, which forwards to PostHog Metrics) ──
-// Installed before the server listens, so the first request is measured. No-op
-// without OTEL_EXPORTER_OTLP_ENDPOINT. Flushed by `exitAfterHooks`.
 const { initOtelMetrics, shutdownOtelMetrics } = require('./observability/otel-metrics.js')
 const { measureRequest } = require('./observability/http-metrics.js')
 initOtelMetrics()
 
-// ── Graceful shutdown / rolling-update drain ──
-// How long this process keeps serving after SIGTERM before forcing exit. Chat
-// WebSockets are long-lived (a streaming answer can run for minutes), so the
-// 2s local default would drop every in-flight response on every rollout. In
-// Kubernetes the deployment sets this to the tier's drain budget and sizes
-// terminationGracePeriodSeconds above it (deploy/pulumi/src/platform/rollout.ts).
 const SHUTDOWN_DRAIN_MS = Math.max(
   0,
   parseInt(process.env.SHUTDOWN_DRAIN_MS || '', 10) || 2000
 )
-// The list the app pushes its flush-on-exit functions onto (see cleanExit).
 const SHUTDOWN_HOOKS_KEY = '__appShutdownHooks'
 const SHUTDOWN_HOOKS_MS = 2000
-// Set once SIGTERM/SIGINT arrives: readiness starts failing and new WebSocket
-// upgrades are refused, while everything already in flight runs to completion.
 let draining = false
 
-// ── Upstream reachability and teardown ──
-// A backend that is not there for an upgrade (rollout, restart: issues #270,
-// #272) logs at WARN and is refused with a 502. A peer leaving an
-// already-spliced socket (EPIPE, ECONNRESET: #588, #775, #784) logs at WARN
-// with the side and the connection's age, and the first close names who
-// closed. Neither files an issue per reconnect (ADR-0031); anything else stays
-// ERROR. The codes, and why a spliced socket never gets a 502: ws-teardown.js.
 const { handleWsProxyError, watchSplicedSockets } = require('./bff/proxy/ws-teardown.js')
 
-// ── WebSocket rate limiting (ADR-0020, ADR-0040 layers L2 / L2b) ──
-//
-// Two limits live here, and the second is the reason this file matters:
-//
-//   1. **Upgrades, per client.** Every upgrade triggers session resolution, FGA
-//      checks and budget reads in the BFF, so a reconnect storm amplifies
-//      straight into WorkOS and Postgres. The edge now carries the same budget
-//      (`rateLimitAppWsUpgrade`); this one keeps working while that policy is
-//      in shadow mode, and covers anything that never crossed the gateway.
-//   2. **Frames on an ALREADY-OPEN socket.** Chat is WebSocket-only (ADR-0009),
-//      so from the edge's point of view a whole session — every turn, every
-//      agent run — is the single upgrade request above. No gateway policy can
-//      ever see a chat turn. This process owns the socket, so it is the only
-//      place that can count them.
-//
-// Both use the shared catalog and the shared `rate-limiter-flexible` wiring
-// (`bff/limits/`), so the WS proxy and the BFF cannot drift into different
-// budgets, key prefixes or failure behaviour. Fails open — an abuse bound must
-// never be the thing that takes chat down.
 const { WS_UPGRADE_LIMIT, CHAT_TURN_LIMIT, WS_CONTROL_LIMIT } = require('./bff/limits/rules.js')
 const { createLimiter, consumeLimiter } = require('./bff/limits/factory.js')
 const { createFrameObserver, classifyFrame } = require('./bff/limits/ws-frames.js')
-// Inbound x-grid-* / authorization are the proxy's to set, never the client's.
 const { stripClientContextHeaders, findOversizedWsHeader, withoutSessionCookies } = require('./bff/proxy/ws-upgrade-headers.js')
 
-// `WS_UPGRADE_RATE_LIMIT` predates the catalog and stays honoured: an
-// operator who tuned it should not have it silently reverted by this refactor.
-// 0 still disables the upgrade limit entirely.
 const parsedUpgradeOverride = parseInt(
   process.env.WS_UPGRADE_RATE_LIMIT || String(WS_UPGRADE_LIMIT.limit),
   10
@@ -184,15 +98,9 @@ if (!Number.isFinite(parsedUpgradeOverride)) {
     WS_UPGRADE_LIMIT.limit
   )
 }
-// A typo must not silently switch the limit off. `parseInt('thirty')` is NaN,
-// and `NaN > 0` is false — so without this guard a malformed value took the
-// `upgradeLimiter = null` path and disabled upgrade limiting with nothing in the
-// logs. Only an explicit 0 disables it.
 const WS_UPGRADE_OVERRIDE = Number.isFinite(parsedUpgradeOverride)
   ? parsedUpgradeOverride
   : WS_UPGRADE_LIMIT.limit
-// Frames per session. 0 disables, for an operator who needs the old behaviour
-// back in a hurry.
 const WS_MESSAGE_LIMITS_ENABLED = process.env.WS_MESSAGE_LIMITS !== '0'
 
 let limitStoreClient = null
@@ -259,7 +167,6 @@ function watchClientFrames(socket, key) {
   let closing = false
   const observer = createFrameObserver((frame) => {
     const kind = classifyFrame(frame)
-    // The close handshake is never throttled, or a socket cannot shut down.
     if (kind === 'ignore' || closing) return
 
     consumeLimiter(frameLimiters[kind], `${kind}:${key}`)
@@ -268,8 +175,6 @@ function watchClientFrames(socket, key) {
         closing = true
         console.warn('[WS Proxy] frame budget exceeded (%s), closing socket', kind)
         try {
-          // Opcode 8, status 1008 "policy violation" — the close reason that
-          // tells an honest client this was a rule and not a crash.
           socket.end(Buffer.from([0x88, 0x02, 0x03, 0xf0]))
         } catch {
           socket.destroy()
@@ -284,7 +189,6 @@ function watchClientFrames(socket, key) {
   return observer
 }
 
-// In production, we run Next.js in the same process
 let nextApp = null
 let nextHandle = null
 
@@ -294,7 +198,6 @@ if (!dev) {
   nextHandle = nextApp.getRequestHandler()
 }
 
-// Create proxy for Next.js (used in dev mode)
 const nextProxy = httpProxy.createProxyServer({
   target: NEXT_INTERNAL_URL,
   changeOrigin: true,
@@ -303,7 +206,6 @@ const nextProxy = httpProxy.createProxyServer({
   preserveHeaderKeyCase: true,
 })
 
-// Create proxy for backend
 const backendProxy = httpProxy.createProxyServer({
   changeOrigin: true,
   ws: true,
@@ -311,7 +213,6 @@ const backendProxy = httpProxy.createProxyServer({
   preserveHeaderKeyCase: true,
 })
 
-// Error handling for Next.js proxy
 nextProxy.on('error', (err, req, res) => {
   console.error('[Next.js Proxy Error]:', err.message)
   if (res && res.writeHead && !res.headersSent) {
@@ -322,7 +223,6 @@ nextProxy.on('error', (err, req, res) => {
   }
 })
 
-// Error handling for backend proxy
 backendProxy.on('error', (err, req, res) => {
   console.error('[Backend Proxy Error]:', err.message)
   if (res && res.writeHead && !res.headersSent) {
@@ -333,12 +233,6 @@ backendProxy.on('error', (err, req, res) => {
   }
 })
 
-// Forward cookies for backend WebSocket, less the AuthKit session the backend
-// never reads (`withoutSessionCookies`), and watch the pair once it is spliced.
-// http-proxy emits 'proxyReqWs' before it registers its own 'upgrade' listener
-// on proxyReq (passes/ws-incoming.js), so the one added here runs first: our
-// error and close listeners are in place before the 101 is written and the
-// sockets are piped. 'open' fires later and carries only the upstream socket.
 backendProxy.on('proxyReqWs', (proxyReq, req, socket) => {
   const cookie = withoutSessionCookies(req.headers.cookie)
   if (cookie) {
@@ -346,7 +240,6 @@ backendProxy.on('proxyReqWs', (proxyReq, req, socket) => {
   } else {
     proxyReq.removeHeader('Cookie')
   }
-  // Check the emitted headers too: http-proxy adds host/forwarded fields.
   const oversized = findOversizedWsHeader(proxyReq.getHeaders())
   if (oversized) {
     console.warn('[WS Proxy] Header exceeds upstream line budget: %s (%d bytes)', oversized.name, oversized.bytes)
@@ -418,28 +311,6 @@ const fetchCollectionScopeHeader = (req, projectId, conversationId) => {
   })
 }
 
-// ── WS-upgrade admission + scope memoisation ──
-// The per-IP limiter above throttles ONE abusive client. It does nothing about
-// the herd this deployment creates for itself: a rolling update severs every
-// socket on a pod at once, and those clients come back from thousands of
-// DISTINCT IPs, so every one of them passes the per-IP check and triggers a
-// fresh `/api/auth/websocket-scope` render (session resolution + FGA + budget
-// reads — ADR-0020). Two bounds on that amplification:
-//
-//   1. SINGLE-FLIGHT + short-TTL memo per (session, project, conversation).
-//      A client that reconnects within the TTL, or several tabs racing the same
-//      upgrade, cost one upstream resolution instead of N.
-//   2. A GLOBAL in-flight ceiling. Past it, upgrades are shed with 503 +
-//      Retry-After instead of queueing — the pod stays responsive for the
-//      connections it already holds, and the client's jittered backoff
-//      (`shared/utils/backoff.ts`) spreads the retry.
-//
-// The memo is per-process and in-memory ON PURPOSE: the payload carries an
-// access token, and a shared Dragonfly cache would put bearer credentials in a
-// store shared by every tier. Per-pod caching still cuts the amplification
-// proportionally, because a given client reconnects to one pod at a time.
-// TTL is deliberately short — it bounds how long a revoked session can still
-// ride a cached scope. 0 disables the memo entirely.
 const WS_UPGRADE_MAX_INFLIGHT = parseInt(process.env.WS_UPGRADE_MAX_INFLIGHT || '32', 10)
 const WS_SCOPE_CACHE_TTL_MS = parseInt(process.env.WS_SCOPE_CACHE_TTL_MS || '10000', 10)
 const WS_SCOPE_CACHE_MAX_ENTRIES = 5000
@@ -463,8 +334,6 @@ const scopeCacheKey = (req, projectId, conversationId) =>
  * when the global in-flight ceiling shed this upgrade.
  */
 const resolveCollectionScope = (req, projectId, conversationId) => {
-  // The memo and the admission ceiling are INDEPENDENT bounds: disabling the
-  // memo (TTL <= 0, e.g. to force fresh auth) must not also disable the ceiling.
   const cacheEnabled = WS_SCOPE_CACHE_TTL_MS > 0
   const key = cacheEnabled ? scopeCacheKey(req, projectId, conversationId) : null
 
@@ -474,7 +343,6 @@ const resolveCollectionScope = (req, projectId, conversationId) => {
       return Promise.resolve(cached.result)
     }
 
-    // Coalesce concurrent upgrades for the same session onto one upstream call.
     const pending = scopeInflight.get(key)
     if (pending) return pending
   }
@@ -486,7 +354,6 @@ const resolveCollectionScope = (req, projectId, conversationId) => {
   inflightScopeResolutions += 1
   const request = fetchCollectionScopeHeader(req, projectId, conversationId)
     .then((result) => {
-      // Only successes are memoised — a transient failure must not be sticky.
       if (cacheEnabled && result.ok) {
         if (scopeCache.size > WS_SCOPE_CACHE_MAX_ENTRIES) scopeCache.clear()
         scopeCache.set(key, { expiresAt: Date.now() + WS_SCOPE_CACHE_TTL_MS, result })
@@ -503,7 +370,6 @@ const resolveCollectionScope = (req, projectId, conversationId) => {
 }
 
 const startServer = async () => {
-  // In production, prepare Next.js
   if (!dev && nextApp) {
     await nextApp.prepare()
   }
@@ -522,11 +388,6 @@ const startServer = async () => {
     }
     measureRequest(req, res, parsedUrl.pathname)
 
-    // Draining: fail readiness immediately so the kubelet marks this pod
-    // NotReady and the gateway stops sending it new traffic, while requests and
-    // WebSockets already in flight keep running to completion. Liveness uses the
-    // same path, but a NotReady pod that is already terminating is never
-    // restarted for it.
     if (draining && parsedUrl.pathname === '/api/healthz') {
       res.writeHead(503, { 'Content-Type': 'application/json', Connection: 'close' })
       res.end(JSON.stringify({ status: 'draining' }))
@@ -534,10 +395,8 @@ const startServer = async () => {
     }
 
     if (dev) {
-      // Development: proxy everything to Next.js dev server
       nextProxy.web(req, res, { target: NEXT_INTERNAL_URL })
     } else {
-      // Production: handle with Next.js directly
       try {
         await nextHandle(req, res, parsedUrl)
       } catch (err) {
@@ -548,7 +407,6 @@ const startServer = async () => {
     }
   })
 
-  // WebSocket upgrade handler
   server.on('upgrade', async (req, socket, head) => {
     socket.setKeepAlive?.(true, 15000)
     socket.setTimeout?.(0)
@@ -562,16 +420,12 @@ const startServer = async () => {
     }
     const pathname = parsedUrl.pathname || '/'
 
-    // Refuse NEW sessions while draining — a pod that is going away must not
-    // accept a WebSocket it cannot see through. The client reconnects and the
-    // gateway routes it to a replica that is staying.
     if (draining) {
       socket.write('HTTP/1.1 503 Service Unavailable\r\nConnection: close\r\n\r\n')
       socket.destroy()
       return
     }
 
-    // Proxy /websocket to backend
     if (pathname === '/websocket' || pathname.startsWith('/websocket')) {
       if (!(await wsUpgradeAllowed(getClientKey(req)))) {
         socket.write(
@@ -584,16 +438,11 @@ const startServer = async () => {
       const projectId = normalizeQueryParam(parsedUrl.query.projectId)
       const conversationId = normalizeQueryParam(parsedUrl.query.conversationId)
       req.url = '/websocket' + (parsedUrl.search || '')
-      // Before anything below writes the context headers: each is set only
-      // when the scope has a value, so a client's own header survived every
-      // field the scope left empty (model overrides, budget, disabled sources).
       stripClientContextHeaders(req.headers)
 
       try {
         const result = await resolveCollectionScope(req, projectId, conversationId)
         if (result.rejected) {
-          // Shed rather than queue: the pod protects the connections it already
-          // holds, and the client retries on a jittered backoff.
           try {
             socket.write(
               'HTTP/1.1 503 Service Unavailable\r\nRetry-After: 5\r\nConnection: close\r\n\r\n'
@@ -609,24 +458,10 @@ const startServer = async () => {
             socket.destroy()
             return
           }
-          // SAST: `express-data-exfiltration` fires on remote-looking data
-          // reaching `req.headers`. Here the data is not remote. `result` is
-          // this server's own `/api/auth/websocket-scope` render (see
-          // `resolveCollectionScope` above): same process, same trust domain,
-          // and every field is derived server-side from the authenticated
-          // session — organization and user from the session itself, the scope
-          // from `buildCollectionScopeFromRequest` after its FGA checks, the
-          // conversation the one `authorizeConversationScope` ran on. None of
-          // it is caller-supplied, and the client cannot influence which fields
-          // come back. Suppressed narrowly, by rule id, on this call only — a
-          // broader ignore would hide the case where genuinely caller-supplied
-          // data starts reaching `req.headers`, which is what the rule is worth
-          // having for.
           // nosemgrep: javascript.express.security.express-data-exfiltration.express-data-exfiltration
           Object.assign(
             req.headers,
             turnContextHeaders(result.data, {
-              // Minted HERE: the envelope's age is the age of THIS handshake.
               issuedAt: Date.now(),
               secret: process.env.INTERNAL_API_TOKEN,
             })
@@ -639,9 +474,6 @@ const startServer = async () => {
           socket.destroy()
           return
         } else {
-          // Fail CLOSED: any other scope-resolution failure (5xx, network
-          // error, malformed response) must not proxy the socket to the
-          // backend stripped of its collection-scope/auth/org headers.
           console.warn(
             '[WS Proxy] Collection scope unavailable (status: %s), rejecting upgrade',
             result.status
@@ -669,31 +501,15 @@ const startServer = async () => {
         return
       }
 
-      // Count what this client sends once the socket is live (ADR-0040 L2b).
-      // Attached BEFORE the splice so no frame is missed, and passive, so the
-      // proxying below is unchanged.
       const frameObserver = watchClientFrames(socket, sessionKey(req))
-      // `head` holds bytes already read off the socket during the upgrade —
-      // Node hands them to us rather than leaving them in the stream, and
-      // `backendProxy.ws` forwards them upstream. They never arrive as a 'data'
-      // event, so an observer that only listens for 'data' would miss them. A
-      // partial frame there desynchronises the parser for the life of the
-      // connection, and the chat-turn limiter silently stops counting.
       if (frameObserver && head && head.length > 0) frameObserver.push(head)
 
-      // Guard the proxy call itself: http-proxy can throw SYNCHRONOUSLY from
-      // ws() (e.g. an invalid header value) and an uncaught throw in the
-      // 'upgrade' listener crashes the whole gateway process.
       try {
         backendProxy.ws(
           req,
           socket,
           head,
-          // Conversation affinity (CHAT_AFFINITY): pin this conversation to
-          // its owning backend replica, or hand it to the Service when off.
           { target: pickBackendWsTarget(conversationId), changeOrigin: true },
-          // http-proxy also calls this AFTER the upgrade, for an upstream socket
-          // error; the handler never writes a 502 into a live WebSocket.
           (err) => {
             if (err) handleWsProxyError(err, socket)
           }
@@ -708,9 +524,7 @@ const startServer = async () => {
       return
     }
 
-    // All other WebSocket connections (HMR, etc.)
     if (dev) {
-      // Development: proxy to Next.js dev server
       nextProxy.ws(req, socket, head, { target: NEXT_INTERNAL_URL }, (err) => {
         if (err) {
           console.error('[Next.js WS] Proxy error:', err.message)
@@ -718,22 +532,15 @@ const startServer = async () => {
         }
       })
     } else {
-      // Production: let Next.js handle it
       const upgradeHandler = nextApp.getUpgradeHandler()
       upgradeHandler(req, socket, head)
     }
   })
 
-  // Server configuration for long-running connections
   server.keepAliveTimeout = 0
   server.headersTimeout = 65000
   server.requestTimeout = 0
 
-  // Multi-replica without a shared cache is a misconfiguration: the read-through
-  // caches (ADR-0019) and the WS-upgrade rate limiter fall back to per-process
-  // state, so they diverge across pods (e.g. the rate limit becomes N×). Fail
-  // open (don't crash — matches the cache/limiter philosophy) but warn loudly so
-  // it's caught. Single replica / dev with no REDIS_URL is fine and stays quiet.
   if (FRONTEND_REPLICAS > 1 && !process.env.REDIS_URL) {
     console.error(
       `[Gateway] WARNING: FRONTEND_REPLICAS=${FRONTEND_REPLICAS} but REDIS_URL is unset — ` +
@@ -743,9 +550,6 @@ const startServer = async () => {
   }
 
   server.listen(port, hostname, () => {
-    // Its own console.log, ahead of the banner and on ONE line: this is the
-    // line an operator greps out of a pod log to answer "what is this pilot
-    // running", and a line inside a box drawn with ━ is not greppable.
     console.log(bootLogLine(process.env))
     console.log(`
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -755,15 +559,6 @@ const startServer = async () => {
 `)
   })
 
-  // Graceful shutdown. `server.close()` stops accepting new connections and
-  // resolves once every existing one (including WebSockets) has ended, so the
-  // timer is the hard ceiling on how long a rolling update waits for this pod.
-  //
-  // Before exiting, run what the app registered to flush (PostHog's queued
-  // exceptions, ADR-0100): `instrumentation.ts` pushes async functions onto
-  // `globalThis.__appShutdownHooks`, because this file cannot import it. They
-  // get SHUTDOWN_HOOKS_MS, on top of the drain, and a hook that fails or hangs
-  // never keeps the pod alive.
   let exiting = false
   const exitAfterHooks = () => {
     if (exiting) return

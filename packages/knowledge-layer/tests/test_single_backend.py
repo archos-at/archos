@@ -1,10 +1,3 @@
-"""The knowledge layer has one backend, llamaindex (ADR-0072).
-
-``backend`` is no longer a config key: a config written before the deletion
-still loads (the key is ignored), and whatever it said, the function wires the
-llamaindex adapter.
-"""
-
 from knowledge_layer.register import KnowledgeRetrievalConfig
 from knowledge_layer.register import _setup_backend
 
@@ -28,7 +21,6 @@ def test_setup_always_wires_llamaindex(monkeypatch):
 
 
 def test_a_config_that_still_names_a_chroma_dir_loads():
-    """``chroma_dir`` went with Chroma (ADR-0115): a config written before still loads, and nothing reads it."""
     config = KnowledgeRetrievalConfig(chroma_dir="/tmp/chroma_data", collection_name="oib_knowledge")
 
     assert not hasattr(config, "chroma_dir")

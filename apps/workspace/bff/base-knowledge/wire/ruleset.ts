@@ -1,28 +1,12 @@
-/**
- * The wire of a ruleset (ADR-0166): a base knowledge record whose payload is a
- * decision table, so a country rule that today is code (which building class,
- * which authority, which reference date) is data one evaluator runs.
- *
- * `decision_table.v1` is a DMN decision table with hit policy FIRST whose
- * conditions are JsonLogic (jsonlogic.com) restricted to a closed subset
- * (`rulesets/expression.ts` holds the operators and checks them). Pure zod,
- * so the routes, the agent operations and a later review UI read one shape.
- */
-
 import { z } from 'zod'
 import { checkExpression, readFact } from '@/lib/base-knowledge/rulesets/expression'
 import { advicePolicySchema, terminologySchema } from './advice'
+import { citationStyleSchema } from './citation-style'
 import { factDefinitionsSchema, factSourcesSchema } from './setup-facts'
 import { DECISION_TABLE_PURPOSES, FACT_TYPES, RULESET_PURPOSES } from './vocab'
 
-/** A fact key as the project profile stores it: English snake case (`storeys_above_ground`). */
 export const factKeySchema = z.string().regex(/^[a-z][a-z0-9_]{0,63}$/, 'a snake_case fact key')
 
-/**
- * A territory id as design §3.2 writes them: ISO 3166-1 or -2 (`AT`, `DE-BE`),
- * `EU`, or `<CC>:<scheme>:<code>` (`AT:gkz:90001`). Ids are opaque and never
- * parsed; the territory records themselves are another record type.
- */
 export const rulesetTerritoryIdSchema = z
   .string()
   .regex(
@@ -41,7 +25,6 @@ export const decisionInputSchema = z
   })
   .strict()
 
-/** Where a row comes from: the provision it encodes, so an answer cites it. */
 export const provisionSchema = z
   .object({
     citation: z.string().trim().min(1).max(300),
@@ -94,11 +77,6 @@ const exampleSchema = z
   })
   .strict()
 
-/**
- * An example's facts must be declared inputs of their declared types: an
- * undeclared key would test nothing, and a mistyped one would fail as an
- * evaluation error rather than as the author's mistake.
- */
 function exampleIssues(
   examples: readonly z.infer<typeof exampleSchema>[],
   declared: ReadonlyMap<string, (typeof FACT_TYPES)[number]>
@@ -118,7 +96,6 @@ function exampleIssues(
   )
 }
 
-/** Whether `value` is a value the output declares. */
 export function isOutputValue(output: DecisionOutput, value: unknown): boolean {
   switch (output.type) {
     case 'code':
@@ -186,11 +163,6 @@ export const decisionTableSchema = z
 export type DecisionTable = z.infer<typeof decisionTableSchema>
 export type DecisionTableInput = z.input<typeof decisionTableSchema>
 
-/**
- * A ruleset's values. Either it carries a table, or it says the node defers to
- * its parent (`inherits: 'parent'`); a node with neither has no rule, and its
- * answer is `undetermined: no_rule`, never a code default (design §3.6).
- */
 export const rulesetValuesSchema = z
   .object({
     purpose: z.enum(RULESET_PURPOSES),
@@ -244,6 +216,13 @@ export const rulesetValuesSchema = z
           payload: terminologySchema,
         })
         .strict(),
+      z
+        .object({
+          kind: z.literal('citation_style'),
+          payloadSchema: z.literal('citation_style.v1'),
+          payload: citationStyleSchema,
+        })
+        .strict(),
       z.object({ kind: z.literal('inherits'), inherits: z.literal('parent') }).strict(),
     ]),
   })
@@ -260,7 +239,6 @@ export const rulesetValuesSchema = z
         message: `${values.purpose} has no decision table schema yet`,
       })
     }
-    // Every body but a table or a deferral serves the purpose of its own name, and no other.
     const recordKind = values.body.kind !== 'table' && values.body.kind !== 'inherits'
     if (recordKind && values.body.kind !== values.purpose) {
       context.addIssue({

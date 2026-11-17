@@ -1,15 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The `piloti_wake` job (ADR-0106): it asks everything again as the person
- * whose act woke Piloti, then opens the chat socket as them and sends one
- * `user_message`. Pinned here: the message the contract names
- * (`docs/api/websocket-protocol.md`, „A turn an event woke"), the signed
- * envelope with the person's thread inside it, the headless header, a busy
- * thread waiting without spending an attempt, `duplicate_turn` as done, and
- * every way a wake ends without a turn recorded on its row.
- */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -80,7 +71,6 @@ const PAYLOAD: AgentWakePayload = {
 const SESSION: AuthorizedSession = {
   userId: 'user_anna',
   email: 'anna@example.at',
-  // The pinned session knows the person by name (`resolvePerson`).
   name: 'Anna Berger',
   accessToken: '',
   organizationId: 'org_1',
@@ -160,7 +150,6 @@ describe('a wake that runs', () => {
       message_id: WAKE_ID,
       text: 'Stimmt die Breite?',
       author_name: 'Anna Berger',
-      // The stored filename retrieval matches, not the display name a rename changed.
       focus_file_name: 'grundriss.pdf',
       focus_shelf: 'project',
       focus_document_id: DOC_ID,
@@ -180,7 +169,6 @@ describe('a wake that runs', () => {
     expect(headers['x-chat-mode']).toBe('headless')
     expect(headers['x-aiq-mode']).toBe('headless')
     expect(headers['x-user-id']).toBe('user_anna')
-    // No browser cookie and no bearer: the backend reads an internal caller and trusts the envelope.
     expect(headers).not.toHaveProperty('authorization')
     const envelope = verifyRequestContextEnvelope(
       headers['x-request-context'],
@@ -188,7 +176,6 @@ describe('a wake that runs', () => {
       SECRET
     )
     expect(envelope).toMatchObject({ organizationId: 'org_1', userId: 'user_anna', projectId: 'proj_1', conversationId: THREAD })
-    // The turn's context is resolved for the person's pinned session and THAT thread.
     expect(resolveTurnContext).toHaveBeenCalledWith(SESSION, { projectId: 'proj_1', conversationId: THREAD })
   })
 
@@ -349,7 +336,6 @@ describe('asked again when the job runs', () => {
 
 describe('the audit trail of a wake that started', () => {
   const started = () => vi.mocked(recordAuditEvent).mock.calls.filter(([input]) => input.action === 'piloti.wake.started')
-  // Whatever was emitted, WorkOS would accept: every target type and key is registered.
   afterEach(() => {
     for (const [input] of vi.mocked(recordAuditEvent).mock.calls) expectRegistered(input)
   })

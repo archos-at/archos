@@ -13,12 +13,6 @@ from pydantic import ConfigDict
 from pydantic import Field
 
 
-# The arguments of one ``read_passage`` call, as the model sees them. No docstring: pydantic
-# would put it in the tool schema the model reads.
-#
-# ``punkt`` is the argument's former name: accepted for one release so a replayed turn, a
-# cached plan or a model that learned the old name still opens its passage. Only ``clause``
-# appears in the tool schema. Remove the alias after one release.
 class ReadPassageInput(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
@@ -37,9 +31,7 @@ class PassageTarget:
     collection: str
     file_name: str
     shelf: str | None
-    #: The current Fassung of this document when a PERSON confirmed it replaced, else None.
     current: str | None = None
-    #: The message this document came with, when a person filed it from a mail (``mail_facts``).
     mail_origin: Mapping[str, Any] | None = field(default=None, compare=False)
 
 

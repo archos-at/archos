@@ -35,13 +35,9 @@ class ActionOutcome:
     files: int | None = None
     folders: int | None = None
     failed: bool = False
-    #: The call reached its answer (a listing, a chain), whatever it counted.
     completed: bool = False
-    #: The target the call resolved, when it is clearer than the one asked for.
     target: str | None = None
-    #: The call returned something from a restricted folder not admitted yet: counted as found, never counted.
     unnamed: bool = False
-    #: A literal search that could not search everything: its count is a floor, and no hit is no no.
     incomplete: bool = False
 
     def record_chunks(self, chunks: Iterable[Any]) -> None:

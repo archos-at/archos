@@ -1,6 +1,5 @@
 import type { en } from '../en'
 
-/** projects namespace — populated during component i18n. */
 export const projects: typeof en.projects = {
   list: {
     heading: 'Projekte',
@@ -123,7 +122,6 @@ export const projects: typeof en.projects = {
     cancel: 'Abbrechen',
     removed: '{count} Dateien in den Papierkorb gelegt.',
     error: 'Das Ausmisten hat nicht geklappt; das Projekt ist noch offen.',
-    /** Das Ausmisten ist gescheitert und ließ sich nicht ganz zurücknehmen (ADR-0092): wo nachsehen. */
     partial:
       'Das Ausmisten hat nicht geklappt und ließ sich nicht ganz zurücknehmen. Manche Dateien liegen womöglich noch in einem Ordner „{folders}“ in ihrem Ordner oder im Papierkorb. Das Projekt ist noch offen.',
     rules: {
@@ -575,20 +573,6 @@ export const projects: typeof en.projects = {
     },
   },
   memory: {
-    kinds: {
-      decision: 'Entscheidungen',
-      constraint: 'Einschränkungen',
-      open_question: 'Offene Fragen',
-      derived_fact: 'Abgeleitete Fakten',
-      preference: 'Präferenzen',
-    },
-    kindSingular: {
-      decision: 'Entscheidung',
-      constraint: 'Einschränkung',
-      open_question: 'Offene Frage',
-      derived_fact: 'Abgeleiteter Fakt',
-      preference: 'Präferenz',
-    },
     verification: {
       unverified: 'nicht verifiziert',
       source_grounded: 'quellenbasiert',
@@ -623,20 +607,21 @@ export const projects: typeof en.projects = {
     },
     errors: {
       requestFailed: 'Anfrage fehlgeschlagen ({status})',
-      loadFailed: 'Projektspeicher konnte nicht geladen werden',
+      loadFailed: 'Das Projektgedächtnis konnte nicht geladen werden',
       updateFailed: 'Aktualisierung fehlgeschlagen',
       deleteFailed: 'Löschen fehlgeschlagen',
-      addFailed: 'Speichereintrag konnte nicht hinzugefügt werden',
-      title: 'Beim Projektspeicher ist etwas schiefgelaufen',
+      addFailed: 'Die Notiz konnte nicht hinzugefügt werden',
+      title: 'Beim Projektgedächtnis ist etwas schiefgelaufen',
     },
-    added: 'Eintrag hinzugefügt.',
-    updated: 'Eintrag aktualisiert.',
-    deleted: 'Eintrag entfernt.',
-    heading: 'Projektspeicher',
+    added: 'Notiz hinzugefügt.',
+    updated: 'Notiz aktualisiert.',
+    deleted: 'Notiz entfernt.',
+    heading: 'Projektgedächtnis',
     description: 'Was {productName} über dieses Projekt gelernt hat — bearbeitbar.',
-    addMemory: 'Eintrag hinzufügen',
-    kindAria: 'Art des Eintrags',
-    scopeAria: 'Geltungsbereich des Eintrags',
+    audience: 'Alle Mitglieder dieses Projekts sehen diese Notizen.',
+    addMemory: 'Notiz hinzufügen',
+    kindAria: 'Art der Notiz',
+    scopeAria: 'Geltungsbereich der Notiz',
     scopeProject: 'Dieses Projekt',
     scopeOrganization: 'Alle meine Projekte',
     addPlaceholder: 'Eine prägnante, in sich geschlossene Erkenntnis zu diesem Projekt…',
@@ -646,7 +631,7 @@ export const projects: typeof en.projects = {
     emptyDescription:
       '{productName} hat zu diesem Projekt noch nichts erfasst. Das geschieht, während Sie chatten — oder fügen Sie selbst etwas hinzu.',
     orgWide: 'organisationsweit',
-    confidence: 'Konfidenz {confidence}',
+    confidence: { low: 'Sicherheit: gering', medium: 'Sicherheit: mittel', high: 'Sicherheit: hoch' },
     save: 'Speichern',
     pinned: 'Angeheftet',
     remove: 'Entfernen',
@@ -662,7 +647,7 @@ export const projects: typeof en.projects = {
     edit: 'Bearbeiten',
     editTitle: 'Bearbeiten',
     removeAria: 'Entfernen',
-    removeTitle: 'Aus dem Speicher entfernen',
+    removeTitle: 'Aus dem Projektgedächtnis entfernen',
   },
   overview: {
     workspaceCreated: 'Projekt-Arbeitsbereich · erstellt {date}',

@@ -1,70 +1,5 @@
 'use client'
 
-/**
- * Dev preview for Anmerkungen and the review, in the Files preview pane where
- * they ship, against the REAL pane, viewer, room hook and typed client.
- *
- * Three shims at module scope make it backend-free and alive:
- *   - `fetch` answers the annotations API from memory (setting, taking over,
- *     resolving, replying and deleting work exactly as against the API), the
- *     document's bytes (a Grundriss sheet drawn with vector paths below), the
- *     live channel's POST (`/api/realtime/send`), and the two requests the
- *     canvas's turn client makes before its socket opens (the conversation and
- *     the question as its row);
- *   - `EventSource` plays the `doc:<id>` live channel (`/api/realtime`): Anna
- *     Berger moving her pointer across the corridor with a cursor chat now and
- *     then, Jakob Huber dragging out a region over the stair (the others see
- *     the draft grow), their presence claims, and, with `&piloti=1`, Piloti
- *     joining as a peer (pointer with a label, what it reads, a highlight) and
- *     proposing three findings two seconds in;
- *   - `WebSocket`, for `/websocket` only, scripts a Piloti turn on wire v2
- *     (`FakeTurnSocket`): a hello, then for each question an ack, a few steps,
- *     a streamed German answer with one OIB source, and `RUN_FINISHED`. Asked
- *     about a box, Piloti also shows up in the room meanwhile (what it reads,
- *     its pointer, a highlight); asked to review the whole document, it sets
- *     its three proposals; asked in a thread, it answers there as a reply.
- *
- * Routes:
- *   /dev/annotations                         the pane: pins, regions, pointers inline; `&blank=1`: a document nobody marked yet
- *   /dev/annotations?doc=dev-doc-annotations&review=1            the focused review
- *   …&review=1&mark=ann-1                    the review, open at Anmerkung 1
- *   …&review=1&piloti=1                      the review, while Piloti proposes
- *   …&review=1, then `p` and a box           ask Piloti about the box (any route)
- *   …&review=1&mark=ann-1                    „Zuständig": who may write (Lena only reads,
- *                                            so only „@" offers her), „Mir zuweisen", the
- *                                            date's ×, „Bearbeiten" in the menu (Miriam's mark)
- *   …&review=1&mark=ann-1, the card's ⋯       „Löschen" withheld on Miriam's own mark Anna answered in,
- *                                            with why, and „Stattdessen erledigen"
- *   …&review=1&mark=ann-5                    answer Piloti's Rückfrage: the thread asks Piloti
- *   …&review=1&piloti=1, then J, E or ⌫      the decision's toast with „Rückgängig"
- *   …&review=1&mark=ann-4                    a mark of Fassung 2: „Auf aktuelle Fassung übernehmen";
- *                                            the list's „Offen aus früheren Fassungen" carries all
- *   …&review=1                               the open marks of Fassung 2 (4, a point, and 6, a box)
- *                                            drawn hollow and dotted where they stood: ghost pins,
- *                                            „aus Fassung 2" to a screen reader; a press opens the card
- *   …&review=1                               a dot on Anmerkung 1's pin and row: Anna's reply is
- *                                            unread in Miriam's Postfach (`/api/inbox/unread-anchors`);
- *                                            opening the thread reads it, and the dot goes
- *   …&review=1, „Für Sie"                   the marks Miriam is Zuständige of (Anmerkung 5, not the
- *                                            ones she only set), the words Dateien's chip says
- *   …&review=1                               „Aus Fassung „Grundriss_RG_Index-B.pdf““: the open marks of
- *                                            the document this one replaces, each carried on as a
- *                                            linked mark of this one; the header says „Ersetzt …"
- *   …&review=1&carriedFails=1                that group when Index B's list could not be read:
- *                                            it says so, and „Erneut versuchen" reads it again
- *   …&review=1, „Protokoll exportieren"      the export menu: the Fassung choice only under
- *                                            „Auch erledigte", since „Nur offene" carries the
- *                                            mark still open from Fassung 2 either way; „Im
- *                                            Projekt ablegen" files it (a fake upload door: a
- *                                            second filing is a new Fassung of the first)
- *   …&review=1, „Piloti prüfen lassen, was   under „Offen aus früheren Fassungen" or „Aus Fassung
- *   behoben ist"                             „Grundriss_RG_Index-B.pdf"": Piloti answers in each
- *                                            mark's thread („In … behoben: …" / „Weiterhin offen: …");
- *                                            Index B's rows then show the answer, and „Erledigen"
- *
- * Not linked from anywhere and 404s outside development (`../layout.tsx`).
- */
-
 import type { JSX } from 'react'
 import type { z } from 'zod'
 import type { wireEventSchema } from '@/adapters/api/wire-v2'
@@ -79,7 +14,6 @@ import { PRODUCT_NAME } from '@/lib/brand'
 const SHEET_WIDTH = 842
 const SHEET_HEIGHT = 595
 
-/** One A3-landscape sheet: a Grundriss with a corridor, rooms, doors and a stair, and a title block. */
 const sheetContent = (): string => {
   const ops: string[] = ['0 0 0 RG']
   const rect = (x: number, y: number, w: number, h: number, width = 0.8) =>
@@ -133,7 +67,6 @@ const buildSheet = (): Uint8Array<ArrayBuffer> => {
   const content = sheetContent()
   return assemblePdf([
     '<</Type/Catalog/Pages 2 0 R>>',
-    // Two sheets of the same drawing: a colleague on the second shows at the edge of the first.
     '<</Type/Pages/Kids[3 0 R 7 0 R]/Count 2>>',
     `<</Type/Page/Parent 2 0 R/MediaBox[0 0 ${SHEET_WIDTH} ${SHEET_HEIGHT}]` +
       '/Resources<</Font<</F1 5 0 R/F2 6 0 R>>>>/Contents 4 0 R>>',
@@ -164,7 +97,6 @@ const FILE: FileItem = {
   capture: null,
   versionCount: 3,
   assignees: [{ userId: 'u-1', name: 'Miriam Hofer', email: 'm.hofer@example.at', profilePictureUrl: null }],
-  // Index B, filed under another name and confirmed as the Fassung this one replaces.
   revision: {
     supersededBy: null,
     supersedes: [{ id: 'dev-doc-index-b', filename: 'Grundriss_RG_Index-B.pdf' }],
@@ -173,10 +105,8 @@ const FILE: FileItem = {
   },
 }
 
-/** The document this one replaces: its marks are listed in this one's review, to carry on. */
 const INDEX_B = { id: 'dev-doc-index-b', filename: 'Grundriss_RG_Index-B.pdf' }
 
-/** Where the server says a carry of an open mark here, or of Index B's, lands for Miriam: this document. */
 const CARRY_HERE = { documentId: FILE.id, documentName: FILE.filename }
 
 const ME = { userId: 'u-1', name: 'Miriam Hofer' }
@@ -185,9 +115,7 @@ const JAKOB = { userId: 'u-3', name: 'Jakob Huber' }
 const LENA = { userId: 'u-4', name: 'Lena Gruber' }
 const NAMES: Record<string, string> = { 'u-1': ME.name, 'u-2': ANNA.name, 'u-3': JAKOB.name, 'u-4': LENA.name }
 
-/** A point on the sheet in PDF points (bottom-left origin), as a share of the page (top-left). */
 const pt = (x: number, y: number) => ({ x: +(x / SHEET_WIDTH).toFixed(4), y: +(1 - y / SHEET_HEIGHT).toFixed(4) })
-/** A region from two corners in PDF points. */
 const region = (x0: number, y0: number, x1: number, y1: number) => {
   const a = pt(x0, y1)
   return { x: a.x, y: a.y, w: +((x1 - x0) / SHEET_WIDTH).toFixed(4), h: +((y1 - y0) / SHEET_HEIGHT).toFixed(4) }
@@ -243,15 +171,8 @@ const reply = (
   mentions,
 })
 
-/** A colleague as the „@" picker writes them into a text: the chat's mention. */
 const mention = (person: { userId: string; name: string }) => ({ targetId: person.userId, display: person.name })
 
-/**
- * Piloti's reply, as the service gives it: written in the session of the
- * person who asked, so `createdBy` is that person and the byline reads
- * „Piloti · für Miriam Hofer" (`useAgentByline`). Never `createdByName:
- * 'Piloti'`, which no directory holds and which drew „Piloti · für Piloti".
- */
 const agentReply = (
   annotationId: string,
   asker: { userId: string; name: string },
@@ -271,13 +192,10 @@ let annotations: AnnotationView[] = typeof window !== 'undefined' && new URLSear
     assigneeUserId: 'u-2',
     assigneeName: ANNA.name,
     dueOn: '2026-10-10',
-    // Miriam's own mark, but Anna answered in it: the menu withholds „Löschen", says why, and offers „Stattdessen erledigen".
     canDelete: false,
     deleteRefused: 'discussed',
     replies: [
       reply('ann-1', ANNA, 95, '@Miriam Hofer Kommt mit Index D. Gilt das auch für die Tür vom Bad?', [mention(ME)]),
-      // A colleague mentioned with the chat's „@" picker: the chip, and Jakob told in his Postfach.
-      // Reworded by its author a moment later: „bearbeitet" beside its time, and its menu offers both again.
       {
         ...reply('ann-1', ME, 80, 'Nein, Bad geht nicht in den Gang. Nur Wohnen 1 und 2. @Jakob Huber, bitte in Index D nachziehen.', [
           mention(JAKOB),
@@ -299,7 +217,6 @@ let annotations: AnnotationView[] = typeof window !== 'undefined' && new URLSear
     canDelete: false,
     createdAt: minutesAgo(60),
     updatedAt: minutesAgo(60),
-    // Piloti works it for Jakob (ADR-0105): the delegate chip in the thread.
     delegatedBy: 'u-3',
     delegatedByName: JAKOB.name,
     delegatedAt: minutesAgo(20),
@@ -311,7 +228,6 @@ let annotations: AnnotationView[] = typeof window !== 'undefined' && new URLSear
     shape: 'point',
     ...pt(380, 440),
     kind: 'hint',
-    // A mark whose text mentions a colleague: the chip in the list, the peek and the thread.
     body: 'Bad: Lüftung über Dach, Schacht im Technikraum. @Anna Berger, passt das zur Haustechnik?',
     mentions: [mention(ANNA)],
     status: 'resolved',
@@ -352,8 +268,6 @@ let annotations: AnnotationView[] = typeof window !== 'undefined' && new URLSear
     number: 5,
     shape: 'point',
     ...pt(640, 420),
-    // Piloti's Rückfrage, taken over by Miriam: an answer in its thread reaches
-    // Piloti even with wakes off (the thread asks it), without an @Piloti.
     kind: 'question',
     authorKind: 'piloti',
     body: 'Gilt die Brüstungshöhe ab Fertigfußboden oder ab Rohdecke?',
@@ -368,10 +282,8 @@ let annotations: AnnotationView[] = typeof window !== 'undefined' && new URLSear
 ]
 let nextNumber = 7
 
-/** The marks whose news is unread in Miriam's Postfach: Anna's reply in Anmerkung 1. Opening the thread reads it. */
 let unreadMarks = ['ann-1']
 
-/** Index B's marks: two still open, one done. Carried on, each comes over as a linked mark of this document. */
 let indexB: AnnotationView[] = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('blank') ? [] : [
   {
     ...base,
@@ -462,9 +374,6 @@ const AGENT_PROPOSALS: AnnotationView[] = [
   },
 ]
 
-// ── the room ────────────────────────────────────────────────────────────────
-
-/** The document's live channel, as `/api/realtime?ch=` names it. */
 const CHANNEL = `doc:${FILE.id}`
 type Listener = (frame: RealtimeFrame) => void
 const sources = new Set<Listener>()
@@ -473,21 +382,13 @@ const peer = (who: { userId: string; name: string }, peerId: string): RoomPeer =
 const annaPeer = peer(ANNA, 'peer-anna-0001')
 const jakobPeer = peer(JAKOB, 'peer-jakob-001')
 const lenaPeer = peer(LENA, 'peer-lena-0001')
-/** Piloti in the room, as `publishAsAgent` names it: on behalf of the person who asked. */
 const agentPeer: RoomPeer = { peerId: 'agent-dev-conv', userId: ME.userId, name: PRODUCT_NAME, kind: 'piloti' }
 
-/** `?wakes=1`: the organization lets events wake Piloti, so the server answers an @Piloti reply. */
 const WAKES = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('wakes')
 
-/**
- * `?carriedFails=1`: Index B's list cannot be read while the page opens (every
- * read in its first two seconds, so a development double effect fails too),
- * so its group says so and offers a retry, which then reads it.
- */
 const CARRIED_FAILS_UNTIL =
   typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('carriedFails') ? Date.now() + 2_000 : 0
 
-/** The server's wake, answered: Piloti's reply arrives through the room, as it would from the job. */
 const wakeReply = (annotationId: string) => {
   const answer = agentReply(
     annotationId,
@@ -504,7 +405,6 @@ const wakeReply = (annotationId: string) => {
   })
 }
 
-/** Piloti's three findings, once: the `?piloti=1` script and a whole-document review both set them. */
 const proposeFindings = () => {
   const fresh = AGENT_PROPOSALS.filter((proposal) => !annotations.some((annotation) => annotation.id === proposal.id))
   if (fresh.length === 0) return
@@ -518,7 +418,6 @@ const proposeFindings = () => {
   })
 }
 
-/** Jakob's drag: from the stair's corner, growing for three seconds, then let go for three. */
 const jakobDraft = (s: number) => {
   const phase = s % 6
   if (phase > 3) return null
@@ -536,14 +435,11 @@ function startRoom(withAgent: boolean) {
   setInterval(() => {
     for (const who of everyone) broadcast({ kind: 'presence', peer: who, state: 'here', ttlMs: 25_000 })
   }, 8_000)
-  // Anna has Anmerkung 1 open: the others see it ringed in her colour, with her name.
   broadcast({ kind: 'viewport', peer: annaPeer, viewport: { page: 1, y: 0.45 }, selected: 'ann-1' })
-  // Lena reads the second sheet, still: an edge chip says where she is, and her pointer rests.
   broadcast({ kind: 'viewport', peer: lenaPeer, viewport: { page: 2, y: 0.4 } })
   broadcast({ kind: 'cursor', peer: lenaPeer, tool: 'select', cursor: { page: 2, x: 0.42, y: 0.38 } })
   setInterval(() => {
     const s = (performance.now() - t0) / 1000
-    // Anna walks the corridor, pausing at the doors, and now and then says so beside her pointer.
     const along = 0.18 + 0.28 * (0.5 + 0.5 * Math.sin(s * 0.55))
     broadcast({
       kind: 'cursor',
@@ -552,7 +448,6 @@ function startRoom(withAgent: boolean) {
       cursor: { page: 1, x: along, y: 0.44 + 0.015 * Math.sin(s * 2.1) },
       chat: s % 12 > 7 ? 'Hier fehlt die Kote' : null,
     })
-    // Jakob drags out a region over the stair, and the others see it grow.
     const draft = jakobDraft(s)
     broadcast({
       kind: 'cursor',
@@ -565,7 +460,6 @@ function startRoom(withAgent: boolean) {
     })
   }, 80)
   if (withAgent) {
-    // Piloti joins, reads the corridor (pointer, activity, a highlight), then proposes; as `publishAsAgent` would say it.
     const piloti = agentPeer
     const corridor = { page: 1, ...region(50, 270, 570, 320) }
     broadcast({ kind: 'presence', peer: piloti, state: 'here', ttlMs: 25_000 })
@@ -578,7 +472,6 @@ function startRoom(withAgent: boolean) {
   }
 }
 
-/** Plays `GET /api/realtime?ch=…`: a welcome, then the room's frames when the document's channel is asked for. */
 class RoomEventSource {
   onopen: (() => void) | null = null
   onerror: (() => void) | null = null
@@ -599,19 +492,13 @@ class RoomEventSource {
   }
 }
 
-// ── Piloti's turn ───────────────────────────────────────────────────────────
-
-/** A server-to-client event as the script writes it: `emit` adds the envelope (`v`, ids, `seq`, `ts`). */
 type Unenveloped<F> = F extends unknown ? Omit<F, 'v' | 'seq' | 'ts' | 'turn_id' | 'conversation_id'> : never
 type WireBody = Unenveloped<z.input<typeof wireEventSchema>>
 
-/** The optional client fields this server reads, as its hello names them: all the canvas sends. */
 const ACCEPTS = ['user_message.focus_region', 'user_message.reply_in_thread', 'cancel_turn.shown']
-/** Between two deltas of the answer. */
 const DELTA_MS = 120
 const DELTAS = 10
 
-/** The box a question is about (`user_message.focus_region`). */
 interface FocusBox {
   page: number
   x: number
@@ -625,11 +512,8 @@ interface ScriptedTurn {
   turnId: string
   conversationId: string
   messageId: string
-  /** Every frame sent, for `attach`. */
   log: Record<string, unknown>[]
-  /** The socket the turn streams to; a reopened one takes it over by attaching. */
   socket: FakeTurnSocket | null
-  /** The script's next step, which a Stop clears. */
   timer: ReturnType<typeof setTimeout> | null
   text: string
   done: boolean
@@ -637,7 +521,6 @@ interface ScriptedTurn {
 
 const turns = new Map<string, ScriptedTurn>()
 
-/** The script must never throw into the client: a slip is logged and the turn goes on. */
 const safely = (run: () => void) => {
   try {
     run()
@@ -647,7 +530,6 @@ const safely = (run: () => void) => {
 }
 
 const CORRIDOR = region(50, 270, 570, 320)
-/** The box is about the corridor when its middle sits in the corridor's band. */
 const onCorridor = (box: FocusBox) => {
   const middle = box.y + box.h / 2
   return middle > CORRIDOR.y - 0.03 && middle < CORRIDOR.y + CORRIDOR.h + 0.03
@@ -667,7 +549,6 @@ const CORRIDOR_ANSWER =
 const BOX_ANSWER =
   'Der Ausschnitt zeigt einen Teil des Regelgeschosses im Maßstab 1:100. Maße sind darin nicht kotiert, deshalb lässt sich ' +
   'gegen OIB-RL 4 nichts nachweisen [1]. Mit einer Bemaßung im Ausschnitt prüfe ich Breiten und Durchgänge gern nach.'
-/** In a thread, as a reply: plain text, about the Anmerkung it answers. */
 const threadAnswer = (number: number) =>
   `Zu Anmerkung ${number}: Ich habe mir die Stelle angesehen. In dieser Fassung ist dazu noch nichts eingetragen; ` +
   'ich würde die Angabe mit der nächsten Fassung nachfordern und die Anmerkung bis dahin offen lassen.'
@@ -676,7 +557,6 @@ const REVIEW_ANSWER =
   'den fehlenden Feuerwiderstand der Tür zum Technikraum und die Belichtung von Zimmer 1. ' +
   'Sie stehen als Vorschläge in der Liste; übernehmen oder verwerfen Sie sie dort.'
 
-/** The answer in about {@link DELTAS} pieces, cut between words, as a model streams it. */
 const deltasOf = (text: string): string[] => {
   const words = text.split(/(?<= )/)
   const size = Math.ceil(words.length / DELTAS)
@@ -689,11 +569,6 @@ const emit = (turn: ScriptedTurn, body: WireBody) => {
   turn.socket?.deliver(frame)
 }
 
-/**
- * Run `steps` one after another, each `after` ms behind the one before. Chained
- * rather than scheduled up front, so a busy main thread delays the rest instead
- * of bunching the deltas. A Stop clears what is left.
- */
 const play = (turn: ScriptedTurn, steps: ReadonlyArray<readonly [after: number, run: () => void]>, index = 0) => {
   const step = steps[index]
   if (!step) return
@@ -704,7 +579,6 @@ const play = (turn: ScriptedTurn, steps: ReadonlyArray<readonly [after: number, 
   }, step[0])
 }
 
-/** The answer streamed: start, deltas, end. */
 const streamAnswer = (turn: ScriptedTurn, text: string): Array<readonly [number, () => void]> => [
   [400, () => emit(turn, { type: 'TEXT_MESSAGE_START', message_id: turn.messageId })],
   ...deltasOf(text).map(
@@ -728,12 +602,6 @@ const finish = (turn: ScriptedTurn, text: string, sources: (typeof OIB_RL_4)[]) 
 
 const synthesis = { id: 'step-synthesis', kind: 'status', slot: 'synthesis', key: 'status.synthesis' } as const
 
-/**
- * A question about a box: Piloti reads the crop (the live line keeps the card's
- * own „Sieht sich den Ausschnitt an …", because a tool step says nothing), then
- * the OIB passage, then writes. In the room meanwhile: present, reading the
- * box, its pointer in the middle of it, and a highlight.
- */
 const answerAboutBox = (turn: ScriptedTurn, box: FocusBox, replyInThread: boolean) => {
   const corridor = onCorridor(box)
   const thread = replyInThread && box.annotationId ? annotations.find((one) => one.id === box.annotationId) : undefined
@@ -741,7 +609,6 @@ const answerAboutBox = (turn: ScriptedTurn, box: FocusBox, replyInThread: boolea
   const mark = thread ? `Anmerkung ${thread.number}` : corridor ? 'Breite nicht kotiert' : 'Keine Maße im Ausschnitt'
   const roomBox = { page: box.page, x: box.x, y: box.y, w: box.w, h: box.h }
   const view = { id: 'step-view', kind: 'tool', tool: 'look' } as const
-  // In a thread it reads the Anmerkung and writes a reply; about a box, it reads the OIB passage and writes the answer.
   const reading = thread
     ? ({ id: 'step-read', kind: 'status', slot: 'annotations', key: 'status.action.annotationsRead' } as const)
     : ({
@@ -835,7 +702,6 @@ const answerAboutBox = (turn: ScriptedTurn, box: FocusBox, replyInThread: boolea
   ])
 }
 
-/** „Piloti prüfen lassen": it reads the Anmerkungen, goes over the page, sets its three proposals and says so. */
 const reviewDocument = (turn: ScriptedTurn) => {
   const read = { id: 'step-read', kind: 'status', slot: 'annotations', key: 'status.action.annotationsRead' } as const
   const propose = { id: 'step-propose', kind: 'status', slot: 'annotations', key: 'status.action.annotationsPropose' } as const
@@ -881,20 +747,12 @@ const reviewDocument = (turn: ScriptedTurn) => {
   ])
 }
 
-/** What Piloti finds when asked what is fixed, per mark: the one the dev sheet makes plausible. */
 const FIXED_VERDICTS: Record<string, string> = {
   'ann-4': 'Weiterhin offen: Die Brüstung in Zimmer 1 ist in Fassung 3 weiter mit 0,90 m kotiert.',
   'ann-b2': 'In Grundriss_RG_Index-C behoben: Die Legende nennt jetzt den Lüftungsquerschnitt des Technikraums (0,04 m²).',
   'ann-b3': 'Weiterhin offen: Im Bad ist die Vorwand nur bis 1,20 m dargestellt; ein Schnitt dazu fehlt.',
 }
 
-/**
- * „Piloti prüfen lassen, was behoben ist": it reads the marks, looks at the
- * page, and answers in each mark's thread, changing no status. On Index B's
- * marks when the question names Index B, else on this document's marks of an
- * earlier Fassung. This document's room hears its replies; Index B's do not
- * reach it, and its group is read again when the turn ends.
- */
 const checkFixed = (turn: ScriptedTurn, question: string) => {
   const onIndexB = question.includes(INDEX_B.filename)
   const read = { id: 'step-read', kind: 'status', slot: 'annotations', key: 'status.action.annotationsRead' } as const
@@ -951,7 +809,6 @@ const checkFixed = (turn: ScriptedTurn, question: string) => {
   ])
 }
 
-/** The Protokoll the fake export answers: one page that says what it is. */
 const protocolPdf = () =>
   buildPdf([
     [
@@ -962,10 +819,8 @@ const protocolPdf = () =>
     ],
   ])
 
-/** What the fake upload door filed, by name: the same name again is a new Fassung of that document. */
 const filed = new Map<string, { id: string; versions: number }>()
 
-/** A Stop: what is left of the script is dropped, and the turn ends cancelled with what it had written. */
 const stopTurn = (turn: ScriptedTurn) => {
   if (turn.timer) clearTimeout(turn.timer)
   turn.timer = null
@@ -989,13 +844,6 @@ const focusOf = (raw: unknown): FocusBox | null => {
 type RejectedCode = 'duplicate_turn' | 'turn_not_found' | 'invalid_message' | 'no_pending_interaction'
 type RejectedOf = 'user_message' | 'interaction_response' | 'cancel_turn' | 'attach' | 'unknown'
 
-/**
- * `/websocket?v=2` with nobody behind it but the script: a hello naming the
- * canvas's fields, then each `user_message` acked (`RUN_STARTED`) and answered;
- * `attach` replays a turn from its seq, `cancel_turn` stops one, anything else
- * is refused the way the server refuses it. Only the methods and handlers
- * `turn-socket.ts` uses.
- */
 class FakeTurnSocket {
   static readonly CONNECTING = 0
   static readonly OPEN = 1
@@ -1016,7 +864,6 @@ class FakeTurnSocket {
     }, 40)
   }
 
-  /** One frame down, after what is already on its way. */
   deliver(frame: unknown) {
     setTimeout(() => {
       if (this.readyState === 1) safely(() => this.onmessage?.(new MessageEvent('message', { data: JSON.stringify(frame) })))
@@ -1105,7 +952,6 @@ class FakeTurnSocket {
   }
 }
 
-/** The chat socket's path; every other socket (the dev server's own) is the real one. */
 const isTurnSocket = (url: string | URL) => {
   try {
     return new URL(String(url), window.location.href).pathname === '/websocket'
@@ -1114,8 +960,6 @@ const isTurnSocket = (url: string | URL) => {
   }
 }
 
-// ── the API ─────────────────────────────────────────────────────────────────
-
 const json = (body: unknown, status = 200) => Response.json(body, { status })
 
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
@@ -1123,7 +967,6 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
   if (!w.__annotationsShim) {
     w.__annotationsShim = true
     w.EventSource = RoomEventSource
-    // The chat socket is the script; any other socket (the dev server's own) is the real one.
     window.WebSocket = new Proxy(window.WebSocket, {
       construct: (target, args: ConstructorParameters<typeof WebSocket>) =>
         isTurnSocket(args[0]) ? new FakeTurnSocket(String(args[0])) : Reflect.construct(target, args),
@@ -1134,7 +977,6 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
       const method = (init?.method ?? 'GET').toUpperCase()
       const body = () => JSON.parse(String(init?.body ?? '{}')) as Record<string, unknown>
       if (url.endsWith('/api/realtime/send')) return new Response(null, { status: 204 })
-      // The Postfach, as far as the review reads it: which marks have unread news, and reading one.
       if (url.includes('/api/inbox/unread-anchors')) return json({ anchorIds: unreadMarks })
       if (method === 'POST' && url.endsWith('/api/inbox/read')) {
         const anchor = body().anchorId
@@ -1142,7 +984,6 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
         unreadMarks = unreadMarks.filter((id) => id !== anchor)
         return json({ affected, pending: 0 })
       }
-      // Index B, the document this one replaces: its list, and a mark of it carried on as a linked mark of this one.
       if (url.endsWith(`/api/documents/${INDEX_B.id}/annotations`)) {
         if (Date.now() < CARRIED_FAILS_UNTIL) return json({ error: 'Unavailable', code: 'UNAVAILABLE' }, 503)
         return json({ annotations: indexB, canAnnotate: true, pilotiWakes: WAKES })
@@ -1152,7 +993,6 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
         const source = indexB.find((annotation) => annotation.id === fromB[1])
         if (!source || source.status !== 'open') return json({ error: 'Conflict', code: 'CONFLICT' }, 409)
         const now = new Date().toISOString()
-        // „Erledigen" on a row of Index B: closed there, where it was set.
         if (body().status === 'resolved') {
           const closed: AnnotationView = { ...source, status: 'resolved', closedBy: ME.userId, closedByName: ME.name, closedAt: now, carryTarget: null }
           indexB = indexB.map((annotation) => (annotation.id === closed.id ? closed : annotation))
@@ -1179,7 +1019,6 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
         annotations = [...annotations, copy]
         return json({ annotation: copy })
       }
-      // „Protokoll exportieren" and „Im Projekt ablegen": the export, then the project's upload door.
       if (url.startsWith(`/api/documents/${FILE.id}/annotations/export?`)) {
         const format = new URL(url, window.location.href).searchParams.get('format') ?? 'pdf'
         const name = `Anmerkungen – Grundriss_RG_Index-C – Fassung 3.${format}`
@@ -1197,7 +1036,6 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
         filed.set(file.name, entry)
         return json({ documentId: entry.id, jobId: null, status: 'pending', filename: file.name }, 201)
         }
-      // One's own reply, reworded or deleted: refused as the server refuses it (a colleague's, Piloti's, a closed mark's).
       const ownReply = new RegExp(`/api/documents/${FILE.id}/annotations/([^/?]+)/replies/([^/?]+)$`).exec(url)
       if (ownReply) {
         const current = annotations.find((annotation) => annotation.id === ownReply[1])
@@ -1218,7 +1056,6 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
         const edited: AnnotationReplyView = {
           ...target,
           body: String(input.body).trim(),
-          // An edit keeps an @Piloti only where the reply had one: it never wakes Piloti.
           mentions: ((input.mentions as AnnotationReplyView['mentions']) ?? target.mentions ?? []).filter(
             (one) => one.targetId !== 'agent:piloti' || (target.mentions ?? []).some((had) => had.targetId === 'agent:piloti')
           ),
@@ -1233,8 +1070,6 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
         const current = annotations.find((annotation) => annotation.id === replies[1])
         if (!current) return json({ error: 'Not found', code: 'NOT_FOUND' }, 404)
         const input = body()
-        // An id of its own per reply, as the server's: the wake's turn id is made from it, and a
-        // second „@Piloti" in one thread under the first one's id was refused as the same turn.
         const added = {
           ...reply(current.id, ME, 0, String(input.body).trim(), (input.mentions as AnnotationReplyView['mentions']) ?? []),
           id: `${current.id}-posted-${Date.now()}`,
@@ -1242,11 +1077,6 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
         }
         const next = { ...current, replies: [...current.replies, added], updatedAt: new Date().toISOString() }
         annotations = annotations.map((annotation) => (annotation.id === next.id ? next : annotation))
-        // `?wakes=1`: the organization's switch is on, so the server answers an
-        // @Piloti reply itself (ADR-0106); here, a moment later, through the room.
-        // The rule is the server's (`replyTrigger`): an @Piloti, or an answer to
-        // Piloti's own open Rückfrage. With the switch off it says `off`, and the
-        // thread asks Piloti itself (Anmerkung 5).
         const answersAgent = current.authorKind === 'piloti' && current.kind === 'question' && current.status !== 'resolved' && current.status !== 'dismissed'
         const wake = !added.addressesPiloti && !answersAgent ? 'none' : WAKES ? 'queued' : 'off'
         if (wake === 'queued') setTimeout(() => wakeReply(current.id), 4_000)
@@ -1256,7 +1086,6 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
       if (one) {
         const current = annotations.find((annotation) => annotation.id === one[1])
         if (!current) return json({ error: 'Not found', code: 'NOT_FOUND' }, 404)
-        // What a room hint names, read again on its own.
         if (method === 'GET') return json({ annotation: current })
         if (method === 'DELETE') {
           annotations = annotations.filter((annotation) => annotation.id !== current.id)
@@ -1268,7 +1097,6 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
           expectedStatus?: string
         }
         const now = new Date().toISOString()
-        // „Auf aktuelle Fassung übernehmen": the same mark, its number and thread, now on Fassung 3 and drawn.
         if (carryToCurrent) {
           const carried = { ...current, revisionNumber: 3, onCurrentRevision: true, carryTarget: null, updatedAt: now }
           annotations = annotations.map((annotation) => (annotation.id === carried.id ? carried : annotation))
@@ -1329,14 +1157,12 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
         }
         return json({ annotations, canAnnotate: true, pilotiWakes: WAKES })
       }
-      // The person's own thread about the document, which the canvas asks in.
       if (method === 'POST' && url.endsWith(`/api/documents/${FILE.id}/thread`)) {
         return json({ conversationId: 's_dev_document_thread' })
       }
       if (url.endsWith(`/api/documents/${FILE.id}/file`)) {
         return new Response(buildSheet(), { headers: { 'Content-Type': 'application/pdf' } })
       }
-      // The canvas's turn client, before its socket opens: the document's conversation, then the question as its row.
       if (method === 'POST' && /\/api\/conversations$/.test(url)) {
         const input = body()
         const now = new Date().toISOString()
@@ -1376,8 +1202,6 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
       if (url.endsWith(`/api/documents/${FILE.id}/preview`)) return json({ url: `/api/documents/${FILE.id}/file` })
       if (/\/api\/documents\/.+\/visual-details$/.test(url)) return json({ details: [] })
       if (/\/api\/assignments\/document\/.+\/candidates(\?.*)?$/.test(url)) {
-        // Lena may open the document but not write it: she can be mentioned, and
-        // is not offered as a Zuständige (`?access=write`), who must answer the mark.
         const writers = [
           { userId: 'u-2', name: ANNA.name, email: 'a.berger@example.at', profilePictureUrl: null },
           { userId: 'u-3', name: JAKOB.name, email: 'j.huber@example.at', profilePictureUrl: null },
@@ -1391,7 +1215,6 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
 }
 
 export default function AnnotationsPreview(): JSX.Element {
-  // The geometry `file-preview-host` gives the pane (see `/dev/file-preview?variant=review`).
   return (
     <main className="bg-muted/40 flex min-h-dvh items-center justify-center">
       <div className="bg-popover text-popover-foreground h-[85dvh] w-[min(1100px,calc(100%-2rem))] overflow-hidden rounded-2xl border shadow-lg phone:fixed phone:inset-0 phone:h-dvh phone:w-full phone:rounded-none phone:border-0">

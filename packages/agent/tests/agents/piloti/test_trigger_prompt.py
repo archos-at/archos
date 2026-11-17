@@ -1,11 +1,3 @@
-"""„Woken by“: a turn an event woke, as the model reads it (ADR-0105 draft, §3(b)).
-
-What is load-bearing: the block reaches the prompt below the KV-cache boundary
-only on a woken turn; it names who acted, what happened and the event; it says
-to answer where it happened (``canvas__reply`` in the Anmerkung's thread) and
-not to wait for an answer, because nobody watches the turn.
-"""
-
 import base64
 import hashlib
 import hmac
@@ -89,7 +81,6 @@ def _signed_request(payload: dict) -> RequestContext:
 
 
 def test_a_woken_turn_names_the_person_from_the_signed_envelope(monkeypatch):
-    """No principal on a woken turn: the wake job's envelope says who, from the pinned session."""
     monkeypatch.setattr(turn_context, "get_current_principal", lambda: None)
     request = _signed_request({"userId": "user_1", "requester": {"name": "Anna Weber", "email": "anna@example.at"}})
 
@@ -119,7 +110,6 @@ def test_a_question_from_a_connected_agent_names_the_door_and_answers_in_the_rep
 
     assert "Anna Weber asked you through a connected agent" in block
     assert "`ask-1`" in block
-    # No Anmerkung: the answer is the reply itself, even with the canvas at hand.
     assert "canvas__reply" not in block
     assert "do not wait" in block
 

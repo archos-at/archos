@@ -2,10 +2,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The committed JSON Schema is what the Python estate tree client is tested
- * against; this keeps it from going stale. `UPDATE_FIXTURES=1` rewrites it.
- */
 import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'

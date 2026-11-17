@@ -223,10 +223,6 @@ def build_retrieval_ledger(
     opened_docs: set[str] = set()
     entries: list[dict[str, Any]] = []
     for announced in rounds:
-        # The raw hits carry the producing tool; `_docs_for_round` copies only
-        # name/title/detail/shelf, which is what keeps that in-process field
-        # off the wire. `_opened_documents` therefore reads the hits, the entry
-        # reads the docs.
         hits = hits_by_round.get(announced.get("index"), [])
         docs = _docs_for_round(hits)
         entries.append(_round_entry(announced, docs, seen_loci, opened_docs))

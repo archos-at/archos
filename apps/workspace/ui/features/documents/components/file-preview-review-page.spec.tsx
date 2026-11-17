@@ -1,12 +1,3 @@
-/**
- * Leaving the review keeps the reader's place: the inline viewer, which steps
- * aside while the review is open, opens again at the page the reader was on
- * in the review, not at the first one.
- *
- * The viewer and the review are stand-ins: what is pinned is the pane's side,
- * the page it hands the viewer once the review closes.
- */
-
 import type { ComponentProps, ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '@/test-utils'
@@ -78,7 +69,6 @@ beforeEach(() => {
     if (url.endsWith('/preview')) return json({ url: 'https://example.test/plan.pdf', contentType: 'application/pdf' })
     return json({}, 404)
   })
-  // The well mounts its viewer once it has been on screen.
   vi.stubGlobal(
     'IntersectionObserver',
     class {

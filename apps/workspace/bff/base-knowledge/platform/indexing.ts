@@ -1,30 +1,26 @@
-/**
- * Indexing on publish (ADR-0165): each platform text a stable publish releases
- * is queued for the base corpus by its own BFF job (`platform_text_index`, a
- * Hatchet `bff-job`), and its run records what the corpus answered. Honest by
- * construction: a run is `queued` only when the corpus accepted the file, and
- * `failed` with the corpus's reason otherwise; `indexed` is read from the
- * corpus's own status, never assumed. The index status joins the two.
- *
- * Re-ingest keeps the binding: the manifestation names its corpus file, so a
- * re-ingest of that file (the platform's knowledge page, `reingestKnowledgeBaseDocuments`)
- * rebuilds the chunks the published text is found by without a new revision.
- */
-
 import 'server-only'
-import { desc, eq, sql } from 'drizzle-orm'
+import { and, desc, eq, sql } from 'drizzle-orm'
 import { z } from 'zod'
+import { NotFoundError } from '@/lib/api/errors'
 import { getDb } from '@/lib/db'
-import { withPlatformAccess } from '@/lib/db/tenant-context'
+import { withPlatformAccess, withTenant } from '@/lib/db/tenant-context'
 import { knowledgeIndexRuns } from '@/lib/db/schema/knowledge-platform'
 import { enqueueJob } from '@/lib/jobs-queue/enqueue'
 import { BFF_JOB_PRIORITY } from '@/lib/jobs-queue/types'
-import { getKnowledgeBaseStatus, markCorpusFileCountry, reingestKnowledgeBaseDocuments, type CorpusFileMark } from '@/lib/knowledge/service'
+import {
+  getKnowledgeBaseStatus,
+  reingestKnowledgeBaseDocuments,
+  updateKnowledgeBaseDisplayTitle,
+  withdrawCorpusFile,
+  type CorpusFileMark,
+} from '@/lib/knowledge/service'
+import { releasedTextTitle } from './text-title'
 import type { IndexStatusView } from './wire'
 
 const REASON = 'platform base knowledge: indexing runs'
 
-/** The most runs one status read returns. */
+const NOT_ENQUEUED = 'the indexing job was not enqueued'
+
 const MAX_RUNS = 500
 
 export const platformTextIndexPayloadSchema = z.object({ runId: z.uuid() })
@@ -36,10 +32,12 @@ async function markRun(runId: string, state: 'queued' | 'failed', failure: strin
   )
 }
 
-/**
- * Enqueue one job per run. A run whose job could not be enqueued is marked
- * failed with why, so the status never shows "requested" for work nobody will do.
- */
+function failureText(error: unknown): string {
+  if (!(error instanceof Error)) return String(error)
+  const cause = error.cause instanceof Error ? error.cause.message : error.cause ? String(error.cause) : null
+  return cause ? `${error.message} (${cause})` : error.message
+}
+
 export async function enqueueIndexRuns(
   platformOrganizationId: string | null,
   runIds: readonly string[],
@@ -47,35 +45,115 @@ export async function enqueueIndexRuns(
   let failed = 0
   for (const runId of runIds) {
     try {
-      // The job belongs to the platform organization, whichever office the operator browses; it runs as the system.
       if (!platformOrganizationId) throw new Error('the platform organization is not known')
-      await enqueueJob({
-        kind: 'platform_text_index',
-        organizationId: platformOrganizationId,
-        payload: { runId },
-        priority: BFF_JOB_PRIORITY.bulk,
-      })
+      await withTenant({ organizationId: platformOrganizationId }, () =>
+        enqueueJob({
+          kind: 'platform_text_index',
+          organizationId: platformOrganizationId,
+          payload: { runId },
+          priority: BFF_JOB_PRIORITY.bulk,
+        }),
+      )
     } catch (error) {
       failed += 1
-      await markRun(runId, 'failed', `the indexing job was not enqueued: ${error instanceof Error ? error.message : String(error)}`)
+      await markRun(runId, 'failed', `${NOT_ENQUEUED}: ${failureText(error)}`)
     }
   }
   return { enqueued: runIds.length - failed, failed }
 }
 
-/** The country and edition of the copy a run indexes: the manifestation revision's edition and its record's country. */
-async function corpusMarkOf(revisionId: string): Promise<CorpusFileMark | null> {
+export async function resumeIndexRuns(
+  platformOrganizationId: string | null,
+  changeRequestId: string,
+): Promise<{ enqueued: number; failed: number }> {
+  const runIds = await withPlatformAccess(REASON, async () => {
+    const db = getDb()
+    await db
+      .update(knowledgeIndexRuns)
+      .set({ state: 'requested', failure: null, updatedAt: new Date() })
+      .where(and(eq(knowledgeIndexRuns.changeRequestId, changeRequestId), eq(knowledgeIndexRuns.state, 'failed'), sql`${knowledgeIndexRuns.failure} LIKE ${`${NOT_ENQUEUED}%`}`))
+    const rows = await db
+      .select({ id: knowledgeIndexRuns.id })
+      .from(knowledgeIndexRuns)
+      .where(and(eq(knowledgeIndexRuns.changeRequestId, changeRequestId), eq(knowledgeIndexRuns.state, 'requested')))
+    return rows.map((row) => row.id)
+  })
+  return runIds.length === 0 ? { enqueued: 0, failed: 0 } : enqueueIndexRuns(platformOrganizationId, runIds)
+}
+
+interface ReleasedText {
+  mark: CorpusFileMark
+  sha256: string | null
+  title: string | null
+}
+
+async function releasedTextOf(revisionId: string): Promise<ReleasedText | null> {
   const rows = await withPlatformAccess(REASON, () =>
-    getDb().execute<{ edition_id: string | null; country_id: string | null }>(sql`
-      SELECT m.edition_id, r.country_id
-      FROM knowledge_manifestation_revisions m JOIN knowledge_records r ON r.id = m.record_id
+    getDb().execute<{
+      edition_id: string | null
+      country_id: string | null
+      sha256: string | null
+      label: string | null
+      designation: string | null
+      work_title: string | null
+    }>(sql`
+      SELECT m.edition_id, r.country_id, m.sha256, e.label, w.identifiers ->> 'designation' AS designation, w.title AS work_title
+      FROM knowledge_manifestation_revisions m
+      JOIN knowledge_records r ON r.id = m.record_id
+      LEFT JOIN knowledge_records er ON er.id = m.edition_id AND er.organization_id IS NULL
+      LEFT JOIN knowledge_edition_revisions e ON e.revision_id = er.head_revision_id
+      LEFT JOIN knowledge_records wr ON wr.id = e.work_id AND wr.organization_id IS NULL
+      LEFT JOIN knowledge_work_revisions w ON w.revision_id = wr.head_revision_id
       WHERE m.revision_id = ${revisionId} AND r.organization_id IS NULL`),
   )
   const row = rows[0]
-  return row ? { countryId: row.country_id, editionId: row.edition_id } : null
+  if (!row) return null
+  return {
+    mark: { countryId: row.country_id, editionId: row.edition_id },
+    sha256: row.sha256,
+    title: releasedTextTitle(row.designation, row.work_title, row.label),
+  }
 }
 
-/** The job's step: hand the file to the corpus and record what it answered. Throws to be retried. */
+const REATTACH = 'attach the text again in a new change request for this manifestation'
+
+type HeldFile = Awaited<ReturnType<typeof getKnowledgeBaseStatus>>['files'][number]
+
+async function heldBytes(corpusFile: string, reviewed: string | null | undefined): Promise<{ held: HeldFile | null; refusal: string | null }> {
+  if (!reviewed) return { held: null, refusal: `the released revision keeps no hash of ${corpusFile}, so the reviewed bytes cannot be told from others; ${REATTACH}` }
+  const held = (await getKnowledgeBaseStatus()).files.find((file) => file.fileName === corpusFile && file.state !== 'removed') ?? null
+  if (!held) return { held, refusal: `the base corpus no longer holds ${corpusFile}; ${REATTACH}` }
+  if (held.currentSha256 !== reviewed) {
+    return {
+      held,
+      refusal: `the base corpus keeps other bytes as ${corpusFile} than the ones that were reviewed (sha256 ${reviewed.slice(0, 12)}…); nothing was indexed; ${REATTACH}`,
+    }
+  }
+  return { held, refusal: null }
+}
+
+async function stampTitle(held: HeldFile, title: string | null): Promise<boolean> {
+  if (!title || held.displayTitle) return true
+  try {
+    await updateKnowledgeBaseDisplayTitle(held.fileName, title)
+    return true
+  } catch (error) {
+    if (error instanceof NotFoundError) return false
+    console.error('[base-knowledge] the title of a released text was not set', { corpusFile: held.fileName, error })
+    return true
+  }
+}
+
+async function recordHandOff(runId: string): Promise<void> {
+  await withPlatformAccess(REASON, () =>
+    getDb().update(knowledgeIndexRuns).set({ handedAt: new Date(), updatedAt: new Date() }).where(eq(knowledgeIndexRuns.id, runId)),
+  )
+}
+
+function indexedAfterTheHandOff(run: { handedAt: Date | null }, held: HeldFile, released: ReleasedText | null): boolean {
+  return run.handedAt !== null && released !== null && held.state === 'ingested' && held.countryId === released.mark.countryId
+}
+
 export async function runPlatformTextIndex(
   _organizationId: string,
   payload: PlatformTextIndexPayload,
@@ -86,12 +164,26 @@ export async function runPlatformTextIndex(
   )
   if (!run || run.state !== 'requested') return
   try {
-    // The country and edition the text belongs to ride on every chunk (ADR-0173): the turn's gate filters by them.
-    const mark = await corpusMarkOf(run.revisionId)
-    const result = await reingestKnowledgeBaseDocuments([run.corpusFile], mark ? { [run.corpusFile]: mark } : {})
-    if (result.unknown.includes(run.corpusFile) || !result.queued.includes(run.corpusFile)) {
-      await markRun(run.id, 'failed', `the base corpus has no file ${run.corpusFile}; upload it, then publish again`)
+    const released = await releasedTextOf(run.revisionId)
+    const { held, refusal } = await heldBytes(run.corpusFile, released?.sha256)
+    if (refusal || !held) {
+      await markRun(run.id, 'failed', refusal ?? `the base corpus no longer holds ${run.corpusFile}; ${REATTACH}`)
       return
+    }
+    const titled = await stampTitle(held, released?.title ?? null)
+    if (titled && indexedAfterTheHandOff(run, held, released)) {
+      await markRun(run.id, 'queued', null)
+      return
+    }
+    const result = await reingestKnowledgeBaseDocuments([run.corpusFile], released ? { [run.corpusFile]: released.mark } : {})
+    if (result.unknown.includes(run.corpusFile) || !result.queued.includes(run.corpusFile)) {
+      await markRun(run.id, 'failed', `the base corpus no longer holds ${run.corpusFile}; ${REATTACH}`)
+      return
+    }
+    if (!titled) {
+      await recordHandOff(run.id)
+      if (!attempt.last) throw new Error(`the base corpus has no row for ${run.corpusFile} to title yet`)
+      console.error('[base-knowledge] a released text was indexed without its title', { corpusFile: run.corpusFile })
     }
     await markRun(run.id, 'queued', null)
   } catch (error) {
@@ -100,7 +192,6 @@ export async function runPlatformTextIndex(
   }
 }
 
-/** The runs of a request, each with the corpus's own word on whether its chunks exist. */
 export async function readIndexStatus(changeRequestId: string): Promise<IndexStatusView> {
   const runs = await withPlatformAccess(REASON, () =>
     getDb()
@@ -111,7 +202,6 @@ export async function readIndexStatus(changeRequestId: string): Promise<IndexSta
       .limit(MAX_RUNS),
   )
   const queued = runs.some((run) => run.state === 'queued')
-  // Only a queued run can have become indexed; the corpus answers for it, or the run stays queued.
   const files = queued
     ? new Map((await getKnowledgeBaseStatus().catch(() => ({ files: [] }))).files.map((file) => [file.fileName, file.state]))
     : new Map<string, string>()
@@ -126,19 +216,9 @@ export async function readIndexStatus(changeRequestId: string): Promise<IndexSta
   }
 }
 
-/** A base-corpus file a rollback left unreleased (ADR-0173): its chunks are marked so no office reads them. */
 export const platformTextDeindexPayloadSchema = z.object({ corpusFile: z.string().min(1).max(260) })
 export type PlatformTextDeindexPayload = z.infer<typeof platformTextDeindexPayloadSchema>
 
-/**
- * The country no office is entitled to (ISO 3166-1 user-assigned `ZZ`): a chunk
- * marked with it is filtered out of every base-corpus read (`vector_store.scope.scope_filter`).
- * The mark also lands on the file's corpus row, so a re-ingest stamps it again; only a
- * re-release, whose indexing job sends the country, reads it again.
- */
-export const UNRELEASED_COUNTRY = 'ZZ'
-
-/** Enqueue the de-index of each file a rollback left unreleased; a failure is logged, the rollback stands. */
 export async function enqueueDeindex(platformOrganizationId: string | null, corpusFiles: readonly string[]): Promise<number> {
   let failed = 0
   for (const corpusFile of corpusFiles) {
@@ -153,7 +233,6 @@ export async function enqueueDeindex(platformOrganizationId: string | null, corp
   return failed
 }
 
-/** The job's step: unless a release names the file again, mark its chunks for no country. Throws to be retried. */
 export async function runPlatformTextDeindex(_organizationId: string, payload: PlatformTextDeindexPayload): Promise<void> {
   const [still] = await withPlatformAccess(REASON, () =>
     getDb().execute<{ n: number }>(sql`
@@ -161,5 +240,5 @@ export async function runPlatformTextDeindex(_organizationId: string, payload: P
       WHERE r.organization_id IS NULL AND h.corpus_file = ${payload.corpusFile} LIMIT 1`),
   )
   if (still) return
-  await markCorpusFileCountry(payload.corpusFile, UNRELEASED_COUNTRY)
+  await withdrawCorpusFile(payload.corpusFile)
 }

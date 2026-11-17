@@ -29,8 +29,10 @@ from agent.citations.session import set_session_registry
 from agent.common.image_view_budget import begin_image_view_budget
 from agent.common.image_view_budget import end_image_view_budget
 from agent.common.image_view_budget import get_image_view_budget
+from agent.knowledge.project_memory import TurnMemoryNote
 from agent.knowledge.project_memory import begin_turn_memory_log
 from agent.knowledge.project_memory import end_turn_memory_log
+from agent.knowledge.project_memory import turn_memory_notes
 from agent.knowledge.project_memory import turn_memory_writes
 from agent.knowledge.project_memory import turn_restricted_memory_writes
 from agent.memory.restriction import restricted_digest_notes
@@ -48,26 +50,12 @@ logger = logging.getLogger(__name__)
 class TurnRegistries:
     """The registries bound for this turn, and what they recorded once it ended."""
 
-    #: The conversation's card registry, cleared at turn start so a card never
-    #: leaks between turns; ``snapshot()`` after the turn is the turn's cards.
     cards: CardRegistry
-    #: What the ``remember`` tool wrote DURING the turn. Filled when the
-    #: context exits — the log is unbound at that moment.
     memory_writes: tuple[str, ...] = field(default_factory=tuple)
-    #: The part of ``memory_writes`` stored as restricted memory (ADR-0087).
+    memory_notes: tuple[TurnMemoryNote, ...] = field(default_factory=tuple)
     restricted_memory_writes: tuple[str, ...] = field(default_factory=tuple)
-    #: The retrieval collections of every source the conversation's citation
-    #: registry holds once the turn ended — this turn's and the earlier ones,
-    #: whose passages are in the history. Read by the memory restriction
-    #: decision (ADR-0087). Filled when the context exits.
     source_collections: tuple[str, ...] = field(default_factory=tuple)
-    #: The restricted memory EARLIER turns of the conversation were shown, with
-    #: their collections (ADR-0087, ``memory/shown_notes.py``). Read by the
-    #: memory restriction decision; bound for the ``remember`` tool as well.
     shown_notes: ShownNotes = field(default_factory=ShownNotes)
-    #: How many image views of the turn rendered a REGION of a page
-    #: (``image_view_budget``): whether it looked at the box a person drew.
-    #: Filled when the context exits.
     regions_viewed: int = 0
 
 
@@ -113,6 +101,9 @@ async def turn_registries(
     memory_digest: str | None = None,
     shown_notes: ShownNotes | None = None,
     restricted_scope: Sequence[str] = (),
+    temporary: bool = False,
+    personal_memory: str | None = None,
+    answer_message_id: str | None = None,
 ) -> AsyncIterator[TurnRegistries]:
     """Bind the five per-turn registries; unbind and persist on exit, however it exits.
 
@@ -122,6 +113,9 @@ async def turn_registries(
     ``restricted_scope`` the restricted collections of this turn's signed
     scope: on exit this turn's restricted lines and restricted writes are added
     to the record under them, so a later turn still counts them as evidence.
+    ``temporary`` and ``personal_memory`` are the turn context's (ADR-0180),
+    kept on the memory log for the ``remember`` tool and the prompt, and
+    ``answer_message_id`` the answer a personal note of this turn is stored under.
     """
     earlier = shown_notes or ShownNotes()
     cards = get_or_create_card_registry(conversation_id)
@@ -130,12 +124,15 @@ async def turn_registries(
     session_token = set_session_registry(session_registry)
     card_token = set_card_registry(cards)
     image_token = begin_image_view_budget()
-    memory_token = begin_turn_memory_log(memory_digest)
+    memory_token = begin_turn_memory_log(
+        memory_digest, temporary=temporary, personal_memory=personal_memory, answer_message_id=answer_message_id
+    )
     shown_token = bind_shown_notes(earlier)
     try:
         yield registries
     finally:
         registries.memory_writes = turn_memory_writes()
+        registries.memory_notes = turn_memory_notes()
         registries.restricted_memory_writes = turn_restricted_memory_writes()
         registries.source_collections = _registry_collections(session_registry)
         budget = get_image_view_budget()
@@ -151,8 +148,6 @@ async def turn_registries(
             schedule_shown_notes_persist(conversation_id, merged(earlier, shown_now, restricted_scope))
 
 
-# Strong references to in-flight persistence tasks so the event loop cannot
-# garbage-collect them mid-run. Entries discard themselves on completion.
 _persist_tasks: set[asyncio.Task] = set()
 
 

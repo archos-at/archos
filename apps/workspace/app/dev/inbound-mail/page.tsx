@@ -1,19 +1,5 @@
 'use client'
 
-/**
- * Dev preview of Dateien › E-Mail-Eingang (ADR-0137, DECISION §9): the real
- * workspace (`InboundMailWorkspace`) over the fixture client, one fixture per
- * state of the list:
- *
- * `?variant=empty|done|loading|error|one|many|thread-group|unverified-group|selected|bulk-blocked|settled|dismissed|expired|closed|followed|claimed|own|worst-case`
- *
- * `&mail=<id>` opens a mail beside the list (the rows link there), `&status=`
- * and `&outcome=` filter, `&locale=en` switches the language, `&chrome=0`
- * hides the variant strip for a capture. German by default, as the copy is
- * written for the German product. Not linked from anywhere; the `/dev` layout
- * 404s outside development.
- */
-
 import type { JSX } from 'react'
 import { use, useMemo } from 'react'
 import { I18nProvider } from '@/i18n'
@@ -49,7 +35,6 @@ export default function InboundMailDevPage({ searchParams }: { searchParams: Pro
     [fixture]
   )
   const paths = useMemo<InboundMailPaths>(() => {
-    // A capture without the strip (`&chrome=0`) stays without it as the rows and the first mail navigate.
     const base = `/dev/inbound-mail?variant=${variant}${locale === 'en' ? '&locale=en' : ''}${one(params.chrome) === '0' ? '&chrome=0' : ''}`
     const filter = (f: { status: string; outcome: string | null }) => `${f.status !== 'waiting' ? `&status=${f.status}` : ''}${f.outcome ? `&outcome=${f.outcome}` : ''}`
     return {
@@ -60,7 +45,6 @@ export default function InboundMailDevPage({ searchParams }: { searchParams: Pro
   }, [variant, locale, params.chrome])
   const initial = mailId ? (DETAIL_BY_ID.get(mailId) ?? null) : null
 
-  // `?rail=1`: the app shell round the page, as a project shows it (the rail; on a phone the band, the tab bar, „Mehr“).
   const inShell = one(params.rail) === '1'
   const filesPath = `/app/projects/${PROJECT_ID}/files/mail${mailId ? `/${mailId}` : ''}`
   const page = (

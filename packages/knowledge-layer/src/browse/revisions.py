@@ -25,10 +25,8 @@ from .rows import confirmed_revision_marks
 from .text import _words
 from .text import fold
 
-#: Fassungen one answer lists before it counts the rest.
 MAX_CHAIN_LINES = 30
 
-#: Different documents one name may match before the answer asks for the exact name.
 MAX_CHAIN_CANDIDATES = 8
 
 _EXTENSION = re.compile(r"\.([a-z0-9]{1,5})\Z", re.IGNORECASE | re.ASCII)
@@ -130,8 +128,6 @@ def _chain_order(members: Sequence[FileRow]) -> list[FileRow]:
     pending = sorted(members, key=lambda row: position[row.file_name])
     ordered: list[FileRow] = []
     while pending:
-        # Ready: the file that replaced it is already out (or is not among these). A loop, which the store
-        # refuses, would leave none ready and then emits in name order.
         waiting = {row.file_name for row in pending}
         ready = [row for row in pending if row.superseded_by not in waiting]
         row = (ready or pending)[0]

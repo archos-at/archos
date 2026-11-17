@@ -1,5 +1,3 @@
-/** The documents operations (ADR-0122). See `projects.ts` for the shape and `docs/architecture/agent-surface.md` for the rules. */
-
 import { z } from 'zod'
 import { archiveRequestSchema } from '@/lib/documents/lifecycle-types'
 import { byNameRequestSchema } from '@/lib/documents/by-name-types'
@@ -24,7 +22,6 @@ const documentParams = z.object({
 })
 
 
-/** The cap every upload operation shares (`upload-wire.ts`). */
 const SIZE_NOTE = `Up to ${MAX_UPLOAD_BYTES / (1024 * 1024)} MiB per call through the agent door; the document limit of the office applies too.`
 
 const revisionOfField = z
@@ -38,7 +35,6 @@ const uploadBody = uploadBodySchemaWith({
   revisionOf: revisionOfField,
   ...documentUploadFields,
 })
-/** A small text file into a project's root: the multipart body as an agent sends it over MCP. */
 const projectUploadExample = {
   body: {
     files: [{ name: 'site-notes.txt', mimeType: 'text/plain', contentBase64: 'U2l0ZSB2aXNpdCAyMSBPY3RvYmVy' }],
@@ -241,7 +237,9 @@ export const documentsOperations = [
     domain: 'documents',
     summary: 'Cancel a document’s running ingestion',
     description:
-      'Stops a document that is still queued or being read. The document and its file stay; call document-reingest to start over.',
+      'Stops a document that is still queued or being read. The document and its file stay; call document-reingest to start over. ' +
+      '`result` says what the stop did (`cancelled`, `finished` when the read had already ended, `unavailable`), and `status` ' +
+      'is the status the document holds afterwards, which is not `cancelled` when the read ended first.',
     method: 'POST',
     path: '/api/documents/[id]/cancel',
     params: documentParams,
@@ -336,7 +334,6 @@ export const documentsOperations = [
     load: () => import('@/app/api/documents/name-matches/route'),
   },
 
-  // ---- Files: presigned links and bytes out, uploads in ----
   {
     name: 'document-download',
     domain: 'documents',

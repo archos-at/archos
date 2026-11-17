@@ -11,17 +11,20 @@ from __future__ import annotations
 
 from typing import Any
 
-# The answer's self-assessment, lifted alongside the cutoff/degradation marks and
-# spelled exactly as the socket path spells it (``persist_assistant_message``), so
-# the BFF's existing decoder maps all three into the stored provenance with no
-# frontend change. Deliberately NOT in _DEGRADED_EVENT_FIELDS above: a merely
-# low-confidence answer is not a degraded run, and announcing one as the other
-# would train operators to ignore the signal that means a run was cut off.
 ANSWER_CONFIDENCE_FIELDS = (
     "answer_confidence",
     "answer_confidence_reason",
     "answer_confidence_capped_reason",
 )
+
+TEMPORARY_CONVERSATION_KEY = "temporary_conversation"
+
+TEMPORARY_CONVERSATION_SKIP = "temporary_conversation"
+
+
+def is_temporary_conversation(usage_context: dict | None) -> bool:
+    """Whether the run was submitted from a temporary conversation. Pure; only a literal True counts."""
+    return (usage_context or {}).get(TEMPORARY_CONVERSATION_KEY) is True
 
 
 def mark_degraded(transparency: dict[str, Any], reason: str) -> None:
@@ -153,25 +156,16 @@ def _state_field(result: Any, name: str) -> Any:
 def _cutoff_marks(result: Any) -> dict[str, Any]:
     """Whether the run was cut off and why, how it degraded, and the citations it lost."""
     transparency: dict[str, Any] = {}
-    # Literal ``True`` only. A truthy stand-in (``1``, ``"yes"``) means the state
-    # was written by something that does not share this contract, and telling a
-    # reader their research was cut off when nothing recorded a cutoff is a worse
-    # failure than telling them nothing.
     if _state_field(result, "research_truncated") is True:
         transparency["research_truncated"] = True
 
     reason = _state_field(result, "truncation_reason")
     if isinstance(reason, str) and reason.strip():
-        # Read independently of the flag rather than nested under it: a state
-        # that recorded WHY it stopped but lost the boolean still knows something
-        # true, and the caller keys its event off either one being present.
         transparency["truncation_reason"] = reason
 
     degraded_reasons = _state_field(result, "degraded_reasons")
     if isinstance(degraded_reasons, list):
         tokens = [token for token in degraded_reasons if isinstance(token, str) and token]
-        # An empty list is not a claim of "degraded in zero ways" — it is the
-        # ordinary case, and it stays out of the output entirely.
         if tokens:
             transparency["degraded_reasons"] = tokens
 
@@ -183,15 +177,6 @@ def _cutoff_marks(result: Any) -> dict[str, Any]:
 
 def _self_assessment(result: Any) -> dict[str, Any]:
     """The answer's confidence level and its two reasons, each present only when the run set it."""
-    # The answer's own self-assessment, read here so it rides the SAME dict to
-    # the same two surfaces instead of growing a second lift with its own bugs.
-    # The three travel together on purpose: the chat path has always sent the
-    # level with its reason, because "niedrig" alone tells a reader their answer
-    # might be wrong and nothing about what to check, and a level whose reason
-    # was dropped in transport is the exact complaint that pairing exists to
-    # prevent. Deep may not record any of them yet — absent is the ordinary case
-    # and writes nothing, so this lands before the field exists and stays correct
-    # after it does.
     return {
         name: value
         for name in ANSWER_CONFIDENCE_FIELDS
@@ -202,9 +187,6 @@ def _self_assessment(result: Any) -> dict[str, Any]:
 def _run_records(result: Any) -> dict[str, Any]:
     """The run's own retrieval ledger and the skills its disclosure mutes."""
     transparency: dict[str, Any] = {}
-    # Recorded on the deep state and, until this, dropped on the way to the
-    # message: the run's own retrieval ledger and the skills the disclosure
-    # mutes. Both ride the same dict as the rest, present or absent.
     ledger = _state_field(result, "retrieval_ledger")
     if isinstance(ledger, list) and ledger:
         transparency["retrieval_ledger"] = ledger
@@ -219,17 +201,14 @@ def _run_records(result: Any) -> dict[str, Any]:
 
 def extract_result(result: Any) -> str:
     """Extract string result from various result formats."""
-    # Direct string
     if isinstance(result, str):
         return result
 
-    # State with messages
     if hasattr(result, "messages") and result.messages:
         last_msg = result.messages[-1]
         if hasattr(last_msg, "content"):
             return str(last_msg.content)
 
-    # Dict with messages
     if isinstance(result, dict):
         if "messages" in result and result["messages"]:
             last_msg = result["messages"][-1]

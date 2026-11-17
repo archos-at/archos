@@ -171,5 +171,4 @@ async def get_all_async(store, collection: str) -> list[AvailableDocument]:
             return store._attach_supersedes([store._row_to_document(row, collection) for row in result])
     except Exception as e:
         logger.warning("Failed to get metadata async for %s: %s", collection, e)
-        # Fallback to sync
         return store.get_all(collection)

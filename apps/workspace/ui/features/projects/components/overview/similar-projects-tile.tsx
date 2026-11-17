@@ -1,19 +1,5 @@
 'use client'
 
-/**
- * The closed projects most like this one, as a tile: the first three that share
- * something with it, each with its period, what it shares (a trait only read
- * from documents marked) and how much it left behind. The decisions and permit
- * conditions themselves are reading, so they stay in the hub's Similar projects
- * section the footer opens.
- *
- * Only projects the ranking found alike are named: a tile titled „Ähnliche
- * Projekte" that showed the newest unrelated ones would say they were. When
- * the office has closed projects but none alike, the tile says so and still
- * opens the section, which lists them apart and says what the comparison
- * would need.
- */
-
 import type { JSX } from 'react'
 import Link from 'next/link'
 import { GitCompareArrows } from 'lucide-react'
@@ -25,9 +11,7 @@ import { settingsCopy } from '@/i18n/namespaces/settings'
 import type { SimilarProjectsPage } from '@/lib/references/types'
 import { periodYears } from '@/features/references/components/reference-atoms'
 
-/** Projects named in the tile; the section lists every one the reader may open. */
 const SHOWN = 3
-/** Shared traits per project; the section names them all. */
 const TRAITS_SHOWN = 3
 
 export function SimilarProjectsTile({
@@ -43,9 +27,6 @@ export function SimilarProjectsTile({
   const tRefs = useTranslations(referencesCopy)
   const alike = page.projects.filter((project) => project.alike)
   const anyClosed = page.projects.length > 0
-  // The ranking is by score, so a listed project that is not alike means none
-  // beyond the cap is; only a list alike to the last, with more left out, may
-  // be short of the true count.
   const counted = page.more === 0 || alike.length < page.projects.length
 
   return (

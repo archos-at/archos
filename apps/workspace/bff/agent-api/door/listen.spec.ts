@@ -1,13 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Listening on the door, through the real SDK: a client that attached
- * `piloti://project/{id}` hears when that project changes; it cannot listen to a
- * project it may not read, nor hear another organization; the capabilities say
- * only what is supported; and the bus works over a shared (fake Dragonfly)
- * transport.
- */
 import { webcrypto } from 'node:crypto'
 import {
   CLIENT_CAPABILITIES_META_KEY,
@@ -89,7 +82,6 @@ interface Frame {
   params?: Record<string, unknown>
 }
 
-/** Reads SSE frames off a listen response until `stop` returns true. */
 async function frames(response: Response, stop: (all: Frame[]) => boolean): Promise<Frame[]> {
   const reader = response.body!.getReader()
   const decoder = new TextDecoder()
@@ -194,7 +186,6 @@ describe('capabilities', () => {
 })
 
 describe('the bus over a shared transport (a fake Dragonfly)', () => {
-  /** A broker two "pods" share: it echoes every publish to every subscriber, as Redis does. */
   function broker() {
     const handlers = new Map<string, Set<(payload: string) => void>>()
     const transport: EventTransport = {
@@ -218,13 +209,10 @@ describe('the bus over a shared transport (a fake Dragonfly)', () => {
     const response = await listen(handler, outside, { resourceSubscriptions: ['piloti://project/p-1'] })
     const pending = frames(response, () => false)
     await new Promise((resolve) => setTimeout(resolve, 20))
-    // Another pod's message arrives on the shared channel.
     const [receive] = [...(handlers.get('rt:door:events') ?? [])]
     receive(JSON.stringify({ origin: 'another-pod', payload: { kind: 'resource_updated', organizationId: 'org_1', uri: 'piloti://project/p-1' } }))
-    // A malformed or foreign-tenant message is ignored.
     receive(JSON.stringify({ origin: 'another-pod', payload: { kind: 'resource_updated', organizationId: 'org_2', uri: 'piloti://project/p-1' } }))
     receive('not json')
-    // This pod's own publish loops back locally and echoes from the broker: heard once.
     publishProjectChanged('org_1', 'p-1')
     await new Promise((resolve) => setTimeout(resolve, 20))
     expect(updates(await pending)).toEqual(['piloti://project/p-1', 'piloti://project/p-1'])

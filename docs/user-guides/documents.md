@@ -381,7 +381,7 @@ When you select files, the UI shows each file's status in real time:
 3. **completed** — Ingestion finished successfully; the document is searchable
 4. **failed** — Ingestion encountered an error (hover the row for details)
 
-After upload, the `UploadOrchestrator` polls the ingestion job every 5 seconds via `/api/v1/documents/{jobId}/status` until the job reaches a terminal state, for at most 420 attempts (~35 minutes). Running out of that budget, or a job the backend no longer knows, is not a failure: the rows keep reading „Wird gelesen“, a notice says reading continues in the background, and the workspace listing settles them when the documents finish. A file that is open in the preview asks `/api/documents/{id}/status` on its own and shows the summary, page count and tags as soon as indexing finishes.
+After upload, the `UploadOrchestrator` reads the ingestion job via `/api/v1/documents/{jobId}/status` until the job reaches a terminal state: at once when the shelf's live channel says a read settled, and once a minute otherwise. A chat's attachments have no such channel; their listing is re-read every 5 seconds for at most 420 attempts (~35 minutes), then once a minute. Running out of that budget, or a job the backend no longer knows, is not a failure: the rows keep reading „Wird gelesen“, a notice says reading continues in the background, and the workspace listing settles them when the documents finish. A file that is open in the preview asks `/api/documents/{id}/status` on its own and shows the summary, page count and tags as soon as indexing finishes.
 
 On **page refresh**, the orchestrator resumes polling from persisted job state in localStorage, so in-progress uploads are not lost.
 

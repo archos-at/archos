@@ -88,7 +88,6 @@ const logoFont = fontkit.openSync(LOGO_FONT)
 /** Cap height in em, measured on the outlines (the font's OS/2 value is the design's, 0.723). */
 const CAP = logoFont.layout('H').glyphs[0].path.bbox.maxY / logoFont.unitsPerEm
 
-// ── The icon ────────────────────────────────────────────────────────────────
 /**
  * A 96-unit tile, at two sizes of the glyph:
  * - the launcher icons (manifest, home screen, 180 px and up) keep the
@@ -154,7 +153,6 @@ const masterSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${TILE} 
 </svg>
 `
 
-// ── The share card ──────────────────────────────────────────────────────────
 /**
  * 1200 x 630, the stacked lockup (brand-basis.md, "Logo"): the wordmark, and the
  * tagline below it at the gap X, left-aligned, with at least X of clear space
@@ -165,7 +163,6 @@ function shareCard() {
   const word = name.toLocaleUpperCase('de')
   /** The right edge of `text`'s ink per unit of font size. */
   const reach = (text, opts = {}) => outline(logoFont, text, { size: 1, ...opts }).ink.right
-  // 136 px, or smaller for a longer name: the word keeps its clear space X to the right edge.
   const wordSize = Math.min(136, (W - left) / (reach(word, { tracking: TRACKING }) + CAP))
   const x = wordSize * CAP
   const claimSize = Math.min(52, (W - left - x) / reach(tagline))
@@ -183,7 +180,6 @@ function shareCard() {
 `
 }
 
-// ── Check ───────────────────────────────────────────────────────────────────
 const named = namedMark(masterSvg, name)
 
 if (process.argv.includes('--check')) {
@@ -207,7 +203,6 @@ if (process.argv.includes('--check')) {
   process.exit(0)
 }
 
-// ── Rasters ─────────────────────────────────────────────────────────────────
 const sharp = createRequire(resolve(siteRoot, 'package.json'))('sharp')
 
 /** The glyph at the clear-space size X on a tile; `radius` 0 is full bleed, for launchers and iOS that cut their own shape. */
@@ -252,9 +247,6 @@ function write(path, data) {
 }
 
 const favicon = ico(await Promise.all([16, 32, 48].map(async (size) => ({ size, data: await png(named, size) }))))
-// iOS rounds the corners itself and paints transparency black, so the touch
-// icon is full-bleed and opaque. The maskable icon is the dark variant: ink
-// ground, warm-white glyph, well inside the 80% safe circle a launcher crops to.
 const touch = await sharp(await png(launcher(PAPER, INK, 0), 180)).flatten({ background: PAPER }).png().toBuffer()
 const manifestIcons = {
   'icons/icon-192.png': await png(launcher(PAPER, INK, RADIUS), 192),

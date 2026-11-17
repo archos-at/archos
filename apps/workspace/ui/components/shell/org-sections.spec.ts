@@ -1,12 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import { projectIdFromPathname } from './org-sections'
 
-/**
- * The scope decision, in isolation from the rail that renders it. It is one
- * function and it decides which of two navigations the reader gets, so it is
- * worth more than the incidental coverage a mounted component gives it (see
- * AGENTS.md on logic that lives in a render function).
- */
 describe('projectIdFromPathname', () => {
   test('reads the id out of any page inside a project', () => {
     expect(projectIdFromPathname('/app/projects/p-1')).toBe('p-1')
@@ -15,8 +9,6 @@ describe('projectIdFromPathname', () => {
   })
 
   test('treats the listing as org scope, not as a project', () => {
-    // A switcher naming a project while the reader looks at all of them is the
-    // same false claim it makes on the Postfach.
     expect(projectIdFromPathname('/app/projects')).toBeNull()
     expect(projectIdFromPathname('/app/projects/')).toBeNull()
   })

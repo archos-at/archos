@@ -63,7 +63,7 @@ kept alive; a switch on everywhere is that answer one targeting mistake away.
 | `building-law-chain` (ADR-0168) | no `buildingLaw`; every source kept `citations/binding.py`'s status | the chain is resolved for every project with a site |
 | `time-editions` (ADR-0171) | the as-of route 403, `law-lookup` without `as_of` | every office; `GET /api/internal/stages` keeps `timeEditions: true` only so an agent built before the cut-over offers `as_of`, and the key goes once none is deployed |
 | `platform-base-knowledge` (ADR-0165) | the platform routes 403; offices read the stub (nothing); the norm registry took edits | the platform routes need their platform permission only; an office reads the released records of its entitled countries; the norm registry answers 409 always (its route, operation and editor go with the contract step that drops `norm_registry`) |
-| `office-base-knowledge` (ADR-0163) | the office's base knowledge routes 403 and no block on the turn | every office. It waited for the licensed seam; the seam exists, and `licensed-seam` still decides whether licensed text reaches a model |
+| `office-base-knowledge` (ADR-0163) | the office's base knowledge routes 403 and no block on the turn | every office. It waited for the licensed seam; the seam exists, and `licensed-seam` still decides whether licensed text reaches a model. Since 2026-11-14 a new entitlement, `office-standards`, gates the office's own standards again (routes 404, no place, no block on the turn), so production can ship without them |
 
 The paths that went with them:
 
@@ -92,7 +92,10 @@ The paths that went with them:
   contradiction check, the platform reviewer's names, the register's names, the
   reading's token map) read `SITE_SUBDIVISIONS`, from the shipped AT seed of the
   country's `fact_definitions` record (`rulesets/seeds/at-setup-fact-definitions.json`,
-  ADR-0169). The picker still names each Land in the reader's language
+  ADR-0169). Amended by country-as-data step 3: the turn, the register and the
+  reading read the Länder from the released record (`subdivisionTerritories`),
+  the seed only where none is released; the picker's list still reads the seed.
+  The picker still names each Land in the reader's language
   (`form.site.state.<token>`).
 
 ### Kept, and why
@@ -134,15 +137,17 @@ amendment), because the fetcher became where a third party's PDF is parsed.
 - Bad: offices that had none of the switches see the Steckbrief card change
   from OIB verdicts to the law the records name, and the base knowledge card
   in their settings.
-- Bad, until its own change lands: the OIB list narrowed by the building
+- Bad, until ADR-0178 lands: the OIB list narrowed by the building
   (OIB-RL 2.1 for a Betriebsbau, 2.2 for a garage, 2.3 for a high-rise by its
   escape level), the reason on each chip, its source link and the door's
-  `decidingFact` went with `bff/oib`. They return as data, not code: the
-  applicability conditions as rules over the building facts run by the one
-  evaluator (ADR-0166, `classification-evaluate`), so the chain narrows by the
-  building as well as by the site, each chip with its reason and the source
-  link of its edition's manifestation. That change follows this one; Wave 5
-  is done only once it has landed.
+  `decidingFact` went with `bff/oib`. They return as data, not code
+  (ADR-0178): each edition's scope (`appliesWhen`) as a decision table over
+  the building facts, run by the one evaluator (ADR-0166), so the chain
+  narrows by the building as well as by the site. Each chip says why, with
+  the provision, and opens the text its manifestation cites, and
+  `decidingFact` is `applicability.open` on each use of `project-base-get`'s
+  `law`. Wave 5 is done once ADR-0178 has landed and Austria's scopes are
+  published.
 
 ### Confirmation
 

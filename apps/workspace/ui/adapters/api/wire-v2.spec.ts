@@ -2,23 +2,10 @@
 /**
  * @vitest-environment node
  */
-/**
- * The chat wire v2 contract, read from this side (`docs/design/chat-wire-v2.md`).
- *
- * `contracts/wire/v2/` holds recorded turns, one event per line, and
- * `packages/agent/tests/common/test_wire_v2.py` reads the same files with the Pydantic
- * models they were generated from. Every event must parse here, parse to the
- * type it says it is, and every frame of the old wire must NOT parse: there is
- * no second reader.
- *
- * The fixtures are read at runtime, walking up from `process.cwd()`, for the
- * reason `test-utils/card-json-schema.ts` gives: `shared/` is outside the
- * frontend image's build context, and `next build` type-checks specs.
- */
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { foldTurnEvents } from '@/features/chat/lib/turn-fold'
+import { foldTurnEvents } from '@/lib/turns/turn-fold'
 import { MAX_VIEWER_PASSAGE_CHARS, clientMessageSchema, parseHello, parseWireEvent, type WireEvent } from './wire-v2'
 import { viewerActionArgsSchema } from './wire-v2.generated'
 
@@ -125,11 +112,6 @@ describe('chat wire v2 fixtures', () => {
   })
 })
 
-/**
- * A tab outlives a deploy, so the bundle reading a frame is often older than the
- * server that wrote it. `newer-events.jsonl` is drift a newer server may send:
- * the server's own models refuse it (`test_wire_v2.py`), this side reads it.
- */
 describe('chat wire v2 frames from a newer server', () => {
   type Raw = Record<string, unknown>
   const newer = lines('newer-events.jsonl') as Raw[]
@@ -154,6 +136,15 @@ describe('chat wire v2 frames from a newer server', () => {
     expect(event.result.text).toBe('Hallo')
     expect(event).not.toHaveProperty('replica')
     expect(event.result).not.toHaveProperty('answer_digest')
+  })
+
+  it('settles on an unavailable check whose reason names a cause this bundle does not know', () => {
+    const raw = structuredClone(byType('RUN_FINISHED'))
+    const reason = { cause: 'a_cause_a_later_release_adds', elapsed_ms: 12000, extra_key: 1 }
+    ;(raw.result as Raw).confidence_check = { status: 'unavailable', unavailable_reason: reason }
+    const event = parseWireEvent(raw)
+    if (event?.type !== 'RUN_FINISHED') throw new Error('an unknown cause must not drop the RUN_FINISHED')
+    expect(event.result.confidence_check).toEqual({ status: 'unavailable', level: null, unavailable_reason: null })
   })
 
   it('strips a raw payload off a step, so no tool text reaches the fold', () => {

@@ -9,7 +9,7 @@ import { fromCms, type CmsPost, type Post } from './post-model';
 const text = (value: string, format = 0) => ({ type: 'text', version: 1, detail: 0, format, mode: 'normal', style: '', text: value });
 const body = (...children: unknown[]) => ({ root: { type: 'root', version: 1, direction: null, format: '', indent: 0, children } });
 
-/** A post as the CMS answers `postsUrl` (`locale=all&depth=1`; shape read from Payload 3.93.0 on 2026-11-05). */
+// Shape read from Payload 3.93.0 on 2026-11-05.
 const CMS_POST: CmsPost = {
   id: 3,
   publishedAt: '2026-08-27T00:00:00.000Z',
@@ -51,7 +51,6 @@ describe('a CMS post', () => {
     expect(fromCms({ ...CMS_POST, body: { de: { blocks: [] } } }, 'de')).toBeUndefined();
     const file = { url: '/api/media/file/f1.png', aiGenerated: true, sizes: { share: { url: '/api/media/file/f1-1200x630.jpg' } } };
     expect(fromCms({ ...CMS_POST, coverType: 'image', coverImage: file, coverAlt: { de: null } }, 'de')).toBeUndefined();
-    // An image that did not populate (an id) is no cover either.
     expect(fromCms({ ...CMS_POST, coverType: 'image', coverImage: 9, coverAlt: { de: 'Ein Plan' } }, 'de')).toBeUndefined();
     const image = fromCms({ ...CMS_POST, coverType: 'image', coverImage: file, coverAlt: { de: 'Ein Plan' } }, 'de');
     expect(image?.cover).toEqual({ kind: 'image', file, alt: 'Ein Plan', aiGenerated: true });
@@ -65,7 +64,6 @@ describe('the CMS client', () => {
     const settings = cmsSettings({ CMS_URL: 'http://cms:3000', CMS_API_KEY: 'k', CMS_PUBLIC_URL: 'https://cms.example.com/' })!;
     const file = { url: 'http://cms:3000/api/media/file/a%20b.png', sizes: { share: { url: '/api/media/file/a%20b-1200x630.jpg' } } };
     expect(assetUrl(settings, file, 'share')).toBe('https://cms.example.com/api/media/file/a%20b-1200x630.jpg');
-    // A size the CMS did not make (an image smaller than it) is the original.
     expect(assetUrl(settings, file, 'cover')).toBe('https://cms.example.com/api/media/file/a%20b.png');
     expect(authorization(settings)).toBe('users API-Key k');
   });

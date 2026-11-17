@@ -1,18 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * An office's own roles, kept in WorkOS (ADR-0087).
- *
- * Only the WorkOS client, the cache and the audit sink are stubbed; the
- * service's rules run for real. The ones that matter most:
- *
- *  - composing a role is granting, so nobody puts a permission they lack into
- *    one (the no-escalation guard), and removing one is allowed;
- *  - the platform's environment roles are listed and never changed here;
- *  - every change forgets both caches that hold roles, or the role list and
- *    a permission check keep reading the old set for a minute.
- */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AuthorizedSession } from '@/lib/auth/types'
 
@@ -54,7 +42,6 @@ import {
   updateCustomRole,
 } from './custom-roles'
 
-/** A User Admin: may manage people and roles, and holds two other org permissions. Not a catalog role. */
 const userAdmin = (permissions: string[] = []): AuthorizedSession => ({
   userId: 'user_ua',
   email: 'ua@buero.at',
@@ -137,7 +124,6 @@ describe('listOrganizationRoles', () => {
 describe('assignableRolePermissions', () => {
   it('offers the organization tier, grantable only where the editor holds the permission', () => {
     const offered = assignableRolePermissions(userAdmin())
-    // The deprecated `org:archiv:manage` is not offered anew; its replacement is.
     expect(offered?.map((entry) => entry.slug)).toEqual(
       ASSIGNABLE_ROLE_PERMISSIONS.filter((slug) => slug !== 'org:archiv:manage')
     )
@@ -269,7 +255,6 @@ describe('updateCustomRole', () => {
   it('keeps the slug: a rename leaves the role list under the same slug', async () => {
     await updateCustomRole(userAdmin(), 'org-geschaeftsfuehrung', { name: 'GF', description: 'Leitung' }, request())
 
-    // WorkOS takes a name and a description and nothing that could move the slug.
     expect(workos.updateOrganizationRole).toHaveBeenCalledWith('org_1', 'org-geschaeftsfuehrung', {
       name: 'GF',
       description: 'Leitung',

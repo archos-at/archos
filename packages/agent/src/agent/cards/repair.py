@@ -27,8 +27,6 @@ from agent.common.message_utils import response_text
 
 logger = logging.getLogger(__name__)
 
-#: Upper bound on one repair call. The answer is already final when this runs;
-#: past this the card is dropped and the answer ships without it.
 CARD_REPAIR_TIMEOUT_S = 20.0
 
 _SYSTEM_PROMPT = (

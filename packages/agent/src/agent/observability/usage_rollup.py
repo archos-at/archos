@@ -38,13 +38,7 @@ class UsageRollup:
     completion_tokens: int
     total_tokens: int
     cost_usd: float
-    #: 'usage_field' when dollars were observed, 'missing' when the provider
-    #: reported no cost (per-call provenance stays in ``llm_usage_events``).
     cost_source: str
-    #: Why this row exists despite no spend: ``NO_CALLS_ERROR`` on a zero row.
-    #: None on a spending turn. A turn that spent nothing still records a row —
-    #: "no calls" and "the rollup failed" must read differently on the
-    #: dashboard, and only a flag on the row itself survives the trace export.
     error: str | None = None
 
     def to_payload(self) -> dict[str, Any]:
@@ -59,8 +53,6 @@ class UsageRollup:
         }
 
 
-#: The ``error`` flag a zero row carries: the turn made no LLM calls, so there
-#: is no spend to attribute — recorded as a row rather than as silence.
 NO_CALLS_ERROR = "no_llm_calls"
 
 
@@ -206,8 +198,6 @@ def record_usage_turn(
             usage_completion_tokens=rollup.completion_tokens,
             usage_total_tokens=rollup.total_tokens,
             usage_cost_usd=rollup.cost_usd,
-            # Provenance of the dollars, and the zero row's flag: the two facts
-            # that tell "spent nothing" from "spent and reported nothing".
             usage_cost_source=rollup.cost_source,
             usage_error=rollup.error,
         )

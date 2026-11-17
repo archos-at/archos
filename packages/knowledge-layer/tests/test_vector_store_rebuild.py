@@ -1,12 +1,3 @@
-"""Rebuilding a collection as a new ``_vN`` and switching its alias, against a real Qdrant (ADR-0115).
-
-The copy must carry every point with both vectors and its payload into a
-collection of another shard count, the searches must keep working through the
-alias after the switch, and switching back must be the whole rollback. Runs
-against ``QDRANT_TEST_URL`` like ``test_qdrant_store.py``; skips locally
-without it and fails on CI without it.
-"""
-
 from __future__ import annotations
 
 import importlib.util
@@ -22,7 +13,6 @@ from knowledge_layer.vector_store import hybrid_search
 from knowledge_layer.vector_store import rebuild
 from knowledge_layer.vector_store import schema
 
-#: Every collection here is made with a few indexes (``qdrant_testing.few_payload_indexes``).
 pytestmark = pytest.mark.usefixtures("few_payload_indexes")
 
 SCRIPT = pathlib.Path(__file__).resolve().parents[3] / "scripts" / "qdrant_rebuild.py"
@@ -85,20 +75,15 @@ def test_copy_carries_every_point_into_another_shard_count(store):
 
     assert report.complete and report.copied == 40 and report.target_count == 40
     assert store.client.get_collection(target).config.params.shard_number == 3
-    # Same indexes and strict mode as the live collection, so the same filters pass.
     assert set(store.client.get_collection(target).payload_schema) == set(schema.INDEXED_FIELDS)
     copied = store.client.retrieve(target, [records[5].chunk_id], with_vectors=True, with_payload=True)[0]
     assert copied.payload["text"] == records[5].text
     assert set(copied.vector) == {schema.DENSE, schema.LEXICAL}
-    # The alias has not moved yet.
     assert rebuild.current_collection(store.client, schema.Physical.OFFICE) == alias + schema.FIRST_VERSION
 
 
 def test_switch_serves_the_new_collection_and_switching_back_is_the_rollback(store):
     records = _records(12)
-    # One word only the target holds: every other text is the same three words,
-    # a BM25 tie whose order follows the shard layout, so a shared term let a
-    # dense runner-up win the fusion on the 2-shard copy.
     records[0].text = "Sprinkleranlage Treppenhaus Abschnitt 0"
     store.upsert("proj_rebuild", records)
     alias = schema.ALIASES[schema.Physical.OFFICE]
@@ -127,8 +112,6 @@ def test_copy_keeps_the_live_shape_by_default_and_refuses_existing_targets(store
     alias = schema.ALIASES[schema.Physical.OFFICE]
     with pytest.raises(ValueError):
         rebuild.copy_collection(store.client, schema.Physical.OFFICE, alias + schema.FIRST_VERSION)
-    # The process running a rebuild need not carry the backend's settings: the
-    # environment says 1 shard here, the live collection has 3, the copy gets 3.
     monkeypatch.delenv("QDRANT_SHARD_NUMBER")
     rebuild.copy_collection(store.client, schema.Physical.OFFICE, alias + "_v2")
     assert store.client.get_collection(alias + "_v2").config.params.shard_number == 3
@@ -137,7 +120,6 @@ def test_copy_keeps_the_live_shape_by_default_and_refuses_existing_targets(store
 
 
 def test_copy_retries_a_transient_failure_instead_of_leaving_a_half_copy(store, monkeypatch):
-    """A refused target is dropped by a person, so one 503 mid-copy must not end the rebuild."""
     import httpx
     from knowledge_layer.vector_store import store as store_module
     from qdrant_client.http.exceptions import UnexpectedResponse

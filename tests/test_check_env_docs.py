@@ -1,5 +1,3 @@
-"""The env reference check (scripts/check_env_docs.py): a variable a queue worker reads has a row."""
-
 from __future__ import annotations
 
 import importlib.util
@@ -55,7 +53,6 @@ def test_the_queue_workers_read_nothing_the_reference_leaves_out(checker, monkey
 
 
 def test_scope_reaches_the_top_level_worker_files(checker):
-    """A git pathspec ``**/`` needs a subdirectory: ``workers/*.js`` must name job-queue.js itself."""
     files = checker._scoped_files()
     assert "apps/workspace/workers/job-queue.js" in files
     assert "apps/workspace/workers/jobs/index.js" in files

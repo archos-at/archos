@@ -1,18 +1,6 @@
-"""No new German identifier in Python (AGENTS.md: every name in code is English).
-
-A ratchet, not a ban: `ci/english_names_baseline_py.json` holds how many German
-identifiers each file had when this check arrived, and a file may only go down.
-A file over its count fails: rename the new name. A file under its count fails
-too, so the baseline follows every cleanup: rerun with UPDATE_ENGLISH_NAMES=1.
-
-Only identifiers are read (Python's own tokenizer), split into their words; a
-string, a comment or a docstring is never checked, so German copy, document
-names and legal citations stay as they are. The stems are in
-`ci/german_stems.json`, shared with the TypeScript check.
-"""
-
 from __future__ import annotations
 
+import functools
 import io
 import json
 import keyword
@@ -31,7 +19,6 @@ _WORDS = re.compile(r"[A-Z]?[a-z]+|[A-Z]+(?![a-z])|\d+")
 
 
 def german_words(identifier: str) -> list[str]:
-    """The words of ``identifier`` that carry a German stem (`federal_state` → [], `bundesland_id` → ['bundesland'])."""
     words = [word.lower() for part in identifier.split("_") for word in _WORDS.findall(part)]
     return [word for word in words if GERMAN.search(word)]
 
@@ -53,6 +40,7 @@ def _count(path: str) -> int:
     return count
 
 
+@functools.cache
 def _current() -> dict[str, int]:
     return {path: count for path in _python_files() if (count := _count(path))}
 
@@ -61,7 +49,6 @@ def test_the_word_split_reads_identifiers_not_substrings():
     assert german_words("bundesland_source") == ["bundesland"]
     assert german_words("GebaeudeklasseInput") == ["gebaeudeklasse"]
     assert german_words("federal_state") == []
-    # `archiv` is German, `archive` is English: the soft-delete names stay legal.
     assert german_words("archived_at") == []
     assert german_words("archiv_scope") == ["archiv"]
 

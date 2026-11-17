@@ -1,8 +1,3 @@
-// Pure, isomorphic (client- and server-safe) JSON-pointer patch engine for the
-// project profile. Kept free of any database / server-only imports so the intake
-// wizard can build its profile through the exact same engine that chat-driven
-// profile edits (ProjectProfilePatchCard) use — a single source of truth for how
-// a ProjectProfile is shaped and validated.
 import { normalizeProfilePatchOperation } from './legacy-names'
 import {
   ProjectPrimitiveValueSchema,
@@ -14,7 +9,6 @@ import type { ProjectProfile, ProjectProfilePatchOperation } from './types'
 
 const UNSAFE_POINTER_SEGMENTS = new Set(['__proto__', 'prototype', 'constructor'])
 
-/** A fresh, schema-valid empty profile — the base every intake build patches onto. */
 export function emptyProjectProfile(): ProjectProfile {
   return ProjectProfileSchema.parse({})
 }
@@ -26,7 +20,6 @@ export function applyProjectProfilePatch(
   const next = structuredClone(ProjectProfileSchema.parse(profile))
 
   for (const legacyOperation of patch) {
-    // A proposal or a card stored before the rename still names the old keys.
     const operation = normalizeProfilePatchOperation(legacyOperation)
     assertSafePath(operation.path)
     const parsedOperation = ProjectProfilePatchOperationSchema.parse(operation)
@@ -107,22 +100,6 @@ function applyArrayOperation(
   parent[index] = operation.value
 }
 
-/**
- * Would applying `patch` still change anything that matters?
- *
- * This is what tells the two kinds of optimistic-lock conflict apart. A
- * collaborator who accepted the SAME patch card a moment earlier leaves the
- * profile already holding the change — the work is done, and refusing the loser
- * would re-offer a button whose job is finished. Any OTHER concurrent write (a
- * wizard save, a different patch) means these operations never landed, and the
- * caller must be told so it can retry.
- *
- * Provenance instants are ignored: {@link normalizeProfilePatchOperations}
- * stamps `updatedAt` at apply time, and a decision on the intake's review
- * stamps its `person` evidence (`at`) and an alternative (`recordedAt`) the
- * same way (ADR-0111), so the same value re-applied is a different object yet
- * semantically a no-op.
- */
 export function isPatchAlreadyApplied(
   profile: ProjectProfile,
   patch: ProjectProfilePatchOperation[]
@@ -130,13 +107,10 @@ export function isPatchAlreadyApplied(
   const settle = (value: ProjectProfile) => pruneResolvedAssumptions(pruneResolvedUnknowns(value))
   return equalIgnoringInstants(
     settle(applyProjectProfilePatch(profile, patch)),
-    // Through the same engine with no operations, so both sides are compared in
-    // the schema's canonical shape rather than raw jsonb against parsed output.
     settle(applyProjectProfilePatch(profile, []))
   )
 }
 
-/** The keys that say WHEN something was written, never what: `updatedAt` on an entry, `at` on person evidence, `recordedAt` on an alternative. */
 const PROVENANCE_INSTANTS: ReadonlySet<string> = new Set(['updatedAt', 'at', 'recordedAt'])
 
 function equalIgnoringInstants(a: unknown, b: unknown): boolean {
@@ -168,17 +142,6 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
-/**
- * Normalize agent/user-friendly patch operations into schema-valid ones.
- *
- * The agent's ProjectProfilePatchCard proposes bare values ("GK4") because the
- * model cannot know write-time provenance. On accept, a bare value written to
- * `/facts/<key>` is wrapped into a full {@link ProjectFact} with
- * `source: 'user_confirmed'` (accepting the card IS the confirmation), and a
- * bare value written to `/assumptions/<key>` becomes an unconfirmed
- * agent-suggested {@link ProjectAssumption}. Already-complete objects and every
- * other path pass through untouched.
- */
 export function normalizeProfilePatchOperations(
   patch: ProjectProfilePatchOperation[],
   now: string = new Date().toISOString()
@@ -217,23 +180,12 @@ export function normalizeProfilePatchOperations(
   })
 }
 
-/**
- * Drop unknowns that have since been answered: once a fact exists under the
- * same key, "Piloti still doesn't know X" is stale. Also dedupes the list.
- */
 export function pruneResolvedUnknowns(profile: ProjectProfile): ProjectProfile {
   const unknowns = [...new Set(profile.unknowns)].filter((key) => !(key in profile.facts))
   if (unknowns.length === profile.unknowns.length) return profile
   return { ...profile, unknowns }
 }
 
-/**
- * Drop assumptions superseded by a confirmed fact under the same key: once the
- * user has answered (wizard, patch card, or Brief confirm), the unconfirmed
- * default must not linger next to the fact — a stale `federal_state=wien`
- * assumption beside a confirmed `federal_state=tirol` fact would feed the agent
- * two contradictory jurisdictions.
- */
 export function pruneResolvedAssumptions(profile: ProjectProfile): ProjectProfile {
   const stale = Object.keys(profile.assumptions).filter((key) => key in profile.facts)
   if (stale.length === 0) return profile
@@ -242,14 +194,12 @@ export function pruneResolvedAssumptions(profile: ProjectProfile): ProjectProfil
   return { ...profile, assumptions }
 }
 
-/** `/facts/<key>` (exactly one segment below the section) → `<key>`, else null. */
 function matchTopLevelKey(path: string, section: 'facts' | 'assumptions'): string | null {
   const parts = path.split('/')
   if (parts.length !== 3 || parts[1] !== section || !parts[2] || parts[2] === '-') return null
   return decodeJsonPointerSegment(parts[2])
 }
 
-/** A raw primitive/array value, as opposed to an already-shaped fact/assumption object. */
 function isBareValue(value: unknown): boolean {
   return ProjectPrimitiveValueSchema.safeParse(value).success
 }

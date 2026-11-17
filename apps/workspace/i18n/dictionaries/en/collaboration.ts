@@ -1,22 +1,4 @@
-/**
- * Collaboration: sharing a resource, @-mentions with the agent hand-off, and the
- * inbox (ADR-0032…0035).
- *
- * Anything counted here carries explicit `…One` / `…Many` keys and the renderer
- * picks between them. That predates the plural blocks `i18n/translate.ts`
- * now understands (`{count, plural, one {…} other {…}}`), and these pairs are
- * left as they are because they are already correct — but a NEW counted string
- * belongs in one key with a plural block rather than in a new pair. What has not
- * changed is the reason both forms have to be written out: German and English
- * disagree about where the noun inflects, so a bare `{count}` in front of a noun
- * is a defect in one locale or both.
- */
 export const collaboration = {
-  /**
-   * A chat shared with someone who can no longer read a folder it drew on
-   * (ADR-0088). The title is neutral because the real one is model-written from
-   * the chat, restricted content included; nothing here names a folder.
-   */
   rightsLost: {
     neutralTitle: 'Shared chat',
     title: 'You no longer have the rights to view this chat',
@@ -25,10 +7,8 @@ export const collaboration = {
   },
   sharing: {
     title: 'Share',
-    /** Button in the chat toolbar. */
     action: 'Share',
     close: 'Close',
-    /** The link to the chat: it only opens for people who already have access. */
     link: {
       heading: 'Link',
       share: 'Share link',
@@ -39,9 +19,7 @@ export const collaboration = {
       shareTitle: 'Chat in {productName}',
     },
     visibilityHeading: 'Who can see this',
-    /** Screen-reader text while the sharing state is being fetched. */
     loading: 'Loading sharing settings…',
-    /** Small label above the access chip inside the mobile thread menu. */
     audienceHeading: 'Audience',
     visibility: {
       private: 'Only me',
@@ -50,13 +28,11 @@ export const collaboration = {
       projectHint: 'Every member of this project can read and contribute.',
       organization: 'Everyone in the organization',
       organizationHint: 'Every member of your organization can read and contribute.',
-      /** What narrowing away from a blanket rule costs, stated in the confirm. */
       narrowLoss: {
         project: 'Everyone in this project loses access to this conversation.',
         organization: 'Everyone in the organization loses access to this conversation.',
       },
     },
-    /** The access chip shown wherever a resource is listed. */
     chip: {
       private: 'Private',
       project: 'Project',
@@ -71,7 +47,6 @@ export const collaboration = {
       collaborator: 'Can contribute',
       owner: 'Owner',
     },
-    /** Why someone has access — so access is never mysterious. */
     reasons: {
       creator: 'Created this',
       grant: 'Invited by {name}',
@@ -83,22 +58,14 @@ export const collaboration = {
       label: 'Invite someone',
       placeholder: 'Search by name or email…',
       empty: 'Nobody left to invite.',
-      /** A typed search that matched nobody — distinct from an exhausted list. */
       noResults: 'No match for “{query}”',
       submit: 'Invite',
-      /** Shown on org members who are not in the project (spec SH-19). */
       needsProjectAccess: 'Not in this project yet',
       needsProjectAccessHint:
         'Add them to the project first. Sharing a chat never grants access to the project itself.',
-      /**
-       * Disabled row for someone who cannot read every folder the chat drew on
-       * (ADR-0088). Never names the folder: the sharer may not be cleared for
-       * it either, and the server's refusal stays the authority.
-       */
       lacksFolderAccess: 'Has no access to a folder this chat draws on',
       lacksFolderAccessBadge: 'No access',
     },
-    /** On the roster: someone still shared with who can no longer read what the chat drew on. */
     lostAccess: 'No longer has access',
     roleHeading: 'Access level',
     manageFor: 'Manage access: {name}',
@@ -140,21 +107,12 @@ export const collaboration = {
       loadFailed: 'Sharing settings could not be loaded.',
       saveFailed: 'That change could not be saved.',
       tryAgain: 'Try again',
-      /**
-       * The failure alert's own dismiss control. Distinct from `sharing.close`
-       * (the dialog's): both sit inside the same dialog, and two controls with
-       * the accessible name "Close" cannot be told apart by name alone.
-       */
       dismiss: 'Dismiss this message',
     },
     resourceTypes: {
       conversation: 'Conversation',
       document: 'File',
     },
-    /**
-     * The "who can reach this chat" overview — the answer to the question the
-     * participant strip raises when you click it.
-     */
     overview: {
       title: 'Who has access',
       openLabel: 'View who has access',
@@ -164,7 +122,6 @@ export const collaboration = {
       collaboratorsHeading: 'Can contribute',
       viewersHeading: 'Can view',
       you: 'you',
-      /** Sits under the heading, restating the blanket rule in plain words. */
       viaVisibilityProject: 'Everyone in this project can also read and contribute.',
       viaVisibilityOrganization: 'Everyone in your organization can also read and contribute.',
       viaVisibilityPrivate: 'Only the people listed here.',
@@ -174,7 +131,6 @@ export const collaboration = {
   },
 
   mentions: {
-    /** The `@` picker inside the composer. */
     picker: {
       label: 'Mention someone',
       placeholder: 'Mention a colleague…',
@@ -183,103 +139,45 @@ export const collaboration = {
       loading: 'Loading people…',
       participantsHeading: 'In this conversation',
       othersHeading: 'Elsewhere in this project',
-      /** The agent as a mention target — how you bring it back into a waiting thread. */
       agentName: '{productName}',
       agentHint: 'Ask the assistant',
       needsInvite: 'Will be invited',
       needsInviteHint: '{name} is not in this conversation yet and will be invited.',
-      /**
-       * The same fact WITHOUT the name, for the picker row — which prints the
-       * person's name on the line directly above, so interpolating it again read
-       * "Sabine Gruber / Sabine Gruber ist noch nicht in diesem Chat…". Keep the
-       * named variant for surfaces that mention someone out of context.
-       */
       needsInviteHintShort: 'Not in this conversation yet — will be invited.',
       cannotInvite: 'Only an owner can bring new people into this conversation.',
-      /** Screen-reader + footer affordances for the combobox. */
       resultsAria: 'People you can mention',
       keyboardHint: '↑↓ to choose · ↵ to insert · Esc to close',
       badgeAgent: 'Assistant',
-      /** The inserted token in the composer. */
       chipRemove: 'Remove mention of {name}',
     },
-    /**
-     * The composer's state once a human is tagged. Two keys because this i18n
-     * layer has interpolation but NO plural rules: German inflects the verb
-     * ("wird gefragt" / "werden gefragt"), so joining names into the singular
-     * string produced "Anna Berger, Tobias Kern wird gefragt" — wrong grammar in
-     * the primary product language.
-     */
     composerHint: '{productName} will stay quiet — {name} is being asked.',
     composerHintMany: '{productName} will stay quiet — {names} are being asked.',
-    /**
-     * The composer's always-visible statement of WHO receives this message.
-     *
-     * This exists because the routing was not guessable from the UI: after a
-     * colleague answers, is the next message a question for Piloti or a remark to
-     * them? Rather than teach a rule, the composer says it. Present in every
-     * state, so "Piloti is next" is never an inference.
-     */
     addressee: {
-      /** Default, and where a thread always returns. */
-      /** One or more humans tagged in the message being written. */
       toPerson: 'Goes to {name}',
       toPeople: 'Goes to {names}',
-      /**
-       * While the thread is waiting on a named person, a plain message is a
-       * remark to the people in it — not a question for the agent.
-       */
       toThread: 'Goes to everyone in the chat',
-      /** How to get back to the agent from the waiting state. */
       agentHint: 'Type @{productName} to ask {productName}',
-      /**
-       * The only thing that teaches `@` exists. Sits on the line that already
-       * states the routing, because "this goes to Piloti" is exactly when somebody
-       * might want it to go to a colleague instead.
-       */
       mentionSomeone: 'mention a colleague',
       ariaLabel: 'Recipient of this message: {label}',
     },
-    /**
-     * The panel behind a mention pill in message text. A tag is a reference to a
-     * person, and in a project of forty a name often does not place them — so the
-     * reference answers "who is that?" where it is asked, like a citation does.
-     */
     peek: {
       agentRole: 'Assistant in this project',
       inConversation: 'Can read this conversation',
-      /** The one that matters: a tag that reaches nobody looks identical otherwise. */
       notInConversation: 'Not in this conversation',
     },
     notePlaceholder: 'What would you like them to look at? (optional)',
-    /**
-     * When the agent answers a message that tags nobody (ADR-0036).
-     *
-     * This is a permanent one-liner rather than a dismissible notice, because it
-     * is simultaneously the explanation ("why didn't Piloti answer that?") and the
-     * control. A routing rule the reader cannot see is a rule they will be
-     * surprised by, and the surprise arrives long after any banner was dismissed.
-     */
     engagement: {
       mentionLabel: '{productName} answers when mentioned',
       mentionHint:
         'Several of you are talking here, so a plain message goes to everyone in the chat.',
       switchToAsk: 'Let {productName} answer everything',
-      /**
-       * The OFFER, shown while the thread is still in `ask`. Phrased as a
-       * question about the future, never as a report of a change — because no
-       * change happened, and `ask` remains the default however many people are
-       * here.
-       */
       offerHint: 'Several of you are talking here. Should {productName} wait to be mentioned?',
       switchToMention: 'Answer only when mentioned',
       failed: 'That could not be changed.',
     },
-    /** The banner every participant sees while the thread waits (spec MN-8). */
     awaiting: {
       one: 'Waiting for {name}',
       many: 'Waiting for {names}',
-      /** Explains the silence, so it never reads as a bug. */
       hint: '{productName} is holding off until someone answers.',
       askedBy: 'Asked by {name}',
       since: 'since {time}',
@@ -287,40 +185,16 @@ export const collaboration = {
       awaitingYouHint: 'Answer in the conversation, or release the wait.',
       release: 'Continue without waiting',
       releaseOne: 'Continue without {name}',
-      /**
-       * The accessible name of a per-person release button whose name is not
-       * unique in the list — the same colleague can be waited on twice. Only the
-       * start of the wait tells the two apart, so only it is added.
-       */
       releaseOneSince: 'Continue without {name} — waiting since {time}',
       released: 'The wait was released.',
       askAgent: 'Ask {productName} instead',
-      /**
-       * Shown only to the person who was asked. Being asked something you cannot
-       * answer without more information is the most common outcome, and typing a
-       * plain reply is the one move that goes wrong: it reads as an answer, ends
-       * the wait, and hands the thread back to Piloti mid-conversation. This
-       * pre-fills `@{asker}` so the question travels back to the person who can
-       * answer it and the thread keeps waiting — on them, correctly.
-       */
       askBack: 'Ask {name} back',
     },
-    /**
-     * The hand-BACK offer, shown in the thread at the moment a wait resolves.
-     *
-     * `awaiting.askAgent` above lives inside the banner, which vanishes the instant
-     * the colleague answers — so exactly when the thread holds its most valuable
-     * context there was no affordance at all, and the user had to already know that
-     * typing `@Piloti` is the way on. This is that affordance, and it PRE-FILLS the
-     * composer rather than firing a turn: every message in a shared thread stays
-     * honestly authored, and a turn with no question of its own produces mush.
-     */
     handback: {
       offer: '{name} replied — let {productName} carry on?',
       offerMany: '{names} replied — let {productName} carry on?',
       action: 'Let {productName} carry on',
       dismiss: 'Not now',
-      /** Inserted after `@Piloti ` into the composer, for the user to edit or send. */
       prefill: '— please carry on from here.',
     },
     errors: {
@@ -334,18 +208,15 @@ export const collaboration = {
 
   inbox: {
     title: 'Inbox',
-    /** The inbox beside the page: close it, and the way to every entry. */
     dock: {
       close: 'Close the inbox',
       all: 'All entries and the archive',
     },
-    /** Nav entry + the count badge. */
     navLabel: 'Inbox',
     badgeAria:
       '{count, plural, one {# item needs} other {# items need}} your attention',
     badgeAriaOne: '1 item needs your attention',
     subtitle: 'Requests and updates from your team.',
-    /** "Needs me" is what waits on you (an open request); "Unread" what you have not opened. */
     filters: {
       needsMe: 'Needs me',
       all: 'All',
@@ -355,7 +226,6 @@ export const collaboration = {
     markAllRead: 'Mark all as read',
     archive: 'Archive',
     undo: 'Undo',
-    /** The short form for a phone, where the long one breaks the row. */
     markAllReadShort: 'All read',
     archived: 'Archived',
     unarchive: 'Restore',
@@ -366,30 +236,24 @@ export const collaboration = {
     loadMore: 'Load older items',
     loadingMore: 'Loading older items …',
     loadMoreFailed: 'Older items could not be loaded.',
-    /** A row about an annotation: go there, and for a request answer or resolve it right here. */
-    /** By when, on a request with a date, where the title does not say it already. */
     due: {
       overdue: 'Overdue',
       soon: 'Due soon',
       on: 'Due {due}',
     },
-    /** The list's sections, by the moment a row last changed. */
     groups: {
       today: 'Today',
       yesterday: 'Yesterday',
       week: 'This week',
       older: 'Earlier',
     },
-    /** The hint under the list, with a pointer and keyboard only: the keys that work the inbox. */
     keys: {
       move: 'select',
       open: 'open',
       archive: 'archive',
       read: 'read/unread',
     },
-    /** What a new revision leaves to check, as a fact on the line under the title. */
     openMarks: '{count, plural, one {# open annotation} other {# open annotations}}',
-    /** The inbox as a queue: what waits on you, gathered by document or chat, then the news. */
     queue: {
       waiting: 'Waiting on you',
       news: 'News',
@@ -398,7 +262,6 @@ export const collaboration = {
       newsRead: 'Mark as read',
       chat: 'Chat',
     },
-    /** Why a waiting entry is yours, briefly: its document is already named above it. */
     reason: {
       assigned: 'Assigned by {actor}',
       assignedNoActor: 'Assigned to you',
@@ -425,21 +288,9 @@ export const collaboration = {
       conflict: 'Someone changed the annotation first. Open it to see where it stands.',
       failed: 'That did not work. Nothing has changed.',
     },
-    /** Item states. */
     resolved: 'Answered',
-    /** An item whose target the recipient can no longer reach (spec IB-13). */
     inert: 'No longer available',
-    /**
-     * The BODY of a redacted row — a complete sentence, because the templated
-     * "in {subject}" needs a real title and the placeholder read as nonsense inside
-     * it. Says the same thing the chip does, in the position the body occupies,
-     * for whatever the row points at: a chat, a document, a mark.
-     */
     bodyUnavailable: 'This is no longer available to you.',
-    /**
-     * The next move on a new revision filed under another name: see the two side
-     * by side. Opens the file preview with the comparison open.
-     */
     compareRevisions: 'Compare revisions',
     compareRevisionsLabel: 'Compare the new and the older revision of “{subject}”',
     empty: {
@@ -453,36 +304,15 @@ export const collaboration = {
     },
     errors: {
       loadFailed: 'Your inbox could not be loaded.',
-      /**
-       * A refused ACTION, which is a different fact from a failed load — and the
-       * commonest cause is benign (a row a second tab already archived). Kept
-       * separate so a working list is never replaced by a load-failure sentence.
-       *
-       * "Unchanged", not "up to date": the refusal path deliberately does not
-       * re-read the list, so the rows on screen are exactly the ones that were
-       * there before — which in the commonest case (a row another tab already
-       * archived) is precisely NOT up to date.
-       */
       actionFailed: 'That action could not be completed. Your inbox is unchanged.',
     },
-    /**
-     * One entry per registered item type. Adding a type means adding a `title`
-     * and `body` here — that plus a registry entry is the whole cost (spec IB-6).
-     */
     types: {
-      /** `titleResolved` once the question is answered: the row is history then. */
       mentionRequested: {
         title: '{actor} asked for your input',
         titleResolved: '{actor}’s question has been answered',
         titleResolvedNoActor: 'The question has been answered',
         body: 'in {subject}',
       },
-      /**
-       * "Replied", not "answered". Even with `asked_back` split out, a
-       * contribution can be "I'll look at it tomorrow" — true of every one of
-       * them is that the person replied. German already says exactly this
-       * ("hat geantwortet"); English "answered" was the one over-claim.
-       */
       mentionAnswered: {
         title: '{actor} replied',
         titleNoActor: 'Your question was answered',
@@ -492,45 +322,18 @@ export const collaboration = {
         title: '{actor} shared a conversation with you',
         body: '{subject}',
       },
-      /** Who wrote is in the title, and the chat too, so there is no second line. */
       conversationActivity: {
         titleOne: '{actor} wrote in “{subject}”',
         titleOneNoActor: 'New message in “{subject}”',
         titleMany: '{count} new messages in “{subject}”, latest from {actor}',
         titleManyNoActor: '{count} new messages in “{subject}”',
-        /**
-         * Read, with nothing new since — the counter has been spent. So it must
-         * not say "new": this row is history, and a group of twenty the reader
-         * has just been through was announcing fresh mail at them.
-         */
         titleNone: 'Messages in “{subject}”',
-        /** The chat is no longer available to the reader: no name to put in quotes. */
         titleRedacted: 'Messages in a chat',
       },
-      /**
-       * The operational alert (ADR-0042). No `{actor}`: it is system-generated,
-       * and the row's actor fallback ("Someone") would put an imaginary
-       * colleague's name on a message from the platform.
-       *
-       * The numbers live in the BODY and the title states the condition, so the
-       * title still reads correctly for a row whose target was redacted (the
-       * body is replaced wholesale in that state). `{subject}` is the share of
-       * quota in use — a locale-neutral token like `82%`, formatted server-side,
-       * so this sentence is the only thing that needs translating.
-       *
-       * "ask whoever runs Piloti for you" rather than "your administrator": the
-       * quota is set by the PLATFORM operator and deliberately cannot be raised
-       * from inside the tenant (ADR-0042), so pointing an org admin at their own
-       * settings would send them looking for a control that is not there.
-       */
-      // Platform tier: a member sent product feedback. {subject} is the
-      // organization it came from; the excerpt below the title is the message.
       feedbackSubmitted: {
         title: '{actor} sent feedback',
         body: 'from {subject} — open it to triage.',
       },
-      // The team answered the reader's own report in PostHog. {subject} is the
-      // start of the report, {related} whoever answered last.
       feedbackReplied: {
         title: 'The {productName} team answered your feedback',
         titleMany: '{count} new replies to your feedback',
@@ -543,26 +346,19 @@ export const collaboration = {
         title: 'Your organization is running out of storage',
         body: '{subject} of the storage quota is in use. Once it is full, uploads will start failing — delete documents you no longer need, or ask whoever runs {productName} for you to raise the quota.',
       },
-      /**
-       * A row whose type this build does not know — written by a newer deploy, or
-       * read across a rollback. Deliberately vague: claiming more than "something
-       * happened" would be inventing a meaning nobody here has.
-       */
       documentAssigned: {
         title: '{actor} assigned {subject} to you',
         body: 'You are responsible for this file.',
       },
-      // ADR-0086: everything an upload brought in has been read. {subject}
-      // is where it went (a project name, "Büroablage" or "Chat").
+      ownershipTaken: {
+        title: '{actor} took ownership of “{subject}”',
+        body: 'As a project admin. You remain an owner; the takeover is recorded in the audit trail.',
+      },
       uploadCompleted: {
         title: 'Your upload has been read',
         body: '{subject}: open the summary to see what arrived.',
         bodyNoSubject: 'Open the summary to see what arrived.',
       },
-      // ADR-0086: the content check held files back.
-      // {subject} is the newest held file; the variant says what it was held
-      // for (never the value found). `transcript`: a vision model read the
-      // scanned pages it was found in, so no "no model" claim there.
       documentQuarantined: {
         titleOne: '1 file is waiting in quarantine',
         titleMany: '{count} files are waiting in quarantine',
@@ -604,7 +400,6 @@ export const collaboration = {
       documentReleaseRequested: {
         title: '{actor} asks you to review “{subject}”',
         body: 'The file is in quarantine. Look at it, then allow or delete it.',
-        // What the file was held for, as for documentQuarantined.
         variants: {
           term: { body: 'It contains a term from the list of sensitive data. Look at it, then allow or delete it.' },
           iban: { body: 'It contains an IBAN. Look at it, then allow or delete it.' },
@@ -615,13 +410,10 @@ export const collaboration = {
           transcript: { body: 'Found in the text of scanned pages a vision model read. Look at it, then allow or delete it.' },
         },
       },
-      // The row lands on the run itself (its block in the thread, else the
-      // task), where the result and the reason are.
       taskRunCompleted: {
         title: '{productName} finished “{subject}”',
         body: 'Open it to see the result.',
       },
-      // An Outlook archive was imported. {subject} is the archive's file name.
       mailImportCompleted: {
         title: '“{subject}” has been imported',
         body: '{productName} filed the attachments under E-Mail-Import and the emails in the project’s mail threads.',
@@ -634,30 +426,18 @@ export const collaboration = {
         title: '{productName} could not finish “{subject}”',
         body: 'Open it to see what went wrong.',
       },
-      // A run stopped to ask its requester something (ADR-0062, `wartet`). The
-      // body says where the answer goes, because the run resumes nowhere else.
       taskRunWaiting: {
         title: '{productName} has a question about “{subject}”',
         body: 'Answer it in the thread and {productName} carries on.',
       },
-      // A revision of a document is waiting for a decision (ADR-0054).
-      // {subject} is the document, {actor} whoever submitted it.
       documentReviewRequested: {
         title: '{actor} asked you to review {subject}',
         body: 'A new revision is waiting for your approval.',
       },
-      // A newer revision (Fassung) of a document you follow, as a sentence about
-      // the person who uploaded it. {actor} is that person, {subject} the
-      // document you follow (without its extension). What changed is the
-      // excerpt below; only without one does `bodyNoExcerpt` say where to look.
-      // `titleNoActor` when nobody in particular did it.
       documentNewRevision: {
         title: '{actor} uploaded a new revision of “{subject}”',
         titleNoActor: 'New revision of “{subject}”',
         bodyNoExcerpt: 'Open the revision to see what changed.',
-        // Open annotations the new revision leaves behind: {marks} how many,
-        // {revision} which revision of the same document; `…_earlier` when they
-        // sit on several, or another document was replaced.
         variants: {
           mark: { body: 'Check 1 open annotation from revision {revision}' },
           marks: { body: 'Check {marks} open annotations from revision {revision}' },
@@ -665,16 +445,6 @@ export const collaboration = {
           marks_earlier: { body: 'Check {marks} open annotations from the previous revision' },
         },
       },
-      // What Piloti did on an Anmerkung, told to the person whose act woke it:
-      // who delegated the mark, mentioned Piloti in it, or answered Piloti's
-      // Rückfrage (ADR-0106). {related} is the mark's running number,
-      // {subject} the document; the excerpt below is what the mark says. No
-      // {actor}: that was Piloti. `titleRelatedNoSubject` when the document
-      // could not be named. Same words as the review view: annotation, thread,
-      // delegate.
-      // Piloti compared a new revision with the previous one on its own
-      // (ADR-0130) and proposed marks. {subject} the new revision, {related}
-      // the one compared, {marks} how many proposals. No {actor}: Piloti did it.
       agentRevisionChecked: {
         title: '{productName} compared the new revision “{subject}”',
         titleRelated: '{productName} compared “{subject}” with “{related}”',
@@ -682,7 +452,6 @@ export const collaboration = {
         variants: {
           one: { body: '1 place marked as a proposal, not yet accepted.' },
           many: { body: '{marks} places marked as proposals, not yet accepted.' },
-          // The check of a new document against the project's others, not a comparison with a previous revision.
           check_one: {
             title: '{productName} checked the new document “{subject}” against your other documents',
             body: '1 place marked as a proposal, not yet accepted.',
@@ -698,15 +467,10 @@ export const collaboration = {
         titleRelated: '{productName} worked on annotation {related} in “{subject}” for you',
         titleRelatedNoSubject: '{productName} worked on annotation {related} for you',
         body: 'Read the answer in the annotation’s thread.',
-        // The delegation ended: Piloti handed the annotation back.
         variants: {
           assigned: { body: 'The annotation is back with you.' },
         },
       },
-      // Piloti could not. `variants` say why, by the class of the wake's
-      // stored reason (`lib/annotations/wake-end-reason.ts`), and what the
-      // person can do about it; `body` is for a row stored before the reason
-      // was kept.
       agentWorkFailed: {
         title: '{productName} could not work on an annotation',
         titleRelated: '{productName} could not work on annotation {related} in “{subject}”',
@@ -727,26 +491,15 @@ export const collaboration = {
           },
         },
       },
-      // Piloti asked a question and waits for a person: the mark's assignee,
-      // or the person it worked for. The question is the excerpt below.
       agentAsksYou: {
         title: '{productName} has a question for you on an annotation',
         titleRelated: '{productName} has a question for you on annotation {related} in “{subject}”',
         titleRelatedNoSubject: '{productName} has a question for you on annotation {related}',
         body: '{productName} is waiting for your answer. Reply in the annotation’s thread.',
-        // `answerIn: 'review'`: nothing wakes Piloti on its own; the review
-        // asks it with the answer, so nobody is waiting here.
         bodyInReview: 'Answer in the review. From there your answer reaches {productName}.',
       },
-      // A proposal the server holds (ADR-0105), for the person Piloti made it
-      // for. `variants` name what it changes (a file operation by its verb,
-      // the rest by kind: `PROPOSAL_NOTICE_VARIANTS`); the excerpt below names
-      // the files, the note or the change. Words as on the card.
       agentProposalWaiting: {
         title: '{productName} has a proposal for you',
-        // Where the proposal waits, by what the row points at: the chat it came
-        // from, else the file under Files (`bodyProject`) or in the office
-        // filing (`bodyOrganization`).
         body: 'The proposal is in the chat. Apply or dismiss it there; nothing changes until then.',
         bodyProject: 'The proposal waits on the file under Files. Apply or dismiss it there; nothing changes until then.',
         bodyOrganization: 'The proposal waits on the file in the office filing. Apply or dismiss it there; nothing changes until then.',
@@ -760,16 +513,10 @@ export const collaboration = {
           operation: { title: '{productName} suggests an action' },
         },
       },
-      // Piloti read a project's documents and suggested values for its profile
-      // (ADR-0111). {subject} is the project's name, {related} the number of
-      // questions that decide the building class; absent when there are none,
-      // and `title` is read. Piloti's summary is the excerpt below.
       agentIntakeReady: {
         title: '{productName} has read the documents of “{subject}”',
         titleRelated: '{productName} has read the documents of “{subject}” – questions: {related}',
         body: 'Review the suggestions and confirm what is right.',
-        // The reading did not finish (stopped, never started, no answer for
-        // too long). Whoever left the page learns it here.
         variants: {
           failed: {
             title: '{productName} could not finish reading the documents of “{subject}”',
@@ -777,14 +524,7 @@ export const collaboration = {
           },
         },
       },
-      // A colleague made you responsible for an annotation, or Piloti did on
-      // their behalf (`variants.piloti`, where {actor} is the person Piloti
-      // worked for). {related} is the annotation's number, {subject} the
-      // document; the excerpt is what the annotation says.
       annotationAssigned: {
-        // One notification for many rows at once (the morning's reminders, a
-        // hand-over in one go): the count in the title, how many of what
-        // under it, the most pressing first.
         pushFold: {
           title: '{count, plural, one {# annotation} other {# annotations}} for you',
           parts: {
@@ -799,11 +539,7 @@ export const collaboration = {
         titleRelated: '{actor} assigned you annotation {related} in “{subject}”',
         titleRelatedNoSubject: '{actor} assigned you annotation {related}',
         body: 'You are responsible for it. Answer in the thread or resolve the annotation.',
-        // With a date: {due} is the annotation's date.
         bodyDue: 'You are responsible for it, by {due}. Answer in the thread or resolve the annotation.',
-        // `due…`: someone set, moved or removed the date (`…_piloti`: Piloti for
-        // {actor}). `due_soon` / `overdue`: the daily reminder, without {actor},
-        // in the annotation's same row.
         variants: {
           piloti: {
             title: '{productName} assigned you an annotation for {actor}',
@@ -843,14 +579,7 @@ export const collaboration = {
           },
         },
       },
-      // News on an annotation you take part in: one counted row per annotation,
-      // the newest reply as the excerpt. `variants` for your annotation that
-      // someone else resolved, dismissed or reopened; then the excerpt is what
-      // it says.
-      // Who replied is in the title; `…NoActor` when it was Piloti or nobody in particular.
       annotationActivity: {
-        // One notification for many rows at once (someone resolves 15 of your
-        // annotations): counted per row, so per annotation, new annotations per document.
         pushFold: {
           title: '{count, plural, one {# update} other {# updates}} on annotations',
           parts: {
@@ -890,11 +619,6 @@ export const collaboration = {
             titleRelated: '{actor} reopened annotation {related} in “{subject}”',
             titleRelatedNoSubject: '{actor} reopened annotation {related}',
           },
-          // New annotations on a document you are responsible for or uploaded:
-          // one counted row per document and per person. {related} is the
-          // newest, the excerpt what it says. Without {related} and excerpt:
-          // the newest was deleted, and the row counts the rest. "NoActor":
-          // the person is no longer in the directory.
           created: {
             title: '{actor} added an annotation',
             titleNoActor: 'An annotation was added',
@@ -919,8 +643,6 @@ export const collaboration = {
             bodyMany: 'The newest is annotation {related}.',
             bodyNoExcerpt: 'One of these annotations has since been deleted.',
           },
-          // Piloti added them for {actor}: {actor} asked, or took over
-          // Piloti's proposal. A proposal nobody took over tells nobody.
           created_piloti: {
             title: '{productName} added an annotation for {actor}',
             titleNoActor: '{productName} added an annotation',
@@ -947,18 +669,12 @@ export const collaboration = {
           },
         },
       },
-      // A colleague @mentioned you on an annotation or in its thread, as in
-      // the chat. {actor} is them, {related} the annotation's number,
-      // {subject} the document; the excerpt is the text that mentions you.
       annotationMentioned: {
         title: '{actor} mentioned you in an annotation',
         titleRelated: '{actor} mentioned you in annotation {related} in “{subject}”',
         titleRelatedNoSubject: '{actor} mentioned you in annotation {related}',
         body: 'Answer in the annotation’s thread.',
       },
-      // A sort of a shelf's root (ADR-0121) has proposed where its files go.
-      // {subject} is the project; the office filing names no place, so its
-      // variant says it. {count} is the files it proposes to move.
       rootSortReady: {
         titleOne: 'The sort of “{subject}” is ready to review: 1 file',
         titleMany: 'The sort of “{subject}” is ready to review: {count} files',
@@ -977,20 +693,16 @@ export const collaboration = {
       inboundMailWaiting: {
         titleOne: 'A mail to “{subject}” is waiting to be filed',
         titleMany: '{count} mails to “{subject}” are waiting to be filed',
-        // The row counts what waits now (`lib/inbox/live-counts.ts`): none, until the row is settled.
         titleNone: 'No mail to “{subject}” is waiting any more',
-        // Without access to the project: no name, and no number the row no longer knows.
         titleRedacted: 'Mails were waiting to be filed in a project',
         title: 'Mails to “{subject}” are waiting to be filed',
         body: 'None of it is in the project until someone files it.',
         variants: {
-          // Domain not verified, or sent automatically (a newsletter, a list).
           unconfirmed: {
             body: 'Some of them come from a domain that is not verified, or were sent automatically.',
           },
         },
       },
-      // Day 25 of 30: what nobody files expires (restorable for seven days).
       inboundMailExpiring: {
         titleOne: 'A mail to “{subject}” expires in {noticeDays} days',
         titleMany: '{count} mails to “{subject}” expire in {noticeDays} days',
@@ -1003,7 +715,6 @@ export const collaboration = {
           },
         },
       },
-      // To the member whose own mail was decided. The folder only when they may see it.
       inboundMailDecided: {
         title: 'Your mail to “{subject}” was filed',
         titleRelated: 'Your mail to “{subject}” was filed in “{related}”',
@@ -1014,7 +725,6 @@ export const collaboration = {
             titleRelated: 'Your mail to “{subject}” was dismissed',
             body: 'Dismissed by {actor}. It can be restored for {restoreDays} days.',
           },
-          // Filed as you, without anyone looking at it: your domain verified it and you may file in the project.
           direct: {
             title: 'Your mail to “{subject}” was filed directly',
             titleRelated: 'Your mail to “{subject}” was filed directly in “{related}”',
@@ -1022,7 +732,6 @@ export const collaboration = {
           },
         },
       },
-      // A forger causes this row too, so the title names both answers. No subject: a stranger's words reach no row (RT-X1).
       inboundMailHeld: {
         title: 'Did you send a mail to the project “{subject}”? Otherwise dismiss it',
         titleResolved: 'The mail with your address to “{subject}” is done',
@@ -1032,7 +741,6 @@ export const collaboration = {
         title: 'Your mail to “{subject}” waits to be filed',
         body: 'You cannot file in this project, so someone who can decides where it goes.',
         variants: {
-          // WorkOS did not answer whether the member may file here (`sender_unchecked`): never „you cannot“.
           unchecked: {
             body: 'When it arrived, whether you may file in this project could not be checked, so someone who can file there decides where it goes.',
           },
@@ -1051,7 +759,6 @@ export const collaboration = {
         titleResolved: 'The mail to “{subject}” is done',
         body: 'What was not filed is waiting in Project mail again. Open the mail to see why.',
       },
-      // 80% or 100% of the bytes an address or the office may hold staged.
       inboundMailCapReached: {
         title: 'The project mail address of “{subject}” is nearly full',
         titleResolved: 'The project mail address of “{subject}” has room again',
@@ -1063,7 +770,6 @@ export const collaboration = {
           },
         },
       },
-      // Following a mail thread: a reply's text was appended as you; its attachments wait.
       inboundMailAppended: {
         titleOne: 'A reply was appended to a mail thread in “{subject}”',
         titleMany: '{count} replies were appended to a mail thread in “{subject}”',
@@ -1087,15 +793,8 @@ export const collaboration = {
         body: 'in {subject}',
       },
     },
-    /** Fallback when the actor cannot be resolved (deactivated user, etc.). */
     unknownActor: 'Someone',
     untitledConversation: 'Untitled conversation',
-    /**
-     * Triage of a revision waiting for a decision, inline on the row: the three
-     * decisions without leaving the inbox. Approving carries the same minimum
-     * ceremony as on the file (explicit confirmation, never one click); the
-     * two refusals carry their words, as the transition table requires.
-     */
     review: {
       approve: 'Approve',
       requestChanges: 'Request changes',
@@ -1103,11 +802,6 @@ export const collaboration = {
       changesLabel: 'What needs to change',
       reasonLabel: 'Reason for rejection',
       approveConfirm: 'I approve this revision',
-      // The signature mirrors the file pane: which revision is approved (the row
-      // names the document, the revision number and when the round opened — the
-      // number is required, nothing is approved without it) and who acts when.
-      // No viewer name is known here, so the acting line is always the
-      // date-only form; who asked is already in the title.
       approveSummary: '{subject} · revision {number} · as of {date}',
       approveActing: 'Acting: {date}',
       revisionUnreadable: 'The current revision could not be read — approval is blocked until it is.',
@@ -1122,58 +816,27 @@ export const collaboration = {
     },
   },
 
-  /** Chat-thread additions that only appear once a conversation is shared. */
   thread: {
     participantsAria: 'People in this conversation',
-    /** A mention rendered inside message text. */
     mentionAria: 'Mention of {name}',
     mentionedYouAria: 'You were mentioned',
-    /** Consecutive messages from one author collapse under a single header. */
     groupedAria: 'Continued from {name}',
-    /** Observers see who the agent is working for (spec CC-13). */
     turnInFlight: '{productName} is answering {name}’s question…',
     turnInFlightYou: '{productName} is answering…',
-    /** A colleague is composing. Human vocabulary, not the agent's (TypingPresence). */
     typing: '{names} is writing…',
-    /**
-     * Exactly two named typists. Without this the renderer picked `typing` — the
-     * commonest multi-typist case read "Anna Berger, Tobias Kern is writing…" in
-     * English and "… schreibt…" in German.
-     */
     typingPair: '{names} are writing…',
     typingMany: '{names} and {count} others are writing…',
-    /** `typingMany` with an overflow of exactly one — reachable at three typists. */
     typingManyOne: '{names} and 1 other are writing…',
-    /**
-     * Joins the named typists when a count follows them ("Anna, Tobias and 2
-     * others"), where the conjunction is already spoken by `typingMany`.
-     */
     typingNameSeparator: ', ',
-    /**
-     * The two named typists when nobody follows them. A list separator is not a
-     * conjunction: German reads "Anna und Tobias schreiben", never "Anna, Tobias
-     * schreiben", and English is no different.
-     */
     typingNamePair: '{first} and {second}',
-    /** The agent put a question to the asker; an observer is told, not offered it. */
     spectatorPrompt: '{productName} asked a question and is waiting for an answer: “{question}”',
     spectatorFailed: 'This turn ended with an error.',
     composerBusy: '{productName} is answering {name}’s question — you can send once it finishes.',
-    /** Access was revoked while the reader had the thread open. */
-    /**
-     * Deliberately says "no longer available" rather than "you no longer have
-     * access": the server refuses a revoked thread and a DELETED one with the
-     * same answer, on purpose (spec SH-6, denial indistinguishable from
-     * non-existence), so this string has to be true of both. It used to tell
-     * somebody they had been shut out of a conversation that no longer existed.
-     */
     accessLost:
       'This conversation is no longer available to you. What you see is a local copy and will not update.',
-    /** Read-only role in a shared thread. */
     viewerNotice: 'You can read along here. An owner can give you write access from the sharing dialog.',
     unreadDivider: 'New',
     authorYou: 'You',
-    /** Marks a message written by a colleague rather than by the agent. */
     authorAria: 'Message from {name}',
   },
 }

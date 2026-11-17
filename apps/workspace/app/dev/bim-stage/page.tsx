@@ -1,26 +1,5 @@
 'use client'
 
-/**
- * Dev preview for the REAL model stage — the full-screen dialog, not its atoms.
- *
- * `/dev/bim-viewport` pins each control on its own, which is right for the
- * material and wrong for the arrangement: whether the dock fits a 393 px phone,
- * whether the selection sheet clears the cut slider, where the notch inset
- * lands. Those are properties of the whole stage, so this mounts the whole
- * stage against a `fetch` shim that answers the model list, the element walk and
- * the element query from fixtures.
- *
- * There is still no picture of the building: headless Chromium has no WebGPU,
- * so the canvas is replaced by the honest "not available" notice and the
- * renderer-dependent tools are disabled. Everything AROUND the canvas is the
- * production code path — which is the part this preview exists to review.
- *
- * Deep-link the state you want to see: `?element=<GlobalId>` opens the
- * selection, `?tab=overview` the drawer, `?storey=Erdgeschoss` a level.
- *
- * Not linked from anywhere and 404s outside development.
- */
-
 import type { JSX } from 'react'
 import { Suspense } from 'react'
 import { notFound } from 'next/navigation'
@@ -45,11 +24,8 @@ const MODEL: BimModelHeaderView = {
   updatedAt: '2026-05-04T09:30:15.400Z',
 }
 
-/** A realistic 22-character GlobalId: the string the old card clipped. */
 const LONG_GLOBAL_ID = '1kTvXnbbzCWw8lcMd1dR4o'
 
-// Module scope, not an effect: a shim installed from an effect loses the race
-// with the stage's own mount-time fetches.
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
   const w = window as unknown as { __bimStageShim?: boolean }
   if (!w.__bimStageShim) {
@@ -70,9 +46,6 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
         }
         return new Response(null, { status: 404 })
       }
-      // `?load=slow`: the download that never finishes, so the loading veil and
-      // Abbrechen can be captured under an open sheet. The 404 below is the
-      // fast failure and settles into the error notice within a frame or two.
       if (url.endsWith('/dev/bim-stage/none.ifc') && /[?&]load=slow\b/.test(window.location.search)) {
         return new Response(new ReadableStream({ start() {} }), {
           headers: { 'content-length': String(120_000_000) },

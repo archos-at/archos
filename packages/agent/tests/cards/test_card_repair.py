@@ -1,9 +1,3 @@
-"""The one bounded repair of a wrong-shaped envelope card, on the small model.
-
-Every exit is ``None`` and logged, never raised: the answer is already final
-when a repair runs, and a card is an enhancement of it.
-"""
-
 from __future__ import annotations
 
 import json
@@ -28,8 +22,6 @@ async def _run(reply):
 async def test_the_corrected_object_of_the_same_type_comes_back():
     result, invoke = await _run(AIMessage(content="```json\n" + json.dumps(FIXED) + "\n```"))
     assert result == FIXED
-    # The prompt carries the answer, the card as written and the refusal — the
-    # three things a repair needs, and nothing of the turn's context.
     _llm, messages = invoke.await_args.args
     human = messages[-1].content
     assert "Die Antwort." in human and json.dumps(CARD, ensure_ascii=False) in human

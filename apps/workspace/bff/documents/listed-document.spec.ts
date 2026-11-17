@@ -1,13 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * One document as a listing row, by id (ADR-0102): the deep link's fallback
- * when the paged level has not loaded the document. It must be exactly as
- * guarded as the item routes (`getAccessibleDocument`) and read through the
- * listing's own predicates and reader, or a link would open a row the listing
- * hides.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 

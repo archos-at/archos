@@ -1,6 +1,6 @@
 id: komoot-photon
 kind: processor
-status: active
+status: conditional
 order: 80
 name: komoot GmbH
 entity_country: DE
@@ -23,6 +23,15 @@ env: [GEOCODER_URL]
 evidence:
   - docs/adr/0151-addresses-are-geocoded-by-komoots-public-photon.md
   - deploy/pulumi/src/config.ts
+agreement:
+  entity: komoot GmbH, Kienberger Allee 4, 12529 Schönefeld, Germany (HRB 19363 CB, Amtsgericht Cottbus)
+  dpa: None offered for the public Photon service, which komoot runs without a contract or an availability promise
+  subprocessors: None published for Photon
+  note: Off in every shipped stack (geocoderUrl is empty by default and neither Pulumi stack sets it). Before a deployment opts in, weigh a self-hosted Photon instead; the server location of the public service is not published.
+  checked: '2026-11-11'
+  sources:
+    - https://www.komoot.com/imprint
+    - https://github.com/komoot/photon
 copy:
   name:
     de: komoot GmbH (öffentlicher Photon-Dienst)

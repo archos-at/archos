@@ -1,9 +1,5 @@
 import type { en } from '../en'
 
-/**
- * Erfassen, wo man gerade steht: das Anhängen-Menü des Eingabefelds, Fotos aus
- * Kamera und Mediathek, und die sichtbaren Zustände der Spracheingabe.
- */
 export const capture: typeof en.capture = {
   attach: {
     menuLabel: 'Zu diesem Chat hinzufügen',

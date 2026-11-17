@@ -1,23 +1,5 @@
 'use client'
 
-/**
- * Moving a project through its lifecycle (ADR-0098), from wherever the move is
- * offered: the status card on the Overview, the hero's menu, the banner every
- * page of a paused or closed project opens with. One hook, so the three ask the
- * same questions and say the same things.
- *
- *   - **Pause** and **resume** ask nothing: neither changes who may do what,
- *     and each is undone by the other. Pausing offers the undo in its toast.
- *   - **Close** opens the closing dialog (`close-project-dialog.tsx`): how it
- *     ended and when, what the office keeps, what goes to the Papierkorb.
- *   - **Reopen** asks once, because it takes the project away from everyone in
- *     the office who is not a member.
- *
- * The server decides and audits (`PUT /api/projects/[id]/status`); the hook
- * only asks and then refreshes the page, whose every section reads the new
- * state from the server.
- */
-
 import { useState, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
@@ -40,9 +22,7 @@ import { ClosingProjectRecord } from '../components/closing-project-record'
 export interface UseProjectLifecycleOptions {
   projectId: string
   lifecycle: ProjectLifecycleView
-  /** The profile, for the closing debrief's fingerprint. */
   profile?: ProjectProfile | null
-  /** Whether the closer may confirm decisions and record a lesson in the debrief. */
   canWriteMemory?: boolean
 }
 
@@ -52,7 +32,6 @@ export interface ProjectLifecycleControls {
   requestClose: () => void
   requestReopen: () => void
   pending: boolean
-  /** The dialogs the moves open; render once, anywhere in the caller's tree. */
   dialogs: ReactNode
 }
 
@@ -80,7 +59,6 @@ export function useProjectLifecycle({
       return true
     } catch (error) {
       if (error instanceof ApiRequestError && error.status === 409) {
-        // Someone moved it first: say so, and show where it stands now.
         toast.error(t('lifecycle.toast.conflict'))
         router.refresh()
         return false

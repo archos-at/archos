@@ -24,7 +24,6 @@ from .site import closed_outlines
 from .site_ops import SiteAnswer
 from .site_ops import accuracy_note
 
-#: The most of one label an answer quotes: an MTEXT can be a page of prose.
 _LABEL_CHARS = 200
 
 _LENGTH_TYPES = frozenset({"LINE", "LWPOLYLINE", "POLYLINE", "ARC", "CIRCLE", "SPLINE", "ELLIPSE"})

@@ -1,19 +1,5 @@
 'use client'
 
-/**
- * Dev preview for the chat's usage notice (`features/chat/components/UsageNotice.tsx`).
- * Renders the REAL notice at each level, as the viewer it most often meets:
- *
- *  - a forecast of the office's month, for a member (percent only);
- *  - a warning on a member's own daily limit (amounts, since it is theirs);
- *  - a project nearly spent, for its admin (amounts and the limit button);
- *  - the office's day spent, for a member (an alert, not dismissible);
- *  - the same, for a budget admin on its own key (tokens).
- *
- * Each sits over a stand-in composer so the spacing reads as in the chat. Not
- * linked from anywhere; the `/dev` layout 404s it outside development.
- */
-
 import { useState, type JSX } from 'react'
 import { UsageNotice } from '@/features/chat/components/UsageNotice'
 import type { ChatUsageNotice } from '@/lib/budgets/usage-notice'

@@ -26,12 +26,6 @@ export interface FilingChoice {
   summary: ChoiceSummary
 }
 
-/**
- * The Ablage step's state: the project's list and folders as the server has
- * them, the folder choice not yet sent, and a draft of the project's terms.
- * The screening preview is computed from the draft when there is one, so the
- * tree shows a change's effect before it is saved.
- */
 export function useFilingSetup({
   projectId,
   client,
@@ -39,7 +33,6 @@ export function useFilingSetup({
 }: {
   projectId: string
   client: FilingSetupClient
-  /** A choice to open on (the `/dev` preview); none by default. */
   initialChoice?: readonly File[]
 }) {
   const [screening, setScreening] = useState<ProjectUploadScreeningState | null>(null)
@@ -113,7 +106,6 @@ export function useFilingSetup({
     [client, projectId]
   )
 
-  /** The policy the preview screens with: the draft's, else the project's. */
   const policy: UploadScreeningPolicy | null = useMemo(() => {
     if (!screening) return null
     return draft ? applyProjectOverride(screening.office, draft) : screening.policy

@@ -1,9 +1,3 @@
-/**
- * The agent's stored suggestion, parsed and never trusted: a wrong-typed key is
- * no suggestion for that field, a Dokumentart outside the vocabulary is
- * dropped, and the reason a part shows none is said honestly.
- */
-
 import { describe, expect, it } from 'vitest'
 import type { InboundMailView } from '@/lib/inbound-mail/inbound-mail-wire'
 import { folderLeaf, missingSuggestionReason, readSuggestion, SUGGESTION_GRACE_MS } from './suggestion'

@@ -2,7 +2,7 @@ id: tavily
 kind: processor
 status: active
 order: 60
-name: Tavily
+name: AlphaAI Technologies Inc. (Tavily)
 entity_country: US
 processing_countries: [US]
 transfer: third_country
@@ -12,14 +12,30 @@ purposes: [service_provision]
 holds_tenant_text: true
 deletion:
   status: unknown
-  de: Ob und wie lange Tavily Suchanfragen speichert, ist nicht belegt; eine Löschung bei Vertragsende erreicht sie nicht.
-  en: Whether and how long Tavily keeps search queries is not established; deletion at contract end does not reach them.
+  de: >-
+    Tavilys Datenschutzerklärung nennt keine Frist: Suchanfragen bleiben, solange es für Betrieb und Verbesserung des
+    Dienstes nötig ist, und können zur Verbesserung künftiger Antworten verwendet werden, soweit ein Vertrag nichts
+    anderes regelt. Eine Vereinbarung ohne Speicherung besteht nicht; eine Löschung bei Vertragsende erreicht die
+    Anfragen nicht.
+  en: >-
+    Tavily's privacy policy names no period: search queries stay as long as needed to provide and improve the service,
+    and may be used to improve answers to future queries unless a contract says otherwise. No zero-retention agreement
+    exists; deletion at contract end does not reach the queries.
 hosts: [api.tavily.com, tavily.com]
 env: [TAVILY_API_KEY]
 sdks:
   - 'py:langchain-tavily'
 evidence:
   - packages/tavily-web-search/src/register.py
+agreement:
+  entity: AlphaAI Technologies Inc. d/b/a Tavily, New York, USA (the privacy policy and the terms give two different addresses). Nebius announced its acquisition in February 2026
+  dpa: None published (tavily.com/dpa does not exist, the trust centre is empty). Ask Tavily for a DPA with standard contractual clauses and a no-retention, no-training term
+  subprocessors: None published
+  note: Terms of 4 May 2026, section 6.5, let Tavily and its AI providers retain customer input and use it to train models. That contradicts our "no training" statements until a contract excludes it.
+  checked: '2026-11-11'
+  sources:
+    - https://www.tavily.com/terms
+    - https://www.tavily.com/privacy
 copy:
   name:
     de: Tavily

@@ -1,10 +1,3 @@
-/**
- * The original of a forward, read from what real mail programs write: Outlook
- * (Windows, Mac, the web), Gmail, Apple Mail, Thunderbird, in German and
- * English, inline and as an attached `.eml`. The fixtures and their expected
- * values are in `__fixtures__/forwards/`.
- */
-
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
@@ -25,7 +18,6 @@ interface Expected {
 const EXPECTED = JSON.parse(readFileSync(join(DIR, 'expected.json'), 'utf8')) as Record<string, Expected>
 const raw = (name: string) => new Uint8Array(readFileSync(join(DIR, name)))
 
-/** The outer mail of an inline fixture: a forward with its header block in the body. */
 function forwardOf(name: string): Uint8Array {
   const body = readFileSync(join(DIR, name), 'utf8')
   const html = name.endsWith('.html')
@@ -45,7 +37,6 @@ function forwardOf(name: string): Uint8Array {
 const addressesOf = (list: Expected['to']) =>
   (list ?? []).map((entry) => (typeof entry === 'string' ? entry : entry.address)).filter((a): a is string => a !== null)
 
-/** `2026-11-03T10:15 Europe/Berlin` → the instant. */
 function localInstant(dateLocal: string): number {
   const [wall] = dateLocal.split(' ')
   return new Date(`${wall}:00+01:00`).getTime()

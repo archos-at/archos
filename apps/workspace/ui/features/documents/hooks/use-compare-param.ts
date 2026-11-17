@@ -7,26 +7,6 @@ import { useRevisionCompare } from '../components/revision-compare'
 import type { FileItem } from '../file-types'
 import { COMPARE_PARAM } from '../lib/revision-compare-link'
 
-/**
- * Open the visual comparison a link asks for: `?doc=<newer>&compare=<older>`
- * (`revision-compare-link.ts`), the way the inbox row „… hat eine neue Fassung
- * hochgeladen" says „Fassungen vergleichen".
- *
- * The comparison needs each file's name to pick a renderer (PDF, office
- * rendition, image), and the listing is what holds the names, so it waits for
- * both rows to arrive. Once it opened, or once the newer row is there and the
- * older is not (a folder the reader may not open, the listing's page ceiling),
- * `?compare=` is dropped from the URL: a reload or a Back must not reopen it.
- * `?doc=` is left to its one writer (`useDocParamSync`), which opens the
- * preview behind the comparison.
- *
- * `listingComplete` is what makes "the older is not there" a conclusion: the
- * listing arrives page by page, and an older Fassung is usually further down
- * it than the newer one. Until the last page is in, a missing older row is a
- * row still on its way.
- *
- * Returns the element to render once, anywhere in the workspace.
- */
 export function useCompareParam(files: readonly FileItem[], listingComplete = true): JSX.Element | null {
   const router = useRouter()
   const pathname = usePathname()
@@ -41,7 +21,6 @@ export function useCompareParam(files: readonly FileItem[], listingComplete = tr
     const key = `${newerId ?? ''}:${olderId}`
     if (handled.current === key) return
     const newer = newerId ? files.find((file) => file.id === newerId) : undefined
-    // Rows still loading: the render that has them asks again.
     if (!newer) return
     const older = files.find((file) => file.id === olderId)
     if (!older && !listingComplete) return

@@ -41,7 +41,6 @@ class Passage:
 class ParsedDocument:
     title: str
     uri: str
-    #: The version the document states about itself (an expression date), or empty.
     version: str = ""
     passages: tuple[Passage, ...] = field(default_factory=tuple)
 
@@ -54,6 +53,10 @@ class Engine:
 
     name: ClassVar[str]
     config_model: ClassVar[type[EngineConfig]]
+    in_force_from: ClassVar[str] = ""
+    in_force_until: ClassVar[str] = ""
+    territory_field: ClassVar[str] = ""
+    provision_field: ClassVar[str] = ""
 
     def __init__(self, config: EngineConfig | dict | None = None) -> None:
         if isinstance(config, EngineConfig):
@@ -63,6 +66,38 @@ class Engine:
 
     def document(self, body: bytes, *, url: str = "") -> ParsedDocument:
         raise NotImplementedError
+
+    def public_host(self, url: str) -> str:
+        """``url`` on the host the source's citations use; the same URL for a format with one host."""
+        return url
+
+    def text(self, markup: str) -> tuple[str, str]:
+        """A page as ``(title, plain text)`` for a law lookup's provision grammar.
+
+        Each passage becomes its heading on a line of its own, then its number and text
+        (``§ 2. No building …``): the consolidated-text shape the grammar cuts. A format
+        whose page is already that text (``ris_xml``) reads it directly instead.
+        """
+        parsed = self.document(markup.encode("utf-8"))
+        lines: list[str] = []
+        for passage in parsed.passages:
+            if passage.heading:
+                lines.append(passage.heading)
+            lines.append(f"{passage.number}. {passage.text}" if passage.number else passage.text)
+        return parsed.title, "\n".join(lines)
+
+    def recorded_document(self, text: str, *, url: str = "", content_type: str = "") -> ParsedDocument:
+        """The document read from a citation capture's text instead of the body (a fixture's recording).
+
+        Only a format whose capture text is what the engine itself reads offers
+        it (``pdf_document``: one PDF pipeline). Any other format's fixture
+        carries its response inline, since a capture keeps a page's text and
+        not its markup.
+        """
+        raise EngineError(
+            f"a {self.name} fixture cannot be read from a capture, which keeps the page's text and not its body; "
+            "record the response inline"
+        )
 
 
 def collapse(text: str) -> str:

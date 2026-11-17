@@ -9,7 +9,7 @@ knows a country: a country's question set is its records.
 ``packages/agent/tests/agents/intake/test_lookups.py`` holds the map to the
 catalog's exposure fixture: an operation the door does not offer the agent, or
 one renamed, fails it. The two lookups the agent already holds natively
-(``knowledge_search`` for the corpus, ``ris_lookup_tool`` for statutes) are named in
+(``knowledge_search`` for the corpus, ``law_lookup`` for statutes) are named in
 :data:`NATIVE_LOOKUPS` and bound as those tools, never a second path.
 ``location-lookup`` joins when its operation exists.
 
@@ -30,20 +30,17 @@ from pydantic import Field
 from agent.project_context import get_project_id_from_context
 from agent.tools.workspace.register import read_operation
 
-#: Tool name → the catalog operation it runs through the door.
 INTAKE_LOOKUPS: dict[str, str] = {
     "site_resolve": "site-resolve",
     "project_base_get": "project-base-get",
     "classification_evaluate": "classification-evaluate",
 }
 
-#: Lookups the agent holds as native tools: tool name → the operation the door offers outside agents instead.
 NATIVE_LOOKUPS: dict[str, str] = {
     "knowledge_search": "knowledge-search",
-    "ris_lookup_tool": "law-lookup",
+    "law_lookup": "law-lookup",
 }
 
-#: Longest result handed back to the model; a lookup's answer is a few records.
 MAX_RESULT_CHARS = 12_000
 
 

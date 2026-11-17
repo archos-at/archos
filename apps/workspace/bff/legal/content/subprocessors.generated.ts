@@ -58,8 +58,8 @@ export const SUBPROCESSOR_PAGE: Record<'de' | 'en', SubprocessorPageParts> = {
         ],
         [
           "WorkOS, Inc.",
-          "Identität & Anmeldung (SSO, MFA), Autorisierung, Audit-Log-Speicherung",
-          "Name, E-Mail, Organisationszugehörigkeit, Rollen, Anmeldeereignisse, Audit-Ereignisse (inkl. IP-Adresse sowie Namen von Organisationen, Projekten und Dokumenten, soweit die betroffene Ablage für alle Projektmitglieder sichtbar ist)",
+          "Identität & Anmeldung (Passwort oder Konto bei Google, Microsoft, Apple oder GitHub), Versand von Einladungs- und Bestätigungs-E-Mails, Autorisierung, Audit-Log-Speicherung, Verwahrung eigener KI-Schlüssel Ihrer Organisation (WorkOS Vault)",
+          "Name, E-Mail, Organisationszugehörigkeit, Rollen, Anmeldeereignisse, Audit-Ereignisse (inkl. IP-Adresse, Browserkennung sowie Namen von Organisationen, Projekten und Dokumenten, soweit die betroffene Ablage für alle Projektmitglieder sichtbar ist); eigene KI-Schlüssel Ihrer Organisation, falls hinterlegt",
           "USA",
           "Standardvertragsklauseln (Art. 46 DSGVO); EU-US Data Privacy Framework, soweit der Anbieter zertifiziert ist",
           "Ja"
@@ -70,7 +70,7 @@ export const SUBPROCESSOR_PAGE: Record<'de' | 'en', SubprocessorPageParts> = {
           "Nutzer-ID (WorkOS), Organisations-ID und -Name, Rolle, Sprache, Seitenaufrufe, Bedienereignisse, Geräte- und Browserangaben, Fehlerberichte und Betriebsprotokolle (ohne deren Text), maskierte Sitzungsaufzeichnungen, Umfrageantworten und Support-Nachrichten (Text maskiert durch die Inhaltsprüfung Ihrer Organisation); KI-Metadaten und Antwort-Bewertungen aus Langfuse. Keine E-Mail-Adresse, kein Name",
           "EU (Frankfurt); Konzern mit Sitz in den USA",
           "Speicherung in der EU; Zugriff aus den USA auf Grundlage des EU-US Data Privacy Framework und von Standardvertragsklauseln",
-          "Ja (Produktanalyse, Fehlererfassung); Sitzungsaufzeichnung nur stichprobenweise und nur falls aktiviert; abschaltbar in den Profil-Einstellungen"
+          "Ja (Produktanalyse, Fehlererfassung); Sitzungsaufzeichnung nur falls vom Betreiber aktiviert, dann für jede Sitzung oder einen eingestellten Anteil; abschaltbar in den Profil-Einstellungen"
         ],
         [
           "Slack Technologies, LLC",
@@ -119,6 +119,14 @@ export const SUBPROCESSOR_PAGE: Record<'de' | 'en', SubprocessorPageParts> = {
           "USA",
           "Standardvertragsklauseln (Art. 46 DSGVO); EU-US Data Privacy Framework, soweit der Anbieter zertifiziert ist",
           "Optional (nur falls konfiguriert)"
+        ],
+        [
+          "Eigener KI-Endpunkt Ihrer Organisation (Azure OpenAI oder eigenes Gateway)",
+          "Nur wenn Ihre Organisation in den Modelleinstellungen einen eigenen Schlüssel mit eigener Adresse hinterlegt (BYOK)",
+          "Gleiche Inhalte wie OpenRouter (siehe oben), statt an OpenRouter an die von Ihnen angegebene Adresse",
+          "Von Ihrer Organisation bestimmt",
+          "Keine Vereinbarung mit uns; Ihre Organisation wählt den Empfänger und schließt den Vertrag mit ihm",
+          "Optional (nur falls konfiguriert)"
         ]
       ]
     },
@@ -146,8 +154,8 @@ export const SUBPROCESSOR_PAGE: Record<'de' | 'en', SubprocessorPageParts> = {
         ],
         [
           "Dragonfly (Redis-kompatibel / Redis-compatible)",
-          "Cache, Rate-Limiting",
-          "Kurzlebige Betriebsdaten"
+          "Cache, Rate-Limiting, Zustellung laufender Chats",
+          "Kurzlebig und nur im Arbeitsspeicher: die Nachrichten laufender Chats, das Mitgliederverzeichnis (Name, E-Mail, Profilbild), Berechtigungsentscheidungen, Budgetstände"
         ],
         [
           "Langfuse",
@@ -182,7 +190,8 @@ export const SUBPROCESSOR_PAGE: Record<'de' | 'en', SubprocessorPageParts> = {
     ],
     "build": [
       "GitHub (USA) — Quellcode-Hosting, CI-Pipelines, Sicherheits-Scans.",
-      "SonarSource / SonarQube Cloud (EU/CH) — statische Analyse des Quellcodes.",
+      "Pulumi Cloud (Pulumi Corporation, USA) — Zustand der Infrastruktur und die Zugangsschlüssel des Betriebs (Pulumi ESC), darunter der Zugang zum Cluster; keine Inhalte aus {productName}.",
+      "Anthropic (USA) — KI-Assistent in der Entwicklung (Claude Code in Issues und Pull Requests); erhält Quellcode, Issue-Texte und CI-Protokolle, keine Daten aus {productName}.",
       "Paket-Registries, Helm-Charts und Basis-Images (PyPI, npm, Docker Hub, NVIDIA NGC, Debian-/Node-Mirrors) — Software-Abhängigkeiten, die zur Build- und Deploy-Zeit geladen werden.",
       "Let’s Encrypt (USA) — TLS-Zertifikate für die Domains von {productName}; erhält nur die Domainnamen.",
       "ClamAV-Signaturen (Cisco Talos) — Signaturen für die Virenprüfung werden heruntergeladen; nichts wird hochgeladen.",
@@ -235,8 +244,8 @@ export const SUBPROCESSOR_PAGE: Record<'de' | 'en', SubprocessorPageParts> = {
         ],
         [
           "WorkOS, Inc.",
-          "Identity & sign-in (SSO, MFA), authorization, audit-log storage",
-          "Name, email, organization membership, roles, sign-in events, audit events (incl. IP address and the names of organizations, projects and documents, where the folder concerned is visible to every project member)",
+          "Identity & sign-in (password, or an account at Google, Microsoft, Apple or GitHub), sending invitation and verification e-mails, authorization, audit-log storage, keeping your organization's own AI keys (WorkOS Vault)",
+          "Name, email, organization membership, roles, sign-in events, audit events (incl. IP address, browser user agent and the names of organizations, projects and documents, where the folder concerned is visible to every project member); your organization's own AI keys, where stored",
           "USA",
           "Standard contractual clauses (Art. 46 GDPR); EU-US Data Privacy Framework where the provider is certified",
           "Yes"
@@ -247,7 +256,7 @@ export const SUBPROCESSOR_PAGE: Record<'de' | 'en', SubprocessorPageParts> = {
           "User ID (WorkOS), organization ID and name, role, language, page views, interaction events, device and browser details, error reports and operational logs (without their text), masked session recordings, survey answers and support messages (text masked by your organization's content screening); AI metadata and answer ratings from Langfuse. No email address, no name",
           "EU (Frankfurt); group headquartered in the USA",
           "Stored in the EU; access from the USA under the EU-US Data Privacy Framework and standard contractual clauses",
-          "Yes (product analytics, error tracking); session replay sampled and only if enabled; can be switched off in profile settings"
+          "Yes (product analytics, error tracking); session replay only if the operator enabled it, then for every session or a configured share; can be switched off in profile settings"
         ],
         [
           "Slack Technologies, LLC",
@@ -296,6 +305,14 @@ export const SUBPROCESSOR_PAGE: Record<'de' | 'en', SubprocessorPageParts> = {
           "USA",
           "Standard contractual clauses (Art. 46 GDPR); EU-US Data Privacy Framework where the provider is certified",
           "Optional (only if configured)"
+        ],
+        [
+          "Your organization's own AI endpoint (Azure OpenAI or a gateway of your own)",
+          "Only when your organization stores its own key with its own address in the model settings (BYOK)",
+          "The same content OpenRouter receives (see above), sent to the address you name instead of OpenRouter",
+          "Chosen by your organization",
+          "No agreement with us; your organization chooses the recipient and holds the contract with it",
+          "Optional (only if configured)"
         ]
       ]
     },
@@ -323,8 +340,8 @@ export const SUBPROCESSOR_PAGE: Record<'de' | 'en', SubprocessorPageParts> = {
         ],
         [
           "Dragonfly (Redis-kompatibel / Redis-compatible)",
-          "Cache, rate limiting",
-          "Short-lived operational data"
+          "Cache, rate limiting, delivery of running chats",
+          "Short-lived and in memory only: the messages of running chats, the member directory (name, email, avatar), authorization decisions, budget state"
         ],
         [
           "Langfuse",
@@ -359,7 +376,8 @@ export const SUBPROCESSOR_PAGE: Record<'de' | 'en', SubprocessorPageParts> = {
     ],
     "build": [
       "GitHub (USA) — source-code hosting, CI pipelines, security scanning.",
-      "SonarSource / SonarQube Cloud (EU/CH) — static analysis of source code.",
+      "Pulumi Cloud (Pulumi Corporation, USA) — the infrastructure's state and the operator's secrets (Pulumi ESC), among them the cluster credentials; no content from {productName}.",
+      "Anthropic (USA) — AI assistant in development (Claude Code on issues and pull requests); receives source code, issue text and CI logs, no data from {productName}.",
       "Package registries, Helm charts and base images (PyPI, npm, Docker Hub, NVIDIA NGC, Debian/Node mirrors) — software dependencies fetched at build and deploy time.",
       "Let’s Encrypt (USA) — TLS certificates for the {productName} domains; receives only the domain names.",
       "ClamAV signatures (Cisco Talos) — malware signatures are downloaded; nothing is uploaded.",

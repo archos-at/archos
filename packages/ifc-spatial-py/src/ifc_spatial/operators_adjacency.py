@@ -78,9 +78,6 @@ def _spaces_touching(model: SpatialModel, subject: Any, method: str) -> Any:
         return _no_geometry(model, subject, method)
     contacts = model.space_contacts(CONTACT)
     if not model.contacts_complete:
-        # The map is a SUBSET. Reporting the rooms found so far would be a short
-        # list wearing the shape of a complete one, which is the failure this
-        # library exists to prevent — so it refuses, and says how far it got.
         total = len(model.file.by_type("IfcSpace"))
         return undecidable(
             from_=[subject.GlobalId],
@@ -220,9 +217,6 @@ def container_of(model: SpatialModel, global_id: str) -> Answer[ElementRef | Non
 
     caveat = None
     if len(containers) > 1:
-        # IFC allows an element to be contained in exactly one spatial structure.
-        # More than one is an export defect, and reporting the first silently
-        # would hide it behind an answer that looks ordinary.
         caveat = (
             f"Dieses Bauteil ist {len(containers)} räumlichen Containern zugeordnet, IFC erlaubt genau einen. "
             "Gemeldet ist der erste — ein Befund über den Export."
@@ -289,24 +283,11 @@ def adjacent_spaces(model: SpatialModel, space_global_id: str) -> Answer[list[El
         shared = own_ids & {ref.global_id for ref in other_bounds.value}
         if not shared:
             continue
-        # A shared FLOOR is not adjacency. Two rooms stacked on either side of
-        # the same slab share a bounding element and are not neighbours in any
-        # sense a person means — `floor-slab-and-window.ifc` exists to pin
-        # exactly this, and its header records a real export where one slab
-        # produced 4 278 false pairs. Being above or below something is a
-        # different question, and `above`/`below` answer it.
         if not any(_separates_horizontally_only(model, gid) is False for gid in shared):
             stacked.append(other)
             continue
         neighbours.append(other)
 
-    # NEVER `declared`, whatever the boundaries were. Even where both spaces
-    # publish IfcRelSpaceBoundary, the file states which elements bound each
-    # room — it nowhere states that the two rooms are neighbours. That
-    # conclusion is our set-intersection over two declared lists, and stamping
-    # it „so steht es in der Datei" hands the reader our inference as the
-    # architect's own statement. It also dropped the caveat that adjacency is
-    # not a walkable connection, because only the computed branch carried it.
     declared_inputs = own.provenance == "declared"
     refs = model.refs(neighbours, via="shared separating element")
     caveat = (

@@ -1,8 +1,3 @@
-/**
- * Deleting a saved search can be taken back: the row leaves the list at once,
- * the server hears of it only when the undo window closes, and an undo inside
- * the window never reaches the server at all.
- */
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 

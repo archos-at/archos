@@ -1,6 +1,5 @@
 import type { en } from '../en'
 
-/** The right-side settings panel + the project Settings page. */
 export const settings: typeof en.settings = {
   title: 'Einstellungen',
   loading: 'Einstellungen werden geladen …',
@@ -15,17 +14,12 @@ export const settings: typeof en.settings = {
     ariaLabel: 'Sprache der Oberfläche',
   },
   openProfile: 'Vollständiges Profil öffnen',
-  /**
-   * Die Projekt-Einstellungen: eine Route je Bereich, verbunden über eine
-   * Bereichsnavigation (wie bei der Organisation). Jeder Bereich beantwortet
-   * eine Frage zum Projekt; die Texte sind genauso gruppiert.
-   */
   project: {
     nav: {
       label: 'Projekteinstellungen',
       overview: 'Übersicht',
       members: 'Mitglieder',
-      memory: 'Gedächtnis',
+      memory: 'Projektgedächtnis',
       usage: 'Nutzung & Budget',
       documents: 'Dokumente & Index',
       references: 'Ähnliche Projekte',
@@ -70,13 +64,13 @@ export const settings: typeof en.settings = {
         open: 'Dokumente & Index',
       },
       memory: {
-        label: 'Gedächtnis',
+        label: 'Projektgedächtnis',
         notes: '{count, plural, one {Notiz} other {Notizen}}',
         toReview: '{count, plural, one {# zu prüfen} other {# zu prüfen}}',
         allReviewed: 'Alles bestätigt',
         empty: '{productName} hat sich zu diesem Projekt noch nichts gemerkt.',
-        error: 'Das Gedächtnis konnte nicht geladen werden.',
-        open: 'Gedächtnis',
+        error: 'Das Projektgedächtnis konnte nicht geladen werden.',
+        open: 'Projektgedächtnis',
       },
       members: {
         label: 'Mitglieder',

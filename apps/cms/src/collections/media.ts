@@ -1,17 +1,3 @@
-/**
- * Uploaded images: image covers, images in a post, a social post's own image.
- * Stored in SeaweedFS (bucket `cms-files`, `@payloadcms/storage-s3`) when the
- * deployment configures it, on local disk otherwise.
- *
- * The sizes are the only renditions served, cut at the focal point the editor
- * sets: `cover` and `cover-small` the card's and the post's 3:2, `share` the
- * share card's 1200 x 630 (LinkedIn's 1.91:1), `inline` and `inline-small` an
- * image in a post. No SVG: the website inlines nothing from here, and an SVG
- * can carry script.
- *
- * Files are public: the website's visitors load them from the CMS's host. A
- * file uploaded for a draft is reachable by whoever knows its name.
- */
 import path from 'node:path';
 import type { CollectionConfig } from 'payload';
 import { canDraft, canPublish } from '../access/roles';
@@ -28,7 +14,6 @@ export const Media: CollectionConfig = {
     delete: ({ req }) => canPublish(req.user),
   },
   upload: {
-    // Without S3 (local runs, Compose): `media/` beside the server; the image creates it for its user.
     staticDir: path.resolve(process.cwd(), 'media'),
     mimeTypes: ['image/jpeg', 'image/png', 'image/webp', 'image/avif'],
     focalPoint: true,

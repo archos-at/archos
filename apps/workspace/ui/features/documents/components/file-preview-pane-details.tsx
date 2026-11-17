@@ -1,5 +1,6 @@
 
 
+import type { ReactNode } from 'react'
 import { toast } from 'sonner'
 
 import { AlertCircle, FolderTree, Info, RotateCcw, ShieldAlert, Sparkles } from 'lucide-react'
@@ -35,7 +36,7 @@ import { IfcFileFacts } from './file-preview-pane-lazy'
 import type { FilePreviewController } from './use-file-preview-controller'
 import { MailThreadTab, ThreadRailViews } from './mail-thread'
 
-export function FilePreviewDetailsPanel({ controller }: { controller: FilePreviewController }) {
+export function FilePreviewDetailsPanel({ controller, detailsLead }: { controller: FilePreviewController; detailsLead?: ReactNode }) {
   const { mailFocus, mailThread, railView, setRailView, viewerUserId } = controller
   const { actions, assigneeNames, canCollaborate, canManage, details, detailsFailed, detailsLoading, detailsOpen, discussHint, file, handleReingest, hasOwnershipBlock, hasVisualContent, heldVerdict, inChat, indexedReady, isFailed, isHeld, isModel, onAssigneesChanged, onLifecycleChanged, onOpenDocument, onReingested, onRevisionChanged, onTagsUpdated, openMarks, openReview, pdfInWell, peekView, peeking, projectId, reader, responsibleNames, retryDetails, review, reviewEnabled, reviewViewer, revisionsShown, scope, setDetailsOpen, setShownFinding, setShownPage, showIndexedHeading, showInlinePdf, showMetadataPanel, showPage, shownFinding, shownType, t } = controller
   return (
@@ -67,14 +68,11 @@ export function FilePreviewDetailsPanel({ controller }: { controller: FilePrevie
               className={
                 reader
                   ? // In the reader's sheet: the rail's content, on the sheet's
-                    // own paper, scrolling with it and clear of the home indicator.
                     'flex flex-col px-4 pt-1 pb-[max(1.25rem,env(safe-area-inset-bottom))]'
                   : peeking
                   ? // The details view of the peek: the whole column, scrolling
-                    // on its own, on the stage's desk, its groups white sheets.
                     'scroll-fade-bottom mx-3 mb-3 flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain p-1'
                   : // The stage's desk, continued: the document and the rail's groups are sheets lying on one desk
-                    // (paper on a desk), no band beside a band and no line between them.
                     'scroll-fade-bottom bg-desk @2xl:w-[280px] @2xl:shrink-0 @2xl:min-h-0 @2xl:overflow-y-auto @2xl:overscroll-contain @2xl:pb-4 flex w-full flex-col p-4 pb-[max(1rem,env(safe-area-inset-bottom))]'
               }
             >
@@ -111,6 +109,7 @@ export function FilePreviewDetailsPanel({ controller }: { controller: FilePrevie
                 „Verantwortlich" and Ask never need a scroll. In the split layout
                 (@2xl+) it is level with the top of the document; stacked, it is
                 the first thing under the preview. */}
+              {detailsLead && <div className="mb-5" data-testid="file-preview-details-lead">{detailsLead}</div>}
               {hasOwnershipBlock && (
               <div className="mb-5 flex flex-col gap-3" /* 12px between the presses, as every pair */>
                 {/* Provenance, not status: the badge is up in the header with
@@ -123,11 +122,6 @@ export function FilePreviewDetailsPanel({ controller }: { controller: FilePrevie
                   byline above: provenance and responsibility are two answers, and
                   the design forbids reading them as one. */}
                 {canCollaborate && (
-                  /* A contact row: the face and the NAME, „Verantwortlich" under
-                    it. The row used to read „Verantwortlich · MH · Bearbeiten",
-                    and initials are a thing to recall, not to recognise; with
-                    the label, the name and the control on one 248px line the
-                    name was the part that could not fit. */
                   <InspectorGroup className="mb-2" data-testid="file-preview-responsible">
                     <Item className="gap-2.5 px-3 py-2 hover:bg-transparent">
                       <AssignmentFaces assignees={file.assignees} faceOnly />
@@ -292,9 +286,6 @@ export function FilePreviewDetailsPanel({ controller }: { controller: FilePrevie
                   loading={detailsLoading}
                   failed={detailsFailed}
                   onRetry={retryDetails}
-                  // Only where the well IS the inline PDF viewer: an image, a
-                  // PDF whose preview failed or is still loading has no page to
-                  // turn to, and a link that does nothing is worse than none.
                   onShowPage={pdfInWell && showInlinePdf ? showPage : undefined}
                   className={cn((showIndexedHeading || revisionsShown) && 'mt-5')}
                 />
@@ -402,12 +393,9 @@ export function FilePreviewDetailsPanel({ controller }: { controller: FilePrevie
                       <p className="text-warning text-sm font-medium">{t('preview.heldTitle')}</p>
                       <QuarantineFindings
                         verdict={heldVerdict}
-                        // A page to jump to only where the well is the PDF viewer.
                         onShowFinding={
                           shownType === 'application/pdf'
                             ? (finding) => {
-                                // The finding is the page asked for now; a page
-                                // reading picked earlier must not mask it.
                                 setShownPage(null)
                                 setShownFinding(finding)
                               }

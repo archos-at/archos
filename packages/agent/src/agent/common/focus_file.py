@@ -31,8 +31,6 @@ PRESETS = frozenset({"law", "project", "office"})
 _focused_file_name: ContextVar[str | None] = ContextVar("focused_file_name", default=None)
 _focused_shelf: ContextVar[str | None] = ContextVar("focused_shelf", default=None)
 _turn_shelves: ContextVar[frozenset[str] | None] = ContextVar("turn_shelves", default=None)
-#: The document (its BFF id) the composer or the review canvas says this turn is
-#: about: what the canvas tools act on when the model names no document.
 _focused_document_id: ContextVar[str | None] = ContextVar("focused_document_id", default=None)
 
 
@@ -57,20 +55,6 @@ def shelves_for_turn(*, focus_shelf: object = None, source_preset: object = None
     fallback when no file is bound.
     """
     shelf = _normalize_shelf(focus_shelf)
-    # THE LAW IS NOT A COMPETING SHELF, SO A SUBJECT FILE NEVER SUBTRACTS IT.
-    #
-    # A subject narrows WHICH DOCUMENTS a turn reads — that is what #429 and
-    # #436 asked for: "summarize this upload" must not walk the whole corpus,
-    # and a project question must not mix in office-shelf hits. Neither complaint was
-    # about the building-code corpus, and dropping it made the product unable to
-    # answer its own central question: bind a plan, ask whether it meets the
-    # escape-route requirement, and retrieval held the plan and no OIB at all.
-    #
-    # The asymmetry gave it away. The `project` PRESET keeps `base`; the
-    # `project` SHELF did not, although the reader had expressed the same
-    # narrowing by a different control. `law` is the one branch that still
-    # subtracts everything else, because there the reader asked for the law
-    # alone.
     if shelf == "session":
         return frozenset({"session", "base"})
     if shelf == "project":

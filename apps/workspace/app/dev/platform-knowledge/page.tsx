@@ -1,17 +1,5 @@
 'use client'
 
-/**
- * Dev preview for Platform → Basiswissen (ADR-0016). Renders the REAL manager
- * the way the route does (PageHeader, then the component) with fixture data:
- * the four corpus numbers, the toolbar, the sortable table and the pager, and
- * below it the read-only support role, which sees the same corpus without a
- * single write control. The fixture carries every lifecycle state worth seeing
- * (indexing, failed, outdated, no longer listed), so the status column and the
- * Issues number are reviewed with real content. A module-scope fetch shim
- * (browser + dev only) serves the corpus status. Pinned to German, the primary
- * product language. Not linked from anywhere and 404s outside development.
- */
-
 import type { JSX } from 'react'
 import { notFound } from 'next/navigation'
 import { PageHeader } from '@/components/ui/page-header'
@@ -22,7 +10,6 @@ import { I18nProvider, useTranslations } from '@/i18n'
 import { platformCopy } from '@/i18n/namespaces/platform'
 import { PLATFORM_PERMISSIONS } from '@/lib/authz/permissions'
 
-/** Each fixture document with the type it really has, so the type column reads true. */
 const DOCUMENTS: [title: string, docClass: string][] = [
   ['OIB-Richtlinie 2 — Brandschutz, Ausgabe 2023', 'oib_guideline'],
   ['OIB-Leitfaden Barrierefreiheit', 'oib_guide'],
@@ -40,10 +27,8 @@ const DOCUMENTS: [title: string, docClass: string][] = [
   ['Merkblatt Rauchwarnmelder', 'other'],
 ]
 
-/** Lifecycle per row, by index: the states the Issues number and the status column exist for. */
 const STATES: Record<number, string> = { 3: 'pending', 8: 'stale', 11: 'failed', 13: 'removed' }
 
-// 14 rows: more than one page (10), so the pager is exercised in the shot.
 const FILES = DOCUMENTS.map(([title, docClass], index) => ({
   fileName: `base-dokument-${String(index + 1).padStart(2, '0')}.pdf`,
   state: STATES[index] ?? 'ingested',
@@ -78,6 +63,27 @@ const STATUS = {
   files: FILES,
 }
 
+const TEXTS = {
+  nextCursor: null,
+  texts: [
+    ['base-dokument-01.pdf', 'AT', 'OIB-Richtlinie 2 Brandschutz', '2023', true, 'OIB-Richtlinien 2023', 'published'],
+    ['base-dokument-10.pdf', 'AT', 'OIB-Richtlinie 3 Hygiene', '2023', true, 'OIB-Richtlinien 2023', 'published'],
+    ['base-dokument-13.pdf', 'AT', 'NÖ Bautechnikverordnung', '2014', false, 'Niederösterreich: Bautechnik', 'submitted'],
+    ['base-dokument-07.pdf', 'DE', 'Musterbauordnung', '2022', false, 'Deutschland: Musterbauordnung', 'draft'],
+  ].map(([corpusFile, countryId, workTitle, editionLabel, released, changeRequestTitle, changeRequestStatus]) => ({
+    corpusFile,
+    countryId,
+    recordId: `manifestation:${String(corpusFile)}`,
+    editionId: 'edition:preview',
+    editionLabel,
+    workTitle,
+    released,
+    changeRequestId: '0b8f6d2e-6a51-4d6c-9a0e-4b2f9f1c2d3e',
+    changeRequestTitle,
+    changeRequestStatus,
+  })),
+}
+
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
   const w = window as unknown as { __platformKnowledgeShim?: boolean }
   if (!w.__platformKnowledgeShim) {
@@ -86,9 +92,10 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
     window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
       const url =
         typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
-      if (url.startsWith('/api/knowledge-base')) {
+      if (url === '/api/platform/knowledge/documents') {
         return Response.json(STATUS)
       }
+      if (url.startsWith('/api/platform/knowledge/texts')) return Response.json(TEXTS)
       return real(input, init)
     }
   }

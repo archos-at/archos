@@ -1,8 +1,3 @@
-/**
- * `platform_pricing_versions` table access — the only module that queries it
- * (ADR-0017). Global (no org scoping): at most one active row.
- */
-
 import 'server-only'
 import { desc, eq } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
@@ -11,7 +6,6 @@ import { platformPricingVersions, type PlatformPricingVersion } from '@/lib/db/s
 
 const ACCESS_REASON = 'the platform price list is fleet-wide configuration, owned by no tenant'
 
-/** Bound for the history read: the version picker shows the last few changes. */
 const MAX_HISTORY_ROWS = 50
 
 export async function findActivePricingVersion(): Promise<PlatformPricingVersion | null> {
@@ -47,11 +41,6 @@ export interface PricingVersionWriteInput {
   createdByEmail: string | null
 }
 
-/**
- * Supersede idiom: mark the active row superseded and insert the replacement
- * in one transaction, so there is never a moment without a price list and
- * every change keeps its lineage.
- */
 export async function insertPricingVersionSuperseding(
   values: PricingVersionWriteInput,
 ): Promise<PlatformPricingVersion> {

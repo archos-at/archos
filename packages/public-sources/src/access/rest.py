@@ -47,8 +47,6 @@ class Operation(Strict):
 
     path: str = ""
     params: tuple[Param, ...] = ()
-    #: Another base URL for this operation (an API whose documents live on the
-    #: publisher's public site); on the source's hosts like every URL.
     base_url: str = ""
 
 

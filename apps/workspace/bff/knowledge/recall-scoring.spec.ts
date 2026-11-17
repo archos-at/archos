@@ -22,8 +22,6 @@ const note = (overrides: Partial<Parameters<typeof rankByRecallScore>[0][number]
 
 describe('reinforcementMultiplier', () => {
   it('does not punish a note that has never been recalled', () => {
-    // Otherwise the store is self-confirming: only what was already surfaced
-    // could ever be surfaced again.
     expect(reinforcementMultiplier(null, 0)).toBe(1)
   })
 
@@ -33,7 +31,6 @@ describe('reinforcementMultiplier', () => {
   })
 
   it('flattens the curve as use accumulates (MemoryBank S += 1)', () => {
-    // Same elapsed time, more past recalls => retained better.
     expect(reinforcementMultiplier(5, 10)).toBeGreaterThan(reinforcementMultiplier(5, 0))
   })
 
@@ -53,7 +50,6 @@ describe('reinforcementMultiplier', () => {
 
 describe('rankByRecallScore', () => {
   it('is relevance-dominant — a relevant note outranks a merely recent one', () => {
-    // Input order IS the recency signal (index 0 is most recent).
     const ranked = rankByRecallScore([
       note({ relevance: 0.1 }), // most recent, barely relevant
       note({ relevance: 0.9 }), // older, clearly relevant
@@ -75,8 +71,6 @@ describe('rankByRecallScore', () => {
   })
 
   it('lets sustained use break a tie the relevance term cannot', () => {
-    // Equal relevance, so the normalised relevance term is flat for everyone
-    // and reinforcement is what is left to decide it.
     const ranked = rankByRecallScore([
       note({ relevance: 0.5, daysSinceUse: 400, timesUsed: 0 }),
       note({ relevance: 0.5, daysSinceUse: 0, timesUsed: 20 }),
@@ -85,12 +79,6 @@ describe('rankByRecallScore', () => {
   })
 
   it('amplifies small relevance gaps in a SMALL candidate set (known property)', () => {
-    // Min-max normalisation is relative to the candidate set, so with two
-    // candidates a 0.05 cosine difference becomes the entire spread: 1 vs 0.
-    // That is the published design (Generative Agents normalises across the
-    // retrieved set) and it is harmless at the real candidate count — recall
-    // scores up to RECALL_CANDIDATE_LIMIT rows — but it is pinned here so
-    // nobody debugs it twice as a bug.
     const ranked = rankByRecallScore([
       note({ relevance: 0.55, daysSinceUse: 400, timesUsed: 0 }),
       note({ relevance: 0.5, daysSinceUse: 0, timesUsed: 20 }),
@@ -104,7 +92,6 @@ describe('rankByRecallScore', () => {
   })
 
   it('uses the shipped decay base rather than the paper value', () => {
-    // The released Generative Agents code uses 0.99; the paper says 0.995.
     expect(RECENCY_DECAY).toBe(0.99)
   })
 })
@@ -113,21 +100,14 @@ describe('daysSince', () => {
   it('is null for a note never recalled, and non-negative otherwise', () => {
     expect(daysSince(null)).toBeNull()
     expect(daysSince(new Date(Date.now() - 2 * 24 * 60 * 60 * 1000))).toBeCloseTo(2, 1)
-    // A clock skew into the future must not produce a negative age.
     expect(daysSince(new Date(Date.now() + 60_000))).toBe(0)
   })
 })
 
 describe('fuseHybridRelevance', () => {
   it('lets the lexical channel rescue an exact identifier the embedding missed', () => {
-    // "§ 4 Abs. 2" style: dense ranks the wrong note first, lexical overlap
-    // ranks the note that carries the literal token. Fused, the token match
-    // is competitive rather than invisible.
     const fused = fuseHybridRelevance([0.8, 0.4], [0, 0.9])
     expect(fused[0]).not.toBeNull()
-    // The rescued note holds rank 1 lexically AND rank 2 densely, so it sums
-    // contributions from both channels and overtakes the dense-only leader —
-    // agreement between channels is rewarded, disagreement is survivable.
     expect(fused[1]).toBeGreaterThan(fused[0] as number)
   })
 
@@ -143,8 +123,6 @@ describe('fuseHybridRelevance', () => {
   })
 
   it('returns all-null when neither channel has anything to say', () => {
-    // The recall score then falls back to importance + recency — the exact
-    // pre-hybrid behaviour, not a fabricated flat relevance.
     expect(fuseHybridRelevance([null, null], [0, 0])).toEqual([null, null])
   })
 

@@ -111,19 +111,8 @@ from .startup_banner import log_boot_line
 
 logger = logging.getLogger(__name__)
 
-#: Where the chat socket is mounted: the path `server.js`, the scope route and
-#: conversation affinity already use.
 CHAT_SOCKET_PATH = "/websocket"
 
-# The post-answer stage channel (docs/architecture/post-answer-stages.md §2.7).
-# `agent` owns the graph and may not import a WebSocket; this tier owns the
-# socket and publishes the sink to it, the same inversion
-# `register_context_appender` uses in the opposite direction.
-#
-# Registered at IMPORT of this module, because that is what "the front end
-# starts up" means: a process that never loads this front end — a CLI run, a
-# research worker — leaves the sink unset, and a `frame` stage there still runs,
-# is still bounded and still records its outcome. It simply has nobody to tell.
 register_stage_frame_sink(send_stage)
 
 
@@ -181,9 +170,6 @@ def _load_validators_from_entry_points() -> list:
     return validators
 
 
-#: The fields of an agent-runtime endpoint config that each mount a route running the
-#: workflow: the HTTP turn routes and the agent runtime's own WebSocket. ``AgentHostConfig`` leaves
-#: every one unset and refuses a config that sets one.
 WORKFLOW_ROUTE_FIELDS = (
     "path",
     "legacy_path",
@@ -216,15 +202,9 @@ class AgentHostConfig(FastApiFrontEndConfig, name="agent_host"):
         le=604800,
         description="Job expiry time in seconds (default: 24 hours)",
     )
-    # The chat wire is ours (ADR-0068), and it is the only way in to a turn. The agent runtime
-    # mounts no WebSocket route and none of its HTTP turn routes, and its step
-    # adaptor, which fed them, is off. Steps still reach the exporters, which
-    # subscribe to the step manager and not to the adaptor.
     workflow: FastApiFrontEndConfig.EndpointBase = FastApiFrontEndConfig().workflow.model_copy(
         update=dict.fromkeys(WORKFLOW_ROUTE_FIELDS)
     )
-    # `/evaluate` runs the workflow over a dataset; evaluation runs `nat eval`.
-    # `/evaluate/item` scores an answer it is given and runs no turn, so it stays.
     evaluate: FastApiFrontEndConfig.EndpointBase = FastApiFrontEndConfig().evaluate.model_copy(update={"path": None})
     step_adaptor: StepAdaptorConfig = StepAdaptorConfig(mode=StepAdaptorMode.OFF)
 
@@ -253,7 +233,6 @@ class AgentHostConfig(FastApiFrontEndConfig, name="agent_host"):
         return self
 
 
-# Track if shutdown signal has been received (for force exit on second Ctrl+C)
 _shutdown_signal_received = False
 
 
@@ -309,36 +288,17 @@ def _create_shutdown_signal_handler(
     return handler
 
 
-#: The routers the ``chat`` role mounts on its router. The chat socket and what
-#: is left of the agent runtime's own routes are the rest of what it serves
-#: (``AgentHostWorker._add_chat_routes``).
-CHAT_ROUTERS: tuple[Callable[[APIRouter], None], ...] = (
-    # The chat tier's scaling signal, read by KEDA (ADR-0080). Internal-token
-    # only, so it stays off the external allowlist like the maintenance routes.
-    add_chat_occupancy_routes,
-)
+CHAT_ROUTERS: tuple[Callable[[APIRouter], None], ...] = (add_chat_occupancy_routes,)
 
-#: The app-level registrars the ``api`` role mounts beside its router: they need
-#: the app, the workflow builder and the worker, not a router alone.
 API_APP_REGISTRARS = (register_job_routes,)
 
 
-#: Routers the BFF calls with the internal service token, off the external
-#: allowlist, mounted where they always were in the ``api`` role's order:
-#: the agent's read tools for the BFF's MCP server, run for the person a signed
-#: envelope names (ADR-0122); the reader of an Outlook archive the BFF staged for
-#: its mail import (ADR-0085); the reader of one mail sent to a project's address,
-#: for the BFF's receive job (own text, quoted blocks, calendar; DECISION D12);
-#: and the DXF converter the BFF calls for a drawing's PDF rendition where it
-#: calls Gotenberg for an office file (ADR-0157).
 _INTERNAL_SERVICE_ROUTERS: tuple[Callable[[APIRouter], None], ...] = (
     add_internal_tool_routes,
-    # A file's licence class and knowledge edition onto its chunks (office base knowledge).
     add_knowledge_mark_routes,
     add_mail_archive_routes,
     add_mail_routes,
     add_drawing_rendition_routes,
-    # A public source's page captured for a citation (ADR-0170): only the backend roles reach the fetcher.
     add_public_source_capture_routes,
 )
 
@@ -352,22 +312,13 @@ def api_routers(llm_configs: Mapping[str, Any]) -> tuple[Callable[[APIRouter], N
     return (
         add_collection_routes,
         add_document_routes,
-        # What changed between two Fassungen of a page, marked on it and said in
-        # words: one vision call for the pair, cached (CONTEXT.md, „Fassung").
         add_revision_compare_routes,
         add_document_search_routes,
-        # A project's facts and status onto its points, for the cross-project
-        # search's filters and likeness (design: qdrant-retrieval-design §7).
         add_project_facts_routes,
-        # Passages like the one a person is reading, across what they may read:
-        # the viewer's „Im Büro behandelt“ (qdrant-retrieval-design §6).
         add_similar_passages_routes,
         add_generate_summary_routes,
         add_cleanup_proposal_routes,
-        # Where an upload belongs, judged once per batch from the folders'
-        # descriptions and what ingestion read; the BFF files the proposals.
         add_filing_fit_routes,
-        # New folders for the shelf root's documents that fit none of its folders (the sort's second pass).
         add_folder_proposals_routes,
         add_generate_conversation_title_routes,
         add_dictation_routes,
@@ -375,34 +326,17 @@ def api_routers(llm_configs: Mapping[str, Any]) -> tuple[Callable[[APIRouter], N
         add_feedback_digest_routes,
         add_lesson_distill_routes,
         add_note_embedding_routes,
-        # A project's fingerprint and decisions read from its own documents, for
-        # the close dialog's suggestions (ADR-0096). Internal-token only.
         add_project_experience_routes,
         add_ingest_routes,
         *_INTERNAL_SERVICE_ROUTERS,
         add_oib_routes,
         add_norm_routes,
-        # A RIS document as text, so a RIS citation opens INSIDE Piloti rather
-        # than in a browser tab (#622). Same client, same allow-list, same cache
-        # as the agent's own ris_fetch_document.
         add_ris_routes,
         add_maintenance_routes,
-        # The working directory's cleanup door. Internal-token only, like the
-        # maintenance purges: a conversation's drafts live in the LangGraph
-        # store, which the BFF cannot reach, so its conversation deletion calls
-        # this or the bytes outlive the conversation.
         add_draft_routes,
-        # Internal skills submit route (Agent Skills, successor of the ADR-0023
-        # workflows submit route): same router/middleware treatment as
-        # maintenance, so it stays off the external allowlist.
         add_skill_routes,
-        # Advisory LLM critique of a skill draft. Sits with the other
-        # best-effort LLM routes rather than the submit route: it writes nothing
-        # and always answers 200.
         add_skill_review_routes,
-        # Workflow-default model names for the org model-config UI (ADR-0014).
         functools.partial(add_config_info_routes, llm_configs=llm_configs),
-        # The card catalog for the platform surface: what the agent can render.
         add_card_catalog_routes,
     )
 
@@ -420,12 +354,7 @@ def _add_request_middleware(app: FastAPI, *, validators: list, require_auth: boo
     """
     app.add_middleware(RequestContextEnvelopeMiddleware, require_auth=require_auth, validators=validators)
     app.add_middleware(AuthMiddleware, validators=validators, require_auth=require_auth)
-    # Outside both: a service header that arrives under its new name is copied
-    # onto the old one before auth and the envelope read it (agent_host.legacy_headers).
     app.add_middleware(LegacyHeaderNamesMiddleware)
-    # Added last, so outermost: it counts every HTTP request this process
-    # takes, the ones auth refuses included, which is the load the scaling
-    # signal must see. See agent_host.inflight.
     app.add_middleware(InFlightMiddleware, role=role.value)
 
 
@@ -447,8 +376,6 @@ class AgentHostWorker(FastApiFrontEndPluginWorker):
     _original_sigterm_handler: Callable | signal.Handlers | None = None
 
     def __init__(self, config: Config):
-        # Before anything connects to anything: a process that does not know its
-        # role stops here, with the one variable to set in the message.
         self._role = web_role()
         super().__init__(config)
 
@@ -460,22 +387,10 @@ class AgentHostWorker(FastApiFrontEndPluginWorker):
         suppress_noisy_dependency_logs()
         install_step_stack_repair()
 
-        # What this process is, before it registers a single route (ledger item
-        # 1): the deployed commit and the effective value of the four gates, on
-        # one greppable line. A pilot report that arrives a week later is
-        # otherwise unanswerable — nobody could say which build ran, and three
-        # of the four gates default off, so "broken" and "never enabled" look
-        # the same from outside. Same line shape as the BFF's, deliberately;
-        # see startup_banner's module docstring, including why the flags this
-        # tier reports are its own rather than the frontend's.
         log_boot_line()
         logger.info("Web role: %s", self._role.value)
 
-        # A web process on Postgres needs the direct lock DSN (session advisory locks), and the api role also the
-        # direct LISTEN DSN, because it serves the job SSE streams. The chat role serves none: its stream is the
-        # socket, over Dragonfly. Fail the boot, not every request (ADR-0083).
         require_direct_dsns(listen=self._role is WebRole.API)
-        # No data to a processor the legal page does not name (configs/subprocessors).
         assert_no_latent_vendor()
         assert_residency()  # no model call outside the cell's zone (ADR-0167)
 
@@ -532,40 +447,17 @@ class AgentHostWorker(FastApiFrontEndPluginWorker):
         else:
             await self._add_api_routes(app, builder)
 
-        # One /health for both roles, ours and not the agent runtime's: the sha and the role,
-        # no database ping (agent_host.health). Last, so it replaces the agent-runtime route
-        # `super().add_routes` mounted on chat.
         install_health_route(app, self._role)
 
-        # Presigned URLs are live bearer credentials to a tenant's objects, and
-        # this tier handles them on every ingest. Scrubbing is installed on the
-        # HANDLERS, once, rather than relied on at each call site: the leaks that
-        # actually happened came through exception strings
-        # (`str(httpx.HTTPStatusError)` embeds the request URL) and tracebacks,
-        # i.e. from code that never mentioned a URL. Installed after the routes
-        # so the host's own handlers are in place first.
         install_presigned_url_scrubbing()
 
-        # Caught-and-logged exceptions (`logger.exception` in the job worker, the
-        # runner, the chat socket) go to PostHog error tracking from one handler
-        # on the root logger (ADR-0100). Both roles, installed with the scrubbing
-        # above; idempotent, and a no-op while PostHog is not configured.
         posthog_exceptions.install()
 
-        # The workflow is built and every route registered: this replica serves
-        # from here, and the meter provider exists to take the boot readings.
-        # Both roles, so the chat tier's cold start is a series too.
         from agent.observability import boot_timing
 
         boot_timing.BootClock(self._role.value).ready()
         boot_timing.flush()
 
-        # Non-blocking startup handshake against the frontend's internal API:
-        # surfaces a INTERNAL_API_TOKEN mismatch / unreachable BFF at deploy
-        # time instead of only when the first `remember` tool call fails. Fire-
-        # and-forget (never awaited, never fatal) — add_routes has no clean
-        # "after everything is up" hook and blocking here would delay serving,
-        # so we schedule it on the running loop and let it log its own outcome.
         self._schedule_internal_api_check()
 
         self._install_signal_handlers()
@@ -580,8 +472,6 @@ class AgentHostWorker(FastApiFrontEndPluginWorker):
         """What only ``chat`` serves: the chat socket, and the agent runtime's own routes that run no turn."""
         await super().add_routes(app, builder)
 
-        # The chat socket (ADR-0068), on the worker's own session manager so
-        # The agent runtime shuts it down with the others.
         session_manager = await self._create_chat_session_manager(builder)
         app.add_api_websocket_route(CHAT_SOCKET_PATH, chat_socket_endpoint(session_manager))
 
@@ -631,7 +521,6 @@ class AgentHostWorker(FastApiFrontEndPluginWorker):
         try:
             asyncio.get_running_loop().create_task(_run())
         except RuntimeError:
-            # No running loop (unexpected here) — skip the diagnostic silently.
             logger.debug("No running loop for the internal API handshake; skipping")
 
     def _install_signal_handlers(self):

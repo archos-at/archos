@@ -2,28 +2,12 @@
 /**
  * @vitest-environment node
  */
-/**
- * The deadlock shape, made into a build failure.
- *
- * Since ADR-0041 every statement runs inside its own `BEGIN … COMMIT`, so it
- * holds a pool slot for the whole round trip. A `getDb()` call made INSIDE an
- * open `db.transaction()` body therefore asks for a SECOND slot while still
- * holding the first — and postgres-js has no acquisition timeout, so on a
- * saturated pool the caller does not fail, it queues forever behind a slot only
- * it could release.
- *
- * The fix at every call site is the same and costs nothing: use the `tx` handle
- * the transaction callback already hands you. This spec exists because the bug
- * is invisible until the pool is full, which is to say: in production, under
- * load, at the worst moment.
- */
 
 import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { SOURCE_DIRS } from '@/test-utils/source-tree'
 
-/** Every first-party source file that could contain a transaction. */
 function sourceFiles(): string[] {
   const found: string[] = []
   const walk = (dir: string) => {
@@ -37,12 +21,6 @@ function sourceFiles(): string[] {
   return found
 }
 
-/**
- * The body of each `.transaction(` call in `source`, found by matching
- * parentheses from the opening one. Brace-counting would miss a callback that
- * uses a concise arrow body; paren-counting bounds the whole call expression,
- * which is what we want to search.
- */
 function transactionBodies(source: string): string[] {
   const bodies: string[] = []
   const opener = /\.transaction\s*\(/g
@@ -88,7 +66,6 @@ describe('no getDb() inside a transaction body', () => {
   })
 
   it('actually detects the shape it is looking for', () => {
-    // Otherwise a refactor that broke the matcher would report a clean sweep.
     const planted = `
       await db.transaction(async (tx) => {
         const other = getDb()

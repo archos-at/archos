@@ -17,41 +17,25 @@ import { folderState, type ChoiceSummary, type ChosenTree, type ExcludedFolders,
 export interface FolderChoiceTreeProps {
   tree: ChosenTree
   excluded: ExcludedFolders
-  /** Why Piloti proposed to leave a folder out, by its path. */
   proposed: ReadonlyMap<string, ExclusionReason>
-  /** Files the sensitive-data list holds back in each folder and below. */
   heldIn: ReadonlyMap<string, number>
   summary: ChoiceSummary
   onToggle: (path: string) => void
 }
 
-/**
- * The folder the card is headed by: the one project folder when the choice is
- * that (as it is when it comes from the office server), else the choice itself.
- */
 function headOf(tree: ChosenTree): FolderNode | null {
   const [only] = tree.root.children
   return tree.root.children.length === 1 && only && tree.root.ownFiles === 0 ? only : null
 }
 
-/** The folders on screen, in order, with the ones inside a closed folder left out. */
 function visibleRows(node: FolderNode, open: ReadonlySet<string>): FolderNode[] {
   return node.children.flatMap((child) => [child, ...(open.has(child.path) ? visibleRows(child, open) : [])])
 }
 
-/** 16px to the card's edge, 24px a level: a subfolder's chevron sits in its parent's indent. */
 const indent = (level: number): CSSProperties => ({ paddingInlineStart: `${16 + level * 24}px` })
 
 const ROW = 'border-border/60 flex min-h-11 items-center gap-2.5 border-t pr-4 text-sm md:min-h-[42px]'
 
-/**
- * The chosen project folder as the mockup's card: a head row with what is
- * switched on of it, one row per folder below with its files and size, one
- * switch for the whole subtree, why Piloti proposes to leave it out, and how
- * many of its files the sensitive-data list keeps on the server. Files are
- * counted, never listed: a folder is confirmed whole. A folder with subfolders
- * opens with the chevron in its indent.
- */
 export function FolderChoiceTree({ tree, excluded, proposed, heldIn, summary, onToggle }: FolderChoiceTreeProps): JSX.Element {
   const t = useTranslations(intakeFilingStepCopy)
   const { locale } = useLocale()

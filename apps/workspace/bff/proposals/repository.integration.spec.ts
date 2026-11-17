@@ -107,7 +107,6 @@ describe.skipIf(!url)('proposed changes against live Postgres', () => {
     )
   const propose = async (extra: Partial<import('./repository').NewProposedChange> = {}) => (await insert(extra)).row
 
-  /** The service's stale line: a claim older than five minutes no longer counts. */
   const stale = () => new Date(Date.now() - 5 * 60 * 1000)
 
   beforeAll(async () => {
@@ -205,7 +204,6 @@ describe.skipIf(!url)('proposed changes against live Postgres', () => {
     })
     expect(settled?.decidedAt).toBeInstanceOf(Date)
 
-    // Decided: nothing moves it again.
     expect(await inOrg(ORG, () => repo.claimProposedChange(ORG, row.id, USER, stale()))).toBeNull()
     expect(await inOrg(ORG, () => repo.dismissProposedChange(ORG, row.id, USER, stale()))).toBeNull()
     expect(
@@ -217,7 +215,6 @@ describe.skipIf(!url)('proposed changes against live Postgres', () => {
     const row = await propose()
     const old = await inOrg(ORG, () => repo.claimProposedChange(ORG, row.id, OTHER_USER, stale()))
     expect(old).not.toBeNull()
-    // Everything claimed before "now + 1s" counts as stale for this caller.
     const fresh = await inOrg(ORG, () => repo.claimProposedChange(ORG, row.id, USER, new Date(Date.now() + 1000)))
     expect(fresh).toMatchObject({ applyingBy: USER })
 
@@ -246,18 +243,15 @@ describe.skipIf(!url)('proposed changes against live Postgres', () => {
     expect(await inOrg(OTHER_ORG, () => repo.findProposedChange(OTHER_ORG, row.id))).toBeNull()
     expect(await inOrg(OTHER_ORG, () => repo.claimProposedChange(OTHER_ORG, row.id, USER, stale()))).toBeNull()
     expect(await inOrg(OTHER_ORG, () => repo.dismissProposedChange(OTHER_ORG, row.id, USER, stale()))).toBeNull()
-    // Row-level security, not only the WHERE: the other tenant's scope sees no row at all.
     const seen = await inOrg(OTHER_ORG, () => db.execute(sql`select id from proposed_changes where id = ${row.id}::uuid`))
     expect(Array.from(seen)).toHaveLength(0)
 
-    // Another tenant's row naming this project, or this conversation, is refused.
     await expect(
       propose({ organizationId: OTHER_ORG, projectId: ids.project, originConversationId: null })
     ).rejects.toThrow()
     await expect(
       propose({ organizationId: OTHER_ORG, projectId: ids.otherProject, originConversationId: ids.conversation })
     ).rejects.toThrow()
-    // Its own project and conversation are fine.
     const own = await propose({
       organizationId: OTHER_ORG,
       projectId: ids.otherProject,
@@ -455,7 +449,6 @@ describe.skipIf(!url)('proposed changes against live Postgres', () => {
     it('returns the open proposal for the same call, however the input is spelled', async () => {
       const first = await operationProposal(call({ params: { id: 'a' }, body: { name: 'Pläne', note: 'x' } }))
       expect(first.created).toBe(true)
-      // The same call with its keys in another order: jsonb has one spelling per value.
       const again = await operationProposal(call({ body: { note: 'x', name: 'Pläne' }, params: { id: 'a' } }))
       expect(again).toMatchObject({ created: false, row: { id: first.row.id } })
       expect(await inOrg(ORG, () => repo.findOpenOperationProposal(ORG, ids.conversation, USER, call({

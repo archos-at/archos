@@ -8,7 +8,6 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-// The route factory statically imports the session guard, which pulls in authkit; internal routes never call it.
 vi.mock('@/lib/auth/require-auth', () => ({ requireAuthorizedSession: vi.fn() }))
 vi.mock('@/lib/db', () => ({ getDb: vi.fn(() => ({})) }))
 vi.mock('@/lib/db/tenant-context', async (original) => ({
@@ -18,9 +17,8 @@ vi.mock('@/lib/db/tenant-context', async (original) => ({
 }))
 vi.mock('@/lib/documents/repository', async (original) => ({
   ...(await original<typeof import('@/lib/documents/repository')>()),
-  listInFlightDocumentsForIngestJobs: vi.fn(),
+  listSettleableDocumentsForIngestJobs: vi.fn(),
   setDocumentReconciledStatus: vi.fn(),
-  // The attempt the event joins is read after the settle; every row here is its first dispatch.
   findIngestAnnouncementFacts: vi.fn(
     async (_organizationId: string, ids: string[]) => new Map(ids.map((id) => [id, { attempt: 1, uploadBatchId: null }]))
   ),
@@ -34,7 +32,7 @@ vi.mock('@/lib/search/facets-repository', () => ({ listCollectionDocumentsForPro
 
 import { withTenant } from '@/lib/db/tenant-context'
 import { clearCollectionFilesCache } from '@/lib/documents/reconcile-status'
-import { listInFlightDocumentsForIngestJobs, setDocumentReconciledStatus } from '@/lib/documents/repository'
+import { listSettleableDocumentsForIngestJobs, setDocumentReconciledStatus } from '@/lib/documents/repository'
 import { onDocumentsSettled } from '@/lib/upload-batches/settle'
 import { makeDocument } from '@/test-utils/db-fixtures'
 import { POST } from './route'
@@ -48,7 +46,6 @@ const request = (body: unknown, token: string | null = 'test-token'): Request =>
 
 const mockFetch = vi.fn()
 
-/** The backend: every asked job completed, and the collection lists the file. */
 const backendSaysCompleted = () =>
   mockFetch.mockImplementation(async (url: string, init?: RequestInit) => {
     if (url.includes('/v1/documents/status/batch')) {
@@ -80,13 +77,12 @@ const pendingDocument = (id: string, organizationId: string, jobId: string) =>
     ingestAttempts: 1,
   })
 
-/** The `documents` table for this spec: a row stays in flight until the guarded write moves it, once. */
 const tableOf = (rows: ReturnType<typeof pendingDocument>[]) => {
   const status = new Map(rows.map((row) => [row.id, row.status]))
-  vi.mocked(listInFlightDocumentsForIngestJobs).mockImplementation(async (jobIds) =>
+  vi.mocked(listSettleableDocumentsForIngestJobs).mockImplementation(async (jobIds) =>
     rows
       .filter((row) => jobIds.includes((row.metadata as { ingestJobId: string }).ingestJobId))
-      .filter((row) => status.get(row.id) === 'pending')
+      .filter((row) => status.get(row.id) === row.status)
       .map((row) => ({ ...row }))
   )
   vi.mocked(setDocumentReconciledStatus).mockImplementation(async (id, _org, resolution, from) => {
@@ -118,7 +114,7 @@ describe('POST /api/internal/ingest/settled', () => {
     expect((await POST(request({ job_ids: ['job-1'] }, 'wrong'))).status).toBe(403)
     delete process.env.INTERNAL_API_TOKEN
     expect((await POST(request({ job_ids: ['job-1'] }, 'anything'))).status).toBe(503)
-    expect(listInFlightDocumentsForIngestJobs).not.toHaveBeenCalled()
+    expect(listSettleableDocumentsForIngestJobs).not.toHaveBeenCalled()
   })
 
   it('takes 1 to 200 job ids and refuses anything else', async () => {
@@ -126,7 +122,7 @@ describe('POST /api/internal/ingest/settled', () => {
     for (const body of [{}, { job_ids: [] }, { job_ids: [''] }, { job_ids: 'job-1' }, { job_ids: Array(201).fill('j') }]) {
       expect((await POST(request(body))).status).toBe(400)
     }
-    expect(listInFlightDocumentsForIngestJobs).not.toHaveBeenCalled()
+    expect(listSettleableDocumentsForIngestJobs).not.toHaveBeenCalled()
     expect((await POST(request({ job_ids: Array.from({ length: 200 }, (_, i) => `job-${i}`) }))).status).toBe(202)
   })
 
@@ -169,6 +165,26 @@ describe('POST /api/internal/ingest/settled', () => {
     expect(await second.json()).toEqual({ settled: 0 })
     expect(settledEvents()).toHaveLength(1)
     expect(onDocumentsSettled).toHaveBeenCalledTimes(1)
+  })
+
+  it('heals a document failed as interrupted hours ago whose job finished after all', async () => {
+    const failed = {
+      ...pendingDocument('doc-1', 'org-1', 'job-1'),
+      status: 'failed' as const,
+      errorMessage: 'interrupted: the ingestion job stopped before it finished',
+      updatedAt: new Date(Date.now() - 3 * 60 * 60 * 1000),
+    }
+    tableOf([failed])
+
+    const response = await POST(request({ job_ids: ['job-1'] }))
+
+    expect(await response.json()).toEqual({ settled: 1 })
+    expect(setDocumentReconciledStatus).toHaveBeenCalledWith(
+      'doc-1',
+      'org-1',
+      expect.objectContaining({ status: 'completed' }),
+      { status: 'failed', jobId: 'job-1' }
+    )
   })
 
   it('announces nothing when another reconcile moved the row first', async () => {

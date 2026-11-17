@@ -1,5 +1,3 @@
-"""`observability.turn_trace`: an answer names its trace, and the run really is in it."""
-
 from __future__ import annotations
 
 import asyncio
@@ -15,7 +13,6 @@ from nat.plugin_api import ContextState
 
 
 def test_an_answer_id_is_its_own_trace_id():
-    """128 bits each: the UUID of the answer is the trace id, and its hex is Langfuse's spelling."""
     message_id = answer_message_id("conv-1", "turn-1")
     trace_id = trace_id_for_message(message_id)
 
@@ -25,7 +22,6 @@ def test_an_answer_id_is_its_own_trace_id():
 
 
 def test_a_non_uuid_id_pins_nothing():
-    """A malformed or nil id leaves the agent runtime to draw its own; it never raises into the turn."""
     for message_id in (None, "", "m-1", "not-a-uuid", str(uuid.UUID(int=0))):
         assert trace_id_for_message(message_id) is None
     assert trace_id_hex(None) is None
@@ -38,7 +34,6 @@ def test_the_hex_is_zero_padded():
 
 
 async def test_the_pin_is_what_nat_and_its_child_tasks_see_and_is_undone_after():
-    """The agent runtime's runner adopts a `workflow_trace_id` already in the context; tasks it spawns copy it."""
     state = ContextState.get()
     before = state.workflow_trace_id.get()
     trace_id = trace_id_for_message(answer_message_id("conv-1", "turn-1"))
@@ -63,5 +58,4 @@ def test_no_pin_without_an_id():
 
 
 def test_the_metadata_key_is_the_one_the_bff_reads():
-    """`apps/workspace/bff/feedback/repository.ts` reads `metadata->>'trace_id'`; the spelling is a contract."""
     assert TRACE_ID_METADATA_KEY == "trace_id"

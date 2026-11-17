@@ -23,8 +23,13 @@ from agent.citations.source_identity import source_origin_token
 from agent.citations.wire import read_source_to_wire
 from agent.citations.wire import source_entry_to_wire
 from agent.common import citation_events
+from agent.common.binding_claims import BindingClaim
+from agent.common.binding_claims import law_cited_from_web
+from agent.common.binding_claims import score_answer
+from agent.common.binding_claims import turn_binding_claims
 from agent.common.law_gate import law_unsettled
 from agent.common.retrieval_ledger import build_retrieval_ledger
+from agent.observability.citation_scores import emit_citation_line_scores
 from agent.tools.bim.measurement_sources import MeasurementSource
 from agent.tools.bim.measurement_sources import measurement_sources_to_wire
 
@@ -44,8 +49,6 @@ def citations_removed_summary(removed_citations: Sequence[dict[str, Any]]) -> di
     otherwise ``None`` so the ``citations_removed`` field stays absent. This IS
     the wire shape — the conversation graph lifts the field unchanged.
     """
-    # A merged duplicate cost the reader nothing (its [N] now points at the
-    # line it duplicated), so it is not reported as a removal.
     removed_citations = lost_citations(removed_citations)
     if not removed_citations:
         return None
@@ -136,8 +139,6 @@ def record_turn_ledger(
     not in either count; counting one there would report a cited source out
     of zero retrieved ones.
     """
-    # The persisted `citation_events.agent` enum (`shallow` | `deep`), not a
-    # name for this agent: renaming it would orphan every row already written.
     citation_events.record_turn(
         agent="shallow",
         source_count=len(turn_sources),
@@ -145,18 +146,24 @@ def record_turn_ledger(
         removed_citations=list(final.removed_citations),
         unverified_quote_count=final.unverified_quote_count,
         grounded=final.citation_grounded,
-        # The single-source fallback is gone (ADR-0125); the column stays for the rows already written.
         fallback_used=False,
         confidence_capped_reason=capped_reason,
         source_origins=[source_origin_token(entry).strip("[]").lower() or None for entry in turn_sources],
         source_lanes=[source.get("lane") for source in wire],
         source_tools=[entry.tool_name or None for entry in turn_sources],
-        # Source IDENTITIES (URL / document key), never answer prose. They turn
-        # the platform export from "3 citations removed" into "these three
-        # documents were cited but never retrieved".
         retrieved_source_labels=[label for label in map(source_label, turn_sources) if label],
         cited_source_labels=[label for label in ((s.get("citation_key") or s.get("url")) for s in wire) if label],
     )
+
+
+def _claims_without_records(final: FinalAnswer) -> list[BindingClaim]:
+    """The answer's sentences that state law without the records (``common/binding_claims.py``), scored."""
+    if not final.answered:
+        return []
+    cited = [(source.entry, source.number) for source in final.cited]
+    claims = turn_binding_claims(final.content, cited)
+    score_answer(claims, law_cited_from_web(final.content, cited))
+    return claims
 
 
 def assemble_result(
@@ -175,6 +182,7 @@ def assemble_result(
     grounding signals reach the conversation graph by the same path.
     """
     measurement_grounded = bool(graph_result.get("answer_measurement_grounded", False))
+    claims = _claims_without_records(final)
     wire = wire_sources(final.cited)
     ledger = build_retrieval_ledger(graph_result.get("retrieval_rounds"), lane_hits)
     result: dict[str, Any] = {
@@ -183,9 +191,10 @@ def assemble_result(
         "answer_citation_grounded": final.citation_grounded,
         "answer_measurement_grounded": measurement_grounded,
         "confidence_check": final.confidence_check,
+        "answer_open_points": list(final.open_points),
         "answer_lookup_found_nothing": final.lookup_found_nothing,
         "answer_quotes_verified": final.quotes_verified,
-        "answer_law_unsettled": law_unsettled(source.entry for source in final.cited),
+        "answer_law_unsettled": law_unsettled(source.entry for source in final.cited) or bool(claims),
         "escalation_requested": final.escalation_requested,
         "answer_is_handoff": final.answer_is_handoff,
         "answer_confidence_marker": final.confidence_marker,
@@ -195,10 +204,6 @@ def assemble_result(
         "answer_meta": final.answer_meta,
         "skills_applied": list(final.skills_applied) or None,
         "verified_sources": (wire + measurement_sources_to_wire(list(turn_measurements))) or None,
-        # Retrieved-but-not-cited document identities (no prose): what the
-        # turn read beyond what the answer claims. Computed off the same two
-        # inputs as the ledger row — this turn's captures minus the cited
-        # documents — and lifted unchanged like ``verified_sources``.
         "read_sources": read_but_uncited(turn_sources, final.cited),
     }
     summary = citations_removed_summary(final.removed_citations)
@@ -209,6 +214,7 @@ def assemble_result(
     if final.quote_stamps:
         result["quote_stamps"] = list(final.quote_stamps)
     state = ResearchAgentState.model_validate(result)
+    emit_citation_line_scores(wire, writer="chat")
     if final.answered and (final.source_lookup_attempted or measurement_grounded):
         record_turn_ledger(
             final, turn_sources=turn_sources, wire=wire, capped_reason=state.answer_confidence_capped_reason

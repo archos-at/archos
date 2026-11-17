@@ -1,30 +1,9 @@
-/**
- * The person's own yes, asked for by the route that needs it (ADR-0165): a
- * decision a model must not make for a person, held at the server whichever
- * path the call took. The catalog's `personDecides` makes the door ask; this
- * makes the route refuse when nobody did, so a missed flag, a new door or a
- * direct dispatch cannot run it on a model's word.
- *
- * - A person's own request (their browser, no acting session): `app`.
- * - The in-product agent's card the person accepted (a proposal applied): `app`.
- * - An outside agent's call the person confirmed in their chat: `elicitation`;
- *   an MCP Apps card in a client that declared it renders them: `app`.
- * - Anything else under an acting session, `app-unverified` included: refused.
- *
- * Used by the platform's approve, publish, rollback and entitlement routes
- * (`bff/base-knowledge/platform/`); the agent-grade door (S10) reuses it. A
- * route that lets an agent act but records how (a claim verdict) reads
- * {@link callDecisionSource} instead.
- */
-
 import 'server-only'
 import { ApiError } from '@/lib/api/errors'
 import { actingDecision } from './acting-session'
 
-/** What the decision records as how the person said yes. */
 export type PersonDecisionSource = 'app' | 'elicitation'
 
-/** 403 — the call needs the person's own yes, and it came without one. */
 export class PersonDecisionRequiredError extends ApiError {
   constructor(what: string) {
     super(
@@ -35,7 +14,6 @@ export class PersonDecisionRequiredError extends ApiError {
   }
 }
 
-/** How the call in flight was decided: the person's yes, or `agent` when no yes came with it. */
 export function callDecisionSource(): PersonDecisionSource | 'agent' {
   const acting = actingDecision()
   if (!acting) return 'app'
@@ -44,7 +22,6 @@ export function callDecisionSource(): PersonDecisionSource | 'agent' {
   return 'agent'
 }
 
-/** The person's yes for the call in flight, or a refusal naming `what` (an English phrase an agent reads). */
 export function requirePersonDecision(what: string): PersonDecisionSource {
   const source = callDecisionSource()
   if (source === 'agent') throw new PersonDecisionRequiredError(what)

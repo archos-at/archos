@@ -1,10 +1,3 @@
-"""Whether RUN_FINISHED changed the text the reader had already read (ADR-0066), and how `_run` ends.
-
-The answer suite counts the log line (``scripts/turn_census/suite.py``,
-``settled_replaced``), so it is asserted where it is written: in the workflow's
-own ``_run``, over the bodies it yields.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -54,12 +47,14 @@ def test_nothing_settled_is_nothing_replaced():
 
 @pytest.fixture
 def workflow(monkeypatch):
-    """``_run`` with the request parse, the setup and the answering run replaced; what it yielded and did."""
     seen: dict = {"order": [], "prose": []}
 
     async def prepare(*_args, runtime, **_kwargs):
         context = types.SimpleNamespace(
-            stage_facts=types.SimpleNamespace(ws_parent_id="t1", memory_digest=None), restricted_scope=()
+            stage_facts=types.SimpleNamespace(ws_parent_id="t1", memory_digest=None),
+            restricted_scope=(),
+            temporary=False,
+            personal_memory=None,
         )
         yield cr._Turn(None, None, None, context, None, types.SimpleNamespace(organization_id=None), runtime)
 
@@ -108,8 +103,6 @@ async def test_the_workflow_logs_a_terminal_that_replaced_the_settled_text(workf
 
 
 async def test_a_retraction_is_not_a_settled_answer_the_terminal_replaced(workflow, caplog):
-    # A tool round settled its prose, then took it back; the answer streamed later
-    # never settled. The terminal replaced nothing the reader was left reading.
     bodies = [_snapshot("Vorläufig [1]."), AnswerRetractedBody(value=EmptyValue())]
     run = workflow["run"](bodies, _terminal("Die eigentliche Antwort [1]."))
     with caplog.at_level(logging.INFO):
@@ -126,7 +119,6 @@ async def test_the_live_prose_is_bound_only_when_the_platform_lets_the_answer_st
 
 
 async def test_a_stream_the_reader_abandons_unwinds_the_answer_before_the_ledgers_flush(workflow, monkeypatch):
-    """`_run` closes the answer itself; ``async for`` alone would leave it suspended."""
     order = workflow["order"]
 
     async def answer_turn(*_args, **_kwargs):

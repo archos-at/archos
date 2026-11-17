@@ -1,17 +1,13 @@
-"""Helpers the public-sources tests share (packages/AGENTS.md: no ``tests/__init__.py``)."""
-
 from __future__ import annotations
 
 from pathlib import Path
 
 import yaml
 
-#: The repository's source records.
 SOURCES_DIR = Path(__file__).resolve().parents[4] / "configs" / "sources"
 
 
 def write_source(root: Path, record: dict, fixtures: dict[str, bytes] | None = None) -> Path:
-    """Write ``record`` as ``<root>/<territory>/<name>/source.yml`` with its fixture files; returns the dir."""
     territory, _, name = record["id"].partition("-")
     directory = root / territory / name
     (directory / "fixtures").mkdir(parents=True, exist_ok=True)
@@ -22,7 +18,6 @@ def write_source(root: Path, record: dict, fixtures: dict[str, bytes] | None = N
 
 
 def html_source(**overrides) -> dict:
-    """A minimal ``web_document`` + ``html_statute`` record for tests."""
     record = {
         "id": "xx-portal",
         "title": "A Land portal",
@@ -70,7 +65,6 @@ HTML_PAGE = (
 ).encode()
 
 
-#: The synthetic test country's gazette (ADR-0174): a web_document source as the BFF hands a configured source over.
 SYNTHETIC_PAGE = (
     "<html><body><h1>Building Code of Xanadu</h1>"
     '<section><span class="nr">§ 1</span><h2>Scope</h2><p>This code applies to every building in Xanadu.</p></section>'
@@ -81,7 +75,6 @@ SYNTHETIC_TERMS = "https://gazette.xa.example/terms"
 
 
 def synthetic_source(**overrides) -> dict:
-    """The synthetic gazette's record in ``public_sources.source.Source``'s shape, responses inline."""
     record = {
         "id": "xa-gazette",
         "title": "Gazette of Xanadu",

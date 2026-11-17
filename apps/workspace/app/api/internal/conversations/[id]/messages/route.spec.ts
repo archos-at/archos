@@ -3,8 +3,6 @@
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-// The route factory (`@/lib/api/handler`) statically imports the session
-// guard, which pulls in authkit; internal routes never call it.
 vi.mock('@/lib/auth/require-auth', () => ({
   requireAuthorizedSession: vi.fn(),
 }))
@@ -96,8 +94,6 @@ describe('POST /api/internal/conversations/[id]/messages', () => {
     expect(response.status).toBe(201)
     const body = await response.json()
     expect(body.messages).toHaveLength(1)
-    // Org scoping + conversation id from the path are threaded to the service,
-    // and the message loses its top-level organizationId before insert.
     expect(persistInternalConversationMessages).toHaveBeenCalledWith('org-1', CONVERSATION_ID, [
       expect.objectContaining({
         id: validPayload.id,
@@ -113,7 +109,6 @@ describe('POST /api/internal/conversations/[id]/messages', () => {
 
   it('is idempotent: onConflictDoNothing means a replayed id no-ops (empty result, still 201)', async () => {
     vi.stubEnv('INTERNAL_API_TOKEN', REAL_TOKEN)
-    // A second write with the same deterministic id conflicts and returns [].
     vi.mocked(persistInternalConversationMessages).mockResolvedValue([])
 
     const response = await POST(makeRequest(validPayload, REAL_TOKEN), routeContext)

@@ -1,0 +1,19 @@
+---
+# area: general
+fixes:
+  - >
+    Checking a held upload again now works: it is read anew and stays hidden
+    from colleagues until that reading passes.
+  - >
+    Archiving a document that is still being read stops the reading, so the
+    archived document no longer turns up in answers afterwards.
+  - >
+    A research run that had already finished when all runs were stopped now
+    ends as completed with its report filed, instead of as interrupted.
+  - >
+    A connection that hangs while it is being set up is retried after a few
+    seconds, and the chat says it is restoring the connection also when you
+    return to a tab mid-answer.
+  - >
+    If a dictation could not be saved although you spoke, the chat now says so
+    instead of ending silently.

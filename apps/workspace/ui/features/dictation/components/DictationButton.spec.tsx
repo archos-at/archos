@@ -1,14 +1,9 @@
-/**
- * The microphone button against a fake browser: a `MediaRecorder` that records
- * whatever the test hands it, a microphone that grants or refuses, and an
- * optional level meter. What it pins is the contract with the composer: text
- * through `onTranscript`, a message through `onError`, nothing for silence.
- */
-
 import { act, fireEvent, render, screen, waitFor } from '@/test-utils'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { MAX_DICTATION_SECONDS } from '@/lib/dictation/contract'
 import { WAVE_BARS, waveHeight } from '../hooks/use-dictation'
+import { MICROPHONE_ANSWER_LIMIT_MS, STOP_LIMIT_MS } from '../lib/dictation-machine'
+import { PERMISSION_QUERY_LIMIT_MS } from '../lib/recording-support'
 import { DictationButton } from './DictationButton'
 import { PRODUCT_NAME } from '@/lib/brand'
 
@@ -16,6 +11,9 @@ class FakeRecorder {
   static supported = ['audio/webm;codecs=opus', 'audio/webm']
   static isTypeSupported = (type: string) => FakeRecorder.supported.includes(type)
   static last: FakeRecorder | null = null
+  static reportsStop = true
+  static flushesOnStop = true
+  static startedWith: unknown[] = []
   state: 'inactive' | 'recording' = 'inactive'
   mimeType: string
   ondataavailable: ((event: { data: Blob }) => void) | null = null
@@ -26,14 +24,20 @@ class FakeRecorder {
     FakeRecorder.last = this
   }
 
-  start() {
+  start(...given: unknown[]) {
+    FakeRecorder.startedWith = given
     this.state = 'recording'
+  }
+
+  slice(bytes: number) {
+    this.ondataavailable?.({ data: new Blob([new Uint8Array(bytes)], { type: this.mimeType }) })
   }
 
   stop() {
     this.state = 'inactive'
+    if (!FakeRecorder.flushesOnStop) return
     this.ondataavailable?.({ data: new Blob([new Uint8Array(2048)], { type: this.mimeType }) })
-    this.onstop?.()
+    if (FakeRecorder.reportsStop) this.onstop?.()
   }
 }
 
@@ -48,7 +52,6 @@ function installBrowser() {
   vi.stubGlobal('fetch', fetchMock)
 }
 
-/** A Web Audio meter that reads `level` on every sample. */
 function installMeter(level: number) {
   class FakeAudioContext {
     state = 'running'
@@ -89,6 +92,10 @@ async function recordFor(ms: number) {
 beforeEach(() => {
   vi.useFakeTimers({ shouldAdvanceTime: true })
   FakeRecorder.supported = ['audio/webm;codecs=opus', 'audio/webm']
+  FakeRecorder.reportsStop = true
+  FakeRecorder.flushesOnStop = true
+  FakeRecorder.startedWith = []
+  track.stop.mockClear()
   getUserMedia.mockReset().mockResolvedValue(stream)
   fetchMock.mockReset()
   installBrowser()
@@ -97,7 +104,20 @@ beforeEach(() => {
 afterEach(() => {
   vi.useRealTimers()
   vi.unstubAllGlobals()
+  Reflect.deleteProperty(window.navigator, 'permissions')
 })
+
+function pendingMicrophone() {
+  let grant!: (granted: MediaStream) => void
+  let refuse!: (error: unknown) => void
+  getUserMedia.mockReturnValue(
+    new Promise<MediaStream>((resolve, reject) => {
+      grant = resolve
+      refuse = reject
+    }),
+  )
+  return { grant, refuse }
+}
 
 describe('DictationButton', () => {
   test('records, stops on the second press and hands back the transcript', async () => {
@@ -159,7 +179,6 @@ describe('DictationButton', () => {
 
     const bars = screen.getByTestId('dictation-recording').querySelectorAll('[aria-hidden="true"] > span')
     expect(bars).toHaveLength(WAVE_BARS)
-    // The newest sample is on the right and is a raised voice: full height.
     expect((bars[bars.length - 1] as HTMLElement).style.transform).toBe('scaleY(1.00)')
   })
 
@@ -206,8 +225,6 @@ describe('DictationButton', () => {
     )
   })
 
-  // A touch screen has no hover: the tooltip never shows there, and a disabled
-  // button answers a finger with nothing. Pressing it has to say why.
   test('pressing an unavailable microphone hands the reason to the composer, and records nothing', async () => {
     FakeRecorder.supported = []
     const onExplain = vi.fn()
@@ -219,5 +236,190 @@ describe('DictationButton', () => {
       expect.stringMatching(new RegExp(String.raw`records no audio format ${PRODUCT_NAME} can transcribe`))
     )
     expect(getUserMedia).not.toHaveBeenCalled()
+  })
+
+  describe('a microphone that does not answer', () => {
+    test('a second press gives up, and a late grant is released unused', async () => {
+      const { grant } = pendingMicrophone()
+      const { onError } = renderButton()
+
+      fireEvent.click(await screen.findByTestId('dictation-button'))
+      const waiting = await screen.findByRole('button', { name: /Waiting for the microphone/ })
+      expect(waiting.getAttribute('aria-busy')).toBe('true')
+      expect((waiting as HTMLButtonElement).disabled).toBe(false)
+
+      fireEvent.click(waiting)
+      await screen.findByRole('button', { name: 'Dictate' })
+      expect(onError).not.toHaveBeenCalled()
+
+      await act(async () => {
+        grant(stream)
+      })
+      expect(track.stop).toHaveBeenCalled()
+      expect(FakeRecorder.last?.state).not.toBe('recording')
+      expect(screen.queryByTestId('dictation-recording')).toBeNull()
+    })
+
+    test('a refusal that lands after giving up says nothing', async () => {
+      const { refuse } = pendingMicrophone()
+      const { onError } = renderButton()
+
+      fireEvent.click(await screen.findByTestId('dictation-button'))
+      fireEvent.click(await screen.findByRole('button', { name: /Waiting for the microphone/ }))
+      await act(async () => {
+        refuse(new DOMException('denied', 'NotAllowedError'))
+      })
+
+      expect(onError).not.toHaveBeenCalled()
+      await screen.findByRole('button', { name: 'Dictate' })
+    })
+
+    test('a read-only composer can still give up on it', async () => {
+      pendingMicrophone()
+      const view = render(<DictationButton locale="de" onTranscript={vi.fn()} onError={vi.fn()} />)
+
+      fireEvent.click(await screen.findByTestId('dictation-button'))
+      await screen.findByRole('button', { name: /Waiting for the microphone/ })
+      view.rerender(<DictationButton locale="de" disabled onTranscript={vi.fn()} onError={vi.fn()} />)
+
+      const waiting = screen.getByRole('button', { name: /Waiting for the microphone/ }) as HTMLButtonElement
+      expect(waiting.disabled).toBe(false)
+      fireEvent.click(waiting)
+      const idle = (await screen.findByRole('button', { name: 'Dictate' })) as HTMLButtonElement
+      expect(idle.disabled).toBe(true)
+    })
+
+    test('ends by itself after the answer limit and says the microphone did not answer', async () => {
+      pendingMicrophone()
+      const { onError } = renderButton()
+
+      fireEvent.click(await screen.findByTestId('dictation-button'))
+      await screen.findByRole('button', { name: /Waiting for the microphone/ })
+      await act(async () => {
+        vi.advanceTimersByTime(MICROPHONE_ANSWER_LIMIT_MS)
+      })
+
+      expect(onError).toHaveBeenCalledWith(expect.stringMatching(/^The microphone did not answer\./))
+      await screen.findByRole('button', { name: 'Dictate' })
+    })
+
+    test('a refusal that lands after the button is gone says nothing', async () => {
+      const { refuse } = pendingMicrophone()
+      const onError = vi.fn()
+      const view = render(<DictationButton locale="de" onTranscript={vi.fn()} onError={onError} />)
+
+      fireEvent.click(await screen.findByTestId('dictation-button'))
+      await screen.findByRole('button', { name: /Waiting for the microphone/ })
+      view.unmount()
+      await act(async () => {
+        refuse(new DOMException('denied', 'NotAllowedError'))
+      })
+
+      expect(onError).not.toHaveBeenCalled()
+    })
+  })
+
+  test('a permission query that never answers does not keep the button disabled', async () => {
+    Object.defineProperty(window.navigator, 'permissions', {
+      value: { query: () => new Promise(() => {}) },
+      configurable: true,
+    })
+    renderButton()
+
+    expect(screen.getByTestId('dictation-unavailable')).toBeTruthy()
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(PERMISSION_QUERY_LIMIT_MS)
+    })
+
+    expect(screen.queryByTestId('dictation-unavailable')).toBeNull()
+    expect((screen.getByTestId('dictation-button') as HTMLButtonElement).disabled).toBe(false)
+  })
+
+  test('a recorder that never reports its stop is finished with what it captured', async () => {
+    FakeRecorder.reportsStop = false
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({ text: 'Trotzdem da.' })))
+    const { onTranscript, onError } = renderButton()
+
+    await recordFor(2000)
+    fireEvent.click(screen.getByTestId('dictation-recording'))
+    await act(async () => {
+      vi.advanceTimersByTime(STOP_LIMIT_MS)
+    })
+
+    await waitFor(() => expect(onTranscript).toHaveBeenCalledWith('Trotzdem da.'))
+    expect(onError).not.toHaveBeenCalled()
+    expect(track.stop).toHaveBeenCalled()
+    await screen.findByTestId('dictation-button')
+  })
+
+  test('a recorder that hung outright, on a recording the meter heard a voice in, says it could not be saved', async () => {
+    FakeRecorder.reportsStop = false
+    FakeRecorder.flushesOnStop = false
+    installMeter(0.2)
+    const { onTranscript, onError } = renderButton()
+
+    await recordFor(2000)
+    fireEvent.click(screen.getByTestId('dictation-recording'))
+    await act(async () => {
+      vi.advanceTimersByTime(STOP_LIMIT_MS)
+    })
+
+    await waitFor(() => expect(onError).toHaveBeenCalledWith('The recording could not be saved. Please dictate it again.'))
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(onTranscript).not.toHaveBeenCalled()
+    expect(track.stop).toHaveBeenCalled()
+    await screen.findByTestId('dictation-button')
+  })
+
+  test('a recorder that hung outright over silence ends without a word', async () => {
+    FakeRecorder.reportsStop = false
+    FakeRecorder.flushesOnStop = false
+    installMeter(0.001)
+    const { onTranscript, onError } = renderButton()
+
+    await recordFor(2000)
+    fireEvent.click(screen.getByTestId('dictation-recording'))
+    await act(async () => {
+      vi.advanceTimersByTime(STOP_LIMIT_MS)
+    })
+
+    await screen.findByTestId('dictation-button')
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(onTranscript).not.toHaveBeenCalled()
+    expect(onError).not.toHaveBeenCalled()
+  })
+
+  test('records in slices, so a recorder that hung outright still sends what it had handed over, as one file', async () => {
+    FakeRecorder.reportsStop = false
+    FakeRecorder.flushesOnStop = false
+    installMeter(0.2)
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({ text: 'Bis hierher.' })))
+    const { onTranscript, onError } = renderButton()
+
+    await recordFor(2000)
+    expect(FakeRecorder.startedWith).toEqual([1000])
+    FakeRecorder.last?.slice(700)
+    FakeRecorder.last?.slice(300)
+    fireEvent.click(screen.getByTestId('dictation-recording'))
+    await act(async () => {
+      vi.advanceTimersByTime(STOP_LIMIT_MS)
+    })
+
+    await waitFor(() => expect(onTranscript).toHaveBeenCalledWith('Bis hierher.'))
+    expect(onError).not.toHaveBeenCalled()
+    expect(fetchMock).toHaveBeenCalledOnce()
+    const form = fetchMock.mock.calls[0][1]?.body as FormData
+    const audio = form.get('audio') as File
+    expect(audio.size).toBe(1000)
+    expect(audio.type).toBe('audio/webm;codecs=opus')
+  })
+
+  test('does not slice a recording in a container the sliced file was never measured in', async () => {
+    FakeRecorder.supported = ['audio/mp4']
+    installMeter(0.2)
+    renderButton()
+
+    await recordFor(2000)
+    expect(FakeRecorder.startedWith).toEqual([])
   })
 })

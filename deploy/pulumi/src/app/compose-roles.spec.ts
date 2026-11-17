@@ -3,7 +3,6 @@ import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { load } from "js-yaml";
 
-// src/app -> src -> deploy/pulumi -> deploy -> repo root
 const repoRoot = join(__dirname, "..", "..", "..", "..");
 const read = (...parts: string[]) => readFileSync(join(repoRoot, ...parts), "utf8");
 
@@ -15,10 +14,9 @@ type Service = {
 };
 type Compose = { services: Record<string, Service> };
 
-const COMPOSE_FILES = ["docker-compose.yaml", "docker-compose.coolify.yaml"];
+const COMPOSE_FILES = ["docker-compose.yaml"];
 const compose = (file: string) => load(read("deploy", "compose", file)) as Compose;
 
-/** A service's environment as a map, whether the file wrote it as a list or as a map. */
 function env(service: Service): Record<string, string> {
   const raw = service.environment ?? {};
   if (Array.isArray(raw)) {
@@ -29,11 +27,6 @@ function env(service: Service): Record<string, string> {
 
 const roleOf = (file: string, name: string) => env(compose(file).services[name]).PROCESS_ROLE;
 
-/**
- * The environment a container actually gets: the YAML merge key
- * (`<<: *backend-environment`, which js-yaml leaves as a key) and `extends`
- * resolved, the service's own entries winning.
- */
 function effectiveEnv(file: string, name: string): Record<string, string> {
   const service = compose(file).services[name];
   const base = service.extends ? effectiveEnv(file, service.extends.service) : {};
@@ -44,13 +37,6 @@ function effectiveEnv(file: string, name: string): Record<string, string> {
   return { ...base, ...merged, ...own };
 }
 
-/**
- * The Compose files and the Pulumi program deploy the same four processes of one
- * image (ADR-0082), and `deploy/AGENTS.md` makes keeping them equal the author's
- * job. Nothing else does: a Compose file that still points the frontend at the chat
- * service for HTTP, or has no tier to claim ingestion, runs clean until a reader
- * uploads a file. Both are read here as source, like the Python they configure.
- */
 describe.each(COMPOSE_FILES)("%s", (file) => {
   it("runs one service per role of the image, each under its own PROCESS_ROLE", () => {
     expect(roleOf(file, "chat")).toBe("chat");
@@ -104,7 +90,6 @@ describe.each(COMPOSE_FILES)("%s", (file) => {
     }
   });
 
-  // ADR-0115: Qdrant is the only store, started by a plain `up`.
   it("runs Qdrant by default and no Chroma, nor anything that picks between the two", () => {
     const services = compose(file).services;
     expect(services.qdrant.profiles).toBeUndefined();
@@ -121,21 +106,16 @@ describe.each(COMPOSE_FILES)("%s", (file) => {
     const qdrant = env(compose(file).services.qdrant);
     expect(qdrant.QDRANT__SERVICE__METRICS_PORT).toBe("6336");
     expect(qdrant.QDRANT__STORAGE__QUOTAS__ENABLED).toBe("true");
-    // The Pulumi defaults, overridable as QDRANT_QUOTA_*_PERCENT.
     expect(qdrant.QDRANT__STORAGE__QUOTAS__MAX_RESIDENT_MEMORY_PERCENT).toBe("${QDRANT_QUOTA_MEMORY_PERCENT:-90}");
     expect(qdrant.QDRANT__STORAGE__QUOTAS__MAX_DISK_USAGE_PERCENT).toBe("${QDRANT_QUOTA_DISK_PERCENT:-85}");
   });
 
-  // A store loading large collections answers /readyz late. Without a grace
-  // period its two minutes of retries run out, the container reads unhealthy,
-  // and every backend role that waits on `service_healthy` never starts.
   it("gives Qdrant five minutes to load before its health check counts", () => {
     const check = (compose(file).services.qdrant as { healthcheck?: { start_period?: string } }).healthcheck;
     expect(check?.start_period).toBe("300s");
   });
 });
 
-/** The removed names must not come back through a file nobody greps. */
 describe("the retired role and claim switch", () => {
   const files = [
     ...COMPOSE_FILES.map((f) => join("deploy", "compose", f)),
@@ -162,7 +142,6 @@ describe("the retired role and claim switch", () => {
   });
 });
 
-/** Research runs on the database queue alone: no execution switch, scheduler address or worker-pool knob survives. */
 describe("the research queue is the only execution path", () => {
   const retired = /JOB_EXECUTION|NAT_DASK_SCHEDULER_ADDRESS|NAT_USE_DASK_THREADS|DASK_|MAX_ACTIVE_JOBS(?!_)/;
   const files = [

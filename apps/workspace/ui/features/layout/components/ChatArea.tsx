@@ -1,14 +1,3 @@
-/**
- * ChatArea Component
- *
- * Main chat display area showing messages between user and assistant.
- * Includes the message list and is positioned in the center of the layout.
- *
- * Shows different welcome states based on authentication:
- * - Logged out: Prompt to sign in with CTA button
- * - Logged in: Ready to start chatting
- */
-
 'use client'
 import { type FC, memo } from 'react'
 import { ArrowDown, Check, WifiOff } from 'lucide-react'
@@ -16,6 +5,7 @@ import { cn } from '@/lib/utils'
 import { THREAD_COLUMN, THREAD_GUTTER } from '@/components/ui/thread-column'
 import { PRESSABLE } from '@/components/ui/press'
 import { FOCUS_RING } from '@/components/ui/focus-ring'
+import { useConnectionRestoring } from '@/features/chat/connection-restoring'
 import { MentionPeopleProvider } from '@/features/collaboration/context/mention-people'
 import { TypingPresence } from '@/features/collaboration/components/TypingPresence'
 import {
@@ -25,17 +15,26 @@ import {
   motionQuick,
   motionSnap,
 } from '@/components/motion'
+import { useTranslations } from '@/i18n'
+import { chatCopy } from '@/i18n/namespaces/chat'
 import { MessageListSkeleton } from './chat-area/chat-area-states'
 import { useChatAreaController } from './chat-area/use-chat-area-controller'
 import type { ChatAreaProps } from './chat-area/use-chat-area-controller'
 import { ChatMessageList } from './chat-area/chat-message-list'
 
-/**
- * Main chat area container with scrollable message list.
- * Shows welcome state when no messages exist.
- */
 export const ChatArea: FC<ChatAreaProps> = memo(function ChatArea(props) {
   const controller = useChatAreaController(props)
+  const tChat = useTranslations(chatCopy)
+  const restoring = useConnectionRestoring(controller.currentConversation?.id)
+  const connectionNote = restoring && controller.connectionNote !== 'lost' ? 'restoring' : controller.connectionNote
+  const connectionText =
+    connectionNote === 'restored'
+      ? controller.t('chatArea.connection.restored')
+      : connectionNote === 'restoring'
+        ? tChat('connection.restoring')
+        : connectionNote === 'lost'
+          ? controller.t('chatArea.connection.lost')
+          : ''
 
   return (
     <MentionPeopleProvider
@@ -51,10 +50,6 @@ export const ChatArea: FC<ChatAreaProps> = memo(function ChatArea(props) {
           ref={controller.scrollContainerRef}
           onScroll={controller.handleScroll}
           className="scrollbar-hide flex flex-1 flex-col overflow-y-auto overscroll-contain"
-          // A named, focusable region, so a keyboard reader can scroll the
-          // thread. Not `role="log"`: a log announces every addition, and the
-          // live answer adds words every frame. The settle is announced once,
-          // below.
           role="region"
           tabIndex={0}
           aria-label={controller.t('chatArea.ariaMessages')}
@@ -107,22 +102,20 @@ export const ChatArea: FC<ChatAreaProps> = memo(function ChatArea(props) {
           data-testid="thread-status-dock"
         >
           <AnimatePresence initial={false} mode="popLayout">
-            {controller.connectionNote ? (
+            {connectionNote ? (
               <motion.div
-                key={controller.connectionNote}
+                key={connectionNote}
                 className="bg-background/85 text-muted-foreground flex h-6 items-center gap-1.5 rounded-control px-2 text-xs"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1, transition: controller.rowEnter }}
                 exit={{ opacity: 0, transition: controller.rowLeave }}
               >
-                {controller.connectionNote === 'restored' ? (
+                {connectionNote === 'restored' ? (
                   <Check className="text-success size-3.5" aria-hidden="true" />
                 ) : (
                   <WifiOff className="size-3.5" aria-hidden="true" />
                 )}
-                {controller.connectionNote === 'restored'
-                  ? controller.t('chatArea.connection.restored')
-                  : controller.t('chatArea.connection.lost')}
+                {connectionText}
               </motion.div>
             ) : (
               controller.shared &&
@@ -147,11 +140,7 @@ export const ChatArea: FC<ChatAreaProps> = memo(function ChatArea(props) {
               A live region, not a `status` role: it says nothing about the
               thread's content and must not read as one of its messages. */}
           <span className="sr-only" aria-live="polite" aria-atomic="true">
-            {controller.connectionNote === 'restored'
-              ? controller.t('chatArea.connection.restored')
-              : controller.connectionNote === 'lost'
-                ? controller.t('chatArea.connection.lost')
-                : ''}
+            {connectionText}
           </span>
         </div>
 
@@ -166,12 +155,10 @@ export const ChatArea: FC<ChatAreaProps> = memo(function ChatArea(props) {
             <motion.div
               className="pointer-events-none absolute inset-x-0 z-10 flex justify-center max-sm:justify-end max-sm:pr-[max(1rem,env(safe-area-inset-right))] max-sm:pl-[max(1rem,env(safe-area-inset-left))]"
               style={{
-                bottom: `calc(var(--composer-h, 11rem) + ${controller.connectionNote || (controller.shared && controller.typists.length > 0) ? '2.25rem' : '1rem'})`,
+                bottom: `calc(var(--composer-h, 11rem) + ${connectionNote || (controller.shared && controller.typists.length > 0) ? '2.25rem' : '1rem'})`,
               }}
               initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
-              // Leaving one step shorter than it came: the reader pressed it
-              // and is already watching the thread move, not the button.
               exit={{
                 opacity: 0,
                 y: 6,
@@ -186,7 +173,7 @@ export const ChatArea: FC<ChatAreaProps> = memo(function ChatArea(props) {
                 className={cn(
                   PRESSABLE,
                   FOCUS_RING,
-                  'bg-card text-muted-foreground hover:text-foreground pointer-events-auto flex size-9 items-center justify-center rounded-control border outline-none pointer-coarse:size-11 shadow-md'
+                  'bg-card text-muted-foreground hover:text-foreground pointer-events-auto flex size-9 items-center justify-center rounded-control outline-none pointer-coarse:size-11 shadow-md'
                 )}
               >
                 <ArrowDown className="size-4" aria-hidden="true" />

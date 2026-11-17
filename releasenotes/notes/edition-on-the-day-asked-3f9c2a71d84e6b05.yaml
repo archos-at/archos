@@ -1,0 +1,9 @@
+---
+# area: building-law
+fixes:
+  - >
+    When you ask which edition of a guideline or standard applied at your
+    project's site on a particular day, for example for a submission on
+    1 October, the assistant now names the edition that was binding there on
+    that day and says which day it means. Before, it named only today's edition
+    and called the earlier one undeterminable.

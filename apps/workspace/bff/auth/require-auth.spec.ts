@@ -42,7 +42,6 @@ const authorizedSession: AuthorizedSession = {
   featureFlags: null,
 }
 
-/** The same identity before an organization has been selected. */
 const sessionWithoutOrg: UserSession = {
   ...authorizedSession,
   organizationId: null,

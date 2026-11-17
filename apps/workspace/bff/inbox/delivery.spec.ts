@@ -22,7 +22,6 @@ const minutes = (n: number) => new Date(T0.getTime() + n * 60_000)
 
 describe('emailDueAt', () => {
   it('is the last activity plus the type delay', () => {
-    // mention.requested waits an hour for the in-app read.
     expect(emailDueAt(row())).toEqual(minutes(60))
   })
 
@@ -35,7 +34,6 @@ describe('emailDueAt', () => {
   })
 
   it('treats a type this build does not know as in-app only', () => {
-    // `type` is a text column; a newer deploy can write a value unknown here.
     expect(emailDefaultFor('something.from_the_future')).toEqual({ send: 'never' })
     expect(emailDueAt(row({ type: 'something.from_the_future' as InboxEmailCandidate['type'] }))).toBeNull()
   })

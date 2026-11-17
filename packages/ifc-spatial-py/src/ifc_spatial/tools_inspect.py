@@ -24,9 +24,6 @@ from ifc_spatial.tools_session import run
 from ifc_spatial.tools_types import ToolDef
 from ifc_spatial.tools_types import ToolError
 
-# `env`, not `envelope`: `envelope.py` is the ANSWER CONTRACT (`Answer`,
-# `computed`, `undecidable`) and `envelope_geometry.py` is the thermal envelope.
-# Two unrelated meanings of one word, one of which is imported from below.
 from . import operators as op
 from .briefing import KIND_LABEL
 from .briefing import LEGACY_ROOM_USE_KINDS
@@ -43,8 +40,6 @@ def find_elements(resolve: Callable[[Any], SpatialModel], args: dict[str, Any]) 
     out: dict[str, Any] = {
         "elements": [model.ref(e).to_dict() for e in matches],
         "total": total,
-        # Stated rather than implied: a page presented as a total is the
-        # failure this whole library is built to avoid.
         "truncated": total > len(matches),
     }
     if total == 0:
@@ -53,9 +48,6 @@ def find_elements(resolve: Callable[[Any], SpatialModel], args: dict[str, Any]) 
             "Geschoßnamen und Typen stammen aus diesem Export."
         )
     return out
-
-
-# ── element ─────────────────────────────────────────────────────────────
 
 
 def element(resolve: Callable[[Any], SpatialModel], args: dict[str, Any]) -> Any:
@@ -70,10 +62,6 @@ def element(resolve: Callable[[Any], SpatialModel], args: dict[str, Any]) -> Any
 
     storey = model.storey_of(subject)
     container = run(lambda: op.container_of(model, global_id))
-    # Only the relations that are attribute reads are probed. The four in
-    # GEOMETRIC_RELATIONS fall back to a contact map that costs seconds, and
-    # building a menu is not worth that; they are listed separately as
-    # "askable" instead of as "available", which is the honest distinction.
     available = []
     for name, fn in RELATION_FN.items():
         if name in GEOMETRIC_RELATIONS:
@@ -81,12 +69,6 @@ def element(resolve: Callable[[Any], SpatialModel], args: dict[str, Any]) -> Any
         try:
             answer = fn(model, global_id)
         except WrongKindError:
-            # The ONE place a wrong kind is a question rather than a
-            # mistake: this loop asks every relation whether it applies to
-            # this element, and `hosts` on an IfcSpace answering "no" is the
-            # menu working. Everywhere else the same refusal is the caller's
-            # error and must reach them — so it is caught here by hand and
-            # nowhere else, rather than softened at the source.
             continue
         if not answer.decidable:
             continue
@@ -113,9 +95,6 @@ def element(resolve: Callable[[Any], SpatialModel], args: dict[str, Any]) -> Any
     }
 
 
-# ── relations / measure / distance ──────────────────────────────────────
-
-
 def relations(resolve: Callable[[Any], SpatialModel], args: dict[str, Any]) -> Any:
     model = resolve(args.get("model"))
     name = str(args.get("relation") or "")
@@ -132,10 +111,6 @@ def _profile_measures(model: SpatialModel, global_id: str, applicable: list[str]
         try:
             answer = _jsonable(run(lambda fn=fn: fn(model, global_id)))
         except Exception as exc:  # noqa: BLE001
-            # One measure that throws must not cost the caller the other
-            # fifteen. The failure is reported in place, as a failure, and
-            # the profile still comes back — the alternative is a dead call
-            # and another turn spent finding out which kind was to blame.
             measures[name] = {"decidable": False, "error": f"{type(exc).__name__}: {exc}"}
             continue
         if isinstance(answer, dict):
@@ -199,9 +174,6 @@ def element_profile(resolve: Callable[[Any], SpatialModel], args: dict[str, Any]
     return out
 
 
-# ── ids ─────────────────────────────────────────────────────────────────
-
-
 def shopping_list(resolve: Callable[[Any], SpatialModel], args: dict[str, Any]) -> Any:
     """The model's blind spots as a buildingSMART IDS file.
 
@@ -210,12 +182,6 @@ def shopping_list(resolve: Callable[[Any], SpatialModel], args: dict[str, Any]) 
     a file they run in their own checker, on their own schedule, and re-run
     after the fix to prove it landed.
     """
-    # Imported HERE, not at module scope. `ids_export` needs `ifctester`,
-    # which ships with IfcOpenShell as a separate distribution and is not
-    # guaranteed present — and a module-level import made a missing optional
-    # dependency take down the ENTIRE tool surface, so a deployment without
-    # it could not measure a wall either. One tool degrading is a fact about
-    # one capability; eleven tools vanishing is an outage.
     try:
         from . import ids_export as ids
     except ImportError as error:
@@ -233,9 +199,6 @@ def shopping_list(resolve: Callable[[Any], SpatialModel], args: dict[str, Any]) 
     )
     written = ids.write_ids(document)
     return {**written, "summary": document.summary()}
-
-
-# ── room_inventory ──────────────────────────────────────────────────────
 
 
 def room_inventory(resolve: Callable[[Any], SpatialModel], args: dict[str, Any]) -> Any:

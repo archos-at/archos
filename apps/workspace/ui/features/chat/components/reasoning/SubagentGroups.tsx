@@ -1,16 +1,3 @@
-/**
- * SubagentGroups — the subagents a turn ran (AG-UI 1.0 `SUBAGENT_*`), as
- * nested groups under the Herleitung graph: who worked, inside whom, how it
- * ended, and how many steps it took. Today that is an in-process deep
- * research and its planner, researchers and writer.
- *
- * It reads the stored steps the turn fold writes and nothing else: a
- * subagent is its own row (`subagent:<run id>`, a technical status whose
- * `subagentRunId` is its parent), and every step it took carries its run id.
- * So the same steps draw the same groups live, after a reload and for an
- * observer. A turn with no subagent draws nothing.
- */
-
 'use client'
 
 import type { FC } from 'react'
@@ -22,9 +9,8 @@ import { useTranslations } from '@/i18n'
 import { chatCopy } from '@/i18n/namespaces/chat'
 import { cn } from '@/lib/utils'
 import type { StoredThinkingStep } from '@/lib/conversations/message-provenance'
-import { subagentStepId } from '../../lib/turn-fold'
+import { subagentStepId } from '@/lib/turns/turn-fold'
 
-/** How a group ended. `ended`: still running when the turn ended, so it never said. */
 export type SubagentGroupStatus = 'running' | 'ok' | 'error' | 'ended'
 
 export interface SubagentGroup {
@@ -32,7 +18,6 @@ export interface SubagentGroup {
   name: string
   description?: string
   status: SubagentGroupStatus
-  /** The steps this invocation took itself, in order; its subagents' steps are theirs. */
   steps: StoredThinkingStep[]
   children: SubagentGroup[]
 }
@@ -48,11 +33,6 @@ const groupStatus = (row: StoredThinkingStep): SubagentGroupStatus => {
 const isSubagentRow = (step: StoredThinkingStep): boolean =>
   step.kind === 'status' && step.id.startsWith(SUBAGENT_ROW)
 
-/**
- * The subagent tree of one turn's steps, roots first, each level in the order
- * the invocations started. A step whose invocation's row was dropped (the
- * stored bound) belongs to no group and is not drawn here.
- */
 export const subagentGroups = (steps: readonly StoredThinkingStep[]): SubagentGroup[] => {
   const groups = new Map<string, SubagentGroup>()
   const parents = new Map<string, string | undefined>()
@@ -82,7 +62,6 @@ export const subagentGroups = (steps: readonly StoredThinkingStep[]): SubagentGr
   return roots
 }
 
-/** The subagents Piloti names in the reader's words; any other shows its own name. */
 const KNOWN_NAMES: Readonly<Record<string, string>> = {
   deep_researcher: 'deepResearcher',
   'planner-agent': 'planner',

@@ -98,10 +98,9 @@ _TOOL_DESCRIPTION = (
     "Fluchtniveau band, the main use. These are PROPOSALS with their evidence — offer them "
     "through a project_profile_patch card for the user to confirm, never state them as settled.\n"
     "  'compliance' — run the OIB rule catalogue against the model and report, per requirement, "
-    "how many elements are met / not met / UNDECIDABLE. The third state is the "
-    "important one: it means the model does not publish the value, NOT that the building fails. "
-    "Each row names the exact property (e.g. Pset_WallCommon.FireRating) that would settle it — "
-    "report that list, it is what the architect has to add in their CAD. Pass "
+    "how many elements are met / not met / UNDECIDABLE (the model does not publish the value, NOT "
+    "that the building fails). Each row names the exact property (e.g. Pset_WallCommon.FireRating) "
+    "that would settle it — report that list, it is what the architect has to add in their CAD. Pass "
     "building_class and main_use from the project data when you know them; a rule that "
     "needs a fact it was not given stands down WITH its reason rather than guessing. "
     "main_use must be one of residential, office, lodging, assembly, healthcare, "
@@ -109,13 +108,11 @@ _TOOL_DESCRIPTION = (
     "'not applicable', which reads as a verdict and is not one. building_class is 1-5.\n"
     "  'compliance-diff' — the same catalogue over two revisions, reporting only the "
     "requirements whose STATUS MOVED. Set 'compare_with' to a substring of the OLDER file's "
-    "name. This answers 'was hat sich der letzte Stand kaputt gemacht' — including a "
-    "requirement that stopped being decidable because the re-export dropped a property.\n"
+    "name. This answers 'was hat sich der letzte Stand kaputt gemacht', including a "
+    "requirement that stopped being decidable.\n"
     "  'compare'    — what changed between TWO revisions of the same building. Set "
     "'compare_with' to a substring of the OLDER file's name; this model is the newer one. "
-    "Matched by IFC GlobalId, so a re-export that renumbers everything still reports zero "
-    "changes. This is the question no pair of PDFs can answer — use it for 'what changed since "
-    "the last submission'.\n"
+    "Matched by IFC GlobalId. Use it for 'what changed since the last submission'.\n"
     "  'aggregate'  — count/sum/avg/min/max over the matching elements, optionally grouped by "
     "ifcType, storey, predefinedType, typeName or material. This is how you answer "
     "'how many' and 'how much' — never add up an element list yourself.\n"
@@ -127,11 +124,10 @@ _TOOL_DESCRIPTION = (
     "lte, exists, missing. 'set' may be omitted to search every property set. Use "
     '"source": "quantity" inside a property filter to match a quantity instead.\n'
     "\n"
-    "STOREY NAMES are matched exactly, and exports name storeys whatever the modeller typed — "
-    "'EG', '00 Erdgeschoss', 'Level 0', 'Niveau 0'. Call 'overview' first and copy the storey "
-    "names it returns verbatim; a name that is not in that list matches nothing, and an empty "
-    "result reads like 'the ground floor has no walls'. The same warning as for property names, "
-    "for the same reason.\n"
+    "STOREY NAMES are matched exactly, and exports name storeys whatever the modeller typed "
+    "('EG', '00 Erdgeschoss', 'Level 0'). Call 'overview' first and copy the storey names it "
+    "returns verbatim; any other name matches nothing, and an empty result reads like 'the ground "
+    "floor has no walls'.\n"
     "\n"
     "Every filter key is validated. An unknown key is REJECTED, not ignored — if the tool says a "
     "key was not recognised, fix the spelling and call again rather than reporting the result of "
@@ -144,16 +140,15 @@ _TOOL_DESCRIPTION = (
     "For aggregate: metric is count (default), sum, avg, min or max; sum/avg/min/max need "
     "'quantity' (e.g. NetFloorArea, NetSideArea, NetVolume). groupBy is optional. sum and avg "
     "SKIP elements that do not publish the quantity, and the summary says so as 'über X von Y "
-    "Bauteilen' — report both numbers, because the gap between them is a fact about the export "
-    "the architect needs.\n"
+    "Bauteilen' — report both numbers.\n"
     "\n"
     "Never turn a compliance result into a statement that the building complies. The catalogue "
     "is an orienting check (orientierende Prüfung) over the values the model publishes, it reads no geometry, and "
     "escape-route lengths, parapet heights and fire-compartment sizes are not in it at all. Say what was "
     "checked, what was not, and what could not be decided.\n"
     "\n"
-    "Report the caveat line verbatim whenever one comes back — it says which parts of the "
-    "building the numbers do NOT cover, and an answer that drops it is wrong.\n"
+    "Report the caveat line verbatim whenever one comes back: it says which parts of the "
+    "building the numbers do NOT cover.\n"
     "\n"
     "A missing value is a fact about the EXPORT, not about the building. IFC2X3 models in "
     "particular rarely publish Qto_* quantity sets at all, so 'no NetFloorArea' on a 2X3 file "
@@ -171,8 +166,7 @@ _TOOL_DESCRIPTION = (
     "When a compliance result comes back with a 'BCF export of the open issues:' path, OFFER it as "
     "a link at the end of the answer — `[offene Punkte als BCF](/api/projects/…/bim/checks/export?…)` "
     "using that exact path. It downloads the open requirements as a BCF 2.1 file that opens in "
-    "ArchiCAD, Revit, Solibri or BIMcollab with the affected elements selected, which is how the "
-    "missing properties actually get authored. Copy the path verbatim. The export is ONE-WAY: "
+    "ArchiCAD, Revit, Solibri or BIMcollab with the affected elements selected. The export is ONE-WAY: "
     "nothing reads the topics back, so a resolved item shows up here only after the corrected "
     "model is re-uploaded and checked again — say that rather than implying the BCF tracks "
     "status.\n"
@@ -183,9 +177,6 @@ _TOOL_DESCRIPTION = (
 )
 
 
-# The Hauptnutzung values the rule catalogue knows — mirroring
-# `BIM_MAIN_USE` in `lib/bim/query.ts`, whose zod enum rejects anything
-# else outright.
 _MAIN_USES = frozenset(
     {
         "residential",
@@ -211,7 +202,6 @@ def _valid_main_use(value: str) -> str:
     presents as merely imprecise. Its sibling `_valid_building_class` is
     sanitised here for exactly this reason; this one was not.
     """
-    # The German word (`wohnen`) is what a profile or a model that has not caught up still says.
     lowered = normalize_profile_token("main_use", value.strip().lower())
     return lowered if lowered in _MAIN_USES else ""
 
@@ -267,9 +257,6 @@ def _element_link(
 def _bcf_link(
     project_id: str | None,
     filename: str | None,
-    # `None` as well as an out-of-range int: `_valid_building_class` is the one
-    # place that decides what an impossible value means, and the annotation
-    # should admit what callers actually pass it.
     building_class: int | None = 0,
     main_use: str = "",
 ) -> str:
@@ -287,8 +274,6 @@ def _bcf_link(
     if not project_id or not filename:
         return ""
     query = f"model={quote(filename, safe='')}"
-    # Through the same gate the catalogue run went through, so the archive can
-    # never carry a fact the verdicts did not use.
     valid_klasse = _valid_building_class(building_class)
     if valid_klasse:
         query = f"{query}&buildingClass={valid_klasse}"
@@ -309,23 +294,13 @@ class IfcQueryInput(BaseModel):
     ifc_type: str = ""
     model_name: str = ""
     compare_with: str = ""
-    # The German names are read for one release (remove after): a conversation
-    # or a cached tool schema from before the rename still sends them.
     building_class: int = Field(default=0, validation_alias=AliasChoices("building_class", "gebaeudeklasse"))
     main_use: str = Field(default="", validation_alias=AliasChoices("main_use", "hauptnutzung"))
     limit: int = 0
 
 
-# ── building the query ───────────────────────────────────────────────────────
-
-#: Operations that need nothing beyond their name.
 _BARE_OPS = frozenset({"overview", "types", "health", "schedule", "profile"})
 
-#: Operations that read the WHOLE model and take no element filter — with what
-#: each returns, for the refusal. A filter on these used to be dropped, so
-#: ``schedule`` with a storey filter returned the whole building's Raumbuch and
-#: the agent presented it as one floor's. Saying no is the only answer that does
-#: not put a wrong number in front of someone.
 _WHOLE_MODEL_OPS = {
     "overview": "a summary of the whole model",
     "types": "the type distribution of the whole model",
@@ -433,8 +408,6 @@ def _aggregate_query(args: _QueryArgs) -> dict[str, Any] | str:
     if metric != "count":
         query["quantity"] = args.quantity
     if args.group_by.lower() == "property":
-        # `property` needs a companion `groupProperty` this tool has no
-        # parameter for, so the endpoint would reject it every time.
         return (
             "Error: group_by='property' is not available through this tool. "
             "Use operation='properties' to see which values a property takes and how many "
@@ -449,8 +422,6 @@ _QUERY_BUILDERS: dict[str, Callable[[_QueryArgs], dict[str, Any] | str]] = {
     "compliance": lambda args: _compliance_query("compliance", args),
     "compliance-diff": lambda args: _compliance_query("compliance-diff", args),
     "takeoff": _takeoff_query,
-    # `baseModelId` is deliberately absent: the endpoint resolves the other
-    # revision from `compare_with`, so no UUID has to survive the turn.
     "compare": lambda args: {"op": "compare", "limit": 20000},
     "properties": _properties_query,
     "element": _element_query,
@@ -501,8 +472,6 @@ def _build_query(
     )
     return _QUERY_BUILDERS[operation](args)
 
-
-# ── rendering ────────────────────────────────────────────────────────────────
 
 _clipped = clipped
 
@@ -613,15 +582,11 @@ def _rule_rows(rule: dict[str, Any], ctx: _RenderContext) -> list[str]:
         name = entry.get("name") or entry.get("globalId")
         return f"  ✗ {rule.get('richtlinie')} {name}: {entry.get('reading')}{ctx.link(entry.get('globalId'), 'fail')}"
 
-    lines: list[str] = []
     failed = int(rule.get("failed") or 0)
     undecidable = int(rule.get("undecidable") or 0)
-    if rule.get("ruleId") and (failed or undecidable):
-        lines.append(
-            f"- Rule {rule.get('ruleId')}: {rule.get('titleDe')} — {failed} not met, {undecidable} undecidable"
-        )
-    # The server list is itself capped at 25 verdicts per rule; `failed` above
-    # is the real count and the clip note says the LIST is not.
+    hint = f" — {rule['hint']}" if rule.get("hint") else ""
+    head = f"- Rule {rule.get('ruleId')}: {rule.get('titleDe')} — {failed} not met, {undecidable} undecidable{hint}"
+    lines = [head] if rule.get("ruleId") and (failed or undecidable) else []
     return lines + listed(rule.get("failures") or [], 10, "affected elements", verdict, indent="  ")
 
 
@@ -675,8 +640,6 @@ def _render_properties(result: dict[str, Any], ctx: _RenderContext) -> _Lines:
     return listed(result.get("properties") or [], 60, "properties", row)
 
 
-#: Per-op detail under the summary line. `health` and `aggregate` have none:
-#: their summary is the whole answer.
 _QUERY_RENDERERS: dict[str, Callable[[dict[str, Any], _RenderContext], _Lines]] = {
     "overview": _render_overview,
     "elements": _render_elements,
@@ -690,9 +653,6 @@ _QUERY_RENDERERS: dict[str, Callable[[dict[str, Any], _RenderContext], _Lines]] 
     "properties": _render_properties,
 }
 
-#: Ops whose `truncated` means "these figures cover part of the building", not
-#: "there are more rows to page through". Telling the agent to narrow a Raumbuch
-#: invites it to quote a partial sum as a total.
 _PARTIAL_MODEL_OPS = frozenset({"schedule", "takeoff", "compliance", "compliance-diff", "compare", "profile", "health"})
 
 
@@ -724,8 +684,6 @@ def _render(
     model = result.get("model") or {}
     ctx = _RenderContext(project_id, model.get("filename"), building_class, main_use)
     op = str(result.get("op") or "")
-    # The Herleitung's account of this round: the model file, read by this
-    # operation. Only a RESOLVED result — an unresolved one read no file.
     note_model_read(ctx.filename, op)
     lines: _Lines = [
         shelf_notice(result),
@@ -740,8 +698,6 @@ def _render(
         lines.append(_truncation_note(op))
     return "\n".join(line for line in lines if line)
 
-
-# ── tracing and the tool ─────────────────────────────────────────────────────
 
 _model_handle = model_handle
 

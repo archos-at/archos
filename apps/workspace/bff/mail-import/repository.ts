@@ -1,25 +1,14 @@
-/**
- * Mail-import repository: the only module that queries `mail_imports` (ADR-0017).
- *
- * Every function but the sweep's read names its organization and runs inside
- * it (`withTenant`), because two of its callers carry no request session: the
- * filing job and the sweep. Progress writes are conditional on the position
- * they advance from, so a slice that lost its claim and kept going cannot move
- * the cursor under the slice that took over.
- */
-
 import 'server-only'
 import { and, desc, eq, inArray, isNull, lt, or, sql, type SQL } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
 import { withTenant } from '@/lib/db/tenant-context'
-import { mailImports, type MailImport, type MailImportSkippedSample, type MailImportStatus, type NewMailImport } from '@/lib/db/schema/mail-imports'
+import { MAIL_IMPORT_LIFECYCLE, mailImports, type MailImport, type MailImportSkippedSample, type MailImportStatus, type NewMailImport } from '@/lib/db/schema/mail-imports'
 import { CURSOR_TIMESTAMP_FORMAT, type DocumentListCursor } from '@/lib/documents/list-cursor'
 import { isUuid } from '@/lib/ids'
 
-const OPEN_STATUSES: MailImportStatus[] = ['uploading', 'queued', 'importing']
-const ENDED_STATUSES: MailImportStatus[] = ['completed', 'failed', 'cancelled']
+const OPEN_STATUSES: MailImportStatus[] = [...MAIL_IMPORT_LIFECYCLE.liveStates]
+const ENDED_STATUSES: MailImportStatus[] = [...MAIL_IMPORT_LIFECYCLE.finalStates]
 
-/** Insert the row, or null when the person already has an open import in the project (the unique index). */
 export async function insertMailImport(values: NewMailImport): Promise<MailImport | null> {
   const rows = await withTenant({ organizationId: values.organizationId }, () =>
     getDb().insert(mailImports).values(values).onConflictDoNothing().returning(),
@@ -28,7 +17,6 @@ export async function insertMailImport(values: NewMailImport): Promise<MailImpor
 }
 
 export async function findMailImport(organizationId: string, projectId: string, id: string): Promise<MailImport | null> {
-  // A malformed id names no import; asked as is, Postgres refuses the cast and the route answers 500.
   if (!isUuid(id)) return null
   const [row] = await withTenant({ organizationId }, () =>
     getDb()
@@ -40,18 +28,11 @@ export async function findMailImport(organizationId: string, projectId: string, 
   return row ?? null
 }
 
-/** One page of a project's imports, and the position of its last one when another page follows. */
 export interface MailImportPage {
   rows: MailImport[]
   next: DocumentListCursor | null
 }
 
-/**
- * One page of the project's imports, newest first (`created_at DESC, id DESC`,
- * the order `mail_imports_org_project_created_idx` serves). The position is
- * compared as the column's microsecond UTC text, as every keyset list here is
- * (`lib/documents/list-cursor.ts` says why a JS `Date` would skip rows).
- */
 export async function listProjectMailImports(
   organizationId: string,
   projectId: string,
@@ -87,12 +68,6 @@ function afterCursor(cursor: DocumentListCursor | null): SQL | undefined {
   return sql`(${mailImports.createdAt}, ${mailImports.id}) < ((${cursor.createdAt})::timestamp AT TIME ZONE 'UTC', ${cursor.id}::uuid)`
 }
 
-/**
- * The import this person still has open in the project, if any: the one the
- * unique index lets them have. Asked on its own, not read off a list page, so
- * an open import older than a page of finished ones still answers a second
- * start with its id.
- */
 export async function findOpenMailImportOf(
   organizationId: string,
   projectId: string,
@@ -132,10 +107,6 @@ export type MailImportPatch = Partial<
   >
 >
 
-/**
- * Write `patch` while the import is in one of `from`; the row as written, or
- * null when it had already moved on (a cancel raced the write, say).
- */
 export async function updateMailImport(
   organizationId: string,
   id: string,
@@ -152,7 +123,6 @@ export async function updateMailImport(
   return row ?? null
 }
 
-/** Record the mail being filed at `position`, so a retry resumes into its folder. */
 export async function markInflight(
   organizationId: string,
   id: string,
@@ -175,19 +145,12 @@ export interface MailImportAdvance {
   filesFiled: number
   itemsSkipped: number
   filesSkipped: number
-  /** The mail opened an E-Mail-Verlauf (D33). */
   threadsCreated: number
-  /** The mail was the import's first into a Verlauf that was there before it. */
   threadsAppended: number
-  /** The mail's text was in the project already (its Message-ID), so it was not filed again. */
   alreadyInProject: number
   skippedSamples: MailImportSkippedSample[]
 }
 
-/**
- * Move the cursor from `from` to `advance.to`, adding the counts. False when the
- * cursor was not at `from` or the import is no longer running: the caller stops.
- */
 export async function advanceMailImport(
   organizationId: string,
   id: string,
@@ -207,7 +170,6 @@ export async function advanceMailImport(
         threadsAppended: sql`${mailImports.threadsAppended} + ${advance.threadsAppended}`,
         alreadyInProject: sql`${mailImports.alreadyInProject} + ${advance.alreadyInProject}`,
         skippedSamples: advance.skippedSamples,
-        // A mail filed: whatever failed before it has passed.
         failureStreak: 0,
         inflightPosition: null,
         inflightFolderId: null,
@@ -219,11 +181,6 @@ export async function advanceMailImport(
   return rows.length > 0
 }
 
-/**
- * Count `count` more files skipped and keep these samples, while the import
- * is still open: an E-Mail-Verlauf the upload path refused at a slice's end
- * (`./job.ts`), which no cursor move counts. False when it moved on.
- */
 export async function recordSkippedFiles(
   organizationId: string,
   id: string,
@@ -240,12 +197,6 @@ export async function recordSkippedFiles(
   return rows.length > 0
 }
 
-/**
- * Imports the sweep should look at: uploads left open past `uploadsBefore`,
- * queued or running imports with no progress since `stalledBefore`, and ended
- * imports whose staged archive is still there. Run under the platform bypass by
- * the caller; bounded.
- */
 export async function listStaleOpenImports(
   uploadsBefore: Date,
   stalledBefore: Date,
@@ -263,8 +214,6 @@ export async function listStaleOpenImports(
     )
     .orderBy(mailImports.updatedAt)
     .limit(limit)
-  // A batch of its own, so archives whose deletion keeps failing cannot crowd
-  // out the open imports, nor the other way round.
   const undeleted = await db
     .select()
     .from(mailImports)

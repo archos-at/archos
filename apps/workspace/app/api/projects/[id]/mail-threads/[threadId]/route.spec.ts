@@ -1,9 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * One mail thread, as readable as its document.
- */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const session = {

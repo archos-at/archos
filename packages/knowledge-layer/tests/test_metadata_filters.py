@@ -1,12 +1,3 @@
-"""The backend-neutral filter grammar, as the store compiles it (``qdrant.scope.translate``).
-
-Every caller (``knowledge_search``'s filters, ``read_passage``, the prefilter)
-speaks one grammar; this pins what each shape means once it reaches Qdrant,
-and that an unknown shape fails loud at the tool boundary instead of
-silently over-retrieving. The server-side meaning of a compiled filter is
-pinned in ``test_qdrant_store.py`` and ``test_page_chunk_exclusion.py``.
-"""
-
 import pytest
 from knowledge_layer.search.retriever import _filters_fingerprint
 from knowledge_layer.vector_store import translate
@@ -14,7 +5,6 @@ from qdrant_client import models
 
 
 def _conditions(flt: models.Filter) -> list[models.FieldCondition]:
-    """Every field condition in ``flt``, depth first."""
     found: list[models.FieldCondition] = []
     for part in (flt.must or []) + (flt.should or []) + (flt.must_not or []):
         found.extend(_conditions(part) if isinstance(part, models.Filter) else [part])
@@ -123,8 +113,6 @@ class TestNestedLogicalFilters:
 
 
 class TestLegacySpellings:
-    """Points written before the English rename keep German keys and values until the operator rewrite."""
-
     def test_a_positive_condition_matches_either_key(self):
         flt = translate({"clause_id": "3.5"})
 

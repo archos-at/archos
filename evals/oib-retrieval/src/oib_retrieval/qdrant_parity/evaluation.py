@@ -33,17 +33,11 @@ from oib_retrieval import metrics
 
 HARD_CASE_KINDS = ("paragraph", "punkt_number", "allcaps_code", "compound", "compound_only", "umlaut_sz")
 
-#: Kinds whose recall the design expects neither German config to have (closed
-#: compounds). They are measured and printed, and excluded from the G1b verdict.
 NON_GATING_KINDS = frozenset({"compound_only"})
 
-#: G2: p95 store time per ``knowledge_search`` collection call, milliseconds.
 G2_P95_MS = 230.0
-#: G6: recall at 1024-d within this many points (absolute, 0-1 scale) of 3072-d.
 G6_MAX_DROP = 0.01
 
-#: Cutoffs the hybrid comparison reports. 16 is production's ``top_k``; 60 is the
-#: candidate pool ``knowledge_search`` hands the reranker (``rerank_candidates``).
 HYBRID_K = (1, 3, 5, 10, 16, 60)
 HARD_CASE_PRECISION_K = 10
 
@@ -94,9 +88,6 @@ def load_hard_cases(path: str | Path) -> list[HardCase]:
     if missing:
         raise ValueError(f"hard-case fixture lacks kinds {sorted(missing)}")
     return cases
-
-
-# ---------------------------------------------------------------- scores
 
 
 @dataclass(frozen=True)
@@ -194,9 +185,6 @@ def latency_summary(samples_ms: Sequence[float]) -> dict[str, float]:
     }
 
 
-# ---------------------------------------------------------------- gates
-
-
 @dataclass(frozen=True)
 class Verdict:
     gate: str
@@ -248,9 +236,6 @@ def g2_latency_verdict(qdrant_ms: dict[str, float]) -> Verdict:
     return Verdict("G2 latency", status, f"Qdrant p95 {p95:.1f} ms vs {G2_P95_MS:.0f} ms bound (local single node)")
 
 
-#: Cutoffs G6 is judged at. recall@16 alone saturates on the golden set (every
-#: relevant unit is in the top 16 at either dimension), so it cannot see a drop;
-#: the top of the ranking can.
 G6_K = (1, 5, 16)
 
 

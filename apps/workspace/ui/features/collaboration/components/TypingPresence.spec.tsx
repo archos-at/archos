@@ -1,7 +1,3 @@
-/**
- * The typing line: what it says, and when it says nothing.
- */
-
 import { describe, expect, it } from 'vitest'
 import { render, screen } from '@/test-utils'
 import type { DirectoryPerson } from '@/lib/sharing/types'
@@ -28,8 +24,6 @@ describe('TypingPresence', () => {
     const line = screen.getByTestId('typing-presence')
     expect(line).toHaveTextContent('Anna Berger')
     expect(line).toHaveTextContent('Tobias Kern')
-    // Two people "are writing". Picking the singular here is the commonest
-    // multi-typist case, and it read "Anna Berger, Tobias Kern is writing…".
     expect(screen.getByRole('status')).toHaveTextContent('are writing')
     expect(screen.getByRole('status')).not.toHaveTextContent('is writing')
   })
@@ -38,15 +32,12 @@ describe('TypingPresence', () => {
     render(
       <TypingPresence typists={[person('u1', 'Anna Berger'), person('u2', 'Tobias Kern')]} />
     )
-    // A list separator is not a conjunction — "Anna, Tobias schreiben" is not
-    // German, and "Anna Berger, Tobias Kern are writing…" is not English either.
     expect(screen.getByRole('status')).toHaveTextContent(
       'Anna Berger and Tobias Kern are writing…',
     )
   })
 
   it('keeps the comma when a count follows the names', () => {
-    // Here the conjunction is already in the sentence, before the count.
     render(
       <TypingPresence
         typists={[
@@ -71,20 +62,16 @@ describe('TypingPresence', () => {
         ]}
       />
     )
-    // One person beyond the two named: "and 1 other", never "and 1 others".
     expect(screen.getByRole('status')).toHaveTextContent('and 1 other are writing')
   })
 
   it('announces the line exactly once', () => {
     render(<TypingPresence typists={[person('u1', 'Anna Berger')]} />)
-    // The visible label is aria-hidden so the live region is the only copy in
-    // the accessibility tree; otherwise the names are read twice.
     const visible = screen.getByText('Anna Berger is writing…', { selector: 'span[aria-hidden]' })
     expect(visible).toBeInTheDocument()
   })
 
   it('counts the rest instead of listing them', () => {
-    // Past two names the line stops being readable and starts being a list.
     render(
       <TypingPresence
         typists={[

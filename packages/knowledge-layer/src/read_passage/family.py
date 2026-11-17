@@ -20,12 +20,8 @@ from .outline import _scope_chunks
 from .outline import outline_for
 from .targets import _documents_in
 
-# Logs under the name read_passage always had, so a filter on that name still catches these records.
 logger = logging.getLogger("knowledge_layer.read_passage.tool")
 
-#: How many scope passages ONE member contributes. The scope of a Richtlinie is
-#: its Punkt 0, which arrives as one chunk in the corpus and as a handful when
-#: ``SentenceSplitter`` cut it; two is the opening of the longest of them.
 _MAX_FAMILY_SCOPE_CHUNKS = 2
 
 
@@ -37,7 +33,6 @@ class FamilyMember:
     title: str
     chunks: tuple[Any, ...]
     entries: tuple[OutlineEntry, ...]
-    #: Read by filter alone, with no embedding (``BaseRetriever.fetch``).
     structural: bool = False
 
 
@@ -55,7 +50,6 @@ class FamilyOverview:
     members: tuple[FamilyMember, ...]
     chunks: tuple[Any, ...]
     trailer: str
-    #: Every member was read by filter alone, with no embedding.
     structural: bool = False
 
     @property

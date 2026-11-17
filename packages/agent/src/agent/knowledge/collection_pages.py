@@ -9,8 +9,6 @@ from __future__ import annotations
 
 from typing import Any
 
-#: The most chunks one document's read takes. A guard, not a budget: the
-#: structural fetch's own cap (``knowledge_layer.vector_store.reads.WHOLE_SET_CAP``).
 MAX_CHUNKS = 4096
 
 

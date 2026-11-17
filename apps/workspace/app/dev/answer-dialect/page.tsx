@@ -1,26 +1,5 @@
 'use client'
 
-/**
- * Dev preview: the answer's Markdown dialect, drawn by the real renderer.
- *
- * First a whole composed answer, a Brandschutz check the way the agent writes
- * one (masthead, then prose and the designed blocks, citations resolved),
- * through the real `AgentResponse`. Then each block on its own, its Markdown
- * source beside it, so the page is also the dialect's reference: what a writer
- * types, and what the reader gets. Last, the two schematics that took over
- * retired cards' jobs (the site plan's density readout, the lift cabin).
- *
- * `?stream=1` replays the composed answer line by line, to watch a block draw
- * while it arrives. 404s outside development. Pinned to German; figures show
- * form, not a real project.
- *
- * Every answer here binds one project profile fixture (`PROFILE`): Wien, GK 4,
- * Fluchtniveau 10,8 m confirmed, the Nutzung and the Geschoße assumed, the BGF
- * missing, so `:project[…]` shows all three chip states and `:::cases{by=…}`
- * marks its row and draws its ruler from it. What „ergänzen" and „Als Aufgabe"
- * put into the composer is shown in the bar at the top.
- */
-
 import { notFound, useSearchParams } from 'next/navigation'
 import { Suspense, useEffect, useMemo, useState, type FC, type ReactNode } from 'react'
 import { I18nProvider } from '@/i18n'
@@ -81,7 +60,6 @@ const answerMeta: AnswerMeta = {
 
 const updated = '2026-09-20T08:00:00Z'
 
-/** The project every answer on this page binds: confirmed, assumed and missing facts. */
 const PROFILE: ProjectProfile = {
   facts: {
     federal_state: { value: 'vienna', confidence: 'confirmed', source: 'onboarding', updatedAt: updated },
@@ -102,7 +80,6 @@ const PROFILE: ProjectProfile = {
   },
 }
 
-/** What the turn's retrieval searched: the source of „Gesucht in", never the model's list. */
 const LEDGER: RetrievalLedger = [
   {
     index: 1,
@@ -131,7 +108,6 @@ const LEDGER: RetrievalLedger = [
   },
 ]
 
-/** The server's check of the quote lines: one verbatim, one it found in no passage. */
 const STAMPS: QuoteStamp[] = [
   {
     text: 'Wände zwischen Brandabschnitten sind in Gebäudeklasse 5 in REI 90 und A2 auszuführen.',
@@ -434,7 +410,6 @@ const Block: FC<{ title: string; note: string; children: ReactNode }> = ({ title
   </section>
 )
 
-/** The composed answer, whole or replayed line by line. */
 function Composed({ content = COMPOSED, meta = answerMeta }: { content?: string; meta?: AnswerMeta }) {
   const stream = useSearchParams().get('stream') === '1' && content === COMPOSED
   const lines = content.split('\n')
@@ -461,7 +436,6 @@ function Composed({ content = COMPOSED, meta = answerMeta }: { content?: string;
   )
 }
 
-/** What „ergänzen" and „Als Aufgabe" put into the composer; nothing else happens. */
 function ComposerEcho() {
   const prefill = useChatStore((state) => state.composerPrefill)
   return (

@@ -1,9 +1,5 @@
 'use client'
 
-/**
- * A folder tile's ⋯ and right-click, sharing {@link folderActionEntries}.
- */
-
 import { createContext, useContext, useMemo, useState, type ReactNode } from 'react'
 import { MoreHorizontal } from 'lucide-react'
 import { ActionMenu } from '@/components/ui/action-menu'
@@ -20,7 +16,6 @@ export function FolderActionsTrigger(): ReactNode {
 }
 
 export interface FolderObjectMenuProps {
-  /** The child is the right-click target itself (a table row, which a wrapping `<div>` would break). */
   asChild?: boolean
   folder: PathFolder
   folders: readonly PathFolder[]
@@ -28,15 +23,11 @@ export interface FolderObjectMenuProps {
   onOpen: () => void
   onNewInside?: () => void
   onRename: () => void
-  /** „Beschreibung …" (migration 0145); absent for a reader who may not write the shelf. */
   onDescribe?: () => void
   onMove?: (parentId: string | null, parentName: string) => void
-  /** „Zugriff…" (ADR-0088); absent for a reader who may not manage the project. */
   onAccess?: () => void
   onDelete: () => void
-  /** The reader may only read this folder: its write entries are left out (ADR-0088). */
   readOnly?: boolean
-  /** „Verschieben" opens a sheet with a search field and not a submenu (`useMoveInSheet`, asked once by the listing). */
   moveInSheet?: boolean
   children: ReactNode
 }
@@ -59,7 +50,6 @@ export function FolderObjectMenu({
 }: FolderObjectMenuProps): ReactNode {
   const t = useTranslations(filesCopy)
   const [moveOpen, setMoveOpen] = useState(false)
-  // Labelled and sorted only for a sheet that is open: one per folder tile otherwise.
   const pickerDestinations = useMemo(
     () =>
       moveOpen ? sortedFolderDestinations(folders).filter(({ folder: dest }) => dest.id !== folder.id) : [],
@@ -118,7 +108,7 @@ export function FolderObjectMenu({
           type="button"
           aria-label={t('folders.actionsFor', { name: folder.name })}
           title={t('folders.actions')}
-          className="hover:bg-accent focus-visible:ring-ring flex size-8 shrink-0 items-center justify-center rounded-full transition-opacity duration-snap ease-out focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 pointer-coarse:size-11 pointer-coarse:opacity-100 motion-reduce:transition-none md:opacity-0 md:group-hover:opacity-100 data-[state=open]:opacity-100"
+          className="hover:bg-hover focus-visible:ring-ring flex size-8 shrink-0 items-center justify-center rounded-full transition-opacity duration-snap ease-out focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 pointer-coarse:size-11 pointer-coarse:opacity-100 motion-reduce:transition-none md:opacity-0 md:group-hover:opacity-100 data-[state=open]:opacity-100"
           data-testid={`folder-actions-${folder.id}`}
         >
           <MoreHorizontal className="size-3.5" aria-hidden />
@@ -137,8 +127,6 @@ export function FolderObjectMenu({
           open={moveOpen}
           onOpenChange={setMoveOpen}
           title={t('picker.titleOne', { name: folder.name })}
-          // A folder is not offered itself; the rest are the caller's to refuse
-          // (`canAcceptMove`: not its own descendant, not a place it already is).
           destinations={pickerDestinations}
           currentFolderId={folder.parentId ?? null}
           canPick={canAcceptMove}

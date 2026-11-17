@@ -1,12 +1,5 @@
 import type { en } from '../en'
 
-/**
- * Zusammenarbeit: Teilen, @-Erwähnungen mit Übergabe an einen Menschen, Postfach
- * (ADR-0032…0035).
- *
- * Deutsch ist die primäre Produktsprache — diese Datei ist die Fassung, die die
- * meisten Nutzer sehen. Durchgängig Sie-Form, wie im übrigen Produkt.
- */
 export const collaboration: typeof en.collaboration = {
   rightsLost: {
     neutralTitle: 'Geteilter Chat',
@@ -18,7 +11,6 @@ export const collaboration: typeof en.collaboration = {
     title: 'Teilen',
     action: 'Teilen',
     close: 'Schließen',
-    /** Der Link zum Chat: er öffnet nur für Personen, die ohnehin Zugriff haben. */
     link: {
       heading: 'Link',
       share: 'Link teilen',
@@ -223,7 +215,6 @@ export const collaboration: typeof en.collaboration = {
 
   inbox: {
     title: 'Postfach',
-    // Das Postfach neben der Seite: schließen, und der Weg zu allen Einträgen.
     dock: {
       close: 'Postfach schließen',
       all: 'Alle Einträge, auch archivierte',
@@ -233,8 +224,6 @@ export const collaboration: typeof en.collaboration = {
       '{count, plural, one {# Eintrag braucht} other {# Einträge brauchen}} Ihre Aufmerksamkeit',
     badgeAriaOne: '1 Eintrag braucht Ihre Aufmerksamkeit',
     subtitle: 'Anfragen und Neuigkeiten aus Ihrem Team.',
-    // „Für mich“ ist, was auf Sie wartet (eine offene Anfrage); „Ungelesen“,
-    // was Sie noch nicht geöffnet haben. Zwei Fragen, zwei Filter.
     filters: {
       needsMe: 'Für mich',
       all: 'Alle',
@@ -244,7 +233,6 @@ export const collaboration: typeof en.collaboration = {
     markAllRead: 'Alle als gelesen markieren',
     archive: 'Archivieren',
     undo: 'Rückgängig',
-    /** Die kurze Form für ein Telefon, wo die lange die Zeile sprengt. */
     markAllReadShort: 'Alle gelesen',
     archived: 'Archiviert',
     unarchive: 'Wiederherstellen',
@@ -255,41 +243,32 @@ export const collaboration: typeof en.collaboration = {
     loadMore: 'Ältere Einträge laden',
     loadingMore: 'Ältere Einträge werden geladen …',
     loadMoreFailed: 'Ältere Einträge konnten nicht geladen werden.',
-    // Die Zeile zu einer Anmerkung: dorthin, und für eine Anfrage gleich hier
-    // antworten oder erledigen, wie im Verlauf der Anmerkung.
-    // Bis wann, auf der Zeile einer Anfrage mit Frist, wo der Titel es nicht schon sagt.
     due: {
       overdue: 'Überfällig',
       soon: 'Bald fällig',
       on: 'Frist {due}',
     },
-    // Die Abschnitte der Liste, nach dem Zeitpunkt der letzten Änderung.
     groups: {
       today: 'Heute',
       yesterday: 'Gestern',
       week: 'Diese Woche',
       older: 'Früher',
     },
-    // Der Hinweis unter der Liste, nur mit Maus und Tastatur: die Tasten, mit denen sich das Postfach abarbeiten lässt.
     keys: {
       move: 'auswählen',
       open: 'öffnen',
       archive: 'archivieren',
       read: 'gelesen/ungelesen',
     },
-    // Was eine neue Fassung zu prüfen lässt, als Angabe in der Zeile unter dem Titel.
     openMarks: '{count, plural, one {# offene Anmerkung} other {# offene Anmerkungen}}',
-    // Das Postfach als Warteschlange: was auf Sie wartet, nach Dokument oder Chat gesammelt, dann die Neuigkeiten.
     queue: {
       waiting: 'Wartet auf Sie',
       news: 'Neuigkeiten',
       late: '{count} überfällig',
-      // Unter der Überschrift „Wartet auf Sie“, wenn nichts wartet: sagt nicht noch einmal „wartet auf Sie“.
       nothingWaiting: 'Keine offenen Anfragen.',
       newsRead: 'Als gelesen markieren',
       chat: 'Chat',
     },
-    // Warum ein wartender Eintrag Ihrer ist, kurz: das Dokument steht schon darüber.
     reason: {
       assigned: 'Von {actor} zugewiesen',
       assignedNoActor: 'Ihnen zugewiesen',
@@ -303,7 +282,6 @@ export const collaboration: typeof en.collaboration = {
       mark: 'Anmerkung {number}',
     },
     mark: {
-      // Eine Rückfrage von Piloti, solange Ereignisse Piloti nicht wecken: Erst die Prüfansicht fragt Piloti mit der Antwort.
       answerInReview: 'In der Prüfansicht beantworten',
       reply: 'Antworten',
       replyLabel: 'Ihre Antwort auf Anmerkung {related}',
@@ -319,10 +297,7 @@ export const collaboration: typeof en.collaboration = {
     },
     resolved: 'Beantwortet',
     inert: 'Nicht mehr verfügbar',
-    // Für jedes Ziel, auf das eine Zeile zeigt (Chat, Dokument, Anmerkung), nicht nur für Chats.
     bodyUnavailable: 'Das ist für Sie nicht mehr verfügbar.',
-    // Die nächste Handlung bei einer neuen Fassung unter anderem Namen: die
-    // beiden nebeneinander sehen. Öffnet die Vorschau mit dem Vergleich.
     compareRevisions: 'Fassungen vergleichen',
     compareRevisionsLabel: 'Neue und ältere Fassung von „{subject}“ vergleichen',
     empty: {
@@ -339,9 +314,6 @@ export const collaboration: typeof en.collaboration = {
       actionFailed: 'Die Aktion konnte nicht ausgeführt werden. Ihr Postfach ist unverändert.',
     },
     types: {
-      // `titleResolved`, sobald die Frage beantwortet ist: dann ist die Zeile
-      // Geschichte, und der Titel sagt das, statt weiter zu bitten. „Die Frage
-      // von {actor}“ statt eines Genitivs, der bei „Hans“ oder „Markus“ bricht.
       mentionRequested: {
         title: '{actor} hat um Ihre Einschätzung gebeten',
         titleResolved: 'Die Frage von {actor} ist beantwortet',
@@ -357,9 +329,6 @@ export const collaboration: typeof en.collaboration = {
         title: '{actor} hat einen Chat mit Ihnen geteilt',
         body: '{subject}',
       },
-      // Wer geschrieben hat, steht im Titel; der Chat auch, daher keine
-      // zweite Zeile. `…NoActor`, wenn niemand Bestimmtes es war;
-      // `titleRedacted`, wenn der Chat für Sie nicht mehr verfügbar ist.
       conversationActivity: {
         titleOne: '{actor} hat in „{subject}“ geschrieben',
         titleOneNoActor: 'Neue Nachricht in „{subject}“',
@@ -368,14 +337,10 @@ export const collaboration: typeof en.collaboration = {
         titleNone: 'Nachrichten in „{subject}“',
         titleRedacted: 'Nachrichten in einem Chat',
       },
-      // Platform tier: a member sent product feedback. {subject} is the
-      // organization it came from; the excerpt below the title is the message.
       feedbackSubmitted: {
         title: '{actor} hat Feedback gesendet',
         body: 'aus {subject} – zum Sichten öffnen.',
       },
-      // Das Team hat in PostHog auf eine eigene Meldung geantwortet. {subject} ist
-      // der Anfang der Meldung, {related} wer zuletzt geantwortet hat.
       feedbackReplied: {
         title: 'Das {productName}-Team hat auf Ihr Feedback geantwortet',
         titleMany: '{count} neue Antworten auf Ihr Feedback',
@@ -392,21 +357,15 @@ export const collaboration: typeof en.collaboration = {
         title: '{actor} hat Ihnen {subject} zugewiesen',
         body: 'Sie sind für diese Datei zuständig.',
       },
-      // Ein Lauf ist zu Ende. {subject} ist der Name der Aufgabe.
-      // Kein {actor}: die Arbeit hat Piloti getan, nicht eine Person.
-      // ADR-0086: alles, was ein Upload gebracht hat, ist gelesen. {subject}
-      // ist der Projektname; ein Upload in die Büroablage oder einen Chat hat
-      // keinen und liest bodyNoSubject.
+      ownershipTaken: {
+        title: '{actor} hat die Eigentümerschaft von „{subject}“ übernommen',
+        body: 'Als Projekt-Administrator. Sie bleiben Eigentümer; die Übernahme steht im Audit-Protokoll.',
+      },
       uploadCompleted: {
         title: 'Ihr Upload ist gelesen',
         body: '{subject}: Öffnen Sie die Übersicht, um zu sehen, was angekommen ist.',
         bodyNoSubject: 'Öffnen Sie die Übersicht, um zu sehen, was angekommen ist.',
       },
-      // ADR-0086: die Inhaltsprüfung hat Dateien zurückgehalten. {subject} ist
-      // die neueste davon; die Variante sagt, wofür sie zurückgehalten wurde
-      // (nie den gefundenen Wert). `transcript`: gefunden im Text gescannter
-      // Seiten, die ein Bildmodell gelesen hat – dort darf kein „kein Modell“
-      // stehen. bodyNoSubject liest eine Zeile von vor dieser Fassung.
       documentQuarantined: {
         titleOne: '1 Datei wartet in der Quarantäne',
         titleMany: '{count} Dateien warten in der Quarantäne',
@@ -445,12 +404,9 @@ export const collaboration: typeof en.collaboration = {
           },
         },
       },
-      // ADR-0086: wer eine Datei hochgeladen hat, die in der Quarantäne liegt,
-      // bittet darum, sie zu prüfen. {subject} ist der Dateiname.
       documentReleaseRequested: {
         title: '{actor} bittet Sie, „{subject}“ zu prüfen',
         body: 'Die Datei liegt in der Quarantäne. Sehen Sie sie an und lassen Sie sie zu oder löschen Sie sie.',
-        // Wofür die Datei zurückgehalten wurde, wie bei documentQuarantined.
         variants: {
           term: { body: 'Sie enthält einen Begriff aus der Liste sensibler Daten. Sehen Sie sie an und lassen Sie sie zu oder löschen Sie sie.' },
           iban: { body: 'Sie enthält eine IBAN. Sehen Sie sie an und lassen Sie sie zu oder löschen Sie sie.' },
@@ -461,13 +417,10 @@ export const collaboration: typeof en.collaboration = {
           transcript: { body: 'Gefunden im Text gescannter Seiten, die ein Bildmodell gelesen hat. Sehen Sie sie an und lassen Sie sie zu oder löschen Sie sie.' },
         },
       },
-      // Die Zeile führt zum Lauf selbst (seinem Block im Verlauf, sonst der
-      // Aufgabe): dort stehen Ergebnis und Grund, nicht in einer „Laufhistorie“.
       taskRunCompleted: {
         title: '{productName} hat „{subject}“ erledigt',
         body: 'Öffnen Sie den Eintrag, um das Ergebnis zu sehen.',
       },
-      // Ein Outlook-Archiv ist importiert. {subject} ist der Dateiname des Archivs.
       mailImportCompleted: {
         title: '„{subject}“ ist importiert',
         body: '{productName} hat die Anhänge unter E-Mail-Import und die E-Mails in den E-Mail-Verläufen des Projekts abgelegt.',
@@ -484,24 +437,14 @@ export const collaboration: typeof en.collaboration = {
         title: '{productName} hat eine Rückfrage zu „{subject}“',
         body: 'Antworten Sie im Verlauf, dann arbeitet {productName} weiter.',
       },
-      // Eine Fassung eines Dokuments wartet auf eine Entscheidung (ADR-0054).
-      // {subject} ist das Dokument, {actor} wer sie eingereicht hat.
       documentReviewRequested: {
         title: '{actor} bittet Sie um die Freigabe von {subject}',
         body: 'Eine neue Fassung wartet auf Ihre Freigabe.',
       },
-      // Eine neuere Fassung eines Dokuments, dem Sie folgen: ein Satz über die
-      // Person, die sie hochgeladen hat. {actor} ist diese Person, {subject} das
-      // Dokument, dem Sie folgen (ohne Dateiendung). Was sich geändert hat,
-      // steht als Auszug darunter; nur ohne Auszug sagt `bodyNoExcerpt`, wo
-      // man es findet. `titleNoActor`, wenn niemand Bestimmtes es war.
       documentNewRevision: {
         title: '{actor} hat eine neue Fassung von „{subject}“ hochgeladen',
         titleNoActor: 'Neue Fassung von „{subject}“',
         bodyNoExcerpt: 'Öffnen Sie die Fassung, um die Änderungen zu sehen.',
-        // Offene Anmerkungen, die die neue Fassung zurücklässt: {marks} wie
-        // viele, {revision} auf welcher Fassung desselben Dokuments; `…_earlier`,
-        // wenn es mehrere Fassungen sind oder ein anderes Dokument ersetzt wurde.
         variants: {
           mark: { body: '1 offene Anmerkung aus Fassung {revision} prüfen' },
           marks: { body: '{marks} offene Anmerkungen aus Fassung {revision} prüfen' },
@@ -509,17 +452,6 @@ export const collaboration: typeof en.collaboration = {
           marks_earlier: { body: '{marks} offene Anmerkungen aus der vorigen Fassung prüfen' },
         },
       },
-      // Was Piloti an einer Anmerkung getan hat, für die Person, deren Handlung
-      // es geweckt hat: wer die Anmerkung delegiert, Piloti darin erwähnt oder
-      // auf seine Rückfrage geantwortet hat (ADR-0106). {related} ist die
-      // laufende Nummer der Anmerkung, {subject} das Dokument; der Auszug
-      // darunter ist, was die Anmerkung sagt. Kein {actor}: das war Piloti.
-      // `titleRelatedNoSubject`, wenn das Dokument nicht zu benennen war.
-      // Dieselben Wörter wie in der Prüfansicht: Anmerkung, Verlauf, delegieren.
-      // Piloti hat eine neue Fassung von sich aus mit der vorigen verglichen
-      // (ADR-0130) und Vorschläge markiert. {subject} die neue Fassung,
-      // {related} die verglichene, {marks} wie viele Vorschläge. Kein {actor}:
-      // das war Piloti. Der Auszug ist die erste Stelle.
       agentRevisionChecked: {
         title: '{productName} hat die neue Fassung „{subject}“ verglichen',
         titleRelated: '{productName} hat „{subject}“ mit „{related}“ verglichen',
@@ -527,7 +459,6 @@ export const collaboration: typeof en.collaboration = {
         variants: {
           one: { body: '1 Stelle als Vorschlag markiert, noch nicht übernommen.' },
           many: { body: '{marks} Stellen als Vorschlag markiert, noch nicht übernommen.' },
-          // Der Abgleich eines neuen Dokuments mit den übrigen Unterlagen, kein Vergleich mit einer früheren Fassung.
           check_one: {
             title: '{productName} hat das neue Dokument „{subject}“ mit Ihren übrigen Unterlagen abgeglichen',
             body: '1 Stelle als Vorschlag markiert, noch nicht übernommen.',
@@ -543,14 +474,10 @@ export const collaboration: typeof en.collaboration = {
         titleRelated: '{productName} hat Anmerkung {related} in „{subject}“ für Sie bearbeitet',
         titleRelatedNoSubject: '{productName} hat Anmerkung {related} für Sie bearbeitet',
         body: 'Lesen Sie die Antwort im Verlauf der Anmerkung.',
-        // Die Delegation ist zu Ende: Piloti hat die Anmerkung zurückgegeben.
         variants: {
           assigned: { body: 'Die Anmerkung liegt wieder bei Ihnen.' },
         },
       },
-      // Piloti konnte es nicht. `variants` sagen warum, nach der Klasse des
-      // gespeicherten Grundes (`lib/annotations/wake-end-reason.ts`), und was
-      // die Person tun kann; `body` gilt für einen Eintrag von davor.
       agentWorkFailed: {
         title: '{productName} konnte eine Anmerkung nicht bearbeiten',
         titleRelated: '{productName} konnte Anmerkung {related} in „{subject}“ nicht bearbeiten',
@@ -571,28 +498,15 @@ export const collaboration: typeof en.collaboration = {
           },
         },
       },
-      // Piloti hat eine Rückfrage gestellt und wartet auf eine Person: die
-      // Zuständige der Anmerkung, sonst die, für die es gearbeitet hat. Die
-      // Frage steht als Auszug darunter.
       agentAsksYou: {
         title: '{productName} hat eine Rückfrage an Sie',
         titleRelated: '{productName} hat eine Rückfrage an Sie zu Anmerkung {related} in „{subject}“',
         titleRelatedNoSubject: '{productName} hat eine Rückfrage an Sie zu Anmerkung {related}',
         body: '{productName} wartet auf Ihre Antwort. Antworten Sie im Verlauf der Anmerkung.',
-        // `answerIn: 'review'`: Piloti wird nicht von selbst geweckt, erst die
-        // Prüfansicht fragt es mit der Antwort. Also wartet hier niemand.
         bodyInReview: 'Antworten Sie in der Prüfansicht. Von dort erreicht Ihre Antwort {productName}.',
       },
-      // Ein Vorschlag, den der Server hält (ADR-0105), für die Person, für die
-      // Piloti ihn gemacht hat. `variants` nennen, was er ändert (eine
-      // Dateiänderung nach ihrem Verb, sonst nach Art:
-      // `PROPOSAL_NOTICE_VARIANTS`); der Auszug darunter nennt die Dateien, die
-      // Notiz oder die Änderung. Wörter wie auf der Karte.
       agentProposalWaiting: {
         title: '{productName} hat einen Vorschlag für Sie',
-        // Wo der Vorschlag steht, nach dem, worauf die Zeile zeigt: der Chat,
-        // in dem er entstand, sonst die Datei unter Dateien (`bodyProject`)
-        // oder in der Büroablage (`bodyOrganization`).
         body: 'Der Vorschlag steht im Chat. Übernehmen oder verwerfen Sie ihn dort; bis dahin ändert sich nichts.',
         bodyProject: 'Der Vorschlag steht bei der Datei unter Dateien. Übernehmen oder verwerfen Sie ihn dort; bis dahin ändert sich nichts.',
         bodyOrganization: 'Der Vorschlag steht bei der Datei in der Büroablage. Übernehmen oder verwerfen Sie ihn dort; bis dahin ändert sich nichts.',
@@ -606,17 +520,10 @@ export const collaboration: typeof en.collaboration = {
           operation: { title: '{productName} schlägt eine Aktion vor' },
         },
       },
-      // Piloti hat die Dokumente eines Projekts gelesen und Werte für das
-      // Projektprofil vorgeschlagen (ADR-0111). {subject} ist der Projektname,
-      // {related} die Zahl der Rückfragen, die die Gebäudeklasse entscheiden;
-      // ohne Rückfragen fehlt sie, dann gilt `title`. Was Piloti zusammengefasst
-      // hat, steht als Auszug darunter.
       agentIntakeReady: {
         title: '{productName} hat die Dokumente von „{subject}“ gelesen',
         titleRelated: '{productName} hat die Dokumente von „{subject}“ gelesen – Rückfragen: {related}',
         body: 'Prüfen Sie die Vorschläge und bestätigen Sie, was stimmt.',
-        // Das Lesen ist nicht fertig geworden (abgebrochen, nicht gestartet,
-        // zu lange ohne Antwort). Wer gegangen ist, erfährt es hier.
         variants: {
           failed: {
             title: '{productName} konnte die Dokumente von „{subject}“ nicht fertig lesen',
@@ -624,14 +531,7 @@ export const collaboration: typeof en.collaboration = {
           },
         },
       },
-      // Eine Kollegin hat Sie für eine Anmerkung zuständig gemacht, oder Piloti
-      // hat es für sie getan (`variants.piloti`, dann ist {actor} die Person,
-      // für die Piloti gearbeitet hat). {related} ist die Nummer der
-      // Anmerkung, {subject} das Dokument; der Auszug ist, was sie sagt.
       annotationAssigned: {
-        // Eine Benachrichtigung für viele Zeilen auf einmal (die Erinnerungen
-        // des Morgens, eine Übergabe in einem Zug): die Zahl im Titel, darunter
-        // wie viele wovon, das Dringendste zuerst.
         pushFold: {
           title: '{count, plural, one {# Anmerkung} other {# Anmerkungen}} für Sie',
           parts: {
@@ -646,11 +546,7 @@ export const collaboration: typeof en.collaboration = {
         titleRelated: '{actor} hat Ihnen Anmerkung {related} in „{subject}“ zugewiesen',
         titleRelatedNoSubject: '{actor} hat Ihnen Anmerkung {related} zugewiesen',
         body: 'Sie sind dafür zuständig. Antworten Sie im Verlauf oder erledigen Sie die Anmerkung.',
-        // Mit Frist: {due} ist das Datum der Anmerkung.
         bodyDue: 'Sie sind dafür zuständig, bis {due}. Antworten Sie im Verlauf oder erledigen Sie die Anmerkung.',
-        // `due…`: jemand hat die Frist gesetzt, verschoben oder entfernt
-        // (`…_piloti`: Piloti für {actor}). `due_soon` / `overdue`: die tägliche
-        // Erinnerung, ohne {actor}, in derselben Zeile der Anmerkung.
         variants: {
           piloti: {
             title: '{productName} hat Ihnen für {actor} eine Anmerkung zugewiesen',
@@ -690,15 +586,7 @@ export const collaboration: typeof en.collaboration = {
           },
         },
       },
-      // Neues an einer Anmerkung, an der Sie beteiligt sind: eine Zeile je
-      // Anmerkung, die mitzählt. Der Auszug ist die neueste Antwort.
-      // `variants` für Ihre Anmerkung, die jemand anderes erledigt, verworfen
-      // oder wieder geöffnet hat; dann ist der Auszug, was sie sagt.
-      // Wer geantwortet hat, steht im Titel; `…NoActor`, wenn es Piloti war
-      // oder niemand Bestimmtes.
       annotationActivity: {
-        // Eine Benachrichtigung für viele Zeilen auf einmal (jemand erledigt 15 Ihrer
-        // Anmerkungen): gezählt je Zeile, also je Anmerkung, neue Anmerkungen je Dokument.
         pushFold: {
           title: '{count, plural, one {# Neuigkeit} other {# Neuigkeiten}} zu Anmerkungen',
           parts: {
@@ -738,12 +626,6 @@ export const collaboration: typeof en.collaboration = {
             titleRelated: '{actor} hat Anmerkung {related} in „{subject}“ wieder geöffnet',
             titleRelatedNoSubject: '{actor} hat Anmerkung {related} wieder geöffnet',
           },
-          // Neue Anmerkungen an einem Dokument, für das Sie verantwortlich
-          // sind oder das Sie hochgeladen haben: eine Zeile je Dokument und je
-          // Person, die mitzählt. {related} ist die neueste, der Auszug, was
-          // sie sagt. Ohne {related} und Auszug: die neueste wurde gelöscht,
-          // die Zeile zählt die übrigen. „NoActor“: die Person ist nicht mehr
-          // im Verzeichnis.
           created: {
             title: '{actor} hat eine Anmerkung gesetzt',
             titleNoActor: 'Eine Anmerkung wurde gesetzt',
@@ -768,9 +650,6 @@ export const collaboration: typeof en.collaboration = {
             bodyMany: 'Die neueste ist Anmerkung {related}.',
             bodyNoExcerpt: 'Eine der Anmerkungen wurde inzwischen gelöscht.',
           },
-          // Piloti hat sie für {actor} gesetzt: {actor} hat darum gebeten,
-          // oder hat Pilotis Vorschlag übernommen. Ein Vorschlag, den niemand
-          // übernommen hat, meldet sich nicht.
           created_piloti: {
             title: '{productName} hat für {actor} eine Anmerkung gesetzt',
             titleNoActor: '{productName} hat eine Anmerkung gesetzt',
@@ -797,20 +676,12 @@ export const collaboration: typeof en.collaboration = {
           },
         },
       },
-      // Eine Kollegin hat Sie in einer Anmerkung oder ihrem Verlauf mit „@“
-      // erwähnt, wie im Chat. {actor} ist sie, {related} die Nummer der
-      // Anmerkung, {subject} das Dokument; der Auszug ist der Text, in dem
-      // sie Sie erwähnt.
       annotationMentioned: {
         title: '{actor} hat Sie in einer Anmerkung erwähnt',
         titleRelated: '{actor} hat Sie in Anmerkung {related} in „{subject}“ erwähnt',
         titleRelatedNoSubject: '{actor} hat Sie in Anmerkung {related} erwähnt',
         body: 'Antworten Sie im Verlauf der Anmerkung.',
       },
-      // Eine Sortierung der Wurzel eines Ablageorts (ADR-0121) hat vorgeschlagen,
-      // wohin ihre Dateien sollen. {subject} ist das Projekt; die Büroablage
-      // nennt keinen Ort, ihre Variante sagt es. {count} sind die Dateien, die
-      // verschoben werden sollen.
       rootSortReady: {
         titleOne: 'Die Sortierung von „{subject}“ ist bereit zur Durchsicht: 1 Datei',
         titleMany: 'Die Sortierung von „{subject}“ ist bereit zur Durchsicht: {count} Dateien',
@@ -829,20 +700,16 @@ export const collaboration: typeof en.collaboration = {
       inboundMailWaiting: {
         titleOne: 'Eine E-Mail an „{subject}“ wartet auf Ablage',
         titleMany: '{count} E-Mails an „{subject}“ warten auf Ablage',
-        // Die Zeile zählt, was jetzt wartet (`lib/inbox/live-counts.ts`): keine, bis sie erledigt ist.
         titleNone: 'Keine E-Mail an „{subject}“ wartet mehr auf Ablage',
-        // Ohne Zugriff auf das Projekt: kein Name und keine Zahl, die die Zeile nicht mehr kennt.
         titleRedacted: 'E-Mails warteten in einem Projekt auf Ablage',
         title: 'E-Mails an „{subject}“ warten auf Ablage',
         body: 'Nichts davon ist im Projekt, bis jemand es ablegt.',
         variants: {
-          // Domain nicht bestätigt, oder automatisch versandt (Newsletter, Liste).
           unconfirmed: {
             body: 'Darunter E-Mails, deren Domain nicht bestätigt ist oder die automatisch versandt wurden.',
           },
         },
       },
-      // Tag 25 von 30: was niemand ablegt, läuft ab (wiederherstellbar sieben Tage).
       inboundMailExpiring: {
         titleOne: 'Eine E-Mail an „{subject}“ läuft in {noticeDays} Tagen ab',
         titleMany: '{count} E-Mails an „{subject}“ laufen in {noticeDays} Tagen ab',
@@ -855,7 +722,6 @@ export const collaboration: typeof en.collaboration = {
           },
         },
       },
-      // An das Mitglied, dessen eigene E-Mail entschieden wurde. Der Ordner nur, wenn es ihn sehen darf.
       inboundMailDecided: {
         title: 'Ihre E-Mail an „{subject}“ wurde abgelegt',
         titleRelated: 'Ihre E-Mail an „{subject}“ wurde in „{related}“ abgelegt',
@@ -866,7 +732,6 @@ export const collaboration: typeof en.collaboration = {
             titleRelated: 'Ihre E-Mail an „{subject}“ wurde verworfen',
             body: 'Verworfen von {actor}. Sie kann {restoreDays} Tage lang wiederhergestellt werden.',
           },
-          // In Ihrem Namen abgelegt, ohne dass jemand sie angesehen hat: Ihre Domain hat sie bestätigt, und Sie dürfen im Projekt ablegen.
           direct: {
             title: 'Ihre E-Mail an „{subject}“ wurde direkt abgelegt',
             titleRelated: 'Ihre E-Mail an „{subject}“ wurde direkt in „{related}“ abgelegt',
@@ -874,8 +739,6 @@ export const collaboration: typeof en.collaboration = {
           },
         },
       },
-      // Die E-Mail trägt die Adresse des Mitglieds, seine Domain hat sie nicht bestätigt: nur es selbst kann sie ablegen.
-      // Auch ein Fälscher löst diese Zeile aus, deshalb nennt der Titel beide Antworten. Kein Betreff: fremde Worte erreichen keine Zeile (RT-X1).
       inboundMailHeld: {
         title: 'Haben Sie eine E-Mail an das Projekt „{subject}“ gesendet? Sonst verwerfen',
         titleResolved: 'Die E-Mail mit Ihrer Adresse an „{subject}“ ist erledigt',
@@ -885,7 +748,6 @@ export const collaboration: typeof en.collaboration = {
         title: 'Ihre E-Mail an „{subject}“ wartet auf Ablage',
         body: 'Sie dürfen in diesem Projekt nicht ablegen, deshalb entscheidet jemand, der es darf.',
         variants: {
-          // WorkOS hat nicht beantwortet, ob das Mitglied hier ablegen darf (`sender_unchecked`): nie „Sie dürfen nicht“.
           unchecked: {
             body: 'Beim Eingang war nicht zu prüfen, ob Sie in diesem Projekt ablegen dürfen, deshalb entscheidet jemand, der es darf.',
           },
@@ -904,7 +766,6 @@ export const collaboration: typeof en.collaboration = {
         titleResolved: 'Die E-Mail an „{subject}“ ist erledigt',
         body: 'Was nicht abgelegt wurde, wartet wieder im E-Mail-Eingang. Öffnen Sie die E-Mail, um den Grund zu sehen.',
       },
-      // 80 % oder 100 % der Bytes, die eine Adresse oder das Büro zwischenspeichern darf.
       inboundMailCapReached: {
         title: 'Die E-Mail-Adresse des Projekts „{subject}“ ist fast voll',
         titleResolved: 'Die E-Mail-Adresse des Projekts „{subject}“ hat wieder Platz',
@@ -916,7 +777,6 @@ export const collaboration: typeof en.collaboration = {
           },
         },
       },
-      // Verlauf folgen: der Text einer Antwort wurde in Ihrem Namen angefügt, die Anhänge warten.
       inboundMailAppended: {
         titleOne: 'Eine Antwort wurde einem E-Mail-Verlauf in „{subject}“ angefügt',
         titleMany: '{count} Antworten wurden einem E-Mail-Verlauf in „{subject}“ angefügt',
@@ -942,11 +802,6 @@ export const collaboration: typeof en.collaboration = {
     },
     unknownActor: 'Jemand',
     untitledConversation: 'Chat ohne Titel',
-    // Triage einer Fassung, die auf eine Entscheidung wartet, direkt in der
-    // Zeile: die drei Entscheidungen ohne Umweg über die Dateien. Die Freigabe
-    // trägt dieselbe Mindestzeremonie wie an der Datei (ausdrückliche
-    // Bestätigung, nie ein Klick); die beiden Verweigerungen tragen ihre
-    // Begründung, wie die Übergangstabelle sie verlangt.
     review: {
       approve: 'Freigeben',
       requestChanges: 'Änderungen anfordern',
@@ -954,11 +809,6 @@ export const collaboration: typeof en.collaboration = {
       changesLabel: 'Was geändert werden soll',
       reasonLabel: 'Grund der Ablehnung',
       approveConfirm: 'Ich gebe diese Fassung frei',
-      // Die Unterschrift wie an der Datei: welche Fassung freigegeben wird (das
-      // Dokument, die Fassungsnummer und wann die Runde eröffnet wurde — die
-      // Nummer ist Pflicht, ohne sie wird nicht freigegeben) und wer wann
-      // handelt. Der Name der handelnden Person ist hier unbekannt, daher
-      // immer die Form ohne Namen; wer gebeten hat, nennt bereits der Titel.
       approveSummary: '{subject} · Fassung {number} · Stand vom {date}',
       approveActing: 'Handelnd: {date}',
       revisionUnreadable:

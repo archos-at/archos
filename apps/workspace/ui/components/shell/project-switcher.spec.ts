@@ -1,10 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The switcher offers where one works (ADR-0098): active and paused projects,
- * and a closed one only while it is the one open.
- */
 import { describe, expect, it } from 'vitest'
 import { switchableProjects } from './project-list'
 

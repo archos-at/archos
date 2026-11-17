@@ -1,12 +1,7 @@
-/**
- * When the phone tab bar stands down: while the on-screen keyboard is up, as
- * each browser reports it, and not merely because a field holds the focus.
- */
 import { afterEach, describe, expect, it } from 'vitest'
 
 import { isTypingTarget, keyboardIsUp, type ViewportReading } from './use-keyboard-up'
 
-/** iPhone 15 Pro portrait, nothing up. */
 const RESTING: ViewportReading = {
   layoutHeight: 852,
   visualHeight: 852,

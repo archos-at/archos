@@ -1,12 +1,3 @@
-"""The Fassung route: a person confirms (or refuses) that one file replaces another.
-
-``PUT /v1/collections/{collection}/revision`` is the only writer of ``superseded_by``.
-Nothing is merged: the older file stays whole and readable by name. A model reads the
-two descriptions for the change line, over the summary gateway and traced as a
-``change-summary`` generation; its failure never undoes the link. A refusal lifts
-the link and marks Piloti's suggestion dismissed so it is not made again.
-"""
-
 import asyncio
 import tempfile
 from pathlib import Path
@@ -150,7 +141,6 @@ class TestLinking:
         for name in (OLDER, NEWER):
             assert name in sent
         assert "Stiege im Süden" in sent and "neuer Lift" in sent
-        # Both files keep their rows and their summaries.
         docs = _docs(store)
         assert docs[OLDER].summary == "Grundriss Erdgeschoss, Stiege im Süden."
         assert docs[NEWER].summary.startswith("Grundriss Erdgeschoss, Stiege im Norden")
@@ -171,8 +161,6 @@ class TestLinking:
         assert _docs(store)[NEWER].revision_suggestion == other
 
     async def test_a_loop_written_after_the_route_read_its_rows_is_still_refused(self, app, store):
-        # Two people confirm at once: this request read the collection before the other one
-        # stored "OLDER replaces NEWER". The loop check runs again inside the locked write.
         snapshot = store.get_all(COLLECTION)
         store.link_revision(COLLECTION, NEWER, OLDER)
 
@@ -307,7 +295,6 @@ class TestRefusing:
         assert _docs(store)[NEWER].revision_suggestion == {**SUGGESTION, "dismissed": True, "dismissed_of": [OLDER]}
 
     async def test_a_refusal_with_no_stored_suggestion_is_remembered_all_the_same(self, app, store):
-        # The suggestion came from the file names and lived only in the UI.
         await _put(app, UNLINK)
 
         suggestion = _docs(store)[NEWER].revision_suggestion
@@ -322,8 +309,6 @@ class TestRefusing:
         assert _docs(store)[NEWER].revision_suggestion == {**other, "dismissed_of": [OLDER]}
 
     async def test_a_refusal_sticks_when_another_file_was_refused_before(self, app, store):
-        # „Nein" to one file never undoes „Nein" to another: the name series Index B -> Index C
-        # would otherwise be derived again on the next listing.
         store.register(COLLECTION, "Anderes.pdf", "Ein anderes Dokument.")
         store.dismiss_revision_suggestion(COLLECTION, NEWER, "Anderes.pdf")
 
@@ -351,8 +336,6 @@ class TestRefusing:
 
 
 class TestThePurge:
-    """``DELETE …/documents`` says whether the delete can be undone; the ingestor gets it as ``permanent``."""
-
     async def _delete(self, app, body):
         from agent.knowledge.factory import get_active_ingestor
 

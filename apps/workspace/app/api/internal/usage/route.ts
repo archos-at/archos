@@ -1,10 +1,3 @@
-/**
- * INTERNAL service endpoint — the single write path into the `llm_usage_events`
- * ledger. The backend's unified cost tracker
- * (packages/agent/src/agent/common/cost_tracking.py) POSTs one batch per flush; `app`
- * stays single-writer. Token-guarded; not user-facing.
- */
-
 import { z } from 'zod'
 import { COST_SOURCES, USAGE_ACTIVITIES } from '@/lib/db/schema/budgets'
 import { internalApiRoute, parseJsonBody } from '@/lib/api/handler'
@@ -20,17 +13,16 @@ const usageEventSchema = z.object({
   completionTokens: z.number().int().min(0).default(0),
   totalTokens: z.number().int().min(0).default(0),
   cachedTokens: z.number().int().min(0).default(0),
+  cacheWriteTokens: z.number().int().min(0).default(0),
   reasoningTokens: z.number().int().min(0).default(0),
   costUsd: z.number().min(0).finite().default(0),
   costSource: z.enum(COST_SOURCES).default('missing'),
   isByok: z.boolean().nullable().optional(),
-  /** What the call was for when it was not an agent's chat completion (stored as `agent_group`). */
   role: z
     .string()
     .regex(/^[a-z][a-z0-9_]{0,63}$/)
     .nullable()
     .optional(),
-  /** Seconds of audio a transcription call processed (voice dictation). */
   audioSeconds: z.number().min(0).max(3600).finite().nullable().optional(),
 })
 
@@ -40,9 +32,7 @@ const usageBatchSchema = z.object({
   projectId: z.string().max(120).nullable().optional(),
   conversationId: z.string().max(255).nullable().optional(),
   jobId: z.string().max(255).nullable().optional(),
-  /** The chat answer the batch's spend belongs to (`turn.response.answer_message_id`). */
   messageId: z.string().max(128).nullable().optional(),
-  /** The kind of work the whole batch served (`ingest`, `dictation`). */
   activity: z.enum(USAGE_ACTIVITIES).nullable().optional(),
   events: z.array(usageEventSchema).min(1).max(100),
 })
@@ -52,13 +42,10 @@ export const POST = internalApiRoute(
   async ({ request }) => {
     const batch = await parseJsonBody(request, usageBatchSchema)
 
-    // Anonymous deployments (REQUIRE_AUTH=false) have no org; those events are
-    // not attributable to a tenant and are dropped deliberately (documented).
     if (!batch.organizationId) {
       return { recorded: 0, skipped: batch.events.length }
     }
 
-    // The ledger row is the tenant's own; the scope makes the database agree.
     const recorded = await withTenant({ organizationId: batch.organizationId }, () =>
       recordUsageEvents(
       batch.events.map((event) => ({
@@ -77,6 +64,7 @@ export const POST = internalApiRoute(
         completionTokens: event.completionTokens,
         totalTokens: event.totalTokens,
         cachedTokens: event.cachedTokens,
+        cacheWriteTokens: event.cacheWriteTokens,
         reasoningTokens: event.reasoningTokens,
         costUsd: event.costUsd.toFixed(8),
         costSource: event.costSource,
@@ -85,10 +73,6 @@ export const POST = internalApiRoute(
       }))
       )
     )
-    // `budget_threshold_crossed` for PostHog (ADR-0100): the ledger just grew,
-    // so this is the moment a limit can have been crossed. Not awaited and
-    // never throwing, so the tracker's flush returns exactly as fast as before,
-    // and it reads nothing at all while PostHog is off.
     void announceBudgetThresholds({
       organizationId: batch.organizationId,
       userId: batch.userId ?? null,

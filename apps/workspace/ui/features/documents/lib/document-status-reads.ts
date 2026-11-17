@@ -1,34 +1,13 @@
-/**
- * Per-document status reads: `GET /api/documents/{id}/status`, a bounded batch
- * at a time.
- *
- * The document lists used to follow an in-flight row by re-reading the WHOLE
- * listing (every page, up to 20 × 500 rows) every few seconds. What can change
- * while a row settles is that row, so the quiet settling tick asks about the
- * settling rows by id and merges the answers in; the full drain stays for the
- * loads that need the corpus. Per id rather than "the newest page": a
- * re-ingested OLD document is settling too, and it sits wherever its
- * `createdAt` put it, not on the first page.
- *
- * The same read settles the upload tray's rows that no ingest job follows, and
- * the orchestrator's handed-over rows, so all three agree on what an answer
- * looks like. The route is scope-aware (project, Archiv, chat), so one URL
- * serves every shelf.
- */
-
 import { documentReadFamily, documentStatusFacts } from '@/lib/documents/document-status'
 import type { FileItem } from '../components/project-file-workspace'
 import type { TrackedFile } from '../types'
 import { refreshedFileFields } from './file-item'
 import type { QuarantineVerdict } from '@/lib/upload-screening/quarantine'
 
-/** Most documents one tick asks about. A tick's cost stays flat however big the batch. */
 export const STATUS_READ_BATCH = 24
 
-/** Requests in flight at once within a tick. */
 export const STATUS_READ_CONCURRENCY = 6
 
-/** The fields of a status body a listing row takes over. */
 export const STATUS_FIELDS: readonly (keyof FileItem)[] = [
   'status',
   'errorMessage',
@@ -42,10 +21,8 @@ export const STATUS_FIELDS: readonly (keyof FileItem)[] = [
   'queueAhead',
 ]
 
-/** What a status read answered: the row's fresh fields, or that the row is gone. */
 export type DocumentStatusRead = { kind: 'row'; fields: Partial<FileItem> } | { kind: 'gone' }
 
-/** Keep only what the body carried of {@link STATUS_FIELDS}: absent is silence, not a reset. */
 function statusFields(body: Record<string, unknown>): Partial<FileItem> {
   const fields: Record<string, unknown> = {}
   for (const field of STATUS_FIELDS) {
@@ -65,17 +42,10 @@ async function readOne(id: string, fetcher: typeof fetch, signal?: AbortSignal):
     if (typeof record.status !== 'string') return null
     return { kind: 'row', fields: statusFields(record) }
   } catch {
-    // Offline, aborted, a hiccup: no answer, and the next tick asks again.
     return null
   }
 }
 
-/**
- * Read the status of each id, {@link STATUS_READ_CONCURRENCY} at a time.
- *
- * Only ids that answered are in the result; a failed read is absent rather
- * than an error, because the caller's next tick is the retry.
- */
 export async function readDocumentStatuses(
   ids: readonly string[],
   { fetcher = fetch, signal, concurrency = STATUS_READ_CONCURRENCY }: {
@@ -97,14 +67,6 @@ export async function readDocumentStatuses(
   return reads
 }
 
-/**
- * Take the next batch of ids out of a longer list, round-robin.
- *
- * A folder upload of two hundred files settles over many ticks; asking about
- * the same first {@link STATUS_READ_BATCH} every time would starve the rest.
- *
- * @returns The batch and the offset the next call starts from.
- */
 export function nextStatusBatch(
   ids: readonly string[],
   offset: number,
@@ -116,14 +78,6 @@ export function nextStatusBatch(
   return { batch, next: (start + size) % ids.length }
 }
 
-/**
- * Merge status reads into a listing by id.
- *
- * Each row goes through {@link refreshedFileFields}, so trailing metadata is
- * never erased and a terminal row is never moved back to settling by a stale
- * read. A row the server no longer has is dropped. Returns the SAME array when
- * nothing changed, so a quiet tick that learned nothing re-renders nothing.
- */
 export function mergeStatusReads<T extends FileItem>(
   rows: readonly T[],
   reads: ReadonlyMap<string, DocumentStatusRead>
@@ -152,21 +106,10 @@ export function mergeStatusReads<T extends FileItem>(
   return changed ? merged : (rows as T[])
 }
 
-/** An upload tray row that only a status read will finish: accepted, jobless, still being read. */
 export function isJoblessIngesting(upload: TrackedFile): boolean {
   return upload.status === 'ingesting' && !upload.jobId && !!upload.serverFileId
 }
 
-/**
- * The tray patch a terminal status settles an upload row with, or `null` while
- * the document is still being read — or reports a status this build does not
- * know, which is not an answer either way.
- *
- * By the status's read family, the same decision the badge and the folder
- * brief make (`documentReadFamily`), so the tray cannot call a row citable
- * that its badge calls „Zurückgehalten“ or „Abgelegt“. It used to: every
- * terminal status that was not a failure became `success`, green „Zitierbar“.
- */
 export function trackedPatchFromStatus(
   status: string | null | undefined,
   errorMessage?: string | null,
@@ -176,9 +119,6 @@ export function trackedPatchFromStatus(
   switch (documentReadFamily(status)) {
     case 'readable':
       return { status: 'success', progress: 100 }
-    // The reason only when the read gave one. A patch that carried the key
-    // with no value cleared the reason the row already showed (the retry
-    // path settles from a bare status), and a held row lost its findings.
     case 'failed':
       return { status: 'failed', ...(errorMessage ? { errorMessage } : {}) }
     case 'held':
@@ -186,8 +126,6 @@ export function trackedPatchFromStatus(
     case 'unindexed':
       return { status: 'stored', progress: 100 }
     case 'reading':
-      // A terminal status is never in this family; only an in-flight or an
-      // undeclared one is, and both returned above.
       return null
   }
 }

@@ -1,7 +1,3 @@
-/**
- * intakeQuestionsStep namespace: step 4, Rückfragen: one question at a time, only what changes the classification
- * (`/app/projects/[id]/setup`, ticket 26, `docs/design/project-setup-five-steps.md`).
- */
 export const intakeQuestionsStep = {
   heading: 'Questions',
   subtitle: 'Only what changes the classification',
@@ -17,6 +13,7 @@ export const intakeQuestionsStep = {
   },
   progress: '{done} of {total} done',
   readingNote: '{productName} is still reading the documents. You can answer what you already know now.',
+  unpublishedNote: 'The country data for this project is not published yet, so no questions follow from it.',
   closingNote: 'A finished project: {productName} asks only what matters most.',
   card: {
     position: 'Question {index} of {total}',

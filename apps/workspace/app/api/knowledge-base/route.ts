@@ -1,14 +1,9 @@
-/**
- * Knowledge-base API — what the RAG currently knows (OIB base corpus).
- * Thin handler; all logic lives in `@/lib/knowledge/service`.
- */
-
 import { apiRoute } from '@/lib/api/handler'
-import { getKnowledgeBaseStatus } from '@/lib/knowledge/service'
+import { getKnowledgeBaseStatusFor } from '@/lib/knowledge/released-corpus'
 
-export const GET = apiRoute(async () => getKnowledgeBaseStatus(), {
+export const GET = apiRoute(async ({ session }) => getKnowledgeBaseStatusFor(session), {
   authz: {
     sessionOnly: true,
-    why: 'lists the platform-owned base corpus, which is identical for every tenant and carries no tenant data',
+    why: 'needs no permission: every member reads the base corpus. Which files are listed is decided in the service, by the office’s entitled countries and each file’s release mark (lib/knowledge/released-corpus.ts)',
   },
 })

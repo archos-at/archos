@@ -1,28 +1,5 @@
 'use client'
 
-/**
- * Citation-interaction dev preview: what happens when you actually USE a
- * citation, rendered through the real `AgentResponse`.
- *
- * The three things this surface exists to show, all of which were missing:
- *
- *   1. AN INLINE `[N]` IS A CITATION, NOT A SCROLL LINK. It is tinted by the
- *      provenance family of the source it names, so a claim backed by binding
- *      law and one backed by a web page do not look identical mid-sentence.
- *      Clicking previews it in place — document, authority, page, passage —
- *      instead of moving the page and leaving the reader to work out where
- *      they landed.
- *   2. THE CHIP ANSWERS BACK. Activating a marker marks its chip, so the link
- *      between the claim in the prose and the source under it is something you
- *      SEE. Previously eight near-identical chips and a silent scroll.
- *   3. THE PASSAGES ARE REACHABLE. A document read at four pages opens with a
- *      Fundstellen rail; each page is a button, and the one you are reading is
- *      marked. Before, the viewer opened at whichever page happened to be first
- *      and there was no way to reach the other three.
- *
- * Not linked anywhere; the `/dev` server layout 404s it outside development.
- */
-
 import { useEffect, type FC, type ReactNode } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { AgentResponse } from '@/features/chat/components/AgentResponse'
@@ -33,7 +10,6 @@ import type { CitationSource } from '@/features/chat/types'
 const at = new Date('2026-07-28T14:30:00')
 const OIB = 'oib-rl_2.1_ausgabe_mai_2023.pdf'
 
-/** One structured wire source — one LOCUS of a document. */
 const locus = (page: number, number: number, snippet?: string): CitationSource => ({
   id: `oib-${page}`,
   content: snippet ? `[KB] ${OIB}, p.${page}\n${snippet}` : `[KB] ${OIB}, p.${page}`,
@@ -77,15 +53,6 @@ const citations: CitationSource[] = [
   },
 ]
 
-/**
- * An answer whose prose cites the SAME Richtlinie at three pages plus a legal
- * source — the shape that made the old interaction impossible to follow.
- *
- * It also carries one claim backed by TWO sources, written `[2][3]` as the
- * report writers are instructed to write it. That pair used to reach the reader
- * as the literal characters "[2][3]" beside neighbours that got their pill, so
- * it is on film here: two pills, side by side, each its own citation.
- */
 const answer = [
   'Für eine Garage dieser Größe sind zwei Fluchtwege erforderlich [1]. Der zweite',
   'darf als Außentreppe ausgeführt werden [2], sofern die Rauchableitung den',
@@ -100,7 +67,6 @@ const answer = [
   '- [4] [RIS] Bauordnung für Wien § 108 — https://www.ris.bka.gv.at/GeltendeFassung.wxe?Abfrage=LrW&Gesetzesnummer=20000006',
 ].join('\n')
 
-/** A project document a person has since replaced by Index C: the peek of a citation of the older one. */
 const olderRevisionRef = () => {
   const fileName = 'EG_Grundriss_Index_B.pdf'
   const [document] = buildCitationModel({
@@ -139,15 +105,6 @@ const Block: FC<{ title: string; note: string; children: ReactNode }> = ({
   </section>
 )
 
-/**
- * Drives a marker to the state the harness should capture.
- *
- * The harness captures a page at rest, so the two surfaces this work actually
- * adds — the peek and the document dialog behind it — appeared in no committed
- * screenshot. `?open=peek` clicks the first marker once the answer has
- * rendered; `?open=dialog` goes one step further and presses the peek's "open
- * at this passage", which is the only way to get the passage rail on film.
- */
 const OpenOnLoad: FC = () => {
   const params = useSearchParams()
   const which = params?.get('open')
@@ -156,19 +113,6 @@ const OpenOnLoad: FC = () => {
     if (!which) return
     const timers: number[] = []
 
-    /**
-     * Press a control as soon as it exists.
-     *
-     * A fixed delay was the first attempt and it was quietly wrong: the marker
-     * appears only once the markdown body and the citation scope have both
-     * rendered, and how long that takes depends on whether the dev server
-     * compiled this route already. When it lost that race the harness captured
-     * the page at rest and committed it as the "open" baseline — a screenshot
-     * that silently stops showing what it is named for.
-     *
-     * Focus, then click: the click alone is what a reader does, but focusing
-     * first is what keeps the panel up while the capture flips themes.
-     */
     const press = (selector: string, then?: () => void): void => {
       let attempts = 0
       const tick = (): void => {
@@ -185,8 +129,6 @@ const OpenOnLoad: FC = () => {
       tick()
     }
 
-    // The dialog is reachable only from inside the peek — which is exactly the
-    // path a reader walks, so the harness walks it too.
     press('[data-citation-marker]', () =>
       which === 'dialog' ? press('[data-citation-open]') : undefined
     )
@@ -197,12 +139,6 @@ const OpenOnLoad: FC = () => {
   return null
 }
 
-/**
- * The base-corpus listing a deployment serves (`/api/knowledge-base`), so the
- * peek resolves the Richtlinie the way it does in the product and offers „An
- * dieser Stelle öffnen". Without a backend the list is empty and every corpus
- * source reads as one with no file, which is the wrong state to film.
- */
 const CorpusListing: FC = () => {
   useEffect(() => {
     const real = window.fetch

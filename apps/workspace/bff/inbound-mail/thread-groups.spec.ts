@@ -1,9 +1,3 @@
-/**
- * The waiting mails one press files into a thread, and the Fassung each
- * becomes (DECISION §9 „wird Fassung 4–7“): the order the filing job appends
- * them in is the order they were written.
- */
-
 import { describe, expect, it } from 'vitest'
 import { mail, summaryOf, thread } from '@/app/dev/inbound-mail/fixtures'
 import type { InboundMailSummaryView } from './inbound-mail-wire'

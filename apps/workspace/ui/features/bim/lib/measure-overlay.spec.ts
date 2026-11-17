@@ -1,14 +1,3 @@
-/**
- * The measurement drawing.
- *
- * Driven by a fake projector, which is the whole point: a dimension line's
- * correctness is "it is where the camera says the point is", and that is a
- * claim about coordinates, not about pixels. The failures this catches are the
- * ones that look fine in a screenshot taken from one angle — a line that stops
- * following the model when a point goes behind the camera, a label left over
- * from a measurement that was cleared, a stale readout after the picks moved.
- */
-
 import { beforeEach, describe, expect, it } from 'vitest'
 import { MeasureOverlay, measurementText, type Projector } from './measure-overlay'
 import { completeMeasurement, type MeasureAnchor, type Measurement } from './viewer-measure'
@@ -20,10 +9,8 @@ const at = (x: number, y: number, z: number, snap: MeasureAnchor['snap'] = 'vert
   snap,
 })
 
-/** A projector that flattens the world onto the screen, ignoring Z. */
 const flat: Projector = (point) => ({ x: point.x * 10, y: point.y * 10 })
 
-/** Nothing is on screen — every point is behind the camera. */
 const behind: Projector = () => null
 
 function build(): {
@@ -53,9 +40,6 @@ describe('what the overlay draws', () => {
     overlay.setMeasurements([measurement(at(0, 0, 0), at(2, 3, 0))])
     overlay.update(flat)
 
-    // Two elements per dimension line: a wide `--background` halo and the
-    // hairline over it. Both are asserted, because a halo that stops tracking
-    // the line it protects is a smear across the model.
     const [halo, line] = [...svg.querySelectorAll('line')]
     for (const element of [halo, line]) {
       expect(element.getAttribute('x1')).toBe('0')
@@ -68,10 +52,6 @@ describe('what the overlay draws', () => {
   })
 
   it('keeps a hairline readable over a facade of the same tone', () => {
-    // The model's colours are the model's: a dark render in light mode
-    // swallows a `--foreground` line entirely, and a measurement you cannot
-    // see is worse than one you never took. The halo has to be WIDER than the
-    // line it sits under, or it is not a halo.
     const { svg, overlay } = build()
     overlay.setMeasurements([measurement(at(0, 0, 0), at(1, 0, 0))])
 
@@ -91,14 +71,11 @@ describe('what the overlay draws', () => {
   })
 
   it('marks each end with the shape of the thing it snapped to', () => {
-    // A corner and a point on a face are two different strengths of claim,
-    // and a reader has to be able to tell them apart without reading a legend.
     const { svg, overlay } = build()
     overlay.setMeasurements([measurement(at(0, 0, 0, 'vertex'), at(1, 0, 0, 'face'))])
     overlay.update(flat)
 
     const [from, to] = [...svg.querySelectorAll('path')]
-    // A square for a vertex, a circle (arc path) for a face.
     expect(from?.getAttribute('d')).toContain('H')
     expect(to?.getAttribute('d')).toContain('a')
   })
@@ -124,8 +101,6 @@ describe('what the overlay draws', () => {
 
 describe('when a measurement is not on screen', () => {
   it('hides the whole thing rather than clamping it to an edge', () => {
-    // A dimension line stretching to a screen corner is a measurement of
-    // something that is not there, which is worse than no line at all.
     const { svg, labels, overlay } = build()
     overlay.setMeasurements([measurement(at(0, 0, 0), at(1, 0, 0))])
     overlay.update(behind)
@@ -146,14 +121,10 @@ describe('when a measurement is not on screen', () => {
 
 describe('the measurement in progress', () => {
   it('draws a dashed rubber band from the anchor to the cursor', () => {
-    // Dashed while it is a proposal: the switch to a solid line is the only
-    // feedback that the second click landed.
     const { svg, overlay } = build()
     overlay.setPending(at(0, 0, 0), at(1, 1, 0, 'edge'))
     overlay.update(flat)
 
-    // The halo is dashed with it. A solid halo under a dashed stroke reads as
-    // a solid line with a shadow — i.e. as a committed measurement.
     const [halo, line] = [...svg.querySelectorAll('line')]
     expect(halo.getAttribute('stroke-dasharray')).toBe('4 3')
     expect(line.getAttribute('stroke-dasharray')).toBe('4 3')
@@ -172,8 +143,6 @@ describe('the measurement in progress', () => {
   })
 
   it('shows the snap target before a point is placed at all', () => {
-    // This is what separates measuring from guessing: the reader can see the
-    // cursor has locked onto a corner BEFORE committing to it.
     const { svg, overlay } = build()
     overlay.setPending(null, at(1, 1, 0, 'vertex'))
     overlay.update(flat)
@@ -195,8 +164,6 @@ describe('the measurement in progress', () => {
 
 describe('replacing the drawn set', () => {
   it('leaves nothing behind when the measurements are cleared', () => {
-    // A label orphaned by a clear is the classic imperative-overlay leak, and
-    // it is invisible until someone clears a measurement they were looking at.
     const { svg, labels, overlay } = build()
     overlay.setMeasurements([
       measurement(at(0, 0, 0), at(1, 0, 0)),
@@ -228,9 +195,6 @@ describe('the readout', () => {
   })
 
   it('breaks a diagonal into run and rise, which is what answers the question', () => {
-    // A diagonal's straight-line length answers neither "how wide" nor "how
-    // high", and those are the only two questions anyone measures a building
-    // to answer.
     const skew = measurement(at(0, 0, 0), at(3, 4, 0))
     expect(measurementText(skew, LABELS)).toBe('5.00 m · horizontal 3.00 m · vertical 4.00 m')
   })

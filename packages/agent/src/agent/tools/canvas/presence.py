@@ -40,7 +40,6 @@ from .client import post_canvas
 
 logger = logging.getLogger(__name__)
 
-#: The key the conversation's subject is recorded under: no ``documentId`` was sent.
 SUBJECT = ""
 
 

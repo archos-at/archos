@@ -1,54 +1,12 @@
 import { char, jsonb, pgTable, text, timestamp } from 'drizzle-orm/pg-core'
 
-/**
- * app-side organization record.
- *
- * WorkOS remains the source of truth for org identity and membership; this
- * table stores the app-specific settings and cached display fields that WorkOS
- * doesn't model, keyed by the WorkOS organization id. It lets us:
- *   - render org context without a WorkOS round-trip on every request,
- *   - hold org-level product settings (default language for new members, a
- *     display-name override, document-retention defaults, …),
- *   - attach future org-scoped data via the `settings` jsonb without a schema
- *     change each time.
- *
- * Migration 0200 wrote a row for every organization the database had seen; an
- * organization created since gets one when it is created
- * (`POST /api/organizations`) or on its first settings write. A row can still
- * be missing for an organization made in the WorkOS dashboard that has written
- * nothing yet, so a name is never read from here alone:
- * `getOrganizationDisplayName(s)` falls back to WorkOS.
- */
 export const organizations = pgTable('organizations', {
-  /** WorkOS organization id (e.g. `org_...`). */
   workosOrganizationId: text('workos_organization_id').primaryKey(),
-  /** Optional Grid display-name override; falls back to the WorkOS org name. */
   displayName: text('display_name'),
-  /**
-   * Interface language for members who never picked one; NULL until an admin
-   * chooses (migration 0156). It used to default to 'en', which no reader could
-   * tell from a choice, and German offices were switched to English by it.
-   */
   defaultLocale: text('default_locale'),
-  /**
-   * ISO 3166-1 alpha-2 country of the office's own seat (migration 0200), upper
-   * case. Never a project's jurisdiction: a project's site decides its law, and
-   * a project with no site gets none. NULL: nobody has said where the office is.
-   */
   homeCountry: char('home_country', { length: 2 }),
-  /**
-   * The office's clock, an IANA zone (migration 0200), set from the home country
-   * at creation. NULL reads as Europe/Vienna (`officeTimeZone`). The office's own
-   * clock, never a project site's.
-   */
   timeZone: text('time_zone'),
-  /**
-   * The residency cell (one deployment) the office is placed in, e.g. `eu-at-1`
-   * (migration 0203, ADR-0167). A deployment of another cell refuses to serve
-   * it. NULL: not placed; served by the cell it reaches, under that cell's zone.
-   */
   residencyCell: text('residency_cell'),
-  /** Flexible bag for additional org-scoped settings. */
   settings: jsonb('settings').notNull().default({}),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
@@ -57,45 +15,10 @@ export const organizations = pgTable('organizations', {
 export type Organization = typeof organizations.$inferSelect
 export type NewOrganization = typeof organizations.$inferInsert
 
-/**
- * Keys in the `settings` bag that belong to the PLATFORM OPERATOR, not the
- * tenant.
- *
- * The bag has one write path and no schema, so before this list the owner of a
- * key was expressed only by which service function a caller happened to reach
- * for. `setStorageQuota` is platform-only by construction — explicit
- * `organizationId`, a refusal below current usage, `requirePlatformPermission` on the
- * route — and every bit of that was bypassable through
- * `PUT /api/organization/settings`, which merges arbitrary keys under
- * `org:settings:manage`, a permission tenant admins hold. A tenant could raise
- * its own quota, which makes it not a quota.
- *
- * Declared here, beside the column, because this is the file anyone adding a
- * setting reads. Enforced in `updateOrgSettings` — the merge every writer passes
- * through — rather than in the route, so a new tenant-facing endpoint inherits
- * the guard instead of having to remember it.
- *
- * A key belongs here when the tenant is the party the value CONSTRAINS. A
- * setting the tenant chooses for itself (`zdrOnly`, `webSearchEnabled`,
- * `providerMode`) does not, however sensitive. Today: the storage quota, and
- * the per-file upload limit (`maxUploadFileBytes`, `@/lib/storage/upload-limit`).
- */
 export const PLATFORM_OWNED_SETTINGS = ['storageQuotaBytes', 'maxUploadFileBytes'] as const
 
 export type PlatformOwnedSetting = (typeof PLATFORM_OWNED_SETTINGS)[number]
 
-/**
- * Keys in the same bag that the TENANT owns but only one route may write,
- * because that route carries a stronger gate than the generic settings save.
- * Maps each key to where it is changed, which is also the refusal message.
- *
- * `zdrOnly` is the reason this exists: `PUT /api/organization/settings` merges
- * the bag under `org:settings:manage`, so `{"settings":{"zdrOnly":false}}`
- * switched zero data retention off without `org:models:manage`, without the
- * model-configuration flag, without the confirmation, and could store a
- * non-boolean. Enforced in `updateOrgSettings`, like the list above, so a new
- * endpoint inherits the refusal.
- */
 export const DEDICATED_ROUTE_SETTINGS = {
   zdrOnly:
     'zero data retention is switched through PUT /api/organization/model-config/zdr, which requires org:models:manage',

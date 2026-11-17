@@ -1,14 +1,3 @@
-"""The `follow_ups` post-answer stage: gate, payload, sanitiser, handler.
-
-Slice 1 ships this stage `silent` — it runs and is measured and delivers
-nothing — so what these tests guard is not a rendering but a *measurement*: that
-every way the stage can end up producing no questions lands in a bucket you can
-tell apart from every other such bucket, and that the gate's decisions each name
-themselves.
-
-No LLM and no socket: the handler is exercised against a stub model.
-"""
-
 import dataclasses
 import json
 
@@ -28,8 +17,6 @@ from agent.stages.spec import StageContext
 from agent.stages.spec import StageEmpty
 from agent.stages.spec import TurnFacts
 
-# A real-shaped Austrian building-code answer: long enough to pass the gate's
-# length floor, and carrying the terms an anchored question can name.
 ANSWER = (
     "Für die Gebäudeklasse ist das Fluchtniveau maßgeblich: gemessen wird es vom Fußboden des "
     "höchstgelegenen Aufenthaltsraums bis zum angrenzenden Gelände. Liegt dieses Niveau nicht "
@@ -48,8 +35,6 @@ GOOD_ITEMS = [
     {"question": "Welche Nachweise verlangt die Einreichung dafür?", "hint": ""},
 ]
 
-# The set the doctrine names as the failure mode: four times "go on", anchored
-# to nothing in the answer.
 FILLER_ITEMS = [
     {"question": "Kannst du mehr dazu sagen?", "hint": ""},
     {"question": "Was gilt sonst noch?", "hint": ""},
@@ -59,7 +44,6 @@ FILLER_ITEMS = [
 
 
 def _body(items) -> str:
-    """The JSON body a model would return for `items`."""
     return json.dumps({"items": [{"question": item["question"], "hint": ""} for item in items]})
 
 
@@ -81,9 +65,6 @@ def _gate(**overrides):
 
 
 class _StubLLM:
-    """A chat model that returns a fixed body. `bind` returns itself, so the
-    structured-output path and the fallback path both land here."""
-
     def __init__(self, body: str, *, fail_bind: bool = False):
         self.body = body
         self.fail_bind = fail_bind
@@ -95,8 +76,11 @@ class _StubLLM:
         return self
 
     async def ainvoke(self, messages):
+        from agent.common import prompt_caching
+
         self.calls += 1
         self.messages = messages
+        self.one_shot = prompt_caching._ONE_SHOT.get()
         return type("_Response", (), {"content": self.body})()
 
 
@@ -105,13 +89,6 @@ class TestDeclaration:
         assert get_stage("follow_ups") is FOLLOW_UPS
 
     def test_it_delivers_a_frame(self):
-        """Slice 3: the stage's output reaches a reader.
-
-        Slice 1 shipped it `silent` deliberately — measured before any chip was
-        rendered — and this is the flip that measurement licensed. Turning it
-        back off is a flag, not a code change; `silent` here would leave the flag
-        on, the cost paid, the spans written, and the reader with nothing, which
-        is the one state neither slice wants."""
         assert FOLLOW_UPS.delivery == "frame"
 
     def test_it_runs_on_its_own_agent_group_and_flag(self):
@@ -119,28 +96,17 @@ class TestDeclaration:
         assert FOLLOW_UPS.flag_slug == "post-answer-follow-ups"
 
     def test_no_two_stages_share_an_agent_group(self):
-        """The map a stage's model is resolved from is keyed by AgentGroup, and
-        a group with no model is the capability bit. Two stages under one key
-        could not be pointed at different models, and unsetting one stage's LLM
-        would silently switch the other off too. follow_ups is the first stage
-        that makes this invariant non-trivial."""
         from agent.stages import iter_stages
 
         groups = [spec.agent_group for spec in iter_stages()]
         assert len(set(groups)) == len(groups)
 
     def test_it_is_bounded_tighter_than_reflection(self):
-        """A set that lands after the reader has typed their own question is
-        worse than none, because it moves the page."""
         assert FOLLOW_UPS.timeout_s == 20.0
         assert FOLLOW_UPS.max_output_tokens == 512
 
 
 class TestGate:
-    """Every condition of §7.6, each producing its own machine reason — the gate
-    is measurable rather than assumed only if two different skips never share a
-    bucket."""
-
     def test_a_substantive_research_turn_runs(self):
         assert _gate().run is True
 
@@ -163,14 +129,9 @@ class TestGate:
         assert decision.reason == reason
 
     def test_a_turn_that_already_emitted_the_card_still_runs(self):
-        """Deliberate: those are exactly the turns the stage is being measured
-        against. Skipping them would leave the empty rate measured only on turns
-        the model had already declined once."""
         assert _gate(emitted_card_types=frozenset({"follow_ups"})).run is True
 
     def test_no_condition_consults_a_model(self):
-        """The gate is deterministic Python. Called twice on the same facts it
-        must give the same answer, and it may not touch the context."""
         facts = _facts()
         assert FOLLOW_UPS.gate(facts) == FOLLOW_UPS.gate(facts)
 
@@ -201,8 +162,6 @@ class TestPayloadShape:
             FollowUpsPayload(items=[GOOD_ITEMS[0], dict(GOOD_ITEMS[0])])
 
     def test_the_payload_has_no_heading_to_write_chrome_into(self):
-        """The card carries an optional `title`; the payload deliberately does
-        not. The heading belongs to the rail."""
         assert "title" not in FollowUpsPayload.model_fields
         with pytest.raises(ValidationError):
             FollowUpsPayload(items=GOOD_ITEMS[:2], title="Weiterführende Fragen")
@@ -215,9 +174,6 @@ class TestAnchoring:
         assert FollowUpsPayload(items=items)
 
     def test_the_documented_bad_set_is_inexpressible(self):
-        """ "Erzähl mir mehr dazu" names nothing this answer introduced, and a
-        reader who gets one such set stops reading the chips — after which the
-        good sets are lost too. So the doctrine's test is the code's test."""
         assert sanitize_items(FILLER_ITEMS, answer=ANSWER) == []
 
     def test_one_filler_question_costs_only_itself(self):
@@ -225,15 +181,10 @@ class TestAnchoring:
         assert len(items) == 2
 
     def test_german_inflection_does_not_break_an_anchor(self):
-        """The answer says "Fluchtniveau"; the question may say "Fluchtniveaus"
-        and still be naming the same thing."""
         items = sanitize_items([{"question": "Wie belegt man die Fluchtniveaus?"}], answer=ANSWER)
         assert len(items) == 1
 
     def test_a_hint_is_never_promoted_into_the_anchor(self):
-        """Anchoring is a property of the QUESTION: a filler question with a
-        well-anchored hint is still filler, because the hint is a tooltip the
-        reader may never see."""
         assert sanitize_items([{"question": "Kannst du mehr dazu sagen?", "hint": "Fluchtniveau"}], answer=ANSWER) == []
 
 
@@ -247,8 +198,6 @@ class TestHandler:
 
     @pytest.mark.asyncio
     async def test_the_model_declining_is_its_own_bucket(self):
-        """The number that decides whether this feature was worth building. It
-        must not share a bucket with "the model answered and wrote filler"."""
         llm = _StubLLM('{"items": []}')
         result = await FOLLOW_UPS.handler(StageContext(facts=_facts(), llm=llm))
         assert result == StageEmpty("model_declined")
@@ -261,7 +210,6 @@ class TestHandler:
 
     @pytest.mark.asyncio
     async def test_a_model_that_rejects_response_format_still_answers(self):
-        """Same fallback as reflection: a binding quirk must not drop the stage."""
         body = _body(GOOD_ITEMS[:2])
         llm = _StubLLM(body, fail_bind=True)
         result = await FOLLOW_UPS.handler(StageContext(facts=_facts(), llm=llm))
@@ -269,7 +217,6 @@ class TestHandler:
 
     @pytest.mark.asyncio
     async def test_exactly_one_llm_call_per_turn(self):
-        """§7.5: no stage may make two."""
         llm = _StubLLM('{"items": []}')
         await FOLLOW_UPS.handler(StageContext(facts=_facts(), llm=llm))
         assert llm.calls == 1
@@ -277,12 +224,9 @@ class TestHandler:
 
 class TestPromptInputs:
     def test_the_prompt_sees_the_finished_answer(self):
-        """The whole reason this is a post-answer stage rather than a card."""
         assert ANSWER in build_user_prompt(_facts())
 
     def test_a_long_answer_is_sliced_and_the_slice_is_marked(self):
-        """An unmarked slice invites a question anchored on a sentence that was
-        cut in half."""
         prompt = build_user_prompt(_facts(answer="x" * 9000))
         assert "(Antwort gekürzt)" in prompt
         assert len(prompt) < 7000
@@ -291,32 +235,12 @@ class TestPromptInputs:
         assert "Tirol" in build_user_prompt(_facts(federal_state="Tirol"))
 
     def test_the_project_memory_digest_does_not(self):
-        """§5.2 named "project profile" as an input; it is deliberately not
-        carried. The digest is capped at 6,000 characters and would roughly
-        double a per-turn cost accepted for a navigation aid."""
         digest = '- [decision | high] "Bauherr wählt Flachdach"'
         assert digest not in build_user_prompt(_facts(memory_digest=digest))
 
 
 class TestCostCeiling:
-    """The measured per-turn cost, pinned.
-
-    Slice 1 exists to answer "what does this actually cost", so a prompt edit
-    that quietly doubles the bill has to fail rather than land in the number
-    the decision is made on. Same discipline as the `emit_card` and post-hoc
-    ceilings in `packages/agent/tests/cards/`.
-
-    Measured with cl100k_base when written: 681 tokens of fixed system prompt;
-    925 on a representative turn (the 729-character answer from the repo's own
-    `/dev/chat-turn` follow-ups fixture); 2,463 with both input caps saturated
-    with German prose. The design estimated ~2,270 per turn — which turns out
-    to be roughly the WORST case, not the typical one.
-    """
-
-    #: The fixed half, paid on every turn that passes the gate.
     MAX_SYSTEM_TOKENS = 800
-    #: The whole prompt when both input slices are full. Nothing can exceed this
-    #: except by raising a cap.
     MAX_WORST_CASE_TOKENS = 2_600
 
     @staticmethod
@@ -335,8 +259,6 @@ class TestCostCeiling:
         )
 
     def test_a_saturated_turn_stays_under_its_ceiling(self):
-        """The input caps are what make the cost bounded by something other than
-        how long the answer was."""
         encoding = self._encoding()
         facts = _facts(
             query="Frage. " * 600, answer="Ein Satz über das Fluchtniveau. " * 400, federal_state="Vorarlberg"
@@ -349,9 +271,12 @@ class TestCostCeiling:
         )
 
     def test_the_output_ceiling_has_room_for_a_full_set(self):
-        """512 output tokens against a measured 117 for four real German
-        questions with hints, and 204 for four at the length limits. A body
-        truncated mid-JSON turns a good set into a `failed` outcome."""
         encoding = self._encoding()
         body = json.dumps({"items": GOOD_ITEMS}, ensure_ascii=False)
         assert len(encoding.encode(body)) * 2 < FOLLOW_UPS.max_output_tokens
+
+
+async def test_the_follow_ups_call_writes_nothing_to_the_cache():
+    llm = _StubLLM('{"items": []}')
+    await FOLLOW_UPS.handler(StageContext(facts=_facts(), llm=llm))
+    assert llm.calls == 1 and llm.one_shot is True

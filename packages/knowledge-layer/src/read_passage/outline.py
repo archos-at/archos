@@ -13,40 +13,22 @@ from .fetch import _fetch_all
 from .models import PassageTarget
 from .ranges import _clause_spellings
 
-#: How many chunks one OUTLINE fetch may return per collection.
-#:
-#: Larger than the passage bound because the set is the whole top of a
-#: document: OIB 2 carries ~214 Punkte, far fewer of them at depth 1 or 2, and a
-#: long Punkt may arrive as several chunks that share one ``clause_id``. Still a
-#: guard rather than a relevance budget — the metadata filter has already
-#: decided WHICH chunks exist.
 _MAX_OUTLINE_CHUNKS = 160
 
-#: How many Gliederung lines the outline may print before it says how many more
-#: exist. Headings are not rendered as passages (a heading is not evidence), so
-#: 80 lines is roughly one search result in tokens.
 _MAX_OUTLINE_LINES = 80
 
-#: The two heading levels an outline lists. The Punkt chunker writes
-#: ``clause_depth`` as an int and a backend that round-trips metadata through
-#: JSON hands it back as a string, so :func:`_outline_filters` asks for both
-#: spellings and :func:`_clause_depth` normalises them.
 _OUTLINE_DEPTHS = (1, 2)
 
-#: The one line that says what the Gliederung is and what it is not. English, like everything an
-#: agent reads (AGENTS.md), and it names no tool: three agents read it, each with its own reader.
 _OUTLINE_INSTRUCTION = (
     "Open a listed Punkt by its number. The Gliederung is an index, not evidence: only the passages above "
     "carry a Citation."
 )
 
-#: The same sentence for a document that has no Punkte to list.
 _NO_CLAUSES_LINE = (
     "This document is not structured in Punkte, so it has no Gliederung: its first passages are above, and "
     "further pages open by their number."
 )
 
-#: How much of a Punkt's opening sentence a Gliederung line carries.
 _EXCERPT_CHARS = 120
 
 
@@ -220,10 +202,7 @@ class OutlineEntry:
     title: str
     page: str
     depth: int
-    #: The Punkt's opening sentence, bounded — what a chapter is ABOUT, beside
-    #: what it is called. Empty below depth 1 and for a chunk with no body.
     excerpt: str = ""
-    #: Document order for a heading with no number to sort on (a tenant section).
     order: tuple[int, int] = (0, 0)
 
 
@@ -311,7 +290,6 @@ def _outline_lines(entries: Sequence[OutlineEntry], limit: int = _MAX_OUTLINE_LI
     lines = []
     for entry in shown:
         indent = "  " if entry.depth == 2 else ""
-        # An unnumbered section is addressed by its title; saying it twice is noise.
         title = f": {entry.title}" if entry.title and entry.title != entry.clause_id else ""
         page = f" (p. {entry.page})" if entry.page else ""
         excerpt = f" — {entry.excerpt}" if entry.excerpt else ""
@@ -334,7 +312,6 @@ class Outline:
     chunks: list[Any]
     entries: list[OutlineEntry]
     failures: list[BaseException]
-    #: Read by filter alone, with no embedding (``BaseRetriever.fetch``).
     structural: bool
 
 

@@ -1,15 +1,3 @@
-/**
- * The typed client for the push API (ADR-0055, ADR-0112): the paths, the verbs
- * and the parsed responses, written once. The settings section, the inbox prompt
- * and the service worker's re-subscribe all call this, and the route spec drives
- * the real handlers through it.
- *
- * Responses are parsed with the wire schemas, not cast, so a server a deploy
- * ahead or behind is a thrown {@link PushApiError} rather than a wrong shape.
- *
- * No `server-only`: the browser imports this.
- */
-
 import type { ZodType } from 'zod'
 import type { PushPreferencesPatch } from '@/lib/inbox/push-categories'
 import {

@@ -15,11 +15,6 @@ import type { IntakeDecision, Suggestion } from '@/lib/project-intake/types'
 import { usePressed } from '../../hooks/use-pressed'
 import { questionForKey } from '../../lib/display'
 
-/**
- * „Ändern": the person's own value for a row, asked with the wizard's own
- * control in a popover beside it, and written as their answer (`answer`, with
- * person evidence). A key no wizard question writes cannot be changed here.
- */
 export function EditValue({
   item,
   label,
@@ -38,7 +33,6 @@ export function EditValue({
   const [saving, save] = usePressed()
   const asked = questionForKey(item.key)
   if (!asked) return null
-  // The control is named like the row it changes.
   const question = { ...asked, label }
   const provided = isIntakeAnswerProvided(value)
   return (

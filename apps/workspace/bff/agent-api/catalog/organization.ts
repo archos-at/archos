@@ -1,5 +1,3 @@
-/** The organization operations (ADR-0122). See `projects.ts` for the shape and `docs/architecture/agent-surface.md` for the rules. */
-
 import { z } from 'zod'
 import {
   budgetDeleteSchema,
@@ -48,7 +46,6 @@ const versionParams = z.object({
 
 
 export const organizationOperations = [
-  // --- members and roles ---------------------------------------------------
   {
     name: 'organization-member-list',
     domain: 'organization',
@@ -117,7 +114,6 @@ export const organizationOperations = [
     load: () => import('@/app/api/organization/roles/[slug]/route'),
   },
 
-  // --- settings ------------------------------------------------------------
   {
     name: 'organization-settings-get',
     domain: 'organization',
@@ -184,7 +180,6 @@ export const organizationOperations = [
     load: () => import('@/app/api/organization/instructions/route'),
   },
 
-  // --- the office's conventions --------------------------------------------
   {
     name: 'office-conventions-list',
     domain: 'organization',
@@ -214,14 +209,14 @@ export const organizationOperations = [
     load: () => import('@/app/api/organization/office-conventions/route'),
   },
 
-  // --- organization memory -------------------------------------------------
   {
     name: 'organization-memory-list',
     domain: 'organization',
     summary: 'List organization memory',
     description:
-      'The knowledge shared by every project of the organization (kind, content, status, confidence, pinned), pinned first then newest, a page of `limit` (default 50) with `nextCursor`. ' +
-      'Any member may read. Item ids feed organization-memory-update and organization-memory-delete.',
+      'Knowledge shared by every project of the organization (kind, content, status, confidence, pinned), pinned, then newest, a `limit` (default 50) page with `nextCursor`. ' +
+      '`topics` counts active items; `topic` filters. ' +
+      'Any member reads. Ids feed organization-memory-update and organization-memory-delete.',
     method: 'GET',
     path: '/api/organization/memory',
     query: listOrganizationMemoryQuerySchema,
@@ -244,7 +239,7 @@ export const organizationOperations = [
     domain: 'organization',
     summary: 'Edit an organization memory item',
     description:
-      'Changes fields of one organization memory item (kind, content, status, confidence, verification, pinned). ' +
+      'Changes fields of one organization memory item (kind, content, status, confidence, verification, pinned, or `topic`). ' +
       'At least one field is required. The id comes from organization-memory-list.',
     method: 'PATCH',
     path: '/api/organization/memory/[itemId]',
@@ -267,7 +262,6 @@ export const organizationOperations = [
     load: () => import('@/app/api/organization/memory/[itemId]/route'),
   },
 
-  // --- model configuration and zero data retention -------------------------
   {
     name: 'organization-model-config-get',
     domain: 'organization',
@@ -349,7 +343,6 @@ export const organizationOperations = [
     load: () => import('@/app/api/organization/model-config/zdr/route'),
   },
 
-  // --- LLM provider keys ---------------------------------------------------
   {
     name: 'organization-llm-credential-list',
     domain: 'organization',
@@ -422,7 +415,6 @@ export const organizationOperations = [
     load: () => import('@/app/api/organization/llm-credentials/mode/route'),
   },
 
-  // --- budgets and usage ---------------------------------------------------
   {
     name: 'organization-budget-get',
     domain: 'organization',
@@ -488,7 +480,6 @@ export const organizationOperations = [
     load: () => import('@/app/api/organization/usage/notice/route'),
   },
 
-  // --- storage, sensitive data, auditing -----------------------------------
   {
     name: 'organization-storage-get',
     domain: 'organization',
@@ -587,7 +578,6 @@ export const organizationOperations = [
     method: 'POST',
     path: '/api/organization/audit-portal',
     idempotent: false,
-    // The link is a credential to the organization's audit log, as platform-audit-portal-link's is.
     sensitivity: 'secret',
     load: () => import('@/app/api/organization/audit-portal/route'),
   },

@@ -16,8 +16,6 @@ describe('parseAutomationTab', () => {
   })
 
   test('the retired tab ids still answer', () => {
-    // A bookmark is not an error. `jobs` was the Jobs tab and `schedule` the
-    // Zeitplan tab; both meant the standing arrangements, which are Tasks now.
     expect(parseAutomationTab('jobs')).toBe('tasks')
     expect(parseAutomationTab('schedule')).toBe('tasks')
   })
@@ -39,9 +37,6 @@ describe('tabForDeepLink', () => {
   })
 
   test('a skill drawer belongs to Skills', () => {
-    // The regression this guards: without the `skill` branch the link landed
-    // on Tasks, where the toolbox that owns that drawer is not mounted, so the
-    // drawer never opened and the URL looked like it had been ignored.
     expect(tabForDeepLink(new URLSearchParams('skill=skill-1'))).toBe('skills')
   })
 

@@ -91,23 +91,17 @@ def start_enrichment(
     executor = ThreadPoolExecutor(max_workers=4)
     calls = Enrichment(executor=executor)
     calls.summary = submit_in_context(executor, _adapter._generate_document_summary, llm_input, file_name, llm)
-    # The dossier reads the WHOLE document (a digest of every page). Not for the
-    # base corpus: a Richtlinie is not a project document, and its clauses carry its structure.
     if not base_corpus:
         from agent.knowledge.dossier import write_dossier
 
-        # The digest is built here, before the chunks are stamped for the write.
         digest = _dossier_digest(all_documents, file_name)
         calls.dossier = submit_in_context(executor, write_dossier, digest, llm, file_name=file_name)
     calls.tags = submit_in_context(
         executor, classify_document_tags, llm_input, file_name, llm, organization_id=organization_id
     )
-    # The model's own topics, told the project's existing ones first so its spellings hold.
     calls.topics = submit_in_context(
         executor, suggest_topics, llm_input, file_name, llm, existing=get_topic_vocabulary(collection_name)
     )
-    # A base-corpus file whose name gives no OIB hint: the decision model proposes a
-    # Dokumentart for the platform owner to accept (ADR-0064, use 8).
     if suggest_class:
         from agent.knowledge.document_classification import suggest_doc_class
 
@@ -139,7 +133,6 @@ def collect_enrichment(calls: Enrichment, stages: dict[str, float], file_name: s
         topics = _adapter._future_result(calls.topics, "Topic suggestion", file_name)
     with _adapter._stage(stages, "dossier"):  # its own seconds: it reads every page
         dossier = _adapter._future_result(calls.dossier, "Dossier", file_name, timeout=_adapter.DOSSIER_TIMEOUT_SECONDS)
-    # Written from every page rather than the first and last chunk.
     if dossier and dossier.get("summary"):
         summary = dossier["summary"]
     calls.close()

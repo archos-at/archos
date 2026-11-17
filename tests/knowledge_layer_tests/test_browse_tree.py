@@ -1,5 +1,3 @@
-"""`list_files(view="tree")`: a card per folder, counted from the turn's rows alone (tier 0)."""
-
 from __future__ import annotations
 
 from unittest.mock import MagicMock
@@ -100,7 +98,6 @@ def test_current_revision_from_a_persons_confirmation():
 
 
 def test_a_confirmed_chain_has_one_current_revision():
-    """A → B → C, each confirmed: only C is current, and it replaces both."""
     card = _cards(
         [
             _doc("A.pdf", "E", superseded_by="B.pdf"),
@@ -113,7 +110,6 @@ def test_a_confirmed_chain_has_one_current_revision():
 
 
 def test_a_name_series_whose_head_a_person_replaced_is_not_current():
-    """EP_Index-B heads a name series over Index-A, but a person confirmed Neu.pdf replaces it."""
     card = _cards(
         [
             _doc("EP_Index-A.pdf", "E"),
@@ -207,7 +203,6 @@ class TestTheTool:
 
 @pytest.mark.parametrize("raw", [7, "7", " 7 ", 7.0, 0, -3, "", None, "sieben", True, False])
 def test_the_listing_and_the_store_parse_a_page_count_alike(raw):
-    """One parse of a page number (``page_count.page_number``): a flag is no count, anywhere."""
     from agent.knowledge.document_metadata_store import _decode_page_count
     from agent.knowledge.page_count import page_number
 

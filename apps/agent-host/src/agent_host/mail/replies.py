@@ -32,15 +32,11 @@ from mailparser_reply.parser import EmailMessage
 
 from . import limits
 
-#: The rule sets the splitter applies. English rules are always on as well.
 LANGUAGES = ("de", "en")
 
-#: Characters Python reads as line breaks inside a line (``str.splitlines``).
 _LINE_BREAKS = re.compile("[\r\x0b\x0c\x1c\x1d\x1e\x85  ]")
-#: Whitespace that is not a line break.
 _HORIZONTAL_SPACE = r"[^\S\n]"
 _BLANK_RUN = re.compile(r"\n{3,}")
-#: A quote marker at the start of a line ("> ", ">> ", "> > ").
 _QUOTE_MARKER = re.compile(r"^(?:> ?)+", re.MULTILINE)
 
 
@@ -55,7 +51,6 @@ class SplitText:
     own: str
     quoted: tuple[Quoted, ...]
     signature_removed: bool
-    #: Whether the splitter ran; a text past its bound is kept whole.
     split: bool
 
 
@@ -68,8 +63,6 @@ def split_replies(text: str) -> SplitText:
         return SplitText(own="", quoted=(), signature_removed=False, split=True)
     message = EmailMessage(text=prepared, languages=list(LANGUAGES), keep_hyphen_lists=True).read()
     replies = message.replies
-    # The first reply is the sender's own text unless the body opens with a
-    # header (a bare forward): then everything in it is quoted.
     own_reply = replies[0] if replies and not replies[0].headers else None
     quoted = replies[1:] if own_reply is not None else replies
     own = own_reply.body if own_reply is not None else ""

@@ -1,17 +1,3 @@
-"""Only ``knowledge_layer/vector_store/`` talks to Qdrant, and nothing talks to Chroma (ADR-0115, ADR-0116).
-
-The scope filter is the boundary between offices' documents. It holds by
-construction only while every read goes through ``knowledge_layer.vector_store``,
-whose filters cannot be built without a scope; a second client elsewhere
-would be a read path that never asked for one. Tests may import the client to
-drive and inspect the server.
-
-Chroma is gone: Qdrant is the one vector store. The only code that may still
-read a Chroma store is the one-off migration that exports it
-(:data:`CHROMA_ALLOWED`), which carries its own dependencies; a ``chromadb``
-import anywhere else would be a second store creeping back in.
-"""
-
 from __future__ import annotations
 
 import functools
@@ -24,31 +10,20 @@ ALLOWED = REPO / "packages" / "knowledge-layer" / "src" / "vector_store"
 SEARCHED = ("src", "packages", "apps/agent-host/src", "scripts")
 IMPORT = re.compile(r"^\s*(from\s+qdrant_client\b|import\s+qdrant_client\b)", re.MULTILINE)
 
-#: The migration tool that exports an old Chroma store (``docs/deployment/qdrant-runbook.md``).
 CHROMA_ALLOWED = ("deploy/migration",)
-#: Trees that are not this repo's code.
 NOT_OURS = frozenset({".venv", "node_modules", ".git", ".claude", ".agents"})
-#: An import, or a test's ``pytest.importorskip("chromadb")``: the second one
-#: skipped quietly once ``chromadb`` left the environment, and took its
-#: assertions with it (``test_browse.py``'s exact-mode store tests did).
 CHROMA_IMPORT = re.compile(
     r"^\s*(from\s+(chromadb|llama_index\.vector_stores\.chroma)\b"
     r"|import\s+(chromadb|llama_index\.vector_stores\.chroma)\b)"
     r"|importorskip\(\s*[\"'](chromadb|llama_index\.vector_stores\.chroma)\b",
     re.MULTILINE,
 )
-#: Chroma's client reached without importing it: looked up by name on the
-#: retriever (``getattr(retriever, "_get_chroma_client", None)``) or called by
-#: its collection API. A develop merge brought the first one in after Chroma
-#: was gone; the Fassung compare then read nothing and said the file was not
-#: in the index, with every test green against a faked client.
 CHROMA_CLIENT_USE = re.compile(
     r"_get_chroma_client|\bchroma_client\b|\.get_collection\(\s*name=|include=\[\s*[\"']documents[\"']"
 )
 
 
 def _python_files(repo: pathlib.Path) -> list[pathlib.Path]:
-    """Every ``.py`` under ``repo`` outside :data:`NOT_OURS`, without descending into those trees."""
     found: list[pathlib.Path] = []
     for directory, subdirs, names in os.walk(repo):
         subdirs[:] = [name for name in subdirs if name not in NOT_OURS]
@@ -68,7 +43,6 @@ def _offenders(repo: pathlib.Path = REPO) -> list[str]:
     allowed = repo / "packages" / "knowledge-layer" / "src" / "vector_store"
     for path in files:
         relative = path.relative_to(repo)
-        # Tests and their support packages (`testing/`) may reach the client.
         test_code = {"tests", "testing"} & set(relative.parts)
         if not any(root in path.parents for root in roots) or allowed in path.parents or test_code:
             continue
@@ -100,7 +74,6 @@ def test_only_the_qdrant_package_imports_qdrant_client():
 
 
 def _plant(root: pathlib.Path, relative: str, text: str) -> pathlib.Path:
-    """Write a file under a scratch repo, never the real one: parallel workers scan that tree."""
     path = root / relative
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text, encoding="utf-8")
@@ -108,7 +81,6 @@ def _plant(root: pathlib.Path, relative: str, text: str) -> pathlib.Path:
 
 
 def test_the_boundary_check_would_see_an_offender(tmp_path):
-    """The check is not vacuous: a planted import outside the package is found."""
     _plant(tmp_path, "scripts/_planted_qdrant_import_check.py", "from qdrant_client import QdrantClient\n")
     assert "scripts/_planted_qdrant_import_check.py" in _offenders(tmp_path)
 
@@ -132,7 +104,6 @@ def test_the_chroma_check_sees_an_offender_in_code_and_tests_alike(tmp_path):
 
 
 def test_nothing_reaches_for_a_chroma_client_by_name():
-    """No code, test fakes included, asks for Chroma's client or calls its collection API."""
     assert _chroma_users(CHROMA_CLIENT_USE) == []
 
 

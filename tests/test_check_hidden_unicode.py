@@ -1,5 +1,3 @@
-"""The commit-time check for invisible characters (scripts/check_hidden_unicode.py)."""
-
 from __future__ import annotations
 
 import importlib.util

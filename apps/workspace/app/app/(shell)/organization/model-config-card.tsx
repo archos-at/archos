@@ -1,26 +1,5 @@
 'use client'
 
-/**
- * Org-admin editor for runtime model configuration (ADR-0014).
- *
- * Per agent group: the effective model — this org's own choice, or the default
- * it inherits — with a searchable picker (Popover) that only lists models
- * passing the group's capability requirements, and a per-group reset back to
- * the inherited default. Saving creates a new immutable version; the history
- * panel offers one-click rollback.
- *
- * The inherited default is NOT static: it is whatever the platform owner has
- * pinned for that group (falling back to the workflow YAML where they have
- * pinned nothing), resolved server-side by `getGroupDefaults()`. So a group
- * showing "Default" here follows a platform-side model change on its own —
- * which is the point of not overriding it.
- *
- * Zero data retention (`ZdrPolicySection`) is on unless the org opted out; the
- * picker then lists only models with a ZDR endpoint, and a row whose effective
- * model has none says so (`ZdrGroupNotice`). Every refusal the server sends is
- * a reason code rendered in the reader's language, never raw server text.
- */
-
 import { type FC, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronDown, History, RotateCcw, ShieldAlert } from 'lucide-react'
 import { toast } from 'sonner'
@@ -58,25 +37,16 @@ interface ModelDto {
   id: string
   name: string
   contextLength: number
-  /**
-   * The platform's reference request on this model, at the active price list
-   * (ADR-0053); null for an organization on its own key, which pays its
-   * provider and is shown no credits at all.
-   */
   creditsPerRequest: number | null
-  /** False: no zero-data-retention endpoint serves this task (only listed when ZDR is off). Null: unknown. */
   zdrSafe: boolean | null
 }
 
-/** Why a picker or save request failed, as far as the reader needs to know. */
 type FailureKind = 'zdr_list_unavailable' | 'other'
 
-/** A 503 whose `details.reason` names the ZDR list is its own failure; everything else is generic. */
 async function failureKind(res: Response): Promise<FailureKind> {
   return (await isZdrListUnavailableResponse(res)) ? 'zdr_list_unavailable' : 'other'
 }
 
-/** A 422's per-group rejections as one localized sentence list, or '' when it carried none. */
 async function rejectionText(res: Response, t: Translator, labelOf: (groupId: string) => string): Promise<string> {
   try {
     const body = (await res.json()) as { details?: unknown }
@@ -100,7 +70,6 @@ const formatContext = (tokens: number): string =>
 
 const ModelPicker: FC<{
   group: AgentGroupDto
-  /** Bumping this re-runs the search (e.g. after the ZDR filter changes). */
   epoch: number
   onPick: (modelId: string) => void
 }> = ({ group, epoch, onPick }) => {
@@ -109,8 +78,6 @@ const ModelPicker: FC<{
   const [query, setQuery] = useState('')
   const [models, setModels] = useState<ModelDto[] | null>(null)
   const [failure, setFailure] = useState<FailureKind | null>(null)
-  // Whether the server narrowed this list to ZDR models: decides what an
-  // empty list means.
   const [zdrFiltered, setZdrFiltered] = useState(false)
   const [loading, setLoading] = useState(true)
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -225,20 +192,12 @@ export const ModelConfigCard: FC = () => {
   const [activeVersionId, setActiveVersionId] = useState<string | null>(null)
   const [historyOpen, setHistoryOpen] = useState(false)
   const [catalogSource, setCatalogSource] = useState<{ source: string; provider: string | null } | null>(null)
-  // On until the server says otherwise: ZDR is the default, so a card that
-  // has not loaded yet must not suggest it is off.
   const [zdrOnly, setZdrOnly] = useState(true)
   const [zdrApplicable, setZdrApplicable] = useState(true)
   const [zdrCoverage, setZdrCoverage] = useState<ZdrCoverage | null>(null)
-  // Pending whole-org production swap awaiting confirmation: a specific version,
-  // or 'none' (reset to the workflow defaults).
   const [pendingActivate, setPendingActivate] = useState<VersionDto | 'none' | null>(null)
-  // Bumped whenever the catalog-shaping ZDR policy changes, so an open picker
-  // re-runs its search against the newly filtered catalog.
   const [catalogEpoch, setCatalogEpoch] = useState(0)
 
-  // `quiet`: re-derive without the skeleton, so a ZDR toggle does not unmount
-  // the section (and its dialog) that asked for the reload.
   const load = useCallback(async (options?: { quiet?: boolean }) => {
     if (!options?.quiet) setLoading(true)
     try {
@@ -256,7 +215,6 @@ export const ModelConfigCard: FC = () => {
       setGroups(body.agentGroups)
       setDefaults(body.defaults ?? {})
       setCatalogSource(body.catalogSource ?? null)
-      // Anything but an explicit false is ZDR, the same reading as the server.
       setZdrOnly(body.zdrOnly !== false)
       setZdrApplicable(body.zdrApplicable !== false)
       setZdrCoverage(body.zdrCoverage ?? null)
@@ -269,9 +227,6 @@ export const ModelConfigCard: FC = () => {
       setActiveVersionId(body.activeVersion?.id ?? null)
       setLoadFailed(false)
     } catch {
-      // A first load that fails is a state of the card, said in place with a
-      // retry; a quiet re-read (after a ZDR toggle) leaves the card standing
-      // and only reports the transient failure.
       if (options?.quiet) toast.error(t('models.loadError'))
       else setLoadFailed(true)
     } finally {
@@ -292,7 +247,6 @@ export const ModelConfigCard: FC = () => {
       setActiveVersionId(body.activeVersionId)
       setVersionsFailed(false)
     } catch {
-      // Said in the history itself: a toast left the spinner turning there.
       setVersionsFailed(true)
     }
   }, [])
@@ -304,7 +258,6 @@ export const ModelConfigCard: FC = () => {
     [groups],
   )
 
-  /** A refused save or rollback, in the reader's language. */
   const refusalMessage = useCallback(
     async (res: Response, fallback: string): Promise<string> => {
       if (res.status === 422) return `${fallback} ${await rejectionText(res, t, labelOf)}`.trim()
@@ -327,8 +280,6 @@ export const ModelConfigCard: FC = () => {
         toast.error(await refusalMessage(res, t('models.saveError')))
         return
       }
-      // Kept: saving folds the unsaved-changes panel away, so nothing on the
-      // card says the org-wide swap took except this.
       toast.success(t('models.saved'))
       setComment('')
       await load()
@@ -348,7 +299,6 @@ export const ModelConfigCard: FC = () => {
           toast.error(await refusalMessage(res, t('models.activateError')))
           return
         }
-        // The „Aktiv" badge moving to the chosen version is the receipt.
         await load()
         await loadVersions()
       } catch {
@@ -361,7 +311,6 @@ export const ModelConfigCard: FC = () => {
   const onZdrChanged = useCallback(async () => {
     setPickerGroup(null)
     await load({ quiet: true })
-    // The picker's catalog is shaped by ZDR: an open one re-runs its search.
     setCatalogEpoch((n) => n + 1)
   }, [load])
 
@@ -475,7 +424,7 @@ export const ModelConfigCard: FC = () => {
                   onOpenChange={(open) => setPickerGroup(open ? group.id : null)}
                 >
                   <PopoverTrigger asChild>
-                    <Button variant="outline" size="sm">
+                    <Button variant="secondary" size="sm">
                       {t('models.change')}
                       <ChevronDown className="ml-1 size-3.5" aria-hidden />
                     </Button>
@@ -545,7 +494,7 @@ export const ModelConfigCard: FC = () => {
               <EmptyState variant="bare" title={t('models.historyEmpty')} />
             )}
             {versions !== null && versions.length > 0 && activeVersionId !== null && (
-              <Button variant="outline" size="sm" className="self-start" onClick={() => setPendingActivate('none')}>
+              <Button variant="secondary" size="sm" className="self-start" onClick={() => setPendingActivate('none')}>
                 <RotateCcw className="mr-1.5 size-3.5" aria-hidden />
                 {t('models.useDefaults')}
               </Button>
@@ -572,7 +521,7 @@ export const ModelConfigCard: FC = () => {
                   ))}
                 </ul>
                 {version.id !== activeVersionId && (
-                  <Button variant="outline" size="sm" className="mt-2" onClick={() => setPendingActivate(version)}>
+                  <Button variant="secondary" size="sm" className="mt-2" onClick={() => setPendingActivate(version)}>
                     {t('models.activate')}
                   </Button>
                 )}

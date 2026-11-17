@@ -93,16 +93,8 @@ from agent.turn.response import turn_answer_message_id
 
 logger = logging.getLogger(__name__)
 
-#: Longest file name this may build, extension included. The BFF caps a document
-#: name at 200 characters (``MAX_DOCUMENT_NAME_LENGTH``); this is that, minus the
-#: room ``.md`` needs, so a legal name never becomes an illegal path.
 MAX_NAME_CHARS = 197
 
-#: Characters that would make the name something other than one file in one
-#: directory. ``/`` is the one that matters — an agent-authored document is
-#: filed under ``piloti/<id>/<name>`` and a display name is free text — and the
-#: backslash and the control range ride along because a path is not the place to
-#: find out which of them the store minds.
 _UNSAFE = {"/", "\\", "\x00"}
 
 
@@ -117,11 +109,6 @@ def draft_path(display_name: str) -> str:
     """
     name = unicodedata.normalize("NFC", display_name or "").strip()
     name = "".join("-" if character in _UNSAFE or character < " " else character for character in name)
-    # `..` is refused by the working directory itself (`path_refusal`), so a name
-    # carrying one would produce a path nothing could later write to or file —
-    # a file the reader can see in `ls` and the tools cannot touch. Collapsed
-    # rather than rejected: the name is a label, and „Plan .. Stand Mai" is a
-    # careless name, not an attack.
     while ".." in name:
         name = name.replace("..", ".")
     name = " ".join(name.split()).strip(". ")
@@ -264,8 +251,6 @@ async def _load_subject_document(
     organization_id: str | None,
     user_id: str | None,
 ) -> StatusStep | None:
-    # A published subject, a plain question, or a run with nowhere to put a file.
-    # None of the three is a miss worth recording: nothing was expected.
     if not subject.is_open or not conversation_id or not organization_id:
         return None
 
@@ -274,8 +259,6 @@ async def _load_subject_document(
     if isinstance(body, StatusStep):
         return body
     if body.get("drewOnRestrictedFolder") and (use := current_restricted_use()) is not None:
-        # The BFF admitted and recorded the subject's restricted folder before
-        # it sent the bytes: the conversation is confined from here.
         use.note_recorded()
 
     text = body.get("content")

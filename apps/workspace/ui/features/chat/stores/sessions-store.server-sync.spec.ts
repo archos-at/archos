@@ -1,8 +1,3 @@
-/**
- * Server-sync behavior of the sessions slice: repopulating past chats from
- * the server-persisted history, and keeping the server rows in step with
- * local deletes/renames so history can't resurrect as empty ghosts.
- */
 import { afterEach, describe, it, expect, beforeEach, vi } from 'vitest'
 
 const mockLayoutState = vi.hoisted(() => ({
@@ -32,7 +27,6 @@ const mockConversationsClient = vi.hoisted(() => ({
   listMessages: vi.fn(),
   createMessage: vi.fn(),
   createMessages: vi.fn(),
-  // No frames in the replay stream: a turn nobody is still working on.
   newestFrameAge: vi.fn().mockResolvedValue(null),
 }))
 vi.mock('@/adapters/api/conversations-client', () => ({
@@ -111,7 +105,6 @@ describe('selectConversation message repopulation', () => {
     const messages = useChatStore.getState().currentConversation!.messages
     expect(messages[0]).toMatchObject({ role: 'user', content: 'What does OIB 2 require?', messageType: 'user' })
     expect(messages[1]).toMatchObject({ role: 'assistant', messageType: 'agent_response' })
-    // The sidebar copy is hydrated too, not just the active pointer.
     expect(
       useChatStore.getState().conversations.find((c) => c.id === conv.id)?.messages
     ).toHaveLength(2)
@@ -148,19 +141,15 @@ describe('selectConversation message repopulation', () => {
 
     useChatStore.getState().selectConversation(conv.id)
 
-    // A live message lands before the server responds.
     useChatStore.getState().addUserMessage('typed while fetching')
 
     resolveFetch([
       serverRow(conv.id, 'm1', 'user', 'earlier question'),
       serverRow(conv.id, 'm2', 'assistant', 'earlier answer'),
     ])
-    // Flush the hydration continuation (macrotask so all microtasks drain).
     await new Promise((resolve) => setTimeout(resolve, 0))
     await new Promise((resolve) => setTimeout(resolve, 0))
 
-    // Dropping the server rows here hid the history for good: the awaiting
-    // flag was cleared, so nothing ever fetched it again.
     const messages = useChatStore.getState().currentConversation!.messages
     expect(messages.map((m) => m.content)).toEqual([
       'earlier question',
@@ -201,8 +190,6 @@ describe('selectConversation message repopulation', () => {
   })
 
   it('names the opening thread as pending until its history lands, in the same set as the messages', async () => {
-    // The awaiting set is not reactive: the thread showed the greeting while
-    // a server-only conversation's messages were on their way.
     const conv = makeConversation({ messages: [] })
     useChatStore.setState({ conversations: [conv] })
     markAwaitingServerMessages(conv.id)
@@ -222,14 +209,10 @@ describe('selectConversation message repopulation', () => {
     unsubscribe()
 
     expect(useChatStore.getState().pendingMessagesFor).toBeNull()
-    // Never a state with the messages AND the thread still loading.
     expect(seen.some((s) => s.pending === conv.id && s.count > 0)).toBe(false)
   })
 
   it('a thread reopened while its history is still on its way shows it loading, not the greeting', async () => {
-    // A, B, back to A before A's fetch landed: `selectConversation` clears the
-    // pending thread, and the fetch already in flight returned at its dedupe
-    // without naming A again, so A read as empty until its history arrived.
     const a = makeConversation({ messages: [] })
     const b = makeConversation({ messages: [{ id: 'b1', role: 'user', content: 'b', timestamp: new Date(), messageType: 'user' }] })
     useChatStore.setState({ conversations: [a, b] })
@@ -243,8 +226,6 @@ describe('selectConversation message repopulation', () => {
     useChatStore.getState().selectConversation(a.id)
 
     expect(useChatStore.getState().pendingMessagesFor).toBe(a.id)
-    // The fetch starts after the client loads: waited for, not timed. One
-    // fetch: the reopen joins the one in flight.
     await vi.waitFor(() => expect(mockConversationsClient.listMessages).toHaveBeenCalled())
     expect(mockConversationsClient.listMessages).toHaveBeenCalledTimes(1)
 
@@ -310,7 +291,6 @@ describe('server row lifecycle sync', () => {
     })
     expect(mockConversationsClient.delete).toHaveBeenCalledWith(conv1.id)
     expect(mockConversationsClient.delete).toHaveBeenCalledWith(conv2.id)
-    // Out-of-scope sessions (another project) keep their server rows.
     expect(mockConversationsClient.delete).not.toHaveBeenCalledWith(otherProject.id)
   })
 
@@ -363,8 +343,6 @@ describe('loadServerConversations merge', () => {
     ])
 
     await useChatStore.getState().loadServerConversations()
-    // Its empty message list means "not here yet": nothing may treat it as a
-    // thread nobody wrote in (the upload-only cleanup deleted it).
     expect(isAwaitingServerMessages(id)).toBe(true)
 
     mockConversationsClient.listMessages.mockResolvedValue([serverRow(id, 'm1', 'user', 'Frage')])
@@ -373,11 +351,6 @@ describe('loadServerConversations merge', () => {
   })
 
   it('carries jobId through the merge, so job threads stay out of the chat list', async () => {
-    // Regression with a silent failure mode. The merge maps the server row
-    // field by field, so a column left out is dropped without a type error and
-    // without a failing test — and dropping THIS one makes `isJobConversation`
-    // permanently false, which puts every scheduled job's output back into its
-    // owner's personal history (a weekly job is 52 threads a year).
     useChatStore.setState({ conversations: [] })
     mockConversationsClient.list.mockResolvedValue([
       {
@@ -403,15 +376,10 @@ describe('loadServerConversations merge', () => {
 
     const stored = useChatStore.getState().conversations
     expect(stored.find((c) => c.id === 's_from_a_job')?.jobId).toBe('job-1')
-    // A conversation a person started must carry null, not undefined-by-accident.
     expect(stored.find((c) => c.id === 's_from_a_person')?.jobId).toBeNull()
   })
 
   it('hides job threads from the chat list without making them unreachable', async () => {
-    // The two halves of "hiding, not withholding". A job's output is not a
-    // chat this person started, so it is not in their list — but it is still
-    // in the store, so `?session=<id>` and the job's run-history link both
-    // still open it.
     useChatStore.setState({ conversations: [], currentUserId: 'user-1', projectId: 'proj-1' })
     mockConversationsClient.list.mockResolvedValue([
       {
@@ -438,14 +406,10 @@ describe('loadServerConversations merge', () => {
     const listed = useChatStore.getState().getUserConversations().map((c) => c.id)
     expect(listed).toContain('s_from_a_person')
     expect(listed).not.toContain('s_from_a_job')
-    // Still present in the store — hidden from a list, not withheld.
     expect(useChatStore.getState().conversations.map((c) => c.id)).toContain('s_from_a_job')
   })
 
   it('preserves the local per-session data-source selection across the merge', async () => {
-    // Regression: dropping enabledDataSourceIds re-enables every default data
-    // source on the next select, sending messages with sources the user
-    // explicitly turned off.
     const conv = makeConversation({ enabledDataSourceIds: [] })
     useChatStore.setState({ conversations: [conv] })
     mockConversationsClient.list.mockResolvedValue([
@@ -465,18 +429,6 @@ describe('loadServerConversations merge', () => {
     expect(merged.enabledDataSourceIds).toEqual([])
   })
 
-  /**
-   * A conversation someone ELSE created and shared with me (ADR-0032).
-   *
-   * `listVisibleConversations` returns it — visibility/grants are resolved
-   * server-side — but everything downstream of this merge filters the store on
-   * `conversation.userId === currentUserId`: the sessions panel, the
-   * `selectConversation` guard, storage protection, deep-research scoping. That
-   * field is a MEMBERSHIP marker ("belongs in this user's list"), never rendered
-   * as an author — authorship comes from the shared-thread participants. Stamping
-   * it with the creator therefore made every shared conversation invisible and
-   * unopenable for the person it was shared with, which is the entire feature.
-   */
   it('claims a conversation shared by a colleague for the current user', async () => {
     useChatStore.setState({ currentUserId: 'user-anna', conversations: [] })
     mockConversationsClient.list.mockResolvedValue([
@@ -494,7 +446,6 @@ describe('loadServerConversations merge', () => {
 
     const merged = useChatStore.getState().conversations.find((c) => c.id === 's_shared_1')!
     expect(merged.userId).toBe('user-anna')
-    // And it is therefore actually reachable — the assertion that matters.
     expect(useChatStore.getState().getUserConversations().map((c) => c.id)).toContain('s_shared_1')
 
     useChatStore.getState().selectConversation('s_shared_1')
@@ -552,8 +503,6 @@ describe('_appendMessage conversation ensure', () => {
   })
 
   it('creates without listing first: the create is the idempotent check', async () => {
-    // The list was capped at 200 rows and a failure unrelated to this chat (a 429
-    // on the list) meant the message was never stored.
     mockConversationsClient.list.mockRejectedValue(new Error('429'))
     const conv = makeConversation({ title: 'Direct chat', projectId: 'p1' })
     useChatStore.setState({ conversations: [conv], currentConversation: conv })
@@ -561,11 +510,20 @@ describe('_appendMessage conversation ensure', () => {
     await useChatStore.getState()._appendMessage(message('m1'))
 
     expect(mockConversationsClient.list).not.toHaveBeenCalled()
-    expect(mockConversationsClient.create).toHaveBeenCalledWith(conv.id, 'Direct chat', 'p1', null)
+    expect(mockConversationsClient.create).toHaveBeenCalledWith(conv.id, 'Direct chat', 'p1', null, undefined)
     expect(mockConversationsClient.createMessage).toHaveBeenCalledWith(
       conv.id,
       expect.objectContaining({ id: 'm1' })
     )
+  })
+
+  it('creates a chat switched to temporary before its first message as temporary (ADR-0180)', async () => {
+    const conv = makeConversation({ title: 'Vertraulich', projectId: 'p1', temporary: true })
+    useChatStore.setState({ conversations: [conv], currentConversation: conv })
+
+    await useChatStore.getState()._appendMessage(message('m1'))
+
+    expect(mockConversationsClient.create).toHaveBeenCalledWith(conv.id, 'Vertraulich', 'p1', null, true)
   })
 
   it('retries the create on the next append when it failed', async () => {
@@ -621,7 +579,6 @@ describe('a turn a reload cut off', () => {
     useChatStore.getState().restoreSessionState(conv)
 
     expect(useChatStore.getState().resumableTurn).toEqual({ conversationId: conv.id, turnId: 'u1' })
-    // The stream is asked first; the server's copy only when it no longer holds the turn.
     expect(mockConversationsClient.listMessages).not.toHaveBeenCalled()
     expect(useChatStore.getState().isStreaming).toBe(false)
   })
@@ -727,10 +684,8 @@ describe('waiting for the server’s answer to a turn this page lost', () => {
     const first = useChatStore.getState()._awaitServerAnswer(conv.id, 'u1')
     const second = useChatStore.getState()._awaitServerAnswer(conv.id, 'u1')
 
-    // Only the first may accuse; two `nothing`s would print the banner twice.
     expect(await second).toBe('superseded')
     expect(await first).toBe('nothing')
-    // Once it has settled, a later turn may wait again.
     expect(await useChatStore.getState()._awaitServerAnswer(conv.id, 'u1')).toBe('nothing')
   })
 
@@ -740,7 +695,6 @@ describe('waiting for the server’s answer to a turn this page lost', () => {
     const other = makeConversation({ id: 'conv-other', messages: lostTurn().messages })
     useChatStore.setState({ conversations: [conv, other], currentConversation: conv })
     mockConversationsClient.listMessages.mockResolvedValue([serverRow(conv.id, 'u1', 'user', 'q')])
-    // The first conversation's turn has gone quiet; the other's still beats.
     mockConversationsClient.newestFrameAge.mockImplementation(async (id: string) =>
       id === conv.id ? 5 * 60_000 : 5_000
     )

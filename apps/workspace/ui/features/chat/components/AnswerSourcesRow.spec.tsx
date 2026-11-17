@@ -6,17 +6,6 @@ import type { CitedDocument } from '../lib/citations'
 import { AnswerSourcesRow } from './AnswerSourcesRow'
 import type { SourcePreviewChipProps } from './SourcePreview'
 
-/**
- * `AnswerSourcesRow` always renders the lane tints — the provenance signal.
- *
- * The provenance chips render their tint as a CSS-var inline style, which
- * jsdom's CSS parser drops, so the signal is read off a wrapper around the
- * REAL chip instead of off the DOM. Rendering stays real (labels, badges,
- * anchors, links), which is what the text assertions below pin. What is
- * asserted here is this row's half of the contract: the row hands every
- * document through, tint and all — lane tint is provenance, never muted.
- */
-
 vi.mock('./SourcePreview', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./SourcePreview')>()
   return {
@@ -93,15 +82,12 @@ describe('AnswerSourcesRow lane tints', () => {
   })
 
   test('every chip keeps its tint and what it says beside other chromatic accents', () => {
-    // Evidence blocks, takeaways and frist/achtung callouts spend the hue
-    // budget elsewhere — the provenance row never mutes its signal for them.
     const { container } = render(
       <AnswerSourcesRow documents={[oibDoc, risDoc]} anchorPrefix="test-" />
     )
 
     expect(signalOf(container, 'OIB-Richtlinie 2')).toBe('oib')
     expect(signalOf(container, 'Wiener Bauordnung')).toBe('law')
-    // … and the labels, the authority badge, the markers and the anchors stay.
     expect(container.textContent).toContain('OIB-Richtlinie 2')
     expect(container.textContent).toContain('Wiener Bauordnung')
     expect(container.textContent).toContain('OIB')
@@ -122,7 +108,6 @@ describe('AnswerSourcesRow lane tints', () => {
   })
 
   test('nothing about the documents changes', () => {
-    // The row hands the documents through, tint and all.
     const { container } = render(<AnswerSourcesRow documents={[oibDoc]} anchorPrefix="test-" />)
 
     expect(signalOf(container, 'OIB-Richtlinie 2')).toBe('oib')
@@ -173,7 +158,6 @@ describe('AnswerSourcesRow in a closed project (ADR-0090)', () => {
         <AnswerSourcesRow documents={[fromClosed, fromRunning]} anchorPrefix="test-" />
       </CurrentProjectProvider>
     )
-    // The closed reference says so once; the running project's file says nothing of the chat's closed project.
     expect(screen.getAllByText(/Closed project/)).toHaveLength(1)
     expect(screen.queryByText(/Seestadt D12 · closed/)).toBeNull()
   })

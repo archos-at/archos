@@ -1,14 +1,3 @@
-/**
- * Run ledgers for the `/dev/run-block` preview — one per state, built with the
- * ledger's own fold helpers so a fixture is a ledger production could have
- * written, not a hand-typed object that drifts from the schema.
- *
- * Live states are anchored to module load (`startedAt = now − 102 s`), so the
- * elapsed pill reads „1:42" rather than the years since a fixed instant.
- * Terminal states are fixed to the morning of the review so their durations
- * are the same on every capture.
- */
-
 import {
   appendStep,
   closePhase,
@@ -45,7 +34,6 @@ const PLAN_STEP = (at: Date): RunStep => ({
   docs: [],
 })
 
-/** The three research rounds every fixture with research shares. */
 const ROUNDS = (at: (s: number) => Date): RunStep[] => [
   {
     id: 'r1',
@@ -72,7 +60,6 @@ const ROUNDS = (at: (s: number) => Date): RunStep[] => [
   },
 ]
 
-/** Planen done, research rounds appended, up to `rounds` of them. */
 function researched(runId: string, start: Date, rounds: number): RunLedger {
   const at = (s: number): Date => new Date(start.getTime() + s * 1000)
   let ledger = emptyRunLedger(runId, start)
@@ -86,13 +73,6 @@ function researched(runId: string, start: Date, rounds: number): RunLedger {
   return ledger
 }
 
-/**
- * The run's own life, frame by frame: what the ledger looks like at each step
- * of a run that goes all the way. The motion preview walks this list on a
- * timer, so the choreography can be watched rather than argued about — every
- * frame is built by the same fold helpers the real thing uses, so nothing in
- * it can be a shape the product cannot produce.
- */
 export function runSequence(runId: string, start: Date): RunLedger[] {
   const at = (s: number): Date => new Date(start.getTime() + s * 1000)
   const frames: RunLedger[] = []
@@ -133,7 +113,6 @@ const morning = (s: number): Date => new Date(MORNING.getTime() + s * 1000)
 
 export const RUN_CREATED: RunLedger = emptyRunLedger('run-angelegt', secondsAgo(3))
 
-/** Recherchieren live: 3 rounds, 9 documents, one re-read, open points. Started 1:42 ago. */
 export const RUN_RUNNING: RunLedger = researched('run-laeuft', secondsAgo(102), 3)
 
 export const RUN_WAITING: RunLedger = setRunStatus(

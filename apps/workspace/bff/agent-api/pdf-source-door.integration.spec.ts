@@ -23,6 +23,13 @@
  * hold is refused and the one from page 2 passes; the body that is no base64 is
  * refused and the PDF's base64 is written; the PDF behind a password stores
  * nothing and names its code.
+ *
+ * The last block is the way a real document goes, which no proposal can paste
+ * (a PDF is megabytes, a response body at most 500,000 characters): a second
+ * source is proposed with a fixture that names no capture yet, its PDF is
+ * captured through it by the platform, and the record then names that capture.
+ * The stubbed check reads a fixture as `public_sources.fixtures` does: without
+ * the capture's text it waits, with it the text decides.
  */
 
 import { createHash, webcrypto } from 'node:crypto'
@@ -61,7 +68,6 @@ const FIXTURES = join(process.cwd(), '../../packages/public-sources/testing/publ
 const PDF = readFileSync(join(FIXTURES, 'baunvo.pdf'))
 const PDF_TEXT = readFileSync(join(FIXTURES, 'baunvo.txt'), 'utf8').replace(/\n$/, '')
 
-/** A synthetic country, its own so this spec shares no territory with another on the same database. */
 const COUNTRY = 'XP'
 const SOURCE = `xp-gazette-${RUN}`
 const HOST = 'gazette.xp.example'
@@ -71,10 +77,13 @@ const SCAN_URL = `https://${HOST}/scan.pdf`
 const TERMS_URL = `https://${HOST}/terms`
 const TERMS = 'Terms of use of the Gazette of XP: the gazette is published under an open licence.'
 const ISO_LIST = 'XP Republic of XP (a user-assigned code, for testing)'
+const REGISTER = `xp-register-${RUN}`
+const REGISTER_HOST = 'register.xp.example'
+const REGISTER_URL = `https://${REGISTER_HOST}/ordinance.pdf`
+const REGISTER_OTHER_URL = `https://${REGISTER_HOST}/other.pdf`
+const REGISTER_HEADING = 'Allgemeine Vorschriften für Bauflächen und Baugebiete'
 
-/** Page 1 names the regulation, as KC-6 asks one quote to. */
 const PAGE_ONE_QUOTE = 'Verordnung über die bauliche Nutzung der Grundstücke (Baunutzungsverordnung - BauNVO)'
-/** Page 2, § 1 Abs. 1, as a person copies it from the page: it runs over a line break there. */
 const PAGE_TWO_QUOTE =
   'Im Flächennutzungsplan können die für die Bebauung vorgesehenen Flächen nach der allgemeinen Art ihrer baulichen Nutzung (Bauflächen) dargestellt werden'
 
@@ -104,6 +113,45 @@ const sourceRecord = (captureId: string, body = PDF.toString('base64')) => ({
   citations: [{ captureId, quote: 'the gazette is published under an open licence' }],
 })
 
+const registerRecord = (citedCaptureId: string, captureId: string | null, contains = REGISTER_HEADING) => ({
+  type: 'source',
+  key: REGISTER,
+  title: 'Register of XP',
+  territoryId: COUNTRY,
+  protocol: 'web_document',
+  format: 'pdf_document',
+  hosts: [REGISTER_HOST],
+  terms: { url: TERMS_URL, licence: 'public_open', checked: '2026-11-01' },
+  monitor: { kind: 'sha256', intervalHours: 168, probe: { operation: 'document', args: { id: 'ordinance' } } },
+  access: { documents: [{ id: 'ordinance', url: REGISTER_URL, title: 'Ordinance' }] },
+  fixtures: [
+    {
+      name: 'ordinance',
+      operation: 'document',
+      args: { id: 'ordinance' },
+      responses: { [REGISTER_URL]: { captureId } },
+      expect: { anchors: ['page_1', 'page_2'], contains: [contains] },
+    },
+  ],
+  citations: [{ captureId: citedCaptureId, quote: 'the gazette is published under an open licence' }],
+})
+
+const REGISTER_POINTER = `/fixtures/0/responses/${REGISTER_URL.replace(/~/g, '~0').replace(/\//g, '~1')}/captureId`
+
+type CheckedFixture = { name: string; responses: Record<string, { capture_id?: string | null; text?: string }>; expect: { contains?: string[] } }
+
+function checkAnswer(config: { fixtures: CheckedFixture[] }) {
+  const fixtures = config.fixtures.map((fixture) => {
+    const responses = Object.entries(fixture.responses)
+    const awaiting = responses.filter(([, response]) => 'capture_id' in response && typeof response.text !== 'string').map(([address]) => address)
+    const text = responses.map(([, response]) => response.text ?? '').join('\n')
+    const missing = awaiting.length === 0 && 'capture_id' in (responses[0]?.[1] ?? {}) ? (fixture.expect.contains ?? []).filter((needle) => !text.includes(needle)) : []
+    return { name: fixture.name, ok: awaiting.length === 0 && missing.length === 0, requested: awaiting.length ? [] : responses.map(([address]) => address), awaiting, missing }
+  })
+  const problems = fixtures.flatMap((fixture) => fixture.missing.map((needle) => ({ fixture: fixture.name, detail: `text does not contain '${needle}'` })))
+  return { valid: fixtures.every((fixture) => fixture.ok), problems, fixtures: fixtures.map(({ missing: _missing, ...fixture }) => fixture) }
+}
+
 describe('the PDF source suite is not silently skipped in CI', () => {
   it('has a database to run against', () => {
     if (!process.env.RLS_SUITE_REQUIRED) return
@@ -120,10 +168,8 @@ describe.skipIf(!url)('an operator’s agent proposes a PDF source, captures a P
   const author = platformOperator(session(`user_pdf_author_${RUN}`, ['platform:settings:view', 'platform:knowledge:write', 'platform:knowledge:review']))
   const { door, ok } = doorScript(() => handler)
 
-  /** What the api tier was asked, so a test can say what left this tier. */
   const asked: { path: string; body: Record<string, unknown> }[] = []
 
-  /** The api tier's public-source routes, answered as `packages/public-sources` answers them for the fixture. */
   function stubPublicSources() {
     vi.stubGlobal('fetch', async (target: string | URL | Request, init?: RequestInit) => {
       const address = typeof target === 'string' ? target : target instanceof URL ? target.href : target.url
@@ -131,13 +177,11 @@ describe.skipIf(!url)('an operator’s agent proposes a PDF source, captures a P
       const path = address.replace(BACKEND, '')
       const body = JSON.parse(String(init?.body ?? '{}')) as Record<string, unknown>
       asked.push({ path, body })
-      if (path === '/v1/public-sources/check') {
-        return Response.json({ valid: true, problems: [], fixtures: [{ name: 'baunvo', ok: true, requested: [PDF_URL] }] })
-      }
+      if (path === '/v1/public-sources/check') return Response.json(checkAnswer(body.config as { fixtures: CheckedFixture[] }))
       if (path !== '/v1/public-sources/capture') throw new Error(`no network in this spec: ${address}`)
       const page = String(body.url)
       const base = { url: page, finalUrl: page, contentType: 'application/pdf', retrievedAt: new Date().toISOString() }
-      if (new URL(page).hostname !== HOST) {
+      if (![HOST, REGISTER_HOST].includes(new URL(page).hostname)) {
         return Response.json({ detail: `${page} is not an https URL on a host of source ${String(body.source)}`, code: 'egress_refused' }, { status: 403 })
       }
       if (page === LOCKED_URL) {
@@ -147,6 +191,7 @@ describe.skipIf(!url)('an operator’s agent proposes a PDF source, captures a P
         const note = 'no text layer on all of its pages (a scan?): nothing there can be quoted; OCR is not done for a capture'
         return Response.json({ ...base, sha256: sha('scan'), bytes: 4, text: null, pages: 2, note })
       }
+      if (page === REGISTER_OTHER_URL) return Response.json({ ...base, sha256: sha('other'), bytes: 5, text: 'Another document\fof two pages', pages: 2, note: null })
       if (page === TERMS_URL) return Response.json({ ...base, contentType: 'text/html', sha256: sha(TERMS), bytes: TERMS.length, text: TERMS, pages: null, note: null })
       return Response.json({ ...base, sha256: sha(PDF), bytes: PDF.length, text: PDF_TEXT, pages: 16, note: null })
     })
@@ -207,7 +252,6 @@ describe.skipIf(!url)('an operator’s agent proposes a PDF source, captures a P
     asked.length = 0
     const written = await ok(author, 'platform-knowledge-records-propose', { params: { changeRequestId: requestId }, body: { records: [sourceRecord(captures.get('terms')!)] } })
     expect((written.results as { status: string }[])[0]?.status).toBe('written')
-    // What KC-7 hands the api tier is the PDF's own bytes, as public_sources.source.InlineResponse decodes them.
     const config = asked.find((call) => call.path === '/v1/public-sources/check')?.body.config as {
       format: string
       fixtures: { responses: Record<string, { content_type: string; encoding: string; text: string }> }[]
@@ -226,7 +270,6 @@ describe.skipIf(!url)('an operator’s agent proposes a PDF source, captures a P
     const view = await ok(author, 'platform-knowledge-change-request-get', { params: { changeRequestId: requestId } })
     const listed = (view.captures as { captureId: string; pages: number | null }[]).find((entry) => entry.captureId === captures.get('baunvo'))
     expect(listed?.pages).toBe(16)
-    // The source's recorded PDF shows its size and digest to the reviewer, not 138 kB of base64 past the door's result cap.
     const source = (view.revisions as { type: string; claims: { path: string; value: unknown }[] }[]).find((revision) => revision.type === 'source')
     const config = source?.claims.find((claim) => claim.path === 'config')?.value as { fixtures: { responses: Record<string, unknown> }[] }
     expect(config.fixtures[0]!.responses[PDF_URL]).toEqual({ content_type: 'application/pdf', encoding: 'base64', bytes: PDF.length, sha256: sha(PDF) })
@@ -245,7 +288,6 @@ describe.skipIf(!url)('an operator’s agent proposes a PDF source, captures a P
         { captureId: captures.get('baunvo'), quote: pageTwo },
       ],
     })
-    // Positive control: the page's words with one changed are not on the page.
     const madeUp = await ok(author, 'platform-knowledge-records-propose', {
       params: { changeRequestId: requestId },
       body: { dryRun: true, records: [work(PAGE_TWO_QUOTE.replace('allgemeinen Art', 'besonderen Art'))] },
@@ -255,7 +297,6 @@ describe.skipIf(!url)('an operator’s agent proposes a PDF source, captures a P
       expect.objectContaining({ code: 'KC-6', pointer: '/citations/1/quote' }),
     ])
 
-    // The sentence sits on page 2, after the form feed that ends page 1, and runs over a line break there.
     const pageTwo = PDF_TEXT.split('\f')[1]!
     expect(pageTwo).toContain('Im Flächennutzungsplan können die für die Bebauung vorgesehenen Flächen nach der allgemeinen Art ihrer\nbaulichen Nutzung')
     expect(PDF_TEXT.split('\f')[0]).not.toContain('Im Flächennutzungsplan')
@@ -283,5 +324,83 @@ describe.skipIf(!url)('an operator’s agent proposes a PDF source, captures a P
     const scan = await capture('scan', { basis: 'fetched', sourceId: SOURCE, url: SCAN_URL })
     expect(scan).toMatchObject({ textChars: 0, pages: null })
     expect(String(scan.note)).toContain('no text layer')
+  })
+
+  type Result = { status: string; awaiting?: string[]; problems: { code: string; pointer: string; detail: string; hint: string }[] }
+  const refusedWith = async (record: Record<string, unknown>) => {
+    const dry = await ok(author, 'platform-knowledge-records-propose', { params: { changeRequestId: requestId }, body: { dryRun: true, records: [record] } })
+    expect(dry.valid).toBe(false)
+    return (dry.results as Result[])[0]!.problems
+  }
+  const checked = () => (asked.findLast((call) => call.path === '/v1/public-sources/check')?.body.config as { fixtures: CheckedFixture[] }).fixtures[0]!.responses[REGISTER_URL]!
+
+  it('writes a source whose fixture names no capture yet, says what it waits for, and holds it at validate', async () => {
+    asked.length = 0
+    const written = await ok(author, 'platform-knowledge-records-propose', {
+      params: { changeRequestId: requestId },
+      body: { records: [registerRecord(captures.get('terms')!, null)] },
+    })
+    const [result] = written.results as Result[]
+    expect(result).toMatchObject({ status: 'written', problems: [] })
+    expect(result!.awaiting).toHaveLength(1)
+    expect(result!.awaiting![0]).toContain(`sourceId: "${REGISTER}"`)
+    expect(checked()).toEqual({ capture_id: null })
+
+    const validation = await ok(author, 'platform-knowledge-validate', { params: { changeRequestId: requestId } })
+    expect(validation.valid).toBe(false)
+    expect(validation.problems).toEqual([expect.objectContaining({ code: 'KC-7', recordId: `source:${REGISTER}`, pointer: REGISTER_POINTER })])
+    const submitted = await door(author, 'platform-knowledge-change-request-submit', { params: { changeRequestId: requestId } })
+    expect(submitted.problem).toMatchObject({ status: 422 })
+
+    const test = await ok(author, 'platform-knowledge-source-test', { params: { sourceKey: REGISTER }, body: { changeRequestId: requestId, live: false } })
+    expect(test.fixtures).toMatchObject({ valid: false, fixtures: [{ name: 'ordinance', ok: false, awaiting: [REGISTER_URL] }] })
+  })
+
+  it('refuses a capture that is not the platform’s own fetch of that URL through that source', async () => {
+    const ordinance = await capture('ordinance', { basis: 'fetched', sourceId: REGISTER, url: REGISTER_URL })
+    expect(ordinance).toMatchObject({ sha256: sha(PDF), bytes: PDF.length, pages: 16, sourceOrigin: 'draft' })
+    await capture('other', { basis: 'fetched', sourceId: REGISTER, url: REGISTER_OTHER_URL })
+
+    const cited = captures.get('terms')!
+    const pasted = await refusedWith(registerRecord(cited, captures.get('terms')!))
+    expect(pasted).toEqual([expect.objectContaining({ code: 'KC-7', pointer: REGISTER_POINTER, detail: expect.stringContaining('an operator supplied') })])
+    const otherPage = await refusedWith(registerRecord(cited, captures.get('other')!))
+    expect(otherPage[0]?.detail).toContain(`a capture of ${REGISTER_OTHER_URL}, not of ${REGISTER_URL}`)
+    const otherSource = await refusedWith(registerRecord(cited, captures.get('baunvo')!))
+    expect(otherSource[0]?.detail).toContain(`fetched through source ${SOURCE}, not through ${REGISTER}`)
+    const unknown = await refusedWith(registerRecord(cited, '6f0c1a7e-2b7d-4c55-9a3e-6d1f0b2a9c11'))
+    expect(unknown[0]?.detail).toContain('no capture of this change request')
+    const wrongText = await refusedWith(registerRecord(cited, captures.get('ordinance')!, 'words the ordinance does not contain'))
+    expect(wrongText).toEqual([expect.objectContaining({ code: 'KC-7', pointer: '/fixtures/0' })])
+    const refused = await door(author, 'platform-knowledge-records-propose', {
+      params: { changeRequestId: requestId },
+      body: { records: [registerRecord(cited, captures.get('other')!)] },
+    })
+    expect(refused.problem).toMatchObject({ status: 422 })
+  })
+
+  it('proves the source by the capture the platform took: the record keeps its id, the check reads its text', async () => {
+    asked.length = 0
+    const captureId = captures.get('ordinance')!
+    const written = await ok(author, 'platform-knowledge-records-propose', {
+      params: { changeRequestId: requestId },
+      body: { records: [registerRecord(captures.get('terms')!, captureId)] },
+    })
+    expect((written.results as Result[])[0]).toMatchObject({ status: 'written', problems: [] })
+    expect((written.results as Result[])[0]!.awaiting).toBeUndefined()
+    expect(checked()).toEqual({ capture_id: captureId, content_type: 'application/pdf', text: PDF_TEXT })
+
+    const view = await ok(author, 'platform-knowledge-change-request-get', { params: { changeRequestId: requestId } })
+    const stored = (view.revisions as { recordId: string; claims: { path: string; value: unknown }[] }[])
+      .filter((revision) => revision.recordId === `source:${REGISTER}`)
+      .at(-1)
+      ?.claims.find((claim) => claim.path === 'config')?.value as { fixtures: { responses: Record<string, unknown> }[] }
+    expect(stored.fixtures[0]!.responses[REGISTER_URL]).toEqual({ capture_id: captureId })
+    expect((view.captures as { captureId: string; sha256: string }[]).find((one) => one.captureId === captureId)?.sha256).toBe(sha(PDF))
+
+    const test = await ok(author, 'platform-knowledge-source-test', { params: { sourceKey: REGISTER }, body: { changeRequestId: requestId, live: false } })
+    expect(test.fixtures).toMatchObject({ valid: true, fixtures: [{ name: 'ordinance', ok: true, awaiting: [] }] })
+    const validation = await ok(author, 'platform-knowledge-validate', { params: { changeRequestId: requestId } })
+    expect(validation).toMatchObject({ valid: true, problems: [] })
   })
 })

@@ -1,9 +1,3 @@
-"""Tests for ``view_image``, the renderer behind ``look`` (ADR-0128).
-
-It re-renders a base-corpus PDF page as a multimodal image content
-block. Every failure mode must degrade to a text-only block and never raise.
-"""
-
 from __future__ import annotations
 
 import base64
@@ -42,7 +36,6 @@ async def _invoke(
     enabled: bool = True,
     vlm_key: str = "sk-test",
 ) -> list[dict] | str:
-    """Call the renderer with the file and collection ``look`` would have resolved."""
     _patch_env(monkeypatch, enabled=enabled, vlm_key=vlm_key)
 
     if render_raises is not None:
@@ -256,7 +249,6 @@ def test_render_page_from_bytes_round_trips_jpeg(monkeypatch) -> None:
 
 
 def test_render_page_makes_every_pdfium_call_under_the_process_lock(monkeypatch) -> None:
-    """Open, read, render and every close hold ``pdfium_lock``; the JPEG encode does not."""
     import sys
     from types import ModuleType
 
@@ -422,7 +414,6 @@ async def test_resolve_storage_key_fail_open(monkeypatch) -> None:
     import httpx
     from knowledge_layer.view_image import _resolve_storage_location as _resolve_storage_key
 
-    # Unconfigured env -> None without any HTTP call.
     monkeypatch.delenv("FRONTEND_INTERNAL_URL", raising=False)
     monkeypatch.delenv("INTERNAL_API_TOKEN", raising=False)
     assert await _resolve_storage_key("proj_1", "plan.png") is None
@@ -484,18 +475,12 @@ async def test_resolve_storage_key_fail_open(monkeypatch) -> None:
     _Client.response = _Response(200, {"storageKey": ""})
     assert await _resolve_storage_key("proj_1", "plan.png") is None
 
-    # A per-organization bucket travels back with the key (ADR-0043). The tool
-    # calls get_object directly, so dropping it here would send every lookup to
-    # the shared bucket and 404 silently.
     _Client.response = _Response(200, {"storageKey": "org/o1/k.png", "storageBucket": "grid-org-o1-abcdef123456"})
     assert await _resolve_storage_key("proj_1", "plan.png") == (
         "org/o1/k.png",
         "grid-org-o1-abcdef123456",
     )
 
-    # An empty string is not a bucket. Treat it as "shared" rather than passing
-    # `Bucket=""` to boto3, which fails with a parameter-validation error rather
-    # than the fail-open None this tool promises.
     _Client.response = _Response(200, {"storageKey": "org/o1/k.png", "storageBucket": ""})
     assert await _resolve_storage_key("proj_1", "plan.png") == ("org/o1/k.png", None)
 
@@ -532,18 +517,12 @@ def test_fetch_seaweed_bytes_fail_open(monkeypatch) -> None:
         def get_object(self, *, Bucket, Key):
             import io
 
-            # The recorded bucket, NOT the SEAWEED_BUCKET default.
             assert Bucket == "grid-org-o1-abcdef123456"
             assert Key == "org/o1/k.png"
             return {"Body": io.BytesIO(b"tenant-bytes")}
 
     monkeypatch.setattr(boto3, "client", lambda *args, **kwargs: _TenantS3())
     assert _fetch_seaweed_bytes("org/o1/k.png", "grid-org-o1-abcdef123456") == b"tenant-bytes"
-
-
-# =============================================================================
-# Stored embedded rasters (image_index) and the per-turn cap
-# =============================================================================
 
 
 @pytest.mark.asyncio
@@ -553,7 +532,6 @@ async def test_image_index_fetches_the_stored_raster_by_derived_key(monkeypatch,
         monkeypatch, tmp_path, file_name="plan.pdf", collection="proj_1", image_index=3, pdf_path="x.pdf"
     )
 
-    # The lookup carried the index, and no page was rendered even though the PDF is on disk.
     assert _patch_seaweed_chain.seen == [{"image_index": 3}]
     assert isinstance(result, list)
     assert "Stored image 3 of 'plan.pdf' (page 3)" in result[0]["text"]
@@ -616,30 +594,66 @@ async def test_per_turn_cap_stops_the_tool_before_any_work(monkeypatch, tmp_path
     assert isinstance(capped, str)
     assert "cap reached" in capped
     assert "per turn" in capped
-    # _invoke re-patches _render_page each call; the third call never reached it.
     assert calls == []
 
-    # Outside a turn the tool is not capped.
     assert isinstance(await _invoke(monkeypatch, tmp_path, pdf_path="x.pdf"), list)
 
 
-# =============================================================================
-# _find_pdf: a base-corpus PDF is whatever the corpus table lists
-# =============================================================================
+@pytest.fixture
+def _readable_in_xa():
+    from agent.common.knowledge_context import KnowledgeContext
+    from agent.common.knowledge_context import set_turn_knowledge_context
+
+    set_turn_knowledge_context(KnowledgeContext(gate="core", retrieval_countries=frozenset({"XA"})))
+    yield
+    set_turn_knowledge_context(None)
 
 
-def test_find_pdf_fetches_a_base_corpus_file_that_is_not_local(monkeypatch, tmp_path) -> None:
+def test_find_pdf_fetches_a_released_base_corpus_file_that_is_not_local(monkeypatch, tmp_path, _readable_in_xa) -> None:
     from agent import corpus_store
     from tests.object_corpus_fakes import install
 
     install(monkeypatch, tmp_path)
     corpus_store.put("OIB-3.pdf", b"%PDF from the object store")
+    corpus_store.set_mark("OIB-3.pdf", corpus_store.FileMark(country_id="XA"))
     (tmp_path / "cache" / "OIB-3.pdf").unlink()  # another replica uploaded it
 
     found = _find_pdf("OIB-3.pdf")
 
     assert found == str(tmp_path / "cache" / "OIB-3.pdf")
     assert (tmp_path / "cache" / "OIB-3.pdf").read_bytes() == b"%PDF from the object store"
+
+
+@pytest.mark.parametrize(
+    "mark",
+    [
+        None,  # a draft upload: no release wrote a mark
+        "ZZ",  # unreleased: the country no office is entitled to
+        "XB",  # released, but to another country
+    ],
+    ids=["draft", "unreleased", "other-country"],
+)
+def test_find_pdf_refuses_a_file_not_released_to_the_turn(monkeypatch, tmp_path, _readable_in_xa, mark) -> None:
+    from agent import corpus_store
+    from tests.object_corpus_fakes import install
+
+    install(monkeypatch, tmp_path)
+    corpus_store.put("OIB-3.pdf", b"%PDF held back")
+    if mark is not None:
+        corpus_store.set_mark("OIB-3.pdf", corpus_store.FileMark(country_id=mark))
+
+    assert _find_pdf("OIB-3.pdf") is None
+
+
+def test_find_pdf_reads_nothing_without_a_request(monkeypatch, tmp_path) -> None:
+    from agent import corpus_store
+    from tests.object_corpus_fakes import install
+
+    install(monkeypatch, tmp_path)
+    corpus_store.put("OIB-3.pdf", b"%PDF")
+    corpus_store.set_mark("OIB-3.pdf", corpus_store.FileMark(country_id="XA"))
+
+    assert _find_pdf("OIB-3.pdf") is None
 
 
 def test_find_pdf_for_a_file_the_corpus_does_not_list_is_none(monkeypatch, tmp_path) -> None:
@@ -650,12 +664,43 @@ def test_find_pdf_for_a_file_the_corpus_does_not_list_is_none(monkeypatch, tmp_p
     assert _find_pdf("unknown.pdf") is None
 
 
-def test_find_pdf_is_fail_open_when_the_corpus_lookup_breaks(monkeypatch) -> None:
+def test_find_pdf_is_fail_open_when_the_corpus_lookup_breaks(monkeypatch, _readable_in_xa) -> None:
     from agent import corpus_store
 
     def broken(_name):
         raise RuntimeError("database down")
 
     monkeypatch.setattr(corpus_store, "ensure_local", broken)
+    monkeypatch.setattr(corpus_store, "released_to", lambda _name, _countries: True)
 
     assert _find_pdf("OIB-3.pdf") is None
+
+
+@pytest.mark.parametrize(
+    ("mark", "readable"),
+    [("XA", True), (None, False), ("ZZ", False), ("XB", False)],
+    ids=["released", "draft", "unreleased", "other-country"],
+)
+async def test_look_resolves_a_base_corpus_name_only_when_released(
+    monkeypatch, tmp_path, _readable_in_xa, mark, readable
+) -> None:
+    from agent import corpus_store
+    from agent.tools.look import resolve
+    from tests.object_corpus_fakes import install
+
+    install(monkeypatch, tmp_path)
+    corpus_store.put("OIB-3.pdf", b"%PDF")
+    if mark is not None:
+        corpus_store.set_mark("OIB-3.pdf", corpus_store.FileMark(country_id=mark))
+
+    async def not_in_any_collection(_name):
+        return ""
+
+    monkeypatch.setattr(resolve, "_probe", not_in_any_collection)
+
+    resolved = await resolve.resolve_document("OIB-3.pdf")
+
+    if readable:
+        assert resolved == resolve.Resolved("OIB-3.pdf")
+    else:
+        assert resolved == resolve.NOT_FOUND.format(name="OIB-3.pdf")

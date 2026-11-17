@@ -73,7 +73,6 @@ function stripClientContextHeaders(headers) {
   return removed
 }
 
-// websockets 15's parser limits each line to 8192 bytes, not the decoded text.
 const WS_HEADER_LINE_MAX_BYTES = 8192
 
 /**
@@ -84,7 +83,6 @@ function findOversizedWsHeader(headers) {
   for (const [name, value] of Object.entries(headers)) {
     if (value === undefined) continue
     const values = Array.isArray(value) ? value : [value]
-    // Node combines cookie arrays into one line.
     const lines = name.toLowerCase() === 'cookie' ? [values.join('; ')] : values
     for (const line of lines) {
       const bytes = Buffer.byteLength(`${name}: ${line}\r\n`, 'utf8')

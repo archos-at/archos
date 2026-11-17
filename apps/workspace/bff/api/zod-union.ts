@@ -1,13 +1,3 @@
-/**
- * The members of a zod discriminated union, by discriminator value.
- *
- * Zod 3 kept this map on the union as `optionsMap`; Zod 4 dropped it and keeps
- * each member's possible discriminator values on its internals
- * (`_zod.propValues`), the record zod itself builds the union's lookup from. A
- * literal wrapped in `.default()` (the generated card and wire schemas do
- * this) contributes its literal, as it did in `optionsMap`.
- */
-
 import type { z } from 'zod'
 
 type DiscriminatedUnion = z.ZodDiscriminatedUnion<readonly z.core.$ZodTypeDiscriminable[], string>

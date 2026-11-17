@@ -1,11 +1,3 @@
-"""The answer suite's harness abilities: a turn that carries a drawn box, and a fixture BFF that files proposals.
-
-Offline. The north-star rows ``ns-drawn-box`` (needs ``given_box``, ``canvas``) and ``ns-propose-move``
-(needs ``proposals``) run only if the harness really does these things, so they are driven here end to
-end up to the model: the turn's own parse and prompt section for the box, the agent's own proposals
-client against the fixture BFF for the proposal.
-"""
-
 from __future__ import annotations
 
 import json
@@ -82,7 +74,6 @@ class TestTheDrawnBoxOnTheTurn:
         assert payload.extract_turn_inputs("q").focus_region is not None
 
     def test_a_fresh_run_process_binds_the_wrapped_parse_through_sitecustomize(self):
-        """What ``nat run`` gets: the workflow module imports the parse by name, after sitecustomize patched it."""
         import os
         import subprocess
 
@@ -122,7 +113,6 @@ def _envelope(bff, conversation: str) -> SignedEnvelope:
 
 
 def _file(bff, conversation: str, monkeypatch, **fields) -> dict:
-    """What the agent's own proposals client gets from the fixture BFF."""
     monkeypatch.setenv("FRONTEND_INTERNAL_URL", bff.url)
     monkeypatch.setenv("INTERNAL_API_TOKEN", TOKEN)
     payload_ = {
@@ -181,8 +171,6 @@ class TestTheFixtureFilesProposals:
 
 
 class TestTheFixtureRecordsProposedMarks:
-    """The canvas ``mark`` tool's own request, against the fixture BFF: a proposal is recorded, not written."""
-
     MARK = {
         "page": 2,
         "shape": "point",

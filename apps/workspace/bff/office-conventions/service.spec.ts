@@ -289,7 +289,6 @@ describe('accepted moves', () => {
     vi.mocked(listProjectsFolders).mockResolvedValue(
       projects.flatMap((id) => [folder(id, `${id}-b`, 'Behörde'), folder(id, `${id}-k`, 'Korrespondenz')])
     )
-    // The letter still sits in Korrespondenz in the documents read; the person's accepted move is the signal.
     vi.mocked(listConventionDocuments).mockResolvedValue(
       projects.map((id) => ({
         projectId: id,

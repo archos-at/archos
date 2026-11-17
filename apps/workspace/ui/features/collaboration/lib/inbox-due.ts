@@ -1,19 +1,7 @@
-/**
- * By when a request is due, in the words every inbox surface uses (the row's
- * caption, the queue, the detail): a passed date in the error's word, a near
- * one in the warning's, any other as the plain date.
- *
- * Only a request still open has a date worth saying: once it is answered it
- * is history, and its date would keep shouting. A title written about the
- * date itself (the `due…` variants, „… hat die Frist auf 24. Okt. gesetzt“)
- * says it already.
- */
-
 import type { Translator } from '@/i18n/translate'
 import { formatDayRange } from '@/lib/format'
 import { INBOX_TYPE_PRESENTATION, UNKNOWN_TYPE_PRESENTATION, type InboxItemView } from '@/lib/inbox/types'
 
-/** By when, worded: a passed date (`danger`), a near one (`warning`), or a plain date. */
 export interface InboxDue {
   label: string
   variant: 'danger' | 'warning' | 'secondary'

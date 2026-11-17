@@ -69,28 +69,15 @@ from agent.knowledge.restricted_use import note_collections_read
 
 logger = logging.getLogger(__name__)
 
-# Long edge of the rendered page, in pixels. Mirrors the ingestion-time
-# visual-page render (RENDER_VISUAL_PAGES) so the model sees the page at
-# the same resolution it was captioned at.
 _MAX_DIM_ENV = "PAGE_RENDER_MAX_DIM"
 _DEFAULT_MAX_DIM = 2048
 
-# Gate env: when "off", the tool is available but answers with a text-only
-# block. The capability half of the gate (vision key) is derived, never
-# configured: without a VLM key no model in the fleet can consume images.
 _VIEW_IMAGES_ENABLED_ENV = "VIEW_IMAGES_ENABLED"
 
 _JPEG_QUALITY = 90
 
-# Standalone-image extensions (an uploaded image file, not a page of a PDF).
 _IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".tif", ".tiff"}
 
-# BFF internal lookup + SeaweedFS (S3) fetch. FRONTEND_INTERNAL_URL +
-# INTERNAL_API_TOKEN are already present on the aiq-agent tier; the
-# SEAWEED_* set is injected by the same tier once the backend fetches bytes
-# directly (the client itself is `agent.common.seaweed_s3`, shared with the
-# base-corpus store). All are read lazily so a base-corpus-only deployment (no
-# project uploads) needs none of them.
 _FRONTEND_INTERNAL_URL_ENV = "FRONTEND_INTERNAL_URL"
 _INTERNAL_TOKEN_ENV = "INTERNAL_API_TOKEN"
 
@@ -110,16 +97,17 @@ def _is_enabled() -> bool:
 
 
 def _find_pdf(file_name: str) -> str | None:
-    """The base-corpus PDF ``file_name``, fetched into this replica's cache if needed, or ``None``.
-
-    The corpus table decides what a base-corpus file is
-    (``corpus_store.ensure_local``). Fail-open like the rest of the tool: a
-    corpus that cannot be read counts as "not a base-corpus file", and the caller
-    goes on to the project/Archiv lookup.
+    """The base-corpus PDF ``file_name`` the turn may read, fetched into this replica's cache, or ``None``.
+    The corpus table decides what a base-corpus file is; one not released to a country of the turn
+    (``corpus_countries``, as for chunk reads) answers as an absent one. Fail-open otherwise: an unreadable
+    corpus counts as "not a base-corpus file" and the caller tries the project/Archiv lookup.
     """
     try:
         from agent import corpus_store
+        from agent.common.knowledge_context import corpus_countries
 
+        if not corpus_store.released_to(file_name, corpus_countries() or ()):
+            return None
         cached = corpus_store.ensure_local(file_name)
     except Exception:  # noqa: BLE001 - fail-open contract
         logger.warning("look: base-corpus lookup failed for %s", file_name, exc_info=True)
@@ -195,32 +183,8 @@ def _normalize_image_to_jpeg(image_bytes: bytes, max_dim: int) -> tuple[bytes, i
     return buf.getvalue(), pil_image.width, pil_image.height
 
 
-# ---------------------------------------------------------------------------
-# A region of a page: the box a person drew on the review canvas
-# ---------------------------------------------------------------------------
-#
-# The frame is the canvas's, and an Anmerkung's: shares of the page AS SHOWN
-# (its /Rotate applied), origin top left, ``[x, y, w, h]``.
-#
-# pypdfium2 (5.x, ``_helpers/page.py``) renders a crop without the page around
-# it: ``page.render(scale, crop=(left, bottom, right, top))`` takes the amounts
-# to cut off from each edge in PDF points (1/72 in), multiplies each by
-# ``scale`` and rounds it up, and allocates a bitmap of only what is left. The
-# crop "applies on bitmap level (i.e. after rotation)", and
-# ``page.get_size()`` already returns the rotated width and height, so the
-# edges are those of the page as a viewer shows it and the canvas frame maps
-# onto them directly. Both facts are pinned by real rotated pages in
-# ``tests/knowledge_layer_tests/test_view_image_region.py``.
-
-#: A box smaller than this, in points (about 8.5 mm), is widened about its
-#: centre: a box drawn around one dimension line still needs the line's ends to
-#: be read, and a 3-point box is a click, not a question.
 _MIN_REGION_PT = 24.0
-#: The finest rendering a region gets: 1200 dpi. Past that a vector line is
-#: only wider and a raster inside the PDF only blurrier, and the scale would grow
-#: without bound as the box shrinks.
 _MAX_REGION_SCALE = 1200 / 72
-#: The smallest crop of a standalone image, in pixels, for the same reason.
 _MIN_REGION_PX = 16
 
 Region = tuple[float, float, float, float]
@@ -341,7 +305,6 @@ class StorageLocation(tuple):
     """
 
     version_id: str | None
-    #: The document row the BFF resolved, when it said; the stored page text's ``index.json`` must name it.
     document_id: str | None
 
     def __new__(  # noqa: ANN204
@@ -538,7 +501,6 @@ class View:
     width: int
     height: int
     region: Region | None = None
-    #: The Fassung the bytes are, when the document service named one; None for the base corpus.
     version_id: str | None = None
 
     def with_text(self, text: str) -> View:
@@ -787,13 +749,8 @@ async def _gate(
         parsed = parse_region(region) if region is not None else None
     except ValueError as exc:
         return None, f"[{tool}] Invalid region {region!r}: {exc}."
-    # Before the budget and before any lookup: the model chose this name,
-    # and nothing outside the turn's scope is fetched, rendered or counted.
     if collection and not _may_read(collection):
         return None, _out_of_scope(file_name)
-    # The per-turn ceiling comes before any work: a spent budget costs no
-    # lookup, no fetch and no render. Outside a turn nothing is bound and
-    # the call proceeds.
     if not try_consume_image_view("overview" if overview else "region"):
         return None, _spent(tool)
     try:
@@ -881,15 +838,10 @@ async def _view(
     tool: str,
 ) -> View | str:
     """The source the arguments name, rendered: a stored raster, an uploaded image, or a PDF page."""
-    # A stored embedded raster: the ingest pipeline kept the image the
-    # caption chunk describes, so serve that instead of the page around it.
     if image_index is not None:
         return await _stored_raster(file_name, page_number, collection, image_index, parsed, limits, tool)
-    # Standalone image upload (PNG/JPG): there is no page to render.
     if _is_standalone_image(file_name):
         return await _uploaded_image(file_name, collection, parsed, limits, tool)
-    # PDF page. Base-corpus PDFs come from the local cache of the corpus; a
-    # project/Archiv PDF falls back to a SeaweedFS fetch rendered from bytes.
     pdf_path = await asyncio.to_thread(_find_pdf, file_name)
     if pdf_path is not None:
         return await _pdf_view(pdf_path, page_number, parsed, limits, file_name, "", tool)

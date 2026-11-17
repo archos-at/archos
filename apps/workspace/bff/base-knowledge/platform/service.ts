@@ -1,24 +1,3 @@
-/**
- * The platform's base knowledge (ADR-0165): the headless capability that the
- * platform routes, the platform door and the platform view are clients of.
- * Platform knowledge changes only through a change request:
- *
- *   create → propose records (validated, dry run first) → submit → review claim
- *   by claim → approve (the person's yes, four eyes) → publish to preview →
- *   publish to stable (the person's yes) → rollback if needed (the person's yes).
- *
- * Reads take `platform:settings:view` (whose description already covers the base
- * knowledge corpus); drafting `platform:knowledge:write`, review, decision,
- * publish and rollback `platform:knowledge:review` (migration 0218); entitlements and a home
- * country `platform:organizations:manage`. Approve,
- * publish, rollback and entitlement need the person's own yes at the server
- * (`requirePersonDecision`), whichever path the call took; each is audited.
- *
- * Four eyes has one deferral (ADR-0176): an author holding
- * `platform:knowledge:approve_alone` approves their own request with a reason.
- * The request is marked `single`, and another person's second review stays due.
- */
-
 import 'server-only'
 import { ConflictError, NotFoundError, UnprocessableError } from '@/lib/api/errors'
 import type { UserSession } from '@/lib/auth/types'
@@ -39,8 +18,9 @@ import { enqueueDeindex, enqueueIndexRuns, readIndexStatus } from './indexing'
 import { readOverview } from './overview'
 import { audit, auditOfDecision, decideInTransaction, SECOND_REVIEW_STATUSES, type DecisionOutcome } from './decide'
 import { readOrganizationPlacements } from './organization-countries'
-import { requestSourceChecks, runKit, validateRequest } from './onboarding'
-import { sourceChecksOf } from './source-checks'
+import { requestSourceChecks, requestTextProblems, runKit, validateRequest } from './onboarding'
+import { checksOutsideKit } from './text-checks'
+import { pinnedTexts } from './text-store'
 import { requirePlatform } from './service-gate'
 import { proposalKey as keyOf, recordIdOf } from './records'
 import { DISPUTED_NOT_PUBLISHED, publishChangeRequest, rollbackChangeRequest, type PublishOutcome, type RollbackOutcome } from './release'
@@ -72,7 +52,6 @@ import {
   type ReviewDecisionBody,
 } from './wire'
 
-/** The permission an approver holds to approve in a role: a role is held in WorkOS, never claimed in a body. */
 const APPROVAL_ROLE_PERMISSIONS: Readonly<Record<ApprovalRole, PlatformPermission>> = {
   domain_expert: PLATFORM_PERMISSIONS.knowledgeApproveAsDomainExpert,
   counsel: PLATFORM_PERMISSIONS.knowledgeApproveAsCounsel,
@@ -92,13 +71,15 @@ export async function platformKnowledgeOverview(session: UserSession | null): Pr
 
 export async function listPlatformChangeRequests(
   session: UserSession | null,
-  query: { status?: ChangeRequestStatus; origin?: ChangeRequestOrigin; secondReview?: SecondReviewState; limit?: number; cursor?: string },
+  query: { status?: ChangeRequestStatus; countryId?: string; origin?: ChangeRequestOrigin; secondReview?: SecondReviewState; limit?: number; cursor?: string },
 ): Promise<{ changeRequests: ChangeRequestSummary[]; nextCursor: string | null }> {
   await requirePlatform(session, PLATFORM_PERMISSIONS.settingsView)
   const offset = query.cursor ? Number(query.cursor) : 0
   const limit = query.limit ?? CHANGE_REQUEST_PAGE
-  // One more than the page says whether another follows.
-  const rows = await listChangeRequests({ status: query.status, origin: query.origin, secondReview: query.secondReview }, { offset, limit: limit + 1 })
+  const rows = await listChangeRequests(
+    { status: query.status, countryId: query.countryId, origin: query.origin, secondReview: query.secondReview },
+    { offset, limit: limit + 1 },
+  )
   return { changeRequests: rows.slice(0, limit), nextCursor: rows.length > limit ? String(offset + limit) : null }
 }
 
@@ -118,11 +99,6 @@ export async function createPlatformChangeRequest(
 }
 
 
-/**
- * Validate a batch and, unless it is a dry run or a check failed, write it into
- * the draft. Each record gets its result; a batch with a problem is refused
- * whole (422) with every record's problems, and nothing of it is written.
- */
 export async function proposePlatformRecords(
   session: UserSession | null,
   requestId: string,
@@ -130,8 +106,8 @@ export async function proposePlatformRecords(
   proposedBy: 'person' | 'agent' = 'person',
 ): Promise<ProposalView> {
   const person = await requirePlatform(session, PLATFORM_PERMISSIONS.knowledgeWrite)
-  // KC-7 runs on the api tier, before the request's lock is taken (ADR-0174).
-  const sourceChecks = await sourceChecksOf(body.records)
+  const pinned = await platformTransaction((tx) => pinnedTexts(tx, requestId))
+  const { checks: sourceChecks, pins, awaiting } = await checksOutsideKit(body.records, pinned, true, requestId)
   return platformTransaction(async (tx) => {
     const request = await lockChangeRequest(tx, requestId)
     if (!request) throw new NotFoundError('No change request with this id; list them first.')
@@ -140,14 +116,15 @@ export async function proposePlatformRecords(
     const results = body.records.map((record, index): ProposalRecordResult => {
       const own = problems.filter((problem) => problem.index === index)
       const status = own.length > 0 ? 'invalid' : 'valid'
-      return { index, key: own[0]?.key ?? keyOf(record), recordId: recordIdOf(record), status, revisionId: null, problems: own }
+      const waits = awaiting.get(recordIdOf(record))
+      return { index, key: own[0]?.key ?? keyOf(record), recordId: recordIdOf(record), status, revisionId: null, problems: own, ...(waits ? { awaiting: waits } : {}) }
     })
     if (body.dryRun) return { dryRun: true, valid: problems.length === 0, results }
     if (problems.length > 0) {
       throw new UnprocessableError(`The proposal failed ${problems.length} check(s) on ${results.filter((r) => r.status === 'invalid').length} record(s); nothing was written.`, { results })
     }
     const viaClient = actingClientId()
-    const written = await insertProposedRecords(tx, request, body.records, { createdBy: person.userId, proposedBy, ...(viaClient ? { viaClient } : {}) })
+    const written = await insertProposedRecords(tx, request, body.records, { createdBy: person.userId, proposedBy, pins, ...(viaClient ? { viaClient } : {}) })
     return {
       dryRun: false,
       valid: true,
@@ -173,24 +150,16 @@ export async function submitPlatformChangeRequest(session: UserSession | null, r
   return { status: 'submitted' }
 }
 
-/**
- * Record verdicts on claims. A review is no approval: it needs no yes of its
- * own, and it changes nothing offices read. Each verdict records how it was
- * given (the person's yes, or `agent`), and none comes from an author of the
- * request (four eyes, held again by migration 0208's trigger).
- */
 export async function reviewPlatformChangeRequest(
   session: UserSession | null,
   requestId: string,
   decisions: ReviewDecisionBody['decisions'],
 ): Promise<{ recorded: number }> {
   const person = await requirePlatform(session, PLATFORM_PERMISSIONS.knowledgeReview)
-  // A source check vouches for a page nobody fetched: the person's own yes, never a model's (ADR-0170).
   if (decisions.some((decision) => decision.sourceChecked)) requirePersonDecision('Marking a cited source as checked')
   await platformTransaction(async (tx) => {
     const request = await lockChangeRequest(tx, requestId)
     if (!request) throw new NotFoundError('No change request with this id; list them first.')
-    // A request approved alone stays reviewable until its second review is given (ADR-0176).
     if (request.status !== 'submitted' && !(request.secondReview === 'due' && SECOND_REVIEW_STATUSES.includes(request.status))) {
       throw new ConflictError(`The change request is ${request.status}; only a submitted one, or one whose second review is due, is reviewed.`)
     }
@@ -205,18 +174,6 @@ export async function reviewPlatformChangeRequest(
   return { recorded: decisions.length }
 }
 
-/**
- * Approve or reject a submitted request: the person's yes. Approval needs every
- * claim accepted; an edited or rejected claim goes into a follow-up request.
- * The role is the decider's, not the client's word: WorkOS says who holds it,
- * for a reject as for an approve.
- *
- * With `override` (ADR-0176) an author approves their own request alone: it
- * needs `platform:knowledge:approve_alone`, a reason, and the person's own yes,
- * and it is never implied. On such a request, once approved, another person
- * holding the role gives its second review in each role approved alone:
- * approve confirms it, reject disputes it (`./decide.ts`).
- */
 export async function decidePlatformChangeRequest(
   session: UserSession | null,
   requestId: string,
@@ -229,6 +186,12 @@ export async function decidePlatformChangeRequest(
   if (body.override) await requirePlatformPermission(person, PLATFORM_PERMISSIONS.knowledgeApproveAlone)
   const verb = body.override ? 'Approving a change request alone, without a second person' : `${body.decision === 'approve' ? 'Approving' : 'Rejecting'} a change request`
   const decisionSource = requirePersonDecision(verb)
+  if (body.decision === 'approve') {
+    const problems = await requestTextProblems(requestId)
+    if (problems.length > 0) {
+      throw new ConflictError(`A text of this change request is not the one that was proposed (${problems.length} problem(s)); it is not approved.`, { problems })
+    }
+  }
   const outcome = await platformTransaction((tx) => decideInTransaction(tx, requestId, { ...body, role }, { by: person.userId, decisionSource }))
   await audit(person, auditOfDecision(requestId, body, role, decisionSource, outcome))
   return {
@@ -241,7 +204,6 @@ export async function decidePlatformChangeRequest(
 }
 
 export interface PublishReceipt extends PublishOutcome {
-  /** Whether every published text's indexing job was enqueued; a failure says which, and the index status shows it. */
   indexing: { enqueued: number; failed: number }
 }
 
@@ -275,7 +237,6 @@ export async function rollbackPlatformChangeRequest(
   const decisionSource = requirePersonDecision('Rolling back a published change request')
   await requireRequest(requestId)
   const outcome = await rollbackChangeRequest(requestId, reason, { by: person.userId, decisionSource })
-  // A text no release names any more leaves every office's base corpus (ADR-0173).
   const deindexFailed = outcome.unreleasedFiles.length > 0 ? await enqueueDeindex(await getPlatformOrganizationId(), outcome.unreleasedFiles) : 0
   await audit(person, {
     action: 'platform.knowledge.rolled_back',
@@ -331,7 +292,6 @@ export async function setOrganizationHomeCountry(
   return { homeCountry: home.data, previous }
 }
 
-/** Where every office is placed: its home country or why it has none, and its entitlements (read only). */
 export async function listOrganizationPlacements(
   session: UserSession | null,
   page: { limit?: number; cursor?: string } = {},
@@ -340,7 +300,6 @@ export async function listOrganizationPlacements(
   return readOrganizationPlacements(page)
 }
 
-/** An office's own countries: any member reads them. */
 export async function organizationCountries(session: UserSession): Promise<OrganizationCountriesView> {
   return readOrganizationCountries(session.organizationId as string)
 }

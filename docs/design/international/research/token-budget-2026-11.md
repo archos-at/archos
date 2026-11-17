@@ -321,7 +321,7 @@ That ADR is numbered 0154 only on the unmerged branch `origin/feat/chat-conversa
 - medium effort as the research default (A2, A12);
 - the workspace door as client-side tool search (`workspace__search/describe/call`, A5).
 
-**Discrepancy between docs and code:** `docs/architecture/llm-providers.md` cites "the agent's `test_cross_turn_prefix.py`". That file exists only on the unmerged branch `origin/feat/chat-conversation-context-layout`, not on this branch. I did not modify the repo; it needs a fix in the change that lands or drops the proposed context-layout ADR.
+**Discrepancy between docs and code:** `docs/architecture/llm-providers.md` cites "the agent's `test_cross_turn_prefix.py`". That file exists only on the unmerged branch `origin/feat/chat-conversation-context-layout`, not on this branch. I did not modify the repo; it needs a fix in the change that lands or drops the proposed context-layout ADR. *Resolved 2026-11-10 by slice Q1, which ported the test with the stable head (ADR-0177).*
 
 ---
 

@@ -1,9 +1,3 @@
-/**
- * One task (the definition) — get, patch (re-resolves the attached skill when it changed
- * and recomputes next_run_at), delete. Thin adapters (ADR-0017); logic in
- * `@/lib/jobs/service`. Every query is org-scoped.
- */
-
 import { apiRoute, parseJsonBody } from '@/lib/api/handler'
 import { requireSkillsEnabled } from '@/lib/authz/feature-flags'
 import { deleteJob, getJob, updateJob } from '@/lib/jobs/service'

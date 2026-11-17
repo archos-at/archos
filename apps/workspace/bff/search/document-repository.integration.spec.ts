@@ -47,12 +47,10 @@ interface Seed {
   createdAt: string
   status?: string
   held?: boolean
-  /** The screening verdict on record; default none, which passes once the row settled. */
   outcome?: 'clean'
   archived?: boolean
   contentType?: string
   superseded?: boolean
-  /** No reading: the document has no projection row. */
   metadata: DocumentMetadata | null
 }
 
@@ -77,11 +75,6 @@ const coverage = (pages: number, notRead: number) => ({
   reasons: {},
 })
 
-/**
- * The office. A1..A13 in the measured organization, B1 in another one.
- * A7 sits in a hidden folder, A8 and A11 are other people's held uploads, A9
- * is the reader's own held upload, A10 is archived, A12 has no reading.
- */
 const SEEDS: Seed[] = [
   {
     key: 'A1',
@@ -102,7 +95,6 @@ const SEEDS: Seed[] = [
         dates: [{ kind: 'issued', date: '2026-03-12' }],
         place: { address: 'Hauptstraße 1', municipality: 'Wien', state: 'Wien' },
         facts: [fact('building_class', 'GK 4'), fact('storeys_above_ground', '5'), fact('building_height', '14,5')],
-        // Index C against Index B (A2): one more storey.
         changes: [{ key: 'storeys_above_ground', before: '4', after: '5', page: 1 }],
       }),
       docReferences: [
@@ -118,7 +110,6 @@ const SEEDS: Seed[] = [
     where: 'p1',
     filename: 'EP-05_Grundriss_EG_B.pdf',
     createdBy: OTHER,
-    // 00:30 on 1 March in Vienna: an upload of that day, though UTC says February.
     createdAt: '2026-02-28T23:30:00Z',
     superseded: true,
     metadata: {
@@ -292,8 +283,6 @@ const SEEDS: Seed[] = [
     contentType: 'image/vnd.dwg',
     createdBy: OTHER,
     createdAt: '2026-04-15T08:00:00Z',
-    // Screened clean, then indexing failed: readable to all. Without a verdict
-    // a failed upload stays held from everyone but its uploader (ADR-0086).
     status: 'failed',
     outcome: 'clean',
     metadata: {
@@ -322,10 +311,8 @@ const SEEDS: Seed[] = [
   },
 ]
 
-/** What the reader may see office-wide with no flags: everything but A7, A8, A10, A11 and B1. */
 const VISIBLE = ['A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'A9', 'A12', 'A13']
 const FACET_KEYS: FacetKey[] = ['documentType', 'tag', 'project', 'partyRole', 'municipality', 'cites', 'status', 'fileType', 'changedFact']
-/** The sorts this spec states the expected order of; scale, folder and status are covered by their own cases. */
 type CheckedSort = Exclude<SearchSort, 'relevance' | 'scale' | 'folder' | 'status' | 'author'>
 const SORTS: CheckedSort[] = [
   'name',
@@ -350,7 +337,6 @@ describe.skipIf(!url)('the search documents SQL against Postgres', () => {
 
   const inTenant = <T>(org: string, run: () => Promise<T>): Promise<T> => withTenant({ organizationId: org, userId: ME }, run)
 
-  /** The reach the gates would build for ME office-wide, by hand. */
   function officeReach(overrides: { reviewP1?: boolean; reviewShelf?: boolean } = {}): SearchReach {
     return {
       organizationId: ORG,
@@ -483,14 +469,10 @@ describe.skipIf(!url)('the search documents SQL against Postgres', () => {
     it('never names a hidden folder, a held upload of another person or another organization in a facet count', async () => {
       const facets = await repo.documentFacetCounts(officeReach(), query(), FACET_KEYS)
       const count = (facet: string, value: string): number => facets[facet].find((entry) => entry.value === value)?.count ?? 0
-      // A3 only: A7 is hidden, A8 held, nothing of B1.
       expect(count('documentType', 'fire_safety_concept')).toBe(1)
       expect(count('documentType', 'correspondence')).toBe(0)
-      // A1 only; A7 (hidden), A8 (held) and B1 (other office) cite it too.
       expect(count('cites', 'norm:önorm b 1600')).toBe(1)
-      // A1 and A6; A7, A8 and B1 are in Wien too.
       expect(count('municipality', 'Wien')).toBe(2)
-      // A1, A2, A9, A12: never A7, A8, A10.
       expect(count('project', projectIds.p1)).toBe(4)
       expect(count('project', projectIds.pb)).toBe(0)
       expect(count('status', 'quarantined')).toBe(1)
@@ -523,7 +505,6 @@ describe.skipIf(!url)('the search documents SQL against Postgres', () => {
     it('finds, counts and shows what a Fassung changed, never for a hidden or held document', async () => {
       expect(await found(officeReach(), query({ factsChanged: true }))).toEqual(keys('A1'))
       expect(await found(officeReach(), query({ changedFacts: ['storeys_above_ground', 'units'] }))).toEqual(keys('A1'))
-      // A7 (hidden) and A8 (held) changed their Gebäudeklasse; the reader sees neither.
       expect(await found(officeReach(), query({ changedFacts: ['building_class'] }))).toEqual([])
       expect(await found(officeReach({ reviewP1: true }), query({ changedFacts: ['building_class'] }))).toEqual(keys('A8'))
       const facets = await repo.documentFacetCounts(officeReach(), query(), ['changedFact'])
@@ -535,7 +516,6 @@ describe.skipIf(!url)('the search documents SQL against Postgres', () => {
     })
 
     it('counts the documents in reach Piloti has not read, whatever the filters, and none it may not see', async () => {
-      // A9 (the reader's own held upload) and A12; never B1's office or a hidden folder.
       expect(await repo.countUnreadDocuments(officeReach(), false)).toBe(2)
       expect(await repo.countUnreadDocuments(officeReach(), true)).toBe(2)
       const p2Only: SearchReach = { ...officeReach(), projects: officeReach().projects.slice(1), officeShelf: null }
@@ -602,7 +582,6 @@ describe.skipIf(!url)('the search documents SQL against Postgres', () => {
       expect(await repo.readReferenceSubject(reach, ids.A8)).toBeNull()
       expect(await repo.readReferenceSubject(reach, ids.B1)).toBeNull()
       expect(await repo.readReferenceSubject(officeReach({ reviewP1: true }), ids.A8)).not.toBeNull()
-      // Archived is still a document one may cite.
       expect(await repo.readReferenceSubject(reach, ids.A10)).not.toBeNull()
     })
   })
@@ -684,7 +663,6 @@ describe.skipIf(!url)('the search documents SQL against Postgres', () => {
     })
 
     it('reads ä ö ü ß and ae oe ue ss as one spelling in the reading, the stemmer still folding a plural', async () => {
-      // „Flaechenwidmung“ and „Flächenwidmung“ found different documents (migration 0188).
       expect(await found(officeReach(), query({}, { text: 'Brandschutzplaene', contentKeys: [] }))).toEqual(keys('A3'))
       expect(await found(officeReach(), query({}, { text: 'Ingenieurbuero', contentKeys: [] }))).toEqual(keys('A3'))
       expect(await found(officeReach(), query({}, { text: 'Hauptstrasse', contentKeys: [] }))).toEqual(keys('A1'))
@@ -844,7 +822,6 @@ describe.skipIf(!url)('the search documents SQL against Postgres', () => {
       const p2 = { kind: 'project' as const, projectId: projectIds.p2 }
       await markShelfSynced(ORG, p1, '7@x')
       expect(await claimShelfRefresh(ORG, p1, 10 * 60 * 1000)).toBe(true)
-      // p2 has a claim and no sync: the CHECK keeps its fingerprint null.
       expect(await claimShelfRefresh(ORG, p2, 10 * 60 * 1000)).toBe(true)
 
       await markShelvesStale(ORG, [p1, p2])
@@ -877,7 +854,6 @@ describe.skipIf(!url)('the search documents SQL against Postgres', () => {
       const { suggestValues } = await import('./suggest-repository')
       return suggestValues(reach, query(filters), { limit: 10, ...request })
     }
-    /** Only project p2: what a reader of the other project alone reaches. */
     const p2Only = (): SearchReach => ({ ...officeReach(), projects: officeReach().projects.slice(1), officeShelf: null })
 
     it('completes a party from the start of any word, case and accents ignored, a document counted once', async () => {
@@ -888,14 +864,11 @@ describe.skipIf(!url)('the search documents SQL against Postgres', () => {
         { value: 'Atelier Nord ZT GmbH', label: 'Atelier Nord ZT GmbH', count: 2 },
       ])
       expect((await suggest(officeReach(), { dimension: 'party', prefix: 'sud' })).map((entry) => entry.value)).toEqual(['Ingenieurbüro Süd'])
-      // Within a role: Atelier Nord is no client.
       expect(await suggest(officeReach(), { dimension: 'party', prefix: 'atel', role: 'client' })).toEqual([])
-      // Not the middle of a word.
       expect(await suggest(officeReach(), { dimension: 'party', prefix: 'telier' })).toEqual([])
     })
 
     it('never names a value held only by a hidden folder, a held upload, another project or another office', async () => {
-      // A7 (hidden folder) names Geheim GmbH and EP-07; A8 (held) and B1 (other office) cite ÖNORM B 1600 too.
       expect(await suggest(officeReach(), { dimension: 'party', prefix: 'geh' })).toEqual([])
       expect(await suggest(officeReach(), { dimension: 'planNumber', prefix: 'ep-07' })).toEqual([])
       const everyParty = await suggest(officeReach(), { dimension: 'party', prefix: '' })
@@ -904,15 +877,12 @@ describe.skipIf(!url)('the search documents SQL against Postgres', () => {
       expect(await suggest(officeReach(), { dimension: 'cites', prefix: 'onorm' })).toEqual([
         { value: 'norm:önorm b 1600', label: 'ÖNORM B 1600', count: 1 },
       ])
-      // A reader of project p2 alone never learns what project p1 holds.
       expect(await suggest(p2Only(), { dimension: 'party', prefix: 'atel' })).toEqual([])
       expect(await suggest(p2Only(), { dimension: 'cites', prefix: 'önorm' })).toEqual([])
-      // The project's reviewer sees the held upload, and so its citation.
       expect((await suggest(officeReach({ reviewP1: true }), { dimension: 'cites', prefix: 'önorm' }))[0]?.count).toBe(2)
     })
 
     it('completes a place, a drawing number, a scale, a revision and a fact, one value however it is written', async () => {
-      // Wien is A1's and A6's municipality and state: one value, two documents.
       expect(await suggest(officeReach(), { dimension: 'place', prefix: 'wi' })).toEqual([{ value: 'Wien', label: 'Wien', count: 2 }])
       expect((await suggest(officeReach(), { dimension: 'place', prefix: 'hauptstr' }))[0]?.value).toBe('Hauptstraße 1')
       const plan = await suggest(officeReach(), { dimension: 'planNumber', prefix: 'EP0' })
@@ -925,7 +895,6 @@ describe.skipIf(!url)('the search documents SQL against Postgres', () => {
       expect(await suggest(officeReach(), { dimension: 'fact', factKey: 'gross_floor_area', prefix: '24' })).toEqual([
         { value: '2400', label: '2400', count: 1 },
       ])
-      // Another fact's value is no value of this one.
       expect(await suggest(officeReach(), { dimension: 'fact', factKey: 'building_height', prefix: '24' })).toEqual([])
     })
 

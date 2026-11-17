@@ -1,13 +1,3 @@
-"""The law a suite turn reads about its site: what an entitled Austrian office's turn carries.
-
-Since ADR-0175 the agent reads which law applies from the turn context's ``knowledgeContext`` and
-nothing else (its chain text and every edition's role); a turn without it reads no law at all. Every
-fixture BFF answer to ``POST /api/internal/turn-context`` therefore carries it, for the Land of the
-turn's project, as the production resolvers wrote it from the Austria and EU packs
-(``tests/fixtures/base-knowledge/turn_law_austria.json``, from
-``apps/workspace/bff/base-knowledge/context/turn-law.fixture.spec.ts``).
-"""
-
 from __future__ import annotations
 
 import functools
@@ -18,7 +8,6 @@ from typing import Any
 
 LAW_FILE = Path(__file__).resolve().parents[2] / "tests" / "fixtures" / "base-knowledge" / "turn_law_austria.json"
 
-#: The intake's Land tokens (``federal_state``) as the territories the packs name.
 TERRITORY_OF_STATE: dict[str, str] = {
     "burgenland": "AT-1",
     "carinthia": "AT-2",
@@ -31,7 +20,6 @@ TERRITORY_OF_STATE: dict[str, str] = {
     "vienna": "AT-9",
 }
 
-#: Where a suite question sits when nothing says: the question set is a Viennese office's.
 DEFAULT_TERRITORY = "AT-9"
 
 
@@ -41,40 +29,47 @@ def _law() -> dict[str, dict[str, Any]]:
 
 
 def territory_of(federal_state: str | None) -> str:
-    """The territory of an intake Land token; Vienna when there is none."""
     return TERRITORY_OF_STATE.get(federal_state or "", DEFAULT_TERRITORY)
 
 
+SITE = "site_territory"
+
+
 def with_law(answer: dict[str, Any], project: dict[str, Any] | None = None) -> dict[str, Any]:
-    """A turn-context answer with the ``knowledgeContext`` of ``project``'s Land in its data."""
-    territory = territory_of(((project or {}).get("facts") or {}).get("federal_state"))
-    data = {**answer.get("data", {}), **_law()[territory]}
-    return {**answer, "data": data}
+    rest = {key: value for key, value in answer.items() if key != SITE}
+    if SITE in answer:
+        law = _law().get(str(answer[SITE]), {})
+    else:
+        law = _law()[territory_of(((project or {}).get("facts") or {}).get("federal_state"))]
+    return {**rest, "data": {**answer.get("data", {}), **law}}
 
 
 class _LawOnly:
-    """The norm set's turn context: no project, no memory; ``FixtureBFF`` adds Vienna's law (``fixture_law.py``)."""
+    def __init__(self) -> None:
+        self._sites: dict[str, str | None] = {}
+
+    def place(self, conversation: str, territory: str | None) -> None:
+        self._sites[conversation] = territory
 
     def turn_context(self, conversation: str | None) -> dict[str, Any]:
-        return {"data": {"projectContext": None, "projectMemory": None, "orgInstructions": None}}
+        answer: dict[str, Any] = {"data": {"projectContext": None, "projectMemory": None, "orgInstructions": None}}
+        if conversation in self._sites:
+            answer[SITE] = self._sites[conversation]
+        return answer
 
 
 def start_law_bff(out: Path, envelope: Callable[..., tuple[str, str]]) -> tuple[Any, Any]:
-    """``--set loop``: a fixture BFF that serves the turn context alone, with Vienna's law (ADR-0175).
-
-    The norm questions are a Viennese office's. Since ADR-0175 a turn reads which law applies from the
-    knowledge context and the chain the BFF sends, and a turn without them reads none; this serves what an
-    entitled Austrian office's turn in Vienna carries once the packs are published. Every other route is
-    dropped, as it was when this set ran with no BFF at all.
-    """
     import secrets
 
     from fixture_bff import FixtureBFF
 
     token = secrets.token_hex(16)
-    bff = FixtureBFF(token, out / "requests.jsonl", workspace=_LawOnly()).start()
+    workspace = _LawOnly()
+    bff = FixtureBFF(token, out / "requests.jsonl", workspace=workspace).start()
 
     def env_for(conversation_id: str, question: dict) -> dict[str, str]:
+        if "territory" in question:
+            workspace.place(conversation_id, question["territory"])
         office = {"organizationId": "org_suite_vienna", "userId": "user_suite"}
         header, signature = envelope(office, conversation_id, token, {"id": None})
         return {

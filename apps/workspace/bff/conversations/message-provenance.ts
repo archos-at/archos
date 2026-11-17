@@ -1,34 +1,3 @@
-/**
- * An answer's provenance, made durable (ADR-0037).
- *
- * The Herleitung, the confidence self-assessment and the routing transparency were
- * **browser-local**. Only seven fields ever reached the server with a message —
- * `errorData`, `fileData`, `cards`, `cardInteractions`, `enabledDataSources`,
- * `messageFiles` and (since the citations fix) `citations`. Everything that
- * explains HOW an answer was reached lived in the tab that produced it.
- *
- * That has two consequences, and in a building-regulation product the provenance
- * is not decoration — it is most of the value:
- *
- *   1. **A colleague sees a bare answer.** An observer holds no agent socket by
- *      design (ADR-0033 §7), so they never receive the intermediate frames, and
- *      the server row they load instead never carried them. Anna reads "1,20 m"
- *      with nothing to say what it rests on.
- *   2. **The asker loses it too**, on any other device, after a storage prune, or
- *      in any browser that was not the one that asked. This one predates sharing.
- *
- * The fix is the same one the citations fix already made, extended: keep the
- * COMPACT form on the message row. For the Herleitung that is {@link StoredThinkingStep}:
- * the typed step the turn fold writes (chat wire v2), which carries no tool
- * input or output, so the server keeps exactly what localStorage keeps, and the
- * two cannot disagree about what a restored thread looks like.
- *
- * **The client is not trusted with the bound.** `sanitizeProvenance` is what runs
- * before anything reaches the jsonb column: unknown keys are dropped, unions are
- * checked, strings are capped and the step list is truncated. A jsonb column with
- * a client-supplied array in it is otherwise an unbounded write.
- */
-
 import type { Shelf, SourceKind, SourceSignal } from '@/lib/source-kinds'
 import { modernizeLane } from '@/lib/source-kinds'
 import { modernizeTurnEventKey, modernizeTurnEventValueName } from './legacy-turn-event'
@@ -38,7 +7,6 @@ import { sanitizeQuoteStamps, type QuoteStamp } from './message-quote-stamps'
 import { sanitizeConfidenceCheck, type ConfidenceCheck } from './confidence-check'
 import { isChatEffort, type ChatEffort } from '@/lib/reasoning-settings/catalog'
 
-/** The kinds of Herleitung step, one per wire v2 `Step` (`wire_v2.py`). */
 export const STEP_KINDS = [
   'status',
   'retrieval',
@@ -51,7 +19,6 @@ export const STEP_KINDS = [
 ] as const
 export type StepKind = (typeof STEP_KINDS)[number]
 
-/** What one call of the agent's work was (`ActionStep.verb`, ADR-0132). */
 export const ACTION_VERBS = [
   'search',
   'list',
@@ -71,55 +38,33 @@ export type ActionStatus = (typeof ACTION_STATUSES)[number]
 export const ACTION_MODES = ['meaning', 'exact', 'regex'] as const
 export type ActionMode = (typeof ACTION_MODES)[number]
 
-/** The places of Piloti's filesystem a path-based call reaches (ADR-0133); `estate` is every one of them. */
 export const ACTION_MOUNTS = ['project', 'office', 'chat', 'law', 'estate'] as const
 export type ActionMount = (typeof ACTION_MOUNTS)[number]
 
-/** What one call found; each count is absent when the call does not count it. */
 export interface StoredActionCounts {
   hits?: number
   documents?: number
-  /** The denominator: documents searched. */
   searched?: number
   files?: number
   folders?: number
 }
 
-/**
- * One call of the agent's work, typed and clipped (`action` step, ADR-0132):
- * the Herleitung's work list draws a row from it. The start is the step's own
- * `timestamp`; the finish is that plus `elapsedMs`, once the call has ended.
- */
 export interface StoredAction {
   verb: ActionVerb
   status: ActionStatus
   query?: string
   mode?: ActionMode
-  /** Folder path, document name, project or operation, in words. */
   target?: string
-  /** The workspace document a read or look opened. */
   documentId?: string
-  /** The pages or Punkt read, e.g. `2-3`, `Pkt. 3.5`. */
   pages?: string
-  /** Which shelf: project, office, base, web. */
   shelf?: string
-  /** The place a path-based call reached; `target` is then the folder inside it, absent at its root. */
   mount?: ActionMount
-  /** A literal search that could not search everything: its count is a floor, and no hit is no no. */
   incomplete?: boolean
-  /** The folder or document the call named is not there; a restricted one answers the same (ADR-0088). */
   missing?: boolean
   counts?: StoredActionCounts
   elapsedMs?: number
 }
 
-/**
- * What a step may say on the live line and the Herleitung spine: the key, its
- * values (what was searched, in which corpus), the model's own `reason` (its
- * checkpoint sentence, attributed and never interpolated), and the `tools`
- * that round called. Bounded on write, because the values are a
- * client-supplied record.
- */
 export interface StoredTurnEvent {
   key: string
   values?: Record<string, string>
@@ -127,136 +72,48 @@ export interface StoredTurnEvent {
   tools?: string[]
 }
 
-/** One document hit inside a lane of a `sources` step. */
 export interface TraceSourceHit {
-  /** Raw document identity (corpus filename, hostname): what dedupes. */
   name: string
-  /** The backend's human title; absent, `documentShortName` derives one from `name`. */
   title?: string
   detail?: string
-  /** The shelf the hit was read from (ADR-0047). */
   shelf?: Shelf
-  /** The retrieval round that returned it. */
   round?: number
 }
 
-/**
- * One lane of a search's fan-out, as a `sources` step stores it: the wire's
- * `TraceLane`, renamed to the stored field names and tinted once, when the
- * fold takes the step (docs/design/chat-wire-v2.md §e.1).
- */
 export interface TraceLaneCard {
   key: string
   label: string
   hitCount: number
   sources: TraceSourceHit[]
-  /** Canonical coarse source kind (ADR-0026), as the backend classified it. */
   kind?: SourceKind
-  /** Provenance signal for the --source-* tint. */
   signal: SourceSignal
 }
 
-/**
- * The compact stored form of one Herleitung step: exactly what the turn fold
- * writes (docs/design/chat-wire-v2.md §e.4), and the ONLY shape this column
- * holds. Rows written before the wire v2 cut were rewritten by migration 0097;
- * nothing here reads the older `functionName` shape.
- *
- * Which fields a step carries follows its `kind`: `retrieval` has `round` and
- * the `turnEvent`, `status` its `slot` (and the `turnEvent` when it speaks),
- * `sources` its `tool` and `traceLanes`, `tool` its `tool`, `skill` its
- * `skill`. No step carries a tool's input or output.
- */
 export interface StoredThinkingStep {
   id: string
   userMessageId: string
   timestamp: string
   isComplete: boolean
   kind: StepKind
-  /** Set only for in-process deep research; a chat step stores no key. */
   scope?: 'deep'
   turnEvent?: StoredTurnEvent
-  /** The sources fan-out, which is the part of a step a reader actually reads. */
   traceLanes?: TraceLaneCard[]
   round?: number
-  /** A tool's basename (`tool`, `sources`). */
   tool?: string
-  /** The skill's name (`skill`). */
   skill?: string
-  /** The status slot (`status`), e.g. `synthesis`, `checkpoint:0`. */
   slot?: string
-  /** Structured detail of a technical status record: scalars and short string lists. */
   detail?: Record<string, StepDetailValue>
-  /** One call of the agent's work (`action`); its start is `timestamp`. */
   action?: StoredAction
-  /**
-   * The call an `action` row and the `sources` it returned share (ADR-0132):
-   * what links a Herleitung row to its source cards. Absent on rows stored
-   * before the wire carried it; those rows link to nothing.
-   */
   callId?: string
-  /**
-   * The subagent invocation that took this step (AG-UI 1.0 `subagentRunId`).
-   * On a subagent's own row (`subagent:<run id>`) it names the invocation
-   * that spawned it. Absent: the turn's own agent.
-   */
   subagentRunId?: string
 }
 
 export type StepDetailValue = string | number | boolean | string[]
 
-/**
- * Why the deterministic overconfidence guard downgraded the model's own
- * self-assessment. Five causes, two of them about the SECOND kind of grounding:
- * an IFC measurement carries a provenance, a tolerance, a readable method and
- * the GlobalIds it came from, but has no passage to quote — so it can never
- * satisfy the citation gate.
- *
- * - `ungrounded`              nothing verified and nothing measured.
- * - `quote_unverified`        a quoted span matched no source passage.
- * - `law_unsettled`           cites building law the turn's records do not settle.
- * - `normative_claim_uncited` the answer WAS measurement-grounded but also
- *   asserts something normative with no verified citation, so it is held at
- *   'low' rather than riding out on the measurement's evidence.
- * - `measurement_only`        measured and purely descriptive, so 'high' was
- *   reduced to 'medium' (measurement grounding never reaches 'high').
- * - `citation_fallback`       stored before ADR-0125 retired the single-source
- *   fallback, which attached a source the answer did not cite.
- *
- * Exported so the chip, the stored provenance and the wire mapper share one
- * list instead of three copies that can drift apart.
- */
 export type AnswerConfidenceCappedReason = (typeof CAPPED_REASONS)[number]
 
-/**
- * WHY a deep-research run stopped before it was finished, as the backend's own
- * stable token (`deep_researcher/models/state.py`):
- *
- * - `wall_clock` the run reached its time budget.
- * - `step_limit`  the orchestrator reached its step ceiling.
- *
- * The token is never shown; the frontend owns the words (see the `answerSources`
- * dictionary group). Allow-listed here for the same reason `CAPPED_REASONS` is:
- * this is read back out of a jsonb column that a newer backend may have written,
- * and a token this build has no sentence for must not reach a renderer.
- */
 export type TruncationReason = (typeof TRUNCATION_REASONS)[number]
 
-/**
- * Ways a salvaged answer is weaker than one from a clean run — again stable
- * tokens, again never shown raw:
- *
- * - `no_report_file`     the run produced no persisted report; the answer in the
- *   thread is the only copy.
- * - `no_valid_citations` nothing the answer cited survived verification.
- * - `cards_generation_failed` the report is whole, but the proposals a job
- *   derives from it afterwards could not be produced.
- * - `basis_unread` a document the reader named as Grundlage was never
- *   read; the report names which at its end.
- *
- * An EMPTY list is not a claim of "degraded in zero ways" — it is the ordinary
- * case, and it is stored as no key at all.
- */
 export type AnswerDegradedReason = (typeof ANSWER_DEGRADED_REASONS)[number]
 
 export interface MessageProvenance {
@@ -266,95 +123,25 @@ export interface MessageProvenance {
   answerConfidenceReason?: string
   routingDecision?: 'meta' | 'shallow' | 'deep' | 'error'
   escalationReason?: string
-  /** How long the answer took, in whole milliseconds, as the asking browser measured it. */
   answerDurationMs?: number
-  /**
-   * The Aufwand the turn ran at, as the asking browser sent it. Stored so the
-   * thorough retry steps up from this answer's level on any device, not from
-   * wherever the reader's dial stands now.
-   */
   reasoningEffort?: ChatEffort
-  /**
-   * The skills the turn activated, and the subset the disclosure de-emphasises.
-   * Stored because the disclosure calls itself the RECORD of what shaped the
-   * answer, and a record that vanished on reload was not one.
-   */
   skillsActivated?: string[]
   skillsHidden?: string[]
   citationsRemoved?: { count: number; reasons: string[] }
-  /**
-   * The turn's research was cut off at its budget ceiling. Stored, because a
-   * reloaded conversation that quietly dropped it would show a truncated
-   * answer as a complete one — the record has to keep saying what the live
-   * answer said.
-   */
   researchTruncated?: true
-  /**
-   * The asker pressed Stop: the answer is the prose the turn had produced by
-   * then (`RUN_FINISHED{outcome: 'cancelled'}`, persisted by the agent tier).
-   * Stored so a reload shows what the reader saw, marked as stopped, rather
-   * than a fragment that reads as a finished answer.
-   */
   stopped?: true
-  /**
-   * Why it was cut off. Stored beside the flag rather than folded into it: the
-   * flag is what the reader is told, the reason is what turns "it stopped" into
-   * "it ran out of time", and a reopened thread that kept only the first half
-   * would show less than the live turn did.
-   */
   truncationReason?: TruncationReason
-  /**
-   * How the salvaged answer is weaker than a clean one. A list because a run
-   * can degrade in more than one way at once, and absent — never `[]` — when it
-   * degraded in none.
-   */
   degradedReasons?: AnswerDegradedReason[]
-  /**
-   * The deep-research job, so a colleague can fetch the report rather than be
-   * handed a copy of it. The POINTER is small and the report is large and already
-   * has a retrieval path; storing the payload here would put a document in a
-   * message row.
-   */
   deepResearchJobId?: string
-  /**
-   * The backend's own account of this turn's retrieval rounds. Stored beside
-   * the thinking steps because it IS Herleitung data — the compact form the
-   * server keeps must equal what localStorage keeps, or two restores of one
-   * thread disagree about what a restored thread looks like.
-   */
   retrievalLedger?: RetrievalLedger
-  /**
-   * The server's check of each quote line (`message-quote-stamps.ts`). Stored
-   * so a reload still says „Wortlaut belegt [N]" where the live answer did.
-   */
   quoteStamps?: QuoteStamp[]
-  /** What the answer check found (`confidence-check.ts`, ADR-0139). */
   confidenceCheck?: ConfidenceCheck
-  /**
-   * Which rule computed `answerConfidence`: 2 the per-sentence formula
-   * (ADR-0125). Absent on every answer stored before it, which renders under
-   * the answer-level floors it was computed with.
-   */
   answerConfidenceVersion?: 1 | 2
-  /** A search ran and found nothing; the answer is the model's own knowledge. Present or absent. */
   lookupFoundNothing?: true
 }
 
-/**
- * One answer's Herleitung is tens of steps, and a long one a few hundred: a
- * call is up to three (its action, its sources, a status line), so forty calls
- * pass two hundred. Over the bound, the oldest technical steps go first
- * ({@link DROP_ORDER}); a call's own rows go last.
- */
 export const MAX_THINKING_STEPS = 600
-/** What is read at all before the bound applies: anything longer is a runaway client. */
-const MAX_THINKING_STEPS_READ = 4 * MAX_THINKING_STEPS
-/**
- * Which steps a list over {@link MAX_THINKING_STEPS} loses first, oldest first
- * within each tier: status lines and tool rows (what the work list already
- * says), then the rounds' framing and looks, and the rows of the calls
- * themselves (`action`, `sources`) only when nothing else is left.
- */
+export const MAX_THINKING_STEPS_READ = 4 * MAX_THINKING_STEPS
 const DROP_ORDER: Readonly<Record<StepKind, number>> = {
   status: 0,
   tool: 0,
@@ -365,38 +152,24 @@ const DROP_ORDER: Readonly<Record<StepKind, number>> = {
   action: 2,
   sources: 2,
 }
-/**
- * A subagent's own row (`subagent:<run id>`, AG-UI 1.0 `SUBAGENT_*`) is a
- * status by kind, but it holds its group together: dropped with the status
- * lines, a long deep research would lose its nesting first. It goes last.
- */
 const dropTier = (step: StoredThinkingStep): number =>
   step.kind === 'status' && step.id.startsWith('subagent:') ? DROP_ORDER.action : DROP_ORDER[step.kind]
-/** Reasons are one sentence. */
 const MAX_REASON_CHARS = 600
-/** `citationsRemoved.reasons` is a short list of short codes. */
 const MAX_REMOVED_REASONS = 20
 const MAX_REMOVED_REASON_CHARS = 120
-/** A deep-research turn can run for hours; a week is a broken clock, not an answer. */
 const MAX_ANSWER_DURATION_MS = 7 * 24 * 60 * 60 * 1000
-/** Skill names are short slugs; a turn activates a handful. */
 const MAX_SKILLS = 20
 const MAX_SKILL_CHARS = 80
 const MAX_TRACE_LANES = 40
-/** A turn event is one dotted key and a few short interpolation values. */
 const MAX_TURN_EVENT_KEY_CHARS = 64
 const MAX_TURN_EVENT_VALUES = 8
 const MAX_TURN_EVENT_VALUE_KEY_CHARS = 32
 const MAX_TURN_EVENT_VALUE_CHARS = 64
-/** A tool basename; the wire bounds a step id at 200. */
 const MAX_NAME_CHARS = 200
-/** A technical record's detail is a handful of counts and reasons. */
 const MAX_ACTION_QUERY_CHARS = 160
 const MAX_ACTION_TARGET_CHARS = 300
 const MAX_ACTION_PAGES_CHARS = 40
-/** The wire's own bound on `call_id` (`wire_v2.ActionStep`). */
 const MAX_CALL_ID_CHARS = 64
-/** The wire's own bound on `subagent_run_id` (`wire_v2.SubagentRunId`). */
 const MAX_SUBAGENT_RUN_ID_CHARS = 64
 const MAX_DETAIL_ENTRIES = 16
 const MAX_DETAIL_VALUE_CHARS = 200
@@ -406,19 +179,18 @@ export const CAPPED_REASONS = [
   'ungrounded',
   'quote_unverified',
   'law_unsettled',
+  'open_point',
   'normative_claim_uncited',
   'measurement_only',
   'citation_fallback',
 ] as const
 const ROUTING_DECISIONS = ['meta', 'shallow', 'deep', 'error'] as const
-/** The cutoff causes the deep researcher records. See {@link TruncationReason}. */
 export const TRUNCATION_REASONS = [
   'wall_clock',
   'step_limit',
   'upstream_timeout',
   'user_requested',
 ] as const
-/** The degradations it records. See {@link AnswerDegradedReason}. */
 export const ANSWER_DEGRADED_REASONS = [
   'no_report_file',
   'no_valid_citations',
@@ -426,11 +198,6 @@ export const ANSWER_DEGRADED_REASONS = [
   'basis_unread',
 ] as const
 
-/**
- * The degraded-reason token a stored message may still carry from before the
- * English names. Read-only: nothing writes it. Applied where a stored reason is
- * read (`sanitizeProvenance`, the stored `degraded` step).
- */
 export const LEGACY_DEGRADED_REASON: Readonly<Record<string, AnswerDegradedReason>> = {
   grundlage_unread: 'basis_unread',
 }
@@ -441,7 +208,6 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 const cap = (value: unknown, max: number): string | undefined =>
   typeof value === 'string' && value.length > 0 ? value.slice(0, max) : undefined
 
-/** A bounded list of bounded strings, or undefined when nothing survives. */
 const stringList = (value: unknown, maxItems: number, maxChars: number): string[] | undefined => {
   if (!Array.isArray(value)) return undefined
   const items = value
@@ -462,7 +228,6 @@ const isStepKind = (value: unknown): value is StepKind =>
 const nonNegativeInt = (value: unknown): number | undefined =>
   typeof value === 'number' && Number.isInteger(value) && value >= 0 ? value : undefined
 
-/** A technical record's detail: bounded keys, scalars and short string lists only. */
 function sanitizeDetail(input: unknown): Record<string, StepDetailValue> | undefined {
   if (!isRecord(input)) return undefined
   const detail: Record<string, StepDetailValue> = {}
@@ -482,7 +247,6 @@ function sanitizeDetail(input: unknown): Record<string, StepDetailValue> | undef
 
 const ACTION_COUNT_KEYS = ['hits', 'documents', 'searched', 'files', 'folders'] as const
 
-/** An action's counts: the five known ones, non-negative integers; nothing else survives. */
 function sanitizeActionCounts(input: unknown): StoredActionCounts | undefined {
   if (!isRecord(input)) return undefined
   const counts: StoredActionCounts = {}
@@ -493,7 +257,6 @@ function sanitizeActionCounts(input: unknown): StoredActionCounts | undefined {
   return Object.keys(counts).length > 0 ? counts : undefined
 }
 
-/** Where each place of the filesystem is rooted (ADR-0133), for a row stored before `mount`. */
 const LEGACY_PLACE_ROOTS: ReadonlyArray<readonly [string, ActionMount]> = [
   ['/project/', 'project'],
   ['/office/', 'office'],
@@ -502,7 +265,6 @@ const LEGACY_PLACE_ROOTS: ReadonlyArray<readonly [string, ActionMount]> = [
   ['/law/', 'law'],
 ]
 
-/** An estate folder path as its place and the folder inside it; null for a path that names no place. */
 const placeOfPath = (path: string): Pick<StoredAction, 'mount' | 'target'> | null => {
   if (path === '/') return { mount: 'estate' }
   const root = LEGACY_PLACE_ROOTS.find(([prefix]) => `${path}/`.startsWith(prefix))
@@ -512,15 +274,6 @@ const placeOfPath = (path: string): Pick<StoredAction, 'mount' | 'target'> | nul
   return { mount, ...(folder ? { target: folder } : {}) }
 }
 
-/**
- * A filesystem row stored before the wire carried `mount` (ADR-0132, amendment
- * of 2026-10-27) held its estate path in `target`: a listing or literal search
- * its folder (a name search its pattern after „ · “), a read its file path, a
- * folder card `…/README.md`. Read back, it is the same row the wire sends now:
- * the place and the folder inside it, the pattern as the query, a read its
- * file's name, a folder card the listing of its folder. Anything else stays as
- * it was stored. Deleted with the condition ADR-0132 names for it.
- */
 export function legacyPlace(
   action: StoredAction
 ): Partial<Pick<StoredAction, 'verb' | 'mount' | 'target' | 'query'>> | null {
@@ -534,7 +287,6 @@ export function legacyPlace(
       const folder = placeOfPath(target.slice(0, slash) || '/')
       return folder ? { verb: 'list', ...folder } : null
     }
-    // `Plan.pdf.md` is how the estate serves `Plan.pdf` as text; the row names the file.
     return leaf ? { target: leaf.replace(/(\.[a-z0-9]{1,5})\.md$/i, '$1') } : null
   }
   if (action.verb !== 'list' && action.verb !== 'search') return null
@@ -544,7 +296,6 @@ export function legacyPlace(
   return place ? { ...place, ...(query ? { query } : {}) } : null
 }
 
-/** An `action` step's typed payload, bounded like the wire bounds it; null without a known verb. */
 function sanitizeAction(input: unknown): StoredAction | null {
   if (!isRecord(input)) return null
   const verb = oneOf(input.verb, ACTION_VERBS)
@@ -565,7 +316,6 @@ function sanitizeAction(input: unknown): StoredAction | null {
   const mount = oneOf(input.mount, ACTION_MOUNTS)
   if (mount) action.mount = mount
   if (input.incomplete === true) action.incomplete = true
-  // Only an empty call can have missed: on any other status the flag would contradict the row.
   if (input.missing === true && action.status === 'empty') action.missing = true
   const counts = sanitizeActionCounts(input.counts)
   if (counts) action.counts = counts
@@ -578,7 +328,6 @@ function sanitizeAction(input: unknown): StoredAction | null {
   return placed
 }
 
-/** A lane with the fields every reader dereferences; its hits are bounded by the lane cap above. */
 const isTraceLane = (value: unknown): value is TraceLaneCard =>
   isRecord(value) &&
   typeof value.key === 'string' &&
@@ -587,11 +336,6 @@ const isTraceLane = (value: unknown): value is TraceLaneCard =>
   typeof value.hitCount === 'number' &&
   Array.isArray(value.sources)
 
-/**
- * One step, or null. A step without a known `kind` is not a step: this is the
- * v2 shape only, and an older shape reaching this function is a writer bug,
- * not something to interpret.
- */
 function sanitizeStep(input: unknown): StoredThinkingStep | null {
   if (!isRecord(input) || !isStepKind(input.kind)) return null
   const id = cap(input.id, 128)
@@ -601,9 +345,6 @@ function sanitizeStep(input: unknown): StoredThinkingStep | null {
   const step: StoredThinkingStep = {
     id,
     userMessageId,
-    // Accepts the ISO string the client sends AND a Date that survived a
-    // structured clone, because JSON turns Dates into strings at exactly one
-    // boundary that is easy to get wrong.
     timestamp:
       cap(input.timestamp, 40) ??
       (input.timestamp instanceof Date ? input.timestamp.toISOString() : ''),
@@ -613,7 +354,6 @@ function sanitizeStep(input: unknown): StoredThinkingStep | null {
   if (input.scope === 'deep') step.scope = 'deep'
   const { turnEvent } = sanitizeTurnEvent(input.turnEvent)
   if (turnEvent) step.turnEvent = turnEvent
-  // A lane stored before the English names carries `baurecht_oib` / `buero`.
   const traceLanes = Array.isArray(input.traceLanes)
     ? input.traceLanes
         .slice(0, MAX_TRACE_LANES)
@@ -645,11 +385,6 @@ function sanitizeStep(input: unknown): StoredThinkingStep | null {
   return step
 }
 
-/**
- * Bound an untrusted step list: the v2 shape only, at most
- * {@link MAX_THINKING_STEPS}, every field capped. Exported for the history
- * mapper, which reads the same column back and must agree with the write.
- */
 export function sanitizeThinkingSteps(input: unknown): StoredThinkingStep[] | undefined {
   if (!Array.isArray(input)) return undefined
   const steps = boundSteps(
@@ -661,11 +396,6 @@ export function sanitizeThinkingSteps(input: unknown): StoredThinkingStep[] | un
   return steps.length > 0 ? steps : undefined
 }
 
-/**
- * The steps within {@link MAX_THINKING_STEPS}, in their order: the excess
- * dropped by {@link DROP_ORDER}, oldest first in each tier, so a long turn
- * keeps its last rounds and every call row it can.
- */
 export function boundSteps(steps: readonly StoredThinkingStep[]): StoredThinkingStep[] {
   let excess = steps.length - MAX_THINKING_STEPS
   if (excess <= 0) return [...steps]
@@ -681,7 +411,6 @@ export function boundSteps(steps: readonly StoredThinkingStep[]): StoredThinking
   return steps.filter((_, index) => !dropped.has(index))
 }
 
-/** The hoisted turn event, whitelisted and capped like everything else here. */
 function sanitizeTurnEvent(input: unknown): { turnEvent?: StoredThinkingStep['turnEvent'] } {
   if (!isRecord(input)) return {}
   const stored = cap(input.key, MAX_TURN_EVENT_KEY_CHARS)
@@ -709,12 +438,6 @@ function sanitizeTurnEvent(input: unknown): { turnEvent?: StoredThinkingStep['tu
   return { turnEvent: event }
 }
 
-/**
- * Reduce an untrusted payload to a bounded, well-typed provenance record.
- *
- * Returns null when nothing survives, so a caller can skip the write entirely
- * rather than stamping an empty object onto a message.
- */
 export function sanitizeProvenance(input: unknown): MessageProvenance | null {
   if (!isRecord(input)) return null
   const out: MessageProvenance = {}
@@ -761,28 +484,18 @@ export function sanitizeProvenance(input: unknown): MessageProvenance | null {
           .filter((reason): reason is string => reason !== undefined)
       : []
     out.citationsRemoved = {
-      // Coerced, not trusted: this number is rendered as a count.
       count: Math.max(0, Math.trunc(input.citationsRemoved.count)),
       reasons,
     }
   }
 
-  // `=== true`, not truthiness: this comes off untrusted stored JSON, and the
-  // field is a fact the reader is shown. A stray "yes" must not become one.
   if (input.researchTruncated === true) out.researchTruncated = true
   if (input.stopped === true) out.stopped = true
 
-  // The reason survives on its own, without the flag: a row that recorded WHY
-  // the run stopped but lost the boolean still knows something true, and the
-  // backend reads the two independently for exactly that reason
-  // (`jobs/runner._extract_answer_transparency`).
   const truncationReason = oneOf(input.truncationReason, TRUNCATION_REASONS)
   if (truncationReason) out.truncationReason = truncationReason
 
   if (Array.isArray(input.degradedReasons)) {
-    // De-duplicated: two tokens that say the same thing would put the same
-    // sentence under the answer twice. An empty result stores no key — the
-    // ordinary case is "not degraded", and `[]` would read as a claim about it.
     const reasons = [
       ...new Set(
         input.degradedReasons
@@ -801,8 +514,6 @@ export function sanitizeProvenance(input: unknown): MessageProvenance | null {
   const jobId = cap(input.deepResearchJobId, 128)
   if (jobId) out.deepResearchJobId = jobId
 
-  // Re-bounded on write like everything else here, through the same sanitizer
-  // the wire boundary uses: one bound in one place instead of two that drift.
   const ledger = sanitizeRetrievalLedger(input.retrievalLedger)
   if (ledger) out.retrievalLedger = ledger
 

@@ -1,13 +1,3 @@
-/**
- * inboundMail namespace: the E-Mail-Eingang (ADR-0137, DECISION §9).
- *
- * One word per concept (DECISION §3): „Project mail“ is the place, „file“
- * puts a part into the project, „dismiss“ says no to a whole mail, „restore“
- * undoes either within seven days, a „mail thread“ is the conversation
- * document, and its states are „revision N“. The sender's trust names a
- * domain, never a person. Never „Inbox“ (that is the notifications),
- * never „project address“ (that is where the building stands).
- */
 export const inboundMail = {
   title: 'Project mail',
   subtitle: 'Mail sent to the project mail address waits here until someone files it.',
@@ -53,9 +43,7 @@ export const inboundMail = {
     thread: 'Mail thread “{name}”\u00A0· becomes revision {version}',
     select: 'Select “{subject}”',
     impersonation: 'Poses as {name}\u00A0· do not file',
-    // The reader's own address, rejected by their domain: said to them, never „poses as you“.
     impersonationOwn: 'Your address, rejected by your domain\u00A0· check it',
-    /** Who files a mail that names a member whose domain did not verify it. */
     claim: {
       own: 'Did you send it? Confirm it',
       colleague: 'Waiting for {name}',
@@ -77,7 +65,6 @@ export const inboundMail = {
       folder_missing: 'Choose a folder',
     },
     textFollowed: 'Text added to the mail thread (following)',
-    // A member who may file sent it from a verified domain, and direct filing did not file it all the same (`not_filed`).
     notFiled: 'Not filed directly\u00A0· {need}',
     filing: 'Filing …',
     notFiledReady: 'Not filed directly',
@@ -128,9 +115,6 @@ export const inboundMail = {
     },
   },
 
-  // Why a mail waits, by its sender (only mail the domain of someone who may file in the project confirms is filed directly).
-  // One sentence per reason, ending on what the reader can do. „Own“: to the member it names. Without „Own“ (signature, replay, automatic): to everyone else, who
-  // can only dismiss it; the bar beneath says so (`bar.claimed.line`), so the line names only whom it waits for and why.
   waitReason: {
     signature: 'Waiting for {name}: the domain did not verify this mail.',
     signatureOwn: 'Did you send this mail? Your domain did not verify it, so it was not filed directly. Only you can file it.',
@@ -141,7 +125,6 @@ export const inboundMail = {
     automatic: 'Waiting for {name}: the mail was sent automatically.',
     automaticOwn: 'Did you send this mail? It was sent automatically, so it was not filed directly. Only you can file it.',
     paused: 'Waiting: direct filing is switched off, so it was not filed directly. Anyone who may file in this project can file it.',
-    // A mail the domain of a member who may file verified, and which waits all the same: direct filing did not file it (or not all of it).
     not_filed: 'Waiting: {name} sent it and the domain verified it, but it was not filed directly. Check it, then file or dismiss it.',
     no_write_rights: 'Waiting for you to file it, because the sender may not file in this project.',
     outside_office: 'Waiting: the sender is outside the office. File what belongs in the project; if nobody files it, it expires after {days} days and cannot be restored.',
@@ -169,7 +152,6 @@ export const inboundMail = {
     to: 'To',
     cc: 'Cc',
     replyTo: 'Reply to',
-    // The mail thread's words for the same forward: who wrote it first, then who forwarded it.
     forwardedFrom: 'From {who}\u00A0· domain not verified\u00A0· forwarded by {forwarder}',
     forwardedExplain: 'Read from the forwarded text. The domain verifies only the forward, not who originally wrote the mail.',
     original: 'Download original (.eml)',
@@ -228,7 +210,6 @@ export const inboundMail = {
     acknowledge: 'It belongs to this mail thread anyway',
     alreadyFiled: 'This text is already in a mail thread.',
     unreadable: 'The text could not be read, so it cannot be filed. The original holds it.',
-    /** Why the text cannot be filed while the whole raw message's malware check is not clean (`scan_not_clean`). */
     rawScan: {
       pending: 'The mail is still being checked for malware. Its text can be filed once the check passes.',
       failed: 'The mail’s malware check failed and is being repeated. Its text can be filed once the check passes.',
@@ -324,10 +305,8 @@ export const inboundMail = {
     cancel: 'Cancel',
   },
 
-  /** The warning above a mail that poses as someone (`riskLevel: 'impersonation'`). */
   impersonationWarning: {
     rejectedSignature: 'Careful: this mail poses as {name}. The domain rejected it.',
-    // To the member whose address it carries: a question to them, not a warning about them.
     own: 'This mail carries your address, but your domain rejected it.',
     ownConsequence:
       'If you did not send it yourself, dismiss it: this is how fraud with changed bank details begins. {productName} suggests nothing and nothing is preselected.',
@@ -353,7 +332,6 @@ export const inboundMail = {
     acknowledgeSender: 'Domain not verified. File anyway',
     acknowledgeOwnMail: 'Yes, I sent this mail. File it',
     originalErased: 'The original of the mail is deleted after filing',
-    /** For everyone but the member whose address the mail carries: dismiss only, never file (`onlySenderReleases`). */
     claimed: {
       line: 'Only {name} can file or restore this mail. You can dismiss it.',
       dismiss: 'Dismiss …',

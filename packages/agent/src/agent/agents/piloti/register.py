@@ -64,10 +64,6 @@ from nat.plugin_api import LLMFrameworkEnum
 from nat.plugin_api import LLMRef
 from nat.plugin_api import register_function
 
-# Importing this module runs its ``@register_function`` so the agent runtime discovers the
-# ``ask_user`` tool through the same ``conversation_researcher`` entry point
-# that imports this file, the pattern ``cards/register.py`` uses for
-# ``surface_documents``, and no extra plugin entry point to keep in sync.
 from . import ask_user as _ask_user  # noqa: F401
 from .agent import ChatAgent
 from .agent import TurnConfig
@@ -90,8 +86,6 @@ logger = logging.getLogger(__name__)
 
 _RESEARCH_TYPE = "research"
 
-#: Distinct tool selections a deployment sees is small (one per data-source
-#: combination); the availability memo is dropped whole past this.
 _MAX_MEMOISED_SELECTIONS = 64
 
 
@@ -209,8 +203,8 @@ class ResearchAgentConfig(FunctionBaseConfig, name="research_agent"):
         default=False,
         description=(
             "Whether provider JSON mode (`response_format: json_object`) for the answer envelope is "
-            "ALSO bound on tool-bound research iterations, not only on the tool-free forced-synthesis "
-            "call (default OFF). Some OpenRouter-routed providers accept the parameter and then stop "
+            "bound on tool-bound research iterations, forced synthesis included, which follows the "
+            "rounds (default OFF). Some OpenRouter-routed providers accept the parameter and then stop "
             "emitting tool calls — a silent degradation the per-call fallback cannot see — so turning "
             "this on is a per-deployment decision made against a provider known to honor both."
         ),
@@ -225,10 +219,7 @@ class _Deployment:
     agent: ChatAgent
     provider: LLMProvider
     tools: list[Any]
-    #: The read-only estate backend the filesystem tools read through (``knowledge_layer.estate.backend``); built once.
     estate: Any = None
-    #: tool names → (is_valid, unavailable): the availability check is a scan
-    #: with an INFO line per tool, and the tool set is fixed per deployment.
     availability: dict[tuple[str, ...], tuple[bool, list[str]]] = field(default_factory=dict)
 
 
@@ -272,14 +263,6 @@ async def _resolve_skill_runtime(
     """
     if not config.skills_enabled:
         return None
-    # A cold resolve is a blocking BFF round-trip (5s timeout); on a thread so
-    # the miss stalls this turn and not every other conversation on the
-    # replica. The org id is read here, on the loop, because it is a ContextVar.
-    # ``researcher`` and not ``piloti``: this is the skill scope stored in
-    # ``platform_skills.grid_agents`` and written by hand into every skill's
-    # frontmatter. Both resolvers ignore a name they do not know, so renaming
-    # it here without a migration and read-side aliases would silently serve
-    # the chat-scoped skills to deep research too. See ``skills/resolver.py``.
     resolver = SkillResolver(agent="researcher")
     resolved = await asyncio.to_thread(resolver.resolve, get_organization_id_from_context())
     if config.skill_allowlist:
@@ -333,8 +316,6 @@ def _turn_facts(state: ResearchAgentState, runtime: SkillRuntime | None) -> Turn
         families=get_norm_families(),
         project_files=sum(1 for doc in documents if getattr(doc, "shelf", None) == Shelf.PROJECT),
         archive_files=sum(1 for doc in documents if getattr(doc, "shelf", None) == Shelf.OFFICE_SHELF),
-        # `surface`'s shape IS the compose rule the envelope contract already
-        # carries: attached, it would ride twice and take a shape slot.
         card_types=[
             entry for entry in card_index_entries(exclude=CHAT_ONLY_CARD_TYPES) if entry[0] not in ENVELOPE_SHAPE_TYPES
         ],
@@ -355,11 +336,6 @@ async def _decide_turn(facts: TurnFacts | None) -> TurnDecisions:
     """
     if facts is None:
         return TurnDecisions.none()
-    # A first message of one or two words („Hallo", „Danke!") needs no
-    # decision: no method to read in, and the ~0.6 s the call costs would be
-    # a third of the reply's whole latency. What it may prefetch needs none
-    # either: a bare family name („OIB 2") is searched by the undecided path
-    # (``prefetch_calls``), and anything else of two words searches nothing.
     if facts.previous_message is None and len(facts.question.split()) < 3:
         record_skipped(DECISION_SLOT, SKIPPED_TOO_SHORT)
         return TurnDecisions.none()
@@ -407,7 +383,6 @@ def _apply_reference_fit(fit: ReferenceFit | None, state: ResearchAgentState) ->
     )
 
 
-#: The warm-ups still running (see _warm_question).
 _WARMING: set[asyncio.Task[None]] = set()
 
 
@@ -437,7 +412,6 @@ def _warm_question(facts: TurnFacts | None) -> None:
         return
     from agent.knowledge.factory import warm_search_query
 
-    # Held until done: the loop keeps only a weak reference to a task.
     task = asyncio.create_task(warm_search_query(query))
     _WARMING.add(task)
     task.add_done_callback(_WARMING.discard)
@@ -512,35 +486,15 @@ def _warn_if_nothing_is_reachable(disabled_sources: frozenset[str]) -> None:
 async def _run_turn(deployment: _Deployment, state: ResearchAgentState) -> ResearchAgentState:
     """One request: narrow the tools, resolve the skills, run the shared agent."""
     config = deployment.config
-    # The tool set does NOT vary with the toggles any more (row 6). A source the
-    # org switched off (ADR-0022) or the request did not select stays BOUND and
-    # is refused per call in the tools node, so every turn of an org sends the
-    # same tool payload and lands on one prompt-cache shard instead of one per
-    # toggle combination. No `data_sources is not None` guard, for the same
-    # reason as before: an org's toggle applies to a request that asked for
-    # "all tools".
-    disabled_sources = unavailable_source_ids(state.data_sources) | law_sources_withheld()
+    disabled_sources = unavailable_source_ids(state.data_sources) | law_sources_withheld(reads_turn_sources=True)
     _warn_if_nothing_is_reachable(disabled_sources)
     is_valid, unavailable_tools = _tool_availability(deployment, deployment.tools)
     if not is_valid:
         return _reply(state, format_user_facing_tool_error(_RESEARCH_TYPE, unavailable_tools))
 
-    # The skills are served on every turn: the model has the catalog and
-    # decides whether a skill applies, the same way it decides whether to
-    # search (ADR-0052), and reads the one it chooses with `read_file` over the
-    # run's skills backend (ADR-0135). The decision's pick rides the prompt.
     with observed_phase("setup.skills") as skills_phase:
         runtime = await _resolve_skill_runtime(config, state)
         skills_phase["skills"] = len(runtime.skills) if runtime is not None else 0
-    # The conversation's working directory, folded in the same way: four file
-    # verbs over a store namespaced by conversation, or nothing at all when the
-    # turn has no conversation to namespace by (CLI, eval, worker).
-    # The turn-start decision (ADR-0064) runs beside it: a bounded call that
-    # only adds to the turn — round-0 fetches, card shapes, the IFC skill.
-    # The provider reads (four cache-first BFF lookups) run beside them too:
-    # nothing here depends on another, so the turn pays the slowest of the
-    # three, not their sum.
-    # The question's embedding is warmed beside them (_warm_question); the facts only feed the decision.
     facts = _turn_facts(state, runtime) if config.turn_decisions else None
     _warm_question(facts)
     draft_tools, decisions, llm_provider, fit = await asyncio.gather(
@@ -554,7 +508,6 @@ async def _run_turn(deployment: _Deployment, state: ResearchAgentState) -> Resea
     )
     _apply_decisions(decisions, state, runtime)
     _apply_reference_fit(fit, state)
-    # After the decision: the skill it pinned is part of what this turn offers.
     if runtime is not None:
         emit_skills_offered(runtime)
         record_trace_metadata(skills_offered=len(runtime.skills), skills_pinned=list(runtime.pinned) or None)
@@ -570,7 +523,6 @@ async def _run_turn(deployment: _Deployment, state: ResearchAgentState) -> Resea
     result = await _run_agent(deployment, state, turn)
     if isinstance(result, str):
         return _reply(state, result)
-    # Read off the model the turn ran on, so it is the resolved level, not the asked one.
     result.reasoning_effort = effort_of(llm_provider.get(LLMRole.RESEARCHER))
     if runtime is not None:
         _report_skills(result, runtime)
@@ -621,8 +573,6 @@ async def _run_agent(deployment: _Deployment, state: ResearchAgentState, turn: T
     try:
         return await deployment.agent.run(state, turn=turn)
     except EmptySourceRegistryError as exc:
-        # A miss is a valid empty answer, not an unhandled agent-runtime error. Raising
-        # here became err2issue #447 and left the user with no reply.
         logger.warning("Research captured no sources; returning an empty-result answer.")
         scoped = bool(state.focus_file_name or state.focus_shelf)
         return format_no_sources_message(_RESEARCH_TYPE, exc.unavailable_tools, exc.available_count, scoped=scoped)
@@ -679,8 +629,6 @@ async def research_agent(config: ResearchAgentConfig, builder: Builder):
         callbacks=callbacks,
         envelope_json_mode_with_tools=config.envelope_json_mode_with_tools,
         repair_pass=config.repair_pass,
-        # No agent group, so no organization chooses it: pinned to
-        # zero-data-retention endpoints for every turn (`openrouter.PLATFORM_FIXED`).
         card_repair_llm=(
             pin_chat_model(await get_langchain_llm(builder, config.card_repair_llm), PLATFORM_FIXED)
             if config.card_repair_llm
@@ -698,9 +646,6 @@ async def research_agent(config: ResearchAgentConfig, builder: Builder):
     yield FunctionInfo.from_fn(_run, description="Research agent for fast, bounded research.")
 
 
-########################################################
-# Research Workflow (Wrapper for Evaluation)
-########################################################
 class ResearchWorkflowConfig(FunctionBaseConfig, name="research_workflow"):
     """Configuration for the research workflow wrapper.
 

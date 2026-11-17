@@ -7,15 +7,9 @@ import { ROUTES, type Locale } from '../i18n/paths';
 import identity, { withName } from '../lib/identity';
 import { getBlogPosts, postPath } from '../lib/posts';
 
-// /llms.txt (llmstxt.org): what the site is, its product pages and its newest posts, in
-// plain Markdown. Generated from identity and the page copy, so it cannot drift from the
-// pages, and on request, so its posts are the blog's (from the CMS, ADR-0155). Kept short on
-// purpose: answer engines rank from the HTML and the JSON-LD; this file only spares them the guesswork.
 export const prerender = false;
 
 type PageCopy = Record<Locale, { title: string; description: string }>;
-
-// The unlisted pages (UNLISTED_ROUTES in src/i18n/paths.ts) are not offered here either.
 
 const PRODUCT_PAGES: { path: Record<Locale, string>; copy: PageCopy }[] = [
   { path: ROUTES.home, copy: { de: home.de.meta, en: home.en.meta } },

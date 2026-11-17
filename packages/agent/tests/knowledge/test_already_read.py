@@ -1,12 +1,3 @@
-"""The conversation-scoped "already read" digest: append, dedupe, cap, evict, render.
-
-A digest line is ``"<file> | <collection> | Seiten <p> | Punkte <n> | Turn <k>"``:
-one per document this conversation opened, merged at turn end from the turn's
-captures. These tests pin the pure merge/parse/render contract; the graph
-wiring (persist, lift, forward) lives in
-``conversation/test_already_read_digest.py``.
-"""
-
 from agent.citations.entries import SourceEntry
 from agent.knowledge.already_read import DIGEST_HEADING
 from agent.knowledge.already_read import MAX_DIGEST_DOCS

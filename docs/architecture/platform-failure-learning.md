@@ -188,6 +188,13 @@ automatic; the supervision is a held-back state, not a required click):
 - the active set is hard-capped (20 lessons / 1600-char digest — a prompt
   budget, paid on every turn of every tenant). Past the cap the
   least-recently-reported lesson is auto-retired (`evicted_capacity`).
+  Precisely: the active set is ordered by `last_reported_at`, then
+  `report_count`, and the tail beyond 20 is retired, each with its own event.
+  An automatic promotion competes like any lesson. An operator's activation
+  does not: the activation, the eviction and their event rows are one
+  transaction (`activateLessonWithCapacity`), the lesson activated by that
+  request is never the one evicted, the stalest OTHER lesson gives way, and
+  the response is the row as stored. The rule is `selectCapacityEvictions`.
 - **candidates expire too** (45 days without a repeat report, or beyond a cap
   of 40 — `candidate_expired`, reversible, evented). Without this, flagged
   singletons nobody reviews would accumulate, crowd the bounded matcher
@@ -346,12 +353,17 @@ means anything.
   the matcher linking the repeat report to the right lesson — a recurrence the
   matcher files as a NEW lesson is invisible to the flag.
 
-- **There is no scheduler container, on purpose.** Sweeps are event-driven
-  (every down-vote kicks one) and the kick widens from 3 to 12 reports when a
-  backlog has formed, so the pipeline is self-healing while anyone is voting —
-  and a deployment where nobody votes is also one where no backlog forms. An
-  operator who wants a clock anyway points it at
-  `POST /api/internal/platform-lessons/sweep`.
+- **A vote kicks a sweep, and a clock backs it up.** Every down-vote kicks one
+  from the request's `after()`, and the kick widens from 3 to 12 reports when a
+  backlog has formed. That alone left two gaps: a pod that dies loses the kick,
+  and the report then waits for the next vote anywhere; and the upkeep at the
+  head of every sweep (retiring an addressed lesson after its quiet days,
+  expiring old candidates, re-embedding) is due by date, so a quiet fleet never
+  did it. The `platform-lessons-sweep` Hatchet cron task therefore runs one
+  sweep an hour on the `bff-jobs` worker, bounded like the dashboard's button
+  (25 reports; `runScheduledLessonSweep`, ADR-0150). The internal route
+  `POST /api/internal/platform-lessons/sweep` it replaces had no caller and is
+  removed.
 
 ## Where things are
 

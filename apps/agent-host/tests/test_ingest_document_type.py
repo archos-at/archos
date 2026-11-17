@@ -1,15 +1,3 @@
-"""`POST /v1/ingest` carries the document type a person chose at filing.
-
-The BFF sends it as `document_type` (`dispatchIngest`, `ShelfUploadInput.documentType`);
-the route's part is to refuse a value outside the controlled vocabulary and let a
-known one reach the job config untouched, where the ingest job stores it as the
-person's type tag (`knowledge_layer.ingest.chosen_document_type`).
-The BFF twin is `ingest-document-type-contract.spec.ts`.
-
-The values are read from the vocabulary rather than spelled here, so a rename of
-the tokens touches the vocabulary and nothing in this file.
-"""
-
 from unittest.mock import MagicMock
 
 import httpx
@@ -87,9 +75,7 @@ async def test_a_filing_that_chose_no_type_carries_no_key(app, mock_ingestor, ab
     "outside",
     [
         "not-a-type",
-        # A discipline is a tag, not a type: the type slot takes types only.
         DISCIPLINE_TAGS[0],
-        # The store compares exactly; a case variant would be a second spelling.
         DOCUMENT_TYPE_TAGS[0].upper(),
         "",
     ],

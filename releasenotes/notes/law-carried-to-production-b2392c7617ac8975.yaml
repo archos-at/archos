@@ -1,0 +1,7 @@
+---
+# area: building-law
+operators:
+  - >
+    A promotion now carries the building law reviewed on dev to production by itself: the deploy's knowledge
+    carry publishes each committed country release there, recorded as carried, with no review session on
+    production. Read the carry's log after the deploy; other production change requests keep four eyes.

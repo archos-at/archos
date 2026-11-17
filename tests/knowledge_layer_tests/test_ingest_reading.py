@@ -1,10 +1,3 @@
-"""An ingest stores what it read: the dossier from the whole document, its references, its coverage.
-
-Offline: the screening harness's hand-built PDF and stub store, and a fake summary model
-that answers the dossier's strict call and the one-sentence summary. The tags and topics
-are stubbed, so nothing leaves the process.
-"""
-
 from __future__ import annotations
 
 import json
@@ -39,8 +32,6 @@ _DOSSIER = {
 
 
 class _SummaryModel:
-    """The ingest's summary model: the dossier's strict call when bound, else the one-sentence summary."""
-
     model_name = "fake/summary"
 
     def __init__(self, dossier: Any):

@@ -2,7 +2,7 @@
  * @vitest-environment node
  */
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
-import { UploadOrchestrator } from './orchestrator'
+import { FALLBACK_POLL_MS, UploadOrchestrator } from './orchestrator'
 import { onDocumentsChanged } from '@/lib/documents/document-changes'
 import { getStoreTranslator } from '@/i18n/store-translator'
 import { filesCopy } from '@/i18n/namespaces/files'
@@ -11,10 +11,8 @@ import type { TrackedFile } from './types'
 const mockToast = vi.hoisted(() => ({ info: vi.fn(), error: vi.fn() }))
 vi.mock('sonner', () => ({ toast: mockToast }))
 
-/** The localized notice, resolved the way the orchestrator resolves it. */
 const STILL_READING = getStoreTranslator(filesCopy)('uploads.stillReading')
 
-// Mock the documents client
 const mockClient = {
   getCollection: vi.fn(),
   listFiles: vi.fn(),
@@ -28,16 +26,15 @@ vi.mock('@/adapters/api', () => ({
   createDocumentsClient: () => mockClient,
 }))
 
-// A chat's attachments are listed first-party, never through the proxy client.
 const mockListSessionDocuments = vi.fn()
 vi.mock('@/adapters/api/session-documents-client', () => ({
   listSessionDocuments: (...args: unknown[]) => mockListSessionDocuments(...args),
 }))
 
-// Mock the stores
 const mockDocumentsStore = {
   clearFilesForCollection: vi.fn(),
   setFilesFromServer: vi.fn(),
+  addTrackedFile: vi.fn(),
   setCurrentCollection: vi.fn(),
   setCollectionInfo: vi.fn(),
   setPolling: vi.fn(),
@@ -77,7 +74,6 @@ vi.mock('@/features/chat/store', () => ({
   },
 }))
 
-// Mock persistence - use typed wrapper fns to allow per-test mock control
 const mockSessionHasKnownCollection = vi.fn((_sessionId: string): boolean => false)
 const mockMarkSessionHasCollection = vi.fn((_sessionId: string): void => undefined)
 const mockUnmarkSessionCollection = vi.fn((_sessionId: string): void => undefined)
@@ -100,8 +96,6 @@ describe('UploadOrchestrator', () => {
   beforeEach(() => {
     vi.useFakeTimers()
     vi.clearAllMocks()
-    // Reset mock return values to defaults
-    // (clearAllMocks only clears calls/instances, not implementations or return values)
     mockSessionHasKnownCollection.mockReturnValue(false)
     mockMarkSessionHasCollection.mockReturnValue(undefined)
     mockUnmarkSessionCollection.mockReturnValue(undefined)
@@ -118,7 +112,6 @@ describe('UploadOrchestrator', () => {
   describe('setAuthToken', () => {
     test('sets auth token for client creation', () => {
       UploadOrchestrator.setAuthToken('test-token')
-      // Token is stored internally and used when creating clients
     })
 
     test('handles undefined token', () => {
@@ -275,7 +268,6 @@ describe('UploadOrchestrator', () => {
         { file_id: 'file-1', file_name: 'test.pdf', status: 'completed' },
       ])
 
-      // Set up session first via handleSessionChange (sets currentSessionId)
       await UploadOrchestrator.handleSessionChange('session-1')
 
       expect(mockClient.getCollection).toHaveBeenCalledWith('session-1')
@@ -294,19 +286,11 @@ describe('UploadOrchestrator', () => {
     })
 
     test('calls API when session has persisted job even without known collection', async () => {
-      // First set up currentSessionId without triggering API calls
       mockSessionHasKnownCollection.mockReturnValue(false)
       await UploadOrchestrator.handleSessionChange('session-1')
-      // handleSessionChange sets currentSessionId and calls loadFilesForSession
-      // which skips due to no known collection. Now switch away and back.
       await UploadOrchestrator.handleSessionChange('session-2')
 
-      // Now set up: session-1 has no known collection but has a persisted job
       mockSessionHasKnownCollection.mockReturnValue(false)
-      // getPersistedJobForCollection returns null for handleSessionChange check (first call)
-      // but returns a job for loadFilesForSession check (second call in same flow)
-      // First call from handleSessionChange returns null (so it falls through to loadFilesForSession)
-      // Second call from loadFilesForSession guard returns a persisted job
       mockGetPersistedJobForCollection
         .mockReturnValueOnce(null)
         .mockReturnValueOnce({
@@ -330,7 +314,6 @@ describe('UploadOrchestrator', () => {
       mockSessionHasKnownCollection.mockReturnValue(true)
       mockClient.getCollection.mockResolvedValue(null)
 
-      // Set up session first via handleSessionChange (sets currentSessionId)
       await UploadOrchestrator.handleSessionChange('session-1')
 
       expect(mockUnmarkSessionCollection).toHaveBeenCalledWith('session-1')
@@ -340,7 +323,6 @@ describe('UploadOrchestrator', () => {
       mockSessionHasKnownCollection.mockReturnValue(true)
       mockClient.getCollection.mockResolvedValue(null)
 
-      // Set currentSessionId via handleSessionChange
       await UploadOrchestrator.handleSessionChange('session-1')
 
       expect(mockClient.listFiles).not.toHaveBeenCalled()
@@ -354,7 +336,6 @@ describe('UploadOrchestrator', () => {
       })
       mockClient.listFiles.mockResolvedValue([])
 
-      // Set currentSessionId first
       await UploadOrchestrator.handleSessionChange('session-1')
       mockClient.getCollection.mockClear()
 
@@ -387,17 +368,71 @@ describe('UploadOrchestrator', () => {
       mockSessionHasKnownCollection.mockReturnValue(true)
       mockClient.getCollection.mockRejectedValue(new Error('Network error'))
 
-      // Set currentSessionId via handleSessionChange first with a clean session
-      // (need to bypass the loadFilesForSession that handleSessionChange calls)
       mockSessionHasKnownCollection.mockReturnValueOnce(false)
       await UploadOrchestrator.handleSessionChange('session-1')
 
-      // Now call directly with known collection
       mockSessionHasKnownCollection.mockReturnValue(true)
       await UploadOrchestrator.loadFilesForSession('session-1')
 
-      // Should not unmark on network errors (backend may be temporarily unavailable)
       expect(mockUnmarkSessionCollection).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('resuming a persisted job after a reload', () => {
+    const persistedRow = {
+      id: 'row-1',
+      fileName: 'Einreichplan.pdf',
+      fileSize: 1,
+      status: 'ingesting' as const,
+      progress: 40,
+      collectionName: 'project-1',
+      jobId: 'job-1',
+    }
+    const jobWith = (status: string, fileStatus: string, errorMessage: string | null = null) => ({
+      job_id: 'job-1',
+      collection_name: 'project-1',
+      status,
+      file_details: [
+        {
+          file_id: 'file-1',
+          file_name: 'Einreichplan.pdf',
+          status: fileStatus,
+          progress_percent: 40,
+          error_message: errorMessage,
+        },
+      ],
+    })
+
+    beforeEach(() => {
+      mockGetPersistedJobForCollection.mockReturnValue({
+        jobId: 'job-1',
+        collectionName: 'project-1',
+        files: [persistedRow],
+        startedAt: Date.now(),
+      })
+      mockClient.listFiles.mockResolvedValue([])
+    })
+
+    test('a job still running gets its rows back', async () => {
+      mockClient.getJobStatus.mockResolvedValue(jobWith('processing', 'ingesting'))
+
+      await UploadOrchestrator.handleSessionChange('project-1')
+
+      expect(mockDocumentsStore.addTrackedFile).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'row-1', status: 'ingesting', serverFileId: 'file-1' })
+      )
+    })
+
+    test.each([
+      ['completed', 'success', null],
+      ['failed', 'failed', 'original_download_failed: gone'],
+      ['cancelled', 'failed', 'cancelled: ingestion was stopped; start it again to index this file'],
+    ])('a %s job does not get its rows back', async (status, fileStatus, errorMessage) => {
+      mockClient.getJobStatus.mockResolvedValue(jobWith(status, fileStatus, errorMessage))
+
+      await UploadOrchestrator.handleSessionChange('project-1')
+
+      expect(mockDocumentsStore.addTrackedFile).not.toHaveBeenCalled()
     })
   })
 
@@ -412,17 +447,14 @@ describe('UploadOrchestrator', () => {
         { file_id: 'file-1', file_name: 'test.pdf', status: 'completed' },
       ])
 
-      // Initial load via handleSessionChange
       await UploadOrchestrator.handleSessionChange('session-1')
       expect(mockClient.getCollection).toHaveBeenCalledTimes(1)
       mockClient.getCollection.mockClear()
       mockClient.listFiles.mockClear()
 
-      // Normal loadFilesForSession would skip (already loaded)
       await UploadOrchestrator.loadFilesForSession('session-1')
       expect(mockClient.getCollection).not.toHaveBeenCalled()
 
-      // refreshFilesForSession should bypass the cache and re-fetch
       await UploadOrchestrator.refreshFilesForSession('session-1')
       expect(mockClient.getCollection).toHaveBeenCalledWith('session-1')
       expect(mockClient.listFiles).toHaveBeenCalledWith('session-1')
@@ -439,7 +471,6 @@ describe('UploadOrchestrator', () => {
       await UploadOrchestrator.handleSessionChange('session-1')
       mockClient.getCollection.mockClear()
 
-      // Refresh for a different session should be ignored
       await UploadOrchestrator.refreshFilesForSession('session-2')
       expect(mockClient.getCollection).not.toHaveBeenCalled()
     })
@@ -454,11 +485,9 @@ describe('UploadOrchestrator', () => {
         { file_id: 'file-1', file_name: 'test.pdf', status: 'completed' },
       ])
 
-      // Initial load succeeds
       await UploadOrchestrator.handleSessionChange('session-1')
       mockUnmarkSessionCollection.mockClear()
 
-      // Backend TTL cleanup happened - collection now returns 404
       mockClient.getCollection.mockResolvedValue(null)
 
       await UploadOrchestrator.refreshFilesForSession('session-1')
@@ -478,7 +507,6 @@ describe('UploadOrchestrator', () => {
       UploadOrchestrator.startPolling('job-1', 'session-1')
       UploadOrchestrator.startPolling('job-2', 'session-1')
 
-      // Second call should have set up new polling
       expect(mockDocumentsStore.setActiveJobId).toHaveBeenLastCalledWith('job-2')
     })
   })
@@ -574,15 +602,9 @@ describe('UploadOrchestrator', () => {
       UploadOrchestrator.startPolling('job-1', 'session-1')
       await vi.advanceTimersByTimeAsync(5000)
 
-      // The job's own text is English and for logs; the line says its category.
       expect(mockDocumentsStore.setError).toHaveBeenCalledWith(getStoreTranslator(filesCopy)('ingestFailure.unknown'))
     })
 
-    /**
-     * Losing track of a job is not a failed upload. The document rows it wrote
-     * are still being read, so the tray rows are followed by their documents'
-     * status (and a mounted workspace's listing) instead of turning red.
-     */
     describe('when the orchestrator stops following a job', () => {
       const tray = (overrides: Partial<TrackedFile>): TrackedFile => ({
         id: 'row-1',
@@ -629,37 +651,7 @@ describe('UploadOrchestrator', () => {
         off()
       })
 
-      test('an exhausted poll budget hands its rows to the listing, not "timed out"', async () => {
-        mockClient.getJobStatus.mockResolvedValue({
-          job_id: 'job-1',
-          collection_name: 'session-1',
-          status: 'processing',
-          file_details: [],
-        })
-
-        UploadOrchestrator.startPolling('job-1', 'session-1')
-        // 420 polls at 5 s, then the check that ends the budget.
-        await vi.advanceTimersByTimeAsync(421 * 5000)
-
-        expect(mockClient.getJobStatus).toHaveBeenCalledTimes(420)
-        expectHandedOver()
-
-        await vi.advanceTimersByTimeAsync(60_000)
-        expect(mockClient.getJobStatus).toHaveBeenCalledTimes(420)
-      })
-
-      test('status reads that keep failing end in the same hand-over', async () => {
-        mockClient.getJobStatus.mockRejectedValue(new Error('Network error'))
-
-        UploadOrchestrator.startPolling('job-1', 'session-1')
-        await vi.advanceTimersByTimeAsync(421 * 5000)
-
-        expectHandedOver()
-      })
-
       test('keeps following a handed-over row by its document status, slowly, until it lands', async () => {
-        // Nothing else settles it when no Files page is mounted: a project
-        // upload from the chat's side panel spun forever.
         mockDocumentsStore.updateTrackedFile.mockImplementation((id: string, patch: Partial<TrackedFile>) => {
           mockDocumentsStore.trackedFiles = mockDocumentsStore.trackedFiles.map((file) =>
             file.id === id ? { ...file, ...patch } : file
@@ -678,7 +670,6 @@ describe('UploadOrchestrator', () => {
           await vi.advanceTimersByTimeAsync(5000)
           expect(fetchMock).not.toHaveBeenCalled()
 
-          // Slow: a minute, not the job poll's five seconds.
           await vi.advanceTimersByTimeAsync(60_000)
           expect(fetchMock).toHaveBeenCalledTimes(1)
           expect(fetchMock).toHaveBeenCalledWith('/api/documents/doc-1/status', expect.anything())
@@ -694,7 +685,6 @@ describe('UploadOrchestrator', () => {
           expect(onComplete).toHaveBeenCalledTimes(1)
           expect(changed).toHaveBeenCalled()
 
-          // Terminal: nothing more is asked.
           await vi.advanceTimersByTimeAsync(180_000)
           expect(fetchMock).toHaveBeenCalledTimes(2)
         } finally {
@@ -718,12 +708,116 @@ describe('UploadOrchestrator', () => {
       })
     })
 
+    describe('a hint that something settled', () => {
+      const reading = { job_id: 'job-1', status: 'processing', file_details: [] }
+      const done = {
+        job_id: 'job-1',
+        status: 'completed',
+        file_details: [{ file_id: 'file-1', file_name: 'test.pdf', status: 'completed', progress_percent: 100 }],
+      }
+
+      test('asks about the job at once, one read per hint', async () => {
+        mockClient.getJobStatus.mockResolvedValue(reading)
+        mockClient.listFiles.mockResolvedValue([])
+        const onComplete = vi.fn()
+        const off = UploadOrchestrator.subscribe({ onComplete })
+
+        UploadOrchestrator.startPolling('job-1', 'session-1')
+        await vi.advanceTimersByTimeAsync(0)
+        expect(mockClient.getJobStatus).toHaveBeenCalledTimes(1)
+
+        mockClient.getJobStatus.mockResolvedValue(done)
+        UploadOrchestrator.askNow()
+        await vi.advanceTimersByTimeAsync(0)
+
+        expect(mockClient.getJobStatus).toHaveBeenCalledTimes(2)
+        expect(onComplete).toHaveBeenCalledTimes(1)
+        off()
+      })
+
+      test('without a hint the job is asked about once a minute, and never handed over for taking long', async () => {
+        mockClient.getJobStatus.mockResolvedValue(reading)
+
+        UploadOrchestrator.startPolling('job-1', 'session-1')
+        await vi.advanceTimersByTimeAsync(FALLBACK_POLL_MS - 1)
+        expect(mockClient.getJobStatus).toHaveBeenCalledTimes(1)
+        await vi.advanceTimersByTimeAsync(1)
+        expect(mockClient.getJobStatus).toHaveBeenCalledTimes(2)
+
+        await vi.advanceTimersByTimeAsync(33 * FALLBACK_POLL_MS)
+        expect(mockToast.info).not.toHaveBeenCalled()
+
+        await vi.advanceTimersByTimeAsync(27 * FALLBACK_POLL_MS)
+        expect(mockClient.getJobStatus).toHaveBeenCalledTimes(62)
+        expect(mockDocumentsStore.updateTrackedFile).not.toHaveBeenCalled()
+        expect(mockToast.info).toHaveBeenCalledTimes(1)
+        expect(mockToast.info).toHaveBeenCalledWith(STILL_READING, expect.anything())
+        expect(mockDocumentsStore.setError).not.toHaveBeenCalled()
+      })
+
+      test('status reads that keep failing are asked again at the floor, not failed', async () => {
+        mockClient.getJobStatus.mockRejectedValue(new Error('Network error'))
+
+        UploadOrchestrator.startPolling('job-1', 'session-1')
+        await vi.advanceTimersByTimeAsync(3 * FALLBACK_POLL_MS)
+
+        expect(mockClient.getJobStatus).toHaveBeenCalledTimes(4)
+        expect(mockDocumentsStore.setError).not.toHaveBeenCalled()
+      })
+
+      test('a hint during a read in flight asks once more, since that read may predate the settle', async () => {
+        let answer: (value: typeof reading) => void = () => undefined
+        mockClient.getJobStatus.mockImplementationOnce(() => new Promise((resolve) => (answer = resolve)))
+        mockClient.getJobStatus.mockResolvedValue(done)
+        mockClient.listFiles.mockResolvedValue([])
+
+        UploadOrchestrator.startPolling('job-1', 'session-1')
+        UploadOrchestrator.askNow()
+        UploadOrchestrator.askNow()
+        expect(mockClient.getJobStatus).toHaveBeenCalledTimes(1)
+
+        answer(reading)
+        await vi.advanceTimersByTimeAsync(0)
+        expect(mockClient.getJobStatus).toHaveBeenCalledTimes(2)
+        expect(mockDocumentsStore.setPolling).toHaveBeenLastCalledWith(false)
+      })
+
+      test('with nothing followed a hint asks nothing', async () => {
+        UploadOrchestrator.askNow()
+        await vi.advanceTimersByTimeAsync(FALLBACK_POLL_MS)
+        expect(mockClient.getJobStatus).not.toHaveBeenCalled()
+      })
+
+      test('asks about a watched row at once', async () => {
+        mockDocumentsStore.trackedFiles = [
+          { id: 'row-1', fileName: 'haus.ifc', fileSize: 1, status: 'ingesting', progress: 0, serverFileId: 'doc-1', collectionName: 'session-1' },
+        ]
+        const fetchMock = vi.fn(async () => new Response(JSON.stringify({ id: 'doc-1', status: 'completed' }), { status: 200 }))
+        vi.stubGlobal('fetch', fetchMock)
+        const onComplete = vi.fn()
+        const off = UploadOrchestrator.subscribe({ onComplete })
+        try {
+          UploadOrchestrator.watchDocuments(['row-1'])
+          await vi.advanceTimersByTimeAsync(1000)
+          expect(fetchMock).not.toHaveBeenCalled()
+
+          UploadOrchestrator.askNow()
+          await vi.advanceTimersByTimeAsync(0)
+          expect(fetchMock).toHaveBeenCalledTimes(1)
+          expect(mockDocumentsStore.updateTrackedFile).toHaveBeenCalledWith('row-1', expect.objectContaining({ status: 'success' }))
+          expect(onComplete).toHaveBeenCalledTimes(1)
+        } finally {
+          off()
+          vi.unstubAllGlobals()
+        }
+      })
+    })
+
     test('handles polling errors', async () => {
       mockClient.getJobStatus.mockRejectedValue(new Error('Network error'))
 
       UploadOrchestrator.startPolling('job-1', 'session-1')
 
-      // Should not throw
       await vi.advanceTimersByTimeAsync(5000)
     })
 
@@ -739,11 +833,6 @@ describe('UploadOrchestrator', () => {
     })
   })
 
-  /**
-   * A chat's attachments are document rows (ADR-0047 Phase 2). They are read
-   * through `GET /api/session/documents`, and polled by re-listing, because
-   * that listing reconciles every in-flight row. Nothing goes through the proxy.
-   */
   describe('the session shelf', () => {
     const CHAT = 's_11111111_2222_4333_8444_555555555555'
     const row = (status: 'ingesting' | 'success') => ({

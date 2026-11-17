@@ -54,10 +54,8 @@ DETERMINISTIC: Final = "deterministic"
 QUARANTINED: Final = "quarantined"
 UNKNOWN: Final = "unknown"
 
-#: Every category, in the order the docs list them. Mirrored in the UI.
 FAILURE_CATEGORIES: Final[tuple[FailureCategory, ...]] = (TRANSIENT, CONFIGURATION, DETERMINISTIC, QUARANTINED, UNKNOWN)
 
-#: Whether reading the same bytes with the same reader again can succeed.
 _RETRYABLE: Final[dict[FailureCategory, bool]] = {
     TRANSIENT: True,
     CONFIGURATION: True,
@@ -66,27 +64,14 @@ _RETRYABLE: Final[dict[FailureCategory, bool]] = {
     UNKNOWN: True,
 }
 
-#: Every machine prefix (the text before the first ``:``) a failure is written
-#: with, to its category. A prefix the backend writes and this does not name
-#: fails the parity test, as one the UI does not map does.
 PREFIX_CATEGORIES: Final[dict[str, FailureCategory]] = {
-    # The worker that owned the job stopped heartbeating (ingest_status_store).
     "interrupted": TRANSIENT,
-    # The queued job's payload could not be decrypted or parsed (ingest_dispatch).
     "unreadable_job": TRANSIENT,
-    # The presigned original could not be downloaded (deferred_files).
     "original_download_failed": TRANSIENT,
-    # The BFF sent no PDF rendition of a Word or presentation file: the
-    # converter failed or the link expired. The next dispatch converts again.
     "office_rendition_required": TRANSIENT,
-    # The document was deleted while it waited or read; nothing about the bytes.
     "document_deleted": TRANSIENT,
-    # No vision model for a scan or an image.
     "vlm_not_configured": CONFIGURATION,
-    # The job's screening policy could not be applied (ADR-0086): nothing of
-    # the file was read. The next dispatch sends the policy afresh.
     "screening_unavailable": CONFIGURATION,
-    # Too many pages pdfplumber could not read: the file, not the moment.
     "pdf_pages_unreadable": DETERMINISTIC,
     "quarantined": QUARANTINED,
 }
@@ -105,32 +90,25 @@ def verdict_for(category: FailureCategory) -> FailureVerdict:
     return FailureVerdict(category, _RETRYABLE[category])
 
 
-#: Exception classes (by name, anywhere in the MRO) that say "not now".
 _TRANSIENT_EXCEPTIONS: Final = frozenset(
     {
-        # builtins and concurrent.futures (an alias of TimeoutError since 3.11)
         "TimeoutError",
         "ConnectionError",
-        # httpx
         "TimeoutException",
         "TransportError",
         "NetworkError",
         "RemoteProtocolError",
-        # openai
         "APIConnectionError",
         "APITimeoutError",
         "InternalServerError",
         "RateLimitError",
-        # requests / urllib3, which some readers still use
         "ReadTimeoutError",
         "ProtocolError",
     }
 )
 
-#: Exception classes that say "these bytes cannot be read".
 _DETERMINISTIC_EXCEPTIONS: Final = frozenset(
     {
-        # pdfminer (pdfplumber's parser)
         "PDFPasswordIncorrect",
         "PDFEncryptionError",
         "PDFSyntaxError",
@@ -138,20 +116,15 @@ _DETERMINISTIC_EXCEPTIONS: Final = frozenset(
         "PDFValueError",
         "PSEOF",
         "PSSyntaxError",
-        # pypdfium2
         "PdfiumError",
-        # zip containers (xlsx, pptx) and their readers
         "BadZipFile",
         "InvalidFileException",
         "PackageNotFoundError",
-        # Pillow
         "UnidentifiedImageError",
         "DecompressionBombError",
     }
 )
 
-#: Sentences the adapter and its readers write about the bytes. Not "corrupt":
-#: the image path says "corrupted file or VLM failure", which is not a verdict.
 _DETERMINISTIC_TEXT = re.compile(
     r"^no content extracted\b|password|encrypt|raw pdf/binary content|not a (?:pdf|zip)\b|"
     r"\bempty file\b|\bfile is empty\b",
@@ -164,14 +137,7 @@ _TRANSIENT_TEXT = re.compile(
     re.IGNORECASE,
 )
 _PREFIX = re.compile(r"^([a-z][a-z_]*):")
-#: OpenRouter's 402 when the account HAS credits but the requests already in
-#: flight have reserved them: capacity, freed as those calls finish. A 402 that
-#: does not say so ("insufficient credits") is the account, and stays refused.
 _IN_FLIGHT_CREDITS = re.compile(r"\bcredits?\b.*\bin[\s-]?flight\b|\bin[\s-]?flight\b.*\bcredits?\b", re.I | re.S)
-#: OpenRouter's refusal when none of the endpoints a request allows can take it
-#: (a page read is EU-only: ``DataPolicy.for_page_reads``): a 404 or 503 that
-#: passes when an EU endpoint is back. Not the data-policy 404 (the model has no
-#: ZDR endpoint at all), which is the deployment's to fix.
 _NO_ALLOWED_PROVIDER = re.compile(
     r"no allowed providers?|no endpoints? (?:found|available)(?! matching your data policy)", re.I
 )
@@ -265,10 +231,7 @@ def _from_status_code(exc: BaseException) -> FailureCategory | None:
     if status == 404 and _NO_ALLOWED_PROVIDER.search(str(exc)):
         return TRANSIENT
     if status in (401, 403, 404):
-        # 404: a misnamed model or a wrong base URL. The deployment, not the
-        # bytes: once it is fixed the same file reads.
         return CONFIGURATION
-    # 400, 413, 415, 422: the request this file made is refused as it is.
     return DETERMINISTIC
 
 

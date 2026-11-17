@@ -24,15 +24,10 @@ def create_workos_validator() -> JWTValidator:
     """
     client_id = os.environ["WORKOS_CLIENT_ID"]
     return JWTValidator(
-        # AuthKit access tokens carry the client-scoped issuer (verified via
-        # the OIDC discovery document at
-        # https://api.workos.com/user_management/<client_id>/.well-known/openid-configuration).
-        # A bare "https://api.workos.com" issuer rejects EVERY token.
+        # AuthKit tokens carry the client-scoped issuer and no aud claim; a bare api.workos.com
+        # issuer or an enforced audience rejects every token.
         issuer_url=f"https://api.workos.com/user_management/{client_id}",
         jwks_uri=f"https://api.workos.com/sso/jwks/{client_id}",
-        # AuthKit access tokens have no `aud` claim; enforcing one rejects
-        # every token with MissingRequiredClaim. Identity binding to this
-        # deployment comes from the client-scoped issuer + JWKS instead.
         audience=None,
         algorithms=["RS256"],
         verify_iss=True,

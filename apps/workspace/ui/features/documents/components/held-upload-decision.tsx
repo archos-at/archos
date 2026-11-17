@@ -1,18 +1,5 @@
 'use client'
 
-/**
- * What the person who just met a held upload can do about it, where they meet
- * it (ADR-0086): the upload tray's row and the upload summary.
- *
- * A check is wrong sometimes: an order number reads like a card number. The one
- * who may decide about the file (a reviewer, `canReview`, often the uploader
- * themselves in a small office) allows it here, after the same question the
- * Quarantäne list asks, instead of being sent to that list for a file they are
- * looking at. The uploader who may not decide asks those who may. Which of the
- * two is the server's answer (`GET /api/documents/{id}/quarantine`), never a
- * role read here; until it lands, and for anyone else, nothing is offered.
- */
-
 import { useEffect, useState, type JSX } from 'react'
 import { Eye, ShieldCheck, ShieldOff } from 'lucide-react'
 import { toast } from 'sonner'
@@ -34,19 +21,11 @@ import { cn } from '@/lib/utils'
 import { RequestReviewButton } from './request-review-button'
 
 export interface HeldUploadDecisionProps {
-  /** The held document. */
   documentId: string
-  /** The name the dialog and the toasts say. */
   name: string
-  /** The file was allowed and sent to be read, with this status. */
   onReleased?: (status: string) => void
-  /**
-   * Open the file at its findings, where the surface can: deciding whether
-   * `4111 …` is a card number takes seeing it, which the masked sample hides.
-   */
   onView?: () => void
   className?: string
-  /** The test ids of the two buttons. */
   askTestId: string
   allowTestId: string
 }
@@ -63,12 +42,10 @@ export function HeldUploadDecision({
   const t = useTranslations(uploadBatchesCopy)
   const tOrg = useTranslations(organizationCopy)
   const tc = useTranslations(commonCopy)
-  // `failed`: the question could not be asked, which is not a no; a retry asks again.
   const [access, setAccess] = useState<QuarantineReviewAccess | 'failed' | null>(null)
   const [attempt, setAttempt] = useState(0)
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [released, setReleased] = useState(false)
-  // Someone else allowed or deleted it first: nothing is left to decide here.
   const [decidedElsewhere, setDecidedElsewhere] = useState(false)
 
   useEffect(() => {
@@ -89,7 +66,6 @@ export function HeldUploadDecision({
       toast.success(tOrg('quarantine.released', { name }))
       onReleased?.(status)
     } catch (error) {
-      // Someone else allowed or deleted it first: what was on screen was stale.
       const decided =
         error instanceof ApiRequestError && (error.status === 409 || error.status === 404)
       if (decided) {

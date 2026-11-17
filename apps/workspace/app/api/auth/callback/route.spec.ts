@@ -5,11 +5,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { NextRequest } from 'next/server'
 
 const { CallbackError, authkit, authkitOptions, captureServer } = vi.hoisted(() => {
-  /**
-   * What AuthKit exports for `onError` to tell a lost flow from a failed
-   * exchange. The real code is a union; a string here also lets a test hand
-   * over a code the module does not enumerate.
-   */
   class CallbackError extends Error {
     readonly code: string
 
@@ -121,13 +116,6 @@ describe('/api/auth/callback', () => {
     })
   })
 
-  /**
-   * AuthKit deletes the flow's verifier cookie before answering, so reloading a
-   * failed callback URL reproduces the failure. Its generic 500 leaves the
-   * person with a dead end; our own page can say what happened and offer Try
-   * Again. The page is a page — never a redirect back into the flow — so it
-   * cannot loop.
-   */
   describe('a sign-in that failed', () => {
     const failure = async (error: unknown): Promise<string | null> => {
       const response = await authkitOptions.onError?.({

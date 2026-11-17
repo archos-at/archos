@@ -10,7 +10,6 @@ vi.mock('@/lib/auth/session', () => ({
 }))
 
 vi.mock('@/lib/authz/platform', () => {
-  // Defined inside the factory: vi.mock is hoisted above module-level classes.
   class PlatformAccessDeniedError extends Error {
     readonly status = 403
   }

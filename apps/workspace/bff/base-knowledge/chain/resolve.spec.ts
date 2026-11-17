@@ -131,7 +131,6 @@ describe('law and routes', () => {
   })
 
   it('a norm no Land declares here guides in its newest edition only', () => {
-    // No Styrian relation for RL 6 in this fixture.
     const resolved = resolveChain(graph, 'AT-6', '2026-11-10')
     expect(usesOf(resolved, 'work:oib-rl-6').map((use) => [use.editionId, use.role])).toEqual([
       ['edition:oib-rl-6-2025', 'guidance'],
@@ -188,7 +187,6 @@ describe('law and routes', () => {
     expect(usesOf(resolved, 'work:bo-wien')).toEqual([])
     expect(resolved.undetermined).toEqual([{ workId: 'work:bo-wien', reason: 'ambiguous_editions' }])
     const undated = graphFromProposals(parse([...AUSTRIA, edition('bo-wien-x', 'bo-wien', '2018-01-01')]))
-    // A law counts from its in-force date, never from its issue.
     expect(resolveChain(undated, 'AT-9', '2026-11-10').undetermined).toEqual([{ workId: 'work:bo-wien', reason: 'edition_dates_unknown' }])
     const held = graphFromProposals(
       parse([...AUSTRIA.filter((record) => !('key' in record && record.key === 'bo-wien')), work('bo-wien', 'statute', ['AT-9'], { historyAvailableFrom: '2018-01-01' }), edition('bo-wien-2018', 'bo-wien', null, { inForceFrom: '2018-01-01' })]),
@@ -240,8 +238,31 @@ describe('law and routes', () => {
     const onFiling = editionsInForceAt(dated, '2023-06-01')
     const today = editionsInForceAt(dated, '2026-11-10')
     const editionFor = (workId: string) => (workId === 'work:bo-wien' ? onFiling(workId) : today(workId))
-    expect(usesOf(resolveChain(dated, 'AT-9', '2026-11-10', editionFor), 'work:bo-wien')).toMatchObject([{ editionId: 'edition:bo-wien-2018' }])
-    expect(roleOf(resolveChain(dated, 'AT-9', '2026-11-10', editionFor), 'edition:oib-rl-6-2025')).toBe('binding')
+    expect(usesOf(resolveChain(dated, 'AT-9', '2026-11-10', null, editionFor), 'work:bo-wien')).toMatchObject([{ editionId: 'edition:bo-wien-2018' }])
+    expect(roleOf(resolveChain(dated, 'AT-9', '2026-11-10', null, editionFor), 'edition:oib-rl-6-2025')).toBe('binding')
+  })
+
+  it('reads the scope of the edition chosen for the date, not of another edition of the work (ADR-0178)', () => {
+    const above = (metres: number) => ({
+      inputs: [{ key: 'escape_level_m', type: 'number' }],
+      output: { type: 'boolean' },
+      rows: [
+        { id: 'above', when: { '>': [{ var: 'escape_level_m' }, metres] }, then: true },
+        { id: 'up-to', when: { '<=': [{ var: 'escape_level_m' }, metres] }, then: false },
+      ],
+      otherwise: { then: false },
+    })
+    const thresholds: Record<string, number> = { 'oib-rl-6-2023': 22, 'oib-rl-6-2025': 25 }
+    const scoped = graphFromProposals(
+      parse(AUSTRIA.map((record) => ('key' in record && record.key in thresholds ? { ...record, appliesWhen: above(thresholds[record.key]) } : record))),
+    )
+    const bindingAt = (date: string, metres: number) =>
+      usesOf(resolveChain(scoped, 'AT-9', date, { buildings: [{ buildingId: 'bldg1', inputs: { escape_level_m: metres } }] }), 'work:oib-rl-6').filter(
+        (use) => use.role === 'binding',
+      )
+    expect(bindingAt('2026-07-14', 23)).toMatchObject([{ editionId: 'edition:oib-rl-6-2023', applicability: { verdict: 'applies' } }])
+    expect(bindingAt('2026-07-15', 23)).toEqual([])
+    expect(bindingAt('2026-07-15', 26)).toMatchObject([{ editionId: 'edition:oib-rl-6-2025', applicability: { verdict: 'applies' } }])
   })
 })
 
@@ -315,7 +336,6 @@ describe('deviations, precedence and packs', () => {
     const resolved = resolveChain(mergeGraphs(swissBodies, liechtenstein), 'LI', '2026-11-10')
     expect(roleOf(resolved, 'edition:sia-500-2009')).toBe('binding')
     expect(roleOf(resolved, 'edition:vkf-2015')).toBe('binding')
-    // The same SIA work is nothing to an Austrian site no route reaches it from.
     expect(roleOf(resolveChain(mergeGraphs(graph, swissBodies), 'AT-9', '2026-11-10'), 'edition:sia-500-2009')).toBeNull()
   })
 
@@ -351,12 +371,14 @@ describe('deviations, precedence and packs', () => {
     expect(roleOf(resolveChain(future, 'AT-6', '2026-11-10'), 'edition:oib-rl-2-2023')).toBe('guidance')
   })
 
-  it('says when it left uses out, so a caller fails closed', () => {
+  it('resolves every use however many there are: no count withholds the law', () => {
     const many: unknown[] = [territory('AT', 'country'), work('law', 'statute', ['AT'])]
-    for (let index = 0; index < 45; index++) many.push(work(`std-${index}`, 'technical_standard', ['AT']), edition(`std-${index}-e`, `std-${index}`, '2020-01-01'))
+    for (let index = 0; index < 45; index++) {
+      many.push(work(`std-${index}`, 'technical_standard'), edition(`std-${index}-e`, `std-${index}`, '2020-01-01'))
+      many.push(binds(`lists-${index}`, 'work:law', `edition:std-${index}-e`))
+    }
     const resolved = resolveChain(graphFromProposals(parse(many)), 'AT', '2026-11-10')
-    expect(resolved.truncated).toBe(true)
-    expect(resolveChain(graph, 'AT-9', '2026-11-10').truncated).toBe(false)
+    expect(resolved.uses.filter((use) => use.role === 'binding' && use.workId.startsWith('work:std-'))).toHaveLength(45)
   })
 
   it('stops a cycle and follows a route no deeper than its limit', () => {

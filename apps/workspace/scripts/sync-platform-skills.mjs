@@ -30,8 +30,6 @@ const CR = String.fromCharCode(13) // carriage return
 const BS = String.fromCharCode(92) // backslash
 const BT = String.fromCharCode(96) // backtick
 
-// A skill is a directory whose name is the skill name, containing SKILL.md.
-// Its parent directory (research | synthesis) is the collection.
 function collectSkills(dir, collection, out) {
   for (const entry of readdirSync(dir).sort()) {
     const full = join(dir, entry)
@@ -48,20 +46,12 @@ const skills = []
 collectSkills(backendRoot, null, skills)
 
 function parseFrontmatter(raw, file) {
-  // Normalize CRLF and strip a UTF-8 BOM so Windows checkouts parse the same
-  // as POSIX ones.
   if (raw.charCodeAt(0) === 0xfeff) raw = raw.slice(1)
   raw = raw.replaceAll(CR + LE, LE)
   const lines = raw.split(LE)
   if (lines[0] !== '---') {
     throw new Error('missing frontmatter in ' + file)
   }
-  // Indentation is the whole grammar here. A top-level key sits at column 0; the
-  // lines BELOW it that are indented belong to it (a `>` block scalar's text, or
-  // a nested mapping's entries). The previous version had no notion of this and
-  // simply appended every line after `description:` until a blank one, so adding
-  // any second top-level key — `metadata:` — silently swallowed that key and its
-  // whole block into the description string.
   let name = null
   let description = null
   let metadata = null
@@ -87,7 +77,6 @@ function parseFrontmatter(raw, file) {
           throw new Error('malformed metadata entry ' + JSON.stringify(text) + ' in ' + file)
         }
         const key = text.slice(0, separator).trim()
-        // Values may be quoted (`grid-schedulable: "false"`); unwrap one layer.
         const value = text
           .slice(separator + 1)
           .trim()
@@ -108,7 +97,6 @@ function parseFrontmatter(raw, file) {
     if (key === 'name') {
       name = inline
     } else if (key === 'description') {
-      // `description: >` (block scalar) or `description: text` on one line.
       description = inline === '' || inline === '>' || inline === '|' ? [] : [inline]
     } else if (key === 'metadata') {
       metadata = {}
@@ -150,7 +138,6 @@ const rows = skills
 const generatedAt = new Date().toISOString()
 const sourcePath = relative(uiRoot, backendRoot).replaceAll(BS, '/')
 
-// Generated header. The glob for SKILL.md is written without any star-slash.
 const header = [
   '/**',
   ' * GENERATED FILE - DO NOT EDIT.',
@@ -165,11 +152,6 @@ const header = [
   " * 'platform' value - only org-authored and platform-clone rows live there).",
   ' */',
   '',
-  // Derived from the directories actually found, never hardcoded. It WAS
-  // hardcoded to 'research' | 'synthesis', so adding a skill under a new
-  // collection (bim/) emitted `collection: 'bim'` against a union that did not
-  // contain it — `tsc` failed on the generated file itself. Nothing caught it
-  // until the module was regenerated, because a stale module type-checks fine.
   'export type PlatformSkillCollection =\n  | ' +
     Array.from(new Set(skills.map((s) => s.collection)))
       .sort()
@@ -219,8 +201,6 @@ const footer = [
 
 const generated = header + LE + rowLines + LE + footer
 
-// The header embeds a per-run ISO timestamp, so the check masks that line
-// out on both sides before comparing.
 const TIMESTAMP_MARKER = '.mjs' + BT + ' at '
 const maskTimestamp = function (text) {
   return text

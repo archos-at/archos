@@ -1,19 +1,3 @@
-"""Scanned and garbled PDF pages are transcribed, not described, and never lost quietly.
-
-Covers ``page_triage`` (which road each page takes), ``transcription`` (the
-vision-model OCR with its cache and caps) and the ``_run_ingestion`` wiring:
-
-- a scanned page becomes ordinary page text, chunked like any other, and never
-  enters the drawing schema;
-- a ``(cid:n)`` or mojibake text layer is replaced by its transcription, and an
-  untranscribed one keeps only what is not glyph ids;
-- pages past a cap are counted on the file's job status;
-- a scan with no vision key fails with ``vlm_not_configured``, not "no content".
-
-The PDFs are built here, byte by byte or with PIL, so the suite needs no fixture
-files and no system fonts. The vision model is mocked throughout.
-"""
-
 from __future__ import annotations
 
 import io
@@ -40,7 +24,6 @@ from agent.common.credential_resolution import ResolvedCredential
 
 
 def _counters(metadata: dict) -> dict:
-    """A file's own counters, without the stage seconds and coverage every file now carries."""
     return {k: v for k, v in metadata.items() if k not in (STAGE_SECONDS_KEY, COVERAGE_KEY)}
 
 
@@ -56,13 +39,7 @@ TRANSCRIPT = (
 )
 
 
-# =============================================================================
-# PDF builders
-# =============================================================================
-
-
 def _pdf(pages: list[tuple[bytes, bytes]]) -> bytes:
-    """A minimal PDF: one ``(content stream, resources dict)`` per page."""
     objects: list[bytes] = [b"<< /Type /Catalog /Pages 2 0 R >>", b""]
     kids = []
     for content, resources in pages:
@@ -89,8 +66,6 @@ def _pdf(pages: list[tuple[bytes, bytes]]) -> bytes:
 
 
 _HELVETICA = b"<< /Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >> >> >>"
-# A CID font with Identity-H and NO ToUnicode map: what a CAD export with
-# subset fonts looks like. pdfplumber can only report glyph ids: (cid:n).
 _CID_FONT = (
     b"<< /Font << /F1 << /Type /Font /Subtype /Type0 /BaseFont /CADFont /Encoding /Identity-H "
     b"/DescendantFonts [<< /Type /Font /Subtype /CIDFontType2 /BaseFont /CADFont "
@@ -122,7 +97,6 @@ def drawing_page(paths: int = 400, label: str = "") -> tuple[bytes, bytes]:
 
 
 def scan_pdf(pages: int = 1, size: tuple[int, int] = (240, 340)) -> bytes:
-    """An image-only PDF, as a scanner writes it: one full-page raster per page."""
     from PIL import Image
     from PIL import ImageDraw
 
@@ -149,11 +123,6 @@ def _plumber_texts(path: str) -> dict[int, str]:
         return {number: page.extract_text() or "" for number, page in enumerate(pdf.pages, start=1)}
 
 
-# =============================================================================
-# Text quality
-# =============================================================================
-
-
 class TestTextQuality:
     def test_clean_german_is_not_garbled(self):
         quality = text_quality(GERMAN)
@@ -164,8 +133,6 @@ class TestTextQuality:
         assert text_quality("(cid:37)(cid:68)(cid:88)" * 30).garbled
 
     def test_a_few_cid_tokens_in_real_text_are_not(self):
-        # A ligature or a symbol glyph without a mapping: measured at most 0.03
-        # of a clean page's characters.
         assert not text_quality(GERMAN + " (cid:3) ").garbled
 
     def test_mojibake_is_garbled(self):
@@ -174,8 +141,6 @@ class TestTextQuality:
         assert text_quality(mojibake).garbled
 
     def test_glyph_ids_shifted_into_letters_are_garbled(self):
-        # pdfium's reading of the same unmapped font: every letter moved by the
-        # font's glyph offset. Plenty of letters, almost no vowels.
         shifted = "".join(chr(ord(ch) - 29) if ch.isalpha() and ch.isascii() else ch for ch in GERMAN)
         assert text_quality(shifted).garbled
 
@@ -183,16 +148,12 @@ class TestTextQuality:
         assert text_quality("�" * 10 + GERMAN[:200]).garbled
 
     def test_a_page_of_numbers_is_not_garbled(self):
-        # A cost table has almost no letters and is still real text: a garbled
-        # verdict would drop it on a deployment without a vision key.
         assert not text_quality("1,20 2,40 3,60 | 4.800,00 € | 12,5 % " * 10).garbled
 
     def test_short_text_is_not_judged(self):
         assert not text_quality("(cid:3)(cid:4)").garbled
 
     def test_a_list_with_unmapped_bullets_is_not_garbled(self):
-        # A normal list whose bullet glyph has no ToUnicode entry: pdfplumber
-        # writes (cid:120) per item. A token is ONE glyph, not nine characters.
         items = [
             "Brandabschnitte gemäß OIB-Richtlinie 2 ausbilden",
             "Fluchtweglänge höchstens 40 m",
@@ -205,7 +166,6 @@ class TestTextQuality:
         assert quality.cid_share == pytest.approx(12 / quality.chars)
 
     def test_a_list_with_symbol_font_bullets_is_not_garbled(self):
-        # Word exports its Symbol-font bullet as U+F0B7, a private-use code point.
         items = ["Fluchtweg 1,20 m", "REI 90", "EI2 30-C", "Rauchmelder je Raum"] * 6
         listing = "\n".join(f"\uf0b7 {item}" for item in items)
         assert not text_quality(listing).garbled
@@ -217,11 +177,6 @@ class TestTextQuality:
     def test_salvage_keeps_real_text_and_drops_glyph_ids(self):
         assert page_triage.salvage_text("(cid:37)" * 200) == ""
         assert page_triage.salvage_text(GERMAN + " (cid:3)").strip() == GERMAN
-
-
-# =============================================================================
-# Classification
-# =============================================================================
 
 
 def _kind(text="", paths=0, raster=0.0):
@@ -236,13 +191,9 @@ class TestClassifyPage:
         assert _kind("", raster=0.98) is PageKind.SCAN
 
     def test_a_small_photo_on_an_empty_page_is_not_a_scan(self):
-        # Not a scan (nothing to transcribe), but a picture: described once as a
-        # visual page, and its raster is then not analysed a second time.
         assert _kind("", raster=0.2) is PageKind.DRAWING
 
     def test_a_simple_sketch_with_little_text_is_a_drawing(self):
-        # A detail or a hand sketch has dozens of paths, not hundreds; the CAD
-        # threshold must not decide whether it is looked at.
         assert _kind("Detail A 1:10", paths=MIN_SKETCH_PATHS) is PageKind.DRAWING
 
     def test_a_few_stray_paths_on_an_empty_page_stay_text(self):
@@ -252,11 +203,9 @@ class TestClassifyPage:
         assert _kind("Grundriss EG 1:100", paths=5000) is PageKind.DRAWING
 
     def test_a_table_ruled_text_page_is_text(self):
-        # Was OR: 300 cell borders made a text page a "drawing".
         assert _kind(GERMAN, paths=400) is PageKind.TEXT
 
     def test_an_empty_page_without_paths_is_not_a_drawing(self):
-        # Was OR: every near-empty page went through the drawing schema.
         assert _kind("", paths=0) is PageKind.TEXT
 
     def test_garbled_text_layer(self):
@@ -273,8 +222,6 @@ class TestClassifyPage:
 
 
 class TestTriageRealPdfs:
-    """The signals read off PDFs built the way scanners and CAD exports write them."""
-
     def test_each_kind_is_recognised(self, tmp_path):
         mojibake = GERMAN.encode("utf-8").decode("cp1252", errors="replace")
         path = _write(
@@ -305,14 +252,8 @@ class TestTriageRealPdfs:
         assert page_triage.triage_pdf(path, {}, min_text_chars=200, min_paths=300) is None
 
 
-# =============================================================================
-# Transcription: cache, caps, replies
-# =============================================================================
-
-
 @pytest.fixture(autouse=True)
 def fresh_vlm_cache(monkeypatch):
-    """A cache per test: the in-process fallback outlives a test otherwise."""
     store: dict[str, object] = {}
     monkeypatch.setattr(processing, "get_json", store.get)
     monkeypatch.setattr(processing, "set_json", lambda key, value, ttl: store.__setitem__(key, value))
@@ -453,11 +394,6 @@ class TestTranscribePdfPages:
         assert transcription.clean_reply("```markdown\n# Titel\nText\n```") == "# Titel\nText"
 
 
-# =============================================================================
-# _run_ingestion wiring
-# =============================================================================
-
-
 @pytest.fixture
 def summary_db(tmp_path):
     from agent.knowledge import configure_summary_db
@@ -471,7 +407,6 @@ def summary_db(tmp_path):
 
 @pytest.fixture
 def indexed(tmp_path, monkeypatch, summary_db, qdrant_store):
-    """An ingestor on the test store with a stand-in embedder; ``.docs`` holds what was indexed."""
     ing = LlamaIndexIngestor({"generate_summary": False})
     ing._embed_model = FakeEmbedder()
     ing._initialized = True
@@ -503,7 +438,6 @@ def _ingest(ing, path: str, name: str, config: dict | None = None):
 
 @pytest.fixture
 def no_drawing_vlm(monkeypatch):
-    """The drawing analysis must not see a scan: fail the test if it is called."""
     drawing = MagicMock(side_effect=AssertionError("a scanned page went through the drawing schema"))
     monkeypatch.setattr(adapter, "_analyze_drawing_page_with_vlm", drawing)
     monkeypatch.setattr(adapter, "_analyze_image_with_vlm", drawing)
@@ -525,7 +459,6 @@ class TestScannedPdfIngestion:
         assert all(doc.metadata["content_type"] == "text" for doc in docs)
         assert "Außenwand" in docs[0].get_content()
         assert not any("DRAWING" in doc.get_content() for doc in docs)
-        # Same endpoint and key as the VLM; the model defaults to the VLM's.
         expected_key = "vlm-key"  # pragma: allowlist secret
         assert calls[0] == {
             "model": adapter.DEFAULT_VLM_MODEL,
@@ -537,7 +470,6 @@ class TestScannedPdfIngestion:
     def test_a_match_in_the_transcript_holds_the_file_before_anything_indexes_it(
         self, tmp_path, monkeypatch, indexed, no_drawing_vlm
     ):
-        """The scan has no text layer to screen first; its transcript is screened before it is embedded."""
         _credential(monkeypatch)
         live, _calls = _fake_live()
         monkeypatch.setattr(transcription, "_transcribe_live", live)
@@ -646,7 +578,6 @@ class TestGarbledPdfIngestion:
         assert len(calls) == 1
 
     def test_salvaged_text_of_an_untranscribed_garbled_page_is_screened(self, tmp_path, monkeypatch, indexed):
-        """Glyph ids hid the term from the first screen; once stripped it reads, and is screened before indexing."""
         _credential(monkeypatch, api_key="")
 
         def salvaging(pdf_path, text_pages, page_texts, **kwargs):
@@ -676,7 +607,6 @@ class TestGarbledPdfIngestion:
 
 class TestOcrSwitch:
     def test_zero_ocr_pages_stops_transcription_and_keeps_the_text_layer(self, tmp_path, monkeypatch, indexed):
-        # MAX_OCR_PAGES=0 is the OCR switch; RENDER_VISUAL_PAGES is not.
         _credential(monkeypatch)
         live, calls = _fake_live()
         monkeypatch.setattr(transcription, "_transcribe_live", live)

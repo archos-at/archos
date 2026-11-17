@@ -1,6 +1,7 @@
 import { render, screen, waitFor, within } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
-import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, test, vi } from 'vitest'
+import { rendererSettled } from '@/features/a2ui/A2uiCard'
 import { PlatformCards } from './platform-cards'
 
 function jsonResponse(body: unknown, ok = true, statusCode = 200) {
@@ -62,6 +63,8 @@ const catalog = {
   ],
 }
 
+beforeAll(rendererSettled)
+
 describe('PlatformCards', () => {
   beforeEach(() => {
     fetchMock.mockReset()
@@ -76,8 +79,6 @@ describe('PlatformCards', () => {
     render(<PlatformCards />)
 
     const entry = await screen.findByTestId('platform-card-stair_diagram')
-    // The real renderer ran: the fixture's title is on screen, which no amount
-    // of catalog metadata would produce on its own.
     expect(within(entry).getByText(/Treppenlauf/)).toBeInTheDocument()
     expect(within(entry).getByText('stair_diagram')).toBeInTheDocument()
   })
@@ -93,9 +94,6 @@ describe('PlatformCards', () => {
     render(<PlatformCards />)
 
     const entry = await screen.findByTestId('platform-card-memory_proposal')
-    // memory_proposal's "Yes" writes an org-scoped memory. In a gallery that
-    // button is decoration, so the subtree is removed from hit-testing, focus
-    // order and the a11y tree entirely.
     await waitFor(() => {
       const preview = entry.querySelector('.pointer-events-none')
       expect(preview).not.toBeNull()
@@ -131,13 +129,10 @@ describe('PlatformCards', () => {
 
     await screen.findByTestId('platform-card-stair_diagram')
     const links = screen.getAllByRole('link', { name: /request a card/i })
-    // Header and foot: the reader who scrolled every card without finding
-    // theirs is exactly the one with a request to file.
     expect(links).toHaveLength(2)
     for (const link of links) {
       expect(link).toHaveAttribute('href', FEATURE_REQUEST.url)
       expect(link).toHaveAttribute('rel', expect.stringContaining('noopener'))
-      // It leaves Piloti for a new tab, and says so to a screen reader too.
       expect(link).toHaveAttribute('target', '_blank')
       expect(link).toHaveAccessibleName(/opens in a new tab/)
     }

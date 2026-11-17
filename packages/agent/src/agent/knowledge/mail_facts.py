@@ -54,9 +54,6 @@ from datetime import datetime
 from typing import Any
 from zoneinfo import ZoneInfo
 
-#: Every ``sender_trust`` a mail can carry, as the BFF stores it
-#: (``apps/workspace/bff/inbound-mail/inbound-mail-vocabulary.ts``, ``SENDER_TRUSTS``).
-#: ``not_checked`` is an Outlook-archive entry's: nothing could be verified, so it claims nothing.
 SENDER_TRUSTS: tuple[str, ...] = (
     "member_verified",
     "member_unverified",
@@ -64,23 +61,15 @@ SENDER_TRUSTS: tuple[str, ...] = (
     "external_unverified",
     "not_checked",
 )
-#: The trusts that are an aligned DKIM pass: the only ones whose domain a line may name as the sender's.
 VERIFIED_SENDER_TRUSTS: frozenset[str] = frozenset({"member_verified", "external_verified"})
 
-#: The locales a thread is rendered in (``apps/workspace/src/i18n/config.ts``). The first is the default.
 MAIL_LOCALES: tuple[str, ...] = ("de", "en")
 
-#: The office's clock, which every heading of a Verlauf is written in (``OFFICE_TIME_ZONE``).
 _OFFICE_TIME_ZONE = ZoneInfo("Europe/Vienna")
-#: A display name is a label, not a paragraph (``render.ts``, ``MAX_NAME_CHARS``).
 _MAX_NAME_CHARS = 80
-#: A thread holds at most this many entries (``mail_threads.entry_count``).
 _MAX_MESSAGE_COUNT = 200
-#: Brackets a name or domain could use to fake an authority: ``Huber (ma37.wien.gv.at)``.
 _BRACKETS = re.compile(r"[()<>\[\]{}]")
-#: What a printed domain may hold: letters, digits, dots and hyphens (``render.ts``, ``cleanDomain``).
 _NOT_DOMAIN = re.compile(r"[^\w.-]")
-#: A BFF document id: a UUID.
 _UUID = re.compile(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
 
 
@@ -88,19 +77,12 @@ _UUID = re.compile(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4
 class MailCopy:
     """The words of the two lines, in one locale."""
 
-    #: The heading suffix for a sender whose domain no signature confirmed (``render-copy.ts``, ``unverifiedDomain``).
     unverified_domain: str
-    #: The heading suffix for an Outlook-archive entry (``render-copy.ts``, ``fromArchive``).
     from_archive: str
-    #: A sender with no usable name (``render-copy.ts``, ``unknownSender``).
     unknown_sender: str
-    #: ``kam mit der E-Mail vom {when} von {who} ({authority})``.
     came_with: str
-    #: The label of the forwarder of a forwarded message (``render-copy.ts``, ``forwardedBy``).
     forwarded_by: str
-    #: The format's name, as the Verlauf's own summary line opens (``render-copy.ts``, ``summary``).
     thread: str
-    #: ``zuletzt {day}``: the newest message's day.
     latest: str
     one_message: str
     messages: str
@@ -254,7 +236,6 @@ def sender_authority(origin: Mapping[str, Any], copy: MailCopy) -> str:
     return ", ".join(part for part in (from_domain, copy.unverified_domain) if part)
 
 
-#: The keys only a forwarded message's record carries.
 _FORWARD_KEYS: tuple[str, ...] = ("forwarded_by_name", "forwarded_by_domain", "forwarded_at")
 
 

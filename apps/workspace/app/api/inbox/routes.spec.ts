@@ -2,13 +2,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The inbox API (ADR-0035), driven through its TYPED CLIENT (ADR-0055): the
- * client and the routes cannot disagree about a path, a verb or a body. The
- * service is stubbed; what these cases hold is that every shape the client
- * sends reaches the one service function that owns it, and that a shape it
- * does not send is refused.
- */
 
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'

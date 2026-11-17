@@ -1,16 +1,13 @@
 /**
  * @vitest-environment node
  */
-/**
- * The lifecycle's pure rule (ADR-0098): the moves it has, and which states run
- * schedules and carry an Abschluss.
- */
 import { describe, expect, it } from 'vitest'
 import {
   closingBounds,
   closingOf,
   defaultClosing,
   canTransition,
+  invalidTransition,
   PROJECT_STATUSES,
   runsOnSchedule,
   statusesThatMayBecome,
@@ -31,6 +28,15 @@ describe('the lifecycle', () => {
     expect(statusesThatMayBecome('closed')).toEqual(['active', 'paused'])
   })
 
+  it('tells a refused move which states the project may become', () => {
+    expect(invalidTransition('closed', 'paused')).toEqual({
+      reason: 'invalid-transition',
+      from: 'closed',
+      to: 'paused',
+      allowed: ['active'],
+    })
+  })
+
   it('runs schedules only in an active project', () => {
     expect(PROJECT_STATUSES.filter((status) => runsOnSchedule({ status }))).toEqual(['active'])
     expect(runsOnSchedule(null)).toBe(false)
@@ -39,7 +45,6 @@ describe('the lifecycle', () => {
   it('bounds the closing by the start and this month, and by the start alone when it lies ahead', () => {
     expect(closingBounds('2023-04', '2026-10')).toEqual({ min: '2023-04', max: '2026-10' })
     expect(closingBounds(null, '2026-10')).toEqual({ min: null, max: '2026-10' })
-    // A competition not won before its commission would have started: the Beginn's month is the one that fits.
     expect(closingBounds('2027-03', '2026-10')).toEqual({ min: '2027-03', max: '2027-03' })
   })
 

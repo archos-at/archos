@@ -1,5 +1,3 @@
-"""A landed quote patch keeps the citations the first verification removed (ADR-0067)."""
-
 from __future__ import annotations
 
 from agent.agents.piloti import answer_pipeline

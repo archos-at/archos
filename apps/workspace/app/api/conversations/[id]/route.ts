@@ -1,8 +1,3 @@
-/**
- * Conversation detail API — read, rename, and delete a single conversation.
- * Thin handlers; all logic lives in `@/lib/conversations/service`.
- */
-
 import { NotFoundError } from '@/lib/api/errors'
 import { apiRoute, parseJsonBody } from '@/lib/api/handler'
 import {
@@ -12,6 +7,7 @@ import {
   updateConversationTitle,
 } from '@/lib/conversations/service'
 import { updateConversationSchema } from '@/lib/conversations/conversation-wire'
+import { setConversationTemporary } from '@/lib/conversations/temporary'
 
 type Params = { id: string }
 
@@ -23,10 +19,9 @@ export const GET = apiRoute<Params>(
 export const PATCH = apiRoute<Params>(
   async ({ session, params, request }) => {
     const body = await parseJsonBody(request, updateConversationSchema)
-    // Engagement first: renaming needs `owner` while the mode needs only
-    // `collaborator` (a thread stuck answering the wrong person must be fixable by
-    // whoever is in the room), so a combined body must not be gated on the stricter
-    // of the two for the looser change.
+    const flagged =
+      body.temporary === undefined ? null : await setConversationTemporary(session, params.id, body.temporary)
+    if (flagged && !body.engagement && body.title === undefined) return flagged
     if (body.engagement) {
       return updateConversationEngagement(session, params.id, body.engagement)
     }
@@ -34,27 +29,11 @@ export const PATCH = apiRoute<Params>(
   },
   {
     authz: {
-      enforcedBy: 'updateConversationTitle / updateConversationEngagement (requireResourceAccess)',
+      enforcedBy: 'updateConversationTitle / updateConversationEngagement / setConversationTemporary (requireResourceAccess)',
     },
   }
 )
 
-/**
- * DELETE answers **204 whether or not the conversation existed, and whether or not
- * it was the caller's** — one response, so it cannot be used as an existence
- * oracle (spec SH-6).
- *
- * Two constraints meet here and only this shape satisfies both. The chat store
- * deletes server rows for conversations that may only ever have lived in the
- * browser, so a genuinely-absent id must not surface an error. And a conversation
- * that exists in another tenant, or belongs to a colleague, must be
- * indistinguishable from absent — which the previous 204/404 split was not: it
- * told any signed-in member which guessed ids were real.
- *
- * The service still reports the truth (`NotFoundError`); the refusal is turned
- * into silence HERE, at the boundary that owns what the client learns. Nothing is
- * deleted in the refused case — `deleteConversation` throws before it writes.
- */
 export const DELETE = apiRoute<Params>(
   async ({ session, params }) => {
     try {

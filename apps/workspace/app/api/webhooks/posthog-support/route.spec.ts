@@ -1,11 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * `POST /api/webhooks/posthog-support`: PostHog's poke. The service is
- * stubbed; this pins the route's contract with the PostHog workflow (body,
- * statuses) and the two rate limits, against a real in-process limit store.
- */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))

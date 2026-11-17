@@ -50,13 +50,35 @@ the owner's ``heartbeat`` refreshes fewer rows than it asked for, which is how
 the adapter learns to re-write its jobs within one beat rather than at its next
 status change.
 
+A RUN THAT HAS BEEN TOLD TO STOP WRITES NO LIVE OR FAILED STATUS AGAIN. This is
+the same mechanism seen from the other side. A person's cancel clears ``owner``
+like every settle, so to the worker it looks exactly like another replica's
+wrong ``interrupted``, and nothing in the row says which of the two happened.
+The worker can tell: its run was cancelled (the claim guard ``run_prepared``
+is given, false for a person's stop, a newer upload and a timeout alike), or it
+was not. So the rule above is the owner's only while its run goes on, and the
+adapter's ``_persist`` drops every write of a stopped run except ``completed``:
+its next beat used to turn the person's ``cancelled`` back into ``processing``
+within thirty seconds, and a failure after the stop ended the row ``failed``.
+``completed`` is still written over ``cancelled``, because a single-file job
+past its last ownership check has its chunks indexed, and a row frozen at
+``cancelled`` would report a searchable file as stopped (the BFF re-checks a
+cancelled document for thirty minutes and adopts it, ``resolveCancelledRow``).
+``put`` stays unconditional; the check is where the knowledge is, in the run.
+One gap stays open: a write that lands after the cancel settled the row and
+before the cancel reached the worker makes the row live again until the run's
+own last word (``ingest_workflow._stopped``) settles it once more.
+
 A JOB HATCHET HOLDS IS WAITING, NOT LOST. Written PENDING by the replica that
 accepted it, it is vouched for by nobody until a worker runs it, so the dispatch
 holds its row (``ingest_run_hold``): before ``held_until`` it is never stale.
 The last attempt releases the hold, so a worker lost on it leaves the row to
-settle interrupted. A person's cancel settles the row ``cancelled`` at once,
-and the worker that stops settles it again; either tells the BFF
-(``ingest_settle_push``), as the run's last word on any other end does.
+settle interrupted. A person's cancel settles the row ``cancelled`` at once and
+releases the hold with it (a cancelled run is not tried again, and a row its
+dying worker wrote live once more must not stay held for the rest of the
+schedule). The run that stops settles the row again when it finds it live;
+either tells the BFF (``ingest_settle_push``), as the run's last word on any
+other end does.
 """
 
 from __future__ import annotations
@@ -86,50 +108,30 @@ logger = logging.getLogger(__name__)
 
 _initialized: set[str] = set()
 
-#: This process, as a row's ``owner``. The pid alone repeats across container
-#: restarts (it is 1 in most of them), so a random suffix makes every boot new.
 OWNER = f"{socket.gethostname()}:{os.getpid()}:{uuid.uuid4().hex[:8]}"
 
-#: How often the owning process refreshes ``heartbeat_at`` on its live rows.
 HEARTBEAT_INTERVAL_SECONDS = 30
 
-#: A live row whose heartbeat is older than this has lost its owner. Four beats,
-#: so one slow beat under load is not a death.
 STALE_AFTER_SECONDS = 4 * HEARTBEAT_INTERVAL_SECONDS
 
-#: A row written by a replica that predates heartbeats has none, and is still
-#: being worked on while that replica runs (a rolling deploy). Only its
-#: ``updated_at`` can age it, and a single file can go minutes between status
-#: writes, so the old fifteen-minute in-flight window is the bound for it.
 _LEGACY_STALE_AFTER_SECONDS = 15 * 60
 
-#: The machine-readable reason, as the prefix of ``error_message`` (the same
-#: ``reason: text`` shape as ``vlm_not_configured``) and in ``metadata``.
 INTERRUPTED = "interrupted"
 INTERRUPTED_MESSAGE = f"{INTERRUPTED}: ingestion stopped when the service restarted; retry to index this file"
 
-#: The reason a stopped job carries. Not a failure: nothing went wrong, a person
-#: ended it. It travels the same shape as ``INTERRUPTED`` so a reader that
-#: already parses ``reason: text`` needs no new path.
 CANCELLED = "cancelled"
 CANCELLED_MESSAGE = f"{CANCELLED}: ingestion was stopped; start it again to index this file"
 
-#: Newest stale rows the startup sweep settles; older ones settle when read.
 _SWEEP_LIMIT = 500
 
-#: Columns added after the table first shipped. Nullable and without defaults,
-#: so adding them never rewrites or rejects an existing row.
 _ADDED_COLUMNS = {"owner": "VARCHAR", "dispatch_key": "VARCHAR", "collection_name": "VARCHAR", "run_id": "VARCHAR"}
 
-#: Holds the retired claim queue's unheld jobs (``ingest_run_hold.hold_cutover_rows``). Constants only.
 _HOLD_QUEUED_AT_CUTOVER = (
     "UPDATE ingest_jobs SET held_until = {until} WHERE (held_until IS NULL OR held_until <= {now}) AND job_id IN "
     "(SELECT job_id FROM ingest_job_queue WHERE status IN ('queued', 'claimed'))"
 )
 _CUTOVER_HOLD_SECONDS = 24 * 3600
 
-#: Fills ``collection_name`` on the rows that predate the column, from the status
-#: they hold. JSON extraction is the one thing the two backings spell differently.
 _BACKFILL_COLLECTION_NAME = {
     True: "UPDATE ingest_jobs SET collection_name = CAST(status_json AS json) ->> 'collection_name' "
     "WHERE collection_name IS NULL",
@@ -155,7 +157,6 @@ def _ensure_table(url: str) -> None:
 
     def create(conn) -> None:
         conn.execute(
-            # ts is a dialect-chosen column-type literal; no user input.
             # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
             text(
                 "CREATE TABLE IF NOT EXISTS ingest_jobs ("
@@ -167,7 +168,6 @@ def _ensure_table(url: str) -> None:
         )
         _add_missing_columns(conn, url)
 
-    # The processes of a boot all reach this at once (see `lock_schema`).
     ensure_schema(engine, "ingest_jobs", create)
     _initialized.add(url)
 
@@ -181,11 +181,9 @@ def _add_missing_columns(conn, url: str) -> None:
     for name, column_type in columns.items():
         if name in present:
             continue
-        # name/column_type come from the module constants above; no user input.
         # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
         conn.execute(text(f"ALTER TABLE ingest_jobs ADD COLUMN {guard}{name} {column_type}"))
     if "collection_name" not in present:
-        # A constant statement picked by dialect; nothing here is user input.
         # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
         conn.execute(text(_BACKFILL_COLLECTION_NAME[_is_postgres(url)]))
     if "held_until" not in present and "ingest_job_queue" in inspect(conn).get_table_names():
@@ -212,7 +210,6 @@ def _stale_predicate(url: str) -> str:
     return (
         f"(((heartbeat_at IS NOT NULL AND heartbeat_at < {_ago(url, STALE_AFTER_SECONDS)}) "
         f"OR (heartbeat_at IS NULL AND updated_at < {_ago(url, _LEGACY_STALE_AFTER_SECONDS)})) "
-        # A job Hatchet holds is waiting for a worker (see the module docstring).
         f"AND (held_until IS NULL OR held_until <= {_now(url)}))"
     )
 
@@ -226,8 +223,6 @@ def interrupted(status: IngestionJobStatus) -> IngestionJobStatus:
     failed = status.model_copy(deep=True)
     failed.status = JobState.FAILED
     failed.error_message = INTERRUPTED_MESSAGE
-    # A naive-UTC ISO string, as the adapter stores it (see ``put``'s
-    # serializer note and the adapter's retention pruning, which parses it).
     failed.completed_at = datetime.now(UTC).replace(tzinfo=None).isoformat()
     failed.metadata = {**failed.metadata, "failure_reason": INTERRUPTED, "retryable": True}
     verdict = classify_failure(INTERRUPTED_MESSAGE)
@@ -253,7 +248,6 @@ def cancelled(status: IngestionJobStatus) -> IngestionJobStatus:
     stopped = status.model_copy(deep=True)
     stopped.status = JobState.CANCELLED
     stopped.error_message = CANCELLED_MESSAGE
-    # A naive-UTC ISO string, as the adapter stores it (see ``interrupted``).
     stopped.completed_at = datetime.now(UTC).replace(tzinfo=None).isoformat()
     stopped.metadata = {**stopped.metadata, "cancelled": True}
     for detail in stopped.file_details:
@@ -276,7 +270,6 @@ def _settle_lost(conn, url: str, status: IngestionJobStatus) -> IngestionJobStat
     """
     settled = interrupted(status)
     result = conn.execute(
-        # _now/_stale_predicate are dialect-chosen literals; values are bound.
         # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
         text(
             f"UPDATE ingest_jobs SET status_json = :status_json, updated_at = {_now(url)}, owner = NULL "
@@ -321,7 +314,6 @@ def put(status: IngestionJobStatus) -> bool:
         now = _now(url)
         with engine.connect() as conn:
             conn.execute(
-                # now is a dialect-chosen literal; every value is bound.
                 # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
                 text(
                     "INSERT INTO ingest_jobs "
@@ -333,9 +325,6 @@ def put(status: IngestionJobStatus) -> bool:
                     "dispatch_key = COALESCE(EXCLUDED.dispatch_key, ingest_jobs.dispatch_key), "
                     "collection_name = EXCLUDED.collection_name"
                 ),
-                # warnings=False: the adapter deliberately stores completed_at as
-                # an ISO string (bypassing Pydantic coercion); silence the
-                # serializer notice — it round-trips back to a datetime on read.
                 {
                     "job_id": status.job_id,
                     "status_json": status.model_dump_json(warnings=False),
@@ -352,16 +341,22 @@ def put(status: IngestionJobStatus) -> bool:
 
 
 def _write_cancelled(conn, url: str, job_id: str) -> bool:
-    """Write ``cancelled`` over a live row; whether there was one."""
+    """Write ``cancelled`` over a live row; whether there was one.
+
+    The hold goes with the owner: a cancelled run is not tried again, so nothing
+    is left to vouch for. Should its worker write the row live once more and
+    then die (see the module docstring), the row is stale after
+    ``STALE_AFTER_SECONDS`` like any other, not held for the rest of the run's
+    schedule (``ingest_workflow.hold_seconds``, over thirty hours).
+    """
     status = _read(conn, job_id)
     if status is None or not _is_live(status):
         return False
     conn.execute(
-        # _now is a dialect-chosen literal; values are bound.
         # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
         text(
-            f"UPDATE ingest_jobs SET status_json = :status_json, updated_at = {_now(url)}, owner = NULL "
-            "WHERE job_id = :job_id"
+            f"UPDATE ingest_jobs SET status_json = :status_json, updated_at = {_now(url)}, owner = NULL, "
+            "held_until = NULL WHERE job_id = :job_id"
         ),
         {"job_id": job_id, "status_json": cancelled(status).model_dump_json(warnings=False)},
     )
@@ -372,11 +367,13 @@ def _write_cancelled(conn, url: str, job_id: str) -> bool:
 def settle_cancelled(job_id: str) -> bool:
     """Settle a live row as ``cancelled``; whether one was live. Never raises.
 
-    For a run that ended because the queue stopped it (``QueueSource._finish``):
-    the worker abandoned before writing anything, so the row is still live and
-    ``cancelled`` is the honest state — not the ``interrupted`` a lost owner
-    leaves. Best effort: a row another writer already settled (a job that
-    finished in the race) is left as it is.
+    Called twice for a person's stop: by the cancel itself
+    (``agent_host.jobs.ingest_dispatch.cancel``), and by the run that sees
+    itself cancelled (``ingest_workflow._stopped``), in case it wrote the row
+    live again before the cancel reached it. ``cancelled`` is the honest state,
+    not the ``interrupted`` a lost owner leaves. Best effort: a row another
+    writer already settled (a job that finished in the race) is left as it is,
+    and False also covers a write that failed.
     """
     url = _db_url()
     if not url:
@@ -413,8 +410,6 @@ def heartbeat(job_ids: Iterable[str]) -> int | None:
     try:
         _ensure_table(url)
         engine = DocumentMetadataStore._get_or_create_sync_engine(url)
-        # A constant statement: CURRENT_TIMESTAMP means the same on Postgres and
-        # SQLite, so nothing here is composed; owner and ids are bound.
         statement = text(
             "UPDATE ingest_jobs SET heartbeat_at = CURRENT_TIMESTAMP WHERE owner = :owner AND job_id IN :ids"
         ).bindparams(bindparam("ids", expanding=True))
@@ -442,7 +437,6 @@ def get(job_id: str) -> IngestionJobStatus | None:
         engine = DocumentMetadataStore._get_or_create_sync_engine(url)
         with engine.connect() as conn:
             row = conn.execute(
-                # The predicate is built from module constants; job_id is bound.
                 # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
                 text(f"SELECT status_json, {_stale_predicate(url)} AS stale FROM ingest_jobs WHERE job_id = :job_id"),
                 {"job_id": job_id},
@@ -480,7 +474,6 @@ def find_live(dispatch_key: str) -> IngestionJobStatus | None:
         engine = DocumentMetadataStore._get_or_create_sync_engine(url)
         with engine.connect() as conn:
             rows = conn.execute(
-                # The predicate is built from module constants; the key is bound.
                 # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
                 text(
                     f"SELECT status_json, {_stale_predicate(url)} AS stale FROM ingest_jobs "
@@ -496,7 +489,6 @@ def find_live(dispatch_key: str) -> IngestionJobStatus | None:
                     return status
                 if _settle_lost(conn, url, status) is not None:
                     continue
-                # The owner beat between the read and the settle: live after all.
                 current = _read(conn, status.job_id)
                 if current is not None and _is_live(current):
                     return current
@@ -522,7 +514,6 @@ def fail_interrupted() -> int:
         with engine.connect() as conn:
             rows = (
                 conn.execute(
-                    # Built from module constants only; nothing here is user input.
                     # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
                     text(
                         f"SELECT status_json FROM ingest_jobs WHERE {_stale_predicate(url)} "
@@ -533,22 +524,12 @@ def fail_interrupted() -> int:
                 .all()
             )
             live = [status for status in map(IngestionJobStatus.model_validate_json, rows) if _is_live(status)]
-            # Counted only when the conditional update matched: a row whose
-            # owner beat since the read was not settled.
             settled = sum(_settle_lost(conn, url, status) is not None for status in live)
     except Exception:
         logger.warning("Could not settle interrupted ingest jobs (continuing)", exc_info=True)
     return settled
 
 
-#: A crashed worker used to leave a row at ``processing`` forever, and a prompt
-#: that says "this file is still being read" about a job that died an hour ago
-#: is worse than saying nothing: the reader waits for something that is not
-#: coming. A row counts as in flight only while its owner vouches for it (see
-#: ``_stale_predicate``); that replaced a fixed fifteen-minute window, which
-#: also dropped a live job that spent longer than that on one large file.
-
-#: Ceiling on rows read for one turn's question. This runs on the chat path.
 _IN_FLIGHT_SCAN_LIMIT = 200
 
 
@@ -581,8 +562,6 @@ def in_flight_files(collections: Iterable[str]) -> dict[str, list[str]]:
         with engine.connect() as conn:
             rows = (
                 conn.execute(
-                    # The predicate is a dialect-chosen literal built from module
-                    # constants; nothing here is user input.
                     # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
                     text(
                         "SELECT status_json FROM ingest_jobs "
@@ -608,18 +587,11 @@ def in_flight_files(collections: Iterable[str]) -> dict[str, list[str]]:
             continue
         if status.status not in (JobState.PENDING, JobState.PROCESSING):
             continue
-        # ``SUCCESS`` is the file-level terminal token (``JobState`` has
-        # ``COMPLETED``; ``FileStatus`` does not). Comparing against the member
-        # that did not exist raised on the first job that carried per-file
-        # detail, the caller swallowed it, and the "still being read" warning
-        # this function feeds never fired for exactly the uploads it was for.
         names = [
             detail.file_name
             for detail in status.file_details
             if detail.status not in (FileStatus.SUCCESS, FileStatus.FAILED) and detail.file_name
         ]
-        # A job with no per-file detail yet is still a job in flight; the
-        # collection alone is what the caller needs in that case.
         bucket = pending.setdefault(status.collection_name, [])
         for name in names:
             if name not in bucket:
@@ -649,8 +621,6 @@ def collection_jobs(collection_name: str, within_seconds: int) -> list[Ingestion
     engine = DocumentMetadataStore._get_or_create_sync_engine(url)
     with engine.connect() as conn:
         rows = conn.execute(
-            # The predicate and the window are built from constants and an int;
-            # the collection is bound.
             # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
             text(
                 f"SELECT status_json, {_stale_predicate(url)} AS stale FROM ingest_jobs "
@@ -680,7 +650,6 @@ def forget_file(collection_name: str, file_name: str) -> int:
     forgotten = 0
     with engine.connect() as conn:
         rows = conn.execute(
-            # The predicate is built from module constants; the collection is bound.
             # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
             text(
                 f"SELECT status_json, {_stale_predicate(url)} AS stale FROM ingest_jobs "
@@ -745,7 +714,6 @@ def prune_expired(older_than_seconds: int) -> int:
         engine = DocumentMetadataStore._get_or_create_sync_engine(url)
         with engine.connect() as conn:
             deleted = conn.execute(
-                # Built from module constants and an int; nothing here is user input.
                 # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
                 text(
                     f"DELETE FROM ingest_jobs WHERE updated_at < {_ago(url, int(older_than_seconds))} "

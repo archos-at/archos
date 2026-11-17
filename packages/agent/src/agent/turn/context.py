@@ -18,6 +18,7 @@ from dataclasses import replace
 from typing import Any
 
 from agent.auth import get_current_principal
+from agent.common.bff_http import SignedEnvelope
 from agent.common.knowledge_context import UNAVAILABLE
 from agent.common.knowledge_context import KnowledgeContext
 from agent.common.platform_lessons import LessonsResolution
@@ -41,6 +42,7 @@ from agent.stages.flags import resolve_turn_flags
 from agent.turn.context_client import ContextBlocks
 from agent.turn.context_client import fetch_turn_context
 from agent.turn.context_client import office_convention_lines
+from agent.turn.context_client import personal_memory_lines
 from agent.turn.context_client import with_base_knowledge
 
 logger = logging.getLogger(__name__)
@@ -50,55 +52,23 @@ logger = logging.getLogger(__name__)
 class TurnContext:
     """What one turn injects into the agent, plus the request-scoped stage facts."""
 
-    #: The intake profile plus the memory digest, composed the way the prompts read it.
     project_context: str | None
-    #: The bounded PLATFORM_LESSONS digest, or None (fail-open, TTL-cached).
     platform_lessons: str | None
-    #: The office's standing instructions for this turn, read off the request
-    #: header or authenticated BFF response and already bounded.
-    #: Its own field rather than part of ``project_context``: the profile is the
-    #: project's hard facts, this is how the office wants to be answered, and
-    #: they are rendered under different framing for that reason.
     org_instructions: str | None
-    #: The request-scoped half of the post-answer stages' facts, captured while
-    #: the request context is live — the stage tasks run after it is gone.
     stage_facts: TurnFacts
-    #: Whether this turn may OFFER a deep-research run. False withdraws the
-    #: hand-off before it is proposed, so the reader is never shown a plan whose
-    #: approval the job queue would refuse. True on every failure path: see
-    #: :class:`agent.stages.flags.TurnFlags`.
     deep_research_allowed: bool = True
-    #: The office's reference projects (closed, most like this one), one line
-    #: each: rendered as ``<reference_projects>`` so the agent looks there unasked
-    #: (docs/design/cross-project-escalation.md). None: none, or not loaded.
     reference_projects: str | None = None
-    #: The WORKSPACE block (ADR-0123): the asker's roles, the project, the
-    #: conversation's audience, what waits, and this conversation's proposals
-    #: with every status. Rendered when the workspace tools are bound.
     workspace: str | None = None
-    #: The data of each confirmed office copy's answer label (ADR-0163), for the
-    #: answer's renderer to word. Empty with the flag off or from an older BFF.
     base_knowledge_labels: tuple[dict[str, object], ...] = ()
-    #: The turn's knowledge context (ADR-0173); ``knowledge_unavailable`` unless the BFF sent one (ADR-0175).
     knowledge_context: KnowledgeContext = UNAVAILABLE
-    #: Whether this turn may hand work over (`create_task`). Its own flag, see
-    #: :class:`agent.stages.flags.TurnFlags`.
+    project_models: frozenset[str] | None = None
     tasks_allowed: bool = True
-    #: Whether licensed text may reach the model inside the call (``stages.flags.TurnFlags``).
     licensed_text_allowed: bool = False
-    #: The restricted-folder collections this turn may draw on (ADR-0087,
-    #: ADR-0088): those of its VERIFIED scope that the asker and everyone the
-    #: conversation is shared with may read now. Non-empty makes the turn
-    #: :attr:`confined`.
     restricted_scope: tuple[str, ...] = ()
-    #: The conversation already drew on a folder not every member may read
-    #: (in an earlier turn, or this turn's memory or subject), as the BFF
-    #: recorded it; or that could not be established.
     recorded_restricted: bool = False
-    #: Where the BFF spent the turn-context call (``ContextBlocks.timing``):
-    #: ``spanned`` records it on the ``setup.project_context`` phase. Empty
-    #: off the BFF path.
     phase_facts: dict[str, float | str] = field(default_factory=dict)
+    personal_memory: str | None = None
+    temporary: bool = False
 
     @property
     def confined(self) -> bool:
@@ -207,8 +177,6 @@ def settle_restriction(context: TurnContext, request: RequestContext) -> TurnCon
     """
     use = current_restricted_use()
     drawable = tuple(signed_restricted_collections(request))
-    # A conversation that drew on another project (ADR-0094) is confined the same
-    # way: nothing it holds may reach what a whole project reads.
     recorded = bool(use is not None and use.confined) or drew_on_other_projects()
     if not drawable and not recorded:
         return context
@@ -247,8 +215,6 @@ async def _live_memory_digest(
             restricted_collections=signed_restricted_collections(request),
         )
     except RuntimeError, OSError, ValueError:
-        # The documented failure modes of fetch_memory_digest: configuration,
-        # transport, and an unparseable body. Degrade to the connection-time digest.
         logger.warning("Live memory digest fetch failed; using connection-time digest", exc_info=True)
         return fallback
 
@@ -303,8 +269,6 @@ async def _turn_flags(request: RequestContext, resolve_stages: bool) -> TurnFlag
     )
     if resolve_stages:
         return flags
-    # No stage has a model to run on, so the stage half of the answer decides
-    # nothing; the deep-research half still does.
     return TurnFlags(
         enabled_stages=frozenset(),
         deep_research_allowed=flags.deep_research_allowed,
@@ -328,6 +292,35 @@ async def _platform_lessons(conversation_id: str | None) -> LessonsResolution:
         return LessonsResolution(digest=None, arm="off")
 
 
+def _signed_envelope(request: RequestContext) -> SignedEnvelope | None:
+    """The turn's envelope as it arrived, for a stage that writes for the asker after the request is gone."""
+    if not request.envelope_header or not request.envelope_signature:
+        return None
+    return SignedEnvelope(header=request.envelope_header, signature=request.envelope_signature)
+
+
+def _record_base_knowledge(blocks: ContextBlocks) -> None:
+    """The office's base-knowledge entries the turn was shown (ADR-0163), so Langfuse
+    can compare answers with and without the office's own standards."""
+    if blocks.base_knowledge is None:
+        return
+    lines = blocks.base_knowledge.splitlines()
+    record_trace_metadata(base_knowledge_entries=sum(1 for line in lines if line.startswith("- ")))
+    overdue = overdue_count(blocks.base_knowledge_labels)
+    emit_scores([RuntimeScore("base-knowledge-overdue", overdue)], writer="turn-context")
+
+
+def _record_context_facts(blocks: ContextBlocks) -> None:
+    """What the turn was shown, on its trace: counts and flags, never a block's text."""
+    if blocks.workspace is not None:
+        record_trace_metadata(office_conventions_lines=office_convention_lines(blocks.workspace))
+    _record_base_knowledge(blocks)
+    record_trace_metadata(
+        personal_memory_lines=personal_memory_lines(blocks.personal_memory),
+        temporary_conversation=blocks.temporary,
+    )
+
+
 async def _load_turn_context(
     request: RequestContext,
     *,
@@ -340,23 +333,9 @@ async def _load_turn_context(
         _context_blocks(request, query_text),
         _turn_flags(request, resolve_stages),
     )
-    # Here, not in `_platform_lessons`: gather runs that in a child task, whose
-    # context (and so whose trace contributions) the turn never sees again.
     record_lessons(lessons.arm, lessons.lesson_ids)
-    if blocks.workspace is not None:
-        # The office's conventions the turn was shown (ADR-0129): 0 on a turn
-        # without them, so Langfuse can compare filing answers with and without.
-        record_trace_metadata(office_conventions_lines=office_convention_lines(blocks.workspace))
-    # The office's base-knowledge entries the turn was shown (ADR-0163), so Langfuse
-    # can compare answers with and without the office's own standards.
-    if blocks.base_knowledge is not None:
-        lines = blocks.base_knowledge.splitlines()
-        record_trace_metadata(base_knowledge_entries=sum(1 for line in lines if line.startswith("- ")))
-        overdue = overdue_count(blocks.base_knowledge_labels)
-        emit_scores([RuntimeScore("base-knowledge-overdue", overdue)], writer="turn-context")
+    _record_context_facts(blocks)
     if blocks.drew_on_other_projects and (cross := current_cross_project_turn()) is not None:
-        # An earlier turn drew on another project (ADR-0094): this one starts
-        # with every door a whole project reads shut (`settle_restriction`).
         cross.drew_on_others = True
     return TurnContext(
         project_context=compose_project_context(
@@ -368,9 +347,10 @@ async def _load_turn_context(
         workspace=blocks.workspace,
         base_knowledge_labels=blocks.base_knowledge_labels,
         knowledge_context=blocks.knowledge_context,
+        project_models=blocks.project_models,
         phase_facts=blocks.timing,
-        # The restriction is settled after the whole setup gather
-        # (`settle_restriction`): the digest and the subject can each confine.
+        personal_memory=blocks.personal_memory,
+        temporary=blocks.temporary,
         deep_research_allowed=turn_flags.deep_research_allowed,
         tasks_allowed=turn_flags.tasks_allowed,
         licensed_text_allowed=turn_flags.licensed_text_allowed,
@@ -380,10 +360,12 @@ async def _load_turn_context(
             organization_id=request.organization_id,
             project_id=request.project_id,
             user_id=request.user_id,
-            # Reflect against the digest the agent actually saw this turn.
             memory_digest=blocks.project_memory,
             federal_state=request.federal_state,
             enabled_stages=turn_flags.enabled_stages,
+            personal_memory=blocks.personal_memory,
+            temporary=blocks.temporary,
+            envelope=_signed_envelope(request),
         ),
     )
 
@@ -413,8 +395,6 @@ async def load_turn_context(
         if request.context_transport == "bff":
             raise
         logger.warning("Project-context load failed; continuing without live context", exc_info=True)
-        # Fail-open for the context, never for the restriction, which
-        # `settle_restriction` applies to this context like any other.
         return TurnContext(
             project_context=None,
             platform_lessons=None,

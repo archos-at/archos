@@ -27,17 +27,8 @@ from .schema import RetrievalResult
 
 logger = logging.getLogger(__name__)
 
-# Prefix used for per-session (per-conversation) collections created by the UI,
-# e.g. "s_<uuid>". Only collections with this prefix are subject to TTL reaping;
-# base/project corpora (e.g. "oib_knowledge") are persistent and never auto-deleted.
 SESSION_COLLECTION_PREFIX = "s_"
 
-#: The order a structural fetch (:meth:`BaseRetriever.fetch`) can ask for: the
-#: page a chunk starts on, as an integer, ``0`` when it has none. It is the
-#: leading term of every document order a reader sorts by (``read_passage``'s
-#: ``_clause_sort_key`` starts with ``Chunk.page_number or 0``), so a fetch that
-#: keeps the first N chunks in this order, and never splits a tie, hands that
-#: reader exactly the chunks its own finer sort would have kept.
 READING_ORDER = "reading_order"
 
 
@@ -79,8 +70,6 @@ def section_position(metadata: Mapping[str, Any] | None) -> tuple[int, int, int]
     return (metadata_int(metadata, "section_order"), metadata_int(metadata, "line_start"), part)
 
 
-#: A chunk's place in its document as one total order: page, section structure, numbered before
-#: unnumbered, place in the file, chunk id. See :func:`document_position`.
 DocumentPosition = tuple[int, int, int, int, int, int, str]
 
 
@@ -106,9 +95,6 @@ def document_position(metadata: Mapping[str, Any] | None, chunk_id: Any) -> Docu
     )
 
 
-#: ``Chunk.metadata`` keys :meth:`BaseRetriever.search_grouped` sets: the chunk's score in the one fused ranking
-#: across every group (comparable across groups, unlike ``Chunk.score``, its cosine; the route orders documents by
-#: it), and whether a lexical channel ranked it (it holds a query word; absent where a backend cannot tell).
 FUSED_SCORE_KEY = "fused_score"
 LEXICAL_MATCH_KEY = "lexical_match"
 
@@ -196,7 +182,6 @@ class TTLCleanupMixin:
             except Exception as e:
                 logger.error(f"TTL cleanup loop error for {self.backend_name}: {e}")
 
-    # Distinct advisory lock id for the collection TTL cleanup ("AIQTTLCL").
     _TTL_CLEANUP_LOCK_ID = 0x41495154_544C434C
 
     def _cleanup_expired_collections(self) -> None:
@@ -223,8 +208,6 @@ class TTLCleanupMixin:
             ttl_threshold = now - timedelta(hours=self._ttl_hours)
 
             for collection in collections:
-                # Only reap per-session collections (s_<uuid>). Base/project corpora
-                # (e.g. "oib_knowledge") are persistent and must never be auto-deleted.
                 if not collection.name.startswith(SESSION_COLLECTION_PREFIX):
                     logger.debug(
                         f"TTL cleanup ({self.backend_name}): skipping '{collection.name}' - "
@@ -236,10 +219,8 @@ class TTLCleanupMixin:
                     logger.debug(f"TTL cleanup ({self.backend_name}): skipping '{collection.name}' - no timestamp")
                     continue
 
-                # Ensure updated_at is timezone-aware for comparison
                 updated_at = collection.updated_at
                 if updated_at.tzinfo is None:
-                    # Assume naive datetime is UTC
                     updated_at = updated_at.replace(tzinfo=UTC)
 
                 logger.debug(
@@ -473,7 +454,7 @@ class BaseIngestor(ABC):
         """
 
     @abstractmethod
-    def get_job_status(self, job_id: str) -> IngestionJobStatus:
+    def get_job_status(self, job_id: str) -> IngestionJobStatus | None:
         """
         Get the current status of an ingestion job.
 
@@ -483,11 +464,9 @@ class BaseIngestor(ABC):
             job_id: The job ID returned from submit_job.
 
         Returns:
-            IngestionJobStatus with current state.
+            IngestionJobStatus with current state; None for a job nothing knows any more, never a made-up failure.
         """
 
-    #: Whether ``prepare_job``/``run_prepared`` work, so a
-    #: job can run in another process than the one that accepted it.
     supports_durable_jobs = False
 
     def prepare_job(
@@ -526,10 +505,6 @@ class BaseIngestor(ABC):
     @abstractmethod
     def backend_name(self) -> str:
         """Return the name of this backend for logging/tracking."""
-
-    # =========================================================================
-    # Collection Management
-    # =========================================================================
 
     @abstractmethod
     def create_collection(
@@ -587,10 +562,6 @@ class BaseIngestor(ABC):
             Exception: when the store cannot answer (unreachable, timed out).
             That is not "missing", and a caller must not treat it as one.
         """
-
-    # =========================================================================
-    # File Management
-    # =========================================================================
 
     @abstractmethod
     def upload_file(
@@ -692,10 +663,6 @@ class BaseIngestor(ABC):
             FileInfo if found, None otherwise.
         """
 
-    # =========================================================================
-    # Optional: Source Selection (for multi-collection queries)
-    # =========================================================================
-
     def select_sources(self, source_names: list[str]) -> bool:
         """
         Select which collections/sources to use for retrieval.
@@ -723,10 +690,6 @@ class BaseIngestor(ABC):
         raise NotImplementedError(
             f"{self.backend_name} does not support source selection. Override this method if your backend supports it."
         )
-
-    # =========================================================================
-    # Optional: Document Summarization
-    # =========================================================================
 
     def generate_summary(self, text_content: str, file_name: str) -> str | None:
         """

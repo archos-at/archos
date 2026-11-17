@@ -70,16 +70,8 @@ from .internal_auth import _require_internal_token
 
 logger = logging.getLogger(__name__)
 
-#: Store rows read per page while listing a conversation's drafts. The 256 KB
-#: ceiling bounds the real number far below this; the page size only decides how
-#: many round trips an unusual conversation costs. Same role as the page size in
-#: ``draft_store``; the value is local so the route does not import a private name.
 _LIST_PAGE_SIZE = 100
 
-#: A conversation id is an opaque BFF string, but here it becomes one element of
-#: a store namespace, so it must BE one element: non-blank, no separators, no
-#: ``..`` anywhere, and bounded, so a crafted id cannot widen the read beyond
-#: its own namespace.
 _MAX_CONVERSATION_ID_LENGTH = 200
 
 
@@ -122,8 +114,6 @@ def _item_content(value: dict) -> str:
 
 async def _list_drafts(conversation_id: str) -> list[dict]:
     """Every draft in one conversation's namespace: path, bytes, version. No content."""
-    # Through the module, not a from-import: tests (and only tests) swap the
-    # store behind this name, the same seam the delete door resolves through.
     store = await draft_store.get_draft_store()
     namespace = draft_namespace(conversation_id)
     entries: list[dict] = []
@@ -155,8 +145,6 @@ async def _read_draft(conversation_id: str, draft_path: str) -> dict:
         raise HTTPException(status_code=404, detail="Draft not found")
     content = _item_content(item.value)
     if draft_bytes(content) > MAX_DRAFT_BYTES:
-        # Unreachable through the write verbs, which refuse past the same
-        # ceiling — answering 413 rather than streaming unbounded bytes.
         raise HTTPException(status_code=413, detail="Draft exceeds the readable size")
     answer: dict = {
         "path": draft_path,
@@ -184,10 +172,6 @@ def add_draft_routes(router: APIRouter) -> None:
         try:
             await delete_conversation_drafts(conversation_id)
         except Exception:
-            # Never swallowed: a store that cannot be swept leaves orphaned
-            # bytes, and the caller is a purger that retries on a 5xx. The
-            # conversation id is safe to log; the store's own error is not
-            # forwarded to a caller that cannot act on it.
             logger.exception("Failed to drop the working directory of conversation %s", conversation_id)
             raise HTTPException(status_code=500, detail="Failed to delete drafts")
         return Response(status_code=204)
@@ -215,8 +199,6 @@ def add_draft_routes(router: APIRouter) -> None:
             logger.exception("Failed to read the working directory of conversation %s", conversation_id)
             raise HTTPException(status_code=500, detail="Failed to read drafts")
         if not drafts:
-            # The 404-means-nothing-to-discard convention, read-side: no rows
-            # under this namespace means no conversation this tier ever wrote for.
             raise HTTPException(status_code=404, detail="No drafts for this conversation")
         return {"conversation_id": conversation_id, "drafts": drafts}
 

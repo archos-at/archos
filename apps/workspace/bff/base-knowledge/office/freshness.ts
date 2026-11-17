@@ -1,12 +1,3 @@
-/**
- * How fresh an entry's last check is (ADR-0163, design §8.1). Pure.
- *
- * A standard, guideline, commentary or law is checked once a year; a directive,
- * which an authority rewrites without notice, twice. An entry never checked, or
- * whose last check found a newer edition, a withdrawal or no answer, is overdue
- * at once: an answer resting on it says so.
- */
-
 import type { OfficeWorkKind } from '@/lib/base-knowledge/wire/vocab'
 import type { EntryCheck, Freshness } from '../wire'
 

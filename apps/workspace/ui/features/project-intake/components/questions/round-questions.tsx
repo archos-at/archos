@@ -17,32 +17,20 @@ import { EvidenceChips } from '../evidence-chips'
 import { HandInRow } from './hand-in-row'
 import { QuestionShell, type QuestionPosition, type RoundFooter } from './question-shell'
 
-/** What every kind of question is handed by the step. */
 interface RoundQuestionProps {
   position: QuestionPosition
   footer: RoundFooter
   canDecide: boolean
   busy: boolean
   onDecide: (decisions: IntakeDecision[]) => Promise<boolean>
-  /** Where a document is handed in; absent where the project takes none. */
   onFiles?: (files: File[], info?: DropInfo) => void
-  /** The question is settled here: what was given, for the list. */
   onDone: (value: string) => void
-  /** Put the question off for this visit and go on. */
   onPutOff: () => void
   after?: ReactNode
 }
 
 const emptyDraft = (need: Need): ProjectPrimitiveValue => (need.type === 'multi_select' ? [] : '')
 
-/**
- * The wizard's own control for a need (`intake-question-field.tsx`), with its
- * label row hidden from sight where the card's heading already asks the
- * question. The row stays for a screen reader: it is the field's label. The
- * rationale glyph is left out, since the card says why in words. Choices are
- * drawn at the mockup's size: 48px tall, wide enough to hit, full width on a
- * phone.
- */
 function NeedControl({
   need,
   value,
@@ -52,7 +40,6 @@ function NeedControl({
   need: Need
   value: ProjectPrimitiveValue
   onChange: (value: ProjectPrimitiveValue) => void
-  /** Show the field's own label (a request asks several); hidden where the heading is the question. */
   labelled: boolean
 }): JSX.Element {
   const question = useMemo(() => {
@@ -80,13 +67,11 @@ function NeedControl({
   )
 }
 
-/** „Einreichplan (Grundriss) oder Baubeschreibung": where an answer usually stands, at most two. */
 function useWhere(): (documents: readonly string[]) => string | null {
   const t = useTranslations(intakeQuestionsStepCopy)
   return (documents) => (documents.length === 0 ? null : documents.slice(0, 2).join(` ${t('or')} `))
 }
 
-/** A need no document answered: the decisive ones, and the register's own (Bundesland, Vorhaben). */
 export function NeedQuestion({ need, ...props }: RoundQuestionProps & { need: Need }): JSX.Element {
   const t = useTranslations(intakeQuestionsStepCopy)
   const where = useWhere()
@@ -137,12 +122,6 @@ export function NeedQuestion({ need, ...props }: RoundQuestionProps & { need: Ne
   )
 }
 
-/**
- * A document the location register asks for: the document by its name, why
- * (for this Bundesland and Gemeinde), the law it rests on, its values to
- * state directly with the wizard's controls, and the hand-in. „Weiß ich
- * nicht" marks every open value of it as not known in one decision.
- */
 export function RequestQuestion({
   request,
   ...props
@@ -173,7 +152,6 @@ export function RequestQuestion({
         onSubmit: () =>
           submit(async () => {
             const ok = await onDecide(given.map((need) => ({ key: need.key, action: 'answer', value: draftOf(need) })))
-            // Settled only when every value is given; the rest stays asked here.
             if (ok && given.length === needs.length) {
               onDone(given.map((need) => displayValue(need.key, draftOf(need))).join(' · '))
             }
@@ -220,7 +198,6 @@ export function RequestQuestion({
   )
 }
 
-/** One value a contradiction offers: the value on the profile, or an alternative found beside it. */
 interface ContradictionOption {
   id: string
   display: string
@@ -240,7 +217,6 @@ function optionsOf(item: Suggestion): ContradictionOption[] {
   ]
 }
 
-/** „Anzahl oberirdischer Geschoße: 6 oder 7?": a contradiction as the question it is. */
 export function useContradictionTitle(): (item: Suggestion) => string {
   const t = useTranslations(intakeQuestionsStepCopy)
   return (item) => {
@@ -251,11 +227,6 @@ export function useContradictionTitle(): (item: Suggestion) => string {
   }
 }
 
-/**
- * Two documents disagree: each value with where it was found, and the person
- * picks the one that holds, which confirms it (the profile's own value, or the
- * alternative at its index). Put off, it stays open for the Steckbrief.
- */
 export function ContradictionQuestion({
   item,
   ...props

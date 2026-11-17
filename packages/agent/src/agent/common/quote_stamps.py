@@ -38,17 +38,10 @@ from agent.citations.quote_matching import QUOTE_MATCH_THRESHOLD
 from agent.citations.quote_matching import quote_coverage
 from agent.citations.wire import source_entry_to_wire
 
-#: What the reader needs to open the passage: the fields a citation chip opens
-#: its document from (``source_entry_to_wire``), and nothing that restates it.
 _LOCATION_KEYS = ("title", "file_name", "page", "clause", "url")
 
-#: A cited passage and the ``[N]`` it carries in the answer, or ``None``.
 Cited = tuple[SourceEntry, int | None]
 
-#: A quote line: ``>`` then a quoted span first on the line, then whatever
-#: follows it (the ``[N]``, maybe the unverified-quote marker). German „…“ (and
-#: the lenient closers models mix in), guillemets, curly and straight quotes, as
-#: ``_QUOTED_SPAN_RE`` reads them.
 _QUOTE_LINE = re.compile(
     r"^[ \t]*(?:>[ \t]?)+[ \t]*"
     r"(?:„(?P<low>[^„“”\"]+)[“”\"]|»(?P<guillemet>[^»«]+)«|“(?P<curly>[^“”]+)”|\"(?P<straight>[^\"]+)\")"
@@ -56,7 +49,6 @@ _QUOTE_LINE = re.compile(
 )
 _FENCE = re.compile(r"^\s*(`{3,}|~{3,})")
 _NUMBER = re.compile(r"\[(\d+)\]")
-#: ``==decisive words==`` (answer-richness Phase B) are the model's emphasis, not the source's.
 _MARK = re.compile(r"==")
 
 
@@ -95,8 +87,6 @@ def verification_for(quote: Any, cited: Sequence[Cited], read: Sequence[SourceEn
     """The stamp for one wording: ``verbatim`` with the passage that holds it, ``not_found``, or ``unchecked``."""
     text = _MARK.sub("", quote).strip() if isinstance(quote, str) else ""
     candidates = _candidates(cited, read)
-    # A short span („§ 3", „GK 4") matches half the corpus; the prose check
-    # skips it for that reason and so does this one.
     if len(text) < MIN_QUOTE_LEN or not candidates:
         return {"status": "unchecked"}
     for entry, number in candidates:

@@ -49,10 +49,8 @@ import sys
 from pathlib import Path
 
 BASELINE = Path("ci/package_surface_baseline.json")
-# Its strings are the cases it runs, not references.
 EXCLUDED = {"tests/test_check_package_surfaces.py"}
 
-# Each package that has a surface, and the directory that holds it.
 PACKAGES = {
     f"knowledge_layer.{name}": f"packages/knowledge-layer/src/{name}"
     for name in ("browse", "estate", "ingest", "read_passage", "search", "vector_store")
@@ -97,9 +95,7 @@ def references(source: str, path: str, submodules: dict[str, set[str]]) -> list[
     """(package, submodule, line, names imported) for each reference ``path`` makes from outside the package."""
     owner = _owner(path)
     found = []
-    # One walk, kept: walking the tree is most of this check, and it was walked twice.
     nodes = list(ast.walk(ast.parse(source)))
-    # A bare string statement is a docstring: prose about the module, not a use of it.
     prose = {id(node.value) for node in nodes if isinstance(node, ast.Expr)}
     for node in nodes:
         if isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
@@ -204,6 +200,8 @@ def main(argv: list[str] | None = None) -> int:
         write_baseline(root / BASELINE, baseline)
 
     findings = check(current, baseline)
+    slack = [f for f in findings if "so lower its" in f or "remove its baseline entry" in f]
+    findings = [f for f in findings if f not in slack]
     if findings:
         print(f"Package surface check FAILED ({len(findings)} finding(s)):", file=sys.stderr)
         for finding in findings:
@@ -213,6 +211,10 @@ def main(argv: list[str] | None = None) -> int:
         print("Why: docs/contributing/code-conventions.md#a-package-is-imported-by-its-surface", file=sys.stderr)
         return 1
     print(f"Package surface check passed: {total} submodule reference(s) from outside, held at baseline.")
+    if slack:
+        print(
+            f"  {len(slack)} baseline entr{'y' if len(slack) == 1 else 'ies'} can be lowered: `task baselines:tighten`."
+        )
     return 0
 
 

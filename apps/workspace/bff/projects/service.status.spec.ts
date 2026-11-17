@@ -147,7 +147,6 @@ describe('setProjectStatus', () => {
     await setProjectStatus(session, 'p1', { status: 'active' })
     expect(setProjectStatusInOrg).toHaveBeenLastCalledWith('p1', 'org_1', 'paused', { status: 'active' })
     expect(recordAuditEvent).toHaveBeenLastCalledWith(expect.objectContaining({ action: 'project.resumed' }))
-    // Pausing re-armed nothing; resuming brings back the one-shots the pause retired.
     expect(rearmOneShotsSkippedWhileParked).toHaveBeenCalledTimes(1)
     expect(rearmOneShotsSkippedWhileParked).toHaveBeenCalledWith('p1', 'org_1')
   })

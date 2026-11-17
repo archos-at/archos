@@ -74,12 +74,9 @@ const MESSAGE =
 const CONTRACT = JSON.parse(readFileSync(join(process.cwd(), '..', '..', 'contracts', 'inbound-mail-contract.json'), 'utf8')) as {
   rejectText: { cases: { site: string | null; text: string }[] }
 }
-/** The website the bounce links to, and the text the contract renders for it. */
 const SITE = CONTRACT.rejectText.cases[0]
 
-/** What each step was asked, in order, so the gate order can be read off one array. */
 const calls: string[] = []
-/** The bytes the store received. */
 let stored: Uint8Array | null = null
 
 function sign(overrides: Partial<SignedRequestOptions> = {}, envelope: Record<string, string> = {}) {
@@ -92,7 +89,6 @@ function sign(overrides: Partial<SignedRequestOptions> = {}, envelope: Record<st
   })
 }
 
-/** The INFO lines (the per-delivery operator trail), through the spy rather than `console`. */
 let infoSpy: ReturnType<typeof vi.spyOn>
 const infoLines = () => infoSpy
 
@@ -192,17 +188,15 @@ describe('POST /api/internal/signed/inbound-mail', () => {
   })
 
   it('holds the mail of a closed project like any other: the address resolves, and the mail waits (RT-X13)', async () => {
-    // `findActiveAddressByToken` answers for an active address of a live project, open or closed;
-    // nothing on the receive side asks whether the project is closed.
     const response = await POST(await sign())
 
     expect(response.status).toBe(202)
   })
 
   it.each([
-    ['an unknown token', { 'x-envelope-to': 'project+wohnbau.zzzzzzzzzzzz@example.org' }],
-    ['a recipient that holds no token', { 'x-envelope-to': 'info@example.org' }],
-  ])('rejects %s with the one bounce text, without reading the body', async (_, envelope) => {
+    ['an unknown token', { 'x-envelope-to': 'project+wohnbau.zzzzzzzzzzzz@example.org' }, 'address'],
+    ['a recipient that holds no token', { 'x-envelope-to': 'info@example.org' }, 'envelope'],
+  ])('rejects %s with the one bounce text, without reading the body', async (_, envelope, stage) => {
     const response = await POST(await sign({}, envelope))
 
     expect(response.status).toBe(404)
@@ -210,7 +204,7 @@ describe('POST /api/internal/signed/inbound-mail', () => {
     expect(await response.json()).toMatchObject({ error: SITE.text })
     expect(insertReception).not.toHaveBeenCalled()
     expect(putRawMessage).not.toHaveBeenCalled()
-    expect(captureServer).toHaveBeenCalledWith(expect.objectContaining({ event: 'inbound_mail_refused', properties: { reason: 'unknown_address' } }))
+    expect(captureServer).toHaveBeenCalledWith(expect.objectContaining({ event: 'inbound_mail_refused', properties: { reason: 'unknown_address', stage, error: null } }))
   })
 
   it('rejects mail to an office that has the feature off exactly like an unknown address', async () => {
@@ -303,7 +297,6 @@ describe('POST /api/internal/signed/inbound-mail', () => {
     expect(limited.status).toBe(429)
     expect(limited.headers.get(VERDICT_HEADER)).toBeNull()
 
-    // A guesser's unknown tokens spend nothing of the address's budget, and theirs runs out on its own.
     const unknown = await POST(await sign({}, { 'x-envelope-to': 'project+x.zzzzzzzzzzzz@example.org' }))
     expect(unknown.status).toBe(404)
   })

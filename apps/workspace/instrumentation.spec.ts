@@ -87,8 +87,6 @@ describe('instrumentation', () => {
   })
 
   test('with a collector it bridges logs', async () => {
-    // No trace provider: the BFF's root spans were all dropped at creation, so
-    // `@vercel/otel` recorded nothing, and it is no longer a dependency at all.
     vi.stubEnv('NEXT_RUNTIME', 'nodejs')
     vi.stubEnv('OTEL_EXPORTER_OTLP_ENDPOINT', 'http://otel-collector:4318')
     const { register } = await import('./instrumentation')

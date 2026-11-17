@@ -1,31 +1,16 @@
-/**
- * Cron scheduling helpers for Agent Skills (Phase A) — the proven workflows
- * logic (lib/workflows/schedule.ts) with the skills env knobs.
- *
- * All cron expressions are 5-field (minute hour day-of-month month day-of-week)
- * with a per-schedule IANA timezone. `cron-parser` handles DST. Validation runs
- * at save time in the BFF; a fire (`bff/scheduling/next-due.ts`) reuses
- * `nextOccurrence` to advance the row before the run starts (at-most-once).
- * Hatchet crons take no time zone, which is why this, not Hatchet, says when a
- * definition is next due (ADR-0150).
- */
-
 import { CronExpressionParser } from 'cron-parser'
 import { BadRequestError } from '@/lib/api/errors'
 
 export const DEFAULT_MIN_INTERVAL_MINUTES = 15
 
-/** Minimum cadence accepted at save time (SKILL_MIN_INTERVAL_MINUTES). */
 export function minIntervalMinutesFromEnv(): number {
   const raw = Number.parseInt(process.env.SKILL_MIN_INTERVAL_MINUTES ?? '', 10)
   return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_MIN_INTERVAL_MINUTES
 }
 
-/** True when `tz` is an IANA timezone the runtime's Intl database recognizes. */
 export function isValidTimezone(tz: string): boolean {
   if (!tz) return false
   try {
-    // Throws RangeError for an unknown/ill-formed timezone.
     new Intl.DateTimeFormat('en-US', { timeZone: tz })
     return true
   } catch {
@@ -33,12 +18,10 @@ export function isValidTimezone(tz: string): boolean {
   }
 }
 
-/** Exactly 5 whitespace-separated fields (reject 6-field "with seconds" cron). */
 export function isFiveFieldCron(expr: string): boolean {
   return expr.trim().split(/\s+/).length === 5
 }
 
-/** Lightweight format+parse check (no min-interval); used by zod refinements. */
 export function isValidCronExpression(expr: string, tz = 'UTC'): boolean {
   if (!isFiveFieldCron(expr)) return false
   try {
@@ -49,17 +32,8 @@ export function isValidCronExpression(expr: string, tz = 'UTC'): boolean {
   }
 }
 
-/**
- * The next occurrence STRICTLY after `after`, in the schedule's timezone.
- * `cron-parser` excludes `currentDate` itself, so this is always in the future
- * relative to `after` — the property a scheduler relies on to advance a row
- * past the occurrence it just claimed (misfires coalesce, no backfill).
- */
 export function nextOccurrence(expr: string, tz: string, after: Date): Date {
   const interval = CronExpressionParser.parse(expr, { tz, currentDate: after })
-  // next() is already exclusive of currentDate, but guard against any
-  // sub-second edge so the "strictly > after" contract always holds, or a
-  // save-time next_run_at could be immediately "due".
   let next = interval.next().toDate()
   while (next.getTime() <= after.getTime()) {
     next = interval.next().toDate()
@@ -67,11 +41,6 @@ export function nextOccurrence(expr: string, tz: string, after: Date): Date {
   return next
 }
 
-/**
- * Full save-time validation: 5-field shape, valid IANA timezone, parseable, and
- * a smallest gap between successive occurrences ≥ the minimum interval. Throws
- * BadRequestError (→ 400) on any failure so routes surface a clear message.
- */
 export function validateCron(
   expr: string,
   tz: string,
@@ -93,9 +62,6 @@ export function validateCron(
     throw new BadRequestError(`Invalid cron expression: ${(err as Error).message}`)
   }
 
-  // Sample successive occurrences and enforce the minimum gap. Sampling (rather
-  // than parsing the fields) is DST-correct because the library computes real
-  // wall-clock occurrences in the target timezone.
   const minMs = minIntervalMinutes * 60_000
   let prev = interval.next().toDate()
   for (let i = 0; i < 6; i += 1) {
@@ -109,23 +75,8 @@ export function validateCron(
   }
 }
 
-/**
- * The furthest ahead a one-shot may be scheduled. Two years is well past any
- * planning deadline somebody sets by hand, and it bounds the damage of a typo
- * in the year field — a task dated 2225 would otherwise sit in the list
- * forever, never firing and never obviously wrong.
- */
 export const MAX_DUE_AT_AHEAD_MS = 2 * 365 * 24 * 60 * 60 * 1000
 
-/**
- * Save-time validation for a one-shot's due date: a real instant, in the
- * future, and inside the horizon above. Throws BadRequestError (→ 400) to
- * match `validateCron`, so both halves of "when should this run" fail the same
- * way and the route surfaces one kind of message.
- *
- * `now` is a parameter rather than a call to `Date.now()` so the boundary is
- * testable without freezing the clock.
- */
 export function validateDueAt(dueAt: Date, now: Date = new Date()): void {
   if (Number.isNaN(dueAt.getTime())) {
     throw new BadRequestError('Due date is not a valid date and time.')

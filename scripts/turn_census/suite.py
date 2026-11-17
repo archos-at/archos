@@ -92,7 +92,6 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent.parent
 QUESTIONS = ROOT / "tests" / "fixtures" / "derivation" / "loop_eval_questions.yaml"
 PRECEDENT_QUESTIONS = ROOT / "tests" / "fixtures" / "precedent" / "precedent_questions.yaml"
-#: The sets whose rows are norm questions without a project, each in its own file (``--set``).
 NORM_QUESTIONS = {"loop": QUESTIONS, "editions": ROOT / "tests" / "fixtures" / "editions" / "at_edition_questions.yaml"}
 sys.path.insert(0, str(HERE))
 
@@ -118,25 +117,15 @@ from suite_cli import parse_args  # noqa: E402
 from workspace_eval import run_conversation  # noqa: E402
 
 _ANSI = re.compile(r"\x1b\[[0-9;]*m")
-#: A cited corpus file's Richtlinie number: `oib-rl_2.1_…`, `oib-richtlinie_2.2_…`.
 _LOG_SIGNALS = {
-    # The one repair (ADR-0067): a flagged quote, and a patch attempt on one
-    # close enough to its passage. Each flagged quote's closeness is in the
-    # log beside it, which is what PATCH_FLOOR is read off.
     "unverified_quote": "unverified quote (",
     "quote_patch": "quote patch corrected",
-    # What the reader sees: the text they had read changed at the terminal.
     "settled_replaced": "terminal frame replaced the settled answer",
     "summary_gated": "summary gated out",
     "mindmap_dropped": "that only redraw a table",
     "prose_outside": "answer_prose_outside_envelope",
     "envelope_salvaged": "answer_envelope_headless",
-    # The answer handed the question to deep research, whose clarifier then
-    # waits for a person `nat run` does not have; the workflow ends with an
-    # empty error. Recorded as what it is, not as a crash.
     "escalated": "Clarifier: Starting",
-    # The round ceiling and the two withheld-call guards (`status:<slot>:N` technical records), which the
-    # office-file eval reports per arm (`files_eval.report_lines`); read off the log where one is written.
     "budget": "status:budget",
     "repeat": "status:repeat",
     "width": "status:width",
@@ -151,52 +140,31 @@ class Run:
     run: int
     wall_s: float = 0.0
     final_call_s: float = 0.0
-    #: Turn start to the first visible text of the answering call: what the reader
-    #: waits for once the prose streams (ADR-0066). 0 when the call was buffered.
     first_text_s: float = 0.0
-    #: Research calls up to and including the one that wrote the answer.
     research_calls: int = 0
-    #: Research calls after the answer: a repair rewriting the prose.
     post_answer_calls: int = 0
     tool_calls: list[str] = field(default_factory=list)
-    #: `--set files`: each model-made tool call with its arguments (`files_eval.recorded_calls`).
     tool_args: list[dict] = field(default_factory=list)
     reasoning_tokens: int = 0
     max_reasoning_tokens: int = 0
     output_tokens: int = 0
     input_tokens: int = 0
-    #: What the provider billed for every model call of the turn, in USD (OpenRouter's ``usage.cost``);
-    #: None in a results.json from before it was captured. ``cost_missing`` counts calls billed without one.
     cost_usd: float | None = None
     cost_missing: int = 0
     signals: list[str] = field(default_factory=list)
     kind: str = ""
     cited_families: list[str] = field(default_factory=list)
-    #: The envelope's cards, kept so `--report` can re-check against edited expectations.
     envelope: dict | None = None
     checks: dict[str, bool] = field(default_factory=dict)
-    #: The cross-project lookups the fixture BFF served this run (`--set precedent`):
-    #: the model's own calls and the turn decision's round-0 prefetch alike.
     lookups: list[str] = field(default_factory=list)
-    #: The turn decision's p(precedent) (ADR-0064), read off its log line; None when
-    #: no decision ran or asked it. Beside `lookups`, it calibrates the prefetch's
-    #: threshold against what the answer turned out to need.
     precedent_p: float | None = None
-    #: `--set precedent`: the fixture office the run sat in, and whether its
-    #: question is held out (written without reading answers, never tuned on).
     scenario: str = ""
     holdout: bool = False
     answer: str = ""
     error: str = ""
-    #: `--set workspace`: the calls the measured (last) turn made on the MCP door, as the fixture
-    #: served them (`workspace_eval.py`), how many the conversation's earlier turns made before it,
-    #: and how many turns the conversation had.
     door: list[dict] = field(default_factory=list)
     door_offset: int | None = None
     turns: int = 1
-
-
-# --- Questions ---------------------------------------------------------------
 
 
 _PATCHED_RE = re.compile(r"quote patch corrected (\d+) of \d+")
@@ -257,9 +225,6 @@ def load_questions(path: Path = QUESTIONS, *, core_only: bool = True) -> tuple[l
         elif not core_only or row.get("suite") == "core":
             runnable.append(row)
     return runnable, skipped
-
-
-# --- Reading one turn --------------------------------------------------------
 
 
 def _usage(entry: dict) -> tuple[int, int, int]:
@@ -373,7 +338,6 @@ def observe(
         return run
     research = [entry for entry in rows if call_kind(entry) == "research"]
     envelope, answered_at = last_envelope(research)
-    # The call that ends last need not start last: quote patches and checks overlap.
     run.wall_s = round(max(row["t_end"] for row in rows) - rows[0]["t_start"], 1)
     _read_calls(run, research, answered_at, rows[0]["t_start"])
     run.cost_usd, run.cost_missing = turn_cost(rows)
@@ -442,9 +406,6 @@ def observe(
     return run
 
 
-# --- Checks ------------------------------------------------------------------
-
-
 def _normal(text: str) -> str:
     """Case-folded, with subscripts and non-breaking spaces as the reader types them."""
     return text.translate(str.maketrans("₀₁₂₃₄₅₆₇₈₉  ", "0123456789  ")).casefold()
@@ -485,16 +446,12 @@ def _has_shape(shape: str, prose: str, cards: list[Any]) -> bool:
         return "```mermaid" in text
     blocks = _directive_blocks(text)
     if shape == "plain":
-        # The negative set: a short factual question answered with no block at all.
         return not blocks
     if shape in _DIALECT_BLOCKS:
         return shape in blocks
     return False
 
 
-#: The answer dialect's block names (``common/answer_dialect.DIRECTIVE_BLOCKS``),
-#: spelled out so the suite reads the renderer's vocabulary without importing
-#: the agent into the harness process.
 _DIALECT_BLOCKS = frozenset(
     {"check", "procedure", "cases", "metrics", "compare", "details", "actions", "not-found", "subsumption"}
 )
@@ -517,8 +474,6 @@ def check(question: dict, run: Run, envelope: dict | None) -> dict[str, bool]:
     if (family := _family_number(question.get("family"))) and getattr(module, "CHECKS_FAMILY", True):
         checks["family_cited"] = family in run.cited_families
     expect = question.get("expect") or {}
-    # The reader sees the prose AND the cards (a variant's table sits in a tab),
-    # so a value counts wherever it was delivered.
     answer = _normal("\n".join([run.answer, *_card_strings((envelope or {}).get("cards") or [])]))
     for item in expect.get("mentions") or []:
         options = item if isinstance(item, list) else [item]
@@ -563,18 +518,11 @@ def looked_up(run: Run) -> bool:
     return bool(run.lookups) or any(str(name).endswith("project_lookup") for name in run.tool_calls)
 
 
-#: A judge of meaning: (check kind, question, answer) → yes, no, or None when it could not answer.
 Judge = Callable[[str, str, str], bool | None]
 
-#: What a run lists in its signals for a meaning check its judge could not answer: ``judge_unavailable:says_none``.
 JUDGE_UNAVAILABLE = "judge_unavailable:"
-#: The checks a model judges (``judge.py``), because they are meanings.
 MEANING_CHECKS = ("says_none", "caveat")
 
-#: One source line of the answer: ``- [1] [KB] file.pdf (Project name), p.2``. The qualifier in
-#: parentheses is the project a cross-project hit came from (``citation_verification``
-#: appends it to the citation key); a Richtlinie or a RIS line has none, and a filename that
-#: has parentheses of its own is not followed by ``, p.N`` or the end of the line.
 _SOURCE_PROJECT = re.compile(
     r"^\s*(?:[-*]\s*)?\[\d+\]\s*\[KB\]\s+[^\n]*?\(([^()\n]+)\)(?:,\s*p\.\s*\d+)?\s*$", re.MULTILINE
 )
@@ -640,9 +588,6 @@ def precedent_checks(
         if verdict is None and run.answer.strip():
             run.signals.append(f"{JUDGE_UNAVAILABLE}{kind}")
     return checks
-
-
-# --- Report ------------------------------------------------------------------
 
 
 def _spread(values: list[float]) -> str:
@@ -778,7 +723,6 @@ def aggregate_lines(runs: list[Run]) -> list[str]:
     asked = sum(len(held.get(kind, [])) for kind in MEANING_CHECKS)
     unavailable = [signal for run in runs for signal in run.signals if signal.startswith(JUDGE_UNAVAILABLE)]
     if asked:
-        # Each is a failure in the counts above, never a missing run; this says how many were not the answer's fault.
         by_kind = ", ".join(
             f"{kind} {unavailable.count(JUDGE_UNAVAILABLE + kind)}"
             for kind in MEANING_CHECKS
@@ -789,9 +733,6 @@ def aggregate_lines(runs: list[Run]) -> list[str]:
             + (f" ({by_kind})" if by_kind else "")
         )
     return lines or ["None."]
-
-
-# --- Running -----------------------------------------------------------------
 
 
 def corpus_families() -> set[str] | None:
@@ -981,9 +922,6 @@ def inventory_ready(path: Path | None) -> bool:
     import sqlite3
     from contextlib import closing
 
-    # as_uri() escapes what a URI would read as syntax: a `#` or `?` in the
-    # path once opened an empty database beside the real one and said "empty".
-    # closing(), because a connection's own `with` commits and stays open.
     try:
         with closing(sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True)) as db:
             (count,) = db.execute(
@@ -1040,7 +978,6 @@ def run_suite(
     try:
         return list(pool.map(one, jobs))
     finally:
-        # On Ctrl-C the queued paid runs are cancelled, not started one by one.
         pool.shutdown(wait=True, cancel_futures=True)
 
 
@@ -1133,7 +1070,6 @@ def start_files_bff(out: Path) -> tuple[Any, Any]:
             "INTERNAL_API_TOKEN": token,
             "EVAL_ENVELOPE": header,
             "EVAL_ENVELOPE_SIG": signature,
-            # A row an upload starts carries its trigger and open document, as the headless turn does.
             **turn_input.env_for(question),
         }
 
@@ -1167,7 +1103,6 @@ def start_visual_bff(out: Path, look: bool = True) -> tuple[Any, Any]:
             "EVAL_ENVELOPE": header,
             "EVAL_ENVELOPE_SIG": signature,
             **workspace.env(bff.url, look),
-            # A row with a drawn box sends it on the turn, as the canvas does (turn_input.py).
             **turn_input.env_for(question),
         }
 
@@ -1182,13 +1117,11 @@ def start_fixture_bff(out: Path) -> tuple[Any, Any]:
     from fixture_bff import production_embedder
 
     token = secrets.token_hex(16)
-    # Ranked by the deployment's own embedder, as production ranks; the token channel alone without a key.
     bff = FixtureBFF(token, out / "requests.jsonl", embed=production_embedder()).start()
 
     def env_for(conversation_id: str, question: dict) -> dict[str, str]:
         from fixture_bff import DEFAULT_SCENARIO
 
-        # The run sits in its scenario's current project, and the fixture answers it from that office.
         office = bff.assign(conversation_id, str(question.get("scenario") or DEFAULT_SCENARIO))
         header, signature = precedent_envelope(office.office, conversation_id, token, office.current)
         return {
@@ -1256,8 +1189,6 @@ def _preflight(out: Path, ingest: bool, corpus: Path | None = None, needs_corpus
     if not ensure_key():
         print("OPENROUTER_API_KEY is not set; the suite needs the real models.", file=sys.stderr)
         return 2
-    # Before the ingest: from a worktree the ingest ran another checkout's
-    # knowledge layer in this process, and only then was refused.
     foreign = foreign_imports(out)
     if foreign:
         print(
@@ -1283,8 +1214,6 @@ def _preflight(out: Path, ingest: bool, corpus: Path | None = None, needs_corpus
         return 2
     summary_db = os.environ.get("SUMMARY_DB", "")
     if summary_db and "://" not in summary_db:
-        # A bare path is not a database URL: every run then fails to start, after
-        # the suite has already launched them all.
         print(
             f"SUMMARY_DB is a path, not a database URL: {summary_db}. "
             "Use sqlite+aiosqlite:////absolute/path/summaries.db.",
@@ -1327,10 +1256,6 @@ def select_questions(
 
 
 def _warn_if_dirty(commit: str) -> None:
-    # Every run starts its own process from the working tree, so an edit made
-    # while the suite runs reaches the runs that start after it: one baseline
-    # measured two codebases, and four answers crashed on a half-applied
-    # signature change. Measure a clean tree, or a worktree.
     if commit.endswith("-dirty"):
         print(
             "suite: the working tree has uncommitted changes; runs measure whatever it holds when they start.",
@@ -1352,7 +1277,6 @@ def run_set(questions: list[dict], args: argparse.Namespace, stamp: str, meta: d
         else fixture_law.start_law_bff(args.out, precedent_envelope)
     )
     if bff is not None and args.set not in ("files", "visual", "loop"):
-        # A run ranked by tokens alone measures a kinder search than production's: the report says which it was.
         meta["fixture_search"] = "embeddings" if bff.embed is not None else "tokens only (no embedding key)"
     try:
         runs = run_suite(
@@ -1390,9 +1314,6 @@ def run_north_star(questions: list[dict], args: argparse.Namespace, stamp: str) 
 
 
 def main(argv: list[str] | None = None) -> int:
-    # Every run executes in the checkout (`cwd=ROOT`); the registry, the corpus
-    # an --ingest reads and the inventory are resolved there too, wherever the
-    # suite was started from.
     os.chdir(ROOT)
     args = parse_args(argv, description=__doc__)
     if args.compare:
@@ -1400,11 +1321,10 @@ def main(argv: list[str] | None = None) -> int:
     if args.report:
         baseline = json.loads(args.baseline.read_text()) if args.baseline else None
         return _rerender(args.report, baseline)
-    # The ids first: a typo must not cost an ingest.
     not_applicable: list[str] = []
     horizon: list[str] = []
     fixture_sets = ("files", "visual", "north-star")
-    if args.set in ("precedent", "workspace", *fixture_sets):
+    if args.set in ("precedent", "workspace", "golden", *fixture_sets):
         rows = set_questions(args.set)
         if args.set == "files":
             from files_eval import split_applicable
@@ -1432,14 +1352,10 @@ def main(argv: list[str] | None = None) -> int:
         from fixture_files import seed
         from fixture_visual import load_project
 
-        # Each fixture set seeds the project it reads, idempotently: only what changed is embedded again.
         print(f"seeded {sum(seed(load_project()).values())} chunk(s) of the visual project")
     if args.set in ("files", "north-star"):
         from fixture_files import seed
 
-        # The north-star set's files rows ask the office-file project too. Seeding it here is what keeps
-        # a run from reading an older seed: the E-Mail-Verlauf's rows (ADR-0137) need its chunks as the
-        # real Markdown chunker cuts them, and its records on the metadata row.
         print(f"seeded {sum(seed().values())} chunk(s) of the office-file project")
     questions, skipped = selected
     families = corpus_families() if args.set not in ("workspace", *fixture_sets) else None
@@ -1450,7 +1366,6 @@ def main(argv: list[str] | None = None) -> int:
     arms = arms_for(args)
     stamp = run_stamp()
     for arm in arms:
-        # Its own directory and conversation ids per arm: a shared id would answer one arm with another's history.
         arm_args = argparse.Namespace(
             **{
                 **vars(args),

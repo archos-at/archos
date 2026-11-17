@@ -1,32 +1,3 @@
-/**
- * Telling the platform owners that a member sent feedback.
- *
- * The announcement is an inbox item of type `feedback.submitted`, one per
- * owner, written into the PLATFORM organization. The owners read it through
- * the inbox's platform lane from whichever organization they are working in,
- * and the type's registry entry says it also goes out by email the moment a
- * sender exists (`@/lib/inbox/delivery`). This module therefore knows nothing
- * about channels: it records what happened and who it is for, once.
- *
- * ## Recipients come from a permission, not a role name
- *
- * The same rule the storage alert follows: active members of the platform
- * organization whose role holds {@link FEEDBACK_TRIAGE_PERMISSION}, the
- * permission the triage page needs to change a report. Those are the people
- * who can act on it. Support holds the read half and sees the reports on the
- * page, but is not paged for each one.
- *
- * Break-glass owners (`PLATFORM_OWNER_EMAILS`) are not members of the
- * platform organization and are therefore not addressed; the triage page
- * still shows them every report.
- *
- * ## Fail-open, and why that is safe here
- *
- * The report is already stored when this runs, and the triage page lists it
- * whatever happens next. A WorkOS hiccup resolving the roster must not turn a
- * member's "thank you" into an error, so failures are logged and swallowed.
- */
-
 import 'server-only'
 import { findRoleSpec } from '@/lib/authz/catalog'
 import { PLATFORM_PERMISSIONS } from '@/lib/authz/permissions'
@@ -37,22 +8,12 @@ import { inboxGroupKey } from '@/lib/inbox/registry'
 import { emitInboxItems, type InboxEmission } from '@/lib/inbox/service'
 import { listOrganizationMembersWithRoles } from '@/lib/organizations/service'
 
-/** The inbox type this module emits. */
 export const FEEDBACK_INBOX_TYPE = 'feedback.submitted' as const
 
-/** Who is told: whoever may triage. */
 export const FEEDBACK_TRIAGE_PERMISSION = PLATFORM_PERMISSIONS.settingsManage
 
-/** The longest excerpt stored on the row; the read path caps display at 500. */
 const EXCERPT_MAX = 500
 
-/**
- * Active platform-organization members whose role holds the triage permission.
- *
- * A role this build does not know is not assumed to hold it: guessing in the
- * permissive direction would send tenants' reports to whoever holds a custom
- * role in the platform organization.
- */
 export async function findFeedbackRecipients(platformOrganizationId: string): Promise<string[]> {
   const members = await listOrganizationMembersWithRoles(platformOrganizationId)
   return members
@@ -64,7 +25,6 @@ export async function findFeedbackRecipients(platformOrganizationId: string): Pr
     .map((member) => member.id)
 }
 
-/** The inbox rows for one report, one per recipient. Pure; exported for tests. */
 export function feedbackEmissions(
   report: Pick<
     ProductFeedback,
@@ -85,13 +45,8 @@ export function feedbackEmissions(
     actorUserId: report.userId,
     groupKey,
     payload: {
-      // The organization the report came from — the row's body names it.
       subject: organizationName ?? undefined,
       excerpt: message.length > EXCERPT_MAX ? `${message.slice(0, EXCERPT_MAX)}…` : message,
-      // The reporter lives in another organization, which the owner's
-      // directory cannot resolve, so the name travels with the row. The email
-      // stands in for a missing name only when the reporter agreed to be
-      // contacted — the triage page withholds it otherwise, and so must this.
       actorName: report.userName ?? (report.allowContact ? report.userEmail : null) ?? undefined,
       kind: report.kind,
     },
@@ -104,7 +59,6 @@ export type FeedbackAnnouncement =
   | { status: 'no-recipients' }
   | { status: 'failed' }
 
-/** Announce one stored report to the platform owners. Never throws. */
 export async function announceProductFeedback(
   report: ProductFeedback,
   organizationName: string | null
@@ -124,8 +78,6 @@ export async function announceProductFeedback(
       )
       return { status: 'no-recipients' }
     }
-    // The rows belong to the platform organization, so they are written as it:
-    // the table's WITH CHECK refuses a row addressed to any other tenant.
     await withTenant({ organizationId: platformOrganizationId }, () =>
       emitInboxItems(feedbackEmissions(report, organizationName, platformOrganizationId, recipients))
     )

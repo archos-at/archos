@@ -26,7 +26,6 @@ from __future__ import annotations
 import re
 from collections import Counter
 
-#: Whole words that negate, exclude or restrict.
 _POLARITY_WORDS = frozenset(
     {
         "nicht",
@@ -53,12 +52,10 @@ _POLARITY_WORDS = frozenset(
     }
 )
 
-#: Words that start with „un" and are not a negation of something.
 _UN_WORDS = ("und", "uns", "unser", "unter", "ungefähr", "ungefaehr")
 
 _WORD_RE = re.compile(r"[^\W\d_]+")
 
-#: A negating prefix only counts on a word long enough to be a negated stem.
 _MIN_PREFIXED_LENGTH = 6
 
 

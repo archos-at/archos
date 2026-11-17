@@ -1,11 +1,3 @@
-"""The brand-name ratchet refuses a new brand in a name, and makes the baseline follow every cleanup.
-
-`scripts/check_brand_names.py` keeps `aiq`, `archos`, `grid` and `piloti` out of new code
-and infrastructure identifiers, with `ci/brand_names_baseline.json` recording
-the hits when the check arrived. These run it on a scratch repository, so the
-real tree's baseline is not what they depend on.
-"""
-
 from __future__ import annotations
 
 import importlib.util
@@ -93,7 +85,8 @@ def test_a_new_hit_fails_and_the_baseline_only_moves_down(checker, repo, capsys)
     assert "src/jobs.py: 2 brand hit(s), baseline 1" in capsys.readouterr().err
 
     _add(repo, "src/jobs.py", "LIMIT = os.environ['MAX_JOBS']\n")
-    assert checker.main([]) == 1
+    assert checker.main([]) == 0  # a shrink passes, with a note
+    assert "can be lowered" in capsys.readouterr().out
     assert checker.main(["--update"]) == 0
     assert json.loads((repo / "ci" / "brand_names_baseline.json").read_text()) == {}
 
@@ -118,7 +111,14 @@ def test_history_and_copy_are_not_checked(checker, repo):
 def test_the_tier_names_pending_the_deploy_rename_are_not_counted(checker):
     assert checker.count_text("http://aiq-agent:8000 and aiq-api") == 0
     assert checker.count_text("from aiq_agent.common.cards import Card") == 1
-    assert checker.count_text("from agent.agents.piloti import run") == 1
+    assert checker.count_text("from aiq_agent.agents.piloti import run") == 2
+
+
+def test_an_import_of_the_chat_package_is_not_a_new_name_but_the_path_elsewhere_is(checker):
+    assert checker.count_text("from agent.agents.piloti import run") == 0
+    assert checker.count_text("from agent.agents.piloti.prompt import TurnPrompt as PilotiPrompt") == 1
+    assert checker.count_text('module = "agent.agents.piloti.agent"') == 1
+    assert checker.count_text("from agent.agents.piloti_v2 import run") == 1
 
 
 def test_a_file_split_inside_a_package_directory_is_not_a_new_hit(checker, repo):

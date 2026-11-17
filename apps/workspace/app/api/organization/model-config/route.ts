@@ -1,17 +1,3 @@
-/**
- * Org model configuration (runtime model per agent group).
- *
- * GET — `org:models:manage` holders only; the active version + agent-group
- *       registry, the org's zero-data-retention state (`zdrOnly`, on unless
- *       the org opted out), whether Piloti can enforce it for this org's
- *       credential (`zdrApplicable`), and — while it is in force — which
- *       groups' effective models have no usable ZDR endpoint (`zdrCoverage`).
- * PUT — validates every chosen model against the live OpenRouter catalog +
- *       the group's capability requirements (+ a ZDR endpoint that serves the
- *       group, while ZDR is in force), then writes a new immutable version and
- *       activates it.
- */
-
 import { apiRoute, parseJsonBody } from '@/lib/api/handler'
 import { UnprocessableError } from '@/lib/api/errors'
 import { ORG_PERMISSIONS } from '@/lib/authz/permissions'
@@ -33,17 +19,9 @@ export const GET = apiRoute(
     if (gated) return gated
     const [config, defaults, zdrOnly] = await Promise.all([
       getOrgModelConfig(session.organizationId),
-      // Workflow-default model per group, from the backend's loaded YAML
-      // (best-effort — nulls when the backend is unreachable).
       getGroupDefaults(),
       isZdrOnlyForOrg(session.organizationId),
     ])
-    // Best-effort and concurrent: none of these may keep the config from
-    // rendering. Where the picker's models come from (ADR-0022) — asked WITHOUT
-    // the ZDR filter, so a ZDR-list outage does not also hide it; whether ZDR
-    // can apply to this org's credential (read without revealing the key); and,
-    // while ZDR is on, which groups it blocks. A failure reads as unknown
-    // (`catalogSource`/`zdrApplicable` null, coverage `status: 'unknown'`).
     const [catalog, applicable, coverage] = await Promise.allSettled([
       getCatalogForOrg(session.organizationId),
       isZdrApplicableForOrg(session.organizationId),
@@ -87,13 +65,6 @@ export const PUT = apiRoute(
 
     const input = await parseJsonBody(request, modelConfigPutSchema)
 
-    // Server-side revalidation against the live catalog — the picker UI is
-    // never trusted. A catalog outage rejects the save (503) rather than
-    // accepting unvalidated model ids. With a BYOK credential the catalog is
-    // the ORG's provider listing (relaxed capability checks, ADR-0022).
-    // While the org enforces ZDR, every model must also have a ZDR endpoint
-    // that serves its group (`not_zdr` / `zdr_endpoint_lacks_capability`), and
-    // a ZDR-list outage rejects the save rather than skipping that check.
     const zdrOnly = await isZdrOnlyForOrg(session.organizationId)
     let catalog
     try {
@@ -138,11 +109,6 @@ export const PUT = apiRoute(
   { status: 201, authz: { permission: ORG_PERMISSIONS.modelsManage } }
 )
 
-/**
- * The active version with any retired agent group left out of its overrides.
- * Versions are immutable history, so the stored row keeps the group; the card
- * sends back what it loads, and the PUT would reject it with a 400.
- */
 function withoutRetiredGroups<T extends { overrides: unknown }>(version: T | null): T | null {
   if (!version || !version.overrides || typeof version.overrides !== 'object') return version
   const overrides = Object.fromEntries(

@@ -1,13 +1,5 @@
 'use client'
 
-/**
- * Space on an attachment: a larger look at it, without filing it. The same
- * client-side drawing as the thumbnail (the first page of a PDF, a picture),
- * so nothing is handed to a converter and nothing is ever navigated to; a
- * type that cannot be drawn shows its tile. The whole file is the person's
- * to download only once it is filed, where the ordinary preview opens it.
- */
-
 import type { JSX } from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -16,7 +8,6 @@ import { useTranslations } from '@/i18n'
 import { useAttachmentThumbnail } from './attachment-thumbnail'
 import { inboundMailCopy } from '@/i18n/namespaces/inbound-mail'
 
-/** The preview's longer edge in CSS pixels. */
 const PREVIEW_EDGE = 640
 
 export function AttachmentPreviewDialog({
@@ -30,7 +21,6 @@ export function AttachmentPreviewDialog({
   onOpenChange: (open: boolean) => void
   name: string
   contentType: string
-  /** The content route, for a part that may be drawn; null shows the tile. */
   url: string | null
 }): JSX.Element {
   const t = useTranslations(inboundMailCopy)

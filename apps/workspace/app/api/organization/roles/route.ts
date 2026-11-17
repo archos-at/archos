@@ -1,14 +1,3 @@
-/**
- * The organization's roles, and the office's own custom roles (ADR-0087).
- *
- * GET  — any member: a project admin restricting a folder picks roles by name,
- *        and a lock on a folder names the roles it is restricted to, so every
- *        member needs the names. Permissions, and `assignable` (what the role
- *        editor may offer), are only in the answer for `org:members:manage`.
- * POST — `org:members:manage`, and only permissions the editor holds
- *        (`createCustomRole`). The slug is derived from the name, once.
- */
-
 import { apiRoute, parseJsonBody } from '@/lib/api/handler'
 import { ORG_PERMISSIONS } from '@/lib/authz/permissions'
 import {

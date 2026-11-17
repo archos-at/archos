@@ -1,55 +1,7 @@
 'use client'
 
-/**
- * Sessions dev preview: renders the REAL SessionsPanel — the history sheet —
- * over the REAL app shell (`AppSidebar` rail + a chat-plane stand-in), so it
- * can be reviewed and screenshotted exactly as it rises in the product
- * . Not linked anywhere and 404s outside
- * development.
- *
- * Why the real rail. The sheet dims the whole shell behind it, and whether
- * that scrim reads correctly is only visible over the product's own chrome.
- *
- * The rail is wrapped in `hidden md:contents` because the chat route (the only
- * host of this sheet) hides the mobile top bar and has no rail below `md` — its
- * navigation lives in the chat toolbar's hamburger. `contents` keeps the rail a
- * direct flex child of the shell row on desktop.
- *
- * Variants via `?variant=`:
- *   - default    — a long history. Deliberately spans several day-groups and
- *                  overflows the panel, because the things this list gets wrong
- *                  are only visible at length: day headings that scroll away, a
- *                  list that overflows its own footer.
- *   - `search`   — a live query: the trailing clear button, the "n of N" count,
- *                  and a filtered list.
- *   - `no-match` — the same query matching nothing: the search-specific empty
- *                  state, quoting the query, with the way back out.
- *   - `empty`    — a project with no chats at all: no search field, no
- *                  delete-all, one CTA rather than two.
- *   - `busy`     — a turn in flight. Every row is dimmed and unclickable, so the
- *                  panel says why instead of leaving the user to test rows.
- *   - `rights-lost` — chats shared with the reader who may no longer read a
- *                  folder they drew on (ADR-0088): they stay in the list under
- *                  the neutral title „Geteilter Chat", and the open one shows
- *                  „Ihnen fehlen inzwischen die Rechte …" instead of a thread
- *                  and a composer.
- *   - `research` — the Deep Research surfaces (FB-10): the All / Chats / Deep
- *                  Research scope filter, the always-open runs section with its
- *                  count pill and status badges, and the per-chat Deep Research
- *                  badges. A running run carries a stop action, and the footer
- *                  carries the bulk purge — s-6's stuck run (job-a) is what
- *                  shows both. Runs come from a module-scope fetch shim.
- *
- * The fetch shim is installed at MODULE SCOPE (browser + development only,
- * idempotent) so it is in place before any effect can fire — the panel fetches
- * its runs from an effect on open.
- */
-
 import { useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
-// Imported from the module, not the `@/components/shell` barrel: the barrel also
-// re-exports `org-topbar`, which pulls in `i18n/server` (`server-only` +
-// `next/headers`) and fails to compile into a client preview.
 import { AppSidebar } from '@/components/shell/app-sidebar'
 import { RightsLostPanel } from '@/features/layout/components/RightsLostPanel'
 import { SessionsPanel } from '@/features/layout/components/SessionsPanel'
@@ -61,7 +13,7 @@ const daysAgo = (d: number) => new Date(Date.now() - d * 24 * 60 * 60 * 1000)
 
 const SESSIONS = [
   { id: 's-1', title: 'Rettungswege Bürogebäude GK4 Wien', date: minutesAgo(4) },
-  { id: 's-2', title: 'Fluchtweglänge im Erdgeschoss', date: minutesAgo(95) },
+  { id: 's-2', title: 'Fluchtweglänge im Erdgeschoss', date: minutesAgo(95), temporary: true },
   { id: 's-3', title: 'Brandabschnitte Tiefgarage', date: minutesAgo(240), hasCompletedReport: true },
   { id: 's-4', title: 'Sicherheitstreppenhaus — Anforderungen GK5', date: daysAgo(1) },
   { id: 's-5', title: 'Barrierefreiheit Sanitärräume', date: daysAgo(1) },
@@ -74,7 +26,6 @@ const SESSIONS = [
   { id: 's-12', title: 'Bauklasse und Gebäudehöhe Parzelle 1042', date: daysAgo(18) },
 ]
 
-/** Shared with the reader, who has since lost a folder they drew on: no title, nothing of the content. */
 const LOCKED_SESSIONS = [
   { id: 's-lost-1', title: '', date: minutesAgo(30), contentLocked: true },
   { id: 's-lost-2', title: '', date: daysAgo(2), contentLocked: true },
@@ -112,7 +63,6 @@ const RESEARCH_RUNS = {
   ],
 }
 
-// Module scope, browser + dev only, idempotent — see the header comment.
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
   const w = window as Window & { __sessionsPreviewFetchShim?: boolean }
   if (!w.__sessionsPreviewFetchShim) {
@@ -136,18 +86,13 @@ export default function SessionsPreviewPage() {
   const setSessionsPanelOpen = useLayoutStore((s) => s.setSessionsPanelOpen)
 
   useEffect(() => {
-    // The sheet mounts against the open state, so the preview opens it.
     setSessionsPanelOpen(true)
   }, [setSessionsPanelOpen])
 
-  // `busy` reproduces a turn in flight by setting the one store field the panel
-  // reads for it, rather than by faking the panel's own props.
   useEffect(() => {
     useChatStore.setState({ isStreaming: variant === 'busy' })
   }, [variant])
 
-  // The search states are driven through the real field, so what is captured is
-  // the component's own behaviour and not a prop that bypasses it.
   useEffect(() => {
     if (variant !== 'search' && variant !== 'no-match') return
     const input = document.querySelector<HTMLInputElement>('input[type="text"]')
@@ -177,9 +122,6 @@ export default function SessionsPreviewPage() {
           projects={PROJECTS}
           user={{ name: 'Anna Berger', email: 'anna.berger@example.at' }}
           authRequired={false}
-          // The state a signed-in member is actually in. Omitting this used to
-          // default it to `false`, so the preview — whose entire job is to show
-          // what the rail looks like — showed it without the Inbox entry.
           canAccessInbox
         />
       </div>
@@ -206,8 +148,6 @@ export default function SessionsPreviewPage() {
           onDeleteSession={() => {}}
           onDeleteAllSessions={() => {}}
           onRenameSession={() => {}}
-          // The runs section belongs to a project; the other variants leave it
-          // out so each shows the one state it names.
           projectId={variant === 'research' ? 'p-1' : undefined}
         />
       </main>

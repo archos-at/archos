@@ -1,8 +1,3 @@
-"""Tests for tokenomics pricing (ModelPrice, PricingRegistry).
-
-Module under test: packages/agent/src/agent/tokenomics/pricing.py
-"""
-
 import pytest
 
 from agent.tokenomics.pricing import ModelPrice
@@ -18,7 +13,6 @@ def test_model_price_cost_uncached_and_completion():
         cached_input_per_1m_tokens=0.5,
         output_per_1m_tokens=4.0,
     )
-    # 1M prompt (all uncached) + 500k completion
     assert mp.cost(1_000_000, 0, 500_000) == pytest.approx(1.0 + 2.0)
 
 
@@ -28,7 +22,6 @@ def test_model_price_cost_with_cache_split():
         cached_input_per_1m_tokens=0.5,
         output_per_1m_tokens=1.0,
     )
-    # 800k prompt, 300k cached -> 500k uncached
     assert mp.cost(800_000, 300_000, 100_000) == pytest.approx(
         (500_000 * 2.0 + 300_000 * 0.5 + 100_000 * 1.0) / 1_000_000
     )

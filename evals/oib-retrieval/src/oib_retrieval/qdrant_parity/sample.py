@@ -23,7 +23,6 @@ RL2 = "oib-rl_2_ausgabe_mai_2023.pdf"
 RL4 = "oib-rl_4_ausgabe_mai_2023.pdf"
 CHANGES = "aenderungen_oib-rl_2_ausgabe_mai_2023.pdf"
 
-#: (file, page, punkt, text). Two pages repeat on purpose: units dedupe them.
 TEXTS = (
     (RL2, 13, "5.1.1", "5.1.1 Von jeder Stelle eines Raumes darf die Gehweglänge höchstens 40 m betragen."),
     (RL2, 13, "5.1.2", "5.1.2 Bei Wohnungen ist die Gehweglänge ab der Wohnungseingangstür zu messen."),

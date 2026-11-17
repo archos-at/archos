@@ -41,9 +41,7 @@ from agent.knowledge.folder_cards.inputs import ChildDocument
 from agent.knowledge.folder_cards.inputs import ChildFolder
 from agent.knowledge.folder_cards.inputs import FolderInputs
 
-#: Incremental updates after which the next build is a full one.
 MAX_INCREMENTS = 10
-#: Share of the current children a diff may touch before the next build is a full one.
 MAX_CHANGED_SHARE = 0.5
 
 Mode = Literal["prune", "incremental", "full"]
@@ -72,7 +70,6 @@ class Manifest:
     folders: Mapping[str, str]
     description: str | None
     prompt_version: str = PROMPT_VERSION
-    #: Incremental updates since the last full build.
     increments: int = 0
 
     def to_json(self) -> str:
@@ -156,7 +153,6 @@ def diff(before: Manifest, after: Manifest) -> Diff:
 class Plan:
     mode: Mode
     diff: Diff = field(default_factory=Diff)
-    #: The manifest's counter after this build.
     increments: int = 0
     reason: str = ""
 

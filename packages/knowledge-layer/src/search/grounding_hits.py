@@ -15,10 +15,8 @@ from agent.common.estate_paths import estate_path
 
 logger = logging.getLogger(__name__)
 
-# Chunk content truncation. OIB tables routinely exceed 1500 chars and were cut
-# mid-table, losing rows the LLM needs to quote. Set to 2500 to keep most table
-# rows intact within one chunk. Value chosen as a named constant (#no-magic).
 _CHUNK_TRUNCATE_CHARS = 2500
+PASSAGE_MAX_CHARS = _CHUNK_TRUNCATE_CHARS
 
 
 def _hit_provenance(chunk):
@@ -108,14 +106,9 @@ def _stored_image_index(metadata: dict) -> int | None:
         return None
 
 
-#: Suffixes of a file that IS the image the visual analysis read. Anything else
-#: carrying an ``image_index`` is a raster embedded in a document, whose box is
-#: relative to the raster and not to the page the viewer shows.
 _IMAGE_FILE_SUFFIXES = (".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".tif", ".tiff", ".heic", ".heif")
 
 
-#: A box covering at least this share of the frame marks nothing a reader does
-#: not already see: the whole sheet is "the depiction", so it is left unmarked.
 _WHOLE_FRAME_AREA = 0.9
 
 
@@ -150,9 +143,6 @@ def _hit_regions(chunk) -> tuple:
         coords = [float(part) for part in segment.get("bbox") or ()]
     except TypeError, ValueError, AttributeError:
         return ()
-    # Finite before clamped: ``min(1.0, max(0.0, nan))`` is 0.0 and an infinity
-    # clamps to an edge, so either would pass the geometry checks below as a
-    # plausible box around the wrong part of the sheet.
     if len(coords) != 4 or not all(math.isfinite(part) for part in coords):
         return ()
     x0, y0, x1, y1 = (min(1.0, max(0.0, part)) for part in coords)
@@ -179,6 +169,7 @@ def grounding_hit(chunk, *, resolved, resolved_titles, resolved_folders, ambiguo
     effect with no re-ingest (ADR-0049).
     """
     from agent.common.grounding_block import GroundingHit
+    from agent.common.licensed_text import EDITION_KEY
     from agent.common.licensed_text import licence_from_metadata
 
     metadata = chunk.metadata or {}
@@ -206,14 +197,28 @@ def grounding_hit(chunk, *, resolved, resolved_titles, resolved_folders, ambiguo
         body_truncated=truncated,
         regions=_hit_regions(chunk),
         page_end=_page_end(chunk, page),
-        # Stamped at ingest from the job config (`adapter._stamp_chunk_metadata`); only a filed
-        # E-Mail-Verlauf states one today.
         source_format=_metadata_text(metadata.get("source_format")),
-        # Where `read_file` opens the page around this hit (ADR-0133); none for a shelf with no mount.
         path=estate_path(shelf, folder_path, chunk.file_name) if chunk.file_name else None,
-        # The office layer marks a licensed point at upload; the renderer keeps its text out of the transcript.
         licence=licence_from_metadata(metadata),
+        revision=_hit_revision(chunk.file_name, shelf),
+        edition_id=_metadata_text(metadata.get(EDITION_KEY)),
     )
+
+
+def _hit_revision(file_name: str | None, shelf):
+    """What an office or project document's own name says about its Fassung (index, day); None for the base
+    corpus, whose editions the knowledge records name, and for a name that states neither."""
+    from knowledge_layer.revision_series import parse_revision_name
+
+    from agent.common.grounding_block import SourceRevision
+    from agent.common.source_kinds import Shelf
+
+    if not file_name or shelf is None or shelf == Shelf.BASE:
+        return None
+    named = parse_revision_name(file_name)
+    if named is None:
+        return None
+    return SourceRevision(index=named.index.value if named.index else None, date=named.date)
 
 
 def _page_end(chunk, page: int | None) -> int | None:

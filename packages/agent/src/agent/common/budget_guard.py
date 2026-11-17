@@ -47,14 +47,6 @@ from langchain_core.callbacks import BaseCallbackHandler
 
 logger = logging.getLogger(__name__)
 
-# @environment_variable MAX_RUN_COMPLETION_TOKENS
-# @category Cost control
-# @type int
-# @default 0
-# @required false
-# Per-run completion-token ceiling for async research jobs. 0 (or any
-# non-positive/unparseable value) disables the cap. Applies to the sum of
-# completion tokens across every LLM call in the job (all subagents/workers).
 MAX_RUN_COMPLETION_TOKENS_ENV = "MAX_RUN_COMPLETION_TOKENS"
 
 DISABLED_CEILING = 0
@@ -69,8 +61,6 @@ class RunBudgetExceededError(RuntimeError):
     unclassified errors (see ``agent_host.jobs.runner.sanitize_job_error``).
     """
 
-    #: A limit doing its job, not a fault: PostHog error tracking skips it
-    #: (``observability.posthog_exceptions``) even where a caller logs it at ERROR.
     expected_outcome = True
 
     def __init__(self, ceiling: int, used: int) -> None:
@@ -187,9 +177,6 @@ class BudgetGuardCallback(BaseCallbackHandler):
     and researcher-worker invocation.
     """
 
-    # Without this, LangChain's handle_event() logs and swallows exceptions
-    # raised from callback methods instead of propagating them -- the abort
-    # would silently do nothing.
     raise_error = True
 
     def __init__(self, tracker: _BudgetTracker) -> None:

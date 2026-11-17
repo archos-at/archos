@@ -7,14 +7,12 @@ import { useChatStore } from '../store'
 import { useLayoutStore } from '@/features/layout/store'
 import { PRODUCT_NAME } from '@/lib/brand'
 
-// Mock MarkdownRenderer
 vi.mock('@/shared/components/MarkdownRenderer', () => ({
   MarkdownRenderer: ({ content }: { content: string }) => (
     <div data-testid="markdown">{content}</div>
   ),
 }))
 
-/** Choice options as the wire names them: ids `o1`, `o2`, … */
 const opts = (...labels: string[]) => labels.map((label, i) => ({ id: `o${i + 1}`, label }))
 
 describe('AgentPrompt', () => {
@@ -80,9 +78,6 @@ describe('AgentPrompt', () => {
       />
     )
 
-    // Branch cards stay visible after answering — the chosen one remains and
-    // every card is locked (aria-disabled, so a focused pick keeps its focus),
-    // and the picker doubles as the response.
     expect(screen.getByText('Option A')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /option a/i })).toHaveAttribute('aria-disabled', 'true')
     expect(screen.getByRole('button', { name: /option b/i })).toHaveAttribute('aria-disabled', 'true')
@@ -168,8 +163,6 @@ describe('AgentPrompt', () => {
       />
     )
 
-    // Focus is on the document body (no editable element) — pressing "2"
-    // selects the second option.
     await user.keyboard('2')
     expect(respond).toHaveBeenCalledTimes(1)
     expect(respond).toHaveBeenCalledWith('o2')
@@ -204,7 +197,6 @@ describe('AgentPrompt', () => {
     await user.click(screen.getByLabelText('composer'))
     await user.keyboard('1')
 
-    // The digit went into the field, not the option selector.
     expect(respond).not.toHaveBeenCalled()
     expect(screen.getByLabelText('composer')).toHaveValue('1')
   })
@@ -213,7 +205,6 @@ describe('AgentPrompt', () => {
     const user = userEvent.setup()
     render(<AgentPrompt content="Choose one:" options={opts('Option A')} />)
 
-    // No throw, no selection — the listener is never attached.
     await user.keyboard('1')
     expect(screen.getByText('Option A')).toBeInTheDocument()
   })
@@ -221,7 +212,6 @@ describe('AgentPrompt', () => {
   test('options render read-only (disabled) when no response callback is registered', () => {
     render(<AgentPrompt content="Choose one:" options={opts('Option A')} />)
 
-    // Branch cards still render, but locked with no responder.
     expect(screen.getByText('Option A')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /option a/i })).toHaveAttribute('aria-disabled', 'true')
   })
@@ -237,14 +227,6 @@ describe('AgentPrompt', () => {
 
 })
 
-/**
- * The current three-way envelope: approve / shallow / cancel.
- *
- * The backend's plan preview now offers the middle way by name — a quick
- * shallow answer instead of the plan — and an explicit cancel. The component
- * must render all three, send the exact wire keywords, and keep translating
- * the answered bubble's echo back into human words.
- */
 describe('AgentPrompt — three-way plan decision', () => {
   const THREE_WAY_CONTENT =
     '**Research Plan Preview**\n\n**Title:** Brandschutz in Wien\n\n**Sections:**\n  1. Einleitung\n\n---\n' +
@@ -289,7 +271,6 @@ describe('AgentPrompt — three-way plan decision', () => {
     const markdown = screen.getByTestId('markdown')
     expect(markdown).not.toHaveTextContent(/reply/i)
     expect(markdown).not.toHaveTextContent(/provide feedback/i)
-    // English scaffolding replaced by dictionary copy; the plan's own words stay.
     expect(markdown).not.toHaveTextContent('Research Plan Preview')
     expect(markdown).toHaveTextContent('Research plan')
     expect(markdown).toHaveTextContent('Brandschutz in Wien')
@@ -312,15 +293,6 @@ describe('AgentPrompt — three-way plan decision', () => {
   })
 })
 
-/**
- * A colleague reading somebody else's question (ADR-0037).
- *
- * Once prompts are persisted, an observer in a shared thread sees the card — and
- * must NOT be offered the buttons: the agent tier refuses an answer from anybody but
- * the person it asked (`_may_answer_interaction`), so a button here would be
- * offering a refusal. Without a line explaining that, the card reads as broken
- * rather than as somebody else's turn.
- */
 describe('AgentPrompt — a question addressed to somebody else', () => {
   beforeEach(() => {
     useChatStore.setState({ respondToInteractionFn: vi.fn() })
@@ -344,8 +316,6 @@ describe('AgentPrompt — a question addressed to somebody else', () => {
       `${PRODUCT_NAME} is waiting for Matthias Bigl`
     )
 
-    // The options are still READABLE — a colleague should see what was asked — but
-    // pressing one must not answer for them.
     await user.click(screen.getByText('Beide Kerne'))
     expect(respond).not.toHaveBeenCalled()
   })
@@ -403,10 +373,6 @@ describe('AgentPrompt — a question addressed to somebody else', () => {
   })
 })
 
-/**
- * The plan card: the plan as data beside its text renders as controls, and an
- * edited approval carries the edits after the keyword.
- */
 describe('AgentPrompt — the plan card', () => {
   const PLAN = {
     title: 'Brandschutz in Wien',
@@ -522,8 +488,6 @@ describe('AgentPrompt — the plan card', () => {
     })
   })
 
-  // An answered plan folds to one line; it used to keep the whole card of
-  // disabled controls standing above the run it started.
   test('an edited approval folds to one line naming the approved plan', () => {
     render(
       <AgentPrompt
@@ -561,15 +525,11 @@ describe('AgentPrompt — the plan card', () => {
     const { rerender } = render(<AgentPrompt content={CONTENT} />)
     expect(screen.getByRole('button', { name: /approve plan/i })).toBeInTheDocument()
     rerender(<AgentPrompt content={CONTENT} isResponded response="approve" />)
-    // The receipt waits for the decision to leave (`mode="wait"`).
     expect(await screen.findByTestId('plan-record')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /approve plan/i })).not.toBeInTheDocument()
   })
 
   test('the leaving decision is out of reach while it fades', async () => {
-    // AnimatePresence keeps rendering the decision it last had, handlers from
-    // before the answer included: a click during the fade would send a second
-    // interaction_response.
     useChatStore.setState({ respondToInteractionFn: vi.fn() })
     const { rerender } = render(<AgentPrompt content={CONTENT} />)
     rerender(<AgentPrompt content={CONTENT} isResponded response="approve" />)

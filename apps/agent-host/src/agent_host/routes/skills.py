@@ -52,30 +52,18 @@ from pydantic import model_validator
 from agent.auth import Principal
 from agent.common.job_admission import JobAdmissionError
 
+from ..jobs.run_result import TEMPORARY_CONVERSATION_KEY
 from ..registry import get_agent_config
 from .internal_auth import _require_internal_token
 
 logger = logging.getLogger(__name__)
 
-# The JOB's chosen output kind maps onto exactly one async-job-capable agent
-# type. Both entries are registered in AGENT_REGISTRY at import time
-# (deep_researcher, researcher). Deterministic by construction: there is
-# no path from an output kind to "some other agent".
-#
-# The mapping itself is unchanged; only where the value comes from moved. It
-# used to be read off the skill's ``grid-execution`` metadata, which made a
-# skill declare how it ran. It is now a column on the job row, chosen by the
-# user, and a skill is merely attached on top.
 _OUTPUT_AGENT_TYPES: dict[str, str] = {
     "chat": "researcher",
     "deep-research": "deep_researcher",
 }
 
 
-#: The longest composed ``input`` a run accepts. The BFF mirrors it as
-#: ``AGENT_RUN_INPUT_MAX_CHARS`` (``apps/workspace/bff/jobs/types.ts``) and
-#: derives every prompt budget from that copy; ``test_skill_submit.py`` holds
-#: the two equal.
 SUBMIT_INPUT_MAX_CHARS = 48_000
 
 
@@ -89,14 +77,6 @@ class SkillSubmitPayload(BaseModel):
     prompt built BFF-side.
     """
 
-    # `input` is a COMPOSED prompt: the job's own prompt, plus the full body of
-    # the attached skill when there is one, or a revision task's instruction
-    # plus the document it revises. A job prompt and a skill body each fit
-    # inside the 32000-char skill-body limit (MAX_SKILL_BODY_LENGTH), but their
-    # sum need not, so the ceiling is 48000 here. It is a ceiling, not a target:
-    # an over-long prompt is rejected with a 422 and never silently truncated,
-    # because a run that quietly drops half its instructions is worse than one
-    # that refuses to start.
     input: str = Field(
         ...,
         min_length=1,
@@ -110,12 +90,6 @@ class SkillSubmitPayload(BaseModel):
             "composed into `input`; nothing is forced on the worker. Empty = no skill attached."
         ),
     )
-    # The wire field is `output`; `execution` is the pre-rename spelling, kept
-    # readable for ONE release. The BFF and this service deploy separately, and
-    # a hard rename would fail every scheduled run in the window between the two
-    # deploys — precisely the window nobody is watching. Delete `execution`
-    # (and `_resolved_output`'s fallback) once the BFF that sends `output` is
-    # deployed everywhere.
     output: Literal["chat", "deep-research"] | None = Field(
         None,
         description="The job's chosen output kind; decides the agent",
@@ -153,6 +127,10 @@ class SkillSubmitPayload(BaseModel):
     memory_reflection_enabled: bool = Field(
         False,
         description="Whether the worker may run the post-run memory reflection pass (the org's flag, BFF-evaluated)",
+    )
+    temporary_conversation: bool = Field(
+        False,
+        description="The run's conversation is temporary (ADR-0180): the worker reflects nothing from its report",
     )
     organization_id: str = Field(..., description="WorkOS organization id owning the run (required)")
     user_id: str | None = Field(None, description="Skill owner's WorkOS user id")
@@ -262,9 +240,6 @@ class SkillSubmitResponse(BaseModel):
 
 async def _check_skill_data_sources(body: SkillSubmitPayload, agent_type: str, config_name: str) -> None:
     """Validate the data sources as the public submit route does, per agent when the builder is up."""
-    # Validate data sources the same way the public submit route does. The
-    # per-agent availability check needs the builder captured at job-route
-    # registration; import the validator (it pulls in the agent runtime) only when we have one.
     from .builder_state import get_active_builder
 
     builder = get_active_builder()
@@ -278,10 +253,6 @@ async def _check_skill_data_sources(body: SkillSubmitPayload, agent_type: str, c
             data_sources=body.data_sources,
         )
     elif body.data_sources:
-        # Startup window before register_job_routes publishes the builder:
-        # don't silently skip validation — fall back to the registry-level
-        # check (unknown IDs still 422; only per-agent availability is
-        # unverifiable without the builder).
         from agent.common.data_source_registry import get_all_sources
 
         known_ids = {source.id for source in get_all_sources()}
@@ -297,9 +268,7 @@ async def _check_skill_data_sources(body: SkillSubmitPayload, agent_type: str, c
 
 def _skill_usage_context(body: SkillSubmitPayload) -> dict:
     """The identity and budget the worker's usage ledger attributes the run's spend to."""
-    # Identity keys must match cost_tracking._read_identity_from_context so
-    # the worker's usage ledger attributes scheduled-run spend correctly.
-    return {
+    context: dict = {
         "identity": {
             "organization_id": body.organization_id,
             "user_id": body.user_id,
@@ -308,6 +277,9 @@ def _skill_usage_context(body: SkillSubmitPayload) -> dict:
         },
         "budget_header": body.budget_header,
     }
+    if body.temporary_conversation:
+        context[TEMPORARY_CONVERSATION_KEY] = True
+    return context
 
 
 async def _submit_skill_run(
@@ -319,8 +291,6 @@ async def _submit_skill_run(
     request_envelope: dict[str, str] | None,
 ) -> str:
     """Queue the skill's job and return its id; the submit errors become the route's HTTP statuses."""
-    # Import the async-job layer lazily (it pulls in the agent runtime) so this module
-    # stays cheap to import next to the maintenance routes.
     from ..jobs.submit import DuplicateJobIdError
     from ..jobs.submit import MissingPrincipalError
     from ..jobs.submit import submit_agent_job as submit_authorized_job
@@ -338,16 +308,8 @@ async def _submit_skill_run(
             project_memory=body.project_memory,
             model_overrides=body.model_overrides,
             usage_context=usage_context,
-            # The flag is the BFF's to evaluate (per organization); the
-            # reflection LLM ref is the worker's to resolve from its config.
             memory_reflection_enabled=body.memory_reflection_enabled,
-            # Explicit, because a scheduled run has no request context to
-            # inherit one from. This is what lets the worker write the
-            # answer into a thread a human can open and continue.
             conversation_id=body.conversation_id,
-            # And this is what lets it narrate itself there: without the run
-            # id the worker builds no `RunLedgerFold`, the block is minted
-            # and then never moves (`jobs/runner.py`).
             run_id=body.run_id,
             clarifier_result=body.clarifier_result,
             documents=body.documents,
@@ -372,16 +334,11 @@ async def _submit_skill_run(
 async def submit_skill(body: SkillSubmitPayload, request: Request) -> SkillSubmitResponse:
     _require_internal_token(request)
 
-    # Import the envelope helper lazily, like the job layer.
     from ..jobs.run_envelope import capture_request_envelope
 
-    # Deterministic agent selection (see module docstring): the job's chosen
-    # output kind decides the agent, unless an explicit override arrived.
-    # Never substitutes one output kind for another.
     output = body.resolved_output
     agent_type = body.agent_type or _OUTPUT_AGENT_TYPES[output]
 
-    # Validate agent_type against the registry, like the public submit route.
     try:
         agent_config = get_agent_config(agent_type)
     except KeyError as exc:
@@ -389,19 +346,10 @@ async def submit_skill(body: SkillSubmitPayload, request: Request) -> SkillSubmi
 
     await _check_skill_data_sources(body, agent_type, agent_config.config_name)
 
-    # Reconstitute the skill owner's identity. The job is owned by the
-    # owner (type "jwt" matches the WorkOS-authenticated principal they
-    # present when later viewing the run), so existing job-access authz
-    # keeps working. Fall back through email/org when the owner id is
-    # absent so a Principal can always be built.
     subject = body.user_id or body.owner_email or body.organization_id
     principal = Principal(type="jwt", sub=subject, email=body.owner_email)
     owner = principal.email or principal.sub
 
-    # The requester's envelope the BFF signed for this fire, carried so the
-    # run's person-acting tools act as them (ADR-0108). Kept only when it
-    # speaks for the body's requester in the body's organization: the
-    # internal token authenticates the BFF, not a person.
     request_envelope = capture_request_envelope(
         request.headers, user_id=body.user_id, organization_id=body.organization_id
     )

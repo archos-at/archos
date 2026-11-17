@@ -3,22 +3,6 @@ import * as pulumi from "@pulumi/pulumi";
 import { POOLED_POOLS } from "./src/constants";
 import { baseStackConfig, langfuseStackConfig } from "./src/test-support/stack-config";
 
-/**
- * Postgres connections go through a transaction pooler, and every session
- * feature takes a direct connection (ADR-0083). This is the confirmation for
- * both halves, against the whole program rather than one module, because the
- * routing is spread across seven files and no one of them sees the table.
- *
- * The failure it exists to catch is silent. A session advisory lock taken
- * through a transaction pooler "works": the lock is acquired on one server
- * connection and released on another, and the first stays locked until it is
- * recycled. LISTEN through one registers on a server connection the client does
- * not keep, and no notification ever arrives. Neither raises an error.
- *
- * In the split topology with Langfuse on, so every consumer of a DSN is built:
- * the filer's store, Langfuse's Prisma, Hatchet's and KEDA's DSNs on background-work-pg.
- */
-
 type Inputs = Record<string, unknown>;
 const RESOURCES: Array<{ type: string; name: string; inputs: Inputs }> = [];
 
@@ -43,46 +27,29 @@ const DIRECT = "grid-pg-rw";
 const POOLER = "grid-pg-pooler-rw";
 const BACKGROUND_WORK_DIRECT = "background-work-pg-rw.background-work.svc.cluster.local";
 
-/**
- * The route of every Postgres DSN the program emits, by `<resource>/<key>`.
- * A new DSN that is not in this table fails the test below, so choosing a route
- * is not something a new consumer can skip.
- */
 const EXPECTED_HOSTS: Record<string, string> = {
-  // The pooled five: self-contained per transaction.
   "grid-secrets/NAT_JOB_STORE_DB_URL": POOLER,  // pragma: allowlist secret
   "grid-secrets/CHECKPOINT_DB": POOLER,  // pragma: allowlist secret
   "grid-secrets/DEEP_CHECKPOINT_DB": POOLER,
   "grid-secrets/SUMMARY_DB": POOLER,
   "grid-secrets/APP_DATABASE_URL": POOLER,
-  // Session-scoped: LISTEN/NOTIFY, session advisory locks, DDL under the owner.
   "grid-secrets/LISTEN_DB_URL": DIRECT,
   "grid-secrets/LOCK_DB_URL": DIRECT,
   "grid-secrets/APP_MIGRATION_DATABASE_URL": DIRECT,
-  // The init Job.
   "pg-init-dsns/JOBS_DSN": DIRECT,
   "pg-init-dsns/CHECKPOINTS_DSN": DIRECT,
   "pg-init-dsns/SEAWEED_FILER_DSN": DIRECT,
-  // Hatchet's own cluster (ADR-0150): no pooler, every client in another
-  // namespace (Hatchet's, KEDA's), so by FQDN.
   "hatchet-database/DATABASE_URL": BACKGROUND_WORK_DIRECT,
   "background-work-pg-grants-dsn/OWNER_DSN": BACKGROUND_WORK_DIRECT,
   "background-work-keda-scaler/KEDA_BACKGROUND_WORK_DB_URL": BACKGROUND_WORK_DIRECT,
-  // Prisma migrates under a session advisory lock of its own.
   "langfuse-secrets/database-url": DIRECT,
 };
 
-/**
- * A Secret's `stringData` as the mock receives it: any value that is a pulumi
- * secret arrives wrapped as `{ <secret sigil>: ..., value }`, and a Secret
- * built from secret Outputs is wrapped whole.
- */
 function unsecret(stringData: unknown): Record<string, unknown> {
   const wrapped = stringData as { value?: Record<string, unknown> } | undefined;
   return (wrapped && "value" in wrapped ? wrapped.value : (stringData as Record<string, unknown>)) ?? {};
 }
 
-/** Every `<resource>/<key>` whose value is a Postgres URL, with the URL parsed. */
 function postgresDsns(): Array<{ id: string; url: URL }> {
   const found: Array<{ id: string; url: URL }> = [];
   for (const resource of RESOURCES) {
@@ -90,7 +57,6 @@ function postgresDsns(): Array<{ id: string; url: URL }> {
     const data = unsecret(resource.inputs.stringData);
     for (const [key, value] of Object.entries(data)) {
       if (typeof value !== "string" || !/^postgres(ql)?(\+\w+)?:\/\//.test(value)) continue;
-      // `new URL` does not know the `postgresql+asyncpg` scheme's authority rules.
       found.push({ id: `${resource.name}/${key}`, url: new URL(value.replace(/^postgres(ql)?(\+\w+)?:/, "postgres:")) });
     }
   }
@@ -123,8 +89,6 @@ describe("Postgres routing", () => {
   });
 
   it("keeps LISTEN, the session locks and the migrations off the pooler, whatever else moves", () => {
-    // The same fact as the table, stated as the rule it enforces, so a reviewer
-    // reading a failure sees the reason and not only a diff of hostnames.
     const hosts = Object.fromEntries(postgresDsns().map(({ id, url }) => [id, url.hostname]));
 
     for (const key of ["LISTEN_DB_URL", "LOCK_DB_URL", "APP_MIGRATION_DATABASE_URL"]) {
@@ -159,10 +123,6 @@ describe("Postgres routing", () => {
     expect(pairs).toEqual(budgeted);
   });
 
-  // `require_direct_dsns` refuses to start a Postgres process without them: the api role
-  // needs both (it serves the job SSE streams), the chat role and the workers the lock DSN.
-  // A tier left without one does not degrade, it crash-loops, so the manifest is held to it
-  // here. The chat role is given the LISTEN DSN too, as it shares the env list with api.
   it("gives every pod that runs the Python code the direct DSNs its start-up check requires", () => {
     const env = (name: string) =>
       RESOURCES.filter(
@@ -187,10 +147,8 @@ describe("Postgres routing", () => {
       return (cluster.inputs.spec as { postgresql: { parameters: Record<string, string> } }).postgresql.parameters;
     };
 
+    // 2026-10 incident: with the OS default (7200 s idle) a dead node kept its sessions and advisory locks for 16 to 55 minutes.
     it("finds a dead client in about two minutes, through TCP keepalives", () => {
-      // A node that dies closes no TCP connection. With the OS default (7200 s
-      // idle) the server kept such sessions, and their session advisory locks,
-      // for 16 to 55 minutes in the 2026-10 incident. 60 + 6 x 10 s = 120 s.
       expect(parameters()).toMatchObject({
         tcp_keepalives_idle: "60",
         tcp_keepalives_interval: "10",
@@ -244,8 +202,6 @@ describe("Postgres routing", () => {
         max_client_conn: "2000",
         default_pool_size: "12",
         max_prepared_statements: "200",
-        // A client idle inside a transaction pins a server connection and its
-        // locks; ten minutes, the server's own idle_in_transaction timeout.
         idle_transaction_timeout: "600",
       });
     });
@@ -265,9 +221,7 @@ describe("Postgres routing", () => {
       expect(pdb, "a PDB for the poolers").toBeDefined();
       const pdbSpec = pdb!.inputs.spec as { maxUnavailable: number; selector: { matchLabels: Record<string, string> } };
       expect(pdbSpec.maxUnavailable).toBe(1);
-      // By the label the operator sets, not the template's: CloudNativePG
-      // overwrites `app.kubernetes.io/name` and `managed-by` on the pods, so a
-      // selector on the template's labels matched no pooler (2026-10-12).
+      // 2026-10-12: CloudNativePG overwrites the template labels on its pods, so a selector on them matched no pooler.
       expect(pdbSpec.selector.matchLabels).toEqual({ "cnpg.io/poolerName": POOLER });
       expect(spec().template.spec.topologySpreadConstraints[0].labelSelector.matchLabels).toEqual({
         "cnpg.io/poolerName": POOLER,

@@ -13,20 +13,6 @@ from agent.cards.card_model import CardModel
 DimStatus = Literal["pass", "fail", "warning", "needs_input"]
 
 
-#: Where a number on a card came from — the three the spatial engine draws.
-#:
-#: These are `ifc_spatial.envelope.Answer.provenance` exactly, and the point of
-#: keeping the same three words is that the card and the sentence beside it can
-#: never disagree about who is making the claim. The German the renderer prints
-#: for each is not decoration either:
-#:
-#:   declared → „laut Modell"   — the architect's own statement, quoted back
-#:   computed → „gemessen"      — OUR measurement, and it carries a tolerance
-#:   inferred → „vermutlich"    — a heuristic, offered for confirmation
-#:
-#: The difference between the first two is the difference between reporting the
-#: file and reporting ourselves, and a reader has to be able to tell which one
-#: they are being handed before they sign it.
 Provenance = Literal["declared", "computed", "inferred"]
 
 

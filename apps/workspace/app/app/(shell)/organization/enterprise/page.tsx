@@ -1,19 +1,3 @@
-/**
- * Organization → enterprise. The identity plumbing an IT department owns: SSO,
- * Directory Sync, domain verification and audit-log streaming, each rendered by
- * WorkOS' own admin-portal widget.
- *
- * The chrome, the back link and the section nav live in the shared `layout.tsx`;
- * this page only names its section and renders it.
- *
- * Two gates, on purpose. The section needs org-admin standing to open at all,
- * and each widget additionally needs the matching WorkOS widget permission —
- * decided here and passed down as booleans, while the token route independently
- * refuses to mint a scope the caller lacks. Member management is NOT here: it
- * lives in the Access section, so `canManageUsers` is false and the Users widget
- * never renders twice.
- */
-
 import type { JSX } from 'react'
 import { ShieldAlert } from 'lucide-react'
 import { withPageSession } from '@/lib/auth/require-auth'

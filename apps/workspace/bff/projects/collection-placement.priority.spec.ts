@@ -1,22 +1,3 @@
-/**
- * Placement's re-reads are bulk work, on every way a document is read
- * (ADR-0079, ADR-0081, ADR-0087).
- *
- * Restricting a large folder re-reads every document in it. Nobody is waiting
- * on those re-reads, so they must queue behind a colleague's upload in the same
- * office and take provider slots only after interactive work. Two halves:
- *
- *   - the request (and the sweep) purges and re-points, and hands the re-read
- *     to ONE `placement_reingest` job, at bulk; it dispatches nothing itself;
- *   - that job dispatches through the real `dispatchDocument`, so each branch a
- *     document can take is checked where it leaves: the `/v1/ingest` body for
- *     an ordinary file, the `bff_job_queue` priority for an IFC model and for a
- *     Word file's rendition.
- *
- * The SQL is `collection-placement.integration.spec.ts`'s subject; here it is
- * the rows it would answer.
- */
-
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { purgeIngestedChunks } from '@/lib/documents/collection-file-ref'
 
@@ -110,7 +91,6 @@ beforeEach(() => {
   vi.stubGlobal('fetch', fetchSpy)
   vi.mocked(getOrgSettings).mockResolvedValue({ displayName: null, defaultLocale: 'de', homeCountry: null, settings: {} })
   vi.mocked(findProjectInOrg).mockResolvedValue(makeProject({ id: PROJECT, collectionName: COLLECTION }))
-  // "Honorare" is restricted to one role: its documents belong in its own collection.
   vi.mocked(listProjectFolderTree).mockResolvedValue([
     { id: FOLDER, parentId: null, accessMode: 'custom', everyoneReads: false },
   ])
@@ -136,7 +116,6 @@ describe('a restriction drawn in a request', () => {
     expect(enqueueJob).toHaveBeenCalledTimes(1)
     const queued = vi.mocked(enqueueJob).mock.calls[0][0]
     expect(queued).toMatchObject({ kind: 'placement_reingest', organizationId: ORG, payload: { projectId: PROJECT } })
-    // The queue's default, which is bulk (`enqueueJob`); never stated interactive.
     expect(queued.priority).toBeUndefined()
     expect(tagAwaitingPlacementReingest).toHaveBeenCalledWith(ORG, PROJECT, 'bff-job-1')
   })
@@ -232,7 +211,6 @@ describe('the placement_reingest job dispatches every branch at bulk priority', 
   })
 
   it('re-points a row whose folder changed collection while it waited, and dispatches it there', async () => {
-    // The restriction was lifted before the job ran: the row belongs in the open collection now.
     vi.mocked(listProjectFolderTree).mockResolvedValue([{ id: FOLDER, parentId: null, accessMode: 'inherit', everyoneReads: false }])
     taken(placementRow('Honorarnote.pdf'))
 

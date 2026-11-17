@@ -3,16 +3,6 @@ import { check, date, foreignKey, index, pgTable, text, timestamp, uuid } from '
 
 import { projects } from './projects'
 
-/**
- * Everyone who worked on a project, with or without a Piloti account
- * (migration 0117, ADR-0091): former staff, external planners, the client's
- * people. The Steckbrief's people list.
- *
- * Personal data of people who mostly never gave it: name, function, company,
- * months, and an optional link to a Piloti account, nothing else (no e-mail, no
- * phone). Deleted outright, never soft-deleted: deleting is the erasure. Never
- * part of the agent's prompt.
- */
 export const projectPeople = pgTable(
   'project_people',
   {
@@ -20,15 +10,10 @@ export const projectPeople = pgTable(
     organizationId: text('organization_id').notNull(),
     projectId: uuid('project_id').notNull(),
     name: text('name').notNull(),
-    /** Funktion: what they did on the project (Projektleitung, Statik, Bauherr). */
     function: text('function'),
-    /** Firma. */
     company: text('company'),
-    /** From, month precision: the first of its month. */
     startedOn: date('started_on', { mode: 'string' }),
-    /** To, month precision: the first of its month. */
     endedOn: date('ended_on', { mode: 'string' }),
-    /** The WorkOS user id of their Piloti account, when they have one and someone linked it. */
     userId: text('user_id'),
     createdBy: text('created_by').notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

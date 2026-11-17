@@ -34,20 +34,9 @@ from agent.citations.verification import resolve_source_line
 logger = logging.getLogger(__name__)
 
 
-#: A quote longer than this is a pasted passage, not a quotation — flagged
-#: whatever the fuzzy match says. Forty words is roughly three German legal
-#: sentences; anything a reader should check belongs in the cited channel
-#: (the passage snippet on the wire), not between quote marks in the prose.
 QUOTE_MAX_WORDS = 40
 
 
-#: What ends the sentence a quote sits in, for the citation-proximity check. A
-#: period between digits is a decimal point (``2.50 m``), not an end — the same
-#: guard ``piloti.grounding`` uses. Single newlines count: a list item is its
-#: own sentence for attribution purposes. Deliberately NOT abbreviation-aware
-#: (``vgl.``, ``z. B.`` split the window): the one-sentence lookahead below
-#: absorbs exactly that shape, and a closed abbreviation list would be a second
-#: thing to keep in sync with the language the models actually write.
 _QUOTE_SENTENCE_END_RE = re.compile(r"(?<!\d)\.(?!\d)|[!?…]|\n")
 
 
@@ -279,10 +268,6 @@ def verify_quoted_spans(
         best_coverage = max(normalized_coverage(norm_quote, chunk) for chunk, _ in normalized_chunks)
         if not (too_long or uncited or best_coverage < threshold):
             continue
-        # The passage a correction may come from: the closest one of a source
-        # the quote's own sentence CITES. The closest in the whole registry
-        # could be another Bundesland's near-identical text, and a patch from
-        # it would put that text under this citation (ADR-0067).
         nearest, score = None, 0.0
         if with_nearest and not (too_long or uncited):
             nearest, score = _nearest_cited(norm_quote, cited_lookup(cited_numbers), normalized_chunks)

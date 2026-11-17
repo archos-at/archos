@@ -1,7 +1,6 @@
 import { z } from 'zod'
-import { TASK_REVIEWS } from '@/lib/db/schema/tasks'
+import { TASK_REVIEWS } from '@/lib/db/schema/task-model'
 
-/** Bound on a reviewer's reason: it is quoted into the next run's prompt. */
 export const REVIEW_REASON_MAX_CHARS = 1000
 
 export const reviewTaskSchema = z.object({

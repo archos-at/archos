@@ -1,9 +1,3 @@
-/**
- * The by-name resolve behind citation chips and surfaced-document cards. A
- * name is asked of the server, never looked up in a listing page; the chips of
- * one render share one request; an answer is cached, a failure is not.
- */
-
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   resetDocumentsByNameCache,

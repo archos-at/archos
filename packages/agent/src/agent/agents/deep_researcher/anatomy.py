@@ -35,10 +35,7 @@ from agent.common.findings import sanitize_findings
 
 logger = logging.getLogger(__name__)
 
-#: Bounded like the card pass: the report is complete before this runs.
 _ANATOMY_TIMEOUT_S = 45.0
-#: What the model reads. A long report is cut from the END: the lead, the
-#: findings and the tables are at the front, the sources list is last.
 _MAX_REPORT_CHARS = 60_000
 
 

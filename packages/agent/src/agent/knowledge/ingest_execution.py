@@ -43,13 +43,9 @@ from .schema import JobState
 
 logger = logging.getLogger(__name__)
 
-#: Why a job whose payload could not be read ended. A machine prefix the UI
-#: maps to its own sentence (``ingest-failure.ts``): reading never started.
 UNREADABLE_JOB_MESSAGE = "unreadable_job: the queued ingestion job could not be read; retry to index this file"
 
-#: What ``metadata`` says of a job that waits for another attempt.
 RETRYING_KEY = "retrying_after"
-#: What ``metadata`` says of a job a newer upload of its document replaced.
 SUPERSEDED_KEY = "superseded"
 
 
@@ -73,7 +69,7 @@ def run_job(
     """
     with priority_scope(prepared.priority):
         ingestor.run_prepared(prepared, still_owner=still_owner)
-    return ingestor.get_job_status(prepared.job_id)
+    return ingestor.get_job_status(prepared.job_id) or ingest_status_store.interrupted(prepared.status)
 
 
 def outcome_of(status: IngestionJobStatus) -> Outcome:
@@ -130,7 +126,6 @@ def unreadable_job_failure(status: IngestionJobStatus) -> IngestionJobStatus:
     failed.error_message = UNREADABLE_JOB_MESSAGE
     verdict = classify_failure(UNREADABLE_JOB_MESSAGE)
     failed.metadata = {**failed.metadata, "failure_reason": "unreadable_job", "retryable": verdict.retryable}
-    # By position: `interrupted` copies the details in order, and a file id may be empty.
     for before, detail in zip(status.file_details, failed.file_details, strict=True):
         if before.status in (FileStatus.SUCCESS, FileStatus.FAILED):
             continue

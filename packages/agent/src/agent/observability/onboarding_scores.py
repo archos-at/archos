@@ -12,7 +12,6 @@ from __future__ import annotations
 
 from .score_definition import ScoreDefinition
 
-#: The tag a chat turn carries when its prompt held an advice policy's hedges (design §5.5).
 ADVICE_POLICY_TRACE_TAG = "advice_policy:carried"
 
 ONBOARDING_SCORE_DEFINITIONS: tuple[ScoreDefinition, ...] = (

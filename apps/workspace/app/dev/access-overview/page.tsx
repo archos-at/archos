@@ -1,32 +1,5 @@
 'use client'
 
-/**
- * Dev preview for the "who has access" surfaces — the real `AccessChip`,
- * `ParticipantStrip` and `AccessOverview` with fixture data and no backend, so the
- * design can be reviewed and screenshotted (`docs/ux/visual-screenshots.md`). Not
- * linked from anywhere; 404s outside development.
- *
- * Deliberately fetch-free (the reference for that is `app/dev/cards/page.tsx`):
- * all three components are presentational, which is the property that lets a list
- * row render the access chip without opening a request per row. The share *dialog*,
- * which does read from the server, has its own preview at `/dev/share-dialog`.
- *
- * The fixtures exercise the states that are easy to get wrong:
- *   - `private` with nobody else (the lock) vs. `private` shared with three people
- *     (deliberately NOT a lock);
- *   - a roster whose access comes from three different reasons at once, so the
- *     "why" line is visible for each;
- *   - a `project`-wide thread, where the blanket rule is the headline and the named
- *     people are the exception;
- *   - a solo thread, which must render no strip at all.
- *
- * Pinned to German (`I18nProvider initialLocale="de" fixedLocale`): German is the product's
- * primary language, so the committed evidence must carry the copy most users
- * actually see — and the scaffolding around these previews is German already, so
- * without the pin a screenshot mixes both languages and the primary-language copy
- * cannot be reviewed at all.
- */
-
 import type { JSX } from 'react'
 import { notFound } from 'next/navigation'
 
@@ -98,7 +71,6 @@ function Eyebrow({ children }: { children: string }): JSX.Element {
   )
 }
 
-/** A panel the overview sits in, the way the share dialog frames it. */
 function Panel({ title, children }: { title: string; children: React.ReactNode }): JSX.Element {
   return (
     <div className="space-y-3">
@@ -113,9 +85,6 @@ export default function AccessOverviewDevPage(): JSX.Element {
     notFound()
   }
 
-  // `text-foreground` matters: the root layout only sets a surface colour, so
-  // without it this preview's own headings inherit the browser default and go
-  // black in dark mode (product pages set it on their shell wrapper).
   return (
     <I18nProvider initialLocale="de" fixedLocale>
       <main
@@ -123,7 +92,7 @@ export default function AccessOverviewDevPage(): JSX.Element {
         className="mx-auto flex max-w-3xl flex-col gap-10 p-4 text-foreground sm:p-8"
       >
         <div>
-          <h1 className="text-xl font-semibold">Wer Zugriff hat</h1>
+          <h1 className="text-page-title font-medium phone:text-section">Wer Zugriff hat</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Chip, Teilnehmerleiste und Übersicht — die Antwort auf „wer liest das mit?“.
           </p>

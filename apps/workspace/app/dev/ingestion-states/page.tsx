@@ -1,28 +1,5 @@
 'use client'
 
-/**
- * Dev preview: every ingestion state, side by side, on every surface that
- * names one.
- *
- * The other previews show a surface in a moment (`/dev/upload-tray` walks one
- * batch from drop to settled, `/dev/file-browser?variant=uploading` the grid
- * just after). This one is the comparison: each state a document can be in
- * between the drop and being readable, once per surface, so states that share
- * a colour can be checked for telling themselves apart anyway.
- *
- *   1. The status badge, as the list and the preview draw it.
- *   2. The file card, where the badge floats on the thumbnail's frost.
- *   3. The Files list, one row per state.
- *   4. The upload tray, one row per phase, the three failures apart:
- *      a retryable upload, a read that failed, and a taken name a retry
- *      cannot fix; and a file held because the one it replaces is held.
- *   5. The chat's file peek, for a held file beside a citable one.
- *
- * Backend-free: fixtures only, and a fetch shim that 404s thumbnails so every
- * card draws the sketch placeholder. `app/dev/layout.tsx` 404s the route
- * outside development.
- */
-
 import type { JSX, ReactNode } from 'react'
 import { DocumentStatusBadge } from '@/features/documents/components/document-status'
 import { FileCard } from '@/features/documents/components/file-card'
@@ -42,8 +19,6 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
     const real = window.fetch.bind(window)
     window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
-      // Only this preview's fixtures (`s0`…`s8`): the shim outlives the page on
-      // a client navigation, and a real document's id is a UUID.
       if (/\/api\/documents\/s\d+\/thumbnail$/.test(url)) return new Response(null, { status: 404 })
       return real(input, init)
     }
@@ -55,7 +30,6 @@ const MB = 1_000_000
 const HELD_VERDICT =
   'quarantined:{"reasons":[{"kind":"term","term":"Honorarvereinbarung","pages":[1,3]},{"kind":"iban","sample":"AT61 •••• 1234","pages":[3]}],"checked":"full"}'
 
-/** One row per state a stored document can be in, in the order a reader scans for them. */
 const STATES: { status: string; note: string; queueAhead?: number; errorMessage?: string; name: string }[] = [
   { status: 'uploading', note: 'bytes still arriving', name: 'Wohnbau-Nord_Gesamtmodell.ifc' },
   { status: 'pending', note: 'in the office’s ingest queue', queueAhead: 3, name: 'Baubeschreibung_Einreichung.pdf' },
@@ -87,7 +61,6 @@ const doc = (index: number, state: (typeof STATES)[number]): FileItem => ({
   status: state.status,
   queueAhead: state.queueAhead ?? null,
   folderId: null,
-  // Fixed, so the list's "added" column does not move between captures.
   createdAt: `2026-06-14T09:0${index}:00Z`,
   errorMessage: state.errorMessage ?? null,
   summary: state.status === 'completed' ? 'Energieausweis nach OIB-Richtlinie 6, HWB 28 kWh/m²a.' : null,
@@ -108,7 +81,6 @@ const tracked = (overrides: Partial<TrackedFile> & Pick<TrackedFile, 'id' | 'fil
   ...overrides,
 })
 
-/** One row per live and settled phase. */
 const TRAY_LIVE: TrackedFile[] = [
   tracked({ id: 'q', fileName: 'Wohnbau-Nord_Gesamtmodell.ifc', fileSize: 152 * MB }),
   tracked({
@@ -133,12 +105,6 @@ const TRAY_LIVE: TrackedFile[] = [
 
 type FilesTranslator = ReturnType<typeof useTranslations>
 
-/**
- * The rows that ask something of the reader: held (by its own verdict, and
- * because the file it replaces is held, the 409 a re-upload meets), the three
- * failures apart, and a cancelled one. Said from the dictionary, as the upload
- * hook says them.
- */
 const traySettled = (t: FilesTranslator): TrackedFile[] => [
   tracked({
     id: 'h',
@@ -148,8 +114,6 @@ const traySettled = (t: FilesTranslator): TrackedFile[] => [
     serverFileId: 'd-h',
     errorMessage: HELD_VERDICT,
   }),
-  // The 409 onto a held file its uploader may see: held with it, not failed,
-  // its own sentence and the request for a review of the held file.
   tracked({
     id: 'h-replace',
     fileName: 'Honorarvereinbarung_Wohnbau-Nord_v2.pdf',
@@ -159,7 +123,6 @@ const traySettled = (t: FilesTranslator): TrackedFile[] => [
     replacesHeld: { documentId: 'd-h', ownUpload: true },
     errorMessage: t('errors.quarantinedReplace', { name: 'Honorarvereinbarung_Wohnbau-Nord_v2.pdf' }),
   }),
-  // Never reached the server: a retry sends it again.
   tracked({
     id: 'f-up',
     fileName: 'Wohnbau-Nord_Fassade.ifc',
@@ -168,7 +131,6 @@ const traySettled = (t: FilesTranslator): TrackedFile[] => [
     bytesUploaded: 40 * MB,
     errorMessage: t('errors.uploadNetwork'),
   }),
-  // Accepted and could not be read: the reason in the reader's words, „Details" for the raw text.
   tracked({
     id: 'f-read',
     fileName: 'Statik_Positionsplan.docx',
@@ -177,8 +139,6 @@ const traySettled = (t: FilesTranslator): TrackedFile[] => [
     serverFileId: 'd-f-read',
     errorMessage: 'office_rendition_required: conversion timed out',
   }),
-  // A taken name, a refusal a retry meets again: no retry, only the sentence.
-  // A held file the uploader may not see reads exactly like this.
   tracked({
     id: 'f-final',
     fileName: 'Baubeschreibung.pdf',
@@ -204,7 +164,6 @@ function Stage({ title, note, children }: { title: string; note: string; childre
 
 const noop = () => {}
 
-/** The chat's file peek: a held file says it is held back, a citable one says nothing of the kind. */
 const PEEKS: { note: string; file: FileItem }[] = [
   { note: 'quarantined', file: DOCUMENTS[4] },
   { note: 'completed', file: DOCUMENTS[3] },

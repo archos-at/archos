@@ -1,15 +1,15 @@
-/**
- * Platform knowledge management — upload a PDF (or a ZIP of PDFs) into the
- * shared base corpus (ADR-0016). Platform owners only. The backend ingests in
- * the background, so a successful accept returns `pending` (HTTP 200); the UI
- * polls the corpus status for the terminal lifecycle. An optional `doc_class`
- * form field pre-sets the Dokumentart for a single-PDF upload.
- */
-
 import { NextResponse } from 'next/server'
 import { platformApiRoute } from '@/lib/api/platform-handler'
 import { PLATFORM_PERMISSIONS } from '@/lib/authz/permissions'
-import { uploadKnowledgeBaseDocument } from '@/lib/knowledge/service'
+import { refuseReplacingNamedTexts } from '@/lib/base-knowledge/platform/texts'
+import { uploadedPdfHashes } from '@/lib/base-knowledge/platform/upload-hashes'
+import { getKnowledgeBaseStatus, uploadKnowledgeBaseDocument } from '@/lib/knowledge/service'
+import { corpusQuerySchema, narrowCorpus } from '@/lib/knowledge/corpus-query'
+import { parseQuery } from '@/lib/api/handler'
+
+export const GET = platformApiRoute(async ({ request }) => narrowCorpus(await getKnowledgeBaseStatus(), parseQuery(request, corpusQuerySchema)), {
+  permission: PLATFORM_PERMISSIONS.settingsView,
+})
 
 export const POST = platformApiRoute(
   async ({ request }) => {
@@ -25,9 +25,8 @@ export const POST = platformApiRoute(
     const docClass =
       typeof docClassField === 'string' && docClassField.trim() ? docClassField.trim() : undefined
 
+    await refuseReplacingNamedTexts(await uploadedPdfHashes(file))
     const result = await uploadKnowledgeBaseDocument(file, { docClass })
-    // Ingestion is backgrounded: 'pending' (accepted) and 'success' are OK;
-    // only a terminal 'failed'/'timeout' maps to a gateway error the UI surfaces.
     const ok = result.status === 'pending' || result.status === 'success'
     return NextResponse.json(result, { status: ok ? 200 : 502 })
   },

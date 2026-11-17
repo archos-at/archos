@@ -13,14 +13,9 @@ import { hardenedContainerSecurityContext } from "../platform/security";
 export interface ClamAV {
   deployment: k8s.apps.v1.Deployment;
   service: k8s.core.v1.Service;
-  /** The `MALWARE_SCAN_URL` the frontend and the bff-jobs pool get. */
   url: pulumi.Output<string>;
 }
 
-/**
- * The two config files, read from `deploy/compose/clamav/` so that Compose and
- * this program run the same clamd. Exported for the spec.
- */
 export const CLAMAV_CONFIG_DIR = join(__dirname, "..", "..", "..", "compose", "clamav");
 export function clamavConfigFiles(): { "clamd.conf": string; "freshclam.conf": string } {
   return {
@@ -29,14 +24,6 @@ export function clamavConfigFiles(): { "clamd.conf": string; "freshclam.conf": s
   };
 }
 
-/**
- * The readiness check (busybox `sh`, `nc` and `date` ship in the image): clamd
- * answers `VERSION`, and the database it names is younger than
- * `CLAMAV.maxSignatureAgeHours`. A pod whose freshclam has stopped updating
- * leaves the Service and shows as not ready, the visible half of the rule the
- * BFF enforces per scan (`stale-signatures`). The date is ctime(3) in the
- * image's time zone, UTC.
- */
 export function readinessScript(): string {
   const maxAgeSeconds = CLAMAV.maxSignatureAgeHours * 3600;
   return [
@@ -46,36 +33,12 @@ export function readinessScript(): string {
   ].join("\n");
 }
 
-/** The liveness check: clamd answers `PING`. A stale database is not a reason to restart it. */
 export function livenessScript(): string {
   return `[ "$(printf 'zPING\\0' | nc -w 5 127.0.0.1 ${CLAMAV.port} | tr -d '\\0')" = "PONG" ]`;
 }
 
-/**
- * ClamAV: the malware scanner (ADR-0157). The BFF streams what strangers send
- * (attachments, and each raw message whole) through clamd's INSTREAM, and
- * serves or files nothing it did not answer `OK` for
- * (`apps/workspace/bff/malware-scan/`).
- *
- * One pod, three containers, the Gotenberg pattern otherwise:
- * - `seed` copies the signatures baked into the image onto an emptyDir, so a
- *   new pod serves at once instead of after a 300 MB download;
- * - `clamd` scans, on the database it shares with
- * - `freshclam`, which checks for new signatures twelve times a day and tells
- *   clamd to load them.
- *
- * All three run as the image's `clamav` user. The image's entrypoint starts as
- * root to chown and drop privileges; skipping it leaves nothing to drop.
- *
- * It holds no secret and no tenant data at rest: bytes arrive on a socket and
- * are gone with the reply. Being scanned is the point, so it parses the most
- * hostile input in the namespace, and `platform/network-policies.ts` admits
- * only the frontend and the bff-jobs pool. Egress stays open, as for every pod
- * but two: freshclam needs database.clamav.net, which no NetworkPolicy can name.
- *
- * Fail closed. One replica, surged on a rollout; while no pod is ready every
- * scan fails `unavailable` and is retried, and nothing waits on it at boot.
- */
+export const CLAMAV_DEPLOYMENT_ANNOTATIONS = { "pulumi.com/skipAwait": "true" } as const;
+
 export function installClamAV(
   cfg: DeployConfig,
   provider: k8s.Provider,
@@ -86,13 +49,8 @@ export function installClamAV(
   const labels = commonLabels(name);
   const { image } = cfg.malwareScan;
   const files = clamavConfigFiles();
-  // A scan cut by a rollout fails and is retried, so drain like Gotenberg: a
-  // preStop `sleep` (busybox) while the Service stops routing here, then
-  // SIGTERM, on which clamd finishes the scans it holds (`MaxScanTime` 120 s)
-  // inside the converter profile's grace.
   const shutdown = gracefulShutdown(ROLLOUT.converter, "coreutils");
 
-  // The first start loads about 1 GiB of signatures: up to five minutes.
   const startupBudgetSeconds = 10 * 30;
   assertStartupFitsRollout(name, ROLLOUT.converter, startupBudgetSeconds);
 
@@ -117,7 +75,7 @@ export function installClamAV(
   const deployment = new k8s.apps.v1.Deployment(
     name,
     {
-      metadata: { name, namespace, labels },
+      metadata: { name, namespace, labels, annotations: CLAMAV_DEPLOYMENT_ANNOTATIONS },
       spec: {
         replicas: 1,
         selector: { matchLabels: labels },
@@ -125,9 +83,6 @@ export function installClamAV(
         template: {
           metadata: {
             labels,
-            // clamd and freshclam read their files once, at start, and subPath
-            // mounts never refresh: without the digest a config change would
-            // deploy and take effect nowhere.
             annotations: secretChecksumAnnotations(secretChecksum(files)),
           },
           spec: {
@@ -135,7 +90,6 @@ export function installClamAV(
             automountServiceAccountToken: false,
             terminationGracePeriodSeconds: shutdown.terminationGracePeriodSeconds,
             securityContext: { runAsNonRoot: true, runAsUser: CLAMAV.uid, runAsGroup: CLAMAV.gid, fsGroup: CLAMAV.gid },
-            // Beside the bff-jobs pool, whose receive jobs are its main caller.
             ...onNodeGroup(cfg.nodeGroups.batch),
             initContainers: [
               {
@@ -155,8 +109,6 @@ export function installClamAV(
                 imagePullPolicy: pullPolicyFor(image),
                 securityContext: asClamav,
                 lifecycle: shutdown.lifecycle,
-                // `command`, not `args`: the entrypoint (`/init`) would start as
-                // root and run freshclam in this container too.
                 command: ["clamd", "--foreground", `--config-file=${CLAMAV.configPath}/clamd.conf`],
                 ports: [{ containerPort: CLAMAV.port, name: "clamd" }],
                 volumeMounts: mounts,

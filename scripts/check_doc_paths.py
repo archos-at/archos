@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-"""Keep the concept index pointing at files that exist.
+"""Keep the paths written in agent guides and docs pointing at files that exist.
 
 Why this exists
 ---------------
@@ -28,8 +28,24 @@ A claim is read from the repository root first and from the index's own
 directory second, which is how a reader reads it: the sibling docs are named
 ``document-roles.md`` in the prose and live beside the index.
 
+The same rot reaches every other doc an agent reads. An audit of the guides on
+2026-11-15 found a dozen ``lib/...`` paths, a wrong module for
+``FileOperationKind`` and more, all in code spans, all dead for months. So:
+
+- **Every tracked ``AGENTS.md``** is held to zero. A guide is short and loads on
+  every turn in its scope: a dead path there is a wrong instruction.
+- **``docs/architecture/`` and ``docs/contributing/``** are a ratchet on
+  ``ci/doc_paths_baseline.json``: a file may not gain a dead path, and lowers its
+  entry with ``--update`` when it loses one. Some entries are deliberate, a path
+  named because it is gone (``gotchas.md``), so the count is per file, not zero.
+
+Outside the index a claim is looser, because guides name files the way people
+do: ``test_proposals.py`` or ``common/bff_http.py``, not the full path. It must
+end in a source extension or ``/`` and match the end of some tracked path. That
+still fails on a rename or a deletion, which is what goes stale.
+
 Usage:
-    python scripts/check_doc_paths.py [--list]
+    python scripts/check_doc_paths.py [--list] [--update]
 
 Exit code is 0 when every path resolves, 1 otherwise.
 """
@@ -37,6 +53,7 @@ Exit code is 0 when every path resolves, 1 otherwise.
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import subprocess
 import sys
@@ -46,7 +63,6 @@ INDEX = Path("docs/architecture/where-is-what.md")
 
 CODE_SPAN_RE = re.compile(r"`([^`\n]+)`")
 
-# Extensions that make a bare filename (no slash) a path claim.
 SOURCE_SUFFIXES = (
     ".py",
     ".ts",
@@ -59,10 +75,13 @@ SOURCE_SUFFIXES = (
     ".yaml",
 )
 
-# A span is a path claim only if it is shaped like one. Everything else in this
-# file is a symbol (`fileGeneratedDocument`), a constant (`SOURCE_KINDS`), a
-# command (`task release:note -- <slug>`) or a word in quotes.
 PATH_SHAPE_RE = re.compile(r"^[A-Za-z0-9._\-/\[\]]+$")
+
+BASELINE = Path("ci/doc_paths_baseline.json")
+
+RATCHETED = ("docs/architecture/", "docs/contributing/")
+
+GENERATED = ("node_modules/", ".claude/", ".agents/", ".venv/", "apm_modules/")
 
 
 def tracked_paths() -> set[str]:
@@ -78,7 +97,6 @@ def is_path_claim(span: str) -> bool:
     if not PATH_SHAPE_RE.match(span):
         return False
     if span.startswith(("http://", "https://", "/", ".")):
-        # A leading dot is a bare suffix (`.down.sql`) or a glob, never a row's path.
         return False
     return "/" in span or span.endswith(SOURCE_SUFFIXES)
 
@@ -102,8 +120,6 @@ def check(errors: list[str]) -> list[str]:
     tracked = tracked_paths()
     claims = path_claims(INDEX.read_text(encoding="utf-8"))
     for claim in claims:
-        # A directory may be written with its trailing slash (`apps/cms/social/`); git's
-        # parents carry none, so compare without it.
         bare = claim.rstrip("/")
         beside_index = (INDEX.parent / bare).as_posix()
         if bare in tracked or beside_index in tracked:
@@ -115,11 +131,65 @@ def check(errors: list[str]) -> list[str]:
     return claims
 
 
+def path_suffixes(tracked: set[str]) -> set[str]:
+    """Every trailing run of segments of every tracked path: `a/b/c.py` gives `c.py`, `b/c.py`, `a/b/c.py`."""
+    suffixes: set[str] = set()
+    for path in tracked:
+        parts = path.split("/")
+        suffixes.update("/".join(parts[i:]) for i in range(len(parts)))
+    return suffixes
+
+
+def dead_claims(doc: Path, suffixes: set[str]) -> list[str]:
+    """Path claims in ``doc`` that name no tracked file or directory, by the looser rule."""
+    dead = []
+    for claim in path_claims(doc.read_text(encoding="utf-8")):
+        if not claim.endswith((*SOURCE_SUFFIXES, "/")) or "*" in claim or claim.startswith(GENERATED):
+            continue
+        if claim.rstrip("/") not in suffixes:
+            dead.append(claim)
+    return dead
+
+
+def scoped_docs(tracked: set[str]) -> tuple[list[Path], list[Path]]:
+    """The guides (held to zero) and the ratcheted docs, both as tracked files on disk."""
+    guides = sorted(Path(p) for p in tracked if Path(p).name == "AGENTS.md" and Path(p).exists())
+    docs = sorted(Path(p) for p in tracked if p.startswith(RATCHETED) and p.endswith(".md") and Path(p).exists())
+    return guides, docs
+
+
+def check_scoped(errors: list[str], update: bool = False) -> None:
+    """Hold every guide to zero dead paths and every ratcheted doc to its baseline."""
+    tracked = tracked_paths()
+    suffixes = path_suffixes(tracked)
+    guides, docs = scoped_docs(tracked)
+    for guide in guides:
+        errors.extend(
+            f"{guide}: `{claim}` names no tracked file. Fix the path or drop it."
+            for claim in dead_claims(guide, suffixes)
+        )
+    counts = {d.as_posix(): n for d in docs if (n := len(dead_claims(d, suffixes)))}
+    if update:
+        BASELINE.write_text(json.dumps(counts, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        return
+    baseline = json.loads(BASELINE.read_text(encoding="utf-8")) if BASELINE.exists() else {}
+    for doc, n in sorted(counts.items()):
+        if n > baseline.get(doc, 0):
+            dead = ", ".join(f"`{c}`" for c in dead_claims(Path(doc), suffixes))
+            errors.append(f"{doc}: {n} dead path(s), baseline {baseline.get(doc, 0)}: {dead}. Fix the new one.")
+
+
 def main(argv: list[str] | None = None) -> int:
     """CLI entry point: validate the concept index and return an exit code."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--list", action="store_true", help="List the path claims found and exit 0.")
+    parser.add_argument("--update", action="store_true", help=f"Rewrite {BASELINE} to the current counts.")
     args = parser.parse_args(argv)
+
+    if args.update:
+        check_scoped([], update=True)
+        print(f"Wrote {BASELINE}.")
+        return 0
 
     if args.list:
         for claim in path_claims(INDEX.read_text(encoding="utf-8")):
@@ -128,6 +198,7 @@ def main(argv: list[str] | None = None) -> int:
 
     errors: list[str] = []
     claims = check(errors)
+    check_scoped(errors)
 
     if errors:
         print(f"Doc-path check FAILED ({len(errors)} error(s)):", file=sys.stderr)
@@ -135,7 +206,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  - {e}", file=sys.stderr)
         return 1
 
-    print(f"Doc-path check passed: {len(claims)} path(s) in {INDEX} resolve.")
+    print(f"Doc-path check passed: {len(claims)} path(s) in {INDEX} resolve; the guides and docs hold their baseline.")
     return 0
 
 

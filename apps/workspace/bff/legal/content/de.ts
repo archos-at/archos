@@ -1,28 +1,12 @@
-/**
- * Rechtsdokumente — Deutsch (maßgebliche Sprachfassung für den
- * österreichischen Markt). Strukturelles Gegenstück zu `./en.ts`.
- *
- * Betreiberangaben kommen aus packages/brand/identity.json. Die Gesellschaft ist
- * in Gründung: Firmenbuchnummer, Firmenbuchgericht und UID gibt es noch nicht,
- * und der Text sagt das so wie das Impressum der Website
- * (apps/website/src/i18n/pages/imprint.ts). Kein Wert steht in eckigen Klammern;
- * was nicht belegt ist, ist ein TODO(owner) im Kommentar. Diese Texte entstanden im
- * Rahmen des Compliance-Reviews 2026-07 (docs/compliance/) und sind
- * Vorlagen, keine Rechtsberatung: vor Verwendung anwaltlich prüfen lassen.
- */
-
 import type { LegalContent } from '../types'
 import { PRODUCT_NAME, withProductName } from '@/lib/brand'
 import { SUBPROCESSOR_PAGE } from './subprocessors.generated'
 import identity from '@/shared/brand/identity.json'
 
-// Betreiber, Anschrift und Kontakt aus der einen Quelle der Marke (packages/brand/identity.json),
-// wie im Impressum der Website.
 const OPERATOR = identity.legalEntity
 const ADDRESS = `${identity.street}, ${identity.postalCode} ${identity.city}, Österreich`
 const EMAIL = identity.email
 
-// Tabellen und Listen der Seite „Subunternehmer“, erzeugt aus configs/subprocessors/ (scripts/generate_subprocessor_pages.py).
 const PAGE = withProductName(SUBPROCESSOR_PAGE.de)
 
 export const de: LegalContent = {
@@ -37,7 +21,6 @@ export const de: LegalContent = {
         paragraphs: [
           `${OPERATOR}, ${ADDRESS}.`,
           `Kontakt: ${EMAIL}`,
-          // Wortlaut wie im Impressum der Website (apps/website/src/i18n/pages/imprint.ts).
           'Rechtsform: Flexible Kapitalgesellschaft (FlexCo), in Gründung. Firmenbuch: Noch nicht eingetragen. Firmenbuchnummer, Firmenbuchgericht und UID-Nummer ergänzen wir nach der Eintragung.',
           // TODO(owner): die Aufsichtsbehörde gemäß ECG nach Eintragung und Gewerbeanmeldung nennen.
           'Unternehmensgegenstand: Entwicklung und Betrieb von Software für Architektur- und Planungsbüros. Die Aufsichtsbehörde gemäß ECG ergänzen wir nach der Eintragung. Anwendbare gewerberechtliche Vorschriften: Gewerbeordnung 1994, abrufbar unter ris.bka.gv.at.',
@@ -103,7 +86,7 @@ export const de: LegalContent = {
       {
         heading: '4. KI-Verarbeitung und Empfänger Ihrer Inhalte',
         paragraphs: [
-          'Zur Erzeugung von Antworten werden Ihre Chat-Nachrichten, die Inhalte Ihrer hochgeladenen Dokumente, die eine Frage braucht (gefundene Passagen, bei Bedarf ganze Seiten oder Abschnitte), und abgerufene Vorschriften über das API-Gateway OpenRouter, Inc. (USA) an externe KI-Modellanbieter übermittelt. Beim Einlesen eines Dokuments läuft jede Seite einmal durch ein KI-Modell (Texterkennung und Suchindex), stets bei Anbietern ohne Datenspeicherung. Aus Ihren Fragen abgeleitete Web-Recherche-Anfragen gehen an den Suchdienst Tavily. Identität und Anmeldung werden von WorkOS, Inc. (USA) abgewickelt. Wenn Sie im Chat diktieren, geht die Audioaufnahme über OpenRouter an ein Transkriptionsmodell (ElevenLabs, USA). Bei der Adresssuche geht die eingetippte Adresse an den öffentlichen Photon-Dienst der komoot GmbH (Deutschland).',
+          'Zur Erzeugung von Antworten werden Ihre Chat-Nachrichten, die Inhalte Ihrer hochgeladenen Dokumente, die eine Frage braucht (gefundene Passagen, bei Bedarf ganze Seiten oder Abschnitte), und abgerufene Vorschriften über das API-Gateway OpenRouter, Inc. (USA) an externe KI-Modellanbieter übermittelt. Beim Einlesen eines Dokuments läuft jede Seite einmal durch ein KI-Modell (Texterkennung und Suchindex), stets bei Anbietern ohne Datenspeicherung. Aus Ihren Fragen abgeleitete Web-Recherche-Anfragen gehen an den Suchdienst Tavily. Identität und Anmeldung werden von WorkOS, Inc. (USA) abgewickelt. Wenn Sie im Chat diktieren, geht die Audioaufnahme über OpenRouter an ein Transkriptionsmodell (ElevenLabs, USA). Ist die Adresssuche in Ihrer Installation eingeschaltet, geht die eingetippte Adresse an den öffentlichen Photon-Dienst der komoot GmbH (Deutschland).',
           'Für Produktanalyse, Sitzungsaufzeichnung, Fehlererfassung, Umfragen und Support setzen wir PostHog ein (PostHog, Inc.; Datenspeicherung in der EU-Cloud, Frankfurt am Main). PostHog verarbeitet diese Daten in unserem Auftrag auf Grundlage eines Auftragsverarbeitungsvertrags (Art. 28 DSGVO). Zusätzlich übernimmt PostHog von unserem Tracing-System Langfuse Metadaten zu KI-Anfragen (Zeitpunkt, Modell, Dauer, Token-Zahlen, Kosten, Bezeichnung der Verarbeitungsschritte) und die Bewertungen, die Sie zu Antworten abgeben, einschließlich Ihres Kommentars. Chat-Nachrichten, Antworten und Dokumentinhalte gehören nicht dazu.',
           'E-Mails an Projektadressen: Solange eine E-Mail im E-Mail-Eingang wartet, liest kein KI-Modell ihren Text oder ihre Anhänge. Für einen Ablagevorschlag erhält das KI-Modell nur Dateinamen der Anhänge, die die Namensprüfung bestanden haben, den Betreff (maskiert durch die Inhaltsprüfung Ihrer Organisation) und die Absender-Domain, dazu die Ordner, die alle Projektmitglieder sehen, und die Ablagegewohnheiten Ihrer Organisation; für E-Mails von nicht bestätigten Domains und automatische E-Mails gibt es keinen Vorschlag. Erst abgelegte E-Mails werden wie andere Projektdokumente verarbeitet. Das Original (.eml) einer E-Mail erhält kein KI-Modell. E-Mails erreichen ' + PRODUCT_NAME + ' über Cloudflare, Inc. (USA, Weiterleitung); Anhänge und Originale werden in unserer eigenen Infrastruktur auf Schadsoftware geprüft (ClamAV).',
         ],
@@ -283,7 +266,6 @@ export const de: LegalContent = {
     sections: [
       {
         heading: 'Externe Auftragsverarbeiter',
-        // Zeilen aus dem Datenfluss-Register (configs/subprocessors/*.yaml), nicht hier bearbeiten.
         table: PAGE.processors,
         notice:
           'Dynamische Modellanbieter: Da Organisations-Administratorinnen und -Administratoren das KI-Modell zur Laufzeit wechseln können (siehe KI-Transparenzhinweis), ist der tatsächliche vorgelagerte Modellanbieter nicht fest. Der gesamte KI-Verkehr läuft stets über OpenRouter; die Menge möglicher vorgelagerter Anbieter ist auf den OpenRouter-Katalog beschränkt; die für Ihre Organisation aktive Auswahl ist für Ihre Administratorinnen und Administratoren einsehbar, jede Änderung wird audit-protokolliert, und das antwortende Modell wird je Anfrage festgehalten.',

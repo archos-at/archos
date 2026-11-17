@@ -1,14 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The escape is held against both of its readers. CommonMark is read by the
- * parser the preview's renderer uses (remark with GFM), the oracle: escaped
- * text is one paragraph of the same characters, never a heading, a list, a
- * fence or a link. The knowledge layer's chunker is read by its own two
- * expressions over Python's `splitlines()`, mirrored in
- * `@/test-utils/markdown-chunker`.
- */
 import type { Root, RootContent } from 'mdast'
 import remarkGfm from 'remark-gfm'
 import remarkParse from 'remark-parse'
@@ -19,18 +11,11 @@ import { escapeInline, escapeLineStarts, escapeMarkdown } from './markdown-escap
 
 const parse = (markdown: string): Root => unified().use(remarkParse).use(remarkGfm).parse(markdown)
 
-/** The node types a parse produced, depth first. */
 function types(node: Root | RootContent): string[] {
   const own = node.type === 'root' ? [] : [node.type]
   return 'children' in node ? [...own, ...node.children.flatMap(types)] : own
 }
 
-/**
- * The structure a parse produced: every node but the paragraph and its text.
- * A bare URL is a link in GFM wherever it stands (the autolink literal), so
- * a link that shows exactly its own address is text that happens to be
- * clickable, not structure the text made.
- */
 function structure(tree: Root): string[] {
   const walk = (node: Root | RootContent): string[] => {
     if (node.type === 'link' && text(node) === node.url.replace(/^mailto:/, '')) return []
@@ -40,7 +25,6 @@ function structure(tree: Root): string[] {
   return walk(tree)
 }
 
-/** The text a parse produced, with every line break as `\n`. */
 function text(node: Root | RootContent): string {
   if (node.type === 'text') return node.value
   if (node.type === 'break') return '\n'
@@ -48,10 +32,6 @@ function text(node: Root | RootContent): string {
   return node.children.map(text).join(node.type === 'root' ? '\n\n' : '')
 }
 
-/**
- * Lines a person types or a stranger sends that are structure if written as
- * they are. Each one, escaped, must be a plain paragraph of itself.
- */
 const STRUCTURE: Array<[string, string]> = [
   ['an ATX heading', '## 14.10.2026 · MA 37'],
   ['an indented ATX heading', '   # Bescheid'],
@@ -85,15 +65,9 @@ describe('escapeMarkdown', () => {
   it.each(STRUCTURE)('keeps %s text', (_name, line) => {
     const tree = parse(escapeMarkdown(line))
     expect(structure(tree)).toEqual([])
-    // A paragraph's leading indent is not part of its text.
     expect(text(tree)).toBe(line.trimStart())
   })
 
-  /**
-   * The one place the escape shows: GFM's URL literal runs to the next space
-   * or `<`, so it takes the backslash before an escaped `>` into the address.
-   * Still one paragraph and no autolink of the angle brackets' making.
-   */
   it('keeps an autolink text, showing the backslash a bare URL swallowed', () => {
     const tree = parse(escapeMarkdown('<https://example.com>'))
     expect(types(tree).filter((type) => type !== 'text')).toEqual(['paragraph', 'link'])
@@ -122,11 +96,6 @@ describe('escapeMarkdown', () => {
     }
   })
 
-  /**
-   * The chunker splits where Python does. A heading after a form feed, a NEL,
-   * a record separator or a line separator is a line start to it, so it is one
-   * to the escape too, though JavaScript's `^` would not see it.
-   */
   it('escapes a heading after every terminator the chunker splits at', () => {
     for (const terminator of ['\n', '\r', '\r\n', '\v', '\f', '\x1c', '\x1d', '\x1e', '\x85', '\u2028', '\u2029']) {
       const body = `Sehr geehrte Damen und Herren,${terminator}## 14.10.2026 · MA 37${terminator}Die Frist ist verlängert.`
@@ -170,13 +139,6 @@ describe('escapeInline and escapeLineStarts', () => {
   })
 })
 
-/**
- * A mail body is untrusted, and one of whitespace-only lines is cheap to send.
- * An indent that crossed line ends ran on over every blank line after each line
- * start, so 20,000 such lines took seconds; within one line it is milliseconds.
- * The bound is generous, so a slow runner does not fail it and quadratic time
- * still does.
- */
 describe('escapeMarkdown on hostile input', () => {
   it.each([
     ['spaces', '   \n'],

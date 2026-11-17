@@ -1,12 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The pricing arithmetic (ADR-0053). What is pinned here is the property the
- * whole billing model rests on — credits ADD — plus the two rules a reader
- * would otherwise have to trust a comment for: a BYOK generation is never
- * priced, and the budget conversion is the exact inverse of pricing.
- */
 import { describe, expect, it } from 'vitest'
 import { creditsToCostUsd, estimateCreditsPerRequest, priceUsage, REFERENCE_REQUEST } from './model'
 
@@ -32,7 +26,6 @@ describe('priceUsage', () => {
 
   it('prices a BYOK generation at nothing — the platform bills nothing for it', () => {
     expect(priceUsage(1, true, RATES)).toEqual({ priceUsd: 0, credits: 0 })
-    // Unknown BYOK status is treated as platform-billed.
     expect(priceUsage(1, null, RATES).priceUsd).toBeCloseTo(2.5, 10)
   })
 

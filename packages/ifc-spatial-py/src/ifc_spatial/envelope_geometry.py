@@ -113,13 +113,6 @@ from .operators import _rooms_on_one_side
 from .operators import azimuth
 from .operators import enclosed_by
 
-# ── what counts as envelope, and what it is called in German ────────────────
-#
-# Ordered: the report is read top to bottom and an architect reads a facade
-# before a roof. `IfcCurtainWall` is in the list even though it almost never
-# carries a body of its own — it is a real envelope element and leaving it out
-# would make the count of external elements disagree with the file.
-
 _KIND_OF_TYPE: dict[str, str] = {
     "IfcWall": "Wand",
     "IfcWallStandardCase": "Wand",
@@ -133,45 +126,17 @@ _KIND_OF_TYPE: dict[str, str] = {
     "IfcPlate": "Verglasungsfeld",
 }
 
-#: The order kinds are reported in. Not `sorted()`: a stable, meaningful order is
-#: what lets two runs of the same model be diffed by eye.
 KIND_ORDER = ["Wand", "Fenster", "Tür", "Verglasungsfeld", "Boden/Decke", "Dach"]
 
-#: Types whose area is counted as TRANSPARENT.
-#:
-#: A curtain-wall ``IfcPlate`` is a pane in this file (``System Panel:Glazed``,
-#: material ``Glass``, declared U 6.7069) and in most exports, but the type says
-#: nothing: a spandrel panel is an ``IfcPlate`` too and is opaque. The
-#: misclassification is named in the caveat rather than guessed at from a vendor
-#: material name, because a wrong glass fraction moves an energy balance more
-#: than almost anything else this module reports.
 TRANSPARENT_TYPES = {"IfcWindow", "IfcWindowStandardCase", "IfcPlate"}
 
-#: Types handed to :func:`~ifc_spatial.operators._faces_outside` rather than
-#: decided here. That function already runs declaration → host wall → space
-#: count for openings and panes, and a second implementation of the same ladder
-#: is a second place for it to go wrong.
 _OPENING_TYPES = {"IfcWindow", "IfcWindowStandardCase", "IfcDoor", "IfcDoorStandardCase", "IfcPlate"}
 
-#: Relative error on a volume. A volume is a threefold product of lengths where
-#: an area is a twofold one, so it carries half again the relative error of
-#: :data:`~ifc_spatial.operators.AREA_RELATIVE_TOLERANCE` — derived from it
-#: rather than picked, so the two cannot drift apart.
 VOLUME_RELATIVE_TOLERANCE = 1.5 * AREA_RELATIVE_TOLERANCE
 
-#: |n_z| above which a face counts as part of a floor or roof surface rather
-#: than as an edge of it. This is IfcOpenShell's own ``normal_tol`` and the same
-#: value ``operators._footprint_area`` projects with, so the developed area and
-#: the projected area are taken over the identical set of faces.
 _HORIZONTAL_NORMAL_TOLERANCE = 0.01
 
-#: Above this relative difference, an element's developed surface and its plan
-#: projection are reported as two different numbers instead of one. Below it they
-#: are the same flat slab measured twice.
 SLOPE_REPORT_FRACTION = 0.01
-
-
-# ── measuring one element ───────────────────────────────────────────────────
 
 
 def _declared_u_value(element: Any) -> tuple[float | None, str | None]:
@@ -241,18 +206,11 @@ def _element_area(model: SpatialModel, element: Any) -> dict[str, Any]:
         if reason.startswith(("shape-failed", "empty-mesh")):
             why = "Körpergeometrie vorhanden, aber vom Geometriekern nicht auswertbar"
         elif element.is_a() == "IfcCurtainWall":
-            # Not a defect. A curtain wall exports its geometry through its
-            # panels and mullions; the shell itself legitimately has no body,
-            # and `facade_plane_of` says the same thing about the same file.
             why = "kein eigener Körper — eine Vorhangfassade trägt ihre Geometrie über Paneele und Pfosten"
         else:
             why = "keine Körpergeometrie in dieser Datei"
         return {"area": None, "projectedArea": None, "via": why, "horizontal": None}
 
-    # The vertical candidate is `_clear_opening_area`, unchanged: the element's
-    # faces projected onto its own dominant vertical plane and unioned. On a
-    # wall that subtracts the window and door holes, which is what keeps the
-    # wall and its openings from being counted twice over.
     vertical = _clear_opening_area(model, element)
     projected = _footprint_area(geometry.triangles)
 
@@ -285,8 +243,6 @@ def _element_area(model: SpatialModel, element: Any) -> dict[str, Any]:
     }
 
 
-#: The route label for an element decided by somebody's declaration of
-#: ``IsExternal``, and for one decided by counting the spaces it bounds.
 ROUTE_DECLARED = "IsExternal (deklariert)"
 ROUTE_BOUNDED_SPACES = "Raumbegrenzung"
 ROUTE_UNDECIDED = "undetermined"
@@ -322,9 +278,6 @@ def _external_route(model: SpatialModel, element: Any) -> tuple[bool | None, str
         outside, why = _faces_outside(model, element)
         if outside is None:
             return None, ROUTE_UNDECIDED, why
-        # Matched on the property path rather than on the word "deklariert",
-        # which also appears in that function's undecided sentence — a substring
-        # test there would file an undecided element under the declared route.
         route = ROUTE_DECLARED if why.startswith("Pset_") else ROUTE_BOUNDED_SPACES
         return outside, route, why
 
@@ -337,26 +290,6 @@ def _external_route(model: SpatialModel, element: Any) -> tuple[bool | None, str
         source = "deklarierte Raumgrenzen" if spaces.provenance == "declared" else "aus der Geometrie abgeleitet"
         count = len(spaces.value)
         if count >= 2:
-            # NOT „two rooms, therefore a partition". That is the mistake this
-            # rung shipped with, and it is the ordinary case rather than an edge
-            # one: an external wall runs along a whole side of a building, so it
-            # bounds every room on that side. On `AC20-FZK-Haus.ifc` — which
-            # declares `IsExternal` on none of its 26 walls, so this rung
-            # decides all of them — the count put `Wand-Ext-ERDG-1` (3 rooms),
-            # `-2` (3), `-3` (2) and `-4` (2) OUTSIDE the thermal envelope. Four
-            # external ground-floor walls missing from an OIB 6 envelope, with a
-            # sentence calling them Trennbauteile.
-            #
-            # What actually separates inside from outside is having rooms on ONE
-            # side only. So ask the side, not the count: project each room's
-            # centroid onto the element's own dominant plane — the wall's face,
-            # or a slab's soffit — and see whether they all land on the same
-            # side of it. Rooms on both sides is a partition; rooms on one side
-            # has outside on the other.
-            #
-            # Checked against the exporter's own naming on that house, where
-            # every wall is `Wand-Ext-*` or `Wand-Int-*`: 26 of 26 correct,
-            # against 22 of 26 for the count.
             side = _rooms_on_one_side(model, element, spaces.value)
             if side is False:
                 return (
@@ -371,16 +304,6 @@ def _external_route(model: SpatialModel, element: Any) -> tuple[bool | None, str
                     f"begrenzt {count} Räume, aber alle auf derselben Seite — "
                     f"auf der anderen liegt kein IfcSpace ({source})",
                 )
-            # The side could not be established — no body, or no dominant plane.
-            # `floor-slab-and-window.ifc` is exactly that case: declared
-            # `IfcRelSpaceBoundary` and no geometry at all, so the count is the
-            # only evidence there is.
-            #
-            # So the count stays as the last rung rather than being deleted, and
-            # it says outright that it did not check the sides. It is the weaker
-            # signal — it is what put four external walls outside the envelope
-            # on a house where the sides COULD be checked — and a reader has to
-            # be able to tell the two apart.
             return (
                 False,
                 ROUTE_BOUNDED_SPACES,
@@ -474,11 +397,6 @@ def _no_envelope(method: str, surveyed: list[dict[str, Any]]) -> Answer[Any]:
     )
 
 
-# ════════════════════════════════════════════════════════════════════════════
-# the operators
-# ════════════════════════════════════════════════════════════════════════════
-
-
 def thermal_envelope(model: SpatialModel) -> Answer[dict[str, Any]]:
     """Which elements form the boundary between heated inside and outside.
 
@@ -524,9 +442,6 @@ def thermal_envelope(model: SpatialModel) -> Answer[dict[str, Any]]:
 
     measured = [e for e in outside if e["area"] is not None]
     without_area = [e for e in outside if e["area"] is None]
-    # None, not 0.0, when nothing could be measured. A confident zero is a number
-    # an agent will put in a sentence, and "die Hüllfläche beträgt 0 m²" is the
-    # worst thing this module could say about a file that simply has no bodies.
     total = round(sum(e["area"] for e in measured), 6) if measured else None
 
     routes: dict[str, int] = {}
@@ -541,8 +456,6 @@ def thermal_envelope(model: SpatialModel) -> Answer[dict[str, Any]]:
     )
     slabs_inside = [e for e in inside if e["kind"] == "Boden/Decke" and e["area"]]
     if slabs_inside:
-        # The sample house's 146.199 m² ground slab lands here. Loud, because a
-        # reader who does not notice it is short an entire floor of envelope.
         named = ", ".join(f"{e['name'] or e['globalId']} ({e['area']:.3f} m²)" for e in slabs_inside[:3])
         caveat += (
             f" ACHTUNG: {len(slabs_inside)} Boden- bzw. Deckenbauteil(e) sind als IsExternal = False deklariert "
@@ -683,9 +596,6 @@ def envelope_area_by_orientation(model: SpatialModel) -> Answer[dict[str, Any]]:
         )
 
     if model.true_north is None:
-        # Decidable, and deliberately so: the areas were measured and are true.
-        # Only the compass is missing, and inventing one is the failure mode
-        # `azimuth` exists to refuse.
         caveat += (
             " Diese Datei deklariert keine Nordrichtung "
             "(IfcGeometricRepresentationContext.TrueNorth), deshalb sind die Flächen OHNE Himmelsrichtungen "
@@ -857,14 +767,6 @@ def compactness(model: SpatialModel) -> Answer[dict[str, Any]]:
         volume = _space_volume(model, space)
         found = model.declared_quantity(space, ("NetVolume", "GrossVolume"))
         if volume is None:
-            # The declared value is NOT accumulated for a space we could not
-            # measure. Σ(declared over N spaces) against Σ(measured over N−1) is
-            # not two routes to one number, it is two different questions, and
-            # `triangulate` publishes the shortfall as „die Datei widerspricht
-            # sich". Stripping the entrance hall's body out of the sample house
-            # produced exactly that: 244.995 m³ (computed) against 266.728 m³
-            # (declared), 8.1 % apart, on a file whose four declared volumes all
-            # match their bodies to 1e-6 m³.
             without_body.append(space)
             continue
         if found is not None:
@@ -908,11 +810,6 @@ def compactness(model: SpatialModel) -> Answer[dict[str, Any]]:
     )
     volume_answer = measured_volume
     if declared_count == len(volumes) and declared_count > 0:
-        # Only when EVERY MEASURED space declares one. A partial declared sum
-        # against a complete measured sum is not two routes to the same number,
-        # it is two different questions, and `triangulate` would report the
-        # shortfall as "die Datei widerspricht sich". `len(volumes)`, not
-        # `len(spaces)`: both sums have to run over the SAME set of spaces.
         volume_answer = triangulate(
             measured_volume,
             declared(
@@ -959,11 +856,6 @@ def compactness(model: SpatialModel) -> Answer[dict[str, Any]]:
             "A ist insofern eine Untergrenze und A/V zu klein."
         )
     if without_body:
-        # V is silently a subtotal without this sentence: the reader is told V
-        # comes from N IfcSpace and has no way to learn that the file holds
-        # N+1. Naming them is also what makes the number repairable — the same
-        # spaces are the ones held out of the declared sum above, so a reader
-        # who fixes their bodies gets both routes back.
         named = ", ".join(f"„{model.label(s) or s.GlobalId}“" for s in without_body[:5])
         rest = "" if len(without_body) <= 5 else f" und {len(without_body) - 5} weitere"
         caveat += (

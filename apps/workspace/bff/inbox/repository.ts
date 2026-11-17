@@ -1,16 +1,3 @@
-/**
- * Inbox repository — the only module that queries `inbox_items` (ADR-0035).
- *
- * Repository rules: drizzle only; no HTTP, no auth, no WorkOS; every tenant query
- * scoped by `organizationId` in SQL; every list bounded.
- *
- * The interesting part is {@link upsertInboxItem}: grouping, deduplication and
- * idempotency all come from ONE unique index on `(recipient_user_id, group_key)`
- * plus an incrementing upsert. Callers choose the behaviour by how they build the
- * group key — include an anchor (a message id) for one row per occurrence, omit it
- * to collapse a stream of events into a single counted row.
- */
-
 import 'server-only'
 import { and, desc, eq, getTableColumns, gte, inArray, isNotNull, isNull, lt, lte, ne, notExists, notInArray, or, sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
@@ -23,15 +10,6 @@ import { MARKS_SET_GROUP_ANCHOR } from './registry'
 
 export { INBOX_LIST_LIMIT }
 
-/**
- * Create or fold an item into its group.
- *
- * On conflict the row is TOUCHED rather than duplicated: the count increments,
- * `updated_at` moves to now, the newest actor/anchor/payload win, and — crucially
- * — `read_at` is cleared so new activity re-surfaces a group the user had already
- * read. An item that was resolved or archived is also revived, because a NEW
- * occurrence is new information.
- */
 export async function upsertInboxItem(values: NewInboxItem): Promise<InboxItem> {
   const db = getDb()
   const [row] = await db
@@ -40,7 +18,6 @@ export async function upsertInboxItem(values: NewInboxItem): Promise<InboxItem> 
     .onConflictDoUpdate({
       target: [inboxItems.recipientUserId, inboxItems.groupKey],
       set: {
-        // The stored count plus the occurrences the incoming row stands for (1 unless the emitter said more).
         count: sql`${inboxItems.count} + excluded.count`,
         updatedAt: new Date(),
         actorUserId: values.actorUserId ?? null,
@@ -56,10 +33,6 @@ export async function upsertInboxItem(values: NewInboxItem): Promise<InboxItem> 
   return row
 }
 
-/**
- * Insert many items in one statement — the participant fan-out (one item per
- * recipient). Conflicts fold exactly as {@link upsertInboxItem} does.
- */
 export async function upsertInboxItems(values: NewInboxItem[]): Promise<InboxItem[]> {
   if (values.length === 0) return []
   const db = getDb()
@@ -69,26 +42,10 @@ export async function upsertInboxItems(values: NewInboxItem[]): Promise<InboxIte
     .onConflictDoUpdate({
       target: [inboxItems.recipientUserId, inboxItems.groupKey],
       set: {
-        // The stored count plus the occurrences the incoming row stands for:
-        // `excluded.count` is the column's default 1, or what the emitter
-        // folded into one emission (`InboxEmission.occurrences`).
         count: sql`${inboxItems.count} + excluded.count`,
         updatedAt: new Date(),
-        // These three were missing while the doc above promised the folds were
-        // identical. Without them a collapsed group kept its FIRST actor and its
-        // FIRST payload for good: "Anna shared a conversation with you" stayed
-        // Anna's name after Bob re-shared, and the anchor kept pointing at the
-        // message that opened the group rather than the one that just landed.
-        // `sql` rather than a plain value because a batch insert has one `set`
-        // for many rows — `excluded` is the row being inserted for THIS conflict.
         actorUserId: sql`excluded.actor_user_id`,
         anchorId: sql`excluded.anchor_id`,
-        // MERGED, not replaced. The activity fan-out emits `{}` whenever the
-        // title lookup comes back null (a collapsed group, a thread renamed to
-        // nothing), and a straight `excluded.payload` let that one null wipe the
-        // subject off every recipient's row — permanently, because the row is
-        // never re-emitted with the title. `||` is jsonb concat: new keys win,
-        // absent keys are left alone.
         payload: sql`${inboxItems.payload} || excluded.payload`,
         readAt: null,
         resolvedAt: null,
@@ -99,10 +56,6 @@ export async function upsertInboxItems(values: NewInboxItem[]): Promise<InboxIte
     .returning()
 }
 
-/**
- * One item of a recipient's, by id, or null when it is not theirs or not there.
- * For the push job, which re-reads the row at the moment it sends.
- */
 export async function findInboxItemForRecipient(
   organizationId: string,
   recipientUserId: string,
@@ -122,14 +75,6 @@ export async function findInboxItemForRecipient(
   return row ?? null
 }
 
-/**
- * A person's rows of one type last touched between `from` and `to`, whatever
- * became of them since (read, resolved, archived or inert too), newest first
- * and at most `limit`. For the push job's fold (`lib/push/fold.ts`): which rows
- * make up a burst. A row read since still links the rows around it, so a burst
- * is not cut in two by a read in its middle; the job tells only the rows still
- * news (`isPushStillDue`).
- */
 export async function listTouchedOfType(
   organizationId: string,
   recipientUserId: string,
@@ -153,14 +98,6 @@ export async function listTouchedOfType(
     .limit(limit)
 }
 
-/**
- * Which of these recipients already hold an item under this group key.
- *
- * For an emitter whose event can be seen twice (a settle hook that fires again
- * on a re-read): {@link upsertInboxItems} folds a repeat into the row it has and
- * marks it unread again, which for "tell them once" is the wrong half of
- * idempotent. Asking first leaves a read row read.
- */
 export async function recipientsHoldingGroup(
   organizationId: string,
   groupKey: string,
@@ -181,14 +118,6 @@ export async function recipientsHoldingGroup(
   return new Set(rows.map((row) => row.recipientUserId))
 }
 
-/**
- * The payload each of these recipients' rows carries under its group key, keyed
- * `recipientUserId\ngroupKey` (as {@link findLiveInboxGroupKeys} keys them);
- * a pair without a row is absent. For an emitter that tells something once per
- * occurrence it can name (the daily reminder of a Frist stamps which reminder
- * for which date its row carries): asking first leaves a row that already
- * says it alone, read or not.
- */
 export async function readGroupPayloads(
   organizationId: string,
   targets: readonly { recipientUserId: string; groupKey: string }[],
@@ -211,11 +140,6 @@ export async function readGroupPayloads(
   return new Map(rows.map((row) => [`${row.recipientUserId}\n${row.groupKey}`, row.payload ?? {}]))
 }
 
-/**
- * Who still holds an unresolved item under this group key: for a review round,
- * the people it was sent to who have not seen it settled. Bounded, like every
- * list here; a round is opened for at most twenty named reviewers.
- */
 export async function openRecipientsOfGroup(
   organizationId: string,
   groupKey: string,
@@ -238,93 +162,33 @@ export async function openRecipientsOfGroup(
   return rows.map((row) => row.recipientUserId)
 }
 
-/**
- * Which slice a page reads (`InboxListFilter`, in `./types` because the browser
- * names it too). Every filter but `archived` leaves archived rows out, and
- * `requests` and `unread` leave redacted ones out: a redacted row is history,
- * never something to do.
- */
 export type { InboxListFilter }
 
-/**
- * Where the previous page ended: the last row's `updated_at` to the
- * MICROSECOND it is stored at (as epoch microseconds, a decimal string: a JS
- * number or `Date` would round it to the millisecond and skip or repeat the
- * rows that share one) and its id, which breaks ties. The next page starts
- * strictly after it in the list's own order.
- */
 export interface InboxCursor {
   micros: string
   id: string
 }
 
-/**
- * A listed row, with the exact moment the list is ordered by
- * (`InboxCursor.micros`). Optional only so a stubbed repository can hand back
- * plain rows; the query always selects it.
- */
 export type ListedInboxItem = InboxItem & { listedAtMicros?: string }
 
 export interface ListInboxOptions {
-  /** Which slice; `all` when omitted. See {@link InboxListFilter}. */
   filter?: InboxListFilter
-  /** Read the page after this row; the first page when omitted. */
   cursor?: InboxCursor | null
   limit?: number
-  /** Only items about this project: the project itself, or a conversation or document of it. */
   projectId?: string
-  /**
-   * Restrict to these item types. REQUIRED — see {@link InboxTypeScope}. The
-   * caller decides the set from the registry's per-type gate
-   * (`visibleInboxTypes`); this layer only applies it in SQL, so a type the
-   * reader may not see is never fetched and then filtered in JS.
-   */
   types: InboxTypeScope
 }
 
-/**
- * Type restriction as a SQL predicate.
- *
- * An EMPTY list means "no types are visible" and must match nothing —
- * `inArray(col, [])` is the one shape drizzle turns into a false predicate, but
- * relying on that implicitly is the kind of thing that changes under you, so it
- * is stated here once instead of at three call sites.
- */
-/**
- * Which item types a recipient-facing query may touch.
- *
- * `EVERY_INBOX_TYPE` rather than `undefined` for the unrestricted case, and every
- * recipient-facing function below takes this REQUIRED. The gate used to be an
- * optional parameter the caller was trusted to pass, and the three reads passed
- * it while `markInboxItemsRead`, `archiveInboxItem` and the realtime badge count
- * did not — so a caller holding an item id from before collaboration was
- * switched off could still archive or read that now-hidden item, and the badge
- * counted rows the list refuses to show.
- *
- * Required means a new query cannot omit it silently: it does not compile. The
- * unrestricted value is spelled out so that using it reads as a decision, and so
- * the callers that legitimately have no reader to scope to (the emitter, the
- * cleanup jobs) are findable by searching for one identifier.
- */
 export const EVERY_INBOX_TYPE = 'every-type' as const
 
 export type InboxTypeScope = readonly InboxItemType[] | typeof EVERY_INBOX_TYPE
 
 function typeFilter(types: InboxTypeScope | undefined) {
   if (!types || types === EVERY_INBOX_TYPE) return undefined
-  // An empty set is not "no filter" — it is a reader who may see nothing, and
-  // matching everything there would be the exact inversion of the gate.
   if (types.length === 0) return sql`false`
-  // The legacy spellings are strings the column type does not list; they match rows an older pod wrote.
   return inArray(inboxItems.type, [...types, ...legacyInboxTypeAliases(types)] as InboxItemType[])
 }
 
-/**
- * `updated_at` as epoch microseconds, exactly (`extract(epoch …)` is numeric).
- * Selected beside the row so a cursor carries the stored value, while the
- * WHERE and ORDER BY stay on the bare column the list index covers
- * (`idx_inbox_items_recipient_org_updated`).
- */
 const listedAtMicros = sql<string>`(extract(epoch from ${inboxItems.updatedAt}) * 1000000)::bigint::text`
 
 function filterPredicate(filter: InboxListFilter) {
@@ -342,13 +206,6 @@ function filterPredicate(filter: InboxListFilter) {
   }
 }
 
-/**
- * "About this project": the project itself, or a conversation or document that hangs off it.
- *
- * Narrows the recipient's OWN rows to one project, so it reveals nothing about a document the
- * reader may not see (the row exists either way, and is redacted at read time by its target's
- * access check); it is why it is listed in `document-visibility.spec.ts` beside the orphan sweep.
- */
 function projectScopePredicate(organizationId: string, projectId: string) {
   return or(
     and(eq(inboxItems.resourceType, 'project'), eq(inboxItems.resourceId, projectId)),
@@ -363,7 +220,6 @@ function projectScopePredicate(organizationId: string, projectId: string) {
   )
 }
 
-/** One recipient's inbox, newest activity first. Never crosses organizations. */
 export async function listInboxItems(
   organizationId: string,
   recipientUserId: string,
@@ -381,8 +237,6 @@ export async function listInboxItems(
         filterPredicate(filter),
         typeFilter(types),
         projectId ? projectScopePredicate(organizationId, projectId) : undefined,
-        // The bound is built from the cursor alone, so the column stays bare:
-        // the epoch plus whole microseconds is exact.
         cursor
           ? sql`(${inboxItems.updatedAt}, ${inboxItems.id}) < (timestamptz 'epoch' + ${cursor.micros}::bigint * interval '1 microsecond', ${cursor.id}::uuid)`
           : undefined,
@@ -392,21 +246,14 @@ export async function listInboxItems(
     .limit(limit)
 }
 
-/** A request still waiting on the reader: actionable, not resolved, not redacted. */
 function openRequestPredicate() {
   return and(isNull(inboxItems.inertAt), eq(inboxItems.actionable, true), isNull(inboxItems.resolvedAt))
 }
 
-/** Not opened yet, and not redacted. */
 function unreadPredicate() {
   return and(isNull(inboxItems.inertAt), isNull(inboxItems.readAt))
 }
 
-/**
- * "Needs attention": not inert, and either unread or an unresolved actionable
- * request. Matches `idx_inbox_items_pending` exactly — keep the two in step, or
- * the badge silently stops using its index.
- */
 function pendingPredicate() {
   return and(
     isNull(inboxItems.inertAt),
@@ -414,7 +261,6 @@ function pendingPredicate() {
   )
 }
 
-/** The badge number. Runs on every page render, so it stays a plain indexed count. */
 export async function countPendingInboxItems(
   organizationId: string,
   recipientUserId: string,
@@ -433,17 +279,14 @@ export async function countPendingInboxItems(
         typeFilter(types),
       ),
     )
-  // count() arrives as a string from the driver; coerce at the boundary (AGENTS.md).
   return Number(row?.count ?? 0)
 }
 
-/** How many open requests and how many unread rows: the numbers beside the list's filters. */
 export interface InboxFilterCounts {
   requests: number
   unread: number
 }
 
-/** {@link InboxFilterCounts} in one indexed scan of the recipient's live rows. */
 export async function countInboxFilters(
   organizationId: string,
   recipientUserId: string,
@@ -465,22 +308,11 @@ export async function countInboxFilters(
         typeFilter(types),
       ),
     )
-  // count() arrives as a string from the driver; coerce at the boundary (AGENTS.md).
   return { requests: Number(row?.requests ?? 0), unread: Number(row?.unread ?? 0) }
 }
 
-/**
- * The mutation that marks a row read.
- *
- * `count` goes back to zero alongside `readAt`, because the counter means
- * "occurrences since you last read this". Leaving it standing made a group the
- * user had just read say "21 new messages" the moment a twenty-second arrived —
- * twenty of which they had already seen. The upsert increments from whatever
- * this leaves behind, so the next arrival reads "1 new message".
- */
 const markReadValues = () => ({ readAt: new Date(), count: 0 })
 
-/** Mark specific items read. Scoped to the recipient so ids cannot be poked. */
 export async function markInboxItemsRead(
   organizationId: string,
   recipientUserId: string,
@@ -498,9 +330,6 @@ export async function markInboxItemsRead(
         eq(inboxItems.recipientUserId, recipientUserId),
         inArray(inboxItems.id, itemIds),
         isNull(inboxItems.readAt),
-        // Recipient scoping alone does not enforce the type gate: an id kept
-        // from before collaboration was switched off still belongs to this
-        // recipient, so it still matched.
         typeFilter(types),
       ),
     )
@@ -508,7 +337,6 @@ export async function markInboxItemsRead(
   return rows.length
 }
 
-/** Mark everything read (the "clear all" affordance), optionally per type. */
 export async function markAllInboxItemsRead(
   organizationId: string,
   recipientUserId: string,
@@ -530,12 +358,6 @@ export async function markAllInboxItemsRead(
   return rows.length
 }
 
-/**
- * Mark specific items unread again: the reader opened one and wants it back
- * on their list. Only a live row: an archived or redacted one has nothing to
- * come back to. `count` stays as reading left it, so the row says it holds
- * nothing new rather than inventing an occurrence.
- */
 export async function markInboxItemsUnread(
   organizationId: string,
   recipientUserId: string,
@@ -562,7 +384,6 @@ export async function markInboxItemsUnread(
   return rows.length
 }
 
-/** Take one item out of the archive again (the „Archiviert“ filter's „Wiederherstellen“). */
 export async function unarchiveInboxItem(
   organizationId: string,
   recipientUserId: string,
@@ -601,10 +422,6 @@ export async function archiveInboxItem(
         eq(inboxItems.organizationId, organizationId),
         eq(inboxItems.recipientUserId, recipientUserId),
         eq(inboxItems.id, itemId),
-        // See `markInboxItemsRead`: the row belongs to this recipient either
-        // way, so the type gate has to be in the WHERE clause too. A miss
-        // becomes the same NotFoundError as any other, which is what keeps the
-        // endpoint from confirming that a hidden item exists.
         typeFilter(types),
       ),
     )
@@ -612,16 +429,6 @@ export async function archiveInboxItem(
   return rows.length > 0
 }
 
-/**
- * Clear ambient items for a resource once the recipient has actually looked at it
- * (spec IB-9). Deliberately does NOT touch actionable items: reading a thread is
- * not answering the question someone asked in it.
- *
- * `only` narrows it to the rows whose group key folds on an anchor prefix
- * (`groupAnchor`, as {@link AnchoredRows} reads it), in the types the caller
- * may see: opening a document's review reads its „15 Anmerkungen gesetzt“
- * rows ({@link MARKS_SET_GROUP_ANCHOR}) and nothing else of the document's news.
- */
 export async function markResourceItemsRead(
   organizationId: string,
   recipientUserId: string,
@@ -649,20 +456,8 @@ export async function markResourceItemsRead(
   return rows.length
 }
 
-/**
- * Rows anchored on a mark only for their link: they fold per document and
- * setter ({@link MARKS_SET_GROUP_ANCHOR}), so their news is not the mark's.
- */
 const foldedOnItsAnchor = () => sql`${inboxItems.groupKey} NOT LIKE ${groupAnchorPattern(MARKS_SET_GROUP_ANCHOR)}`
 
-/**
- * {@link markResourceItemsRead} for ONE thing inside the resource: the
- * informational items anchored on one mark of a document, once the recipient
- * has opened that mark. The rest of the document's news stays unread, and an
- * actionable request survives being seen, as it does for the resource. A row
- * anchored on the mark only for its link (new marks, folded per document) is
- * not its news, and is read with the document's review instead.
- */
 export async function markAnchorItemsRead(
   organizationId: string,
   recipientUserId: string,
@@ -692,21 +487,8 @@ export async function markAnchorItemsRead(
   return rows.length
 }
 
-/**
- * How many anchors one read of {@link listUnreadAnchors} returns at most: a
- * document holds at most this many marks (`MAX_ANNOTATIONS_PER_DOCUMENT`).
- */
 export const UNREAD_ANCHORS_LIMIT = 500
 
-/**
- * The anchors inside one resource that hold news the recipient has not read:
- * exactly the rows {@link markAnchorItemsRead} would read for each (their own,
- * informational, unread, in the types they may see), less what they archived
- * or what was redacted, which the inbox no longer shows as news either, and
- * less a row anchored there only for its link ({@link MARKS_SET_GROUP_ANCHOR}).
- * For a document, the marks whose thread the review shows a dot on. One query on
- * `idx_inbox_items_target`, bounded by {@link UNREAD_ANCHORS_LIMIT}.
- */
 export async function listUnreadAnchors(
   organizationId: string,
   recipientUserId: string,
@@ -730,7 +512,6 @@ export async function listUnreadAnchors(
         isNull(inboxItems.archivedAt),
         isNull(inboxItems.inertAt),
         typeFilter(types),
-        // „Anna hat 15 Anmerkungen gesetzt“ is the document's news, not its newest mark's: no dot on that one pin.
         foldedOnItsAnchor(),
       ),
     )
@@ -738,33 +519,12 @@ export async function listUnreadAnchors(
   return rows.flatMap((row) => (row.anchorId ? [row.anchorId] : []))
 }
 
-/**
- * One item to settle, addressed the only way that is unambiguous: the group it
- * belongs to AND WHOSE it is.
- *
- * A group key is deliberately NOT unique per person — everyone mentioned on the
- * same message shares `mention.requested:conversation:<id>:<anchor>`, and the
- * unique index is on `(recipient_user_id, group_key)` precisely because the
- * recipient is half of the identity. The organization is carried too: group keys
- * are built from client-generated resource ids, so they are not tenant-unique
- * either.
- */
 export interface InboxResolutionTarget {
   organizationId: string
   recipientUserId: string
   groupKey: string
 }
 
-/**
- * Resolve the actionable items that pointed at settled requests (spec MN-16).
- * Driven by domain events, not by the recipient tidying up.
- *
- * Scoped per (organization, recipient, group) pair. Matching on the group key
- * alone would resolve a COLLEAGUE's still-open request whenever one mentionee
- * answered — their badge would drop and their row would leave the "needs you"
- * page while the thread banner still said it was waiting for them, which is
- * exactly the disagreement spec MN-10 and lifecycle invariant 3 forbid.
- */
 export async function resolveInboxItemsForTargets(
   targets: readonly InboxResolutionTarget[],
 ): Promise<number> {
@@ -791,16 +551,6 @@ export async function resolveInboxItemsForTargets(
   return rows.length
 }
 
-/**
- * Resolve the open items of these types that are anchored on one thing — one
- * mark, one proposal — for one recipient, or for everyone when none is named.
- *
- * For a settle event that knows its subject's id and not the resource the items
- * point at (a mark is answered by an event that carries the mark, while the
- * item's group key also names its document). Anchors are uuids, and the type
- * list keeps another type's anchor out of reach. Returns who was resolved, so
- * the caller can nudge their badge.
- */
 export async function resolveOpenItemsAnchoredOn(input: {
   organizationId: string
   types: readonly InboxItemType[]
@@ -825,28 +575,16 @@ export async function resolveOpenItemsAnchoredOn(input: {
   return [...new Set(rows.map((row) => row.recipientUserId))]
 }
 
-/**
- * The rows anchored on one thing, of these types, for one recipient or for
- * everyone, that are not inert yet: the one predicate every write to an
- * anchored row's standing shares. `payloadHas` narrows it to the rows whose
- * payload carries these facts (a reply's rows, by its `replyId`): JSON
- * containment, so a row that names another reply, or none, is not one.
- * `groupAnchor` narrows it to the rows whose group key does (`is`) or does not
- * (`isNot`) fold on that anchor prefix instead of the anchor itself (new marks
- * fold on `set:<variant>:<actor>`, `inboxGroupKey`).
- */
 export interface AnchoredRows {
   organizationId: string
   types: readonly InboxItemType[]
   anchorId: string
   recipientUserId?: string
-  /** Leave these recipients' rows alone. */
   exceptRecipients?: readonly string[]
   payloadHas?: Record<string, string>
   groupAnchor?: { is: string } | { isNot: string }
 }
 
-/** A `LIKE` pattern matching a group key whose anchor segment starts with `prefix`. */
 const groupAnchorPattern = (prefix: string): string => `%:${prefix.replace(/[\\%_]/g, (char) => `\\${char}`)}%`
 
 function anchoredRows(input: AnchoredRows) {
@@ -864,17 +602,8 @@ function anchoredRows(input: AnchoredRows) {
   )
 }
 
-/** What every inert write sets: the moment, a wiped payload (the quoted text is gone), and nothing left to count. */
 const inertValues = () => ({ inertAt: new Date(), payload: {}, count: 0 })
 
-/**
- * Neutralise every item of these types anchored on one thing that is gone — a
- * deleted mark — for everyone, or for one recipient when one is named (a
- * mention taken back), the shape of {@link resolveOpenItemsAnchoredOn}. Wipes
- * the payload and the count, as every inert write does: the quoted text is
- * gone, and a row revived later counts only what revived it. Returns who held
- * one, so the caller can nudge their badge. Narrowed by {@link AnchoredRows}.
- */
 export async function markItemsInertAnchoredOn(input: AnchoredRows): Promise<string[]> {
   if (input.types.length === 0) return []
   const db = getDb()
@@ -886,15 +615,6 @@ export async function markItemsInertAnchoredOn(input: AnchoredRows): Promise<str
   return [...new Set(rows.map((row) => row.recipientUserId))]
 }
 
-/**
- * Take ONE occurrence back out of the rows that counted it, without
- * resurfacing them (`updated_at` and `read_at` stay): a deleted reply out of
- * its thread's row, a deleted mark out of a „15 Anmerkungen gesetzt“ row. The
- * count drops by one, never below zero, and the `clear` keys leave the payload
- * (the quote of what is gone). A row left counting nothing goes inert when
- * `inertWhenSpent` (its news was only what is gone), else it stays, quoting
- * nothing (a request that still asks). Returns who held one.
- */
 export async function retractOccurrenceAnchoredOn(
   input: AnchoredRows & { clear: readonly string[]; inertWhenSpent: boolean },
 ): Promise<string[]> {
@@ -914,12 +634,6 @@ export async function retractOccurrenceAnchoredOn(
   return [...new Set(rows.map((row) => row.recipientUserId))]
 }
 
-/**
- * Rewrite facts in the payload of the rows that quote something which changed
- * (a reworded reply, by its `replyId`), without resurfacing them: `updated_at`,
- * `read_at` and the count stay, because nothing new happened. jsonb concat, so
- * the keys given win and the rest is kept. Returns who held one.
- */
 export async function rewriteItemPayloadsAnchoredOn(
   input: AnchoredRows & { facts: Record<string, unknown> },
 ): Promise<string[]> {
@@ -933,11 +647,6 @@ export async function rewriteItemPayloadsAnchoredOn(
   return [...new Set(rows.map((row) => row.recipientUserId))]
 }
 
-/**
- * Neutralise one person's items for a resource — called in the SAME operation
- * that revokes their access (spec IB-14). Snippets are wiped, not just hidden:
- * the payload is the copy of content they must no longer be able to read.
- */
 export async function markItemsInertForSubjectRow(
   resourceType: ShareableResourceType,
   resourceId: string,
@@ -959,10 +668,6 @@ export async function markItemsInertForSubjectRow(
   return rows.length
 }
 
-/**
- * Neutralise EVERY item pointing at a resource — used when the resource is
- * soft-deleted or its visibility narrows to the point of general inaccessibility.
- */
 export async function markItemsInertForResource(
   resourceType: ShareableResourceType,
   resourceId: string,
@@ -982,15 +687,6 @@ export async function markItemsInertForResource(
   return rows.length
 }
 
-/**
- * Neutralise one person's items across every conversation in a project — the
- * cleanup for losing PROJECT membership (spec SH-13).
- *
- * Losing container access ends effective access to every resource inside it, so
- * items pointing into that project must stop being live links. Scoped to the
- * project rather than the whole organization, because the same person may still
- * legitimately hold access in another project.
- */
 export async function markItemsInertForSubjectInProject(
   organizationId: string,
   projectId: string,
@@ -1021,19 +717,6 @@ export async function markItemsInertForSubjectInProject(
   return rows.length
 }
 
-/**
- * Delete items whose target conversation no longer exists — the self-healing
- * sweep for orphans.
- *
- * These rows address their target as `(resource_type, resource_id)` with no
- * foreign key (ids are heterogeneous across shareable types, and Postgres has no
- * polymorphic FK), so a hard delete of a conversation — including the cascade
- * from purging its project — cannot take them with it. Orphans are harmless for
- * access (resolution 404s on a missing resource, and the inbox re-authorizes at
- * read time) but they accumulate and leave permanently redacted rows in someone's
- * inbox, which reads as a bug. Bounded per call so a backlog is worked off across
- * ticks rather than locking a table on the render path.
- */
 export async function deleteOrphanedInboxItems(limit = 500): Promise<number> {
   const db = getDb()
   const orphans = await db
@@ -1071,7 +754,6 @@ export async function deleteOrphanedInboxItems(limit = 500): Promise<number> {
   return rows.length
 }
 
-/** Hard-delete every item for a resource — the purge path (spec IB-15). */
 export async function deleteItemsForResource(
   resourceType: ShareableResourceType,
   resourceId: string,
@@ -1084,10 +766,6 @@ export async function deleteItemsForResource(
   return rows.length
 }
 
-/**
- * Retention prune: drop items older than the cutoff (spec IB-15). Bounded per
- * call so a backlog is worked off across ticks instead of locking the table.
- */
 export async function pruneInboxItemsOlderThan(cutoff: Date, limit = 1000): Promise<number> {
   const db = getDb()
   const stale = await db
@@ -1108,24 +786,6 @@ export async function pruneInboxItemsOlderThan(cutoff: Date, limit = 1000): Prom
   return rows.length
 }
 
-/**
- * Which of these (recipient, group) pairs already have a LIVE row.
- *
- * "Live" = not archived. This is the suppression probe behind fire-once-per
- * -crossing (ADR-0042): {@link upsertInboxItems} deliberately revives a row on
- * conflict — count + 1, `read_at`/`resolved_at`/`archived_at`/`inert_at` all
- * cleared — because for a mention or a new message a repeat IS new information.
- * For a standing condition it is not: re-emitting "storage is 80% full" every
- * hour would re-surface an alert the recipient had already read and dismissed,
- * every hour, until somebody freed space. The emitter therefore asks first.
- *
- * Archived rows are deliberately EXCLUDED from the answer, which is what makes a
- * re-crossing alert again: retiring the alert (archiving it) when usage falls
- * back below the threshold is what re-arms it.
- *
- * Returned as `recipientUserId\ngroupKey` keys — `\n` because a WorkOS user id
- * cannot contain one, whereas `:` appears inside every group key.
- */
 export async function findLiveInboxGroupKeys(
   organizationId: string,
   targets: readonly { recipientUserId: string; groupKey: string }[],
@@ -1152,21 +812,6 @@ export async function findLiveInboxGroupKeys(
   return new Set(rows.map((row) => `${row.recipientUserId}\n${row.groupKey}`))
 }
 
-/**
- * Archive every live item of one type in an organization, optionally sparing one
- * anchor — the "the condition no longer holds" sweep.
- *
- * Archiving rather than deleting: the row is a real thing that was shown to
- * somebody, and retention (spec IB-15) still owns its death. Archiving takes it
- * out of the list and out of the badge, which is what "no longer true" should
- * look like, AND re-arms {@link findLiveInboxGroupKeys} so the next crossing is
- * announced instead of suppressed.
- *
- * `exceptAnchorId` is how an ESCALATION replaces rather than duplicates: when
- * usage moves from the 80% bucket to the 90% one, the 80% rows are retired in
- * the same pass that raises the 90% one, so nobody ends up with two rows about
- * one disk.
- */
 export async function archiveInboxItemsOfType(
   organizationId: string,
   type: InboxItemType,
@@ -1190,7 +835,6 @@ export async function archiveInboxItemsOfType(
   return rows.length
 }
 
-/** Distinct item types present for a recipient — used by filter chips. */
 export async function listInboxTypesForRecipient(
   organizationId: string,
   recipientUserId: string,

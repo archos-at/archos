@@ -1,15 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Opt-in integration test: the platform retrieval settings against a real
- * Postgres with migration 0029 applied. Skipped unless TEST_DATABASE_URL
- * is set (CI has no database).
- *
- * The behaviour worth a real database: a save is a REPLACE, not a patch — a
- * key left out of the payload is cleared back to the catalog default — and
- * the cached read reflects it immediately rather than after a TTL.
- */
 
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 
@@ -36,7 +27,6 @@ describe.skipIf(!url)('platform retrieval settings against live Postgres', () =>
 
     const actor = { actorUserId: 'user_test', actorEmail: 'owner@example.test' }
 
-    // Nothing pinned: the map is empty, the view shows catalog defaults.
     await savePlatformRetrievalSettings({ settings: {}, note: null, ...actor })
     expect(await getPlatformRetrievalSettings()).toEqual({})
 
@@ -51,7 +41,6 @@ describe.skipIf(!url)('platform retrieval settings against live Postgres', () =>
     })
     expect(await getPlatformRetrievalSettings()).toEqual({ 'knowledge.top_k': 12, 'web.max_results': 7 })
 
-    // A save is the whole set: `knowledge.top_k` changes, `web.max_results` is dropped.
     await savePlatformRetrievalSettings({ settings: { 'knowledge.top_k': 10 }, note: 'bump', ...actor })
     expect(await getPlatformRetrievalSettings()).toEqual({ 'knowledge.top_k': 10 })
 
@@ -74,7 +63,6 @@ describe.skipIf(!url)('platform retrieval settings against live Postgres', () =>
       actorEmail: 'first@example.test',
     })
 
-    // The form resends every pinned key; only web.max_results actually moves.
     await savePlatformRetrievalSettings({
       settings: { 'knowledge.top_k': 12, 'web.max_results': 8 },
       note: 'more web hits',

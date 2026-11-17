@@ -72,21 +72,12 @@ logger = logging.getLogger(__name__)
 
 FORMAT = "piloti-vectors/1"
 MANIFEST = "manifest.json"
-#: A collection name the exporter accepts (Chroma's own rule). Checked before
-#: a name from the manifest becomes a path, so ``../`` never does.
 COLLECTION_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{1,510}[A-Za-z0-9]$")
 _DIGEST_PREFIX = "sha256-sum:"
 
-#: Up to this many chunks on either side, :func:`verify_scope` compares the
-#: whole id sets; above it, a random sample of each side is looked up in the other.
 VERIFY_FULL_LIMIT = 200_000
-#: Ids sampled from each side above :data:`VERIFY_FULL_LIMIT`.
 VERIFY_SAMPLE = 4096
-#: Stale chunk ids per delete request in :func:`prune_scope`.
 PRUNE_BATCH = 512
-#: Collection metadata key an import that verified in step leaves on both
-#: physical collections (:func:`record_import`); its value says which export
-#: and when.
 IMPORT_MARKER_KEY = "vector_import"
 
 
@@ -284,9 +275,6 @@ def _record(entry: CollectionEntry, path: Path, line: str) -> ChunkRecord:
     return ChunkRecord(chunk_id, str(raw.get("document") or ""), embedding, dict(metadata))
 
 
-# ---------------------------------------------------------------------- facts
-
-
 def facts_by_file(scope: str) -> dict[str, dict[str, Any]]:
     """The person-set facts of every file in ``scope``, from the metadata store (their authority)."""
     from agent.knowledge import get_available_documents
@@ -315,9 +303,6 @@ def apply_facts(scope: str, store: QdrantStore, facts: Mapping[str, Mapping[str,
     store.restore_chunk_doc_classes(scope, [name for name, values in facts.items() if "doc_class" not in values])
 
 
-# ---------------------------------------------------------------------- import
-
-
 @dataclass
 class ScopeReport:
     """What one collection's import did."""
@@ -328,7 +313,6 @@ class ScopeReport:
     pruned: int = 0
     export_count: int | None = None
     qdrant_count: int | None = None
-    #: Chunks one side holds and the other lacks, by id (:func:`verify_scope`).
     missing: int = 0
     extra: int = 0
     sampled: bool = False
@@ -479,9 +463,7 @@ class Verification:
 
     export_count: int
     qdrant_count: int
-    #: Chunks the export holds and Qdrant lacks (in the sample, when ``sampled``).
     missing: int
-    #: Points Qdrant holds whose chunk the export lacks (in the sample, when ``sampled``).
     extra: int
     sampled: bool = False
 
@@ -527,9 +509,6 @@ def orphan_scopes(export_names: Iterable[str], qdrant_held: Iterable[str]) -> li
 def qdrant_scopes(store: QdrantStore) -> list[str]:
     """Every scope with at least one point, over both physical collections."""
     return [scope for physical in Physical for scope in store.scopes(physical)]
-
-
-# ---------------------------------------------------------------------- once
 
 
 def _physical_collections(store: QdrantStore) -> list[str]:

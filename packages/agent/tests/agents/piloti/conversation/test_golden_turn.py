@@ -1,21 +1,3 @@
-"""One whole turn through the real workflow, compared frame for frame with a committed golden (chat wire v2 §g).
-
-The turn is the real ``_run``: the request parse, the setup phase, admission,
-the registries, the conversation graph under ``astream``, the result lift. The
-answering agent is the one seam: it crosses the agent runtime's function boundary the way
-``Function.ainvoke`` does (``Context.push_active_function``) into an inner
-LangGraph run with a config of its own, the shape of Piloti's
-``agent._graph_config``, and there a fake LLM streams a recorded envelope
-through the real token handler. So the bodies asserted here are the ones the
-graph's own writer carried out of Piloti's inner graph, which is the reach
-``test_stream_writer_reach.py`` stands in for.
-
-The frames are stamped as the socket stamps them (``RUN_STARTED`` first, one
-``seq`` each) and compared with ``tests/fixtures/wire_v2/golden_turn.jsonl``,
-``ts`` excepted. Regenerate it after a deliberate wire change with
-``REGEN_GOLDEN=1``, and read the diff.
-"""
-
 from __future__ import annotations
 
 import json
@@ -75,8 +57,6 @@ SOURCE = {
 
 
 class _Live:
-    """What ``LiveAnswer`` shows before the pipeline ran: the masthead, the settled prose, the cards."""
-
     def masthead(self, fields, prose=""):
         return {"kind": fields["kind"], "topic": fields["topic"], "verdict": fields["verdict"]}
 
@@ -115,12 +95,10 @@ def _inner_graph():
 _INNER = _inner_graph()
 
 
-class _OwnCallbacks(AsyncCallbackHandler):
-    """Piloti's inner graph passes callbacks of its own (``agent._graph_config``)."""
+class _OwnCallbacks(AsyncCallbackHandler): ...
 
 
 async def _chat_behind_its_function(state):
-    """What the runtime's ``Function.ainvoke`` does around Piloti: push the function, await it in the same task."""
     with Context.get().push_active_function("shallow_research_agent", input_data=None):
         config = {"recursion_limit": 50, "configurable": {"binding": object()}, "callbacks": [_OwnCallbacks()]}
         await _INNER.ainvoke({}, config=config)
@@ -137,7 +115,6 @@ async def _chat_behind_its_function(state):
 
 
 def _frames(bodies, message_id) -> list[dict]:
-    """Stamped as the socket stamps them: RUN_STARTED is seq 1, every body after it the next seq."""
     stamped = [RunStartedBody(message_id=message_id), *bodies]
     return [
         to_frame(stamp(body, conversation_id=CONVERSATION_ID, turn_id=TURN_ID, seq=seq, ts=0))
@@ -179,7 +156,6 @@ async def test_every_frame_is_valid_small_and_the_terminal_is_last(workflow_harn
 
 
 async def test_the_writer_reaches_the_inner_graph_through_the_nat_boundary(workflow_harness, monkeypatch):
-    """The status step and the prose were written inside Piloti's own graph run, and reached `_run`."""
     frames = await _golden_turn(workflow_harness, monkeypatch)
     types = [frame["type"] if frame["type"] != "CUSTOM" else frame["name"] for frame in frames]
     assert "TEXT_MESSAGE_CONTENT" in types and "STATE_SNAPSHOT" in types

@@ -36,11 +36,6 @@ def _get_token_encoder():
 
         return tiktoken.get_encoding("cl100k_base")
     except (ImportError, OSError) as exc:
-        # "tiktoken" and "per-token" are the BPE tokenizer, not a credential;
-        # `exc` is an ImportError or an OSError from the BPE-table download.
-        # The rule is a keyword match on "token" in a logged string, so it
-        # cannot tell the two apart -- suppressed here rather than repo-wide,
-        # because it does catch real credential logging elsewhere.
         # nosemgrep: python.lang.security.audit.logging.logger-credential-leak.python-logger-credential-disclosure
         logger.warning("tiktoken unavailable (%s); history is budgeted by the 4-chars-per-token heuristic", exc)
         return None
@@ -60,9 +55,7 @@ def warm_token_encoder() -> bool:
 def _encoded_len(text: str) -> int:
     encoder = _get_token_encoder()
     if encoder is None:
-        # Fallback heuristic when tiktoken is unavailable: ~4 chars per token.
         return max(1, len(text) // 4)
-    # A user can type "<|endoftext|>"; counting must not refuse it.
     return len(encoder.encode(text, disallowed_special=()))
 
 
@@ -106,11 +99,7 @@ def trim_message_history(
     )
 
 
-#: The tools ``look`` replaced (ADR-0128), and what each one's arguments are called now.
-#: A stored transcript still holds calls to them, and a provider may reject a past
-#: call to a tool that is not declared, so replay shows the model ``look`` instead.
-#: ``collection`` goes: ``look`` never takes one. Compatibility for ONE release;
-#: remove this table, :func:`replay_retired_look_names` and its test after 2026-12-01.
+# Remove this table, replay_retired_look_names and its test after 2026-12-01.
 _RETIRED_LOOK_NAMES: dict[str, dict[str, str | None]] = {
     "view_knowledge_image": {"file_name": "document", "page_number": "page", "collection": None},
     "canvas__look": {},
@@ -172,7 +161,13 @@ def _with_look_calls(message: AIMessage) -> AIMessage:
     return message.model_copy(update=update)
 
 
-def prune_tool_results(messages: list[BaseMessage], *, keep_turns: int = 1) -> list[BaseMessage]:
+# Anthropic, Context editing, 2026-11-09: clearing invalidates the cache, so prune once per batch.
+PRUNE_BATCH_TURNS = 4
+
+TRIM_TO_SHARE = 0.625
+
+
+def prune_tool_results(messages: list[BaseMessage], *, keep_turns: int = 1, batch_turns: int = 1) -> list[BaseMessage]:
     """The history with tool results kept for the last ``keep_turns`` turns only.
 
     A turn writes its whole transcript back to the conversation — the tool
@@ -184,12 +179,19 @@ def prune_tool_results(messages: list[BaseMessage], *, keep_turns: int = 1) -> l
     together); an assistant message with prose keeps its prose and drops its
     calls. A turn starts at a ``HumanMessage``; the current question is a
     turn of its own and counts.
+
+    ``batch_turns`` prunes in steps: the cut only moves when a whole batch of
+    turns has passed it, so a turn between two steps keeps the results of up
+    to ``batch_turns - 1`` turns more and leaves every earlier byte unchanged.
     """
     messages = replay_retired_look_names(messages)
     boundaries = [i for i, m in enumerate(messages) if isinstance(m, HumanMessage)]
     if len(boundaries) <= keep_turns + 1:
         return list(messages)
-    cutoff = boundaries[-(keep_turns + 1)]
+    pruned_turns = (len(boundaries) - (keep_turns + 1)) // batch_turns * batch_turns
+    if pruned_turns == 0:
+        return list(messages)
+    cutoff = boundaries[pruned_turns]
     pruned: list[BaseMessage] = []
     for index, message in enumerate(messages):
         if index >= cutoff or not isinstance(message, (AIMessage, ToolMessage)):
@@ -215,11 +217,46 @@ def history_window(messages: list[BaseMessage], max_tokens: int) -> list[BaseMes
     instead keeps the newest messages, which are those tool results, and
     ``start_on="human"`` then drops the tail of the previous turn as well, leaving
     the follow-up alone with no question it follows (live QA, 2026-10-27).
+
+    Both edits move in steps rather than on every turn, because each one
+    rewrites bytes the previous turn's cache entry holds: tool results go in
+    batches (:data:`PRUNE_BATCH_TURNS`), and the window's start moves only when
+    it overflows, then to well inside the budget (:func:`window_start`).
     """
-    pruned = prune_tool_results(messages)
-    if _count_message_tokens(pruned) > max_tokens:
-        pruned = prune_tool_results(messages, keep_turns=0)
-    return trim_message_history(pruned, max_tokens)
+    pruned = prune_tool_results(messages, batch_turns=PRUNE_BATCH_TURNS)
+    for fallback in ({}, {"keep_turns": 0}):
+        if _count_message_tokens(pruned) <= max_tokens:
+            break
+        pruned = prune_tool_results(messages, **fallback)
+    first = window_start(messages, max_tokens)
+    humans = [i for i, m in enumerate(pruned) if isinstance(m, HumanMessage)]
+    start = humans[first] if first < len(humans) else 0
+    return trim_message_history(pruned[start:], max_tokens)
+
+
+def window_start(messages: list[BaseMessage], max_tokens: int) -> int:
+    """Which turn the history window starts at, counted from 0: it moves in steps, from the transcript alone. Pure.
+
+    Replays the conversation turn by turn: the start stays put while the
+    window fits ``max_tokens``, and when it overflows it moves to the earliest
+    turn that leaves at most :data:`TRIM_TO_SHARE` of it. Each turn is sized as
+    prose only (its tool results pruned), the size it has once older, so a
+    turn's size never changes after it is stored and the replay gives every
+    later turn the same start until the next overflow.
+    """
+    prose = prune_tool_results(messages, keep_turns=0)
+    starts = [i for i, m in enumerate(prose) if isinstance(m, HumanMessage)]
+    if not starts:
+        return 0
+    sizes = [_count_message_tokens(prose[a:b]) for a, b in zip(starts, [*starts[1:], len(prose)], strict=True)]
+    low = int(max_tokens * TRIM_TO_SHARE)
+    first = 0
+    for end in range(1, len(sizes) + 1):
+        if sum(sizes[first:end]) <= max_tokens:
+            continue
+        while first < end - 1 and sum(sizes[first:end]) > low:
+            first += 1
+    return first
 
 
 def _prose_only(message: AIMessage) -> AIMessage | None:
@@ -242,11 +279,8 @@ def _prose_only(message: AIMessage) -> AIMessage | None:
     return message.model_copy(update={"content": kept, "tool_calls": [], "invalid_tool_calls": []})
 
 
-#: The block delimiter ``grounding_block.render_grounding_block`` writes.
 _RESULT_BLOCK_RE = re.compile(r"^--- Result \d+ ---$", re.M)
 _CITATION_LINE_RE = re.compile(r"^Citation: (.+)$", re.M)
-#: What stands where an uncited passage stood. English like the block's own
-#: header lines; it names the way back, not the text.
 UNCITED_PASSAGE_NOTE = "[passage not cited by the answer; open it again by its Path if it is needed]"
 
 
@@ -280,7 +314,6 @@ def compact_tool_results(messages: list[BaseMessage], cited_keys: set[str]) -> l
 
 
 def _compact_block(content: str, wanted: set[str]) -> str:
-    # A delimiter a passage body spells inside its fence is the body's text, not a block.
     starts = [m.start() for m in unfenced(_RESULT_BLOCK_RE, content)]
     if not starts:
         return content
@@ -303,10 +336,6 @@ def _header_only(block: str) -> str:
     header, sep, rest = block.partition("\n\n")
     if not sep:
         return block
-    # The body is its fence, or, rendered before the fence, runs to the blank
-    # line that closes it; keep whatever follows (a trailer such as the
-    # ``## Gliederung`` index belongs to the result, not to one passage). A
-    # fenced body may hold blank lines of its own.
     spans = fenced_spans(rest)
     after = rest[spans[0][1] :] if spans and spans[0][0] == 0 else None
     _body, tail_sep, tail = after.partition("\n\n") if after is not None else rest.partition("\n\n")

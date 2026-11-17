@@ -38,7 +38,6 @@ describe('the ratings filters in a URL', () => {
     expect(params.toString()).toBe('view=ratings')
   })
 
-  /** The page URL is read leniently: a stale link opens a sensible view, not an error. */
   it('drops what it does not know when reading the page URL', () => {
     expect(readRatingsFilters(new URLSearchParams('verdict=maybe&reason=nope&topic=Brandschutz&mode=error'))).toEqual({
       ...NO_RATINGS_FILTERS,

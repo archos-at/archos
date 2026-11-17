@@ -1,4 +1,3 @@
-/** The right-side settings panel + the project Settings page. */
 export const settings = {
   title: 'Settings',
   loading: 'Loading settings …',
@@ -13,17 +12,12 @@ export const settings = {
     ariaLabel: 'Interface language',
   },
   openProfile: 'Open full profile',
-  /**
-   * The project Settings tier: one route per section, moved between by a
-   * section nav (the organization tier's pattern). Each section answers one
-   * question about the project; the copy below is grouped the same way.
-   */
   project: {
     nav: {
       label: 'Project settings',
       overview: 'Overview',
       members: 'Members',
-      memory: 'Memory',
+      memory: 'Project memory',
       usage: 'Usage & budget',
       documents: 'Documents & index',
       references: 'Similar projects',
@@ -68,13 +62,13 @@ export const settings = {
         open: 'Documents & index',
       },
       memory: {
-        label: 'Memory',
+        label: 'Project memory',
         notes: '{count, plural, one {note} other {notes}}',
         toReview: '{count, plural, one {# to review} other {# to review}}',
         allReviewed: 'All confirmed',
         empty: '{productName} has not noted anything about this project yet.',
         error: 'Memory could not be loaded.',
-        open: 'Memory',
+        open: 'Project memory',
       },
       members: {
         label: 'Members',

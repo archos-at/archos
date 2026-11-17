@@ -1,8 +1,3 @@
-/**
- * A long answer's section list: offered when there is something to navigate,
- * and a tap goes to the section it names.
- */
-
 import { useRef } from 'react'
 import { render, screen, within } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
@@ -52,7 +47,6 @@ describe('the section list of an answer', () => {
     await user.click(within(sheet).getByRole('button', { name: 'Close' }))
     await vi.waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
 
-    // Every section heading carries the same way in.
     expect(screen.getAllByTestId('outline-heading-button')).toHaveLength(5)
     await user.click(screen.getAllByTestId('outline-heading-button')[2]!)
     expect(await screen.findByRole('dialog')).toBeInTheDocument()

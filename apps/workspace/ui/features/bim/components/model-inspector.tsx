@@ -1,33 +1,5 @@
 'use client'
 
-/**
- * What you get when you click something.
- *
- * The whole of the metadata story in this redesign, and it only exists once
- * there is a selection. That is the trade: the reader gets the entire viewport
- * for the building, and the moment they point at a wall they get a card about
- * that wall — rather than a permanent column of tables that was mostly empty
- * and always in the way.
- *
- * ## What it leads with
- *
- * A name, what kind of thing it is, and which floor it is on. Those three
- * answer "what did I just click", which is the only question a click has
- * asked. Everything a schema knows — GlobalId, PredefinedType, every property
- * set the exporter wrote — is real and occasionally decisive, so it is kept;
- * it is just folded away, because leading with `IfcWallStandardCase` and a
- * 22-character GlobalId is how the old page managed to make a building look
- * like a debugging console.
- *
- * ## Why "Ask Piloti" is the footer
- *
- * The card can only report what the exporter wrote. The question a reader
- * actually has — does this wall satisfy OIB 2, what does the Bauordnung say
- * about this opening — is not in the IFC, and the assistant is the surface
- * that can answer it. The GlobalId rides along in the question so the agent
- * queries THIS element rather than one it guesses from a description.
- */
-
 import type { JSX } from 'react'
 import Link from 'next/link'
 import { EyeOff, MessageSquarePlus, Scan } from 'lucide-react'
@@ -52,48 +24,12 @@ export interface ModelInspectorProps {
   element: BimElementDetail | null
   isLoading: boolean
   error: string | null
-  /**
-   * The project whose chat "Piloti dazu fragen" opens, or `null` in the Archiv.
-   *
-   * The question is asked IN a conversation, and a conversation belongs to a
-   * project — so without one there is nowhere to send it and the button is not
-   * offered. Everything else this panel shows is a property of the element and
-   * is unaffected.
-   */
   projectId: string | null
   modelFilename: string | null
   onClose: () => void
-  /**
-   * Take this component out of the way, or look at nothing but it.
-   *
-   * On the card rather than in the dock because both act on THIS element, and
-   * a dock button whose meaning depends on an invisible selection is a control
-   * that does something different every time it is pressed. Omitted by
-   * surfaces that have nowhere to put the building back.
-   */
   onHide?: () => void
   onIsolate?: () => void
-  /**
-   * Whether THIS element is the one currently isolated.
-   *
-   * Isolate is a toggle, and a toggle that looks identical in both of its
-   * states is a control the reader cannot read: everything else had just
-   * vanished from the viewport and the button that did it sat there looking
-   * exactly as it had before the press, as if nothing had been registered.
-   * Filled ink and `aria-pressed`, the same as every other toggle in the
-   * viewer's chrome — which is also what says the press that took the
-   * building away is the press that brings it back.
-   */
   isolated?: boolean
-  /**
-   * Draw as a phone sheet instead of the desktop card.
-   *
-   * `bottom` is a portrait phone: a sheet with a peek size, so the card the
-   * click asked for never takes the building away. `side` is a phone on its
-   * side, where the same content is a narrow panel. Absent is the desktop card.
-   * The content is identical in all three — only the container changes, which
-   * is why this is a prop on the inspector and not a second inspector.
-   */
   sheet?: { placement: 'bottom' | 'side'; collapse: ViewerSheetCollapse }
   className?: string
 }
@@ -114,19 +50,6 @@ export function ModelInspector({
   const t = useTranslations(bimCopy)
   const { locale } = useLocale()
 
-  // The heading has to say something before the fetch lands, and it must not
-  // say the WRONG thing: "Bauteil" while loading, never a stale name from the
-  // element the reader clicked a second ago.
-  /**
-   * Three states, not two.
-   *
-   * The query answers a GlobalId this model does not contain with `200
-   * {element: null}` — the normal outcome for a link written against another
-   * revision, or for a link whose model could not be matched. That is not the
-   * same fact as "not fetched yet", and rendering it as one left a card
-   * permanently headed "Wird geladen…" whose body read "Wählen Sie ein
-   * Bauteil" — inside a card that only exists because something IS selected.
-   */
   const missing = !isLoading && !error && !element
   const title =
     element?.name?.trim() ||
@@ -286,15 +209,6 @@ export function ModelInspector({
   )
 }
 
-/**
- * Everything the schema knows, folded away.
- *
- * A native `<details>`, not a Radix collapsible: it is disclosure and nothing
- * else, it is keyboard- and screen-reader-operable with no code, and it
- * survives a print or a find-in-page. The one thing added is that it stays
- * shut by default, which is the entire point of the redesign expressed in one
- * attribute.
- */
 function ModelInspectorDetails({
   element,
   locale,

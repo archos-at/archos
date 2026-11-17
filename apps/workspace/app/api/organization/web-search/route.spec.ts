@@ -1,13 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The web-search switch (ADR-0022) has one route: the generic settings save
- * refuses the key, so this is where an agent's call lands too, marked a privacy
- * control in the catalog. Pinned with the real service: it stores a boolean,
- * drops the cached answer and the backend's shared record, and audits the switch
- * as the settings save does.
- */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const session = {

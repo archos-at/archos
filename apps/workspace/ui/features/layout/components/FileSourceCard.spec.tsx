@@ -3,7 +3,6 @@ import userEvent from '@testing-library/user-event'
 import { vi, describe, test, expect, beforeEach, afterEach } from 'vitest'
 import { FileSourceCard } from './FileSourceCard'
 
-// Mock useIsCurrentSessionBusy hook
 const mockUseIsCurrentSessionBusy = vi.fn(() => false)
 vi.mock('@/features/chat', () => ({
   useIsCurrentSessionBusy: () => mockUseIsCurrentSessionBusy(),
@@ -44,7 +43,6 @@ describe('FileSourceCard', () => {
   test('renders uploading status with spinner', () => {
     render(<FileSourceCard {...defaultProps} status="uploading" />)
 
-    // Text appears twice: visible status span + sr-only spinner label
     expect(screen.getAllByText('Uploading...').length).toBeGreaterThan(0)
     expect(screen.getByLabelText('Uploading...')).toBeInTheDocument() // Spinner
   })
@@ -52,9 +50,23 @@ describe('FileSourceCard', () => {
   test('renders ingesting status with spinner', () => {
     render(<FileSourceCard {...defaultProps} status="ingesting" />)
 
-    // Text appears twice: visible status span + sr-only spinner label
     expect(screen.getAllByText('Reading').length).toBeGreaterThan(0)
     expect(screen.getByLabelText('Reading')).toBeInTheDocument() // Spinner
+  })
+
+  test('a cancelled upload says so, with no spinner, and can be dismissed', async () => {
+    const onDelete = vi.fn()
+    mockUseIsCurrentSessionBusy.mockReturnValue(true)
+    render(<FileSourceCard {...defaultProps} status="canceled" onDelete={onDelete} />)
+
+    expect(screen.getByText('Canceled')).toBeInTheDocument()
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    expect(screen.queryByText('Uploading...')).not.toBeInTheDocument()
+
+    const dismiss = screen.getByRole('button', { name: 'Dismiss document.pdf' })
+    expect(dismiss).toBeEnabled()
+    await userEvent.click(dismiss)
+    expect(onDelete).toHaveBeenCalledWith('file-1')
   })
 
   test('renders error status with error message', () => {
@@ -118,7 +130,6 @@ describe('FileSourceCard', () => {
   test('displays formatted timestamp', () => {
     render(<FileSourceCard {...defaultProps} />)
 
-    // Check for formatted date (month day, time format)
     expect(screen.getByText(/jan 15/i)).toBeInTheDocument()
   })
 
@@ -179,7 +190,6 @@ describe('FileSourceCard - Expiration Display', () => {
   }
 
   test('shows "Expires in H:MM" when file has not yet expired', () => {
-    // uploaded 2 hours ago, expires in 12 hours => 10 hours remaining
     render(
       <FileSourceCard
         {...baseProps}
@@ -192,7 +202,6 @@ describe('FileSourceCard - Expiration Display', () => {
   })
 
   test('shows "Deletion Pending - Reupload" when file has expired', () => {
-    // uploaded 24 hours ago, expires in 12 hours => expired 12 hours ago
     render(
       <FileSourceCard
         {...baseProps}

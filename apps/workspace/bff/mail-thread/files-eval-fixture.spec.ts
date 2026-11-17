@@ -1,30 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The office-file eval's E-Mail-Verlauf, written by the real renderer
- * (`tests/fixtures/files_eval/mail/`, ADR-0137, DECISION §10).
- *
- * The answer suite's `--set files` seeds this thread into the knowledge layer
- * through the real Markdown chunker (`scripts/turn_census/fixture_files.py`),
- * because message boundaries are what its rows test: a citation must land on
- * one message, a forged section must stay inside its real sender's section, a
- * quote must stay labelled by the message that kept it. Python cannot run this
- * renderer, so the bytes are pinned here, from the entries in
- * `parking-thread.json`, the way the filing job would make them:
- *
- * - `parking-thread.md`, the rendition (`renderMailThread`);
- * - `parking-thread.facts.json`, what the BFF sends `POST /v1/ingest` beside
- *   it (`mail_thread` for the Verlauf, `mail_origin` for each filed
- *   attachment), in the ingest contract's snake_case, from the filing job's
- *   own helpers (`./ingest-facts`).
- *
- * A change to the rendition's format fails here first;
- * `UPDATE_FIXTURES=1 bunx vitest run src/lib/mail-thread/files-eval-fixture.spec.ts`
- * rewrites both files, and the eval then seeds what production would write.
- * (Not `toMatchFileSnapshot`: vitest 5 never settles a file snapshot outside
- * its root, and the run hangs.)
- */
 
 import { readFileSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
@@ -36,7 +12,6 @@ import { VERIFIED_SENDER_TRUSTS } from './mail-threading'
 import { mailThreadEntryHeading, renderMailThread, type MailThreadRenderEntry } from './render'
 import type { MailThreadRenderInput } from './render'
 
-// apps/workspace/bff/mail-thread → repo root is five levels up.
 const HERE = dirname(fileURLToPath(import.meta.url))
 const FIXTURE_DIR = resolve(HERE, '../../../../tests/fixtures/files_eval/mail')
 
@@ -52,7 +27,6 @@ interface Fixture extends Omit<MailThreadRenderInput, 'entries'> {
 
 const fixture = JSON.parse(readFileSync(resolve(FIXTURE_DIR, 'parking-thread.json'), 'utf8')) as Fixture
 
-/** The entries as the filing job inserts them: in filing order, each heading made against the ones before it. */
 function entries(): MailThreadRenderEntry[] {
   const taken: string[] = []
   return [...fixture.entries]
@@ -70,18 +44,12 @@ function entries(): MailThreadRenderEntry[] {
     })
 }
 
-/** Compare ``text`` with the fixture file, or write it there under ``UPDATE_FIXTURES=1``. */
 function expectFixture(name: string, text: string) {
   const path = resolve(FIXTURE_DIR, name)
   if (process.env.UPDATE_FIXTURES === '1') writeFileSync(path, text, 'utf8')
   expect(readFileSync(path, 'utf8')).toBe(text)
 }
 
-/**
- * What `POST /v1/ingest` carries beside the rendition: the production helpers
- * (`./ingest-facts`), `mail_origins` keyed by the attachment's name. Every
- * named attachment of the fixture is a filed one.
- */
 function ingestFacts(rows: readonly MailThreadRenderEntry[]) {
   const mailOrigins: Record<string, ReturnType<typeof mailOriginIngestFacts>> = {}
   for (const row of rows) {

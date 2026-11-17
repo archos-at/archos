@@ -11,22 +11,9 @@ from .chunk_noise import without_noise
 logger = logging.getLogger(__name__)
 
 
-# Diversity-aware merge caps how many chunks per document are taken in the
-# first pass before spreading to other documents. The cap is soft: with
-# max_per_document=2 and top_k=8 the first pass covers >=4 documents, and the
-# fill pass exceeds the cap rather than returning fewer than top_k chunks.
 _MAX_CHUNKS_PER_DOC = 2
 
 
-# Substring identifying an embedding-fingerprint mismatch in a layer failure.
-# Produced by ``qdrant.schema.identity_mismatch`` (which reports a
-# same-dimension model swap as "embedding mismatch: ...") and
-# preserved verbatim in ``RetrievalResult.error_message`` by ``_retrieve_sync``
-# ("Retrieval failed: Collection '...' embedding mismatch: ..."). A mismatch
-# means the stored and query vectors live in different spaces, so the affected
-# collection contributed nothing — total base-corpus loss when it is the only
-# layer. Unlike a missing session collection (routine, stays quiet) this is a
-# configuration fault and must surface as degraded/error, never as a miss.
 _EMBEDDING_MISMATCH_MARKER = "embedding mismatch"
 
 
@@ -57,8 +44,6 @@ def _rank_channel(chunks) -> list:
         rank = getattr(chunk, "retrieval_rank", None)
         if not isinstance(rank, int) or isinstance(rank, bool) or rank < 0:
             rank = position
-        # A duplicated or colliding rank must never evict a hit; push it to the next free
-        # slot so both survive and their relative order is preserved.
         while rank in by_rank:
             rank += 1
         by_rank[rank] = chunk
@@ -104,8 +89,6 @@ def apply_diversity_cap(ordered, top_k: int, max_per_document: int) -> list:
     per_doc: dict[tuple, int] = {}
     for index, chunk in enumerate(ordered):
         if len(selected) >= top_k:
-            # Bounded first pass: once the slate is full, everything left is a fill
-            # candidate. Nothing below this point is a cap decision.
             deferred.append(index)
             continue
         doc_key = ((getattr(chunk, "metadata", None) or {}).get("collection"), getattr(chunk, "file_name", None))
@@ -115,8 +98,6 @@ def apply_diversity_cap(ordered, top_k: int, max_per_document: int) -> list:
         else:
             deferred.append(index)
 
-    # Soft quota: when there are not enough distinct documents to fill the slate, the
-    # chunks the cap deferred come back, best rank first.
     for index in deferred:
         if len(selected) >= top_k:
             break
@@ -213,13 +194,6 @@ def merge_results(results, query: str, top_k: int, backend_name: str, max_per_do
                 logger.debug("Knowledge layer raised, skipping: %s", result)
             continue
         if not getattr(result, "success", False):
-            # A missing collection is routine — every new conversation's session
-            # collection does not exist until something is uploaded into it, so
-            # logging that at WARNING would bury the signal under one line per turn.
-            # Everything else is not routine: a corpus that dropped out because the store
-            # was unreachable, a collection deleted and recreated, or a filter that
-            # failed to translate all produced a confident answer built on an empty
-            # knowledge layer with nothing above DEBUG to say so.
             message = getattr(result, "error_message", None) or ""
             if _is_embedding_mismatch(message):
                 if message not in mismatch_errors:
@@ -232,16 +206,11 @@ def merge_results(results, query: str, top_k: int, backend_name: str, max_per_do
             continue
         if result.backend:
             backend = result.backend
-        # One channel per SURVIVING collection, in arrival order. Skipped layers must not
-        # leave an empty channel behind: an empty channel is harmless to RRF but a
-        # non-empty one from a later collection would shift into the tie-break seat.
         channels.append(_rank_channel(result.chunks))
 
     merged_chunks = []
     for chunk, _fused_rank, fused_score in _fuse_channels(channels):
         with suppress(Exception):
-            # Diagnostic only. Never displayed; `score` stays the true cosine so the
-            # "Relevance Score:" line keeps meaning what citation parsing expects.
             chunk.fusion_score = fused_score
         merged_chunks.append(chunk)
 
@@ -264,24 +233,15 @@ def merge_results(results, query: str, top_k: int, backend_name: str, max_per_do
             return (chunk.metadata or {}).get("shelf") == focused_shelf
 
         matching = [chunk for chunk in merged_chunks if _is_focus(chunk)]
-        # Matches are the turn. Filling the rest from Archiv/project is how
-        # "summarize this PDF" grew a Büro plan (#429).
         merged_chunks = matching if matching else merged_chunks
 
     merged_top_k = apply_diversity_cap(merged_chunks, top_k, max_per_document)
 
     if mismatch_errors:
-        # De-duplicated: the requery fan-out retries each collection per
-        # alternative query, so one broken corpus reports once per query.
         unique = list(dict.fromkeys(mismatch_errors))
         detail = "; ".join(unique)
         if not channels:
-            # Total loss: every layer dropped out on a fingerprint mismatch.
-            # success=False so the caller renders a failure, never a miss.
             return RetrievalResult(success=False, chunks=[], query=query, backend=backend, error_message=detail)
-        # Partial loss: the chunks below are real, but the corpus behind them is
-        # incomplete. success=True carries them; error_message carries the
-        # degraded signal `format_results` renders as a WARNING banner.
         return RetrievalResult(
             success=True,
             chunks=merged_top_k,

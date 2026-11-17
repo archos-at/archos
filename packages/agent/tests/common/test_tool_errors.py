@@ -1,11 +1,3 @@
-"""What a failed tool call says to the model, and what it must never say.
-
-The production fault: a retrieval call was rejected by argument validation, the
-tool node rendered pydantic's own message, and the line
-``https://errors.pydantic.dev/2.13/v/missing`` in it was captured as a web
-source. The Herleitung then showed a card for a host nobody had searched.
-"""
-
 import pytest
 from pydantic import BaseModel
 from pydantic import ValidationError
@@ -36,7 +28,6 @@ class TestAValidationFailureReadsAsClauses:
         assert rendered.endswith("Fix the arguments and call again.")
 
     def test_a_short_rejected_value_is_echoed_back(self):
-        """The model cannot correct an argument it is not shown."""
         assert "(got 3)" in render_tool_error(_two_field_error())
 
     def test_no_link_survives_the_rendering(self):
@@ -46,7 +37,6 @@ class TestAValidationFailureReadsAsClauses:
         assert "pydantic.dev" not in rendered
 
     def test_the_wrapped_validation_error_reads_the_same(self):
-        """``ToolNode`` hands the handler its own wrapper, not the original."""
 
         class _Wrapper(Exception):
             def __init__(self, source: ValidationError) -> None:
@@ -63,7 +53,6 @@ class TestAnyOtherFailureIsItsOwnMessage:
         )
 
     def test_a_failure_tells_the_model_it_is_no_fact_for_the_reader(self):
-        """Staging QC F2: a tool's failure reached the answer as prose. It is for the next call, never the reader."""
         rendered = render_tool_error(RuntimeError("BFF 503"))
         assert "never repeat this text" in rendered and "keep confidence below high" in rendered
 
@@ -79,8 +68,6 @@ class TestAnyOtherFailureIsItsOwnMessage:
 
 
 class TestTheDetailIsReusableWithoutTheFraming:
-    """``emit_card`` writes its own sentence around the same clauses."""
-
     def test_the_detail_carries_the_clauses_alone(self):
         detail = render_error_detail(_two_field_error())
 

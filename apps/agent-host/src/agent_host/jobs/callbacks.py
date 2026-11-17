@@ -234,11 +234,7 @@ class AgentEventCallback(BaseCallbackHandler):
         self._agent_run_ids: dict[str, str] = {}  # {run_id: name}
 
         self._source_registry = source_registry
-        # The run's refusal of the reader's Ausgeschlossen (deep research sets
-        # it); an excluded document is neither a citation_source nor mirrored.
         self._source_excluded: Callable[[SourceEntry], bool] | None = None
-        # Last-resort mirror of what this run's tools actually returned; see
-        # _mirror_sources.
         self._mirrored_registry = SourceRegistry()
         self._mirrored_registry_populated = False
 
@@ -436,10 +432,6 @@ class AgentEventCallback(BaseCallbackHandler):
         if session_registry is not None:
             return session_registry
 
-        # Only offer the mirror once a tool result has actually populated it.
-        # An empty registry is not the same answer as "no registry": it would
-        # turn every document citation into an unverifiable one instead of
-        # letting _emit_cited_documents decline to guess.
         return self._mirrored_registry if self._mirrored_registry_populated else None
 
     def _mirror_sources(self, entries: list[SourceEntry]) -> None:
@@ -455,9 +447,6 @@ class AgentEventCallback(BaseCallbackHandler):
         if not entries:
             return
         try:
-            # SourceRegistry documents itself as single-event-loop / not
-            # thread-safe, and LangChain fires handlers from worker threads, so
-            # mutations go under the same lock the discovery sets use.
             with AgentEventCallback._cache_lock:
                 for entry in entries:
                     self._mirrored_registry.add(entry)
@@ -498,11 +487,6 @@ class AgentEventCallback(BaseCallbackHandler):
             output_category="final_report",
             **extra,
         )
-        # Best-effort by contract: these are transparency artifacts, and the
-        # report itself has already been emitted above — a citation failure
-        # must never cost the user their report or fail the job. Repeat calls
-        # (the runner re-emits with Grid cards attached) are deduped by the
-        # cited-identity set, so no duplicate artifacts are produced.
         try:
             self._emit_cited_sources(content)
         except Exception:
@@ -539,7 +523,6 @@ class AgentEventCallback(BaseCallbackHandler):
 
         try:
             parsed = urlparse(url)
-            # Normalize: lowercase scheme and netloc, remove trailing slash from path
             normalized_path = parsed.path.rstrip("/") if parsed.path != "/" else "/"
             normalized = urlunparse(
                 (
@@ -618,12 +601,6 @@ class AgentEventCallback(BaseCallbackHandler):
     def _emit_cited_urls(self, content: str) -> None:
         """Emit citation_use events for URL sources referenced in ``content``."""
         urls = self._extract_urls(content)
-        # Resolved ONCE for the whole report rather than once per URL. The
-        # attached tier is an accessor a run may swap mid-flight, so re-reading
-        # it inside the loop would let a single report be judged against two
-        # different registries — the first few citations validated against one
-        # truth and the rest silently dropped against another, with nothing in
-        # the artifact stream to show that the standard moved.
         registry = self._get_source_registry()
         for url in urls:
             normalized = self._normalize_url(url)
@@ -634,8 +611,6 @@ class AgentEventCallback(BaseCallbackHandler):
                 is_valid = normalized in self._discovered_urls
 
             if is_valid:
-                # Atomic test-and-set (see on_tool_end): avoid duplicate
-                # citation_use artifacts from concurrent handler threads.
                 with AgentEventCallback._cache_lock:
                     if normalized in self._cited_urls:
                         continue
@@ -668,10 +643,6 @@ class AgentEventCallback(BaseCallbackHandler):
         for entry in entries:
             wire = source_entry_to_wire(entry)
             identity = self._source_identity(wire)
-            # Same atomic test-and-set as the URL path: concurrent handler
-            # threads must not emit duplicate citation_use artifacts. Shares the
-            # `_cited_urls` set — it is a set of identity strings, and document
-            # identities ("key:…") cannot collide with normalized URLs.
             with AgentEventCallback._cache_lock:
                 if identity in self._cited_urls:
                     continue
@@ -720,8 +691,6 @@ class AgentEventCallback(BaseCallbackHandler):
             content = tool_input
 
         if content is not None:
-            # For todo artifacts, include source context so the UI can
-            # distinguish orchestrator-level todos from sub-agent todos.
             if artifact_type == ArtifactType.TODO and run_id:
                 agent_info = self._find_agent_for_run(run_id)
                 if agent_info:
@@ -835,8 +804,6 @@ class AgentEventCallback(BaseCallbackHandler):
 
         agent_info = self._find_agent_for_run(run_id)
 
-        # Include the (trimmed) output so the /state endpoint can surface tool
-        # results; with data=None every tool call reads as output=None there.
         emit_output = self._trim_tool_input(str(output)) if output else None
         self._emit(
             IntermediateStepEvent(
@@ -896,7 +863,6 @@ class AgentEventCallback(BaseCallbackHandler):
             logger.warning("Failed to extract sources from tool %s", tool_name, exc_info=True)
             entries = []
 
-        # Drop non-URL tool_result placeholders (noise from non-data tools).
         useful = [
             entry for entry in entries if entry.url or entry.citation_key or (entry.source_type == "knowledge_layer")
         ]
@@ -907,11 +873,6 @@ class AgentEventCallback(BaseCallbackHandler):
         if self._source_excluded is not None:
             useful = [entry for entry in useful if not self._source_excluded(entry)]
 
-        # Mirror BEFORE the per-entry emit loop: that loop skips entries whose
-        # citation_source artifact was already emitted, but the mirror wants
-        # every source this run retrieved, not only the newly seen ones. (It
-        # also must not run inside the loop's `_cache_lock` block — the lock is
-        # not reentrant.)
         self._mirror_sources(useful)
 
         for entry in useful:
@@ -929,9 +890,6 @@ class AgentEventCallback(BaseCallbackHandler):
 
             content = str(wire.get("content") or entry.url or entry.citation_key or tool_name)
             name = str(wire.get("title") or wire.get("citation_key") or entry.url or content)
-            # ``content`` is passed positionally; drop it from the wire spread so it
-            # is not also bound via **kwargs (would raise TypeError: got multiple
-            # values for argument 'content' and crash every citation-source emit).
             extra = {key: value for key, value in wire.items() if key != "content"}
             self._emit_artifact(
                 ArtifactType.CITATION_SOURCE,
@@ -1020,13 +978,6 @@ class AgentEventCallback(BaseCallbackHandler):
                 workflow_source=agent_info[0] if agent_info else None,
                 agent_id=agent_info[1] if agent_info else None,
             )
-            # No citation_use here. This content is raw model output: it has
-            # not been through verify_citations (which runs later, in
-            # DeepResearcherAgent._finalize) and it is often an INTERMEDIATE
-            # agent's notes, whose sources the writer may never carry into the
-            # answer. Announcing "cited" from here claimed things that the
-            # finished report does not, and the frontend's sticky isCited made
-            # the claim permanent. emit_final_report owns that claim now.
 
         self._run_id_to_parent.pop(run_id, None)
 
@@ -1174,5 +1125,4 @@ class AgentEventCallback(BaseCallbackHandler):
         return content, thinking, usage, has_tool_calls
 
 
-# Alias for backwards compatibility
 DeepResearchEventCallback = AgentEventCallback

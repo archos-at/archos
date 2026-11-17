@@ -1,9 +1,3 @@
-/**
- * Project member assignment removal API — remove a WorkOS FGA role
- * assignment from a project. Thin handler; logic lives in
- * `@/lib/projects/members-service`.
- */
-
 import { apiRoute } from '@/lib/api/handler'
 import { removeProjectRoleAssignment } from '@/lib/projects/members-service'
 

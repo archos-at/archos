@@ -55,14 +55,12 @@ def _passage(clause: str, *, title: str = "Bauordnung für Wien", url: str = _LA
     )
 
 
-#: What each call returned, scripted per test.
 RETURNED: list[list[Passage]] = []
 
 
 @tool
 def ris_lookup_tool(question: str, conclusion: str = "") -> str:
     """Answer a question about Austrian law from RIS with citable passages."""
-    # The REAL capture the tool performs, on the passages it really returns.
     passages = RETURNED.pop(0) if RETURNED else []
     capture_passages(passages)
     return "\n".join(f"Citation: {passage.citation}" for passage in passages)

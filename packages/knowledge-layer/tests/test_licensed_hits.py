@@ -1,11 +1,3 @@
-"""The licence mark travels from what the knowledge layer read to the hit it renders (``agent.common.licensed_text``).
-
-Search reads the mark off the point's payload; the estate (``read_file``, ``grep``) reads
-it off the document row. Either way the hit carries it, so the renderer can keep the
-text out of the transcript. ``grep``'s index of lines around a match prints a document's
-own lines, so a licensed document gets none there: its passage above is the reference.
-"""
-
 from types import SimpleNamespace
 
 from knowledge_layer.browse import FileRow
@@ -39,6 +31,27 @@ def test_a_search_hit_carries_the_points_licence():
     hit = _hit(_chunk(licence_class="licensed", quote_max_chars=300))
     assert hit.licence is not None and hit.licence.licensed and hit.licence.quote_max_chars == 300
     assert _hit(_chunk()).licence is None
+
+
+def test_a_search_hit_states_the_edition_its_point_was_marked_with():
+    assert _hit(_chunk(knowledge_edition_id="edition:guideline-2-2021")).edition_id == "edition:guideline-2-2021"
+    assert _hit(_chunk()).edition_id is None
+
+
+def test_an_office_or_project_hit_states_what_its_name_says_about_its_revision():
+
+    def named(file_name: str, shelf: str = "project"):
+        chunk = _chunk()
+        chunk.file_name, chunk.metadata = file_name, {"collection": "proj_a", "shelf": shelf}
+        return _hit(chunk).revision
+
+    assert named("EG_Grundriss_Index_C_2026-08-14.pdf").model_dump() == {"index": "C", "date": "2026-08-14"}
+    assert named("Brandschutzkonzept_Stand_2026-09-02.pdf", "office_shelf").model_dump() == {
+        "index": None,
+        "date": "2026-09-02",
+    }
+    assert named("Raumprogramm.pdf") is None
+    assert named("guideline_2_2026-08-14.pdf", "base") is None
 
 
 def _file(**row) -> SimpleNamespace:
@@ -80,7 +93,6 @@ def test_grep_shows_a_licensed_documents_lines_as_a_reference_and_any_others_as_
 
 
 def test_a_judge_reads_a_licensed_excerpt_as_a_reference_and_an_unattested_one_not_at_all():
-    """The reranker and the requery judge send excerpts to a model: a licensed one goes as a reference."""
     from knowledge_layer.search import rerank
 
     from agent.common.grounding_block import begin_grounding_capture
@@ -103,7 +115,6 @@ def test_a_judge_reads_a_licensed_excerpt_as_a_reference_and_an_unattested_one_n
 
 
 def test_a_licensed_page_is_read_again_from_its_points_and_its_page_text(monkeypatch):
-    """What ``licensed_recall`` checks a later turn's reference against: the page's points and its page text."""
     from knowledge_layer import stored_pages
     from knowledge_layer import vector_store
     from knowledge_layer.estate import render
@@ -140,7 +151,6 @@ def test_a_licensed_page_is_read_again_from_its_points_and_its_page_text(monkeyp
 
 
 def test_a_document_with_no_point_answers_what_its_caller_says_an_unindexed_one_is(monkeypatch):
-    """The office layer indexes no unconfirmed or unattested copy: a caller that may hold one asks closed."""
     from knowledge_layer import vector_store
     from knowledge_layer.estate import document_licence
 

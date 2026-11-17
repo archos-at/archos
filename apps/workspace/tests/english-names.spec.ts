@@ -2,22 +2,6 @@
  * @vitest-environment node
  */
 
-/**
- * No new German identifier in the UI (AGENTS.md: every name in code is English,
- * domain words included). The Python half is `tests/test_english_names.py`; both
- * read the stems in `ci/german_stems.json`.
- *
- * A ratchet, not a ban: `english-names-baseline.json` holds how many German
- * identifiers each file had when this check arrived, and a file may only go
- * down. Over its count fails: rename the new name. Under its count fails too, so
- * the baseline follows every cleanup: rerun with UPDATE_ENGLISH_NAMES=1.
- *
- * Only identifiers are read, through the TypeScript parser, and split into their
- * words. A string, a comment and JSX text are never checked, so German copy,
- * document names and legal citations stay as they are; a key written as a
- * string (`'bundesland': …` in a legacy-name map) is data, not a name.
- */
-
 import { execFileSync } from 'node:child_process'
 import { readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
@@ -63,7 +47,6 @@ describe('every name in the UI is English', () => {
     expect(germanWords('bundeslandSource')).toEqual(['bundesland'])
     expect(germanWords('GebaeudeklasseInput')).toEqual(['gebaeudeklasse'])
     expect(germanWords('federalState')).toEqual([])
-    // `archiv` is German, `archive` is English: the soft-delete names stay legal.
     expect(germanWords('archivedAt')).toEqual([])
     expect(germanWords('archiv_scope')).toEqual(['archiv'])
   })
@@ -79,7 +62,6 @@ describe('every name in the UI is English', () => {
     const grown = Object.entries(counts)
       .filter(([file, count]) => count > (baseline[file] ?? 0))
       .map(([file, count]) => `${file}: ${baseline[file] ?? 0} -> ${count}`)
-    // Name it in English (docs/glossary.md, "German domain term, English code name").
     expect(grown).toEqual([])
   })
 

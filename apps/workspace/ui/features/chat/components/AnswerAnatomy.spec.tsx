@@ -6,14 +6,6 @@ import type { AnatomyVerdict } from '../lib/answer-meta-cards'
 import { answerMetaToAnatomy } from '../lib/answer-meta-cards'
 import { AnatomyMasthead } from './AnswerAnatomy'
 
-/**
- * The answer's masthead: verdict (when earned), else topic, then the summary
- * standfirst — one hairline over the prose, whatever it holds.
- *
- * The reader is Austrian, so the copy is pinned in German (`fixedLocale`,
- * like the card specs); what is asserted here is structure and order, not
- * wording.
- */
 const render = (ui: ReactElement) =>
   rtlRender(
     <I18nProvider initialLocale="de" fixedLocale>
@@ -48,8 +40,6 @@ describe('AnatomyMasthead verdict path', () => {
       <AnatomyMasthead verdict={verdictCard} summary="In GK 4 gilt REI 60." />
     )
     const head = header(container)
-    // The verdict path is pixel-identical to before the topic existed: the
-    // flat verdict header, then the standfirst, and no third element.
     expect(head.children).toHaveLength(2)
     expect(head.textContent).toContain('Feuerwiderstand tragender Bauteile')
     expect(head.textContent).toContain('REI 60')
@@ -60,10 +50,6 @@ describe('AnatomyMasthead verdict path', () => {
     expect(screen.getByText('REI 60')).toHaveClass('card-figure-30')
   })
 
-  // The VERDICT's own confidence, from the masthead event. The turn's
-  // self-assessment arrives with the terminal frame, and threading it in here
-  // inserted a gauge row and a reason paragraph above the prose the reader was
-  // on; it lives in the answer details instead.
   test("the verdict's own confidence sits beside the figure, as on the retired card", () => {
     render(
       <AnatomyMasthead
@@ -84,7 +70,6 @@ describe('AnatomyMasthead verdict path', () => {
     const { container } = render(
       <AnatomyMasthead verdict={verdictCard} topic="Geländerhöhe bei Balkonen" summary="S." />
     )
-    // The verdict masthead already headlines the answer; the topic stays out.
     expect(container.textContent).not.toContain('Geländerhöhe bei Balkonen')
     expect(header(container).children).toHaveLength(2)
   })
@@ -105,7 +90,6 @@ describe('AnatomyMasthead verdict path', () => {
 
 describe('AnatomyMasthead context without a title', () => {
   test('a context still orients a summary-only masthead', () => {
-    // A ruling whose verdict the gate refused keeps its Richtlinie and Ausgabe.
     const { container } = render(
       <AnatomyMasthead context="OIB-RL 2, Ausgabe Mai 2023 · Wien" summary="REI 60 in GK 4." />
     )
@@ -134,8 +118,6 @@ describe('AnatomyMasthead topic path', () => {
     const head = header(container)
     expect(head.children).toHaveLength(3)
     const text = head.textContent ?? ''
-    // No eyebrow on the topic path: the contract carries one value and it
-    // must not print twice stacked.
     expect(head.querySelector('.card-eyebrow')).toBeNull()
     const title = head.querySelector('.card-headline')
     expect(title?.textContent).toBe('Geländerhöhe bei Balkonen')

@@ -110,22 +110,16 @@ from typing import Protocol
 
 logger = logging.getLogger(__name__)
 
-#: The product decision: may a remote store be the authority for the prompt.
 ENABLED_ENV = "LANGFUSE_PROMPTS_ENABLED"
-#: Which label to serve. Other labels exist for experiments; production is what runs.
 LABEL_ENV = "LANGFUSE_PROMPT_LABEL"
-#: How long a fetched version is served before a background refresh is started.
 CACHE_TTL_ENV = "LANGFUSE_PROMPT_CACHE_TTL_SECONDS"
-#: The dependency. Langfuse's own env names, read by its SDK as well as by us.
 PUBLIC_KEY_ENV = "LANGFUSE_PUBLIC_KEY"
 SECRET_KEY_ENV = "LANGFUSE_SECRET_KEY"  # pragma: allowlist secret
 HOST_ENV = "LANGFUSE_HOST"
 
 DEFAULT_LABEL = "production"
 DEFAULT_CACHE_TTL_SECONDS = 60
-#: A turn waits at most this long on the first fetch, and never retries within it.
 FETCH_TIMEOUT_SECONDS = 2
-#: Retries are the SDK's default 2 with exponential backoff; a turn cannot pay that.
 FETCH_MAX_RETRIES = 0
 
 _TRUTHY = frozenset({"1", "true", "yes", "on"})
@@ -175,8 +169,6 @@ def git_blob_version(path: Path) -> str:
     shelling out: this runs in a container that has no git and no ``.git``.
     """
     data = path.read_bytes()
-    # SHA-1 is what a git blob id IS; a different algorithm would compute a
-    # hash `git cat-file` cannot find. It identifies a text, it signs nothing.
     # nosemgrep: python.lang.security.insecure-hash-algorithms.insecure-hash-algorithm-sha1
     digest = hashlib.sha1(b"blob %d\0" % len(data) + data, usedforsecurity=False)
     return digest.hexdigest()[:7]
@@ -286,8 +278,6 @@ class PromptStore:
             logger.warning("Langfuse prompt client could not be built; serving committed prompts", exc_info=True)
             return None
         if self._client is None:
-            # The names are written out, not passed as the constants: CodeQL
-            # reads SECRET_KEY_ENV as a secret and flags the call (py/clear-text-logging).
             logger.info("Langfuse prompt management is on but its public/secret key variables are unset")
         return self._client
 
@@ -305,8 +295,6 @@ class PromptStore:
         except Exception:
             self._mute(name, "fetch-failed", exc_info=True)
             return None
-        # The SDK answers an unreachable API with the fallback we handed it
-        # rather than an exception, so a served fallback is a failure report.
         if getattr(fetched, "is_fallback", False):
             self._mute(name, "fetch-failed")
             return None

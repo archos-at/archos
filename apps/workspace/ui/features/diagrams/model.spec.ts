@@ -1,14 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The parser's database read into a model, with the database written by hand.
- *
- * `parse-mermaid.spec.ts` runs mermaid for real; this covers what the test DOM
- * cannot reproduce. Mermaid sanitises a label with DOMPurify, and under
- * happy-dom that drops the text before a tag, so a label with markup arrives
- * here in a shape no browser produces. The shape below is the browser's.
- */
 import { describe, expect, it } from 'vitest'
 
 import { flowFromFlowchart, flowFromState, handoffFromSequence, mapFromMindmap, plainLabel, scheduleFromGantt, sharesFromPie } from './model'
@@ -45,7 +37,6 @@ describe('a flowchart label', () => {
   })
 })
 
-/** Each grammar's database, in the shape a browser's parser leaves it, with `label` wherever it keeps text. */
 const grammars = {
   state: (label: string) =>
     flowFromState({

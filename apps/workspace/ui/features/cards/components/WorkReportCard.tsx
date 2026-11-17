@@ -1,23 +1,5 @@
 'use client'
 
-/**
- * WorkReportCard — „Arbeitsstand", the closing block of an operations turn
- * (`kind: work`, ADR-0123).
- *
- * A work turn is not an answer to a question: Piloti read the workspace,
- * proposed changes the person accepts, met something it could not do, and
- * knows what comes next. Before this block all of that was scattered over a
- * proposal card per write and a paragraph of prose, and the reader had to
- * assemble it. The block names it in four fixed sections, each one present
- * only when the turn has something for it, in the order the reader acts on:
- * what waits for them first, then what is blocked, then what is next, and
- * what was done last.
- *
- * Flat only: it is a field of the answer, drawn on the answer surface like the
- * takeaways, never in card chrome, and it has no state of its own. A proposal
- * line does not decide anything; its card does (ADR-0105), so the line is text.
- */
-
 import type { FC } from 'react'
 import { SectionLabel } from '@/components/ui/section-label'
 import { useTranslations } from '@/i18n'
@@ -31,7 +13,6 @@ interface WorkReportCardProps {
   next?: AnswerMetaWorkItem[]
 }
 
-/** The order the reader acts in: their decisions first. */
 const ORDER = ['proposed', 'blocked', 'next', 'done'] as const
 
 const WorkLine: FC<{ item: AnswerMetaWorkItem }> = ({ item }) => {

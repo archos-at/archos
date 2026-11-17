@@ -11,10 +11,6 @@ from pydantic import field_validator
 
 from agent.cards.card_model import CardModel
 
-# Canonical project-profile fact keys (mirrors the intake definition in
-# apps/workspace/bff/project-profile/intake-definition.ts). Included in the
-# emit_card guidance so the model patches known keys with valid values instead
-# of inventing near-duplicates ("gebaeudeklasse" vs "building_class").
 PROFILE_FACT_VOCABULARY = (
     "main_use: residential|office|lodging|assembly|healthcare|agriculture|manufacturing|storage|other; "
     "building_class: GK1|GK2|GK3|GK4|GK5; "
@@ -30,15 +26,13 @@ PROFILE_FACT_VOCABULARY = (
 )
 
 
-#: A server proposal's id (``POST /api/internal/proposals``, ADR-0105).
 PROPOSAL_ID_PATTERN = r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
 
 
-#: Fields of a model-composed card that only the server may fill. Stripped from
-#: whatever the model writes (``cards/envelope.validate_model_card``) and hidden
-#: from the shapes the model is taught (``cards/catalog._shape``): an id the model
-#: made up would point a person's Accept at somebody else's proposal.
 SERVER_FILLED_CARD_FIELDS = frozenset({"proposal_id"})
+
+
+SERVER_SET_CARD_FIELDS = SERVER_FILLED_CARD_FIELDS | {"site_binding"}
 
 
 class ProjectProfilePatchOperation(CardModel):
@@ -127,6 +121,11 @@ class MemoryProposalCard(CardModel):
         default=None,
         max_length=500,
         description="The earlier note this one corrects, quoted verbatim; accepting the proposal retires it",
+    )
+    topic: str | None = Field(
+        default_factory=lambda: None,
+        max_length=40,
+        description="The subject the note is filed under on its shelf; the browser sends it with the note",
     )
     proposal_id: str | None = Field(
         default=None,

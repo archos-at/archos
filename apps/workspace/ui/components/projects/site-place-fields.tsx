@@ -1,24 +1,5 @@
 'use client'
 
-/**
- * Where the new project is: its country first, then, where the records hold
- * its subdivisions, its Land (`SITE_SUBDIVISIONS`, read from the shipped AT
- * seed of the country's `fact_definitions` record, ADR-0169), each named in the
- * reader's language by its token (`form.site.state.<token>`). Both optional,
- * neither preselected.
- *
- * The site decides which law applies (ADR-0158), and with address search off
- * (ADR-0159) a typed address no longer places a project by itself. Left empty,
- * an Austrian postal code in the address suggests the Land for the person to
- * confirm on the setup page; the picker is for the rest, and for saying the
- * project is abroad. Nothing here reads the office's own country: an Austrian
- * office plans in Bavaria too.
- *
- * Shown beside the address field, never in its place: the address field once
- * turned into a Bundesland select and lost what the person had typed
- * (`address-field.tsx`).
- */
-
 import type { JSX } from 'react'
 import { Field, FieldDescription, FieldLabel } from '@/components/ui/field'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -26,19 +7,15 @@ import { useTranslations } from '@/i18n'
 import { projectsCopy } from '@/i18n/namespaces/projects'
 import { SITE_SUBDIVISIONS } from '@/lib/project-profile/intake-stages/project-basis'
 
-/** The A2_country tokens, in the order the picker lists them. */
 export const SITE_COUNTRIES = ['at', 'de', 'ch', 'other'] as const
 
 export interface SitePlace {
-  /** An A2_country token, or '' while none is chosen. */
   country: string
-  /** An A2_land token, or '' while none is chosen; only in the country whose subdivisions the records hold. */
   federalState: string
 }
 
 export const EMPTY_SITE_PLACE: SitePlace = { country: '', federalState: '' }
 
-/** Radix's Select has no empty item; this one stands for "not stated". */
 const UNSET = 'unset'
 
 export function SitePlaceFields({
@@ -103,7 +80,6 @@ export function SitePlaceFields({
   )
 }
 
-/** The action's fields for a chosen place: nothing for what was left empty. */
 export function setSitePlace(formData: FormData, value: SitePlace): void {
   if (value.country) formData.set('country', value.country)
   if (value.country === SITE_SUBDIVISIONS.country && value.federalState) formData.set('federal_state', value.federalState)

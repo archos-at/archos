@@ -605,8 +605,9 @@ placement review and no document check.
   so no message, name or address reaches Hatchet. A job that waits (a
   dependency fault inside its budget, a suggestion not ready) is a scheduled
   run at its `notBefore`; the sweeps are the `inbound-mail-sweep` cron task.
-  What this record guarantees holds unchanged: a dead job keeps the mail, which
-  is queued again once the dead row is purged, and a run that ends without
+  What this record guarantees holds unchanged: a dead job keeps the mail (held
+  unreadable by its last attempt, so it is visible and ends by its window; one
+  that could not even be held is queued again once the dead row is purged), and a run that ends without
   touching its row is started again by the dispatch sweep
   ([`inbound-mail.md`](../architecture/inbound-mail.md#retention-the-sweeps),
   sweep 2).

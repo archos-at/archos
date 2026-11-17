@@ -1,13 +1,3 @@
-/**
- * A plan cited for a depiction opens with that depiction marked (issue #433).
- *
- * What the citation dialog hands the viewer is the claim here, so the viewer is
- * replaced by a recorder: its own drawing is `pdf-document-view.spec.tsx`'s
- * business. A locus with regions gets them and NO text search, because its
- * snippet is the vision model's description of the drawing, not words on the
- * page; a locus without keeps the text search it always had.
- */
-
 import { render } from '@/test-utils'
 import { describe, expect, test, vi } from 'vitest'
 import type { PdfViewerDialogProps } from '@/features/knowledge/components/pdf-viewer-dialog'

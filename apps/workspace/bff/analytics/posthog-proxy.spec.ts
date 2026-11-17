@@ -151,11 +151,6 @@ describe('forwardToPosthog', () => {
   })
 })
 
-/**
- * The route lives outside `app/api`, so `authz-coverage.spec.ts` never sees it.
- * The two facts that spec guards are pinned here: it comes from a factory, and
- * it states why it is public.
- */
 describe('the /ingest route file', () => {
   const source = readFileSync(join(process.cwd(), 'app/ingest/[...path]/route.ts'), 'utf8')
 

@@ -1,34 +1,6 @@
 import type { JSX, ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 
-/**
- * LiveCursor — somebody else's pointer on a shared canvas: the arrow in their
- * colour, and their name on a tag beside it.
- *
- * Its tip is the top-left of the element, so the caller places it with
- * `left`/`top` on the point and nothing else. Motion is the caller's: the
- * pointer arrives a dozen times a second and the caller glides between the
- * samples.
- *
- * `busy`: they are about to set a mark (a point or a region tool in hand), so
- * the tag says so with a glyph: the room sees a colleague take aim before the
- * mark lands, the way people round a table see a pen come down.
- *
- * `chat`: a line of cursor chat. The tag grows into a bubble that keeps the
- * name above the words, so a room always knows who said „hier fehlt die
- * Kote", and the words wrap rather than run off the sheet.
- *
- * `idle`: the pointer has not moved for a while. The arrow stays where it was,
- * quieter, and the tag folds down to a dot with their initial: a colleague who
- * went for coffee does not keep a label over the drawing, and the arrow is
- * still somebody's.
- *
- * `tag={false}`: the arrow alone, for a small view of the page (a preview),
- * where a name and a bubble would cover the drawing they point at.
- *
- * On a touch screen the tags and bubbles are a step smaller: a phone's sheet
- * is a third of a desktop's, and a full tag there covers a room.
- */
 export function LiveCursor({
   color,
   label,
@@ -45,7 +17,6 @@ export function LiveCursor({
   busy?: ReactNode
   chat?: string | null
   idle?: boolean
-  /** Off: the arrow alone, no name tag and no chat bubble. */
   tag?: boolean
   className?: string
 }): JSX.Element {

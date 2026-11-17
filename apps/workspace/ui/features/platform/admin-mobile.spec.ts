@@ -1,22 +1,4 @@
 // @disk-inputs: app/app/(shell)/organization/**, app/app/(shell)/platform/**, app/app/(shell)/profile/**, ui/components/charts/**, ui/features/budgets/**, ui/features/organization/**, ui/features/platform/**
-/**
- * What the admin surfaces (organization, platform, profile, the charts) must
- * not do on an iPhone, held against the source.
- *
- * Admin is not the phone's main job, so these are the defects that make it
- * BROKEN rather than merely dense, each of which was measured on a 393px
- * viewport before it was fixed:
- *
- *  1. A chart in a width-floored scroll box. 30 columns at `min-w-[420px]`
- *     pushed today's bar and the right-hand label off-screen; the columns now
- *     shrink to the width they have.
- *  2. A fixed-width select trigger whose value does not truncate. The select
- *     primitive's own clamp selector never matches Radix's value span, so a
- *     16px "Alle Geltungsbereiche" ran past the trigger and the screen edge.
- *  3. A table cell that relies on a plain `max-w-*` to truncate. Auto table
- *     layout ignores it, and the column stretched past the card.
- *  4. A keyboard-shortcut card on a device with no keyboard.
- */
 
 import { describe, expect, it } from 'vitest'
 import { readFileSync, readdirSync, statSync } from 'node:fs'
@@ -62,8 +44,6 @@ describe('admin surfaces on a phone', () => {
       const code = readCode(file)
       for (const match of code.matchAll(/<SelectTrigger[^>]*?className="([^"]*)"/g)) {
         const classes = match[1]
-        // A width that holds on a phone: `w-44`, not `sm:w-72` (which only applies
-        // from `sm`) and not `w-full`.
         const fixedWidth = /(^|\s)w-\d+(\s|$)/.test(classes)
         if (fixedWidth && !classes.includes('[&>span]:truncate')) offenders.push(`${rel(file)}: ${classes}`)
       }

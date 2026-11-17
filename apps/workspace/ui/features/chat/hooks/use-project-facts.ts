@@ -1,19 +1,5 @@
 'use client'
 
-/**
- * The open project's profile, as the answers in the thread bind it
- * (`:project[key]`, `:::cases{by=…}`, the Projektbezug strip).
- *
- * One fetch per project for the whole thread, not one per answer: this hook
- * renders once per message, so the profile is held in a module-level cache the
- * answers share (`useSyncExternalStore`). A profile patch the reader accepts in
- * this thread ({@link invalidateProjectFacts}) refetches it, so a value the
- * answer asked for („fehlt · ergänzen") appears in every answer at once.
- *
- * Fail-soft: without a project, or when the profile cannot be read, the
- * resolver is null and a binding prints its fact's name, never a guessed value.
- */
-
 import { useEffect, useSyncExternalStore } from 'react'
 import { projectFactResolver, type ProjectFactResolver } from '@/lib/project-profile/answer-bindings'
 
@@ -44,24 +30,16 @@ async function load(projectId: string): Promise<void> {
   notify()
 }
 
-/** Drop the cached profile, so the next render of an answer reads the new one. */
 export function invalidateProjectFacts(projectId: string | null): void {
-  // A Büroablage proposal has no project, and no facts to re-read.
   if (!projectId || !entries.has(projectId)) return
   void load(projectId)
 }
 
-/** Test seam: forget every cached profile. */
 export const resetProjectFactsCache = (): void => {
   entries.clear()
   notify()
 }
 
-/**
- * The resolver for `projectId`'s profile, or null while it loads, when it
- * failed, or without a project. `profile`, when given, is used as is and
- * nothing is fetched (a preview, a spec).
- */
 export function useProjectFacts(projectId: string | null | undefined, profile?: unknown): ProjectFactResolver | null {
   const entry = useSyncExternalStore(
     subscribe,
@@ -76,7 +54,6 @@ export function useProjectFacts(projectId: string | null | undefined, profile?: 
   return entry?.state === 'ready' ? entry.resolve : null
 }
 
-/** One resolver per given profile object, so a fixed profile keeps its identity across renders. */
 const fixed = new WeakMap<object, ProjectFactResolver>()
 function fixedResolver(profile: unknown): ProjectFactResolver {
   if (typeof profile !== 'object' || profile === null) return projectFactResolver(profile)

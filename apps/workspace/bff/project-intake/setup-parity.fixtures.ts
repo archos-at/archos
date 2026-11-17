@@ -1,12 +1,3 @@
-/**
- * The profiles the setup parity harness runs on (ADR-0169), and what it reads
- * off each. The same generator ran on develop before setup facts became
- * records and wrote `tests/fixtures/setup-parity.json`; `setup-parity.spec.ts`
- * runs it on this tree and compares. Seeded, so both runs see the same
- * profiles: a change here regenerates the fixture from develop's code, never
- * from this tree's.
- */
-
 import { createHash } from 'node:crypto'
 import fc from 'fast-check'
 import { projectIntakeDefinitionV1 } from '@/lib/project-profile/intake-definition'
@@ -16,10 +7,12 @@ import { deriveAll, withDerivedClass } from './derivation-view'
 import { locationRegisterFor } from './location-register'
 import { computeNeeds } from './needs'
 import type { IntakeMode } from './types'
+import { AT_SETUP_RECORDS } from './at-setup.fixtures'
+import { withShippedFallback } from '@/lib/base-knowledge/rulesets/shipped'
+import type { StoredRuleset } from '@/lib/base-knowledge/rulesets/select'
 
 const AT = '2026-11-10T00:00:00.000Z'
 
-/** How a profile is placed: the parity holds for every placement in Austria; the others are listed with their reason. */
 export type Placement = 'austria' | 'unplaced' | 'abroad' | 'contradictory'
 
 export interface ParityCase {
@@ -50,7 +43,6 @@ const buildingInputs = fc.record({
 const site = fc.record({
   country: maybe(fc.constantFrom('at', 'de', 'ch', 'other')),
   federal_state: maybe(fc.constantFrom(...LANDS, 'outside_austria')),
-  // Facts or suggestions: a typed address and a reading place a project as unverified.
   siteAsSuggestion: fc.boolean(),
   location: fc.option(
     fc.record({
@@ -71,7 +63,6 @@ const project = fc.record({
 
 
 function placementOf(country: string | undefined, federalState: string | undefined): Placement {
-  // Austria, and a Land „außerhalb Österreichs": develop's register read it as abroad, its derivation as Austria.
   if (country === 'at' && federalState === 'outside_austria') return 'contradictory'
   if (country === 'at') return 'austria'
   if (country !== undefined) return 'abroad'
@@ -79,7 +70,6 @@ function placementOf(country: string | undefined, federalState: string | undefin
   return federalState === undefined ? 'unplaced' : 'austria'
 }
 
-/** The generated cases, in a fixed order: the same 400 on every run. */
 export function parityCases(): ParityCase[] {
   const sample = fc.sample(fc.tuple(site, project, buildingInputs), { seed: 20261110, numRuns: 400 })
   return sample.map(([where, what, building], index) => {
@@ -106,20 +96,22 @@ export function parityCases(): ParityCase[] {
   })
 }
 
-/** What the setup reads off one case: the views a person sees and the profile a derivation writes. */
-export function setupReadings(parityCase: ParityCase) {
+export const NOTHING_RELEASED: readonly StoredRuleset[] = withShippedFallback([])
+
+export const AUSTRIA_RELEASED: readonly StoredRuleset[] = withShippedFallback(AT_SETUP_RECORDS)
+
+export function setupReadings(parityCase: ParityCase, records: readonly StoredRuleset[] = NOTHING_RELEASED) {
   const { profile, location, mode } = parityCase
   const definition = projectIntakeDefinitionV1
-  const needs = computeNeeds(profile, definition, { mode, dismissed: [] })
+  const needs = computeNeeds(profile, definition, { mode, dismissed: [], records })
   return {
     needs,
-    derivations: deriveAll(profile, definition),
-    register: locationRegisterFor({ profile, location, mode, needs }),
-    derived: withDerivedClass(profile, definition, 'bldg1', AT),
+    derivations: deriveAll(profile, definition, { records }),
+    register: locationRegisterFor({ profile, location, mode, needs, records }),
+    derived: withDerivedClass(profile, definition, 'bldg1', AT, { records }),
   }
 }
 
-/** JSON with sorted keys: two readings that are deep-equal hash the same, whatever order their keys were built in. */
 function canonical(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`
   if (value && typeof value === 'object')
@@ -131,9 +123,8 @@ function canonical(value: unknown): string {
   return JSON.stringify(value)
 }
 
-/** One case as the fixture holds it: each reading as a short hash of its canonical JSON. */
-export function parityRow(parityCase: ParityCase) {
-  const readings = setupReadings(parityCase)
+export function parityRow(parityCase: ParityCase, records: readonly StoredRuleset[] = NOTHING_RELEASED) {
+  const readings = setupReadings(parityCase, records)
   const hash = (value: unknown) => createHash('sha256').update(canonical(value)).digest('hex').slice(0, 16)
   return {
     name: parityCase.name,

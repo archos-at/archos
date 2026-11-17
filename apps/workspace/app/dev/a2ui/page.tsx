@@ -1,18 +1,5 @@
 'use client'
 
-/**
- * Dev preview — every card, drawn the way the chat draws it: through A2UI
- * (`AnswerCardItem` → `A2uiCard` → `A2uiSurface` on the Piloti catalog,
- * ADR-0065), plus compositions an answer may emit.
- *
- * Each section's `data-a2ui-surface` marks a card A2UI drew; a section without
- * one fell back to the direct component, and the console says why. The
- * gallery (`/dev/cards`) draws the components directly and is the place to
- * review a card's own design; this page is the place to review the path.
- *
- * 404s outside development. Pinned to German.
- */
-
 import { notFound } from 'next/navigation'
 
 import { I18nProvider } from '@/i18n'
@@ -22,7 +9,6 @@ import { validateAnswerCards, type AnswerCard } from '@/shared/cards/schemas'
 
 const OIB2 = { document: 'OIB-Richtlinie 2', section: 'Tabelle 1b', edition: 'Ausgabe Mai 2023' }
 
-/** Compositions: the shapes ADR-0065 lets an answer build. Values show form only. */
 const COMPOSITIONS = validateAnswerCards([
   {
     type: 'surface',

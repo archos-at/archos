@@ -25,25 +25,13 @@ import time
 
 logger = logging.getLogger(__name__)
 
-# In-process cache TTLs. Positive entries outlive a quick admin-edit check by
-# at most a minute; failures are retried sooner so a BFF blip does not pin the
-# fleet to build-time defaults for long.
 _POSITIVE_TTL_SECONDS = 60.0
 _NEGATIVE_TTL_SECONDS = 30.0
 _REQUEST_TIMEOUT_SECONDS = 5.0
 
-# The catalog bounds, mirrored from the BFF's single source of truth
-# (apps/workspace/bff/retrieval-settings/catalog.ts, parity-tested via
-# apps/workspace/tests/fixtures/retrieval_settings_catalog.json). Bounds exist twice
-# deliberately: the BFF validates on write, this module validates on read, so a
-# stale/hand-edited row can never push retrieval out of a sane range.
 _BOUNDS: dict[str, tuple[int, int]] = {
     "knowledge.top_k": (1, 50),
     "knowledge.max_chunks_per_document": (0, 10),
-    # Percent, not a float, because this catalog is integer-only and the BFF mirrors
-    # it. 0 disables the floor, which is the default: see the call site in
-    # knowledge_layer.register.search for why a floor must be calibrated against the
-    # embedding model actually deployed rather than shipped as a guess.
     "knowledge.relevance_floor_pct": (0, 90),
     "surface.chunk_top_k": (1, 100),
     "surface.max_files": (1, 4),
@@ -52,18 +40,10 @@ _BOUNDS: dict[str, tuple[int, int]] = {
     "ris.max_results": (1, 50),
     "ris.page_size": (10, 100),
     "ris_catalog.max_matches": (1, 20),
-    # Not a retrieval count: the platform-lessons control-group percentage.
-    # Same shape (one bounded platform-wide integer through the same pull), so
-    # it rides this catalog rather than growing a second one. 0 = measurement off.
     "lessons.holdout_pct": (0, 50),
-    # Not a count either: whether the answering call streams (1) or the answer
-    # arrives whole with the terminal frame (0). An on/off switch rides the same
-    # pull for the same reason. See turn/answer_stream.answer_streaming_enabled.
     "chat.answer_streaming": (0, 1),
 }
 
-# Keys whose valid values are a discrete set rather than every int in range
-# (the RIS API only accepts these page sizes).
 _ALLOWED_VALUES: dict[str, frozenset[int]] = {
     "ris.page_size": frozenset({10, 20, 50, 100}),
     "chat.answer_streaming": frozenset({0, 1}),
@@ -100,7 +80,6 @@ def sanitize_retrieval_settings(data: object) -> dict[str, int]:
         if bounds is None:
             logger.debug("Dropping unknown retrieval setting %r", key)
             continue
-        # bool is an int subclass; True/False are not counts.
         if isinstance(value, bool) or not isinstance(value, int):
             logger.warning("Dropping non-integer retrieval setting %r=%r", key, value)
             continue
@@ -119,7 +98,6 @@ def _fetch_settings() -> dict[str, int]:
     """One HTTP round-trip to the BFF's internal retrieval-settings endpoint."""
     token = os.environ.get("INTERNAL_API_TOKEN")
     if not token:
-        # No internal-token trust channel — fall back to build-time defaults.
         return {}
 
     import httpx

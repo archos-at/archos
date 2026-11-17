@@ -1,24 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The project overview must ask for project documents.
- *
- * Both of its document queries filtered on `project_id` and `organization_id`
- * alone, which reads as "documents of this project" only because of an accident
- * of the data: the other two shelves — the org-wide Archiv and, since ADR-0047
- * Phase 2, a chat attachment — both carry a NULL `project_id`, and NULL never
- * satisfies an equality. So nothing leaks today, and this spec is not about a
- * leak. It is about which question the query asks: `listProjectDocuments` and
- * `countDocumentsByProject` state `scope = 'project'` (lib/documents/repository),
- * and the overview must state it too, or the page's count and the page's list
- * agree with the document list only by coincidence.
- *
- * A coincidence is what ends silently. One row that ever carries both a project
- * and a non-project scope — a backfill, an import, a "promote this attachment"
- * feature — and the overview starts counting private chat attachments into a
- * project's totals without anything failing.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { PgDialect } from 'drizzle-orm/pg-core'
@@ -32,7 +14,6 @@ import { memberReader, REVIEWER_READER } from '@/lib/documents/document-reader'
 
 const PROJECT_ID = '3f2504e0-4f89-11d3-9a0c-0305e82c3301'
 const ORG_ID = 'org_1'
-/** A reader who may see every folder. */
 const OPEN = { hiddenFolderIds: [] as string[], reader: REVIEWER_READER }
 const HIDDEN_FOLDER = '9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d'
 
@@ -45,18 +26,8 @@ const projectRow = {
   profileDisplay: null,
 }
 
-/** Every `where(...)` the function built, in the order it built them. */
 let predicates: SQL[] = []
 
-/**
- * A drizzle stand-in that records predicates and answers each awaited query
- * with the next prepared result set.
- *
- * Recording the predicate rather than stubbing rows is deliberate: a fake that
- * returned rows would pass for a query with no scope filter at all, since the
- * fake is the one deciding what comes back. The WHERE clause is the whole
- * assertion.
- */
 function recordingDb(results: unknown[][]) {
   let next = 0
   const chain: Record<string, unknown> = {
@@ -92,7 +63,6 @@ describe('getProjectOverviewData', () => {
   it('counts only documents on the project shelf', async () => {
     await getProjectOverviewData(PROJECT_ID, ORG_ID, OPEN)
 
-    // [0] is the projects lookup; [1] is the document count.
     const stats = compile(predicates[1])
     expect(stats.sql).toContain('"scope"')
     expect(stats.params).toEqual([PROJECT_ID, ORG_ID, 'project'])
@@ -107,16 +77,12 @@ describe('getProjectOverviewData', () => {
   })
 
   it('asks the count and the list the same question', async () => {
-    // A page whose "3 documents" and whose list of documents could disagree is
-    // worse than either being wrong on its own.
     await getProjectOverviewData(PROJECT_ID, ORG_ID, OPEN)
 
     expect(compile(predicates[1])).toEqual(compile(predicates[2]))
   })
 
   it('still scopes both queries to the project and the organization', async () => {
-    // The shelf predicate is an ADDITION. A version of this that replaced the
-    // tenant check with it would be a cross-tenant read.
     await getProjectOverviewData(PROJECT_ID, ORG_ID, OPEN)
 
     for (const predicate of [predicates[1], predicates[2]]) {
@@ -128,10 +94,6 @@ describe('getProjectOverviewData', () => {
   })
 
   it('leaves a hidden folder out of the count, the total size and the recent list', async () => {
-    // ADR-0087. The recent list carries filenames and the count moves when a
-    // fee note is filed: both are the restricted folder's content, read by
-    // anyone who can open the project, unless the same exclusion the document
-    // list applies is applied here.
     await getProjectOverviewData(PROJECT_ID, ORG_ID, { hiddenFolderIds: [HIDDEN_FOLDER], reader: REVIEWER_READER })
 
     for (const predicate of [predicates[1], predicates[2]]) {
@@ -144,10 +106,6 @@ describe('getProjectOverviewData', () => {
   })
 
   it('hands the overview a profile with its four parts when the intake was never saved', async () => {
-    // A project whose intake was never saved stored `{}` before migration 0133
-    // (`DEFAULT '{}'`). The close dialog's debrief reads `profile.facts`
-    // through `fingerprintOf`, and the raw `{}` crashed „Projekt abschließen"
-    // with `Object.keys(e.facts)` on undefined (PostHog, /settings).
     vi.mocked(getDb).mockReturnValue(
       recordingDb([[{ ...projectRow, profile: {} }], [{ count: 0, totalSize: '0' }], []])
     )
@@ -164,9 +122,6 @@ describe('getProjectOverviewData', () => {
   })
 
   it("leaves somebody else's held file out of the count, the total size and the recent list", async () => {
-    // ADR-0086. The recent list names the file; for a reader who neither
-    // uploaded it nor reviews the quarantine, a file the screening has not
-    // passed is not there: the one predicate, `documentVisibleTo`.
     await getProjectOverviewData(PROJECT_ID, ORG_ID, { hiddenFolderIds: [], reader: memberReader('user-member') })
 
     for (const predicate of [predicates[1], predicates[2]]) {

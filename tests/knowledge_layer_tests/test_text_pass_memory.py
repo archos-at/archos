@@ -1,22 +1,3 @@
-"""The PDF text and table passes hold one page, against the real pdfplumber and PDFium.
-
-Two 26-29 MB plan collections OOM-killed a 12 GiB ingest worker (2026-10-19)
-before ``_extract_text_from_pdf`` returned. pdfplumber caches every parsed
-object on its ``Page`` until the page is closed, the pages hang off the open
-``PDF``, and nothing closed them: a CAD sheet of 20 000 paths stayed resident
-at about 77 MiB until the last page was read. These tests pin the two bounds
-that fixed it, on a generated set of drawing sheets
-(``pdf_fixtures.build_drawing_sheets_pdf``):
-
-- every pdfplumber page is closed before the next one is read, in both passes;
-- a page denser than ``PDF_PAGE_MAX_OBJECTS`` never reaches pdfplumber at all,
-  and keeps its text, read by PDFium.
-
-They count cached pages through the library's own attribute
-(``Page._objects``, what ``Page.close`` deletes) rather than measure RSS, so
-they hold on any machine. Model-free and network-free.
-"""
-
 from __future__ import annotations
 
 from pathlib import Path
@@ -27,7 +8,6 @@ from knowledge_layer.ingest import pdf_text
 from knowledge_layer_testing import pdf_fixtures
 
 _SHEETS = 4
-#: Enough paths that pdfplumber's cache is real, few enough to stay fast.
 _PATHS = 400
 
 
@@ -114,6 +94,10 @@ def test_a_pdf_pdfium_cannot_count_is_left_to_the_layout_pass(tmp_path, monkeypa
     broken.write_bytes(b"not a pdf")
 
     assert adapter._dense_page_texts(str(broken), 1) == {}
+
+
+@pytest.fixture
+def _no_memory_release_between_files(): ...
 
 
 def test_releasing_memory_after_a_file_never_raises():

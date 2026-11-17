@@ -1,20 +1,10 @@
 /**
  * @vitest-environment node
  */
-/**
- * The wire contract with the Python tier's conversation bus.
- *
- * This decoder is the entire seam between two services written in two languages,
- * and it is a seam nothing else in the frontend exercises. Pinning it here means a
- * change to `conversation_bus.Envelope` fails a test rather than silently emptying
- * every observer's live view — the one failure mode that looks, from the browser,
- * exactly like "the agent is being slow".
- */
 
 import { afterEach, describe, expect, it } from 'vitest'
 import { conversationFramesAvailable, decodeConversationFrame } from './conversation-frames'
 
-/** A v2 event, as the agent tier stamps it (contracts/wire/v2/turn-answered.jsonl). */
 const EVENT = {
   v: 2,
   type: 'TEXT_MESSAGE_CONTENT',
@@ -26,7 +16,6 @@ const EVENT = {
   delta: 'Hi',
 }
 
-/** An envelope in the shape `ConversationBus.publish_frame` writes. */
 function envelope(overrides: Record<string, unknown> = {}): string {
   return JSON.stringify({
     v: 1,
@@ -41,14 +30,10 @@ function envelope(overrides: Record<string, unknown> = {}): string {
 
 describe('decodeConversationFrame', () => {
   it('unwraps a frame envelope into the v2 event, verbatim', () => {
-    // The event names its turn and carries its own seq; the envelope's
-    // per-conversation counter is not passed on.
     expect(decodeConversationFrame(envelope())).toEqual({ payload: EVENT })
   })
 
   it('relays a terminal envelope too', () => {
-    // `turn_end` carries the last event in the same slot. Dropping it would cost
-    // the observer the authoritative full answer.
     expect(decodeConversationFrame(envelope({ type: 'turn_end' }))?.payload).toEqual(EVENT)
   })
 

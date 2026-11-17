@@ -61,7 +61,6 @@ const drawing = (id: string, number: string, facts: DossierFact[] = []): Finding
     coverage: coverage(1, 0),
   })
 
-/** What the project held before the upload: a Baubeschreibung that names a Bodengutachten and EP-01…EP-03. */
 const description = doc('baubeschreibung', {
   dossier: dossier({
     documentType: 'building_description',
@@ -107,7 +106,6 @@ describe('uploadReport', () => {
       { key: 'building_class', value: 'GK 4', unit: null },
       { key: 'storeys_above_ground', value: '4', unit: null },
     ])
-    // The drawings EP-01…03 answered the Baubeschreibung's references; the Bodengutachten is still missing, not new.
     expect(report.resolvedFindings).toBe(3)
     expect(report.findings).toEqual([
       { kind: 'contradiction', key: 'storeys_above_ground', label: null, documents: 3 },
@@ -115,7 +113,6 @@ describe('uploadReport', () => {
       { kind: 'missing_plan', key: 'EP-07', label: 'EP-07', documents: 1 },
     ])
     expect(report.newFindings).toBe(3)
-    // The Brandschutzkonzept the Bescheid names came with it; the Bodengutachten and EP-07 did not.
     expect(report.unresolvedReferences).toBe(2)
     expect(report.pagesNotRead).toBe(3)
     expect(report.documentsNotFullyRead).toBe(1)

@@ -1,17 +1,5 @@
 'use client'
 
-/**
- * The bulk bar under a selection: „{n} ausgewählt · Wie vorgeschlagen ablegen
- * · Verwerfen“ (DECISION §9, „Bulk“).
- *
- * „Wie vorgeschlagen ablegen“ is offered only when every selected mail is
- * complete (`incompleteReason`): one request about several mails carries no
- * acknowledgement (RT-S5), so a mail that needs one is filed on its own. The
- * reason it is not offered is said in a toggletip a finger can open, never in
- * a tooltip only a mouse can. Both actions confirm first; the filing's
- * confirmation lists where everything goes, grouped by folder and thread.
- */
-
 import type { JSX } from 'react'
 import { Info, X } from 'lucide-react'
 import { BusyButton } from '@/components/ui/busy-button'
@@ -22,12 +10,10 @@ import { cn } from '@/lib/utils'
 import type { IncompleteReason } from '@/lib/inbound-mail/inbound-mail-wire'
 import { inboundMailCopy } from '@/i18n/namespaces/inbound-mail'
 
-/** Why the selection cannot be filed as suggested, with how many mails it concerns; null when it can. */
 export type BulkBlock = { reason: IncompleteReason | 'too_many'; count: number } | null
 
 export interface SelectionBarProps {
   count: number
-  /** Still reading the selected mails to decide whether they are complete. */
   block: BulkBlock
   max: number
   filing: boolean
@@ -47,9 +33,7 @@ export function SelectionBar({ count, block, max, filing, dismissing, onFile, on
       aria-label={t('bulk.selected', { count })}
       data-testid="inbound-mail-selection-bar"
       className={cn(
-        // On the list's pinned foot, no card of its own: a border and a shadow around it were a box in a bar.
         'flex flex-col gap-1.5',
-        // It rises 4px as it arrives: a move takes the entrance curve.
         'animate-in fade-in-0 slide-in-from-bottom-1 duration-base ease-entrance motion-reduce:animate-none',
         className
       )}

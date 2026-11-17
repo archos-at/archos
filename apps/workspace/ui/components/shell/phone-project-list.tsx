@@ -1,26 +1,5 @@
 'use client'
 
-/**
- * The project list on a phone: what „Projekt wechseln“ opens inside „Mehr“
- * (`PhoneMoreSheet`).
- *
- * Until 2026-11-10 it was a sheet of its own, opened from a project press in
- * the phone's top band. The selector moved to „Mehr“: the band names the
- * project as a quiet line and no longer spends 56px of every page on a press
- * used a few times a day. The list is the same one: a search, the projects
- * opened last, the rest, „Alle Projekte ansehen“, every row 56px, in the order
- * the rail's selector lists them (`project-list.ts`).
- *
- * ORDER. The projects this reader opened last come first (`recent-projects`),
- * because on site the switch is almost always between the two or three
- * projects of this week; then every other running project by name. Typing
- * folds both into one list of matches. "Alle Projekte" at the foot goes to the
- * projects home, where closed projects and the full search live.
- *
- * The search field is not focused when the list opens. Focus would raise the
- * keyboard over the very rows the reader opened it to tap.
- */
-
 import type { JSX } from 'react'
 import * as React from 'react'
 import Link from 'next/link'
@@ -41,7 +20,6 @@ import { readRecentProjectIds } from './recent-projects'
 export interface PhoneProjectListProps {
   projects: ProjectSwitcherProject[]
   activeProjectId?: string
-  /** A project was chosen or „Alle Projekte ansehen“ pressed: the sheet that holds the list closes. */
   onDone: () => void
 }
 
@@ -49,14 +27,11 @@ export function PhoneProjectList({ projects, activeProjectId, onDone }: PhonePro
   const t = useTranslations(navCopy)
   const router = useRouter()
   const [query, setQuery] = React.useState('')
-  // Read on every mount, which is every opening: the reader may have moved
-  // between projects since the list last stood.
   const [recentIds] = React.useState<string[]>(() => readRecentProjectIds())
 
   const sections = switcherSections(projects, activeProjectId, recentIds, query)
   const choose = (projectId: string): void => {
     onDone()
-    // Switching into a project lands on its chat, as the desktop switcher does.
     if (projectId !== activeProjectId) router.push(`/app/projects/${projectId}/chat`)
   }
   const row = (project: ProjectSwitcherProject): JSX.Element => (

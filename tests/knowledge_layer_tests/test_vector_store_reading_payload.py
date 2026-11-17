@@ -1,5 +1,3 @@
-"""What the ingest read of a document, copied onto every chunk as filterable payload."""
-
 from __future__ import annotations
 
 from knowledge_layer.vector_store import LIST_FIELDS

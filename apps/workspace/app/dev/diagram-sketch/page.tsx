@@ -1,23 +1,5 @@
 'use client'
 
-/**
- * Dev preview — „Als Skizze bearbeiten": a drawing Piloti made, reworked by hand.
- *
- * Two panels:
- *
- *  1. **A flow.** The Einreichung's path, drawn by Piloti's own view, with
- *     „Als Skizze bearbeiten" beside „Im Projekt ablegen". Pressing it loads
- *     the Excalidraw canvas (only then, ADR-0141) on Piloti's drawing, laid out
- *     the way the view laid it out.
- *  2. **A Gliederung.** A mindmap opens as a tree of boxes, left to right.
- *
- * `?open=1` opens the first panel's editor on load, for a capture.
- *
- * Filing goes to `/api/projects/proj-preview/diagrams`, which the preview has
- * no session for: the refusal is shown in the dialog, as any refusal is.
- * Pinned to German. 404s outside development.
- */
-
 import { notFound, useSearchParams } from 'next/navigation'
 import { Suspense, useEffect } from 'react'
 import { I18nProvider } from '@/i18n'
@@ -55,11 +37,6 @@ function Panel({ title, note, children }: { title: string; note: string; childre
   )
 }
 
-/**
- * `?open=1` presses the first „Als Skizze bearbeiten" once it is drawn.
- * `?filed=1` answers the preview's filing with the route's 201, so the filed
- * state can be looked at without a session.
- */
 function OpenOnLoad() {
   const params = useSearchParams()
   useEffect(() => {

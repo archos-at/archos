@@ -200,7 +200,7 @@ The UI's words are `chat.thinking.work.place*`; the `/dev/derivation` variants `
 | `/drafts/` | this conversation's drafts | today's `StoreBackend` (`tools/documents/draft_store.py`) | `write_file`, `edit_file` |
 
 Not mounted: other projects (`project_lookup`, ADR-0094, because the BFF records a
-cross-project hand-out first), RIS (a live API with no tree; `ris_lookup`), the web.
+cross-project hand-out first), RIS (a live API with no tree; `law_lookup`), the web.
 If the MCP door later serves this projection to outside agents, which span
 projects, it uses `/projects/<project id>/…`, and `/project/` is Piloti's alias for
 the turn's one.
@@ -575,7 +575,7 @@ our own caching stays), the general-purpose subagent, `write_todos`.
 | `knowledge_search(match="exact"\|"regex")` | `grep` |
 | draft `ls`, `read_file`, `write_file`, `edit_file` | the same tools, on `/drafts/` |
 | `knowledge_search` (meaning) | stays, with `path` |
-| `look`, `ris_lookup`, `web_search_tool`, `ifc_query`, `ifc_measure`, `project_lookup`, `workspace__*`, `canvas__*` and the write tools | stay |
+| `look`, `law_lookup`, `web_search_tool`, `ifc_query`, `ifc_measure`, `project_lookup`, `workspace__*`, `canvas__*` and the write tools | stay |
 
 Since slice 6 `read_passage` and the literal `knowledge_search` are off Piloti's chat binding
 where the estate is read. A `read_passage` call is answered by the tool node's own error, which

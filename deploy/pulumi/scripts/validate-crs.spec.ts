@@ -12,8 +12,6 @@ import { installHatchetQueueAuth } from "../src/app/hatchet-queue-auth";
 import { baseStackConfig } from "../src/test-support/stack-config";
 
 const ROOT = mkdtempSync(join(__dirname, "..", ".validate-crs-test-"));
-// The release the script validates against is the chart the program installs
-// (`KEDA_CHART_VERSION`, which the script reads from `src/platform/keda.ts`).
 const KEDA_URL = `https://github.com/kedacore/keda/releases/download/v${KEDA_CHART_VERSION}/keda-${KEDA_CHART_VERSION}-crds.yaml`;
 const CNPG_URL = "https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/v1.28.0/releases/cnpg-1.28.0.yaml";
 const UNKNOWN = "04da6b54-80e4-46f7-8ec5-a065f938c709";
@@ -42,8 +40,6 @@ const object = (properties: Schema, required: string[] = []): Schema => ({
 });
 const array = (items: Schema): Schema => ({ type: "array", items });
 
-// Small CRD fixtures test dispatch, version selection and failure handling
-// without making CI depend on GitHub availability. Production uses upstream CRDs.
 function crd(group: string, kind: string, version: string, spec: Schema): Schema {
   return {
     kind: "CustomResourceDefinition",
@@ -107,8 +103,6 @@ function workspace(): string {
   const dir = mkdtempSync(join(ROOT, "case-"));
   mkdirSync(join(dir, "scripts"));
   copyFileSync(join(__dirname, "validate-crs.mjs"), join(dir, "scripts", "validate-crs.mjs"));
-  // The script reads the KEDA release it validates against from the program's one
-  // constant, so the copy needs the real file beside it.
   mkdirSync(join(dir, "src", "platform"), { recursive: true });
   copyFileSync(join(__dirname, "..", "src", "platform", "keda.ts"), join(dir, "src", "platform", "keda.ts"));
   copyFileSync(join(__dirname, "..", "src", "platform", "rabbitmq.ts"), join(dir, "src", "platform", "rabbitmq.ts"));
@@ -166,8 +160,6 @@ beforeAll(async () => {
     dsn: () => pulumi.output("postgresql://fixture"),
     imagePullSecrets: [],
   };
-  // The ScaledObject names a TriggerAuthentication the program creates once for
-  // every worker tier; both resources are what the validator is shown.
   const auth = installHatchetQueueAuth(wiring, pulumi.output("postgresql://fixture"), []);
   const worker = installIngestWorker(wiring, cfg, { secret, checksum: pulumi.output("fixture-checksum") }, [auth]);
   await new Promise((done) => auth.urn.apply(done));
@@ -279,7 +271,6 @@ describe("the deploy's CR schema validator", () => {
     expect(offline.stdout).toContain("0 passed, 0 failed, 1 skipped");
   });
 
-  // Staging run 41700375427 failed on the RabbitMQ operator's webhook configurations.
   it("leaves a native webhook configuration, `webhooks` beside `metadata`, to the SDK's types", () => {
     const plan: Plan = { steps: [...emittedPlan().steps, { op: "create", newState: {
       urn: "urn:pulumi:test::program::kubernetes:admissionregistration.k8s.io/v1:ValidatingWebhookConfiguration::hook",

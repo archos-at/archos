@@ -1,20 +1,3 @@
-/**
- * The projects operations (ADR-0122), and the exemplar the other domain files
- * follow.
- *
- * Each entry names a route the UI already calls. The rules, in short (the long
- * form is `docs/architecture/agent-surface.md`):
- *
- * - `name` is `<entity>-<verb>`, kebab-case: `project-list`, `project-member-add`.
- * - `description` says when to call it, what comes back, and what to call next,
- *   in English, for a model. Name the identifiers it needs and where to get them.
- * - `body` IS the route's schema, imported from `lib/`. A schema that lives
- *   inside a route file moves to a `lib/<area>/*-wire.ts` module both import;
- *   a second hand-written copy is the drift ADR-0055 exists to prevent.
- * - `load` imports exactly the route file `path` names.
- * - `destructive` for anything a person confirms in the UI.
- */
-
 import { z } from 'zod'
 import {
   consistencyCheckSchema,
@@ -32,6 +15,7 @@ import {
   listMemoryQuerySchema,
   patchMemorySchema,
 } from '@/lib/projects/project-memory-wire'
+import { memoryTopicRenameSchema } from '@/lib/memory-topics/wire'
 import { projectPeriodSchema, projectPersonSchema } from '@/lib/projects/project-record-types'
 import {
   deleteProjectSchema,
@@ -245,7 +229,7 @@ export const projectsOperations = [
     summary: 'List a project’s memory items',
     description:
       'The facts, decisions and notes ' + PRODUCT_NAME + ' keeps for the project, pinned first then newest, as `{ items, nextCursor }` (`limit` default 50; pass `nextCursor` as `cursor`). ' +
-      'Pass `includeArchived: "true"` for archived ones, or `conversationId` for those noted in one conversation. Item ids feed project-memory-update and project-memory-delete.',
+      'Pass `includeArchived: "true"` for archived ones, or `conversationId` for those noted in one conversation. `topics` counts the caller’s active items. Item ids feed project-memory-update and project-memory-delete.',
     method: 'GET',
     path: '/api/projects/[id]/memory',
     params: projectParams,
@@ -257,7 +241,7 @@ export const projectsOperations = [
     domain: 'projects',
     summary: 'Add a memory item',
     description:
-      'Writes one memory item: `kind`, `content` (max 2000 characters), optional `confidence` and `pinned`. ' +
+      'Writes one memory item: `kind`, `content` (max 2000 characters), optional `confidence`, `pinned`, `topic`. ' +
       'Answers `{ item }` with its id. Needs project:memory:write. Check project-memory-list first so you do not repeat an item.',
     method: 'POST',
     path: '/api/projects/[id]/memory',
@@ -270,7 +254,7 @@ export const projectsOperations = [
     domain: 'projects',
     summary: 'Edit a memory item',
     description:
-      'Changes any of a memory item’s kind, content, status, confidence, verification or pinned flag; at least one field. ' +
+      'Changes any of a memory item’s kind, content, status, confidence, verification, pinned flag or `topic`; at least one field. ' +
       'Set `status` to `dismissed` or `superseded` rather than deleting when the item was only wrong for now. `itemId` is from project-memory-list. Answers `{ item }`.',
     method: 'PATCH',
     path: '/api/projects/[id]/memory/[itemId]',
@@ -291,6 +275,19 @@ export const projectsOperations = [
     params: memoryItemParams,
     destructive: true,
     load: () => import('@/app/api/projects/[id]/memory/[itemId]/route'),
+  },
+  {
+    name: 'project-memory-topic-rename',
+    domain: 'projects',
+    summary: 'Rename or merge a memory topic',
+    description:
+      'Moves the shelf’s items from topic `from` to `to`; an existing `to` merges, `to: null` ungroups. Answers `{ moved }`. Only items the caller can see and edit. Needs project:memory:write.',
+    method: 'PATCH',
+    path: '/api/projects/[id]/memory/topics',
+    params: projectParams,
+    body: memoryTopicRenameSchema,
+    idempotent: true,
+    load: () => import('@/app/api/projects/[id]/memory/topics/route'),
   },
   {
     name: 'project-profile-get',
@@ -349,7 +346,6 @@ export const projectsOperations = [
         params: { id: '0d7b3a5e-7c1c-4a4e-9a63-6a4a1f5f1c11' },
         body: {
           patch: [
-            // A bare value is stored as a confirmed fact.
             { op: 'replace', path: '/facts/building_class', value: 'GK4' },
             { op: 'remove', path: '/unknowns/0' },
           ],
@@ -549,7 +545,6 @@ export const projectsOperations = [
     method: 'POST',
     path: '/api/projects/[id]/experience',
     params: projectParams,
-    // Not a read: extractProjectExperience patches the profile (patchProjectProfile) and writes draft decisions.
     idempotent: false,
     load: () => import('@/app/api/projects/[id]/experience/route'),
   },

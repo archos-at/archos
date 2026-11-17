@@ -1,10 +1,3 @@
-/**
- * One reply in an Anmerkung's thread: PATCH rewords it, DELETE takes it back,
- * for the person who wrote it, while the mark is live and Piloti has not taken
- * it up. PATCH answers the Anmerkung with its whole thread. Thin handlers; the
- * rules live in `@/lib/annotations/service`.
- */
-
 import { apiRoute, parseJsonBody } from '@/lib/api/handler'
 import { roomPeerOf } from '@/lib/annotations/peer-header'
 import { deleteOwnReply, editReply } from '@/lib/annotations/service'

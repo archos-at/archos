@@ -1,18 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * What a stored SVG is allowed to be.
- *
- * These bytes arrive from a browser and are served back to browsers, so an
- * unvalidated one is stored XSS with a `documents` row and a preview pane. Every
- * rule in `svg.ts` gets a case here that FAILS, by name, because a validator
- * tested only on good input is a validator whose deny-list is never exercised.
- *
- * The last block is the other half of the design and the one that survives a
- * gap in the deny-list: what is stored is written from an allow-list, so an
- * attribute nobody thought to refuse is simply not carried across.
- */
 import { describe, expect, it } from 'vitest'
 import { MAX_DIAGRAM_SVG_BYTES, MAX_DIAGRAM_SVG_DEPTH } from './diagram-sources'
 import {
@@ -29,25 +17,8 @@ import {
 
 const OPEN = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 50">'
 
-/**
- * The marking every stored diagram carries, as a fixture.
- *
- * Marker strings rather than the real dictionary line and the real
- * `aiProvenanceMarking` output, for the reason `markdown-pdf.spec.ts` gives
- * about its own placeholder: a test that reads the production copy back passes
- * just as well when the module hardcodes a sentence of its own, which is the
- * failure a required argument exists to prevent. What the marking really says
- * is asserted where it is really produced — `filing.spec.ts`, on the bytes that
- * reach the object store.
- */
 const MARKING = { notice: 'a machine drew this', provenance: 'MARK=yes' }
 
-/**
- * An SVG whose deepest element sits at `depth`, counting the root as 1.
- *
- * Nesting rather than size is what this builds, because the two budgets are
- * independent: 5000 levels is ~35 KB, which is 3% of the byte cap.
- */
 function nested(depth: number): string {
   const groups = depth - 2
   return `${OPEN}${'<g>'.repeat(groups)}<rect width="1" height="1"/>${'</g>'.repeat(groups)}</svg>`
@@ -69,8 +40,6 @@ describe('what is refused, by name', () => {
   })
 
   it('refuses more bytes than the budget', () => {
-    // The cap is a REFUSAL BUDGET, not a guess at what diagrams weigh: the parse
-    // happens on the caller's chosen length before anything else does.
     const filler = 'a'.repeat(MAX_DIAGRAM_SVG_BYTES)
     expect(rejection(`${OPEN}<desc>${filler}</desc></svg>`)).toBe('too-large')
   })
@@ -80,21 +49,14 @@ describe('what is refused, by name', () => {
   })
 
   it('refuses a script whatever its case', () => {
-    // XML is case-sensitive and `<SCRIPT>` is a different element to an XML
-    // parser — but not to a browser recovering from a content-type sniff.
     expect(rejection(`${OPEN}<SCRIPT>alert(1)</SCRIPT></svg>`)).toBe('script-element')
   })
 
   it('refuses a foreignObject', () => {
-    // Arbitrary HTML inside a file that is served back to browsers, and the one
-    // thing `@react-pdf/renderer` cannot draw at all. Mermaid emits these by
-    // default, which is why the client renderer turns `htmlLabels` off.
     expect(rejection(`${OPEN}<foreignObject><b>hi</b></foreignObject></svg>`)).toBe('foreign-object')
   })
 
   it('refuses a stylesheet', () => {
-    // Refused rather than sanitised: a CSS parser is a second place external
-    // references can hide, and the PDF cannot apply CSS at any price.
     expect(rejection(`${OPEN}<style>.a{fill:red}</style></svg>`)).toBe('style-element')
   })
 
@@ -117,14 +79,10 @@ describe('what is refused, by name', () => {
   })
 
   it('allows a fragment href, which is the only reference a self-contained file makes', () => {
-    // Not a rejection test by accident: if the href rule refused fragments too,
-    // every arrowhead and gradient in a mermaid diagram would be refused with it.
     expect(() => parseDiagramSvg(`${OPEN}<rect width="1" height="1" clip-path="url(#c)"/></svg>`)).not.toThrow()
   })
 
   it('refuses an external url() inside an attribute value', () => {
-    // The functional-IRI form is how a reference hides in a value rather than in
-    // a name, so the check is on the value and applies to every attribute.
     expect(rejection(`${OPEN}<rect width="1" height="1" fill="url(https://evil.example/x)"/></svg>`)).toBe(
       'external-reference',
     )
@@ -137,9 +95,6 @@ describe('what is refused, by name', () => {
   })
 
   it('refuses an external url() smuggled through a style attribute', () => {
-    // The style attribute is FLATTENED rather than dropped, so it has to be
-    // refused on the same terms as the attribute form — or `fill: url(...)`
-    // would be refused in one spelling and admitted in the other.
     expect(rejection(`${OPEN}<rect width="1" height="1" style="fill:url(https://evil.example/x)"/></svg>`)).toBe(
       'external-reference',
     )
@@ -180,16 +135,10 @@ describe('what is refused, by name', () => {
   })
 
   it('refuses an element it does not draw, rather than dropping it', () => {
-    // Elements carry geometry, so dropping one files a diagram that is missing
-    // part of the picture and says nothing about it. Attributes are dropped;
-    // elements are refused. That asymmetry is the rule.
     expect(rejection(`${OPEN}<image width="1" height="1"/></svg>`)).toBe('unsupported-element')
   })
 
   it('refuses a diagram with no viewport', () => {
-    // A browser invents 300x150 for a sizeless <svg> and the PDF cannot: it
-    // needs a box to fit the drawing into, and a guessed one crops the artifact
-    // that goes to the Behörde while the preview looks right.
     expect(rejection('<svg xmlns="http://www.w3.org/2000/svg"><rect width="1" height="1"/></svg>')).toBe(
       'missing-viewport',
     )
@@ -213,41 +162,26 @@ describe('what is refused, by name', () => {
   })
 
   it('refuses a tree nested past the depth bound', () => {
-    // Depth is its own budget: `parseElement`, `refuseUnsupportedElements`,
-    // `serializeNode` and `toPdfNode` each recurse once per level, so the stack
-    // — not the byte cap — is what a deep document exhausts.
     expect(rejection(nested(MAX_DIAGRAM_SVG_DEPTH + 1))).toBe('too-deep')
   })
 
   it('accepts a tree exactly at the bound, so the bound is where it says it is', () => {
-    // The pair is the test. Only the refusal would pass with the limit set to
-    // zero, and a validator that refuses everything is not a validator.
     expect(() => parseDiagramSvg(nested(MAX_DIAGRAM_SVG_DEPTH))).not.toThrow()
   })
 
   it('refuses a depth no byte cap would ever catch, by name rather than by RangeError', () => {
-    // The defect, as it was reproduced: depth 5000 is ~35 KB, well inside the
-    // 1 MiB refusal budget, and it threw `RangeError: Maximum call stack size
-    // exceeded`. A RangeError is not a `DiagramSvgError`, so the route answered
-    // an untranslated `Internal server error` 500 — rendered inside a German
-    // figcaption — to a request the module promises a named 400 for.
     const svg = nested(5000)
     expect(new TextEncoder().encode(svg).byteLength).toBeLessThan(MAX_DIAGRAM_SVG_BYTES)
     expect(rejection(svg)).toBe('too-deep')
   })
 
   it('refuses a metadata block anywhere but the root', () => {
-    // `<metadata>` is allow-listed for the ONE position this module writes it
-    // in. Anywhere deeper it is a second source claim inside a file that is
-    // supposed to carry exactly one, and the one the server validated.
     expect(
       rejection(`${OPEN}<g><metadata data-grid-diagram-source="mermaid">x</metadata></g></svg>`),
     ).toBe('unsupported-element')
   })
 
   it('has a case for every declared rejection', () => {
-    // The tuple is the contract the route's copy is keyed by. A member with no
-    // case here is a rule nobody has ever seen fire.
     const covered = new Set([
       'empty',
       'too-large',
@@ -280,8 +214,6 @@ describe('what is stored is written here, not copied from the request', () => {
   })
 
   it('flattens a style attribute into real attributes', () => {
-    // Mermaid puts real paint in `style`, so dropping it files a diagram that
-    // previews grey and prints blank.
     const { root } = parseDiagramSvg(`${OPEN}<rect width="10" height="10" style="fill:#123456;stroke-width:2"/></svg>`)
     const stored = serializeDiagramSvg(root)
     expect(stored).toContain('fill="#123456"')
@@ -290,8 +222,6 @@ describe('what is stored is written here, not copied from the request', () => {
   })
 
   it('lets a style declaration beat the attribute it collides with, exactly once', () => {
-    // Two `fill`s on one element is not well-formed XML, so this is correctness
-    // rather than tidiness — and the winner is CSS's own precedence.
     const { root } = parseDiagramSvg(`${OPEN}<rect width="1" height="1" fill="red" style="fill:blue"/></svg>`)
     const stored = serializeDiagramSvg(root)
     expect(stored.match(/fill=/g)).toHaveLength(1)
@@ -319,8 +249,6 @@ describe('the diagram carries its own source', () => {
   }
 
   it('files the source inside the file, so it travels with the drawing', () => {
-    // The person who needs to regenerate or hand-edit the diagram is the person
-    // who has the file — possibly a year later, possibly outside this product.
     const accepted = acceptDiagram(submission, MARKING)
     expect(diagramSourceOf(accepted.root)).toEqual({ kind: 'mermaid', source: submission.source })
     expect(acceptDiagram(submission, MARKING).svg).toContain('<metadata data-grid-diagram-source="mermaid">')
@@ -332,8 +260,6 @@ describe('the diagram carries its own source', () => {
   })
 
   it('discards a metadata block the client sent and records its own', () => {
-    // Whatever the client claimed the source was, what is stored is the source
-    // the server validated against its own cap — the two must not disagree.
     const accepted = acceptDiagram(
       {
         ...submission,
@@ -346,12 +272,6 @@ describe('the diagram carries its own source', () => {
   })
 
   it('refuses a nested metadata rather than filing the source inside it', () => {
-    // Proven before it was fixed: 200 KiB of client text inside
-    // `<g><metadata data-grid-diagram-source="mermaid">…` was ACCEPTED against
-    // a 32 KiB per-kind cap and serialised into the stored file, because
-    // `withDiagramSource` filters only the root's children while the allow-list
-    // and `keptAttributes` both worked at any depth. The stored file then
-    // carried a second, unvalidated source the server never saw.
     const decoy = 'x'.repeat(200 * 1024)
     expect(() =>
       acceptDiagram(
@@ -390,40 +310,24 @@ describe('the stored diagram says a machine drew it', () => {
   }
 
   it('survives the allow-list it is written back out through', () => {
-    // The point of the whole choice. `svg.ts` serialises from an allow-list, so
-    // a marking the serialiser does not know about is stripped on the way to
-    // the object store while every assertion on the pre-serialisation tree goes
-    // on passing. `<title>` and `<desc>` are already in `ELEMENT_GEOMETRY`, so
-    // this survives with the allow-list widened by nothing at all.
     const stored = acceptDiagram(submission, MARKING).svg
     expect(stored).toContain('<title>a machine drew this</title>')
     expect(stored).toContain('<desc>MARK=yes</desc>')
   })
 
   it('is still there after the parser it will be read back with', () => {
-    // A stored file is re-parsed on the regeneration path, and a marking that
-    // the reader refuses is a file that cannot be opened by the product that
-    // wrote it.
     const stored = acceptDiagram(submission, MARKING).svg
     const { root } = parseDiagramSvg(stored)
     expect(serializeDiagramSvg(root)).toContain('<title>a machine drew this</title>')
   })
 
   it('names the file before anything else, because the first title is the name', () => {
-    // SVG names an element after its FIRST `<title>` child. A marking that came
-    // after the drawing's own title would be in the file and absent from the
-    // tooltip, the screen reader and every embedding surface — present and
-    // invisible, which is the failure mode this whole change is about.
     const marked = withDiagramMarking(parseDiagramSvg(`${OPEN}<rect width="1" height="1"/></svg>`).root, MARKING)
     expect(marked.children[0]).toMatchObject({ name: 'title' })
     expect(marked.children[1]).toMatchObject({ name: 'desc' })
   })
 
   it('replaces what the client said about the file, and not what it said inside it', () => {
-    // The same rule `withDiagramSource` applies to `<metadata>`, and the same
-    // reason: what the file says about ITSELF is the server's statement. A
-    // `<title>` nested in the drawing is a node label the diagram author wrote
-    // and is none of this module's business.
     const accepted = acceptDiagram(
       {
         ...submission,
@@ -437,9 +341,6 @@ describe('the stored diagram says a machine drew it', () => {
   })
 
   it('escapes a marking rather than letting it close a tag', () => {
-    // The notice is a dictionary string today, so this is not an injection the
-    // product has — it is the reason the marking goes through `serializeNode`
-    // like every other text node instead of being concatenated into the output.
     const accepted = acceptDiagram(submission, {
       notice: '</title><script>x()</script>',
       provenance: 'MARK=yes',
@@ -449,20 +350,11 @@ describe('the stored diagram says a machine drew it', () => {
   })
 
   it('leaves the tree the PDF redraws unmarked', () => {
-    // The PDF carries its own footer line and its own `Keywords`; `<title>` and
-    // `<desc>` are not paint, so putting them in the tree `svg-to-pdf.tsx`
-    // walks would add nothing there and make that module responsible for
-    // skipping them.
     const accepted = acceptDiagram(submission, MARKING)
     expect(accepted.root.children.some((child) => child.kind === 'element' && child.name === 'title')).toBe(false)
   })
 })
 
-/**
- * The failure census the filing catch logs (err2issue #589). A diagram-PDF
- * crash names no construct, so the log gets the tree's shape — tag
- * frequencies, depth, sizes — and no text content.
- */
 describe('censusSvg', () => {
   it('counts nodes, tags and depth without carrying any text', () => {
     const { root } = parseDiagramSvg(

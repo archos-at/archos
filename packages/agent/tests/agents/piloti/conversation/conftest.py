@@ -1,5 +1,3 @@
-"""The chat workflow driven the way the agent runtime drives it, for the tests that need a whole turn."""
-
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -24,8 +22,6 @@ class _Fn:
 
 
 class _Builder:
-    """Just enough of the agent runtime's Builder for the chat workflow to wire itself."""
-
     def __init__(self, shallow):
         self._shallow = shallow
 
@@ -50,23 +46,14 @@ async def _never(_state):  # pragma: no cover - the turn never escalates here
 
 @pytest.fixture
 def workflow_harness(monkeypatch):
-    """The workflow with its database reads and the stage scheduler replaced.
-
-    ``seen["shallow"]`` is the answering function a turn runs unless it is given one.
-    """
     seen: dict = {"scheduled": [], "from_context": 0, "spans": []}
 
-    # The turn's profiler batch, captured where it is POSTED. A span reaching
-    # here proves the flush ran after the root closed: `track_agent_profile`
-    # only adds the root to the batch as it exits.
     monkeypatch.setattr(profiler_mod, "_post_profiler_spans", lambda payload: seen["spans"].extend(payload["spans"]))
 
     async def no_documents(_collection):
         return []
 
     async def memory_checkpointer(_db):
-        # The sqlite checkpointer keeps a non-daemon aiosqlite thread alive for
-        # the process's life; the test process would never exit.
         return InMemorySaver()
 
     monkeypatch.setattr(register_mod, "get_checkpointer", memory_checkpointer)
@@ -76,7 +63,6 @@ def workflow_harness(monkeypatch):
     monkeypatch.setattr(
         register_mod, "schedule_post_answer_stages", lambda facts, llms: seen["scheduled"].append(facts) or []
     )
-    # The scoping module parses the envelope on its own account; count only this module's parse.
     monkeypatch.setattr(register_mod, "get_scoped_collections_from_context", lambda: None)
     real_from_context = RequestContext.from_context.__func__
 
@@ -99,7 +85,6 @@ def workflow_harness(monkeypatch):
             await gen.aclose()
 
     async def single(query, shallow=None):
-        """What `nat run` and `nat eval` get: the agent runtime's own fold of the stream."""
         gen, info = await workflow(shallow or seen["shallow"])
         try:
             return await info.single_fn(query)

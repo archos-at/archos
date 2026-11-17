@@ -57,8 +57,6 @@ describe('GET /api/conversations/[id]/messages/[messageId]/export', () => {
     expect(response.headers.get('Content-Disposition')).toBe(
       'attachment; filename="fluchtwege-bauteil-b-2026-05-04.docx"'
     )
-    // The answer can change after this file was built (a card answered,
-    // provenance recorded), so a cached copy would disagree with its thread.
     expect(response.headers.get('Cache-Control')).toBe('no-store')
     expect(new Uint8Array(await response.arrayBuffer())).toEqual(
       new Uint8Array([0x50, 0x4b, 0x03, 0x04])

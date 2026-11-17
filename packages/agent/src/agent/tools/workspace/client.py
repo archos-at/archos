@@ -36,27 +36,15 @@ logger = logging.getLogger(__name__)
 
 MCP_PATH = "/api/mcp"
 
-#: The version this client speaks. The server also serves 2026-07-28; the older
-#: one is named because it is the one a client that never ran ``initialize`` is
-#: certain to be answered in.
 PROTOCOL_VERSION = "2025-11-25"
 
-#: ``search`` exposes the four meta-tools; the full catalogue would cost every
-#: turn a tool list of hundreds (``docs/architecture/agent-surface.md``). The
-#: server still accepts ``discovery``, the mode's name until October 2026.
 MODE_HEADER = "x-piloti-mcp-mode"
 SEARCH_MODE = "search"
 
-#: The answer the turn is writing (``turn_answer_message_id``), as the other internal tools send it in
-#: their bodies (``answerMessageId``): the BFF marks it in ``message_restricted_use`` when a read runs in
-#: a conversation that drew on a restricted folder (ADR-0093). A header, because the MCP body is JSON-RPC.
 ANSWER_MESSAGE_HEADER = "X-Answer-Message-Id"
 
-#: A routed operation runs a BFF route in-process, some of them a search.
 REQUEST_TIMEOUT_SECONDS = 30
 
-#: How a tool-level error (``isError``) starts, so the model reads it as one. English, like everything
-#: the model reads from the workspace (AGENTS.md, "Industry standard first"); it words it for the reader.
 ERROR_PREFIX = "Error: "
 
 
@@ -65,11 +53,14 @@ class ToolResult:
     """A ``tools/call`` answer: the text the model reads, and the result's ``structuredContent`` when it has one.
 
     ``structured`` is for the code around the model, never shown to it. It is ``None`` for a tool-level
-    error (``isError``): a refusal is words, not a shape to act on.
+    error (``isError``): a refusal is words, not a shape to act on. It is ``None`` too for an answer the
+    server capped (``discovery.ts`` ``success``: a cut answer carries no ``structuredContent``), which is
+    a read that ran, so whether the call failed is ``is_error``, never the missing shape.
     """
 
     text: str
     structured: dict[str, Any] | None = None
+    is_error: bool = False
 
 
 class WorkspaceError(bff_http.BffError):
@@ -121,6 +112,12 @@ def _structured_content(message: dict[str, Any]) -> dict[str, Any] | None:
     return structured if isinstance(structured, dict) else None
 
 
+def _is_error(message: dict[str, Any]) -> bool:
+    """Whether the result is a tool-level error (``isError``): the call did not run."""
+    result = message.get("result")
+    return isinstance(result, dict) and bool(result.get("isError"))
+
+
 def _result_text(message: dict[str, Any]) -> str:
     """The text of a ``tools/call`` result; a tool-level error is prefixed so the model reads it as one."""
     error = message.get("error")
@@ -133,8 +130,6 @@ def _result_text(message: dict[str, Any]) -> str:
     text = "\n".join(part for part in parts if part).strip()
     if not text and result.get("structuredContent") is not None:
         text = json.dumps(result["structuredContent"], ensure_ascii=False, separators=(",", ":"))
-    # No cap of its own: the server caps every result (``MAX_RESULT_CHARS`` in ``discovery.ts``) and says how to
-    # narrow it; a second, smaller cut here would end mid-JSON and contradict the server's note.
     return f"{ERROR_PREFIX}{text}" if result.get("isError") else text
 
 
@@ -165,7 +160,9 @@ def call_tool_result(
             headers=request_headers(envelope, answer_message_id),
         )
         message = _jsonrpc_from(response.body.decode("utf-8"), response.content_type)
-        return ToolResult(text=_result_text(message), structured=_structured_content(message))
+        return ToolResult(
+            text=_result_text(message), structured=_structured_content(message), is_error=_is_error(message)
+        )
     except bff_http.BffNotConfiguredError as exc:
         raise WorkspaceError(str(exc)) from exc
     except bff_http.BffRefusedError as exc:

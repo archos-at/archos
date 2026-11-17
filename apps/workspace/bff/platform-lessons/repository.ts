@@ -1,20 +1,3 @@
-/**
- * Platform-lessons repository — the only module that queries the three
- * `platform_lesson*` tables (ADR-0017;
- * docs/architecture/platform-failure-learning.md).
- *
- * Every function here runs cross-tenant BY DESIGN: the tables are global
- * (secured with `secure_platform_table`, writable only under the platform
- * role) and the one read that touches tenant data — the unprocessed-down-vote
- * scan over `answer_feedback` — deliberately crosses organizations, because a
- * platform lesson is distilled from everyone's reports at once. Callers state
- * that scope: every entry point into this module sits behind
- * `withPlatformAccess` in the service, and the service's own callers hold
- * either the internal token or a `platform:*` permission.
- *
- * List queries are always bounded.
- */
-
 import 'server-only'
 import { isUniqueViolation } from '@/lib/db/errors'
 import { and, asc, desc, eq, inArray, isNull, ne, or, sql } from 'drizzle-orm'
@@ -27,45 +10,22 @@ import { OUTSIDE_RESTRICTED_USE } from '@/lib/feedback/repository'
 import { VOTED_TURN_JOINS } from '@/lib/feedback/turn-join'
 import { OUTSIDE_LICENSED_TEXT } from './licensed-text'
 
-/** Hard ceilings on every dashboard list. */
 export const LESSON_LIST_LIMIT = 200
 export const LESSON_EVENT_LIST_LIMIT = 200
 export const LESSON_REPORT_LIST_LIMIT = 200
 
-/**
- * How far back the sweep looks for unprocessed down-votes. Older reports are
- * left alone: a failure nobody re-reported in a month is not worth an LLM call,
- * and an unbounded backlog scan would grow with the table.
- */
 export const SWEEP_WINDOW_DAYS = 30
 
-/** One down-vote the pipeline has not processed yet, with its turn context. */
 export interface UnprocessedDownvote {
   feedbackId: string
   organizationId: string
   reason: string | null
   comment: string | null
-  /** The user turn preceding the voted answer, when it survives the join. */
   question: string | null
-  /** The voted answer's text, when its message row was persisted. */
   answer: string | null
   createdAt: Date
 }
 
-/**
- * Down-votes with no `platform_lesson_reports` row yet, oldest first so the
- * backlog drains in arrival order. The joins are `listFeedbackTurns`'s own
- * (`VOTED_TURN_JOINS`, lib/feedback/turn-join.ts): LEFT throughout, because a vote whose turn was
- * never persisted is still a report — reason and comment alone can carry the
- * signal.
- *
- * A vote on an answer whose conversation drew on a restricted folder is never
- * a report (`OUTSIDE_RESTRICTED_USE`: the database's one rule, by the vote's
- * message, the voted message's conversation and the conversation the vote
- * names): a lesson is injected into every organization's turns, so its source
- * text must be one every reader may see. The question is read from the voted message's
- * own conversation, never from the `conversation_id` the client sent.
- */
 export async function listUnprocessedDownvotes(limit: number): Promise<UnprocessedDownvote[]> {
   const db = getDb()
   const result = await db.execute(sql`
@@ -96,12 +56,10 @@ export async function listUnprocessedDownvotes(limit: number): Promise<Unprocess
     comment: (row.comment as string | null) ?? null,
     question: (row.question as string | null) ?? null,
     answer: (row.answer as string | null) ?? null,
-    // Raw `sql` results are not runtime-validated — coerce at this boundary.
     createdAt: new Date(row.created_at as string),
   }))
 }
 
-/** Every lesson, newest signal first, for the dashboard. Bounded. */
 export async function listLessons(): Promise<PlatformLesson[]> {
   const db = getDb()
   return db
@@ -121,18 +79,6 @@ export async function getLesson(lessonId: string): Promise<PlatformLesson | null
   return row ?? null
 }
 
-/**
- * The lessons the matcher compares a new report against: everything not
- * retired, so a report matching a held-back candidate strengthens that
- * candidate instead of spawning a duplicate.
- *
- * Most-reported first, then freshest. Failure classes follow a power law, so
- * when the live register outgrows the matcher window the lessons that fall off
- * the end are the long-tail singletons — the ones a new report is least likely
- * to duplicate. (Past that window the designed successor is embedding recall
- * through the backend's vector store; see the architecture doc's scaling
- * section.)
- */
 export async function listLiveLessons(limit: number): Promise<PlatformLesson[]> {
   const db = getDb()
   return db
@@ -143,7 +89,6 @@ export async function listLiveLessons(limit: number): Promise<PlatformLesson[]> 
     .limit(limit)
 }
 
-/** Active lessons in injection order: widest reach first, then most reported. */
 export async function listActiveLessonsForDigest(limit: number): Promise<PlatformLesson[]> {
   const db = getDb()
   return db
@@ -158,38 +103,14 @@ export async function listActiveLessonsForDigest(limit: number): Promise<Platfor
     .limit(limit)
 }
 
-/**
- * Cosine above which a report is treated as restating an existing lesson.
- *
- * Lower than memory's 0.90 on purpose: two lesson texts are already
- * generalized process cautions, so near-neighbours in that space really are
- * the same failure class ("check which guideline applies before citing" vs
- * "verify the referenced guideline matches the question"). Still calibrated
- * toward separation — a wrong merge buries a distinct failure mode.
- */
 export const LESSON_SEMANTIC_MATCH_THRESHOLD = 0.85
 
-/**
- * The lessons a report most plausibly restates, by SEMANTIC similarity.
- *
- * This is what the top-N rank window was standing in for. A window ordered by
- * report count answers "which lessons are popular", not "which lesson is this
- * report about" — and past the window the matcher simply could not see the
- * lesson it should have merged into, so the register grew a near-duplicate
- * and the two then split future reports between them.
- *
- * Returns [] when nothing is embedded or the embedder was unavailable, which
- * the caller reads as "fall back to the rank window".
- */
 export async function listSemanticLessonCandidates(
   vector: number[],
   fingerprint: string,
   limit: number
 ): Promise<PlatformLesson[]> {
   const db = getDb()
-  // Raw SQL so the vector literal is sent ONCE: through the query builder it
-  // appears in WHERE, ORDER BY and the projection, and at embedding
-  // dimensionality three copies is tens of kilobytes of SQL per call.
   const result = await db.execute(sql`
     with scored as (
       select l.*, cosine_similarity(l.embedding, ${toVectorLiteral(vector)}::real[]) as similarity
@@ -203,7 +124,6 @@ export async function listSemanticLessonCandidates(
     limit ${limit}
   `)
   const rows = executeRows(result)
-  // Raw rows are snake_case; map the columns the matcher actually reads.
   return rows.map(
     (row) =>
       ({
@@ -216,7 +136,6 @@ export async function listSemanticLessonCandidates(
   )
 }
 
-/** Store a lesson's vector after the fact (backfill / re-embed on model change). */
 export async function setLessonEmbedding(
   lessonId: string,
   vector: number[],
@@ -228,7 +147,6 @@ export async function setLessonEmbedding(
     .where(eq(platformLessons.id, lessonId))
 }
 
-/** Lessons still missing a usable vector, oldest first. Bounded. */
 export async function listLessonsMissingEmbedding(
   fingerprint: string,
   limit: number
@@ -250,18 +168,6 @@ export async function listLessonsMissingEmbedding(
     .limit(limit)
 }
 
-/**
- * Recompute both vote counters for every ACTIVE lesson from `answer_feedback`.
- *
- * Exposure is a function of time here — with an always-injected digest, a vote
- * at T saw every lesson active at T — so this is a temporal join and needs no
- * per-turn exposure table. Two honest caveats, both documented on the schema:
- * it is a CORRELATION (every active lesson is credited for every vote in its
- * window), and the digest caches mean a lesson activated minutes ago may not
- * have reached every worker yet. Votes from the holdout arm are excluded:
- * those turns saw no lessons at all, so counting them would credit a lesson
- * for answers it demonstrably did not touch.
- */
 export async function recomputeLessonVoteCounters(): Promise<void> {
   await getDb().execute(sql`
     update platform_lessons l
@@ -286,7 +192,6 @@ export async function recomputeLessonVoteCounters(): Promise<void> {
   `)
 }
 
-/** Exact-duplicate check against the live register (JS twin of the 0068 index). */
 export async function findLiveLessonByContent(content: string): Promise<PlatformLesson | null> {
   const db = getDb()
   const [row] = await db
@@ -329,16 +234,7 @@ interface ReportProvenance {
   canonicalSummary: string | null
 }
 
-/**
- * Create a lesson from its first report — lesson, provenance row and 'created'
- * event in ONE transaction, so the register can never hold a lesson whose
- * provenance chain is missing its first link.
- *
- * Returns null when the report was already processed by a concurrent sweep
- * (the UNIQUE(feedback_id) backstop fired) — the caller treats that as "done".
- */
 export async function createLessonFromReport(values: {
-  /** Vector for the lesson text, when the embedder was reachable. */
   embedding?: { vector: number[]; fingerprint: string } | null
   content: string
   category: PlatformLesson['category']
@@ -398,20 +294,11 @@ export async function createLessonFromReport(values: {
       return lesson
     })
   } catch (err) {
-    // Race backstops: a concurrent sweep processed the same feedback row
-    // (reports UNIQUE) or distilled the same normalized content (0068 partial
-    // unique index). Either way the work is done; the caller re-reads.
     if (isUniqueViolation(err)) return null
     throw err
   }
 }
 
-/**
- * Attach one more report to an existing lesson: provenance row, counter
- * bump (recomputed from the provenance rows, never incremented blindly) and
- * 'report_linked' event in one transaction. Returns false when the report was
- * already processed concurrently.
- */
 export async function linkReportToLesson(
   lessonId: string,
   report: ReportProvenance,
@@ -428,8 +315,6 @@ export async function linkReportToLesson(
         reason: report.reason,
         canonicalSummary: report.canonicalSummary,
       })
-      // Recompute from the provenance rows: an increment would drift on any
-      // retried transaction, and the count IS the audit claim.
       await tx
         .update(platformLessons)
         .set({
@@ -453,24 +338,6 @@ export async function linkReportToLesson(
   }
 }
 
-/**
- * Let a re-voted report be distilled again — but only when the first pass
- * produced nothing.
- *
- * A user who down-votes, then comes back and writes what was actually wrong,
- * has supplied strictly more signal than the bare thumb the sweep already
- * dismissed. The UNIQUE(feedback_id) provenance row is what stops the sweep
- * from ever looking at it again, so a re-vote clears exactly that row.
- *
- * Deliberately limited to `outcome = 'skipped'`. A report that CREATED or was
- * LINKED to a lesson keeps its row forever: the lesson exists, its evidence
- * chain has to keep pointing at this report, and re-distilling it would count
- * one user's opinion twice in `report_count` — which is the number the
- * activation and eviction order are built on.
- *
- * Returns true when a row was actually cleared, so the caller only kicks the
- * pipeline when there is new work.
- */
 export async function reopenSkippedReport(feedbackId: string): Promise<boolean> {
   const cleared = await getDb()
     .delete(platformLessonReports)
@@ -484,7 +351,6 @@ export async function reopenSkippedReport(feedbackId: string): Promise<boolean> 
   return cleared.length > 0
 }
 
-/** Record a report the pipeline deliberately did not turn into a lesson. */
 export async function recordSkippedReport(values: {
   feedbackId: string
   orgHash: string
@@ -509,10 +375,6 @@ export async function recordSkippedReport(values: {
   }
 }
 
-/**
- * A status/content/root-cause mutation plus its event, in one transaction.
- * `patch` is what changes; `event` is how the trail explains it.
- */
 export async function updateLessonWithEvent(
   lessonId: string,
   patch: Partial<
@@ -545,19 +407,6 @@ export async function updateLessonWithEvent(
   })
 }
 
-/**
- * Retire stale or over-cap CANDIDATES (each with its own event); returns the
- * retired ids.
- *
- * Candidates are the register's growth risk: an auditor-flagged singleton
- * nobody reviews would otherwise sit "held" forever, and enough of them crowd
- * the bounded matcher window until new reports stop matching and spawn MORE
- * duplicate candidates — a divergence loop. So a candidate earns its slot the
- * same way an active lesson does: by being re-reported. Not re-reported within
- * `maxAgeDays`, or beyond `maxCandidates` (most-reported, then freshest,
- * survive) → retired as 'candidate_expired'. Retirement is reversible in the
- * dashboard and fully evented, so nothing is lost — only de-prioritized.
- */
 export async function expireStaleCandidates(
   maxAgeDays: number,
   maxCandidates: number,
@@ -601,44 +450,6 @@ export async function expireStaleCandidates(
   })
 }
 
-/**
- * Retire the least-recently-reported active lessons beyond `maxActive`
- * (capacity eviction, each with its own event). Returns the ids retired.
- */
-export async function evictActiveOverCapacity(maxActive: number, actor: string): Promise<string[]> {
-  const db = getDb()
-  return db.transaction(async (tx) => {
-    const active = await tx
-      .select({ id: platformLessons.id })
-      .from(platformLessons)
-      .where(eq(platformLessons.status, 'active'))
-      .orderBy(desc(platformLessons.lastReportedAt), desc(platformLessons.reportCount))
-    const excess = active.slice(maxActive).map((row) => row.id)
-    if (excess.length === 0) return []
-    const now = new Date()
-    await tx
-      .update(platformLessons)
-      .set({
-        status: 'retired',
-        retiredAt: now,
-        retiredBy: actor,
-        retiredReason: 'evicted_capacity',
-        updatedAt: now,
-      })
-      .where(inArray(platformLessons.id, excess))
-    await tx.insert(platformLessonEvents).values(
-      excess.map((id) => ({
-        lessonId: id,
-        action: 'retired' as const,
-        actor,
-        detail: { reason: 'evicted_capacity' },
-      }))
-    )
-    return excess
-  })
-}
-
-/** Counts for the dashboard header (candidates awaiting review, active, retired). */
 export async function countLessonsByStatus(): Promise<Record<string, number>> {
   const db = getDb()
   const rows = await db
@@ -648,19 +459,6 @@ export async function countLessonsByStatus(): Promise<Record<string, number>> {
   return Object.fromEntries(rows.map((row) => [row.status, Number(row.count)]))
 }
 
-/**
- * Flag active lessons whose failure keeps happening anyway.
- *
- * The vote counters above are a shared clock — every active lesson counts the
- * same fleet-wide feedback window — so they cannot indict one lesson. What
- * can: a report the matcher semantically LINKED to a lesson after that lesson
- * was already being injected. The failure the lesson exists to prevent
- * recurred under treatment. At `minRecurrences` of those, a
- * 'flagged_ineffective' event is recorded (once per activation — the anti-join
- * on events keeps a long-running sweep from re-flagging every pass) and the
- * lesson STAYS active: the wound is demonstrably open, so the bandage stays
- * on; the flag exists to route a human at the root cause. Returns flagged ids.
- */
 export async function flagIneffectiveActiveLessons(
   minRecurrences: number,
   actor: string
@@ -703,20 +501,6 @@ export async function flagIneffectiveActiveLessons(
   })
 }
 
-/**
- * Retire lessons whose root cause is addressed AND whose failure stayed gone.
- *
- * 0068's rule is that 'addressed' does not retire a lesson by itself — the
- * owner retires it once the fix is VERIFIED. This makes the verification
- * mechanical instead of a thing a person must remember: once the root cause
- * has been 'addressed' for `quietDays` with not one report linking to the
- * lesson since, the absence of recurrence IS the evidence the fix holds, and
- * the sweep takes the bandage off. Fully evented (detail.automatic = true) and
- * reversible — reactivation exists precisely for the fix that turns out not to
- * have held. `addressedAt` is the newest root_cause_updated event that set
- * 'addressed', so re-opening and re-addressing restarts the quiet clock.
- * Returns the retired ids.
- */
 export async function retireQuietAddressedLessons(
   quietDays: number,
   actor: string

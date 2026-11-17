@@ -1,90 +1,5 @@
 'use client'
 
-/**
- * Chat-turn dev preview: renders a COMPLETE turn the way ChatArea composes it —
- * the user question (UserMessage), the reasoning trace (ChatThinking / Herleitung)
- * and the cited answer (AgentResponse, default "Ergebnis" card) — with fixture
- * data and no backend.
- *
- * The default view renders the two transition endpoints, in light + dark,
- * desktop + mobile:
- *   • LIVE      — isThinking, the Herleitung auto-EXPANDED (the streaming
- *                 reasoning graph is the spectacle), the answer still absent.
- *   • COMPLETED — the Herleitung auto-COLLAPSED to the one-line bar, the cited
- *                 answer card dominant, with sources + confidence shown ONCE on
- *                 the answer (deduped out of the reasoning assessment node).
- *
- * `?variant=` selects an ANSWER-LAYER fixture instead. Every card, the lede and
- * the provenance footer had only ever been reviewed in the gallery — isolated,
- * on a bare page, at full width — and "does this look right on its own" is a
- * different question from "does this look right wedged between two paragraphs,
- * under a lede, above a provenance footer, at the thread's real 680px column".
- * These variants ask the second one:
- *
- *   • `lede-card`    — a long answer (over the `LEDE_MIN_CHARS` threshold, so
- *                      the lede fires) with a `calculation` spliced in mid-answer
- *                      by a `[[card:1]]` marker: marker placement, and the gap a
- *                      card leaves in the reading rhythm on both sides.
- *   • `two-cards`    — two cards in one turn, the rule nobody had seen tested:
- *                      a `building_section` placed inline and a `calculation`
- *                      left unplaced, so it lands in the fallback block between
- *                      the prose and the provenance footer.
- *   • `follow-ups-rail` — the SAME answer twice: once as it lands, and once
- *                      with the post-answer follow-ups rail below it
- *                      (`docs/architecture/post-answer-stages.md` §8, §9). The
- *                      pair IS the evidence: the chips arrive two to six
- *                      seconds late and reserve no space, so everything above
- *                      them must be pixel-identical in the two turns. Read the
- *                      screenshot by covering the rail — if the answer card,
- *                      the provenance footer and the meta row do not line up,
- *                      the design's licence to arrive late is void.
- *   • `memory-chip`  — the same answer three times, as turns of one thread: one
- *                      where the `memory_reflection` stage recorded nothing,
- *                      one where it recorded two things, and one where an
- *                      accepted proposal CORRECTED an earlier note (the chip
- *                      reads „Gedächtnis aktualisiert"). The chip is on the
- *                      meta row, never inside „Details"
- *                      (`docs/architecture/post-answer-stages.md` §1.7, §5.1).
- *                      The chip is a fact about the TURN now, not a poll of the
- *                      conversation's memory fired by every rendered answer —
- *                      which is why the first panel has no chip at all, and why
- *                      the second's number is 2 rather than the thread's total.
- *                      The footers must otherwise line up: the chip lands in a
- *                      meta row that is already on screen, which is what lets it
- *                      arrive seconds late without reserving anything.
- *   • `anatomy`      — the envelope's NATIVE anatomy, flat: verdict masthead
- *                      above the prose, callout anchored inside it by its
- *                      `[[callout]]` marker, takeaways closing the answer.
- *   • `feedback-open` — the provenance footer with the feedback footnote OPEN:
- *                      the same answer at rest and after a down-vote whose
- *                      reason is chosen, so the note is showing too. The footer
- *                      is the only place where a 24px control row and a form
- *                      share one wrapping row, and the open state had never been
- *                      seen in it — only in the component's own gallery, where
- *                      there is no row to break. It broke: `items-center`
- *                      centred the copy actions against the form's height, so
- *                      two icons floated mid-footer in an empty left half while
- *                      the reason chips and the note hung off the row's right
- *                      end. Read the two panels' top line: copy, export and the
- *                      thumbs must sit on it identically, with the disclosure
- *                      below on the answer's own left edge.
- *
- * Every fixture answer deliberately ends in a written "## Quellen" section, the
- * way a verified backend answer does: it must NOT render as a second source
- * list — AgentResponse folds it into the one numbered "Belegt durch" block.
- *
- * Pinned to German with `fixedLocale`: without it the provider falls back to
- * `defaultLocale` ('en') and the answer's own chrome — „Belegt durch", the
- * confidence chip, the feedback line, the copy actions' labels — was captured
- * in English above German prose. See docs/ux/visual-screenshots.md.
- *
- * Nothing here drives an interactive state, so the `reactStrictMode`
- * double-mount gotcha in that doc does not apply: the only effect reads the
- * query string, which is idempotent.
- *
- * Not linked anywhere and 404s outside development.
- */
-
 import { useEffect, useState, type FC, type ReactNode } from 'react'
 import { notFound } from 'next/navigation'
 import { I18nProvider } from '@/i18n'
@@ -184,10 +99,6 @@ const commonThinking = {
   messageFiles: [{ id: 'f1', fileName: 'Grundriss_EG.pdf' }],
 }
 
-/**
- * The LIVE turn: the assistant is still working. The Herleitung is auto-EXPANDED
- * (the streaming reasoning graph is the focus) and no answer card exists yet.
- */
 function LiveTurn() {
   return (
     <div className="bg-background flex flex-col gap-5 rounded-2xl border p-5">
@@ -208,11 +119,6 @@ function LiveTurn() {
   )
 }
 
-/**
- * The COMPLETED turn: the answer has landed. The Herleitung has auto-COLLAPSED to
- * the one-line bar and the cited answer card is dominant — sources + confidence
- * shown ONCE, on the answer.
- */
 function CompletedTurn() {
   return (
     <div className="bg-background flex flex-col gap-5 rounded-2xl border p-5">
@@ -243,19 +149,9 @@ function CompletedTurn() {
   )
 }
 
-/* ------------------------------------------------------------------------- */
-/* Answer-layer fixtures                                                      */
-/* ------------------------------------------------------------------------- */
-
 const OIB2 = { document: 'OIB-Richtlinie 2', section: 'Tabelle 1b', edition: 'Ausgabe Mai 2023' }
 const OIB4 = { document: 'OIB-Richtlinie 4', section: 'Pkt. 2.2', edition: 'Ausgabe Mai 2023' }
 
-/**
- * One completed answer in its turn — the question above it, the Herleitung
- * collapsed to its one-line bar between them, the answer card below. Exactly
- * what `CompletedTurn` renders, parameterised, because the point of these
- * fixtures is the answer seen at the width and in the company it actually has.
- */
 const AnswerTurn: FC<{
   label: string
   question: string
@@ -264,32 +160,11 @@ const AnswerTurn: FC<{
   citations: CitationSource[]
   confidenceReason: string
   messageId: string
-  /**
-   * The post-answer follow-ups rail, when a stage delivered one. Rendered as
-   * ChatArea renders it — a SIBLING of the answer in the same 680px column,
-   * outside the answer surface, and last (§6.1).
-   */
   rail?: { question: string; hint?: string }[]
-  /**
-   * Post-answer stage output that renders INSIDE the answer — today just
-   * `memoryReflection`, which feeds the „Piloti hat sich gemerkt" chip in the
-   * footer's meta row. Passed as a prop for the same reason the rail is: the
-   * component reads it off the message, so a fixture is a message.
-   */
   stages?: MessageStages
-  /** The reader's answers to the turn's interactive cards (a saved memory proposal). */
   cardInteractions?: CardInteractions
-  /** The envelope's native anatomy — rendered flat, never as cards. */
   answerMeta?: AnswerMeta
-  /**
-   * The conversation the turn belongs to. Only the `feedback-open` variant sets
-   * it, and it is what makes that fixture real rather than staged: the footer's
-   * thumbs hydrate per conversation, so a conversation id is the ONLY way to
-   * put the real component into a voted state — no prop, no stubbed hook. It
-   * also turns on the .docx export action, which is the production footer.
-   */
   conversationId?: string
-  /** The final call is still writing (ADR-0066): the prose so far, no markers, no cards. */
   isStreaming?: boolean
   children?: ReactNode
 }> = ({
@@ -350,7 +225,6 @@ const AnswerTurn: FC<{
   </div>
 )
 
-/** Sources for the Nutzungssicherheit fixtures (Treppe / Geländer). */
 const stairCitations: CitationSource[] = [
   {
     id: 's1',
@@ -383,7 +257,6 @@ const STAIR_SOURCES = `## Quellen
 - [1] [KB] OIB-RL_4_Nutzungssicherheit.pdf, Pkt. 2.2
 - [2] [RIS] Bauordnung für Wien § 109 — https://www.ris.bka.gv.at/`
 
-/** Sources for the Brandschutz fixtures (Feuerwiderstand / Verfahren). */
 const fireCitations: CitationSource[] = [
   {
     id: 'f1',
@@ -416,15 +289,6 @@ const FIRE_SOURCES = `## Quellen
 - [1] [KB] OIB-RL_2_Brandschutz.pdf, Tabelle 1b
 - [2] [RIS] Bauordnung für Wien §§ 60 ff. — https://www.ris.bka.gv.at/`
 
-/* --- variant: structured ------------------------------------------------- */
-
-// A Markdown-first answer: the shape the static prompt's STRUCTURE block
-// teaches — the first line answers with the value in bold, ### headings that
-// state, a table per set of cases with a Fundstelle column, a Status column in
-// the fixed vocabulary (rendered as chips), a drawing where the Verfahren forks, and a task list.
-// Everything here used to be a typed_table, requirement_checklist and
-// deadline_timeline card. The values show the form, not the Richtlinie: read
-// Tabelle 1b before quoting any of them.
 const structuredQuestion =
   'Welche Feuerwiderstandsklasse brauchen tragende Bauteile in Gebäudeklasse 5, und erfüllt unser Konzept das?'
 
@@ -462,8 +326,6 @@ flowchart TD
 - [ ] Nachweis der Gleichwertigkeit für die Wohnungstrennwände
 
 ${FIRE_SOURCES}`
-
-/* --- variant: lede-card --------------------------------------------------- */
 
 const ledeCardQuestion =
   'Erfüllt der Treppenlauf im Haus A die Schrittmaßregel bei 17 cm Steigung und 30 cm Auftritt?'
@@ -513,11 +375,6 @@ const ledeCards: AnswerCard[] = [
   } as AnswerCard,
 ]
 
-/* --- variant: streaming --------------------------------------------------- */
-// A live answer (GK 5, 2026-09-24) caught mid-stream, and the same answer once
-// the verified terminal frame replaced it. The stream withholds the `[N]`
-// markers and the sources section; the terminal adds them (ADR-0066).
-
 const streamingQuestion =
   'Welche Feuerwiderstandsklasse brauchen tragende Wände in GK 5 und wie unterscheidet sich das vom obersten Geschoß?'
 
@@ -538,19 +395,11 @@ const streamingPartial = `Tragende Wände in GK 5 brauchen in sonstigen oberirdi
 | Sonstige oberirdische Geschoße, bis zu 6 oberirdische Geschoße | R 90 | [1] |
 | Sonstige oberirdische Geschoße, mehr als 6`
 
-// The moment the answer's text closed: verified, renumbered, its source list
-// written, and the cards still to come.
 const streamingSettled = `${streamingFinal}
 
 ## Quellen
 - [1] [KB] OIB-RL_2_Brandschutz.pdf, p.12`
 
-/* --- variant: variants ---------------------------------------------------- */
-
-// A LIVE answer (September 2026 census, gpt-6-luna against the bundled prompt),
-// copied verbatim: the question weighs two designs, and each design has a list
-// of its own, so the answer carries a `surface` whose `Tabs` hold one `Text`
-// table per variant. The prose above them says what holds for both.
 const variantsQuestion =
   'Für den zweiten Fluchtweg in GK 4 überlegen wir eine Außentreppe oder ein zweites Treppenhaus. Was müsste ich jeweils nachweisen?'
 
@@ -621,8 +470,6 @@ const variantsCitations: CitationSource[] = [1, 2, 3].map((number) => ({
   number,
 }))
 
-/* --- variant: two-cards --------------------------------------------------- */
-
 const twoCardsQuestion =
   'Welche Gebäudeklasse hat unser Wohnhaus — und hält der Treppenlauf die Schrittmaßregel ein?'
 
@@ -658,8 +505,6 @@ const twoCards: AnswerCard[] = [
   ...ledeCards,
 ]
 
-/* --- variant: follow-ups -------------------------------------------------- */
-
 const followUpsQuestion = 'Was ist das Fluchtniveau und wie wird es gemessen?'
 
 const followUpsAnswer = `Das Fluchtniveau ist der **Fußboden des obersten Geschoßes mit Aufenthaltsräumen**, gemessen über dem tiefsten Punkt des angrenzenden Geländes. Es entscheidet über die Gebäudeklasse und damit über fast jede Brandschutzanforderung [1].
@@ -670,12 +515,6 @@ Bei Hanglagen ist der tiefste Geländepunkt maßgeblich, nicht der Eingang. Das 
 
 ${STAIR_SOURCES}`
 
-/**
- * What the `follow_ups` STAGE delivered for this turn — the payload shape of
- * §4.2, which is deliberately the same shape the card always had. Four
- * questions, because four is the ceiling and the ceiling is where the row
- * wrapping on a phone is worth looking at.
- */
 const followUpsStageItems = [
   {
     question: 'Welche Gebäudeklasse ergibt sich für mein Projekt?',
@@ -689,8 +528,6 @@ const followUpsStageItems = [
   { question: 'Wie weise ich das Fluchtniveau im Einreichplan nach?' },
 ]
 
-/* --- variant: memory-chip ------------------------------------------------- */
-
 const memoryQuestion = 'Zählt das Dachgeschoß als Aufenthaltsraum, wenn dort nur ein Büro liegt?'
 
 const memoryAnswer = `Ja. Ein Büro ist ein **Aufenthaltsraum** im Sinne der OIB-Richtlinien, weil es zum nicht nur vorübergehenden Aufenthalt von Menschen bestimmt ist. Damit zählt das Dachgeschoß für das Fluchtniveau mit [1].
@@ -701,12 +538,6 @@ Ein reiner Technik-, Abstell- oder Trockenraum bliebe außer Betracht; sobald do
 
 ${STAIR_SOURCES}`
 
-/**
- * What the `memory_reflection` STAGE recorded for the second turn — the payload
- * of §5.1, as it arrives on `message.stages.memoryReflection`.
- *
- * Two items, because the count is half of what the chip says.
- */
 const memoryStage: MessageStages = {
   memoryReflection: {
     items: [
@@ -725,12 +556,6 @@ const memoryStage: MessageStages = {
   },
 }
 
-/**
- * The third turn: the reader accepted a `memory_proposal` mid-answer that
- * CORRECTS an earlier note (`supersedes`), and the reflection stage added one
- * more afterwards. The chip says „Gedächtnis aktualisiert", lists the
- * correction first and quotes the note it retired, struck through.
- */
 const memoryCorrectionCards: AnswerCard[] = [
   {
     type: 'memory_proposal',
@@ -759,18 +584,8 @@ const memoryCorrectionStage: MessageStages = {
   },
 }
 
-/* --- variant: anatomy ----------------------------------------------------- */
-
 const anatomyQuestion = 'Wie hoch muss das Geländer an der Dachterrasse sein?'
 
-/**
- * The envelope's native anatomy, end to end: the verdict as the answer's
- * masthead (flat, closed by one hairline — never a boxed card), the callout
- * anchored INSIDE the prose by its own-line `[[callout]]` marker, and the
- * takeaways closing the answer. The prose opens with its own answer sentence
- * that qualifies the masthead's value instead of repeating it — the
- * duplication rule the prompt's earned-when carries.
- */
 const anatomyAnswer = `Maßgeblich ist die Absturzhöhe, nicht das Geschoß: gemessen wird von der Oberkante des begehbaren Belags bis zur tiefer liegenden angrenzenden Fläche — hier rund 13,2 m bis zum Gelände, also klar über der 12-m-Grenze [1].
 
 Die Füllung ist getrennt zu beurteilen. Öffnungen dürfen 12 cm nicht überschreiten, und zwischen 20 und 60 cm über dem Belag sind waagrechte Elemente unzulässig, weil sie als Aufstiegshilfe wirken [1].
@@ -804,17 +619,6 @@ const anatomyMeta: AnswerMeta = {
   ],
 }
 
-/* --- variant: feedback-open ------------------------------------------------ */
-
-/**
- * What the footer's thumbs are holding for each turn of the `feedback-open`
- * fixture, keyed by conversation — the shape GET /api/feedback/answers returns.
- *
- * Keyed by conversation because that is how the real hook hydrates: one GET per
- * conversation, so two conversations is what puts two copies of the REAL
- * component on one page in two different states, with nothing stubbed but the
- * network.
- */
 const FEEDBACK_STATES: Record<
   string,
   { messageId: string; verdict: string; reason: string | null; comment: string | null }[]
@@ -849,11 +653,6 @@ Für Wien konkretisiert § 111 BO die Ausführung: die Breite ist über den gesa
 
 ${STAIR_SOURCES}`
 
-/**
- * Gives the down-voted panel what "Gründlicher neu beantworten" needs to show:
- * the question it answered and a send path. The send is a no-op here; the
- * preview is about where the action sits in the footer, beside the thumbs.
- */
 function SeedRetryAction() {
   useEffect(() => {
     useChatStore.setState({
@@ -870,12 +669,6 @@ function SeedRetryAction() {
   return null
 }
 
-/**
- * The memory card reads its decision through the chat store (the copy that
- * survives a reload), so the correction turn's message is seeded there with
- * the same `cardInteractions` the answer is handed: the card shows itself
- * saved, and the chip counts the same decision.
- */
 function SeedMemoryDecision() {
   useEffect(() => {
     useChatStore.setState({
@@ -915,14 +708,6 @@ const isAnswerVariant = (value: string | null): value is AnswerVariant =>
 
 function AnswerLayer({ variant }: { variant: AnswerVariant }) {
   if (variant === 'feedback-open') {
-    // The SAME footer twice: at rest, and after a down-vote with a reason
-    // chosen, so the note is open too — the tallest the footnote ever gets.
-    // The pair is the evidence, and the top line of the two footers is where to
-    // look: the copy actions and the thumbs must sit on it at the same height
-    // in both, with the reason chips and the note below, on the answer's left
-    // edge. They used to be one box in a centred row, which made the second
-    // footer as tall as the form, floated the copy actions halfway down its
-    // empty left half, and hung the chips and the note off the right end.
     return (
       <>
         <SeedRetryAction />
@@ -1051,9 +836,6 @@ function AnswerLayer({ variant }: { variant: AnswerVariant }) {
   }
 
   if (variant === 'follow-ups-rail') {
-    // The same turn twice. Everything above the rail must be identical in the
-    // two panels — that comparison is what "reserves no space" LOOKS like, and
-    // it is the reason §9 asked for a screenshot here instead of an assertion.
     return (
       <>
         <AnswerTurn
@@ -1077,17 +859,6 @@ function AnswerLayer({ variant }: { variant: AnswerVariant }) {
     )
   }
 
-  // 'memory-chip': two answers of ONE thread. The chip used to be fed by a poll of the whole
-  // conversation's memory, mounted by every rendered answer, so BOTH panels
-  // would have carried it and both would have read the same number. It is now
-  // a fact about the turn: the first recorded nothing, the second recorded
-  // two things, and only the second says so.
-  //
-  // The second thing to read here is the meta row. The chip arrives seconds
-  // after the answer, and it may do that without any „reserve the space"
-  // treatment only because it lands in a row that is already on screen —
-  // confidence, copy, thumbs and timestamp are in it from the start. Cover
-  // the chip: the two footers must line up.
   return (
     <>
       <SeedMemoryDecision />
@@ -1136,10 +907,6 @@ export default function ChatTurnPreviewPage() {
 }
 
 function ChatTurnPreview() {
-  // Read the requested variant after mount (not during render) so the fixture is
-  // chosen on the client without opting the whole route into a Suspense
-  // boundary. `undefined` is "not yet read" and renders nothing, so the harness
-  // never captures the default turn under a variant's name.
   const [variant, setVariant] = useState<string | null | undefined>(undefined)
   useEffect(() => {
     setVariant(new URLSearchParams(window.location.search).get('variant'))

@@ -13,9 +13,6 @@ from ifc_spatial.tools_helpers import _short
 from ifc_spatial.tools_types import ToolDef
 from ifc_spatial.tools_types import ToolError
 
-# `env`, not `envelope`: `envelope.py` is the ANSWER CONTRACT (`Answer`,
-# `computed`, `undecidable`) and `envelope_geometry.py` is the thermal envelope.
-# Two unrelated meanings of one word, one of which is imported from below.
 from .briefing import briefing as build_briefing
 from .briefing import content_hash
 from .briefing import render_briefing
@@ -27,17 +24,6 @@ from .model import WrongKindError
 
 def _model_table() -> tuple[Callable[[SpatialModel], str], Callable[[Any], SpatialModel]]:
 
-    # Models are addressed by the sha256 of their bytes, abbreviated the way a
-    # git object is. A handle that IS the content means two uploads of the same
-    # file are one model without anybody comparing filenames, and it means a
-    # stale handle cannot silently resolve to a different building.
-    #
-    # Held here as well as in the cache because the cache EVICTS: a handle the
-    # agent was given three turns ago must still resolve, and re-reading the
-    # file to honour it is exactly what the content address is for. The cache
-    # bounds what a fresh open costs; this table bounds nothing and is the
-    # process's real retention — a host that serves many models from one process
-    # should recycle the process, which is the only isolation this server has.
     models: dict[str, SpatialModel] = {}
 
     def register(model: SpatialModel) -> str:
@@ -85,9 +71,6 @@ def run(fn: Callable[[], Any]) -> Any:
         raise ToolError(str(error)) from None
 
 
-# ── open_model ──────────────────────────────────────────────────────────
-
-
 def open_model(cache: SpatialCache, register: Callable[[SpatialModel], str], args: dict[str, Any]) -> Any:
     source = str(args.get("path") or "").strip()
     started = time.perf_counter()
@@ -100,21 +83,13 @@ def open_model(cache: SpatialCache, register: Callable[[SpatialModel], str], arg
     except ToolError:
         raise
     except Exception as error:  # noqa: BLE001
-        # `SpatialModel` refuses unreadable files with a German reason an
-        # architect can act on — truncated upload, wrong format, too large
-        # for a request process. That sentence is the answer; burying it
-        # under a traceback would leave the agent with "es hat nicht
-        # funktioniert", which nobody can do anything with.
-        raise ToolError(f"Modell konnte nicht geöffnet werden: {error}") from None
+        raise ToolError(f"Modell konnte nicht geöffnet werden: {error}") from error
     digest = register(model)
     return {
         "model": _short(digest),
         "contentHash": digest,
         "briefing": render_briefing(model),
         "seconds": round(time.perf_counter() - started, 3),
-        # The geometry pass is LAZY on this engine, and saying so here is
-        # the difference between an agent that plans two cheap calls and one
-        # that is surprised by five seconds in the middle of an answer.
         "geometry": {
             "pass": "gelaufen" if model.geometry_seconds > 0 else "noch nicht gelaufen",
             "note": (

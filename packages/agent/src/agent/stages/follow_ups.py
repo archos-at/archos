@@ -51,10 +51,7 @@ from pydantic import model_validator
 
 from agent.common.message_utils import response_text
 from agent.common.model_overrides import AgentGroup
-
-# The same canned non-answers memory reflection's gate refuses. Imported rather
-# than copied: two lists of "this turn produced no answer" would drift, and the
-# turn shapes they name are the system's, not either stage's.
+from agent.common.prompt_caching import one_shot_calls
 from agent.stages.memory_reflection import REFLECTION_NON_ANSWERS as _NON_ANSWERS
 from agent.stages.registry import register_stage
 from agent.stages.spec import GateDecision
@@ -65,17 +62,9 @@ from agent.stages.spec import TurnFacts
 
 logger = logging.getLogger(__name__)
 
-# --------------------------------------------------------------------------
-# The payload
-# --------------------------------------------------------------------------
 
-#: A chip truncates to one line and its whole text lands in the composer, so a
-#: question that does not fit on a line is not a question the reader can send.
 MAX_QUESTION_CHARS = 160
-#: „Messpunkt und Bezugsebene" is the shape: a half-line, shown only as a
-#: tooltip. Anything longer is a second question wearing a hint's clothes.
 MAX_HINT_CHARS = 80
-#: Below this, it is a topic label rather than a sendable sentence.
 MIN_QUESTION_CHARS = 12
 
 
@@ -191,27 +180,10 @@ class FollowUpsDraft(BaseModel):
     items: list[_DraftQuestion] = Field(description="Two to four questions; an empty list if none qualify.")
 
 
-# --------------------------------------------------------------------------
-# The gate — deterministic Python, never the model
-# --------------------------------------------------------------------------
-
-#: `_CARD_RESTRAINT` ("a one-line factual answer, where the card only repeats
-#: the sentence above it"), turned from a suggestion into a threshold. 400
-#: characters is roughly four sentences: below it the answer has stated a value
-#: and stopped, and four ways to go deeper are four ways to leave the point.
 MIN_ANSWER_CHARS = 400
 
-#: The chips must arrive while the reader is still on the answer. A set that
-#: lands after they have typed their own question is worse than none, because it
-#: moves the page — so the bound is tighter than reflection's 45s, which nobody
-#: is waiting for.
 FOLLOW_UPS_TIMEOUT_S = 20.0
 
-#: What a turn may spend. ~200 tokens is the measured content of four German
-#: questions with hints plus the JSON scaffolding; the rest is headroom, because
-#: a body truncated mid-JSON turns a good set into `failed` and a platform owner
-#: may raise this group's reasoning effort, whose tokens are spent against this
-#: same ceiling. Still 1/128th of `card_llm`'s configured 65536.
 MAX_OUTPUT_TOKENS = 512
 
 
@@ -240,20 +212,12 @@ def _gate(facts: TurnFacts) -> GateDecision:
     conditions is filed under the one that says the most about it.
     """
     if facts.run_id:
-        # The turn commissioned a run; the report arrives on the run's own
-        # message, and the follow-ups belong to it rather than to the handover.
         return GateDecision.skip("commissioned_run")
     if facts.routing_decision == "meta":
-        # A direct reply — small talk, a shelf listing, an off-topic decline —
-        # has no subject to go deeper into: `_FOLLOW_UPS_RULE`'s first
-        # exception, enforced instead of suggested.
         return GateDecision.skip("routing_meta")
     if facts.routing_decision == "error":
         return GateDecision.skip("routing_error")
     if facts.research_truncated:
-        # The turn ran out of budget before it ran out of question. Offering
-        # four more is the wrong invitation, and the reader already gets the
-        # truncation note.
         return GateDecision.skip("research_truncated")
     text = (facts.answer or "").strip()
     if not facts.query or not text:
@@ -264,36 +228,9 @@ def _gate(facts: TurnFacts) -> GateDecision:
         return GateDecision.skip("answer_too_short")
     if _ends_in_a_question(text):
         return GateDecision.skip("answer_ends_in_question")
-    # NOT gated on `emitted_card_types`: a turn where the model already emitted
-    # a follow_ups card is exactly the turn this stage is being measured
-    # against. Skipping those would leave the empty rate measured only on turns
-    # the model had already declined once, which is the one sample that cannot
-    # answer "does the gate pick better turns than the model does".
     return GateDecision.proceed()
 
 
-# --------------------------------------------------------------------------
-# The prompt — the existing doctrine, moved
-# --------------------------------------------------------------------------
-
-# Sources, in order of appearance:
-#   * "you did not write this and cannot change it" + never fabricate a value —
-#     `_POST_HOC_GROUNDING`, cards/prompt.py. It applies here for the same
-#     reason it was written: this call is handed a finished text and nothing
-#     else, so anything it adds is unchecked by any tool output.
-#   * anchoring, spread, the composer-prefill semantics, "Erzähl mir mehr is
-#     worse than no card at all", and what a hint is — `FollowUpsCard` and
-#     `FollowUp`, cards/models.py.
-#   * the four KINDS of move, as a worked bad/good pair rather than a
-#     description — the „Anschlussfragen: vier verschiedene Züge, nicht viermal
-#     derselbe" section of the seeded `piloti-cards` skill. The examples are
-#     kept in German because they are German-language craft and the corpus is
-#     Austrian; the instruction is to answer in the answer's language.
-#   * "two anchored questions beat four with two of them filler" — the
-#     `follow_ups` paragraph of `_POST_HOC_CRAFT`, cards/prompt.py.
-#   * the two exceptions and "exactly one set, LAST" — `_FOLLOW_UPS_RULE`,
-#     cards/catalog.py. Most of it is now the gate; what survives here is the
-#     permission to return nothing when the gate was too generous.
 FOLLOW_UPS_SYSTEM_PROMPT = (
     "You are Grid's follow-up-questions step. You run in the background AFTER the reader "
     "already received their answer, so you never block or change it. You did not write this "
@@ -336,12 +273,6 @@ FOLLOW_UPS_SYSTEM_PROMPT = (
     'Respond with ONLY a JSON object of the form: {"items": [{"question": "...", "hint": "..."}]}'
 )
 
-# Same caps as memory reflection, and for the same reason: the cost of this
-# stage has to be bounded by something other than how long the answer was
-# (§7.5). Head-sliced, because an answer's substance — the verdict, the rule,
-# the numbers a question can anchor on — is at its front, while its tail is
-# caveats and sources. The slice is MARKED so the model does not anchor a
-# question on a sentence that was cut in half.
 MAX_ANSWER_CHARS = 4000
 MAX_QUERY_CHARS = 2000
 
@@ -371,20 +302,9 @@ def build_user_prompt(facts: TurnFacts) -> str:
     return "\n\n".join(parts)
 
 
-# --------------------------------------------------------------------------
-# Sanitising the model's proposal
-# --------------------------------------------------------------------------
-
-#: Tokens shorter than this are function words in any of the languages Grid
-#: answers in, and a question that shares only those shares nothing.
 _MIN_ANCHOR_CHARS = 5
-#: The prefix length compared, so German inflection and composition do not
-#: break an anchor that is really there: "Anforderungen"/"Anforderung",
-#: "Gebäudeklasse"/"Gebäudeklassen".
 _ANCHOR_PREFIX = 5
 
-#: Long enough to survive the length filter, and still empty of subject matter.
-#: A question anchored ONLY on one of these is anchored on nothing.
 _ANCHOR_STOPWORDS = frozenset(
     {
         "andere",
@@ -520,11 +440,6 @@ def sanitize_items(raw: Any, *, answer: str) -> list[dict[str, str]]:
     return items
 
 
-# --------------------------------------------------------------------------
-# The handler
-# --------------------------------------------------------------------------
-
-
 async def _handler(ctx: StageContext) -> dict[str, Any] | StageEmpty | None:
     """One structured-output call over the finished answer.
 
@@ -548,10 +463,11 @@ async def _handler(ctx: StageContext) -> dict[str, Any] | StageEmpty | None:
         HumanMessage(content=build_user_prompt(facts)),
     ]
     try:
-        structured_llm = ctx.llm.bind(response_format=strict_json_response_format(FollowUpsDraft))
-        response = await structured_llm.ainvoke(messages)
+        with one_shot_calls():
+            structured_llm = ctx.llm.bind(response_format=strict_json_response_format(FollowUpsDraft))
+            response = await structured_llm.ainvoke(messages)
     except Exception as exc:  # noqa: BLE001 - a binding quirk must not drop the stage
-        logger.warning("Follow-ups structured-output request failed (%s); retrying without response_format", exc)
+        logger.warning("Follow-ups structured-output request failed (%s); retrying plain", exc)
         response = await ctx.llm.ainvoke(messages)
 
     parsed = extract_json(response_text(response))
@@ -561,9 +477,6 @@ async def _handler(ctx: StageContext) -> dict[str, Any] | StageEmpty | None:
 
     items = sanitize_items(raw, answer=facts.answer)
     if len(items) < 2:
-        # It answered, and what came back named nothing in the answer. A
-        # different fact from "it declined", and the one that says the prompt is
-        # not landing rather than that the gate is too generous.
         return StageEmpty("no_usable_items")
     return {"items": items}
 
@@ -577,14 +490,6 @@ FOLLOW_UPS = register_stage(
         gate=_gate,
         handler=_handler,
         payload_model=FollowUpsPayload,
-        # Slice 3. Slice 1 ran this stage `silent` on purpose — measured before
-        # any reader saw a chip — and that measurement is what licenses the flip.
-        # A frame changes NOTHING about how the stage runs: it is still gated,
-        # still bounded by `timeout_s`, still scheduled after the answer is
-        # written and never awaited by the turn. The frame is emitted from the
-        # runner AFTER the outcome is decided, on a `ready`, `empty`, `failed` or
-        # `timeout` result, and a sink that fails or finds no socket is recorded
-        # as an undelivered frame rather than as a stage failure.
         delivery="frame",
         max_output_tokens=MAX_OUTPUT_TOKENS,
     )

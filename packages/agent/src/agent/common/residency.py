@@ -40,32 +40,19 @@ import yaml
 
 logger = logging.getLogger(__name__)
 
-# @environment_variable RESIDENCY_CELL
-# @category Agent
-# @type str
-# @default (unset)
-# @required false
-# The residency cell this deployment is (`configs/residency/cells.yaml`, e.g. `eu-at-1`). Set, every model call
-# is routed into the cell's zone and refused outside it, zero data retention cannot be switched off, and the boot
-# refuses a model endpoint outside the zone (ADR-0167). Unset, routing is unchanged. Set it on the BFF too.
 RESIDENCY_CELL_ENV = "RESIDENCY_CELL"
 
 CELLS_FILE = Path("configs") / "residency" / "cells.yaml"
 REGISTER_DIR = Path("configs") / "subprocessors"
 
-#: A host the register does not place.
 UNKNOWN = "unknown"
 
-#: The purposes an organization's data may be processed for (design 6.1). ``service`` is always allowed.
 PURPOSES = ("service", "quality_evaluation", "human_review", "product_improvement")
 DEFAULT_PURPOSES = frozenset({"service", "quality_evaluation", "human_review"})
-#: What an organization whose policy cannot be read allows: the service it asked for, nothing else.
 FAIL_CLOSED_PURPOSES = frozenset({"service"})
 
-#: The trace tag a Langfuse judge rule requires (include-only, ``langfuse_catalog.RULES``).
 QUALITY_EVALUATION_TAG = "purpose_ok:quality_evaluation"
 
-#: Model endpoints whose base URL the boot check reads. Each is a variable a deployment points at a provider.
 MODEL_BASE_URL_ENVS = (
     "OPENROUTER_BASE_URL",
     "LLM_BASE_URL",
@@ -78,8 +65,6 @@ MODEL_BASE_URL_ENVS = (
     "SKILL_REVIEW_LLM_BASE_URL",
     "DECISIONS_URL",
 )
-#: The one a cell must name: the chat models read it (``configs/config_oib_openrouter.yml``), and they are
-#: built once at boot, so nothing can rewrite them per call.
 CHAT_BASE_URL_ENV = "OPENROUTER_BASE_URL"
 
 
@@ -130,7 +115,6 @@ class ProcessingPolicy:
     residency_cell: str | None = None
     purposes: frozenset[str] = DEFAULT_PURPOSES
     version: int = 1
-    #: False when the policy could not be read: the purposes are then the fail-closed set.
     known: bool = True
 
     def allows(self, purpose: str) -> bool:
@@ -354,13 +338,9 @@ async def acheck_current_organization() -> None:
     check_organization(policy)
 
 
-# --- Recording -------------------------------------------------------------------------------------------------
-
-#: Routes already scored on a trace, so a turn of fifty calls posts one score per distinct route.
 _scored: dict[tuple[str, str], None] = {}
 _SCORED_MAX = 4096
 
-#: A sink the enclosing generation installs (``direct_trace.observed_generation``) to receive its route.
 _route_sink: contextvars.ContextVar[Any] = contextvars.ContextVar("residency_route_sink", default=None)
 
 
@@ -430,9 +410,6 @@ def stamp_chunk(chunk: Any, route: Route | None) -> Any:
     return chunk
 
 
-# --- Trace metadata --------------------------------------------------------------------------------------------
-
-
 def turn_trace_metadata(policy: ProcessingPolicy, cell: Cell | None) -> tuple[dict[str, str], list[str]]:
     """The trace metadata and tags that say where a turn ran and what it may be used for. Pure.
 
@@ -463,9 +440,6 @@ def record_turn_residency(policy: ProcessingPolicy) -> None:
             add_trace_tag(tag)
     except Exception:  # noqa: BLE001 - a missing tag fails closed: the turn is simply not judged
         logger.warning("Could not record the turn's residency metadata", exc_info=True)
-
-
-# --- Boot ------------------------------------------------------------------------------------------------------
 
 
 def boot_errors(env: Mapping[str, str], urls: Iterable[tuple[str, str]] = ()) -> list[str]:

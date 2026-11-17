@@ -5,7 +5,6 @@ import { capturePosthog } from '@/lib/analytics/posthog'
 
 vi.mock('@/lib/analytics/posthog', () => ({ capturePosthog: vi.fn() }))
 
-// Use vi.hoisted for mocks that need to be available before vi.mock
 const { mockClient, mockDocumentsStoreState, mockOrchestratorFns } = vi.hoisted(() => {
   const state = {
     trackedFiles: [] as unknown[],
@@ -27,9 +26,6 @@ const { mockClient, mockDocumentsStoreState, mockOrchestratorFns } = vi.hoisted(
     setNameStopped: vi.fn(),
   }
 
-  // The hook reads useDocumentsStore.getState().trackedFiles after upload to
-  // group files by jobId for the orchestrator, so these mocks must actually
-  // mutate the mock state (implementations survive vi.clearAllMocks).
   state.addTrackedFile.mockImplementation((file: unknown) => {
     state.trackedFiles = [...state.trackedFiles, file]
   })
@@ -65,7 +61,6 @@ const { mockClient, mockDocumentsStoreState, mockOrchestratorFns } = vi.hoisted(
   }
 })
 
-// Mock modules
 vi.mock('@/adapters/api', () => ({
   createDocumentsClient: () => mockClient,
 }))
@@ -123,8 +118,6 @@ vi.mock('../persistence', () => ({
   markSessionHasCollection: (...args: unknown[]) => mockMarkSessionHasCollection(...args),
 }))
 
-// The office's upload screening (ADR-0086): Piloti's suggested list, read
-// without a request, so the gate is exercised and nothing else changes.
 vi.mock('@/adapters/api/upload-screening-policy', async (importOriginal) => {
   const { SUGGESTED_SCREENING_POLICY } = await import('@/lib/upload-screening/policy')
   return {
@@ -142,11 +135,6 @@ vi.mock('../validation', () => ({
   })),
 }))
 
-// Unique per call, like the real thing — the tracked-file id is the key the
-// per-file abort handles are stored under, so a mock that returns one constant
-// would make every file in a batch share a cancel handle and hide the bug that
-// would be. The first id keeps the historical value so single-file assertions
-// still read `mock-uuid`.
 const uuidState = vi.hoisted(() => ({ count: 0 }))
 vi.mock('uuid', () => ({
   v4: () => {
@@ -270,8 +258,6 @@ describe('useFileUpload', () => {
         existingTotalSize: 3000,
         existingFileCount: 2,
         existingFileNames: new Set(['file1.pdf', 'file2.pdf']),
-        // Chat attachments are session-scoped — the leftover file-count cap
-        // still applies. Project / Archiv uploads flip this (see below).
         durableCorpus: false,
       })
     })
@@ -317,7 +303,6 @@ describe('useFileUpload', () => {
     test('surfaces the localized VLM reason when an image is rejected for a missing VLM', async () => {
       const { validateFileUpload } = await import('../validation')
       const pngFile = new File(['x'], 'photo.png', { type: 'image/png' })
-      // Simulate the validator flagging the image as blocked by a missing VLM.
       vi.mocked(validateFileUpload).mockReturnValueOnce({
         valid: false,
         canUpload: false,
@@ -443,8 +428,6 @@ describe('useFileUpload', () => {
         await result.current.retryFile('file-1')
       })
 
-      // Localized copy resolved via the files dictionary (English fallback
-      // when no i18n provider is mounted in the test).
       expect(mockDocumentsStoreState.setError).toHaveBeenCalledWith(
         filesCopy.messages.en.errors.cannotRetryServerFile
       )
@@ -495,12 +478,9 @@ describe('useFileUpload', () => {
 
       let pending!: Promise<void[]>
       await act(async () => {
-        // "Retry all" calls retryFile once per failed row in the same tick.
         pending = Promise.all([result.current.retryFile('file-0'), result.current.retryFile('file-1')])
         await Promise.resolve()
       })
-      // One request in flight: the second waits for the first, so the pair
-      // never meets the session batch cap together.
       await act(async () => {
         await Promise.resolve()
       })
@@ -533,16 +513,7 @@ describe('useFileUpload', () => {
   })
 })
 
-/**
- * The durable-document path (project corpus and org Archiv).
- *
- * This is where the upload actually happens for a working architect, and it is
- * the code that changed most: a serial `fetch` loop with no progress and no way
- * out became a bounded-concurrency XHR fan-out with per-file bytes, per-file
- * cancellation and per-file failure.
- */
 describe('useFileUpload — durable document uploads', () => {
-  /** Comfortably past the 64 KB progress-coalescing floor. */
   const FILE_BYTES = 400_000
 
   let xhr: FakeXhrHandle
@@ -745,7 +716,6 @@ describe('useFileUpload — durable document uploads', () => {
       await Promise.resolve()
       await Promise.resolve()
     })
-    // Answered if it was sent, so a missing gate fails this case and no other.
     await act(async () => {
       xhr.requests.forEach((request, i) => request.respond(200, uploadOk(`doc-${i}`)))
       await pending
@@ -915,11 +885,9 @@ describe('useFileUpload — durable document uploads', () => {
       await Promise.resolve()
     })
 
-    // The whole point of the change: file six is not waiting on file five.
     expect(xhr.requests.length).toBe(UPLOAD_CONCURRENCY)
 
     await act(async () => {
-      // Draining takes as many rounds as the queue has batches.
       for (let round = 0; round < 3; round += 1) {
         xhr.requests.filter((r) => r.status === 0).forEach((r, i) => r.respond(200, uploadOk(`doc-${round}-${i}`)))
         await Promise.resolve()
@@ -946,8 +914,6 @@ describe('useFileUpload — durable document uploads', () => {
       await pending
     })
 
-    // Half the body sent → half the file's 1000 bytes, and the completed
-    // upload settles on the file's real size.
     expect(mockDocumentsStoreState.setUploadProgress).toHaveBeenCalledWith('mock-uuid', FILE_BYTES / 2)
     expect(trackedById('mock-uuid')).toMatchObject({ bytesUploaded: FILE_BYTES, status: 'ingesting' })
   })
@@ -982,17 +948,14 @@ describe('useFileUpload — durable document uploads', () => {
       await pending
     })
 
-    // Every file was attempted, and the reason lands on the row that owns it.
     expect(xhr.requests).toHaveLength(3)
     expect(mockDocumentsStoreState.updateTrackedFile).toHaveBeenCalledWith(
       'mock-uuid',
-      // In the dictionary's words: the server's English is for the log.
       expect.objectContaining({
         status: 'failed',
         errorMessage: expect.stringContaining('is larger than your office may upload'),
       })
     )
-    // …and the accepted files are still handed to the poller.
     expect(mockOrchestratorFns.enqueueJobs).toHaveBeenCalled()
   })
 
@@ -1059,8 +1022,6 @@ describe('useFileUpload — durable document uploads', () => {
       await pending
     })
 
-    // Held, in the reader's language, with the held document to ask about, and
-    // never as that document (`serverFileId`): removing the row must not delete it.
     const message = filesCopy.messages.en.errors.quarantinedReplace.replace('{name}', 'plan-0.pdf')
     expect(trackedById('mock-uuid')).toMatchObject({
       status: 'held',
@@ -1071,10 +1032,8 @@ describe('useFileUpload — durable document uploads', () => {
     expect(trackedById('mock-uuid')).not.toHaveProperty('serverFileId')
     expect(message).toMatch(/held back/)
     expect(mockDocumentsStoreState.setError).toHaveBeenCalledWith(message)
-    // Not a failure: nothing tells the caller one happened.
     expect(onError).not.toHaveBeenCalled()
 
-    // „Alle wiederholen“ calls retryFile for it: it sends nothing and keeps the row.
     vi.mocked(mockDocumentsStoreState.removeTrackedFile).mockClear()
     const { result: again } = renderUpload()
     await act(async () => {
@@ -1110,8 +1069,6 @@ describe('useFileUpload — durable document uploads', () => {
     expect(mockDocumentsStoreState.setError).toHaveBeenCalledWith(message)
   })
 
-  // A held file the uploader may not see answers exactly as a taken name does
-  // (ADR-0086): the row cannot tell the two apart, so neither can the reader.
   test('a hidden held file and an ordinary taken name read the same', async () => {
     const answers = [
       'A document named "plan-0.pdf" already exists here. Rename the file to upload it.',
@@ -1217,7 +1174,6 @@ describe('useFileUpload — durable document uploads', () => {
     })
 
     expect(xhr.last().aborted).toBe(true)
-    // A decision, not a failure — the row must not colour red.
     expect(mockDocumentsStoreState.updateTrackedFile).toHaveBeenCalledWith('mock-uuid', { status: 'canceled' })
     expect(mockDocumentsStoreState.updateTrackedFile).not.toHaveBeenCalledWith(
       'mock-uuid',
@@ -1265,13 +1221,6 @@ describe('useFileUpload — durable document uploads', () => {
     )
   })
 
-  /**
-   * The project delete used to go through the proxy's chunk-only file delete,
-   * which takes FILENAMES. A durable upload's tracked row carries the document
-   * id, so the delete named a file that does not exist and removed nothing:
-   * the row, the object and the chunks all stayed, and the file came back on
-   * the next listing.
-   */
   test('deletes a project document through the first-party route, by document id', async () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 204 })
     vi.stubGlobal('fetch', fetchMock)
@@ -1350,18 +1299,10 @@ describe('useFileUpload — durable document uploads', () => {
     })
 
     expect((xhr.requests[0].body as FormData).get('folderId')).toBe('folder-a')
-    // `null` is a deliberate „the root", not „defer to the batch's folder".
     expect((xhr.requests[1].body as FormData).get('folderId')).toBeNull()
   })
 })
 
-/**
- * Chat attachments (ADR-0047 Phase 2). They used to go straight at the ingestor
- * through the `/api/v1` proxy, in one multipart request, and so skipped the
- * file-type gate, the storage quota and the document row. They now take the
- * same per-file path as the other shelves, to `/api/session/documents/upload`,
- * and are listed, polled and deleted through `/api/session/documents`.
- */
 describe('useFileUpload — chat attachments', () => {
   const CHAT = 's_11111111_2222_4333_8444_555555555555'
   let xhr: FakeXhrHandle
@@ -1413,8 +1354,6 @@ describe('useFileUpload — chat attachments', () => {
     expect(body.get('file')).toBeInstanceOf(File)
   })
 
-  // The browser screened the dropped folder's names; the server's repeat must
-  // read the same segments, so the path goes along (ADR-0086).
   test('sends a dropped folder’s path along, so the server screens what the browser screened', async () => {
     const { result } = renderChat()
     const file = makeFile()
@@ -1443,9 +1382,7 @@ describe('useFileUpload — chat attachments', () => {
     expect(mockClient.getCollection).not.toHaveBeenCalled()
     expect(mockClient.createCollection).not.toHaveBeenCalled()
     expect(xhr.requests.some((request) => request.url.includes('/api/v1/'))).toBe(false)
-    // The only request besides the upload is the upload's own batch (ADR-0086).
     expect(fetchMock.mock.calls.map(([url]) => String(url)).filter((url) => !url.startsWith('/api/upload-batches'))).toEqual([])
-    // The marker that tells a later visit to list this chat's attachments.
     expect(mockMarkSessionHasCollection).toHaveBeenCalledWith(CHAT)
   })
 
@@ -1461,7 +1398,6 @@ describe('useFileUpload — chat attachments', () => {
       expect.objectContaining({ status: 'ingesting', serverFileId: 'doc-1' })
     )
     expect(mockOrchestratorFns.pollSessionDocuments).toHaveBeenCalledWith(CHAT)
-    // Not the proxy's job-status poll.
     expect(mockOrchestratorFns.enqueueJobs).not.toHaveBeenCalled()
   })
 
@@ -1498,6 +1434,49 @@ describe('useFileUpload — chat attachments', () => {
 
     expect(onError).not.toHaveBeenCalled()
     expect(mockDocumentsStoreState.updateTrackedFile).toHaveBeenCalledWith('mock-uuid', { status: 'canceled' })
+  })
+
+  describe('stopping a read', () => {
+    const reading = { id: 'row-1', fileName: 'a.pdf', collectionName: CHAT, fileSize: 1, status: 'ingesting', serverFileId: 'doc-1' }
+    const answer = (body: unknown) => ({ ok: true, status: 200, json: async () => body })
+    const canceledWrite = ['row-1', { status: 'canceled' }] as const
+
+    function stubStop(documentStatus: string, meanwhile: () => void = () => {}) {
+      fetchMock.mockImplementation(async (url: string) => {
+        if (!url.endsWith('/cancel')) throw new Error(`unexpected request after the stop: ${url}`)
+        meanwhile()
+        return answer({ id: 'doc-1', result: 'cancelled', status: documentStatus })
+      })
+    }
+
+    async function stop() {
+      mockDocumentsStoreState.trackedFiles = [reading] as unknown[]
+      const { result } = renderChat()
+      await act(async () => {
+        result.current.cancelFile('row-1')
+        await new Promise((resolve) => setTimeout(resolve, 0))
+      })
+    }
+
+    test('a row still being read when the stop is confirmed says cancelled', async () => {
+      stubStop('cancelled')
+      await stop()
+      expect(mockDocumentsStoreState.updateTrackedFile).toHaveBeenCalledWith(...canceledWrite)
+    })
+
+    test('a row that finished reading while the stop was out keeps what it says', async () => {
+      stubStop('completed', () => mockDocumentsStoreState.updateTrackedFile('row-1', { status: 'success' }))
+      await stop()
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+      expect(mockDocumentsStoreState.updateTrackedFile).not.toHaveBeenCalledWith(...canceledWrite)
+      expect((mockDocumentsStoreState.trackedFiles[0] as { status: string }).status).toBe('success')
+    })
+
+    test('a row a stale report settled says cancelled once the document itself does', async () => {
+      stubStop('cancelled', () => mockDocumentsStoreState.updateTrackedFile('row-1', { status: 'success' }))
+      await stop()
+      expect(mockDocumentsStoreState.updateTrackedFile).toHaveBeenCalledWith(...canceledWrite)
+    })
   })
 
   test('deletes an attachment through the session document route, by document id', async () => {
@@ -1549,12 +1528,6 @@ describe('useFileUpload — chat attachments', () => {
   })
 })
 
-/**
- * ADR-0086: every upload is one batch — opened before the first file, named on
- * each upload, sealed after the last answer — so its uploader can be told when
- * everything was read. The batch records what the screening kept back by term
- * and count only.
- */
 describe('useFileUpload — upload batches', () => {
   let xhr: FakeXhrHandle
   const fetchMock = vi.fn()
@@ -1597,7 +1570,6 @@ describe('useFileUpload — upload batches', () => {
     expect(openUrl).toBe('/api/upload-batches')
     const opened = JSON.parse(String(openInit.body)) as Record<string, unknown>
     expect(opened).toMatchObject({ scope: 'project', projectId: 'proj-1', expectedCount: 2 })
-    // The dialog's exclusion and the hook's own, by term; no file name.
     expect(opened.excluded).toEqual([
       { term: 'Personal', count: 1 },
       { term: 'Rechnung', count: 1 },
@@ -1632,12 +1604,6 @@ describe('useFileUpload — upload batches', () => {
     expect(JSON.parse(String(sealInit.body))).toEqual({ unchanged: 0, failed: 0 })
   })
 
-  /*
-   * The server repeats the name check (ADR-0086). A file it stops is „Nicht
-   * hochgeladen“, as a stop of the browser's own check is: no failed row, the
-   * name-check sentence on the batch's line, no retry, and counted on the
-   * batch by term and count, never by name.
-   */
   test('a file the server’s name check stops is not uploaded, not failed, and counted by term', async () => {
     const { result } = renderHook(() => useFileUpload({ collectionName: 'proj-collection', projectId: 'proj-1' }))
 
@@ -1659,13 +1625,11 @@ describe('useFileUpload — upload batches', () => {
       await pending
     })
 
-    // Not retried, and no row says it failed.
     expect(xhr.requests).toHaveLength(2)
     expect(mockDocumentsStoreState.dismissTrackedFiles).toHaveBeenCalledWith(['mock-uuid-1'])
     expect(
       mockDocumentsStoreState.trackedFiles.filter((file) => (file as { status?: string }).status === 'failed')
     ).toEqual([])
-    // The name-check sentence, naming the file to its own uploader, in their language.
     const said = vi.mocked(mockDocumentsStoreState.setError).mock.calls.at(-1)?.[0]
     expect(said).toContain('scan_0042.pdf')
     expect(said).toContain('not uploaded')
@@ -1694,7 +1658,6 @@ describe('useFileUpload — upload batches', () => {
 
     expect(xhr.requests).toHaveLength(1)
     expect((xhr.last().body as FormData).get('uploadBatchId')).toBeNull()
-    // Nothing to seal.
     expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 })

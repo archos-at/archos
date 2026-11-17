@@ -2,12 +2,6 @@ import type { APIRoute } from 'astro'
 import identity from '../lib/identity'
 import { surfaceColor as surface } from '../lib/theme'
 
-/**
- * The web app manifest: name and icons for a saved bookmark or home-screen
- * entry. Name and colours are read from the brand (identity.json, tokens.css),
- * so a rename or a retune needs no edit here. The icons in `public/icons/` are
- * rendered from `packages/brand/mark.svg` (README, "Icons").
- */
 export const prerender = true
 
 export const GET: APIRoute = () =>

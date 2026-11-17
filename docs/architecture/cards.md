@@ -67,9 +67,12 @@ channel with the Markdown that replaced it (`RETIRED_CARD_REPLACEMENTS`,
 walks an enforcement ladder per call — OpenRouter structured
 outputs (`json_schema`, strict, derived from the same Pydantic models by
 `render_envelope_response_format`), then `json_object`, then a plain request —
-on the tool-free forced-synthesis call, and on tool-bound iterations only
-behind the `envelope_json_mode_with_tools` config flag, because some routed
-providers accept the parameter and silently stop emitting tool calls.
+only behind the `envelope_json_mode_with_tools` config flag, because some
+routed providers accept the parameter and silently stop emitting tool calls.
+Forced synthesis follows the rounds: it keeps the turn's tools, asks for no
+call (`tool_choice: "none"`) and sends the format only where they did, so its
+cached prefix holds (`envelope_call.ainvoke_synthesis`); a provider that calls
+a tool anyway gets the tool-free call down the ladder.
 The families are not decoration: each answers
 "where does a number on this card come from?" differently, and that answer is
 what decides whether the model may emit the card at all, on which surface, and
@@ -121,6 +124,13 @@ frontend, so there is no file name for the agent to get wrong and no `ifc_query`
 call to make first. It exists because "zeig mir das Modell" was being answered
 with a prose bullet list of file names for the user to retype — the tiles open
 the viewer on click instead.
+
+All six survive the short-answer floor (`FLOOR_EXEMPT_CARD_TYPES` in
+`cards/envelope.py`), on their own or as leaves of a `surface`. That floor clears
+a card under 400 characters of prose, which suits a trailer, but here the card
+is the answer and the prose under a "zeig mir" is short by nature. Clearing one
+left "im Modell markiert" with nothing on screen, or "Wählen Sie das Modell aus"
+with no tiles to choose from.
 
 | `type` | Shows | Key fields |
 |---|---|---|
@@ -177,6 +187,29 @@ allow-listed citation or identifier), the note and an input's `source` may
 also name documents (plan code, Index, Rev., Pos., a date) but hold no
 measurement, sign or symbol, and neither holds a verdict word (`_figure_in` in
 `cards/models.py`); pydantic refuses them, the TS schema does not check.
+
+**A verdict only where its edition binds.** The tables are one edition of each
+Richtlinie, and a site may bind another (Wien binds RL 6 in its 2025 edition). So
+the server stamps every formula card, while it validates, with which editions bind
+at the turn's site: `site_binding` (`coverage`, the turn's gate as the reason the card gives:
+`settled` for `core` and `full`, `unsettled` for `none` and `open`, `site_unknown` for
+`site_unknown`, `organization_unplaced` and `not_entitled`, `unavailable` for a context
+that could not be read; `editions`, each binding work's designation and edition label
+from `knowledgeContext.uses`, no label where its binding uses name two, and
+`scope_unsettled` where an edition's own scope is still open; `truncated` past
+`MAX_SITE_EDITIONS`, so a work the stamp does not name reads as unknown, not as not
+binding). The before-validator `FormulaCard._site_binding_is_the_servers`
+in `cards/formula_card.py` replaces whatever the model wrote, on every path
+(envelope, `emit_card`, a surface's leaf, the batch generator); outside a turn the
+stamp is absent. The field is in `SERVER_SET_CARD_FIELDS`, so no shape the model
+reads names it. The answer export skips it too (`SKIPPED_FIELDS` in
+`bff/answer-export/cards.ts`): the check's own text already says verdict or hint, and why. The browser compares each check's `reference` (document and
+edition) with the stamp (`editionHold` in `formulas.ts`) and shows a check as a
+hint, the value against the bound with the reason and no ✓ or ✗, unless that
+edition binds, its scope is settled and so is the coverage. `formulas.pack.spec.ts`
+holds every check's work and edition label to the Austria pack. No stamp is a hint too (fail closed). The
+stamp names designations, not rules: which work a rule's bound is written in stays
+in `formulas.ts`, so no country is written into the agent's code.
 
 A changed input is written to the card's A2UI surface data model at
 `/inputs/<leaf id>` (`features/a2ui/reader-inputs.ts`): never to the message,
@@ -301,10 +334,12 @@ or dropped and recorded (`status:card:invalid:N`). The reason is the round:
 `emit_card` is a tool call, a tool call ends a message, and every card-bearing
 answer paid one more full-context call to write the prose after it — and a
 third on a wrong shape. Nothing on the wire changed. The taught envelope
-schema carries the doctrine, the index and the full shape of the one content
-card whose shape is easy to get wrong and that answers earn most
-(`ENVELOPE_SHAPE_TYPES`: `calculation`), COMPOSE and the placement rule,
-cached with the prefix; every other shape stays on demand.
+schema carries the doctrine, the index, COMPOSE and the placement rule, cached
+with the prefix. No full shape rides there any more (`ENVELOPE_SHAPE_TYPES` is
+empty since 2026-11-10: `calculation` and `formula` were 23 % of the system
+prompt): the turn's decision attaches the shape of each card it expects to
+the turn's note (`card_shapes_block`), and a shape guessed from the index
+line goes to the repair model.
 
 **The answer's own Markdown comes first, on every surface.** The doctrine
 (`render_card_doctrine`) opens with MARKDOWN FIRST: tables, lists, flowchart
@@ -566,9 +601,10 @@ What bounds it now is the prompt: **it says what a direct reply may put on a
 card.** A subject-matter question that merely landed in a short reply earns the
 structure its content calls for; small talk, a formatting or memory request, a shelf
 listing and an off-topic decline get none. On chat the doctrine, the L1 index
-and the shapes of `ENVELOPE_SHAPE_TYPES` ride in the envelope contract
-(`render_envelope_cards_contract`, `cards/envelope.py`) on every turn —
-enough to name the right card AND to build it, with a card the validator
+ride in the envelope contract (`render_envelope_cards_contract`,
+`cards/envelope.py`) on every turn, and the shapes of the cards the turn's
+decision expects ride in its note — enough to name the right card AND to
+build it, with a card the validator
 refuses handed to the small repair model (`cards/repair.py`) rather than back
 to the answering agent. Deep research still reads the doctrine in
 `emit_card`'s description, and gets the shape on the retry. Skills, too, are offered on
@@ -953,7 +989,13 @@ without re-plumbing generation or transport.
    carry an interaction, geometry to scale, a computed number, a live model
    binding or tabs; anything else is a table, a list, a fence or a directive
    block in the prose.
-9. For an **envelope** field (native answer anatomy, never a tool call): add
+9. **Every field a card carries reaches the answer export** (`bff/answer-export/cards.ts`):
+   give a new field and every new enum member a word in `answerExport.fields` /
+   `answerExport.values` (en and de), or skip it in `SKIPPED_FIELDS` with the reason.
+   `label-coverage.spec.ts` fails otherwise, and a directory-scoped run over
+   `ui/features/cards` never reaches it: run the whole workspace suite. #1658 missed
+   this and left develop red.
+10. For an **envelope** field (native answer anatomy, never a tool call): add
    a model, a registry entry and a gate in `common/answer_envelope.py` (the
    taught schema renders itself from the models), an earned-when line in the
    prompt's `<answer_envelope>` section, a sanitizer clause in

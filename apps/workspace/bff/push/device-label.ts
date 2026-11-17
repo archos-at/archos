@@ -1,18 +1,6 @@
-/**
- * A name for a device that a person recognises, from its user agent
- * ("Safari auf iPhone", "Chrome auf Windows").
- *
- * Deliberately small and wrong in the corners: it only has to tell a person's
- * three devices apart in a list they can remove from. A library would parse
- * hundreds of agents we never see, and the one family that mattered (ua-parser-js
- * since v2) changed licence. Unknown parts are left out, never guessed, and the
- * label is always something, because the column is not null.
- */
-
 const MAX_LABEL = 120
 
 function browserOf(ua: string): string | null {
-  // Order matters: every Chromium browser also says Chrome and Safari.
   if (/\bEdg(e|A|iOS)?\//.test(ua)) return 'Edge'
   if (/\bOPR\/|\bOpera\b/.test(ua)) return 'Opera'
   if (/\bSamsungBrowser\//.test(ua)) return 'Samsung Internet'
@@ -33,7 +21,6 @@ function deviceOf(ua: string): string | null {
   return null
 }
 
-/** The label for a user agent header; "Unbekanntes Gerät" when nothing is recognised. */
 export function deviceLabelFromUserAgent(userAgent: string | null | undefined): string {
   const ua = (userAgent ?? '').slice(0, 512)
   const browser = browserOf(ua)

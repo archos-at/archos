@@ -1,19 +1,4 @@
-/**
- * The knowledge graph an office reads for a site (ADR-0168): the released
- * platform records it may read, and the office's own relations with the works
- * and editions they name. Every query runs as the office (`withTenant`) and
- * names the owner condition itself, so the layered RLS (0205, 0209) is the
- * backstop, not the filter:
- *
- * - a platform row has a head and belongs to a country the office is entitled
- *   to, or a released relation reaches it from one (design §3.5);
- * - an office row is this office's own; another office's never is.
- *
- * Bounded: the territories on the leaf's chain, at most `MAX_ROWS` of each
- * other type. A graph that hit a bound says so (`truncated`), and the turn
- * then uses none of it rather than a partial one.
- */
-
+import { appliesWhenTableSchema } from '../wire/applies-when'
 import { sourceRefsOf } from './source-refs'
 import 'server-only'
 import { sql } from 'drizzle-orm'
@@ -21,15 +6,16 @@ import { getDb } from '@/lib/db'
 import { sqlTextArray } from '@/lib/db/sql-list'
 import { withTenant } from '@/lib/db/tenant-context'
 import type { RelationAnchor, TerritoryParent } from '@/lib/db/schema/knowledge-platform'
-import type { BindingMode, ConnectingFactor, CoverageLevel, KnowledgeWorkKind, RelationEndType, RelationType, TerritoryKind } from '../wire/vocab'
+import { TEXT_STATUSES, type BindingMode, type ConnectingFactor, type CoverageLevel, type KnowledgeWorkKind, type RelationEndType, type RelationType, type TerritoryKind, type TextStatus } from '../wire/vocab'
 import { recordReadable } from '../store/visibility'
 import { walkSeeds } from './territory-chain'
+import { MAX_ROUTE_DEPTH } from './resolve'
 import type { GraphEdition, GraphOwner, GraphRelation, GraphTerritory, GraphWork, KnowledgeGraph } from './graph'
 
-/** Most rows of one type a graph reads. */
-export const MAX_ROWS = 2000
+export const MAX_ROWS = 20_000
 
-/** Deepest territory chain followed. */
+const MAX_WALK_DEPTH = MAX_ROUTE_DEPTH + 2
+
 const MAX_TERRITORY_DEPTH = 16
 
 export interface LoadedGraph {
@@ -69,6 +55,7 @@ interface WorkRow extends Record<string, unknown> {
   kind: KnowledgeWorkKind
   title: string
   designation: string | null
+  issuer: string | null
   identifiers: Record<string, unknown> | null
   territory_ids: string[]
   addressee_territory_ids: string[] | null
@@ -85,13 +72,18 @@ interface EditionRow extends Record<string, unknown> {
   in_force_from: string | null
   in_force_to: string | null
   corpus_files: string[] | null
+  source_url: string | null
+  text_language: string | null
+  text_status: string | null
+  applies_when: unknown
   checked_at: string | Date | null
   check_result: string | null
 }
 
+const isTextStatus = (value: string | null): value is TextStatus => (TEXT_STATUSES as readonly string[]).includes(value ?? '')
+
 const dateText = (value: unknown): string | null => (value === null || value === undefined ? null : String(value).slice(0, 10))
 
-/** A platform row the office may read, or the office's own row: the owner condition every query below names. */
 const readable = (organizationId: string) => recordReadable('r', organizationId)
 
 async function territoriesOn(organizationId: string, leafId: string): Promise<TerritoryRow[]> {
@@ -115,21 +107,18 @@ async function territoriesOn(organizationId: string, leafId: string): Promise<Te
     LIMIT ${MAX_ROWS}`)
 }
 
-async function relationsFor(organizationId: string): Promise<RelationRow[]> {
+async function relationsTouching(organizationId: string, frontier: readonly string[]): Promise<RelationRow[]> {
   return getDb().execute<RelationRow>(sql`
     SELECT r.id, r.organization_id, x.relation_type, x.mode, x.from_id, x.from_type, x.to_id, x.to_type, x.anchors,
       x.provision, x.valid_from, x.valid_to
     FROM knowledge_records r JOIN knowledge_relation_revisions x ON x.revision_id = r.head_revision_id
     WHERE r.type = 'relation' AND ${readable(organizationId)}
+      AND (x.from_id = ANY(${sqlTextArray(frontier)})
+        OR (x.relation_type IN ('supersedes', 'interprets') AND x.to_id = ANY(${sqlTextArray(frontier)})))
     ORDER BY r.id
     LIMIT ${MAX_ROWS}`)
 }
 
-/**
- * Works on the chain, and the works a relation names (by itself or by one of
- * its editions). The office's own works only when its relation names them:
- * its copies are its base-knowledge block's (`office/turn-block.ts`), not law.
- */
 async function worksFor(organizationId: string, chain: readonly string[], named: readonly string[]): Promise<WorkRow[]> {
   return getDb().execute<WorkRow>(sql`
     WITH named_works AS (
@@ -138,13 +127,14 @@ async function worksFor(organizationId: string, chain: readonly string[], named:
       SELECT e.work_id FROM knowledge_records er JOIN knowledge_edition_revisions e ON e.revision_id = er.head_revision_id
       WHERE er.id = ANY(${sqlTextArray(named)})
     )
-    SELECT r.id, r.organization_id, w.kind, w.title, w.identifiers ->> 'designation' AS designation, w.identifiers, w.territory_ids,
+    SELECT r.id, r.organization_id, w.kind, w.title, w.identifiers ->> 'designation' AS designation, w.issuer, w.identifiers, w.territory_ids,
       (SELECT array_agg(a ->> 'territoryId') FROM jsonb_array_elements(w.addressees) AS a) AS addressee_territory_ids,
       w.connects_by, w.history_available_from
     FROM knowledge_records r JOIN knowledge_work_revisions w ON w.revision_id = r.head_revision_id
     WHERE r.type = 'work' AND ${readable(organizationId)}
       AND (r.id IN (SELECT id FROM named_works)
-        OR (r.organization_id IS NULL AND w.territory_ids && ${sqlTextArray(chain)}))
+        OR (r.organization_id IS NULL AND (w.territory_ids && ${sqlTextArray(chain)}
+          OR EXISTS (SELECT 1 FROM jsonb_array_elements(w.addressees) AS a WHERE a ->> 'territoryId' = ANY(${sqlTextArray(chain)})))))
     ORDER BY r.id
     LIMIT ${MAX_ROWS}`)
 }
@@ -155,6 +145,20 @@ async function editionsOf(organizationId: string, workIds: readonly string[]): P
       (SELECT array_agg(m.corpus_file ORDER BY m.corpus_file)
          FROM knowledge_records mr JOIN knowledge_manifestation_revisions m ON m.revision_id = mr.head_revision_id
          WHERE mr.organization_id IS NULL AND m.edition_id = r.id AND m.corpus_file IS NOT NULL) AS corpus_files,
+      -- The page a platform manifestation of it cites first: where a person opens the text (ADR-0178).
+      (SELECT kr.provenance -> 'citations' -> 0 ->> 'url'
+         FROM knowledge_records mr JOIN knowledge_manifestation_revisions m ON m.revision_id = mr.head_revision_id
+         JOIN knowledge_revisions kr ON kr.revision_id = mr.head_revision_id
+         WHERE mr.organization_id IS NULL AND m.edition_id = r.id AND kr.provenance -> 'citations' -> 0 ->> 'url' IS NOT NULL
+         ORDER BY mr.id LIMIT 1) AS source_url,
+      -- The platform manifestation that holds its text: which language, and whether it is the authentic text.
+      (SELECT m.language
+         FROM knowledge_records mr JOIN knowledge_manifestation_revisions m ON m.revision_id = mr.head_revision_id
+         WHERE mr.organization_id IS NULL AND m.edition_id = r.id ORDER BY mr.id LIMIT 1) AS text_language,
+      (SELECT m.text_status
+         FROM knowledge_records mr JOIN knowledge_manifestation_revisions m ON m.revision_id = mr.head_revision_id
+         WHERE mr.organization_id IS NULL AND m.edition_id = r.id ORDER BY mr.id LIMIT 1) AS text_status,
+      e.applies_when,
       c.checked_at, c.result AS check_result
     FROM knowledge_records r JOIN knowledge_edition_revisions e ON e.revision_id = r.head_revision_id
     -- The platform's newest check of a platform edition: what its freshness reads (design §4.6).
@@ -207,6 +211,7 @@ function toWork(row: WorkRow): GraphWork {
     kind: row.kind,
     title: row.title,
     designation: row.designation,
+    issuer: row.issuer ?? null,
     territoryIds: row.territory_ids,
     addresseeTerritoryIds: (row.addressee_territory_ids ?? []).filter((id): id is string => typeof id === 'string'),
     connectsBy: row.connects_by ?? ['site'],
@@ -225,29 +230,61 @@ function toEdition(row: EditionRow): GraphEdition {
     inForceFrom: dateText(row.in_force_from),
     inForceTo: dateText(row.in_force_to),
     corpusFiles: row.corpus_files ?? [],
+    sourceUrl: row.source_url,
+    text: row.text_language && isTextStatus(row.text_status) ? { language: row.text_language, status: row.text_status } : null,
+    appliesWhen: row.applies_when ? (appliesWhenTableSchema.safeParse(row.applies_when).data ?? null) : null,
     lastCheck: row.checked_at && row.check_result ? { checkedAt: new Date(row.checked_at).toISOString(), result: row.check_result } : null,
   }
 }
 
-/** The graph an office reads for a site whose leaf is `leafId`. */
+interface Walked {
+  relations: Map<string, RelationRow>
+  works: Map<string, WorkRow>
+  editions: Map<string, EditionRow>
+  truncated: boolean
+}
+
+async function admit(organizationId: string, workRows: readonly WorkRow[], into: Walked): Promise<string[]> {
+  into.truncated ||= workRows.length >= MAX_ROWS
+  const fresh = workRows.filter((row) => !into.works.has(row.id))
+  if (fresh.length === 0) return []
+  const editionRows = await editionsOf(organizationId, fresh.map((row) => row.id))
+  into.truncated ||= editionRows.length >= MAX_ROWS
+  for (const row of fresh) into.works.set(row.id, row)
+  for (const row of editionRows) into.editions.set(row.id, row)
+  return [...fresh.map((row) => row.id), ...editionRows.map((row) => row.id)]
+}
+
+async function walk(organizationId: string, chain: readonly string[]): Promise<Walked> {
+  const walked: Walked = { relations: new Map(), works: new Map(), editions: new Map(), truncated: false }
+  let frontier = await admit(organizationId, await worksFor(organizationId, chain, []), walked)
+  for (let depth = 0; depth < MAX_WALK_DEPTH && frontier.length > 0; depth++) {
+    const read = await relationsTouching(organizationId, frontier)
+    walked.truncated ||= read.length >= MAX_ROWS
+    const relationRows = read.filter((row) => !walked.relations.has(row.id))
+    for (const row of relationRows) walked.relations.set(row.id, row)
+    const named = [...new Set(relationRows.flatMap((row) => [row.from_id, row.to_id]))].filter(
+      (id) => !walked.works.has(id) && !walked.editions.has(id),
+    )
+    frontier = named.length > 0 ? await admit(organizationId, await worksFor(organizationId, [], named), walked) : []
+  }
+  return walked
+}
+
+const byId = <T extends { id: string }>(rows: Iterable<T>): T[] => [...rows].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
+
 export async function loadGraph(organizationId: string, leafId: string): Promise<LoadedGraph> {
   return withTenant({ organizationId }, async () => {
-    const [territoryRows, relationRows] = await Promise.all([territoriesOn(organizationId, leafId), relationsFor(organizationId)])
+    const territoryRows = await territoriesOn(organizationId, leafId)
     const chain = [...new Set([leafId, ...territoryRows.map((row) => row.id)])]
-    const named = [...new Set(relationRows.flatMap((row) => [row.from_id, row.to_id]))]
-    const workRows = await worksFor(organizationId, chain, named)
-    const editionRows = await editionsOf(
-      organizationId,
-      workRows.map((row) => row.id),
-    )
-    const truncated = [territoryRows, relationRows, workRows, editionRows].some((rows) => rows.length >= MAX_ROWS)
+    const walked = await walk(organizationId, chain)
     return {
-      truncated,
+      truncated: walked.truncated || territoryRows.length >= MAX_ROWS,
       graph: {
         territories: new Map(territoryRows.map((row) => [row.id, toTerritory(row)])),
-        works: new Map(workRows.map((row) => [row.id, toWork(row)])),
-        editions: new Map(editionRows.map((row) => [row.id, toEdition(row)])),
-        relations: relationRows.map(toRelation),
+        works: new Map(byId(walked.works.values()).map((row) => [row.id, toWork(row)])),
+        editions: new Map(byId(walked.editions.values()).map((row) => [row.id, toEdition(row)])),
+        relations: byId(walked.relations.values()).map(toRelation),
       },
     }
   })

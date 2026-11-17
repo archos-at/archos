@@ -1,10 +1,3 @@
-/**
- * From a file into the SAME Ask Piloti the rest of the product uses.
- *
- * The filename must appear in the user-visible question. The agent
- * retrieves by name in that text; a silent subject id is not enough.
- */
-
 import type { DocumentAuthor } from '@/lib/db/schema/documents'
 import type { PhotoCapture } from '@/lib/documents/photo-capture'
 
@@ -34,19 +27,6 @@ export function documentFilesHref(projectId: string, documentId: string): string
   return `/app/projects/${encodeURIComponent(projectId)}/files?doc=${encodeURIComponent(documentId)}`
 }
 
-/**
- * The project id inside a document deep link, or `null`.
- *
- * The inverse of {@link documentFilesHref}, and it exists for one caller: an
- * inbox row knows the document a review request is about and where clicking it
- * lands (`/app/projects/<id>/files?doc=<id>`, built by the sharing registry's
- * `deepLink`), but not the project — the row is type-agnostic by design and
- * carries no project field. Reading it back out of the link the row already
- * holds beats widening the inbox payload for one button.
- *
- * `null` for an Archiv document (`/app/office-shelf?doc=…`), which has no project
- * chat to open, and for anything that is not a document deep link at all.
- */
 export function projectIdFromDocumentHref(href: string | null | undefined): string | null {
   if (!href) return null
   const match = /^\/app\/projects\/([^/?#]+)\/files(?:[/?#]|$)/.exec(href)
@@ -69,17 +49,7 @@ export function fileItemFromStatus(body: {
   tags?: string[] | null
   topics?: string[] | null
   capture?: PhotoCapture | null
-  /**
-   * Provenance, when the payload carries it. Optional because this mapper also
-   * serves a status body written before the column existed, and absent means
-   * exactly what the column's default means — a person uploaded it.
-   */
   authoredBy?: DocumentAuthor | null
-  /**
-   * How many versions the document has (`getDocumentStatus`). The peek reads it
-   * to say "still citing the previous version" for a failed re-upload instead
-   * of "cannot cite this file". Absent on an older payload, which is `null`.
-   */
   versionCount?: number | null
 }): {
   id: string
@@ -122,9 +92,6 @@ export function fileItemFromStatus(body: {
     topics: body.topics ?? null,
     capture: body.capture ?? null,
     versionCount: body.versionCount ?? null,
-    // Omitted rather than `null` when unknown: `FileItem.authoredBy` is
-    // OPTIONAL and its absence already means "a person uploaded it", so writing
-    // a null would be inventing a third state the byline has to interpret.
     ...(body.authoredBy ? { authoredBy: body.authoredBy } : {}),
   }
 }

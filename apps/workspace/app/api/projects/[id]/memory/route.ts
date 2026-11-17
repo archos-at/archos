@@ -1,11 +1,7 @@
-/**
- * Project memory API — list and manually add memory items.
- * Thin handlers; authz and logic live in `@/lib/projects/service`.
- */
-
 import { apiRoute, parseJsonBody, parseQuery } from '@/lib/api/handler'
 import { offsetPageOf } from '@/lib/api/offset-page'
-import { addProjectMemoryItem, getProjectMemoryPage } from '@/lib/projects/service'
+import { addProjectMemoryItem, getProjectMemoryShelf } from '@/lib/projects/service'
+import { canWriteProjectMemory } from '@/lib/projects/settings-access'
 import { createMemorySchema, listMemoryQuerySchema, toMemoryWireItem } from '@/lib/projects/project-memory-wire'
 
 type Params = { id: string }
@@ -13,14 +9,16 @@ type Params = { id: string }
 export const GET = apiRoute<Params>(
   async ({ session, params, request }) => {
     const query = parseQuery(request, listMemoryQuerySchema)
-    const { items, nextCursor } = await getProjectMemoryPage(session, params.id, {
+    const { items, nextCursor, topics } = await getProjectMemoryShelf(session, params.id, {
       includeArchived: query.includeArchived === 'true',
       sourceConversationId: query.conversationId || undefined,
       page: offsetPageOf(query),
+      topic: query.topic,
     })
-    return { items: items.map(toMemoryWireItem), nextCursor }
+    const canWrite = await canWriteProjectMemory(session, params.id)
+    return { items: items.map(toMemoryWireItem), nextCursor, canWrite, topics }
   },
-  { authz: { enforcedBy: 'getProjectMemory (requireProjectAccess project:view)' } }
+  { authz: { enforcedBy: 'getProjectMemoryShelf (requireProjectAccess project:view)' } }
 )
 
 export const POST = apiRoute<Params>(

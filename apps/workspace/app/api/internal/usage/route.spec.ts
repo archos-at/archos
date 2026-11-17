@@ -3,8 +3,6 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-// The route factory (`@/lib/api/handler`) statically imports the session
-// guard, which pulls in authkit; internal routes never call it.
 vi.mock('@/lib/auth/require-auth', () => ({
   requireAuthorizedSession: vi.fn(),
 }))
@@ -29,6 +27,7 @@ const VALID_EVENT = {
   completionTokens: 331,
   totalTokens: 1535,
   cachedTokens: 512,
+  cacheWriteTokens: 384,
   reasoningTokens: 128,
   costUsd: 0.00214,
   costSource: 'usage_field',
@@ -87,6 +86,17 @@ describe('POST /api/internal/usage', () => {
     })
   })
 
+  it('books the cache writes, and none for an older agent that does not send them', async () => {
+    const { cacheWriteTokens: _omitted, ...olderAgentEvent } = VALID_EVENT
+    const res = await POST(request({ organizationId: 'org_1', events: [VALID_EVENT, olderAgentEvent] }))
+    expect(res.status).toBe(202)
+    const rows = vi.mocked(recordUsageEvents).mock.calls[0][0]
+    expect(rows.map((row) => [row.cachedTokens, row.cacheWriteTokens])).toEqual([
+      [512, 384],
+      [512, 0],
+    ])
+  })
+
   it('stamps every row with the answer the batch paid for', async () => {
     await POST(request({ organizationId: 'org_1', conversationId: 'conv-1', messageId: 'answer-1', events: [VALID_EVENT] }))
     const rows = vi.mocked(recordUsageEvents).mock.calls[0][0]
@@ -121,7 +131,6 @@ describe('POST /api/internal/usage', () => {
   })
 
   it('refuses an activity the ledger does not know, rather than storing it', async () => {
-    // The CHECK on the column would refuse it anyway, and with it the whole batch.
     const res = await POST(request({ organizationId: 'org_1', activity: 'chat', events: [VALID_EVENT] }))
     expect(res.status).toBe(400)
     expect(recordUsageEvents).not.toHaveBeenCalled()

@@ -1,10 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Tests for session-activity utility functions: what a thread's stored run
- * ledgers say about it.
- */
 
 import { describe, it, expect } from 'vitest'
 import { emptyRunLedger, failRun, finishRun, setRunStatus } from '@/lib/runs/run-ledger'
@@ -29,8 +25,13 @@ const runMessage = (id: string, status: RunStatus): ChatMessage =>
   makeMessage({
     id,
     messageType: 'agent_response',
-    runLedger: setRunStatus(emptyRunLedger(`run-${id}`), status),
+    runLedger: ledgerAt(`run-${id}`, status),
   })
+
+const ledgerAt = (runId: string, status: RunStatus) => {
+  const created = emptyRunLedger(runId)
+  return setRunStatus(status === 'interrupted' ? setRunStatus(created, 'running') : created, status)
+}
 
 describe('hasNoUserChatMessages', () => {
   it('returns true when there are no user messages', () => {

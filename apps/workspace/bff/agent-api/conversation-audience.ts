@@ -1,53 +1,4 @@
 import 'server-only'
-/**
- * Who reads the conversation Piloti answers in, and what a workspace read hands
- * out there (ADR-0093, ADR-0094, ADR-0122). `read-gate.ts` asks; this file
- * answers with the database.
- *
- * There is one rule for reaching other projects, ADR-0094's, and the workspace
- * door follows it as `project_lookup` does:
- *
- *  - **Reach is the audience's.** A place a read names (`operation-targets.ts`
- *    is the one place that knows what a call names) must lie in
- *    `audienceReachAmong`, the same function the lookups' `audienceReach` is
- *    built on: in a conversation that is the asker's alone, every project the
- *    asker may chat in, restricted folders they may read included; shared with
- *    at most ten named people, the closed projects and the active ones every
- *    reader may open; wider, the closed projects. Never a restricted folder in a
- *    shared conversation.
- *  - **Recorded before it runs.** Every read is recorded through
- *    `recordCrossProjectHandOut`, under the audience lock every share takes,
- *    refused when the audience changed since it was read: the other projects it
- *    says anything about, and the restricted folders it may carry. The answer
- *    the turn is writing is marked in the same transaction (ADR-0093). A project
- *    closed now restricts nobody, because the record is judged when read.
- *  - **The conversation's own project** keeps its own path: in a solo
- *    conversation every folder of it that restricts someone and that the asker
- *    may read is recorded with the read ({@link ownRestrictingFolders}, over on
- *    purpose: a route's answer does not say which folder it came from).
- *
- * What a read may carry decides what is recorded. A route answers as the asker,
- * and nothing in its answer says which folder it came from, so a read of
- * another project records every folder of it that restricts someone and the
- * asker may read, the same over-record. A read listed in `AUDIENCE_READS`
- * (`read-gate.ts`) declares what its answer is: one document's content (its
- * folder path's restricted folders are recorded, the ones a lookup's passage of
- * it records) or a project's facts (no folder).
- *
- * A shared conversation runs only those listed reads, because only their answer
- * is what every reader of the place reads: the rest answer with the asker's
- * view (their projects, their inbox, a member list's admin-only fields, their
- * own held uploads), which is not the audience's. A listed read there is refused
- * when what it names sits in a restricted folder, is held by screening, or
- * belongs to another conversation.
- *
- * Unchanged from before the one rule, because each is the asker's own view and
- * names no project to judge: a read whose answer spans the office's projects
- * (`spansProjects`) is refused in a project's conversation, and one naming
- * something the lookup cannot place is refused everywhere. A read of another
- * conversation that drew on other projects is refused, as its record is not
- * copied.
- */
 
 import { listProjectFolderTree } from '@/lib/authz/folder-access-repository'
 import { folderTree, getHiddenFolderIds, readableByEveryMember, readRestrictingFoldersOnPath } from '@/lib/authz/folder-access'
@@ -76,19 +27,14 @@ import type { TargetPlace } from './operation-targets-repository'
 import type { AgentPrincipal } from './principal'
 import { PRODUCT_NAME } from '@/lib/brand'
 
-/** Who reads the conversation, as read once per request. */
 export interface ConversationAudience {
   row: ConversationAudienceRow
-  /** The asker's alone (or not created yet): the only audience whose reach holds restricted folders. */
   solo: boolean
-  /** The {@link audienceKey} the record checks under the lock. */
   key: string
 }
 
-/** What a listed read's answer is (`AUDIENCE_READS`): one document's content, or a project's facts. */
 export type ReadCarries = 'document' | 'projectFacts'
 
-/** The place kind each {@link ReadCarries} names; a listed read naming anything else is refused in a shared chat. */
 const CARRIED_TARGET: Readonly<Record<ReadCarries, OperationTarget['type']>> = {
   document: 'document',
   projectFacts: 'project',
@@ -99,7 +45,6 @@ const tenantOf = (principal: AgentPrincipal) => ({
   userId: principal.session.userId,
 })
 
-/** The conversation's audience; null when the call belongs to no conversation of Piloti's. */
 export async function conversationAudienceOf(principal: AgentPrincipal): Promise<ConversationAudience | null> {
   const conversationId = principal.conversationId
   if (principal.actor !== 'piloti' || !conversationId) return null
@@ -109,10 +54,6 @@ export async function conversationAudienceOf(principal: AgentPrincipal): Promise
   return { row, solo: isSoloAudience(row, principal.session.userId), key: audienceKey(row) }
 }
 
-/**
- * The sentences the model relays for a refused read. English, whatever the
- * person's locale: an agent reads them (AGENTS.md, "Industry standard first").
- */
 export const READ_REFUSALS = {
   shared:
     'This conversation is shared, and that read answers with what the person may see, not with what everyone in ' +
@@ -150,12 +91,10 @@ export const READ_REFUSALS = {
     'judged against the readers the conversation has now.',
 } as const
 
-/** A read the gate refuses, or what it hands out once recorded. */
 export type ReadJudgement = { refusal: string } | { handOut: CrossProjectHandOut }
 
 const refuse = (refusal: string): ReadJudgement => ({ refusal })
 
-/** What the read names, before it is placed: the targets, or why there is nothing to place. */
 function namedTargets(
   principal: AgentPrincipal,
   op: Pick<AgentOperation, 'path' | 'spansProjects'>,
@@ -176,19 +115,11 @@ function namedTargets(
   return targets
 }
 
-/** A target placed in another project, to be judged against the audience's reach. */
 interface ForeignPlace {
   target: OperationTarget
   place: TargetPlace & { projectId: string }
 }
 
-/**
- * Whether a read of `op` with `input` may run in the conversation of `audience`,
- * and what it hands out if so. See the module docstring. `carries` is the
- * read's `AUDIENCE_READS` entry, if it has one; `ownFolders` the conversation's
- * own project's record, computed once per request. A failed lookup rejects, and
- * the read must not run.
- */
 export async function judgeWorkspaceRead(
   principal: AgentPrincipal,
   audience: ConversationAudience,
@@ -197,7 +128,6 @@ export async function judgeWorkspaceRead(
   carries: ReadCarries | undefined,
   ownFolders: () => Promise<string[]>,
 ): Promise<ReadJudgement> {
-  // A shared conversation runs only reads whose answer is what every reader of the place reads.
   if (!audience.solo && (!op || !carries)) return refuse(READ_REFUSALS.shared)
   const targets = op ? namedTargets(principal, op, input) : []
   if (typeof targets === 'string') return refuse(targets)
@@ -212,14 +142,10 @@ export async function judgeWorkspaceRead(
     for (const [index, place] of places.entries()) {
       const target = targets[index] as OperationTarget
       if (!place) {
-        // This conversation's own first turn names it before its row exists.
         if (target.type === 'conversation' && target.id === principal.conversationId) {
           touchesOwn = true
           continue
         }
-        // Not found as this reader is looked up here. The route may still find it with
-        // another reader (a reviewer sees a held upload), and nothing here would record
-        // where it lives, so it is refused rather than let through.
         return refuse(READ_REFUSALS.unknown)
       }
       const refused = await placeRefusal(principal, audience, place, organizationId)
@@ -244,7 +170,6 @@ export async function judgeWorkspaceRead(
   })
 }
 
-/** What no audience lets through, whichever project a place lies in. */
 async function placeRefusal(
   principal: AgentPrincipal,
   audience: ConversationAudience,
@@ -253,18 +178,10 @@ async function placeRefusal(
 ): Promise<string | null> {
   const other = place.conversationId !== null && place.conversationId !== principal.conversationId
   if (!other) return null
-  // Another conversation's file or record is read by that conversation's readers, not this one's.
   if (!audience.solo) return READ_REFUSALS.notEveryReader
   return (await drewOnOtherProjects(place.conversationId as string, organizationId)) ? READ_REFUSALS.otherConversation : null
 }
 
-/**
- * In a shared conversation, a place of its own project (or of none): a listed
- * read of it may run only when everyone reading may read it, which its own
- * project's folder rule and screening decide. Outside every project there is
- * no rule every reader shares (the office shelf has its own folders), so it is
- * refused.
- */
 async function sharedOwnRefusal(
   organizationId: string,
   place: TargetPlace,
@@ -277,18 +194,11 @@ async function sharedOwnRefusal(
   return path.length > 0 ? READ_REFUSALS.restrictedFolder : null
 }
 
-/** The folders on a document's folder path that restrict reading: what a lookup's passage of it records. */
 async function restrictingPathOf(organizationId: string, projectId: string, folderId: string | null): Promise<string[]> {
   if (!folderId) return []
   return readRestrictingFoldersOnPath(folderTree(await listProjectFolderTree(organizationId, projectId)), folderId)
 }
 
-/**
- * The places in other projects: each project must lie in the audience's reach
- * (`audienceReachAmong`, the lookups' own rule), and each place hands out its
- * project and the restricted folders it may carry. A shared conversation hands
- * out no restricted folder and no held file, so such a place is refused there.
- */
 async function foreignHandOut(
   principal: AgentPrincipal,
   audience: ConversationAudience,
@@ -312,12 +222,6 @@ async function foreignHandOut(
   return { handOut: { projectIds, folderIds } }
 }
 
-/**
- * The restricted folders of another project a read of `target` may carry: none
- * for a project's facts, a document's folder path for a read of that document
- * alone, and otherwise every folder of the project that restricts someone and
- * the asker may read (the route does not say which it drew on).
- */
 async function carriedFolders(
   principal: AgentPrincipal,
   place: ForeignPlace['place'],
@@ -331,12 +235,6 @@ async function carriedFolders(
   return restrictingFolders(principal.session, place.projectId)
 }
 
-/**
- * The folders of `projectId` that not every member may read and the requester
- * may: the ones a read as them could have drawn restricted content from. One
- * they may not read never reached them, and recording it would shut them out
- * of their own conversation.
- */
 async function restrictingFolders(session: AgentPrincipal['session'], projectId: string): Promise<string[]> {
   const [rows, hidden] = await Promise.all([
     listProjectFolderTree(session.organizationId, projectId),
@@ -347,20 +245,12 @@ async function restrictingFolders(session: AgentPrincipal['session'], projectId:
   return [...tree.keys()].filter((folderId) => !readableByEveryMember(tree, folderId) && !unseen.has(folderId))
 }
 
-/** The conversation's own project's record for a read in a solo conversation: see the module docstring. */
 export async function ownRestrictingFolders(principal: AgentPrincipal): Promise<string[]> {
   if (!principal.projectId) return []
   const projectId = principal.projectId
   return withTenant(tenantOf(principal), () => restrictingFolders(principal.session, projectId))
 }
 
-/**
- * Record what a read hands out, before it runs: `recordCrossProjectHandOut`,
- * the lookups' own record, under the audience lock with the audience checked
- * against the one the read was judged for. False when the audience changed:
- * nothing was recorded, and the read must not run. A call outside a
- * conversation records nothing.
- */
 export async function recordWorkspaceHandOut(
   principal: AgentPrincipal,
   audience: ConversationAudience,
@@ -383,14 +273,6 @@ export async function recordWorkspaceHandOut(
   }
 }
 
-/**
- * Why a write proposed in this conversation may not be filed here, or null.
- * The card sits in the transcript, so in a shared conversation every project a
- * proposal names, other than the conversation's own, must lie in the
- * audience's reach, the same reach a read is held to. In a solo conversation
- * the only reader is the requester, and `requireTargetsReadable` (they may
- * read every target) is the whole check. Call in the tenant scope.
- */
 export async function proposalReachRefusal(
   party: { session: AgentPrincipal['session']; conversationId?: string | null; projectId?: string | null },
   targets: readonly OperationTarget[],

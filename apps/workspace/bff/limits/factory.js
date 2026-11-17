@@ -29,8 +29,6 @@
  * spend all 30.
  */
 
-// `require` rather than `import`, and not negotiable: this module is loaded by
-// `server.js`, which is CommonJS. Same exemption `@/lib/cache` takes for ioredis.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { RateLimiterMemory, RateLimiterRedis, RateLimiterUnion } = require('rate-limiter-flexible')
 
@@ -103,25 +101,13 @@ async function consumeLimiter(limiter, key, points = 1) {
     return { allowed: true, retryAfterMs: 0, remaining: minRemaining(result), degraded: false }
   } catch (rejection) {
     if (rejection instanceof Error) {
-      // The rule, never the key: `key` is the subject, and the API path passes
-      // `organizationId:userId` — identifiers that should not land in logs to
-      // record that a cache was briefly unreachable.
       console.warn('[limits] store unavailable, allowing:', rejection.message)
       return { allowed: true, retryAfterMs: 0, remaining: 0, degraded: true }
     }
-    // Floor at one second. A refusal that reports zero tells a client to retry
-    // IMMEDIATELY, which turns one refused request into a hot loop that keeps
-    // its own bucket drained — the shape a 429 with `retryAfterSeconds: 0` was
-    // observed in. `msBeforeNext` is 0 whenever the library cannot say (a
-    // rejection that is not a `RateLimiterRes`, or a union whose values are
-    // not), and "unknown" must not read as "no wait".
     const wait = maxMsBeforeNext(rejection)
     return {
       allowed: false,
       retryAfterMs: wait > 0 ? wait : 1000,
-      // The real figure, not a hardcoded zero: on a union the tightest clause
-      // is what refused, and reporting 0 for every refusal made it impossible
-      // to tell a genuinely drained bucket from a spurious refusal.
       remaining: minRemaining(rejection),
       degraded: false,
     }

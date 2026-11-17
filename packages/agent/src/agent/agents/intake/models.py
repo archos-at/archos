@@ -28,11 +28,6 @@ class IntakeAgentState(BaseModel):
     model_config = ConfigDict(extra="ignore", arbitrary_types_allowed=True)
 
     messages: Annotated[list[AnyMessage], add_messages] = Field(default_factory=list)
-    #: The tenant, captured at submit (a worker has no request of its own to read it from).
     organization_id: str | None = None
-    #: The project's profile as the prompt view renders it. Carried because the
-    #: runner fills it for any state that declares it; the agent does not put it
-    #: in its prompt, since ``intake_needs`` answers from the same profile, live.
     project_context: str | None = None
-    #: What the run did, for the job's output and the trace: filled at the end.
     outcome: dict[str, Any] = Field(default_factory=dict)

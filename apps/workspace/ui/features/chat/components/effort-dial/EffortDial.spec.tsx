@@ -83,7 +83,6 @@ describe('EffortDial', () => {
     expect(screen.getByTestId('effort-dial-trigger')).toHaveClass('text-warning')
 
     fireEvent.change(slider, { target: { value: '3' } })
-    // It folds away rather than vanishing, so it leaves the DOM after its exit.
     await waitFor(() =>
       expect(screen.queryByTestId('effort-dial-maximum-warning')).not.toBeInTheDocument()
     )
@@ -185,7 +184,6 @@ describe('EffortDial', () => {
 
     rerender(<Row hidden />)
     await waitFor(() => expect(screen.queryByTestId('effort-dial')).not.toBeInTheDocument())
-    // Radix's close returns focus to its trigger; that trigger is hidden now.
     expect(screen.getByRole('textbox', { name: 'field' })).toHaveFocus()
   })
 

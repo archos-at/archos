@@ -1,26 +1,5 @@
 'use client'
 
-/**
- * Platform → Lessons: the fleet-wide register of failure patterns distilled
- * from user down-votes (docs/architecture/platform-failure-learning.md).
- *
- * The framing IS the feature: every lesson is presented as what it is — a
- * SYMPTOMATIC bandage, automatically applied so a reported failure does not
- * recur, while the root cause stays honestly marked as open until somebody
- * closes it. The callout at the top says exactly that, because a register
- * that looked like a list of fixes would teach its operators to stop fixing
- * causes (docs/contributing/correction-ratchet.md).
- *
- * Everything the pipeline does is inspectable here: candidates the auditor
- * held back, the active set the fleet runs on, retirements with their
- * reasons, and per lesson the full event trail + anonymized provenance.
- *
- * A row action (activate, retire, root cause) updates that ONE lesson in
- * place from the PATCH response; the backlog sweep refreshes the list without
- * dropping it for skeletons. Reloading the whole register after every click
- * collapsed it to placeholders and threw the reader's keyboard focus away.
- */
-
 import { type FC, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Bandage, CircleAlert, CircleCheck, History, Lock, RefreshCw } from 'lucide-react'
 import { toast } from 'sonner'
@@ -92,11 +71,6 @@ type LessonPatch = Partial<Pick<LessonDto, 'status' | 'rootCauseStatus'>>
 
 const STATUS_ORDER: LessonDto['status'][] = ['candidate', 'active', 'retired']
 
-/**
- * The overview with one lesson replaced. A status move also moves one unit
- * between the per-status counts, so the group pills stay right without a
- * reload.
- */
 export function applyLessonUpdate(overview: OverviewDto, next: LessonDto): OverviewDto {
   const previous = overview.lessons.find((lesson) => lesson.id === next.id)
   if (!previous) return overview
@@ -125,7 +99,6 @@ export const PlatformLessons: FC = () => {
   const [retireTarget, setRetireTarget] = useState<LessonDto | null>(null)
   const [provenance, setProvenance] = useState<ProvenanceDto | null>(null)
   const [provenanceOpen, setProvenanceOpen] = useState(false)
-  /** A row whose status moved re-mounts in its new group; focus follows it there. */
   const [focusLessonId, setFocusLessonId] = useState<string | null>(null)
   const rowRefs = useRef(new Map<string, HTMLLIElement>())
   const loaded = useRef(false)
@@ -204,7 +177,6 @@ export const PlatformLessons: FC = () => {
     }
   }, [t, load])
 
-  /** PATCH one lesson and swap the answer in place. Resolves false on failure. */
   const patchLesson = useCallback(
     async (lesson: LessonDto, patch: LessonPatch): Promise<boolean> => {
       setBusyLessonId(lesson.id)
@@ -216,13 +188,9 @@ export const PlatformLessons: FC = () => {
         })
         if (!res.ok) throw new Error(String(res.status))
         const body = (await res.json().catch(() => ({}))) as { lesson?: LessonDto }
-        // The server's row when it sent one with the right id; otherwise the
-        // patch itself, which is exactly what the server was asked to store.
         const next = body.lesson?.id === lesson.id ? body.lesson : { ...lesson, ...patch }
         setOverview((current) => (current ? applyLessonUpdate(current, next) : current))
         if (next.status !== lesson.status) setFocusLessonId(lesson.id)
-        // No success toast: the row already shows the answer (its new group,
-        // its switch), and focus follows it there.
         return true
       } catch {
         toast.error(t('lessons.updateError'))
@@ -269,7 +237,7 @@ export const PlatformLessons: FC = () => {
       action={
         canManage ? (
           <Button
-            variant="outline"
+            variant="secondary"
             size="sm"
             onClick={() => void handleSweep()}
             disabled={sweeping}
@@ -311,7 +279,6 @@ export const PlatformLessons: FC = () => {
         cancelLabel={tc('actions.cancel')}
         tone="warning"
         onConfirm={async () => {
-          // Thrown so the dialog stays open on failure; it closes itself on success.
           if (retireTarget && !(await patchLesson(retireTarget, { status: 'retired' }))) {
             throw new Error('retire failed')
           }
@@ -430,7 +397,7 @@ export const PlatformLessons: FC = () => {
                     <div className="flex flex-wrap items-center gap-1.5">
                       {canManage && lesson.status !== 'active' ? (
                         <Button
-                          variant="outline"
+                          variant="secondary"
                           size="sm"
                           loading={busy}
                           onClick={() => void patchLesson(lesson, { status: 'active' })}
@@ -440,7 +407,7 @@ export const PlatformLessons: FC = () => {
                       ) : null}
                       {canManage && lesson.status === 'active' ? (
                         <Button
-                          variant="outline"
+                          variant="secondary"
                           size="sm"
                           disabled={busy}
                           onClick={() => setRetireTarget(lesson)}

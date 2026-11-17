@@ -1,24 +1,3 @@
-/**
- * The mail operations (ADR-0122, ADR-0137): a project's mail address, the
- * E-Mail-Eingang where mail sent to it waits for a person, the mail threads
- * filed mail becomes, and the Outlook archive import. See `projects.ts` for the
- * shape and `docs/architecture/agent-surface.md` for the rules.
- *
- * What an agent may do with held mail is the point of this file (DECISION D22):
- *
- * - Reading is metadata: the list and one mail carry masked subjects, senders,
- *   trust labels, part names and candidates, never a mail's text or bytes. The
- *   text, an attachment's bytes and the original are separate operations, and
- *   the exposure config decides who reads them (The agent does not; the original
- *   is withheld from every door as evidence).
- * - Deciding is the person's. `inbound-mail-file` and `inbound-mail-dismiss`
- *   run for an outside agent only on the person's own yes
- *   (`requiresPersonConfirmation`), and the agent only proposes them as a card
- *   that files clean, unflagged parts. Acknowledgements are a single mail's
- *   decision, never a bulk one.
- * - The import's byte protocol is three operations: start, part upload (raw), complete.
- */
-
 import { z } from 'zod'
 import {
   dismissInboundMailsBodySchema,
@@ -52,11 +31,6 @@ const mailImportParams = projectParams.extend({
 
 const enc = encodeURIComponent
 
-/**
- * Where the person decides held mail themselves when their client cannot ask
- * them (`requiresPersonConfirmation.decideAt`): the mail's own page for one
- * mail, the project's E-Mail-Eingang for several.
- */
 function decideMailAt(input: OperationInput): `/app/${string}` {
   const project = enc(String(input.params?.id ?? ''))
   const body = (input.body ?? {}) as { mails?: Array<{ mailId?: unknown }>; mailIds?: unknown[] }

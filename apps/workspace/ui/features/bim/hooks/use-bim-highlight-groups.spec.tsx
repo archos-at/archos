@@ -1,16 +1,3 @@
-/**
- * A card highlight written as a FILTER, resolved against the whole model.
- *
- * This is the difference between a card that shows the answer and one that
- * shows a sample of it. An id list has to travel through the model's context
- * window, so "the 420 external walls in the Erdgeschoß" arrived as however
- * many the agent managed to transcribe — the viewer coloured those, the legend
- * said *Außenwände*, and nothing anywhere said the picture was a fraction.
- *
- * The filter is the same one `ifc_query` counted with, replayed by the browser
- * against the query endpoint, so the set is exact and costs the model nothing.
- */
-
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { renderHook, waitFor } from '@testing-library/react'
 import { BIM_ELEMENTS_PAGE_LIMIT } from '@/lib/bim/types'
@@ -20,7 +7,6 @@ const MODEL_ID = 'model-1'
 
 let fetchMock: ReturnType<typeof vi.fn>
 
-/** The filter body of every element query the hook issued. */
 function requestedFilters(): unknown[] {
   return fetchMock.mock.calls.map(([, init]) => JSON.parse((init as RequestInit).body as string).filter)
 }
@@ -56,8 +42,6 @@ describe('useBimHighlightGroups', () => {
     expect(result.current.data).toEqual([
       { globalIds: ['gid-0', 'gid-1', 'gid-2'], label: 'Außenwände', status: 'info' },
     ])
-    // The filter goes to the endpoint verbatim — the property predicates the
-    // browser could not evaluate itself are the whole reason this is a query.
     expect(requestedFilters()[0]).toEqual({ ifcTypes: ['IfcWall'], storeys: ['Erdgeschoss'] })
   })
 
@@ -92,17 +76,10 @@ describe('useBimHighlightGroups', () => {
     const { result } = renderHook(() => useBimHighlightGroups(MODEL_ID, specs))
     await waitFor(() => expect(result.current.isLoading).toBe(false))
 
-    // The legend still names it. "No wall fails this" and "this was never
-    // checked" are different answers and must not look the same.
     expect(result.current.data).toEqual([{ globalIds: [], label: 'Ohne Feuerwiderstand', status: 'fail' }])
   })
 
   it('keeps a filter group that succeeded when another one fails', async () => {
-    // Two FILTER groups, deliberately: an id-only group needs no request, so
-    // pairing one with a failing filter cannot detect the bug this pins.
-    // `Promise.all` rejects on the first failure, so one bad filter used to
-    // discard the ids of every group that had already resolved — the opposite
-    // of what the fallback promises.
     fetchMock
       .mockResolvedValueOnce({ ok: true, json: async () => ({ elements: rows(2), total: 2 }) })
       .mockRejectedValueOnce(new Error('boom'))
@@ -115,16 +92,11 @@ describe('useBimHighlightGroups', () => {
     await waitFor(() => expect(result.current.isLoading).toBe(false))
 
     expect(result.current.data?.[0].globalIds).toEqual(['gid-0', 'gid-1'])
-    // The one that failed falls back to nothing rather than taking the other
-    // down with it, and the legend still names it.
     expect(result.current.data?.[1]).toEqual({ globalIds: [], label: 'Türen', status: 'fail' })
     expect(result.current.error).toBe('load-failed')
   })
 
   it('resolves one group at a time, so the page-walk cap is not multiplied', async () => {
-    // `walkBimElements` caps itself at six pages in flight against a
-    // ten-connection pool. Running groups in parallel multiplied that cap by
-    // the group count — a five-group card issuing thirty concurrent queries.
     let inFlight = 0
     let peak = 0
     fetchMock.mockImplementation(async () => {
@@ -156,8 +128,6 @@ describe('useBimHighlightGroups', () => {
     await waitFor(() => expect(result.current.isLoading).toBe(false))
     const before = fetchMock.mock.calls.length
 
-    // A card payload is rebuilt on every render of the thread, so identity
-    // changes constantly while the content does not.
     rerender({ specs: [{ match: { ifcTypes: ['IfcWall'] }, label: 'W', status: 'info' }] })
     await waitFor(() => expect(result.current.isLoading).toBe(false))
 

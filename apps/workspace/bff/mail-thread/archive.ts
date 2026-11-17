@@ -1,57 +1,4 @@
 import 'server-only'
-/**
- * An Outlook archive's mails become entries of the project's E-Mail-Verläufe
- * (ADR-0085 as amended, ADR-0137, DECISION D33), the same Verläufe mail to the
- * project's address is filed into: one shape for mail, whichever way it came.
- * Called by the archive import (`lib/mail-import/filing.ts`, `job.ts`) as the
- * person who started it. Importing one's own archive is itself the decision,
- * so nothing here waits in the E-Mail-Eingang.
- *
- * Per mail ({@link appendArchiveEntry}), after its attachments are filed:
- *
- * 1. **Dedupe by Message-ID.** An entry of the project that received the same
- *    id, from the address or from any archive, means the text is in a Verlauf
- *    already: it is skipped and counted (`already_in_project`). Its
- *    attachments were filed by the import's own rules all the same. The other
- *    way round is the receive job's: an inbound mail whose id an archive entry
- *    holds is flagged `already_filed`.
- * 2. **Match, strictly.** The ladder is `./mail-threading.ts`'s, but the
- *    import appends only on `reference` or `thread_index`, each with an equal
- *    base subject, or when a Verlauf already cites this very message (an
- *    archive is walked folder by folder, so a reply is often filed before
- *    what it answers). A subject alone never joins a conversation: nobody
- *    looks at the import's choices before they are filed.
- * 3. **Only into a Verlauf the person may write**: its document live and
- *    readable for them and its folder writable (`requireFolderWrite`'s rule),
- *    with room for one more message (200, 2 MiB). Otherwise the next match,
- *    or a new archive Verlauf in the archive's folder, named
- *    `{Gegenüber} {yyyy-mm-dd}` when it is first rendered.
- * 4. **The entry is written at once, the Fassung at the slice's end.** Under
- *    the thread's render lease (`./write-repository.ts`), so its heading is
- *    made against every heading the thread has and no Fassung is rendered
- *    from a half-written set: the entry, its Message-IDs and one row per
- *    attachment (D36) in one transaction, and the Verlauf marked as owing a
- *    Fassung (`render_pending_at`).
- *
- * Per slice ({@link renderPendingThreads}): each Verlauf the import touched is
- * rendered ONCE (`./render.ts`) and uploaded through the ordinary upload path
- * as the person (`uploadThreadVersion`), into the import's Verlauf batch with
- * the archive effects (D35). A 50-message conversation is one Fassung, not 50
- * Fassungen and 50 ingests. The superset invariant holds because an entry
- * only ever joins a set, and the lease keeps two writers from rendering side
- * by side.
- *
- * **Retry-safe.** An entry's id and the id of a Verlauf it opens are the
- * import's and the mail's (uuid5), so a retried mail finds its own entry and
- * changes nothing; a Fassung whose answer was lost is found by its digest.
- *
- * **What an archive entry says** (RT-S2): `sender_trust = 'not_checked'`; its
- * heading names the From domain „aus dem Outlook-Archiv“, never a signer; it
- * has no original (the import never had the message's bytes) and no Bcc. The
- * body is the text the archive reader chose (plain, else HTML, else RTF); the
- * quotes in it are not split off, so an archive section keeps the history its
- * mail quoted.
- */
 
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { canWriteFolder } from '@/lib/authz/folder-access'
@@ -130,52 +77,34 @@ export {
   type ArchiveMessage,
 } from './archive-entry'
 
-/** Names tried for a Verlauf the import opens before it gives up: `X 2025-03-12`, `X 2025-03-12 (2)`… */
 const MAX_THREAD_NAME_ATTEMPTS = 50
 
-/** Room a rendition keeps under the 2 MiB cap for what the size check cannot know yet (the Verlauf's own name). */
 const RENDERED_BYTES_MARGIN = 1024
 
-/** A stand-in title as long as any name a Verlauf gets, for the size check before it is named. */
 const LONGEST_TITLE = 'x'.repeat(260)
 
-/** How often a mail asks again for a lease another writer holds, before its slice ends and comes back. */
 const LEASE_POLL_MS = 1_000
 
-// ---------------------------------------------------------------------------
-// Filing one mail's text
-// ---------------------------------------------------------------------------
-
-/** What every mail of a slice files its text with. */
 export interface ArchiveFiling {
   session: AuthorizedSession
   mailImport: Pick<MailImport, 'id' | 'organizationId' | 'projectId' | 'userId' | 'userEmail' | 'createdAt'>
-  /** `E-Mail-Import/<archive>`: where a Verlauf the import opens goes. */
   archiveFolderId: string
-  /** The slice's render-lease holder (a uuid), so a retry of the slice's own write is the same writer. */
   holder: string
-  /** The locale a Verlauf the import opens renders in (`newThreadLocaleFor`). */
   locale: MailThreadLocale
-  /** The project's folders, for whether an attachment may be named beside the Verlauf; reloaded when it lacks one. */
   folderTree: FolderTree
   request: Request
 }
 
-/** What became of an archived mail's text. */
 export type ArchiveEntryOutcome =
   | { kind: 'already_in_project' }
   | {
       kind: 'filed'
       threadId: string
-      /** The mail opened this Verlauf. */
       threadCreated: boolean
-      /** The import's first mail into a Verlauf it did not open. */
       threadJoined: boolean
     }
-  /** Another writer holds the Verlauf the mail belongs in: its slice ends and comes back. */
   | { kind: 'busy' }
 
-/** The project's folder tree for one slice, read again when a folder made since is asked about. */
 export class FolderTree {
   private tree: ReadonlyMap<string, AccessFolder> | null = null
 
@@ -194,16 +123,11 @@ export class FolderTree {
   }
 }
 
-/** The mail's folder as its attachments went into it; null when it has none (no attachment to file). */
 export interface ArchiveMailFolder {
   id: string
   path: string
 }
 
-/**
- * File an archived mail's text into its Verlauf (the module header's steps 1
- * to 4), after its attachments: their outcomes are what its rows record.
- */
 export async function appendArchiveEntry(
   filing: ArchiveFiling,
   mail: ArchiveMail,
@@ -268,11 +192,6 @@ interface PendingEntry {
   attachments: { outcomes: readonly ArchiveAttachmentOutcome[]; folder: ArchiveMailFolder | null }
 }
 
-/**
- * Append into a Verlauf that matched, under its render lease: `committed`, or
- * `ineligible` when the person may not write it or it is full, or `busy` when
- * another writer kept the lease for as long as a mail waits.
- */
 async function joinThread(
   filing: ArchiveFiling,
   threadId: string,
@@ -298,12 +217,6 @@ async function joinThread(
   }
 }
 
-/**
- * Where a matched Verlauf's next Fassung goes, when the person may write it:
- * a Verlauf the import opened and has not rendered yet is its own (the
- * archive's folder); any other must have a document live and readable for
- * them in a folder they may write. Null otherwise.
- */
 async function writableTarget(
   filing: ArchiveFiling,
   threadId: string
@@ -318,7 +231,6 @@ async function writableTarget(
   return { folderId: writable.document.folderId, title: threadTitleOf(writable.document.filename) }
 }
 
-/** Take the lease, waiting a while for another writer to let it go. False when it never did. */
 async function waitForLease(threadId: string, holder: string): Promise<boolean> {
   const giveUpAt = Date.now() + RENDER_LEASE_RETRY_MS
   for (;;) {
@@ -328,10 +240,6 @@ async function waitForLease(threadId: string, holder: string): Promise<boolean> 
   }
 }
 
-/**
- * Write the entry, its Message-IDs and what came with it; false when the
- * Verlauf would pass its byte cap with it (it then goes elsewhere).
- */
 async function commitEntry(
   filing: ArchiveFiling,
   input: PendingEntry & {
@@ -414,14 +322,12 @@ async function threadLocale(projectId: string, threadId: string, fallback: MailT
   return (await findThreadRow(projectId, threadId))?.locale ?? fallback
 }
 
-/** The newest Fassung of each document, as the person reads it. */
 async function currentVersionIds(documentIds: readonly string[], userId: string): Promise<Map<string, string>> {
   if (documentIds.length === 0) return new Map()
   const current = await findCurrentVersions(documentIds, memberReader(userId))
   return new Map([...current].map(([documentId, version]) => [documentId, version.versionId]))
 }
 
-/** Distinct domains of the parties, in one form (`domainOf`), at most 200 (the CHECK). */
 function participantDomainsOf(participants: readonly MailThreadParticipant[], known: readonly string[] = []): string[] {
   const domains = new Set(known)
   for (const participant of participants) {
@@ -431,40 +337,24 @@ function participantDomainsOf(participants: readonly MailThreadParticipant[], kn
   return [...domains].slice(0, 200)
 }
 
-// ---------------------------------------------------------------------------
-// One Fassung per Verlauf per slice
-// ---------------------------------------------------------------------------
-
-/** A Verlauf the import could not render, for the import's list of what it skipped. */
 export interface ArchiveRenderSkip {
-  /** The Verlauf's name as it was tried. */
   name: string
   reason: MailImportSkipReason
 }
 
 export interface ArchiveRenderResult {
   rendered: number
-  /** Verläufe left for the next slice: another writer held them, or the slice's time was up. */
   waiting: number
   skipped: ArchiveRenderSkip[]
-  /** The organization's storage is full: nothing more can be filed. */
   quotaFull: boolean
 }
 
-/** Where the slice's Fassungen go: the import's Verlauf batch, opened on first use. */
 export interface ArchiveRenderTarget {
   uploadBatchId: () => Promise<string>
-  /** Called once per Fassung uploaded, so the batch rolls over when full. */
   counted: () => void
-  /** `Date.now()` past which no further Verlauf is started. */
   deadline: number
 }
 
-/**
- * Render every Verlauf the import wrote into and has not rendered since, once
- * each (the module header). A Verlauf another writer holds, or one the slice
- * has no time left for, stays pending for the next slice.
- */
 export async function renderPendingThreads(
   filing: ArchiveFiling,
   target: ArchiveRenderTarget
@@ -497,7 +387,6 @@ type ThreadRender =
   | { kind: 'skipped'; skip: ArchiveRenderSkip }
   | { kind: 'quota' }
 
-/** One Verlauf's Fassung, under its lease: every entry it holds, uploaded as the person. */
 async function renderThread(filing: ArchiveFiling, threadId: string, target: ArchiveRenderTarget): Promise<ThreadRender> {
   const { mailImport, session } = filing
   const thread = await findThreadRow(mailImport.projectId, threadId)
@@ -513,8 +402,6 @@ async function renderThread(filing: ArchiveFiling, threadId: string, target: Arc
   if (thread.documentId) {
     current = await findWritableThread(mailImport.projectId, threadId, memberReader(session.userId))
     if (!current) {
-      // Its document went to the bin or out of the person's reach after the
-      // entries were written: whoever writes its next Fassung renders them.
       await giveUpPendingRender(threadId)
       return { kind: 'nothing' }
     }
@@ -541,8 +428,6 @@ async function renderThread(filing: ArchiveFiling, threadId: string, target: Arc
       request: filing.request,
     })
     if (uploaded.ok && !current && (await threadHoldingDocument(uploaded.documentId, threadId))) {
-      // The same bytes under this name are another Verlauf's document (two
-      // imports of one archive, a mail without a Message-ID): never share it.
       continue
     }
     if (uploaded.ok) {
@@ -556,8 +441,6 @@ async function renderThread(filing: ArchiveFiling, threadId: string, target: Arc
         lastEntryAt: new Date(
           Math.max(...entries.map((entry) => clampSentAt(entry.sentAt, entry.receivedAt).sentAt.getTime()))
         ),
-        // A Verlauf that was there keeps its parties: who took part in mail
-        // nobody checked never widens what a follow appends (D31, condition 5).
         participantDomains: current
           ? thread.participantDomains
           : participantDomainsOf(rows.flatMap((row) => row.participants), thread.participantDomains),
@@ -573,7 +456,6 @@ async function renderThread(filing: ArchiveFiling, threadId: string, target: Arc
   return { kind: 'skipped', skip: { name: threadTitleOf(names[0] ?? ''), reason: 'name_taken' } }
 }
 
-/** `{Gegenüber} {yyyy-mm-dd}.md`, then numbered: the names a Verlauf the import opened is tried under. */
 function newThreadFilenames(thread: MailThreadRow, rows: readonly MailThreadEntryRow[], importerEmail: string | null): string[] {
   const first = rows[0]
   const at = clampSentAt(new Date(first.sentAt), new Date(first.receivedAt)).sentAt
@@ -583,7 +465,6 @@ function newThreadFilenames(thread: MailThreadRow, rows: readonly MailThreadEntr
   )
 }
 
-/** The import's skip for a refusal of the upload path a retry would repeat. */
 function skipReasonOf(failure: InboundMailFilingFailure): MailImportSkipReason {
   switch (failure) {
     case 'screened':

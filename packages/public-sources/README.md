@@ -12,15 +12,19 @@ recorded fixtures. Code is written only for a new protocol or a new format.
 A record lives in one of two places. A **repository file** under
 `configs/sources/` (ADR-0162), or a **platform record** an operator's agent
 proposes through the platform door (ADR-0174): the same shape, its recorded
-responses inline, parsed with `parse_inline_source`, which refuses a repository
-record's id and file fixtures. The BFF keeps the database records, decides
+responses inline or named by the citation capture the platform took of them
+(`CapturedResponse`, for a PDF nobody can paste), parsed with
+`parse_inline_source`, which refuses a repository record's id and file fixtures. The BFF keeps the database records, decides
 which may fetch (published, or a draft within its own request's 24 hours) and
 hands this package the configuration; the guard still holds the hosts and the
 public addresses.
 
 Which one a source is: a repository file (**built in**) only when its engine's
 configuration is code-level, read by the agent's own tools (RIS, Fedlex);
-every other source is a platform record. The rule, once:
+every other source is a platform record. That class is being retired
+(ADR-0174, amendment 2026-11-11): a source says how a law lookup reads it in
+its `lookup` block, a turn carries the released ones of its countries, and a
+repository file stays only as the fallback until its record is published. The rule, once:
 [ADR-0174, Consequences](../../docs/adr/0174-public-sources-are-platform-records-kept-current-by-monitors.md#consequences).
 `platform-knowledge-source-status` lists both (`POST /v1/public-sources/built-in`
 gives it the built-in ones, with their fixtures' result).
@@ -31,7 +35,8 @@ gives it the built-in ones, with their fixtures' result).
 |---|---|
 | `configs/sources/<territory>/<name>/source.yml` | One record. `at/ris` (Austria, `rest` + `ris_xml`), `ch/fedlex` (Switzerland, `http_eli` + `akn`) |
 | `configs/sources/<territory>/<name>/fixtures/` | The recorded responses its fixtures replay |
-| `src/source.py` | The record schema and loader. Unknown fields, URLs off the hosts and records without fixtures are refused |
+| `src/source.py` | The record schema and loader. Unknown fields, URLs off the hosts and records without fixtures are refused; `parse_released_source` reads a released record as a turn carries it, without its fixtures. `identifiers` says how a work's identifier is read from an address on the source's hosts (`{<scheme>: {query: <parameter>}}`, `Source.identifier_at`): a live source's producer finds the knowledge record of the text it read by it, so a cited passage gets its role with no country in code. `copy_hosts` names the sites that republish the source (a law mirror): never fetched, read by the agent's web screen (`agent.common.web_sources`), which withholds a hit on one where the source can be read and labels it a copy where it cannot |
+| `src/lookup.py` | A record's `lookup` block: the locus grammar of its texts, the collections its search offers, the territory filter, the words a lookup writes back. What a country-neutral law lookup reads instead of code |
 | `src/access/` | `rest`, `http_eli`, `web_document`, `ogc` (OGC API - Features, WFS 2.0), and the template language (`base.py`) |
 | `src/engines/` | `ris_xml`, `akn`, `html_statute`, `geojson` (a FeatureCollection, a passage per feature), `pdf_document` (a passage per page, `page_<n>`) |
 | `src/pdf.py` | A PDF's text for a capture and for `pdf_document`: ingestion's own text pass (`knowledge_layer.ingest.pdf_page_texts`), run in a child process (`src/pdf_reader.py`) with a deadline, a memory ceiling, a page and a text cap, a bare environment, and a problem code per refusal. One PDF pipeline, not a second reader |
@@ -40,7 +45,7 @@ gives it the built-in ones, with their fixtures' result).
 | `src/egress.py` | The guard: hosts at every hop, public addresses after DNS, the headers that may leave |
 | `src/routing.py` | The transport a caller uses: through the fetcher (`PUBLIC_SOURCE_FETCHER_URL`), and refused without one; a test hands in a transport |
 | `src/fetcher.py` | The sandboxed fetcher service (`python -m public_sources.fetcher`), deployed by `deploy/pulumi/src/app/public-source-fetcher.ts` |
-| `src/fixtures.py`, `src/__main__.py` | `source-test`: run a record's fixtures |
+| `src/fixtures.py`, `src/__main__.py` | `source-test`: run a record's fixtures. A response that is a capture is read by `Engine.recorded_document` (`pdf_document` only: its capture text is the engine's own reading); one whose capture was not handed over is `awaiting`, never a pass |
 
 ## Adding a source
 

@@ -1,163 +1,61 @@
-# Grid Agent Contributor Guide
+# Contributor guide for agents
 
-Piloti is the workspace for architects: a planning office runs its work in it, every project and
-every process, and Piloti, the agent, is a colleague in that office. Building law is one capability
-among many. [`VISION.md`](VISION.md) says what the product is; read it before you describe Piloti
-anywhere. The code: a Next.js UI and BFF (`apps/workspace`), a Python agent on a third-party agent runtime
-(`packages/agent/src/agent`), and the knowledge layer that reads the office's documents and the legal corpus
-(`packages/knowledge-layer`).
+You are the owner and long-term maintainer of this codebase, and its design is up to you.
+
+ARCHOS is the workspace for architects, and the agent is a colleague in the
+office; building law is one capability among many. Read [`VISION.md`](VISION.md)
+before you describe the product anywhere.
 
 ## Setup
 
 ```bash
-task setup          # first, and after any pull that moves a lockfile
-.venv/bin/pre-commit install   # separate from setup, and CI lints the whole repo
-task verify         # the merge gate
+task setup                    # first, and after any pull that moves a lockfile
+.venv/bin/pre-commit install  # separate from setup; CI lints the whole repo
+task verify                   # the merge gate; task verify:fast before a push
 ```
 
-`Taskfile.yml` defines every command named here and `task --list` is the live
-list. `task` is go-task, which nothing in this repo installs; `uv`, `bun` and
-Node must already be on the PATH. Install lines:
-[`CONTRIBUTING.md`](CONTRIBUTING.md).
+Nothing here installs `task` (go-task), `uv`, `bun` or Node ([`CONTRIBUTING.md`](CONTRIBUTING.md)).
 
 ## Start here
 
 | Question | Go to |
 |---|---|
-| Where does X live in the code | [`docs/architecture/where-is-what.md`](docs/architecture/where-is-what.md) |
-| Where a directory is headed, and the checklist for moving one | [ADR-0145](docs/adr/0145-the-repository-is-laid-out-by-job.md): the target layout and the move order |
-| What is Piloti, and what is it not | [`VISION.md`](VISION.md) |
-| What does this word mean | [`CONTEXT.md`](CONTEXT.md) for the domain, [`docs/glossary.md`](docs/glossary.md) for the code |
-| How do I name X (a file, identifier, route, env var, table, event, flag, tool) | [`docs/contributing/naming.md`](docs/contributing/naming.md) |
-| Set up, branch, commit, get a PR merged | [`CONTRIBUTING.md`](CONTRIBUTING.md) |
-| What an agent can do in the workspace, and how to add it | [`docs/architecture/agent-surface.md`](docs/architecture/agent-surface.md) |
-| Everything written down, by the question you arrived with | [`docs/README.md`](docs/README.md) |
-| How the system works | [`docs/architecture/system-overview.md`](docs/architecture/system-overview.md) |
-| Why it is like that | [`docs/adr/`](docs/adr/) |
-| How we work, in detail | [`docs/contributing/README.md`](docs/contributing/README.md) |
-
-This file is what you must **act on** while working. Project knowledge you want
-to add here has no home yet: give it one under
-[`docs/contributing/`](docs/contributing/README.md) and leave a one-line pointer.
+| Where does X live in the code | [`where-is-what.md`](docs/architecture/where-is-what.md) |
+| What does this word mean, how do I name X | [`CONTEXT.md`](CONTEXT.md), [`glossary.md`](docs/glossary.md), [`naming.md`](docs/contributing/naming.md) |
+| How we work: the rules and their cases | [`working-style.md`](docs/contributing/working-style.md) |
+| What every change must do, and what checks it | [`obligations.md`](docs/contributing/obligations.md) |
+| Code conventions and the rules that span services | [`code-conventions.md`](docs/contributing/code-conventions.md) |
+| What an agent can do in the workspace, and how to add it | [`agent-surface.md`](docs/architecture/agent-surface.md) |
+| Everything else, by question | [`docs/README.md`](docs/README.md) |
 
 ## Where the scoped guides are
 
-Each service keeps its own `AGENTS.md` beside the code, and inside
-`packages/agent/src/agent/` so do the packages with invariants of their own, for what holds
-only there. **Read the one for the area you are about to touch, before you touch
-it.** They are additive: this file still applies.
-
-Harnesses find them on their own, but late. Claude reaches one only after it has
-opened a file in that directory, and never for a question answered without
-opening one, so opening it yourself is the difference. How they are wired, and
-what belongs in which:
-[`docs/contributing/agent-onboarding-files.md`](docs/contributing/agent-onboarding-files.md).
+A service or package may keep its own `AGENTS.md` beside its code, adding to
+this file. Read the one for the area you are about to touch before you touch it:
+harnesses load it late or never. `git ls-files '*AGENTS.md'` lists them; what
+belongs in which: [`agent-onboarding-files.md`](docs/contributing/agent-onboarding-files.md).
 
 ## Working style
 
-**Value driven.** Before touching anything, answer what the user expects to be
-true when this is done. The request is evidence about that expectation, not the
-expectation itself: a spec or handover package is someone's guess at how to
-reach the outcome. When the requested change would not produce it, say so before
-writing the code, and say what would. Name the gap and let the user decide which
-one they are paying for. This neither widens a task because you spotted
-something adjacent, nor narrows it to the comfortable part.
+The long form of each rule: [`working-style.md`](docs/contributing/working-style.md).
 
-**Aim at the north star, land on the clouds.** Design a capability twice:
-first the scene a person would experience if anything were buildable, with
-technology as the enabler and never the objection; then the slices we can
-build, measure and ship now, each naming the part of the star it serves. Keep
-both written down, the star above the plan. Show the person what supports the
-answer, not every step taken.
+- **Value driven.** Write down what the user expects to be true when this is
+  done; when the requested change would not produce it, say so before coding.
+- **Finish the task.** Carry reversible work to the end state, report at
+  boundaries, and stop only for a one-way door or a real ambiguity.
+- **Code is memory; a comment is a liability.** The next agent copies what the
+  code does, workarounds included; a comment goes stale and excuses them. If you
+  need to document how code works, treat it as an architectural fault and
+  rethink how you built it. Turn each correction into a check that names the fix.
+- **Context earns its place.** Every line of a guide, skill or prompt names the
+  failure it prevents; a line about state outside the code names where it lives.
+- **Read [`gotchas.md`](docs/contributing/gotchas.md) first** when something
+  surprises you or breaks, and add your entry with the string you searched for.
+- **Done means the closing checklist** of [`definition-of-done.md`](docs/contributing/definition-of-done.md),
+  every line filled with evidence or why not, in your summary.
 
-**Prefer visuals.** For architecture, data flow, deployment topology or
-sequence, render an Excalidraw diagram (`create_view`) rather than prose alone:
-layered left to right, aligned, orthogonal arrows that miss the boxes, short
-legend. Offer one proactively in design discussions.
-
-**Buy, don't build.** Complexity that belongs to somebody else's domain is a
-dependency, not a module you write: geometry, cryptography, time zones, PDF,
-identity, storage, observability. Identity is WorkOS, the cache Dragonfly, the
-object store SeaweedFS, LLM traces Langfuse; each was an ADR rather than a
-weekend. Before the second hundred lines of something general, search for the
-library, and say in the PR what you found and why it did or did not fit. Write
-it yourself when the library's shape does not answer your question, when it
-drags a native toolchain into the image, or when the thing *is* the product.
-Then keep the library in the suite as the oracle you check against.
-
-**Industry standard first.** Where a published standard or the dominant
-convention covers the problem, use it and its vocabulary: MCP for agents,
-A2A for agent-to-agent work, OAuth 2.1 and the RFCs behind it for delegation,
-OpenAPI for HTTP contracts, the vendor's own product (a WorkOS feature) before
-our own. Look the standard up before you design; a name we invent for a thing
-the standard already names is a translation every agent and new colleague pays
-for. Deviate only with the reason written in an ADR. Anything an agent reads
-(tool names, descriptions, errors, cards over the wire) is English, with one
-word per concept; German is for people, through i18n, and for domain data.
-How to name a thing, and the terms under review: [`naming.md`](docs/contributing/naming.md).
-
-**Agents can act in every tool we choose.** A tool we adopt (CMS, CRM,
-tracker, analytics, an infrastructure service) must let an agent read, create,
-edit, publish and query in it through a first-class surface: the vendor's
-official MCP server, or at least a complete, documented API with scoped tokens.
-Its configuration is code an agent can change by PR, and an agent's edits have a
-draft or review step and a revision history to roll back from. A tool that only
-a person in a browser can drive is a tool our agents cannot work in. Record the
-check in the tool's ADR; the checklist is in
-[`ai-native-tooling.md`](docs/contributing/ai-native-tooling.md).
-
-**Prompting advice is dated.** Advice on prompts, tool descriptions or context
-comes from the vendor's live sources of the last three months, each cited with
-its date; the consultant that gathers it runs on the strongest model. Say what
-the agent is for and give it tools; do not script how it thinks.
-[`working-style.md`](docs/contributing/working-style.md#prompting-advice-has-a-three-month-shelf-life).
-
-**Question the rules, including these.** A rule here records a decision someone
-made with what they knew then. When one blocks the better result, or a new
-standard makes it wrong, say so and change the rule in the same change, with the
-reason; do not contort the code around it and do not break it silently.
-
-**Fix causes, not symptoms.** Establish what a measurement is *of* before
-optimising it. A change that improves a number without changing what produced it
-is a bandage, and it removes the signal pointing at the real fault. Verify the
-cause by measuring it: an unmeasured cause is a guess, and a fix built on a
-guess is a bandage even when it works. When the fast fix and the correct fix
-disagree, take the correct one, or say plainly that you are deferring it and
-why.
-
-**Ratchet every correction.** A ratchet turns one way. Fix the output, then
-close the layer that let it through, preferring the layer that holds while
-people are tired: a database CHECK constraint asks nobody to remember anything.
-Ratcheted means a second occurrence is caught by something other than a person
-noticing. Reach for it when a reviewer corrects you, when something surprises
-you, or when you correct yourself twice for one reason.
-
-**Everything you learn is written down, in the same change.** Every fact about
-this system that you had to find out, because no doc told you, is research the
-next agent pays for again unless it lands in the repo. That covers what you read
-in code, what a failure taught you, and every finding of a subagent, scout or
-consultant you ran: their reports live in a scratch directory that dies with the
-session, so nothing they found exists until it is in a tracked file. Before it
-lands, challenge it: a fact goes in only after you re-checked it in the code,
-because a confident wrong note is worse than none. Write it where the next agent
-will already be looking (the doc for that area, the scoped `AGENTS.md`, the
-gotchas register, the ADR, the glossary), never in a new note nobody opens. A
-discrepancy between a doc and the code is fixed in the same change, the code or
-the doc, not reported. The definition of done's closing checklist names each
-fact and the file it went to.
-
-**Finish the task.** Reversible work does not get a permission checkpoint. A
-natural boundary, a layer done or a slice green or a commit pushed, is a place
-to report progress, never a place to stop and ask whether to continue. Asking costs
-the user a turn to say "yes, keep going", and that turn is a correction: it
-means the plan was already agreed and you paused anyway. Carry on to the end
-state the user described, then present the result and let them redirect. Stop
-early only for something genuinely irreversible or genuinely ambiguous, and when
-you do, say what you need rather than offering a menu.
-
-**Ask first only for a one-way door.** That list is short, and everything on it
-has a safe form that is the default. Run the writing form when the user has
-asked for it in this session:
+**Ask first only for a one-way door.** Each has a safe form, which is the
+default. Run the writing form when the user asked for it in this session:
 
 | Run it freely | Ask first |
 |---|---|
@@ -168,133 +66,19 @@ asked for it in this session:
 | `task langfuse:provision`, which checks | the same task with `-- --apply`, which creates score configs, the review queue, judges and the golden dataset in Langfuse |
 | a commit, a branch, a push to your own branch | a force-push, or any history rewrite on a branch someone else may have checked out |
 
-The rest of the work in this repo is reversible and gets no checkpoint. That is
-a statement about the tasks above, not a blanket permission: anything that
-destroys what you cannot regenerate needs the same confirmation whether or not
-it is listed here. `rm -rf`, `git clean -fdx`, a `DROP` or unfiltered `DELETE`
-against a database anyone else uses, and removing a Docker volume all qualify.
-
-**When something surprises you or breaks, read
-[`docs/contributing/gotchas.md`](docs/contributing/gotchas.md) before you start
-debugging it.** It is indexed by the symptom you arrive with, and every entry is
-an afternoon somebody already spent. Add yours the moment a failure costs you
-more than a few minutes, while you still remember the string you searched for.
-That register is the other half of the ratchet: a correction with nowhere to
-land is not ratcheted.
-
-The cases that produced each rule:
-[`docs/contributing/working-style.md`](docs/contributing/working-style.md).
-Which layer to close: [`docs/contributing/correction-ratchet.md`](docs/contributing/correction-ratchet.md).
+Anything else that destroys what you cannot regenerate needs the same yes:
+`rm -rf`, `git clean -fdx`, a `DROP` or unfiltered `DELETE` against a database
+anyone else uses, removing a Docker volume.
 
 ## Obligations
 
-Repo-wide. Each service adds its own; the map is above, and those rows are the
-ones that will fail your PR.
+The rules a CI check enforces are in [`obligations.md`](docs/contributing/obligations.md),
+and their checks fail loudly. Only review catches these:
 
-| When you | You must | What fails you |
-|---|---|---|
-| Write a commit, or open **or rename** a PR | Conventional Commits — `feat` `fix` `docs` `refactor` `perf` `test` `ci` `build` `chore` `revert`. The **PR title** most of all: the repo squash-merges it, so the title is the commit that lands on `develop`. [`CONTRIBUTING.md`](CONTRIBUTING.md#commits-and-pr-titles) | The **Conventional PR title** job blocks the PR. A prose title is the one that keeps slipping through, because nothing local checks it |
-| Add or change something a person can do (a route, a button, a setting) | Give it an operation in `apps/workspace/bff/agent-api/catalog/` in the same change, or a reason in `NOT_AN_AGENT_CAPABILITY`. Headless first: the operation is the capability, the UI one client of it. Who sees it (an outside agent, Piloti, a native tool of Piloti's instead, the platform door, or nobody: `withheld`, with category and reason) is its entry in `apps/workspace/bff/agent-api/exposure.config.ts`, the one file that decides it. [`docs/contributing/headless-first.md`](docs/contributing/headless-first.md) | `agent-reachability.spec.ts`; the config does not compile without the entry, and `exposure.config.spec.ts` fails a missing reason or a stale `exposure.json` |
-| Name anything in code: a file, folder, identifier, type, enum token, test id, route, API or schema field | **English only, no exceptions for domain words**, and the standard's word before a plain one before any word of ours. German lives in the i18n dictionaries and in domain data. [`naming.md`](docs/contributing/naming.md) | `tests/test_english_names.py` (Python) and `apps/workspace/tests/english-names.spec.ts` (UI), a per-file ratchet on identifiers with German stems (`ci/german_stems.json`); review for file names, routes and string tokens |
-| Name anything in code or infrastructure, or write anything a person or an agent reads | **No brand in a name, and the name only as copy** (ADR-0149): name it for what it does, and read the product's name from `packages/brand/identity.json` (`PRODUCT_NAME`, `{productName}`, `{{ product_name }}`). [`naming.md`](docs/contributing/naming.md#no-brand-in-a-name) | The `brand-names` hook (`scripts/check_brand_names.py`, identifiers) and the `brand-prose` hook (`scripts/check_brand_prose.py`, retired names and a typed-out current name in text), each a ratchet on its `ci/brand_*_baseline.json`, in `task lint:repo` and CI's **Repo checks** job; `tests/test_product_name_parity.py` for the one source <!-- brand-history --> |
-| Write a file or a function | A source file (Python, TypeScript or JavaScript) stays at or under 600 lines and a Python function at or under 60; one already over may not grow, and when it shrinks you lower its entry with `--update`. Generated files, tests, fixtures, migrations and copy are exempt. [`code-conventions.md`](docs/contributing/code-conventions.md#size-limits) | The `file-size` hook (`scripts/check_file_size.py` against `ci/size_baseline.json`) in `task lint:repo` and CI's **Repo checks** job |
-| Name a file, in code, copy or a prompt | Never call a file a plan: nothing knows a file is a drawing until its Dokumentart says so. Dokument, Datei, Fassung, Stand ([`CONTEXT.md`](CONTEXT.md), „Fassung“) | `forbidden-file-words.spec.ts` (UI copy), `packages/agent/tests/test_product_framing.py` (agent prompts); the website's `scripts/check_brand_rules.mjs` does not check this word (its design-system copy says Pläne for drawings), so review there and elsewhere |
-| Describe what Piloti is, in a doc, a prompt or copy | Lead with the workspace for architects; building law is one capability, never the frame ([`VISION.md`](VISION.md)) | `packages/agent/tests/test_product_framing.py` on the first-impression docs and every agent prompt; review elsewhere |
-| Add an environment variable | Add its row to [`docs/deployment/environment-variables.md`](docs/deployment/environment-variables.md) in the same change | The `env-docs` pre-commit hook (`scripts/check_env_docs.py`) for the queue-worker files; review elsewhere |
-| Change what a customer can notice | `task release:note -- <slug>` | The `release-notes` pre-commit hook (house rules), then CI's **Repo checks** job (its release-note step) |
-| Change what a customer can **see** | Capture it and attach it to the PR — `agent-browser` to shoot, `before-and-after` to publish. Commit no image files. [`docs/ux/visual-screenshots.md`](docs/ux/visual-screenshots.md) | Review |
-| Add or edit anything under `skills/` | Add a skill only for agent-specific procedure; anything a contributor needs too is a document ([the rule](docs/contributing/agent-skills.md#skill-or-document)). Commit the re-locked `apm.lock.yaml` with it — `task agents:audit` rewrites it for you. The deployment is gitignored, so nothing else in your diff shows the lockfile went stale | `task lint:repo` and CI's **Repo checks** job for the lockfile; review for the rule |
-| Change behaviour a doc describes | Update the doc in the same commit | Review. Stale docs are a bug, because an agent acts on them |
-| Add a model call, a quality check, an agent step or a surface | Make it observable in Langfuse: a model call is a generation (`observed_generation` outside a workflow run), a check is a score declared in `SCORE_DEFINITIONS`, a dimension is trace metadata. Langfuse is our observability platform and this is not optional. [`docs/observability/langfuse.md`](docs/observability/langfuse.md) | `test_model_calls_are_traced.py`, `test_langfuse_scores.py`, review |
-| Change what shapes an answer: the prompt, the card or envelope contract, retrieval, ingestion, the answer pipeline, a model or effort default | Run `task be:eval:answer-suite` before and after yourself and put the report in the PR. [The answer suite](docs/contributing/testing-and-verification.md#the-answer-suite) | Review. Nothing else sees seconds, reasoning spikes or a wrong value in a real answer |
-| Say a change is done, finished or ready, or open a PR | Clear [`definition-of-done.md`](docs/contributing/definition-of-done.md) and put its closing checklist, every line filled with evidence or with why not, in your summary | Review. "Done" without evidence is the one way to fail it |
-| Learn something the repo could have told you, yourself or through a subagent's report | Verify it in the code, then write it where the next agent will already be looking, in the same change; fix any doc-versus-code discrepancy you found rather than noting it. [Everything you learn is written down](#working-style), [the ratchet](docs/contributing/correction-ratchet.md#human-intervention-is-a-failure-signal) | The **What we learned** line of the [closing checklist](docs/contributing/definition-of-done.md#the-closing-checklist); review for whether the list is complete |
-
-`task verify` is the local gate: host-native, defined once in `Taskfile.yml`. CI
-calls the same definitions but schedules them differently, so a local pass is
-strong evidence rather than a guarantee. `task verify:fast` is the gate before a
-push: it runs the tiers and the UI specs your diff against `origin/develop`
-reaches, as CI's Plan job does for a pull request, without the two production
-builds and without coverage. `-- --all` runs every tier.
-
-Four gates sit outside `task verify` and are still required: `task db:test:rls`
-whenever you touch the tenant boundary, `task be:test:postgres` whenever you touch
-a Python claim queue's SQL (the BFF queue's is covered by `db:test:rls`), `task cms:test:db` whenever you touch
-`apps/cms` (the review rules and the migrations on Postgres), and `task pkg:test` whenever you touch `packages/`. CI runs
-all four (the Frontend, Backend, CMS and packages jobs), so a PR cannot merge without them; they stay
-out of `verify` because each needs something a per-commit gate should not pay
-for — PostgreSQL server binaries, and four minutes of IfcOpenShell.
-
-## Two rules that span services
-
-**One coarse `SourceKind` drives all rendering** (`building_law | office |
-project | web | measurement`), defined in `packages/agent/src/agent/common/source_kinds.py`.
-The UI's `SOURCE_KINDS` and `SHELVES` are generated from it into
-`apps/workspace/shared/vocabularies.generated.ts` by
-`scripts/generate_vocabularies.py` (the `vocabularies` pre-commit hook), so a
-kind added in Python reaches the chip without a second edit;
-`apps/workspace/bff/source-kinds.ts` holds what the UI makes of each kind. The
-fine `norm_registry` lanes are a sub-label within a kind, and the lane→kind table
-is still a mirror, held by `test_collection_scope_parity.py`. `doc_class` is
-human-set and beats every filename guess.
-
-**Correlated debt in shared code belongs in the change that tripped over it.** YAGNI
-forbids unused features, not known defects on the path you are walking. If B
-needs A to be generic and A is not, lift A here as its own commits. The test:
-would you work around it, switch on your type, or leave a descriptor field
-unread? Then it is correlated.
-[`docs/architecture/adding-a-shareable-resource-type.md`](docs/architecture/adding-a-shareable-resource-type.md)
-holds the register.
-
-**A workspace primitive is one HTTP API with a typed client** (ADR-0055). The
-UI, the agent's tools, tasks and any later integration are equal clients of it;
-no service function is reached from a second path, and no contract is written
-twice. [`docs/adr/0055-api-first-workspace-primitives.md`](docs/adr/0055-api-first-workspace-primitives.md).
-
-**The agent door offers what only Piloti has** (ADR-0122 and its amendment). One
-MCP server at `/api/mcp` is the agent surface; Claude, Cursor and Piloti itself
-are clients of it, and the UI is another. Each tool is an operation in
-`apps/workspace/bff/agent-api/catalog/` that names a route the UI already
-calls; the route stays the gate, so authz, rate limit and body schema apply
-unchanged. Writes need the person's yes. The door offers the office's workspace
-(its data and the actions on it), Piloti's domain knowledge (the legal corpus,
-BIM/IFC analysis of the office's models) and Piloti itself (`agent-ask-*`). It
-does not offer what a calling agent already has or what is how Piloti itself
-works: a service we only proxy (web search, geocoding), product configuration
-(models, keys, budgets, screening and retention policies, settings), model work
-whose result is no office artifact, a person's own screen state. Such an
-operation stays catalogued with `withheld: { category, reason }`; deleting the
-line offers it again. The operator console is for a separate platform server,
-never the office door. A new capability is a route plus an operation, not a
-Python tool. [`docs/architecture/agent-surface.md`](docs/architecture/agent-surface.md).
-
-## Scope
-
-Fix errors you meet, including ones that pre-date your change. "It was already
-broken" leaves it broken; when a fix is genuinely out of scope, say so loudly in
-the PR.
-
-Question necessity first, then simplify. The best part is no part: ask whether
-existing machinery already covers it, and finish with a pass that tries to
-delete. Reduce complexity, never features. That pass is part of done.
-
-## Reference
-
-- Code conventions, the `any` ban, coercing raw `sql<T>`, where a shared helper
-  belongs, capability doctrine, and **the shape of a Python function** (two
-  levels of nesting, early exits, sixty lines, pure where it can be):
-  [`docs/contributing/code-conventions.md`](docs/contributing/code-conventions.md).
-- Patterns in use and what enforces each:
-  [`docs/architecture/patterns-in-use.md`](docs/architecture/patterns-in-use.md).
-- Observability: **Langfuse is the platform, and everything the product does is
-  observable in it** (ADR-0089). The contract, the score catalogue and the
-  analyst guide: [`docs/observability/`](docs/observability/README.md).
-- Verification, CI sharding, the security stack, visual evidence:
-  [`docs/contributing/testing-and-verification.md`](docs/contributing/testing-and-verification.md).
-- Lifecycle matrix: a change to a surface listed in `docs/design/lifecycles/` (the chat turn) updates its rows; the method, and the bar a new heavy surface must clear: [`docs/contributing/lifecycle-matrix.md`](docs/contributing/lifecycle-matrix.md).
-- Skills: `skills/` is the one source, `.claude/` and `.agents/` are generated.
-  [`docs/contributing/agent-skills.md`](docs/contributing/agent-skills.md).
-- `configs/` model names are the boot fallback only. The live default is
-  admin-controlled (Platform → Models); moving the fleet is a save in the admin
-  UI, never a YAML edit.
-  [`docs/architecture/org-model-configuration.md`](docs/architecture/org-model-configuration.md).
+- A change a customer can see gets a capture attached to the PR, never committed
+  ([`visual-screenshots.md`](docs/ux/visual-screenshots.md)).
+- A change to what shapes an answer runs the golden run on dev before and after
+  ([which run](docs/contributing/testing-and-verification.md#which-run-gates-a-change)).
+- A model call, check or agent step is observable in Langfuse; the tests see
+  only part of it ([`langfuse.md`](docs/observability/langfuse.md)).
+- A change to behaviour a doc describes updates the doc in the same commit.

@@ -1,10 +1,3 @@
-"""The strict half of ADR-0125: a dropped pointer is labelled, a locus must be in its passage, polarity holds.
-
-Each test here fails on the code before the change: the verifier deleted an
-unresolvable ``[N]`` silently, never compared a § beside a marker with the
-passage, and scored „keine" quoted as „eine" as verbatim.
-"""
-
 from __future__ import annotations
 
 import pytest
@@ -92,8 +85,6 @@ class TestLocus:
 
 
 class TestVerifyCitationsDropsWithoutAMarker:
-    """ADR-0125, amended 2026-11-10: an unresolved citation is removed, and no verification marker reaches prose."""
-
     SECTION = "\n\n## Quellen\n- [1] oib-rl_2.pdf, p.12\n- [2] erfunden.pdf, p.1"
 
     def test_an_unresolvable_marker_is_removed_with_the_space_before_it(self):
@@ -125,7 +116,6 @@ class TestVerifyCitationsDropsWithoutAMarker:
         assert [entry["reason"] for entry in result.removed_citations if entry["number"] == 1] == [
             LOCUS_MISMATCH_REASON
         ]
-        # The source line stays: [1] still resolves for the clause that holds.
         assert [citation["number"] for citation in result.valid_citations] == [1]
 
     def test_a_citation_whose_every_locus_misses_loses_its_line(self):

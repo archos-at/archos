@@ -3,7 +3,6 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-// Sever the server-only import chain pulled in transitively.
 vi.mock('server-only', () => ({}))
 vi.mock('@/lib/backend-proxy', () => ({
   getBackendUrl: vi.fn().mockReturnValue('http://backend:8000'),
@@ -86,8 +85,6 @@ describe('card catalog service', () => {
   })
 
   it('rejects a catalog whose shape it cannot describe', async () => {
-    // A backend older than this BFF: half a catalog reads as "Grid has no such
-    // card", which is the wrong thing to send someone to the tracker with.
     fetchMock.mockResolvedValue(
       new Response(JSON.stringify({ cards: [{ type: 'summary' }] }), { status: 200 }),
     )

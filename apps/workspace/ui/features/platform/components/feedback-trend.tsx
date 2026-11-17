@@ -1,34 +1,5 @@
 'use client'
 
-/**
- * Is it getting better? The daily HELPFUL rate, with the volume it rests on.
- *
- * The headline figure is a scoreboard; this is the part you can steer by.
- *
- * **Up is better.** Same data as a negative-rate chart, but the reader no longer
- * has to invert the shape before it means anything.
- *
- * **Rate, not count.** Votes per day would mostly plot traffic. The series is
- * the share of that day's votes that were helpful.
- *
- * **Two plots, never two y-axes.** Rate and volume are stacked, sharing one
- * x-axis: the rate line, and a volume strip underneath that says how much each
- * point is worth.
- *
- * **Thin days are drawn as unresolved, not as fact.** Below the floor a day's
- * point is dropped and the segments around it are dashed.
- *
- * **Drawn at the size it is shown.** The plot used to be a fixed 720-unit
- * viewBox stretched with `preserveAspectRatio="none"`, which squashed every
- * circle into an ellipse and every axis label into a different font width on
- * any card that was not 720px wide. The SVG now takes its measured width as its
- * coordinate system, and the text lives in HTML beside it.
- *
- * Window filling and direction arithmetic live in `@/lib/feedback/trend`,
- * shared with the digest, so the badge and the digest's sentence about
- * improvement are the same claim.
- */
-
 import type { JSX } from 'react'
 import { useEffect, useId, useMemo, useState } from 'react'
 import { Minus, TrendingDown, TrendingUp } from 'lucide-react'
@@ -49,33 +20,20 @@ export type FeedbackTrendPoint = FeedbackDayPoint
 
 export interface FeedbackTrendProps {
   points: readonly FeedbackTrendPoint[]
-  /** Days of the window, so gaps can be filled rather than skipped. */
   windowDays: number
-  /**
-   * The window's last day, `YYYY-MM-DD` (UTC). Defaults to today; a custom range
-   * that ends in the past fills back from its own end, not from today.
-   */
   endDay?: string
-  /** Below this many votes a day's rate is not treated as a reading. */
   minVotes?: number
   className?: string
 }
 
-/** Noon of the window's last day, so the fill lands on that UTC calendar day; now without one. */
 const endOf = (endDay: string | undefined): Date => (endDay ? new Date(`${endDay}T12:00:00Z`) : new Date())
 
 const FALLBACK_W = 720
 const RATE_H = 132
 const VOL_H = 28
-/** Inset so the end markers are not clipped by the plot edge. */
 const PAD_X = 6
 const PAD_Y = 8
 
-/**
- * A `day` key is a UTC calendar date, and it has to be formatted as one.
- * `new Date('2026-07-30')` parses to midnight UTC, so a reader west of
- * Greenwich would otherwise see every label a day early.
- */
 function formatDay(day: string, locale: string): string {
   return new Date(day).toLocaleDateString(locale, {
     timeZone: 'UTC',
@@ -84,11 +42,6 @@ function formatDay(day: string, locale: string): string {
   })
 }
 
-/**
- * The width of an element, live. A callback ref, so it attaches whenever the
- * plot mounts (the chart can first render as the "too sparse" sentence). Falls
- * back to a fixed width where there is no layout (tests, SSR).
- */
 function useMeasuredWidth(): [(node: HTMLElement | null) => void, number] {
   const [node, setNode] = useState<HTMLElement | null>(null)
   const [width, setWidth] = useState(FALLBACK_W)
@@ -104,11 +57,6 @@ function useMeasuredWidth(): [(node: HTMLElement | null) => void, number] {
   return [setNode, width]
 }
 
-/**
- * The direction, in words, as a badge: icon + label + tint. Measured first third
- * against last third (see `feedbackTrendDelta`), never endpoint against
- * endpoint. Renders nothing when too few days are readable to have a direction.
- */
 export function FeedbackTrendDirection({
   points,
   windowDays,
@@ -144,11 +92,6 @@ export function FeedbackTrendDirection({
   )
 }
 
-/**
- * The daily helpful rate over a stacked volume strip. Returns a sentence
- * instead of a chart when too few days are readable: a flat line at zero would
- * read as "every answer failed" instead of "we do not know".
- */
 export function FeedbackTrend({
   points,
   windowDays,
@@ -179,18 +122,12 @@ export function FeedbackTrend({
     )
   }
 
-  // A share of a whole: the axis is the whole. Fitting it to the data would
-  // redraw 88–92% as a mountain range.
   const maxVol = Math.max(1, ...days.map((d) => d.total))
   const step = days.length > 1 ? (width - PAD_X * 2) / (days.length - 1) : 0
   const x = (i: number): number => PAD_X + i * step
   const y = (rate: number): number => RATE_H - PAD_Y - (rate / 100) * (RATE_H - PAD_Y * 2)
-  /** The same y as a share of the plot height, for the HTML labels laid over it. */
   const yPct = (rate: number): string => `${(y(rate) / RATE_H) * 100}%`
 
-  // Segments rather than one path: a segment touching an unreadable day is
-  // dashed. A segment between TWO unreadable days is dropped, never bridged
-  // along the zero line.
   const segments = days.slice(1).flatMap((day, index) => {
     const prev = days[index]
     if (prev.rate === null && day.rate === null) return []

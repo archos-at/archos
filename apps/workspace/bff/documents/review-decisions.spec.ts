@@ -33,8 +33,6 @@ beforeEach(() => {
 
 describe('buildReviewDecisionsBlock', () => {
   it('is null when this conversation has had nothing sent back', async () => {
-    // Callers omit the block rather than injecting a bare header, exactly as the
-    // memory digest and the proposal decisions do.
     vi.mocked(listRefusedVersionsForConversation).mockResolvedValue([])
     expect(await buildReviewDecisionsBlock('conv-1', 'org_1')).toBeNull()
   })
@@ -45,7 +43,6 @@ describe('buildReviewDecisionsBlock', () => {
     const block = await buildReviewDecisionsBlock('conv-1', 'org_1')
 
     expect(block).toContain(REVIEW_DECISIONS_HEADER)
-    // Verbatim: a summarised objection is an objection somebody else made.
     expect(block).toContain('Die Fluchtweglänge stimmt nicht: 42 m, nicht 35 m.')
   })
 
@@ -71,8 +68,6 @@ describe('buildReviewDecisionsBlock', () => {
   })
 
   it('prints no name at all for a reviewer the directory cannot resolve', async () => {
-    // A deactivated member, a WorkOS hiccup. A raw `user_01…` at an architect is
-    // worse than no name.
     vi.mocked(resolvePeople).mockResolvedValue(new Map())
     vi.mocked(listRefusedVersionsForConversation).mockResolvedValue([row()])
 

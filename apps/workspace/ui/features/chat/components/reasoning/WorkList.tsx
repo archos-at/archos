@@ -1,29 +1,5 @@
 'use client'
 
-/**
- * The calls of one Herleitung step (ADR-0132), inside its node of the graph:
- * one row per call — the verb muted, its object, what it found on the right.
- *
- * A status is a shape and a word, never a colour: a running call has a quiet
- * dot and „läuft“, a search that found nothing a ring and „kein Treffer“, a
- * call the turn ended under a hollow dot and „abgebrochen“, a failed call a
- * triangle and „fehlgeschlagen“, with what that means for the answer on a
- * second line under the object; a literal search that could not search
- * everything a dashed ring and „unvollständig“, with its own second line (a
- * count that is a floor, a no that is no no). Colour is kept for where a
- * source comes from, on the cards below.
- *
- * Tapping a row lights up the source cards its call returned and sets the
- * others back (`LinkSelection`, joined by `call_id`). Only a row whose call
- * returned a card links: a listing, a name search or a literal search for
- * files is an index and returns none, and a tap that dims every card and
- * lights nothing is a control without an effect. A row stored before the wire
- * carried a call id links to nothing; when it names a document it opens that
- * document instead, as it always did. A look row carries its crop, marked
- * as read off rather than measured; while the look runs, a quiet box of the
- * crop's size holds its place, so settling does not move the rows below.
- */
-
 import { useMemo, useState, type FC } from 'react'
 import {
   BookOpen,
@@ -71,11 +47,6 @@ const VERB_ICONS: Record<ActionVerb, LucideIcon> = {
   workspace: LayoutGrid,
 }
 
-/**
- * The document a row opens, or null when it opens nothing: a row needs a
- * document it can address (a workspace id, or the corpus by name). A search
- * opens only when its hits are in one document, which is when the wire names it.
- */
 export function placeOfAction(action: StoredAction): PagePlace | null {
   if (action.verb !== 'read' && action.verb !== 'look' && action.verb !== 'search') return null
   if (!action.target) return null
@@ -93,27 +64,15 @@ export function placeOfAction(action: StoredAction): PagePlace | null {
   }
 }
 
-/** What links rows and cards: the round's selection and how to change it. */
 export interface RowLinking {
   selection: LinkSelection | null
   onSelect: (selection: LinkSelection | null) => void
-  /**
-   * The calls that returned a card. A row links only when one of its calls is
-   * here; absent, every row with a call id links (a caller without cards).
-   */
   carded?: ReadonlySet<string>
-  /**
-   * The name the turn's card gives the document a call named, when there is
-   * one: the row then says what the card and „Offen“ say („OIB-Richtlinie 2,
-   * Ausgabe Mai 2023“, never „OIB-RL 2, Ausgabe 2023“ beside it).
-   */
   nameOf?: (target: string) => string | undefined
 }
 
-/** The shape before a result word, inline with the text so a wrapped result keeps it. */
 const ICON_INLINE = 'mr-1.5 inline-block align-[-2px]'
 
-/** The result on the row's right edge (or its second line on a phone): shape + word. */
 const ResultWord: FC<{ parts: WorkParts }> = ({ parts }) => {
   if (!parts.result) return null
   const strong = parts.tone === 'empty' || parts.tone === 'error' || parts.tone === 'incomplete'
@@ -155,7 +114,6 @@ const ResultWord: FC<{ parts: WorkParts }> = ({ parts }) => {
   )
 }
 
-/** What a failed or incomplete call means for the answer, on its own muted line under the object. */
 const ResultNote: FC<{ parts: WorkParts }> = ({ parts }) => {
   if (!parts.note) return null
   return (
@@ -232,7 +190,7 @@ export const WorkRowView: FC<{
   )
   const interactive = cn(
     lineClass,
-    'cursor-pointer outline-none transition-[background-color,scale] duration-snap ease-out active:scale-[0.985] motion-reduce:transition-none pointer-fine:hover:bg-muted/60',
+    'cursor-pointer outline-none transition-[background-color,scale] duration-snap ease-out active:scale-[0.985] motion-reduce:transition-none pointer-fine:hover:bg-hover',
     FOCUS_RING
   )
   const group =
@@ -309,22 +267,11 @@ export const WorkRowView: FC<{
   )
 }
 
-/**
- * The calls of one step, inside its node: a row per call, the worst first and
- * „+N weitere“ when a step made more than five, and the step's looks under
- * the row that made them. The rows sit above the node's fold overlay so they
- * stay clickable.
- */
 export const RoundCalls: FC<{
   round: WorkRound
   compact?: boolean
   linking?: RowLinking
   eager?: boolean
-  /**
-   * A rule above the rows, parting them from the step's sentence. Off for a
-   * step without one: the node's own top edge already parts it, and a rule
-   * there draws a double line.
-   */
   ruled?: boolean
 }> = ({ round, compact, linking, eager, ruled = true }) => {
   const t = useTranslations(chatCopy)
@@ -353,7 +300,7 @@ export const RoundCalls: FC<{
             aria-expanded={showMore}
             onClick={() => setShowMore((value) => !value)}
             className={cn(
-              'group text-muted-foreground pointer-fine:hover:text-foreground pointer-fine:hover:bg-muted/60 duration-snap -mx-2 flex min-h-10 w-[calc(100%+1rem)] items-center gap-2.5 rounded-control px-2 text-left text-[13px] outline-none transition-[color,background-color,scale] ease-out active:scale-[0.985] motion-reduce:transition-none pointer-coarse:min-h-11',
+              'group text-muted-foreground pointer-fine:hover:text-foreground pointer-fine:hover:bg-hover duration-snap -mx-2 flex min-h-10 w-[calc(100%+1rem)] items-center gap-2.5 rounded-control px-2 text-left text-[13px] outline-none transition-[color,background-color,scale] ease-out active:scale-[0.985] motion-reduce:transition-none pointer-coarse:min-h-11',
               FOCUS_RING
             )}
           >

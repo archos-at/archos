@@ -43,13 +43,10 @@ import pypff
 from ..mail.body_text import BodyText
 from ..mail.body_text import body_text
 
-#: Message classes read as mail. Everything else is counted and skipped.
 MAIL_CLASS_PREFIXES = ("IPM.Note", "IPM.Schedule.Meeting", "IPM.Post", "REPORT.IPM.Note")
 
-#: Top-level folders that are never a person's mail.
 _SYSTEM_TOP_FOLDERS = frozenset({"SPAM Search Folder 2", "Search Root", "Root - Public"})
 
-# MAPI property tags this module reads.
 _PR_MESSAGE_CLASS = 0x001A
 _PR_CONVERSATION_INDEX = 0x0071
 _PR_INTERNET_REFERENCES = 0x1039
@@ -75,7 +72,6 @@ _RECIPIENT_TO = 1
 _RECIPIENT_CC = 2
 _RECIPIENT_BCC = 3
 
-# MAPI value types libpff reports for an entry.
 _INTEGER_TYPES = frozenset({0x0002, 0x0003, 0x0014})
 _STRING_TYPES = frozenset({0x001E, 0x001F})
 _BOOLEAN_TYPE = 0x000B
@@ -93,17 +89,13 @@ class AttachmentInfo:
     filename: str
     content_type: str | None
     size: int
-    #: Pictures the body shows in place (logos, signatures). Not a document.
     inline: bool
-    #: A mail attached to a mail. Not read in this version.
     embedded_message: bool
 
 
 @dataclass(frozen=True)
 class ArchiveMessage:
     position: int
-    #: ``mail``, ``other`` or ``unreadable``. An ``other`` carries its class and
-    #: nothing else; an ``unreadable`` (a damaged item) carries the damage there.
     kind: str
     message_class: str
     folder_path: tuple[str, ...]
@@ -111,16 +103,12 @@ class ArchiveMessage:
     sender: Address | None = None
     to: tuple[Address, ...] = ()
     cc: tuple[Address, ...] = ()
-    #: Present in a sent message only; a received one never shows its Bcc.
     bcc: tuple[Address, ...] = ()
     sent_at: datetime | None = None
     received_at: datetime | None = None
     message_id: str | None = None
-    #: The In-Reply-To value as stored: the Message-ID this one answers.
     in_reply_to: str | None = None
-    #: The References value as stored: the Message-IDs of the conversation before it.
     references: str | None = None
-    #: ``PR_CONVERSATION_INDEX``, base64, as a ``Thread-Index`` header carries it.
     conversation_index: str | None = None
     body: BodyText | None = None
     attachments: tuple[AttachmentInfo, ...] = ()
@@ -129,7 +117,6 @@ class ArchiveMessage:
 @dataclass(frozen=True)
 class MessagePage:
     messages: tuple[ArchiveMessage, ...]
-    #: Where the next page starts; ``None`` once the archive is exhausted.
     next_position: int | None
     total: int
 

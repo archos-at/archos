@@ -17,18 +17,8 @@ from agent.common.message_utils import response_text
 
 logger = logging.getLogger(__name__)
 
-# Cards are a progressive enhancement, not the deliverable — the report is
-# already complete when this runs. Bound the call so a stalled provider cannot
-# strand an otherwise-finished job (the langchain client's own timeout may be
-# unset, and this runs after the job's cancellation monitor has stopped).
 _CARD_LLM_TIMEOUT_S = 30.0
 
-# The card schema is a deep, mostly-optional 20-way union — too complex for
-# `strict` json_schema enforcement, and on OpenRouter/DeepSeek a non-strict
-# json_schema is largely ignored while costing the most tokens. `json_object`
-# mode is widely honored and guarantees syntactic validity, which is all the
-# tolerant parser needs; the card SHAPE is taught via the prompt's worked
-# examples, and correctness is enforced downstream by validate_cards.
 _CARDS_RESPONSE_FORMAT: dict[str, Any] = {"type": "json_object"}
 
 
@@ -63,9 +53,6 @@ def _parse_cards_text(raw_text: Any) -> list[Any] | None:
     except json.JSONDecodeError:
         pass
 
-    # Salvage the first balanced top-level array or object from surrounding
-    # prose. On a span that fails to parse, keep scanning later matches (a valid
-    # array can follow a decoy) rather than abandoning the bracket type.
     for open_ch, close_ch in (("[", "]"), ("{", "}")):
         for start_match in re.finditer(re.escape(open_ch), text):
             start = start_match.start()
@@ -141,12 +128,6 @@ async def generate_cards_result(llm: Any, query: str, research_context: str) -> 
         The validated cards, or ``cards=None`` if none could be produced —
         with ``failed`` saying whether that was an outcome or an accident.
     """
-    # Known follow-up (pre-existing gap): the card LLM is passed in already-built
-    # and is NOT run through the org BYOK credential swap
-    # (agent.common.llm_credentials.apply_org_credential), so card generation
-    # always uses the platform credential even for BYOK orgs. Wiring it would mean
-    # applying the credential where this llm is constructed/handed in (chat path +
-    # async job runner), which is out of scope for the unified-resolution change.
     if llm is None or not query or not research_context:
         return CardGenerationResult(cards=None)
 
@@ -168,14 +149,11 @@ async def generate_cards_result(llm: Any, query: str, research_context: str) -> 
     try:
         parsed = _parse_cards_text(response_text(response))
         if parsed is None:
-            # The model answered, but with nothing a card could be read from.
             return CardGenerationResult(cards=None, failed=True)
         if not parsed:
-            # The model's own verdict that the report warrants no proposals.
             return CardGenerationResult(cards=[])
         validated = validate_cards(parsed)
         if not validated:
-            # It proposed cards and not one of them was well-formed.
             return CardGenerationResult(cards=None, failed=True)
         return CardGenerationResult(cards=validated)
     except Exception as e:

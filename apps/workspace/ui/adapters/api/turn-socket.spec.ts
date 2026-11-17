@@ -1,12 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The v2 socket client (`chat-wire-v2.md` §e.2): it asks for v2 and opens
- * only on the server's hello, re-attaches every running turn on reopen, drops a
- * socket that went silent mid-turn, and stops for good on 4426 or a frame it
- * cannot read.
- */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { frameOf } from '@/test-utils/wire-v2-fixtures'
 import {
@@ -46,7 +40,6 @@ class FakeSocket {
     this.onopen?.()
   }
 
-  /** Opened, and the server said hello: what `ChatSocket.serve` does. */
   greet(): void {
     this.open()
     this.receive(HELLO)
@@ -88,7 +81,6 @@ const setup = (turns: OpenTurn[] = [], extra: Partial<TurnSocketOptions> = {}) =
   return { socket, events, statuses, refreshAuth }
 }
 
-/** Let the connect's awaits (auth refresh, URL) settle. */
 const settle = () => vi.advanceTimersByTimeAsync(0)
 
 beforeEach(() => {
@@ -124,7 +116,6 @@ describe('turn socket', () => {
     await socket.connect()
     latest().greet()
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
-    // A terminal with a code this bundle does not know: dropping it would leave the turn waiting forever.
     latest().receive(frameOf(4, { type: 'RUN_ERROR', code: 'budget_exhausted', message: 'x' }, 't1'))
     expect(events).toEqual([])
     expect(latest().closed).toBe(true)
@@ -315,8 +306,6 @@ describe('the hello', () => {
   })
 })
 
-// A Stop says how much of the answer was on screen, but the server reads client
-// messages strictly: a pod one release older would refuse the whole cancel.
 describe('optional fields, by what the hello accepts', () => {
   const stop = { type: 'cancel_turn', conversation_id: 'conv_1', turn_id: 't1', shown: { seq: 9, chars: 120 } } as const
   const { shown: _shown, ...bareStop } = stop
@@ -533,10 +522,6 @@ describe('silence', () => {
   })
 })
 
-/**
- * A page the test can lock, unlock, take offline and restore from the
- * back/forward cache, as `browserPageLifecycle` reports a real one.
- */
 const fakePage = () => {
   let listener: PageLifecycleListener | null = null
   const page = {
@@ -570,6 +555,9 @@ const fakePage = () => {
     restore() {
       listener?.resume('pageshow')
     },
+    nudge() {
+      listener?.suspend?.()
+    },
   }
   const lifecycle: PageLifecycle = page
   return Object.assign(page, { lifecycle })
@@ -585,7 +573,6 @@ describe('a page away: locked, in the background, offline', () => {
     latest().greet()
 
     page.hide()
-    // iOS kills the socket of a page it froze.
     latest().drop()
     expect(statuses.at(-1)).toBe('suspended')
     await vi.advanceTimersByTimeAsync(TEN_MINUTES)
@@ -615,7 +602,6 @@ describe('a page away: locked, in the background, offline', () => {
     await vi.advanceTimersByTimeAsync(TEN_MINUTES)
     expect(FakeSocket.instances).toHaveLength(1)
 
-    // Back: from the first rung, not from where it was, and the one rung is still there.
     page.show()
     await settle()
     expect(FakeSocket.instances).toHaveLength(2)
@@ -663,7 +649,6 @@ describe('a page away: locked, in the background, offline', () => {
     latest().greet()
     const before = latest()
 
-    // A glance at another app: the socket is kept.
     page.hide()
     await vi.advanceTimersByTimeAsync(5_000)
     page.show()
@@ -671,7 +656,6 @@ describe('a page away: locked, in the background, offline', () => {
     expect(before.closed).toBe(false)
     expect(FakeSocket.instances).toHaveLength(1)
 
-    // Locked past a beat, its close never delivered: it may be dead, so it is reopened.
     page.hide()
     await vi.advanceTimersByTimeAsync(25_000)
     page.show()
@@ -688,7 +672,6 @@ describe('a page away: locked, in the background, offline', () => {
     latest().greet()
     const frozen = latest()
 
-    // Frozen: the clock moves, no timer runs; on the return the due ones fire at once.
     vi.setSystemTime(Date.now() + TEN_MINUTES)
     await vi.advanceTimersByTimeAsync(60_000)
 
@@ -712,6 +695,74 @@ describe('a page away: locked, in the background, offline', () => {
 
     expect(statuses.at(-1)).toBe('failed')
     expect(warn).not.toHaveBeenCalled()
+  })
+
+  it('reads the page afresh on a connect after a close: a hide it stopped listening to is not held against the server', async () => {
+    const page = fakePage()
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    const { socket, statuses } = setup([], { lifecycle: page.lifecycle, ladder: { delaysMs: [] } })
+    await socket.connect()
+    latest().greet()
+    page.hide()
+    socket.close()
+    page.visible = true
+
+    await socket.connect()
+    latest().open()
+    await vi.advanceTimersByTimeAsync(HELLO_TIMEOUT_MS)
+    expect(statuses.at(-1)).toBe('incompatible')
+  })
+
+  it('reports silence again on a connect after a close made while the page was hidden', async () => {
+    const onSilent = vi.fn()
+    const page = fakePage()
+    const { socket } = setup([{ turnId: 't1', lastSeq: 3 }], { lifecycle: page.lifecycle, onSilent })
+    await socket.connect()
+    page.hide()
+    socket.close()
+    page.visible = true
+
+    await socket.connect()
+    latest().greet()
+    await vi.advanceTimersByTimeAsync(60_000)
+    expect(onSilent).toHaveBeenCalledWith(['t1'])
+  })
+
+  it('spends no rung on a suspend while the page is still visible and online', async () => {
+    const page = fakePage()
+    const { socket, statuses } = setup([], { lifecycle: page.lifecycle, ladder: { delaysMs: [100] } })
+    await socket.connect()
+    latest().greet()
+    latest().drop()
+    expect(statuses.at(-1)).toBe('reconnecting')
+
+    page.nudge()
+    page.nudge()
+    await vi.advanceTimersByTimeAsync(100)
+    expect(FakeSocket.instances).toHaveLength(2)
+    expect(statuses).not.toContain('failed')
+  })
+
+  it('does not say failed a second time for a suspend while the page is still visible and online', async () => {
+    const page = fakePage()
+    const { socket, statuses } = setup([], { lifecycle: page.lifecycle, ladder: { delaysMs: [] } })
+    await socket.connect()
+    latest().drop()
+    expect(statuses).toEqual(['connecting', 'reconnecting', 'failed'])
+
+    page.nudge()
+    expect(statuses).toEqual(['connecting', 'reconnecting', 'failed'])
+  })
+
+  it('does not start the away clock on a suspend while the page is still visible and online', async () => {
+    const page = fakePage()
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    const { socket, statuses } = setup([], { lifecycle: page.lifecycle, ladder: { delaysMs: [] } })
+    await socket.connect()
+    page.nudge()
+    latest().open()
+    await vi.advanceTimersByTimeAsync(HELLO_TIMEOUT_MS)
+    expect(statuses.at(-1)).toBe('incompatible')
   })
 
   it('stops listening to the page when closed', async () => {

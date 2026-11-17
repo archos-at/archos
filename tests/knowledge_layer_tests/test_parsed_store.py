@@ -1,10 +1,3 @@
-"""A PDF version's parsed document is stored once and read back on a retry (``parsed_store``).
-
-The proof that matters: a run served from the stored artefact produces the same
-pages, triage and tables as a fresh run of the passes, and does not run them.
-Offline: an in-memory object store behind the presign seam.
-"""
-
 from __future__ import annotations
 
 import json
@@ -25,8 +18,6 @@ from .test_upload_screening_ingestion import _pdf_with_table_page
 
 
 class _ObjectStore:
-    """The BFF's presign and SeaweedFS, in memory: one key per (document, part)."""
-
     def __init__(self) -> None:
         self.objects: dict[str, bytes] = {}
         self.puts = 0
@@ -55,7 +46,6 @@ def _parsed_store(objects: _ObjectStore) -> parsed_store.ParsedStore:
 
 
 def _run(path: str, objects: _ObjectStore):
-    """The pass as the pipeline runs it: text, triage, tables, then the save after the screen."""
     with parsed_store.file_parse(_parsed_store(objects), file_version(path)) as parse:
         text_pages = parse.text_pages(path)
         page_texts = adapter.page_texts_for_visual_heuristic(text_pages)
@@ -181,8 +171,6 @@ def test_a_store_that_fails_costs_the_artefact_not_the_file(tmp_path, monkeypatc
 
 
 class TestThroughTheIngest:
-    """`_ingest_job` itself, on the offline harness: the second attempt of one version parses nothing."""
-
     def test_a_retry_skips_the_passes_and_writes_the_same_chunks(self, tmp_path, calls, monkeypatch, objects):  # noqa: F811
         from knowledge_layer.ingest import page_text_store
         from knowledge_layer.vector_store import writes

@@ -12,19 +12,14 @@ from __future__ import annotations
 
 from agent.lazy_exports import lazy_exports
 
-# What code outside this package imports, and from where: the names it imported
-# from the submodules when the package was laid out by job, measured. Loaded on
-# first use (PEP 562), so importing one submodule does not load the others, and
-# read from the submodule every time (`cache=False`), so a test that patches a
-# submodule is seen through the package too. A name missing here is imported
-# from its submodule, and `scripts/check_package_surfaces.py` counts that.
 _LAZY: dict[str, str] = {
     "Boost": ".boost",
     "FactWeights": ".boost",
     "LIKENESS": ".boost",
     "boost_terms": ".boost",
+    "EDITION_PREFERENCE": ".boost",
     "boosted": ".boost",
-    "likeness_formula": ".boost",
+    "ranking_formula": ".boost",
     "parse_boost": ".boost",
     "FolderHit": ".folders",
     "render_folder_hits": ".folders",
@@ -72,6 +67,7 @@ _LAZY: dict[str, str] = {
     "INDEXED_FIELDS": ".schema",
     "KNOWLEDGE_EDITION_FIELD": ".schema",
     "COUNTRY_FIELD": ".schema",
+    "RELEASED_FIELD": ".schema",
     "AI_PROCESSING_FIELD": ".schema",
     "QUOTE_MAX_CHARS_FIELD": ".schema",
     "LEXICAL": ".schema",
@@ -119,6 +115,7 @@ __all__ = [
     "COUNTRY_FIELD",
     "ChunkRecord",
     "DENSE",
+    "EDITION_PREFERENCE",
     "Export",
     "FOLDER_FIELD",
     "FactWeights",
@@ -142,6 +139,7 @@ __all__ = [
     "QUOTE_MAX_CHARS_FIELD",
     "QdrantStore",
     "RANKING",
+    "RELEASED_FIELD",
     "Ranking",
     "SCOPE_FIELD",
     "ScopeRead",
@@ -174,7 +172,6 @@ __all__ = [
     "identity_mismatch",
     "kind_filter",
     "legacy_remaining",
-    "likeness_formula",
     "literal_tokens",
     "make_client",
     "office_condition",
@@ -185,6 +182,7 @@ __all__ = [
     "physical_for_scope",
     "point_id",
     "project_payload",
+    "ranking_formula",
     "reading_as",
     "reading_facts",
     "reading_for_maintenance",

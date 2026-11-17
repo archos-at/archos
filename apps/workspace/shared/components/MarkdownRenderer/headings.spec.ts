@@ -56,8 +56,6 @@ describe('markdownHeadings', () => {
   })
 
   test('a repeated heading gets its own id, and the first one keeps the id it had', () => {
-    // Unsuffixed, so every link already published against the first
-    // occurrence still lands where it landed.
     expect(ids(['## Bewertung', 'Text.', '## Bewertung', '## Bewertung'].join('\n'))).toEqual([
       'bewertung',
       'bewertung-2',
@@ -92,7 +90,6 @@ describe('markdownHeadings', () => {
     const [heading] = markdownHeadings('## Wärmedurchgangskoeffizient [1]')
     expect(heading.text).toBe('Wärmedurchgangskoeffizient [1]')
     expect(heading.id).toBe('waermedurchgangskoeffizient-1')
-    // `[2][3]` is a claim carried by two sources, not a reference link.
     expect(texts('## Bewertung [2][3]')).toEqual(['Bewertung [2][3]'])
   })
 
@@ -134,12 +131,6 @@ describe('markdownHeadings', () => {
   })
 })
 
-/**
- * The contract the pre-pass stands on: every id it assigns is an id the
- * renderer actually put in the document, on its own heading. Asserted against
- * the REAL renderer, so a change to either side that moves an id fails here
- * rather than shipping in-page links that scroll nowhere.
- */
 describe('the ids markdownHeadings assigns exist in the rendered document', () => {
   const REPORT = [
     '# Brandschutzanforderungen für Gebäudeklasse 4',
@@ -176,7 +167,6 @@ describe('the ids markdownHeadings assigns exist in the rendered document', () =
       expect(element?.tagName.toLowerCase()).toBe(`h${heading.level}`)
       expect(element?.textContent).toBe(heading.text)
     })
-    // Two entries resolving to the SAME element is the duplicate-heading bug.
     expect(new Set(resolved).size).toBe(headings.length)
     const rendered = Array.from(container.querySelectorAll('h1, h2, h3, h4'))
     expect(resolved.map((el) => rendered.indexOf(el as Element))).toEqual(
@@ -194,15 +184,6 @@ describe('the ids markdownHeadings assigns exist in the rendered document', () =
 })
 
 describe('heading extraction is linear in the length of the markdown', () => {
-  /**
-   * `HTML_TAG_RE` used to spell its attribute run as `(?:\s[^>]*?)?\s*\/?`,
-   * where the lazy class and the trailing `\s*` could both match a space. An
-   * unterminated tag then backtracked quadratically over markdown written from
-   * retrieved documents. The payload sits INSIDE the heading (tag stripping
-   * only runs over heading text) and carries a trailing character (the heading
-   * pattern trims trailing whitespace first). At this size the defect takes
-   * ~1,280ms and the fix ~0.1ms; 400ms is loose for CI and tight for the bug.
-   */
   test('an unterminated inline tag in a heading does not blow up the scan', () => {
     const markdown = `## Kennwerte <a ${' '.repeat(40_000)}x\n`
 
@@ -225,11 +206,6 @@ describe('heading extraction is linear in the length of the markdown', () => {
 })
 
 describe('inline HTML in a heading is removed completely', () => {
-  /**
-   * Removing one tag can COMPLETE another: „<scr<b>ipt>" leaves „<script>"
-   * after one pass (CodeQL js/incomplete-multi-character-sanitization). The
-   * output is React text and a `[a-z0-9-]` slug, so this is defence in depth.
-   */
   test('a tag hidden by another tag does not survive the strip', () => {
     expect(texts('## Kennwerte <scr<b>ipt>alert(1)</scr<b>ipt>\n')[0]).not.toContain('<')
   })

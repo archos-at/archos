@@ -1,5 +1,3 @@
-"""References (Verweise) read at ingest: norms, laws, plans and named documents, with no model."""
-
 from __future__ import annotations
 
 import pytest

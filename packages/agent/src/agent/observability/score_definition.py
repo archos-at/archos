@@ -20,8 +20,6 @@ class ScoreDefinition:
     name: str
     data_type: DataType
     description: str
-    #: Who writes it: the agent at runtime, the BFF from a vote, a reviewer in
-    #: an annotation queue, or a Langfuse LLM-as-a-judge evaluator.
     writer: Literal["agent", "bff", "annotation", "judge"] = "agent"
     categories: tuple[str, ...] = ()
     min_value: float | None = None

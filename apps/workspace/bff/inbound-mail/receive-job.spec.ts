@@ -80,7 +80,6 @@ vi.mock('./repository', () => ({
     if (state.row) state.row.notifiedAt = new Date()
   }),
   keepReceiveProgress: vi.fn(async (_id: string, progress: Record<string, unknown>) => {
-    // As jsonb would: the Dates come back as strings.
     if (state.row?.status === 'received') state.row.receiveProgress = JSON.parse(JSON.stringify(progress))
   }),
 }))
@@ -128,10 +127,8 @@ vi.mock('@/lib/realtime/door-events', () => ({ publishProjectChanged: vi.fn() })
 vi.mock('@/lib/jobs-queue/enqueue', () => ({ enqueueJobIfAbsent: vi.fn(async () => true) }))
 vi.mock('@/lib/auth/pinned-session', () => ({ resolvePinnedRequesterSession: vi.fn() }))
 vi.mock('./announce', () => ({ announceWaiting: vi.fn(async () => true), announceHeld: vi.fn(async () => true) }))
-// Whether the From's member may write in the project (the sender rule): no, unless a test says so.
 vi.mock('@/lib/authz/project-membership', () => ({ userHoldsProjectPermissionStrict: vi.fn(async () => false) }))
 vi.mock('./receive-original', () => ({ recordOriginal: vi.fn(async () => 'none') }))
-// The real original reader, where a case asks for it (B2): its row write lands on the in-memory row.
 vi.mock('./receive-repository', () => ({ findAddressToken: vi.fn(async () => 'abcdefgh2345') }))
 vi.mock('./receive-original-repository', () => ({
   recordOriginalFields: vi.fn(async (_id: string, fields: Partial<InboundMailRow>) => {
@@ -274,7 +271,6 @@ function receivedRow(overrides: Partial<InboundMailRow> = {}): InboundMailRow {
   }
 }
 
-/** Stage `raw` as the webhook would have, and make the row for it. */
 function receive(raw: string, overrides: Partial<InboundMailRow> = {}) {
   state.objects.set(RAW_KEY, bytes(raw))
   state.row = receivedRow(overrides)
@@ -286,7 +282,6 @@ const heldRow = () => state.row as InboundMailRow
 const stagedRead = () => JSON.parse(Buffer.from(state.objects.get(READ_KEY) ?? new Uint8Array()).toString()) as MailRead
 const jobKinds = () => vi.mocked(enqueueJobIfAbsent).mock.calls.map(([job]) => job.kind)
 
-/** The INFO lines (the per-delivery operator trail), through the spy rather than `console`. */
 let infoSpy: ReturnType<typeof vi.spyOn>
 const infoLines = () => infoSpy
 
@@ -526,13 +521,26 @@ describe('mail is never lost to a parser bug', () => {
     expect(heldRow().status).toBe('received')
 
     expect(await run(LAST)).toMatchObject({ done: true })
-    // B3: the member it was judged to be, never a stranger's 14 days.
     expect(heldRow()).toMatchObject({ status: 'waiting', senderTrust: 'member_verified', senderUserId: MEMBER_ID, senderClass: 'office_member' })
     expect(heldRow()).toMatchObject({ readStorageKey: null, rawScanStatus: 'clean' })
     expect(waitDays()).toBe(30)
     expect(state.parts).toHaveLength(1)
     expect(state.parts[0].riskFlags).toEqual(['unreadable'])
     expect(announceWaiting).toHaveBeenCalledTimes(1)
+  })
+
+  it('holds the mail unreadable on the last attempt when its raw message cannot be read at all, so no dead job leaves it received', async () => {
+    receive(await sign(message()))
+    state.objects.delete(RAW_KEY)
+
+    await expect(run(NOT_LAST)).rejects.toThrow('no object')
+    expect(heldRow().status).toBe('received')
+
+    expect(await run(LAST)).toMatchObject({ done: true })
+    expect(heldRow().status).toBe('waiting')
+    expect(heldRow()).toMatchObject({ readStorageKey: null })
+    expect(state.parts).toHaveLength(1)
+    expect(state.parts[0].riskFlags).toEqual(['unreadable'])
   })
 
   it('holds a mail whose sender was never judged as unchecked for 30 days, never as an outsider’s 14', async () => {
@@ -627,7 +635,6 @@ describe('the PII canary', () => {
     await run()
     vi.mocked(readMail).mockRejectedValue(new Error(`reader failed on ${canaries[1]}`))
     receive(message(BODY, { From: `${canaries[0]} <${canaries[3]}>`, Subject: canaries[1] }))
-    // The fault's own log line, then the hold once the budget is spent.
     expect(await run(LAST)).toMatchObject({ done: false })
     await run(LAST, RECEIVE_FAULT_BUDGET)
     receive(message(BODY, { From: `${canaries[0]} <${canaries[3]}>`, 'Auto-Submitted': 'auto-replied' }))
@@ -1033,7 +1040,6 @@ describe('B3: a dependency that does not answer spends no attempt and freezes no
     expect(heldRow().receiveProgress).toMatchObject({ authentication: { reason: 'dkim_pass' } })
 
     expect(await run(NOT_LAST, 1)).toMatchObject({ done: true })
-    // DKIM is not asked again; of the attachments only the one whose scan failed is scanned again.
     expect(vi.mocked(authenticateSender)).toHaveBeenCalledTimes(1)
     expect(vi.mocked(scanForMalware)).toHaveBeenCalledTimes(4)
     expect(heldRow()).toMatchObject({ status: 'waiting', senderClass: 'verified_writer', receiveProgress: null })
@@ -1083,7 +1089,6 @@ describe('B3: a dependency that does not answer spends no attempt and freezes no
   it('stages an attachment whose Content-Type Node would refuse as a header as application/octet-stream (R1)', async () => {
     const { validateHeaderValue } = await import('node:http')
     const { putStagedObject } = await import('./staging')
-    // The real client sends the type as a header; Node throws ERR_INVALID_CHAR on `☃`.
     vi.mocked(putStagedObject).mockImplementation(async (_bucket, key, body, contentType) => {
       validateHeaderValue('content-type', contentType)
       state.objects.set(key, body)

@@ -55,28 +55,14 @@ from .scope import scope_filter
 
 logger = logging.getLogger(__name__)
 
-#: Points per upsert request. A 3072-d vector is about 30 KB of JSON, so this
-#: keeps one request near 2 MB.
 UPSERT_BATCH = 64
-#: Points per scroll page.
 SCROLL_PAGE = 256
-#: Payload updates per ``batch_update_points`` request.
 PAYLOAD_BATCH = 128
-#: Distinct values one facet request may return: every file of a scope, every
-#: scope of a collection. Above it the caller reads a truncated list, and says so.
 FACET_LIMIT = 100_000
-#: Chunk ids per delete request: a re-upload retires every chunk of the version
-#: it replaces, and a large drawing set has thousands.
 DELETE_BATCH = 1024
 
-#: How long a process trusts the BM25 length it read from a collection's metadata. A rebuild
-#: switches the alias to a collection written with another one; within this window a writer may
-#: still compute with the old, which the runbook's restart after the switch closes.
 BM25_LENGTH_TTL_SECONDS = 300.0
 
-#: The pause before each retry of a write that failed transiently. A peer
-#: that is restarting (a rollout, a drain) answers again within seconds; a
-#: refusal (4xx) is final and is never retried.
 RETRY_BACKOFF_SECONDS = (0.2, 0.8, 2.0)
 
 
@@ -214,8 +200,6 @@ class QdrantStore:
             raise RuntimeError(f"{ALIASES[physical]}: {mismatch}")
         self._verified.add(physical)
 
-    # ------------------------------------------------------------------ writes
-
     def upsert(
         self,
         scope: str,
@@ -285,8 +269,6 @@ class QdrantStore:
     def _delete(self, scope: str, *conditions: models.Condition) -> None:
         if not self.exists(scope):
             return
-        # A delete names what it deletes: by chunk id or file name nothing else matches, and a
-        # whole scope's delete takes its folder card points with it.
         selector = models.FilterSelector(filter=scope_filter([scope], None, *conditions, kind="any"))
         with_retry(
             f"delete in {scope}", lambda: self.client.delete(self.alias(scope), points_selector=selector, wait=True)
@@ -381,8 +363,6 @@ class QdrantStore:
                     )
                 )
         self._batch(alias, f"restore doc_class in {scope}", operations)
-
-    # ------------------------------------------------------------------ inventory
 
     def _facet_counts(self, alias: str, key: str, facet_filter: models.Filter | None) -> dict[str, int]:
         response = self.client.facet(alias, key=key, facet_filter=facet_filter, limit=FACET_LIMIT, exact=True)
@@ -483,7 +463,6 @@ class QdrantStore:
         scope rather than a list of ids. A top-level key replaces the stored
         value whole, so a nested object loses the keys it no longer has.
         """
-        # ``exists`` has given an older collection the project facts indexes.
         if not payload or not self.exists(scope):
             return False
         if self.count(scope) == 0:
@@ -505,8 +484,6 @@ class QdrantStore:
         if not self.exists(scope):
             return {}
         return self._facet_counts(self.alias(scope), key, scope_filter([scope], filters, *extra))
-
-    # ------------------------------------------------------------------ plain reads
 
     def count(self, scope: str, filters: dict[str, Any] | None = None, *extra: models.Condition) -> int:
         """Chunks of ``scope`` matching ``filters`` (exact)."""

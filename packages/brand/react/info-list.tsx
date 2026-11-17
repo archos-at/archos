@@ -3,7 +3,6 @@ import { joinClasses } from './join-classes';
 
 export interface InfoListProps {
   items: { key: string; value: ReactNode }[];
-  /** With a title: heading-2 left, rows right (Impressum, Datenschutz) */
   title?: string;
   className?: string;
 }

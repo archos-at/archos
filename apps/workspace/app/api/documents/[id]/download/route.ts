@@ -1,9 +1,3 @@
-/**
- * Document download API — presign a browser-facing download URL: the original,
- * or with `?format=pdf` the PDF rendition of an office file or a DXF drawing.
- * Thin handler; all logic lives in `@/lib/documents/document-delivery`.
- */
-
 import { apiRoute, parseQuery } from '@/lib/api/handler'
 import { refuseLicensedFileForAgent } from '@/lib/base-knowledge/door-guard'
 import { getDocumentDownload } from '@/lib/documents/document-delivery'

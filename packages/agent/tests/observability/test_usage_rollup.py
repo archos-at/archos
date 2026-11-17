@@ -1,17 +1,3 @@
-"""Per-turn usage rollup: one record per turn with its dollars.
-
-Pins the sibling contract to the citation-health ledger:
-
-1. **The payload shape** — calls, prompt/completion/total tokens, cost and
-   its source. A renamed or silently dropped field makes per-turn waste
-   unmeasurable without anything erroring.
-2. **A zero row for a call-free turn** — a turn that spent nothing records an
-   explicit zero row with an error flag, rather than silence: "no calls" and
-   "the rollup failed" must read differently on the dashboard.
-3. **Fail-open recording** — stamping the trace must never take a turn down;
-   only an unreadable tracker is absence (None), never a quiet zero.
-"""
-
 import pytest
 
 from agent.observability.usage_rollup import NO_CALLS_ERROR
@@ -21,8 +7,6 @@ from agent.observability.usage_rollup import record_usage_turn
 
 
 class _Tracker:
-    """Duck-typed stand-in for CostTracker (prompt/completion/cost totals)."""
-
     def __init__(self, *, calls=0, prompt=0, completion=0, cost=0.0, job_id=None, cost_source=None):
         self.events_recorded = calls
         self.prompt_tokens = prompt
@@ -82,8 +66,6 @@ class TestFromTracker:
         assert rollup.cost_usd == pytest.approx(0.001)
 
     def test_an_aggregated_provenance_beats_the_positive_cost_inference(self):
-        # A tracker that aggregates its events says where the dollars came
-        # from; a positive cost must not overwrite that with "usage_field".
         estimated = from_tracker(_Tracker(calls=2, prompt=500, completion=100, cost=0.001, cost_source="estimate"))
         mixed = from_tracker(_Tracker(calls=3, prompt=500, completion=100, cost=0.002, cost_source="mixed"))
 

@@ -16,14 +16,21 @@ vi.mock('server-only', () => ({}))
 
 const state = vi.hoisted(() => ({
   reach: [] as Project[],
-  /** Per project id, the restricted collections the reader is cleared for. */
   cleared: new Map<string, string[]>(),
-  /** What the backend was asked, per call. */
   asked: [] as string[][],
+  signed: [] as Array<{ collectionScope?: unknown[]; organizationId?: string }>,
 }))
 
 vi.mock('@/lib/backend-proxy', () => ({ getBackendUrl: () => 'http://backend:8000' }))
-vi.mock('@/lib/request-context', () => ({ buildRequestContextWireHeaders: () => ({}) }))
+vi.mock('@/lib/request-context', () => ({
+  buildRequestContextWireHeaders: (input: { collectionScope?: unknown[]; organizationId?: string }) => {
+    state.signed.push(input)
+    return {}
+  },
+}))
+vi.mock('@/lib/base-knowledge/context/corpus-countries', () => ({
+  corpusCountriesFor: vi.fn(async (organizationId: string) => (organizationId === 'org_1' ? ['QA'] : [])),
+}))
 vi.mock('@/lib/documents/access', () => ({
   getAccessibleDocument: vi.fn(async (_session: unknown, id: string) => ({
     id,
@@ -76,6 +83,7 @@ beforeEach(() => {
   )
   state.cleared = new Map()
   state.asked = []
+  state.signed = []
   vi.stubGlobal(
     'fetch',
     vi.fn(async (_url: string, init: RequestInit) => {
@@ -87,7 +95,6 @@ beforeEach(() => {
 
 describe('the backend’s collection cap', () => {
   it('stops adding projects before the collections pass it, the reader’s own project and the Büroablage kept', async () => {
-    // 30 projects of 40 collections each would be 1 200 collections.
     for (const project of state.reach) state.cleared.set(project.id, restricted(project, 39))
 
     const response = await findSimilarPassages(session, request)
@@ -97,7 +104,6 @@ describe('the backend’s collection cap', () => {
     expect(collections.length).toBeLessThanOrEqual(BACKEND_SEARCH_MAX_COLLECTIONS)
     expect(collections.slice(0, 40)).toEqual(['proj_1', ...restricted(state.reach[0], 39)])
     expect(collections).toContain('archiv_org_1')
-    // The reader's own and eleven others fit (12 × 40 = 480, plus the Büroablage); the thirteenth would pass.
     expect(response.projectsSearched).toBe(11)
   })
 
@@ -114,6 +120,26 @@ describe('the backend’s collection cap', () => {
   })
 })
 
+describe('the base corpus in the signed scope', () => {
+  const legal = { ...request, document: { kind: 'base' as const, fileName: 'oib-rl_2_ausgabe_mai_2023.pdf' } }
+  const baseEntry = () =>
+    (state.signed[0].collectionScope ?? []).find(
+      (entry) => typeof entry === 'object' && (entry as { shelf?: string }).shelf === 'base',
+    )
+
+  it('signs the base entry with the office’s entitled countries, so a base source is found for them', async () => {
+    await findSimilarPassages(session, legal)
+
+    expect(baseEntry()).toEqual({ collection: 'oib_knowledge', shelf: 'base', countries: ['QA'] })
+  })
+
+  it('signs an empty country list for an office entitled to none, so another country’s base text is not read', async () => {
+    await findSimilarPassages({ ...session, organizationId: 'org_2' } as AuthorizedSession, legal)
+
+    expect(baseEntry()).toEqual({ collection: 'oib_knowledge', shelf: 'base', countries: [] })
+  })
+})
+
 describe('projectId', () => {
   it('names the current project without narrowing the search, and the operation says so', async () => {
     state.reach = state.reach.slice(0, 9)
@@ -122,7 +148,6 @@ describe('projectId', () => {
     const without = await findSimilarPassages(session, legal)
     const within = await findSimilarPassages(session, { ...legal, projectId: 'p3' })
 
-    // Nine projects either way: the current one is walked first, the count is of the others.
     expect(state.asked[0].slice().sort()).toEqual(state.asked[1].slice().sort())
     expect(state.asked[1][0]).toBe('proj_3')
     expect([without.projectsSearched, within.projectsSearched]).toEqual([9, 8])

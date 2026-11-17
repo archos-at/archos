@@ -1,10 +1,5 @@
-/**
- * intakeProfileStep namespace: step 5, Steckbrief: the Gebäudeklasse, what applies, what Piloti found, finishing
- * (`/app/projects/[id]/setup`, ticket 26, `docs/design/project-setup-five-steps.md`).
- */
 export const intakeProfileStep = {
   heading: 'Project profile',
-  /** How sure a value is, in words: who confirmed it and how many sources agree. Never a number. */
   confidence: {
     confirmed: 'Confirmed',
     ownAnswer: 'Your answer',
@@ -13,7 +8,6 @@ export const intakeProfileStep = {
     single: 'Suggestion from one source',
     unsupported: 'Suggestion without a source',
   },
-  /** The excerpt of the cited page, in a source's peek. */
   excerpt: {
     show: 'Excerpt',
     showAria: 'Show the excerpt of {name}, page {page}',
@@ -27,7 +21,6 @@ export const intakeProfileStep = {
     basedOnSuggested:
       '{count, plural, one {Rests on # value nobody has confirmed yet.} other {Rests on # values nobody has confirmed yet.}}',
   },
-  /** The result card: the Gebäudeklasse of a Bauwerk, its one-line reason, and how it was worked out. */
   class: {
     label: 'Gebäudeklasse',
     eyebrow: 'GK',
@@ -54,7 +47,6 @@ export const intakeProfileStep = {
       grossFloorArea: 'Gross floor area {value}',
     },
   },
-  /** The rule set's Ampel as chips: filled applies, a ring probably, dashed to check. */
   rules: {
     heading: 'What applies to this project',
     role: {
@@ -86,8 +78,15 @@ export const intakeProfileStep = {
     disclaimer: 'Not legal advice.',
     ask: 'Ask {productName}',
     askQuestion: 'What does {name} require for this project?',
+    applicability: {
+      check: 'to check',
+      applies: 'Applies to this project because of: {facts}.',
+      open: 'Whether it applies to this project depends on: {facts}. Once that is known, it shows here.',
+      case: 'Whether its scope covers this project is a case-by-case call.',
+      provision: 'Basis: {provision}',
+    },
+    source: 'Open the text',
   },
-  /** One table of what Piloti found: the decisive rows up front, the rest by topic. */
   findings: {
     heading: 'What {productName} found',
     description: 'Every value with the place it stands. Change only what is wrong; you take the rest in one step at the end.',
@@ -113,7 +112,6 @@ export const intakeProfileStep = {
     reading: '{productName} is still reading. More values will be added.',
     building: 'Building {number}',
   },
-  /** A value's source on its row, and the peek with the page excerpt. */
   source: {
     document: '{name} · p. {page}',
     documentNoPage: '{name}',
@@ -127,7 +125,6 @@ export const intakeProfileStep = {
     open: 'Open in the document',
     pinHint: 'Click the source to open the document.',
   },
-  /** Contradictions are decided in the Rückfragen; one quiet line points there. */
   contradictions: {
     open: '{count, plural, one {# contradiction is still open.} other {# contradictions are still open.}}',
     resolve: 'Resolve it in the questions',

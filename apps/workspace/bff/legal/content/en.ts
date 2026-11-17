@@ -1,31 +1,12 @@
-/**
- * Legal documents — English.
- *
- * Structural counterpart of `./de.ts` (German is the authoritative market
- * language for the Austrian product; this translation is provided for
- * convenience). Operator identity comes from packages/brand/identity.json. The
- * company is in formation: it has no register number, register court or VAT
- * ID yet, and the text says so the way the website's imprint does
- * (apps/website/src/i18n/pages/imprint.ts). No value stands in square
- * brackets; what is not verified is a TODO(owner) in a comment.
- *
- * These texts were prepared as part of the 2026-07 compliance review
- * (docs/compliance/) and are templates, not legal advice: have counsel
- * review them before relying on them.
- */
-
 import type { LegalContent } from '../types'
 import { PRODUCT_NAME, withProductName } from '@/lib/brand'
 import { SUBPROCESSOR_PAGE } from './subprocessors.generated'
 import identity from '@/shared/brand/identity.json'
 
-// Operator, address and contact from the brand's one source (packages/brand/identity.json),
-// as in the website's imprint.
 const OPERATOR = identity.legalEntity
 const ADDRESS = `${identity.street}, ${identity.postalCode} ${identity.city}, Austria`
 const EMAIL = identity.email
 
-// The processor page's tables and lists, generated from configs/subprocessors/ (scripts/generate_subprocessor_pages.py).
 const PAGE = withProductName(SUBPROCESSOR_PAGE.en)
 
 export const en: LegalContent = {
@@ -40,7 +21,6 @@ export const en: LegalContent = {
         paragraphs: [
           `${OPERATOR}, ${ADDRESS}.`,
           `Contact: ${EMAIL}`,
-          // Wording as in the website's imprint (apps/website/src/i18n/pages/imprint.ts).
           'Legal form: flexible company (FlexCo), in formation. Company register: not yet registered. We will add the company register number, the competent company register court and the VAT ID number (UID) after registration.',
           // TODO(owner): name the supervisory authority pursuant to ECG after registration and trade licensing.
           'Business purpose: development and operation of software for architecture and planning firms. We will add the supervisory authority pursuant to ECG after registration. Applicable trade regulations: Gewerbeordnung 1994, available at ris.bka.gv.at.',
@@ -106,7 +86,7 @@ export const en: LegalContent = {
       {
         heading: '4. AI processing and recipients of your content',
         paragraphs: [
-          'To generate answers, your chat messages, the content of your uploaded documents a question needs (passages found, and where needed whole pages or sections) and retrieved regulations are transmitted to external AI model providers via the API gateway OpenRouter, Inc. (USA). When a document is read in, every page passes once through an AI model (text recognition and search index), always at providers that keep no data. Web-research queries derived from your questions are sent to the search provider Tavily. Identity and sign-in are handled by WorkOS, Inc. (USA). When you dictate in the chat, the audio recording goes through OpenRouter to a transcription model (ElevenLabs, USA). In address search, the address you type goes to the public Photon service of komoot GmbH (Germany).',
+          'To generate answers, your chat messages, the content of your uploaded documents a question needs (passages found, and where needed whole pages or sections) and retrieved regulations are transmitted to external AI model providers via the API gateway OpenRouter, Inc. (USA). When a document is read in, every page passes once through an AI model (text recognition and search index), always at providers that keep no data. Web-research queries derived from your questions are sent to the search provider Tavily. Identity and sign-in are handled by WorkOS, Inc. (USA). When you dictate in the chat, the audio recording goes through OpenRouter to a transcription model (ElevenLabs, USA). Where address search is switched on in your installation, the address you type goes to the public Photon service of komoot GmbH (Germany).',
           'For product analytics, session replay, error tracking, surveys and support we use PostHog (PostHog, Inc.; data stored in the EU Cloud, Frankfurt). PostHog processes this data on our behalf under a data processing agreement (Art. 28 GDPR). PostHog also receives AI-request metadata (time, model, duration, token counts, cost, names of the processing steps) and the ratings you give to answers, including your comment, from our tracing system Langfuse. Chat messages, answers and document contents are not part of it.',
           'Mail to project addresses: while a mail waits to be filed, no AI model reads its text or its attachments. For a filing suggestion the AI model receives only the attachments’ file names that passed the name check, the subject (masked by your organization’s content check) and the sender’s domain, together with the folders every project member can see and your organization’s filing conventions; mail from unconfirmed domains and automatic mail get no suggestion. Only filed mail is processed like other project documents. No AI model receives a mail’s original (.eml). Mail reaches ' + PRODUCT_NAME + ' through Cloudflare, Inc. (USA, transit); attachments and originals are scanned for malware in our own infrastructure (ClamAV).',
         ],
@@ -286,7 +266,6 @@ export const en: LegalContent = {
     sections: [
       {
         heading: 'External processors',
-        // Rows from the data-flow register (configs/subprocessors/*.yaml); do not edit them here.
         table: PAGE.processors,
         notice:
           'Dynamic model providers: because organization administrators can switch the AI model at runtime (see the AI Transparency notice), the effective upstream model provider is not fixed. All AI traffic always passes through OpenRouter; the set of possible upstream providers is limited to the OpenRouter catalog; the selection active for your organization is visible to your administrators, every change is audited, and the serving model is recorded per request.',

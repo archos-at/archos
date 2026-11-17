@@ -15,9 +15,6 @@ from __future__ import annotations
 
 import re
 
-#: ``oib-rl_2_ausgabe_mai_2023.pdf, p.13`` and the qualified form the ambiguous-name path
-#: emits: ``Plan.pdf (Projektwissen), p.3``. The qualifier is discarded — it names the
-#: collection, not the document, and a unit is a document page.
 _CITATION_RE = re.compile(
     r"(?P<file>[A-Za-z0-9][\w.\-]*\.(?:pdf|PDF))(?:\s*\([^)]*\))?\s*,\s*p\.\s*(?P<page>\d+)",
 )

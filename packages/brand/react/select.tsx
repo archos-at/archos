@@ -6,9 +6,7 @@ import { joinClasses } from './join-classes';
 
 export interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
   label: string;
-  /** Plain option labels, e.g. ['1–5 Mitarbeitende', '6–20 Mitarbeitende'] */
   options: string[];
-  /** First, empty option; default „Auswählen …“ */
   placeholder?: string;
 }
 

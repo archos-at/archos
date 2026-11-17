@@ -1,5 +1,3 @@
-"""DXF drawn as its PDF rendition (ADR-0152): kept, placed to scale, searchable, refused when it must be."""
-
 from __future__ import annotations
 
 import io
@@ -58,7 +56,6 @@ def _text(pdf: bytes, page: int = 0) -> str:
 
 
 def _centre_mm(pdf: bytes, needle: str) -> float:
-    """The horizontal centre of a text on the page, from its first and last glyph."""
     textpage = _page(pdf).get_textpage()
     index = textpage.get_text_range().index(needle)
     left = textpage.get_charbox(index)[0]
@@ -67,7 +64,6 @@ def _centre_mm(pdf: bytes, needle: str) -> float:
 
 
 def test_a_header_less_bev_file_keeps_every_parcel_number():
-    """ezdxf's audit deletes an INSERT whose block is missing; the reader defines a stand-in first."""
     source = read_dxf(bev_partial_dxf())
     numbers = [insert.attribs[0].dxf.text for insert in source.doc.modelspace().query("INSERT[layer=='GN']")]
     assert numbers == [number for number, _at, _boundary in PARCELS]
@@ -85,7 +81,6 @@ def test_a_katastralmappe_says_where_it_is_and_what_it_is_worth():
 
 
 def test_the_page_is_to_scale_measured_on_the_pdf():
-    """123/4 and 124 are centred 35 m apart; at 1:500 that is 70 mm on the paper."""
     pdf = render_pdf(read_dxf(bev_partial_dxf()), title="Katasterauszug")
     width, height = _page(pdf).get_size()
     assert (round(width / 72 * 25.4), round(height / 72 * 25.4)) == (210, 297)
@@ -96,7 +91,6 @@ def test_the_page_is_to_scale_measured_on_the_pdf():
 
 
 def test_parcel_numbers_are_sized_for_the_paper_not_for_the_sheet_they_came_from():
-    """At 1:500 one millimetre is half a metre: a parcel number is 2.4 mm, a suppressed point number stays hidden."""
     source = read_dxf(bev_partial_dxf())
     render_pdf(source, title="Katasterauszug")
     heights = {
@@ -119,7 +113,6 @@ def test_the_page_carries_the_drawing_text_and_the_cadastre_warning():
 
 
 def test_the_parcels_are_rebuilt_from_the_boundary_network_with_their_areas_and_neighbours():
-    """No parcel is a polygon in a DKM (spec §3.2): 20 × 40 m is 800 m², the street touches every block parcel."""
     parcels = {parcel.number: parcel for parcel in read_parcels(read_dxf(bev_partial_dxf()).doc)}
     assert parcels["123/4"].area_m2 == pytest.approx(800.0)
     assert parcels["123/5"].area_m2 == pytest.approx(600.0)
@@ -139,7 +132,6 @@ def test_a_parcel_cut_open_at_the_edge_of_an_extract_has_no_area():
 
 
 def test_the_parcel_list_is_a_page_of_text_the_index_reads():
-    """Page 2 lists every parcel, one per line, so "how big is 123/4?" finds its row."""
     pdf = render_pdf(read_dxf(bev_partial_dxf()), title="Katasterauszug")
     assert len(pypdfium2.PdfDocument(pdf)) == 2
     listing = _text(pdf, page=1)
@@ -153,7 +145,6 @@ def test_a_drawing_that_is_no_katastralmappe_has_no_parcel_list():
 
 
 def test_the_sheet_names_its_maker_quietly_from_the_brand_identity():
-    """The name comes from the synced identity.json, never typed into the code (ADR-0149)."""
     style = house_style()
     identity = json.loads((Path(house_style_module.__file__).with_name("brand") / "identity.json").read_text("utf-8"))
     assert style.product_name == identity["name"]
@@ -162,7 +153,6 @@ def test_the_sheet_names_its_maker_quietly_from_the_brand_identity():
 
 
 def test_a_whole_cadastral_community_renders_inside_the_budget():
-    """1,600 parcels with houses, numbers and boundary points: well inside the route's 110 s, and small."""
     dxf = R12Writer()
     size, count = 25.0, 40
     for i in range(count + 1):
@@ -183,7 +173,6 @@ def test_a_whole_cadastral_community_renders_inside_the_budget():
 
 
 def test_line_weights_plot_as_they_say():
-    """ezdxf hands matplotlib millimetres as points; a 0.5 mm line must come out 0.5 mm, not 0.18."""
     doc = ezdxf.new("R2010")
     doc.header["$INSUNITS"] = 6
     doc.modelspace().add_line((0, 0), (10, 0), dxfattribs={"lineweight": 50})

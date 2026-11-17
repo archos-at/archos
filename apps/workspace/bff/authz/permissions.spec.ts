@@ -22,9 +22,6 @@ describe('permission registry', () => {
   })
 
   it("a role NAME grants nothing: the token's claim is the only answer", () => {
-    // There was a catalog-derived implication from the role slug, so a role
-    // named `admin` held the whole Admin bundle whatever WorkOS said it held.
-    // The deploy applies the catalog to WorkOS, so the claim already carries it.
     expect(hasPermission(session('admin'), ORG_PERMISSIONS.settingsManage)).toBe(false)
     expect(hasPermission(session('admin'), ORG_PERMISSIONS.projectsAdminister)).toBe(false)
     expect(hasPermission(session('org-auditor'), ORG_PERMISSIONS.auditView)).toBe(false)
@@ -42,7 +39,6 @@ describe('permission registry', () => {
   })
 
   it('a platform permission is never answered from a tenant session', () => {
-    // Platform access is membership of the platform org (lib/authz/platform).
     expect(hasPermission(session('org-platform-owner'), PLATFORM_PERMISSIONS.organizationsView)).toBe(false)
     expect(hasPermission(session('admin', ['org:settings:manage']), PLATFORM_PERMISSIONS.usageView)).toBe(false)
   })

@@ -1,5 +1,3 @@
-"""``ogc``: OGC API - Features and WFS 2.0 reads, and the ``geojson`` engine (ADR-0174)."""
-
 from __future__ import annotations
 
 import json

@@ -62,7 +62,6 @@ from .generate_summary import _llm_settings
 
 logger = logging.getLogger(__name__)
 
-#: Set on a listing whose metadata (summaries, dossiers, references, coverage) could not be read.
 READING_UNAVAILABLE_HEADER = "X-Reading-Unavailable"
 
 
@@ -221,7 +220,6 @@ async def _request_change_summary(
 
 def _checked_tags(raw: list[str]) -> list[str]:
     """A person's controlled tags, de-duplicated; 400 when one is off the vocabulary or there are too many."""
-    # De-duplicate while preserving order so the response is stable.
     deduped: list[str] = []
     for tag in raw:
         if tag not in deduped:
@@ -237,8 +235,6 @@ def _checked_tags(raw: list[str]) -> list[str]:
             },
         )
 
-    # Enforce the same per-document cap that ingestion applies (MAX_TAGS).
-    # Reject rather than silently truncate so the caller's intent is explicit.
     if len(deduped) > MAX_TAGS:
         raise HTTPException(
             status_code=400,
@@ -302,8 +298,6 @@ async def _refuse_revision(collection_name: str, newer: AvailableDocument, older
         if newer.change_basis == older.file_name:
             await asyncio.to_thread(set_document_change_summary, collection_name, newer.file_name, None, None)
             change_summary = change_basis = None
-    # Added to the refusals ``newer`` already holds: a suggestion read from the file names lives only in
-    # the UI, and „Nein" to it must stick even when another file was refused before.
     await asyncio.to_thread(dismiss_document_revision_suggestion, collection_name, newer.file_name, older.file_name)
     return {"superseded_by": superseded_by, "change_summary": change_summary, "change_basis": change_basis}
 
@@ -349,19 +343,14 @@ async def upload_documents(
     if not files:
         raise HTTPException(status_code=400, detail="No files provided")
 
-    # Verify collection exists
     await require_collection(ingestor, collection_name)
 
     temp_paths = []
     original_filenames = []
     try:
-        # Files are NOT deleted here - the ingestion job cleans them up
-        # after processing to allow background thread to access them
         for file in files:
             await _spool_upload(file, temp_paths, original_filenames)
 
-        # Submit ingestion job (job will clean up temp files after processing)
-        # Pass original filenames so file_details uses correct names
         job_id = await asyncio.to_thread(
             ingestor.submit_job,
             temp_paths,
@@ -372,9 +361,8 @@ async def upload_documents(
             },
         )
 
-        # Get the job to extract file_ids for the response
         job_status = await asyncio.to_thread(ingestor.get_job_status, job_id)
-        file_ids = [fd.file_id for fd in job_status.file_details]
+        file_ids = [fd.file_id for fd in job_status.file_details] if job_status else []
 
         logger.info(f"Submitted ingestion job {job_id} for {len(files)} file(s)")
 
@@ -385,11 +373,9 @@ async def upload_documents(
         )
 
     except HTTPException:
-        # Clean up on HTTP errors (job not submitted)
         _unlink_all(temp_paths)
         raise
     except Exception as e:
-        # Clean up on other errors (job not submitted)
         _unlink_all(temp_paths)
         logger.error(f"Failed to upload documents: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -407,7 +393,6 @@ async def list_documents(
     reader that projects the readings (the BFF's search facets) must keep what it has
     instead of taking the empty fields as "nothing was read".
     """
-    # Verify collection exists
     await require_collection(ingestor, collection_name)
 
     try:
@@ -416,13 +401,8 @@ async def list_documents(
         logger.error(f"Failed to list documents: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-    # Enrich with persisted per-document summaries (one SQL read). Fail-open:
-    # a summary-store hiccup must never break the document listing, so the
-    # files are returned without summaries rather than erroring the route.
     try:
         summaries = await get_available_documents_async(collection_name)
-        # Off the loop: deriving a suggestion for a document ingested before the Fassung step reads
-        # the job store for held names.
         await asyncio.to_thread(_merge_summaries, files, summaries, _held_names_of(collection_name))
     except Exception as e:
         logger.warning(f"Failed to merge summaries for {collection_name}: {e}")
@@ -490,7 +470,6 @@ async def update_document_tags_route(
     The tags and topics are stored as a PERSON's choice, so a later re-ingest
     keeps them instead of writing the classifier's guess back over the correction.
     """
-    # Validate everything before any write, so a 400 on one field leaves both untouched.
     topics = _checked_topics(request.topics) if request.topics is not None else None
     write_tags = "tags" in request.model_fields_set or request.topics is None
     tags = _checked_tags(request.tags) if write_tags else None
@@ -530,7 +509,6 @@ async def _linked_revision_response(
     if change:
         await asyncio.to_thread(set_document_change_summary, collection_name, request.newer, change, request.older)
         return {"superseded_by": request.newer, "change_summary": change, "change_basis": request.older}
-    # No line could be told: whatever the newer file already says about itself stays, with its own basis.
     return {
         "superseded_by": request.newer,
         "change_summary": newer.change_summary,
@@ -756,7 +734,6 @@ async def delete_files(
     archive, the folder bin and a publish purge and then read the document again.
     With it, those facts go and the files it replaced are current again for good.
     """
-    # Verify collection exists
     await require_collection(ingestor, collection_name)
 
     if not request.file_ids:
@@ -812,7 +789,6 @@ def add_document_routes(router: APIRouter):
         tags=["documents"],
         summary="Replace a document's controlled tags",
     )(update_document_tags_route)
-    # The pre-rename path, kept for one release: the BFF and this API deploy separately. Remove after one release.
     router.put(
         "/v1/collections/{collection_name}/revision",
         tags=["documents"],

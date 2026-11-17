@@ -1,8 +1,6 @@
 import { render, screen, waitFor } from '@/test-utils'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 
-// The link an inbox row about a team reply carries (`feedbackThreadHref`):
-// `?feedback=<report id>` on any page of the shell opens that thread.
 let search = ''
 const replace = vi.fn()
 vi.mock('next/navigation', () => ({

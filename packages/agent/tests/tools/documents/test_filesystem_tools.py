@@ -1,12 +1,3 @@
-"""One namespace: the estate's ``read_file`` beside the drafts' four verbs (ADR-0133).
-
-What is pinned: which implementation each name runs (a tool with a taken name replaces the stock one
-silently, prototype trap 1); a draft is read, written and edited exactly as before, through the
-``CompositeBackend`` route, with its stored keys unchanged; an estate read is a grounding block whose
-records ride ``ToolMessage.artifact``; a draft read registers no source; the per-mount source toggle;
-the repeat-fetch guard never signs a draft; and the wire's tool step says which mount a call reached.
-"""
-
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -87,7 +78,6 @@ class TestWhatIsBound:
         assert list(_tools(None)) == ["ls", "read_file", "glob", "grep"]
 
     def test_delete_and_execute_are_never_built(self, drafts: DraftBackend) -> None:
-        """``CompositeBackend`` always offers ``delete`` (prototype trap 3): only the allowlist keeps it off."""
         assert not set(_tools(drafts)) & {"delete", "execute"}
 
     def test_read_file_is_ours_and_takes_pages_and_clause(self, drafts: DraftBackend) -> None:
@@ -96,7 +86,6 @@ class TestWhatIsBound:
         assert ".pdf.md" in read.description and "/drafts/" in read.description
 
     def test_the_subclass_keeps_the_stock_name(self, drafts: DraftBackend) -> None:
-        """A subclass with another name is appended beside the stock instance (prototype p5)."""
         middleware = DocumentFilesystem(
             estate=_estate(), backend=composite_backend(drafts, _estate()), tools=["read_file"]
         )
@@ -224,8 +213,6 @@ class TestTheRound:
 
 
 class TestTheSkillsRoute:
-    """``/skills/`` (ADR-0135) sits beside ``/drafts/`` and the estate on one composite."""
-
     def _tools(self, drafts: DraftBackend | None) -> dict:
         from agent.skills.backend import SkillsBackend
         from agent.skills.models import Skill

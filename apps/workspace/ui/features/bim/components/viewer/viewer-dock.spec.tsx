@@ -6,9 +6,6 @@ import { ViewerIconButton } from './viewer-icon-button'
 
 describe('ViewerDock', () => {
   it('keeps the empty space around the pills out of the pointer’s way', () => {
-    // The dock spans the full width so it can centre itself. If that wrapper
-    // swallowed events, the bottom sixth of the model would be undraggable —
-    // a dead strip across the building with no visible cause.
     const { container } = render(
       <ViewerDock>
         <ViewerIconButton label="Ebenen" icon={Home} />
@@ -25,15 +22,10 @@ describe('ViewerDock', () => {
         <ViewerIconButton label="Ebenen" icon={Home} />
       </ViewerDock>
     )
-    // Two surfaces, not one row of buttons: "get me back" and "change what I
-    // see" are different jobs and the gap is what says so.
     expect(container.querySelectorAll('[data-slot="viewer-surface"]')).toHaveLength(2)
   })
 
   it('keeps the way out inside the tool pill, behind a divider', () => {
-    // NOT a third pill. Three floating bars two gaps apart read as three
-    // competing objects rather than one control bar — the bottom of the
-    // viewport ended up busier than the building.
     const { container } = render(
       <ViewerDock
         lead={<ViewerIconButton label="Ganzes Modell" icon={Home} />}
@@ -57,9 +49,6 @@ describe('ViewerDock', () => {
 
   describe('on a phone', () => {
     it('lays the tools out as one full-width bar that does not scroll', () => {
-      // The desktop row was ~480 px in a 369 px viewport and scrolled sideways
-      // behind a hidden scrollbar, which put the trailing tools off-screen with
-      // nothing to say they existed. The bar shares its width instead.
       const { container } = render(
         <ViewerDock layout="bar">
           <ViewerIconButton label="Schnitt" icon={Home} />
@@ -86,15 +75,11 @@ describe('ViewerDock', () => {
       )
       expect(screen.queryByRole('button', { name: 'Zurück' })).not.toBeInTheDocument()
       expect(screen.queryByRole('button', { name: 'Mehr' })).not.toBeInTheDocument()
-      // One bar, and no second pill beside it.
       expect(container.querySelectorAll('[data-slot="viewer-dock-bar"]')).toHaveLength(1)
       expect(container.querySelectorAll('[data-slot="viewer-surface"]')).toHaveLength(0)
     })
 
     it('seats the sheet in the SAME column as the bar and the rows above it', () => {
-      // One column that grows upward cannot overlap by arithmetic. The legend,
-      // the cut slider and the sheet used to be positioned against each other
-      // by hand, and `bottom-52` is right until the next row is added.
       render(
         <ViewerDock
           layout="bar"
@@ -120,7 +105,6 @@ describe('ViewerDock', () => {
       const column = container.querySelector('[data-slot="viewer-dock-column"]')
       expect(column?.className).toContain('flex-col')
       expect(column?.parentElement?.className).toContain('left-3')
-      // And no bar along the bottom: 393 px of height cannot spare it.
       expect(container.querySelector('[data-slot="viewer-dock-bar"]')).toBeNull()
     })
   })

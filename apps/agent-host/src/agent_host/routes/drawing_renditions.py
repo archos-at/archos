@@ -37,18 +37,10 @@ logger = logging.getLogger(__name__)
 
 DXF_RENDITION_PATH = "/v1/renditions/dxf"
 
-#: A whole cadastral community's Katastralmappe is tens of megabytes; an extract is
-#: one or two. Past this the BFF's upload ceiling would have refused it anyway.
 MAX_DXF_BYTES = 150 * 1024 * 1024
 
-#: Inside the BFF's own 120 s budget for one conversion, so this route answers
-#: before the caller gives up on it.
 RENDER_TIMEOUT_S = 110.0
 
-#: Renders run here, one at a time (matplotlib's state is global and `render_pdf`
-#: holds a lock anyway), not on the default executor every other `to_thread` caller
-#: in this process shares. A render that timed out cannot be stopped once it runs,
-#: but one still waiting in this queue is cancelled, so stuck requests do not pile up.
 _RENDERS = ThreadPoolExecutor(max_workers=1, thread_name_prefix="dxf-render")
 
 

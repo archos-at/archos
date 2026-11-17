@@ -202,8 +202,6 @@ class TestTheCallIsRefusedNotRemoved:
         answer = _answer_for(result, "w")
         assert "Web-Suche" in answer, "the refusal must name the source the reader turned off"
         assert "switched off" in answer
-        # An INSTRUCTION, not an error: what the model should do next is answer
-        # from what it holds and SAY the source went unconsulted.
         assert "was not consulted" in answer
 
     async def test_the_rest_of_the_round_still_runs(self):
@@ -279,8 +277,6 @@ class TestWhatARefusedRoundCosts:
         (record,) = [step for step in steps.steps if step.id.startswith("status:refused")]
         assert record.id == "status:refused:0"
         assert (record.detail["round"], record.detail["withheld"]) == (0, 1)
-        # Technical and key-less, like the repeat record: whether the READER is
-        # told is a product decision, and a live key would make it silently.
         assert record.channel == turn_status.CHANNEL_TECHNICAL
         assert "key" not in record
 

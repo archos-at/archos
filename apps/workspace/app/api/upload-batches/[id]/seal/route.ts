@@ -1,10 +1,3 @@
-/**
- * Seal an upload (ADR-0086): the browser has sent its last file. `unchanged`
- * and `failed` are the files that, for those reasons, wrote no row; `excluded`
- * the ones the server's name check refused, as terms and counts only — never
- * file names.
- */
-
 import { apiRoute, parseJsonBody } from '@/lib/api/handler'
 import { sealUploadBatchSchema } from '@/lib/upload-batches/batch-wire'
 import { sealOwnUploadBatch } from '@/lib/upload-batches/service'

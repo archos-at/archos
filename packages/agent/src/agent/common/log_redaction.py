@@ -48,15 +48,8 @@ __all__ = [
     "scrub_presigned_urls",
 ]
 
-#: What a redacted URL becomes. Deliberately not an empty string: a log line that
-#: reads "failed to download " leaves the reader wondering whether the URL was
-#: missing or removed.
 PRESIGNED_REDACTED = "<presigned-url-redacted>"
 
-#: Query parameters that mark a URL as a signed, self-authorising request.
-#: SigV4 (``X-Amz-Signature`` and friends) and SigV2 (``Signature``,
-#: ``AWSAccessKeyId``), matched case-insensitively because SeaweedFS, MinIO and
-#: AWS do not agree on casing.
 _SIGNATURE_PARAMS = (
     "x-amz-signature",
     "x-amz-credential",
@@ -65,9 +58,6 @@ _SIGNATURE_PARAMS = (
     "signature",
 )
 
-#: A URL run. Stops at whitespace, quotes, and the characters that commonly
-#: close a URL inside prose or a repr — so a URL at the end of a sentence does
-#: not swallow the sentence.
 _URL_RE = re.compile(r"https?://[^\s\"'<>\\]+")
 
 
@@ -75,9 +65,6 @@ def _is_signed(url: str) -> bool:
     query = url.partition("?")[2].lower()
     if not query:
         return False
-    # Parameter NAMES only: matching anywhere in the query would also fire on a
-    # key that happens to contain the word "signature", which is a filename a
-    # tenant can choose.
     return any(f"{name}=" in query for name in _SIGNATURE_PARAMS)
 
 
@@ -136,17 +123,12 @@ class PresignedUrlFilter(logging.Filter):
             record.args = tuple(_scrub_value(value) for value in record.args)
 
         if record.exc_info and record.exc_info[0] is not None:
-            # Render once, scrub, and hand the formatter a plain string. Setting
-            # `exc_text` is what `logging.Formatter` consults before formatting
-            # `exc_info` itself, so the scrubbed version is the one emitted.
             if not record.exc_text:
                 import traceback
 
                 record.exc_text = "".join(traceback.format_exception(*record.exc_info))
             record.exc_text = scrub_presigned_urls(record.exc_text)
 
-        # Never drops a record. Redaction that silences a log line trades one
-        # invisible failure for another.
         return True
 
 

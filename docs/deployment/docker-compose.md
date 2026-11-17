@@ -199,7 +199,7 @@ of the default cap of 8 volumes — with a fixed max, writes eventually fail wit
 space remains.
 
 Generating the config from env at boot means the same service definition works
-for both dev (hardcoded keys) and Coolify (generated secret) — SeaweedFS has no
+for dev (hardcoded keys) and for a generated secret — SeaweedFS has no
 `MINIO_ROOT_*`-style credential env; it reads identities from `-s3.config`.
 
 **Volume**: `seaweedfs-data:/data`
@@ -330,8 +330,8 @@ The Next.js UI application.
 | `NEXT_PUBLIC_WORKOS_REDIRECT_URI` | `${NEXT_PUBLIC_WORKOS_REDIRECT_URI:-${WORKOS_REDIRECT_URI:-http://localhost:3000/api/auth/callback}}` |
 | `WORKOS_COOKIE_PASSWORD` | `${WORKOS_COOKIE_PASSWORD}` |
 | `FILE_UPLOAD_ACCEPTED_TYPES` | `${FILE_UPLOAD_ACCEPTED_TYPES:-.pdf,.docx,.txt,.md,.csv,.xlsx,.pptx}` — the same list as the code default in `apps/workspace/shared/config/file-upload.ts` |
-| `GOTENBERG_URL` | `${GOTENBERG_URL-http://gotenberg:3000}`. Required for indexing Word, presentation, `.xls` and `.ods` files (ADR-0071). An empty value disables conversion: those files are then marked failed with a retryable reason, and `.xlsx`/`.xlsm` index without a preview. No colon in the expansion, so an empty value is kept rather than replaced by the default. The Coolify file uses `:-`, so there an empty value falls back to the bundled converter |
-| `GEOCODER_URL` | `${GEOCODER_URL-}`, in both files: off unless set (ADR-0159). The project dialog's address search; `https://photon.komoot.io` is komoot's public Photon (ADR-0151), which needs no account and receives every keystroke. Unset or empty, the address stays a plain text field and is stored as unconfirmed |
+| `GOTENBERG_URL` | `${GOTENBERG_URL-http://gotenberg:3000}`. Required for indexing Word, presentation, `.xls` and `.ods` files (ADR-0071). An empty value disables conversion: those files are then marked failed with a retryable reason, and `.xlsx`/`.xlsm` index without a preview. No colon in the expansion, so an empty value is kept rather than replaced by the default. |
+| `GEOCODER_URL` | `${GEOCODER_URL-}`: off unless set (ADR-0159). The project dialog's address search; `https://photon.komoot.io` is komoot's public Photon (ADR-0151), which needs no account and receives every keystroke. Unset or empty, the address stays a plain text field and is stored as unconfirmed |
 | `SEAWEED_ENDPOINT` | `http://seaweedfs:8333` (hardcoded in compose) |
 | `SEAWEED_ACCESS_KEY` | `seaweedadmin` (hardcoded in compose) |
 | `SEAWEED_SECRET_KEY` | `${SEAWEED_SECRET_KEY:?}` — **required**; the deploy fails fast if it is unset (see `deploy/.env.example`) |
@@ -384,7 +384,7 @@ preview or thumbnail.
 
 The image contains no Chromium, so the HTML/URL → PDF routes do not exist. It also refuses to start with any `--chromium-*` flag, so none may be added.
 
-Here the `gotenberg-internal` network already stops LibreOffice reaching anything. The two deny flags matter where no such network exists. On Coolify the converter shares a network with Postgres, SeaweedFS and the backend, and a host firewall sees none of that traffic, so the flags are what stop a crafted file from reaching those containers. Kubernetes has the same gap when `networkPolicies` is off.
+Here the `gotenberg-internal` network already stops LibreOffice reaching anything. The two deny flags matter where no such network exists. Where the converter shares a network with Postgres, SeaweedFS and the backend, a host firewall sees none of that traffic, so the flags are what stop a crafted file from reaching those containers. Kubernetes has that gap when `networkPolicies` is off.
 
 **Resource limits**:
 
@@ -396,11 +396,6 @@ Here the `gotenberg-internal` network already stops LibreOffice reaching anythin
 **Healthcheck**: `curl -fsS http://localhost:3000/health` — interval 15s, timeout 5s, start period 30s, retries 5.
 
 **Restart**: `unless-stopped`.
-
-**Coolify**: `docker-compose.coolify.yaml` runs the same image and flags but
-cannot isolate it on its own network, because a second network on the frontend
-breaks Traefik routing there. On Coolify the converter keeps egress; block it
-at the host firewall if outbound traffic matters.
 
 ### postgres
 
@@ -450,7 +445,7 @@ renamed databases refuse new sessions and end the open ones while it runs.
 
 | Property | Value |
 |----------|-------|
-| Image | `postgres:16-alpine` (Coolify: the image `postgres.Dockerfile` builds, which carries the script) |
+| Image | `postgres:16-alpine` |
 | Command | `sh /rename-legacy-names.sh` |
 | Restart | `no` |
 

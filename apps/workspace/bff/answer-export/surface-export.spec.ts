@@ -1,9 +1,3 @@
-/**
- * A composed surface in a Word file (ADR-0065): a document has no tabs and no
- * columns, so every card the reader could open on screen is printed in order,
- * a tab's title set above its card. A variant missing from the file would read
- * as a finding the answer never made.
- */
 import { describe, expect, it } from 'vitest'
 import { answerExportCopy } from '@/i18n/namespaces/answer-export'
 import { cardBlocks, cardsBlocks } from './cards'
@@ -32,7 +26,6 @@ const text = (blocks: DocBlock[]): string =>
     )
     .join('\n')
 
-/** An untitled leaf that states one line: headed by its type's word, `note` as its text. */
 const basis = (id: string, note: string) => ({
   id,
   component: 'calculation',
@@ -137,12 +130,9 @@ describe('a surface in the export', () => {
   }
 
   it('prints a diagram in a Text tab as the format asks, like one in the prose', () => {
-    // The PDF goes to a Behörde: the fence's source is noise on it, and the
-    // placeholder the prose already honours must reach a tab too.
     const printed = text(cardsBlocks([mermaidTab], t, { diagramPlaceholder: PLACEHOLDER }))
     expect(printed).toContain(PLACEHOLDER)
     expect(printed).not.toContain('flowchart TD')
-    // Without one (the Word file) the source is kept, as for the prose.
     expect(text(cardsBlocks([mermaidTab], t))).toContain('flowchart TD')
   })
 
@@ -157,7 +147,6 @@ describe('a surface in the export', () => {
     )
     const headings = blocks.flatMap((block) => (block.kind === 'heading' ? [block.level] : []))
     expect(headings).toEqual([3, 4])
-    // Without a title the cards stand at the answer's own card level.
     const untitled = cardBlocks(
       {
         type: 'surface',

@@ -211,7 +211,16 @@ done from its block, or from the run's row in the history.
 
 Above the answer sits the *Herleitung*. Folded, it is one line: how many steps
 the turn took, how many sources the answer cites, and at most one warning, the
-worst there is — „1 Abruf fehlgeschlagen“ outranks „1 Punkt offen“. Opened, it
+worst there is. What the answer check found about the answer itself comes first
+(„1 Aussage widerspricht der Quelle“, then „2 Aussagen ohne Beleg“), then
+„1 Abruf fehlgeschlagen“, then „1 Punkt offen“. The glyph turns into a warning
+triangle only when a finding sinks the answer: a statement its source
+contradicts, or a check that rated the answer low. A mostly backed answer, with
+a side statement unbacked, keeps its green check and lets the pill say so. An
+answer that cites nothing and ends by asking you something reads „Rückfrage“ on
+the right, with a question mark for its glyph; a cited answer that closes by
+inviting you to correct its assumption („Liegt das Projekt in einem anderen
+Bundesland?“) is a complete answer and keeps its check. Opened, it
 is the graph of how the turn got there: the question, each step with its calls,
 the sources each step returned, and a last card, „Grundlagen · Entwurf“.
 
@@ -273,14 +282,28 @@ reachable with Tab. A card still opens its document as before. Turns stored
 before calls carried an id link nothing; there a row about a document opens it.
 
 **„Grundlagen · Entwurf“ closes the graph.** „Rechtsgrundlage“ lists the cited
-law with its edition and place, „Belegt durch“ the cited project and office
+law with its edition and place, named by the records it was read as rather than
+by its file: „OIB-Richtlinie 4, Ausgabe April 2019 (verbindlich über StBTV 2020 seit
+01.09.2020, laut Plattformdaten, noch nie an der Quelle geprüft), Tabelle 3 · S. 4, 10“. The act in brackets, and the day from which it
+makes that edition binding where the project is, are what the records say; law read live in its own
+territory carries none. When the platform's check of that record is due, the line says whether it was never
+made („noch nie an der Quelle geprüft“) or when the last one was („zuletzt am … geprüft“), and a record read
+from an official source nobody curated says that too. The place is what a reader would write down, a point,
+a paragraph, a table, an annex, and the pages to open; a source card shows the same, and its hover lists
+each citation's page and the heading around it. „Belegt durch“ the cited project and office
 documents with theirs, and „Offen“ every call that failed or found nothing:
 „Nicht beurteilbar, weil die Suche in OIB-RL 2 nach „Brandabschnitt
 Tiefgarage“ keine Fundstelle ergab.“ It is the basis of a draft, never a proof.
 
 **Two turns need no graph.** A turn that looked nothing up says „Ohne Recherche
-beantwortet“ in one line. A turn of a single call is that call, in the past:
-„Gelesen: Brandschutzkonzept · S. 7 · zitiert [1]“. Neither opens.
+beantwortet“ in one line, with the check's finding beside it when there is one
+(„Ohne Recherche beantwortet · 2 Aussagen ohne Beleg“); if it only asked you
+something back, the line says „Rückfrage gestellt“ instead. A turn whose record
+names documents it read is never „Ohne Recherche“, even when its steps were not
+kept. A turn of a single call is that call, in the past: „Gelesen:
+Brandschutzkonzept · S. 7 · zitiert [1]“, but only while the check found
+nothing; with a finding or a Rückfrage it gets the full header, where the glyph
+and the pill have room. Neither one-liner opens.
 
 **Older turns fold by step.** A turn stored before the calls had rows draws its
 steps as before; clicking one (or Enter on it — a real button reporting

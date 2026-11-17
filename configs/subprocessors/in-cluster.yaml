@@ -32,9 +32,14 @@ components:
       de: Eine Projektlöschung entfernt die Punkte des Projekts, Snapshots halten sie 7 Tage; bei Vertragsende bleiben die Punkte der Organisation.
       en: A project deletion removes the project's points and snapshots keep them for 7 days; at contract end the organization's points stay.
   - name: Dragonfly (Redis-kompatibel / Redis-compatible)
-    holds_tenant_text: false
-    purpose: {de: 'Cache, Rate-Limiting', en: 'Cache, rate limiting'}
-    data: {de: Kurzlebige Betriebsdaten, en: Short-lived operational data}
+    holds_tenant_text: true
+    purpose: {de: 'Cache, Rate-Limiting, Zustellung laufender Chats', en: 'Cache, rate limiting, delivery of running chats'}
+    data:
+      de: 'Kurzlebig und nur im Arbeitsspeicher: die Nachrichten laufender Chats, das Mitgliederverzeichnis (Name, E-Mail, Profilbild), Berechtigungsentscheidungen, Budgetstände'
+      en: 'Short-lived and in memory only: the messages of running chats, the member directory (name, email, avatar), authorization decisions, budget state'
+    deletion:
+      de: Nichts wird auf ein Volume geschrieben; Einträge laufen ab oder werden verdrängt, ein Neustart leert den Cache. Die Velero-Kopien enthalten ihn nicht.
+      en: Nothing is written to a volume; entries expire or are evicted, and a restart empties the cache. The Velero copies do not contain it.
   - name: Langfuse
     holds_tenant_text: true
     purpose: {de: Nachvollziehbarkeit der KI-Anfragen (Tracing), en: Tracing of AI requests}

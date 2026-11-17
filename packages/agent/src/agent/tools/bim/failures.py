@@ -17,12 +17,10 @@ from dataclasses import dataclass
 from agent.knowledge.bim_query import BimQueryRejectedError
 from agent.knowledge.bim_query import BimQueryUnavailableError
 from agent.knowledge.ifc_spatial_client import ModelTooLargeError
+from agent.knowledge.ifc_spatial_client import ModelUnreadableError
 from agent.knowledge.ifc_spatial_client import SpatialEngineUnavailableError
 from agent.knowledge.ifc_spatial_client import SpatialToolError
 
-#: No project on this conversation, so there is no model to address. "Do not
-#: retry" is the operative half: no argument can fix it, and without being told
-#: so the agent retries until its tool budget runs out.
 NO_PROJECT_TEXT = (
     "Error: this conversation is not attached to a project, so no BIM model can be selected. "
     "Do not retry — no argument to this tool can fix it. Tell the user (in German) that the "
@@ -32,24 +30,12 @@ NO_PROJECT_TEXT = (
 
 NO_ORG_TEXT = "Error: organization unknown for this session — the BIM model cannot be read. Do not retry."
 
-#: The project is right and there is nothing in it to read: no model stored
-#: (``no_models``), or the one stored never produced an index
-#: (``extraction_failed``). The route's own sentence names the situation; this
-#: one says what to do with it, because the answer the agent reaches for
-#: otherwise is another operation on the same absent model. Same shape as
-#: ``NO_PROJECT_TEXT``: one call is the answer, and the reply says so.
 NO_MODEL_TEXT = (
     "This one call is the answer: tell the user (in German) that no readable IFC model is stored for "
     "this project, and answer the rest of their question without any claim about the building. "
     "Another call with different arguments returns this same result."
 )
 
-#: A model IS stored and its index is not ready (``not_ready``): usually still
-#: being extracted, and the route sends the same reason for one whose
-#: extraction failed. Either state outlives the turn, so the retry the listing
-#: invites (a filename under "not yet queryable") returns this same result.
-#: The route's own sentence says WHICH state it is; this one says what to do
-#: with it, the way ``NO_MODEL_TEXT`` does.
 NOT_READY_TEXT = (
     "This one call is the answer for this turn: tell the user (in German) that this model is not ready "
     "to be queried yet, in the words of the sentence above, and answer the rest of their question "
@@ -57,7 +43,6 @@ NOT_READY_TEXT = (
     "returns this same result."
 )
 
-#: Nothing was looked at. "Could not look" is not "looked and found nothing".
 UNAVAILABLE_TEXT = (
     "Error: the model could not be read right now (the model service is unreachable). "
     "Do NOT state anything about the building's geometry; tell the user the model could not be read."
@@ -69,7 +54,6 @@ QUERY_UNAVAILABLE_TEXT = (
     "the model could not be read."
 )
 
-#: This deployment has no geometry engine. Not a fact about the building either.
 ENGINE_UNAVAILABLE_TEXT = (
     "Error: geometric measurement is not available in this deployment (the spatial engine is not "
     "installed). Metadata questions can still be answered with ifc_query. Do NOT estimate the number."
@@ -111,9 +95,22 @@ def too_large_text(model_bytes: int | None, limit_bytes: int) -> str:
         f"Error: the model ({size}) is too large for geometric evaluation on this server "
         f"(limit {limit}). This is a statement about the FILE, not an outage — waiting does not help. "
         "Tell the user: either export the model split by building element or construction phase, "
-        "or request a larger evaluation server. Metadata questions (element lists, "
+        "or ask for the limit to be raised. Metadata questions (element lists, "
         "property values, counts) can still be answered with ifc_query — they run on the "
         "extracted index and not on the file. Do not estimate dimensions."
+    )
+
+
+MAX_REASON_CHARS = 400
+
+
+def unreadable_text(reason: str) -> str:
+    """The engine refused the file and said why — a fact about the FILE, so neither waiting nor retrying helps."""
+    return (
+        f"Error: the model file could not be opened. The reason: {reason[:MAX_REASON_CHARS]} "
+        "This is a statement about the FILE, not an outage — waiting or calling again does not help. "
+        "Pass this reason on to the user. Metadata questions can still be tried with ifc_query, which "
+        "reads the extracted index and not the file. Do NOT state anything about the building's geometry."
     )
 
 
@@ -159,6 +156,7 @@ MEASURE_FAILURES = FailureTable(
         "model_too_large",
         lambda exc: too_large_text(exc.model_bytes, exc.limit_bytes),  # type: ignore[attr-defined]
     ),
+    Failure(ModelUnreadableError, logging.INFO, "model_unreadable", lambda exc: unreadable_text(str(exc))),
     Failure(BimQueryUnavailableError, logging.WARNING, "service_unavailable", _constant(UNAVAILABLE_TEXT)),
     Failure(SpatialEngineUnavailableError, logging.WARNING, "engine_unavailable", _constant(ENGINE_UNAVAILABLE_TEXT)),
     Failure(SpatialToolError, logging.INFO, "rejected", lambda exc: unrunnable_text(str(exc))),

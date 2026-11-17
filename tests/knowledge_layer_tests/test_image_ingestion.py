@@ -1,15 +1,3 @@
-"""Unit tests for standalone PNG/JPG image ingestion (FB-15a).
-
-Covers:
-- ``_looks_like_image`` magic-byte detection (PNG / JPEG / false positives).
-- ``_build_image_caption_document`` — the caption Document shape (mocked VLM)
-  and graceful failure on undecodable bytes.
-- The ``_run_ingestion`` image branch end-to-end (heavy LlamaIndex/embedding
-  collaborators mocked): happy path registers a summary + tags, an unconfigured
-  VLM fails the file with the specific machine-readable reason, and corrupt
-  image bytes fail the file without crashing the job.
-"""
-
 import io
 import json
 import time
@@ -31,12 +19,6 @@ from agent.common.credential_resolution import ResolvedCredential
 
 
 def _patch_vlm_credential(monkeypatch, api_key: str):
-    """Point the ingestion path's VLM credential resolver at a fixed key.
-
-    Ingestion resolves the VLM credential (BYOK-aware) via
-    ``resolve_vlm_credential``; that is the chokepoint tests must control, not
-    the org-agnostic ``_get_vlm_api_key`` alias.
-    """
     cred = ResolvedCredential(
         api_key=api_key,
         base_url="https://vlm.test/v1",
@@ -56,11 +38,6 @@ def _jpeg_bytes(size=(120, 90), color="blue") -> bytes:
     buf = io.BytesIO()
     Image.new("RGB", size, color).save(buf, format="JPEG")
     return buf.getvalue()
-
-
-# =============================================================================
-# Magic-byte detection
-# =============================================================================
 
 
 class TestLooksLikeImage:
@@ -91,11 +68,6 @@ class TestLooksLikeImage:
 
     def test_missing_file_returns_none(self, tmp_path):
         assert _looks_like_image(str(tmp_path / "nope.png")) is None
-
-
-# =============================================================================
-# Caption document construction
-# =============================================================================
 
 
 class TestBuildImageCaptionDocument:
@@ -130,7 +102,6 @@ class TestBuildImageCaptionDocument:
         assert doc.metadata["content_type"] == "chart"
 
     def test_corrupt_bytes_return_none(self, tmp_path, monkeypatch):
-        # The VLM must never be reached when the bytes cannot be decoded.
         vlm = MagicMock()
         monkeypatch.setattr(adapter, "_analyze_image_with_vlm", vlm)
         p = tmp_path / "broken.png"
@@ -141,8 +112,6 @@ class TestBuildImageCaptionDocument:
 
 
 class TestStripVisualMarker:
-    """The ``[IMAGE from page 1]`` marker is for retrieval; a summary shown to people drops it."""
-
     @pytest.mark.parametrize(
         ("text", "expected"),
         [
@@ -168,8 +137,6 @@ class TestStripVisualMarker:
 
 
 class TestReadImageAppliesExifOrientation:
-    """A phone's portrait photo is stored as landscape pixels plus an Orientation tag."""
-
     def _save(self, tmp_path, orientation: int | None):
         img = Image.new("RGB", (40, 20), "green")
         if orientation is not None:
@@ -198,13 +165,7 @@ class TestReadImageAppliesExifOrientation:
         assert (width, height) == (40, 20)
 
 
-# =============================================================================
-# Image downscale before VLM (payload/cost bound, aspect preserved)
-# =============================================================================
-
-
 def _capture_vlm_bytes(monkeypatch):
-    """Patch the VLM to capture the JPEG bytes it is handed; return a holder."""
     captured = {}
 
     def fake_vlm(image_bytes, *a, **k):
@@ -223,12 +184,9 @@ class TestImageDownscaleBeforeVLM:
 
         doc = _build_image_caption_document(str(p), "big.png", 12345, "png")
 
-        # The bytes sent to the VLM are capped at VLM_MAX_IMAGE_DIM on the long
-        # edge, aspect preserved (4000x2000 -> 1568x784).
         w, h = Image.open(io.BytesIO(captured["bytes"])).size
         assert max(w, h) == adapter.VLM_MAX_IMAGE_DIM
         assert (w, h) == (1568, 784)
-        # Metadata records the ORIGINAL dimensions, not the downscaled ones.
         assert doc.metadata["image_width"] == 4000
         assert doc.metadata["image_height"] == 2000
 
@@ -239,7 +197,6 @@ class TestImageDownscaleBeforeVLM:
 
         doc = _build_image_caption_document(str(p), "small.png", 999, "png")
 
-        # Already within bounds: thumbnail() is a no-op, dimensions preserved.
         w, h = Image.open(io.BytesIO(captured["bytes"])).size
         assert (w, h) == (120, 90)
         assert doc.metadata["image_width"] == 120
@@ -247,11 +204,7 @@ class TestImageDownscaleBeforeVLM:
 
 
 class TestExtractImagesFromPdfDownscale:
-    """The PDF-embedded image path shares the same VLM_MAX_IMAGE_DIM cap."""
-
     def _mock_pdfium_page(self, monkeypatch, pil_image):
-        """Stub pypdfium2 so _extract_images_from_pdf yields one image object
-        whose bitmap.to_pil() returns the given PIL image."""
         pdfium = pytest.importorskip("pypdfium2")
 
         class _FakeBitmap:
@@ -306,7 +259,6 @@ class TestExtractImagesFromPdfDownscale:
         w, h = Image.open(io.BytesIO(images[0]["image_bytes"])).size
         assert max(w, h) == adapter.VLM_MAX_IMAGE_DIM
         assert (w, h) == (1568, 784)
-        # Original dimensions retained in the record's metadata.
         assert images[0]["width"] == 3000
         assert images[0]["height"] == 1500
 
@@ -321,14 +273,8 @@ class TestExtractImagesFromPdfDownscale:
         assert (w, h) == (300, 200)
 
 
-# =============================================================================
-# _run_ingestion image branch (heavy collaborators mocked)
-# =============================================================================
-
-
 @pytest.fixture
 def summary_db(tmp_path):
-    """Isolate the summary registry in a temp SQLite DB for each test."""
     from agent.knowledge import configure_summary_db
     from agent.knowledge import factory
 
@@ -340,12 +286,8 @@ def summary_db(tmp_path):
 
 @pytest.fixture
 def ingestor(tmp_path, monkeypatch, qdrant_store):
-    """A LlamaIndexIngestor with embeddings + vector index mocked out."""
 
-    # Deterministic summary + tag LLM: routes by prompt prefix.
     def fake_invoke(prompt):
-        # The tag prompt is the only one containing "klassifizierst"; anything
-        # else is the summary prompt (decoupled from its exact wording).
         if "klassifizierst" not in prompt:
             return MagicMock(content="An image of a floor plan.")
         return MagicMock(content='["Foto", "Grundriss"]')
@@ -359,7 +301,6 @@ def ingestor(tmp_path, monkeypatch, qdrant_store):
             "summary_llm": llm,
         }
     )
-    # Skip real NVIDIA embedding initialization.
     ing._embed_model = FakeEmbedder()
     ing._initialized = True
 
@@ -401,7 +342,6 @@ class TestRunIngestionImageBranch:
         assert docs[0].tags == ["Foto", "Grundriss"]
 
     def test_a_photo_keeps_the_capture_its_camera_wrote(self, tmp_path, monkeypatch, ingestor, summary_db):
-        """Regression: the per-file reset after the type branch wiped the EXIF facts the image branch read."""
         from agent.knowledge import get_available_documents
 
         _patch_vlm_credential(monkeypatch, "vlm-key")
@@ -423,19 +363,10 @@ class TestRunIngestionImageBranch:
     def test_watermark_caption_scrubbed_before_becoming_fallback_summary(
         self, tmp_path, monkeypatch, ingestor, summary_db
     ):
-        """Regression: with LLM summarisation off, a standalone image's summary
-        falls back to the VLM caption. If the VLM stamped a CAD licence
-        watermark into that caption, it must be scrubbed out before it becomes
-        the document summary — otherwise the summary reads e.g. "... VECTORWORKS
-        EDUCATIONAL VERSION ...". Fails without the _scrub_watermark_phrases fix.
-        """
         from agent.knowledge import get_available_documents
 
         _patch_vlm_credential(monkeypatch, "vlm-key")
-        # Summarisation disabled -> the caption itself is the only summary source.
         ingestor.generate_summary_enabled = False
-        # The VLM weaves the licence stamp into the caption prose (mid-line: the
-        # whole-line _strip_watermark_lines filter would never catch this).
         monkeypatch.setattr(
             adapter,
             "_analyze_image_with_vlm",
@@ -453,7 +384,6 @@ class TestRunIngestionImageBranch:
         assert len(docs) == 1
         summary = docs[0].summary
         assert summary is not None
-        # The watermark is gone; the real content survives.
         assert "VECTORWORKS" not in summary.upper()
         assert "EDUCATIONAL VERSION" not in summary.upper()
         assert "Grundriss EG" in summary
@@ -462,22 +392,10 @@ class TestRunIngestionImageBranch:
     def test_autodesk_watermark_mid_caption_scrubbed_before_becoming_fallback_summary(
         self, tmp_path, monkeypatch, ingestor, summary_db
     ):
-        """Regression for the Autodesk phrase specifically: WATERMARK_LINE_PATTERNS[2]
-        ("produced by an autodesk (student|educational) (version|product)")
-        ends in ``.*$`` rather than ``\\s*$``. A phrase-pattern list merely
-        derived from that source string by stripping trailing anchors leaves
-        the derived pattern still end-anchored, so it silently fails to match
-        the phrase when it appears mid-caption (only when it happens to sit at
-        the very end of the string). This is exactly the scenario
-        _scrub_watermark_phrases exists to handle, so it must catch this too.
-        """
         from agent.knowledge import get_available_documents
 
         _patch_vlm_credential(monkeypatch, "vlm-key")
-        # Summarisation disabled -> the caption itself is the only summary source.
         ingestor.generate_summary_enabled = False
-        # The VLM weaves the licence stamp into the caption prose (mid-line,
-        # with real content both before AND after it).
         monkeypatch.setattr(
             adapter,
             "_analyze_image_with_vlm",
@@ -498,7 +416,6 @@ class TestRunIngestionImageBranch:
         assert len(docs) == 1
         summary = docs[0].summary
         assert summary is not None
-        # The watermark is gone; the real content on both sides survives.
         assert "AUTODESK" not in summary.upper()
         assert "STUDENT VERSION" not in summary.upper()
         assert "Grundriss EG" in summary
@@ -519,13 +436,8 @@ class TestRunIngestionImageBranch:
         assert detail.error_message == "vlm_not_configured: image ingestion requires VLM_API_KEY"
 
     def test_summary_fail_but_tags_succeed_persists_fallback_summary(self, tmp_path, monkeypatch, ingestor, summary_db):
-        """Fix 1: when the summary LLM call fails but tag classification
-        succeeds, the row still persists (tags are not wasted) using a
-        deterministic, LLM-free fallback summary from the extracted text."""
         from agent.knowledge import get_available_documents
 
-        # Summary call fails; tag call returns valid tags. Same LLM, routed by
-        # the prompt content (the tag prompt contains "klassifizierst").
         def summary_fails_tags_ok(prompt):
             if "klassifizierst" not in prompt:
                 raise RuntimeError("summary model unavailable")
@@ -542,20 +454,13 @@ class TestRunIngestionImageBranch:
 
         docs = get_available_documents("coll_fallback")
         assert len(docs) == 1
-        # Tags persisted despite the summary failure.
         assert docs[0].tags == ["Schnitt", "Brandschutz"]
-        # Summary is the deterministic text fallback (not an LLM sentence).
         assert docs[0].summary is not None
         assert "Brandschutzkonzept" in docs[0].summary
 
     def test_summary_and_tags_both_fail_still_persists_fallback_summary(
         self, tmp_path, monkeypatch, ingestor, summary_db
     ):
-        """T3-10 ("ingested ⇒ visible"): a double LLM failure (summary AND
-        tags) must not leave the document invisible. Both concurrent LLM calls
-        fail; the deterministic text fallback must still register a summary
-        row (tags stay None) so the file remains visible in
-        available_documents even though it is fully searchable in Qdrant."""
         from agent.knowledge import get_available_documents
 
         def both_fail(prompt):
@@ -582,7 +487,6 @@ class TestRunIngestionImageBranch:
         vlm = MagicMock()
         monkeypatch.setattr(adapter, "_analyze_image_with_vlm", vlm)
 
-        # .png extension routes it to the image branch, but the bytes are junk.
         img = tmp_path / "broken.png"
         img.write_bytes(b"definitely not a PNG payload")
 
@@ -596,7 +500,6 @@ class TestRunIngestionImageBranch:
         vlm.assert_not_called()
 
     def test_a_caption_fallback_summary_drops_the_retrieval_marker(self, tmp_path, monkeypatch, ingestor, summary_db):
-        """With summarisation off the caption is the summary; the page marker is not part of what people read."""
         from agent.knowledge import get_available_documents
 
         _patch_vlm_credential(monkeypatch, "vlm-key")
@@ -616,7 +519,6 @@ class TestRunIngestionImageBranch:
     def test_a_photo_of_a_plan_gets_foto_beside_the_classifiers_floor_plan(
         self, tmp_path, monkeypatch, ingestor, summary_db
     ):
-        """The vision model typed the pixels a photograph; the classifier only read the caption and said Grundriss."""
         from agent.knowledge import document_classification
         from agent.knowledge import get_available_documents
 

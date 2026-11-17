@@ -34,11 +34,6 @@ from agent.turn.admission import spanned
 
 logger = logging.getLogger(__name__)
 
-#: How long a turn holds for an upload still being indexed, in seconds.
-#: Ingestion of one PDF is seconds; a large plan set is minutes, and a turn
-#: that waits minutes is a hung chat. Twenty covers the common attachment and
-#: lets the rest fall through to the "still being read" paragraph, which tells
-#: the model to say so. Operators tune it with INGEST_WAIT_SECONDS.
 INGEST_WAIT_SECONDS_DEFAULT = 20.0
 INGEST_POLL_SECONDS = 1.0
 AVAILABLE_DOCUMENTS_DEFAULT_LIMIT = 50
@@ -135,7 +130,6 @@ async def _stamped_rows(collections: Iterable[ScopedCollection], fetch_one: Fetc
             logger.warning("No document summaries for collection %s: %s", entry.collection, exc)
             return entry, []
 
-    # gather preserves input order, so stamping still follows the scope order.
     per_collection = await asyncio.gather(*(_guarded(entry) for entry in collections))
     return [
         stamp_document(doc, collection=entry.collection, shelf=entry.shelf)
@@ -146,18 +140,11 @@ async def _stamped_rows(collections: Iterable[ScopedCollection], fetch_one: Fetc
 
 def _cap_for_prompt(aggregated: list, max_documents: int | None = None) -> list:
     """The rows the PROMPT block lists: user shelves first, bounded, drops recorded."""
-    # BEFORE the cap. Which parts a Richtlinie has is derived from the base
-    # shelf, and the cap drops base rows first — so a family list taken after
-    # it would lose members on exactly the projects with the most files, and
-    # an incomplete family list reads as a complete one.
     set_norm_families(_base_families(aggregated))
 
     limit = available_documents_limit() if max_documents is None else max_documents
     before = len(aggregated)
     kept, dropped = allocate_inventory_detailed(aggregated, limit)
-    # Tell the MODEL, not only the operator: the contextvar is what puts
-    # "and N more" into the rendered block, so the agent can say a listing is
-    # incomplete instead of presenting a truncated shelf as the whole shelf.
     set_inventory_drops(dropped)
     if limit and limit > 0 and before > len(kept):
         logger.info("Capping available_documents from %d to %d (AVAILABLE_DOCUMENTS_MAX)", before, len(kept))
@@ -230,6 +217,19 @@ async def await_ingest_settling(
     return current
 
 
+HOLDING_SHELVES = frozenset({Shelf.SESSION})
+
+
+def held_uploads(scope: Iterable[ScopedCollection], pending: dict[str, list[str]]) -> dict[str, list[str]]:
+    """The part of ``pending`` that holds the turn: files on a :data:`HOLDING_SHELVES` collection.
+
+    By the shelf the scope STATES, never by the collection's name: an entry with
+    no stated shelf is unknown and does not hold.
+    """
+    holding = {entry.collection for entry in scope if entry.shelf in HOLDING_SHELVES}
+    return {collection: names for collection, names in pending.items() if collection in holding and names}
+
+
 def in_flight_names(pending: dict[str, list[str]]) -> list[str]:
     """The pending filenames across collections, first occurrence wins."""
     names: list[str] = []
@@ -249,23 +249,9 @@ class Inventory:
 
     available_documents: list | None
     in_flight_documents: list[str] | None
-    #: The base shelf's Richtlinien-Familien, derived before the inventory cap.
-    #: Carried OUT rather than left in the ContextVar the read sets: the read
-    #: runs inside two gathers, and a ContextVar set in a gathered task dies
-    #: with that task's copied context. The caller sets it where the turn runs.
     norm_families: tuple = ()
-    #: How many rows the cap dropped per shelf, carried out for the same reason:
-    #: it is what puts "and N more" into the rendered block.
     inventory_drops: dict = field(default_factory=dict)
-    #: The uploads still indexing, per collection, when the inventory was read.
-    #: :func:`wait_for_uploads` holds for them.
     pending: dict[str, list[str]] = field(default_factory=dict)
-    #: EVERY row the scope holds, before the prompt cap. The cap bounds what the
-    #: model READS on every call; it must not bound what a tool can RESOLVE. A
-    #: project's 51st file was listed as "und N weitere" and then refused by
-    #: every tool that resolves a name against the turn's rows, so „benenn den
-    #: Bauteilkatalog um" failed on exactly the projects with the most files.
-    #: Not compared: it is derived from the same read as ``available_documents``.
     all_documents: tuple = field(default=(), compare=False)
 
 
@@ -296,7 +282,8 @@ async def load_inventory(
     except Exception:  # noqa: BLE001 - see above; an answer without the inventory beats no answer
         logger.warning("Document inventory load failed; continuing without one", exc_info=True)
         return Inventory(None, None)
-    return Inventory(documents, in_flight_names(pending) or None, families, drops, pending, every_row)
+    held = held_uploads(scope, pending)
+    return Inventory(documents, in_flight_names(pending) or None, families, drops, held, every_row)
 
 
 def pending_uploads(inventory: Inventory) -> StatusStep | None:
@@ -351,13 +338,14 @@ async def _hold(
     read_in_flight: ReadInFlight,
     timeout_seconds: float | None,
 ) -> Inventory:
-    names = [entry.collection for entry in scope]
     pending = inventory.pending
-    settled = await await_ingest_settling(names, pending, read=read_in_flight, timeout_seconds=timeout_seconds)
+    settled = await await_ingest_settling(list(pending), pending, read=read_in_flight, timeout_seconds=timeout_seconds)
     if settled == pending:
         return inventory
     documents, families, drops, every_row = await _documents_and_families(scope, fetch_one)
-    return Inventory(documents, in_flight_names(settled) or None, families, drops, settled, every_row)
+    finished = set(in_flight_names(pending)) - set(in_flight_names(settled))
+    in_flight = [name for name in inventory.in_flight_documents or [] if name not in finished]
+    return Inventory(documents, in_flight or None, families, drops, settled, every_row)
 
 
 async def _documents_and_families(

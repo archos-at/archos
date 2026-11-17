@@ -1,15 +1,3 @@
-/**
- * The search (ADR-0136): one question, every kind, any scope. The route
- * `POST /api/search`, the agent operation `search` and the export are thin over
- * {@link runSearch}; nothing else evaluates a query.
- *
- * Postgres decides which documents are in the result (the reach, the filters,
- * the sort, the counts); the content search only ranks passages and says which
- * page matched. A Qdrant number is never shown: with text, the documents total
- * counts the joined SQL set, and says it is a lower bound when the content
- * search's candidate budget was reached.
- */
-
 import 'server-only'
 import { BadRequestError, UnprocessableError, UpstreamError } from '@/lib/api/errors'
 import type { AuthorizedSession } from '@/lib/auth/types'
@@ -49,18 +37,12 @@ import {
 import { searchAnnotations, searchConversations, searchFolders, searchProjects } from './providers'
 import { refreshStaleShelves } from './shelf-projection'
 
-/** Documents one content search returns per collection, and passages it ranks in all. */
 const CONTENT_FILES_PER_COLLECTION = 20
-/** The passages one content search ranks (the backend's candidate budget, `vector_store/search.py`); as many documents at most. */
 const CONTENT_CANDIDATES = 200
-/** The most documents a content search is narrowed to by id; past it, by what they are and cite. */
 const PREFILTER_MAX_IDS = 1000
-/** Characters of a passage shown under a document. */
 const PASSAGE_CHARS = 400
-/** Text shorter than this goes to the names and the reading only. */
 const CONTENT_MIN_CHARS = 3
 
-/** Sorts read ascending unless the request says otherwise. */
 const ASCENDING_BY_DEFAULT: ReadonlySet<SearchSort> = new Set(['name', 'plan_number', 'plan_index', 'document_type', 'project'])
 
 const FACET_KEYS: Record<SearchFacetDimension, FacetKey> = {
@@ -76,13 +58,11 @@ const FACET_KEYS: Record<SearchFacetDimension, FacetKey> = {
   changedFact: 'changedFact',
 }
 
-/** The reach every kind reads: cut to the projects a `projectIds` filter names, when it names any. */
 export function narrowedTo(reach: SearchReach, body: Pick<SearchBody, 'filters'>): SearchReach {
   const projectIds = body.filters?.projectIds ?? []
   return projectIds.length > 0 ? narrowReach(reach, projectIds) : reach
 }
 
-/** A cursor names one kind and an offset; opaque on the wire. */
 export function encodeSearchCursor(kind: SearchKind, offset: number): string {
   return Buffer.from(JSON.stringify({ k: kind, o: offset })).toString('base64url')
 }
@@ -99,14 +79,12 @@ export function decodeSearchCursor(cursor: string, kind: SearchKind): number {
   throw new BadRequestError('cursor is not a nextCursor of this search with this single kind')
 }
 
-/** The order of a document result: relevance with text, else newest first, as the request says. */
 export function documentOrder(body: Pick<SearchBody, 'sort' | 'dir' | 'text'>): { sort: SearchSort; dir: 'asc' | 'desc' } {
   const hasText = Boolean(body.text?.trim())
   const sort = body.sort === 'relevance' && !hasText ? 'added' : (body.sort ?? (hasText ? 'relevance' : 'added'))
   return { sort, dir: body.dir ?? (ASCENDING_BY_DEFAULT.has(sort) ? 'asc' : 'desc') }
 }
 
-/** What the documents a reference filter names must carry, read for this reader; null when the document is out of reach. */
 async function referenceTargets(reach: SearchReach, documentId: string, direction: 'citedBy' | 'citing'): Promise<ReferenceTargets | null> {
   const subject = await readReferenceSubject(reach, documentId)
   if (!subject) return null
@@ -120,14 +98,6 @@ async function referenceTargets(reach: SearchReach, documentId: string, directio
   return { planKeys, documentTypes }
 }
 
-/**
- * What narrows the content search before it ranks, so a selective filter does
- * not leave the candidate budget to documents it then drops: the filtered ids
- * (by id, and by file name for the passages that carry no id) when they are
- * few, else the payload's own reading type and references. It
- * only ever narrows what SQL decides; a mismatch costs recall, never visibility.
- * `null` filters: the filters admit no document.
- */
 export async function contentPrefilter(
   reach: SearchReach,
   query: DocumentQuery
@@ -137,8 +107,6 @@ export async function contentPrefilter(
   const candidates = await listCandidateDocuments(reach, query, PREFILTER_MAX_IDS)
   if (candidates.length === 0) return null
   if (candidates.length <= PREFILTER_MAX_IDS) {
-    // By name too: a passage written before `grid_document_id` existed, or copied from Chroma, carries no id,
-    // and by id alone a filtered search lost exactly those documents' passages.
     const names = [...new Set(candidates.flatMap((candidate) => (candidate.filename ? [candidate.filename] : [])))]
     return {
       filters: {
@@ -158,7 +126,6 @@ export async function contentPrefilter(
   }
 }
 
-/** What the content search found (null: it could not run), whether it covered only part of the reach, and how long the backend took. */
 interface ContentResult {
   hits: BackendSearchHit[] | null
   partial: boolean
@@ -167,7 +134,6 @@ interface ContentResult {
 
 const NO_CONTENT: ContentResult = { hits: [], partial: false, ms: 0 }
 
-/** The content search over the reach's collections. One that could not run is partial: more documents may say it. */
 async function contentHits(
   reach: SearchReach,
   text: string,
@@ -221,14 +187,12 @@ function toDocumentHit(row: DocumentSearchRow, passage: BackendSearchHit | undef
     matchedOn: [
       ...(row.matchedName ? (['name'] as const) : []),
       ...(row.matchedReading ? (['reading'] as const) : []),
-      // The content search says whether the passage holds the words or only means the same (`lexical`).
       ...(passage ? ([passage.lexical === false ? 'meaning' : 'content'] as const) : []),
     ],
     passage: passage ? { text: passage.snippet, page: passage.page_number ?? null } : null,
   }
 }
 
-/** Facet counts with their labels: a project's name, a reference's own spelling; statuses folded into families. */
 function labelFacets(
   reach: SearchReach,
   counts: Record<string, Array<{ value: string; count: number }>>,
@@ -261,7 +225,6 @@ function labelFacets(
   return out
 }
 
-/** The content search under the structured filters' pre-filter; no call when the filters admit nothing. */
 async function rankedContent(
   reach: SearchReach,
   structured: DocumentQuery,
@@ -272,12 +235,6 @@ async function rankedContent(
   return contentHits(reach, text, prefilter.filters)
 }
 
-/**
- * The documents' question without its text: the filters, and the documents a
- * reference filter names read for this reader. Both the documents and the
- * annotations (through their document) are asked it. Null: a reference filter
- * names a document out of reach, so no document matches.
- */
 export async function structuredQuery(reach: SearchReach, filters: DocumentFilters): Promise<Omit<DocumentQuery, 'text'> | null> {
   const [citedBy, citing] = await Promise.all([
     filters.citedBy ? referenceTargets(reach, filters.citedBy, 'citedBy') : null,
@@ -287,7 +244,6 @@ export async function structuredQuery(reach: SearchReach, filters: DocumentFilte
   return { filters, citedBy, citing }
 }
 
-/** The documents section, and the facets when asked. `documents` null: the filters admit none. */
 async function searchDocuments(
   reach: SearchReach,
   body: SearchBody,
@@ -295,9 +251,7 @@ async function searchDocuments(
   page: { limit: number; offset: number },
   withFacets: boolean
 ): Promise<{ section: SearchSection<DocumentHit>; facets: SearchResponse['facets']; unread: number | null; contentPartial: boolean; contentMs: number }> {
-  // Started first and read last: it does not wait on the content search.
   const unreadCount = withFacets ? countUnreadDocuments(reach, body.filters?.includeArchived === true) : Promise.resolve(null)
-  // Handled here too, so a failure before it is read is not an unhandled rejection; the await below still throws.
   unreadCount.catch(() => undefined)
   if (!documents) {
     return {
@@ -312,7 +266,6 @@ async function searchDocuments(
   const structured: DocumentQuery = { ...documents, text: null }
   const content = text && text.length >= CONTENT_MIN_CHARS ? await rankedContent(reach, structured, text) : NO_CONTENT
   const found = content.hits ?? []
-  // A hit names its document by id when it can; only a hit without one is joined by name (ADR-0136 item 5).
   const passagesById = new Map(found.flatMap((hit) => (hit.grid_document_id ? [[hit.grid_document_id, hit] as const] : [])))
   const passagesByKey = new Map(
     found.flatMap((hit) => (hit.grid_document_id ? [] : [[contentKey(hit.collection, hit.file_name), hit] as const]))
@@ -347,7 +300,6 @@ async function searchDocuments(
     section: {
       hits,
       total: result.total,
-      // Content found more than it could rank, or could not run: more documents may say it.
       totalIsLowerBound: Boolean(text) && (content.partial || found.length >= CONTENT_CANDIDATES),
       nextCursor: nextOffset < result.total && nextOffset <= SEARCH_OFFSET_MAX ? encodeSearchCursor('document', nextOffset) : null,
     },
@@ -358,7 +310,6 @@ async function searchDocuments(
   }
 }
 
-/** A section of another kind from its provider's page. */
 function sectionOf<T extends SearchResponse['sections'][SearchKind]>(
   kind: SearchKind,
   result: { hits: NonNullable<T>['hits']; total: number },
@@ -373,26 +324,16 @@ function sectionOf<T extends SearchResponse['sections'][SearchKind]>(
   } as NonNullable<T>
 }
 
-/**
- * Where one search's time went, in milliseconds. `content` is the wait on the
- * backend's content search (`POST /v1/collections/search`: the query's
- * embedding and Qdrant); `sql` is the rest of `total`, the reach, the
- * pre-filter, the page, the facets and the other kinds, which are Postgres.
- * The other kinds run beside the documents, so `sql` is wall time not spent
- * waiting on content, not a sum of statements.
- */
 export interface SearchTiming {
   totalMs: number
   sqlMs: number
   contentMs: number
 }
 
-/** Run one search as `session`. */
 export async function runSearch(session: AuthorizedSession, scopeQuery: SearchScopeQuery, body: SearchBody): Promise<SearchResponse> {
   return (await runTimedSearch(session, scopeQuery, body)).response
 }
 
-/** {@link runSearch}, and where its time went (the route's `Server-Timing`). */
 export async function runTimedSearch(
   session: AuthorizedSession,
   scopeQuery: SearchScopeQuery,
@@ -406,10 +347,8 @@ export async function runTimedSearch(
   if (body.cursor && !single) throw new BadRequestError('A cursor pages one kind: ask with kinds set to that kind alone')
   const offset = body.cursor ? decodeSearchCursor(body.cursor, kinds[0]) : 0
   const limit = body.limit ?? SEARCH_LIMIT_DEFAULT
-  // Beside the documents another kind shows a preview, never more than was asked (the ⌘K palette asks three).
   const pageFor = (kind: SearchKind) => ({ limit: single || kind === 'document' ? limit : Math.min(limit, SEARCH_SECTION_PREVIEW), offset })
   const text = body.text?.trim() || null
-  // A kind that cannot honour a filter that is set is not searched, and the answer says so (docs/design/document-search.md).
   const setAside = setAsideKinds(body)
   const searched = kinds.filter((kind) => !setAside[kind])
   const documents = searched.includes('document') || searched.includes('annotation') ? await structuredQuery(reach, body.filters ?? {}) : null
@@ -431,7 +370,6 @@ export async function runTimedSearch(
         contentMs = found.contentMs
         return
       }
-      // The other kinds are found by their words or, for annotations, by their filters alone.
       if (kind === 'annotation') {
         if (!text && !body.annotationFilters) return
         sections.annotation = documents
@@ -452,17 +390,11 @@ export async function runTimedSearch(
   return { response, timing: { totalMs, contentMs, sqlMs: Math.max(0, totalMs - contentMs) } }
 }
 
-/** The `Server-Timing` header (W3C Server Timing) for one search: `sql`, `content` and `total`, in milliseconds. */
 export function serverTimingHeader(timing: SearchTiming): string {
   const dur = (ms: number) => Math.round(ms * 10) / 10
   return `sql;dur=${dur(timing.sqlMs)}, content;dur=${dur(timing.contentMs)}, total;dur=${dur(timing.totalMs)}`
 }
 
-/**
- * Every document a search finds, in its order, for the Planliste export: one
- * reach, one content search, one bounded SQL read. More than `max` is a 422,
- * never a list that silently ends.
- */
 export async function listSearchDocumentsForExport(
   session: AuthorizedSession,
   scopeQuery: SearchScopeQuery,

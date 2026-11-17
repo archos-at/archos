@@ -9,7 +9,6 @@ describe('WhatsNewList', () => {
     const filter = screen.getByRole('navigation', { name: 'Show changes in' })
     expect(within(filter).getByRole('link', { name: 'All areas' })).toHaveAttribute('aria-current', 'page')
     expect(within(filter).getByRole('link', { name: /Search/ })).toHaveAttribute('href', '/app/whats-new?area=search')
-    // An area with no changes is not offered.
     expect(within(filter).queryByRole('link', { name: /Building models/ })).toBeNull()
   })
 
@@ -24,7 +23,6 @@ describe('WhatsNewList', () => {
   it('opens the newest week of the newest page and leaves an older one behind its summary', () => {
     render(<WhatsNewList list={WHATS_NEW_FIXTURE} />)
     expect(screen.getByText('3 changes').closest('details')).toHaveAttribute('open')
-    // The older week still says what it holds: its summary and its tally stay outside the fold.
     const older = screen.getByRole('region', { name: /26 October\s–\s1 November 2026/ })
     expect(within(older).getByText('2 changes').closest('details')).not.toHaveAttribute('open')
     expect(within(older).getByText(/Ctrl\+K now searches everything/).closest('details')).toBeNull()
@@ -91,7 +89,6 @@ describe('WhatsNewList', () => {
 
   it('titles a week by its dates in the reader’s language, a version by itself', () => {
     const week = WHATS_NEW_FIXTURE.weeks[1]
-    // ICU sets the range dash between thin spaces.
     expect(weekTitle(week, 'de', 'x').replace(/\s/g, ' ')).toBe('26. Oktober – 1. November 2026')
     expect(weekTitle({ ...week, kind: 'version', version: '1.2.0' }, 'en', 'x')).toBe('1.2.0')
     expect(whatsNewHref('/app/whats-new', null)).toBe('/app/whats-new')

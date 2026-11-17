@@ -288,7 +288,6 @@ describe('what came with an archived mail (D36)', () => {
       expect.objectContaining({ position: 1, disposition: 'not_filed', notFiledReason: 'unreadable', filename: 'Fwd' }),
       expect.objectContaining({ position: 2, disposition: 'not_filed', notFiledReason: 'screened', filename: 'Vertrag.pdf' }),
       expect.objectContaining({ position: 3, disposition: 'not_filed', notFiledReason: 'type_not_accepted' }),
-      // Gone (or unreadable for the importer) since it was filed: the row says it came, names nothing.
       expect.objectContaining({ position: 4, disposition: 'filed', documentId: null, documentVersionId: null, sectionName: null }),
     ])
     for (const row of rows(true).filter((row) => row.disposition === 'not_filed')) {
@@ -334,7 +333,6 @@ describe('appendArchiveEntry', () => {
     expect(commit.newThread).toMatchObject({ id: archiveThreadIdOf(IMPORT.id, 4), documentId: null, locale: 'de', createdBy: 'user_anna', baseSubject: 'stellplatznachweis' })
     expect(commit.entry).toMatchObject({ threadId: archiveThreadIdOf(IMPORT.id, 4), heading: '12.05.2026 09:10 · Mag. Huber (ma37.wien.gv.at, aus dem Outlook-Archiv)' })
     expect(commit.messageIds).toEqual({ received: 'Abc.1@ma37.wien.gv.at', referenced: ['first@buero.at', 'root@buero.at', 'first@buero.at'] })
-    // The lease is the writers' of a Verlauf that exists; nobody else can see this one yet.
     expect(acquireRenderLease).not.toHaveBeenCalled()
   })
 
@@ -342,7 +340,6 @@ describe('appendArchiveEntry', () => {
     vi.mocked(findThreadCandidates).mockResolvedValueOnce([candidate({ threadId: 'match', receivedIds: ['first@buero.at'] })])
     vi.mocked(findThreadRow).mockResolvedValue({ id: 'match', documentId: 'doc', locale: 'de', renderPendingAt: null } as unknown as MailThreadRow)
     vi.mocked(findWritableThread).mockResolvedValueOnce({ thread: {} as MailThreadRow, document: { id: 'doc', filename: 'Stellplatz.md', folderId: null, contentHash: null } })
-    // An earlier copy of the same mail under another Message-ID: same minute, same sender, same heading.
     const earlier = archiveEntryOf({
       id: 'e0',
       threadId: 'match',
@@ -440,7 +437,6 @@ describe('renderPendingThreads: one Fassung per Verlauf per slice', () => {
   }) as MailThreadEntryRow
 
   beforeEach(() => {
-    // A test that failed must not leave its queued answers to the next one.
     vi.mocked(uploadThreadVersion).mockReset()
     vi.mocked(threadHoldingDocument).mockReset().mockResolvedValue(false)
     vi.mocked(findPendingThreadsOfImport).mockResolvedValue([row()])

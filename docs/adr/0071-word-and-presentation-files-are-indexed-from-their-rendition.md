@@ -144,7 +144,7 @@ What that means in practice:
   BFF refuses office files as `office_rendition_required`; the reverse is
   harmless. The runbooks are in
   [`cd.md`](../deployment/cd.md#rolling-out-adr-0071) and
-  [`coolify.md`](../deployment/coolify.md#rolling-out-adr-0071).
+  `coolify.md` (deleted 2026-11-11 with the Coolify target, ADR-0150).
 * Bad, because LibreOffice's layout is not Word's. A page number is the
   rendition's page, correct in the viewer and possibly different from the page a
   person sees in Word.

@@ -1,29 +1,5 @@
 'use client'
 
-/**
- * The project's mail address, where people learn it (DECISION §9, „Entry
- * points“): `InboundMailAddressDialog` from the upload menu („Per E-Mail
- * senden …“) and the E-Mail-Eingang's „Adresse“, the never-used list, the
- * project overview's tile (`InboundMailAddressTile`), and
- * `InboundMailAddressCard` in Settings › Dokumente, where a manager creates,
- * replaces or switches it off.
- *
- * Every one leads with what the address is FOR (the owner's review,
- * 2026-10-27): put it in Cc when writing to the authority, the structural
- * engineer or the client, and the answers arrive here to be filed. Then the
- * address in full and copyable (30 characters of token nobody types) and „Als
- * Kontakt sichern“ (a vCard, which makes forwarding from a phone one tap).
- * The safety is one sentence, last: nothing is filed until someone confirms.
- * Beside the address, what a mail can carry (25 MiB, about three quarters of
- * it for attachments once base64 has encoded them) and the upload for
- * anything larger, both read from `INBOUND_MAIL_MAX_MESSAGE_BYTES`.
- * How often the office's own domain signs its mail (RT-X6) is a manager's
- * fact, so only the settings card shows it, and only to a manager.
- *
- * Replacing the address is behind a warning that says everything it ends: the
- * old address refuses mail at once, and every „Folgen“ on the project stops.
- */
-
 import type { JSX } from 'react'
 import { useState } from 'react'
 import Link from 'next/link'
@@ -69,14 +45,11 @@ function saveContact(address: string, projectName: string, name: string, note: s
   const blob = new Blob([contactCard({ name, address, note })], { type: 'text/vcard;charset=utf-8' })
   const url = URL.createObjectURL(blob)
   startBrowserDownload(url, contactCardFileName(projectName))
-  // The anchor has been clicked; the browser holds its own reference now.
   window.setTimeout(() => URL.revokeObjectURL(url), 10_000)
 }
 
-/** Where the address was shown, for PostHog: which door people take to it. */
 export type AddressSurface = 'dialog' | 'never_used' | 'overview' | 'settings'
 
-/** What the address is for, in the office's own work: three lines, the promise last. */
 function AddressUses(): JSX.Element {
   const t = useTranslations(inboundMailCopy)
   return (
@@ -100,17 +73,11 @@ function AddressUses(): JSX.Element {
   )
 }
 
-/**
- * The address in full, a press copies it; each copy counted by the door it was
- * taken from. On a phone it wraps after the `+`, before the token's dot and
- * before the `@`, never inside the domain.
- */
 function AddressValue({ value, surface, className }: { value: string; surface: AddressSurface; className?: string }): JSX.Element {
   return (
     <CopyableValue
       value={value}
       className={cn('text-foreground mx-0 text-left font-mono text-[13px] leading-5 font-normal', className)}
-      // Whether the address reaches anyone's Cc line: the first step of the funnel to the first mail.
       onCopied={() => capturePosthog('inbound_mail_address_copied', { surface })}
     >
       <EmailAddress address={value} />
@@ -118,7 +85,6 @@ function AddressValue({ value, surface, className }: { value: string; surface: A
   )
 }
 
-/** The one thing an unused address asks for: copy it into a Cc line. The press says it landed. */
 function CopyAddressButton({ value, surface }: { value: string; surface: AddressSurface }): JSX.Element {
   const t = useTranslations(inboundMailCopy)
   const [copied, raise] = useTransientFlag()
@@ -140,7 +106,6 @@ function CopyAddressButton({ value, surface }: { value: string; surface: Address
   )
 }
 
-/** „Als Kontakt sichern“: a vCard, which makes forwarding from a phone one tap. */
 function SaveContactButton({ value, projectName, surface }: { value: string; projectName: string; surface: AddressSurface }): JSX.Element {
   const t = useTranslations(inboundMailCopy)
   return (
@@ -148,7 +113,6 @@ function SaveContactButton({ value, projectName, surface }: { value: string; pro
       type="button"
       variant="secondary"
       size="sm"
-      // The kit's press, as every secondary: a grey override (from the tonal days) made it the one grey press on the sheet.
       onClick={() => {
         saveContact(value, projectName, t('address.contactName', { project: projectName }), t('address.contactNote'))
         capturePosthog('inbound_mail_address_contact_saved', { surface })
@@ -163,12 +127,6 @@ function SaveContactButton({ value, projectName, surface }: { value: string; pro
 
 const MEBIBYTE = 1024 * 1024
 
-/**
- * What a mail can carry, and the way past it: the limit a project address
- * takes, what of it attachments can fill, and Dateien, where the upload is.
- * `onLeave` closes whatever the line sits in (the dialog opened from that same
- * upload menu), so the link never lands behind it.
- */
 export function AddressSizeLimit({ projectId, onLeave }: { projectId: string; onLeave?: () => void }): JSX.Element {
   const t = useTranslations(inboundMailCopy)
   const { locale } = useLocale()
@@ -185,7 +143,6 @@ export function AddressSizeLimit({ projectId, onLeave }: { projectId: string; on
   )
 }
 
-/** The address itself, copyable and savable as a contact: shared by the dialog, the never-used list and the settings card. */
 export function InboundMailAddressBlock({
   address,
   projectId,
@@ -199,11 +156,8 @@ export function InboundMailAddressBlock({
   projectId: string
   projectName: string
   surface: AddressSurface
-  /** The three lines of what it is for; off where the surrounding copy says it already. */
   showUses?: boolean
-  /** The address itself; off where the page's header shows it already (the E-Mail-Eingang). */
   showValue?: boolean
-  /** Closes what the block sits in when the upload link is followed. */
   onLeave?: () => void
 }): JSX.Element {
   const t = useTranslations(inboundMailCopy)
@@ -220,8 +174,6 @@ export function InboundMailAddressBlock({
         {surface !== 'dialog' && showValue && <SectionLabel as="p">{t('address.label')}</SectionLabel>}
         {showValue &&
           (surface === 'never_used' ? (
-            // Never used, the address is the page's focal point, read here and copied by the button below: a string to
-            // copy is mono 13/20/440 (the type scale), under its heading's rank.
             <p className="text-foreground font-mono text-[13px] leading-5 font-normal [overflow-wrap:anywhere]" data-testid="address-value">
               <EmailAddress address={value} />
             </p>
@@ -265,12 +217,6 @@ export interface InboundMailAddressTileProps {
   client?: InboundMailAddressClient
 }
 
-/**
- * The project overview's tile (Settings › Übersicht): the address where people
- * look at the project, with what it is for, copy and „Als Kontakt sichern“,
- * and the E-Mail-Eingang as the tile's link like every other tile's section.
- * Nothing until there is an address: creating one is the settings card's.
- */
 export function InboundMailAddressTile({ projectId, projectName, client }: InboundMailAddressTileProps): JSX.Element | null {
   const t = useTranslations(inboundMailCopy)
   const address = useInboundMailAddress(projectId, true, client)
@@ -295,7 +241,6 @@ export function InboundMailAddressTile({ projectId, projectName, client }: Inbou
   )
 }
 
-/** The states with no address to show: loading, failed, none yet, not received here. */
 function AddressStatus({
   state,
   onRetry,
@@ -379,7 +324,6 @@ export interface InboundMailAddressDialogProps {
   client?: InboundMailAddressClient
 }
 
-/** „Per E-Mail senden …“: the address to forward to, from the upload menu. */
 export function InboundMailAddressDialog({ projectId, projectName, open, onOpenChange, client }: InboundMailAddressDialogProps): JSX.Element {
   const t = useTranslations(inboundMailCopy)
   const address = useInboundMailAddress(projectId, open, client)
@@ -413,7 +357,6 @@ export interface InboundMailAddressCardProps {
   client?: InboundMailAddressClient
 }
 
-/** Settings › Dokumente: the address, and for a manager, creating, replacing and switching it off. */
 export function InboundMailAddressCard({ projectId, projectName, client }: InboundMailAddressCardProps): JSX.Element {
   const t = useTranslations(inboundMailCopy)
   const tSettings = useTranslations(settingsCopy)

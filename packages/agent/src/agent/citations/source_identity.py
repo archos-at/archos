@@ -19,13 +19,13 @@ from agent.citations.registry import SourceRegistry
 
 
 def is_legal_database_source(entry: SourceEntry) -> bool:
-    """Whether a source came from a legal-database tool (RIS): its tool name, or the collection ``ris_lookup`` states.
+    """Whether a source came from a legal-database tool: its tool name, or the collection the law lookup states.
 
     A display fact about where a passage was read, never about what it is at the site: the same text
     found by web search is a web source.
     """
     name = (entry.tool_name or "").lower()
-    if name.startswith("ris_") or "ris_search" in name or "ris_fetch" in name:
+    if name.startswith(("law_lookup", "ris_")) or "ris_search" in name or "ris_fetch" in name:
         return True
     return (entry.collection or "").lower().startswith("ris/")
 
@@ -46,12 +46,7 @@ def source_lane(entry: SourceEntry, registry: NormRegistry | None = None) -> tup
     file_name = None
     if entry.citation_key:
         file_name, _ = parse_citation_key(entry.citation_key)
-    # ``registry`` only ranks a RIS page into its federal or state lane, a display label;
-    # ``lane_for_hit`` loads it itself for such a page when the caller passes none.
     classify = lane_for_knowledge_hit if entry.source_type == "knowledge_layer" else lane_for_hit
-    # The shelf the hit already carries (ADR-0047) is what decides whether the
-    # default doc class means anything; without it the resolver has to guess
-    # the shelf back from the collection name.
     return classify(
         doc_class=entry.doc_class,
         file_name=file_name,
@@ -133,9 +128,6 @@ def source_origin_token(entry: SourceEntry) -> str:
     string when the origin is not cleanly identifiable, so callers emit no token
     and the frontend falls open to plain, unlabeled text.
     """
-    # RIS first: a ``ris_lookup`` passage is a grounding-block hit, so it is a
-    # ``knowledge_layer`` entry too, and checked second it went out as ``[KB]``
-    # on every Bauordnung answer the suite read.
     if is_legal_database_source(entry):
         return "[RIS]"
     if entry.source_type == "knowledge_layer":
@@ -168,9 +160,6 @@ def agent_authored_document_names(registry: SourceRegistry | None) -> frozenset[
         if not is_agent_author(entry.authored_by):
             continue
         file_name, _ = parse_citation_key(entry.citation_key or "")
-        # The basename only: a document the agent published is indexed under a
-        # namespaced path (``<agent>/<item id>/<slug>.md``) that no model would
-        # ever write, while the slug is the name it WOULD write.
         base_name = file_name.rsplit("/", 1)[-1]
         names.update(normalize_document_name(value) for value in (base_name, entry.title))
     names.discard("")

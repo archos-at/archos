@@ -17,7 +17,6 @@ describe('timedWorkOSCall', () => {
     vi.restoreAllMocks()
   })
 
-  /** Run a call that resolves only after `elapsedMs` of fake time passes. */
   async function runFor<T>(elapsedMs: number, result: () => T | Promise<T>): Promise<T> {
     const promise = timedWorkOSCall('authorization.check project:edit', async () => {
       await vi.advanceTimersByTimeAsync(elapsedMs)

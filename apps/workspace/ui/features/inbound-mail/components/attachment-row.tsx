@@ -1,21 +1,5 @@
 'use client'
 
-/**
- * One attachment of a held mail, as the person decides it: a checkbox, the
- * first look at it, its name and facts, what the reader must know before
- * filing it (DECISION §9, the case table), and where it would go.
- *
- * Where it goes is the agent's suggestion until the person touches it: the
- * filing chip names the folder and opens the folder picker, the Dokumentart
- * and the name sit beside it, and „Ändern“ edits them. Pressing „Ablegen“
- * is the takeover; there is no separate „Vorschlag übernehmen“.
- *
- * A row that cannot be filed says why in words and offers no checkbox it
- * could not honour: a running or failed scan, malware, a type the office does
- * not file. A clean scan is the normal case and is silent: scanning shows only
- * when it is running or found something.
- */
-
 import type { JSX } from 'react'
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
@@ -64,13 +48,9 @@ export interface AttachmentRowProps {
   entry: AttachmentCase
   draft: AttachmentDraft
   folders: readonly FolderOption[]
-  /** The part's content route, for the thumbnail; null when it may not be drawn. */
   contentUrl: string | null
-  /** Why no suggestion is shown, when there is none. */
   missingSuggestion: 'pending' | 'skipped' | 'none'
-  /** The row has the keyboard's attention (Space previews it). */
   focused?: boolean
-  /** Shown, never decided: the mail is only its member's to file (`onlySenderReleases`). No checkbox, no target. */
   readOnly?: boolean
   onChange: (change: Partial<Omit<AttachmentDraft, 'partId' | 'suggested'>>) => void
   onPreview?: () => void
@@ -98,7 +78,6 @@ export function AttachmentRow({
   const [pickerOpen, setPickerOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const { part, status, selectable } = entry
-  // Filed, the bytes and their name are gone (D6): the document's name is what it is now called.
   const name = part.filedAs?.name ?? part.filename ?? draft.name
   const suggestion = useMemo(() => readSuggestion(part.suggestion), [part.suggestion])
   const destinations = useMemo(
@@ -181,7 +160,6 @@ export function AttachmentRow({
     switch (status) {
       case 'scan_pending':
         return (
-          // A still glyph: a spinner on every row would be as many loops on one screen (one ambient loop at a time).
           <FactLine icon={Timer} testId="status-scan-pending">
             {t('attachments.status.scan_pending')}
           </FactLine>
@@ -206,7 +184,6 @@ export function AttachmentRow({
         )
       case 'filing':
         return (
-          // Still, like the scan: the detail's own „Wird abgelegt …“ line is the one spinner.
           <FactLine icon={Timer} testId="status-filing">
             {t('attachments.status.filing')}
           </FactLine>
@@ -284,10 +261,8 @@ export function AttachmentRow({
                     newLabel={folderTarget.kind === 'new' ? t('suggestion.newFolder') : undefined}
                     title={folderLabel(folderTarget, t('suggestion.root'))}
                     onClick={() => setPickerOpen(true)}
-                    // „Vorschlag von …“ above says whose it is: the chip is the target, white on the panel's grey, the same
-                    // white chip as the Dokumentart beside it (two facts, one shape; „Ändern“ the one text press).
                     mark={false}
-                    className="bg-background hover:bg-accent"
+                    className="bg-background hover:bg-desk"
                     data-testid="attachment-folder"
                   />
                 ) : (
@@ -297,8 +272,6 @@ export function AttachmentRow({
                   </Button>
                 ))}
               {draft.documentType && (
-                // Its own glyph, as the folder chip has its folder: „Bescheide“ and „Bescheid“ side by side were two words
-                // one letter apart.
                 <Badge variant="secondary" className="bg-background gap-1" data-testid="attachment-type">
                   <Tag className="text-muted-foreground size-3" aria-hidden />
                   {tagLabel(draft.documentType, tFiles)}

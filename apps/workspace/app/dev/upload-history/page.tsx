@@ -1,19 +1,5 @@
 'use client'
 
-/**
- * Dev preview for a project's upload history (ADR-0086, ticket
- * „Verlauf/Protokoll"), the section in project Settings. Renders the REAL
- * component, loaded through the module-scope fetch shim below:
- *
- *  - a project with three uploads: two of the reader's own (they link to their
- *    summary) and a colleague's (no link, no name), the oldest behind
- *    „Ältere Uploads laden" as a second page;
- *  - a project with none yet (the empty state);
- *  - a project whose history fails to load (the retry).
- *
- * Not linked from anywhere; `app/dev/layout.tsx` 404s it outside development.
- */
-
 import type { JSX } from 'react'
 import { UploadHistory } from '@/features/uploads/components/upload-history'
 import { FIXTURE_PROJECT_ID, FIXTURE_USER_ID, HISTORY } from '../_fixtures/upload-batches'
@@ -63,7 +49,7 @@ export default function UploadHistoryDevPage(): JSX.Element {
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-10 px-4 py-8 md:px-8" data-testid="upload-history-preview">
       <div>
-        <h1 className="text-lg font-semibold">Projekt-Einstellungen — Uploads</h1>
+        <h1 className="text-page-title font-medium phone:text-section">Projekt-Einstellungen — Uploads</h1>
         <p className="text-muted-foreground mt-1 text-sm">
           The project&apos;s upload history (ADR-0086). Own uploads link to their summary.
         </p>

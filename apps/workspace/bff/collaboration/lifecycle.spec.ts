@@ -1,34 +1,10 @@
 /**
  * @vitest-environment node
  */
-/**
- * Collaboration lifecycle: deletion, modification, revocation (spec SH-13, IB-14,
- * IB-15, MN-9.4).
- *
- * The happy paths are covered next to their services. This file covers the ones
- * that only run when something is taken AWAY, which is where a collaboration
- * feature rots quietly: a purge that forgets a table nothing cascades from, a
- * narrowing that also drops the grants a restore needs, a revocation that leaves a
- * quoted snippet readable by the person who just lost access.
- *
- * **Mocking strategy.** `@/lib/sharing/access`, `@/lib/sharing/registry`,
- * `@/lib/sharing/service`, `@/lib/mentions/service`, `@/lib/inbox/service` and
- * `@/lib/collaboration/cleanup` all run FOR REAL; only the repositories, WorkOS,
- * the audit trail and the event bus are stubbed. A test that mocked
- * `requireResourceAccess` or the cleanup module would assert nothing about whether
- * the cascade actually happens.
- *
- * Where the guarantee lives in SQL (the orphan predicate, the payload wipe, the
- * project scoping) the REAL repository is imported with `vi.importActual` and its
- * statement is captured through drizzle's proxy driver, so the assertion is about
- * the emitted SQL rather than about a hand-rolled builder stub.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/lib/db', () => ({ getDb: vi.fn() }))
-// No legal hold in play here; the gate itself is `compliance/holds` and the
-// predicate is SQL (`legal-hold.integration.spec.ts`).
 vi.mock('@/lib/compliance/repository', () => ({
   isCoveredByActiveHold: vi.fn().mockResolvedValue(false),
 }))
@@ -41,7 +17,6 @@ vi.mock('@/lib/events/bus', () => ({
 }))
 
 vi.mock('@/lib/authz/projects', () => ({ requireProjectAccess: vi.fn() }))
-// The roster lock is a database transaction; what is tested here runs inside it.
 vi.mock('@/lib/projects/member-change-lock', () => ({
   withProjectMembersLock: (_org: string, _project: string, work: () => Promise<unknown>) => work(),
 }))
@@ -54,8 +29,6 @@ vi.mock('@/lib/authz/project-membership', () => ({
 const listRoleAssignmentsForResource = vi.fn()
 const removeRoleAssignment = vi.fn().mockResolvedValue(undefined)
 const getOrganizationMembership = vi.fn()
-// The caller is a Project Admin: every project permission, so the grant
-// ceiling lets them take any project role away.
 const listEffectivePermissionsByExternalId = vi.fn(async () => ({
   autoPagination: async () => (await import('@/lib/authz/catalog')).PROJECT_PERMISSION_SPECS.map(({ slug }) => ({ slug })),
 }))
@@ -66,29 +39,20 @@ vi.mock('@/lib/workos/client', () => ({
   }),
 }))
 
-// `@/lib/conversations/service` reaches the naming backend through
-// `@/lib/backend-proxy`, which pulls in the AuthKit session helpers.
 vi.mock('@/lib/auth/require-auth', () => ({
   requireAuthorizedSession: vi.fn(),
 }))
 
 vi.mock('@/lib/session-documents/repository', () => ({
-  // Discarding a chat erases the files attached to it (ADR-0047 Phase 2).
-  // Stubbed empty here: the erasure has its own spec, and what matters for
-  // these tests is that it runs BEFORE the conversation row goes.
   listSessionDocumentsForCleanup: vi.fn().mockResolvedValue([]),
   deleteSessionDocumentsByIds: vi.fn().mockResolvedValue(undefined),
   SESSION_DOCUMENT_LIST_LIMIT: 100,
 }))
-// The backend's session collection, dropped with the chat. Stubbed here: a
-// node spec has no MSW server, and `cleanup.spec.ts` pins the request itself.
 vi.mock('@/lib/session-documents/cleanup', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/session-documents/cleanup')>()),
   deleteSessionCollection: vi.fn(async () => ({ ok: true })),
 }))
 
-// Which people may read what a conversation recorded is `restricted-use.spec.ts`'s
-// subject (ADR-0088); here nothing it recorded restricts anybody.
 vi.mock('@/lib/conversations/restricted-use', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/conversations/restricted-use')>()),
   peopleWhoMayRead: vi.fn(async (_org: string, _id: string, userIds: readonly string[]) => new Set(userIds)),
@@ -106,9 +70,6 @@ vi.mock('@/lib/conversations/repository', () => ({
   listConversationIdsForProject: vi.fn(),
   listMessagesForConversation: vi.fn(),
   listVisibleConversations: vi.fn(),
-  // The discard stamps the conversation as deleting BEFORE it erases the files
-  // attached to it, so an upload racing the discard has something to refuse on
-  // (ADR-0047 Phase 2).
   markConversationDeleting: vi.fn().mockResolvedValue({ id: 'conv_1' }),
   recordConversationErased: vi.fn().mockResolvedValue(1),
   mergeMessageMetadata: vi.fn(),
@@ -175,14 +136,11 @@ vi.mock('@/lib/projects/repository', () => ({
   softDeleteProjectAndEnqueue: vi.fn().mockResolvedValue(undefined),
 }))
 
-// The real `unknownPerson` fallback is part of what row E32 protects, so only the
-// WorkOS-backed lookup is replaced.
 vi.mock('@/lib/sharing/directory', async (importActual) => ({
   ...(await importActual<typeof import('@/lib/sharing/directory')>()),
   loadOrganizationDirectory: vi.fn(),
 }))
 
-// The real bounds are part of the rules under test; only the counter is stubbed.
 vi.mock('@/lib/limits', async (importActual) => ({
   ...(await importActual<typeof import('@/lib/limits')>()),
   consumeLimit: vi.fn(),
@@ -266,7 +224,6 @@ const session = {
   permissions: [],
 } as unknown as AuthorizedSession
 
-/** The registry's one probe: existence, tenancy, container, visibility, creator. */
 function stubConversation(
   overrides: Partial<{
     organizationId: string
@@ -319,7 +276,6 @@ function stubGrants(grants: Array<{ subjectUserId: string; role: ResourceRole }>
   )
 }
 
-/** The caller's OWN grant, which is what `resolveResourceAccess` probes. */
 function stubMyGrant(role: ResourceRole | null): void {
   vi.mocked(findGrantForSubject).mockResolvedValue(role ? ({ role } as never) : null)
 }
@@ -348,11 +304,6 @@ interface CapturedQuery {
   params: unknown[]
 }
 
-/**
- * Point `getDb()` at drizzle's proxy driver so the REAL repository emits its real
- * statement and we can assert the SQL instead of a stubbed builder chain.
- * `rows` is what every statement "returns".
- */
 function captureSql(rows: unknown[][] = []): CapturedQuery[] {
   const queries: CapturedQuery[] = []
   const db = proxyDrizzle(async (sql: string, params: unknown[]) => {
@@ -389,14 +340,8 @@ beforeEach(() => {
   vi.mocked(resolveInboxItemsForTargets).mockResolvedValue(0)
 })
 
-// ---------------------------------------------------------------------------
-// A. Deletion
-// ---------------------------------------------------------------------------
-
 describe('deleting a conversation (matrix A1–A3, spec SH-13)', () => {
   it('purges the grants, mention requests and inbox items that no foreign key cascades', async () => {
-    // These three tables address their target as a polymorphic
-    // (resource_type, resource_id) pair, so nothing in Postgres removes them.
     await deleteConversation(session, CONVERSATION_ID)
 
     expect(deleteConversationInOrg).toHaveBeenCalledWith(CONVERSATION_ID, 'org_1')
@@ -406,10 +351,6 @@ describe('deleting a conversation (matrix A1–A3, spec SH-13)', () => {
   })
 
   it('purges nothing for an id that only ever lived in the browser', async () => {
-    // The service reports the same `NotFoundError` here as for a row that exists
-    // and is not the caller's, so the two cannot be told apart (spec SH-6); the
-    // DELETE route turns both into the 204 the chat store needs. What matters at
-    // THIS level is that nothing was purged either way.
     vi.mocked(findConversationTenancy).mockResolvedValue(null)
 
     await expect(deleteConversation(session, CONVERSATION_ID)).rejects.toBeInstanceOf(NotFoundError)
@@ -421,8 +362,6 @@ describe('deleting a conversation (matrix A1–A3, spec SH-13)', () => {
   })
 
   it('leaves the row AND the collaboration state untouched when the caller is not the owner', async () => {
-    // A project collaborator can read and contribute, but deletion is an owner's
-    // call — and a refused delete must not have purged anything on its way out.
     stubConversation({ visibility: 'project', createdBy: 'user_other' })
 
     await expect(deleteConversation(session, CONVERSATION_ID)).rejects.toBeInstanceOf(NotFoundError)
@@ -448,7 +387,6 @@ describe('soft-deleting a project (matrix A4–A5, spec SH-13)', () => {
 
     expect(vi.mocked(voidOpenRequestsForResource).mock.calls.map((call) => call[1])).toEqual(CONVERSATIONS)
     expect(vi.mocked(markItemsInertForResource).mock.calls.map((call) => call[1])).toEqual(CONVERSATIONS)
-    // A restore must return the project's threads shared exactly as they were.
     expect(deleteAllGrantsForResource).not.toHaveBeenCalled()
     expect(deleteGrant).not.toHaveBeenCalled()
   })
@@ -476,8 +414,6 @@ describe('soft-deleting a project (matrix A4–A5, spec SH-13)', () => {
 
     const result = await neutralizeCollaborationForProject('org_1', PROJECT_ID, CONVERSATIONS)
 
-    // conv_b's failure costs conv_b only — a half-cascade is harder to reason
-    // about than a failed one, but abandoning the rest is worse than both.
     expect(result.requests).toBe(2)
     expect(vi.mocked(markItemsInertForResource).mock.calls.map((call) => call[1])).toEqual(CONVERSATIONS)
     warn.mockRestore()
@@ -486,8 +422,6 @@ describe('soft-deleting a project (matrix A4–A5, spec SH-13)', () => {
 
 describe('the orphan sweep (matrix A6)', () => {
   it('targets only rows whose conversation no longer exists', async () => {
-    // The predicate IS the guarantee: a row whose conversation still exists must
-    // be excluded in SQL, not filtered in JS after the fact.
     const queries = captureSql()
 
     const grants = await vi.importActual<typeof import('@/lib/sharing/repository')>(
@@ -512,7 +446,6 @@ describe('the orphan sweep (matrix A6)', () => {
     expect(queries[2]!.sql).toContain(
       'not exists (select 1 from "conversations" where "conversations"."id" = "inbox_items"."resource_id")',
     )
-    // Nothing orphaned → no DELETE at all. Three statements, all of them SELECTs.
     expect(queries.every((query) => query.sql.startsWith('select'))).toBe(true)
     expect(queries.every((query) => query.params.includes(500))).toBe(true)
   })
@@ -541,21 +474,13 @@ describe('inbox retention (matrix A7, spec IB-15)', () => {
     )
     const expected = new Date(now.getTime() - longestDays * 24 * 60 * 60 * 1000)
     expect(pruneInboxItemsOlderThan).toHaveBeenCalledWith(expected, 1000)
-    // Conservative on purpose: never delete something a registered type still
-    // wants, even at the cost of keeping shorter-lived types a little longer.
     expect(result).toEqual({ deleted: 12, cutoff: expected.toISOString() })
     expect(expected.getTime()).toBeLessThan(now.getTime())
   })
 })
 
-// ---------------------------------------------------------------------------
-// B. Modification
-// ---------------------------------------------------------------------------
-
 describe('changing visibility (matrix B8–B10, spec SH-2, SH-13, SH-14)', () => {
   it('keeps explicit grants when visibility narrows from project to private', async () => {
-    // People who only had project-derived access lose it; the invitees do not —
-    // otherwise "narrow the audience" would silently un-invite everyone.
     stubConversation({ visibility: 'project' })
     stubGrants([{ subjectUserId: ANNA, role: 'collaborator' }])
 
@@ -578,8 +503,6 @@ describe('changing visibility (matrix B8–B10, spec SH-2, SH-13, SH-14)', () =>
   })
 
   it('refuses a visibility the registry does not permit for the type', async () => {
-    // The column carries `organization`, but conversations expose only
-    // private/project in phase 1 (spec SH-15) — the API must say so.
     const failure = await setResourceVisibility(
       session,
       'conversation',
@@ -595,14 +518,11 @@ describe('changing visibility (matrix B8–B10, spec SH-2, SH-13, SH-14)', () =>
 })
 
 describe('changing a role (matrix B11–B13, spec MN-9.4)', () => {
-  // A role change edits an existing grant, so every case here starts from one.
   beforeEach(() => {
     stubGrants([{ subjectUserId: ANNA, role: 'collaborator' }])
   })
 
   it('voids the open requests of someone downgraded to viewer', async () => {
-    // A viewer has no composer, so a request waiting on them could never be
-    // answered and the hand-off banner would wait forever.
     vi.mocked(voidOpenRequestsForSubject).mockResolvedValue([requestRow()])
 
     await changeResourceRole(session, 'conversation', CONVERSATION_ID, {
@@ -611,9 +531,6 @@ describe('changing a role (matrix B11–B13, spec MN-9.4)', () => {
     })
 
     expect(voidOpenRequestsForSubject).toHaveBeenCalledWith('conversation', CONVERSATION_ID, ANNA)
-    // …and THEIR inbox item stops pointing at a question they cannot answer —
-    // paired with the recipient, so a colleague mentioned on the same message
-    // keeps their own row open (spec MN-10).
     expect(resolveInboxItemsForTargets).toHaveBeenCalledWith([
       {
         organizationId: 'org_1',
@@ -627,9 +544,6 @@ describe('changing a role (matrix B11–B13, spec MN-9.4)', () => {
     for (const role of ['collaborator', 'owner'] as const) {
       vi.mocked(voidOpenRequestsForSubject).mockClear()
       vi.mocked(upsertGrant).mockClear()
-      // Anna starts BELOW the target every time, so each iteration is a genuine
-      // upgrade. Starting at `collaborator` made the first pass a no-op, which now
-      // returns early — and a no-op does not exercise "an upgrade voids nothing".
       stubGrants([
         { subjectUserId: session.userId, role: 'owner' },
         { subjectUserId: ANNA, role: 'viewer' },
@@ -653,15 +567,11 @@ describe('changing a role (matrix B11–B13, spec MN-9.4)', () => {
       role: 'collaborator',
     })
 
-    // A repeated click is not a change, so it reaches neither the audit log nor the
-    // subject's event channel.
     expect(upsertGrant).not.toHaveBeenCalled()
     expect(publishToUsers).not.toHaveBeenCalled()
   })
 
   it('tells the subject their role changed, so their UI stops offering the composer', async () => {
-    // Without this a downgraded participant keeps a composer they may no longer use
-    // until their next full reload — and an upgrade goes unnoticed just as long.
     stubGrants([
       { subjectUserId: session.userId, role: 'owner' },
       { subjectUserId: ANNA, role: 'collaborator' },
@@ -689,10 +599,6 @@ describe('changing a role (matrix B11–B13, spec MN-9.4)', () => {
   })
 })
 
-// ---------------------------------------------------------------------------
-// C. Access revocation
-// ---------------------------------------------------------------------------
-
 describe('revoking a grant (matrix C14–C15, spec SH-13, IB-14)', () => {
   beforeEach(() => {
     stubConversation({ createdBy: 'user_creator' })
@@ -711,15 +617,12 @@ describe('revoking a grant (matrix C14–C15, spec SH-13, IB-14)', () => {
   })
 
   it('wipes the stored payload when it makes an item inert, so a quoted snippet does not outlive access', async () => {
-    // The wipe is in the UPDATE's SET clause, so that is what gets asserted:
-    // hiding the snippet at render time would still leave it in the row.
     const queries = captureSql([['item_1']])
     const inbox = await vi.importActual<typeof import('@/lib/inbox/repository')>('@/lib/inbox/repository')
 
     await inbox.markItemsInertForSubjectRow('conversation', CONVERSATION_ID, ANNA)
 
     expect(queries).toHaveLength(1)
-    // …and the count with it: a row revived later counts only what revived it.
     expect(queries[0]!.sql).toMatch(/^update "inbox_items" set "count" = \$1, "payload" = \$2/)
     expect(queries[0]!.params.slice(0, 2)).toEqual([0, '{}'])
     expect(queries[0]!.sql).toContain('"inbox_items"."recipient_user_id" = ')
@@ -738,9 +641,6 @@ describe('revoking a grant (matrix C14–C15, spec SH-13, IB-14)', () => {
   })
 
   it('does not blow up the revocation for a request that carries no anchor', async () => {
-    // `anchor_id` is nullable and `mention.requested` groups per anchor, so a
-    // blind group-key build throws here — after the grant is gone but before the
-    // inbox is wiped and before the revoked event is published.
     vi.mocked(voidOpenRequestsForSubject).mockResolvedValue([requestRow({ anchorId: null })])
 
     await expect(
@@ -777,13 +677,10 @@ describe('leaving, and the last-owner invariant (matrix C16–C17, spec SH-11, S
 
     expect(failure).toBeInstanceOf(ConflictError)
     expect((failure as ConflictError).details).toEqual({ reason: 'last-owner' })
-    // The guard runs before the write, so a refused demotion changes nothing.
     expect(upsertGrant).not.toHaveBeenCalled()
   })
 
   it('refuses to let the only remaining owner leave', async () => {
-    // The creator is gone (a legacy row), so the sole owner grant is all that
-    // stands between the resource and having no in-app way to recover it.
     stubConversation({ createdBy: null })
     stubMyGrant('owner')
     stubGrants([{ subjectUserId: session.userId, role: 'owner' }])
@@ -825,8 +722,6 @@ describe('losing PROJECT membership (matrix C18–C20, spec SH-13)', () => {
     const result = await revokeCollaborationForProjectMember('org_1', PROJECT_ID, ANNA)
 
     expect(result).toEqual({ requests: 2, inboxItems: 3 })
-    // Both writes are scoped by (organization, project, subject) — the same person
-    // may still hold legitimate state in another project.
     expect(voidOpenRequestsForSubjectInProject).toHaveBeenCalledWith('org_1', PROJECT_ID, ANNA)
     expect(markItemsInertForSubjectInProject).toHaveBeenCalledWith('org_1', PROJECT_ID, ANNA)
     expect(resolveInboxItemsForTargets).toHaveBeenCalledWith([
@@ -854,9 +749,6 @@ describe('losing PROJECT membership (matrix C18–C20, spec SH-13)', () => {
     await inbox.markItemsInertForSubjectInProject('org_1', PROJECT_ID, ANNA)
 
     expect(queries).toHaveLength(2)
-    // The ROW's resource id must be the thing constrained to the project's
-    // conversations — narrowing some other column would leave the person's state in
-    // every other project inside the blast radius.
     expect(queries[0]!.sql).toContain(
       '"mention_requests"."resource_id" in (select "id" from "conversations" where ("conversations"."organization_id" = ',
     )
@@ -884,9 +776,6 @@ describe('losing PROJECT membership (matrix C18–C20, spec SH-13)', () => {
   })
 
   it('does not fail the role removal itself when the cleanup blows up at the call site', async () => {
-    // Same guarantee one layer out: `removeProjectRoleAssignment` resolves the
-    // membership before it can clean up, and that lookup failing must cost the
-    // bookkeeping, not the access-control change the admin actually asked for.
     vi.mocked(findProjectWorkosResourceId).mockResolvedValue('res_project_1')
     listRoleAssignmentsForResource.mockResolvedValue({
       autoPagination: async () => [
@@ -912,8 +801,6 @@ describe('losing PROJECT membership (matrix C18–C20, spec SH-13)', () => {
   })
 
   it('resolves the anchored items even when one voided request has no anchor', async () => {
-    // One anchor-less row must not take the whole batch into the catch, or every
-    // other recipient's item silently stays unresolved.
     vi.mocked(voidOpenRequestsForSubjectInProject).mockResolvedValue([
       requestRow({ resourceId: 'conv_a', anchorId: null }),
       requestRow({ id: 'req_2', resourceId: 'conv_b', anchorId: 'msg_2' }),
@@ -932,8 +819,6 @@ describe('losing PROJECT membership (matrix C18–C20, spec SH-13)', () => {
   })
 
   it('leaves a retained grant inert: it does not grant access while the container is unreachable', async () => {
-    // Grants are additive but always gated by the container (spec SH-5), which is
-    // exactly what makes keeping them on a membership removal safe.
     stubConversation({ visibility: 'private', createdBy: 'user_creator' })
     stubMyGrant('owner')
     stubContainer('denied')

@@ -13,25 +13,6 @@ import { THEME_BOOT_SCRIPT } from './theme-boot'
 import { errorReportHref, useCurrentAddress } from './error-report'
 import './globals.css'
 
-/**
- * The last boundary: an error in the root layout itself, which `error.tsx`
- * sits below and so cannot catch.
- *
- * Next replaces the whole document while this is shown (`<html>` and `<body>`
- * are ours to render, and none of the layout's providers exist), so this file
- * is built from what needs no provider: the stylesheet and the theme boot
- * script are imported again, copy comes from the bundled dictionaries by the
- * locale cookie (`getActiveLocale`) instead of `useTranslations`, and the
- * escape is a plain anchor rather than `next/link`, because the router context
- * may be what broke. The copy is `errors.appError`, the same screen
- * `error.tsx` shows, so there is one wording to translate.
- *
- * Reporting follows `error.tsx`: client-side errors go to PostHog here, one
- * thrown on the server carries a `digest` and was already reported by
- * `onRequestError`. PostHog is started by the layout's providers, so if they
- * are what failed to mount, the report is a silent no-op and only the server
- * side sees it.
- */
 export default function GlobalError({
   error,
   retry,
@@ -39,8 +20,6 @@ export default function GlobalError({
   error: Error & { digest?: string }
   retry: () => void
 }) {
-  // The server render has no cookie, so it says English; the client re-reads
-  // the cookie after hydration without a mismatch (`useSyncExternalStore`).
   const locale = useSyncExternalStore(
     () => () => {},
     getActiveLocale,
@@ -65,10 +44,6 @@ export default function GlobalError({
   )
 }
 
-/**
- * The screen inside the document this boundary owns, apart from `<html>` so
- * the `/dev/global-error` preview can render the same thing inside the app.
- */
 export function GlobalErrorScreen({
   locale,
   retry,
@@ -76,7 +51,6 @@ export function GlobalErrorScreen({
 }: {
   locale: Locale
   retry: () => void
-  /** A server error's digest, the reference `onRequestError` reported it under */
   digest?: string
 }) {
   const t = translatorFor(errorsCopy, locale)
@@ -89,7 +63,7 @@ export function GlobalErrorScreen({
       description={t('appError.description')}
       actions={
         <>
-          <Button variant="outline" onClick={retry}>
+          <Button variant="secondary" onClick={retry}>
             {t('appError.action')}
           </Button>
           <Button asChild>

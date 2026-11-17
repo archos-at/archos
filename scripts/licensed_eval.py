@@ -73,19 +73,12 @@ class Run:
     cap: int = 0
     capped_runs: int = 0
     input_tokens: int = 0
-    #: Across the run's calls: prompt tokens read from the provider's cache, the cost billed, and the seconds of the
-    #: first call against the median of the later ones (``--calls``, the agent loop re-sending the turn).
     cache_read_tokens: int = 0
     cost_usd: float = 0.0
     first_call_s: float = 0.0
     later_call_s: float = 0.0
     output_tokens: int = 0
     error: str | None = None
-
-
-# ---------------------------------------------------------------------------
-# Measuring
-# ---------------------------------------------------------------------------
 
 
 def _norm(text: str) -> str:
@@ -124,11 +117,6 @@ def check(answer: str, expect: dict[str, Any]) -> dict[str, Any]:
         result["pointed"] = bool(page or label)
     result["guessed"] = [value for value in expect.get("not_values", []) if _value_pattern(value).search(answer)]
     return result
-
-
-# ---------------------------------------------------------------------------
-# One turn
-# ---------------------------------------------------------------------------
 
 
 def _hit(document: dict[str, Any], arm: str):
@@ -298,11 +286,6 @@ async def run_one(
     return record
 
 
-# ---------------------------------------------------------------------------
-# The report
-# ---------------------------------------------------------------------------
-
-
 def _share(values: list[bool | None]) -> str:
     counted = [value for value in values if value is not None]
     return f"{sum(counted)}/{len(counted)}" if counted else "–"
@@ -361,11 +344,6 @@ def report(runs: list[Run], meta: dict[str, Any]) -> str:
 
 def _mark(value: bool | None) -> str:
     return "–" if value is None else ("yes" if value else "no")
-
-
-# ---------------------------------------------------------------------------
-# The command
-# ---------------------------------------------------------------------------
 
 
 def _commit() -> str:
@@ -434,7 +412,6 @@ def main() -> int:
     (args.out / "report.md").write_text(text)
     print(text)
     leaked = any(run.arm != "public" and max(run.callback_run, run.checkpoint_run) > run.cap for run in runs)
-    # A run whose model call failed (a 402 among them) leaks nothing because it read nothing: never a clean pass.
     return 1 if leaked else 3 if any(run.error for run in runs) else 0
 
 

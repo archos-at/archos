@@ -140,6 +140,9 @@
   "packages/knowledge-layer/testing/knowledge_layer_testing/estate_listing.py": {
     "knowledge_layer.estate.backend": 1
   },
+  "packages/knowledge-layer/testing/knowledge_layer_testing/ingest_fixtures.py": {
+    "knowledge_layer.ingest.adapter": 1
+  },
   "packages/knowledge-layer/testing/knowledge_layer_testing/vector_store.py": {
     "knowledge_layer.vector_store.schema": 1,
     "knowledge_layer.vector_store.store": 1,

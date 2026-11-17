@@ -1,0 +1,5 @@
+---
+# area: administration
+operators:
+  - >
+    On a phone, tapping a country in Platform → Länder now opens that country. Before, every tap opened the last country in the list.

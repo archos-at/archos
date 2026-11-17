@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 
 import { dayGroupOf, inboxSections } from './inbox-day-groups'
 
-// A Thursday afternoon, local time.
 const NOW = new Date(2026, 9, 29, 15, 0)
 const at = (day: number, hour = 9): string => new Date(2026, 9, day, hour).toISOString()
 

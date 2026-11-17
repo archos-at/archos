@@ -2,7 +2,7 @@
 
 import type { JSX } from 'react'
 import Link from 'next/link'
-import { MessageSquareText } from 'lucide-react'
+import { ExternalLink, MessageSquareText } from 'lucide-react'
 import { Chip } from '@/components/ui/chip'
 import { HoverPeekPanel } from '@/components/ui/hover-peek-panel'
 import { useHoverPopover } from '@/hooks/use-hover-popover'
@@ -15,16 +15,13 @@ import { cn } from '@/lib/utils'
 type Law = NonNullable<IntakeView['applicableLaw']>
 type Role = ProjectLawUse['role']
 
-/** The gate states that name no law; each says why instead (`projectLawFor`). */
 const REFUSALS = ['organization_unplaced', 'site_unknown', 'not_entitled', 'knowledge_unavailable', 'none'] as const
 type Refusal = (typeof REFUSALS)[number]
 const isRefusal = (gate: Law['gate']): gate is Refusal => (REFUSALS as readonly string[]).includes(gate)
 
-/** Binding first, then guidance, then the rest: the order a person weighs them in. */
 const ROLE_ORDER: readonly Role[] = ['binding', 'guidance', 'interpretation', 'authority_practice', 'information']
 const legendOf = (role: Role): 'binding' | 'guidance' | 'other' => (role === 'binding' || role === 'guidance' ? role : 'other')
 
-/** The role as a dot: filled binds, a ring guides, a dashed ring interprets or informs. */
 function RoleDot({ role }: { role: Role }): JSX.Element {
   return (
     <span
@@ -42,13 +39,6 @@ function RoleDot({ role }: { role: Role }): JSX.Element {
 const nameOf = (use: ProjectLawUse): string =>
   [use.designation ?? use.workId, use.editionLabel].filter(Boolean).join(' ')
 
-/**
- * „Was für dieses Projekt gilt": the law at the project's site from the
- * platform's records (ADR-0175), one chip per edition the chain names, its role
- * in the dot. The server's read (`projectLawFor`), the same the turn reads, so
- * the page and the answer name the same law. Where the gate refuses, it says
- * why and what would change it; it never falls back to a list for every site.
- */
 export function RulesCard({ view }: { view: IntakeView }): JSX.Element | null {
   const t = useTranslations(intakeProfileStepCopy)
   const law = view.applicableLaw
@@ -74,7 +64,7 @@ export function RulesCard({ view }: { view: IntakeView }): JSX.Element | null {
         <ul className="mt-3 flex flex-wrap gap-2">
           {uses.map((use) => (
             <li key={`${use.workId}/${use.editionId ?? 'live'}`}>
-              <LawChip projectId={view.projectId} use={use} />
+              <LawChip projectId={view.projectId} use={use} factLabels={law.factLabels} />
             </li>
           ))}
         </ul>
@@ -88,12 +78,39 @@ export function RulesCard({ view }: { view: IntakeView }): JSX.Element | null {
   )
 }
 
-function LawChip({ projectId, use }: { projectId: string; use: ProjectLawUse }): JSX.Element {
+function ApplicabilityNote({ use, factLabels }: { use: ProjectLawUse; factLabels: Record<string, string> }): JSX.Element | null {
+  const t = useTranslations(intakeProfileStepCopy)
+  const applicability = use.applicability
+  if (!applicability) return null
+  const facts = (keys: readonly string[]) => keys.map((key) => factLabels[key] ?? key).join(', ')
+  const why =
+    applicability.verdict === 'applies'
+      ? applicability.basis.length > 0 ? t('rules.applicability.applies', { facts: facts(applicability.basis) }) : null
+      : applicability.open.length > 0
+        ? t('rules.applicability.open', { facts: facts(applicability.open) })
+        : t('rules.applicability.case')
+  return (
+    <div className="space-y-1 text-xs" data-testid="profile-rule-applicability">
+      {why && <p>{why}</p>}
+      {applicability.provision && (
+        <p className="text-muted-foreground">{t('rules.applicability.provision', { provision: applicability.provision })}</p>
+      )}
+    </div>
+  )
+}
+
+function LawChip({ projectId, use, factLabels }: { projectId: string; use: ProjectLawUse; factLabels: Record<string, string> }): JSX.Element {
   const t = useTranslations(intakeProfileStepCopy)
   const peek = useHoverPopover()
   const name = nameOf(use)
-  // The qualifier the turn reads goes with the role: „verbindlich, nicht kuratiert“.
-  const role = [t(`rules.role.${use.role}`), use.qualifier ? t(`rules.qualifier.${use.qualifier}`) : null].filter(Boolean).join(', ')
+  const toCheck = use.applicability?.verdict === 'check'
+  const role = [
+    t(`rules.role.${use.role}`),
+    use.qualifier ? t(`rules.qualifier.${use.qualifier}`) : null,
+    toCheck ? t('rules.applicability.check') : null,
+  ]
+    .filter(Boolean)
+    .join(', ')
   const question = t('rules.askQuestion', { name })
   return (
     <>
@@ -108,13 +125,14 @@ function LawChip({ projectId, use }: { projectId: string; use: ProjectLawUse }):
           aria-label={t('rules.chipAria', { name, role })}
           data-role={use.role}
           data-qualifier={use.qualifier ?? undefined}
+          data-applicability={use.applicability?.verdict}
           data-testid={`profile-rule-${use.workId}-${use.editionId ?? 'live'}`}
           {...peek.triggerProps}
         >
           <RoleDot role={use.role} />
           <span>
             {name}
-            {(use.role !== 'binding' || use.qualifier) && <span className="text-muted-foreground">, {role}</span>}
+            {(use.role !== 'binding' || use.qualifier || toCheck) && <span className="text-muted-foreground">, {role}</span>}
           </span>
         </button>
       </Chip>
@@ -124,7 +142,16 @@ function LawChip({ projectId, use }: { projectId: string; use: ProjectLawUse }):
           <RoleDot role={use.role} />
           {role}
         </p>
+        <ApplicabilityNote use={use} factLabels={factLabels} />
         <div className="flex flex-wrap gap-2 pt-1">
+          {use.sourceUrl && (
+            <Chip asChild interactive variant="outline" size="sm">
+              <a href={use.sourceUrl} target="_blank" rel="noopener noreferrer">
+                <ExternalLink aria-hidden />
+                {t('rules.source')}
+              </a>
+            </Chip>
+          )}
           <Chip asChild interactive variant="outline" size="sm">
             <Link href={`/app/projects/${projectId}/chat?ask=${encodeURIComponent(question)}`}>
               <MessageSquareText aria-hidden />

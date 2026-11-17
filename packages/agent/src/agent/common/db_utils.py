@@ -7,10 +7,6 @@ import re
 from collections.abc import Callable
 from typing import Any
 
-# Matches the ``scheme://user[:password]@`` credential segment of a URL/DSN so it
-# can be scrubbed from values SQLAlchemy could not parse. Anchored on ``://`` and
-# the ``@`` host separator; the userinfo run excludes ``/``, ``@`` and whitespace
-# so it stops at the authority boundary and leaves bare paths untouched.
 _CREDENTIAL_RE = re.compile(r"://[^/@\s]+@")
 
 
@@ -77,9 +73,6 @@ def schema_lock_key(name: str) -> int:
     return int.from_bytes(digest[:8], "big", signed=True)
 
 
-#: The longest the schema transaction waits for any lock: the creation lock, or
-#: the table an ``ALTER``/``CREATE INDEX`` needs. Another replica's DDL takes
-#: milliseconds; a wait longer than this is a session that is not coming back.
 SCHEMA_LOCK_TIMEOUT = "5s"
 
 
@@ -114,7 +107,6 @@ def lock_schema(conn, name: str) -> None:
         return
     from sqlalchemy import text
 
-    # set_config(..., true) is SET LOCAL with a bound value: it ends with the transaction.
     conn.execute(text("SELECT set_config('lock_timeout', :timeout, true)"), {"timeout": SCHEMA_LOCK_TIMEOUT})
     conn.execute(text("SELECT pg_advisory_xact_lock(CAST(:key AS bigint))"), {"key": schema_lock_key(name)})
 

@@ -67,6 +67,14 @@ class OibFileEntry(BaseModel):
     chunk_count: int = Field(0, ge=0, description="Number of indexed chunks the RAG can retrieve.")
     ingested_sha256: str | None = Field(None, description="Hash recorded at the last successful ingestion.")
     current_sha256: str | None = Field(None, description="Hash of the stored file.")
+    country_id: str | None = Field(
+        None,
+        description=(
+            "The country a release marked the file with (ADR-0173): its entitled offices read it. "
+            "None for a file no release marked or one a rollback left unreleased; 'ZZ' for a rollback from before "
+            "the released flag."
+        ),
+    )
     ingested_at: datetime | None = Field(None, description="Completion time of the last ingestion, if tracked.")
     summary: str | None = Field(None, description="One-sentence document summary, if one was generated.")
     doc_class: str | None = Field(
@@ -197,8 +205,6 @@ def _with_metadata(entries: list[OibFileEntry], collection_name: str) -> None:
         entry.summary = summary
         entry.doc_class = doc_class
         entry.doc_class_suggestion = suggestions.get(entry.file_name)
-        # Effective name: the admin override wins, else the derived default so the
-        # admin UI always shows a real name (never a raw filename) to rename from.
         entry.display_title = stored_title or guess_display_title(entry.file_name)
 
 
@@ -224,6 +230,10 @@ def get_status(ingestor=None) -> OibKnowledgeStatus:
     ]
     entries.extend(_entry_for_orphan(name, info) for name, info in collection_files.items() if name not in rows)
     _with_metadata(entries, collection_name)
+    marks = corpus_store.list_marks()
+    for entry in entries:
+        mark = marks.get(entry.file_name)
+        entry.country_id = mark.country_id if mark and mark.released is not False else None
 
     counts = OibStatusSummary(
         total_files=len(entries),

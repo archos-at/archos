@@ -44,78 +44,37 @@ from typing import Any
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from llama_index.core import Document
 
-# Running furniture, derived from all 40 PDFs in ``data/oib/``. The header is identical
-# on 646 of 686 extracted pages; the footer varies only in the document label, the
-# optional revision and the optional page counter. Together they account for the ~11,179
-# tokens of boilerplate that are currently indexed corpus-wide -- every page contributing
-# the same two lines is pure noise in a vector, and worse, it is noise that *matches*
-# every query mentioning "OIB-Richtlinie".
 _HEADER_RE = re.compile(r"^Österreichisches Institut für Bautechnik\b")
-_FOOTER_RE = re.compile(r"^.{0,90}?\bAusgabe\s+Mai\s+\d{4}\b(?:\s+Rev\.\s*[\d.]+)?(?:\s+Seite\s+\d+\s+von\s+\d+)?\s*$")
-#: Same shape as ``_FOOTER_RE`` but capturing the document label in front of the date,
-#: which is the most reliable name for the Richtlinie: it recurs on nearly every page,
-#: whereas the cover page is rotated/garbled by pdfplumber ("neinilthcir").
+_MONTH = r"(?:Jänner|Januar|Februar|März|April|Mai|Juni|Juli|August|September|Oktober|November|Dezember)"
+_EDITION = rf"Ausgabe\s+{_MONTH}\s+\d{{4}}\b"
+_FOOTER_RE = re.compile(rf"^.{{0,90}}?\b{_EDITION}(?:\s+Rev\.\s*[\d.]+)?(?:\s+Seite\s+\d+\s+von\s+\d+)?\s*$")
 _FOOTER_LABEL_RE = re.compile(
-    r"^(?P<label>\S.{0,88}?)\s+Ausgabe\s+Mai\s+\d{4}\b(?:\s+Rev\.\s*[\d.]+)?(?:\s+Seite\s+\d+\s+von\s+\d+)?\s*$"
+    rf"^(?P<label>\S.{{0,88}}?)\s+{_EDITION}(?:\s+Rev\.\s*[\d.]+)?(?:\s+Seite\s+\d+\s+von\s+\d+)?\s*$"
 )
 
-#: A run of dots is the table-of-contents leader ("3.1 Brandabschnitte ......... 3").
 _DOT_LEADER_RE = re.compile(r"\.{4,}")
-#: A contents-page *entry*: leader dots and the page number they lead to. Requiring the
-#: number is what separates a contents page from the abbreviation legend on page 11 of
-#: `oib-rl_6-leitfaden`, whose "KD ...... Kellerdecke" lines are leaders that lead
-#: nowhere. Read as a contents page, that page was dropped from the body and took
-#: Punkte 4.3.1 and 4.3.2 with it.
 _TOC_ENTRY_RE = re.compile(r"\.{4,}\s*\d+\s*$")
-#: Three leader lines on one page is well clear of prose (which never produces one) and
-#: still catches the shortest ToC in the corpus (OIB-Richtlinie 1, three entries).
 logger = logging.getLogger(__name__)
 
 _TOC_MIN_DOT_LEADER_LINES = 3
 
-#: The Punkt heading itself. Bounded at four levels because the corpus never nests
-#: deeper, and an unbounded run of dot-separated numbers matches version strings.
 _CLAUSE_RE = re.compile(r"^(\d+(?:\.\d+){0,3})\s+(\S.*)$")
 
-#: PDF line-break hyphenation ("unterstüt-\nzenden"). Restricted to a lowercase German
-#: continuation so genuine compound hyphens ("Brand-\nAbschnitt", "EI2 30-C") survive:
-#: a real hyphen before a line break is followed by an uppercase letter or a digit.
 _HYPHEN_BREAK_RE = re.compile(r"(\w)-\n([a-zäöüß])")
 
-#: The colophon that closes every Richtlinie. Everything after it (publisher address,
-#: disclaimer, back cover) is furniture; without this marker it is silently glued onto
-#: the *last* Punkt of every file, which is the one requirement no one would suspect.
 _END_OF_BODY_RE = re.compile(r"^Impressum\s*$")
 
-#: Fallback gates. Five accepted Punkte is below anything the corpus produces for a real
-#: Richtlinie (the smallest, OIB-Richtlinie 1, has 8) and above what an accidental match
-#: run can reach. 60% coverage catches the shape where a handful of headings are found in
-#: a document that is mostly something else -- there the per-page chunks are still better.
 _MIN_CLAUSES = 5
 _MIN_CLAUSE_COVERAGE = 0.60
 
-#: A Punkt id segment is one or two digits. German thousands separators are the reason:
-#: "1.200 m² nicht überschreiten" parses as a perfectly monotonic id ``(1, 200)`` and
-#: would open a bogus Punkt in the middle of a requirement. Three-digit groups are always
-#: a number, never a Punkt.
 _MAX_ID_SEGMENT_DIGITS = 2
 
-#: Largest forward jump accepted between siblings. One skipped number absorbs a heading
-#: that extraction mangled; more than that is a different numbering scheme (a table).
 _MAX_ID_GAP = 2
 
-#: The first Punkt of a Richtlinie is "0 Vorbemerkungen" or "1 ...", never anything else.
 _MAX_FIRST_ID = 1
 
-#: Metadata that exists for citation ranges, diagnostics or filtering and carries no
-#: retrieval signal, so it must not be prepended to the text the embedder sees. Extends
-#: the adapter's ``EMBED_EXCLUDED_METADATA_KEYS`` rather than replacing it.
-#: ``table_part`` orders a table's row groups for ``read_passage``; embedded, it read
-#: ``table_part: 1`` to the embedder and the model alike.
 CLAUSE_EMBED_EXCLUDED_METADATA_KEYS = ("page_end", "clause_depth", "chunking", "table_part")
 
-#: Separator for the ancestor breadcrumb. A guillemet reads as hierarchy to the embedder
-#: without colliding with the ">" that appears in the corpus' own comparison operators.
 _BREADCRUMB_SEP = " › "
 
 
@@ -138,7 +97,6 @@ def _parse_clause_id(raw: str) -> tuple[int, ...] | None:
     """Parse ``"3.1.3"`` into ``(3, 1, 3)``, or ``None`` when it cannot be a Punkt id."""
     segments = raw.split(".")
     for segment in segments:
-        # Leading zeros never occur in the numbering but do occur in dates and codes.
         if len(segment) > _MAX_ID_SEGMENT_DIGITS or (len(segment) > 1 and segment.startswith("0")):
             return None
     return tuple(int(segment) for segment in segments)
@@ -166,27 +124,17 @@ def _is_monotonic(candidate: tuple[int, ...], previous: tuple[int, ...] | None) 
     the runaway jump while still accepting every real heading in the corpus.
     """
     if previous is None:
-        # Every Richtlinie opens at "0 Vorbemerkungen" or "1 ...". Anchoring the start
-        # stops a stray number on the cover page from claiming the first Punkt.
         return len(candidate) == 1 and candidate[0] <= _MAX_FIRST_ID
-    # Descent: 3 -> 3.1, or the rarer 4 -> 4.1.1 where an intermediate level is unnumbered.
     if len(candidate) > len(previous):
         return candidate[: len(previous)] == previous and set(candidate[len(previous) :]) == {1}
-    # Sibling at this or any enclosing level: 3.1.9 -> 3.1.10, 3.1.10 -> 3.2, 3.13.3 -> 4.
     level = len(candidate) - 1
     if candidate[:level] != previous[:level]:
         return False
     return 1 <= candidate[level] - previous[level] <= _MAX_ID_GAP
 
 
-#: Guard on the candidate count before the chain search runs. The search is O(n²) in
-#: candidates; the worst document in the corpus offers 345, so 2000 leaves two orders of
-#: magnitude of headroom while still bounding a pathological input to ~4M comparisons.
 _MAX_CHAIN_CANDIDATES = 2000
 
-#: Characters of normalised title that must agree for a heading to be judged the one the
-#: contents page names. Long enough to be decisive, short enough to survive the hyphenated
-#: line wrap a PDF puts inside a heading ("…für die Konditionie-").
 _TITLE_MATCH_CHARS = 12
 
 
@@ -218,7 +166,7 @@ def _document_label(lines: list[str]) -> str:
 def _document_subject(lines: list[str]) -> str:
     """The Richtlinie's subject ("Brandschutz"), read off the title page.
 
-    Every title page in the corpus ends its masthead with ``Ausgabe: Mai <year>`` and puts
+    Every title page in the corpus ends its masthead with ``Ausgabe: <month> <year>`` and puts
     the subject on the one to three lines directly above it, below a marker line that is
     either the ``Oia``/``O ia`` logo fragment, the ``-Richtlinie n`` continuation or the
     ``Erläuternde Bemerkungen zu`` lead-in. Walking backwards from the date to that marker
@@ -228,7 +176,7 @@ def _document_subject(lines: list[str]) -> str:
     """
     marker = re.compile(r"^(?:-|O\s?ia\b|Erläuternde\b|Bemerkungen\b)")
     for index, line in enumerate(lines):
-        if not re.match(r"^Ausgabe:\s*Mai\s*\d{4}\s*$", line):
+        if not re.match(rf"^Ausgabe:\s*{_MONTH}\s*\d{{4}}\s*$", line):
             continue
         collected: list[str] = []
         for candidate in reversed(lines[max(0, index - 4) : index]):
@@ -252,10 +200,6 @@ def _collect_lines(text_pages: list[dict[str, Any]]) -> list[tuple[int, str]]:
         text = page.get("text") or ""
         if _is_toc_page(text):
             continue
-        # Coerced, not trusted. `_extract_text_from_pdf` always supplies this, but this
-        # function is documented as pure over page dicts and is called with caller-built
-        # lists; a missing key made `page_start` None and `page_label` the STRING "None",
-        # which breaks the citation contract silently rather than loudly.
         try:
             page_number = int(page.get("page_number"))
         except TypeError, ValueError:
@@ -307,18 +251,8 @@ def _heading_candidates(
     for index in range(body_end):
         line = lines[index][1]
         match = _CLAUSE_RE.match(line)
-        # A dot-leader line that survived the page-level ToC check (a stray entry on a
-        # content page) is a pointer to a Punkt, never the Punkt itself.
         if match is None or _DOT_LEADER_RE.search(line):
             continue
-        # A lowercase opening used to be rejected here as a wrapped-prose tell -- German
-        # capitalises nouns and sentence openings, so "10 cm aus expandiertem Polystyrol"
-        # reads as a continuation rather than a heading. `_contradicts_contents` covers
-        # that case more precisely, by the number rather than by the orthography: the
-        # contents page says what Punkt 10 is called, and it is not "cm aus expandiertem".
-        # The orthographic rule also had a cost, because the corpus does open headings in
-        # lowercase -- OIB-Richtlinie 6 numbers two of them "kein ENERGIEAUSWEIS
-        # erforderlich …" -- and dropping them merged their text into the Punkt above.
         if _contradicts_contents(match, listed):
             continue
         parsed = _parse_clause_id(match.group(1))
@@ -383,10 +317,6 @@ def _contradicts_contents(match: re.Match[str], listed: dict[str, str]) -> bool:
     if expected is None:
         return False
     actual = _title_key(match.group(2))
-    # Either may be the longer rendering: pdfplumber sometimes glues the first words of
-    # the body onto the heading line, and a heading shorter than the comparison window
-    # leaves the contents-page entry as the longer of the two. Only a genuine divergence
-    # inside the shared prefix is treated as a contradiction.
     return not expected.startswith(actual) and not actual.startswith(expected)
 
 
@@ -448,12 +378,10 @@ def _best_chain(
     """
     if not candidates or len(candidates) > _MAX_CHAIN_CANDIDATES:
         return []
-    # (listed headings, total headings); (0, 0) marks a candidate no chain can reach.
     score: list[tuple[int, int]] = [(0, 0)] * len(candidates)
     previous = [-1] * len(candidates)
     for position, (_index, ids, match) in enumerate(candidates):
         anchor = 1 if match.group(1) in listed else 0
-        # A chain may only open where a Richtlinie opens; anywhere else it must extend one.
         if _is_monotonic(ids, None):
             score[position] = (anchor, 1)
         for earlier in range(position):
@@ -477,11 +405,70 @@ def _best_chain(
     return chain
 
 
+def _back_matter(text_pages: list[dict[str, Any]]) -> tuple[str, ...]:
+    """Title keys of the unnumbered entries the contents page lists after its last numbered one (``Anhang``).
+
+    They are the document's back matter: an annex of forms after the last Punkt. Without
+    this, the Punkt run ran on to the colophon, and the annex was filed under the last
+    Punkt: twelve pages of Energieausweis forms cited as "8.3.2" (OIB-RL 6, Ausgabe Mai
+    2023 and September 2025, measured 2026-11-12).
+
+    Read from the contents page that holds the last numbered entry, and from no other: a
+    Tabellen- or Abbildungsverzeichnis after it lists captions, and a caption quoted in
+    the last Punkt's text is no back matter.
+
+    The coverage gate of :func:`clause_documents` leaves the whole postamble (this back
+    matter and the colophon) out of the body it measures: it is not evidence against the
+    outline.
+    """
+    trailing: list[str] = []
+    for page in text_pages:
+        text = page.get("text") or ""
+        if not _is_toc_page(text):
+            continue
+        entries: list[str] = []
+        numbered_seen = False
+        for line in (stripped for stripped in map(str.strip, text.splitlines()) if _TOC_ENTRY_RE.search(stripped)):
+            match = _CLAUSE_RE.match(line)
+            numbered = match is not None and _parse_clause_id(match.group(1)) is not None
+            numbered_seen = numbered_seen or numbered
+            entries = [] if numbered else [*entries, _title_key(line)]
+        if numbered_seen:
+            trailing = entries
+    return tuple(key for key in trailing if key)
+
+
+def _cut_back_matter(segments: list[_Segment], postamble: list[tuple[int, str]], keys: tuple[str, ...]) -> None:
+    """Move the last Punkt's lines from the first one that opens a back-matter entry on into the postamble.
+
+    A line opens one when it keys as the entry ("Anhang"), or starts with it and opens a
+    page ("Anhang Muster Energieausweis …", OIB-RL 6, Ausgabe März 2015). A sentence of
+    the last Punkt that merely starts with the word ("Anhang 1 auszustellen …") mid-page
+    stays in the Punkt.
+    """
+    if not segments or not keys:
+        return
+    last = segments[-1].lines
+    for index, (page, line) in enumerate(last[1:], start=1):
+        key = _title_key(line)
+        opens_page = page != last[index - 1][0]
+        if _DOT_LEADER_RE.search(line) is None and (key in keys or (opens_page and _opens_with(key, keys))):
+            postamble[:0] = last[index:]
+            del last[index:]
+            return
+
+
+def _opens_with(key: str, keys: tuple[str, ...]) -> bool:
+    """Whether ``key`` starts with one of ``keys`` as a whole word."""
+    return any(key == entry or key.startswith(entry + " ") for entry in keys)
+
+
 def _split_into_segments(
     lines: list[tuple[int, str]],
     listed: dict[str, str] | None = None,
+    back_matter: tuple[str, ...] = (),
 ) -> tuple[list[tuple[int, str]], list[_Segment], list[tuple[int, str]]]:
-    """Cut the line stream into preamble, Punkt segments and postamble."""
+    """Cut the line stream into preamble, Punkt segments and postamble (``_back_matter`` included)."""
     body_end = len(lines)
     for index, (_page_number, line) in enumerate(lines):
         if _END_OF_BODY_RE.match(line):
@@ -510,6 +497,7 @@ def _split_into_segments(
         else:
             preamble.append((page_number, line))
 
+    _cut_back_matter(segments, postamble, back_matter)
     return preamble, segments, postamble
 
 
@@ -579,13 +567,6 @@ def guideline_key(file_name: str) -> str:
     return stem.replace("_", "-") or file_name
 
 
-#: Private alias kept for callers inside this module and its tests. The public name is
-#: what `scripts/build_clause_index.py` imports: the eval index and the chunk metadata
-#: MUST derive the same key for the same file, because the golden set joins on it, and
-#: two copies of this function had already drifted apart -- the script stripped only
-#: `ausgabe_mai_<year>`, so `oib-rl_2_ausgabe_april_2019.pdf` keyed as
-#: "2-ausgabe-april-2019" there and "2" here, and every golden label for that file
-#: resolved to nothing.
 _guideline_key = guideline_key
 
 
@@ -615,18 +596,15 @@ def clause_documents(text_pages: list[dict[str, Any]], file_name: str, file_size
     if not lines:
         return None
 
-    preamble, segments, postamble = _split_into_segments(lines, _listed_headings(text_pages))
+    preamble, segments, postamble = _split_into_segments(lines, _listed_headings(text_pages), _back_matter(text_pages))
     if len(segments) < _MIN_CLAUSES:
         return None
 
-    body_characters = sum(len(line) for _page, line in lines)
+    body_characters = sum(len(line) for _page, line in lines) - sum(len(line) for _page, line in postamble)
     clause_characters = sum(len(line) for segment in segments for _page, line in segment.lines)
     if not body_characters or clause_characters / body_characters < _MIN_CLAUSE_COVERAGE:
         return None
 
-    # Both names are read from the *raw* stream: the label lives in the footer and the
-    # subject on the title page, and `_collect_lines` has already dropped the first and
-    # skipped the second as a ToC page.
     raw_lines = [line.strip() for page in text_pages for line in (page.get("text") or "").splitlines() if line.strip()]
     label = _document_label(raw_lines)
     subject = _document_subject(raw_lines)
@@ -716,8 +694,6 @@ def _table_documents(
                         "clause_title": table.title,
                         "clause_path": caption,
                         "guideline": guideline,
-                        # Every row group shares page and clause_id; this is
-                        # what ``read_passage`` orders them by.
                         "table_part": index,
                     },
                 )

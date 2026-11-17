@@ -78,19 +78,9 @@ from typing import Any
 from agent.common.source_kinds import MEASUREMENT_SOURCE_KIND
 from agent.common.turn_status import record_lane_hit
 
-#: The fine lane a measurement is filed under, and its German sub-label. A lane
-#: is the Herleitung card's folder tab; measurements have exactly one, because
-#: unlike Baurecht they carry no authority ladder to sit on.
 MEASUREMENT_LANE = "measurement"
 MEASUREMENT_LANE_LABEL = "Modellmessung"
 
-#: Provenance → the German verb the renderer puts in front of the value.
-#: THE SAME THREE WORDS as ``measure_register._provenance_line`` — „vermutlich",
-#: not „vermutet", because that is what the prose says and the card sits beside
-#: the prose. ``inferred`` is mapped even though no inferred answer is emitted
-#: today (see the module docstring): the mapping is what makes the renderer
-#: total, so relaxing the gate later is a one-line change and not a hunt for a
-#: missing word.
 PROVENANCE_LABELS: dict[str, str] = {
     "declared": "deklariert",
     "computed": "gemessen",
@@ -150,29 +140,14 @@ class MeasurementSource:
     the German prose around it.
     """
 
-    #: What was measured, in the register's own vocabulary — the measure key,
-    #: qualified by the element when the payload names one
-    #: (``clearHeight · Keller 01``).
     headline: str
-    #: The full provenance sentence the agent reads, verbatim
-    #: (``_provenance_line``). The card renders its parts; this is what a
-    #: reviewer compares the card against.
     statement: str
-    #: ``declared`` / ``computed`` / ``inferred``, straight off the envelope.
     provenance: str
-    #: The value with its unit, formatted to the tolerance's decade.
     value_text: str
-    #: ``±0,005 m``, or None for a declared value (which has no measurement
-    #: error, only authoring error).
     tolerance_text: str | None
-    #: The operator expression, as text a reviewer can read back.
     method: str
-    #: The GlobalIds the value was derived from, in the order they were used.
     elements: tuple[MeasuredElement, ...] = ()
-    #: Which file this was measured in (``Haus-A.ifc (IFC4, 12.043 Bauteile)``).
     model: str | None = None
-    #: A qualification the answer is not valid without. A card that drops this
-    #: reports a subset as a total.
     caveat: str | None = None
 
     @property
@@ -241,18 +216,6 @@ class MeasurementSource:
             "measurement": measurement,
         }
 
-
-# ---------------------------------------------------------------------------
-# Per-turn capture
-# ---------------------------------------------------------------------------
-#
-# The same ContextVar shape ``citations.session.begin_turn_capture`` uses,
-# and for the same reasons: concurrent turns must not mix, and the log is
-# per-TURN rather than cumulative — a measurement taken two turns ago is not
-# part of this answer's derivation.
-#
-# It is emphatically NOT a ``SourceRegistry`` and must never become one. See the
-# module docstring.
 
 _turn_measurements: contextvars.ContextVar[list[MeasurementSource] | None] = contextvars.ContextVar(
     "_turn_measurements", default=None

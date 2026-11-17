@@ -1,12 +1,3 @@
-"""The metadata contract for an agent-authored, human-approved document.
-
-Two things are locked here. The PARSER tolerates absence in every direction —
-a producer that sends nothing, sends half, or sends a human document must not
-be able to raise or to invent an author. And the German LABEL is one line with
-no sentence in it: the grounding block is text a model copies, so an approval
-clause phrased as a sentence is an approval clause that arrives in an answer.
-"""
-
 from __future__ import annotations
 
 import pytest
@@ -55,9 +46,6 @@ class TestParsing:
         ],
     )
     def test_everything_else_has_no_provenance(self, metadata: object):
-        """A human document is the overwhelming majority, and it must stay
-        byte-for-byte unchanged: no provenance object, so no line, no lane and
-        no gate anywhere downstream."""
         assert parse_agent_provenance(metadata) is None
         assert is_agent_authored(metadata) is False
 
@@ -67,8 +55,6 @@ class TestParsing:
         assert is_agent_author(None) is False
 
     def test_an_agent_document_missing_its_approval_still_parses(self):
-        """The lifecycle forbids a published version without an approver — but a
-        parser that trusts its producer is a parser that raises in production."""
         provenance = parse_agent_provenance({"authored_by": "agent"})
         assert provenance is not None
         assert provenance.approved_by is None and provenance.approved_at is None
@@ -92,7 +78,6 @@ class TestLabel:
         assert provenance_label(provenance) == expected
 
     def test_the_label_starts_with_the_lane_label_the_taxonomy_owns(self):
-        """The citation parser reads exactly this leading token back."""
         provenance = parse_agent_provenance(_STAMPED)
         assert provenance is not None
         assert provenance_label(provenance).startswith(AGENT_AUTHORED_LANE_LABEL)
@@ -139,8 +124,6 @@ class TestLabel:
 
 
 class TestNormalizeDocumentName:
-    """The verdict gate compares a model's free text against stored names."""
-
     @pytest.mark.parametrize(
         "value",
         ["Brandschutzkonzept Haus B.md", "**Brandschutzkonzept Haus-B**", "  brandschutzkonzept   haus b  "],
@@ -154,5 +137,4 @@ class TestNormalizeDocumentName:
 
     @pytest.mark.parametrize("value", [None, "", "   ", "***"])
     def test_nothing_usable_reduces_to_the_empty_string(self, value: str | None):
-        """Which every caller must read as "no match", never as a wildcard."""
         assert normalize_document_name(value) == ""

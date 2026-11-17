@@ -1,25 +1,4 @@
 import 'server-only'
-/**
- * The scores a person's decision on a held mail writes (ADR-0089, ADR-0137,
- * DECISION §10), and what PostHog's `inbound_mail_decided` says of the agent's
- * suggestion. Called where the decision is made, once per mail: the review
- * service when a person files or dismisses (`via` app, agent or an agent's card),
- * the follow job when a person's standing decision appended the text (`via`
- * follow).
- *
- * - the decision score (`DECISION_SCORE_NAME`), subject `inbound_mail_suggestion`, per part that carried
- *   a suggestion: `accepted` when it was filed where the agent suggested, as the
- *   Dokumentart it suggested; `dismissed` otherwise (filed elsewhere, or not
- *   filed). On the `filing-fit` trace that made the suggestion; metadata
- *   `folder` (`same`, `other`, `not_filed`) and `type` (`same`, `other`,
- *   `none`) say which half was not followed.
- * - `mail-thread-match` for the text, when the mail matched a Verlauf
- *   (`lib/langfuse/mail-thread-match-score.ts`).
- *
- * Best-effort: both recorders never reject, and nothing here throws into the
- * decision. The parts are read as they were BEFORE the decision (a part that
- * no longer waits was decided by someone else and is not scored again).
- */
 
 import type { InboundMailPartRow, InboundMailRow } from '@/lib/db/schema/inbound-mail'
 import { recordDecisionScore } from '@/lib/langfuse/decision-score'
@@ -31,23 +10,15 @@ import { decidedSuggestions, suggestionFollowed, type SuggestionFollowed } from 
 
 export interface MailDecisionToScore {
   organizationId: string
-  /** The person who decided, or the follower; not recorded on the scores (see `decision-score.ts`). */
   decidedBy: string
   mail: InboundMailRow
-  /** The mail's parts as they were before the decision was written. */
   parts: readonly InboundMailPartRow[]
-  /** What the person decided for this mail; null when the whole mail was dismissed. */
   decision: Pick<InboundMailDecision, 'parts' | 'message'> | null
   via: InboundMailDecisionVia
-  /** The path of a folder the decision named by id; null when the folder is unknown. */
   folderPathOf: (folderId: string) => string | null
   decidedAt?: Date
 }
 
-/**
- * Score one mail's decision and answer PostHog's `suggestion_followed` for it.
- * The scores are posted without waiting; the answer is immediate.
- */
 export function scoreMailDecision(input: MailDecisionToScore): SuggestionFollowed {
   const decided = decidedSuggestions(input.parts, input.decision, input.folderPathOf)
   for (const entry of decided) {
@@ -80,7 +51,6 @@ export function scoreMailDecision(input: MailDecisionToScore): SuggestionFollowe
   return suggestionFollowed(decided.map((entry) => entry.outcome))
 }
 
-/** How the text was filed, or null when it was not (dismissed, or the mail dismissed whole). */
 function threadChoiceOf(decision: MailDecisionToScore['decision']): ThreadChoice | null {
   const thread = decision?.message?.thread
   if (!thread) return null

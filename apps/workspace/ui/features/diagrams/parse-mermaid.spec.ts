@@ -1,10 +1,3 @@
-/**
- * Mermaid's own parser, read into this product's models — nothing mocked.
- *
- * The parser's database is an internal shape of a dependency, so these are the
- * tests that notice when a mermaid upgrade moves it: each grammar the prompt
- * teaches, parsed for real, must come out as the model its view draws.
- */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { MAX_GRAPH_NODES } from './model'
 import { parseMermaid } from './parse-mermaid'
@@ -49,7 +42,6 @@ describe('parseMermaid', () => {
   }, PARSE_BUDGET)
 
   it('reads a mindmap written with quoted labels without the quotes', async () => {
-    // How the model writes them: the root in a shape, every branch a bare quoted line.
     const model = await parseMermaid(
       'mindmap\n  root(("OIB-Richtlinie 2"))\n    "Grundrichtlinie"\n      "Brandschutz für Gebäude"\n    "OIB-RL 2.2"'
     )
@@ -123,9 +115,6 @@ describe('parseMermaid', () => {
 })
 
 describe('parseMermaid, in a time zone east of Greenwich', () => {
-  // Mermaid reads `2026-10-01` as LOCAL midnight; in Vienna that instant is
-  // still 30 September in UTC. CI runs in UTC, where the two agree, so the
-  // zone is set here rather than left to the machine: this is the reader's.
   const zone = process.env.TZ
   beforeAll(() => {
     process.env.TZ = 'Europe/Vienna'

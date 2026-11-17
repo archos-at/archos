@@ -27,6 +27,7 @@ from agent.common.wire_v2 import RunFinishedBody
 from agent.common.wire_v2 import RunHandoff
 from agent.common.wire_v2 import TurnResult
 from agent.common.wire_v2 import card_key
+from agent.knowledge.project_memory import TurnMemoryNote
 from agent.knowledge.restricted_use import drew_on_other_projects
 from agent.memory.restriction import RestrictionEvidence
 from agent.memory.restriction import restricted_digest_notes
@@ -180,6 +181,7 @@ def post_answer_turn_facts(
     query_text: str,
     cards: object,
     remembered_this_turn: tuple[str, ...] = (),
+    noted_this_turn: tuple[TurnMemoryNote, ...] = (),
     registry_collections: tuple[str, ...] = (),
     listed_documents: tuple[Any, ...] = (),
     restricted_memory_writes: tuple[str, ...] = (),
@@ -200,14 +202,12 @@ def post_answer_turn_facts(
         emitted_card_types=emitted_card_types(cards),
         answer_confidence=state.answer_confidence,
         remembered_this_turn=remembered_this_turn,
-        # Read here, while the turn is bound: the stages run after it is gone.
+        noted_this_turn=noted_this_turn,
         drew_on_other_projects=drew_on_other_projects(),
         restriction=turn_restriction_evidence(
             state,
             registry_collections=registry_collections,
             listed_documents=listed_documents,
-            # The digest the agent was shown, and what the tool stored as
-            # restricted this turn: restricted memory in the prompt.
             restricted_notes=(*restricted_digest_notes(request_facts.memory_digest), *restricted_memory_writes),
             earlier_notes=earlier_restricted_notes,
         ),

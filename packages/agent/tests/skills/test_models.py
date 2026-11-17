@@ -1,5 +1,3 @@
-"""STRICT SKILL.md parsing — the GRID substrate contract (agentskills.io)."""
-
 from __future__ import annotations
 
 import pytest
@@ -50,7 +48,6 @@ def test_parse_valid_skill_md() -> None:
 
 def test_parse_folded_yaml_description_is_joined() -> None:
     skill = parse_skill_md(VALID_MD)
-    # Folded YAML gets unfolded by yaml.safe_load (spaces, no newlines).
     assert "\n" not in skill.description
     assert "Trendlinien, Sensitivität" in skill.description
 
@@ -106,14 +103,6 @@ def test_description_length_limit() -> None:
 
 
 def test_legacy_execution_is_ignored_not_rejected() -> None:
-    """A leftover ``grid-execution`` must not take a skill down.
-
-    Scheduling stopped being a property of a skill: the output kind is a column
-    on the JOB now. The key is therefore unreserved rather than forbidden —
-    stored org rows and un-migrated SKILL.md files still carry it (with any
-    value, including ones the old validator rejected), and resolving one has to
-    keep working. It survives as an ordinary free-form entry that nothing reads.
-    """
     for value in ("chat", "deep-research", "browser", "gibt-es-nicht"):
         md = VALID_MD.replace(
             "  grid-agents: researcher",
@@ -124,7 +113,6 @@ def test_legacy_execution_is_ignored_not_rejected() -> None:
 
 
 def test_legacy_schedulable_is_ignored_not_rejected() -> None:
-    """``grid-schedulable`` is gone with no replacement; a leftover is inert."""
     skill = build_skill_from_payload(
         {
             "name": "org-skill",
@@ -138,7 +126,6 @@ def test_legacy_schedulable_is_ignored_not_rejected() -> None:
 
 
 def test_metadata_must_map_strings_to_strings() -> None:
-    """YAML booleans and integers coerce. Nested mappings do not."""
     with pytest.raises(SkillValidationError, match="metadata"):
         parse_skill_md(
             VALID_MD.replace(
@@ -183,12 +170,6 @@ def test_build_skill_from_payload_rejects_garbage() -> None:
 
 
 def test_reserved_key_registry() -> None:
-    """Reserved keys, and none of them says when a JOB runs.
-
-    ``grid-execution`` and ``grid-schedulable`` were removed outright when
-    scheduling became a property of the job. ``grid-auto-invoke`` is catalog
-    membership, not scheduling: slash and jobs still attach the skill.
-    """
     assert SKILL_METADATA_KEYS == {
         "grid-agents",
         "grid-cards",
@@ -211,7 +192,6 @@ def test_title_is_the_human_name() -> None:
 
 
 def test_absent_title_is_absent_and_never_synthesised_from_the_id() -> None:
-    """No title means no title — the id is a routing key, not a label."""
     skill = parse_skill_md(VALID_MD)
     assert skill_title(skill) is None
 
@@ -227,7 +207,6 @@ def test_title_with_a_tag_is_a_strict_error() -> None:
 
 
 def test_org_row_drops_a_bad_title_instead_of_dying() -> None:
-    """A tenant's over-long title costs them the title, never the whole skill."""
     skill = build_skill_from_payload(
         {
             "name": "org-skill",
@@ -260,11 +239,6 @@ def _with_hidden(value: str) -> str:
 
 
 def test_unquoted_yaml_bool_metadata_is_coerced_to_a_string() -> None:
-    """A SKILL.md author writes ``true``, not ``\"true\"``. YAML makes a bool.
-
-    Rejecting that spelling used to fail discovery of every builtin when one
-    file used it. Coerce, then apply the same token rules as a quoted string.
-    """
     hidden = VALID_MD.replace("  grid-agents: researcher", "  grid-hidden: true")
     assert skill_hidden(parse_skill_md(hidden).metadata) is True
     assert parse_skill_md(hidden).metadata["grid-hidden"] == "true"
@@ -277,7 +251,6 @@ def test_hidden_truthy_tokens_mark_a_skill_hidden() -> None:
     for token in ("true", "1", "yes", "TRUE", "  Yes  "):
         skill = parse_skill_md(_with_hidden(token))
         assert skill_hidden(skill.metadata) is True, token
-        # Normalised to the one canonical spelling, so every reader compares one word.
         assert skill.metadata["grid-hidden"] == "true"
 
 
@@ -299,7 +272,6 @@ def test_garbage_hidden_is_a_strict_error_for_a_file_skill() -> None:
 
 
 def test_org_row_drops_a_bad_hidden_flag_instead_of_dying() -> None:
-    """A tenant's garbage flag costs them the flag, never the whole skill."""
     skill = build_skill_from_payload(
         {
             "name": "org-skill",
@@ -331,11 +303,6 @@ def _with_auto_invoke(value: str) -> str:
     return VALID_MD.replace("  grid-agents: researcher", f'  grid-auto-invoke: "{value}"')
 
 
-# `grid-auto-invoke` is TOLERATED and no longer READ. Nothing decides anything
-# from it: the catalog lists every resolved skill, because a human bit that
-# deletes a row from the model's own inventory is the shape ADR-0060 removed.
-# These tests hold the toleration — an old document must keep parsing, and a
-# malformed value must keep being dropped rather than killing discovery.
 def test_auto_invoke_falsy_tokens_are_kept_verbatim_and_read_by_nobody() -> None:
     for token in ("false", "0", "no", "FALSE", "  No  "):
         skill = parse_skill_md(_with_auto_invoke(token))
@@ -405,8 +372,6 @@ def test_a_retired_card_type_is_a_strict_error_for_a_file_skill() -> None:
 
 
 def test_system_card_type_is_rejected_even_though_it_is_a_real_card() -> None:
-    # `memory_proposal` IS a union member — it is only ever emitted by a tool,
-    # so a skill asking the model for one is asking it to fabricate one.
     for system_card in ("memory_proposal", "document_grid"):
         with pytest.raises(SkillValidationError, match="grid-cards"):
             parse_skill_md(_with_cards(system_card))

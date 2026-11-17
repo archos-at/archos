@@ -33,6 +33,7 @@ import {
   organizationCountries,
 } from '@/lib/db/schema/knowledge-platform'
 import { knowledgeSourceCredentials, knowledgeSourceMonitorStates, knowledgeSourceRevisions } from '@/lib/db/schema/knowledge-sources'
+import { knowledgeGoldenCaseRevisions } from '@/lib/db/schema/knowledge-golden'
 import { AWAITING_BASELINE, KNOWLEDGE_CONSUMERS } from './consumers'
 import { KNOWLEDGE_VOCABULARIES } from './wire/vocab'
 
@@ -58,9 +59,9 @@ const TABLES: Table[] = [
   knowledgeSourceRevisions,
   knowledgeSourceCredentials,
   knowledgeSourceMonitorStates,
+  knowledgeGoldenCaseRevisions,
 ]
 
-/** The vocabularies whose values behave differently, so each value needs its own reader. */
 const BEHAVIOURAL = ['knowledge_work_revisions.kind', 'knowledge_manifestation_revisions.licence_class'] as const
 
 const columns = (): string[] =>
@@ -71,7 +72,6 @@ const values = (): string[] =>
 
 const read = (path: string): string => readFileSync(join(ROOT, path), 'utf8')
 
-/** What a consumer must spell to read an element: the column (snake or camel) or the value. */
 function spellings(element: string): string[] {
   const [qualified, value] = element.split('=')
   if (value) return [value]

@@ -44,7 +44,6 @@ import base64
 import functools
 import json
 import logging
-import math
 from collections.abc import Mapping
 from concurrent.futures import Future
 from concurrent.futures import ThreadPoolExecutor
@@ -59,32 +58,28 @@ from typing import Any
 from langchain_core.callbacks import BaseCallbackHandler
 
 from agent.common import bff_http
+from agent.common.provider_usage import ACCOUNTING_FIELDS
+from agent.common.provider_usage import as_int as _as_int
+from agent.common.provider_usage import install_chat_stream_cost_carrier
+from agent.common.provider_usage import reported_cost as _reported_cost
+from agent.common.provider_usage import usage_from_langchain_metadata as _usage_from_langchain_metadata
 
 logger = logging.getLogger(__name__)
 
 BUDGET_HEADER = "x-grid-budget"
 USER_ID_HEADER = "x-grid-user-id"
 
-#: Where a Responses-API message keeps the provider's accounting, which
-#: langchain-openai would otherwise drop (see install_responses_cost_carrier).
 RESPONSES_ACCOUNTING_KEY = "grid_usage_accounting"
-#: The fields of OpenRouter's usage object the ledger prices from.
-_ACCOUNTING_FIELDS = ("cost", "is_byok")
 
 _REQUEST_TIMEOUT_SECONDS = 5
 _FLUSH_BATCH_SIZE = 5
 
-# Single background worker so ledger writes never block the answer path and
-# arrive in order. Daemon thread — a lost final batch on hard shutdown is
-# acceptable (the ledger is reconcilable via OpenRouter's generation API).
 _flush_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="usage-flush")
 
 
 class BudgetExceededError(RuntimeError):
     """Raised before an LLM call would start with the budget already exhausted."""
 
-    #: A limit doing its job, not a fault: PostHog error tracking skips it
-    #: (``observability.posthog_exceptions``) even where a caller logs it at ERROR.
     expected_outcome = True
 
     def __init__(self, scope: str, message: str | None = None) -> None:
@@ -157,34 +152,17 @@ class BudgetSnapshot:
         return None
 
 
-#: ``role`` for the calls that are not chat completions and therefore never
-#: reach the LangChain callback path. The reranker is the first: one
-#: frontier-model call per ``knowledge_search``, on the answer's critical path,
-#: which until now appeared on no ledger at all (ledger row 25).
 USAGE_ROLE_RERANK = "rerank"
 
-#: Roles for the model calls a document ingestion job makes (``activity`` =
-#: ``ingest`` on the ledger). Vision: captions and drawing analysis.
-#: Transcription: OCR of scanned or garbled pages. Embedding: the vectors a
-#: chunk is stored under (and, inside a chat turn, a query's).
 USAGE_ROLE_INGEST_VISION = "ingest_vision"
 USAGE_ROLE_INGEST_TRANSCRIPTION = "ingest_transcription"
 USAGE_ROLE_EMBEDDING = "embedding"
 
-#: The second reader of ``look`` (``tools/look/reading.py``): one vision call per
-#: look with a question, made with ``httpx`` and so never seen by the callback path.
 USAGE_ROLE_LOOK_READING = "look_reading"
-#: The Fassung comparison's vision call (``routes/revision_compare.py``), asked by a
-#: person in the compare view or by a notice Piloti runs on its own (ADR-0130).
 USAGE_ROLE_REVISION_COMPARE = "revision_compare"
 
-#: ``activity`` of a document ingestion job's spend (the ledger's CHECK lists it).
 USAGE_ACTIVITY_INGEST = "ingest"
 
-#: Voice dictation in the chat composer, as both ``role`` and ``activity``. The
-#: BFF books these rows at no price and keeps them out of the rollup the budgets
-#: read (migration 0107): a member is never billed for dictating and never
-#: blocked by a budget because of it, while the platform still sees the cost.
 USAGE_ROLE_DICTATION = "dictation"
 USAGE_ACTIVITY_DICTATION = "dictation"
 
@@ -204,12 +182,9 @@ class UsageEvent:
     cost_usd: float
     cost_source: str  # 'usage_field' | 'estimate' | 'missing'
     is_byok: bool | None
-    #: What the call was FOR, for the events that are not a chat completion by
-    #: an agent. ``None`` for those, which is every event the callback path
-    #: produces: their role is the agent group the turn already carries.
     role: str | None = None
-    #: Seconds of audio the call transcribed, for the calls priced by duration.
     audio_seconds: float | None = None
+    cache_write_tokens: int = 0
 
     def to_payload(self) -> dict[str, Any]:
         return {
@@ -220,72 +195,14 @@ class UsageEvent:
             "completionTokens": self.completion_tokens,
             "totalTokens": self.total_tokens,
             "cachedTokens": self.cached_tokens,
+            "cacheWriteTokens": self.cache_write_tokens,
             "reasoningTokens": self.reasoning_tokens,
             "costUsd": self.cost_usd,
             "costSource": self.cost_source,
             "isByok": self.is_byok,
-            # Stored as the ledger's `agent_group`. The internal endpoint
-            # declares every key (`app/api/internal/usage/route.ts`), and
-            # `test_payload_shape_matches_internal_endpoint` reads that file, so
-            # a key here the route would silently drop fails the test instead.
             "role": self.role,
             "audioSeconds": self.audio_seconds,
         }
-
-
-def _as_int(value: Any) -> int:
-    try:
-        return int(value)
-    except TypeError, ValueError:
-        return 0
-
-
-def _usage_from_langchain_metadata(usage_metadata: Any, accounting: Any = None) -> dict[str, Any]:
-    """LangChain's normalized ``usage_metadata``, reshaped as a provider usage object.
-
-    The token counts a Responses-API call carries. ``_construct_lc_result_from_responses_api``
-    returns a ``ChatResult`` with no ``llm_output`` at all and a
-    ``response_metadata`` that excludes ``usage``; what survives is this
-    normalized view, in which OpenRouter's ``input_tokens_details.cached_tokens``
-    has become ``input_token_details.cache_read``. Reading only the three
-    scalars, as this did before, is what silently zeroed ``cachedTokens`` on
-    every row written by an ``api_type: responses`` role.
-
-    ``accounting`` is the provider's ``cost`` and ``is_byok``, which
-    :func:`install_responses_cost_carrier` keeps on ``response_metadata``.
-    Without it the cost stays absent and is reported as ``missing``.
-    """
-    if not usage_metadata:
-        return {}
-    input_details = usage_metadata.get("input_token_details") or {}
-    output_details = usage_metadata.get("output_token_details") or {}
-    usage: dict[str, Any] = {
-        "prompt_tokens": usage_metadata.get("input_tokens", 0),
-        "completion_tokens": usage_metadata.get("output_tokens", 0),
-        "total_tokens": usage_metadata.get("total_tokens", 0),
-        "prompt_tokens_details": {"cached_tokens": input_details.get("cache_read", 0)},
-        "completion_tokens_details": {"reasoning_tokens": output_details.get("reasoning", 0)},
-    }
-    if isinstance(accounting, dict):
-        usage.update({key: accounting[key] for key in _ACCOUNTING_FIELDS if key in accounting})
-    return usage
-
-
-def _reported_cost(raw: Any, generation_id: str | None) -> float | None:
-    """The provider's ``cost`` in USD when it is a real one, else ``None`` (recorded as ``missing``).
-
-    ``bool`` is an ``int`` in Python, so ``cost: true`` would book $1.00; NaN
-    disables the budget gate (every comparison with it is false); and the BFF
-    rejects a non-finite or negative cost, dropping the whole batch with it.
-    A present value that is none of those is logged, never booked, so a
-    malformed field is visible rather than indistinguishable from an absent one.
-    """
-    if raw is None:
-        return None
-    if isinstance(raw, int | float) and not isinstance(raw, bool) and math.isfinite(raw) and raw >= 0:
-        return float(raw)
-    logger.warning("Ignoring malformed provider cost %r on generation %s; recorded as missing", raw, generation_id)
-    return None
 
 
 def extract_usage_event(response: Any) -> UsageEvent | None:
@@ -313,8 +230,6 @@ def extract_usage_event(response: Any) -> UsageEvent | None:
         response_metadata = getattr(message, "response_metadata", None) or {}
         if not usage:
             usage = response_metadata.get("token_usage") or {}
-        # usage_metadata is LangChain's normalized fallback: the Responses path,
-        # whose cost the carrier kept beside it.
         if not usage:
             usage = _usage_from_langchain_metadata(
                 getattr(message, "usage_metadata", None), response_metadata.get(RESPONSES_ACCOUNTING_KEY)
@@ -328,7 +243,6 @@ def extract_usage_event(response: Any) -> UsageEvent | None:
     cost_usd = _reported_cost(usage.get("cost"), generation_id)
 
     return UsageEvent(
-        # The Responses path has no llm_output; its model is on response_metadata.
         model=llm_output.get("model_name") or response_metadata.get("model_name"),
         requested_model=None,  # filled by the tracker from invocation params
         generation_id=generation_id,
@@ -336,6 +250,7 @@ def extract_usage_event(response: Any) -> UsageEvent | None:
         completion_tokens=_as_int(usage.get("completion_tokens")),
         total_tokens=_as_int(usage.get("total_tokens")),
         cached_tokens=_as_int(prompt_details.get("cached_tokens")),
+        cache_write_tokens=_as_int(prompt_details.get("cache_write_tokens")),
         reasoning_tokens=_as_int(completion_details.get("reasoning_tokens")),
         cost_usd=cost_usd if cost_usd is not None else 0.0,
         cost_source="usage_field" if cost_usd is not None else "missing",
@@ -351,7 +266,6 @@ class CostTracker(BaseCallbackHandler):
     implementation covers ``invoke``/``ainvoke``/``astream`` across all agents.
     """
 
-    # Never swallowed by LangChain's callback error handling:
     raise_error = True
     run_inline = True
 
@@ -372,44 +286,20 @@ class CostTracker(BaseCallbackHandler):
         self.project_id = project_id
         self.conversation_id = conversation_id
         self.job_id = job_id
-        #: The answer this spend belongs to (``turn.response.answer_message_id``),
-        #: so the answer's details can show what it cost in the tenant's unit.
-        #: ``None`` off the chat path (jobs, the CLI).
         self.message_id = message_id
-        #: What kind of work the whole scope is (``USAGE_ACTIVITY_INGEST`` for an
-        #: ingestion job); ``None`` for a chat turn, a stage or a research job.
         self.activity = activity
         self.budget = budget
         self._lock = Lock()
         self._pending: list[UsageEvent] = []
         self._events_recorded = 0
         self._turn_cost_usd = 0.0
-        #: Provenance tally per ``UsageEvent.cost_source``. The per-event split
-        #: stays in ``llm_usage_events``; this exists so the turn's rollup can
-        #: say whether its dollar number was reported, estimated, or a mix,
-        #: rather than re-inferring provenance from a positive cost.
         self._cost_sources: dict[str, int] = {}
-        # Token totals alongside the cost total. The ledger keeps the per-call
-        # detail; these exist so an in-process caller that wraps a bounded piece
-        # of work — a post-answer stage — can put what it spent on its own
-        # telemetry, which `llm_usage_events` cannot answer because it has no
-        # stage dimension.
         self._prompt_tokens = 0
         self._completion_tokens = 0
-        #: Prompt tokens the provider served from its cache. Summarised once at
-        #: the end of the turn — the per-call numbers are in the ledger, but
-        #: "did this turn's prefix stay cached across its iterations" is a
-        #: question about the turn, and nothing else answers it in the log.
         self._cached_tokens = 0
-        # Requested model per LLM run: deep research fires concurrent LLM
-        # calls (possibly on different models), so a single shared slot would
-        # attribute one call's usage to whichever model started last. Keyed by
-        # the callback run_id; the last-seen value is kept as a fallback for
-        # callers that don't propagate run_id.
+        self._cache_write_tokens = 0
         self._requested_models: dict[Any, str] = {}
         self._requested_model: str | None = None
-
-    # -- budget gate ---------------------------------------------------------
 
     def _check_budget(self) -> None:
         if self.budget is None:
@@ -447,8 +337,6 @@ class CostTracker(BaseCallbackHandler):
                     self._requested_models[run_id] = model
                 self._requested_model = model
 
-    # -- capture ---------------------------------------------------------------
-
     def on_llm_end(self, response: Any, **kwargs: Any) -> None:
         run_id = kwargs.get("run_id")
         with self._lock:
@@ -479,6 +367,7 @@ class CostTracker(BaseCallbackHandler):
             self._prompt_tokens += event.prompt_tokens
             self._completion_tokens += event.completion_tokens
             self._cached_tokens += event.cached_tokens
+            self._cache_write_tokens += event.cache_write_tokens
             source = event.cost_source
             self._cost_sources[source] = self._cost_sources.get(source, 0) + 1
             should_flush = len(self._pending) >= _FLUSH_BATCH_SIZE
@@ -486,13 +375,10 @@ class CostTracker(BaseCallbackHandler):
             self.flush(wait=False)
 
     def on_llm_error(self, error: BaseException, **kwargs: Any) -> None:
-        # Drop the per-run model entry so failed runs don't accumulate.
         run_id = kwargs.get("run_id")
         if run_id is not None:
             with self._lock:
                 self._requested_models.pop(run_id, None)
-
-    # -- ledger flush ----------------------------------------------------------
 
     @property
     def turn_cost_usd(self) -> float:
@@ -529,17 +415,19 @@ class CostTracker(BaseCallbackHandler):
         with self._lock:
             prompt_tokens = self._prompt_tokens
             cached = self._cached_tokens
+            written = self._cache_write_tokens
             calls = self._events_recorded
         if prompt_tokens <= 0:
             return
         share = 100.0 * cached / prompt_tokens
         logger.info(
-            "[PromptCache] %d call(s): %d/%d input tokens served from cache (%.1f%%), %d uncached",
+            "[PromptCache] %d call(s): %d/%d input tokens served from cache (%.1f%%), %d uncached, %d written",
             calls,
             cached,
             prompt_tokens,
             share,
             prompt_tokens - cached,
+            written,
         )
 
     @property
@@ -599,11 +487,6 @@ def _post_usage_events(payload: dict[str, Any]) -> None:
         logger.warning("Failed to post usage events to internal endpoint", exc_info=True)
 
 
-# -- activation ----------------------------------------------------------------
-
-# register_configure_hook adds the handler held here to every callback manager
-# LangChain configures while the var is set (inheritable across sub-runs) —
-# the single seam that makes cost capture agent-agnostic.
 cost_tracker_var: ContextVar[CostTracker | None] = ContextVar("cost_tracker", default=None)
 
 try:
@@ -623,7 +506,7 @@ def _provider_accounting(usage: Any) -> dict[str, Any] | None:
     raw = usage if isinstance(usage, dict) else getattr(usage, "model_extra", None) or {}
     if not isinstance(raw, dict):
         return None
-    accounting = {key: raw[key] for key in _ACCOUNTING_FIELDS if raw.get(key) is not None}
+    accounting = {key: raw[key] for key in ACCOUNTING_FIELDS if raw.get(key) is not None}
     return accounting or None
 
 
@@ -675,6 +558,7 @@ def install_responses_cost_carrier() -> bool:
 
 
 _RESPONSES_COST_CARRIER_INSTALLED = install_responses_cost_carrier()
+_CHAT_STREAM_COST_CARRIER_INSTALLED = install_chat_stream_cost_carrier()
 
 
 def record_usage_event(
@@ -754,6 +638,7 @@ def _usage_event_from_openai(response: Any, *, role: str, requested_model: str |
         completion_tokens=completion_tokens,
         total_tokens=_as_int(raw.get("total_tokens")) or prompt_tokens + completion_tokens,
         cached_tokens=_as_int(prompt_details.get("cached_tokens") if isinstance(prompt_details, dict) else 0),
+        cache_write_tokens=_as_int(prompt_details.get("cache_write_tokens") if isinstance(prompt_details, dict) else 0),
         reasoning_tokens=_as_int(
             completion_details.get("reasoning_tokens") if isinstance(completion_details, dict) else 0
         ),
@@ -861,8 +746,6 @@ def _read_identity_from_context() -> dict[str, str | None]:
     from agent.project_context import get_project_id_from_context
     from agent.project_context import get_signed_request_context
 
-    # The user the spend is booked to, and whose per-user budget it draws on:
-    # signed when an envelope arrived, like the organization beside it.
     envelope = get_signed_request_context()
     user_id = envelope.user_id if envelope is not None else _read_header(USER_ID_HEADER)
     return {
@@ -961,11 +844,6 @@ def track_llm_costs(
             tracker.log_prompt_cache_summary()
         if tracker is not None and inline_flush:
             try:
-                # Inline post at teardown: a wait=False flush would hand the
-                # final batch to the daemon executor, which a worker exiting
-                # right after this turn can strand — dropping the last (often
-                # largest) cost events. _post_usage_events never raises and is
-                # bounded by _REQUEST_TIMEOUT_SECONDS.
                 tracker.flush(wait=True)
             except Exception:
                 logger.warning("Failed to flush usage events at end of turn", exc_info=True)

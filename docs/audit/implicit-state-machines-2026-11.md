@@ -1,0 +1,452 @@
+# Implicit state machines, November 2026
+
+A sweep of the whole repository on 2026-11-11 for things that move through a
+fixed set of states without their legal moves being declared in one place. The
+decision it led to is [ADR-0179](../adr/0179-lifecycles-are-declared-as-statechart-tables.md);
+the machines already declared are drawn in
+[`architecture/lifecycles.generated.md`](../architecture/lifecycles.generated.md).
+
+## How it was made, and how far to trust it
+
+Fourteen scanning agents on the smallest model each read one area and reported
+what they found with file and line. Two further agents mapped the Hatchet usage
+and read XState's current documentation.
+
+**A row marked "read" was re-checked in the code by the author of this page. A
+row not marked is a scanner's report and may be wrong.** Two reported defects
+were re-read and were not defects (the inbound-mail attachment's fall-through to
+`waiting` is exhaustive by type; the root sort's two cancel rules are one rule
+and a narrower caller). Treat every unmarked "risk" below as a lead to verify,
+not as a finding.
+
+The scanners did not open everything. Named gaps: most of
+`ui/components` (about 170 files), `ui/features/documents/components/review`,
+the bodies of `use-ifc-viewer-canvas-controller.tsx` and
+`use-shared-thread.ts`, `packages/ifc-spatial-py`, `packages/tavily-web-search`,
+and most of `packages/agent/src/agent/common` beyond the claim queue.
+
+## What it found
+
+| Kind | Count | Declared before | Declared now |
+|---|---|---|---|
+| Persisted records (a status column, or timestamps read as one) | 43 | 3 | 12 |
+| Background runs and their mirrors | 22 | 0 | 1 |
+| UI flows | 41 | 0 | 2 |
+| Wire and protocol vocabularies | 14 | 0 | 0 |
+
+"Declared before" are the project (ADR-0098), the document version (ADR-0104)
+and the platform change request (the trigger of migration 0218). "Declared now"
+adds annotation, agent wake, agent ask, root-sort run, mail import, document
+reading, task run, deletion queue and BIM model, the run ledger among the
+background runs, and the CMS social post in its own package.
+
+Four patterns account for most of the risk:
+
+1. **Membership is guarded, moves are not.** Most status columns have a CHECK
+   listing the legal values and writers that compare-and-set on the old value.
+   Nothing says which pairs are legal, so the rule is the sum of the writers.
+2. **One lifecycle, several vocabularies.** A document being read is
+   `completed` in `documents.status`, `success` in the file status, `citable` on
+   the surface and `ready` in the upload tray. A stopped run is `interrupted` in
+   `task_runs`, `cancelled` in the run ledger and `canceled` in an agent ask.
+3. **State as several fields.** Three booleans for a turn fence, six for the
+   thinking header, two timestamps for an upload batch, three columns plus a
+   queue row for a folder in the bin.
+4. **A catch-all default.** An unknown server state shown as `pending`
+   (`knowledge/service.ts`), `done = phase !== 'running'` (`SpectatedTurn.tsx`),
+   everything that is not `pending` counted as done (`knowledge-ingest-watch.ts`).
+
+## Persisted records
+
+Paths are under `apps/workspace/` unless they start with a package.
+
+| Record | States | Guard today | Status |
+|---|---|---|---|
+| Project, `projects.status` | active, paused, closed | table, CAS, CHECK | declared (read) |
+| Document version, `document_versions.state` | draft, in_review, changes_requested, approved, published, superseded, rejected | rows table, CHECK, unique indexes | declared (read) |
+| Annotation, `document_annotations.status` | proposed, open, resolved, dismissed | was an `if` chain; CHECKs | declared (read) |
+| Agent wake, `agent_wakes.status` | queued, started, answered, stopped, suppressed, refused, failed | CAS, CHECKs | declared (read) |
+| Agent ask, `agent_asks.state` | submitted, working, completed, canceled, failed, rejected | CAS, CHECKs | declared (read) |
+| Root-sort run, `root_sort_runs.status` | judging, grouping, ready, applying, applied, undoing, undone, cancelled, failed | CAS with cursor, CHECK, one-in-work index | declared (read) |
+| Mail import, `mail_imports.status` | uploading, queued, importing, completed, failed, cancelled | CAS, CHECKs | declared (read) |
+| Platform change request, `knowledge_change_requests.status` + `second_review` | draft, submitted, approved, rejected, published, rolled_back | trigger (0218) holds every edge | declared in SQL only; TS has a list |
+| Document reading, `documents.status` | uploaded, pending, processing, completed, failed, quarantined, stored, cancelled | CHECK; one trigger edge (leaving quarantine); CAS only in reconcile | declared (read by its converter). Dense: it mirrors the ingest backend; it rules out leaving quarantine except by release. Fixed on the way: a stale sweep or job failing a row it no longer owned |
+| Screening hold (derived from five columns) | held, passed, in flight | same predicate in SQL and TS, kept equal by hand | |
+| Inbound mail, `inbound_mails.status` | receiving, received, waiting, settled, dropped | CAS, many CHECKs, trigger freezes the sender verdict | |
+| Inbound mail part, `inbound_mail_parts.state` | waiting, filing, filed, dismissed, expired | CAS on a claim, CHECKs | |
+| Mail scan, `raw_scan_status` / `scan_status` | pending, clean, infected, failed, not_applicable | CHECKs | |
+| Mail-thread follow | active, ended (eight reasons), expired by clock | CAS, CHECKs | |
+| Proposed change, `proposed_changes.status` | proposed (+ apply lease), applied, partially_applied, failed, dismissed | CAS with a 5-minute lease, CHECKs | risk: lease without fencing |
+| Deletion queue, `deletion_queue.status` | pending, purging, purged, restored, failed | partial unique index, CAS; no CHECK; two writers in two languages (`purger/db.js`) | declared. The stuck-row lead was real, in three forms, and is fixed; CHECK added (0223) |
+| Folder in the bin (three columns) | living, in the bin, tombstone | CHECK on the combination | |
+| Upload batch (two timestamps) | open, sealed, completed, reopened | CHECK, guarded UPDATEs | |
+| Project intake, `project_intakes.status` | waiting, reading, ready, failed, completed | CAS on the job id, CHECKs | |
+| Project profile key (JSON) | fact, assumption, unknown | app code; precedence repeated in three files | |
+| Project memory, `project_memory.status` | proposed, active, superseded, dismissed | CAS for supersede; no CHECK | |
+| Inbox item (four timestamps) | unread, read, resolved, archived, inert | WHERE clauses; no CHECK | |
+| Mention request | open, answered, released, void | CAS; no CHECK | |
+| Task run, `task_runs.status` | queued, running, succeeded, failed, interrupted, skipped, error | CHECK; CAS on close, none on the worker outcome | declared. The late-overwrite lead was real and is fixed: the first ending to close the row stands |
+| Report filing, `task_runs.filing_status` | queued, filed, refused, failed | CAS; two CHECKs disagree on `queued` | |
+| Task definition schedule (four columns) | manual, once, schedule × enabled × due | row lock on the occurrence, CHECKs | |
+| Background job, `bff_job_queue.status` | queued, claimed, dead | CAS on the holder, CHECKs | mirror of Hatchet |
+| BIM model, `bim_models.status` | pending, extracting, ready, failed | none; no CHECK | declared. The overlap lead was real and is fixed with a run id (0222) |
+| Knowledge index run | requested, queued, failed | CHECK | |
+| Platform lesson | candidate, active, retired | CHECK on the value; read-then-write | risk: check-then-act |
+| Product feedback (external ticket) | new, open, pending, on_hold, resolved | PostHog is the authority | |
+| Address register release | loading, active, retired | CHECK, one-active index | |
+| LLM credential | active, revoked | one-active index, CAS | |
+| Agent change undo (`undone_at`) | applied, undone | CAS; the stamp is also the lease | |
+| Legal hold (`released_at`) | open, released | CAS, trigger on delete | |
+| Budget policy, pricing version | active, superseded | one-active index / CHECK | |
+| Platform skill | draft, published (a boolean) | none | |
+| Folder card | fresh, stale, failed | CHECK | |
+| Push subscription (failure count) | active, failing(n), deleted | SQL increment | |
+| CMS social post (`apps/cms`) | draft, in_review, approved, scheduled, published, failed, archived | role matrix in a hook; enum | declared locally (`SOCIAL_MOVES`). The double-send lead was real and is fixed: the hand-off claims `sending` before it sends |
+| CMS post (`_status`, `stage`) | draft, published; writing, in_review | hook; enum | two unlinked axes |
+| OIB corpus file (four columns, `packages/agent`) | ingested, stale, pending, failed | CAS on the hash | ingested and failed at once is storable |
+| Quarantine decision audit | owed, sent, deleted | at least once | |
+
+## Background runs and their mirrors
+
+| Run | States | Where | Note |
+|---|---|---|---|
+| Ingest job, `JobState` | pending, processing, completed, failed, cancelled | `packages/agent/.../knowledge/schema.py` | unconditional upsert by design; mirrored by hand in two TS files |
+| Ingest file, `FileStatus` | uploading, ingesting, success, failed | same | a stopped file is recorded `failed` |
+| Ingest lease (owner, heartbeat, hold) | live, held, stale, settled | `ingest_status_store.py` | three timers gate one state |
+| Ingest attempt and credit wait | attempt n of 12, credit wait, superseded, timed out | `ingest_workflow.py` | Hatchet's; two outcomes stored nowhere |
+| Claim queue (retiring) | queued, claimed, dead, cancelled, retired | `common/claim_queue.py` | trigger-guarded; only the cutover uses it |
+| Failure category | transient, configuration, deterministic, quarantined, unknown | `ingest_failures.py`, mirrored in `retry-policy.ts` | already a table |
+| Research job, `job_info.status` | submitted, running, success, failure, interrupted | `apps/agent-host/.../jobs/` | the enum is the runtime vendor's; terminal set repeated four times |
+| Run ownership verdict | taken, alive, gone | `run_ownership.py` | |
+| Run ledger status | created, running, waiting, done, failed, cancelled, interrupted | `bff/runs/run-ledger-types.ts`, `common/run_ledger.py` | declared. The missing terminal guard was real: every salvaged run was stored `done`. Fixed |
+| Run ledger phase | planning, researching, checking, writing, filed | same | |
+| Reconcile verdict | closed, already-closed, waiting, failed | `bff/runs/reconcile.ts` | settles the ledger before the row's CAS |
+| Post-answer stage | ready, empty, skipped, failed, timeout, disabled | `packages/agent/.../stages/spec.py` | six states, three on the wire |
+| Intake run session (four flags) | running, finished, stale, held | `agents/intake/tools.py` | |
+| Deep-research cutoff | completed, four cutoff causes | `deep_researcher/cutoff.py` | |
+| Commission refusal | six reasons | `turn/commission.py` | |
+| Memory judge verdict | drawn, none, failed | `memory/restriction.py` | |
+| Receive-job fault retry (payload counters) | in flight, waiting, held, dropped | `bff/inbound-mail/receive-faults.ts` | |
+| Headless turn start | started, duplicate, busy, refused, rejected, unavailable | `bff/turns/headless-turn.ts` | |
+| Push send decision | ten reasons, typed `string` | `bff/push/inbox-push-job.ts` | |
+| Storage alert outcome | five outcomes | `bff/storage/alerts.ts` | |
+| Project clear-out and creation sagas | steps with compensation, nothing persisted | `bff/projects/cleanup-service.ts` | a crash between steps leaves no record |
+| Knowledge ingest watch (client poll) | working, done, missing | `ui/features/platform/.../knowledge-ingest-watch.ts` | a failed file reads as done |
+
+## UI flows
+
+| Flow | States | Where (`ui/` unless noted) | Note |
+|---|---|---|---|
+| Chat turn view | running, finished, failed + streaming, interaction, outcome | `bff/turns/turn-fold.ts` | statechart candidate |
+| Composer flags (two definitions of "streaming") | stop, sending, send | `messages-store.ts`, `turn-projection.ts` | |
+| Thinking header | nine labels from six inputs | `features/chat/components/ChatThinking.tsx` | a priority ladder |
+| Turn socket | connecting, open, reconnecting, failed, incompatible, outdated, suspended, offline, closed | `adapters/api/turn-socket-machine.ts` | on XState since this sweep (read) |
+| Realtime channel | connecting, live, offline | `features/realtime/connection.ts` | kept twice |
+| Connection presence | connected, reconnecting, offline | `shared/hooks/use-connection-presence.ts` | |
+| Dictation | checking, unavailable, idle, starting, recording, transcribing | `features/dictation/lib/dictation-machine.ts` | on XState since this sweep (read) |
+| Viewer action | held, pending, shown, offered, refused, failed, undone, kept | `features/chat/lib/viewer-actions.ts` | any status may overwrite any |
+| Server proposal card | proposed + problem, busy, overtaken | `features/cards/hooks/use-server-proposal.ts` | |
+| Card decision | accepted, rejected, saved, dismissed, partiallyApplied | `features/cards/card-decision.ts` | |
+| Run block (four literal sets) | the ledger's | `features/runs/components/RunBlock.tsx` | |
+| Task list filter | active, broken | `features/tasks/lib/task-view.ts` | `skipped` and `interrupted` in neither |
+| Tracked upload row | uploading, ingesting, success, failed, deleting, canceled, held, stored | `features/documents/types.ts`, six writers | tried and withdrawn, see below (read) |
+| Upload pollers (three loops) | polling, session poll, watching | `features/documents/orchestrator.ts` | a stored `isPolling` kept by hand |
+| Canvas ask | composing, thinking, answered, declined, handedOff, stopped, failed | `features/documents/hooks/use-canvas-ask.ts` | a stored projection of the turn |
+| Root-sort dialog phase | loading, intro, working, review, done, undone, failed, cancelled | `features/documents/lib/root-sort-phase.ts` | already one pure function |
+| Held-upload decision | five fields | `components/held-upload-decision.tsx` | |
+| Review composer | idle, typing, approving | `components/document-review-controls.tsx` | two fields |
+| Mail-import send | sending, joining; failure stage | `features/documents/lib/mail-import-send.ts` | |
+| Upload summary | loading, ready, not-found, error | `features/uploads/hooks/use-upload-summary.ts` | |
+| Folder bin panel | busy, purging, loading more | `components/folder-bin-panel.tsx` | |
+| Bulk re-read | idle, running | `hooks/use-bulk-reingest.ts` | |
+| Document selection | inactive, active | `hooks/use-document-selection.ts` | |
+| Project lifecycle hook and close dialog | the server's; three steps | `features/projects/` | cleanup runs before the close |
+| Intake reading phase | waiting, reading, ready, failed, completed | `features/project-intake/` | |
+| Intake setup step | project, filing, reading, questions, profile | same | an ordered list |
+| Filing step mode | empty, chosen, uploading, project | same | one ternary |
+| Participants overlays | four slots | same | |
+| BIM model poll | pending, extracting, ready, failed | `features/bim/hooks/use-bim-model.ts` | |
+| IFC viewer load | idle, downloading, parsing, ready, error | `features/bim/components/` | cancel kept outside the phase |
+| IFC compare | idle, loading, error | same | |
+| Inbound attachment case | nine statuses | `features/inbound-mail/lib/attachment-case.ts` | exhaustive by type (read) |
+| Mail suggestion by clock | pending, skipped, none | `features/inbound-mail/lib/suggestion.ts` | |
+| Quarantine batch | pending, dialog | `features/organization/` | |
+| Mark answer | sent, resolved, conflict, failed | `features/collaboration/hooks/use-mark-answer.ts` | shows `resolved` before the write |
+| Spectated turn | running, anything else | `features/collaboration/` | catch-all |
+| Diagram filing | idle, filing, filed, partial, failed | `features/diagrams/use-diagram-filing.ts` | |
+| Skill editor and review verdict | steps; idle, running, done, unavailable | `features/skills/` | |
+| Change-request review ladder | the server's | `features/platform/components/change-request-review.tsx` | repeats a server list |
+| Schedule wizard | task, schedule, review | `features/jobs/components/schedule-wizard.tsx` | |
+| Fetch state | at least seven shapes, about twelve components with a `loading` and a `failed` boolean | `features/platform`, `search`, `knowledge`, `product-feedback` | no shared hook |
+
+### The upload row: why a status guard is the wrong fix
+
+A guard was written for this row (a declared lifecycle, and one function that
+refuses a report moving a settled row back to `uploading` or `ingesting`) and
+withdrawn before it was committed. What it taught:
+
+* The row mirrors the server, so almost every move between its states is one
+  the server really makes. A table of its legal moves is close to the complete
+  graph and constrains nothing.
+* The status alone cannot tell a stale report from a true one. A read-again
+  started in another tab, or from the document menu, reaches this row only as
+  a listing that says `ingesting` on a row that says `success`: the same write
+  as a poll that is one answer behind. Refusing it hides a read that is
+  running. A job that retries reports `failed` and then `ingesting` under one
+  job id (`ingest_execution.reopen`), and refusing that shows a failure the
+  retry is about to undo.
+* The flicker the comment in `use-settle-tracked-uploads.ts` names is prevented
+  today by a rule about who writes (the settle hook takes only rows without a
+  job). No sequence that produces it now was found.
+* Two facts about the vocabulary: `deleting` is drawn but never written (a
+  delete removes the row), and no writer moves a `failed` row back to
+  `uploading` (a retry removes the row and adds a new one).
+* What would fix the class: the row carries the id or the time of the report it
+  last took, and a report older than that is dropped. That needs the server to
+  send one, so it is a change to the listing and the job status, not to the
+  store.
+* Three narrow defects on this row were fixed instead, none by reading the
+  status as a guard: a cancelled row was drawn as uploading in the chat's file
+  sources (`mapToDisplayStatus` is exhaustive over the status now); a row this
+  session just created could take a same-named file's status from a job
+  already being polled (`lib/job-file-match.ts`: a row that still holds its
+  local file and has no id is never matched by name); and a stop wrote
+  `canceled` over a read that had finished meanwhile (`lib/stop-reading.ts`
+  re-reads the row). The stop route still does not say whether the document
+  ended cancelled; the client asks once in the rare case it needs to know.
+
+## Wire and protocol vocabularies
+
+Generated from one Python source already, so their *membership* cannot drift
+(`contracts/wire/v2.schema.json`, `contracts/cards/schemas.json`). None declares
+an order.
+
+| Vocabulary | Values | Note |
+|---|---|---|
+| Run finished outcome | answered, refused, handed_off, cancelled | the BFF says `stopped` for `cancelled`, mapped in `chat_socket.py` (read) |
+| Turn outcome (BFF) | answered, refused, handed_off, stopped, failed | |
+| Tool step, action step | running, ok, error (+ empty) | two sets |
+| Skill step phase | offered, activated, loaded | `loaded` has no writer the scan found |
+| Quote check, confidence check | verbatim, not_found, unchecked; judged, unavailable | |
+| Stage value | ready, empty, failed | |
+| Routing decision | meta, shallow, deep, error | |
+| Plan decision and outcome | approved, shallow, cancelled, feedback | |
+| Interaction prompt | pending, answered, cancelled, expired | |
+| Conversation running marker | unheld, held, lost | a cache key with a 12 s lifetime |
+| Turn fence (three booleans) | live, tripped, released | `turn_fence.py` |
+| Agent presence in a room | here, gone; reading, idle | |
+| Malware scan verdict | clean, infected, failed (seven reasons) | |
+| Site resolution | verified, unverified; decided, undetermined | pure, nothing stored |
+
+## The order to convert the rest in
+
+Five of the first list were done in the change that wrote this page: document
+reading, the run's ending (task run and ledger), the deletion queue, the BIM
+model and the CMS social post. Each began by verifying its lead, and all five
+leads held. Three independent reviews before the merge found nothing blocking.
+
+What those two rounds left open was decided and closed in the change after
+(November 2026). Each fix began by reproducing the defect, and two decisions
+were corrected by the code on the way:
+
+* **Re-screening a quarantined upload** works (migration 0225). The rule first
+  decided, "the write lifts nothing", was unsafe: no CHECK ties the status to
+  the screening outcome, so a quarantined row still carrying an earlier `clean`
+  would have been shown to the office. The trigger lets a quarantined row
+  return to `uploaded` only when the new row says its outcome is `quarantined`
+  and its three hashes are unchanged, and the re-screen writes that outcome.
+* **Archiving a document stops its running read first**, and the pipeline's
+  `document-exists` check answers "gone" for an archived document, so a job the
+  cancel could not reach removes its own chunks.
+* **The stop route says what state the document ended in.**
+* **An extraction job knows its row by its own job id** as well as the bytes.
+* **The kill switch interrupts only what it stopped.** The decision first aimed
+  at a run whose block already reads `done`; tracing the worker showed the
+  block reads `done` only after the outcome was delivered or given up on, and
+  the real window is a run that owns SUCCESS in the job store while its outcome
+  report is still in flight. Every row the backend does not report as killed is
+  closed by the job store's verdict.
+* **Recording a submission cannot reopen an ended run** or take a started one
+  back to waiting.
+* **A run's close is stamped by the database's clock**, so the heal's predicate
+  does not depend on a pod's.
+* **A deletion's claim is a token** (`claimed_at`): every closing write matches
+  the claim it took, so a holder whose claim was taken over changes nothing. A
+  folder already purged whose bookkeeping failed is closed `purged`
+  (`closeErased`).
+* **A connection attempt is bounded** in preparing (10 s) and dialing (15 s);
+  a thread holds one live connection error; the "restoring" line also shows
+  when the first connect after a tab returns is slow; a recorder that hung on a
+  recording the meter heard speech in says it could not be saved.
+* **Migration 0223 has its Postgres check**, and a spec holds the schema's
+  CHECK text, the migration and the script to the status tuple.
+
+Still open after that, each for a stated reason:
+
+* **Nothing records that a scheduled social post went out at Buffer.** No
+  Buffer account exists yet to test a status poll against.
+* **A folder whose purge completed but owes trace erasure, and whose
+  bookkeeping failed, still reads `failed`.** Nothing durable records whether
+  those traces were erased. (A chat in that state is closed since the second
+  sweep below: its missing row says it is erased, and the trace sweep erases
+  the traces, stamps the row and closes it `purged`.)
+* **An old extraction job's success path is not fenced**, only its failure
+  write; and between marking a row processing and stamping the new job's id an
+  old job's failure can still land. Closing both needs the enqueue and the
+  stamp in one transaction.
+* **The review canvas exposes the "restoring" fact but shows nothing**: there
+  is no place or copy for a connection note on the canvas yet.
+* **Sliced recording is on for WebM only.** Safari's MP4 slices have not been
+  sent through the transcription, so a hung recorder there still holds nothing.
+* **After the kill switch, a run can stay live for a while**: one whose job the
+  store still holds as running (its stop failed, or it lay past the batch), or
+  one the store has lost, is left for the reconciler, which ends a lost one
+  `failed` after its grace. The platform console shows the interrupted count
+  only; the answer also carries `runsSucceeded`, `runsFailed` and
+  `runsWaiting`, which the console does not draw yet.
+* **A re-read with screening switched off** leaves a re-screened file
+  `completed` with outcome `quarantined`: held, in the reviewers' queue, with
+  no reason listed.
+
+Still to convert, by what each fixes for a person:
+
+1. **Inbound mail and its parts.** The CHECKs are thorough; the edges exist only
+   in the writers. Do it when that flow next changes.
+2. **Proposed change.** Add `applying` as a state, or a fencing token, if applies
+   can run longer than the five-minute lease. Check the timings first.
+3. **The Python tier.** A `define_lifecycle` with the same shape, and the
+   declarations generated into `contracts/` so the mirrored lists (job state,
+   file status, annotation, document version) have one source. The run ledger's
+   moves are mirrored by hand today and held by a fixture.
+4. **The chat turn fold** on XState, if a defect ever calls for it; and one
+   shared fetch-state hook for the twelve components with two booleans.
+5. **The agent door.** A resource that serves the registry, so a calling agent
+   can read which moves a record accepts before it asks for one.
+
+## A second sweep, for what is still ugly
+
+Three scouts on the smallest model, on 2026-11-11 after the changes above had
+merged, each asked for the state machines most likely to produce a real bug:
+the UI, the workspace's server side, and Python. **"Read" means the author of
+this page re-checked it in the code; everything else is a scout's report.** Most
+of the open list above turned out to be fenced already, and the server-side
+scout said so instead of filling ten rows.
+
+### Server side
+
+| What | Where | Trust |
+|---|---|---|
+| An erased chat's Langfuse traces are never erased when the purger's trace step fails on every attempt: the row ends `failed`, and the one sweep that retries trace erasure selects `status = 'purged'` | `purger/purge-conversation.js` (the step after the BFF erase), `workers/maintenance-sql.js` `findConversationsAwaitingTraceErasure` | **Real, fixed**: the sweep now also selects a `failed` row whose `conversations` row is gone (last attempt within the window, settled, not held), re-checks the hold and the missing row before deleting, then stamps the row and closes it `purged` (`markConversationTracesErased`, the declared `close` from `failed`). A `failed` row whose chat exists is untouched. `bff/scheduling/conversation-trace-erasure.integration.spec.ts`, `workers/maintenance-sql.spec.mjs` |
+| Activating a platform lesson is followed by the capacity eviction, which can retire the lesson just activated; the response is the row from before the eviction and says `active` | `bff/platform-lessons/service.ts` (the `active` branch, then `evictActiveOverCapacity`) | **Real, fixed**: the eviction ordered by `last_reported_at` and could retire the lesson just activated; activation, eviction and events were also two transactions. Now one transaction (`capacity-repository.ts`) that protects the activated lesson; `capacity.spec.ts` |
+| A proposed change re-applied after a stale five-minute claim runs its applier again; a rename then fails "not found" and the row settles `partially_applied` although the work happened. `proposed-changes.md` says a re-run is a no-op | `bff/proposals/repository.ts`, `executors.ts`, `operation-applier.ts` | scout; the crash that triggers it is suspected |
+| Two corrections of one memory note at once leave two live replacements | `bff/projects/memory-service.ts` | scout |
+
+Cleared by the scout, each with its fence: mention requests, mail-thread
+follows, inbound mail parts (a fresh decision id per claim), the purger's queue,
+the job queue's holder, report filing, the source monitor (a partial unique
+index and `FOR UPDATE`), the inbox. A claim earlier on this page, that two
+CHECKs disagree on `task_runs.filing_status`, is stale: migration 0105 fixed it.
+
+Not reached: `apps/cms`, most of inbound mail's receive and the mail import,
+scheduled task definitions, feedback, the folder bin, budgets.
+
+### UI
+
+| What | Where | Trust |
+|---|---|---|
+| The preview pane keeps the previous file's image when the next file's preview fails: A's picture under B's name, no error, no retry | `ui/features/documents/components/use-file-preview-controller.tsx`, `file-preview-pane-document.tsx` | **Fixed**, reproduced first (`file-preview-pane.spec.tsx`, „a next file whose preview fails“): every load drops the last one's URLs in `use-file-preview-controller.tsx`, so the pane's own failed and gone states show |
+| A server proposal card whose first read fails stays failed until it is mounted again, and `problem = 'load'` can sit beside a live proposal | `ui/features/cards/hooks/use-server-proposal.ts` | **Fixed**, reproduced first (`ProposalReceipt.load.spec.tsx`): the read is one state (loading, loaded, failed) in `use-server-proposal.ts`, and a failed one is read again on the channel coming up, a hint, or the reader's return to the tab |
+| A shared thread's read-receipt retry outlives its conversation: a failed POST arms a timer after cleanup that later posts the old conversation's id | `ui/features/collaboration/hooks/use-shared-thread.ts` | **Fixed**, reproduced first (`use-shared-thread.spec.ts`, „a read receipt that fails after the reader left…“): the retry in `use-shared-thread.ts` is not armed once its effect is cleaned up, and takes the reported-id ref back only while it still names its own message. Whether the server accepted a backwards mark was not checked |
+| "The shelf is free" in an upload is five flags from three hooks; a stuck dialog stalls the drop queue | `ui/features/documents/hooks/use-shelf-upload.ts` | scout, suspected |
+| A shared thread's turn banner is cleared by one unguarded write, so the composer can unlock during a colleague's turn | `use-shared-thread.ts` | scout, suspected |
+| A review reply stays in `editing` when the agent takes the thread up, and the draft is lost | `ui/features/documents/components/review/thread-card.tsx` | scout, mechanism traced |
+| An activity card's row derives "undone" from five sources; its undo reads then writes with no version | `ui/features/cards/components/CanvasActivityCard.tsx` | scout, race suspected |
+| The intake wizard's save awaits deferred uploads with no bound, and decides a conflict by comparing translated text | the intake wizard controller | scout |
+| The IFC viewer destroys its renderer twice on a cancel mid-load, and its two-point measurement is written twice | `use-ifc-viewer-canvas-controller.tsx` | scout |
+| The members form loads a roster with no request guard across projects | `ui/components/projects/project-members-form.tsx` | scout, suspected |
+
+The hand-written loading, error and retry state is wider than the dozen this
+page counted: by grep, 31 files hold a loading state of their own and 37 an
+error state, and there is no shared hook. Eight were read.
+
+Not reached: `ui/features/chat`, `ui/features/inbound-mail`, most of the review
+panel, the upload tray, `ui/components/shell`, `app/**/*.tsx`.
+
+### Python
+
+Most of it is guarded: a research run's terminal writes, the run ledger's
+moves, turn admission, the turn fence and the chat sequencer were read by the
+scout and found sound. What is ugly is the ingest job's status row.
+
+| What | Where | Trust |
+|---|---|---|
+| The row is written by an unconditional upsert that vouches for it ("the write wins over a row another replica settled"), so a stopped run's late write can turn a person's cancel back into processing | `knowledge/ingest_status_store.py` `put` | **Real, fixed** in the run, not in `put`. The revival was not a late write in a small window: the cancel clears `owner`, so the stopped worker's next heartbeat (30 s) took the row for a wrongly settled one and wrote it back, which is the deliberate rule ("the owner, while it lives, is right about its job") applied to a cancel. Now a run that has been told to stop writes no live or failed status again and may still write `completed` (`knowledge-layer/src/ingest/adapter.py` `_persist`, `_told_to_stop`); the cancel also releases the row's hold (`_write_cancelled`), and `ingest_dispatch.cancel` answers `finished` when the job ended in the race. `put` stays unconditional, so an outsider's `interrupted` is still the live owner's to overwrite. `tests/knowledge_layer_tests/test_ingest_robustness.py` (a stopped run's beat, progress, failure and `completed`; the owner's rule for a Hatchet-run job), `test_ingest_status_store.py`, `apps/agent-host/tests/test_ingest_dispatch.py`. **Open**: a write that lands between the cancel's settle and the cancel reaching the worker makes the row `processing` again; the run's last word (`ingest_workflow._stopped`) settles it once more, and if the worker dies first the row now reads `interrupted` after 120 s instead of staying held for up to 30 h 45 min |
+| A stop mark survives a failed cancel, so a later supersede is treated as a person's stop | `agent_host/jobs/ingest_dispatch.py`, `knowledge/ingest_workflow.py` | **Real, deliberately left.** Clearing the mark when the cancel fails is not safe either: `cancel_run` raises on a REST timeout after the engine may have taken the cancel, and the run would then record a person's stop as superseded with no push. A stale mark costs one settle push that names a job the document no longer points at |
+| A settle reads the row and then puts it, with no compare-and-set | `knowledge/ingest_execution.py` | **Real, deliberately left**: `settle_timed_out`, `fail_unreadable` and `settle_superseded` each have a window of milliseconds in which a cancel can be overwritten, and the BFF's document stays `cancelled` in all three. The one case with a lasting effect (`reopen` after a stopped run's `failed` write) needed that write, which a stopped run no longer makes |
+| Why a job was cancelled is spread over four fields, two of which nothing reads | the ingest status model | **Real, cosmetic, deliberately left**: `metadata.cancelled`, `metadata.superseded` and `metadata.retrying_after` have no reader outside tests, the BFF reads `status` only, and the `person:` prefix on `run_id` is the one field that decides anything. Removing the unread keys changes three tests and no behaviour |
+| `JobState` and `FileStatus` are typed again in TypeScript with no parity test | `ui/adapters/api/documents-schemas.ts`, `ui/features/documents/utils.ts` | **Real, closed with a test**, no drift found: the two zod enums and `mapBackendStatus` are held to the Python enums by `tests/knowledge_layer_tests/test_ingest_state_parity.py`. The BFF types neither; it compares strings (see below) |
+
+### Where a record's state lives
+
+A research run is in five places with one truth, and that is sound: the
+backend job store's `job_info.status` is the truth (`job_outcome.py`: "terminal
+statuses are sticky", read), the job events are its history, the Hatchet run is
+execution, the run ledger is derived with "first final word stands", and the
+workspace's run row is reconciled to the job store.
+
+A document has three truths: "is it read" is a JSON status in `ingest_jobs`;
+"can it be found" is the vector store; and what the office sees is
+`documents.status`, a copy of the first. An earlier version of this paragraph
+said that copy was "kept in step by one push and five fallbacks" and asked for
+one settle function. That overstated it, from a scout's list nobody had read
+against the code. Two readers costed the fix on 2026-11-11, in the code and
+without changing it, and the author of this page re-checked what follows.
+
+One function writes a job's outcome: `setDocumentReconciledStatus`
+(`bff/documents/repository/reconcile.ts`), a compare-and-set on the status the
+read saw and on the ingest job id. It has six call sites: four inside
+`reconcileDocumentStatuses` (`bff/documents/reconcile-status.ts`) and two beside
+it in `bff/documents/reingest.ts`, a person's re-read and a person's stop. The
+settle push, the stale-pending sweep, the upload-batch sweep and every read are
+callers of the reconciler, not writers of their own; lost-job and the "Job ID
+not found" heal are passes inside it. Stuck-processing and ingest-recovery are
+a different thing: they act on `processing`, the status the reconciler leaves
+alone by rule, read the BFF's own job queue and never the backend's job, and
+write through `markDocumentIngestFailed`. Of eleven recent defects in this area
+(one reader's count from the history of `reconcile-status.ts` and its
+neighbours since 2026-10-28, not re-read by the author), eight were in the
+decision, what the backend's answer means or that nobody asked, and one would
+have been prevented by a single settle function.
+
+The three steps this page named, and what became of each:
+
+1. **Guard the ingest row's writes.** Done as the small version in #1637: the
+   first row of the Python table above. A final status does not stick there, on
+   purpose: a read that finished must still overwrite a cancel.
+2. **Define the states once and generate the TypeScript copy.** Costed and
+   reduced to the parity test in the Python table's last row. Generation
+   changes nothing at runtime: the list is baked in at build time, so an open
+   tab or an older pod meets a new state exactly as before, and the BFF types
+   no list at all. A Python transition table would document a rule the store
+   deliberately does not enforce (`ingest_status_store.py`: the owner, while it
+   lives, is right about its job).
+3. **One settle function for the workspace's copy.** Costed and not built. The
+   guards in the writers' `WHERE`s are of four kinds (the job compare-and-set,
+   local-work ownership, held-at-rest with the content hash, a compare-and-set
+   on the collection), and the declared graph (`reading-lifecycle.ts`) permits
+   nearly every move from every state but `quarantined`, so `canTransition`
+   would add almost nothing. Done instead: a ratchet,
+   `bff/documents/status-writers.spec.ts`. Eleven functions in six files set the
+   column (ten updates and the insert at birth); each is listed with its guard,
+   `setDocumentReconciledStatus` may be named only by the reconcile and
+   `reingest.ts`, and a twelfth writer or a third caller fails the spec.
+
+Still open, each with where it comes from:
+
+| What | Source |
+|---|---|
+| Split `reconcile-status.ts` along its seams (what a job status or a listing entry means; the collection listing and its cache; the orchestrator). About 620 lines moved, no behaviour change, and it takes the file off the size baseline (683 counted lines against 600). After the production promotion, not into it | the costing; the seams were read by its reader only |
+| The stamp window: `markDocumentProcessing` drops the row's job name and the new job's id is stamped after the enqueue, and in between an extraction job counts a row that names no job as its own (`unnamedCounts`) | **Run against Postgres on 2026-11-11, closed but for one case, nothing changed for it** (`bff/documents/dispatch-failure-race.integration.spec.ts`, second half). The sweep and `failDocumentsOfDeadJob` cannot act in the window: both go by the name the row carries (`stillOwnedBy` without `unnamedCounts` compares NULL, the listing joins on `metadata.bffJobId`), and `markDocumentProcessing` renews `updated_at`, so the sweep's quarter of an hour starts again. A running job of the same bytes may fail the row, and that is not the wrong job: `queueDocumentWork` names that very job next (`findOpenJobId`). A job for replaced bytes cannot fail it (the storage key). It could SETTLE it, through the dispatch's unguarded job write; that was reproduced and is fixed with the row below. Left open: a job on its last attempt writes its failure inside the window and the queue buries it before the new round looks for an open job, both between two consecutive statements of `queueDocumentWork`. The row then reads `failed` with the true reason and offers the retry again; the new job finds it not `processing` and leaves. Closing it needs the enqueue and the stamp in one transaction, which changes the queue's contract for a retry that has to be pressed twice |
+| A dispatch's late `failed` can land over a newer `pending` job | **Reproduced against Postgres and fixed on 2026-11-11** (the same spec, first half, through the real `dispatchIngest` with only the backend's answer scripted). A request that hung (`BACKEND_FETCH_TIMEOUT_MS`, asked twice: up to 20 s) wrote `failed` over the job of a second dispatch, over a read that had already finished, and over new bytes; the row kept the newer job's id, and neither the settle push nor the stale-pending sweep nor the reconcile's compare-and-set reached it again. The same dispatch succeeding late wrote its job over the newer one (`setDocumentIngestJob` had no compare either). Fix: `dispatchIngest` passes what it read of the row before it asked (`DispatchStart`: ingest job id and storage key), and both writes carry `unchangedSinceDispatch` in their `WHERE` (`bff/documents/repository/mutations.ts`). Of the ten call sites that pass no owner, the two in `dispatchIngest` changed. The other eight were left: five write straight after reading the row, about a fact no newer read changes (no stored bytes in `unarchive.ts`, `folder-bin-jobs.ts` and `ingest-recovery.ts`, no converter in `document-dispatch.ts`, a re-point refused in `collection-placement.ts`), and three sit in a `catch` that runs when a dispatch threw (a presign, the queue or the database), never for a backend that did not answer, which `dispatchIngest` records itself. Those three can still fail a row a concurrent dispatch took, in the milliseconds of a thrown error; not reproduced, not guarded |
+| A backend job status the BFF does not know falls through to "in progress" in `resolveJobOutcome` and leaves the row `pending`, asked about on every read, for good. The parity test fails the change that adds a state on one side and names the readers; nothing stops a deployed BFF meeting a newer backend | read by the author (`reconcile-status.ts`, `resolveJobOutcome`) |
+| The cancel route and the re-read heal run `onDocumentsSettled` themselves and skip what the reconcile also runs for a moved row (`shelf.changed` to colleagues, the search projection, `document_ingest_finished`) | the costing, not re-read by the author |

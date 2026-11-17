@@ -23,7 +23,6 @@ def main(argv: list[str] | None = None) -> int:
     test.add_argument("ids", nargs="*", help="source ids (default: every source)")
     test.add_argument("--dir", default=None, help="sources directory (default: configs/sources)")
     args = parser.parse_args(argv)
-    # A developer's or CI's run of recorded fixtures, no backend role: a fixture PDF is parsed here.
     allow_parsing_here()
 
     try:
@@ -40,6 +39,7 @@ def main(argv: list[str] | None = None) -> int:
     for result in results:
         print(f"{'ok' if result.ok else 'FAIL'}  {result.source_id}  {result.fixture}")
         print("".join(f"      {failure}\n" for failure in result.failures), end="")
+        print("".join(f"      awaits its capture: {url}\n" for url in result.awaiting), end="")
     return 0 if all(result.ok for result in results) else 1
 
 

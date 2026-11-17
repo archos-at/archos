@@ -15,8 +15,6 @@ from .model import ElementGeometry
 from .model import SpatialModel
 from .model import WrongKindError
 
-# ── guards ──────────────────────────────────────────────────────────────────
-
 
 def _require(model: SpatialModel, global_id: str, method: str) -> Any:
     return model.by_id(global_id, method)

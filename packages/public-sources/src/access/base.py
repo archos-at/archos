@@ -48,9 +48,6 @@ class Strict(BaseModel):
 class Table(Strict):
     """A vocabulary of one source: argument value -> the source's own token."""
 
-    #: ``exact``: the argument is looked up as given. ``fold``: lower-cased,
-    #: ä/ö/ü/ß written ae/oe/ue/ss, other marks dropped, spaces and hyphens removed,
-    #: so "Nieder-Österreich" and "niederoesterreich" find one entry.
     normalize: Literal["exact", "fold"] = "exact"
     values: dict[str, str]
 
@@ -99,8 +96,6 @@ class Fetched:
     content_type: str
     body: bytes
     etag: str = ""
-    #: Everything the protocol states about the version (a point in time, a
-    #: consolidation date), read by the access type, never guessed.
     version: str = ""
     extra: dict[str, str] = field(default_factory=dict)
 
@@ -126,6 +121,13 @@ class AccessType:
 
     name: ClassVar[str]
     config_model: ClassVar[type[AccessConfig]]
+    served_operations: ClassVar[tuple[str, ...]] = ()
+
+    @classmethod
+    def operations_of(cls, config: AccessConfig) -> tuple[str, ...]:
+        """The operations a record of this type offers: those it declares, else the protocol's fixed set."""
+        declared = getattr(config, "operations", None)
+        return tuple(declared) if declared is not None else cls.served_operations
 
     def __init__(self, source) -> None:  # source: public_sources.source.Source
         self.source = source

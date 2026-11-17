@@ -1,18 +1,3 @@
-"""The utility routes' model calls queue for a provider slot in the right class (ADR-0081).
-
-A title, a summary, a consistency check and the rest post to OpenRouter over their
-own HTTP client. They used to bypass the provider limiter, so a bulk reindex could
-fill the pool and these calls neither queued behind chat nor fed the 429 limit.
-These tests send a request through the real route and watch the pool, so a route
-rewired to a bare ``httpx.AsyncClient`` fails here even when its tests still mock
-the client.
-
-Interactive: summary, consistency check, title, skill review, the „Ausmisten"
-proposal. Bulk: feedback digest and lesson distillation, which run in the
-background and must yield. And no route module builds a bare client for a model
-call, so a route added later cannot skip the slot by being left out of this list.
-"""
-
 from __future__ import annotations
 
 import json
@@ -102,7 +87,6 @@ def _openrouter_credentials(monkeypatch):
 
 @pytest.fixture
 def pool(monkeypatch):
-    """A one-slot pool on a Redis with Lua, and a way to see how many slots are held."""
     client = fakeredis.FakeRedis(server=fakeredis.FakeServer(), decode_responses=True)
     monkeypatch.setattr(
         pl.cache, "eval_script", lambda script, keys, args: client.eval(script, len(keys), *keys, *args)
@@ -114,7 +98,6 @@ def pool(monkeypatch):
 
 @pytest.fixture
 def classes(monkeypatch) -> list[str]:
-    """The class of every slot the routes ask for."""
     asked: list[str] = []
     acquire = pl.aacquire
 
@@ -137,7 +120,6 @@ async def test_the_routes_model_call_holds_a_slot_in_its_class(name, pool, class
         sent.append(json.loads(request.content))
         return httpx.Response(500, json={"error": {"message": "stub", "code": 500}})
 
-    # Whatever the route's client is, the call ends at the socket transport.
     monkeypatch.setattr(httpx.AsyncHTTPTransport, "handle_async_request", serve)
     app = FastAPI()
     router = APIRouter()
@@ -151,12 +133,10 @@ async def test_the_routes_model_call_holds_a_slot_in_its_class(name, pool, class
     assert held == [1], "the call to the provider was made outside a slot"
     assert set(classes) == {expected}
     assert pool() == 0
-    # The slot is all the transport adds: the body is the route's own.
     assert "model" in sent[0]
 
 
 async def test_the_limited_client_does_not_force_the_data_policy(pool, monkeypatch):
-    """An organization that switched ZDR off keeps its choice: the transport leaves the body alone."""
     from agent.common.openrouter import limited_async_http_client
 
     sent: list[dict] = []
@@ -172,7 +152,6 @@ async def test_the_limited_client_does_not_force_the_data_policy(pool, monkeypat
 
 
 def test_no_route_calls_a_model_over_a_bare_client():
-    """A model call from a route goes through ``limited_async_http_client``, never a bare ``httpx.AsyncClient``."""
     bare = [
         path.name
         for path in sorted(Path(routes_package.__file__).parent.glob("*.py"))

@@ -69,9 +69,15 @@ DELETE FROM analytics_export_cursors WHERE stream = 'posthog_usage_hourly';
 ### Staging and production
 
 Both stacks send to the one PostHog project, and both run `APP_ENV=production`.
-Every server event carries `app_host` (`app.piloti.at`, `app.dev.piloti.at`),
-from the pinned redirect URI (`serverSuperProperties`). Filter on it; every
-chart below does. Before this change server events carried no deployment at all.
+Every server event carries `app_host`, the stack's app host, from the pinned
+redirect URI (`serverSuperProperties`). It is `app.<baseDomain>` of the stack's
+Pulumi file: `app.piloti.at` for production (`Pulumi.prod.yaml`) and
+`app.dev.archos.tech` for staging (`Pulumi.dev.yaml`). Staging moved on
+2026-11-05, so its earlier events carry `app.dev.piloti.at`; production's value
+changes the same way when it moves
+([`domain-cutover.md`](../deployment/domain-cutover.md)), and the SQL defaults
+below change with it. Filter on it; every chart below does. Before this change
+server events carried no deployment at all.
 
 ## What is in PostHog
 
@@ -96,7 +102,8 @@ Project 269895. Everything carries the tag `spend`.
   and this month against the limits, the 30-day trend, the model mix and its
   table, the members, and what the spend was for.
 
-Both take the SQL variables `piloti_deployment` (default `app.piloti.at`) and,
+Both take the SQL variables `piloti_deployment` (default: production's app host,
+`app.piloti.at` today) and,
 on the second, `piloti_organization`, a list filled from the organizations that
 spent in the last 90 days.
 

@@ -1,8 +1,3 @@
-/**
- * Single org-skill API — patch and delete for the org toolbox. Thin adapters
- * (ADR-0017); logic in `@/lib/skills/service`. Every query is org-scoped.
- */
-
 import { apiRoute, parseJsonBody } from '@/lib/api/handler'
 import { requireSkillsEnabled } from '@/lib/authz/feature-flags'
 import { deleteSkill, updateSkill } from '@/lib/skills/service'

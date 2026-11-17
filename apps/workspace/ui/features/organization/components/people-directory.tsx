@@ -1,48 +1,5 @@
 'use client'
 
-/**
- * Who is in this organization, and what role do they hold.
- *
- * The organization page has always embedded the WorkOS Users Management widget,
- * which can invite, re-role and remove people — so "manage members" was already
- * solved. What it could not do is answer the *reading* question in Grid's own
- * language: the widget shows WorkOS role slugs, in WorkOS chrome, with no idea
- * what `org-billing-admin` means to us. An admin auditing their org therefore
- * had to translate slugs by hand.
- *
- * So: the directory is ours (a plain, scannable table where the role carries the
- * display name from `lib/authz/catalog.ts`), and the mutation surface stays
- * WorkOS's, rendered underneath. We deliberately do not rebuild invite /
- * re-role / remove — WorkOS owns the membership lifecycle, and a second
- * implementation of it would be a write path we could get wrong.
- *
- * The fallbacks are the substance of this component, not an afterthought:
- *
- * - **An unknown role slug renders as the slug itself**, not as "unknown". A
- *   custom role provisioned in WorkOS but absent from our catalog is a
- *   legitimate state — that is the whole point of the extensibility contract —
- *   and the raw slug is both true and the string you would go and search for.
- *   Blanking the cell would hide a real grant.
- * - **No role at all gets an explicit string.** An empty cell reads as a
- *   rendering bug; "no role" is a fact about the membership.
- * - **A failed roster load degrades to this card's error state.** The widget
- *   below is a separate system with its own session, so a WorkOS listing hiccup
- *   must not take away the ability to fix the thing you came here to fix.
- *
- * The membership status is printed exactly as WorkOS returns it rather than
- * mapped to copy of our own. WorkOS owns that enum and may add to it; a lookup
- * table would turn a status we have not met yet into a blank or a lie, and the
- * word itself is already the most accurate thing we can say about it.
- *
- * Below `sm` the same members are a list of cards, not a four-column table that
- * pans sideways with the role and status off-screen (the role catalog's
- * `Item` atoms). Both are in the DOM and CSS picks one, so there is no
- * hydration flash on a desktop.
- *
- * `showManagement` exists for the `/dev` preview only: the widget needs a real
- * token endpoint, and a backend-free screenshot route has none.
- */
-
 import type { JSX } from 'react'
 import { useMemo } from 'react'
 import { UsersManagement, WorkOsWidgets } from '@workos-inc/widgets'
@@ -70,13 +27,10 @@ import { organizationCopy } from '@/i18n/namespaces/organization'
 
 export interface PeopleDirectoryProps {
   members: readonly OrganizationMemberWithRole[]
-  /** The roster fetch failed; show the error state instead of an empty table. */
   error?: boolean
-  /** Render the WorkOS management widget. Off in the `/dev` preview. */
   showManagement?: boolean
 }
 
-/** A role slug as the reader should see it: the catalog's name over the slug, or the slug alone. */
 function RoleLabel({ slug }: { slug: string | null }): JSX.Element {
   const t = useTranslations(organizationCopy)
   if (!slug) return <span className="text-muted-foreground">{t('access.people.noRole')}</span>

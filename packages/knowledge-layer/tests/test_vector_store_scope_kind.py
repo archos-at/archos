@@ -1,14 +1,3 @@
-"""Folder card points never reach a chunk read; the folder channel finds them (ADR-0127, S11c).
-
-A folder card is a point ``kind = folder`` in its folder's own scope, beside the
-chunks. Every read in the knowledge layer builds its filter in
-``scope.scope_filter``, which leaves those points out unless the read asks for
-them. These tests put a folder point next to real chunks on a real Qdrant and
-drive every read path there is (ranked, grouped, similar, scroll, ordered
-scroll, grep, facets, counts, the chunk id listings, the structural fetch),
-then the two that may see it: the folder search and the folder scroll.
-"""
-
 from __future__ import annotations
 
 import pytest
@@ -27,7 +16,6 @@ from knowledge_layer_testing.vector_store import vector
 from knowledge_layer_testing.vector_store import write
 from qdrant_client import models
 
-# Every read of a project scope names the office it reads as (``vector_store.reading_office``, ADR-0163).
 pytestmark = pytest.mark.usefixtures("reads_as_an_office")
 
 PROJECT = "proj_kind"
@@ -45,7 +33,6 @@ CARD = {
 
 @pytest.fixture
 def placed(qdrant_store):
-    """Two chunks and one folder card point in the project; a card in a restricted scope too."""
     write(
         PROJECT,
         [
@@ -53,7 +40,6 @@ def placed(qdrant_store):
             record("Statik Bewehrung Decke", "Statik.pdf", folder_path="Gutachten", reading_order=1, chunk_ordinal=0),
         ],
     )
-    # The card's vector is the chunk text's, so a chunk search for that text ranks it first if it can.
     folders.upsert_folder_card(qdrant_store, PROJECT, CARD, vector(CARD_TEXT))
     write(RESTRICTED, [record("Geheim", "Vertrag.pdf", reading_order=1, chunk_ordinal=0)])
     folders.upsert_folder_card(qdrant_store, RESTRICTED, {**CARD, "folder_path": "Verträge"}, vector(CARD_TEXT))
@@ -110,7 +96,6 @@ class TestNoChunkReadSeesAFolder:
         _no_folder(hit.payload for hit in reads.fetch(PROJECT, None, 10))
 
     def test_grep(self, placed):
-        # The card's abstract says "Brandschutzgutachten"; a grep reads chunk text only.
         hits = retrieval.find_text(PROJECT, r"(?i)brandschutz", None, 50, office_id="org_test")
 
         _no_folder(hit.payload for hit in hits)
@@ -215,8 +200,6 @@ class TestTheCardsLifecycle:
 
 
 class _Embedder:
-    """The production embedder's two methods the callers use, with the test vectors."""
-
     def embed_query(self, text: str) -> list[float]:
         return vector(text)
 

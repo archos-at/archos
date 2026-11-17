@@ -30,8 +30,6 @@ from agent.observability.otlp_resource import signal_endpoint
 
 logger = logging.getLogger(__name__)
 
-#: How often readings leave the process. PostHog charts at minute resolution,
-#: and the collector's own scrapes run every 30 s.
 EXPORT_INTERVAL_MS = 30_000
 
 _provider: MeterProvider | None = None

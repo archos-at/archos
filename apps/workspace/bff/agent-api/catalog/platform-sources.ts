@@ -1,18 +1,6 @@
-/**
- * A country's public sources on the platform door (ADR-0174, design §4.5):
- * the operations an operator's agent uses beside `records-propose` to bring a
- * source in and keep it current. A source is proposed as a `source` record in
- * a change request; these test it, read its state, and set its key.
- *
- * The status takes `platform:settings:view`; a test (it may fetch live) and the key
- * `platform:knowledge:write`; the key is the person's own yes. A monitor's
- * work is found with `platform-knowledge-change-request-list {origin: monitor}`.
- */
-
 import { sourceCredentialBodySchema, sourceParamsSchema, sourceStatusQuerySchema, sourceTestBodySchema } from '@/lib/base-knowledge/platform/source-wire'
 import type { AgentOperation, PersonConfirmation } from '../operation'
 
-/** Where the person sets a source's key in the app: the platform's countries view. */
 const IN_COUNTRIES_VIEW: PersonConfirmation = { decideAt: () => '/app/platform/countries' }
 
 export const platformSourceOperations = [
@@ -24,7 +12,9 @@ export const platformSourceOperations = [
       'Runs the source record’s recorded fixtures through its access type and engine with no live call (what KC-7 ' +
       'checks), and with `live: true` fetches its monitor probe once through the fetcher. Pass `changeRequestId` to ' +
       'test the source as that open request proposes it: its hosts are usable by that request alone, for 24 hours ' +
-      'from the proposal. Without it, the published source. Nothing is stored. 404 for a key nothing registers.',
+      'from the proposal. Without it, the published source. Nothing is stored. 404 for a key nothing registers. ' +
+      'A fixture whose response names a capture is read from that capture; one that names none yet (`captureId: null`) ' +
+      'is not run: `awaiting` lists the URLs to capture, and it is not `ok`.',
     method: 'POST',
     path: '/api/platform/knowledge/sources/[sourceKey]/test',
     params: sourceParamsSchema,

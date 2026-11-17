@@ -23,13 +23,8 @@ import sys
 from collections.abc import Iterable
 from typing import Any
 
-# A group's update type is its largest member's (fetch-metadata), so a group
-# that carries one major is held as a whole.
 MERGES = frozenset({"version-update:semver-minor", "version-update:semver-patch"})
 
-# Directories whose bump moves something CI cannot exercise. The Pulumi SDK
-# pins the CLI the deploy installs (deploy.yml), so it is proven only by a
-# deploy: a person merges it (.github/dependabot.yml, the deploy/pulumi entry).
 HELD_DIRECTORIES = ("/deploy/pulumi",)
 
 
@@ -39,15 +34,10 @@ def decide(update_type: str, directory: str) -> tuple[bool, str]:
         if directory == held or directory.startswith(held + "/"):
             return False, f"{directory} changes what only a deploy proves; a person merges it"
     if update_type not in MERGES:
-        # Majors, and a security update whose version jump fetch-metadata
-        # could not classify (empty update type).
         return False, f"update type {update_type or 'unknown'} needs a person to read it"
     return True, f"{update_type.removeprefix('version-update:semver-')} update; merges when CI OK passes"
 
 
-# The GitHub Actions app. A required check bound to it can only be passed by a
-# workflow run of this repository; one bound to no app ("any source") or to
-# another app can be passed by any integration that may write checks.
 GITHUB_ACTIONS_APP_ID = 15368
 CI_OK = "CI OK"
 

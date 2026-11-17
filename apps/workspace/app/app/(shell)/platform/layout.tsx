@@ -1,20 +1,3 @@
-/**
- * Platform dashboard shell (ADR-0016) — exclusive to platform staff.
- *
- * The staff gate, the shell chrome and the section nav live here, so every
- * subsection inherits them and none can forget the gate. Previously the whole
- * tier was one page stacking seven admin domains in a single scrolling column;
- * each is now its own route under this layout.
- *
- * Server-gated by `isPlatformStaff` (membership of the GRID Platform
- * organization holding at least one `platform:*` permission, or the break-glass
- * env allowlist). That is deliberately the PRECONDITION and not the whole
- * decision: `org-platform-support` reaches this shell and reads every section,
- * while each route underneath requires its own `platform:*` permission, so the
- * read-only role cannot write through any of them. Everyone else gets an
- * explanatory card, mirroring the org page's non-admin experience.
- */
-
 import type { JSX } from 'react'
 import { redirect } from 'next/navigation'
 import { ShieldAlert } from 'lucide-react'
@@ -37,9 +20,6 @@ export default async function PlatformLayout({
   children: React.ReactNode
 }): Promise<JSX.Element> {
   return runWithTenantSlot(async () => {
-    // Deliberately NOT requireAuthorizedPageSession: the break-glass owner of a
-    // fresh environment may hold zero org memberships and must still reach this
-    // page (the org-onboarding redirect would lock them out — ADR-0016).
     const session = await getUserSession()
     if (!session && isAuthRequired()) {
       redirect('/')
@@ -69,12 +49,9 @@ export default async function PlatformLayout({
       )
     }
 
-    // Handed to the client so a write control can hide itself from a viewer
-    // whose role cannot use it. A hint only: every route still checks its own.
     const permissions = [...((await platformPermissions(session)) ?? [])]
 
     return shell(
-      // Rail beside the content from `lg`; stacked strip below that.
       <PlatformAccessProvider permissions={permissions}>
         <div className="flex flex-col gap-6 lg:flex-row lg:gap-8">
           <div className="lg:w-52 lg:shrink-0">

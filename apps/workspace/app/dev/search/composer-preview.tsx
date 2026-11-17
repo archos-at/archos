@@ -1,14 +1,5 @@
 'use client'
 
-/**
- * `/dev/search?composer=1`: the composer's `#` picker (`ComposerSearchPicker`)
- * over the fixture's documents, above a stand-in for the composer's field. The
- * real composer needs a chat session and a socket; the picker is the same
- * component the composer opens, driven the same way (the fragment under the
- * caret, ↑ ↓ ↵ Esc forwarded from the field). A pick writes the name as the
- * composer does and shows the subject it would set.
- */
-
 import type { JSX, KeyboardEvent } from 'react'
 import { useMemo, useRef, useState } from 'react'
 

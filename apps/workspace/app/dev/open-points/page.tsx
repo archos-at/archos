@@ -1,32 +1,5 @@
 'use client'
 
-/**
- * Dev preview for a project's Offene Punkte, the REAL `OpenPointsPanel` over
- * a fixture project: four documents, marks with and without a Zuständige and a
- * Frist (one overdue, two due within the week), one set on an earlier Fassung,
- * one with a thread and one that mentions the reader.
- *
- * A module-scope `fetch` shim answers the list
- * (`/api/projects/dev-project/annotations`) as the server would: the filters
- * (`assignee=me`, `due=overdue|soon`), pages by an opaque cursor, and the
- * Protokoll (`…/export`) as a small Markdown file.
- *
- * Routes:
- *   /dev/open-points             the list, every open point grouped by document
- *   /dev/open-points?page=3      three marks a page: „Weitere laden" at the foot
- *   /dev/open-points?fail=1      reads fail for three seconds: the error, then „Erneut versuchen" reads
- *   /dev/open-points?empty=1     nothing open
- *   /dev/open-points?slow=1      each read takes two seconds: the loading state
- *   /dev/open-points?restricted=1  a point sits on a document not every member may open:
- *                                „Im Projekt ablegen" is withheld, with why
- *   /dev/open-points?nofile=1    a reader who may not upload to the project root: no „Im Projekt ablegen"
- *
- * „Im Projekt ablegen" files through a shimmed upload (`/api/documents/upload`)
- * and says „Abgelegt als …"; nothing is stored.
- *
- * Not linked from anywhere and 404s outside development (`../layout.tsx`).
- */
-
 import type { JSX } from 'react'
 import { addCalendarDays, localCalendarDay } from '@/lib/format'
 import type { ProjectMarkView } from '@/lib/annotations/project-types'
@@ -193,7 +166,6 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
   const w = window as unknown as { __openPointsShim?: boolean }
   if (!w.__openPointsShim) {
     w.__openPointsShim = true
-    // Every read of the first seconds fails, so the error shows however often the page asks; a retry after it reads.
     const failUntil = params.get('fail') ? Date.now() + 3000 : 0
     const real = window.fetch.bind(window)
     const pause = () => new Promise((resolve) => window.setTimeout(resolve, params.get('slow') ? 2000 : 250))
@@ -231,10 +203,8 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
 }
 
 export default function OpenPointsPreview(): JSX.Element {
-  // The waiting count the rail would have read, for the E-Mail-Eingang tab.
   primeInboundMailWaiting(PROJECT, { count: 3, more: false })
   return (
-    // In the section frame, as the project's Offene Punkte tab draws it: its head, its tabs, its container.
     <div className="bg-background h-dvh">
       <ProjectSectionFrame projectId={PROJECT} projectName="Wohnhaus Lend" pathname={`/app/projects/${PROJECT}/files/open-points`} inboundMail>
         <OpenPointsPanel

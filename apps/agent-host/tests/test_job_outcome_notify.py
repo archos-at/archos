@@ -1,5 +1,3 @@
-"""The worker tells the BFF how a run ended, best-effort and by backend job id."""
-
 from __future__ import annotations
 
 from unittest import mock
@@ -17,8 +15,6 @@ class _Response:
 
 
 class _Client:
-    """A stand-in for ``httpx.AsyncClient`` that records the one POST."""
-
     calls: list[dict] = []
     status_code = 200
 
@@ -59,7 +55,6 @@ async def test_posts_the_outcome_by_backend_job_id() -> None:
 
 @pytest.mark.asyncio
 async def test_a_run_the_bff_does_not_know_is_not_an_error() -> None:
-    """An interactive deep-research job has no job_runs row: 404 is the ordinary answer."""
     _Client.status_code = 404
     with mock.patch("agent_host.jobs.outcome_notify.httpx.AsyncClient", _Client):
         accepted = await notify_job_outcome(job_id="job-2", usage_context=USAGE, status="success")
@@ -87,8 +82,6 @@ async def test_never_raises_when_the_bff_is_unreachable() -> None:
 
 @pytest.mark.asyncio
 async def test_a_finished_report_rides_along_for_filing_as_the_requester() -> None:
-    """The BFF files the report as the task's pinned requester (ADR-0051); the
-    worker is the only party that holds the report at completion time."""
     with mock.patch("agent_host.jobs.outcome_notify.httpx.AsyncClient", _Client):
         await notify_job_outcome(
             job_id="job-1",
@@ -123,8 +116,6 @@ def access_db_url(tmp_path):
 
 @pytest.mark.asyncio
 async def test_a_writer_without_the_run_context_reports_under_the_submit_tenant(access_db_url) -> None:
-    """The cancel route, the reaper and retry exhaustion hold no usage context;
-    the tenant the BFF cross-checks is on the job's access row."""
     from agent.auth import Principal
     from agent_host.jobs.access import create_job_access
     from agent_host.jobs.outcome_notify import notify_job_outcome_from_access
@@ -155,8 +146,6 @@ async def test_no_tenant_on_record_reports_nothing(access_db_url) -> None:
 
 
 class _Sequence(_Client):
-    """Answers each POST with the next status in ``statuses``; an exception instance is raised."""
-
     statuses: list = []
 
     async def post(self, url, *, json, headers):
@@ -168,13 +157,6 @@ class _Sequence(_Client):
 
 
 class TestTheReportIsRetriedBriefly:
-    """A BFF restart at the moment a run ends used to leave its row running for good.
-
-    Three attempts, and the policy for each answer is the point: a transport
-    failure or a 5xx is asked again, a 404 only when the job was submitted for a
-    ``task_runs`` row (the row may not be recorded yet), and any other 4xx never.
-    """
-
     @pytest.mark.asyncio
     async def test_a_restarting_bff_is_asked_again_until_it_answers(self) -> None:
         _Sequence.statuses = [ConnectionError("frontend restarting"), 503, 200]
@@ -183,7 +165,6 @@ class TestTheReportIsRetriedBriefly:
 
         assert accepted is True
         assert len(_Sequence.calls) == 3
-        # Every attempt carries the same outcome: the BFF absorbs a repeat.
         assert all(call["json"] == _Sequence.calls[0]["json"] for call in _Sequence.calls)
 
     @pytest.mark.asyncio
@@ -195,7 +176,6 @@ class TestTheReportIsRetriedBriefly:
 
     @pytest.mark.asyncio
     async def test_a_run_not_recorded_yet_is_retried_when_the_job_has_a_run(self) -> None:
-        """The BFF writes the backend job id after the submit returns; a quick run finishes first."""
         _Sequence.statuses = [404, 404, 200]
         with mock.patch("agent_host.jobs.outcome_notify.httpx.AsyncClient", _Sequence):
             accepted = await notify_job_outcome(job_id="job-1", usage_context=USAGE, status="success", expect_run=True)

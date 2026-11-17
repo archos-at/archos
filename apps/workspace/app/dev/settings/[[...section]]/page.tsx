@@ -1,26 +1,9 @@
 'use client'
 
-/**
- * Dev preview for the project Settings tier: the section nav and every section,
- * rendered through the REAL section organisms with a module-scope fetch shim
- * for what they load in the browser (roster, memory, uploads, summary).
- *
- *   /dev/settings            Overview (the bento dashboard)
- *   /dev/settings/members    Members
- *   /dev/settings/memory     Memory
- *   /dev/settings/usage      Usage & budget (`?blocked=project` shows the exhausted state)
- *   /dev/settings/documents  Documents & index
- *   /dev/settings/references Similar projects
- *
- * `?as=viewer` renders what a project viewer gets: no project menu, a read-only
- * memory, no reindex, and no Members or Usage section or tile at all.
- *
- * Not linked from anywhere; `app/dev/layout.tsx` 404s it outside development.
- */
-
 import type { JSX } from 'react'
 import { use } from 'react'
 import { notFound, useSearchParams } from 'next/navigation'
+import { ProjectSectionFrame, ProjectSectionTabs } from '@/components/shell/project-section-frame'
 import { SectionNav } from '@/components/shell/section-nav'
 import { Brain, FileStack, Gauge, GitCompareArrows, LayoutDashboard, Users } from 'lucide-react'
 import { DocumentsSettings } from '@/features/projects/components/settings/documents-settings'
@@ -106,7 +89,6 @@ const ACTIVITY = {
   peopleThisMonth: 5,
   daily: Array.from({ length: 30 }, (_, i) => ({
     day: new Date(Date.UTC(2026, 8, 10 + i)).toISOString().slice(0, 10),
-    // Weekdays busy, weekends near silent, a submission crunch in the middle.
     questions:
       (i + 3) % 7 < 5 ? 2 + ((i * 5) % 6) + (i > 12 && i < 20 ? 5 : 0) : i % 3 === 0 ? 1 : 0,
   })),
@@ -166,10 +148,7 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
     window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
       const url =
         typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
-      // Reads of this fixture project only: a write, or another project's read,
-      // reaches the real route, so the shim never swallows work it does not own.
       const read = (init?.method ?? (input instanceof Request ? input.method : 'GET')) === 'GET'
-      // The Steckbrief's reads and writes both: the fixture keeps the edits.
       const projectRecord = await answerProjectRecord(PROJECT_ID, url, init)
       if (projectRecord) return projectRecord
       if (read && url === `/api/projects/${PROJECT_ID}/uploads`)
@@ -215,7 +194,6 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
           ],
         })
       }
-      // Summary auto-generate / profile patches — no-op for the preview.
       if (/\/(generate-summary|profile\/patches)$/.test(url)) return Response.json({})
       return real(input, init)
     }
@@ -264,18 +242,20 @@ export default function SettingsDevPage({
   }))
 
   return (
-    <main className="mx-auto w-full max-w-6xl px-4 py-8 md:px-8" data-testid="settings-preview">
-      <h1 className="mb-6 text-xl font-medium">Overview</h1>
-      <div className="flex flex-col gap-6">
-        <div>
+    <main className="bg-background h-dvh" data-testid="settings-preview">
+      <ProjectSectionFrame projectId={PROJECT_ID} projectName="Wohnbau Mariahilf" pathname={`/app/projects/${PROJECT_ID}/settings`}>
+      <div className="listing-container flex flex-col gap-6 px-4 py-6 md:px-8 md:py-8">
+        <ProjectSectionTabs>
           <SectionNav
             label="Project settings"
             items={items}
             rootHref="/dev/settings"
             pillId="dev-settings-pill"
             orientation="tabs"
+            track
+            compactOnPhone
           />
-        </div>
+        </ProjectSectionTabs>
         <div className="min-w-0">
           {current === 'overview' && (
             <ProjectOverview
@@ -290,7 +270,6 @@ export default function SettingsDevPage({
                 manageMembers: admin,
               }}
               projectRecord={{ ...projectRecord, canEdit: admin, canErase: admin }}
-              // The project's mail address, as a reader who may decide its mail sees it (here: whoever administers).
               inboundMailAddress={
                 admin ? <InboundMailAddressTile projectId={OVERVIEW_DATA.id} projectName="Wohnbau Mariahilf" client={ADDRESS_CLIENT} /> : undefined
               }
@@ -324,6 +303,7 @@ export default function SettingsDevPage({
           )}
         </div>
       </div>
+      </ProjectSectionFrame>
     </main>
   )
 }

@@ -9,8 +9,6 @@ vi.mock('sonner', () => ({
   toast: { error: vi.fn(), success: vi.fn() },
 }))
 
-// The chart is exercised by its own spec and preview; here the behaviour under
-// test is the load/window/error lifecycle and the copy.
 vi.mock('@/components/charts/citation-defect-chart', () => ({
   CitationDefectChart: () => <div data-testid="citation-defect-chart" />,
 }))
@@ -26,7 +24,6 @@ const finding = (
   metrics,
 })
 
-/** A scope of UTC days, every organization and project unless named. */
 const scopeOf = (from: string, to: string, more: Partial<QualityScope> = {}): QualityScope => ({
   from,
   to,
@@ -36,10 +33,6 @@ const scopeOf = (from: string, to: string, more: Partial<QualityScope> = {}): Qu
 })
 const SEPTEMBER = scopeOf('2026-09-01', '2026-09-30')
 const LAST_WEEK = scopeOf('2026-09-24', '2026-09-30')
-/**
- * English range labels as Testing Library reads them: ICU sets thin spaces
- * around the dash, and the default matcher normalizes them to plain ones.
- */
 const SEPTEMBER_LABEL = 'Sep 1 – 30, 2026'
 const LAST_WEEK_LABEL = 'Sep 24 – 30, 2026'
 
@@ -57,7 +50,6 @@ const snapshot = {
     emptyRegistries: 1,
   },
   findings: [
-    // Deliberately out of severity order: the card ranks them.
     finding('quotes_fabricated', 'warn', { turns: 4, quotes: 7, share: 0.02 }),
     {
       id: 'answers_ungrounded',
@@ -154,7 +146,6 @@ const emptySnapshot = {
 const json = (body: unknown) => ({ ok: true, json: async () => body })
 const okFetch = (body: unknown = snapshot) => vi.fn().mockResolvedValue(json(body))
 
-/** A fetch whose responses resolve only when the test says so, in any order. */
 function deferredFetch() {
   const pending: { url: string; resolve: (value: unknown) => void }[] = []
   const fn = vi.fn(
@@ -201,7 +192,6 @@ describe('CitationHealth', () => {
       `/api/platform/citation-health?${query}`,
       expect.anything()
     )
-    // The export downloads exactly what the screen is asked to show.
     expect(screen.getByRole('link', { name: /Export diagnostics/ }).getAttribute('href')).toBe(
       `/api/platform/citation-health/export?${query}`
     )
@@ -279,7 +269,6 @@ describe('CitationHealth', () => {
       )
     )
     expect(await screen.findByText('50%')).toBeDefined()
-    // September's answer lands last; it must not replace the week's.
     await act(async () => pending[0].resolve(json(snapshot)))
     expect(screen.getByText('50%')).toBeDefined()
     expect(screen.queryByText('88%')).toBeNull()
@@ -302,7 +291,6 @@ describe('CitationHealth', () => {
       )
     ).toBeDefined()
     expect(screen.getByText('88%')).toBeDefined()
-    // The trend still names what it shows, not what was asked for.
     expect(screen.getByText(new RegExp(`per UTC day, ${SEPTEMBER_LABEL}\\.`))).toBeDefined()
   })
 
@@ -315,7 +303,6 @@ describe('CitationHealth', () => {
     expect(rows).toHaveLength(3)
     expect(rows[0].textContent).toContain('Answers are shipping without a source')
     expect(within(card).queryByText('Most removals are only duplicates')).toBeNull()
-    // The remedy is behind the row, not stacked under every title.
     expect(within(card).queryByText(/Open the flagged turns below/)).toBeNull()
 
     await userEvent.click(
@@ -343,7 +330,6 @@ describe('CitationHealth', () => {
   })
 
   test('renders fractional shares as locale percentages and counts with grouping', async () => {
-    // The server sends shares as fractions; the copy carries no "%" of its own.
     vi.stubGlobal(
       'fetch',
       okFetch({
@@ -424,7 +410,6 @@ describe('CitationHealth', () => {
         .getByRole('link', { name: 'Open conversation in the timing view' })
         .getAttribute('href')
     ).toBe('/app/platform/quality?view=timing&from=2026-09-01&to=2026-09-30&conversation=conv-1')
-    // The buckets are UTC days, so the exact moment is stated in UTC.
     const times = within(card).getAllByText((_, node) => node?.tagName === 'TIME')
     expect(times[0].getAttribute('title')).toBe('Jul 28, 2026, 11:41 PM UTC')
   })
@@ -437,7 +422,7 @@ describe('CitationHealth', () => {
     const card = await screen.findByTestId('citation-missing-sources')
     expect(
       within(card).getByRole('link', { name: 'Add to base knowledge' }).getAttribute('href')
-    ).toBe('/app/platform/knowledge')
+    ).toBe('/app/platform/countries')
   })
 
   test('disables the add actions for read-only platform staff and says why', async () => {
@@ -472,7 +457,7 @@ describe('CitationHealth', () => {
     )
 
     const card = await screen.findByTestId('citation-missing-sources')
-    expect(within(card).getByRole('link', { name: 'Add to base knowledge' }).getAttribute('href')).toBe('/app/platform/knowledge')
+    expect(within(card).getByRole('link', { name: 'Add to base knowledge' }).getAttribute('href')).toBe('/app/platform/countries')
   })
 
   test('claims nothing about held sources when the inventory could not be checked', async () => {

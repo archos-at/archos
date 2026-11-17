@@ -1,25 +1,3 @@
-/**
- * Rate limiting for the BFF — ADR-0040 layer L2.
- *
- * ```ts
- * import { consumeLimit, memberSubject, SHARE_LIMIT } from '@/lib/limits'
- *
- * const decision = await consumeLimit(SHARE_LIMIT, memberSubject(session))
- * if (!decision.allowed) throw new ForbiddenError('Too many sharing changes.')
- * ```
- *
- * Four layers surround this one and each owns a different question. Reaching
- * for the wrong one is the most common way a limit ends up in the wrong place:
- *
- * | Question | Layer | Where |
- * |---|---|---|
- * | Too many requests from this address? | L1 | Envoy Gateway, `deploy/pulumi` |
- * | Too many actions from this member? | **L2** | **here** |
- * | Too many frames on this socket? | L2b | `server.js` (same primitive) |
- * | Is there capacity to run this now? | L3 | `MAX_ACTIVE_JOBS_PER_ORG` (research) |
- * | May this spend money? | L4 | ADR-0015 budgets |
- */
-
 export { consumeLimit, enforceLimit, rateLimitHeaders } from './enforce'
 export { getLimitStore, setLimitStore, createInProcessStore } from './store'
 export type { LimitStore, StoreOutcome } from './store'

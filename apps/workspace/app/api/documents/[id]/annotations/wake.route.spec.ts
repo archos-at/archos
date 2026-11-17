@@ -1,19 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The writes that wake Piloti (ADR-0106), driven through the TYPED CLIENT and
- * the real routes and service: a reply that addresses Piloti, a reply on
- * Piloti's open question, and a delegation enqueue exactly one wake, in the
- * write's own transaction; a reply Piloti wrote, a reply to people, and a
- * reader's refused write enqueue none; the organization's switch off answers
- * `wake: 'off'`, and the browser keeps asking Piloti itself.
- *
- * The repository is a fake that runs the write's transaction hook with a
- * transaction handle, which is how the test sees that the wake rides IN the
- * write's transaction. That a rolled-back write leaves no wake is held against
- * a real database in `lib/annotations/repository.integration.spec.ts`.
- */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -36,7 +23,6 @@ vi.mock('@/lib/authz/folder-access', async () => (await import('@/test-utils/fol
 vi.mock('@/lib/sharing/directory', () => ({ loadOrganizationDirectory: vi.fn().mockResolvedValue(new Map()) }))
 vi.mock('@/lib/realtime/document-channel', () => ({ publishToDocumentRoom: vi.fn().mockResolvedValue(undefined) }))
 vi.mock('@/lib/audit/service', () => ({ recordAuditEvent: vi.fn() }))
-// Every write here is one person's; the shared limiter would refuse them as a burst.
 vi.mock('@/lib/limits/enforce', async (original) => ({
   ...(await original<typeof import('@/lib/limits/enforce')>()),
   enforceLimit: vi.fn(async () => undefined),
@@ -49,7 +35,6 @@ vi.mock('@/lib/annotations/wake-repository', () => ({
   settleWake: vi.fn(),
   listLatestWakes: vi.fn(async () => []),
 }))
-// Only the write after the commit (`settleTakenBack`) opens a handle of its own.
 vi.mock('@/lib/db', async (importOriginal) => ({ ...(await importOriginal<typeof import('@/lib/db')>()), getDb: () => TX_DB }))
 vi.mock('@/lib/db/tenant-context', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/db/tenant-context')>()),
@@ -192,7 +177,6 @@ const MARK: AnnotationRecord = {
   replies: [],
 }
 
-/** The transaction the fake repository runs a write's hook in. */
 const TX = { transaction: 'of the write' } as unknown as DbTransaction
 
 let writable = true
@@ -303,7 +287,6 @@ describe('a reply that wakes Piloti', () => {
     const result = await replyToAnnotation(DOC_ID, MARK_ID, { body: 'Stimmt das?', addressesPiloti: true }, { run })
 
     expect(result.wake).toBe('off')
-    // The reply still says it addressed Piloti: the browser asks it under the reply's turn id.
     expect(insertAnnotationReply).toHaveBeenCalledWith(expect.objectContaining({ addressesAgent: true }), undefined)
     expect(enqueueJob).not.toHaveBeenCalled()
     await expect(listAnnotations(DOC_ID, run)).resolves.toMatchObject({ pilotiWakes: false })
@@ -395,7 +378,6 @@ describe('a delegation to Piloti', () => {
   })
 })
 
-/** The wake of the mark's current delegation, as `findLiveDelegationWake` answers it. */
 const liveWake = (status: 'queued' | 'started', actorUserId = 'user_1'): AgentWakeRow => ({
   id: WAKE_ID,
   organizationId: 'org_1',
@@ -415,7 +397,6 @@ const WAKE_ID = '44444444-4444-4444-8444-444444444444'
 const DELEGATED_AT = new Date('2026-10-13T09:00:00Z')
 const DELEGATED: AnnotationRecord = { ...MARK, delegatedBy: 'user_1', delegatedAt: DELEGATED_AT }
 
-/** The stop jobs the take-back queued, with the executor each went into. */
 const stopJobs = () =>
   vi.mocked(enqueueJob).mock.calls.filter(([job]) => job.kind === 'piloti_wake_stop')
 
@@ -474,7 +455,6 @@ describe('taking a mark back from Piloti', () => {
           organizationId: 'org_1',
           payload: { wakeId: WAKE_ID, documentId: DOC_ID, annotationId: MARK_ID, actorUserId: 'user_3' },
         })
-        // The turn ends `stopped` and says so itself: the wake is not ended from here.
         expect(settleWake).not.toHaveBeenCalled()
       })
 
@@ -649,12 +629,6 @@ describe('what a person’s decision leaves behind', () => {
   })
 })
 
-/**
- * What a colleague's change or reply tells people (`./attention`), from the
- * service itself, so the route and Piloti for the asker go through the same
- * call. Who exactly hears it is `attention.spec.ts`; here, that each event is
- * named once, with the right facts, and filtered by who may open the document.
- */
 describe('what a change or a reply tells people', () => {
   beforeEach(() => {
     vi.mocked(userHoldsProjectPermission).mockResolvedValue(true)
@@ -693,8 +667,6 @@ describe('what a change or a reply tells people', () => {
     expect(onAssigneeChanged).not.toHaveBeenCalled()
   })
 
-  // A Zuständige must be able to answer the mark and close it, which are writes:
-  // a reader of the document would be on the hook for a mark they cannot answer.
   it('refuses a Zuständige who may open the document but not write it, on setting a mark and on changing one', async () => {
     vi.mocked(userHoldsProjectPermission).mockImplementation(async (_tenant, _project, _userId, permission) => permission === 'project:view')
     const place = { page: 1, shape: 'point' as const, x: 0.1, y: 0.1, kind: 'defect' as const, body: 'Fluchtweg' }
@@ -706,7 +678,6 @@ describe('what a change or a reply tells people', () => {
       status: 422,
     })
 
-    // Asked as permissions on the project, never a role: the narrow one, then the older umbrella.
     expect(userHoldsProjectPermission).toHaveBeenCalledWith({ organizationId: 'org_1' }, 'proj_1', 'user_3', 'project:documents:write')
     expect(userHoldsProjectPermission).toHaveBeenCalledWith({ organizationId: 'org_1' }, 'proj_1', 'user_3', 'project:edit')
     expect(updateDocumentAnnotation).not.toHaveBeenCalled()
@@ -800,7 +771,6 @@ describe('what a change or a reply tells people', () => {
 describe('the audit trail of a wake taken back', () => {
   const stopped = () =>
     vi.mocked(recordAuditEvent).mock.calls.map(([input]) => input).filter((input) => input.action === 'piloti.wake.stopped')
-  // Whatever was emitted, WorkOS would accept: every target type and key is registered.
   afterEach(() => {
     for (const [input] of vi.mocked(recordAuditEvent).mock.calls) expectRegistered(input)
   })

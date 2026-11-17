@@ -1,12 +1,3 @@
-/**
- * Review fixtures for the setup page (`/dev/project-setup`) and its specs: a
- * project that waits for documents, one being read, one whose reading failed, one ready with
- * contradictions, Rückfragen, suggestions and derivations, a past project the
- * review will close, and a finished one. Values, labels and keys are the
- * wizard's own (`lib/project-profile/intake-definition.ts`); the project is an
- * Aufstockung in Wien, the example the create dialog names.
- */
-
 import type { GeocodeResult } from '@/lib/geocoding/types'
 import type { ListedProposal, ProposedChangeView } from '@/lib/proposals/types'
 import type {
@@ -79,7 +70,6 @@ export const SUGGESTION_ADDRESS = suggestion(
   }
 )
 
-/** Two documents state different storey counts: the contradiction, and a decisive one. */
 export const SUGGESTION_STOREYS = suggestion(
   'storeys_above_ground@bldg1',
   'Anzahl oberirdischer Geschoße (Zielzustand)',
@@ -110,7 +100,7 @@ export const SUGGESTION_TYPE = suggestion('building_type@bldg1', 'Art des Bauwer
   evidence: [fromDocument(BUILDING_DESCRIPTION, 1, 'Gegenstand des Verfahrens ist ein Wohngebäude in geschlossener Bauweise.')],
 })
 
-export const SUGGESTION_POSITION = suggestion('building_position@bldg1', 'Gebäudestellung', 'attached', 'attached', {
+export const SUGGESTION_POSITION = suggestion('building_position@bldg1', 'Gebäudestellung', 'attached', 'angebaut', {
   evidence: [fromDocument(BUILDING_DESCRIPTION, 2, 'Das Haus ist beidseitig an die Nachbargebäude angebaut.')],
 })
 
@@ -171,7 +161,6 @@ export const QUESTION_AREA: Need = {
   state: 'open',
 }
 
-/** Needs that decide no class: asked one at a time after the decisive ones, in the wizard's order. */
 export const OPEN_PHASE: Need = {
   key: 'project_phase',
   baseKey: 'project_phase',
@@ -238,8 +227,8 @@ export const QUESTION_USE: Need = {
   label: 'Gebäudestellung',
   type: 'single_select',
   options: [
-    { token: 'freestanding', label: 'freestanding' },
-    { token: 'attached', label: 'attached' },
+    { token: 'freestanding', label: 'freistehend' },
+    { token: 'attached', label: 'angebaut' },
     { token: 'terraced', label: 'Reihenhaus' },
   ],
   why: 'Die Stellung zu den Nachbargebäuden trennt die Gebäudeklassen 1 und 2.',
@@ -248,7 +237,6 @@ export const QUESTION_USE: Need = {
   state: 'open',
 }
 
-/** The derived class is decided here, not among the review's modules. */
 export const DERIVATION_READY: DerivationReview = {
   buildingId: 'bldg1',
   rule: 'building_class',
@@ -295,8 +283,6 @@ const BASE: IntakeView = {
   derivations: [],
   canDecide: true,
   canComplete: true,
-  // Step 3's milestones: the address search set the site at creation. The
-  // step's own states are in `project-setup-reading.ts`.
   readingProgress: {
     documentsOpened: 0,
     documentsTotal: 0,
@@ -304,10 +290,8 @@ const BASE: IntakeView = {
   },
 }
 
-/** Created a moment ago: the address is on the profile, no documents yet. */
 export const INTAKE_WAITING: IntakeView = { ...BASE, groups: [{ ...GROUP_BASE, items: [SUGGESTION_ADDRESS] }] }
 
-/** A reading in its first minutes: some documents read, the first values found. */
 export const INTAKE_READING: IntakeView = {
   ...BASE,
   status: 'reading',
@@ -320,14 +304,12 @@ export const INTAKE_READING: IntakeView = {
   ],
 }
 
-/** The reading stopped part-way: what was found stays, the rest is unread, and another reading is the way on. */
 export const INTAKE_FAILED: IntakeView = {
   ...INTAKE_READING,
   status: 'failed',
   readingFinishedAt: '2026-10-14T08:36:00.000Z',
 }
 
-/** The review: a contradiction, Rückfragen, suggestions by module, and two derivations. */
 export const INTAKE_READY: IntakeView = {
   ...BASE,
   status: 'ready',
@@ -343,7 +325,6 @@ export const INTAKE_READY: IntakeView = {
   derivations: [DERIVATION_READY, DERIVATION_OPEN],
 }
 
-/** A past project read for the office's reference: nothing is decisive, finishing closes it. */
 export const INTAKE_CLOSING: IntakeView = {
   ...INTAKE_READY,
   mode: 'closing',
@@ -356,7 +337,6 @@ export const INTAKE_CLOSING: IntakeView = {
   derivations: [DERIVATION_READY],
 }
 
-/** Finished: every value is confirmed. */
 export const INTAKE_COMPLETED: IntakeView = {
   ...INTAKE_READY,
   status: 'completed',
@@ -374,7 +354,6 @@ export const INTAKE_COMPLETED: IntakeView = {
   canComplete: false,
 }
 
-/** The address confirmed by the address register in the cell (ADR-0172) instead of the geocoder: `?site=register`. */
 const REGISTER_EVIDENCE: ProfileEvidence = {
   kind: 'register',
   addressId: 'at-bev:6744151',
@@ -424,12 +403,6 @@ const filingProposal = (id: string, patch: Pick<FilingProposal, 'payload'>): Fil
   ...patch,
 })
 
-/**
- * The agent's two open filing suggestions for the project, one per target folder:
- * two files into a folder that exists, and one into a folder it would create.
- * What `GET /api/proposals?projectId=…&kind=file_operation` answers, so the
- * setup page's „Ablage“ section and its specs read the real shape.
- */
 export const INTAKE_FILING: ListedProposal[] = [
   {
     proposal: filingProposal('00000000-0000-4000-8000-0000000000b1', {
@@ -477,5 +450,4 @@ export const INTAKE_FILING: ListedProposal[] = [
   },
 ]
 
-/** The states that have open filing suggestions: a project with documents read and not yet finished. */
 export const INTAKE_FILING_STATES: readonly IntakeFixtureName[] = ['ready', 'closing']

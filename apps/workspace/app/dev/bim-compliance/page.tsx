@@ -1,18 +1,5 @@
 'use client'
 
-/**
- * Dev preview for the Prüfbuch.
- *
- * The fixture is deliberately a MESSY project, because the clean case proves
- * nothing: two failing doors, thirty-four walls whose fire rating the model
- * never published, a rule that stood down because the brief has no
- * Gebäudeklasse, and a rule with no affected elements at all. Those four states
- * are the ones the panel exists to render honestly, and a screenshot of a green
- * list would hide every one of them.
- *
- * Not linked from anywhere and 404s outside development.
- */
-
 import type { JSX } from 'react'
 import { notFound } from 'next/navigation'
 import { IfcCompliancePanel } from '@/features/bim/components/ifc-compliance-panel'

@@ -2,7 +2,6 @@ import type { InputHTMLAttributes, ReactNode } from 'react';
 import { joinClasses } from './join-classes';
 
 export interface CheckboxProps extends InputHTMLAttributes<HTMLInputElement> {
-  /** small, ink-muted; never pre-checked for consent */
   label: ReactNode;
 }
 

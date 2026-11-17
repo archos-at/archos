@@ -1,13 +1,3 @@
-/**
- * The requirement-status diff between two revisions.
- *
- * The assertions are about the two ways this screen could mislead: burying a
- * regression among improvements, and reporting "nothing changed" in a way that
- * reads as "nothing ran".
- *
- * Rendered in English — the default test locale.
- */
-
 import { describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -95,8 +85,6 @@ describe('IfcComplianceDiff', () => {
   })
 
   it('calls out a requirement that stopped being checkable', () => {
-    // A re-export that drops a property silently un-checks a requirement that
-    // was green yesterday. A pass/fail comparison would never mention it.
     diff()
     expect(screen.getByText('no longer decidable (the value is gone from the model)')).toBeInTheDocument()
   })

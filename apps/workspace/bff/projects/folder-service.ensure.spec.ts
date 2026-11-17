@@ -60,7 +60,6 @@ import type { AuthorizedSession } from '@/lib/auth/types'
 
 const session = { userId: 'user-1', organizationId: 'org-1' } as AuthorizedSession
 
-/** What every inserted folder row is stamped with besides its project (migration 0102). */
 const TENANT = { organizationId: 'org-1', scope: 'project' }
 
 interface Row {
@@ -84,15 +83,6 @@ const row = (id: string, name: string, path: string, parentId: string | null = n
   updatedAt: at,
 })
 
-/**
- * A database that answers the two shapes this function uses: one unfiltered
- * read of the project's folders, and an insert that mints a row.
- *
- * `where(...).limit(...)` is the parent probe and the 23505 recovery; the bare
- * `where(...)` is the folder listing. Both are driven from one array so an
- * insert is visible to a later read, which is what makes the ordering of a
- * multi-level path testable at all.
- */
 function fakeDb(existing: Row[], onInsert?: () => never) {
   const rows = [...existing]
   let minted = 0
@@ -101,8 +91,6 @@ function fakeDb(existing: Row[], onInsert?: () => never) {
   const select = vi.fn(() => ({
     from: () => {
       const where = (): Promise<Row[]> & { limit: () => Promise<Row[]> } => {
-        // The parent probe and the race recovery both `.limit(1)`; the listing
-        // awaits the `where` itself.
         const promise = Promise.resolve(rows) as Promise<Row[]> & { limit: () => Promise<Row[]> }
         promise.limit = () => Promise.resolve(rows.slice(0, 1))
         return promise
@@ -134,7 +122,6 @@ describe('ensureProjectFolderPaths', () => {
   })
 
   it('reuses a folder whose name differs only in case or Unicode form', async () => {
-    // `PLÄNE` is here; the drop carries the decomposed spelling a Mac produces.
     const existing = [row('f1', 'PLÄNE', 'PLÄNE')]
     const fake = fakeDb(existing)
     vi.mocked(getDb).mockReturnValue(fake.db)
@@ -147,7 +134,6 @@ describe('ensureProjectFolderPaths', () => {
     expect(result).toMatchObject({ ok: true })
     if (!result.ok) throw new Error('unreachable')
     expect(result.folderIdByPath).toEqual({ ['Pläne'.normalize('NFD')]: 'f1' })
-    // Creating the near-duplicate is the failure this exists to prevent.
     expect(fake.insert).not.toHaveBeenCalled()
     expect(result.folders).toEqual([])
   })
@@ -183,8 +169,6 @@ describe('ensureProjectFolderPaths', () => {
       session,
     )
 
-    // Three folders, not four: the index built as it goes is what stops `W`
-    // being created a second time for the second path.
     expect(fake.inserted.map((values) => values.path)).toEqual(['W', 'W/Plaene', 'W/Statik'])
   })
 
@@ -214,18 +198,12 @@ describe('ensureProjectFolderPaths', () => {
   })
 
   it('files into the concurrent writer’s folder when the insert loses the race', async () => {
-    // Two people syncing the same tree at once: both read no `Wohnbau`, both
-    // insert, and `uniq_project_folders_parent_name` fails one of them. The
-    // loser must not fail an upload nobody did anything wrong in.
     const winner = row('f-winner', 'Wohnbau', 'Wohnbau')
     const fake = fakeDb([winner], () => {
       throw Object.assign(new Error('duplicate key'), { code: '23505' })
     })
     vi.mocked(getDb).mockReturnValue(fake.db)
 
-    // `Statik` is not in the listing, so this path reaches the insert — which
-    // is where the fake raises the violation. What is under test is the answer
-    // to it: re-read, and file into whatever is there, rather than fail.
     const result = await ensureProjectFolderPaths(
       { projectId: 'proj-1', parentId: null, paths: ['Statik'] },
       session,
@@ -250,7 +228,6 @@ describe('ensureProjectFolderPaths', () => {
 
 describe('ensureProjectFolderPaths and folders the reader may not see (ADR-0087)', () => {
   const HIDDEN = 'f-honorare'
-  /** `Honorare` is restricted to a role this session does not hold. */
   const hiding = (...ids: string[]): ProjectFolderAccess => ({
     hiddenFolderIds: new Set(ids),
     isVisible: (id: string | null) => id === null || !ids.includes(id),
@@ -281,8 +258,6 @@ describe('ensureProjectFolderPaths and folders the reader may not see (ADR-0087)
   })
 
   it('never matches a hidden folder by a looser spelling, nor creates below it', async () => {
-    // `honorare` matched `Honorare` by folderMatchKey, handed back its id and
-    // created `Honorare/Neu` inside it, echoing the hidden name.
     const fake = fakeDb([row(HIDDEN, 'Honorare', 'Honorare')])
     vi.mocked(getDb).mockReturnValue(fake.db)
 
@@ -299,8 +274,6 @@ describe('ensureProjectFolderPaths and folders the reader may not see (ADR-0087)
   })
 
   it('refuses the exact name a hidden sibling holds, without naming it', async () => {
-    // The unique index would refuse the insert anyway; the answer is the one a
-    // visible sibling gets, and it carries neither the name nor an id.
     const fake = fakeDb([row(HIDDEN, 'Honorare', 'Honorare')])
     vi.mocked(getDb).mockReturnValue(fake.db)
 
@@ -319,8 +292,6 @@ describe('ensureProjectFolderPaths and folders the reader may not see (ADR-0087)
       throw Object.assign(new Error('duplicate key'), { code: '23505' })
     })
     vi.mocked(getDb).mockReturnValue(fake.db)
-    // The listing (an awaited `where`) saw nothing; the race recovery (a
-    // `limit`) then finds the winner, which this session may not see.
     vi.mocked(fake.db.select).mockImplementation(
       () =>
         ({
@@ -371,9 +342,6 @@ describe('ensureProjectFolderPaths and folders the reader may only read (ADR-008
   })
 
   it('creates a nested new path under a writable folder, though the access read before knows none of the new folders', async () => {
-    // What `computeFolderAccess` answers for an id its tree does not hold:
-    // `none`. Every folder this upload creates is such an id; it inherits the
-    // parent it was created in, which was asked about.
     vi.mocked(getProjectFolderAccess).mockResolvedValue({
       hiddenFolderIds: new Set(),
       isVisible: () => true,

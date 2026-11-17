@@ -42,7 +42,6 @@ describe('POST /api/organizations', () => {
     listOrganizationMemberships.mockResolvedValue({ data: [] })
   })
 
-  // Review of #1545, fix 12: a retry after a failed row write must not make a second organization.
   it('asks WorkOS with one idempotency key per person and name, and joins only once', async () => {
     await POST(request({ name: 'Acme', homeCountry: 'AT' }))
     placeOrganization.mockRejectedValueOnce(new Error('db down'))

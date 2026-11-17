@@ -40,9 +40,6 @@ describe.skipIf(!url || !engine)('bff-job on a real Hatchet engine', () => {
 
   beforeAll(async () => {
     process.env.APP_DATABASE_URL = url
-    // Its own namespace, so no other worker of `bff-job` takes these runs, and
-    // the settings the task is registered with: one run per organization, three
-    // per worker, a second's backoff, two attempts.
     process.env.HATCHET_CLIENT_NAMESPACE = `${process.env.HATCHET_CLIENT_NAMESPACE ?? 'it'}_bffjobs_${STAMP}`
     process.env.BFF_JOBS_MAX_PER_ORG = '1'
     process.env.BFF_JOBS_CONCURRENCY = '3'
@@ -96,7 +93,6 @@ describe.skipIf(!url || !engine)('bff-job on a real Hatchet engine', () => {
 
     await waitFor(async () => expect(await rowOf(jobId)).toMatchObject({ status: 'dead', attempts: 2 }))
     expect((await rowOf(jobId))?.last_error).toBe('scripted failure of dead on attempt 2')
-    // Hatchet had retries left; the non-retryable error is what stopped it.
     await new Promise((resolve) => setTimeout(resolve, 4000))
     expect(callsOf('dead')).toHaveLength(2)
   }, 90_000)
@@ -119,9 +115,7 @@ describe.skipIf(!url || !engine)('bff-job on a real Hatchet engine', () => {
     }, 120_000)
     const calls = handled.slice(before)
     const ofA = calls.filter((call) => call.organizationId === ORG_A).sort((a, b) => a.startedAt - b.startedAt)
-    // The cap: no two of the first organization's runs overlap, though the worker has three slots.
     for (let i = 1; i < ofA.length; i += 1) expect(ofA[i].startedAt).toBeGreaterThanOrEqual(ofA[i - 1].endedAt - 50)
-    // Fairness: the second organization does not wait behind the first one's backlog.
     const [b] = calls.filter((call) => call.id === 'other')
     expect(b.startedAt).toBeLessThan(ofA[ofA.length - 1].startedAt)
   }, 150_000)

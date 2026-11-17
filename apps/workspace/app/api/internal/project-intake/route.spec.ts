@@ -1,17 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The intake's reading talks to the BFF (`POST /api/internal/project-intake`).
- *
- * What is pinned here: the internal token is required; the project is the
- * signed envelope's and never the body's (a body naming one is refused by the
- * strict schema); a run outside a project gets a typed 422; each op reaches
- * its one service function as the envelope's pinned session, in its
- * organization's tenant scope, and its answer parses against the contract;
- * a stale reading's 409 reaches the tool with its reason. The service's own
- * rules are `lib/project-intake/service.spec.ts`.
- */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 

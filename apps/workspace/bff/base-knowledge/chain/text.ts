@@ -1,24 +1,6 @@
-/**
- * The chain text: what binds at a site, in words the agent reads (ADR-0168,
- * design §3.7 "no free text from records reaches a prompt" and §5.5 step 8).
- * Pure.
- *
- * Every sentence is fixed here and keyed by a typed field: the kind of an
- * instrument, the role and mode of a route, a displacement's anchors. What
- * comes from a record is a name (title, designation, edition label,
- * provision), each reduced to one bounded line with no markup, so a record
- * cannot carry an instruction into every office's prompt. English, because
- * the agent reads it; the names are the jurisdiction's own.
- */
-
 import type { ConnectingFactor, KnowledgeWorkKind } from '../wire/vocab'
-import type { EditionUse, KnowledgeGraph, ResolvedChain, RouteStep, UndeterminedLaw } from './graph'
+import type { EditionUse, GraphEdition, KnowledgeGraph, ResolvedChain, RouteStep, UndeterminedLaw } from './graph'
 
-/**
- * What the knowledge context corrected on a use (design §4.6, §5.2): the
- * coverage qualifier, the freshness and its labels, and the connecting
- * factors. The text says each, so the words and the uses never disagree.
- */
 export interface UseNotes {
   qualifier: 'uncurated' | 'office_maintained' | null
   freshness: 'current' | 'check_due' | 'newer_known' | 'superseded'
@@ -27,15 +9,12 @@ export interface UseNotes {
   connectsBy: readonly ConnectingFactor[]
 }
 
-/** The key a use's notes are found under. */
 export const keyOfUse = (use: Pick<EditionUse, 'workId' | 'editionId'>): string => `${use.workId}/${use.editionId ?? ''}`
 
 const CONNECTING_WORDS: Record<ConnectingFactor, string> = { site: 'the site', office_seat: 'where the office sits', client: 'who the client is' }
 
-/** Longest name taken from a record. */
 export const MAX_NAME_CHARS = 120
 
-/** Most lines per section; the rest are counted. */
 export const MAX_SECTION_LINES = 24
 
 const KIND_WORDS: Record<KnowledgeWorkKind, string> = {
@@ -57,7 +36,6 @@ const MODE_WORDS = {
   dynamic_reference: 'binding in its edition in force through a reference in',
 } as const
 
-/** One line of a name: no markup, no line breaks, no control characters, bounded. */
 export function nameOf(value: string | null | undefined): string {
   const flat = (value ?? '')
     .replace(/[\p{Cc}\p{Cf}]/gu, ' ')
@@ -67,7 +45,15 @@ export function nameOf(value: string | null | undefined): string {
   return flat.length > MAX_NAME_CHARS ? `${flat.slice(0, MAX_NAME_CHARS - 1)}…` : flat
 }
 
-/** Why an edition is not determined, as the agent reads it. */
+const isoDay = (value: string | null | undefined): string | null => (value && /^\d{4}-\d{2}-\d{2}/.test(value) ? value.slice(0, 10) : null)
+
+export function roleSinceOf(graph: KnowledgeGraph, use: Pick<EditionUse, 'route'>, edition: GraphEdition | undefined): string | null {
+  const last = use.route.at(-1)
+  const relation = last?.via === 'relation' ? graph.relations.find((candidate) => candidate.id === last.relationId) : undefined
+  const days = [isoDay(edition?.inForceFrom), isoDay(relation?.validFrom)].filter((day): day is string => day !== null)
+  return days.sort().at(-1) ?? null
+}
+
 const UNDETERMINED_REASON: Record<UndeterminedLaw['reason'], string> = {
   ambiguous_editions: 'more than one edition is recorded as in force on this date',
   edition_dates_unknown: 'its editions carry no in-force date',
@@ -78,6 +64,14 @@ const PREAMBLE =
   'What binds outranks what explains: law in force (Gesetz, Verordnung) > a model code, standard or guideline only ' +
   'where a law makes it binding, and only in the edition the route names > guidance, interpretation and information, ' +
   'which add no requirement. Information from an authority shows its practice, not a norm.'
+
+export const BINDING_HEADER =
+  'Binding here. Whenever the answer names one of these, it states the day its line gives, in the line\'s terms (after a route, ' +
+  '"since" is the day the edition binds from; "this edition since" is the day that text took effect, not when the law began to bind), ' +
+  "and the route's instrument where the line names one, even if not asked; the day is the records' own, never a web page's, and where " +
+  'a line names no day, say the records name none:'
+
+const FILING_DAY = ", the filing day taken as the reference date (an assumption; transitional law not checked: say so)"
 
 function workName(graph: KnowledgeGraph, workId: string): string {
   const work = graph.works.get(workId)
@@ -100,7 +94,18 @@ function stepWords(graph: KnowledgeGraph, step: RouteStep): string {
   return `${mode} ${by}${provision}${office}`
 }
 
-/** What the context says of a use beyond its role, in fixed words: its source's curation and how current it is. */
+function applicabilityWords(use: EditionUse): string {
+  const applicability = use.applicability
+  if (!applicability) return ''
+  const facts = (keys: readonly string[]) => keys.map(nameOf).join(', ')
+  if (applicability.verdict === 'applies') {
+    return applicability.basis.length > 0 ? `; applies to this project by its building's ${facts(applicability.basis)}` : '; applies to this project'
+  }
+  return applicability.open.length > 0
+    ? `; applies only if the building's ${facts(applicability.open)} put it in scope, not yet known: ask for it, and do not say it binds or does not bind before then`
+    : "; whether its scope covers this project needs a person's check: do not say it binds or does not bind"
+}
+
 function noteWords(notes: UseNotes | undefined): string {
   if (!notes) return ''
   const words: string[] = []
@@ -113,7 +118,6 @@ function noteWords(notes: UseNotes | undefined): string {
   return words.map((word) => `; ${word}`).join('')
 }
 
-/** Whether a use is in force by the records as far as the context knows: not where its source names a newer edition or withdrew it. */
 const inForceWords = (notes: UseNotes | undefined): string =>
   notes?.freshness === 'newer_known' || notes?.freshness === 'superseded' ? 'in force by the records' : 'in force'
 
@@ -123,7 +127,9 @@ function bindingLine(graph: KnowledgeGraph, use: EditionUse, chain: readonly str
   const last = use.route.at(-1)
   const where = work?.territoryIds.find((id) => chain.includes(id))
   const why = !last || last.via === 'territory' ? `${kind}${where ? ` of ${where}` : ''}, ${inForceWords(notes)}` : stepWords(graph, last)
-  const lines = [`- ${workName(graph, use.workId)}, ${editionName(graph, use.editionId)}: ${why}${noteWords(notes)}`]
+  const day = roleSinceOf(graph, use, use.editionId ? graph.editions.get(use.editionId) : undefined)
+  const since = !day ? '' : !last || last.via === 'territory' ? `, this edition since ${day}` : ` since ${day}`
+  const lines = [`- ${workName(graph, use.workId)}, ${editionName(graph, use.editionId)}: ${why}${since}${noteWords(notes)}${applicabilityWords(use)}`]
   for (const displaced of use.displaced) {
     const target = displaced.anchor ?? 'the whole instrument'
     const by = workName(graph, displaced.byWorkId)
@@ -139,7 +145,7 @@ function bindingLine(graph: KnowledgeGraph, use: EditionUse, chain: readonly str
 
 function guidanceLine(graph: KnowledgeGraph, use: EditionUse): string {
   const binding = use.relatedEditionId ? `; the edition that binds here is ${editionName(graph, use.relatedEditionId)}` : "; the records name no binding edition here; check the Land's ordinance"
-  return `- ${workName(graph, use.workId)}, ${editionName(graph, use.editionId)}: guidance only${binding}`
+  return `- ${workName(graph, use.workId)}, ${editionName(graph, use.editionId)}: guidance only${binding}${applicabilityWords(use)}`
 }
 
 function interpretationLine(graph: KnowledgeGraph, use: EditionUse): string {
@@ -163,12 +169,7 @@ function section(header: string, lines: readonly string[]): string[] {
   return [header, ...shown, ...(more > 0 ? [`- and ${more} more`] : [])]
 }
 
-/**
- * The chain text for a resolved site; `place` is the leaf's name as the
- * project states it. `notes` are the knowledge context's corrections by
- * `keyOfUse`; without them every use reads as the chain resolved it.
- */
-export function renderChainText(graph: KnowledgeGraph, resolved: ResolvedChain, place: string, notes?: ReadonlyMap<string, UseNotes>): string {
+export function renderChainText(graph: KnowledgeGraph, resolved: ResolvedChain, place: string, notes?: ReadonlyMap<string, UseNotes>, onFilingDay = false): string {
   const leaf = resolved.chain[0]
   const leafName = nameOf(graph.territories.get(leaf)?.name ?? place) || leaf
   const noteOf = (use: EditionUse) => notes?.get(keyOfUse(use))
@@ -179,8 +180,8 @@ export function renderChainText(graph: KnowledgeGraph, resolved: ResolvedChain, 
   const uncurated = resolved.uses.some((use) => noteOf(use)?.qualifier === 'uncurated')
   const source = uncurated ? "from the platform's records, some read from an uncurated official source (marked)" : "from the platform's reviewed records"
   const lines = [
-    `Building law at this site, ${leafName} (${resolved.chain.join(', ')}), on ${resolved.date}, ${source}. ${PREAMBLE}`,
-    ...section('Binding here:', by('binding').flatMap((use) => bindingLine(graph, use, resolved.chain, noteOf(use)))),
+    `Building law at this site, ${leafName} (${resolved.chain.join(', ')}), on ${resolved.date}${onFilingDay ? FILING_DAY : ''}, ${source}. ${PREAMBLE}`,
+    ...section(BINDING_HEADER, by('binding').flatMap((use) => bindingLine(graph, use, resolved.chain, noteOf(use)))),
     ...section('Authority practice here:', by('authority_practice').map((use) => practiceLine(graph, use))),
     ...section(
       'Guidance only (no route makes this edition binding here; cite it as guidance and name the edition that binds):',

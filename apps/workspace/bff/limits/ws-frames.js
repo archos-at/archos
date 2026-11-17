@@ -92,9 +92,6 @@ function createFrameObserver(onFrame) {
   let maskKey = null
   let payloadRemaining = 0
   let maskOffset = 0
-  // Peek accumulates across the FRAGMENTS of one message, not per frame — see
-  // the header. Reset when a message completes (FIN), never by a control frame
-  // interleaved between fragments.
   /** @type {Buffer[]} */
   let peeked = []
   let peekedBytes = 0
@@ -121,8 +118,6 @@ function createFrameObserver(onFrame) {
   const readPayloadLength = (buf) => {
     const len7 = buf[1] & 0x7f
     if (len7 === 126) return buf.readUInt16BE(2)
-    // A frame longer than 2^53 bytes is not a thing; the high word is 0 in
-    // every real client, and Number() keeps the arithmetic below simple.
     if (len7 === 127) return Number(buf.readBigUInt64BE(2))
     return len7
   }
@@ -131,9 +126,6 @@ function createFrameObserver(onFrame) {
 
   const finishFrame = () => {
     const control = isControl(opcode)
-    // A continuation carries the opcode of the message it belongs to, so a
-    // fragment that reveals `"type":"user_message"` is charged as the chat turn
-    // it is rather than as a cheap control frame.
     const effectiveOpcode =
       opcode === OPCODE.CONTINUATION && messageOpcode ? messageOpcode : opcode
     const peek = control || !peeked.length ? '' : Buffer.concat(peeked).toString('utf8')
@@ -143,7 +135,6 @@ function createFrameObserver(onFrame) {
 
     if (!control) {
       if (fin) {
-        // Message complete: start the next one from nothing.
         peeked = []
         peekedBytes = 0
         peekTruncated = false
@@ -179,7 +170,6 @@ function createFrameObserver(onFrame) {
           maskKey = masked ? pending.subarray(needed - 4, needed) : null
           pending = pending.subarray(needed)
           state = 'payload'
-          // A zero-length frame (a bare pong, a close) completes immediately.
           if (payloadRemaining === 0) {
             finishFrame()
             continue
@@ -189,8 +179,6 @@ function createFrameObserver(onFrame) {
         if (pending.length === 0) return
         const take = Math.min(payloadRemaining, pending.length)
 
-        // Accumulate for TEXT and its continuations; control frames are not
-        // part of any message and must not pollute the accumulator.
         const peekable =
           opcode === OPCODE.TEXT ||
           (opcode === OPCODE.CONTINUATION && messageOpcode === OPCODE.TEXT)
@@ -205,10 +193,8 @@ function createFrameObserver(onFrame) {
             }
             peeked.push(slice)
             peekedBytes += slice.length
-            // More payload than window: the rest of this message is unread.
             if (take > wanted) peekTruncated = true
           } else {
-            // Window already full and payload still arriving.
             peekTruncated = true
           }
         }

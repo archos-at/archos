@@ -61,16 +61,10 @@ from .generate_summary import _llm_settings
 
 logger = logging.getLogger(__name__)
 
-#: The generations' names in Langfuse (``docs/observability/langfuse.md``).
 MAP_TRACE = "folder-proposals.map"
 REDUCE_TRACE = "folder-proposals.reduce"
-#: The decision slot of the verification (``decide.folder-proposals``).
 SCORE_SLOT = "folder-proposals"
 
-# The BFF waits at most 240 s for this endpoint, inside a 300 s job slice. Worst case with these numbers:
-# 10 chunks at MAP_CONCURRENCY 5 are 2 rounds of 45 s, the reduce 45 s, the verification 60 s: 195 s.
-# The provider slot wait is not in that sum: an interactive call waits as long as the pool stays full
-# (agent.common.openrouter._slot_wait), so a saturated fleet can still outlast the BFF's 240 s.
 MAX_DOCUMENTS = 1000
 MAP_CHUNK = 100
 MAP_CONCURRENCY = 5
@@ -134,10 +128,8 @@ class FolderProposalsRequest(BaseModel):
 
 class FolderProposal(BaseModel):
     path: str
-    #: What belongs in the new folder, one sentence a person reads.
     description: str | None = None
     ids: list[str]
-    #: Jev's probability per document id for this folder; empty when the verification did not run.
     confidences: dict[str, float] = Field(default_factory=dict)
 
 
@@ -409,8 +401,6 @@ async def _verify(
     by_id = {document.id: document for document in documents}
     options = {f"f{index}": _option(proposal.path, proposal.description) for index, proposal in enumerate(proposals)}
     options["none"] = NONE_OPTION
-    # No catch: `decide_many` already answers None for a call that failed, so
-    # anything raised here is a fault in this code and must be seen.
     decisions = await decide_many(
         [_score_state(by_id[document_id]) for _index, document_id in slots],
         {"folder": choice(VERIFY_QUESTION, options)},

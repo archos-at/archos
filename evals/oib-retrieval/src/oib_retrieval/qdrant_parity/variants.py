@@ -33,11 +33,7 @@ from oib_retrieval.qdrant_parity.stores import SCOPE
 
 logger = logging.getLogger(__name__)
 
-#: The baseline every other variant is diffed against: production's ranking before the sweep.
 BASELINE = "baseline"
-#: The baseline measured again after every other variant, on the same collection:
-#: the noise floor. A variant whose moves are no larger than this row's measured
-#: nothing (TurboQuant scores tie, and tied candidates come back in varying order).
 REPEAT = "baseline_repeat"
 
 
@@ -75,8 +71,6 @@ def catalogue() -> dict[str, Any]:
         "cosine_ties+rescore": Ranking(cosine_tie_break=True, rescore=True),
         "cosine_ties+rrf_k100": Ranking(cosine_tie_break=True, rrf_k=100),
         "cosine_ties+mmr0.2": Ranking(cosine_tie_break=True, mmr_diversity=0.2, mmr_candidates=120),
-        # Harness-only experiment: BM25 over text plus compound parts (``decompound.py``).
-        # Measured last: its copy of the corpus joins the collection and moves its index.
         "decompound": decompound.Variant(plain()),
         "decompound+cosine_ties": decompound.Variant(Ranking(cosine_tie_break=True)),
         "decompound_index_only": decompound.Variant(plain(), query_parts=False),
@@ -145,7 +139,6 @@ def measure(
                     continue
                 rankings[question] = hits
                 query = inputs.query_vectors[question] / np.linalg.norm(inputs.query_vectors[question])
-                # ``Chunk.score`` is the cosine floored at 0 (``cosine_similarity_from_store_score``).
                 cosine_error.extend(
                     abs(float(chunk.score) - max(0.0, float(docs[rows[chunk.chunk_id]] @ query)))
                     for chunk in hits
@@ -267,7 +260,6 @@ def run(inputs: Any, retriever: Any, relevant_counts: dict[str, int], names: str
 
     chosen = select(names)
     ordinary = {name: setting for name, setting in chosen.items() if not isinstance(setting, decompound.Variant)}
-    # The repeat is measured before any decompounded variant, whose copy of the corpus moves the index.
     selected = {**ordinary, REPEAT: chosen[BASELINE], **{n: s for n, s in chosen.items() if n not in ordinary}}
     results: dict[str, Any] = {}
     splitter: decompound.Decompounder | None = None

@@ -51,18 +51,11 @@ from datetime import date
 
 from agent.common.source_kinds import AGENT_AUTHORED_LANE_LABEL
 
-#: Chunk/document metadata keys. Spelled once, because the BFF writes them and
-#: this module reads them and a typo on either side is silent.
 KEY_AUTHORED_BY = "authored_by"
 KEY_APPROVED_BY = "approved_by"
 KEY_APPROVED_AT = "approved_at"
 KEY_PRODUCER = "producer"
 
-#: The one value of ``authored_by`` that means "Piloti wrote this". A closed
-#: vocabulary of one: every other value, and the absence of the key, is a human
-#: document. Fails CLOSED in the safe direction — an unrecognised author never
-#: acquires the agent's restrictions, and never loses them either, because the
-#: restriction only ever attaches to this exact token.
 AGENT_AUTHOR = "agent"
 
 

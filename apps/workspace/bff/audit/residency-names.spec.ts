@@ -1,11 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Inside a residency cell a WorkOS audit event carries salted hashes, never a
- * document's or project's name (ADR-0167); without the salt the names are
- * withheld; outside a cell nothing changes.
- */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))

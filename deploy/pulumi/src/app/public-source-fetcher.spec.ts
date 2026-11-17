@@ -3,19 +3,7 @@ import * as k8s from "@pulumi/kubernetes";
 import * as pulumi from "@pulumi/pulumi";
 import { baseStackConfig, forProject } from "../test-support/stack-config";
 
-/** Any project name: the program reads its keys through the running project (ADR-0147). */
 const PROJECT = "stack";
-
-/**
- * The public-source fetcher (ADR-0162). What plans clean and is still wrong:
- *   - a fetcher that can reach the cluster (a missing egress rule, a private
- *     range left out): any source whose DNS answers 10.x reads Qdrant;
- *   - a fetcher any pod may call: a turn-less process gets a free proxy;
- *   - a backend without the URL: it reads no source at all, since there is no
- *     in-pod path any more;
- *   - a rollout that kills a pod mid-parse: the caller waits 50 s for an
- *     extract, so the old pod must outlive the longest one.
- */
 
 const RESOURCES: Array<{ type: string; name: string; inputs: Record<string, any> }> = [];
 
@@ -52,7 +40,7 @@ describe("public-source-fetcher", () => {
     mod = await import("./public-source-fetcher");
     cfg = loadConfig();
     const provider = new k8s.Provider("test", { kubeconfig: "apiVersion: v1" });
-    const fetcher = mod.installPublicSourceFetcher(cfg, provider, "app", []);
+    const fetcher = mod.installPublicSourceFetcher(cfg, provider, "app", [], [{ name: "registry-pull" }]);
     await new Promise((done) => fetcher.service.id.apply(done));
   });
 
@@ -61,6 +49,12 @@ describe("public-source-fetcher", () => {
     expect(mod.publicSourceFetcherEnv()).toEqual([
       { name: "PUBLIC_SOURCE_FETCHER_URL", value: "http://public-source-fetcher:8095" },
     ]);
+  });
+
+  it("pulls the private backend image with the registry Secret, as every app pod does", async () => {
+    const deployment = find("kubernetes:apps/v1:Deployment", "public-source-fetcher");
+    const spec = await resolve(deployment.inputs.spec);
+    expect(spec.template.spec.imagePullSecrets).toEqual([{ name: "registry-pull" }]);
   });
 
   it("has room for two PDF readers of 1 GiB each beside the server, and requests one", async () => {
@@ -115,7 +109,6 @@ describe("public-source-fetcher", () => {
     }
     const v6 = web.to.find((t: any) => t.ipBlock.cidr === "::/0").ipBlock.except;
     expect(v6).toEqual(expect.arrayContaining(["fc00::/7", "fe80::/10"]));
-    // The API server reads an IPv4-mapped block as IPv4 and refuses it under `::/0` (#1592 broke every dev deploy).
     expect(v6.filter((range: string) => range.toLowerCase().startsWith("::ffff:"))).toEqual([]);
   });
 });

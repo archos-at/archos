@@ -1,12 +1,3 @@
-"""The formula card's contract (ADR-0143), and the fixture both sides compute from.
-
-The arithmetic and the bounds live in the browser (`apps/workspace/ui/features/
-cards/lib/formulas.ts`) and are tested there against `formula-cases.json`.
-This side holds what the model may put on the wire: every case's card is a
-valid card, the model names a case but never a number (no limit, no result, no
-figure in the title, a label or the note), and a stated result is counted.
-"""
-
 import json
 from pathlib import Path
 
@@ -152,8 +143,8 @@ class TestTheModelNamesACaseNeverANumber:
         assert "result" not in text and "limits" not in text
         assert card["title"] == "U-Wert Außenwand AW 01"
 
-    def test_the_envelope_teaches_the_formula_shape_up_front(self):
-        assert "formula" in ENVELOPE_SHAPE_TYPES
+    def test_the_static_prompt_no_longer_carries_the_formula_shape(self):
+        assert "formula" not in ENVELOPE_SHAPE_TYPES
 
 
 class TestAStatedResultIsCounted:
@@ -236,8 +227,6 @@ class TestProvenanceScore:
 
 
 class TestTheFigureGuardHoldsWhereItLeaked:
-    """The five texts the review found passing, and the ones that must keep passing."""
-
     @pytest.mark.parametrize(
         "title", ["U-Wert 0.17 W/m²K", "U ≤ 0,35", "U-Wert 0,17 erfüllt", "Schrittmaß 63", "Stiege mit 18 Stufen"]
     )
@@ -310,8 +299,6 @@ class TestAStatedResultInsideASurface:
 
 
 class TestTheGuardIsFailClosed:
-    """Every string the third review found accepted is a refusal case here; a digit needs an allow-list entry."""
-
     NOTES = [
         "U-Wert 0,17",
         "Schrittmaß 63",
@@ -391,9 +378,6 @@ class TestTheGuardIsFailClosed:
 
     @pytest.mark.parametrize("title", ["U-Wert Außenwand AW 20", "Wohnzimmer Top 63", "Fluchtweg Büro 2.14"])
     def test_an_identifier_passes_whatever_its_number(self, title):
-        # The judgement, documented at `_IDENTIFIER`: a component code („AW 20"), a
-        # numbered dwelling („Top 63") and a room number are names, and no rule on
-        # the text alone can tell one from a figure written as one. They pass.
         answer_card_adapter.validate_python(_stair(title=title))
 
     def test_every_fixture_card_and_example_survives_the_guard(self):
@@ -417,8 +401,6 @@ class TestAMajorRenovation:
 
 
 class TestTheGuardAllowsProvenanceAndRefusesByClass:
-    """Fourth review: real provenance passes; a name is an alphabet, so a sign is refused as a class."""
-
     @pytest.mark.parametrize(
         "source",
         [
@@ -502,8 +484,6 @@ class TestTheGuardAllowsProvenanceAndRefusesByClass:
 
 
 class TestADocumentReferenceIsNeverADecimal:
-    """Fifth review: a plan word is named, a plan code is a code or an integer, a position has no leading 0."""
-
     @pytest.mark.parametrize(
         "text", ["U im Durchschnitt 0.17", "laut Lageplan 0.35", "Detailschnitt 0.17", "Pos. 0.17", "Seite 0.17"]
     )

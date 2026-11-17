@@ -1,15 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The run reconciler: which runs it closes, how, and that doing it twice is
- * doing it once.
- *
- * The decision is a pure function of the run's age, the job store's answer and
- * the clock, so its table is pinned case by case. The moves are then pinned
- * against the three functions the worker's own writes reach — the reconciler
- * must be a second caller of the same path, never a second path.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -195,15 +186,12 @@ describe('reconcileRun', () => {
     expect(await reconcileRun(run, CONFIG, NOW)).toBe('closed')
 
     expect(writeRunReport).toHaveBeenCalledWith('job-1', message)
-    // The block is the recorder's to settle, the same as on the worker's own
-    // report: one path, so no closing path can forget it.
     expect(settleRunLedger).not.toHaveBeenCalled()
     expect(recordRunOutcome).toHaveBeenCalledWith(
       run,
       { status: 'success', error: null, report: '# Bericht', cards: null },
       { onlyIfActive: true },
     )
-    // The row last: a sweep that fails halfway leaves it active for the next one.
     expect(order).toEqual(['message', 'row'])
   })
 
@@ -250,6 +238,65 @@ describe('reconcileRun', () => {
     vi.mocked(writeRunReport).mockRejectedValueOnce(new Error('db down'))
     await expect(reconcileRun(makeRun(), CONFIG, NOW)).rejects.toThrow('db down')
     expect(recordRunOutcome).not.toHaveBeenCalled()
+  })
+
+  describe('a job the store cannot produce, whose block already reads done', () => {
+    const doneLedger = {
+      runId: 'run-1',
+      status: 'done' as const,
+      phases: [],
+      steps: [],
+      result: { filedAt: minutesAgo(200).toISOString() },
+      startedAt: minutesAgo(240).toISOString(),
+      updatedAt: minutesAgo(200).toISOString(),
+    }
+
+    it('closes a lost job as a success, with the report its message holds', async () => {
+      vi.mocked(fetchBackendJobOutcome).mockResolvedValue(null)
+      vi.mocked(readRunMessage).mockResolvedValue({ content: '# Bericht\n', ledger: doneLedger })
+      const run = makeRun({ startedAt: minutesAgo(240) })
+
+      expect(await reconcileRun(run, CONFIG, NOW)).toBe('closed')
+
+      expect(recordRunOutcome).toHaveBeenCalledWith(run, { status: 'success', report: '# Bericht' }, { onlyIfActive: true })
+      expect(writeRunReport).not.toHaveBeenCalled()
+    })
+
+    it('does not wait out the grace, and does the same for a run with no job id', async () => {
+      vi.mocked(readRunMessage).mockResolvedValue({ content: '', ledger: doneLedger })
+      const run = makeRun({ backendJobId: null, startedAt: minutesAgo(15) })
+
+      expect(await reconcileRun(run, CONFIG, NOW)).toBe('closed')
+
+      expect(recordRunOutcome).toHaveBeenCalledWith(run, { status: 'success', report: null }, { onlyIfActive: true })
+    })
+
+    it('still fails a lost job whose block reads as live, after the grace', async () => {
+      vi.mocked(fetchBackendJobOutcome).mockResolvedValue(null)
+      vi.mocked(readRunMessage).mockResolvedValue({ content: '', ledger: { ...doneLedger, status: 'running', result: undefined } })
+      const run = makeRun({ startedAt: minutesAgo(240) })
+
+      await reconcileRun(run, CONFIG, NOW)
+
+      expect(recordRunOutcome).toHaveBeenCalledWith(
+        run,
+        { status: 'failure', error: LOST_JOB_REASON },
+        { onlyIfActive: true },
+      )
+    })
+
+    it('believes the job store over the block when the store has the job', async () => {
+      vi.mocked(fetchBackendJobOutcome).mockResolvedValue(outcome({ report: '# Aus dem Speicher' }))
+      vi.mocked(readRunMessage).mockResolvedValue({ content: '# Bericht', ledger: doneLedger })
+
+      await reconcileRun(makeRun(), CONFIG, NOW)
+
+      expect(recordRunOutcome).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ status: 'success', report: '# Aus dem Speicher' }),
+        { onlyIfActive: true },
+      )
+    })
   })
 })
 
@@ -333,7 +380,6 @@ describe('reconcileStaleRuns', () => {
     const result = await reconcileStaleRuns(NOW, CONFIG)
 
     expect(claimClosedRunsToHeal).toHaveBeenCalledWith(HEAL_BATCH)
-    // Dated to when the row ended, not to the heal.
     expect(settleRunLedger).toHaveBeenCalledWith(
       reaped,
       { status: 'failure', error: 'Job timed out' },
@@ -371,8 +417,6 @@ describe('reconcileStaleRuns', () => {
 
     await reconcileStaleRuns(NOW, CONFIG)
 
-    // The claim's stamp is past the run's finished_at, which never moves: left
-    // in place, the run would never be claimed again.
     expect(releaseHealClaim).toHaveBeenCalledTimes(1)
     expect(releaseHealClaim).toHaveBeenCalledWith('a')
     expect(withTenant).toHaveBeenCalledWith({ organizationId: 'org_a' }, expect.any(Function))

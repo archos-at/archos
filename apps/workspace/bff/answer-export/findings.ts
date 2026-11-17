@@ -1,9 +1,3 @@
-/**
- * The Befundmatrix as document blocks: one table, the same four columns the
- * screen shows, in the reader's words. Read defensively like the cards — a
- * stored payload from any build still exports.
- */
-
 import type { DocBlock } from './blocks'
 import { cell } from './blocks'
 import { sanitizeFindings } from '@/lib/conversations/message-findings'

@@ -53,9 +53,7 @@ class JWTValidator(TokenValidator):
         self.verify_iss = verify_iss
         self.algorithms = algorithms or ["RS256", "ES256", "ES512"]
 
-        # Lazily initialised; if jwks_uri is provided, skip OIDC discovery
         self._jwks_uri: str | None = jwks_uri
-        # List of (kid_or_None, PyJWK) pairs; refreshed after TTL
         self._cached_keys: list[tuple[str | None, Any]] | None = None
         self._jwks_keys_fetched_at: float = 0.0
         self._jwks_lock = threading.Lock()
@@ -64,10 +62,6 @@ class JWTValidator(TokenValidator):
         """Accept any token that looks like a compact JWT (three dot-separated segments)."""
         parts = token.split(".")
         return len(parts) == 3
-
-    # ------------------------------------------------------------------
-    # Internal helpers (sync — run via asyncio.to_thread)
-    # ------------------------------------------------------------------
 
     def _fetch_oidc_config(self) -> dict:
         """Fetch the OIDC discovery document and return it as a dict."""
@@ -151,7 +145,6 @@ class JWTValidator(TokenValidator):
                 logger.debug("No usable keys in JWKS")
                 return None
 
-            # Match by kid if the token carries one
             try:
                 header = _jwt.get_unverified_header(token)
                 kid = header.get("kid")
@@ -162,7 +155,6 @@ class JWTValidator(TokenValidator):
                 for key_kid, jwk in self._cached_keys:
                     if key_kid == kid:
                         return jwk
-                # kid not in cache — force a refresh once and retry
                 logger.debug("kid %s not in cached keys, refreshing JWKS", kid)
                 self._cached_keys = None
                 try:
@@ -175,12 +167,7 @@ class JWTValidator(TokenValidator):
                     logger.debug("JWKS refresh failed: %s", e)
                 return None
 
-            # No kid — return the only key, or the first one if multiple
             return self._cached_keys[0][1]
-
-    # ------------------------------------------------------------------
-    # Public API
-    # ------------------------------------------------------------------
 
     async def validate(self, token: str) -> tuple[dict[str, Any] | None, str | None]:
         """Validate *token* and return ``(user_dict, error_code)``.
@@ -236,9 +223,6 @@ class JWTValidator(TokenValidator):
             logger.info("JWT expired")
             return (None, "token_expired")
         except _jwt.InvalidTokenError as exc:
-            # WARNING, not DEBUG: a rejected token silently downgrades the
-            # caller to an unverified identity, which breaks principal-gated
-            # actions in ways that are otherwise very hard to trace.
             logger.warning("JWT rejected: %s", exc)
             return (None, "token_invalid")
         except Exception as exc:

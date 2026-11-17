@@ -1,0 +1,6 @@
+---
+# area: building-law
+fixes:
+  - >
+    A law looked up in its current consolidated version is no longer labelled with the date of an older
+    version of the paragraph.
