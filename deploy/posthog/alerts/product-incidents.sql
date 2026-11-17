@@ -60,13 +60,19 @@ SELECT
     concat('[Antworten] ', toString(sent - answered), ' von ', toString(sent), ' Chatfragen (vor 30 bis 90 min gestellt) ohne Antwort') AS rule,
     toFloat(if(sent - answered > 2, sent - answered, 0)) AS breach
 FROM (
+    -- Questions typed in a browser against the turns the chat host ended for the browser's door: answer_finished
+    -- is sent whether or not a page watched. A browser event names its deployment in $host, a server event in app_host.
     SELECT
         countIf(event = 'chat_message_sent' AND timestamp <= now() - INTERVAL 30 MINUTE) AS sent,
-        countIf(event = 'answer_completed') AS answered
+        countIf(event = 'answer_finished') AS answered
     FROM events
-    WHERE event IN ('chat_message_sent', 'answer_completed')
+    WHERE event IN ('chat_message_sent', 'answer_finished')
         AND timestamp > now() - INTERVAL 90 MINUTE AND timestamp <= now()
-        AND properties.$host IN ('app.piloti.at', 'app.archos.tech')
+        AND (
+            (event = 'chat_message_sent' AND properties.$host IN ('app.piloti.at', 'app.archos.tech'))
+            OR (event = 'answer_finished' AND toString(properties.door) = 'chat'
+                AND properties.app_host IN ('app.piloti.at', 'app.archos.tech'))
+        )
 )
 UNION ALL
 SELECT

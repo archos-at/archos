@@ -55,10 +55,13 @@ events. `tests/test_posthog_boundaries.py` enforces that.
 - **Properties are non-personal.** Ids of our own rows, kinds, enums, counts,
   durations and statuses. Never a question, an answer, a document or file name,
   an email, a name, a URL or an error message that can quote one.
-- **Both sides use a closed union.** `PostHogEvent` in
-  `apps/workspace/bff/analytics/posthog.ts` and `ServerEvent` in
-  `apps/workspace/bff/analytics/posthog-server.ts`. A typo fails the build.
-  Add the name to the union and a row here in the same change.
+- **Every sender uses a closed union.** `PostHogEvent` in
+  `apps/workspace/bff/analytics/posthog.ts`, `ServerEvent` in
+  `apps/workspace/bff/analytics/posthog-server.ts`, and for the Python
+  processes `ServerEvent` in `packages/agent/src/agent/observability/posthog_client.py`.
+  A typo fails the build (TypeScript) or `tests/test_posthog_boundaries.py`
+  (Python, which also wants a row here for each name). Add the name to the
+  union and a row here in the same change.
 - **A server event never changes a route.** `captureServer` queues and returns;
   it cannot throw, and the budget checks that need the cache or the ledger run
   un-awaited behind their own `try`. With PostHog unconfigured every call is a
@@ -119,6 +122,19 @@ scheduled run, and cannot be trusted to survive a redirect or to be unblocked.
 capture, configured in `lib/analytics/request-error.ts` (see
 [`error-tracking.md`](error-tracking.md)), not from this table.
 
+## Chat host events
+
+Sent by the Python chat host (`apps/agent-host`) through
+`agent.observability.posthog_client.capture`, which adds `release`,
+`environment`, `service` and `app_host`. Every chat turn runs there, whichever
+door its question came through (ADR-0068), so only the chat host sees every
+ending.
+
+| Event | Distinct id | Properties | Emitted at |
+|---|---|---|---|
+| `answer_finished` | the asker (the person an ask or a wake acts for); the office's stable id when the turn names nobody | `outcome` (`ok`; `error`: a `RUN_ERROR`; `aborted`: the asker's Stop, a newer question superseding it, a turn that lost its conversation, or one a pod's drain cut short; `refused`; `handed_off`: the browser's `answer_completed` values), `duration_ms` (from the question reaching the chat host to the terminal; a wait on the asker's answer to a question counts), `message_id` (the answer's id: joins `answer_completed`, `answer_failed`, `llm_usage_by_outcome` and the trace), `conversation_id`, `effort` (the asker's dial, else the level the result ran at; absent on an error without a dial), `route` (the router's `meta`, `shallow`, `deep`, `error`; absent on an error), `error_code` (`error` only: the wire's `workflow_error`, `auth_error`, `interaction_expired`; never the text), `door` (`chat`: typed in the workspace; `mcp`, `a2a`: an ask through that agent door, as `agent_operation_called` names it; `event`: a wake or a document check; absent for an ask started outside a door, such as the golden run), `session_source` (`ui`, `mcp`, `script` as on `agent_operation_called`; `ui` for a wake, which a person's reply, mention or assignment started; `system` for a document check), `trigger` (the kind of event that woke the turn: `agent_consult`, `thread_mention`, `thread_reply`, `assigned`, `new_document`; absent for a typed question), `organization_id` | `apps/agent-host/src/agent_host/chat_socket.py`, `RunningTurn.after_terminal`, once per turn: it runs once the turn has its one terminal (`TurnWire` keeps the first), from `run_turn`'s `finally` or the refusal of a question the conversation's fence turned away, and a flag keeps it to one call. A turn that failed before streaming has a `RUN_ERROR` terminal too. A busy or duplicate question never became a turn and sends nothing; a pod killed without its drain loses its running turns' events. The door of an ask reaches the chat host in `x-turn-door` and `x-turn-session-source` (`bff/turns/headless-mode.ts`), which the WebSocket proxy strips from a browser's upgrade |
+| `answer_failed` | the asker | `message_id`, `conversation_id`, `reason` (`provider_credits`, `timeout`, `budget`, `provider_error`, `workflow_error`), `error_type`, `organization_id` | `agent_host/chat_socket.py` via `agent/observability/answer_failure.py`: every turn that ends in a `RUN_ERROR`, beside its `answer_finished` |
+
 ## Browser events
 
 Sent by `capturePosthog(event, properties)` in `lib/analytics/posthog.ts`.
@@ -141,8 +157,7 @@ No-op until `initPosthogClient` ran, which needs the host and project token in
 | `skill_deleted` | `scope` | `features/skills/components/skill-toolbox.tsx`, `skill-editor-dialog.tsx` |
 | `skill_enabled_changed` | `scope`, `enabled` | `features/skills/components/skill-toolbox.tsx`, `curated-skills.tsx` |
 | `answer_retry_thorough` | `message_id`, `original_effort` | `features/chat/components/RetryThoroughButton.tsx` |
-| `answer_completed` | `message_id`, `outcome`, `duration_ms`, `citation_count`, `source_kinds`, `effort`, `has_run` | `features/chat/stores/messages-store.ts` (browser; `message_id` joins the trace and `answer_failed`) |
-| `answer_failed` | `message_id`, `conversation_id`, `reason` (`provider_credits`, `timeout`, `budget`, `provider_error`, `workflow_error`), `error_type`, `organization_id` | server (Python), `agent_host/chat_socket.py` via `agent/observability/answer_failure.py`: every turn that ends in a `RUN_ERROR` |
+| `answer_completed` | `message_id`, `outcome`, `duration_ms`, `citation_count`, `source_kinds`, `effort`, `has_run` | `features/chat/stores/messages-store.ts` (browser; `message_id` joins the trace, `answer_failed` and `answer_finished`). What the asker saw: a turn nobody watched (the page closed, an ask through an agent door, a wake) sends none, so count answers from the chat host's `answer_finished` |
 | `answer_feedback_submitted` | `verdict`, `reason`, `has_comment`, `comment_length` (the note's words never leave the product), `message_id`, `conversation_id`, `trace_id` and `langfuse_trace_id` (the turn's Langfuse trace, null when it recorded none). A down-vote without a reason is held 20 s for one and sent once, with it; pagehide sends it as it stands | `features/chat/hooks/use-answer-feedback.ts` |
 | `product_feedback_submitted` | `kind` | `features/product-feedback/components/feedback-form.tsx` |
 | `document_uploaded` | `source` (`web_batch`), `file_count`, `count` (same number), `types` (comma-joined extensions), `shelf` | `features/documents/hooks/use-file-upload.ts`, one per batch. The server sends its own, one per stored file, with `source` `web`, `mail` or `chat`: see the server table. Count uploads from the server's; the browser's is lost to ad blockers and closed tabs, and the mail import never has one |
