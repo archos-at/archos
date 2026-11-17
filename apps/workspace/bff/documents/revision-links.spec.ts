@@ -165,8 +165,6 @@ describe('resolveRevisionLinks', () => {
   })
 
   describe('privacy: a document the reader may not see', () => {
-    // The lookup knows the held document by NAME only to refuse it, the way the
-    // visible-documents query does: it never returns a row for it.
     const HELD = 'Gehaltsliste intern.xlsx'
 
     it('never lets a held document name reach the facts', () => {

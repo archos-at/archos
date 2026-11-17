@@ -1,22 +1,7 @@
-/**
- * A zip reader for tests, deliberately independent of `lib/bim/zip.ts`.
- *
- * The writer is only correct if something that does not share its code can
- * find the entries, so this walks the end-of-central-directory record and the
- * central directory the way a real unzip does — not the local headers the
- * writer happens to emit first. A writer that produced self-consistent local
- * headers and a broken directory would pass a naive round trip and fail every
- * tool an architect actually opens the file in.
- *
- * Verified against Info-ZIP (`unzip -t`) and Python's `zipfile`, neither of
- * which can run inside vitest.
- */
-
 import { crc32 } from '@/lib/bim/zip'
 
 const decoder = new TextDecoder()
 
-/** Entry path → decoded UTF-8 content, in central-directory order. */
 export function readZipEntries(bytes: Uint8Array): Map<string, string> {
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
 

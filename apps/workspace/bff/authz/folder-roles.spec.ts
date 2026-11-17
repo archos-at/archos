@@ -22,11 +22,6 @@ const workos = {
 }
 vi.mock('@/lib/workos/client', () => ({ getWorkOS: () => ({ authorization: workos }) }))
 
-/**
- * The cache as a plain map, with `@/lib/cache`'s semantics: a loader that
- * throws stores nothing, and a loader's value is stored when it resolves,
- * under the key it was asked for.
- */
 const cached = new Map<string, unknown>()
 vi.mock('@/lib/cache', () => ({
   getCached: vi.fn(async (key: string, _ttlMs: number, loader: () => Promise<unknown>) => {
@@ -53,24 +48,20 @@ import {
 const ORG = 'org_1'
 const PROJECT = 'proj_1'
 const GENERATION_KEY = `authz:folder-levels-generation:${ORG}:${PROJECT}`
-/** The cached levels entries (not the generations). */
 const levelKeys = () => [...cached.keys()].filter((key) => key.startsWith('authz:folder-levels:'))
 
 const notFound = () => Object.assign(new Error('Not Found'), { status: 404 })
 const serverError = () => Object.assign(new Error('Internal Server Error'), { status: 500 })
 
-/** One page of a WorkOS list, as the SDK hands it back. */
 const page = <T>(items: T[]) => ({ autoPagination: async () => items })
 const folder = (externalId: string) => ({ externalId, resourceTypeSlug: 'folder' })
 
-/** `listResourcesForMembership` answering per permission slug. */
 function resourcesFor(byPermission: Record<string, Array<{ externalId: string; resourceTypeSlug: string }>>) {
   workos.listResourcesForMembership.mockImplementation(async ({ permissionSlug }: { permissionSlug: string }) =>
     page(byPermission[permissionSlug] ?? [])
   )
 }
 
-/** `listMembershipsForResourceByExternalId` answering per permission slug. */
 function holdersFor(byPermission: Record<string, Array<{ id: string; userId: string }>>) {
   workos.listMembershipsForResourceByExternalId.mockImplementation(
     async ({ permissionSlug }: { permissionSlug: string }) => page(byPermission[permissionSlug] ?? [])
@@ -172,7 +163,6 @@ describe('heldFolderLevels', () => {
     expect(await heldFolderLevels(ORG, 'om_1', PROJECT)).toEqual({})
     expect(levelKeys()).toEqual([])
 
-    // The next request asks again, and gets the real answer.
     expect(await heldFolderLevels(ORG, 'om_1', PROJECT)).toEqual({ 'f-1': 'read', 'f-2': 'write' })
   })
 })
@@ -207,7 +197,6 @@ describe('listFolderRoleHolders', () => {
 
 describe('replaceFolderRoleHolders', () => {
   beforeEach(() => {
-    // Now: a reads, b writes, c reads.
     holdersFor({
       'folder:read': [
         { id: 'om_a', userId: 'user_a' },
@@ -258,7 +247,6 @@ describe('replaceFolderRoleHolders', () => {
   })
 
   it('takes a 404 on a removal as a role the membership did not hold', async () => {
-    // A folder-reader holds no folder-editor assignment to remove, and the reverse.
     workos.removeRole.mockImplementation(async ({ roleSlug, organizationMembershipId }) => {
       const held = organizationMembershipId === 'om_b' ? 'folder-editor' : 'folder-reader'
       if (roleSlug !== held) throw notFound()
@@ -277,12 +265,10 @@ describe('replaceFolderRoleHolders', () => {
 
     await replaceFolderRoleHolders(ORG, PROJECT, 'f-1', WANTED)
 
-    // Unchanged (a), changed (b), removed (c), untouched (e): every one asks WorkOS again.
     for (const membership of ['om_a', 'om_b', 'om_c', 'om_e']) {
       expect(await heldFolderLevels(ORG, membership, PROJECT), membership).toEqual({})
     }
     expect(workos.listResourcesForMembership.mock.calls.length).toBe(asked + 8)
-    // Another project's cached level is still served.
     expect(await heldFolderLevels(ORG, 'om_c', 'proj_2')).toEqual({ 'f-1': 'read' })
     expect(workos.listResourcesForMembership.mock.calls.length).toBe(asked + 8)
   })
@@ -387,21 +373,13 @@ describe('removeFolderResource', () => {
   })
 })
 
-/**
- * The races a cache of WorkOS answers has to survive, against a fake WorkOS
- * that keeps its assignments: a level read in flight while a list changes, and
- * a change that fails part-way. Each asks for the right outcome: nobody taken
- * off a list keeps a level from before.
- */
 describe('a list change against levels read before or while it ran', () => {
-  /** folderId → membership → role slugs. */
   const assignments = new Map<string, Map<string, Set<string>>>()
   const PERMISSIONS: Record<string, string[]> = {
     'folder-reader': ['folder:read'],
     'folder-editor': ['folder:read', 'folder:write'],
   }
   const tick = () => new Promise((resolve) => setTimeout(resolve, 0))
-  /** While set, a level read has taken WorkOS's answer and waits here before returning it. */
   let gate: Promise<void> | null = null
   const holds = (roles: Iterable<string>, permissionSlug: string) =>
     [...roles].some((role) => PERMISSIONS[role]?.includes(permissionSlug))
@@ -450,7 +428,6 @@ describe('a list change against levels read before or while it ran', () => {
     })
   })
 
-  /** Starts A's level read, lets it take WorkOS's answer, and holds it there until released. */
   async function readInFlight() {
     let release!: () => void
     gate = new Promise<void>((resolve) => (release = resolve))
@@ -473,7 +450,6 @@ describe('a list change against levels read before or while it ran', () => {
     const read = await readInFlight()
 
     await change()
-    // The read took its answer before the change, and is stored now.
     expect(await read.finish()).toEqual({ F: 'write' })
 
     const asked = workos.listResourcesForMembership.mock.calls.length
@@ -490,7 +466,6 @@ describe('a list change against levels read before or while it ran', () => {
       replaceFolderRoleHolders(ORG, PROJECT, 'F', [{ organizationMembershipId: 'om_b', level: 'write' }])
     ).rejects.toThrow('Internal Server Error')
 
-    // A's roles are gone in WorkOS; the cached `write` from before is not served.
     expect(assignments.get('F')?.has('om_a') ?? false).toBe(false)
     expect(await heldFolderLevels(ORG, 'om_a', PROJECT)).toEqual({})
   })

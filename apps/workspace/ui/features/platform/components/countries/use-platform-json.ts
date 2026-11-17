@@ -1,11 +1,5 @@
 'use client'
 
-/**
- * One GET of a platform route, as the country pages read it: loading, a failure
- * with its status (403 is "no access", not "try again"), or the body. `reload`
- * reads it again after a write.
- */
-
 import { useCallback, useEffect, useState } from 'react'
 
 export type Load<T> = { state: 'loading' } | { state: 'error'; status: number } | { state: 'ready'; value: T }

@@ -22,7 +22,6 @@ const PRODUCTION = appliesWhenTableSchema.parse({
   otherwise: { then: false },
 })
 
-/** Above 22 m it applies; at or below, not, unless the building is agricultural: that falls to `otherwise`, left to a person. */
 const HIGH = appliesWhenTableSchema.parse({
   inputs: [
     { key: 'uses', type: 'codes' },

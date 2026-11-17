@@ -15,18 +15,10 @@ import {
   sanitizeAnswerMeta,
 } from './message-answer-meta'
 
-/**
- * The Python↔TS crossing, pinned to one artifact: the backend's own gate wrote
- * this fixture (`packages/agent/tests/common/test_answer_envelope.py` asserts it
- * still does), and this side asserts the sanitizer passes it through verbatim.
- * A renamed key or a moved cap on either side fails one of the two tests
- * instead of shipping green with the anatomy silently dropped.
- */
 const FIXTURE_PATH = resolve(__dirname, '../../../../tests/fixtures/answer_meta/wire_payload.json')
 
 const fixture = JSON.parse(readFileSync(FIXTURE_PATH, 'utf-8')) as Record<string, unknown>
 
-/** The work report's crossing, gated by the backend the same way (ADR-0123). */
 const WORK_FIXTURE = JSON.parse(
   readFileSync(resolve(__dirname, '../../../../tests/fixtures/answer_meta/work_payload.json'), 'utf-8')
 ) as Record<string, unknown>
@@ -65,7 +57,6 @@ describe('sanitizeAnswerMeta', () => {
     const meta = sanitizeAnswerMeta({ v: 1, summary: 'x'.repeat(321), verdict: fixture.verdict })
     expect(meta?.summary).toBeUndefined()
     expect(meta?.verdict).toBeDefined()
-    // A summary alone is a valid payload — it is the near-universal field.
     expect(sanitizeAnswerMeta({ v: 1, summary: 'REI 60 in GK 4.' })).toEqual({
       v: 1,
       summary: 'REI 60 in GK 4.',
@@ -99,7 +90,6 @@ describe('sanitizeAnswerMeta', () => {
   })
 
   test('a future version keeps its known fields and its version stamp', () => {
-    // Additive evolution: a rollback must not blank what a newer writer stored.
     const meta = sanitizeAnswerMeta({ v: 3, verdict: fixture.verdict, hologram: { shiny: true } })
     expect(meta?.v).toBe(3)
     expect(meta?.verdict).toEqual(fixture.verdict)

@@ -1,10 +1,3 @@
-/**
- * The actions on a personal topic (ADR-0180): what must hold is that each
- * write goes to the person's own topic routes with the names the list shows,
- * that a removal says how many notes it deletes before it deletes them, that a
- * refused write changes nothing and says so, and that the no-topic group has
- * no actions at all.
- */
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import userEvent from '@testing-library/user-event'
 import { render, screen, waitFor, within } from '@/test-utils'
@@ -97,7 +90,6 @@ describe('PersonalTopicActions', () => {
     render(<PersonalTopicActions topic="brandschutz" count={3} topics={['Brandschutz']} onChanged={onChanged} />)
 
     await userEvent.click(screen.getByRole('button', { name: 'Rename topic' }))
-    // The field is a combobox; its option list is labelled the same, so the field is asked for by role.
     await userEvent.clear(screen.getByRole('combobox', { name: 'Topic name' }))
     await userEvent.type(screen.getByRole('combobox', { name: 'Topic name' }), 'Brandschutz')
     await userEvent.click(screen.getByRole('button', { name: 'Save' }))

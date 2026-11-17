@@ -1,5 +1,3 @@
-"""The concept-index path check (scripts/check_doc_paths.py): a directory row may carry its trailing slash."""
-
 from __future__ import annotations
 
 import importlib.util

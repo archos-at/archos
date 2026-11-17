@@ -1,15 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Who may knock on the agent door (ADR-0122).
- *
- * The external door's whole security argument is in these cases: a token for
- * another audience, an expired one, one without an organization, or one from an
- * organization that has not opted in gets nothing, and the 401 carries the
- * challenge an MCP client needs to start OAuth. Piloti's door is the internal
- * envelope's, unchanged.
- */
 
 import { SignJWT, createLocalJWKSet, exportJWK, generateKeyPair } from 'jose'
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -100,7 +91,6 @@ describe('external agent (bearer token)', () => {
       scopes: ['openid', 'profile'],
       sensitiveOptIns: ['access', 'secret', 'control'],
     })
-    // The membership lookup is at most a minute old: a removed member's token stops working within a minute (L7).
     expect(resolvePinnedRequesterSession).toHaveBeenCalledWith({ userId: 'user_1', email: null, organizationId: 'org_1' })
     expect(MEMBERSHIP_TTL_MS).toBeLessThanOrEqual(60_000)
     expect(isOrgFeatureEnabled).toHaveBeenCalledWith('agent-mcp', 'org_1')
@@ -183,7 +173,6 @@ describe('external agent (bearer token)', () => {
 
   describe('after a domain move (MCP_FORMER_ORIGINS)', () => {
     const FORMER = 'https://app.old.test'
-    /** A request on the former host, as Envoy forwards it: the pod's address, the client's host in `Host`. */
     const onFormerHost = (path: string, jwt?: string) =>
       new Request(`http://10.0.0.7:3000${path}`, {
         method: 'POST',
@@ -312,7 +301,6 @@ describe('Piloti in-product (internal token and envelope)', () => {
       projectId: 'proj_1',
       answerMessageId: null,
     })
-    // The product itself is not an opt-in feature.
     expect(isOrgFeatureEnabled).not.toHaveBeenCalled()
   })
 

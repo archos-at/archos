@@ -1,11 +1,3 @@
-/**
- * What a diagram view costs when the answer around it re-renders.
- *
- * A streamed answer re-renders its fences on every token, so a view that
- * rebuilds its graph or runs dagre per render pays that per token. The canvas
- * is replaced by a probe that builds once per render, as the real one does when
- * `build` changes; dagre is watched where the views call it themselves.
- */
 import { render, screen } from '@/test-utils'
 import dagre from '@dagrejs/dagre'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -62,7 +54,6 @@ describe('a map view', () => {
   })
 
   it('shows the outline in a narrow column, without the graph', () => {
-    // Both used to mount, one hidden by a container query: a phone paid for the tree.
     vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(300)
     render(<MapDiagram model={MAP} label="Karte" />)
     expect(builds).toHaveLength(0)
@@ -77,8 +68,6 @@ describe('a flow view', () => {
     const { rerender } = render(<FlowDiagram model={FLOW} label="Ablauf" />)
     rerender(<FlowDiagram model={FLOW} label="Ablauf" />)
     rerender(<FlowDiagram model={FLOW} label="Ablauf" />)
-    // One pass: the widest rank for the graph's direction. No outline pass,
-    // because a column this wide shows the graph.
     expect(layout).toHaveBeenCalledTimes(1)
     expect(screen.queryByRole('list')).toBeNull()
   })

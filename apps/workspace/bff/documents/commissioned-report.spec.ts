@@ -37,9 +37,6 @@ const READER = {
   featureFlags: ['deep-research'],
 } as AuthorizedSession
 
-// `project_collection` is on every real report body: the backend records the
-// commissioning project on `job_access` at submit time and returns it here.
-// It — not the request's project — is what decides where the report is filed.
 const REPORT_BODY = {
   job_id: 'job-1',
   has_report: true,
@@ -66,7 +63,6 @@ describe('fileCommissionedReport', () => {
   it('queues the filing of the finished report, as the reader, and says it is on its way', async () => {
     await expect(file(REPORT_BODY)).resolves.toEqual({ outcome: 'queued' })
 
-    // The PDF is rendered by a `bff-jobs` pod (ADR-0079), as the reader.
     expect(queueResearchReportFiling).toHaveBeenCalledWith({
       organizationId: 'org-1',
       payload: expect.objectContaining({
@@ -106,9 +102,6 @@ describe('fileCommissionedReport', () => {
   })
 
   it('files into the project the RUN names, looked up in the reader’s organization', async () => {
-    // The reader may have a different project open, or reopen an old run from
-    // history. The cover sheet names the Bundesland, which says which Bauordnung
-    // the report was checked against, so the run's project is the only answer.
     vi.mocked(findProjectIdByCollectionName).mockResolvedValue('proj-the-run-belongs-to')
 
     await file(REPORT_BODY)
@@ -118,14 +111,11 @@ describe('fileCommissionedReport', () => {
   })
 
   it('files nothing, and claims no failure, for a run never commissioned in a project', async () => {
-    // Its banner promised no filing; none was made, so none was broken.
     await expect(file({ job_id: 'job-1', has_report: true, report: '# Bericht' })).resolves.toBeNull()
     expect(queueResearchReportFiling).not.toHaveBeenCalled()
   })
 
   it('files nothing when the run’s collection belongs to no project in this organization', async () => {
-    // The cross-tenant version of the same bug: a real collection name that
-    // this organization does not own must not fall back to anywhere.
     vi.mocked(findProjectIdByCollectionName).mockResolvedValue(null)
 
     await expect(file(REPORT_BODY)).resolves.toBeNull()
@@ -141,8 +131,6 @@ describe('fileCommissionedReport', () => {
   })
 
   it('passes no cards rather than an empty list when the run produced none', async () => {
-    // `legalBasisSection` prints no heading for an absent value; an empty array
-    // would be a promise of a section that then has nothing under it.
     await file({ ...REPORT_BODY, cards: [] })
 
     expect(queuedPayload().cards).toBeUndefined()
@@ -154,8 +142,6 @@ describe('fileCommissionedReport', () => {
   })
 
   it('reports a broken promise without its reason when the filing cannot be queued', async () => {
-    // The reason stays in the log: a bucket, a permission or a limit is
-    // actionable by an operator, not by the architect reading the report.
     vi.mocked(queueResearchReportFiling).mockRejectedValue(new Error('quota exceeded'))
 
     const outcome = await file(REPORT_BODY)
@@ -170,11 +156,6 @@ describe('fileCommissionedReport', () => {
     expect(queueResearchReportFiling).not.toHaveBeenCalled()
   })
 
-  /**
-   * Interactive runs only (design decision 10). A scheduled run is filed by the
-   * worker's outcome callback; anonymous mode reaches the proxy with no session,
-   * and the answer is the same one: file nothing.
-   */
   it('files nothing when there is no session to authorize the write', async () => {
     await expect(file(REPORT_BODY, null)).resolves.toBeNull()
     expect(findProjectIdByCollectionName).not.toHaveBeenCalled()

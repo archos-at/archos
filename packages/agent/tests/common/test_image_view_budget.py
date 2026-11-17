@@ -1,11 +1,3 @@
-"""The per-turn ceiling on ``look`` calls, and its whole-page split (ADR-0128).
-
-What matters: a bound budget refuses the (N+1)-th view, a turn's budget is
-invisible to a sibling context, and an unbound call site is not capped —
-the cap is per turn, and a module-level fallback would be the leak the
-ContextVar exists to prevent.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -42,7 +34,6 @@ def test_a_custom_limit_is_honoured():
 
 
 def test_budgets_do_not_leak_between_contexts():
-    """Two turns in flight at once each spend their own budget."""
 
     async def turn(limit: int) -> int:
         token = begin_image_view_budget(limit=limit)
@@ -57,7 +48,6 @@ def test_budgets_do_not_leak_between_contexts():
 
     assert asyncio.run(both()) == [2, 5]
 
-    # A copied context sees the budget; the parent stays unbound.
     token = begin_image_view_budget(limit=1)
     try:
         ctx = contextvars.copy_context()
@@ -73,7 +63,6 @@ def test_at_most_two_of_the_six_are_whole_pages():
     try:
         overviews = [try_consume_image_view("overview") for _ in range(MAX_OVERVIEW_VIEWS_PER_TURN + 1)]
         assert overviews == [True] * MAX_OVERVIEW_VIEWS_PER_TURN + [False]
-        # A refused overview costs nothing: the regions still have the rest of the turn.
         regions = [try_consume_image_view("region") for _ in range(MAX_IMAGE_VIEWS_PER_TURN)]
         assert regions.count(True) == MAX_IMAGE_VIEWS_PER_TURN - MAX_OVERVIEW_VIEWS_PER_TURN
         assert remaining_views_text() == "0 looks left this turn (0 of them whole pages)."

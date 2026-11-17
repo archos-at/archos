@@ -92,15 +92,8 @@ const F = {
   orphan: '88888888-aaaa-4bbb-8ccc-000000000008',
 }
 
-/**
- * The people on the lists (ADR-0097): who holds a folder role is WorkOS's, so a
- * person's clearance is the level they hold on each folder with its own list.
- * `gf` the managing director, `pl` the project lead, `bh` the bookkeeper,
- * `member` someone on no list.
- */
 type Person = 'gf' | 'pl' | 'bh' | 'member'
 
-/** Each custom folder's people, as WorkOS would report their folder roles. */
 const LISTS: Record<string, Partial<Record<Person, FolderGrantLevel>>> = {
   [F.contracts]: { gf: 'write', pl: 'write', bh: 'read' },
   [F.fees]: { gf: 'write', pl: 'read', bh: 'write' },
@@ -108,7 +101,6 @@ const LISTS: Record<string, Partial<Record<Person, FolderGrantLevel>>> = {
   [F.archived]: { gf: 'read' },
 }
 
-/** The levels `person` holds, one entry per folder whose list names them. */
 const levelsOf = (person: Person, lists = LISTS): Record<string, FolderGrantLevel> =>
   Object.fromEntries(
     Object.entries(lists).flatMap(([folderId, list]) => (list[person] ? [[folderId, list[person]] as const] : []))
@@ -134,16 +126,6 @@ const custom = (id: string, parentId: string | null, everyoneReads = false, dele
   deleted,
 })
 
-/**
- *   Verwaltung/                inherits the project
- *     Verträge/                gf: write, pl: write, bh: read
- *       Honorare/              gf: write, pl: read, bh: write   (bh's write narrows to read: nesting)
- *   Pläne/                     inherits
- *   Statik/                    everyone reads, pl: write
- *     Statik-Alt/              inherits
- *   Archiviert/  (tombstone)   gf: read
- *   Waise/                     parent missing from the tree
- */
 const TREE: AccessFolder[] = [
   inherit(F.admin, null),
   custom(F.contracts, F.admin),
@@ -175,7 +157,6 @@ describe('listLevel — what one folder’s own list gives', () => {
   it('restrictsReading: a custom folder that everyone does not read, and nothing else', () => {
     expect(restrictsReading(folder)).toBe(true)
     expect(restrictsReading(open)).toBe(false)
-    // An inheriting folder ignores a stale flag either way.
     expect(restrictsReading({ ...inherit(F.plans, null), everyoneReads: true })).toBe(false)
     expect(restrictsReading(inherit(F.plans, null))).toBe(false)
   })
@@ -196,38 +177,30 @@ describe('unreadableFoldersBelow — what a move of a subtree may not do blind',
 })
 
 describe('effectiveFolderLevel — the one rule (ADR-0088)', () => {
-  // [who, folder, expected level]
   const cases: Array<[string, FolderClearance, string | null, FolderLevel]> = [
-    // The project root and inheriting folders: the project decides.
     ['anyone at the root', who(null), null, 'write'],
     ['someone on no list in an inheriting folder', who(null), F.admin, 'write'],
     ['someone on no list in Pläne', who('member'), F.plans, 'write'],
-    // An own list: the people on it only, at the level of their folder role.
     ['gf in Verträge', who('gf'), F.contracts, 'write'],
     ['pl in Verträge', who('pl'), F.contracts, 'write'],
     ['bh in Verträge', who('bh'), F.contracts, 'read'],
     ['someone on no list in Verträge', who('member'), F.contracts, 'none'],
     ['no level held anywhere in Verträge', who(null), F.contracts, 'none'],
-    // Nesting narrows: the minimum over the folder and every ancestor with a list.
     ['gf in Honorare', who('gf'), F.fees, 'write'],
     ['pl in Honorare (write above, read here)', who('pl'), F.fees, 'read'],
     ['bh in Honorare (read above, write here: never wider)', who('bh'), F.fees, 'read'],
     ['someone on no list in Honorare', who('member'), F.fees, 'none'],
-    // Everyone reads: every member reads, and only a folder role writes.
     ['someone on no list in Statik', who(null), F.structural, 'read'],
     ['pl in Statik', who('pl'), F.structural, 'write'],
     ['gf in Statik (on other lists, not this one)', who('gf'), F.structural, 'read'],
     ['someone on no list in Statik-Alt (inherits Statik)', who(null), F.structuralOld, 'read'],
     ['pl in Statik-Alt', who('pl'), F.structuralOld, 'write'],
-    // Organization admins write everywhere the folder exists.
     ['an admin in Honorare', admin, F.fees, 'write'],
     ['an admin in Verträge', who('member', true), F.contracts, 'write'],
     ['an admin in Statik', admin, F.structural, 'write'],
     ['an admin in Pläne', admin, F.plans, 'write'],
-    // A tombstone keeps answering from its stored list.
     ['gf in a deleted folder', who('gf'), F.archived, 'read'],
     ['pl in a deleted folder', who('pl'), F.archived, 'none'],
-    // Fail closed: an unknown id, a broken path.
     ['anyone in an unknown folder', who('gf'), '99999999-0000-4000-8000-000000000000', 'none'],
     ['an admin in an unknown folder', admin, '99999999-0000-4000-8000-000000000000', 'none'],
     ['anyone below a parent the tree lacks', who('gf'), F.orphan, 'none'],
@@ -251,10 +224,8 @@ describe('effectiveFolderLevel — the one rule (ADR-0088)', () => {
   })
 
   it('a person’s write on a child stays read under a parent they only read: nesting narrows', () => {
-    // bh holds folder-editor on Honorare and only folder-reader on Verträge above it.
     expect(who('bh').levels[F.fees]).toBe('write')
     expect(effectiveFolderLevel(tree, who('bh'), F.fees)).toBe('read')
-    // Without the parent's list, the same folder role writes.
     const flat = folderTree([inherit(F.contracts, null), custom(F.fees, F.contracts)])
     expect(effectiveFolderLevel(flat, who('bh'), F.fees)).toBe('write')
   })
@@ -278,7 +249,6 @@ describe('effectiveFolderLevel — the one rule (ADR-0088)', () => {
     for (const [folderId, level] of Object.entries(expected)) {
       expect(effectiveFolderLevel(tree, ANY_MEMBER, folderId), folderId).toBe(level)
     }
-    // Of the folders with their own list, exactly the ones everyone reads.
     const own = TREE.filter((folder) => folder.accessMode === 'custom')
     const readable = own.filter((folder) => atLeast(effectiveFolderLevel(tree, ANY_MEMBER, folder.id), 'read'))
     expect(readable.map((folder) => folder.id)).toEqual(own.filter((folder) => folder.everyoneReads).map((folder) => folder.id))
@@ -316,8 +286,6 @@ describe('computeFolderAccess — listings and retrieval', () => {
   it('hides a folder the clearance may not read, and everything below it; a deleted folder from everyone', () => {
     const intern = as('member')
     expect([...intern.hiddenFolderIds].sort()).toEqual([F.contracts, F.fees, F.orphan, F.archived].sort())
-    // What is filed in a deleted folder is hidden from an admin too: the
-    // Papierkorb is the one place it is seen.
     expect([...as(null, true).hiddenFolderIds]).toEqual([F.archived])
     expect(intern.isVisible(F.admin)).toBe(true)
     expect(intern.isVisible(F.structural)).toBe(true)
@@ -367,7 +335,6 @@ describe('computeFolderAccess — listings and retrieval', () => {
     expect(access.anyRestricted).toBe(true)
     expect(access.isVisible(F.archived)).toBe(false)
     expect([...access.hiddenFolderIds]).toEqual([F.archived])
-    // A purged tombstone holds nothing: it still never lists, but is no reason to load the tree.
     const purged = tree.map((folder) => (folder.deleted ? { ...folder, purgedAt: new Date() } : folder))
     expect(computeFolderAccess(purged, who(null), COLLECTION).anyRestricted).toBe(false)
     expect(computeFolderAccess(purged, who(null), COLLECTION).isVisible(F.archived)).toBe(false)
@@ -393,11 +360,9 @@ describe('the helpers derived from the rule', () => {
   it('unreadableFolderIds: what the clearance may not read, not a folder hidden only by the bin', () => {
     const access = (person: Person | null, seesEverything = false) =>
       unreadableFolderIds(computeFolderAccess(TREE, who(person, seesEverything), COLLECTION)).sort()
-    // Archiviert is in the bin and lists gf: hidden from gf, but gf could read it.
     expect(access('gf')).toEqual([F.orphan])
     expect(access('member')).toEqual([F.contracts, F.fees, F.orphan, F.archived].sort())
     expect(access(null, true)).toEqual([])
-    // A bin with no own list anywhere hides its folder from everyone and keeps it from no one.
     const open = TREE.filter((folder) => folder.id !== F.orphan).map((folder) => ({
       ...folder,
       accessMode: 'inherit' as const,
@@ -431,7 +396,6 @@ const session = (
   featureFlags: null,
 })
 
-/** WorkOS's folder roles for each membership `om-<person>`, read through the mocked `heldFolderLevels`. */
 function workosReportsTheLists(lists = LISTS) {
   vi.mocked(heldFolderLevels).mockImplementation(async (_org, membershipId) => {
     const person = membershipId.replace(/^om-/, '') as Person
@@ -449,7 +413,6 @@ describe('the session loaders', () => {
     workosReportsTheLists()
     vi.mocked(requireProjectAccess).mockReset()
     vi.mocked(requireProjectAccess).mockResolvedValue({ role: 'project-editor', closed: false, readsBecauseClosed: false })
-    // WorkOS cannot be asked unless a test says what it answers: the token decides.
     vi.mocked(resolveMembershipRoles).mockResolvedValue(null)
   })
 
@@ -482,7 +445,6 @@ describe('the session loaders', () => {
   })
 
   it('takes the admin bypass from the membership as it is now, not from a token that outlives a demotion', async () => {
-    // The token still lists org:projects:administer; WorkOS says the person now holds only `member`.
     vi.mocked(resolveMembershipRoles).mockResolvedValue(['member'])
     expect((await clearanceOf(session('member', ['org:projects:administer']), 'proj-1')).seesEverything).toBe(false)
   })
@@ -618,7 +580,6 @@ describe('a closed project (ADR-0090): closing opens no restricted folder', () =
 
   it('someone who reads it only because it is closed clears what someone on no list clears, whatever WorkOS reports', async () => {
     vi.mocked(effectiveResourcePermissions).mockResolvedValue(new Set())
-    // gf holds folder-editor on Verträge and Honorare, but was never a member of the project.
     expect(await heldFolderLevels('org-1', 'om-gf', 'proj-1')).toEqual(levelsOf('gf'))
     expect(await clearanceOf(session('gf'), 'proj-1')).toEqual(ANY_MEMBER)
     const access = await getProjectFolderAccess(session('gf'), 'proj-1', COLLECTION)
@@ -651,13 +612,11 @@ describe('a closed project (ADR-0090): closing opens no restricted folder', () =
     vi.mocked(listProjectFolderTree).mockImplementation(async (_org, projectId) =>
       projectId === 'proj-closed' ? [custom(shut.contracts, null), inherit(shut.plans, null)] : TREE
     )
-    // WorkOS reports gf on the closed project's Verträge as well.
     workosReportsTheLists({ ...LISTS, [shut.contracts]: { gf: 'write' } })
     vi.mocked(effectiveResourcePermissions).mockResolvedValue(new Set())
 
     const readable = await readableFoldersOfRestrictedProjects(session('gf'))
 
-    // gf reads Verträge where the folder role was matched before, and in the closed project only what every member reads.
     expect(readable).toContain(F.contracts)
     expect(readable).toContain(shut.plans)
     expect(readable).not.toContain(shut.contracts)
@@ -782,9 +741,6 @@ describe('requireFolderWrite — the one write check', () => {
 })
 
 describe('a list whose people have all left leaves its folder to the admins', () => {
-  // Was „a role deleted in WorkOS" (ADR-0088). Lists name people now (ADR-0097),
-  // so the flagging of folders naming a deleted role is gone; what the rule
-  // does with a list that matches nobody is unchanged.
   const DEAD = '99999999-aaaa-4bbb-8ccc-0000000000a1'
   const CHILD_OF_DEAD = '99999999-aaaa-4bbb-8ccc-0000000000a5'
   const folders: AccessFolder[] = [custom(DEAD, null), inherit(CHILD_OF_DEAD, DEAD), inherit(F.plans, null)]
@@ -795,7 +751,6 @@ describe('a list whose people have all left leaves its folder to the admins', ()
       expect(effectiveFolderLevel(t, who(person), DEAD)).toBe('none')
     }
     expect(effectiveFolderLevel(t, admin, DEAD)).toBe('write')
-    // What inherits from it is just as closed.
     expect(effectiveFolderLevel(t, who('pl'), CHILD_OF_DEAD)).toBe('none')
     expect(effectiveFolderLevel(t, admin, CHILD_OF_DEAD)).toBe('write')
   })
@@ -807,7 +762,6 @@ describe('a list whose people have all left leaves its folder to the admins', ()
 })
 
 describe('a purged folder: the organization decides who sees what was derived from it', () => {
-  // Archiviert (gf: read) after its purge, under each of the four settings.
   const purgedUnder = (policy: DeletedFolderContentPolicy) =>
     folderTree(
       TREE.map((folder) =>

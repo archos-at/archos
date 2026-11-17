@@ -1,5 +1,3 @@
-"""The turn's knowledge context (ADR-0173): parsed fail-closed, bound per turn, the gate decides the corpus."""
-
 from __future__ import annotations
 
 import re
@@ -79,7 +77,6 @@ def _blocks(extra: dict[str, object]) -> dict[str, object]:
 
 
 def test_a_turn_the_bff_sent_no_context_reads_as_unavailable():
-    """ADR-0175: the BFF sends a context on every turn, so a missing key fails closed, never as "everything"."""
     assert _parse_blocks(_blocks({})).knowledge_context == UNAVAILABLE
 
 
@@ -143,7 +140,6 @@ def test_trace_metadata_names_the_law_whose_edition_is_undetermined():
 
 
 def test_without_a_bound_context_nothing_is_allowed():
-    """No context bound (a run that brought none, a test) is ``knowledge_unavailable``: no law, no corpus."""
     assert turn_knowledge_context() == UNAVAILABLE
     assert law_tools_allowed("AT") is False
     assert corpus_country_allowed("AT") is False
@@ -159,7 +155,6 @@ def test_a_gate_that_does_not_read_austria_withholds_the_corpus_and_ris():
 
 @pytest.mark.parametrize("gate", ["site_unknown", "none", "open", "core"])
 def test_reading_the_primary_law_is_not_a_verdict(gate):
-    """Dev acceptance A5: an office-level question in its home country quotes RIS, whatever the coverage."""
     set_turn_knowledge_context(KnowledgeContext(gate=gate, site_country="AT", retrieval_countries=frozenset({"AT"})))
     assert corpus_country_allowed("AT") is True
     assert law_sources_withheld() == frozenset()
@@ -195,7 +190,6 @@ def test_a_withheld_legal_database_says_why_and_never_that_it_is_switched_off(ga
 
 
 def test_a_switched_off_source_the_gate_allows_still_reads_as_switched_off(ris_registered):
-    """The org's own toggle is a setting; only the gate's reasons replace its text."""
     from agent.common.data_sources import disabled_source_notice
 
     set_turn_knowledge_context(KnowledgeContext(gate="core", site_country="AT", retrieval_countries=frozenset({"AT"})))
@@ -203,21 +197,17 @@ def test_a_switched_off_source_the_gate_allows_still_reads_as_switched_off(ris_r
 
 
 def test_the_unknown_site_note_names_what_the_base_covers_and_keeps_the_web_to_information():
-    """Dev acceptance A3 and A4: no assumed country, a place outside the base is not covered, the web is information."""
     set_turn_knowledge_context(KnowledgeContext(gate="site_unknown", retrieval_countries=frozenset({"AT", "EU"})))
     note = jurisdiction_note() or ""
     assert "AT, EU" in note and "do not assume a" in note
-    # Baseline Q3: an unconfirmed München from project memory applied Bavarian law.
     assert "project memory" in note and "not a confirmed site" in note
     assert "unverified information" in note and "never from a web copy" in note
-    # Each sentence of A4 on its own: a reworded or dropped one fails here.
     assert "You may read and quote the primary law of AT, EU as information." in note
     assert "A place the question names outside AT, EU is not covered by this office's base: say so plainly." in note
     assert "ask for the country and Land" in note
 
 
 def test_a_site_nobody_placed_with_no_covered_country_says_no_country_s_law_is_read():
-    """Review of #1582: an empty scope rendered "the primary law of no country … outside no country"."""
     set_turn_knowledge_context(KnowledgeContext(gate="site_unknown"))
     note = jurisdiction_note() or ""
     assert "This office's base covers no country, so no country's primary law is read here" in note
@@ -283,7 +273,6 @@ def test_an_assumed_site_is_said_quietly_and_only_where_law_binds():
     assert "assumption in the project memory" in note
     assert "Do not mention that as a routine caveat" in note
     assert "ask the person to confirm it" in note
-    # A confirmed site says nothing, and a gate that binds nothing has its own note and no assumption line.
     set_turn_knowledge_context(KnowledgeContext(gate="core", site_country="AT"))
     assert jurisdiction_note() is None
     set_turn_knowledge_context(KnowledgeContext(gate="none", site_country="AT", site_assumed=True))
@@ -300,13 +289,10 @@ def test_the_research_doctrine_is_the_method_then_the_note_or_the_chain():
 
 
 def test_the_research_doctrine_names_no_country():
-    """The method holds everywhere; Austria's doctrine is its pack's chain text (ADR-0175)."""
     set_turn_knowledge_context(KnowledgeContext(gate="core", site_country="DE"))
     for austrian in ("ÖNORM", "OIB", "Wien", "Bundesland", "MA 37", "Flächenwidmung"):
         assert austrian not in research_doctrine(), austrian
 
-
-# --- the law gate on confidence (staging QC F6, ADR-0175) ---
 
 OIB_PASSAGE = {"citation_key": "oib-rl_2_ausgabe_mai_2023.pdf, p.12", "source_type": "knowledge_layer", "shelf": "base"}
 PROJECT_PASSAGE = {"citation_key": "Einreichplan.pdf, p.2", "source_type": "knowledge_layer", "shelf": "project"}
@@ -332,7 +318,6 @@ def test_an_answer_on_law_the_records_do_not_settle_is_unsettled(gate, passage, 
 
 
 def test_every_gate_state_the_bff_sends_has_a_policy():
-    """Review of #1582: one table, so a state added on the wire and not here fails here, not open."""
     from agent.common.knowledge_context import GATES
 
     source = (REPO / "apps/workspace/bff/base-knowledge/wire/vocab.ts").read_text(encoding="utf-8")
@@ -353,9 +338,6 @@ def test_an_unknown_gate_state_fails_closed():
     assert KnowledgeContext(gate="partial").withholds_law
     set_turn_knowledge_context(KnowledgeContext(gate="partial", retrieval_countries=frozenset({"AT"})))
     assert law_sources_withheld() == frozenset({"ris"})
-
-
-# --- the strict-versus-unscoped rule of corpus_countries (a request's silence is never "unscoped") ---
 
 
 def _request(monkeypatch, **fields):

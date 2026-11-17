@@ -1,5 +1,3 @@
-"""A page captured for a citation (ADR-0170): through the source's own transport, with its digest and its text."""
-
 from __future__ import annotations
 
 import hashlib

@@ -87,10 +87,6 @@ const session: Session = {
   featureFlags: null,
 }
 
-/**
- * The pipeline's own machinery: no `grid-catalog`, so it is not an offer.
- * Never listed on the Skills tab, never switchable, always resolved.
- */
 const PLATFORM_SKILL = {
   name: 'data-table-analysis',
   description: 'Analyze tables.',
@@ -100,7 +96,6 @@ const PLATFORM_SKILL = {
   collection: 'research' as const,
 }
 
-/** A skill the platform OFFERS organizations — a chat-usable FILE starts ON. */
 const CURATED_SKILL = {
   name: 'oib-fire-check',
   description: 'Checks the project against OIB fire safety.',
@@ -110,7 +105,6 @@ const CURATED_SKILL = {
   collection: 'research' as const,
 }
 
-/** A deep-research-only FILE offer — starts OFF, never in the chat `/` menu. */
 const DEEP_ONLY_SKILL = {
   name: 'forecast-analysis',
   description: 'Forecast evidence for a deep-research job.',
@@ -120,7 +114,6 @@ const DEEP_ONLY_SKILL = {
   collection: 'research' as const,
 }
 
-/** The org switched `name` on (or off) — what the activations table holds. */
 function activation(name: string, enabled: boolean) {
   return {
     organizationId: 'org_1',
@@ -132,7 +125,6 @@ function activation(name: string, enabled: boolean) {
   }
 }
 
-/** A published `platform_skills` row — an OFFER unless a test says otherwise. */
 function platformRow(overrides: Partial<PlatformSkillRow> = {}): PlatformSkillRow {
   const base: PlatformSkillRow = {
     id: 'ps-1',
@@ -151,11 +143,6 @@ function platformRow(overrides: Partial<PlatformSkillRow> = {}): PlatformSkillRo
   return { ...base, ...overrides }
 }
 
-/**
- * A dashboard row the platform published — the one that used to carry
- * `delivery: 'standard'` and impose itself on every tenant. An ordinary offer
- * since migration 0088.
- */
 const HOUSE_ROW = platformRow({
   id: 'ps-house',
   name: 'house-citation-style',
@@ -163,7 +150,6 @@ const HOUSE_ROW = platformRow({
   body: 'Cite every normative claim with its OIB paragraph.',
 })
 
-/** Publish `rows` into the fleet catalogue. */
 function publishPlatformRows(rows: PlatformSkillRow[]): void {
   vi.mocked(platformRepository.listPublishedOfferRows).mockResolvedValue(
     rows.filter((row) => row.published)
@@ -190,7 +176,6 @@ function makeSkill(overrides: Partial<Skill> = {}): Skill {
   return { ...base, ...overrides }
 }
 
-/** A category row — platform-owned when organizationId is null. */
 function makeCategory(
   overrides: Partial<{
     id: string
@@ -224,14 +209,10 @@ beforeEach(() => {
     (name) => [PLATFORM_SKILL, CURATED_SKILL].find((skill) => skill.name === name) ?? null
   )
   vi.mocked(repository.listSkillsInOrg).mockResolvedValue([])
-  // No decision recorded: chat-usable FILE offers default on; dashboard
-  // offers and deep-research-only files default off; machinery is on.
   vi.mocked(repository.listCuratedSkillActivations).mockResolvedValue([])
-  // The DB catalogue is empty unless a test publishes something into it.
   publishPlatformRows([])
   vi.mocked(repository.findSkill).mockResolvedValue(null)
   vi.mocked(repository.findSkillByName).mockResolvedValue(null)
-  // No categories unless a test stands some up.
   vi.mocked(categoryRepository.listCategoriesForOrg).mockResolvedValue([])
   vi.mocked(categoryRepository.listOrgCategories).mockResolvedValue([])
   vi.mocked(categoryRepository.findCategoryInScope).mockResolvedValue(null)
@@ -254,15 +235,6 @@ describe('feature gate', () => {
 })
 
 describe('listSkills', () => {
-  /**
-   * The Skills tab is what an organization HAS, plus what it is offered.
-   *
-   * The pipeline's machinery used to be merged in here as equal rows, each
-   * with a clone button — five instructions nobody installs, nobody can edit
-   * and nobody can invoke from chat, in front of an org with two skills of its
-   * own. It is gone from this list and still resolves for every run, which is
-   * the pair of facts the next two tests hold apart.
-   */
   it('lists org rows and the platform OFFERS, never the pipeline machinery', async () => {
     vi.mocked(repository.listSkillsInOrg).mockResolvedValue([
       makeSkill({ id: 'skill-2', name: 'org-only' }),
@@ -304,17 +276,10 @@ describe('listSkills', () => {
     expect(after.find((s) => s.name === 'oib-fire-check')?.enabled).toBe(false)
   })
 
-  /**
-   * The delivery channel the platform dashboard writes into: a published
-   * `platform_skills` row reaches every organization, with the body staying
-   * ours. This is what replaced clone.
-   */
   it('offers a published platform_skills row to the organization', async () => {
     publishPlatformRows([platformRow({ metadata: { 'grid-agents': 'deep_researcher' } })])
     const { skills } = await listSkills(session)
     const offer = skills.find((s) => s.name === 'energy-check')
-    // The catalogue's id is deliberately NOT handed to a tenant: it addresses
-    // the fleet's copy, and only the platform tier may write it.
     expect(offer).toMatchObject({ id: null, origin: 'platform', enabled: false })
     expect(offer?.body).toBe('Compare the certificate against OIB 6.')
     expect(offer?.metadata['grid-agents']).toBe('deep_researcher')
@@ -363,11 +328,6 @@ describe('setCuratedSkillEnabled', () => {
     expect(skill).toMatchObject({ name: 'oib-fire-check', enabled: true })
   })
 
-  /**
-   * The rule that keeps deep research working. Machinery is not an offer, so
-   * it is not addressable — and the check is HERE, not only in the UI that
-   * declines to draw a switch for it.
-   */
   it('refuses to switch the pipeline machinery, and stores nothing', async () => {
     await expect(
       setCuratedSkillEnabled(session, 'data-table-analysis', false)
@@ -444,28 +404,14 @@ describe('resolveSkillSnapshot', () => {
     await expect(resolveSkillSnapshot('nope', 'org_1')).rejects.toBeInstanceOf(NotFoundError)
   })
 
-  /**
-   * The precedence both resolvers must agree on.
-   *
-   * `resolveSkillsForAgent` merges machinery LAST, so machinery wins a name
-   * collision there. This function has to reach the same answer, or a curated
-   * row carrying a builtin name would 404 a skill deep research always needs —
-   * and only this path runs when a job pins its snapshot.
-   */
   it('answers machinery without consulting the catalogue at all', async () => {
     vi.mocked(repository.findSkillByName).mockResolvedValue(null)
     const snapshot = await resolveSkillSnapshot('data-table-analysis', 'org_1')
     expect(snapshot.origin).toBe('platform')
-    // In-memory, so the platform_skills query is never made for machinery.
     expect(platformRepository.listPublishedOfferRows).not.toHaveBeenCalled()
     expect(repository.listCuratedSkillActivations).not.toHaveBeenCalled()
   })
 
-  /**
-   * A job cannot newly attach an offer the org has not taken up. Jobs that
-   * attached one BEFORE it was switched off keep running — they pinned a
-   * snapshot at save time and never come back through here.
-   */
   it('pins a chat-usable file offer without an activation row', async () => {
     vi.mocked(repository.findSkillByName).mockResolvedValue(null)
     expect((await resolveSkillSnapshot('oib-fire-check', 'org_1')).origin).toBe('platform')
@@ -524,16 +470,6 @@ describe('resolveSkillsForAgent', () => {
     expect(skills.map((s) => s.name)).toContain('typo')
   })
 
-  /**
-   * `shallow_researcher` became `researcher`, and a stored row must keep meaning
-   * the restriction its author chose.
-   *
-   * This is the pair to the test above, and the reason the alias could not
-   * simply be a third known name: an ignored name reads as NO restriction, so a
-   * chat-only skill would have started reaching deep research — silently, in
-   * the widest possible direction. `0081_grid_agents_researcher_rename.sql`
-   * rewrites the rows we can see; this covers the ones we cannot.
-   */
   it('reads the retired shallow_researcher name as the researcher, both ways', async () => {
     vi.mocked(repository.listSkillsInOrg).mockResolvedValue([
       makeSkill({ name: 'chat-only', metadata: { 'grid-agents': 'shallow_researcher' } }),
@@ -545,12 +481,6 @@ describe('resolveSkillsForAgent', () => {
     expect(forDeep.map((s) => s.name)).not.toContain('chat-only')
   })
 
-  /**
-   * The other direction: a backend still on the pre-rename build asks under the
-   * old name for as long as a rolling deploy takes, and by then the migration
-   * has already rewritten the rows. Canonicalising only the stored side would
-   * black out every skill for that caller until the deploy finished.
-   */
   it('answers a caller that still asks as shallow_researcher', async () => {
     vi.mocked(repository.listSkillsInOrg).mockResolvedValue([
       makeSkill({ name: 'chat-only', metadata: { 'grid-agents': 'researcher' } }),
@@ -561,14 +491,6 @@ describe('resolveSkillsForAgent', () => {
     expect(skills.map((s) => s.name)).not.toContain('deep-only')
   })
 
-  /**
-   * The two halves of the platform set, and the whole reason they are separate.
-   *
-   * Machinery resolves for everyone — it is how deep research computes a table
-   * and writes its report, not a capability anyone opted into. An offer
-   * resolves only for an org that switched it on, so a switch on the Skills tab
-   * actually reaches the agent instead of being decoration.
-   */
   it('runs the machinery for every org and a chat-usable file offer by default', async () => {
     const { skills } = await resolveSkillsForAgent('org_1')
     expect(skills.map((s) => s.name).sort()).toEqual(['data-table-analysis', 'oib-fire-check'])
@@ -583,22 +505,6 @@ describe('resolveSkillsForAgent', () => {
   })
 })
 
-/**
- * The platform's STANDARD tier, and the fact that it is gone (migration 0088).
- *
- * It was a skill every organization ran, nobody was offered, and nobody outside
- * the platform dashboard could see or change — and `SkillRuntime` FORCED it, so
- * its body was loaded whether or not the model judged it relevant. That is an
- * instruction wearing a capability's clothes, and instructions now live in the
- * platform prompt and in each organization's own instruction block.
- *
- * Five properties used to hold here, each enforced by its own line: invisible,
- * default-on, non-targetable, non-shadowable, platform-owned. Every one of them
- * is asserted below in the NEGATIVE, because each was a handle the platform held
- * over a tenant and the removal is only real if none of them survives. A
- * published row is an ordinary offer now: listed, switchable, off until the org
- * says otherwise, and shadowable by the org's own skill of the same name.
- */
 describe('a published platform row, after the standard tier was retired', () => {
   beforeEach(() => {
     publishPlatformRows([HOUSE_ROW])
@@ -638,7 +544,6 @@ describe('a published platform row, after the standard tier was retired', () => 
       origin: 'platform',
       body: 'Cite every normative claim with its OIB paragraph.',
     })
-    // The key `SkillRuntime` read to force a skill. Its absence is the tier's.
     expect(Object.keys(row ?? {})).not.toContain('standard')
   })
 
@@ -657,9 +562,6 @@ describe('a published platform row, after the standard tier was retired', () => 
   })
 
   it('no longer reserves its name against a tenant authoring one', async () => {
-    // The reservation existed because a standard row outranked an org row, so
-    // authoring the name produced a green save and an agent that never followed
-    // it. Nothing outranks the tenant now, so nothing is refused.
     vi.mocked(repository.findSkillByName).mockResolvedValue(null)
     vi.mocked(repository.insertSkill).mockImplementation(async (values) => makeSkill(values))
     await expect(
@@ -685,13 +587,6 @@ describe('a published platform row, after the standard tier was retired', () => 
     expect((await resolveSkillSnapshot('house-citation-style', 'org_1')).origin).toBe('platform')
   })
 
-  /**
-   * The collision no write boundary can catch: `assertNameIsFree` refuses a ROW
-   * named after an existing builtin, but the other direction is a DEPLOY —
-   * shipping a `SKILL.md` whose name matches a row published months ago. The
-   * file is product code, the row is dashboard copy, so the file wins, in both
-   * resolvers.
-   */
   it('yields to the machinery when a builtin ships under its name', async () => {
     publishPlatformRows([
       platformRow({ ...HOUSE_ROW, name: 'data-table-analysis', body: 'DASHBOARD OVERRIDE' }),
@@ -699,17 +594,12 @@ describe('a published platform row, after the standard tier was retired', () => 
     const { skills } = await resolveSkillsForAgent('org_1')
     expect(skills.find((s) => s.name === 'data-table-analysis')?.body).toBe(PLATFORM_SKILL.body)
 
-    // And the job path agrees, which is the half that actually runs on a save.
     vi.mocked(repository.findSkillByName).mockResolvedValue(null)
     expect((await resolveSkillSnapshot('data-table-analysis', 'org_1')).body).toBe(
       PLATFORM_SKILL.body
     )
   })
 
-  /**
-   * `grid-agents` still applies. That gate answers "which agent CAN run this",
-   * which is a different question from who decides that it runs.
-   */
   it('still respects grid-agents', async () => {
     publishPlatformRows([
       platformRow({ ...HOUSE_ROW, metadata: { 'grid-agents': 'deep_researcher' } }),
@@ -787,7 +677,6 @@ describe('listInvocableSkills', () => {
 
 describe('skill categories', () => {
   it('lists platform categories before org categories, with their scope', async () => {
-    // Repository order is the contract (platform first); the service maps it.
     vi.mocked(categoryRepository.listCategoriesForOrg).mockResolvedValue([
       makeCategory({ id: 'cat-1', name: 'Recherche', slug: 'research', sortOrder: 0 }),
       makeCategory({ id: 'cat-2', organizationId: 'org_1', name: 'Eigene', slug: null, sortOrder: 0 }),
@@ -803,7 +692,6 @@ describe('skill categories', () => {
       makeCategory({ id: 'cat-1', name: 'Recherche', slug: 'research' }),
     ])
     const { skills } = await listSkills(session)
-    // CURATED_SKILL is a `research` file offer: no row, still categorized.
     expect(skills.find((s) => s.name === 'oib-fire-check')?.categoryId).toBe('cat-1')
   })
 
@@ -917,8 +805,6 @@ describe('skill category CRUD', () => {
 
   it('refuses a create past the list limit instead of silently dropping rows', async () => {
     vi.mocked(categoryRepository.findOrgCategoryByName).mockResolvedValue(null)
-    // Exactly at the cap, not past it: the row this call would insert is the
-    // one that falls off the bounded read, so the cap has to bite at `>=`.
     vi.mocked(categoryRepository.listOrgCategories).mockResolvedValue(
       Array.from({ length: 100 }, (_, index) =>
         makeCategory({ id: `cat-${index}`, organizationId: 'org_1', name: `Kat ${index}` })
@@ -935,8 +821,6 @@ describe('skill category CRUD', () => {
   })
 
   it('does not spend an org quota on the platform\u2019s categories', async () => {
-    // The regression this guards: counting the combined list meant a busy
-    // platform curation locked every tenant out of its own shelves forever.
     vi.mocked(categoryRepository.findOrgCategoryByName).mockResolvedValue(null)
     vi.mocked(categoryRepository.listCategoriesForOrg).mockResolvedValue(
       Array.from({ length: 100 }, (_, index) =>

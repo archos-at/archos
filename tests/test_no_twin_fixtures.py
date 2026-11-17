@@ -1,14 +1,3 @@
-"""A cross-language fixture exists once, under ``apps/workspace/tests/fixtures/``.
-
-Four contracts (the request-context envelope, the job fire headers, the
-reasoning-effort and retrieval-settings catalogs) used to live twice, a
-repo-root copy for pytest and a byte-identical twin for the UI's Docker
-typecheck context, which cannot reach outside ``apps/workspace``. Nothing but a
-person remembering kept the pair equal. Both suites now read the one copy, and
-this test fails a second one appearing under the repo-root ``tests/`` tree.
-See ``docs/contributing/testing-and-verification.md``.
-"""
-
 import hashlib
 from pathlib import Path
 

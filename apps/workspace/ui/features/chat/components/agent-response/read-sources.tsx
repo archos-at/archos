@@ -6,14 +6,8 @@ import { useTranslations } from '@/i18n'
 import { chatCopy } from '@/i18n/namespaces/chat'
 import type { CitationSource } from '../../types'
 
-/**
- * How many read-but-uncited documents the disclosure shows before it stops.
- * A summary, not a dump — the same cap the "Belegt durch" row uses, so the
- * two never disagree about what "a handful" means.
- */
 const MAX_READ_SOURCES = 8
 
-/** The `[N]` the structured wire sources carry. */
 export const wireCitationNumbers = (citations: CitationSource[] | undefined): number[] =>
   (citations ?? []).flatMap((citation) =>
     typeof citation.number === 'number' ? [citation.number] : []
@@ -23,23 +17,6 @@ export function readSourceLabel(source: CitationSource): string | undefined {
   return source.fileName ?? source.title ?? source.citationKey
 }
 
-/**
- * "Gelesen, nicht zitiert": what the turn read beyond what the answer claims.
- *
- * Muted document chips only — a name plus the page, never a passage and
- * never a claim about what the document says. The label is the document's
- * identity (`fileName ?? title ?? citationKey`) and nothing else: the entries
- * ride a `.passthrough()` schema, so `content` on a verbose entry is a locator
- * line or a passage, and falling back to it would render evidence prose as a
- * chip. An entry without any identity is skipped, never rendered. The entries
- * carry no prose by construction (the backend drops every prose key), and this
- * renders no field that could restate evidence, so an uncited document cannot
- * ground anything here. Renders nothing when everything retrieved was cited.
- *
- * Past eight the list folds behind a disclosure control — the count first,
- * every name on expand — so a wide retrieval still names each document
- * without burying the footer. Dedupe stays backend-side: one row per entry.
- */
 export const ReadSourcesSection: FC<{ readSources?: CitationSource[] }> = ({ readSources }) => {
   const t = useTranslations(chatCopy)
   const [expanded, setExpanded] = useState(false)

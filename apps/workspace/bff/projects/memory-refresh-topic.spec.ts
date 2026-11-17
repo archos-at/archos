@@ -5,7 +5,6 @@ import { PgDialect } from 'drizzle-orm/pg-core'
 import { describe, expect, it } from 'vitest'
 import { restatedTopicSet } from './memory-refresh-topic'
 
-/** The SQL a refresh's `.set({ topic })` runs, as the database receives it. */
 function rendered(topic: string | null | undefined) {
   const fill = restatedTopicSet(topic).topic
   return fill ? new PgDialect().sqlToQuery(fill) : null

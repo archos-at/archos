@@ -1,15 +1,7 @@
-/**
- * The office's base-knowledge service (ADR-0163) over mocked repositories: who
- * may do what, that a proposal merges the reading with what a caller read, that
- * a licensed copy needs the attestation, that confirming checks it, that removal
- * runs the office shelf's own delete, and that the flag gates the turn.
- */
-
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
 vi.mock('@/lib/project-intake/setup-records', async () => ({
-  // The records an operator publishes for Austria, as `readSetupRecords` hands them over (the database read is its own spec).
   readSetupRecords: async () => (await import('@/lib/project-intake/at-setup.fixtures')).AT_SETUP_RECORDS,
 }))
 vi.mock('../store/repository', () => ({
@@ -128,7 +120,6 @@ beforeEach(() => {
   vi.mocked(readOfficeEntries).mockResolvedValue([stored()])
   vi.mocked(documentHasEntry).mockResolvedValue(false)
   vi.mocked(isOrgFeatureEnabled).mockResolvedValue(true)
-  // The platform's records are their own spec's (`platform/*.integration.spec.ts`); here the platform answers nothing.
   usePlatformKnowledge(STUB_PLATFORM_KNOWLEDGE)
 })
 
@@ -451,7 +442,6 @@ describe('the turn', () => {
 
     filed('2020-06-01')
     expect((await baseKnowledgeForTurn('org-1', 'proj-1'))?.labels.map((label) => label.editionLabel)).toEqual(['2017-04-01'])
-    // Positive control: without a filing day the turn resolves on today, where the 2023 edition is in force.
     filed(null)
     expect((await baseKnowledgeForTurn('org-1', 'proj-1'))?.labels.map((label) => label.editionLabel)).toEqual(['2023-02-01'])
   })

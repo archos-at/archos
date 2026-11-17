@@ -1,11 +1,3 @@
-"""Each PostHog alert query reads one cluster: `events` or `posthog.metrics`.
-
-PostHog keeps events and metrics on different ClickHouse clusters. A query
-over both is refused ("Cannot query tables from different clusters"), and the
-scheduled alert check errors and switches the alert off, silencing every rule
-in it. Product incidents went dark that way on 2026-11-14 (deploy/posthog/README.md).
-"""
-
 import re
 from pathlib import Path
 

@@ -1,18 +1,5 @@
 'use client'
 
-/**
- * „Mein Gedächtnis“: the notes the agent keeps about one person (ADR-0180),
- * for that person to read, add to, correct, pin and remove. It opens with the
- * one sentence the store exists to make true: nobody else reads these.
- *
- * The list is the project memory panel's, from the same parts
- * (`memory-note-parts.tsx`), without what a personal note does not have:
- * no verification, no confidence, no scope. Order is the server's (pinned
- * first, then newest) and is kept after a local change by the same rule.
- * The notes are shown as folders by topic (`TopicFolders`); the topics are
- * counted from the notes this list holds, which is the whole shelf.
- */
-
 import type { JSX } from 'react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Brain, Lock, Pencil, Pin, PinOff, Plus, Trash2 } from 'lucide-react'
@@ -62,7 +49,6 @@ import {
 } from '@/lib/personal-memory/vocabulary'
 import { PersonalNoteTopicMove, PersonalTopicActions } from './personal-topic-actions'
 
-/** The server's order: pinned first, then the most recently changed. */
 function inServerOrder(notes: PersonalMemoryNote[]): PersonalMemoryNote[] {
   return [...notes].sort(
     (a, b) => Number(b.pinned) - Number(a.pinned) || b.updatedAt.localeCompare(a.updatedAt) || b.id.localeCompare(a.id)
@@ -71,7 +57,6 @@ function inServerOrder(notes: PersonalMemoryNote[]): PersonalMemoryNote[] {
 
 const isConflict = (error: unknown): boolean => error instanceof ApiRequestError && error.status === 409
 
-/** What a note held that the server refused it for (`details.kind`), or null for any other failure. */
 const refusedKind = (error: unknown): NoteRefusalKind | null =>
   error instanceof ApiRequestError && error.status === 400 ? noteRefusalKind(error.details) : null
 
@@ -82,14 +67,11 @@ export function PersonalMemoryPanel(): JSX.Element {
   const { locale } = useLocale()
   const [notes, setNotes] = useState<PersonalMemoryNote[] | null>(null)
   const [loadFailed, setLoadFailed] = useState(false)
-  /** The note a request is out for: its actions wait. */
   const [busyId, setBusyId] = useState<string | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editDraft, setEditDraft] = useState('')
-  /** Why the open editor's last save was refused; it stays open with the text. */
   const [editError, setEditError] = useState<string | null>(null)
   const [removingId, setRemovingId] = useState<string | null>(null)
-  /** The confirmation for removing every note is open; `clearing` while its request is out. */
   const [confirmingClear, setConfirmingClear] = useState(false)
   const [clearing, setClearing] = useState(false)
 
@@ -117,19 +99,15 @@ export function PersonalMemoryPanel(): JSX.Element {
     }
   }, [load])
 
-  /** The shelf's topics, most notes first, and their names: every note the person holds is in `notes`. */
   const topics = useMemo(() => summarizeTopics(notes ?? []), [notes])
   const topicNames = useMemo(() => topics.map((topic) => topic.name), [topics])
-  /** Read the list again after a topic changed: a renamed, merged or removed topic moves notes out of their folder. */
   const reload = useCallback((): Promise<void> => load({ cancelled: false }), [load])
 
-  /** Why a save failed, in the person's language: the refused kind when the server named one, else the generic text. */
   const saveFailure = (error: unknown): string => {
     const kind = refusedKind(error)
     return kind ? t(`refused.${kind}`) : t('errors.saveFailed')
   }
 
-  /** Put a note the server answered into the list, in the list's order; a note already there is replaced. */
   const keep = (note: PersonalMemoryNote): void => {
     setNotes((previous) => inServerOrder([note, ...(previous ?? []).filter((existing) => existing.id !== note.id)]))
   }
@@ -148,7 +126,6 @@ export function PersonalMemoryPanel(): JSX.Element {
       const { item, created } = await addPersonalMemoryNote({ kind: addKind, content, topic: addTopic })
       keep(item)
       closeAdd()
-      // A text one of the person's notes already says is that note, marked current: nothing was added.
       toast.success(t(created ? 'added' : 'alreadyKept'))
     } catch (error) {
       toast.error(saveFailure(error))
@@ -187,7 +164,6 @@ export function PersonalMemoryPanel(): JSX.Element {
       setEditingId(null)
       toast.success(t('updated'))
     } catch (error) {
-      // The editor stays open with what was typed: the person decides what to do with it.
       setEditError(isConflict(error) ? t('errors.conflict') : saveFailure(error))
     } finally {
       setBusyId(null)
@@ -211,8 +187,6 @@ export function PersonalMemoryPanel(): JSX.Element {
   const clear = async (): Promise<void> => {
     setClearing(true)
     try {
-      // The server removes every note the person holds, also one kept since this
-      // list was read, so the count that is said afterwards is the server's.
       const { removed } = await clearPersonalMemory()
       setNotes([])
       setEditingId(null)
@@ -225,7 +199,6 @@ export function PersonalMemoryPanel(): JSX.Element {
     }
   }
 
-  /** One note's row: its text or its editor, and its actions. */
   const renderNote = (note: PersonalMemoryNote): JSX.Element => {
     const busy = busyId === note.id
     const isEditing = editingId === note.id
@@ -298,7 +271,6 @@ export function PersonalMemoryPanel(): JSX.Element {
     )
   }
 
-  /** A folder's actions: rename, merge, remove for a topic; none for the notes without one. */
   const renderTopicActions = (topic: string | null): JSX.Element | null => {
     if (topic === null) return null
     const count = topics.find((entry) => entry.name === topic)?.count ?? 0

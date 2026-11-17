@@ -61,10 +61,8 @@ describe('a person’s choices override the default per category', () => {
     expect(pushCategoryOf('annotation.activity', { yours: true })).toBe('results')
     expect(pushCategoryOf('annotation.activity', {})).toBe('activity')
     expect(pushCategoryOf('annotation.activity', { yours: 'true' })).toBe('activity')
-    // Off by default for activity, on for results: the author hears, the thread does not.
     expect(isPushWanted('annotation.activity', DEFAULT_PUSH_PREFERENCES, { yours: true })).toBe(true)
     expect(isPushWanted('annotation.activity', DEFAULT_PUSH_PREFERENCES, { variant: 'reply' })).toBe(false)
-    // A type without a `yours` category keeps its own.
     expect(pushCategoryOf('conversation.activity', { yours: true })).toBe('activity')
   })
 

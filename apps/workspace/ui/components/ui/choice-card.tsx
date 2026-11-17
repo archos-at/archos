@@ -7,21 +7,6 @@ import type { LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { FOCUS_RING } from '@/components/ui/focus-ring'
 
-/**
- * ChoiceCard — a single-choice question answered by picking a tile.
- *
- * A radio group whose options are big enough to carry an icon, a label and a
- * one-line hint: the shape for a first question that frames everything after
- * it ("what kind of feedback is this?"), where a row of 16px radios would make
- * the reader read before they can choose. Radix supplies the semantics — one
- * tab stop, arrow keys between options, `role="radio"` — so the tile is only
- * the paint.
- *
- * @example
- * <ChoiceCardGroup value={kind} onValueChange={setKind} aria-label="Art">
- *   <ChoiceCard value="bug" icon={Bug} label="Fehler" hint="Etwas funktioniert nicht" />
- * </ChoiceCardGroup>
- */
 const ChoiceCardGroup = React.forwardRef<
   React.ElementRef<typeof RadioGroupPrimitive.Root>,
   React.ComponentPropsWithoutRef<typeof RadioGroupPrimitive.Root>

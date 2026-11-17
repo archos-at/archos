@@ -1,10 +1,3 @@
-"""An image is named by what its Dockerfile copies, and a run builds what is not built yet.
-
-`ci/image_inputs.py` replaced two hand-written path lists that disagreed with
-the Dockerfiles, and an incremental publish that lost every change of a dropped
-run. Each test pins one way the name could stop meaning "these exact inputs".
-"""
-
 from __future__ import annotations
 
 import importlib.util
@@ -23,13 +16,9 @@ def mod():
     spec = importlib.util.spec_from_file_location("image_inputs", ROOT / "ci" / "image_inputs.py")
     module = importlib.util.module_from_spec(spec)
     assert spec.loader is not None
-    # @dataclass resolves its module through sys.modules.
     sys.modules["image_inputs"] = module
     spec.loader.exec_module(module)
     return module
-
-
-# --- Reading the Dockerfile ----------------------------------------------------
 
 
 def test_copy_sources_reads_every_context_copy_and_skips_stage_copies(mod):
@@ -62,9 +51,6 @@ def test_copying_the_whole_context_makes_the_whole_context_an_input(mod):
 
 
 def test_the_backend_image_watches_what_its_dockerfile_copies(mod):
-    # packages/ifc-spatial-py is copied into the backend image and was in
-    # neither hand-written list, so a change to it never reached a published
-    # image. Reading the real Dockerfile is the fix this pins.
     backend = next(image for image in mod.IMAGES if image.name == "backend")
     inputs = mod.inputs(backend)
 
@@ -76,9 +62,6 @@ def test_the_backend_image_watches_what_its_dockerfile_copies(mod):
 def test_a_copy_that_leaves_the_context_is_refused(mod):
     with pytest.raises(ValueError, match="leaves the build context"):
         mod._normalise("apps/workspace", "../../etc/passwd")
-
-
-# --- Hashing, on a repository of our own ---------------------------------------
 
 
 def git(repo: Path, *args: str) -> str:
@@ -170,7 +153,6 @@ def test_a_pull_request_builds_the_images_it_changes(mod, repo):
     base = git(repo, "rev-parse", "HEAD")
     git(repo, "checkout", "-q", "-b", "feature")
     write(repo, {"apps/workspace/page.tsx": "export const x = 1\n"})
-    # develop moves on under the PR; its change is not the PR's to build.
     git(repo, "checkout", "-q", "develop")
     moved = write(repo, {"src/app.py": "print(3)\n"})
     git(repo, "checkout", "-q", "feature")
@@ -180,14 +162,11 @@ def test_a_pull_request_builds_the_images_it_changes(mod, repo):
     assert [entry["name"] for entry in build] == ["frontend"]
     assert [entry["name"] for entry in images] == ["backend", "frontend", "web", "cms"]
     assert build[0]["repository"] == "grid-oib-frontend" and build[0]["context"] == "apps/workspace"
-    # A new image is named for its job alone (ADR-0145); the old three keep their prefix until their move.
     assert next(entry for entry in images if entry["name"] == "cms")["repository"] == "cms"
     assert mod.plan_pull_request(base, week=WEEK)[0] == build
 
 
 def test_a_pull_request_that_moves_an_image_builds_it(mod, repo):
-    # The base had the site somewhere else, so it has no Dockerfile at the path
-    # the image names now: nothing to compare, so the image is built.
     git(repo, "mv", "apps/website", "site-before-the-move")
     git(repo, "commit", "-q", "-m", "the old layout")
     base = git(repo, "rev-parse", "HEAD")
@@ -205,8 +184,6 @@ def test_a_pull_request_that_moves_an_image_builds_it(mod, repo):
     [
         ({"backend": True, "frontend": True, "web": True, "cms": True}, []),
         ({"backend": True, "frontend": False, "web": True, "cms": True}, ["frontend"]),
-        # The registry could not say: build. An extra build costs minutes; a
-        # skipped one ships the wrong code.
         ({"backend": None, "frontend": True, "web": True, "cms": True}, ["backend"]),
         ({"backend": True, "frontend": True, "web": True, "cms": False}, ["cms"]),
     ],

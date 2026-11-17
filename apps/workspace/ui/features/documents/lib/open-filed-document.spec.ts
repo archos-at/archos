@@ -1,11 +1,3 @@
-/**
- * A filed artifact opens BESIDE the conversation.
- *
- * The thing being tested is mostly a set of refusals: no second document type,
- * no composer subject bound to a document nothing indexed, no pane opened
- * underneath a panel that would hide it, and no dead control when the row
- * cannot be read.
- */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useChatStore } from '@/features/chat/store'
 import { useFilePreviewStore } from '../stores/file-preview-store'
@@ -54,23 +46,16 @@ describe('opening the artifact Piloti just filed', () => {
   it('reads the row through the status call the chat route already uses', async () => {
     answerWith(ROW)
     await openFiledDocument({ documentId: 'doc 9/x', projectId: 'proj-1' })
-    // One document shape, one endpoint. A parallel fetch is a second thing that
-    // can disagree about what a file is called or whether it is indexed.
     expect(fetch).toHaveBeenCalledWith('/api/documents/doc%209%2Fx/status')
   })
 
   it('carries the byline into the pane', async () => {
-    // Provenance is the reason it looks like a report Piloti wrote rather than
-    // an ordinary upload once it is open.
     answerWith(ROW)
     await openFiledDocument({ documentId: 'doc-9', projectId: 'proj-1' })
     expect(useFilePreviewStore.getState().file?.authoredBy).toBe('agent')
   })
 
   it('does not bind it as the composer subject', async () => {
-    // An agent-authored file is `stored`: never dispatched to `/v1/ingest`, so
-    // Ask is disabled on its own preview. Binding it would promise a retrieval
-    // the retrieval path cannot perform.
     answerWith(ROW)
     await openFiledDocument({ documentId: 'doc-9', projectId: 'proj-1' })
     expect(useChatStore.getState().composerSubject).toBeNull()

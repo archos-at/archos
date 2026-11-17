@@ -1,11 +1,3 @@
-"""A job Hatchet holds is waiting, not lost; the cutover moves what the claim queue still holds.
-
-The status row of a job that waits in Hatchet is beaten for by nobody. Without
-the hold it would read ``interrupted`` two minutes after it was accepted. These
-pin the hold, its release on the last attempt, the cutover's backfill for rows
-the retired claim queue held, the one-shot re-dispatch, and the settle push.
-"""
-
 from __future__ import annotations
 
 import io
@@ -49,7 +41,6 @@ def _status(job_id: str = "job-1", state: JobState = JobState.PENDING) -> Ingest
 
 
 def _age(db: str, job_id: str = "job-1") -> None:
-    """The row's writer last beat an hour ago."""
     with DocumentMetadataStore._get_or_create_sync_engine(db).begin() as conn:
         conn.execute(
             text("UPDATE ingest_jobs SET heartbeat_at = DATETIME('now', '-3600 seconds') WHERE job_id = :id"),
@@ -95,7 +86,6 @@ def test_a_hold_without_a_run_keeps_the_run_it_knew(db):
 
 
 def test_a_hold_outlasts_one_failed_write(db, monkeypatch):
-    """Written once, a database blip left a queued job reading interrupted two minutes after it was accepted."""
     ingest_status_store.put(_status())
     real = DocumentMetadataStore._get_or_create_sync_engine
     calls = []
@@ -122,11 +112,7 @@ def test_without_a_database_nothing_is_held(monkeypatch):
     assert ingest_run_hold.run_id_of("job-1") is None
 
 
-# ----------------------------------------------------------------- cutover
-
-
 def test_the_jobs_the_old_queue_held_are_held_when_the_column_arrives(db):
-    """A store from before Hatchet: its queued jobs must not read lost before the cutover moves them."""
     ingest_cutover._QUEUE.enqueue("queued-1", "org-1", "enc:payload", "interactive")
     with DocumentMetadataStore._get_or_create_sync_engine(db).begin() as conn:
         conn.execute(
@@ -182,7 +168,6 @@ def _held_until(db: str, job_id: str):
 
 
 def test_a_job_an_old_api_pod_queues_after_boot_is_held_and_handed_over_on_the_next_pass(db):
-    """The rollout: the schema hold ran long ago, and an old pod queues one more job."""
     queue = ingest_cutover._QUEUE
     ingest_status_store.put(_status("late-1"))
     queue.enqueue("early-1", "org-1", "enc:early", "interactive")
@@ -210,7 +195,6 @@ def test_a_pass_hands_over_a_bounded_batch(db):
 
 
 def test_two_workers_never_hand_over_the_same_job(db):
-    """While one worker's trigger runs, a second worker's pass finds the row claimed and takes nothing."""
     ingest_cutover._QUEUE.enqueue("job-1", "org-1", "enc:one", "interactive")
     started: list[str] = []
 
@@ -241,9 +225,6 @@ def test_a_plaintext_payload_is_never_handed_to_hatchet_and_stays_in_the_table(d
     assert "plain-1 carries a payload that is not encrypted" in caplog.text
     assert "eyJ" not in caplog.text
     assert "job_id" not in caplog.text
-
-
-# ------------------------------------------------------------- outcomes
 
 
 def _failed(*files: tuple[bool | None, str]) -> IngestionJobStatus:
@@ -278,9 +259,6 @@ def test_a_job_level_failure_is_judged_by_its_message():
     status.error_message = "Connection reset by peer"
 
     assert ingest_execution.outcome_of(status).retryable is True
-
-
-# ---------------------------------------------------------------- push
 
 
 class _Answer(io.BytesIO):

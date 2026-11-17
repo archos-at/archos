@@ -1,47 +1,21 @@
-/**
- * The temporary switch of one conversation as a statechart (ADR-0180 rule 2,
- * ADR-0179): every place the switch can be in, and every move between them.
- *
- * The rule it holds: the screen never says "keeps nothing" while the server
- * row still keeps. What the server holds is `confirmed`; what the person last
- * asked for is `wanted`. A chat without a row is a draft: its create carries
- * `wanted`, so the create's answer is the confirmation. A switch made while the
- * create is in flight is said to the server once the row exists, and until it
- * is confirmed the switch is pending and a turn waits (`sendBlocked`).
- *
- * Pure: no store, no fetch. The PATCH is the `save` actor, provided by
- * `temporary-conversation.ts`; the spec provides a fake.
- */
-
 import { assign, fromPromise, setup, type SnapshotFrom } from 'xstate'
 
 export interface TemporarySwitchContext {
-  /** What the server row holds; for a draft, what its create will carry. */
   confirmed: boolean
-  /** The person's last word. */
   wanted: boolean
-  /** What the create in flight carries, while one is. */
   carried: boolean
-  /** Whether the server held the row when the switch was first read. */
   onServer: boolean
 }
 
 export type TemporarySwitchEvent =
-  /** The person switched. */
   | { type: 'toggle'; temporary: boolean }
-  /** The create left with this flag. */
   | { type: 'create.started'; temporary: boolean }
-  /** The row exists; the server answered this flag. */
   | { type: 'row.created'; temporary: boolean }
-  /** The create failed; the chat is still a draft. */
   | { type: 'create.failed' }
-  /** The server's row as a list load reports it (another tab may have switched). */
   | { type: 'row.reported'; temporary: boolean }
 
 export interface TemporarySwitchInput {
-  /** Whether the server holds the row. */
   onServer: boolean
-  /** The row's flag, or for a draft the flag its create will carry. */
   temporary: boolean
 }
 
@@ -52,11 +26,9 @@ export const temporarySwitchMachine = setup({
     input: {} as TemporarySwitchInput,
   },
   actors: {
-    /** Says the flag to the server; resolves with the row's flag as the server answered it. */
     save: fromPromise<boolean, { temporary: boolean }>(async ({ input }) => input.temporary),
   },
   actions: {
-    /** The server refused or failed: the screen shows what it holds, and the person is told. */
     notifyRefused: (_, _params: { error: unknown }) => {},
   },
   guards: {
@@ -75,11 +47,9 @@ export const temporarySwitchMachine = setup({
   }),
   initial: 'starting',
   states: {
-    /** Where a switch begins: a draft for a chat the server does not hold, else what its row says. */
     starting: {
       always: [{ guard: ({ context }) => !context.onServer, target: 'draft' }, { target: 'settled' }],
     },
-    /** No row and no create yet: the switch is free, the create will carry it. */
     draft: {
       on: {
         toggle: { actions: assign(({ event }) => ({ wanted: event.temporary, confirmed: event.temporary })) },
@@ -89,7 +59,6 @@ export const temporarySwitchMachine = setup({
         },
       },
     },
-    /** The create is in flight with `carried`; a switch now has to wait for the row. */
     creating: {
       on: {
         toggle: { actions: assign(({ event }) => ({ wanted: event.temporary })) },
@@ -99,7 +68,6 @@ export const temporarySwitchMachine = setup({
             target: 'settled',
             actions: assign(({ event }) => ({ confirmed: event.temporary })),
           },
-          // The row came back without the person's last word: say it to the server now.
           {
             guard: 'wantsOff',
             target: 'turningOn',
@@ -113,7 +81,6 @@ export const temporarySwitchMachine = setup({
         },
       },
     },
-    /** Resolves to `on` or `off` from what the server holds. */
     settled: {
       always: [{ guard: 'confirmedOn', target: 'on' }, { target: 'off' }],
     },
@@ -165,7 +132,6 @@ export const temporarySwitchMachine = setup({
         },
       },
     },
-    /** The last switch did not reach the server: what it holds stands, and switching again is a new try. */
     failed: {
       entry: assign(({ context }) => ({ wanted: context.confirmed })),
       on: {
@@ -185,15 +151,10 @@ export const temporarySwitchMachine = setup({
 
 export type TemporarySwitchSnapshot = SnapshotFrom<typeof temporarySwitchMachine>
 
-/** What the toggle and the line under the composer show. */
 export interface TemporarySwitchView {
-  /** The toggle's state: the person's last word. */
   pressed: boolean
-  /** A switch is on its way to the server: the toggle waits. */
   pending: boolean
-  /** The line under the composer: what holds, or what is being switched. */
   statement: 'temporary' | 'turningOn' | 'turningOff' | null
-  /** A turn must wait: the person's word and the server's differ. */
   sendBlocked: boolean
 }
 
@@ -210,6 +171,5 @@ export function viewOf(snapshot: TemporarySwitchSnapshot): TemporarySwitchView {
   }
   if (snapshot.matches('turningOn')) return { pressed: true, pending: true, statement: 'turningOn', sendBlocked: true }
   if (snapshot.matches('turningOff')) return { pressed: false, pending: true, statement: 'turningOff', sendBlocked: true }
-  // draft (the create will carry it), on, off, failed: what the server holds or will be created with.
   return { pressed: confirmed, pending: false, statement: confirmed ? 'temporary' : null, sendBlocked: false }
 }

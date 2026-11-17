@@ -2,21 +2,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * `exposure.config.ts` is the one file that decides who sees each capability
- * (ADR-0122, amendment of 2026-10-21). These cases hold it whole and coherent:
- * an entry for every operation and nothing else, a reason wherever an entry is
- * not plainly offered, the platform domain on the platform door only, and no
- * entry that offers Piloti what Piloti may never propose.
- *
- * The config is also written as JSON, `tests/fixtures/exposure.json`, for the
- * docs and for Python (`packages/agent/tests/tools/test_exposure_config.py` checks
- * every `native:<tool>` against Piloti's tool list in
- * `configs/config_oib_openrouter.yml`). A changed entry fails here until the
- * fixture is regenerated:
- *
- *   UPDATE_FIXTURES=1 bunx vitest run bff/agent-api/exposure.config.spec.ts
- */
 
 import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -35,7 +20,6 @@ import { maySeeSensitive, SENSITIVE_SCOPE, visibleOperations } from './policy'
 import type { AgentPrincipal } from './principal'
 import { externalOnly, HELD_MAIL, SENSITIVE } from './exposure-presets'
 
-/** The in-product agent's actor on the wire (`AgentPrincipal['actor']`). */
 const IN_PRODUCT_ACTOR = 'piloti' as const
 
 const FIXTURE = join(process.cwd(), 'tests/fixtures/exposure.json')
@@ -97,9 +81,7 @@ describe('the exposure config', () => {
   })
 
   it('keeps a held mail’s text and bytes from the agent, and evidence off every door (ADR-0137, D22)', () => {
-    // The agent reads a mail once a person filed it; before, metadata only (RT-S6).
     for (const name of ['inbound-mail-text-get', 'inbound-mail-part-content-get']) expect(entry(name), name).toMatchObject(externalOnly(HELD_MAIL))
-    // The original `.eml` is proof: no model reads it, whoever asks (ADR-0122, amendment "evidence is on no door").
     const evidence = Object.entries(entries).filter(([, exposure]) => exposure.withheld?.category === 'evidence').map(([name]) => name)
     expect(evidence).toContain('inbound-mail-original-get')
     for (const op of AGENT_OPERATIONS.filter((candidate) => /\/original$/.test(candidate.path))) {
@@ -109,7 +91,6 @@ describe('the exposure config', () => {
 
   it('never lets the agent make or end a standing decision to follow a mail thread (D31)', () => {
     const follow = AGENT_OPERATIONS.find((op) => op.name === 'mail-thread-follow')
-    // It turns review down for one conversation: a control, never offered to the agent, whatever it holds.
     expect(follow?.sensitivity).toBe('control')
     expect(entry('mail-thread-follow')).toMatchObject(SENSITIVE)
     expect(entry('mail-thread-unfollow')).toEqual(externalOnly(entry('mail-thread-unfollow').reason ?? ''))
@@ -119,7 +100,6 @@ describe('the exposure config', () => {
     expect(names).not.toContain('mail-thread-follow')
     expect(names).not.toContain('mail-thread-unfollow')
     expect(maySeeSensitive(inProduct, 'control', true)).toBe(false)
-    // An outside agent sees it only with the office's opt-in AND the step-up scope.
     const outside = (scopes: string[], sensitiveOptIns: Sensitivity[]): AgentPrincipal => ({
       actor: 'external_agent',
       session,
@@ -166,7 +146,6 @@ describe('the exposure config', () => {
   })
 })
 
-/** The config as JSON, one row per operation with what a reader needs beside it: kind, domain, sensitivity. */
 function render(): string {
   const row = (name: string, kind: 'catalog' | 'backend', domain: string, sensitivity: string | null) => {
     const exposure = entry(name)
@@ -188,7 +167,6 @@ function render(): string {
     ...AGENT_OPERATIONS.map((op) => row(op.name, 'catalog', op.domain, op.sensitivity ?? null)),
     ...BACKEND_OPERATIONS.map((op) => row(op.name, 'backend', op.domain, null)),
   ])
-  // The MCP Apps views' app-only tools (ADR-0142): each runs the operation it names, for a view only.
   const appTools = Object.fromEntries(
     APP_TOOLS.map((tool) => [tool.name, { view: tool.view, operation: tool.operation, app: entry(tool.name).app === true, reason: entry(tool.name).reason ?? null }])
   )

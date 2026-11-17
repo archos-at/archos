@@ -1,77 +1,5 @@
 'use client'
 
-/**
- * CanvasActivityCard — what Piloti did on a document, told in the chat.
- *
- * Piloti acts on a document as a participant: it sets marks (Anmerkungen) and
- * answers in a mark's thread, from any conversation („Mach eine Anmerkung im
- * Grundriss EG beim Treppenhaus"). Piloti's canvas tools push this
- * card after it did, so the reader sees in the conversation what changed on the
- * sheet, and can step from here into the Prüfansicht at that mark and back.
- *
- * System-emitted (`packages/agent/src/agent/tools/canvas/cards.py`): every id on it is one
- * the annotations service returned, and the model cannot author one.
- *
- * ## A window onto the marks, not a record of answers
- *
- * A proposed mark is Piloti's until a person takes it over (a CHECK on
- * the canvas tools hold that). Each row asks on its own, „Übernehmen"
- * or „Verwerfen", through the same typed client the canvas uses. The answer is
- * a write to the MARK: the mark is the record (ADR-0105), so a reload, a
- * colleague's window and the canvas all read the same state, and nothing is
- * written to `ChatMessage.cardInteractions` (the card is `live` in
- * `CARD_INTERACTIVITY`, and `card-interactivity.spec.tsx` holds it to that).
- * A message stored before that kept the answer under `itemDecisionKey`; those
- * answers still draw, read-only, until the live list says otherwise.
- *
- * With several proposals on the card, „Alle übernehmen" and „Übrige
- * verwerfen" run the same per-mark write on each mark still proposed, with
- * `expectedStatus: 'proposed'`. A mark somebody decided meanwhile answers 409
- * and is skipped, and its row says who got there first. Discarding in bulk asks
- * first: it is not undone from here.
- *
- * Every row also shows its mark's thread at a glance: the reply count and the
- * newest reply's author and first words, read with the marks.
- *
- * The canvas is live and the message is not. So the card reads the marks once
- * it is seen and lets that list win: a mark a colleague took over on the
- * canvas reads „Übernommen · Anna" here too. While the card is on screen it
- * listens to the document's room and reads again on every change, sharing one
- * subscription with every other card on that document (`use-canvas-document`),
- * and a small dot beside Piloti's glyph says so. A move somebody beat the
- * reader to answers 409, and the row re-reads and shows what happened instead.
- *
- * Taking over is guarded by `expectedStatus: 'proposed'`: the API lets a
- * discarded mark be opened again, so only the status guard stops this card from
- * reopening a mark a colleague just discarded.
- *
- * ## What the person asked for
- *
- * When the person asks, Piloti does on a mark what they could do themselves,
- * in their name, and the card says so in their terms. A mark set on request
- * reads like a person's open mark. A change reads „#4 erledigt", „#4 Anna
- * zugewiesen", with the note Piloti left in the thread under it, and
- * „Rückgängig" goes to the server's change record (below). Taking a proposal
- * over and dismissing one have no way back, so they offer no undo.
- * A deleted mark is gone with its thread; the row says so, and offers the way
- * back only where the record does.
- *
- * ## The server's record wins (ADR-0109)
- *
- * Every change Piloti applied is a `agent_changes` row with the turn that made
- * it. The card reads the rows of its own answer once it is seen, and again
- * whenever the document's live store says one of the card's marks moved. A row
- * with a change draws from it: who the turn acted for („für Miriam"), whether
- * somebody undid it („Rückgängig gemacht · Anna"), and whether the reader may
- * undo it now (`canUndo`). The undo is the server's compare-and-swap, run as
- * the reader: `moved-on` says calmly that somebody changed it since,
- * `already-undone` re-reads and shows who did.
- *
- * The card's own `items` stay the fallback for a row without a change: an
- * answer older than the record, or a request that failed. Only those rows
- * keep the browser-side replay of the card's copy (see `ChangedRow`).
- */
-
 import { useCallback, useMemo, useState, type JSX } from 'react'
 import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
@@ -123,42 +51,18 @@ import { ClampedText } from './ClampedText'
 import { ProposalShell } from './ProposalShell'
 import { StackedLabel } from '@/components/ui/stacked-label'
 
-/**
- * A sheet's proportions when the picture has not told us: A-series landscape,
- * the shape most drawings are set on. Once page 1's picture loads, its own
- * proportions are used for every row of the card.
- */
 const DEFAULT_PAGE_ASPECT = Math.SQRT2
 
 export interface CanvasActivityCardProps {
   document: CanvasActivityDocument
   items: readonly CanvasActivityItem[]
-  /**
-   * Message this card belongs to: the turn whose changes it reads, and where an
-   * answer stored before the card went live is looked up.
-   */
   messageId?: string
-  /** Stable identity of this card within that message (`cardKey`). */
   cardKey: string
-  /**
-   * Whether this surface is read-only (somebody else's answer, a job's
-   * output): with no message to own the card it offers no answer at all. The
-   * answer no longer needs a place to be kept, but a reader looking at another
-   * person's turn is not the one being asked.
-   */
   decisionsMustPersist?: boolean
 }
 
-/** What one write to a mark came to. */
 type AnswerOutcome = 'done' | 'moved' | 'gone' | 'forbidden' | 'failed'
 
-/**
- * Take a proposed mark over (`open`) or discard it (`dismissed`): the one write
- * every answer on this card is, per mark or in a batch. `expectedStatus` makes
- * it a compare-and-swap, so a colleague who got there first is a `moved`
- * (409), never an overwrite, and the caller reads the list again to say what
- * happened. The mark is the record: nothing is stored on the message.
- */
 async function answerMark(
   documentId: string,
   annotationId: string,
@@ -180,16 +84,13 @@ async function answerMark(
   }
 }
 
-/** Who moved a mark on, as the live list names them. */
 const decidedBy = (mark: LiveMark | 'gone' | undefined): string | null => {
   if (!mark || mark === 'gone') return null
   return mark.status === 'open' ? mark.acceptedByName : mark.closedByName
 }
 
-/** An answer a message stored before the card went live, or null. Read-only. */
 const storedDecision = (value: string | undefined): CardDecision | null => (isCardDecision(value) ? value : null)
 
-/** How the reader steps into the Prüfansicht: one function, so every button goes the same way. */
 type ShowInDocument = (annotationId: string) => void
 
 export function CanvasActivityCard({
@@ -200,8 +101,6 @@ export function CanvasActivityCard({
   decisionsMustPersist,
 }: CanvasActivityCardProps): JSX.Element {
   const t = useTranslations(chatCopy)
-  // Seen once: read the marks and the picture. On screen now: keep the marks
-  // live, and let the document's channel go again when the card scrolls away.
   const [seenRef, seen] = useSeenOnce<HTMLDivElement>()
   const [viewRef, onScreen] = useInView<HTMLDivElement>()
   const cardRef = useCallback(
@@ -216,8 +115,6 @@ export function CanvasActivityCard({
   const hasMarks = setCount + counts.changed > 0
   const markIds = useMemo(() => items.map(annotationIdOf).filter((id): id is string => id !== null), [items])
   const live = useLiveMarks(document.id, { seen: seen && hasMarks, onScreen: onScreen && hasMarks, watch: markIds })
-  // What the server records for this answer's turn, read once seen and again
-  // when the live store says one of this card's marks moved.
   const conversationId = useChatStore((state) => selectCardConversationId(state, messageId))
   const changes = useTurnChanges(conversationId, messageId, { enabled: seen, token: live.touched })
   const changeOf = useMemo(() => matchChanges(items, changes.changes), [items, changes.changes])
@@ -226,9 +123,6 @@ export function CanvasActivityCard({
   const show = useShowInDocument(document.id)
   const [showError, setShowError] = useState(false)
   const proposedItems = items.filter(isProposed)
-  // Every mark's stored answer, read in the same render as the rows read theirs,
-  // so the accent is right on the first frame rather than one effect later. A
-  // joined string, so the selector returns a primitive and cannot loop.
   const storedAnswers = useChatStore((state) =>
     proposedItems
       .map((item) => selectCardDecision(state, messageId, itemDecisionKey(cardKey, item.annotation_id)) ?? '')
@@ -240,9 +134,6 @@ export function CanvasActivityCard({
     void show(annotationId).then((ok) => setShowError(!ok))
   }
 
-  // The accent: ink while any mark still waits for an answer, green once every
-  // one is answered and something was kept (or Piloti did what it was asked),
-  // quiet when the card holds only proposals and every one was discarded.
   const proposedStates = proposedItems.map((item, index) =>
     markState(storedDecision(storedAnswers[index]), live.lookup(item.annotation_id))
   )
@@ -255,12 +146,8 @@ export function CanvasActivityCard({
 
   const firstId = items.map(annotationIdOf).find((id) => id !== null) ?? null
 
-  // The reader is asked unless the surface is read-only and nothing owns the card.
   const mayAct = !decisionsMustPersist || Boolean(messageId)
 
-  // The marks a batch acts on: proposed now, and the reader may answer them.
-  // Only marks the list has said something about (a blind batch would write to
-  // marks nobody has seen).
   const pendingIds = proposedItems
     .filter((item, index) => {
       const current = live.lookup(item.annotation_id)
@@ -275,7 +162,6 @@ export function CanvasActivityCard({
   const [batch, setBatch] = useState<'open' | 'dismissed' | null>(null)
   const [confirmDiscard, setConfirmDiscard] = useState<{ open: boolean; count: number }>({ open: false, count: 0 })
   const [batchError, setBatchError] = useState<string | null>(null)
-  // Marks a batch found already decided, and by whom (null: nobody named).
   const [skipped, setSkipped] = useState<ReadonlyMap<string, string | null>>(new Map())
   const showBatch = mayAct && (pendingIds.length >= 2 || batch !== null)
 
@@ -293,7 +179,6 @@ export function CanvasActivityCard({
         else if (outcome === 'forbidden' || outcome === 'failed') failed += 1
       }
       if (moved.length > 0) {
-        // Read once for all of them: who got there first is on the list.
         const lookup = await live.refresh()
         setSkipped(new Map(moved.map((id) => [id, lookup ? decidedBy(lookup(id)) : null])))
       }
@@ -309,7 +194,6 @@ export function CanvasActivityCard({
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <AgentGlyph size="xs" />
           {live.connected && (
-            // Live: changes on the canvas reach this card while it is on screen.
             <span
               aria-hidden
               data-testid="canvas-activity-live"
@@ -461,10 +345,6 @@ export function CanvasActivityCard({
 
 type Translate = ReturnType<typeof useTranslations>
 
-/**
- * „2 Anmerkungen vorgeschlagen", „Im Thread von #4 geantwortet", or every act
- * the card holds in one line: „1 Anmerkung gesetzt, 2 Anmerkungen geändert".
- */
 function headline(t: Translate, counts: ReturnType<typeof activityCounts>): string {
   const acts = (['created', 'proposed', 'changed', 'deleted'] as const)
     .filter((act) => counts[act] > 0)
@@ -479,10 +359,6 @@ function headline(t: Translate, counts: ReturnType<typeof activityCounts>): stri
   return t('cards.canvasActivity.headline.repliedMany', { count: counts.replied })
 }
 
-/**
- * The Prüfansicht at a mark, over the chat (`openReviewAt`). Resolves false
- * when the document could not be opened, so the card can say so.
- */
 function useShowInDocument(documentId: string): (annotationId: string) => Promise<boolean> {
   const router = useRouter()
   const pathname = usePathname()
@@ -501,13 +377,6 @@ function useShowInDocument(documentId: string): (annotationId: string) => Promis
   }
 }
 
-/**
- * Undo one change through the server's record, as the signed-in reader.
- *
- * The server compares the object with the `after` it recorded and refuses
- * what a colleague moved since: `moved-on` is a plain fact, said calmly and
- * never in error red; `already-undone` re-reads and the row shows who did it.
- */
 function useServerUndo(change: AgentChangeView | undefined, live: LiveMarks, changes: TurnChanges) {
   const t = useTranslations(chatCopy)
   const [busy, setBusy] = useState(false)
@@ -522,7 +391,6 @@ function useServerUndo(change: AgentChangeView | undefined, live: LiveMarks, cha
     try {
       const done = await undoChange(change.id)
       changes.adopt(done.change)
-      // The mark moved back: the canvas's list is read again, not guessed.
       await live.refresh()
     } catch (failure) {
       if (failure instanceof ChangeRequestError && failure.status === 409 && failure.code === 'already-undone') {
@@ -546,7 +414,6 @@ function useServerUndo(change: AgentChangeView | undefined, live: LiveMarks, cha
   return { undo, busy, notice, error }
 }
 
-/** „für Miriam": whom the turn acted for, in the meta line. */
 function ForPerson({ change }: { change: AgentChangeView | undefined }): JSX.Element | null {
   const t = useTranslations(chatCopy)
   if (!change?.onBehalfOfName) return null
@@ -558,7 +425,6 @@ function ForPerson({ change }: { change: AgentChangeView | undefined }): JSX.Ele
   )
 }
 
-/** „Rückgängig gemacht · Anna": somebody took the change back. */
 function UndoneLabel({ who }: { who: string | null }): JSX.Element {
   const t = useTranslations(chatCopy)
   return (
@@ -588,7 +454,6 @@ function UndoButton({ number, busy, onClick }: { number: number; busy: boolean; 
   )
 }
 
-/** What an undo said: a calm fact (somebody moved it on) or an error, under the row. */
 function UndoMessages({ notice, error }: { notice: string | null; error: string | null }): JSX.Element {
   return (
     <>
@@ -606,11 +471,6 @@ function UndoMessages({ notice, error }: { notice: string | null; error: string 
   )
 }
 
-/**
- * The page, small, with the mark where it sits: Piloti's ink, dashed while it
- * is a proposal (the canvas's own convention, `review-page-layer.tsx`). On
- * page 1 the page is the document's own first-page picture.
- */
 function PageSilhouette({
   item,
   state,
@@ -669,11 +529,6 @@ function PageSilhouette({
   )
 }
 
-/**
- * One mark Piloti put on the page: where it is and what it says. A proposal
- * asks for the reader's answer; a mark set at the person's request is open
- * already, and reads like a person's mark.
- */
 function SetRow({
   documentId,
   item,
@@ -692,14 +547,11 @@ function SetRow({
   documentId: string
   item: CanvasSetItem
   live: LiveMarks
-  /** The server's record of this mark being set, when it has one. */
   change: AgentChangeView | undefined
   changes: TurnChanges
   messageId?: string
   cardKey: string
-  /** Whether the reader is asked at all on this surface. */
   mayAct: boolean
-  /** A batch found this mark already decided: undefined when it did not, the person's name or null when it did. */
   skippedBy?: string | null
   thumbnail: string | null
   aspect: number
@@ -707,7 +559,6 @@ function SetRow({
   onShow: ShowInDocument
 }): JSX.Element {
   const t = useTranslations(chatCopy)
-  // An answer stored on the message before the card went live: read, never written.
   const decision = useChatStore((state) =>
     selectCardDecision(state, messageId, itemDecisionKey(cardKey, item.annotation_id))
   )
@@ -719,10 +570,7 @@ function SetRow({
   const undone = change?.undoneAt != null
   const state = undone ? 'gone' : proposal ? markState(decision, current) : createdState(current)
   const mayAnswer = state === 'proposed' && mayAct && (current === undefined || current === 'gone' || current.canEdit)
-  // A proposal is answered with the two buttons; taking back a mark set on
-  // request is the record's undo, offered while the record says it may be.
   const mayUndo = !proposal && change?.canUndo === true && !undone
-  // A mark set at the person's request is open from birth: its label shows only once it moved on.
   const showState = proposal ? state !== 'proposed' : state !== 'open'
 
   const answer = async (status: 'open' | 'dismissed') => {
@@ -730,9 +578,6 @@ function SetRow({
     setBusy(status)
     setError(null)
     try {
-      // The write to the mark is the record. If a colleague answered it on the
-      // canvas meanwhile, the server says 409 and the row shows the state the
-      // canvas has now.
       const outcome = await answerMark(documentId, item.annotation_id, status, live)
       if (outcome === 'moved') await live.refresh()
       else if (outcome === 'forbidden') setError(t('cards.canvasActivity.forbidden'))
@@ -821,10 +666,6 @@ function SetRow({
   )
 }
 
-/**
- * The mark's thread at a glance: „2 Antworten · zuletzt Piloti: „Die Breite…““.
- * Read from the live list, so it moves when someone answers on the canvas.
- */
 function ThreadGlance({ mark }: { mark: LiveMark | 'gone' | undefined }): JSX.Element | null {
   const t = useTranslations(chatCopy)
   if (!mark || mark === 'gone' || mark.replyCount === 0) return null
@@ -842,7 +683,6 @@ function ThreadGlance({ mark }: { mark: LiveMark | 'gone' | undefined }): JSX.El
   )
 }
 
-/** „bereits erledigt von Anna": a batch found this mark decided before it got there. */
 function SkippedNote({ by }: { by: string | null | undefined }): JSX.Element | null {
   const t = useTranslations(chatCopy)
   if (by === undefined) return null
@@ -856,7 +696,6 @@ function SkippedNote({ by }: { by: string | null | undefined }): JSX.Element | n
   )
 }
 
-/** Where a mark stands once it is no longer a proposal, and who put it there when somebody else did. */
 function MarkStateLabel({ state, who }: { state: MarkState; who: string | null }): JSX.Element {
   const t = useTranslations(chatCopy)
   const kept = state === 'open' || state === 'resolved'
@@ -873,7 +712,6 @@ function MarkStateLabel({ state, who }: { state: MarkState; who: string | null }
   )
 }
 
-/** „erledigt", „Anna zugewiesen", „Frist 20. Okt. 2026": one change, in the reader's words. */
 function changePhrase(t: Translate, locale: string, change: CanvasFieldChange): string {
   const after = change.after ?? null
   switch (change.field) {
@@ -900,20 +738,6 @@ function changePhrase(t: Translate, locale: string, change: CanvasFieldChange): 
   }
 }
 
-/**
- * One change Piloti made to a mark for the person, the note it left in the
- * thread, and the way back.
- *
- * With the server's record of the change (`change`) the row is a window onto
- * it: undone or not, by whom, and whether undo is offered all come from the
- * record, and the undo is the server's compare-and-swap (`useServerUndo`).
- *
- * Without one (an answer older than the record, or a request that failed) the
- * card's own copy still stands. Only then does the browser-side replay remain:
- * the inverse PATCH through the reader's own client, read-then-write and
- * guarded by the status Piloti left, with the decision stored per row. It goes
- * when the record covers every answer that can still be on screen.
- */
 function ChangedRow({
   documentId,
   item,
@@ -934,18 +758,14 @@ function ChangedRow({
   changes: TurnChanges
   messageId?: string
   cardKey: string
-  /** Whether the reader is asked at all on this surface. */
   mayAct: boolean
   onShow: ShowInDocument
 }): JSX.Element {
   const t = useTranslations(chatCopy)
   const { locale } = useLocale()
-  // An undo stored on the message before the card went live: read, never written.
   const stored = useChatStore((state) =>
     selectCardDecision(state, messageId, itemDecisionKey(cardKey, `${item.annotation_id}@${index}`))
   )
-  // This mount's own replay (a change without a record): the mark moved back,
-  // which is what a reload reads; nothing is kept on the message.
   const [replayed, setReplayed] = useState(false)
   const [replayBusy, setReplayBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -953,8 +773,6 @@ function ChangedRow({
   const current = live.lookup(item.annotation_id)
   const inverse = undoRequest(item)
   const undone = change ? change.undoneAt !== null : stored === 'rejected' || replayed
-  // Moved on since Piloti's change (by a colleague, or by the reader on the
-  // canvas): the row says where the mark stands and offers no undo.
   const moved =
     !undone &&
     current !== undefined &&
@@ -970,8 +788,6 @@ function ChangedRow({
     setReplayBusy(true)
     setError(null)
     try {
-      // Read first: the status guard alone would let an undo overwrite a
-      // colleague's later assignee, date or wording.
       const now = (await live.refresh())?.(item.annotation_id)
       if (now === 'gone' || (now && !stillAsLeft(item, now))) return
       const updated = await updateAnnotation(documentId, item.annotation_id, inverse)
@@ -1047,10 +863,6 @@ function ChangedRow({
   )
 }
 
-/**
- * A mark Piloti deleted for the person who set it: gone with its thread, so
- * nothing to open. The record may still offer to bring it back.
- */
 function DeletedRow({
   item,
   live,
@@ -1090,7 +902,6 @@ function DeletedRow({
   )
 }
 
-/** One answer Piloti posted into a mark's thread. */
 function RepliedRow({
   item,
   live,

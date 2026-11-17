@@ -1,20 +1,5 @@
 // @vitest-environment node
 // @disk-inputs: tests/fixtures/workspace_mcp_requests.json, tests/fixtures/workspace_mcp_responses.json
-/**
- * The contract between Piloti's Python agent and its own MCP server (ADR-0122).
- *
- * `tests/fixtures/workspace_mcp_requests.json` is written by the Python test
- * `packages/agent/tests/tools/workspace/test_workspace_mcp_contract.py` from the real
- * request builder of `client.py`. Every request in it is replayed here against the
- * REAL `POST` handler of `/api/mcp` (real SDK, real principal, real envelope
- * verification). Only these seams are replaced: the token, a freshly SIGNED
- * envelope, the pinned session lookup, the catalog (the small fake one), and the
- * two things a call would reach into (`callOperation`, `proposeOperation`).
- *
- * What the route really answered is written to `workspace_mcp_responses.json`,
- * which the Python test feeds back through the real response parser. Rewrites the
- * responses fixture when `UPDATE_FIXTURES=1`, otherwise compares.
- */
 
 import { readFileSync, writeFileSync } from 'node:fs'
 import { webcrypto } from 'node:crypto'
@@ -41,7 +26,6 @@ vi.mock('@/lib/agent-api/telemetry', () => ({
 }))
 vi.mock('@/lib/agent-api/operation-proposals', () => ({ proposeOperation: vi.fn() }))
 vi.mock('@/lib/agent-api/conversation-audience', async (importOriginal) => ({
-  // The real judge and refusals; who reads the conversation and the record are the database's.
   ...(await importOriginal<typeof import('@/lib/agent-api/conversation-audience')>()),
   conversationAudienceOf: vi.fn(),
   ownRestrictingFolders: vi.fn(async () => []),
@@ -96,7 +80,6 @@ const session = {
   featureFlags: null,
 }
 
-/** The envelope the fixture names, with a current `issuedAt`, signed with `secret`. */
 function envelopeSignedWith(secret: string): { header: string; signature: string } {
   const json = JSON.stringify({ ...fixture.envelopePayload, issuedAt: Date.now() })
   return {
@@ -107,7 +90,6 @@ function envelopeSignedWith(secret: string): { header: string; signature: string
 
 type Tamper = (headers: Record<string, string>) => void
 
-/** The recorded request with the placeholders filled in, as the BFF would receive it. */
 function replay(recorded: RecordedRequest, tamper?: Tamper): Request {
   const { header, signature } = envelopeSignedWith(SECRET)
   const swaps: Record<string, string> = {
@@ -132,7 +114,6 @@ const recorded = (name: string): RecordedRequest => {
   return found
 }
 
-/** What the Python client reads: status, content type, and the raw body. */
 async function captured(response: Response): Promise<RecordedResponse> {
   return {
     status: response.status,
@@ -141,7 +122,6 @@ async function captured(response: Response): Promise<RecordedResponse> {
   }
 }
 
-/** The JSON-RPC message of a captured answer, JSON or SSE. */
 function messageOf<T>(answer: RecordedResponse): T {
   const data = answer.body.split('\n').find((line) => line.startsWith('data:'))
   return JSON.parse(data ? data.slice('data:'.length) : answer.body) as T
@@ -158,11 +138,9 @@ type ToolResult = {
 const answers: Record<string, RecordedResponse> = {}
 
 beforeAll(() => {
-  // The shared setup file swaps `crypto` for a stub with no randomUUID, which the SDK uses.
   vi.stubGlobal('crypto', webcrypto)
 })
 
-/** Who reads the conversation: the requester alone, or someone else too. */
 const audienceOf = (solo: boolean) => ({
   row: { exists: true, projectId: null, createdBy: 'user_1', visibility: 'private' as const, grantees: solo ? [] : ['user_2'] },
   solo,
@@ -315,7 +293,6 @@ describe('what the route says to a request the client cannot make valid', () => 
     answers[name] = answer
     expect(answer.status).toBe(status)
     const body = JSON.parse(answer.body) as { error: string }
-    // The client relays `error` as a string: `_http_refusal` reads `payload["error"]`.
     expect(typeof body.error).toBe('string')
     expect(body.error.length).toBeGreaterThan(0)
   }

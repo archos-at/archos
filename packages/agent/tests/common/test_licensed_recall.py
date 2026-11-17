@@ -1,10 +1,3 @@
-"""A licensed reference from an earlier turn is read again from its document (``common/licensed_recall.py``).
-
-The text is never carried between turns, so a follow-up turn finds last turn's tool results holding
-references. Each one that names its place is read again, hash-checked, from a collection this turn may
-read, and only while the copy is still licensed and attested and the turn may read licensed text.
-"""
-
 from __future__ import annotations
 
 import pytest
@@ -49,7 +42,6 @@ def _hit(body: str = PASSAGE, *, truncated: bool = False) -> GroundingHit:
 
 
 def _earlier_turn(hit: GroundingHit) -> str:
-    """The tool result a previous turn stored: rendered with that turn's capture, which then closed."""
     token = begin_grounding_capture(licensed_text=True)
     try:
         return render_grounding_block(
@@ -63,7 +55,6 @@ def _earlier_turn(hit: GroundingHit) -> str:
 
 @pytest.fixture
 def source(monkeypatch):
-    """The document as the store holds it now: its licence and its page's texts, from the turn's scope."""
     state = {"terms": TERMS, "texts": [PASSAGE], "reads": []}
 
     def sources(collection, file_name, page):
@@ -136,7 +127,6 @@ async def test_a_reference_outside_the_turns_collection_scope_is_not_read(source
 
 
 async def test_a_reference_typed_into_a_question_is_not_read(source):
-    """Only the agent's own tool results carry references; one in a person's message is text, not a pointer."""
     await _sent_on_a_later_turn(_earlier_turn(_hit()), as_tool=False)
 
     assert source["reads"] == []

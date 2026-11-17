@@ -1,5 +1,3 @@
-"""The claim lease the workers share: one env reader, one liveness marker, and defaults the BFF agrees with."""
-
 from __future__ import annotations
 
 import re
@@ -10,7 +8,6 @@ import pytest
 from agent_host.jobs import lease_policy
 
 _WORKSPACE = Path(__file__).resolve().parents[3] / "apps" / "workspace"
-# Where each BFF default is read since the claim loop moved to Hatchet (ADR-0150).
 _BFF_RUNNER = _WORKSPACE / "workers" / "jobs" / "index.js"
 _BFF_ATTEMPTS = _WORKSPACE / "bff" / "jobs-queue" / "attempts.ts"
 _BFF_TASK = _WORKSPACE / "bff" / "jobs-queue" / "task.ts"
@@ -60,7 +57,6 @@ def _bff_max_attempts() -> int:
 
 
 def test_the_bff_jobs_share_the_lease_defaults_that_are_meant_to_be_shared():
-    """Max attempts and dead retention are one policy. The drain is not: a BFF slice is a minute, a run ten."""
     assert _bff_max_attempts() == lease_policy.MAX_ATTEMPTS
     assert _bff_default(_BFF_TASK, "BFF_JOBS_DEAD_RETENTION_DAYS") == lease_policy.DEAD_RETENTION_DAYS
     assert _bff_default(_BFF_RUNNER, "BFF_JOBS_DRAIN_SECONDS") == 60

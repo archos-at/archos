@@ -245,6 +245,63 @@ A related failure with the same root: stopping because the remaining work is
 large. Size is not ambiguity. A long task is finished by working through it, and
 "this is a lot, shall I?" is the same stall wearing a different hat.
 
+## Code is memory; a comment is a liability
+
+Sources: Potato's talk on the agent environment behind the Grok desktop client
+(<https://youtu.be/O_zcc6Xl12g>, watched 2026-11-16), and Anthropic's prompting
+guide for the current model family, section "Say who owns the code"
+(<https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-fable-5-2#say-who-owns-the-code>,
+undated, read 2026-11-16; kept despite the
+[three-month rule](#prompting-advice-has-a-three-month-shelf-life) because it is
+the vendor's live page for the model this repo runs).
+
+**The codebase is the agent's largest input, and it repeats what it finds.** A
+workaround, a deprecated call or a comment that justifies a shortcut looks like
+the established pattern to the next agent, which copies it. Code arrives as a
+stream now, so a weed spreads before review sees it. Keep the code the way you
+want it copied: remove the workaround rather than explain it.
+
+**Spend effort in this order.** First the code and its deterministic checks: API
+design, architecture, types, lint rules, tests. Then verification: running the
+code, property and formal checks, review artifacts such as captures and traces.
+Prose (rules, skills, this file) comes last, for what needs judgment. Each
+correction you give an agent moves down that list if it can: a check is
+reproducible, a sentence is not.
+
+**A comment is a liability.** It goes stale without a diff, no check reads it,
+and it gives an agent a place to justify not doing the right thing. The talk's
+case: agents patched an architecture clash with `setTimeout` and wrote comments
+explaining why each patch was fine; the timers spread through the app until
+garbage collection made it lag. Their fix was to ban almost all comments and
+encode each lesson as a lint rule whose message names the root cause.
+
+So, here:
+
+- Fix the code instead of commenting on it. If a rule must hold, make it a
+  check whose error says what to do instead: this repo's ratchets
+  (`scripts/check_*.py`), the module seams (dependency-cruiser, import-linter)
+  and the `any` ban are that pattern.
+- An API that takes nuance to use well is a candidate for a ban outside the one
+  module that wraps it, held by a lint rule, so the misuse cannot recur.
+- A comment may still carry what neither the code nor a check can: a measured
+  number with its date, a vendor bug with its link, a legal or contractual
+  constraint. Short, and never "why this workaround is acceptable".
+- Deleting a comment that restates the code is a cleanup, not a loss.
+- **Needing to explain how code works is an architectural fault.** If a reader
+  needs prose to follow what a module does, the names, the boundaries or the
+  data shapes are wrong: rethink the design until the code reads on its own,
+  rather than documenting around it. What a person must know about why it is
+  built this way goes in an ADR.
+
+**Say who owns the code.** The root `AGENTS.md` opens with the
+guide's sentence: you are the owner and long-term maintainer of this codebase,
+and its design is up to you. In Anthropic's tests a model told this
+consolidated duplicated code in about 75% of runs instead of under 10%. The
+cost, from the same page: more unrequested change (tests, docs, sometimes a
+changed behaviour) and 70–80% more output, and a PR summary that leaves small
+changes out. Review the diff, not only the summary. A task where the user wants
+the smallest possible change says so, and that wins.
+
 ## Ratchet every correction
 
 A **ratchet** turns one way and cannot slip back. A correction that changes only

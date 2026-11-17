@@ -1,11 +1,3 @@
-"""Tests for the SSE generators.
-
-Covers: NOTIFY-gap recovery (a lost/out-of-order NOTIFY must not drop events),
-terminal drain via range fetch (the final report artifact must not be lost to
-a dropped NOTIFY), and mid-stream pub-sub failure resuming the polling fallback
-from the last yielded event instead of replaying the whole stream.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -22,7 +14,6 @@ from agent_host.jobs.connection_manager import reset_connection_manager
 from agent_host.jobs.event_store import EventStore
 from agent_host.routes import job_event_stream
 
-#: The direct (non-pooled) DSN LISTEN connects to: `LISTEN_DB_URL` in a deployment.
 DIRECT_DSN = "postgresql://agent:pw@grid-pg-rw:5432/jobs"  # pragma: allowlist secret
 
 
@@ -41,9 +32,6 @@ def clear_state():
 
 
 class FakeListenConnection:
-    """Stands in for an asyncpg LISTEN connection; captures the handler so
-    tests can inject notifications directly."""
-
     def __init__(self):
         self.handler = None
         self.channel = None
@@ -61,9 +49,6 @@ class FakeListenConnection:
 
 @pytest.mark.asyncio
 async def test_notification_gap_recovered_by_range_fetch_and_terminal_drain(db_url, monkeypatch):
-    """A NOTIFY for only the newest event must still deliver all earlier unseen
-    events (range fetch), and events written after the last NOTIFY must be
-    delivered by the terminal drain's final range fetch."""
 
     fake_conn = FakeListenConnection()
     fake_asyncpg = types.SimpleNamespace(connect=AsyncMock(return_value=fake_conn))
@@ -79,13 +64,9 @@ async def test_notification_gap_recovered_by_range_fetch_and_terminal_drain(db_u
 
     gen = job_event_stream._sse_generator_postgres(job_store, job_id, db_url, 0)
 
-    # No historical events yet: the first yield is the stream.mode announcement.
     first = await asyncio.wait_for(gen.__anext__(), timeout=5.0)
     assert "stream.mode" in first
 
-    # Let the generator pass the reconciliation fetch and block on the
-    # notification queue, THEN store three events but deliver a NOTIFY for
-    # only the last one (simulating two lost/out-of-order NOTIFYs).
     pending = asyncio.ensure_future(gen.__anext__())
     await asyncio.sleep(0.3)
     store.store({"type": "step.one", "data": {}})
@@ -101,13 +82,10 @@ async def test_notification_gap_recovered_by_range_fetch_and_terminal_drain(db_u
     assert "event: step.two" in chunk2
     assert "event: step.three" in chunk3
 
-    # Job flips to success -> job.status is emitted next.
     status_chunk = await asyncio.wait_for(gen.__anext__(), timeout=5.0)
     assert "event: job.status" in status_chunk
     assert '"status": "success"' in status_chunk
 
-    # Final report artifact stored WITHOUT any NOTIFY: the terminal drain's
-    # final range fetch must still deliver it.
     store.store({"type": "artifact.update", "data": {"type": "output", "content": "final report"}})
     final_chunk = await asyncio.wait_for(gen.__anext__(), timeout=5.0)
     assert "event: artifact.update" in final_chunk
@@ -119,15 +97,12 @@ async def test_notification_gap_recovered_by_range_fetch_and_terminal_drain(db_u
 
 @pytest.mark.asyncio
 async def test_listen_connects_to_the_direct_dsn_never_the_job_store_url(db_url, monkeypatch):
-    """LISTEN registers on one server connection; behind the transaction pooler
-    that is not the client's, and no notification would ever arrive (ADR-0083)."""
 
     connect = AsyncMock(return_value=FakeListenConnection())
     monkeypatch.setitem(sys.modules, "asyncpg", types.SimpleNamespace(connect=connect))
     monkeypatch.setenv("LISTEN_DB_URL", DIRECT_DSN)
     job_store = SimpleNamespace(get_job=AsyncMock(return_value=SimpleNamespace(status="running", error=None)))
 
-    # `db_url` stands for the job-store URL, which is the pooled one in a deployment.
     gen = job_event_stream._sse_generator_postgres(job_store, "sse-job", db_url, 0)
     await asyncio.wait_for(gen.__anext__(), timeout=5.0)
     await gen.aclose()
@@ -137,12 +112,6 @@ async def test_listen_connects_to_the_direct_dsn_never_the_job_store_url(db_url,
 
 @pytest.mark.asyncio
 async def test_the_stream_never_listens_on_the_job_store_url(db_url, monkeypatch):
-    """No `LISTEN_DB_URL`, no LISTEN: there is no default to the pooled URL.
-
-    `require_direct_dsns` refuses to boot the web tier without it (see
-    `test_direct_dsn_startup.py`), so this is the assertion behind that check and
-    not a runtime path: the stream does not connect.
-    """
 
     connect = AsyncMock()
     monkeypatch.setitem(sys.modules, "asyncpg", types.SimpleNamespace(connect=connect))
@@ -157,8 +126,6 @@ async def test_the_stream_never_listens_on_the_job_store_url(db_url, monkeypatch
 
 @pytest.mark.asyncio
 async def test_pubsub_midstream_failure_resumes_polling_from_last_yielded_event(monkeypatch):
-    """The polling fallback must resume from the pub-sub generator's cursor,
-    not replay the whole stream from the original start_event_id."""
 
     resume: dict = {}
 
@@ -186,7 +153,6 @@ async def test_pubsub_midstream_failure_resumes_polling_from_last_yielded_event(
 
 @pytest.mark.asyncio
 async def test_pubsub_failure_before_any_event_resumes_from_start_event_id(monkeypatch):
-    """If pub-sub dies before yielding anything, polling starts at the original cursor."""
 
     resume: dict = {}
 
@@ -212,17 +178,7 @@ async def test_pubsub_failure_before_any_event_resumes_from_start_event_id(monke
 
 @pytest.mark.asyncio
 async def test_a_silent_stream_sends_a_keepalive_instead_of_going_byte_quiet(db_url, monkeypatch):
-    """A job that produces no events for a while must still keep the pipe warm.
 
-    Neither generator emitted anything while a job sat queued or a worker was
-    still building its graph, and deep research is silent for minutes at a time
-    by design. Node's undici applies a 300 s inactivity ``bodyTimeout`` to the
-    BFF's ``fetch`` of this stream, so a quiet run was torn down from the proxy
-    side at exactly the moment the reader was waiting hardest — the "deep
-    research just stops" report, with a healthy job still running behind it.
-    """
-
-    # Fire on the first silent tick rather than making the test wait 20 s.
     monkeypatch.setattr(job_event_stream, "SSE_KEEPALIVE_SECONDS", 0.0)
 
     job_id = "sse-quiet-job"
@@ -236,7 +192,6 @@ async def test_a_silent_stream_sends_a_keepalive_instead_of_going_byte_quiet(db_
             chunks.append(await asyncio.wait_for(gen.__anext__(), timeout=5.0))
 
         assert any(chunk == job_event_stream.SSE_KEEPALIVE_FRAME for chunk in chunks), chunks
-        # A comment frame, so `EventSource` ignores it and no client sees an event.
         assert job_event_stream.SSE_KEEPALIVE_FRAME.startswith(":")
     finally:
         await gen.aclose()
@@ -244,7 +199,6 @@ async def test_a_silent_stream_sends_a_keepalive_instead_of_going_byte_quiet(db_
 
 @pytest.mark.asyncio
 async def test_a_stream_carrying_real_events_sends_no_keepalives(db_url, monkeypatch):
-    """The keepalive fills genuine silence; it must not add noise to a busy stream."""
 
     monkeypatch.setattr(job_event_stream, "SSE_KEEPALIVE_SECONDS", 0.0)
 
@@ -258,7 +212,6 @@ async def test_a_stream_carrying_real_events_sends_no_keepalives(db_url, monkeyp
 
     gen = job_event_stream._sse_generator_polling(job_store, job_id, db_url, 0)
     try:
-        # The replay of the three stored events must come through unpolluted.
         chunks = []
         for _ in range(4):
             chunks.append(await asyncio.wait_for(gen.__anext__(), timeout=5.0))

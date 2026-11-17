@@ -31,7 +31,6 @@ function mockDbSelect(rows: Array<{ organizationId: string }>) {
   };
 }
 
-/** What WorkOS answers for the caller's effective permissions on the project. */
 function setupWorkOS(held: Record<string, boolean>) {
   const effective = vi.fn(async () => ({
     autoPagination: async () =>
@@ -57,12 +56,9 @@ const baseSession: AuthorizedSession = {
   featureFlags: null,
 };
 
-/** A real project id is a uuid; the tenancy probe answers null for anything else. */
 const PROJECT_ID = "00000000-0000-4000-8000-000000000001";
 
 describe("requireProjectAccess", () => {
-  // Every test below asks about the same (session, project) with different
-  // FGA answers, so the authz cache (default TTL 30s) must be off here.
   beforeEach(() => {
     process.env.AUTHZ_CACHE_TTL_MS = "0";
     vi.clearAllMocks();
@@ -88,8 +84,6 @@ describe("requireProjectAccess", () => {
   });
 
   test("org admins are denied on another organization's project", async () => {
-    // Regression: the admin fast-path used to return BEFORE the tenancy
-    // check, letting an org-A admin act on an org-B project by id.
     mockGetDb.mockReturnValue(
       mockDbSelect([{ organizationId: "org_other" }]) as never,
     );

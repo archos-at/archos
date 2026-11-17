@@ -1,13 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The filing job (`inbound_mail_file`): each claimed part filed as the person
- * who decided, from its decision row; the attachments before the text, so the
- * entry knows what became of them; every refusal a part waiting again with its
- * failure; a thread being written makes the run wait without spending an
- * attempt; a mail all of whose parts are filed settles.
- */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
@@ -534,7 +527,6 @@ describe('settling', () => {
       done.mail.readStorageKey,
     ])
     expect(settleFiledMail).toHaveBeenCalledWith(done.mail, false)
-    // By what the project still holds: the collapsed row anchors on its newest mail, not this one.
     expect(settleProjectNotices).toHaveBeenCalledWith(session.organizationId, PROJECT_ID)
   })
 

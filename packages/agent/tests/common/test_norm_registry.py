@@ -1,5 +1,3 @@
-"""Tests for the flat norm registry (agent.common.norm_registry)."""
-
 import json
 import os
 from pathlib import Path
@@ -49,11 +47,6 @@ def _clean_state():
     nr.reset_registry_cache()
 
 
-# ---------------------------------------------------------------------------
-# Loading
-# ---------------------------------------------------------------------------
-
-
 class TestLoader:
     def test_valid_file_loads(self, tmp_path):
         _write_registry(tmp_path, "at", [_entry("bo-wien"), _entry("aschg", rank="federal_law", federal_state="")])
@@ -78,8 +71,6 @@ class TestLoader:
         first = nr.load_registry(str(tmp_path))
         assert [e.id for e in first.entries] == ["bo-wien"]
 
-        # Rewrite with different content and push the mtime forward so the
-        # mtime-keyed cache reloads instead of serving the stale parse.
         _write_registry(tmp_path, "at", [_entry("bo-noe", federal_state="Niederösterreich")])
         st = path.stat()
         os.utime(path, ns=(st.st_atime_ns, st.st_mtime_ns + 1_000_000_000))
@@ -161,11 +152,6 @@ class TestLoader:
         assert registry.by_id("bo-wien") is not None
 
 
-# ---------------------------------------------------------------------------
-# Matching
-# ---------------------------------------------------------------------------
-
-
 def _match_registry() -> nr.NormRegistry:
     return nr.NormRegistry(
         entries=[
@@ -207,13 +193,7 @@ class TestMatching:
         assert nr.match_entries(_match_registry(), "") == []
 
     def test_short_terms_never_match(self):
-        # "bo" (< _MIN_TOPIC_LENGTH) must not trip any needle.
         assert nr.match_entries(_match_registry(), "bo") == []
-
-
-# ---------------------------------------------------------------------------
-# focus_entries
-# ---------------------------------------------------------------------------
 
 
 class TestFocus:
@@ -229,14 +209,8 @@ class TestFocus:
         assert nr.focus_entries(entries, None) == entries
 
 
-# ---------------------------------------------------------------------------
-# extract_federal_state
-# ---------------------------------------------------------------------------
-
-
 class TestExtractFederalState:
     def test_structured_token_beats_name_probing(self):
-        # A Lower-Austrian project that also mentions Wien: the structured token wins.
         assert nr.extract_federal_state("federal_state=lower_austria; Baustelle nahe Wien") == "Niederösterreich"
 
     def test_structured_ausserhalb_returns_none(self):
@@ -249,11 +223,6 @@ class TestExtractFederalState:
     def test_no_federal_state(self):
         assert nr.extract_federal_state("kein Landesbezug") is None
         assert nr.extract_federal_state(None) is None
-
-
-# ---------------------------------------------------------------------------
-# render_prompt_block
-# ---------------------------------------------------------------------------
 
 
 def _render_registry() -> nr.NormRegistry:
@@ -293,7 +262,6 @@ class TestRenderPromptBlock:
         assert "ASchG" in block
         assert "State law (Landesrecht) — Wien:" in block
         assert "State law (Landesrecht) — Tirol:" in block
-        # ADR-0175: no corpus edition is asserted here; the chain text names what binds.
         assert "Ausgabe Mai 2023" not in block
 
     def test_focused_state_drops_other_states(self):
@@ -304,7 +272,6 @@ class TestRenderPromptBlock:
         assert "Tirol" not in block  # other state's law entirely absent
 
     def test_no_binding_note_is_rendered(self):
-        """ADR-0175: which edition binds is the records' chain text, not the catalogue's prose."""
         block = nr.render_prompt_block(_render_registry(), federal_state="Wien")
 
         assert "Legal notes (curated):" not in block
@@ -312,11 +279,6 @@ class TestRenderPromptBlock:
 
     def test_render_block_for_prompt_none_when_missing(self, tmp_path):
         assert nr.render_block_for_prompt(norms_dir=str(tmp_path / "nope")) is None
-
-
-# ---------------------------------------------------------------------------
-# oib_doc_class (derived from data/oib filename convention)
-# ---------------------------------------------------------------------------
 
 
 class TestOibDocClass:
@@ -338,11 +300,6 @@ class TestOibDocClass:
     def test_non_oib_returns_none(self):
         assert nr.oib_doc_class("bauordnung_wien.pdf") is None
         assert nr.oib_doc_class("random.txt") is None
-
-
-# ---------------------------------------------------------------------------
-# lane_for_hit (display-strata classification)
-# ---------------------------------------------------------------------------
 
 
 class TestLaneForHit:
@@ -403,8 +360,6 @@ class TestLaneForHit:
         assert nr.lane_for_hit(source_url="https://WWW.WIEN.GV.AT/x") == authority
 
     def test_lookalike_hosts_stay_web(self):
-        # Host-boundary matching: a lookalike host or a domain mentioned in the
-        # path/query must not inherit an authoritative lane.
         assert nr.lane_for_hit(source_url="https://evil.example/wien.gv.at") == ("web", "Web")
         assert nr.lane_for_hit(source_url="https://evil.example/?q=ris.bka.gv.at") == ("web", "Web")
         assert nr.lane_for_hit(source_url="https://wien.gv.at.evil.example/x") == ("web", "Web")
@@ -415,36 +370,28 @@ class TestLaneForHit:
 
     def test_project_collections(self):
         assert nr.lane_for_hit(collection="proj_123") == ("project", "Projektwissen")
-        # A session attachment shares the project's colour and says whose it is.
         assert nr.lane_for_hit(collection="s_session42") == ("project", "Private Sitzung")
 
     def test_a_shelf_the_caller_knows_beats_the_collection_guess(self):
         assert nr.lane_for_hit(collection="whatever", shelf="office_shelf") == ("office", "Büroablage")
 
     def test_the_default_class_never_relabels_a_users_document(self):
-        # Ingestion used to stamp "other" on every upload; on a user's own
-        # shelf that guess is not a decision, and the shelf wins.
         assert nr.lane_for_hit(collection="proj_123", doc_class="other") == ("project", "Projektwissen")
         assert nr.lane_for_hit(collection="archiv_org", doc_class="other") == ("office", "Büroablage")
         assert nr.lane_for_hit(collection="s_chat", doc_class="other") == ("project", "Private Sitzung")
-        # A base-corpus file nobody classified is still a base document.
         assert nr.lane_for_hit(collection="oib_knowledge", doc_class="other") == ("building_law_base", "Basisdokument")
-        # A human-set class on a project file still wins (see the test above).
 
     def test_unknown_defaults_to_web(self):
         assert nr.lane_for_hit() == ("web", "Web")
         assert nr.lane_for_hit(file_name="notes.txt") == ("web", "Web")
 
     def test_explicit_doc_class_overrides_filename_guess(self):
-        # A file whose name gives no OIB hint, but a human set doc_class:
-        # the explicit class wins and lands in the OIB-Richtlinie lane.
         assert nr.lane_for_hit(file_name="randomname.pdf", doc_class="oib_guideline") == (
             "building_law_oib",
             "OIB-Richtlinie",
         )
 
     def test_explicit_doc_class_overrides_collection(self):
-        # Even a project-collection hit is re-homed by an explicit doc_class.
         assert nr.lane_for_hit(collection="proj_123", doc_class="law") == (
             "building_law_ris",
             "Rechtsquelle (RIS)",
@@ -457,7 +404,6 @@ class TestLaneForHit:
         assert nr.lane_for_hit(doc_class="external_standard") == ("external_standard", "Externe Norm")
 
     def test_invalid_doc_class_falls_through(self):
-        # An unknown doc_class is ignored (fail-open); filename guess applies.
         assert nr.lane_for_hit(doc_class="bogus", file_name="oib-rl_2_ausgabe_mai_2023.pdf") == (
             "building_law_oib",
             "OIB-Richtlinie",
@@ -465,31 +411,17 @@ class TestLaneForHit:
 
 
 class TestLaneForAgentAuthoredHit:
-    """Stated provenance outranks every other signal in the classifier.
-
-    A published Piloti document is filed on the project or the Büroablage shelf
-    like any other document, and ingest stamps it with a doc_class like any
-    other document. Both of those are how it would silently lose its author:
-    the shelf would make it Projektwissen, and the doc_class would file it in
-    the norm hierarchy under a label fallback that reads "Baurecht".
-    """
-
     def test_provenance_gives_the_document_its_own_lane(self):
         assert nr.lane_for_hit(authored_by="agent") == ("office_piloti", AGENT_AUTHORED_LANE_LABEL)
 
     def test_it_beats_the_project_shelf(self):
-        """The headline defect: on the project shelf it would wear the
-        Projektwissen chip, and nothing would say Piloti wrote it."""
         assert nr.lane_for_hit(shelf="project", collection="proj_abc", authored_by="agent") == (
             "office_piloti",
             AGENT_AUTHORED_LANE_LABEL,
         )
-        # Same hit without the provenance — the shelf decides, exactly as before.
         assert nr.lane_for_hit(shelf="project", collection="proj_abc") == ("project", "Projektwissen")
 
     def test_it_beats_an_explicit_doc_class(self):
-        """doc_class is the first-priority signal for everything else, and its
-        label fallback is "Baurecht" — law blue for a document we wrote."""
         assert nr.lane_for_hit(doc_class="law", shelf="office_shelf", authored_by="agent") == (
             "office_piloti",
             AGENT_AUTHORED_LANE_LABEL,
@@ -513,8 +445,6 @@ class TestLaneForAgentAuthoredHit:
 
 
 class TestLaneForMailHit:
-    """A chunk of a filed E-Mail-Verlauf (``source_format: mail``) is in the mail lane of its shelf."""
-
     def test_a_project_thread_is_project_mail(self):
         assert nr.lane_for_hit(shelf="project", collection="proj_abc", source_format="mail") == (
             "project_mail",
@@ -525,12 +455,10 @@ class TestLaneForMailHit:
         assert nr.lane_for_hit(shelf="office_shelf", source_format="mail") == ("office_mail", "E-Mail")
 
     def test_an_authority_domain_on_a_mail_never_reaches_the_authority_lane(self):
-        """MA 37's domain makes a URL the curated authority lane; on a mail it makes nothing."""
         lane = nr.lane_for_hit(shelf="project", source_url="https://www.wien.gv.at/ma37", source_format="mail")
         assert lane == ("project_mail", "E-Mail")
 
     def test_it_outranks_a_doc_class_a_person_set(self):
-        """A thread a person classed as law is still a conversation: each section is one sender's message."""
         assert nr.lane_for_hit(doc_class="law", shelf="project", source_format="mail")[0] == "project_mail"
 
     def test_the_stated_author_still_outranks_it(self):
@@ -545,12 +473,7 @@ class TestLaneForMailHit:
 
 
 class TestLaneForKnowledgeHit:
-    """A retrieved document is something we hold — it can never be Web."""
-
     def test_the_fail_open_lane_becomes_project_knowledge(self):
-        # No doc_class, no recognizable collection prefix, no OIB filename:
-        # lane_for_hit fails open to Web. For a knowledge-layer hit that value
-        # means "no signal matched", not "this came off the internet".
         assert nr.lane_for_hit(file_name="Bestandsplan.pdf") == ("web", "Web")
         assert nr.lane_for_knowledge_hit(file_name="Bestandsplan.pdf") == ("project", "Projektwissen")
 
@@ -560,11 +483,6 @@ class TestLaneForKnowledgeHit:
             "OIB-Richtlinie",
         )
         assert nr.lane_for_knowledge_hit(collection="archiv_org1") == ("office", "Büroablage")
-
-
-# ---------------------------------------------------------------------------
-# guess_doc_class (filename pre-fill for the explicit doc_class vocabulary)
-# ---------------------------------------------------------------------------
 
 
 class TestGuessDocClass:
@@ -588,11 +506,6 @@ class TestGuessDocClass:
         assert nr.guess_doc_class("") == "other"
 
 
-# ---------------------------------------------------------------------------
-# Smoke test against the real repository registry file.
-# ---------------------------------------------------------------------------
-
-
 def test_repo_registry_has_24_entries():
     registry = nr.load_registry(str(REPO_ROOT / "configs" / "norms"))
 
@@ -601,9 +514,6 @@ def test_repo_registry_has_24_entries():
 
 
 def test_salzburg_permit_questions_reach_the_baupolizeigesetz():
-    """Salzburg keeps its permit procedure out of the Bautechnikgesetz; the
-    catalog pointed "bewilligungsfrei" at the technical act and the lookup never
-    found the law the question was about (answer suite, 2026-09-24)."""
     registry = nr.load_registry(str(REPO_ROOT / "configs" / "norms"))
     permits = {
         entry.id for entry in registry.entries if entry.federal_state == "Salzburg" and "baubewilligung" in entry.topics
@@ -612,8 +522,6 @@ def test_salzburg_permit_questions_reach_the_baupolizeigesetz():
 
 
 class TestNonRisEntries:
-    """Non-RIS lanes: behoerdliche_info (web source) and norm_extern (no full text)."""
-
     @staticmethod
     def _write(tmp_path, entries):
         import yaml
@@ -645,9 +553,6 @@ class TestNonRisEntries:
         assert "Source: https://www.wien.gv.at/x" in block
 
     def test_entry_with_both_urls_renders_both(self, tmp_path):
-        # Regression: an entry carrying a consolidated-law link AND a curated
-        # annex/source link must render BOTH — an `elif` previously dropped
-        # ``source_url`` whenever ``full_law_url`` was also set.
         entry = self._base(full_law_url="https://www.ris.bka.gv.at/GeltendeFassung/x")
         registry = nr.load_registry(self._write(tmp_path, [entry]))
         block = nr.render_prompt_block(registry, federal_state="Wien")
@@ -677,8 +582,6 @@ class TestNonRisEntries:
 
 
 class TestParcelNote:
-    """Parcel documents in the project RAG are surfaced as the governing source."""
-
     def test_none_without_documents(self):
         assert nr.parcel_note(None) is None
         assert nr.parcel_note([]) is None
@@ -694,15 +597,10 @@ class TestParcelNote:
         assert note is not None
         assert "Bebauungsplan: bplan_7602.pdf" in note
         assert "Flächenwidmungsplan: fwp_wien.pdf" in note
-        # The heading names what these documents govern; that is the whole claim.
         assert "authoritative for zoning, building height, building lines" in note
         assert "gutachten.pdf" not in note
 
     def test_the_note_is_the_file_list_and_not_the_doctrine(self):
-        """What to DO with a parcel document is standing doctrine and lives
-        above the KV-cache boundary (`prompts/chat_static.md`). Repeating it
-        under the file list charged the same three sentences on every call of
-        every turn that had one (ADR-0060 amendment)."""
         note = nr.parcel_note([{"file_name": "bplan_7602.pdf", "tags": ["Bebauungsplan"]}])
 
         assert note is not None
@@ -722,8 +620,6 @@ class TestParcelNote:
 
 
 class TestGuessDisplayTitle:
-    """The default display-title seed derived from the OIB filename convention."""
-
     def test_guideline(self):
         assert nr.guess_display_title("oib-rl_2_ausgabe_mai_2023.pdf") == "OIB-Richtlinie 2, Ausgabe Mai 2023"
 
@@ -734,7 +630,6 @@ class TestGuessDisplayTitle:
         assert nr.guess_display_title("oib-rl_2_leitfaden_ausgabe_mai_2023.pdf") == (
             "OIB-Richtlinie 2 – Leitfaden, Ausgabe Mai 2023"
         )
-        # The corpus has a hyphen variant for RL 6; it must normalize identically.
         assert nr.guess_display_title("oib-rl_6-leitfaden_ausgabe_mai_2023.pdf") == (
             "OIB-Richtlinie 6 – Leitfaden, Ausgabe Mai 2023"
         )
@@ -762,8 +657,6 @@ class TestGuessDisplayTitle:
         assert nr.guess_display_title("oib-rl_6_ausgabe_mai_2023.pdf") == "OIB-Richtlinie 6, Ausgabe Mai 2023"
 
     def test_an_edition_other_than_the_shipped_one_is_read_not_assumed(self):
-        # The parser used to know exactly one edition, so the next OIB release
-        # would have been labelled "Mai 2023" or refused outright.
         assert nr.guess_display_title("oib-rl_2_ausgabe_maerz_2019.pdf") == "OIB-Richtlinie 2, Ausgabe März 2019"
         assert nr.guess_display_title("oib-rl_4_ausgabe_april_2027.pdf") == "OIB-Richtlinie 4, Ausgabe April 2027"
         assert nr.guess_display_title("oib-rl_4_ausgabe_2015.pdf") == "OIB-Richtlinie 4, Ausgabe 2015"
@@ -776,11 +669,7 @@ class TestGuessDisplayTitle:
         assert nr.guess_display_title("") is None
 
     def test_covers_every_real_corpus_file(self):
-        """Every shipped OIB corpus PDF derives a confident (non-None) title."""
         corpus = Path("data/oib")
-        # The directory is committed (it carries a README); the PDFs are
-        # operator-provided and gitignored. Guarding on the directory would let
-        # this pass vacuously in every fresh clone, asserting nothing at all.
         pdfs = sorted(corpus.glob("*.pdf"))
         if not pdfs:
             pytest.skip("no OIB corpus in this checkout — see data/oib/README.md")
@@ -789,14 +678,6 @@ class TestGuessDisplayTitle:
 
 
 class TestNormsDirResolution:
-    """The YAML seed must be found from any working directory of the checkout.
-
-    Every package suite that boots the registry (``apps/agent-host`` included)
-    used to see an empty registry when run from its own directory: the default
-    ``configs/norms`` is cwd-relative, and nothing said so. It failed four route
-    tests for weeks and read as a test bug.
-    """
-
     def test_explicit_path_wins(self, tmp_path, monkeypatch):
         monkeypatch.setenv(nr.ENV_NORMS_DIR, str(tmp_path / "env"))
         assert nr._norms_dir(str(tmp_path / "explicit")) == tmp_path / "explicit"
@@ -821,14 +702,6 @@ class TestNormsDirResolution:
 
 
 class TestOibFamilies:
-    """Which Richtlinien belong together, derived from what is INDEXED.
-
-    "OIB-Richtlinien 1–6" names no members, and OIB-RL 2 is four documents.
-    Membership is derived from the corpus's own filenames rather than listed
-    here, so a deployment without a 2.3 is never told it has one and a corpus
-    that grows a 2.4 needs no code change.
-    """
-
     def test_a_guideline_with_parts_reports_all_of_them(self):
         from agent.common.norm_registry import oib_families
 
@@ -845,16 +718,11 @@ class TestOibFamilies:
         assert families[0].label == "OIB-Richtlinie 2"
 
     def test_a_guideline_without_parts_is_still_a_family(self):
-        """One member is a fact about the corpus. It is a different statement
-        from "we do not know what parts it has"."""
         from agent.common.norm_registry import oib_families
 
         assert [f.members for f in oib_families(["oib-rl_3_ausgabe_mai_2023.pdf"])] == [("3",)]
 
     def test_reading_aids_are_not_members(self):
-        """A Leitfaden, an Erläuterung and an Änderungsdokument are read WITH a
-        Richtlinie. Counting them as parts would let an overview answer look
-        complete for having opened an interpretation aid."""
         from agent.common.norm_registry import oib_families
         from agent.common.norm_registry import oib_family_member
 
@@ -871,16 +739,12 @@ class TestOibFamilies:
         assert oib_family_member("Brandschutzkonzept.pdf") is None
 
     def test_two_editions_of_one_part_are_one_member(self):
-        """The family is about which requirements exist, not how many files
-        carry them."""
         from agent.common.norm_registry import oib_families
 
         families = oib_families(["oib-rl_2_ausgabe_mai_2023.pdf", "oib-rl_2_ausgabe_april_2019.pdf"])
         assert [f.members for f in families] == [("2",)]
 
     def test_members_sort_numerically_and_families_by_number(self):
-        """`2.10` after `2.9`, and family 10 after family 2 — both of which a
-        string sort gets backwards."""
         from agent.common.norm_registry import oib_families
 
         names = [f"oib-rl_2.{i}_x.pdf" for i in (10, 9, 2)] + ["oib-rl_10_x.pdf", "oib-rl_2_x.pdf"]
@@ -891,17 +755,6 @@ class TestOibFamilies:
 
 
 class TestFamilyQueryNumber:
-    """Which questions ask about a whole Richtlinie.
-
-    "Was weißt du über die OIB 2?" is a question about four documents, and
-    ranked passages answer it with the two that scored best. Detected here, the
-    retrieval layer answers it with every part the corpus holds in one round.
-    The detection has to be tight in one direction: a topic question that
-    happens to name the Richtlinie ("OIB 2 Fluchtweglänge GK 4") is an ordinary
-    search, and turning it into an overview would cost the reader the passage
-    they asked for.
-    """
-
     @pytest.mark.parametrize(
         "query",
         [
@@ -922,8 +775,6 @@ class TestFamilyQueryNumber:
         assert family_query_number(query) == "2"
 
     def test_a_part_number_resolves_to_its_family(self):
-        """A reader asking about 2.1 is inside a Richtlinie whose other parts
-        they are unlikely to know exist."""
         from agent.common.norm_registry import family_query_number
 
         assert family_query_number("OIB-Richtlinie 2.3") == "2"
@@ -959,9 +810,6 @@ class TestFamilyQueryNumber:
         assert family_query_number(query) is None
 
     def test_two_families_named_at_once_are_not_one_overview(self):
-        """ "Unterschied OIB 2 und OIB 3" is a comparison; a single family
-        overview cannot be both, and answering with one of them would be the
-        wrong document stated confidently."""
         from agent.common.norm_registry import family_query_number
 
         assert family_query_number("OIB 2 und OIB 3") is None
@@ -970,9 +818,6 @@ class TestFamilyQueryNumber:
         "query", ["OIB 2 und 4", "OIB 2 und 4.", "OIB 2, 4", "OIB 2 oder 4", "OIB-RL 2/4", "OIB 2 und 4 Überblick"]
     )
     def test_a_second_key_chained_without_its_anchor_is_still_a_second_family(self, query):
-        """The bare ``4`` in "OIB 2 und 4" used to fall into the leftover, where
-        a number passes as a printing year, and the turn prefetched family 2
-        alone while suppressing family 4's overview."""
         from agent.common.norm_registry import family_query_number
 
         assert family_query_number(query) is None
@@ -984,8 +829,6 @@ class TestFamilyQueryNumber:
         assert family_query_number(query) == "2"
 
     def test_the_detected_number_is_the_key_oib_families_groups_by(self):
-        """The contract between detection and resolution: what this returns is
-        what `oib_families` keys a family by, or the branch resolves nothing."""
         from agent.common.norm_registry import family_query_number
         from agent.common.norm_registry import oib_families
 
@@ -994,15 +837,6 @@ class TestFamilyQueryNumber:
         assert [family.key for family in families] == [family_query_number("was weißt du über die OIB 2")]
 
 
-# ---------------------------------------------------------------------------
-# The names oib.or.at actually publishes. Most parts use `oib-rl_`, but OIB-RL
-# 2.2 ships as `oib-richtlinie_2.2_…`, `erlaeuterungen-zu-oib-richtlinie_2.2_…`
-# and `aenderungen_oib-richtlinie_2.2_…`. Before these were pinned, the 2.2
-# Richtlinie dropped out of the OIB 2 family, its Erläuterungen were
-# unclassified, and its Änderungen slipped past the retrieval exclusion list.
-# ---------------------------------------------------------------------------
-
-#: (published filename, oib_doc_class, oib_family_member, guess_display_title)
 PUBLISHED_OIB_2023 = [
     ("oib-rl_2_ausgabe_mai_2023.pdf", "guideline", "2", "OIB-Richtlinie 2, Ausgabe Mai 2023"),
     ("oib-rl_2.1_ausgabe_mai_2023.pdf", "guideline", "2.1", "OIB-Richtlinie 2.1, Ausgabe Mai 2023"),
@@ -1110,8 +944,6 @@ PUBLISHED_OIB_2023 = [
 ]
 
 
-#: The Richtlinien of the 2019, 2025 and 2015 editions as oib.or.at publishes them (read 2026-11-10 from
-#: https://www.oib.or.at/richtlinien/oib-richtlinien-<year>/oib-richtlinie-<n>): each item page's PDF.
 PUBLISHED_OIB_OTHER_EDITIONS = [
     ("richtlinie_1_12.04.19_0.pdf", "1", "OIB-Richtlinie 1, Ausgabe April 2019"),
     ("oib-rl-2-brandschutz-2019.pdf", "2", "OIB-Richtlinie 2, Ausgabe April 2019"),
@@ -1187,7 +1019,6 @@ class TestPublishedOibFilenames:
             "zu-oib-richtlinie_2.2.pdf",
             "richtlinie_2_01.02.20.pdf",  # a dated name the table does not list
             "oib-rl-2-brandschutz-2023.pdf",  # a titled name the table does not list
-            # The diffs published beside the 2019 Richtlinien: each once read as the 2015 Richtlinie.
             *(
                 f"oib-rl-{n}-aenderungen-gegenueber-version-2015.pdf"
                 for n in ("1", "2", "2.1", "2.2", "2.3", "3", "4", "5", "6")
@@ -1222,8 +1053,6 @@ class TestPublishedOibFilenames:
 
 
 class TestRegistryStoredBeforeTheEnglishNames:
-    """A stored registry (the admin-edited row, a seed not yet re-saved) and an older pod's prompt view."""
-
     def test_bundesland_is_read_as_federal_state(self):
         entry = nr.NormEntry.model_validate({"id": "bo-wien", "title": "BO", "short": "BO", "bundesland": "Wien"})
         assert entry.federal_state == "Wien"
@@ -1240,8 +1069,6 @@ class TestRegistryStoredBeforeTheEnglishNames:
 
 
 class TestTheGermanRanksStillRead:
-    """A registry saved before the English ranks (the admin row, a seed not re-saved) still loads."""
-
     def test_each_german_rank_reads_as_its_english_one(self):
         for old, new in nr.LEGACY_NORM_RANK.items():
             entry = nr.NormEntry.model_validate({"id": "x", "title": "t", "short": "s", "rank": old})

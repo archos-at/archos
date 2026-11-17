@@ -27,7 +27,6 @@ const file = (id: string, revision: RevisionLinks | null = null): FileItem =>
 
 const ref = (id: string): RevisionRef => ({ id, filename: `${id}.pdf` })
 
-/** `id` is superseded by `newer`. */
 const olderThan = (newer: string): RevisionLinks => ({ ...EMPTY_REVISION_LINKS, supersededBy: ref(newer) })
 
 describe('isOlderRevision', () => {

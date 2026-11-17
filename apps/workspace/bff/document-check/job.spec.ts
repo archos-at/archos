@@ -151,7 +151,6 @@ describe('runDocumentCheckSlice — starting the turn', () => {
     })
     expect(request.message.text).toContain('canvas__mark')
     expect(request.message.text).toContain('do not ask anything')
-    // The person's message is the same instruction, under the turn's id.
     expect(vi.mocked(insertMessages).mock.calls[0][0][0]).toMatchObject({ id: CHECK_ID, role: 'user', authorUserId: 'uploader' })
     expect(result).toMatchObject({ done: false, payload: { conversationId: CONVERSATION } })
     expect(result.notBefore).toBeInstanceOf(Date)

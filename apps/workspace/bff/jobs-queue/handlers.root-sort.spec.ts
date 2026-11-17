@@ -1,12 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * `root_sort` (ADR-0121): a slice runs as the person who started the run,
- * looked up strictly, so an identity provider that did not answer is retried
- * by the queue rather than read as "they left"; a requester who did leave ends
- * their run, so the shelf is not locked behind it.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -15,7 +9,6 @@ vi.mock('@/lib/auth/pinned-session', () => ({
   resolvePinnedRequesterSession: vi.fn(),
   resolvePinnedRequesterSessionStrict: vi.fn(),
 }))
-// The other kinds' work is out of scope; stubbed so the import graph stays out of the database.
 vi.mock('@/lib/documents/extraction-jobs', () => ({
   runBimExtractJob: vi.fn(),
   runOfficeRenditionJob: vi.fn(),

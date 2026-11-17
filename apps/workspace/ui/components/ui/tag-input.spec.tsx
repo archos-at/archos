@@ -3,7 +3,6 @@ import { fireEvent, render, screen } from '@/test-utils'
 import { describe, expect, it, vi } from 'vitest'
 import { defaultTagNormalize, TagInput } from './tag-input'
 
-/** A controlled harness, so the spec sees the list the way a form would hold it. */
 function Harness({
   initial = [],
   readOnly = false,

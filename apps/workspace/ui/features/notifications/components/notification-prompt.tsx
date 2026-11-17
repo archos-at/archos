@@ -1,23 +1,5 @@
 'use client'
 
-/**
- * A quiet offer in the inbox to turn notifications on for this device
- * (ADR-0112).
- *
- * Shown only where it can lead somewhere: the deployment sends notifications,
- * this browser can show them, the person has not turned this device on, has not
- * refused in the browser, and has not dismissed the offer. It never asks the
- * browser for anything by itself; the button is the person's click, and it is
- * the click that opens the browser's own prompt. A dismissal is remembered in
- * this browser (a convenience, so it comes back empty in a private window and
- * the offer then shows again), and it is ONE dismissal: the same offer made as a
- * toast in the shell (`./inbox-push-offer`) reads and writes it too, so „Nicht
- * jetzt“ in either place silences both.
- *
- * Where the browser has refused, the offer becomes one line that leads to the
- * profile, whose notification section says how to allow it again.
- */
-
 import { useCallback, useEffect, useState, useSyncExternalStore, type JSX } from 'react'
 import Link from 'next/link'
 import { Bell, BellOff } from 'lucide-react'
@@ -46,13 +28,8 @@ function writeDismissed(): void {
   }
 }
 
-/** Where the person reads how to allow notifications again: the profile's notification section. */
 export const NOTIFICATION_SETTINGS_HREF = '/app/profile'
 
-/**
- * The offer's one dismissal, for every place that makes it. `true` until this
- * browser's answer is read, so nothing flashes before it is known.
- */
 export function usePushPromptDismissal(): { dismissed: boolean; dismiss: () => void } {
   const [dismissed, setDismissed] = useState(true)
   useEffect(() => setDismissed(readDismissed()), [])
@@ -63,10 +40,6 @@ export function usePushPromptDismissal(): { dismissed: boolean; dismiss: () => v
   return { dismissed, dismiss }
 }
 
-/**
- * Whether the inbox's card is on screen. The shell's toast (`./inbox-push-offer`)
- * stands down while it is: the same offer twice at once is one too many.
- */
 const promptHosts = new Set<symbol>()
 const promptListeners = new Set<() => void>()
 function subscribePromptHosts(listener: () => void): () => void {
@@ -93,7 +66,6 @@ export function NotificationPrompt({ className }: { className?: string }): JSX.E
   return <NotificationPromptView push={push} dismissed={dismissed} onDismiss={dismiss} className={className} />
 }
 
-/** Whether the offer is worth making: ready to turn on, not on, not dismissed. */
 export function promptIsDue(push: Pick<UsePushNotificationsResult, 'phase' | 'thisDeviceOn'>, dismissed: boolean): boolean {
   return push.phase === 'ready' && !push.thisDeviceOn && !dismissed
 }

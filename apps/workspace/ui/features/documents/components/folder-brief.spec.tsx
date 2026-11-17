@@ -1,11 +1,3 @@
-/**
- * The folder brief as a reader meets it: the numbers add up, what needs them
- * comes first, the rest is folded to one line, and a long chip never breaks the
- * card. What is counted is specced in `../lib/folder-knowledge.spec.ts`.
- *
- * English, the default locale of an unprovided test tree.
- */
-
 import type { ComponentProps } from 'react'
 import { useState } from 'react'
 import { describe, expect, it, vi } from 'vitest'
@@ -41,7 +33,6 @@ const file = (overrides: Partial<FileItem>): FileItem => ({
 const FOLDERS: FolderItem[] = [{ id: 'P', parentId: null, name: 'Pläne', path: 'Pläne' }]
 const LONG_TOPIC = 'Brandabschnittsbildung zwischen Tiefgarage'
 
-/** Three read, one failed, one held, one report Piloti never reads: 5 meant to read, 6 in all. */
 const CORPUS: FileItem[] = [
   file({ tags: ['Grundriss', 'Brandschutz'], topics: [LONG_TOPIC] }),
   file({ tags: ['Grundriss'] }),
@@ -82,14 +73,10 @@ describe('FolderBrief — the numbers add up', () => {
       Number(screen.getByTestId(`folder-brief-state-${state}`).textContent?.match(/\d+/)?.[0])
     )
     expect(3 + legendCounts.reduce((a, b) => a + b, 0)).toBe(5)
-    // The report is named beside the legend, plainly as an extra.
     expect(screen.getByTestId('folder-brief-state-unindexed')).toHaveTextContent('1 more not in the knowledge base')
-    // Something is open, so there is a bar: a hairline, never a band.
     expect(document.querySelector('[data-slot="segment-meter"]')).toHaveClass('h-1')
   })
 
-  // Ticket #38, topic 6: „Alle 27 Dokumente gelesen" over „dazu 16 nicht in der
-  // Wissensbasis", a full green band, and 27 three times.
   it('is quiet when all is read: no bar, the count once, and „all" says which documents it means', () => {
     renderBrief([file({ tags: ['Grundriss'] }), file({ tags: ['Schnitt'] }), file({ status: 'stored' })], { missing: null })
     const brief = screen.getByTestId('folder-brief')
@@ -143,7 +130,6 @@ describe('FolderBrief — what needs the reader comes first', () => {
   it('names what a folded section holds on its one line, and opens on a click', async () => {
     renderBrief()
     const toggle = screen.getByTestId('folder-brief-about-toggle')
-    // A tag still stored in German reads as its translation in English (finding 21).
     expect(toggle).toHaveTextContent('Floor plan · Section · Fire safety')
     expect(toggle).toHaveAttribute('aria-expanded', 'false')
     await userEvent.click(toggle)
@@ -220,7 +206,6 @@ describe('FolderBrief — folded', () => {
     expect(screen.getByTestId('folder-brief')).toHaveAttribute('data-state', 'closed')
 
     await userEvent.click(line)
-    // Not a swap for another element: the node the reader clicked is still there.
     expect(screen.getByTestId('folder-brief-toggle')).toBe(line)
     expect(line).toHaveAttribute('aria-expanded', 'true')
     expect(screen.getByTestId('folder-brief')).toHaveAttribute('data-state', 'open')
@@ -232,10 +217,6 @@ describe('FolderBrief — folded', () => {
   })
 })
 
-/**
- * The brief of a folder read page by page (ADR-0102): the counts are the shelf
- * summary's, and what Piloti put on the documents is loaded only when asked.
- */
 describe('FolderBrief - from the shelf summary', () => {
   const SUMMARY: ShelfSummary = {
     folders: [{ folderId: 'P', total: 6, readable: 3, reading: 0, failed: 1, held: 1, unindexed: 1, latest: null }],
@@ -268,10 +249,6 @@ describe('FolderBrief - from the shelf summary', () => {
   })
 })
 
-/**
- * What it found sits with what it read: one block on the listing's column. On dev (2026-11-10) the findings were a
- * bordered box from the page's left edge to its right, stacked over the brief's own line on the 1280px column.
- */
 describe('FolderBrief — what it found', () => {
   const findings = {
     projectId: 'p1',
@@ -285,7 +262,6 @@ describe('FolderBrief — what it found', () => {
   const READ = [file({ tags: ['Grundriss'] }), file({ tags: ['Schnitt'] })]
 
   it('folded, says what it read quietly and what asks the reader as a chip of its own that opens the brief', async () => {
-    // „1 finding“ was 13px of ink at the end of a grey sentence (review of 2026-11-10, finding 12).
     const onCollapsedChange = vi.fn()
     renderBrief(READ, { missing: null, collapsed: true, findings, onCollapsedChange })
     expect(screen.getByTestId('folder-brief-toggle')).toHaveTextContent(/^All 2 documents read in this project$/)

@@ -1,10 +1,3 @@
-/**
- * How long the answer took, shown inside the answer details beside the time.
- *
- * Rendered for BOTH variants, because the prop is passed twice — the default
- * card the thread uses and the box-less inline rendering.
- */
-
 import { render, screen } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { chatCopy } from '@/i18n/namespaces/chat'

@@ -1,16 +1,6 @@
 import type { JSX, ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 
-/**
- * PathChange — a move as a before and an after: where something is now,
- * struck through and muted, and „→ where it would go" under it, with a mark
- * after the target („neu"). Both in the mono face, because a path is read
- * segment by segment. Neither is ever cut: a path wraps, even inside a long
- * segment, since it is what the person decides on.
- *
- * The strike-through is not spoken, so each line carries a label for a screen
- * reader (`fromLabel`, `toLabel`); the arrow is decoration.
- */
 export function PathChange({
   from,
   to,
@@ -19,7 +9,6 @@ export function PathChange({
   toLabel,
   className,
 }: {
-  /** Where it is now. Left out when that is not known: the after stands alone. */
   from?: ReactNode
   to: ReactNode
   toMark?: ReactNode

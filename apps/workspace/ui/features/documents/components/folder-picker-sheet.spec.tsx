@@ -62,7 +62,6 @@ describe('FolderPickerSheet', () => {
     expect(here).toHaveAttribute('aria-current', 'true')
     await user.click(here)
     expect(onPick).not.toHaveBeenCalled()
-    // The top level is still a place to go.
     expect(screen.getByTestId('folder-picker-root')).toBeEnabled()
   })
 

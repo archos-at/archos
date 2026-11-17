@@ -1,25 +1,3 @@
-"""The document type a person chose at filing is a human-set field, and the classifier never overwrites it.
-
-`POST /v1/ingest` carries it as `document_type` (the BFF's `ShelfUploadInput.documentType`);
-the ingest job stores it as the row's type tag under the store's one person marker
-(`tags_set_by = 'person'`), beside `_read_human_set_fields`. So:
-
-- this read stores the chosen type, not the classifier's, and keeps the
-  classifier's discipline tags beside it;
-- a later read that carries no choice („Erneut lesen", a reindex) keeps it;
-- a re-upload that chooses again replaces only the type, and a person's own
-  discipline tags survive it;
-- a filing that chose nothing is classified exactly as before.
-
-`document-tags-update` (the tag editor's `PATCH`) cannot serve here: it needs the
-metadata row, which exists only once this job has read the file, and a value set
-before that would be overwritten by the job's own classification.
-
-The unit tests drive the pure helpers; the end-to-end ones run `_run_ingestion`
-over a real SQLite store and a real Qdrant collection. Every value is read from
-the vocabulary, so a rename of its tokens touches nothing here.
-"""
-
 import time
 import uuid
 
@@ -33,14 +11,8 @@ from agent.knowledge.document_classification import DISCIPLINE_TAGS
 from agent.knowledge.document_classification import DOCUMENT_TYPE_TAGS
 from agent.knowledge.document_classification import MAX_TAGS
 
-#: What the fake classifier reads, and what a person chooses instead.
 CLASSIFIED_TYPE, SECOND_CLASSIFIED_TYPE, CHOSEN_TYPE, LATER_TYPE = DOCUMENT_TYPE_TAGS[2:6]
 CLASSIFIED_DISCIPLINE, PERSON_DISCIPLINE = DISCIPLINE_TAGS[:2]
-
-
-# ---------------------------------------------------------------------------
-# The pure helpers
-# ---------------------------------------------------------------------------
 
 
 class TestWithDocumentType:
@@ -80,14 +52,7 @@ class TestChosenDocumentType:
         assert "outside the vocabulary" in caplog.text
 
 
-# ---------------------------------------------------------------------------
-# End to end through _run_ingestion
-# ---------------------------------------------------------------------------
-
-
 class _SummaryModel:
-    """Answers every prompt with one sentence: the summary is all these tests need from it."""
-
     def invoke(self, prompt):
         return AIMessage(content="A letter to the building authority.")
 
@@ -105,7 +70,6 @@ def stores(tmp_path):
 
 @pytest.fixture()
 def classified(monkeypatch):
-    """The classifier's reading, which a test may change between reads."""
     from agent.knowledge import document_classification
 
     reading = [CLASSIFIED_TYPE, CLASSIFIED_DISCIPLINE]

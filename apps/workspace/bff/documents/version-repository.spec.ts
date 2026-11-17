@@ -1,20 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * `findPreviousVersion` — the diff base for a review round.
- *
- * The predecessor used to be found by scanning the asc-limited-200 page in
- * memory. Past 200 versions that page no longer contains the predecessor at
- * all, and the scan then named the wrong row (the highest inside the window)
- * as the diff base. These tests pin the statement instead: a direct
- * `version_number < $n ORDER BY version_number DESC LIMIT 1` inside the tenant
- * boundary, so Postgres answers the predecessor no matter how long the history
- * is.
- *
- * Same pg-proxy harness as `lib/inbox/repository.spec.ts`: a real query
- * builder over a callback driver that records the SQL instead of connecting.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { drizzle } from 'drizzle-orm/pg-proxy'
@@ -25,7 +11,6 @@ interface CapturedQuery {
 }
 
 const captured: CapturedQuery[] = []
-/** Row pages the proxy answers with, in order (pg-proxy rows are value arrays). */
 const pages: unknown[][][] = []
 
 const proxyDb = drizzle(async (sql, params) => {
@@ -33,10 +18,6 @@ const proxyDb = drizzle(async (sql, params) => {
   return { rows: pages.shift() ?? [] }
 })
 
-/**
- * The handle `getDb()` returns. The pg-proxy driver refuses transactions, so a
- * test about one swaps in a drizzle-SHAPED fake (below) for its duration.
- */
 let currentDb: unknown = proxyDb
 vi.mock('@/lib/db', () => ({ getDb: () => currentDb }))
 
@@ -62,12 +43,6 @@ beforeEach(() => {
   currentDb = proxyDb
 })
 
-/**
- * A transaction handle that behaves the way drizzle 0.45 on postgres-js does
- * where it matters: `db.transaction` re-throws whatever its callback throws,
- * and `tx.rollback()` THROWS `TransactionRollbackError` rather than returning.
- * Each `update(...).returning()` answers the next queued row list.
- */
 function fakeTransactionalDb(updateResults: unknown[][], highest: number | string | null = null) {
   const statements: string[] = []
   const inserted: Array<Record<string, unknown>> = []
@@ -125,12 +100,6 @@ const NEW_VERSION = {
   approvedAt: new Date(),
 }
 
-/**
- * The version number, allocated inside the inserting transaction (migration
- * 0092). `max + 1` read in one statement and inserted in another let two
- * overlapping re-uploads both record „Version N"; the per-document lock makes
- * the read and the insert one step for every writer of that document.
- */
 describe('the version number is allocated under a per-document lock', () => {
   it('locks, reads the highest number, then inserts — in one transaction (plain insert)', async () => {
     const fake = fakeTransactionalDb([], '2')
@@ -143,12 +112,10 @@ describe('the version number is allocated under a per-document lock', () => {
     expect(fake.statements[0]).toContain('document_versions:doc_1')
     expect(fake.statements[1]).toBe('SELECT max')
     expect(fake.statements[2]).toBe('INSERT')
-    // Coerced: the driver may answer `max()` as a string, and '2' + 1 is '21'.
     expect(fake.inserted[0].versionNumber).toBe(3)
   })
 
   it('takes the lock BEFORE the supersede on a born-published insert', async () => {
-    // supersede → the old published row; pointer move → nothing to return.
     const fake = fakeTransactionalDb([[{ id: 'ver_old' }], []], 4)
     currentDb = fake.db
 
@@ -178,14 +145,12 @@ describe('the version number is allocated under a per-document lock', () => {
 
 describe('promoteVersionToPublished — the loser of a publish race', () => {
   it('reports a lost compare-and-swap as null (the 409), not as a thrown rollback (a 500)', async () => {
-    // supersede → one row; the swap → nothing matched.
     const fake = fakeTransactionalDb([[{ id: 'ver_old' }], []])
     currentDb = fake.db
 
     await expect(
       promoteVersionToPublished('ver_new', 'doc_1', 'org_1', 'approved', {}),
     ).resolves.toBeNull()
-    // The pointer move never ran: the transaction was abandoned at the swap.
     expect(fake.statements).toEqual(['UPDATE', 'UPDATE'])
   })
 
@@ -221,30 +186,15 @@ describe('findPreviousVersion — the diff base', () => {
     expect(sql.toLowerCase()).toContain('order by')
     expect(sql.toLowerCase()).toContain('desc')
     expect(sql.toLowerCase()).toContain('limit')
-    // Tenant boundary travels with the query.
     expect(params).toContain('doc_1')
     expect(params).toContain('org_1')
     expect(params).toContain(201)
   })
 })
 
-/**
- * The content swap's predicate (the two-writers-one-If-Match defect).
- *
- * `update` goes draft → draft, so `WHERE state = 'draft'` alone let two writers
- * holding the same digest both win. The WHERE clause has to carry the hash and
- * the key that were read. Rendered through drizzle's own dialect, so this is
- * the SQL Postgres would receive; `document-versions.integration.spec.ts` runs
- * the race itself against a real database under `task db:test:rls`.
- */
 describe('swapVersionContent — the swap asserts what was read', () => {
   const dialect = new PgDialect()
 
-  /**
-   * A drizzle-shaped transaction for the content swap. `usage` answers the
-   * ledger reads in order (before the swap, after it); each is split into the
-   * live half and the version-overhead half, the way `readStorageUsage` reads.
-   */
   function fakeSwapDb(opts: { swapped: unknown[]; named: boolean; usage?: number[] }) {
     const wheres: Array<{ sql: string; params: unknown[] }> = []
     const statements: string[] = []
@@ -337,7 +287,6 @@ describe('swapVersionContent — the swap asserts what was read', () => {
       ok: false,
       reason: 'conflict',
     })
-    // No item mirror, no orphan check: the transaction was abandoned at the swap.
     expect(fake.statements).toEqual(['LOCK storage_quota:org_1', 'UPDATE'])
   })
 
@@ -364,15 +313,6 @@ describe('swapVersionContent — the swap asserts what was read', () => {
   })
 })
 
-/**
- * The draft rewrite on the LOCKED admission path (the undercharge defect).
- *
- * The rewrite used to be admitted outside any lock as `incoming − fileSize`.
- * For a draft freshly forked from the published version that is the published
- * file's size, so ≈ 0 — fork, write, reject, fork again grew the bucket without
- * a check. Now the usage is read under the quota lock before and after the
- * swap, inside one transaction, and a crossing after-state rolls it back.
- */
 describe('swapVersionContent — the quota is measured on the state it commits', () => {
   const dialect = new PgDialect()
 
@@ -432,9 +372,6 @@ describe('swapVersionContent — the quota is measured on the state it commits',
   })
 
   it('refuses a forked draft’s rewrite at its FULL size, because the published bytes stay', async () => {
-    // Before: 8_000 (the published file, shared by the fresh fork). After the
-    // swap the draft owns 4_000 more of its own: 12_000 > 10_000. The old delta
-    // (4_000 − the published file's 4_000 = 0) admitted this without a check.
     currentDb = fakeQuotaDb([8_000, 12_000]).db
     await expect(swapVersionContent({ ...base, quotaBytes: 10_000 })).resolves.toEqual({
       ok: false,
@@ -463,13 +400,6 @@ describe('swapVersionContent — the quota is measured on the state it commits',
   })
 })
 
-/**
- * The delete cascade's object list reads EVERY version, not the first page.
- *
- * It used to stop at `DOCUMENT_VERSION_LIST_LIMIT` (500), so deleting a
- * document with a longer history left every later version's object in the
- * bucket: invisible, still charged, still presignable.
- */
 describe('listDocumentVersionObjects — past the first page', () => {
   it('pages by version number until a short page, and returns a shared object once', async () => {
     const full = Array.from({ length: 500 }, (_, index) => [
@@ -477,7 +407,6 @@ describe('listDocumentVersionObjects — past the first page', () => {
       `k/v${index + 1}`,
       'grid-org-1',
     ])
-    // A fork shares the published version's key: two rows, one object.
     full[499] = [500, 'k/v499', 'grid-org-1']
     pages.push(full, [
       [501, 'k/v501', 'grid-org-1'],
@@ -487,7 +416,6 @@ describe('listDocumentVersionObjects — past the first page', () => {
     const objects = await listDocumentVersionObjects('doc_1', 'org_1')
 
     expect(captured).toHaveLength(2)
-    // The second page starts after the last number the first one returned.
     expect(captured[1].sql).toMatch(/"version_number" > \$\d/)
     expect(captured[1].params).toContain(500)
     expect(

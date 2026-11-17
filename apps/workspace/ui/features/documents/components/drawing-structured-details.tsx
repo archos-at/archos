@@ -7,36 +7,11 @@ import { filesCopy } from '@/i18n/namespaces/files'
 import { cn } from '@/lib/utils'
 import { humanizeTerm, type DrawingStructured } from '@/lib/documents/drawing-structured'
 
-/**
- * The advanced half of one visual chunk's description: everything the vision
- * model recognised as STRUCTURE rather than prose — the things it named,
- * assembly layers, figures with their meaning, relations, and how sure it is.
- *
- * Collapsed inside an already-collapsed section on purpose. The free-text
- * description above answers "what is this drawing"; this answers "what exactly
- * did Piloti record about it", which a much smaller number of people ask,
- * usually when checking whether an answer can be trusted. That is also why
- * provenance and confidence are shown at all: an inferred scale must never
- * read like a measured one.
- *
- * Nothing here knows a domain. Categories and states arrive as vocabulary
- * keys; a key this build has a translation for is translated, and one it has
- * never seen is humanized from the key — so a domain added on the backend
- * shows up here without a frontend release.
- */
 export function DrawingStructuredDetails({ structured }: { structured: DrawingStructured }) {
   const t = useTranslations(filesCopy)
   const [open, setOpen] = useState(false)
   const { segment, document } = structured
 
-  /**
-   * A vocabulary term's label. The translator returns the NAMESPACED key path
-   * when there is no entry (`files.preview.…`), so the miss is detected by
-   * suffix rather than equality. A miss is expected, not a defect: it is what
-   * a domain added on the backend after this build shipped looks like, and the
-   * humanized key is a readable label until someone adds a translation. The
-   * dev-only warning the translator logs is the nudge to do that.
-   */
   const term = (group: string, key: string) => {
     const path = `preview.visualDetails.structured.${group}.${key}`
     const translated = t(path)
@@ -143,10 +118,6 @@ export function DrawingStructuredDetails({ structured }: { structured: DrawingSt
   )
 }
 
-/**
- * Document-level facts (title block, strategies) — identical for every segment
- * on the sheet, so they read as context rather than as this drawing's own.
- */
 function DocumentRows({ document }: { document: DrawingStructured['document'] }) {
   const t = useTranslations(filesCopy)
   const credits = [document.author, document.institution, document.supervision, document.location]
@@ -180,7 +151,6 @@ function DocumentRows({ document }: { document: DrawingStructured['document'] })
   )
 }
 
-/** One `label: value` line. The label never truncates; the value wraps. */
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex gap-1.5">

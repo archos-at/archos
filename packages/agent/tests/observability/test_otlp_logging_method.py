@@ -1,9 +1,3 @@
-"""
-The OTLP logging method must follow the same "availability = capability"
-doctrine as the tracing exporter (ADR-0029): no configured endpoint => a
-NullHandler, no export attempts against a collector that does not exist.
-"""
-
 import logging
 
 import pytest
@@ -19,24 +13,15 @@ CONFIG_PATH = "configs/config_oib_openrouter.yml"
 
 @pytest.fixture(autouse=True)
 def _provider_already_installed(monkeypatch):
-    """Every test sees a provider already in place, so none starts an exporter thread at a collector that is not there.
-
-    The two tests about the provider itself clear it again.
-    """
     monkeypatch.setattr(otlp_metrics, "_provider", object())
 
 
 async def test_missing_endpoint_yields_a_null_handler():
-    # `${OTEL_EXPORTER_OTLP_ENDPOINT:-}` interpolates to None when the
-    # observability tier is not deployed — this must not raise (regression:
-    # the tracing exporter crashed agent-runtime startup on exactly this).
     async with otlp_logging_method(OtlpLoggingMethodConfig(), None) as handler:
         assert isinstance(handler, logging.NullHandler)
 
 
 async def test_no_meter_provider_without_an_endpoint(monkeypatch):
-    # No collector, no provider: the instruments stay no-ops instead of
-    # batching readings for an endpoint that does not exist.
     calls: list[object] = []
     monkeypatch.setattr(otel_metrics, "set_meter_provider", calls.append)
     monkeypatch.setattr(otlp_metrics, "_provider", None)
@@ -48,10 +33,6 @@ async def test_no_meter_provider_without_an_endpoint(monkeypatch):
 
 
 async def test_the_meter_provider_is_installed_once_and_outlives_the_workflow(monkeypatch):
-    # The research worker builds a workflow per job, and OpenTelemetry sets the
-    # global provider once: a provider stopped with the first workflow left
-    # every later job recording into a dead one (gotchas.md). The global
-    # provider is set once per process: record the calls, never make them.
     calls: list[object] = []
     monkeypatch.setattr(otel_metrics, "set_meter_provider", calls.append)
     monkeypatch.setattr(otlp_metrics, "_provider", None)
@@ -100,8 +81,6 @@ def test_shipped_config_wires_the_otlp_logging_method():
 
 
 def test_a_failed_build_exports_its_cause_not_its_itemization(caplog):
-    # The agent runtime's own logger, driven for real, so a change in how it reports a failed
-    # build shows up here rather than as eleven issues again (#742-#752).
     from agent.observability.otlp_logging_method import _NatBuildFailureItemizationFilter
     from nat.builder.workflow_builder import _log_build_failure
 

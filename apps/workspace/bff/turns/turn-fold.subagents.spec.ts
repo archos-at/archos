@@ -1,11 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The fold over AG-UI 1.0's subagent events (`SUBAGENT_*`, `subagent_run_id`
- * on steps): a subagent is one stored row, its steps name it, and the stored
- * shape survives the provenance sanitizer a reload reads through.
- */
 import { describe, expect, it } from 'vitest'
 import type { WireEvent } from '@/adapters/api/wire-v2'
 import { MAX_THINKING_STEPS, boundSteps, sanitizeThinkingSteps } from '@/lib/conversations/message-provenance'

@@ -1,15 +1,3 @@
-"""A Word or presentation file is indexed from its PDF rendition, only (ADR-0071).
-
-``POST /v1/ingest`` hands the job ``config["extraction_paths"]`` when the BFF
-sent ``extraction_ref``: a deferred download (or, from other callers, a local
-path) of ``_render.pdf``. The pipeline reads every byte from the rendition
-through its PDF path, identity (``file_name``) stays the original's, and a pptx
-original adds its speaker notes. Without a rendition such a file fails with
-``office_rendition_required``: there is no second way to read it. Layers: the
-notes companion; ``knowledge_layer.ingest.renditions``; ``_run_ingestion`` end to end
-with the heavy collaborators (embedder, vector index, VLM, pdfplumber) mocked.
-"""
-
 from __future__ import annotations
 
 import threading
@@ -34,7 +22,6 @@ pptx = pytest.importorskip("pptx")
 
 
 def _deck(path, *, hide_second: bool = False) -> None:
-    """Three slides with notes; slide 2 optionally hidden (``show="0"``)."""
     presentation = pptx.Presentation()
     for number, note in enumerate(["Fluchtwege zeigen", "Interne Notiz", "Stiegenhaus 2 betonen"], start=1):
         slide = presentation.slides.add_slide(presentation.slide_layouts[1])
@@ -57,11 +44,6 @@ def _minimal_docx(path) -> None:
         )
 
 
-# =============================================================================
-# The notes companion
-# =============================================================================
-
-
 class TestSpeakerNotesCompanion:
     def test_notes_only_one_unit_per_slide_labelled_by_page(self, tmp_path):
         path = tmp_path / "tmp123.pptx"
@@ -71,15 +53,12 @@ class TestSpeakerNotesCompanion:
 
         assert [d.metadata["page_label"] for d in docs] == ["1", "2", "3"]
         assert "Fluchtwege zeigen" in docs[0].text
-        # The rendition already indexed the slide text; the notes unit must not repeat it.
         assert all("Folientitel" not in d.text for d in docs)
         assert {d.metadata["file_name"] for d in docs} == {"Vortrag.pptx"}
         assert {d.metadata["file_size"] for d in docs} == {42}
         assert {d.metadata["content_type"] for d in docs} == {"text"}
 
     def test_a_hidden_slide_is_skipped_and_does_not_shift_the_pages(self, tmp_path):
-        """LibreOffice leaves hidden slides out of the PDF, so the deck's slide 3
-        is the rendition's page 2, and that is where a citation must land."""
         path = tmp_path / "deck.pptx"
         _deck(path, hide_second=True)
 
@@ -114,11 +93,6 @@ class TestRequiresRendition:
         assert requires_rendition("Bericht", "/tmp/tmpabc.docx")
 
 
-# =============================================================================
-# submit_job's lockstep alignment
-# =============================================================================
-
-
 class TestAlignExtractionPaths:
     def test_a_skipped_original_takes_its_rendition_with_it(self, tmp_path):
         orphan = tmp_path / "orphan.pdf"
@@ -147,11 +121,6 @@ class TestAlignExtractionPaths:
         config = {"extraction_paths": ["/tmp/a.pdf"]}
         align_extraction_paths(config, [0, 1])
         assert config["extraction_paths"] == ["/tmp/a.pdf", None]
-
-
-# =============================================================================
-# Through _run_ingestion
-# =============================================================================
 
 
 @pytest.fixture
@@ -189,19 +158,12 @@ def _wait_terminal(ing, job_id, timeout=30):
 
 
 def _gone(path, timeout=5) -> bool:
-    """Whether ``path`` is deleted within ``timeout``.
-
-    The job reports its terminal status before its ``finally`` deletes the temp
-    files, so an assertion made the instant the status turns terminal races the
-    cleanup; it failed intermittently in the full suite and never alone.
-    """
     deadline = time.time() + timeout
     while path.exists() and time.time() < deadline:
         time.sleep(0.02)
     return not path.exists()
 
 
-#: What each file of the running test's jobs handed to chunking and embedding (``ingestor`` records it).
 _INDEXED: list[list] = []
 
 
@@ -211,7 +173,6 @@ def _indexed_documents():
 
 @pytest.fixture
 def pdf_pipeline(monkeypatch):
-    """Stub the PDF stages, recording which path each one was handed."""
     read: dict[str, list[str]] = {"text": [], "images": [], "pages": []}
     cred = ResolvedCredential(api_key="vlm-key", base_url="https://vlm.test/v1", model="test-vlm", source="env")
     monkeypatch.setattr(adapter, "resolve_vlm_credential", lambda organization_id=None: cred)
@@ -290,7 +251,6 @@ class TestRunIngestionFromRendition:
         assert "Originaltext" not in " ".join(d.text for d in documents)
         [image] = [d for d in documents if d.metadata["content_type"] == "image"]
         assert image.metadata["page_label"] == "2"
-        # The job owns both temp files and deletes both.
         assert _gone(original)
         assert _gone(rendition)
 
@@ -310,14 +270,11 @@ class TestRunIngestionFromRendition:
         assert {d.metadata["file_name"] for d in documents} == {"Vortrag.pptx"}
         notes = [d for d in documents if "Notizen des Vortragenden" in d.text]
         assert [d.metadata["page_label"] for d in notes] == ["1", "2", "3"]
-        # The slide text came from the rendition (stubbed), never from python-pptx.
         assert all("Folientitel" not in d.text for d in documents)
 
     def test_without_a_rendition_the_file_fails_with_a_stable_reason(
         self, tmp_path, ingestor, summary_db, pdf_pipeline
     ):
-        """No second way to read a Word file: no rendition, no index, and a
-        reason the failed-document UX can key on."""
         original = tmp_path / "tmp_upload.docx"
         _minimal_docx(original)
 
@@ -359,13 +316,7 @@ class TestRunIngestionFromRendition:
         assert document.metadata["content_type"] == "table"
 
 
-# =============================================================================
-# Downloads the route deferred to the job
-# =============================================================================
-
-
 def _deferred(path):
-    """A stand-in for agent_host's DeferredObjectDownload: writes a PDF and returns its path."""
 
     def _download():
         path.write_bytes(b"%PDF-1.4\n% downloaded rendition\n")
@@ -398,10 +349,8 @@ class TestDeferredDownloads:
         assert _wait_terminal(ingestor, job_id).is_success
 
         assert pdf_pipeline["text"] == [str(downloaded)]
-        # One download serves the thumbnail as well.
         assert drawn == [str(downloaded)]
         assert {d.metadata["file_name"] for d in _indexed_documents()} == {"Bericht.docx"}
-        # The job made the file, so the job deletes it, cleanup_files or not.
         assert _gone(downloaded)
         assert original.exists()
 
@@ -425,15 +374,10 @@ class TestDeferredDownloads:
         assert all("X-Amz-Signature" not in record.getMessage() for record in caplog.records)
 
 
-# =============================================================================
-# The original, downloaded by the job (knowledge_layer.ingest.deferred_files)
-# =============================================================================
-
 _SIGNED_ORIGINAL = "http://seaweed/bucket/doc/object?X-Amz-Signature=secret-original"
 
 
 def _object_store_get(content: bytes, content_type: str, *, gate: threading.Event | None = None):
-    """An ``httpx.Client.get`` stand-in for the object store, optionally held until ``gate`` is set."""
     import httpx
 
     calls: list[str] = []
@@ -452,12 +396,8 @@ def _object_store_get(content: bytes, content_type: str, *, gate: threading.Even
 
 
 class TestDeferredOriginal:
-    """What ``POST /v1/ingest`` hands the job: the original as a download, not a path."""
-
     @pytest.fixture(autouse=True)
     def _object_store_configured(self, monkeypatch):
-        """The download requests only the configured store (``object_store_request_url``),
-        so the store ``_SIGNED_ORIGINAL`` names is configured, as the BFF presigns against it."""
         monkeypatch.setenv("SEAWEED_ENDPOINT", "http://seaweed")
         monkeypatch.delenv("SEAWEED_PUBLIC_ENDPOINT", raising=False)
 
@@ -485,10 +425,8 @@ class TestDeferredOriginal:
         assert _wait_terminal(ingestor, job_id).is_success
 
         assert calls == [_SIGNED_ORIGINAL]
-        # The suffix came from the response's content type: the object path has none.
         [read] = pdf_pipeline["text"]
         assert read.endswith(".pdf")
-        # The thumbnail is drawn from the same download, before extraction.
         assert drawn == [read]
         assert {d.metadata["file_name"] for d in _indexed_documents()} == {"Plan.pdf"}
         assert _gone(Path(read))
@@ -518,14 +456,11 @@ class TestDeferredOriginal:
         assert status.file_details[0].file_name == "Bericht.docx"
         assert status.file_details[0].error_message == ORIGINAL_DOWNLOAD_FAILED
         assert status.file_details[0].error_message.startswith("original_download_failed:")
-        # No original, no use for its rendition: it is never fetched.
         assert rendition_calls == []
         assert pdf_pipeline["text"] == []
         assert all("secret-original" not in record.getMessage() for record in caplog.records)
 
     def test_the_job_is_live_while_it_downloads(self, tmp_path, monkeypatch, ingestor, summary_db, pdf_pipeline):
-        """A retried dispatch that lands while the job is still downloading
-        (on this replica or another) finds the job and joins it."""
         from agent_host.routes.ingest import DeferredObjectDownload
 
         gate = threading.Event()
@@ -549,12 +484,10 @@ class TestDeferredOriginal:
         assert ingestor.find_live_job("k-plan") is None
 
     def test_local_paths_are_untouched(self, tmp_path, ingestor, summary_db, pdf_pipeline):
-        """Every other caller (the multipart upload, the OIB sync) hands paths."""
         original = _rendition(tmp_path)
 
         job_id = ingestor.submit_job([str(original)], "proj_1", config={"original_filenames": ["Plan.pdf"]})
         assert _wait_terminal(ingestor, job_id).is_success
 
         assert pdf_pipeline["text"] == [str(original)]
-        # Not the job's file without cleanup_files.
         assert original.exists()

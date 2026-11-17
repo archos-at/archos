@@ -4,7 +4,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { NextRequest } from 'next/server'
 
-// An open project: no folder of it is restricted (ADR-0087).
 vi.mock('@/lib/authz/folder-access', async () => (await import('@/test-utils/folder-access')).openFolderAccessModule())
 vi.mock('@/lib/auth/require-auth', () => ({
   requireAuthorizedSession: vi.fn().mockResolvedValue({
@@ -25,7 +24,6 @@ vi.mock('@/lib/db', () => ({
 
 vi.mock('@/lib/s3', () => ({
   s3Client: {},
-  // Browser-facing presigned URLs are signed with the public-endpoint client.
   signingS3Client: {},
   bucketName: 'grid-documents',
 }))
@@ -34,9 +32,6 @@ vi.mock('@aws-sdk/s3-request-presigner', () => ({
   getSignedUrl: vi.fn().mockResolvedValue('https://seaweedfs.test/preview-url'),
 }))
 
-// The converter itself is `rendition.spec.ts`'s subject. Here only its two
-// outcomes and its switch are driven, with the real error classes, so what is
-// under test is how the route answers each.
 vi.mock('@/lib/documents/rendition', async (importOriginal) => {
   const { renditionModuleMock } = await import('@/test-utils/rendition-module')
   return renditionModuleMock(await importOriginal(), true)
@@ -47,11 +42,6 @@ import type { getDb as getDbType } from '@/lib/db'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { RenditionFailedError, ensureRendition, isRenditionEnabled } from '@/lib/documents/rendition'
 
-/**
- * A drizzle query-builder stand-in: this route only walks
- * `select().from().where().limit()`, so the stub implements that chain and the
- * assertion stays confined here.
- */
 const asDb = (stub: Record<string, unknown>): ReturnType<typeof getDbType> =>
   stub as unknown as ReturnType<typeof getDbType>
 
@@ -88,9 +78,6 @@ describe('GET /api/documents/[id]/preview', () => {
             filename: 'plan.pdf',
             organizationId: 'org-1',
             projectId: 'proj-1',
-            // NOT NULL with a 'project' default in the schema; the item routes
-            // authorize per SHELF (ADR-0047 Phase 2), so a row without it is
-            // unattributable rather than a project document.
             scope: 'project',
           },
         ]),
@@ -121,9 +108,6 @@ describe('GET /api/documents/[id]/preview', () => {
             filename: 'archive.zip',
             organizationId: 'org-1',
             projectId: 'proj-1',
-            // NOT NULL with a 'project' default in the schema; the item routes
-            // authorize per SHELF (ADR-0047 Phase 2), so a row without it is
-            // unattributable rather than a project document.
             scope: 'project',
           },
         ]),

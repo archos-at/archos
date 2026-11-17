@@ -1,16 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The run-report route: the door a finished run's answer comes through.
- *
- * Three things are worth a test here and the happy path is only one of them.
- * The door is shut without the service token. The job id comes from the PATH,
- * so a body cannot name a second run and write into another thread. And a run
- * with no message answers 404 — which is not a failure but the signal the worker
- * reads as „write the turn the old way", and the only thing keeping a
- * pre-ADR-0062 run's report in front of its reader.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 

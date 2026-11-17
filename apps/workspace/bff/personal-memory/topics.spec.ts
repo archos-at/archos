@@ -39,7 +39,6 @@ import {
 
 const OWNER = { organizationId: 'org_1', userId: 'user_1' }
 
-/** The person's notes, as the topic column holds them. */
 function shelf(...topics: (string | null)[]) {
   vi.mocked(selectPersonalTopics).mockResolvedValue(topics.map((topic) => ({ topic })))
 }
@@ -234,7 +233,6 @@ describe('a restated personal note takes the topic it names when it has none', (
     })
 
     expect(touchPersonalMemory).toHaveBeenCalledWith(OWNER, existing.id, 'Brandschutz')
-    // No separate read-then-write: the refresh is the only write of the restatement.
     expect(updatePersonalMemory).not.toHaveBeenCalled()
     expect(result).toEqual({ item: { ...existing, topic: 'Brandschutz' }, created: false })
   })
@@ -251,7 +249,6 @@ describe('a restated personal note takes the topic it names when it has none', (
       topic: 'Brandschutz',
     })
 
-    // The repository's COALESCE keeps 'Stellplätze' (integration spec); the service never decides it.
     expect(touchPersonalMemory).toHaveBeenCalledWith(OWNER, existing.id, 'Brandschutz')
     expect(updatePersonalMemory).not.toHaveBeenCalled()
   })

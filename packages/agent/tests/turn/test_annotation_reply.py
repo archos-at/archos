@@ -1,12 +1,3 @@
-"""A thread question is answered in its thread (``agent.turn.annotation_reply``).
-
-The record, the decision and the post are driven directly; the canvas tools
-marking the record are in ``packages/agent/tests/tools/canvas/test_thread_reply.py``,
-and the chat socket calling it at the end of a turn in
-``apps/agent-host/tests/test_chat_socket.py``. The body the fallback builds is
-validated against the schema the BFF's route exports, as the tool's own are.
-"""
-
 from __future__ import annotations
 
 import contextvars
@@ -67,7 +58,6 @@ def _finished(text: str = "Die Breite reicht nicht [1].", outcome: str = "answer
 
 
 def _settled(record: ThreadReply | None = None) -> ThreadReply:
-    """A record whose turn said a shared write may go out."""
     record = record or ThreadReply.requested_by(_thread_message())
     assert record is not None
     record.settled = True
@@ -76,7 +66,6 @@ def _settled(record: ThreadReply | None = None) -> ThreadReply:
 
 @pytest.fixture(autouse=True)
 def _nothing_restricted():
-    """Nothing restricted and no thread bound, and whatever a test binds is undone: the tests share one context."""
     use = bind_restricted_use(None)
     cross = bind_cross_project_turn(None)
     token = bind_thread_reply(None)
@@ -257,7 +246,6 @@ class TestPerTurn:
 
         assert contextvars.copy_context().run(turn, first) is first
         assert first is not None and first.answered
-        # The turn's binding died with its context, and the next turn binds its own.
         assert current_thread_reply() is None
         second = ThreadReply.requested_by(_thread_message())
         assert contextvars.copy_context().run(turn, None) is None
@@ -271,8 +259,6 @@ class TestPerTurn:
 
 
 class TestOnTheTrace:
-    """How often the model skips ``canvas__reply`` is the cause the fallback papers over: it stays measurable."""
-
     @pytest.mark.parametrize(
         ("replied", "confined", "verdict"),
         [(True, False, "replied"), (False, False, "skipped"), (False, True, "skipped_withheld")],

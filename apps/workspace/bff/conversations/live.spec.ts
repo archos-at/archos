@@ -1,14 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Watching a turn is reading the conversation (ADR-0088): the frames carry the
- * answer as it is written, so a person who may no longer read a folder the
- * conversation drew on may neither open the stream nor keep one open.
- *
- * The REAL `@/lib/sharing/access` runs; only the conversation's probe, the grant
- * lookup and the answer to "who may read what it recorded" are stubbed.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -44,7 +36,6 @@ const session = {
   permissions: [],
 } as unknown as AuthorizedSession
 
-/** The set of people who may read what the conversation recorded; the watcher is in it or not. */
 function readers(...userIds: string[]): void {
   vi.mocked(peopleWhoMayRead).mockImplementation(async (_org, _id, asked) => new Set(asked.filter((id) => userIds.includes(id))))
 }

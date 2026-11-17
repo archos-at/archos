@@ -1,5 +1,3 @@
-"""``sanitize_report`` keeps only source lines whose address may be shown (citations spec G28)."""
-
 from __future__ import annotations
 
 import pytest
@@ -34,7 +32,6 @@ def test_a_source_that_is_not_a_public_https_page_is_removed_with_its_number(url
     assert len(result.unsafe_urls_removed) == 1 and url.startswith(result.unsafe_urls_removed[0])
     assert result.removed_citation_numbers == {1}
     assert url not in result.sanitized_report and "://[" not in result.sanitized_report
-    # The surviving source closes the gap, and the wire is told which number died.
     assert "- [1] [Web] Eine andere Seite – https://ok.example.org/a" in result.sanitized_report
     assert result.renumber_map == {2: 1}
 

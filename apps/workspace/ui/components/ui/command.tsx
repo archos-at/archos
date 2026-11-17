@@ -1,11 +1,5 @@
 'use client'
 
-/**
- * shadcn/ui `command` primitive built on cmdk — a keyboard-navigable,
- * fuzzy-filtered command list. `CommandDialog` wraps it in the project's
- * Dialog so it can be summoned as a palette (⌘K), with no open or close motion.
- */
-
 import * as React from 'react'
 import { Command as CommandPrimitive } from 'cmdk'
 import { SearchIcon } from 'lucide-react'
@@ -42,36 +36,16 @@ export interface CommandHintLabels {
 }
 
 interface CommandDialogProps extends React.ComponentPropsWithoutRef<typeof Dialog> {
-  /** Accessible dialog title (visually hidden). */
   title: string
-  /** Accessible dialog description (visually hidden). */
   description: string
   className?: string
-  /** When true, render ↑ ↓ ↵ Esc keycaps under the list. Off by default. */
   showHints?: boolean
-  /** Visible labels next to the hint keys. Ignored unless `showHints` is set. */
   hintLabels?: CommandHintLabels
-  /** A further key at the footer's end, for what this list alone offers (the palette's „alle Treffer“). */
   hintsTrailing?: React.ReactNode
-  /**
-   * Open and close with no motion (`DialogContent`'s `instant`). On by default:
-   * a palette is summoned from the keyboard many times a day, and Raycast's
-   * answer (no open or close animation at all) is the right one for it.
-   */
   instant?: boolean
-  /**
-   * The cmdk root's own controls: a `filter` that ranks rows the typed words
-   * do not spell (live search hits), and a controlled `value` for the row the
-   * arrows are on.
-   */
   commandProps?: Pick<React.ComponentPropsWithoutRef<typeof CommandPrimitive>, 'filter' | 'value' | 'onValueChange' | 'loop'>
 }
 
-/**
- * The keys of a list you walk with the keyboard, each with its word: the
- * palette's footer, and the footer of every picker that walks the same way
- * (the composer's `#`), so one key never has two descriptions.
- */
 function CommandHints({ labels, className, trailing }: { labels?: CommandHintLabels; className?: string; trailing?: React.ReactNode }) {
   return (
     <div
@@ -131,12 +105,6 @@ function CommandDialog({
 const CommandInput = React.forwardRef<
   React.ElementRef<typeof CommandPrimitive.Input>,
   React.ComponentPropsWithoutRef<typeof CommandPrimitive.Input> & {
-    /**
-     * Something is being fetched for what is typed: a thin sweep runs along
-     * the field's bottom edge, where the eye already is, instead of a spinner
-     * and a word appearing and vanishing somewhere in the list. The caller
-     * delays it, so a fast answer never shows it.
-     */
     busy?: boolean
   }
 >(({ className, busy = false, ...props }, ref) => (
@@ -168,9 +136,6 @@ const CommandInput = React.forwardRef<
       ref={ref}
       data-slot="command-input"
       className={cn(
-        // Ring-less: a focus ring on this field sits on the wrapper's
-        // border-b and reads as a broken top edge. The wrapper wash is
-        // the focus signal instead.
         'placeholder:text-muted-foreground flex h-10 w-full bg-transparent py-3 text-sm outline-none ring-0 focus-visible:ring-0 disabled:cursor-not-allowed disabled:opacity-50',
         className
       )}

@@ -1,10 +1,3 @@
-/**
- * TopicPicker (ADR-0180): the field offers the shelf's topics and takes what is
- * typed through the shelf's spelling. What must hold: a name typed in another
- * case lands in the topic the shelf already has, a name over the topic bound
- * says so and takes nothing, "no topic" is an option of its own, and a choice
- * the note already has calls nothing.
- */
 import { describe, expect, test, vi } from 'vitest'
 import userEvent from '@testing-library/user-event'
 import { render, screen, within } from '@/test-utils'

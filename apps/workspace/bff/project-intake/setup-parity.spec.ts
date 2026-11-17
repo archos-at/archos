@@ -26,40 +26,16 @@ const FIXTURE: Row[] = JSON.parse(readFileSync(join(process.cwd(), 'tests/fixtur
 const ROWS = parityCases().map((parityCase) => parityRow(parityCase))
 const READINGS = ['needs', 'derivations', 'register', 'derived'] as const
 
-/** The readings of one row that differ from develop's. */
 function differences(index: number): string[] {
   return READINGS.filter((reading) => ROWS[index][reading] !== FIXTURE[index][reading])
 }
 
-/**
- * What a project outside Austria reads differently, on purpose. Develop kept a
- * confirmed building class input on the needs list (as `confirmed`, so a
- * reading could corroborate it) for every project, the OIB's inputs being the
- * only ones; now a project keeps the inputs of the classification its site
- * selects, and outside Austria that is none. `needs.spec.ts` pins the cause.
- */
 const KNOWN_ABROAD_CHANGES = ['needs']
 
-/**
- * A project nothing places: the same, and its register. Develop listed
- * Austria's documents for a project in no country; the register now reads the
- * records of the country the site selects, and an unplaced site selects none,
- * so it asks for the site and requests no document.
- */
 const KNOWN_UNPLACED_CHANGES = ['needs', 'register']
 
-/**
- * `country=at` beside the Land „außerhalb Österreichs": develop's register read
- * it as abroad and its derivation as Austria. It is now read one way, as in no
- * country the records name, so no class is derived either (fail closed).
- */
 const KNOWN_CONTRADICTORY_CHANGES = ['derivations', 'needs']
 
-/**
- * develop's intake definition, serialised: the wizard's Bundesland options are
- * now read from Austria's `fact_definitions` record, and every byte of the
- * definition the wizard and the server read must stay what it was.
- */
 const DEVELOP_DEFINITION_SHA256 = '2b5ee035811897218af4cfc63d9aff2d36b45456b39183321f34b54bbe69b5fa'
 
 describe('the setup on records, against develop', () => {

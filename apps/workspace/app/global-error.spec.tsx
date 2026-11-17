@@ -7,10 +7,6 @@ vi.mock('@/lib/analytics/posthog', () => ({
   capturePosthogException: (...args: unknown[]) => capturePosthogException(...args),
 }))
 
-/**
- * React warns when `<html>` is rendered inside the test container; the real
- * thing owns the document, which is the whole point of this file.
- */
 describe('GlobalError', () => {
   beforeEach(() => {
     vi.spyOn(console, 'error').mockImplementation(() => {})

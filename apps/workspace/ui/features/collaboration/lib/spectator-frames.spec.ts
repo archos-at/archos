@@ -1,12 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * An observer folds with the asker's fold (ADR-0039, `chat-wire-v2.md` §d):
- * the same fixtures give the same view. What differs is only what this module
- * adds — a new turn starts a new view, a gap is skipped, and a card that acts
- * is never handed over.
- */
 import { describe, expect, it } from 'vitest'
 import type { WireEvent } from '@/adapters/api/wire-v2'
 import { foldTurnEvents, type TurnView } from '@/lib/turns/turn-fold'

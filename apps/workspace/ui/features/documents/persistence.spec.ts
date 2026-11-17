@@ -18,7 +18,6 @@ const STORAGE_KEY = 'documents_active_jobs'
 
 describe('persistence', () => {
   beforeEach(() => {
-    // Clear localStorage before each test
     localStorage.clear()
     vi.useFakeTimers()
   })
@@ -89,7 +88,6 @@ describe('persistence', () => {
 
       getPersistedJobs()
 
-      // Storage should be cleared since no active jobs remain
       expect(localStorage.getItem(STORAGE_KEY)).toBeNull()
     })
 
@@ -304,7 +302,6 @@ describe('persistence', () => {
       })
 
       test('caps at 200 sessions with FIFO eviction', () => {
-        // Pre-fill with 200 sessions
         const sessions = Array.from({ length: 200 }, (_, i) => `session-${i}`)
         localStorage.setItem(COLLECTIONS_KEY, JSON.stringify(sessions))
 
@@ -312,11 +309,8 @@ describe('persistence', () => {
 
         const stored = JSON.parse(localStorage.getItem(COLLECTIONS_KEY) || '[]')
         expect(stored).toHaveLength(200)
-        // Oldest session (session-0) should be evicted
         expect(stored).not.toContain('session-0')
-        // Newest should be present
         expect(stored).toContain('session-new')
-        // Second oldest should still be present
         expect(stored).toContain('session-1')
       })
     })

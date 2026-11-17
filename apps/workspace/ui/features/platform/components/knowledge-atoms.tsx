@@ -1,12 +1,5 @@
 'use client'
 
-/**
- * The base-knowledge vocabulary, drawn once: a document's type chip and its
- * lifecycle badge. The table row, the detail sheet and the upload progress
- * list all show these, so they compose the same atoms rather than three
- * lookalikes.
- */
-
 import type { JSX } from 'react'
 import { useCallback } from 'react'
 import { Badge } from '@/components/ui/badge'
@@ -23,21 +16,11 @@ import {
 } from '@/lib/knowledge/doc-class'
 import type { KnowledgeFileState } from '@/lib/knowledge/service'
 
-/**
- * The translated name of a Dokumentart.
- *
- * `DOC_CLASS_LABELS` in `lib/knowledge/doc-class.ts` is the backend's German
- * vocabulary, kept for the parity test against the Python file. The UI reads
- * `platform.knowledge.docClasses.*` instead, so an English session does not
- * get German type names; the German entries equal the backend labels (pinned
- * in `base-knowledge.spec.tsx`).
- */
 export function useDocClassLabel(): (docClass: DocClass | string | null | undefined) => string {
   const t = useTranslations(platformCopy)
   return useCallback((docClass) => t(`knowledge.docClasses.${resolveDocClass(docClass)}`), [t])
 }
 
-/** The Dokumentart as a provenance chip, with the authority tag only where the label lacks it. */
 export function DocClassChip({ docClass }: { docClass: string | null }): JSX.Element {
   const label = useDocClassLabel()(docClass)
   const tag = docClassAuthority(docClass)
@@ -57,11 +40,6 @@ export const STATE_VARIANT: Record<
   inconsistent: 'destructive',
 }
 
-/**
- * A document's lifecycle as a badge. `hint="tooltip"` explains the state on
- * hover; the detail sheet prints the same hint as text, so
- * it is never only behind a hover.
- */
 export function KnowledgeStateBadge({
   state,
   hint = 'none',

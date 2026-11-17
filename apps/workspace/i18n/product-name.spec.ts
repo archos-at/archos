@@ -2,13 +2,6 @@
  * @vitest-environment node
  */
 
-/**
- * The copy names the product through one constant (`PRODUCT_NAME`,
- * `lib/brand.ts`): a dictionary string says `{productName}`, and the registry
- * puts the name in. A string that spells the name would survive the next
- * rename, so this fails on one, in either locale.
- */
-
 import { describe, expect, it } from 'vitest'
 import { PRODUCT_NAME, withProductName } from '@/lib/brand'
 import { en as enSource } from './dictionaries/en'

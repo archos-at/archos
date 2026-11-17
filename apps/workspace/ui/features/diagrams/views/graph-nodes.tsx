@@ -1,14 +1,5 @@
 'use client'
 
-/**
- * The nodes a diagram is drawn with — the card style, not mermaid's boxes.
- *
- * Handles are invisible and structural (one pair per node, fixed by the
- * graph's direction), exactly as in the Herleitung: React Flow measures a
- * node's handles once, and an edge needs one at each end to be drawn at all.
- * The route itself comes from dagre (`graph-canvas.tsx`), not from the handles.
- */
-
 import type { FC } from 'react'
 import { Handle, type Node, type NodeProps, Position } from '@xyflow/react'
 import { Split } from 'lucide-react'
@@ -27,7 +18,6 @@ const Handles: FC<{ direction?: Direction }> = ({ direction = 'TB' }) => (
   </>
 )
 
-/** A step: what happens. */
 export const StepNode: FC<NodeProps<Node<GraphNodeData>>> = ({ data }) => (
   <div className="bg-card text-foreground rounded-lg px-3 py-2 text-center text-[13px] leading-snug whitespace-pre-line text-pretty hyphens-auto break-words shadow-xs">
     {data.label}
@@ -35,7 +25,6 @@ export const StepNode: FC<NodeProps<Node<GraphNodeData>>> = ({ data }) => (
   </div>
 )
 
-/** A decision: the question a path forks on. */
 export const DecisionNode: FC<NodeProps<Node<GraphNodeData>>> = ({ data }) => (
   <div className="border-[color-mix(in_oklch,var(--border-color-feedback-warning)_45%,transparent)] bg-warning-subtle text-foreground flex items-start justify-center gap-1.5 rounded-lg border px-3 py-2 text-center text-[13px] leading-snug font-medium text-pretty ">
     <Split aria-hidden="true" className="text-warning mt-0.5 size-3.5 shrink-0" />
@@ -44,7 +33,6 @@ export const DecisionNode: FC<NodeProps<Node<GraphNodeData>>> = ({ data }) => (
   </div>
 )
 
-/** Where a path ends: an outcome. */
 export const EndNode: FC<NodeProps<Node<GraphNodeData>>> = ({ data }) => (
   <div className="border-border bg-muted text-foreground rounded-full border px-3 py-1.5 text-center text-[13px] leading-snug font-medium whitespace-pre-line text-pretty hyphens-auto break-words">
     {data.label}
@@ -52,7 +40,6 @@ export const EndNode: FC<NodeProps<Node<GraphNodeData>>> = ({ data }) => (
   </div>
 )
 
-/** A state diagram's start or end. */
 export const PointNode: FC<NodeProps<Node<GraphNodeData>>> = ({ data }) => (
   <div className="flex h-3 w-3 items-center justify-center">
     <span className="bg-muted-foreground block size-2.5 rounded-full" />
@@ -60,7 +47,6 @@ export const PointNode: FC<NodeProps<Node<GraphNodeData>>> = ({ data }) => (
   </div>
 )
 
-/** A node of a map: the root is the Regelwerk, level 1 its parts, deeper levels what they cover. */
 export const MapNode: FC<NodeProps<Node<GraphNodeData>>> = ({ data }) => {
   const level = data.level ?? 0
   return (

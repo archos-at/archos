@@ -15,7 +15,6 @@ vi.mock('@/adapters/api', () => ({
 describe('useLayoutStore', () => {
   beforeEach(() => {
     mockGetDataSources.mockReset()
-    // Reset store to initial state before each test (matches store.ts initialState)
     useLayoutStore.setState({
       isSessionsPanelOpen: false,
       dataSourcesPanelTab: 'connections',

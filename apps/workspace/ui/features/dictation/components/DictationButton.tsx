@@ -1,23 +1,5 @@
 'use client'
 
-/**
- * The composer's microphone. Press to record, press again (or wait 45 seconds)
- * to stop; the text arrives through `onTranscript`.
- *
- * Two pieces, because a phone needs both. {@link DictationControl} is the
- * button in the composer's control row: it keeps its place and its size in
- * every state, so the row never reflows under a thumb that is about to press
- * Stop. {@link DictationStrip} is what a touch screen shows while it records:
- * a full-width bar above the row with the level, the time against the limit,
- * and the whole bar as the target that ends the recording. With a mouse the
- * row control carries the level and the time itself and the strip stays out.
- *
- * When this browser cannot dictate, the button stays visible and says why: on
- * hover and keyboard focus through its tooltip, and on a tap through
- * `onExplain`, because a touch screen has no hover and a disabled button
- * answers a finger with nothing at all.
- */
-
 import { useEffect, useSyncExternalStore } from 'react'
 import { Loader2, Mic, Square } from 'lucide-react'
 import { AudioWave } from '@/components/ui/audio-wave'
@@ -32,32 +14,19 @@ import { cn } from '@/lib/utils'
 import { useDictation, type DictationErrorKey, type DictationState } from '../hooks/use-dictation'
 
 export interface DictationButtonProps {
-  /** The UI language: a wording hint for the transcript, never its language. */
   locale: string
-  /** The composer cannot take input right now (no permission, busy). */
   disabled?: boolean
   onTranscript: (text: string) => void
-  /** A translated message for the composer's usual inline error. */
   onError: (message: string) => void
-  /** A translated reason, when the reader taps a microphone this browser cannot use. */
   onExplain?: (reason: string) => void
-  /** Where a {@link LiveDictationStrip} elsewhere in the composer reads this button's state. */
   channel?: DictationChannel
 }
 
-/** What one microphone is doing, and how to stop it: what the strip needs from the button. */
 export interface DictationSnapshot {
   state: DictationState
   toggle: () => void
 }
 
-/**
- * The button's state, readable by a strip rendered somewhere else.
- *
- * A recording publishes a new level every 60ms. Lifting the hook into the
- * composer would re-render the whole composer at that rate; through this
- * channel only the button and the strip do.
- */
 export interface DictationChannel {
   get: () => DictationSnapshot
   publish: (snapshot: DictationSnapshot) => void
@@ -82,7 +51,6 @@ export function createDictationChannel(): DictationChannel {
   }
 }
 
-/** The hook and the row control in one; with a `channel`, a strip elsewhere follows it. */
 export function DictationButton({
   locale,
   disabled = false,
@@ -116,11 +84,9 @@ export interface DictationControlProps {
   locale: string
   disabled?: boolean
   onToggle: () => void
-  /** Called with the translated reason when an unavailable microphone is pressed. */
   onExplain?: (reason: string) => void
 }
 
-/** The button for one dictation state, with no behaviour of its own (the `/dev/dictation` preview draws each). */
 export function DictationControl({
   state,
   locale,
@@ -163,8 +129,6 @@ export function DictationControl({
       <Button
         variant="ghost"
         size="sm"
-        // On a touch screen the strip above the row carries the level and the
-        // time, so the button stays a 44px square and the row does not reflow.
         className="text-destructive hover:text-destructive pointer-coarse:size-11 pointer-coarse:px-0 h-[34px] gap-1.5 rounded-lg px-2.5 tabular-nums"
         onClick={onToggle}
         aria-label={`${t('dictation.stop')} (${t('dictation.recording', { elapsed })})`}
@@ -188,8 +152,6 @@ export function DictationControl({
       size="icon"
       className="text-subtle size-[34px] rounded-lg"
       onClick={onToggle}
-      // Pressable while the microphone opens, even in a composer that has since
-      // gone read-only: a permission prompt nobody answers is ended by a second press.
       disabled={starting ? false : disabled || busy}
       aria-label={
         state.phase === 'transcribing'
@@ -224,12 +186,6 @@ export interface DictationStripProps {
   className?: string
 }
 
-/**
- * The recording, at the width of the composer: what a touch screen shows while
- * the microphone is open. Renders nothing outside recording and transcribing,
- * and nothing on a fine pointer (`pointer-coarse:flex`), where the row control
- * already shows the same two facts.
- */
 export function DictationStrip({ state, locale, onToggle, className }: DictationStripProps) {
   const tCapture = useTranslations(captureCopy)
   if (state.phase === 'transcribing') {
@@ -260,7 +216,6 @@ export function DictationStrip({ state, locale, onToggle, className }: Dictation
       type="button"
       onClick={onToggle}
       data-testid="dictation-strip"
-      // The whole bar is the Stop: the target a thumb finds without looking.
       aria-label={`${tCapture('dictation.tapToInsert')} (${elapsed})`}
       className={cn(
         'bg-muted/70 focus-visible:ring-ring/50 pointer-coarse:flex relative mt-2 hidden min-h-12 w-full items-center gap-3 overflow-hidden rounded-lg px-3.5 text-left focus-visible:outline-none focus-visible:ring-2 active:scale-[0.99] motion-reduce:active:scale-100',
@@ -293,7 +248,6 @@ export function DictationStrip({ state, locale, onToggle, className }: Dictation
   )
 }
 
-/** {@link DictationStrip} following a {@link DictationButton} through its channel. */
 export function LiveDictationStrip({ channel, locale }: { channel: DictationChannel; locale: string }) {
   const { state, toggle } = useSyncExternalStore(channel.subscribe, channel.get, channel.get)
   return <DictationStrip state={state} locale={locale} onToggle={toggle} />

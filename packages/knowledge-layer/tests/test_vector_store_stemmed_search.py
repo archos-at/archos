@@ -1,12 +1,3 @@
-"""``knowledge_search(match="exact", stemmed=true)``: inflected forms through a German-stemmed index (ADR-0127).
-
-The literal exact search finds „Fluchtwegbreite“ inside „Fluchtwegbreiten“ (a
-substring) but not the reverse, and never „Türen“ for „Tür“ the other way. A
-second copy of the chunk text (``text_stem``) carries a Snowball German index;
-the stemmed search adds every chunk it matches to the literal result. Default
-off, so the exact search stays literal. Real Qdrant 1.19, real adapter, real tool.
-"""
-
 from __future__ import annotations
 
 import uuid
@@ -35,7 +26,6 @@ from agent.knowledge.inventory import set_turn_documents
 from agent.knowledge.schema import AvailableDocument
 from agent.knowledge.scoping import ScopedCollection
 
-# A search over a project or session scope reads as an office, as every request does (ADR-0163).
 pytestmark = pytest.mark.usefixtures("reads_as_an_office")
 
 PROJECT = "proj_stem"
@@ -84,9 +74,6 @@ def test_the_stemmed_copy_is_written_and_never_read_back_as_metadata():
         translate({schema.TEXT_STEM_FIELD: "x"})
 
 
-# ---------------------------------------------------------------- real Qdrant
-
-
 @pytest.fixture
 def placed(qdrant_store):
     write(PROJECT, [record(text, name) for name, text in TEXTS.items()])
@@ -116,7 +103,6 @@ class TestOnQdrant:
 
         literal = retrieval.find_text(PROJECT, phrase_pattern(["Fluchtwegbreiten"]), None, 50, office_id="org_test")
 
-        # A substring: the plural and the compound, never the singular.
         assert _files(literal) == {"Plural.pdf", "Compound.pdf"}
 
     def test_the_stemmed_result_is_the_literal_one_and_more(self, placed):
@@ -156,9 +142,6 @@ class TestOnQdrant:
         )
 
         assert "Alt.pdf" in _files(found)
-
-
-# ---------------------------------------------------------------- through the tool
 
 
 @pytest.fixture

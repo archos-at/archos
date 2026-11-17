@@ -1,14 +1,5 @@
 'use client'
 
-/**
- * The text of one manifestation, on its change request (ADR-0165, "Texts are
- * attached in the request"): the file the edition points to, one click away
- * for the reviewer, with where it came from. In a draft, whoever may write
- * platform knowledge attaches it here: an upload, or a URL on a configured
- * source that the public-source fetcher fetches. The text is released with
- * the request, under the request's country; nothing is uploaded elsewhere.
- */
-
 import type { JSX } from 'react'
 import { useRef, useState } from 'react'
 import { toast } from 'sonner'
@@ -24,10 +15,8 @@ import { countryName } from './change-request-format'
 interface Props {
   requestId: string
   countryId: string
-  /** The manifestation's record id, `manifestation:<key>`. */
   recordId: string
   text: AttachedTextView | undefined
-  /** A draft, and the viewer may write platform knowledge. */
   canAttach: boolean
   onAttached: () => void
 }

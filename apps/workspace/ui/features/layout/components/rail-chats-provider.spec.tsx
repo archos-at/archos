@@ -1,8 +1,3 @@
-/**
- * The rail's last chats are the history sheet's own rows for the project the page is in: up to `RAIL_CHAT_LIMIT`, newest first, the
- * open one current only on the chat route, and a row on the chat route switches the thread the store shows.
- */
-
 import { render, screen } from '@/test-utils'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { RAIL_CHAT_LIMIT, useRailChats } from '@/components/shell/rail-chats'
@@ -48,7 +43,6 @@ describe('RailChatsProvider', () => {
     const mine = [1, 2, 3, 4, 5, 6, 7].map((n) => conversation(`c${n}`, day(n)))
     useChatStore.setState({
       currentUserId: 'u1',
-      // The store's project is whichever chat was open last: the rail goes by the page's.
       projectId: 'p2',
       conversations: [
         ...mine,

@@ -1,16 +1,3 @@
-/**
- * DimensionDiagramCard — parametric accessibility/geometry schematics.
- *
- * One prebuilt architectural template per `shape` (door elevation, ramp
- * section, corridor plan, turning circle, threshold detail, parking space
- * plan, lift cabin plan), drawn to scale from the provided dimensions. Each recognised
- * `DimensionCheck` is placed as a status-coloured `DimensionArrow` exactly
- * where it is measured (e.g. the door width between the jambs — lichte
- * Durchgangsbreite, not Stocklichte); every check also appears in the legend
- * below, so nothing provided is ever dropped. Unknown values draw a neutral
- * fallback geometry, but their arrows read "fehlende Angabe".
- */
-
 import { type FC, type ReactNode } from 'react'
 import { Ruler } from 'lucide-react'
 import {
@@ -46,7 +33,6 @@ interface Template {
   node: ReactNode
 }
 
-/** First dimension whose label (or unit) matches one of the keywords. */
 const pick = (
   dims: DimensionCheckData[],
   keywords: string[],
@@ -60,7 +46,6 @@ const pick = (
 
 const label = (d: DimensionCheckData, t: Translator): string => fmtDim(d.value, d.unit ?? 'cm', t)
 
-/** Wall poché: dense hachure fill used for cut walls in plans/sections. */
 const POCHE = {
   fill: 'color-mix(in oklch, var(--foreground) 55%, transparent)',
   fillStyle: 'hachure' as const,
@@ -75,8 +60,6 @@ const HATCH_LIGHT = {
   fillWeight: 0.5,
   hachureGap: 9,
 }
-
-/* ── door: front elevation, frame + leaf + handle ─────────────────────────── */
 
 const doorTemplate = (dims: DimensionCheckData[], t: Translator): Template => {
   const widthDim = pick(dims, ['breite', 'durchgang', 'width'])
@@ -171,8 +154,6 @@ const doorTemplate = (dims: DimensionCheckData[], t: Translator): Template => {
   }
 }
 
-/* ── ramp: side section with slope, handrail, length + height ─────────────── */
-
 const toMetres = (d: DimensionCheckData | undefined): number | null =>
   d?.value == null ? null : (d.unit ?? 'cm') === 'cm' ? d.value / 100 : d.value
 
@@ -186,8 +167,6 @@ const rampTemplate = (dims: DimensionCheckData[], t: Translator): Template => {
   const riseM = toMetres(heightDim) ?? (Lm * slopePct) / 100
 
   const k = fitScale(Lm, Math.max(riseM, 0.6), 320, 100)
-  // Handrail is a hint, not measured geometry — cap it so it never dwarfs a
-  // shallow ramp wedge.
   const railH = Math.min(1.0 * k, 34)
   const x0 = 44
   const padTop = railH + 30
@@ -316,8 +295,6 @@ const rampTemplate = (dims: DimensionCheckData[], t: Translator): Template => {
   }
 }
 
-/* ── corridor: plan with two cut walls and the clear width between ────────── */
-
 const corridorTemplate = (dims: DimensionCheckData[], t: Translator): Template => {
   const widthDim = pick(dims, ['breite', 'width'])
   const w = widthDim?.value ?? 120
@@ -370,8 +347,6 @@ const corridorTemplate = (dims: DimensionCheckData[], t: Translator): Template =
   }
 }
 
-/* ── turning circle: wheelchair turning clearance in a room corner ────────── */
-
 const turningCircleTemplate = (dims: DimensionCheckData[], t: Translator): Template => {
   const diaDim = pick(dims, ['durchmesser', 'wende', 'breite', 'diameter'])
   const d = diaDim?.value ?? 150
@@ -418,8 +393,6 @@ const turningCircleTemplate = (dims: DimensionCheckData[], t: Translator): Templ
     ),
   }
 }
-
-/* ── threshold: door-sill detail, centimetre scale ────────────────────────── */
 
 const thresholdTemplate = (dims: DimensionCheckData[], t: Translator): Template => {
   const heightDim = pick(dims, ['höhe', 'hoehe', 'schwelle', 'height'])
@@ -518,8 +491,6 @@ const thresholdTemplate = (dims: DimensionCheckData[], t: Translator): Template 
   }
 }
 
-/* ── parking space: accessible bay in plan ────────────────────────────────── */
-
 const parkingTemplate = (dims: DimensionCheckData[], t: Translator): Template => {
   const widthDim = pick(dims, ['breite', 'width'])
   const lengthDim = pick(dims, ['länge', 'laenge', 'tiefe', 'length'])
@@ -584,13 +555,6 @@ const parkingTemplate = (dims: DimensionCheckData[], t: Translator): Template =>
   }
 }
 
-/**
- * A barrier-free lift cabin in plan: the cabin's inner width and depth, and
- * the clear door opening in its front wall. What the retired
- * `elevator_requirement` card drew for the cabin; its Kabinenbreite /
- * Kabinentiefe / lichte Türbreite now arrive as three dimensions here. The door
- * is picked first: „lichte Türbreite" also says „breite".
- */
 const liftCabinTemplate = (dims: DimensionCheckData[], t: Translator): Template => {
   const doorDim = pick(dims, ['tür', 'tuer', 'door'])
   const rest = dims.filter((d) => d !== doorDim)

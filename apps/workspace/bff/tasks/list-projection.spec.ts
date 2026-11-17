@@ -1,10 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The run summary on a task row: derived the way the block derives it, looked
- * up in ONE bounded query, and only for the rows whose card shows it.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -113,9 +109,7 @@ describe('loadRunSummaries', () => {
     expect(listRunLedgersByMessageIds).toHaveBeenCalledTimes(1)
     expect(listRunLedgersByMessageIds).toHaveBeenCalledWith(['msg-1', 'msg-2', 'msg-4'])
     expect(summaries.get('run-1')).toEqual({ status: 'running', rounds: 2, docs: 2 })
-    // A finished row keeps its tallies: that is how much work stands behind it.
     expect(summaries.get('run-2')).toEqual({ status: 'done', rounds: 2, docs: 2 })
-    // A row whose ledger is missing simply has no entry.
     expect(summaries.has('run-4')).toBe(false)
   })
 

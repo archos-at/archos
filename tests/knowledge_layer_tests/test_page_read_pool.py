@@ -1,12 +1,3 @@
-"""One file's page reads share one streaming pool (``page_reads``).
-
-The transcriptions of a file's scans and the analyses of its drawings draw from
-the same bounded pool, with no batch waiting for its slowest call, and come back
-in page order. The drawings the triage knows are read while the scans are still
-being transcribed, and the vision batch gets those calls rather than making them
-again.
-"""
-
 from __future__ import annotations
 
 import io
@@ -25,8 +16,6 @@ VISION = {"vlm_model": "m", "vlm_base_url": "u", "vlm_api_key": "k"}
 
 
 class _Meter:
-    """Counts the calls in flight, and remembers which kinds ran at the same moment."""
-
     def __init__(self, delay: float) -> None:
         self.delay = delay
         self.lock = threading.Lock()
@@ -91,7 +80,6 @@ def meter(monkeypatch):
 
 
 def _read_pages(path: str, parallelism: int):
-    """The adapter's sequence: read the triage's drawings ahead, transcribe, render, analyse."""
     text_pages = adapter._extract_text_from_pdf(path)
     page_texts = adapter.page_texts_for_visual_heuristic(text_pages)
     triage = page_triage.triage_pdf(path, page_texts, min_text_chars=200, min_paths=300)
@@ -126,7 +114,6 @@ def test_scans_and_drawings_are_read_at_once_within_the_pool_bound(tmp_path, met
     assert meter.peak <= 4
     assert sorted(routes.outcome.texts) == list(range(5, 17))
     assert [page["page_number"] for page in drawings] == [1, 2, 3, 4]
-    # Each page is read once: the batch got the calls made ahead of it.
     assert meter.calls.count("vision") == 4 and meter.calls.count("ocr") == 12
     assert [page["page_number"] for page in text_pages][-12:] == list(range(5, 17))
 

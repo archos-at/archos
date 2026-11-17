@@ -2,14 +2,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The committed OpenAPI document is what a reviewer reads to see the agent
- * surface change, and this keeps it from going stale.
- *
- * It REWRITES the fixture when `UPDATE_FIXTURES=1` and otherwise compares, as
- * `lib/documents/lifecycle-schema.spec.ts` does: a generated artifact that
- * regenerates itself silently on every run is not a gate.
- */
 import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
@@ -88,7 +80,6 @@ describe('agent API OpenAPI document', () => {
     const schema = upload.requestBody.content['multipart/form-data']?.schema
     expect(schema?.properties.file).toEqual({ type: 'string', format: 'binary' })
     expect(Object.keys(schema?.properties ?? {})).toEqual(expect.arrayContaining(['scope', 'projectId', 'folderId', 'uploadBatchId']))
-    // The shelf is `projectId` or `scope: office_shelf`; the route refuses a request that names neither.
     expect(schema?.required).toEqual(['file'])
   })
 

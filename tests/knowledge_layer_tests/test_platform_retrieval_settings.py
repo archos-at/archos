@@ -1,6 +1,3 @@
-"""Platform → Retrieval counts (knowledge.top_k / knowledge.max_chunks_per_document)
-are consulted per call by the knowledge_search tool and win over the YAML values."""
-
 from unittest.mock import MagicMock
 
 import pytest
@@ -41,8 +38,6 @@ def harness(monkeypatch):
     monkeypatch.setattr("agent.knowledge.factory.configure_summary_db", lambda url: None)
     monkeypatch.setattr("agent.knowledge.norm_store.configure_norm_store", lambda url: None)
     monkeypatch.delenv("INTERNAL_API_TOKEN", raising=False)
-    # The resolver's TTL cache is process-global; start every case cold so an
-    # entry from another module cannot decide this test's counts.
     reset_retrieval_settings_cache()
     return retriever
 

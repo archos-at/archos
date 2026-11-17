@@ -1,16 +1,5 @@
 'use client'
 
-/**
- * The upload surfaces' own atoms (ADR-0086): one count with its icon and word,
- * as a tile in the summary and as a pill in the history, and a term with how
- * many files it kept back. Both surfaces compose these, so a count reads the
- * same in the dialog and in the project's list.
- *
- * The words for the document outcomes are the status badge's own
- * (`files.status.*`): „Zitierbar" on a tile and „Zitierbar" on the badge of the
- * file under it are one fact, said once.
- */
-
 import type { JSX } from 'react'
 import {
   Archive,
@@ -37,7 +26,6 @@ import type { CountKey } from '../lib/upload-summary'
 
 type Tone = 'success' | 'info' | 'warning' | 'destructive' | 'muted'
 
-/** Icon and tone per count. Colour never travels alone: every tile and pill also says its word. */
 const TALLY_LOOK: Record<CountKey, { icon: LucideIcon; tone: Tone }> = {
   ready: { icon: CircleCheck, tone: 'success' },
   reading: { icon: Clock3, tone: 'info' },
@@ -50,7 +38,6 @@ const TALLY_LOOK: Record<CountKey, { icon: LucideIcon; tone: Tone }> = {
   protected: { icon: Lock, tone: 'muted' },
 }
 
-/** The word for each count, from the dictionary that already says it. */
 export function useTallyLabel(): (key: CountKey) => string {
   const tFiles = useTranslations(filesCopy)
   const t = useTranslations(uploadBatchesCopy)
@@ -78,7 +65,6 @@ export function useTallyLabel(): (key: CountKey) => string {
   }
 }
 
-/** One headline count in the summary: a tinted well, the number, the word. */
 export function TallyTile({ tally, count, label }: { tally: CountKey; count: number; label: string }): JSX.Element {
   const look = TALLY_LOOK[tally]
   return (
@@ -95,7 +81,6 @@ export function TallyTile({ tally, count, label }: { tally: CountKey; count: num
   )
 }
 
-/** One count as a small pill, for a dense row (the project's upload history). */
 export function TallyPill({ tally, count, label }: { tally: CountKey; count: number; label: string }): JSX.Element {
   const look = TALLY_LOOK[tally]
   const Icon = look.icon
@@ -108,11 +93,6 @@ export function TallyPill({ tally, count, label }: { tally: CountKey; count: num
   )
 }
 
-/**
- * What one file was besides how it ended, as a chip on its row: the tile's own
- * icon and word, so „Geschützt" on the tile and on the file are one fact. The
- * title says what it means.
- */
 export function FacetChip({ facet, label, hint }: { facet: 'changed' | 'protected'; label: string; hint: string }): JSX.Element {
   const look = TALLY_LOOK[facet]
   const Icon = look.icon
@@ -125,7 +105,6 @@ export function FacetChip({ facet, label, hint }: { facet: 'changed' | 'protecte
   )
 }
 
-/** A name and how many files carry it: a screening term, a document type. */
 export function NamedCount({ name, count }: { name: string; count: number }): JSX.Element {
   return (
     <Chip variant="muted" className="max-w-full">
@@ -135,7 +114,6 @@ export function NamedCount({ name, count }: { name: string; count: number }): JS
   )
 }
 
-/** A folder's heading over its files, with how many of them arrived there. Path segments keep their case. */
 export function FolderHeading({ label, count }: { label: string; count: number }): JSX.Element {
   return (
     <h4 className="text-foreground flex min-w-0 items-center gap-1.5 text-xs font-medium">

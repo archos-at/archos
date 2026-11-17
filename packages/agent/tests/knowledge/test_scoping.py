@@ -1,5 +1,3 @@
-"""Tests for the collection-scope helper (scoping.py)."""
-
 import base64
 import json
 from unittest.mock import MagicMock
@@ -15,8 +13,6 @@ from agent.knowledge.scoping import get_scoped_collections_from_context
 
 
 class TestBase64UrlDecode:
-    """Tests for the _base64url_decode helper."""
-
     def test_standard_padded(self):
         assert _base64url_decode("SGVsbG8=") == b"Hello"
 
@@ -24,7 +20,6 @@ class TestBase64UrlDecode:
         assert _base64url_decode("SGVsbG8") == b"Hello"
 
     def test_urlsafe_chars(self):
-        # base64url uses - instead of +, _ instead of /
         encoded = base64.urlsafe_b64encode(b"\xfb\xff\xff\xff").decode().rstrip("=")
         assert "+" not in encoded and "/" not in encoded
         assert _base64url_decode(encoded) == b"\xfb\xff\xff\xff"
@@ -38,16 +33,12 @@ class TestBase64UrlDecode:
 
 
 class _MockContext:
-    """Minimal Context mock that returns a given header value."""
-
     def __init__(self, header_value: str | None):
         self.metadata = MagicMock()
         self.metadata.headers.get.return_value = header_value
 
 
 class TestGetCollectionScopeFromContext:
-    """Tests for get_collection_scope_from_context."""
-
     def test_valid_header(self):
         scope = ["oib_knowledge", "proj_test", "s_conv123"]
         encoded = base64.urlsafe_b64encode(json.dumps(scope).encode()).decode()
@@ -145,14 +136,6 @@ class TestGetCollectionScopeFromContext:
 
 
 class TestTheShelfTravelsInTheHeader:
-    """``X-Grid-Collection-Scope`` carries the shelf as data (ADR-0047).
-
-    Both wire shapes are read: the current ``{collection, shelf}`` objects and
-    the legacy bare strings a not-yet-deployed BFF still sends. A bare string
-    states no shelf, and that stays UNKNOWN — the collection id is never
-    inspected to guess one back.
-    """
-
     @staticmethod
     def _ctx(payload):
         return _MockContext(base64.urlsafe_b64encode(json.dumps(payload).encode()).decode())
@@ -175,8 +158,6 @@ class TestTheShelfTravelsInTheHeader:
             ]
 
     def test_a_session_collection_is_session_not_project(self):
-        # The headline bug: `('s_', 'projekt')` was the only guess available, so
-        # a private chat attachment was attributed to project knowledge.
         ctx = self._ctx([{"collection": "s_9f2a4c", "shelf": "session"}])
         with patch("agent.knowledge.scoping.Context.get", return_value=ctx):
             (entry,) = get_scoped_collections_from_context()
@@ -192,8 +173,6 @@ class TestTheShelfTravelsInTheHeader:
             ]
 
     def test_an_unknown_shelf_value_reads_as_unknown_never_base(self):
-        # A shelf the reader does not know (a producer ahead of this deploy, or
-        # a stale label) must NOT fall open to `base`/`baurecht`.
         ctx = self._ctx(
             [
                 {"collection": "proj_alpha", "shelf": "projekt"},
@@ -216,8 +195,6 @@ class TestTheShelfTravelsInTheHeader:
         )
         with patch("agent.knowledge.scoping.Context.get", return_value=ctx):
             entries = get_scoped_collections_from_context()
-        # The double-prefixed name normalizes onto the same collection, and the
-        # FIRST entry wins so the stated shelf is not lost to a bare repeat.
         assert entries == [
             ScopedCollection("s_conv1", Shelf.SESSION),
             ScopedCollection("proj_alpha", Shelf.PROJECT),
@@ -229,28 +206,12 @@ class TestTheShelfTravelsInTheHeader:
             assert get_collection_scope_from_context() == ["proj_alpha", "s_9f2a4c"]
 
     def test_an_entry_in_neither_shape_voids_the_whole_scope(self):
-        # The scope is an authorization boundary: an unreadable one is no scope,
-        # never a partially-read one.
         ctx = self._ctx([{"collection": "proj_alpha", "shelf": "project"}, {"shelf": "session"}])
         with patch("agent.knowledge.scoping.Context.get", return_value=ctx):
             assert get_scoped_collections_from_context() is None
 
 
 class TestABlankNameMeansTheSameOnBothSidesOfTheSeam:
-    """A blank collection name is READABLE and names nothing — not unreadable.
-
-    The two parsers used to disagree about it. The resolver
-    (``scoping._parse_scope_payload``) threw the WHOLE payload away over one
-    blank name, while the envelope parser
-    (``project_context._as_scope_entries``/``_scope_names``) kept it and
-    projected ``""`` straight through. Both now skip just the blank entry.
-
-    Voiding the payload was also not the fail-closed direction it looked like:
-    ``None`` reads as ABSENT downstream, so
-    ``get_scoped_collections_from_context_or`` replaces it with the
-    config-derived layers — potentially WIDER than the scope actually sent.
-    """
-
     @staticmethod
     def _ctx(payload):
         return _MockContext(base64.urlsafe_b64encode(json.dumps(payload).encode()).decode())
@@ -305,19 +266,12 @@ class TestABlankNameMeansTheSameOnBothSidesOfTheSeam:
 
 
 class _HeaderContext:
-    """Context mock backed by a real per-name header map."""
-
     def __init__(self, headers: dict[str, str]):
         self.metadata = MagicMock()
         self.metadata.headers.get.side_effect = lambda name, default=None: headers.get(name, default)
 
 
 class TestSignedEnvelopePrecedence:
-    """Collection scope is an authz boundary: the signed request-context
-    envelope must win over the raw X-Grid-Collection-Scope header, so a forged
-    header cannot widen a turn's collection access (cross-tenant/cross-conv IDOR).
-    """
-
     @staticmethod
     def _envelope(scope, secret):
         import hashlib
@@ -359,8 +313,6 @@ class TestSignedEnvelopePrecedence:
         privileged = ["another_tenant_corpus"]
         envelope, _good_sig = self._envelope(privileged, secret)
 
-        # Envelope present but signed with the wrong key → treated as ABSENT.
-        # With no raw header either, no scope is honored (safe default).
         ctx = _HeaderContext(
             {
                 "x-grid-request-context": envelope,
@@ -373,8 +325,6 @@ class TestSignedEnvelopePrecedence:
         assert result is None
 
     def test_raw_header_honored_when_no_envelope(self, monkeypatch):
-        # Anonymous / internal-service / legacy path: no envelope present, so the
-        # raw header is still used (parity with pre-envelope behavior).
         monkeypatch.delenv("INTERNAL_API_TOKEN", raising=False)
         scope = ["oib_knowledge", "s_conv"]
         header = base64.urlsafe_b64encode(json.dumps(scope).encode()).decode()
@@ -386,8 +336,6 @@ class TestSignedEnvelopePrecedence:
 
 
 class TestGetCollectionScopeFromContextOr:
-    """Tests for get_collection_scope_from_context_or."""
-
     def test_context_scope_takes_precedence(self):
         from agent.knowledge.scoping import get_collection_scope_from_context_or
 
@@ -413,7 +361,6 @@ class TestGetCollectionScopeFromContextOr:
 
         with (
             patch("agent.knowledge.scoping.Context.get", return_value=ctx),
-            # The mock answers every header with the scope; no project profile rides this turn.
             patch("agent.project_context.get_profile_context_from_context", return_value=None),
             patch.object(
                 scope_module,
@@ -422,9 +369,6 @@ class TestGetCollectionScopeFromContextOr:
             ),
         ):
             result = get_collection_scope_from_context_or(mock_config, None)
-            # The mock answers every header, so this is a request whose signed scope is empty: it names no
-            # countries, reads no base corpus, and the legacy fallback no longer lists the base collection
-            # (the same as a signed ``countries: []``). A read of no request keeps it, see the next test.
             assert result == []
 
     def test_missing_header_falls_back(self):
@@ -455,8 +399,6 @@ class TestGetCollectionScopeFromContextOr:
             assert result == ["oib_knowledge", "s_abc", "proj_extra"]
 
     def test_the_legacy_fallback_states_each_layer_s_shelf(self):
-        """The config path BUILDS the layers, so it knows which is which — the
-        shelf is stated there, not guessed back from the collection name."""
         from agent.knowledge.scoping import get_scoped_collections_from_context_or
 
         ctx = _MockContext(None)

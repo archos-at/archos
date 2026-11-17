@@ -1,12 +1,5 @@
 'use client'
 
-/**
- * The review step of a root sort: the summary, the „nur unsichere“ switch,
- * and the proposal as a tree. Controlled and network-free: the dialog and the
- * `/dev/root-sort` preview render this same body from props, so the preview
- * shows the real review and not a copy of it.
- */
-
 import type { JSX } from 'react'
 import { useMemo } from 'react'
 import { Badge } from '@/components/ui/badge'
@@ -32,7 +25,6 @@ export interface RootSortReviewProps {
   onStateChange: (next: PlacementState) => void
   onlyUnsure: boolean
   onOnlyUnsureChange: (next: boolean) => void
-  /** Piloti could not judge any file: every file stays in the root. */
   judgedNothing: boolean
 }
 

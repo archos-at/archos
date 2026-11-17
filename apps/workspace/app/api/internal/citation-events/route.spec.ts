@@ -3,8 +3,6 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-// The route factory (`@/lib/api/handler`) statically imports the session
-// guard, which pulls in authkit; internal routes never call it.
 vi.mock('@/lib/auth/require-auth', () => ({
   requireAuthorizedSession: vi.fn(),
 }))
@@ -16,7 +14,6 @@ vi.mock('@/lib/citations/service', () => ({
 import { POST } from './route'
 import { recordCitationEvents } from '@/lib/citations/service'
 
-/** The exact shape `citation_events.py` posts for a defective research turn. */
 const VALID_BATCH = {
   organizationId: 'org_1',
   conversationId: 'conv_1',

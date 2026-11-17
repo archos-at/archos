@@ -1,7 +1,3 @@
-/**
- * What only a whole table can say, drawn: the tally of a check, one Fundstelle
- * for every row as a caption, and each cell's column for the phone layout.
- */
 import { render, screen } from '@/test-utils'
 import { elapsedMs, growthRatio, LINEAR_BOUND } from '@/test-utils/growth'
 import { describe, expect, it } from 'vitest'
@@ -199,7 +195,6 @@ describe('shaping a long table', () => {
         },
       ],
     })
-    // Quadratic, 1600 rows took ~64 times as long as 200; linear, ~8 times.
     expect(growthRatio((rows) => shapingTime(table(rows)), { size: 200 })).toBeLessThan(LINEAR_BOUND)
   })
 
@@ -233,12 +228,10 @@ describe('shaping a long table', () => {
         },
       ],
     })
-    // Quadratic, 8 times the text took ~64 times as long; linear, ~8 times.
     expect(growthRatio((chars) => shapingTime(table(chars)), { size: 4000 })).toBeLessThan(LINEAR_BOUND)
   })
 })
 
-/** One shaping of a fresh tree (the pass rewrites it), the tree built outside the clock. */
 function shapingTime(tree: Root): number {
   const shape = rehypeTableShape()
   return elapsedMs(() => shape(tree))
@@ -254,7 +247,6 @@ function cell(text: string): Element {
 }
 
 describe('a table still arriving', () => {
-  /** CHECK cut inside its last row, the way the reveal shows it. */
   const ARRIVING = `${CHECK}\n| Stiege | R 30 |`
 
   it('draws no tally while it streams, but holds the tally’s line', () => {
@@ -286,8 +278,6 @@ describe('a table still arriving', () => {
   })
 
   it('stacks a table of its header alone as it will once its rows come', () => {
-    // Undecided, a phone drew the header as a table row for a frame, then hid
-    // it and restacked at the first row.
     const head = CHECK.split('\n').slice(0, 2).join('\n')
     const stackOf = (content: string) => {
       const { container, unmount } = render(<MarkdownRenderer content={content} isStreaming />)
@@ -300,14 +290,12 @@ describe('a table still arriving', () => {
   })
 
   it('holds the tally’s line from the header on, before the first row', () => {
-    // Held only from the first row, the line pushed the header down by a row.
     const head = CHECK.split('\n').slice(0, 2).join('\n')
     render(<MarkdownRenderer content={head} isStreaming />)
     expect(screen.getByTestId('status-tally-reserve')).toBeInTheDocument()
   })
 
   it('gives a cell not yet written the line its first word will take', () => {
-    // A stacked row on a phone grew as each padded cell got its word.
     const { container } = render(<MarkdownRenderer content={`${CHECK}\n| Stiege |`} isStreaming />)
     const cells = [...container.querySelectorAll('tbody tr:last-child td')]
     expect(cells[0].textContent).toBe('Stiege')
@@ -329,9 +317,6 @@ describe('a table still arriving', () => {
   })
 
   describe('closing with no tally after all', () => {
-    // Two rows are too few to count (a tally starts at three), so the line the
-    // open table held stays empty. Dropping it at the close pulled the table up
-    // by a row in the frame it finished.
     const SHORT = CHECK.split('\n').slice(0, 4).join('\n')
 
     it('keeps the held line where the table streamed', () => {

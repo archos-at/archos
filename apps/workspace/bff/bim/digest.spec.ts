@@ -2,13 +2,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The digest is what makes a model retrievable by the existing RAG stack, so
- * what matters is that the *facts an architect would ask about* are present as
- * text — storey names, room areas, fire ratings, materials — not the exact
- * layout. Assertions are on content, not on formatting, except where the
- * formatting is the contract (Markdown tables the answer renderer parses).
- */
 
 import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
@@ -41,12 +34,6 @@ describe('buildStoreyBreakdown', () => {
   })
 
   it('keys each rollup, so the digest cannot join it back by position', async () => {
-    // The digest used to read `breakdown[index]` against `summary.storeys`,
-    // which holds only while the two are the same length. Two storeys sharing
-    // a GlobalId — a real export defect, with a validation rule of its own —
-    // collapse into one entry, so the array came back short and every storey
-    // after the collision was rendered with the NEXT storey's element count,
-    // room count and floor area.
     const index = await model()
     const breakdown = buildStoreyBreakdown(index, index.elements)
     for (const storey of index.storeys) {
@@ -62,26 +49,12 @@ describe('buildStoreyBreakdown', () => {
     }
     const breakdown = buildStoreyBreakdown(collided, index.elements)
     expect(breakdown.size).toBe(1)
-    // And the digest renders BOTH rows from that one entry rather than
-    // rendering the second from nothing — wrong, but identically wrong, and
-    // no longer an off-by-one that shifts every later storey.
     expect(breakdown.get('same-id')).toBeDefined()
   })
 })
 
 describe('buildModelDigest — storeys the export wrote twice', () => {
   it('renders one row per storey key, not one per colliding entry', async () => {
-    /*
-      Two storeys written with the same GlobalId — the export defect
-      `validate.ts:identity` reports — collapse to ONE entry in the breakdown
-      map, and the table rendered that entry once per summary storey: `EG | 2
-      Bauteile | 2 Räume | 100 m²` and `1.OG | 2 | 2 | 100 m²` for a building
-      with one room of 40 m² on each. The Bauteile and Netto-Grundfläche
-      columns then summed to double the building.
-
-      This digest is indexed for retrieval, so the agent can quote it back as a
-      fact about the project.
-    */
     const index = await model()
     const [first, second] = index.storeys
     const collided = {
@@ -154,23 +127,13 @@ describe('buildModelDigest', () => {
       filename: 'sample-building.ifc',
     })
     expect(digest).toContain('mehr als 5 Bauteile')
-    // The totals stay honest even in a truncated digest.
     expect(digest).toContain('| Bauteile gesamt | 19 |')
   })
 })
 
 describe('a cell cannot break out of the table', () => {
-  /**
-   * The digest is the text the retriever indexes. A row that breaks re-parses
-   * as a different table, and the model then reads values under the wrong
-   * headings — the digest's own numbers, attributed to the wrong property.
-   *
-   * None of these are hypothetical characters: element names, type names and
-   * property values come out of whichever tool exported the model.
-   */
   it('escapes backslashes BEFORE pipes, and newlines at all', async () => {
     const index = await model()
-    // A ROOM, because rooms are the elements the digest names individually.
     let renamed = false
     const hostile = index.elements.map((element) => {
       if (renamed || element.ifcType !== 'IfcSpace') return element
@@ -184,10 +147,7 @@ describe('a cell cannot break out of the table', () => {
     const hostileRow = rows.find((line) => line.includes('Wohnen '))
 
     expect(hostileRow).toBeDefined()
-    // Escaping `|` first would have produced `\\|` — a literal backslash and
-    // then a live separator, which splits the cell in two.
     expect(hostileRow).toContain('Wohnen \\\\\\| 01 OG')
-    // And every row still has the column count its header declared.
     for (const line of rows) expect(line).not.toMatch(/\n/)
   })
 })

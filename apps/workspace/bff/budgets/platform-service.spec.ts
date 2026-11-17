@@ -187,7 +187,6 @@ describe('platform organization usage', () => {
     expect(requirePlatformPermission).toHaveBeenCalledWith(session, PLATFORM_PERMISSIONS.usageView)
     expect(getOrganizationUsageOverview).toHaveBeenCalledWith('org_tenant')
     expect(result.organization).toEqual({ id: 'org_tenant', name: 'Büro Nord' })
-    // Labels only for the people who spent: the directory itself is not the payload.
     expect(result.members).toEqual([{ id: 'user_a', email: 'a@buero.test', name: 'A' }])
   })
 

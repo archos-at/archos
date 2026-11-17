@@ -1,11 +1,3 @@
-"""Tests for the prompt-cache/sticky-routing key derivation.
-
-The contract under test is narrow and load-bearing: the key must be the same
-for every call that shares a cached prefix (so a turn's iterations land on the
-endpoint that cached it) and different the moment the prefix changes (so a miss
-is never pinned to a warm shard).
-"""
-
 import json
 
 from langchain_core.messages import AIMessage
@@ -59,14 +51,11 @@ def test_key_changes_with_the_tenant_and_the_model():
 
 
 def test_key_is_independent_of_dict_ordering():
-    # Two builds of one tool set may serialize their mappings in different
-    # orders; that is not a different prefix and must not split the shard.
     reordered = [{"name": "knowledge_search", "type": "function", "parameters": {"type": "object"}}]
     assert _key() == _key(tools=reordered)
 
 
 def test_key_fits_openrouters_session_id_limit():
-    # `session_id` is capped at 256 characters by the API.
     assert len(_key()) <= 256
 
 
@@ -93,8 +82,6 @@ def test_routing_does_not_mutate_the_input():
 
 
 def test_no_leading_system_message_means_no_key():
-    # Nothing to pin, and a prompt with no system prefix is below every
-    # provider's caching minimum anyway.
     assert prompt_cache_extra_body([HumanMessage(content="hi")], {}) is None
     assert prompt_cache_extra_body([], {}) is None
 
@@ -117,9 +104,6 @@ def test_a_narrowed_tool_set_gets_its_own_key():
 
 
 def test_the_envelope_response_format_is_part_of_the_key():
-    # response_format sits in the cached prefix (OpenAI: "text.format … adds
-    # output-format instructions and the requested schema"), so a call that
-    # fell through to another rung must not claim the stronger rung's shard.
     system = SystemMessage(content="You are the office colleague.")
     messages = [system, HumanMessage(content="q")]
     strict = prompt_cache_extra_body(messages, {"response_format": {"type": "json_schema"}})
@@ -128,8 +112,6 @@ def test_the_envelope_response_format_is_part_of_the_key():
 
 
 class TestClaudeIsAskedToCache:
-    """Anthropic caches only on request; the OpenAI family caches on its own."""
-
     def test_only_the_opt_in_families_need_the_marker(self):
         assert needs_cache_marker("anthropic/claude-opus-5.5")
         assert needs_cache_marker("~anthropic/claude-opus-latest")
@@ -156,14 +138,6 @@ class TestClaudeIsAskedToCache:
 
 
 class TestAStablePrefixKeepsTheShard:
-    """An agent whose system prompt has a stable head and a per-turn tail names the head.
-
-    Piloti's dynamic half changes every turn of one conversation (the
-    already-read digest), so keying on the whole message gave each turn a new
-    key and a cold static prefix. Named, the prefix is the key; unnamed, or not
-    matching, the whole message still is.
-    """
-
     STATIC = "You are Piloti. [rules, tools, schema]"
 
     def _body(self, tail: str):
@@ -203,13 +177,6 @@ class TestAStablePrefixKeepsTheShard:
 
 
 class TestTheStaticSystemPromptCarriesOneBreakpoint:
-    """The block marker reaches a provider that takes it, and no other.
-
-    Writes happen only at breakpoints, so without this marker nothing is ever
-    written at the end of the bytes every turn shares (``prompt_caching``,
-    "one block breakpoint").
-    """
-
     MARKED = [cached_system_message("You are the office colleague."), HumanMessage(content="Frage")]
 
     def test_the_helper_puts_the_marker_at_the_end_of_the_one_text_block(self):
@@ -229,7 +196,6 @@ class TestTheStaticSystemPromptCarriesOneBreakpoint:
         assert self.MARKED[0].content[0][CACHE_CONTROL_FIELD] == {"type": "ephemeral"}, "input mutated"
 
     def test_the_marker_does_not_re_key_a_shard(self):
-        """The block form keys as its text: the move to it did not start every org cold."""
         plain = [SystemMessage(content="You are the office colleague."), HumanMessage(content="Frage")]
         model = "openai/gpt-6.1-terra"
         marked_key = prompt_cache_extra_body(self.MARKED, {}, organization_id="org_1", model=model)
@@ -238,8 +204,6 @@ class TestTheStaticSystemPromptCarriesOneBreakpoint:
 
 
 class TestTheMarkerIsOnTheWire:
-    """What langchain actually sends: the request body, not our message objects."""
-
     def _payload(self, model: str, *, responses: bool = False) -> dict:
         from langchain_openai import ChatOpenAI
 
@@ -261,17 +225,11 @@ class TestTheMarkerIsOnTheWire:
         assert system["content"] == "You are the office colleague."
 
     def test_the_responses_api_drops_it_which_is_why_the_chat_role_left_it(self):
-        """Measured 2026-11-10: langchain's Responses converter keeps no per-block key.
-
-        If this ever starts passing the marker through, the chat role could go
-        back to ``api_type: responses`` without losing the breakpoint.
-        """
         system = self._payload("openai/gpt-6.1-terra", responses=True)["input"][0]
         assert all(CACHE_CONTROL_FIELD not in block for block in system["content"])
 
 
 def test_the_chat_role_runs_on_chat_completions():
-    """The breakpoint reaches the provider only on Chat Completions (``TestTheMarkerIsOnTheWire``)."""
     from pathlib import Path
 
     import yaml
@@ -282,8 +240,6 @@ def test_the_chat_role_runs_on_chat_completions():
 
 
 class TestAOneShotCallWritesNothing:
-    """A call whose tail is its own writes an entry nobody reads, at 1.25x: inside ``one_shot_calls`` it writes none."""
-
     MESSAGES = [SystemMessage(content="Judge the answer."), HumanMessage(content="the evidence of one answer")]
 
     def _payload(self, model: str) -> dict:

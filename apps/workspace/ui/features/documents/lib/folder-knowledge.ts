@@ -1,62 +1,15 @@
-/**
- * What Piloti knows about a folder — the whole subtree under it, not one level.
- *
- * ## Why this exists
- *
- * The listing has always carried what the ingest pipeline learned about each
- * document: whether it is readable, a one-sentence summary, the pages read,
- * what kinds of content it holds and the type and discipline tags. All of it
- * was spent one file at a time — a badge on a card, a paragraph in the preview
- * rail — so the only way to learn what Piloti had made of a project was to open
- * every folder and every file in it.
- *
- * feld72 said it in the first Jour fixe (2026-10-09): the read state of nested
- * subfolders is not visible at a glance, answers reported documents as missing
- * that had been read, and checking folder by folder does not scale. This module
- * is the answer to that sentence: one pass over the corpus the browser already
- * holds, folded up the folder tree, so a folder can say what is in it, how much
- * of it Piloti can cite, and what needs a person.
- *
- * Pure and outside React for the reason `file-filters.ts` is: this is logic,
- * and logic in a render function can only be tested by mounting a tree.
- */
-
 import { documentReadFamily, type DocumentReadFamily } from '@/lib/documents/document-status'
 import type { ShelfSummary } from '@/lib/documents/shelf-summary-types'
 import { DISCIPLINE_TAGS, DOCUMENT_TYPE_TAGS, documentTypeOf } from '@/lib/documents/tag-vocabulary'
 import type { FileItem, FolderItem } from '../file-types'
 import { withoutOlderRevisions } from './revision-chain'
 
-/**
- * Where a document stands with Piloti, in the five answers a reader acts on.
- *
- * - `readable`  — indexed; Piloti can find and cite it.
- * - `reading`   — in flight; it will change on its own.
- * - `failed`    — the read went wrong; a person can retry it.
- * - `held`      — the content screen stopped it (ADR-0086); a person decides.
- * - `unindexed` — at rest and deliberately not in the knowledge base (an
- *                 agent-authored report, a row stranded at birth).
- *
- * The family is declared beside the status vocabulary
- * (`documentReadFamily`, `lib/documents/document-status.ts`), because the shelf
- * summary counts the same families in SQL and the two must agree.
- */
 export type ReadState = DocumentReadFamily
 
-/**
- * An unknown status reads as `reading`, never as `readable`: calling something
- * citable that is not is the error that wastes an afternoon, and a new pipeline
- * state under "being read" until somebody maps it is the harmless direction.
- */
 export function readStateOf(status: string | null | undefined): ReadState {
   return documentReadFamily(status)
 }
 
-/**
- * Whether Piloti placed a READABLE document in a document type. A document that
- * is not readable yet has nothing to place, so it is not counted here — it is
- * already counted under its read state.
- */
 export function isUnplaced(file: Pick<FileItem, 'status' | 'tags'>): boolean {
   return readStateOf(file.status) === 'readable' && documentTypeOf(file.tags) === undefined
 }
@@ -68,11 +21,8 @@ export interface KnowledgeTally {
   failed: number
   held: number
   unindexed: number
-  /** Readable, but in no document type. */
   unplaced: number
-  /** Pages Piloti read, over the readable documents that report a count. */
   pages: number
-  /** Newest `createdAt` in the set, or null for an empty one. */
   latest: string | null
 }
 
@@ -109,24 +59,11 @@ export function tallyOf(files: readonly FileItem[]): KnowledgeTally {
   return tally
 }
 
-/**
- * The share of the documents Piloti is meant to read that it can read now.
- * `unindexed` is out of the denominator on purpose: a report Piloti wrote and
- * filed is not a document it failed to read. Null when there is nothing to read.
- */
 export function readShare(tally: KnowledgeTally): number | null {
   const meantToRead = tally.total - tally.unindexed
   return meantToRead > 0 ? tally.readable / meantToRead : null
 }
 
-/**
- * The tally of every folder's WHOLE subtree, keyed by folder id.
- *
- * One post-order walk: documents bucketed by folder, folders by parent, and each
- * parent folded from what its children already computed — linear in the corpus.
- * Iterative and visit-marked rather than recursive, because `parentId` comes off
- * the wire and a cycle in it would otherwise overflow the stack in a render.
- */
 export function subtreeTallies(
   files: readonly FileItem[],
   folders: readonly FolderItem[]
@@ -134,7 +71,6 @@ export function subtreeTallies(
   return foldTallies(directTallies(files), folders)
 }
 
-/** The tally of the documents filed DIRECTLY in each folder, keyed by folder id; the root's are left out. */
 function directTallies(files: readonly FileItem[]): Map<string, KnowledgeTally> {
   const direct = new Map<string, KnowledgeTally>()
   for (const file of files) {
@@ -146,11 +82,6 @@ function directTallies(files: readonly FileItem[]): Map<string, KnowledgeTally> 
   return direct
 }
 
-/**
- * Fold per-folder DIRECT tallies up the tree into every folder's subtree tally.
- * Shared by the corpus path ({@link subtreeTallies}) and the paged one, where
- * the direct tallies come from the shelf summary ({@link talliesFromSummary}).
- */
 export function foldTallies(
   direct: ReadonlyMap<string | null, KnowledgeTally>,
   folders: readonly FolderItem[]
@@ -185,7 +116,6 @@ export function foldTallies(
   return result
 }
 
-/** One summary row as a tally: what Postgres can count. Unplaced and pages need the backend's tags and counts, so they are 0. */
 export function tallyFromSummaryRow(row: ShelfSummary['folders'][number]): KnowledgeTally {
   return {
     total: row.total,
@@ -201,15 +131,11 @@ export function tallyFromSummaryRow(row: ShelfSummary['folders'][number]): Knowl
 }
 
 export interface SummaryTallies {
-  /** The documents filed directly in each folder; `null` is the shelf root. */
   direct: Map<string | null, KnowledgeTally>
-  /** Every folder's whole subtree, as {@link subtreeTallies} would fold it from the corpus. */
   subtree: Map<string, KnowledgeTally>
-  /** Every document on the shelf this reader may see. */
   total: number
 }
 
-/** The folder tiles' numbers, from the shelf summary instead of from the corpus (ADR-0102). */
 export function talliesFromSummary(summary: ShelfSummary, folders: readonly FolderItem[]): SummaryTallies {
   const direct = new Map<string | null, KnowledgeTally>()
   let total = 0
@@ -231,12 +157,6 @@ function childrenIndex(folders: readonly FolderItem[]): Map<string, FolderItem[]
   return index
 }
 
-/**
- * The ids of a folder and every folder beneath it. Null — the shelf root —
- * answers null, meaning "everything": a document whose folder is not in the
- * listing (a folder the reader may not open, a folder load that failed) still
- * belongs to the shelf.
- */
 export function subtreeFolderIds(folders: readonly FolderItem[], rootId: string | null): Set<string> | null {
   if (rootId === null) return null
   const childrenByParent = childrenIndex(folders)
@@ -253,7 +173,6 @@ export function subtreeFolderIds(folders: readonly FolderItem[], rootId: string 
   return ids
 }
 
-/** The documents anywhere under `folderId` — the whole shelf for null. */
 export function filesInSubtree<T extends FileItem>(
   files: readonly T[],
   folders: readonly FolderItem[],
@@ -265,88 +184,50 @@ export function filesInSubtree<T extends FileItem>(
 }
 
 export interface CountedLabel {
-  /** As the vocabulary spells it — and what the tag filter matches, lower-cased. */
   label: string
   count: number
 }
 
 export interface FolderLocation {
   folder: FolderItem
-  /** Ancestor names from the brief's folder down, for "03_Einreichung / Pläne". */
   trail: string[]
   tally: KnowledgeTally
 }
 
-/** A document the brief names by id: enough to act on it („Alle erneut lesen“). */
 export interface BriefDocument {
   id: string
 }
 
 export interface FolderBrief {
-  /** The whole subtree's tally. */
   tally: KnowledgeTally
-  /**
-   * Built from the shelf summary rather than from the corpus (ADR-0102): the
-   * counts are Postgres', and what Piloti put ON each document (types,
-   * disciplines, topics, contents, photos, „ohne Dokumentart“, pages) is not
-   * known until the documents themselves are loaded. Those fields are empty and
-   * the brief offers to load them.
-   */
   partial?: boolean
-  /** Every document in the subtree, in listing order. Empty for a {@link partial} brief. */
   files: readonly FileItem[]
-  /** Document types present among READABLE documents, most frequent first. */
   documentTypes: CountedLabel[]
-  /** OIB disciplines present among readable documents, most frequent first. */
   disciplines: CountedLabel[]
-  /** Content categories (`text`, `table`, `image`, `chart`, …) and how many documents hold each. */
   contents: CountedLabel[]
-  /**
-   * Documents that need a person, by why. How MANY is the tally's to say; these
-   * name them for an action, and a {@link partial} brief names only the failed
-   * ones (up to the summary's limit).
-   */
   attention: {
     failed: BriefDocument[]
     held: BriefDocument[]
     unplaced: BriefDocument[]
   }
-  /** Documents still being read. */
   reading: FileItem[]
-  /**
-   * Folders below this one whose OWN documents need attention or are still
-   * being read — the deepest place the trouble is, so the reader is taken to
-   * it rather than to its ancestor. Worst first, at most {@link MAX_HOTSPOTS}.
-   */
   hotspots: FolderLocation[]
-  /** The topics Piloti recognised in readable documents (`FileItem.topics`), most frequent first. */
   topics: CountedLabel[]
-  /** The readable photos with a capture time, and the span they were taken in — null when there are none. */
   photos: PhotoSpan | null
 }
 
 export interface PhotoSpan {
-  /** Photos with a camera timestamp. */
   count: number
-  /** ISO day of the earliest and the latest capture. */
   from: string
   to: string
-  /** How many of them carry a position. */
   located: number
 }
 
 export const MAX_HOTSPOTS = 4
-/** Topics the brief names before it stops; the filter offers the rest. */
 export const MAX_BRIEF_TOPICS = 12
 
-/** The catch-all type: true, and says nothing about the folder, so it never leads. */
 const CATCH_ALL_TYPE = 'Sonstiges'
 
-/**
- * Most frequent first; ties in the vocabulary's own order, so the list is
- * stable. „Sonstiges" goes last whatever its count — seven documents of type
- * "other" at the head of "what it is about" answers nothing.
- */
 function countLabels(counts: Map<string, number>, order: readonly string[]): CountedLabel[] {
   const rank = (label: string) => {
     const index = order.indexOf(label)
@@ -366,31 +247,10 @@ function countLabels(counts: Map<string, number>, order: readonly string[]): Cou
 
 const CONTENT_ORDER = ['text', 'table', 'image', 'chart', 'drawing']
 
-/**
- * A failure outranks a hold outranks a read in progress outranks an unplaced
- * document; within a class, more is worse. Compared class by class — a weighted
- * sum would let a hundred documents being read outrank one held back.
- */
 function compareSeverity(a: KnowledgeTally, b: KnowledgeTally): number {
   return b.failed - a.failed || b.held - a.held || b.reading - a.reading || b.unplaced - a.unplaced
 }
 
-/**
- * Everything the folder brief says about `folderId` (null: the shelf root).
- *
- * Content is only ever read from READABLE documents: a quarantined file's tags
- * describe content the office has not released, and a failed one's are absent
- * or stale. Their existence is counted; what they say is not.
- *
- * One entry per document, as the listing shows it (ADR-0099,
- * `revision-chain.ts`): an older Fassung whose newer one is in the corpus is
- * left out before anything is counted, whatever the listing's „Ältere
- * Fassungen" filter says. Otherwise the headline would count Index A, B and C
- * as three documents, the pages of a replaced Fassung would be summed, and
- * „Alle erneut lesen" would re-read a file Piloti no longer answers from.
- * Asked over the WHOLE corpus, so a newer Fassung filed in another folder
- * still hides its older one here.
- */
 export function buildFolderBrief(
   allFiles: readonly FileItem[],
   folders: readonly FolderItem[],
@@ -418,7 +278,6 @@ export function buildFolderBrief(
     else if (state === 'reading') reading.push(file)
     if (state !== 'readable') continue
     if (documentTypeOf(file.tags) === undefined) attention.unplaced.push(file)
-    // A document listing a tag twice is still one document of that type.
     for (const tag of new Set(file.tags ?? [])) {
       if (typeSet.has(tag)) types.set(tag, (types.get(tag) ?? 0) + 1)
       else if (disciplineSet.has(tag)) disciplines.set(tag, (disciplines.get(tag) ?? 0) + 1)
@@ -454,11 +313,6 @@ export function buildFolderBrief(
   }
 }
 
-/**
- * Folders strictly below `folderId` whose own documents need a person or are
- * being read. "Own" so that one broken file deep in a tree names its folder
- * once, instead of naming every ancestor between it and the brief.
- */
 function findHotspots(
   files: readonly FileItem[],
   folders: readonly FolderItem[],
@@ -467,7 +321,6 @@ function findHotspots(
   return hotspotsFrom(directTallies(files), folders, folderId)
 }
 
-/** {@link findHotspots} over per-folder direct tallies, whichever path counted them. */
 function hotspotsFrom(
   direct: ReadonlyMap<string | null, KnowledgeTally>,
   folders: readonly FolderItem[],
@@ -489,20 +342,6 @@ function hotspotsFrom(
     .slice(0, MAX_HOTSPOTS)
 }
 
-/**
- * The brief of `folderId` from the shelf summary, for a workspace that reads
- * the folder level page by page and does not hold the corpus (ADR-0102).
- *
- * The headline, the legend, „Hier sind Sie gefragt“ (failed and held) and
- * „Wo es hakt“ are the summary's, counted by Postgres over every document of
- * the subtree. The rest needs what the backend put on each document, so the
- * brief is {@link FolderBrief.partial} and those fields are empty until the
- * corpus is loaded (`buildFolderBrief` then takes over).
- *
- * One difference from {@link buildFolderBrief} that cannot be closed here: an
- * older Fassung is counted. Which document replaces which is a link in the
- * backend's index (ADR-0099), not a column Postgres could leave a row out by.
- */
 export function buildFolderBriefFromSummary(
   summary: ShelfSummary,
   folders: readonly FolderItem[],
@@ -534,7 +373,6 @@ export function buildFolderBriefFromSummary(
   }
 }
 
-/** Folder names from just below `stopAt` down to `folder`, cycle-safe. */
 function trailBetween(byId: Map<string, FolderItem>, folder: FolderItem, stopAt: string | null): string[] {
   const names: string[] = []
   const seen = new Set<string>()
@@ -547,10 +385,6 @@ function trailBetween(byId: Map<string, FolderItem>, folder: FolderItem, stopAt:
   return names
 }
 
-/**
- * A slice of a folder's subtree the brief can show as a flat listing: the
- * documents in one read state, carrying one tag, or readable but unplaced.
- */
 export type BriefSelection =
   | { kind: 'state'; state: ReadState }
   | { kind: 'tag'; tag: string }
@@ -558,10 +392,6 @@ export type BriefSelection =
   | { kind: 'unplaced' }
   | { kind: 'photos' }
 
-/**
- * The documents of the brief's subtree a selection opens — the same set the
- * brief counted for it, so a chip that says „Attika 4" opens four documents.
- */
 export function selectInBrief(brief: FolderBrief, selection: BriefSelection): FileItem[] {
   return brief.files.filter((file) => matchesBriefSelection(file, selection))
 }
@@ -572,8 +402,6 @@ export function matchesBriefSelection(file: FileItem, selection: BriefSelection)
     case 'state':
       return readStateOf(file.status) === selection.state
     case 'tag':
-      // Tags are only ever counted on readable documents, so the slice a tag
-      // chip opens has to be the same set the chip counted.
       return readable && (file.tags ?? []).includes(selection.tag)
     case 'topic':
       return readable && (file.topics ?? []).includes(selection.topic)
@@ -584,20 +412,11 @@ export function matchesBriefSelection(file: FileItem, selection: BriefSelection)
   }
 }
 
-/** The one thing a folder line names about its documents: the worst state in it. */
 export interface ReadMark {
   state: 'failed' | 'held' | 'reading' | 'unplaced' | 'allRead'
   count: number
 }
 
-/**
- * Failure outranks a hold outranks a read in progress; an unplaced document is
- * named only where the caller asks for it (the brief's hotspots do, a folder
- * tile does not — on a tile it would be noise on half the folders of a project).
- * When nothing is wrong and everything Piloti is meant to read is read, the
- * mark says so: "alles gelesen" is the answer feld72 was opening folders for.
- * Null for an empty folder, or one holding only documents Piloti never reads.
- */
 export function readMarkOf(tally: KnowledgeTally, { withUnplaced = false } = {}): ReadMark | null {
   if (tally.failed > 0) return { state: 'failed', count: tally.failed }
   if (tally.held > 0) return { state: 'held', count: tally.held }

@@ -1,14 +1,3 @@
-"""The metadata header a chunk is embedded with stays within its budget (``adapter._fit_rendered_metadata``).
-
-``SentenceSplitter`` prepends the rendered metadata to every chunk and raises
-``Metadata length (1497) is longer than chunk size (1024)`` when the header alone is
-too long. That fails the whole file: 35 ingest jobs of one project's structural
-drawings ended with 0 chunks (2026-10), because a legend read as a heading filled
-``clause_id``, ``clause_title`` and ``clause_path``. Heading detection is fixed at the
-cause (``test_section_chunking``); this is the boundary that keeps the next long key,
-from wherever it comes, from failing a file.
-"""
-
 from __future__ import annotations
 
 import logging
@@ -60,7 +49,6 @@ def test_long_free_text_keys_leave_the_header_and_the_file_chunks():
     assert nodes
     header = document.get_metadata_str(mode=MetadataMode.EMBED)
     assert FILE in header and "Statik" in header
-    # Still stored, for display and for read_passage's address.
     assert document.metadata["clause_title"] == LEGEND
 
 
@@ -85,7 +73,6 @@ def _stamp(documents: list[Document], chunk_size: int) -> None:
 
 
 def test_the_header_is_budgeted_against_the_chunk_size_the_job_splits_with():
-    # Fits half of the 1024 default, not half of the 256 this job splits with.
     title = " ".join(["Bewehrungsplan Decke über Erdgeschoss"] * 20)
     document = Document(text="Stahlbeton 25 cm.", metadata={"file_name": "s.pdf", "clause_title": title})
     assert 128 < _rendered_metadata_tokens(document) <= 512
@@ -98,8 +85,6 @@ def test_the_header_is_budgeted_against_the_chunk_size_the_job_splits_with():
 
 
 def test_a_file_name_longer_than_the_budget_leaves_the_header_and_the_file_chunks(caplog):
-    # The always-rendered keys go last, but they go: a long name must not lose the file
-    # (W11). The name stays stored, which is what finds and deletes the file's chunks.
     pages = [
         Document(text="Seite.", metadata={"file_name": f"{LEGEND}.pdf", "page_label": str(page)}) for page in range(3)
     ]

@@ -157,9 +157,7 @@ describe('FeedbackTriage', () => {
       undefined
     client.list
       .mockResolvedValueOnce(list({ counts: counts({ new: 1, resolved: 1, on_hold: 1 }) }))
-      // "Resolved": slow, answers last.
       .mockReturnValueOnce(new Promise((resolve) => (resolveSlow = resolve)))
-      // "On hold": fast, answers first.
       .mockResolvedValueOnce(
         list({
           reports: [report({ id: 'r9', ticket: ticket('on_hold', 't9'), message: 'On hold one.' })],

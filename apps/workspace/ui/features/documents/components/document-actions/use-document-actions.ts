@@ -1,27 +1,5 @@
 'use client'
 
-/**
- * What can be DONE to a document, in one place.
- *
- * Every surface that shows a document — the file grid's preview, the explorer
- * list, the Büroablage, the model viewport — needs the same three operations,
- * and before this each of them either re-implemented one or simply did not
- * offer it. The viewport had none at all: a model could be uploaded and looked
- * at, and then only deleted by finding it again in a different view.
- *
- * The hook owns the WORK (request, pending flag, toast, the callback that tells
- * the surface what changed); the components beside it own the shapes. That
- * split is what lets the viewport render its operations as a glass pill and the
- * preview render them as a menu item without either of them owning a `fetch`.
- *
- * ## Scope
- *
- * `files` and `office_shelf` differ in exactly one place — the DELETE endpoint, which
- * is org-gated for the Archiv — and in which namespace holds the words. Rename
- * goes to the same scope-aware route for both, because the service resolves the
- * permission from the document row rather than from the URL.
- */
-
 import { useCallback, useState } from 'react'
 import { toast } from 'sonner'
 import { useTranslations } from '@/i18n'
@@ -36,85 +14,43 @@ import { requestReingest } from '../../lib/reingest-request'
 import { requestCancelIngest } from '../../lib/cancel-request'
 
 
-/** The least a surface has to know about a document to act on it. */
 export interface ActionableDocument extends NamedDocument {
   id: string
-  /** Only read to decide whether a re-ingest is worth offering. */
   status?: string | null
-  /**
-   * Who wrote it. Only read to keep "re-read an indexed file" to documents a
-   * person uploaded; absent reads as `'user'`, the column's default.
-   */
   authoredBy?: string | null
-  /** Where it is filed now, so a move can mark the current folder. */
   folderId?: string | null
-  /** Its stored type, read with the name to decide whether it has a PDF form to download. */
   contentType?: string | null
 }
 
 export interface UseDocumentActionsOptions {
   document: ActionableDocument
   scope: DocumentScope
-  /**
-   * The rename landed. `displayName` is `null` when the document was restored
-   * to its file name — surfaces mirror it into their own state so the new name
-   * is on screen before any refetch.
-   */
   onRenamed?: (documentId: string, displayName: string | null) => void
-  /** The document was sent back through ingestion; carries the new status. */
   onReingested?: (documentId: string, status: string) => void
-  /**
-   * The read in progress was stopped. Carries the row's new status
-   * (`'cancelled'`), so a surface can mirror it before any refetch.
-   */
   onCancelled?: (documentId: string, status: string) => void
-  /** The document is gone. Surfaces drop it from their list and close anything
-   * that was showing it. */
   onDeleted?: (documentId: string) => void
-  /** The document was re-filed; `null` means the project root. */
   onMoved?: (documentId: string, folderId: string | null) => void
 }
 
 export interface DocumentActions {
-  /** The name to show right now (the rename if there is one, else the file's). */
   name: string
-  /** True once the document carries a rename — gates "restore original name". */
   isRenamed: boolean
   isRenaming: boolean
   isDeleting: boolean
   isDownloading: boolean
   isReingesting: boolean
-  /**
-   * A read is being stopped. Gates the menu item while the request is in
-   * flight so a second click cannot fire a second stop.
-   */
   isCancelling: boolean
-  /** The last download attempt failed; cleared when a new one starts. */
   downloadFailed: boolean
-  /** `null` restores the file's own name. Resolves false when nothing changed. */
   rename: (displayName: string | null) => Promise<boolean>
   remove: () => Promise<boolean>
   download: () => Promise<void>
-  /** The same, for the PDF the file is read as (an office rendition, a DXF to scale). */
   downloadPdf: () => Promise<void>
-  /**
-   * Send the document back through ingestion (a retry, or a re-read of an
-   * indexed file); resolves the row's status afterwards, or `null` on failure.
-   */
   reingest: () => Promise<string | null>
-  /**
-   * Stop the read in progress. Resolves true only when a live job was
-   * actually stopped; a job that had already finished, or work this tier
-   * cannot reach, is reported through a toast and resolves false — it is not
-   * a failure, but nothing changed about the row.
-   */
   cancel: () => Promise<boolean>
   isMoving: boolean
-  /** Re-file into another folder; `null` is the project root. */
   move: (folderId: string | null, folderName: string) => Promise<boolean>
 }
 
-/** Whether a 409 is the legal-hold refusal (`details.reason`, `lib/compliance`). */
 async function isLegalHoldRefusal(res: Response): Promise<boolean> {
   const body: unknown = await res.json().catch(() => null)
   if (!body || typeof body !== 'object') return false
@@ -136,7 +72,6 @@ export function useDocumentActions({
   onMoved,
 }: UseDocumentActionsOptions): DocumentActions {
   const t = useTranslations(DOCUMENT_SCOPE_COPY[scope])
-  // Folders are a project concept, so the one refusal a move can meet is worded there.
   const tFiles = useTranslations(filesCopy)
   const [isRenaming, setIsRenaming] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
@@ -159,16 +94,11 @@ export function useDocumentActions({
           body: JSON.stringify({ displayName }),
         })
         if (!res.ok) throw new Error(`Rename failed (${res.status})`)
-        // The server decides the stored value: it trims, and it stores `null`
-        // for a rename back to the file's own name. Reading it back rather than
-        // echoing what was sent keeps the surface's state equal to the row's.
         const body: unknown = await res.json().catch(() => null)
         const stored =
           body !== null && typeof body === 'object' && 'displayName' in body
             ? ((body as { displayName: string | null }).displayName ?? null)
             : displayName
-        // A rename changes the display name a citation chip carries, and the
-        // listings that hold it are cached for the page lifetime.
         notifyDocumentsChanged()
         onRenamed?.(document.id, stored)
         toast.success(
@@ -190,17 +120,12 @@ export function useDocumentActions({
   const remove = useCallback(async (): Promise<boolean> => {
     setIsDeleting(true)
     try {
-      // One delete for both shelves: the route reads the shelf from the row.
       const res = await fetch(`/api/documents/${document.id}`, { method: 'DELETE' })
       if (res.status === 409 && (await isLegalHoldRefusal(res))) {
-        // Not a failure to retry: the file is preserved on purpose, and the
-        // person needs to know that rather than try again.
         toast.error(t('delete.legalHold'))
         return false
       }
       if (!res.ok && res.status !== 204) throw new Error(`Delete failed (${res.status})`)
-      // A citation to a document that no longer exists must degrade honestly
-      // rather than keep offering a viewer onto a deleted object.
       notifyDocumentsChanged()
       toast.success(t('delete.success', { name }))
       onDeleted?.(document.id)
@@ -213,11 +138,6 @@ export function useDocumentActions({
     }
   }, [document.id, name, onDeleted, t])
 
-  /**
-   * Shared with the citation surface — see `lib/documents/download.ts`, which
-   * also carries the reason the presigned URL is never navigated to (#434).
-   * This side owns only how a failure READS here: an inline line, not a toast.
-   */
   const download = useCallback(async (): Promise<void> => {
     setDownloadFailed(false)
     setIsDownloading(true)
@@ -238,18 +158,6 @@ export function useDocumentActions({
     }
   }, [document.id, name])
 
-  /**
-   * Send a document back through ingestion: a retry for a failed or lost
-   * one, a re-read for an indexed one.
-   *
-   * Here, with rename/delete/download, rather than inline in the preview pane
-   * where it started: a failed document's card SAYS why it failed and, until
-   * this moved, could do nothing about it — the only retry in the product was
-   * two clicks inside a viewer the reader had no reason to open, since the card
-   * had already told them the bad news. An operation on a document belongs with
-   * the operations on a document, so every surface that shows the failure can
-   * offer the way out of it.
-   */
   const reingest = useCallback(async (): Promise<string | null> => {
     setIsReingesting(true)
     try {
@@ -258,21 +166,13 @@ export function useDocumentActions({
         toast.error(t('actions.reingestError'))
         return null
       }
-      // Refused on purpose: the same bytes would fail the same way. The
-      // sentence says what to do instead; nothing about the row changed.
       if (outcome.kind === 'unchanged') {
         toast.info(t('actions.reingestWouldFailAgain'))
         return null
       }
-      // A `settled` answer is not a failure to retry. The row the reader
-      // clicked was stale (it said failed or stuck while the backend was
-      // working, or already done), so the answer is the real state and a fresh
-      // listing, not "please try again" — which could only ever 409 again.
       if (outcome.kind === 'settled') {
         toast.info(t(outcome.code === INGEST_RUNNING ? 'actions.reingestRunning' : 'actions.reingestAlreadyDone'))
       }
-      // The row left the citable set (or rejoined the in-flight one); caches
-      // holding its status must re-read it.
       notifyDocumentsChanged()
       if (outcome.status) onReingested?.(document.id, outcome.status)
       return outcome.status
@@ -281,15 +181,6 @@ export function useDocumentActions({
     }
   }, [document.id, onReingested, t])
 
-  /**
-   * Stop a read that has not finished.
-   *
-   * Unlike re-ingest, this is a single click: stopping a read destroys nothing
-   * (the bytes stay and a re-ingest reads them again), so there is no dialog to
-   * interrupt the person with. A refused answer is not an error to retry — the
-   * row they clicked was stale, or the work runs somewhere no queue can reach —
-   * so each is said for what it is rather than as "please try again".
-   */
   const cancel = useCallback(async (): Promise<boolean> => {
     setIsCancelling(true)
     try {
@@ -306,8 +197,6 @@ export function useDocumentActions({
         toast.info(t('actions.cancelUnavailable'))
         return false
       }
-      // The row left the in-flight set and is now `cancelled`; caches holding
-      // its status must re-read it, and the surface mirrors the new status.
       notifyDocumentsChanged()
       toast.success(t('actions.cancelled', { name }))
       onCancelled?.(document.id, 'cancelled')
@@ -317,11 +206,6 @@ export function useDocumentActions({
     }
   }, [document.id, name, onCancelled, t])
 
-  /**
-   * Re-file the document. `folderName` is only for the words — the toast has to
-   * say WHERE it went, or "Moved" is a claim the reader cannot check without
-   * going to look.
-   */
   const move = useCallback(
     async (folderId: string | null, folderName: string): Promise<boolean> => {
       setIsMoving(true)
@@ -331,7 +215,6 @@ export function useDocumentActions({
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ folderId }),
         })
-        // 409: an IFC model bound for a restricted folder (ADR-0087). Retrying cannot help, so say why.
         if (res.status === 409) {
           toast.error(tFiles('folders.access.ifcRefused'))
           return false

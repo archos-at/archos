@@ -1,27 +1,5 @@
 'use client'
 
-/**
- * The follow-up chips themselves — the one presentation shared by the two
- * places follow-ups are rendered.
- *
- * There are two, and they are not a duplication: `FollowUpsCard` renders the
- * chips a model EMITTED inside an answer (a card, placed among the answer's
- * other cards, stored in `metadata.cards`), and `FollowUpsRail` renders the
- * chips a post-answer STAGE computed after the answer landed
- * (`docs/architecture/post-answer-stages.md` §6). Old threads keep the first
- * form forever (§7.10: retire, never delete), so both must render — and they
- * must render IDENTICALLY, because a reader scrolling a thread that spans the
- * migration should see one affordance, not two.
- *
- * Only the wrapper differs: the card owns its own 20px of air (`mt-5`) because
- * it is a trailing block inside the answer surface; the rail takes the message
- * column's own `gap-4` and adds nothing.
- *
- * Everything below is the original card body, moved and not rewritten: the chip
- * chrome copied from the welcome chips, the one-line truncation with the whole
- * question in `title`, and `setComposerPrefill` on click and nothing else.
- */
-
 import { type FC } from 'react'
 import { CornerDownRight, type LucideIcon } from 'lucide-react'
 import { SectionLabel } from '@/components/ui/section-label'
@@ -31,21 +9,9 @@ import { chatCopy } from '@/i18n/namespaces/chat'
 import { cn } from '@/lib/utils'
 import type { StoredFollowUp } from '@/lib/conversations/message-stages'
 
-/**
- * A chip the CLIENT offers, rather than one the model emitted.
- *
- * Same chrome, same promise (a click fills the composer and does nothing else),
- * one difference the type has to carry: a question IS its own prefill, and an
- * offer is not — „Als Aktenvermerk schreiben" is what the reader is offered,
- * „Schreib das als Aktenvermerk in mein Projekt." is what gets typed for them.
- * Hence the split; a follow-up question keeps using the single string it always
- * has.
- */
 export interface FollowUpAction {
-  /** Stable react key, and what a spec names the chip by. */
   key: string
   label: string
-  /** What the composer is filled with when the chip is pressed. */
   prefill: string
   icon?: LucideIcon
 }
@@ -53,30 +19,12 @@ export interface FollowUpAction {
 interface FollowUpChipsProps {
   title?: string | null
   items: StoredFollowUp[]
-  /**
-   * Client-side offers, rendered AFTER the model's questions in the same row.
-   * Last because they are the aside: the questions are what this answer made
-   * askable, and an offer to file it is a different kind of thing.
-   */
   actions?: FollowUpAction[]
-  /** Wrapper-level spacing owned by the caller — the block's own air. */
   className?: string
 }
 
-/**
- * The chip chrome, copied from the welcome chips so the two offers read as one
- * affordance: the reader who learnt on the empty canvas that a quiet hairline
- * chip fills the composer should not have to learn it twice.
- */
 const CHIP = cn(
   'group inline-flex min-h-8 max-w-full items-center gap-1.5 rounded-control px-[13px] py-1',
-  // On a phone a chip is given a floor of 12rem and the row wraps, so each
-  // question gets a line of its own: „Wie wird das Hauptgeschoß…" is still a
-  // usable offer where „Wie…" is not, and the question WRAPS there instead of
-  // being cut (a `title` is not shown on a phone, and the chip is what the
-  // reader decides on). On desktop the chips size to their content and cut at
-  // one line, because four of them fit across 636px and a set the eye takes in
-  // at once is the whole affordance.
   'max-sm:min-w-[12rem] bg-card text-foreground/85 shadow-xs card-caption font-medium',
   'transition-colors duration-quick ease-out motion-reduce:transition-none',
   'hover:bg-sheet-hover hover:text-foreground',
@@ -84,12 +32,6 @@ const CHIP = cn(
   'pointer-coarse:min-h-11',
 )
 
-/**
- * The questions worth offering. Exported because a CALLER may have to know
- * whether there are any before it renders a wrapper: in the message column the
- * rail's wrapper would contribute the column's `gap-4` even while rendering
- * nothing, which is a 16px hole under the answer for a turn with no chips.
- */
 export const usableFollowUps = (items: StoredFollowUp[]): StoredFollowUp[] =>
   items.filter((item) => Boolean(item?.question))
 
@@ -101,9 +43,6 @@ export const FollowUpChips: FC<FollowUpChipsProps> = ({
 }) => {
   const t = useTranslations(chatCopy)
   const setComposerPrefill = useChatStore((s) => s.setComposerPrefill)
-  // An empty set renders NOTHING — not an eyebrow over an empty row. An offer
-  // with nothing in it is an unkept promise, and with no frame there is not
-  // even a box left to explain the gap.
   const questions = usableFollowUps(items)
 
   if (questions.length === 0 && actions.length === 0) return null
@@ -122,8 +61,6 @@ export const FollowUpChips: FC<FollowUpChipsProps> = ({
           <button
             key={`${item.question}-${index}`}
             type="button"
-            // The whole question in the tooltip on desktop, where the chip cuts
-            // at one line; the hint follows it rather than replacing it.
             title={item.hint ? `${item.question} — ${item.hint}` : item.question}
             onClick={() => setComposerPrefill(item.question)}
             className={CHIP}

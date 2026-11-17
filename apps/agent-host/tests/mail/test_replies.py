@@ -1,5 +1,3 @@
-"""The reply split: own text, quoted blocks, and a bounded worst case."""
-
 from __future__ import annotations
 
 import time
@@ -47,9 +45,6 @@ def test_whitespace_runs_are_bounded_but_the_words_stay():
     assert "\t" * (limits.MAX_WHITESPACE_RUN + 1) not in split.own
 
 
-#: Inputs that cost the square of a run before the whitespace was bounded
-#: (each took 7 to 12 s at these sizes), and line patterns that probe the
-#: library's other expressions.
 HOSTILE = {
     "tabs in one line": "a" + "\t" * 20_000 + "b",
     "spaces in one line": "a" + " " * 20_000 + "b",
@@ -69,5 +64,4 @@ HOSTILE = {
 def test_hostile_text_splits_within_its_budget(text):
     started = time.perf_counter()
     split_replies(text)
-    # Measured at most 1.2 s on one core for 200,000 characters; the budget is generous for CI.
     assert time.perf_counter() - started < 5.0

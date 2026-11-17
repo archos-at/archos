@@ -1,10 +1,3 @@
-"""The Piloti turn honours both Platform → Models dials: the model and the thinking level.
-
-Regression: the thinking level was applied only inside ``apply_model_override``,
-which the chat agent never calls, so a platform owner dialling
-``shallow_research`` down saw the YAML value on every turn.
-"""
-
 import pytest
 from pydantic import BaseModel
 
@@ -28,7 +21,6 @@ def _boot_provider() -> LLMProvider:
 
 @pytest.fixture
 def readers(monkeypatch):
-    """The four per-turn lookups, answered without a BFF (read in ``common/request_llm_context.py``)."""
     values = {"overrides": {}, "efforts": {}, "credential": None, "zdr": False}
     monkeypatch.setattr(request_llm_context, "get_model_overrides_from_context", lambda: values["overrides"])
     monkeypatch.setattr(request_llm_context, "get_reasoning_efforts", lambda: values["efforts"])

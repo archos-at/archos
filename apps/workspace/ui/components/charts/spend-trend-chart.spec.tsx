@@ -2,13 +2,6 @@ import { act, fireEvent, render, screen } from '@/test-utils'
 import { describe, expect, test, vi } from 'vitest'
 import { SpendTrendChart, type SpendTrendPoint } from './spend-trend-chart'
 
-/**
- * The per-day value used to live in a hover tooltip on a non-focusable div, so
- * on a phone no day's amount could be read, and the newest day started off
- * screen inside a 420px scroll box. These pin the replacement: a readout that
- * a tap, a drag, a focus or an arrow key moves, defaulting to the newest day.
- */
-
 const POINTS: SpendTrendPoint[] = [
   { day: '2026-07-26', value: 10, events: 1 },
   { day: '2026-07-27', value: 40, events: 4 },
@@ -72,7 +65,6 @@ describe('SpendTrendChart', () => {
     expect(readout()).toBe('Jul 27: 40 credits · 4 requests')
     fireEvent.pointerMove(group, { pointerType: 'touch', clientX: 20, buttons: 1 })
     expect(readout()).toBe('Jul 26: 10 credits · 1 requests')
-    // A finger that is up does not move the selection.
     fireEvent.pointerMove(group, { pointerType: 'touch', clientX: 390, buttons: 0 })
     expect(readout()).toBe('Jul 26: 10 credits · 1 requests')
   })

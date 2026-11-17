@@ -23,31 +23,20 @@ import { SavedSearchesMenu } from './saved-searches-menu'
 import { SearchInset } from './search-atoms'
 import { SearchWorkspaceView } from './search-workspace-view'
 
-/** The register reads longer pages than a list: it is walked, not skimmed. */
 const REGISTER_LIMIT = 100
 
-/** What a search state narrows by beyond its body's filters: kinds the reader picked, a project picked on the office page. */
 const extraDimensions = (state: SearchUrlState) => ({ kinds: state.view !== 'register' && state.kinds !== null, project: state.projectId !== null })
 
-/** The filter dimensions a search state sets (`search_refined` compares two). */
 const stateDimensions = (state: SearchUrlState): string[] => filterDimensions(toSearchBody(state), extraDimensions(state))
 
 export interface SearchWorkspaceProps {
   surface: SearchSurface
-  /** Controls before the view switch (the way back to the Dateien). */
   leading?: ReactNode
   currentUserId?: string
   autoFocus?: boolean
-  /** Inside a shelf's frame, which lends no page padding. */
   inset?: boolean
 }
 
-/**
- * The search organism, connected: the question lives in the URL, the answer
- * comes from `POST /api/search` at the surface's scope, the Planliste from
- * its export, saved searches from `/api/search/saved`. The same component is
- * the office-wide page, a project's Dateien → Suche and the office shelf's.
- */
 export function SearchWorkspace({ surface, leading, currentUserId, autoFocus = false, inset = false }: SearchWorkspaceProps): JSX.Element {
   const t = useTranslations(searchCopy)
   const { state, setState, fieldValue, setFieldValue } = useSearchUrlState()
@@ -56,7 +45,6 @@ export function SearchWorkspace({ surface, leading, currentUserId, autoFocus = f
     () => toSearchBody(state, { limit: state.view === 'register' ? REGISTER_LIMIT : SEARCH_LIMIT_DEFAULT, facets: true }),
     [state]
   )
-  // The filter fields complete from where this search looks, under its other filters.
   const filters = body.filters
   const suggest = useCallback<SuggestSource>(
     async (question, signal) => (await postSuggest(scope, { ...question, ...(filters ? { filters } : {}) }, signal)).values,
@@ -133,7 +121,6 @@ export function SearchWorkspace({ surface, leading, currentUserId, autoFocus = f
       }
     />
   )
-  // Every hit drawn here returns to this search on closing (`back`).
   return (
     <SearchReturnProvider>
       <SuggestSourceProvider value={suggest}>{inset ? <SearchInset>{view}</SearchInset> : view}</SuggestSourceProvider>

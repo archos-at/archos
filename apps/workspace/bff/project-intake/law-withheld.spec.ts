@@ -22,7 +22,6 @@ import { AT_SETUP_RECORDS } from './at-setup.fixtures'
 const NOW = '2026-11-10T09:00:00.000Z'
 const CLASS = buildingClassKey('bldg1')
 
-/** A Viennese block of flats with every input the OIB's derivation reads, confirmed. */
 function vienna(): ProjectProfile {
   const profile = emptyProjectProfile()
   const confirmed = (key: string, value: ProjectPrimitiveValue) => {

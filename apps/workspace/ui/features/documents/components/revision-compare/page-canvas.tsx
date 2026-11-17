@@ -9,40 +9,21 @@ import { pageRaster } from './lib/page-source'
 import { tintCanvas, type Rgb } from './lib/tint'
 import { FRAME_ATTRIBUTE } from './use-stage-gestures'
 
-/** How long the frame has to stand still before the part on screen is painted sharp. */
 const DETAIL_SETTLE_MS = 160
 
 export interface PageCanvasProps {
   source: PageSource
-  /** 1-based. */
   page: number
-  /** The page's natural size, from `source.pageSize`. */
   size: PageSize
-  /** CSS pixels per natural unit. */
   scale: number
-  /** Recolour the page's dark lines in this ink (the overlay); unset draws it as it is. */
   ink?: Rgb
   label: string
   className?: string
   style?: CSSProperties
 }
 
-/** How long a new scale waits before the page is painted again: a pinch paints once, not every frame. */
 const REPAINT_DELAY_MS = 140
 
-/**
- * One page of one Fassung, painted at the scale the whole comparison shares.
- *
- * The canvas is sized in CSS pixels from the natural size, so the layout does
- * not wait for the bitmap: the sheet's box is right the moment the size is
- * known and the picture fills it when the render lands.
- *
- * A repaint goes into a scratch canvas and is copied over in one step. Painting
- * into the canvas on screen cleared it the moment its size was set, so every
- * step of a pinch blanked the sheet until pdf.js had drawn it again. While the
- * scale moves, the old picture is stretched; a beat after it rests, the sharp
- * one replaces it. A new page or ink paints at once.
- */
 export function PageCanvas({
   source,
   page,
@@ -78,10 +59,8 @@ export function PageCanvas({
         })
         .catch(() => {
           // A page that cannot be painted leaves its sheet blank; the other side
-          // and the controls still work, and a reader can see the gap.
         })
         .finally(() => {
-          // iOS frees a canvas's memory when its size goes to zero.
           scratch.width = 0
           scratch.height = 0
         })
@@ -97,15 +76,6 @@ export function PageCanvas({
     }
   }, [source, page, scale, ink])
 
-  /**
-   * The sharp part. Past the canvas budget the page above is softer than the
-   * screen (an A1 sheet at 8x on a phone is about one device pixel per CSS
-   * pixel on a DPR 3 screen); the part of it on screen is then painted again,
-   * alone, at device resolution, once the frame has stood still, and hung in
-   * percent of the page so a zoom stretches it in place until the next one.
-   * The same decision as the PDF viewer's (`detailPlan`), so the two surfaces
-   * a drawing is read on agree on what sharp means.
-   */
   useEffect(() => {
     const host = detailRef.current
     const canvas = canvasRef.current
@@ -188,7 +158,6 @@ export function PageCanvas({
     }
   }, [source, page, size, scale, ink])
 
-  // A new page or ink is a new picture: its old detail goes with it.
   useEffect(() => {
     const host = detailRef.current
     return () => {

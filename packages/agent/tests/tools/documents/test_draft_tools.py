@@ -1,10 +1,3 @@
-"""The four verbs Piloti is offered, and the card a written draft leaves.
-
-The tools themselves are stock DeepAgents; what this repo decides is WHICH of
-them the model sees, what they are called in German, whose working directory
-they reach, and what the reader is shown afterwards.
-"""
-
 from __future__ import annotations
 
 import pytest
@@ -47,40 +40,27 @@ class TestWhichToolsAreBound:
         assert [tool.name for tool in draft_tools(backend)] == list(DRAFT_TOOL_NAMES)
 
     def test_nothing_that_searches_executes_or_deletes_is_bound(self, backend: DraftBackend) -> None:
-        """`glob`/`grep` buy nothing over one flat directory; `execute` has no sandbox.
-
-        `delete` arrived with DeepAgents 0.7 and is offered whenever the backend
-        implements it, which `StoreBackend` does: only the allowlist keeps it off.
-        """
         names = {tool.name for tool in draft_tools(backend)}
         assert not names & {"glob", "grep", "execute", "delete"}
 
 
 class TestTheDescriptions:
     def test_they_replace_the_stock_text(self, backend: DraftBackend) -> None:
-        """Every stock description is replaced, not merely extended."""
         for tool in draft_tools(backend):
             assert any(word in tool.description for word in ("draft", "drafts", "working directory"))
             assert "the filesystem" not in tool.description
 
     def test_the_unenforced_read_before_edit_claim_is_gone(self, backend: DraftBackend) -> None:
-        """DeepAgents' stock text claims it; nothing here checks it.
-
-        An instruction the system does not enforce is one the model learns to
-        ignore, and it takes the enforced parts of the description with it.
-        """
         for tool in draft_tools(backend):
             assert "You must read the file" not in tool.description
 
     def test_edit_says_where_to_anchor_and_what_not_to_copy(self, backend: DraftBackend) -> None:
-        """The two things that make an exact-string replacement land."""
         edit = next(tool for tool in draft_tools(backend) if tool.name == "edit_file")
         assert "heading" in edit.description
         assert "paragraph" in edit.description
         assert "`@@ … @@` header" in edit.description
 
     def test_read_warns_that_the_header_is_not_in_the_file(self, backend: DraftBackend) -> None:
-        """DeepAgents 0.7 prints a ``@@ lines … @@`` header and no line numbers."""
         read = next(tool for tool in draft_tools(backend) if tool.name == "read_file")
         assert "@@ lines" in read.description
         assert "line number" not in read.description
@@ -92,8 +72,6 @@ class TestTheDescriptions:
 
 
 class TestTheRootPermissions:
-    """The tool gate allows the root itself; the deny-all still catches the rest."""
-
     def test_the_root_lists_with_or_without_slash(self) -> None:
         from deepagents.middleware.filesystem import _check_fs_permission
 
@@ -113,7 +91,6 @@ class TestTheRootPermissions:
         assert _check_fs_permission(_PERMISSIONS, "write", "/etc/passwd") == "deny"
 
     def test_traversal_never_reaches_the_gate(self) -> None:
-        """``validate_path`` rejects ``..`` before any permission is consulted."""
         from deepagents.backends.utils import validate_path
 
         with pytest.raises(ValueError):
@@ -121,14 +98,6 @@ class TestTheRootPermissions:
 
 
 class TestEveryVerbRunsOnTheAsyncPath:
-    """Piloti's ToolNode awaits each tool's coroutine, never its sync twin.
-
-    The async half is a second implementation of every verb, and the one
-    production runs. ``read_file`` broke there alone for weeks: the backend
-    shadowed the protocol's ``aread`` with a method of its own shape, the sync
-    tests stayed green, and the model was told every draft was unreadable.
-    """
-
     @pytest.mark.asyncio
     async def test_read_file_returns_the_draft(self, backend: DraftBackend, cards: CardRegistry) -> None:
         from types import SimpleNamespace
@@ -142,7 +111,6 @@ class TestEveryVerbRunsOnTheAsyncPath:
         assert "## 3. Fluchtweg" in message.content
 
     def test_no_protocol_method_is_narrowed(self) -> None:
-        """A backend override must take every argument the stock tools pass it."""
         import inspect
 
         from deepagents.backends.protocol import BackendProtocol
@@ -158,11 +126,6 @@ class TestEveryVerbRunsOnTheAsyncPath:
 class TestTheTurnFactory:
     @pytest.mark.asyncio
     async def test_no_conversation_id_means_no_tools(self, monkeypatch) -> None:
-        """A CLI run, an eval or a job worker has nothing to namespace a directory by.
-
-        The alternative is one working directory shared by everyone, which is
-        worse than not drafting at all.
-        """
         monkeypatch.setattr(draft_tools_module, "get_conversation_id_from_context", lambda: None)
         assert await draft_tools_for_turn() == []
 
@@ -194,8 +157,6 @@ class TestTheTurnFactory:
 
 
 class TestTheSkillsRideTheSameReadFile:
-    """``read_file`` also reads the turn's skills under ``/skills/`` (ADR-0135), read-only."""
-
     @pytest.fixture
     def skills(self):
         from agent.skills.models import Skill
@@ -254,7 +215,6 @@ class TestTheSkillsRideTheSameReadFile:
 
 class TestTheDraftCard:
     def test_it_is_a_system_card(self) -> None:
-        """The model must not be able to fabricate a draft: the card names a real file."""
         assert "document_draft" in SYSTEM_CARD_TYPES
 
     def test_the_title_is_the_documents_own_first_heading(self) -> None:
@@ -287,6 +247,5 @@ class TestTheDraftCard:
         assert len(cards.snapshot()) == 1
 
     def test_no_card_channel_is_not_a_failed_write(self, backend: DraftBackend) -> None:
-        """The write is the product; the card is only how it is announced."""
         assert emit_draft_card(path=DRAFT, content="# Vermerk\n", version=1) is False
         assert backend.write(DRAFT, "# Vermerk\n").error is None

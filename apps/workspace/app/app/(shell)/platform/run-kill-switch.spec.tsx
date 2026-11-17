@@ -68,7 +68,6 @@ describe('RunKillSwitch', () => {
     expect(
       within(result).getByText(/killed 2 job\(s\); 4 further run\(s\) closed/i)
     ).toBeInTheDocument()
-    // Failures carry the same summary Alert the vector sweep has, not a bare table.
     const failures = screen.getByTestId('kill-runs-failures')
     expect(
       within(failures).getByText(/1 job\(s\) or run\(s\) could not be stopped/i)

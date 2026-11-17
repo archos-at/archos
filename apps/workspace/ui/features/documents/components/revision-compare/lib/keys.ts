@@ -15,14 +15,6 @@ interface KeyLike {
   shiftKey?: boolean
 }
 
-/**
- * What a key press asks the comparison to do: the arrows and Page Up / Down
- * turn the page, Home and End go to the first and last, 1 2 3 pick the view.
- * Esc is absent on purpose: the dialog closes itself on it.
- *
- * Chords belong to the browser (Cmd-1 switches tab), so a modifier means "not
- * for us".
- */
 export function compareKeyAction(event: KeyLike): CompareKeyAction | null {
   if (event.altKey || event.ctrlKey || event.metaKey) return null
   if (event.key === 'ArrowRight' || event.key === 'PageDown') return { type: 'page', delta: 1 }
@@ -34,17 +26,8 @@ export function compareKeyAction(event: KeyLike): CompareKeyAction | null {
 }
 
 const TEXT_TAGS = new Set(['TEXTAREA', 'SELECT'])
-/** The keys a slider moves itself with, which the page navigation must leave to it. */
 const SLIDER_KEYS = new Set(['ArrowLeft', 'ArrowRight', 'Home', 'End', 'PageUp', 'PageDown'])
 
-/**
- * Whether the focused element reads `key` itself, so the comparison must not.
- *
- * A text field owns every key. A range (the opacity slider) and the swipe
- * divider (`role="slider"`) own the arrows, Home, End and Page Up / Down:
- * handling them twice would turn the page AND move the control. Digits are still ours there, because neither takes
- * them.
- */
 export function keyBelongsToTarget(key: string, target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false
   if (target.isContentEditable || TEXT_TAGS.has(target.tagName)) return true

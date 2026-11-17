@@ -1,43 +1,14 @@
-/**
- * Resolve particular documents by filename, for the readers that need THOSE
- * documents and not the corpus: citation chips, surfaced-document cards, a file
- * operation naming its file.
- *
- * They used to read the first page of each listing and look the name up in it.
- * The listing is paged, so a correct citation of a plan older than the newest
- * 500 resolved to nothing. This asks the server by name instead
- * (`POST /api/documents/by-name`, with `scope: office_shelf` for the office shelf).
- *
- * ## One request per render, not per chip
- *
- * An answer renders a dozen chips, each asking for its own name in its own
- * effect. The names asked within one task are collected and sent together on
- * the next microtask — React runs a commit's effects in one pass, so a whole
- * answer's chips land in one batch — and each name's answer is cached for the
- * page's lifetime (until a document change clears it, as it clears the other
- * indexes). A failed lookup is not cached, so a later mount asks again.
- */
-
 import { createDocumentByNameClient, ByNameResolveError, type ResolvedDocumentRow } from '@/lib/documents/by-name-client'
 import { onDocumentsChanged } from '@/lib/documents/document-changes'
 
-/** Every row answering to one name, per shelf. */
 export interface NamedDocuments {
-  /** The project's rows (none without a project). */
   project: ResolvedDocumentRow[]
-  /** The org Archiv's rows (none when the Archiv is gated off). */
   officeShelf: ResolvedDocumentRow[]
-  /**
-   * A GENUINE failure (network, 5xx, a refused project) — the answer may be
-   * incomplete. A gated Archiv (403/404) is not one: it simply holds nothing.
-   */
   error: boolean
 }
 
-/** How a name is compared: NFC, trimmed, case-folded — as the server matches it. */
 export const documentNameLookupKey = (name: string): string => name.normalize('NFC').trim().toLowerCase()
 
-/** Archiv statuses that mean "no Archiv here", not "the lookup failed". */
 const SOFT_OFFICE_SHELF_STATUSES = new Set([403, 404])
 
 const cache = new Map<string, Promise<NamedDocuments>>()
@@ -50,19 +21,15 @@ const pending = new Map<string, PendingBatch>()
 
 let client = createDocumentByNameClient()
 
-/** Test hook — clears the cache and any batch not yet sent. */
 export const resetDocumentsByNameCache = (): void => {
   cache.clear()
   pending.clear()
 }
 
-/** Test hook — route the client through a fetch double. */
 export const setDocumentsByNameFetch = (run?: Parameters<typeof createDocumentByNameClient>[0]): void => {
   client = createDocumentByNameClient(run)
 }
 
-// A document uploaded, renamed or deleted during the visit changes what a name
-// resolves to, exactly as it does for the listing-backed indexes.
 onDocumentsChanged(resetDocumentsByNameCache)
 
 const projectScope = (projectId: string | null): string => projectId ?? '__no-project__'
@@ -127,10 +94,6 @@ function requestName(projectId: string | null, name: string, key: string): Promi
   })
 }
 
-/**
- * The rows answering to each of `names`, keyed by {@link documentNameLookupKey}.
- * Never rejects: a failure comes back as `error: true` on the names it touched.
- */
 export async function resolveDocumentsByName(
   projectId: string | null,
   names: readonly string[]

@@ -23,7 +23,6 @@ import { sql } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
-// No embedder: the token channel ranks, which is all the decisions read here needs.
 vi.mock('@/lib/knowledge/embeddings', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/knowledge/embeddings')>()),
   embedNote: async () => null,
@@ -105,7 +104,6 @@ describe.skipIf(!url)('memory evidence names against live Postgres', () => {
         values (${ORG}, 'Evidenz', ${USER}, ${collection}) returning id`)
     )
 
-    // Every cited file was open when the closing extraction read it.
     await document('Baubeschreibung.pdf')
     const moved = await document('Honorare.pdf')
     await document('Gesperrt.pdf', { status: 'quarantined', outcome: 'quarantined', createdBy: UPLOADER })
@@ -116,8 +114,6 @@ describe.skipIf(!url)('memory evidence names against live Postgres', () => {
       values ('project', ${projectId}::uuid, ${ORG}, 'decision', ${DECISION}, 'distillation', 'source_grounded',
               ${JSON.stringify(CITED.map((fileName) => ({ fileName, page: '1' })))}::jsonb)`)
 
-    // Since then: one moved into a folder with its own list (placement has not moved its chunks),
-    // one put in the Papierkorb, one archived.
     restricted = idOf(
       await inserted(sql`
         insert into project_folders (organization_id, project_id, name, path, access_mode, access_changed_by, access_changed_at)

@@ -203,7 +203,6 @@ describe('runMailImportSlice', () => {
     expect(repository.advanceMailImport).toHaveBeenNthCalledWith(1, 'org_1', payload.importId, 0, expect.objectContaining({
       to: 1, mailsFiled: 1, filesFiled: 2, filesSkipped: 1, threadsCreated: 1, threadsAppended: 0, alreadyInProject: 0,
     }))
-    // A contact is counted, not sampled: a calendar walked first would fill every sample.
     expect(repository.advanceMailImport).toHaveBeenNthCalledWith(2, 'org_1', payload.importId, 1, expect.objectContaining({
       to: 2, itemsSkipped: 1,
       skippedSamples: [{ mail: 'm', file: 'x.exe', reason: 'type' }],
@@ -237,7 +236,6 @@ describe('runMailImportSlice', () => {
     expect((await runMailImportSlice(session, payload, 'org_1')).done).toBe(true)
     expect(repository.advanceMailImport).toHaveBeenCalledOnce()
     expect(emitInboxItems).not.toHaveBeenCalled()
-    // The other slice counted this mail's name stops; this one does not again.
     expect(recordNameStops).not.toHaveBeenCalled()
   })
 
@@ -294,7 +292,6 @@ describe('runMailImportSlice', () => {
     })
     const queued = vi.mocked(enqueueJob).mock.calls[0][0]
     expect(queued).toMatchObject({ kind: 'mail_import', organizationId: 'org_1', payload })
-    // The second failure in a row waits the second backoff, five minutes.
     expect(queued.notBefore!.getTime()).toBeGreaterThanOrEqual(before + 5 * 60_000)
     expect(emitInboxItems).not.toHaveBeenCalled()
     vi.mocked(repository.findMailImport).mockReset()
@@ -377,7 +374,6 @@ describe('runMailImportSlice', () => {
     await runMailImportSlice(session, payload, 'org_1')
     expect(repository.updateMailImport).toHaveBeenCalledWith('org_1', payload.importId, ['queued'], { status: 'importing' })
     expect(repository.updateMailImport).toHaveBeenCalledWith('org_1', payload.importId, ['importing'], { rootFolderId: 'folder_archive' })
-    // A root that did not exist is judged at the project root, then once more as the folder that now exists.
     expect(requireFolderWrite).toHaveBeenCalledWith(session, payload.projectId, [null])
     expect(requireFolderWrite).toHaveBeenCalledWith(session, payload.projectId, ['folder_root'])
   })
@@ -436,7 +432,6 @@ describe('runMailImportSlice, E-Mail-Verläufe (D33)', () => {
     expect(renderedAt).toBeGreaterThan(vi.mocked(fileMail).mock.invocationCallOrder[1])
     const completedAt = vi.mocked(repository.updateMailImport).mock.calls.findIndex(([, , , patch]) => patch.status === 'completed')
     expect(vi.mocked(repository.updateMailImport).mock.invocationCallOrder[completedAt]).toBeGreaterThan(renderedAt)
-    // The Verläufe' words are the starter's locale.
     expect(vi.mocked(filingContext).mock.calls[0][0]).toMatchObject({ locale: 'en' })
   })
 
@@ -538,7 +533,6 @@ describe('runMailImportSlice, E-Mail-Verläufe (D33)', () => {
     expect(openUploadBatch).toHaveBeenCalledWith(session, expect.objectContaining({ id: threads0, effects: ARCHIVE_THREAD_RENDER_EFFECTS }))
     expect(openUploadBatch).toHaveBeenCalledTimes(2)
     expect(batchStore.get(threads0)).toEqual({ sealed: true, documents: 0 })
-    // The files batch is never the quiet one.
     expect(vi.mocked(openUploadBatch).mock.calls.find(([, input]) => input.id === importBatchId(row().id, 0))?.[1]).not.toHaveProperty('effects')
   })
 })

@@ -1,12 +1,5 @@
 'use client'
 
-/**
- * The one confirmation a document's delete asks, wherever it is started: the
- * actions menu, and the held block of the Files preview, where a reviewer
- * deletes a file the content check held back. The work is the hook's
- * (`useDocumentActions().remove`); this is only the question.
- */
-
 import type { JSX } from 'react'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { useTranslations } from '@/i18n'

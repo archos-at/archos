@@ -3,12 +3,6 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { DocumentTagsEditor } from './document-tags-editor'
 
-/**
- * The tag editor on its own: the chips, the add-tag input, the controlled
- * vocabulary and the PATCH that persists every change. The pane and the
- * reading block are specced in their own files; what they assert about the
- * editor is only that it is there, not how it behaves.
- */
 describe('DocumentTagsEditor', () => {
   const okResponse = { ok: true, json: async () => ({}) } as Response
 
@@ -48,7 +42,6 @@ describe('DocumentTagsEditor', () => {
 
     await user.type(screen.getByRole('textbox', { name: /add tag/i }), 'Brandschutz{Enter}')
 
-    // Optimistic: the new chip is present immediately.
     await waitFor(() =>
       expect(screen.getByRole('button', { name: 'Remove tag Fire safety' })).toBeInTheDocument()
     )
@@ -84,7 +77,6 @@ describe('DocumentTagsEditor', () => {
 
     render(<DocumentTagsEditor fileId="doc-1" initialTags={['Grundriss']} />)
 
-    // A person types what they read, never the stored token.
     await user.type(screen.getByRole('textbox', { name: /add tag/i }), 'Correspondence{Enter}')
 
     await waitFor(() =>
@@ -168,9 +160,6 @@ describe('DocumentTagsEditor', () => {
 
     await user.type(screen.getByRole('textbox', { name: /add tag/i }), 'Brandschutz{Enter}')
 
-    // Optimistic chip appears, then reverts once the PATCH failure lands.
-    // (Query the chip via its remove affordance — the plain text also occurs
-    // in the suggestion list while the input is focused.)
     await waitFor(() =>
       expect(screen.queryByRole('button', { name: 'Remove tag Fire safety' })).toBeNull()
     )
@@ -200,7 +189,6 @@ describe('DocumentTagsEditor', () => {
     )
     await userEvent.click(screen.getByRole('button', { name: 'Remove tag Fire safety' }))
 
-    // A poll that read the row before the save landed.
     rerender(<DocumentTagsEditor fileId="doc-1" initialTags={['Grundriss', 'Brandschutz', 'Statik']} />)
 
     expect(screen.queryByRole('button', { name: 'Remove tag Fire safety' })).toBeNull()

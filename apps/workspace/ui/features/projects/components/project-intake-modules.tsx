@@ -18,13 +18,6 @@ import { useTranslations } from '@/i18n'
 import type { Translator } from '@/i18n'
 import { commonCopy } from '@/i18n/namespaces/common'
 
-/**
- * The intake's last press. Busy is not disabled: it keeps its focus while the
- * save runs (`aria-disabled`, and the form's submit handler swallows a second
- * press), and the spinner appears only once the wait has lasted 150 ms. When
- * the save lands, the glyph slot takes a check on the icon-swap spring: the
- * one physical cue of the intake, held for a beat before the project opens.
- */
 export function SaveIntakeButton({ working, saved, label }: { working: boolean; saved: boolean; label: string }) {
   const showBusy = useDelayedFlag(working && !saved)
   const glyph = useIconSwapTransition()
@@ -65,29 +58,6 @@ export function SaveIntakeButton({ working, saved, label }: { working: boolean; 
   )
 }
 
-// ---------------------------------------------------------------------------
-// Module rail — the wizard's primary orientation surface.
-// ---------------------------------------------------------------------------
-
-/**
- * The A–I module list: a persistent rail beside the questions from `lg`, and
- * the same rows in a bottom sheet below it ({@link ModulePicker}).
- *
- * Each row carries the module's real title and its answered/total count, which
- * is the pair that answers "where am I and what is left" at a glance. The
- * horizontal stepper this replaced could show neither: at eight modules across
- * a 3xl column every label truncated to about eight characters, so the nav read
- * "Grundstück …", "Technik & En…", "Zusammenfa…" — three labels that are the
- * same word to a reader scanning for where to click. Its phone form, a strip of
- * 80px tiles, was that problem again: four of nine modules on screen, 11px
- * labels, and a row of chrome above the first question.
- *
- * Rows stay reachable in BOTH directions. Forward navigation to an unvisited
- * module is deliberate: the spec's validation is soft everywhere but A1/A2/A5,
- * so a locked-until-complete rail would enforce a gate the questionnaire does
- * not have, and an architect who wants to fill in the Bauwerk geometry first
- * should be able to.
- */
 export function ModuleRail({
   stages,
   currentStep,
@@ -128,7 +98,6 @@ export function ModuleList({
   progress: Map<string, { answered: number; total: number }>
   onSelect: (step: number) => void
   t: Translator
-  /** Finger-sized rows (the sheet) instead of the rail's dense ones. */
   touch?: boolean
 }) {
   return (
@@ -191,12 +160,6 @@ export function ModuleList({
   )
 }
 
-/**
- * The module list below `lg`: one 44px bar — „Modul C · 3/9" — that opens the
- * list in a bottom sheet. A selection among nine named places is a choice you
- * make and leave, which is what a sheet is for; the questions stay where they
- * were behind it. Choosing a module closes the sheet.
- */
 export function ModulePicker({
   stages,
   currentStep,
@@ -256,14 +219,6 @@ export function ModulePicker({
   )
 }
 
-/**
- * Schnellstart switch (spec `core_flag`).
- *
- * A view, not a second answer state: it narrows each module to its Kernfragen,
- * and everything it hides is already what an unanswered question becomes — an
- * unknown. That is why turning it off cannot lose an answer, and why the copy
- * can promise the skipped questions come back in the summary's checklist.
- */
 export function QuickStartToggle({
   enabled,
   onToggle,
@@ -281,9 +236,6 @@ export function QuickStartToggle({
         size="sm"
         onClick={onToggle}
         aria-pressed={enabled}
-        // The explanation is beside the switch from `sm`; on a phone it is the
-        // switch's description, and the module itself says what it hides
-        // („n weitere Fragen im Schnellstart ausgeblendet").
         aria-describedby="intake-schnellstart-hint"
         className="shrink-0"
       >

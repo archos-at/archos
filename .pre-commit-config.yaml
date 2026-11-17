@@ -200,6 +200,16 @@ repos:
         # person's commit instead. The check takes about three seconds.
         always_run: true
 
+      - id: comments
+        name: no source file gains a comment line past its baseline (three are free)
+        # A comment goes stale, binds nothing, and gives an agent room to justify
+        # a workaround the next agent copies: code-conventions.md#comments.
+        # The staged files only, so a commit pays milliseconds, not the 25 s a
+        # full scan takes; CI's --all-files run passes every file.
+        entry: .venv/bin/python scripts/check_comments.py
+        language: system
+        types_or: [python, ts, tsx, javascript, jsx]
+
       - id: nesting
         name: no Python source function gains a third level of nesting
         # code-conventions.md sets two levels as the floor and named Ruff's

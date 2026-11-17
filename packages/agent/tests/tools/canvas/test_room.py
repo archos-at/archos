@@ -1,5 +1,3 @@
-"""``room``, ``point``, ``highlight``, and leaving at the end of the turn."""
-
 from __future__ import annotations
 
 import pytest
@@ -36,7 +34,6 @@ class TestTheRoom:
         assert "Nobody has it open right now" in await run_room()
 
     async def test_the_room_op_names_the_answer_this_turn_writes(self, monkeypatch, calls):
-        """The BFF admits the document against the conversation's audience, and marks the answer."""
         answering(monkeypatch, calls, ROOM_BODY)
 
         await run_room()

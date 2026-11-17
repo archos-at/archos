@@ -31,7 +31,6 @@ describe('setupScopeOf', () => {
     expect(scope({ country: 'at', federal_state: 'vienna' }).chain).toEqual(['AT-9', 'AT'])
     expect(scope({ country: 'de', federal_state: 'bavaria' }).chain).toEqual(['DE-BY', 'DE'])
     expect(scope({ country: 'ch', federal_state: 'zurich' }).chain).toEqual(['CH-ZH', 'CH'])
-    // A Land token from another country's list places no subdivision.
     expect(scope({ country: 'de', federal_state: 'vienna' }).chain).toEqual(['DE'])
   })
 
@@ -49,7 +48,6 @@ describe('setupScopeOf', () => {
   })
 
   it('places nothing by a geocoded subdivision two countries list', () => {
-    // Switzerland lists a `bavaria` too: which country the geocoder meant is the open question.
     const swissBavaria = SWISS_RECORDS.map((record) => {
       const { body } = record.values
       if (body.kind !== 'fact_definitions' || !body.payload.subdivisions) return record
@@ -64,7 +62,6 @@ describe('setupScopeOf', () => {
     const geocoded = (federalState: string) =>
       setupScopeOf(placedProfile({}), { records, on: '2026-11-10', location: { federalState } }).chain
     expect(geocoded('bavaria')).toEqual([])
-    // Positive control: a token only one country lists still places the project.
     expect(geocoded('berlin')).toEqual(['DE-BE', 'DE'])
   })
 })
@@ -137,7 +134,6 @@ describe('a site written by a reading', () => {
 
   it('leaves a building’s class alone when the Land moves within Austria', () => {
     const profile = placedProfile({ country: 'at', 'building_type@bldg1': 'building', 'storeys_above_ground@bldg1': 3 })
-    // A class a document stated, which the inputs on file would derive otherwise: a Land is no reason to touch it.
     profile.assumptions['building_class@bldg1'] = {
       value: 4,
       status: 'unconfirmed',

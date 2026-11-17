@@ -1,5 +1,3 @@
-"""``ActionOutcome``: what a tool call found, and the status that follows from it (ADR-0132)."""
-
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -22,7 +20,6 @@ def test_chunks_count_hits_and_distinct_documents() -> None:
 
 
 def test_hits_from_an_unadmitted_restricted_folder_are_not_counted() -> None:
-    """The row settles before the round is admitted: no count the model could be refused (ADR-0088)."""
     outcome = ActionOutcome()
     outcome.record_chunks([_chunk("a.pdf"), _chunk("geheim.pdf", "proj_a_r0123456789ab")])
 
@@ -56,7 +53,6 @@ def test_settle_finishes_the_row_once_with_its_counts(emitted) -> None:
 
 
 async def test_parallel_calls_keep_their_own_call_id_for_their_sources(monkeypatch):
-    """Sources a call returns carry that call's id, even beside a sibling call (ADR-0132)."""
     import asyncio
 
     from agent.common import action_rows
@@ -81,7 +77,6 @@ async def test_parallel_calls_keep_their_own_call_id_for_their_sources(monkeypat
 
 
 def test_an_incomplete_search_says_so_on_its_row(monkeypatch):
-    """A literal search that could not search everything is never drawn as a complete count (ADR-0133)."""
     from agent.common import turn_status
 
     steps: list = []
@@ -107,7 +102,6 @@ def test_a_complete_search_carries_no_incomplete_flag(monkeypatch):
 
 
 def test_a_settled_place_replaces_the_running_one(monkeypatch):
-    """A row that settles at a place's root drops the name it showed while running (ADR-0132)."""
     from agent.common import turn_status
 
     steps: list = []

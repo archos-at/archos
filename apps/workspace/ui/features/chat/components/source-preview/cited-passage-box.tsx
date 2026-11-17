@@ -6,7 +6,6 @@ import { chatCopy } from '@/i18n/namespaces/chat'
 import { SectionLabel } from '@/components/ui/section-label'
 import type { SourceTint } from '@/lib/source-kinds'
 
-/** Tinted "Fundstelle" / cited-passage box shown above the document frame. */
 export const CitedPassageBox: FC<{ snippet: string; signal: SourceTint }> = ({ snippet, signal }) => {
   const t = useTranslations(chatCopy)
   const style: CSSProperties = {

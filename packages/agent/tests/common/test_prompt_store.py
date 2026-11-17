@@ -1,11 +1,3 @@
-"""The prompt store: what a turn is allowed to pay for a remotely managed prompt.
-
-Every assertion here is about a failure mode that would otherwise be invisible
-in production — a turn blocked on a dead Langfuse, a log line per turn, a
-second OpenTelemetry tracer provider quietly attached to the process — rather
-than about the happy path, which is one method call.
-"""
-
 from __future__ import annotations
 
 import logging
@@ -31,8 +23,6 @@ FALLBACK = ResolvedPrompt(text="COMMITTED TEXT", name="git:prompts/x.md", versio
 
 
 class FakePrompt:
-    """What the Langfuse SDK hands back for a text prompt."""
-
     def __init__(self, prompt: str, version: int = 7, is_fallback: bool = False):
         self.prompt = prompt
         self.version = version
@@ -40,8 +30,6 @@ class FakePrompt:
 
 
 class FakeClient:
-    """A Langfuse stand-in that records what it was asked and can be made to fail."""
-
     def __init__(self, *, answer: FakePrompt | None = None, raises: Exception | None = None):
         self.answer = answer
         self.raises = raises
@@ -64,8 +52,6 @@ class FakeClient:
 
 
 class FakeClock:
-    """A clock a test moves by hand, so a TTL can be tested without sleeping."""
-
     def __init__(self) -> None:
         self.now = 1000.0
 
@@ -88,11 +74,6 @@ def _store(client: FakeClient | None, clock=None, **kwargs) -> PromptStore:
 
 class TestDisabled:
     def test_disabled_returns_the_fallback_and_never_reaches_the_client(self):
-        """
-        The default posture. A deployment that has not opted in renders exactly
-        the bytes in its image, and proves it by never building a client — the
-        factory raising is how the test would notice a call.
-        """
 
         def exploding_factory():
             raise AssertionError("a disabled store must not build a client")
@@ -102,7 +83,6 @@ class TestDisabled:
         assert store.get("piloti-system-static", fallback=FALLBACK) == FALLBACK
 
     def test_enabled_without_credentials_returns_the_fallback(self):
-        """No keys is not an error, it is the un-provisioned state."""
         store = _store(None)
 
         assert store.get("piloti-system-static", fallback=FALLBACK) is FALLBACK
@@ -129,11 +109,6 @@ class TestFetching:
         assert resolved.is_fallback is False
 
     def test_the_turn_budget_is_what_is_actually_sent_to_the_sdk(self):
-        """
-        Retries off and a two-second ceiling are the whole reason a turn can
-        call this synchronously. A default `max_retries=2` with exponential
-        backoff would put ten seconds of someone else's outage on a user's turn.
-        """
         client = FakeClient(answer=FakePrompt("LANGFUSE TEXT"))
         _store(client, cache_ttl_seconds=90, label="staging").get("p", fallback=FALLBACK)
 
@@ -142,18 +117,9 @@ class TestFetching:
         assert call["fetch_timeout_seconds"] == 2
         assert call["cache_ttl_seconds"] == 90
         assert call["label"] == "staging"
-        # The committed text goes down as the SDK's own fallback too, so even a
-        # bug in the error handling below cannot render an empty prompt.
         assert call["fallback"] == FALLBACK.text
 
     def test_the_ttl_is_the_sdks_to_honour_and_a_repeat_call_is_not_re_fetched_by_us(self):
-        """
-        Stale-while-revalidate lives in the SDK's prompt cache: it serves the
-        stale text immediately and refreshes on a background thread. This store
-        adds no second cache in front of it, so a second call is a second
-        `get_prompt` — and that is the point, since anything else would pin a
-        version the SDK had already refreshed.
-        """
         client = FakeClient(answer=FakePrompt("LANGFUSE TEXT", version=3))
         store = _store(client)
 
@@ -176,29 +142,17 @@ class TestFailure:
         assert any("unavailable" in record.message for record in caplog.records)
 
     def test_an_sdk_served_fallback_is_read_as_a_failure_not_as_a_version(self):
-        """
-        Handing the SDK a fallback means an unreachable API comes back as a
-        `TextPromptClient` with `is_fallback=True` and `version=0` rather than
-        as an exception. Taking that at face value would stamp every trace in a
-        Langfuse outage with "version 0" of a prompt that has no such version.
-        """
         client = FakeClient(answer=FakePrompt(FALLBACK.text, version=0, is_fallback=True))
         store = _store(client)
 
         assert store.get("p", fallback=FALLBACK) is FALLBACK
 
     def test_an_empty_prompt_is_refused_rather_than_rendered(self):
-        """A blank managed prompt is a lobotomy, and it would deploy silently."""
         client = FakeClient(answer=FakePrompt("   \n  "))
 
         assert _store(client).get("p", fallback=FALLBACK) is FALLBACK
 
     def test_a_failure_mutes_the_name_so_a_turn_pays_at_most_one_attempt_per_window(self):
-        """
-        The SDK does not cache a FAILED fetch, so without this every turn of an
-        outage would open a connection and log. The mute is what turns "Langfuse
-        is down" from a per-turn cost into a per-minute one.
-        """
         clock = FakeClock()
         client = FakeClient(raises=RuntimeError("down"))
         store = _store(client, clock=clock, cache_ttl_seconds=60)
@@ -281,12 +235,6 @@ class TestEnvironmentReading:
 
 class TestGitBlobVersion:
     def test_it_is_the_hash_git_itself_would_print(self, tmp_path: Path):
-        """
-        Pinned against git's documented object format (`blob <len>\\0<bytes>`)
-        with a value taken from git's own test corpus: an empty blob hashes to
-        e69de29. A version an operator cannot look up with `git cat-file` is
-        not a version, it is a number.
-        """
         empty = tmp_path / "empty.md"
         empty.write_bytes(b"")
 
@@ -302,28 +250,12 @@ class TestGitBlobVersion:
 
 
 def _span_processor_count(provider) -> int:
-    """How many span processors a tracer provider carries, or -1 if it has none.
-
-    Reaches into the OTel SDK's private multi-processor because there is no
-    public accessor and the whole point is to observe a processor somebody else
-    attached. A ProxyTracerProvider has no such attribute and reports -1.
-    """
     multi = getattr(provider, "_active_span_processor", None)
     return len(getattr(multi, "_span_processors", ())) if multi is not None else -1
 
 
 class TestSdkDoesNotHijackTracing:
     def test_the_client_registers_no_global_tracer_provider(self, monkeypatch):
-        """
-        The decision this whole module rests on. The Langfuse SDK installs a
-        TracerProvider AND hangs its own BatchSpanProcessor on whatever provider
-        it finds, unless `tracing_enabled=False`; this process already exports
-        spans to Langfuse through the agent runtime and the OTel collector, so either would
-        mean a second export path for every span in the fleet.
-
-        Asserted rather than trusted because it is an internal of the SDK
-        (`LangfuseResourceManager.__init__`) that a minor release could move.
-        """
         from opentelemetry import trace as otel_trace
 
         monkeypatch.setenv(PUBLIC_KEY_ENV, "pk-lf-test")
@@ -335,10 +267,6 @@ class TestSdkDoesNotHijackTracing:
         client = build_langfuse_client()
 
         assert client is not None
-        # The global provider is the same OBJECT, and it did not grow a span
-        # processor. Whether it is still the untouched ProxyTracerProvider
-        # depends on what else in the suite has booted telemetry, so the
-        # invariant is stated as "unchanged", not as a type.
         assert otel_trace.get_tracer_provider() is before
         assert _span_processor_count(otel_trace.get_tracer_provider()) == processors_before
 
@@ -351,7 +279,6 @@ class TestSdkDoesNotHijackTracing:
 
 @pytest.fixture(autouse=True)
 def _clean_process_store():
-    """No test may leave a store behind for the next one to inherit."""
     reset_prompt_store()
     yield
     reset_prompt_store()

@@ -1,22 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Security probes for the collaboration feature (spec SH-5, SH-6, IB-1, IB-13,
- * IB-14, NF-8).
- *
- * These are the cases where being wrong is not a bug report but an incident: a
- * conversation readable across tenants, an inbox mutable by somebody else, a
- * mention release on a thread the caller cannot open, a grant that smuggles someone
- * into a project, a notification that keeps working after access is gone, a
- * container check that fails OPEN when a lookup breaks.
- *
- * `@/lib/sharing/access`, `@/lib/sharing/registry` and
- * `@/lib/authz/project-membership` all run FOR REAL — the last one is driven through
- * a stubbed WorkOS client and a controllable cache store, because "fails closed" is
- * a property of that module's error handling and cannot be asserted through a mock
- * of itself.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -30,7 +14,6 @@ vi.mock('@/lib/events/bus', () => ({
 }))
 
 vi.mock('@/lib/authz/projects', () => ({ requireProjectAccess: vi.fn() }))
-// The third-party precondition reads the project's status (ADR-0090): an active one here.
 vi.mock('@/lib/projects/repository', async (importActual) => ({
   ...(await importActual<typeof import('@/lib/projects/repository')>()),
   findProjectTenancy: vi.fn(async () => ({ organizationId: 'org_1', deletedAt: null, status: 'active' })),
@@ -38,7 +21,6 @@ vi.mock('@/lib/projects/repository', async (importActual) => ({
 
 const listOrganizationMemberships = vi.fn()
 const authorizationCheck = vi.fn()
-// What WorkOS says the roles hold: Admin carries the org-wide project bypass.
 const listOrganizationRoles = vi.fn(async () => ({
   data: [
     { slug: 'admin', permissions: ['org:projects:administer'] },
@@ -56,8 +38,6 @@ vi.mock('@/lib/auth/require-auth', () => ({
   requireAuthorizedSession: vi.fn(),
 }))
 
-// ADR-0087/0086: no conversation here recorded a restricted folder, so every
-// widening is allowed; the rule itself is `restricted-use.spec.ts`.
 vi.mock('@/lib/conversations/restricted-use', () => ({
   peopleWhoMayRead: vi.fn(async (_org: string, _id: string, userIds: readonly string[]) => new Set(userIds)),
   lockedConversationIds: vi.fn(async () => new Set<string>()),
@@ -123,9 +103,6 @@ vi.mock('@/lib/inbox/repository', () => ({
   upsertInboxItems: vi.fn(),
 }))
 
-// Both WorkOS-backed lookups are replaced (the real `unknownPerson` fallback is
-// kept): identity resolution is not what this file is about, and letting it reach
-// the stubbed WorkOS client would make every inbox render log a failure.
 vi.mock('@/lib/sharing/directory', async (importActual) => ({
   ...(await importActual<typeof import('@/lib/sharing/directory')>()),
   loadOrganizationDirectory: vi.fn(),
@@ -221,7 +198,6 @@ const session = {
   permissions: [],
 } as unknown as AuthorizedSession
 
-/** In-process cache so the real `canUserAccessProject` can be exercised. */
 class TestStore implements CacheStore {
   map = new Map<string, string>()
   async get(key: string): Promise<string | null> {
@@ -363,7 +339,6 @@ beforeEach(() => {
 })
 
 describe('a conversation in another organization does not exist (matrix F33, spec SH-6)', () => {
-  /** Every session-carrying entry point that resolves a conversation. */
   const entryPoints: Array<[string, () => Promise<unknown>]> = [
     ['getConversation', () => getConversation(session, CONVERSATION_ID)],
     ['listConversationMessages', () => listConversationMessages(session, CONVERSATION_ID)],
@@ -399,16 +374,12 @@ describe('a conversation in another organization does not exist (matrix F33, spe
   ]
 
   it.each(entryPoints)('refuses %s with a plain 404, never a distinguishable error', async (_name, call) => {
-    // The caller holds an OWNER grant. Tenancy is checked first and is never
-    // overridable, so the grant buys nothing across the tenant boundary.
     stubConversation({ organizationId: 'org_2', createdBy: session.userId })
     stubMyGrant('owner')
 
     const failure = await call().catch((error: unknown) => error)
 
     expect(failure).toBeInstanceOf(NotFoundError)
-    // Not a 403, and never a container probe: asking about the project would leak
-    // that the id resolves to something.
     expect(requireProjectAccess).not.toHaveBeenCalled()
   })
 
@@ -459,13 +430,10 @@ describe('an inbox is only ever the caller\'s own (matrix F34, spec IB-1)', () =
 
     const result = await markRead(session, ['item_of_another_user'])
 
-    // Reporting "that item is not yours" would confirm the item exists.
     expect(markInboxItemsRead).toHaveBeenCalledWith(
       'org_1',
       session.userId,
       ['item_of_another_user'],
-      // The type gate travels with the mutation now: recipient scoping alone let
-      // an id kept from before collaboration was disabled still be marked read.
       expect.any(Array),
     )
     expect(result.affected).toBe(0)
@@ -480,7 +448,6 @@ describe('an inbox is only ever the caller\'s own (matrix F34, spec IB-1)', () =
 
 describe('releasing a mention on an unreachable thread (matrix F35, spec MN-9.2)', () => {
   it('404s a release on a conversation the caller cannot open', async () => {
-    // Anyone in the room may release a wait — but only someone in the room.
     vi.mocked(findRequestById).mockResolvedValue(requestRow())
     stubConversation({ visibility: 'private', createdBy: 'user_other' })
     stubMyGrant(null)
@@ -493,7 +460,6 @@ describe('releasing a mention on an unreachable thread (matrix F35, spec MN-9.2)
     vi.mocked(findRequestById).mockResolvedValue(requestRow({ organizationId: 'org_2' }))
 
     await expect(releaseRequest(session, 'req_1')).rejects.toBeInstanceOf(NotFoundError)
-    // Tenancy first: never even resolves access on the referenced resource.
     expect(findConversationTenancy).not.toHaveBeenCalled()
     expect(resolveRequests).not.toHaveBeenCalled()
   })
@@ -501,8 +467,6 @@ describe('releasing a mention on an unreachable thread (matrix F35, spec MN-9.2)
 
 describe('sharing is never a back door into a project (matrix F36, spec SH-5)', () => {
   it('refuses an invitee who cannot reach the container project, and writes no grant', async () => {
-    // The real `canUserAccessProject` runs: no membership in this organization, so
-    // the container precondition is unmet.
     listOrganizationMemberships.mockResolvedValue({ data: [] })
 
     const failure = await grantResourceAccess(session, 'conversation', CONVERSATION_ID, {
@@ -516,8 +480,6 @@ describe('sharing is never a back door into a project (matrix F36, spec SH-5)', 
       projectId: PROJECT_ID,
     })
 
-    // No grant, no silent container grant, and nothing in the audit trail implying
-    // either happened.
     expect(upsertGrant).not.toHaveBeenCalled()
     expect(recordAuditEvent).not.toHaveBeenCalled()
     expect(publishToUsers).not.toHaveBeenCalled()
@@ -538,8 +500,6 @@ describe('sharing is never a back door into a project (matrix F36, spec SH-5)', 
 
 describe('taking ownership is never a way to read a private resource (spec SH-10, ADR-0032 decision 5)', () => {
   it('answers 404 to a project admin with no access to a colleague\'s private chat, and writes nothing', async () => {
-    // A project admin who knows the id of a private chat they are not party to.
-    // Before the fix, `canEscalate` was true for them and the POST made them owner.
     stubConversation({ visibility: 'private', createdBy: ANNA })
     stubContainer('project-admin')
     stubMyGrant(null)
@@ -596,7 +556,6 @@ describe('an unregistered resource type (matrix F37)', () => {
     )
     await expect(getSharingState(session, unknownType, 'doc_1')).rejects.toThrow(/No registry entry/)
 
-    // Nothing was probed, so an unregistered type cannot be used to reach data.
     expect(findConversationTenancy).not.toHaveBeenCalled()
     expect(listGrantsForResource).not.toHaveBeenCalled()
   })
@@ -611,7 +570,6 @@ describe('the container precondition fails CLOSED (matrix F38, spec SH-5)', () =
     listOrganizationMemberships.mockResolvedValue({ data: [] })
 
     expect(await canUserAccessProject(session, PROJECT_ID, 'user_unknown')).toBe(false)
-    // No point asking FGA about a membership that does not exist.
     expect(authorizationCheck).not.toHaveBeenCalled()
   })
 
@@ -639,7 +597,6 @@ describe('the container precondition fails CLOSED (matrix F38, spec SH-5)', () =
     authorizationCheck.mockRejectedValue(new Error('FGA unavailable'))
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
 
-    // A sharing decision must never default to "yes" because a lookup broke.
     expect(await canUserAccessProject(session, PROJECT_ID, ANNA)).toBe(false)
     warn.mockRestore()
   })
@@ -655,8 +612,6 @@ describe('the container precondition fails CLOSED (matrix F38, spec SH-5)', () =
 describe('a notification never outlives the access it describes (matrix F39, spec IB-13)', () => {
   it('redacts the link and the snippet once the target is unreachable', async () => {
     vi.mocked(listInboxItems).mockResolvedValue([inboxRow()])
-    // The thread is somebody else's private conversation now — a revoked grant, a
-    // narrowed visibility, or a project the recipient left all land here.
     stubConversation({ visibility: 'private', createdBy: 'user_other' })
     stubMyGrant(null)
 
@@ -664,15 +619,7 @@ describe('a notification never outlives the access it describes (matrix F39, spe
 
     expect(items[0]!.href).toBeNull()
     expect(items[0]!.excerpt).toBeNull()
-    // The SUBJECT is the conversation's title, so it is withheld too. This
-    // assertion used to pin `'Brandschutz Halle 3'` — deliberately, on the
-    // reading that a redacted row must still "explain itself". It does explain
-    // itself: the row survives, carries its inert/unavailable label and its
-    // timestamp, and the client renders the generic `inbox.inert` copy in place of
-    // the name. What it must not do is keep leaking the title of a thread the
-    // recipient can no longer open (spec IB-13, SH-19).
     expect(items[0]!.subject).toBeNull()
-    // Redacted, not dropped — the row is still there to explain itself.
     expect(items).toHaveLength(1)
     expect(items[0]!.type).toBe('mention.requested')
   })
@@ -715,7 +662,6 @@ describe('a single-player user cannot notice this feature exists (matrix F40, sp
 
     expect(publishToUsers).not.toHaveBeenCalled()
     expect(upsertInboxItems).not.toHaveBeenCalled()
-    // The participant set is never even resolved — that is the differential.
     expect(listGrantsForResource).not.toHaveBeenCalled()
   })
 

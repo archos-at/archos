@@ -1,12 +1,6 @@
-/**
- * A shelf's search answer as `POST /api/search` gives it (ADR-0136), built from
- * the file browser's own rows, for the Files pane's specs and `/dev` previews.
- */
-
 import type { FileItem } from '@/features/documents/file-types'
 import type { DocumentHit, SearchResponse, SearchScope } from '@/lib/search/search-wire'
 
-/** `file` as a document result, with the passage that matched (none: found by its name). */
 export function fileSearchHit(file: FileItem, passage: { text: string; page: number | null } | null = null): DocumentHit {
   return {
     kind: 'document',
@@ -41,7 +35,6 @@ export function fileSearchHit(file: FileItem, passage: { text: string; page: num
   }
 }
 
-/** A documents-only answer holding `hits` in their ranked order. */
 export function documentSearchAnswer(hits: DocumentHit[], scope: SearchScope = { kind: 'office_shelf' }): SearchResponse {
   return {
     scope,

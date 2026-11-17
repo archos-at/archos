@@ -9,30 +9,6 @@ import {
   type ProjectSectionKey,
 } from './project-sections'
 
-/**
- * The phone's bottom tab bar, as data: which destinations it carries in each
- * scope, which one is current, and on which pages it stands down.
- *
- * WHY THESE. On a phone there is no rail: the bar takes the places an
- * architect on site goes to several times an hour and puts them under the
- * thumb, and the sheet behind "Mehr" (`phone-more-sheet.tsx`) holds everything
- * else (Automatisierung, the Büroablage, Suche, the account).
- *
- * - Inside a project: Chat, Dateien, Übersicht, Postfach, Mehr. Chat
- *   and Dateien are the two work surfaces. Übersicht is the project's
- *   dashboard, which on a phone would otherwise be two taps deep behind Mehr and is
- *   the page that says where the project stands. The Postfach is where the
- *   decisions waiting for this person are, and carries the badge. The
- *   Büroablage is a doorway OUT of the project, used less often from a site,
- *   so it waits behind Mehr with Automatisierung.
- * - Above a project: Projekte, Büroablage, Postfach. The org scope's account
- *   destinations (Profil, Organisation, Plattform) are rare and already sit in
- *   the avatar menu, so a "Mehr" here would only be a second door to that menu.
- *
- * Labels are the rail's own (`nav.sections.*`, the inbox's collaboration
- * label), so a destination has one name on every surface.
- */
-
 export type PhoneTabKey = 'chat' | 'files' | 'settings' | 'inbox' | 'projects' | 'officeShelf' | 'more'
 
 export interface PhoneTabLabel {
@@ -42,12 +18,10 @@ export interface PhoneTabLabel {
 
 export interface PhoneTab {
   key: PhoneTabKey
-  /** Null for "Mehr", which opens its sheet instead of going anywhere. */
   href: string | null
   icon: ComponentType<{ className?: string }>
   label: PhoneTabLabel
   active: boolean
-  /** The product-tour stop this tab stands for on a phone (`data-tour`). */
   tourAnchor: string
 }
 
@@ -64,11 +38,6 @@ function isUnder(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`)
 }
 
-/**
- * Project sections that live under the Übersicht on a phone: the dashboard's
- * own setup pages. They are reached from the Übersicht, so it stays lit while
- * the reader is in one.
- */
 const UNDER_OVERVIEW: readonly string[] = ['settings', 'setup', 'intake']
 
 function projectTab(
@@ -103,7 +72,6 @@ function inboxTab(pathname: string, tourAnchor: string): PhoneTab {
   }
 }
 
-/** The bar inside a project. "Mehr" is lit while the reader is somewhere only its sheet reaches. */
 export function projectPhoneTabs(
   projectId: string,
   pathname: string,
@@ -128,7 +96,6 @@ export function projectPhoneTabs(
   return tabs
 }
 
-/** The bar above a project. Nothing is lit on an account page (Profil, Organisation). */
 export function orgPhoneTabs(pathname: string, flags: PhoneTabFlags): PhoneTab[] {
   const tabs: PhoneTab[] = [
     {
@@ -154,32 +121,15 @@ export function orgPhoneTabs(pathname: string, flags: PhoneTabFlags): PhoneTab[]
   return tabs
 }
 
-/**
- * Pages where the bar stands down. The intake wizard is a guided flow with its
- * own sticky Zurück / Weiter footer: a second bar under it would stack two rows
- * of controls at the thumb and invite leaving a half-answered form. The wizard
- * is left the way it was entered, through its own controls or the header's
- * back.
- */
 export function phoneTabBarHiddenOnRoute(pathname: string): boolean {
   return /^\/app\/projects\/[^/]+\/intake(\/|$)/.test(pathname)
 }
 
 export interface PhoneBackTarget {
   href: string
-  /** Key under `nav.sections`. */
   sectionKey: 'settings'
 }
 
-/**
- * Where the phone header's back control goes, for a page one level below a
- * tab's root. Tab roots have none: the bar is their way out. A settings page,
- * the Projekterfassung and the Einrichtung sit under the Übersicht. Dateien's
- * places have none: each is a tab of Dateien's header (the Papierkorb, the
- * E-Mail-Eingang, Offene Punkte), and an opened mail draws its own way back to
- * its list („← E-Mail-Eingang“). A second arrow above it, to Dateien's root,
- * was two ways back 60px apart.
- */
 export function phoneBackTarget(pathname: string, projectId: string): PhoneBackTarget | null {
   const base = `/app/projects/${projectId}`
   if (pathname.startsWith(`${base}/settings/`))

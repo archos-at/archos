@@ -9,7 +9,6 @@ import { UploadFailureSentence, uploadFailureSentence, type UploadFailureCopy } 
 
 const t = translatorFor(filesCopy, 'de')
 
-/** The copy the hook builds, in German, as the pilot office read it. */
 const copy: UploadFailureCopy = {
   projectClosed: t('errors.projectClosed'),
   failed: t('errors.uploadFailed'),
@@ -30,7 +29,6 @@ const copy: UploadFailureCopy = {
 const answer = (status: number, body: unknown): XhrUploadError =>
   new XhrUploadError(`Upload failed: ${status}`, status, JSON.stringify(body))
 
-/** English the server, the transport or the runtime writes, which must never reach the row. */
 const ENGLISH = /\b(file|exceeds|maximum|upload|failed|storage|quota|permitted|unexpected|token|internal)\b/i
 
 describe('uploadFailureSentence', () => {

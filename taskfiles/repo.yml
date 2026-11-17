@@ -165,7 +165,7 @@ tasks:
       # nothing forces a baseline down in the PR that earned it. Run this to lock
       # the gain in: each `--update` only lowers or removes entries, never raises
       # one. Commit the ci/*baseline*.json it rewrites.
-      - for: [check_file_size, check_nesting, check_brand_names, check_brand_prose, check_country_in_code, check_package_surfaces]
+      - for: [check_file_size, check_nesting, check_comments, check_brand_names, check_brand_prose, check_country_in_code, check_package_surfaces]
         cmd: '{{.VENV_BIN}}/python{{.EXE}} scripts/{{.ITEM}}.py --update'
 
   lint:repo:

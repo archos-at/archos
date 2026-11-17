@@ -26,7 +26,6 @@ vi.mock('./repository', () => ({
     return suggestions.size
   }),
 }))
-// The text and the bytes: the job must never reach them. Each throws if it does.
 vi.mock('./staging', () => ({
   readStagedObject: vi.fn(() => {
     throw new Error('the suggest job read a staged object')
@@ -82,7 +81,6 @@ function answer(moves: object[], extra: object = {}) {
   fetchMock.mockResolvedValue(Response.json({ moves, model: 'm', error: null, trace_id: TRACE, ...extra }))
 }
 
-/** The body the job sent to `/v1/filing-fit`. */
 const sentBody = () => JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body)) as Record<string, unknown>
 
 beforeEach(() => {
@@ -201,7 +199,6 @@ describe('the office’s conventions', () => {
       projectIds.includes(PROJECT_ID)
         ? [kept(FOLDER_ID, PROJECT_ID, 'Tragwerk')]
         : [kept('f1', 'p-a', 'Korrespondenz'), kept('f2', 'p-b', 'Korrespondenz'), kept('f3', 'p-b', 'Scheidung Huber')]
-    // Once for the project's own folders, once for the other projects'.
     vi.mocked(listProjectsFolders).mockImplementationOnce(folders).mockImplementationOnce(folders)
     await suggestForMail(ORG, PAYLOAD)
     expect((sentBody().conventions as Array<{ path: string }>).map((convention) => convention.path)).toEqual(['Korrespondenz'])
@@ -214,7 +211,6 @@ describe('the answer', () => {
     expect(vi.mocked(storePartSuggestions).mock.calls[0][2]).toBe(TRACE)
     expect(Object.fromEntries(state.stored)).toEqual({
       [FILE_PART_ID]: { folderId: FOLDER_ID, folderPath: 'Tragwerk', newFolder: false, documentType: 'Gutachten', reason: 'Die Statik.' },
-      // The office has no other project: the Austrian default is its convention, created when filed.
       [TEXT_PART_ID]: {
         folderId: null,
         folderPath: 'Behörde und Bescheide',

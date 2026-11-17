@@ -2,12 +2,6 @@ import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
 import { useConnectionPresence } from './use-connection-presence'
 
-/**
- * `navigator.onLine` is a read-only getter, so we back it with a mutable
- * variable and redefine the property before each test. `setOnline` both flips
- * the value and dispatches the matching window event, mirroring how a real
- * browser signals a connectivity change.
- */
 let onlineValue = true
 
 function setOnline(value: boolean, event: 'online' | 'offline'): void {
@@ -43,7 +37,6 @@ describe('useConnectionPresence — navigator.onLine transitions', () => {
     act(() => {
       setOnline(false, 'offline')
     })
-    // Held during the debounce window.
     expect(result.current).toBe('connected')
 
     act(() => {
@@ -84,7 +77,6 @@ describe('useConnectionPresence — navigator.onLine transitions', () => {
       vi.advanceTimersByTime(300)
     })
 
-    // The transient offline never committed.
     expect(result.current).toBe('connected')
   })
 })
@@ -119,7 +111,6 @@ describe('useConnectionPresence — health ping', () => {
 
     renderHook(() => useConnectionPresence({ debounceMs: 0, pingIntervalMs: 100_000 }))
 
-    // Give any queued microtasks/effects a chance to run.
     await act(async () => {
       await Promise.resolve()
     })

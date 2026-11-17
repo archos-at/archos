@@ -14,7 +14,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
 vi.mock('@/lib/project-intake/setup-records', async () => ({
-  // The records an operator publishes for Austria, as `readSetupRecords` hands them over (the database read is its own spec).
   readSetupRecords: async () => (await import('@/lib/project-intake/at-setup.fixtures')).AT_SETUP_RECORDS,
 }))
 const { findProjectProfileInOrg, loadGraph, officeTimeZone, readOrganizationCountries, cache, getCached } =
@@ -146,7 +145,6 @@ describe('contextDigest', () => {
 const packs = join(process.cwd(), '..', '..', 'configs', 'knowledge-packs')
 const records = (name: string) => (JSON.parse(readFileSync(join(packs, name), 'utf8')) as { records: Record<string, unknown>[] }).records
 const AUSTRIA_PACKS = graphFromProposals(proposedRecordSchema.array().parse([...records('eu.json'), ...records('at.json')]))
-/** Golden case A8: the edition of OIB-RL 2 binding in Wien for a filing on 2023-06-01. */
 const A8 = records('at-golden-cases.json').find((record) => record.key === 'at-a8-edition-on-filing-day-with-interval') as {
   context: { territoryId: string; referenceDate: string }
   expected: { edition: { editionKey: string; role: string }; citations: { alsoKnownAs: string[] }[] }
@@ -190,7 +188,6 @@ describe('a filed project’s context resolves on its filing day (country-as-dat
   it('answers golden case A8 the same way through the stated site a golden run reads', async () => {
     const context = await knowledgeContextForStatedSite('org_a', { territoryId: A8.context.territoryId, filedOn: A8.context.referenceDate })
     expect(context.date).toBe(A8.context.referenceDate)
-    // The expectation is the golden case's own, so the spec follows the record if a reviewer rewrites it.
     const { edition, citations } = A8.expected
     const use = context.uses.find((candidate) => candidate.editionId === `edition:${edition.editionKey}`)
     expect(use).toMatchObject({ role: edition.role })
@@ -211,11 +208,6 @@ describe('a filed project’s context resolves on its filing day (country-as-dat
   })
 })
 
-/**
- * A question that names a day reads the chain on that day (dev acceptance, run of 2026-11-12): in Eisenstadt
- * „Welche OIB-RL 6 galt für eine Einreichung am 1. Oktober 2026?“ was answered „nicht bestimmbar“, because the
- * context resolved on today only and nothing resolved it on the day asked. `project-base-get` `asOf` does.
- */
 describe('a project’s context on a day a question names (`asOf`)', () => {
   const eisenstadt = (facts: Record<string, { value: string }> = {}) => ({
     profile: { facts: { country: { value: 'at' }, federal_state: { value: 'burgenland' }, ...facts }, assumptions: {}, goals: {}, unknowns: [] },

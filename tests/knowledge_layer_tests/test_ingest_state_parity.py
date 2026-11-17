@@ -1,26 +1,3 @@
-"""Parity guard: the workspace spells the backend's two ingest vocabularies as the backend does.
-
-``JobState`` and ``FileStatus`` (``agent/knowledge/schema.py``) are what an
-ingest job and each of its files say about themselves. The workspace reads them
-in two tiers and neither shares a schema with Python:
-
-* the browser types them again as zod enums (``JobStateSchema``,
-  ``DocumentFileStatusSchema`` in
-  ``apps/workspace/ui/adapters/api/documents-schemas.ts``) and maps a file state
-  onto a tray row in ``mapBackendStatus``
-  (``apps/workspace/ui/features/documents/utils.ts``);
-* the BFF does not type them at all: ``resolveJobOutcome`` and
-  ``resolveFromCollection`` in ``apps/workspace/bff/documents/reconcile-status.ts``
-  compare the strings one by one.
-
-A state added on one side only does not fail anywhere near its cause. The
-browser's zod parse throws on a value it does not know, so the job poll logs and
-asks again without end and one such file fails a whole listing. The BFF takes
-an unknown job status for "still running": the document row stays ``pending``
-and is asked about on every read, for good. Both are silent, so the drift is
-caught here, and the message says which readers need a branch.
-"""
-
 import re
 from pathlib import Path
 
@@ -42,7 +19,6 @@ READERS = (
 
 
 def _zod_enum(name: str) -> set[str]:
-    """The literals of ``export const <name> = z.enum([...])`` in the browser's schemas."""
     source = TS_SCHEMAS.read_text(encoding="utf-8")
     match = re.search(rf"export const {name} = z\.enum\(\[(.*?)\]\)", source, re.DOTALL)
     assert match, f"{name} not found in {TS_SCHEMAS}"
@@ -50,7 +26,6 @@ def _zod_enum(name: str) -> set[str]:
 
 
 def _mapped_file_states() -> set[str]:
-    """The keys of the map inside ``mapBackendStatus``."""
     source = TS_UTILS.read_text(encoding="utf-8")
     match = re.search(r"export const mapBackendStatus = .*?statusMap[^=]*= \{(.*?)\}", source, re.DOTALL)
     assert match, f"mapBackendStatus's statusMap not found in {TS_UTILS}"
@@ -74,6 +49,5 @@ def test_the_browser_knows_exactly_the_file_states_the_backend_writes():
 
 
 def test_every_file_state_has_a_branch_in_the_tray_mapping():
-    """An unmapped file state reads as ``uploading``: a file shown in flight that never lands."""
     python, mapped = {state.value for state in FileStatus}, _mapped_file_states()
     assert mapped == python, f"mapBackendStatus: {_difference(python, mapped)}"

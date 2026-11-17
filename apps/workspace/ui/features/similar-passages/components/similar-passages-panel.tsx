@@ -1,22 +1,5 @@
 'use client'
 
-/**
- * „Im Büro behandelt": has the office dealt with the passage the reader is
- * looking at, and where. A rail beside the document.
- *
- * The answer comes first („In 3 Projekten und der Büroablage gefunden"), then
- * the places: the reader's own project, the other projects by their best
- * passage, the Büroablage last, since it holds the office's general material
- * rather than a project's decision. Each passage is a quotation with the
- * document, Fassung and page it is written on; the order is the relevance, so
- * no score is shown. A passage opens its document on the stage, at the
- * passage, marked; the rail stays, so the reader walks the list against the
- * source and comes back to it.
- *
- * The rail is a second pane read AGAINST the document (the design language's
- * "no overlay" row), never a drawer over it.
- */
-
 import type { FC, KeyboardEvent } from 'react'
 import { AlertTriangle, Archive, ArrowLeft, SearchX, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -49,23 +32,17 @@ import {
 
 export interface SimilarPassagesPanelProps {
   request: SimilarPassagesRequest
-  /** The similar passage on the stage, when one is. */
   opened: OpenedPassage | null
   onOpen: (passage: OpenedPassage) => void
-  /** Back to the passage the search started from. */
   onBackToSource: () => void
   onClose: () => void
-  /** The real client unless a preview passes a fixture. */
   load?: SimilarPassagesLoader
 }
 
-/** What a document is called on screen: the person's rename, else its file name. */
 const nameOf = (document: SimilarDocument): string => document.displayName ?? document.filename
 
-/** The key that marks one passage as open, stable within one answer. */
 const passageKey = (document: SimilarDocument, index: number): string => `${document.documentId}#${index}`
 
-/** Arrow keys walk the passages, as they walk the Fundstellen rail. */
 const walkPassages = (event: KeyboardEvent<HTMLElement>): void => {
   if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return
   const buttons = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('[data-similar-passage]'))
@@ -75,7 +52,6 @@ const walkPassages = (event: KeyboardEvent<HTMLElement>): void => {
   buttons[Math.min(buttons.length - 1, Math.max(0, index + (event.key === 'ArrowDown' ? 1 : -1)))]?.focus()
 }
 
-/** The places in the order the reader asks about them: this project, the other projects, the Büroablage. */
 const PLACE_ORDER: Record<SimilarGroup['kind'], number> = { current: 0, project: 1, office_shelf: 2 }
 const inPlaceOrder = (groups: SimilarGroup[]): SimilarGroup[] =>
   [...groups].sort((a, b) => PLACE_ORDER[a.kind] - PLACE_ORDER[b.kind])
@@ -104,7 +80,6 @@ const GroupHead: FC<{ group: SimilarGroup }> = ({ group }) => {
         group.kind === 'current' ? (
           <SimilarGroupNote>{t('similar.groupCurrent')}</SimilarGroupNote>
         ) : group.project.status === 'closed' ? (
-          // A word, not the chip: the chip's width cut the project's name, and the name is what the reader scans.
           <SimilarGroupNote>{t('similar.groupClosed')}</SimilarGroupNote>
         ) : undefined
       }
@@ -112,7 +87,6 @@ const GroupHead: FC<{ group: SimilarGroup }> = ({ group }) => {
   )
 }
 
-/** The answer in one line: in how many projects, and whether the Büroablage holds it too. */
 const headlineOf = (groups: SimilarGroup[], t: ReturnType<typeof useTranslations>): string => {
   const projects = groups.filter((group) => group.kind !== 'office_shelf').length
   const officeShelf = groups.some((group) => group.kind === 'office_shelf')

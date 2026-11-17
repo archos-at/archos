@@ -1,15 +1,3 @@
-/**
- * Interactive-card decisions must be recorded ON THE MESSAGE, because that is
- * the only place that reaches BOTH persistence layers: the `persist` middleware
- * writes it to localStorage, and `_persistCardInteractions` mirrors it to the
- * server message row (`metadata.cardInteractions`) so it also survives a quota
- * wipe or a different device.
- *
- * Regression: the outcome used to live in component-local `useState`, so a
- * reload re-mounted an accepted `project_profile_patch` / saved
- * `memory_proposal` as pending — with a live button that would apply the patch
- * or write the memory a SECOND time (neither endpoint is idempotent).
- */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useChatStore } from '../store'
 import { readStoredChat } from './chat-storage'
@@ -117,8 +105,6 @@ describe('setCardDecision', () => {
   it('mirrors the decision to the server message row', async () => {
     useChatStore.getState().setCardDecision('msg-1', 'memory_proposal-0', 'savedProject')
 
-    // The mirror runs through the lazily imported conversations client, so it
-    // lands a microtask later than the local write.
     await vi.waitFor(() =>
       expect(mockConversationsClient.updateMessageCardInteractions).toHaveBeenCalledWith(
         'conv-1',
@@ -135,15 +121,11 @@ describe('setCardDecision', () => {
 
     const persisted = readStoredChat(STORAGE_KEY)
     const message = persisted!.state.conversations[0]!.messages[0]!
-    // The pruner must not treat this as heavy refetchable state: nothing can
-    // re-derive "the user already saved this" from the backend.
     expect(message.cardInteractions?.['memory_proposal-0']?.decision).toBe('savedOrg')
     expect(message.cards).toHaveLength(1)
   })
 
   it('records onto a conversation that is not the current one', () => {
-    // The deep-research report panel can outlive a session switch, so the owner
-    // must be located rather than assumed to be `currentConversation`.
     const other = conversationWithCardMessage('conv-2', 'msg-2')
     useChatStore.setState({ conversations: [...useChatStore.getState().conversations, other] })
 
@@ -164,9 +146,6 @@ describe('setCardDecision', () => {
   })
 
   it('is a no-op for an unknown message', async () => {
-    // Nothing is written and nothing is mirrored. The card itself still settles
-    // for the rest of the mount — see the local fallback in `useCardDecision`,
-    // which matters because the API write has already happened by this point.
     useChatStore.getState().setCardDecision('nope', 'memory_proposal-0', 'savedOrg')
     await Promise.resolve()
 

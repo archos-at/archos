@@ -1,12 +1,3 @@
-"""Unit tests for the centralized VLM key resolver (the derived image-upload capability).
-
-``resolve_vlm_api_key`` is the single source of truth both the ingestion path
-and the capability endpoint consult, so the advertised ``vlm_available`` bit can
-never drift from what ingestion will actually attempt. These tests pin the
-resolution chain (explicit ``VLM_API_KEY`` → the provider key inferred from
-the base URL) and the derived ``vlm_configured`` boolean.
-"""
-
 import pytest
 from knowledge_layer.ingest import resolve_vlm_api_key
 from knowledge_layer.ingest import vlm_configured
@@ -26,8 +17,6 @@ def test_resolves_explicit_vlm_key(monkeypatch):
 
 
 def test_the_default_base_url_infers_the_openrouter_key(monkeypatch):
-    # Nothing set but OPENROUTER_API_KEY: the default VLM host is OpenRouter,
-    # so provider inference alone configures the VLM.
     monkeypatch.setenv("OPENROUTER_API_KEY", "or-secret")
     assert resolve_vlm_api_key() == "or-secret"
     assert vlm_configured() is True
@@ -45,18 +34,12 @@ def test_no_key_configured_reports_unavailable():
 
 
 def test_unresolved_placeholder_is_treated_as_unset(monkeypatch):
-    # docker compose env_file does not interpolate ${VAR}; a literal placeholder
-    # must not read as a configured key (else vlm_available lies).
     monkeypatch.setenv("VLM_API_KEY", "${OPENROUTER_API_KEY}")
     assert resolve_vlm_api_key() == ""
     assert vlm_configured() is False
 
 
 def test_openrouter_base_infers_openrouter_key(monkeypatch):
-    # The OpenRouter deployment sets only OPENROUTER_API_KEY and points the VLM
-    # base URL at OpenRouter. Provider inference must resolve the key from the
-    # base URL alone (no VLM_API_KEY), so image upload is
-    # offered when ingestion would actually succeed.
     monkeypatch.setenv("VLM_BASE_URL", "https://openrouter.ai/api/v1")
     monkeypatch.setenv("OPENROUTER_API_KEY", "or-secret")
     assert resolve_vlm_api_key() == "or-secret"

@@ -2,15 +2,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The committed JSON Schema is what the Python tier reads, and this is what
- * keeps it from going stale.
- *
- * It REWRITES the fixture when `UPDATE_FIXTURES=1` and otherwise compares. That
- * asymmetry is the point: a generated artifact nobody regenerates is a second
- * hand-written contract with extra steps, and one that regenerates itself
- * silently on every run is not a gate.
- */
 import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
@@ -47,8 +38,6 @@ describe('document lifecycle JSON Schema', () => {
     const node = toJsonSchema(internalDocumentVersionRequestSchema)
     expect(node.discriminator).toEqual({ propertyName: 'op' })
     const options = node.oneOf as Array<{ properties: { op: { const: string } } }>
-    // The op set is closed here as well as in the route: a fourth branch would
-    // have to be added deliberately, in a file a reviewer reads.
     expect(options.map((option) => option.properties.op.const).sort()).toEqual([
       'create',
       'submit',
@@ -57,9 +46,6 @@ describe('document lifecycle JSON Schema', () => {
   })
 
   it('refuses to describe a shape it does not understand, rather than emitting {}', () => {
-    // The bound this converter is honest about: an unsupported node is a failing
-    // test, not a JSON Schema that permits anything. That failure is the signal
-    // to take the zod-to-json-schema dependency.
     expect(() => toJsonSchema(z.map(z.string(), z.string()))).toThrow(/cannot describe/)
   })
 })

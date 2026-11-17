@@ -43,7 +43,6 @@ describe('ProjectMembersForm', () => {
 
     expect(await screen.findByText('Ada Lovelace')).toBeDefined()
     expect(screen.getByText(/Add a member/i)).toBeDefined()
-    // one role Select trigger per member
     expect(screen.getAllByLabelText(/Project role for/i).length).toBe(2)
   })
 
@@ -54,7 +53,6 @@ describe('ProjectMembersForm', () => {
     expect(screen.getByText(/Read-only access/i)).toBeDefined()
     expect(screen.queryByText(/Add a member/i)).toBeNull()
     expect(screen.queryByLabelText(/Project role for/i)).toBeNull()
-    // roles are shown as static badges; members without access read "No access"
     expect(screen.getByText('Admin')).toBeDefined()
     expect(screen.getByText('No access')).toBeDefined()
   })
@@ -93,7 +91,6 @@ describe('ProjectMembersForm', () => {
     const user = userEvent.setup()
     render(<ProjectMembersForm projectId="p1" canManage />)
 
-    // Invite form's role select.
     await user.click(await screen.findByLabelText('Role'))
     let listbox = await screen.findByRole('listbox')
     expect(
@@ -105,15 +102,11 @@ describe('ProjectMembersForm', () => {
     expect(
       within(listbox).getByText(/Can also manage project settings, members, and roles/i)
     ).toBeDefined()
-    // Contributor is a real, offerable role — it was in the catalog and in the
-    // access reference while the API refused its slug, so it could never be
-    // picked here.
     expect(
       within(listbox).getByText(new RegExp(String.raw`Can also ask ${PRODUCT_NAME} in this project`, 'i'))
     ).toBeDefined()
     await user.keyboard('{Escape}')
 
-    // Roster row's role select (Ada already has a role assigned).
     await user.click(screen.getByLabelText('Project role for Ada Lovelace'))
     listbox = await screen.findByRole('listbox')
     expect(
@@ -155,13 +148,11 @@ describe('ProjectMembersForm', () => {
     render(<ProjectMembersForm projectId="p1" canManage currentMembershipId="om_1" />)
 
     await screen.findByText('Ada Lovelace')
-    // "You" badge marks the self row.
     expect(screen.getByText('You')).toBeDefined()
 
     await user.click(screen.getByLabelText('Project role for Ada Lovelace'))
     await user.click(await screen.findByRole('option', { name: /No project access/i }))
 
-    // The change must not be sent to the server yet — a confirm dialog gates it.
     const postCallsBeforeConfirm = fetchMock.mock.calls.filter(
       ([, init]) => init?.method === 'POST'
     )
@@ -169,12 +160,10 @@ describe('ProjectMembersForm', () => {
     expect(await screen.findByText(/^Remove your own access\?$/)).toBeDefined()
     expect(screen.getByText(/You'll lose the ability to see or manage it/i)).toBeDefined()
 
-    // Cancelling leaves the role untouched.
     await user.click(screen.getByRole('button', { name: 'Cancel' }))
     expect(screen.queryByText(/^Remove your own access\?$/)).toBeNull()
     expect(fetchMock.mock.calls.filter(([, init]) => init?.method === 'POST').length).toBe(0)
 
-    // Re-open and confirm — only now is the request sent.
     await user.click(screen.getByLabelText('Project role for Ada Lovelace'))
     await user.click(await screen.findByRole('option', { name: /No project access/i }))
     await user.click(await screen.findByRole('button', { name: /Remove my access/i }))
@@ -213,10 +202,8 @@ describe('ProjectMembersForm', () => {
     const input = await screen.findByLabelText('Member')
     await user.type(input, 'ada@studio.at')
 
-    // Leave the role select at its default ("Viewer") — Ada is currently Admin.
     await user.click(screen.getByRole('button', { name: 'Add member' }))
 
-    // No request yet — the downgrade must be confirmed first.
     expect(fetchMock.mock.calls.filter(([, init]) => init?.method === 'POST').length).toBe(0)
     expect(await screen.findByText(/Change their role instead/i)).toBeDefined()
     expect(screen.getByText(/already has Admin access/i)).toBeDefined()

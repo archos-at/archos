@@ -1,17 +1,7 @@
-/**
- * A change request's claims as a reviewer reads them (ADR-0165): each field
- * under its own name, each value in words. A territory is its name with its
- * code beside it (Wien, AT-9), a kind is the kind in the reviewer's language,
- * a list is a list. The record ids and column names stay out of sight: they are
- * the machine's, not the person's. Pure.
- */
-
 import { SITE_SUBDIVISIONS } from '@/lib/project-profile/intake-stages/project-basis'
 
-/** Subdivisions by territory code (Wien, AT-9), from the records' list: what a reviewer recognises. */
 const SUBDIVISIONS: ReadonlyMap<string, string> = new Map(SITE_SUBDIVISIONS.options.map((option) => [option.territoryId, option.label]))
 
-/** A country's name in `locale` (`AT` → Österreich), or the code when the runtime does not know it. */
 export function countryName(countryId: string, locale: string): string {
   try {
     return new Intl.DisplayNames([locale], { type: 'region' }).of(countryId) ?? countryId
@@ -20,7 +10,6 @@ export function countryName(countryId: string, locale: string): string {
   }
 }
 
-/** A territory's name when it is one a reviewer would recognise by name, else null. */
 export function territoryName(territoryId: string, locale: string): string | null {
   const subdivision = SUBDIVISIONS.get(territoryId)
   if (subdivision) return subdivision
@@ -31,7 +20,6 @@ export function territoryName(territoryId: string, locale: string): string | nul
   return null
 }
 
-/** The fields a reviewer is shown, in the order they read best; anything else follows. */
 export const CLAIM_FIELDS = [
   'name',
   'title',
@@ -64,13 +52,11 @@ export function isKnownField(path: string): path is ClaimField {
   return (CLAIM_FIELDS as readonly string[]).includes(path)
 }
 
-/** Known fields first, in the reading order above. */
 export function byReadingOrder<T extends { path: string }>(claims: readonly T[]): T[] {
   const rank = (path: string) => (isKnownField(path) ? CLAIM_FIELDS.indexOf(path) : CLAIM_FIELDS.length)
   return [...claims].sort((a, b) => rank(a.path) - rank(b.path))
 }
 
-/** One value as the reviewer sees it: nothing, a line of text, or a list of items. */
 export type ShownValue =
   | { kind: 'empty' }
   | { kind: 'text'; text: string; code?: string }
@@ -78,11 +64,8 @@ export type ShownValue =
 
 export interface Wording {
   locale: string
-  /** A record or territory kind in words, or null when the vocabulary has no word for it. */
   kindWord: (kind: string) => string | null
-  /** An authority's function in words (`building_permit` → Baubewilligung), or null. */
   functionWord: (code: string) => string | null
-  /** A licence class in words, or null. */
   licenceWord: (licenceClass: string) => string | null
 }
 
@@ -93,7 +76,6 @@ function territoryItem(id: string, wording: Wording): { text: string; code?: str
   return name ? { text: name, code: id } : { text: id }
 }
 
-/** `work:oenorm-b-5371` → `oenorm-b-5371`: the key a reviewer proposed, without the type prefix. */
 function recordKey(id: string): string {
   return id.replace(/^(work|edition|manifestation|authority):/, '')
 }
@@ -115,7 +97,6 @@ export function showValue(path: string, value: unknown, wording: Wording): Shown
     return items.length === 1 && !Array.isArray(value) ? { kind: 'text', ...items[0] } : { kind: 'list', items }
   }
   if (path === 'parents' && Array.isArray(value)) {
-    // `{ id: 'EU', validFrom: '1995-01-01' }` reads "Europäische Union (EU), 1995-01-01 –": the place, then its interval when it has one.
     return {
       kind: 'list',
       items: value.map((entry) => {
@@ -146,7 +127,6 @@ export function showValue(path: string, value: unknown, wording: Wording): Shown
   if (typeof value === 'object' && !Array.isArray(value)) {
     const entries = Object.entries(value as Record<string, unknown>).filter(([, item]) => item !== undefined && item !== null)
     if (entries.length === 0) return { kind: 'empty' }
-    // `{ designation: "ÖNORM B 5371" }` reads as the designation itself.
     if (entries.length === 1) return { kind: 'text', text: String(entries[0][1]) }
     return { kind: 'list', items: entries.map(([key, item]) => ({ text: `${key}: ${String(item)}` })) }
   }
@@ -154,7 +134,6 @@ export function showValue(path: string, value: unknown, wording: Wording): Shown
   return { kind: 'text', text: String(value) }
 }
 
-/** The name a record is known by: its name, title or label, whichever it has. */
 export function recordName(claims: readonly { path: string; value: unknown }[], recordId: string): string {
   for (const path of ['name', 'title', 'label']) {
     const claim = claims.find((entry) => entry.path === path)

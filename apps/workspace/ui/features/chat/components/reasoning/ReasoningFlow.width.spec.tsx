@@ -1,17 +1,3 @@
-/**
- * The width the Herleitung graph is planned against.
- *
- * The graph is absolutely positioned (React Flow), so nothing in CSS keeps it
- * inside its panel: the framing card, the source columns and the Grundlagen are
- * as wide as `planFan` says, and the pane's `overflow-hidden` cuts off whatever
- * is wider. The width comes from the container's `clientWidth`. A container out
- * of layout for a moment (a `display:none` ancestor, a hidden tab, a full-page
- * capture that shrinks the viewport to 1×1) reads 0, and 0 used to mean "plan at
- * the 680 px fallback": a 648 px panel then drew a 680 px graph and lost the
- * words at its right edge (Herleitung review, 2026-11). This file holds that a
- * measured width survives a zero reading.
- */
-
 import { act, render } from '@/test-utils'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import { ReasoningFlow } from './ReasoningFlow'
@@ -36,11 +22,9 @@ const steps = storedSteps([
   },
 ])
 
-/** What every element reports as `clientWidth`, changed by the test. */
 let reportedWidth = 0
 const observers: Array<() => void> = []
 
-/** A ResizeObserver the test fires by hand, as the browser would on a reflow. */
 class ManualResizeObserver {
   constructor(private readonly callback: ResizeObserverCallback) {}
   observe(): void {

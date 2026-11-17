@@ -39,27 +39,8 @@ import {
 } from '../../lib/protocol-filing'
 import { reviewToast } from './review-toaster'
 
-/** Choosing an option keeps the menu open: the choice is made before the download, not instead of it. */
 const keepOpen = (event: Event) => event.preventDefault()
 
-/**
- * „Protokoll exportieren": the Anmerkungen as a file for the Jour fixe, the
- * client or a consultant. Which marks (open, or all), which Fassung's record
- * when closed ones are wanted and the document has more than one, Piloti's
- * unreviewed proposals when there are any, then the format, which downloads.
- * What is still open is in it from every Fassung, each entry naming the one it
- * was set on: a new Index before the Jour fixe does not close the points on
- * the one before.
- *
- * Fetched rather than navigated to (`downloadFetched`, which the project's
- * Offene Punkte use too): a refusal (a PDF too long to lay out, access lost
- * meanwhile) is a toast, not a JSON file in the downloads folder.
- *
- * „Im Projekt ablegen" files the same export, with the same choices, as a
- * document of the project, in the folder of the document it is about
- * (`../../lib/protocol-filing.ts`), and the toast opens it. Offered where the
- * document is a project's and the reader may file into it (`filing`).
- */
 export function ReviewExportMenu({
   documentId,
   hasRevisions,
@@ -67,11 +48,8 @@ export function ReviewExportMenu({
   filing = null,
 }: {
   documentId: string
-  /** The document has earlier Fassungen, whose marks the export may carry too. */
   hasRevisions: boolean
-  /** Piloti proposed marks nobody took over; they can be appended under their own heading. */
   hasProposals: boolean
-  /** Where „Im Projekt ablegen" files it, and the document's name the file is named after; absent, it is not offered. */
   filing?: { target: ProtocolFilingTarget; documentName: string } | null
 }): JSX.Element {
   const t = useTranslations(filesCopy)
@@ -80,7 +58,6 @@ export function ReviewExportMenu({
   const [includeProposals, setIncludeProposals] = useState(false)
   const [busy, setBusy] = useState(false)
   const router = useRouter()
-  /** What this tab filed, by name: a second filing of the same name the same day is a new Fassung of it. */
   const filedHere = useRef(new Map<string, string>())
 
   const optionsFor = (format: AnnotationExportFormat) =>
@@ -96,7 +73,6 @@ export function ReviewExportMenu({
     const result = await downloadFetched(annotationExportHref(documentId, optionsFor(format)), `protokoll.${format}`)
     setBusy(false)
     if (result.saved) {
-      // The CSAT trigger the answer and the BIM exports fire: the kind and the format, never the name.
       capturePosthog('report_exported', { kind: 'annotations', format })
       return
     }
@@ -189,7 +165,6 @@ export function ReviewExportMenu({
         <DropdownMenuSeparator />
         <DropdownMenuLabel>{t('review.export.formatLabel')}</DropdownMenuLabel>
         {ANNOTATION_EXPORT_FORMATS.map((format) => (
-          // Inset to the radio items' text: one column of words down the menu.
           <DropdownMenuItem key={format} inset onSelect={() => void download(format)} data-testid={`review-export-${format}`}>
             {t(`review.export.formats.${format}`)}
           </DropdownMenuItem>

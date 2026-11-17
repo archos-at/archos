@@ -1,22 +1,5 @@
 'use client'
 
-/**
- * Modul I — every document slot a project can fill, in one place.
- *
- * Generated from the role registry rather than hand-listed, so adding a role is
- * one entry in `document-roles.ts` and this surface follows. The order and the
- * "dringend empfohlen" flag come from the same `recommendedWhen` conditions the
- * intake questions use, which is what stops the checklist and the questions
- * disagreeing about what a project is.
- *
- * Only the recommended slots are open. The first build rendered all fifteen
- * expanded — a full upload control, a picker and a drop zone each — and the
- * screenshot made the problem obvious: a wall of identical boxes where the four
- * that matter for this project are indistinguishable from the eleven that do
- * not. The rest collapse to one line and open on click, which is also the
- * honest shape of the thing: a checklist, not a form.
- */
-
 import { useMemo, useState } from 'react'
 import { ChevronDown, Plus } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
@@ -32,10 +15,6 @@ interface ProjectBasisStepProps {
   projectId: string
   answers: Record<string, ProjectPrimitiveValue>
   buildings: BuildingInstance[]
-  /**
-   * The wizard's hold on bindings for buildings it has not saved yet
-   * (`pending-role-binds`). Without it every slot binds at once, as before.
-   */
   pendingBinds?: {
     persistedBuildingIds: ReadonlySet<string>
     pending: readonly PendingRoleBind[]
@@ -47,7 +26,6 @@ interface ProjectBasisStepProps {
 
 type Deferral = NonNullable<Parameters<typeof DocumentRoleField>[0]['deferred']>
 
-/** The field's hold for a slot whose building is not saved yet, or undefined to bind at once. */
 function deferralFor(
   slot: Slot,
   pendingBinds: ProjectBasisStepProps['pendingBinds']
@@ -88,8 +66,6 @@ export function ProjectBasisStep({
     const collected: Slot[] = []
     for (const definition of DOCUMENT_ROLE_DEFINITIONS) {
       if (definition.scope === 'building') {
-        // One slot per building, because the binding is per building. A single
-        // "Bestandspläne" box would have nowhere to put the second building's.
         for (const building of buildings) {
           collected.push({
             key: `${definition.role}@${building.id}`,

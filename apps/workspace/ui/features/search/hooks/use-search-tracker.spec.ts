@@ -15,7 +15,6 @@ function mount() {
   return opened
 }
 
-/** A row as the list draws it: an option with an id, the hit's link inside. */
 function row(id: string, href: string): HTMLAnchorElement {
   const option = document.createElement('div')
   option.id = id

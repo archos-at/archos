@@ -31,8 +31,6 @@ describe('DataToolbar', () => {
   })
 
   test('swaps to the selection bar once rows are selected', () => {
-    // Filtering and acting on a selection are different jobs; showing both
-    // invites acting on rows the filter has since hidden.
     render(
       <DataToolbar
         {...base}
@@ -68,8 +66,6 @@ describe('DataToolbar', () => {
   })
 
   test('stays in filter mode without a selection label, however many rows are selected', () => {
-    // The selection bar needs copy; without it, falling into that branch would
-    // render an unlabelled bar with no way back.
     render(<DataToolbar {...base} selectedCount={5} />)
     expect(screen.getByTestId('data-toolbar')).toBeDefined()
   })

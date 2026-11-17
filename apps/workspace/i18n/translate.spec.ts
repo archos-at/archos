@@ -5,13 +5,6 @@ import { describe, test, expect, vi } from 'vitest'
 import { getByPath, interpolate, createTranslator } from './translate'
 import { dictionaries } from './dictionaries'
 
-/**
- * Every plural block in every dictionary speaks the cut-down syntax the
- * translator reads: `one` and `other`, nothing else. A label it does not know
- * (`=0`, `zero`, `few`) ends the branch scan, and the whole block renders as an
- * empty string: „Durchsucht wurden dieses Projekt, und die Büroablage."
- * shipped from a `=0` branch until this held it.
- */
 describe('plural blocks in the dictionaries', () => {
   const strings = (node: unknown, path: string, found: Array<[string, string]>): Array<[string, string]> => {
     if (typeof node === 'string') found.push([path, node])
@@ -21,7 +14,6 @@ describe('plural blocks in the dictionaries', () => {
     return found
   }
 
-  /** The branch labels of each plural block in `template`. */
   const labelsOf = (template: string): string[][] =>
     [...template.matchAll(/\{\w+,\s*plural,\s*/g)].map((header) => {
       const labels: string[] = []

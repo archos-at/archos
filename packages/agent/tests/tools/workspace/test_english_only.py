@@ -1,16 +1,3 @@
-"""Everything Piloti's workspace client tells the model is English (working-style.md, "Industry standard first").
-
-The workspace tools are the in-product half of the agent surface (ADR-0122): their descriptions,
-their refusals, the truncation note and the error prefix are what the model reads, the same
-surface an external agent reads from ``/api/mcp`` in English. The BFF half is
-``apps/workspace/bff/agent-api/english-only.spec.ts``; both read the words in
-``ci/german_stems.json``.
-
-Every string constant in the modules below is checked, docstrings included (they are English too,
-and a German one would be the first step back). Domain data is allowed only through
-``DOMAIN_DATA``, each entry with its reason.
-"""
-
 from __future__ import annotations
 
 import ast
@@ -29,8 +16,6 @@ STEM = re.compile("|".join(WORDS["stems"]))
 PROSE_WORDS = frozenset(WORDS["prose_words"])
 UMLAUT = re.compile(r"[äöüÄÖÜß]")
 
-#: What the model reads from the workspace: the client, the tool group, the card, and the backend's
-#: read-tool route whose messages reach an outside agent through the BFF.
 MODULES = [
     ROOT / "packages" / "agent" / "src" / "agent" / "tools" / "workspace" / "client.py",
     ROOT / "packages" / "agent" / "src" / "agent" / "tools" / "workspace" / "register.py",
@@ -38,12 +23,10 @@ MODULES = [
     ROOT / "apps" / "agent-host" / "src" / "agent_host" / "routes" / "internal_tools.py",
 ]
 
-#: German that is domain data, not a word the model is taught: (text, reason). None yet.
 DOMAIN_DATA: list[tuple[str, str]] = []
 
 
 def german_words(text: str) -> list[str]:
-    """The German words of ``text``: an umlaut or ß, a stem, or a word of the prose list."""
     for data, _reason in DOMAIN_DATA:
         text = text.replace(data, "")
     words = re.findall(r"[^\W\d_]+", text)

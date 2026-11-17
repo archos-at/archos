@@ -1,10 +1,3 @@
-"""Caught exceptions reach PostHog error tracking from one logging handler (ADR-0100).
-
-The SDK is never built here: ``posthog_client.capture_exception`` is replaced by
-a recorder, and the one test that needs the real client's ``before_send`` swaps
-the SDK class for a fake that keeps the constructor arguments.
-"""
-
 from __future__ import annotations
 
 import logging
@@ -47,7 +40,6 @@ def _posthog_env(monkeypatch):
 
 @pytest.fixture
 def sent(monkeypatch):
-    """Every ``capture_exception`` the handler makes, as ``(exception, properties)``."""
     calls: list[tuple[BaseException, dict]] = []
 
     def record(exception, *, distinct_id=None, properties=None):
@@ -65,7 +57,6 @@ def clock():
 
 @pytest.fixture
 def log(clock):
-    """A logger of its own with the handler installed, so nothing leaks into the root logger."""
     logger = logging.getLogger(f"test.posthog_exceptions.{uuid.uuid4().hex}")
     logger.propagate = False
     logger.addHandler(PosthogExceptionHandler(clock=clock))
@@ -94,7 +85,6 @@ def test_a_logged_exception_is_captured_with_its_context(sent, log, monkeypatch)
     assert properties["logger"] == log.name
     assert properties["log_message"] == "ingest of %s failed"
     assert properties["log_level"] == "ERROR"
-    # The client carries these on every event (super properties, $release_id).
     assert {"release", "environment", "service"}.isdisjoint(properties)
     assert properties["$ai_trace_id"] == properties["langfuse_trace_id"] == f"{trace_id:032x}"
 
@@ -132,7 +122,6 @@ def test_only_error_records_with_an_exception_count(sent, log):
 
 
 def test_the_sdks_own_logger_and_this_package_are_never_reported(sent, clock):
-    # The SDK logs its failures at ERROR with exc_info: reporting them reports the reporter.
     handler = PosthogExceptionHandler(clock=clock)
     for name in ("posthog", "posthog.consumer", posthog_exceptions.__name__, posthog_client.__name__):
         try:
@@ -154,8 +143,6 @@ def test_a_failing_capture_never_raises_into_the_caller(log, monkeypatch):
 
 
 def test_a_capture_that_logs_an_error_does_not_recurse(log, monkeypatch):
-    # capture_exception failing inside the SDK logs on `posthog` at ERROR with exc_info,
-    # through the same root handler chain.
     root = logging.getLogger()
     handler = PosthogExceptionHandler()
     root.addHandler(handler)
@@ -225,7 +212,6 @@ def test_the_process_wide_cap_stops_many_fingerprints_failing_at_once(sent, cloc
     logger.addHandler(PosthogExceptionHandler(clock=clock))
 
     for index in range(GLOBAL_BURST * 3):
-        # A distinct exception class per iteration is a distinct fingerprint.
         error_type = type(f"Failure{index}", (Exception,), {})
         try:
             raise error_type("boom")
@@ -236,7 +222,6 @@ def test_the_process_wide_cap_stops_many_fingerprints_failing_at_once(sent, cloc
 
 
 def test_a_hot_loop_costs_one_event_per_refill_interval(sent, log, clock):
-    # The free-tier arithmetic in the module header: a burst, then one per interval.
     for _ in range(12 * 60 + 1):  # an hour, failing every 5 seconds, both ends included
         _fail(log)
         clock.now += 5

@@ -1,11 +1,3 @@
-"""Tests for duplicate job-ID rejection on submit (hijack/delete protection).
-
-A caller-supplied job_id that collides with an existing job must be rejected
-with 409 Conflict: the agent runtime's job_info write and the job_access upsert are
-unconditional, so re-submitting an existing ID would rewrite ownership, and a
-failed re-submission would wipe the original job via rollback_job_submission.
-"""
-
 from __future__ import annotations
 
 from datetime import UTC
@@ -117,7 +109,6 @@ class TestSubmitDuplicateJobId:
 
     @pytest.mark.asyncio
     async def test_existing_job_id_rejected_and_untouched(self, db_url):
-        """Re-submitting an existing job_id must fail without altering ownership or job_info."""
         create_job_access("job-1", self.owner, db_url)
         _insert_job_info(db_url, "job-1", status="running")
 
@@ -150,7 +141,6 @@ class TestSubmitDuplicateJobId:
 
     @pytest.mark.asyncio
     async def test_job_info_only_row_also_rejected(self, db_url):
-        """A job known only to the agent runtime's job_info (no access row yet) still counts as existing."""
         _insert_job_info(db_url, "job-1")
 
         job_store = _mock_job_store()
@@ -169,7 +159,6 @@ class TestSubmitDuplicateJobId:
 
     @pytest.mark.asyncio
     async def test_auto_generated_job_id_skips_existence_check(self, db_url):
-        """UUID collisions are not a practical concern; skip the DB round-trip."""
         job_store = _mock_job_store()
         with patch.dict("os.environ", _submit_env(db_url)):
             with patch("nat.front_ends.fastapi.async_jobs.job_store.JobStore", return_value=job_store):
@@ -210,7 +199,6 @@ class TestRollbackHardening:
 
     @pytest.mark.asyncio
     async def test_rollback_runs_when_preexistence_verified(self, db_url):
-        """Baseline: a verified-fresh custom job_id still rolls back on failure."""
         job_store = _mock_job_store()
         with patch.dict("os.environ", _submit_env(db_url)):
             with patch("nat.front_ends.fastapi.async_jobs.job_store.JobStore", return_value=job_store):
@@ -229,7 +217,6 @@ class TestRollbackHardening:
 
     @pytest.mark.asyncio
     async def test_rollback_skipped_when_preexistence_unverified(self, db_url):
-        """If the existence check errored, rollback must not run — it could wipe a pre-existing job."""
         job_store = _mock_job_store()
         with patch.dict("os.environ", _submit_env(db_url)):
             with patch("nat.front_ends.fastapi.async_jobs.job_store.JobStore", return_value=job_store):
@@ -250,7 +237,6 @@ class TestRollbackHardening:
 
 @pytest.fixture
 async def submit_conflict_app(db_url, monkeypatch):
-    """Minimal app with async job routes and a conflicting submit_agent_job."""
     import agent_host.routes.jobs as jobs_routes
     from agent_host.jobs import submit
 

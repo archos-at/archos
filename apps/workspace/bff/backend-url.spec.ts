@@ -3,12 +3,6 @@
  * @vitest-environment node
  */
 
-/**
- * One resolution of the backend's address. Six files used to carry their own
- * copy of the env chain, three of them a shorter one (`BACKEND_URL ?? …`) that
- * ignored `NEXT_PUBLIC_BACKEND_URL` and kept an empty `BACKEND_URL`.
- */
-
 import { readdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import ts from 'typescript-api'
@@ -48,7 +42,6 @@ function sourceFiles(dir: string): string[] {
   })
 }
 
-/** `process.env.BACKEND_URL` reads in `file`, through the parser so a comment naming it is not one. */
 function backendUrlReads(file: string): number {
   const text = readFileSync(file, 'utf8')
   if (!text.includes('BACKEND_URL')) return 0

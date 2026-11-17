@@ -1,13 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The platform reasoning-effort endpoint. The contract worth pinning down: only
- * the platform owner may write it, only the unified vocabulary is accepted, an
- * omitted group is a *clear* (that is how a group goes back to the workflow
- * config), and — unlike the model defaults — no upstream catalog is consulted,
- * so an OpenRouter outage can never block turning reasoning spend DOWN.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -105,7 +98,6 @@ describe('/api/platform/reasoning-efforts', () => {
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.efforts.deep_research).toMatchObject({ effort: 'low', note: 'cheaper pilot' })
-    // Naming what a clear returns to is the whole point of showing this.
     expect(body.workflowEfforts).toEqual({ follow_ups: 'none', deep_research: 'medium' })
     expect(body.agentGroups.length).toBeGreaterThan(0)
   })
@@ -138,7 +130,6 @@ describe('/api/platform/reasoning-efforts', () => {
   })
 
   it('PUT rejects a provider-native tier name', async () => {
-    // DeepSeek's "max" — OpenRouter rejects it, so it must never be stored.
     const { PUT } = await import('./route')
     const res = await PUT(put({ efforts: { deep_research: 'max' } }))
 

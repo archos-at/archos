@@ -1,11 +1,3 @@
-"""The lookup's own bounds, asserted where they are enforced: through the tool, not off a constant.
-
-Each is what one charged call may cost: three candidates, two fetches, six
-passages across two documents. A bound that is only a constant drifts, so each
-is measured on what the network was asked and what the model got back. Ported
-from the RIS tool's suite (``test_ris_lookup_bounds``) onto XA's statute portal.
-"""
-
 from __future__ import annotations
 
 import pytest
@@ -24,7 +16,6 @@ def _part_url(index: int) -> str:
 
 
 def _parts(portal: xa.Portal, count: int, *, fetchable: bool = True) -> list:
-    """``count`` catalog entries on one topic, each its own document holding the building code."""
     entries = []
     for index in range(count):
         portal.set_text(_part_url(index), f"Building Code Part {index}", xa.BUILDING_CODE)
@@ -51,7 +42,6 @@ async def test_a_twelve_entry_catalog_match_reads_two_documents():
 
 
 async def test_at_most_three_candidates_are_considered():
-    """The miss names what it did not read, and it names three of the twelve the catalog matched."""
     portal = xa.Portal()
     entries = _parts(portal, 12, fetchable=False)
     async with xa.session(portal, catalog=entries, picker_call=xa.picker()) as lookup:
@@ -68,7 +58,6 @@ async def test_a_live_search_of_twenty_hits_fetches_two():
     async with xa.session(portal, planner_call=xa.planner()) as lookup:
         await lookup.call(question="What does § 63 require?")
 
-    # Three candidates, two fetch attempts: never twenty of either.
     assert len(portal.documents_requested) == 2 == MAX_FETCHES
 
 
@@ -99,7 +88,6 @@ async def test_passages_come_from_at_most_two_documents():
 
 
 async def test_a_nine_hundred_kilobyte_law_does_not_reach_the_transcript():
-    """The bound that protects the turn: the whole law is read, and the model sees one provision."""
     huge = "\n".join(f"Title {n}\n§ {n}. (1) " + "Word " * 400 for n in range(1, 460))
     assert len(huge) > 900_000
     portal = xa.Portal()

@@ -1,15 +1,3 @@
-/**
- * The three model-backed cards.
- *
- * The design property under test is that the agent supplies an IDENTIFIER and
- * the component supplies the NUMBERS. So the assertions check what each card
- * asks the model for, that it renders what came back rather than anything from
- * the card payload, and that it degrades honestly when the named model is not
- * in the project.
- *
- * Rendered in English — the default test locale.
- */
-
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import {
@@ -107,9 +95,6 @@ const COMPARISON = {
     added: [{ globalId: 'g-new', ifcType: 'IfcDoor', name: 'T-14', storeyName: 'Erdgeschoss' }],
     removed: [],
     changed: [],
-    // The badges read `counts`, not the array lengths: `compare.ts` slices
-    // each list at 500 and keeps the real figures here, so a revision that
-    // added 1 300 elements used to be reported as "Neu 500".
     counts: { added: 1, removed: 0, changed: 0 },
     unchangedCount: 99,
     totals: { base: 100, revision: 100 },
@@ -117,17 +102,9 @@ const COMPARISON = {
   },
 }
 
-/**
- * Route each URL the cards call to its fixture; anything else 404s.
- *
- * `/query` is matched FIRST because `/api/bim/models/<id>/query` also contains
- * the model-list path — checking in declaration order would hand every query
- * the model list and quietly render an empty card.
- */
 function stubFetch(routes: {
   models: unknown
   query?: unknown
-  /** The project brief the rule catalogue reads its facts from. */
   profile?: unknown
 }): ReturnType<typeof vi.fn> {
   const fetchMock = vi.fn(async (url: string) => {
@@ -148,14 +125,12 @@ function stubFetch(routes: {
   return fetchMock
 }
 
-/** The body each `/query` POST sent, in call order. */
 function queriedBodies(fetchMock: ReturnType<typeof vi.fn>): Record<string, unknown>[] {
   return fetchMock.mock.calls
     .filter(([url]) => String(url).includes('/query'))
     .map(([, init]) => JSON.parse(String((init as RequestInit).body)) as Record<string, unknown>)
 }
 
-/** The op each `/query` POST asked for, in call order. */
 function queriedOps(fetchMock: ReturnType<typeof vi.fn>): string[] {
   return fetchMock.mock.calls
     .filter(([url]) => String(url).includes('/query'))
@@ -193,8 +168,6 @@ describe('IfcScheduleCard', () => {
         projectId="p1"
       />
     )
-    // The card is the surface an architect copies a figure off. A total that
-    // silently excludes two rooms has to say so on the same card.
     expect(
       await screen.findByText('Rooms with no published area: 2 — not included in these totals.')
     ).toBeInTheDocument()
@@ -216,10 +189,6 @@ describe('IfcScheduleCard', () => {
   })
 
   it('says a name matched several models, rather than that none of them exist', async () => {
-    // `haus-a` is a substring of BOTH fixtures, which is the case the resolver
-    // refuses. Refusing it correctly and then reporting it as "not available in
-    // this project" sends an architect to re-upload a building the project
-    // holds twice.
     render(
       <IfcScheduleCard
         title="Raumbuch"
@@ -269,9 +238,6 @@ describe('IfcElementCard', () => {
       />
     )
     const open = await screen.findByRole('link', { name: /Open model/ })
-    // The storey comes from the fetched element, so the link isolates the right
-    // floor even though the agent never said which one it is. The link is there
-    // before that fetch answers, so wait for the href to carry it.
     await waitFor(() => expect(open.getAttribute('href') ?? '').toContain('storey=Erdgeschoss'))
     const href = open.getAttribute('href') ?? ''
     expect(href).toContain('element=1kTvXnbbzCWw8lcMd1dR4o')
@@ -316,13 +282,10 @@ describe('IfcDiffCard', () => {
           .body
       )
     ) as { baseModelId: string }
-    // Resolved from the file name the agent wrote — the card never sees an id.
     expect(body.baseModelId).toBe('model-v1')
   })
 
   it('names what was added, not only how many', async () => {
-    // The card used to render `changed` alone: "Added 1" with no way to find
-    // out what. A delta you cannot open is a number, not an answer.
     stubFetch({ models: MODELS, query: COMPARISON })
     render(
       <IfcDiffCard
@@ -336,13 +299,10 @@ describe('IfcDiffCard', () => {
 
     const added = await screen.findByRole('link', { name: /Door · T-14/ })
     expect(added.getAttribute('href')).toContain('element=g-new')
-    // Into the revision that HAS it.
     expect(added.getAttribute('href')).toContain('model=haus-a_v2.ifc')
   })
 
   it('links a removed element into the revision that still has it', async () => {
-    // A removed element has no GlobalId in the new revision, so a link into it
-    // would open the model with nothing selected.
     stubFetch({
       models: MODELS,
       query: {
@@ -420,8 +380,6 @@ describe('IfcDiffCard', () => {
     )
 
     await screen.findByText('Added 1')
-    // The badge says "Removed 0"; a second, empty "Removed" heading under it
-    // would read as a list that failed to load.
     expect(screen.queryByText('Removed', { exact: true })).not.toBeInTheDocument()
   })
 
@@ -441,10 +399,6 @@ describe('IfcDiffCard', () => {
   })
 
   it('refuses an ambiguous BASE revision instead of diffing against an arbitrary one', async () => {
-    // The base used to take the first substring hit. A diff names two
-    // buildings, so that produced a full revision history — additions,
-    // deletions, the lot — computed against whichever model happened to sort
-    // first, under a title claiming it was the Voreinreichung.
     const fetchMock = stubFetch({ models: MODELS, query: COMPARISON })
     render(
       <IfcDiffCard
@@ -542,8 +496,6 @@ describe('IfcComplianceCard', () => {
   })
 
   it('reports a rule id that does not resolve instead of quietly dropping it', async () => {
-    // Silently narrowing would turn a hallucinated id into a shorter,
-    // cleaner-looking Prüfbuch — the one direction this card must not fail in.
     stubFetch({ models: MODELS, query: COMPLIANCE })
     render(
       <IfcComplianceCard
@@ -570,14 +522,10 @@ describe('IfcComplianceCard', () => {
         projectId="p1"
       />
     )
-    // The card leaves the page in a screenshot; the caveat has to travel with it.
     expect(await screen.findByText(/no legal advice and no Nachweis/)).toBeInTheDocument()
   })
 
   it('runs the catalogue with the project’s Gebäudeklasse, like the model page does', async () => {
-    // Without the fact the fire-resistance rules stand down HERE and produce a
-    // verdict on the model page — the same building answering two ways
-    // depending on which surface you read it from.
     const fetchMock = stubFetch({
       models: MODELS,
       query: COMPLIANCE,
@@ -604,8 +552,6 @@ describe('IfcComplianceCard', () => {
   })
 
   it('offers the open items as a BCF download, carrying the same facts', async () => {
-    // Rendered by the card rather than left to the answer text: a model asked
-    // to reproduce a URL will eventually reproduce a wrong one.
     stubFetch({
       models: MODELS,
       query: COMPLIANCE,

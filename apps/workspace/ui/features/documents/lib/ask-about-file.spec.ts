@@ -66,10 +66,6 @@ describe('askAboutFile', () => {
       navigate: vi.fn(),
     })
 
-    // THE JOIN. The mode set above is the destination's, and this function is
-    // what knows a navigation is about to happen — drop this call and the pane
-    // goes back to parking itself at the click, which is invisible to every
-    // other test here because the store state is identical either way.
     expect(beginHandoff).toHaveBeenCalledTimes(1)
   })
 

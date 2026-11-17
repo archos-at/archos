@@ -1,8 +1,3 @@
-/**
- * The topic actions of the project memory shelf: rename or merge a topic, ungroup
- * it, and move one note. The calls are the shelf's own PATCH routes; the topic
- * picker is stubbed here, its behaviour is its own spec's.
- */
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import userEvent from '@testing-library/user-event'
 import { render, screen, waitFor } from '@/test-utils'
@@ -11,7 +6,6 @@ import { ProjectNoteTopicMove, ProjectTopicActions } from './project-topic-actio
 const toast = vi.hoisted(() => ({ error: vi.fn(), success: vi.fn() }))
 vi.mock('sonner', () => ({ toast }))
 
-/** How many times the stubbed picker mounted: a keyed remount shows the note's topic again. */
 const picker = vi.hoisted(() => ({ mounts: 0 }))
 
 vi.mock('@/components/memory/topic-picker', async () => {
@@ -29,7 +23,6 @@ vi.mock('@/components/memory/topic-picker', async () => {
 const PROJECT = 'p-1'
 const TOPICS_URL = `/api/projects/${PROJECT}/memory/topics`
 
-/** The JSON body of the Nth fetch call. */
 function bodyOf(fetchMock: ReturnType<typeof vi.fn>, call: number): unknown {
   const init = fetchMock.mock.calls[call]?.[1] as RequestInit | undefined
   return JSON.parse(String(init?.body))

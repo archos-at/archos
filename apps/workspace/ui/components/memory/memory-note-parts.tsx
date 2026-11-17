@@ -1,14 +1,5 @@
 'use client'
 
-/**
- * The parts of a list of memory notes on a page: the row, its text, its
- * editor, its actions and the loading rows. Domain-free on purpose: the
- * project's memory (`project-memory-panel.tsx`) and a person's own
- * (`personal-memory-panel.tsx`) are two stores with two audiences (ADR-0180),
- * and they must look and behave as one kind of list. Labels come from the
- * caller, which knows its namespace.
- */
-
 import type { ComponentProps, JSX, ReactNode } from 'react'
 import { Pin, type LucideIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -18,11 +9,6 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
 
-/**
- * One note's row. A phone stacks the note over its actions: beside the text,
- * four 44px buttons left the note about 130px, a column of one word per line;
- * beneath it the note has the full width and the buttons keep their size.
- */
 export function MemoryNoteItem({ className, ...props }: ComponentProps<typeof Item>): JSX.Element {
   return (
     <Item
@@ -32,7 +18,6 @@ export function MemoryNoteItem({ className, ...props }: ComponentProps<typeof It
   )
 }
 
-/** The note itself, with the pin glyph in front of a pinned one. */
 export function MemoryNoteText({
   pinned,
   pinnedLabel,
@@ -51,7 +36,6 @@ export function MemoryNoteText({
 }
 
 export interface MemoryNoteEditorProps {
-  /** The textarea's id; the label points at it. */
   id: string
   label: string
   value: string
@@ -61,12 +45,10 @@ export interface MemoryNoteEditorProps {
   busy: boolean
   saveLabel: string
   cancelLabel: string
-  /** Why the last save was refused (another note already says it), under the field. */
   error?: string | null
   maxLength?: number
 }
 
-/** A note being rewritten in place: Escape leaves, the buttons say the rest. */
 export function MemoryNoteEditor({
   id,
   label,
@@ -119,10 +101,6 @@ export function MemoryNoteEditor({
   )
 }
 
-/**
- * A row's actions. Quiet until the row is pointed at or holds focus; always
- * there under a finger and under reduced motion.
- */
 export function MemoryNoteActions({ className, ...props }: ComponentProps<typeof ItemActions>): JSX.Element {
   return (
     <ItemActions
@@ -135,7 +113,6 @@ export function MemoryNoteActions({ className, ...props }: ComponentProps<typeof
   )
 }
 
-/** One of a row's actions: a glyph with its name for assistive technology and its consequence on hover. */
 export function MemoryNoteAction({
   icon: Icon,
   label,
@@ -166,7 +143,6 @@ export function MemoryNoteAction({
   )
 }
 
-/** Three rows in the list's own shape while the notes are on their way. */
 export function MemoryListSkeleton(): JSX.Element {
   return (
     <ItemList data-testid="memory-list-loading">

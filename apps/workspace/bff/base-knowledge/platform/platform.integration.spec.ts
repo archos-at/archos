@@ -36,7 +36,6 @@ vi.mock('@/lib/knowledge/service', () => ({
     unknown: names.filter((name) => corpus.unknown.includes(name)),
     message: '',
   }),
-  // The files the corpus holds, each with the sha256 of its bytes; one is `ingested` once its chunks exist.
   getKnowledgeBaseStatus: async () => ({
     files: [...corpus.held].map(([fileName, currentSha256]) => ({ fileName, currentSha256, state: corpus.ingested.includes(fileName) ? 'ingested' : 'pending', displayTitle: null })),
   }),
@@ -68,7 +67,6 @@ describe.skipIf(!url)('platform base knowledge against Postgres', () => {
   const key = (name: string) => `${name}-${RUN}`
   const records = (raw: unknown[]) => raw.map((record) => wire.proposedRecordSchema.parse(record))
 
-  /** A request through to approval: proposed by the author, every claim accepted and approved by the expert. */
   async function approved(title: string, raw: unknown[], pins?: ReadonlyMap<string, string>): Promise<string> {
     return approvedRequest({ title, countryId: 'AT', records: records(raw), pins }, { author: AUTHOR, expert: EXPERT })
   }
@@ -111,7 +109,6 @@ describe.skipIf(!url)('platform base knowledge against Postgres', () => {
     indexing = await import('./indexing')
     officeRead = await import('./office-read')
     wire = await import('./wire')
-    // The first office sits in Austria; the second in Germany, entitled to nothing else yet.
     for (const [organizationId, home] of [
       [ORG, 'AT'],
       [SECOND_ORG, 'DE'],
@@ -120,13 +117,10 @@ describe.skipIf(!url)('platform base knowledge against Postgres', () => {
         db.execute(sql`INSERT INTO organizations (workos_organization_id, home_country) VALUES (${organizationId}, ${home})`),
       )
     }
-    // Austria's territories, one request: what authorities and directives name.
     await published('Austria: territories', [
       { type: 'territory', id: 'AT', kind: 'country', name: 'Österreich' },
       { type: 'territory', id: 'AT-6', kind: 'state', name: 'Steiermark', parents: [{ id: 'AT' }] },
       { type: 'territory', id: 'AT-9', kind: 'state', name: 'Wien', parents: [{ id: 'AT' }] },
-      // Run-scoped places, so the competence rules below decide for this run's places only and never for a
-      // real Gemeinde another suite in the same database resolves (site-resolution's Graz).
       { type: 'territory', id: GRAZ, kind: 'municipality', name: 'Graz (test)', parents: [{ id: 'AT-6' }] },
       { type: 'territory', id: VIENNA, kind: 'municipality', name: 'Wien (test)', parents: [{ id: 'AT-9' }] },
     ])
@@ -149,11 +143,9 @@ describe.skipIf(!url)('platform base knowledge against Postgres', () => {
     const secondHead = await head(workId)
     expect(secondHead).not.toBe(firstHead)
 
-    // The older release cannot be undone under a newer one.
     await expect(release.rollbackChangeRequest(first, 'wrong order', ACTOR)).rejects.toThrow(/released again/)
     expect(await release.rollbackChangeRequest(second, 'title was right', ACTOR)).toEqual({ restored: 1, unreleasedFiles: [] })
     expect(await head(workId)).toBe(firstHead)
-    // The rolled-back revision stays readable to whoever may read the record: an old citation resolves.
     expect(await officeRead.PLATFORM_RECORDS_KNOWLEDGE.isReleased(ORG, secondHead!)).toBe(true)
 
     expect(await release.rollbackChangeRequest(first, 'not yet', ACTOR)).toMatchObject({ restored: 2 })
@@ -162,22 +154,18 @@ describe.skipIf(!url)('platform base knowledge against Postgres', () => {
       db.execute<{ action: string }>(sql`SELECT action FROM knowledge_release_moves WHERE record_id = ${workId} AND channel = 'stable' ORDER BY seq`),
     )
     expect(moves.map((move) => move.action)).toEqual(['publish', 'publish', 'rollback', 'rollback'])
-    // Publish it again for the tests below.
     await published('ÖNORM B 5371 listed again', listing())
   })
 
   it('a second office sees the std-asi listing as "gelistet, kein Text" once entitled to Austria, and not before', async () => {
-    // Positive control: the Austrian office sees it.
     expect(await officeRead.PLATFORM_RECORDS_KNOWLEDGE.listedNotHeld(ORG, [])).toEqual(
       expect.arrayContaining([expect.objectContaining({ designation: 'ÖNORM B 5371', hasText: false })]),
     )
-    // An office holding the norm (its own edition suffix aside) is not told it lacks it.
     const held = await officeRead.PLATFORM_RECORDS_KNOWLEDGE.listedNotHeld(ORG, ['ÖNORM B 5371:2021'])
     expect(held.map((listed) => listed.designation)).not.toContain('ÖNORM B 5371')
 
     expect(await officeRead.PLATFORM_RECORDS_KNOWLEDGE.listedNotHeld(SECOND_ORG, [])).toEqual([])
     const raw = await withTenant({ organizationId: SECOND_ORG }, () =>
-      // Austria's records only: suites running beside this one publish other countries' platform rows into the same database.
       db.execute(sql`SELECT 1 FROM knowledge_records WHERE organization_id IS NULL AND country_id = 'AT'`),
     )
     expect(raw).toHaveLength(0)
@@ -188,7 +176,6 @@ describe.skipIf(!url)('platform base knowledge against Postgres', () => {
     const { renderBaseKnowledgeBlock } = await import('../office/turn-block')
     expect(renderBaseKnowledgeBlock([], { territoryId: null, label: null }, listed)).toContain('gelistet, kein Text')
 
-    // Withdrawn: gone again.
     await entitlements.setEntitlement(SECOND_ORG, 'AT', false, ACTOR)
     expect(await officeRead.PLATFORM_RECORDS_KNOWLEDGE.listedNotHeld(SECOND_ORG, [])).toEqual([])
   })
@@ -247,9 +234,7 @@ describe.skipIf(!url)('platform base knowledge against Postgres', () => {
     const titles = async (territoryId: string | null) =>
       (await officeRead.PLATFORM_RECORDS_KNOWLEDGE.directivesFor(ORG, territoryId)).map((directive) => [directive.title, directive.verdict.verdict])
     expect(await titles(GRAZ)).not.toContainEqual(['Weisung Stellplätze', expect.anything()])
-    // Positive control: in Vienna it applies.
     expect(await titles(VIENNA)).toContainEqual(['Weisung Stellplätze', 'applies'])
-    // Unknown territory: said, not guessed.
     expect(await titles(null)).toContainEqual(['Weisung Stellplätze', 'authority_unknown'])
   })
 
@@ -260,7 +245,6 @@ describe.skipIf(!url)('platform base knowledge against Postgres', () => {
       { type: 'edition', key: key('oib-rl-4-2023'), workKey: key('oib-rl-4'), label: '2023' },
       { type: 'manifestation', key: key('oib-rl-4-2023-de'), editionKey: key('oib-rl-4-2023'), licenceClass: 'public_open', corpusFile: file },
     ], new Map([[`manifestation:${key('oib-rl-4-2023-de')}`, SHA]]))
-    // The corpus holds the bytes the revision names: the job indexes those and no others.
     corpus.held.set(file, SHA)
     const runs = await withPlatformAccess('pbk spec runs', () =>
       db.execute<{ id: string }>(sql`SELECT id FROM knowledge_index_runs WHERE change_request_id = ${id}`),
@@ -270,14 +254,11 @@ describe.skipIf(!url)('platform base knowledge against Postgres', () => {
     corpus.queued = [file]
     await indexing.runPlatformTextIndex(ORG, { runId: runs[0].id }, { last: false })
     expect((await indexing.readIndexStatus(id)).texts[0].state).toBe('queued')
-    // The text's chunks carry its country and edition, so a turn's gate can filter them (ADR-0173).
     expect(corpus.marks[file]).toEqual({ countryId: 'AT', editionId: `edition:${key('oib-rl-4-2023')}` })
     corpus.ingested = [file]
     expect((await indexing.readIndexStatus(id)).texts[0].state).toBe('indexed')
-    // The listing now says the platform holds the text.
     const listed = await officeRead.PLATFORM_RECORDS_KNOWLEDGE.listedNotHeld(ORG, [])
     expect(listed).toContainEqual(expect.objectContaining({ designation: 'OIB-RL 4', hasText: true }))
-    // Rolled back, no release names the file any more: it is de-indexed (ADR-0173).
     expect(await release.rollbackChangeRequest(id, 'spec: the text goes', ACTOR)).toMatchObject({ unreleasedFiles: [file] })
   })
 
@@ -328,7 +309,6 @@ describe.skipIf(!url)('platform base knowledge against Postgres', () => {
     await expect(
       store.platformTransaction((tx) => store.insertReviewDecisions(tx, id, { by: AUTHOR, decisionSource: 'agent' }, verdict)),
     ).rejects.toThrow(/four eyes/)
-    // Positive control: another person's verdict lands, with how it was given.
     await store.platformTransaction((tx) => store.insertReviewDecisions(tx, id, { by: EXPERT, decisionSource: 'agent' }, verdict))
     const sources = await withPlatformAccess('pbk spec verdicts', () =>
       db.execute<{ source: string }>(sql`SELECT decision_source AS source FROM knowledge_review_decisions WHERE change_request_id = ${id}`),
@@ -347,7 +327,6 @@ describe.skipIf(!url)('platform base knowledge against Postgres', () => {
 
   it('shows a tenant nothing of the change requests, and lets no tenant entitle itself', async () => {
     const id = await store.insertChangeRequest({ title: 'hidden', countryId: 'AT', createdBy: AUTHOR })
-    // Positive control: the platform reads it.
     expect(await store.findChangeRequest(id)).not.toBeNull()
     for (const table of ['knowledge_change_requests', 'knowledge_release_moves', 'knowledge_approvals', 'knowledge_review_decisions', 'knowledge_index_runs']) {
       const rows = await withTenant({ organizationId: ORG }, () => db.execute(sql`SELECT 1 FROM ${sql.identifier(table)} LIMIT 1`))

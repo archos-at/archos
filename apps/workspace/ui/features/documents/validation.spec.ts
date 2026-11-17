@@ -34,9 +34,6 @@ describe('validation', () => {
     })
 
     test('rejects image extensions by default (opt-in only, needs a VLM)', () => {
-      // Images are not a shipped default; a deployment opts in via
-      // FILE_UPLOAD_ACCEPTED_TYPES, which flows through AppConfig, not the
-      // default validation config used here.
       expect(isValidFileExtension('photo.png')).toBe(false)
       expect(isValidFileExtension('photo.jpg')).toBe(false)
       expect(isValidFileExtension('photo.jpeg')).toBe(false)
@@ -117,16 +114,7 @@ describe('validation', () => {
         expect(result.fileErrors[0].code).toBe('FILE_TOO_LARGE')
       })
 
-      /*
-        The size named in an error is the same size the user can read off the
-        file card beside it, so it has to be punctuated the same way — and it
-        has to be the same NUMBER. Both now go through the one `formatBytes`
-        with the APP's locale, over a limit stored in decimal MB, so a
-        deployment configured for 100 MB says exactly that.
-      */
       test('punctuates the size with the caller-supplied locale', () => {
-        // Half a megabyte over, so the file's own size carries a decimal and
-        // the locale's separator is actually exercised.
         const files = [createFile('large.pdf', MAX_FILE_SIZE + 500_000)]
 
         const german = validateFileUpload(files, createEmptyValidationContext(), undefined, 'de')
@@ -134,7 +122,6 @@ describe('validation', () => {
 
         expect(german.fileErrors[0].message).toContain('100,5 MB')
         expect(english.fileErrors[0].message).toContain('100.5 MB')
-        // And the LIMIT reads as the number a deployment configured, exactly.
         expect(german.fileErrors[0].message).toContain('100 MB')
         expect(english.fileErrors[0].message).toContain('100 MB')
       })
@@ -146,7 +133,6 @@ describe('validation', () => {
 
         const result = validateFileUpload(files)
 
-        // First file is valid, second is duplicate
         expect(result.validFiles).toHaveLength(1)
         expect(result.fileErrors).toHaveLength(1)
         expect(result.fileErrors[0].code).toBe('DUPLICATE_FILE')
@@ -169,9 +155,6 @@ describe('validation', () => {
       })
 
       test('never refuses a known name on a durable shelf — that is a new version, asked about elsewhere', () => {
-        // The set is this browser's memory of its own uploads. Refusing on it
-        // made a revised plan „bereits hinzugefügt" in one browser and a silent
-        // replacement in another.
         const context: ValidationContext = {
           existingTotalSize: 1024,
           existingFileCount: 1,
@@ -205,7 +188,6 @@ describe('validation', () => {
 
         const result = validateFileUpload(files)
 
-        // valid should be false (there were errors), but validFiles should have the valid one
         expect(result.valid).toBe(false)
         expect(result.validFiles).toHaveLength(1)
         expect(result.validFiles[0].name).toBe('valid.pdf')
@@ -301,8 +283,6 @@ describe('validation', () => {
       })
 
       test('batch errors take precedence over file errors', () => {
-        // When valid files exceed batch limit, batch error blocks all (even with file errors present)
-        // Need MAX_FILE_COUNT + 1 valid files to trigger batch error
         const files = [
           ...Array.from({ length: MAX_FILE_COUNT + 1 }, (_, i) => createFile(`doc${i}.pdf`)),
           createFile('invalid.exe'), // This file-level error doesn't matter - batch error wins
@@ -365,11 +345,9 @@ describe('validation', () => {
           fileExpirationCheckIntervalHours: 0,
         }
 
-        // CSV should be valid with custom config
         expect(isValidFileExtension('data.csv', customConfig)).toBe(true)
         expect(isValidFileExtension('config.json', customConfig)).toBe(true)
 
-        // PDF should be invalid with custom config (not in accepted types)
         expect(isValidFileExtension('document.pdf', customConfig)).toBe(false)
       })
 
@@ -402,12 +380,10 @@ describe('validation', () => {
           fileExpirationCheckIntervalHours: 0,
         }
 
-        // 500KB file should pass with 1MB limit
         const smallFile = createFile('small.pdf', 500 * 1024)
         const smallResult = validateFileUpload([smallFile], createEmptyValidationContext(), smallSizeConfig)
         expect(smallResult.valid).toBe(true)
 
-        // 2MB file should fail with 1MB limit
         const largeFile = createFile('large.pdf', 2 * 1024 * 1024)
         const largeResult = validateFileUpload([largeFile], createEmptyValidationContext(), smallSizeConfig)
         expect(largeResult.valid).toBe(false)
@@ -426,13 +402,11 @@ describe('validation', () => {
           fileExpirationCheckIntervalHours: 0,
         }
 
-        // 3 files should pass
         const threeFiles = [createFile('a.pdf'), createFile('b.pdf'), createFile('c.pdf')]
         const passResult = validateFileUpload(threeFiles, createEmptyValidationContext(), limitedConfig)
         expect(passResult.valid).toBe(true)
         expect(passResult.validFiles).toHaveLength(3)
 
-        // 4 files should fail
         const fourFiles = [createFile('a.pdf'), createFile('b.pdf'), createFile('c.pdf'), createFile('d.pdf')]
         const failResult = validateFileUpload(fourFiles, createEmptyValidationContext(), limitedConfig)
         expect(failResult.valid).toBe(false)
@@ -451,12 +425,10 @@ describe('validation', () => {
           fileExpirationCheckIntervalHours: 0,
         }
 
-        // Two 400KB files should pass (total 800KB < 1MB)
         const smallFiles = [createFile('a.pdf', 400 * 1024), createFile('b.pdf', 400 * 1024)]
         const passResult = validateFileUpload(smallFiles, createEmptyValidationContext(), smallTotalConfig)
         expect(passResult.valid).toBe(true)
 
-        // Two 600KB files should fail (total 1.2MB > 1MB)
         const largeFiles = [createFile('a.pdf', 600 * 1024), createFile('b.pdf', 600 * 1024)]
         const failResult = validateFileUpload(largeFiles, createEmptyValidationContext(), smallTotalConfig)
         expect(failResult.valid).toBe(false)
@@ -513,8 +485,6 @@ describe('validation', () => {
       })
 
       test('does NOT tag an image rejection when the block is not VLM-related', () => {
-        // imageUploadBlockedReason null (e.g. flag off) → generic rejection, no
-        // VLM-specific reason.
         const config = { ...nonImageConfig, imageUploadBlockedReason: null }
         const result = validateFileUpload([createFile('photo.png')], createEmptyValidationContext(), config)
 
@@ -526,10 +496,6 @@ describe('validation', () => {
 })
 
 describe('a building model is not measured against the document limit', () => {
-  // `FILE_UPLOAD_MAX_SIZE_MB` is sized for PDFs (100 MB). An Einreichung IFC is
-  // routinely 50–500 MB, so a real model was refused for being a large FILE,
-  // with a message that named no limit the user could act on and said nothing
-  // about IFC.
   const config = {
     acceptedTypes: '.pdf,.ifc',
     acceptedMimeTypes: ['application/pdf', 'application/octet-stream'],
@@ -567,8 +533,6 @@ describe('a building model is not measured against the document limit', () => {
   })
 
   test('a batch carrying a model gets the IFC total, not the document one', () => {
-    // Otherwise the 150 MB model clears the per-file check and then fails a
-    // 100 MB BATCH limit it could never satisfy.
     const batch = validateFileUpload([file('Lacknergasse-98.ifc', 150 * 1024 * 1024)], undefined, {
       ...config,
       maxTotalSize: 100 * 1024 * 1024,
@@ -578,8 +542,6 @@ describe('a building model is not measured against the document limit', () => {
   })
 
   test('a batch of ordinary documents keeps the document total', () => {
-    // The reason the ceiling is lifted per-batch instead of in the config:
-    // three 40 MB PDFs must not start passing because IFC is enabled.
     const batch = validateFileUpload(
       [file('a.pdf', 40 * 1024 * 1024), file('b.pdf', 40 * 1024 * 1024), file('c.pdf', 40 * 1024 * 1024)],
       undefined,
@@ -591,12 +553,6 @@ describe('a building model is not measured against the document limit', () => {
 })
 
 describe('a model already in the session keeps the IFC ceiling', () => {
-  // Reported from staging: with a 149.3 MB model in the session, the next
-  // action reported `Total size would be 149.3 MB. Only 0 B available (100.0 MB
-  // limit)`. The lift only looked at the NEW files, so a session already past
-  // the document limit could never be added to again — and re-dropping the
-  // model itself is rejected as a duplicate in pass 1, so it never reached the
-  // list the lift was computed from.
   const config = {
     acceptedTypes: '.pdf,.ifc',
     acceptedMimeTypes: ['application/pdf', 'application/octet-stream'],
@@ -637,7 +593,6 @@ describe('a model already in the session keeps the IFC ceiling', () => {
   })
 
   test('the IFC ceiling still bounds the session', () => {
-    // Lifted, not removed: 149.3 MB + 120 MB is past the 250 MB IFC ceiling.
     const result = validateFileUpload([file('zweiter-stand.ifc', 120 * 1024 * 1024)], sessionWithModel(), config)
 
     expect(result.batchErrors[0].code).toBe('TOTAL_SIZE_EXCEEDED')
@@ -655,13 +610,6 @@ describe('the batch caps are the session\'s, not the corpus\'s', () => {
     durableCorpus,
   })
 
-  /**
-   * A folder drop of any real Einreichung is hundreds of megabytes, and the
-   * batch ceiling rejected it WHOLESALE — as a batch error, not a per-file one
-   * — in an organization with terabytes of quota left. The count cap had
-   * already been exempted for exactly this reason (#432); the size cap was
-   * left on by oversight, and it is the one that actually binds.
-   */
   test('does not apply the 100 MB batch ceiling to a project or Archiv upload', () => {
     const files = [bigFile('a.pdf', 40), bigFile('b.pdf', 40), bigFile('c.pdf', 40)]
 
@@ -679,8 +627,6 @@ describe('the batch caps are the session\'s, not the corpus\'s', () => {
   })
 
   test('keeps the PER-FILE limit on both, because that is about the file', () => {
-    // A single file too large for the ingest pipeline is too large wherever it
-    // is filed — that limit says nothing about which shelf it lands on.
     const result = validateFileUpload([bigFile('huge.pdf', 5000)], context(true))
 
     expect(result.validFiles).toHaveLength(0)

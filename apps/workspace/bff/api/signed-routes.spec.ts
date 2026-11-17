@@ -19,7 +19,6 @@ import { dirname, join, relative } from 'node:path'
 import { SIGNED_INTERNAL_PREFIX } from './handler'
 
 const API_DIR = join(dirname(fileURLToPath(import.meta.url)), '../../app/api')
-/** `internal/signed/`, the prefix as a folder under `app/api`. */
 const SIGNED_FOLDER = SIGNED_INTERNAL_PREFIX.replace(/^\/api\//, '')
 
 function findRouteFiles(dir: string): string[] {
@@ -30,12 +29,10 @@ function findRouteFiles(dir: string): string[] {
   })
 }
 
-/** Whether a route module declares signature auth on `internalApiRoute`. */
 function declaresSignature(source: string): boolean {
   return /\binternalApiRoute\s*\(/.test(source) && /\bauth:\s*\{\s*signature:/.test(source)
 }
 
-/** The placement errors of one route module, by its path relative to `app/api`. */
 function placementProblems(file: string, source: string): string[] {
   const inSignedFolder = file.startsWith(SIGNED_FOLDER)
   const signed = declaresSignature(source)

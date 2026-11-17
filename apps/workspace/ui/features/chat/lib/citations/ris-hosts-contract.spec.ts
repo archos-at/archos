@@ -2,26 +2,12 @@
 /**
  * @vitest-environment node
  */
-/**
- * The in-app RIS reader's host promise, pinned to the backend's enforcement.
- *
- * `isRisUrl` decides whether a citation chip OFFERS the in-app reader;
- * the `hosts` of the RIS source record (`configs/sources/at/ris/source.yml`,
- * ADR-0162), which the RIS client and the fetcher enforce, decide whether the
- * fetch behind it succeeds. If the first is ever wider than the
- * second, a chip promises a viewer and delivers a 404 — worse than the
- * outbound link it replaced, because the reader has already committed a click.
- *
- * So the promise is read out of the enforcing record rather than restated: this
- * spec fails when someone edits either side alone.
- */
 
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { RIS_DOCUMENT_HOSTS, isRisUrl } from './target'
 
-/** Repo root, from this spec's own location. */
 const REPO_ROOT = join(__dirname, '..', '..', '..', '..', '..', '..', '..')
 const RECORD = join(REPO_ROOT, 'configs', 'sources', 'at', 'ris', 'source.yml')
 
@@ -41,18 +27,12 @@ describe('RIS reader host contract', () => {
         true
       )
     }
-    // EQUALITY, not coverage. Iterating the backend's list only catches the
-    // promise being NARROWER than the enforcement, and the failure this spec
-    // exists to prevent is the opposite one: a host added to the frontend set
-    // alone makes a chip promise a viewer that answers 404 — after the reader
-    // has already spent the click. So the frontend set is read out too.
     expect(new Set(RIS_DOCUMENT_HOSTS)).toEqual(new Set(hosts))
   })
 
   it('refuses anything else, however RIS-shaped', () => {
     expect(isRisUrl('https://ris.bka.gv.at.evil.example/Dokument.wxe')).toBe(false)
     expect(isRisUrl('https://example.org/ris.bka.gv.at')).toBe(false)
-    // Plain HTTP is refused on both sides — the backend client requires https.
     expect(isRisUrl('http://www.ris.bka.gv.at/Dokument.wxe')).toBe(false)
     expect(isRisUrl(undefined)).toBe(false)
     expect(isRisUrl('not a url')).toBe(false)

@@ -1,12 +1,6 @@
-/**
- * The settle re-parses only the blocks that draw differently once the text is
- * complete. Whether the text is streaming used to reach every block as a prop,
- * so the frame the answer settled in parsed the whole answer again.
- */
 import { render } from '@/test-utils'
 import { describe, expect, it, vi } from 'vitest'
 
-/** Every parse, by the block source it parsed. */
 const parses = vi.hoisted(() => [] as string[])
 vi.mock('react-markdown', async (importOriginal) => {
   const actual = await importOriginal<typeof import('react-markdown')>()
@@ -20,7 +14,6 @@ vi.mock('react-markdown', async (importOriginal) => {
 import { MarkdownRenderer } from './MarkdownRenderer'
 import { MIN_BLOCK_CHARS, splitMarkdownBlocks } from './markdown-blocks'
 
-/** A paragraph long enough to be a block of its own (`MIN_BLOCK_CHARS`). */
 const paragraph = (opening: string) =>
   `${opening} ${'Die Fluchtweglänge beträgt nach OIB-Richtlinie 2 höchstens 40 m. '.repeat(Math.ceil(MIN_BLOCK_CHARS / 60))}`
 
@@ -43,8 +36,6 @@ describe('the settle of a streamed text', () => {
     expect(parses.map((source) => source.split(' ')[0])).toEqual(['Zuletzt'])
   })
 
-  // What does draw differently still changes: a status mark stops carrying its
-  // streaming fade, in a block the settle did not parse.
   it('still updates what reads the stream state, in a block it did not parse', () => {
     const marks = () => [...document.querySelectorAll('[data-testid="status-mark"]')]
     const { rerender } = render(<MarkdownRenderer content={ANSWER} isStreaming />)

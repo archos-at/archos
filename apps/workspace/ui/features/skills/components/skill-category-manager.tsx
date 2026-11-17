@@ -1,18 +1,5 @@
 'use client'
 
-/**
- * The category manager — arrange the categories without leaving the Skills tab.
- *
- * Create, rename, remove. Removing never removes the skills standing on the
- * category: they fall back to unsorted, and the confirmation says how many that
- * is, because "remove category" reads as "remove skills" until it is told
- * otherwise.
- *
- * Owner-agnostic: the org toolbox passes its categories with the org endpoints,
- * the platform catalogue its categories with the platform ones. The dialog knows
- * neither — it calls what it was given.
- */
-
 import type { JSX } from 'react'
 import { useState } from 'react'
 import { Pencil, Plus, Trash2 } from 'lucide-react'
@@ -35,14 +22,11 @@ import type { SkillCategoryListItem } from '@/adapters/api/skills-client'
 interface SkillCategoryManagerProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  /** The categories this curator owns — org categories here, platform categories there. */
   categories: SkillCategoryListItem[]
-  /** Skills standing on each category, by category id — for the delete warning. */
   counts: Record<string, number>
   onCreate: (input: { name: string; description?: string }) => Promise<SkillCategoryListItem>
   onRename: (id: string, name: string) => Promise<unknown>
   onDelete: (id: string) => Promise<unknown>
-  /** Refetch the lists above after any mutation. */
   onChanged: () => void
 }
 

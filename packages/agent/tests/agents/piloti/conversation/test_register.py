@@ -1,12 +1,3 @@
-"""The workflow entry point: its config, and the per-turn ``_run`` it composes.
-
-``_run`` is driven the way the agent runtime drives it — through the registered builder with
-a fake ``Builder`` — with the three database reads and the stage scheduler
-replaced. Everything else on the path (the request-context parse, the focus
-ContextVars, admission, the registries, the profiler, the result lift, the
-wire bodies and the agent runtime's fold of them) is real.
-"""
-
 from __future__ import annotations
 
 import pytest
@@ -42,16 +33,10 @@ async def _shallow(state):
 
 
 def _ask(text: str, **fields) -> UserMessage:
-    """The v2 user_message the chat socket hands the turn."""
     return UserMessage(conversation_id="conv-1", message_id="msg-1", text=text, **fields)
 
 
 class TestStageModelWiring:
-    """A stage runs only when a model is configured for its agent group — the
-    capability half of `flag AND capability`. Each stage therefore needs its own
-    config field, and each must default to None so a deployment that wants
-    neither pays for neither."""
-
     def test_each_post_answer_stage_has_its_own_config_field(self):
         for field in ("memory_reflection_llm", "follow_ups_llm"):
             assert field in ChatDeepResearcherConfig.model_fields
@@ -78,7 +63,6 @@ class TestRun:
         assert terminal.result.skills_activated == ["oib-brandschutz"]
 
     async def test_nat_run_prints_the_run_finished_text(self, harness):
-        """`Streaming(convert=fold_turn)`: the single-output path the answer suite reads, asked a plain question."""
         assert await harness["single"]("Wie hoch muss die Brüstung sein?") == ANSWER
 
     async def test_the_setup_steps_are_yielded_before_the_graph_starts(self, harness, monkeypatch):
@@ -109,8 +93,6 @@ class TestRun:
         assert facts.answer_confidence == "high"
 
     async def test_the_request_envelope_is_parsed_once_per_turn(self, harness):
-        """The organization for admission used to be re-parsed (base64 + HMAC +
-        JSON) after the context load had parsed the same envelope."""
         await harness["turn"](_ask("Was gilt?"))
         assert harness["from_context"] == 1
 
@@ -141,10 +123,6 @@ class TestRun:
 
 
 class TestTurnLedgers:
-    """Every exit of the turn posts its ledgers, from the ONE finally outside
-    the profiled block: a flush from inside would post before the root span
-    closed and strand it."""
-
     def _root(self, spans):
         return next(span for span in spans if span["kind"] == "turn")
 
@@ -165,15 +143,11 @@ class TestTurnLedgers:
         assert root["name"] == "chat_researcher"
         assert root["status"] == "ok"
         assert (root["metadata"] or {}).get("outcome") == "admission_refused"
-        # A refusal is not a failure: the wait closes ok and SAYS it refused,
-        # so the waterfall reads "refused" instead of "error".
         wait = next(span for span in spans if span["name"] == "admission.wait")
         assert wait["status"] == "ok"
         assert (wait["metadata"] or {}).get("refused") is True
 
     async def test_a_failing_setup_branch_does_not_lose_the_turn(self, harness, monkeypatch):
-        """The registry hydration dies; the other two branches still land, the
-        answer is still written, and the ledgers still post."""
 
         def hydration_down(_conversation_id):
             raise RuntimeError("cache down")
@@ -186,8 +160,6 @@ class TestTurnLedgers:
         assert self._root(harness["spans"])["status"] == "ok"
 
     async def test_an_exception_out_of_the_turn_body_still_posts_the_ledgers(self, harness, monkeypatch):
-        """No swallowed exception: it propagates, but the ledgers post first —
-        the turn that stopped is exactly the one an operator opens."""
 
         async def boom(*_args, **_kwargs):
             raise RuntimeError("agent down")
@@ -202,10 +174,6 @@ class TestTurnLedgers:
 
 
 class TestTheInventoryFactsReachTheAnswer:
-    """``load_inventory`` derives the families and the cap drops inside the setup
-    gather, where a ContextVar dies with its task; ``_prepare_turn`` binds them
-    where the turn runs. Read back from inside the answering agent."""
-
     async def test_the_families_and_the_cap_drops_are_bound_for_the_agent(self, harness, monkeypatch):
         from agent.knowledge.inventory import get_inventory_drops
         from agent.knowledge.inventory import get_norm_families
@@ -232,10 +200,6 @@ class TestTheInventoryFactsReachTheAnswer:
 
 
 class TestTheProjectModelsReachTheToolBinding:
-    """``_prepare_turn`` binds which model files the project holds where the answering agent runs,
-    so ``turn_tools.tools_in_scope`` can leave out a tool with nothing to measure. Read back from
-    inside the answering agent, so removing the bind fails here."""
-
     async def test_the_kinds_the_bff_sent_are_bound_for_the_agent(self, harness, monkeypatch):
         from dataclasses import replace
 
@@ -261,10 +225,6 @@ class TestTheProjectModelsReachTheToolBinding:
 
 
 class TestTheBuildingLawReachesTheCitations:
-    """``_prepare_turn`` binds the turn's knowledge context (ADR-0168, ADR-0175) where the
-    answering agent runs; the citation wire reads each edition's role from its uses.
-    Read back from inside the answering agent, so removing the bind fails here."""
-
     async def test_the_role_of_a_cited_edition_is_bound_for_the_agent(self, harness, monkeypatch):
         from dataclasses import replace
 

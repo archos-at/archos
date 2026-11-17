@@ -21,7 +21,6 @@ import {
 
 const mockGetDb = vi.mocked(getDb)
 
-/** September 2026, every organization and project. */
 const SEPTEMBER: ProfiledConversationFilter = {
   start: new Date('2026-09-01T00:00:00.000Z'),
   endExclusive: new Date('2026-10-01T00:00:00.000Z'),
@@ -34,13 +33,6 @@ const PROJECT = '0f0f0f0f-0000-4000-8000-0000000000a1'
 const render = (condition: SQL): { sql: string; params: unknown[] } =>
   new PgDialect().sqlToQuery(condition)
 
-/**
- * Build a db stand-in whose SELECT chain
- * (`.from().leftJoin().where().groupBy().orderBy().limit()`) resolves to the
- * given driver rows — i.e. what the pg driver actually hands back, BEFORE any
- * row shaping. Aggregate columns come back as strings even where the drizzle
- * `sql<...>` annotation claims otherwise.
- */
 function mockSelect(driverRows: unknown[]) {
   const limit = vi.fn().mockResolvedValue(driverRows)
   const orderBy = vi.fn(() => ({ limit }))
@@ -52,11 +44,6 @@ function mockSelect(driverRows: unknown[]) {
   return { limit, where }
 }
 
-/**
- * The timeline issues two selects: the newest turn ids (`…groupBy().orderBy().limit()`)
- * and then their spans (`…where().orderBy().limit()`). Each resolves to the
- * next queued result.
- */
 function mockTimelineSelects(turnRows: unknown[], spanRows: unknown[]) {
   const results = [turnRows, spanRows]
   const limits: ReturnType<typeof vi.fn>[] = []
@@ -79,10 +66,6 @@ beforeEach(() => {
 
 describe('listProfiledConversations', () => {
   it('coerces the raw driver row to the domain shape (string aggregates → Date/number)', async () => {
-    // The pg driver returns `max(started_at)` as a timestamp STRING and
-    // `sum(...)::bigint` as a STRING, despite the `sql<Date>` / `sql<string>`
-    // annotations. Regression guard for the production crash
-    // "e.lastActiveAt.toISOString is not a function" in the service layer.
     const { limit } = mockSelect([
       {
         conversationId: 'conv_1',
@@ -99,19 +82,15 @@ describe('listProfiledConversations', () => {
     expect(capped).toBe(false)
     expect(rows).toHaveLength(1)
     const row = rows[0]
-    // lastActiveAt is coerced to a real Date so downstream `.toISOString()` works.
     expect(row.lastActiveAt).toBeInstanceOf(Date)
     expect(row.lastActiveAt.toISOString()).toBe('2026-01-01T00:00:02.000Z')
-    // bigint string is coerced to a number.
     expect(row.totalDurationMs).toBe(4200)
     expect(typeof row.totalDurationMs).toBe('number')
     expect(row.conversationId).toBe('conv_1')
     expect(row.organizationId).toBe('org_1')
     expect(row.title).toBe('Bauantrag Wien')
-    // Absent from the driver row (no restricted use): coerced to a real boolean.
     expect(row.titleWithheld).toBe(false)
     expect(row.turnCount).toBe(2)
-    // Chain terminates at the list cap + 1 probe.
     expect(limit).toHaveBeenCalledWith(201)
   })
 
@@ -129,7 +108,6 @@ describe('listProfiledConversations', () => {
     const { rows, capped } = await listProfiledConversations(SEPTEMBER)
 
     expect(capped).toBe(true)
-    // Capped back down to 200, and every retained row is still coerced.
     expect(rows).toHaveLength(200)
     expect(rows.every((r) => r.lastActiveAt instanceof Date)).toBe(true)
   })
@@ -137,8 +115,6 @@ describe('listProfiledConversations', () => {
 
 describe('listProfiledConversations search', () => {
   it("escapes LIKE wildcards in the operator's query", async () => {
-    // Regression: `100%` or `a_b` were used as raw patterns, so `%` matched
-    // every conversation and `_` matched any character.
     const { where } = mockSelect([])
     await listProfiledConversations(SEPTEMBER, '100%_x')
 
@@ -159,7 +135,6 @@ describe('listProfiledConversations scope', () => {
     expect(params).toEqual(
       expect.arrayContaining(['2026-09-01T00:00:00.000Z', '2026-10-01T00:00:00.000Z'])
     )
-    // Unnarrowed: no organization or project condition at all.
     expect(text).not.toContain('coalesce(')
     expect(text).not.toContain('"project_id"')
   })
@@ -251,7 +226,6 @@ describe('getSpansForConversation', () => {
   })
 
   it('caps the spans, keeps the newest, and returns them oldest first', async () => {
-    // The span query reads newest first with one row over the ceiling.
     const newestFirst = Array.from({ length: TIMELINE_SPAN_CAP + 1 }, (_, index) =>
       spanRow(TIMELINE_SPAN_CAP - index)
     )

@@ -11,10 +11,8 @@ import {
   visiblePart,
 } from './pdf-raster'
 
-/** Safari on iOS draws nothing at all for a canvas past this. */
 const IOS_CANVAS_LIMIT = 16_777_216
 
-/** An A1 landscape sheet fitted to a 393px phone: 357 x 252 CSS px. */
 const A1_FIT = { width: 357, height: 252 }
 const PHONE = { x: 0, y: 0, width: 393, height: 700 }
 
@@ -40,7 +38,6 @@ describe('rasterFor', () => {
   })
 
   it('caps the base of a deep zoom inside the budget instead of going blank', () => {
-    // The finding's case: A1 at 12x its fit on a DPR 3 phone.
     const zoomed = { width: A1_FIT.width * 12, height: A1_FIT.height * 12 }
     const uncapped = zoomed.width * zoomed.height * 9
     expect(uncapped).toBeGreaterThan(IOS_CANVAS_LIMIT)
@@ -91,7 +88,6 @@ describe('detailPlan', () => {
     expect(plan).not.toBeNull()
     expect(plan!.raster.ratio).toBe(3)
     expect(plan!.raster.width * plan!.raster.height).toBeLessThanOrEqual(TOUCH_MAX_CANVAS_PIXELS)
-    // It covers the screen, with some margin a short pan does not leave.
     expect(
       detailCovers({ drawn: plan!.region, drawnWidth: deep.width, pageWidth: deep.width, visible })
     ).toBe(true)

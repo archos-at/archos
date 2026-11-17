@@ -94,7 +94,6 @@ function call(name: string, input: OperationInput, reader: 'agent' | 'person' = 
 }
 
 const DOC = { params: { id: 'doc1' } }
-/** The routes that hand out a licensed copy whole: its file, its links, its versions. */
 const WHOLE: Array<[string, OperationInput]> = [
   ['document-file-get', DOC],
   ['document-download', DOC],

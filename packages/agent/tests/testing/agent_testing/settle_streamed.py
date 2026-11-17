@@ -1,5 +1,3 @@
-"""A registry and a streamed source list for the citation-settling suites."""
-
 from __future__ import annotations
 
 from agent.citations.entries import SourceEntry

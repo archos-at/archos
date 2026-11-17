@@ -1,5 +1,3 @@
-"""The ADR index check (scripts/check_adrs.py): what a "superseded by" in the index may point at."""
-
 from __future__ import annotations
 
 import importlib.util

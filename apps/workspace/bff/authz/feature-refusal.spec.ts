@@ -3,16 +3,6 @@
  * @vitest-environment node
  */
 
-/**
- * A switched-off feature refuses in one way, the RFC 9457 problem of
- * `requireFeature` (`feature_disabled`, `feature-flags.spec.ts` holds its shape
- * for every switch). Staging QC found three shapes for one meaning: the bare
- * `{error: 'feature-disabled'}`, prose 403s and a 200 `{enabled: false}`. This
- * holds the routes to the one: a route that reads a switch refuses through
- * `requireFeature` or a `require…Enabled` guard that delegates to it, and no
- * source words the refusal itself.
- */
-
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { describe, expect, it } from 'vitest'
@@ -27,13 +17,8 @@ function files(dir: string, keep: (name: string) => boolean): string[] {
   })
 }
 
-/** Guards that refuse through `requireFeature` (each is one line in `feature-flags.ts`). */
 const DELEGATING_GUARDS = /\brequire(Feature|CollaborationEnabled|SkillsEnabled|TaskAutomationEnabled)\(/
 
-/**
- * Reads of a switch that are not a refusal, each with why: a route that only
- * reports a switch, or one that hides a capability as not found by design.
- */
 const NOT_A_REFUSAL: Record<string, string> = {
   'app/api/internal/stages/route.ts': 'reports each switch to the agent tier as a boolean; it refuses nothing',
   'app/api/organization/web-search/route.ts': 'writes the office’s own setting; the switch is read by the turn, not here',

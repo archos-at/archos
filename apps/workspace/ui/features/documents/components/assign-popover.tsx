@@ -34,25 +34,12 @@ export function AssignPopover({
   onChanged: (next: FileAssignee[]) => void
   onPick?: (person: FileAssignee) => void
   pickOnly?: boolean
-  /**
-   * Whom the list offers: who may open the document (a document's assignee),
-   * or `write`, who may change it (a mark's Zuständige, who must answer and
-   * close it). The server checks the pick again either way.
-   */
   access?: 'read' | 'write'
-  /**
-   * The reader, picked by „Mir zuweisen" in `pickOnly` mode (a mark's
-   * Zuständige). Absent there, it is not offered: asking a colleague is not
-   * asking yourself.
-   */
   self?: FileAssignee | null
   triggerLabel?: string
-  /** Viewport-dressed trigger. Default is the tonal „Ändern“ / „Zuweisen“: it changes who is responsible. */
   trigger?: ReactElement
 }) {
   const t = useTranslations(filesCopy)
-  // The people search says what it searches, in the words every people search
-  // of the app uses (the project's members), not the ask dialog's „An“.
   const tPeople = useTranslations(membersCopy)
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
@@ -76,7 +63,6 @@ export function AssignPopover({
         setPeople(candidates)
       })
       .catch(() => {
-        // A failed load must not pose as "nobody in this project".
         if (!cancelled) {
           setPeople([])
           setLoadError(true)
@@ -100,16 +86,6 @@ export function AssignPopover({
     })
   }, [people, query])
 
-  /**
-   * The write that failed, kept so the retry can be the SAME action.
-   *
-   * Both writes used to `return` on a non-ok response and had no `catch` at
-   * all: a refused assignment did exactly nothing on screen — no error, no
-   * change, no clue — while the READ path beside it reported its failure and
-   * offered a retry. Silence in a popover whose whole job is to say who is
-   * responsible reads as success, and going offline turned the click into an
-   * unhandled rejection on top.
-   */
   const [failedWrite, setFailedWrite] = useState<{
     kind: 'assign' | 'unassign'
     userId: string

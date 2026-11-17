@@ -1,14 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Where the shared internal token is allowed to travel.
- *
- * `INTERNAL_API_TOKEN` is a bearer secret. Plain HTTP is the intended
- * transport to a sibling service on the compose/cluster network, so the rule
- * cannot simply be "https only" — that would withhold the token from every
- * real deployment. It has to be "TLS, or provably not leaving this network".
- */
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { isTokenSafeDestination } from '@/lib/internal-auth'
@@ -26,7 +18,6 @@ vi.mock('./platform-defaults', () => ({ getPlatformModelDefaults: () => getPlatf
 
 describe('isTokenSafeDestination', () => {
   it('allows the deployment shapes that actually ship', () => {
-    // Compose/Kubernetes short names, loopback, and the documented default.
     for (const url of [
       'http://aiq-agent:8000',
       'http://backend:8000',
@@ -55,8 +46,6 @@ describe('isTokenSafeDestination', () => {
   })
 
   it('rejects a non-http scheme outright', () => {
-    // No reason for the token to ride a scheme whose transport we have not
-    // reasoned about.
     expect(isTokenSafeDestination('ftp://backend:8000')).toBe(false)
     expect(isTokenSafeDestination('file:///etc/passwd')).toBe(false)
   })
@@ -78,7 +67,6 @@ describe('getGroupDefaultSources — the inherited-default merge', () => {
     expect(sources.clarifier).toEqual({ model: 'yaml/clarifier', source: 'workflow' })
     expect(sources.shallow_research).toEqual({ model: 'platform/research', source: 'platform' })
     expect(sources.memory_reflection).toEqual({ model: null, source: null })
-    // `getGroupDefaults` is the same merge without the source.
     expect((await getGroupDefaults()).shallow_research).toBe('platform/research')
   })
 

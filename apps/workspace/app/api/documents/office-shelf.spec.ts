@@ -9,7 +9,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { NextRequest } from 'next/server'
 
-// The office has its own standards (`office-standards`), as WorkOS states it where people sign in.
 const session = {
   userId: 'user-1',
   organizationId: 'org-1',
@@ -24,7 +23,6 @@ vi.mock('@/lib/auth/require-auth', () => ({
 }))
 
 vi.mock('@/lib/office-shelf/service', () => ({ listOfficeShelf: vi.fn() }))
-// Which rows are the office's standards (ADR-0163): one read per page, by document id.
 vi.mock('@/lib/base-knowledge/store/repository', () => ({ entryIdsForDocuments: vi.fn(async (_org: string, ids: string[]) => new Map(ids.map((id) => [id, 'work_1']))) }))
 vi.mock('@/lib/documents/lifecycle', () => ({
   summarizeDocumentVersions: vi.fn().mockResolvedValue(new Map([['d1', { versionCount: 2, state: 'published' }]])),
@@ -76,9 +74,6 @@ describe('GET /api/documents?scope=office_shelf', () => {
   it('serves the same wire row a project listing serves, field for field', async () => {
     const body = await (await get()).json()
 
-    // `toDocumentWireRow` is what `/api/documents` serializes through: the Archiv
-    // row must be that, folderId, originPath, authoredBy, lifecycle,
-    // versionState/versionCount and contentHash included.
     const expected = JSON.parse(
       JSON.stringify({ ...toDocumentWireRow(LISTED, { versionCount: 2, state: 'published' }), baseKnowledgeEntryId: 'work_1' }),
     )
@@ -137,8 +132,6 @@ describe('GET /api/documents?scope=office_shelf', () => {
     expect((await get('?includeArchived=1')).status).toBe(400)
   })
 
-  // The Archiv's root is where a Büroablage of two thousand documents sits
-  // (ADR-0102): the same level read a project's listing takes.
   it('forwards a level read to the service', async () => {
     await get('?folderId=root&sort=size&limit=25')
 

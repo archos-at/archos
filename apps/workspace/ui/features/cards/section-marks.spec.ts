@@ -1,15 +1,4 @@
 // @disk-inputs: ui/features/cards/**
-/**
- * A card's section mark in the answer is a word, not an icon and a word
- * (Notion #38, topic 10). „Angesehen" beside a magnifier, „Aufgabe" beside a
- * clipboard: the two said the same thing, and the icon only added weight to
- * the quietest element of the card. The rule held by this spec is the source
- * form of that: no `SectionLabel` under `features/cards` takes an `icon`.
- *
- * A mark whose icon says something the word does not stays, listed here with
- * what it says. A tone mark (`CalloutCard`, `KeyTakeawaysCard`) is no
- * `SectionLabel` and is not held here: its icon carries the tone.
- */
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
@@ -18,8 +7,6 @@ import { blankComments } from '../../../scripts/check-static-utility-modifiers.m
 const ROOT = __dirname
 
 const KEPT: Record<string, string> = {
-  // The label is the verdict's subject („Feuerwiderstand tragender Bauteile");
-  // the gavel says that what follows is a ruling, which the subject does not.
   'components/VerdictHeaderCard.tsx': 'the gavel marks a ruling; the label is its subject',
 }
 

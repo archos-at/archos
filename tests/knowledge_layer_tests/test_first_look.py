@@ -1,5 +1,3 @@
-"""The cheap first look: which pages it takes, that it is off by default, and that off changes nothing."""
-
 from __future__ import annotations
 
 import pytest

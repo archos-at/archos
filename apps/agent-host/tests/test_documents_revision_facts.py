@@ -1,10 +1,3 @@
-"""The collection listing carries the title-block facts (``revision_facts``) beside topics and capture.
-
-The BFF reads ``revision_facts`` off ``GET /v1/collections/{c}/documents`` (``FileInfo``): Plannummer,
-Index and Datum read from the Plankopf during ingestion, present keys only. They ride the same merge
-as the other per-document metadata: stored values fill an empty field and never overwrite one.
-"""
-
 import json
 
 from agent.knowledge.schema import AvailableDocument

@@ -1,15 +1,3 @@
-"""``deploy/postgres/rename-legacy-names.sh`` renames the branded databases and roles, once (ADR-0145 row 10d).
-
-It runs on every deploy before the backend starts, on Kubernetes as the
-``postgres`` superuser and on Compose as the role it renames, so each shape is
-run here against a real server, twice: the second run must change nothing. A
-client still connected to an old database is what the deploy will meet, so one
-is held open while the script runs.
-
-Needs a superuser URL to a throwaway cluster in ``TEST_POSTGRES_URL``
-(``task be:test:postgres`` provides one) and ``psql`` on the PATH.
-"""
-
 from __future__ import annotations
 
 import os
@@ -124,7 +112,6 @@ def _assert_renamed(*, with_data: bool = True) -> None:
     for name in NEW_DATABASES:
         assert _psql(f"SELECT pg_get_userbyid(datdba) FROM pg_database WHERE datname = '{name}'") == "agent"
         assert _psql(f"SELECT datallowconn FROM pg_database WHERE datname = '{name}'") == "t"
-    # The data came along, and the renamed role reaches it.
     if with_data:
         assert _psql("SELECT count(*) FROM job_info", user="agent", database="jobs") == "0"
 
@@ -159,8 +146,6 @@ def test_kubernetes_shape_renames_under_a_live_connection_and_a_second_run_is_a_
 
 
 def test_compose_shape_renames_the_superuser_it_logs_in_as():
-    # Compose's only superuser is the role being renamed, and it starts the
-    # script under the new name, which does not exist yet.
     _old_install(superuser=True)
 
     first = _run_script("agent")
@@ -199,9 +184,6 @@ def test_the_app_database_is_renamed_before_the_migrations():
 
 
 def test_a_fresh_install_migrates_under_the_old_role_names_and_renames_them_after():
-    # Kubernetes keeps these roles in the script, not in CloudNativePG's
-    # `managed.roles`. A fresh cluster has none: the migrations written before
-    # the rename grant to the old names, so those are what it creates.
     _psql("CREATE ROLE agent LOGIN")
     _psql("CREATE DATABASE app OWNER agent")
 
@@ -209,7 +191,6 @@ def test_a_fresh_install_migrates_under_the_old_role_names_and_renames_them_afte
     assert before.returncode == 0, before.stderr
     assert {"grid_app_owner", "grid_app_platform", "grid_app_rw", "grid_keda_scaler"} <= _roles()
     assert not set(RLS_ROLES.values()) & _roles()
-    # What a migration does with them: a grant to the runtime role by its old name.
     _psql("CREATE TABLE notes (id int)", database="app")
     _psql("GRANT SELECT ON notes TO grid_app_rw", database="app")
 
@@ -218,7 +199,6 @@ def test_a_fresh_install_migrates_under_the_old_role_names_and_renames_them_afte
     assert after.returncode == 0, after.stderr
     assert "role grid_app_rw -> app_rw" in after.stdout
     assert set(RLS_ROLES.values()) <= _roles() and not set(RLS_ROLES) & _roles()
-    # The grant, the password and the step-up all came along.
     assert _login("app_rw", RLS_PASSWORDS["RUNTIME_PASSWORD"], "SELECT count(*) FROM notes", database="app") == "0"
     assert (
         _login("app_rw", RLS_PASSWORDS["RUNTIME_PASSWORD"], "SET ROLE app_platform; SELECT current_user")
@@ -230,7 +210,6 @@ def test_a_fresh_install_migrates_under_the_old_role_names_and_renames_them_afte
     again = _run_script(_superuser(), "after-migrate", **RLS_PASSWORDS)
     assert again.returncode == 0, again.stderr
     assert "->" not in again.stdout
-    # The next deploy's first step finds the new names and creates nothing.
     rerun = _run_script(_superuser(), ENSURE_RLS_ROLES="1", **RLS_PASSWORDS)
     assert rerun.returncode == 0, rerun.stderr
     assert "created" not in rerun.stdout and not set(RLS_ROLES) & _roles()

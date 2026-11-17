@@ -1,19 +1,5 @@
 'use client'
 
-/**
- * The import dialog's state (ADR-0085): the project's imports, and the archive
- * this tab is sending, if it is one of this project's. While the dialog is
- * open and something is running the list is read again when the project's
- * shelf says it changed (`shelf.changed`: the import job announces each slice
- * and its end, and every mail it files settles on that shelf), with a slow
- * poll under it for a lost hint.
- *
- * The send itself lives in `../lib/mail-import-send.ts`, outside React, so it
- * outlives the dialog and the page: only closing the tab stops it, and the
- * browser asks first. The row then reads `uploading` until the person chooses
- * the same file again to resume, or cancels it.
- */
-
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import type { LiveShelf } from '@/lib/documents/shelf-live-events'
 import {
@@ -42,10 +28,8 @@ import { useShelfLive } from '@/features/realtime/use-shelf-live'
 
 export type { MailImportSend } from '../lib/mail-import-send'
 
-/** How often a running import is re-read while the dialog is open and no hint came. */
 export const MAIL_IMPORT_FALLBACK_POLL_MS = 60_000
 
-/** Why a send did not go through, as the dialog words it. Never the server's own (English) text. */
 export type MailImportSendErrorKind =
   | 'busy'
   | 'alreadyRunning'
@@ -89,7 +73,6 @@ export function useMailImports(projectId: string, open: boolean): UseMailImports
   const sending = shared.send?.projectId === projectId ? shared.send : null
   const failure = shared.failure?.projectId === projectId ? shared.failure : null
 
-  // Only the newest answer is shown: a slow poll must not overwrite a fresher one.
   const latest = useRef(0)
   const reload = useCallback(async () => {
     const ticket = ++latest.current
@@ -99,7 +82,6 @@ export function useMailImports(projectId: string, open: boolean): UseMailImports
       setList(next)
       setLoadError(false)
     } catch {
-      // One failed poll keeps what is shown; only a list never loaded is an error.
       if (ticket === latest.current) setLoadError(true)
     }
   }, [projectId])
@@ -112,7 +94,6 @@ export function useMailImports(projectId: string, open: boolean): UseMailImports
     if (!running && !isSending) return
     const timer = setInterval(() => void reload(), MAIL_IMPORT_FALLBACK_POLL_MS)
     return () => clearInterval(timer)
-    // `isSending` is a dependency so that the end of a send reloads the list at once.
   }, [open, running, isSending, reload])
   const shelf = useMemo<LiveShelf>(() => ({ kind: 'project', projectId }), [projectId])
   useShelfLive(shelf, () => void reload(), { enabled: open && running })
@@ -120,7 +101,6 @@ export function useMailImports(projectId: string, open: boolean): UseMailImports
   const start = useCallback(
     async (file: File) => {
       clearMailImportSendFailure()
-      // Asked before the server makes a row, which a refused send would leave behind.
       if (isMailImportSending()) return failMailImportSend(projectId, new MailImportSendBusyError())
       let plan
       try {

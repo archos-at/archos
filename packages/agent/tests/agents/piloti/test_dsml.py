@@ -1,5 +1,3 @@
-"""Tests for stripping and salvaging leaked DeepSeek DSML tool-call blocks."""
-
 from __future__ import annotations
 
 import pytest
@@ -9,22 +7,17 @@ from agent.cards.registry import CardRegistry
 from agent.cards.registry import reset_card_registry
 from agent.cards.registry import set_card_registry
 
-# Fullwidth vertical bar (U+FF5C) — the DSML delimiter.
 BAR = "｜"
 
 
 def _open(inner: str) -> str:
-    """Build an opening DSML tag: ``<｜DSML｜{inner}>``."""
     return "<" + BAR + "DSML" + BAR + inner + ">"
 
 
 def _close(inner: str) -> str:
-    """Build a closing DSML tag: ``</｜DSML｜{inner}>``."""
     return "</" + BAR + "DSML" + BAR + inner + ">"
 
 
-# The exact production shape from the design: an emit_card invoke whose
-# card_json parameter is followed by a raw JSON object.
 INVOKE_OPEN = _open('invoke name="emit_card"')
 CARD_PARAM_OPEN = _open('parameter name="card_json" string="true"')
 
@@ -35,7 +28,6 @@ def _leaked_emit_card(card_json: str) -> str:
 
 @pytest.fixture
 def card_registry():
-    """Bind a fresh conversation card registry for the duration of a test."""
     registry = CardRegistry()
     token = set_card_registry(registry)
     try:
@@ -50,7 +42,6 @@ class TestConservativeStripping:
         assert strip_and_salvage_dsml_tool_calls(text) is text
 
     def test_text_discussing_tool_calls_untouched(self):
-        # No DSML marker → conservative no-op even though it mentions the words.
         text = 'I would call emit_card with a "card_json" parameter, but I will not.'
         assert strip_and_salvage_dsml_tool_calls(text) == text
 
@@ -99,7 +90,6 @@ class TestCardSalvage:
         assert card_registry.snapshot() == []
 
     def test_salvage_no_registry_bound_is_fail_soft(self):
-        # No card registry in context → still strips, just cannot register.
         leaked = _leaked_emit_card('{"type": "summary", "title": "T", "content": "C"}')
         result = strip_and_salvage_dsml_tool_calls("Answer.\n" + leaked)
         assert result == "Answer."

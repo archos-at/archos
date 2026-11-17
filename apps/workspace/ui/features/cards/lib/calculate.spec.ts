@@ -2,18 +2,6 @@
  * @vitest-environment node
  */
 
-/**
- * The guard on the one thing `CalculationCard` promises: the RENDERER produces
- * the result, the band and the verdict, and the model supplies only inputs.
- *
- * These are the assertions that would catch the failure the card exists to make
- * impossible — a Rechenweg whose printed answer does not follow from its own
- * operands. They run against the pure module rather than through a mounted
- * component for the reason working-style.md gives: the arithmetic is the part that must
- * be tested hardest, and logic in a module costs 1.3ms per test where the same
- * assertion through a React tree costs 172ms.
- */
-
 import { describe, expect, it } from 'vitest'
 import { evaluate, formatInput, formatResult, resultDecimals, verdictFor } from './calculate'
 import type { CalculationStepData } from '@/shared/cards/schemas'
@@ -97,7 +85,6 @@ describe('evaluate — the five operation shapes', () => {
 
     expect(required.value).toBe(2.5)
     expect(coverage.value).toBe(40)
-    // The unit of a ratio-as-percentage is the renderer's, never the model's.
     expect(coverage.unit).toBe('%')
   })
 
@@ -142,8 +129,6 @@ describe('evaluate — what it refuses to invent', () => {
       }),
     ])
 
-    // Never a partial sum: 30 cm printed as the Schrittmaß would be a wrong
-    // number stated with full confidence.
     expect(result.value).toBeNull()
     expect(result.undecidable).toBe('missing')
   })
@@ -192,8 +177,6 @@ describe('evaluate — the tolerance band travels', () => {
       }),
     ])
 
-    // 2 × (17 ± 0,5) + 30 → 64 ± 1,0. Dropping the band here is how a derived
-    // number stops being as honest as the measurement it was built from.
     expect(result.tolerance).toBeCloseTo(1, 10)
   })
 
@@ -208,7 +191,6 @@ describe('evaluate — the tolerance band travels', () => {
       }),
     ])
 
-    // 1 % on the numerator alone → 1 % on a result of 3.
     expect(result.tolerance).toBeCloseTo(0.03, 10)
   })
 
@@ -250,17 +232,12 @@ describe('verdictFor — the card decides, it is not told', () => {
   })
 
   it('warns rather than deciding when the band straddles the bound', () => {
-    // 2,498 m ±5 mm against a 2,50 m minimum is genuinely undecided; drawing a
-    // clean red fail would assert a verdict the measurement cannot support.
-    // 2,49 ±5 mm is NOT: no point of that band clears the limit.
     expect(verdictFor(at(2.498, 0.005), { comparator: '>=', value: 2.5 })).toBe('warning')
     expect(verdictFor(at(2.49, 0.005), { comparator: '>=', value: 2.5 })).toBe('fail')
     expect(verdictFor(at(64.8, 0.5), { comparator: 'between', value: 59, upper: 65 })).toBe('warning')
   })
 
   it('does NOT warn where every value in the band satisfies the limit', () => {
-    // 50 ±5 against „≤ 55": the whole band meets it, and a warning would be
-    // manufactured doubt.
     expect(verdictFor(at(50, 5), { comparator: '<=', value: 55 })).toBe('pass')
     expect(verdictFor(at(62, 1), { comparator: 'between', value: 59, upper: 65 })).toBe('pass')
   })
@@ -275,9 +252,6 @@ describe('verdictFor — the card decides, it is not told', () => {
 
 describe('resultDecimals — the printed number cannot contradict the printed verdict', () => {
   it('prints further than the house two decimals when rounding would flip the verdict', () => {
-    // 0,2504 W/(m²K) against „≤ 0,25" fails, but rounds to „0,25", which passes.
-    // A card printing „0,25 — nicht erfüllt" argues with itself in the one
-    // place a reader cannot check it.
     const result = { value: 0.2504, tolerance: null, unit: 'W/(m²K)', undecidable: null as null }
     expect(resultDecimals(result, { comparator: '<=', value: 0.25 })).toBe(4)
   })
@@ -328,7 +302,6 @@ describe('a value on the bound is on the bound, whatever floating point says', (
     expect(verdictFor(over, { comparator: '<=', value: 0.25 })).toBe('fail')
     const decimals = resultDecimals(over, { comparator: '<=', value: 0.25 })
     expect(decimals).toBe(7)
-    // Fixed digits past the house two: the printed number is visibly not 0,25.
     expect(formatResult(over.value, decimals)).toBe('0,2500001')
     expect(formatResult(0.2501, 4)).toBe('0,2501')
   })

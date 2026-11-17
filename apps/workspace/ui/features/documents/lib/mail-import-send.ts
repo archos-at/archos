@@ -1,23 +1,5 @@
 'use client'
 
-/**
- * The Outlook archive this tab is sending (ADR-0085), kept outside React.
- *
- * A send of twenty gigabytes takes hours, and the person goes on working
- * meanwhile: to the chat, to another project. Held in a component, the send
- * would end with the first soft navigation that unmounted it. Held here, it ends
- * only when the tab does, and the browser asks before that happens
- * (`beforeunload`). Any import dialog that opens again reads where it stands.
- *
- * One send per tab: the server allows one open import per person and project,
- * and three parts in flight already fill a line.
- *
- * The file a send started from is remembered in this browser by name, size and
- * modification time, so that resuming with a file that only looks the same (a
- * new export under the old name, a `.pst` Outlook wrote to meanwhile) is refused
- * here instead of mixing two archives' parts into one unreadable file.
- */
-
 import { sendMailArchive, type SendProgress } from '@/lib/mail-import/client'
 import type { MailImportUploadPlan } from '@/lib/mail-import/types'
 
@@ -32,7 +14,6 @@ export interface MailImportSend {
 
 export interface MailImportSendFailure {
   projectId: string
-  /** `start` when the server refused to begin (or resume) the send, `send` when it broke off after. */
   stage: 'start' | 'send'
   error: unknown
 }
@@ -42,7 +23,6 @@ export interface MailImportSendState {
   failure: MailImportSendFailure | null
 }
 
-/** This tab is already sending an archive (of another project); a second send waits for it. */
 export class MailImportSendBusyError extends Error {
   constructor() {
     super('This tab is already sending an archive.')
@@ -50,7 +30,6 @@ export class MailImportSendBusyError extends Error {
   }
 }
 
-/** Whether this tab is sending an archive, of any project. */
 export function isMailImportSending(): boolean {
   return controller !== null
 }
@@ -81,14 +60,9 @@ export function mailImportSendServerSnapshot(): MailImportSendState {
 
 function warnBeforeUnload(event: BeforeUnloadEvent): void {
   event.preventDefault()
-  // Older browsers show the prompt only when this is set.
   event.returnValue = ''
 }
 
-/**
- * Send `file` by `plan`, to the end or until it fails or is cancelled. Settles
- * either way; a failure is kept in the state for the dialog to word.
- */
 export async function runMailImportSend(projectId: string, plan: MailImportUploadPlan, file: File): Promise<void> {
   if (controller) throw new MailImportSendBusyError()
   const abort = new AbortController()
@@ -110,12 +84,10 @@ export async function runMailImportSend(projectId: string, plan: MailImportUploa
   }
 }
 
-/** Stop the send of `importId` when this tab is the one sending it. */
 export function abortMailImportSend(importId: string): void {
   if (state.send?.importId === importId) controller?.abort()
 }
 
-/** Record a failure that happened before any send began (a refused start). */
 export function failMailImportSend(projectId: string, error: unknown): void {
   set({ send: state.send, failure: { projectId, stage: 'start', error } })
 }
@@ -146,7 +118,6 @@ function forgetFile(importId: string): void {
   }
 }
 
-/** False when this browser started `importId` from a different file; true when it matches or it cannot tell. */
 export function isSameMailImportFile(importId: string, file: File): boolean {
   try {
     const known = window.localStorage.getItem(FILE_KEY + importId)

@@ -1,8 +1,3 @@
-"""Tests for tokenomics profile dataclasses.
-
-Module under test: packages/agent/src/agent/tokenomics/profile.py
-"""
-
 from agent.tokenomics.profile import PHASE_ORCHESTRATOR
 from agent.tokenomics.profile import PHASE_PLANNER
 from agent.tokenomics.profile import PHASE_RESEARCHER

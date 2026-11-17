@@ -31,7 +31,6 @@ const version = (
   ...overrides,
 })
 
-/** A person's upload as the server stores it: born published, the uploader standing in as approver. */
 const upload = (versionNumber: number, state: DocumentVersionState = 'published') =>
   version(versionNumber, state, { approvedBy: 'user_author', publishedBy: 'user_author' })
 
@@ -182,7 +181,6 @@ describe('revisionStanding — the next step, with a person', () => {
   it('falls back to the reader when the round names nobody and they may approve, and to nobody otherwise', () => {
     expect(standingOf([reviewed(1, 'in_review')], { viewer: REVIEWER }).nextStep).toMatchObject({ people: [], you: true })
     expect(standingOf([reviewed(1, 'in_review')], { viewer: WRITER }).nextStep).toMatchObject({ people: [], you: false })
-    // The submitter may not approve their own round.
     expect(
       standingOf([reviewed(1, 'in_review', { submittedBy: 'user_me' })], { viewer: REVIEWER }).nextStep,
     ).toMatchObject({ people: [], you: false })

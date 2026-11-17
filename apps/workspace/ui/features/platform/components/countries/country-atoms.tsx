@@ -1,7 +1,5 @@
 'use client'
 
-/** The words the country list and a country's page share: its stage, and its next step. */
-
 import type { JSX } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { useTranslations } from '@/i18n'
@@ -15,7 +13,6 @@ export function StageBadge({ stage }: { stage: CountryStage }): JSX.Element {
   return <Badge variant={STAGE_VARIANT[stage]}>{t(`countryPages.stage.${stage}`)}</Badge>
 }
 
-/** The next step as a sentence (`short`: the list's few words). */
 export function NextStepText({ step, short = false }: { step: CountryNextStep; short?: boolean }): JSX.Element {
   const t = useTranslations(platformCopy)
   const form = short ? 'short' : 'long'

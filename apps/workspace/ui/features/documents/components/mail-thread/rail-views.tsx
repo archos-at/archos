@@ -1,17 +1,5 @@
 'use client'
 
-/**
- * The rail of a thread document, as two tabs: „E-Mails“ (the mails it holds,
- * `MailThreadTab`) and „Details“ (everything the rail says of any document).
- * For any other document it renders the rail's content untouched, so no
- * document that is not an E-Mail-Verlauf pays for a tab strip.
- *
- * „E-Mails“ is up when a thread document opens: for a conversation, the
- * mails are what the reader came for, and its Fassungen and approval are one
- * tap away. Details stays mounted while hidden (`forceMount`), as the peek's
- * two faces do, so switching back does not read the Fassungen again.
- */
-
 import type { JSX, ReactNode } from 'react'
 import { ListTree, Mail } from 'lucide-react'
 import { CountPill } from '@/components/ui/count-pill'
@@ -22,9 +10,7 @@ import { mailThreadCopy } from '@/i18n/namespaces/mail-thread'
 export type RailView = 'mail' | 'details'
 
 export interface ThreadRailViewsProps {
-  /** The tab's content; null for a document that is no E-Mail-Verlauf. */
   mail: ReactNode | null
-  /** How many mails the thread holds, beside the tab's name. */
   mailCount: number
   value: RailView
   onValueChange: (next: RailView) => void

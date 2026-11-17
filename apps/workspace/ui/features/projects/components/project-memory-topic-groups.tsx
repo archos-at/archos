@@ -1,13 +1,5 @@
 'use client'
 
-/**
- * The notes of a project's memory shelf, as folders by topic (ADR-0180): one
- * row per note with its controls. The panel owns the data, the edit draft and
- * the delete dialog; this file draws what they hold. Inside a folder the notes
- * keep the kind order the panel listed kinds in. A shelf with no topic on any
- * note is grouped by kind instead, as it was before topics.
- */
-
 import type { JSX, ReactNode } from 'react'
 import { Fragment } from 'react'
 import { Check, CircleAlert, Pencil, Pin, PinOff, Trash2 } from 'lucide-react'
@@ -32,21 +24,14 @@ import { PROJECT_MEMORY_KINDS, type ProjectMemoryItem } from '@/lib/db/schema/pr
 import { distinctTopicNames, type MemoryTopicCount } from '@/lib/memory-topics/topic'
 import { ProjectNoteTopicMove, ProjectTopicActions } from './project-topic-actions'
 
-/** Memory item as it arrives over the wire (timestamps serialize to strings). */
 export type MemoryItem = Omit<ProjectMemoryItem, 'createdAt' | 'updatedAt' | 'lastReferencedAt'> & {
   createdAt: string
   updatedAt: string
   lastReferencedAt: string | null
-  /** The folders a restricted note (ADR-0087) is restricted to; only ever sent to a cleared reader. */
   restrictedFolderNames?: string[]
-  /** When a folder the note came from was purged (ADR-0088): „Quelle gelöscht am …". */
   sourceDeletedAt?: string
 }
 
-/**
- * The tooltip on a restricted note's lock: the folders it came from, when
- * known, and whether a language model helped decide that (ADR-0087; AI Act).
- */
 function restrictionTitle(item: MemoryItem, t: Translator): string {
   const folders = item.restrictedFolderNames ?? []
   const where =
@@ -68,7 +53,6 @@ function verificationLabel(verification: string, t: Translator): string {
 
 const KNOWN_CONFIDENCES = ['low', 'medium', 'high']
 
-/** „Sicherheit: mittel“, never the stored token; a value this build does not know is shown as it is. */
 function confidenceLabel(confidence: string, t: Translator): string {
   return KNOWN_CONFIDENCES.includes(confidence) ? t(`memory.confidence.${confidence}`) : confidence
 }
@@ -77,13 +61,10 @@ function provenanceLabel(provenanceType: string, t: Translator): string {
   return provenanceType === 'user' ? t('memory.provenance.user') : t('memory.provenance.grid')
 }
 
-/** Compact relative time ("2h ago", "3d ago") with a date fallback for older items. */
 function formatWhen(isoDate: string, t: Translator, locale: string): string {
   const date = new Date(isoDate)
   if (Number.isNaN(date.getTime())) return ''
   const seconds = Math.round((Date.now() - date.getTime()) / 1000)
-  // floor, not round: 3,570s would otherwise render as "60 minutes ago"
-  // instead of "1 hour ago" (same at the hour/day boundaries).
   if (seconds < 60) return t('memory.time.justNow')
   if (seconds < 3600) return t('memory.time.minutesAgo', { count: Math.floor(seconds / 60) })
   if (seconds < 86400) return t('memory.time.hoursAgo', { count: Math.floor(seconds / 3600) })
@@ -95,7 +76,6 @@ function formatWhen(isoDate: string, t: Translator, locale: string): string {
   }).format(date)
 }
 
-/** What the panel hands each note: its edit draft, its busy state and the mutations that answer for it. */
 export interface ProjectMemoryNoteControls {
   busyId: string | null
   editingId: string | null
@@ -110,29 +90,19 @@ export interface ProjectMemoryNoteControls {
 
 export interface ProjectMemoryTopicGroupsProps {
   projectId: string
-  /** The notes the panel shows (no superseded or dismissed ones). */
   items: MemoryItem[]
-  /** Every note the reader got: a conflict names the note it contradicts, which may be hidden from the list. */
   allItems: MemoryItem[]
-  /** The shelf's topics with their counts, as the server computed them for this reader. */
   topics: MemoryTopicCount[]
   readOnly: boolean
   controls: ProjectMemoryNoteControls
-  /** After a topic is renamed, merged or ungrouped, or a note moved: the panel reloads the shelf. */
   onChanged: () => void
 }
 
-/** The kind order inside a folder: the order the kinds are listed in, unknown kinds last. */
 function kindRank(kind: string): number {
   const rank = (PROJECT_MEMORY_KINDS as readonly string[]).indexOf(kind)
   return rank === -1 ? PROJECT_MEMORY_KINDS.length : rank
 }
 
-/**
- * The topics a note may be moved or added under (ADR-0087, ADR-0180). A restricted note may take any topic
- * the reader sees. An open note takes only a topic an open note holds, and an office note only a topic
- * an office note holds: a project's topic name never lands on a note the whole office reads.
- */
 export function pickableTopicNames(
   items: readonly MemoryItem[],
   note: { scope: 'project' | 'organization'; restricted: boolean },
@@ -152,14 +122,9 @@ export function ProjectMemoryTopicGroups({
   controls,
   onChanged,
 }: ProjectMemoryTopicGroupsProps): JSX.Element {
-  // A restricted note may be filed under any topic its reader sees. An open note may be
-  // filed only under a topic an open note holds: a restricted topic's name must not reach
-  // a note that everyone it is open to can read (ADR-0087).
   const allTopicNames = topics.map((entry) => entry.name)
   const openTopicNames = distinctTopicNames(items.filter((item) => !item.restrictedFolderIds?.length))
   const ordered = [...items].sort((a, b) => kindRank(a.kind) - kindRank(b.kind))
-  // A topic only office notes hold has no project note for the shelf's rename or ungroup to
-  // act on: the server would move nothing and answer so, so the folder offers no actions.
   const projectTopics = new Set(items.filter((item) => item.scope === 'project').map((item) => item.topic))
   const renderItem = (item: MemoryItem): ReactNode => (
     <ProjectMemoryNote
@@ -181,7 +146,6 @@ export function ProjectMemoryTopicGroups({
   }
   const renderTopicActions = (topic: string | null): ReactNode => {
     if (topic === null || !projectTopics.has(topic)) return null
-    // A rename moves only the project's notes: the office's notes in this folder keep the name.
     const holdsOfficeNotes = items.some((item) => item.scope === 'organization' && item.topic === topic)
     return (
       <ProjectTopicActions
@@ -203,7 +167,6 @@ export function ProjectMemoryTopicGroups({
   )
 }
 
-/** The notes by kind, under the kind's heading, as the shelf listed them before topics. */
 function KindGroups({
   items,
   renderItem,
@@ -256,13 +219,6 @@ function ProjectMemoryNote({
   const kindLabels = useMemoryKindLabels()
   const busy = controls.busyId === item.id
   const isEditing = controls.editingId === item.id
-  /**
-   * What the conflict badge says on hover: the note this one contradicts, by
-   * its own words. An agent finding that disagreed with a pinned, confirmed or
-   * user-written note was not allowed to retire it (`conflictsWithId`), so the
-   * two stand side by side — and without this the pair reads as a duplicate
-   * nobody can explain.
-   */
   const conflicting = allItems.find((it) => it.id === item.conflictsWithId)
   const conflictTitle = conflicting
     ? t('memory.conflict.title', { note: conflicting.content })

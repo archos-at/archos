@@ -1,10 +1,5 @@
 'use client'
 
-/**
- * Who an inbox item is from, drawn the same wherever an item is listed: its
- * row in the Postfach and its line in the queue's news.
- */
-
 import type { JSX } from 'react'
 import {
   AlertTriangle,
@@ -31,12 +26,6 @@ import { AgentGlyph } from '@/components/ui/agent-glyph'
 import { PersonAvatar } from '@/components/ui/avatar-stack'
 import { cn } from '@/lib/utils'
 
-/**
- * The ONE place the registry's icon names become components. Keeping the map here
- * (rather than storing components in `lib/inbox/types.ts`) keeps the registry a
- * plain data module that the server half can import without pulling in React.
- * `piloti` is not a Lucide icon but the agent's own glyph, drawn below.
- */
 const ICONS: Record<Exclude<InboxTypePresentation['icon'], 'piloti'>, LucideIcon> =
   {
     'at-sign': AtSign,
@@ -57,12 +46,6 @@ const ICONS: Record<Exclude<InboxTypePresentation['icon'], 'piloti'>, LucideIcon
     'mail-plus': MailPlus,
   }
 
-/**
- * Who an inbox item is from, in one material wherever an item is listed (its
- * row, the queue's news): a person's face, the agent's glyph, or the type's glyph
- * for a system notice, all on the same neutral ground. The registry's icon
- * decides; a row whose type this build does not know reads as a system notice.
- */
 export function InboxItemFace({ item, size = 'md' }: { item: InboxItemView; size?: 'sm' | 'md' }): JSX.Element {
   const presentation = INBOX_TYPE_PRESENTATION[item.type] ?? UNKNOWN_TYPE_PRESENTATION
   if (presentation.icon === 'piloti') return <AgentGlyph size={size === 'md' ? 'lg' : 'md'} tone="outline" />

@@ -1,12 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The page one listing URL carries (ADR-0102, ADR-0131 rule 3): one folder
- * level, or the whole shelf, always bounded.
- * These pin the parsing: defaults, the limit clamp, and the cursor of the
- * wrong kind or order refused rather than silently restarting at page one.
- */
 
 import { describe, expect, it } from 'vitest'
 import { BadRequestError } from '@/lib/api/errors'

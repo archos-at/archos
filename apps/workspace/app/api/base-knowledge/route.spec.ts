@@ -1,11 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * `/api/base-knowledge`: the office's own standards answer only for an office
- * with the `office-standards` entitlement. Off, the list and a proposal are not
- * found, before the service runs.
- */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const session = {
@@ -47,7 +42,6 @@ const propose = () =>
 
 beforeEach(() => {
   vi.clearAllMocks()
-  // Where people sign in, WorkOS states the flag on the session.
   vi.stubEnv('REQUIRE_AUTH', 'true')
   session.featureFlags = ['office-standards']
 })

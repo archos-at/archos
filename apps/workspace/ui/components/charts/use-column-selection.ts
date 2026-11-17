@@ -1,27 +1,5 @@
 'use client'
 
-/**
- * Which column of a bar chart is "the one being read".
- *
- * A column chart with a value per day cannot keep those values behind a hover:
- * a finger has no hover, and a Radix tooltip on a plain `div` never opens on a
- * tap. So the chart keeps ONE selected column and prints its value in a
- * readout line above the plot. The selection moves four ways, all landing on
- * the same state:
- *
- * - tap or click a column,
- * - drag a finger (or pen) across the plot, which scrubs through the days,
- * - hover with a mouse,
- * - focus, so arrow keys, Home and End walk the days with the keyboard.
- *
- * Until the reader picks one, the newest column is selected: "today" is what an
- * office lead opens a spend chart for, and it is the one that used to sit
- * off-screen on a phone.
- *
- * Columns are a roving tab stop (only the selected one is tabbable) so a
- * 30-column plot costs one Tab, not thirty.
- */
-
 import {
   type KeyboardEvent,
   type PointerEvent,
@@ -32,16 +10,13 @@ import {
 } from 'react'
 
 export interface ColumnSelection {
-  /** Index of the selected column, always in range. */
   selected: number
   plotRef: RefObject<HTMLDivElement | null>
-  /** Spread on the element that holds the columns. */
   plotProps: {
     onKeyDown: (event: KeyboardEvent<HTMLDivElement>) => void
     onPointerDown: (event: PointerEvent<HTMLDivElement>) => void
     onPointerMove: (event: PointerEvent<HTMLDivElement>) => void
   }
-  /** Spread on the button that is column `index`. */
   columnProps: (index: number) => {
     type: 'button'
     tabIndex: 0 | -1
@@ -77,8 +52,6 @@ export function useColumnSelection(count: number): ColumnSelection {
     onPointerDown: (event) => {
       if (event.pointerType !== 'mouse') scrub(event)
     },
-    // Only a finger or pen that is down scrubs. A mouse already selects by
-    // hovering a column, and a touch pointer that is not down never moves.
     onPointerMove: (event) => {
       if (event.pointerType !== 'mouse' && event.buttons > 0) scrub(event)
     },

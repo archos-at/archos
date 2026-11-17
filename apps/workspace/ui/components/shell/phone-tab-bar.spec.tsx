@@ -62,7 +62,6 @@ describe('PhoneTabBar — inside a project', () => {
       'page'
     )
     expect(within(bar()).getByRole('button', { name: 'More' })).toBeInTheDocument()
-    // Exactly one chip, on the current tab.
     const pills = bar().querySelectorAll('[data-slot="phone-tab-pill"]')
     expect(pills).toHaveLength(1)
     expect(pills[0]!.closest('a')).toHaveTextContent('Files')

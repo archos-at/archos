@@ -1,9 +1,3 @@
-/**
- * The Project Memory panel marks a restricted note (ADR-0087) with the folder
- * lock, naming the folders it came from. The API sends such a note only to a
- * reader cleared for it, so the panel's job is the mark, not the filter. When a
- * language model helped decide who reads the note, the mark says so (AI Act).
- */
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import userEvent from '@testing-library/user-event'
 import { render, screen } from '@/test-utils'

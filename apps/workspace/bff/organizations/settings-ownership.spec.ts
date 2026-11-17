@@ -19,11 +19,6 @@ vi.mock('@/lib/workos/feature-flags', () => ({
   WEB_SEARCH_FLAG: 'web-search',
 }))
 
-// Stubbed at the guard rather than at WorkOS, because what these tests are about
-// is whether the platform write path CALLS it — whether the guard decides
-// correctly is `authz/platform.spec.ts`. `importOriginal` and a spread, matching
-// the three route specs that already mock this module, which is also what keeps
-// the real `PlatformAccessDeniedError` importable below.
 const requirePlatformPermission = vi.fn()
 vi.mock('@/lib/authz/platform', async (importOriginal) => {
   const original = await importOriginal<typeof import('@/lib/authz/platform')>()
@@ -39,20 +34,6 @@ import { updateOrgSettings, updatePlatformOwnedOrgSettings, writeDedicatedOrgSet
 const OWNER = { userId: 'user-1', email: 'ops@app.example' } as UserSession
 const TENANT_ADMIN = { userId: 'user-2', email: 'admin@tenant.example' } as UserSession
 
-/**
- * Who owns which key in the `organizations.settings` bag.
- *
- * The bag has one write path and no schema, so before this the owner of a key was
- * expressed only by which service function a caller reached for.
- * `setStorageQuota` is platform-only by construction — explicit
- * `organizationId`, a refusal below current usage, `requirePlatformPermission` on the
- * route — and all of it was bypassable through `PUT /api/organization/settings`,
- * which merges arbitrary keys under `org:settings:manage`, a permission tenant
- * admins hold. A tenant could raise its own quota, which makes it not a quota.
- *
- * The guard lives in the merge every writer passes through, so a new tenant-facing
- * endpoint inherits it rather than having to remember it.
- */
 describe('platform-owned settings keys', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -70,8 +51,6 @@ describe('platform-owned settings keys', () => {
     await expect(
       updateOrgSettings('org-1', { settings: { [key]: 999_999_999_999 } })
     ).rejects.toBeInstanceOf(ForbiddenError)
-    // Nothing written at all — not the offending key, and not the rest of a patch
-    // that happened to carry it.
     expect(upsertOrganization).not.toHaveBeenCalled()
   })
 
@@ -93,8 +72,6 @@ describe('platform-owned settings keys', () => {
     )
   })
 
-  // Tenant-owned, but written only by its dedicated route: the generic merge
-  // used to let `org:settings:manage` switch zero data retention off.
   it('refuses a key a dedicated route owns (zdrOnly), whatever its value', async () => {
     for (const zdrOnly of [false, true, 'no']) {
       await expect(updateOrgSettings('org-1', { settings: { zdrOnly } })).rejects.toThrow(
@@ -104,8 +81,6 @@ describe('platform-owned settings keys', () => {
     expect(upsertOrganization).not.toHaveBeenCalled()
   })
 
-  // ADR-0086: a malformed policy saved through the generic merge would read as
-  // the suggested one, but an `enabled: false` with no audit trail would not.
   it('refuses the upload-screening policy from the generic merge', async () => {
     await expect(
       updateOrgSettings('org-1', { settings: { uploadScreening: { enabled: false } } })
@@ -128,9 +103,6 @@ describe('platform-owned settings keys', () => {
     expect(upsertOrganization).toHaveBeenCalled()
   })
 
-  // The escape is a distinctly-named function rather than a boolean argument,
-  // so `grep` finds every platform write and nothing reaches the bypass by
-  // passing `true`.
   it('lets the platform path write the same key', async () => {
     await updatePlatformOwnedOrgSettings(OWNER, 'org-1', {
       settings: { storageQuotaBytes: 42 },
@@ -140,16 +112,6 @@ describe('platform-owned settings keys', () => {
     )
   })
 
-  /**
-   * The escape enforces what its name claims.
-   *
-   * It used to take no session and rely on its one caller being routed through
-   * `platformApiRoute`. That made the guard a property of the call graph rather
-   * than of the function — and the hole it would reopen is precisely the one
-   * `updateOrgSettings` was changed to close, so "there is only one caller today"
-   * is not a defence. This test is what makes the second caller impossible to get
-   * wrong.
-   */
   it('refuses a caller who is not the platform owner', async () => {
     requirePlatformPermission.mockRejectedValue(new PlatformAccessDeniedError())
     await expect(

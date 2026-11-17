@@ -1,11 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * A shelf as a live channel (`shelf:project-<id>`, `shelf:office_shelf`): who may be
- * in it (whoever may read the shelf), which tenant's topic it listens to, and
- * that a change published by a writer reaches a listener of that topic.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -77,7 +72,6 @@ describe('publishShelfChanged', () => {
 
     publishShelfChanged('org_1', shelf, { folders: true })
     publishShelfChanged('org_1', shelf)
-    // Another tenant's change to a shelf with the same name is not heard.
     publishShelfChanged('org_2', shelf)
     release()
 

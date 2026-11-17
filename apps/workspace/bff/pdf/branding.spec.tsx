@@ -1,31 +1,12 @@
 /**
  * @vitest-environment node
  */
-/**
- * The cover says the report's title, in the report's characters.
- *
- * The WinAnsi wiring was checked on the body and not on the frame. An
- * independent pass pointed `branding.tsx` back at the library's raw `Text` and
- * every PDF spec stayed green — because nothing asserted a single string on the
- * cover, the running header or the footer.
- *
- * That frame is not decoration. The cover title is the report's own lifted
- * heading, i.e. model-written German about an Austrian building regulation, and
- * `RunningHeader` reprints it on every page. A comparator or an `Ø` in it is
- * exactly the silent corruption the transliteration exists to stop, multiplied
- * by the page count.
- *
- * Asserted on the element tree, not the bytes: a PDF's content streams are
- * deflate-compressed, so grepping the buffer proves nothing about the text.
- */
 
 import React from 'react'
 import { describe, expect, it } from 'vitest'
 import { CoverContent, RunningHeader } from './branding'
 
-/** Every string in a rendered tree, in document order. */
 const strings = (node: React.ReactNode | Promise<React.ReactNode>, out: string[] = []): string[] => {
-  // React 19's FC may return a promise; these components are synchronous.
   if (node instanceof Promise) throw new Error('expected a synchronously rendered tree')
   React.Children.forEach(node, (child) => {
     if (typeof child === 'string') out.push(child)
@@ -47,7 +28,6 @@ describe('the frame is transliterated like the body', () => {
     ).join(' ')
     expect(rendered).toContain('<= 40 m')
     expect(rendered).not.toContain('≤')
-    // The specific corruption: WinAnsi prints U+2264 as the letter `d`.
     expect(rendered).not.toContain('d 40 m')
   })
 

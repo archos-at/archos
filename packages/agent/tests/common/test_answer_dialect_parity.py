@@ -1,12 +1,3 @@
-"""Parity guard: the server's dialect vocabulary is the renderer's.
-
-``common/answer_dialect.py`` validates the answer against the block names,
-markers and ``:project[…]`` keys that ``apps/workspace/bff/text/answer-directives.ts``
-draws. There is no shared schema between the two files: a block the server
-knows and the renderer does not shows as its literal ``:::`` lines, and one the
-renderer knows and the server does not is unwrapped before anyone sees it.
-"""
-
 from __future__ import annotations
 
 import re
@@ -22,7 +13,6 @@ TS_DIALECT = REPO_ROOT / "apps" / "workspace" / "bff" / "text" / "answer-directi
 
 
 def _declaration(name: str) -> str:
-    """The literal after ``export const <name> =``: the bracketed or braced body."""
     source = TS_DIALECT.read_text(encoding="utf-8")
     match = re.search(rf"export const {name}\b[^=]*=\s*([\[{{])", source)
     assert match, f"{name} not found in {TS_DIALECT}"
@@ -65,7 +55,6 @@ def test_the_project_keys_are_the_same():
     keys = list(_object(body)) if body.startswith("{") else _strings(body)
     assert keys == list(PROJECT_KEYS)
     if body.startswith("{"):
-        # Where the frontend states the profile fact a key reads, it is the server's.
         assert _object(body) == PROJECT_KEYS
 
 
@@ -78,10 +67,6 @@ TS_AGENT_TEXT = REPO_ROOT / "apps" / "workspace" / "bff" / "agent-asks" / "answe
 
 
 def test_the_agent_text_rewrites_the_verifiers_labels_as_written():
-    """`answerTextForAgent` replaces the verifier's labels for an outside agent by their exact text.
-
-    A label reworded here and not there would reach the agent raw and German again.
-    """
     from agent.citations.entries import DROPPED_CITATION_MARKER
     from agent.citations.entries import UNVERIFIED_QUOTE_MARKER
 

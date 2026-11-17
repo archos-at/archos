@@ -23,7 +23,6 @@ import { knowledgeContextSchema, MAX_CONTEXT_USES } from './wire'
 const STANDARDS = 400
 const LISTED_ELSEWHERE = 325
 const LANDS = Array.from({ length: 9 }, (_, index) => `XS-${index + 1}`)
-/** A record key of a Land's own instrument: keys are lower case. */
 const keyOf = (land: string) => land.toLowerCase()
 
 const relation = (key: string, from: string, to: string) => ({
@@ -76,7 +75,6 @@ const contextAt = (territoryId: string) =>
     packSeqs: { XS: 1 },
   })
 
-/** The warm budget of the knowledge phase (design §5.5: p95 ≤ 40 ms): a site this large may take all of it, not more. */
 const RESOLVER_BEST_MS = 40
 
 describe('a country with hundreds of listed standards', () => {
@@ -127,8 +125,6 @@ describe('a country with hundreds of listed standards', () => {
   })
 
   it('cuts the wire on the final roles: a use demoted for its connecting factor never pushes out one that binds', () => {
-    // MAX_CONTEXT_USES standards the VV TB lists that attach by the client only (contextUse informs, E40), and one
-    // that attaches by the site, listed last: the resolver orders all of them binding, the context does not.
     const many = MAX_CONTEXT_USES
     const set: unknown[] = [
       { type: 'territory', id: 'XS', kind: 'country', name: 'Synthetic', coverageLevel: 'core' },

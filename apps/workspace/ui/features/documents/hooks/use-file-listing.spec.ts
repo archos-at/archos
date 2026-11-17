@@ -1,12 +1,3 @@
-/**
- * How one shelf's listing reaches the screen.
- *
- * A big corpus is twenty sequential pages. These pin what the reader sees
- * while they arrive: the first page at once, the rest appended behind it, the
- * server's seeded page never read twice, and a reload of the listing already
- * on screen swapped in whole, without a skeleton.
- */
-
 import { describe, expect, it } from 'vitest'
 import { act, renderHook, waitFor } from '@/test-utils'
 import { http, HttpResponse } from 'msw'
@@ -37,7 +28,6 @@ const row = (id: string): DocumentWireRow => ({
   tags: null,
 })
 
-/** A response held until the test lets it go. */
 function gate() {
   let release: () => void = () => undefined
   const opened = new Promise<void>((resolve) => {
@@ -62,7 +52,6 @@ describe('useFileListing', () => {
       useFileListing({ ...OPTIONS, initialFiles: [row('a')], initialNextCursor: 'page-2' })
     )
 
-    // The seed is on screen at once, and nothing pretends it is the whole shelf.
     expect(ids(result.current.files)).toEqual(['a'])
     expect(result.current.isLoading).toBe(false)
     expect(result.current.complete).toBe(false)
@@ -123,7 +112,6 @@ describe('useFileListing', () => {
     )
     const { result } = renderHook(() => useFileListing({ ...OPTIONS, initialFiles: [row('a'), row('b')] }))
 
-    // Not quiet, and still no skeleton: this is the listing already on screen.
     let reload: Promise<void> = Promise.resolve()
     act(() => {
       reload = result.current.load()
@@ -172,7 +160,6 @@ describe('useFileListing', () => {
     )
     const { result } = renderHook(() => useFileListing({ ...OPTIONS, initialFiles: [row('a')] }))
 
-    // An upload landing asks twice (bytes arrived, reading done); a batch asks per file.
     act(() => {
       result.current.reloadQuietly()
       result.current.reloadQuietly()

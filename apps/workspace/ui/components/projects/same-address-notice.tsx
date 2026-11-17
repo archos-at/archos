@@ -1,13 +1,5 @@
 'use client'
 
-/**
- * „An dieser Adresse gibt es schon ein Projekt": under the chosen address, the
- * projects the person may open that sit there, as links. An earlier project on
- * the plot is often the best source for the new one, and a duplicate is cheaper
- * to avoid than to merge. Silent when there is none or the lookup fails: it
- * advises, it never blocks.
- */
-
 import type { JSX } from 'react'
 import { useEffect, useState } from 'react'
 import { ExternalLink, Info } from 'lucide-react'

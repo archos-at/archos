@@ -1,8 +1,6 @@
 import type { OnRequestErrorBeforeCaptureContext, OnRequestErrorOptions } from '@posthog/next'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
-// The capture itself is `@posthog/next`'s; what is ours is the options it is
-// built with, so the spec records them instead of running the package.
 const createOnRequestError = vi.fn((_options: OnRequestErrorOptions) => async () => {})
 vi.mock('@posthog/next', () => ({
   createOnRequestError: (options: OnRequestErrorOptions) => createOnRequestError(options),
@@ -89,8 +87,6 @@ describe('request errors through @posthog/next', () => {
   })
 
   test('another API error, and a plain Error that only reads like a denial, still are', () => {
-    // Typed, not matched by message: a server error says "forbidden" in its
-    // text as easily as a denial does.
     expect(beforeCapture(capture(new ConflictError('Conflict')))).not.toBe(false)
     expect(beforeCapture(capture(new Error('Forbidden'), '/elsewhere'))).not.toBe(false)
   })
@@ -107,7 +103,6 @@ describe('request errors through @posthog/next', () => {
   })
 
   test('a multipart body the client truncated or aborted is not an exception', () => {
-    // undici's message, verbatim, from a body that ends mid-part.
     const truncated = new TypeError('Failed to parse body as FormData.')
 
     expect(beforeCapture(capture(truncated, '/app/projects'))).toBe(false)
@@ -123,7 +118,6 @@ describe('request errors through @posthog/next', () => {
   })
 
   test('a post naming a server action this build lacks is not an exception', () => {
-    // Next's own message (action-handler, E975), verbatim.
     const unknownAction = new Error(
       'Failed to find Server Action. This request might be from an older or newer deployment.\n' +
         'Read more: https://nextjs.org/docs/messages/failed-to-find-server-action'

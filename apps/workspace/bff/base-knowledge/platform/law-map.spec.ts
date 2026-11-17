@@ -4,7 +4,6 @@ import type { CaptureView, RevisionView } from './wire'
 
 type Decision = 'accepted' | 'rejected' | null
 
-/** A revision as the review reads it: each stated field a claim. */
 function revision(type: RevisionView['type'], recordId: string, body: Record<string, unknown>, options: { url?: string; captureId?: string; decision?: Decision } = {}): RevisionView {
   return {
     revisionId: `rev-${recordId}`,
@@ -37,7 +36,6 @@ const capture = (captureId: string, url: string): CaptureView => ({
 const binding = (key: string, act: string, edition: string, validFrom: string, validTo: string | null, options: { url?: string; captureId?: string; decision?: Decision } = {}) =>
   revision('relation', `relation:${key}`, { relationType: 'makes_binding', mode: 'declared', fromId: act, fromType: 'work', toId: edition, toType: 'edition', provision: `${act} § 1`, validFrom, ...(validTo ? { validTo } : {}) }, options)
 
-/** The synthetic country: XA with two regions, a model code in two editions, each region's act adopting it. */
 const REVISIONS: RevisionView[] = [
   revision('territory', 'XA', { kind: 'country', name: 'Xanadu', parents: [{ id: 'XU', validFrom: '1995-01-01' }] }),
   revision('territory', 'XA-1', { kind: 'state', name: 'Nordland', parents: [{ id: 'XA' }] }),
@@ -51,11 +49,9 @@ const REVISIONS: RevisionView[] = [
   revision('edition', 'edition:mc-2-2023', { workId: 'work:mc-2', label: 'Edition 2023', issuedOn: '2023-05-25' }),
   revision('edition', 'edition:mc-10-2019', { workId: 'work:mc-10', label: 'Edition 2019', issuedOn: '2019-04-12' }),
   revision('manifestation', 'manifestation:mc-2-2023-text', { editionId: 'edition:mc-2-2023', form: 'text', language: 'en', corpusFile: 'mc-2-2023.pdf' }, { url: 'https://publisher.xa.example/mc-2-2023.pdf' }),
-  // Nordland: one act adopts both codes in 2020; an amendment moves MC 2 to 2023 in 2024. It cites the gazette.
   binding('n-2-19', 'work:to-n', 'edition:mc-2-2019', '2020-01-01', '2024-03-01', { captureId: 'c-gazette', decision: 'accepted' }),
   binding('n-10-19', 'work:to-n', 'edition:mc-10-2019', '2020-01-01', null, { captureId: 'c-gazette', decision: 'accepted' }),
   binding('n-2-23', 'work:to-n', 'edition:mc-2-2023', '2024-03-01', null, { url: 'https://data.gazette.xa.example/lgbl/2024/9' }),
-  // Südland cites only the publisher's overview of adoption dates, and one claim was rejected.
   binding('s-2-19', 'work:to-s', 'edition:mc-2-2019', '2021-06-01', null, { url: 'https://publisher.xa.example/adoption-dates', decision: 'rejected' }),
   revision('relation', 'relation:n-dev', { relationType: 'deviates_from', fromId: 'work:to-n', fromType: 'work', toId: 'edition:mc-2-2023', toType: 'edition', anchors: [{ to: 'pkt_2.2' }], provision: 'TO-N § 4', validFrom: '2024-03-01' }),
 ]
@@ -110,7 +106,6 @@ describe('lawMapOf', () => {
 
   it('says a region’s editions once, with the exceptions, and what comes next', () => {
     const now = summaryOn(map, 'XA-1', '2025-01-01')
-    // A tie goes to the first topic's edition; the other is the exception.
     expect(now.main?.label).toBe('Edition 2023')
     expect(now.exceptions.map(({ topic, edition }) => [topic.designation, edition.label])).toEqual([['MC 10', 'Edition 2019']])
     expect(nextChange(map, 'XA-1', '2023-01-01')?.validFrom).toBe('2024-03-01')
@@ -176,7 +171,6 @@ describe('lawMapOf', () => {
   })
 
   it('reads a region\'s legal database from the pages its acts cite when they carry no address of their own', () => {
-    // As on dev: an act names only its designation, and its record cites the legal database it was read from.
     const bare = REVISIONS.map((one) =>
       one.recordId === 'work:ba-n'
         ? revision('work', 'work:ba-n', { kind: 'statute', title: 'Building Act Nordland', identifiers: { designation: 'BA-N' }, territoryIds: ['XA-1'] }, { url: 'https://gazette.xa.example/eli/n/1/' })

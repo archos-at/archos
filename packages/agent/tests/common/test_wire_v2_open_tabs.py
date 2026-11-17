@@ -1,13 +1,3 @@
-"""A tab opened before the answer check still reads the turn it finishes (docs/design/chat-wire-v2.md, „Compatibility").
-
-A tab outlives a deploy. Its bundle reads what the server sends leniently: an
-unknown key is stripped, but a known field with a value its schema does not
-allow drops the whole frame, and a dropped ``RUN_FINISHED`` asks the tab to
-reload. ``v2.schema.before-answer-check.json`` is the generated schema's
-``RunFinished`` and what it references, as they stood before ADR-0139; refresh
-it only when a release has staged a break on purpose.
-"""
-
 from __future__ import annotations
 
 import json
@@ -22,7 +12,6 @@ FIXTURES = Path(__file__).parents[4] / "tests" / "fixtures" / "wire_v2"
 
 
 def _lenient(node: Any) -> Any:
-    """The schema as the client reads it: unknown keys stripped rather than refused."""
     if isinstance(node, dict):
         return {key: _lenient(value) for key, value in node.items() if key != "additionalProperties"}
     if isinstance(node, list):
@@ -36,13 +25,11 @@ def _old_tab_reads(frame: dict[str, Any]) -> bool:
 
 
 def _checked_finish(version: int, check: dict[str, Any]) -> dict[str, Any]:
-    """The golden turn's RUN_FINISHED as a checked answer writes it."""
     lines = (FIXTURES / "golden_turn.jsonl").read_text().splitlines()
     frame = next(json.loads(line) for line in lines if '"RUN_FINISHED"' in line)
     result = frame["result"]
     result["confidence_check"] = check
     result["answer_confidence_version"] = version
-    # The golden file leaves the clock out so it stays byte-stable; a live frame carries it.
     return {**frame, "ts": 1_793_100_000_000}
 
 
@@ -62,18 +49,13 @@ def test_an_unavailable_check_reads_too():
 
 
 def test_the_check_sees_the_break_a_new_version_number_would_be():
-    """What review caught: ``answer_confidence_version: 3`` fails the old ``1 | 2``."""
     assert not _old_tab_reads(_checked_finish(3, {"status": "judged", "level": "high"}))
 
 
-# A new value of a known field is the break stripping does not cover. A field marked ``x-unknown-as-null``
-# (``wire_v2.py``) is generated with ``.catch(null)`` (``generate-wire-schemas.mjs``): a bundle built from
-# today's schema reads a value added later as absent, and the turn settles.
 SCHEMA = Path(__file__).parents[4] / "contracts" / "wire" / "v2.schema.json"
 
 
 def _as_bundle_reads(node: Any) -> Any:
-    """The schema as the generated client reads it: unknown keys stripped, a marked field taking any value."""
     if isinstance(node, dict):
         if node.get("x-unknown-as-null") is True:
             return {}
@@ -106,12 +88,9 @@ def test_the_capped_reason_is_marked_lenient_on_the_wire():
 
 
 def test_a_tab_built_before_the_marker_still_refuses_a_new_reason():
-    """The one-time cost, staged knowingly: a bundle from before ``x-unknown-as-null`` cannot read ``open_point``
-    (nor ``law_unsettled``, #1582) and asks the tab to reload. From this release on, a new reason reads as null."""
     assert not _old_tab_reads(_capped("open_point"))
 
 
-# ``confidence_check.unavailable_reason`` (why the check gave no level) is a new key inside a known object.
 REASON = {"cause": "unparseable", "finish_reason": "length", "truncated": True, "elapsed_ms": 9100}
 
 
@@ -122,7 +101,6 @@ def _unavailable(reason: dict[str, Any]) -> dict[str, Any]:
 
 
 def _bundle_before_the_reason_reads(frame: dict[str, Any]) -> bool:
-    """A bundle that knows ``confidence_check`` but not ``unavailable_reason``: today's schema without the field."""
     defs = json.loads(SCHEMA.read_text())["$defs"]
     defs["ConfidenceCheck"]["properties"].pop("unavailable_reason")
     defs.pop("ConfidenceUnavailable")

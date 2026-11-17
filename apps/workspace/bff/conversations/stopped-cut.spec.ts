@@ -1,11 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The BFF's cut of a stored answer to what its asker had on screen. It may
- * only ever shorten the row it holds; the rule itself is held to the agent
- * tier's by `stopped-answer.spec.ts`.
- */
 import { describe, expect, it } from 'vitest'
 import type { Message } from '@/lib/db/schema/messages'
 import { ConflictError } from '@/lib/api/errors'
@@ -53,7 +48,6 @@ describe('cutStoppedRow', () => {
   })
 
   it('refuses a cut that would keep no text and no card, and leaves the row whole', () => {
-    // Otherwise the asker could blank any answer of theirs of the last minutes.
     expect(() => cutStoppedRow(row(), 'Ganz anders', NOW)).toThrow(ConflictError)
     expect(() => cutStoppedRow(row(), '', NOW)).toThrow(ConflictError)
   })
@@ -70,8 +64,6 @@ describe('cutStoppedRow', () => {
     const once = cutStoppedRow(row(), shown, NOW)
     if (!once) throw new Error('the first cut wrote nothing')
     expect(cutStoppedRow(row({ ...once }), shown, NOW)).toBeNull()
-    // The agent tier's cut of the streamed text drops a pending `[N]` the
-    // screen still showed: a second cut must not part the two at it.
     const agentCut = row({ content: 'Die Höhe beträgt 3 m.', metadata: { stopped: true } })
     expect(cutStoppedRow(agentCut, 'Die Höhe beträgt 3 m [1].', NOW)).toBeNull()
     const browserCut = row({ content: 'Die Höhe', metadata: { provenance: { stopped: true } } })
@@ -79,8 +71,6 @@ describe('cutStoppedRow', () => {
   })
 
   it('still cuts a whole answer the provenance mirror marked stopped before the cut ran', () => {
-    // The asker's provenance PATCH (or any collaborator's) can mark the
-    // server's whole row stopped first. The mark is not the cut.
     const marked = row({ metadata: { ...(row().metadata as Record<string, unknown>), provenance: { answerConfidence: 'high', stopped: true } } })
     expect(cutStoppedRow(marked, 'Die Höhe beträgt 3 m [1].', NOW)?.content).toBe('Die Höhe beträgt 3 m [1].')
     expect(cutStoppedRow(row({ metadata: { stopped: true } }), 'Die', NOW)?.content).toBe('Die')
@@ -100,8 +90,6 @@ describe('cutStoppedRow', () => {
 
 describe('answerMessageId', () => {
   it('is the id the agent tier derives (`answer_message_id`, uuid5 in the URL namespace)', () => {
-    // python -c "import uuid; print(uuid.uuid5(uuid.NAMESPACE_URL,
-    //   'grid:assistant:conv_1:4f1a2b3c-1111-4222-8333-444455556666'))"
     expect(answerMessageId('conv_1', '4f1a2b3c-1111-4222-8333-444455556666')).toBe('50c65a0f-a2db-536f-8849-e4263e465bc6')
   })
 })

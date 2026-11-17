@@ -1,10 +1,3 @@
-"""A public PDF as a source and as a capture: its pages' text, a guarded parse, a ``pdf_document`` source.
-
-The statute fixture is § 7 UrhG (``public_sources_testing.pdf_fixture``); its
-extracted text is committed beside it because the workspace's door spec serves
-the same text as the api tier would, so a drift between the two fails here.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -57,7 +50,6 @@ def _sources(monkeypatch):
 
 
 def _pdf_source(body: bytes = b"", **expect) -> dict:
-    """The synthetic gazette, publishing its code as a PDF, the PDF recorded inline as base64."""
     content = body or statute_pdf()
     return synthetic_source(
         format="pdf_document",
@@ -92,7 +84,6 @@ def _site(pages: dict[str, tuple[str, bytes]]) -> httpx.MockTransport:
 
 
 def test_the_committed_text_is_what_the_reader_reads_from_the_real_pdf():
-    """The door spec serves this text as the api tier's; it must be what this package extracts."""
     read = read_pdf(REAL_PDF.read_bytes())
 
     assert read.text == real_text()
@@ -124,7 +115,6 @@ def test_a_pdf_over_the_page_cap_is_refused():
 
 
 def test_the_text_is_ingestions_text_pass():
-    """One PDF pipeline: what a capture keeps is what ingestion indexes, page for page."""
     from knowledge_layer.ingest import pdf_page_texts
 
     indexed = [entry["text"] for entry in pdf_page_texts(statute_pdf())]
@@ -198,19 +188,16 @@ CAPTURE_ID = "7d3c1f0a-4b7e-4c58-9a51-0c2f6a1b9e11"
 
 
 def _captured_source(response: dict, **expect) -> dict:
-    """The gazette's PDF source, its fixture's response a capture the platform took instead of pasted bytes."""
     record = _pdf_source(**expect)
     record["fixtures"][0]["responses"] = {PDF_URL: response}
     return record
 
 
 def _recording() -> dict:
-    """What the BFF hands over for a check: the capture's id, content type and the text the reader read."""
     return {"capture_id": CAPTURE_ID, "content_type": "application/pdf", "text": read_pdf(statute_pdf()).text}
 
 
 async def test_a_pdf_document_fixture_is_read_from_the_capture_the_platform_took(monkeypatch):
-    """No PDF bytes in the record: the request is proven, and the engine reads the capture's pages."""
     monkeypatch.setattr(pdf_module, "read_pdf", lambda *_a, **_k: pytest.fail("a capture is read, not parsed again"))
 
     [result] = await run_source(parse_inline_source(_captured_source(_recording())))
@@ -220,7 +207,6 @@ async def test_a_pdf_document_fixture_is_read_from_the_capture_the_platform_took
 
 
 async def test_a_capture_fixture_fails_when_the_capture_does_not_hold_what_the_record_expects():
-    """The control of the test above: the capture's text decides, so other text fails the same fixture."""
     other = {**_recording(), "text": "Another document" + PAGE_BREAK + "with two pages"}
 
     [result] = await run_source(parse_inline_source(_captured_source(other)))
@@ -241,7 +227,6 @@ async def test_a_capture_fixture_on_another_url_than_the_one_requested_fails():
 
 @pytest.mark.parametrize("response", [{"capture_id": None}, {"capture_id": CAPTURE_ID}])
 async def test_a_fixture_whose_capture_was_not_handed_over_awaits_it_and_is_not_run(response):
-    """Not taken yet, or kept by id in the record: neither is a pass, and neither is a failure of the record."""
     [result] = await run_source(parse_inline_source(_captured_source(response)))
 
     assert not result.ok
@@ -250,7 +235,6 @@ async def test_a_fixture_whose_capture_was_not_handed_over_awaits_it_and_is_not_
 
 @pytest.mark.parametrize("content_type", ["text/html; charset=utf-8", ""])
 async def test_a_capture_that_is_not_a_pdf_is_no_pdf_fixture(content_type):
-    """An HTML page has text too; only a capture of the PDF itself proves a pdf_document source."""
     recording = {**_recording(), "content_type": content_type}
 
     [result] = await run_source(parse_inline_source(_captured_source(recording)))
@@ -260,7 +244,6 @@ async def test_a_capture_that_is_not_a_pdf_is_no_pdf_fixture(content_type):
 
 
 def test_a_cut_capture_names_itself_in_the_note_the_bff_refuses_by():
-    """The BFF refuses a capture whose note says it was read only in part (source-checks.ts, CUT_NOTE)."""
     assert "read only in part" in PdfText(pages=("a",), page_count=2).note
 
 
@@ -274,7 +257,6 @@ async def test_a_capture_over_the_records_page_cap_fails_by_its_code():
 
 
 async def test_a_format_that_reads_markup_cannot_take_a_capture_as_its_fixture():
-    """A capture keeps a page's text, not its body: an HTML statute's fixture stays inline."""
     record = synthetic_source()
     url = next(iter(record["fixtures"][0]["responses"]))
     record["fixtures"][0]["responses"] = {url: {"capture_id": CAPTURE_ID, "content_type": "text/html", "text": "x"}}
@@ -360,7 +342,6 @@ async def test_a_pdf_url_redirecting_off_the_hosts_is_refused_at_the_hop():
 
 
 async def test_a_pdf_url_redirecting_to_a_listed_host_with_a_private_address_is_refused_before_dialling():
-    # The host list cannot catch this: the second host is the source's own, and its DNS answers the metadata address.
     record = _pdf_source()
     record["hosts"] = ["gazette.xa.example", "files.xa.example"]
     source = parse_inline_source(record)
@@ -385,8 +366,6 @@ def test_a_text_past_the_cap_is_kept_to_whole_pages_and_says_up_to_which():
 
 
 def test_a_read_past_its_memory_ceiling_is_refused_by_its_code():
-    # 8 MiB is far below what the interpreter maps to import the reader on any machine (64 MiB fitted on CI's
-    # runner): the ceiling, not the PDF, decides. Without the ceiling the read succeeds and this test fails.
     with pytest.raises(PdfError) as refused:
         parse_pdf(statute_pdf(), memory_limit=8 * 1024**2)
     assert refused.value.code == "pdf_reader_failed"
@@ -505,7 +484,6 @@ async def test_a_monitor_probe_reads_a_pdf_once(monkeypatch):
 
 
 def test_the_bff_waits_longer_than_a_probe_s_fetches_and_parse_take_together():
-    """Else a parse past its deadline reaches the door as "did not answer" instead of pdf_parse_timeout."""
     import re
     from pathlib import Path
 
@@ -515,5 +493,4 @@ def test_the_bff_waits_longer_than_a_probe_s_fetches_and_parse_take_together():
     root = Path(__file__).resolve().parents[3]
     source = (root / "apps/workspace/bff/base-knowledge/platform/capture-fetch.ts").read_text(encoding="utf-8")
     budget_ms = int(re.search(r"export const CAPTURE_TIMEOUT_MS = ([\d_]+)", source).group(1).replace("_", ""))
-    # A probe fetches the page and its terms, then parses once.
     assert budget_ms >= (2 * FETCH_TIMEOUT_SECONDS + PARSE_TIMEOUT_SECONDS) * 1000 + 10_000

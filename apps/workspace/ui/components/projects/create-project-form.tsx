@@ -1,30 +1,5 @@
 'use client'
 
-/**
- * Creating a project: a name, an address, a line about it, and whether it is
- * running or already over. Nothing about how it is set up.
- *
- * Every project lands on its setup (ADR-0111): the documents, the questions
- * they leave open, the profile to confirm. Answering the questions without any
- * documents is how a project is filled in by hand, so the dialog no longer asks
- * „Piloti richtet ein" or „Selbst ausfüllen" (pilot onboardings, 2026-10: a
- * choice the person could not judge yet, and the wrong one led to a different
- * tool). The address seeds the profile, „Worum geht es?" tells the reading what
- * the project is, and a project folder dropped on the dialog names the project
- * and is filed once it exists.
- *
- * Laid out as the approved mockup (2026-10): name, address, the state as a
- * segmented control, a zone for the project folder (dropped anywhere on the
- * dialog, or chosen), and „Worum geht es?" folded behind a line.
- *
- * A closed project is how an office brings a past project in as a reference
- * (ADR-0098): it is created closed, with the facts a close would have asked
- * for (how it ended, Beginn, Abschluss), rather than created running and then
- * walked through the three-step close dialog. Those facts reuse the close
- * dialog's rules and wording: the outcome is chosen, never preselected, and the
- * Abschluss is bounded by `closingBounds`.
- */
-
 import type { JSX } from 'react'
 import { useEffect, useRef, useState } from 'react'
 import { useStore } from '@tanstack/react-form'
@@ -69,15 +44,11 @@ import { isRedirectSignal } from '@/lib/utils/redirect-signal'
 type AbschlussProblem = ReturnType<typeof closingProblem>
 
 export interface CreateProjectFormProps {
-  /** Leaves without creating anything; the dialog closes itself. */
   onCancel?: () => void
-  /** The address lookups; the real ones unless the `/dev` preview brings fixtures. */
   addressClients?: Pick<AddressFieldProps, 'client' | 'sameAddressClient'>
-  /** What the fields start with; the `/dev` preview shows the dialog filled in. */
   initial?: { name?: string; address?: string; description?: string }
 }
 
-/** What the server action may name as the reason a closed project was refused. */
 const SERVER_REASONS: Readonly<Record<string, Exclude<AbschlussProblem, null>>> = {
   'abschluss-in-future': 'future',
   'abschluss-before-beginn': 'beforeStart',
@@ -85,13 +56,11 @@ const SERVER_REASONS: Readonly<Record<string, Exclude<AbschlussProblem, null>>> 
 
 const startedOnOf = (value: string): Month | null => (isMonth(value) ? value : null)
 
-/** What was dropped on the dialog: the folder's name, and how many files wait for the project. */
 interface DroppedFolder {
   name: string | null
   count: number
 }
 
-/** The name a dropped folder (or a lone ZIP) gives a project: its top folder, else the archive's name. */
 export function folderNameOf(files: readonly File[]): string | null {
   const pathOf = (file: File): string => file.webkitRelativePath ?? ''
   const nested = files.find((file) => pathOf(file).includes('/'))
@@ -113,28 +82,15 @@ export function CreateProjectForm({
   const [serverAbschluss, setServerAbschluss] = useState<AbschlussProblem>(null)
   const [dropped, setDropped] = useState<DroppedFolder | null>(null)
   const [describing, setDescribing] = useState(Boolean(initial?.description))
-  // The key this dialog holds a drop under, and the one the created project's
-  // setup page is sent to take it by: no other project can.
   const [dropKey] = useState(newProjectDropKey)
-  // Whether files wait under it; a ref, because the form's submit handler is
-  // made once and would read the first render's state.
   const holding = useRef(false)
-  // A drop is held for the setup page only while the dialog may still create the
-  // project; closing it any other way discards the files.
   const created = useRef(false)
-  // Focusing the name opens the soft keyboard the moment the dialog appears, on
-  // top of the fields and the action. Only a fine pointer is taken to be at a
-  // keyboard already (and to drag folders); where the media query cannot be
-  // asked (an old engine, a test renderer) the desktop behaviour stays.
   const [finePointer] = useState(() =>
     typeof window === 'undefined' || typeof window.matchMedia !== 'function'
       ? true
       : window.matchMedia('(pointer: fine)').matches
   )
 
-  // On the name field, not the form: a form-level validator re-runs when the
-  // Stand changes, and the blur of choosing a card would flag an untouched,
-  // empty name as an error. The submit button stays disabled until it is set.
   const nameSchema = z
     .string()
     .trim()
@@ -160,17 +116,10 @@ export function CreateProjectForm({
       try {
         result = await createProject({}, toFormData(value, holding.current ? dropKey : null, 'piloti'))
       } catch (error) {
-        // A created project answers with `redirect()`: Next has navigated to
-        // it already and rejects the call with the redirect. That rejection is
-        // the success, so it is recorded here and not rethrown; the held drop
-        // goes on to the setup page the redirect named.
         if (isRedirectSignal(error)) {
           capturePosthog('project_created', { state: value.state, setup: 'piloti' })
           return
         }
-        // Thrown for real (the network, the action itself): nothing was
-        // created, so a held drop is let go of when the dialog closes, as for
-        // any dialog that created nothing, and the person may try again.
         created.current = false
         console.error('[CreateProjectForm] create threw:', error)
         setServerError(t('form.createError'))
@@ -187,8 +136,6 @@ export function CreateProjectForm({
         return
       }
       console.error('[CreateProjectForm] create failed:', result.error)
-      // The server action can surface vendor/database exception text. Never
-      // show that to an architect: log it, show a calm message.
       setServerError(t('form.createError'))
     },
   })
@@ -199,7 +146,6 @@ export function CreateProjectForm({
     },
     [dropKey]
   )
-  /** Let go of a held drop, and of the note that names it. */
   function forgetDrop(): void {
     discardDroppedFiles(dropKey)
     holding.current = false
@@ -214,9 +160,6 @@ export function CreateProjectForm({
   const nameValid = values.name.trim().length > 0 && values.name.trim().length <= 255
   const ready = nameValid && (!closed || (values.outcome !== '' && abschlussError === null))
 
-  // A project folder dropped on the dialog names the project (when it has no
-  // name yet) and waits, with its files, for the project to exist. Dropping it
-  // is asking for Piloti to read it.
   const takeDrop = (files: File[]): void => {
     if (files.length === 0) return
     const folder = folderNameOf(files)
@@ -381,8 +324,6 @@ export function CreateProjectForm({
                   placeholder={t('form.description.placeholder')}
                   maxLength={MAX_INTAKE_DESCRIPTION_LENGTH}
                   rows={3}
-                  // Opened by the line, the field takes the cursor; filled in
-                  // from the start, nothing jumps to it.
                   autoFocus={!initial?.description}
                   disabled={isSubmitting}
                 />
@@ -423,7 +364,6 @@ export function CreateProjectForm({
   )
 }
 
-/** Two or three choices side by side, one always set: the state, the outcome. */
 function Segmented({
   value,
   onChange,
@@ -445,7 +385,6 @@ function Segmented({
       segmented
       variant="outline"
       value={value}
-      // A pressed segment pressed again would clear the group; it stays set.
       onValueChange={(next: string) => {
         if (next) onChange(next)
       }}
@@ -467,12 +406,6 @@ function Segmented({
   )
 }
 
-/**
- * Where the project folder goes: dragged onto the dialog (anywhere on it, the
- * zone only says so) or chosen. Under a finger there is no folder picker
- * (iOS opens the plain file sheet for `webkitdirectory`), so it offers files.
- * Once something is held the zone names it, and dropping more adds to it.
- */
 function FolderZone({
   dropped,
   finePointer,
@@ -531,7 +464,6 @@ function FolderZone({
             type="file"
             multiple
             className="hidden"
-            // Both spellings, as strings: React forwards them only that way.
             {...(finePointer
               ? ({ webkitdirectory: '', directory: '' } as Record<string, string>)
               : {})}
@@ -601,7 +533,6 @@ interface PeriodFieldsProps {
   onEndedOn: (value: string) => void
 }
 
-/** Beginn (optional) and Abschluss (required), one under the other: two month pickers do not fit the dialog's width side by side. */
 function PeriodFields({
   startedOn,
   endedOn,

@@ -1,5 +1,3 @@
-"""The turn-start warm-up: the question is embedded once, beside the decision, and the search reuses it."""
-
 from __future__ import annotations
 
 import asyncio
@@ -23,7 +21,6 @@ class _SlowEmbedder:
 
 
 def _inflight_wait_hook(waiting: threading.Semaphore):
-    """Signal ``waiting`` each time a caller starts waiting on an in-flight embedding; returns the undo."""
     from knowledge_layer.search import query_embeddings
 
     original = query_embeddings._InflightEmbedding.result
@@ -49,19 +46,12 @@ def _retriever() -> tuple[LlamaIndexRetriever, _SlowEmbedder]:
 
 
 def test_a_failed_embedding_fails_every_waiter_at_once():
-    """A down embedding API fails every caller after ONE bounded call.
-
-    The old contract handed the key to one waiter at a time, so four callers
-    of a failing API paid four timeouts in a row (0.2/0.4/0.6/0.8 s here; about
-    10 s each against the real API).
-    """
     retriever, embedder = _retriever()
     attempts: list[str] = []
     waiting = threading.Semaphore(0)
 
     def failing(query: str) -> list[float]:
         attempts.append(query)
-        # Fail only once the other three wait on this call, not on a clock.
         for _ in range(3):
             assert waiting.acquire(timeout=5)
         raise RuntimeError("embedding API down")
@@ -141,8 +131,6 @@ def test_the_search_retriever_is_warmed_with_the_query_the_tool_will_send(monkey
 
 
 def test_the_warm_up_does_not_count_a_glossary_miss_the_search_will_count(monkeypatch, caplog):
-    """The miss line is a per-query coverage metric; the warm-up expands the
-    same query the search expands, so logging it there counted it twice."""
 
     class _Recorder:
         async def warm_query(self, query: str) -> None:
@@ -162,8 +150,6 @@ def test_no_search_retriever_means_no_warm_up(monkeypatch):
 
 
 def test_without_a_cache_parallel_callers_still_share_one_embedding(monkeypatch):
-    """``QUERY_EMBED_CACHE_SIZE=0`` turns the LRU off, not the in-flight
-    sharing: the waiters read the vector off the in-flight record."""
     retriever, embedder = _retriever()
     monkeypatch.setattr(retriever._query_embeddings, "max_entries", 0)
     waiting = threading.Semaphore(0)
@@ -181,7 +167,6 @@ def test_without_a_cache_parallel_callers_still_share_one_embedding(monkeypatch)
     try:
         for thread in threads:
             thread.start()
-        # Both followers are parked on the owner's record before it finishes.
         assert waiting.acquire(timeout=5) and waiting.acquire(timeout=5)
         release.set()
         for thread in threads:
@@ -197,9 +182,6 @@ def test_without_a_cache_parallel_callers_still_share_one_embedding(monkeypatch)
 
 
 def test_initialising_the_retriever_leaves_the_global_embed_model_alone(monkeypatch):
-    """The retriever's query model (3 s timeout) used to be installed as the
-    process-wide ``Settings.embed_model``; it embeds every query with its own
-    model, so the global is not its to set."""
     from knowledge_layer import dependencies
     from llama_index.core import Settings
     from llama_index.embeddings import nvidia
@@ -218,8 +200,6 @@ def test_initialising_the_retriever_leaves_the_global_embed_model_alone(monkeypa
 
 
 def test_the_llamaindex_backend_registers_the_retriever():
-    # A class inserted between the decorator and the retriever once took the
-    # registration: every llamaindex deployment built the wrong class.
     import knowledge_layer.search.retriever  # noqa: F401  (registers)
 
     assert factory._RETRIEVER_REGISTRY["llamaindex"].__name__ == "LlamaIndexRetriever"

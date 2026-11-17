@@ -1,14 +1,5 @@
 'use client'
 
-/**
- * What an office standard is. It asks only what decides how answers treat it
- * (ticket 32: „nur abfragen, was das Büro wirklich weiß und was die Geltung
- * entscheidet“): its kind, title and edition, and for a directive the
- * authority and where it decides. Everything else is optional and folded away
- * under „Weitere Angaben“. Where it applies is picked from the office's own
- * countries and subdivisions by name, never typed as a code.
- */
-
 import { useState, type JSX } from 'react'
 import { ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -27,7 +18,6 @@ import { cn } from '@/lib/utils'
 
 export interface TerritoryChoice {
   id: string
-  /** Null for a country: named in the reader's language. */
   label: string | null
 }
 
@@ -35,12 +25,10 @@ interface EntryFormProps {
   values: EntryValues
   onChange: (values: EntryValues) => void
   disabled: boolean
-  /** The licence class is set here only on a proposal; a confirmed copy's changes through its own statements. */
   showLicence: boolean
   territories: readonly TerritoryChoice[]
 }
 
-/** Kinds that apply in a place by themselves; a standard applies where a law or guideline refers to it. */
 const PLACED: ReadonlySet<EntryValues['kind']> = new Set(['authority_directive', 'statute'])
 
 function useTerritoryName(): (choice: TerritoryChoice) => string {
@@ -94,7 +82,6 @@ export function EntryForm({ values, onChange, disabled, showLicence, territories
   const directive = values.kind === 'authority_directive'
   const placed = PLACED.has(values.kind)
   const authorityTerritory = values.territoryIds[0] ?? values.addressees[0]?.territoryId ?? null
-  // The authority sits where the directive applies: a new territory moves it along, so the form never saves the old one.
   const setTerritories = (ids: string[]) =>
     onChange({
       ...values,
@@ -159,8 +146,6 @@ export function EntryForm({ values, onChange, disabled, showLicence, territories
         </Field>
       )}
       {showLicence && (
-        // One question for the office: bought, or free to read? Restricted and open public copies are read alike
-        // (`text-use.ts`), so the form does not ask which; a restricted copy keeps its class until someone changes it.
         <Field>
           <FieldLabel id="bk-licence">{t('field.purchased')}</FieldLabel>
           <RadioGroup

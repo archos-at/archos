@@ -1,15 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The stop rule, held to the agent tier's copy (`TurnTextFold.stopped`) by
- * the cases both suites read: `contracts/wire/v2/stopped-cases.jsonl`, which
- * `packages/agent/tests/turn/test_streaming.py` folds through the Python fold.
- * Here each case's frames through `shown.seq` go through `foldTurnEvents`, as
- * the asker's page folded them, and `stopTurnView` cuts the view the way
- * `stopStreaming` does. A difference between the two is a reload that shows
- * the reader something other than what they stopped on.
- */
 import { describe, expect, it } from 'vitest'
 import { eventOf, frameOf, wireFixtureLines } from '@/test-utils/wire-v2-fixtures'
 import { sharedPrefixChars, stoppedAnswer } from './stopped-answer'

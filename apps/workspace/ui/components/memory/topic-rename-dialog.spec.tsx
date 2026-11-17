@@ -1,8 +1,3 @@
-/**
- * The shared rename dialog of a memory shelf (ADR-0180): the typed name is
- * normalized, the merge targets are the ones the caller passed (never the topic
- * itself), and the dialog closes only when the shelf took the change.
- */
 import { describe, expect, test, vi } from 'vitest'
 import userEvent from '@testing-library/user-event'
 import { render, screen, waitFor } from '@/test-utils'

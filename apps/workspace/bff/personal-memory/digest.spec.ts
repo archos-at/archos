@@ -34,7 +34,6 @@ describe('renderPersonalMemoryDigest without topics', () => {
   })
 
   it('cuts a shelf with no topic at the first note that does not fit, byte-for-byte as before topics', () => {
-    // Three 600-character notes: two fit the 1462-character budget beside the header, the third does not.
     const long = (letter: string) => note({ content: letter.repeat(600) })
     const digest = renderPersonalMemoryDigest([long('a'), long('b'), long('c')], { topics: [], total: 3 })
 
@@ -170,9 +169,6 @@ describe('renderPersonalMemoryDigest with topics', () => {
   })
 
   it('keeps a pinned note of a later topic within the budget, and cuts an unpinned note of an earlier one', () => {
-    // Repository order is pinned first, then newest. Topic A's group starts with a pinned note, so it
-    // prints first; cutting group by group let A's unpinned note take the room that B's pinned note
-    // needed. Choosing the kept notes in repository order first keeps both pinned notes.
     const digest = renderPersonalMemoryDigest(
       [
         note({ kind: 'profile', pinned: true, content: 'Pinned A.', topic: 'A' }),

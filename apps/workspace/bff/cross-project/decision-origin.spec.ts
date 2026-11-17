@@ -1,10 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * One rule for who stands behind a decision, read by the agent's lookup and a
- * person's similar-projects page alike.
- */
 import { describe, expect, it } from 'vitest'
 import { memoryOriginOf } from './decision-origin'
 

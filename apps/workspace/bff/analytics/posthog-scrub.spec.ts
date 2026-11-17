@@ -4,10 +4,6 @@
 import { describe, expect, test } from 'vitest'
 import { scrubDeep, scrubSensitiveQuery } from './posthog-scrub'
 
-/**
- * The scrubber is the last lock before a URL leaves the browser, so each case
- * below is a place the app really does put a secret in one.
- */
 describe('scrubSensitiveQuery', () => {
   test('removes the OAuth callback grant and state, keeping the path', () => {
     expect(scrubSensitiveQuery('https://app.example/api/auth/callback?code=abc123&state=xyz')).toBe(
@@ -44,7 +40,6 @@ describe('scrubSensitiveQuery', () => {
   })
 
   test('removes a secret inside prose or a stack line without eating the rest', () => {
-    // The position suffix is ambiguous with the value (`abc:1:2`): losing it is the safe side.
     expect(scrubSensitiveQuery('at load (https://app.example/_next/x.js?token=abc:1:2)')).toBe(
       'at load (https://app.example/_next/x.js)'
     )

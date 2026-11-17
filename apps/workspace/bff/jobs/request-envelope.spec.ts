@@ -1,15 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The job envelope signs the project only for a caller who may steer its runs.
- *
- * ADR-0084 lets anyone signed into a project's scope read and control that
- * project's jobs. A closed project is readable by the whole office (ADR-0090),
- * but steering somebody else's run stays a member's: a caller who reads the
- * project only because it is closed is signed no project, so the backend lets
- * them reach their own jobs and nothing more through it.
- */
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
@@ -76,7 +67,6 @@ describe('signJobRequestContext', () => {
     const envelope = signed({ ...scope, projectReadOnly: true })
     expect(envelope.projectId).toBeNull()
     expect(envelope.collectionScope).not.toContain('proj_p1')
-    // The rest of the scope, and the conversation they may view, still travel.
     expect(envelope.collectionScope).toEqual(['oib_knowledge', 'archiv_org_1', 's_conv-1'])
     expect(envelope.conversationId).toBe('conv-1')
   })

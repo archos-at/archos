@@ -1,7 +1,3 @@
-/**
- * The project lifecycle in the UI (ADR-0098, ADR-0090): the banner a paused or
- * closed project opens every page with, and the status card's moves.
- */
 import { render, screen, within } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, test, vi } from 'vitest'
@@ -59,12 +55,10 @@ describe('ProjectStatusBanner', () => {
       </CurrentProjectProvider>
     )
     expect(screen.getByText('Closed project · read-only')).toBeInTheDocument()
-    // When the work ended leads; the day it was closed in Piloti follows.
     expect(screen.getByTestId('closed-project-banner')).toHaveTextContent(`Completed September 2026. Closed in ${PRODUCT_NAME} on October 6, 2026.`)
     expect(screen.getByTestId('closed-project-banner')).toHaveAttribute('role', 'status')
     expect(screen.getByTestId('closed-project-banner')).not.toHaveTextContent('closed projects are readable by the whole office')
     expect(screen.getByTestId('closed-project-banner')).not.toHaveTextContent('not realized')
-    // Nobody here may reopen it, so nothing offers to.
     expect(screen.queryByRole('button', { name: 'Reopen project' })).not.toBeInTheDocument()
   })
 
@@ -166,19 +160,16 @@ describe('ProjectLifecycleCard', () => {
     render(<ProjectLifecycleCard projectId="p1" lifecycle={{ ...ACTIVE, suggestedEndedOn: '2025-06' }} />)
 
     await userEvent.click(screen.getByRole('button', { name: 'Close project' }))
-    // Step one: the outcome and the Abschluss, an earlier close's month offered.
     expect(await screen.findByTestId('close-step-ending')).toBeInTheDocument()
     expect(screen.getByRole('combobox', { name: 'Completion' })).toHaveTextContent('June')
     expect(screen.getByRole('combobox', { name: 'Year' })).toHaveTextContent('2025')
     await userEvent.click(screen.getByRole('radio', { name: /Not realized/ }))
     await userEvent.click(screen.getByRole('button', { name: 'Next' }))
-    // Step two: the debrief, which stays mounted (hidden) while another step shows.
     expect(await screen.findByTestId('closing-debrief')).toBeInTheDocument()
     expect(screen.getByTestId('close-step-keep')).toBeVisible()
     await userEvent.click(screen.getByRole('button', { name: 'Next' }))
     expect(screen.getByTestId('close-step-keep')).not.toBeVisible()
     expect(screen.getByTestId('closing-debrief')).toBeInTheDocument()
-    // Step three: nothing to clear out, so one button closes.
     expect(await screen.findByText(`${PRODUCT_NAME} proposes nothing to remove.`)).toBeInTheDocument()
     expect(statusPuts(fetchMock)).toEqual([])
     await userEvent.click(screen.getByRole('button', { name: 'Close project' }))
@@ -193,11 +184,9 @@ describe('ProjectLifecycleCard', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Close project' }))
     expect(await screen.findByRole('combobox', { name: 'Completion' })).toHaveTextContent('January')
-    // Only the Beginn's year is offered: nothing earlier, and nothing later than it.
     await userEvent.click(screen.getByRole('combobox', { name: 'Year' }))
     expect((await screen.findAllByRole('option')).map((option) => option.textContent)).toEqual(['2099'])
     await userEvent.keyboard('{Escape}')
-    // The outcome is chosen, never preselected: until then there is no going on.
     expect(screen.getByRole('button', { name: 'Next' })).toBeDisabled()
     await userEvent.click(screen.getByRole('radio', { name: /Not realized/ }))
     expect(screen.getByRole('button', { name: 'Next' })).toBeEnabled()

@@ -1,9 +1,3 @@
-/**
- * The suite's network guard (`config/vitest/network-guard.ts`): a request no MSW handler
- * answers never opens a socket. Before it, such a request reached
- * `localhost:3000`, and aborting it at teardown killed the worker fork on a
- * libuv assertion, failing a shard with no test named.
- */
 import net from 'node:net'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { NETWORK_REFUSED_HEADER } from '../config/vitest/network-guard'

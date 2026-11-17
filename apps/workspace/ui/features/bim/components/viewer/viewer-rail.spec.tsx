@@ -41,9 +41,6 @@ describe('ViewerRailItem', () => {
   })
 
   it('shows secondary information without it becoming the name', () => {
-    // The elevation is context, not identity: a screen reader announcing
-    // "Erdgeschoss +0,00 m 412" as the button's name buries the one word that
-    // matters under two that do not.
     render(<ViewerRailItem label="Erdgeschoss" meta="+0,00 m" ariaLabel="Erdgeschoss" />)
     const item = screen.getByRole('button', { name: 'Erdgeschoss' })
     expect(within(item).getByText('+0,00 m')).toBeInTheDocument()

@@ -1,29 +1,4 @@
 // @disk-inputs: app/**
-/**
- * Server components are transport, like route handlers — they may not query.
- *
- * `bff-service-architecture.md` forbids `getDb()` and drizzle imports in
- * `app/api/**` route handlers, and that rule was enforced by review and by the
- * route factories. Server components under `app/**` were never named by it, so
- * they became a second, unlayered data path — and every consequence the layering
- * exists to prevent showed up there at once:
- *
- *   - the projects page ran its own org-wide `select().from(projects)`, which
- *     bypassed the per-project FGA filtering in `listProjects` and put every
- *     project in the tenant on screen for every member (the ADR-0038 regression);
- *   - four project pages matched on `projects.id` alone, with no organization
- *     predicate at all;
- *   - the same page's list was unbounded, against the repository rule that every
- *     list query carries a limit;
- *   - and none of them established a tenant context, so once row-level security
- *     was enforced they failed closed with `MissingTenantContextError` and took
- *     login down.
- *
- * One rule prevents all four, and it is the rule the API tier already follows:
- * pages call a service or a repository, and the query lives there. This spec is
- * that rule as a failing build rather than a review comment — the same shape as
- * `authz-coverage.spec.ts` and `rls-coverage.spec.ts`.
- */
 
 import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
@@ -33,19 +8,8 @@ import { PRE_EXISTING_DB_IMPORTERS } from '../../eslint-rules/route-db-access-al
 
 const APP_DIR = join(process.cwd(), 'app')
 
-/**
- * Route handlers that still query directly, from before this was enforced.
- *
- * They are a real violation of the same rule — `bff-service-architecture.md`
- * has forbidden `getDb()` in a route handler since ADR-0017 — but they are not
- * what took login down, and moving the remaining endpoints into services belongs in
- * its own change with its own review. Listed rather than skipped so the number
- * is visible and can only go down: a new route added to this list should be a
- * question in review, and anything not on it fails immediately.
- */
 const PRE_EXISTING_ROUTE_HANDLERS = PRE_EXISTING_DB_IMPORTERS
 
-/** Every `.ts`/`.tsx` file under `app`, recursively. */
 function appFiles(dir = APP_DIR, found: string[] = []): string[] {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     const full = join(dir, entry.name)
@@ -58,21 +22,6 @@ function appFiles(dir = APP_DIR, found: string[] = []): string[] {
 const relative = (file: string) =>
   file.slice(process.cwd().length + 1).replaceAll('\\', '/')
 
-/**
- * Every module specifier a file imports VALUES from.
- *
- * Parsed with the TypeScript compiler rather than matched with a regex. A regex
- * gets this wrong in both directions, and both directions are bugs: it reads
- * `import { type Project } from '@/lib/db/schema'` as a value import and fails a
- * file that is doing nothing wrong, and it misses
- * `import db, { projects } from '@/lib/db'` — a real value import that would
- * walk straight through a guard whose whole job is to catch it. A guard with a
- * known bypass is worse than no guard, because it is trusted.
- *
- * Type-only imports are excluded at two levels, matching TypeScript's own
- * grammar: `import type { … }` on the clause, and `{ type X }` per specifier.
- * A side-effect import (`import '@/lib/db'`) still counts — it runs the module.
- */
 function valueImportSpecifiers(source: string, filename: string): Set<string> {
   const tree = ts.createSourceFile(filename, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
   const found = new Set<string>()
@@ -82,14 +31,12 @@ function valueImportSpecifiers(source: string, filename: string): Set<string> {
     if (!ts.isStringLiteral(statement.moduleSpecifier)) continue
 
     const clause = statement.importClause
-    // No clause at all is a side-effect import: the module is evaluated.
     if (!clause) {
       found.add(statement.moduleSpecifier.text)
       continue
     }
     if (clause.isTypeOnly) continue
 
-    // A default binding (`import db, …`) is always a value.
     let importsValue = clause.name !== undefined
     const bindings = clause.namedBindings
     if (bindings) {
@@ -104,16 +51,6 @@ function valueImportSpecifiers(source: string, filename: string): Set<string> {
   return found
 }
 
-/**
- * Everything under `@/lib/db` counts as reaching the database — by default, so
- * that a module added there tomorrow is guarded without anyone remembering to
- * extend this list.
- *
- * The exceptions are named rather than pattern-matched, because each one is a
- * deliberate judgement. `tenant-context` is the scoping API itself: a route
- * handler importing `tenantSlotRoute` is doing the thing this rule exists to
- * encourage, and flagging it would push callers away from the correct helper.
- */
 const DB_MODULE_PREFIX = '@/lib/db'
 const NOT_DATABASE_ACCESS = new Set(['@/lib/db/tenant-context'])
 
@@ -142,8 +79,6 @@ describe('transport code does not query the database directly', () => {
   })
 
   describe('the guard itself', () => {
-    // A guard is only worth its green tick if it cannot be walked past. These
-    // pin both directions: what must be caught, and what must not be flagged.
     const detects = (source: string) => reachesDatabase(valueImportSpecifiers(source, 'probe.tsx'))
 
     it.each([

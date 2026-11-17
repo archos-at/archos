@@ -25,8 +25,6 @@ describe('ProjectCard', () => {
   })
 
   test('links into the project Chat — the project landing surface', () => {
-    // The card face mirrors the click-dummy (name · summary · last activity) and
-    // deliberately omits the doc count; docCount stays a no-op prop for callers.
     render(<ProjectCard project={createProject({ id: 'proj-abc', name: 'Beta' })} docCount={3} />)
 
     expect(screen.getByRole('link', { name: /open beta/i })).toHaveAttribute(
@@ -41,7 +39,6 @@ describe('ProjectCard', () => {
     const overview = screen.getByRole('link', { name: /overview of beta/i })
     expect(overview).toHaveAttribute('href', '/app/projects/proj-abc/settings')
     expect(overview).toHaveTextContent('Overview')
-    // 44px under a finger: the gear it replaced was 30px.
     expect(overview).toHaveClass('pointer-coarse:h-11')
   })
 
@@ -66,13 +63,6 @@ describe('ProjectCard', () => {
     expect(screen.getByText('2 hours ago')).toBeInTheDocument()
   })
 
-  /**
-   * The resume rail renders THIS card — there is no second "big" project card.
-   * What the rail adds is the viewer's own timestamp, and the card has to say
-   * whose it is: "you were last here" and "this project last moved" are
-   * different facts, and a card that showed one under the other's label would be
-   * wrong in the one place people trust it most.
-   */
   test('names the viewer’s own activity when the caller supplies it', () => {
     const twoHoursAgo = new Date(Date.now() - 2 * 3600 * 1000)
     render(
@@ -84,7 +74,6 @@ describe('ProjectCard', () => {
 
     expect(screen.getByText('You were last here')).toBeInTheDocument()
     expect(screen.queryByText('Last activity')).not.toBeInTheDocument()
-    // The viewer's timestamp wins over the project's own, which is far older here.
     expect(screen.getByText('2 hours ago')).toBeInTheDocument()
   })
 })
@@ -116,7 +105,6 @@ describe('ProjectCard location line', () => {
 
     const line = screen.getByTestId('project-location')
     expect(line).toHaveTextContent('Janis-Joplin-Promenade 12, 1220 Wien')
-    // The full address is the tooltip, for when the line truncates.
     expect(line).toHaveAttribute('title', 'Janis-Joplin-Promenade 12, 1220 Wien')
     expect(screen.queryByText(summary)).not.toBeInTheDocument()
   })

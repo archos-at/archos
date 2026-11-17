@@ -1,9 +1,3 @@
-"""``run_agent_job`` as its phases: what each one decides, and that the terminal paths always run.
-
-Module under test: ``agent_host.jobs.agent_job`` (claim, run, release),
-``agent_job_setup`` (prepare) and ``job_outcome`` (persist, finish, failure).
-"""
-
 from __future__ import annotations
 
 import base64
@@ -35,7 +29,6 @@ def _request(**overrides: Any) -> JobRequest:
 
 
 def test_the_request_carries_exactly_the_payload_keys():
-    """A parameter added to ``run_agent_job`` and not to ``JobRequest`` would fail every job at its first line."""
     params = set(inspect.signature(run_agent_job).parameters) - agent_job._PROCESS_KNOBS
     assert params == {f.name for f in fields(JobRequest)}
 
@@ -49,7 +42,6 @@ def test_the_request_reads_who_the_job_runs_for():
 
 @pytest.fixture
 def statuses(monkeypatch) -> list[str]:
-    """The job store's guarded status writes, answered "already terminal" when the list starts with one."""
     written: list[str] = []
 
     async def update(_store, _job_id, status, **_kwargs):
@@ -65,7 +57,6 @@ def statuses(monkeypatch) -> list[str]:
 
 @pytest.fixture
 def released(monkeypatch) -> list[str]:
-    """Record the release and the checkpoint purge, which run on every path."""
     seen: list[str] = []
 
     monkeypatch.setattr(agent_job, "_purge_deep_checkpoint", lambda job_id: seen.append(f"purge:{job_id}"))
@@ -137,8 +128,6 @@ async def test_a_failure_in_prepare_is_recorded_and_the_job_released(monkeypatch
 
 
 class _Provider:
-    """A provider whose every dial returns a new provider, recording the order."""
-
     def __init__(self, applied: tuple[str, ...] = ()) -> None:
         self.applied = applied
 
@@ -198,8 +187,6 @@ def test_the_scope_headers_are_base64url_so_german_text_survives(monkeypatch):
 
 
 class _Store:
-    """An event store that keeps what it is given."""
-
     def __init__(self) -> None:
         self.events: list[dict] = []
 
@@ -213,7 +200,6 @@ class _Store:
 @pytest.mark.asyncio
 @pytest.mark.parametrize("agent_type", ["research_agent", "deep_research_agent"])
 async def test_a_job_runs_its_phases_to_a_success_and_one_thread_turn(monkeypatch, statuses, released, agent_type):
-    """The happy path end to end, with only the agent runtime's config and builder and the agent itself faked."""
     from contextlib import asynccontextmanager
 
     from agent.agents.deep_researcher.anatomy import ReportAnatomy
@@ -272,11 +258,7 @@ async def test_a_job_runs_its_phases_to_a_success_and_one_thread_turn(monkeypatc
     assert (seen["turn"]["conversation_id"], seen["turn"]["answer"]) == ("c-1", "Die Traufhöhe beträgt 9 m.")
     assert seen["notify"] == "success"
     assert released == ["urls:job-1", "purge:job-1"]
-    # Deep research closes its phase progress before the status changes.
     assert (agent_type == "deep_research_agent") == any(e.get("type") == "job.phase" for e in store.events)
-
-
-# --- a temporary conversation keeps nothing (ADR-0180 rule 2) -----------------
 
 
 def test_reflection_follows_the_flag_for_an_ordinary_conversation():

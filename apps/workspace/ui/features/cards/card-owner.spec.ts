@@ -1,12 +1,3 @@
-/**
- * Who owns a card set drawn outside a chat bubble.
- *
- * The deep-research report tab draws its cards from a job output, and the
- * decision a reader makes on one of them has to land on the SAME message the
- * thread would record it on — otherwise the same card carries two answers,
- * decided by which panel the reader clicked in. These tests pin the rule that
- * makes the two one fact, and the cases where the honest answer is "no owner".
- */
 import { describe, expect, it } from 'vitest'
 import type { AnswerCard } from '@/shared/cards/schemas'
 import { findCardOwnerMessageId, type CardOwnerConversation } from './card-owner'
@@ -40,8 +31,6 @@ describe('findCardOwnerMessageId', () => {
   })
 
   it('finds the owner in a thread that is no longer open', () => {
-    // The report panel outlives a session switch, so the run on screen may
-    // belong to a conversation the reader has since navigated away from.
     const other = thread([{ id: 'answer', deepResearchJobId: 'job-1', cards: REPORT_CARDS }], 'conv-2')
 
     expect(
@@ -54,10 +43,6 @@ describe('findCardOwnerMessageId', () => {
   })
 
   it('refuses a message of the same run whose cards are NOT these cards', () => {
-    // ADR-0030 §Open Questions: the deep-research tracking bubble can carry its
-    // own inline cards from the escalation frame. `cardKey` is positional, so
-    // filing the report's `memory_proposal-0` against that message's DIFFERENT
-    // `memory_proposal-0` is the mis-attribution the whole rule exists to stop.
     const conversation = thread([
       { id: 'tracking', deepResearchJobId: 'job-1', cards: [proposal('etwas ganz anderes')] },
     ])
@@ -78,8 +63,6 @@ describe('findCardOwnerMessageId', () => {
   })
 
   it('has no owner while the run is still in flight', () => {
-    // The answer message is written by the worker when the run finishes; until
-    // then the cards are on the wire and nowhere else.
     const conversation = thread([{ id: 'tracking', deepResearchJobId: 'job-1' }])
 
     expect(
@@ -110,8 +93,6 @@ describe('findCardOwnerMessageId', () => {
   })
 
   it('does not search the open conversation twice', () => {
-    // `currentConversation` and its entry in `conversations` are separate
-    // objects with the same id; the second copy must not shadow the first.
     const conversation = thread([{ id: 'answer', deepResearchJobId: 'job-1', cards: REPORT_CARDS }])
 
     expect(

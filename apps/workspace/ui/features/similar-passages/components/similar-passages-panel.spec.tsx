@@ -1,11 +1,3 @@
-/**
- * The rail of „Im Büro behandelt": what it says while searching, when nothing
- * was found, when the search failed and when the document is still being
- * screened; the answer in one line; the places in the order the reader asks
- * about them (this project, the other projects, the Büroablage); that no score
- * is shown; that the arrow keys walk the passages; and what opening one hands
- * the stage.
- */
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { fireEvent, render, screen, waitFor, within } from '@/test-utils'
 
@@ -111,7 +103,6 @@ describe('SimilarPassagesPanel', () => {
 
     expect(await screen.findByTestId('similar-headline')).toHaveTextContent('Found in 2 projects and the Büroablage')
     const groups = await screen.findAllByRole('heading', { level: 3 })
-    // The server ranks the Büroablage second; the reader asks about projects first.
     expect(groups.map((heading) => heading.textContent)).toEqual([
       expect.stringContaining('Wohnhaus Mödling'),
       expect.stringContaining('Schule Baden'),
@@ -124,7 +115,6 @@ describe('SimilarPassagesPanel', () => {
     expect(screen.getByText('Protokoll_v1.pdf')).toBeTruthy()
     expect(screen.getByText('p. 3')).toBeTruthy()
     expect(screen.getByText('„Außentreppe in Stahlbeton“')).toBeTruthy()
-    // The order is the relevance: no percentage reaches the reader.
     expect(screen.getByTestId('similar-passages').textContent).not.toMatch(/\d+\s?%/)
     expect(screen.getByRole('button', { name: 'Open Brandschutzkonzept, page 3' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Open Musterdetail.pdf' })).toBeTruthy()

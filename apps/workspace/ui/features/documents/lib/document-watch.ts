@@ -1,27 +1,9 @@
-/**
- * Following tray rows that no ingest job will finish, by their documents'
- * status, until each is terminal: a detached extraction (an `.ifc`, an office
- * file converting to its rendition) and a row whose job the job store forgot.
- *
- * The workspace listing settles these too, but only while a Files or
- * office-shelf page is mounted. A project upload started from the chat's side
- * panel, or one the reader walked away from, had nothing asking at all and
- * spun forever. This is the floor: per document, only for rows that carry a
- * document id, asked when the shelf's live channel says something settled
- * (`askNow`) and otherwise once per `intervalMs`.
- *
- * Part of the upload orchestrator, which owns the one instance; outside React
- * for the same reason it is.
- */
-
 import { useDocumentsStore } from '../store'
 import type { TrackedFile } from '../types'
 import { isJoblessIngesting, nextStatusBatch, readDocumentStatuses, trackedPatchFromStatus } from './document-status-reads'
 
 export interface DocumentWatch {
-  /** Follow these tray rows. Idempotent per row; rows that are not jobless-and-ingesting are ignored. */
   watch(trackedIds: readonly string[]): void
-  /** A hint that something settled: ask now. One that arrives during a read asks once more after it. */
   askNow(): void
   stop(): void
 }
@@ -31,7 +13,6 @@ export function createDocumentWatch({
   onSettled,
 }: {
   intervalMs: number
-  /** At least one row came to rest in this read. */
   onSettled: () => void
 }): DocumentWatch {
   const watched = new Set<string>()
@@ -42,7 +23,6 @@ export function createDocumentWatch({
 
   const store = () => useDocumentsStore.getState()
 
-  /** The rows still owed an answer, pruning any somebody else settled or removed. */
   const waiting = (): TrackedFile[] => {
     const rows = new Map(store().trackedFiles.map((file) => [file.id, file]))
     const owed: TrackedFile[] = []
@@ -72,7 +52,6 @@ export function createDocumentWatch({
     for (const row of waiting()) {
       const answer = reads.get(row.serverFileId ?? '')
       if (!answer) continue
-      // Deleted meanwhile: nothing left to follow, and nothing to report.
       if (answer.kind === 'gone') {
         watched.delete(row.id)
         continue
@@ -83,7 +62,6 @@ export function createDocumentWatch({
       watched.delete(row.id)
       settled = true
     }
-    // Listings snapshotted while these were being read hold rows without chunks until told again.
     if (settled) onSettled()
   }
 

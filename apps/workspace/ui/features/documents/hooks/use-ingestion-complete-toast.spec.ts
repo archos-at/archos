@@ -39,7 +39,6 @@ describe('useIngestionCompleteToast', () => {
     )
 
     rerender({ files: [{ id: 'a', filename: 'a.pdf', status: 'ready' }] })
-    // A fresh list array (identity change) that keeps the file citable must not toast again.
     rerender({ files: [{ id: 'a', filename: 'a.pdf', status: 'ready' }] })
 
     expect(onCitable).toHaveBeenCalledTimes(1)

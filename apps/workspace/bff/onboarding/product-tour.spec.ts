@@ -23,7 +23,6 @@ import {
 
 const DESKTOP = { width: 1280, height: 820 }
 const PHONE = { width: 390, height: 844 }
-/** The creator, handed over: every feature on, organization admin. */
 const ALL_ON: TourReader = { canAccessOfficeShelf: true, canAccessInbox: true, canManageOrganization: true, handover: true }
 const BOX: AnchorBox = { left: 900, right: 1000, top: 20, bottom: 56 }
 const everywhere = (): AnchorBox => BOX
@@ -79,16 +78,12 @@ describe('project tour', () => {
   })
 
   it('keeps every stop on a phone, centred, when the rail is a closed drawer', () => {
-    // The drawer renders nothing while closed: every anchor is absent. The
-    // explanation still matters, so nothing is dropped — only the spotlight.
     const placed = placeStops(TOURS.project, ALL_ON, nowhere, PHONE)
     expect(placed).toHaveLength(TOURS.project.length)
     expect(placed.every((stop) => stop.side === undefined)).toBe(true)
   })
 
   it('on a phone, points at the tab bar: above each tab, and the Büroablage at "Mehr"', () => {
-    // The tab bar marks its items `data-tour-placement="above"`; Chat, Dateien
-    // and the Übersicht are tabs, the Büroablage sits in the drawer behind Mehr.
     const tabs: Record<string, AnchorBox> = {
       [tourAnchorSelector(TOUR_ANCHORS.sectionChat)]: { left: 4, right: 81, top: 760, bottom: 812, placement: 'above' },
       [tourAnchorSelector(TOUR_ANCHORS.sectionFiles)]: { left: 81, right: 158, top: 760, bottom: 812, placement: 'above' },
@@ -107,7 +102,6 @@ describe('project tour', () => {
     ])
     const officeShelf = placed.find((stop) => stop.id === 'projectOfficeShelfPhone')
     expect(officeShelf).toMatchObject({ anchor: TOUR_ANCHORS.more, side: 'top' })
-    // Every card above a tab stays inside the 16px gutters of a 390px screen.
     for (const stop of placed.filter((each) => each.side === 'top')) {
       const box = tabs[tourAnchorSelector(stop.anchor!)]!
       const width = Math.min(352, PHONE.width - 32)
@@ -154,7 +148,6 @@ describe('cardShift', () => {
   })
 
   it('slides a card over the second tab back inside the left gutter, and one over the last tab inside the right', () => {
-    // Centre 119.5, card 352 wide: NextStep would start it at -56.5.
     expect(cardShift({ left: 81, right: 158, top: 760, bottom: 812 }, PHONE)).toBe(72.5)
     expect(cardShift({ left: 312, right: 389, top: 760, bottom: 812 }, PHONE)).toBe(-152.5)
   })
@@ -190,7 +183,6 @@ describe('where tours run and how they are asked for', () => {
   })
 
   it('sends the project hand-over straight to chat, where the tour belongs', () => {
-    // The project root is a server redirect, which would drop `?tour=`.
     expect(new URL(projectTourUrl('p1'), 'http://x').pathname).toBe('/app/projects/p1/chat')
     expect(tourForPath('/app/projects/p1/chat')).toBe('project')
   })

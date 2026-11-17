@@ -1,11 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The route is a thin adapter: it names the document and the version, reads the
- * one query flag, and lets the service's refusals through as their statuses.
- * What the service refuses, and why, is `version-content.spec.ts`'s subject.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { NextRequest } from 'next/server'

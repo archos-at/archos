@@ -1,5 +1,3 @@
-"""The office base knowledge's score (ADR-0163): overdue copies a turn carried."""
-
 from __future__ import annotations
 
 from agent.observability.base_knowledge_scores import BASE_KNOWLEDGE_SCORE_DEFINITIONS

@@ -1,9 +1,3 @@
-/**
- * A project's „wartet auf Ablage“ row says what waits now, not what arrived
- * since it was read (dev, 2026-11-06: „Eine E-Mail … wartet“ beside two), and
- * only to a reader who may still reach the project.
- */
-
 import { describe, expect, it, vi } from 'vitest'
 import type { InboxItemView } from './types'
 

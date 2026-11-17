@@ -1,15 +1,9 @@
 /**
  * @vitest-environment node
  */
-/**
- * The usage notice picks ONE window out of every limited window that applies,
- * at one of four levels. These cases pin the thresholds, the choice between
- * windows, and the month-pace forecast, against a fixed clock.
- */
 import { describe, expect, it } from 'vitest'
 import { decideUsageNotice, projectedRunOut, utcWindow, type WindowUtilisation } from './usage-notice'
 
-/** 21 October 2026, 12:00 UTC: 20.5 days into a 31-day month. */
 const NOW = new Date('2026-10-21T12:00:00Z')
 
 const usage = (over: Partial<WindowUtilisation>): WindowUtilisation => ({
@@ -105,8 +99,6 @@ describe('decideUsageNotice: which window', () => {
 
 describe('projectedRunOut and the forecast level', () => {
   it('forecasts a half-used month that runs out well before it renews', () => {
-    // 700 of 1000 after 20.5 days reaches the limit after 29.3 days: 30 October,
-    // more than a day before 1 November.
     const runsOut = projectedRunOut(usage({ used: 700 }), NOW)
     expect(runsOut?.toISOString().slice(0, 10)).toBe('2026-10-30')
     expect(decideUsageNotice([usage({ used: 700 })], NOW)).toMatchObject({
@@ -126,7 +118,6 @@ describe('projectedRunOut and the forecast level', () => {
   })
 
   it('does not forecast a run-out less than a day before renewal', () => {
-    // 680 after 20.5 days runs out on 31 Oct ~ 05:00: within the last day.
     expect(projectedRunOut(usage({ used: 680 }), NOW)).toBeNull()
   })
 

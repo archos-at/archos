@@ -106,7 +106,6 @@ describe('profileDisagreements', () => {
     const plot = profile({ plot_area: 812.4 })
     expect(profileDisagreements(dossier([fact('plot_area', '812', 1, 'm²')]), plot)).toEqual([])
     expect(profileDisagreements(dossier([fact('plot_area', '1.245,5', 1, 'm²')]), plot)).toHaveLength(1)
-    // Another unit is not read: an area in ha is no figure to compare with m².
     expect(profileDisagreements(dossier([fact('plot_area', '0,12', 1, 'ha')]), plot)).toEqual([])
   })
 
@@ -116,7 +115,6 @@ describe('profileDisagreements', () => {
     const found = profileDisagreements(dossier([fact('construction_method', 'Stahlbeton-Skelettbau', 4)]), timber)
     expect(found[0]?.profile.display).toBe('Holzbau')
     expect(found[0]?.statements).toEqual([{ value: 'Stahlbeton-Skelettbau', unit: null, pages: [4] }])
-    // A word that names no single Bauweise says nothing.
     expect(profileDisagreements(dossier([fact('construction_method', 'Mischbauweise')]), timber)).toEqual([])
   })
 
@@ -128,7 +126,6 @@ describe('profileDisagreements', () => {
     const mixed = profile({ uses: ['residential', 'office'] })
     expect(profileDisagreements(dossier([fact('use', 'Wohnhaus mit Büros im EG')]), mixed)).toEqual([])
     expect(profileDisagreements(dossier([fact('use', 'Hotel')]), mixed)[0]?.profile.display).toBe('Wohnen, Büro / Verwaltung')
-    // A garage is part of many buildings and names no use to compare.
     expect(profileDisagreements(dossier([fact('use', 'Tiefgarage')]), mixed)).toEqual([])
   })
 

@@ -125,7 +125,7 @@
   "apps/workspace/ui/features/chat/components/source-preview/ris-preview-chip.tsx": 8,
   "apps/workspace/ui/features/chat/components/source-preview/source-document-dialog.tsx": 16,
   "apps/workspace/ui/features/chat/lib/citation-export.ts": 5,
-  "apps/workspace/ui/features/chat/lib/citations/build.ts": 7,
+  "apps/workspace/ui/features/chat/lib/citations/build.ts": 2,
   "apps/workspace/ui/features/chat/lib/citations/index.ts": 1,
   "apps/workspace/ui/features/chat/lib/citations/model.ts": 38,
   "apps/workspace/ui/features/chat/lib/citations/target.ts": 9,

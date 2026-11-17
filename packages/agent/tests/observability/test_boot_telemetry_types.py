@@ -1,17 +1,3 @@
-"""The JOIN that CrashLoopBackOff'd staging: load_config in a clean interpreter.
-
-`test_shipped_config_wires_the_otlp_logging_method` only yaml.safe_load's the
-file, and pytest has already imported the plugins. That suite stayed green
-while `start_web.py` died on `_type` `otelcollector_logs` not in the agent
-runtime's registry. This file is the process that actually boots.
-
-Full `load_config` of the shipped YAML needs every `nat.plugins` entry point
-to import, which an editable install from another worktree will not do. The
-JOIN we can pin here is: `start_web.load_nat_config` registers the two Grid
-telemetry `_type`s before it calls `load_config`. `load_config` itself is
-stubbed so this does not depend on the rest of the catalog.
-"""
-
 from __future__ import annotations
 
 import os
@@ -50,7 +36,6 @@ def test_start_web_registers_telemetry_before_load_config():
 
 
 def test_the_web_boot_readings_are_named_after_the_role_not_after_web():
-    """`chat` and `api` scale on different things, so one `web` series would average two cold starts."""
     for path in (START_WEB, REPO / "apps" / "agent-host" / "src" / "agent_host" / "plugin.py"):
         assert 'BootClock("web")' not in path.read_text(encoding="utf-8"), path
 
@@ -63,7 +48,6 @@ def test_worker_job_registers_telemetry_before_load_config():
 
 
 def test_shipped_config_loads_in_a_clean_interpreter():
-    """Subprocess so pytest's imports cannot hide a missing registration."""
     code = """
 import importlib.util
 import os

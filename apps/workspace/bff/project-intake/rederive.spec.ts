@@ -47,7 +47,6 @@ const { assumedSubdivisionOf } = await import('./setup-scope')
 const NOW = new Date('2026-11-14T09:00:00.000Z')
 const office = { records: AT_SETUP_RECORDS, assumed: assumedSubdivisionOf(AT_SETUP_RECORDS, 'AT', '2026-11-14') }
 
-/** A block of flats with every input the class derivation reads, confirmed, and no site. */
 function unplacedBlock(): ProjectProfile {
   const profile = emptyProjectProfile()
   const building: Record<string, ProjectPrimitiveValue> = {

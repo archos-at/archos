@@ -2,10 +2,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The committed JSON Schema the agent's cross-project tools are tested against
- * stays the zod contract: rewritten with `UPDATE_FIXTURES=1`, compared otherwise.
- */
 import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
@@ -62,7 +58,6 @@ describe('cross-project JSON Schema', () => {
         .success
     ).toBe(true)
     expect(listed({ federal_state: ['lower_austria'] }).success).toBe(true)
-    // Each vocabulary is the wizard's, „noch offen" and a site abroad left out (neither is a value a project can match).
     expect(CROSS_PROJECT_FACT_FEDERAL_STATES).toContain('vorarlberg')
     expect(CROSS_PROJECT_FACT_FEDERAL_STATES).not.toContain('outside_austria')
     expect(CROSS_PROJECT_FACT_CONSTRUCTION_METHODS).not.toContain('offen')

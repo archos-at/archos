@@ -1,13 +1,3 @@
-"""``leader_lock``, and the rule every session lock here follows (ADR-0083).
-
-A session advisory lock lives as long as the server connection that took it, so
-it is taken on the direct DSN (``LOCK_DB_URL``) and on an engine that never
-pools. Behind the transaction pooler it would be acquired on one server
-connection and released on another, which leaves the first locked and raises
-nothing. The suite has no Postgres server, so the Postgres half is pinned by
-what the engine double is sent and which URL it is built for.
-"""
-
 from __future__ import annotations
 
 from unittest.mock import MagicMock
@@ -31,7 +21,6 @@ def _no_database(monkeypatch):
 
 
 def _engine(monkeypatch, *, wins: bool = True):
-    """A lock engine double: (urls it was built for, the connection it hands out)."""
     conn = MagicMock()
     conn.execute.return_value.scalar.return_value = wins
     engine = MagicMock()
@@ -99,8 +88,6 @@ def test_the_loser_runs_nothing_and_leaves_no_session_behind(monkeypatch):
 
 
 def test_an_unreachable_database_means_nobody_leads_this_cycle(monkeypatch, caplog):
-    # Fail-closed: running unelected would be every replica running the cycle at
-    # once. The caller's schedule retries on its next tick.
     monkeypatch.setenv("LOCK_DB_URL", "postgresql://nobody@127.0.0.1:9/none?connect_timeout=1")
 
     with caplog.at_level("WARNING"), leader_lock(42) as leads:
@@ -143,8 +130,6 @@ def test_a_failed_unlock_still_ends_the_session(monkeypatch):
 
 @pytest.mark.parametrize("name", ["SUMMARY_DB", "NAT_JOB_STORE_DB_URL"])
 def test_postgres_without_a_lock_dsn_is_a_configuration_error_not_a_quiet_fallback(monkeypatch, name):
-    # The old behaviour derived the lock connection from these. Doing that now
-    # would put session locks on the pooled DSN, which is the bug.
     monkeypatch.setenv(name, POOLED)
 
     with pytest.raises(RuntimeError, match="LOCK_DB_URL is not set"), leader_lock(1):
@@ -188,8 +173,6 @@ async def test_the_async_loser_is_told_so(monkeypatch):
 
 
 def test_the_lock_engine_never_pools_and_does_not_open_a_transaction():
-    # Real engine construction (no connection): NullPool, so close() ends the
-    # session and with it the lock.
     from sqlalchemy.pool import NullPool
 
     lock_module._lock_engines.pop(DIRECT, None)
@@ -202,7 +185,6 @@ def test_the_lock_engine_never_pools_and_does_not_open_a_transaction():
 
 
 def test_lock_connections_ask_libpq_for_tcp_keepalives(monkeypatch):
-    # A lock server that vanishes without closing TCP must be noticed, not waited on.
     captured: dict = {}
 
     def fake_create_engine(url, **kwargs):
@@ -216,13 +198,6 @@ def test_lock_connections_ask_libpq_for_tcp_keepalives(monkeypatch):
 
     assert captured["connect_args"]["keepalives"] == 1
     assert captured["connect_args"]["keepalives_idle"] > 0
-
-
-# --- keyed locks: the wait is bounded ----------------------------------------
-#
-# On 2026-10-12 live ingest workers waited for keyed locks held by the sessions of
-# workers whose node had died. Postgres kept those sessions (no FIN, no RST), the
-# wait had no limit, and ingestion stopped with every worker idle.
 
 
 def test_a_keyed_lock_bounds_its_wait_before_it_waits(monkeypatch):
@@ -266,8 +241,6 @@ def test_a_keyed_lock_that_times_out_ends_its_session_and_does_not_run_the_body(
     conn.close.assert_called_once()
     assert "keyed_lock acquisition failed" in caplog.text
 
-
-# --- the start-up check ------------------------------------------------------
 
 SQLITE = "sqlite+aiosqlite:///./summaries.db"
 
@@ -334,7 +307,6 @@ def test_the_check_passes_when_both_are_set(monkeypatch):
 
 @pytest.mark.parametrize("name", ["LOCK_DB_URL", "LISTEN_DB_URL"])
 def test_a_direct_dsn_that_is_not_postgres_is_refused_on_a_postgres_process(monkeypatch, name):
-    # Set, but to something `_lock_url` would treat as "no Postgres": unguarded again, silently.
     monkeypatch.setenv("SUMMARY_DB", POOLED)
     monkeypatch.setenv("LOCK_DB_URL", DIRECT)
     monkeypatch.setenv("LISTEN_DB_URL", DIRECT)

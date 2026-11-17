@@ -1,12 +1,3 @@
-"""A stranger's bytes: each cap gives ``unreadable`` with its reason, and nothing ever raises.
-
-DECISION §10's Python half of the hostile corpus: a 5 MB HTML body, a huge
-RTF body, a 10,000-event calendar, a message past the edge's ceiling, a read
-that overruns its deadline (stopped in its child process), and a seeded
-mutation loop over the fixture corpus. Each case asserts its outcome and a
-work budget.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -92,8 +83,6 @@ def test_a_message_past_the_edge_ceiling_is_not_parsed():
     assert read.unreadable_reasons == [UnreadableReason.MESSAGE_TOO_LARGE]
 
 
-#: A line that repeats "schrieb": ``mail-parser-reply``'s German header pattern
-#: is cubic in it (3,000 characters, 64 s). The mutation loop found it.
 CUBIC_LINE = ("Am " + "schrieb " * 400).encode()
 
 
@@ -103,7 +92,6 @@ def test_a_read_past_its_deadline_is_stopped_and_unreadable():
     started = time.perf_counter()
     read = asyncio.run(read_message_within(raw, timeout=2.0))
     assert read.unreadable_reasons == [UnreadableReason.TIMEOUT]
-    # Stopped at the deadline, not left running for the minute it would take.
     assert time.perf_counter() - started < 5.0
 
 
@@ -114,7 +102,6 @@ def test_a_read_in_the_child_process_gives_the_same_answer_as_in_process():
 
 
 def test_the_child_process_sees_none_of_the_servers_environment(monkeypatch):
-    """A stranger's bytes are parsed where no secret of the API process is in reach."""
     monkeypatch.setenv("INTERNAL_API_TOKEN", "secret-token")
     import agent_host.mail.read as module
 
@@ -135,7 +122,6 @@ class _Budget(BaseException):
 
 
 def _within(raw: bytes, seconds: float) -> MailRead | None:
-    """``read_message`` in this process with an alarm, as the child runs it with a kill; ``None`` past it."""
 
     def stop(_signal, _frame):
         raise _Budget
@@ -152,7 +138,6 @@ def _within(raw: bytes, seconds: float) -> MailRead | None:
 
 
 def _mutations(seed: int, count: int) -> list[bytes]:
-    """Bit flips, cuts, splices and repeats of the fixture corpus, reproducible from ``seed``."""
     corpus = [path.read_bytes() for path in sorted(FIXTURES.glob("*.eml"))]
     chance = random.Random(seed)
     mutated: list[bytes] = []
@@ -178,7 +163,6 @@ def _mutations(seed: int, count: int) -> list[bytes]:
 
 
 def test_two_thousand_mutated_messages_all_read_without_raising():
-    """Each read either answers or meets its deadline (as the child would); none raises or fails."""
     started = time.perf_counter()
     past_deadline = 0
     for raw in _mutations(seed=20261022, count=2_000):
@@ -187,7 +171,5 @@ def test_two_thousand_mutated_messages_all_read_without_raising():
             past_deadline += 1
             continue
         assert UnreadableReason.FAILED not in read.unreadable_reasons, raw[:200]
-    # The seed holds four reads that meet the cubic pattern (5 to 64 s each
-    # without a deadline); a handful more is noise, many more a new worst case.
     assert past_deadline <= 8
     assert time.perf_counter() - started < 60.0

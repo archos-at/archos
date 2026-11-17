@@ -1,11 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Candidates are the viewer's (D9, RT-S13): what sits in a folder they may not
- * read is counted or dropped, never named, and only a strong match from a
- * sender whose domain signed it is pre-selected (RT-S1).
- */
 import { describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))

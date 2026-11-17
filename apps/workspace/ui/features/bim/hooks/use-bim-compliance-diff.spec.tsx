@@ -1,13 +1,3 @@
-/**
- * "Did this revision break something."
- *
- * The most expensive question in the product — both revisions read in full —
- * and the only one whose answer an office signs a resubmission against. It is
- * fired by a button rather than by an effect, so React's own cleanup never
- * runs for it: everything that keeps a stale answer off the screen has to be
- * written here, and this spec is what says it is.
- */
-
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { useBimComplianceDiff } from './use-bim-model'
@@ -16,7 +6,6 @@ const NO_FACTS = { buildingClass: null, mainUse: null }
 
 let fetchMock: ReturnType<typeof vi.fn>
 
-/** A response that resolves only when the test says so. */
 function deferred(): { promise: Promise<unknown>; resolve: (value: unknown) => void } {
   let resolve!: (value: unknown) => void
   const promise = new Promise<unknown>((settle) => {
@@ -55,11 +44,6 @@ describe('useBimComplianceDiff', () => {
   })
 
   it('discards a result when the revision it compared is no longer the one selected', async () => {
-    // The panel captions this result with the base from its CURRENT props
-    // ("verglichen mit Haus-A_v2.ifc"). Leaving the numbers standing after the
-    // reader switched revisions presents a diff of one pair of files as a diff
-    // of another — on the screen whose entire job is to say whether a
-    // resubmission broke something.
     fetchMock.mockResolvedValue(ok([change('oib-2-1')]))
     const { result, rerender } = renderHook(
       ({ base }: { base: string }) => useBimComplianceDiff('m-new', base, NO_FACTS),
@@ -75,9 +59,6 @@ describe('useBimComplianceDiff', () => {
   })
 
   it('discards a result when the building facts the rules read change under it', async () => {
-    // Gebäudeklasse selects which requirements apply at all, so the same two
-    // files produce a different answer. A verdict computed under GK 3 is not
-    // a verdict about a GK 4 building.
     fetchMock.mockResolvedValue(ok([change('oib-2-1')]))
     const { result, rerender } = renderHook(
       ({ gk }: { gk: number }) =>
@@ -93,9 +74,6 @@ describe('useBimComplianceDiff', () => {
   })
 
   it('lets the last run win when an earlier one answers later', async () => {
-    // This reads both element sets in full, so the slow request is routinely
-    // the one started first. Without a ticket the first answer lands last and
-    // the panel settles on a comparison nobody asked for.
     const first = deferred()
     const second = deferred()
     fetchMock
@@ -120,8 +98,6 @@ describe('useBimComplianceDiff', () => {
   })
 
   it('does not report a failure from a run that has been superseded', async () => {
-    // The stale request failing must not paint an error over a result that
-    // arrived correctly.
     const first = deferred()
     fetchMock
       .mockReturnValueOnce(first.promise)

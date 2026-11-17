@@ -1,12 +1,5 @@
 'use client'
 
-/**
- * Take a document already in the Büroablage as an office standard: search the
- * shelf, pick one, and it is proposed here while it stays where it is filed.
- * The shelf's newest 200 documents; a document already recorded is refused by
- * the server with its reason.
- */
-
 import { useEffect, useMemo, useState, type JSX } from 'react'
 import { toast } from 'sonner'
 import {
@@ -33,9 +26,7 @@ import { useDebouncedValue } from '@/hooks/use-debounced-value'
 interface ShelfPickerDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  /** Documents already recorded, left out of the list. */
   recorded: ReadonlySet<string>
-  /** The proposal just made, to open as its form. */
   onProposed: (entry: BaseKnowledgeEntry) => void
 }
 
@@ -50,9 +41,7 @@ export function ShelfPickerDialog({
   const [search, setSearch] = useState('')
   const [busy, setBusy] = useState<string | null>(null)
 
-  // The shelf searches itself by name, so an older file is found as surely as one of the newest.
   const query = useDebouncedValue(search, 250)
-  // A load that failed is said as such, with a retry, and never shown as an empty shelf.
   const [failed, setFailed] = useState(false)
   const [attempt, setAttempt] = useState(0)
   useEffect(() => {

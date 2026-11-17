@@ -46,8 +46,6 @@ function req(body?: unknown): Request {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  // A signed-in deployment: the session's WorkOS claim is the skills gate, and
-  // a session without the claim is the default (off).
   vi.stubEnv('REQUIRE_AUTH', 'true')
   session.featureFlags = null
   mockSession.mockResolvedValue(session as unknown as AuthorizedSession)
@@ -67,8 +65,6 @@ describe('GET /api/skills', () => {
 
   it('lists the merged toolbox when the skills flag is on', async () => {
     session.featureFlags = ['skills']
-    // The route is a pass-through, so the toolbox's two halves — the skills and
-    // the categories they are filed under — both have to reach the client.
     mockList.mockResolvedValue({
       skills: [asSkill({ id: 'skill-1', name: 'a' })],
       categories: [

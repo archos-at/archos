@@ -1,24 +1,3 @@
-"""Contract tests across the citation pipeline's SEAMS.
-
-Every bug the citation audit found lived between two well-tested units, not
-inside one. The worst pair is the knowledge-layer text protocol: it is PRODUCED
-by ``packages/knowledge-layer/src/register.py::format_results`` and PARSED by
-``citations.grounding_text.parse_knowledge_layer`` — two
-packages that never meet in a test.
-
-The unit tests on either side cannot catch drift between them because they use
-hand-written fixture strings written to match the parser: that tests the parser
-against a COPY of the producer's format, not against the producer. These tests
-call the real producer, feed its actual bytes to the real parser, and assert
-every field landed on the right hit; then they walk one realistic turn all the
-way to the wire payload the frontend renders.
-
-The cross-language seams (Python producer ↔ TypeScript consumer) cannot run in
-one process; they are pinned to shared fixture files instead — see
-``TestSharedWireFixturesAreCurrent`` and its counterpart
-``apps/workspace/ui/features/chat/lib/citation-wire-contract.spec.ts``.
-"""
-
 from __future__ import annotations
 
 import dataclasses
@@ -54,7 +33,6 @@ from agent.knowledge.law_lookup.source import law_source
 
 
 def format_passages(passages, ingested_name, address):
-    """The law lookup's renderer, reading RIS from its record and bound under the name the chat tool has."""
     return _format_passages(passages, ingested_name, address, law_source("at-ris"), "ris_lookup")
 
 
@@ -64,13 +42,6 @@ FIXTURE_DIR = REPO_ROOT / "tests" / "fixtures" / "citation_pipeline"
 
 @pytest.fixture(autouse=True)
 def fixture_empty_summary_store(tmp_path):
-    """Keep chunk metadata authoritative so producer output is deterministic.
-
-    ``format_results`` resolves ``doc_class`` and ``display_title`` through the
-    process-global document-metadata store. Without an empty per-test store the
-    producer's bytes would depend on whichever database another test happened to
-    configure first, and these tests would pass or fail by test order.
-    """
     from agent.knowledge import factory
     from agent.knowledge.document_metadata_store import DocumentMetadataStore
 
@@ -82,25 +53,8 @@ def fixture_empty_summary_store(tmp_path):
     factory._document_metadata_store = previous
 
 
-# ---------------------------------------------------------------------------
-# Synthetic retrieval hits — the INTENT both ends of the seam must agree on
-# ---------------------------------------------------------------------------
-
-
 @dataclass(frozen=True)
 class Hit:
-    """One synthetic retrieval hit.
-
-    Carries exactly the attributes ``format_results`` reads off a chunk
-    (``file_name``, ``page_number``, ``content``, ``content_type.value``,
-    ``score``, ``metadata``) plus the parsed identity it must come back as.
-
-    The fields below ``body`` are the OPTIONAL half of the grounding grammar.
-    They default to absent, so every test written before them produces the same
-    bytes it did; they exist so one test can state them all at once and compare
-    what the two readers make of a fully populated hit.
-    """
-
     file_name: str
     page: int | None = None
     collection: str | None = None
@@ -112,8 +66,6 @@ class Hit:
     image_index: int | None = None
     content_type: str = "text"
     score: float = 0.87
-    #: The segment box the visual analysis stored for a plan's depiction
-    #: (``drawing_data``), and the title it read off the sheet (issue #433).
     drawing_bbox: tuple[float, float, float, float] | None = None
     drawing_title: str | None = None
 
@@ -164,13 +116,11 @@ class Hit:
 
 
 def format_hits(hits: list[Hit], query: str = "Brandschutz") -> str:
-    """The REAL producer's output for ``hits`` — never a hand-written string."""
     result = SimpleNamespace(success=True, error_message=None, chunks=[hit.chunk() for hit in hits])
     return format_results(result, query)
 
 
 def roundtrip(*hits: Hit):
-    """hits → real producer → real parser → parsed ``SourceEntry`` list."""
     return extract_sources_from_tool_result("knowledge_search", format_hits(list(hits)))
 
 
@@ -179,16 +129,6 @@ def identities(entries) -> list[tuple[str | None, str | None, str | None]]:
 
 
 class TestProducerParserContract:
-    """Fields must bind to THEIR hit through the real producer's real output.
-
-    The parser used to zip separate whole-document ``findall`` lists by
-    position. ``format_results`` emits ``Collection:`` and ``Dokumentart:``
-    only when a hit HAS one, so a single unclassified hit shifted every later
-    optional value onto the wrong document — and since ``doc_class`` is the
-    first-priority signal in ``lane_for_hit``, a user's own project upload was
-    silently presented as a binding OIB Richtlinie.
-    """
-
     OIB = Hit(
         file_name="oib-rl_2_ausgabe_mai_2023.pdf",
         page=12,
@@ -210,12 +150,10 @@ class TestProducerParserContract:
     )
 
     def test_only_some_hits_classified_keeps_every_field_on_its_own_hit(self):
-        """The audited bug: one unclassified hit shifted doc_class onto its neighbour."""
         entries = roundtrip(self.PROJEKT, self.OIB, self.OFFICE_SHELF)
         assert identities(entries) == [self.PROJEKT.identity, self.OIB.identity, self.OFFICE_SHELF.identity]
 
     def test_the_unclassified_hit_is_not_rendered_as_building_law(self):
-        """The user-visible consequence of a shift: chip colour and authority badge."""
         projekt, oib, archiv = roundtrip(self.PROJEKT, self.OIB, self.OFFICE_SHELF)
         assert source_lane(projekt) == ("project", "Projektwissen")
         assert source_lane(archiv) == ("office", "Büroablage")
@@ -238,7 +176,6 @@ class TestProducerParserContract:
         assert all(entry.doc_class is None for entry in entries)
 
     def test_hit_without_a_collection_claims_no_collection(self):
-        """A collection-less hit must not inherit the next hit's collection."""
         loose = Hit(file_name="lose_notiz.pdf", page=2, body="Handnotiz ohne Collection.")
         loose_entry, oib_entry = roundtrip(loose, self.OIB)
         assert (loose_entry.collection, loose_entry.doc_class) == (None, None)
@@ -247,11 +184,9 @@ class TestProducerParserContract:
     def test_single_hit(self):
         (entry,) = roundtrip(self.OIB)
         assert (entry.citation_key, entry.collection, entry.doc_class) == self.OIB.identity
-        # The human `Source:` label, not the raw corpus filename, is the chip title.
         assert entry.title == "OIB-Richtlinie 2, Ausgabe Mai 2023"
 
     def test_many_hits_alternating_between_classified_and_not(self):
-        """Ten hits: any positional zip drifts further with every optional field."""
         hits = []
         for index in range(10):
             if index % 2 == 0:
@@ -270,7 +205,6 @@ class TestProducerParserContract:
         assert identities(entries) == [hit.identity for hit in hits]
 
     def test_pageless_hit_keeps_a_pageless_citation_key(self):
-        """A page-less hit must not borrow the following hit's page number."""
         pageless = Hit(file_name="leitfaden.pdf", collection="oib_knowledge", body="Ohne Seitenzahl.")
         entry, oib_entry = roundtrip(pageless, self.OIB)
         assert entry.citation_key == "leitfaden.pdf"
@@ -278,7 +212,6 @@ class TestProducerParserContract:
         assert source_entry_to_wire(oib_entry)["page"] == 12
 
     def test_truncated_body_arrives_without_the_producer_marker(self):
-        """The truncation marker is protocol, not evidence — quote matching must not see it."""
         long_hit = Hit(
             file_name="langer_bericht.pdf",
             page=1,
@@ -289,7 +222,6 @@ class TestProducerParserContract:
         assert entry.chunk_text == "A" * _CHUNK_TRUNCATE_CHARS
 
     def test_trace_lanes_block_never_becomes_the_last_hit_body(self):
-        """The fan-out JSON belongs to the result set; as evidence it verifies fake quotes."""
         tool_output = format_hits([self.PROJEKT, self.OIB])
         assert "## Trace-Lanes" in tool_output
         entries = extract_sources_from_tool_result("knowledge_search", tool_output)
@@ -300,20 +232,9 @@ class TestProducerParserContract:
         assert [entry.chunk_text for entry in entries] == [self.PROJEKT.body, self.OIB.body, self.OFFICE_SHELF.body]
 
     def test_producer_emits_the_optional_lines_only_when_the_hit_has_them(self):
-        """Guards the premise of every test above.
-
-        If the producer ever emitted ``Collection:``/``Dokumentart:`` for every
-        hit, positional parsing would look correct here and the shift would only
-        reappear in production.
-        """
         tool_output = format_hits([self.PROJEKT, self.OIB])
         assert tool_output.count("Dokumentart:") == 1
         assert format_hits([Hit(file_name="lose.pdf", page=1)]).count("Collection:") == 0
-
-
-# ---------------------------------------------------------------------------
-# Golden path: KB tool output → wire payload
-# ---------------------------------------------------------------------------
 
 
 GOLDEN_HITS = [
@@ -341,9 +262,6 @@ GOLDEN_HITS = [
     ),
 ]
 
-# The model's answer: two real sources and, between them, one it invented.
-# The fabricated source sits in the MIDDLE so its removal opens a gap that
-# renumbering must close — the combination that was broken.
 GOLDEN_ANSWER = (
     "Brandabschnitte sind nach OIB-Richtlinie 2 auszubilden [1]. "
     "Ergaenzend fordert die OENORM B 1300 eine jaehrliche Begehung [2]. "
@@ -370,7 +288,6 @@ GOLDEN_KNOWLEDGE_CONTEXT = KnowledgeContext(
             role="binding",
             via="relation",
             corpus_files=("oib-rl_2_ausgabe_mai_2023.pdf",),
-            # What the citation's line states, as the records give it (design §6.7).
             designation="OIB-RL 2",
             edition_label="Ausgabe Mai 2023",
             route=UseRoute(work_id="work:wbtv", designation="WBTV", provision="WBTV 2023, LGBl. 14/2024"),
@@ -388,15 +305,6 @@ GOLDEN_KNOWLEDGE_CONTEXT = KnowledgeContext(
 
 
 def run_golden_path():
-    """Walk the whole chain exactly as Piloti's node does.
-
-    KB tool output → ``extract_sources_from_tool_result`` → ``SourceRegistry`` →
-    ``verify_citations`` → ``sanitize_report`` → ``source_entry_to_wire``,
-    including the renumber remap the agent applies to the ``[N]`` labels.
-    """
-    # Under a grounding capture, as Piloti's turn runs: the registry reads the
-    # records the producer filed, not the text back. Only the records carry what
-    # the text does not state, such as a plan's region (issue #433).
     token = begin_grounding_capture()
     try:
         tool_output = format_hits(GOLDEN_HITS)
@@ -409,8 +317,6 @@ def run_golden_path():
     verification = verify_citations(GOLDEN_ANSWER, registry, reference_sources=registry.all_sources())
     sanitization = sanitize_report(verification.verified_report)
 
-    # The turn's edition roles, from its knowledge context (ADR-0168): the only source of a binding status
-    # (ADR-0175). The OIB-RL 2:2023 the answer cites is declared binding at the site by the Land's ordinance.
     set_turn_knowledge_context(GOLDEN_KNOWLEDGE_CONTEXT)
     try:
         wire = []
@@ -424,14 +330,6 @@ def run_golden_path():
 
 
 class TestGoldenPathToWire:
-    """One realistic turn, end to end, including a fabricated citation.
-
-    Removal, renumbering and the wire ``number`` were each covered alone; their
-    COMBINATION was not, and it was broken — the chip kept the number the model
-    wrote while the prose had already been renumbered, so the inline marker
-    scrolled to a source row that no longer existed.
-    """
-
     def test_the_invented_source_is_the_only_one_removed(self):
         _, verification, _, _ = run_golden_path()
         assert [(c["number"], c["reason"]) for c in verification.removed_citations] == [
@@ -448,11 +346,8 @@ class TestGoldenPathToWire:
         _, _, sanitization, _ = run_golden_path()
         body = sanitization.sanitized_report.split("## Quellen")[0]
         assert "Fluchtwege im Obergeschoss [2]." in body
-        # The sentence that cited the invented source keeps its text, loses its marker.
         assert "OENORM B 1300" in body
         assert "[3]" not in body
-        # …and loses the space the marker sat in, rather than leaving the reader a
-        # "Begehung ." that reads as a typo the writer never made.
         assert "eine jaehrliche Begehung. Der Einreichplan" in body
 
     def test_each_chip_carries_the_number_the_prose_now_uses(self):
@@ -475,19 +370,10 @@ class TestGoldenPathToWire:
         assert (projekt["file_name"], projekt["page"]) == ("einreichplan_og.pdf", 4)
 
     def test_a_retrieved_but_uncited_source_never_becomes_a_chip(self):
-        """Chips claim the answer USED a source; the Büroablage detail was only found."""
         _, _, _, wire = run_golden_path()
         assert "detail_attika.pdf" not in {source["file_name"] for source in wire}
 
     def test_every_chip_names_the_document_it_is_a_passage_of(self):
-        """The grouping key, shipped so the frontend never re-derives one.
-
-        A wire source is a LOCUS — one passage at one page — and every surface
-        groups them by DOCUMENT: one chip per Richtlinie, one Herleitung card per
-        file, one bibliography row per passage. The frontend used to infer that
-        grouping from the filename, which is a second identity derivation living
-        a repository away from the registry's own.
-        """
         _, _, _, wire = run_golden_path()
         assert [source["document_id"] for source in wire] == [
             "doc:oib_knowledge:oib-rl_2_ausgabe_mai_2023.pdf",
@@ -496,15 +382,6 @@ class TestGoldenPathToWire:
 
 
 class TestTheNoticeIsInsideTheBytes:
-    """A search that widened prepends a requery notice to its result.
-
-    The reader looks a block up under the hash of the exact bytes the tool
-    returned, so a notice glued on AFTER rendering would send every widened
-    search back to the text parser. The producer renders the notice as part of
-    the block instead, and this pins that the records are found under the
-    text that carries it.
-    """
-
     def test_a_widened_search_is_still_read_from_the_records(self):
         from agent.common.grounding_block import begin_grounding_capture
         from agent.common.grounding_block import end_grounding_capture
@@ -524,9 +401,6 @@ class TestTheNoticeIsInsideTheBytes:
         assert [entry.citation_key for entry in block.hits] == [hit.citation_key]
 
 
-#: What only the record carries, never a header line: a replayed turn's text read has none of it. The
-#: public address is unprinted on purpose (a link beside the key was what the answer copied), and
-#: ``retrieved_at`` is the registry's stamp, not the producer's.
 RECORD_ONLY_FIELDS = ("regions", "public_url", "revision_index", "revision_date", "work_id", "edition_id")
 
 
@@ -538,25 +412,6 @@ def _without_regions(entry: SourceEntry) -> dict[str, object]:
 
 
 class TestTheTwoReadersAgree:
-    """The structured reader and the text parser must produce the same entries.
-
-    ADR-0061 moved the live path off the text: a rendered block is filed under
-    its own bytes and the registry copies fields off the records. The text
-    parser stays for everything that holds the bytes without the records: a
-    registry hydrated from the shared cache, a turn replayed out of Postgres,
-    the job runner's callback.
-
-    That makes the two paths a pair, and a pair drifts. Here they read the SAME
-    bytes off a real producer, one with the capture open and one without, and
-    every field of every entry has to match.
-
-    Both evidence producers are read this way. RIS states fields the corpus
-    never does (a source URL, a Rechtlicher Hinweis, a Punkt that is a §), and
-    it is the producer whose fan-out deliberately names a document differently
-    from its ``Source:`` line, so it is the one where a drift would be easiest
-    to argue away.
-    """
-
     RICH_HITS = [
         Hit(
             file_name="oib-rl_2_ausgabe_mai_2023.pdf",
@@ -577,9 +432,7 @@ class TestTheTwoReadersAgree:
             content_type="table",
             body="Von Piloti verfasst, von einer Person freigegeben.",
         ),
-        # Nothing optional stated at all: the absences must survive both readers.
         Hit(file_name="lose_notiz.pdf", body="Handnotiz ohne alles."),
-        # A body the producer had to cut, whose marker neither reader may keep.
         Hit(
             file_name="langer_bericht.pdf",
             page=1,
@@ -590,7 +443,6 @@ class TestTheTwoReadersAgree:
     ]
 
     def read_both_ways(self, hits: list[Hit]) -> tuple[list[SourceEntry], list[SourceEntry]]:
-        """The same tool output, read once off the records and once off the text."""
         from agent.common.grounding_block import begin_grounding_capture
         from agent.common.grounding_block import end_grounding_capture
 
@@ -603,30 +455,20 @@ class TestTheTwoReadersAgree:
         return structured, extract_sources_from_tool_result("knowledge_search", tool_output)
 
     def test_the_golden_hits_read_identically_field_by_field(self):
-        """Every field but ``regions``, which only the record carries (see below)."""
         structured, parsed = self.read_both_ways(GOLDEN_HITS)
         assert [_without_regions(entry) for entry in structured] == [_without_regions(entry) for entry in parsed]
 
     def test_a_region_rides_on_the_record_and_never_on_the_text(self):
-        """The second place the two readers differ, written down rather than found.
-
-        A region is geometry for the reader's viewer, so it is deliberately not a
-        line of the text the model reads (issue #433), and the text parser has
-        nothing to recover it from. A replayed turn therefore opens a plan at its
-        page without the box, which is what every turn did before.
-        """
         structured, parsed = self.read_both_ways(GOLDEN_HITS)
         plan = next(entry for entry in structured if entry.citation_key == "einreichplan_og.pdf, p.4")
         assert [region.label for region in plan.regions] == ["Grundriss 1. OG"]
         assert all(entry.regions == [] for entry in parsed)
 
     def test_a_fully_stated_hit_reads_identically_field_by_field(self):
-        """Punkt, score, doc_class, shelf, authored_by, content type, truncation."""
         structured, parsed = self.read_both_ways(self.RICH_HITS)
         assert [dataclasses.asdict(entry) for entry in structured] == [dataclasses.asdict(entry) for entry in parsed]
 
     def test_the_structured_read_carries_the_fields_it_claims_to(self):
-        """Guards the premise above: two empty lists would also be equal."""
         structured, _ = self.read_both_ways(self.RICH_HITS)
         oib, piloti, lose, langer = structured
         assert (oib.clause, oib.shelf, oib.doc_class, oib.score) == ("3.5.2", "base", "oib_guideline", 0.87)
@@ -635,19 +477,10 @@ class TestTheTwoReadersAgree:
         assert langer.chunk_text == "A" * _CHUNK_TRUNCATE_CHARS
 
     def test_the_record_keeps_a_precision_the_rendered_line_rounds_away(self):
-        """The one place the two readers differ, written down rather than found.
-
-        ``Relevance Score:`` prints two decimals, so the text parser can never
-        recover more than two; the structured reader copies what retrieval
-        measured. No surface renders a score today, which is why this is a
-        difference and not a defect. A surface that starts to render one will
-        find it stated here.
-        """
         structured, parsed = self.read_both_ways([Hit(file_name="a.pdf", page=1, score=0.8712)])
         assert (structured[0].score, parsed[0].score) == (0.8712, 0.87)
 
     def test_the_records_are_read_in_block_order(self):
-        """``SourceRegistry.add`` merges a repeated page onto the entry that came first."""
         structured, _ = self.read_both_ways(self.RICH_HITS)
         assert [entry.citation_key for entry in structured] == [
             "oib-rl_2_ausgabe_mai_2023.pdf, p.12",
@@ -656,8 +489,6 @@ class TestTheTwoReadersAgree:
             "langer_bericht.pdf, p.1",
         ]
 
-    #: One § the caller addressed, with the disclaimer a consolidated version
-    #: carries, and one the picker ranked, with none.
     RIS_PASSAGES = [
         Passage(
             title="Bauordnung für Wien",
@@ -681,7 +512,6 @@ class TestTheTwoReadersAgree:
     ]
 
     def read_ris_both_ways(self) -> tuple[list[SourceEntry], list[SourceEntry]]:
-        """The RIS producer's output, read once off the records and once off the text."""
         from agent.common.grounding_block import begin_grounding_capture
         from agent.common.grounding_block import end_grounding_capture
 
@@ -695,13 +525,10 @@ class TestTheTwoReadersAgree:
         return structured, extract_sources_from_tool_result("ris_lookup", tool_output)
 
     def test_a_ris_block_reads_identically_field_by_field(self):
-        """Every field the text states; the record-only ones are pinned below."""
         structured, parsed = self.read_ris_both_ways()
         assert [_without_regions(entry) for entry in structured] == [_without_regions(entry) for entry in parsed]
 
     def test_the_public_address_travels_on_the_record_and_is_printed_nowhere(self):
-        """The address a passage was read at reaches the registry beside the entry, never as its identity
-        (``url``) and never in the text the model reads: printed, it was what the answer copied."""
         structured, parsed = self.read_ris_both_ways()
         assert [entry.public_url for entry in structured] == [passage.url for passage in self.RIS_PASSAGES]
         assert all(entry.url is None for entry in structured)
@@ -711,7 +538,6 @@ class TestTheTwoReadersAgree:
         assert all(passage.url not in text for passage in self.RIS_PASSAGES)
 
     def test_the_structured_read_carries_what_ris_stated(self):
-        """Guards the premise above, and pins the § as the Punkt it is."""
         structured, _ = self.read_ris_both_ways()
         wien, garagen = structured
         assert (wien.clause, wien.doc_class, wien.shelf, wien.score) == ("§ 63 Abs 1", "law", "base", 1.0)
@@ -720,8 +546,6 @@ class TestTheTwoReadersAgree:
 
 
 class TestDocumentKey:
-    """``document_key`` is the registry's own identity, minus the page."""
-
     def test_pages_of_one_document_share_one_key(self):
         pages = [
             SourceEntry(
@@ -734,12 +558,6 @@ class TestDocumentKey:
         assert len({document_key(entry) for entry in pages}) == 1
 
     def test_one_filename_on_two_shelves_is_two_documents(self):
-        """The collision the collection half of the key exists to prevent.
-
-        One search fans out across the base corpus, the session collection and
-        the project collections at once, so a project ``Plan.pdf`` and an Archiv
-        ``Plan.pdf`` arrive in the SAME result set as different documents.
-        """
         project = SourceEntry(citation_key="Plan.pdf, p.1", collection="proj_a")
         archiv = SourceEntry(citation_key="Plan.pdf, p.1", collection="archiv_b")
         assert document_key(project) != document_key(archiv)
@@ -754,68 +572,21 @@ class TestDocumentKey:
         assert document_key(entry) == "label:ein werkzeugergebnis"
 
     def test_two_sources_with_no_label_at_all_do_not_share_one_key(self):
-        """Never identity-less, and never falsely identical.
-
-        A bare ``label:`` made every anonymous entry key the same — and the
-        frontend PREFERS a supplied ``document_id`` over its own derivation, so
-        distinct sources would have been folded into one document downstream.
-        """
         first = SourceEntry(source_type="tool_result", chunk_text="ein Absatz")
         second = SourceEntry(source_type="tool_result", chunk_text="ein anderer Absatz")
         assert document_key(first) != document_key(second)
 
     def test_the_anonymous_key_is_deterministic(self):
-        """Same entry, same key — across processes and across a cached registry."""
         made = lambda: SourceEntry(source_type="tool_result", chunk_text="ein Absatz")  # noqa: E731
         assert document_key(made()) == document_key(made())
 
 
-# ---------------------------------------------------------------------------
-# Cross-language seams (Python producer ↔ TypeScript consumer)
-# ---------------------------------------------------------------------------
-
-
 class TestSharedWireFixturesAreCurrent:
-    """Pin the formats a TypeScript consumer parses.
-
-    These formats cross a process boundary, so no single test can exercise both
-    ends. Each side asserts against the SAME checked-in fixture instead: this
-    class proves the fixtures are still what the Python producers emit, and
-    ``apps/workspace/ui/features/chat/lib/citation-wire-contract.spec.ts`` proves
-    the frontend still parses them. Change a format and exactly one of the two
-    fails — which is the whole point, because silent drift here is invisible
-    until a user sees an unlabelled or mis-tinted source.
-
-    When a format change here is intended, rewrite the fixtures from
-    ``run_golden_path()`` and then run the frontend spec — that run is what
-    tells you whether the frontend can still read the new format.
-
-    The assertions are deliberately "the fixture is still a faithful sample",
-    not "the bytes are identical": ADDING a field is invisible to a JSON
-    consumer and must not break the build, while renaming, removing or
-    re-valuing one of the fields the frontend reads must.
-    """
-
     def test_verified_report_fixture_matches_the_pipeline(self):
-        """Counterpart: report-citations.ts (`splitReportSources`, SOURCE_KIND_TOKEN_RE)."""
         _, _, sanitization, _ = run_golden_path()
         assert (FIXTURE_DIR / "verified_report.md").read_text(encoding="utf-8") == sanitization.sanitized_report
 
     def test_wire_sources_fixture_matches_the_serializer(self):
-        """Counterpart: wire-citation.ts (`citationFromWire`).
-
-        EXACT, not a subset. It was ``sampled.items() <= live.items()``, which
-        pins that the fixture's fields still mean what they did and says nothing
-        about fields the serializer stopped sending — so ``snippet``, the
-        retrieved passage every reading surface is built around, could be
-        captured, merged and then dropped at serialization with this contract
-        green and nothing on either side failing. A missing snippet is a
-        supported outcome everywhere it is read, which is what made the loss
-        invisible rather than loud.
-
-        The key sets must therefore agree too: a field that only one side knows
-        about is the defect this file exists to catch.
-        """
         _, _, _, wire = run_golden_path()
         fixture = json.loads((FIXTURE_DIR / "wire_sources.json").read_text(encoding="utf-8"))
         assert len(fixture) == len(wire)
@@ -824,12 +595,10 @@ class TestSharedWireFixturesAreCurrent:
             assert sampled == live
 
     def test_every_origin_is_one_the_frontend_token_regex_accepts(self):
-        """``SOURCE_KIND_TOKEN_RE`` and ``normalizeOrigin`` know exactly three tokens."""
         _, _, _, wire = run_golden_path()
         assert {source["origin"] for source in wire} <= {"kb", "ris", "web"}
 
     def test_trace_lane_keys_agree_with_the_wire_lanes(self, emitted):
-        """The fan-out (the tool's ``sources`` step) and the chips must not disagree about where a hit belongs."""
         _, _, _, wire = run_golden_path()
         (sources_step,) = [step for step in emitted.steps if step.kind == "sources"]
         keys = [lane.key for lane in sources_step.lanes]
@@ -838,17 +607,6 @@ class TestSharedWireFixturesAreCurrent:
 
 
 class TestBatchToolOutputContract:
-    """The batch envelope must be split by the real producer's real separator.
-
-    ``_format_batch_tool_output`` (deep researcher) joins ``## Query: <q>``
-    sections with ``\\n\\n---\\n\\n``; ``_split_batch_output_bodies`` (citation
-    verification, a different package) re-splits them to decide whether a batch
-    is evidence or a status report. The consumer's tests hand-write that
-    envelope, so a change to the producer's separator would leave every test
-    green while a batch of pure failures started registering itself as a
-    citable source — the "3 sources" the answer never had.
-    """
-
     def batch(self, *results: tuple[str, str | None, str | None]) -> str:
         from agent.agents.deep_researcher.tools.source_tool_batching import _format_batch_tool_output
 
@@ -863,7 +621,6 @@ class TestBatchToolOutputContract:
         assert extract_sources_from_tool_result("ris_search_tool", output) == []
 
     def test_one_good_query_survives_alongside_a_failed_one(self):
-        """A partial failure must not discard the evidence the batch did find."""
         output = self.batch(
             ("alpha", None, "connection refused"),
             ("beta", "Title: Bauordnung\nhttps://ris.bka.gv.at/eli/lgbl/W/1930/11", None),
@@ -873,17 +630,6 @@ class TestBatchToolOutputContract:
 
 
 class TestPassageBodyCannotForgeHeaderFields:
-    """A retrieved passage must never be read as another hit's header field.
-
-    Block-scoped parsing alone was not enough: a block holds the header AND the
-    retrieved text, and the producer omits ``Dokumentart:``/``Collection:`` for
-    a hit that has none — so a scanned title block or metadata table inside the
-    passage supplied them instead. That reproduced the exact user-visible
-    failure positional misalignment caused: a project upload presented as a
-    binding OIB Richtlinie. Header fields are now read from the header region
-    only (``_kl_block_header``).
-    """
-
     POISONED = Hit(
         file_name="einreichplan_og.pdf",
         page=4,

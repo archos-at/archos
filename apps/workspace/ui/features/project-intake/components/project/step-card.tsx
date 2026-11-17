@@ -1,11 +1,3 @@
-/**
- * The shapes step 1 is drawn in (the approved mockup `Projekt.dc.html`): a
- * card with a head (title, and a count or one quiet action), rows of a label
- * column and a value, and a person's disc. Kept beside the step because only
- * step 1 draws a card this way; the kit's `Card` carries padding and a gap
- * these rows must not have.
- */
-
 import type { ComponentProps, JSX, ReactNode } from 'react'
 import { useId } from 'react'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -33,12 +25,10 @@ export function StepCard({
   )
 }
 
-/** One row of a card: a hairline on top, 12px by 18px. */
 export function StepCardRow({ className, ...props }: ComponentProps<'div'>): JSX.Element {
   return <div className={cn('border-border/60 flex items-center gap-3 border-t px-4 py-3 sm:px-[18px]', className)} {...props} />
 }
 
-/** A fact: the label in a 96px column, the value beside it. */
 export function FactRow({ label, children, ...props }: { label: string; children: ReactNode } & Omit<ComponentProps<'div'>, 'children'>): JSX.Element {
   return (
     <StepCardRow className="items-start" {...props}>
@@ -48,7 +38,6 @@ export function FactRow({ label, children, ...props }: { label: string; children
   )
 }
 
-/** The disc: the reader dark, a colleague on the muted tone, someone from outside dashed. */
 export function PersonDisc({ name, tone }: { name: string; tone: 'you' | 'member' | 'external' | 'former' }): JSX.Element {
   return (
     <Avatar aria-hidden className="size-8">

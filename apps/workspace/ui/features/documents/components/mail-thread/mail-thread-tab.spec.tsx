@@ -1,12 +1,3 @@
-/**
- * The „E-Mails“ tab, as a person uses it: the mails newest first with the
- * Fassung each first appeared in; what came with each; the original's states,
- * including the 409 a download can still answer; following, renewing and
- * stopping; a manager ending someone else's follow and nobody else seeing
- * „Beenden“; „Vergleichen“; a detach that names the Fassungen keeping the mail
- * and says a refusal in the dialog; a link scrolling to its entry.
- */
-
 import { PRODUCT_NAME } from '@/lib/brand'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import userEvent from '@testing-library/user-event'
@@ -184,7 +175,6 @@ describe('MailThreadTab', () => {
     await userEvent.click(await within(newest).findByRole('button', { name: 'Compare revision 2 with revision 3' }))
     expect(diff).toHaveBeenCalledWith(THREAD_DOCUMENT_ID, expect.any(String), expect.any(String))
     expect(await within(newest).findByTestId('mail-thread-entry-comparison')).toBeInTheDocument()
-    // The first mail started the thread: there is nothing before it.
     expect(within((await entries())[2]).queryByTestId('mail-thread-entry-compare')).toBeNull()
   })
 
@@ -273,7 +263,6 @@ describe('MailThreadTab', () => {
     const focused = rows.find((row) => row.dataset.focused)
     expect(focused?.dataset.entryId).toBe(fixture.focusEntryId)
     expect(focused).toHaveAttribute('aria-current', 'location')
-    // Marked as the list's current row (`Item`), never by a bar down its edge (design language, „Emphasis without a stripe“).
     expect(focused).toHaveAttribute('data-current', 'true')
     expect(focused?.className).not.toMatch(/border-l/)
     expect(Element.prototype.scrollIntoView).toHaveBeenCalled()
@@ -293,7 +282,6 @@ describe('MailThreadTab', () => {
     renderTab('same-sender')
     const rows = await entries()
     const said = rows.map((row) => within(row).queryByTestId('mail-thread-entry-trust')?.textContent ?? null)
-    // Newest first: three replies from statik-weber.at in a row, then Miriam's first mail.
     expect(said).toEqual(['Domain verified: statik-weber.at', null, null, 'Domain verified: huber-architektur.at'])
   })
 

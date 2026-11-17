@@ -3,21 +3,6 @@ import { describe, expect, it } from 'vitest'
 import { readFileSync, existsSync } from 'node:fs'
 import path from 'node:path'
 
-/**
- * `next.config.ts` runs at server start in the PRODUCTION image, where almost
- * none of `src/` exists — only the files `deploy/Dockerfile` copies in
- * explicitly. A relative import the Dockerfile does not copy is a
- * MODULE_NOT_FOUND CrashLoopBackOff in production that no local check sees:
- * update 67 (avatar-hosts.ts) and update 83 (optimizable.ts) both shipped
- * exactly that. This spec is the guard those two incidents did not have: every
- * relative import of `next.config.ts` must appear as a COPY destination in
- * `deploy/Dockerfile`.
- *
- * Only DIRECT imports are checked — the imported modules carry a header
- * obligating them to stay import-free, and this spec fails on `next.config.ts`
- * if that obligation is ever dropped there.
- */
-
 const UI_ROOT = path.resolve(__dirname, '../..')
 
 function relativeImportsOf(configSource: string): string[] {

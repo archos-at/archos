@@ -1,11 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * GET used to hand the request's id straight to the batch helper, which checks
- * no access, while its `authz` declaration said it did. It now goes through the
- * guarded single-resource read, and a refusal is the same 404 as a missing id.
- */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/lib/auth/require-auth', () => ({

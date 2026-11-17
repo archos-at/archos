@@ -1,31 +1,5 @@
 'use client'
 
-/**
- * GRID form system — TanStack Form + Zod + shadcn primitives.
- *
- * Usage:
- * ```tsx
- * const form = useAppForm({
- *   defaultValues: { name: '' },
- *   validators: { onChange: createProjectSchema },   // a zod schema
- *   onSubmit: async ({ value }) => { ... },
- * })
- *
- * <form onSubmit={(e) => { e.preventDefault(); e.stopPropagation(); form.handleSubmit() }}>
- *   <form.AppField name="name">
- *     {(field) => <field.TextField label="Project name" placeholder="e.g. Hotel Donaukanal" />}
- *   </form.AppField>
- *   <form.AppForm>
- *     <form.SubmitButton>Create project</form.SubmitButton>
- *   </form.AppForm>
- * </form>
- * ```
- *
- * Every field component renders label, control, and validation errors in a
- * consistent layout. Validation is Zod via TanStack Form's standard-schema
- * support — no manual error wiring.
- */
-
 import * as React from 'react'
 import { createFormHook, createFormHookContexts } from '@tanstack/react-form'
 
@@ -48,10 +22,6 @@ import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 
 const { fieldContext, formContext, useFieldContext, useFormContext } = createFormHookContexts()
-
-/* ----------------------------------------------------------------------------
- * Shared field chrome
- * ------------------------------------------------------------------------- */
 
 interface FieldShellProps {
   label?: string
@@ -84,15 +54,10 @@ function FieldShell({ label, description, required, className, htmlFor, errors, 
 }
 
 function useFieldErrors(field: { state: { meta: { isTouched: boolean; errors: unknown[] } } }) {
-  // Only surface errors once the user has interacted with the field.
   return field.state.meta.isTouched
     ? (field.state.meta.errors as Array<string | { message: string } | undefined>)
     : []
 }
-
-/* ----------------------------------------------------------------------------
- * Field components (bound to TanStack field context)
- * ------------------------------------------------------------------------- */
 
 interface TextFieldProps extends Omit<React.ComponentProps<typeof Input>, 'value' | 'onChange' | 'onBlur'> {
   label?: string
@@ -284,23 +249,10 @@ function SwitchField({ label, description, containerClassName, disabled }: Switc
   )
 }
 
-/* ----------------------------------------------------------------------------
- * Form-level components (bound to form context)
- * ------------------------------------------------------------------------- */
-
 interface SubmitButtonProps extends React.ComponentProps<typeof Button> {
   children: React.ReactNode
 }
 
-/**
- * The form's submit. Busy is not disabled (docs/design/design-language.md):
- * while the submit runs the button keeps its focus (`aria-disabled`, and the
- * press is swallowed here, because Chrome blurs a button the moment it becomes
- * `disabled`) and its width (the label stays in the layout, transparent but
- * still the button's accessible name, under the spinner), and the spinner appears only once the wait has lasted 150 ms:
- * below that the press is the feedback. `disabled` stays for what cannot be
- * submitted at all, an invalid form.
- */
 function SubmitButton({ children, disabled, className, onClick, ...buttonProps }: SubmitButtonProps) {
   const form = useFormContext()
 
@@ -311,8 +263,6 @@ function SubmitButton({ children, disabled, className, onClick, ...buttonProps }
           {...buttonProps}
           className={className}
           onClick={onClick}
-          // TanStack's `canSubmit` is false WHILE submitting too; only an
-          // invalid form disables, a running submit is busy.
           disabled={disabled || (!canSubmit && !isSubmitting)}
           busy={isSubmitting}
         >
@@ -356,10 +306,6 @@ function SubmitButtonFace({
     </Button>
   )
 }
-
-/* ----------------------------------------------------------------------------
- * The app form hook
- * ------------------------------------------------------------------------- */
 
 export const { useAppForm, withForm } = createFormHook({
   fieldContext,

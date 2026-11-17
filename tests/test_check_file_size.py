@@ -1,11 +1,3 @@
-"""The size ratchet refuses a new giant, refuses growth, and makes the baseline follow every shrink.
-
-`scripts/check_file_size.py` holds source files to 600 lines and Python
-functions to 60, with `ci/size_baseline.json` recording what was over when the
-check arrived. These run it on a scratch repository, so the real tree's
-baseline is not what they depend on.
-"""
-
 from __future__ import annotations
 
 import importlib.util
@@ -24,7 +16,6 @@ def checker():
     spec = importlib.util.spec_from_file_location("check_file_size", ROOT / "scripts" / "check_file_size.py")
     module = importlib.util.module_from_spec(spec)
     assert spec.loader is not None
-    # A dataclass resolves its annotations through sys.modules, so register before running the module.
     sys.modules[spec.name] = module
     spec.loader.exec_module(module)
     return module
@@ -39,7 +30,6 @@ def repo(tmp_path, monkeypatch):
 
 
 def add(repo: Path, path: str, text: str) -> None:
-    """Write ``path`` and stage it: the check reads `git ls-files`, as a commit would."""
     target = repo / path
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(text, encoding="utf-8")
@@ -102,13 +92,11 @@ def test_a_shrink_asks_for_the_baseline_to_follow_and_update_only_lowers_it(chec
     add(repo, "src/split.py", lines(100))
     add(repo, "src/new.py", lines(601))
 
-    # The new giant fails; the two shrinks are slack, never findings.
     assert checker.main([]) == 1
     err = capsys.readouterr().err
     assert "src/new.py: 601 lines" in err
     assert "down from" not in err and "remove its baseline entry" not in err
 
-    # --update tightens what is recorded and still refuses the new giant: it never adds an entry.
     assert checker.main(["--update"]) == 1
     assert json.loads((repo / "ci" / "size_baseline.json").read_text())["files"] == {"src/big.py": 680}
 
@@ -141,7 +129,6 @@ def test_typescript_imports_and_the_blanks_between_them_are_not_counted(checker)
         "export { lazy }\n"
     )
 
-    # Kept: the blank after the last import, the dynamic import, the local export list.
     assert checker.counted_lines("x.tsx", source) == 3
 
 
@@ -177,7 +164,6 @@ def test_typescript_comment_lines_are_not_counted_and_code_beside_a_comment_is(c
         "\n"
     )
 
-    # Kept: `const a`, the line where a block ends before code, `const url`, the blank.
     assert checker.counted_lines("x.ts", source) == 4
 
 
@@ -196,7 +182,6 @@ def test_python_comments_and_docstrings_are_not_counted_and_other_strings_are(ch
         "    return text  # counted\n"
     )
 
-    # Kept: `def f`, the three lines of the string assignment, `return`.
     assert checker.counted_lines("x.py", source) == 5
 
 

@@ -19,7 +19,6 @@ vi.mock('next/navigation', () => ({
 }))
 vi.mock('@/adapters/auth/use-auth', () => ({ useAuth: () => ({ signOut: vi.fn() }) }))
 
-// cmdk scrolls the selected item into view; happy-dom may not implement it.
 if (!Element.prototype.scrollIntoView) {
   Element.prototype.scrollIntoView = () => {}
 }
@@ -60,7 +59,6 @@ describe('CommandPalette: the workspace search', () => {
     await userEvent.type(field(), 'Fluchtweg GK 4')
     await waitFor(() => expect(asked).toHaveLength(1))
     expect(asked[0]).toEqual({ query: '', body: { text: 'Fluchtweg GK 4', limit: 3, facets: false } })
-    // The keystrokes before the pause asked nothing of their own.
     await new Promise((resolve) => setTimeout(resolve, 250))
     expect(asked).toHaveLength(1)
   })
@@ -78,21 +76,17 @@ describe('CommandPalette: the workspace search', () => {
     await userEvent.type(field(), 'Fluchtweg')
     const documents = await screen.findByTestId('palette-group-document')
     expect(within(documents).getByText('Dokumente')).toBeInTheDocument()
-    // At most three of a kind, though the answer holds more.
     expect(SEARCH_FIXTURE_RESPONSE.sections.document!.hits.length).toBeGreaterThan(3)
     expect(within(documents).getAllByRole('option')).toHaveLength(3)
-    // The page's own row, compact: the name, then one line of where it lives and what it is; the passage with its page.
     const concept = screen.getByTestId(`palette-search-hit-document-${CONCEPT}`)
     expect(concept).toHaveTextContent('Brandschutzkonzept Wohnhaus Seestadt J7')
     expect(concept).toHaveTextContent('S. 7')
-    // Every hit lives in one project: it is named once above them, not on each row.
     expect(screen.getByTestId('palette-scope-line')).toHaveTextContent('In Wohnhaus Seestadt Baufeld J7')
     expect(concept).not.toHaveTextContent('Wohnhaus Seestadt Baufeld J7')
     expect(within(concept).getAllByText('Fluchtweg', { selector: 'mark' }).length).toBeGreaterThan(0)
     expect(screen.getByTestId('palette-group-annotation')).toBeInTheDocument()
     expect(screen.getByTestId('palette-group-conversation')).toBeInTheDocument()
 
-    // The search rows come first, in the contract's order, „Alle Treffer“ last among them.
     const options = screen.getAllByRole('option')
     const all = screen.getByTestId('palette-workspace-search')
     expect(all).toHaveTextContent('Alle Treffer für „Fluchtweg“')
@@ -159,7 +153,6 @@ describe('CommandPalette: the workspace search', () => {
     slow = true
     await userEvent.type(field(), 'weg')
     await userEvent.keyboard('{Enter}')
-    // The best hit of the earlier answer is the palette's choice, not the reader's: nothing opens yet.
     expect(push).not.toHaveBeenCalled()
     await waitFor(() => expect(answer).not.toBeNull())
     answer!()
@@ -235,12 +228,10 @@ describe('CommandPalette: the workspace search', () => {
     expect(within(recent).getAllByRole('option').map((row) => row.textContent)).toEqual(['EP-05', 'Fluchtweg'])
     const saved = await screen.findByTestId('palette-saved')
     expect(saved).toHaveTextContent('Einreichpläne, aktuell')
-    // A colleague's search names who shared it, as the saved searches' popover does.
     expect(saved).toHaveTextContent('Geteilt von Max Gruber')
     expect(screen.getByText('Profil')).toBeInTheDocument()
     expect(asked).toHaveLength(0)
 
-    // A recent search is asked again, in place.
     await userEvent.click(within(recent).getByText('EP-05'))
     expect(field()).toHaveValue('EP-05')
     await waitFor(() => expect(asked.at(-1)?.body.text).toBe('EP-05'))

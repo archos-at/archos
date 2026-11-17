@@ -1,13 +1,3 @@
-"""The old research claim queue moves onto Hatchet from the agent-worker, as ingest's does (ADR-0150).
-
-The table is the real one: ``research_job_queue`` made and claimed by the claim
-substrate the old release ran (``agent.common.claim_queue``), so a claim here is
-the old worker's own SQL. Hatchet is faked at ``research_workflow.start``. The
-Postgres branch (``TEST_POSTGRES_URL``, ``task be:test:postgres``) adds the
-one thing SQLite cannot show: a row the cutover holds is skipped by the old
-claim and by a second cutover.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -29,7 +19,6 @@ OLD_CLAIM = {"stale_seconds": 90, "max_attempts": 3}
 
 
 def test_the_postgres_branch_ran_where_it_is_required():
-    """CI's ``task be:test:postgres`` sets the guard: there a missing database fails instead of skipping green."""
     if os.environ.get("TEST_POSTGRES_REQUIRED"):
         assert _POSTGRES, "TEST_POSTGRES_URL is unset while TEST_POSTGRES_REQUIRED is set"
 
@@ -55,7 +44,6 @@ def db_url(request, tmp_path, monkeypatch):
 
 @pytest.fixture
 def old_queue(db_url) -> claim_queue.ClaimQueue:
-    """The old release's research queue, on the real table name and the real claim SQL."""
     queue = claim_queue.ClaimQueue(
         name="research",
         table="research_job_queue",
@@ -93,7 +81,6 @@ def _enqueue(queue, db_url: str, job_id: str, lane: str = "org-a", priority: str
 
 
 def _silent_for(db_url: str, job_id: str, column: str, minutes: int) -> None:
-    """Move one claim timestamp ``minutes`` into the past."""
     engine = EventStore._get_or_create_sync_engine(db_url)
     past = (
         f"NOW() - make_interval(mins => {minutes})"
@@ -132,7 +119,6 @@ async def test_a_fresh_claim_stays_with_the_old_worker_that_may_still_run_it(db_
 
 
 async def test_a_claim_still_heartbeating_stays_however_old_it_is(db_url, old_queue, started):
-    """A draining worker heartbeats the job it runs: an old claim with a fresh heartbeat is still running there."""
     _enqueue(old_queue, db_url, "job-a")
     old_queue.claim_next("old-worker", **OLD_CLAIM)
     _silent_for(db_url, "job-a", "claimed_at", 30)
@@ -247,9 +233,6 @@ async def test_a_row_the_cutover_holds_is_skipped_by_the_old_claim_and_a_second_
         holder.rollback()
         holder.close()
     assert old_queue.claim_next("old-worker", **OLD_CLAIM).job_id == "job-a"
-
-
-# ---------------------------------------------------------------- the worker's loop
 
 
 def _passes(monkeypatch, *answers: bool | None) -> list[int]:

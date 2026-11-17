@@ -9,8 +9,6 @@ vi.mock('sonner', () => ({
   toast: { error: vi.fn(), success: vi.fn() },
 }))
 
-// Isolate the overview from the heavy WorkOS widget / chart / token machinery —
-// what is under test is the fetch lifecycle and the organization directory.
 vi.mock('@workos-inc/widgets', () => ({
   WorkOsWidgets: ({ children }: { children: React.ReactNode }) => children,
   UsersManagement: () => <div data-testid="users-management" />,
@@ -24,8 +22,6 @@ vi.mock('@/components/audit/audit-log-button', () => ({
 vi.mock('@/lib/workos/widget-token', () => ({
   makeWidgetTokenFetcher: () => async () => 'token',
 }))
-// The price-list card is replaced by a stub that exposes the overview's
-// `onSaved` hook, so a test can play "a save just landed" without the card.
 const pricingCard = vi.hoisted(() => ({ onSaved: undefined as undefined | (() => void) }))
 vi.mock('./platform-pricing-card', () => ({
   PlatformPricingCard: ({ onSaved }: { onSaved?: () => void }) => {
@@ -35,12 +31,9 @@ vi.mock('./platform-pricing-card', () => ({
 }))
 vi.mock('@/lib/workos/use-widget-appearance', () => ({
   useResolvedAppearance: () => 'light',
-  // The component builds the widget's Radix theme from this; a module mock that
-  // omits it makes the call site throw rather than render.
   widgetTheme: (appearance: 'light' | 'dark') => ({ appearance }),
 }))
 
-/** USD cost as charged, priced at a 2× margin with one credit = $0.10. */
 const spend = (costUsd: number, events = Math.round(costUsd)) => ({
   costUsd,
   ownKeyCostUsd: 0,
@@ -104,7 +97,6 @@ const withOrganizations = (organizations: Organization[], extra: Record<string, 
   ...extra,
 })
 
-/** 12 organizations, descending month spend — two pages at a page size of 10. */
 const MANY = Array.from({ length: 12 }, (_, index) =>
   org({
     id: `org_${index}`,
@@ -120,11 +112,9 @@ const stubFetch = (payload: unknown) =>
 
 const directory = () => screen.getByTestId('platform-organizations')
 
-/** Organization names in the order the table renders them. */
 const renderedNames = (): string[] =>
   within(directory())
     .getAllByRole('row')
-    // Skip the header row; the first cell of each body row holds the name.
     .slice(1)
     .map(
       (row) =>
@@ -172,8 +162,6 @@ describe('PlatformOverview', () => {
       })
     vi.stubGlobal('fetch', fetchSpy)
     render(<PlatformOverview />)
-    // The wide column's button and the narrow layout's link are the same action;
-    // CSS shows one of them per container width.
     await userEvent.click(
       (await screen.findAllByRole('button', { name: 'Edit allowance for Office Two' }))[0]
     )
@@ -198,7 +186,6 @@ describe('PlatformOverview', () => {
 
     await userEvent.click(retry)
 
-    // Recovered: stats render, error is gone.
     expect(await screen.findByText('3')).toBeDefined()
     expect(screen.queryByText(/Could not load the platform overview/i)).toBeNull()
     expect(fetchSpy).toHaveBeenCalledTimes(2)
@@ -226,8 +213,6 @@ describe('PlatformOverview', () => {
     expect(table.getByRole('columnheader', { name: /Organization/i })).toBeDefined()
     expect(table.getByRole('columnheader', { name: /Cost this month/i })).toBeDefined()
     expect(table.getByText('Platform')).toBeDefined()
-    // EUR conversion + locale currency formatting, not raw USD.
-    // Cost as charged and revenue at the price list, side by side.
     expect(table.getByText('$90.00')).toBeDefined()
     expect(table.getByText('$180.00')).toBeDefined()
   })
@@ -284,11 +269,8 @@ describe('PlatformOverview', () => {
     render(<PlatformOverview />)
 
     await screen.findByText('Alpha')
-    // Biggest month spender first by default, matching the service's own order.
     expect(renderedNames()).toEqual(['Beta', 'Gamma', 'Alpha'])
 
-    // The default sort is revenue; the cost column starts descending on its
-    // first click and flips on the second.
     const monthHeader = within(directory()).getByRole('button', {
       name: /Sort by Cost this month/i,
     })
@@ -363,12 +345,10 @@ describe('PlatformOverview', () => {
 
     render(<PlatformOverview />)
 
-    // Said once, on the tile, and not again in a footer under the directory.
     expect(await screen.findByText('Only the first 3 loaded, more exist')).toBeDefined()
     expect(screen.getAllByText(/Only the first 3/)).toHaveLength(1)
     expect(screen.queryByText('3+')).toBeNull()
 
-    // The search repeats it only to explain a miss.
     await userEvent.type(screen.getByRole('textbox', { name: /Search organizations/i }), 'nowhere')
     expect(
       screen.getByText(/Only the first 3 organizations are loaded, so it may be among the rest/)
@@ -383,7 +363,6 @@ describe('PlatformOverview', () => {
     const team = await screen.findByTestId('platform-team')
     expect(within(team).getByTestId('users-management')).toBeDefined()
     expect(within(team).getByRole('button', { name: /Audit logs/i })).toBeDefined()
-    // The team widget must not sit inside the organization directory card.
     expect(within(directory()).queryByTestId('users-management')).toBeNull()
   })
 
@@ -403,9 +382,7 @@ describe('PlatformOverview', () => {
     render(<PlatformOverview />)
 
     const table = within(await screen.findByTestId('platform-organizations'))
-    // Under the organization's month cost, rather than a column of mostly zeros.
     expect(table.getByText('of which ingestion $12.50')).toBeDefined()
-    // Part of the month's cost, not on top of it; today had none, so no hint.
     const kpis = within(screen.getByTestId('platform-kpis'))
     expect(kpis.getByText(/of which ingestion \$12\.50/)).toBeDefined()
     expect(kpis.getAllByText(/of which ingestion/)).toHaveLength(1)
@@ -445,9 +422,6 @@ describe('PlatformOverview', () => {
 
     act(() => pricingCard.onSaved?.())
 
-    // While the reload is in flight the figures and the card stay put. The old
-    // code swapped the whole tree for skeletons, unmounting the card that had
-    // just called this.
     expect(screen.queryByTestId('platform-overview-loading')).toBeNull()
     expect(screen.getByTestId('platform-pricing')).toBe(card)
     expect(screen.getByTestId('platform-overview')).toHaveAttribute('aria-busy', 'true')
@@ -478,7 +452,6 @@ describe('PlatformOverview', () => {
     expect(stale).toHaveTextContent(
       'Could not refresh the overview. The figures shown may be out of date.'
     )
-    // The figures are still there under the warning.
     expect(screen.getByText('7')).toBeDefined()
 
     await userEvent.click(within(stale).getByRole('button', { name: /Try again/i }))

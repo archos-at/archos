@@ -1,18 +1,3 @@
-"""A deep research run keeps the same per-round account a chat turn keeps.
-
-Each ``run_research_batch`` call is one round: it states what it is about to
-fetch (``record_round_announcement``), stamps every hit its workers return with
-that round (``retrieval_round_scope``), and at the end of the run the two are
-joined into the ``retrieval_ledger`` the reader's Herleitung renders. Deep
-research had none of it — the longest answers the product writes were the ones
-whose derivation could not be read back.
-
-The join itself is pinned by the chat suite. What these tests pin is that the
-deep researcher FEEDS it: two batches are two rounds, the hits land under the
-round that fetched them, and the result is the wire shape the shared fixture
-holds.
-"""
-
 from __future__ import annotations
 
 import json
@@ -64,7 +49,6 @@ def _note(topic: str) -> dict[str, Any]:
 
 
 def _runnable_recording(hits: dict[str, list[tuple[str, str]]]) -> Any:
-    """A researcher worker that records the lane hits its query is mapped to."""
 
     async def _invoke(state: dict[str, Any], config: dict[str, Any] | None = None) -> dict[str, Any]:
         text = str(state["messages"][0].content)
@@ -92,7 +76,6 @@ def _batch_tool(runnable: Any, rounds: RetrievalRounds):
 class TestTwoBatchesAreTwoRounds:
     @pytest.mark.asyncio
     async def test_each_batch_announces_its_own_round(self):
-        """Two dispatches, two announcements, indexed in dispatch order."""
         rounds = RetrievalRounds()
         tool = _batch_tool(_runnable_recording({"Fluchtweg": [], "Brandabschnitt": []}), rounds)
 
@@ -103,14 +86,11 @@ class TestTwoBatchesAreTwoRounds:
 
         assert [entry["index"] for entry in rounds.announcements] == [0, 1]
         assert rounds.announcements[0]["corpora"] == ["knowledge"]
-        # The conclusion argument is the round's checkpoint, ranked by
-        # ``_resolve_conclusion`` exactly as the chat loop ranks it.
         assert "reason" not in rounds.announcements[0]
         assert rounds.announcements[1]["reason"] == "Die Grundregel steht."
 
     @pytest.mark.asyncio
     async def test_the_hits_of_a_batch_land_under_the_round_that_fetched_them(self):
-        """A worker's hits carry the round its batch announced, not the run's last one."""
         rounds = RetrievalRounds()
         runnable = _runnable_recording(
             {
@@ -138,14 +118,6 @@ class TestTwoBatchesAreTwoRounds:
 
 
 class TestTheLedgerIsTheSharedWireShape:
-    """The crossing test: deep research writes what the chat turn writes.
-
-    ``tests/fixtures/derivation/retrieval_ledger_wire.json`` is the wire the
-    frontend's sanitizer and the chat suite both read. A second producer that
-    drifted from it would render as an unknown round, and nothing in either
-    suite alone would say so.
-    """
-
     @pytest.mark.asyncio
     async def test_every_key_the_run_writes_is_a_key_the_fixture_holds(self):
         fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))

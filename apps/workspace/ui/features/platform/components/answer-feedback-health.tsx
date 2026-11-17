@@ -1,35 +1,5 @@
 'use client'
 
-/**
- * Answer feedback (platform staff): the thumbs users leave on answers, across
- * every organization, and for each one a way to reach the question behind it.
- *
- * **The form follows the job.** The job is *what should I do about answer
- * quality?*, which needs both halves of the answer. So the headline is the
- * helpful rate, the trend rises when things improve, the list holds the answers
- * that landed and the ones that missed, and a topic rollup says what the product
- * is good AT rather than only who is unhappy with it.
- *
- * **Reading order**, top to bottom: the ratings filters, four figures (helpful
- * rate, coverage, down votes, voters), the digest that says the same set in
- * sentences, the direction, why it missed and by topic side by side, by
- * organization, and the list.
- *
- * **One set of votes for the whole tab.** The page-wide scope (range,
- * organizations, projects) and the ratings filters (verdict, reason, topic,
- * mode, confidence, notes, search) are one query string, sent with every read
- * on the tab — figures, digest, list, per-value counts — and with the export
- * link. A breakdown row is also the filter for it: pressing a reason, a topic
- * or an organization toggles that filter, in the URL, for everything at once.
- * The workspace owns the URL; this organism is controlled.
- *
- * **States.** Skeletons only on the first load. A refetch after a filter
- * change keeps the figures on screen, dims them, and spins the refresh glyph;
- * an AbortController drops the response a newer request has replaced. A failed
- * read is a `LoadError` with a retry, never an empty state that reads as "no
- * feedback".
- */
-
 import type { JSX } from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
@@ -100,21 +70,15 @@ import {
 
 export type { FeedbackHealthResponse } from './answer-feedback-types'
 
-/** The server caps the drill-in here (`FEEDBACK_HEALTH_RECENT_LIMIT`). */
 const TURN_LIMIT = 50
 
-/** Dims figures that are being replaced, without hiding them. */
 const BUSY_CLASS = 'transition-opacity duration-base ease-out motion-reduce:transition-none'
 
 export interface AnswerFeedbackHealthProps {
-  /** The page-wide scope (range, organizations, projects). Owned by the workspace. */
   scope: QualityScope
-  /** The ratings tab's own filters. Owned by the workspace, in the URL. */
   filters: RatingsFilters
   onFiltersChange: (next: RatingsFilters) => void
-  /** An organization row toggles that organization in the page scope. */
   onScopeChange: (next: QualityScope) => void
-  /** The scope bar's options, for the names in the export summary. */
   scopeOptions?: QualityScopeOptions | null
 }
 
@@ -132,20 +96,13 @@ export function AnswerFeedbackHealth({
   const [loading, setLoading] = useState(true)
   const [failed, setFailed] = useState(false)
   const [options, setOptions] = useState<FeedbackFilterOptions | null>(null)
-  /** The opened turn, kept while the sheet animates out. */
   const [openTurn, setOpenTurn] = useState<FeedbackHealthTurn | null>(null)
   const [sheetOpen, setSheetOpen] = useState(false)
 
   const query = useMemo(() => ({ scope, ratings: filters }), [scope, filters])
-  /**
-   * The filters live in the URL the component fetches, NOT in a `.filter()` over
-   * the response. The list is capped server-side, so filtering the arrived rows
-   * would search the last 50 and confidently report nothing beyond them.
-   */
   const search = feedbackQueryString(query)
 
   const filtered = ratingsFiltered(filters)
-  /** Anything narrower than "every vote in the range": the figures describe a selection. */
   const narrowed = filtered || scope.organizationIds.length > 0 || scope.projectIds.length > 0
 
   const inFlight = useRef<AbortController | null>(null)
@@ -165,7 +122,6 @@ export function AnswerFeedbackHealth({
       if (controller.signal.aborted) return
       setData(body)
     } catch {
-      // An aborted request was replaced by a newer one; its failure is not ours to show.
       if (controller.signal.aborted) return
       setFailed(true)
     } finally {
@@ -174,7 +130,6 @@ export function AnswerFeedbackHealth({
         inFlight.current = null
       }
     }
-    // `search` IS a dependency: without it every filter silently does nothing.
   }, [search])
 
   useEffect(() => {
@@ -183,9 +138,6 @@ export function AnswerFeedbackHealth({
 
   useEffect(() => () => inFlight.current?.abort(), [])
 
-  // The pickers' per-value counts. Over the scope, so they change with the
-  // range and the organizations, not with each pick; a failure leaves the
-  // pickers without counts rather than without options.
   const scopeSearch = feedbackQueryString({ scope, ratings: NO_RATINGS_FILTERS })
   useEffect(() => {
     const controller = new AbortController()
@@ -204,8 +156,6 @@ export function AnswerFeedbackHealth({
   const clearFilters = (): void => onFiltersChange({ ...NO_RATINGS_FILTERS })
 
   const toggleReason = (key: FeedbackReason): void =>
-    // A reason only exists on a down-vote: picking one under "helpful" widens
-    // the verdict rather than emptying the tab.
     onFiltersChange({
       ...filters,
       verdict: filters.verdict === 'up' ? null : filters.verdict,
@@ -298,7 +248,6 @@ export function AnswerFeedbackHealth({
 
     const total = data.totals.up + data.totals.down
     if (total === 0) {
-      // Under a filter a zero is "nothing matches", not "nothing yet".
       return narrowed ? (
         <EmptyState
           icon={Filter}
@@ -353,10 +302,6 @@ export function AnswerFeedbackHealth({
     </div>
   )
 }
-
-/* ──────────────────────────────────────────────────────────────────────────
- * Loaded content
- * ────────────────────────────────────────────────────────────────────────── */
 
 interface HealthContentProps {
   data: FeedbackHealthResponse
@@ -425,7 +370,6 @@ function HealthContent(props: HealthContentProps): JSX.Element {
   )
 }
 
-/** Helpful rate, coverage, down votes, voters: the four numbers the rest explains. */
 function KpiRow({
   data,
   narrowed,
@@ -441,11 +385,6 @@ function KpiRow({
   const total = data.totals.up + data.totals.down
   const rateReadable = total >= MIN_RATE_VOTES
   const helpfulRate = total > 0 ? (data.totals.up / total) * 100 : 0
-  // Votes over persisted answers. Persistence is best-effort, so answers is an
-  // undercount and the ratio can pass 100%: clamp rather than print 140%.
-  // The server's figure when it sends one (rated answers over answers in or
-  // voted on in the window); the local division is the fallback for an older
-  // response, clamped because votes can rate answers older than the window.
   const coverage =
     data.coverage !== undefined
       ? data.coverage === null
@@ -528,7 +467,6 @@ function KpiRow({
   )
 }
 
-/** Why it missed: the four reasons in fixed order, each a filter for the drill-in. */
 function ReasonsCard({
   data,
   filters,
@@ -536,10 +474,6 @@ function ReasonsCard({
   className,
 }: HealthContentProps & { className?: string }): JSX.Element {
   const t = useTranslations(platformCopy)
-  // Fixed order, zero-filled: a reason nobody picked is information. Counts are
-  // ADDED, because a NULL reason and an explicit 'other' both land on 'other'
-  // and a `set` let the second overwrite the first, so the bars no longer
-  // summed to the down-votes.
   const bars = useMemo(() => {
     const counts = new Map<FeedbackReason, number>()
     for (const entry of data.reasons) {
@@ -583,11 +517,6 @@ function ReasonsCard({
   )
 }
 
-/**
- * By topic, best first: the section that says what the product is GOOD at. The
- * bar is the helpful rate. Below the floor the row keeps its volume and draws
- * no bar, and sinks below the readable rows rather than sorting as 0% or 100%.
- */
 function TopicsCard({
   data,
   filters,
@@ -656,7 +585,6 @@ function TopicsCard({
           <p className="text-muted-foreground text-sm">{t('answerFeedback.topicsCaveat')}</p>
         )}
         {rows.length > 0 ? (
-          // Not a second denominator: only tagged conversations reach this list.
           <p className="text-muted-foreground text-xs">
             {t('answerFeedback.topicsCaveat')}
             {anyUnreadable ? ` ${t('answerFeedback.tooFewLegend', { min: MIN_RATE_VOTES })}` : ''}
@@ -667,11 +595,6 @@ function TopicsCard({
   )
 }
 
-/**
- * By organization: one noisy tenant can carry the whole platform rate. Sorted
- * by the server by down-votes, so whoever is having the worst time is the first
- * row. Names, not ids: `org_arch_buero` is a key, not something a person reads.
- */
 function OrganizationsCard({
   data,
   organizationIds,
@@ -777,15 +700,8 @@ function OrganizationsCard({
   )
 }
 
-/**
- * The list: what the surface is for. The newest matching votes, both directions
- * unless the verdict filter names one; every row opens the whole case in a
- * sheet. Its filters are the tab's (above), so it has none of its own.
- */
 function TurnsCard({ data, busy, filters, locale, onClearFilters, onOpenTurn }: HealthContentProps): JSX.Element {
   const t = useTranslations(platformCopy)
-  // The verdict alone picks a direction; an empty direction is "nothing that
-  // way in this range", which is a different sentence from "nothing matches".
   const filtered = ratingsFiltered({ ...filters, verdict: null })
   const capped = data.turns.length >= TURN_LIMIT
   const heading =
@@ -875,9 +791,6 @@ function TurnRow({
                 {question}
               </ItemTitle>
             ) : (
-              /* NOT an error: `message_id` carries no FK to `messages`, so a turn
-                 that was never persisted has nothing to join. Hiding these rows
-                 would hide exactly the feedback nobody has been able to see. */
               <ItemTitle className="text-muted-foreground whitespace-normal font-normal italic">
                 {t('answerFeedback.turnUnavailable')}
               </ItemTitle>
@@ -913,7 +826,6 @@ function TurnRow({
   )
 }
 
-/** The first-load stand-in, shaped like what replaces it. */
 function HealthSkeleton(): JSX.Element {
   return (
     <div className="flex flex-col gap-6" aria-busy data-testid="answer-feedback-loading">

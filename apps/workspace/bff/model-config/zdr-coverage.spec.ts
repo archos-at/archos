@@ -35,7 +35,6 @@ const zdr = (...endpoints: Array<Partial<ZdrEndpoint> & { modelId: string }>): Z
   return map
 }
 
-/** Every group inheriting from `source`, with overrides per group. */
 const inherited = (
   fill: GroupDefaultSource,
   overrides: Record<string, GroupDefaultSource> = {}
@@ -58,7 +57,6 @@ describe('resolveEffectiveGroupModels', () => {
     const byGroup = Object.fromEntries(models.map((m) => [m.group, m]))
     expect(byGroup.deep_research).toEqual({ group: 'deep_research', modelIds: ['org/own'], source: 'org' })
     expect(byGroup.clarifier).toEqual({ group: 'clarifier', modelIds: ['platform/pinned'], source: 'platform' })
-    // A multi-LLM workflow group is checked model by model.
     expect(byGroup.follow_ups).toEqual({ group: 'follow_ups', modelIds: ['yaml/a', 'yaml/b'], source: 'workflow' })
     expect(byGroup.memory_reflection).toEqual({ group: 'memory_reflection', modelIds: [], source: null })
   })

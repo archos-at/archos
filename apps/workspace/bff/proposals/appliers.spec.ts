@@ -1,12 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * A proposed memory note carries its topic into the write the decider's accept
- * runs, and the topic lands on the shelf the note goes to, resolved as any
- * create resolves it: an office note against the office's topics here (the
- * office create does not resolve), a project note inside the project's create.
- */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const officeRows = vi.hoisted(() => ({ rows: [] as { topic: string | null }[] }))
@@ -21,7 +15,6 @@ vi.mock('@/lib/projects/service', () => ({
   addProjectMemoryItem: vi.fn(async () => ({ id: 'mem_project' })),
   createOrganizationMemoryItem: vi.fn(async () => ({ id: 'mem_office' })),
 }))
-// The office shelf's open topics: the one query `withOfficeTopic` reads (`openOfficeTopicRows`).
 vi.mock('@/lib/db', () => ({
   getDb: () => ({ select: () => ({ from: () => ({ where: async () => officeRows.rows }) }) }),
 }))
@@ -50,7 +43,6 @@ const note = (overrides: Partial<MemoryPayload> = {}): MemoryPayload => ({
   ...overrides,
 })
 
-/** The note the office create received: its arguments are (session, input, options). */
 const officeNoteSent = () => vi.mocked(createOrganizationMemoryItem).mock.calls[0][1]
 
 beforeEach(() => {
@@ -71,7 +63,6 @@ describe('applying a proposed memory note: its topic', () => {
     expect(createOrganizationMemoryItem).not.toHaveBeenCalled()
   })
 
-  // The office create resolves the spelling itself (`createOrganizationMemoryItem`), so the applier hands the topic on as named.
   it('hands an office note’s topic to the office create, which resolves it', async () => {
     await applyMemory(note({ scope: 'organization', topic: 'BRANDSCHUTZ' }), context())
 

@@ -1,5 +1,3 @@
-/** Where the E-Mail-Eingang lives, with the filter on the URL. */
-
 import { describe, expect, it } from 'vitest'
 import { inboundMailPaths } from './paths'
 

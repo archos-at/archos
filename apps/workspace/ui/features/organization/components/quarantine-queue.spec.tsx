@@ -78,7 +78,6 @@ describe('QuarantineQueue', () => {
     expect(within(first).getByText('“Honorarvereinbarung” in the text · pages 1, 4')).toBeInTheDocument()
     const second = screen.getByTestId('quarantine-row-doc-2')
     expect(within(second).getByText(describeQuarantineReason(IBAN, tFiles))).toBeInTheDocument()
-    // A partly checked scan says so; a verdict that could not be read says that.
     expect(within(second).getByText(filesCopy.messages.en.screening.partial)).toBeInTheDocument()
     expect(within(screen.getByTestId('quarantine-row-doc-3')).getByText(organizationCopy.messages.en.quarantine.noReason)).toBeInTheDocument()
   })
@@ -89,9 +88,7 @@ describe('QuarantineQueue', () => {
     render(<QuarantineQueue />)
     const findings = await screen.findByTestId('quarantine-findings-doc-1')
     expect(within(findings).getByText('“Lohnzettel” in the text · pages 1, 2, …')).toBeInTheDocument()
-    // The pages are buttons only where the document is open beside them.
     expect(within(findings).queryByRole('button')).toBeNull()
-    // The queue does not explain holding back to the people who decide about it.
     expect(within(findings).queryByText(filesCopy.messages.en.ingestFailure.quarantined)).toBeNull()
   })
 
@@ -105,7 +102,6 @@ describe('QuarantineQueue', () => {
     expect(within(screen.getByTestId('quarantine-row-doc-3')).getByText(/Chat attachment/)).toBeInTheDocument()
   })
 
-  // T4.2: the reviewer looks at the file from where they decide.
   it('links a project file and a Büroablage file to where they are filed, opened on them', async () => {
     stubApi()
     render(<QuarantineQueue />)
@@ -114,7 +110,6 @@ describe('QuarantineQueue', () => {
       '/app/projects/proj_1/files?doc=doc-1'
     )
     expect(screen.getByTestId('quarantine-open-doc-2')).toHaveAttribute('href', '/app/office-shelf?doc=doc-2')
-    // A chat attachment has no per-file view.
     expect(screen.queryByTestId('quarantine-open-doc-3')).not.toBeInTheDocument()
   })
 
@@ -198,7 +193,6 @@ describe('QuarantineQueue', () => {
       await waitFor(() => expect(decisions()).toEqual([{ decision: 'allow', documentIds: ['card-a', 'card-b'] }]))
       await waitFor(() => expect(screen.queryByTestId('quarantine-row-card-a')).not.toBeInTheDocument())
       expect(toast.success).toHaveBeenCalled()
-      // The card filter is empty now, so the list falls back to everything left.
       expect(screen.getByTestId('quarantine-row-doc-1')).toBeInTheDocument()
     })
 

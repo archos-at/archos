@@ -1,9 +1,3 @@
-"""Tests for merging persisted document summaries into the documents listing.
-
-Covers ``_merge_summaries``, the route-level seam that layers SummaryStore rows
-(the source of truth) onto the ingestor's collection file list.
-"""
-
 from agent.knowledge.schema import AvailableDocument
 from agent.knowledge.schema import FileInfo
 from agent.knowledge.schema import FileStatus
@@ -52,8 +46,6 @@ def test_empty_summaries_leaves_files_untouched():
 
 
 def test_summary_row_without_matching_file_is_ignored():
-    # A summary persisted for a file no longer in the vector store must not
-    # invent a document row.
     files = [_file("plan.pdf")]
     summaries = [AvailableDocument(file_name="deleted.pdf", summary="Stale.")]
 
@@ -113,12 +105,6 @@ def test_existing_tags_are_not_overwritten():
 
 
 def test_merges_the_folder_path_onto_matching_file():
-    """The collection listing states where each document is filed (ADR-0049).
-
-    `list_files` only knows what the vector store holds; the filing lives on the
-    metadata row beside the summary and the tags, and this is the one seam that
-    puts the two together for the listing contract.
-    """
     files = [_file("plan.pdf")]
     summaries = [
         AvailableDocument(

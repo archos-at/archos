@@ -11,7 +11,6 @@ import {
   type ReturnTrail,
 } from './return-trail'
 
-/** A trail of plain, unnamed visits — the shape the recorder writes. */
 const visits = (...paths: string[]): ReturnTrail => paths.map((path) => ({ path }))
 
 describe('recordVisit', () => {
@@ -28,8 +27,6 @@ describe('recordVisit', () => {
   })
 
   test('unwinds to an earlier location instead of stacking a second copy', () => {
-    // The browser Back case: A → B → back to A leaves the same stack a fresh
-    // walk to A would, so the entry below the top is still the true previous.
     const trail = recordVisit(
       visits('/app/projects', '/app/projects/p1/files', '/app/office-shelf'),
       '/app/projects/p1/files'
@@ -83,16 +80,12 @@ describe('previousVisit', () => {
   })
 
   test('refuses to answer for a page that is not the top of the stack', () => {
-    // The trail has moved on: guessing a "back" for a stale page would send the
-    // reader somewhere `history.back()` does not go.
     expect(
       previousVisit(visits('/app/projects', '/app/office-shelf', '/app/inbox'), '/app/office-shelf')
     ).toBeNull()
   })
 
   test('skips sibling settings tabs and names the project the reader left', () => {
-    // An older trail that still stacked every tab. Back must not return to
-    // the previous settings page — that is a submenu, not a destination.
     expect(
       previousVisit(
         visits('/app/projects/p1/chat', '/app/organization', '/app/organization/models'),

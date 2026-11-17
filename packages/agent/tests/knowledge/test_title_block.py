@@ -1,11 +1,3 @@
-"""The title block (Plankopf) as evidence for Fassungen: the record, the comparison, and the judge's use of it.
-
-Two documents with the same ``document_number`` are Fassungen of one document
-whatever their file names share, and the Index (else the date) printed on the
-sheet says which is newer, whatever the names say. The model is asked only when
-the title blocks leave it open. Nothing asserts a model's prose.
-"""
-
 from __future__ import annotations
 
 import json
@@ -144,11 +136,8 @@ class TestWhichIsLater:
             ({"revision": "C"}, {"revision": "C"}, 0),
             ({"revision": "10"}, {"revision": "9"}, 1),
             ({"revision": "Z"}, {"revision": "A"}, 1),
-            # The Index decides before the date does.
             ({"revision": "C", "revision_date": "2026-01-01"}, {"revision": "B", "revision_date": "2026-06-01"}, 1),
-            # Same Index: the date decides.
             ({"revision": "B", "revision_date": "2026-09-01"}, {"revision": "B", "revision_date": "2026-06-01"}, 1),
-            # No Index at all: the date decides.
             ({"revision_date": "2026-06-01"}, {"revision_date": "2026-09-01"}, -1),
             ({"revision_date": "2026-06-01"}, {"revision_date": "2026-06-01"}, 0),
         ],
@@ -239,7 +228,6 @@ class TestTheTitleBlocksDecide:
         assert "Stand 01.09.2026 statt 01.06.2026" in verdict.reason
 
     def test_the_title_block_beats_the_file_names(self):
-        # The names say the new file is Index B and the candidate Index C; the sheets say the opposite.
         new = _doc("Grundriss_Index_B.pdf", facts=_facts(revision="C"), revision="Index B", series_key="grundriss")
         older = _doc("Grundriss_Index_C.pdf", facts=_facts(revision="B"), revision="Index C", series_key="grundriss")
         assert settle_by_title_block(new, [older])[1].of == "Grundriss_Index_C.pdf"

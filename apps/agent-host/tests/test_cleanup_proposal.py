@@ -1,5 +1,3 @@
-"""The „Ausmisten" proposal endpoint (ADR-0092): metadata in, candidates out, fail-soft."""
-
 import json
 from unittest.mock import AsyncMock
 from unittest.mock import MagicMock

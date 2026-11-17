@@ -1,10 +1,3 @@
-/**
- * The Dateien header's way into the E-Mail-Eingang: a ghost link with the
- * muted count on a wide screen (the label carries the number), an entry in
- * the ⋯ on a phone with the count as its hint, and nothing for a reader who
- * may not decide held mail.
- */
-
 import { describe, expect, it, vi } from 'vitest'
 import userEvent from '@testing-library/user-event'
 

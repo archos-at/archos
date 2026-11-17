@@ -23,46 +23,24 @@ import {
 import type { InfoTarget } from './document-target'
 import { CitedPassageBox } from './cited-passage-box'
 
-// ---------------------------------------------------------------------------
-// Info popover (title + origin + snippet — no resolvable document)
-// ---------------------------------------------------------------------------
-
 
 export const InfoPreviewChip: FC<{
   target: InfoTarget
   signal: SourceTint
   label: string
   authority?: string
-  /** Fine authority tier ("OIB-Richtlinie", "Rechtsquelle (RIS)") for the popover. */
   tier?: string
-  /** Bindingness note ("does this bind me?") from the norm registry. */
   bindingNote?: string
-  /**
-   * Canonical coarse kind (ADR-0026) — the popover's provenance line. It is the
-   * document's kind, never the kb/ris/web origin token: a knowledge-base copy
-   * of a legal text used to read "Project knowledge" here while the chip beside
-   * it showed a RIS badge and a Baurecht lane — the same source, contradicted.
-   */
   kind: SourceKind
-  /** A precedent from another project (ADR-0094): its kind line says „Präzedenzfall“, not the coarse kind's label. */
   precedent?: boolean
-  /** Outbound link (RIS sources) shown as an "open" button inside the popover. */
   url?: string
   className?: string
-  /** The marker(s) this source carries in the answer prose. */
   index?: string
-  /** Cited page / hostname — shown in the popover, not on the chip. */
   meta?: string
   variant?: CitationVariant
-  /** The reference this chip stands for, for the popover's "copy citation". */
   citation?: CitationRef
   trailing?: ReactNode
   detail?: CitationDetail
-  /**
-   * The document exists but has no in-app viewer — hand it over instead.
-   * Set only by {@link DownloadPreviewChip}; a genuinely unresolvable source
-   * leaves it unset and keeps saying nothing can be opened.
-   */
   onDownload?: () => void
   downloadPending?: boolean
 }> = ({

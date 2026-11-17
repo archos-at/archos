@@ -28,7 +28,6 @@ type CorpusFile = { sha256: string; countryId: string | null; state: string; doc
 
 const fixed = vi.hoisted(() => ({ platformOrg: 'org_platform_carry' }))
 const corpus = vi.hoisted(() => new Map<string, CorpusFile>())
-/** The bytes the fetcher serves for a URL: a test swaps them to see other bytes refused. */
 const served = vi.hoisted(() => new Map<string, Buffer>())
 
 vi.mock('server-only', () => ({}))
@@ -82,9 +81,6 @@ vi.mock('./capture-fetch', async (importOriginal) => {
 })
 const queue = vi.hoisted(() => ({ down: false }))
 vi.mock('@/lib/jobs-queue/enqueue', () => ({
-  // The index job, stored as the queue stores it (under its RLS: only in the active tenant's lane, which is how prod's
-  // first carry failed), then run in place: the pool would run the same step. `queue.down` refuses the job, as a
-  // queue outage would.
   enqueueJob: async (job: { kind: string; organizationId: string; payload: { runId: string } }) => {
     if (queue.down) throw new Error('the queue is down')
     const [{ insertJob }, { BFF_JOB_PRIORITY }] = await Promise.all([import('@/lib/jobs-queue/repository'), import('@/lib/jobs-queue/types')])
@@ -191,7 +187,6 @@ describe.skipIf(!URL_)('a reviewed release carried to this deployment by the pro
     withPlatformAccess = (await import('@/lib/db/tenant-context')).withPlatformAccess
     carry = await import('./carry')
     manifests = await import('./carry-manifest')
-    // The legacy copy of the released text (same bytes, its old name), and a file no release has.
     corpus.set(LEGACY, { sha256: PDF_SHA, countryId: 'XA', state: 'ingested', docClass: 'law', displayTitle: null })
     corpus.set(UNRELATED, { sha256: sha('another document'), countryId: 'XA', state: 'ingested', docClass: 'other', displayTitle: null })
   })
@@ -211,7 +206,6 @@ describe.skipIf(!URL_)('a reviewed release carried to this deployment by the pro
   it('stops a country whose fetched text is not the released bytes in a draft, with nothing of it published', async () => {
     served.set(TEXT_URL, Buffer.from('%PDF-1.7 another text'))
     await expect(carry.runCarry(manifests.parseManifest(manifestWith()), read, ctx())).rejects.toMatchObject({ code: 'TEXT_NOT_RELEASED' })
-    // The union went first and is out; the country is a draft no office reads.
     expect(await rows(sql`SELECT country_id, status FROM knowledge_change_requests ORDER BY country_id`)).toEqual([
       { country_id: 'XA', status: 'draft' },
       { country_id: 'XB', status: 'published' },
@@ -221,11 +215,9 @@ describe.skipIf(!URL_)('a reviewed release carried to this deployment by the pro
 
   it('carries both to stable, decided `carried`, once the right bytes are fetched, and resumes index runs no job took', async () => {
     served.set(TEXT_URL, PDF)
-    // The stable publish commits, its index job is not enqueued: the run is failed and the carry stops.
     queue.down = true
     await expect(carry.runCarry(manifests.parseManifest(manifestWith()), read, ctx())).rejects.toThrow(/were not enqueued/)
     expect(await rows(sql`SELECT state FROM knowledge_index_runs`)).toEqual([{ state: 'failed' }])
-    // The Job's retry finds XA published, hands its run on again, and settles.
     queue.down = false
     const outcomes = await carry.runCarry(manifests.parseManifest(manifestWith()), read, ctx())
     expect(outcomes.map((outcome) => [outcome.countryId, outcome.status])).toEqual([
@@ -249,7 +241,6 @@ describe.skipIf(!URL_)('a reviewed release carried to this deployment by the pro
       SELECT a.override_reason FROM knowledge_approvals a JOIN knowledge_change_requests c ON c.id = a.change_request_id WHERE c.country_id = 'XA'`)
     expect(approval!.override_reason).toMatch(/dev release of XA \(seq 12, bundle sha256 [0-9a-f]{64}\) by the promotion image sha-test/)
     expect(await rows(sql`SELECT id FROM knowledge_records WHERE country_id IN ('XA', 'XB') AND head_revision_id IS NOT NULL`)).toHaveLength(5)
-    // Ingested with the country's mark, labelled as on the source; the legacy copy gone, the unrelated file kept.
     expect(corpus.get(TEXT_FILE)).toMatchObject({ state: 'ingested', countryId: 'XA', docClass: 'law', displayTitle: 'Building Code of Xanadu, edition 2026' })
     expect(corpus.has(LEGACY)).toBe(false)
     expect(corpus.has(UNRELATED)).toBe(true)

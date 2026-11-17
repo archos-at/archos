@@ -30,7 +30,6 @@ import { AT_FACT_DEFINITIONS_VALUES, BEV_ADDRESS_REGISTER } from '@/lib/project-
 
 vi.mock('server-only', () => ({}))
 vi.mock('@/lib/workos/feature-flags', () => ({ isOrgFeatureEnabled: async () => true }))
-// Project access is WorkOS FGA; the tenant boundary under it is what this spec reads through.
 vi.mock('@/lib/authz/projects', async (original) => ({
   ...(await original<typeof import('@/lib/authz/projects')>()),
   requireProjectAccess: async () => undefined,
@@ -57,7 +56,6 @@ describe.skipIf(!url)('site resolution against Postgres', () => {
   const now = new Date('2026-11-10T10:00:00Z')
   const authorityKey = `graz-building-${RUN}`
 
-  /** The fixture as entries, `keep` of them: the whole archive the importer reads, or a truncated one. */
   function fixtureEntries(keep = Number.POSITIVE_INFINITY) {
     const lines = (name: string) => readFileSync(join(FIXTURE, name), 'utf8').split('\n')
     const lookups = bev.bevLookups({
@@ -77,7 +75,6 @@ describe.skipIf(!url)('site resolution against Postgres', () => {
       entries: [...fixtureEntries(keep), ...extra],
     })
 
-  /** A `Hauptplatz 1` in each of `count` synthetic Gemeinden of Lower Austria, all sorting before Styria's. */
   const commonStreet = (count: number): import('./bev').RegisterEntry[] =>
     Array.from({ length: count }, (_, index) => ({
       addressId: `synthetic-${index}`,
@@ -95,7 +92,6 @@ describe.skipIf(!url)('site resolution against Postgres', () => {
       crs: null,
     }))
 
-  /** Austria's territories and Graz's building authority, through a change request, as every platform row is. */
   async function publishGrazAuthority(): Promise<void> {
     const store = await import('@/lib/base-knowledge/platform/store')
     const release = await import('@/lib/base-knowledge/platform/release')
@@ -138,7 +134,6 @@ describe.skipIf(!url)('site resolution against Postgres', () => {
     await release.publishChangeRequest(id, 'stable', { by: EXPERT, decisionSource: 'app' })
   }
 
-  /** The office's own competence ruleset for Styria: Graz's authority for Graz, nothing for any other Gemeinde. */
   async function grazCompetence(): Promise<void> {
     const rulesets = await import('@/lib/base-knowledge/store/rulesets')
     await rulesets.insertOfficeRuleset(
@@ -186,7 +181,6 @@ describe.skipIf(!url)('site resolution against Postgres', () => {
         await scope.enterPlatformScope(tx)
         return fn(tx)
       }) as ReturnType<typeof fn>
-    // Earlier runs on the same database leave releases behind: start from none active.
     await withPlatform((tx) => tx`DELETE FROM address_register_releases WHERE register = 'at-bev'`.then(() => undefined))
     await withTenant({ organizationId: ORG }, () =>
       db.execute(sql`INSERT INTO organizations (workos_organization_id, home_country) VALUES (${ORG}, 'AT')`),
@@ -200,7 +194,6 @@ describe.skipIf(!url)('site resolution against Postgres', () => {
       ),
     )
     projectId = String(created.id)
-    // The register's rules are Austria's released record, read as the office reads it (country-as-data, step 3).
     const { insertOfficeRuleset } = await import('@/lib/base-knowledge/store/rulesets')
     await insertOfficeRuleset(ORG, AT_FACT_DEFINITIONS_VALUES, { createdBy: USER, provenance: { proposedBy: 'person' }, inForce: true })
   })
@@ -218,7 +211,6 @@ describe.skipIf(!url)('site resolution against Postgres', () => {
   it('places an address by the build’s register where no record is released, as by the released one', async () => {
     await importFixture('2025-10-01')
     try {
-      // An office with no released setup records: the release is the cell's, the register's rules the build's seed.
       const unpublished = { organizationId: `${ORG}_unpublished`, userId: USER } as import('@/lib/auth/types').AuthorizedSession
       const fromBuild = await service.resolveSite(unpublished, 'Herrengasse 16, 8010 Graz', now)
       const fromRecord = await service.resolveSite(session, 'Herrengasse 16, 8010 Graz', now)
@@ -236,9 +228,6 @@ describe.skipIf(!url)('site resolution against Postgres', () => {
   })
 
   it('verifies the address and places it nowhere while no territory record holds its Gemeinde (no_territory)', async () => {
-    // Knittelfeld: a Gemeinde no spec publishes a territory for. Graz would depend on
-    // the order of the suites, since platform.integration.spec.ts publishes AT:gkz:60101
-    // into the same database.
     const resolution = await service.resolveSite(session, 'Hauptplatz 1, 8720 Knittelfeld', now)
     expect(resolution).toMatchObject({
       status: 'verified',
@@ -274,7 +263,6 @@ describe.skipIf(!url)('site resolution against Postgres', () => {
       territoryId: 'AT-6',
       citation: 'synthetic: § 95 Stmk. BauG',
     })
-    // The same ruleset decides nothing for Leoben, in the same Land; its chain keeps the Bezirk the records name.
     const leoben = await service.resolveSite(session, 'Hauptplatz 1, 8700 Leoben', now)
     expect(leoben.status === 'verified' && leoben.site.chain).toEqual(['AT:gkz:61108', 'AT:bezirk:611', 'AT-6', 'AT'])
     expect(leoben.status === 'verified' && leoben.site.authority).toEqual({ status: 'undetermined', reason: 'no_row_applies' })
@@ -289,12 +277,9 @@ describe.skipIf(!url)('site resolution against Postgres', () => {
   it('never takes the postcode\'s address when the place or the postcode says otherwise', async () => {
     expect(await service.resolveSite(session, 'Herrengasse 16, 8010 Wien', now)).toMatchObject({ status: 'unverified', reason: 'conflict' })
     expect(await service.resolveSite(session, 'Herrengasse 16, 8010 Zürich', now)).toMatchObject({ status: 'unverified', reason: 'conflict' })
-    // A German postcode outside the Kleinwalsertal and Jungholz is evidence of Germany: Austria's register is not searched.
     expect(await service.resolveSite(session, 'Herrengasse 16, 01010 Wien', now)).toMatchObject({ status: 'unverified', reason: 'no_register' })
-    // A postcode and no place could be Switzerland's or Liechtenstein's.
     expect(await service.resolveSite(session, 'Herrengasse 16, 8010', now)).toMatchObject({ status: 'unverified', reason: 'incomplete' })
     expect(await service.resolveSite(session, 'Herrengasse 16, 1010 Wien-Innere Stadt', now)).toMatchObject({ status: 'verified', site: { municipality: { name: 'Wien' } } })
-    // A place that only begins with another's name is another place: Wiener Neudorf is not Wien.
     expect(await service.resolveSite(session, 'Stephansplatz 1, Wiener Neudorf', now)).toMatchObject({ status: 'unverified', reason: 'no_register_hit' })
     expect(await service.resolveSite(session, 'Stephansplatz 1, 2351 Wiener Neudorf', now)).toMatchObject({ status: 'unverified' })
   })
@@ -324,7 +309,6 @@ describe.skipIf(!url)('site resolution against Postgres', () => {
     expect(typed.assumptions.site_address).toMatchObject({ value: 'Herrengasse 999, 8010 Graz', status: 'unconfirmed' })
     expect(typed.assumptions.federal_state).toMatchObject({ value: 'styria', status: 'unconfirmed' })
 
-    // A Land a person confirmed outlives an unverified line.
     const { patchProjectProfile } = await import('@/lib/project-profile/profile-service')
     await patchProjectProfile(session, projectId, [{ op: 'add', path: '/facts/federal_state', value: 'styria' }])
     await service.setProjectSite(session, projectId, { typed: 'Herrengasse 998, 8010 Graz' }, now)
@@ -347,12 +331,10 @@ describe.skipIf(!url)('site resolution against Postgres', () => {
       evidence: [{ kind: 'register', addressId: 'at-bev:5925325', label: 'Hauptplatz 1, 8700 Leoben', referenceDate: '2025-10-01', resolvedAt: now.toISOString() }],
     }
     await expect(patchProjectProfile(session, projectId, [{ op: 'replace', path: '/facts/municipality', value: forged }])).rejects.toThrow(/Register evidence/)
-    // Keeping the register's own evidence under another value is the same forgery.
     const stored = (await read()).facts.municipality
     await expect(
       patchProjectProfile(session, projectId, [{ op: 'replace', path: '/facts/municipality', value: { ...stored, value: 'Leoben' } }]),
     ).rejects.toThrow(/Register evidence/)
-    // An unrelated patch leaves the register's own evidence where it is.
     await expect(patchProjectProfile(session, projectId, [{ op: 'add', path: '/goals/note', value: 'x' }])).resolves.toBeTruthy()
   })
 

@@ -1,21 +1,5 @@
 'use client'
 
-/**
- * What a revision changed about the building's standing.
- *
- * The revision timeline already says a revision happened — "+17 Bauteile" — and
- * the element diff already says which walls moved. Neither answers the question
- * an architect actually has when they re-export: **did I break something.**
- *
- * This does, and it is the one answer in the product that no other tool a small
- * office can afford will give them. It runs on demand rather than on load,
- * because it reads both revisions' full element sets.
- *
- * Only what MOVED is listed. A change list that restates every requirement is a
- * list nobody reads, and the point of this screen is that it is usually short
- * and occasionally alarming.
- */
-
 import type { JSX } from 'react'
 import { ArrowRight, GitCompare, TrendingDown, TrendingUp, HelpCircle } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
@@ -27,28 +11,14 @@ import type { BimComplianceChange, BimComplianceTrend } from '@/lib/bim/rules'
 import type { BimModelHeaderView } from '../hooks/use-bim-model'
 
 export interface IfcComplianceDiffProps {
-  /** The older revision this runs against; `null` when there is no previous. */
   baseModel: BimModelHeaderView | null
   changes: BimComplianceChange[] | null
-  /**
-   * At least one revision was read only in part.
-   *
-   * The one sentence this panel cannot do without: "Keine Anforderung hat
-   * ihren Status geändert" reads identically for "nothing regressed" and "we
-   * compared half of each revision", and the second is the answer a
-   * resubmission gets signed off on.
-   */
   truncated?: boolean
   isLoading: boolean
   error: string | null
   onRun: () => void
 }
 
-/**
- * Regressions read as bad, improvements as good, and `undecidable` as a warning
- * rather than as neutral — losing the ability to check something is a change in
- * the wrong direction even though no verdict got worse.
- */
 const TREND_STYLE: Record<
   BimComplianceTrend,
   { variant: 'destructive' | 'warning' | 'success' | 'secondary'; Icon: typeof TrendingDown }
@@ -100,7 +70,6 @@ export function IfcComplianceDiff({
       )}
 
       {changes && changes.length === 0 && (
-        // Not an empty state — a result, and a reassuring one.
         <p className="text-sm text-muted-foreground">{t('complianceDiff.unchanged')}</p>
       )}
 

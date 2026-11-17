@@ -7,38 +7,14 @@ import { useRouter } from 'next/navigation'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
 
-/**
- * A {@link Dialog} that IS a route: the sibling of `RoutePageSheet` for content
- * that is one artifact to look at, not a place (the design language's overlay
- * table). The upload summary is the first: an inbox row links to
- * `/app/uploads/<id>`, and the summary rises over whatever page the reader was
- * on, with a URL they can reload or send.
- *
- * Same two arrivals as the sheet, and only `standalone` tells them apart:
- *
- *  - intercepted (`(shell)/@overlay/(.)…`): closing is `router.back()`, so the
- *    URL and the page underneath return to where they were (from the Postfach,
- *    back to the Postfach).
- *  - hard load: there is no history entry of this app's to return to, so
- *    closing pushes `fallbackHref`.
- *
- * The navigation waits for the exit animation, as the sheet's does, so the
- * dialog is seen leaving rather than cut off by the route unmounting. A timer
- * one step longer than the exit backs the `animationend` up: with reduced
- * motion there is no animation to end.
- */
-
-/** `--motion-quick` (the dialog's exit) plus a frame or two. */
 const EXIT_FALLBACK_MS = 220
 
 export interface RouteDialogProps {
   title: string
-  /** One line under the title; also the dialog's accessible description. */
   description?: React.ReactNode
   closeLabel: string
   standalone?: boolean
   fallbackHref?: string
-  /** Applied to the scrolling body under the header. */
   bodyClassName?: string
   testId?: string
   children: React.ReactNode
@@ -76,9 +52,6 @@ export function RouteDialog({
       <DialogContent
         closeLabel={closeLabel}
         data-testid={testId}
-        // Focus lands on the panel, not on the close X: a ring around the X on
-        // every open reads as the dialog asking to be closed. `PageSheet` does
-        // the same. Tab still reaches every control in order.
         onOpenAutoFocus={(event) => {
           event.preventDefault()
           ;(event.currentTarget as HTMLElement | null)?.focus()

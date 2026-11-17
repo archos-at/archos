@@ -1,12 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Which mail brought which Fassung (D36): asked only for a project document,
- * only with the office's `inbound-mail` entitlement, with the reader's hidden
- * folders; said as the Verlauf's heading says it (the send time clamped, no
- * address), and grouped by the Fassung for the version list.
- */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
@@ -67,7 +61,6 @@ describe('the mails that brought a document', () => {
         senderTrust: 'external_verified',
         documentVersionId: 'ver-2',
       },
-      // A send time after the receipt is the receipt's (the clamp): a forger cannot place a mail later.
       expect.objectContaining({
         entryId: 'entry-2',
         sentAt: received.toISOString(),

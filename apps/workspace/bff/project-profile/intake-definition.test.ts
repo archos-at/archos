@@ -83,7 +83,6 @@ describe('buildIntakeProfile', () => {
   })
 
   it('maps the number_tri answer modes onto facts / assumptions / unknowns', () => {
-    // C3 (above-ground storeys, per building) needs its building to be a building.
     const base: Answers = { 'C1@bldg1': 'building' }
 
     const confirmed = buildIntakeProfile(
@@ -295,7 +294,6 @@ describe('validateProfilePatchVocabulary', () => {
 
 describe('pruneStaleConditionalAnswers', () => {
   it('drops a conditional answer once its condition no longer holds', () => {
-    // CB1 (Baujahr) belongs to a Bestandsgebäude. Flip C2 to Neubau → prune it.
     const pruned = pruneStaleConditionalAnswers(
       { 'C2@bldg1': 'new_build', 'CB1@bldg1': 1962, [modeKeyFor('CB1@bldg1')]: 'value' },
       definition
@@ -312,7 +310,6 @@ describe('pruneStaleConditionalAnswers', () => {
   })
 
   it('prunes a building-scope conditional within its instance', () => {
-    // C2@bldg1 depends on C1@bldg1 === 'building'. Flip the building type → prune C2.
     const pruned = pruneStaleConditionalAnswers(
       { 'C1@bldg1': 'small', 'C3@bldg1': 3, [modeKeyFor('C3@bldg1')]: 'value' },
       definition
@@ -345,7 +342,6 @@ describe('mergeIntakeProfile', () => {
   const storedProfile: ProjectProfile = {
     facts: {
       federal_state: fact('vienna'),
-      // Agent-recorded NOVEL fact (no intake question owns this key):
       brandabschnitt_flaeche: fact(1200),
     },
     goals: { zieltermin: '2027-03-01' },
@@ -365,9 +361,7 @@ describe('mergeIntakeProfile', () => {
     const built = buildIntakeProfile({ A2_country: 'at', A2_land: 'tyrol' }, definition)
     const merged = mergeIntakeProfile(built, storedProfile, definition)
 
-    // Intake-owned key wins from the wizard...
     expect(merged.facts.federal_state?.value).toBe('tyrol')
-    // ...while everything the wizard doesn't own survives.
     expect(merged.facts.brandabschnitt_flaeche?.value).toBe(1200)
     expect(merged.goals.zieltermin).toBe('2027-03-01')
     expect(merged.unknowns).toContain('statik_gutachten')
@@ -429,11 +423,9 @@ describe('mergeIntakeProfile', () => {
 
       const merged = mergeIntakeProfile(built, previous, definition)
 
-      // Untouched suggestion: value and evidence survive whole.
       expect(merged.assumptions['storeys_above_ground@bldg1']).toEqual(
         previous.assumptions['storeys_above_ground@bldg1']
       )
-      // The save answered `federal_state`; the fact wins and the suggestion is gone.
       expect(merged.facts.federal_state?.value).toBe('vienna')
       expect(merged.assumptions.federal_state).toBeUndefined()
     })
@@ -583,7 +575,6 @@ describe('mergeIntakeProfile', () => {
 
 describe('evaluateIntakeCondition', () => {
   it('handles includes_any against a building-scope multi-select', () => {
-    // CB6 needs C2=bestand AND a hull-touching measure in CB4.
     const cb6 = findIntakeQuestion(definition, 'CB6')!
     const base = { 'C2@bldg1': 'existing' }
     expect(evaluateIntakeCondition(cb6, { ...base, 'CB4@bldg1': ['interior_conversion'] }, 'bldg1')).toBe(false)
@@ -617,8 +608,6 @@ describe('evaluateIntakeCondition', () => {
     const building = { 'C1@bldg1': 'building' }
 
     it('is satisfied below the bound, not only AT it', () => {
-      // 3 as well as 4: a bound of 4 exercised only with 4 passes just as well
-      // under plain `equals`, so it cannot tell a real `lte` from no `lte`.
       for (const storeys of [3, 4]) {
         expect(
           evaluateIntakeCondition(
@@ -638,7 +627,6 @@ describe('evaluateIntakeCondition', () => {
     })
 
     it('an estimate can satisfy it, an explicitly open value cannot', () => {
-      // Spec conventions: lte needs a present value whose mode is not 'open'.
       expect(
         evaluateIntakeCondition(
           c8,
@@ -755,9 +743,6 @@ describe('v1.0 → v1.2 legacy bridges (answersFromProfile)', () => {
   const empty: ProjectProfile = { facts: {}, goals: {}, unknowns: [], assumptions: {} }
 
   it('inverts the stored ne_unter_400 into C8 instead of reusing its key', () => {
-    // v1.0 asked "alle Einheiten ≤ 400 m²?"; v1.2's C8 asks the inverse. A
-    // reused key would silently flip the meaning of every stored answer — and
-    // the GK derivation with it.
     const allSmall = answersFromProfile(
       { ...empty, facts: { 'units_under_400@bldg1': fact(true) } },
       definition
@@ -791,8 +776,6 @@ describe('v1.0 → v1.2 legacy bridges (answersFromProfile)', () => {
   })
 
   it('moves the project-scope Bestand block onto the single building', () => {
-    // v1.0's A6/A7 were one project-global statement; with exactly one
-    // building it is that building's, and C2 gates open so the block shows.
     const restored = answersFromProfile(
       { ...empty, facts: { existing_year_built: fact(1962), heritage_protection: fact(true) } },
       definition
@@ -836,8 +819,6 @@ describe('v1.0 → v1.2 legacy bridges (answersFromProfile)', () => {
   })
 
   it('condenses the three Erschließungs-booleans, refusing a partial picture', () => {
-    // Never 'yes': B6 also covers electricity, which v1.0 never asked, so all
-    // three legacy yeses still leave the new question genuinely unanswered.
     const full = answersFromProfile(
       {
         ...empty,
@@ -883,9 +864,6 @@ describe('v1.0 → v1.2 legacy bridges (answersFromProfile)', () => {
   })
 
   it('does not silently drop a legacy hybrid Bauweise', () => {
-    // This case previously asserted the deletion. That was pinning a data-loss
-    // bug: `construction_method` is intake-owned, so dropping the answer made
-    // `mergeIntakeProfile` remove the stored fact as well.
     const restored = answersFromProfile(
       { ...empty, facts: { 'construction_method@bldg1': fact('hybrid') } },
       definition
@@ -941,7 +919,6 @@ describe('v1.2 catalog shape', () => {
     const core = flattenIntakeQuestions(definition)
       .filter((q) => q.core)
       .map((q) => q.id)
-    // The spec's core:true set — the Schnellstart path.
     expect(new Set(core)).toEqual(
       new Set([
         'A1',
@@ -1012,8 +989,6 @@ describe('v1.0 → v1.2 bridges — the second review pass', () => {
       definition
     )
 
-    // Deleting the answer lost a construction type the user had stated:
-    // `construction_method` is intake-owned, so the merge removed the stored fact too.
     expect(restored.answers['C10@bldg1']).toEqual(['open'])
     expect(String(restored.answers['C10_text@bldg1'])).toContain('Hybrid')
   })
@@ -1033,9 +1008,6 @@ describe('v1.0 → v1.2 bridges — the second review pass', () => {
   })
 
   it('appends a legacy G-text once, however often the profile is reopened', () => {
-    // `context_plot` is owned by no current question, so the merge keeps
-    // it — and the merged text is already in G1. Appending unconditionally grew
-    // the field on every save.
     const first = answersFromProfile(
       {
         ...empty,

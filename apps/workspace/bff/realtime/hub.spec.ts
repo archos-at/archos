@@ -1,12 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The hub: one subscription per topic however many listen, none left after the
- * last leaves, a message delivered once on the replica that published it
- * although the shared transport echoes it back, and what another replica
- * published delivered to the right topic only.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -15,7 +9,6 @@ vi.mock('server-only', () => ({}))
 import type { EventTransport } from '@/lib/events/bus'
 import { __setHubTransportForTests, hubStats, publish, subscribe } from './hub'
 
-/** A shared transport that echoes every publish to its own subscribers, as Redis does, and counts SUBSCRIBEs. */
 function echoingTransport() {
   const handlers = new Map<string, Set<(payload: string) => void>>()
   const published: string[] = []

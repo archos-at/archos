@@ -130,7 +130,6 @@ describe('createProject, set up by Piloti', () => {
     )
     expect(setProjectStatusInOrg).not.toHaveBeenCalled()
     expect(insertProject).toHaveBeenCalledWith(expect.objectContaining({ startedOn: '2019-03-01' }))
-    // Not closed yet, so nothing says it was.
     expect(recordAuditEvent.mock.calls.map(([event]) => (event as { action: string }).action)).toEqual(['project.created'])
   })
 

@@ -1,5 +1,3 @@
-"""Incremental card updates: the manifest, the diff, the plan, and what the model is (and is not) shown."""
-
 from __future__ import annotations
 
 import pytest
@@ -107,11 +105,6 @@ def test_the_incremental_prompt_holds_the_old_card_and_the_diff_alone():
     assert "### Removed documents\n- Akt 1.pdf" in prompt
     for untouched in ("Akt 4.pdf", "Akt 5.pdf", "Akt 6.pdf"):
         assert untouched not in prompt
-
-
-# ---------------------------------------------------------------------------
-# The worker
-# ---------------------------------------------------------------------------
 
 
 @pytest.fixture

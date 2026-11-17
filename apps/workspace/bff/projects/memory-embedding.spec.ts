@@ -47,7 +47,6 @@ describe('backfillAfterRecall', () => {
     const { set, where } = mockUpdates()
     vi.mocked(embedNotes).mockResolvedValue([{ vector: [1, 0], fingerprint: 'model-a' }])
 
-    // The digest read this text; the note may be edited before the embed returns.
     backfillAfterRecall([note('n-1', 'Die Attika ist 1,10 m hoch')], [{ id: 'n-1', embeddingModel: null }], null, true)
     await vi.waitFor(() => expect(where).toHaveBeenCalled())
 

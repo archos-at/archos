@@ -16,7 +16,6 @@ const DOC = 'doc-1'
 const NOW = Date.UTC(2026, 0, 15, 12, 34, 56)
 const DEFAULT_TEST_SECRET = 'test-signing-secret' // pragma: allowlist secret
 
-/** The query of a minted URL, ready to hand to the verifier. */
 function paramsOf(url: string): URLSearchParams {
   return new URL(url, 'http://n').searchParams
 }
@@ -62,8 +61,6 @@ describe('signed document image URLs', () => {
 
   it('keeps at least a full window of life on every minted url', () => {
     withSecret()
-    // Minted in the last second of a window — the naive "now + window" would
-    // leave this token ~0s of life and break the image it was just issued for.
     const endOfWindow = Math.ceil(NOW / 1000 / IMAGE_URL_WINDOW_SECONDS) * IMAGE_URL_WINDOW_SECONDS * 1000 - 1000
     const url = buildDocumentImageUrl(ORG, USER, DOC, 'original', { nowMs: endOfWindow })!
 
@@ -176,16 +173,10 @@ describe('signed document image URLs', () => {
     withSecret('grid-internal-dev-token')
     vi.stubEnv('APP_ENV', 'production')
 
-    // Anyone who read the compose file could otherwise mint a URL for any
-    // document in any tenant.
     expect(buildDocumentImageUrl(ORG, USER, DOC, 'original', { nowMs: NOW })).toBeNull()
   })
 
   it('says so in the log when signing is disabled, instead of degrading silently', () => {
-    // Falling back to an unoptimized presigned URL is invisible from outside —
-    // it renders, it is just slow — so the log line is the only signal an
-    // operator gets. Losing it means finding out by eye that a preview does not
-    // feel like a WebP.
     const logged = vi.spyOn(console, 'error').mockImplementation(() => {})
     vi.stubEnv('INTERNAL_API_TOKEN', '')
 
@@ -194,7 +185,6 @@ describe('signed document image URLs', () => {
     expect(logged).toHaveBeenCalledWith(expect.stringContaining('DISABLED'))
     expect(logged).toHaveBeenCalledWith(expect.stringContaining('INTERNAL_API_TOKEN'))
 
-    // Once, not once per image on the page.
     buildDocumentImageUrl(ORG, USER, 'doc-2', 'original', { nowMs: NOW })
     expect(logged).toHaveBeenCalledTimes(1)
 

@@ -45,10 +45,8 @@ vi.mock('@/lib/backend-proxy', () => ({
 }))
 
 const db = vi.hoisted(() => ({
-  /** Rows the next `select(...).limit()` resolves to, in call order. */
   selects: [] as Array<Array<Record<string, unknown>>>,
   updates: [] as Array<Record<string, unknown>>,
-  /** The next update throws this, once. */
   updateFails: null as Error | null,
 }))
 
@@ -75,9 +73,6 @@ vi.mock('@/lib/db', () => ({
   }),
 }))
 
-// The document is loaded through the hold (`findDocumentForSession`, ADR-0086):
-// here it answers the first queued row, as the query would for a visible one.
-// `visibility.integration.spec.ts` holds the rule itself against Postgres.
 vi.mock('./reingest', () => ({
   reingestDocument: vi.fn(),
 }))
@@ -190,7 +185,6 @@ describe('moveDocumentToFolder', () => {
   })
 
   it('answers a batch run several at a time in the order it was asked, and counts its progress up', async () => {
-    // No document is found, so every move is refused: what is checked is the batch's shape.
     const ids = ['doc-a', 'doc-b', 'doc-c', 'doc-d', 'doc-e']
     const counts: number[] = []
     const outcomes = await moveDocumentsToFolders(
@@ -216,8 +210,6 @@ describe('moveDocumentToFolder', () => {
   })
 
   it('refuses a folder that belongs to another project', async () => {
-    // The document is found; the folder lookup, scoped to the document's own
-    // project, is not.
     db.selects = [[DOCUMENT], []]
 
     const result = await moveDocumentToFolder(
@@ -246,7 +238,6 @@ describe('moveDocumentToFolder', () => {
 
     expect(result.ok).toBe(true)
     expect(db.updates).toHaveLength(0)
-    // No write, so nothing for the backend to catch up on either.
     expect(fetchSpy).not.toHaveBeenCalled()
   })
 
@@ -269,8 +260,6 @@ describe('moveDocumentToFolder', () => {
 
     const result = await moveDocumentToFolder({ documentId: 'doc-1', folderId: 'folder-1' }, SESSION)
 
-    // The row is the durable record; a backend outage must not fail a move the
-    // user is entitled to make.
     expect(result.ok).toBe(true)
     expect(db.updates[0].folderId).toBe('folder-1')
   })
@@ -300,7 +289,6 @@ describe('moveDocumentToFolder across a restriction (ADR-0087)', () => {
 
   it('does not move a document into a folder the mover may not see', async () => {
     vi.mocked(getProjectFolderAccess).mockResolvedValueOnce(access({ isVisible: (id) => id !== 'f-hidden' }))
-    // The folder exists in the project; only its restriction refuses the move.
     db.selects = [[DOCUMENT], [{ id: 'f-hidden', path: 'Verwaltung/Honorare' }]]
 
     const result = await moveDocumentToFolder({ documentId: 'doc-1', folderId: 'f-hidden' }, SESSION)
@@ -322,9 +310,6 @@ describe('moveDocumentToFolder across a restriction (ADR-0087)', () => {
     expect(fetchSpy).not.toHaveBeenCalled()
   })
 
-  // Restricted folders do not hold IFC models (ADR-0087): the model's building
-  // data is keyed by project, so the move would hide the file and leave the
-  // building open.
   it('refuses to move an IFC model into a restricted folder, with a 409', async () => {
     vi.mocked(getProjectFolderAccess).mockResolvedValueOnce(
       access({ collectionFor: (id) => (id === 'f-locked' ? 'proj_1_r0123456789ab' : 'proj_1') })
@@ -366,11 +351,6 @@ describe('moveDocumentToFolder across a restriction (ADR-0087)', () => {
   })
 })
 
-/**
- * A move across a restriction purges the document's chunks from the collection
- * they are in BEFORE the row is written (a failed purge writes nothing), and a
- * batch runs placement once per project, not once per crossing move.
- */
 describe('moveDocumentToFolder across a restriction: purge first, placement checked', () => {
   const LOCKED = 'proj_1_r0123456789ab'
   const lockedAccess = (): ProjectFolderAccess => ({
@@ -449,7 +429,6 @@ describe('moveDocumentToFolder across a restriction: purge first, placement chec
   it('reports the move as pending, not as placed, when placement does not place the document', async () => {
     vi.mocked(getProjectFolderAccess).mockResolvedValueOnce(lockedAccess())
     vi.mocked(placeProjectDocuments).mockResolvedValueOnce({ moved: 0, failed: ['doc-1'], pending: 0 })
-    // The row is in the folder it was moved to, and still in the open collection.
     db.selects = [[DOCUMENT], [LOCKED_FOLDER], [DOCUMENT]]
 
     const result = await moveDocumentToFolder({ documentId: 'doc-1', folderId: 'f-locked' }, SESSION)
@@ -495,7 +474,6 @@ describe('moveDocumentToFolder across a restriction: purge first, placement chec
     db.selects = [
       [DOCUMENT], [LOCKED_FOLDER],
       [{ ...DOCUMENT, id: 'doc-2', filename: 'Zweites.pdf' }], [LOCKED_FOLDER],
-      // After placement: doc-1 is in the locked collection, doc-2 is not.
       [{ ...DOCUMENT, collectionName: LOCKED }],
       [{ ...DOCUMENT, id: 'doc-2', filename: 'Zweites.pdf' }],
     ]
@@ -539,11 +517,6 @@ describe('moveDocumentToFolder across a restriction: purge first, placement chec
   })
 })
 
-/**
- * The Archiv's documents are filed like a project's (ADR-0078): the same path,
- * with the document's own row saying which shelf it is on. What differs is who
- * may move it and which folders are valid destinations.
- */
 describe('moveDocumentToFolder on the Archiv shelf', () => {
   const OFFICE_SHELF_DOCUMENT = {
     ...DOCUMENT,
@@ -578,8 +551,6 @@ describe('moveDocumentToFolder on the Archiv shelf', () => {
   })
 
   it('refuses a folder that is not on the Archiv shelf', async () => {
-    // A project's folder, another tenant's, or none: the lookup is scoped to the
-    // Archiv shelf and the tenant, so none of them is found.
     db.selects = [[OFFICE_SHELF_DOCUMENT], []]
 
     const result = await moveDocumentToFolder({ documentId: 'doc-1', folderId: 'a-project-folder' }, SESSION)

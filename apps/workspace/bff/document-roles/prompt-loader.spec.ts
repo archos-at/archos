@@ -76,7 +76,6 @@ describe('loadDocumentRolesPromptSection', () => {
   })
 })
 
-/** A stored profile with the given facts, each confirmed. */
 function profileWith(facts: Record<string, string | number | boolean>): ProjectProfile {
   const meta = { confidence: 'confirmed' as const, source: 'onboarding' as const, updatedAt: '2026-01-01T00:00:00.000Z' }
   return {
@@ -87,10 +86,6 @@ function profileWith(facts: Record<string, string | number | boolean>): ProjectP
   }
 }
 
-/**
- * `development_plan` is recommended for the project (B2 = ja); `bestandsplan` and
- * `foto_bestand` are recommended for building bldg1 (C2 = bestand), named Hoftrakt.
- */
 const RECOMMENDING_PROFILE = profileWith({
   development_plan: true,
   'construction_status@bldg1': 'existing',

@@ -1,12 +1,3 @@
-"""Ranked `knowledge_search` leaves out the files a person replaced, unless a call names one.
-
-A file a person confirmed is replaced by a newer Fassung (``superseded_by``) must not
-outrank its replacement on similarity alone. The exclusion is a ``file_name NOT IN``
-clause on the user shelves, resolved from the metadata store at search time (a link
-made or lifted a minute ago applies to the next search), and the base corpus is never
-touched. The result says which Fassungen were left out and how to read one.
-"""
-
 from __future__ import annotations
 
 from unittest.mock import MagicMock
@@ -49,7 +40,6 @@ def _chunk(file_name: str, page: int = 1, collection: str = PROJECT) -> Chunk:
 
 
 def _passes(chunk: Chunk, filters: dict | None) -> bool:
-    """The metadata filter the store applies: `$in`, `$nin`, `$ne` and `$and` over `file_name` and `chunking`."""
     if not filters:
         return True
     for key, condition in filters.items():
@@ -82,7 +72,6 @@ class _Store:
 
 @pytest.fixture
 def search(monkeypatch):
-    """Install a scope (base + project, optionally the Büroablage), the pools, and the store's replaced files."""
     monkeypatch.setattr("agent.knowledge.factory.configure_summary_db", lambda url: None)
     monkeypatch.setattr("agent.knowledge.norm_store.configure_norm_store", lambda url: None)
     monkeypatch.setattr(register_module, "_initialize_ingestor", lambda config, llm: None)
@@ -145,7 +134,6 @@ class TestTheExclusion:
 
         out = await _ranked_search(query="Bewehrung der Decke")
 
-        # A payload condition, never a list of names; the Postgres list drops what a lagging copy let through.
         assert _project_filters(store) == [{"superseded": {"$ne": True}}]
         assert "Statik_Index_B.pdf, p.1" not in _cited(out)
         assert {"Statik_Index_C.pdf, p.1", "Brandschutz.pdf, p.1"} <= set(_cited(out))
@@ -168,8 +156,6 @@ class TestTheExclusion:
         assert "Older Fassungen left out" not in out
 
     async def test_naming_an_older_revision_says_which_one_is_current(self, search):
-        # Read on purpose, but not presented as the document's current state: the same line
-        # `read_passage` gives the model when it opens an older Fassung.
         store = search(POOLS, {PROJECT: {"Statik_Index_A.pdf": "Statik_Index_B.pdf", **REPLACED[PROJECT]}})
 
         out = await _ranked_search(query="Bewehrung der Decke", file_name="Statik_Index_A.pdf")
@@ -226,7 +212,6 @@ class TestTheExclusion:
 
         out = await _ranked_search(query="Bewehrung der Decke")
 
-        # The condition keeps every point that is not marked replaced, so it costs nothing here.
         assert _project_filters(store) == [{"superseded": {"$ne": True}}]
         assert "Older Fassungen left out" not in out
         assert "Statik_Index_B.pdf, p.1" in _cited(out)

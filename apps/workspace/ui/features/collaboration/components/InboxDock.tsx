@@ -1,28 +1,5 @@
 'use client'
 
-/**
- * The Postfach docked beside the page (ADR-0148): the queue, worked next to
- * the real places its entries open.
- *
- * Following an entry replaces the page beside the dock with the entry's own
- * place (the chat at the message, the review at the mark) and the dock stays,
- * so the next entry is one click away and nothing is ever shown twice. The
- * shell owns where it sits and how wide it is (`startDock`, `DockedSplit`);
- * this is only what is in it.
- *
- * It behaves as the disclosure its door says it is (`aria-expanded`): opened
- * by the reader, it takes the focus, so j/k work at once; Escape puts it away
- * and hands the focus back to the door. Restored after a reload it leaves the
- * focus where the page has it. A click anywhere in it focuses it too, so its
- * keys never wait for a Tab.
- *
- * It slides in and out with the panel it sits in (`DockedSplit`), as one
- * drawer; it adds no motion of its own.
- *
- * Everything the queue cannot show (the whole history, the archive) is one
- * link away at its foot.
- */
-
 import type { JSX, KeyboardEvent } from 'react'
 import { useEffect, useRef } from 'react'
 import Link from 'next/link'

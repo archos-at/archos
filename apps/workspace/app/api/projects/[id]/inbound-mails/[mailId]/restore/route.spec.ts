@@ -1,9 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Restore a held mail's dismissed or expired parts.
- */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const session = {

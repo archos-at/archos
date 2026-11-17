@@ -1,49 +1,5 @@
 'use client'
 
-/**
- * The schedule wizard — three steps, one decision each.
- *
- * What this replaced was one page holding six stacked cards: name, prompt,
- * output, data sources, cron, timezone, two switches, and a live preview
- * pane beside them. Every field was justified on its own and the page was still
- * wrong, because the cost of a form is not the number of fields — it is the
- * number a person has to hold in mind AT ONCE. Sixteen controls with no stated
- * order is a page you read three times before touching anything, and the first
- * thing most people did with it was leave.
- *
- * The rules this is built to, in the order they mattered:
- *
- *   1. **One required decision per step.** Step 1 asks what Piloti should do.
- *      Step 2 asks when. Step 3 asks nothing and shows what will happen.
- *      Nothing else is required anywhere.
- *   2. **Everything optional is folded away.** The data sources, the
- *      timezone and the raw cron field live behind one "Erweitert" disclosure
- *      per step, shut by default. They are not hidden because they do not
- *      matter; they are hidden because the dictionary's own copy says most
- *      schedules need none of them, and an option nobody needs still costs
- *      every reader the moment it takes to rule it out.
- *   3. **The form arrives half-answered.** The name proposes itself from the
- *      first line of the prompt, the timezone is the browser's, the schedule
- *      starts at weekly-Monday-06:00. Endowed progress: a
- *      form that starts empty is a form you start; one that starts answered is
- *      one you finish.
- *   4. **The claim is made checkable.** Step 2 shows the next three real fire
- *      times, computed by the library the scheduler itself advances rows with.
- *      A cron expression — or the sentence built from one — is something nobody
- *      can verify by reading it.
- *   5. **Going back costs nothing.** Every visited step is a button on the
- *      rail, and no state is dropped when you leave a step. A form that
- *      punishes correction gets answered defensively.
- *
- * The server still owns validation (cron parseability and minimum interval,
- * prompt length, name rules) and snapshot semantics. This wizard only mirrors
- * the client-knowable rules, for instant feedback.
- *
- * Scalar text fields use TanStack Form + Zod (`components/form`); the dynamic
- * pieces — the data-source checkboxes, the schedule composer
- * — are local state merged on submit, as before.
- */
-
 import type { JSX } from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
@@ -115,52 +71,20 @@ import {
 } from '../lib/schedule'
 import type { ScheduleDraft } from '../lib/schedule-draft'
 
-/**
- * The sources every run gets: a pinned row, never checkboxes.
- *
- * Mirrors `ALWAYS_ON_SOURCE_IDS` on the server, which is what actually enforces
- * it — this list only decides which rows the wizard withholds, so a checkbox is
- * never offered for something the submit will turn on regardless. An unchecked
- * box you cannot uncheck is a lie about who is in control.
- */
 const ALWAYS_ON_IDS: readonly string[] = ['knowledge_layer', 'ris']
 
-/**
- * Three questions, not four.
- *
- * „Was soll dabei herauskommen? Chat oder Bericht?" used to be step 2. Since
- * ADR-0062 both land in a thread, so the only difference the choice still
- * carried was whether anything was FILED — and a standing task whose result is
- * not a deliverable is a standing task nobody reads. It is always a research
- * run that files a report; the data sources it used to hide moved up to the
- * step that states the work.
- */
 const STEP_KEYS = ['task', 'schedule', 'review'] as const
 type StepKey = (typeof STEP_KEYS)[number]
 
-/**
- * Where a schedule error is shown, derived rather than counted.
- *
- * It was the literal `2`, which was the schedule step while there were four of
- * them. Dropping the output step moved the schedule to 1 and left `2` pointing
- * at the review — so an invalid cron, or the server refusing the interval, sent
- * the reader to a step that does not render `scheduleError` and said nothing at
- * all. An error a reader cannot see is an error they cannot fix, which is the
- * thing the code around it claims to prevent.
- */
 const SCHEDULE_STEP = STEP_KEYS.indexOf('schedule')
 
-/** How many upcoming fire times step 2 proves the schedule with. */
 const PREVIEW_COUNT = 3
 
-/** Longest name the wizard will propose from a prompt's first line. */
 const NAME_SUGGESTION_MAX = 60
 
 interface ScheduleWizardProps {
   projectId: string
-  /** The schedule being edited, or null when creating. */
   job: Job | null
-  /** A pre-filled draft — a task the reader asked to make recurring. */
   draft?: ScheduleDraft | null
   onSaved: () => void
   onCancel: () => void
@@ -171,15 +95,6 @@ interface WizardValues {
   prompt: string
 }
 
-/**
- * A name proposed from the prompt's first line.
- *
- * The name is a label on a list, not a second statement of intent, and asking
- * for it before the prompt asks a person to summarise something they have not
- * written yet. So it proposes itself and stays editable — and it stops
- * proposing the moment the reader types their own, because a field that
- * overwrites what you typed is worse than one that starts empty.
- */
 export function suggestName(prompt: string): string {
   const firstLine = prompt.trim().split('\n')[0]?.trim() ?? ''
   if (firstLine.length <= NAME_SUGGESTION_MAX) return firstLine
@@ -199,45 +114,21 @@ export function ScheduleWizard({
   const { locale } = useLocale()
 
   const [stepIndex, setStepIndex] = useState(0)
-  // The furthest step reached, so the rail can offer a jump back without ever
-  // offering a jump forward past a question that has not been answered.
   const [furthest, setFurthest] = useState(0)
 
-  // --- What comes out, and everything that follows from it -----------------
-  // --- Sources --------------------------------------------------------------
   const [sources, setSources] = useState<DataSourceFromAPI[] | null>(null)
   const [sourcesError, setSourcesError] = useState(false)
   const [selectedSources, setSelectedSources] = useState<Set<string>>(
     new Set(job?.dataSources ?? []),
   )
 
-  // --- When -----------------------------------------------------------------
   const [enabled, setEnabled] = useState<boolean>(job?.enabled ?? true)
-  /**
-   * Which of the three shapes this task has. One question with three answers,
-   * not two switches: "run on a schedule" on/off could not express "once, on
-   * Friday" at all, and a second boolean for it would have made four states of
-   * which one is nonsense. See `cadenceOf`.
-   */
   const [cadence, setCadence] = useState<Cadence>(() =>
     job ? cadenceOf(job) : 'recurring',
   )
-  /**
-   * A one-shot's due date, held as the `datetime-local` string the input reads
-   * and writes — i.e. in the VIEWER's timezone. It becomes an instant once, at
-   * submit, so no intermediate keystroke has to be a valid date.
-   */
   const [dueAtLocal, setDueAtLocal] = useState<string>(() =>
     toDateTimeLocal(job?.dueAt ? new Date(job.dueAt) : defaultDueAt()),
   )
-  /**
-   * Whether the schedule is being written as a raw cron expression.
-   *
-   * Decided once, from the row being edited: a schedule whose cron the composer
-   * cannot round-trip opens in the cron field, because rewriting it into the
-   * nearest thing the composer CAN express would silently change when somebody
-   * else's schedule fires.
-   */
   const [customCron, setCustomCron] = useState<boolean>(
     Boolean(job?.scheduleCron) && parseCronParts(job?.scheduleCron) === null,
   )
@@ -249,45 +140,12 @@ export function ScheduleWizard({
   const [scheduleError, setScheduleError] = useState<string | null>(null)
   const [formError, setFormError] = useState<string | null>(null)
 
-  /** The expression the schedule will actually be saved with. */
   const effectiveCron =
     cadence === 'recurring' ? (customCron ? cron.trim() : buildCron(parts)) : null
-  /**
-   * The instant a one-shot will be saved with, or null.
-   *
-   * `datetime-local` gives no timezone, so `new Date(value)` reads it in the
-   * viewer's — which is exactly right: the reader picked a wall-clock time
-   * where they are sitting. An unparseable half-typed value is null, and the
-   * WHEN step refuses to leave rather than posting it.
-   */
-  /**
-   * The earliest the date picker offers, computed ONCE per mount rather than
-   * per render: a `min` that tracks the clock would re-render the input every
-   * time anything else in the wizard changed, and a reader mid-keystroke would
-   * see the calendar's floor move under them.
-   */
   const minDueAtLocal = useMemo(() => toDateTimeLocal(new Date()), [])
 
-  /**
-   * Whether this submit should also fire the task once, immediately.
-   *
-   * A ref and not state: it is read inside `onSubmit` and setting state would
-   * re-render the form between the click and the submit, which TanStack Form
-   * treats as a change mid-flight. Reset in `finally` so a failed save does not
-   * leave the next attempt silently armed to run.
-   */
   const runAfterSaveRef = useRef(false)
 
-  /**
-   * Fire the task once, right after it was saved.
-   *
-   * Deliberately swallows its own failure. The save already SUCCEEDED by the
-   * time this runs, so letting the run's error reach the form's catch would
-   * show "could not be saved" over a task that is sitting in the list — the
-   * single most confusing thing this flow could tell somebody. A warning toast
-   * says what actually happened, and the task's own run list is where the
-   * outcome belongs anyway.
-   */
   const runOnce = useCallback(
     async (jobId: string): Promise<void> => {
       try {
@@ -344,8 +202,6 @@ export function ScheduleWizard({
       setFormError(null)
       setScheduleError(null)
 
-      // Client-side cron shape check for instant feedback; the server owns the
-      // authoritative validation (parseability, minimum interval).
       if (effectiveCron && !isPlausibleCron(effectiveCron)) {
         setScheduleError(t('builder.cronInvalid'))
         setStepIndex(SCHEDULE_STEP)
@@ -355,30 +211,17 @@ export function ScheduleWizard({
       const payload: CreateJobInput = {
         name: value.name.trim(),
         prompt: value.prompt.trim(),
-        // Always null. A task names a skill IN ITS PROMPT (`/name`, the chat
-        // gesture), which the model reads and decides on. Explicit rather than
-        // omitted because on PATCH that is what DETACHES a skill a previous
-        // build attached — a job edited here stops carrying one.
         skillName: null,
         dataSources: selectedSources.size > 0 ? Array.from(selectedSources) : null,
         enabled,
         scheduleCron: effectiveCron,
         scheduleTimezone: timezone,
-        // Explicit null, not omitted, for the same reason `skillName` is: on
-        // PATCH that is what CLEARS a due date, and omitting it would leave a
-        // one-shot's date in place after somebody moved it to a cron.
         dueAt: effectiveDueAt ? effectiveDueAt.toISOString() : null,
       }
 
       try {
-        // The product events the retired builder emitted, carried over
-        // unchanged — same names, same properties. A surface that replaces
-        // another inherits its measurements, or the series breaks at the
-        // rewrite and nobody can tell whether the new flow does better.
         const analytics = {
           additional_source_count: selectedSources.size,
-          // Kept as it was named when the step was a switch, so the series
-          // does not break at the rewrite: "is this task on a timer at all".
           schedule_enabled: cadence !== 'manual',
           cadence,
           enabled,
@@ -397,10 +240,6 @@ export function ScheduleWizard({
         }
         onSaved()
       } catch (err) {
-        // 400/422 are validation failures — most reach here through the
-        // schedule (cron / minimum interval), so the server's message is shown
-        // inline THERE, on the step that owns it, with the wizard stepped back
-        // to it. An error a reader cannot see is an error they cannot fix.
         if (err instanceof JobApiError && (err.status === 400 || err.status === 422)) {
           const message = err.serverMessage ?? t('builder.saveError')
           if (cadence !== 'manual') {
@@ -414,8 +253,6 @@ export function ScheduleWizard({
         }
         toast.error(t('builder.saveError'))
       } finally {
-        // Always, so a failed save cannot leave the next attempt armed to fire
-        // a run the reader did not ask for a second time.
         runAfterSaveRef.current = false
       }
     },
@@ -427,10 +264,6 @@ export function ScheduleWizard({
   const goTo = useCallback(
     (index: number) => {
       const next = Math.max(0, Math.min(STEP_KEYS.length - 1, index))
-      // Leaving step 1 with no name accepts the one the placeholder has been
-      // showing. Only while the field is empty: a name the reader typed is
-      // theirs, and a field that rewrites what you typed is worse than one that
-      // starts blank.
       const values = form.state.values as WizardValues
       if (values.name.trim().length === 0) {
         const suggested = suggestName(values.prompt)
@@ -458,9 +291,6 @@ export function ScheduleWizard({
         event.stopPropagation()
         void form.handleSubmit()
       }}
-      // A readability column, not a page: every step here is a short list of
-      // questions, and a form measured in the full width of a desktop viewport
-      // reads as a settings page no matter how few fields it has.
       className="mx-auto flex w-full max-w-2xl flex-col gap-6"
       data-testid="schedule-wizard"
     >
@@ -624,9 +454,6 @@ export function ScheduleWizard({
             onCustomCronChange={(next) => {
               setCustomCron(next)
               setScheduleError(null)
-              // Carry the composed expression INTO the cron field rather than
-              // opening it empty: the reader is refining what they just built,
-              // not starting again.
               if (next) setCron(buildCron(parts))
             }}
             parts={parts}
@@ -681,11 +508,6 @@ export function ScheduleWizard({
           <WizardNav
             step={step}
             stepIndex={stepIndex}
-            // Only step 1 can block: it is the only one with a required answer.
-            // A "Weiter" that refuses without saying why is the cruellest
-            // control in a wizard, so the button stays enabled and the fields
-            // carry their own errors — the reader is stopped by the answer, not
-            // by a dead button.
             blocked={step === 'task' && values.prompt.trim().length === 0}
             isSubmitting={isSubmitting}
             canSubmit={canSubmit}
@@ -703,20 +525,6 @@ export function ScheduleWizard({
 }
 
 
-/**
- * The footer. Back is always available and never destructive — on the first
- * step it is Cancel, which is the only place leaving loses anything.
- *
- * The last step offers TWO ways to finish, and the extra one is the point: a
- * task saved against a weekly cron gives its author no evidence it works until
- * the following Monday, which is the worst possible feedback loop for a prompt
- * written once, in a box, with no conversation to correct it. "Save and run
- * now" makes the first run the proof — and it is where somebody finds out the
- * prompt says the wrong thing while they still remember what they meant.
- *
- * It leads on CREATE and is secondary when editing: a new task has nothing to
- * show yet, an edited one already has a run history.
- */
 function WizardNav({
   step,
   stepIndex,
@@ -745,12 +553,6 @@ function WizardNav({
     <div
       data-testid="wizard-nav"
       className={cn(
-        // Pinned to the foot of the scroll region: the prompt box is eight rows
-        // high, and with the keyboard up a footer that scrolls away leaves
-        // "Weiter" below the fold while the person is still typing. The review
-        // step has three buttons, which cannot share a 393px row, so there the
-        // phone stacks them (save on top, back last) and the page never grows
-        // sideways to reach "Speichern".
         'border-border bg-background sticky bottom-0 z-10 flex items-center justify-between gap-2 border-t pb-3 pt-3',
         last && 'max-sm:flex-col-reverse max-sm:items-stretch',
       )}
@@ -840,7 +642,6 @@ function ScheduleStep({
   dueAtLocal: string
   onDueAtLocalChange: (next: string) => void
   minDueAtLocal: string
-  /** The parsed instant, or null while the field is half-typed. */
   dueAt: Date | null
   customCron: boolean
   onCustomCronChange: (next: boolean) => void
@@ -1125,34 +926,12 @@ function ScheduleStep({
   )
 }
 
-/**
- * A weekday added or removed, never emptied.
- *
- * Turning the last day off would leave an expression cron cannot write, and a
- * picker that can reach an invalid state is a picker that will. The last day on
- * simply stays on — the reader turns another one on first, which is what they
- * meant anyway.
- */
 function toggleDay(weekdays: readonly number[], weekday: number): number[] {
   if (!weekdays.includes(weekday)) return [...weekdays, weekday].sort((a, b) => a - b)
   if (weekdays.length === 1) return [...weekdays]
   return weekdays.filter((day) => day !== weekday)
 }
 
-/**
- * When this task will actually run, as dates rather than as a setting.
- *
- * Both cadences that fire on their own share this box, because both need the
- * same reassurance and a one-shot needs it MORE: a cron at least repeats, so a
- * wrong one is visibly wrong next week, while a date typed into a
- * `datetime-local` is read back exactly once and by then it has happened.
- * Showing the chosen instant in the same words as a schedule's occurrences is
- * what makes "Freitag, 2. Oktober 2026, 07:00" checkable at all.
- *
- * The cron path is debounced, because it recomputes on every keystroke in the
- * cron field and a list that flickers under a typing hand is noise rather than
- * feedback. A due date needs no library and no wait — it IS the answer.
- */
 function UpcomingRuns({
   cron,
   dueAt = null,
@@ -1216,17 +995,6 @@ function UpcomingRuns({
   )
 }
 
-/**
- * Step 4 — what will happen, in one sentence, before anything is saved.
- *
- * Not a form. The peak-end rule says the last thing a person does colours their
- * memory of the whole flow, and the last thing this flow does should be
- * confidence: they read a plain sentence describing what they just built, see
- * that it is right, and press one button. The compiled fire prompt is still
- * here — it is the WYSIWYG contract the builder has always carried — but folded,
- * because "what the agent literally receives" is a thing you check when you
- * doubt something, not a thing you read every time.
- */
 function ReviewStep({
   values,
   sourceCount,
@@ -1250,19 +1018,11 @@ function ReviewStep({
 }): JSX.Element {
   const t = useTranslations(jobsCopy)
   const [promptOpen, setPromptOpen] = useState(false)
-  // The prompt IS what the agent receives, verbatim. It used to be the prompt
-  // plus the attached skill's whole body, which is why this pane existed: what
-  // was submitted differed from what was typed. Nothing is appended any more —
-  // a `/name` in the text is part of the text — so the pane shows the trimmed
-  // prompt, and that is now the honest answer rather than a stale one.
   const compiled = values.prompt.trim()
 
   const rhythm = scheduleSummary(t, effectiveCron, timezone, locale, { withTimezone: false })
   const dueAtText = effectiveDueAt ? formatAbsoluteTime(effectiveDueAt.toISOString(), locale) : ''
 
-  // One sentence per cadence rather than one with a hole in it: "läuft einmal
-  // am …" and "läuft jeden Montag …" are different sentences in German, and
-  // interpolating a cadence into a single frame produces neither.
   const summary =
     cadence === 'recurring'
       ? t('builder.reviewSentence', { cadence: rhythm.toLocaleLowerCase(locale) })

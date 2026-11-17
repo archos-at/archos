@@ -1,14 +1,3 @@
-"""How long a file's record lives, and how it is removed, in the shared status store.
-
-A file that failed has no chunks; the job row that names it is the only record
-of it, and every process lists it from there (`ingest_status_store.collection_jobs`).
-The row used to be backed by a per-process dict (`LlamaIndexIngestor._files`)
-that grew for the life of the process and was pruned by age. With the store the
-only record, the same bounds live in the store: a retention window that ends a
-failed file's listing and bounds the table, a delete that forgets the file, and
-a collection delete that forgets all of them.
-"""
-
 from __future__ import annotations
 
 from datetime import datetime
@@ -48,7 +37,6 @@ def _job(job_id: str, state: JobState, files: dict[str, FileStatus], collection:
 
 
 def _write_back(url: str, job_id: str) -> None:
-    """Make the row look last written, and last vouched for, long ago."""
     engine = DocumentMetadataStore._get_or_create_sync_engine(url)
     with engine.connect() as conn:
         conn.execute(
@@ -82,7 +70,6 @@ class TestRetention:
             conn.execute(text("UPDATE ingest_jobs SET updated_at = :t"), {"t": LONG_AGO})
             conn.commit()
 
-        # Its owner still beats, so it is not stale, and so not expired.
         assert ingest_status_store.prune_expired(DAY) == 0
         assert ingest_status_store.get("running") is not None
 
