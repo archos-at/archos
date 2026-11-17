@@ -45,3 +45,17 @@ def test_a_module_docstring_sharing_its_line_keeps_the_code_after_it(tmp_path):
     for text in ['"""Doc."""; X = 1\n', '"""\U0001f407\U0001f407\U0001f407"""; X = 1\n']:
         out = _purge(tmp_path, "e.py", text)
         assert out == text
+
+
+def test_a_model_facing_file_keeps_its_docstrings_and_loses_its_comments(tmp_path):
+    text = (
+        'from pydantic import BaseModel\n\n\nclass Answer(BaseModel):\n    """Shown to the model."""\n'
+        "\n    # gone\n    text: str\n"
+    )
+    out = _purge(tmp_path, "f.py", text)
+    assert '"""Shown to the model."""' in out and "# gone" not in out
+
+
+def test_linter_directives_survive(tmp_path):
+    text = "x = 1  # noqa\n# nosemgrep: rule.id\ny = 2\n# ty: ignore[x]\nz = 3\n"
+    assert _purge(tmp_path, "g.py", text) == text

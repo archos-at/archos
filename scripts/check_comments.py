@@ -38,7 +38,7 @@ EXCLUDED = re.compile(
     )
 )
 DIRECTIVE = re.compile(
-    r"noqa|type:\s*ignore|pragma|pyright:|mypy:|fmt:\s*(off|on|skip)|ruff:|"
+    r"noqa|type:\s*ignore|ty:\s*ignore|nosemgrep|nosec\b|NOSONAR|isort:|@deprecated|pragma|pyright:|mypy:|fmt:\s*(off|on|skip)|ruff:|"
     r"eslint-|oxlint-|biome-ignore|prettier-ignore|@ts-(expect-error|ignore|nocheck|check)|"
     r"istanbul ignore|c8 ignore|v8 ignore|@vitest-environment|@jest-environment|@disk-inputs|"
     r"@type\s*\{|@typedef|@param\s*\{|@returns?\s*\{|@template|@satisfies|@import|"
