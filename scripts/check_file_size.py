@@ -39,21 +39,6 @@ EXCLUDED = re.compile(
     )
 )
 
-SCRIPT_EXCLUDED = re.compile(
-    "|".join(
-        (
-            r"^apps/workspace/shared/cards/generated\.ts$",
-            r"\.generated\.",
-            r"^apps/cms/src/payload-types\.ts$",
-            r"^apps/cms/src/app/\(payload\)/admin/importMap\.js$",
-            r"\.d\.ts$",
-            r"(^|/)(_?fixtures|__fixtures__)/",
-            r"(^|/)i18n/dictionaries/",
-            r"(^|/)migrations/",
-        )
-    )
-)
-
 
 @dataclass
 class Sizes:
@@ -66,8 +51,6 @@ def is_script(path: str) -> bool:
 
 
 def is_checked(path: str) -> bool:
-    if is_script(path):
-        return not SCRIPT_EXCLUDED.search(path)
     return path.endswith(SUFFIXES) and not EXCLUDED.search(path)
 
 

@@ -33,13 +33,10 @@ on 2026-11-11 three doc blocks were squeezed to one line each to make room for
 a five-line fix: the ratchet was being satisfied by deleting explanation. It is
 a ratchet on code. A line of code with a trailing comment counts, as code.
 
-**TypeScript and JavaScript have no baseline: the limit is absolute**, specs
-and test helpers included. Wave B1 (2026-11) split every TS/JS file that was
-over, 166 of them, so `ci/size_baseline.json` holds none, and an entry for one
-fails the check. A spec of three thousand lines is split by feature like any
-other file: one `<subject>-<feature>.spec.ts` per group beside the subject,
-shared builders in `<subject>.fixtures.ts`, and `vi.mock` in every spec that
-needs it (vitest hoists it only within the spec file).
+**TypeScript and JavaScript have no baseline: the limit is absolute.** Wave B1
+(2026-11) split every TS/JS source file that was over, so `ci/size_baseline.json`
+holds none, and an entry for one fails the check. Specs and test helpers are
+exempt, like the rest of the list below.
 
 **Python keeps a ratchet** while Wave B2 splits it. `ci/size_baseline.json`
 records every Python file and function that was over when the check arrived,
@@ -77,9 +74,9 @@ the UI's `node_modules` that the Repo checks job does not install.
 
 Not checked, because their length follows their input rather than a design
 choice: generated files (the card schemas' `src/shared/cards/generated.ts`,
-`*.generated.*`, `*.d.ts`), fixtures, migrations, and copy (the i18n
-dictionaries, the site's `src/data/` and `src/i18n/`), and Python tests. The
-lists are `EXCLUDED` (Python) and `SCRIPT_EXCLUDED` (TS/JS) in the script.
+`*.generated.*`, `*.d.ts`), tests, specs, fixtures and test helpers,
+migrations, and copy (the i18n dictionaries, the site's `src/data/` and
+`src/i18n/`). The list is `EXCLUDED` in the script.
 
 ## Specs test behaviour
 

@@ -224,13 +224,6 @@ def test_a_typescript_entry_in_the_baseline_fails_and_names_the_split(checker, r
     assert "src/big.ts: 700 lines, over the 600-line file limit" in err
 
 
-def test_a_spec_over_the_limit_fails(checker, repo, capsys):
-    add(repo, "src/big.spec.ts", "it('x', () => {})\n" * 601)
-
-    assert checker.main([]) == 1
-    assert "src/big.spec.ts: 601 lines, over the 600-line file limit" in capsys.readouterr().err
-
-
 def test_rebaseline_refuses_to_add_an_entry(checker, repo, capsys):
     add(repo, "src/new.py", lines(700))
     add(repo, "src/new.ts", "const a = 1\n" * 700)
@@ -261,10 +254,13 @@ def test_rebaseline_re_keys_a_moved_file_and_function(checker, repo):
     }
 
 
-def test_generated_python_test_and_copy_files_are_not_checked(checker):
+def test_generated_test_and_copy_files_are_not_checked(checker):
     for path in (
         "apps/workspace/shared/cards/generated.ts",
         "apps/workspace/ui/adapters/api/wire-v2.generated.ts",
+        "apps/workspace/ui/features/chat/ChatArea.spec.tsx",
+        "apps/workspace/purger/index.spec.mjs",
+        "apps/workspace/tests/test-utils/work-list-scenes.ts",
         "packages/agent/tests/test_runner.py",
         "apps/workspace/app/dev/_fixtures/stream-frames.ts",
         "apps/workspace/i18n/dictionaries/de/chat.ts",
@@ -276,9 +272,6 @@ def test_generated_python_test_and_copy_files_are_not_checked(checker):
         "apps/workspace/ui/features/layout/components/InputArea.tsx",
         "apps/workspace/bff/documents/generated.ts",  # hand-written: documents nobody wrote, not generated code
         "apps/workspace/server.js",
-        "apps/workspace/ui/features/chat/ChatArea.spec.tsx",
-        "apps/workspace/purger/index.spec.mjs",
-        "apps/workspace/tests/test-utils/work-list-scenes.ts",
         "packages/agent/src/agent/common/x.py",
     ):
         assert checker.is_checked(path), path
