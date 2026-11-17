@@ -15,13 +15,12 @@ import {
   Library,
   LayoutGrid,
   LockKeyhole,
-  MessageCircleDashed,
+  HatGlasses,
   MoreHorizontal,
   PencilLine,
   Trash2,
   MessageSquare,
   Plus,
-  X,
   Search,
   Share2,
   UserRound,
@@ -443,54 +442,49 @@ export function ChatHeader({ title, shared = false, menuOpen = false, changed = 
   )
 }
 
-export function TemporaryChat(): JSX.Element {
+export function NewChatButton(): JSX.Element {
   return (
-    <div className="absolute inset-0 z-50 flex items-center justify-center bg-[rgb(15_14_13_/_0.4)] p-8">
-      <div className="bg-background shadow-lg flex h-[560px] w-full max-w-[640px] flex-col rounded-[16px]">
-        <header className="flex items-center justify-between gap-3 px-5 pb-3 pt-4">
-          <div className="flex items-center gap-2 text-sm font-medium">
-            <MessageCircleDashed className="size-4" aria-hidden />
-            Temporärer Chat
-          </div>
-          <span className="bg-sheet shadow-press inline-flex h-8 items-center gap-1.5 rounded-control px-3 text-xs font-medium">
-            <X className="size-3.5" aria-hidden />
-            Schließen und löschen
-          </span>
-        </header>
-        <div className="flex flex-1 flex-col gap-4 px-5 pt-2">
-          <div className="bg-desk text-name max-w-[80%] self-end rounded-[16px] px-3 py-2 font-normal">Wie sage ich meiner Projektleiterin, dass mir im Einreichplan ein Fehler passiert ist?</div>
-          <div className="flex max-w-[88%] flex-col gap-2">
-            <div className="bg-selected h-2 w-[94%] rounded" />
-            <div className="bg-selected h-2 w-[82%] rounded" />
-            <div className="bg-selected h-2 w-[58%] rounded" />
-          </div>
-        </div>
-        <div className="px-5 pb-5">
-          <div className="bg-sheet border-field-border rounded-[10px] border p-3">
-            <span className="text-muted-foreground text-sm">Frage stellen …</span>
-          </div>
-          <p className="text-muted-foreground text-meta flex items-center justify-center gap-1.5 pt-2">
-            <MessageCircleDashed className="size-3.5" aria-hidden />
-            Nur Sie sehen das. Beim Schließen wird es gelöscht, und {PRODUCT} merkt sich nichts daraus.
-          </p>
-        </div>
-      </div>
+    <a href="#" className="bg-sheet shadow-press flex h-9 shrink-0 items-center justify-start gap-[11px] rounded-control px-3 text-[13px] font-medium">
+      <Plus className="size-4" aria-hidden />
+      Neuer Chat
+    </a>
+  )
+}
+
+function TemporaryToggle({ on }: { on: boolean }): JSX.Element {
+  return (
+    <div className={cn(PILL, 'shrink-0')}>
+      <span title="Temporärer Chat" className={cn('flex h-7 items-center gap-1.5 rounded-control px-2 text-xs font-medium', on && 'bg-foreground text-background')}>
+        <HatGlasses className="size-4" aria-label="Temporärer Chat" />
+        {on && 'Temporär'}
+      </span>
     </div>
   )
 }
 
-export function NewChatButton({ temporaryOpen = false }: { temporaryOpen?: boolean }): JSX.Element {
+export function NewChatPage({ temporary }: { temporary: boolean }): JSX.Element {
   return (
-    <div className="bg-sheet shadow-press flex h-9 shrink-0 items-stretch rounded-control text-[13px] font-medium">
-      <a href="#" className="flex flex-1 items-center justify-start gap-[11px] px-3">
-        <Plus className="size-4" aria-hidden />
-        Neuer Chat
-      </a>
-      <span aria-hidden className="bg-border my-2 w-px" />
-      <span title="Temporärer Chat" className={cn('flex w-10 items-center justify-center rounded-r-[5px]', temporaryOpen && 'bg-selected')}>
-        <MessageCircleDashed className="size-4" aria-label="Temporärer Chat" />
-      </span>
-    </div>
+    <main className="flex min-h-0 min-w-0 flex-1 flex-col">
+      <header className="flex items-start justify-end gap-3 px-8 pb-2 pt-2">
+        <TemporaryToggle on={temporary} />
+      </header>
+      <div className="flex flex-1 flex-col items-center justify-center gap-3 px-8 text-center">
+        {temporary ? (
+          <>
+            <HatGlasses className="size-7" aria-hidden />
+            <h1 className="text-pane-title">Temporärer Chat</h1>
+            <p className="text-muted-foreground max-w-sm text-sm">Nur Sie sehen diesen Chat. Er steht in keiner Liste, {PRODUCT} merkt sich nichts daraus, und er wird gelöscht, sobald Sie ihn verlassen.</p>
+          </>
+        ) : (
+          <h1 className="text-pane-title">Womit kann ich helfen?</h1>
+        )}
+      </div>
+      <div className="mx-auto mb-8 w-full max-w-2xl px-8">
+        <div className={cn('bg-sheet flex flex-col gap-3 rounded-[10px] border p-3', temporary ? 'border-foreground border-dashed' : 'border-field-border')}>
+          <span className="text-muted-foreground text-sm">Frage stellen …</span>
+        </div>
+      </div>
+    </main>
   )
 }
 

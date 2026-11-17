@@ -26,7 +26,7 @@ import { DEFAULT_FILE_SORT } from '@/features/documents/lib/file-sort'
 import { I18nProvider } from '@/i18n'
 import { makeFile, useFixtureFolderNav } from '../file-browser/fixtures'
 import { REAL_FILES, REAL_FOLDERS } from '../files-page/fixtures'
-import { ALL_CHATS, ChatHeader, ChatRow, Foot, GroupLabel, MoreRow, NavRow, NewChatButton, Page, PROJECTS, TemporaryChat } from '../personal-area-rail/prototype'
+import { ALL_CHATS, ChatHeader, ChatRow, Foot, GroupLabel, MoreRow, NavRow, NewChatButton, NewChatPage, Page, PROJECTS } from '../personal-area-rail/prototype'
 
 const OWN = { id: 'none', name: 'Alle Projekte' }
 
@@ -57,7 +57,7 @@ const OFFICE_FILES: FileItem[] = [
   makeFile('f4', 'Bauordnung_Kommentar.pdf', '', { folderId: 'f-law' }),
 ]
 
-function Rail({ own, ownFiles = false, officeShelfOpen = false, openChat = null, projectFilesOpen = false, section, shelfRows, ownShelf, gear = false, rowMenu, temporaryOpen = false }: { own: boolean; ownFiles?: boolean; officeShelfOpen?: boolean; openChat?: number | null; projectFilesOpen?: boolean; section?: 'files' | 'automation'; shelfRows?: 'project' | 'own'; ownShelf?: 'idle' | 'open'; gear?: boolean | 'menu' | 'none'; rowMenu?: number; temporaryOpen?: boolean }): JSX.Element {
+function Rail({ own, ownFiles = false, officeShelfOpen = false, openChat = null, projectFilesOpen = false, section, shelfRows, ownShelf, gear = false, rowMenu }: { own: boolean; ownFiles?: boolean; officeShelfOpen?: boolean; openChat?: number | null; projectFilesOpen?: boolean; section?: 'files' | 'automation'; shelfRows?: 'project' | 'own'; ownShelf?: 'idle' | 'open'; gear?: boolean | 'menu' | 'none'; rowMenu?: number }): JSX.Element {
   return (
     <SidebarProvider className="h-full min-h-0 w-auto shrink-0">
       <Sidebar collapsible="icon" data-scope="project" aria-label="Navigation">
@@ -100,7 +100,7 @@ function Rail({ own, ownFiles = false, officeShelfOpen = false, openChat = null,
             {!gear && <NavRow icon={LayoutGrid} label="Übersicht" />}
             <NavRow icon={Zap} label="Automatisierung" active={section === 'automation'} />
           </SidebarMenu>
-          <NewChatButton temporaryOpen={temporaryOpen} />
+          <NewChatButton />
           <div className="text-muted-foreground text-meta mt-5 flex h-7 items-center gap-1 px-3 font-medium">
             Letzte Chats
             <ChevronDown className="size-3.5 shrink-0" aria-hidden />
@@ -452,9 +452,8 @@ function Talk({ place, settingsOpen, menu }: { place: string; settingsOpen: bool
   const own = place === 'me'
   return (
     <>
-      <Rail own={own} openChat={own ? 0 : place === 'project' ? 1 : place === 'shared' ? 2 : null} gear={settingsOpen ? 'menu' : 'none'} rowMenu={menu === 'row' ? 1 : undefined} temporaryOpen={menu === 'temp'} />
-      <Page me={own} fresh={place === 'new'} shared={place === 'shared'} menuOpen={menu === 'head'} noneLabel="Alle Projekte" />
-      {menu === 'temp' && <TemporaryChat />}
+      <Rail own={own} openChat={own ? 0 : place === 'project' ? 1 : place === 'shared' ? 2 : null} gear={settingsOpen ? 'menu' : 'none'} rowMenu={menu === 'row' ? 1 : undefined} />
+      {place === 'new' || place === 'temp' ? <NewChatPage temporary={place === 'temp'} /> : <Page me={own} shared={place === 'shared'} menuOpen={menu === 'head'} noneLabel="Alle Projekte" />}
     </>
   )
 }
