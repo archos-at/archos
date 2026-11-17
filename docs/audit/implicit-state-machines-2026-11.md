@@ -360,7 +360,7 @@ scheduled task definitions, feedback, the folder bin, budgets.
 | "The shelf is free" in an upload is five flags from three hooks; a stuck dialog stalls the drop queue | `ui/features/documents/hooks/use-shelf-upload.ts` | scout, suspected |
 | A shared thread's turn banner is cleared by one unguarded write, so the composer can unlock during a colleague's turn | `use-shared-thread.ts` | scout, suspected |
 | A review reply stays in `editing` when the agent takes the thread up, and the draft is lost | `ui/features/documents/components/review/thread-card.tsx` | scout, mechanism traced |
-| An activity card's row derives "undone" from five sources; its undo reads then writes with no version | `ui/features/cards/components/CanvasActivityCard.tsx` | scout, race suspected |
+| An activity card's row derives "undone" from five sources; its undo reads then writes with no version | `ui/features/cards/components/canvas-activity-card/` (the rows), `ui/features/cards/hooks/use-server-undo.ts` (the undo) | scout, race suspected |
 | The intake wizard's save awaits deferred uploads with no bound, and decides a conflict by comparing translated text | the intake wizard controller | scout |
 | The IFC viewer destroys its renderer twice on a cancel mid-load, and its two-point measurement is written twice | `features/bim/hooks/use-ifc-model-load.ts`, `features/bim/hooks/use-ifc-viewer-input.ts` | scout |
 | The members form loads a roster with no request guard across projects | `ui/components/projects/project-members-form.tsx` | scout, suspected |
