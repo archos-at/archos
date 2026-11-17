@@ -1,0 +1,7 @@
+---
+# area: bim
+fixes:
+  - >
+    When the floor area of an element cannot be measured from its geometry, the
+    answer now says why instead of reporting 0 m² as a measurement. A floor area
+    declared in the model is no longer overruled by that zero.
