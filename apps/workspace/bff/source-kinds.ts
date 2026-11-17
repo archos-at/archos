@@ -47,7 +47,7 @@ export const KIND_TO_SIGNAL: Record<SourceKind, SourceSignal> = {
   measurement: 'model',
 }
 
-export const AGENT_AUTHORED_LANE = 'office_piloti'
+export const AGENT_AUTHORED_LANE = 'office_agent'
 export const AGENT_AUTHORED_LANE_LABEL = PRODUCT_NAME + '-Dokument'
 
 export const MAIL_LANE = 'project_mail'

@@ -30,7 +30,8 @@ import {
   type ProjectOutcome,
 } from './project-status'
 import { dateToMonth, isMonth, monthToDate, type Month } from './month'
-import type { ProjectSetup } from './create-project-schema'
+import { isAgentSetup, type ProjectSetup } from './create-project-schema'
+import { LEGACY_AGENT_SETUP } from './legacy-project-setup'
 import { seedProjectSite, startProjectIntake } from './intake-seed'
 import { undoHalfCreatedProject } from './project-creation-undo'
 import type { GeocodeResult } from '@/lib/geocoding/types'
@@ -182,8 +183,8 @@ export async function createProject(
   now: Date = new Date()
 ): Promise<Project> {
   const closing = input.closing ? closingOrRefuse(input.closing, await officeMonth(session.organizationId, now)) : undefined
-  const piloti = input.setup === 'piloti'
-  const closeNow = closing && !piloti ? closing : undefined
+  const agentSetup = isAgentSetup(input.setup)
+  const closeNow = closing && !agentSetup ? closing : undefined
   const workos = getWorkOS()
 
   const inserted = await insertProject({
@@ -213,7 +214,7 @@ export async function createProject(
       roleSlug: 'project-admin',
     })
 
-    if (piloti) {
+    if (agentSetup) {
       seeded = await startProjectIntake(
         session,
         inserted,
@@ -244,7 +245,7 @@ export async function createProject(
     action: 'project.created',
     targetType: 'project',
     targetId: project.id,
-    metadata: piloti ? { name: input.name, setup: 'piloti' } : { name: input.name },
+    metadata: agentSetup ? { name: input.name, setup: LEGACY_AGENT_SETUP } : { name: input.name },
     request,
   })
   if (closeNow) {

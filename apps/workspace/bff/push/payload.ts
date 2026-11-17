@@ -7,7 +7,7 @@ import { getByPath } from '@/i18n/translate'
 import { inboxItemCopy } from '@/lib/inbox/item-copy'
 import type { PushPreferences } from '@/lib/inbox/push-categories'
 import type { InboxPushFold } from '@/lib/inbox/registry'
-import { INBOX_TYPE_PRESENTATION, UNKNOWN_TYPE_PRESENTATION, type InboxItemView } from '@/lib/inbox/types'
+import { inboxTypePresentation, UNKNOWN_TYPE_PRESENTATION, type InboxItemView } from '@/lib/inbox/types'
 import { isSameOriginPath } from '@/lib/utils/same-origin-path'
 
 export const PUSH_PAYLOAD_VERSION = 1
@@ -48,7 +48,7 @@ export function buildFoldedPushMessage(
   if (!preferences.showContent) {
     return { ...base, title: translatorFor(notificationsCopy, locale)('push.genericTitle'), body: null }
   }
-  const presentation = INBOX_TYPE_PRESENTATION[type] ?? UNKNOWN_TYPE_PRESENTATION
+  const presentation = inboxTypePresentation(type) ?? UNKNOWN_TYPE_PRESENTATION
   const root = `inbox.types.${presentation.i18nKey}.pushFold`
   const t = translatorFor(collaborationCopy, locale)
   const words = getByPath(namespaceRoot(collaborationCopy, locale), `collaboration.${root}`) as { parts?: Record<string, unknown> } | undefined

@@ -156,6 +156,18 @@ class TestWhatItSays:
         assert "proposal, not yet taken over" in result and "by you, for Martin Huber" in result
         assert "point x 0.10, y 0.20" in result
 
+    async def test_an_agent_proposal_under_its_new_actor_kind_reads_the_same(self, monkeypatch, calls) -> None:
+        body = {
+            "documentId": DOCUMENT,
+            "documentName": NAME,
+            "annotations": [listed(id="b", number=2, page=3, status="proposed", authorKind="agent", shape="point")],
+        }
+        answering(monkeypatch, calls, body)
+
+        result = await run_marks()
+
+        assert "proposal, not yet taken over" in result and "by you, for Martin Huber" in result
+
     async def test_an_older_revision_is_named(self, monkeypatch, calls) -> None:
         answering(monkeypatch, calls, {**LIST_BODY, "annotations": [listed(onCurrentRevision=False)]})
 

@@ -5,6 +5,7 @@ import { loadOrganizationDirectory } from '@/lib/sharing/directory'
 import type { AgentWakeTrigger } from './types'
 import { wakeEndReasonKind } from './wake-end-reason'
 import { documentThreadConversationId } from './wake-ids'
+import { LEGACY_AGENT_KIND } from '@/lib/legacy-agent-kind'
 
 interface AuditPerson {
   userId: string
@@ -55,7 +56,7 @@ const wakeTargets = (wake: AuditedWake) => ({
 
 export function auditWakeStarted(wake: AuditedWake, waits: number): void {
   recordAsPerson({
-    action: 'piloti.wake.started',
+    action: 'agent.wake.started',
     organizationId: wake.organizationId,
     actor: wake.wokenBy,
     ...wakeTargets(wake),
@@ -74,7 +75,7 @@ const REASON_MAX = 200
 
 export function auditWakeEnded(wake: AuditedWake, end: AuditedWakeEnd): void {
   recordAsPerson({
-    action: 'piloti.wake.ended',
+    action: 'agent.wake.ended',
     organizationId: wake.organizationId,
     actor: wake.wokenBy,
     ...wakeTargets(wake),
@@ -103,7 +104,7 @@ export function auditWakeStopped(
   by: WakeStopper
 ): void {
   recordAsPerson({
-    action: 'piloti.wake.stopped',
+    action: 'agent.wake.stopped',
     organizationId: wake.organizationId,
     actor: { userId: by.userId, email: by.email },
     ...wakeTargets(wake),
@@ -112,7 +113,7 @@ export function auditWakeStopped(
       wakeId: wake.wakeId,
       wakeStatus,
       wokenBy: wake.wokenBy.userId,
-      by: by.piloti ? 'piloti' : 'person',
+      by: by.piloti ? LEGACY_AGENT_KIND : 'person',
     },
   })
 }

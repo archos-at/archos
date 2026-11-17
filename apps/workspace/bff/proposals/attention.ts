@@ -5,7 +5,7 @@ import { inboxGroupKey } from '@/lib/inbox/registry'
 import { emitInboxItems, resolveInboxItemsAnchoredOn } from '@/lib/inbox/service'
 import type { ProposalNoticeVariant } from './types'
 
-const TYPE = 'piloti.proposal_waiting'
+const TYPE = 'agent.proposal_waiting'
 
 const SUMMARY_LENGTH = 200
 

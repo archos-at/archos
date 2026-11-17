@@ -1,4 +1,4 @@
--- 0241: a ledger row names its model once.
+-- 0244: a ledger row names its model once.
 --
 -- From 2026-11-11 (dev) and 2026-11-14 (prod) the agent booked every streamed
 -- chat answer as `openai/gpt-6.1-terraopenai/gpt-6.1-terra`: langchain-core

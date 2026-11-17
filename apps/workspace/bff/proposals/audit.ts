@@ -43,7 +43,7 @@ export function auditProposalCreated(
 ): void {
   const facts = payloadFacts(typed)
   recordAuditEventAfterCommit({
-    action: 'piloti.proposal.created',
+    action: 'agent.proposal.created',
     organizationId: row.organizationId,
     actor: { userId: session.userId, email: session.email || null },
     targetType: 'proposed_change',
@@ -63,7 +63,7 @@ export function auditProposalDecided(session: AuthorizedSession, row: ProposedCh
   const facts = storedFacts(row)
   const results = row.results ?? []
   recordAuditEventAfterCommit({
-    action: 'piloti.proposal.decided',
+    action: 'agent.proposal.decided',
     organizationId: row.organizationId,
     actor: { userId: session.userId, email: session.email || null },
     targetType: 'proposed_change',

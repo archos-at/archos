@@ -4404,23 +4404,57 @@ check_in mt_0238 "SELECT count(*) FROM personal_memory WHERE organization_id = '
 echo "==> 0238 memory topics and their down migration verified"
 
 # ---------------------------------------------------------------------------
-# Migration 0241: a ledger row names its model once. A provider id written
-# twice is folded to the id; an id once, one with no provider prefix and a
-# NULL stay as they are. The down changes nothing, and 0241 applies again.
+# Migrations 0241 to 0243: the stored names' expand step (ADR-0182 phase 4).
+# 0241: current_org() and current_user_id() read app.* first, grid.* second.
+# 0242: the actor-kind checks accept 'agent' beside 'piloti', under brand-free
+# constraint names. 0243: the live-name index covers generated/ beside piloti/.
+# Each applies twice, its down restores the previous shape, and it applies again.
 # ---------------------------------------------------------------------------
-echo "==> verifying the 0241 model folded once and its down migration on um_0241"
-migrate_before um_0241 0241_usage_events_model_once
-sql_in um_0241 <<SQL
+echo "==> verifying the 0241 to 0243 expand migrations and their downs on sn_0241"
+migrate_before sn_0241 0241_app_session_settings
+apply_in sn_0241 0241_app_session_settings.sql
+apply_in sn_0241 0241_app_session_settings.sql   # up twice: idempotent
+check_in sn_0241 "SELECT current_org() FROM (SELECT set_config('app.organization_id', 'org_new', false), set_config('grid.organization_id', 'org_old', false)) AS s" "org_new" "0241: current_org() prefers app.organization_id"
+check_in sn_0241 "SELECT current_org() FROM (SELECT set_config('grid.organization_id', 'org_old', false)) AS s" "org_old" "0241: current_org() falls back to grid.organization_id"
+check_in sn_0241 "SELECT current_user_id() FROM (SELECT set_config('app.user_id', 'user_new', false)) AS s" "user_new" "0241: current_user_id() reads app.user_id"
+check_in sn_0241 "SELECT count(*) FROM pg_attrdef d JOIN pg_attribute a ON a.attrelid = d.adrelid AND a.attnum = d.adnum WHERE a.attname = 'organization_id' AND pg_get_expr(d.adbin, d.adrelid) LIKE '%app.organization_id%'" "4" "0241: the four organization defaults read the new setting"
+apply_in sn_0241 0241_app_session_settings.down.sql
+check_in sn_0241 "SELECT coalesce(current_org(), 'none') FROM (SELECT set_config('app.organization_id', 'org_new', false)) AS s" "none" "0241 down: current_org() reads only the old setting again"
+apply_in sn_0241 0241_app_session_settings.sql
+apply_in sn_0241 0242_agent_actor_kind.sql
+apply_in sn_0241 0242_agent_actor_kind.sql   # up twice: idempotent
+check_in sn_0241 "SELECT count(*) FROM pg_constraint WHERE conname IN ('document_annotations_only_agent_proposes', 'document_annotations_agent_needs_a_person')" "2" "0242: both constraints carry their brand-free names"
+check_in sn_0241 "SELECT count(*) FROM pg_constraint WHERE conname IN ('document_annotations_only_piloti_proposes', 'document_annotations_piloti_needs_a_person')" "0" "0242: the old constraint names are gone"
+check_in sn_0241 "SELECT count(*) FROM pg_constraint WHERE conname IN ('document_annotations_author_known', 'document_annotation_replies_author_known', 'proposed_changes_proposer_known', 'document_annotations_only_agent_proposes') AND pg_get_constraintdef(oid) LIKE '%''agent''%' AND pg_get_constraintdef(oid) LIKE '%''piloti''%'" "4" "0242: every actor-kind check accepts both values"
+apply_in sn_0241 0242_agent_actor_kind.down.sql
+check_in sn_0241 "SELECT count(*) FROM pg_constraint WHERE conname IN ('document_annotations_only_piloti_proposes', 'document_annotations_piloti_needs_a_person')" "2" "0242 down: the old constraint names return"
+apply_in sn_0241 0242_agent_actor_kind.sql
+apply_in sn_0241 0243_documents_generated_namespace.sql
+apply_in sn_0241 0243_documents_generated_namespace.sql   # up twice: idempotent
+check_in sn_0241 "SELECT (indexdef LIKE '%generated/%' AND indexdef LIKE '%piloti/%')::text FROM pg_indexes WHERE indexname = 'uniq_documents_live_name_per_collection'" "true" "0243: the live-name index covers both namespaces"
+apply_in sn_0241 0243_documents_generated_namespace.down.sql
+check_in sn_0241 "SELECT (indexdef LIKE '%generated/%')::text FROM pg_indexes WHERE indexname = 'uniq_documents_live_name_per_collection'" "false" "0243 down: the index returns to 0083's two arms"
+apply_in sn_0241 0243_documents_generated_namespace.sql
+echo "==> 0241 to 0243 expand migrations and their downs verified"
+
+# ---------------------------------------------------------------------------
+# Migration 0244: a ledger row names its model once. A provider id written
+# twice is folded to the id; an id once, one with no provider prefix and a
+# NULL stay as they are. The down changes nothing, and 0244 applies again.
+# ---------------------------------------------------------------------------
+echo "==> verifying the 0244 model folded once and its down migration on um_0244"
+migrate_before um_0244 0244_usage_events_model_once
+sql_in um_0244 <<SQL
 INSERT INTO llm_usage_events (organization_id, model, generation_id) VALUES
-  ('org_0241', 'openai/gpt-6.1-terraopenai/gpt-6.1-terra', 'a-doubled'),
-  ('org_0241', 'openai/gpt-6.1-terra', 'b-once'),
-  ('org_0241', 'gpt-4ogpt-4o', 'c-no-prefix'),
-  ('org_0241', NULL, 'd-none');
+  ('org_0244', 'openai/gpt-6.1-terraopenai/gpt-6.1-terra', 'a-doubled'),
+  ('org_0244', 'openai/gpt-6.1-terra', 'b-once'),
+  ('org_0244', 'gpt-4ogpt-4o', 'c-no-prefix'),
+  ('org_0244', NULL, 'd-none');
 SQL
-STATE_0241="SELECT string_agg(generation_id || '=' || coalesce(model, 'null'), ',' ORDER BY generation_id) FROM llm_usage_events WHERE organization_id = 'org_0241'"
-apply_in um_0241 0241_usage_events_model_once.sql
-check_in um_0241 "$STATE_0241" "a-doubled=openai/gpt-6.1-terra,b-once=openai/gpt-6.1-terra,c-no-prefix=gpt-4ogpt-4o,d-none=null" "0241 folds a doubled provider id and touches no other row"
-apply_in um_0241 0241_usage_events_model_once.down.sql
-apply_in um_0241 0241_usage_events_model_once.sql
-check_in um_0241 "$STATE_0241" "a-doubled=openai/gpt-6.1-terra,b-once=openai/gpt-6.1-terra,c-no-prefix=gpt-4ogpt-4o,d-none=null" "0241 applies again after its down and folds nothing twice"
-echo "==> 0241 model folded once and its down migration verified"
+STATE_0244="SELECT string_agg(generation_id || '=' || coalesce(model, 'null'), ',' ORDER BY generation_id) FROM llm_usage_events WHERE organization_id = 'org_0244'"
+apply_in um_0244 0244_usage_events_model_once.sql
+check_in um_0244 "$STATE_0244" "a-doubled=openai/gpt-6.1-terra,b-once=openai/gpt-6.1-terra,c-no-prefix=gpt-4ogpt-4o,d-none=null" "0244 folds a doubled provider id and touches no other row"
+apply_in um_0244 0244_usage_events_model_once.down.sql
+apply_in um_0244 0244_usage_events_model_once.sql
+check_in um_0244 "$STATE_0244" "a-doubled=openai/gpt-6.1-terra,b-once=openai/gpt-6.1-terra,c-no-prefix=gpt-4ogpt-4o,d-none=null" "0244 applies again after its down and folds nothing twice"
+echo "==> 0244 model folded once and its down migration verified"

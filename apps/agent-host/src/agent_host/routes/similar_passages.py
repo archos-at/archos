@@ -22,6 +22,7 @@ from typing import Any
 from fastapi import APIRouter
 from fastapi import HTTPException
 from fastapi import Request
+from knowledge_layer.vector_store import LEGACY_DOCUMENT_ID_FIELD
 
 from agent.observability.direct_trace import observed_retrieval
 
@@ -38,7 +39,7 @@ logger = logging.getLogger(__name__)
 TRACE_FEATURE = "similar-passages"
 TRACE_STEP = "retrieve.similar_passages"
 TRACE_PICK_LIMIT = 50
-FILTER_FIELDS = ["scope", "superseded", "file_name", "grid_document_id"]
+FILTER_FIELDS = ["scope", "superseded", "file_name", LEGACY_DOCUMENT_ID_FIELD]
 
 
 def _response(result: Any, snippet_max_chars: int) -> SimilarPassagesResponse:

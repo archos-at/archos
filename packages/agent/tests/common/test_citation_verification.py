@@ -20,6 +20,7 @@ from agent.citations.text_parsers import register_source_parser
 from agent.citations.verification import cited_document_entries
 from agent.citations.verification import verify_citations
 from agent.citations.wire import source_entry_to_wire
+from agent.common.legacy_lane_names import LEGACY_AGENT_AUTHORED_LANE
 from agent.common.source_kinds import AGENT_AUTHORED_LANE_LABEL
 
 
@@ -1797,7 +1798,7 @@ class TestAgentAuthoredProvenanceParsing:
     def test_a_marked_hit_carries_its_author_and_takes_the_agent_lane(self):
         entry = self._entry(f"{AGENT_AUTHORED_LANE_LABEL} · freigegeben von Maria Huber am 01.09.2026")
         assert entry.authored_by == "agent"
-        assert source_lane(entry) == ("office_piloti", AGENT_AUTHORED_LANE_LABEL)
+        assert source_lane(entry) == (LEGACY_AGENT_AUTHORED_LANE, AGENT_AUTHORED_LANE_LABEL)
 
     def test_the_bare_label_is_enough(self):
         assert self._entry(AGENT_AUTHORED_LANE_LABEL).authored_by == "agent"

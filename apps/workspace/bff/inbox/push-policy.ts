@@ -1,11 +1,12 @@
 import type { InboxItem } from '@/lib/db/schema/inbox'
-import { INBOX_ITEM_TYPES, type InboxItemType } from '@/lib/db/schema/inbox'
+import { INBOX_ITEM_TYPES } from '@/lib/db/schema/inbox'
 import type { PushCategory, PushPreferences, PushUrgency } from './push-categories'
-import { INBOX_TYPE_DEFINITIONS, type InboxPushPolicy } from './registry'
+import { inboxTypeDefinition, type InboxPushPolicy } from './registry'
+import { canonicalInboxType } from './types'
 
 export function pushPolicyFor(type: string): InboxPushPolicy | null {
-  return (INBOX_ITEM_TYPES as readonly string[]).includes(type)
-    ? INBOX_TYPE_DEFINITIONS[type as InboxItemType].push
+  return (INBOX_ITEM_TYPES as readonly string[]).includes(canonicalInboxType(type))
+    ? inboxTypeDefinition(type).push
     : null
 }
 

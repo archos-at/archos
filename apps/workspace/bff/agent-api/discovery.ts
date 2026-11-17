@@ -49,6 +49,7 @@ import { IDEMPOTENCY_KEY_SCHEMA } from './door-idempotency'
 import { actingDoorOf } from './call-origin'
 import { type McpCallContext, recordOperationCalled, recordOperationMissing } from './telemetry'
 import { PRODUCT_NAME } from '@/lib/brand'
+import { isAgentKind } from '@/lib/agent-kind'
 
 export const MAX_RESULT_CHARS = 40_000
 const DEFAULT_SEARCH_LIMIT = 10
@@ -252,7 +253,7 @@ export function nativeToolRefusal(name: string, tool: string): string {
 }
 
 function unknownOperation(ctx: McpCallContext, name: string): CallToolResult {
-  const native = ctx.principal.actor === 'piloti' ? nativeToolOf(name) : undefined
+  const native = isAgentKind(ctx.principal.actor) ? nativeToolOf(name) : undefined
   if (native) return problemFailure(nativeToolRefusal(name, native), 404, 'UNKNOWN_OPERATION')
   const near = rank(ctx, name.slice(0, MAX_SEARCH_QUERY_LENGTH), undefined)
     .slice(0, 5)
@@ -630,7 +631,7 @@ const SEARCH_SCOPE: Readonly<Record<AgentDoor, { area: string; example: string; 
 }
 
 export function metaToolsFor(principal: Pick<AgentPrincipal, 'actor' | 'door'>): Record<MetaToolName, MetaTool> {
-  const piloti = principal.actor === 'piloti'
+  const piloti = isAgentKind(principal.actor)
   const door = doorOfPrincipal(principal)
   const scope = SEARCH_SCOPE[door]
   const flatTools =

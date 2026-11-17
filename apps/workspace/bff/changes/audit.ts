@@ -37,7 +37,7 @@ export function auditAppliedChanges(turn: AuditedTurn, changes: readonly Audited
   for (const change of changes) {
     const state = change.after ?? change.before
     recordAuditEventAfterCommit({
-      action: 'piloti.change.applied',
+      action: 'agent.change.applied',
       organizationId: turn.organizationId,
       actor: { userId: turn.onBehalfOf, email: turn.onBehalfOfEmail },
       targetType: 'document_annotation',
@@ -67,7 +67,7 @@ export function auditUndoneChange(
   markNumber: number | null
 ): void {
   recordAuditEventAfterCommit({
-    action: 'piloti.change.undone',
+    action: 'agent.change.undone',
     organizationId: session.organizationId,
     actor: { userId: session.userId, email: session.email || null },
     targetType: 'document_annotation',

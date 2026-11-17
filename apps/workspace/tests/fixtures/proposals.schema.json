@@ -765,8 +765,9 @@
             "proposedByKind": {
               "type": "string",
               "enum": [
-                "piloti",
-                "person"
+                "person",
+                "agent",
+                "piloti"
               ]
             },
             "onBehalfOf": {
@@ -1094,8 +1095,9 @@
             "proposedByKind": {
               "type": "string",
               "enum": [
-                "piloti",
-                "person"
+                "person",
+                "agent",
+                "piloti"
               ]
             },
             "onBehalfOf": {
@@ -1295,8 +1297,9 @@
             "proposedByKind": {
               "type": "string",
               "enum": [
-                "piloti",
-                "person"
+                "person",
+                "agent",
+                "piloti"
               ]
             },
             "onBehalfOf": {
@@ -1483,8 +1486,9 @@
             "proposedByKind": {
               "type": "string",
               "enum": [
-                "piloti",
-                "person"
+                "person",
+                "agent",
+                "piloti"
               ]
             },
             "onBehalfOf": {
@@ -1709,8 +1713,9 @@
                 "proposedByKind": {
                   "type": "string",
                   "enum": [
-                    "piloti",
-                    "person"
+                    "person",
+                    "agent",
+                    "piloti"
                   ]
                 },
                 "onBehalfOf": {
@@ -2038,8 +2043,9 @@
                 "proposedByKind": {
                   "type": "string",
                   "enum": [
-                    "piloti",
-                    "person"
+                    "person",
+                    "agent",
+                    "piloti"
                   ]
                 },
                 "onBehalfOf": {
@@ -2239,8 +2245,9 @@
                 "proposedByKind": {
                   "type": "string",
                   "enum": [
-                    "piloti",
-                    "person"
+                    "person",
+                    "agent",
+                    "piloti"
                   ]
                 },
                 "onBehalfOf": {
@@ -2427,8 +2434,9 @@
                 "proposedByKind": {
                   "type": "string",
                   "enum": [
-                    "piloti",
-                    "person"
+                    "person",
+                    "agent",
+                    "piloti"
                   ]
                 },
                 "onBehalfOf": {

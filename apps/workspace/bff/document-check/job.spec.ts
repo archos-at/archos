@@ -277,7 +277,7 @@ describe('runDocumentCheckSlice — waiting for the answer', () => {
     expect(message.content.indexOf('Gebäudeklasse')).toBeLessThan(message.content.indexOf('11 Wohnungen'))
     expect(emitInboxItems).toHaveBeenCalledTimes(1)
     expect(vi.mocked(emitInboxItems).mock.calls[0][0][0]).toMatchObject({
-      type: 'piloti.revision_checked',
+      type: 'agent.revision_checked',
       recipientUserId: 'uploader',
       resourceId: DOC_ID,
       anchorId: 'a2',
