@@ -6,6 +6,7 @@ from typing import Any
 
 ENVIRONMENT_ATTRIBUTE = "langfuse.environment"
 RELEASE_ATTRIBUTE = "langfuse.release"
+# Langfuse's trace-level OTel names: https://langfuse.com/integrations/native/opentelemetry
 TRACE_NAME_ATTRIBUTE = "langfuse.trace.name"
 OBSERVATION_TYPE_ATTRIBUTE = "langfuse.observation.type"
 OBSERVATION_LEVEL_ATTRIBUTE = "langfuse.observation.level"

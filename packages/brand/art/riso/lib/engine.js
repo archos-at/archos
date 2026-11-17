@@ -1,3 +1,4 @@
+/* Adapted from riso-windowseat (MIT, (c) 2026 sevenevesai); licence in art/riso/LICENSE-NOTICE.md. */
 'use strict';
 
 const QS = new URLSearchParams(location.search);

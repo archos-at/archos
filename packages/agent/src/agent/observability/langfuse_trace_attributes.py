@@ -78,6 +78,7 @@ IDENTITY_ATTRIBUTES_ENV = "TRACE_IDENTITY_ATTRIBUTES"
 
 SESSION_ID_ATTRIBUTE = "langfuse.session.id"
 TAGS_ATTRIBUTE = "langfuse.trace.tags"
+# Names from https://langfuse.com/integrations/native/opentelemetry.
 METADATA_PREFIX = "langfuse.trace.metadata."
 
 
