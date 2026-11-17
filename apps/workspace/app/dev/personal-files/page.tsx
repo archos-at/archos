@@ -396,14 +396,14 @@ function MenuRow({ icon: Icon, children, picked = false }: { icon: typeof Upload
   )
 }
 
-/** B: no page. A file in a chat is kept with one press, and the composer's paperclip offers what was kept. */
+/** Between a chat and the person's own Ablage: a file in a chat is kept with one press, and the paperclip offers what was kept. */
 function FromChat(): JSX.Element {
   return (
     <>
-      <Rail own openChat={0} />
+      <Rail own openChat={0} gear="none" />
       <main className="flex min-h-0 min-w-0 flex-1 flex-col">
         <header className="flex flex-col gap-1 px-8 pb-4 pt-6">
-          <span className="text-muted-foreground text-meta">Mein Bereich</span>
+          <span className="text-muted-foreground text-meta">Projektübergreifend</span>
           <div className="flex flex-wrap items-center gap-3">
             <h1 className="text-pane-title">Rampenneigung Tiefgarage</h1>
             <OnlyYou />
@@ -416,7 +416,7 @@ function FromChat(): JSX.Element {
             <span className="text-name">Leitfaden_Garagen.pdf</span>
             <span className="shadow-press text-name inline-flex h-7 items-center gap-1.5 rounded-control px-2.5">
               <FolderInput className="size-3.5" aria-hidden />
-              In meine Dateien
+              In meine Ablage
             </span>
           </div>
         </div>
@@ -424,13 +424,12 @@ function FromChat(): JSX.Element {
           <div className="absolute bottom-full left-8 mb-2 flex items-end gap-2">
             <div className="bg-sheet shadow-md w-60 rounded-[16px] p-1.5">
               <MenuRow icon={Upload}>Vom Computer hochladen</MenuRow>
-              <MenuRow icon={Folder} picked>
-                Aus meinen Dateien
+              <MenuRow icon={FolderLock} picked>
+                Aus meiner Ablage
               </MenuRow>
-              <MenuRow icon={Folder}>Aus einem Projekt</MenuRow>
             </div>
             <div className="bg-sheet shadow-md w-72 rounded-[16px] p-1.5">
-              <div className="text-muted-foreground text-meta px-2.5 pb-1 pt-1.5 font-medium">Meine Dateien</div>
+              <div className="text-muted-foreground text-meta px-2.5 pb-1 pt-1.5 font-medium">Meine Ablage</div>
               {OWN_FILES.slice(0, 4).map((file, index) => (
                 <div key={file.id} className="text-name flex h-9 items-center gap-2.5 rounded-control px-2.5">
                   <FileText className="text-muted-foreground size-4 shrink-0" aria-hidden />
@@ -438,23 +437,13 @@ function FromChat(): JSX.Element {
                   {index === 0 && <Check className="size-4 shrink-0" aria-hidden />}
                 </div>
               ))}
-              <div className="text-muted-foreground text-name flex h-9 items-center px-2.5">Alle verwalten …</div>
             </div>
           </div>
-          <div className="bg-sheet border-field-border flex flex-col gap-3 rounded-[10px] border p-3">
+          <div className="bg-sheet border-field-border flex items-center gap-3 rounded-[10px] border p-3">
+            <span className="bg-desk inline-flex size-7 shrink-0 items-center justify-center rounded-control">
+              <Paperclip className="size-4" aria-hidden />
+            </span>
             <span className="text-muted-foreground text-sm">Frage stellen …</span>
-            <div className="text-name flex flex-wrap items-center gap-1.5">
-              <span className="bg-desk inline-flex size-7 items-center justify-center rounded-control">
-                <Paperclip className="size-4" aria-hidden />
-              </span>
-              <span className="text-muted-foreground text-meta mx-1">Grundlage</span>
-              {['Wissen', 'Büroablage'].map((label) => (
-                <span key={label} className="bg-desk inline-flex h-7 items-center rounded-full px-2.5">
-                  {label}
-                </span>
-              ))}
-              <span className="shadow-press inline-flex h-7 items-center rounded-full px-2.5">+ Projekt</span>
-            </div>
           </div>
         </div>
       </main>
