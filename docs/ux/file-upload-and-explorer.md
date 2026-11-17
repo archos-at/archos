@@ -327,7 +327,7 @@ already carried), with the MIME type in its tooltip; the date is on the Fassung.
   glancing at it sees "a document" and moves on. Skeleton bars now appear only
   while a preview is genuinely loading.
 - **What is shown belongs to one file.** Every load (`loadPreview` in
-  `use-file-preview-controller.tsx`) starts by dropping the last one's URLs, and
+  `hooks/use-preview-loader.ts`) starts by dropping the last one's URLs, and
   an answer for a file that is no longer selected is ignored. The pane's failure
   states draw only without a URL, so a kept one hid them: a next file whose
   preview request failed showed the previous file's picture under its own name.
