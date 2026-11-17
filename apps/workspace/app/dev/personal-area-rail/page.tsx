@@ -3,7 +3,7 @@
 /**
  * PROTOTYPE, not for merge: three ways the rail could hold a personal area next to the projects
  * (concept for ticket 81). Built from the rail's real parts so the shots show the product's own
- * geometry. `?v=a|b|c|d` picks the variant, `?place=me|project` where the reader is.
+ * geometry. `?v=a|b|c|d|e` picks the variant, `?place=me|project` where the reader is.
  */
 
 import type { JSX, ReactNode } from 'react'
@@ -19,6 +19,7 @@ import {
   MessageSquare,
   Plus,
   Search,
+  UserRound,
   UsersRound,
   Zap,
   type LucideIcon,
@@ -105,7 +106,7 @@ function NavRow({ icon: Icon, label, active = false, within = false, badge = 0, 
 const SUB_ROW = 'relative flex h-8 min-w-0 items-center gap-2 rounded-control pl-[39px] pr-3 text-name'
 
 /** A chat under a section, with the rail's own row (`rail-chats.tsx`), plus where it belongs. */
-function ChatRow({ chat, current = false, showProject = false, indent = true }: { chat: Chat; current?: boolean; showProject?: boolean; indent?: boolean }): JSX.Element {
+function ChatRow({ chat, current = false, showProject = false, indent = true, markOwn = false }: { chat: Chat; current?: boolean; showProject?: boolean; indent?: boolean; markOwn?: boolean }): JSX.Element {
   const tag = showProject ? shortName(chat.project) : undefined
   return (
     <li className="relative list-none">
@@ -114,6 +115,7 @@ function ChatRow({ chat, current = false, showProject = false, indent = true }: 
         <span className="relative min-w-0 flex-1 truncate">{chat.title}</span>
         {chat.shared && <UsersRound aria-label="Geteilt" className="relative size-3.5 shrink-0" />}
         {tag && <span className="text-muted-foreground text-meta relative max-w-[84px] shrink-0 truncate font-normal">{tag}</span>}
+        {markOwn && !tag && <UserRound aria-label="Ohne Projekt" className="text-muted-foreground relative size-3.5 shrink-0" />}
       </a>
     </li>
   )
@@ -310,7 +312,44 @@ function VariantD({ me }: { me: boolean }): JSX.Element {
   )
 }
 
-function Foot(): JSX.Element {
+/**
+ * E: no place switcher for „Mein Bereich“. The top names the project of the open chat (or none) and is the way to
+ * another; every chat says where it belongs; the person's own things stand at the foot, with the person.
+ */
+function VariantE({ me }: { me: boolean }): JSX.Element {
+  return (
+    <>
+      <SidebarHeader className="shrink-0 gap-0 p-0 px-3">
+        <SidebarBrand iconRail={false} />
+        <div className="mt-1 flex items-center">
+          <ProjectSwitcher projects={PROJECTS} activeProjectId={me ? undefined : 'p-1'} />
+        </div>
+      </SidebarHeader>
+      <SidebarContent className="mt-3 flex-1 gap-0 overflow-y-auto px-3 py-px">
+        {!me && (
+          <SidebarMenu className="mb-6 gap-0.5">
+            <NavRow icon={Folder} label="Dateien" />
+            <NavRow icon={LayoutGrid} label="Übersicht" />
+            <NavRow icon={Zap} label="Automatisierung" />
+          </SidebarMenu>
+        )}
+        <a href="#" className="bg-sheet shadow-press flex h-9 shrink-0 items-center justify-center gap-2 rounded-control text-sm font-medium">
+          <Plus className="size-4" aria-hidden />
+          Neuer Chat
+        </a>
+        <GroupLabel>Chats</GroupLabel>
+        <ul className="flex flex-col gap-0.5">
+          {ALL_CHATS.map((chat, index) => (
+            <ChatRow key={chat.title} chat={chat} current={index === (me ? 0 : 1)} showProject markOwn indent={false} />
+          ))}
+          <MoreRow label="Alle Chats" indent={false} />
+        </ul>
+      </SidebarContent>
+    </>
+  )
+}
+
+function Foot({ personalDoor = false }: { personalDoor?: boolean }): JSX.Element {
   return (
     <SidebarFooter className="shrink-0 gap-0 p-0 px-3 pb-3 pt-4">
       <nav aria-label={OFFICE} className="mb-2 w-full">
@@ -321,6 +360,11 @@ function Foot(): JSX.Element {
           <NavRow icon={Bell} label="Postfach" badge={3} />
         </SidebarMenu>
       </nav>
+      {personalDoor && (
+        <SidebarMenu className="mb-2 gap-0.5">
+          <NavRow icon={LockKeyhole} label="Mein Bereich" />
+        </SidebarMenu>
+      )}
       <SidebarUserMenu user={USER} organizationName={OFFICE} authRequired={false} compact={false} avatarSizeClass="size-6" menuSide="top" menuAlign="end" menuSideOffset={6} menuMatchTrigger canViewOrganization canManageOrganization={false} canManagePlatform={false} />
     </SidebarFooter>
   )
@@ -332,7 +376,7 @@ function Page({ me }: { me: boolean }): JSX.Element {
   return (
     <main className="flex min-h-0 min-w-0 flex-1 flex-col">
       <header className="flex flex-col gap-1 px-8 pb-4 pt-6">
-        <span className="text-muted-foreground text-meta">{me ? 'Mein Bereich › Chats' : `${project} › Chat`}</span>
+        <span className="text-muted-foreground text-meta">{me ? 'Ohne Projekt' : project}</span>
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="text-pane-title">{me ? 'Rampenneigung Tiefgarage' : 'Fluchtweglänge im Erdgeschoss'}</h1>
           <span className="bg-sheet shadow-press text-name inline-flex h-7 items-center gap-1.5 rounded-full px-2.5">
@@ -368,8 +412,8 @@ export default function PersonalAreaRailPreview(): JSX.Element {
     <div className="bg-background text-foreground flex h-dvh overflow-hidden">
       <SidebarProvider className="h-full min-h-0 w-auto shrink-0">
         <Sidebar collapsible="icon" data-scope="project" aria-label="Navigation">
-          {variant === 'd' ? <VariantD me={me} /> : variant === 'c' ? <VariantC me={me} /> : variant === 'b' ? <VariantB me={me} /> : <VariantA me={me} />}
-          <Foot />
+          {variant === 'e' ? <VariantE me={me} /> : variant === 'd' ? <VariantD me={me} /> : variant === 'c' ? <VariantC me={me} /> : variant === 'b' ? <VariantB me={me} /> : <VariantA me={me} />}
+          <Foot personalDoor={variant === 'e'} />
           <SidebarRail aria-label="Breite ändern" />
         </Sidebar>
       </SidebarProvider>
