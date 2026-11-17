@@ -482,7 +482,7 @@ export function TemporaryChat(): JSX.Element {
 export function NewChatButton({ temporaryOpen = false }: { temporaryOpen?: boolean }): JSX.Element {
   return (
     <div className="bg-sheet shadow-press flex h-9 shrink-0 items-stretch rounded-control text-[13px] font-medium">
-      <a href="#" className="flex flex-1 items-center justify-center gap-2">
+      <a href="#" className="flex flex-1 items-center justify-start gap-[11px] px-3">
         <Plus className="size-4" aria-hidden />
         Neuer Chat
       </a>
