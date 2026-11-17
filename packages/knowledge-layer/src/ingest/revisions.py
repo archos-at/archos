@@ -1,46 +1,3 @@
-"""The two ingestion hooks that read Fassungen: a suggestion for a new name, a change line for a re-upload.
-
-``adapter.py`` calls :func:`record_revisions` once per file, after the summary
-row is written:
-
-* A file whose NAME is new in the collection may be a newer Fassung of another
-  document under a different name. The summary model reads a few candidates and
-  its answer is stored as a ``revision_suggestion`` on the new row. A SUGGESTION:
-  nothing is linked, hidden or re-ranked until a person confirms it.
-* A file uploaded under a name the collection already holds replaces its
-  predecessor's chunks (ADR-0054). What changed against the previous upload is
-  written as the row's ``change_summary``, with its own name as ``change_basis``.
-
-WHAT REACHES THE MODEL, AND WHEN (ADR-0086). The upload screen runs BEFORE this:
-a file whose content or name matched a rule is quarantined by the ingest job,
-which ``continue``s before any summary exists. So the new file has passed, and no
-held file has a row to be read here. The one hole is a quarantined RE-upload,
-whose predecessor keeps its row (it carries what people set); a re-upload still
-being read is the same. Those names are read from the ingest job store and left
-out of the candidates, and when that store cannot be read nothing is suggested:
-the names stay home rather than guess. What a candidate sends is its name,
-Dokumentart, tags and one-line summary, which an earlier ingest already sent to
-the same model.
-
-The title block (Plankopf) read during ingestion outranks the name: two documents with the same
-``document_number`` are Fassungen of one another whatever their file names share, and the Index
-(else the date) printed on the sheet says which is newer. When the title blocks decide, the
-suggestion is written with ``basis="title_block"`` and no model is called
-(:func:`~agent.knowledge.document_revisions.settle_by_title_block`). :func:`revision_facts_from_documents`
-picks the facts a document stores from its analysed pages.
-
-A third path needs no model to decide: a person who dropped the file onto the upload dialog
-and ticked „Als neue Fassung von X ablegen" has already said it (``revision_of`` on the ingest
-job, ADR-0099). Once the new file has been read, :func:`confirm_revision` writes the link a
-person's ``PUT /v1/collections/{c}/revision`` writes (``superseded_by`` on X, the change summary
-on the new file with X as its basis). X missing from the collection, or a link that would close
-a loop, falls back to the ordinary paths above. The link does not wait for the summary model:
-``adapter.py`` calls :func:`confirm_revision` without one when the model is off or no summary
-was made, and only the change line is then missing.
-
-All of these are fail-open and bounded by the caller; none can fail an ingest.
-"""
-
 from __future__ import annotations
 
 import json
@@ -69,21 +26,10 @@ from agent.knowledge.title_block import same_document
 
 logger = logging.getLogger(__name__)
 
-#: How far back a quarantine verdict is looked for in the job store.
 HELD_LOOKBACK_SECONDS = 30 * 24 * 3600
 
 
 def revision_facts_from_documents(documents: Sequence[Any]) -> dict[str, Any] | None:
-    """The title-block facts a document stores: those of the first drawing page that has a title block, or ``None``.
-
-    ``documents`` are the analysed visuals' chunks (LlamaIndex ``Document``). Each
-    carries ``page_label`` and ``drawing_data``, whose ``document.title_block`` is
-    what the vision model read on that page. The first page, in page order, whose
-    title block names the document or its state (a number, an Index or a date)
-    wins; failing that, the first page with any title-block field. Pages are not
-    merged: a number from one sheet and an Index from another are two sheets' facts.
-    The record carries the ``page`` it was read on.
-    """
     readings: list[tuple[int, dict[str, Any]]] = []
     for document in documents:
         metadata = getattr(document, "metadata", None) or {}
@@ -103,17 +49,14 @@ def revision_facts_from_documents(documents: Sequence[Any]) -> dict[str, Any] | 
     return identifying or (readings[0][1] if readings else None)
 
 
-#: The confidence of a suggestion read from the file names alone (no model was asked).
 NAME_SERIES_CONFIDENCE = 0.9
 
 
 def _open_to_link(older: Any, newer: Any) -> bool:
-    """Whether ``older`` may be suggested as replaced by ``newer``: neither is replaced or linked to the other."""
     return not older.superseded_by and not newer.superseded_by and older.file_name not in (newer.supersedes or ())
 
 
 def _refused(newer: Any, older: Any) -> bool:
-    """Whether a person already refused that ``newer`` replaces ``older`` (one of the files ``newer`` refused)."""
     return older.file_name in dismissed_revisions(newer.revision_suggestion)
 
 
@@ -122,7 +65,6 @@ def _facts_only(row: Any) -> RevisionDocument:
 
 
 def _title_block_pair(rows: Sequence[Any]) -> list[tuple[Any, Any, dict[str, Any]]]:
-    """``(newer, older, suggestion)`` per document number whose sheets name a strictly later state."""
     groups: dict[str, list[Any]] = {}
     for row in rows:
         key = document_key((row.revision_facts or {}).get("document_number"))
@@ -159,14 +101,12 @@ def _title_block_pair(rows: Sequence[Any]) -> list[tuple[Any, Any, dict[str, Any
 
 
 def _sheets_disagree(newer: Any, older: Any) -> bool:
-    """Whether the title blocks say ``newer`` (by its name) is NOT the later state of the same document."""
     if not same_document(newer.revision_facts, older.revision_facts):
         return False
     return compare_revisions(newer.revision_facts, older.revision_facts) in (-1, 0)
 
 
 def _name_pairs(rows: Sequence[Any]) -> list[tuple[Any, Any, dict[str, Any]]]:
-    """``(newer, older, suggestion)`` per file-name series: the current member over its newest unlinked older one."""
     pairs = []
     for series in find_revision_series(rows, filename=lambda row: row.file_name, created_at=lambda row: row.added_at):
         head = series.current
@@ -192,20 +132,6 @@ def _name_pairs(rows: Sequence[Any]) -> list[tuple[Any, Any, dict[str, Any]]]:
 
 
 def derive_suggestions(rows: Sequence[Any], held_names: Callable[[], set[str] | None]) -> dict[str, dict[str, Any]]:
-    """Suggestions for documents ingested before the Fassung step existed, read from what the rows already say.
-
-    ``rows`` are ONE collection's metadata rows (``AvailableDocument``). For each document that is the
-    current member of a series, a ``{of, confidence, reason, basis}`` suggestion over the newest older
-    member, keyed by the newer file name: the same ``document_number`` in the title blocks with a
-    strictly later Index or date (``basis="title_block"``), else the revision grammar of the file names
-    (``basis="name"``). Computed on read, stored nowhere; no model is called.
-
-    Never for a pair a person dismissed, nor one where either file is already linked (replaced, or
-    replacing the other), nor for a file whose own suggestion is stored and still open. Never naming a
-    held or in-flight file (ADR-0086): ``held_names`` is read only once there is something to suggest,
-    held files are then taken out BEFORE the pairs are chosen, and when it answers ``None`` (the job
-    store could not be read) nothing is suggested.
-    """
     if not _pairs(rows):
         return {}
     held = held_names()
@@ -216,11 +142,9 @@ def derive_suggestions(rows: Sequence[Any], held_names: Callable[[], set[str] | 
 
 
 def _pairs(rows: Sequence[Any]) -> list[tuple[Any, Any, dict[str, Any]]]:
-    """Title-block pairs first, then name pairs for the documents the title blocks did not cover."""
     by_block = _title_block_pair(rows)
     covered = {newer.file_name for newer, _, _ in by_block}
     pairs = by_block + [pair for pair in _name_pairs(rows) if pair[0].file_name not in covered]
-    # A stored suggestion that is still open already speaks for the file.
     return [pair for pair in pairs if not _has_open_suggestion(pair[0])]
 
 
@@ -237,7 +161,6 @@ def revision_document(
     tags: Sequence[str] | None,
     revision_facts: dict[str, Any] | None = None,
 ) -> RevisionDocument:
-    """A file as the judge may read it: name, class, tags, summary, Fassung from its name and from its title block."""
     revision = parse_revision_name(file_name)
     return RevisionDocument(
         file_name=file_name,
@@ -251,12 +174,6 @@ def revision_document(
 
 
 def held_file_names(collection: str) -> set[str] | None:
-    """Names of files in ``collection`` that are quarantined or still being read; ``None`` when unknown.
-
-    The newest job that names a file decides: a quarantine that a release then
-    indexed is no longer held. ``None`` means the job store could not be read,
-    and the caller must then send no name to a model.
-    """
     try:
         from agent.knowledge import ingest_status_store
 
@@ -273,7 +190,6 @@ def held_file_names(collection: str) -> set[str] | None:
 
 
 def read_rows(collection: str) -> list[Any]:
-    """The collection's metadata rows (``AvailableDocument``), or none when they cannot be read."""
     try:
         from agent.knowledge import get_available_documents
 
@@ -284,7 +200,6 @@ def read_rows(collection: str) -> list[Any]:
 
 
 def previous_summary(rows: Sequence[Any], stored_names: Sequence[str]) -> str | None:
-    """The summary a re-uploaded file had before this upload, read BEFORE the new row overwrites it."""
     wanted = set(stored_names)
     for row in rows:
         if row.file_name in wanted and (row.summary or "").strip():
@@ -293,11 +208,6 @@ def previous_summary(rows: Sequence[Any], stored_names: Sequence[str]) -> str | 
 
 
 def candidate_documents(file_name: str, rows: Sequence[Any], held: set[str]) -> list[RevisionDocument]:
-    """The rows the new file may be a newer Fassung of.
-
-    Not itself, not a row a person already replaced, not one the person already
-    dismissed for this file, not one with nothing to say, and not a held name.
-    """
     own = next((row for row in rows if row.file_name == file_name), None)
     refused = set(dismissed_revisions(own.revision_suggestion)) if own is not None else set()
     return [
@@ -328,11 +238,6 @@ def suggest_revision(
     llm: Any,
     revision_facts: dict[str, Any] | None = None,
 ) -> dict[str, Any] | None:
-    """Ask whether a new file name is a newer Fassung of another, and store the suggestion. Returns it.
-
-    ``revision_facts`` are the new file's own title-block facts (not yet on the ``rows`` read before
-    it was registered); a candidate with the same ``document_number`` is decided without the model.
-    """
     held = held_file_names(collection)
     if held is None:
         return None
@@ -361,12 +266,6 @@ def record_change(
     summary: str,
     llm: Any,
 ) -> str | None:
-    """Store what changed against the previous upload of the same name; clear a stale line when none can be told.
-
-    ``change_basis`` is the file's own name: the comparison is with its previous
-    upload, which the UI labels „vorige Fassung". The old line described an
-    older upload and is replaced either way.
-    """
     from agent.knowledge import set_document_change_summary
 
     change = None
@@ -381,11 +280,6 @@ def record_change(
 
 
 def carried_links(preserved: dict[str, str]) -> tuple[str | None, dict[str, Any] | None]:
-    """The person-set link and the suggestion a replaced version's row carried, decoded.
-
-    ``preserved`` is :class:`_PreviousVersion.preserved`: JSON text for the
-    suggestion, a plain name for the link. An unreadable suggestion is dropped.
-    """
     link = preserved.get("superseded_by") or None
     raw = preserved.get("revision_suggestion")
     try:
@@ -405,16 +299,6 @@ def confirm_revision(
     tags: Sequence[str] | None,
     llm: Any,
 ) -> bool:
-    """Write the link a person chose at upload: ``file_name`` replaces ``older``. ``False`` when it cannot be made.
-
-    The same writes as ``PUT /v1/collections/{c}/revision`` with ``linked=true``, through the same
-    store step (:func:`~agent.knowledge.link_document_revision`): ``superseded_by`` on ``older``
-    and a suggestion on the new file that pointed at ``older`` cleared, with the loop check in the
-    same transaction; then what changed, told by the summary model onto the new file with ``older``
-    as its basis. A failed or absent model (``llm=None``) leaves the link in place and the change
-    line empty. Nothing is written when ``older`` has no row in the collection (it was deleted
-    meanwhile) or the link would close a loop. The new file need not have its row yet.
-    """
     if older == file_name:
         return False
     from agent.knowledge import link_document_revision
@@ -459,14 +343,6 @@ def record_revisions(
     confirmed_older: str | None = None,
     revision_facts: dict[str, Any] | None = None,
 ) -> None:
-    """The per-file entry point ``adapter.py`` bounds with a timeout: a link, a change line, or a suggestion.
-
-    ``replaced``: the name was already in the collection. ``rows`` and
-    ``previous`` were read before the new summary overwrote the old.
-    ``confirmed_older``: the file name a person said this file replaces, at
-    upload; when the link cannot be made, the ordinary paths run as if it had
-    not been said. ``revision_facts``: the title block this file was just read with.
-    """
     if confirmed_older and confirm_revision(
         collection, file_name, confirmed_older, summary=summary, doc_class=doc_class, tags=tags, llm=llm
     ):

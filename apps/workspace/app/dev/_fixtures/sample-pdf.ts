@@ -1,24 +1,10 @@
-/**
- * A real PDF, built byte by byte, for the `/dev` previews that render one.
- *
- * pdf.js parses what it is given, so a preview of the viewer needs genuine
- * bytes, not an image standing in for them. One builder for every preview
- * (`/dev/pdf-passage`, `/dev/file-preview`): two private copies of a
- * cross-reference table would drift, and the one with the wrong offsets would
- * still look fine until pdf.js reported the file as damaged.
- */
-
-/** One printed line: text, point size, bold. */
 export type PdfLine = readonly [string, number, boolean]
 
-/** A4 portrait, in points. */
 const PAGE_WIDTH = 595
 const PAGE_HEIGHT = 842
 
-/** Escape the three characters a PDF literal string cannot carry raw. */
 export const pdfString = (text: string): string => text.replace(/([\\()])/g, '\\$1')
 
-/** One page's content stream, laid out from the top margin down. */
 const contentStream = (lines: readonly PdfLine[]): string => {
   let content = ''
   let y = PAGE_HEIGHT - 70
@@ -31,19 +17,6 @@ const contentStream = (lines: readonly PdfLine[]): string => {
   return content
 }
 
-/**
- * Assemble the document, one page per entry of `pages`.
- *
- * Written out longhand rather than pulled from a library because the whole file
- * is a hundred lines of it, and because the cross-reference table has to carry
- * real byte offsets — which is exactly what a string-concatenating "generator"
- * gets wrong. Every character stays below U+0100, so the string's indices ARE
- * its byte offsets and WinAnsi encodes umlauts one byte each.
- *
- * Object numbering, since the Kids array has to name it before the objects
- * exist: 1 catalog, 2 pages, then one page object per sheet, then one content
- * stream per sheet, then the two fonts.
- */
 export const buildPdf = (pages: readonly (readonly PdfLine[])[]): Uint8Array<ArrayBuffer> => {
   const count = pages.length
   const firstPage = 3
@@ -71,11 +44,6 @@ export const buildPdf = (pages: readonly (readonly PdfLine[])[]): Uint8Array<Arr
   return assemblePdf(objects)
 }
 
-/**
- * Number the objects, write them, and close the file with a cross-reference
- * table of their real byte offsets. Every character stays below U+0100, so the
- * string's indices are its byte offsets.
- */
 export const assemblePdf = (objects: readonly string[]): Uint8Array<ArrayBuffer> => {
   let file = '%PDF-1.4\n'
   const offsets: number[] = []
@@ -94,14 +62,6 @@ export const assemblePdf = (objects: readonly string[]): Uint8Array<ArrayBuffer>
   return bytes
 }
 
-/**
- * A one-page PDF encrypted with the user password `piloti` (RC4, 128 bit), for
- * the viewer's password prompt. Not built here: the encryption dictionary and
- * the encrypted streams are cryptography, not layout, and a hand-rolled RC4 in
- * a fixture would be a second implementation to get wrong. Made with pypdf:
- * `PdfWriter().add_blank_page(595, 842)` then
- * `encrypt(user_password="piloti", owner_password="piloti", algorithm="RC4-128")`.
- */
 export const ENCRYPTED_PDF_PASSWORD = 'piloti'
 
 export const encryptedPdf = (): Uint8Array<ArrayBuffer> =>

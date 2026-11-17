@@ -1,32 +1,3 @@
-"""One file's page reads: a single bounded pool that OCR and vision share.
-
-A file's scanned pages (transcription) and its drawings, images and embedded
-rasters (visual analysis) are each one model call. They used to run in two
-phases, one after the other, each on its own pool of ``VLM_BATCH_WORKERS``
-(4) threads, and the OCR phase in batches of eight that waited for their
-slowest call. Measured on 2026-11-02: a 458 s file made 115 vision calls
-summing 1,219 s, an effective parallelism of 2.7, while the fleet's vision pool
-had 25 of its 32 slots free.
-
-Now every page read of one file draws from one pool of
-``INGEST_PAGE_READ_PARALLELISM`` threads, opened for the file by
-:func:`file_page_reads` and found by the readers through a context variable:
-
-* **Streaming, no barriers.** A page is submitted as soon as it is rendered,
-  and the pool takes the next as soon as a thread is free. At most twice the
-  pool's size of rendered pages wait or run at once (:meth:`FilePageReads.room`),
-  so a 500-page scan never holds 500 JPEGs.
-* **OCR and vision at once.** The drawings the triage already knows are
-  rendered and read on the pool (:meth:`FilePageReads.prefetch_drawings`)
-  while the scans are transcribed. The later vision batch asks for the same
-  bytes and gets the call already made (:meth:`FilePageReads.single_flight`),
-  so the answer is the one the serial order would have given.
-* **The fleet pool is the hard cap.** Every call still holds one of the
-  ``VLM_FLEET_CONCURRENCY`` slots (``vision_calls._vlm_slot``), shared fairly
-  between offices. This pool bounds one file's threads and memory, not the
-  calls the provider sees.
-"""
-
 from __future__ import annotations
 
 import contextlib
@@ -44,22 +15,12 @@ from knowledge_layer.env import env_int
 
 logger = logging.getLogger(__name__)
 
-# @environment_variable INGEST_PAGE_READ_PARALLELISM
-# @category Knowledge Layer
-# @type int
-# @default 16
-# @required false
-# Threads one file's page reads share: its scan transcriptions and its drawing,
-# image and raster analyses, streamed through one pool. The fleet's vision pool
-# (`VLM_FLEET_CONCURRENCY`) stays the cap on calls in flight; this bounds a
-# file's threads and the rendered pages it holds (twice this many at most).
 INGEST_PAGE_READ_PARALLELISM = env_int("INGEST_PAGE_READ_PARALLELISM", 16, minimum=1)
 
 _CURRENT: contextvars.ContextVar[FilePageReads | None] = contextvars.ContextVar("file_page_reads", default=None)
 
 
 class FilePageReads:
-    """The pool, the rendered-page budget and the in-flight calls of one file."""
 
     def __init__(self, parallelism: int | None = None) -> None:
         self.parallelism = max(1, parallelism or INGEST_PAGE_READ_PARALLELISM)
@@ -70,17 +31,10 @@ class FilePageReads:
         self.renders: dict[int, dict[str, Any]] = {}
 
     def submit(self, fn: Callable[..., Any], /, *args: Any, **kwargs: Any) -> Future:
-        """``fn`` on the pool, in a copy of the caller's context (data policy, cost ledger, file trace)."""
         return self._executor.submit(contextvars.copy_context().run, fn, *args, **kwargs)
 
     @contextlib.contextmanager
     def room(self) -> Iterator[Callable[[Future], None]]:
-        """Wait for room for one more rendered page; yields the callback that gives it back.
-
-        The caller renders inside the block and hands the callback to its
-        future (``add_done_callback``). A block left without a future gives
-        the room back itself.
-        """
         self._room.acquire()
         handed = threading.Event()
 
@@ -98,10 +52,6 @@ class FilePageReads:
                 release()
 
     def single_flight(self, key: str, live: Callable[[], Any], failed: Callable[[Any], bool]) -> Any:
-        """``live()`` once per ``key`` for this file; a second caller waits for the first's result.
-
-        A failed result is forgotten, so the batch's second pass asks again.
-        """
         with self._lock:
             pending = self._calls.get(key)
             if pending is None:
@@ -110,7 +60,6 @@ class FilePageReads:
             else:
                 owner = False
         if not owner:
-            # A copy: the two callers attach the result to two records.
             return copy.deepcopy(pending.result())
         try:
             result = live()
@@ -128,13 +77,6 @@ class FilePageReads:
     def read_drawings_ahead(
         self, triage: Any, pdf_path: str, *, cap: int, max_dim: int, vision: dict[str, Any]
     ) -> None:
-        """Render the triage's first ``cap`` drawing pages and start reading each, on the pool.
-
-        The caller goes on to transcribe the scans meanwhile. What is rendered
-        is kept in :attr:`renders`, so the vision batch's renderer does not
-        render it again, and its call is the one :meth:`single_flight` hands
-        the batch. ``triage`` ``None`` (an unmeasured PDF) reads nothing ahead.
-        """
         pages = sorted(getattr(triage, "drawings", None) or ())[: max(0, cap)]
         if pages:
             self.submit(self._prefetch, pdf_path, pages, max_dim, vision)
@@ -164,23 +106,19 @@ class FilePageReads:
             _processing._close_pdf(doc)
 
     def rendered(self) -> dict[int, dict[str, Any]]:
-        """A copy of the pages rendered ahead so far."""
         with self._lock:
             return dict(self.renders)
 
     def close(self) -> None:
-        """Cancel what has not started; a call already running finishes on its own thread."""
         self._executor.shutdown(wait=False, cancel_futures=True)
 
 
 def current() -> FilePageReads | None:
-    """The file's page reads, inside :func:`file_page_reads`; ``None`` outside one."""
     return _CURRENT.get()
 
 
 @contextlib.contextmanager
 def file_page_reads(parallelism: int | None = None) -> Iterator[FilePageReads]:
-    """Open one file's page-read pool for the block; every reader inside it shares it."""
     reads = FilePageReads(parallelism)
     token = _CURRENT.set(reads)
     try:
@@ -192,7 +130,6 @@ def file_page_reads(parallelism: int | None = None) -> Iterator[FilePageReads]:
 
 @contextlib.contextmanager
 def pool_for_this_call(parallelism: int | None = None) -> Iterator[FilePageReads]:
-    """The file's pool when one is open, else a private one of ``parallelism`` closed with the block."""
     reads = current()
     if reads is not None:
         yield reads
@@ -202,7 +139,6 @@ def pool_for_this_call(parallelism: int | None = None) -> Iterator[FilePageReads
 
 
 def ordered_results(futures: list[tuple[int, Future]]) -> list[tuple[int, Any]]:
-    """``(page, result or exception)`` in page order, whatever order the calls finished in."""
     out: list[tuple[int, Any]] = []
     for number, future in sorted(futures, key=lambda item: item[0]):
         try:

@@ -1,65 +1,3 @@
-"""What a turn can know before its first call, decided rather than generated (ADR-0064).
-
-Before the first LLM call the turn already holds the question, the subject
-document, the project's confirmed facts and the inventory. ADR-0052 forbids
-a label decided here from WITHHOLDING anything — the intent router it deleted
-did exactly that — so every question asked of the decision model is one
-whose answer can only ADD to the turn:
-
-- ``needs_evidence``: whether the message needs a regulation, a project file
-  or the building model read at all. False on a greeting, a thank-you, a
-  memory note. What it gates is the PREFETCH below, never a tool.
-- ``corpus``: which body of knowledge the answer most likely lives in. It
-  chooses what to prefetch; every tool stays bound whatever it says.
-  ``referenz`` is the office's OTHER projects (ADR-0094): how a comparable
-  project solved something, what an authority demanded there.
-- ``precedent``, asked only when the office has reference projects: whether
-  an earlier project of this office likely faced the decision the message
-  is about. A question can need the norm AND a precedent („brauchen wir ein
-  Gutachten, und wie war das bei ähnlichen Projekten?"), which one corpus
-  choice cannot say. Either answer adds the reference prefetch below.
-- one ``noul`` per Richtlinien-Familie the corpus holds: which OIB documents
-  the answer needs. The top ones are prefetched as family overviews, so the
-  model's first call sees their Gliederung and scope and opens Punkte instead
-  of searching for them (the audit's §5 b).
-- one ``noul`` per content card type whose shape is NOT already in the
-  taught envelope: the two most likely get their full shape attached to
-  this turn's prompt, so a card the answer earns is written right first time.
-- ``skill``, a choice over every skill the turn resolved with "none", and
-  one "fits" noul per skill (TypeSafe's own skill-suggestion cookbook: rank,
-  then verify the candidate does the specific thing asked; its abstention
-  is what keeps a wrong skill from being pushed). What it may do: read the
-  chosen skill's BODY into this turn's prompt — the one method the question
-  is the subject of, ~400 tokens, or the IFC method on a model question —
-  and attach its preferred card shapes beyond the three shapes the envelope
-  teaches, the Markdown-written types and ``surface``. Inlining every short method cost ~4 600 tokens on every
-  call for methods most turns never use (ADR-0063, amended); one chosen
-  body costs a tenth of that and only when a question calls for it. The
-  body stays an offer: the model decides whether to follow it, and the
-  rest stay one catalog line each, read with ``read_file`` (ADR-0135).
-- ``self_contained``: whether the message can be searched on its own. A
-  follow-up („und in GK 4?") cannot, and searching the fragment would hand
-  the model a grounding block about nothing. A follow-up prefetches
-  NOTHING: the previous turn's passages are still in the transcript
-  (``conversation._answer_update`` writes the whole turn back), which is
-  the context the follow-up needs, and re-fetching it was the round every
-  follow-up paid.
-
-One request, every question over one state — the vendor evaluates them
-independently — and the state is built from structured fields, never the
-transcript. The effects are applied by the register (``_run_turn``) and the
-agent (``ChatAgent.run``: the prefetch runs as round 0 through the real
-tools node, so it costs no budget, files its sources, stamps its hits and
-is answered by the duplicate-fetch guard when the model asks again).
-
-Every function here returns something a caller can act on without a
-decision having run: ``TurnDecisions.none()`` attaches nothing and inlines
-nothing, and prefetches nothing with one exception: a FIRST message that
-names an OIB family („OIB 2") still gets its own search as round 0
-(``_undecided_prefetch``, ADR-0064's amendment), so ``prefetch_calls`` on it
-is not the turn as it ran before the decisions.
-"""
-
 from __future__ import annotations
 
 import logging
@@ -76,67 +14,25 @@ from agent.common.estate_paths import estate_path
 
 logger = logging.getLogger(__name__)
 
-#: The slot the technical record is filed under: ``status:decision:turn``.
 SLOT = "turn"
 
-#: The knowledge tool the prefetch calls. A wire name (``configs/*.yml``).
 KNOWLEDGE_SEARCH = "knowledge_search"
-#: The literal search a quoted term or a code is prefetched with.
 GREP = "grep"
 
-#: Below this p(needs_evidence) nothing is prefetched. Deliberately low: a
-#: false "no" costs the model its first round, a false "yes" costs one unread
-#: grounding block.
 NEEDS_EVIDENCE_THRESHOLD = 0.5
-#: A family is prefetched at or above this; the top ``MAX_FAMILY_PREFETCH``.
-#: Measured, not guessed: on the 27 loop-eval questions (2026-09-22,
-#: ``tests/fixtures/derivation/decision_eval_2026-09-22.csv``) the expected
-#: family's probability ran 0.54-0.97 and no Bauordnung row's top family
-#: passed 0.49, so 0.5 is recall 1.0 at precision 1.0 where 0.6 lost two
-#: rows. Re-run ``task be:eval:decisions`` before moving it.
 FAMILY_THRESHOLD = 0.5
 MAX_FAMILY_PREFETCH = 2
-#: A card type gets its shape attached at or above this; the top ``MAX_CARD_SHAPES``.
 CARD_THRESHOLD = 0.6
 MAX_CARD_SHAPES = 2
-#: The chosen corpus must reach this before its prefetch runs.
 CORPUS_THRESHOLD = 0.5
-#: p(precedent) at or above which the reference projects are prefetched beside
-#: the corpus's own search, when the decision placed the answer anywhere but
-#: in the law. Measured (`scripts/decision_eval_office.py precedent`, 10 Oct
-#: 2026, 59 German rows: 24 that must look, 35 that must not, two runs, mean
-#: drift 0.013): the noul alone does not separate a practice question from a
-#: rule question well — at the old single 0.6 it caught 23/24 and fired on
-#: 8/35 rule questions (sommerlicher Wärmeschutz 0.75, Tragwerk 0.66) — but
-#: the corpus choice does: every rule question put the answer in `baurecht`
-#: at ~1.00. So the bar depends on where the answer lives.
 PRECEDENT_THRESHOLD = 0.55
-#: The bar when the decision put the answer in the law (`baurecht`): a
-#: precedent search beside a rule question needs a strong signal. With
-#: PRECEDENT_THRESHOLD the eval read 24/24 caught and 1-2/35 fired on rule
-#: rows over two runs. Read off the same rows: the next labelled precedent
-#: questions are the held-out check.
 PRECEDENT_THRESHOLD_LAW = 0.7
-#: The cross-project tool the reference prefetch calls (ADR-0094). A wire name.
 PROJECT_LOOKUP = "project_lookup"
-#: A skill's body and shapes ride the turn when the choice lands on it at
-#: this probability AND its own "fits" noul is not near zero. Measured on the
-#: loop-eval set (``decision_eval_2026-09-22.csv``): the choice was right or
-#: abstained on every row, while the fit noul ran 0.11-0.88 on rows where
-#: the method plainly applied (Schallschutz → waermeschutz at 0.13, a
-#: Holzfassade → brandschutz at 0.26). The cookbook's 0.30 on the fit was
-#: set for loads that cost more than this one — a body is ~400 tokens and an
-#: offer — so here the choice carries the decision and the fit only vetoes
-#: a name-match (``ordner-brandschutz-listing`` → brandschutz at 0.59/0.13).
 SKILL_THRESHOLD = 0.6
 SKILL_FIT_THRESHOLD = 0.1
-#: Below this p(self_contained) the message itself is not searched.
 SELF_CONTAINED_THRESHOLD = 0.5
-#: How many card shapes the turn may attach in all (skill's plus the nouls').
 MAX_ATTACHED_SHAPES = 5
 
-#: The corpora a question can live in, with the criteria the decider reads.
-#: ``modell`` and ``none`` prefetch nothing; the others prefetch one search.
 CORPUS_OPTIONS: Mapping[str, str] = {
     "baurecht": (
         "Austrian building law and standards: an OIB-Richtlinie, a Bauordnung of a Land, an ÖNORM, "
@@ -162,8 +58,6 @@ CORPUS_OPTIONS: Mapping[str, str] = {
     ),
 }
 
-#: What each Richtlinie is about, in the decider's language, so a German
-#: question can be matched to the family whose subject it names.
 FAMILY_SCOPE: Mapping[str, str] = {
     "1": "OIB-Richtlinie 1 — mechanical resistance and stability: load-bearing structure, Standsicherheit.",
     "2": (
@@ -189,7 +83,6 @@ FAMILY_SCOPE: Mapping[str, str] = {
 
 @dataclass(frozen=True)
 class TurnDecisions:
-    """What the decision model said, as numbers; ``decided`` False when it did not run."""
 
     decided: bool = False
     needs_evidence: float | None = None
@@ -201,7 +94,6 @@ class TurnDecisions:
     skill_p: float = 0.0
     skill_fit: float | None = None
     self_contained: float | None = None
-    #: p(an earlier project of the office faced this decision); None when not asked.
     precedent: float | None = None
     latency_ms: int = 0
 
@@ -215,7 +107,6 @@ class TurnDecisions:
 
     @property
     def chosen_skill(self) -> str | None:
-        """The skill whose body and card shapes ride this turn, or None (the cookbook's abstention)."""
         if not self.decided or not self.skill or self.skill == "none":
             return None
         if self.skill_p < SKILL_THRESHOLD or (self.skill_fit or 0.0) < SKILL_FIT_THRESHOLD:
@@ -224,10 +115,6 @@ class TurnDecisions:
 
     @property
     def wants_reference(self) -> bool:
-        """Whether the office's reference projects are worth a search this turn: as the corpus, or beside it.
-
-        Read only behind ``wants_evidence`` (``prefetch_calls``), which is the gate.
-        """
         confident = self.corpus_p >= CORPUS_THRESHOLD
         if self.corpus == "referenz" and confident:
             return True
@@ -236,7 +123,6 @@ class TurnDecisions:
 
     @property
     def searchable(self) -> bool:
-        """Whether the message itself is worth a search: unknown counts as yes."""
         return self.self_contained is None or self.self_contained >= SELF_CONTAINED_THRESHOLD
 
     def chosen_families(self) -> list[str]:
@@ -250,7 +136,6 @@ class TurnDecisions:
 
 @dataclass(frozen=True)
 class TurnFacts:
-    """What the decider is shown. Structured, bounded, never the transcript."""
 
     question: str
     focus_file_name: str | None = None
@@ -259,18 +144,10 @@ class TurnFacts:
     project_files: int = 0
     archive_files: int = 0
     card_types: Sequence[tuple[str, str]] = ()
-    #: ``(name, description)`` of every skill the turn resolved — the choice's options.
     skills: Sequence[tuple[str, str]] = ()
-    #: The user's previous message, bounded — what a follow-up refers to.
     previous_message: str | None = None
-    #: The opening of the assistant's previous answer, bounded — the subject
-    #: a follow-up continues, which the previous question alone may not name.
     previous_answer: str | None = None
-    #: How many reference projects the turn's catalog lists (``<reference_projects>``):
-    #: none, and the precedent question is not asked and nothing is prefetched.
     reference_projects: int = 0
-    #: The catalog itself, for the reference fit (``reference_fit``); never part
-    #: of the decision's state, which knows only the count.
     reference_catalog: str | None = None
 
     def state(self) -> dict[str, Any]:
@@ -293,19 +170,12 @@ class TurnFacts:
 
 
 def corpus_options(facts: TurnFacts) -> dict[str, str]:
-    """The corpora this turn can search: other projects only when the office has reference projects.
-
-    Offering ``referenz`` to an office with none let the model pick a corpus
-    nothing searches, and the turn prefetched nothing where ``buero`` would
-    have prefetched the archive.
-    """
     if facts.reference_projects > 0:
         return dict(CORPUS_OPTIONS)
     return {key: text for key, text in CORPUS_OPTIONS.items() if key != "referenz"}
 
 
 def questions_for(facts: TurnFacts) -> dict[str, dict[str, Any]]:
-    """Every question of the turn decision, keyed the way the answers are read back."""
     from agent.common.decisions import choice
     from agent.common.decisions import noul
 
@@ -374,7 +244,6 @@ def questions_for(facts: TurnFacts) -> dict[str, dict[str, Any]]:
 
 
 async def decide_turn(facts: TurnFacts, *, organization_id: str | None = None) -> TurnDecisions:
-    """One decision request for the turn; :meth:`TurnDecisions.none` when none ran."""
     from agent.common.decisions import decide
 
     questions = questions_for(facts)
@@ -420,13 +289,6 @@ async def decide_turn(facts: TurnFacts, *, organization_id: str | None = None) -
 
 
 def prefetch_query(question: str | None) -> str:
-    """The question as round 0 searches it: whitespace folded, at most 300 characters.
-
-    One definition, because the turn-start warm-up embeds this exact string
-    and a warm-up for a different string is a wasted round trip.
-    """
-    # Stripped after the cut: a cut on a space would leave one, and the search
-    # strips its query, so the warm-up would have embedded another string.
     return " ".join((question or "").split())[:300].rstrip()
 
 
@@ -440,46 +302,6 @@ def prefetch_calls(
     reference_projects: int = 0,
     austrian_law: bool = False,
 ) -> list[dict[str, Any]]:
-    """The tool calls round 0 runs, as the agent's tools node reads them.
-
-    The question itself, when the corpus is one the knowledge tool searches
-    and the message can be searched on its own — pinned to the open document
-    (by its ``path``) when one is open and the corpus is the project's or the
-    office's own files, which is the audit's cleanest case: the subject was
-    known before the model ran, and a pinned lookup skips the judge. A
-    message that cannot be searched on its own (a follow-up) prefetches
-    nothing: the previous turn's passages are in the transcript; and,
-    when the question is NOT itself a family overview, the chosen
-    families' overviews — ``knowledge_search`` recognises ``OIB-Richtlinie n``
-    as a family query and returns every member's scope and Gliederung. Nothing
-    for the model corpus (a measurement needs the model, not a search), nothing
-    when the decision said no evidence is needed, and no family read unless
-    the turn's knowledge context allows Austria's corpus (``austrian_law``, ADR-0175; False unless the caller says so).
-
-    When the decision did NOT run, a question that names an OIB family
-    („Was weißt du über die OIB 2?") still prefetches its own search: that
-    is the evidence question by construction, and without this a missed
-    decision silently took the prefetch with it and the model paid a whole
-    round for the same search. How often it misses is the endpoint's latency
-    (measured in ADR-0064's amendment, 2026-09-23/24). A two-word first message („OIB
-    2") is never decided at all (``register._decide_turn``).
-    Only on a FIRST message (``previous_message is None``): without the
-    decision's ``self_contained`` answer a later message may be a follow-up
-    („Was sagt die OIB 2 dazu?"), which the decided path refuses to prefetch,
-    and a family overview would fill round 0 with the wrong subject.
-
-    The office's reference projects (ADR-0094) are searched beside all that
-    when the decision chose them as the corpus or said a precedent likely
-    exists, and the turn's catalog lists any (``reference_projects``):
-    ``project_lookup`` over the CLOSED projects, most alike first. Closed
-    only, because a decision may only add: a closed project's content
-    narrows nobody who may read the chat, while a running project's would,
-    and that step stays the model's to take. Open folders only
-    (``open_folders_only``), for the same reason: in a solo chat the lookup
-    also reaches the asker's cleared restricted folders, and recording one
-    would narrow the chat on a search nobody asked for. A restricted folder
-    is a call the model makes itself.
-    """
     if not decisions.decided:
         return [] if previous_message is not None or not austrian_law else _undecided_prefetch(question)
     if not decisions.wants_evidence or not decisions.searchable:
@@ -498,10 +320,8 @@ def prefetch_calls(
     return calls
 
 
-#: At most this many literal searches ride beside the meaning search in round 0.
 MAX_LITERAL_PREFETCH = 2
 
-#: The shelf an exact prefetch reads, per chosen corpus. The legal base corpus has no literal path here.
 _LITERAL_SHELF = {"projekt": "project", "buero": "office_shelf"}
 
 _QUOTED = re.compile(r"[„“\"»]([^„“”\"«»\n]{2,60})[“”\"«]|(?<!\w)'([^'\n]{2,60})'(?!\w)")
@@ -513,11 +333,6 @@ _CODE = re.compile(
 
 
 def literal_terms(question: str) -> list[str]:
-    """The quoted terms and document or plan codes the question carries, in order, at most two.
-
-    A quoted word or a code like ``A-101``, ``EG_02``, ``04-112`` or ``Grundriss_EG.pdf`` is a
-    string the reader expects found where it is written, which a meaning search ranks poorly.
-    """
     found = [m.group(1) or m.group(2) for m in _QUOTED.finditer(question or "")]
     found += [m.group(0) for m in _CODE.finditer(question or "")]
     terms: list[str] = []
@@ -536,13 +351,6 @@ def _corpus_prefetch(
     focus_shelf: str | None = None,
     austrian_law: bool = False,
 ) -> list[dict[str, Any]]:
-    """The chosen corpus's own search, and the chosen families' overviews for a law question.
-
-    Scoped by ``path`` only, the argument every binding of the search takes. A quoted term or a code
-    is a ``grep`` (ADR-0133 slice 6) returning citable passages, as round 0's literal search did; a
-    binding without ``grep`` drops the call. The open document narrows the grep by ``glob``, under
-    its shelf's mount, so a stale folder cannot make the path miss it.
-    """
     if decisions.corpus not in {"baurecht", "projekt", "buero"} or decisions.corpus_p < CORPUS_THRESHOLD:
         return []
     from agent.common.norm_registry import family_query_number
@@ -559,7 +367,6 @@ def _corpus_prefetch(
         if focus:
             from wcmatch import glob as wcglob
 
-            # Deep Agents' own matcher, which `glob` uses with BRACE: every metacharacter escaped.
             scope["glob"] = wcglob.escape(focus.rsplit("/", 1)[-1])
         calls.extend(
             {"name": GREP, "args": {"pattern": term, "output_mode": "content", **scope}}
@@ -574,7 +381,6 @@ def _corpus_prefetch(
 
 
 def _undecided_prefetch(question: str) -> list[dict[str, Any]]:
-    """The prefetch a question earns without a decision: its own search, when it names a family."""
     from agent.common.norm_registry import family_query_number
 
     query = prefetch_query(question)
@@ -584,14 +390,6 @@ def _undecided_prefetch(question: str) -> list[dict[str, Any]]:
 
 
 def attached_card_types(decisions: TurnDecisions, skill_cards: Mapping[str, Sequence[str]]) -> list[str]:
-    """The card types whose full shape rides this turn's prompt, in order, capped.
-
-    The chosen skill's preferred cards first — the shapes a ``read_file`` of
-    it hands over with the body — then the types the card nouls picked; each
-    once, at most ``MAX_ATTACHED_SHAPES``. The caller's lists already leave
-    out the shapes the envelope teaches (``ENVELOPE_SHAPE_TYPES``) and
-    ``surface`` (``CHAT_ONLY_CARD_TYPES``).
-    """
     ordered: list[str] = []
     skill = decisions.chosen_skill
     for card_type in [*(skill_cards.get(skill, ()) if skill else ()), *decisions.chosen_cards()]:

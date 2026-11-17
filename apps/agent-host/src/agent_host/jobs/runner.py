@@ -48,8 +48,6 @@ from .outcome_notify import notify_job_outcome
 
 logger = logging.getLogger(__name__)
 
-# Root modules of LLM/provider client stacks — exceptions raised from these are
-# classified as provider errors in sanitize_job_error().
 _LLM_PROVIDER_ERROR_MODULES = frozenset(
     {
         "openai",
@@ -63,19 +61,13 @@ _LLM_PROVIDER_ERROR_MODULES = frozenset(
     }
 )
 
-# Root modules of HTTP/transport stacks — classified as connection errors.
 _NETWORK_ERROR_MODULES = frozenset({"httpx", "httpcore", "aiohttp", "requests", "urllib3"})
 
-# langgraph is a transitive (not declared) dependency of this package — guard
-# the import so error classification keeps working if it is ever absent.
 try:
     from langgraph.errors import GraphRecursionError as _GraphRecursionError
 except ImportError:
     _GraphRecursionError = None
 
-# User-safe error messages for sanitize_job_error — named constants so they
-# are testable and searchable.  Each category gets one curated string that
-# leaks no exception-internal data (hosts, DSNs, paths, credentials).
 _WALL_CLOCK_TIMEOUT_MSG = "Die Recherche hat ihr Zeitlimit erreicht und wurde ohne vollständiges Ergebnis abgebrochen."
 _GENERIC_TIMEOUT_MSG = "The job timed out while waiting on an external service."
 _GRAPH_RECURSION_ERROR_MSG = "Die Recherche hat ihr Schritt-Limit erreicht, ohne ein vollständiges Ergebnis zu liefern."
@@ -83,29 +75,12 @@ _LLM_PROVIDER_ERROR_MSG = "The LLM provider returned an error while running the 
 _CONNECTION_ERROR_MSG = "A connection error occurred while running the job."
 _INTERNAL_ERROR_MSG = "The job failed due to an internal error."
 
-# A run that SUCCEEDED but owes the reader a caveat gets its own job_events row
-# rather than a status change: the answer is real and persisted, it is just
-# marked. Same ``job.*`` lifecycle shape as job.heartbeat/job.error/job.phase,
-# so the existing SSE surface streams it to clients unchanged.
 JOB_DEGRADED_EVENT_TYPE = "job.degraded"
 
-# What travels in that event: stable tokens only, never prose. The reader is
-# told about a cutoff by the report's own banner, in the product's voice; this
-# channel exists so a live listener and an operator counting cutoffs can see it.
 _DEGRADED_EVENT_FIELDS = ("research_truncated", "truncation_reason", "degraded_reasons")
 
-#: The request-context headers a worker supplies to the tools it runs, from
-#: the run's identity. The contract `agent.project_context.
-#: TOOL_CONTEXT_REQUIREMENTS` is checked against THIS tuple by
-#: `packages/agent/tests/test_tool_context_contract.py`: a tool that needs a header
-#: the worker does not inject fails that test rather than every unattended run.
 WORKER_IDENTITY_HEADERS: tuple[str, ...] = (PROJECT_ID_HEADER, ORGANIZATION_ID_HEADER, USER_ID_HEADER)
 
-#: The signed request-context envelope, which the worker injects ONLY when the
-#: run carries one the BFF signed for its requester (ADR-0108,
-#: ``jobs/run_envelope.py``). Never built here: the worker echoes the bytes the
-#: BFF minted at submit, or the fresh ones it minted on renewal. A run without
-#: one injects neither header, and the tools that act as a person refuse.
 WORKER_ENVELOPE_HEADERS: tuple[str, ...] = (REQUEST_CONTEXT_ENVELOPE_HEADER, REQUEST_CONTEXT_ENVELOPE_SIG_HEADER)
 
 
@@ -132,18 +107,10 @@ def sanitize_job_error(exc: BaseException) -> str:
     from agent.common.cost_tracking import BudgetExceededError
 
     if isinstance(exc, (RunBudgetExceededError, BudgetExceededError)):
-        # Already curated, user-safe messages ("run exceeded the configured
-        # completion-token budget of N"; "the organization's LLM budget is
-        # exhausted … an org admin can raise limits under …") -- persist
-        # verbatim. The second used to fall through to "internal error", so
-        # the one failure a person could act on themselves read as a crash.
         return str(exc)
 
     root_module = (type(exc).__module__ or "").split(".")[0]
     if isinstance(exc, TimeoutError):
-        # The deep-research wall-clock budget (max_run_seconds) is re-raised as
-        # a TimeoutError carrying a "wall-clock" marker; a bare TimeoutError is
-        # an external-service wait.
         if "wall-clock" in str(exc).lower():
             return _WALL_CLOCK_TIMEOUT_MSG
         return _GENERIC_TIMEOUT_MSG
@@ -151,13 +118,8 @@ def sanitize_job_error(exc: BaseException) -> str:
     from agent.common.openrouter import is_data_policy_refusal
 
     if is_data_policy_refusal(exc):
-        # Curated and actionable: the model has no zero-data-retention
-        # endpoint, and only an admin choosing another one changes that.
         return ZDR_MODEL_REFUSED_MESSAGE
     if _GraphRecursionError is not None and isinstance(exc, _GraphRecursionError):
-        # A runaway graph hit recursion_limit — not an internal defect, and not
-        # an LLM provider error (langgraph is deliberately not in the provider
-        # module set above).
         return _GRAPH_RECURSION_ERROR_MSG
     if root_module in _LLM_PROVIDER_ERROR_MODULES:
         return _LLM_PROVIDER_ERROR_MSG
@@ -385,9 +347,6 @@ async def _finalize_cancelled_run(
         usage_context=usage_context,
         expect_run=expect_run,
     )
-    # The event agrees with the standing verdict too (item 7): after the
-    # winner's SUCCESS or the reaper's FAILURE a late abort must not rewrite
-    # history as "cancelled by user".
     if await _should_emit_cancelled_event(job_store=job_store, job_id=job_id, finalized=finalized):
         cancelled = {"type": "job.cancelled", "data": {"reason": "cancelled by user"}}
         event_store = _emit_lifecycle_event(db_url=db_url, event_store=event_store, job_id=job_id, event=cancelled)
@@ -422,10 +381,6 @@ async def _publish_interrupted(
     """The cancelled run's thread notice and outcome report, each gated on agreeing with the verdict."""
     from nat.front_ends.fastapi.async_jobs.job_store import JobStatus
 
-    # Gated on verdict agreement (item 10): a user cancel (standing
-    # INTERRUPTED, or this run's write) still leaves its notice — otherwise
-    # the thread stays empty. A loser cancelled after the winner's SUCCESS
-    # or the reaper's FAILURE writes nothing beside it.
     if await _should_write_notice(
         job_store=job_store,
         job_id=job_id,
@@ -439,8 +394,6 @@ async def _publish_interrupted(
             notice=INTERRUPTED_NOTICE,
             expect_run=expect_run,
         )
-    # Standing INTERRUPTED counts: the cancel route wrote it before this abort
-    # arrived, and the BFF's run row closes only on this report.
     if await _should_notify_outcome(
         job_store=job_store,
         job_id=job_id,
@@ -471,14 +424,8 @@ def _normalize_trace_id(trace_id: int | str | None) -> int | None:
         return int(trace_id)
 
 
-#: The job event the write-now route records and the monitor listens for.
 WRITE_NOW_EVENT_TYPE = "job.write_now_requested"
-#: The job event the documents route records when the reader adds a document
-#: to the Grundlage while the run goes; the monitor hands it to the run.
 DOCUMENT_ADDED_EVENT_TYPE = "job.document_added"
-#: What the monitor reads off the job's events. Filtered in the query: a run
-#: writes an event per streamed token, and paging through those a hundred per
-#: poll left a control request waiting behind them.
 CONTROL_EVENT_TYPES = (WRITE_NOW_EVENT_TYPE, DOCUMENT_ADDED_EVENT_TYPE)
 
 
@@ -501,15 +448,7 @@ class CancellationMonitor:
         self.job_id = job_id
         self.poll_interval = poll_interval
         self._cancelled = asyncio.Event()
-        # „Jetzt schreiben": the reader asked for the report from what is there.
-        # Read off the job's own events, beside the status poll, so the request
-        # reaches a worker that holds nothing but the job id.
         self.write_now = asyncio.Event()
-        # Documents the reader added to the Grundlage while the run goes, in
-        # arrival order, append-only: it is also the dedupe history. The
-        # research tool reads past its own cursor before a batch
-        # (``deep_researcher.control``); ``on_document_added`` is the ledger
-        # fold's hook, so the block shows the addition at once.
         self.added_documents: list[PlanDocument] = []
         self.on_document_added: Callable[[PlanDocument], None] | None = None
         self._last_event_id = 0
@@ -526,9 +465,6 @@ class CancellationMonitor:
 
         job_store = JobStore(scheduler_address="", db_url=self.db_url)
 
-        # FAILURE included: the ghost-job reaper writes FAILURE externally and
-        # the worker must stop instead of running to completion against a job
-        # that has already been finalized.
         stop_statuses = (JobStatus.INTERRUPTED.value, JobStatus.FAILURE.value)
 
         while not self._cancelled.is_set():
@@ -590,7 +526,6 @@ class CancellationMonitor:
             raise asyncio.CancelledError("Job cancelled by user")
 
 
-# Interval for emitting heartbeat events
 HEARTBEAT_INTERVAL_SECONDS = 30
 
 
@@ -714,7 +649,6 @@ def _purge_deep_checkpoint(job_id: str) -> None:
         engine = EventStore._get_or_create_sync_engine(dsn)
         with engine.connect() as conn:
             for table in ("checkpoint_writes", "checkpoint_blobs", "checkpoints"):
-                # Fixed table names (LangGraph schema); the thread id is bound.
                 conn.execute(
                     # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
                     text(f"DELETE FROM {table} WHERE thread_id = :tid"),  # noqa: S608
@@ -743,15 +677,10 @@ def _load_agent_class(agent_class_path: str) -> type:
     return getattr(module, class_name)
 
 
-# Agent-runtime function ``_type``s whose single ``llm`` runs on the tool-calling chat model's
-# group (``AgentGroup.RESEARCH``) rather than the deep-research default.
 _CHAT_MODEL_AGENT_TYPES = frozenset({"research_agent", "project_intake_agent"})
 
-# Agent types the completion-token budget cap guards: fan-out research and the
-# intake's long document-reading loop are the run-away-cost shapes it exists for.
 _BUDGET_GUARDED_AGENT_TYPES = frozenset({"deep_research_agent", "project_intake_agent"})
 
-# Profiling label per agent type; anything not listed keeps the historical label.
 _JOB_PROFILE_NAMES = {"project_intake_agent": "project_intake_job"}
 
 
@@ -762,8 +691,6 @@ async def _create_llm_provider(builder: Any, fn_config: Any) -> tuple[Any, Any]:
     from agent.common import LLMRole
     from agent.common import get_langchain_llm
 
-    # Agent-group tags mirror the sync registrations (deep_researcher/register.py)
-    # so per-org runtime model overrides apply identically to async jobs.
     role_config_attrs = (
         (LLMRole.ORCHESTRATOR, "orchestrator_llm", AgentGroup.DEEP_RESEARCH),
         (LLMRole.ROUTER, "source_router_llm", AgentGroup.DEEP_RESEARCH_ROUTER),
@@ -790,8 +717,6 @@ async def _create_llm_provider(builder: Any, fn_config: Any) -> tuple[Any, Any]:
             if llm_ref not in llm_cache:
                 llm_cache[llm_ref] = await get_langchain_llm(builder, llm_ref)
             default_llm = llm_cache[llm_ref]
-            # The intake agent is a tool-calling loop like the chat agent, not a
-            # planner/researcher/writer pipeline: it runs on the chat model's group.
             if getattr(fn_config, "type", None) in _CHAT_MODEL_AGENT_TYPES:
                 default_group = AgentGroup.RESEARCH
 
@@ -891,7 +816,6 @@ def _configured_agent(agent_cls, llm_provider, tools, fn_config, verbose, callba
     from agent.agents.intake.register import ProjectIntakeAgentConfig
 
     if isinstance(fn_config, ProjectIntakeAgentConfig):
-        # The reading's budgets are config, so a deployment moves them without a release.
         return agent_cls(
             llm_provider=llm_provider,
             tools=tools,
@@ -926,15 +850,12 @@ def _configured_agent(agent_cls, llm_provider, tools, fn_config, verbose, callba
 def _constructed_by_convention(agent_cls, llm_provider, llm, tools, fn_config, verbose, callbacks) -> Any:
     """The first constructor shape ``agent_cls`` accepts, most specific first; else callbacks alone."""
     shapes = (
-        # The original deep researcher: provider, tools, verbose.
         {"llm_provider": llm_provider, "tools": tools, "verbose": verbose},
-        # Piloti: provider, tools, an iteration cap.
         {
             "llm_provider": llm_provider,
             "tools": tools,
             "max_tool_iterations": getattr(fn_config, "max_tool_iterations", 5),
         },
-        # The simplest agents: one model and tools.
         {"llm": llm, "tools": tools},
     )
     for shape in shapes:
@@ -971,14 +892,8 @@ async def _run_agent(
     if not hasattr(agent, "run"):
         raise TypeError(f"Agent {type(agent).__name__} does not have a run method")
     params = list(inspect.signature(agent.run).parameters)
-    # A first parameter named for the question is the simple protocol: run(input_text).
     if params and params[0] in ("input_text", "query", "input"):
         return await run_with_cancellation(agent.run(input_text), monitor, event_store=event_store)
-    # Otherwise the agent takes a state. Mirror the synchronous chat path: the
-    # prompts read these off the state, so a job must carry them too. A worker
-    # has no request headers, so an agent that resolves per-tenant data (deep
-    # research resolves the org's skills) gets the organization captured at
-    # submit the same way.
     fields = {
         "user_info": user_info,
         "clarifier_result": clarifier_result,
@@ -1011,7 +926,6 @@ def _model_state(state_cls: type, input_text: str, data_sources, available_docum
             state_kwargs["available_documents"] = [AvailableDocument(**doc) for doc in available_documents]
             logger.debug("Research worker passing %d available documents to agent state", len(available_documents))
         except ImportError, TypeError:
-            # The state does not take AvailableDocument entries: run without them.
             pass
     return state_cls(**state_kwargs)
 
@@ -1068,8 +982,6 @@ def _get_agent_state_class(agent) -> type | None:
     agent_module = type(agent).__module__
     agent_name = type(agent).__name__
 
-    # Try common patterns for state class names
-    # e.g., DeepResearcherAgent -> DeepResearchAgentState, DeepResearcherAgentState
     state_name_patterns = [
         "AgentState",
         f"{agent_name}State",
@@ -1078,14 +990,12 @@ def _get_agent_state_class(agent) -> type | None:
         "State",
     ]
 
-    # Try models submodule first
     try:
         models_module = importlib.import_module(agent_module.replace(".agent", ".models"))
         for state_name in state_name_patterns:
             if hasattr(models_module, state_name):
                 return getattr(models_module, state_name)
 
-        # Also scan for any class ending with "State" that has a messages field
         for name in dir(models_module):
             if name.endswith("State") and not name.startswith("_"):
                 cls = getattr(models_module, name)
@@ -1095,7 +1005,6 @@ def _get_agent_state_class(agent) -> type | None:
     except ImportError, AttributeError:
         pass
 
-    # Try same module
     try:
         module = importlib.import_module(agent_module)
         for state_name in state_name_patterns:
@@ -1176,10 +1085,6 @@ async def _run_report_passes(
         return CardGenerationResult(cards=None), ReportAnatomy(), None
     cards_result, anatomy, follow_ups = await asyncio.gather(
         _generate_answer_cards(llm, input_text, report),
-        # The report's anatomy (masthead) and its findings (Befundmatrix), read
-        # off the finished report in one structured call, and the follow-up
-        # questions the report just made askable. Both post hoc, both additive:
-        # a failure costs the reader a layer, never the report.
         _extract_report_anatomy(llm, input_text, report),
         _propose_report_follow_ups(llm, query=input_text, report=report, organization_id=organization_id),
     )
@@ -1205,8 +1110,6 @@ def _reflection_text(report: str, findings: dict[str, Any] | None) -> str:
             continue
         value = f" — {item['value']}" if item.get("value") else ""
         comment = f" ({item['comment']})" if item.get("comment") and item.get("status") in ("open", "not_met") else ""
-        # A row with no status states none: defaulting it to „offen" would
-        # write an open question into memory that the report never raised.
         status = f" — {item['status']}" if item.get("status") else ""
         lines.append(f"- {item['requirement']}{value}{status}{comment}")
     return f"{report.rstrip()}\n\n## Befunde\n" + "\n".join(lines) if lines else report
@@ -1372,9 +1275,6 @@ async def _reflect(
             project_id=identity["project_id"],
             organization_id=identity.get("organization_id"),
             conversation_id=identity.get("conversation_id"),
-            # The MEMORY digest, not the intake profile: the pass compares the
-            # report against what is already remembered, and against the profile
-            # it re-recorded known findings and could never resolve a supersede quote.
             memory_digest=memory_digest,
         )
 

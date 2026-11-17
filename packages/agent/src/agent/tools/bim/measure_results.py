@@ -1,5 +1,3 @@
-"""Turns an answer into measurement sources that carry GlobalIds and tolerances, for the citation channel."""
-
 from collections.abc import Sequence
 from typing import Any
 
@@ -14,18 +12,9 @@ from agent.tools.bim.measurement_evidence import EVIDENCE_PROVENANCES
 from agent.tools.bim.measurement_sources import MeasuredElement
 from agent.tools.bim.measurement_sources import MeasurementSource
 
-# ── evidence: what the result says about itself ──────────────────────────────
 
 
 def _is_evidence(answer: Any) -> bool:
-    """Whether one envelope answer is EVIDENCE: decidable, declared or computed, and a QUANTITY.
-
-    A provenance alone is not enough — `relations` answers with a decidable
-    list of GlobalIds `provenance: declared`, and nothing in it was measured.
-    A unit or a tolerance is what makes a value a quantity; not both, since
-    `envelope` reports m² without a tolerance and `storey_heights` a list
-    with a unit.
-    """
     if not isinstance(answer, dict) or answer.get("error"):
         return False
     if not answer.get("decidable"):
@@ -36,11 +25,6 @@ def _is_evidence(answer: Any) -> bool:
 
 
 def _measured_count(payload: Any) -> int:
-    """How many QUANTITIES in one payload carry a ``declared``/``computed`` provenance.
-
-    The number the result states about itself (:mod:`.measurement_evidence`),
-    read off the envelope's own fields and never off the German around them.
-    """
     if _is_profile(payload):
         return sum(_is_evidence(answer) for answer in (payload.get("measures") or {}).values())
     if _is_batch(payload):
@@ -51,7 +35,6 @@ def _measured_count(payload: Any) -> int:
 
 
 def _measured_elements(answer: dict[str, Any], names: dict[str, MeasuredElement]) -> tuple[MeasuredElement, ...]:
-    """The elements a value was derived from, in the operator's order; an id the payload cannot name still travels."""
     ids = answer.get("from")
     if not isinstance(ids, list):
         return ()
@@ -69,7 +52,6 @@ def _measurement_source(
     names: dict[str, MeasuredElement],
     model: str | None,
 ) -> MeasurementSource:
-    """One evidence-bearing envelope answer as a Herleitung source."""
     tolerance = answer.get("tolerance")
     unit = answer.get("unit")
     tolerance_text = f"±{_tolerance_text(tolerance)}{' ' + unit if unit else ''}" if tolerance is not None else None
@@ -87,7 +69,6 @@ def _measurement_source(
 
 
 def _element_index(entries: Sequence[dict[str, Any]]) -> dict[str, MeasuredElement]:
-    """GlobalId → the element as the payload names it."""
     index: dict[str, MeasuredElement] = {}
     for entry in entries:
         global_id = (entry or {}).get("globalId")
@@ -133,15 +114,6 @@ def _measurement_sources(
     source: dict[str, Any] | None,
     detail: str,
 ) -> list[MeasurementSource]:
-    """The measurements in one payload, as sources for the Herleitung.
-
-    Walks exactly the shapes :func:`_measured_count` walks and admits exactly
-    what :func:`_is_evidence` admits, so the cards under an answer and the
-    „Messwerte in diesem Ergebnis" trailer are the same statement twice.
-    Headlines are the register's own vocabulary, qualified by the element the
-    payload names; a single `Answer` names none, so its headline is what the
-    CALL asked for.
-    """
     if operation in NON_MEASURING_OPERATIONS or not isinstance(payload, dict):
         return []
     model = _model_identity(source)

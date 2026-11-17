@@ -11,7 +11,6 @@ import { hardenedContainerSecurityContext } from "../platform/security";
 import { ROLLOUT, gracefulShutdown, surgeRollout } from "../platform/rollout";
 import { PORT, UID } from "../constants";
 
-/** The website's health route, `HEALTH_PATH` in apps/website/runtime/security-headers.mjs (web.spec.ts holds the two together). */
 export const WEB_HEALTH_PATH = "/healthz";
 
 export interface Web {
@@ -21,18 +20,6 @@ export interface Web {
   pdb: k8s.policy.v1.PodDisruptionBudget;
 }
 
-/**
- * Public website (apps/website): Astro on the Node standalone adapter. The
- * pages are prerendered at build time (static HTML + assets served by the
- * adapter), with SSR routes for the sign-in hand-off and the analytics script, which read their settings from the env below per request.
- * No database, no app secrets — so unlike the frontend tier this workload has
- * no dependency on `grid-secrets`. Its one cross-service call is the CMS
- * (ADR-0155), when deployed: blog pages read from it, with the read-only token
- * in its own `web-cms` Secret. It DOES carry the registry imagePullSecrets:
- * the web image is pulled from the same registry as the other app images, so
- * a private registry without the pull Secret is an instant ImagePullBackOff.
- * Runs HORIZONTALLY: stateless, HPA on CPU.
- */
 export function installWeb(
   cfg: DeployConfig,
   provider: k8s.Provider,
@@ -69,37 +56,19 @@ export function installWeb(
                 image: webImage(cfg),
                 imagePullPolicy: appPullPolicy(cfg, webImage(cfg)),
                 securityContext: hardenedContainerSecurityContext(),
-                // No `command`: the image's CMD (`node runtime/server.mjs`, the
-                // Astro node adapter behind a Cache-Control step) is the one
-                // source for how the site starts, so an image and this program
-                // can never disagree about an entry file the other lacks. The
-                // server reads HOST/PORT from the env below.
                 ports: [{ containerPort: PORT.web, name: "http" }],
                 env: [
                   { name: "HOST", value: "0.0.0.0" },
                   { name: "PORT", value: String(PORT.web) },
                   {
-                    // Where the landing site's "Anmelden" link hands off
-                    // (/sign-in endpoint). Runtime, not baked: one web image
-                    // serves every stack — this is the same per-stack host
-                    // derivation the app tier gets for LANDING_URL,
-                    // pointed the other way.
                     name: "PUBLIC_APP_URL",
                     value: `https://${cfg.ingress.appDomain}`,
                   },
-                  // PostHog web analytics, off unless both are set. Read per
-                  // request by the /web-analytics.js route, not baked into the
-                  // prerendered pages: the same pair the app tier reads as
-                  // NEXT_PUBLIC_POSTHOG_* (grid-oib:posthogHost, posthogProjectToken).
                   ...webPosthogEnv(cfg),
-                  // The CMS (ADR-0155): where it is and the read token, from `web-cms`. Empty without it.
                   ...webCmsEnv(cfg),
                 ],
                 resources: toResourceRequirements(cfg.web.resources),
                 lifecycle: shutdown.lifecycle,
-                // `/healthz` is answered by the server process itself
-                // (apps/website/runtime/server.mjs), uncached and never a page view;
-                // the Dockerfile's HEALTHCHECK uses the same path.
                 readinessProbe: {
                   httpGet: { path: WEB_HEALTH_PATH, port: PORT.web },
                   initialDelaySeconds: 5,

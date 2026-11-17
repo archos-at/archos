@@ -88,7 +88,6 @@ def apply_org_llm_policy(llm):
 
 async def invoke_structured(llm, schema: type[BaseModel], messages: list[dict], what: str):
     """One strict structured-output call, with one corrective retry on an invalid payload."""
-    # Resolve overrides/credentials per call: they are request-scoped (headers).
     structured = apply_org_llm_policy(llm).with_structured_output(schema, method="json_schema", strict=True)
     try:
         return await structured.ainvoke(messages)

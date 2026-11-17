@@ -42,17 +42,12 @@ RECORD_VALUES_TOOL = "record_values"
 WITHDRAW_VALUES_TOOL = "withdraw_values"
 FINISH_INTAKE_TOOL = "finish_intake"
 
-#: The quote the model copies: the exact words, short enough to read on the review.
 MAX_QUOTE_CHARS = 300
-#: Needs one rendering lists; the rest are counted and stay for the next call.
 MAX_RENDERED_NEEDS = 60
-#: Unread file names one rendering lists.
 MAX_RENDERED_FILES = 40
 MAX_WHY_CHARS = 160
 MAX_OPTIONS_RENDERED = 30
-#: Opened needs one record answer names; the rest are counted.
 MAX_RENDERED_OPENED = 30
-#: Keys and files the finish hold names.
 MAX_HELD_ITEMS = 12
 
 SELECT_TYPES = frozenset({"single_select", "multi_select"})
@@ -88,7 +83,6 @@ _CLASS_REFUSAL = (
     "refused: the building class is derived from the inputs you record, never recorded; record the inputs the "
     "document gives"
 )
-#: Keys one ``unknown-key`` refusal names as the closest it knows.
 CLOSEST_KEYS = 3
 
 
@@ -105,11 +99,9 @@ class IntakeSession:
     finish_status: str | None = None
     summary: str = ""
     stale: bool = False
-    #: ``finish_intake`` answered once with what is still open instead of finishing.
     finish_held: bool = False
     outcomes: Counter = field(default_factory=Counter)
     refusals: Counter = field(default_factory=Counter)
-    #: How many opened files the BFF has been told about (``progress``), and how often it was told.
     files_reported: int = 0
     progress_reports: int = 0
 
@@ -124,7 +116,6 @@ class IntakeSession:
         return difflib.get_close_matches(key, list(self.needs), n=CLOSEST_KEYS, cutoff=0.5)
 
 
-# ── intake_needs ─────────────────────────────────────────────────────────────
 
 
 def _options_text(need: dict[str, Any]) -> str:
@@ -219,7 +210,6 @@ class NeedsInput(BaseModel):
     )
 
 
-# ── record_values ────────────────────────────────────────────────────────────
 
 
 class RecordedValue(BaseModel):
@@ -396,7 +386,6 @@ def _where(item: RecordedValue) -> tuple[str, int | None]:
     """The file and page a value names: ``file_name`` and ``page`` when given, else parsed from its citation."""
     if item.file_name and item.file_name.strip():
         name = item.file_name.strip()
-        # A model that put the whole citation in file_name: read it as one.
         parsed, page = citation_parts(name)
         return (name, None) if page is None else (parsed, page)
     if item.citation and item.citation.strip():
@@ -545,7 +534,6 @@ def _record_results(
         lines[candidate.index] = f"- {candidate.key} = {candidate.value!r}: {text}"
 
 
-# ── withdraw_values ──────────────────────────────────────────────────────────
 
 
 class WithdrawInput(BaseModel):
@@ -593,7 +581,6 @@ async def withdraw_values(session: IntakeSession, keys: list[str]) -> str:
     return "\n".join(lines) or "No result returned."
 
 
-# ── finish_intake ────────────────────────────────────────────────────────────
 
 
 class FinishInput(BaseModel):
@@ -733,8 +720,6 @@ def make_intake_tools(
             description=WITHDRAW_VALUES_DESCRIPTION,
             args_schema=WithdrawInput,
         ),
-        # Not return_direct: a held finish must reach the model. The run ends on
-        # ``session.finished`` instead (``IntakeToolMiddleware.abefore_model``).
         StructuredTool.from_function(
             coroutine=_finish,
             name=FINISH_INTAKE_TOOL,

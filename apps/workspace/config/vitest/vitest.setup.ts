@@ -4,21 +4,11 @@ import { beforeAll, afterEach, afterAll, vi } from 'vitest'
 import { resetDatabase } from '../../tests/mocks/database'
 import { refuseNetwork } from './network-guard'
 
-// The DOM matchers and the MSW server, only where there is a DOM. This file
-// runs before every spec file, and the two imports were most of its cost:
-// ~0.16 s of a file's setup, ~0.17 s in all (measured 2026-10-22 on empty
 // specs). A `@vitest-environment node` spec renders nothing for a DOM matcher
-// to read, and none imports the MSW server: a node spec that fetches is
-// refused by the network guard below, which names the URL.
 const hasDom = typeof document !== 'undefined'
 if (hasDom) await import('@testing-library/jest-dom/vitest')
 const server = hasDom ? (await import('../../tests/mocks/server')).server : null
 
-// Default mock for AuthKit components so tests that import `@/adapters/auth`
-// (or anything transitively pulling in `@workos-inc/authkit-nextjs/components`)
-// do not need to mock authentication state unless they care about it. This also
-// avoids resolving `next/cache` inside the AuthKit ESM bundle, which Vitest's
-// transformer cannot handle because Next only ships `next/cache.js`.
 vi.mock('@workos-inc/authkit-nextjs/components', () => ({
   AuthKitProvider: ({ children }: { children: React.ReactNode }) => children,
   SignInButton: ({ children }: { children: React.ReactNode }) => children,
@@ -37,14 +27,6 @@ vi.mock('@workos-inc/authkit-nextjs/components', () => ({
   })),
 }))
 
-// Provide a request-scope-free stub for `next/headers` so Server Components
-// that resolve the request locale via `@/i18n/server` (getTranslations → cookies)
-// can be rendered directly in unit tests. With no cookie/header present the i18n
-// layer falls back to the default locale (English), which is what string
-// assertions in these tests expect.
-// FilePreviewPane (and Ask-colleague) call useRouter. Specs that care about
-// the router still mock this module themselves; this is the default so a
-// mount does not throw "invariant expected app router to be mounted".
 vi.mock('next/navigation', () => ({
   useRouter: () => ({
     push: vi.fn(),
@@ -56,9 +38,6 @@ vi.mock('next/navigation', () => ({
   }),
   usePathname: () => '/',
   useSearchParams: () => new URLSearchParams(),
-  // The message names the target for specs to read; the digest is the shape
-  // Next's own redirect error carries, which is what code that tells a
-  // redirect apart reads (`isRedirectSignal`).
   redirect: (url: string) => {
     throw Object.assign(new Error(`NEXT_REDIRECT:${url}`), { digest: `NEXT_REDIRECT;replace;${url};307;` })
   },
@@ -78,11 +57,6 @@ vi.mock('next/headers', () => ({
   headers: async () => new Headers(),
 }))
 
-// @xyflow/react renders on a measured canvas that happy-dom can't lay out (nodes
-// stay visibility:hidden until a real ResizeObserver measures them). For unit
-// tests we render each node through its `nodeTypes` component in plain DOM, so
-// node CONTENT and logic are assertable; the real graph rendering is covered by
-// a capture of the `/dev/derivation` preview.
 vi.mock('@xyflow/react', async () => {
   const { createElement, Fragment } = await import('react')
   return {
@@ -105,12 +79,7 @@ vi.mock('@xyflow/react', async () => {
         }),
       ),
     useNodesInitialized: () => true,
-    // Re-measures a node's handle bounds in a real canvas; nothing to measure
-    // here, and the graph only calls it when a handle set changed under it.
     useUpdateNodeInternals: () => () => {},
-    // The measured layout pass reads node bounds and centres the viewport; with
-    // no real canvas both are inert stubs (an undefined `getNodesBounds` would
-    // throw inside the layout effect and fail every test that renders the graph).
     useReactFlow: () => ({
       getNodes: () => [],
       getNodesBounds: () => ({ x: 0, y: 0, width: 0, height: 0 }),
@@ -120,9 +89,6 @@ vi.mock('@xyflow/react', async () => {
   }
 })
 
-// Prevent external-svg-loader timer from firing after test environment teardown.
-// The library schedules a setTimeout that accesses `document`, which no longer
-// exists once happy-dom cleans up, causing "ReferenceError: document is not defined".
 vi.mock('external-svg-loader', () => ({}))
 
 const createSvgIcon = (props: Record<string, unknown>, testId: string) => {
@@ -162,17 +128,10 @@ vi.mock('@nv-brand-assets/react-marketing-icons', () => ({
 // @ts-expect-error - Setting NODE_ENV for tests
 process.env.NODE_ENV = 'test'
 
-// Web Crypto, whole. Node and happy-dom both provide `globalThis.crypto`; a stub
-// here once replaced it with `getRandomValues` alone, so every spec that reached
-// `crypto.subtle` (jose signing a test token in `principal.spec.ts`) or
-// `crypto.randomUUID` failed before its first case. Fill it in only where absent.
 if (!globalThis.crypto?.subtle) {
   Object.defineProperty(globalThis, 'crypto', { value: crypto.webcrypto, configurable: true })
 }
 
-// Storage mocks — Node.js 22+ exposes a broken built-in localStorage when
-// `--localstorage-file` is passed without a valid path, overriding happy-dom's
-// implementation.  Provide explicit in-memory mocks for both storages.
 function createStorageMock() {
   let storage: Record<string, string> = {}
 
@@ -196,7 +155,6 @@ function createStorageMock() {
 const localStorageMock = createStorageMock()
 const sessionStorageMock = createStorageMock()
 
-// Browser API mocks for happy-dom
 class ResizeObserver {
   observe() {}
   unobserve() {}
@@ -219,8 +177,6 @@ Object.defineProperty(global, 'localStorage', { value: localStorageMock, configu
 Object.defineProperty(global, 'sessionStorage', { value: sessionStorageMock, configurable: true })
 global.ResizeObserver = ResizeObserver
 
-// Node can expose a partial `localStorage` (e.g. missing `removeItem`) when a path
-// triggers web storage before happy-dom is ready. Chat/documents tests need full Storage.
 if (typeof globalThis.localStorage?.removeItem !== 'function') {
   const mem: Record<string, string> = {}
   Object.defineProperty(globalThis, 'localStorage', {
@@ -248,10 +204,6 @@ global.IntersectionObserver = IntersectionObserver
 // @ts-expect-error - Partial mock
 global.MutationObserver = MutationObserver
 
-// Force a deterministic locale for locale-sensitive formatting so tests behave
-// the same regardless of the host OS locale (e.g. CI runners vs. developer
-// machines). Some call sites pass an empty array (`[]`) to mean "default"
-// locale; treat that as en-US as well.
 const originalDateToLocaleString = Date.prototype.toLocaleString
 const originalDateToLocaleDateString = Date.prototype.toLocaleDateString
 const originalDateToLocaleTimeString = Date.prototype.toLocaleTimeString
@@ -301,7 +253,6 @@ Number.prototype.toLocaleString = function (
 
 refuseNetwork()
 
-// MSW server lifecycle
 beforeAll(() => {
   localStorageMock.clear()
   sessionStorageMock.clear()

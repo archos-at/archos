@@ -1,44 +1,3 @@
-"""Structural retrievability: does a Punkt survive chunking as a citable unit?
-
-This is the one measurement in this harness that needs no embedder, no key and no model,
-and it is the one that decides citation precision. A Punkt is what an Austrian building-law
-answer cites. If the chunk the retriever returns does not correspond to a Punkt, the answer
-either cites a chunk containing fifteen unrelated requirements — and the reader cannot tell
-which one the number came from — or cites half of one.
-
-THE TWO PROPERTIES, MEASURED SEPARATELY BECAUSE THEY FAIL SEPARATELY
---------------------------------------------------------------------
-For each leaf Punkt, against each chunking strategy:
-
-* **contiguous** — the Punkt's full text sits inside a SINGLE chunk. Fails when a chunk
-  boundary cuts a requirement in half, so the retriever can only ever return part of it.
-* **isolated** — some chunk contains the Punkt whole AND contains no other leaf Punkt
-  whole. This is the citable-unit property. A 1024-token window over a page of a numbered
-  code passes *contiguous* trivially (it swallows the whole page) while failing *isolated*
-  completely, which is exactly the defect Punkt chunking exists to fix, and why reporting
-  only contiguity would make the two strategies look nearly identical.
-
-LEAVES ONLY, AND WHY THAT IS NOT A THUMB ON THE SCALE
-------------------------------------------------------
-189 of the index's 946 Punkte are structural parents: ``3.1 Brandabschnitte`` is a heading
-whose requirements live in ``3.1.1``…``3.1.10``. They carry no requirement text of their
-own, and the Punkt chunker copies them into every child's breadcrumb — so counting them as
-"contained" in a child's chunk would score the breadcrumb as blending. They are excluded
-from the numerator and the denominator on both arms equally, and reported as a separate
-count. Ancestors are the only Punkte a breadcrumb can name, so no leaf can be inflated by
-one.
-
-GROUND TRUTH IS THE COMMITTED INDEX, NOT THE CHUNKER
------------------------------------------------------
-The Punkt spans are located by matching each indexed Punkt id against the raw extracted
-line stream, on the page the index says it is on. The Punkt chunker's own segmenter is
-never consulted, so a Punkt the chunker fails to recognise — or a content page it
-misclassifies as a table of contents and drops — shows up as a MISS for that arm instead
-of vanishing from the denominator. Only the running header/footer strip is shared with
-production (``_is_furniture``), deliberately: measuring against a different notion of page
-furniture would attribute a cleanup difference to chunking.
-"""
-
 from __future__ import annotations
 
 import re
@@ -58,21 +17,10 @@ from oib_retrieval.corpus import extract_pages
 from oib_retrieval.corpus import page_documents
 from oib_retrieval.qrels import ClauseIndex
 
-#: A table-of-contents leader line ("3.1 Brandabschnitte ....... 5") points at a Punkt and
-#: is never the Punkt itself, so it must not be mistaken for its heading.
 _DOT_LEADER_RE = re.compile(r"\.{4,}")
 
 
 def _normalise(text: str) -> str:
-    """Text as a space-delimited stream of folded lexemes, padded so ``in`` is whole-token.
-
-    Containment is tested on this form rather than on raw text because the two arms hand
-    back the same words in different shapes: the Punkt chunker de-hyphenates PDF line
-    breaks ("unterstüt-\\nzenden" -> "unterstützenden") and prepends a breadcrumb, while
-    the page arm keeps the raw line breaks. Folding both sides through the SAME production
-    analyzer (``german_text.fold``/``tokenize``, the lexical channel's own) removes every
-    difference that is not a difference in what the chunk contains.
-    """
     from knowledge_layer.ingest.clause_chunking import _dehyphenate
 
     from agent.common.german_text import fold
@@ -82,11 +30,6 @@ def _normalise(text: str) -> str:
 
 
 def _content_lines(pages: list[dict[str, Any]]) -> list[tuple[int, str]]:
-    """``(page_number, line)`` for every non-furniture line, table-of-contents pages KEPT.
-
-    Keeping ToC pages is what lets a content page the chunker wrongly drops as a ToC be
-    attributed to that arm — see the module docstring.
-    """
     from knowledge_layer.ingest.clause_chunking import _is_furniture
 
     collected: list[tuple[int, str]] = []
@@ -99,12 +42,6 @@ def _content_lines(pages: list[dict[str, Any]]) -> list[tuple[int, str]]:
 
 
 def _body_end(lines: list[tuple[int, str]]) -> int:
-    """Index of the ``Impressum`` line that closes the body, or the end of the stream.
-
-    Without this the LAST Punkt of every Richtlinie would absorb the colophon, publisher
-    address and back cover, and would then fail containment on every arm for a reason that
-    has nothing to do with chunking.
-    """
     from knowledge_layer.ingest.clause_chunking import _END_OF_BODY_RE
 
     for position, (_page, line) in enumerate(lines):
@@ -116,12 +53,6 @@ def _body_end(lines: list[tuple[int, str]]) -> int:
 def _locate_spans(
     index: ClauseIndex, richtlinie: str, lines: list[tuple[int, str]], body_end: int
 ) -> tuple[dict[str, tuple[int, int]], list[str]]:
-    """Line span ``[start, end)`` per indexed Punkt, plus the ids that could not be located.
-
-    A Punkt's heading is searched for on the page the index records it on, which is what
-    keeps a cross-reference elsewhere in the document ("gemäß Punkt 5.1.1") from being
-    mistaken for the heading. A line already claimed by another Punkt is never reused.
-    """
     punkte = index.clauses(richtlinie)
     starts: dict[str, int] = {}
     claimed: set[int] = set()
@@ -146,16 +77,12 @@ def _locate_spans(
 
 @dataclass(frozen=True)
 class ArmStructure:
-    """One chunking strategy's structural result for one Richtlinie (or summed)."""
 
     arm: str
     leaf_clauses: int
     contiguous: int
     isolated: int
     chunks: int
-    #: Leaf Punkte wholly contained, summed over the chunks containing at least one. A
-    #: LOWER BOUND on blending: a leaf split across a chunk boundary is not counted at
-    #: all, so the true number of requirements a page chunk touches is higher.
     contained_total: int
     chunks_with_clauses: int
 
@@ -174,7 +101,6 @@ class ArmStructure:
 
 @dataclass(frozen=True)
 class StructureReport:
-    """The before/after table, per Richtlinie and summed."""
 
     per_guideline: dict[str, dict[str, ArmStructure]]
     totals: dict[str, ArmStructure]
@@ -191,13 +117,6 @@ def measure_document(
     file_name: str,
     file_size: int,
 ) -> tuple[dict[str, ArmStructure], int, int, list[str]]:
-    """Measure one already-extracted document on both arms.
-
-    Public so the offline tests can drive it with synthetic pages: it is the whole
-    measurement minus the PDF, which is the part that cannot run in CI.
-
-    Returns ``(per-arm results, Punkte located, structural parents, unlocated ids)``.
-    """
     lines = _content_lines(pages)
     body_end = _body_end(lines)
     spans, unlocated = _locate_spans(index, richtlinie, lines, body_end)
@@ -233,8 +152,6 @@ def measure_document(
             contained_total=sum(contained_counts),
             chunks_with_clauses=sum(1 for count in contained_counts if count),
         )
-    # Parents are counted from the INDEX, not from what was located, so an unlocated
-    # Punkt cannot quietly move between the parent and leaf tallies.
     parents = sum(1 for punkt in index.clauses(richtlinie) if index.has_children(richtlinie, punkt))
     return results, len(spans), parents, unlocated
 
@@ -260,7 +177,6 @@ def _sum_arms(rows: Iterable[ArmStructure], arm: str) -> ArmStructure:
 
 
 def _require_corpus(index: ClauseIndex, corpus_dir: Path) -> None:
-    """Fail with an instruction, before the first extraction, if the corpus is not here."""
     missing = [
         index.file_name(richtlinie)
         for richtlinie in index.guidelines
@@ -283,14 +199,6 @@ def measure_structure(
     corpus_dir: Path | None = None,
     cache_dir: Path | None = None,
 ) -> StructureReport:
-    """Run the structural before/after over every Richtlinie in the Punkt index.
-
-    Raises ``CorpusMissingError`` when the PDFs the index names are not on disk. The
-    corpus is operator-provided and gitignored (``data/oib/README.md``), so an empty
-    ``data/oib`` is the ordinary state of a fresh clone — the answer to it is an
-    instruction, not the ``FileNotFoundError`` that ``pdf_path.stat()`` used to raise
-    several frames deep.
-    """
     corpus_dir = default_corpus_dir() if corpus_dir is None else corpus_dir
     _require_corpus(index, corpus_dir)
 

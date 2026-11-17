@@ -34,8 +34,6 @@ from agent.common import LLMProvider
 from agent.common import turn_status
 from agent.common.turn_status import current_retrieval_round
 
-#: What each tool call saw in the round stamp, in execution order. Module level
-#: because a LangChain ``@tool`` is a module-level object; cleared per test.
 SEEN: list[tuple[str, int | None]] = []
 
 
@@ -43,9 +41,6 @@ SEEN: list[tuple[str, int | None]] = []
 def knowledge_search(query: str) -> str:
     """Search the OIB knowledge corpus."""
     SEEN.append(("knowledge_search", current_retrieval_round()))
-    # What the real emitter does inside the tool's formatter. Recorded here so
-    # the compiled-graph test below can prove the capture begun in run()
-    # reaches a tool task and its hits join the announced round.
     turn_status.record_lane_hit(f"{query}.pdf", title=f"Treffer zu {query}")
     return f"Treffer zu: {query}"
 
@@ -132,9 +127,6 @@ class TestTheRoundStampReachesTheTool:
 
         assert SEEN == [
             ("knowledge_search", 0),
-            # An action round is not a layer of the spine. Stamping it with the
-            # previous fetch's number would file a memory write under the search
-            # before it.
             ("remember", None),
             ("knowledge_search", 1),
         ], (
@@ -241,13 +233,8 @@ class TestTheLaneCaptureReachesTheLedger:
             "the tools' hits never reached the ledger — the capture did not cross the node boundary"
         )
         assert [entry["index"] for entry in ledger] == [0, 1]
-        # Round 0 found the document; round 1 opened the same file at a Punkt.
         assert ledger[0]["docs"][0]["name"] == "OIB 2.pdf"
         assert ledger[1]["docs"] == [{"name": "OIB 2.pdf", "detail": "p.3.5.2", "repeat": False}]
-        # Round 0 only RANKED the file; round 1 is the first to read into it,
-        # so the open is work, not a re-fetch. The frontend folds the two
-        # rounds' hits onto one card per document; „bereits abgerufen" is
-        # reserved for the round that fetches a passage a second time.
         assert ledger[1]["new_docs"] == ["OIB 2.pdf"]
 
     @pytest.mark.asyncio
@@ -278,8 +265,6 @@ class TestCheckpointRate:
             "a two-round turn must leave two countable checkpoint records, one per layer of the "
             f"spine; steps were {[step.id for step in emitted.steps]}"
         )
-        # Two records, not one merged row: the same id replaces the row, and a
-        # spine of N rounds reporting one checkpoint is not a rate.
         assert [c.id for c in checkpoints] == ["status:checkpoint:0", "status:checkpoint:1"]
 
     @pytest.mark.asyncio

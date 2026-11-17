@@ -1,19 +1,7 @@
-/**
- * The one evaluator of a decision table (ADR-0166): rows apply first-hit (DMN
- * hit policy FIRST) under Kleene's three-valued logic. Pure.
- *
- * Rows are read in order. A row known false is passed; the first row known
- * true decides, unless a row before it is still unknown. Then the result is
- * `undetermined`, naming the facts every row not yet excluded waits for:
- * answer those and the table decides, and no other fact can change which row
- * applies (ticket 30, "ask only what can change the classification").
- */
-
 import { isDeepStrictEqual } from 'node:util'
 import type { DecisionTable, Provision } from '@/lib/base-knowledge/wire/ruleset'
 import { evaluateExpression, scopeOf, type Facts } from './expression'
 
-/** The row that decided, or `null` for the table's `otherwise`. */
 export interface Candidate {
   rowId: string | null
   then: unknown
@@ -24,14 +12,11 @@ export type TableResult =
   | {
       status: 'undetermined'
       reason: 'unknown_inputs'
-      /** The facts to ask for, in the order the table declares its inputs. */
       unknownInputs: string[]
-      /** What the table can still answer, in row order; `otherwise` last when it has a value. */
       candidates: Candidate[]
     }
   | { status: 'undetermined'; reason: 'no_row_applies' }
 
-/** Evaluate `table` on `facts`. Throws `RulesetEvaluationError` on a fact of the wrong type or a condition outside the subset. */
 export function evaluateDecisionTable(table: DecisionTable, facts: Facts): TableResult {
   const scope = scopeOf(table.inputs, facts)
   const waitsFor = new Set<string>()
@@ -77,11 +62,6 @@ export interface ExampleFailure {
   actual: TableResult
 }
 
-/**
- * A table's own examples, run on the evaluator: what a ruleset must pass before
- * it is written, so a table that contradicts its author's cases never reaches
- * an answer.
- */
 export function failingExamples(table: DecisionTable): ExampleFailure[] {
   return table.examples.flatMap((example, index) => {
     const actual = evaluateDecisionTable(table, example.facts)

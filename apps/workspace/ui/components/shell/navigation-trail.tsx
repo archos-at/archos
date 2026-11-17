@@ -17,7 +17,6 @@ export function NavigationTrail(): null {
   return null
 }
 
-// The label is the one the reader was shown at visit time; never look it up later.
 export function NavigationTrailLabel({ label }: { label: string }): null {
   const pathname = usePathname()
 

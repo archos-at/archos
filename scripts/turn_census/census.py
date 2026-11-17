@@ -32,10 +32,8 @@ from local_fetcher import fetcher_env  # a sibling script, not a package
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent.parent
 CONFIG = ROOT / "configs" / "config_oib_openrouter.yml"
-#: Seconds to wait after the answer for the post-answer stages to be recorded.
 _TAIL_SECONDS = 20
 _TIMEOUT_SECONDS = 600
-#: What a run's log ends with when the census killed it for time; read back by the suite.
 TIMED_OUT = "census: timed out"
 
 
@@ -94,7 +92,6 @@ def summarize(path: Path) -> dict:
         bucket["seconds"] += row["t_end"] - row["t_start"]
         if call == "research":
             research.append({"input": tokens_in, "cached": details.get("cached_tokens") or 0})
-    # The call that ends last need not start last: quote patches and checks overlap.
     wall = max(row["t_end"] for row in rows) - rows[0]["t_start"] if rows else 0.0
     return {"kinds": kinds, "research": research, "wall_seconds": round(wall, 1)}
 
@@ -116,11 +113,6 @@ def run_stamp() -> str:
     return f"{time.strftime('%H%M%S')}-{os.getpid()}"
 
 
-# The agent-runtime plugin a run loads from ``frontends/``: installed editable from ONE
-# checkout like the workspace packages, and loaded by every ``nat run`` through their entry
-# points. From a worktree of another commit the main checkout's ``agent_host`` met
-# the worktree's ``agent`` and every turn died (``Unknown field name
-# front_end``), reported as a 0.0 s run.
 FRONTEND_PACKAGES = {"agent_host": "apps/agent-host/src/agent_host"}
 
 
@@ -138,7 +130,6 @@ def source_packages() -> dict[str, Path]:
     for pyproject in sorted(ROOT / member / "pyproject.toml" for member in members):
         setuptools = tomllib.loads(pyproject.read_text()).get("tool", {}).get("setuptools", {})
         for name, relative in setuptools.get("package-dir", {}).items():
-            # The agent's `{"": "src"}` maps the whole source root; `tree_pythonpath` puts it on the path itself.
             if name:
                 packages[name] = (pyproject.parent / relative).resolve()
     for name, relative in FRONTEND_PACKAGES.items():
@@ -158,19 +149,13 @@ def tree_pythonpath(out: Path) -> str:
     """
     import hashlib
 
-    # One per checkout: two suites or censuses from different worktrees
-    # sharing an --out would otherwise re-point each other's links.
     shim = out / f".tree-{hashlib.sha256(str(ROOT.resolve()).encode()).hexdigest()[:10]}"
-    # The suite's workers call this at once: linking is serialised, and a link
-    # that already points at the right package is left alone.
     with _SHIM_LOCK:
         shim.mkdir(parents=True, exist_ok=True)
         for name, target in source_packages().items():
             link = shim / name
             if link.is_symlink() and link.resolve() == target:
                 continue
-            # Built beside and renamed over: another process never sees
-            # the link missing, and never trips on a half-made one.
             staged = shim / f".{name}.{os.getpid()}"
             staged.unlink(missing_ok=True)
             staged.symlink_to(target, target_is_directory=True)
@@ -210,18 +195,14 @@ def run_once(
     record.unlink(missing_ok=True)
     env = {**os.environ, **fetcher_env(run_python(), ROOT), **(extra_env or {}), "REC_OUT": str(record)}
     env["PYTHONPATH"] = tree_pythonpath(out)
-    # -P: no working directory on sys.path, as the `nat` console script has none.
     nat = [run_python(), "-P", "-m", "nat.cli.main"]
     cmd = [*nat, "run", "--config_file", str(CONFIG), "--input", question, "--conversation_id", conversation_id]
     for key, value in overrides or []:
         cmd += ["--override", key, value]
     with log.open("w") as sink:
-        # Its own process group, so the kill reaches whatever `nat run` started.
         proc = subprocess.Popen(cmd, cwd=ROOT, env=env, stdout=sink, stderr=subprocess.STDOUT, start_new_session=True)
         deadline = time.time() + _TIMEOUT_SECONDS
         answered = False
-        # `nat run` does not exit after answering (background exporters), so
-        # the answer line is the end of the turn, plus a tail for the stages.
         while time.time() < deadline and proc.poll() is None:
             time.sleep(2)
             if "Workflow Result" in log.read_text(errors="replace"):

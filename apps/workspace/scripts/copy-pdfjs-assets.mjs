@@ -67,8 +67,6 @@ async function main() {
     }
   }
 
-  // A stale copy is worse than none: after a version bump the worker and the
-  // bundled API must agree, and pdf.js refuses to run when they do not.
   await rm(OUT_DIR, { recursive: true, force: true })
   await mkdir(OUT_DIR, { recursive: true })
 

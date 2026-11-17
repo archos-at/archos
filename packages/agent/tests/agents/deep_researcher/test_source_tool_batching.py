@@ -340,15 +340,12 @@ async def test_slot_timeout_reaches_the_model_as_a_tool_error_not_a_run_failure(
     limiter = SourceToolConcurrencyLimiter(1, acquire_timeout=0.01)
     throttled = _make_throttled_source_tool(tool, limiter=limiter)
 
-    # Hold the only slot, so the call below cannot acquire one.
     async with limiter.limit():
         result = await throttled.ainvoke({"query": "Fluchtweg", "page": 1})
 
     assert isinstance(result, str)
     assert result.startswith("ERROR:")
     assert "concurrency slot" in result
-    # The model is told a call did NOT happen, which is the fact it needs to
-    # decide between retrying this source and reaching for another.
     assert "No call was made" in result
     assert called is False
 
@@ -363,7 +360,6 @@ async def test_slot_timeout_is_distinguishable_from_an_upstream_timeout():
             async with limiter.limit():
                 pass
 
-    # Still a TimeoutError, so every existing handler keeps working.
     assert issubclass(SourceToolSlotTimeout, TimeoutError)
 
 

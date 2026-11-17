@@ -1,9 +1,3 @@
-/**
- * Copy of the blog blocks page (`/blog-bausteine/`, unlisted): every post block with example
- * content from an architecture office, both locales. The page's structure lives in
- * `src/views/BlogBlocksView.astro`; the blocks' contracts in `src/components/blocks/contracts.ts`.
- * The figures are examples, and the page says so.
- */
 import type { ChartBlock, KeyFiguresBlock, LegalSourceBlock, QaExcerptBlock } from '../../components/blocks/contracts';
 
 const de = {

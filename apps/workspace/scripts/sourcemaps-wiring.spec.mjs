@@ -100,7 +100,6 @@ describe('the image build wiring', () => {
     expect(buildStep).toMatch(
       /if find \.next\/static \.next\/server -name '\*\.map' \| grep -q \.; then .*exit 1/
     )
-    // Every map-bearing chunk kept aside carries an id, and there is at least one.
     expect(buildStep).toContain("[ ! -d /sourcemaps/static ] || grep -rL 'chunkId=' --include='*.js' /sourcemaps | grep -q .")
   })
 

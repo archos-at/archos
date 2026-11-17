@@ -1,22 +1,4 @@
 #!/usr/bin/env node
-/*
- * Set up the pinned riso-windowseat kit that export.mjs and verify.mjs drive.
- *
- *   node art/riso/setup.mjs            # idempotent; a second run only re-checks
- *   node art/riso/setup.mjs --force    # clone and install again
- *   RISO_KIT_DIR=/some/dir node art/riso/setup.mjs
- *
- * 1. Clones kit.json's repo at exactly kit.json's commit into kitDir()
- *    (default ~/.cache/riso-kit/riso-windowseat-<commit>, shared by worktrees).
- * 2. npm ci in its tools/ with --ignore-scripts: stills need playwright-core
- *    only, not the ffmpeg binary the kit's film tools download.
- * 3. Finds a browser: Firefox (the kit's primary engine, and the one the
- *    committed exports were made with) as installed, else installs it, else
- *    PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers. Chromium is the last resort and
- *    is reported loudly: its antialiasing differs, so a Chromium export does not
- *    reproduce the committed files.
- * 4. Records what it found in <kit>/.piloti-setup.json; the other scripts read it.
- */
 import { execFileSync, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -47,7 +29,6 @@ function cloneKit() {
     g('fetch', '-q', 'origin');
   }
   g('-c', 'advice.detachedHead=false', 'checkout', '-q', PIN.commit);
-  // Another process may have finished first; theirs is as good as ours.
   if (headOf(dir) === PIN.commit) { fs.rmSync(tmp, { recursive: true, force: true }); return; }
   fs.rmSync(dir, { recursive: true, force: true });
   fs.renameSync(tmp, dir);
@@ -93,8 +74,6 @@ function findBrowser() {
   if (!found) throw Error('no browser playwright-core can launch; see the lines above');
   return { ...found, engines: engines(found.browsersPath) };
 }
-
-// ── main ─────────────────────────────────────────────────────────────────────
 
 if (!a.force && kitState(dir) && headOf(dir) === PIN.commit && fs.existsSync(path.join(tools, 'node_modules', 'playwright-core'))) {
   const s = kitState(dir);

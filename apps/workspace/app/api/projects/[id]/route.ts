@@ -1,8 +1,3 @@
-/**
- * Project detail API — read, rename, and soft-delete a single project.
- * Thin handlers; all logic lives in `@/lib/projects/service`.
- */
-
 import { apiRoute, parseJsonBody } from '@/lib/api/handler'
 import { deleteProjectSchema, renameProjectSchema } from '@/lib/projects/project-wire'
 import { deleteProject, getProject, updateProjectName } from '@/lib/projects/service'

@@ -1,5 +1,3 @@
-"""Clear approach: the space in front of a door, and how much of it the swing and furnishings leave."""
-
 from __future__ import annotations
 
 import math
@@ -28,37 +26,9 @@ from .operators import _geometry_or_answer
 from .operators import _require
 from .operators import _wrong_kind
 
-# ════════════════════════════════════════════════════════════════════════════
-# 4 — clear approach
-# ════════════════════════════════════════════════════════════════════════════
 
 
 def clear_approach(model: SpatialModel, door_global_id: str) -> Answer[dict[str, Any]]:
-    """The free floor in front of a door, on each side, and what ends it.
-
-    A wheelchair user pulling a door open needs room to stand beside it, and
-    ``clearOpeningWidth`` cannot see that: it measures the hole. This measures
-    the floor. A strip as wide as the clear opening is pushed perpendicularly
-    away from the door face into the room and the depth is the furthest it goes
-    while staying entirely inside the free floor — the same free-floor polygon
-    :func:`turning_circle` uses, so what counts as an obstacle is defined in one
-    place and one way.
-
-    Both sides are reported. A side with no ``IfcSpace`` — the outside of an
-    external door — gets a null depth and a reason rather than a zero, because
-    zero is a number an agent will put in a sentence.
-
-    ``depth`` counts fixed obstruction only and ``withFurnishing`` repeats it
-    with the loose furniture in, for the reason argued in :func:`_free_floor`.
-    On this fixture the internal door `…VyWax` has 4.390 m into the bedroom and
-    9.238 m into the living room with the rooms empty, and 2.383 m and 3.446 m
-    once the bed and a chair are counted — the difference between a door you can
-    open and a door you can open in a photograph.
-
-    ``limitedBy`` names what the strip ran into. An empty ``limitedBy`` with
-    ``boundedByRoom`` true means nothing stopped it but the far wall, which is
-    the answer for a small room and not a failure.
-    """
     method = f"clearApproach({door_global_id})"
     subject = _require(model, door_global_id, method)
     if subject.is_a() not in FENESTRATION:
@@ -157,11 +127,6 @@ def _approach_on(
     loose_depth = _strip_depth(frame, sign, base, width, free.furnished, reach)
 
     entry["depth"] = round(fixed_depth, 4)
-    # What ENDED the strip: the room, or something standing in it. The test is
-    # whether one step further leaves the room's own FOOTPRINT — not whether the
-    # bisection ran out of bracket, which it never does because the bracket is
-    # the room's diagonal. Told apart because "4.39 m and then the far wall" and
-    # "4.39 m and then a wardrobe" are different findings for the architect.
     beyond = _strip(frame, sign, base, width, fixed_depth + 0.01)
     entry["boundedByRoom"] = bool(beyond.difference(free.footprint).area > MIN_OBSTACLE_AREA)
     entry["limitedBy"] = _limiting(model, frame, sign, base, width, fixed_depth, free, loose=False)
@@ -189,7 +154,6 @@ def _strip(frame: _Frame, sign: float, base: float, width: float, depth: float) 
 
 
 def _strip_depth(frame: _Frame, sign: float, base: float, width: float, free: Any, reach: float) -> float:
-    """How far the strip goes before it leaves the free floor. Bisection, same as the circle."""
     if free is None or free.is_empty:
         return 0.0
     low, high = 0.0, reach
@@ -217,13 +181,6 @@ def _limiting(
     *,
     loose: bool,
 ) -> list[dict[str, Any]]:
-    """What the strip would run into just past where it stopped.
-
-    Probed a handspan beyond the measured depth rather than exactly at it: at the
-    limit itself the strip only TOUCHES the obstacle, and a touching intersection
-    has zero area and names nothing. 0.10 m past it is enough to overlap whatever
-    stopped it and short enough not to collect the next thing along.
-    """
     probe = _strip(frame, sign, base, width, depth + 0.10)
     found = []
     for obstacle in free.obstacles:

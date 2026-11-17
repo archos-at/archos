@@ -262,7 +262,6 @@ class TestChatAgent:
     @pytest.mark.asyncio
     async def test_run_basic_query(self, mock_llm_provider, mock_llm, real_tool):
         """Test run() with a basic query."""
-        # Create a proper AI response for the agent node
         agent_response = AIMessage(content="CUDA is a parallel computing platform.")
         mock_llm.ainvoke = AsyncMock(return_value=agent_response)
 
@@ -295,7 +294,6 @@ class TestChatAgent:
 
         await agent.run(state)
 
-        # Agent should complete without errors
 
     @pytest.mark.asyncio
     async def test_run_extracts_and_strips_control_markers(self, mock_llm_provider, mock_llm, real_tool):
@@ -325,19 +323,15 @@ class TestChatAgent:
         state = ResearchAgentState(messages=[HumanMessage(content="Frage?")])
         result = await agent.run(state)
 
-        # emit_final_report received marker-free content.
         assert len(emit_callback.reports) == 1
         emitted = emit_callback.reports[0]
         assert "[CONFIDENCE" not in emitted
         assert "[ESCALATE_TO_DEEP]" not in emitted
 
-        # Returned message content is marker-free too.
         final_content = result.messages[-1].content
         assert "[CONFIDENCE" not in final_content
         assert "[ESCALATE_TO_DEEP]" not in final_content
 
-        # Structured signals populated (escalation_requested is a bool, i.e. not
-        # None, signalling extraction ran on a real answer message).
         assert result.escalation_requested is True
         assert result.answer_confidence_marker == "high"
 
@@ -349,8 +343,6 @@ class TestChatAgent:
 
         result = await agent.run(ResearchAgentState(messages=[HumanMessage(content="Frage?")]))
 
-        # Extraction ran on a real answer message → escalation_requested is the
-        # bool False (not the None "not-extracted" sentinel); no markers present.
         assert result.escalation_requested is False
         assert result.answer_confidence_marker is None
 
@@ -375,22 +367,12 @@ class TestChatAgent:
         result = await agent.run(ResearchAgentState(messages=[HumanMessage(content="Frage?")]))
 
         final_content = result.messages[-1].content
-        # Flattened prose, not a Python list repr.
         assert "The flattened answer body" in final_content
         assert "'type'" not in final_content
         assert not final_content.startswith("[{")
-        # The marker embedded in a separate block was still detected + stripped.
         assert "[CONFIDENCE" not in final_content
         assert result.answer_confidence_marker == "high"
 
-    # ------------------------------------------------------------------
-    # The answer envelope, END TO END: a scripted ```answer_json reply goes
-    # into the real run() and the structured state comes out the other side —
-    # extraction, control-field consumption (confidence, escalation), the
-    # deterministic gates and the versioned answer_meta wire payload. The
-    # parser has its own unit suite (test_answer_envelope.py); these tests
-    # exist so a wiring regression anywhere along that chain fails HERE.
-    # ------------------------------------------------------------------
 
     @staticmethod
     def _envelope_reply(*, fenced: bool = True, **overrides):
@@ -441,7 +423,6 @@ class TestChatAgent:
 
         result = await agent.run(ResearchAgentState(messages=[HumanMessage(content="Geländerhöhe Terrasse?")]))
 
-        # The reader gets the PROSE — the envelope apparatus never reaches them.
         final_content = result.messages[-1].content
         assert "Die erforderliche Geländerhöhe für die Terrasse beträgt 100 cm" in final_content
         assert "```" not in final_content
@@ -450,12 +431,10 @@ class TestChatAgent:
         assert "```" not in emitted
         assert '"confidence"' not in emitted
 
-        # The envelope's control fields were consumed, not just stripped.
         assert result.escalation_requested is False
         assert result.answer_confidence_marker == "medium"
         assert result.answer_confidence_marker_reason == "eine Fundstelle, nicht am Projekt gemessen"
 
-        # The anatomy survived the gates and rides state as the versioned payload.
         assert result.answer_meta is not None
         assert result.answer_meta["v"] == 1
         assert result.answer_meta["verdict"]["value"] == "100 cm"
@@ -515,19 +494,10 @@ class TestChatAgent:
 
         result = await agent.run(ResearchAgentState(messages=[HumanMessage(content="Frage?")]))
 
-        # A shallow answer about to be superseded by deep research must not
-        # ship a verdict for the discarded text.
         assert result.escalation_requested is True
         assert result.answer_meta is None
         assert result.answer_confidence_marker == "medium"
 
-    # ------------------------------------------------------------------
-    # Provider JSON mode for the envelope (`response_format: json_object`),
-    # the OpenRouter-safe variant `cards/generate.py` established. Bound on
-    # tool-bound calls, forced synthesis included, only by explicit opt-in
-    # (`envelope_json_mode_with_tools`); forced synthesis keeps the round's
-    # tools and asks for no call (`envelope_call.ainvoke_synthesis`).
-    # ------------------------------------------------------------------
 
     def _bindable(self, mock_llm, reply):
         """Configure `mock_llm.bind(...)` to return a working bound double."""
@@ -544,7 +514,6 @@ class TestChatAgent:
         cached prefix on the turn's longest call (``envelope_call.ainvoke_synthesis``).
         """
         bound = self._bindable(mock_llm, self._envelope_reply())
-        # Ceiling 0: the very first agent_node call is forced synthesis.
         agent = ChatAgent(llm_provider=mock_llm_provider, tools=[real_tool], max_tool_iterations=0)
 
         result = await agent.run(ResearchAgentState(messages=[HumanMessage(content="Frage?")]))
@@ -552,7 +521,6 @@ class TestChatAgent:
         mock_llm.bind_tools.assert_called()
         mock_llm.bind.assert_called_once_with(tool_choice="none")
         bound.ainvoke.assert_awaited_once()
-        # The fenced envelope flowed through the same extraction chain.
         assert result.answer_confidence_marker == "medium"
         assert "```" not in result.messages[-1].content
 
@@ -648,7 +616,6 @@ class TestChatAgent:
         with pytest.raises(ConnectionError):
             await agent.run(ResearchAgentState(messages=[HumanMessage(content="Frage?")]))
 
-        # The strongest rung only: a transport fault is not a rejected format.
         assert bound.bind.call_count == 1
         mock_llm.ainvoke.assert_not_awaited()
 
@@ -676,7 +643,6 @@ class TestChatAgent:
         agent_response = AIMessage(content="Personalized answer")
         mock_llm.ainvoke = AsyncMock(return_value=agent_response)
 
-        # Use custom system_prompt that doesn't require email field
         custom_prompt = "You are an assistant. User: {{ user_info }}."
         agent = ChatAgent(
             llm_provider=mock_llm_provider,
@@ -744,10 +710,6 @@ class TestChatAgent:
         finally:
             prompt_module.system_prompt_template.cache_clear()
 
-        # Count the template's own reads. The first construction also resolves
-        # the static half (`resolve_static_block`), which reads its bundled file
-        # unless an earlier test in this process already cached it, so a total
-        # count depended on which tests ran first on the worker.
         template_reads = [c for c in reads.call_args_list if c.args[1] == prompt_module.PROMPT_NAME]
         assert len(template_reads) == 1
         assert first.system_prompt is second.system_prompt
@@ -770,13 +732,8 @@ class TestChatAgent:
         )
 
         text = _bundled_prompt_text()
-        # The turn context is a human-role message right before the question
-        # (`prompt.request_messages`) and mostly German project data; "the
-        # request" read as including it answered an English question in German
-        # (live QA 2026-10-27, "What is this project about?").
         assert "Write in the language of the person's newest message, not of the turn context or files" in text
         assert "language of the request" not in text
-        # German questions get Austrian technical German.
         assert "German is Austrian technical German" in text
 
     def test_an_english_question_is_answered_in_english_in_the_examples(self, mock_llm_provider, real_tool):
@@ -828,8 +785,6 @@ class TestChatAgent:
         from agent.common import render_prompt_template
 
         agent = ChatAgent(llm_provider=mock_llm_provider, tools=[real_tool])
-        # Both messages the turn sends besides the transcript: the system
-        # prompt, then the turn context.
         return (
             _bundled_static_block()
             + "\n"
@@ -857,12 +812,8 @@ class TestChatAgent:
         assert "not only when asked" in formatting
         assert "`:::procedure`" in formatting and "`:::cases`" in formatting
         assert "schematic card" in formatting
-        # The box-art ban must survive the rewrite: the third field
-        # transcript drew box-drawing characters where a diagram was asked.
         assert "are never a drawing" in formatting
         assert "flowchart TD" in formatting
-        # And the consequence, so an edit that keeps the rule and drops the
-        # reason still fails: a listing where a drawing was promised.
         assert "reach the reader as a listing" in formatting
         assert "│" in formatting
 
@@ -883,7 +834,6 @@ class TestChatAgent:
         assert "neither a confirmed fact nor law" in rendered
         assert "The current conversation outranks it" in rendered
         assert "never argue the person out of their own correction" in rendered
-        # Memory must never be laundered into a legal citation.
         assert "never a source for a legal requirement" in rendered
         without = self._render_default_prompt(mock_llm_provider, real_tool, project_context="name: X")
         assert "PROJECT_MEMORY" not in without
@@ -894,8 +844,6 @@ class TestChatAgent:
 
         assert "<answer_envelope>" in rendered
         assert "Every researched answer carries `confidence`" in rendered
-        # The schema the validator enforces is the one the model is taught —
-        # injected by the renderer, never an empty block.
         assert "answer*: string" in rendered
         assert "escalate_to_deep" in rendered
         assert "classified as conversational / meta" not in rendered
@@ -915,18 +863,15 @@ class TestChatAgent:
         """
         rendered = self._render_default_prompt(mock_llm_provider, real_tool)
 
-        # Grounding is evidence, not sources alone — a measurement counts.
         assert "every answer that retrieved, measured or cites" in rendered
         assert "a measurement taken this turn" in rendered
         assert "a record or a measurement never stands in for one" in rendered
-        # And WHY it matters, which is what the model was never told.
         assert "An answer that cites nothing still carries it" in rendered
         assert "there is no confidence chip" in rendered
 
     @pytest.mark.asyncio
     async def test_tool_iterations_incremented_on_tool_calls(self, mock_llm_provider, mock_llm, real_tool):
         """Test tool_iterations counter increments when LLM makes tool calls."""
-        # First call returns tool calls, second call returns final answer
         tool_call_response = AIMessage(
             content="",
             tool_calls=[{"name": "web_search_tool", "args": {"query": "test"}, "id": "1"}],
@@ -946,13 +891,11 @@ class TestChatAgent:
 
         result = await agent.run(state)
 
-        # tool_iterations should have been incremented
         assert result.tool_iterations >= 1
 
     @pytest.mark.asyncio
     async def test_forced_synthesis_at_max_iterations(self, mock_llm_provider, mock_llm, real_tool):
         """Test that agent forces synthesis when max_tool_iterations is reached."""
-        # Response would normally include tool calls, but should be overridden
         final_response = AIMessage(content="Forced synthesis response")
         mock_llm.ainvoke = AsyncMock(return_value=final_response)
 
@@ -962,7 +905,6 @@ class TestChatAgent:
             max_tool_iterations=3,
         )
 
-        # Start with iterations already at max
         state = ResearchAgentState(
             messages=[HumanMessage(content="Test query")],
             tool_iterations=3,
@@ -971,7 +913,6 @@ class TestChatAgent:
         result = await agent.run(state)
 
         assert result is not None
-        # The unbounded LLM should have been called (without tools)
         mock_llm.ainvoke.assert_called()
 
     @pytest.mark.asyncio
@@ -990,9 +931,6 @@ class TestChatAgent:
             content="",
             tool_calls=[{"name": "web_search_tool", "args": {"query": "test"}, "id": "1"}],
         )
-        # A shape lookup and both cards, the way the tool description asks for
-        # them: one `describe_card` for the types the answer wants, then the
-        # cards. Three calls, one decision, one round.
         card_round = AIMessage(
             content="",
             tool_calls=[
@@ -1011,8 +949,6 @@ class TestChatAgent:
 
         result = await agent.run(ResearchAgentState(messages=[HumanMessage(content="Test query")]))
 
-        # Two rounds: the search and the cards. The turn never reached its
-        # ceiling and was never cut off, so both cards are emitted.
         assert result.tool_iterations == 2
         assert result.research_truncated is None
         assert sum(1 for message in result.messages if getattr(message, "name", None) == "emit_card") == 2
@@ -1054,7 +990,6 @@ class TestChatAgent:
 
         result = await agent.run(state)
 
-        # Result should have tool_iterations field
         assert hasattr(result, "tool_iterations")
 
     @pytest.mark.asyncio
@@ -1074,7 +1009,6 @@ class TestChatAgent:
             max_tool_iterations=2,
         )
 
-        # Start at max iterations to trigger forced synthesis
         state = ResearchAgentState(
             messages=[HumanMessage(content="Test query")],
             tool_iterations=2,
@@ -1082,7 +1016,6 @@ class TestChatAgent:
 
         await agent.run(state)
 
-        # Check that synthesis instruction was added
         last_call_messages = captured_messages[0]
         synthesis_instruction_found = any(
             "research limit" in str(msg.content).lower() for msg in last_call_messages if hasattr(msg, "content")
@@ -1090,9 +1023,6 @@ class TestChatAgent:
         assert synthesis_instruction_found
 
 
-# ---------------------------------------------------------------------------
-# Integration tests — verify end-to-end source capture without bypasses
-# ---------------------------------------------------------------------------
 
 
 @tool
@@ -1252,7 +1182,6 @@ class TestChatSourceRegistryGating:
         state = ResearchAgentState(messages=[HumanMessage(content="wie läufts so")])
         result = await agent.run(state)
 
-        # No second, narrower binding was made for the turn.
         assert mock_llm.bind_tools.call_count == 0
         assert "läuft alles super" in result.messages[-1].content
         assert result.source_lookup_attempted is False
@@ -1320,9 +1249,6 @@ class TestChatSourceRegistryGating:
         agent = ChatAgent(
             llm_provider=mock_llm_provider,
             tools=[spy_search_tool, remember_tool],
-            # This test is about tool GATING. The answer's "[1]" resolves to
-            # nothing, which is exactly what the repair pass re-searches for;
-            # that second search is the repair's own tests' business.
             repair_pass=False,
         )
 
@@ -1331,7 +1257,6 @@ class TestChatSourceRegistryGating:
         )
         await _run_with_captured_registry(agent, state)
 
-        # On a research turn the search tool really runs.
         assert _SPY_SEARCH_EXECUTIONS == ["OIB 2.2"]
 
     @pytest.mark.asyncio
@@ -1362,8 +1287,6 @@ class TestChatSourceRegistryGating:
         )
         await agent.run(state)
 
-        # Research turns reuse the full binding made at construction; no
-        # additional (narrowed) binding is created.
         assert mock_llm.bind_tools.call_count == 0
 
     @pytest.mark.asyncio
@@ -1403,7 +1326,6 @@ class TestChatSourceRegistryGating:
         result = await agent.run(state)
 
         assert result.answer_lookup_found_nothing is True
-        # Removed, never labelled (ADR-0125, amended 2026-11-10).
         assert result.messages[-1].content == "Hochhäuser regelt die OIB-RL 2.3."
         assert result.verified_sources is None
 
@@ -1729,12 +1651,10 @@ class TestChatSourceCaptureIntegration:
         state = ResearchAgentState(messages=[HumanMessage(content="What is CUDA?")])
         result, registry = await _run_with_captured_registry(agent, state)
 
-        # Source registry should have the URL from tool output
         sources = registry.all_sources()
         assert len(sources) >= 1
         assert any(s.url == "https://docs.nvidia.com/cuda/" for s in sources)
 
-        # Final output should exist and have been processed
         assert result.messages[-1].content
 
     @pytest.mark.asyncio
@@ -1744,7 +1664,6 @@ class TestChatSourceCaptureIntegration:
             content="",
             tool_calls=[{"name": "web_search_with_urls", "args": {"query": "CUDA"}, "id": "1"}],
         )
-        # LLM fabricates a citation [2] not in the registry
         final_response = AIMessage(
             content=(
                 "CUDA is great [1]. Also see this [2].\n\n"
@@ -1764,15 +1683,10 @@ class TestChatSourceCaptureIntegration:
         result = await agent.run(state)
 
         output = result.messages[-1].content
-        # The fabricated URL should have been removed by verify_citations
         assert "totally-fabricated.example.com" not in output
-        # The valid citation should survive
         assert "docs.nvidia.com/cuda" in output
 
 
-# ---------------------------------------------------------------------------
-# Session registry integration tests
-# ---------------------------------------------------------------------------
 
 
 class TestChatSessionRegistry:
@@ -1801,11 +1715,9 @@ class TestChatSessionRegistry:
         """When session registry is set via ContextVar, run() uses it and doesn't raise."""
         from agent.citations.session import set_session_registry
 
-        # Pre-populate a session registry with a source from a "prior turn"
         session_reg = SourceRegistry()
         session_reg.add(SourceEntry(url="https://prior-turn.example.com/article"))
 
-        # LLM answers from memory (no tool calls) citing the prior-turn URL
         agent_response = AIMessage(
             content=(
                 "Answer based on prior context [1].\n\n"
@@ -1824,7 +1736,6 @@ class TestChatSessionRegistry:
         try:
             state = ResearchAgentState(messages=[HumanMessage(content="Follow-up question")])
             result = await agent.run(state)
-            # Should NOT raise EmptySourceRegistryError because session registry has sources
             assert result is not None
             assert "prior-turn.example.com/article" in result.messages[-1].content
         finally:
@@ -1943,17 +1854,12 @@ class TestChatAnswerGrounding:
         return provider
 
     def _agent(self, provider, **kwargs):
-        # The fallback tests script exactly one search and one answer; the
-        # repair pass would spend a third call and is not what they test.
         return ChatAgent(llm_provider=provider, tools=[web_search_tool], **kwargs)
 
     @pytest.mark.asyncio
     async def test_grounded_when_verification_keeps_valid_citation(self, mock_llm_provider, mock_llm):
         mock_llm.ainvoke.return_value = AIMessage(content="OIB-Richtlinie 2 regelt Brandschutz [1].")
         source = SourceEntry(url="https://example.com/a", title="A", tool_name="web_search_tool")
-        # valid_citations must be dict-shaped (matching real verify_citations
-        # output) so the emission path can resolve each cited citation back to
-        # its registry SourceEntry.
         with (
             patch.object(SourceRegistry, "all_sources", return_value=[source]),
             patch("agent.agents.piloti.answer_pipeline.verify_citations") as mock_verify,
@@ -1969,9 +1875,6 @@ class TestChatAnswerGrounding:
 
     @pytest.mark.asyncio
     async def test_not_grounded_when_no_citation_survives_beside_a_lone_source(self, mock_llm_provider, mock_llm):
-        # No model citation survives and exactly one registry source exists:
-        # the fallback appended it and called the answer grounded. Nothing is
-        # appended any more, so nothing grounds it (ADR-0125).
         self._after_a_lookup(mock_llm, "Answer without any citation.")
         source = SourceEntry(url="https://example.com/a", title="A", tool_name="web_search_tool")
         with (
@@ -2009,8 +1912,6 @@ class TestChatAnswerGrounding:
 
     @pytest.mark.asyncio
     async def test_not_grounded_when_registry_empty_and_nothing_was_looked_up(self, mock_llm_provider, mock_llm):
-        # Empty registry, a greeting: nothing to cite → not grounded (a
-        # self-report would be capped to "low" downstream).
         mock_llm.ainvoke.return_value = AIMessage(content="Hallo! Wie kann ich helfen?")
         state = ResearchAgentState(
             messages=[HumanMessage(content="Hi")],
@@ -2020,12 +1921,6 @@ class TestChatAnswerGrounding:
 
     @pytest.mark.asyncio
     async def test_an_unresolvable_citation_is_labelled_not_replaced(self, mock_llm_provider, mock_llm):
-        # Inline [1] citation, NO Sources section written by the model, and a
-        # registry whose one source the REAL verifier cannot resolve the [1]
-        # to (``all_sources`` is patched; the URL index is not). The single-
-        # source fallback used to attach that source in the [1]'s place; the
-        # marker is now labelled where it stood and no source is attached
-        # (ADR-0125). Uses the REAL verification/sanitization pipeline.
         self._after_a_lookup(mock_llm, "The building height limit is 12 m [1].")
         source = SourceEntry(url="https://example.gv.at/oib", title="OIB Richtlinie", tool_name="web_search_tool")
         with patch.object(SourceRegistry, "all_sources", return_value=[source]):
@@ -2037,14 +1932,9 @@ class TestChatAnswerGrounding:
         assert "OIB Richtlinie" not in answer.content
         assert result.answer_citation_grounded is False
 
-    # --- verified_sources emission: only THIS turn's cited sources become chips ---
 
     @pytest.mark.asyncio
     async def test_verified_sources_empty_when_answer_cites_nothing(self, mock_llm_provider, mock_llm):
-        # The reported bug: a per-session registry carries a prior turn's RIS
-        # source, but this turn's answer cites nothing (e.g. a greeting routed
-        # as research). No citation survives verification → NO chips are emitted
-        # (must not re-emit the previous turn's source).
         mock_llm.ainvoke.return_value = AIMessage(content="Hallo! Wie kann ich helfen?")
         registry = SourceRegistry()
         registry.add(
@@ -2061,8 +1951,6 @@ class TestChatAnswerGrounding:
                 removed_citations=[],
             )
             state = ResearchAgentState(messages=[HumanMessage(content="hallo wie gehts")])
-            # Two registry sources would exist here in the real bug; add a second
-            # so the single-source minimal-citation path does NOT fire.
             registry.add(
                 SourceEntry(
                     url="https://ris.bka.gv.at/prev2",
@@ -2075,8 +1963,6 @@ class TestChatAnswerGrounding:
 
     @pytest.mark.asyncio
     async def test_verified_sources_only_the_one_cited_of_many(self, mock_llm_provider, mock_llm):
-        # Registry holds three sources; the answer cites exactly one → chips
-        # contain only that one (the model's own relevance decision).
         mock_llm.ainvoke.return_value = AIMessage(content="Antwort [1].")
         registry = SourceRegistry()
         cited = SourceEntry(url="https://example.com/b", title="B", tool_name="web_search_tool")
@@ -2096,7 +1982,6 @@ class TestChatAnswerGrounding:
 
     @pytest.mark.asyncio
     async def test_verified_sources_citation_key_resolves(self, mock_llm_provider, mock_llm):
-        # A knowledge-layer citation (citation_key, no URL) resolves to its entry.
         mock_llm.ainvoke.return_value = AIMessage(content="Antwort [1].")
         registry = SourceRegistry()
         registry.add(SourceEntry(url="https://example.com/a", title="A", tool_name="web_search_tool"))
@@ -2121,9 +2006,6 @@ class TestChatAnswerGrounding:
 
     @pytest.mark.asyncio
     async def test_a_lone_registry_source_is_not_emitted_when_nothing_was_cited(self, mock_llm_provider, mock_llm):
-        # Exactly one registry source and no surviving model citation: the
-        # single-source fallback emitted that source as the answer's chip. It
-        # is gone (ADR-0125), so no chip is invented.
         self._after_a_lookup(mock_llm, "Answer without any citation.", query="https://example.com/only")
         registry = SourceRegistry()
         only = SourceEntry(url="https://example.com/only", title="Only", tool_name="web_search_tool")
@@ -2142,10 +2024,6 @@ class TestChatAnswerGrounding:
     async def test_verified_sources_empty_when_a_greeting_cites_nothing_from_a_populated_registry(
         self, mock_llm_provider, mock_llm
     ):
-        # A greeting on a conversation whose registry still holds last turn's
-        # source: nothing is cited and nothing was looked up this turn, so the
-        # single-source fallback must not hand the greeting that source as its
-        # citation, and no chip is emitted.
         mock_llm.ainvoke.return_value = AIMessage(content="Hallo! Wie kann ich helfen?")
         registry = SourceRegistry()
         registry.add(SourceEntry(url="https://ris.bka.gv.at/prev", title="Prior RIS", tool_name="ris_search"))
@@ -2155,13 +2033,9 @@ class TestChatAnswerGrounding:
         result = await _run_with_bound_registry(self._agent(mock_llm_provider), state, registry)
         assert result.verified_sources is None
 
-    # --- citation numbers: the [N] label each cited source carries in the prose ---
 
     @pytest.mark.asyncio
     async def test_verified_sources_carry_their_citation_number(self, mock_llm_provider, mock_llm):
-        # The [N] → source binding exists only inside verify_citations. Emitting
-        # it lets the frontend render ONE numbered provenance block instead of
-        # the written source list plus an unnumbered chip row.
         mock_llm.ainvoke.return_value = AIMessage(content="Antwort [1][2].")
         registry = SourceRegistry()
         registry.add(SourceEntry(url="https://example.com/a", title="A", tool_name="web_search_tool"))
@@ -2181,11 +2055,6 @@ class TestChatAnswerGrounding:
 
     @pytest.mark.asyncio
     async def test_citation_numbers_survive_the_sanitize_renumber(self, mock_llm_provider, mock_llm):
-        # Real pipeline (no mocked verifier): the model cites [1] and [2], but
-        # [1] is fabricated. verify_citations drops it, then sanitize_report
-        # closes the gap so the surviving source becomes [1] in the prose. The
-        # wire number must follow, or the chip is labelled [2] while the answer
-        # points at [1] — and the inline marker's anchor leads nowhere.
         answer = (
             "Erfunden [1]. Belegt [2].\n\n"
             "**References:**\n"
@@ -2205,12 +2074,9 @@ class TestChatAnswerGrounding:
         assert [s["number"] for s in result.verified_sources] == [1]
         assert [s["url"] for s in result.verified_sources] == ["https://example.com/real"]
 
-    # --- citations_removed: transparency summary of dropped citations ---
 
     @pytest.mark.asyncio
     async def test_citations_removed_populated_when_verification_drops_citations(self, mock_llm_provider, mock_llm):
-        # ≥1 citation removed → the result carries a {count, reasons} summary
-        # (reasons deduplicated in first-seen order).
         mock_llm.ainvoke.return_value = AIMessage(content="Antwort [1].")
         source = SourceEntry(url="https://example.com/a", title="A", tool_name="web_search_tool")
         with (
@@ -2235,7 +2101,6 @@ class TestChatAnswerGrounding:
 
     @pytest.mark.asyncio
     async def test_citations_removed_absent_when_nothing_removed(self, mock_llm_provider, mock_llm):
-        # Nothing removed → citations_removed stays None (never null-spammed).
         mock_llm.ainvoke.return_value = AIMessage(content="Antwort [1].")
         source = SourceEntry(url="https://example.com/a", title="A", tool_name="web_search_tool")
         with (
@@ -2253,8 +2118,6 @@ class TestChatAnswerGrounding:
 
     @pytest.mark.asyncio
     async def test_citations_removed_absent_on_a_greeting_without_verification(self, mock_llm_provider, mock_llm):
-        # A greeting with an empty registry: no verification runs, so
-        # citations_removed is never populated.
         mock_llm.ainvoke.return_value = AIMessage(content="Hallo! Wie kann ich helfen?")
         state = ResearchAgentState(
             messages=[HumanMessage(content="Hi")],
@@ -2337,9 +2200,7 @@ class TestChatQuoteVerification:
         result = await _run_with_bound_registry(agent, state, SourceRegistry())
 
         output = result.messages[-1].content
-        # No marker in the prose (ADR-0125, amended 2026-11-10); the quote gate holds the signal.
         assert "[nicht wörtlich in der Quelle belegt]" not in output
-        # Fail-open: the fabricated sentence itself is preserved, never stripped.
         assert "automatische" in output.lower()
         assert result.answer_quotes_verified is False
 
@@ -2358,9 +2219,6 @@ class TestChatQuoteVerification:
 
         output = result.messages[-1].content
         assert "[nicht wörtlich in der Quelle belegt]" not in output
-        # REGRESSION: without quote verification this stays at the default True,
-        # so the assertion below only exercises the new path when a fabricated
-        # quote is present (covered by the sibling test); here it must remain True.
         assert result.answer_quotes_verified is True
 
     def test_state_defaults_quotes_verified_true(self):
@@ -2445,13 +2303,10 @@ class TestChatRepairPass:
         result = await _run_with_bound_registry(agent, state, SourceRegistry())
 
         output = result.messages[-1].content
-        # Only the words between the quotation marks moved: what the reader read
-        # around them, the `[1]` included, is byte for byte what was written.
         assert output.startswith("Vorweg: Treppen sind Fluchtwege. Es gilt: „Die lichte Durchgangshoehe von Treppen")
         assert '2,10 m betragen" [1]. Danach folgt die Breite.' in output
         assert "[nicht wörtlich in der Quelle belegt]" not in output
         assert result.answer_quotes_verified is True
-        # No second frontier call and no second search: one small call.
         assert mock_llm.ainvoke.await_count == 2
         assert patch_llm.ainvoke.await_count == 1
 
@@ -2459,8 +2314,6 @@ class TestChatRepairPass:
     async def test_a_quote_no_passage_comes_close_to_stays_as_written_and_flagged(
         self, mock_llm_provider, mock_llm, patch_llm
     ):
-        # Invented, not misremembered: "correcting" it would put the passage's
-        # different claim in the model's mouth.
         mock_llm.ainvoke = AsyncMock(side_effect=[self._tool_call(), self.FABRICATED])
         agent = ChatAgent(llm_provider=mock_llm_provider, tools=[knowledge_search], card_repair_llm=patch_llm)
         state = ResearchAgentState(messages=[HumanMessage(content="Treppenhoehe?")])
@@ -2517,8 +2370,6 @@ class TestChatRepairPass:
 
     @pytest.mark.asyncio
     async def test_without_a_small_model_the_repair_is_off(self, mock_llm_provider, mock_llm):
-        # Switched on, but with no card model to run it on: the frontier model
-        # is never borrowed for the patch, and the marker ships.
         mock_llm.ainvoke = AsyncMock(side_effect=[self._tool_call(), self.MISQUOTED])
         agent = ChatAgent(
             llm_provider=mock_llm_provider, tools=[knowledge_search], repair_pass=True, card_repair_llm=None
@@ -2563,7 +2414,6 @@ class TestClarificationGuidance:
         """A turn with NO project context still gets the guidance — the core regression."""
         rendered = self._render(project_context=None)
         rules = rendered.split("<rules>")[1].split("</rules>")[0]
-        # Both moves: answer under a stated assumption, or ask one question.
         assert "answer under a stated assumption" in rules
         assert "ask one short question first" in rules
         assert "`ask_user`" in rules
@@ -2600,7 +2450,6 @@ class TestOffTopicDeclineShape:
     def test_contract_has_explicit_off_topic_decline_shape(self):
         rendered = self._render()
         rules = rendered.split("<rules>")[1].split("</rules>")[0]
-        # The decisive instruction: do not answer, decline + redirect.
         assert "decline without answering it, even when you know the answer" in rules
         assert "a redirect to what you can help with" in rules
         assert "no tool call" in rules
@@ -2638,15 +2487,12 @@ class TestADirectReplyMayStillEmitACard:
         assert "cited only for a retrieved passage" in direct_shape
 
     def test_the_off_topic_shape_still_forbids_every_tool_call(self):
-        # The carve-out is for a turn that ANSWERS something. A decline has no
-        # content, so nothing here is loosened for it.
         rules = self._render().split("<rules>")[1].split("</rules>")[0]
         assert "no tool call" in rules
 
     def test_the_direct_reply_shape_names_the_card_rule_and_its_limit(self):
         direct_shape = self._kinds().split("- `direct`")[1].split("- `walkthrough`")[0]
         assert "is a walkthrough or a ruling, not a direct reply" in direct_shape
-        # ...and closed again for the turns with nothing to show.
         assert "no card" in direct_shape
 
     def test_the_hand_off_shape_escalates_a_commissioned_report_at_once(self):
@@ -2785,12 +2631,9 @@ class TestKnowledgeInventoryIsNotCitable:
     def test_chat_prompt_marks_the_inventory_as_not_a_source(self):
         rendered = self._render(self._prompt("piloti/prompts/piloti.j2"), self.DOCUMENTS)
 
-        # The inventory still lists the file — the agent must know it exists.
         assert "oib-rl_2_ausgabe_mai_2023.pdf" in rendered
-        # …but it is labelled an index, not evidence.
         assert "NOT sources" in rendered
         assert "not a citable source" in rendered
-        # And the anti-memory rule covers document keys, not only URLs.
         citations = rendered.split("CITATIONS.")[1].split("EXAMPLES.")[0]
         assert "the citation key exactly as the tool returned it" in citations
         assert "Cite only what a tool returned" in citations
@@ -2805,13 +2648,9 @@ class TestKnowledgeInventoryIsNotCitable:
 
         block = source.split("<legal_method>")[1].split("</legal_method>")[0]
         rule = block.split("When two sources disagree")[1].split("\n")[0]
-        # Show the difference rather than silently choosing.
         assert "show both with their citations" in rule
-        # Then resolve it by the precedence chain the same section teaches.
         assert "Resolve by the chain" in rule
-        # And when the chain cannot resolve it, say so instead of inventing a winner.
         assert "say that they disagree" in rule
-        # An unresolved conflict must not be reported as high confidence.
         assert "keep `confidence` below high" in rule
 
     def test_every_example_source_line_in_the_prompt_is_a_bare_locator(self):
@@ -2920,25 +2759,12 @@ class TestTheModelCardsAreActuallyAskedFor:
             assert card_type in body, card_type
 
     def test_it_says_where_the_ids_must_come_from(self):
-        # The one rule that keeps this from making things worse. An invented
-        # GlobalId renders as an unresolved element, which tells the user their
-        # model is broken when it is not.
         body = self._ifc_skill()
         assert "THIS turn" in body
 
 
-# ---------------------------------------------------------------------------
-# Measurements in the Herleitung — and the wall between them and the gate
-# ---------------------------------------------------------------------------
 
 
-#: One decidable, computed, quantity-shaped envelope answer — the shape the
-#: engine returns for „wie hoch ist der Keller". Written out rather than built
-#: through ``ifc_spatial.envelope`` because the backend CI job does not install
-#: the spatial engine, and a module-level import of it takes this whole file
-#: down at collection (see the fix in commit 3ec4a3b3). Every field here is a
-#: field of ``ifc_spatial.envelope.Answer``; ``test_ifc_measure_tool.py`` is
-#: where the two are pinned against each other.
 _MEASURED_BASEMENT = {
     "value": 2.703,
     "unit": "m",
@@ -3014,7 +2840,6 @@ class TestMeasurementSourcesDoNotGroundCitations:
     def _measurement_sources(result):
         return [s for s in (result.verified_sources or []) if s.get("kind") == "measurement"]
 
-    # -- the property that must not regress -----------------------------------
 
     @pytest.mark.asyncio
     async def test_measured_answer_with_uncited_normative_claim_never_reaches_the_registry(
@@ -3037,11 +2862,8 @@ class TestMeasurementSourcesDoNotGroundCitations:
         )
         result, registry = await _run_with_captured_registry(agent, state)
 
-        # The measurement really did reach the Herleitung…
         assert self._measurement_sources(result), "the measurement produced no Herleitung source"
         assert result.answer_measurement_grounded is True
-        # …and the registry — the thing `citation_grounded` is derived from —
-        # never saw it.
         assert registry.all_sources() == []
         assert result.answer_citation_grounded is False
 
@@ -3109,7 +2931,6 @@ class TestMeasurementSourcesDoNotGroundCitations:
         assert registry.all_sources() == []
         assert result.answer_lookup_found_nothing is True
 
-    # -- what the card actually carries ---------------------------------------
 
     @pytest.mark.asyncio
     async def test_the_card_carries_the_audit_trail_the_envelope_had(self, mock_llm_provider, mock_llm):
@@ -3126,7 +2947,6 @@ class TestMeasurementSourcesDoNotGroundCitations:
         assert card["title"] == "clearHeight"
         measurement = card["measurement"]
         assert measurement["provenance"] == "computed"
-        # The renderer's own verb, so the card and the prose agree.
         assert measurement["provenance_label"] == "gemessen"
         assert measurement["value_text"] == "2.703 m"
         assert measurement["tolerance_text"] == "±0.005 m"
@@ -3156,9 +2976,6 @@ class TestMeasurementSourcesDoNotGroundCitations:
         assert events.record_turn.call_args.kwargs["source_count"] == 0
 
 
-# ---------------------------------------------------------------------------
-# The research budget: what it counts, and what it must stop counting
-# ---------------------------------------------------------------------------
 
 
 class TestTheResearchBudgetIsOneNumber:
@@ -3232,8 +3049,6 @@ class TestTruncationIsObservable:
             tools=[web_search_tool],
             max_tool_iterations=5,
         )
-        # A run that already spent its whole ceiling: two skill loads and three
-        # searches — the shape of an OIB measurement chain walking into the wall.
         history = [
             HumanMessage(content="Wie tief ist der Lichteinfall?"),
             AIMessage(
@@ -3265,15 +3080,10 @@ class TestTruncationIsObservable:
         lines = [m for m in caplog.messages if "Forcing synthesis (rounds)" in m]
         assert lines, f"the turn was cut off and left no countable record of it; warnings logged were {caplog.messages}"
         line = lines[0]
-        # The numbers that make "how often" answerable per deployment…
         assert "ceiling=5" in line
         assert "rounds_spent=5" in line
-        # …and WHICH bound fired, because the other one is a cost stop and
-        # counting the two together makes either unanswerable.
         assert "input_tokens=0/" in line
         assert "skill_calls=2" in line
-        # …and the SHAPE, which is what makes "on which questions" answerable
-        # without putting the reader's own words in a log line.
         assert "shape=read_skill>read_skill>knowledge_search>find_elements>light_incidence" in line
         assert "Lichteinfall" not in line
 
@@ -3287,10 +3097,6 @@ class TestTruncationIsObservable:
             f"nothing here can answer how often it happens; steps were {[step.id for step in emitted.steps]}"
         )
         record = records[0]
-        # `spent` and `rounds` are the same number now: the budget is one unit
-        # per ROUND, so a greedy parallel batch cannot outspend its own round.
-        # Both stay on the record so one counted across the change reads the
-        # same way. Nothing was reserved, so there is no such field to read.
         assert record.detail == {
             "truncated": True,
             "ceiling": 5,
@@ -3299,9 +3105,6 @@ class TestTruncationIsObservable:
             "rounds": 5,
             "tools": ["read_skill", "read_skill", "knowledge_search", "find_elements", "light_incidence"],
         }
-        # Technical channel, and therefore no `key`: whether the READER is told
-        # the answer stopped early is a product decision, and a live key would
-        # make it silently.
         assert (record.channel, record.key) == ("technical", None)
 
     @pytest.mark.asyncio
@@ -3477,7 +3280,6 @@ class TestTheDraftingRulesLiveInTheTools:
         for kind in ("Aktenvermerk", "Protokoll", "Checkliste", "Flächenaufstellung"):
             assert kind in description
         assert "rather than in the answer" in description
-        # And the one sentence the answer owes the reader afterwards.
         assert "in one sentence" in description
 
     def test_a_revision_edits_the_file_it_already_wrote(self):
@@ -3503,7 +3305,6 @@ class TestTheDraftingRulesLiveInTheTools:
         for phrase in ("leg das ins Projekt", "ablegen", "abspeichern"):
             assert phrase in _FILE_DRAFT_DESCRIPTION
         assert "not on your own after every write" in _FILE_DRAFT_DESCRIPTION
-        # And nothing filed may be called approved — the claim that reaches a Bauherr.
         assert "DRAFT" in _FILE_DRAFT_DESCRIPTION
         assert "nobody has approved it" in _FILE_DRAFT_DESCRIPTION
 
@@ -3512,12 +3313,8 @@ class TestTheDraftingRulesLiveInTheTools:
         from agent.tools.documents.register import _FILE_DRAFT_DESCRIPTION
 
         assert "Call with `submit=true` only when the user asks for approval" in _FILE_DRAFT_DESCRIPTION
-        # „ablegen" alone must not flip the flag.
         assert "„ablegen“ alone is not such a request" in _FILE_DRAFT_DESCRIPTION
-        # The reviewer name is passed through and never guessed…
         assert "unchanged" in _FILE_DRAFT_DESCRIPTION
-        # …and without one the draft goes to the project's editors, which the
-        # answer has to be able to say.
         assert "project's editors" in _FILE_DRAFT_DESCRIPTION
 
 
@@ -3631,7 +3428,6 @@ class TestAFailedCallIsNotASource:
         registry = SourceRegistry()
         binding = SimpleNamespace(source_tool_names=frozenset({"web_search_tool"}))
         state = ResearchAgentState(messages=[])
-        # ``self`` is unread: the capture loop is a function of the four.
         ChatAgent._capture_round(None, [message], binding, registry, state)
         return list(registry.all_sources())
 
@@ -3809,9 +3605,6 @@ class TestATurnThatWritesADraft:
             ("document_draft", 2, "Aktenvermerk"),
         ]
 
-        # A write and a revision are two rounds and cost two, like any other
-        # two rounds: there is no separate allowance for the file verbs and no
-        # exemption either. The turn finished inside its budget.
         assert result.tool_iterations == 2
         assert result.research_truncated is None
 
@@ -3849,9 +3642,6 @@ class TestATurnThatWritesADraft:
         )
         _bind_signed_turn(monkeypatch, conversation_id="conv-1")
 
-        # An agent-runtime function is bound as a plain tool here: the graph only
-        # needs a `BaseTool` with the right NAME, and building the agent-runtime
-        # wrapper would test the agent runtime rather than the turn.
         file_draft_tool = StructuredTool.from_function(
             coroutine=filing_tools.run_file_draft, name="file_draft", description="legt ab"
         )
@@ -3879,8 +3669,6 @@ class TestATurnThatWritesADraft:
         assert posted[0]["content"] == "# Aktenvermerk\n\nFluchtweg.\n"
 
         drafts = [card for card in cards.snapshot() if card["type"] == "document_draft"]
-        # Two cards: the write's, which knows no document, and the filing's,
-        # which does. The reader sees the second one act.
         assert "document_id" not in drafts[0]
         assert (drafts[-1]["document_id"], drafts[-1]["version_id"], drafts[-1]["version_state"]) == (
             "doc-7",
@@ -3888,20 +3676,14 @@ class TestATurnThatWritesADraft:
             "draft",
         )
 
-        # One write, one filing: two rounds, charged as two.
         assert result.tool_iterations == 2
 
 
-# ---------------------------------------------------------------------------
-# Tidying the workspace — the turn that PROPOSES instead of doing
-# ---------------------------------------------------------------------------
 
 
 def _file_verb_descriptions() -> dict[str, str]:
     from agent.tools.files import register as files_register
 
-    # One tool since the merge; the rules below are what its description must
-    # still carry for every operation it proposes.
     return {"propose_file_change": files_register._DESCRIPTION}
 
 
@@ -4026,9 +3808,6 @@ class TestTheThreeDraftingTurnShapes:
         return AIMessage(content="", tool_calls=[{"name": name, "args": args, "id": call_id}])
 
     def _agent(self, provider, tools):
-        # A research budget of ONE: writing is not researching, so a turn that
-        # charged the file verbs to it would be forced into synthesis before it
-        # reached the second call.
         return ChatAgent(llm_provider=provider, tools=[web_search_tool, *tools], max_tool_iterations=1)
 
     async def _seed(self, backend, case):
@@ -4122,7 +3901,6 @@ class TestTheThreeDraftingTurnShapes:
         )
         stored = backend._get_store().get(("conversation", "conv-1", "drafts"), SEEDED_DRAFT_PATH)
         assert "klärungsbedürftig" not in stored.value["content"]
-        # The revision is a VERSION of the same path, not a second document.
         assert draft_cards(cards.snapshot())[-1]["version"] == 2
 
     @pytest.mark.asyncio

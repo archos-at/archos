@@ -1,40 +1,3 @@
-"""What a document points at: norms, laws, plans and other documents (Verweise).
-
-A Baubeschreibung says "gem. Brandschutzkonzept", a plan says "siehe EP-05", a
-Bescheid cites "§ 33 BayBO" and "ÖNORM B 1600". Until now ingestion kept only the
-bare ``§`` number (``qdrant.payload.paragraph_refs``) and the rest was invisible:
-the agent found a reference only if a question happened to contain it, and nobody
-could say which documents a project is missing although its own documents name
-them. This module reads them at ingest, with patterns and no model, from the
-text every chunk already carries (a drawing's chunk text holds its annotations
-verbatim), so the cost is a regex pass over text the pipeline holds anyway.
-
-Four kinds, each a record ``{kind, key, label, pages}``:
-
-``norm``
-    DIN, EN, ISO, ÖNORM, OIB-Richtlinie, VDI, TRVB. ``key`` is the designation
-    case-folded with single spaces (``önorm en 1992-1-1``), so two spellings of
-    one standard are one record.
-``law``
-    A ``§`` followed by the abbreviation of the law it belongs to (``§ 33
-    BayBO``, ``§ 62 Abs. 2 BO für Wien``). A bare ``§`` stays the payload's
-    concern: without its law it cannot be resolved to anything.
-``plan``
-    A plan number the text points at: after ``Plan``, ``Plan-Nr.``, ``Blatt``,
-    ``Zeichnung``, ``Detail``, or after ``siehe``/``vgl.``/``gem.`` when the
-    token looks like a sheet number (letters, a hyphen, digits: ``EP-05``).
-    ``key`` is case-folded with separators as hyphens, the form the BFF matches
-    against every Plankopf ``document_number`` and file name in the project.
-``document``
-    A named kind of document after a word that points at it ("gem.", "laut",
-    "siehe", "im", "Beilage"): ``key`` is the dossier's ``document_type``
-    (``fire_safety_concept``). A word standing alone is not a reference: the
-    cue is what separates "lt. Statik" from a heading that says "Statik".
-
-Precision over recall: every pattern is anchored on a designator or a cue, so a
-reference that is found is one; what is missed is missed the way it was before.
-"""
-
 from __future__ import annotations
 
 import re
@@ -42,15 +5,12 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from dataclasses import field
 
-#: Records kept per document. A long specification cites hundreds of standards;
-#: the first 60 in order of appearance are what a person reads in a side panel.
 MAX_REFERENCES = 60
 
 KINDS = ("norm", "law", "plan", "document")
 
 _PART = r"\d{1,5}(?:[-‑]\d{1,4})*(?:\s?[A-Z](?![A-Za-z]))?"
 
-#: Standards, longest designator first so "DIN EN ISO 13788" is one record, not three.
 _NORMS = re.compile(
     rf"""
     \b(?P<designation>
@@ -64,7 +24,6 @@ _NORMS = re.compile(
     re.VERBOSE,
 )
 
-#: A ``§`` (or ``§§``) with its number, optional subdivisions, then the law's abbreviation.
 _LAWS = re.compile(
     r"""
     §§?\s*(?P<number>\d{1,4}[a-z]?)
@@ -81,18 +40,14 @@ _LAWS = re.compile(
 
 _PLAN_TOKEN = r"(?:\d{1,3}\s?/\s?)?[A-Z]{1,4}[-_ .]?\d{1,4}(?:[-_./]\d{1,4})?[a-z]?"
 
-#: A plan number after a designator ("Plan Nr. EP-05", "Detail 3/A-501").
 _PLANS_DESIGNATED = re.compile(
     rf"\b(?:Plan(?:-?\s?Nr\.?)?|Blatt(?:-?Nr\.?)?|Zeichnung(?:s-?Nr\.?)?|Detail)\s*:?\s*(?:Nr\.?\s*)?"
-    # Not a scale: "Plan M 1:100" names no plan.
     rf"(?P<token>{_PLAN_TOKEN})\b(?![:\d])"
 )
-#: A sheet-number-shaped token after a pointing word ("siehe EP-05").
 _PLANS_CUED = re.compile(
     r"\b(?:siehe|s\.|vgl\.|gem\.|gemäß|lt\.|laut)\s+(?P<token>(?:\d{1,3}/)?[A-Z]{1,4}-\d{1,4}(?:[-./]\d{1,4})?[a-z]?)\b"
 )
 
-#: Words that name a kind of document, as the dossier's ``document_type`` keys.
 _DOCUMENT_WORDS: dict[str, str] = {
     r"Brandschutz(?:konzept|gutachten|nachweis)": "fire_safety_concept",
     r"(?:statische[nrs]?\s+(?:Berechnung|Nachweis|Vorbemessung)|Statik)": "structural_analysis",
@@ -109,7 +64,6 @@ _DOCUMENT_WORDS: dict[str, str] = {
     r"(?:Besprechungs|Bau)?[Pp]rotokoll": "meeting_minutes",
 }
 
-#: What must stand just before a document word for it to be a reference to one.
 _DOCUMENT_CUE = (
     r"(?:gem\.|gemäß|lt\.|laut|siehe|s\.|vgl\.|nach|im|in\s+der|in\s+dem|des|der|dem|beiliegende[nrs]?|"
     r"beigelegte[nrs]?|Beilage|Anlage|Anhang|aktuelle[nrs]?|vorliegende[nrs]?)"
@@ -122,7 +76,6 @@ _DOCUMENT_KEYS = [(re.compile(rf"^(?:{pattern})$"), key) for pattern, key in _DO
 
 @dataclass
 class Reference:
-    """One thing a document points at, and every page it does so on."""
 
     kind: str
     key: str
@@ -138,7 +91,6 @@ def _spaced(text: str) -> str:
 
 
 def norm_key(designation: str) -> str:
-    """A standard's designation as one key: spaces single, ``ÖNORM`` however it was typed, case folded."""
     spaced = _spaced(designation)
     spaced = re.sub(r"^(?:ONORM|OENORM)\b", "ÖNORM", spaced)
     spaced = re.sub(r"^OIB[-\s]?(?:Richtlinie|RL)\s*", "OIB-RL ", spaced)
@@ -146,25 +98,15 @@ def norm_key(designation: str) -> str:
 
 
 def plan_key(token: str) -> str:
-    """A plan number as one key: case folded, spaces and underscores as hyphens, ``3 / A-501`` as ``3/a-501``."""
     token = re.sub(r"\s*/\s*", "/", token.strip())
     return re.sub(r"[\s_]+", "-", token).casefold()
 
 
-#: A lone series letter against its number in a norm key: ``b 1600`` / ``b1600``, ``trvb n 115``.
 _NORM_LETTER_NUMBER = re.compile(r"(?<![^\W\d_])([^\W\d_]) ?(?=\d)")
-#: A plan key's letter prefix against its first digit: ``ep05`` / ``ep-05`` / ``ep.05``.
 _PLAN_PREFIX = re.compile(r"^((?:\d{1,3}/)?[^\W\d_]{1,4})[-.]?(?=\d)")
 
 
 def spellings(kind: str, key: str) -> list[str]:
-    """Every key a document can have stored the same reference under, ``key`` first. Pure.
-
-    A stored key keeps the document's own spacing ("ÖNORM B1600" and "ÖNORM B 1600",
-    "EP05" and "EP-05"), and the index holds what each document wrote. A search
-    therefore asks for each spelling, so it finds the documents that wrote it either
-    way, the ones already indexed included.
-    """
     if kind == "norm":
         variants = [_NORM_LETTER_NUMBER.sub(r"\1", key), _NORM_LETTER_NUMBER.sub(r"\1 ", key)]
     elif kind == "plan":
@@ -180,7 +122,6 @@ def _document_type(word: str) -> str | None:
 
 
 def _found(text: str) -> Iterable[tuple[str, str, str]]:
-    """``(kind, key, label)`` for every reference in one passage, in order of appearance."""
     hits: list[tuple[int, str, str, str]] = []
     for match in _NORMS.finditer(text):
         label = _spaced(match.group("designation"))
@@ -212,11 +153,6 @@ def _found(text: str) -> Iterable[tuple[str, str, str]]:
 def extract_references(
     passages: Iterable[tuple[str, int | None]], *, own_document_type: str | None = None
 ) -> list[dict[str, object]]:
-    """Every reference in ``passages`` (``(text, page)``), merged by kind and key, at most :data:`MAX_REFERENCES`.
-
-    ``own_document_type`` drops the document's references to its own kind: a
-    Brandschutzkonzept that says "im vorliegenden Brandschutzkonzept" points at itself.
-    """
     merged: dict[tuple[str, str], Reference] = {}
     for text, page in passages:
         if not text:
@@ -235,22 +171,12 @@ def extract_references(
 
 
 def drop_own_type(records: list[dict[str, object]], own_document_type: str | None) -> list[dict[str, object]]:
-    """``records`` without the document references to the document's own type (known only after the dossier)."""
     if not own_document_type:
         return records
     return [r for r in records if not (r.get("kind") == "document" and r.get("key") == own_document_type)]
 
 
 def reference_keys_for(text: str) -> list[tuple[str, str]]:
-    """``(kind, key)`` pairs a search for documents referring to ``text`` matches. Pure.
-
-    ``text`` is what a person or the model names: "ÖNORM B 1600", "§ 33 BayBO",
-    "EP-05", "Plan Nr. EP-05", "Brandschutzkonzept". A norm, a law or a plan with its
-    designator or pointing word is read with the same patterns as the documents; a
-    document word maps to its type; anything else is taken as a bare plan number,
-    which is how a sheet is named. Several readings may match ("Lageplan" is a
-    document type, never a plan number), so every one found is returned.
-    """
     text = " ".join((text or "").split())
     if not text:
         return []

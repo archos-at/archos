@@ -64,10 +64,6 @@ def real_tool():
 
 def _render(agent: ChatAgent, **overrides) -> str:
     kwargs = {
-        # The static half is its own file now (`chat_static.md`, the bundled
-        # fallback for the prompt Langfuse serves). The subject block this test
-        # is about sits BELOW the KV-cache boundary, so rendering the template
-        # with an empty static half changes nothing it asserts.
         "static_block": "",
         "tools": [{"name": "knowledge_search", "description": "Search the knowledge base"}],
         "user_info": None,
@@ -87,8 +83,6 @@ class TestChatAgentPromptNamesTheSubject:
 
         assert SUBJECT in rendered
         assert "Projektwissen" in rendered
-        # The point of the block: bare references resolve to THIS file, and the
-        # model must not ask for it or ask the user to upload it.
         assert "never ask which file is meant" in rendered
 
     def test_the_block_states_the_fact_and_leaves_the_procedure_to_the_tool(self, mock_llm_provider, real_tool):
@@ -183,8 +177,6 @@ class TestSubjectKeepsTheSearchTools:
         )
         await agent.run(state)
 
-        # The turn's binding is the proof of which tools the model was offered;
-        # the prompt no longer repeats it as a list.
         assert "searching_tool" in [tool["name"] for tool in agent._boot.tools_info]
 
 

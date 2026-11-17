@@ -28,8 +28,6 @@ const UI_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const OUT_DIR = join(UI_ROOT, 'public', 'excalidraw')
 
 const require = createRequire(import.meta.url)
-// The package's `exports` map hides `package.json`, so resolve the entry
-// (`dist/prod/index.js`) and climb two levels to the package root.
 const packageRoot = join(dirname(require.resolve('@excalidraw/excalidraw')), '..', '..')
 const FONTS = join(packageRoot, 'dist', 'prod', 'fonts')
 
@@ -39,8 +37,6 @@ async function main() {
   } catch {
     throw new Error(`@excalidraw/excalidraw has no fonts at ${FONTS}`)
   }
-  // A stale copy after a version bump would serve fonts whose hashed names the
-  // new bundle no longer asks for, and every miss goes to the CDN.
   await rm(OUT_DIR, { recursive: true, force: true })
   await mkdir(OUT_DIR, { recursive: true })
   await cp(FONTS, join(OUT_DIR, 'fonts'), { recursive: true })

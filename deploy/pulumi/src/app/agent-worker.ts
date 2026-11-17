@@ -17,37 +17,8 @@ import { AppSecrets, AppWiring, workerEnv } from "./config";
 import { installQueueScaledObject } from "./keda-scaling";
 import { UID } from "../constants";
 
-/** The Hatchet workflow the tier runs (ADR-0150). */
 export const WORKFLOW = "research-run";
 
-/**
- * Research worker tier (ADR-0021, ADR-0150).
- *
- * Dedicated worker replicas (same backend image, `PROCESS_ROLE=worker`) claim
- * deep-research jobs from Postgres and execute them, so the token-heavy
- * workload scales horizontally and independently of the chat/web tier. No web
- * port, no PVC — workers are stateless (vectors live in shared Qdrant,
- * job state in Postgres).
- *
- * SCALED ON THE QUEUE, NOT ON CPU. A research job spends its time waiting on
- * model providers, so CPU says nothing about the backlog (the CPU HPA this
- * replaced stayed flat while jobs queued). KEDA counts the workflow's Hatchet backlog
- * and asks for ceil(depth / concurrency) replicas between `minReplicas` and
- * `maxReplicas`; an empty queue shrinks the tier to its floor (zero in dev).
- * The claim is fair across organizations and holds one to
- * `MAX_ACTIVE_JOBS_PER_ORG` jobs at once, so a deep queue from one office
- * does not make the tier scale past what any single office may use of it.
- *
- * ROLLOUT NOTE — on SIGTERM the worker stops claiming and awaits its in-flight
- * research jobs (`agent_host/jobs/worker.py`), which routinely run for minutes; the
- * Kubernetes default `terminationGracePeriodSeconds` of 30 SIGKILLs it long
- * before that drain finishes. The drain budget is `agentWorkerDrainSeconds`; the
- * grace period is that plus time to give back what is still running
- * (`agentWorkerRollout`: a job given back is claimed again from the start, at no
- * cost in attempts), and the rollout
- * surges (`maxUnavailable: 0`) so replacement capacity exists before any
- * draining worker goes away.
- */
 export function installAgentWorker(
   w: AppWiring,
   cfg: DeployConfig,
@@ -60,8 +31,6 @@ export function installAgentWorker(
 } {
   const labels = commonLabels("agent-worker");
   const profile = agentWorkerRollout(cfg.agentWorker.drainSeconds);
-  // No preStop: workers sit behind no Service, so there is no endpoint to
-  // deprogram — they pull work from Postgres and stop pulling on SIGTERM.
   const shutdown = gracefulShutdown(profile);
 
   const deployment = new k8s.apps.v1.Deployment(
@@ -75,19 +44,13 @@ export function installAgentWorker(
         template: {
           metadata: {
             labels,
-            // Rotating an LLM key or the job-payload KEK must actually reach the
-            // workers; secretKeyRef alone would not restart them (rollout.ts).
             annotations: secretChecksumAnnotations(withLangfuseKeysChecksum(cfg, secrets.checksum)),
           },
           spec: {
             enableServiceLinks: false, // see platform/security.ts — service-link env collisions
             imagePullSecrets: w.imagePullSecrets,
             securityContext: { runAsNonRoot: true, runAsUser: UID.backend, runAsGroup: UID.backend },
-            // Let a terminating worker finish the research jobs it already
-            // claimed instead of losing them to SIGKILL at the 30s default.
             terminationGracePeriodSeconds: shutdown.terminationGracePeriodSeconds,
-            // Spread workers across nodes (autoscaler prerequisite + survives a
-            // single node loss / automatic-upgrade node replacement).
             topologySpreadConstraints: spreadAcrossNodes(labels),
             ...onNodeGroup(cfg.nodeGroups.app),
             containers: [
@@ -98,10 +61,6 @@ export function installAgentWorker(
                 securityContext: hardenedContainerSecurityContext(),
                 env: workerEnv(w),
                 resources: toResourceRequirements(cfg.agentWorker.resources),
-                // Liveness: the worker touches /tmp/research-worker.alive every
-                // claim-loop tick. Probe with python (present in the image; the
-                // debian-slim backend image has NO pgrep/procps) and fail if the
-                // marker is stale (loop hung) or missing.
                 livenessProbe: {
                   exec: {
                     command: [
@@ -115,12 +74,6 @@ export function installAgentWorker(
                   periodSeconds: 30,
                   failureThreshold: 3,
                 },
-                // The marker only appears on the FIRST claim-loop tick, which is
-                // gated behind importing the full agent_host stack + connecting to
-                // Postgres/Qdrant. On a cold node that can exceed the liveness
-                // window and crash-loop the pod before it ever works. A startup
-                // probe holds liveness off until first boot completes (up to
-                // 60×10s = 10 min) instead of killing a still-booting worker.
                 startupProbe: {
                   exec: {
                     command: ["python", "-c", "import os,sys; sys.exit(0 if os.path.exists('/tmp/research-worker.alive') else 1)"],
@@ -137,13 +90,7 @@ export function installAgentWorker(
     {
       provider: w.provider,
       dependsOn: [secrets.secret, ...dependsOn],
-      // KEDA owns the replica count once the ScaledObject exists.
       ignoreChanges: ["spec.replicas"],
-      // Each replica may hold the rollout for a full drain budget, and the
-      // replacement gets a 10-minute cold-start startupProbe window on top —
-      // well past Pulumi's default 10m await. Track the same arithmetic as the
-      // profile's progressDeadlineSeconds, plus slack, so Kubernetes is what
-      // declares failure rather than the client giving up mid-roll.
       customTimeouts: {
         create: `${Math.ceil(profile.progressDeadlineSeconds / 60) + 15}m`,
         update: `${Math.ceil(profile.progressDeadlineSeconds / 60) + 15}m`,
@@ -159,14 +106,10 @@ export function installAgentWorker(
     maxReplicas: cfg.agentWorker.maxReplicas,
     concurrency: cfg.agentWorker.concurrency,
     workflow: WORKFLOW,
-    // Before ADR-0079 this tier was scaled by a plain HPA of the same name, which
-    // a stack upgraded from then still holds when the ScaledObject is created.
     adoptHpa: "agent-worker",
     dependsOn,
   });
 
-  // One-at-a-time voluntary disruptions so an upgrade node drain can't evict
-  // the whole worker tier and stall all in-flight research jobs at once.
   const pdb = installPdb("agent-worker", w.namespace, w.provider, labels, [deployment]);
 
   return { deployment, scaledObject, pdb };

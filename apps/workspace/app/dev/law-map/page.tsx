@@ -1,12 +1,5 @@
 'use client'
 
-/**
- * Dev preview for the law map: the REAL `LawMapPage` on Austria's pack served
- * as one submitted change request (`_fixtures/law-map-at.ts`). A
- * module-scope fetch shim (browser + dev only) serves the request; 404s
- * outside development (`app/dev/layout.tsx`).
- */
-
 import type { JSX } from 'react'
 import { Suspense } from 'react'
 import { LawMapPage } from '@/features/platform/components/law-map/law-map-page'
@@ -17,7 +10,6 @@ const REQUEST_ID = '5907f5cb-8443-43bd-8b82-02f28d563dfd'
 const claims = (body: Record<string, unknown>) => Object.entries(body).map(([path, value]) => ({ path, value, decision: null as string | null }))
 const BASE_URL = 'https://www.oib.or.at/sites/default/files/richtlinien/2023'
 
-/** A source and a test question as an operator proposes them, so "everything else" reads in words (addresses illustrative). */
 const OTHERS = [
   {
     revisionId: 'rev-source:at-oib',
@@ -75,7 +67,6 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
       const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
       if (url.startsWith('/api/platform/knowledge/change-requests?countryId=')) return Response.json({ changeRequests: [SUMMARY], nextCursor: null })
       if (url === '/api/platform/knowledge/sources') return Response.json({ sources: [{ sourceKey: 'at-ris', origin: 'built_in', countryId: 'AT', hosts: [{ host: 'www.ris.bka.gv.at', state: 'active', usableUntil: null }] }], builtInUnavailable: null })
-      // A verdict lands on the fixture's claims, so the outline shows it after its reload.
       if (url === `/api/platform/knowledge/change-requests/${REQUEST_ID}/review` && init?.method === 'POST') {
         const body = JSON.parse(String(init.body)) as { decisions: { revisionId: string; claimPath: string; decision: string }[] }
         for (const one of body.decisions) {

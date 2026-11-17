@@ -74,7 +74,6 @@ describe('the purger’s queue writes follow the declared deletion lifecycle', (
     const { from, to } = movesOf(statements)
 
     for (const status of [...from, ...to]) expect(DELETION_STATUSES).toContain(status)
-    // Every write names the states it moves a row out of: none is unguarded.
     expect(from.length).toBeGreaterThan(0)
     for (const source of from) {
       for (const target of to) {
@@ -90,10 +89,6 @@ describe('the purger’s queue writes follow the declared deletion lifecycle', (
       const { from, to } = movesOf(await statementsOf(run))
       for (const source of from) for (const target of to) made.add(`${source} → ${target}`)
     }
-    // `close` from `failed`: the holder of a claim the reap failed while its
-    // purge still ran (`markPurged`), and a folder that is provably erased
-    // (`closeErased`). The purger never closes a `pending` row; the chat's
-    // delete request does.
     const declared = DELETION_LIFECYCLE.moves
       .filter((move) => ['claim', 'reclaim', 'finish', 'release', 'fail'].includes(move.event) || (move.event === 'close' && move.from === 'failed'))
       .map((move) => `${move.from} → ${move.to}`)

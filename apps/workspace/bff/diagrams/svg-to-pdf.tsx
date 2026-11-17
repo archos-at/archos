@@ -1,54 +1,3 @@
-/**
- * The same diagram, as a PDF, with no browser anywhere.
- *
- * ## Why a PDF at all, when the SVG already previews
- *
- * `image/svg+xml` is in `PREVIEW_TYPES`, so the filed SVG shows in the Files
- * pane today. The PDF is not for looking at — it is for **attaching**. An
- * Einreichung is a bundle of PDFs handed to a Behörde, and an architect who has
- * to convert a file before they can submit it will convert it in whatever tool
- * is open, which is where the marking line stops travelling with the drawing.
- *
- * ## Why `@react-pdf/renderer` and not a headless browser
- *
- * There is no browser in production. `playwright-core` is a devDependency;
- * putting Chromium in the production image is a deployment decision nobody has
- * made, and it would be a large one (image size, a second attack surface, a
- * process to supervise). `@react-pdf/renderer` is ALREADY a production
- * dependency and — verified against the installed 4.6.0 types and against a
- * real `renderToBuffer` run in this Node — ships native `Svg`, `G`, `Defs`,
- * `ClipPath`, `Marker`, `LinearGradient`, `RadialGradient`, `Stop`, `Path`,
- * `Rect`, `Circle`, `Ellipse`, `Line`, `Polyline`, `Polygon`, `Text` and
- * `Tspan`. So the drawing crosses into the PDF as VECTOR primitives, not as a
- * raster of a screenshot: it stays selectable, scalable and diffable, and the
- * conversion needs no DOM.
- *
- * The cost of that choice is this file. `@react-pdf/renderer` does not accept
- * SVG markup — it accepts its own components — so the parsed tree has to be
- * walked and mapped. That walk is also the second reason the tree exists: the
- * elements this file can draw are exactly the elements `svg.ts` admits, and
- * when they disagree the disagreement is a missing branch here rather than a
- * silently blank region in a submitted document.
- *
- * Arrowheads are drawn by `arrowheadFor`, not by spreading mermaid's
- * `marker-end="url(#id)"` onto `<Path>`. The library's `markerEnd` prop, when
- * it exists, wants a marker node; a URL string is not one. Keep those keys off
- * `Presentation` even if a later type package lists them.
- *
- * ## What is deliberately lost
- *
- *   - **Typefaces.** `@react-pdf/renderer` knows the fourteen standard PDF
- *     fonts and nothing else; registering a webfont means shipping a font file
- *     and a licence with the image. Every `font-family` therefore lands on
- *     Helvetica, varying only weight and slant. A diagram whose meaning depends
- *     on its typeface is not a diagram this pipeline is for.
- *   - **CSS.** There is none to lose: `svg.ts` refuses the `<style>` element
- *     outright and flattens the `style` attribute into presentation attributes,
- *     so everything that paints arrives as an attribute. That is the ONLY
- *     reason this file can be a pure attribute mapper, and it is why the
- *     refusal is in the validator rather than here.
- */
-
 import React from 'react'
 import {
   Circle,
@@ -76,12 +25,6 @@ import { AI_GENERATOR_NAME, type AiProvenanceMarking } from '@/lib/ai-provenance
 import { withAiProvenanceXmp } from '@/lib/pdf/xmp-metadata'
 import { attributeOf, type DiagramSvgViewport, type SvgElement, type SvgNode } from './svg'
 
-/**
- * The presentation props every drawable shares, taken from the component's own
- * type rather than restated. `Pick` on `ComponentProps` means a future
- * `@react-pdf/renderer` that renames one of these breaks the build here instead
- * of silently dropping the paint from a submitted drawing.
- */
 type Presentation = Pick<
   React.ComponentProps<typeof Path>,
   | 'fill'
@@ -102,7 +45,6 @@ type Presentation = Pick<
   | 'dominantBaseline'
 >
 
-/** A closed set is a closed set: a value outside it is dropped, never coerced. */
 function oneOf<T extends string>(allowed: readonly T[], value: string | undefined): T | undefined {
   return allowed.find((member) => member === value)
 }
@@ -122,19 +64,6 @@ const BASELINES = [
 ] as const
 const VISIBILITIES = ['visible', 'hidden', 'collapse'] as const
 
-/**
- * A dash pattern pdfkit will accept, or nothing.
- *
- * Two shapes reach here from a browser and neither is usable as written.
- * `getComputedStyle` answers in pixels — `stroke-dasharray: 1px, 0px` — and
- * pdfkit parses `1px` to `null` and then throws *"lengths must be numeric and
- * greater than zero"*, which takes the whole PDF down over an edge style. And
- * a pattern containing a zero is how a browser spells "solid" for an element
- * whose dash was never set; drawing it is not merely wrong, it is refused.
- *
- * So: strip units, and treat anything that is not a run of positive lengths as
- * no dash at all. Found against real mermaid output, which emits both.
- */
 function dashArrayOf(raw: string | undefined): string | undefined {
   if (!raw) return undefined
   const lengths = raw
@@ -168,33 +97,8 @@ function presentationOf(element: SvgElement): Presentation {
   }
 }
 
-/**
- * Font facts carried down a `<G style>` rather than set on the `<Text>`.
- *
- * `@react-pdf/renderer` types an SVG `<Text>`'s `style` as
- * `SVGPresentationAttributes`, which has no font properties, while a `<G>`'s
- * `style` is the full `Style` — and the runtime inherits font settings from the
- * group. Verified by rendering both and reading the content stream: a
- * `<G style={{fontSize: 19}}>` around a `<Text>` emits `/F1 19 Tf`.
- *
- * So the wrapper group is not decoration. It is how a per-text font size
- * reaches the PDF WITHOUT a cast — the alternative was one `as unknown as` at
- * this boundary, and a group node costs less than a hole in the types. The
- * style type is taken from `<G>` itself for the same reason `Presentation` is
- * taken from `<Path>`: restating it is how it drifts.
- */
 type FontStyle = React.ComponentProps<typeof G>['style']
 
-/**
- * Every `font-family` becomes Helvetica; weight and slant pick the face.
- *
- * The fourteen standard PDF fonts are the only ones available without shipping
- * a font file (see the header). Mermaid asks for `"trebuchet ms", verdana,
- * arial, sans-serif`, and asking `@react-pdf/renderer` for any of those throws
- * at render time — so a diagram would fail to become a PDF over a typeface.
- * Choosing the face here rather than failing is the right trade for a drawing
- * whose meaning is in its geometry.
- */
 function fontStyleOf(element: SvgElement): FontStyle {
   const weight = (attributeOf(element, 'font-weight') ?? '').toLowerCase()
   const slant = (attributeOf(element, 'font-style') ?? '').toLowerCase()
@@ -210,7 +114,6 @@ function fontStyleOf(element: SvgElement): FontStyle {
   return { fontFamily: family, fontSize: fontSizeOf(element) }
 }
 
-/** The text a `<text>`/`<tspan>` prints, with element children flattened out. */
 function textOf(node: SvgNode): string {
   if (node.kind === 'text') return node.text
   return node.children.map(textOf).join('')
@@ -223,21 +126,6 @@ function numeric(element: SvgElement, name: string): number | undefined {
   return Number.isFinite(value) ? value : undefined
 }
 
-/**
- * The arrowheads, drawn here because the library will not draw them.
- *
- * A process flow without arrowheads is not a smaller drawing, it is a different
- * claim: „A → B" and „A — B" say different things, and the PDF is the artifact
- * that gets attached to an Einreichung. So the head is computed from the edge
- * itself rather than left to a `<marker>` reference nothing resolves.
- *
- * The tangent is exact for the two commands that matter. The last coordinate
- * pair of a `d` is the endpoint, and the pair before it is either the previous
- * `L` vertex or a cubic's second control point — and the tangent of a cubic at
- * its end IS the direction from that control point to the endpoint. A path
- * using any other command bails and gets no head, because a head pointing the
- * wrong way is worse than none on a drawing somebody signs.
- */
 const SUPPORTED_PATH_COMMANDS = /^[MLCmlc0-9.,\s+-]*$/
 const ARROW_LENGTH = 9
 const ARROW_HALF_WIDTH = 4
@@ -274,13 +162,6 @@ function edgePoints(element: SvgElement): Point[] | null {
   return null
 }
 
-/**
- * A filled triangle at the end (or the start) of an edge, or `null`.
- *
- * Sized in user units rather than in stroke widths: mermaid's own arrowheads
- * declare `markerUnits="userSpaceOnUse"`, so a hairline edge still gets a head
- * a reader can see on paper.
- */
 function arrowheadFor(element: SvgElement, at: 'start' | 'end', key: number): React.ReactNode {
   if (!attributeOf(element, at === 'end' ? 'marker-end' : 'marker-start')) return null
   const points = edgePoints(element)
@@ -291,7 +172,6 @@ function arrowheadFor(element: SvgElement, at: 'start' | 'end', key: number): Re
   const dx = tip.x - from.x
   const dy = tip.y - from.y
   const length = Math.hypot(dx, dy)
-  // Two coincident points carry no direction; a head would be a dot.
   if (!Number.isFinite(length) || length < 0.01) return null
 
   const ux = dx / length
@@ -304,8 +184,6 @@ function arrowheadFor(element: SvgElement, at: 'start' | 'end', key: number): Re
     `${baseX + uy * ARROW_HALF_WIDTH},${baseY - ux * ARROW_HALF_WIDTH}`,
   ].join(' ')
 
-  // The head is the LINE's colour, not its fill: an edge is stroked and
-  // unfilled, so reading `fill` here would paint every arrowhead invisible.
   return (
     <Polygon
       key={`${key}-${at}`}
@@ -315,7 +193,6 @@ function arrowheadFor(element: SvgElement, at: 'start' | 'end', key: number): Re
   )
 }
 
-/** SVG's initial `font-size`, the `em` a text without one resolves against. */
 const DEFAULT_FONT_SIZE = 16
 
 function fontSizeOf(element: SvgElement): number | undefined {
@@ -323,17 +200,6 @@ function fontSizeOf(element: SvgElement): number | undefined {
   return size !== undefined && size > 0 ? size : undefined
 }
 
-/**
- * A text position in user units: a plain number, `px`, or `em` against the
- * element's own font size. Only the first value of a list is read — mermaid
- * never writes per-glyph positions.
- *
- * `@react-pdf/renderer` reads `x`/`y` as numbers and ignores `dx`/`dy`, while
- * mermaid places the labels of its newer grammars with exactly those: a gantt
- * axis tick is `y="3" dy="1em"`, a mindmap node `<tspan y="-0.1em" dy="1.1em">`.
- * Read raw, the ticks printed on the axis line and every mindmap label rode
- * up out of its box; measured on the fixtures in `__fixtures__/`.
- */
 function lengthOf(raw: string | undefined, fontSize: number): number | undefined {
   const first = raw?.trim().split(/[\s,]+/)[0]
   if (!first) return undefined
@@ -342,23 +208,11 @@ function lengthOf(raw: string | undefined, fontSize: number): number | undefined
   return /em$/i.test(first) ? value * fontSize : value
 }
 
-/** Where a `<text>` starts: its `x`/`y` (0 when absent, as in SVG) shifted by `dx`/`dy`. */
 export function textOrigin(element: SvgElement, fontSize: number): { x: number; y: number } {
   const at = (name: string) => lengthOf(attributeOf(element, name), fontSize) ?? 0
   return { x: at('x') + at('dx'), y: at('y') + at('dy') }
 }
 
-/**
- * The tspans of one `<text>`, each at the absolute position SVG would give it.
- *
- * SVG places a tspan at its own `x`/`y` when it has them and at the end of
- * the previous run when it does not, then shifts it by `dx`/`dy`. The PDF
- * renderer knows only absolute positions, so they are computed here: a gantt
- * section label is `<tspan x="10">` with no `y`, which the renderer put at
- * y = 0, over the chart's title. The x carried forward is the line start
- * rather than the end of the previous run, which only a multi-run line with
- * no `x` of its own would notice — mermaid does not write one.
- */
 export function tspanPositions(
   tspans: SvgElement[],
   start: { x: number; y: number },
@@ -384,10 +238,6 @@ function placedTspans(
   inheritedSize: number
 ): React.ReactNode[] {
   const positions = tspanPositions(tspans, start, inheritedSize)
-  // An empty tspan (mermaid emits them as line spacers) draws nothing, and on
-  // React 19 it crashes react-pdf's layout: React creates no text node for '',
-  // so the tspan lays out to no lines and `lines[0].xAdvance` throws. Its
-  // position still counts, which is why the positions are computed first.
   return tspans.flatMap((tspan, index) => {
     const text = textOf(tspan)
     if (text === '') return []
@@ -399,17 +249,6 @@ function placedTspans(
   })
 }
 
-/**
- * Map one node, or `null` when it cannot be drawn.
- *
- * Returning `null` — rather than throwing — for an element missing the geometry
- * its component requires is deliberate: `<rect>` with no width is a rectangle
- * with no area, and refusing the whole PDF over one is worse than a drawing
- * that is missing something that was never visible. `<title>`, `<desc>` and
- * `<metadata>` return `null` for the same reason from the other direction: they
- * carry no paint, and `<metadata>` in particular carries the diagram source,
- * which belongs in the SVG and not printed across the page.
- */
 function toPdfNode(node: SvgNode, key: number): React.ReactNode {
   if (node.kind === 'text') return null
   const element = node
@@ -432,12 +271,6 @@ function toPdfNode(node: SvgNode, key: number): React.ReactNode {
         </ClipPath>
       )
     case 'marker':
-      // NOT rendered, and not an oversight — see `arrowheadFor`.
-      // `@react-pdf/renderer` exports a `Marker` component whose renderer wants
-      // `markerEnd` to be a marker NODE; an SVG string carries `url(#id)`, and
-      // nothing in the library resolves one to the other. A `<Marker>` reaching
-      // the tree is therefore drawn as a top-level shape and warns *"SVG node
-      // of type MARKER is not currently supported"* twelve times per flowchart.
       return null
     case 'linearGradient': {
       const id = attributeOf(element, 'id')
@@ -567,10 +400,6 @@ function toPdfNode(node: SvgNode, key: number): React.ReactNode {
       return points ? <Polygon key={key} {...style} points={points} /> : null
     }
     case 'text': {
-      // SVG's own default for both is 0, and mermaid relies on it: a node label
-      // is a `<text>` with NO x or y inside a `<g transform="translate(...)">`.
-      // Requiring them dropped every label in a flowchart and left the boxes
-      // empty — a PDF that looks like a diagram and says nothing.
       const fontSize = fontSizeOf(element) ?? DEFAULT_FONT_SIZE
       const { x, y } = textOrigin(element, fontSize)
       const nested = element.children.filter(
@@ -585,18 +414,12 @@ function toPdfNode(node: SvgNode, key: number): React.ReactNode {
       )
     }
     case 'tspan':
-      // Reached only for a tspan outside a <text>, which SVG does not draw
-      // either; a tspan inside one is placed by `placedTspans`.
       return null
     default:
-      // `svg` (handled by the caller), `title`, `desc`, `metadata` — and any
-      // element `svg.ts` starts admitting without a branch here, which is the
-      // failure this default is here to keep visible rather than silent.
       return null
   }
 }
 
-/** The edge, then whichever heads it asked for. */
 function withArrowheads(element: SvgElement, key: number, edge: React.ReactNode): React.ReactNode {
   const start = arrowheadFor(element, 'start', key)
   const end = arrowheadFor(element, 'end', key)
@@ -610,7 +433,6 @@ function withArrowheads(element: SvgElement, key: number, edge: React.ReactNode)
   )
 }
 
-/** A4 in PostScript points, the unit `@react-pdf/renderer` lays out in. */
 const A4_SHORT = 595.28
 const A4_LONG = 841.89
 const MARGIN = 36
@@ -622,38 +444,11 @@ export interface DiagramPdfInput {
   readonly viewport: DiagramSvgViewport
   readonly title: string
   readonly projectName: string
-  /**
-   * The provenance line, already in the reader's locale.
-   *
-   * Passed in rather than looked up here for the reason `answer-export` gives
-   * about the same problem: this module runs on a request whose locale the
-   * caller resolved, and a renderer that reaches for a dictionary is a renderer
-   * that renders German for a Viennese office and German for a Brussels one.
-   */
   readonly marking: string
-  /**
-   * The machine-readable marking, for the Info dictionary.
-   *
-   * Separate from `marking` above because they are read by different things and
-   * neither substitutes for the other: the footer line is for a person holding
-   * a printout, this is for a records system or a compliance scan that never
-   * OCRs a page. This artifact shipped with the first and without the second —
-   * the report PDF set `Keywords` from the day it existed and the diagram PDF
-   * set none, which is what a marking applied producer-by-producer looks like
-   * when one producer forgets. `fileGeneratedDocument` now verifies this string
-   * is in the finished bytes.
-   */
   readonly provenance: AiProvenanceMarking
   readonly createdAt: Date
 }
 
-/**
- * One page, one diagram, fitted.
- *
- * Orientation follows the drawing, because a wide flowchart rotated onto a
- * portrait page is the same drawing at half the size, and the whole reason this
- * artifact exists is that somebody has to read it on paper.
- */
 export async function renderDiagramPdf(input: DiagramPdfInput): Promise<Uint8Array> {
   const landscape = input.viewport.width > input.viewport.height
   const pageWidth = landscape ? A4_LONG : A4_SHORT
@@ -661,9 +456,6 @@ export async function renderDiagramPdf(input: DiagramPdfInput): Promise<Uint8Arr
   const boxWidth = pageWidth - MARGIN * 2
   const boxHeight = pageHeight - MARGIN * 2 - HEADER_HEIGHT - FOOTER_HEIGHT
 
-  // Fit inside the box, never up-scale past it. `preserveAspectRatio` on the
-  // <Svg> would do the fitting, but the box has to be sized for the caption
-  // rows either way, so the arithmetic is here where both can see it.
   const scale = Math.min(boxWidth / input.viewport.width, boxHeight / input.viewport.height)
   const drawnWidth = input.viewport.width * scale
   const drawnHeight = input.viewport.height * scale
@@ -674,12 +466,6 @@ export async function renderDiagramPdf(input: DiagramPdfInput): Promise<Uint8Arr
     <Document
       title={input.title}
       author={input.projectName}
-      // `Keywords` is the one Info field that is a list by convention, and
-      // `Creator` names what wrote the file — the same two fields, carrying the
-      // same vocabulary, as the research report's PDF. `Subject` carries the
-      // reader's own marking line, because that is the field a viewer's
-      // document-properties panel actually shows. See `@/lib/ai-provenance`
-      // for why the marking lives in fields meant for something else (and XMP).
       keywords={input.provenance}
       subject={input.marking}
       creator={AI_GENERATOR_NAME}

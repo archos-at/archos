@@ -1,12 +1,3 @@
-/**
- * Two answers as the server stored them (2026-11-12, a dev environment), trimmed:
- * the rows the Herleitung header misread. `UNBACKED` cites two sources and its
- * answer check rated it low for two unbacked statements; `ASKED_BACK` read the
- * office's documents and then asked for the site; `CITED_QUESTION` is a cited,
- * complete answer whose last line invites a correction, which is no Rückfrage. `/dev/derivation` maps them through
- * `mapServerMessageToChatMessage`, as a reload does.
- */
-
 import type { ServerMessageInput } from '@/features/chat/lib/server-message-mapper'
 
 export interface StoredAnswer {

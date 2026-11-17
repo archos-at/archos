@@ -35,14 +35,12 @@ from agent.common.data_source_registry import reset_registry
 from agent.common.norm_registry import oib_families
 from agent.knowledge.inventory import set_norm_families
 
-#: The corpus these tests stand in front of: OIB-RL 2 in three parts.
 CORPUS = (
     "oib-rl_2_ausgabe_mai_2023.pdf",
     "oib-rl_2.1_ausgabe_mai_2023.pdf",
     "oib-rl_2.2_ausgabe_mai_2023.pdf",
 )
 
-#: Which document each scripted search returns, keyed by the query.
 RETURNS: dict[str, str] = {}
 
 

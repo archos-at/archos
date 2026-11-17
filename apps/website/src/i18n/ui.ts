@@ -1,12 +1,6 @@
 import { withName } from '../lib/identity';
 import type { Locale } from './paths';
 
-/**
- * Shared strings: the shell (header, footer, skip link, language switch) and the
- * labels of shared components. Page copy lives in `pages/<key>.ts`. Both
- * locales have identical keys: `en` is typed as `typeof de`, so a missing key
- * fails `astro check`. The brand name is `{name}`, filled by `withName`.
- */
 const de = {
   skipLink: 'Zum Inhalt springen',
   mainNavLabel: 'Hauptnavigation',
@@ -46,7 +40,6 @@ const de = {
   aiImage: 'KI-generiertes Bild',
   breadcrumbHome: 'Start',
   rssTitle: '{name} Blog',
-  // The post blocks (src/components/blocks).
   blockTakeaways: 'Das Wichtigste in Kürze',
   blockSource: 'Quelle',
   blockSourceLink: 'Zur Quelle',
@@ -130,15 +123,12 @@ const en: UiCopy = {
 
 const dictionaries: Record<Locale, UiCopy> = { de, en };
 
-/** The shared strings in `locale`, brand name filled in. */
 export function t(locale: Locale): UiCopy {
   return withName(dictionaries[locale]);
 }
 
-/** The language code shown by the language switch: the other locale's code is the link text. */
 export const localeCodes: Record<Locale, string> = { de: 'DE', en: 'EN' };
 
-/** Fills `{index}`-style placeholders in a string. Brand name is `withName`'s job, not this. */
 export function format(template: string, values: Record<string, string | number>): string {
   return template.replace(/\{(\w+)\}/g, (token, key: string) => (key in values ? String(values[key]) : token));
 }

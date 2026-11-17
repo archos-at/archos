@@ -14,7 +14,6 @@ import { FolderCardFrame } from '@/features/documents/components/folder-card-fra
 import { FileTileBody, FileTileMedia, TileShell } from '@/features/documents/components/file-tile'
 import { Family, Forced, type ForcedState, type StateRowSpec } from './state-table'
 
-/** A list row that opens something: the kit's `Item` as a button, in a list of one. */
 function ListRow({ state, mark }: { state?: ForcedState; mark?: 'current' | 'picked' }): JSX.Element {
   return (
     <Forced state={state} target="button" className="w-full">
@@ -85,7 +84,6 @@ function Options({ state, target }: { state?: ForcedState; target?: string }): J
   )
 }
 
-/** A folder as Dateien draws it: the sheet in its tile, which names the group the sheet answers in. */
 function FolderSheet({ state }: { state?: ForcedState }): JSX.Element {
   return (
     <Forced state={state} className="w-full">
@@ -105,7 +103,6 @@ function FolderSheet({ state }: { state?: ForcedState }): JSX.Element {
   )
 }
 
-/** A file tile as Dateien draws it: the thumbnail's sheet, the name under it. */
 function FileTile({ state, picked = false }: { state?: ForcedState; picked?: boolean }): JSX.Element {
   return (
     <Forced state={state} className="w-full">
@@ -162,7 +159,6 @@ const ROWS: readonly StateRowSpec[] = [
   },
 ]
 
-/** Everything that is a thing rather than a command: a row, a card, an entry. */
 export function ObjectsFamily(): JSX.Element {
   return (
     <Family
@@ -209,7 +205,6 @@ const SMALL_ROWS: readonly StateRowSpec[] = [
   },
 ]
 
-/** The small things: a chip, a field, a quiet link. */
 export function SmallFamily(): JSX.Element {
   return (
     <Family

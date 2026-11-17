@@ -3,9 +3,7 @@ import { joinClasses } from './join-classes';
 
 export interface FAQProps {
   items: { q: string; a: ReactNode }[];
-  /** With a title: heading-1 left over four columns, list right */
   title?: string;
-  /** Index opened at start; default 0 */
   open?: number;
   className?: string;
 }

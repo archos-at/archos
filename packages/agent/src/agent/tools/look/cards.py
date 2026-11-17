@@ -1,41 +1,3 @@
-"""The ``look`` card and the ``look`` step: where Piloti looked, shown twice (ADR-0128).
-
-Every look that rendered leaves a Herleitung row at once
-(``retrieval_status.emit_look_step``): the reader sees Piloti look while it looks.
-The CARD waits for the answer, because it shows only the looks the answer
-relies on, and that is known once the answer is final.
-
-## Which looks become card items
-
-A look is held on the turn's card registry (:meth:`CardRegistry.hold`) as it
-happens; ``finalize_answer`` takes them before the card suppression and places
-them after it (:func:`take_looks`, :func:`place_look_cards`). The rule, by
-document:
-
-1. A document the answer CITES (a cited source's file name) and Piloti looked
-   at is relied on, and only those: a look the answer moved past stays a
-   Herleitung row. A value read off a drawing is cited with the `[N]` of the
-   look's place (``place.py``), so an answer that states one cites the document.
-   An answer that cites none of the looked documents makes no card: the look is
-   a Herleitung step only (ADR-0125, amendment of 2026-10-22).
-2. Of a relied-on document only the items that ADD evidence are kept: a look
-   whose reading is empty or reports nothing found makes no item, and a whole-
-   page overview is dropped when the document also has a region crop (it is
-   kept when the overviews are all there is).
-3. A document Piloti pointed at or highlighted (``highlight``, ``point``) is
-   always shown: the gesture was made for the answer. Its ``reference`` items
-   are kept; its looks follow rules 1 and 2.
-
-All items of a kept document go on its card, in the order they happened; a
-card holds :data:`MAX_LOOK_ITEMS` and a further one opens the next.
-
-## An address, never pixels
-
-An item names the document (its id for a workspace document), the Fassung, the
-page and the region, and the browser draws the thumbnail from the document's
-own preview route. A refused look holds nothing and emits nothing.
-"""
-
 from __future__ import annotations
 
 import logging
@@ -57,7 +19,6 @@ from agent.common.retrieval_status import emit_look_step
 logger = logging.getLogger(__name__)
 
 CARD_TYPE = "look"
-#: The kind the entries are held under on the card registry.
 HELD = "look"
 
 
@@ -66,14 +27,12 @@ def _key(name: str | None) -> str:
 
 
 def _document_key(document: dict[str, Any]) -> str:
-    """One card per document: by id when it has one, else by shelf and file name."""
     if document.get("id"):
         return f"id:{document['id']}"
     return f"{document.get('shelf', 'stored')}:{_key(document.get('name'))}"
 
 
 def clamp_region(region: Any) -> list[float] | None:
-    """``[x, y, w, h]`` on the page, clamped onto it and rounded; None for none or for a box with no area."""
     if region is None:
         return None
     try:
@@ -94,12 +53,6 @@ def _where(region: list[float] | None) -> str | None:
 
 
 def _hold(document: dict[str, Any], item: dict[str, Any], read: str = "") -> int | None:
-    """Hold one entry for the answer's cards; its number in the turn, None with no card channel.
-
-    ``read`` is everything the look read (every ``Gelesen:`` line), held beside
-    the item for the claim provenance: the item keeps one short reading for the
-    card, and a value from a later line must still count as read.
-    """
     registry = get_card_registry()
     if registry is None:
         return None
@@ -110,7 +63,6 @@ def _hold(document: dict[str, Any], item: dict[str, Any], read: str = "") -> int
 
 
 def looked_document(resolved: Any) -> dict[str, Any]:
-    """The looked-at document as the `look` step and its row name it: file name, shelf, workspace id when known."""
     target = getattr(resolved, "target", None)
     document_id = getattr(target, "document_id", None) if target is not None else None
     base = target is None and not getattr(resolved, "collection", "")
@@ -130,13 +82,6 @@ def note_look(
     revision_id: str | None = None,
     read: str = "",
 ) -> None:
-    """Record one look that rendered: hold its card item, emit its Herleitung row. Never raises.
-
-    ``resolved`` is ``look``'s :class:`~agent.tools.look.resolve.Resolved`.
-    ``revision_id`` is the Fassung when the caller knows it; absent, the reader
-    is shown the document's current Fassung. ``read`` is the whole reading
-    (every line), for the claim provenance; ``reading`` is the card's short one.
-    """
     try:
         document = looked_document(resolved)
         box = clamp_region(region)
@@ -177,16 +122,6 @@ def note_look(
 
 
 def _may_show(resolved: Any) -> bool:
-    """Whether the look's step may carry its document: the step is emitted before the round is admitted.
-
-    A stored step is read by everyone the conversation is shared with later, so
-    a page of a restricted folder this turn has not admitted
-    (:func:`~agent.knowledge.restricted_use.may_name`) leaves no step at
-    all: its name, id and reading are what the admission may still refuse
-    (listing is not use, ADR-0088). The held card item stays, since a card is
-    placed only for a document the answer cites, which the model read after
-    admission.
-    """
     from agent.knowledge.restricted_use import may_name
 
     return may_name(getattr(resolved, "collection", "") or None)
@@ -200,7 +135,6 @@ def note_reference(
     point: Sequence[float] | None = None,
     label: str = "",
 ) -> None:
-    """Record a box (``highlight``) or a pointer (``point``) Piloti showed the room, as a ``reference`` item."""
     try:
         box = clamp_region(region)
         item: dict[str, Any] = {"origin": "reference", "page": max(1, int(page or 1)), "frame": "page"}
@@ -221,13 +155,11 @@ def note_reference(
 
 
 def take_looks() -> list[dict[str, Any]]:
-    """This turn's held looks and references, taken off the registry (before anything clears it)."""
     registry = get_card_registry()
     return registry.take_held(HELD) if registry is not None else []
 
 
 def _cited_names(cited: Iterable[Any]) -> set[str]:
-    """The file names (basename, case-folded) of the answer's cited sources."""
     from agent.citations.wire import source_entry_to_wire
 
     names: set[str] = set()
@@ -242,7 +174,6 @@ def _cited_names(cited: Iterable[Any]) -> set[str]:
     return names
 
 
-#: A reading that says it found nothing: absence is reported in the prose, not shown as evidence.
 _NOTHING_FOUND_RE = re.compile(
     r"\b(?:nothing|none|not\s+(?:visible|legible|readable|shown|present|found|recognisable|recognizable)"
     r"|no\s+\w+(?:\s+\w+)?\s+(?:visible|found|shown|present|legible))\b"
@@ -253,7 +184,6 @@ _NOTHING_FOUND_RE = re.compile(
 
 
 def reports_nothing(reading: str | None) -> bool:
-    """Whether a card item's reading is empty or says the crop held nothing to read."""
     return not (reading or "").strip() or _NOTHING_FOUND_RE.search(reading or "") is not None
 
 
@@ -262,7 +192,6 @@ def _evidence(entry: dict[str, Any]) -> bool:
 
 
 def relied_on(held: Sequence[dict[str, Any]], cited_names: set[str]) -> list[dict[str, Any]]:
-    """The held entries the answer relies on, in order (the module docstring's rules). Pure."""
     looked = {
         _document_key(e["document"]): e["document"] for e in held if e["item"]["origin"] == "look" and _evidence(e)
     }
@@ -281,15 +210,6 @@ def relied_on(held: Sequence[dict[str, Any]], cited_names: set[str]) -> list[dic
 
 
 def relied_readings(held: Sequence[dict[str, Any]], cited: Iterable[Any] = ()) -> list[str]:
-    """What the answer's looks read off the drawings, one text per look. Pure; never raises.
-
-    The answer check reads them beside the passages (ADR-0139), and the
-    ``looked-before-measurement`` score asks whether the answer repeats one.
-    Unlike the cards, this does not need
-    the answer to cite the look: a value stated without a ``[N]`` is still read
-    off the drawing. Of the looked documents the ones the answer cites, else
-    all, and every look counts, overview or crop.
-    """
     try:
         looks = [e for e in held if e["item"]["origin"] == "look"]
         names = _cited_names(cited)
@@ -301,7 +221,6 @@ def relied_readings(held: Sequence[dict[str, Any]], cited: Iterable[Any] = ()) -
 
 
 def place_look_cards(held: Sequence[dict[str, Any]], cited: Iterable[Any] = ()) -> int:
-    """Put the entries the answer relies on onto ``look`` cards; how many items landed. Never raises."""
     registry = get_card_registry()
     if registry is None or not held:
         return 0
@@ -329,14 +248,6 @@ def place_look_cards(held: Sequence[dict[str, Any]], cited: Iterable[Any] = ()) 
 def drawing_value_status(
     held: Sequence[dict[str, Any]], content: str, cited: Iterable[Any], readings: Sequence[str] = ()
 ) -> tuple[bool, bool]:
-    """(the answer states a value read off a drawing, a region look at that drawing came first). Pure; never raises.
-
-    A drawing value is a reading the answer repeats, or a citation of a source
-    holding a reading or a drawing region. The look comes first by
-    construction (``held`` is what the turn looked at before the answer); the
-    question is whether it was a REGION look at the cited document, not only an
-    overview or nothing (ADR-0128, the ``looked-before-measurement`` score).
-    """
     try:
         from agent.citations.wire import source_entry_to_wire
 

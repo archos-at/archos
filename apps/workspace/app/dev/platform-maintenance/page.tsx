@@ -1,18 +1,5 @@
 'use client'
 
-/**
- * Dev preview for Platform → Wartung: the orphaned-vector sweep and the
- * deep-research kill switch, both built on the shared `MaintenanceActionCard`.
- *
- * Renders the REAL cards the way the route does (PageHeader, then the two
- * cards), then each card seeded with a finished run so the counts and the
- * named failures can be reviewed without touching the shared vector store or
- * the job store, then the read-only support role. A module-scope fetch shim
- * (browser + dev only) answers both POSTs, so clicking through a confirm here
- * is safe. Pinned to German, the primary product language. Not linked from
- * anywhere and 404s outside development.
- */
-
 import type { JSX } from 'react'
 import { notFound } from 'next/navigation'
 import { PageHeader } from '@/components/ui/page-header'

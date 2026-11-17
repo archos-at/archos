@@ -1,30 +1,3 @@
-"""``grep`` over the estate: wording, not meaning, in two stages, and never a silent no (ADR-0133 slice 4).
-
-1. **Candidates.** The index's literal scan (``retriever.find_text``, the same one
-   ``knowledge_search(match="exact"|"regex")`` runs) proposes the chunks that
-   hold the pattern, under the scope filter of every collection the call covers
-   (ADR-0116). ``find_text`` narrows its scroll by a Qdrant ``MatchText`` on the
-   pattern's whole-token words only when that cannot drop a match
-   (``qdrant.retrieval.literal_tokens``); a pattern that is part of a token, has
-   no literal word, or is a regex the reader cannot prove a superset for is read
-   over every chunk in scope. So stage 1 is a superset of the chunks that hold a
-   match, or it says it is not.
-2. **Verification.** The pattern runs on the document's stored page text
-   (ADR-0134) when it has some, page by page: a breadcrumb is not on a page, so it
-   cannot match, and a page is counted once, so an overlap cannot double a count.
-   Without stored text it runs on each chunk's own text (``chunk_positions``,
-   ADR-0133 slice 1): breadcrumb stripped, overlap removed.
-
-**Incomplete is never "no".** A collection whose scan failed, a regex scan that
-ran out of time, and a scan that stopped at its cap are each named, with the
-mount they cost; such a result never renders as "no match".
-
-Restricted folders are searched like ``knowledge_search`` searches them (search
-is use): their matches are reported for the round's admission
-(``note_collections_read``) and the result is withheld at round end when they may
-not be used. The denominators count only what the person may see listed.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -71,20 +44,14 @@ logger = logging.getLogger(__name__)
 OutputMode = Literal["files_with_matches", "content", "count"]
 OUTPUT_MODES: tuple[str, ...] = ("files_with_matches", "content", "count")
 
-#: Documents whose stored page text one grep reads to verify on (a range of pages each), and the seconds
-#: it may spend doing it; the rest are verified on their chunks' own text, which is still exact.
 MAX_STORED_VERIFY = 20
 STORED_VERIFY_SECONDS = 3.0
 
-#: Characters of one page a content-mode passage shows, a window around its first match.
 PASSAGE_CHARS = 2500
-#: How much of the window comes before the first match.
 PASSAGE_LEAD = 600
 
-#: Files one ``files_with_matches`` or ``count`` answer lists.
 MAX_LISTED_FILES = 50
 
-#: Lines the content mode's "lines around the matches" index shows.
 MAX_CONTEXT_INDEX_LINES = 40
 
 FOLDED = "case, ä/ae, ß/ss and hyphenation folded"
@@ -92,16 +59,13 @@ FOLDED = "case, ä/ae, ß/ss and hyphenation folded"
 
 @dataclass
 class DocumentMatches:
-    """One document's verified matches: occurrences per page (``None`` for a page-less file)."""
 
     collection: str
     file_name: str
     shelf: str | None
     file: EstateFile | None
     pages: dict[int | None, int] = field(default_factory=dict)
-    #: ``stored`` (page text, ADR-0134) or ``chunks`` (own chunk text).
     verified_on: str = "chunks"
-    #: The page texts the content mode shows, by page.
     texts: dict[int | None, str] = field(default_factory=dict)
 
     @property
@@ -115,7 +79,6 @@ class DocumentMatches:
 
 @dataclass
 class Gap:
-    """What a grep could not serve, and where: the reason a result is incomplete."""
 
     mount: str
     reason: str
@@ -124,7 +87,6 @@ class Gap:
 
 @dataclass
 class Query:
-    """A grep's arguments, checked."""
 
     pattern: str
     mode: str
@@ -136,11 +98,10 @@ class Query:
 
 
 class GrepRefused(ValueError):
-    """A grep the backend will not run; the message is what the model reads."""
+    ...
 
 
 def compile_query(pattern: str, mode: str, stemmed: bool) -> Query:
-    """The pattern for the store and for verification, or :class:`GrepRefused` with the rule. Pure."""
     from knowledge_layer.vector_store import USER_REGEX_TIMEOUT
 
     text = (pattern or "").strip()
@@ -161,7 +122,6 @@ def compile_query(pattern: str, mode: str, stemmed: bool) -> Query:
 
 
 def scope_entries(entries: Sequence[Any], parsed: EstatePath | None) -> list[Any]:
-    """The collections a path covers: every one for no path or ``/``, else the mount's."""
     if parsed is None or parsed.mount is None:
         return list(entries)
     from knowledge_layer.browse.tool import _entry_shelf
@@ -189,7 +149,6 @@ async def search(
     context: int = 0,
     retriever: Any = None,
 ) -> ToolOutput:
-    """``grep`` on the estate, with its Herleitung row (verb ``search``, mode ``exact`` or ``regex``)."""
     from agent.common.action_outcome import ActionOutcome
     from agent.common.action_rows import ActionRow
     from agent.common.estate_paths import action_place
@@ -251,11 +210,9 @@ async def _search(
     chunks, gaps = await _candidates(retriever, entries, query, backend.search_config, parsed, narrowed)
     if isinstance(chunks, ToolOutput):
         return chunks
-    # A place whose scan never answered was not searched: it leaves the denominator, and the gap says so.
     unsearched = {gap.mount for gap in gaps if gap.reason in ("failed", "unavailable")}
     searched_files = [file for file in searched_files if MOUNT_ROOTS[file.mount].rstrip("/") not in unsearched]
     outcome.searched = len(searched_files)
-    # Whatever could not be served (a place, the deadline, the cap) leaves the row a floor, never a full count.
     outcome.incomplete = bool(gaps)
     matches = await _verify(chunks, query, searchable, backend)
     outcome.record(
@@ -264,12 +221,9 @@ async def _search(
         collections=[doc.collection for doc in matches],
     )
     if not matches:
-        # Most of the scope WAS searched: the row is "no hit, incomplete", not a failure (the text says the same).
         return ToolOutput(_no_match(query, where, len(searched_files), gaps), status="ok")
     from agent.knowledge.restricted_use import note_collections_read
 
-    # The listing names every matching file and counts its matches, which is content of each file it names:
-    # reported for the round's admission (ADR-0088), beside the passages a grounding block reports itself.
     note_collections_read(doc.collection for doc in matches)
     head = _summary(query, where, matches, len(searched_files), gaps)
     if output_mode == "content":
@@ -278,7 +232,6 @@ async def _search(
 
 
 async def _restricted_files(backend: Any) -> list[EstateFile]:
-    """The documents of the restricted folders in scope, to put a path on their matches. Never listed."""
     from agent.knowledge.restricted_collections import is_restricted_collection
 
     from .backend import _rows_of
@@ -293,7 +246,6 @@ async def _restricted_files(backend: Any) -> list[EstateFile]:
 def _narrowing(
     searchable: Sequence[EstateFile], listable: Sequence[EstateFile], parsed: EstatePath | None, glob: str | None
 ) -> tuple[dict[str, list[str]] | None, str]:
-    """Per collection, the files a folder, file path or ``glob`` narrows to; ``None`` when nothing narrows."""
     if parsed is None and not glob:
         return None, ""
     files = list(searchable)
@@ -315,7 +267,6 @@ def _narrowing(
             and (fold(file.row.folder) == folder or fold(file.row.folder).startswith(folder + "/"))
         ]
         if not any(not file.restricted for file in files):
-            # A folder nothing listable is filed in is a folder that does not exist, restricted or not.
             return None, f'No folder "{parsed.path}". `ls("{MOUNT_ROOTS[parsed.mount]}")` lists what is there.'
     elif parsed is not None and parsed.mount is not None:
         if parsed.mount and not glob:
@@ -329,7 +280,6 @@ def _narrowing(
 
 
 def _searched(listable: Sequence[EstateFile], parsed: EstatePath | None, narrowed: dict[str, list[str]] | None) -> list:
-    """The listable documents the grep covered: the denominator the answer states."""
     out = []
     for file in listable:
         if parsed is not None and parsed.mount is not None and file.mount != parsed.mount:
@@ -348,7 +298,6 @@ async def _candidates(
     parsed: EstatePath | None,
     narrowed: dict[str, list[str]] | None,
 ) -> tuple[list[Any] | ToolOutput, list[Gap]]:
-    """Stage 1: the chunks the index's literal scan proposes, per collection, and what it could not serve."""
     from knowledge_layer.browse.tool import _collection_filter
     from knowledge_layer.browse.tool import _entry_shelf
     from knowledge_layer.search import resolve_base_collection
@@ -426,7 +375,6 @@ def _merged(gaps: list[Gap]) -> list[Gap]:
 async def _verify(
     chunks: list[Any], query: Query, searchable: Sequence[EstateFile], backend: Any
 ) -> list[DocumentMatches]:
-    """Stage 2: the pattern on the stored page text where there is some, else on each chunk's own text."""
     by_key = {(file.row.collection, file.row.file_name): file for file in searchable}
     groups = group_matches(
         chunks, query.compiled, timeout=query.timeout, store_decides=query.stemmed, collect_strings=False
@@ -456,7 +404,6 @@ async def _verify(
 
 
 async def _verify_on_stored(docs: list[DocumentMatches], query: Query, backend: Any) -> list[DocumentMatches]:
-    """Recount each candidate on its stored pages (a bounded number of documents, within a deadline)."""
     deadline = time.monotonic() + STORED_VERIFY_SECONDS
     reader = getattr(backend, "_stored_reader", None) or stored_pages.read_stored
     candidates = [doc for doc in docs if doc.file is not None and doc.file.paged][:MAX_STORED_VERIFY]
@@ -493,9 +440,6 @@ def _count(query: Query, text: str) -> int:
         return 0
 
 
-# ---------------------------------------------------------------------------
-# Rendering
-# ---------------------------------------------------------------------------
 
 
 def _display_path(doc: DocumentMatches) -> str:
@@ -572,7 +516,6 @@ def _no_match(query: Query, where: str, searched: int, gaps: Sequence[Gap]) -> s
 
 
 def _window(text: str, query: Query) -> tuple[str, bool]:
-    """The page, or a window of it around its first match when it is long: verbatim either way."""
     if len(text) <= PASSAGE_CHARS:
         return text, False
     first = next(iter(query.compiled.finditer(text)), None) if query.timeout is None else None
@@ -588,7 +531,6 @@ def _content(
     max_count: int | None,
     gaps: Sequence[Gap],
 ) -> ToolOutput:
-    """Passages as grounding blocks, one per matching page, round-robin over the files; then the lines index."""
     limit = min(MAX_MATCH_PASSAGES, max_count) if max_count else MAX_MATCH_PASSAGES
     picked: list[tuple[DocumentMatches, int | None]] = []
     depth = 0
@@ -616,7 +558,6 @@ def _content(
 
 
 def _around(doc: DocumentMatches, page: int | None, query: Query, context: int) -> list[str]:
-    """``doc``'s matching lines on ``page`` with ``context`` lines around each, headed by where they stand."""
     lines = doc.texts.get(page, "").split("\n")
     where = f"{_display_path(doc)}#page={page}" if page is not None else _display_path(doc)
     out: list[str] = []
@@ -628,18 +569,15 @@ def _around(doc: DocumentMatches, page: int | None, query: Query, context: int) 
 
 
 def _context_index(picked: Sequence[tuple[DocumentMatches, int | None]], query: Query, context: int) -> str:
-    """``<path>#page=N`` lines with each match and ``context`` lines around it: an index under the passages."""
     out: list[str] = []
     for doc, page in picked:
         if len(out) >= MAX_CONTEXT_INDEX_LINES:
             break
         lines = _around(doc, page, query, context) if doc.texts.get(page) else []
         licence = file_licence(doc.file.row) if lines and doc.file is not None else None
-        # A licensed document's lines are its text: a reference, expanded only inside the model call (ADR-0164).
         out.extend([licensed_body("\n".join(lines), licence)] if licence is not None and licence.licensed else lines)
     if not out:
         return ""
-    # The lines are the documents' own text, so they sit in the passages' fence (``passage_fence``).
     body = fence("\n".join(out[:MAX_CONTEXT_INDEX_LINES]))
     return f"## Lines around the matches\n{body}\nCite the passages above, not these lines."
 

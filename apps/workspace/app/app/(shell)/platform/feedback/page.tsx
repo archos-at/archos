@@ -1,14 +1,3 @@
-/**
- * Platform → Feedback. The reports members send from inside Piloti (bugs,
- * ideas, praise, questions), across every organization, with their triage
- * status. A `feedback.submitted` inbox row lands here with `?report=<id>`;
- * the Slack alert's „Übernehmen" button with `?claim=<ticket id>`, which
- * assigns that ticket to the reader in PostHog.
- *
- * Owner gate, shell chrome and section nav live in the shared `layout.tsx`;
- * this page names its section and decides whether the reader may triage.
- */
-
 import type { JSX } from 'react'
 import { PageHeader } from '@/components/ui/page-header'
 import { withPageSession } from '@/lib/auth/require-auth'

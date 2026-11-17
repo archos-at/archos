@@ -1,18 +1,6 @@
-/**
- * Fixtures for `/dev/look` (ADR-0128): where the agent looked on an A1 Grundriss
- * (`a1-sheet.ts`, served by the page's fetch shim as a stored document's
- * `/file`), as the look card's items and as the turn's wire steps.
- *
- * The regions are shares of the sheet as shown, `[x, y, w, h]`, origin top
- * left: the title block (Plankopf) in the bottom right corner, the room Top 1
- * at the plan's lower left, and the hatched stair core in its middle.
- */
-
 import type { AnswerCard } from '@/shared/cards/schemas'
 
-/** The stored document the shim answers with the A1 sheet. */
 export const LOOK_SHEET_ID = 'dev-look-sheet'
-/** A document the reader may not open: the shim answers 404, as `getAccessibleDocument` does. */
 export const LOOK_HIDDEN_ID = 'dev-look-hidden'
 export const LOOK_SHEET_NAME = 'WBN_Grundriss_1OG_Index_C.pdf'
 
@@ -22,7 +10,6 @@ const PLANKOPF = [0.765, 0.852, 0.225, 0.135]
 const TOP_1 = [0.084, 0.62, 0.13, 0.225]
 const CORE = [0.415, 0.39, 0.105, 0.16]
 
-/** Two looks and the box the agent showed the room. */
 export const LOOK_CARD: LookCardData = {
   type: 'look',
   document: { id: LOOK_SHEET_ID, name: LOOK_SHEET_NAME, shelf: 'stored' },
@@ -72,7 +59,6 @@ export const LOOK_CARD: LookCardData = {
   ],
 }
 
-/** A look at a document the reader may not open: the place in words, no picture. */
 export const LOOK_CARD_NO_ACCESS: LookCardData = {
   type: 'look',
   document: { id: LOOK_HIDDEN_ID, name: 'Brandschutzplan_EG.pdf', shelf: 'stored' },
@@ -111,7 +97,6 @@ const look = (n: number, region: number[] | null, where: string | null, question
   },
 })
 
-/** The turn's steps: one retrieval round that found the sheet, then two looks at it, then a third after a second round. */
 export const LOOK_STEP_BODIES: Record<string, unknown>[] = [
   {
     type: 'STEP_FINISHED',

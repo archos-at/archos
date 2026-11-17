@@ -1,39 +1,3 @@
-/**
- * What each block of the answer's dialect IS, settled once over the hast tree
- * so the components that draw it only read properties.
- *
- * Runs after `rehypeTableShape`, whose general table treatment (status marks,
- * the tally, a row that holds, value columns) every table gets. On top of it:
- *
- *  - **markers**: `:current`, `:applies` and `:recommended` mark the list item,
- *    the table row or the header cell they sit in, and are removed;
- *  - **`:::check`**: the status column is found by its CONTENT (every cell
- *    a status word), tallied, and a row that holds a value and a limit
- *    („57 dB" beside „≥ 55 dB") draws the one against the other; an open row
- *    can be asked about;
- *  - **`:::cases`**: once a row or item is marked as the case that applies,
- *    the others are muted but stay readable. With `{by=key}` the cases are
- *    parsed (`cases.ts`) and carried on the table, so the component marks the
- *    project's case from the profile and overrules a mark that disagrees;
- *  - **`:::procedure`**: each item of the list is a step; its first line is
- *    the row, a bold phrase in it the Frist, everything after it (a
- *    `:::details`, a nested list) the detail that opens on click;
- *  - **`:::metrics`**: the rows or items become figures;
- *  - **`:::compare`**: a column marked `:recommended` is highlighted, status
- *    words become marks in every cell, and a copy per variant is built for a
- *    phone, where columns do not fit;
- *  - **`:::actions`**: a `Wer | Was | bis | Fundstelle` table; each row gets a
- *    trailing cell for „Als Aufgabe", which only fills the composer;
- *  - **`:::not-found`**: three panes, „Gesucht in" (filled by the surface from
- *    the retrieval ledger), the closest rule (the quote line) and who decides;
- *  - **`:::subsumption`**: Norm (the quote line) → Sachverhalt (the list) →
- *    Ergebnis (the closing sentence, its trailing status word as a tone);
- *  - **a blockquote ending in a citation** is an excerpt, drawn with its
- *    source in the margin.
- *
- * Pure over the tree: nothing the answer wrote is dropped, only arranged.
- */
-
 import type { Element, ElementContent, Root, RootContent } from 'hast'
 
 import { ANSWER_BLOCK_LABEL_TAG, ANSWER_BLOCK_TAG, ANSWER_MARKER_TAG } from './directives'
@@ -100,7 +64,6 @@ const setProps = (node: Element, properties: Element['properties']) => {
 const blockName = (node: Element): string | null =>
   node.tagName === ANSWER_BLOCK_TAG ? String(node.properties?.dataBlock ?? '') : null
 
-/** Every descendant element with `tagName`, in document order, not descending into a nested block. */
 function descendants(node: Element | Root, tagName: string): Element[] {
   const found: Element[] = []
   for (const child of node.children as (RootContent | ElementContent)[]) {
@@ -111,13 +74,8 @@ function descendants(node: Element | Root, tagName: string): Element[] {
   return found
 }
 
-// ---------------------------------------------------------------------------
-// Markers
-// ---------------------------------------------------------------------------
-
 const MARKER_HOSTS = new Set(['li', 'tr', 'th'])
 
-/** Move every marker onto the list item, row or header cell it sits in. */
 function consumeMarkers(node: Element | Root, hosts: Element[]): void {
   const kept: (RootContent | ElementContent)[] = []
   let changed = false
@@ -129,8 +87,6 @@ function consumeMarkers(node: Element | Root, hosts: Element[]): void {
         if (marker === 'current') setProps(host, { dataCurrent: 'true', dataActive: 'true' })
         else if (marker === 'applies') setProps(host, { dataActive: 'true' })
         else if (marker === 'recommended') setProps(host, { dataRecommended: 'true' })
-        // A header cell says „empfohlen" itself; anywhere else the marker
-        // stays and is drawn as its word beside the tint.
         if (host.tagName === 'th') {
           changed = true
           continue
@@ -144,17 +100,11 @@ function consumeMarkers(node: Element | Root, hosts: Element[]): void {
     kept.push(child)
   }
   if (!changed) return
-  // The space the marker was written after is not part of the text.
   const last = kept[kept.length - 1]
   if (last?.type === 'text') last.value = last.value.trimEnd()
   node.children = kept as typeof node.children
 }
 
-// ---------------------------------------------------------------------------
-// :::check
-// ---------------------------------------------------------------------------
-
-/** The last column every one of whose (non-empty) cells is a status word, or -1. */
 function statusColumnByContent(head: Row, rows: Row[], text: (cell: Element) => string): number {
   return statusColumnOf(
     rows.map(({ cells }) => cells.map((cell) => valueText(text(cell)))),
@@ -162,7 +112,6 @@ function statusColumnByContent(head: Row, rows: Row[], text: (cell: Element) => 
   )
 }
 
-/** `word:count,…` in first-seen order, counted as `statusTally` counts. */
 function tallyOf(words: string[]): string | null {
   const counts = new Map<string, { word: string; count: number }>()
   for (const written of words) {
@@ -178,15 +127,9 @@ function tallyOf(words: string[]): string | null {
 const outcomeTone = (word: string) =>
   word === OUTCOME_PASS ? 'success' : word === OUTCOME_FAIL ? 'destructive' : word === OUTCOME_CONFLICT ? 'warning' : statusTone(word)
 
-/** What a row action puts in the composer is capped: a row names a subject, it is not a message. */
 const ASK_SUBJECT_CHARS = 120
 const ASK_DETAIL_CHARS = 240
 
-/**
- * `shapeCheckTable`'s options. `openTail`: the table may still be arriving, so
- * its last row is not held to its limit (a half-written „≤ 4" would draw a
- * bar that flips a token later) and no tally is drawn until it closes.
- */
 interface CheckOptions {
   openTail: boolean
 }
@@ -218,7 +161,6 @@ function shapeCheckTable(table: Element, { openTail }: CheckOptions): void {
     if (outcome) outcomes.push(outcome.word)
     if (status && outcome?.replaced) setProps(status, { dataOutcome: outcome.word, dataStatus: outcomeTone(outcome.word) })
     if (outcome?.word === OUTCOME_CONFLICT) setProps(row, { dataConflict: 'true' })
-    // „Dazu fragen": a row the check leaves open, in the model's words or the renderer's.
     const open = outcome ? outcome.word === OUTCOME_CONFLICT || isOpenStatus(outcome.word) : false
     if (!status || !open) return
     const skip = new Set([0, statusColumn, pair?.value ?? -1, pair?.limit.at ?? -1])
@@ -233,37 +175,21 @@ function shapeCheckTable(table: Element, { openTail }: CheckOptions): void {
     })
   })
   const tally = rows.length >= 2 && outcomes.length === rows.length ? tallyOf(outcomes) : null
-  // An open check reserves the tally's line from its header on: a check is
-  // read for its outcome, so it nearly always has one, and a line inserted
-  // above the rows when the block closed pushed the whole table down.
-  // A check that closes without one keeps the line where it streamed
-  // (`closed`, as `rehypeTableShape` says it): dropping it pulled the rows up.
   const settledTally = openTail ? undefined : (tally ?? table.properties?.dataTally)
   setProps(table, {
     dataTally: settledTally,
     dataTallyReserve: openTail ? 'true' : settledTally ? undefined : 'closed',
   })
-  // A check every row of which passes says so in one line; the rows stay one click away.
   if (tally && outcomes.every((word) => outcomeTone(word) === 'success')) {
     setProps(table, { dataCollapsed: 'true', dataPassCount: String(outcomes.length) })
   }
 }
 
-// ---------------------------------------------------------------------------
-// :::cases
-// ---------------------------------------------------------------------------
-
-/** The texts of one column of `rows`, or null when a row lacks the cell. */
 const columnTexts = (rows: Row[], column: number): string[] | null => {
   const cells = columnCells(rows, column)
   return cells ? cells.map((cell) => valueText(cellText(cell))) : null
 }
 
-/**
- * The column of a cases table the project's value is held against, and the
- * cases it states. A class case is searched in every column, a range or a text
- * in the first one that parses.
- */
 function caseColumn(by: ProjectKey, head: Row, rows: Row[], skip: number): { column: number; cases: CaseDescriptor[] } | null {
   const kind = caseKindFor(by)
   for (let column = 0; column < head.cells.length; column++) {
@@ -275,11 +201,9 @@ function caseColumn(by: ProjectKey, head: Row, rows: Row[], skip: number): { col
   return null
 }
 
-/** Settle a `by=` table's cases on it, for the component that matches the project's value. */
 function shapeCasesBy(table: Element, by: ProjectKey, head: Row, rows: Row[], statusColumn: number): void {
   const found = caseColumn(by, head, rows, statusColumn)
   if (!found) return
-  // Each case's name on the ruler: the first other column that is not the status („GK 4").
   const labelColumn = head.cells.findIndex((_, column) => column !== found.column && column !== statusColumn)
   const labels = rows.map(({ cells }) => valueText(cellText(cells[labelColumn >= 0 ? labelColumn : found.column] ?? cells[0])))
   setProps(table, {
@@ -300,7 +224,6 @@ function shapeCasesBy(table: Element, by: ProjectKey, head: Row, rows: Row[], st
   })
 }
 
-/** The case text of a list item: what it says before its colon („Fluchtniveau bis 7 m: GK 3"). */
 function itemCaseText(item: Element, kind: CaseDescriptor['kind']): string {
   const text = textOf(item).replace(/\s+/g, ' ').trim()
   if (kind === 'class') return text
@@ -346,10 +269,6 @@ function shapeCases(block: Element): void {
   }
 }
 
-// ---------------------------------------------------------------------------
-// :::actions
-// ---------------------------------------------------------------------------
-
 const ACTION_HEADERS: Record<'who' | 'what' | 'by' | 'source', ReadonlySet<string>> = {
   who: new Set(['wer', 'who', 'rolle', 'role', 'zuständig', 'zustaendig', 'owner']),
   what: new Set(['was', 'what', 'maßnahme', 'massnahme', 'aufgabe', 'task', 'action']),
@@ -357,7 +276,6 @@ const ACTION_HEADERS: Record<'who' | 'what' | 'by' | 'source', ReadonlySet<strin
   source: new Set(['fundstelle', 'quelle', 'grundlage', 'source', 'reference']),
 }
 
-/** Each role's column, by its header, else by its place in `Wer | Was | bis | Fundstelle`. */
 function actionColumns(head: Row): Record<keyof typeof ACTION_HEADERS, number> {
   const headers = head.cells.map((cell) => cellText(cell).toLocaleLowerCase('de'))
   const find = (role: keyof typeof ACTION_HEADERS, fallback: number) => {
@@ -375,10 +293,8 @@ function shapeActions(block: Element): void {
     if (!parts) continue
     setProps(table, { dataVariant: 'actions' })
     const columns = actionColumns(parts.head)
-    // What goes into the composer is what the reader sees in the cell, capped.
     const at = (cells: Element[], column: number) =>
       column >= 0 && cells[column] ? capText(valueText(visibleText(cells[column])), ASK_DETAIL_CHARS) : ''
-    // The trailing column „Als Aufgabe" sits in: a header only a screen reader reads.
     parts.head.row.children.push(el('th', { dataTaskHead: 'true' }, []))
     for (const { row, cells } of parts.rows) {
       if (columns.who >= 0 && cells[columns.who]) setProps(cells[columns.who], { dataRole: 'true' })
@@ -400,13 +316,8 @@ function shapeActions(block: Element): void {
   }
 }
 
-// ---------------------------------------------------------------------------
-// :::not-found
-// ---------------------------------------------------------------------------
-
 const DECIDES_LEAD = /^\s*(?:entscheidet|zuständig|zustaendig|decides|decided by)\s*:\s*/i
 
-/** „Entscheidet: die Baubehörde …" without the lead the pane's own label says. */
 function dropDecidesLead(nodes: ElementContent[]): ElementContent[] {
   const first = nodes.find((node) => isElement(node) && node.tagName === 'p') as Element | undefined
   if (!first) return nodes
@@ -437,10 +348,6 @@ function shapeNotFound(block: Element): void {
   ]
 }
 
-// ---------------------------------------------------------------------------
-// :::subsumption
-// ---------------------------------------------------------------------------
-
 function shapeSubsumption(block: Element): void {
   const children = contentOf(block)
   const listAt = children.findIndex((child) => isElement(child) && (child.tagName === 'ul' || child.tagName === 'ol'))
@@ -458,13 +365,8 @@ function shapeSubsumption(block: Element): void {
   ]
 }
 
-// ---------------------------------------------------------------------------
-// :::procedure
-// ---------------------------------------------------------------------------
-
 const BLOCK_TAGS = new Set(['ul', 'ol', 'table', 'blockquote', 'pre', ANSWER_BLOCK_TAG, 'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'hr'])
 
-/** One step: its first line (the row), the Frist in it, and what opens on click. */
 function shapeStep(item: Element): void {
   const children = item.children.filter((child) => !(child.type === 'text' && !child.value.trim()))
   let head: ElementContent[]
@@ -478,7 +380,6 @@ function shapeStep(item: Element): void {
     head = split < 0 ? children : children.slice(0, split)
     rest = split < 0 ? [] : children.slice(split)
   }
-  // The step line says „hier stehen Sie" itself.
   head = head.filter((child) => !(isElement(child) && child.tagName === ANSWER_MARKER_TAG))
   const dueAt = head.findIndex((child) => isElement(child) && child.tagName === 'strong')
   const due = dueAt >= 0 ? (head[dueAt] as Element) : null
@@ -512,20 +413,14 @@ function shapeSteps(block: Element): void {
   })
 }
 
-// ---------------------------------------------------------------------------
-// :::metrics
-// ---------------------------------------------------------------------------
-
 interface Figure {
   label: ElementContent[]
   value: ElementContent[]
   limit: ElementContent[]
   tone: string
-  /** The verdict in words: the stated status, or the renderer's `OUTCOME_*`. */
   verdict: string
 }
 
-/** The figure's verdict: its value against its limit when both are there (which wins), else the status it states. */
 function figureVerdict(valueText_: string, limitText: string, statusText: string): { tone: string; verdict: string } {
   const quantity = parseQuantity(valueText_)
   const limit = parseLimit(limitText)
@@ -551,7 +446,6 @@ function figuresFromTable(table: Element): Figure[] {
   })
 }
 
-/** Split an inline run at the first occurrence of `mark` in a text node. */
 function splitAt(nodes: ElementContent[], mark: RegExp): [ElementContent[], ElementContent[]] | null {
   for (let index = 0; index < nodes.length; index++) {
     const node = nodes[index]
@@ -565,10 +459,6 @@ function splitAt(nodes: ElementContent[], mark: RegExp): [ElementContent[], Elem
   return null
 }
 
-/**
- * A label set in bold or italics, its colon inside (`**Dichte:** 0,8`) or
- * right after it (`**Dichte**: 0,8`): the colon is in no top-level text node.
- */
 function boldLabel(nodes: ElementContent[]): [ElementContent[], ElementContent[]] | null {
   const at = nodes.findIndex((node) => !(node.type === 'text' && !node.value.trim()))
   const lead = nodes[at]
@@ -590,7 +480,6 @@ const trimLeadingSpace = (nodes: ElementContent[]): ElementContent[] => {
   return first?.type === 'text' ? [{ type: 'text', value: first.value.trimStart() }, ...nodes.slice(1)] : nodes
 }
 
-/** `Label: Wert (≤ Grenze)`, one list item. */
 function figureFromItem(item: Element): Figure | null {
   const first = item.children.find((child) => isElement(child) && child.tagName === 'p') as Element | undefined
   const inline = first ? first.children : item.children
@@ -631,10 +520,6 @@ function shapeFigures(block: Element): void {
   )
 }
 
-// ---------------------------------------------------------------------------
-// :::compare
-// ---------------------------------------------------------------------------
-
 function shapeComparison(block: Element): void {
   const index = block.children.findIndex((child) => isElement(child) && child.tagName === 'table')
   if (index < 0) return
@@ -652,8 +537,6 @@ function shapeComparison(block: Element): void {
       if (column === recommended) setProps(cell, { dataRecommended: 'true' })
     })
   }
-  // A copy per variant, without ids: a footnote reference's id would be
-  // duplicated, and a back-link could land on the hidden copy.
   const withoutIds = (node: ElementContent): ElementContent => {
     if (node.type !== 'element') return node
     const { id: _id, ...properties } = node.properties ?? {}
@@ -675,11 +558,6 @@ function shapeComparison(block: Element): void {
   block.children.splice(index + 1, 0, el(COMPARE_STACK_TAG, {}, variants))
 }
 
-// ---------------------------------------------------------------------------
-// :::details
-// ---------------------------------------------------------------------------
-
-/** A `details` block as its label and one body, so the body can open and close as one. */
 function shapeDetails(block: Element): void {
   const children = block.children.filter((child) => !(child.type === 'text' && !child.value.trim()))
   const label = children[0] && isElement(children[0]) && children[0].tagName === ANSWER_BLOCK_LABEL_TAG ? children[0] : null
@@ -687,13 +565,8 @@ function shapeDetails(block: Element): void {
   block.children = [...(label ? [label] : []), el(BLOCK_BODY_TAG, {}, body)]
 }
 
-// ---------------------------------------------------------------------------
-// Excerpts
-// ---------------------------------------------------------------------------
-
 const CITATION_TEXT = /\[(\d+)\]\s*$/
 
-/** The citation a blockquote ends with: its number and, once linked, its href. */
 function excerptCitation(quote: Element): { number: string; href: string } | null {
   const paragraphs = elements(quote, 'p')
   const last = paragraphs[paragraphs.length - 1]
@@ -713,12 +586,8 @@ function excerptCitation(quote: Element): { number: string; href: string } | nul
   return null
 }
 
-// ---------------------------------------------------------------------------
-
 interface ShapeOptions {
-  /** The text is still arriving and this tree is its last block. */
   openTail: boolean
-  /** The table the tree ends in, the one an open tail may still be writing (`tailTableIn`). */
   lastTable: Element | null
 }
 
@@ -733,8 +602,6 @@ function shapeBlocks(node: Element | Root, options: ShapeOptions): void {
       continue
     }
     const name = blockName(child)
-    // A check is its first table: a block left unclosed runs to the end of the
-    // text, and a later, unrelated table is not a check.
     if (name === 'check') {
       const table = descendants(child, 'table')[0]
       if (table) shapeCheckTable(table, { openTail: options.openTail && isLastTable(table) })
@@ -751,11 +618,9 @@ function shapeBlocks(node: Element | Root, options: ShapeOptions): void {
 }
 
 export interface DirectiveShapeOptions {
-  /** The text is still arriving and this is its last block: its last table row may be half-written. */
   openTail?: boolean
 }
 
-/** The rehype plugin; run it after `rehypeTableShape`. */
 export function rehypeDirectiveShape(options: DirectiveShapeOptions = {}) {
   return (tree: Root) => {
     consumeMarkers(tree, [])

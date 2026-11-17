@@ -65,15 +65,9 @@ class SourceKind:
     key: str
     label: str
     description: str
-    # Frontend CSS custom-property family: ``var(--source-{css_token})`` /
-    # ``-tint`` / ``-text``. Keeps the colour tokens named consistently on both
-    # ends without shipping colours from the backend.
     css_token: str
 
 
-#: The canonical registry. Extend here, run ``scripts/generate_vocabularies.py``
-#: (the UI's ``SOURCE_KINDS`` is generated from these keys) and give the kind its
-#: ``--source-*`` tint in ``apps/workspace/bff/source-kinds.ts``.
 SOURCE_KINDS: dict[str, SourceKind] = {
     "building_law": SourceKind(
         key="building_law",
@@ -103,74 +97,25 @@ SOURCE_KINDS: dict[str, SourceKind] = {
         key="measurement",
         label="Modellmessung",
         description="Am BIM-Modell gemessen — mit Herkunft, Toleranz und Methode.",
-        # The one kind whose ``css_token`` is honest about the promise this
-        # field's docstring makes: ``--source-model`` really exists on the
-        # frontend. The older four predate the `--source-*` families and name
-        # the KIND (`building_law`) where the token names the SIGNAL (`law`); they
-        # are left alone rather than renamed, because the tokens are what
-        # `KIND_TO_SIGNAL` resolves to and nothing reads this field.
         css_token="model",
     ),
 }
 
-#: The fine lane of a PUBLISHED, human-approved, agent-authored document, and
-#: the German sub-label it renders as. An ``office`` kind — office knowledge, in
-#: the office colour — with its own lane inside that kind, because "the office
-#: approved this" and "Piloti wrote it and the office approved it" are different
-#: claims and only the second one needs the reader to be told.
-#:
-#: NOT a ``doc_class``: that vocabulary describes a document's role in the norm
-#: hierarchy and fails open into law blue (see ``common/provenance.py`` for the
-#: full argument). NOT a shelf either — such a document sits on the project or
-#: the Archiv shelf like any other, which is exactly why the lane must beat the
-#: shelf in ``norm_registry.lane_for_hit``: on the project shelf it would
-#: otherwise wear the Projektwissen chip and lose its author.
-#:
-#: The label is the SUB-LABEL only. The approver is appended by whoever renders
-#: it (the grounding block via ``provenance.provenance_label``, the frontend
-#: from the ``provenance`` payload), so the lane table stays a taxonomy rather
-#: than a sentence with a hole in it.
 AGENT_AUTHORED_LANE = "office_piloti"
 AGENT_AUTHORED_LANE_LABEL = f"{PRODUCT_NAME}-Dokument"
 
-#: The ``source_format`` a mail thread's chunks carry: the E-Mail-Verlauf, one
-#: Markdown section per message, rendered by the BFF from the messages a person
-#: filed (``apps/workspace/bff/mail-thread/render.ts``, ADR-0137). A FORMAT,
-#: not a document type: the type is ``correspondence``, which a scanned letter
-#: shares, and the format is what tells a reader that each section is a
-#: message whose heading names its sender and whether that sender's domain was
-#: confirmed.
 MAIL_SOURCE_FORMAT = "mail"
 
-#: The fine lanes of a mail thread, and the sub-label they render as. A
-#: project's thread is Projektwissen and an office's is Büroablage: the kind
-#: stays the shelf's, so a mail never wears the building-law colour, not even
-#: one from ``ma37.wien.gv.at`` (a clerk's e-mail is not a Bescheid). The lane
-#: is the sub-label inside that kind, the way ``AGENT_AUTHORED_LANE`` is. Mirrored in
-#: ``apps/workspace/bff/source-kinds.ts``.
 MAIL_LANE = "project_mail"
 OFFICE_MAIL_LANE = "office_mail"
 MAIL_LANE_LABEL = "E-Mail"
 
-#: The kind a model-derived measurement renders as. Named rather than spelled
-#: out at the call sites so the one place that decides "this is a measurement,
-#: not a retrieved passage" is greppable.
 MEASUREMENT_SOURCE_KIND = "measurement"
 
-#: Fail-open kind for an unclassifiable source, matching ``lane_for_hit``'s
-#: ``("web", "Web")`` fallback.
 DEFAULT_SOURCE_KIND = "web"
 
-#: ``SourceEntry.source_type`` of the non-URL capture fallback: a tool that
-#: produced output but named no document and no URL, registered under its own
-#: tool name (``extract_sources_from_tool_result``).
 TOOL_RESULT_SOURCE_TYPE = "tool_result"
 
-# Fine lane stratum-key → coarse source kind. A prefix match on the lane family
-# keeps this table small and forward-compatible: any new ``building_law_*`` sub-lane
-# (a new OIB document class, a new RIS rank) maps to ``building_law`` without a code
-# change here. Kept in sync with ``norm_registry``'s ``_RANK_LANES`` /
-# ``_OIB_CLASS_LANES`` and ``lane_for_hit``.
 _LANE_KIND_PREFIXES: tuple[tuple[str, str], ...] = (
     ("building_law", "building_law"),  # building_law_oib*, _ris, _federal/_state/_ordinance
     ("authority", "building_law"),  # behördliche Information — authoritative building law
@@ -178,9 +123,6 @@ _LANE_KIND_PREFIXES: tuple[tuple[str, str], ...] = (
     ("office", "office"),
     ("project", "project"),
     ("web", "web"),
-    # No retrieval lane maps here — ``lane_for_hit`` cannot produce it, because
-    # nothing retrieves a measurement. The measurement channel stamps this lane
-    # on itself, and the entry exists so the two ends agree when it does.
     ("measurement", "measurement"),
 )
 
@@ -203,28 +145,6 @@ def source_kind(key: str | None) -> SourceKind:
     return SOURCE_KINDS.get((key or "").strip().lower(), SOURCE_KINDS[DEFAULT_SOURCE_KIND])
 
 
-# ---------------------------------------------------------------------------
-# Shelf — where a retrieved chunk came from (ADR-0047)
-# ---------------------------------------------------------------------------
-#
-# A document is identified by ``(collection, filename)``: that is the PRIMARY KEY
-# of ``document_metadata`` and the only pair that is actually unique. A filename
-# alone is not — one knowledge_search fans out across the base corpus, the
-# session collection and the project collections concurrently, so `Plan.pdf` from
-# a project upload and `Plan.pdf` from the Büroablage can arrive in the SAME
-# result set and are different documents.
-#
-# The SHELF is the coarse half of that identity: the org-wide Archiv, a project,
-# a private chat session, or the base corpus. ADR-0047 makes it TRAVEL AS DATA —
-# it is carried explicitly in the ``X-Grid-Collection-Scope`` header, in chunk
-# metadata and in the knowledge-tool citation payload. Nothing downstream may
-# recover it by inspecting a collection-id prefix or a German display label; the
-# prefix table that used to do that is deleted, and its absence is this ADR's
-# acceptance test.
-#
-# A missing/unknown shelf reads as UNKNOWN and renders unattributed. It is never
-# defaulted to ``base``/``baurecht`` — the old fail-open let an unrecognised
-# collection claim to be authoritative building law.
 
 
 class Shelf(StrEnum):
@@ -247,12 +167,6 @@ class Shelf(StrEnum):
     BASE = "base"
 
 
-#: The shelf's wire value before it had an English name. Nothing writes it. The
-#: BFF's stored JSON was rewritten by migration 0187 and its reader is gone; this
-#: one stays for what only this tier holds: a checkpointed turn replayed from
-#: before the rename (kept 14 days idle, ``CHAT_CHECKPOINT_RETENTION_SECONDS``),
-#: and a browser tab still running a bundle from before it. Remove once both have
-#: aged out.
 LEGACY_SHELF_VALUES: dict[str, str] = {"archiv": Shelf.OFFICE_SHELF.value}
 
 
@@ -262,20 +176,8 @@ def canonical_shelf_value(value: str) -> str:
     return LEGACY_SHELF_VALUES.get(key, key)
 
 
-#: Collection-name prefix of an office's shelf. The value is a stored name, not a
-#: spelling: every point of the shelf carries ``scope = <prefix><organization id>``
-#: in Qdrant (ADR-0116) and every document row ``collection_name`` the same, so
-#: the prefix changes only together with a re-tag of both
-#: (``docs/deployment/office-shelf-rename-runbook.md``). Until an operator has
-#: run it, writers keep the ACTIVE prefix; readers accept every one in
-#: :data:`OFFICE_SHELF_COLLECTION_PREFIXES`. The TypeScript twin is
-#: ``OFFICE_SHELF_COLLECTION_PREFIX`` in ``apps/workspace/bff/office-shelf/collection.ts``;
-#: ``apps/workspace/bff/office-shelf/collection-prefix.spec.ts`` holds the two equal.
 OFFICE_SHELF_COLLECTION_PREFIX = "archiv_"
-#: The prefix the shelf's collections take once re-tagged (the next release's value).
 OFFICE_SHELF_TARGET_COLLECTION_PREFIX = "office_shelf_"
-#: Every prefix a reader recognises as an office shelf. Remove the legacy entry
-#: after the re-tag has run everywhere.
 OFFICE_SHELF_COLLECTION_PREFIXES: tuple[str, ...] = (
     OFFICE_SHELF_TARGET_COLLECTION_PREFIX,
     OFFICE_SHELF_COLLECTION_PREFIX,
@@ -312,14 +214,6 @@ def parse_shelf(value: object) -> Shelf | None:
         return None
 
 
-#: Shelf → the short German qualifier a citation key uses
-#: (`Plan.pdf (Projektwissen), p.3`). RENDERING ONLY — the shelf itself is what
-#: travels. Deliberately shorter than ``SourceKind.label`` ("Baurecht &
-#: Richtlinien" reads badly inside a parenthetical) and stable: the strings are
-#: embedded in citation keys already persisted in messages, so changing one
-#: invalidates those keys unless the old string stays readable. The office
-#: shelf was renamed from „Büroarchiv" to „Büroablage" (product decision,
-#: 6 Oct 2026); the old qualifier lives on in :data:`RETIRED_SHELF_QUALIFIERS`.
 SHELF_QUALIFIERS: dict[Shelf, str] = {
     Shelf.OFFICE_SHELF: "Büroablage",
     Shelf.PROJECT: "Projektwissen",
@@ -327,11 +221,6 @@ SHELF_QUALIFIERS: dict[Shelf, str] = {
     Shelf.BASE: "Basiswissen",
 }
 
-#: LEGACY citation-key vocabulary → qualifier. The keys are the pre-ADR-0047
-#: coarse-kind scopes (``buero``/``projekt``/``baurecht``) that qualified keys
-#: persisted in existing messages were written against; they are kept so those
-#: keys keep PARSING. ``session`` never existed in that vocabulary, so it takes
-#: the shelf's own name. Do not treat this table as transport.
 SCOPE_QUALIFIERS: dict[str, str] = {
     "buero": SHELF_QUALIFIERS[Shelf.OFFICE_SHELF],
     "projekt": SHELF_QUALIFIERS[Shelf.PROJECT],
@@ -339,20 +228,13 @@ SCOPE_QUALIFIERS: dict[str, str] = {
     "session": SHELF_QUALIFIERS[Shelf.SESSION],
 }
 
-#: Qualifiers no writer emits any more and every reader still parses: citation
-#: keys persisted under a shelf's old name. READ-ONLY — never rendered, never
-#: shown to the model. The frontend mirror lists the same strings in
-#: ``CITATION_KEY_QUALIFIERS``.
 RETIRED_SHELF_QUALIFIERS: dict[str, Shelf] = {
     "Büroarchiv": Shelf.OFFICE_SHELF,
 }
 
-#: Every qualifier a reader strips from a key: what writers emit now, then the
-#: retired names.
 READABLE_QUALIFIERS: tuple[str, ...] = (*dict.fromkeys(SCOPE_QUALIFIERS.values()), *RETIRED_SHELF_QUALIFIERS)
 
 _QUALIFIER_SCOPES: dict[str, str] = {label.lower(): scope for scope, label in SCOPE_QUALIFIERS.items()}
-# A retired name reads back through the label that replaced it.
 _QUALIFIER_SCOPES.update(
     {
         retired.lower(): _QUALIFIER_SCOPES[SHELF_QUALIFIERS[shelf].lower()]
@@ -383,7 +265,6 @@ def shelf_qualifier(shelf: Shelf | str | None) -> str | None:
         case Shelf.BASE:
             return SHELF_QUALIFIERS[Shelf.BASE]
         case None:
-            # Unknown shelf → unattributed. NEVER `base`/`baurecht`.
             return None
         case other:  # pragma: no cover — unreachable until a member is added
             raise AssertionError(f"unhandled shelf: {other!r}")

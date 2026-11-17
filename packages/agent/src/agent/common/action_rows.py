@@ -1,5 +1,3 @@
-"""Action rows (ADR-0132): one row per tool call that does something, and the callback that writes them."""
-
 from __future__ import annotations
 
 import logging
@@ -26,28 +24,17 @@ from agent.common.wire_v2 import ToolStep
 
 logger = logging.getLogger(__name__)
 
-#: Step id prefix of an action row (ADR-0132); a fresh id per call follows.
 ACTION_STEP_PREFIX = "action:"
 
 
-#: The action row of the tool call running RIGHT NOW, so the sources it returns
-#: name the same call (ADR-0132). Each parallel call runs in its own task, so
-#: siblings never see each other's id.
 _action_call: ContextVar[str | None] = ContextVar("action_call", default=None)
 
 
 def current_action_call() -> str | None:
-    """The call id of the action row open in this task, or ``None``."""
     return _action_call.get()
 
 
 class ActionRow:
-    """One call's row in the Herleitung work list: emitted ``running`` now, settled by :meth:`finish`.
-
-    The tool holds the row for the length of its call and fills in what it
-    found from its own typed values. Fail-open everywhere: a row that does not
-    validate is logged and dropped, never raised into the tool.
-    """
 
     def __init__(self, verb: ActionVerb, **fields: Any) -> None:
         self.call_id = uuid4().hex[:16]
@@ -70,11 +57,6 @@ class ActionRow:
         counts: dict[str, int | None] | None = None,
         **fields: Any,
     ) -> None:
-        """Settle the row once: its outcome, its counts and its time. A second call is ignored.
-
-        A settled ``mount`` is the whole place the call reached: it replaces the running row's ``mount`` and
-        ``target``, so a place's root (no ``target``) never keeps the name the running row showed.
-        """
         if self._done:
             return
         self._done = True
@@ -97,8 +79,6 @@ class ActionRow:
         try:
             _action_call.reset(token)
         except ValueError:
-            # Settled from another context than the one that opened it: that
-            # context ends with its task, and the id goes with it.
             pass
 
     def _emit(self, *, started: bool) -> None:
@@ -125,20 +105,14 @@ def _clip_action(fields: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
-#: Slot prefix of the technical record a literal-mode ``knowledge_search`` (``match="exact"`` or
-#: ``"regex"``) leaves. A tool step carries the tool's name and never its arguments, so this record is
-#: how a reader of the turn (the ``file-tools-used`` score) tells a literal search, which the eval's
-#: ``navigate`` arm counts as navigation, from a ranked one (ADR-0127).
 LITERAL_SEARCH_SLOT = "literal-search"
 
 
 def emit_literal_search(mode: str) -> None:
-    """Record that one ``knowledge_search`` call ran in a literal mode; one record per call."""
     turn_status.emit_technical(f"{LITERAL_SEARCH_SLOT}:{uuid4().hex[:12]}", match=mode)
 
 
 def is_literal_search(step: Any) -> bool:
-    """Whether ``step`` is the record :func:`emit_literal_search` left."""
     slot = getattr(step, "slot", None)
     return (
         getattr(step, "kind", None) == "status" and isinstance(slot, str) and slot.startswith(f"{LITERAL_SEARCH_SLOT}:")
@@ -146,13 +120,6 @@ def is_literal_search(step: Any) -> bool:
 
 
 class ToolStepCallback(AsyncCallbackHandler):
-    """Every tool call of a graph run as a ``tool`` step: its basename and outcome, never its I/O.
-
-    Added once to the conversation graph's run config. The agent runtime's profiler still
-    bills and traces tools through its own handler; this one only tells the
-    reader a tool ran. One instance per run: it remembers each running call's
-    name until the call ends.
-    """
 
     def __init__(self) -> None:
         self._running: dict[UUID, tuple[str, str | None, str | None]] = {}
@@ -182,11 +149,6 @@ class ToolStepCallback(AsyncCallbackHandler):
 
 
 def _tool_subagent(tool_call_id: Any) -> str | None:
-    """Which invocation a tool call belongs to. The call that SPAWNED a subagent is its parent's.
-
-    A subagent is bound around the tool that spawns it (deepagents' ``task``),
-    so that tool's own callbacks already see it; they hand the row up a level.
-    """
     frame = current_subagent()
     if frame is None:
         return None
@@ -196,11 +158,6 @@ def _tool_subagent(tool_call_id: Any) -> str | None:
 
 
 def _tool_mount(tool: str, inputs: Any) -> str | None:
-    """The mount a file tool's call reached, for the wire's ``mount`` (ADR-0133); ``None`` for any other tool.
-
-    The step stores the tool's name and never its arguments, so without this an
-    estate ``read_file`` and a draft ``read_file`` were one step, drawn as a draft.
-    """
     from agent.common.estate_paths import WRITE_TOOLS
     from agent.common.estate_paths import call_mount
 

@@ -1,14 +1,3 @@
-/**
- * The change record's SQL, over `agent_changes` (migration 0142, ADR-0109).
- * No authorization here; `./service` owns it. Every statement is keyed by the
- * organization as well as the id, and runs in its tenant scope.
- *
- * Undo is claimed with a compare-and-swap on `undone_at IS NULL`, so two
- * people (or two tabs) undoing at once cannot both win: the loser's update
- * finds no row. A claim whose inverse then fails is given back by the exact
- * stamp it set, so it never clears somebody else's undo.
- */
-
 import 'server-only'
 import { and, asc, eq, isNull } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
@@ -17,12 +6,10 @@ import { withTenant } from '@/lib/db/tenant-context'
 
 export type { AgentChangeRow }
 
-/** What one turn may have changed, as one read returns it: a turn of twenty-mark calls, many times over. */
 export const MAX_CHANGES_PER_TURN = 200
 
 export type NewAgentChange = Omit<NewAgentChangeRow, 'id' | 'createdAt' | 'undoneAt' | 'undoneBy'>
 
-/** Record changes one call applied, all in one organization. */
 export async function insertAgentChanges(organizationId: string, rows: readonly NewAgentChange[]): Promise<AgentChangeRow[]> {
   if (rows.length === 0) return []
   if (rows.some((row) => row.organizationId !== organizationId)) {
@@ -32,7 +19,6 @@ export async function insertAgentChanges(organizationId: string, rows: readonly 
   return withTenant({ organizationId }, () => db.insert(pilotiChanges).values([...rows]).returning())
 }
 
-/** The changes the turn behind `messageId` in `conversationId` applied, oldest first, bounded. */
 export async function listTurnChangeRows(
   organizationId: string,
   conversationId: string,
@@ -55,7 +41,6 @@ export async function listTurnChangeRows(
   )
 }
 
-/** One change of this organization, or null. */
 export async function findAgentChange(organizationId: string, id: string): Promise<AgentChangeRow | null> {
   const db = getDb()
   const [row] = await withTenant({ organizationId }, () =>
@@ -68,7 +53,6 @@ export async function findAgentChange(organizationId: string, id: string): Promi
   return row ?? null
 }
 
-/** Claim the undo for `userId`: stamp it when nobody has. Null when somebody undid it first. */
 export async function claimUndo(organizationId: string, id: string, userId: string): Promise<AgentChangeRow | null> {
   const db = getDb()
   const [row] = await withTenant({ organizationId }, () =>
@@ -81,7 +65,6 @@ export async function claimUndo(organizationId: string, id: string, userId: stri
   return row ?? null
 }
 
-/** Give back an undo claim whose inverse did not go through: only the claim with exactly this stamp. */
 export async function releaseUndo(
   organizationId: string,
   claim: Pick<AgentChangeRow, 'id' | 'undoneAt' | 'undoneBy'>

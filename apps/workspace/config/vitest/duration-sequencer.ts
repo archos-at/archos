@@ -1,16 +1,3 @@
-/**
- * Shards the suite by recorded time, not by file count.
- *
- * Vitest's own `--shard` hashes the paths and cuts the list into equal
- * counts, so one shard drew 214 s of specs and another 115 s from the same
- * 259 files (CI, 2026-10-22), and the slowest shard is the frontend's time on
- * every pull request. This gives each file its time from
- * `tests/vitest-durations.json` (a file not in it counts at the median), takes
- * them longest first and hands each to the shard with the least time so far.
- * Every shard computes the same split from the same list, as pytest-split
- * does for the backend. Refresh the file with `task workspace:test:durations`; a
- * stale one only unbalances the shards, it never drops a spec.
- */
 import { readFileSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { BaseSequencer, type TestSpecification } from 'vitest/node'

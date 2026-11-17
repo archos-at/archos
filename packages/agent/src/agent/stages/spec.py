@@ -34,22 +34,6 @@ from agent.common.model_overrides import AgentGroup
 from agent.knowledge.project_memory import TurnMemoryNote
 from agent.memory.restriction import RestrictionEvidence
 
-#: Terminal states a stage run can end in. Every one of them is recorded, so
-#: "how often did this stage fire, succeed, time out, or skip and why" is a
-#: GROUP BY rather than an argument.
-#:
-#: - ``ready``    — the handler produced a payload.
-#: - ``empty``    — the handler ran and deliberately produced nothing. A
-#:                  first-class success: reflection's most common correct
-#:                  outcome is "nothing durable here". A handler may return
-#:                  :class:`StageEmpty` instead of ``None`` to say which
-#:                  nothing, and the reason rides the span.
-#: - ``skipped``  — the deterministic gate (or a load-shedding cap) declined
-#:                  before any work started; ``reason`` says which condition.
-#: - ``failed``   — the handler raised, or its payload failed validation.
-#: - ``timeout``  — the handler exceeded ``StageSpec.timeout_s``.
-#: - ``disabled`` — the stage's flag is off for this tenant, or no LLM is
-#:                  configured for its agent group (the capability bit).
 StageStatus = Literal["ready", "empty", "skipped", "failed", "timeout", "disabled"]
 
 
@@ -65,70 +49,30 @@ class TurnFacts:
     is gone.
     """
 
-    #: The conversation the answered turn belongs to.
     conversation_id: str | None = None
-    #: The WebSocket ``user_message`` id of the answered turn — the only id both
-    #: the browser and the agent tier genuinely share, and therefore the turn
-    #: half of the idempotency key (see :mod:`.runner`). ``None`` off the
-    #: WebSocket path (CLI, REST, job worker), where there is no turn identity.
     ws_parent_id: str | None = None
     organization_id: str | None = None
     project_id: str | None = None
     user_id: str | None = None
 
-    #: The user's question and the delivered answer, verbatim. A handler that
-    #: needs them bounded slices them itself — the caps differ per stage.
     query: str = ""
     answer: str = ""
-    #: The project-memory digest the agent actually saw this turn.
     memory_digest: str | None = None
-    #: What the ``remember`` tool wrote DURING the turn, after that digest was
-    #: built. Reflection must treat these as already recorded.
     remembered_this_turn: tuple[str, ...] = ()
-    #: The project and organization notes those writes created, with their ids:
-    #: what the answer's noted chip shows as written during the answer. Never a
-    #: personal note (ADR-0180).
     noted_this_turn: tuple[TurnMemoryNote, ...] = ()
-    #: What the turn could have taken from restricted folders (ADR-0087): the
-    #: restricted collections in its scope, the ones it cited or read, and the
-    #: restricted documents its prompt listed. Memory written from the turn is
-    #: restricted accordingly (``memory/restriction.py``); empty for an open turn.
     restriction: RestrictionEvidence = RestrictionEvidence()
-    #: The conversation drew on another project through a cross-project lookup
-    #: (ADR-0094): nothing from it is remembered, so reflection does not run.
     drew_on_other_projects: bool = False
     federal_state: str | None = None
-    #: The conversation is temporary (ADR-0180): nothing from it is kept, so
-    #: reflection does not run. The BFF refuses the write too.
     temporary: bool = False
-    #: The asker's ``PERSONAL_MEMORY v1`` block the agent saw this turn, so
-    #: reflection does not record a personal note a second time.
     personal_memory: str | None = None
-    #: The turn's signed envelope, for a write the BFF attributes to the asker
-    #: (a personal note). None off an authenticated chat turn. Not in the repr:
-    #: it is a credential.
     envelope: SignedEnvelope | None = field(default=None, repr=False)
 
-    #: Which path the turn took, observed after the answer (``meta`` for a
-    #: direct reply, ``shallow``, ``deep``, ``error``); see
-    #: ``ResearchAgentState.observed_routing``.
     routing_decision: str | None = None
-    #: The research loop hit its tool-iteration ceiling: the turn ran out of
-    #: budget before it ran out of question.
     research_truncated: bool = False
-    #: Set when the turn commissioned a run instead of answering itself
-    #: (ADR-0062): the ``task_runs`` row that now carries the work.
     run_id: str | None = None
-    #: Card types the model emitted in-turn, so a stage can decline to duplicate
-    #: something the reader already has.
     emitted_card_types: frozenset[str] = frozenset()
-    #: The model's guarded self-assessment of answer grounding, when present.
     answer_confidence: str | None = None
 
-    #: Stage ids enabled for this tenant on THIS turn (flag ∧ capability is
-    #: resolved per stage in the runner). ``None`` means "unknown" and is
-    #: treated as nothing enabled — fail-closed, exactly as the individual
-    #: feature-flag header is read.
     enabled_stages: frozenset[str] | None = None
 
     def stage_enabled(self, stage_id: str) -> bool:
@@ -179,7 +123,6 @@ class StageEmpty:
     reason is telemetry, never something a client reads.
     """
 
-    #: A machine key, never prose — it is grouped on, not read.
     reason: str
 
     def __post_init__(self) -> None:
@@ -192,7 +135,6 @@ class GateDecision:
     """A deterministic gate's verdict. Never an LLM's opinion."""
 
     run: bool
-    #: A machine key, never prose — it is grouped on, not read.
     reason: str | None = None
 
     @classmethod
@@ -215,10 +157,7 @@ class StageOutcome:
 
     stage_id: str
     status: StageStatus
-    #: Required for ``skipped``/``failed``/``disabled``; optional on
-    #: ``empty``, where it names which "nothing" this was. A machine key.
     reason: str | None = None
-    #: Only when ``status == "ready"``.
     payload: dict[str, Any] | None = None
     duration_ms: int = 0
 
@@ -239,32 +178,15 @@ class StageSpec:
     so the declaration is forced to state one.
     """
 
-    #: Stable wire identity, e.g. ``"memory_reflection"``.
     id: str
-    #: The existing model-selection group — reused, not re-invented, so a stage
-    #: inherits Platform → Models defaults, the org override and the ADR-0022
-    #: BYOK credential swap by construction.
     agent_group: AgentGroup
-    #: WorkOS flag slug gating the stage per organization. The BFF decides it
-    #: (``POST_ANSWER_STAGE_FLAGS``) and there is no environment fallback.
     flag_slug: str
-    #: HARD ``asyncio.wait_for`` bound on the whole handler.
     timeout_s: float
-    #: Deterministic, LLM-free predicate over :class:`TurnFacts`.
     gate: Callable[[TurnFacts], GateDecision]
-    #: Returns the payload, ``None`` for a plain "nothing", or
-    #: :class:`StageEmpty` to name which nothing it was.
     handler: Callable[[StageContext], Awaitable[dict[str, Any] | StageEmpty | None]]
-    #: Validated before the outcome is recorded or anything is delivered.
     payload_model: type[BaseModel] | None
-    #: ``"frame"`` pushes a frame to the browser; ``"silent"`` stages write
-    #: their own durable state and tell nobody.
     delivery: Literal["frame", "silent"]
-    #: Output-token ceiling bound onto the stage's LLM, or ``None`` when the
-    #: configured model's own ceiling is the bound. Explicit either way: a stage
-    #: author has to make the call rather than inherit a default.
     max_output_tokens: int | None
-    #: Free-form notes for the registry listing; never read by the runner.
     tags: frozenset[str] = field(default_factory=frozenset)
 
     def __post_init__(self) -> None:

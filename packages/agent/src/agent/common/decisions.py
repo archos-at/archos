@@ -1,46 +1,3 @@
-"""A decision model where a decision is a decision: typed answers over a state, never text.
-
-TypeSafe's Jev (a "System One" model, ADR-0064) takes a STATE — a string, a
-JSON object or an array — and a map of typed QUESTIONS, and returns one
-typed answer per question with a calibrated probability: a ``noul`` is a
-yes/no as a probability, a ``choice`` one option of up to 255 with the whole
-distribution, a ``score`` a level on an ordered rubric. It generates nothing.
-It answers in 70-500 ms for ~$0.04 per million input tokens, which is the
-shape of every yes/no this agent used to pay a generative frontier call for:
-"is this pool of passages enough to answer the question", "which Richtlinie
-does this question need", "does this answer earn a table". Reached through
-OpenRouter's alpha Decisions endpoint (``POST /api/alpha/decisions``, model
-``typesafe/jev-1.13``) on the key every deployment already holds.
-
-THE RULE EVERY CALLER OBEYS (ADR-0052, restated for a classifier): a decision
-made before the answer may only ADD — a fetch run early, a shape attached, a
-skill body read in place — and never withhold a tool, a corpus or a round.
-A wrong answer costs tokens or a wasted fetch; it must never cost a
-capability the answer turns out to need. That is why every function here
-returns ``None`` on any failure and why no caller may treat ``None`` as
-anything but "run as today".
-
-Two more things are structural rather than advisory. The endpoint is alpha,
-so a circuit breaker takes it out of the path after repeated failures
-instead of paying a timeout per call; and the state is built from
-STRUCTURED FIELDS the caller chose, never from a raw transcript: the vendor
-documents that unrelated state degrades accuracy and that adversarial text
-in the state can move the answer, and a tool result is data, not an
-instruction to the decider.
-
-Language: Jev's primary training language is English; German is "accepted
-but currently [of] lower accuracy" (vendor docs, *State*). So instructions
-and criteria are written in English and the STATE carries the user's German
-verbatim, and the decision eval (``scripts/decision_eval.py``) measures the
-result on the loop-eval questions before a use is adopted (ADR-0064).
-
-Every decision is pinned to zero-data-retention endpoints
-(``openrouter.PLATFORM_FIXED``), whatever the organization's setting: Jev's
-one endpoint is ZDR, so the pin costs nothing. An org whose own key (BYOK)
-points anywhere but OpenRouter skips every decision, since the endpoint is
-OpenRouter's.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -63,39 +20,12 @@ from agent.common.openrouter import limited_async_http_client
 
 logger = logging.getLogger(__name__)
 
-# @environment_variable DECISIONS_ENABLED
-# @category Agent
-# @type bool
-# @default true
-# @required false
-# Whether the decision model (Jev, ADR-0064) is consulted at all. `false`
-# runs every turn exactly as it ran before the decisions existed.
 ENABLED_ENV = "DECISIONS_ENABLED"
 
-# @environment_variable DECISIONS_MODEL
-# @category Agent
-# @type str
-# @default typesafe/jev-1.13
-# @required false
-# The decision model id on OpenRouter's Decisions endpoint.
 MODEL_ENV = "DECISIONS_MODEL"
 
-# @environment_variable DECISIONS_URL
-# @category Agent
-# @type str
-# @default https://openrouter.ai/api/alpha/decisions
-# @required false
-# The Decisions endpoint. Only needed to point at a mock or a proxy; the
-# default is derived from the resolved OpenRouter base URL.
 URL_ENV = "DECISIONS_URL"
 
-# @environment_variable DECISIONS_API_KEY
-# @category Agent
-# @type str
-# @default (OPENROUTER_API_KEY)
-# @required false
-# A dedicated key for the Decisions endpoint. Falls back to OPENROUTER_API_KEY
-# through the shared credential resolver, BYOK first.
 DEDICATED_ENV = "DECISIONS_API_KEY"  # pragma: allowlist secret
 
 DEFAULT_MODEL = "typesafe/jev-1.13"
@@ -104,32 +34,20 @@ _FALLBACK_KEY_ENV = "OPENROUTER_API_KEY"
 _DEFAULT_BASE_URL = "https://openrouter.ai/api/v1"
 _OPENROUTER_HOST = "openrouter.ai"
 
-#: Upper bound on one decision call. The vendor's envelope is 70-500 ms; a
-#: call past this is a call the reader would feel, and the answer it would
-#: have given is worth strictly less than the second.
 DEFAULT_TIMEOUT_S = 1.5
 
-#: How many decisions ``decide_many`` keeps in flight. TypeSafe's own
-#: re-ranking cookbook ran twelve.
 DEFAULT_CONCURRENCY = 12
 
-#: The cost-ledger role a decision is filed under (``cost_tracking``): the
-#: calls do not go through LangChain, so they are recorded by hand, like the
-#: reranker's.
 USAGE_ROLE_DECISION = "decision"
 
-#: Why a decision was not made. Stable tokens for the technical record.
 SKIPPED_DISABLED = "disabled"
 SKIPPED_NO_KEY = "no_key"
 SKIPPED_BYOK_HOST = "byok_host"
 SKIPPED_BREAKER = "breaker"
 SKIPPED_TIMEOUT = "timeout"
 SKIPPED_ERROR = "error"
-#: The caller did not ask: a first message of fewer than three words (Piloti).
 SKIPPED_TOO_SHORT = "too_short"
 
-#: Consecutive failures before the breaker opens, and how long it stays open.
-#: Module-level: the failure is the endpoint's, not one caller's.
 _BREAKER_THRESHOLD = 5
 _BREAKER_COOLDOWN_S = 300.0
 _breaker_lock = threading.Lock()
@@ -137,38 +55,28 @@ _consecutive_failures = 0
 _breaker_open_until = 0.0
 
 
-# ---------------------------------------------------------------------------
-# Questions
-# ---------------------------------------------------------------------------
 
 
 def noul(instructions: str, *, true: str, false: str) -> dict[str, Any]:
-    """A yes/no question. ``true``/``false`` are the criteria the vendor asks for."""
     return {"type": "noul", "instructions": instructions, "criteria": {"true": true, "false": false}}
 
 
 def choice(instructions: str, options: Mapping[str, str]) -> dict[str, Any]:
-    """One option of ``options`` (key → description); at most 255, single select."""
     if not options or len(options) > 255:
         raise ValueError("a choice needs between 1 and 255 options")
     return {"type": "choice", "instructions": instructions, "criteria": dict(options)}
 
 
 def score(instructions: str, levels: Sequence[str]) -> dict[str, Any]:
-    """A level on an ordered rubric of 2-10 descriptions."""
     if not 2 <= len(levels) <= 10:
         raise ValueError("a score needs between 2 and 10 levels")
     return {"type": "score", "instructions": instructions, "criteria": list(levels)}
 
 
-# ---------------------------------------------------------------------------
-# Answers
-# ---------------------------------------------------------------------------
 
 
 @dataclass(frozen=True)
 class Decision:
-    """One request's typed answers, with what it cost and how long it took."""
 
     answers: Mapping[str, Mapping[str, Any]]
     model: str = ""
@@ -179,12 +87,10 @@ class Decision:
     request_id: str | None = None
 
     def noul(self, key: str) -> float | None:
-        """The probability of "yes", or ``None`` when the question was not answered."""
         answer = self.answers.get(key)
         return _probability(answer.get("noul")) if isinstance(answer, Mapping) else None
 
     def choice(self, key: str) -> tuple[str | None, dict[str, float]]:
-        """The chosen option and the whole distribution (empty when unanswered)."""
         answer = self.answers.get(key)
         if not isinstance(answer, Mapping):
             return None, {}
@@ -205,11 +111,6 @@ class Decision:
         return float(value) if isinstance(value, (int, float)) and math.isfinite(float(value)) else None
 
     def summary(self) -> dict[str, float | str | None]:
-        """The answers as flat scalars — what the technical record carries.
-
-        A choice is its winner under its own key and that winner's probability
-        under ``<key>.p``.
-        """
         out: dict[str, float | str | None] = {}
         for key, answer in self.answers.items():
             kind = answer.get("type") if isinstance(answer, Mapping) else None
@@ -233,9 +134,6 @@ def _probability(value: Any) -> float | None:
     return min(1.0, max(0.0, number))
 
 
-# ---------------------------------------------------------------------------
-# The call
-# ---------------------------------------------------------------------------
 
 
 @dataclass(frozen=True)
@@ -248,7 +146,6 @@ class _Endpoint:
 
 @dataclass
 class _Outcome:
-    """What one attempt produced, for the aggregated record of ``decide_many``."""
 
     decision: Decision | None = None
     skipped: str | None = None
@@ -257,7 +154,6 @@ class _Outcome:
 
 
 def enabled() -> bool:
-    """Whether decisions are switched on for this process (env, default on)."""
     return os.environ.get(ENABLED_ENV, "true").strip().lower() not in {"0", "false", "off", "no"}
 
 
@@ -285,7 +181,6 @@ def _record_success() -> None:
 
 
 def reset_breaker() -> None:
-    """Close the breaker (tests, and an operator after a fix)."""
     global _consecutive_failures, _breaker_open_until
     with _breaker_lock:
         _consecutive_failures = 0
@@ -293,12 +188,6 @@ def reset_breaker() -> None:
 
 
 def _resolve_endpoint_blocking(organization_id: str | None) -> tuple[_Endpoint | None, str | None]:
-    """The key, URL and model this decision runs with, or why it cannot run.
-
-    Through the shared credential resolver (BYOK first, then the dedicated
-    env, then ``OPENROUTER_API_KEY``), like every other bespoke call site.
-    Blocking on a cold BYOK lookup, so the caller runs it off the loop.
-    """
     model = os.environ.get(MODEL_ENV, "").strip() or DEFAULT_MODEL
     try:
         from agent.common.credential_resolution import resolve_llm_credential
@@ -337,13 +226,6 @@ async def _endpoint(organization_id: str | None) -> tuple[_Endpoint | None, str 
 
 
 def _context_organization_id() -> str | None:
-    """The request's organization, for a caller that did not name one.
-
-    The knowledge layer decides without an organization id in hand; without
-    this, the resolver would skip BYOK and send that org's passages to the
-    platform endpoint under the platform key, the one thing the BYOK-host
-    guard exists to prevent.
-    """
     try:
         from agent.project_context import get_organization_id_from_context
 
@@ -352,29 +234,13 @@ def _context_organization_id() -> str | None:
         return None
 
 
-#: The keep-alive client, one per event loop. Measured on 2026-09-22 against
-#: the live endpoint: a client built per call answered in ~430 ms, of which
-#: ~370 ms was the TLS handshake; the same call on a warm connection took
-#: ~60 ms. Keyed by loop because an httpx client is bound to the loop that
-#: opened its connections, and the test runner opens a new loop per test.
 _shared_client: tuple[Any, Any] | None = None
 
 
 @asynccontextmanager
 async def _client(timeout: float, transport: Any) -> AsyncIterator[Any]:
-    """The client for one call or one batch, closed after it when it is the caller's own.
-
-    A ``transport`` (tests, and the blocking wrappers' loop of their own) gets
-    one client around it for the whole call or batch, closed when it ends:
-    closing a client closes its transport, so a client per call of a batch
-    closed the transport under every other call in flight. Everything else
-    shares the loop's keep-alive client, which stays open.
-    """
     import httpx
 
-    # Every client queues for a provider slot (ADR-0081) in the class of the
-    # caller's task: a decision inside a chat turn is chat, one inside an ingest
-    # job is that job's class.
     if transport is not None:
         async with limited_async_http_client(timeout=timeout, inner=transport) as owned:
             yield owned
@@ -402,8 +268,6 @@ async def _post(
 ) -> _Outcome:
     import httpx
 
-    # Pinned for every organization (`openrouter.PLATFORM_FIXED`): the decision
-    # model is the platform's, and its one endpoint (TypeSafe) is ZDR.
     body = PLATFORM_FIXED.apply({"model": endpoint.model, "state": state, "questions": dict(questions)})
     started = time.monotonic()
     try:
@@ -421,8 +285,6 @@ async def _post(
         return _Outcome(skipped=SKIPPED_ERROR, detail=type(exc).__name__)
     latency_ms = int((time.monotonic() - started) * 1000)
     if response.status_code != 200:
-        # 4xx is ours (a malformed question) and must not open the breaker
-        # against the endpoint; 5xx/429/529 is theirs and does.
         if response.status_code >= 500 or response.status_code == 429:
             _record_failure()
         logger.warning("Decision endpoint answered HTTP %s", response.status_code)
@@ -461,9 +323,6 @@ def _record_cost(decision: Decision, *, byok: bool) -> None:
             prompt_tokens=decision.input_tokens,
             completion_tokens=decision.output_tokens,
             cost_usd=decision.cost_usd or 0.0,
-            # The ledger's vocabulary (`COST_SOURCES` in the BFF schema): a
-            # value outside it, as `"provider"` was, has the internal endpoint
-            # refuse the whole batch, and with it up to four other calls.
             cost_source="usage_field" if decision.cost_usd is not None else "missing",
             is_byok=byok,
         )
@@ -472,14 +331,11 @@ def _record_cost(decision: Decision, *, byok: bool) -> None:
 
 
 def _record(slot: str, detail: dict[str, Any]) -> None:
-    """The technical record of a decision: numbers, never the reader's text."""
     from agent.common.turn_status import emit_technical
 
     emit_technical(f"decision:{slot}", **detail)
 
 
-#: How many answer summaries one ``decide_many`` observation carries: a batch
-#: of passages or candidates is bounded, but an observation must stay small.
 _OBSERVED_ANSWERS_MAX = 24
 
 
@@ -492,7 +348,6 @@ def _observe(
     latency_ms: int | None = None,
     skipped: str | None = None,
 ) -> None:
-    """The Langfuse generation for one call or batch (``decide.<slot>``). Never raises."""
     try:
         from agent.observability.decision_trace import decision_observation
         from agent.observability.decision_trace import emit_decision_span
@@ -519,14 +374,6 @@ def _observe(
 def record_skipped(
     slot: str, reason: str, detail: str | None = None, *, questions: Mapping[str, Any] | Sequence[str] = ()
 ) -> None:
-    """Log and record a decision that did not run, and why.
-
-    INFO, not DEBUG: a decision that silently misses its budget looks, in
-    every log, exactly like a turn that never asked for one. A caller that
-    chose not to ask records its own reason here, beside the endpoint's.
-    Langfuse sees it too, so a turn that prefetched nothing because the
-    decision timed out is told apart from one whose decision said no.
-    """
     logger.info("Decision %s did not run: %s", slot, reason)
     _record(slot, {"skipped": reason, **({"detail": detail} if detail else {})})
     _observe(slot, questions, states=1, skipped=reason)
@@ -541,12 +388,6 @@ async def decide(
     organization_id: str | None = None,
     transport: Any = None,
 ) -> Decision | None:
-    """One request: every question over one state; ``None`` on any failure.
-
-    ``slot`` names the decision in the technical record (``status:decision:<slot>``),
-    which carries the answers as numbers, the latency, and — when nothing was
-    decided — why. ``transport`` is for tests (an ``httpx.MockTransport``).
-    """
     if not questions:
         return None
     endpoint, skipped = await _endpoint(organization_id)
@@ -575,15 +416,6 @@ def decide_blocking(
     timeout: float = DEFAULT_TIMEOUT_S,
     organization_id: str | None = None,
 ) -> Decision | None:
-    """:func:`decide` for synchronous code: ingestion's worker threads, scripts.
-
-    Runs on a loop of its own with a client of its own, closed after the call:
-    the shared keep-alive client is bound to the loop that opened it, and a
-    loop made per call would orphan one client per document. Ingestion pays
-    the TLS handshake per call for that, which it can afford. Called from a
-    thread that already runs a loop, the call moves to a thread of its own
-    rather than failing, because ``asyncio.run`` refuses to nest.
-    """
     import httpx
 
     def _run() -> Decision | None:
@@ -605,8 +437,6 @@ def decide_blocking(
     from concurrent.futures import ThreadPoolExecutor
     from contextvars import copy_context
 
-    # In the caller's context, so the decision's cost reaches its tracker (a
-    # ContextVar a fresh thread would not see) and lands on the ledger.
     with ThreadPoolExecutor(max_workers=1) as pool:
         return pool.submit(copy_context().run, _run).result()
 
@@ -620,12 +450,6 @@ def decide_many_blocking(
     concurrency: int = DEFAULT_CONCURRENCY,
     organization_id: str | None = None,
 ) -> list[Decision | None]:
-    """:func:`decide_many` for synchronous code, as :func:`decide_blocking` is :func:`decide`'s.
-
-    The batch shares one client around its transport, closed once every call
-    of it has answered (``_client``): the record tool's select check and the
-    closed-project fingerprint verify call this with several states at once.
-    """
     import httpx
 
     def _run() -> list[Decision | None]:
@@ -662,14 +486,6 @@ async def decide_many(
     organization_id: str | None = None,
     transport: Any = None,
 ) -> list[Decision | None]:
-    """The same questions over each state, in parallel; one record for the batch.
-
-    One endpoint resolution for the batch, then at most ``concurrency`` calls
-    in flight. A state whose call failed is ``None`` at its index, so a
-    caller that scores candidates keeps the unscored ones in their input
-    order (the reranker's contract), and a batch that could not run at all is
-    all ``None``.
-    """
     if not states or not questions:
         return [None] * len(states)
     endpoint, skipped = await _endpoint(organization_id)

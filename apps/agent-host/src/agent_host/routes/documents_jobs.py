@@ -20,10 +20,8 @@ from agent.knowledge.schema import IngestionJobStatus
 from ..jobs import ingest_dispatch
 from .collections import _require_ingestor
 
-# The name these routes logged under before the split, so log filters keep matching.
 logger = logging.getLogger("agent_host.routes.documents")
 
-# Upper bound on job ids per batch-status request (request validation).
 BATCH_STATUS_MAX_IDS = 200
 
 

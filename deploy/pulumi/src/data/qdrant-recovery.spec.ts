@@ -3,15 +3,6 @@ import * as k8s from "@pulumi/kubernetes";
 import * as pulumi from "@pulumi/pulumi";
 import { baseStackConfig } from "../test-support/stack-config";
 
-/**
- * The two recovery knobs of `data/qdrant.ts`, set: the second key of a key
- * rotation (`qdrantAltApiKey`) and the load mode for a peer that OOMs while
- * loading (`qdrantLowMemoryMode`). Both were drilled against real Qdrant
- * 1.19.2 (`docs/deployment/qdrant-runbook.md`); these hold the manifest to the
- * env names that worked there. Unset, neither reaches the pod
- * (`index-qdrant.spec.ts`).
- */
-
 type Env = { name: string; value?: string; valueFrom?: { secretKeyRef?: { name: string; key: string } } };
 const RESOURCES: Array<{ type: string; name: string; inputs: unknown }> = [];
 
@@ -61,7 +52,6 @@ describe("qdrant during a key rotation, loading in low-memory mode", () => {
     });
     expect(env.QDRANT__SERVICE__ALT_API_KEY.value).toBeUndefined();
     expect(secret["alt-api-key"]).toBe("qd-next");
-    // Peers still present the first key on p2p: internal auth stays on.
     expect(env.QDRANT__SERVICE__ENFORCE_INTERNAL_AUTH.value).toBe("true");
   });
 

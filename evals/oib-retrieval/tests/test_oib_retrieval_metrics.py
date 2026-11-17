@@ -1,10 +1,3 @@
-"""Offline unit tests for the OIB retrieval harness's pure scoring modules.
-
-Exercises evals/oib-retrieval/src/oib_retrieval/{metrics,qrels,citations}.py
-directly with hand-built rankings and the committed fixtures — no embedder, no model
-download, no PDF, no network, no key. Everything here runs in CI.
-"""
-
 import math
 from pathlib import Path
 
@@ -26,9 +19,6 @@ def golden() -> qrels.GoldenSet:
     return qrels.load_golden(FIXTURES / "oib_retrieval_golden.json")
 
 
-# ---------------------------------------------------------------------------
-# metrics: recall / precision
-# ---------------------------------------------------------------------------
 
 
 def test_recall_at_k_divides_by_the_full_judged_set_not_by_k():
@@ -50,7 +40,6 @@ def test_recall_at_k_returns_zero_for_a_should_refuse_question_rather_than_raisi
 
 
 def test_precision_at_k_charges_the_retriever_for_unfilled_slots():
-    # Two results, both relevant, but k is ten: precision is 0.2, not 1.0.
     assert metrics.precision_at_k(["a", "b"], {"a", "b"}, 10) == pytest.approx(0.2)
 
 
@@ -61,16 +50,9 @@ def test_a_cutoff_of_zero_or_less_is_a_programming_error_not_an_empty_result():
         metrics.fill_rate(["a"], -1)
 
 
-# ---------------------------------------------------------------------------
-# metrics: nDCG, verified by hand
-# ---------------------------------------------------------------------------
 
 
 def test_ndcg_at_k_matches_a_gain_and_discount_computed_by_hand():
-    # Ranking:  [b, x, a]   grades: a=3 (gain 7), b=1 (gain 1), x is unjudged (gain 0).
-    # DCG  = 1/log2(2) + 0/log2(3) + 7/log2(4) = 1.0 + 0 + 3.5            = 4.5
-    # IDCG = 7/log2(2) + 1/log2(3)             = 7.0 + 0.6309297535714575 = 7.630929753571457
-    # nDCG = 4.5 / 7.630929753571457           = 0.5897053367440438
     grades = {"a": 3, "b": 1}
     dcg = 1.0 / math.log2(2) + 7.0 / math.log2(4)
     idcg = 7.0 / math.log2(2) + 1.0 / math.log2(3)
@@ -86,8 +68,6 @@ def test_ndcg_at_k_is_one_for_the_ideal_ranking():
 
 
 def test_ndcg_at_k_uses_exponential_gain_so_one_grade_three_outranks_three_grade_ones():
-    # Gains are 2**grade - 1, so the single grade-3 unit is worth 7 and each grade-1 unit
-    # is worth 1: finding the answering Punkt alone must beat finding three context Punkte.
     grades = {"a": 3, "p": 1, "q": 1, "r": 1}
     answer_first = metrics.ndcg_at_k(["a", "z", "z2"], grades, 3)
     context_first = metrics.ndcg_at_k(["p", "q", "r"], grades, 3)
@@ -108,9 +88,6 @@ def test_ndcg_at_k_is_zero_when_nothing_is_judged_relevant():
     assert metrics.ndcg_at_k(["a", "b"], {}, 5) == 0.0
 
 
-# ---------------------------------------------------------------------------
-# metrics: MRR, forbidden rate, fill rate
-# ---------------------------------------------------------------------------
 
 
 def test_mrr_is_the_reciprocal_of_the_first_relevant_rank():
@@ -141,9 +118,6 @@ def test_fill_rate_is_one_when_the_retriever_fills_every_slot_of_an_unanswerable
     assert metrics.fill_rate(list(range(4)), 16) == pytest.approx(0.25)
 
 
-# ---------------------------------------------------------------------------
-# qrels: the Punkt index and the expansion
-# ---------------------------------------------------------------------------
 
 
 def test_the_committed_clause_index_holds_946_clauses_across_12_guidelines(clause_index):
@@ -199,9 +173,6 @@ def test_the_forbidden_container_matches_by_file_name_prefix_only():
     assert ("aenderungen_x.pdf", 1) in forbidden
 
 
-# ---------------------------------------------------------------------------
-# qrels: the golden set's own invariants
-# ---------------------------------------------------------------------------
 
 
 def test_the_golden_set_has_between_40_and_60_entries_all_calibration_pending(golden):
@@ -218,9 +189,6 @@ def test_every_golden_entry_carries_provenance_a_label_method_and_notes(golden):
 
 
 def test_every_german_question_has_an_english_sibling_with_identical_qrels(golden, clause_index):
-    # The load-bearing invariant of the language-parity number: if the two sides' expected
-    # output differed at all, a measured gap could be blamed on the labels instead of on
-    # retrieval. This raises rather than asserts, so the failure names the offending need.
     qrels.assert_siblings_share_qrels(golden, clause_index)
     assert len(golden.sibling_pairs()) == len({entry.need_id for entry in golden.entries})
 
@@ -267,9 +235,6 @@ def test_a_duplicate_entry_id_is_rejected_by_the_loader(tmp_path):
         qrels.load_golden(path)
 
 
-# ---------------------------------------------------------------------------
-# citations
-# ---------------------------------------------------------------------------
 
 
 def test_citation_parsing_reads_the_units_the_knowledge_tool_formats():

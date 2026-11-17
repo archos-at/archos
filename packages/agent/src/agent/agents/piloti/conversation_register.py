@@ -114,9 +114,6 @@ from nat.plugin_api import register_function
 logger = logging.getLogger(__name__)
 
 
-########################################################
-# Chat Deep Researcher Agent
-########################################################
 class ChatDeepResearcherConfig(FunctionBaseConfig, name="chat_deepresearcher_agent"):
     """Configuration for the chat deep researcher orchestrator agent."""
 
@@ -240,10 +237,6 @@ async def _build_agent(config: ChatDeepResearcherConfig, builder: Builder) -> Co
     about the turn, and collapsing them would make a per-request signal depend on
     a build-time one.
     """
-    # The agent-runtime function NAME, not its `_type` (which is `research_agent`). The
-    # name is what the agent runtime emits as `Function Start: …` and what every stored turn
-    # keeps as `functionName`, so it is a persisted identifier and stays put —
-    # see the comment on the block in `configs/config_oib_openrouter.yml`.
     research_fn_impl = await builder.get_function("shallow_research_agent")
     deep_fn = await builder.get_function("deep_research_agent")
     return ConversationGraph(
@@ -268,8 +261,6 @@ def _turn_state(
 ) -> ConversationState:
     return ConversationState(
         messages=[HumanMessage(content=inputs.query_text)],
-        # The token while someone is signed in, else the signed envelope: a
-        # woken thread or a scheduled run is named as well as a typed turn.
         user_info=user_info_for(request),
         data_sources=inputs.data_sources,
         available_documents=inventory.available_documents,
@@ -309,8 +300,6 @@ def _finished(
     read is captured here, while the request context is still live.
     """
     if inputs.focus_region is not None:
-        # Whether the turn looked at the box the person drew (a region view
-        # ran), on the turn's root: the one fact the review canvas rests on.
         record_turn_facts(focus_region_viewed=registries.regions_viewed > 0)
     if outcome.refusal is not None:
         return refused(outcome.refusal, message_id=message_id)
@@ -326,8 +315,6 @@ def _finished(
         registry_collections=registries.source_collections,
         restricted_memory_writes=registries.restricted_memory_writes,
         earlier_restricted_notes=registries.shown_notes,
-        # Every row the turn could list (`list_files` shows uncapped rows with
-        # their summaries), bound by `_prepare_turn` for this task.
         listed_documents=get_turn_documents(),
     )
     schedule_post_answer_stages(facts, llms=stage_llms)
@@ -364,26 +351,17 @@ async def _load_setup(
                 request, conversation_id=thread_id, query_text=inputs.query_text, resolve_stages=resolve_stages
             ),
         ),
-        # Listing is not use (ADR-0088): a restricted folder's file names and
-        # summaries stay out of the inventory block and `list_files`, so they
-        # never reach the prompt without an admission. Searching them is
-        # admitted per tool round (`admit_tool_results`).
         load_inventory(without_restricted(scope)),
         spanned("setup.session_registry", load_session_registry(thread_id)),
         spanned(
             "setup.subject_document",
             load_subject_document(
                 inputs.subject,
-                # The agent runtime's conversation id, not the thread id: the working directory
-                # is namespaced by the former, and `file_draft` resolves the same
-                # one when it goes looking for the file this write leaves behind.
                 conversation_id=conversation_id,
                 organization_id=request.organization_id,
                 user_id=request.user_id,
             ),
         ),
-        # The restricted memory earlier turns were shown (ADR-0087): evidence
-        # for the memory restriction decision, kept beside the citation registry.
         spanned("setup.shown_restricted_notes", load_turn_shown_notes(thread_id)),
     )
     return context, inventory, session_registry, subject_step, shown_notes
@@ -411,7 +389,6 @@ class _Turn:
     inputs: TurnInputs
     request: RequestContext
     runtime: _TurnRuntime
-    #: The restricted memory earlier turns were shown (ADR-0087).
     shown_notes: ShownNotes = ShownNotes()
 
 
@@ -448,22 +425,11 @@ async def _prepare_turn(
         yield StepFinishedBody(step=waiting)
         inventory = await wait_for_uploads(without_restricted(scope), inventory)
     skip_clarifier = not enable_clarifier or skip_clarifier_requested()
-    # The inventory reaches the PROMPT as the rendered block and the TOOLS as
-    # rows. The write-side workspace tools resolve a file name against these
-    # rows, and there is no argument that could carry them: a LangGraph run and
-    # a tool node sit between here and the call. Bound before the graph starts,
-    # so the child contexts copy it; called on every turn, including with None,
-    # which is what stops one turn resolving against the last one's.
-    # The UNCAPPED rows: the prompt cap bounds what the model reads, never
-    # what a tool can resolve (`Inventory.all_documents`).
     set_turn_documents(inventory.all_documents or inventory.available_documents)
     set_norm_families(inventory.norm_families)
     set_inventory_drops(inventory.inventory_drops)
     set_project_models(context.project_models)  # which model files the project holds, for the tools bound
-    # Which country, coverage and editions apply (each edition's role, for the citation wire), and what
-    # the turn may retrieve (ADR-0173); bound every turn, so a turn never reads the last turn's gate.
     set_turn_knowledge_context(context.knowledge_context)
-    # The office's own copies, for the citation line of a passage read from one (ADR-0163); reset every turn.
     set_turn_office_labels(context.base_knowledge_labels)
     record_trace_metadata(**knowledge_trace_metadata(turn_knowledge_context()))
     state = _turn_state(inputs, context, inventory, header_scope, request=request, skip_clarifier=skip_clarifier)
@@ -495,8 +461,6 @@ async def _answer(turn: _Turn, *, message_id: str, stream: bool) -> AsyncIterato
             turn.state,
             thread_id=runtime.thread_id,
             organization_id=turn.request.organization_id,
-            # The answer's id rides the cost ledger, so its details can say what it
-            # cost. No identity means "read it off the request", which must stay so.
             identity={**runtime.identity, "message_id": message_id} if runtime.identity is not None else None,
             metadata=runtime.metadata,
             ledgers=runtime.ledgers,
@@ -522,16 +486,9 @@ def _turn_runner(agent: ConversationGraph, config: ChatDeepResearcherConfig, sta
     async def _run(query: object) -> Annotated[AsyncGenerator[EventBody], Streaming(convert=fold_turn)]:
         conversation_id = Context.get().conversation_id
         thread_id = thread_id_for_turn(conversation_id)
-        # The signed request-context envelope, parsed ONCE per turn (base64 +
-        # HMAC-SHA256 + JSON); every consumer below reads this object.
         request = RequestContext.from_context()
-        # Retrieval reads the turn's focus from the ContextVars this parse sets.
         inputs = extract_turn_inputs(query)
         logger.info("ChatDeepResearcherAgent: %s (data sources: %s)", inputs.query_text, inputs.data_sources)
-        # Which restricted folders this turn may draw on, asked of the BFF
-        # before anything reads the scope (ADR-0087, ADR-0088). Bound on every
-        # turn, None included, so one turn never runs on the last one's answer;
-        # the scope read below and every read path after it keep only these.
         bind_restricted_use(
             await spanned(
                 "setup.restricted_use",
@@ -541,35 +498,19 @@ def _turn_runner(agent: ConversationGraph, config: ChatDeepResearcherConfig, sta
             )
         )
         if inputs.reply_in_thread:
-            # Asked in an Anmerkung's thread, which everyone who opens the
-            # document reads: no restricted folder in this turn's scope, so its
-            # own research cannot be what keeps the reply out (`tools/canvas/policy.py`).
             withhold_restricted_for_thread()
-        # What the conversation drew on from OTHER projects (ADR-0094): a fresh
-        # object every turn, filled from the turn context and by the lookups.
         bind_cross_project_turn(CrossProjectTurn())
         header_scope = get_scoped_collections_from_context()
-        # Say what is happening in the FIRST hole of the turn — only when one
-        # of the reader's OWN shelves is in scope; the base corpus is a constant.
         if (loading := documents_loading_step(shelves_in_scope(header_scope or ()))) is not None:
             yield StepFinishedBody(step=loading)
         turn_metadata: dict[str, Any] = {}
         identity = turn_identity(request, conversation_id)
         profiler = None
-        # ONE `finally` posts the ledgers for every exit of the turn — happy,
-        # refused, raising or cancelled — from OUTSIDE the profiled block, so
-        # the root span has closed by the time its batch goes; a flush from
-        # inside would post first and strand it. The cost tracker is held here,
-        # filled the moment it exists, because a turn that RAISES has no outcome.
         ledgers = TurnLedgers()
         fold = TurnTextFold()
         terminal: RunFinishedBody | None = None
-        # Where Piloti pointed on a document this turn (`tools/canvas/presence.py`):
-        # bound before the graph so its tools write into it, left in the `finally`.
         presence = begin_canvas_presence()
         try:
-            # The profiler root opens BEFORE the setup I/O so every setup step has a
-            # row; `inline_flush=False` posts its final batch after the answer is out.
             with track_agent_profile(
                 agent_name=PROFILE_AGENT_NAME, identity=identity, metadata=turn_metadata, inline_flush=False
             ) as profiler:
@@ -591,9 +532,6 @@ def _turn_runner(agent: ConversationGraph, config: ChatDeepResearcherConfig, sta
                             yield item
                 message_id = answer_message_id(conversation_id, turn.context.stage_facts.ws_parent_id)
                 stream = await spanned("setup.answer_streaming", asyncio.to_thread(answer_streaming_enabled))
-                # `aclosing` at every level, because `async for` never closes
-                # what it iterates: a consumer that walks away would reach the
-                # flush below with the graph still suspended mid-run.
                 async with contextlib.aclosing(_answer(turn, message_id=message_id, stream=stream)) as bodies:
                     async for body in bodies:
                         if isinstance(body, RunFinishedBody):
@@ -601,16 +539,11 @@ def _turn_runner(agent: ConversationGraph, config: ChatDeepResearcherConfig, sta
                             continue
                         fold.add(body)
                         yield body
-            # The terminal goes out after the profiled block has closed.
             assert terminal is not None
             note_settled_replaced(fold.settled, terminal.result.text)
             yield terminal
         finally:
-            # Two BFF round-trips, posted AFTER the reader has the answer; in the
-            # `finally` so a consumer that closes the stream early still posts.
             await flush_after_answer(profiler, ledgers.cost_tracker)
-            # Piloti's cursor and highlights leave the document with the turn,
-            # however it ended: presence, not content, so the harness sends it.
             await leave_canvas(presence)
 
     return _run
@@ -619,22 +552,12 @@ def _turn_runner(agent: ConversationGraph, config: ChatDeepResearcherConfig, sta
 @register_function(config_type=ChatDeepResearcherConfig, framework_wrappers=[LLMFrameworkEnum.LANGCHAIN])
 async def chat_deepresearcher_agent(config: ChatDeepResearcherConfig, builder: Builder):
     """Chat deep researcher orchestrator agent."""
-    # The models the post-answer stages run on, keyed by agent group so the
-    # runner applies the org's override and BYOK credential per group. A group
-    # with no model is the capability bit: its stages are a no-op.
     stage_llms = {
         AgentGroup.MEMORY_REFLECTION: await _stage_llm(builder, config.memory_reflection_llm, "memory_reflection_llm"),
         AgentGroup.FOLLOW_UPS: await _stage_llm(builder, config.follow_ups_llm, "follow_ups_llm"),
     }
     agent = await _build_agent(config, builder)
-    # The history budget counts tokens with tiktoken, whose first use reads the
-    # BPE table (downloading it when the image did not bake it in). Paid here,
-    # at boot and off the loop, it is not paid synchronously by the first
-    # turn's first node: measured 1.0 s with an empty cache, 0.18 s from disk.
     await asyncio.to_thread(warm_token_encoder)
-    # Ingest-only context (ADR-0034 addendum): a `context_only` frame lands in
-    # this conversation's checkpoint without a turn. Published rather than
-    # imported because the socket is the front end's and the graph is ours.
     register_context_appender(agent.append_context_message)
     run = _turn_runner(agent, config, stage_llms)
     yield FunctionInfo.from_fn(run, description="Piloti: one answering agent, escalation to deep research.")

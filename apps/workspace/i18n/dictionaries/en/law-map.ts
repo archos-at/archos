@@ -1,4 +1,3 @@
-/** A country's law as a tree: regions, the acts that make editions binding there, and each act's statement (Platform → country → law map). */
 export const lawMap = {
   title: 'Law map',
   open: 'Open the law map',

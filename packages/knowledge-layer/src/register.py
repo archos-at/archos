@@ -20,12 +20,6 @@ from nat.plugin_api import register_function
 
 logger = logging.getLogger(__name__)
 
-# Agent-facing contract. Distinct from ``surface_documents`` (show a file). A minimal contract:
-# what it does, its inputs, what it returns and where it stops. How and when to use it is the
-# agent's judgement, not this text's (writing-tools-for-agents).
-#: How the search is scoped, the one paragraph a binding replaces (``chat_binding``). The query is
-#: asked for in the documents' language: the corpus is German, and beside the multilingual dense
-#: channel the lexical ones (German BM25, the exact-term phrases) match only the documents' words.
 SCOPE_PARAGRAPH = (
     "Inputs: `query`, a search query in the documents' language (topic, jurisdiction, year), not the raw user "
     "message. Narrow with `file_name=` (an indexed name from the inventory or the user; never invent one), "
@@ -36,7 +30,6 @@ SCOPE_PARAGRAPH = (
 )
 
 
-#: Said of ``conclusion`` where the schema cannot carry a field description.
 CONCLUSION_LINE = f"\n`{CONCLUSION_ARG}=`: {CONCLUSION_DESCRIPTION}"
 
 
@@ -64,8 +57,6 @@ _KNOWLEDGE_SEARCH_DESCRIPTION = (
 )
 
 
-#: The paragraphs of :data:`_KNOWLEDGE_SEARCH_DESCRIPTION` that offer a literal mode, each dropped when
-#: its mode is not configured.
 _EXACT_PARAGRAPH = _KNOWLEDGE_SEARCH_DESCRIPTION[
     _KNOWLEDGE_SEARCH_DESCRIPTION.index('`match="exact"`') : _KNOWLEDGE_SEARCH_DESCRIPTION.index('`match="regex"`')
 ]
@@ -110,8 +101,6 @@ def result_budget(top_k: int, max_per_document: int) -> str:
     )
 
 
-# The knowledge layer has one backend (ADR-0072). The name still keys the
-# adapter registry, where tests register fakes beside it.
 BACKEND = "llamaindex"
 
 
@@ -165,7 +154,6 @@ class KnowledgeRetrievalConfig(FunctionBaseConfig, name="knowledge_retrieval"):
             "session and project collections are never filtered."
         ),
     )
-    # Summarization options (applies to all backends)
     generate_summary: bool = Field(
         default=False, description="Generate one-sentence summary for each ingested document"
     )
@@ -359,10 +347,6 @@ def _setup_backend(config: KnowledgeRetrievalConfig, summary_llm_obj=None) -> tu
     return BACKEND, backend_config
 
 
-#: Modules the search imports inside its body, on first use. Importing them at
-#: build time takes their cost (``folder_channel`` alone was 136 ms, measured
-#: 2026-10-27) off the first turn. ``_warm_search_path_sync`` imports each by a
-#: literal statement; the test holds the two lists together.
 _SEARCH_PATH_MODULES = (
     "knowledge_layer.browse.tool",
     "knowledge_layer.search.folder_channel",
@@ -455,8 +439,6 @@ async def _platform_llm(builder: Builder, ref):
 
 async def _judge_models(config: KnowledgeRetrievalConfig, builder: Builder) -> tuple[Any, Any]:
     """The LLM-judge reranker and the retrieval loop's judge; each fails open to ``None``."""
-    # Fail-open: search still works when unset or unresolvable, and
-    # rerank_chunks degrades to the original order.
     rerank_llm_obj = None
     if config.rerank_llm:
         try:
@@ -464,8 +446,6 @@ async def _judge_models(config: KnowledgeRetrievalConfig, builder: Builder) -> t
             logger.info("Resolved rerank model: %s", config.rerank_llm)
         except Exception as e:
             logger.warning(f"Could not resolve rerank_llm '{config.rerank_llm}', reranking disabled: {e}")
-    # Shares the reranker's handle when the config names the same model, which
-    # is the reference setup.
     requery_llm_obj = None
     if config.requery_llm:
         if config.requery_llm == config.rerank_llm and rerank_llm_obj is not None:
@@ -505,18 +485,9 @@ async def _bound_retriever(config: KnowledgeRetrievalConfig, summary_llm_obj) ->
     from agent.knowledge.norm_store import configure_norm_store
 
     configure_summary_db(config.summary_db)
-    # The admin-managed norm registry store shares the summary DB URL (one
-    # knowledge database, no extra env var — see norm_store module docstring).
-    # It seeds itself from the YAML registry and registers as norm_registry's
-    # runtime source; fail-open, so a store error just keeps the YAML seed.
     configure_norm_store(config.summary_db)
     retriever = _get_retriever(config)
-    # The turn-start warm-up (Piloti) embeds the question in THIS retriever's
-    # cache while the turn decision runs, so the prefetch search skips the
-    # round trip. See ``warm_search_query``.
     set_search_retriever(retriever)
-    # The search path's lazy initialisation, at boot instead of inside the
-    # first turn's prefetch (`_warm_search_path`).
     await _warm_search_path(retriever)
     _initialize_ingestor(config, summary_llm_obj)
     return retriever
@@ -540,9 +511,6 @@ async def knowledge_retrieval(config: KnowledgeRetrievalConfig, _builder: Builde
         summary_llm_obj = await _platform_llm(_builder, config.summary_model)
         logger.info("Resolved summary model: %s", config.summary_model)
     rerank_llm_obj, requery_llm_obj = await _judge_models(config, _builder)
-    # HyDE-as-channel (backlog item 14, experiment, default off): the draft
-    # reuses the resolved rerank handle, so without that handle the channel is
-    # silently off, however the flag is set.
     hyde_armed = bool(config.hyde_enabled and rerank_llm_obj is not None)
     logger.info("HyDE channel: %s", "armed (draft via rerank_llm)" if hyde_armed else "disabled")
     retriever = await _bound_retriever(config, summary_llm_obj)

@@ -1,22 +1,3 @@
-/**
- * The SQL of the search's other kinds (ADR-0136, docs/design/document-search.md
- * "What everything covers"): annotations, folders and conversations, each under
- * the reach the documents are searched with.
- *
- * - An annotation is found only on a document the documents' own predicate
- *   lets through (`documentSearchWhere`): the reach (the shelves, the hidden
- *   folders, the hold) and the search's document filters, so a chip such as
- *   „Dokumentart: Einreichplan“ narrows the annotations as it narrows the
- *   documents. One rule, one join: never a second reading of the filters.
- * - A folder is found when it is alive, on a shelf in reach, not hidden from
- *   the reader, and inside the folder scope when there is one.
- * - A conversation follows the conversation list's own rule
- *   (`visibleConversationsWhere`), over every project in reach at once.
- *
- * Every page is bounded, and every total is a count over at most
- * {@link SEARCH_TOTAL_CAP} rows.
- */
-
 import 'server-only'
 import { and, asc, desc, eq, inArray, isNull, notInArray, or, sql, type SQL } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
@@ -34,7 +15,6 @@ import { documentSearchWhere, type DocumentQuery } from './document-repository'
 import type { SearchReach } from './reach'
 import { SEARCH_LIMIT_MAX } from './search-wire'
 
-/** The most rows a total counts; a section with more says this many. */
 export const SEARCH_TOTAL_CAP = 1000
 
 export interface ProviderPage {
@@ -47,16 +27,12 @@ const bounded = (page: ProviderPage) => ({
   offset: Math.max(0, Math.trunc(page.offset)),
 })
 
-// --- Annotations ------------------------------------------------------------
-
 export interface AnnotationQuery {
-  /** Matched against the body and every reply; null lists by the filters alone. */
   text: string | null
   statuses: readonly AnnotationStatus[]
   kinds: readonly AnnotationKind[] | null
   assigneeUserId: string | null
   createdBy: string | null
-  /** What the annotation's document must be: the documents' question without its text. */
   documents: Omit<DocumentQuery, 'text'>
 }
 
@@ -70,17 +46,11 @@ export interface AnnotationSearchRow {
   kind: string
   status: string
   body: string
-  /** The first reply that carries the text, when the body does not. */
   matchedReply: string | null
   assigneeUserId: string | null
   createdAt: Date
 }
 
-/**
- * Whether a reply of the outer annotation row carries the text, and the first
- * one that does. Correlated to `document_annotations.id` of the query it sits
- * in, which joins `documents` under the reach.
- */
 function replyMatch(organizationId: string, text: string) {
   const db = getDb()
   const matching = and(
@@ -119,7 +89,6 @@ function annotationWhere(reach: SearchReach, query: AnnotationQuery): SQL | unde
   )
 }
 
-/** One page of the annotations a search finds, newest first, and how many there are (at most {@link SEARCH_TOTAL_CAP}). */
 export async function searchAnnotationRows(
   reach: SearchReach,
   query: AnnotationQuery,
@@ -177,8 +146,6 @@ export async function searchAnnotationRows(
   }
 }
 
-// --- Folders ----------------------------------------------------------------
-
 export interface FolderSearchRow {
   id: string
   name: string
@@ -188,7 +155,6 @@ export interface FolderSearchRow {
   projectName: string | null
 }
 
-/** The folders in reach: alive, on a shelf in reach, not hidden, inside the folder scope. */
 export function folderReachWhere(reach: SearchReach): SQL {
   const projectIds = reach.projects.map((reached) => reached.project.id)
   const hidden = reach.projects.flatMap((reached) => reached.hiddenFolderIds)
@@ -211,7 +177,6 @@ export function folderReachWhere(reach: SearchReach): SQL {
   ) as SQL
 }
 
-/** One page of the folders whose name or description carries the text, by name, and how many there are. */
 export async function searchFolderRows(
   reach: SearchReach,
   text: string,
@@ -262,9 +227,6 @@ export async function searchFolderRows(
   }
 }
 
-// --- Conversations ----------------------------------------------------------
-
-/** Where a conversation search looks: the projects in reach, and whether rows without a project count. */
 export interface ConversationReach {
   projectIds: readonly string[]
   withoutContainer: boolean
@@ -277,12 +239,6 @@ export interface ConversationSearchRow {
   updatedAt: Date
 }
 
-/**
- * The conversations the caller may see whose title carries the text or whose
- * topic tags include one of `tagKeys`, newest first, at most
- * {@link SEARCH_TOTAL_CAP}. Withheld content (ADR-0088) is judged by the caller
- * of this, over these rows, before any of them is reported.
- */
 export async function searchConversationRows(
   organizationId: string,
   userId: string,

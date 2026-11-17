@@ -1,5 +1,3 @@
-/** Stage F, Verfahren & Sonderrecht: the permit procedure and special law. */
-
 import type { ProjectIntakeStage } from '../intake-types'
 
 export const PROCEDURE_STAGE: ProjectIntakeStage = {
@@ -32,9 +30,6 @@ export const PROCEDURE_STAGE: ProjectIntakeStage = {
       writesTo: '/facts/water_rights/value',
     },
     {
-      // v1.0's F4 (Förderung) + F5 (Zertifizierung) as one multi-select.
-      // The storage key stays `funding`: old values are a subset, and
-      // the legacy `certification` single-select is bridged in.
       id: 'F4',
       label: 'Förderung oder Zertifizierung angestrebt?',
       type: 'multi_select',

@@ -1,9 +1,3 @@
-/**
- * SQL for upload batches (migration 0110). Every function names its
- * organization and runs inside `withTenant`, except the sweep's discovery,
- * which is cross-tenant by design and says so where it is called.
- */
-
 import 'server-only'
 import { and, asc, desc, eq, gt, inArray, isNotNull, isNull, lt, sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
@@ -21,12 +15,9 @@ import { CURSOR_TIMESTAMP_FORMAT, type DocumentListCursor } from '@/lib/document
 import { outsideHiddenFolders } from '@/lib/documents/repository'
 import { documentVisibleTo, type DocumentReader } from '@/lib/documents/visibility'
 
-/** Uploads per page of a project's history; the rest is behind the page's cursor. */
 export const UPLOAD_HISTORY_LIMIT = 50
-/** Bound on the documents a summary lists. A batch above it is summarised by counts. */
 export const UPLOAD_SUMMARY_DOCUMENT_LIMIT = 500
 
-/** Open a batch. An id the browser already used in this organization is a no-op (a retried request). */
 export async function insertUploadBatch(values: NewUploadBatch): Promise<void> {
   const db = getDb()
   await withTenant({ organizationId: values.organizationId }, () =>
@@ -46,11 +37,6 @@ export async function findUploadBatch(organizationId: string, batchId: string): 
   return row ?? null
 }
 
-/**
- * The batch's `excluded` with `entries` added: one entry per term, counts
- * summed, each term where it first appeared. In SQL, so two writers adding at
- * once (a job's slices, a seal) both land without a read-modify-write.
- */
 function excludedPlus(entries: readonly UploadBatchExclusion[]) {
   return sql`(
     SELECT COALESCE(jsonb_agg(jsonb_build_object('term', merged.term, 'count', merged.total) ORDER BY merged.first_at), '[]'::jsonb)
@@ -62,13 +48,6 @@ function excludedPlus(entries: readonly UploadBatchExclusion[]) {
   )`
 }
 
-/**
- * Seal a batch its creator finished sending. Only the creator, and only once.
- * `expected` rewrites the announced count, for a job that could not know it
- * when it opened the batch (the mail import). `excluded` adds the files the
- * server's repeat of the name check refused after the batch was opened
- * (ADR-0086), by term and count: they wrote no row either.
- */
 export async function sealUploadBatch(
   organizationId: string,
   batchId: string,
@@ -96,11 +75,6 @@ export async function sealUploadBatch(
   return rows.length > 0
 }
 
-/**
- * Add name-check refusals to an open batch its creator is still filing into
- * (the mail import, ADR-0085/0086), by term and count. A sealed batch is left
- * alone: its summary has been settled on. Whether it took them.
- */
 export async function addUploadBatchExclusions(
   organizationId: string,
   batchId: string,
@@ -126,12 +100,6 @@ export async function addUploadBatchExclusions(
   return rows.length > 0
 }
 
-/**
- * Complete every given batch that is sealed and has no document left in
- * flight. Guarded on `completed_at IS NULL`, so each batch completes once
- * however many readers settle its last document at the same time; the rows
- * returned are exactly the ones this call completed.
- */
 export async function completeSettledBatches(
   organizationId: string,
   batchIds: readonly string[],
@@ -165,12 +133,6 @@ export async function completeSettledBatches(
   )
 }
 
-/**
- * Undo a completion whose uploader could not be told (`settleUploadBatches`),
- * so the batch is open again and the next settle, or the sweep, completes it
- * and tells them. Guarded on the completion time that call wrote: it reopens
- * only what it completed itself.
- */
 export async function reopenCompletedBatches(
   organizationId: string,
   batchIds: readonly string[],
@@ -192,7 +154,6 @@ export async function reopenCompletedBatches(
   )
 }
 
-/** The batch ids the given documents carry, for settling after their status moved. */
 export async function batchIdsOfDocuments(organizationId: string, documentIds: readonly string[]): Promise<string[]> {
   if (documentIds.length === 0) return []
   const db = getDb()
@@ -211,17 +172,8 @@ export async function batchIdsOfDocuments(organizationId: string, documentIds: r
   return rows.map((row) => row.batchId).filter((id): id is string => id !== null)
 }
 
-/** What a settled document's batch decides about the Fassung it brought (migration 0195). */
 export type BatchSettleEffects = Pick<UploadBatchEffects, 'revisionNotice' | 'runsDocumentCheck'>
 
-/**
- * The effects of these batches that apply per settled document: who hears
- * about a new Fassung (`revision_notice`) and whether the agent checks it
- * (`runs_document_check`, ADR-0130). A batch not returned (another
- * organization's, or gone) is a person's upload: callers default to
- * `DEFAULT_UPLOAD_BATCH_EFFECTS`. Read by `announceSettledVersions` for the
- * documents that just came to rest.
- */
 export async function findBatchSettleEffects(
   organizationId: string,
   batchIds: readonly string[]
@@ -241,11 +193,6 @@ export async function findBatchSettleEffects(
   return new Map(rows.map(({ id, ...effects }) => [id, effects]))
 }
 
-/**
- * The documents a batch wrote, bounded, as `reader` may see them (ADR-0086).
- * A batch's rows are its uploader's own (a re-upload moves a row into the new
- * uploader's batch), so its uploader reads every one.
- */
 export async function listBatchDocuments(
   organizationId: string,
   batchId: string,
@@ -264,14 +211,6 @@ export async function listBatchDocuments(
   )
 }
 
-/**
- * Per-status counts of a set of batches' documents, for the history list,
- * leaving out what is filed in a folder hidden from this reader
- * (`getHiddenFolderIds`) with the document listing's own predicate
- * (`outsideHiddenFolders`), so "hidden" has one SQL spelling, and a held file
- * the reader neither uploaded nor reviews (ADR-0086): somebody else's upload
- * counts for the team once it is screened.
- */
 export async function countBatchDocumentsByStatus(
   organizationId: string,
   batchIds: readonly string[],
@@ -298,21 +237,11 @@ export async function countBatchDocumentsByStatus(
     .map((row) => ({ batchId: row.batchId, status: row.status, count: Number(row.count) }))
 }
 
-/** One page of a project's upload history, and where the next one starts. */
 export interface UploadBatchPage {
   batches: UploadBatch[]
-  /** The position after the last batch, or `null` when this page is the last. */
   nextCursor: DocumentListCursor | null
 }
 
-/**
- * One keyset page of a project's upload history, newest first, the id
- * breaking ties: the document listing's order and cursor (`list-cursor.ts`),
- * so a page neither skips nor repeats an upload that lands between two reads.
- * Each query stays bounded; the whole history comes from following
- * `nextCursor`. `limit + 1` rows are read so the last page says so without a
- * COUNT.
- */
 export async function listProjectUploadBatchPage(
   organizationId: string,
   projectId: string,
@@ -349,19 +278,12 @@ export async function listProjectUploadBatchPage(
   }
 }
 
-/**
- * Open batches created inside a window, across every organization: the
- * sweep's discovery. The caller runs it under `withPlatformAccess` and settles
- * each batch inside its own tenant.
- */
 export async function listOpenBatchesBetween(
   createdAfter: Date,
   createdBefore: Date,
   limit: number
 ): Promise<UploadBatch[]> {
   const db = getDb()
-  // Newest first: a batch whose document is stuck in flight for good must not
-  // starve the ones behind it, and the window drops it after a week.
   return db
     .select()
     .from(uploadBatches)
@@ -376,7 +298,6 @@ export async function listOpenBatchesBetween(
     .limit(limit)
 }
 
-/** When the newest document carrying this batch came in, or null when none has. */
 export async function latestBatchDocumentAt(organizationId: string, batchId: string): Promise<Date | null> {
   const db = getDb()
   const [row] = await withTenant({ organizationId }, () =>
@@ -388,7 +309,6 @@ export async function latestBatchDocumentAt(organizationId: string, batchId: str
   return row?.at ? new Date(row.at) : null
 }
 
-/** Seal, on the sweep's authority, a batch whose browser never came back to seal it. */
 export async function sealAbandonedBatch(organizationId: string, batchId: string, sealedAt: Date): Promise<void> {
   const db = getDb()
   await withTenant({ organizationId }, () =>
@@ -405,7 +325,6 @@ export async function sealAbandonedBatch(organizationId: string, batchId: string
   )
 }
 
-/** A batch's documents still in flight, as reconcilable rows. */
 export async function listInFlightBatchDocuments(organizationId: string, batchId: string): Promise<Document[]> {
   const db = getDb()
   return withTenant({ organizationId }, () =>

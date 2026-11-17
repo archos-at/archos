@@ -36,8 +36,6 @@ from .collections import require_collection
 
 logger = logging.getLogger(__name__)
 
-# Max chars kept from a document's best-matching chunk as its snippet, unless the
-# request asks for more (``DocumentSearchRequest.snippet_max_chars``).
 SNIPPET_MAX_CHARS = 300
 
 
@@ -133,8 +131,6 @@ def _authorize_collection(http_request: Request, collection_name: str) -> None:
     if scope is not None:
         allowed = {_normalize_collection_name(name) for name in scope}
         if _normalize_collection_name(collection_name) not in allowed:
-            # Same 404 as an unknown collection: never reveal that an out-of-scope
-            # (possibly other-tenant) collection exists.
             raise HTTPException(status_code=404, detail=f"Collection '{collection_name}' not found")
     elif _require_auth():
         raise HTTPException(
@@ -181,8 +177,6 @@ def _aggregate_hits(
     return hits[:top_k_files]
 
 
-#: Chunks fetched per collection for each document a group may return: a
-#: document's best chunk is not always its first-ranked one.
 GROUP_CHUNKS_PER_FILE = 3
 
 
@@ -246,10 +240,6 @@ def _ranked_group_hits(
     return [entry[3] for entry in ranked]
 
 
-#: A superseded Fassung stays out of the ranking (ADR-0099: search leaves it out
-#: unless asked for by name, and the grouped search names no file). ``$ne``
-#: keeps a point the mirror has not stamped yet, as ``knowledge_search``'s
-#: pre-filter and the similar-passages query do; the BFF checks the row again.
 CURRENT_REVISIONS: dict[str, Any] = {"superseded": {"$ne": True}}
 
 
@@ -293,10 +283,6 @@ def _reading_clauses(filters: GroupedSearchFilters) -> list[dict[str, Any]]:
     parts: list[dict[str, Any]] = []
     if filters.document_ids:
         by_id: dict[str, Any] = {"grid_document_id": {"$in": list(dict.fromkeys(filters.document_ids))}}
-        # A point written before ``grid_document_id`` existed, or copied from Chroma
-        # (``import_vectors.scope_enrichment``), carries none: by id alone the
-        # candidates' older passages fell out of the ranking, and a currentOnly
-        # search lost the very documents whose passages hold the words.
         parts.append(
             {"$or": [by_id, {"file_name": {"$in": list(dict.fromkeys(filters.file_names))}}]}
             if filters.file_names
@@ -340,20 +326,7 @@ def grouped_filters(filters: GroupedSearchFilters | None) -> dict[str, Any]:
     return {"$and": [*parts, CURRENT_REVISIONS]}
 
 
-#: The cosine a document matched by meaning alone must reach to be a workspace search hit.
-#:
-#: The fusion always fills its candidates from the dense channel, so without a
-#: floor a word no passage holds („qwxzv“) returned sixteen documents, and
-#: „Rechnung“ eighteen where three passages say it. A document a lexical channel
-#: ranked (its passage holds a query word) is never held to it.
-#:
-#: A number on one embedder's cosines: ``openai/text-embedding-3-large``, the
-#: deployed ``EMBED_MODEL``. Measured 2026-10-27 on the Holzbau Wien project
-#: (dev): nonsense and unrelated passages 0.11 to 0.30 („qwxzv“: 0.15 to 0.29;
-#: „Rechnung“ against drawings and screenshots: 0.11 to 0.30); related without
-#: the word 0.37 (a Reisekostenabrechnung for „Rechnung“); the English „minimum
-#: stair width“ against OIB-RL 4's German passages 0.44 to 0.62. Re-measure it
-#: with the embedder: under another model it is the wrong number.
+# Measured 2026-10-27 on openai/text-embedding-3-large: unrelated passages score 0.11 to 0.30, related 0.37 and up; re-measure with the embedder.
 MEANING_ONLY_MIN_COSINE = 0.35
 
 
@@ -362,10 +335,8 @@ def above_meaning_floor(hits: list[DocumentSearchHit]) -> list[DocumentSearchHit
     return [hit for hit in hits if hit.lexical is not False or hit.score >= MEANING_ONLY_MIN_COSINE]
 
 
-#: The trace the workspace search's content query files under, and the observation inside it.
 WORKSPACE_SEARCH_FEATURE = "workspace-search"
 WORKSPACE_SEARCH_STEP = "retrieve.workspace_search"
-#: Collections whose hit counts the trace names, at most (the BFF names up to 500).
 TRACE_COLLECTION_LIMIT = 50
 
 
@@ -543,12 +514,8 @@ def add_document_search_routes(router: APIRouter):
         chunk), sorted by score descending, capped at ``top_k_files``. No LLM or
         agent loop is involved.
         """
-        # Defense-in-depth (PB-SYNTH-4): only search collections the caller's
-        # signed request-context scopes it to. Runs BEFORE the existence probe so
-        # an out-of-scope collection is indistinguishable from a missing one.
         _authorize_collection(http_request, collection_name)
 
-        # Verify collection exists (same 404 contract as the document routes).
         await require_collection(ingestor, collection_name)
 
         try:

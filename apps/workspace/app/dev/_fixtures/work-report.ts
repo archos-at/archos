@@ -1,11 +1,3 @@
-/**
- * Fixtures for `/dev/work-report`: the states of the closing block of an
- * operations turn (`kind: work`, ADR-0123). The panel titles and notes are
- * review copy for the preview, German like the neighbouring previews; the
- * card's own copy comes from the dictionaries. The "full mix" state is the
- * shared payload of `tests/fixtures/answer_meta/work_payload.json`.
- */
-
 import type { AnswerMetaWork } from '@/lib/conversations/message-answer-meta'
 import { PRODUCT_NAME } from '@/lib/brand'
 

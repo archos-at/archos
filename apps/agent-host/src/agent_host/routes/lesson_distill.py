@@ -51,7 +51,6 @@ from .generate_summary import _llm_settings
 
 logger = logging.getLogger(__name__)
 
-# Bounds re-applied on arrival (the BFF already truncates).
 _MAX_QUESTION_CHARS = 600
 _MAX_ANSWER_CHARS = 1500
 _MAX_COMMENT_CHARS = 600
@@ -153,11 +152,6 @@ def _build_report_block(request: LessonDistillRequest) -> str:
     question = _clip(request.question, _MAX_QUESTION_CHARS)
     answer = _clip(request.answer, _MAX_ANSWER_CHARS)
     comment = _clip(request.comment, _MAX_COMMENT_CHARS)
-    # Semgrep's raw-html-format rule fires on these f-strings, but this is an
-    # LLM prompt, not HTML: nothing renders it, and the <report> fence with
-    # every user-supplied `<` neutralised by _fence IS the injection defense
-    # (the model is told to treat fenced content as data). Suppressed per line
-    # rather than excluding the rule repo-wide.
     if question:
         # nosemgrep: python.django.security.injection.raw-html-format.raw-html-format
         lines.append(f"Question: <report>{_fence(question)}</report>")
@@ -237,10 +231,7 @@ def add_lesson_distill_routes(router: APIRouter) -> None:
     )
     async def lesson_distill(request: LessonDistillRequest) -> LessonDistillResponse:
         """Distill one report, or say why it could not be distilled."""
-        # No org header on purpose: the pipeline is platform-scoped and must
-        # not resolve one tenant's BYOK credential for cross-tenant work. The
-        # report is one tenant's text that we cannot attribute here, so it is
-        # pinned as if that tenant had ZDR on.
+        # No org header on purpose: the report is one tenant's text, so no tenant's BYOK credential is resolved and ZDR is pinned.
         cred = await asyncio.to_thread(_llm_settings, None, data_policy=ZERO_DATA_RETENTION)
         if not cred.api_key:
             return LessonDistillResponse(error="llm_not_configured")
@@ -279,8 +270,6 @@ def add_lesson_distill_routes(router: APIRouter) -> None:
                         generalizable=False,
                     )
 
-                # The auditor sees ONLY the candidate text — never the raw
-                # report — so injected report text cannot lobby its own screen.
                 audit_input = f"Candidate lesson: {lesson}\nCanonical summary: {canonical_summary or '—'}"
                 try:
                     audit = await _chat_json(client, cred, AUDIT_SYSTEM_PROMPT, audit_input, 200, step="audit")
@@ -288,8 +277,6 @@ def add_lesson_distill_routes(router: APIRouter) -> None:
                     if not audit_passed:
                         logger.info("Lesson audit flagged a candidate: %s", audit.get("reason"))
                 except ValueError:
-                    # An unreadable audit verdict fails CLOSED: the lesson is
-                    # still returned, but as unaudited — the BFF holds it back.
                     logger.warning("Lesson auditor returned no usable JSON; holding candidate")
                     audit_passed = False
 

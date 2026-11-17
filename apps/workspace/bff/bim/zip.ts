@@ -1,53 +1,16 @@
-/**
- * A minimal, deterministic ZIP writer.
- *
- * BCF is a zip container, and this repository has no zip dependency. Adding
- * one for a format we write (never read) and use in exactly one place is a
- * poor trade: the store-only subset of PKZIP is about a hundred lines, has no
- * transitive surface, and — unlike a general library — can be made
- * BYTE-DETERMINISTIC, which matters here. Two exports of an unchanged ledger
- * must produce identical bytes so a reviewer can diff them, and a timestamp
- * baked in at write time would defeat that.
- *
- * Store-only (compression method 0) is a deliberate choice too. BCF payloads
- * are a few kilobytes of XML per topic; deflating them saves nothing worth a
- * `zlib` round trip, and every BCF reader supports stored entries because the
- * format's own snapshots are already-compressed PNGs.
- *
- * Not a general-purpose archiver: no directories, no zip64, no encryption. It
- * refuses inputs it cannot encode correctly rather than truncating them.
- */
-
-/** 4 GiB — beyond this the central directory needs zip64 fields we do not write. */
 const MAX_ENTRY_BYTES = 0xffffffff
-/** The 16-bit entry counter in the end-of-central-directory record. */
 const MAX_ENTRIES = 0xffff
 
-/** Bit 11: the file name is UTF-8 rather than CP437. */
 const FLAG_UTF8_NAMES = 0x0800
 
-/**
- * The single timestamp every entry carries: 1980-01-01T00:00:00, the earliest
- * a DOS date can express. A real clock would make the archive irreproducible.
- */
 const DOS_DATE = (1 << 5) | 1
 const DOS_TIME = 0
 
 export interface ZipEntry {
-  /** Forward-slash path inside the archive, e.g. `<guid>/markup.bcf`. */
   path: string
   content: string | Uint8Array
 }
 
-/**
- * MS-DOS directory bit, in the high half of `external file attributes`.
- *
- * A store-only archive of `<guid>/markup.bcf` with no folder entry unzips
- * correctly everywhere, but the BCF 2.1 encoding guide names that shape as
- * incorrect, and a reader that enumerates topics by walking DIRECTORY entries
- * finds none — importing the file as empty without reporting an error, which
- * is the worst way for an export to fail.
- */
 const DOS_DIRECTORY = 0x10
 
 const isDirectoryPath = (path: string): boolean => path.endsWith('/')
@@ -70,7 +33,6 @@ export function crc32(bytes: Uint8Array): number {
   return (crc ^ 0xffffffff) >>> 0
 }
 
-/** Writes little-endian fields in the order the PKZIP records declare them. */
 class ByteWriter {
   private readonly chunks: Uint8Array[] = []
   private length = 0
@@ -114,13 +76,6 @@ const encoder = new TextEncoder()
 const toBytes = (content: string | Uint8Array): Uint8Array =>
   typeof content === 'string' ? encoder.encode(content) : content
 
-/**
- * Pack entries into a stored-only zip archive.
- *
- * Entry order is preserved rather than sorted: BCF readers do not care, but a
- * caller that emits `bcf.version` first produces an archive whose first bytes
- * identify the format, which is what a human running `unzip -l` wants to see.
- */
 export function createZip(entries: readonly ZipEntry[]): Uint8Array {
   if (entries.length > MAX_ENTRIES) {
     throw new Error(`Cannot write ${entries.length} zip entries; the format caps at ${MAX_ENTRIES}`)
@@ -134,8 +89,6 @@ export function createZip(entries: readonly ZipEntry[]): Uint8Array {
       entry.path === '' ||
       entry.path.startsWith('/') ||
       entry.path.includes('\\') ||
-      // `..` never appears in a path this module generates, but the guard read
-      // as a traversal check while allowing the one shape that traverses.
       entry.path.split('/').includes('..')
     ) {
       throw new Error(`Invalid zip entry path: ${JSON.stringify(entry.path)}`)

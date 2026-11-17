@@ -1,11 +1,3 @@
-/**
- * Fixtures for the office standards preview (`/dev/base-knowledge`): an office
- * with folders by topic and a dozen entries in every state a person meets: a
- * proposal from an upload, a licensed standard whose text is not read, a
- * directive whose check is overdue, a commentary never checked, one filed
- * elsewhere on the Büroablage.
- */
-
 import type {
   BaseKnowledgeEntry,
   BaseKnowledgeFolders,
@@ -35,7 +27,6 @@ const folder = (
   description: null,
 })
 
-/** What the office's records name: its country and its subdivisions, with their labels. */
 export const BASE_KNOWLEDGE_TERRITORIES = [
   { id: 'AT', label: null },
   ...[
@@ -265,7 +256,6 @@ const ENTRIES: BaseKnowledgeEntry[] = [
   ),
 ]
 
-/** Each entry with the editions of its work, as the service answers (`office/work-editions.ts`): newest start first. */
 export const BASE_KNOWLEDGE_ENTRIES: BaseKnowledgeEntry[] = ENTRIES.map((entry) => {
   const siblings = ENTRIES.filter((other) => other.workId === entry.workId).sort((a, b) =>
     (b.values.inForceFrom ?? b.values.issuedOn ?? '').localeCompare(a.values.inForceFrom ?? a.values.issuedOn ?? ''),

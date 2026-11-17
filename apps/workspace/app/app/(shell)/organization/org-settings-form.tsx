@@ -1,15 +1,5 @@
 'use client'
 
-/**
- * Editable app-side organization settings (admin only): a display-name
- * override, the default interface language for new members, and the
- * org-level web-search toggle (ADR-0022), and where a new chat's Aufwand dial
- * starts. Persists to
- * `/api/organization/settings` (PUT), and the web-search switch to its own
- * `/api/organization/web-search` (PUT), the route an agent calls too; both
- * enforce the admin check server-side.
- */
-
 import { type FC, useState, useCallback } from 'react'
 import { toast } from 'sonner'
 
@@ -30,15 +20,12 @@ import { commonCopy } from '@/i18n/namespaces/common'
 import { organizationCopy } from '@/i18n/namespaces/organization'
 import { CHAT_EFFORT_SETTING, CHAT_EFFORTS, type ChatEffort } from '@/lib/reasoning-settings/catalog'
 
-/** The select's value for "no office default": each member's browser decides. */
 const BROWSER_LANGUAGE = 'browser'
 
 interface OrgSettingsFormProps {
   initialDisplayName: string | null
-  /** Null until an admin chooses: members then start in their browser's language. */
   initialDefaultLocale: Locale | null
   initialWebSearchEnabled: boolean
-  /** Where a new chat's Aufwand dial starts (`settings.chatReasoningEffort`). */
   initialChatEffort: ChatEffort
 }
 
@@ -58,9 +45,6 @@ export const OrgSettingsForm: FC<OrgSettingsFormProps> = ({
   const [chatEffort, setChatEffort] = useState<ChatEffort>(initialChatEffort)
   const [saving, setSaving] = useState(false)
   const [savedHere, setSavedHere] = useState(false)
-  // The saved baseline — Save stays disabled until a field actually differs, and
-  // resets here after a successful save so the button re-disables (no needless
-  // PUT + false "saved" toast when nothing changed).
   const [baseline, setBaseline] = useState({
     displayName: (initialDisplayName ?? '').trim(),
     defaultLocale: initialDefaultLocale,
@@ -87,7 +71,6 @@ export const OrgSettingsForm: FC<OrgSettingsFormProps> = ({
         }),
       })
       if (!res.ok) throw new Error(`Save failed (${res.status})`)
-      // Web search is a privacy switch with its own route (the generic save refuses the key).
       if (webSearchEnabled !== baseline.webSearchEnabled) {
         const switched = await fetch('/api/organization/web-search', {
           method: 'PUT',
@@ -102,7 +85,6 @@ export const OrgSettingsForm: FC<OrgSettingsFormProps> = ({
         webSearchEnabled,
         chatEffort,
       })
-      // Reported on the Save itself („Gespeichert"), where the press was.
       setSavedHere(true)
     } catch {
       toast.error(t('settings.saveError'))

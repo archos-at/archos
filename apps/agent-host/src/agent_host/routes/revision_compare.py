@@ -85,17 +85,12 @@ from ._llm_json import message_content
 
 logger = logging.getLogger(__name__)
 
-#: The trace name of the vision call (``docs/observability/langfuse.md``).
 TRACE_NAME = "revision-visual-compare"
 
-#: Two page images and a JSON reply: a person is waiting, and a provider that has not
-#: answered in this long is not going to.
 _REQUEST_TIMEOUT_SECONDS = 90.0
 
-#: Who waits decides the provider queue (ADR-0081): a person interactively, a notice in bulk.
 _LIMITER_CLASS = {"person": provider_limiter.INTERACTIVE, "notice": provider_limiter.BULK}
 
-#: A page number past any real drawing set; the page itself is checked when it is rendered.
 MAX_PAGE = 2000
 
 
@@ -336,7 +331,6 @@ async def _changed_pages(collection: str, request: RevisionPagesRequest, office:
 def add_revision_compare_routes(router: APIRouter) -> None:
     """Register the Fassung comparison endpoint."""
 
-    # The pre-rename path, kept for one release: the BFF and this API deploy separately. Remove after one release.
     @router.post(
         "/v1/collections/{collection_name}/fassung-compare",
         response_model=RevisionCompareResponse,
@@ -373,8 +367,6 @@ def add_revision_compare_routes(router: APIRouter) -> None:
         if hit is not None:
             return _response(hit, cred.model, cached=True)
 
-        # Booked to the organization and the person (a notice: whoever uploaded the Fassung) the BFF names,
-        # so the ledger, the budget gate the notice checks, and the invoice see this call (ADR-0130).
         identity = {"organization_id": x_grid_organization_id, "user_id": x_grid_user_id}
         with track_llm_costs(identity=identity, budget=BudgetSnapshot()), licensed_document_scope(licence):
             reply, trace_id = await _ask_model(cred, older_jpeg, newer_jpeg, request.page, request.purpose)

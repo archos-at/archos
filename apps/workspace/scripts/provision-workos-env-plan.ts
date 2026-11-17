@@ -1,13 +1,3 @@
-/**
- * Pure planning helpers for `provision-workos-environment.ts` and
- * `check-workos-flags.ts`.
- *
- * Kept free of I/O so the desired-vs-current decisions can be unit-tested
- * without a WorkOS connection — the same split the suite uses elsewhere
- * (logic in a plain module, the shell stays untested).
- */
-
-/** Parse a comma-separated env value into a clean, ordered, de-duplicated list. */
 export function splitList(raw: string | undefined): string[] {
   const seen = new Set<string>()
   for (const part of raw?.split(',') ?? []) {
@@ -17,7 +7,6 @@ export function splitList(raw: string | undefined): string[] {
   return [...seen]
 }
 
-/** What would have to be added or removed to turn `current` into `desired`. Both sorted, de-duplicated. */
 export function diffSets(
   desired: readonly string[],
   current: readonly string[]
@@ -38,11 +27,6 @@ export type FlagTargetsParse =
   | { ok: true; entries: FlagTargetEntry[] }
   | { ok: false; error: string }
 
-/**
- * Parse WORKOS_FLAG_TARGETS_JSON — a JSON object mapping flag slug to the
- * array of organization ids that should be targeted. Returns a structured
- * error instead of throwing so the caller can fail loudly with context.
- */
 export function parseFlagTargets(raw: string | undefined): FlagTargetsParse {
   if (!raw || !raw.trim()) return { ok: true, entries: [] }
 
@@ -73,23 +57,13 @@ export function parseFlagTargets(raw: string | undefined): FlagTargetsParse {
   return { ok: true, entries }
 }
 
-/** What the registry-vs-WorkOS flag check found. Every list sorted. */
 export interface FlagCheckPlan {
-  /** True exactly when every registry slug exists in the environment. */
   ok: boolean
-  /** Registry slugs the environment has. */
   present: string[]
-  /** Registry slugs the environment lacks: off for every organization there. */
   missing: string[]
-  /** Slugs the environment has and no code reads: retired, delete by hand. */
   unknown: string[]
 }
 
-/**
- * The flag check's verdict. Only `missing` fails it: a flag WorkOS does not
- * know is off for everybody, while an `unknown` one is a dashboard leftover
- * that switches nothing and is a human's to delete.
- */
 export function planFlagCheck(registry: readonly string[], environment: readonly string[]): FlagCheckPlan {
   const { missing, extra } = diffSets(registry, environment)
   const have = new Set(environment)

@@ -4,29 +4,15 @@ import { BACKGROUND_WORK } from "../config/background-work";
 import { commonLabels } from "./namespaces";
 import { RABBITMQ } from "./rabbitmq";
 
-/**
- * Prometheus alerting rules for the background-work platform (ADR-0150), as
- * the `background-work-alert-rules` ConfigMap, on the terms of
- * `workload-alerts.ts`: this repo evaluates no rules, the file is what an
- * evaluator is pointed at. The series come from two places: kube-state-metrics
- * (the managed agent on the cluster) for the RabbitMQ StatefulSet, and the node
- * agents' scrape (ADR-0119) of `rabbitmq_prometheus` and Hatchet's engine,
- * labelled `k8s_namespace_name` by `otel-agent.ts`.
- */
-
 export const BACKGROUND_WORK_ALERT_RULES = "background-work-alert-rules";
 
 export const BACKGROUND_WORK_ALERT_THRESHOLDS = {
-  /** Messages ready in RabbitMQ for this long means Hatchet's controllers stopped consuming. */
   queueDepth: 1000,
   queueDepthMinutes: 15,
-  /** A RabbitMQ node missing this long: one more and the quorum is gone. */
   nodeDownMinutes: 5,
-  /** p95 seconds a task waits between queued and assigned: workers too few, or the scheduler behind. */
   schedulingLagSeconds: 300,
 } as const;
 
-/** The rule file, in Prometheus' `groups:` format. Exported for the spec. */
 export function backgroundWorkAlertRules(): string {
   const t = BACKGROUND_WORK_ALERT_THRESHOLDS;
   const ns = BACKGROUND_WORK.namespace;

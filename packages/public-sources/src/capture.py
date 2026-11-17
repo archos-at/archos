@@ -1,22 +1,3 @@
-"""One page of a configured source, captured for a citation (ADR-0170).
-
-An operator's agent onboarding a country cites pages. The BFF stores what a
-citation is checked against, and asks for the page here, on the api tier,
-because only the backend roles may call the sandboxed fetcher (ADR-0162): the
-request goes through :func:`public_sources.routing.source_transport`, so the
-source's hosts are checked at every redirect hop and the address is public,
-exactly as for every other read of the source.
-
-Answers the bytes' sha256 and size, where the fetch ended, and the page's text
-for the quote check. The text is what a person reads on the page: markup,
-scripts and styles dropped, block boundaries kept as line breaks. A PDF's text
-is ingestion's text pass over its pages (:mod:`public_sources.pdf`), joined by a form feed, so a quote
-from a gazette or a guideline is checked the same way; a PDF that needs a
-password or cannot be parsed is refused with the problem's code, and a scan
-with no text layer keeps no text and says so in ``note``. A body the reader
-cannot read as text at all (an image) has no text.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -39,16 +20,13 @@ from public_sources.routing import source_transport
 from public_sources.source import Source
 from public_sources.source import get_source
 
-#: How long the fetch of one page may take; a PDF's parse has its own deadline after it (``pdf.PARSE_TIMEOUT_SECONDS``).
 FETCH_TIMEOUT_SECONDS = 45.0
 
-#: What a capture asks for: a page a person reads, text before anything else.
 ACCEPT = "text/html,application/xhtml+xml,application/xml;q=0.9,text/plain;q=0.8,application/pdf;q=0.8,*/*;q=0.5"
 
 
 _TEXT_TYPES = ("text/html", "application/xhtml+xml", "application/xml", "text/xml", "text/plain")
 _DROPPED = ("script", "style", "noscript", "template", "head")
-#: Elements that end a line where a browser would, so their words do not run into the next block's.
 _BLOCKS = (
     "address",
     "article",
@@ -89,7 +67,6 @@ _CHARSET = re.compile(r"charset=[\"']?([\w.:-]+)", re.IGNORECASE)
 
 
 def _decoded(content: bytes, content_type: str | None) -> str:
-    """The body as text: the charset the header names, else UTF-8 (what every source here serves)."""
     match = _CHARSET.search(content_type or "")
     charset = match.group(1) if match else "utf-8"
     try:
@@ -99,7 +76,6 @@ def _decoded(content: bytes, content_type: str | None) -> str:
 
 
 class CaptureError(Exception):
-    """The page could not be captured; ``status`` is what the route answers, ``code`` a problem code when it has one."""
 
     def __init__(self, message: str, status: int, code: str = "") -> None:
         super().__init__(message)
@@ -116,23 +92,18 @@ class CapturedPage:
     size: int
     text: str | None
     retrieved_at: str
-    #: A PDF's pages the text holds; ``None`` for a body that has none.
     pages: int | None = None
-    #: What a reader of ``text`` must know: pages of a PDF with no text layer, or a PDF read only in part.
     note: str = ""
-    #: The bytes as fetched, for a caller that keeps the document itself (a text imported into the base corpus).
     content: bytes = field(default=b"", repr=False, compare=False)
 
 
 def page_text(content: bytes, content_type: str | None) -> str | None:
-    """What a person reads on the page, or ``None`` when the bytes are no text."""
     kind = (content_type or "").split(";", 1)[0].strip().lower()
     if kind not in _TEXT_TYPES:
         return None
     text = _decoded(content, content_type)
     if kind == "text/plain":
         return text[:MAX_TEXT_CHARS]
-    # An XML declaration names an encoding lxml refuses on an already decoded string.
     text = re.sub(r"^\s*<\?xml[^>]*\?>", "", text)
     try:
         root = lxml_html.fromstring(text)
@@ -147,7 +118,6 @@ def page_text(content: bytes, content_type: str | None) -> str | None:
 
 
 async def _read_capped(response: httpx.Response) -> bytes:
-    """The body, refused past the egress ceiling rather than read whole."""
     if response.status_code >= 400:
         raise CaptureError(f"the source answered HTTP {response.status_code}", 502)
     chunks: list[bytes] = []
@@ -167,10 +137,6 @@ async def capture_page(
     inner: httpx.AsyncBaseTransport | None = None,
     credential: str | None = None,
 ) -> CapturedPage:
-    """GET ``url`` as the source allows it: a repository record's id, or a configured source (ADR-0174).
-
-    ``inner`` stands in for the network in tests only.
-    """
     source = get_source(source_id) if isinstance(source_id, str) else source_id
     if not source.allows(url):
         hosts = ", ".join(source.hosts)
@@ -206,12 +172,10 @@ async def capture_page(
 
 
 async def _text_of(content: bytes, content_type: str | None) -> tuple[str | None, int | None, str]:
-    """``(text, pages, note)``: a PDF's pages read in a child process, any other body as :func:`page_text` reads it."""
     if not is_pdf(content, content_type):
         return page_text(content, content_type), None, ""
     try:
         document = await asyncio.to_thread(read_pdf, content)
     except PdfError as exc:
         raise CaptureError(str(exc), 422, exc.code) from exc
-    # The reader cut the text at a page boundary within MAX_TEXT_CHARS and says so in the note.
     return document.text, len(document.pages), document.note

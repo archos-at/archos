@@ -1,23 +1,3 @@
-"""Agent-runtime evaluator: grade an agent answer's CITATIONS against the retrieval golden set.
-
-Registers ``oib_retrieval_citation_evaluator`` with the agent runtime (see ``register.py`` for the plugin
-entry point). It makes no LLM calls: an answer's
-References section names ``file_name, p.N`` units, those units are compared against the
-same ``(richtlinie, punkt, grade)`` labels the offline runner uses, and the score is the
-graded nDCG of the cited order.
-
-WHY THIS IS A DIFFERENT MEASUREMENT FROM ``runner.py``, NOT A DUPLICATE
------------------------------------------------------------------------
-``runner.py`` asks whether the right Punkt was in the retrieved context at all — a
-property of the index and the chunking, measurable offline with no model. This evaluator
-asks whether the answer the model wrote actually cited it, which needs a real workflow run
-(and therefore a key). Retrieval can be perfect and the citation still wrong; the two
-numbers have to be separable to know which half to fix.
-
-All scoring lives in :mod:`metrics`, :mod:`qrels` and :mod:`citations`, none of which
-import the agent runtime — this module only unwraps ``EvalInputItem`` and rewraps ``EvalOutputItem``.
-"""
-
 import logging
 from pathlib import Path
 
@@ -44,8 +24,6 @@ from .qrels import load_clause_index
 
 logger = logging.getLogger(__name__)
 
-#: Scored at production's ``top_k`` so this number and the runner's are read at the same
-#: depth even though they measure different stages.
 DEFAULT_K = 16
 
 DEFAULT_FORBIDDEN_PREFIXES = ("aenderungen_",)
@@ -56,7 +34,6 @@ def _default_index_path() -> Path:
 
 
 class OIBRetrievalEvaluatorConfig(EvaluatorBaseConfig, name="oib_retrieval_citation_evaluator"):
-    """Configuration for the OIB retrieval citation evaluator."""
 
     punkt_index_path: str = Field(
         default="",
@@ -70,7 +47,6 @@ class OIBRetrievalEvaluatorConfig(EvaluatorBaseConfig, name="oib_retrieval_citat
 
 
 class OIBRetrievalEvalOutput(EvalOutput):
-    """Extended output with the aggregate a retrieval regression shows up in first."""
 
     total_evaluated: int = Field(default=0, description="Cases evaluated.")
     total_with_forbidden_citation: int = Field(
@@ -83,7 +59,6 @@ class OIBRetrievalEvalOutput(EvalOutput):
 
 
 class OIBRetrievalEvaluator(BaseEvaluator):
-    """Graded citation evaluator for OIB retrieval golden cases (no LLM judge)."""
 
     def __init__(
         self,
@@ -109,12 +84,6 @@ class OIBRetrievalEvaluator(BaseEvaluator):
                 reasoning={"error": "No 'relevant' Punkt labels in expected_output for this case."},
             )
 
-        # A malformed label is a DATASET defect, and it must be scored as one rather than
-        # ending the run. These labels come from the eval dataset, not from the validated
-        # committed golden set, so `raw["richtlinie"]`, `int(raw["grade"])`,
-        # `PunktLabel.__post_init__` and `index.units` are all reachable with bad input --
-        # and one bad row raising here aborts every remaining item. The `labels is None`
-        # branch above already establishes the intended handling.
         graded: dict[Unit, int] = {}
         try:
             for raw in labels:
@@ -132,10 +101,6 @@ class OIBRetrievalEvaluator(BaseEvaluator):
         forbidden_hits = [unit for unit in cited if unit in self.forbidden]
         relevant = frozenset(graded)
 
-        # A should-refuse case (empty labels) is scored on ABSTENTION: citing nothing is
-        # the correct answer, and every citation is a wrong one. Scoring it with nDCG
-        # would give a full marks to an answer that cited ten irrelevant pages, because
-        # the ideal DCG is zero either way.
         if not relevant:
             score = 1.0 if not cited else 0.0
         else:
@@ -152,9 +117,6 @@ class OIBRetrievalEvaluator(BaseEvaluator):
             "k": self.k,
             "question": item.input_obj,
         }
-        # A forbidden citation is disqualifying, not a deduction: the change-log documents
-        # read exactly like requirements, so an answer sourced from one is confidently
-        # wrong and no amount of otherwise-correct citation redeems it.
         if forbidden_hits:
             score = 0.0
         return EvalOutputItem(id=item_id, score=score, reasoning=reasoning)
@@ -166,10 +128,6 @@ class OIBRetrievalEvaluator(BaseEvaluator):
         errored = 0
         for output_item in base_output.eval_output_items:
             reasoning = output_item.reasoning if isinstance(output_item.reasoning, dict) else {}
-            # An error item carries only "error": neither `cited_units` nor `should_refuse`
-            # is present, so it used to be counted as an answer that cited nothing. A
-            # dataset defect must not be reported as a model that failed to cite -- that
-            # reads as a retrieval regression and sends the reader to the wrong place.
             if "error" in reasoning:
                 errored += 1
                 continue
@@ -189,7 +147,6 @@ class OIBRetrievalEvaluator(BaseEvaluator):
 
 @register_evaluator(config_type=OIBRetrievalEvaluatorConfig)
 async def register_oib_retrieval_evaluator(config: OIBRetrievalEvaluatorConfig, builder: EvalBuilder):
-    """Register the OIB retrieval citation evaluator."""
     evaluator = OIBRetrievalEvaluator(
         max_concurrency=builder.get_max_concurrency(),
         index_path=Path(config.punkt_index_path) if config.punkt_index_path else None,

@@ -83,9 +83,6 @@ class Plan:
         )
 
 
-# ---------------------------------------------------------------------------
-# Reading what the project holds
-# ---------------------------------------------------------------------------
 
 
 def _paged(fetch: Any) -> list[Any]:
@@ -188,9 +185,6 @@ def read_state(api: Any) -> dict[str, Any]:
     }
 
 
-# ---------------------------------------------------------------------------
-# Writing what is missing
-# ---------------------------------------------------------------------------
 
 
 def _create_score_config(api: Any, definition: ScoreDefinition) -> None:
@@ -293,9 +287,6 @@ def apply(api: Any, plan: Plan) -> None:
         api.dataset_items.create(dataset_name=GOLDEN_DATASET_NAME, **item)
 
 
-# ---------------------------------------------------------------------------
-# CLI
-# ---------------------------------------------------------------------------
 
 
 def render(plan: Plan) -> str:

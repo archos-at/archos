@@ -1,28 +1,9 @@
-/**
- * The typed client for a project's Beteiligte (ADR-0055): the routes the setup's
- * first step (ticket 26) reads and writes, each written once here.
- *
- *   - `GET /api/projects/[id]`: the name and the status;
- *   - `GET /api/projects/[id]/project-record`: the people (ADR-0091, ADR-0101):
- *     members listed from the roster, everyone else stored by hand;
- *   - `GET|POST /api/projects/[id]/members`: the organization's roster with each
- *     member's project role, and a role given or taken. Only who may manage
- *     the project's members gets an answer; a refusal reads as `null`;
- *   - `POST|PATCH|DELETE /api/projects/[id]/people[/personId]`: a person added,
- *     described or erased.
- *
- * Who may do what is the services' (`members-service`, `project-record-service`);
- * this client only says what the answer was. Responses are parsed with zod,
- * not cast. No `server-only`: the browser imports this.
- */
-
 import { collectPages } from '@/lib/api/offset-page'
 import { z } from 'zod'
 import { isMonth, type Month } from './month'
 import { PROJECT_STATUSES } from './project-status'
 import type { ProjectPersonInput, ProjectRecordView } from './project-record-types'
 
-/** The project roles a member can hold, as the members route takes them. */
 export const PROJECT_MEMBER_ROLES = ['project-viewer', 'project-contributor', 'project-editor', 'project-admin'] as const
 export type ProjectMemberRoleSlug = (typeof PROJECT_MEMBER_ROLES)[number]
 
@@ -69,7 +50,6 @@ export type RosterMember = z.infer<typeof rosterMemberSchema>
 
 const rosterSchema = z.object({
   members: z.array(rosterMemberSchema),
-  /** The reader's own account: their row is not theirs to change here. */
   viewerUserId: z.string().nullable().catch(null),
 })
 export type ProjectRoster = z.infer<typeof rosterSchema>
@@ -79,7 +59,6 @@ export type ParticipantsFetch = (path: string, init?: RequestInit) => Promise<Re
 
 const defaultFetch: ParticipantsFetch = (path, init) => fetch(path, init)
 
-/** A request the API refused: its status and, where the API names one, the reason (`last-admin`, `project-closed`). */
 export class ParticipantsRequestError extends Error {
   constructor(
     readonly status: number,
@@ -94,11 +73,8 @@ export class ParticipantsRequestError extends Error {
 export interface ParticipantsClient {
   project(projectId: string): Promise<ProjectBasics>
   peopleRecord(projectId: string): Promise<ProjectRecordView>
-  /** The roster with roles, or null when the reader may not manage the project's members. */
   roster(projectId: string): Promise<ProjectRoster | null>
-  /** Give a member a role, or take their access away with `''`. */
   setRole(projectId: string, organizationMembershipId: string, role: ProjectMemberRoleSlug | ''): Promise<void>
-  /** Add a person, or describe one already stored (`personId`). A member's row is keyed by `userId`. */
   savePerson(projectId: string, person: ProjectPersonInput, personId: string | null): Promise<void>
   removePerson(projectId: string, personId: string): Promise<void>
 }
@@ -130,7 +106,6 @@ export function createParticipantsClient(fetchImpl: ParticipantsFetch = defaultF
     },
     async roster(projectId) {
       try {
-        // The whole organization, page by page: the setup picks whom to add as well.
         let viewerUserId: string | null = null
         const members = await collectPages<RosterMember>(async (cursor) => {
           const query = new URLSearchParams({ scope: 'organization', limit: '200' })

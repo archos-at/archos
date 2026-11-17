@@ -1,13 +1,3 @@
-"""Post-processing of a deep research graph state into the shipped answer.
-
-Every step here is a plain function over the values ``DeepResearcherAgent``
-already holds: the report text, the run's source registry, the writer's
-self-assessment. ``DeepResearcherAgent._finalize`` is the pipeline that calls
-them in order; the salvage path (``cutoff.salvage_cutoff``) runs the same
-pipeline, so a cut-off report is verified, sanitised and labelled by exactly
-the code a complete one is.
-"""
-
 from __future__ import annotations
 
 import logging
@@ -44,35 +34,14 @@ from agent.skills import SkillRuntime
 
 logger = logging.getLogger(__name__)
 
-#: How much salvaged report is worth shipping. Below this the "report" is a
-#: stub — a heading, a half sentence, the writer's opening line — and handing it
-#: to a reader under a "was cut off" banner would be worse than the honest
-#: failure: it looks like an answer. A cutoff with less than this raises the
-#: original error instead.
 MIN_SALVAGE_REPORT_CHARS = 200
 
-#: The ceiling a run that never finished gathering its evidence may reach. Deep
-#: research is the ONE path that knows it was cut off, and a report salvaged at
-#: the wall clock — or written without the sources that would have proved it —
-#: has not seen what it set out to see. "high" is reserved for a claim checked
-#: against a retrieved passage, so an incomplete run cannot earn it from
-#: whatever it happened to reach first.
 _INCOMPLETE_EVIDENCE_CONFIDENCE_CEILING: ConfidenceLevel = "medium"
 
-#: Ordering used only to clamp DOWN. Spelled out here rather than reached into
-#: the markers module for, so this file can never end up RAISING a self-report —
-#: the one thing the overconfidence guard exists to make impossible.
 _CONFIDENCE_RANK: dict[str, int] = {"low": 0, "medium": 1, "high": 2}
 
-#: The banner's opening, in the report and in the length check that ignores it.
 _HONESTY_BANNER_PREFIX = "> **Hinweis:**"
 
-#: Why a reader is told the run stopped, as the clause after "wurde …".
-#: Deliberately coarse: the operator channel carries the token, the reader gets
-#: the kind of cause and nothing that pretends to be an error taxonomy. An
-#: upstream timeout is NOT a time limit — a source did not answer — and calling
-#: it one had readers asking for a longer budget on runs that died in three
-#: minutes.
 _CUTOFF_CAUSE_CLAUSES = {
     CUTOFF_WALL_CLOCK: "wegen des erreichten Zeitlimits",
     CUTOFF_STEP_LIMIT: "wegen des erreichten Schritt-Limits",
@@ -80,9 +49,6 @@ _CUTOFF_CAUSE_CLAUSES = {
     CUTOFF_RUN_BUDGET: "wegen des erreichten Recherche-Budgets",
     CUTOFF_USER_REQUESTED: "auf Ihren Wunsch",
 }
-#: The same clauses for a report the writer wrote in English: the banner
-#: follows the report's language, detected off the report itself, so an
-#: English report is not opened by a German sentence.
 _HONESTY_BANNER_PREFIX_EN = "> **Note:**"
 _CUTOFF_CAUSE_CLAUSES_EN = {
     CUTOFF_WALL_CLOCK: "at the time limit",
@@ -95,13 +61,9 @@ _CUTOFF_CAUSE_CLAUSES_EN = {
 _OUTPUT_PATHS = ("/shared/output.md", "/output.md")
 
 
-# ---------------------------------------------------------------------------
-# Reading the graph state
-# ---------------------------------------------------------------------------
 
 
 def _file_text(entry: Any) -> str | None:
-    """The non-blank text of one DeepAgents file entry, in any of its shapes."""
     if isinstance(entry, dict):
         entry = entry.get("content")
     if isinstance(entry, bytes):
@@ -112,7 +74,6 @@ def _file_text(entry: Any) -> str | None:
 
 
 def extract_final_markdown(result: Any) -> str | None:
-    """The report the writer persisted, or None when no output file exists."""
     files = result.get("files", {}) if isinstance(result, dict) else getattr(result, "files", {})
     if not isinstance(files, dict):
         return None
@@ -124,12 +85,6 @@ def extract_final_markdown(result: Any) -> str | None:
 
 
 def set_state_field(result: Any, key: str, value: Any) -> None:
-    """Set ``key`` on a graph state that may be a dict or an object.
-
-    LangGraph hands back a plain dict today, but the salvage path also sees
-    whatever the last streamed chunk happened to be, so both shapes are
-    supported.
-    """
     if isinstance(result, dict):
         result[key] = value
         return
@@ -137,7 +92,6 @@ def set_state_field(result: Any, key: str, value: Any) -> None:
 
 
 def replace_last_message_content(result: Any, content: str) -> None:
-    """Overwrite the final message content in place with the post-processed Markdown."""
     messages = result.get("messages") if isinstance(result, dict) else getattr(result, "messages", None)
     if not messages:
         return
@@ -148,9 +102,6 @@ def replace_last_message_content(result: Any, content: str) -> None:
     messages[-1] = type(last_msg)(content=content)
 
 
-# ---------------------------------------------------------------------------
-# Labelling
-# ---------------------------------------------------------------------------
 
 
 def _cap_for_incomplete_evidence(
@@ -159,15 +110,6 @@ def _cap_for_incomplete_evidence(
     cutoff_reason: str | None,
     degraded_reasons: list[str],
 ) -> ConfidenceLevel | None:
-    """Clamp a self-report the run's own incompleteness cannot back up.
-
-    Applied ON TOP of the shared overconfidence guard, never instead of it: the
-    guard grades whether the claims are sourced, this grades whether the run
-    that made them ever finished. The cap carries no reason token of its own:
-    truncation already reaches the reader through ``research_truncated`` and
-    the honesty banner, and a sixth ``CappedReason`` would put a token on the
-    dashboard and in the chip tooltip that neither has a dictionary entry for.
-    """
     if level is None or (cutoff_reason is None and not degraded_reasons):
         return level
     ceiling = _INCOMPLETE_EVIDENCE_CONFIDENCE_CEILING
@@ -180,15 +122,6 @@ def _prepend_honesty_banner(
     cutoff_reason: str | None,
     degraded_reasons: list[str] | None,
 ) -> str:
-    """Put the answer's own limitations at the top of the answer.
-
-    In the report's language (German by default, English for an English
-    report), in the register of the job runner's ``FAILURE_NOTICE``: factual, short, Sie-form,
-    no invented error taxonomy. It rides the REPORT rather than only the state
-    flags because the report is what travels furthest — into the conversation,
-    the job output, the exported PDF — and someone reading only that must still
-    be able to tell that it is partial.
-    """
     from agent.common.query_expansion import detect_language
 
     english = detect_language(report[:4000]) == "en"
@@ -201,8 +134,6 @@ def _prepend_honesty_banner(
             if english
             else f"Diese Recherche wurde{cause_clause} vorzeitig beendet, der folgende Bericht ist daher unvollständig."
         )
-    # An unread Grundlage is said by its own section at the foot of the report
-    # (`_append_unread_grundlage`); it is not a verification failure.
     if any(reason != DEGRADED_BASIS_UNREAD for reason in degraded_reasons or ()):
         sentences.append(
             "The statements could not be fully verified and are only partly reliable."
@@ -216,12 +147,6 @@ def _prepend_honesty_banner(
 
 
 def _salvaged_report_length(text: str) -> int:
-    """Length of the salvaged report itself, not counting the banner.
-
-    The banner is roughly a hundred characters the agent wrote about itself.
-    Counting it toward :data:`MIN_SALVAGE_REPORT_CHARS` would let a stub clear
-    the bar purely because we had labelled it as a stub.
-    """
     body = text
     if body.startswith(_HONESTY_BANNER_PREFIX):
         _, separator, remainder = body.partition("\n\n")
@@ -231,15 +156,6 @@ def _salvaged_report_length(text: str) -> int:
 
 
 def _summarize_removed_citations(removed_citations: list[dict[str, Any]]) -> dict[str, Any] | None:
-    """Summarize ``verify_citations`` drops for the transparency wire.
-
-    Returns ``{"count": int, "reasons": [str, ...]}`` (reasons deduplicated in
-    first-seen order, max 5) only when ≥1 citation was removed; otherwise
-    ``None`` so the ``citations_removed`` field stays absent. Shape matches the
-    chat researcher's ``_normalize_citations_removed`` reader.
-    """
-    # A merged duplicate cost the reader nothing (its [N] now points at the
-    # line it duplicated), so it is not reported as a removal.
     removed_citations = lost_citations(removed_citations)
     if not removed_citations:
         return None
@@ -253,9 +169,6 @@ def _summarize_removed_citations(removed_citations: list[dict[str, Any]]) -> dic
     return {"count": len(removed_citations), "reasons": reasons}
 
 
-# ---------------------------------------------------------------------------
-# Citations → wire sources
-# ---------------------------------------------------------------------------
 
 
 def _registry_entry(registry: Any, citation: dict[str, Any]) -> Any:
@@ -267,13 +180,6 @@ def _registry_entry(registry: Any, citation: dict[str, Any]) -> Any:
 
 
 def _wire_source(entry: Any, number: Any) -> dict[str, Any] | None:
-    """One entry serialised for the wire; None when that one entry cannot be.
-
-    Guarded per entry because this runs on the SALVAGE path as well as the
-    normal one, and a truncated run is the likeliest producer of a half-built
-    entry: one source that fails to serialise costs the reader that single
-    chip, never the rest of the provenance block.
-    """
     try:
         return source_entry_to_wire(entry, number=number if isinstance(number, int) else None)
     except Exception:  # noqa: BLE001 - one bad source must not zero out the rest
@@ -286,19 +192,6 @@ def _wire_source(entry: Any, number: Any) -> dict[str, Any] | None:
 
 
 def _cited_sources_to_wire(registry: Any, valid_citations: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Resolve the citations that survived verification back to wire sources.
-
-    ``verify_citations`` proves each ``[N]`` marker points at a source the run
-    really captured, and it is the ONLY place the ``[N]``→source binding
-    exists. Everything a reader needs from a citation — the page to open the
-    PDF at, the snippet to hover, the lane and binding note — lives on the
-    registry entry behind that binding. This is the join, mirroring
-    ``ChatAgent``'s so both agents emit one shape.
-
-    Deduplicated by entry identity in first-cited order: four passages of one
-    Richtlinie are four citations but the reader wants the document once, and
-    the first mention is the one whose ``[N]`` the prose leads with.
-    """
     wire_sources: list[dict[str, Any]] = []
     seen_ids: set[int] = set()
     for citation in valid_citations:
@@ -313,11 +206,6 @@ def _cited_sources_to_wire(registry: Any, valid_citations: list[dict[str, Any]])
 
 
 def _dead_numbers(removed_numbers: Any) -> set[int]:
-    """The pre-renumber citation numbers ``sanitize_report`` deleted.
-
-    Tolerant of the shapes tests hand in (a MagicMock's auto-created
-    attributes are neither containers nor None).
-    """
     if isinstance(removed_numbers, dict):
         return {n for n in removed_numbers if isinstance(n, int)}
     if isinstance(removed_numbers, (set, frozenset, list, tuple)):
@@ -343,21 +231,6 @@ def _apply_renumbering(
     renumber_map: dict[int, int] | None,
     removed_numbers: Any = None,
 ) -> list[dict[str, Any]]:
-    """The wire sources re-labelled with the numbers the READER will see.
-
-    ``sanitize_report`` closes the gaps that ``verify_citations``' removals
-    left in the ``[N]`` sequence, so the numbers captured during verification
-    are stale by the time the report ships. Without this remap a chip is
-    labelled ``[3]`` while the prose pointing at it now says ``[2]``.
-
-    Fail-closed on sanitize deaths: ``sanitize_report`` also DELETES source
-    lines with shortened / truncated / unsafe URLs. Their numbers arrive via
-    ``removed_numbers`` and those chips are dropped — never remapped, never
-    shipped as clickable at a URL the reader no longer sees. A number absent
-    from a non-empty ``renumber_map`` is likewise dead and dropped, so a
-    sanitizer rule that forgets to report a death still cannot leave a trusted
-    chip at a removed URL. Returns a new list; the input is left alone.
-    """
     if not isinstance(renumber_map, dict):
         renumber_map = {}
     dead = _dead_numbers(removed_numbers)
@@ -372,22 +245,10 @@ def _apply_renumbering(
     return [_renumbered(source, renumber_map) for source in kept]
 
 
-# ---------------------------------------------------------------------------
-# Verification
-# ---------------------------------------------------------------------------
 
 
 @dataclass(frozen=True)
 class Verification:
-    """What citation verification established about one report.
-
-    ``checked`` is False on the ``enable_citation_verification=False`` path.
-    The defaults there describe a run that checked nothing: no citation
-    survived verification (none was ever verified) and no quoted span was
-    contradicted — so the overconfidence guard refuses to surface anything
-    above "low". A report nobody checked must not wear the chip that means
-    "checked against a retrieved passage".
-    """
 
     report: str
     checked: bool = False
@@ -403,7 +264,6 @@ class Verification:
 
     @property
     def quotes_verified(self) -> bool:
-        """One fabricated quotation is enough to drop the whole answer."""
         return self.unverified_quote_count == 0
 
 
@@ -417,17 +277,6 @@ def _removed_citation_lines(removed_citations: Iterable[dict[str, Any]]) -> list
 
 
 def verify_report(report: str, registry: Any, reference_sources: list[Any]) -> Verification:
-    """Strip unverifiable citations, annotate unverifiable quotes, resolve the rest.
-
-    ``verify_citations`` proves each cited SOURCE is real; ``verify_quoted_spans``
-    catches the weak model's "real section, fabricated quote" pattern by
-    checking each quoted span against the retrieved passage text. Quotes are
-    annotated inline, never stripped, and an annotated quote ships MARKED so a
-    salvaged report can never read exactly like a verified one.
-
-    A range (``[1–3]``) is expanded first: the verifier reads ``[N]`` only, so
-    a range whose source 3 it removed would ship ``[1–3]`` still naming it.
-    """
     report = expand_grouped_citations(report)
     verification = verify_citations(report, registry, reference_sources=reference_sources)
     if verification.removed_citations:
@@ -438,8 +287,6 @@ def verify_report(report: str, registry: Any, reference_sources: list[Any]) -> V
         )
     report = verification.verified_report
     degraded_reasons: list[str] = []
-    # Deep research never patches, so it asks for no nearest passage. A quote no passage holds stays,
-    # with no marker in the prose (ADR-0125, amended 2026-11-10): the report is degraded instead.
     unverified_quotes = verify_quoted_spans(report, registry, with_nearest=False)
     if unverified_quotes:
         logger.info(
@@ -448,9 +295,6 @@ def verify_report(report: str, registry: Any, reference_sources: list[Any]) -> V
         )
         degraded_reasons.append(DEGRADED_UNVERIFIED_QUOTES)
     if not verification.valid_citations:
-        # Over-aggressive verification is a real possibility, so this is not a
-        # failure — but a report with nothing provably grounded no longer
-        # ships silently.
         logger.warning(
             "Citation verification found no valid citations in writer-agent output; "
             "returning the generated report without failing the job. "
@@ -470,16 +314,6 @@ def verify_report(report: str, registry: Any, reference_sources: list[Any]) -> V
 
 
 def record_citation_ledger(verification: Verification, registry: Any, self_confidence: ConfidenceLevel | None) -> None:
-    """One citation-health batch per deep-research run, the shape the researcher posts.
-
-    The whole registry IS this run's retrieval: the deep researcher builds a
-    fresh registry per run (ADR-0018), unlike the researcher's cumulative
-    one, so no per-turn capture log is needed. Deep research has NO
-    single-source fallback (an ungrounded report hard-fails instead), stated
-    explicitly so the dashboard reads "deep never falls back". The capped
-    reason is recomputed from the same inputs the state field uses, so the
-    dashboard and the reader's chip can never disagree about WHY.
-    """
     registry_sources = registry.all_sources()
     citation_events.record_turn(
         agent="deep",
@@ -495,11 +329,8 @@ def record_citation_ledger(verification: Verification, registry: Any, self_confi
             verification.quotes_verified,
         ),
         source_origins=[source_origin_token(entry).strip("[]").lower() or None for entry in registry_sources],
-        # The retrieval lane of each CITED source: only the wire entries carry
-        # it, since the lane is derived during serialisation.
         source_lanes=[source.get("lane") for source in verification.wire_sources],
         source_tools=[entry.tool_name or None for entry in registry_sources],
-        # Source IDENTITIES (URL / document key) — never report prose.
         retrieved_source_labels=[label for label in map(source_label, registry_sources) if label],
         cited_source_labels=[
             label for label in ((c.get("citation_key") or c.get("url")) for c in verification.valid_citations) if label
@@ -507,14 +338,10 @@ def record_citation_ledger(verification: Verification, registry: Any, self_confi
     )
 
 
-# ---------------------------------------------------------------------------
-# The finished answer
-# ---------------------------------------------------------------------------
 
 
 @dataclass(frozen=True)
 class FinalizedReport:
-    """Everything ``annotate_state`` writes and the report it writes it about."""
 
     report: str
     degraded_reasons: list[str]
@@ -524,20 +351,10 @@ class FinalizedReport:
     confidence: ConfidenceLevel | None
     confidence_reason: str | None
     confidence_capped_reason: str | None
-    #: The Grundlage the run did not reach, by file name. Empty when every
-    #: named document has a passage in the registry, or none was named.
     basis_unread: list[str] = field(default_factory=list)
 
 
 def _append_unread_basis(report: str, unread: Sequence[str]) -> str:
-    """Name, at the end of the report, the Grundlage the run never reached.
-
-    At the END, as its own section, in the report's language: the banner at
-    the top says the report is weaker, this says exactly which document the
-    reader still has to read themselves. Never silent — a Grundlage is a
-    promise the reader made the run keep, and a report that dropped it would
-    read as if the document said nothing.
-    """
     if not unread:
         return report
     from agent.common.query_expansion import detect_language
@@ -564,14 +381,6 @@ def finalize_report(
     cutoff_reason: str | None,
     basis_unread: Sequence[str] = (),
 ) -> FinalizedReport:
-    """Sanitise, renumber, banner and grade the verified report.
-
-    Sanitisation renumbers the surviving ``[N]`` markers, so the chips have to
-    follow the prose; the banner goes on last because it is about everything
-    above it; the confidence chip is surfaced only after the run's own
-    limitations are known, since both the shared guard and the deep-only
-    ceiling cap it.
-    """
     degraded = [*degraded_reasons, *verification.degraded_reasons]
     if basis_unread:
         degraded.append(DEGRADED_BASIS_UNREAD)
@@ -607,11 +416,6 @@ def finalize_report(
 
 
 def record_skill_transparency(result: Any, skill_runtime: SkillRuntime | None) -> None:
-    """Say which skills shaped this report.
-
-    DELIVERED, not merely offered: a skill whose body the writer never opened
-    shaped nothing and must not be claimed.
-    """
     if skill_runtime is None:
         return
     activated = list(skill_runtime.activated)
@@ -623,13 +427,6 @@ def record_skill_transparency(result: Any, skill_runtime: SkillRuntime | None) -
 
 
 def annotate_state(result: Any, finalized: FinalizedReport, skill_runtime: SkillRuntime | None) -> None:
-    """Write the transparency fields onto the graph state.
-
-    Every field is ABSENT rather than empty when there is nothing to say: a
-    surface cannot tell "we checked and found none" from "we lost them" once
-    an empty list is written, and no confidence marker means "not assessed",
-    which a reader must be able to tell from "low".
-    """
     if finalized.citations_removed is not None:
         set_state_field(result, "citations_removed", finalized.citations_removed)
     if finalized.wire_sources:
@@ -657,26 +454,12 @@ def record_retrieval_ledger(
     announcements: Sequence[dict[str, Any]],
     lane_hits: Sequence[dict[str, Any]],
 ) -> None:
-    """Attach the run's own account of its retrieval rounds, beside its sources.
-
-    Same field name and same wire shape as a chat turn's, because one reader
-    renders both. Absent rather than empty when the run announced no round: a
-    surface cannot tell "no retrieval happened" from "we lost it" once an empty
-    list is written.
-    """
     ledger = build_retrieval_ledger(announcements, lane_hits)
     if ledger is not None:
         set_state_field(result, "retrieval_ledger", ledger)
 
 
 def emit_final_report(callbacks: Iterable[Any], report: str) -> None:
-    """Re-emit the verified report so the frontend overwrites the raw stream.
-
-    Guarded, because this runs inside ``_finalize`` and the salvage path reads
-    a raised ``_finalize`` as "nothing to salvage": a sink that throws would
-    destroy a verified report that exists. Delivering the answer outranks
-    echoing it, so a failing sink costs its own echo and nothing else.
-    """
     sink = next((cb for cb in callbacks if hasattr(cb, "emit_final_report")), None)
     if sink is None:
         return

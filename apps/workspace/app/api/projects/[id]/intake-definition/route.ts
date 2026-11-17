@@ -1,8 +1,3 @@
-/**
- * Project intake definition API — the static intake questionnaire.
- * Thin handler; authz lives in `@/lib/project-profile/profile-service`.
- */
-
 import { apiRoute } from '@/lib/api/handler'
 import { getProjectIntakeDefinition } from '@/lib/project-profile/profile-service'
 

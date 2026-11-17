@@ -1,24 +1,9 @@
-/**
- * The office's filing conventions: which folders its projects keep, what each
- * is for, and which Dokumentart lands where. A new project learns the office's
- * structure from its other projects; the Austrian default below stands in only
- * when the office has none to learn from. Pure: the service reads the rows.
- *
- * Only what every member of a project may read counts: a folder under an own
- * access list (ADR-0088), and everything below it, is left out, so a folder
- * name a restriction hides never reaches the model or another project.
- */
-
 import { folderTree, isUnderOwnList } from '@/lib/authz/folder-access-rule'
 import { documentTypeOf } from '@/lib/documents/tag-vocabulary'
 import { folderPathKey } from '@/lib/projects/folders'
 import type { OfficeFolderRow } from './repository'
 import { MAX_FOLDER_DOC_TYPES, MAX_JUDGED_CONVENTIONS, type FilingConventionInput } from './types'
 
-/**
- * The structure an Austrian planning office commonly keeps, for a project whose
- * office has no other project to learn from. Domain data, so German.
- */
 export const AUSTRIAN_DEFAULT_CONVENTIONS: readonly FilingConventionInput[] = [
   {
     path: 'Grundlagen',
@@ -58,13 +43,11 @@ export const AUSTRIAN_DEFAULT_CONVENTIONS: readonly FilingConventionInput[] = [
   },
 ]
 
-/** A document of a sample, as the Dokumentart per folder is learned from it. */
 export interface FiledSample {
   folderPath: string
   tags: readonly string[] | null | undefined
 }
 
-/** The Dokumentarten filed in each folder (by path key), most frequent first, at most three. */
 export function docTypesByFolder(samples: readonly FiledSample[]): Map<string, string[]> {
   const counts = new Map<string, Map<string, number>>()
   for (const sample of samples) {
@@ -88,15 +71,6 @@ export function docTypesByFolder(samples: readonly FiledSample[]): Map<string, s
   return ranked
 }
 
-/**
- * The office's conventions from its other projects' folders: one entry per
- * path (compared as `folderPathKey` compares it), with how many projects keep
- * it and the description most of them give it, the most widely kept first.
- * Folders under an own access list are left out, and so is everything the
- * target shelf already has (`existingPaths`): an existing folder is offered as
- * a folder, not as a convention. With nothing to learn from, the Austrian
- * default, minus what the shelf already has.
- */
 export function officeConventions(
   rows: readonly OfficeFolderRow[],
   existingPaths: readonly string[],

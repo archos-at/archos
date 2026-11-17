@@ -1,16 +1,3 @@
-"""[1] The address the caller's words already carry. Deterministic, no LLM.
-
-A legal question usually states where its answer sits: a § or Artikel, a named
-law, a Bundesland. Reading that out is text matching, not reasoning, and doing
-it here is what lets the rest of the pipeline skip both LLM calls — the search
-planner AND the § extractor — whenever the caller already said "§ 63 BO Wien".
-
-Pure: every function here takes strings and returns values. The one exception
-is the project brief, which is a request fact and is read through
-``norm_registry.resolve_federal_state``; it is isolated in its own function so the
-rest stays testable without a request context.
-"""
-
 from __future__ import annotations
 
 import logging
@@ -29,28 +16,14 @@ PARAGRAPH_RE = re.compile(r"§+\s*(\d+[a-z]?)")
 ARTICLE_RE = re.compile(r"\bArt(?:ikel)?\.?\s*(\d+[a-z]?)\b", re.IGNORECASE)
 SUBSECTION_RE = re.compile(r"\bAbs(?:atz|\.)?\s*(\d+[a-z]?)\b", re.IGNORECASE)
 
-#: A LIST of §§ or Artikel: "§§ 75 und 81", "§§ 2, 3", "§§ 63 bis 65",
-#: "§ 5 und § 7", "§ 5 Abs 2 und § 7", "Art. 5 und 7". Every one it names is
-#: addressed. Read as one it dropped all but the first and left "und 81" in the
-#: law's name, and the agent spent a round fetching the § it had already asked
-#: for. Read by a cursor from the first § the caller named (:func:`_list_from`),
-#: not by one regex: whether "und 3" continues the §§ or the Absatz before it
-#: depends on what came just before.
 _SIGNED = {
     "§": re.compile(r"\s*§+\s*(\d+)([a-z]?)\b", re.IGNORECASE),
     "Art": re.compile(r"\s*\bArt(?:ikel)?\.?\s*(\d+)([a-z]?)\b", re.IGNORECASE),
 }
-#: An item with no sign of its own: at most three digits (a year is not a §).
 _BARE = re.compile(r"\s*(\d{1,3})([a-z]?)\b", re.IGNORECASE)
-#: After a comma, "2. Satz" is an ordinal, not § 2.
 _ORDINAL_AHEAD = re.compile(r"\.\s*\w")
 _JOIN_RE = re.compile(r"\s*(,|\bund\b|\bsowie\b|\bu\.|\bbis\b|–|-)", re.IGNORECASE)
 _RANGE_JOINS = frozenset({"bis", "–", "-"})
-#: What narrows one § ("Abs 2", "Abs. 2 und 3", "Z 4 und Z 6", "lit. b und c",
-#: ", 2. Satz"). The items joined after it are more of the same qualifier, signed
-#: again or not, never more §§: read as a § list, "und c" and "und Abs 3" were
-#: left in the law's name. A litera continues with a lower-case letter, the
-#: others with a number; neither takes a "§", so "und § 7" stays the list's.
 _QUALIFIER_JOIN = r"\s*(?:,|\bund\b|\bbis\b|–|-)\s*"
 _QUALIFIER_RE = re.compile(
     r"\s*(?:"
@@ -61,37 +34,16 @@ _QUALIFIER_RE = re.compile(
     r"|,?\s*\d+\.\s*Satz\b)",
     re.IGNORECASE,
 )
-#: An Absatz with a list after it, where no § stands before it: taken out of
-#: the law's name whole, so no "und 3" is left to be read as the law.
 _SUBSECTION_LIST_RE = re.compile(r"\bAbs(?:atz|\.)?\s*\d+[a-z]?(?:\s*(?:,|und|bis|–|-)\s*\d+[a-z]?)*", re.IGNORECASE)
 
-#: The word that introduced a later § reference ("§ 3 BO Wien, siehe §§ 75 und
-#: 81"), left dangling once that list is cut out. The law name is the live RIS
-#: search's title, and "BO Wien, siehe" matches no law. The space before a
-#: closing parenthesis is taken only WITH the parenthesis: a bare ``\s*\)?``
-#: lets two repetitions share the same spaces, which backtracks exponentially
-#: on "(s. (s. (s. …" (CodeQL py/redos).
 _TRAILING_REFERENCE_RE = re.compile(
     r"(?:[\s,;]+(?:siehe|vgl\.?|s\.)|\s*\(\s*(?:siehe|vgl\.?|s\.)(?:\s*\))?)+$", re.IGNORECASE
 )
 
-#: How many §§ one list may address: the tool's own passage budget
-#: (``extract.MAX_PASSAGES``). A longer list or range addresses its first six,
-#: and the result says which it did not read (``Address.unread``).
 MAX_ADDRESSED_SECTIONS = 6
 
-#: A bare RIS document number as an ``instrument=`` argument ("NOR40217157",
-#: "JWT_2020130074_20210415J00"). The four-digit lookahead is load-bearing:
-#: without it "Bauordnung" reads as a document number, and a NAMED LAW is then
-#: treated as an address nothing can resolve — the catalog is skipped and the
-#: question misses. Every RIS document number carries a year-length run of
-#: digits; no law's short title does.
 _DOCUMENT_NUMBER_RE = re.compile(r"^(?=[A-Za-z0-9_.\-]*\d{4})[A-Za-z]{2,4}[A-Za-z0-9_.\-]{4,}$")
 
-#: Where the assumed Bundesland came from, in precedence order. The reader of a
-#: miss needs the PROVENANCE, not just the value: a wrong jurisdiction is the
-#: commonest silent RIS failure, and ``focus_entries`` drops other states' law
-#: without saying so.
 FEDERAL_STATE_FROM_ARGUMENT = "jurisdiction argument"
 FEDERAL_STATE_FROM_INSTRUMENT = "instrument argument"
 FEDERAL_STATE_FROM_QUESTION = "the question"
@@ -100,13 +52,10 @@ FEDERAL_STATE_FROM_BRIEF = "the project brief"
 
 @dataclass(frozen=True)
 class Address:
-    """What the caller's words already say about WHERE the answer sits."""
 
     kind: str = ""  # "§" | "Art" | ""
     number: str = ""
-    #: Every § the caller named, ``number`` first; one entry for a single §.
     numbers: tuple[str, ...] = ()
-    #: The §§ a list named past :data:`MAX_ADDRESSED_SECTIONS`, not read.
     unread: tuple[str, ...] = ()
     subsection: str = ""
     law: str = ""
@@ -117,23 +66,17 @@ class Address:
 
     @property
     def has_section(self) -> bool:
-        """Whether a § or Artikel was named — the deterministic path's trigger."""
         return bool(self.kind and self.number)
 
     @property
     def sections(self) -> tuple[str, ...]:
-        """Every addressed number: the list when one was named, else the one §."""
         return self.numbers or ((self.number,) if self.number else ())
 
 
-#: A range is expanded in full, so every § past the first six is named as not
-#: read. This bounds only nonsense input ("§§ 1 bis 999999"): past it the range
-#: ends here, which no law reaches.
 _MAX_RANGE_SPAN = 1000
 
 
 def _first_section(text: str) -> tuple[str, str, int]:
-    """``(kind, number, where)`` of the first § (or else Artikel) in ``text``; ``("", "", -1)`` without one."""
     paragraph = PARAGRAPH_RE.search(text)
     if paragraph:
         return "§", paragraph.group(1), paragraph.start()
@@ -142,20 +85,12 @@ def _first_section(text: str) -> tuple[str, str, int]:
 
 
 def _list_from(text: str, kind: str, start: int) -> tuple[tuple[str, ...], int]:
-    """Every § (or Artikel) a list starting at ``start`` names, and where the list ends.
-
-    Ranges expanded (:func:`_extend`); an Absatz, Ziffer or litera after an
-    item is part of it; after one, only a SIGNED item continues the list. Not
-    capped: :func:`parse_address` addresses the first
-    :data:`MAX_ADDRESSED_SECTIONS` and reports the rest as unread.
-    """
     first = _SIGNED[kind].match(text, start)
     if first is None:
         return (), start
     items, end = [first.group(1) + first.group(2).lower()], first.end()
     while True:
         qualified = False
-        # "Abs 1 Z 2 lit. a" is three qualifiers on one item; each is consumed.
         while qualifier := _QUALIFIER_RE.match(text, end):
             qualified, end = True, qualifier.end()
         join = _JOIN_RE.match(text, end)
@@ -167,7 +102,6 @@ def _list_from(text: str, kind: str, start: int) -> tuple[tuple[str, ...], int]:
 
 
 def _next_item(text: str, kind: str, join: re.Match[str], *, qualified: bool) -> re.Match[str] | None:
-    """The item after ``join``: signed always; bare only after an unqualified item, and not an ordinal."""
     signed = _SIGNED[kind].match(text, join.end())
     if signed or qualified:
         return signed
@@ -178,11 +112,6 @@ def _next_item(text: str, kind: str, join: re.Match[str], *, qualified: bool) ->
 
 
 def _extend(items: list[str], digits: str, letter: str, *, ranged: bool) -> None:
-    """Add one item, or the range from the last one to it ("7a bis 9" → 8, 9; "5a-5c" → 5b, 5c).
-
-    A range that does not ascend ("§ 12 bis 3") names nothing anyone meant,
-    and adds nothing.
-    """
     if not ranged:
         items.append(digits + letter)
         return
@@ -201,13 +130,11 @@ def _extend(items: list[str], digits: str, letter: str, *, ranged: bool) -> None
 
 
 def section_in(text: str) -> tuple[str, str]:
-    """The first ``(kind, number)`` a text names, or ``("", "")``."""
     kind, number, _where = _first_section(text)
     return kind, number
 
 
 def is_ris_url(value: str) -> bool:
-    """Whether ``value`` is a URL this adapter is allowed to fetch."""
     if not value.lower().startswith(("http://", "https://")):
         return False
     try:
@@ -217,14 +144,6 @@ def is_ris_url(value: str) -> bool:
 
 
 def parse_address(question: str, instrument: str, jurisdiction: str) -> Address:
-    """Read the address out of the caller's arguments.
-
-    The ``instrument`` argument outranks the question for the § and the law: it
-    is what the caller chose to state as an address, while the question is
-    prose that may mention a § in passing.
-    """
-    # A URL a search stated on the OGD host (cached text keeps it for days)
-    # addresses the same document as its public-host twin.
     instrument = public_host((instrument or "").strip())
     url = instrument if is_ris_url(instrument) else ""
     number = instrument if not url and _DOCUMENT_NUMBER_RE.match(instrument) else ""
@@ -235,8 +154,6 @@ def parse_address(question: str, instrument: str, jurisdiction: str) -> Address:
         kind, section, where = _first_section(source)
     items = _list_from(source, kind, where)[0] if kind else ()
     listed = items if len(items) > 1 else ()
-    # An Absatz narrows ONE §; with a list it would narrow all of them to the
-    # same number, which is never what "§ 5 Abs 2 und § 7" means.
     subsection = None if listed else (SUBSECTION_RE.search(instrument) or SUBSECTION_RE.search(question or ""))
     federal_state, federal_state_source = assumed_federal_state(jurisdiction, instrument, question or "")
     return Address(
@@ -254,12 +171,9 @@ def parse_address(question: str, instrument: str, jurisdiction: str) -> Address:
 
 
 def _law_name(instrument: str, url: str, number: str) -> str:
-    """The named law inside ``instrument``, with the § and Absatz taken out."""
     if url or number:
         return ""
     rest = instrument
-    # Every § or Artikel list goes, with its Absätze: the first is the
-    # address, any later one a reference the law's name does not contain.
     for _ in range(8):
         kind, _number, where = _first_section(rest)
         if not kind:
@@ -272,14 +186,6 @@ def _law_name(instrument: str, url: str, number: str) -> str:
 
 
 def assumed_federal_state(jurisdiction: str, instrument: str, question: str) -> tuple[str, str]:
-    """The Bundesland to work in, and WHERE it came from.
-
-    Precedence is the caller's explicit word, then the instrument they named,
-    then the question, then the project brief's structured ``federal_state=``
-    fact. Both halves travel: a miss states the assumption AND its source,
-    because "Wien, because you said so" and "Wien, because the project is in
-    Wien" call for different corrections.
-    """
     if not _CATALOG_AVAILABLE:
         return "", ""
     for value, origin in (
@@ -294,12 +200,6 @@ def assumed_federal_state(jurisdiction: str, instrument: str, question: str) -> 
 
 
 def federal_state_sentence(address: Address) -> str:
-    """The assumed jurisdiction and where it came from, as one sentence.
-
-    Rendered on a HIT as well as on a miss: ``focus_entries`` silently drops
-    every other state's law, so the assumption that did the dropping has to be
-    visible in the result it produced, not only in the result it prevented.
-    """
     if not address.federal_state:
         return (
             "No Bundesland was resolved (not in the arguments, the question or the project brief), "
@@ -309,12 +209,6 @@ def federal_state_sentence(address: Address) -> str:
 
 
 def _federal_state_from_brief() -> tuple[str, str]:
-    """The project brief's structured jurisdiction, or ``("", "")``.
-
-    ``resolve_federal_state()`` reads the Land of the turn's site from its knowledge context and probes
-    no text (ADR-0175); with no placed site (or no turn: tests, the adapter standalone) there is none,
-    which is not an error.
-    """
     try:
         from agent.common.norm_registry import resolve_federal_state
 

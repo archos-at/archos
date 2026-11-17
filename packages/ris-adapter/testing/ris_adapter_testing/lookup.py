@@ -1,5 +1,3 @@
-"""The RIS adapter suites' lookup harness, doubles and fixtures (registered by its conftest)."""
-
 from __future__ import annotations
 
 from unittest.mock import MagicMock
@@ -14,14 +12,6 @@ from nat.plugin_api import FunctionBaseConfig
 
 @pytest.fixture(autouse=True)
 def _isolate_shared_cache():
-    """Reset the shared cache around every test.
-
-    ``ris_search`` / ``ris_fetch_document`` now read/write the fail-open shared
-    cache (``agent.common.cache``, ADR-0020). Its in-process fallback store
-    is a module global, so without this a document/search cached in one test
-    would be served in the next. No-op when the agent package is absent (the
-    adapter used standalone), where the cache is a safe no-op anyway.
-    """
     try:
         from agent.common.cache import reset_local_store
     except Exception:
@@ -32,18 +22,7 @@ def _isolate_shared_cache():
     reset_local_store()
 
 
-# ---------------------------------------------------------------------------
-# ris_lookup: one fake client, one fake catalog, one consolidated law
-#
-# Everything here is reached through FIXTURES rather than imported: these test
-# modules live in a package called ``tests``, and so does the repo root's, so a
-# ``from .conftest import …`` resolves to whichever one sys.path found first.
-# ---------------------------------------------------------------------------
 
-#: A consolidated law in the shape RIS's HTML actually converts to: one line
-#: per §, the Absätze run into the section head or starting their own line, and
-#: the Überschrift on the line above. Every extraction test cuts out of THIS,
-#: so a change in the grammar fails the tests rather than the reader.
 _BO_WIEN_TEXT = """Bauordnung für Wien
 
 Bauansuchen
@@ -71,11 +50,6 @@ Stellplätze
 
 
 class FakeLookupClient:
-    """Stands in for ``RisClient`` inside ``ris_lookup``.
-
-    Class-level state, like ``test_register._FakeClient``: the tool constructs
-    its own client, so a test cannot hold the instance.
-    """
 
     search_result: RisSearchResult | Exception = RisSearchResult()
     documents: dict[str, RisDocument] = {}
@@ -105,11 +79,10 @@ class FakeLookupClient:
 
 
 class _LookupProbeConfig(FunctionBaseConfig, name="test_lookup_call_probe"):
-    """Dummy config so a registered tool can be invoked through the real runtime."""
+    ...
 
 
 class LookupHarness:
-    """One place to run ``ris_lookup`` and see what it did."""
 
     WIEN_URL = "https://www.ris.bka.gv.at/GeltendeFassung.wxe?Abfrage=LrW&Gesetzesnummer=20000006"
     TIROL_URL = "https://www.ris.bka.gv.at/GeltendeFassung.wxe?Abfrage=LrT&Gesetzesnummer=20000112"
@@ -118,7 +91,6 @@ class LookupHarness:
         self.client = client
 
     async def run(self, config=None, **kwargs) -> str:
-        """Invoke the tool through the real agent-runtime path (see test_register._call)."""
         from ris_adapter.lookup import RisLookupToolConfig
         from ris_adapter.lookup import ris_lookup
 
@@ -127,12 +99,6 @@ class LookupHarness:
             return await fn.ainvoke(kwargs, to_type=str)
 
     def with_llms(self, monkeypatch, planner=None, picker=None) -> None:
-        """Run the next lookup with these two internal LLMs (either may be None).
-
-        Patching the resolver rather than the model: what a test needs to say is
-        "the picker was never called", and going through `get_langchain_llm` to
-        say it would test the agent runtime's builder instead of this tool's two paths.
-        """
 
         async def _resolve(tool_config, builder):
             return planner, picker
@@ -144,7 +110,6 @@ class LookupHarness:
 
     @staticmethod
     def body_of(output: str, index: int = 1) -> str:
-        """The passage body of one ``--- Result N ---`` block, as the parser sees it."""
         from agent.citations.grounding_text import _extract_kl_chunk_bodies
 
         return _extract_kl_chunk_bodies(output)[index - 1]
@@ -152,7 +117,6 @@ class LookupHarness:
 
 @pytest.fixture
 def lookup(monkeypatch):
-    """``ris_lookup`` wired to a fake RIS: two consolidated laws, no catalog."""
     FakeLookupClient.search_result = RisSearchResult()
     FakeLookupClient.search_calls = []
     FakeLookupClient.fetch_calls = []
@@ -165,13 +129,11 @@ def lookup(monkeypatch):
         ),
     }
     monkeypatch.setattr("ris_adapter.lookup.tool.RisClient", FakeLookupClient)
-    # Every test names its own catalog; the shipped registry must not decide.
     monkeypatch.setattr("ris_adapter.lookup.candidates.load_registry", lambda path=None: None)
     return LookupHarness(FakeLookupClient)
 
 
 def norm_entry(**overrides):
-    """One curated catalog entry, defaulted to the Wiener Bauordnung."""
     from agent.common.norm_registry import NormEntry
 
     data = {
@@ -193,7 +155,6 @@ def norm_entry(**overrides):
 
 @pytest.fixture
 def catalog(monkeypatch):
-    """Install a norm registry for ``ris_lookup``; returns a setter for its entries."""
     from agent.common.norm_registry import NormRegistry
 
     state: dict[str, NormRegistry] = {"registry": NormRegistry(entries=[norm_entry()])}
@@ -207,7 +168,6 @@ def catalog(monkeypatch):
 
 
 class FakePicker:
-    """The § picker, scripted. Records every call so a test can assert none."""
 
     def __init__(self, *sections: str):
         self.sections = list(sections)
@@ -222,7 +182,6 @@ class FakePicker:
 
 
 class FakePlanner:
-    """The search planner, scripted, with the same signature ris_search uses."""
 
     def __init__(self, application="LrKons", suchworte="Bauordnung", titel="", federal_state=""):
         from ris_adapter.register import RisSearchPlan

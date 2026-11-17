@@ -1,8 +1,3 @@
-/**
- * The folder card wire schemas as JSON Schema for the Python tier (ADR-0055),
- * generated from `types.ts` into `tests/fixtures/folder-cards.schema.json`.
- */
-
 import { jsonSchemaDocument, type JsonSchemaNode } from '@/lib/api/zod-json-schema'
 import { FOLDER_CARD_WIRE_SCHEMAS } from './types'
 

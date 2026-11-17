@@ -21,15 +21,11 @@ export interface Qdrant {
   statefulSet: k8s.apps.v1.StatefulSet;
   service: k8s.core.v1.Service;
   snapshotCronJob: k8s.batch.v1.CronJob;
-  /** The Prometheus alerting rules, rendered against this stack's limits. */
   alertRules: k8s.core.v1.ConfigMap;
-  /** In-cluster URL every backend tier points QDRANT_URL at. */
   url: pulumi.Output<string>;
-  /** `host:port` of every peer's metrics listener, which the collector scrapes. */
   metricsTargets: pulumi.Output<string[]>;
 }
 
-/** Keys of the `qdrant-credentials` Secret. */
 const KEY = {
   apiKey: "api-key", // pragma: allowlist secret (Secret key name, not a credential)
   readOnlyApiKey: "read-only-api-key", // pragma: allowlist secret (Secret key name, not a credential)
@@ -37,40 +33,13 @@ const KEY = {
   s3SecretKey: "s3-secret-key", // pragma: allowlist secret (Secret key name, not a credential)
 } as const;
 
-/** The curl image's user (`curl_user`, uid 100 in `curlimages/curl`), numeric so `runAsNonRoot` can be verified. */
 const CURL_UID = 100;
 
-/**
- * Self-hosted Qdrant 1.19 (ADR-0115), the stack's one vector store.
- *
- * A raw StatefulSet, with `qdrant-helm` 1.19.2 as the oracle
- * for everything Qdrant-specific: the cluster bootstrap, `Parallel` pod
- * management, the probes, and the read-only root with emptyDirs for the two
- * paths the image writes outside its data. Diff against the chart on every
- * minor upgrade. `docs/architecture/qdrant-retrieval-design.md` §9 is the
- * reasoning behind each setting.
- *
- * What differs from the chart, on purpose:
- * - Configuration is env (`QDRANT__…`), not a mounted `production.yaml`, so
- *   the keys come from a Secret by `secretKeyRef` and never sit in a ConfigMap.
- * - No root `chown` init container: the pod runs as uid 1000 from its first
- *   start, and `fsGroup` owns the volume.
- * - Shard snapshots go to the in-cluster SeaweedFS (`snapshots_config` s3),
- *   taken by the `qdrant-snapshot` CronJob below, which also records the
- *   aliases no snapshot holds.
- * - `/metrics` is served on its own port without the key, for the collector
- *   (`otel-collector.ts`), and the alerting rules ship as a ConfigMap.
- *
- * Operating it (restore, peer replacement, rebuilds, upgrades, key rotation):
- * `docs/deployment/qdrant-runbook.md`.
- */
 export function installQdrant(
   cfg: DeployConfig,
   provider: k8s.Provider,
   namespace: pulumi.Input<string>,
-  /** In-cluster S3 endpoint the snapshots are uploaded to. */
   s3Endpoint: pulumi.Input<string>,
-  /** What the snapshot CronJob waits on: the bucket it writes into. */
   snapshotDeps: pulumi.Resource[] = [],
 ): Qdrant {
   const labels = commonLabels(QDRANT.name);
@@ -84,11 +53,6 @@ export function installQdrant(
       spec: {
         serviceName: QDRANT.headless,
         replicas: cfg.qdrant.replicas,
-        // Set at creation and never changed, which is the only way this
-        // immutable field is safe (the `statefulset-no-immutable-field-writes`
-        // policy names this StatefulSet as its one exception). OrderedReady
-        // deadlocks the bootstrap: qdrant-1 waits on qdrant-0's readiness while
-        // qdrant-0 waits on a quorum.
         podManagementPolicy: "Parallel",
         persistentVolumeClaimRetentionPolicy: { whenDeleted: "Retain", whenScaled: "Retain" },
         ...orderedRollout(ROLLOUT.vectorStore),
@@ -97,8 +61,6 @@ export function installQdrant(
           metadata: {
             labels,
             annotations: {
-              // An eviction for a cheaper node is a peer down and a shard
-              // recovery, with the PVC following the pod.
               [AUTOSCALER_SAFE_TO_EVICT]: "false",
               ...secretChecksumAnnotations(checksum),
             },
@@ -120,21 +82,13 @@ export function installQdrant(
     {
       provider,
       dependsOn: [secret],
-      // Immutable volumeClaimTemplates, as in seaweedfs-single.ts: grow via PVC patch.
       ignoreChanges: ["spec.volumeClaimTemplates"],
-      // Fixed name: a create-before-delete replace collides with itself. The
-      // PVCs are Retain and rebind by template name.
       deleteBeforeReplace: true,
       protect: cfg.protectDataResources,
-      // A rollout restarts one peer at a time, each loading its segments and
-      // catching up with consensus before `/readyz`, then soaking 30 s.
       customTimeouts: { create: "30m", update: "30m" },
     },
   );
 
-  // Governing Service: per-pod DNS (`qdrant-0.qdrant-headless`) for bootstrap
-  // and the snapshot CronJob. Not-ready addresses are published because a peer
-  // must resolve its bootstrap peer before either is Ready.
   new k8s.core.v1.Service(
     QDRANT.headless,
     {
@@ -154,7 +108,6 @@ export function installQdrant(
     { provider },
   );
 
-  // What clients connect to. No p2p port: only peers speak it.
   const service = new k8s.core.v1.Service(
     QDRANT.name,
     {
@@ -170,8 +123,6 @@ export function installQdrant(
     { provider, dependsOn: statefulSet },
   );
 
-  // One peer at a time through a drain (scheduling.ts). A single replica gets
-  // none, like every single-replica workload here.
   if (cfg.qdrant.replicas > 1) {
     installPdb(QDRANT.name, namespace, provider, labels, [statefulSet]);
   }
@@ -182,9 +133,6 @@ export function installQdrant(
     ...snapshotDeps,
   ]);
 
-  // Rules, not an evaluator: nothing in the cluster evaluates Prometheus rules
-  // today (`qdrant-alerts.ts` says what reads them). Rendered here so the
-  // memory rule divides by this stack's limit, not a number copied by hand.
   const alertRules = new k8s.core.v1.ConfigMap(
     QDRANT.alertRules,
     {
@@ -204,11 +152,6 @@ export function installQdrant(
   };
 }
 
-/**
- * The keys the pods and the snapshot CronJob read, in a Secret of their own
- * rather than `grid-secrets`: its checksum rolls the Qdrant peers, and a
- * rotated OpenRouter key must not restart a Raft cluster.
- */
 function qdrantSecret(
   cfg: DeployConfig,
   provider: k8s.Provider,
@@ -218,7 +161,6 @@ function qdrantSecret(
     [KEY.apiKey]: cfg.qdrant.apiKey,
     [KEY.readOnlyApiKey]: cfg.qdrant.readOnlyApiKey,
     [KEY.s3SecretKey]: cfg.qdrant.snapshots.s3SecretKey,
-    // Only during a key rotation; its arrival and its removal each roll the peers.
     ...(cfg.qdrant.altApiKey ? { [KEY.altApiKey]: cfg.qdrant.altApiKey } : {}),
   };
   const secret = new k8s.core.v1.Secret(
@@ -233,22 +175,10 @@ function qref(name: string, key: string): EnvVar {
   return { name, valueFrom: { secretKeyRef: { name: QDRANT.secret, key } } };
 }
 
-/** The peer's p2p URI (`--uri`/`--bootstrap`), by StatefulSet ordinal or a shell expression for it. */
 function p2pUri(namespace: string, ordinal: string): string {
   return `http://${QDRANT.name}-${ordinal}.${QDRANT.headless}.${namespace}:${PORT.qdrantP2p}`;
 }
 
-/**
- * The container's `bash -c` script: the `qdrant-helm` `initialize.sh`, inline.
- *
- * Peer 0 founds the cluster under its own URI; every other peer bootstraps
- * from peer 0 and announces itself under its pod DNS name. On a restart the
- * same flags are harmless: a peer that already holds Raft state ignores
- * `--bootstrap`. One replica runs without cluster mode, so it gets no URI.
- *
- * `ulimit -n` to the hard limit, as the chart does: every segment is a set of
- * open files, and the soft default runs out on a large collection.
- */
 export function bootstrapScript(namespace: string, replicas: number): string {
   const head = ["set -eu", 'ulimit -n "$(ulimit -Hn)"'];
   if (replicas === 1) return [...head, "exec ./entrypoint.sh"].join("\n");
@@ -262,68 +192,40 @@ export function bootstrapScript(namespace: string, replicas: number): string {
   ].join("\n");
 }
 
-/** Qdrant's configuration, as env. Exported for the spec. */
 export function qdrantEnv(cfg: DeployConfig, s3Endpoint: pulumi.Input<string>): EnvVar[] {
   const clustered = cfg.qdrant.replicas > 1;
   return [
-    // Where `entrypoint.sh` marks a finished start; the root is read-only.
     { name: "QDRANT_INIT_FILE_PATH", value: "/qdrant/init/.qdrant-initialized" },
     { name: "QDRANT__LOG_LEVEL", value: "INFO" },
     { name: "QDRANT__TELEMETRY_DISABLED", value: "true" },
     { name: "QDRANT__SERVICE__HTTP_PORT", value: String(PORT.qdrantHttp) },
-    // `/metrics` alone, without the key, on a port only the collector may
-    // dial. On 6333 the same path needs a key the collector would then hold.
     { name: "QDRANT__SERVICE__METRICS_PORT", value: String(PORT.qdrantMetrics) },
-    // Explicit: the image's production.yaml leaves gRPC commented out, and the
-    // client prefers it.
     { name: "QDRANT__SERVICE__GRPC_PORT", value: String(PORT.qdrantGrpc) },
     { name: "QDRANT__STORAGE__STORAGE_PATH", value: "/qdrant/storage" },
     { name: "QDRANT__STORAGE__SNAPSHOTS_PATH", value: "/qdrant/snapshots" },
-    // Open-source Qdrant answers anyone without these. The health endpoints
-    // the probes use stay open (they are whitelisted in Qdrant itself).
     qref("QDRANT__SERVICE__API_KEY", KEY.apiKey),
     qref("QDRANT__SERVICE__READ_ONLY_API_KEY", KEY.readOnlyApiKey),
-    // A second read-write key, accepted on the API and on p2p, for the length
-    // of a rotation (drilled 2026-10-13: three rolls, no failed write).
     ...(cfg.qdrant.altApiKey ? [qref("QDRANT__SERVICE__ALT_API_KEY", KEY.altApiKey)] : []),
     { name: "QDRANT__CLUSTER__ENABLED", value: String(clustered) },
-    // Writes refused with 507 near the memory limit or a full volume, rather
-    // than an OOM kill mid-optimisation or a WAL that cannot grow. The ingest
-    // queue retries a refused write. Seeds the quota manager on a cluster's
-    // first start only (config.ts `quotas`); `PUT /quotas` changes it after.
     { name: "QDRANT__STORAGE__QUOTAS__ENABLED", value: "true" },
     {
       name: "QDRANT__STORAGE__QUOTAS__MAX_RESIDENT_MEMORY_PERCENT",
       value: String(cfg.qdrant.quotas.memoryPercent),
     },
     { name: "QDRANT__STORAGE__QUOTAS__MAX_DISK_USAGE_PERCENT", value: String(cfg.qdrant.quotas.diskPercent) },
-    // Recovery only: load segments without making them resident, for a peer
-    // that OOMs while loading. Unset is Qdrant's `disabled`.
     ...(cfg.qdrant.lowMemoryMode
       ? [{ name: "QDRANT__STORAGE__LOW_MEMORY_MODE", value: cfg.qdrant.lowMemoryMode }]
       : []),
-    // Peers must present the read-write key on p2p (1.18+). Safe because every
-    // peer runs one version from its first start; a future rolling upgrade
-    // across a version that changes internal auth turns it off for the roll
-    // (Qdrant's own config.yaml says so). No p2p without a cluster.
     ...(clustered ? [{ name: "QDRANT__SERVICE__ENFORCE_INTERNAL_AUTH", value: "true" }] : []),
-    // Snapshots are uploaded to SeaweedFS, staged on the data PVC first
-    // (`storage/snapshots_temp`); nothing lands in /qdrant/snapshots.
     { name: "QDRANT__STORAGE__SNAPSHOTS_CONFIG__SNAPSHOTS_STORAGE", value: "s3" },
     { name: "QDRANT__STORAGE__SNAPSHOTS_CONFIG__S3_CONFIG__BUCKET", value: QDRANT.snapshotBucket },
     { name: "QDRANT__STORAGE__SNAPSHOTS_CONFIG__S3_CONFIG__REGION", value: QDRANT.s3Region },
-    // http:// is what lets Qdrant's object_store client speak plain HTTP.
     { name: "QDRANT__STORAGE__SNAPSHOTS_CONFIG__S3_CONFIG__ENDPOINT_URL", value: s3Endpoint },
     { name: "QDRANT__STORAGE__SNAPSHOTS_CONFIG__S3_CONFIG__ACCESS_KEY", value: cfg.qdrant.snapshots.s3AccessKey },
     qref("QDRANT__STORAGE__SNAPSHOTS_CONFIG__S3_CONFIG__SECRET_KEY", KEY.s3SecretKey),
   ];
 }
 
-/**
- * Keep peers on separate nodes: one node lost is one voter lost. Required
- * once there is a data group, which is sized for the stores, and preferred
- * otherwise, so a small unplaced cluster can still schedule mid node-replacement.
- */
 function antiAffinity(
   cfg: DeployConfig,
   labels: pulumi.Input<{ [k: string]: string }>,
@@ -348,14 +250,12 @@ function qdrantPodSpec(
     ...onNodeGroup(cfg.nodeGroups.data),
     affinity: antiAffinity(cfg, labels),
     terminationGracePeriodSeconds: shutdown.terminationGracePeriodSeconds,
-    // QDRANT_* service-link vars would land in Qdrant's own env namespace.
     enableServiceLinks: false,
     securityContext: {
       runAsNonRoot: true,
       runAsUser: UID.qdrant,
       runAsGroup: UID.qdrant,
       fsGroup: UID.qdrant,
-      // A 100Gi volume re-chowned on every start is minutes of downtime.
       fsGroupChangePolicy: "OnRootMismatch",
     },
     containers: [
@@ -372,15 +272,10 @@ function qdrantPodSpec(
           { containerPort: PORT.qdrantP2p, name: "p2p" },
           { containerPort: PORT.qdrantMetrics, name: "metrics" },
         ],
-        // Loading segments precedes the API, so a large collection takes
-        // minutes to answer at all: 15 minutes before liveness takes over.
         startupProbe: { httpGet: { path: "/livez", ...http }, periodSeconds: 10, timeoutSeconds: 5, failureThreshold: 90 },
-        // /readyz is false while the peer catches up with consensus. As
-        // liveness it would restart peers during catch-up and cascade.
         readinessProbe: { httpGet: { path: "/readyz", ...http }, periodSeconds: 5, timeoutSeconds: 3, failureThreshold: 6 },
         livenessProbe: { httpGet: { path: "/livez", ...http }, periodSeconds: 10, timeoutSeconds: 5, failureThreshold: 6 },
         lifecycle: shutdown.lifecycle,
-        // request = limit (Guaranteed): the scheduler promised all of it.
         resources: { requests: envelope, limits: envelope },
         securityContext: { ...hardenedContainerSecurityContext(), readOnlyRootFilesystem: true },
         volumeMounts: [
@@ -397,50 +292,18 @@ function qdrantPodSpec(
   };
 }
 
-/** Peer `i`'s fully qualified headless DNS name. */
 function peerHost(namespace: string, i: number): string {
   return `${QDRANT.name}-${i}.${QDRANT.headless}.${namespace}.svc.cluster.local`;
 }
 
-/** Every peer's REST URL, by headless DNS name. */
 export function peerUrls(namespace: string, replicas: number): string[] {
   return Array.from({ length: replicas }, (_, i) => `http://${peerHost(namespace, i)}:${PORT.qdrantHttp}`);
 }
 
-/**
- * Every peer's metrics listener as a scrape target. Per peer, never the
- * ClusterIP Service: `/metrics` reports only the peer that answers, so a
- * load-balanced scrape would sample a different peer each time.
- */
 export function metricsTargets(namespace: string, replicas: number): string[] {
   return Array.from({ length: replicas }, (_, i) => `${peerHost(namespace, i)}:${PORT.qdrantMetrics}`);
 }
 
-/**
- * The CronJob's script, in two parts.
- *
- * First the aliases. Every client addresses a collection through an alias
- * (`piloti_office` → `piloti_office_v1`), aliases live in consensus, and no
- * snapshot holds them: a cluster restored from snapshots alone answers every
- * search with "collection not found". So `GET /aliases` is read from the first
- * peer that answers and uploaded to `$S3_BUCKET/aliases/` as the snapshot
- * identity, SigV4-signed by curl itself.
- *
- * Then the shards. Qdrant has no cluster-wide snapshot: a collection snapshot
- * taken on a peer holds that peer's shards only, so every collection is
- * snapshotted on every peer.
- *
- * Both are expired after RETENTION_DAYS, read from the timestamp in each name
- * (`<collection>-<peer>-YYYY-MM-DD-HH-MM-SS.snapshot`,
- * `aliases-YYYY-MM-DD-HH-MM-SS.json`); a name in any other shape is never
- * deleted. A 404 on a snapshot delete is another peer having deleted the same
- * object from the shared bucket first.
- *
- * Every peer and collection is attempted; any failure fails the Job at the
- * end, with each one named in the log. `names` and the key listing end in
- * `|| true` because grep exits 1 on no match, and under `pipefail` an empty
- * cluster would otherwise read as one that cannot be listed.
- */
 export function snapshotScript(): string {
   return String.raw`set -eu -o pipefail
 q() { curl -fsS --connect-timeout 10 -H "api-key: $QDRANT_API_KEY" "$@"; }
@@ -530,12 +393,6 @@ done
 exit "$failed"`;
 }
 
-/**
- * Daily shard snapshots of every collection, and the aliases beside them, to
- * the SeaweedFS bucket (design §9 "Backups"). `Forbid`: a run that overruns
- * into the next tick must not be joined by it, or two snapshot passes stage on
- * the PVC at once.
- */
 function installSnapshotCronJob(
   cfg: DeployConfig,
   provider: k8s.Provider,
@@ -555,10 +412,7 @@ function installSnapshotCronJob(
         failedJobsHistoryLimit: 3,
         jobTemplate: {
           spec: {
-            // A failed pass is retried by the next tick; two retries cover a
-            // peer restarting at the wrong moment.
             backoffLimit: 2,
-            // Bounds a wedged pass so the next tick is not skipped by Forbid.
             activeDeadlineSeconds: 6 * 3600,
             ttlSecondsAfterFinished: JOB_DEFAULTS.ttlSecondsAfterFinished,
             template: {
@@ -582,11 +436,7 @@ function installSnapshotCronJob(
                         value: pulumi.output(namespace).apply((ns) => peerUrls(ns, cfg.qdrant.replicas).join(" ")),
                       },
                       { name: "RETENTION_DAYS", value: String(cfg.qdrant.snapshots.retentionDays) },
-                      // From the env: the script names the variable, so
-                      // `kubectl describe pod` shows no key.
                       qref("QDRANT_API_KEY", KEY.apiKey),
-                      // The alias record goes up as the snapshot identity,
-                      // the one credential already scoped to this bucket alone.
                       { name: "S3_ENDPOINT", value: s3Endpoint },
                       { name: "S3_BUCKET", value: QDRANT.snapshotBucket },
                       { name: "S3_REGION", value: QDRANT.s3Region },

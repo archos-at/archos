@@ -1,27 +1,5 @@
 'use client'
 
-/**
- * Dev preview for the platform CitationHealth tab. Renders the REAL organism
- * with fixture data so the stat tiles, the findings, the stacked defect trend,
- * the sources to add, the reason / source breakdowns, the per-organization
- * table and the recent-findings table can be reviewed and screenshotted
- * without a backend. A module-scope fetch shim (browser + dev only) serves
- * `/api/platform/citation-health`, answering for the scope the request names
- * (the trend is cut to its days, the scope echoed back). Not linked from
- * anywhere; 404s outside development. Pinned to German, the primary product
- * language.
- *
- * The scope comes from the page URL like on the real page (`from`, `to`,
- * repeatable `org` and `project`), defaulting to the fixture's 30 days.
- *
- * Variants by query string:
- * - `?narrow`  two organizations and a project (labels + project caveat)
- * - `?readonly`  a viewer without `platform:settings:manage` (add actions disabled)
- * - `?inventory=unknown`  the server could not read the platform inventory
- * - `?error`  loads fail for the first seconds (destructive alert + retry)
- * - `?clear`  nothing to do (the all-clear state)
- */
-
 import type { JSX } from 'react'
 import { Suspense } from 'react'
 import { notFound, useSearchParams } from 'next/navigation'
@@ -31,15 +9,9 @@ import { I18nProvider } from '@/i18n'
 import { readQualityScope, type QualityScope } from '@/lib/quality/scope'
 
 const WINDOW_DAYS = 30
-/** The fixture's days: 28 June to 27 July 2026. */
 const FIXTURE_FROM = '2026-06-28'
 const FIXTURE_TO = '2026-07-27'
 
-/**
- * A deterministic 30-day series: a mostly-healthy baseline with a visible
- * incident in the middle of the window, so the stack shows several kinds at
- * once instead of a single flat series.
- */
 const DAILY = Array.from({ length: WINDOW_DAYS }, (_, index) => {
   const day = new Date(Date.UTC(2026, 5, 28))
   day.setUTCDate(day.getUTCDate() + index)
@@ -191,7 +163,6 @@ const SNAPSHOT = {
     { dimension: 'origin', label: 'web', turns: 38 },
     { dimension: 'lane', label: 'oib_binding', turns: 31 },
   ],
-  // The server lists the first 25 / 50; the totals say how many there were.
   missingSourcesTotal: 31,
   organizationsTotal: 4,
   inventoryKnown: true,
@@ -298,7 +269,6 @@ const params =
     ? new URLSearchParams()
     : new URLSearchParams(window.location.search)
 
-/** The page's scope: the URL's, else the fixture's range; `?narrow` adds organizations and a project. */
 function previewScope(url: URLSearchParams): QualityScope {
   const read = new URLSearchParams(url)
   if (!read.has('from') && !read.has('days')) {
@@ -313,7 +283,6 @@ function previewScope(url: URLSearchParams): QualityScope {
   return readQualityScope(read)
 }
 
-/** The fixture as the server would answer it for one scope: its days only, the scope echoed. */
 function snapshotFor(url: string): typeof SNAPSHOT {
   const scope = readQualityScope(new URLSearchParams(url.split('?')[1] ?? ''))
   const dailyTrend = SNAPSHOT.dailyTrend.filter(
@@ -327,8 +296,6 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
   if (!w.__citationHealthShim) {
     w.__citationHealthShim = true
     const real = window.fetch.bind(window)
-    // Fails for the first seconds, so a dev StrictMode double mount still
-    // sees the failure and a later Retry recovers.
     const failUntil = params.has('error') ? Date.now() + 2500 : 0
     window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
       const url =
@@ -353,8 +320,6 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
           })
         }
         if (params.get('inventory') === 'unknown') {
-          // The server's shape when the corpus / norm catalog could not be read:
-          // every candidate that depends on it is `present: null`, no add.
           return Response.json({
             ...snapshot,
             inventoryKnown: false,
@@ -370,10 +335,6 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
   }
 }
 
-/**
- * The organism in the URL's scope. Read through `useSearchParams`, not the
- * module-scope `params`, so the server render and the client agree on it.
- */
 function ScopedCitationHealth(): JSX.Element {
   return <CitationHealth scope={previewScope(new URLSearchParams(useSearchParams()))} />
 }

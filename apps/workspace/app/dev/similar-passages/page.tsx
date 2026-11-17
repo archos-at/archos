@@ -1,35 +1,5 @@
 'use client'
 
-/**
- * Dev preview for „Im Büro behandelt": has the office dealt with the passage
- * the reader is looking at, and where.
- *
- * The REAL components (the citation viewer, the rail, the Files dialog) over
- * fixture data: the search answer comes from a fixture loader instead of
- * `POST /api/passages/similar`, and every document is a real PDF built in the
- * browser, so the viewer finds and marks the passage on it exactly as it would
- * on a stored document.
- *
- *   (default)  a citation's Fundstelle, with „Im Büro nachsehen" pressed: the
- *              rail beside the document, the answer first, then each project's
- *              passages as quotations, the reader's project first, a closed
- *              project, the Büroablage last.
- *   `opened`   a similar passage opened from the rail: its document on the
- *              stage at the passage, marked, the rail kept beside it.
- *   `select`   a passage the reader selected, with both offers on it: copy as
- *              a citation, and „Im Büro nachsehen".
- *   `files`    the Files preview's way in: a selection in a stored document,
- *              opened large with the rail.
- *   `states`   the rail's own states side by side: searching, nothing found, a
- *              failed search, and a document still being screened.
- *
- * Pinned to German (`I18nProvider initialLocale="de" fixedLocale`), as the
- * share-dialog preview is: German is the product's primary language, and the
- * capture must carry the copy most users see.
- *
- * Not linked from anywhere; the `/dev` layout 404s it outside development.
- */
-
 import { useEffect, useState, type FC } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { CitationDocumentDialog } from '@/features/chat/components/source-preview/citation-document-dialog'
@@ -50,7 +20,6 @@ const TITLE = 'OIB-Richtlinie 4'
 const CITED_PASSAGE =
   'Treppen in Fluchtwegen müssen eine nutzbare Laufbreite von mindestens 1,20 m aufweisen; bei Wohngebäuden der Gebäudeklasse 1 und 2 genügen 1,00 m.'
 
-/** Break a sentence into printed lines of about `width` characters. */
 const wrap = (text: string, width = 70): PdfLine[] => {
   const lines: PdfLine[] = []
   let line = ''
@@ -66,7 +35,6 @@ const wrap = (text: string, width = 70): PdfLine[] => {
   return lines
 }
 
-/** A document of `pages` pages whose page `page` carries `passage` under a heading. */
 const documentWith = (heading: string, page: number, passage: string): Uint8Array<ArrayBuffer> =>
   buildPdf(
     Array.from({ length: Math.max(3, page + 1) }, (_, index): PdfLine[] =>
@@ -79,10 +47,8 @@ const documentWith = (heading: string, page: number, passage: string): Uint8Arra
 const FILLER =
   'Die Angaben beziehen sich auf den Stand der Einreichung. Abweichungen in der Ausführung sind mit der Bauleitung abzustimmen und im Bautagebuch festzuhalten.'
 
-/** The source document: the cited OIB passage on page 2. */
 const SOURCE_PDF = (): Uint8Array<ArrayBuffer> => documentWith('4. Treppen', 2, CITED_PASSAGE)
 
-/** What the office wrote like it, as the search would answer. */
 const RESPONSE: SimilarPassagesResponse = {
   origin: 'point',
   projectsSearched: 6,
@@ -192,7 +158,6 @@ const RESPONSE: SimilarPassagesResponse = {
   ],
 }
 
-/** Every document of the answer, built as a PDF carrying its first passage on its page. */
 const FIXTURE_DOCUMENTS = RESPONSE.groups.flatMap((group) => group.documents)
 
 const useBlobUrls = (): Map<string, string> | null => {
@@ -213,7 +178,6 @@ const useBlobUrls = (): Map<string, string> | null => {
 
 const answer: SimilarPassagesLoader = async () => RESPONSE
 
-/** The citation the reader opened: a Fundstelle in the legal corpus. */
 const SOURCES: CitationSource[] = [
   {
     id: 'oib-4',
@@ -236,7 +200,6 @@ const SOURCES: CitationSource[] = [
   },
 ]
 
-/** Click the first element matching `selector` once it is in the DOM, the way a reader would. */
 const ClickOnLoad: FC<{ selector: string; then?: string }> = ({ selector, then }) => {
   useEffect(() => {
     let attempts = 0
@@ -262,7 +225,6 @@ const ClickOnLoad: FC<{ selector: string; then?: string }> = ({ selector, then }
   return null
 }
 
-/** Select the words on the page holding `contains`, then release, as a drag does. */
 const SelectOnLoad: FC<{ contains: string }> = ({ contains }) => {
   useEffect(() => {
     let attempts = 0

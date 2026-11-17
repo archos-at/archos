@@ -1,14 +1,3 @@
-/**
- * Human verdicts on the OIB rule catalogue.
- *
- * The catalogue settles what the model's published values can settle; the rest
- * an architect settles by reading a plan or asking a Brandschutzplaner. This is
- * where that judgement is recorded, against the revision they looked at.
- *
- * The confirming identity is taken from the SESSION, never from the body — a
- * signature a caller could address to somebody else is not a signature.
- */
-
 import { apiRoute, parseJsonBody } from '@/lib/api/handler'
 import { confirmCheckSchema, withdrawCheckSchema } from '@/lib/bim/checks-wire'
 import {

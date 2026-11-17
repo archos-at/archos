@@ -1,8 +1,3 @@
-/** The DDL the init Job (`pg-init-tables` in `postgres.ts`) applies. */
-
-// Table DDL adapted from deploy/compose/init-db.sql, minus the psql
-// meta-commands (\gexec/\connect) — CNPG creates the databases, this Job only
-// creates tables. Every statement is IF NOT EXISTS, so re-runs are safe.
 export const JOBS_SQL = `
 CREATE TABLE IF NOT EXISTS job_info (
   job_id VARCHAR PRIMARY KEY, status VARCHAR NOT NULL, config_file VARCHAR,
@@ -41,18 +36,5 @@ CREATE TABLE IF NOT EXISTS checkpoint_writes (
   PRIMARY KEY (thread_id, checkpoint_ns, checkpoint_id, task_id, idx));
 `;
 
-/**
- * Lock down the filer's database (ADR-0043).
- *
- * PostgreSQL grants `CONNECT` on every new database to `PUBLIC`, which here
- * means the application logins can open a session against the store holding an
- * AES key for every chunk in the object store. They would find no tables they
- * could read — the filer owns them and grants nothing — but "the grant table
- * happens to be empty" is not a boundary, and `[postgres2]` creates a new table
- * per bucket at runtime, so the set of objects to protect is not even fixed.
- *
- * Run as the database OWNER, which is exactly the privilege needed and nothing
- * more. Idempotent: re-revoking an absent grant is a no-op.
- */
 export const seaweedFilerSql = (database: string): string =>
   `REVOKE CONNECT ON DATABASE "${database}" FROM PUBLIC;\n`;

@@ -68,22 +68,12 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_QUESTIONS = REPO_ROOT / "tests" / "fixtures" / "derivation" / "loop_eval_questions.yaml"
 
-#: Environment variable naming the backend to measure. Deliberately its own name
-#: rather than reusing a deployment variable: pointing this at production by
-#: inheriting a URL from the environment is exactly the accident to avoid.
 BASE_URL_ENV = "LOOP_EVAL_URL"
 
-#: How long one question may take. A research turn with two rounds and a
-#: reranker is tens of seconds; the deep-research escalation path is minutes and
-#: is not what this set asks for.
 DEFAULT_TIMEOUT_SECONDS = 240.0
 
-#: A Punkt as it appears in an answer: "Pkt. 3.5.2", "Punkt 5.1", "Pkt 4".
 _CLAUSE_NUMBER_RE = re.compile(r"\b(?:Pkt\.?|Punkt)\s*(\d+(?:\.\d+)*)")
 
-#: Step names the loop's own telemetry uses. The eval reads the SAME events the
-#: product emits — inventing a second measurement channel is how a harness ends
-#: up measuring itself.
 _ROUND_STEP_RE = re.compile(r"^status:retrieval:(\d+)$")
 _CHECKPOINT_STEP_RE = re.compile(r"^status:checkpoint:(\d+)$")
 _COVERAGE_STEP_RE = re.compile(r"^status:coverage:(.+)$")
@@ -99,10 +89,6 @@ class Question:
     family: str | None
     clause: str | None
     kind: str
-    #: The § a Bauordnung row's citation should name, or None. Optional, and
-    #: None everywhere today: nothing committed in this repo can verify a RIS
-    #: paragraph, so `paragraph_match` falls back to the §§ the turn itself
-    #: retrieved. See the question set's own header.
     paragraph: str | None = None
 
 
@@ -132,45 +118,21 @@ class Observation:
     clause_match: str = ""
     truncated: str = ""
     checkpoint_sources: str = ""
-    #: How much of each Richtlinien-Familie the turn read, as `<family> o/l`
-    #: ("2 3/4" — three of the four parts of OIB-RL 2). Empty when the turn
-    #: touched no family, which is the honest answer for a project question.
     family_coverage: str = ""
-    #: The same normalized query fetched twice in one turn.
     repeat_query: str = ""
-    #: A search named a document+Punkt/page the locator could have opened.
     locator_eligible: str = ""
-    #: A capped fetch (fanout/budget/diversity cap) followed by another fetch.
     cap_retry: str = ""
-    #: A fetch done for the post-answer repair pass.
     repair_fetch: str = ""
-    #: The same citation key fetched in two rounds (cross-round refetch, the
-    #: single-turn proxy for cross-turn double-fetch).
     cross_turn: str = ""
-    #: The turn read more than one family, or a family it was not asked for.
     family_overlap: str = ""
-    #: RIS tool calls in the turn. Before the consolidation the shape was 2-3
-    #: (catalog → search → fetch); after it, one law lookup answers. This is
-    #: the whole claim of that change, as one integer.
     ris_calls: str = ""
-    #: Did the answer cite a § the turn actually retrieved (or the § the row
-    #: expects, when it names one)? Same three-value shape as `clause_match`.
     paragraph_match: str = ""
-    #: Did a RIS citation key survive into the answer? The answer this harness
-    #: reads is the POST-verification one, so a key still in it is a key
-    #: `verify_citations` kept. Structurally near-zero before the
-    #: consolidation: `ris_fetch_document` emitted no Citation key at all.
     ris_citation_resolved: str = ""
     error: str = ""
 
 
-#: The CSV header, in order. Read by :func:`read_csv` as the contract: a file
-#: whose columns are not these is a file from another version of this script,
-#: and comparing across versions silently is how a delta comes out of nowhere.
 FIELDS: tuple[str, ...] = tuple(f.name for f in dataclass_fields(Observation))
 
-#: Columns added for double-fetch rates. Old CSVs (without them) still read:
-#: :func:`read_csv` fills them with ``""`` rather than refusing the file.
 _DOUBLE_FETCH_FIELDS: tuple[str, ...] = (
     "repeat_query",
     "locator_eligible",
@@ -180,12 +142,8 @@ _DOUBLE_FETCH_FIELDS: tuple[str, ...] = (
     "family_overlap",
 )
 
-#: Columns added for the RIS consolidation, read back the same way: a run
-#: written before they existed compares with these cells empty rather than
-#: being refused, which is the whole point of having a before.csv.
 _RIS_FIELDS: tuple[str, ...] = ("ris_calls", "paragraph_match", "ris_citation_resolved")
 
-#: Columns whose value is a yes/no, counted as a rate by :func:`summarise`.
 _BOOLEAN_FIELDS = ("verdict", "read_passage", "truncated", *_DOUBLE_FETCH_FIELDS, "ris_citation_resolved")
 
 
@@ -218,7 +176,6 @@ def load_questions(path: Path) -> list[Question]:
     ]
 
 
-# --- Reading one turn --------------------------------------------------------
 
 
 def _status_payloads(steps: Iterable[dict]) -> list[tuple[str, dict]]:
@@ -257,15 +214,6 @@ def clause_matches(expected: str | None, cited: Sequence[str]) -> str:
     return "no"
 
 
-# --- Double-fetch flags (per-fetch instrumentation consumers) ----------------
-#
-# Each flag is a pure function of the turn's own steps, so the rates are
-# countable offline and pin-able in tests. They read the SAME events the
-# product emits: ``status:retrieval:N`` live lines, ``retrieve.*`` spans
-# (extended with round/tool/normalized_query/citation_keys/requery and
-# cap/refusal flags), the ``status:budget*`` and ``status:width:N`` cap records
-# and ``status:repair``.
-# No usage/cost telemetry: queries, keys and counts only.
 
 
 def _normalise_query(text: object) -> str:
@@ -276,24 +224,13 @@ def _normalise_query(text: object) -> str:
         return ""
 
 
-#: A search that names a document+Punkt/page the locator could have opened.
-#: Mirrors the requery gate's known-entity test (duplicated on purpose:
-#: this harness must keep working when the knowledge package is absent).
 _LOCATOR_ELIGIBLE_RE = re.compile(
     r"oib[-\s_]*rl|richtlinie\s*\d|\brl\s*\d|\bpkt\.?\b|\bpunkt\b|§|\bseite\b|\bpage\b|\btabelle\b|\.pdf\b|oib-rl_|oib-richtlinie_",
     re.IGNORECASE,
 )
 
-#: Step names that record the turn being CUT OFF: the round ceiling and the
-#: input-token bound. ``status:budget:fanout`` used to be here and names a slot
-#: nothing emits — the round-zero fan-out cap was removed — while
-#: ``status:budget:input`` was missing, so every token-bound stop read as no cap
-#: at all.
 _CAP_STEP_NAMES = frozenset({"status:budget", "status:budget:input"})
 
-#: The per-round WIDTH cap carries its round in the step name
-#: (``status:width:N``), like the retrieval line, so it is matched by prefix
-#: rather than by equality.
 _WIDTH_CAP_STEP_PREFIX = "status:width:"
 
 _REPAIR_STEP_NAME = "status:repair"
@@ -423,7 +360,6 @@ def flag_cross_turn(payloads: Sequence[tuple[str, dict]]) -> str:
     """
     by_round = _citation_keys_by_round(payloads)
     if len(by_round) < 2:
-        # Fall back to lane sources stamped per round (pre-span turns).
         return "no"
     seen: set[str] = set()
     for keys in by_round.values():
@@ -433,25 +369,9 @@ def flag_cross_turn(payloads: Sequence[tuple[str, dict]]) -> str:
     return "no"
 
 
-# --- RIS consolidation columns -----------------------------------------------
-#
-# Read off the SAME telemetry the product emits: the round announcements name
-# the tools a round called, and `retrieve.law_lookup` spans carry the citation
-# keys and § ids the call returned (`agent.knowledge.law_lookup.telemetry`). A
-# turn recorded before the rename says `ris_lookup` and `retrieve.ris_lookup`,
-# so both names count. No second measuring channel, and nothing read out of
-# anybody's prose.
 
-#: Tool basenames that read a legal database (and so their ``retrieve.<tool>`` spans). Prefixes, not a list of
-#: names, because `tool_calls._SEARCH_CORPORA` maps the same prefixes to the `ris` corpus and two lists drift.
 _RIS_TOOL_PREFIXES = ("ris", "law_lookup")
 
-#: A § as an answer writes it ("§ 63", "§ 63 Abs 1", "Art 5", "§ 63a") and as
-#: the span records it ("§63Abs1" — one token, because the ``Punkt:`` line is
-#: read as one). Both collapse to the same comparable key.
-#:
-#: The suffix letter is guarded by a lookahead: without it ``\d+[a-z]?`` eats
-#: the "A" of "§63Abs1" as a paragraph suffix and the Absatz is never seen.
 _PARAGRAPH_RE = re.compile(
     r"(§|Art(?:ikel)?\.?)\s*(\d+)([a-z](?![a-z]))?(?:\s*Abs\.?\s*(\d+[a-z]?))?",
     re.IGNORECASE,
@@ -557,8 +477,6 @@ def observe(question: Question, steps: Sequence[dict], answer: str, envelope: di
     """One turn's row, from the events it emitted and the envelope it produced."""
     payloads = _status_payloads(steps)
     rounds = {int(m.group(1)) for name, _ in payloads if (m := _ROUND_STEP_RE.match(name))}
-    # Retrieve spans stamp their own round; a turn that only emitted spans
-    # (no live line, e.g. a locator-only round) still counts its rounds.
     for name, body in payloads:
         if name.startswith("retrieve."):
             raw = body.get("input") or {}
@@ -611,7 +529,6 @@ def observe(question: Question, steps: Sequence[dict], answer: str, envelope: di
     )
 
 
-# --- The CSV -----------------------------------------------------------------
 
 
 def write_csv(path: Path, rows: Sequence[Observation]) -> None:
@@ -624,7 +541,6 @@ def write_csv(path: Path, rows: Sequence[Observation]) -> None:
             writer.writerow(asdict(row))
 
 
-#: Column names of a run written before the rename, as this script spells them now. Remove after one release.
 _LEGACY_COLUMNS = {"expected_punkt": "expected_clause", "punkt_match": "clause_match"}
 
 
@@ -658,7 +574,6 @@ def read_csv(path: Path) -> list[Observation]:
         return [Observation(**{name: str(row.get(name) or "") for name in FIELDS}) for row in reader]
 
 
-# --- Comparing two runs ------------------------------------------------------
 
 
 @dataclass(frozen=True)
@@ -722,8 +637,6 @@ def summarise(rows: Sequence[Observation]) -> Summary:
     )
 
 
-#: Columns a per-question diff reports. `question` and the expectations do not
-#: change between runs — only what the agent did does.
 _COMPARED_FIELDS = (
     "kind",
     "verdict",
@@ -793,23 +706,11 @@ def format_comparison(before: Sequence[Observation], after: Sequence[Observation
     return "\n".join(lines)
 
 
-# --- Running against a backend ----------------------------------------------
-#
-# A turn runs on the chat socket and nowhere else (ADR-0068): the wire v2
-# protocol of `docs/api/websocket-protocol.md`, read through the contract's own
-# models (`agent.common.wire_v2`) rather than a second description of it.
 
-#: The sources a turn may consult. A `user_message` names them, and one that
-#: names none consults none (`parse_data_sources`), so these are the three the
-#: config registers: every source, as a question asked with no selection got.
 DATA_SOURCES: tuple[str, ...] = ("knowledge_layer", "ris", "web_search")
 
-#: The answer the eval gives when a turn stops to ask its asker: the clarifier's
-#: own skip word, so the turn answers the question as the set states it.
 CLARIFICATION_ANSWER = "skip"
 
-#: How long the server gets to say `hello` after the upgrade. Its absence means
-#: the URL does not serve wire v2, which is worth saying rather than waiting out.
 HELLO_TIMEOUT_SECONDS = 10.0
 
 
@@ -818,10 +719,7 @@ class SocketTurn:
     """What one turn sent back over the chat socket, folded the way a reader folds it."""
 
     message_id: str
-    #: The turn's steps by id, in the order each first arrived. The same id again
-    #: replaces the step, as it replaces the row a reader is shown.
     steps: dict = field(default_factory=dict)
-    #: ``RUN_FINISHED.result``: the terminal, authoritative over everything streamed.
     result: object = None
 
 

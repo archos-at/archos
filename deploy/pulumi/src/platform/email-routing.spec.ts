@@ -11,15 +11,6 @@ import {
 import { LEGACY_PROJECT } from "../names";
 import { MAIL_ZONE_ID } from "../test-support/app-zone-config";
 
-/**
- * The MX guard the inbox's Email Routing runs on the receiving domain before
- * creating anything
- * (`email-routing.ts`). The refusal is tested on the function: under Pulumi's
- * mocks a failed guard surfaces only as an unhandled rejection from resource
- * registration. `inbound-mail.spec.ts` shows that the lookup is made and that
- * the resources are created when it passes.
- */
-
 const DOMAIN = "inbox.example.test";
 const ZONE_ID = MAIL_ZONE_ID;
 const KEY = `${LEGACY_PROJECT}:inboundMailDomain`;
@@ -38,8 +29,6 @@ describe("the receiving domain's MX guard", () => {
   });
 
   it("refuses a foreign MX even beside Cloudflare's own", () => {
-    // A half-migrated domain: Email Routing would still take the mail that
-    // lands on Cloudflare's MX, which is some of the company's.
     expect(guard([...CLOUDFLARE_MX, mx("aspmx.l.google.com")])).toThrow(/aspmx\.l\.google\.com/);
   });
 
@@ -64,8 +53,6 @@ describe("the receiving domain's MX guard", () => {
   });
 
   it("ignores MX records on other names, which routing on the subdomain does not touch", () => {
-    // The apex's Google Workspace MX (the reason for the subdomain), Cloudflare
-    // Email Sending's own bounce MX, and an outbound provider's.
     expect(
       guard([
         mx("aspmx.l.google.com", "example.test"),
@@ -92,10 +79,7 @@ describe("the zone check", () => {
 
 describe("Email Routing on the zone", () => {
   it("is left on when the inbox is switched off or the stack destroyed", () => {
-    // Deleting the routing resource calls Email Routing's DNS delete for the
-    // zone, which may take every other routed address with it.
     expect(ROUTING_RESOURCE_OPTIONS.retainOnDelete).toBe(true);
-    // A resource option, which the mocks do not carry: check it is applied.
     expect(readFileSync(join(__dirname, "email-routing.ts"), "utf8")).toMatch(
       /new cloudflare\.EmailRoutingDns\([^;]*\{ provider, \.\.\.ROUTING_RESOURCE_OPTIONS \}/,
     );
@@ -115,7 +99,6 @@ describe("the DMARC guard on the zone apex", () => {
   });
 
   it("refuses a DMARC record written by hand or by another block, quoted or not, in any case", () => {
-    // Two DMARC records at one name and receivers apply neither (RFC 7489 §6.6.3).
     expect(guard([txt("v=DMARC1; p=quarantine")])).toThrow(/already holds a DMARC record this stack did not write/);
     expect(guard([txt('"v=DMARC1; p=reject"')])).toThrow(/Keep one owner/);
     expect(guard([txt("V=dmarc1;p=none", "Managed by Pulumi (deploy/pulumi/src/platform/dns.ts)")])).toThrow(/comment/);

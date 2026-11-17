@@ -1,19 +1,5 @@
 'use client'
 
-/**
- * Dev preview for Organisation → Sensible Daten (ADR-0086). Renders the REAL
- * form twice, with fixtures and no backend:
- *
- *  - an admin while Piloti's suggestion is still in force (the hint, both
- *    buttons, every list editable);
- *  - a member without `org:settings:manage` (read-only: chips without remove
- *    buttons, no typing surface, no buttons, the note saying who may edit).
- *
- * A module-scope fetch shim (browser + dev only) serves the policy endpoint and
- * echoes a save back as the office's own list, so the round trip can be tried.
- * Not linked from anywhere and 404s outside development.
- */
-
 import type { JSX } from 'react'
 import { notFound } from 'next/navigation'
 import { ScanSearch } from 'lucide-react'

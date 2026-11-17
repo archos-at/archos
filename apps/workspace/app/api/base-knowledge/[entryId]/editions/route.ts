@@ -1,10 +1,3 @@
-/**
- * A newer edition of a base-knowledge entry: multipart `file`. Uploaded into
- * the same folder and proposed with the earlier entry's values; the earlier
- * entry stays, with a check that found a newer edition. Needs
- * org:office_shelf:manage, checked in `@/lib/base-knowledge/office/service`.
- */
-
 import { apiRoute, parseFormData } from '@/lib/api/handler'
 import { BadRequestError } from '@/lib/api/errors'
 import { DOCUMENT_UPLOAD_LIMIT } from '@/lib/limits'

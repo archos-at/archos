@@ -1,16 +1,3 @@
-/**
- * The SQL of rulesets (migration 0204, ADR-0166): a ruleset is a base knowledge
- * record like a work or an edition, with its body in
- * `knowledge_ruleset_revisions`. No authorization here; callers decide first,
- * and every statement runs under its organization, so the layered RLS holds.
- *
- * Fail closed on both doors. A write parses the values and runs the table's
- * own examples before anything reaches the database; a read parses every
- * stored body again, and a body the current evaluator cannot read is left out
- * and reported, never half-run. Platform rulesets arrive with the platform
- * write path (design §4.4); an office reads them through the same query.
- */
-
 import 'server-only'
 import { and, eq, inArray, isNotNull, sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
@@ -28,15 +15,12 @@ import type { StoredRuleset } from '../rulesets/select'
 import { appendRevision, newRecordId, type RulesetBody } from './repository'
 import { recordReadable } from './visibility'
 
-/** Most rulesets one read returns: a country has one per purpose and node, so this is generous. */
 export const MAX_RULESETS = 500
 
-/** A ruleset that cannot be written: invalid values, or a table its own examples contradict. */
 export class RulesetRejectedError extends Error {
   override name = 'RulesetRejectedError'
 }
 
-/** Parse and test a ruleset before it is stored: the gate every write passes. */
 export function writableRuleset(input: RulesetValuesInput) {
   const parsed = rulesetValuesSchema.safeParse(input)
   if (!parsed.success)
@@ -58,7 +42,6 @@ function bodyOf(values: ReturnType<typeof writableRuleset>): RulesetBody {
   return rulesetColumns(values)
 }
 
-/** The body kind each stored payload schema reads back as. */
 const KIND_OF_SCHEMA = {
   'decision_table.v1': 'table',
   'fact_definitions.v1': 'fact_definitions',
@@ -68,10 +51,6 @@ const KIND_OF_SCHEMA = {
   'citation_style.v1': 'citation_style',
 } as const satisfies Record<RulesetPayloadSchema, string>
 
-/**
- * An office's ruleset as one record with one revision. `inForce` moves the head
- * to it, which is what makes it count; without, it is a proposal.
- */
 export async function insertOfficeRuleset(
   organizationId: string,
   input: RulesetValuesInput,
@@ -107,7 +86,6 @@ export async function insertOfficeRuleset(
 
 type RulesetRow = typeof knowledgeRulesetRevisions.$inferSelect
 
-/** A stored body as the wire's values, or null when the current schema cannot read it. */
 export function rulesetFromRow(row: RulesetRow): StoredRuleset | null {
   const parsed = rulesetValuesSchema.safeParse({
     purpose: row.purpose,
@@ -127,22 +105,14 @@ export function rulesetFromRow(row: RulesetRow): StoredRuleset | null {
   return parsed.success ? { id: row.recordId, values: parsed.data } : null
 }
 
-/** The purposes a project's setup reads: its facts, the documents that settle them, and its building classification. */
 export const SETUP_PURPOSES = ['fact_definitions', 'fact_sources', 'classification'] as const satisfies readonly RulesetPurpose[]
 
 export interface RulesetRead {
   rulesets: StoredRuleset[]
-  /** More than {@link MAX_RULESETS} matched: the read is incomplete, and a decision from it is not to be trusted. */
   truncated: boolean
-  /** Records in force whose body the evaluator cannot read: a data error to report, not a rule to skip silently. */
   unreadable: string[]
 }
 
-/**
- * The rulesets in force for `purpose` on any of `territoryIds` that this
- * organization sees: its own and the platform's, each at its head. The caller
- * picks among them with `selectRuleset`.
- */
 export async function readRulesetsInForce(
   organizationId: string,
   query: { purpose: RulesetPurpose; territoryIds: readonly string[] }
@@ -178,13 +148,6 @@ export async function readRulesetsInForce(
   return { rulesets, unreadable, truncated: rows.length > MAX_RULESETS }
 }
 
-/**
- * Every setup record in force that this organization reads (ADR-0169): the
- * released ones of the countries it is entitled to, and its own. No territory
- * filter: which country a project is in is only known from these very records
- * (a geocoded Land names its country by the subdivisions a record lists), and
- * a country has a handful. The caller selects on the project's chain.
- */
 export async function readSetupRulesetsInForce(organizationId: string): Promise<RulesetRead> {
   const rows = await withTenant({ organizationId }, () =>
     getDb()

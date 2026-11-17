@@ -1,12 +1,3 @@
-"""JWT validation via OIDC discovery and JWKS signature verification.
-
-Uses PyJWT[cryptography] to verify RS256-signed JWTs against the issuer's
-published public keys. Keys are cached for 6 hours (default); a kid miss
-forces an immediate refresh.
-
-Install: pip install 'PyJWT[cryptography]'
-"""
-
 import asyncio
 import logging
 import threading
@@ -22,22 +13,6 @@ _MAX_FETCH_BYTES = 64 << 10  # 64 KB cap on OIDC/JWKS responses
 
 
 class JWTValidator(TokenValidator):
-    """
-    Validates OIDC JWTs (any standards-compliant provider).
-
-    Fetches the JWKS URI from the issuer's OIDC discovery document, then
-    verifies token signatures using the matching public key.  The JWKS
-    client is recreated after `jwks_cache_ttl` seconds.
-
-    Args:
-        issuer_url: OIDC issuer base URL (e.g. ``https://accounts.google.com``).
-            Discovery document is fetched from ``{issuer_url}/.well-known/openid-configuration``.
-        audience: Optional ``aud`` claim to verify.  Pass ``None`` to skip
-            audience verification.
-        jwks_cache_ttl: Seconds before the JWKS client is recreated.  Defaults
-            to 6 hours.
-    """
-
     def __init__(
         self,
         issuer_url: str,
@@ -53,24 +28,16 @@ class JWTValidator(TokenValidator):
         self.verify_iss = verify_iss
         self.algorithms = algorithms or ["RS256", "ES256", "ES512"]
 
-        # Lazily initialised; if jwks_uri is provided, skip OIDC discovery
         self._jwks_uri: str | None = jwks_uri
-        # List of (kid_or_None, PyJWK) pairs; refreshed after TTL
         self._cached_keys: list[tuple[str | None, Any]] | None = None
         self._jwks_keys_fetched_at: float = 0.0
         self._jwks_lock = threading.Lock()
 
     def can_handle(self, token: str) -> bool:
-        """Accept any token that looks like a compact JWT (three dot-separated segments)."""
         parts = token.split(".")
         return len(parts) == 3
 
-    # ------------------------------------------------------------------
-    # Internal helpers (sync — run via asyncio.to_thread)
-    # ------------------------------------------------------------------
-
     def _fetch_oidc_config(self) -> dict:
-        """Fetch the OIDC discovery document and return it as a dict."""
         import json
         import urllib.request
 
@@ -88,12 +55,6 @@ class JWTValidator(TokenValidator):
             return json.loads(raw)
 
     def _fetch_jwks_keys(self) -> list[tuple[str | None, Any]]:
-        """Fetch JWKS and return (kid, PyJWK) pairs.
-
-        Adds ``use="sig"`` for keys that omit the field so that
-        PyJWT ≥ 2.9 — which silently drops keys without ``use="sig"`` — still
-        accepts them.
-        """
         import json
         import urllib.request
 
@@ -125,11 +86,6 @@ class JWTValidator(TokenValidator):
         return keys
 
     def _get_signing_key(self, token: str):
-        """Return the signing key for *token*, or ``None`` on failure.
-
-        Cache reads/writes run under ``_jwks_lock`` because this method is
-        invoked from thread-pool workers via ``asyncio.to_thread``.
-        """
         import jwt as _jwt
 
         with self._jwks_lock:
@@ -151,7 +107,6 @@ class JWTValidator(TokenValidator):
                 logger.debug("No usable keys in JWKS")
                 return None
 
-            # Match by kid if the token carries one
             try:
                 header = _jwt.get_unverified_header(token)
                 kid = header.get("kid")
@@ -162,7 +117,6 @@ class JWTValidator(TokenValidator):
                 for key_kid, jwk in self._cached_keys:
                     if key_kid == kid:
                         return jwk
-                # kid not in cache — force a refresh once and retry
                 logger.debug("kid %s not in cached keys, refreshing JWKS", kid)
                 self._cached_keys = None
                 try:
@@ -175,27 +129,9 @@ class JWTValidator(TokenValidator):
                     logger.debug("JWKS refresh failed: %s", e)
                 return None
 
-            # No kid — return the only key, or the first one if multiple
             return self._cached_keys[0][1]
 
-    # ------------------------------------------------------------------
-    # Public API
-    # ------------------------------------------------------------------
-
     async def validate(self, token: str) -> tuple[dict[str, Any] | None, str | None]:
-        """Validate *token* and return ``(user_dict, error_code)``.
-
-        Returns ``(user_dict, None)`` on success.  On failure returns
-        ``(None, error_code)`` where *error_code* is one of:
-
-        - ``"token_expired"`` — signature valid but ``exp`` claim passed
-        - ``"token_invalid"`` — bad signature, malformed, or claim check failure
-
-        Merges verified JWT claims with the required ``type`` / ``token`` /
-        ``skip_clarifier`` fields. Contract keys are applied after ``**claims``
-        so the bearer token and caller metadata cannot be spoofed by payload
-        claims.
-        """
         try:
             import jwt as _jwt
         except ImportError:
@@ -236,9 +172,6 @@ class JWTValidator(TokenValidator):
             logger.info("JWT expired")
             return (None, "token_expired")
         except _jwt.InvalidTokenError as exc:
-            # WARNING, not DEBUG: a rejected token silently downgrades the
-            # caller to an unverified identity, which breaks principal-gated
-            # actions in ways that are otherwise very hard to trace.
             logger.warning("JWT rejected: %s", exc)
             return (None, "token_invalid")
         except Exception as exc:

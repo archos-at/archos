@@ -51,13 +51,10 @@ from .calls import ANNOTATION_GONE
 from .calls import Refused
 from .cards import excerpt
 
-#: Mirrored from ``lib/annotations/types.ts``; the BFF validates against its own.
 MAX_BODY = 2000
 MAX_BASIS = 300
 MAX_PROPOSALS_PER_CALL = 20
 
-#: A region that pokes past the page edge by less than this is clamped onto it:
-#: an estimate read off a rendered page lands a hair outside often enough.
 _EDGE_SLACK = 0.02
 
 
@@ -72,8 +69,6 @@ Shape = Annotated[Literal["point", "region"], BeforeValidator(_normalized)]
 class AnnotationProposal(BaseModel):
     """One finding: where on which page, what kind, what is wrong, what it rests on."""
 
-    # No per-field descriptions: the tool description explains each once, and
-    # this schema rides on every model call of every chat turn.
 
     page: int
     shape: Shape = "region"
@@ -86,16 +81,12 @@ class AnnotationProposal(BaseModel):
     basis: str | None = None
 
 
-#: Every successful `propose` ends on this. It leads with the negative because that is what a model gets wrong.
 _PROPOSED = (
     "These are PROPOSALS: NOTHING has been confirmed YET. They appear in the document as proposals from you "
     "until a person takes over or dismisses each one individually. Do not say the findings were entered or "
     "recorded; say you proposed them and where the person can review them in the document."
 )
 
-# ---------------------------------------------------------------------------
-# list
-# ---------------------------------------------------------------------------
 
 _KIND_LABELS = {"hint": "hint", "question": "question", "defect": "defect"}
 _STATUS_LABELS = {
@@ -106,7 +97,6 @@ _STATUS_LABELS = {
 }
 _LIVE = ("proposed", "open")
 
-#: A list carries up to 500 marks of up to 2000 characters each: bounded here, and said so.
 MAX_LISTED = 100
 MAX_LISTED_BODY = 1000
 MAX_LISTED_REPLIES = 10
@@ -167,7 +157,6 @@ def _annotation_lines(item: dict[str, Any]) -> list[str]:
     elif item.get("dueOn"):
         lines.append(f"  Due: {_text(item.get('dueOn'))}")
     lines.extend(_reply_lines(item.get("replies") or []))
-    # ``onCurrentFassung`` is the name a BFF that has not rolled yet sends (renamed with migration 0165).
     on_current = item.get("onCurrentRevision", item.get("onCurrentFassung", True))
     where = _place(item) + ("" if on_current else "; set on an earlier Fassung")
     lines.append(f"  {where} · id {item.get('id')}")
@@ -208,9 +197,6 @@ def render_list(body: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-# ---------------------------------------------------------------------------
-# propose
-# ---------------------------------------------------------------------------
 
 
 def _region_size(proposal: AnnotationProposal, index: int) -> tuple[float, float]:
@@ -341,9 +327,6 @@ def replied_item(body: dict[str, Any], text: str) -> dict[str, Any]:
     }
 
 
-# ---------------------------------------------------------------------------
-# reply
-# ---------------------------------------------------------------------------
 
 
 def annotation_number(annotation: str) -> int | None:
@@ -379,9 +362,6 @@ def render_replied(body: dict[str, Any]) -> str:
     )
 
 
-# ---------------------------------------------------------------------------
-# update, delete: what the person asked for, in their name
-# ---------------------------------------------------------------------------
 
 _STATUSES = {
     "open": "open",
@@ -401,7 +381,6 @@ _KINDS = {
     "defect": "defect",
     "mangel": "defect",
 }
-#: The value that empties `assignee` or `due_on`.
 CLEAR = "-"
 _DAY = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
@@ -447,7 +426,6 @@ def update_payload(*, status: str, assignee: str, due_on: str, kind: str, body: 
     return {**payload, "note": text}
 
 
-#: The wire's fields as the card names them, and the one that carries a name beside its value.
 _CHANGE_FIELDS = (
     ("status", "status", None),
     ("assigneeUserId", "assignee", "assigneeName"),
@@ -528,9 +506,6 @@ def render_deleted(body: dict[str, Any]) -> str:
     )
 
 
-# ---------------------------------------------------------------------------
-# Langfuse
-# ---------------------------------------------------------------------------
 
 
 def marks_observation(operation: str, body: dict[str, Any]) -> dict[str, Any]:

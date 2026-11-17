@@ -1,32 +1,5 @@
 'use client'
 
-/**
- * Dev preview — the Aufgaben list, in the states a project's delegated work
- * actually arrives in.
- *
- *  1. **A mixed list.** What a project that uses Piloti looks like after a
- *     fortnight: something running, something waiting for a person, something
- *     that was sent back with words, something that failed. What the shot is
- *     for is the CARD — the status swatch on the title line (the same rounded
- *     square the timetable's legend uses), the compact run line under the
- *     title (the block's own glyph, word and tallies, on the running, the
- *     finished and the failed card alike), the unreviewed dot, the recency
- *     headings that group the column, the filter row with its counts, and the
- *     one result link on the tray that is the only thing inside the card that
- *     is not the card's own click target.
- *  2. **A card that changes place.** Two buttons stand in for a poll: a new
- *     run arrives at the top, or midnight moves a card from „Heute" to
- *     „Gestern". The card that moved glides there on `springGlide` and the
- *     cards around it make room; pressing a filter still only fades. Record it
- *     slowed down (`Animation.setPlaybackRate`) to judge the glide.
- *  3. **Nothing yet.** The state most projects are in on day one, and the one
- *     that has to read as an invitation rather than as a list that failed to
- *     load — the distinction the error panel underneath it depends on.
- *
- * Pinned to German (`I18nProvider initialLocale="de" fixedLocale`): the copy
- * under review is the German copy. 404s outside development.
- */
-
 import { useState } from 'react'
 import { notFound } from 'next/navigation'
 import { I18nProvider } from '@/i18n'
@@ -110,11 +83,6 @@ const TASKS: TaskRunView[] = [
   }),
 ]
 
-/**
- * The filter row is stateful, and a preview that pinned it to `all` would be
- * evidence of a control nobody can press. One holder per panel, so each panel
- * filters independently.
- */
 function FilterableList({
   tasks,
   loading,
@@ -149,11 +117,6 @@ const ARRIVING = row({
   runSummary: { status: 'running', rounds: 1, docs: 2 },
 })
 
-/**
- * The poll, by hand. Each press changes what a poll would change and nothing
- * else, so the only motion on screen is the card that moved and the cards that
- * make room for it.
- */
 function GlidingList() {
   const [tasks, setTasks] = useState<TaskRunView[]>(TASKS)
   const arrived = tasks.some((task) => task.id === ARRIVING.id)

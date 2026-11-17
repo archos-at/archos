@@ -1,26 +1,3 @@
-"""A second reader for ``look``: what the office's vision model makes of the crop, as short readings (ADR-0128).
-
-``look`` with a ``question`` sends the same crop the chat model is shown to the
-organization's ingest vision model (the ``ingest_vlm`` group: its key, its data
-policy, its model choice, the very resolution the drawing captions and the
-Fassung comparison use) and returns what it read as a few labelled lines.
-Two uses: a chat model that sees gets a second opinion it is told to question,
-and a chat model that takes no images gets readings instead of "I cannot see".
-
-**A reading is perception, never measurement.** It is a model's account of
-pixels. Nothing here ties it to a GlobalId, a tolerance or a scale, so it never
-enters the ``SourceRegistry`` and the tool result says so in the words the
-model reads (``render_readings``). A measurement comes from the BIM tools.
-
-The call is one Langfuse generation, ``look-reading`` (ADR-0089), with the
-image left out of the input (``redact_inline_images``): a trace holds the
-question and what came back, never the pixels of a customer's drawing. It is
-booked to the usage ledger under the role ``look_reading`` (``_book``), so the
-turn's budget, the usage dashboards and the invoice count it.
-:func:`read_region` never raises; a call that could not be made returns a
-:class:`Reading` that says why.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -44,11 +21,9 @@ from agent.project_context import get_organization_id_from_context
 
 logger = logging.getLogger(__name__)
 
-#: The generation's name in Langfuse.
 TRACE_NAME = "look-reading"
 PROMPT_VERSION = 1
 
-#: Put to a model that takes no images when the caller asked nothing in particular.
 DEFAULT_QUESTION = "What does this region show: labels, dimensions, symbols, counts?"
 
 MAX_READINGS = 8
@@ -80,7 +55,6 @@ class ReadingLine:
 
 @dataclass(frozen=True)
 class Reading:
-    """What the second reader made of one crop. ``failure`` is set, and ``lines`` empty, when it made nothing."""
 
     lines: tuple[ReadingLine, ...] = ()
     summary: str = ""
@@ -97,12 +71,6 @@ def _clip(value: Any, limit: int) -> str:
 
 
 def parse_reading(data: Mapping[str, Any], model: str = "") -> Reading:
-    """The readings of a model's reply (already a JSON object), defensively.
-
-    A reading without text is dropped, an unknown ``kind`` becomes ``other``
-    and an unknown ``confidence`` becomes ``low`` (a reader that cannot say how
-    sure it is is not trusted as sure), at most :data:`MAX_READINGS` are kept.
-    """
     raw = data.get("readings")
     lines: list[ReadingLine] = []
     for item in raw if isinstance(raw, list) else ():
@@ -125,13 +93,6 @@ def parse_reading(data: Mapping[str, Any], model: str = "") -> Reading:
 
 
 def _vision_settings(organization_id: str | None) -> ResolvedCredential:
-    """The organization's vision endpoint and model: the ``ingest_vlm`` choice when it made one.
-
-    The resolution the drawing captions and the Fassung comparison make
-    (``adapter.resolve_vlm_credential`` plus the org's runtime model override).
-    The override read is fail-open: a BFF that cannot answer leaves the
-    deployment's model. Blocking, so callers run it off the event loop.
-    """
     from knowledge_layer.ingest import resolve_vlm_credential
 
     cred = resolve_vlm_credential(organization_id)
@@ -149,7 +110,6 @@ def _vision_settings(organization_id: str | None) -> ResolvedCredential:
 
 
 def build_messages(question: str, jpeg: bytes) -> list[dict[str, Any]]:
-    """The one user message: the instruction, the question, then the image."""
     image = f"data:image/jpeg;base64,{base64.b64encode(jpeg).decode('ascii')}"
     return [
         {
@@ -172,7 +132,6 @@ def _reply_text(data: Any) -> str:
 
 
 def _book(data: Any, cred: ResolvedCredential) -> None:
-    """Put the reading on the usage ledger, in the turn's budget: the callback path never sees this call."""
     if not isinstance(data, Mapping):
         return
     from agent.common.cost_tracking import USAGE_ROLE_LOOK_READING
@@ -184,10 +143,6 @@ def _book(data: Any, cred: ResolvedCredential) -> None:
 
 
 async def read_region(jpeg: bytes, question: str, *, region: bool = False) -> Reading:
-    """One vision call: ``question`` put to the crop ``jpeg``. Never raises; a failure is in the result.
-
-    ``region`` only labels the generation's metadata (a box or a whole page).
-    """
     try:
         cred = await asyncio.to_thread(_vision_settings, get_organization_id_from_context())
     except Exception:  # noqa: BLE001 - a look must not fail over its second reader
@@ -238,19 +193,11 @@ async def read_region(jpeg: bytes, question: str, *, region: bool = False) -> Re
     return reading
 
 
-#: The kinds whose lines carry a value a sentence repeats; a label with a digit in it is a code („EP-01", „1:50").
 VALUE_KINDS = ("dimension", "count", "date")
 MAX_CARD_VALUE_LINES = 2
 
 
 def card_reading(reading: Reading) -> str:
-    """The one reading a card item and the Herleitung row keep.
-
-    The line(s) carrying the measured value (a dimension, a count, a date or a
-    code) come first: the one-sentence summary of a Plankopf says "title block
-    with scale and date" and holds neither. The summary stays the fallback, then
-    the first line. Empty when the reading is not usable.
-    """
     if not reading.usable:
         return ""
     values = [
@@ -264,12 +211,6 @@ def card_reading(reading: Reading) -> str:
 
 
 def render_readings_parts(reading: Reading, *, blind: bool) -> tuple[str, str]:
-    """:func:`render_readings` as (what frames the readings, the reading rows).
-
-    The rows are the passage a look's place holds (``place.py``); the head and a
-    failure's sentence stay with the model-facing preamble. A reading that
-    failed has no rows.
-    """
     if reading.failure:
         return render_readings(reading, blind=blind), ""
     head, _, rows = render_readings(reading, blind=blind).partition("\n")
@@ -277,11 +218,6 @@ def render_readings_parts(reading: Reading, *, blind: bool) -> tuple[str, str]:
 
 
 def render_readings(reading: Reading, *, blind: bool) -> str:
-    """The text a model reads: the readings, labelled as a second reader's perception, or why there are none.
-
-    ``blind`` is a chat model that takes no images: it has no image to
-    question the readings against, and is told that these are all it has.
-    """
     if reading.failure:
         tail = (
             " You cannot see the image either: say plainly that you could not read this region, and do not guess "

@@ -174,7 +174,6 @@ from .targets import _resolve_targets  # noqa: F401
 logger = logging.getLogger(__name__)
 
 
-# Agent-facing contract: what it does, its inputs, what it returns and where it stops.
 _READ_PASSAGE_DESCRIPTION = (
     "Opens a document by name: `document=` alone returns its OUTLINE, the document's opening passage plus a "
     "Gliederung of its top-level Punkte, and `document=` with `clause=` or `page=` returns exactly that passage. "
@@ -213,20 +212,6 @@ class ReadPassageConfig(FunctionBaseConfig, name="read_passage"):
     )
 
 
-# ---------------------------------------------------------------------------
-# A whole Richtlinien-Familie at once
-#
-# "Was weißt du über die OIB 2?" is a question about four documents. Search
-# ranks passages, so it answered with the two that scored best and the model
-# opened the rest one round at a time, when it knew they existed at all.
-# `knowledge_search` detects the question (`norm_registry.family_query_number`)
-# and asks for this: every member's scope passage and every member's
-# Gliederung, in the block it was going to render anyway. One round, then one
-# round of Punkt opens.
-#
-# Membership is DERIVED from what is indexed, never listed (`oib_families`): a
-# deployment whose corpus holds no 2.3 must not be told it has one.
-# ---------------------------------------------------------------------------
 
 
 @register_function(config_type=ReadPassageConfig)
@@ -257,8 +242,6 @@ async def read_passage(config: ReadPassageConfig, _builder: Builder):
         listings = await asyncio.gather(*(_documents_in(entry.collection) for entry in nameable))
         known = sum(len(docs) for docs in listings)
         scoped = [doc for docs in listings for doc in docs]
-        # Full candidate list: the message shows the first three and names
-        # how many more clear the bar, so truncating never hides the count.
         return _unknown_document_message(document, known, _suggestion_names(document, scoped, limit=1000))
 
     async def _resolve_or_refuse(document: str) -> tuple[list[PassageTarget], str]:
@@ -327,7 +310,6 @@ async def read_passage(config: ReadPassageConfig, _builder: Builder):
         except BaseException:
             row.finish("error")
             raise
-        # A read that returned without fetching (an unknown name, a refused range) found nothing to count: an error row.
         outcome.settle(row, default="error", target=outcome.target)
         return result
 
@@ -335,23 +317,13 @@ async def read_passage(config: ReadPassageConfig, _builder: Builder):
         from agent.common.tool_calls import READ_PASSAGE_TOOL
         from agent.common.turn_status import lane_tool_scope
 
-        # `conclusion` is unread here on purpose — see the note in
-        # `register.search`. It is a checkpoint channel read off the tool CALL,
-        # never an input to what gets opened.
         document = (arguments.document or "").strip()
         clause = str(arguments.clause if arguments.clause is not None else "").strip().strip(".") or None
         pages_argument = arguments.pages
         page = _coerce_page(arguments.page)
         if pages_argument is None and _is_range_text(arguments.page):
-            # `page="4-6"` is a range spelled with the old argument's name; a plain number stays a page.
             pages_argument, page = arguments.page, None
         if clause is not None and page is not None:
-            # A Punkt (or „Tabelle 3") names one passage in a document, and
-            # every chunk of it is filed under its FIRST page. A page beside it
-            # can only repeat that page or empty the read: a Tabelle filed
-            # under p. 30 and asked for as „page 29" (the printed page number)
-            # came back empty, and the agent searched for it for two more rounds
-            # (September 2026 census). The number decides; the page is dropped.
             page = None
         if not document:
             return (
@@ -359,12 +331,6 @@ async def read_passage(config: ReadPassageConfig, _builder: Builder):
                 "(from the inventory or a previous hit). To find out WHICH document holds a "
                 "fact, call `knowledge_search` instead."
             )
-        # Every branch below renders through `search_results.format_results`, which
-        # is where lane hits are recorded — and it is the SAME renderer
-        # `knowledge_search` uses, so the hit cannot say which tool fetched it
-        # unless the tool says so here. The scope wraps the awaits rather than
-        # sitting inside them: `format_results` runs in `asyncio.to_thread`,
-        # which copies the context at call time.
         with lane_tool_scope(READ_PASSAGE_TOOL):
             if clause is None and (str(pages_argument or "").strip() or (arguments.cursor or "").strip()):
                 return await _open_range(document, pages_argument, arguments.cursor, outcome)
@@ -381,8 +347,6 @@ async def read_passage(config: ReadPassageConfig, _builder: Builder):
 
         _note_target(outcome, targets)
         query = _fetch_query(document, clause, page)
-        # A page read fetches the window's chunks and keeps those covering the
-        # page, so it may not stop at the passage bound before filtering.
         top_k = _MAX_PASSAGE_CHUNKS if page is None else _MAX_OUTLINE_CHUNKS
         fetched = await _fetch_all(targets, lambda file_name: _passage_filters(file_name, clause, page), query, top_k)
         chunks = [chunk for chunk in fetched.chunks if _addresses(chunk, clause, page)]
@@ -430,7 +394,6 @@ async def read_passage(config: ReadPassageConfig, _builder: Builder):
             ]
             if not targets:
                 return _cursor_refusal(document, span)
-        # `pages` beside a cursor only says where the read ends; the cursor says where it starts.
         first = cursor.page if cursor is not None else span[0]
         last = span[1] if span is not None else (cursor.last_page if cursor is not None else None)
         start = cursor.position if cursor is not None else None
@@ -439,13 +402,10 @@ async def read_passage(config: ReadPassageConfig, _builder: Builder):
         query = _fetch_query(document, None, None)
         fetched = await _fetch_all(targets, _filters_for(kind, first, last), query, _MAX_OUTLINE_CHUNKS, start)
         if start is None and not fetched.chunks and not fetched.failures and last is not None:
-            # A document written before `reading_order` existed has no value for the range to compare.
-            # The cursor records the family, so the continuation reads the same set.
             kind = LABEL_FILTERS
             fetched = await _fetch_all(targets, _filters_for(kind, first, last), query, _MAX_OUTLINE_CHUNKS)
         chunks = _in_range(fetched.chunks, first, last, start)
         if start is None and not chunks and not fetched.failures and len(fetched.chunks) >= _MAX_OUTLINE_CHUNKS:
-            # The look-back pages alone filled the fetch: read again from the first page itself.
             fetched = await _fetch_all(targets, _filters_for(kind, first, last, 0), query, _MAX_OUTLINE_CHUNKS)
             chunks = _in_range(fetched.chunks, first, last, start)
         label = _locus_label(document, None, None, (first, last) if last is not None else (first, first))
@@ -494,10 +454,6 @@ async def read_passage(config: ReadPassageConfig, _builder: Builder):
 
         passages = _scope_chunks(outline.chunks)[:_MAX_PASSAGE_CHUNKS]
         _count(outcome, len(passages), targets)
-        # The Gliederung travels as the block's trailer rather than being glued
-        # on here: the renderer files the records under the hash of the bytes it
-        # returns, and a byte added afterwards costs this tool the structured
-        # read on its most common call (ADR-0061).
         formatted = await asyncio.to_thread(
             format_results,
             _passage_result(passages, query),
@@ -535,8 +491,6 @@ async def read_passage(config: ReadPassageConfig, _builder: Builder):
 
         merged = _passage_result(sorted(fetched, key=_clause_sort_key)[:_MAX_PASSAGE_CHUNKS], query)
         _count(outcome, len(merged.chunks), targets)
-        # The line that replaces the Gliederung rides the same trailer, and for
-        # the same reason: the hash is over the whole text.
         formatted = await asyncio.to_thread(
             format_results,
             merged,

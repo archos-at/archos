@@ -48,9 +48,6 @@ from agent.common.openrouter import targets_openrouter
 
 logger = logging.getLogger(__name__)
 
-#: Env var of the removed NVIDIA NIM provider. Deployments still carrying it
-#: get a deprecation warning pointing at the supported key (see
-#: :func:`warn_on_legacy_nvidia_key`); nothing reads it as a credential.
 LEGACY_NVIDIA_KEY_ENV = "NVIDIA_API_KEY"
 
 _nvidia_deprecation_warned = False
@@ -88,17 +85,11 @@ def read_api_key_env(name: str) -> str:
     """
     value = os.environ.get(name, "")
     if value.startswith("${") and value.endswith("}"):
-        # The name, never the value: this reads API-key variables, and a value
-        # that merely looks like a placeholder is still what the variable holds.
         logger.error("%s contains an unresolved ${...} placeholder - treating as unset", name)
         return ""
     return value
 
 
-# Map a resolved base-URL host -> the env var conventionally holding that
-# provider's API key. Small and extensible on purpose: add a row when a new
-# OpenAI-compatible provider is deployed. Matched by host substring (see
-# :func:`_infer_provider_key_env`) so subdomains/paths do not matter.
 PROVIDER_KEY_ENV_BY_HOST: dict[str, str] = {
     "openrouter.ai": "OPENROUTER_API_KEY",
     "api.openai.com": "OPENAI_API_KEY",
@@ -212,15 +203,9 @@ def _resolve(
 
     warn_on_legacy_nvidia_key()
 
-    # Fail fast on the removed NVIDIA endpoint: a base URL still pointing at
-    # NIM is a stale config and must say so here, not fail deep inside a
-    # client call.
     if NIM_API_HOST in (urlsplit(base_url).hostname or ""):
         raise ValueError(f"{NIM_UNSUPPORTED_MESSAGE} (base_url {base_url} points at the removed endpoint)")
 
-    # 1. BYOK — the org's bring-your-own credential wins when we know the org.
-    #    Fail-open lives in resolve_org_llm_credential (a BYOK hiccup returns
-    #    None, so we fall through to the env chain below).
     if organization_id:
         from agent.common.llm_credentials import resolve_org_llm_credential
 
@@ -233,20 +218,15 @@ def _resolve(
                 source="byok",
             )
 
-    # 2. primary env override.
     key = read_api_key_env(primary_env) if primary_env else ""
     if key:
         return ResolvedCredential(api_key=key, base_url=base_url, model=model, source="env")
 
-    # 3. fallback envs, in order.
     for name in fallback_envs:
         key = read_api_key_env(name)
         if key:
             return ResolvedCredential(api_key=key, base_url=base_url, model=model, source="env")
 
-    # 4. provider inference: the key env for whatever provider base_url points
-    #    at. This never changes base_url — it only picks the KEY for the
-    #    already-configured endpoint.
     inferred_env = _infer_provider_key_env(base_url)
     if inferred_env:
         key = read_api_key_env(inferred_env)

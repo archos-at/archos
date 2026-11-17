@@ -1,24 +1,3 @@
-/**
- * The file names a memory item cites as its evidence, as a reader may be shown
- * them NOW (ADR-0096).
- *
- * A source-grounded decision stores the file names and pages it was read from
- * (`project_memory.evidence`, migration 0127): a snapshot of where the closing
- * extraction read, when every member could open those files. A document moved
- * into a restricted folder since, put in the Papierkorb, archived or held by
- * the upload screen is no longer open, and its NAME is restricted information
- * too (ADR-0087: the audit trail and the download log withhold it). So every
- * read of memory evidence passes here, and a name is shown only while a
- * document of that name in the item's project is served to this reader:
- * filed where their clearance is served from (`liveFolderAccess`, the
- * document's live folder; the Papierkorb is never served), visible to their
- * document reader (`SCREENED_ONLY` for the agent), and active.
- *
- * Only the names go. The decision stays: its content was read while the file
- * was open to every member, and the item's own access (`memoryVisibleTo`) is
- * what decides who reads it.
- */
-
 import 'server-only'
 import { and, eq, inArray } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
@@ -27,25 +6,21 @@ import { documentVisibleTo, type DocumentReader } from '@/lib/documents/visibili
 import { liveFolderAccess } from '@/lib/permits/live-access'
 import { servedFrom } from '@/lib/permits/repository'
 
-/** One document a memory item was read from: its file name and page, never its text. */
 export interface MemoryEvidence {
   fileName: string
   page: string | null
 }
 
-/** Anything carrying memory evidence, with the project its files belong to. */
 export interface WithEvidence {
   projectId: string | null
   evidence: MemoryEvidence[] | null
 }
 
-/** Who is reading: their document reader, and the restricted folders they are cleared for in a project. */
 export interface EvidenceReader {
   reader: DocumentReader
   clearanceIn(projectId: string): readonly string[]
 }
 
-/** The names of `fileNames` in `projectId` this reader is served now. */
 async function servedNames(
   organizationId: string,
   projectId: string,
@@ -69,11 +44,6 @@ async function servedNames(
   return new Set(rows.map((row) => row.fileName))
 }
 
-/**
- * The items with only the evidence this reader may be shown now, in order. An
- * item keeps its place and its content when every name goes; one without
- * evidence passes through untouched and costs no query.
- */
 export async function withServedEvidence<Item extends WithEvidence>(
   organizationId: string,
   items: readonly Item[],

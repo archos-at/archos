@@ -1,19 +1,7 @@
-"""Ingestion: a file's bytes read, screened, triaged, chunked, enriched and written to the vector store.
-
-LlamaIndex readers and chunking, an OpenAI-compatible embedder, vectors in the
-vector store (ADR-0115). Supports multimodal extraction (text, tables, charts, images).
-"""
-
 from __future__ import annotations
 
 from agent.lazy_exports import lazy_exports
 
-# What code outside this package imports, and from where: the names it imported
-# from the submodules when the package was laid out by job, measured. Loaded on
-# first use (PEP 562), so importing one submodule does not load the others, and
-# read from the submodule every time (`cache=False`), so a test that patches a
-# submodule is seen through the package too. A name missing here is imported
-# from its submodule, and `scripts/check_package_surfaces.py` counts that.
 _LAZY: dict[str, str] = {
     "DOCUMENT_DELETED_DURING_INGEST": ".adapter",
     "LlamaIndexIngestor": ".adapter",

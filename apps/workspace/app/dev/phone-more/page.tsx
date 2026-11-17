@@ -1,13 +1,5 @@
 'use client'
 
-/**
- * Dev preview for „Mehr" on a phone: the tab bar with its bottom sheet open, as
- * a tap on „Mehr" leaves it. `?scope=org` shows the destinations above a
- * project (the org bar has no „Mehr" tab; the sheet's list is what an org
- * reader would be offered). Inside a project the sheet's first row is the
- * project selector. 404s outside development.
- */
-
 import type { JSX } from 'react'
 import { useEffect, useMemo } from 'react'
 import { useSearchParams } from 'next/navigation'
@@ -25,8 +17,6 @@ export default function PhoneMoreDevPage(): JSX.Element {
   const pathname = org ? '/app/projects' : '/app/projects/demo/settings/members'
   const setOpen = useShellOverlays((s) => s.setMoreSheetOpen)
   useEffect(() => setOpen(true), [setOpen])
-  // The shell's feedback provider with the fake backend: „Mein Feedback" shows
-  // with its count, the tab its dot, and a tap hands over to the real modal.
   const threadsApi = useMemo(() => feedbackPreviewApi('list'), [])
   return (
     <FeedbackProvider threadsApi={threadsApi}>

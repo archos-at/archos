@@ -1,8 +1,3 @@
-/**
- * Skills toolbox API — merged builtin+org list and org skill authoring. Thin
- * adapters (ADR-0017); logic in `@/lib/skills/service`.
- */
-
 import { apiRoute, parseJsonBody } from '@/lib/api/handler'
 import { requireSkillsEnabled } from '@/lib/authz/feature-flags'
 import { createSkill, listSkills } from '@/lib/skills/service'

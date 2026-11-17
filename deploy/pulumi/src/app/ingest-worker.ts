@@ -12,15 +12,11 @@ import { AppSecrets, AppWiring, ingestWorkerEnv } from "./config";
 import { installQueueScaledObject } from "./keda-scaling";
 import { UID } from "../constants";
 
-/** The Hatchet workflow the tier runs (ADR-0150). */
 export const WORKFLOW = "ingest-document";
-/** The workflow the high-memory pool runs: the same steps, for files of `ingestHeavyFileBytes` or more. */
 export const HEAVY_WORKFLOW = "ingest-document-heavy";
-/** The high-memory pool's Deployment, and the worker label its `index` step requires (`pool=highmem`). */
 export const HEAVY_TIER = "ingest-worker-heavy";
 export const HEAVY_POOL = "highmem";
 
-/** What tells the two ingest pools apart; everything else about them is one Deployment shape. */
 interface IngestPool {
   name: string;
   workflow: string;
@@ -32,34 +28,6 @@ interface IngestPool {
   concurrency: number;
 }
 
-/**
- * The ingestion tier (ADR-0076, ADR-0150), the only process that runs ingestion jobs.
- *
- * Replicas of the backend image with `PROCESS_ROLE=ingest-worker`: no web port, no PVC. Each builds the ingestor once and its `concurrency` threads
- * claim jobs from Postgres, fairly across organisations (fewest running first,
- * fleet-wide). Vectors live in the shared Qdrant, jobs in Postgres, so a replica
- * is disposable.
- *
- * SCALED ON THE QUEUE, NOT ON CPU. An ingest job mostly waits on the model
- * provider, so CPU says nothing about the backlog. KEDA counts the workflow's Hatchet backlog
- * and asks for ceil(depth / concurrency) replicas between `minReplicas` and
- * `maxReplicas`: a thousand-document reindex fans out across the tier, and an
- * empty queue shrinks it back to the floor (zero, if the floor is zero).
- *
- * The ceiling that matters is not this one: every vision call holds a slot of
- * `VLM_FLEET_CONCURRENCY`, the fleet's lease pool on the shared provider key, and
- * each file's `INGEST_PAGE_READ_PARALLELISM` threads only bound its own threads
- * and memory. `assertVlmPeakFitsCeiling` fails the deploy when replicas ×
- * concurrency documents outnumber the pool's slots, or a file's pool is larger
- * than it (the pool itself held to the limiter ceilings, the vision model's own
- * included), so `ingestWorkerMaxReplicas` cannot be raised past what the
- * provider budget can feed.
- *
- * Rollout is the research tier's (`agentWorkerRollout`): surge first, then give
- * each draining worker its `drainSeconds` to finish what it claimed, plus time to
- * give back what it did not (`terminationGracePeriodSeconds` is drain + 30 s).
- * The ScaledObject is the shared queue one (`keda-scaling.ts`).
- */
 export function installIngestWorker(
   w: AppWiring,
   cfg: DeployConfig,
@@ -84,17 +52,6 @@ export function installIngestWorker(
   });
 }
 
-/**
- * The high-memory pool (`ingest-worker-heavy`): the standard tier's shape with
- * `INGEST_WORKER_POOL=highmem`, so it serves `ingest-document-heavy` under the
- * worker label `pool=highmem`, 12Gi a pod and one file at a time
- * (`ingestWorkerHeavy*`). KEDA scales it on that workflow's backlog alone; the
- * prefix match is `<namespace>_ingest-document-heavy:`, which the standard
- * tier's `<namespace>_ingest-document:` never matches. Both pools share one
- * fairness limit per organisation in Hatchet (`ingest-org`, ADR-0150) and count
- * together against the vision pool (`assertVlmPeakFitsCeiling`). None when the
- * stack turns the pool off; the dispatching tiers then send every file standard.
- */
 export function installIngestWorkerHeavy(
   w: AppWiring,
   cfg: DeployConfig,
@@ -117,11 +74,6 @@ export function installIngestWorkerHeavy(
   });
 }
 
-/**
- * The high-memory pool's env: the ingest worker's, serving `ingest-document-heavy`
- * (`INGEST_WORKER_POOL=highmem`) with one slot per heavy file it runs at once,
- * which the heavy `index` step takes all of (`INGEST_HEAVY_WORKER_SLOTS`).
- */
 export function ingestWorkerHeavyEnv(w: AppWiring, livenessFile: string): ReturnType<typeof ingestWorkerEnv> {
   const slots = String(w.cfg.ingestWorker.heavy.concurrency);
   return [
@@ -164,8 +116,6 @@ function installIngestPool(
             securityContext: { runAsNonRoot: true, runAsUser: UID.backend, runAsGroup: UID.backend },
             terminationGracePeriodSeconds: shutdown.terminationGracePeriodSeconds,
             topologySpreadConstraints: spreadAcrossNodes(labels),
-            // The batch group (`nodeGroupBatch`), when the stack has worker groups:
-            // a big PDF holds gigabytes, which the app group's nodes cannot spare.
             ...onNodeGroup(cfg.nodeGroups.batch),
             containers: [
               {
@@ -175,8 +125,6 @@ function installIngestPool(
                 securityContext: hardenedContainerSecurityContext(),
                 env: pool.env,
                 resources: toResourceRequirements(pool.resources),
-                // The worker touches the marker every 15 s while its loop runs;
-                // python, because the image has no procps (see agent-worker.ts).
                 livenessProbe: {
                   exec: {
                     command: [
@@ -190,8 +138,6 @@ function installIngestPool(
                   periodSeconds: 30,
                   failureThreshold: 3,
                 },
-                // The first mark appears only after the whole agent-runtime workflow is
-                // built; hold liveness off until then (up to 10 minutes).
                 startupProbe: {
                   exec: { command: ["python", "-c", `import os,sys; sys.exit(0 if os.path.exists('${liveness}') else 1)`] },
                   periodSeconds: 10,
@@ -206,7 +152,6 @@ function installIngestPool(
     {
       provider: w.provider,
       dependsOn: [secrets.secret, ...dependsOn],
-      // KEDA owns the replica count once the ScaledObject exists.
       ignoreChanges: ["spec.replicas"],
       customTimeouts: {
         create: `${Math.ceil(profile.progressDeadlineSeconds / 60) + 15}m`,

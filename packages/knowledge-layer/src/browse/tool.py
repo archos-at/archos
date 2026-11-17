@@ -222,37 +222,19 @@ from .turn import shelf_restricted_message  # noqa: F401
 logger = logging.getLogger(__name__)
 
 
-# ---------------------------------------------------------------------------
-# Rows
-# ---------------------------------------------------------------------------
 
 
-# ---------------------------------------------------------------------------
-# list_files
-# ---------------------------------------------------------------------------
 
 
-# ---------------------------------------------------------------------------
-# list_files(view="tree"): a card per folder
-# ---------------------------------------------------------------------------
 
 
-# ---------------------------------------------------------------------------
-# The Fassungen of one document (list_files revisions_of=)
-# ---------------------------------------------------------------------------
 
 
-# ---------------------------------------------------------------------------
-# The exact search (knowledge_search match="exact")
-# ---------------------------------------------------------------------------
 
 
 _EQUIVALENT.update({"ae": _EQUIVALENT["ä"], "oe": _EQUIVALENT["ö"], "ue": _EQUIVALENT["ü"], "ss": _EQUIVALENT["ß"]})
 
 
-# ---------------------------------------------------------------------------
-# Scope
-# ---------------------------------------------------------------------------
 
 
 async def _turn_rows(search_config: Any) -> list[FileRow]:
@@ -279,9 +261,6 @@ def _in_flight(collections: Sequence[str]) -> list[str]:
     return list(dict.fromkeys(name for names in pending.values() for name in names))
 
 
-# ---------------------------------------------------------------------------
-# Descriptions
-# ---------------------------------------------------------------------------
 
 
 class ListFilesConfig(FunctionBaseConfig, name="list_files"):
@@ -363,7 +342,6 @@ async def list_files(config: ListFilesConfig, _builder: Builder):
         except BaseException:
             row.finish("error")
             raise
-        # A refusal lists nothing and says so; a revisions chain is an answer with no file count.
         outcome.settle(row, default="ok" if outcome.completed else "error", target=outcome.target)
         return result
 
@@ -387,7 +365,6 @@ async def list_files(config: ListFilesConfig, _builder: Builder):
         if refusal:
             return refusal
         if (revisions_of or "").strip():
-            # A chain is not a listing: no other filter applies, so none is validated either.
             turn = restrict_rows_to_turn(await _turn_rows(search_config))
             if shelf and turn.allowed is not None and shelf not in turn.allowed:
                 return shelf_restricted_message(shelf, turn.allowed)
@@ -434,7 +411,6 @@ async def list_files(config: ListFilesConfig, _builder: Builder):
             added_since=added_since,
             topic=(topic or "").strip() or None,
             sort=sort,
-            # A tree is not paged: its rows all go into the cards.
             offset=0 if tree else _coerce_int(offset, 0, low=0, high=100_000),
             limit=len(rows) + 1 if tree else _coerce_int(limit, DEFAULT_PAGE_SIZE, low=1, high=MAX_PAGE_SIZE),
         )
@@ -494,8 +470,6 @@ async def _files_by_collection(
         resolved = _folder_matches(rows, folder)
         rows = [row for row in rows if resolved is not None and _in_folder(row, resolved)]
     if file_name:
-        # The meaning mode's own test (either name contains the other, so
-        # „Notiz“ is „Notiz.docx“), plus the title the reader sees in the pane.
         wanted = fold(file_name)
         rows = [
             row
@@ -592,8 +566,6 @@ async def exact_search(
         in_folder, folder_key = await _folder_scope(search_config, folder)
         entries = [entry for entry in entries if entry.collection in in_folder]
     if narrowed is not None:
-        # The rows name files on every shelf; the turn may have dropped some of
-        # those shelves from ``entries``. Either way nothing in scope is left.
         entries = [entry for entry in entries if entry.collection in narrowed]
     if (narrowed is not None or folder) and not entries:
         return (
@@ -693,8 +665,6 @@ async def _search(
     from knowledge_layer.vector_store import USER_REGEX_TIMEOUT
     from knowledge_layer.vector_store import PatternTooCostly
 
-    # A person's regex is the only caller that asks for the timed, narrowed-by-its-words read; a store
-    # that knows only the literal lookup is never handed the keyword.
     read_options: dict[str, Any] = {"user_regex": True} if regex_mode else {}
     if stemmed:
         read_options["stem_phrases"] = list(phrases)
@@ -712,8 +682,6 @@ async def _search(
         if isinstance(result, PatternTooCostly):
             return _TOO_COSTLY_SCAN if result.scan else _TOO_COSTLY
         if isinstance(result, BaseException):
-            # An outage is not an empty collection: counted, and said, never
-            # folded into „keine Fundstelle“.
             logger.warning("exact search: %s failed: %s", entry.collection, result)
             failed.append(entry.collection)
             continue
@@ -731,7 +699,6 @@ async def _search(
         return "Full-text search is not available in this environment. Use `knowledge_search`."
 
     timeout = USER_REGEX_TIMEOUT if regex_mode else None
-    # Counting reads every matched chunk again; it gets a deadline of its own, as the scan did.
     deadline = time.monotonic() + USER_REGEX_SCAN_SECONDS if regex_mode else None
     try:
         groups = group_matches(
@@ -745,13 +712,8 @@ async def _search(
     except TimeoutError:
         return _TOO_COSTLY_SCAN if deadline is not None and time.monotonic() >= deadline else _TOO_COSTLY
     if not groups and truncated:
-        # Every passage the capped scan read held the words only in a breadcrumb or an overlap: what lies past
-        # the cap was not read, so this is no „no“ (and no row count either).
         return _CAPPED_WITHOUT_OWN_MATCH
     if outcome is not None:
-        # Hits are the literal matches (the table's count); documents are the files holding them, counted
-        # only where the model may be told about them yet (ADR-0088). No match while a collection failed is
-        # not a no, the message says so, and neither does the row: an error, never „keine Fundstelle“.
         outcome.record(
             sum(group.occurrences for group in groups),
             documents=len(groups),
@@ -760,10 +722,6 @@ async def _search(
         outcome.failed = bool(failed) and not groups
     if not groups:
         return no_match_message(phrases, answered, failed, regex_mode=regex_mode, scopes=scopes)
-    # The match table names every matching file and counts its matches, which
-    # is content of each file it names, passages shown or not: reported for the
-    # restricted-use admission (ADR-0088), beside the passages the grounding
-    # block reports itself.
     from agent.knowledge.restricted_use import note_collections_read
 
     note_collections_read(group.collection for group in groups)

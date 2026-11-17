@@ -1,15 +1,3 @@
-"""Handing a document's permit record to the BFF, which owns the tables.
-
-``permit_records`` and ``permit_requirements`` live in the BFF's Postgres, which this
-process never reads or writes (ADR-0055). The ingest pipeline and the backfill hand the
-record over ``POST /api/internal/permit-records``, service-token guarded, the transport
-``knowledge_layer/ingest/document_presence.py`` uses for ``document-exists``.
-
-Fail-open the same way: no BFF configured, a timeout, a non-200 or an unreadable answer
-is ``False`` and a WARNING, never an exception. A record that did not land costs the
-permitting memory one document; it must not cost the ingest one.
-"""
-
 from __future__ import annotations
 
 import logging
@@ -24,8 +12,6 @@ logger = logging.getLogger(__name__)
 _FRONTEND_INTERNAL_URL_ENV = "FRONTEND_INTERNAL_URL"
 _INTERNAL_TOKEN_ENV = "INTERNAL_API_TOKEN"
 _PERMIT_RECORDS_PATH = "/api/internal/permit-records"
-# The BFF embeds the requirements before it answers (up to 60 of them), so this is
-# longer than the presence check's 10 s.
 _HTTP_TIMEOUT_SECONDS = 30.0
 
 
@@ -37,15 +23,6 @@ def store_permit_record(
     model: str,
     record: PermitRecord | None,
 ) -> bool:
-    """Replace the document's permit record with ``record``, or delete it when ``None``.
-
-    Without a ``document_id`` the BFF finds the document by ``collection`` and ``file_name``,
-    and the ``documentId`` key is left out of the body rather than sent as null.
-
-    True when the BFF answered 200 and, for a record, said it stored it
-    (``stored: true``; an unknown document answers ``stored: false``). Deleting
-    answers True on any 200: there is nothing to confirm. Never raises.
-    """
     base_url = os.environ.get(_FRONTEND_INTERNAL_URL_ENV, "").strip()
     token = os.environ.get(_INTERNAL_TOKEN_ENV, "").strip()
     if not base_url or not token:
@@ -63,7 +40,6 @@ def store_permit_record(
     try:
         from agent.common.connect_retry import connect_retrying_client
 
-        # No redirect following: the token must not follow a 3xx elsewhere.
         with connect_retrying_client(read_timeout=_HTTP_TIMEOUT_SECONDS) as client:
             response = client.post(
                 f"{base_url.rstrip('/')}{_PERMIT_RECORDS_PATH}",

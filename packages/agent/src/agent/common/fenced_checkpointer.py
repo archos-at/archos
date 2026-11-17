@@ -1,18 +1,3 @@
-"""A checkpointer that refuses to write for a turn that no longer owns its conversation.
-
-The conversation's LangGraph thread is the one piece of shared state two turns
-of a conversation must never write at once (ADR-0080). This wraps the real
-saver and puts every write to it behind :func:`agent.common.write_fence.guarded_write`:
-checked against the turn's fence first, then bounded in time. Reads, and every
-call made outside a turn that has a fence (a job, a single process, affinity
-on), go straight through.
-
-Every public method of ``BaseCheckpointSaver`` is delegated explicitly, because
-the base class defines them all (raising ``NotImplementedError``), so a
-``__getattr__`` fallback would never be reached. ``packages/agent/tests/common/test_fenced_checkpointer.py``
-fails when LangGraph adds one this class does not forward.
-"""
-
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
@@ -35,7 +20,6 @@ from agent.common.write_fence import guarded_write
 
 
 class FencedCheckpointer(BaseCheckpointSaver):
-    """``inner``, with its writes fenced by the current turn's write fence."""
 
     def __init__(self, inner: BaseCheckpointSaver) -> None:
         super().__init__(serde=inner.serde)
@@ -55,7 +39,6 @@ class FencedCheckpointer(BaseCheckpointSaver):
     def get_next_version(self, current: Any, channel: Any) -> Any:
         return self._inner.get_next_version(current, channel)
 
-    # ---- reads: never fenced ------------------------------------------------
     def get(self, config: RunnableConfig) -> Checkpoint | None:
         return self._inner.get(config)
 
@@ -95,7 +78,6 @@ class FencedCheckpointer(BaseCheckpointSaver):
     async def aget_delta_channel_history(self, *, config: RunnableConfig, channels: Sequence[str]) -> Mapping[str, Any]:
         return await self._inner.aget_delta_channel_history(config=config, channels=channels)
 
-    # ---- writes: refused once the turn is fenced, bounded while it is not ---
     def put(
         self,
         config: RunnableConfig,

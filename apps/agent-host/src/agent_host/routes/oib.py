@@ -84,8 +84,6 @@ def _corpus_tarball() -> Path:
                 if pdf is not None:  # deleted since the listing
                     archive.add(pdf, arcname=name)
     except BaseException:
-        # The response's cleanup is only attached once this returns; a failed
-        # build would otherwise leave a partial copy of the corpus on disk.
         path.unlink(missing_ok=True)
         raise
     return path
@@ -106,7 +104,6 @@ class _TemporaryFileResponse(FileResponse):
             Path(self.path).unlink(missing_ok=True)
 
 
-# The two below import late: the corpus and the status pull the knowledge layer in.
 def _run_ingestion():
     from agent.oib_sync import sync
 
@@ -171,10 +168,6 @@ def _resolve_corpus_pdf(file_name: str) -> Path | None:
     return corpus_store.ensure_local(file_name)
 
 
-# 2 workers for the admin's blocking calls (a sync cycle, a delete). Ingestion is not
-# here: it is a job on the ingest queue, claimed by the ingest workers. Overlapping calls
-# are safe because oib_sync serializes what must not interleave: a per-file lock, across
-# replicas, around queueing a job and deleting a file, and one sync cycle at a time.
 _ADMIN_EXECUTOR = ThreadPoolExecutor(max_workers=2, thread_name_prefix="oib-sync-")
 
 
@@ -283,7 +276,6 @@ def _resolved_doc_class(doc_class: str | None, name: str) -> str:
     from agent.common.norm_registry import guess_doc_class
 
     if doc_class is not None:
-        # An admin tab that has not reloaded since the rename still sends the German key.
         canonical = canonical_doc_class(doc_class)
         if canonical is None:
             raise HTTPException(
@@ -329,7 +321,6 @@ async def upload_oib_document(
     if is_zip_upload(file, content):
         return await _handle_zip_upload(content)
 
-    # Single-PDF upload.
     name = sanitize_pdf_name(file.filename)
     if squats_a_text_name(name, content):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Not stored: {SQUATTED_NAME_REASON}")
@@ -505,7 +496,6 @@ async def update_oib_doc_class(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"No summary found for '{name}' in the base corpus",
         )
-    # A person has decided; the suggestion has nothing left to offer.
     try:
         await asyncio.to_thread(set_document_doc_class_suggestion, oib_sync.COLLECTION_NAME, name, None)
     except Exception:  # noqa: BLE001 — the class is set; a stale offer is cosmetic

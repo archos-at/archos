@@ -1,12 +1,3 @@
-/**
- * Org model configuration service — versioned per-org model overrides.
- *
- * Data model (ADR-0014): `org_model_configs` holds the per-org pointer to the
- * active version; `org_model_config_versions` is immutable append-only
- * history. Saving creates a new version and activates it; rollback repoints
- * the meta row at an older version. Nothing is ever rewritten.
- */
-
 import 'server-only'
 import { and, desc, eq } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
@@ -43,7 +34,6 @@ function flatOverridesEqual(a: Record<string, string>, b: Record<string, string>
   return keys.length === Object.keys(b).length && keys.every((key) => b[key] === a[key])
 }
 
-/** The org's current configuration (active version or "defaults"). */
 export async function getOrgModelConfig(organizationId: string): Promise<OrgModelConfigView> {
   const db = getDb()
   const [meta] = await db
@@ -62,14 +52,6 @@ export async function getOrgModelConfig(organizationId: string): Promise<OrgMode
   return { activeVersion: version ?? null, updatedBy: meta.updatedBy, updatedAt: meta.updatedAt }
 }
 
-/**
- * The org's OWN `{group: modelId}` choices, or null when it has made none.
- *
- * This is the tenant layer only — it deliberately does not include the
- * platform defaults, so admin surfaces can show "you chose this" separately
- * from "you inherit this". Runtime paths want `getEffectiveModelOverrides`.
- * Cached (write-invalidate: config saves/rollbacks drop the entry, ADR-0020).
- */
 export async function getActiveModelOverrides(organizationId: string): Promise<Record<string, string> | null> {
   return getCached(overridesCacheKey(organizationId), OVERRIDES_CACHE_TTL_MS, async () => {
     const { activeVersion } = await getOrgModelConfig(organizationId)
@@ -79,25 +61,6 @@ export async function getActiveModelOverrides(organizationId: string): Promise<R
   })
 }
 
-/**
- * What the backend should actually run for this org: the platform defaults
- * with the org's own choices layered on top.
- *
- * This is the map every runtime path forwards (WS upgrade header, the async-job
- * proxy, scheduled workflows, and the backend's just-in-time
- * `/api/internal/model-overrides` fallback) — resolving it here means the
- * Python side keeps its single contract ("the header is model selection only")
- * and needs no notion of platform defaults at all.
- *
- * Merge is PER GROUP, not all-or-nothing: an org that pinned only
- * `deep_research` still follows the platform default for `shallow_research`. That is the
- * whole point — a fleet-wide model switch reaches every tenant that has not
- * deliberately opted out of it, group by group.
- *
- * Fails open on the platform side: if the defaults table cannot be read, the
- * org's own overrides still apply and anything else falls through to the
- * workflow YAML, exactly as before this layer existed.
- */
 export async function getEffectiveModelOverrides(organizationId: string): Promise<Record<string, string> | null> {
   const [platformDefaults, orgOverrides] = await Promise.all([
     getPlatformModelDefaults().catch((error) => {
@@ -110,11 +73,6 @@ export async function getEffectiveModelOverrides(organizationId: string): Promis
   return Object.keys(merged).length > 0 ? merged : null
 }
 
-/**
- * The per-group merge every effective-model reader shares: the org's own
- * choice wins, anything it did not choose is inherited. Pure, so the runtime
- * map and the admin's ZDR coverage cannot resolve a group differently.
- */
 export function layerOrgOverrides(
   inherited: Record<string, string>,
   orgOverrides: Record<string, string> | null,
@@ -132,12 +90,10 @@ export async function listVersions(organizationId: string, limit = 50): Promise<
     .limit(limit)
 }
 
-/** A version's `{group: modelId}`, for the groups that still exist. */
 export function versionModelsByGroup(version: Pick<OrgModelConfigVersion, 'overrides'>): Record<string, string> {
   return flattenModelOverrides(version.overrides as ModelOverrides | null)
 }
 
-/** Create a new immutable version and make it the active one. */
 export async function createAndActivateVersion(params: {
   organizationId: string
   overrides: ModelOverrides
@@ -145,11 +101,6 @@ export async function createAndActivateVersion(params: {
   comment: string | null
   actorUserId: string
 }): Promise<OrgModelConfigVersion> {
-  // Read before writing: the backend's shared record is deleted only when the
-  // EFFECTIVE selection actually moves. A re-save of the identical map still
-  // appends a history version, but cross-tier invalidation would evict every
-  // backend replica's hot entry for no change. One extra read on a rare admin
-  // write; uncached, so the comparison cannot lie from a stale entry.
   const { activeVersion: previous } = await getOrgModelConfig(params.organizationId)
   const db = getDb()
   return db.transaction(async (tx) => {
@@ -200,14 +151,6 @@ export async function createAndActivateVersion(params: {
   })
 }
 
-/**
- * Point the org at an existing version (rollback / re-activate).
- * `versionId: null` deactivates all overrides (back to workflow defaults).
- *
- * `validate` runs on the row this call read, before anything is written, and
- * refuses by throwing — so the version checked is the version activated, with
- * no second lookup between them.
- */
 export async function activateVersion(params: {
   organizationId: string
   versionId: string | null
@@ -227,16 +170,10 @@ export async function activateVersion(params: {
         ),
       )
       .limit(1)
-    // A version this organization does not hold, whether it exists elsewhere or
-    // not, answers 403 as it did when this was a message-matched plain Error
-    // (the activate route's spec pins it); 404 would be the usual answer.
     if (!row) throw new ForbiddenError()
     if (params.validate) await params.validate(row)
     version = row
   }
-  // Same compare-before-delete as above: re-activating the already-active
-  // version (or deactivating when already on defaults) moves nothing the
-  // backend caches, so the cross-tier delete is skipped.
   const { activeVersion: previous } = await getOrgModelConfig(params.organizationId)
   await db
     .insert(orgModelConfigs)

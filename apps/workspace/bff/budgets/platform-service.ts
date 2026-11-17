@@ -106,18 +106,12 @@ export async function savePlatformOrgBudget(
   return readBudget(session, organizationId)
 }
 
-/**
- * One organization's spend as its own admins see it on Budgets: the meters,
- * the 30-day trend, the model mix and the member table, for the platform's
- * per-organization view. Read-only; limits stay on the budget dialog.
- */
 export async function getPlatformOrgUsage(session: UserSession, organizationId: string): Promise<PlatformOrgUsage> {
   await requirePlatformPermission(session, PLATFORM_PERMISSIONS.usageView)
   await requireOrganization(organizationId)
   const [usage, name, members] = await Promise.all([
     withTenant({ organizationId, userId: session.userId }, () => getOrganizationUsageOverview(organizationId)),
     getOrganizationDisplayName(organizationId),
-    // Labels only: an office whose directory WorkOS cannot list still shows its spend, by id.
     listOrganizationMembers(organizationId).catch(() => []),
   ])
   const spenders = new Set((usage.perMember ?? []).map((entry) => entry.userId))

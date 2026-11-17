@@ -5,15 +5,6 @@ import * as pulumi from "@pulumi/pulumi";
 import { baseStackConfig } from "../test-support/stack-config";
 import { snapshotScript } from "./qdrant";
 
-/**
- * The small-stack shape of `data/qdrant.ts`: one peer, no worker groups.
- * `index-qdrant.spec.ts` holds the three-peer cluster on a data group.
- *
- * One peer runs without cluster mode, so it must get no p2p URI, no internal
- * auth (there is no p2p to authenticate) and no disruption budget, and its
- * anti-affinity must stay a preference so it schedules on any node.
- */
-
 type Env = { name: string; value?: string };
 type Pod = {
   affinity: { podAntiAffinity: Record<string, unknown> };
@@ -46,7 +37,6 @@ describe("qdrant, one peer", () => {
     const { installQdrant } = await import("./qdrant");
     pulumi.runtime.setAllConfig({ ...baseStackConfig(), "grid-oib:qdrantReplicas": "1" });
     const qdrant = installQdrant(loadConfig(), new k8s.Provider("test", {}), "grid", "http://seaweedfs:8333");
-    // Registration is asynchronous: wait for the resources themselves.
     await Promise.all([qdrant.statefulSet.id, qdrant.service.id, qdrant.snapshotCronJob.id].map(resolve));
     const sts = RESOURCES.find((r) => r.type === "kubernetes:apps/v1:StatefulSet" && r.name === "qdrant");
     pod = (await resolve(sts!.inputs as { spec: { template: { spec: Pod } } })).spec.template.spec;
@@ -80,16 +70,12 @@ describe("qdrant, one peer", () => {
 });
 
 describe("the snapshot script's collection listing", () => {
-  // Runs the script's own `names` function in a POSIX shell under its own
-  // `set -eu -o pipefail`: a fresh cluster answers with no collections, and
-  // that must read as "nothing to snapshot", not as a failed listing.
   const namesDef = (): string => {
     const line = snapshotScript().split("\n").find((l) => l.startsWith("names()"));
     if (!line) throw new Error("snapshotScript defines no names()");
     return line;
   };
   const run = (answer: string): string =>
-    // bash, not sh: dash has no pipefail; the image's busybox ash does, as bash does.
     execFileSync("bash", ["-c", `set -eu -o pipefail\n${namesDef()}\nprintf '%s' '${answer}' | names\necho END`], {
       encoding: "utf8",
     });
@@ -106,10 +92,6 @@ describe("the snapshot script's collection listing", () => {
 });
 
 describe("the snapshot script on a retried run", () => {
-  // The Job retries a failed run (backoffLimit), and every retry used to take
-  // a new snapshot of every collection on every peer: prod's qdrant-snapshots
-  // grew to 74 GB by 2026-11-14. A collection holding a snapshot from the last
-  // FRESH_HOURS is not snapshotted again.
   const script = snapshotScript().split("\n");
   const fn = (name: string): string => {
     const start = script.findIndex((l) => l.startsWith(`${name}() {`));

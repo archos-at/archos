@@ -1,7 +1,3 @@
-"""The passages an exact search shows: the snippets around each match, and the messages for a search that found
-nothing or failed.
-"""
-
 from __future__ import annotations
 
 import bisect
@@ -32,7 +28,6 @@ from .scope import _shelf_lines
 from .scope import _wanted
 from .text import _pages_label
 
-#: Lines of context around a hit (``context=``), and the lines the whole index may print.
 MAX_CONTEXT_LINES = 3
 
 MAX_SNIPPET_LINES = 40
@@ -48,11 +43,6 @@ def match_table(
     candidates: Mapping[str, int] | None = None,
     scopes: Sequence[ShelfScope] = (),
 ) -> str:
-    """The per-file answer to "where does this appear": every file, not the top three.
-
-    ``scopes`` adds the scope statement and one line per shelf, so „0 matches in 12 files“ on the
-    project is visible beside 40 hits in the Basiswissen corpus.
-    """
     wanted = _wanted(phrases, regex_mode)
     floor = "at least " if truncated else ""
     tolerated = _TOLERATED_REGEX if regex_mode else _TOLERATED
@@ -84,7 +74,6 @@ def match_table(
 
 
 def _line_spans(own: OwnText, pattern: Any, timeout: float | None) -> list[tuple[int, int]]:
-    """``(first line, last line)`` of every match that is the chunk's own, counting from 0."""
     starts = [0]
     starts.extend(match.end() for match in re.finditer("\n", own.text))
     matches = own_matches(own, pattern, timeout)
@@ -96,7 +85,6 @@ def _line_spans(own: OwnText, pattern: Any, timeout: float | None) -> list[tuple
 
 
 def _context_ranges(spans: Sequence[tuple[int, int]], context: int, last: int) -> list[tuple[int, int]]:
-    """The line ranges around ``spans``, ``context`` lines each side, overlapping ones joined."""
     ranges: list[tuple[int, int]] = []
     for first, end in sorted(spans):
         low, high = max(0, first - context), min(last, end + context)
@@ -108,7 +96,6 @@ def _context_ranges(spans: Sequence[tuple[int, int]], context: int, last: int) -
 
 
 def _chunk_snippets(own: OwnText, where: str, pattern: Any, context: int, room: int, timeout: float | None):
-    """One chunk's ``(lines, cut)``: its hit ranges, at most ``room`` lines, ``cut`` when it had to stop."""
     lines = own.text.split("\n")
     spans = _line_spans(own, pattern, timeout)
     hit_lines = {number for first, end in spans for number in range(first, end + 1)}
@@ -129,11 +116,6 @@ _SNIPPETS_NOTE = "This is an index: cite the passages above, not these lines."
 
 
 def match_snippets(groups: Sequence[FileMatches], pattern: Any, context: int, *, timeout: float | None = None) -> str:
-    """The lines around every match, ``context`` each side: grep ``-C`` over the files, as an index.
-
-    Per hit ``file, p.N:`` and its lines (``>`` marks a line the pattern matched), at most
-    :data:`MAX_SNIPPET_LINES` lines in all; it says when it stopped. Pure.
-    """
     out: list[str] = []
     cut = False
     chunks = [(group, chunk) for group in groups for chunk in group.chunks]
@@ -147,7 +129,6 @@ def match_snippets(groups: Sequence[FileMatches], pattern: Any, context: int, *,
             break
     if not out:
         return ""
-    # The lines are the documents' own text, so they sit in the passages' fence (``passage_fence``).
     notes = (
         [f"… the lines stop at {MAX_SNIPPET_LINES}; narrow with `folder=` or `file_name=` for the rest."] if cut else []
     )
@@ -162,7 +143,6 @@ def no_match_message(
     regex_mode: bool = False,
     scopes: Sequence[ShelfScope] = (),
 ) -> str:
-    """``No match`` over the ``searched`` collections that ANSWERED; never a "no" over one that failed."""
     wanted = _wanted(phrases, regex_mode)
     short = "" if regex_mode else " | ".join(f'"{phrase}"' for phrase in phrases if len(phrase) <= WHOLE_WORD_MAX_CHARS)
     whole_word = f" {short} was searched as a whole word only, not inside longer words." if short else ""
@@ -180,7 +160,6 @@ def no_match_message(
 
 
 def search_failed_message(phrases: Sequence[str], failed: Sequence[str], *, regex_mode: bool = False) -> str:
-    """Every collection failed: there is no answer, and in particular no Nein."""
     wanted = _wanted(phrases, regex_mode)
     return (
         f"The full-text search for {wanted} could not run: none of the {len(failed)} collection(s) answered "
@@ -190,7 +169,6 @@ def search_failed_message(phrases: Sequence[str], failed: Sequence[str], *, rege
 
 
 def _context_lines(value: Any) -> tuple[int | None, str]:
-    """``context=`` as a count of lines (0 to :data:`MAX_CONTEXT_LINES`), None for none, or a refusal."""
     if value is None or (isinstance(value, str) and not value.strip()):
         return None, ""
     try:

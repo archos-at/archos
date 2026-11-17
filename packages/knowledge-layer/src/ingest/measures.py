@@ -1,18 +1,3 @@
-"""What one file's ingest took and what of it was read, on its trace and on its job's status.
-
-The ``[ingest-perf]`` line (``adapter._log_ingest_perf``) is logged at INFO, and
-only WARN and above reaches PostHog, so where an ingest's time went was visible
-only to someone reading a pod's log. The same seconds and the reading coverage
-now go onto the job's status ``metadata`` (``stage_seconds``, ``coverage``),
-which the BFF reads when it settles the row and puts on
-``document_ingest_finished`` (``apps/workspace/bff/analytics/ingest-events.ts``).
-Counts and seconds only: never a file name or anything read from the file.
-
-Each file's measures are kept on its own record (``file_details[i].metadata``)
-and the job's are their sum, so a one-file job (every upload the BFF
-dispatches) reports that file.
-"""
-
 from __future__ import annotations
 
 import logging
@@ -24,10 +9,8 @@ from agent.knowledge.schema import FileStatus
 
 logger = logging.getLogger(__name__)
 
-#: The Langfuse trace one file's ingest is recorded under (:func:`file_trace`).
 INGEST_TRACE_NAME = "ingest-file"
 
-#: Every stage a file's seconds are reported in, in pipeline order.
 STAGES = (
     "text",
     "tables",
@@ -42,19 +25,12 @@ STAGES = (
     "write",
 )
 
-#: The job-status ``metadata`` keys this module writes.
 STAGE_SECONDS_KEY = "stage_seconds"
 COVERAGE_KEY = "coverage"
 
 
 @contextmanager
 def file_trace(file_name: str, config: dict[str, Any], job_id: str):
-    """The Langfuse trace one file's ingest runs under: ids and the file type, never its text.
-
-    A file the office marked licensed (``config["licence_class"]``) traces every model call it makes as
-    metadata only (``licensed_text.licensed_ingest``): its page reads are the licensed text itself. One whose
-    licence is not attested for AI processing (``config["ai_processing_attested"]``) may call no model at all.
-    """
     from agent.common.licensed_text import licence_from_metadata
     from agent.common.licensed_text import licensed_ingest
     from agent.observability.direct_trace import observed_span
@@ -83,13 +59,6 @@ def _count(value: Any) -> int:
 
 
 def coverage_counts(coverage: dict[str, Any] | None, file_counts: dict[str, Any] | None) -> dict[str, int]:
-    """The reading counts of one file. Pure.
-
-    ``coverage`` is ``knowledge_layer.ingest.coverage``'s record (``None`` for a file
-    without pages, such as a text file); ``file_counts`` is the file's job-status
-    ``metadata``, where the caps were counted (``drawing_pages_over_cap``,
-    ``images_over_cap``).
-    """
     counts = file_counts or {}
     out = {
         "pages_over_render_cap": _count(counts.get("drawing_pages_over_cap")),
@@ -102,11 +71,6 @@ def coverage_counts(coverage: dict[str, Any] | None, file_counts: dict[str, Any]
 
 
 def job_measures(file_metadata: list[dict[str, Any]]) -> dict[str, Any]:
-    """The job's ``stage_seconds`` and ``coverage``: its files' measures summed. Pure.
-
-    Summed from every file's own record each time rather than added onto the
-    job's, so a job that runs again (a retry) reports its last run, not both.
-    """
     seconds: dict[str, float] = {}
     reading: dict[str, int] = {}
     for metadata in file_metadata:
@@ -118,7 +82,6 @@ def job_measures(file_metadata: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def _record_measures(job: Any, detail: Any, stages: dict[str, float], counts: dict[str, int]) -> None:
-    """Put one file's measures on its own record, then the job's totals on the job's ``metadata``."""
     if detail is not None:
         detail.metadata[STAGE_SECONDS_KEY] = {name: round(stages[name], 3) for name in STAGES if name in stages}
         detail.metadata[COVERAGE_KEY] = counts
@@ -129,7 +92,6 @@ def _record_measures(job: Any, detail: Any, stages: dict[str, float], counts: di
 def finish_file(
     recorder: Any, job: Any, index: int, stages: dict[str, float], coverage: dict[str, Any] | None = None
 ) -> None:
-    """Write the file's outcome on its trace and its measures on the job's status. Never raises."""
     try:
         detail = job.file_details[index] if index < len(job.file_details) else None
         _record_measures(job, detail, stages, coverage_counts(coverage, getattr(detail, "metadata", None)))

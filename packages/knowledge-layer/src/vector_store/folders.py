@@ -1,26 +1,3 @@
-"""Folder card points: a written folder card as a Qdrant point in its folder's own scope (ADR-0127).
-
-The card itself is a row in ``app.folder_cards`` behind the BFF (ADR-0003);
-the point is a derived copy so that a search can land on a folder and send the
-model down into it. One point per card, ``kind = folder``, in the scope of the
-collection the card was built from, so a restricted folder's card is as
-invisible as its documents to a turn that has not admitted that scope.
-
-What is embedded is the folder's path, its abstract and its key facts, densely,
-with the production embedder. There is no BM25 vector: a card is short, it would
-shift the IDF statistics the chunk channel is scored by, and a folder is routed
-to by meaning. Every chunk read leaves these points out (``scope.scope_filter``,
-``kind="chunk"`` by default); only :func:`search_folders` and the scroll here ask
-for them.
-
-A point is never a source. :func:`search_folders` returns routing hits that the
-search prints as ``Folder:`` lines, never a passage or a citation record.
-
-The point id is a UUIDv5 of the scope and the folder key (case-folded), so a card
-rewritten after a rename of its letters' case replaces its point. A ``_vN``
-rebuild copies these points with the chunks; nothing has to republish them.
-"""
-
 from __future__ import annotations
 
 import logging
@@ -51,16 +28,12 @@ logger = logging.getLogger(__name__)
 
 _FOLDER_NAMESPACE = uuid.UUID("0f6a3c52-7d1e-4b8a-9c2f-5e4d3b2a1f09")
 
-#: Folders one search may name. A routing hint, not a result list.
 FOLDER_HITS = 3
-#: Key facts embedded with the abstract (the builder writes at most eight).
 _FACTS_EMBEDDED = 8
-#: Payload keys a folder hit reads back.
 _HIT_FIELDS = ["folder_path", "abstract", "status"]
 
 
 def folder_point_id(scope: str, folder_path: str) -> str:
-    """The point id of ``folder_path``'s card in ``scope``: stable across case and slashes."""
     key = folder_key(folder_path)
     if key is None:
         raise ValueError("The root has no folder card")
@@ -78,7 +51,6 @@ def _facts(key_facts: Any) -> list[str]:
 
 
 def embedding_text(folder_path: str, abstract: str | None, key_facts: Any = ()) -> str:
-    """What a card's dense vector is computed from: the path, the abstract, the key facts. Pure."""
     lines = [f"Ordner: {folder_path.strip('/')}"]
     abstract = " ".join(str(abstract or "").split())
     if abstract:
@@ -88,7 +60,6 @@ def embedding_text(folder_path: str, abstract: str | None, key_facts: Any = ()) 
 
 
 def folder_payload(scope: str, card: Mapping[str, Any]) -> dict[str, Any]:
-    """The point payload of one card (the BFF route's body or row). Pure."""
     folder_path = str(card["folder_path"]).strip("/")
     return {
         SCOPE_FIELD: scope,
@@ -103,7 +74,6 @@ def folder_payload(scope: str, card: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def upsert_folder_card(store: QdrantStore, scope: str, card: Mapping[str, Any], vector: Sequence[float]) -> str:
-    """Write ``card``'s point into ``scope`` (replacing the one it had); returns the point id."""
     if physical_for_scope(scope) is not Physical.OFFICE:
         raise ValueError(f"A folder card belongs to an office scope, not {scope!r}")
     payload = folder_payload(scope, card)
@@ -124,7 +94,6 @@ def _the_point(scope: str, folder_path: str) -> models.Filter:
 
 
 def delete_folder_card(store: QdrantStore, scope: str, folder_path: str) -> None:
-    """Remove ``folder_path``'s card point from ``scope``; a point that is not there is no error."""
     if not store.exists(scope):
         return
     selector = models.FilterSelector(filter=_the_point(scope, folder_path))
@@ -135,7 +104,6 @@ def delete_folder_card(store: QdrantStore, scope: str, folder_path: str) -> None
 
 
 def set_folder_card_status(store: QdrantStore, scope: str, folder_path: str, status: str) -> None:
-    """Change only the ``status`` of a card's point (``stale``, ``failed``), keeping its vector."""
     if not store.exists(scope):
         return
     with_retry(
@@ -147,7 +115,6 @@ def set_folder_card_status(store: QdrantStore, scope: str, folder_path: str, sta
 
 
 def folder_cards(store: QdrantStore, scopes: Sequence[str]) -> list[dict[str, Any]]:
-    """Every folder card point's payload in ``scopes``, by scroll (a rebuild check, a test)."""
     found: list[dict[str, Any]] = []
     for scope in dict.fromkeys(scopes):
         if not store.exists(scope):
@@ -170,13 +137,11 @@ def folder_cards(store: QdrantStore, scopes: Sequence[str]) -> list[dict[str, An
 
 @dataclass(frozen=True)
 class FolderHit:
-    """A folder whose card matched a query: where to look next, never something to cite."""
 
     scope: str
     folder_path: str
     abstract: str
     status: str
-    #: Cosine of the query to the card's vector.
     score: float
 
 
@@ -188,12 +153,6 @@ def search_folders(
     folder: str | None = None,
     limit: int = FOLDER_HITS,
 ) -> list[FolderHit]:
-    """The folder cards in ``scopes`` nearest to ``vector``, best first; within ``folder`` when given.
-
-    Office scopes only (the corpus has no folder cards). ``folder`` narrows to the
-    cards of folders beneath it, the folder itself excluded: a search scoped to a
-    folder is already inside it.
-    """
     office = [scope for scope in dict.fromkeys(scopes) if physical_for_scope(scope) is Physical.OFFICE]
     if limit <= 0 or not office or not store.exists(office[0]):
         return []
@@ -227,16 +186,10 @@ def search_folders(
     return hits[:limit]
 
 
-#: Characters of an abstract one ``Folder:`` line carries.
 _ABSTRACT_CHARS = 280
 
 
 def render_folder_hits(hits: Sequence[FolderHit], query_hint: str = "…") -> str:
-    """The ``Folder:`` lines a search prints after its passages. Pure; empty for no hits.
-
-    English labels; the path and the abstract as stored. Each line names the two
-    calls that look inside the folder, because a card is an index and never the answer.
-    """
     if not hits:
         return ""
     lines = ["## Folders that match"]

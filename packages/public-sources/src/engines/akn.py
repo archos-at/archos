@@ -1,17 +1,3 @@
-"""``akn``: Akoma Ntoso (OASIS LegalDocML 1.0) into anchored passages.
-
-One engine for every publisher of the standard: Fedlex (CH), legislation.gov.uk
-(UK, ``/data.akn``), LegalDocML.de from NeuRIS (DE), the EU's Formex successors.
-Each provision already carries an ``eId``, the anchor a citation keeps. What a
-publisher decides differently is configuration: which element is the unit of a
-passage (``article`` for Fedlex, ``section`` for the UK), which inline elements
-are notes rather than law (Fedlex's ``authorialNote`` footnotes cite the
-amending act, and read inline they split a sentence of the provision in two).
-
-Parsing is lxml's, with entity resolution and network access off: the bytes
-come from the outside and are treated as such.
-"""
-
 from __future__ import annotations
 
 import copy
@@ -30,13 +16,9 @@ _NS = {"akn": AKN_NAMESPACE}
 
 
 class AknConfig(EngineConfig):
-    #: The element that becomes one passage.
     unit: str = "article"
-    #: Inline elements left out of the text: footnotes, editorial remarks.
     drop: tuple[str, ...] = ("authorialNote",)
-    #: Title language: the FRBRname with this ``xml:lang`` wins over ``docTitle``.
     language: str = ""
-    #: ``FRBRdate/@name`` of the expression's point in time. Empty: the expression's first FRBRdate.
     version_date_name: str = ""
     max_passages: int = Field(default=2000, ge=1)
 
@@ -119,12 +101,10 @@ def _remove_keeping_tail(element) -> None:
     parent.remove(element)
 
 
-#: Elements that start a new line in the text: the structure a reader sees.
 _BLOCKS = {"paragraph", "subparagraph", "item", "point", "listIntroduction", "listWrapUp", "p", "intro", "wrapUp"}
 
 
 def _block_text(element) -> str:
-    """The element's text with a line per block, a block's ``num`` on the line it numbers ("2 Sie …")."""
     parts: list[str] = []
     after_num = False
 

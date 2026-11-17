@@ -1,5 +1,3 @@
-"""Format engines: bytes into anchored text. One per format, none per country."""
-
 from __future__ import annotations
 
 from public_sources.engines.akn import Akn
@@ -13,7 +11,6 @@ from public_sources.engines.pdf_document import PdfDocument
 from public_sources.engines.ris_xml import IN_FORCE_UNTIL as RIS_IN_FORCE_UNTIL
 from public_sources.engines.ris_xml import RisXml
 
-#: Every format a source record may name. A new one is code, written once.
 ENGINES: dict[str, type[Engine]] = {cls.name: cls for cls in (RisXml, Akn, HtmlStatute, GeoJson, PdfDocument)}
 
 
@@ -25,7 +22,6 @@ def engine_type(name: str) -> type[Engine]:
 
 
 def engine_for(source) -> Engine:
-    """The format engine of ``source``, configured from its record."""
     return engine_type(source.format)(source.engine)
 
 

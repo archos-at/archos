@@ -5,17 +5,6 @@ import * as k8s from "@pulumi/kubernetes";
 import * as pulumi from "@pulumi/pulumi";
 import { baseStackConfig } from "./test-support/stack-config";
 
-/**
- * The one OpenRouter key's budget (ADR-0076, ADR-0081), as the stack files state it.
- *
- * Vision calls are held to `VLM_FLEET_CONCURRENCY` fleet-wide whatever the
- * replica count: the lease pool caps the calls, and each file's page-read pool
- * (`INGEST_PAGE_READ_PARALLELISM`) bounds only its threads and memory. An ingest
- * tier with more documents at once than the pool has slots only queues: replicas
- * that hold memory and wait. The numbers are set in different places and neither
- * looks wrong alone, so the program refuses the combination.
- */
-
 pulumi.runtime.setMocks(
   {
     newResource: (args: pulumi.runtime.MockResourceArgs) => ({
@@ -29,7 +18,6 @@ pulumi.runtime.setMocks(
   false,
 );
 
-// src -> deploy/pulumi -> deploy -> repo root
 const pulumiDir = join(__dirname, "..");
 const repoRoot = join(__dirname, "..", "..", "..");
 const read = (...parts: string[]) => readFileSync(join(repoRoot, ...parts), "utf8");
@@ -45,7 +33,6 @@ async function load(config: Record<string, string> = {}) {
   return { ...budget, cfg: configModule.loadConfig() };
 }
 
-/** A knob as a stack file sets it, or the default the program falls back to. */
 function stackKnob(stack: "dev" | "prod", key: string): string | undefined {
   const text = readFileSync(join(pulumiDir, `Pulumi.${stack}.yaml`), "utf8");
   return text.match(new RegExp(`^\\s*grid-oib:${key}: "?([^"\\s]+)"?\\s*$`, "m"))?.[1];

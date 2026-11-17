@@ -1,9 +1,3 @@
-"""Shared authentication utilities for AI-Q blueprint.
-
-This module provides token retrieval and user info utilities that can be used
-by any tool or agent.
-"""
-
 from .utils import Principal
 from .utils import UserInfo
 from .utils import clear_token_fetchers

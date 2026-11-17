@@ -1,31 +1,3 @@
-/**
- * The A2A door's request handler (ADR-0124): the SDK's `A2ARequestHandler`,
- * answered by the ask routes.
- *
- * Not a second path to the asks: every method calls `/api/agent-asks` through
- * `callOperation`, the dispatcher the MCP door and accepted proposals use, as
- * the person the token names. The route's `authz`, rate limit (`chat-turn`),
- * tenant slot, body schema, the `piloti-ask` switch and the budget apply
- * exactly as for any other client. The SDK's JSON-RPC transport
- * (`JsonRpcTransportHandler`, and `LegacyJsonRpcTransportHandler` for 0.3)
- * parses the request, picks the method and serializes the answer.
- *
- * | A2A method (1.0 / 0.3) | Route |
- * |---|---|
- * | `SendMessage` / `message/send` | `POST /api/agent-asks`, then `GET …/[id]?waitSeconds=` until the task ends; with `returnImmediately` (0.3: `blocking: false`) the ask waits 0 seconds and the task answers as it stands |
- * | `SendStreamingMessage` / `message/stream` | the same without the wait, as server-sent events: the task, each change of state, the artifacts, the end; an ask that ended at once is one event, the whole task |
- * | `GetTask` / `tasks/get` | `GET /api/agent-asks/[id]` |
- * | `CancelTask` / `tasks/cancel` | `POST /api/agent-asks/[id]/cancel` |
- * | `SubscribeToTask` / `tasks/resubscribe` | the stream of an existing task |
- *
- * A `contextId` the client made up starts a new conversation, whose id the
- * task carries back. Each method's call is recorded as a call on the agent door
- * (PostHog and Langfuse, door `a2a`); the dispatcher runs it with the agent as
- * reader, so a refusal reaches the client in English.
- *
- * Push notifications, `ListTasks` and the extended card are not offered.
- */
-
 import 'server-only'
 import type {
   AgentCard,
@@ -61,22 +33,12 @@ import { ASK_WAIT_SECONDS, isTerminalAskState, type AskView } from '@/lib/agent-
 import { askInputOf, artifactsOf, taskOf } from './task-mapping'
 import { PRODUCT_NAME } from '@/lib/brand'
 
-/** The longest a blocking `SendMessage` holds its request before it answers the task still working. */
 export const BLOCKING_MAX_MS = 5 * 60_000
-/** The longest one stream stays open. */
 export const STREAM_MAX_MS = 15 * 60_000
-/** How long one poll of a stream waits for the ask to change. */
 const STREAM_POLL_SECONDS = 10
 
-/** Runs one ask operation as a person; the dispatcher, or a spec's stand-in. */
 export type AskCaller = (name: string, input: OperationInput, session: AuthorizedSession) => Promise<OperationResult>
 
-/**
- * The dispatcher, with the answer read by an agent (`reader: 'agent'`): a
- * route's refusal reaches the A2A client in English, as it does on the MCP door.
- * The A2A caller is an outside agent, so it reaches what `exposure.config.ts`
- * offers one, as on `/api/mcp`.
- */
 export const callAskOperation: AskCaller = (name, input, session) => {
   const op = findOperation(name)
   if (!op) throw new Error(`the operation ${name} is not in the catalog`)
@@ -84,7 +46,6 @@ export const callAskOperation: AskCaller = (name, input, session) => {
   return callOperation(op, input, session, 'agent')
 }
 
-/** The route's own words for a refusal: its error envelope's `error`, else the status. */
 function routeMessage(result: OperationResult): string {
   const body = result.body
   if (typeof body === 'object' && body !== null && 'error' in body) {
@@ -94,7 +55,6 @@ function routeMessage(result: OperationResult): string {
   return `${PRODUCT_NAME} refused the request (${result.status}).`
 }
 
-/** A route's refusal as the A2A error that names it; anything else is the SDK's internal error with the route's words. */
 function refusal(result: OperationResult, notFound: 'task' | 'malformed'): Error {
   const message = routeMessage(result)
   if (result.status === 404) return notFound === 'task' ? new TaskNotFoundError(message) : new RequestMalformedError(message)
@@ -139,13 +99,6 @@ export class AgentA2ARequestHandler implements A2ARequestHandler {
     this.session = principal.session
   }
 
-  /**
-   * One ask operation. The call an A2A method makes for its client is recorded
-   * as every call on the agent door is: PostHog's `agent_operation_called` and
-   * a Langfuse `agent-tool-call` trace, door `a2a`. The polls a blocking call or
-   * a stream makes while it waits are not (`recorded: false`): they are the
-   * same call, waiting.
-   */
   private async run(name: string, input: OperationInput, recorded = true): Promise<OperationResult> {
     if (!recorded) return this.call(name, input, this.session)
     const startedAt = Date.now()
@@ -172,13 +125,6 @@ export class AgentA2ARequestHandler implements A2ARequestHandler {
     throw new ExtendedAgentCardNotConfiguredError(PRODUCT_NAME + ' has one agent card, the public one.')
   }
 
-  /**
-   * Ask, waiting as long as the method does: not at all for a non-blocking
-   * call (`returnImmediately`, or 0.3's `blocking: false`). A `contextId` that
-   * names no conversation an ask of this person started is one the client made
-   * up for a new conversation: the ask then starts one, whose id the task
-   * carries as its `contextId`.
-   */
   private async ask(params: SendMessageRequest, waitSeconds?: number): Promise<AskView> {
     const input = askInputOf(params.message, params.metadata)
     const body = waitSeconds === undefined ? input : { ...input, waitSeconds }
@@ -195,7 +141,6 @@ export class AgentA2ARequestHandler implements A2ARequestHandler {
     return viewOf(await this.run('agent-ask-get', { params: { id }, query }, recorded), 'task')
   }
 
-  /** Poll until the ask ends or `deadline` passes; the last view. */
   private async settle(view: AskView, deadline: number): Promise<AskView> {
     let current = view
     while (!isTerminalAskState(current.state) && Date.now() < deadline) {
@@ -214,7 +159,6 @@ export class AgentA2ARequestHandler implements A2ARequestHandler {
     return taskOf(await this.settle(view, started + BLOCKING_MAX_MS), historyLength)
   }
 
-  /** The stream of a task from `view` on: each change of state, then the artifacts and the final state. */
   private async *follow(first: AskView): AsyncGenerator<StreamResponse, void, undefined> {
     const deadline = Date.now() + STREAM_MAX_MS
     let view = first
@@ -230,10 +174,8 @@ export class AgentA2ARequestHandler implements A2ARequestHandler {
   }
 
   async *sendMessageStream(params: SendMessageRequest): AsyncGenerator<StreamResponse, void, undefined> {
-    // A stream opens with the task (specification 3.2.3), so it does not wait for the answer first.
     const view = await this.ask(params, 0)
     if (isTerminalAskState(view.state)) {
-      // Ended already (refused, or answered at once): the task whole is the stream, with its artifacts.
       yield { payload: { $case: 'task', value: taskOf(view) } }
       return
     }

@@ -1,32 +1,13 @@
-/**
- * Citation-health repository: the ONLY module that queries the DB for the
- * citation-quality domain. Raw data access and row shaping only —
- * authorization lives in the routes (platform-owner gate, mirrors
- * `api/platform/overview/route.ts`); rollup shaping lives in `./service`.
- *
- * Every query is restricted by one predicate, `citationScopeWhere`: the date
- * range, and the organizations and projects when named. Every aggregate keys
- * off the invariant the emitter guarantees: one `turn_verified` row per
- * observed research turn, plus one row per defect on that turn.
- */
-
 import 'server-only'
 import { and, desc, ne, sql, type SQL } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
 import { CITATION_BASELINE_KIND, CITATION_PRECISION_KIND, citationEvents, type CitationEvent, type CitationEventKind, type NewCitationEvent } from '@/lib/db/schema/citation-events'
 import { conversations } from '@/lib/db/schema/conversations'
 
-/**
- * What every read below is restricted to: `[start, endExclusive)` on
- * `created_at`, and, when non-empty, the organizations and projects named.
- * Built from a `QualityScope` by the service (`scopeBounds`).
- */
 export interface CitationScopeFilter {
   start: Date
   endExclusive: Date
-  /** Empty means every organization. */
   organizationIds: readonly string[]
-  /** Empty means every project. */
   projectIds: readonly string[]
 }
 
@@ -38,25 +19,6 @@ const boundList = (values: readonly string[]): SQL =>
     sql`, `
   )
 
-/**
- * The scope as ONE predicate over `citation_events`, shared by every query so
- * no aggregate can drift onto a different set of rows than its neighbours.
- *
- * `alias` is how the query names the table: the select builder renders it as
- * `citation_events`, the raw queries alias it `e`.
- *
- * Bounds are bound as ISO strings with an explicit cast, never as a `Date`: a
- * raw fragment carries no column type, so postgres-js receives an unencodable
- * `Date` and the query dies at bind time with `The "string" argument must be
- * of type string … Received an instance of Date`.
- *
- * `citation_events` has no project column. A project filter resolves each
- * event through its conversation (same organization, so a conversation id
- * reused across tenants cannot pull another tenant's rows in), which means an
- * event with no resolvable conversation is OUT of a project-filtered view. A
- * project id that is not a UUID cannot name a project, so it matches nothing
- * rather than failing the cast.
- */
 export function citationScopeWhere(
   filter: CitationScopeFilter,
   alias: 'e' | 'citation_events' = 'citation_events'
@@ -88,11 +50,6 @@ export function citationScopeWhere(
   return sql.join(parts, sql` and `)
 }
 
-/**
- * Insert one turn's batch. `onConflictDoNothing` on (turn_id, kind) makes a
- * retried flush idempotent — the backend posts best-effort, so the same batch
- * can legitimately arrive twice.
- */
 export async function insertCitationEvents(events: NewCitationEvent[]): Promise<number> {
   if (events.length === 0) return 0
   const db = getDb()
@@ -106,13 +63,10 @@ export async function insertCitationEvents(events: NewCitationEvent[]): Promise<
 
 export interface KindTotalRow {
   kind: CitationEventKind
-  /** Turns carrying this kind (one row per turn per kind, so also the row count). */
   turns: number
-  /** Summed `count` — individual citations dropped, quotes unverified, … */
   items: number
 }
 
-/** Rows per kind in the window — the headline mix. */
 export async function aggregateByKind(filter: CitationScopeFilter): Promise<KindTotalRow[]> {
   const db = getDb()
   const rows = await db
@@ -132,14 +86,6 @@ export async function aggregateByKind(filter: CitationScopeFilter): Promise<Kind
   }))
 }
 
-/**
- * Distinct turns in the window, across every kind.
- *
- * NOT the count of `turn_verified` rows: a turn that failed with
- * `registry_empty` never reaches verification and so has no baseline row, yet
- * it is unquestionably an observed turn. Counting distinct turn ids keeps
- * `defectTurns <= turns` and the clean rate honest.
- */
 export async function countObservedTurns(filter: CitationScopeFilter): Promise<number> {
   const db = getDb()
   const [row] = await db
@@ -149,7 +95,6 @@ export async function countObservedTurns(filter: CitationScopeFilter): Promise<n
   return Number(row?.turns ?? 0)
 }
 
-/** Distinct turns in the window that carry at least one DEFECT row. */
 export async function countDefectiveTurns(filter: CitationScopeFilter): Promise<number> {
   const db = getDb()
   const [row] = await db
@@ -168,18 +113,9 @@ export async function countDefectiveTurns(filter: CitationScopeFilter): Promise<
 export interface DailyTurnRow {
   day: string
   turns: number
-  /** Distinct turns that day carrying at least one DEFECT row. */
   defectTurns: number
 }
 
-/**
- * Distinct turns per UTC day — the trend's denominator, same rule as above —
- * and, of those, the distinct turns that carried a defect.
- *
- * The defect count has to come from here: per-kind daily turn counts are not
- * additive (one turn often carries several defects), so nothing derived from
- * `aggregateDailyByKind` can say how many turns were bad, only bound it.
- */
 export async function aggregateDailyTurns(filter: CitationScopeFilter): Promise<DailyTurnRow[]> {
   const db = getDb()
   const rows = await db
@@ -205,7 +141,6 @@ export interface DailyKindRow {
   turns: number
 }
 
-/** Per-UTC-day rows by kind — the trend chart's raw series (zero-filled in the service). */
 export async function aggregateDailyByKind(filter: CitationScopeFilter): Promise<DailyKindRow[]> {
   const db = getDb()
   const rows = await db
@@ -234,18 +169,8 @@ export interface ReasonTotalRow {
   occurrences: number
 }
 
-/** Distinct reasons kept PER KIND; the emitter's taxonomy is far smaller. */
 const REASONS_PER_KIND = 20
 
-/**
- * Expand the `reasons` jsonb into (kind, reason, occurrences) — the "WHY did
- * verification drop it" breakdown. `jsonb_each_text` needs a lateral join, so
- * this one is raw SQL rather than the select builder.
- *
- * Ranked and bounded PER KIND, never across kinds: a global top-N let one
- * kind's reasons (`confidence_capped`) crowd another's (`citations_removed`)
- * out of the list, and the findings read their shares off this list.
- */
 export async function aggregateReasons(filter: CitationScopeFilter): Promise<ReasonTotalRow[]> {
   const db = getDb()
   const rows = await db.execute<{ kind: string; reason: string; occurrences: string }>(sql`
@@ -287,22 +212,10 @@ export interface SourceMixRow {
   turns: number
 }
 
-/** Labels kept PER DIMENSION, so a busy dimension cannot crowd out the others. */
 const SOURCE_MIX_PER_DIMENSION = 12
 
 const SOURCE_MIX_DIMENSIONS: readonly SourceMixDimension[] = ['origin', 'lane', 'tool']
 
-/**
- * Which retrieval origins, lanes and tools were in play on turns that hit a
- * defect.
- *
- * The source mix lives on the `turn_verified` baseline row (one per turn), so
- * this joins those rows to the set of turns carrying at least one defect. It
- * answers the most actionable diagnostic question — "which lane keeps
- * producing output the verifier can't tie back to a source?" The emitter
- * writes `detail.origins`, `detail.lanes` and `detail.tools`
- * (`citation_events.build_turn_events`); all three are read here.
- */
 export async function aggregateDefectiveSourceMix(
   filter: CitationScopeFilter
 ): Promise<SourceMixRow[]> {
@@ -353,11 +266,6 @@ export async function aggregateDefectiveSourceMix(
   }))
 }
 
-/**
- * A bounded list together with the size of the whole set it was cut from.
- * `total` comes from `count(*) over ()`, which Postgres evaluates BEFORE the
- * limit, so it is exact even when `rows` is not the whole set.
- */
 export interface BoundedRows<T> {
   rows: T[]
   total: number
@@ -366,29 +274,13 @@ export interface BoundedRows<T> {
 export interface FailedTargetRow {
   target: string
   reason: string
-  /** Distinct turns that cited this target and had it rejected. */
   turns: number
-  /** Distinct organizations affected. */
   organizations: number
   lastSeenAt: Date
 }
 
-/**
- * How many distinct targets one snapshot reads. The dashboard shows far
- * fewer; the rest still feed the findings' totals, and `total` says how many
- * exist beyond this scan.
- */
 export const FAILED_TARGET_SCAN_CAP = 1000
 
-/**
- * Which specific sources the model cited but verification could not confirm,
- * grouped by target and ranked by how often it happened.
- *
- * This is the raw material for the "missing sources" list: a document key or
- * URL cited again and again but never present in retrieval is either absent
- * from the corpus (add it) or present but unretrievable (an indexing problem).
- * The service decides which by cross-checking the live corpus.
- */
 export async function aggregateFailedTargets(
   filter: CitationScopeFilter
 ): Promise<BoundedRows<FailedTargetRow>> {
@@ -441,19 +333,6 @@ export async function aggregateFailedTargets(
   }
 }
 
-/**
- * Distinct turns on which ANY of `targets` was the cited source verification
- * rejected.
- *
- * Needed because per-target turn counts are NOT additive: three documents
- * rejected on the SAME turn are three rows of `aggregateFailedTargets`, each
- * with `turns: 1`. Summing them reports "3 turns" for a window that only ever
- * saw one — which is how a single bad turn came to read as a platform-wide
- * trend. The union has to come from the database.
- *
- * Targets are bound as individual parameters (never interpolated), and the
- * caller passes at most `FAILED_TARGET_SCAN_CAP` of them.
- */
 export async function countTurnsForTargets(
   filter: CitationScopeFilter,
   targets: string[]
@@ -485,11 +364,6 @@ export interface UnavailableToolRow {
 
 const UNAVAILABLE_TOOL_LIMIT = 8
 
-/**
- * Tools the backend reported as unavailable on turns that captured no source
- * at all (`registry_empty` detail). This is the single most actionable signal
- * in the ledger: it names the retrieval integration that is actually down.
- */
 export async function aggregateUnavailableTools(
   filter: CitationScopeFilter
 ): Promise<BoundedRows<UnavailableToolRow>> {
@@ -522,14 +396,8 @@ export interface OrganizationTotalRow {
   errorTurns: number
 }
 
-/**
- * How many organizations one snapshot reads. Every one of them feeds the
- * outlier finding (an org outside the displayed top list can still be the
- * outlier); the dashboard shows fewer, and `total` is exact either way.
- */
 export const ORGANIZATION_SCAN_CAP = 1000
 
-/** Per-organization observed vs. defective turns — most defective turns first. */
 export async function aggregateByOrganization(
   filter: CitationScopeFilter
 ): Promise<BoundedRows<OrganizationTotalRow>> {
@@ -570,7 +438,6 @@ export async function aggregateByOrganization(
 
 const RECENT_LIMIT = 25
 
-/** The newest defect rows — the drill-down list ("show me the last failures"). */
 export async function listRecentDefects(
   filter: CitationScopeFilter,
   limit = RECENT_LIMIT
@@ -590,14 +457,8 @@ export async function listRecentDefects(
     .limit(Math.min(Math.max(limit, 1), RECENT_LIMIT))
 }
 
-/** Hard ceiling on export rows; the service reports when it was reached. */
 export const EXPORT_ROW_CAP = 5000
 
-/**
- * Every event in the window, oldest first — the raw feed behind the
- * diagnostic export. Capped so a wide window cannot stream unbounded rows;
- * the service reports when the cap was hit rather than truncating silently.
- */
 export async function listEventsForExport(
   filter: CitationScopeFilter,
   limit = EXPORT_ROW_CAP
@@ -609,7 +470,6 @@ export async function listEventsForExport(
       .from(citationEvents)
       .where(citationScopeWhere(filter))
       .orderBy(citationEvents.createdAt)
-      // One row over the cap, so the caller can tell "exactly full" from "truncated".
       .limit(Math.min(Math.max(limit, 1), EXPORT_ROW_CAP) + 1)
   )
 }

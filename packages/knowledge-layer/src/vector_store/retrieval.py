@@ -1,10 +1,3 @@
-"""The adapter's reads from Qdrant, in the adapter's terms: one logical collection per call.
-
-``LlamaIndexRetriever`` keeps its contract (``retrieve(query, collection)``,
-``find_text(collection, pattern)``) and answers from here. Nothing returned
-carries a ``qdrant_client`` type.
-"""
-
 from __future__ import annotations
 
 import logging
@@ -31,16 +24,8 @@ from .search import grouped_search
 from .search import hybrid_search
 from .store import get_store
 
-#: The German stopwords spelled with an umlaut or ß (Snowball's list, the one
-#: Postgres' ``german`` config and Qdrant's German BM25 both use). Qdrant folds
-#: before it drops stopwords, so with ``ascii_folding`` „über“ reaches the
-#: index and the query as ``uber``, a term on 18% of the OIB corpus: „was
-#: weißt du über die oib 1“ ranked every chunk with an „über“ (measured,
-#: ``qdrant-gates-2026-10.md``, "Ranking sweep"). The rest of the list Qdrant
-#: drops itself, as Postgres drops all of it.
 BM25_FOLDED_STOPWORDS = frozenset({"daß", "für", "können", "könnte", "über", "während", "würde", "würden"})
 
-#: A file name typed into a question: a word with a document extension.
 _FILE_NAME = re.compile(
     r"[\w.-]+\.(?:pdf|docx?|xlsx?|pptx?|odt|ods|rtf|txt|md|csv|dwg|dxf|ifc|png|jpe?g|tiff?|eml|msg|zip)\b",
     re.IGNORECASE,
@@ -48,24 +33,10 @@ _FILE_NAME = re.compile(
 
 
 def bm25_candidates(query: str, extra_terms: Sequence[str] = ()) -> list[str]:
-    """The terms of ``query`` the BM25 channel may be asked for, before pricing.
-
-    ``german_text.query_terms``, less what carries no lexical signal here:
-    the stopwords Qdrant's folding lets through, and the pieces of a file
-    name. A file name is an identifier, not prose: split at ``-``, ``_`` and
-    ``.``, „oib-rl_5_ausgabe_mai_2023.pdf“ asked BM25 for „ausgabe mai 2023“,
-    which every Richtlinie's front matter holds, and pushed the named file out
-    of the 60-chunk pool the dense channel alone puts it in.
-
-    Each term comes with its other German spelling (``german_text.umlaut_spellings``):
-    the index folds „ä“ to „a“ but keeps „ae“, so „Flaechenwidmung“ found none
-    of the passages „Flächenwidmung“ found. Pricing drops the spelling no chunk holds.
-    """
     from agent.common import german_text
 
     prose = _FILE_NAME.sub(" ", query)
     spellings = (german_text.umlaut_spellings(term) for term in german_text.query_terms(prose, extra_terms=extra_terms))
-    # A stopword typed either way („für“, „fuer“) is left out with both its spellings.
     kept = (spelling for each in spellings if BM25_FOLDED_STOPWORDS.isdisjoint(each) for spelling in each)
     return list(dict.fromkeys(kept))
 
@@ -81,7 +52,6 @@ def search(
     exact_terms: Sequence[str],
     identity: Mapping[str, str],
 ) -> list[Hit]:
-    """The fused hybrid ranking over one logical collection, read as ``office_id``; refuses a foreign embedder."""
     store = get_store(identity)
     store.check_identity(scope)
     return hybrid_search(
@@ -110,11 +80,6 @@ def search_grouped(
     boost: Mapping[str, Any] | None = None,
     exact_terms: Sequence[str] = (),
 ) -> list[tuple[str, list[Hit]]]:
-    """One fused ranking over many logical collections, grouped per collection, best group first.
-
-    ``filters`` is the backend-neutral filter grammar (``scope.translate``);
-    ``boost`` is ``{"facts": {...}, "weights": {...}}`` (``boost.parse_boost``).
-    """
     if not scopes:
         return []
     store = get_store(identity)
@@ -135,7 +100,6 @@ def search_grouped(
 
 
 def set_project_facts(scope: str, facts: Mapping[str, Any] | None, status: str) -> bool:
-    """Mirror a project's facts and status onto every point of ``scope``; False when no collection holds it yet."""
     return get_store().set_scope_payload(scope, project_payload(facts, status))
 
 
@@ -144,16 +108,6 @@ def term_frequencies(
     terms: Sequence[str],
     cache: MutableMapping[tuple[str, int, str], int] | None = None,
 ) -> tuple[int, dict[str, int]]:
-    """How many chunks ``scopes`` hold together, and how many contain each exact term (``search.exact_term``).
-
-    Over several scopes (cross-project search) both counts are over their
-    union: the corpus the BM25 channel's IDF is computed over
-    (``search._prefetches``), so a term is judged selective where it is ranked.
-
-    ``cache`` keeps a count per ``(scopes, total, term)``, the scopes joined
-    sorted: a corpus that has not changed size answers a recurring term without
-    a round trip, and any write that changes the count invalidates it.
-    """
     names = [scopes] if isinstance(scopes, str) else list(dict.fromkeys(scopes))
     store = get_store()
     if not names or not store.exists(names[0]):
@@ -177,19 +131,11 @@ def term_frequencies(
     return total, counts
 
 
-#: A character class standing between words in a ``browse.phrase_pattern``:
-#: whitespace and dashes, at least one of them.
 _SEPARATOR_CLASS = re.compile(r"\[((?:\\s|[^\]\w\\])+)\]\+")
 _PLAIN_TOKEN = re.compile(r"[a-z0-9]+")
 
 
 def _pieces(alternative: str) -> list[tuple[str, str]] | None:
-    """One alternative of the pattern as ``(kind, text)`` pieces, or None for a construct not read here.
-
-    Kinds: ``sep`` (a separator class, or ``\\b``: the text has a non-word
-    character or an edge there), ``group`` (an umlaut alternation, a word
-    character of unknown spelling) and ``char`` (one literal character).
-    """
     pieces: list[tuple[str, str]] = []
     index = 0
     while index < len(alternative):
@@ -219,13 +165,6 @@ def _pieces(alternative: str) -> list[tuple[str, str]] | None:
 
 
 def _bounded_words(pieces: list[tuple[str, str]]) -> list[str]:
-    """The plain ASCII words of an alternative that its text must hold as whole tokens.
-
-    A word counts only with a separator, ``\\b`` or a non-word literal on BOTH
-    sides: an unbounded edge matches inside a longer word (the pattern for
-    „Fluchtstiege“ finds „Hauptfluchtstiegen“), whose token is not the word.
-    A word with an umlaut group in it has no single spelling, so it never counts.
-    """
     words: list[str] = []
     run: list[tuple[str, str]] = []
     left_bounded = False
@@ -243,7 +182,6 @@ def _bounded_words(pieces: list[tuple[str, str]]) -> list[str]:
 
 
 def _alternatives(body: str) -> list[str]:
-    """``body`` split at its top-level ``|``: never inside a group or a character class."""
     parts, start, depth, in_class, index = [], 0, 0, False, 0
     while index < len(body):
         char = body[index]
@@ -267,16 +205,6 @@ def _alternatives(body: str) -> list[str]:
 
 
 def literal_tokens(pattern: str) -> list[list[str]] | None:
-    """Per alternative of a ``browse.phrase_pattern``, the words its matches hold as whole tokens; None if one has none.
-
-    A chunk matching the pattern matches one alternative and therefore holds
-    all of that alternative's words as tokens of the ``word``-tokenized text
-    index (lowercased, ASCII-folded; ``schema.TEXT_INDEX``). A full-text
-    condition over them can only drop chunks the regex would drop too. An
-    alternative without such a word (a single word longer than three
-    characters, which matches inside longer words) leaves no safe condition,
-    and the caller reads every chunk.
-    """
     body = pattern.removeprefix("(?i)")
     alternatives: list[list[str]] = []
     for alternative in _alternatives(body):
@@ -288,27 +216,16 @@ def literal_tokens(pattern: str) -> list[list[str]] | None:
     return alternatives
 
 
-#: Seconds one chunk may take a person's regex. A chunk is a few thousand characters, so a
-#: pattern that needs longer is backtracking catastrophically, and the whole search stops.
 USER_REGEX_TIMEOUT = 0.2
 
-#: Seconds the whole scan of one collection may take with a person's regex, reading included.
-#: The per-chunk limit alone does not bound it: a pattern that costs 0.15 s on each of 10 000
-#: chunks naming a common word passes every chunk's limit and holds a worker for 25 minutes.
 USER_REGEX_SCAN_SECONDS = 3.0
 
-#: Chunks one scan with a person's regex may read. Past it the pattern narrows too little to
-#: answer in one search, whatever each chunk costs.
 USER_REGEX_SCAN_CHUNKS = 20_000
 
 logger = logging.getLogger(__name__)
 
 
 class PatternTooCostly(ValueError):
-    """A person's regex is too costly to finish: it ran past :data:`USER_REGEX_TIMEOUT` on one chunk
-    (``scan`` False), or the scan ran past :data:`USER_REGEX_SCAN_SECONDS` or
-    :data:`USER_REGEX_SCAN_CHUNKS` (``scan`` True). Either way the search did not run to its end.
-    """
 
     def __init__(self, pattern: str, *, scan: bool = False) -> None:
         super().__init__(pattern)
@@ -316,18 +233,10 @@ class PatternTooCostly(ValueError):
 
 
 def compile_user_regex(pattern: str) -> regex.Pattern[str]:
-    """A person's pattern in Python syntax, case-insensitive, with the ``regex`` module's match timeout."""
     return regex.compile(pattern, regex.IGNORECASE)
 
 
 def _user_pieces(alternative: str) -> list[tuple[str, str]] | None:
-    """One top-level alternative of a person's regex as ``(kind, text)`` pieces (the kinds of :func:`_pieces`).
-
-    Conservative: anything that is not a plain literal, an escaped punctuation mark, ``\\b``, ``^``
-    or ``$`` becomes a ``group`` (a character of unknown spelling, which spoils the word beside
-    it), and so does any piece a quantifier follows (it may repeat or vanish). None when the
-    alternative sets inline flags this reader does not model (``(?x)`` reads the text differently).
-    """
     pieces: list[tuple[str, str]] = []
     index, size = 0, len(alternative)
     while index < size:
@@ -369,7 +278,6 @@ def _user_pieces(alternative: str) -> list[tuple[str, str]] | None:
 
 
 def _class_end(body: str, start: int) -> int:
-    """Index after the ``]`` that closes the character class opened at ``start``."""
     index = start + 1
     if body[index : index + 1] == "^":
         index += 1
@@ -386,7 +294,6 @@ def _class_end(body: str, start: int) -> int:
 
 
 def _group_end(body: str, start: int) -> int:
-    """Index after the ``)`` that closes the group opened at ``start``."""
     depth, index = 0, start
     while index < len(body):
         char = body[index]
@@ -404,7 +311,6 @@ def _group_end(body: str, start: int) -> int:
 
 
 def _after_quantifier(body: str, start: int) -> int:
-    """Index after the quantifier at ``start`` (``*``, ``+``, ``?`` or ``{m,n}``) and its lazy or possessive mark."""
     if body[start] == "{":
         close = body.find("}", start)
         index = close + 1 if close >= 0 else start + 1
@@ -414,13 +320,6 @@ def _after_quantifier(body: str, start: int) -> int:
 
 
 def user_literal_tokens(pattern: str) -> list[list[str]] | None:
-    """Per top-level alternative of a person's regex, the words every match holds as whole tokens; None if one has none.
-
-    The same contract as :func:`literal_tokens` (a full-text condition over these words can only
-    drop chunks the regex would drop too), read from a pattern nobody wrote for this reader.
-    When in doubt there is no word: ``MA ?37/\\d{6}`` has none (``37`` may follow ``MA``
-    directly), ``Brandabschnitt BA-03\\b`` has ``brandabschnitt`` and ``ba``.
-    """
     alternatives: list[list[str]] = []
     for alternative in _alternatives(pattern):
         pieces = _user_pieces(alternative)
@@ -432,7 +331,6 @@ def user_literal_tokens(pattern: str) -> list[list[str]] | None:
 
 
 def _text_prefilter(scope: str, pattern: str, *, user_regex: bool = False) -> list[models.Filter]:
-    """The server-side narrowing for :func:`find_text`, or nothing when no safe one exists."""
     tokens = user_literal_tokens(pattern) if user_regex else literal_tokens(pattern)
     if not tokens or not get_store().text_index_sound(scope):
         return []
@@ -446,11 +344,6 @@ def _text_prefilter(scope: str, pattern: str, *, user_regex: bool = False) -> li
 
 
 def stem_condition(phrases: Sequence[str]) -> models.Filter:
-    """Chunks holding any of ``phrases`` in some inflected form: the German-stemmed index on :data:`TEXT_STEM_FIELD`.
-
-    A phrase of one word is a token match, of several a phrase match; both are
-    analysed with the index's stemmer, so „Fluchtwegbreiten“ matches „Fluchtwegbreite“.
-    """
     conditions = []
     for phrase in dict.fromkeys(" ".join(str(phrase).split()) for phrase in phrases):
         if not phrase:
@@ -465,7 +358,6 @@ def stem_condition(phrases: Sequence[str]) -> models.Filter:
 def _stemmed_hits(
     scope: str, phrases: Sequence[str], filters: dict[str, Any] | None, limit: int, office: list[models.Filter]
 ) -> list[Hit]:
-    """Every chunk of ``scope`` the stemmed index says holds an inflected form of ``phrases``, up to ``limit``."""
     hits: list[Hit] = []
     for record in get_store().scroll(scope, filters, stem_condition(phrases), *office):
         payload = dict(record.payload or {})
@@ -485,27 +377,6 @@ def find_text(
     user_regex: bool = False,
     stem_phrases: Sequence[str] | None = None,
 ) -> list[Hit]:
-    """Every chunk of ``scope`` whose text matches the regex ``pattern``, up to ``limit``.
-
-    Qdrant has no regex filter. The pattern ``browse.phrase_pattern`` builds is
-    written to mean the same in Rust's ``regex`` and Python's ``re`` (it was
-    always re-checked in Python), so it is applied here over the chunk text,
-    read by scroll. The scroll is narrowed on the server by the words every
-    match must hold as tokens (:func:`literal_tokens`), and reads the whole
-    scope only when the pattern names no such word. Both scrolls run in
-    point-id order, so the first ``limit`` matches are the same either way.
-
-    ``user_regex`` is a person's own pattern (``match="regex"``): compiled by
-    :func:`compile_user_regex`, narrowed by :func:`user_literal_tokens`, and
-    stopped with :class:`PatternTooCostly` when one chunk outruns the timeout, or the whole
-    scan outruns :data:`USER_REGEX_SCAN_SECONDS` or :data:`USER_REGEX_SCAN_CHUNKS`.
-
-    ``stem_phrases`` (``match="exact"`` with ``stemmed``) adds every chunk the
-    German-stemmed index says holds an inflected form of a phrase
-    (:func:`stem_condition`) ahead of the regex's matches: the stemmed result
-    is the literal one and more, and a chunk written before the stemmed field
-    existed is still found literally. ``office_id`` is the office the read is made as (``scope.ScopeRead``).
-    """
     office = ScopeRead((scope,), office_id).office()
     if stem_phrases:
         stemmed = _stemmed_hits(scope, stem_phrases, filters, limit, office)
@@ -528,11 +399,6 @@ def find_text(
 
 
 def _user_search(compiled: Any, text: str, pattern: str, scope: str, deadline: float, scanned: int) -> Any:
-    """A person's regex over one chunk, inside the scan's deadline; raises :class:`PatternTooCostly` past it.
-
-    The chunk's own limit shrinks to what is left of the scan's, so the scan as a
-    whole ends near :data:`USER_REGEX_SCAN_SECONDS` however the time is spread.
-    """
     remaining = deadline - time.monotonic()
     if remaining <= 0 or scanned > USER_REGEX_SCAN_CHUNKS:
         logger.warning("regex search in %s stopped after %d chunks: the scan ran out of time", scope, scanned - 1)
@@ -548,12 +414,6 @@ def _user_search(compiled: Any, text: str, pattern: str, scope: str, deadline: f
 def candidate_counts(
     scope: str, pattern: str, filters: dict[str, Any] | None, *, office_id: str | None, user_regex: bool = False
 ) -> dict[str, int] | None:
-    """``file_name -> chunks that hold the pattern's words``, one facet; None when the pattern names no word.
-
-    The scroll of :func:`find_text` stops at its limit; this is what is left to say then. A chunk
-    that holds the words may still not match the regex, so each count is an upper bound for that
-    file, and the matches the scroll did count are the lower one.
-    """
     office = ScopeRead((scope,), office_id).office()
     tokens = user_literal_tokens(pattern) if user_regex else literal_tokens(pattern)
     prefilter = _text_prefilter(scope, pattern, user_regex=user_regex)
@@ -563,5 +423,4 @@ def candidate_counts(
 
 
 def healthy() -> bool:
-    """True when Qdrant answers."""
     return get_store().health()

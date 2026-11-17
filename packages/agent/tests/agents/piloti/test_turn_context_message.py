@@ -186,8 +186,6 @@ class TestWhereTheContextGoes:
         ]
 
 
-#: The shape of Holzbau Wien's turn context on dev: English keys, German values
-#: and memory, German shelf names and summaries, German office instructions.
 HOLZBAU_CONTEXT = "\n".join(
     [
         "confirmed:",
@@ -237,7 +235,6 @@ class TestTheAnswerLanguageLine:
 
         assert context.count(LINE_START) == 1
         assert context.index(LINE_START) > context.index("</turn_context>")
-        # Nothing follows it: it is the last text before the question.
         assert context.rstrip().splitlines()[-1].startswith(LINE_START)
 
     def test_another_language_is_named_as_itself(self):
@@ -302,9 +299,7 @@ class TestThroughTheAgent:
         assert sent_one[0].content == sent_two[0].content
         assert "name: A" in _between(sent_one) and sent_one[-1].content == "Frage eins"
         assert "name: B" in _between(sent_two) and sent_two[-1].content == "Frage zwei"
-        # Turn one's context is not replayed into turn two.
         assert not any("name: A" in str(message.content) for message in sent_two)
-        # Request-only: the stored transcript carries no turn context.
         for result in (first, second):
             assert not any("_context>" in str(message.content) for message in result.messages)
 
@@ -340,13 +335,6 @@ class TestThroughTheAgent:
         assert contributed["metadata"]["answer_language_instructed"] is False
 
 
-# =============================================================================
-# The knowledge context alone decides what building law the turn context presents
-# (ADR-0173, ADR-0175; design A1, defects 1, 2, 4, 6, 7)
-# =============================================================================
-# The project's own text no longer places it: a Vienna profile with no context
-# reads no Austrian law, and a German one with a core Austrian context would
-# read Austria's. Each case binds a context and the chain text the BFF sends.
 
 VIENNA_TEXT = "PROJECT_CONTEXT v1\n\nconfirmed:\n- federal_state=vienna\n- main_use=residential\n- building_class=4\n"
 CHAIN = "Building law at this site, Wien (AT-9, AT, EU), on 2026-11-10, from the platform's reviewed records."

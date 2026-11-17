@@ -33,15 +33,6 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: t('sections.settings') }
 }
 
-/**
- * The project Overview: the bento dashboard the hub opens on.
- *
- * Activity (how many questions, by how many people) and the Steckbrief are for
- * everyone; spend is loaded only for a reader who may see it, the same set the
- * Usage section is open to. Document counts use the overview reader, so they
- * leave out folders this reader may not open and quarantined uploads
- * (ADR-0087, ADR-0086). Similar projects stream in after the rest.
- */
 export default async function ProjectOverviewPage({ params }: PageProps): Promise<JSX.Element> {
   return withPageSession(async (session) => {
     const { id } = await params
@@ -54,16 +45,12 @@ export default async function ProjectOverviewPage({ params }: PageProps): Promis
       resolveProjectSettingsAccess(session, id),
       getProjectActivity(session, id),
       getProjectRecord(session, id),
-      // Piloti's reading, while its review is open (ADR-0111): the hero links to it.
       findProjectIntake(session.organizationId, id),
-      // The address tile, for whoever may decide the project's held mail (ADR-0137), as Settings › Dokumente's card.
       isInboundMailEnabled(session) ? requireMailReviewer(session, id).then(() => true, () => false) : false,
     ])
     if (!data) notFound()
 
     const usage = access.manageBudget ? await getProjectUsage(session, id) : null
-    // What the open setup still waits for, as the review counts it now: the row's
-    // counts are from the end of the last reading and go stale as answers come in.
     const setupOpen = intake !== null && intake.status !== 'completed'
     const setupView = setupOpen ? await getIntakeView(session, id).catch(() => null) : null
 
@@ -99,16 +86,6 @@ export default async function ProjectOverviewPage({ params }: PageProps): Promis
   })
 }
 
-/**
- * The similar-projects tile, read on its own so the dashboard does not wait for it.
- *
- * It opens its own tenant slot rather than taking the page's session as a prop.
- * React renders a component under `<Suspense>` after the page's
- * `withPageSession` callback has returned, so that slot is already closed and
- * every query here failed with `MissingTenantContextError`, taking the whole
- * Overview down whenever the organization had a closed project to compare
- * against (issue #1097).
- */
 async function SimilarProjectsSlot({ projectId }: { projectId: string }): Promise<JSX.Element> {
   return withPageSession(async (session) => {
     const page = await getSimilarProjects(session, projectId)

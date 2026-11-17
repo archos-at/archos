@@ -1,9 +1,3 @@
-/**
- * The typed client for `GET /api/projects/same-address` (ADR-0055): the
- * projects already at the address chosen in the create dialog. The response is
- * parsed with zod, not cast. No `server-only`: the browser imports this.
- */
-
 import { z } from 'zod'
 import { PROJECT_STATUSES } from './project-status'
 

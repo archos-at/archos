@@ -1,38 +1,17 @@
-/**
- * Piloti notices a new Fassung (ADR-0130): the pure half. Which pages it looks
- * at, what each change becomes as a proposed mark, and what it tells the person
- * in their thread and inbox. No I/O here, so every rule is tested without a
- * database or a model; `./job.ts` runs it.
- *
- * ## What a mark says, and what it never says
- *
- * A mark is a hint („Hinweis"), proposed, never open: it waits for a person to
- * take it over or dismiss it (`only_piloti_proposes`, migration 0138). Its body
- * is what the comparison saw, in its own words, and its basis names where it
- * came from: a picture comparison with the older Fassung on one page. Neither
- * says whether the change is allowed. A reading of two pictures is not a
- * finding about the law, and the words say so.
- */
-
 import { v5 as uuidv5 } from 'uuid'
 import { MAX_ANNOTATION_BASIS, MAX_ANNOTATION_BODY, MAX_PROPOSALS_PER_CALL, type AnnotationProposal } from '@/lib/annotations/types'
 import type { CompareRegion, RevisionVisualChanges } from '@/lib/documents/revision-compare-types'
 import { PRODUCT_NAME } from '@/lib/brand'
 
-/** Pages one notice may look at, unless the deployment says otherwise: one vision call each. */
 export const DEFAULT_MAX_PAGES = 3
-/** The most pages a deployment may let one notice look at. */
 export const MAX_PAGES_CEILING = 10
-/** How long a notice waits after the Fassung is announced, so a burst of re-reads and relinks settles. */
 export const DEFAULT_DELAY_SECONDS = 120
 const MAX_DELAY_SECONDS = 3600
 
-/** The id of one notice: the pair it compares. Also its job id, so a pair is noticed once. */
 export function revisionNoticeId(newerId: string, olderId: string): string {
   return uuidv5(`grid:revision-notice:${newerId}:${olderId}`, uuidv5.URL)
 }
 
-/** The id of the message the notice writes into the person's thread: derived, so a retry writes nothing new. */
 export function revisionNoticeMessageId(noticeId: string): string {
   return uuidv5(`grid:revision-notice-message:${noticeId}`, uuidv5.URL)
 }
@@ -43,22 +22,14 @@ function boundedInt(raw: string | undefined, fallback: number, min: number, max:
   return Math.min(max, Math.max(min, value))
 }
 
-/** `REVISION_NOTICE_MAX_PAGES`: the cost cap of one notice, in vision calls. */
 export function maxNoticePages(env: Record<string, string | undefined> = process.env): number {
   return boundedInt(env.REVISION_NOTICE_MAX_PAGES, DEFAULT_MAX_PAGES, 1, MAX_PAGES_CEILING)
 }
 
-/** `REVISION_NOTICE_DELAY_SECONDS`: the debounce before a notice runs. */
 export function noticeDelaySeconds(env: Record<string, string | undefined> = process.env): number {
   return boundedInt(env.REVISION_NOTICE_DELAY_SECONDS, DEFAULT_DELAY_SECONDS, 0, MAX_DELAY_SECONDS)
 }
 
-/**
- * The pages to look at, and the changed pages left unlooked at. The index's
- * changed pages when it could compare the two; when neither Fassung has read
- * text or a drawing reading (a scan), nothing can be called unchanged, so the
- * first pages are looked at. Pure.
- */
 export function pagesToCompare(
   changed: { pages: readonly number[]; newerPageCount: number; comparable: boolean },
   maxPages: number,
@@ -71,7 +42,6 @@ export function pagesToCompare(
   return { pages: sorted.slice(0, maxPages), skipped: sorted.slice(maxPages) }
 }
 
-/** One page's comparison as the notice reads it. */
 export interface PageComparison {
   page: number
   changes: RevisionVisualChanges
@@ -82,25 +52,17 @@ function clip(text: string, max: number): string {
   return one.length <= max ? one : `${one.slice(0, max - 1).trimEnd()}…`
 }
 
-/**
- * The sentence for one box. The model is asked for one sentence per change, in
- * the order of its boxes, but nothing holds it to that: the sentence is used
- * only when there are exactly as many sentences as boxes, and the box's own
- * label otherwise.
- */
 function sentenceFor(changes: RevisionVisualChanges, index: number): string | null {
   if (changes.summary.length !== changes.regions.length) return null
   return changes.summary[index]?.trim() || null
 }
 
-/** The body of the mark for one change: what moved, against which Fassung. */
 export function markBody(region: CompareRegion, sentence: string | null, olderName: string): string {
   const label = region.label.trim().replace(/[.!]+$/, '')
   const said = sentence && sentence.toLowerCase() !== label.toLowerCase() ? ` ${sentence}` : ''
   return clip(`Geändert gegenüber „${clip(olderName, 120)}“: ${label}.${said}`, MAX_ANNOTATION_BODY)
 }
 
-/** Where the mark comes from, said so a reader weighs it: a picture comparison, not a check. */
 export function markBasis(page: number, olderName: string): string {
   return clip(
     `Bildvergleich mit „${clip(olderName, 160)}“, S. ${page}; von ${PRODUCT_NAME} ohne Auftrag vorgeschlagen, nicht geprüft`,
@@ -108,7 +70,6 @@ export function markBasis(page: number, olderName: string): string {
   )
 }
 
-/** A mark already on the document, as the notice compares it. */
 export interface ExistingMark {
   page: number
   x: number
@@ -128,11 +89,6 @@ const samePlace = (mark: ExistingMark, proposal: AnnotationProposal): boolean =>
   Math.abs((mark.w ?? 0) - (proposal.w ?? 0)) < 1e-4 &&
   Math.abs((mark.h ?? 0) - (proposal.h ?? 0)) < 1e-4
 
-/**
- * The marks Piloti already proposed for ``found`` (a retried notice wrote them
- * before it failed), in ``found``'s order. They stand for the marks the retry
- * does not propose again, so its inbox row and its score count them. Pure.
- */
 export function alreadyProposed<T extends ExistingMark>(
   found: readonly AnnotationProposal[],
   existing: readonly T[],
@@ -145,12 +101,6 @@ export function alreadyProposed<T extends ExistingMark>(
   return marks
 }
 
-/**
- * The proposed marks for what the pages showed, at most
- * {@link MAX_PROPOSALS_PER_CALL}, in page order. A change Piloti already
- * proposed in the same place with the same words (a retried notice) is not
- * proposed twice. Pure.
- */
 export function proposalsFrom(
   comparisons: readonly PageComparison[],
   olderName: string,
@@ -179,11 +129,6 @@ export function proposalsFrom(
 const pageList = (pages: readonly number[]): string =>
   pages.length === 1 ? `Seite ${pages[0]}` : `Seiten ${pages.join(', ')}`
 
-/**
- * What Piloti writes into the person's thread about the document: what it
- * compared, what it proposed, what it did not look at, and what the marks are
- * not. German, because a person reads it. Pure.
- */
 export function noticeMessage(input: {
   newerName: string
   olderName: string
@@ -208,7 +153,6 @@ export function noticeMessage(input: {
   return lines.join('\n')
 }
 
-/** The first change, as the inbox row's excerpt. Pure. */
 export function noticeExcerpt(proposals: readonly AnnotationProposal[]): string | null {
   const first = proposals[0]
   return first ? clip(`S. ${first.page}: ${first.body}`, 200) : null

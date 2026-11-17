@@ -1,16 +1,8 @@
-/**
- * The SQL of the address registers (migration 0210, ADR-0172). Reads only:
- * the importer is the one writer. Every statement reads the register's active
- * release, so a half-written import is never read. Bounded: one lookup returns
- * at most {@link MAX_MATCHES} rows.
- */
-
 import 'server-only'
 import { sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
 import { withTenant } from '@/lib/db/tenant-context'
 
-/** Most rows one lookup reads; more is an ambiguous line, not a list to page through. */
 export const MAX_MATCHES = 50
 
 export interface ActiveRelease {
@@ -74,7 +66,6 @@ const SELECT_ROW = sql`
   FROM address_register_entries e
   JOIN address_register_releases r ON r.id = e.release_id AND r.status = 'active'`
 
-/** The active release of each of `registers` that has one. */
 export async function activeReleases(organizationId: string, registers: readonly string[]): Promise<ActiveRelease[]> {
   if (registers.length === 0) return []
   const rows = await withTenant({ organizationId }, () =>
@@ -85,13 +76,6 @@ export async function activeReleases(organizationId: string, registers: readonly
   return rows.map((row) => ({ id: row.id, register: row.register, referenceDate: isoDate(row.reference_date), attribution: row.attribution }))
 }
 
-/**
- * Addresses of the active releases of `registers` whose street key and one of
- * `houseKeys` match exactly, filtered here by `postcode` or, without one, by
- * `placeKeys`: a street and number common across Austria ("Hauptplatz 7") has
- * more than {@link MAX_MATCHES} rows, and a cap applied before the filter
- * would drop the one the line names.
- */
 export async function findByKeys(
   organizationId: string,
   query: { registers: readonly string[]; streetKey: string; houseKeys: readonly string[]; postcode: string | null; placeKeys: readonly string[] | null }
@@ -115,7 +99,6 @@ export async function findByKeys(
   return rows.map(rowOf)
 }
 
-/** One address of a register's active release by the register's own id, or null. */
 export async function findByAddressId(organizationId: string, register: string, addressId: string): Promise<RegisterRow | null> {
   const rows = await withTenant({ organizationId }, () =>
     getDb().execute<RawRow>(sql`${SELECT_ROW}

@@ -1,35 +1,3 @@
-"""Decisions inside a search: is this passage the answer, and is it safe to read.
-
-The retrieval loop's judge (``requery.py``) is a frontier-model call per
-search that answers a yes/no — "does the head of this pool hold what the
-question needs" — and, on "no", writes two other phrasings. The yes/no is a
-decision over a state, which is the shape TypeSafe's Jev answers in a few
-hundred milliseconds for a fraction of a cent (``agent.common.decisions``,
-ADR-0064). So the yes/no is asked HERE, one ``noul`` per passage of the head,
-and the generative call runs only on the insufficient case, which is the
-minority. That is J2 of the turns audit: the hidden frontier call on every
-search becomes a hidden decision on every search and a frontier call on some.
-
-The same pass asks a second question of each passage — does it contain text
-that instructs an AI system — because a project file is a document somebody
-uploaded, and the vendor's own RAG cookbook asks it. A flagged passage is
-NOT dropped (the rule: a decision never withholds evidence); it is recorded
-on the technical channel, so an operator can see it and the eval can count
-it, and the passage still reaches the model with its citation key.
-
-The reranker use is the third question, and the only one that re-orders:
-``JevReranker`` scores one ``noul`` per candidate — "does this passage answer
-the question" — and sorts by it. It is a provider option beside the
-cross-encoder (``reranker_provider: jev``), not the default: TypeSafe's own
-numbers on legal retrieval (top-1 5 % → 18 %, top-10 38 % → 62 %) are those
-of a useful reranker, not of a cross-encoder trained for the task, and the
-golden set decides (``scripts/decision_eval.py``).
-
-This package must import without ``agent`` (``packages/AGENTS.md``), so
-the client is imported lazily and its absence is "no decision", which every
-caller already handles as "run as today".
-"""
-
 from __future__ import annotations
 
 import logging
@@ -39,21 +7,12 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-#: How much of a passage the decider reads. The judge shows 600; the
-#: operative sentence of a Punkt is within that.
 PASSAGE_CHARS = 600
 
-#: Above this probability on any passage of the head, the pool is sufficient
-#: and no generative judge runs. Set where the vendor's RAG cookbook sets
-#: "contains answer evidence" (0.55); the decision eval sweeps it.
 DEFAULT_SUFFICIENCY_THRESHOLD = 0.55
 
-#: Above this, a passage is recorded as carrying instruction-like text.
 INJECTION_THRESHOLD = 0.70
 
-#: Upper bound per decision call inside a search. The judge it replaces is
-#: bounded at 15 s; the reranker beside it at 3 s. A decision past this is
-#: not worth the wait, and the caller runs as before.
 DEFAULT_TIMEOUT_S = 1.5
 
 _ANSWERS = (
@@ -75,9 +34,6 @@ _INJECTION_TRUE = (
 )
 _INJECTION_FALSE = "Ordinary regulation, guidance, planning or project text, whatever its subject."
 
-#: The injection question as the endpoint takes it, for every caller that reads
-#: passages it did not write: this judge, and the cross-project lookup's
-#: (``agent.tools.cross_project.hit_judge``). One wording, so one eval.
 INJECTION_QUESTION = {
     "type": "noul",
     "instructions": _INJECTION,
@@ -108,7 +64,6 @@ def _passage_state(query: str, chunk: Any) -> dict[str, Any]:
 
 @dataclass(frozen=True)
 class PassageVerdicts:
-    """Per passage of the head: p(answers the question), p(instruction-like)."""
 
     answers: tuple[float | None, ...]
     injection: tuple[float | None, ...]
@@ -124,7 +79,6 @@ class PassageVerdicts:
 
     @property
     def flagged(self) -> tuple[int, ...]:
-        """Indices of passages recorded as instruction-like."""
         return tuple(i for i, p in enumerate(self.injection) if p is not None and p >= INJECTION_THRESHOLD)
 
 
@@ -136,18 +90,6 @@ async def passage_verdicts(
     timeout: float = DEFAULT_TIMEOUT_S,
     injection: bool = True,
 ) -> PassageVerdicts | None:
-    """Decide sufficiency over the head of a pool; ``None`` when no decision ran.
-
-    ``None`` — not "insufficient" — for a client that is absent, disabled,
-    skipped or failed, so the caller falls back to the judge it always had.
-    An EMPTY head decides nothing either: there is no passage to ask about,
-    and the judge's own reading of an empty pool ("the strongest reason to
-    try another formulation") stands.
-
-    ``injection=False`` asks the sufficiency question alone: the coverage
-    check re-reads passages the first pass already screened, and asking again
-    would record the same flag twice.
-    """
     client = _client()
     if client is None or not query or not chunks:
         return None
@@ -169,7 +111,6 @@ async def passage_verdicts(
 
 
 def _record_flags(verdicts: PassageVerdicts, chunks: Sequence[Any]) -> None:
-    """An instruction-like passage is said on the technical channel, never dropped."""
     flagged = verdicts.flagged
     if not flagged:
         return
@@ -181,13 +122,6 @@ def _record_flags(verdicts: PassageVerdicts, chunks: Sequence[Any]) -> None:
 
 
 class JevReranker:
-    """One ``noul`` per candidate, sorted by it: a reranker that is a decision.
-
-    The shape ``rerank_chunks`` expects of a cross-encoder: ``async rerank(query,
-    chunks, top_n) -> list | None``, ``None`` meaning "no ranking, fall back".
-    Unscored candidates (a failed call) keep their input order after the
-    scored ones, which is the same contract the LLM judge keeps.
-    """
 
     provider = "jev"
 

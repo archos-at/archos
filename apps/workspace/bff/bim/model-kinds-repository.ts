@@ -7,26 +7,15 @@ import { SCREENED_ONLY, documentVisibleTo } from '@/lib/documents/visibility'
 import { DRAWING_RENDITION_EXTENSIONS } from '@/lib/documents/preview-types'
 import { IFC_EXTENSIONS } from './types'
 
-/** Which kinds of model file a turn's project holds: what the agent's measuring tools can read. */
 export interface ProjectModelKinds {
   ifc: boolean
   dxf: boolean
 }
 
-/** The file name ends in one of `extensions`, the lists the IFC and DXF pipelines claim (`.ifczip` included). */
 function endsWithAny(extensions: readonly string[]): SQL {
   return or(...extensions.map((ext) => sql`lower(btrim(${documents.filename})) LIKE ${`%${ext}`}`)) as SQL
 }
 
-/**
- * Whether the project, the office shelf or this conversation's own uploads hold
- * an IFC or a DXF past screening (`SCREENED_ONLY`, the reader the agent's tools
- * read through). A file in a folder the asker may not open still counts: that
- * binds a tool, which then refuses the read, and tells the model nothing. Read off the documents, not `bim_models`, so an IFC whose extraction
- * has not started yet still counts. The agent binds `ifc_query`, `ifc_measure`
- * and `dxf_measure` only where this says there is one: their schemas are ~9k
- * tokens of every call of a turn (the chat agent's `turn_tools.py`).
- */
 export async function projectModelKinds(
   organizationId: string,
   projectId: string,
@@ -51,6 +40,5 @@ export async function projectModelKinds(
         ),
       ),
   )
-  // A raw `sql<boolean>` is what the driver returns; coerce at the boundary.
   return { ifc: row?.ifc === true, dxf: row?.dxf === true }
 }

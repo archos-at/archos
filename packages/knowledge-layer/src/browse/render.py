@@ -1,5 +1,3 @@
-"""The listing as text: one line per row, the change marks it carries, and the folder's listing block."""
-
 from __future__ import annotations
 
 from collections.abc import Sequence
@@ -18,15 +16,12 @@ from .rows import FileRow
 from .rows import Listing
 from .text import fold
 
-#: What a row says of a file's change: a glance, so the model reads the files themselves for more.
 MAX_CHANGE_CHARS = 160
 
-#: The same line when the question IS the change (``revisions_of``): what „was hat sich geändert“ is answered from.
 MAX_CHAIN_CHANGE_CHARS = 700
 
 
 def _change_text(row: FileRow, limit: int) -> str:
-    """The stored change line as one sentence of at most ``limit`` characters; empty when none is stored."""
     if not row.change_summary:
         return ""
     lines = [line.lstrip("-•* ").strip() for line in row.change_summary.splitlines()]
@@ -41,11 +36,6 @@ def _compared_with_own_upload(row: FileRow) -> bool:
 
 
 def _change_bit(row: FileRow) -> str:
-    """``changed: …`` for what changed against the Fassung this file replaced, bounded; empty when none is stored.
-
-    A change line against the file's own previous upload (``change_basis`` is its
-    own name) says so, because the previous upload is not another file.
-    """
     text = _change_text(row, MAX_CHANGE_CHARS)
     if not text:
         return ""
@@ -77,8 +67,6 @@ def _row_line(row: FileRow, *, show_shelf: bool, mark: str | None = None) -> str
     title_block = title_block_label(row.revision_facts)
     if title_block:
         bits.append(f"Plankopf: {title_block}")
-    # A filed mail, in the words of the Verlauf's own headings: the sender's domain only when a
-    # signature confirmed it, „Domain nicht bestätigt“ otherwise (ADR-0137, RT-S2).
     for mail_line in (mail_thread_label(row.mail_thread), mail_origin_label(row.mail_origin)):
         if mail_line:
             bits.append(mail_line)
@@ -105,7 +93,6 @@ def _row_line(row: FileRow, *, show_shelf: bool, mark: str | None = None) -> str
 
 
 def _scope_of(listing: Listing) -> str:
-    """Where a listing looked: the shelves, and the folder when one was asked for."""
     where = " and ".join(_SHELF_LABELS.get(shelf, shelf) for shelf in listing.shelves)
     return f'{where}, folder "{listing.folder}" with subfolders' if listing.folder else where
 
@@ -119,14 +106,12 @@ def _in_flight_line(in_flight: Sequence[str]) -> str:
 
 
 def _profile_lines(listing: Listing) -> list[str]:
-    """The lines that say what the listed files are: their Dokumentart, topics and Fassungen."""
     lines: list[str] = []
     if listing.types:
         profile = " · ".join(f"{tag} {count}" for tag, count in listing.types[:MAX_TYPE_COUNTS])
         untyped = f"; without Dokumentart: {listing.untyped}" if listing.untyped else ""
         lines.append(f"Dokumentart (assigned by {PRODUCT_NAME}): {profile}{untyped}.")
     elif listing.untyped:
-        # Said rather than left out: no line would read the same as "no profile".
         lines.append(f"Dokumentart: {PRODUCT_NAME} has assigned none of these files a Dokumentart.")
     if listing.topics:
         profile = " · ".join(f"{topic} {count}" for topic, count in listing.topics[:MAX_TOPIC_COUNTS])
@@ -155,7 +140,6 @@ def _profile_lines(listing: Listing) -> list[str]:
 
 
 def render_listing(listing: Listing, *, in_flight: Sequence[str] = ()) -> str:
-    """The listing as the model reads it: counts first, then folders, then files."""
     scope = _scope_of(listing)
     lines: list[str] = [*listing.notes]
     if listing.notes and not listing.total:

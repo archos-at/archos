@@ -1,24 +1,3 @@
-/**
- * Add one document to a country in one call (Platform → a country → "Add a
- * document"): the steps of the onboarding guide for one PDF, in order, so a
- * person in the browser and an agent on the platform door do the same thing.
- *
- * 1. The country's open draft change request, or a new one titled for the document.
- * 2. A capture the records cite (KC-6): the PDF itself, fetched through the source
- *    whose host the URL is on; or, for an upload, the title lines the person
- *    copied from it (operator-supplied: this tier reads no PDF, so the reviewer
- *    checks them against the file). A capture of the same URL in the draft is reused.
- * 3. The work (when new), the edition and its manifestation, each quoting the
- *    capture where it prints the work's designation or title and the edition's label.
- * 4. The text: fetched again by `importPlatformText`, which must be the bytes the
- *    capture hashed, or the uploaded bytes.
- *
- * Every step is an existing service call with its own checks; this module only
- * orders them and words what goes wrong. A text step that fails after the records
- * were proposed leaves them in the draft and says so: the same call again reuses
- * the capture and the records and only attaches the text.
- */
-
 import 'server-only'
 import { and, eq, gt, inArray, isNull, type SQL } from 'drizzle-orm'
 import { ApiError, NotFoundError, PayloadTooLargeError, UnprocessableError } from '@/lib/api/errors'
@@ -50,7 +29,6 @@ type ProposedBy = 'person' | 'agent'
 type DocumentInput = Pick<AddDocumentBody, 'work' | 'label' | 'inForceFrom'> & { licenceClass?: AddDocumentBody['licenceClass'] }
 type Cited = { captureId: string; url: string; sha256: string; text: string | null }
 
-/** Released works of a country that `where` picks, by key, each with its released editions' labels. */
 async function worksWith(tx: Tx, countryId: string, where: SQL | undefined, limit: number): Promise<CountryWorkView[]> {
   const works = await tx
     .select({
@@ -91,7 +69,6 @@ async function worksWith(tx: Tx, countryId: string, where: SQL | undefined, limi
   }))
 }
 
-/** The released works of a country by key, a page at a time, with their released editions' labels. */
 export async function listCountryWorks(session: UserSession | null, countryId: string, page: ListWorksQuery = { limit: 200 }) {
   await requirePlatform(session, PLATFORM_PERMISSIONS.settingsView)
   const works = await platformTransaction((tx) =>
@@ -102,7 +79,6 @@ export async function listCountryWorks(session: UserSession | null, countryId: s
   return { works, nextCursor: more ? (works.at(-1)?.workKey ?? null) : null }
 }
 
-/** The work the document belongs to, as the records name it: looked up by its key, existing or new. */
 async function resolveWork(countryId: string, work: DocumentInput['work']) {
   const key = 'workKey' in work ? work.workKey : `${countryId.toLowerCase()}-${keyPart(work.designation ?? work.title)}`
   const [known] = await platformTransaction((tx) => worksWith(tx, countryId, eq(knowledgeRecords.id, `work:${key}`), 1))
@@ -114,14 +90,12 @@ async function resolveWork(countryId: string, work: DocumentInput['work']) {
   return { key, named: work.designation ?? work.title, editions: known?.editions ?? [], record }
 }
 
-/** The country's newest open operator draft (a monitor's is not one), or a new one titled for the document. */
 async function draftFor(session: UserSession, countryId: string, title: string): Promise<{ id: string; title: string; opened: boolean }> {
   const [open] = await listChangeRequests({ status: 'draft', countryId, origin: 'operator' }, { offset: 0, limit: 1 })
   if (open) return { id: open.id, title: open.title, opened: false }
   return { ...(await createPlatformChangeRequest(session, { title, countryId })), title, opened: true }
 }
 
-/** The source of this country whose hosts the URL is on. */
 async function sourceForUrl(session: UserSession, countryId: string, url: string): Promise<string> {
   const host = new URL(url).hostname.toLowerCase()
   const { sources } = await platformSourceStatus(session, {})
@@ -136,7 +110,6 @@ async function sourceForUrl(session: UserSession, countryId: string, url: string
   return source.sourceKey
 }
 
-/** Steps 1 to 3: the draft, the capture, the records; what step 4 attaches the text to. A retry reuses what is in the draft. */
 async function proposeDocument(session: UserSession, countryId: string, input: DocumentInput, body: CaptureBody, proposedBy: ProposedBy) {
   const work = await resolveWork(countryId, input.work)
   const editionKey = `${work.key}-${keyPart(input.label, 30)}`
@@ -154,10 +127,8 @@ async function proposeDocument(session: UserSession, countryId: string, input: D
     })
   }
   const cited = (await capturedBefore(draft.id, body)) ?? (await captureWithText(session, draft.id, body))
-  // Proposed by an earlier call whose text step failed: the records stand, only the text is missing.
   if (!held) {
     const cite = (label: string) => [{ captureId: cited.captureId, quote: quoteOf(cited.text, label), url: cited.url }]
-    // Parsed, so every field the document does not say takes the schema's default.
     const records: ProposedRecord[] = [
       ...(work.record ? [{ ...work.record, citations: cite(work.named) }] : []),
       { type: 'edition', key: editionKey, workKey: work.key, label: input.label, inForceFrom: input.inForceFrom, citations: cite(input.label) },
@@ -178,7 +149,6 @@ function quoteOf(text: string | null, label: string): string {
   })
 }
 
-/** A capture of the same page already in the draft (an earlier call's), so a retry neither fetches nor stores it again. */
 async function capturedBefore(requestId: string, body: CaptureBody): Promise<Cited | null> {
   const same = (view: CaptureView) =>
     view.basis === body.basis &&
@@ -203,7 +173,6 @@ async function captureWithText(session: UserSession, requestId: string, body: Ca
   return { captureId: view.captureId, url: view.finalUrl ?? view.url, sha256: view.sha256, text }
 }
 
-/** Step 4, worded so a failure says where the records are and that the same call finishes it. */
 async function attachText(done: Proposed, attach: () => Promise<{ text: { sha256: string | null } }>): Promise<string> {
   const where = {
     changeRequestId: done.draft.id,
@@ -222,7 +191,6 @@ async function attachText(done: Proposed, attach: () => Promise<{ text: { sha256
 
 type Proposed = Awaited<ReturnType<typeof proposeDocument>>
 
-/** Add the PDF at its publisher's URL: fetched by the platform through the country's source for that host. */
 export async function addPlatformDocument(
   session: UserSession | null,
   countryId: string,
@@ -249,7 +217,6 @@ export async function addPlatformDocument(
   return result(done, sha256)
 }
 
-/** Add an uploaded PDF: its records quote the title lines the person copied, which the reviewer checks against the file. */
 export async function uploadPlatformDocument(
   session: UserSession | null,
   countryId: string,
@@ -263,7 +230,6 @@ export async function uploadPlatformDocument(
   if (head !== '%PDF-') throw new UnprocessableError(`${file.name} is not a PDF; nothing was written.`, { hint: 'Upload the document as a PDF.' })
   const capture: CaptureBody = { basis: 'operator_supplied', url: fields.publishedAt, text: fields.titleText, note: 'Title lines copied from an uploaded PDF.' }
   const done = await proposeDocument(person, countryId, fields, capture, proposedBy)
-  // Named after the manifestation, whatever the upload was called (`uploadPlatformText`).
   const pdf = new File([file], `${done.keys.manifestationKey}.pdf`, { type: 'application/pdf' })
   return result(done, await attachText(done, () => uploadPlatformText(person, done.draft.id, done.keys.manifestationKey, pdf, proposedBy)))
 }

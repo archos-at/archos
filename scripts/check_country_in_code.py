@@ -80,8 +80,6 @@ BASELINE = Path("ci/country_in_code_baseline.json")
 TOKENS = Path("ci/country_tokens.json")
 ROOTS = ("apps/", "packages/")
 SUFFIXES = (".py", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs")
-#: What a model reads as its instructions, counted whole. Not documentation: a README or an AGENTS.md
-#: beside the code is prose about it.
 PROMPT = re.compile(
     "|".join(
         (
@@ -92,11 +90,8 @@ PROMPT = re.compile(
         )
     )
 )
-#: A template comment or an HTML comment in a prompt: neither is rendered into what the model reads.
 PROMPT_COMMENT = re.compile(r"\{#.*?#\}|<!--.*?-->", re.DOTALL)
 
-# Matched against the repo-relative POSIX path. Each line says what it is and
-# why a country in it is data, not code.
 EXCLUDED = re.compile(
     "|".join(
         (
@@ -107,13 +102,10 @@ EXCLUDED = re.compile(
             r"(^|/)[^/]*fixtures?\.[cm]?[jt]sx?$",  # sample data kept beside the code it feeds (`photon.fixtures.ts`)
             r"^apps/workspace/app/dev/",  # the component gallery: every page renders sample data
             r"(^|/)i18n/dictionaries/",  # copy: the words a person reads, per locale
-            # The public site, its CMS and the brand kit: copy, the company's own address and published URLs.
-            # What the site claims per country is the coverage-copy hook's (scripts/check_coverage_copy.py).
             r"^apps/(website|cms)/|^packages/brand/",
             r"^apps/workspace/bff/legal/content/",  # the terms and the privacy notice: legal copy, per locale
             r"(^|/)migrations/",  # Alembic and Drizzle history, written once
             r"\.generated\.|(^|/)generated\.ts$",  # rendered from a source that is checked, or from records
-            # Written by sync-platform-skills.mjs from the built-in SKILL.md files, which are counted as prompts.
             r"^apps/workspace/bff/skills/platform-skills\.ts$",
             r"\.d\.ts$",  # type declarations
         )
@@ -121,7 +113,6 @@ EXCLUDED = re.compile(
 )
 
 LETTERS = r"[^\W\d_]"
-#: One word of an identifier or of text: `OibSync` is `Oib`, `Sync`; `RISClient` is `RIS`, `Client`.
 WORD = re.compile(r"[A-ZÄÖÜ]+(?![a-zäöüß])|[A-ZÄÖÜ]?[a-zäöüß]+")
 RUN = re.compile(rf"{LETTERS}+")
 LETTER = re.compile(LETTERS)
@@ -155,7 +146,6 @@ class Tokens:
                         self.prefixes.append((lowered[:-1], country, kind))
                     else:
                         self.words[lowered] = (country, kind)
-        #: Every word and prefix, as the substring a lower-cased text must hold for a word to match at all.
         self.stems = sorted({*self.words, *(prefix for prefix, _, _ in self.prefixes)})
 
     def may_hit(self, text: str) -> bool:
@@ -240,8 +230,6 @@ def _python_code(source: str) -> str:
     return "\n".join(kept)
 
 
-#: A comment or a string of TypeScript or JavaScript, whichever starts first. A string is matched so that a
-#: `//` inside it (a URL) is not read as a comment; one left open on its line is not a string and is skipped.
 SCRIPT_SPAN = re.compile(
     r"//[^\n]*|/\*.*?\*/|'(?:\\.|[^'\\\n])*'|\"(?:\\.|[^\"\\\n])*\"|`(?:\\.|[^`\\])*`",
     re.DOTALL,
@@ -287,7 +275,6 @@ def file_hits(root: Path, path: str, tokens: Tokens) -> list[Hit]:
     """The hits in ``path``'s own name and in its code."""
     source = (root / path).read_text(encoding="utf-8", errors="replace")
     named = tokens.hits(PurePosixPath(path).name)
-    # Comments are stripped only where there is something to find: tokenizing every file was most of the run.
     return named + tokens.hits(code_text(path, source)) if tokens.may_hit(source) else named
 
 
@@ -377,7 +364,6 @@ def main(argv: list[str] | None = None) -> int:
     mode.add_argument("--summary", action="store_true", help="Print the hits by area and kind as a table.")
     args = parser.parse_args(argv)
     if sys.version_info < (3, 14):
-        # An older tokenizer reads 3.14 syntax as an error, and the file would be counted comments and all.
         print("check_country_in_code.py needs Python 3.14: run it with .venv/bin/python", file=sys.stderr)
         return 2
 

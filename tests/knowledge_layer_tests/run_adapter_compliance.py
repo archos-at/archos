@@ -35,7 +35,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-# Add project root to path for imports
 project_root = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(project_root))
 
@@ -130,7 +129,6 @@ class AdapterComplianceTest:
             print(f"Collection: {self.collection_name}")
         print(f"{'=' * 70}\n")
 
-        # Phase 1: Setup & Registration (always run)
         print("--- Phase 1: Setup & Registration ---")
         self.results.append(self._run_test("Import backend module", self._import_backend))
 
@@ -140,12 +138,10 @@ class AdapterComplianceTest:
 
         self.results.append(self._run_test("Verify backend_name property", self._test_backend_name))
 
-        # Quick mode stops here
         if self.quick:
             self._print_summary()
             return all(r.passed for r in self.results)
 
-        # Phase 2: Collection Management
         print("\n--- Phase 2: Collection Management ---")
         self.results.append(self._run_test("Create collection", self._test_create_collection))
 
@@ -153,7 +149,6 @@ class AdapterComplianceTest:
 
         self.results.append(self._run_test("List collections (includes new)", self._test_list_collections))
 
-        # Phase 3: File Management
         print("\n--- Phase 3: File Management ---")
         self.results.append(self._run_test("Upload file", self._test_upload_file))
 
@@ -161,13 +156,11 @@ class AdapterComplianceTest:
 
         self.results.append(self._run_test("List files in collection", self._test_list_files))
 
-        # Phase 4: Retrieval
         print("\n--- Phase 4: Retrieval ---")
         self.results.append(self._run_test("Retrieve documents", self._test_retrieve))
 
         self.results.append(self._run_test("Verify Chunk schema", self._test_chunk_schema))
 
-        # Phase 5: Cleanup
         print("\n--- Phase 5: Cleanup ---")
         self.results.append(self._run_test("Delete file", self._test_delete_file))
 
@@ -176,14 +169,10 @@ class AdapterComplianceTest:
         else:
             self.results.append(TestResult("Delete collection", True, "Skipped (--keep flag)", 0))
 
-        # Summary
         self._print_summary()
 
         return all(r.passed for r in self.results)
 
-    # =========================================================================
-    # Individual Tests
-    # =========================================================================
 
     def _test_get_ingestor(self):
         from agent.knowledge.factory import get_ingestor
@@ -252,7 +241,6 @@ class AdapterComplianceTest:
 
         result = self.ingestor.upload_file(file_path=self.test_file, collection_name=self.collection_name)
 
-        # Result can be FileInfo or job_id string
         if isinstance(result, FileInfo):
             self.job_id = result.file_id
             return True, f"Job ID: {self.job_id}"
@@ -276,7 +264,6 @@ class AdapterComplianceTest:
             status = self.ingestor.get_file_status(self.job_id, self.collection_name)
 
             if status is None:
-                # Some backends return None initially
                 time.sleep(2)
                 continue
 
@@ -286,7 +273,6 @@ class AdapterComplianceTest:
             last_status = status
             print(f"    Status: {status.status.value}")
 
-            # Check for terminal states
             if status.status == FileStatus.SUCCESS:
                 return True, f"Completed with {status.chunk_count} chunks"
             elif status.status == FileStatus.FAILED:
@@ -310,7 +296,6 @@ class AdapterComplianceTest:
         if len(files) == 0:
             return False, "No files found after upload"
 
-        # Verify FileInfo schema
         for f in files:
             if not isinstance(f, FileInfo):
                 return False, f"Expected FileInfo in list, got {type(f)}"
@@ -350,7 +335,6 @@ class AdapterComplianceTest:
         if not isinstance(chunk, Chunk):
             return False, f"Expected Chunk, got {type(chunk)}"
 
-        # Validate required fields
         errors = []
 
         if not chunk.chunk_id:
@@ -382,7 +366,6 @@ class AdapterComplianceTest:
         if not result:
             return False, f"delete_file returned False for '{filename}'"
 
-        # Verify deletion
         remaining = self.ingestor.list_files(self.collection_name)
         remaining_names = [f.file_name for f in remaining]
 
@@ -397,16 +380,12 @@ class AdapterComplianceTest:
         if not result:
             return False, "delete_collection returned False"
 
-        # Verify deletion
         remaining = self.ingestor.get_collection(self.collection_name)
         if remaining is not None:
             return False, "Collection still exists after deletion"
 
         return True, f"Deleted '{self.collection_name}'"
 
-    # =========================================================================
-    # Summary
-    # =========================================================================
 
     def _print_summary(self):
         print(f"\n{'=' * 70}")
@@ -472,23 +451,19 @@ def main():
 
     args = parser.parse_args()
 
-    # Determine mode (--quick takes precedence)
     quick_mode = args.quick and not args.full
 
-    # Parse config
     try:
         config = json.loads(args.config)
     except json.JSONDecodeError as e:
         print(f"Error parsing config JSON: {e}")
         sys.exit(2)
 
-    # Verify test file exists (only required for full mode)
     if not quick_mode and not Path(args.test_file).exists():
         print(f"Error: Test file not found: {args.test_file}")
         print("Hint: Use --quick to skip file operations, or provide a valid test file.")
         sys.exit(2)
 
-    # Run tests
     tester = AdapterComplianceTest(
         backend=args.backend,
         config=config,

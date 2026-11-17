@@ -1,15 +1,7 @@
-"""Looking at the files the way a person does: the listing (`list_files`) and the exact search."""
-
 from __future__ import annotations
 
 from agent.lazy_exports import lazy_exports
 
-# What code outside this package imports, and from where: the names it imported
-# from the submodules when the package was laid out by job, measured. Loaded on
-# first use (PEP 562), so importing one submodule does not load the others, and
-# read from the submodule every time (`cache=False`), so a test that patches a
-# submodule is seen through the package too. A name missing here is imported
-# from its submodule, and `scripts/check_package_surfaces.py` counts that.
 _LAZY: dict[str, str] = {
     "DEFAULT_TREE_DEPTH": ".tool",
     "FileRow": ".tool",

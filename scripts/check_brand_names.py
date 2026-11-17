@@ -84,8 +84,6 @@ CONTENT_SUFFIXES = (
 )  # fmt: skip
 CONTENT_NAMES = ("Dockerfile", "pre-commit")
 
-# Matched against the repo-relative POSIX path. Each line says what it is and
-# why a brand in it is not a code identifier.
 EXCLUDED = re.compile(
     "|".join(
         (
@@ -102,41 +100,24 @@ EXCLUDED = re.compile(
             r"^ci/[^/]*baseline[^/]*\.json$",  # ratchet baselines: they list paths, not names
             r"^\.github/filters\.yml$",  # CI path filters: they list paths, not names
             r"^scripts/check_brand_(names|prose)\.py$|^tests/test_check_brand_(names|prose)\.py$",  # these checks
-            # The layout test names the old directories it forbids; the import test plants one in a fixture.
             r"^tests/test_(repo_layout|test_imports)\.py$",
-            # The one-release fallback that reads the old, prefixed variable names, and its tests.
             r"^apps/agent-host/entrypoint\.py$|^tests/test_(entrypoint_roles|no_legacy_env_names)\.py$|^apps/workspace/scripts/legacy-env-names\.",
-            # The infrastructure names table: its legacy column holds the old names until ADR-0147's contract step.
             r"^deploy/pulumi/src/names\.ts$",
-            # The one-release fallback that reads the old x-grid-* header names, and its tests.
             r"^apps/workspace/bff/http/legacy-header-names\.|^apps/agent-host/src/agent_host/legacy_headers\.py$",
-            # The brand's one file, where the name is meant to live, and the copies a sync script writes from it
-            # (apps/*/**/identity.json, and the agent's beside agent.common.brand). The product is renamed by
-            # editing that file, so it is not a code identifier.
             r"^packages/brand/identity\.json$|^apps/[^/]+/(.*/)?identity\.json$|^packages/agent/src/agent/common/identity\.json$",
             r"^tests/test_legacy_headers\.py$",
-            # The legacy Postgres rename (database and role names): it names the old names by design.
             r"^deploy/postgres/rename-legacy-names\.sh$|^deploy/pulumi/src/data/postgres-rename\.ts$",
             r"^deploy/pulumi/index-postgres-rename\.spec\.ts$|^tests/test_postgres_rename_legacy_names\.py$",
-            # The one-release move of the browser's stored keys off their old names, and its spec.
             r"^apps/workspace/app/storage-rename-boot(\.spec)?\.ts$",
-            # The migration harness: it replays the Drizzle history (excluded above) and seeds the tables
-            # each migration knew, under the names they had then.
             r"^scripts/rls-test-db\.sh$",
-            # The one release the BFF also sends the mode header under its old name, beside `x-chat-mode`.
             r"^apps/workspace/bff/turns/headless-mode\.ts$",
-            # The website's redirects from old public addresses, which keep the spelling they were published under.
             r"^apps/website/redirects\.mjs$",
         )
     )
 )
 
 URL = re.compile(r"\b(?:https?|git|ssh)://\S+|\bgit@[\w.-]+:\S+")
-# A host name, or an email address's. `.tech` is the brand's own domain (identity.json's "domain").
 HOST = re.compile(r"\.(?:at|ai|app|com|de|dev|eu|io|net|org|tech)$")
-# The Kubernetes and Compose tier names `aiq-agent` and `aiq-api` are not
-# counted: renaming them recreates resources and an operator applies it (ADR-0145
-# row 10c). Delete this set with that rename.
 PENDING_INFRA_NAMES = re.compile(r"(?<![A-Za-z0-9])(?:aiq-agent|aiq-api)(?![A-Za-z0-9])")
 REPOSITORY = re.compile(
     r"\bgrid-check/grid-oib-agent\b|\bgrid-oib-agent\b|\bgrid-check\b|(?<![\w.-])archos-at(?:/archos(?![\w-]))?(?![\w-])",
@@ -157,7 +138,6 @@ def _is_brand(word: str) -> bool:
     lowered = word.lower()
     if lowered in BRANDS:
         return True
-    # An acronym run swallows its neighbour: `AIQAPIWorker` reads `AIQAPI`, `Worker`.
     return word.isupper() and any(lowered.startswith(brand) for brand in BRANDS)
 
 
@@ -169,7 +149,6 @@ def brand_words(token: str) -> list[str]:
         return []
     words = _words(token)
     hits = [index for index, word in enumerate(words) if _is_brand(word)]
-    # `grid` as the last word is the English layout noun; GRID_ and friends lead.
     return [words[index] for index in hits if not (words[index].lower() == "grid" and index == len(words) - 1 > 0)]
 
 
@@ -189,7 +168,6 @@ def branded_tokens(text: str) -> list[str]:
     return tokens
 
 
-#: The module path of a Python import into the chat agent's package (see "What is not a hit").
 IMPORT_PATH = re.compile(r"^(\s*(?:from|import)\s+)agent\.agents\.piloti(?!\w)(?:\.\w+)*", re.M)
 
 

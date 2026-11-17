@@ -1,15 +1,3 @@
-/**
- * The typed client for a document's Anmerkungen (ADR-0055). The room travels
- * on the live channels (`features/realtime`, `lib/realtime`).
- *
- * The paths, the verbs and the response shapes are written once, here; the
- * browser and the route specs both go through it, so a second consumer cannot
- * disagree with the first about what `PATCH …/annotations/{id}` expects.
- * Responses are parsed with the zod schemas from `./types`, not cast.
- *
- * No `server-only` and no drizzle: the browser imports this.
- */
-
 import { ROOM_PEER_HEADER } from './peer-header'
 import {
   projectMarksHref,
@@ -32,12 +20,10 @@ import {
   type UpdateReplyRequest,
 } from './types'
 
-/** How a request is made: `fetch` in a browser, the real handler in a route spec. */
 export type AnnotationFetch = (path: string, init?: RequestInit) => Promise<Response>
 
 const defaultFetch: AnnotationFetch = (path, init) => fetch(path, init)
 
-/** A request the API refused, with its status, the body's own code, and its `details.reason` where it names one. */
 export class AnnotationRequestError extends Error {
   constructor(
     readonly status: number,
@@ -71,7 +57,6 @@ async function request<T>(
   return parse(body)
 }
 
-/** The options every write takes: the tab's room id, so its own echo can be told apart. */
 export interface WriteOptions {
   peerId?: string | null
   run?: AnnotationFetch
@@ -99,7 +84,6 @@ export function listAnnotations(
   )
 }
 
-/** One Anmerkung as this reader sees it: what a room hint names is read again, not the whole list. */
 export function getAnnotation(
   documentId: string,
   annotationId: string,
@@ -125,7 +109,6 @@ export function updateAnnotation(
   return updateAnnotationWithWake(documentId, annotationId, input, { peerId, run }).then(({ annotation }) => annotation)
 }
 
-/** A change, and what the server did with it as an event that could wake Piloti (a delegation). */
 export function updateAnnotationWithWake(
   documentId: string,
   annotationId: string,
@@ -137,10 +120,6 @@ export function updateAnnotationWithWake(
   )
 }
 
-/**
- * Answer in the thread. The response says whether the server wakes Piloti for
- * it (`wake: 'queued'`): then this tab must not ask Piloti itself.
- */
 export function replyToAnnotation(
   documentId: string,
   annotationId: string,
@@ -155,11 +134,6 @@ export function replyToAnnotation(
 const replyPath = (documentId: string, annotationId: string, replyId: string) =>
   `${annotationPath(documentId, annotationId)}/replies/${encodeURIComponent(replyId)}`
 
-/**
- * Reword one's own reply: the mark with its thread as it now stands. Refused
- * 409 with `REPLY_TAKEN_UP_REASON` once Piloti took the reply up, and 422 with
- * `REPLY_MARK_CLOSED_REASON` on a closed mark. Never wakes Piloti.
- */
 export function editReply(
   documentId: string,
   annotationId: string,
@@ -170,7 +144,6 @@ export function editReply(
   return request(run, replyPath(documentId, annotationId, replyId), json('PATCH', input, peerId), one)
 }
 
-/** Delete one's own reply, refused as {@link editReply} is. */
 export function deleteReply(
   documentId: string,
   annotationId: string,
@@ -185,7 +158,6 @@ export function deleteReply(
   )
 }
 
-/** The caller's own thread about a document, created when it does not exist (ADR-0106). */
 export function documentThread(
   documentId: string,
   { title, run = defaultFetch }: { title?: string; run?: AnnotationFetch } = {}
@@ -211,11 +183,6 @@ export function deleteAnnotation(
   )
 }
 
-/**
- * A page of a project's Offene Punkte: the live marks of every document of the
- * project this reader may see, each the view a document's list carries, with
- * the document's name (`GET /api/projects/{id}/annotations`).
- */
 export function listProjectAnnotations(
   projectId: string,
   filters: ProjectMarksFilters = {},

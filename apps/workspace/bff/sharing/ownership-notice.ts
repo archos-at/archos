@@ -1,14 +1,3 @@
-/**
- * Telling a resource's owners that a project admin took ownership of it
- * (ADR-0032 decision 5, amended 2026-11-11).
- *
- * A takeover adds an owner; nobody loses theirs. Before this notice the owners
- * learned of it only if their share dialog happened to be open when the roster
- * refreshed, which left an audited act unseen by the people it concerns. One
- * inbox row per owner (`resource.ownership_taken`) names who took it; the row's
- * time says when.
- */
-
 import 'server-only'
 import type { ShareableResourceType } from '@/lib/db/schema/resource-shares'
 import { bestEffortInbox } from '@/lib/inbox/best-effort'
@@ -17,7 +6,6 @@ import { emitInboxItems } from '@/lib/inbox/service'
 import { describeResource } from './registry'
 import { listGrantsForResource } from './repository'
 
-/** Who owns a resource now: its creator and every owner grant. */
 export async function resolveOwners(
   organizationId: string,
   resourceType: ShareableResourceType,
@@ -33,11 +21,6 @@ export async function resolveOwners(
   return [...owners]
 }
 
-/**
- * One inbox row per owner except the one who took ownership. Best-effort: the
- * grant and its audit record are committed by now, and a failed notice must
- * not answer 500 for a takeover that happened.
- */
 export async function notifyOwnersOfTakeover(input: {
   organizationId: string
   resourceType: ShareableResourceType

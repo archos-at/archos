@@ -25,7 +25,6 @@ export function useDiagramFilingTarget(): DiagramFilingTarget | null {
   return useContext(DiagramFilingContext)
 }
 
-// The same answer and source always give the same run id, so filing twice finds the first filing.
 export function diagramRunId(answerId: string, source: string): string {
   let hash = 0x811c9dc5
   for (let index = 0; index < source.length; index++) {

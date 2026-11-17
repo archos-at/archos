@@ -1,9 +1,3 @@
-/**
- * Decide about several held documents at once (ADR-0086): the Quarantäne
- * list's selection, allowed or deleted. Each document answers with its own
- * outcome; the request fails only when its body does.
- */
-
 import { apiRoute, parseJsonBody } from '@/lib/api/handler'
 import { decideQuarantinedDocuments } from '@/lib/upload-screening/decisions'
 import { quarantineDecisionsSchema } from '@/lib/upload-screening/decisions-wire'

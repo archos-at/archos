@@ -3,17 +3,6 @@ import * as pulumi from "@pulumi/pulumi";
 import { hostsOutsideZone, managedHosts, TTL_AUTOMATIC, UNROUTABLE_PLACEHOLDER } from "./dns";
 import { baseStackConfig } from "../test-support/stack-config";
 
-/**
- * Public DNS (`platform/dns.ts`).
- *
- * The bar for a test here is the same one the module exists for: every mistake
- * it guards against produces records the Cloudflare API ACCEPTS. There is no
- * failed resource to notice afterwards — a wrong record is a name that resolves
- * to the wrong place, discovered by whoever eventually types it into a browser.
- * So the assertions are about the exact bytes sent to the API, not about
- * whether the call succeeded.
- */
-
 const RESOURCES: Array<{ type: string; name: string; inputs: Record<string, unknown> }> = [];
 
 pulumi.runtime.setMocks(
@@ -31,22 +20,18 @@ pulumi.runtime.setMocks(
 
 const ZONE = "example.test";
 
-/** A stack config key, in the project's namespace. */
 const KEY = (name: string) => `${pulumi.getProject()}:${name}`;
 
-/** The slice of a dynamic-redirect rule these tests read back off the mock. */
 type RedirectRule = {
   expression: string;
   actionParameters: { fromValue: { statusCode: number; targetUrl: { value: string } } };
 };
 
-/** The www rule's target is an expression (path kept), not a fixed URL. */
 type WwwRedirectRule = {
   expression: string;
   actionParameters: { fromValue: { statusCode: number; targetUrl: { expression: string } } };
 };
 
-/** The stack config a working Cloudflare setup needs, on top of the shared base. */
 function dnsConfig(overrides: Record<string, string> = {}): Record<string, string> {
   return {
     ...baseStackConfig(),
@@ -61,19 +46,12 @@ function dnsConfig(overrides: Record<string, string> = {}): Record<string, strin
   };
 }
 
-/**
- * Build the DNS resources for a config, returning only the records this run
- * created. `loadConfig` and `installDns` are imported lazily per call because
- * both read the memoized Pulumi runtime config at call time.
- */
 async function install(values: Record<string, string>) {
   RESOURCES.length = 0;
   pulumi.runtime.setAllConfig(values);
   const { loadConfig } = await import("../config");
   const { installDns } = await import("./dns");
   const result = installDns(loadConfig());
-  // Pulumi registers resources asynchronously; resolving one output per
-  // resource drains the queue so `RESOURCES` is complete when we assert.
   if (result) {
     await Promise.all(
       [...result.hostRecords, ...result.formerHostRecords, ...result.baselineRecords].map(
@@ -90,7 +68,6 @@ async function install(values: Record<string, string>) {
   return { result, records: RESOURCES.filter((r) => r.type.endsWith(":DnsRecord")) };
 }
 
-/** Drive `loadConfig` alone, returning the error it refused with (or null). */
 async function loadWith(values: Record<string, string>): Promise<Error | null> {
   pulumi.runtime.setAllConfig(values);
   const { loadConfig } = await import("../config");
@@ -141,9 +118,6 @@ describe("hostsOutsideZone", () => {
   });
 
   it("rejects a zone that is only a string suffix, not a DNS parent", () => {
-    // The failure this exists for: `notpiloti.at`.endsWith("piloti.at") is true,
-    // so a naive suffix check would let a completely unrelated domain through
-    // and Cloudflare would create the record under the wrong zone.
     expect(hostsOutsideZone(["notpiloti.at"], "piloti.at")).toEqual(["notpiloti.at"]);
   });
 
@@ -179,16 +153,11 @@ describe("installDns", () => {
       expect(record.inputs.type).toBe("A");
       expect(record.inputs.content).toBe("203.0.113.10");
       expect(record.inputs.ttl).toBe(600);
-      // Proxying breaks ACME HTTP-01 through the Gateway, caps S3 uploads at
-      // 100 MB, and puts an uncontrolled idle timeout on the WebSockets the app
-      // tier depends on. If this ever flips, all three need answers first.
       expect(record.inputs.proxied).toBe(false);
     }
   });
 
   it("publishes no otel host: the dashboard behind it is retired", async () => {
-    // A stack that still carries the dashboard's old keys must not get a record
-    // for a host nothing answers on.
     const { records } = await install({
       ...dnsConfig(),
       "grid-oib:observabilityEnabled": "true",
@@ -217,7 +186,6 @@ describe("installDns", () => {
     const www = records.find((r) => r.inputs.name === `www.${ZONE}`);
     expect(www?.inputs.type).toBe("CNAME");
     expect(www?.inputs.content).toBe(ZONE);
-    // No apex redirect in play, so www is a plain unproxied CNAME with a real TTL.
     expect(www?.inputs.proxied).toBe(false);
     expect(www?.inputs.ttl).toBe(600);
 
@@ -234,17 +202,10 @@ describe("installDns", () => {
     });
 
     const apex = records.find((r) => r.inputs.name === ZONE);
-    // Unroutable on purpose: the redirect answers at Cloudflare's edge and no
-    // packet is ever forwarded, so a real address here would become a silent
-    // traffic destination the day the rule is removed.
     expect(apex?.inputs.content).toBe(UNROUTABLE_PLACEHOLDER);
-    // A dynamic-redirect rule only runs on proxied traffic, and Cloudflare
-    // rejects an explicit TTL on a proxied record.
     expect(apex?.inputs.proxied).toBe(true);
     expect(apex?.inputs.ttl).toBe(TTL_AUTOMATIC);
 
-    // www has to follow the apex into the proxy or it reaches the edge without
-    // the hostname the rule matches on.
     const www = records.find((r) => r.inputs.name === `www.${ZONE}`);
     expect(www?.inputs.proxied).toBe(true);
     expect(www?.inputs.ttl).toBe(TTL_AUTOMATIC);
@@ -252,15 +213,9 @@ describe("installDns", () => {
     const ruleset = RESOURCES.find((r) => r.type.endsWith(":Ruleset"));
     expect(ruleset?.inputs.phase).toBe("http_request_dynamic_redirect");
     expect(ruleset?.inputs.kind).toBe("zone");
-    // The one widening in this file, and it is confined here: `MockResourceArgs`
-    // types every input as `unknown`, so the shape the module built has to be
-    // named somewhere to be asserted against.
     const rule = (ruleset?.inputs.rules as RedirectRule[])[0];
     expect(rule.expression).toBe(`http.host in {"${ZONE}" "www.${ZONE}"}`);
     expect(rule.actionParameters.fromValue.targetUrl.value).toBe(`https://dev.${ZONE}`);
-    // 302, never 301: this redirect is removed the moment a stack serves the
-    // apex, and a browser that cached a 301 would keep being bounced off the
-    // real site with no server-side way to undo it.
     expect(rule.actionParameters.fromValue.statusCode).toBe(302);
 
     expect(result?.apexRedirect).toBeDefined();
@@ -273,21 +228,17 @@ describe("installDns", () => {
       "grid-oib:dnsZoneBaseline": "true",
     });
 
-    // The apex is one of this stack's own hosts: a real, unproxied A record.
     const apex = records.filter((r) => r.inputs.name === ZONE);
     expect(apex).toHaveLength(1);
     expect(apex[0].inputs.content).toBe("203.0.113.10");
     expect(apex[0].inputs.proxied).toBe(false);
     expect(result?.apexRedirect).toBeUndefined();
 
-    // www has no Gateway listener or certificate. Unproxied it would reach the
-    // Gateway and fail TLS; proxied, the edge answers it with the redirect.
     const www = records.find((r) => r.inputs.name === `www.${ZONE}`);
     expect(www?.inputs.proxied).toBe(true);
     expect(www?.inputs.ttl).toBe(TTL_AUTOMATIC);
 
     const rulesets = RESOURCES.filter((r) => r.type.endsWith(":Ruleset"));
-    // One entrypoint ruleset per phase per zone: never both redirects at once.
     expect(rulesets).toHaveLength(1);
     const rule = (rulesets[0].inputs.rules as WwwRedirectRule[])[0];
     expect(rule.expression).toBe(`http.host eq "www.${ZONE}"`);
@@ -300,7 +251,6 @@ describe("installDns", () => {
 });
 
 describe("installDns during a domain move (formerBaseDomain)", () => {
-  /** The former zone's id, as `formerDnsZoneId` carries it. */
   const FORMER_ZONE_ID = "00000000000000000000000000f0f0f0";
 
   it("keeps the former apex and app host at the Gateway, in this zone when the move stays in it", async () => {
@@ -316,8 +266,6 @@ describe("installDns during a domain move (formerBaseDomain)", () => {
   });
 
   it("writes them to the former zone, under the names they had as this stack's own hosts", async () => {
-    // The same logical name is what makes the move a no-op for these records:
-    // a new name would delete the live record and re-create it.
     const { records } = await install(
       dnsConfig({
         [KEY("baseDomain")]: `dev.${ZONE}`,
@@ -329,15 +277,11 @@ describe("installDns during a domain move (formerBaseDomain)", () => {
     const former = records.filter((r) => (r.inputs.name as string).endsWith("former.test"));
     expect(former.map((r) => r.name)).toEqual(["dns-dev.former.test", "dns-app.dev.former.test"]);
     for (const record of former) expect(record.inputs.zoneId).toBe(FORMER_ZONE_ID);
-    // This stack's own hosts stay in its own zone.
     const own = records.find((r) => r.inputs.name === `app.dev.${ZONE}`);
     expect(own?.inputs.zoneId).toBe("00000000000000000000000000abc123");
   });
 
   it("keeps the former zone's www, redirect and DMARC under their old names when the baseline stack moves", async () => {
-    // Prod's move: the stack that owns the zone baseline leaves its apex for a new zone. The
-    // former zone's records keep the names they had, with their values, so the move changes
-    // nothing about them and needs no `pulumi state delete`; the new zone's take a suffix.
     const { records } = await install(
       dnsConfig({
         [KEY("baseDomain")]: ZONE,
@@ -372,7 +316,6 @@ describe("installDns during a domain move (formerBaseDomain)", () => {
   });
 
   it("refuses a former host this stack still serves", async () => {
-    // s3.<base> as the former domain: its apex would be this stack's own S3 host.
     const error = await loadWith(dnsConfig({ [KEY("formerBaseDomain")]: `s3.dev.${ZONE}` }));
     expect(error?.message).toContain(`s3.dev.${ZONE}`);
     expect(error?.message).toContain("still serves");
@@ -408,7 +351,6 @@ describe("installDns during a domain move (formerBaseDomain)", () => {
 
 describe("loadConfig refuses DNS configurations that would deploy cleanly and be wrong", () => {
   it("refuses a zone id that is not one", async () => {
-    // The placeholder a stack file carries until the zone's id is known.
     const error = await loadWith(dnsConfig({ [KEY("dnsZoneId")]: "REPLACE_ME" }));
     expect(error?.message).toContain("not a Cloudflare zone id");
   });
@@ -430,8 +372,6 @@ describe("loadConfig refuses DNS configurations that would deploy cleanly and be
   });
 
   it("refuses hosts that fall outside the zone", async () => {
-    // The silent failure: Cloudflare would append the zone and create
-    // `dev.elsewhere.test.example.test`, reporting success.
     const error = await loadWith({
       ...dnsConfig(),
       "grid-oib:baseDomain": "dev.elsewhere.test",
@@ -451,8 +391,6 @@ describe("loadConfig refuses DNS configurations that would deploy cleanly and be
   });
 
   it("refuses a stack that serves the apex without owning the zone baseline", async () => {
-    // How piloti.at kept redirecting to dev after prod shipped: prod wrote the
-    // apex, the dev stack still owned www and the redirect ruleset.
     const error = await loadWith({
       ...dnsConfig(),
       "grid-oib:baseDomain": ZONE,

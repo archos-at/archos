@@ -1,29 +1,3 @@
-"""The visual eval: does Piloti look at the place a question is about, and does looking change the answer (ADR-0128).
-
-``suite.py --set visual`` runs ``tests/fixtures/visual/visual_questions.yaml`` through the real agent in
-the fixture project of ``fixture_visual.py``: three drawings rendered from ``drawings.json`` at suite
-start, whose figures are on the page and not in the indexed text. It is the office-file set's shape
-(``files_eval.py``, whose tool-call matching, loader and checks this reuses): the checks read the
-MODEL's own tool calls, and a judge is not needed because a value is a string.
-
-What it scores per run:
-
-- ``mentions``, the suite's own check: the value the drawing holds is in the answer;
-- ``tools.must: [look]`` / ``must_not: [look]``: the turn looked, or (a skip control, where an exact
-  hit holds the label) did not. ``look`` is the one capability under any of its names today: ``look``,
-  ``canvas__look`` and ``view_knowledge_image`` (ADR-0128 retires the last two), so a baseline taken
-  before the rename and a run after it count the same act;
-- ``gold_covered``: some look at the gold document and page held the gold box (``coverage`` >= 0.8);
-- the number of looks, and for each gold box the best IoU over those looks. IoU is reported, not a
-  check: a crop with a margin has looked in the right place and still has a small IoU;
-- whether every look reached a card item and a step. That needs the look card and step of V3, so until
-  they exist (``parity_available``) it is reported ``n/a`` rather than 0.
-
-``--look off`` runs the same rows with ``VIEW_IMAGES_ENABLED=0``: the paired run that says what looking
-is worth. Then ``must: [look]`` and ``gold_covered`` are not asked (the tool answers "disabled"); the
-looks still count, as attempts.
-"""
-
 from __future__ import annotations
 
 import statistics
@@ -38,13 +12,10 @@ from workspace_eval import Judge
 from workspace_eval import load_questions as load_rows
 
 QUESTIONS = ROOT / "tests" / "fixtures" / "visual" / "visual_questions.yaml"
-#: The names of the one capability, today and after ADR-0128's rename. A call to any is a look.
 LOOK_TOOLS = frozenset({"look", "canvas__look", "view_knowledge_image"})
-#: A look held the gold box when it contained at least this share of it.
 COVERAGE_MIN = 0.8
 BOXES = ("found", "given")
 CATEGORIES = ("dimension", "count", "plankopf", "legend", "fassung", "skip")
-#: Where the look card and step of V3 are declared; until both are, parity is not applicable.
 CARD_MODELS = ROOT / "packages" / "agent" / "src" / "agent" / "cards" / "look_card.py"
 WIRE_MODELS = ROOT / "packages" / "agent" / "src" / "agent" / "common" / "wire_v2.py"
 
@@ -52,7 +23,6 @@ Box = tuple[float, float, float, float]
 WHOLE_PAGE: Box = (0.0, 0.0, 1.0, 1.0)
 
 
-# --- the rows --------------------------------------------------------------------
 
 
 def _elements(spec: dict[str, Any]) -> dict[tuple[str, int, str], list[float]]:
@@ -65,7 +35,6 @@ def _elements(spec: dict[str, Any]) -> dict[tuple[str, int, str], list[float]]:
 
 
 def resolve_gold(row: dict, elements: dict[tuple[str, int, str], list[float]]) -> list[dict[str, Any]]:
-    """The row's gold as ``{document, page, element, box}`` each, the box read off the spec."""
     raw = row.get("gold") or []
     golds = []
     for item in raw if isinstance(raw, list) else [raw]:
@@ -77,7 +46,6 @@ def resolve_gold(row: dict, elements: dict[tuple[str, int, str], list[float]]) -
 
 
 def load_questions(path: Path = QUESTIONS, spec: dict[str, Any] | None = None) -> list[dict]:
-    """The set's rows: ``question`` the last turn, ``gold`` resolved to boxes, ``set`` ``visual``."""
     elements = _elements(spec or load_spec())
     rows = []
     for row in load_rows(path):
@@ -92,7 +60,6 @@ def load_questions(path: Path = QUESTIONS, spec: dict[str, Any] | None = None) -
     return rows
 
 
-# --- boxes -----------------------------------------------------------------------
 
 
 def area(box: Box) -> float:
@@ -106,18 +73,15 @@ def intersection(a: Box, b: Box) -> float:
 
 
 def iou(a: Box, b: Box) -> float:
-    """Intersection over union of two boxes in shares of one page."""
     shared = intersection(a, b)
     union = area(a) + area(b) - shared
     return shared / union if union > 0 else 0.0
 
 
 def coverage(look: Box, gold: Box) -> float:
-    """The share of the gold box a look contained."""
     return intersection(look, gold) / area(gold) if area(gold) > 0 else 0.0
 
 
-# --- what the turn looked at -----------------------------------------------------
 
 
 def is_look(name: str) -> bool:
@@ -125,12 +89,10 @@ def is_look(name: str) -> bool:
 
 
 def with_look_names(calls: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """The recorded calls with every name of the capability spelled ``look``, so a row asks for one."""
     return [{**call, "name": "look"} if is_look(call["name"]) else call for call in calls]
 
 
 def _region(value: Any) -> Box:
-    """A call's ``region`` as a box; no region, or one that is not four numbers, is the whole page."""
     try:
         x, y, w, h = (float(part) for part in value)
     except TypeError, ValueError:
@@ -139,7 +101,6 @@ def _region(value: Any) -> Box:
 
 
 def looks_of(calls: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Each look the model made: ``{document, page, box}``, from the arguments of either tool shape."""
     found = []
     for call in calls:
         if not is_look(call["name"]):
@@ -162,13 +123,11 @@ def _stem(name: str) -> str:
 
 
 def same_document(wanted: str, given: str) -> bool:
-    """Whether a look's ``document`` names the gold file as the inventory resolves it: name, stem or part of it."""
     wanted, given = _stem(wanted), _stem(given)
     return bool(given) and (given == wanted or given in wanted)
 
 
 def gold_scores(looks: list[dict[str, Any]], golds: list[dict[str, Any]]) -> list[dict[str, float]]:
-    """Per gold box, the best IoU and the best coverage over the looks at its document and page."""
     scores = []
     for gold in golds:
         there = [
@@ -185,11 +144,9 @@ def gold_scores(looks: list[dict[str, Any]], golds: list[dict[str, Any]]) -> lis
     return scores
 
 
-# --- cards and steps --------------------------------------------------------------
 
 
 def parity_available() -> bool:
-    """Whether this commit declares the look card (V3's cards) and the look step (V3's wire kind)."""
     try:
         return 'type: Literal["look"]' in CARD_MODELS.read_text(encoding="utf-8") and (
             'kind: Literal["look"]' in WIRE_MODELS.read_text(encoding="utf-8")
@@ -199,11 +156,6 @@ def parity_available() -> bool:
 
 
 def look_parity(n_looks: int, cards: list[Any], available: bool | None = None) -> dict[str, bool | None]:
-    """Whether every look reached a card item and a step; ``None`` is not applicable.
-
-    Both are ``None`` while the look card and step do not exist. The recording holds the envelope's
-    cards and not the wire steps, so the step half stays ``None`` until V3 says how to read it.
-    """
     available = parity_available() if available is None else available
     if not available:
         return {"card": None, "step": None}
@@ -213,7 +165,6 @@ def look_parity(n_looks: int, cards: list[Any], available: bool | None = None) -
     return {"card": items >= n_looks, "step": None}
 
 
-# --- the checks ------------------------------------------------------------------
 
 
 def visual_checks(
@@ -227,10 +178,6 @@ def visual_checks(
     research_calls: int,
     look_on: bool = True,
 ) -> dict[str, bool]:
-    """This set's checks for one run: the files set's, over the calls with one name for a look, and gold coverage.
-
-    With looking off, ``must: [look]`` is not asked and there is no gold to cover; ``must_not`` still is.
-    """
     named = with_look_names(calls)
     tools = dict(expect.get("tools") or {})
     if not look_on:
@@ -241,11 +188,9 @@ def visual_checks(
     return checks
 
 
-# --- the report ------------------------------------------------------------------
 
 
 def _row_cells(rows: list[Any], gold: list[dict[str, Any]], available: bool) -> tuple[str, str, str, str]:
-    """Looks per run, best IoU, coverage held, and parity, as a row of the table says them."""
     counts = [len(looks_of(r.tool_args)) for r in rows]
     scored = [gold_scores(looks_of(r.tool_args), gold) for r in rows] if gold else []
     best = [statistics.fmean(s["iou"] for s in score) for score in scored]
@@ -261,7 +206,6 @@ def _row_cells(rows: list[Any], gold: list[dict[str, Any]], available: bool) -> 
 
 
 def report_lines(runs: list[Any], meta: dict[str, Any] | None = None) -> list[str]:
-    """The set's totals and a table per row: did it look, where, how often, and was the answer right."""
     meta = meta or {}
     ok = [run for run in runs if not run.error]
     head = [f"## Visual eval (looking: {meta.get('look') or 'on'})", ""]

@@ -4,19 +4,6 @@ import { NODE_GROUP_LABEL } from "./src/constants";
 import { baseStackConfig } from "./src/test-support/stack-config";
 import { DependencyGraph } from "./src/test-support/dependency-graph";
 
-/**
- * Qdrant, the one vector store (ADR-0115), with three peers and a data group:
- * the whole program built once and every manifest string the design (`qdrant-retrieval-design.md` §9) depends on checked.
- *
- * Each of these is a value that plans clean and fails only on a cluster: a
- * liveness probe on `/readyz` cascades restarts during Raft catch-up, a
- * bootstrap URI the peers cannot resolve leaves three one-node clusters, a
- * caller missing from the NetworkPolicy times out on every search.
- * `bootstrapScript` and `snapshotScript` were also run against real
- * `qdrant/qdrant:v1.19.2`, `chrislusf/seaweedfs:3.80` and `curlimages/curl`
- * containers when they were written; this suite holds the strings to what ran.
- */
-
 type Env = { name: string; value?: string; valueFrom?: { secretKeyRef?: { name: string; key: string } } };
 type Container = {
   name: string;
@@ -107,14 +94,12 @@ const TYPE = {
 const DEPLOYMENT = TYPE.Deployment;
 const SERVICE = TYPE.Service;
 
-/** The mock's inputs of one resource, read with the fields these cases use. */
 function find<K extends keyof Manifests>(kind: K, name: string): Manifests[K] {
   const hit = RESOURCES.find((r) => r.type === TYPE[kind] && r.name === name);
   expect(hit, `${kind} ${name}`).toBeDefined();
   return hit!.inputs as Manifests[K];
 }
 const qdrantPod = (): PodSpec => find("StatefulSet", "qdrant").spec.template.spec;
-/** A Secret's `stringData`, unwrapped from the mock's secret envelope. */
 const secretData = (name: string): Record<string, string> => {
   const data = find("Secret", name).stringData;
   return "value" in data && typeof data.value === "object" ? data.value : (data as Record<string, string>);
@@ -141,7 +126,6 @@ describe("Qdrant, three peers on the data group", () => {
 
   it("runs a Parallel StatefulSet of three peers behind the headless Service", () => {
     const spec = find("StatefulSet", "qdrant").spec;
-    // OrderedReady deadlocks the bootstrap; the policy pack allows this one.
     expect(spec.podManagementPolicy).toBe("Parallel");
     expect(spec.replicas).toBe(3);
     expect(spec.serviceName).toBe("qdrant-headless");
@@ -181,7 +165,6 @@ describe("Qdrant, three peers on the data group", () => {
     expect(container.readinessProbe!.httpGet).toEqual({ path: "/readyz", port: 6333 });
     expect(container.livenessProbe!.httpGet).toEqual({ path: "/livez", port: 6333 });
     expect(container.startupProbe!.httpGet).toEqual({ path: "/livez", port: 6333 });
-    // Generous: loading segments precedes the API.
     expect(container.startupProbe!.periodSeconds * container.startupProbe!.failureThreshold).toBeGreaterThanOrEqual(600);
   });
 
@@ -249,7 +232,6 @@ describe("Qdrant, three peers on the data group", () => {
       name: "qdrant-credentials",
       key: "s3-secret-key",
     });
-    // The init Job creates the bucket and verifies it.
     expect(JSON.stringify(find("Job", "seaweedfs-bucket-init").spec)).toContain(
       "s3.bucket.create -name qdrant-snapshots",
     );
@@ -260,26 +242,20 @@ describe("Qdrant, three peers on the data group", () => {
     expect(spec.clusterIP).toBe("None");
     expect(spec.publishNotReadyAddresses).toBe(true);
     expect(spec.ports.map((p) => p.port)).toEqual([6333, 6334, 6335, 6336]);
-    // Clients never see p2p, nor the keyless metrics port.
     expect(find("Service", "qdrant").spec.ports.map((p) => p.port)).toEqual([6333, 6334]);
   });
 
-  // `service.metrics_port` serves /metrics without the key and nothing else
-  // (drilled: 200 there, 401 on 6333, 404 for any other path on it).
   it("serves /metrics on its own keyless port", () => {
     const [container] = qdrantPod().containers;
     expect(envOf(container).QDRANT__SERVICE__METRICS_PORT.value).toBe("6336");
     expect(container.ports).toContainEqual({ containerPort: 6336, name: "metrics" });
   });
 
-  // 507 near the limits instead of an OOM kill or a full volume; the env path
-  // and the quota_exceeded metric were checked against the real image.
   it("turns the quotas on below the memory limit and a full volume", () => {
     const env = envOf(qdrantPod().containers[0]);
     expect(env.QDRANT__STORAGE__QUOTAS__ENABLED.value).toBe("true");
     expect(env.QDRANT__STORAGE__QUOTAS__MAX_RESIDENT_MEMORY_PERCENT.value).toBe("90");
     expect(env.QDRANT__STORAGE__QUOTAS__MAX_DISK_USAGE_PERCENT.value).toBe("85");
-    // Recovery knobs stay off unless set.
     expect(env.QDRANT__STORAGE__LOW_MEMORY_MODE).toBeUndefined();
     expect(env.QDRANT__SERVICE__ALT_API_KEY).toBeUndefined();
   });
@@ -306,12 +282,9 @@ describe("Qdrant, three peers on the data group", () => {
     expect(env.QDRANT_API_KEY.valueFrom!.secretKeyRef).toEqual({ name: "qdrant-credentials", key: "api-key" });
   });
 
-  // Aliases live in consensus, not in any snapshot: a cluster restored from
-  // snapshots alone answers every search "collection not found".
   it("records the aliases beside the snapshots, as the snapshot identity", () => {
     const [container] = find("CronJob", "qdrant-snapshot").spec.jobTemplate.spec.template.spec.containers;
     const env = envOf(container);
-    // The same endpoint Qdrant uploads its snapshots to.
     expect(env.S3_ENDPOINT.value).toBe("http://seaweedfs:8333");
     expect(env.S3_BUCKET.value).toBe("qdrant-snapshots");
     expect(env.S3_ACCESS_KEY.value).toBe("grid-qdrant");
@@ -319,7 +292,6 @@ describe("Qdrant, three peers on the data group", () => {
     expect(env.ALIASES_PREFIX.value).toBe("aliases/");
     const script = container.command![2];
     expect(script).toContain('--aws-sigv4 "aws:amz:$S3_REGION:s3"');
-    // Called, and before the snapshot loop, so a long pass cannot starve it.
     const call = script.indexOf("\nrecord_aliases\n");
     expect(call).toBeGreaterThan(0);
     expect(call).toBeLessThan(script.indexOf("\nfor peer in $PEERS; do\n  collections="));
@@ -345,10 +317,8 @@ describe("Qdrant, three peers on the data group", () => {
         name: "grid-secrets",
         key: "QDRANT_API_KEY",
       });
-      // The tenant collection spread over the peers, not created on one.
       expect(env.QDRANT_SHARD_NUMBER?.value, name).toBe("6");
       expect(env.QDRANT_REPLICATION_FACTOR?.value, name).toBe("2");
-      // Qdrant is the only store: nothing points a tier at Chroma or picks between the two.
       const retired = Object.keys(env).filter((k) => k.startsWith("CHROMA") || k === "VECTOR_BACKEND");
       expect(retired, name).toEqual([]);
     }
@@ -383,7 +353,6 @@ describe("Qdrant, three peers on the data group", () => {
     const peers = policy("qdrant-peers").ingress[0];
     expect(peers.from).toEqual([{ podSelector: { matchLabels: { "app.kubernetes.io/name": "qdrant" } } }]);
     expect(peers.ports.map((p) => p.port)).toEqual([6333, 6334, 6335]);
-    // No collector on this stack, so nobody is admitted to the metrics port.
     expect(RESOURCES.some((r) => r.name === "allow-collector-to-qdrant-metrics")).toBe(false);
   });
 

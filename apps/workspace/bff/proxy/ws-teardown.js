@@ -24,13 +24,6 @@
  * production image copies it in by path (`deploy/Dockerfile`).
  */
 
-// Socket-level failures reaching the aiq-agent Service BEFORE the upgrade.
-// Every one means "the backend was not there for this attempt", which during a
-// rolling deploy, a node drain or a pod restart is the expected state for a few
-// seconds: the client reconnects and the next upgrade lands on a ready pod.
-// Logged at WARN so the err2issue exporter (ADR-0031) leaves them alone; volume
-// in the dashboard is what tells a rollout from an outage. Classified on
-// `err.code`, the structured field Node guarantees, never on the message.
 const TRANSIENT_UPSTREAM_CODES = new Set([
   'ECONNREFUSED', // no ready endpoint behind the Service (rollout, restart)
   'ECONNRESET', // the pod went away mid-handshake
@@ -43,7 +36,6 @@ const TRANSIENT_UPSTREAM_CODES = new Set([
   'EPIPE',
 ])
 
-// A peer leaving an ALREADY-SPLICED socket.
 const TEARDOWN_CODES = new Set([
   'EPIPE', // we wrote after the peer closed
   'ECONNRESET', // the peer reset (tab killed, radio lost, pod gone)
@@ -55,8 +47,6 @@ const TEARDOWN_CODES = new Set([
 const isTransientUpstreamFailure = (err) => TRANSIENT_UPSTREAM_CODES.has(err?.code)
 const isTeardownError = (err) => TEARDOWN_CODES.has(err?.code)
 
-// Client sockets whose upgrade completed. A WeakSet so a socket is never kept
-// alive by being in it.
 const spliced = new WeakSet()
 
 const seconds = (ms) => (ms / 1000).toFixed(1)
@@ -75,9 +65,6 @@ function watchSplicedSockets(client, upstream, { logger = console, now = Date.no
   spliced.add(client)
   const openedAt = now()
   const age = () => seconds(now() - openedAt)
-  // The side that failed or closed FIRST. An error counts: http-proxy destroys
-  // the client synchronously on an upstream error, so the client's 'close'
-  // would otherwise arrive first and take the blame.
   let firstSide = null
   let closeLogged = false
 
@@ -95,8 +82,6 @@ function watchSplicedSockets(client, upstream, { logger = console, now = Date.no
       closeLogged = true
       logger.info('[WebSocket] closed by %s after %ss', firstSide, age())
     }
-    // The pipe ends the other side on a clean 'end' but not on an error, so a
-    // reset on one side would leave the other open and idle until keepalive.
     if (hadError) other.destroy()
     else other.end()
   }

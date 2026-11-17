@@ -1,21 +1,5 @@
 'use client'
 
-/**
- * Dev preview for system notifications (Web Push, ADR-0112): the "Benachrichtigungen"
- * section of the profile in every state it can be in, and the quiet offer in the
- * inbox. Not linked from anywhere; 404s outside development.
- *
- * The settings states render `NotificationSettingsView` from fixtures, because
- * most of them (an iPhone outside the Home Screen, a blocked browser) cannot be
- * produced by the browser doing the screenshot. The inbox is the REAL `InboxList`
- * with its REAL prompt: the fetch shim answers the push API and the inbox, and the
- * headless browser's own capabilities decide whether the offer is due.
- *
- * `?view=settings|inbox` shows one half. The shim is installed at module scope,
- * before any child effect runs (see `/dev/inbox`). Pinned to German, the
- * product's primary language.
- */
-
 import type { JSX } from 'react'
 import { useEffect, useState } from 'react'
 import { notFound } from 'next/navigation'

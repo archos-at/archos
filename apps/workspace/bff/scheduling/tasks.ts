@@ -1,27 +1,3 @@
-/**
- * The scheduling tasks the `bff-jobs` worker registers with Hatchet (ADR-0150).
- *
- *   - `fire-task-definition`: a definition's scheduled run fires it
- *     (`./fire-definition.ts`). Fair across offices: `GROUP_ROUND_ROBIN` on
- *     `input.organization_id`. No retries: a fire is at most once, and a retry
- *     would find the occurrence already taken anyway.
- *   - one cron task per maintenance sweep (`./sweeps.ts`), each with a constant
- *     concurrency key, `maxRuns: 1` and `CANCEL_NEWEST`: a run that comes due
- *     while the previous one is still going is dropped, so two never overlap.
- *
- * Hatchet crons have minute granularity and are UTC unless the expression
- * starts with `CRON_TZ=<IANA zone> `, which the engine honours (tried on
- * v0.114.2, ADR-0150's note of 2026-11-11; `orchestrator.integration.spec.ts`
- * holds it). The daily retention sweeps run at a fixed UTC time; the one sweep
- * tied to the office's clock, the Frist reminder, names the office's zone, so
- * it stays on 06:45 across daylight-saving changes. A cron tick the engine
- * misses is dropped, never caught up, which is why a task definition is a
- * scheduled run and not a cron (`./scheduled-runs.ts`).
- *
- * `startJobWorker` (`bff/jobs-queue/slice-entry.ts`) registers `schedulingTasks()`
- * beside `bff-job` on the one `bff-jobs` worker.
- */
-
 import 'server-only'
 import { ConcurrencyLimitStrategy, type HatchetClient } from '@hatchet-dev/typescript-sdk/v1'
 import { hatchetClient } from '@/lib/jobs-queue/orchestrator'
@@ -33,22 +9,14 @@ import { OFFICE_TIME_ZONE } from '@/lib/format'
 import { FIRE_TASK_DEFINITION, type FireTaskDefinitionInput } from './scheduled-runs'
 import * as sweeps from './sweeps'
 
-/** How many definitions of one organization fire at once. */
 const FIRES_PER_ORGANIZATION = 5
 
-/** What declaring a task needs of the client; the wiring spec hands in a fake. */
 export type TaskDeclarer = Pick<HatchetClient, 'task'>
 
-/** Like a job slice: no request, no tenant inherited from the run before (`slice-scope.ts`). */
 function inWorkerScope<T>(fn: () => Promise<T>): Promise<T> {
   return runWithTenantSlot(() => runAsJobSlice(fn))
 }
 
-/**
- * Run a task's work; a failure is logged whole on the pod and reaches Hatchet as
- * `category: ErrorClass` only (`failureText`). A sweep's error can name a
- * document or a URL, and Hatchet keeps what it is told (ADR-0150).
- */
 export async function reportingOnlyTheClass<T>(task: string, category: string, fn: () => Promise<T>): Promise<T> {
   try {
     return await fn()
@@ -60,15 +28,12 @@ export async function reportingOnlyTheClass<T>(task: string, category: string, f
 
 export interface SweepSpec {
   name: string
-  /** A 5-field cron: UTC, or on a zone's clock behind a `CRON_TZ=<IANA zone> ` prefix. */
   cron: string
-  /** Why the sweep reads every organization: its route's `crossTenant` declaration, kept. */
   reason: string
   run: () => Promise<unknown>
   retries?: number
 }
 
-/** A maintenance sweep as a Hatchet cron task that never overlaps itself. */
 export function sweepTask(hatchet: TaskDeclarer, spec: SweepSpec) {
   return hatchet.task({
     name: spec.name,
@@ -189,7 +154,6 @@ const SWEEPS: SweepSpec[] = [
   },
   {
     name: 'frist-reminder',
-    // 06:45 on the office's clock, in winter and in summer.
     cron: `CRON_TZ=${OFFICE_TIME_ZONE} 45 6 * * *`,
     reason: 'one grouped read of the organizations with a mark whose Frist is near or past; each job is enqueued inside its own organization',
     run: sweeps.sweepFristReminder,
@@ -197,7 +161,6 @@ const SWEEPS: SweepSpec[] = [
   },
 ]
 
-/** The task a definition's scheduled run fires. */
 export function fireTask(hatchet: TaskDeclarer) {
   return hatchet.task({
     name: FIRE_TASK_DEFINITION,
@@ -215,7 +178,6 @@ export function fireTask(hatchet: TaskDeclarer) {
   })
 }
 
-/** Every scheduling task, for the `bff-jobs` worker's `workflows` (`bff/jobs-queue/slice-entry.ts`). */
 export function schedulingTasks(hatchet: TaskDeclarer = hatchetClient()) {
   return [fireTask(hatchet), ...SWEEPS.map((spec) => sweepTask(hatchet, spec))]
 }

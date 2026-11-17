@@ -1,5 +1,3 @@
-"""Turns a validated input into the engine call for its operation, or into the refusal that says what is missing."""
-
 from collections.abc import Sequence
 from typing import Any
 
@@ -10,23 +8,14 @@ from agent.tools.bim.measure_vocab import RELATIONS
 from agent.tools.bim.measure_vocab import ROOM_KINDS
 from agent.tools.bim.measure_vocab import VIEW_MODES
 
-# ── the engine call ──────────────────────────────────────────────────────────
-#
-# The vocabularies are the schema's business: by the time a call is built here
-# every enum has been case-folded and refused by `IfcMeasureInput`. What is left
-# to decide is what the schema cannot say — which fields an operation needs,
-# which of `kind`'s four vocabularies applies to it, and the engine's own
-# argument names.
 
 _EngineCall = tuple[str, dict[str, Any]]
 
 
-#: The operations that are about ONE element, and refuse without it.
 
 _SUBJECT_OPERATIONS = frozenset({"element", "relations", "measure", "element_profile", "clearance", "distance"})
 
 
-#: Which vocabulary a refused field is listed against, for the sentence.
 
 _VOCABULARIES: dict[str, Sequence[str]] = {
     "relation": tuple(RELATIONS),
@@ -47,7 +36,6 @@ _MODE_ADVICE = (
 )
 
 
-#: What a refused field's sentence goes on to say, where the vocabulary alone misleads.
 
 _ADVICE = {"kind": _KIND_ADVICE, "mode": _MODE_ADVICE}
 

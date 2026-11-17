@@ -1,30 +1,3 @@
-/**
- * The source monitor (ADR-0174, design §4.2): has a published public source
- * changed since its last check? Deterministic, no model call, and it never
- * publishes: a change opens a change request that a reviewer owns.
- *
- * A run (the `source-monitor` sweep, `bff/scheduling/tasks.ts`):
- * 1. Only with `source-monitors` on for the platform organization; otherwise it reads, fetches and writes nothing.
- * 2. Every published source whose monitor names a probe and whose interval has
- *    passed since its last check is probed through the api tier (the
- *    fetcher's guard: the source's hosts, public addresses, GET), with its key
- *    when one is set.
- * 3. The state is written either way: a failure keeps the last success, so
- *    the freshness lag grows.
- * 4. A change (the bytes, the validator or the version, by the monitor's kind)
- *    or changed terms opens a draft request, origin `monitor`, holding a
- *    capture of the new page and the finding: previous and current state,
- *    whether the terms moved, and what the reviewer needs to recheck. The
- *    state then moves to that page. While the request is open, a check moves
- *    only `checked_at` and `ok_at`: the state stays the page under review, so
- *    a change made meanwhile is still a change against it once the request
- *    closes, and opens the next one.
- * 5. One trace `source-monitor` with `freshness-lag-days` per watched source.
- *
- * An operator's agent finds the work with
- * `platform-knowledge-change-request-list {origin: monitor}`.
- */
-
 import 'server-only'
 import { randomUUID } from 'node:crypto'
 import { FEATURE_FLAGS } from '@/lib/authz/feature-flags'
@@ -51,19 +24,15 @@ import {
 import { platformTransaction } from './store'
 import type { Tx } from '../store/repository'
 
-/** Who a monitor's request and capture are created by: no person, the sweep. */
 export const MONITOR_ACTOR = 'system:source-monitor'
 
-/** At most this many sources are probed in one run; the rest are due next run. */
 export const MAX_PROBES_PER_RUN = 50
 
-/** What a reviewer of a monitor's request rechecks (`needs[]`), as codes. */
 export type MonitorNeed = 'recheck_records' | 'name_transition' | 'recheck_terms'
 
 export interface MonitorOutcome {
   enabled: boolean
   run: SourceMonitorRun | null
-  /** The requests this run opened, by source record id. */
   opened: Record<string, string>
 }
 
@@ -90,7 +59,6 @@ function due(source: RegisteredSource, state: MonitorState | undefined, now: Dat
   return !state || state.checkedAt.getTime() + source.monitorIntervalHours * 3_600_000 <= now.getTime()
 }
 
-/** When a source was first published: its lag counts from there until a check succeeds. */
 async function publishedAt(tx: Tx, recordId: string): Promise<Date | null> {
   const [row] = await tx
     .select({ at: sql<string | null>`min(${knowledgeReleaseMoves.releasedAt})` })
@@ -107,11 +75,6 @@ function needsOf(source: RegisteredSource, previous: MonitorState | undefined, s
   return needs
 }
 
-/**
- * Open the monitor's request for a change, with the new page as its capture.
- * Null when one is already open for the source (the unique index decides, so
- * two runs at once cannot open two).
- */
 async function openRequest(
   tx: Tx,
   source: RegisteredSource,
@@ -132,7 +95,6 @@ async function openRequest(
   }
   const [newest] = await tx.select({ seq: sql<string | null>`max(${knowledgeReleaseMoves.seq})` }).from(knowledgeReleaseMoves)
   try {
-    // A savepoint of its own: a refused insert must not abort the run's transaction.
     await tx.transaction(async (savepoint) => {
       await savepoint.insert(knowledgeChangeRequests).values({
         id,
@@ -149,13 +111,11 @@ async function openRequest(
     if (!isUniqueViolation(error, 'knowledge_change_requests_one_open_per_source')) throw error
     return null
   }
-  // The new page, for the reviewer to read the change against (a 304 brought none back).
   if (/^[0-9a-f]{64}$/.test(seen.current.sha256)) {
     await insertCapture(tx, {
       changeRequestId: id,
       basis: 'fetched',
       sourceId: source.key,
-      // The monitor reads released sources only.
       ...fetchedThrough(source),
       url: seen.url,
       finalUrl: seen.url,
@@ -174,7 +134,6 @@ async function openRequest(
 
 type Baseline = Pick<MonitorState, 'etag' | 'sha256' | 'version' | 'termsSha256'>
 
-/** The page just seen, as the new state. */
 function stateOf(seen: ProbeAnswer, state: MonitorState | undefined): Baseline {
   const hex = /^[0-9a-f]{64}$/
   return {
@@ -185,7 +144,6 @@ function stateOf(seen: ProbeAnswer, state: MonitorState | undefined): Baseline {
   }
 }
 
-/** Whether a monitor's request for the source is still open: the page it holds is the one under review. */
 async function hasOpenMonitorRequest(tx: Tx, recordId: string): Promise<boolean> {
   const [row] = await tx
     .select({ id: knowledgeChangeRequests.id })
@@ -216,7 +174,6 @@ async function checkOne(source: RegisteredSource, state: MonitorState | undefine
     seen = await deps.probe(configured, state ?? {})
   } catch (error) {
     if (!(error instanceof CaptureFetchError)) throw error
-    // The failure and the clock only: the baseline is the row's, whatever another run wrote since this one began.
     await platformTransaction((tx) =>
       touchMonitorState(tx, { recordId: source.recordId, checkedAt: now, okAt: state?.okAt ?? null, failure: error.message.slice(0, 500) }),
     )
@@ -226,21 +183,14 @@ async function checkOne(source: RegisteredSource, state: MonitorState | undefine
   const opened = await platformTransaction(async (tx) => {
     const underReview = await hasOpenMonitorRequest(tx, source.recordId)
     const id = changed && !underReview ? await openRequest(tx, source, state, seen, now) : null
-    // A change that opened no request (one is open, or another run opened it a moment ago) is not reviewed yet.
     const keep = underReview || (changed && id === null)
     const checked = { recordId: source.recordId, checkedAt: now, okAt: now, failure: null }
-    // Kept: the row's own baseline stays, never this run's snapshot of it (an overlapping run may have moved it).
     await (keep ? touchMonitorState(tx, checked) : writeMonitorState(tx, { ...checked, ...stateOf(seen, state) }))
     return id
   })
   return { recordId: source.recordId, lagSince: now, failed: false, changed, opened }
 }
 
-/**
- * One source's check, whatever it throws: an error of this source (a record the
- * api tier refuses, a database refusal) is its failure, logged and counted, and
- * the run goes on to the next source.
- */
 async function checkedOrFailed(source: RegisteredSource, state: MonitorState | undefined, now: Date, deps: MonitorDeps): Promise<Checked> {
   try {
     return await checkOne(source, state, now, deps)
@@ -250,7 +200,6 @@ async function checkedOrFailed(source: RegisteredSource, state: MonitorState | u
   }
 }
 
-/** One run of the monitor. `deps` stand in for the api tier, the flags and Langfuse in tests only. */
 export async function runSourceMonitor(now = new Date(), stand: Partial<MonitorDeps> = {}): Promise<MonitorOutcome> {
   const deps: MonitorDeps = { ...DEFAULT_DEPS, ...stand }
   if (!(await deps.enabled())) return { enabled: false, run: null, opened: {} }

@@ -52,11 +52,9 @@ class NormsVerifyRequest(BaseModel):
 
     title_query: str
     application: str
-    # An admin tab that has not reloaded still sends `bundesland`; read-only.
     federal_state: str = Field("", validation_alias=AliasChoices("federal_state", "bundesland"))
     expect: str = ""
     exclude: list[str] = Field(default_factory=list)
-    # An admin tab that has not reloaded still sends `gesetzesnummer`; read-only.
     statute_number: str = Field("", validation_alias=AliasChoices("statute_number", "gesetzesnummer"))
 
 
@@ -118,9 +116,6 @@ def add_norm_routes(router: APIRouter) -> None:
     async def put_norms(body: NormsPutRequest, _: None = Depends(_require_admin_token)) -> dict:
         from agent.knowledge.norm_store import get_norm_store
 
-        # NormsFile schema validation already ran (FastAPI -> 422 with details).
-        # Second gate: entries norm_registry would silently drop must be an
-        # explicit 400 so the admin sees them, not lose them on the next load.
         problems = _rejection_reasons(body.registry)
         if problems:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=problems)
@@ -187,8 +182,6 @@ def add_norm_routes(router: APIRouter) -> None:
                 continue
             if any(term.lower() in lower for term in body.exclude):
                 continue
-            # Whole-law anchors only (the "§ 0" document with a consolidated-law URL):
-            # that is what a registry pointer references.
             if hit.metadata.get("Paragraph/Artikel") != "§ 0":
                 continue
             if not hit.full_law_url:

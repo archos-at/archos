@@ -1,12 +1,3 @@
-"""Offline tests for the OIB retrieval harness's corpus, structure, lexical and dense arms.
-
-Everything here runs without a network, an API key, a PDF or a model download: the
-documents are synthetic page dicts of the exact shape
-``knowledge_layer.ingest.adapter._extract_text_from_pdf`` returns, and the dense arm is
-the deterministic hashed embedder. The real corpus run and the real model live in
-``runner.py`` behind an explicit flag, deliberately outside CI.
-"""
-
 import pytest
 from oib_retrieval import corpus
 from oib_retrieval import dense
@@ -27,11 +18,6 @@ def _page(number: int, body: str) -> dict:
 
 @pytest.fixture(scope="module")
 def synthetic_pages() -> list[dict]:
-    """Two body pages carrying eight Punkte, in the shape the real corpus has.
-
-    Short enough that one 1024-token page chunk swallows a whole page — which is precisely
-    the page-arm failure the structural metric exists to expose.
-    """
     page_one = """
 0 Vorbemerkungen
 Diese Richtlinie gilt für Gebäude.
@@ -82,9 +68,6 @@ def synthetic_index() -> ClauseIndex:
     )
 
 
-# ---------------------------------------------------------------------------
-# The structural before/after
-# ---------------------------------------------------------------------------
 
 
 def test_every_indexed_clause_is_located_in_the_extracted_line_stream(synthetic_index, synthetic_pages):
@@ -99,7 +82,6 @@ def test_structural_parents_are_counted_from_the_index_and_excluded_from_the_lea
     results, _located, parents, _unlocated = structure.measure_document(
         synthetic_index, "9", synthetic_pages, FILE_NAME, 1024
     )
-    # "2", "2.1", "2.2" and "3" have numbered children; the other seven Punkte are leaves.
     assert parents == 4
     assert results[corpus.ARM_PAGE].leaf_clauses == 7
     assert results[corpus.ARM_CLAUSE].leaf_clauses == 7
@@ -110,8 +92,6 @@ def test_page_chunking_blends_many_clauses_into_one_chunk_so_almost_none_is_cita
         synthetic_index, "9", synthetic_pages, FILE_NAME, 1024
     )
     page_arm = results[corpus.ARM_PAGE]
-    # One chunk per page swallows the page whole: every Punkt on it is contiguous, and
-    # essentially none of them is the chunk's own unit.
     assert page_arm.contiguous == page_arm.leaf_clauses
     assert page_arm.isolated <= 1
     assert page_arm.clauses_per_chunk > 2.0
@@ -135,17 +115,12 @@ def test_the_clause_arm_is_strictly_better_on_the_citable_unit_property(syntheti
 
 
 def test_text_after_the_imprint_is_not_absorbed_into_the_last_clause(synthetic_index, synthetic_pages):
-    # Punkt 3.2 is the last one; the colophon that follows it must not be part of its span,
-    # or it would fail containment on every arm for a reason unrelated to chunking.
     results, _located, _parents, _unlocated = structure.measure_document(
         synthetic_index, "9", synthetic_pages, FILE_NAME, 1024
     )
     assert results[corpus.ARM_CLAUSE].contiguous == results[corpus.ARM_CLAUSE].leaf_clauses
 
 
-# ---------------------------------------------------------------------------
-# Chunk building and the unit collapse
-# ---------------------------------------------------------------------------
 
 
 def test_the_clause_arm_emits_more_and_smaller_chunks_than_the_page_arm(synthetic_pages):
@@ -171,29 +146,16 @@ def test_ranked_chunks_collapse_to_distinct_units_keeping_the_first_occurrence()
 
 
 def test_the_production_exclusion_list_still_covers_every_change_log_pdf():
-    # The ONLY thing keeping the aenderungen_* change logs out of answers is this list in
-    # configs/config_oib_openrouter.yml. A new change-log file that nobody adds to it is a
-    # silent regression, so the harness asserts the list is still complete.
     excluded = corpus.production_excluded_file_names()
     corpus_dir = corpus.default_corpus_dir()
-    # Presence of the DIRECTORY is not presence of the corpus: it is committed with
-    # a README and the PDFs are operator-provided and gitignored, so it exists and
-    # is empty in every fresh clone. Guard on the files, or this asserts nothing.
     if not any(corpus_dir.glob("*.pdf")):
         pytest.skip("no OIB corpus in this checkout — see data/oib/README.md")
-    # An empty exclusion list is NOT a skip condition — it is precisely the regression
-    # this test exists to catch. If `exclude_file_names` is emptied or renamed in
-    # configs/config_oib_openrouter.yml, `production_excluded_file_names()` returns
-    # nothing, and folding that into the skip reported success by not running.
     assert excluded, "production config declares no exclude_file_names — the Änderungen filter is gone"
     change_logs = {path.name for path in corpus_dir.glob("aenderungen_*.pdf")}
     assert change_logs, "no aenderungen_* files found — the forbidden-hit metric would measure nothing"
     assert change_logs <= excluded
 
 
-# ---------------------------------------------------------------------------
-# The lexical channel
-# ---------------------------------------------------------------------------
 
 
 @pytest.fixture(scope="module")
@@ -211,8 +173,6 @@ def test_a_german_question_retrieves_the_clause_that_answers_it(lexical_corpus):
 
 
 def test_german_morphology_variants_of_one_need_reach_the_same_clause(lexical_corpus):
-    # 'Gehweglänge' vs 'Gehweglängen': the shipped stemmer folds the inflection, which is
-    # the property the golden set's morphology variants exist to keep measured.
     first = lexical.search(lexical_corpus, "Gehweglänge", 3)
     second = lexical.search(lexical_corpus, "Gehweglängen", 3)
     assert first and second
@@ -220,9 +180,6 @@ def test_german_morphology_variants_of_one_need_reach_the_same_clause(lexical_co
 
 
 def test_the_lexical_channel_is_silent_for_an_english_question_by_construction(lexical_corpus):
-    # german_text's own docstring states this: an English term has document frequency 0 in
-    # a German corpus, so select_terms drops it and the channel correctly returns nothing
-    # rather than the chunks that merely share a digit.
     assert lexical.selected_terms(lexical_corpus, "What is the maximum escape route length?") == []
     assert lexical.search(lexical_corpus, "What is the maximum escape route length?", 5) == []
 
@@ -234,25 +191,16 @@ def test_the_tsquery_handed_to_postgres_ors_the_surviving_lexemes(lexical_corpus
 
 
 def test_the_document_frequency_ceiling_is_not_applied_to_a_collection_this_small(lexical_corpus):
-    # 'Richtlinie' appears in nearly every chunk, but german_text deliberately suspends the
-    # ceiling below DEFAULT_DF_CEILING_MIN_TOTAL rows: in a ten-chunk collection every
-    # content word looks too frequent, and dropping them all would silence the channel for
-    # a project collection. The harness measures the shipped rule, so it must show it.
     from agent.common.german_text import DEFAULT_DF_CEILING_MIN_TOTAL
     from agent.common.german_text import select_terms
 
     assert lexical_corpus.total < DEFAULT_DF_CEILING_MIN_TOTAL
     assert lexical.search(lexical_corpus, "Richtlinie", 5) != []
 
-    # With the collection large enough for a ratio to mean anything, the same lexeme is
-    # dropped and the channel correctly returns nothing instead of the whole corpus.
     assert select_terms(["richtlini"], {"richtlini": 90}, 100, df_ceiling_ratio=0.2, min_total=1) == []
     assert select_terms(["gehweglang"], {"gehweglang": 3}, 100, df_ceiling_ratio=0.2, min_total=1) == ["gehweglang"]
 
 
-# ---------------------------------------------------------------------------
-# The dense arm's CI path
-# ---------------------------------------------------------------------------
 
 
 def test_the_hashed_embedder_is_deterministic_and_unit_normalised():
@@ -281,9 +229,6 @@ def test_asking_for_an_unknown_embedder_is_an_error_not_a_silent_fallback():
         dense.make_embedder("text-embedding-3-large")
 
 
-# ---------------------------------------------------------------------------
-# The fused path, through the production helpers
-# ---------------------------------------------------------------------------
 
 
 def test_the_hybrid_path_runs_through_the_production_fusion_and_merge(synthetic_pages):
@@ -315,37 +260,20 @@ def test_the_production_diversity_cap_limits_pages_taken_from_one_document(synth
     )
     embedder = dense.HashedEmbedder()
     dense_index = dense.build_dense_index(embedder, chunks)
-    # Production's cap, read from the config rather than left at `_hybrid`'s default of
-    # 5 — the point of this test is what the agent actually sees.
     settings = corpus.production_retrieval_settings()
     cap = settings.max_chunks_per_document
     hits = dense_index.search(embedder, "Brandabschnitte", 20)
     fused = runner._hybrid(hits, [], 20, max_per_document=cap)
     assert 0 < len(fused) <= 20
-    # The assertion that actually binds. Every synthetic chunk is from one file, so the
-    # cap decides how many of its pages reach the first pass; a `<= top_k` assertion
-    # passes just as well with the cap removed entirely and therefore tests nothing.
     assert len(hits) > cap, "the fixture must offer more chunks than the cap, or this proves nothing"
     first_pass = fused[:cap]
     assert all(unit[0] == FILE_NAME for unit in first_pass)
     assert len({unit[1] for unit in first_pass}) == len(first_pass), "the cap must not repeat a page"
 
 
-# ---------------------------------------------------------------------------
-# The failure mode the harness found in the real corpus, reproduced offline
-# ---------------------------------------------------------------------------
 
 
 def test_a_numbered_table_derails_clause_chunking_and_the_metric_shows_it():
-    """A table whose ROWS are numbered is read as a Punkt sequence, and the metric catches it.
-
-    This is the real defect the harness surfaced in OIB-Richtlinie 6: the U-value table's
-    rows ("5 WÄNDE (Trennwände) …", "6 WÄNDE gegen andere Bauwerke …") parse as top-level
-    Punkte, they are monotonic, so they are accepted — and every genuine Punkt after them
-    is then rejected as non-monotonic and absorbed into the last accepted segment. The
-    structural metric must report that as a citability collapse rather than average it
-    away, which is the property under test here.
-    """
     body_one = """
 1 Allgemeines
 Diese Richtlinie gilt für Gebäude.
@@ -376,18 +304,7 @@ Diese Richtlinie gilt für Gebäude.
     )
     results, located, _parents, unlocated = structure.measure_document(index, "6", pages, FILE_NAME, 1024)
 
-    # This fixture deliberately has NO contents page, because what it demonstrates is the
-    # fallback: with nothing to arbitrate, a numbered table is indistinguishable from an
-    # outline and the metric has to say so. The table run is therefore made STRICTLY
-    # longer than the genuine one — `1, 2, 2.1, 3, 4, 5` against `1, 2, 2.1, 2.2, 2.3` —
-    # so the outcome follows from the objective rather than from `_best_chain`'s
-    # tie-break. At five each the assertion below would have passed or failed on a
-    # tie-break change, testing nothing.
-    #
-    # Ground truth is unaffected: all five Punkte are found in the raw line stream.
     assert located == 5
     assert unlocated == []
-    # But the Punkt chunker loses the ones that follow the numbered table, so they are not
-    # their own citable unit any more — and the metric says so instead of scoring ~100%.
     clause_arm = results[corpus.ARM_CLAUSE]
     assert clause_arm.isolated < clause_arm.leaf_clauses

@@ -50,18 +50,11 @@ from .internal_auth import _require_internal_token
 
 logger = logging.getLogger(__name__)
 
-#: The largest attachment this route hands back. The BFF's own file ceiling is
-#: lower; this is the bound that protects this process if it is ever raised.
 MAX_ATTACHMENT_BYTES = 512 * 1024 * 1024
 
 
 class ArchiveRef(BaseModel):
-    #: The object's storage key, as the BFF names it. Read by nothing: the open
-    #: archive is found by the object ``url`` names (``archives.object_of``), so a
-    #: caller cannot reach an archive it holds no URL for. Still accepted because
-    #: the BFF sends it; drop it here after the BFF stops, one release on.
     key: str | None = Field(default=None, max_length=1024)
-    #: A presigned GET for the archive, against the in-network endpoint.
     url: ObjectStoreUrl
     size: int = Field(gt=0)
 
@@ -80,9 +73,6 @@ class AttachmentRequest(BaseModel):
 
 def add_mail_archive_routes(router: APIRouter) -> None:
     """Register the archive-reading endpoints."""
-    # A dependency, not a call in the handler: dependencies run before the body
-    # is validated, so a caller without the token gets 403 and never learns
-    # which URLs the gate would have taken.
     internal_only = [Depends(_require_internal_token)]
 
     @router.post(
@@ -120,7 +110,6 @@ async def _read(operation, ref: ArchiveRef):  # noqa: ANN001, ANN202 - a closure
     """Run ``operation`` on the open archive, off the event loop, with errors as HTTP answers."""
 
     def run():  # noqa: ANN202
-        # The store's own origin, the caller's path and presigned query only.
         with use_archive(object_store_request_url(ref.url, field="archive.url"), ref.size) as archive:
             return operation(archive)
 
@@ -129,7 +118,6 @@ async def _read(operation, ref: ArchiveRef):  # noqa: ANN001, ANN202 - a closure
     except AttachmentTooLargeError as error:
         raise HTTPException(status_code=413, detail="The attachment is too large to import.") from error
     except UnreadableItemError as error:
-        # One damaged attachment of a readable archive: the import skips the file.
         raise HTTPException(status_code=409, detail=str(error)) from error
     except ArchiveError as error:
         raise HTTPException(status_code=422, detail=str(error)) from error

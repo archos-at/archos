@@ -1,39 +1,4 @@
 #!/usr/bin/env node
-/*
- * Export riso works: every job of every work, to the destination its format names.
- *
- *   node art/riso/export.mjs                                  # all works, all jobs
- *   node art/riso/export.mjs --work tafeln                    # one work
- *   node art/riso/export.mjs --work tafeln --only 0,3         # jobs by index (the page's ?t=)
- *   node art/riso/export.mjs --only tafeln/stuetzen/og        # jobs by art id (all densities)
- *   node art/riso/export.mjs --dest app                       # only app assets (or: out)
- *   node art/riso/export.mjs --variant page                   # only the on-page files (or: paper)
- *   node art/riso/export.mjs --manifest                       # only rewrite the manifests
- *   node art/riso/export.mjs --engine chromium                # override the engine setup chose
- *
- * Run from packages/brand (paths below are relative to it) after
- * `node art/riso/setup.mjs`, with apps/website's `bun install` done: sharp is
- * borrowed from there (kit.mjs loadSharp).
- *
- * Per job: open the work in the kit's browser harness (tools/lib/browser.mjs,
- * which blocks every non-file request), seek the job, read the canvas backing
- * store as PNG, seek elsewhere and back and require identical bytes (the check
- * still.mjs makes), check the pixel size against the format, then encode:
- * .webp at quality 95 with sharp-YUV, or .png: palette-quantised for a committed
- * file (app), lossless for an `out` file and a separation. Nothing
- * is resized. Formats with `separations` also get one grayscale PNG per ink
- * (the page's ?sep=<ink> view) and a JSON sheet naming drums and order.
- * Formats with `onPage` also get `<file>-page.webp`: the same job baked with
- * ?paper=0 (the inks multiplied onto white, so the canvas holds the stack's
- * transmittance T), turned into ink alpha by pageFrom() below.
- *
- * app  -> ../../apps/workspace/public/art/ (the product app; committed; the
- *         pre-commit hook refuses files > 1 MB)
- * out  -> art/riso/out/<work>/ (gitignored; reproducible from the pin)
- * Always ends by rewriting the manifests from every work's JOBS table:
- * ../../apps/workspace/bff/art/art.json, each src versioned with
- * ?v=<sha256 of the file> so a re-export busts caches.
- */
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -52,7 +17,6 @@ for (const w of works) {
 }
 
 function writeManifest() {
-  // A manifest spans every work, not only the ones exported now: one per destination.
   const all = selectWorks(undefined).map((w) => (listed.get(w.name) || evaluateWork(w)).jobs);
   for (const [dest, d] of Object.entries(DESTS)) {
     const { manifest, missing } = manifestFrom(all, dest);
@@ -60,7 +24,6 @@ function writeManifest() {
     const text = manifestText(manifest);
     const before = fs.existsSync(d.manifest) ? fs.readFileSync(d.manifest, 'utf8') : '';
     const empty = !Object.keys(manifest.art).length;
-    // A destination no work exports to keeps no manifest file at all.
     if (empty && !before) continue;
     if (text !== before) { fs.mkdirSync(path.dirname(d.manifest), { recursive: true }); fs.writeFileSync(d.manifest, text); }
     console.log(`manifest ${path.relative(process.cwd(), d.manifest)}: ${Object.keys(manifest.art).length} ids${text === before ? ', unchanged' : ', rewritten'}`);
@@ -130,14 +93,9 @@ async function encode(input, j, out, { gray = false } = {}) {
   let img = Buffer.isBuffer(input) ? sharp(input) : input;
   const dpi = j.dpi;
   if (gray) img = img.flatten({ background: '#ffffff' }).toColourspace('b-w');
-  // withDensity, not withMetadata: that one keeps the sRGB profile and turns a
-  // grayscale separation back into RGB
   if (dpi) img = img.withDensity(dpi);
   fs.mkdirSync(path.dirname(out), { recursive: true });
   if (!gray && j.encode === 'webp') await img.webp({ quality: 95, smartSubsample: true, effort: 6 }).toFile(out);
-  // sharp's `effort` turns on palette quantisation (256 colours, dithered).
-  // Committed files take it to stay under 1 MB; an `out` file and every
-  // separation are written lossless: truecolour, or 8-bit grayscale.
   else if (!gray && j.dest in DESTS) await img.png({ compressionLevel: 9, effort: 10 }).toFile(out);
   else await img.png({ compressionLevel: 9, palette: false }).toFile(out);
   return fs.statSync(out).size;

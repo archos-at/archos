@@ -1,8 +1,4 @@
 import 'server-only'
-/**
- * What a mail's entry records of what came with it (D36), and who may see
- * where an attachment went (RT-S13). Pure; `./append.ts` files the rows.
- */
 
 import type { AccessFolder } from '@/lib/authz/folder-access-rule'
 import type { InboundMailDecisionRow, InboundMailPartRow } from '@/lib/db/schema/inbound-mail'
@@ -12,11 +8,6 @@ import type { InboundMailNotStaged, NotStagedReason } from '@/lib/inbound-mail/i
 import type { MailThreadAttachmentNotFiledReason, MailThreadSectionAttachment } from './mail-thread-wire'
 import { sectionAttachment } from './render'
 
-// ---------------------------------------------------------------------------
-// Who may see where an attachment went (RT-S13)
-// ---------------------------------------------------------------------------
-
-/** The folders at or above `folderId` whose own list narrows who READS it (ADR-0088). */
 export function readRestrictionsAt(
   tree: ReadonlyMap<string, AccessFolder>,
   folderId: string | null
@@ -31,11 +22,6 @@ export function readRestrictionsAt(
   return found
 }
 
-/**
- * Whether everyone who may read the thread document may read a document in
- * `folderId`: every list that narrows the attachment's folder narrows the
- * thread's too. A folder that is gone answers no: nothing is named on a guess.
- */
 export function readableWithThread(
   tree: ReadonlyMap<string, AccessFolder>,
   folderId: string | null,
@@ -46,15 +32,9 @@ export function readableWithThread(
   return [...readRestrictionsAt(tree, folderId)].every((id) => thread.has(id))
 }
 
-// ---------------------------------------------------------------------------
-// What came with the message (D36)
-// ---------------------------------------------------------------------------
-
-/** One attachment part as the entry records it: the part, its decision, and the document it is now. */
 export interface AttachmentFact {
   part: InboundMailPartRow
   decision: InboundMailDecisionRow | null
-  /** The document the part was filed as, as the filer may read it now; null when it is not one, or gone. */
   document: {
     id: string
     versionId: string | null
@@ -63,7 +43,6 @@ export interface AttachmentFact {
   } | null
 }
 
-/** The never-staged files a mail carried that somebody sent (a layout image, a signature, a TNEF box or an invitation is not one). */
 const SENT_FILE_REASONS: ReadonlySet<NotStagedReason> = new Set([
   'encrypted',
   'archive',
@@ -72,7 +51,6 @@ const SENT_FILE_REASONS: ReadonlySet<NotStagedReason> = new Set([
   'empty',
 ])
 
-/** Why a part that is no document was not filed. */
 function notFiledReasonOf(part: InboundMailPartRow): MailThreadAttachmentNotFiledReason {
   if (part.state === 'waiting' || part.state === 'filing') return 'pending'
   if (part.riskFlags.includes('type_not_accepted')) return 'type_not_accepted'
@@ -84,13 +62,6 @@ function notFiledReasonOf(part: InboundMailPartRow): MailThreadAttachmentNotFile
 export const cut = (value: string | null, max: number): string | null =>
   value ? value.slice(0, max) : null
 
-/**
- * One row per attachment of the mail, whatever became of it (D36), with what
- * the thread's section prints for it frozen in ({@link sectionAttachment}).
- * Pure. A Fassung that was the document's before this mail arrived is
- * `already_present`: the upload found the same bytes. A dismissed duplicate of
- * a project document is `already_present` as that document, never named.
- */
 export function attachmentRowsOf(input: {
   entryId: string
   organizationId: string
@@ -98,7 +69,6 @@ export function attachmentRowsOf(input: {
   receivedAt: Date
   facts: readonly AttachmentFact[]
   notStaged: readonly InboundMailNotStaged[]
-  /** Whether a document in this folder is readable by everyone who reads the thread. */
   visibleWithThread: (folderId: string | null) => boolean
 }): NewMailThreadEntryAttachmentRow[] {
   const base = {
@@ -177,7 +147,6 @@ export function attachmentRowsOf(input: {
   return rows
 }
 
-/** What a section prints for a stored attachment row. */
 export const sectionLineOf = (
   row: Pick<MailThreadEntryAttachmentRow, 'sectionName' | 'sectionFolderPath'>
 ): MailThreadSectionAttachment => ({

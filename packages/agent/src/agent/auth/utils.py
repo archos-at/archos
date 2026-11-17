@@ -86,8 +86,6 @@ class Principal(BaseModel):
     sub: str
     email: str | None = None
     name: str | None = None
-    #: The active organization's name, from the WorkOS JWT template's
-    #: ``organization_name`` claim (docs/deployment/workos-provisioning.md).
     organization_name: str | None = None
 
 
@@ -148,9 +146,6 @@ def get_auth_token() -> str | None:
     Returns:
         ID token string, or ``None`` if no valid token is available.
     """
-    # Try registered fetchers first (highest priority first).
-    # Iterate a snapshot so concurrent register_token_fetcher() calls
-    # don't mutate the list mid-iteration.
     for _priority, fetcher in list(_token_fetchers):
         try:
             token = fetcher()
@@ -160,20 +155,17 @@ def get_auth_token() -> str | None:
         except Exception as e:
             logger.debug("Registered token fetcher failed: %s", e)
 
-    # Default: Context cookies
     try:
         from nat.plugin_api import Context
 
         context_metadata = Context.get().metadata
 
-        # 1. Agent-runtime Context cookie (browser / web-UI mode)
         if context_metadata and context_metadata.cookies:
             id_token = context_metadata.cookies.get("idToken")
             if id_token:
                 logger.debug("Using token from Context cookies")
                 return id_token.strip()
 
-        # 2. Agent-runtime Context Authorization header (API callers with JWT)
         if context_metadata and context_metadata.headers:
             auth_header = context_metadata.headers.get("authorization", "")
             if auth_header.startswith("Bearer eyJ"):
@@ -202,8 +194,6 @@ def get_current_principal() -> Principal | None:
     principal_type = current_user.get("type")
     sub = current_user.get("sub")
     if not principal_type or not sub:
-        # Middleware may expose anonymous/internal callers or raw JWTs captured
-        # on internal traffic. Without a verified subject, the identity is not trusted.
         return None
 
     return Principal(

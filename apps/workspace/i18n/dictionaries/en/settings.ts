@@ -1,4 +1,3 @@
-/** The right-side settings panel + the project Settings page. */
 export const settings = {
   title: 'Settings',
   loading: 'Loading settings …',
@@ -13,11 +12,6 @@ export const settings = {
     ariaLabel: 'Interface language',
   },
   openProfile: 'Open full profile',
-  /**
-   * The project Settings tier: one route per section, moved between by a
-   * section nav (the organization tier's pattern). Each section answers one
-   * question about the project; the copy below is grouped the same way.
-   */
   project: {
     nav: {
       label: 'Project settings',

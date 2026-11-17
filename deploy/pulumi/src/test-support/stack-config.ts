@@ -1,11 +1,3 @@
-/**
- * A minimal stack configuration that satisfies every `require` /
- * `requireSecret` in `loadConfig`, so a test about one knob is never defeated
- * by a different missing one.
- *
- * Test support only. Nothing here is a real credential — the values exist to
- * be non-empty.
- */
 export function baseStackConfig(): Record<string, string> {
   return {
     "grid-oib:kubeconfig": "apiVersion: v1",
@@ -27,36 +19,16 @@ export function baseStackConfig(): Record<string, string> {
     "grid-oib:openrouterApiKey": "or", // pragma: allowlist secret
     "grid-oib:dragonflyPassword": "df", // pragma: allowlist secret
     "grid-oib:rateLimitStorePassword": "rl", // pragma: allowlist secret
-    // Qdrant is always deployed (ADR-0115) and refuses to plan without its
-    // three keys, each distinct from the others and from every SeaweedFS secret.
     "grid-oib:qdrantApiKey": "qd-rw", // pragma: allowlist secret
     "grid-oib:qdrantReadOnlyApiKey": "qd-ro", // pragma: allowlist secret
     "grid-oib:qdrantS3SecretKey": "qd-s3", // pragma: allowlist secret
-    // The DB-claimed research queue is the only execution (ADR-0082 B) and fails
-    // closed without a payload KEK; a test about another knob wants neither.
     "grid-oib:allowPlaintextJobPayloads": "true",
   };
 }
 
-/**
- * Everything the Langfuse tier (ADR-0044) needs on top of {@link baseStackConfig}.
- *
- * Separate rather than merged in. `langfuseEnabled` defaults to true, so it is
- * these CREDENTIALS that decide whether the tier resolves available: folding
- * them into the base would silently deploy four extra workloads in every test
- * that only wanted a Postgres knob, and the not-adopted path is itself
- * something the tests must be able to exercise.
- *
- * The shape of these values matters — `loadConfig` validates the encryption
- * key's hex length and both API-key prefixes — so they are realistic in FORM
- * while remaining obvious non-credentials.
- */
 export function langfuseStackConfig(): Record<string, string> {
   return {
     "grid-oib:langfuseEnabled": "true",
-    // 64 hex characters: this is the one secret Langfuse wants as hex, and the
-    // guard in loadConfig exists because base64 (44 chars) is the natural
-    // mistake given every other secret in the program.
     "grid-oib:langfuseEncryptionKey":
       "0".repeat(64), // pragma: allowlist secret
     "grid-oib:langfuseSalt": "lf-salt", // pragma: allowlist secret
@@ -64,29 +36,16 @@ export function langfuseStackConfig(): Record<string, string> {
     "grid-oib:langfusePublicKey": "pk-lf-test", // pragma: allowlist secret
     "grid-oib:langfuseSecretKey": "sk-lf-test", // pragma: allowlist secret
     "grid-oib:langfuseDbPassword": "lf-db", // pragma: allowlist secret
-    // URL-safe on purpose — loadConfig refuses anything else, because the
-    // ClickHouse migrator interpolates this into a query string unencoded.
-    // Kept short and obviously fake like its neighbours: the first version of
-    // this value was long enough to clear gitleaks' entropy threshold and
-    // failed the secret scan on a file that holds no secrets.
     "grid-oib:langfuseClickhousePassword": "lf-ch-dev", // pragma: allowlist secret
-    // Distinct from dragonflyPassword and rateLimitStorePassword above —
-    // loadConfig refuses a collision, which is itself asserted in config.spec.
     "grid-oib:langfuseQueuePassword": "lf-queue", // pragma: allowlist secret
     "grid-oib:langfuseS3SecretKey": "lf-s3", // pragma: allowlist secret
     "grid-oib:langfuseInitUserPassword": "lf-init-user", // pragma: allowlist secret
-    // The Connect application Langfuse signs in against and its route is gated by.
     "grid-oib:otelOidcIssuer": "https://grid.authkit.app",
     "grid-oib:otelOidcClientId": "client_otel",
     "grid-oib:otelOidcClientSecret": "otel-client-secret", // pragma: allowlist secret
   };
 }
 
-/**
- * The same configuration under another project's namespace: `grid-oib:x`
- * becomes `<project>:x`. The program reads its keys through the running
- * project (ADR-0147), so a spec that mocks `workspace` needs them keyed so.
- */
 export function forProject(config: Record<string, string>, project: string): Record<string, string> {
   return Object.fromEntries(Object.entries(config).map(([k, v]) => [k.replace(/^grid-oib:/, `${project}:`), v]));
 }

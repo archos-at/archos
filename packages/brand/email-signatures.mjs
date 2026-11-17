@@ -40,7 +40,6 @@ export function signature(person) {
     `<table cellpadding="0" cellspacing="0" border="0" role="presentation" style="border-collapse:collapse;max-width:100%;">\n` +
     cell(`padding:0 0 2px 0;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:20px;color:${INK};`, escape(person.name)) +
     cell(`padding:0 0 8px 0;${TEXT}`, escape(person.role)) +
-    // Every value put into the HTML below is escaped (`escape`) or a constant of this file.
     // nosemgrep: javascript.lang.security.html-in-template-string.html-in-template-string
     (person.email ? cell(`padding:0 0 2px 0;${TEXT}`, `<a href="mailto:${escape(person.email)}" style="${LINK}">${escape(person.email)}</a>`) : '') +
     cell(

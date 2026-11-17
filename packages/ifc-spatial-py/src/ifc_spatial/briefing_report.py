@@ -1,5 +1,3 @@
-"""The briefing itself: built from the readers above, rendered as text, and hashed for the cache."""
-
 from __future__ import annotations
 
 import hashlib
@@ -36,28 +34,14 @@ from ifc_spatial.briefing_text import _wrap
 
 from .model import SpatialModel
 
-# ── briefing() ──────────────────────────────────────────────────────────────
 
 
 def briefing(model: SpatialModel, *, dialect_sample_size: int = DIALECT_SAMPLE_SIZE) -> Briefing:
-    """Compute the précis. Deterministic, and free of geometry.
-
-    Deterministic matters more than it sounds: this text enters the model's
-    context on every conversation about the file, so a briefing that varied
-    between calls would make two answers about the same building differ for
-    reasons nobody can reconstruct afterwards. Every list below is therefore
-    sorted by a total order, and the scan walks the file in file order.
-    """
     spaces = _spaces_of(model)
     windows = _by_type(model, "IfcWindow")
     doors = _by_type(model, "IfcDoor")
     nodes = _nodes_of(model)
 
-    # Storey occupancy, counted from the RESOLVED storey rather than from the
-    # containment relation: an element contained in a space is still on a
-    # storey, and `SpatialModel.storey_of` walks containment and aggregation to
-    # find it. Counting the relation would under-report every model whose
-    # exporter nests elements inside spaces or assemblies.
     elements_per_storey: dict[str, int] = {}
     spaces_per_storey: dict[str, int] = {}
     kind_counts: dict[str, int] = {}
@@ -185,30 +169,9 @@ def briefing(model: SpatialModel, *, dialect_sample_size: int = DIALECT_SAMPLE_S
     )
 
 
-# ── render_briefing() ───────────────────────────────────────────────────────
 
 
 def render_briefing(model: SpatialModel, *, dialect_sample_size: int = DIALECT_SAMPLE_SIZE) -> str:
-    """The text block the agent gets in context. The single most important
-    function in this module.
-
-    ## Why render at all, when :func:`briefing` returns data
-
-    Because this is read by a language model under a budget, and JSON spends a
-    third of its tokens on punctuation and repeated keys. A fixed-column block
-    with German labels also has a property JSON does not: it is quotable. An
-    agent that copies ``Pset_WallCommon.ThermalTransmittance`` out of the
-    DIALEKT block cannot mistype it, which was the failure this whole module
-    exists to prevent.
-
-    ## The budget is a correctness feature, not a cost feature
-
-    Every list here is capped and every cap announces what it dropped
-    (``+18 weitere Typen``). Silent truncation is the same bug as a subset
-    reported as a total: an agent reading a list that ENDS believes it is
-    complete, and then answers "the model contains no IfcRamp" from a table that
-    was cut at 15 rows.
-    """
     b = briefing(model, dialect_sample_size=dialect_sample_size)
     lines: list[str] = []
 
@@ -216,8 +179,6 @@ def render_briefing(model: SpatialModel, *, dialect_sample_size: int = DIALECT_S
         for index, text in enumerate(body):
             lines.append(f"{label:<10}{text}" if index == 0 else f"{'':<10}{text}")
 
-    # GEBÄUDE ─ identity first, so a briefing pasted into a transcript can still
-    # be matched to the file it describes six turns later.
     identity = [
         b.source_name or "Datei ohne Namen im IFC-Header",
         b.schema,
@@ -229,10 +190,6 @@ def render_briefing(model: SpatialModel, *, dialect_sample_size: int = DIALECT_S
         " · ".join(identity),
         " · ".join(
             [
-                # A missing spatial container is named by its ENTITY, never
-                # counted as zero: "0 Gebäude" is a sentence about a building
-                # site, "kein IfcBuilding" is a sentence about this export —
-                # which is the true one.
                 _plural(b.totals["buildings"], "Gebäude", "Gebäude")
                 if b.totals["buildings"] > 0
                 else "kein IfcBuilding",
@@ -246,8 +203,6 @@ def render_briefing(model: SpatialModel, *, dialect_sample_size: int = DIALECT_S
         ),
     )
 
-    # GESCHOSSE ─ the names an agent must not invent. A model with no storey
-    # structure says so; it never renders as an empty list.
     if not b.storeys:
         add("GESCHOSSE", "keine IfcBuildingStorey — dieser Export enthält keine Geschoßgliederung")
     else:
@@ -266,9 +221,6 @@ def render_briefing(model: SpatialModel, *, dialect_sample_size: int = DIALECT_S
             else "keine Geschoßhöhen: weniger als zwei Geschoße veröffentlichen eine Höhenlage",
         )
 
-    # BAUTEILE ─ the type vocabulary. An agent filtering on
-    # `IfcWallStandardCase` in an IFC4 file that only has `IfcWall` gets
-    # nothing; this block is where it finds out which spelling this file uses.
     if not b.by_type:
         add("BAUTEILE", "keine Bauteile im Modell — dieser Export enthält keine IfcProduct-Instanzen")
     else:
@@ -278,8 +230,6 @@ def render_briefing(model: SpatialModel, *, dialect_sample_size: int = DIALECT_S
             *_wrap(cells, " · ", f"(+{b.types_omitted} weitere Typen)" if b.types_omitted > 0 else None),
         )
 
-    # RÄUME ─ every count here is `n von m` with the responsible relation named,
-    # so a zero can be read as a statement about the export and not the building.
     if b.totals["spaces"] == 0:
         add(
             "RÄUME",
@@ -300,9 +250,6 @@ def render_briefing(model: SpatialModel, *, dialect_sample_size: int = DIALECT_S
         )
         add("", "Aufenthaltsraum ist eine rechtliche Einstufung — dieser Vorschlag ersetzt keine Prüfung")
 
-    # ÖFFNUNGEN ─ window↔wall is the relation most exports drop, and its absence
-    # is the difference between "no window in this wall" and "no relation in
-    # this file".
     openings = next((c for c in b.coverage if c.id == "oeffnungenMitWand"), None)
     if b.totals["windows"] + b.totals["doors"] == 0:
         add("ÖFFNUNGEN", "keine IfcWindow/IfcDoor — Öffnungen wurden nicht exportiert")
@@ -311,10 +258,6 @@ def render_briefing(model: SpatialModel, *, dialect_sample_size: int = DIALECT_S
         if openings:
             add("", _coverage_line(openings))
 
-    # DIALEKT ─ the reason this module exists. Absolute counts, not percentages
-    # of a population nobody defined: the scan measures fill against every
-    # scanned element, so "3 %" for a wall property would be arithmetic on the
-    # wrong denominator, printed as a fact.
     if not b.dialect:
         add("DIALEKT", "keine Merkmale gefunden — dieser Export schreibt keine Property Sets an Bauteile")
     else:
@@ -326,13 +269,6 @@ def render_briefing(model: SpatialModel, *, dialect_sample_size: int = DIALECT_S
         if b.dialect_omitted > 0:
             add("", f"(+{b.dialect_omitted} weitere Merkmale, nach Befüllung sortiert)")
 
-    # FEHLT ─ what the DIALEKT block structurally cannot show. A property absent
-    # from the file has no row to appear in, and a filter on it returns nothing
-    # that looks exactly like a real negative answer.
-    # Suppressed when the dialect is empty: the DIALEKT block has already said
-    # that this export writes no property sets at all, and repeating every
-    # decisive property underneath it would imply nine separate findings where
-    # there is one.
     if b.absent_properties and b.dialect:
         add(
             "FEHLT",
@@ -340,7 +276,6 @@ def render_briefing(model: SpatialModel, *, dialect_sample_size: int = DIALECT_S
         )
         add("", 'nirgends in dieser Datei befüllt — eine Abfrage darauf liefert leer, nicht „nein"')
 
-    # BLIND ─ the honesty budget.
     spots = b.blind_spots[:MAX_BLIND_SPOTS]
     if spots:
         add("BLIND", *[f"{s.what} → {s.consequence}; Abhilfe: {s.remedy}" for s in spots])
@@ -352,12 +287,6 @@ def render_briefing(model: SpatialModel, *, dialect_sample_size: int = DIALECT_S
 
 
 def _header(model: SpatialModel, field_name: str) -> str | None:
-    """One STEP header field, with the empty string folded to ``None``.
-
-    Exporters write ``''`` for a field they have nothing to say about, and an
-    empty string rendered into the identity line looks like a name nobody can
-    read rather than like an absent fact.
-    """
     try:
         value = getattr(model.file.header.file_name, field_name, None)
     except Exception:
@@ -370,14 +299,6 @@ def _header(model: SpatialModel, field_name: str) -> str | None:
 
 
 def content_hash(model: SpatialModel) -> str:
-    """sha256 of the file's bytes — the identity of everything in the briefing.
-
-    Memoised on ``(path, size, mtime_ns)`` rather than on the path alone: a file
-    that was edited in place must produce a different hash, and a hash that
-    survives an edit is exactly the failure the content-addressing exists to
-    prevent. See :mod:`ifc_spatial.cache` for the same rule applied to the model
-    cache itself.
-    """
     path = Path(model.path)
     try:
         stat = path.stat()

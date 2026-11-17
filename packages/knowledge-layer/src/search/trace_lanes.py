@@ -1,5 +1,3 @@
-"""The lanes a knowledge search shows in the Herleitung: one per shelf and source it read."""
-
 import logging
 from contextlib import nullcontext
 
@@ -18,15 +16,6 @@ def _trace_lanes_for_chunks(
     resolved: dict[tuple[str, str], str] | None = None,
     resolved_titles: dict[tuple[str, str], str] | None = None,
 ) -> tuple[TraceLane, ...]:
-    """The lane fan-out of raw chunks, for a producer that has no records yet (RIS).
-
-    It turns the chunks into the same
-    :class:`~agent.common.grounding_block.GroundingHit` records the header
-    lines are rendered from and hands them to :func:`trace_lanes_for_hits`, so
-    a hit's shelf, Dokumentart and title are derived once (ADR-0061).
-    ``resolved`` and ``resolved_titles`` are the store-authoritative doc_class
-    and display-title maps; when omitted they are computed here.
-    """
     if resolved is None:
         resolved = resolve_doc_classes(chunks)
     if resolved_titles is None:
@@ -36,8 +25,6 @@ def _trace_lanes_for_chunks(
             chunk,
             resolved=resolved,
             resolved_titles=resolved_titles,
-            # Neither reaches the fan-out: it names documents by raw
-            # filename, so no citation key is built and no folder is read.
             resolved_folders={},
             ambiguous=set(),
         )
@@ -47,23 +34,6 @@ def _trace_lanes_for_chunks(
 
 
 def trace_lanes_for_hits(hits, opened_files: frozenset[str] = frozenset()) -> tuple[TraceLane, ...]:
-    """The lane fan-out of a result set, as typed lanes (the chat wire's ``sources`` step).
-
-    Each lane carries BOTH classifications the reader needs: the fine ``key``
-    /``label`` from ``lane_for_hit`` (the authority sub-tier: OIB-Richtlinie
-    vs. Rechtsquelle (RIS) vs. …) and the coarse ``kind`` from
-    :func:`~agent.common.source_kinds.kind_for_lane`, the same taxonomy
-    ``source_entry_to_wire`` puts on every citation (ADR-0026), so the fan-out
-    and the "Belegt durch" chips cannot drift apart.
-
-    A source the publish path marked as agent-authored lands in its own lane,
-    ``buero_piloti``, decided by the provenance BEFORE the shelf, so a
-    published Piloti document filed on the project shelf keeps its author.
-
-    ``opened_files`` names the documents this result set OPENED rather than
-    ranked (the members of a family overview); their hits are stamped as
-    locator reads on the turn's ledger.
-    """
     from agent.common.norm_registry import lane_for_knowledge_hit
     from agent.common.source_kinds import kind_for_lane
 
@@ -91,17 +61,6 @@ def trace_lanes_for_hits(hits, opened_files: frozenset[str] = frozenset()) -> tu
 
 
 def _lane_detail(hit) -> str | None:
-    """Where in the document this hit sits, as the Herleitung names it.
-
-    The Punkt leads when the hit states one: a normative document is read by
-    its numbering, and "Pkt. 3.5.2" is the locus the reader can act on, where
-    "p.12" is where the printer happened to break the page. The page follows on
-    the same line because the frontend takes the preview's page out of this
-    string (``features/chat/lib/citations/build.ts``), and an entry that lost
-    it would open the document at page 1. The two are separated by a SPACE:
-    the Herleitung card joins several loci of one document with ", ", and a
-    comma inside one locus would read as two.
-    """
     page = f"p.{hit.page}" if hit.page is not None else ""
     if not hit.clause:
         return page or None
@@ -109,7 +68,6 @@ def _lane_detail(hit) -> str | None:
 
 
 def _lane_sources(hits, opened_files: frozenset[str]) -> list[TraceLaneSource]:
-    """One lane's documents, each ``(name, locus)`` once, in hit order."""
     sources: list[TraceLaneSource] = []
     seen: set[tuple[str, str]] = set()
     for hit in hits:
@@ -122,18 +80,6 @@ def _lane_sources(hits, opened_files: frozenset[str]) -> list[TraceLaneSource]:
 
 
 def _lane_source(hit, detail: str | None, *, opened: bool) -> TraceLaneSource:
-    """One document of a lane, stamped with its retrieval round and noted on the turn's ledger.
-
-    ``title`` is omitted when it would merely repeat the filename. The
-    provenance travels as KEYS, not the German sentence, so a reader builds
-    "freigegeben von …" in its own locale.
-
-    A hit from a document in ``opened_files`` is stamped as a locator read,
-    whatever tool rendered it: the family branch fetches each member the way
-    ``read_passage(document=…)`` does, so the ledger must credit those
-    documents as opened, or a later read of one of them is not a repeat. The
-    producing tool is read off its scope, never passed (``record_lane_hit``).
-    """
     from agent.common.provenance import provenance_metadata
     from agent.common.tool_calls import READ_PASSAGE_TOOL
     from agent.common.turn_status import current_retrieval_round
@@ -153,5 +99,4 @@ def _lane_source(hit, detail: str | None, *, opened: bool) -> TraceLaneSource:
     return source
 
 
-#: The lane fan-out for chunks, public: what a producer outside the package (the law lookup) renders.
 trace_lanes_for_chunks = _trace_lanes_for_chunks

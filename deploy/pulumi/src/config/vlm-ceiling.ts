@@ -1,51 +1,15 @@
 import { ingestJobsAtCeiling, type IngestWorkerConfig, type ProviderLimitsConfig } from "./workers";
-/**
- * The VLM call ceiling: what the ingest tier can have in flight against the provider limit.
- *
- * Two bounds, with two jobs. The fleet's lease pool (`VLM_FLEET_CONCURRENCY`, on
- * Dragonfly, shared fairly between offices) caps the vision calls in flight, whatever
- * the replica count: a call over it waits for a slot. Each file's page-read pool
- * (`INGEST_PAGE_READ_PARALLELISM`, OCR and vision together) bounds that file's threads
- * and the rendered pages it holds, not the calls the provider sees.
- */
 
-/**
- * Page reads the ingest tiers ask for at their ceilings: the documents they read at
- * once (each pool's replicas times the jobs one replica runs, the standard pool and,
- * when it exists, the high-memory one: `ingestJobsAtCeiling`), times one file's
- * page-read pool. Every one asks the fleet pool for a slot; most of them wait there
- * once the pool is full.
- */
 export function vlmPageReadThreads(cfg: { ingestWorker: IngestWorkerConfig; providerLimits: ProviderLimitsConfig }): number {
   return ingestJobsAtCeiling(cfg.ingestWorker) * cfg.providerLimits.pageReadParallelism;
 }
 
-/**
- * Vision calls in flight at the ceiling: the threads that ask, capped by the fleet pool.
- * A pool that is off (0) caps nothing.
- */
 export function vlmPeakCalls(cfg: { ingestWorker: IngestWorkerConfig; providerLimits: ProviderLimitsConfig }): number {
   const threads = vlmPageReadThreads(cfg);
   const pool = cfg.providerLimits.vlmFleetConcurrency;
   return pool > 0 ? Math.min(threads, pool) : threads;
 }
 
-/**
- * Refuse a sizing in which the bounds stop meaning what they say:
- *
- * - more documents running at once (each pool's replicas x concurrency, standard
- *   plus high-memory: `ingestJobsAtCeiling`) than the fleet pool has slots: a document needs a slot to make progress at all, so the extra replicas
- *   only hold memory while they wait;
- * - one file's page-read pool larger than the fleet pool: its extra threads can
- *   never hold a slot;
- * - a fleet pool larger than either limiter ceiling it passes through: the key-wide
- *   one, and the vision model's own (every vision call holds a slot in both, and the
- *   model's pool is the smaller by default, so a bigger fleet pool could never fill).
- *
- * The numbers are chosen in two places (the tier's replicas, the provider's budget)
- * and neither looks wrong alone. Skipped when the pool is off (`vlmFleetConcurrency`
- * 0: nothing is held back).
- */
 export function assertVlmPeakFitsCeiling(cfg: { ingestWorker: IngestWorkerConfig; providerLimits: ProviderLimitsConfig }): void {
   const { vlmFleetConcurrency, pageReadParallelism, limitCeiling, modelLimitCeiling } = cfg.providerLimits;
   if (vlmFleetConcurrency === 0) return;

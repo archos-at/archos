@@ -10,28 +10,8 @@ import { MCP_GATEWAY, toolAllowlist } from "./src/platform/mcp-gateway-config";
 import { LANGFUSE_PLATFORM_TOOLS } from "./src/platform/mcp-gateway";
 import { LEGACY_PROJECT, objectName } from "./src/names";
 
-/** A stack config key of the project these specs run as. */
 const key = (name: string): string => `${LEGACY_PROJECT}:${name}`;
 
-/**
- * The platform MCP gateway (ADR-0154), the whole program built with it on and
- * with it off.
- *
- * What fails here plans clean and breaks only on a cluster or at a client: a
- * config file agentgateway refuses to load (held against its own schema at
- * the pinned tag), a token for another audience or organization let
- * through, the caller's token or the whole Langfuse Secret handed to the pod,
- * a NetworkPolicy that times out every call behind a green deploy, a host in
- * DNS with no listener.
- */
-
-/**
- * agentgateway's published config schema at the pinned tag. CI's infra job
- * fetches it (checksum-pinned) and points `AGENTGATEWAY_SCHEMA` at it; without
- * it that one case is reported as skipped. Locally:
- * `curl -sSfLo /tmp/ag.json https://raw.githubusercontent.com/agentgateway/agentgateway/v1.7.0/schema/config.json`
- * and `AGENTGATEWAY_SCHEMA=/tmp/ag.json AGENTGATEWAY_SCHEMA_VERSION=v1.7.0`.
- */
 const SCHEMA_PATH = process.env.AGENTGATEWAY_SCHEMA;
 
 const DOMAIN = "dev.example.test";
@@ -152,8 +132,6 @@ describe("the platform MCP gateway, switched on", () => {
   });
 
   it("routes the whole host to the gateway Service, with no Envoy gate in front", () => {
-    // An Envoy OIDC gate answers with a browser redirect, and an MCP client
-    // needs agentgateway's 401 + resource metadata to start its OAuth flow.
     const spec = find<Route>(TYPE.route, "platform-mcp-gateway-route").spec;
     expect(spec.parentRefs).toEqual([{ name: GATEWAY_NAME, sectionName: "https-platform-mcp" }]);
     expect(spec.hostnames).toEqual([HOST]);
@@ -163,8 +141,6 @@ describe("the platform MCP gateway, switched on", () => {
     const gates = RESOURCES.filter((r) => r.type === TYPE.policy).flatMap(
       (r) => (r.inputs as unknown as Policy).spec.targetRefs,
     );
-    // Neither on the route itself nor on its listener (a Gateway-wide policy, or
-    // one naming `https-platform-mcp`, would reach the route as well).
     expect(gates.map((t) => t.name)).not.toContain("platform-mcp-gateway");
     expect(
       gates.filter((t) => t.name === GATEWAY_NAME && (t.sectionName ?? "https-platform-mcp") === "https-platform-mcp"),
@@ -172,14 +148,12 @@ describe("the platform MCP gateway, switched on", () => {
   });
 
   it.skipIf(SCHEMA_PATH === undefined)("writes a config the pinned agentgateway's own schema accepts", () => {
-    // The schema CI fetched is the pinned image's version, or this proves nothing.
     expect(MCP_GATEWAY.image).toContain(`:${process.env.AGENTGATEWAY_SCHEMA_VERSION}@`);
     const schema = JSON.parse(readFileSync(SCHEMA_PATH!, "utf8")) as Record<string, unknown>;
     const ajv = new Ajv2020({ strict: false, allErrors: true });
     const valid = ajv.validate(schema, config());
     expect(ajv.errors ?? []).toEqual([]);
     expect(valid).toBe(true);
-    // The schema is strict about keys, so a typo would have failed above.
     expect(ajv.validate(schema, { ...config(), rouets: [] })).toBe(false);
   });
 
@@ -216,9 +190,6 @@ describe("the platform MCP gateway, switched on", () => {
         },
       ],
     });
-    // The rule's third branch is exactly the condition under which the app is
-    // asked, and the asking denies on failure: no token of another organization
-    // reaches a server without the app's yes.
     expect(langfuseRoute().policies.extAuthz).toEqual({
       conditional: [
         {
@@ -242,7 +213,6 @@ describe("the platform MCP gateway, switched on", () => {
   });
 
   it("shares the admission route's own token with the frontend, never the service token", () => {
-    // A secret Output reaches the mock wrapped, under `value`.
     const { stringData } = find<{ stringData: { value?: Record<string, string> } }>("kubernetes:core/v1:Secret", "platform-mcp-admission");
     expect(Object.keys(stringData.value ?? {})).toEqual(["token"]);
     expect(stringData.value?.token).toMatch(/^[0-9a-f]{64}$/);
@@ -259,16 +229,13 @@ describe("the platform MCP gateway, switched on", () => {
       name: "PLATFORM_MCP_ADMISSION_TOKEN",
       valueFrom: { secretKeyRef: { name: "platform-mcp-admission", key: "token" } },
     });
-    // The gateway holds no other secret of the app's.
     expect(JSON.stringify(pod())).not.toContain("INTERNAL_API_TOKEN");
   });
 
   it("lets an operator's agent reach Langfuse's configuration tools and none that read traces (ADR-0160)", () => {
-    // Traces carry every office's turns; an operator's agent vendor is no processor of them.
     expect(langfuseRoute().policies.mcpAuthorization).toEqual({
       rules: [{ allow: `mcp.tool.name in [${LANGFUSE_PLATFORM_TOOLS.map((t) => `"${t}"`).join(", ")}]` }],
     });
-    // Langfuse 4.74.0's tools that hold what offices wrote, each by name.
     const tenantContent = [
       "listObservations",
       "getObservation",
@@ -289,7 +256,6 @@ describe("the platform MCP gateway, switched on", () => {
       "runBatchEvaluation",
       "testEvaluator",
       "listAlerts",
-      // Writes that would steer every office's turns, or run agent-written code over every trace.
       "createTextPrompt",
       "createChatPrompt",
       "updatePromptLabels",
@@ -317,7 +283,6 @@ describe("the platform MCP gateway, switched on", () => {
     expect(target.policies.backendAuth).toEqual({
       key: {
         value: { file: "/var/run/secrets/mcp/langfuse/authorization" },
-        // The Secret key already holds `Basic …`.
         location: { header: { name: "authorization", prefix: "" } },
       },
     });
@@ -327,7 +292,6 @@ describe("the platform MCP gateway, switched on", () => {
     expect(config().frontendPolicies.tracing).toMatchObject({
       host: "otel-collector:4318",
       protocol: "http",
-      // Sampling runs before the token is read; the filter runs at export.
       filter: 'jwt.sub != ""',
       resources: { "service.name": '"platform-mcp-gateway"' },
     });
@@ -482,7 +446,6 @@ describe("the platform MCP gateway during a domain move", () => {
       audiences: [current, former],
       resourceMetadata: { resource: current },
     });
-    // The same gate and the same server: only the host's identity differs.
     expect(formerRoute().policies.authorization).toEqual(langfuseRoute().policies.authorization);
     expect(formerRoute().backends).toEqual(langfuseRoute().backends);
     expect(formerRoute().matches).toEqual(langfuseRoute().matches);

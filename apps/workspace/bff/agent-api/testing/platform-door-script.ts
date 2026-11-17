@@ -1,13 +1,3 @@
-/**
- * A scripted client of the platform door, with no model (ADR-0170): what the
- * onboarding specs drive the real MCP handler with. One copy, so the AT-9 case
- * and the synthetic country (ADR-0174) speak to the door the same way.
- *
- * `door` makes one `call-operation`; when the server asks the person, the
- * script answers as told (`person: 'yes' | 'no'`), and a client without form
- * elicitation (`elicits: false`) gets the refusal that names where to decide.
- */
-
 import { CLIENT_CAPABILITIES_META_KEY, CLIENT_INFO_META_KEY, PROTOCOL_VERSION_META_KEY } from '@modelcontextprotocol/server'
 import { expect } from 'vitest'
 import type { AuthorizedSession } from '@/lib/auth/types'

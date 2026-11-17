@@ -1,14 +1,3 @@
-"""The prepare phase of a research job: its models, its tools, and the request it stands in for.
-
-``agent_job.run_agent_job`` runs these after the claim and before the agent. A
-background worker has no inbound request, so everything a chat turn would read
-from its headers (collection scope, project context, model overrides, whose
-project, as whom, what the project remembers) is placed in the worker's
-request metadata here, and every reader downstream works unchanged. The
-models get every dial a chat turn's do: per-org overrides, the platform's
-thinking level, the organization's own key (BYOK) and zero data retention.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -43,20 +32,15 @@ logger = logging.getLogger(__name__)
 
 @dataclass(frozen=True)
 class JobModels:
-    """The agent's function config and its models, with every dial applied."""
-
     fn_config: Any
     provider: Any
     llm: Any
-    # The organization's own credential, re-applied by the reflection pass, which builds its own LLM.
     org_credential: Any
     zdr: bool
 
 
 @dataclass(frozen=True)
 class RunContext:
-    """The agent-runtime context the job runs in, and what it resolved about the requester."""
-
     state: Any
     context: Any
     trace_id: int
@@ -64,11 +48,9 @@ class RunContext:
     event_stream: Any
     user_info: dict | None
     memory_digest: str | None
-    # Profile and memory, composed as ``get_project_context_from_context()`` composes them.
     project_context: str | None
 
     def open_spans(self, request: JobRequest, workflow: Any, parent: Any) -> None:
-        """Push the parent span (when there is one) and WORKFLOW_START, so LLM and tool events nest under them."""
         from nat.data_models.intermediate_step import IntermediateStepPayload
         from nat.data_models.intermediate_step import IntermediateStepType
         from nat.data_models.intermediate_step import StreamEventData
@@ -92,7 +74,6 @@ class RunContext:
         )
 
     def close_spans(self, request: JobRequest, result: Any, workflow: Any, parent: Any) -> None:
-        """Push WORKFLOW_END and the parent's SPAN_END, then complete the event stream."""
         from nat.data_models.intermediate_step import IntermediateStepPayload
         from nat.data_models.intermediate_step import IntermediateStepType
         from nat.data_models.intermediate_step import StreamEventData
@@ -118,7 +99,6 @@ class RunContext:
 
 
 async def prepare_models(builder: Any, request: JobRequest) -> JobModels:
-    """The agent's config and its models: per-org overrides, thinking level, BYOK, then zero data retention."""
     from agent.common import LLMRole
     from agent.common import get_reasoning_efforts
     from agent.common import resolve_org_llm_credential
@@ -128,24 +108,14 @@ async def prepare_models(builder: Any, request: JobRequest) -> JobModels:
     fn_config = _function_config(builder, request.agent_config_name)
     built, llm = await _create_llm_provider(builder, fn_config)
     provider = built
-    # On the provider itself, not only through the header bind_request injects,
-    # so the override holds whenever the agent resolves its LLMs.
     if request.model_overrides:
         provider = provider.with_model_overrides(sanitize_model_overrides(request.model_overrides))
-    # The platform owner's thinking level per group: platform-wide, so resolved
-    # here as the chat replicas do. Off the loop: a cold cache is a BFF call.
     provider = provider.with_reasoning_efforts(await asyncio.to_thread(get_reasoning_efforts))
-    # BYOK (ADR-0022): the org's own credential, fetched just in time and never
-    # carried in the payload; resolution fails open to the platform credential.
     org_credential = None
     if request.organization_id:
-        # Off the loop: a cold or expired cache is a BFF call.
         org_credential = await asyncio.to_thread(resolve_org_llm_credential, request.organization_id)
     if org_credential is not None:
         provider = provider.with_credential(org_credential)
-    # Zero Data Retention (ADR-0014), after BYOK so the pin lands only on models
-    # still pointing at OpenRouter. Every model the job builds comes from this
-    # provider, so pinning it pins them all. Off the loop; fails closed.
     data_policy = await asyncio.to_thread(data_policy_for, request.organization_id)
     provider = provider.with_zdr(data_policy.zdr)
     if provider is not built and llm is not None:
@@ -156,7 +126,6 @@ async def prepare_models(builder: Any, request: JobRequest) -> JobModels:
 
 
 def _function_config(builder: Any, name: str) -> Any:
-    """The agent's function config; deep research's with its skills and sandbox resolved for this run."""
     fn_config = builder.get_function_config(name)
     if getattr(fn_config, "type", None) != "deep_research_agent":
         return fn_config
@@ -170,7 +139,6 @@ def _function_config(builder: Any, name: str) -> Any:
 
 
 async def prepare_tools(builder: Any, fn_config: Any, data_sources: list[str] | None) -> list[Any]:
-    """The agent's tools: its list (else the whole data-source registry), less its exclusions and the job's sources."""
     from nat.plugin_api import LLMFrameworkEnum
 
     tools = await builder.get_tools(
@@ -186,7 +154,6 @@ async def prepare_tools(builder: Any, fn_config: Any, data_sources: list[str] | 
 
 
 async def bind_request(request: JobRequest, fn_config: Any) -> RunContext:
-    """Start the job's agent-runtime context, parented under the submitter's trace, and supply its request headers."""
     from nat.data_models.invocation_node import InvocationNode
     from nat.plugin_api import Context
     from nat.plugin_api import ContextState
@@ -227,12 +194,6 @@ async def bind_request(request: JobRequest, fn_config: Any) -> RunContext:
 
 
 def bind_knowledge(request: JobRequest) -> None:
-    """Bind the run's knowledge context, as a chat turn binds its own (ADR-0175).
-
-    A run carries no turn context, so the payload is the only place it comes from: its gate, its chain
-    text and every edition's role. Absent reads as ``knowledge_unavailable`` (``parse_knowledge_context``):
-    the run fails closed, never as Austria.
-    """
     from agent.common.knowledge_context import parse_knowledge_context
     from agent.common.knowledge_context import set_turn_knowledge_context
 
@@ -240,12 +201,6 @@ def bind_knowledge(request: JobRequest) -> None:
 
 
 def _inject_scope_headers(state: Any, request: JobRequest, fn_config: Any) -> None:
-    """Collection scope, project context and model overrides, as a synchronous request would carry them.
-
-    Every free-text header is base64url (``_b64url_encode_text``): a raw German
-    quote or em-dash makes Starlette's latin-1 header encoding throw before the
-    agent ever starts, an instant job failure with zero events.
-    """
     from agent.common import MODEL_OVERRIDES_HEADER
     from agent.project_context import normalize_project_context
 
@@ -265,11 +220,6 @@ def _inject_scope_headers(state: Any, request: JobRequest, fn_config: Any) -> No
 
 
 def _warn_unscoped(request: JobRequest) -> None:
-    """Log, once per job, that a deep-research job without a collection scope cannot see project collections.
-
-    Retrieval then falls back to the base corpus and the session collection
-    with no other signal that a project's documents were invisible.
-    """
     identity = request.identity
     logger.warning(
         "Job %s: async deep-research job has no collection scope; knowledge "
@@ -283,13 +233,6 @@ def _warn_unscoped(request: JobRequest) -> None:
 
 
 async def _inject_identity_headers(state: Any, request: JobRequest) -> dict | None:
-    """WHO the job runs for, and AS WHOM it acts (ADR-0108); the requester's ``user_info``.
-
-    The identity headers are what every project-scoped tool reads back through
-    ``get_project_id_from_context()``. Only the envelope the BFF signed lets a
-    tool act as that person; it is echoed, renewed by the BFF when stale, and
-    never built here.
-    """
     identity = request.identity
     identity_headers = {
         name: value
@@ -307,12 +250,6 @@ async def _inject_identity_headers(state: Any, request: JobRequest) -> dict | No
 
 
 async def _inject_memory_header(state: Any, request: JobRequest) -> str | None:
-    """WHAT the project already knows: a live digest, else the one the BFF built at submit.
-
-    The chat path's discipline (``piloti/conversation_register.py``): a
-    successful fetch is authoritative even when empty, since memory may have
-    been cleared since the job fired.
-    """
     identity = request.identity
     digest = request.project_memory
     if identity.get("project_id") or identity.get("organization_id"):
@@ -337,7 +274,6 @@ async def _inject_memory_header(state: Any, request: JobRequest) -> str | None:
 
 
 def trace_metadata(request: JobRequest, run: RunContext) -> tuple[Any, Any]:
-    """The workflow span's metadata, and the parent span's (None when the job has no parent span)."""
     from nat.data_models.intermediate_step import TraceMetadata
 
     trace_hex = f"{run.trace_id:032x}"
@@ -352,7 +288,6 @@ def trace_metadata(request: JobRequest, run: RunContext) -> tuple[Any, Any]:
         }
     )
     if is_temporary_conversation(request.usage_context):
-        # ADR-0180: nothing is kept from this run, said on its trace (the reflection is skipped).
         workflow.provided_metadata[TEMPORARY_CONVERSATION_KEY] = True
     if not request.parent_span_id or request.parent_span_id == "root":
         return workflow, None

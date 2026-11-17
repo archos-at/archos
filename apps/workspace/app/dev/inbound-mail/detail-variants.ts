@@ -1,16 +1,11 @@
-/** The detail variants of the E-Mail-Eingang preview, one per state DECISION §9 names (`./fixtures.ts`). */
-
 import type { InboundMailTextView, InboundMailView } from '@/lib/inbound-mail/inbound-mail-wire'
 import { daysAhead, fixtureId, minutesAgo } from './fixture-base'
 import { mail, messagePart, part, permitDecision, statik, suggestion, text, thread } from './fixture-builders'
-
-// ------------------------------------------------------------ detail variants
 
 export interface DetailFixture {
   view: InboundMailView
   text: InboundMailTextView
   decidedByOther?: boolean
-  /** Keep the mail loading (the skeleton), or fail its read. */
   load?: 'loading' | 'error'
 }
 
@@ -28,11 +23,9 @@ const memberVerified = mail({
   },
   parts: [messagePart({ id: fixtureId('message:member') }), permitDecision()],
   threadCandidates: [thread()],
-  // Miriam may only read this project: her signed mail waits for its writers (`office_member`), who see it.
   reading: { writes: false, viewer: 'colleague' },
 })
 
-/** Miriam's own address, as the office's directory knows it: every member fixture is from her. */
 const miriam = (overrides: Partial<NonNullable<InboundMailView['sender']>> = {}): NonNullable<InboundMailView['sender']> => ({
   name: 'Miriam Huber',
   address: 'm.huber@huber-architektur.at',
@@ -51,7 +44,6 @@ const longName =
   'Einreichplanung_Stellplatznachweis_Tiefgarage_Ebene_-2_Brandabschnitte_und_Fluchtwege_überarbeitet_nach_Verhandlung_vom_14_10_2026_Index_F_final_final2.pdf'
 
 export const DETAIL_VARIANTS: Record<string, DetailFixture> = {
-  // Miriam forwards the MA 37's Bescheid from her own, signed domain, but may only read the project: a writer files it.
   'member-verified': {
     view: memberVerified,
     text: text({ ownText: 'Zur Ablage: der Bescheid zum Stellplatznachweis ist gestern gekommen.\n\nlg Miriam', quoted: [] }),
@@ -66,7 +58,6 @@ export const DETAIL_VARIANTS: Record<string, DetailFixture> = {
     }),
     text: text({ ownText: 'Sehr geehrte Damen und Herren,\n\nanbei unser Angebot für die Fassadenreinigung.\n\nMfG' , quoted: [] }),
   },
-  // Miriam's own address, rejected by her own domain, as Miriam reads it: her question, in her own voice, „Verwerfen“ first.
   impersonation: {
     view: mail({
       key: 'impersonation',
@@ -77,7 +68,6 @@ export const DETAIL_VARIANTS: Record<string, DetailFixture> = {
     }),
     text: text({ ownText: 'Bitte überweisen Sie die offene Honorarnote ab sofort auf das neue Konto.', quoted: [] }),
   },
-  // The same forgery as a colleague reads it: the warning, and „Verwerfen …“ as the only press (only Miriam may file it).
   'impersonation-colleague': {
     view: mail({
       key: 'impersonation-colleague',
@@ -89,7 +79,6 @@ export const DETAIL_VARIANTS: Record<string, DetailFixture> = {
     }),
     text: text({ ownText: 'Bitte überweisen Sie die offene Honorarnote ab sofort auf das neue Konto.', quoted: [] }),
   },
-  // Miriam's own mail her domain did not sign (a misconfigured server, mostly): „Ja, ich habe diese E-Mail gesendet. Ablegen“.
   'own-unverified': {
     view: mail({
       key: 'own-unverified',
@@ -100,7 +89,6 @@ export const DETAIL_VARIANTS: Record<string, DetailFixture> = {
     }),
     text: text({ ownText: 'Anbei Index G der Tiefgarage.', quoted: [] }),
   },
-  // Signed by her domain, but sent automatically (a scanner, a rule): asked of Miriam.
   'automatic-own': {
     view: mail({
       key: 'automatic-own',
@@ -112,7 +100,6 @@ export const DETAIL_VARIANTS: Record<string, DetailFixture> = {
     }),
     text: text({ ownText: 'Gescannt am Kopierer 3. OG.', quoted: [] }),
   },
-  // Direct filing was switched off when it arrived: Miriam's signed mail waits for any of the project's writers.
   paused: {
     view: mail({
       key: 'paused',
@@ -124,7 +111,6 @@ export const DETAIL_VARIANTS: Record<string, DetailFixture> = {
     }),
     text: text({ ownText: 'Anbei das Protokoll vom Jour fixe.', quoted: [] }),
   },
-  // Direct filing was on and filed nothing of it: one attachment had no folder to go to. Any writer files it.
   'not-filed': {
     view: mail({
       key: 'not-filed',
@@ -136,7 +122,6 @@ export const DETAIL_VARIANTS: Record<string, DetailFixture> = {
     }),
     text: text({ ownText: 'Die Fotos von der Begehung.', quoted: [] }),
   },
-  // Who the sender is in the office could not be asked at receipt: neither an outsider nor read-only, but unchecked.
   'sender-unchecked': {
     view: mail({
       key: 'sender-unchecked',
@@ -147,7 +132,6 @@ export const DETAIL_VARIANTS: Record<string, DetailFixture> = {
     }),
     text: text({ ownText: 'Passt für mich, bis Dienstag.', quoted: [] }),
   },
-  // An outsider whose display name is a member's: the address is not theirs (D8b `claims_member_name`).
   'member-name': {
     view: mail({
       key: 'member-name',
@@ -158,7 +142,6 @@ export const DETAIL_VARIANTS: Record<string, DetailFixture> = {
     }),
     text: text({ ownText: 'Liebe Kolleginnen und Kollegen,\n\nbitte ab sofort die Honorarnoten auf das neue Konto im Anhang überweisen. Ich bin heute nicht erreichbar.\n\nMiriam', quoted: [] }),
   },
-  // A mail with a colleague's address and a signature that failed, as another writer sees it: only Miriam can file it.
   'claimed-by-colleague': {
     view: mail({
       key: 'claimed-by-colleague',
@@ -170,7 +153,6 @@ export const DETAIL_VARIANTS: Record<string, DetailFixture> = {
     }),
     text: text({ ownText: 'Anbei Index G der Tiefgarage.', quoted: [] }),
   },
-  // Miriam's own Bcc copy: signed, but no direct filing's evidence (anyone she wrote to could re-send it): asked of her.
   'bcc-own': {
     view: mail({
       key: 'bcc-own',
@@ -194,7 +176,6 @@ export const DETAIL_VARIANTS: Record<string, DetailFixture> = {
       key: 'forwarded',
       subject: 'WG: Verhandlungsschrift Bauverhandlung 04.11.',
       sender: miriam(),
-      // She may only read the project, so her forward waits for its writers.
       reading: { writes: false, viewer: 'colleague' },
       parts: [messagePart({ id: fixtureId('message:fwd') }), permitDecision({ filename: 'Verhandlungsschrift_2026-11-04.pdf' })],
       threadCandidates: [],
@@ -207,7 +188,6 @@ export const DETAIL_VARIANTS: Record<string, DetailFixture> = {
           text: 'Von: MA 37 – Baupolizei <post@ma37.wien.gv.at>\nGesendet: Montag, 20. Oktober 2026 14:02\nAn: Huber Architektur\nBetreff: Verhandlungsschrift Bauverhandlung 04.11.\n\nSehr geehrte Damen und Herren,\n\nanbei die Verhandlungsschrift.',
         },
       ],
-      // What the route reads from the quote above (`lib/inbound-mail/forwarded.ts`).
       forwardedFrom: { name: 'MA 37 – Baupolizei', address: 'post@ma37.wien.gv.at' },
     }),
   },
@@ -265,7 +245,6 @@ export const DETAIL_VARIANTS: Record<string, DetailFixture> = {
     }),
     text: text(),
   },
-  // Three days left: „Wartet nur noch bis …“ comes forward from „Details“ into the header.
   'expires-soon': {
     view: mail({ key: 'expires-soon', expiresAt: daysAhead(3), parts: [messagePart({ id: fixtureId('message:es') }), permitDecision()] }),
     text: text(),
@@ -316,7 +295,6 @@ export const DETAIL_VARIANTS: Record<string, DetailFixture> = {
     view: mail({ key: 'revision', subject: 'AW: Stellplatznachweis – Statik S-101 Index C', parts: [messagePart({ id: fixtureId('message:rev') }), statik()] }),
     text: text(),
   },
-  // The MA 37 writes from its own signed domain into the project's Verlauf with the authority: complete, so „Bereit“.
   'authority-statement': {
     view: mail({
       key: 'authority-statement',

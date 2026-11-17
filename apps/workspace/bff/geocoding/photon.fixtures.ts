@@ -1,11 +1,5 @@
-/**
- * Photon responses captured from photon.komoot.io (2026-10-14), shared by the
- * parser, service and route specs. Each is trimmed only by `limit`.
- */
-
 const collection = (...features: unknown[]) => ({ type: 'FeatureCollection', features })
 
-/** `q=Mariahilfer Straße 10 Wien&limit=2&lang=de`: a POI with no house number, then a street. Vienna has no `state`. */
 export const PHOTON_MARIAHILFER = collection(
   {
     type: 'Feature',
@@ -28,7 +22,6 @@ export const PHOTON_MARIAHILFER = collection(
   },
 )
 
-/** `q=Mödling&limit=1&lang=de&layer=city`: a town, which carries `state` but no `city`. */
 export const PHOTON_MOEDLING = collection({
   type: 'Feature',
   properties: {
@@ -39,7 +32,6 @@ export const PHOTON_MOEDLING = collection({
   geometry: { type: 'Point', coordinates: [16.2833526, 48.0855922] },
 })
 
-/** `q=Graben 20 Wien&limit=3&lang=de`: house numbers. The second and third share a label with nobody. */
 export const PHOTON_GRABEN = collection(
   {
     type: 'Feature',
@@ -61,7 +53,6 @@ export const PHOTON_GRABEN = collection(
   },
 )
 
-/** `q=Hauptstraße 1 Innsbruck&limit=3&lang=de`: house numbers outside Vienna; the Tirol state label. */
 export const PHOTON_HAUPTSTRASSE = collection(
   {
     type: 'Feature',
@@ -83,7 +74,6 @@ export const PHOTON_HAUPTSTRASSE = collection(
   },
 )
 
-/** `q=Marienplatz 1 München&limit=1&lang=de`: a German hit. Piloti is Austria only, so it is dropped. */
 export const PHOTON_MARIENPLATZ_MUENCHEN = collection({
   type: 'Feature',
   properties: {
@@ -94,7 +84,6 @@ export const PHOTON_MARIENPLATZ_MUENCHEN = collection({
   geometry: { type: 'Point', coordinates: [11.5747253, 48.1376095] },
 })
 
-/** `q=Berlin&limit=3&lang=de`, abridged: Germany, then the United States. */
 export const PHOTON_BERLIN = collection(
   {
     type: 'Feature',

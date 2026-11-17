@@ -1,5 +1,3 @@
-/** A country's stable release, as the gzipped JSON file another deployment imports (`platform-knowledge-release-import`). */
-
 import { platformApiRoute } from '@/lib/api/platform-handler'
 import { PLATFORM_PERMISSIONS } from '@/lib/authz/permissions'
 import { asProblem } from '@/lib/base-knowledge/http/problem'

@@ -1,10 +1,5 @@
 import type { en } from '../en'
 
-/**
- * intakeReadingStep: Schritt 3, Erfassung. Piloti liest im Hintergrund; die
- * Seite zeigt, was dabei schon feststeht, und sagt, dass man nicht warten muss.
- * Ruhig und ehrlich: nur Zahlen, die der Server wirklich kennt.
- */
 export const intakeReadingStep: typeof en.intakeReadingStep = {
   heading: {
     waiting: 'Noch keine Unterlagen',

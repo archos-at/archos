@@ -1,19 +1,3 @@
-/**
- * Whether the platform MCP gateway may admit a person whose token names another
- * organization (ADR-0154, amendment of 2026-11-05).
- *
- * A WorkOS token names the one organization picked at sign-in, and its `roles`
- * are that membership's. agentgateway admits a token of the platform
- * organization by those claims alone; for a token of any other organization it
- * asks here, and this answers from the person's live membership of the platform
- * organization: admitted when it holds one of the roles the gateway names.
- *
- * The token is checked for AuthKit's signature, issuer and expiry, so a forged
- * `sub` is worthless. Its audience is the gateway's business, checked there
- * before this is asked. The route is behind its own secret
- * (`PLATFORM_MCP_ADMISSION_TOKEN`), which only the gateway holds.
- */
-
 import { errors as joseErrors, jwtVerify } from 'jose'
 import { resolvePinnedRequesterSession } from '@/lib/auth/pinned-session'
 import { rolesOf } from '@/lib/auth/types'
@@ -27,7 +11,6 @@ export type PlatformAdmission =
 
 const refused = (status: 401 | 403 | 503, reason: string): PlatformAdmission => ({ admitted: false, status, reason })
 
-/** The subject of a verified AuthKit token in `authorization`, or why there is none. */
 async function verifiedSubject(authorization: string | null, deps: PrincipalDeps): Promise<string | PlatformAdmission> {
   const domain = authkitDomain()
   const issuer = authkitIssuer()
@@ -42,11 +25,6 @@ async function verifiedSubject(authorization: string | null, deps: PrincipalDeps
   }
 }
 
-/**
- * Admitted when the token's person is a member of the platform organization now
- * and holds one of `admittedRoles` there. The membership lookup is at most a
- * minute old (`resolvePinnedRequesterSession`), as on the app's own doors.
- */
 export async function platformGatewayAdmission(
   authorization: string | null,
   admittedRoles: readonly string[],

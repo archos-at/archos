@@ -1,27 +1,5 @@
 'use client'
 
-/**
- * `/dev/viewer-actions` — Piloti's viewer actions (ADR-0144) through the real
- * row, the real runner and the real peek store.
- *
- * Four answers, each with the row its viewer actions leave once the answer is
- * there (the actions are held while a turn runs and released at its end):
- *   1. „Baubeschreibung S. 4“: the passage opened beside the chat, with
- *      „Zurücknehmen“; the Fassung comparison of the same answer only offered,
- *      because it would cover the chat.
- *   2. A document the reader may not see: the read answers 404, nothing moves,
- *      and the row says only that it is not available.
- *   3. The reader turned it off: the place is offered with „Anzeigen“.
- *   4. The reader was typing when it was released: offered, not opened.
- *   5. The turn still runs: the place is held, the row says it waits for the
- *      finished answer, and „Anzeigen“ opens it at once.
- * The panel on the right reads `useFilePreviewStore`, the store the chat peek
- * draws: which document is open, at which page, with what marked.
- *
- * `GET /api/documents/{id}` is stubbed over `window.fetch` at module scope.
- * Development only (the `/dev` layout 404s elsewhere).
- */
-
 import { useEffect, useState, type FC, type ReactNode } from 'react'
 import { AgentResponse } from '@/features/chat/components/AgentResponse'
 import { useChatStore } from '@/features/chat/store'
@@ -154,11 +132,9 @@ async function play(): Promise<void> {
   proposeViewerAction('answer-4', call('va_5', 'open_document', { page: 7 }))
   await releaseViewerActions('answer-4')
   noteTypedAt(Number.NEGATIVE_INFINITY)
-  // Its turn still runs: held, never released here.
   proposeViewerAction('answer-5', call('va_6', 'highlight_passage', { page: 5, passage: 'Stiegenbreite 1,20 m' }))
 }
 
-/** What the chat peek would draw: the store it reads. */
 const ViewerProbe: FC = () => {
   const file = useFilePreviewStore((state) => state.file)
   const mode = useFilePreviewStore((state) => state.mode)
@@ -196,7 +172,6 @@ export default function ViewerActionsPreview() {
   const [ready, setReady] = useState(false)
   useEffect(() => {
     useChatStore.setState({ projectId: 'proj-lacknergasse' })
-    // Once per page: Strict Mode runs the effect twice, and two plays interleave their typing clocks.
     played ??= play()
     void played.then(() => setReady(true))
   }, [])

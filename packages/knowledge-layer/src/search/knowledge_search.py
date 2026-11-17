@@ -1,10 +1,3 @@
-"""The `knowledge_search` tool: one call from its arguments to the block the model reads.
-
-`KnowledgeSearch` is bound once at startup to the retriever and the models.
-Each call checks its arguments, resolves the collections it may read, answers a
-literal search directly and hands a ranked one to `ranked_search.RankedSearch`.
-"""
-
 import logging
 from dataclasses import dataclass
 from typing import Any
@@ -21,7 +14,6 @@ from .document_groups import GROUP_BY_DOCUMENT
 
 logger = logging.getLogger(__name__)
 
-#: The answer to a call without a query.
 EMPTY_QUERY_REFUSAL = (
     "Provide a `query` that names the fact or passage you need "
     "(e.g. 'OIB-RL 2 Fluchtweglänge GK 4'). "
@@ -29,12 +21,10 @@ EMPTY_QUERY_REFUSAL = (
     "also pass `file_name=`."
 )
 
-#: The two literal modes: same scope, same narrowing, no ranking at all.
 LITERAL_MODES = frozenset({"exact", "regex"})
 
 
 def _filter_fields(node: Any) -> set[str]:
-    """Every field a metadata filter names, through its ``$and``/``$or`` groups. Pure."""
     if isinstance(node, list):
         return set().union(*(_filter_fields(child) for child in node))
     if not isinstance(node, dict):
@@ -46,13 +36,6 @@ def _filter_fields(node: Any) -> set[str]:
 
 
 def scoped_filters(filters: dict | None, shelf: str | None) -> tuple[dict | None, str | None] | str:
-    """``filters`` with a top-level ``shelf`` moved onto the argument, or the sentence that refuses them. Pure.
-
-    ``shelf`` picks which collections a search reads; no stored point carries it, so a
-    model that writes ``filters={"shelf": "project"}`` means ``shelf="project"`` and gets
-    it. Any other field the store has no index on is refused here, in words the model
-    can act on, instead of failing deep in the store as an unindexed filter.
-    """
     from knowledge_layer.vector_store import INDEXED_FIELDS
     from knowledge_layer.vector_store import TEXT_FIELDS
 
@@ -75,7 +58,6 @@ def scoped_filters(filters: dict | None, shelf: str | None) -> tuple[dict | None
 
 @dataclass(frozen=True, slots=True)
 class SearchArgs:
-    """A call's arguments, trimmed and checked."""
 
     query: str
     filters: dict | None
@@ -108,7 +90,6 @@ def parse_args(
     document_type: str | None,
     refers_to: str | None,
 ) -> SearchArgs | str:
-    """The call's arguments trimmed, or the sentence that refuses them."""
     query = (query or "").strip()
     if not query:
         return EMPTY_QUERY_REFUSAL
@@ -120,7 +101,6 @@ def parse_args(
         from agent.knowledge.document_classification import DOCUMENT_CLASSES
         from agent.knowledge.document_classification import canonical_doc_class
 
-        # A conversation holding a search by the German key invites the model to repeat it.
         current_doc_class = canonical_doc_class(doc_class)
         if current_doc_class is None:
             valid = ", ".join(DOCUMENT_CLASSES)
@@ -155,7 +135,6 @@ def parse_args(
 
 
 def mode_refusal(args: SearchArgs, match_modes) -> str | None:
-    """The sentence refusing a mode, a grouping or `stemmed` this call cannot use, or ``None``."""
     if args.mode in {"meaning", *LITERAL_MODES} and args.mode not in match_modes:
         return f"`match={args.mode}` is not available in this configuration."
     if args.grouping not in (None, GROUP_BY_DOCUMENT):
@@ -171,7 +150,6 @@ def mode_refusal(args: SearchArgs, match_modes) -> str | None:
 
 
 def ranked_refusal(args: SearchArgs) -> str | None:
-    """The sentence refusing an unknown mode or a `context` on a ranked search, or ``None``."""
     if args.mode != "meaning":
         return (
             '`match` must be "meaning" (ranked by what a passage says), "exact" (every literal occurrence) '
@@ -186,7 +164,6 @@ def ranked_refusal(args: SearchArgs) -> str | None:
 
 
 class KnowledgeSearch:
-    """The search behind `knowledge_search`, bound to its retriever and its models once at startup."""
 
     def __init__(
         self,
@@ -211,14 +188,12 @@ class KnowledgeSearch:
         return self.rerank_llm is not None or self.cross_encoder is not None
 
     async def search(self, query: str, *, path: str | None = None, **arguments: Any) -> str:
-        """One call, recorded as a row in the Herleitung (ADR-0132); the arguments are the tool's own."""
         if path is not None and str(path).strip():
             try:
                 arguments["shelf"], arguments["folder"], arguments["file_name"] = path_scope(
                     str(path), arguments["shelf"], arguments["folder"], arguments["file_name"]
                 )
             except ValueError as refusal:
-                # Refused before it searched, and still a call the reader sees: an error row that names no folder.
                 ActionRow("search", **search_row_fields(query, arguments["match"], None, None, None)).finish("error")
                 return str(refusal)
         outcome = ActionOutcome()
@@ -233,21 +208,13 @@ class KnowledgeSearch:
         except BaseException:
             row.finish("error")
             raise
-        # A call that returned without searching (a refusal, a bad argument) counted nothing: an error row.
         outcome.settle(row, default="error")
         return result
 
     async def _answer(self, outcome: ActionOutcome, **arguments: Any) -> str:
-        # `conclusion` never reaches here. It is a checkpoint channel, not a
-        # retrieval parameter: the agent node reads it off the tool CALL before
-        # this runs, and a sentence that changed the result would make the
-        # Herleitung a cause instead of a record of one.
         args = parse_args(**arguments)
         if isinstance(args, str):
             return args
-        # Platform-tunable counts (Platform → Retrieval), resolved per call so
-        # an admin save takes effect without a redeploy; fail-open to the YAML
-        # build-time values.
         from knowledge_layer.browse import entries_on_shelf
 
         from agent.common.retrieval_settings import get_retrieval_setting
@@ -276,11 +243,6 @@ class KnowledgeSearch:
         return await RankedSearch(self, outcome, args, targets, base_collection, budgets).answer()
 
     def _collections(self, base_collection: str) -> list:
-        """The authorized set first, then without the shelves this turn did not ask for.
-
-        Resolve stays a ceiling; restriction is one call site. The session
-        collection holds this conversation's UI uploads.
-        """
         try:
             ctx = Context.get()
             session_collection = ctx.conversation_id if ctx else None
@@ -295,7 +257,6 @@ class KnowledgeSearch:
 
         from agent.common.action_rows import emit_literal_search
 
-        # A literal search is a navigate move (ADR-0127); the tool step cannot say so, this record does.
         emit_literal_search(args.mode)
         return await exact_search(
             targets,
@@ -315,13 +276,6 @@ class KnowledgeSearch:
         )
 
     async def _in_folder(self, folder: str, targets: list) -> list:
-        """The collections that file something in ``folder`` (or under it); narrowed BEFORE ranking.
-
-        It used to be a post-filter over the top `3 × top_k` of the whole
-        shelf, so a folder whose passages ranked below that pool came back
-        empty while holding exactly what was asked. The post-filter in
-        `apply_agent_filters` stays as the backstop.
-        """
         from knowledge_layer.browse.tool import _files_by_collection
 
         folder_files = (
@@ -334,12 +288,6 @@ class KnowledgeSearch:
 def path_scope(
     path: str, shelf: str | None, folder: str | None, file_name: str | None
 ) -> tuple[str | None, str | None, str | None]:
-    """``knowledge_search(path=…)`` as the shelf, folder and file it compiles to (ADR-0133); explicit ones win.
-
-    The scope ``grep`` reads for the same path: the mount is the shelf, the folder part the folder, a leaf
-    the file (``Plan.pdf.md`` is ``Plan.pdf``). Raises ``ValueError`` with the refusal for a path that is
-    not canonical or names no place.
-    """
     from agent.common.estate_paths import MOUNT_SHELVES
     from agent.common.estate_paths import PathRefused
     from agent.common.estate_paths import file_name_candidates
@@ -363,7 +311,6 @@ def path_scope(
 def search_row_fields(
     query: str, match: str | None, folder: str | None, file_name: str | None, shelf: str | None
 ) -> dict[str, str | None]:
-    """The Herleitung row of a search call, from its own arguments: what, how, where (ADR-0132)."""
     mode = (match or "meaning").strip().lower()
     return {
         "query": (query or "").strip(),

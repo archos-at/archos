@@ -205,8 +205,6 @@ def _with_metadata(entries: list[OibFileEntry], collection_name: str) -> None:
         entry.summary = summary
         entry.doc_class = doc_class
         entry.doc_class_suggestion = suggestions.get(entry.file_name)
-        # Effective name: the admin override wins, else the derived default so the
-        # admin UI always shows a real name (never a raw filename) to rename from.
         entry.display_title = stored_title or guess_display_title(entry.file_name)
 
 

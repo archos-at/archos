@@ -1,5 +1,3 @@
-"""The list_files tool's description: the text the agent reads as the tool's contract."""
-
 from .tree import TREE_PARAGRAPH
 
 _LIST_FILES_DESCRIPTION = (
@@ -25,6 +23,3 @@ _LIST_FILES_DESCRIPTION = (
     "a link the reader can open."
 )
 
-# ---------------------------------------------------------------------------
-# Agent-runtime registration
-# ---------------------------------------------------------------------------

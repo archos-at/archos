@@ -1,23 +1,3 @@
-"""One run of the Erfassungs-Agent against the fixture project, with a live model.
-
-The agent is the production graph (``ProjectIntakeAgent``: its prompt, its own
-tools, its middleware and its budgets), and its model is built the way the
-research worker builds it: the config's ``research_llm`` through the agent runtime and
-``get_langchain_llm`` (``runner._create_llm_provider``), pinned to zero data
-retention with ``openrouter.pin_chat_model`` (ADR-0074), so every call takes a
-provider-limiter slot (ADR-0081). The decision model the record tool consults
-for select values goes through its own seam (``common/decisions``), as live.
-
-Faked, and nothing else: the project's documents and the three shared reading
-tools (``fixture.py``), the intake route (``bff.py``), and the run's signed
-envelope (a placeholder the fake route never checks). No database, no BFF, no
-network beyond OpenRouter.
-
-What a run costs is read off the wire: every OpenRouter response is recorded
-in-process (the ``turn_census`` recorder's technique) for its billed tokens and
-``usage.cost``.
-"""
-
 from __future__ import annotations
 
 import contextlib
@@ -43,22 +23,18 @@ from .fixture import project_documents_for
 from .fixture import shared_tools
 
 CONFIG = REPO_ROOT / "configs" / "config_oib_openrouter.yml"
-#: The longest tool output a transcript keeps; the full text is what the model saw, this is for reading.
 MAX_TRANSCRIPT_OUTPUT = 6000
 
 
-# ── The config, as the worker reads it ───────────────────────────────────────
 
 
 def _expand(value: Any) -> Any:
-    """``${NAME:-default}`` as the agent runtime expands it."""
     if not isinstance(value, str):
         return value
     return re.sub(r"\$\{(\w+)(?::-([^}]*))?\}", lambda m: os.environ.get(m.group(1)) or (m.group(2) or ""), value)
 
 
 def intake_config() -> tuple[dict[str, Any], dict[str, Any]]:
-    """``(the project_intake_agent function's config, the LLM config it names)``, env expanded."""
     config = yaml.safe_load(CONFIG.read_text(encoding="utf-8"))
     function = config["functions"]["project_intake_agent"]
     llm = {key: _expand(value) for key, value in config["llms"][function["llm"]].items()}
@@ -66,15 +42,12 @@ def intake_config() -> tuple[dict[str, Any], dict[str, Any]]:
 
 
 def boot_model() -> str:
-    """The model the intake runs on in a process with no BFF to ask: the config's boot fallback."""
     return str(intake_config()[1]["model_name"])
 
 
-# ── Recording what the provider billed ───────────────────────────────────────
 
 
 def _usage_from_text(text: str) -> dict[str, Any] | None:
-    """The last ``usage`` object in a JSON body or an SSE stream."""
     usage = None
     for line in text.splitlines() or [text]:
         line = line.strip().removeprefix("data:").strip()
@@ -90,7 +63,6 @@ def _usage_from_text(text: str) -> dict[str, Any] | None:
 
 
 class ModelCallRecorder:
-    """Every OpenRouter call in this process, with its status, seconds and billed usage."""
 
     def __init__(self) -> None:
         self.calls: list[dict[str, Any]] = []
@@ -145,7 +117,6 @@ class ModelCallRecorder:
             httpx.AsyncClient.send, httpx.Client.send = original_async, original_sync
 
 
-# ── The run's transcript ─────────────────────────────────────────────────────
 
 
 def _text(content: Any) -> str:
@@ -155,7 +126,6 @@ def _text(content: Any) -> str:
 
 
 class Transcript(AsyncCallbackHandler):
-    """The model's turns and every tool call with its arguments and what it returned, in order."""
 
     def __init__(self) -> None:
         self.events: list[dict[str, Any]] = []
@@ -194,7 +164,6 @@ class Transcript(AsyncCallbackHandler):
         return [event for event in self.events if event["type"] == "tool"]
 
     def attempted_values(self) -> list[dict[str, Any]]:
-        """Every value the model passed to ``record_values``, sent or not."""
         values = []
         for call in self.tool_calls:
             if call["name"] != "record_values" or not isinstance(call["args"], dict):
@@ -213,12 +182,10 @@ class Transcript(AsyncCallbackHandler):
         return [cut(event) for event in self.events]
 
 
-# ── The world the agent runs in ──────────────────────────────────────────────
 
 
 @contextlib.contextmanager
 def fixture_world(fixture: Fixture, bff: FakeIntakeBff) -> Iterator[None]:
-    """The fixture's pages behind ``read_document``, the fake route behind the client, a placeholder envelope."""
     from agent import project_context
     from agent.agents.intake import client
     from agent.agents.intake import reading
@@ -246,7 +213,6 @@ def fixture_world(fixture: Fixture, bff: FakeIntakeBff) -> Iterator[None]:
 
 
 async def _model(builder: Any, llm_config: dict[str, Any], model: str) -> Any:
-    """``research_llm`` as the worker builds it, on ``model``, pinned to zero data retention."""
     import nat.plugins.langchain.llm  # noqa: F401 — registers the agent runtime's LangChain wrapper for the OpenAI provider
     from agent.common import get_langchain_llm
     from agent.common.openrouter import ZERO_DATA_RETENTION
@@ -259,7 +225,6 @@ async def _model(builder: Any, llm_config: dict[str, Any], model: str) -> Any:
 
 
 async def run_once(fixture: Fixture, model: str) -> dict[str, Any]:
-    """One reading of the fixture project: what the route took, the profile after it, the transcript and the bill."""
     from langchain_core.messages import HumanMessage
 
     from agent.agents.intake.agent import ProjectIntakeAgent

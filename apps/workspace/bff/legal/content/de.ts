@@ -1,28 +1,12 @@
-/**
- * Rechtsdokumente — Deutsch (maßgebliche Sprachfassung für den
- * österreichischen Markt). Strukturelles Gegenstück zu `./en.ts`.
- *
- * Betreiberangaben kommen aus packages/brand/identity.json. Die Gesellschaft ist
- * in Gründung: Firmenbuchnummer, Firmenbuchgericht und UID gibt es noch nicht,
- * und der Text sagt das so wie das Impressum der Website
- * (apps/website/src/i18n/pages/imprint.ts). Kein Wert steht in eckigen Klammern;
- * was nicht belegt ist, ist ein TODO(owner) im Kommentar. Diese Texte entstanden im
- * Rahmen des Compliance-Reviews 2026-07 (docs/compliance/) und sind
- * Vorlagen, keine Rechtsberatung: vor Verwendung anwaltlich prüfen lassen.
- */
-
 import type { LegalContent } from '../types'
 import { PRODUCT_NAME, withProductName } from '@/lib/brand'
 import { SUBPROCESSOR_PAGE } from './subprocessors.generated'
 import identity from '@/shared/brand/identity.json'
 
-// Betreiber, Anschrift und Kontakt aus der einen Quelle der Marke (packages/brand/identity.json),
-// wie im Impressum der Website.
 const OPERATOR = identity.legalEntity
 const ADDRESS = `${identity.street}, ${identity.postalCode} ${identity.city}, Österreich`
 const EMAIL = identity.email
 
-// Tabellen und Listen der Seite „Subunternehmer“, erzeugt aus configs/subprocessors/ (scripts/generate_subprocessor_pages.py).
 const PAGE = withProductName(SUBPROCESSOR_PAGE.de)
 
 export const de: LegalContent = {
@@ -37,16 +21,13 @@ export const de: LegalContent = {
         paragraphs: [
           `${OPERATOR}, ${ADDRESS}.`,
           `Kontakt: ${EMAIL}`,
-          // Wortlaut wie im Impressum der Website (apps/website/src/i18n/pages/imprint.ts).
           'Rechtsform: Flexible Kapitalgesellschaft (FlexCo), in Gründung. Firmenbuch: Noch nicht eingetragen. Firmenbuchnummer, Firmenbuchgericht und UID-Nummer ergänzen wir nach der Eintragung.',
-          // TODO(owner): die Aufsichtsbehörde gemäß ECG nach Eintragung und Gewerbeanmeldung nennen.
           'Unternehmensgegenstand: Entwicklung und Betrieb von Software für Architektur- und Planungsbüros. Die Aufsichtsbehörde gemäß ECG ergänzen wir nach der Eintragung. Anwendbare gewerberechtliche Vorschriften: Gewerbeordnung 1994, abrufbar unter ris.bka.gv.at.',
         ],
       },
       {
         heading: 'Zweck des Dienstes',
         paragraphs: [
-          // TODO(owner): Satz am 2026-10-29 neu gefasst (Positionierung: Workspace statt Recherchewerkzeug); die rechtliche Aussage ist unverändert. Zur anwaltlichen Prüfung.
           PRODUCT_NAME + ' (vormals Piloti) ist der Workspace für Architektur- und Planungsbüros. Projektwissen, Unterlagen und Modelle liegen an einem Ort, und ' + PRODUCT_NAME + ' übernimmt dort mit Unterstützung von KI die regelgeleitete Arbeit. Baurecht ist eine dieser Fähigkeiten: ' + PRODUCT_NAME + ' findet Stellen in den österreichischen OIB-Richtlinien und den im Rechtsinformationssystem des Bundes (RIS) veröffentlichten Rechtsquellen und zitiert sie zur Überprüfung. ' + PRODUCT_NAME + ' erbringt keine Rechtsberatung; siehe Nutzungsbedingungen und KI-Transparenzhinweis.',
         ],
       },
@@ -165,7 +146,6 @@ export const de: LegalContent = {
       {
         heading: '1. Leistungsumfang',
         paragraphs: [
-          // TODO(owner): Satz am 2026-10-29 neu gefasst (Positionierung: Workspace statt Recherchewerkzeug); die rechtliche Aussage ist unverändert. Zur anwaltlichen Prüfung.
           PRODUCT_NAME + ' ist der Workspace für Architektur- und Planungsbüros, in dem eine Organisation ihre Projekte, Unterlagen und Modelle führt; ' + PRODUCT_NAME + ' unterstützt die Arbeit darin mit KI. Zum Leistungsumfang gehört die Recherche im österreichischen Baurecht (OIB-Richtlinien und RIS-Rechtsquellen). ' + PRODUCT_NAME + ' ruft Vorschrifteninhalte und von Ihrer Organisation bereitgestellte Projektdokumente ab, fasst sie zusammen und zitiert sie.',
         ],
       },
@@ -200,7 +180,6 @@ export const de: LegalContent = {
         heading: '6. Verfügbarkeit und Support',
         paragraphs: [
           'Der Dienst wird ohne zugesichertes Service-Level bereitgestellt, sofern nicht schriftlich anderes vereinbart ist. Geplante Wartungen und Abhängigkeiten von externen Anbietern (Identität, KI-Modelle, Websuche) können die Verfügbarkeit beeinträchtigen.',
-          // TODO(owner): vereinbarte SLA- und Support-Regelungen ergänzen, falls zutreffend.
         ],
       },
       {
@@ -213,13 +192,11 @@ export const de: LegalContent = {
         heading: '8. Haftung',
         paragraphs: [
           'Die Haftung für leichte Fahrlässigkeit ist im gesetzlich zulässigen Umfang ausgeschlossen; zwingende Haftung (z. B. für Personenschäden, nach dem Produkthaftungsgesetz) bleibt unberührt. Der Betreiber haftet nicht für Entscheidungen, die entgegen Punkt 2 im Vertrauen auf KI-generierte Ausgaben getroffen wurden.',
-          // TODO(owner): die Haftungsbeschränkungsklausel anwaltlich vervollständigen.
         ],
       },
       {
         heading: '9. Schlussbestimmungen',
         paragraphs: [
-          // TODO(owner): einen Gerichtsstand vereinbaren und nennen; bis dahin gilt der gesetzliche.
           'Es gilt österreichisches Recht unter Ausschluss der Verweisungsnormen und des UN-Kaufrechts. Für Verbraucher gelten zwingende Verbrauchergerichtsstände. Sollten einzelne Bestimmungen unwirksam sein, bleibt der Rest wirksam.',
         ],
       },
@@ -235,7 +212,6 @@ export const de: LegalContent = {
       {
         heading: 'Sie interagieren mit einem KI-System',
         paragraphs: [
-          // TODO(owner): Satz am 2026-10-29 neu gefasst (Positionierung: Workspace statt Recherchewerkzeug); die rechtliche Aussage ist unverändert. Zur anwaltlichen Prüfung.
           PRODUCT_NAME + ' beantwortet Ihre Fragen und arbeitet in Ihren Projekten mit großen Sprachmodellen (LLMs). Chat-Antworten, Rechercheberichte und Rechtsgrundlagen-Karten sind KI-generierte Inhalte. ' + PRODUCT_NAME + ' kennzeichnet die zitierten Quellen, sodass jede Aussage anhand der zugrunde liegenden Quelle überprüft werden kann, etwa eines Projektdokuments, einer OIB-Richtlinie oder einer RIS-Fundstelle.',
         ],
       },
@@ -248,7 +224,6 @@ export const de: LegalContent = {
       {
         heading: 'Grenzen und menschliche Aufsicht',
         paragraphs: [
-          // TODO(owner): Satz am 2026-10-29 neu gefasst (Positionierung: Workspace statt Recherchewerkzeug); die rechtliche Aussage ist unverändert. Zur anwaltlichen Prüfung.
           'KI-generierte Antworten können falsch, unvollständig oder veraltet sein, auch wenn sie überzeugend klingen. ' + PRODUCT_NAME + ' ist als KI-Anwendung mit begrenztem Risiko eingestuft: Es trifft keine Entscheidungen über Gebäude, Genehmigungen oder Personen — die fachliche Prüfung jeder Antwort anhand der zitierten Primärquelle ist Teil der bestimmungsgemäßen Verwendung. Verwenden Sie ' + PRODUCT_NAME + '-Ausgaben nicht als alleinige Grundlage sicherheitsrelevanter Planungsentscheidungen.',
         ],
       },
@@ -283,7 +258,6 @@ export const de: LegalContent = {
     sections: [
       {
         heading: 'Externe Auftragsverarbeiter',
-        // Zeilen aus dem Datenfluss-Register (configs/subprocessors/*.yaml), nicht hier bearbeiten.
         table: PAGE.processors,
         notice:
           'Dynamische Modellanbieter: Da Organisations-Administratorinnen und -Administratoren das KI-Modell zur Laufzeit wechseln können (siehe KI-Transparenzhinweis), ist der tatsächliche vorgelagerte Modellanbieter nicht fest. Der gesamte KI-Verkehr läuft stets über OpenRouter; die Menge möglicher vorgelagerter Anbieter ist auf den OpenRouter-Katalog beschränkt; die für Ihre Organisation aktive Auswahl ist für Ihre Administratorinnen und Administratoren einsehbar, jede Änderung wird audit-protokolliert, und das antwortende Modell wird je Anfrage festgehalten.',

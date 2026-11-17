@@ -1,10 +1,5 @@
 import type { en } from '../en'
 
-/**
- * System notifications for the inbox (Web Push, ADR-0112): the settings
- * section, the prompt in the inbox, and the one line a notification carries
- * when the person asked for no preview.
- */
 export const notifications: typeof en.notifications = {
   title: 'Benachrichtigungen',
   description:
@@ -78,17 +73,12 @@ export const notifications: typeof en.notifications = {
     body: '{productName} meldet sich auf diesem Gerät, wenn jemand Sie braucht.',
     turnOn: 'Einschalten',
     dismiss: 'Nicht jetzt',
-    // Der Browser hat Nein gesagt: ein Satz, der dorthin führt, wo steht, wie
-    // man es ändert (das Profil).
     blocked: 'Benachrichtigungen sind blockiert – so schalten Sie sie ein',
   },
-  // Dasselbe Angebot, einmal als Hinweis, wenn zum ersten Mal etwas auf Sie
-  // wartet: für alle, die das Postfach nie öffnen.
   offer: {
     mentioned: '{actor} hat Sie erwähnt. Möchten Sie auf diesem Gerät benachrichtigt werden?',
     actor: '{actor} braucht Sie in {productName}. Möchten Sie auf diesem Gerät benachrichtigt werden?',
     someone: 'Jemand braucht Sie in {productName}. Möchten Sie auf diesem Gerät benachrichtigt werden?',
-    // Die neueste Anfrage ist eine Rückfrage von Piloti: Piloti fragt, nicht „jemand“.
     piloti: '{productName} hat eine Rückfrage an Sie. Möchten Sie auf diesem Gerät benachrichtigt werden?',
     turnOn: 'Einschalten',
     notNow: 'Nicht jetzt',

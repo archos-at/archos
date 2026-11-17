@@ -1,30 +1,3 @@
-"""Fleet-wide slot pools on the shared store: leases a holder vouches for.
-
-A pool is a sorted set in Dragonfly, one member per holder, scored by when the
-holder last vouched for it. Taking a slot drops the leases older than the lease
-and refuses when the pool is full, in ONE script, because split into count and
-add two holders both read "one slot left" and both take it. A holder that dies
-never releases its slot; the lease ages it out instead, so a pool never shrinks
-for good. A holder that lives longer than one lease renews it (``RENEW_LUA``):
-every user here does.
-
-Two users: chat admission (``turn_admission``), which refuses a turn it has no
-slot for, and ``hold``, for short calls that should WAIT for a slot rather than
-be refused, such as the ingest tier's calls to the vision model: however many
-ingest workers Kubernetes starts, no more than the pool's size of those calls
-are in flight across the fleet, so scaling out adds queueing, not upstream 429s.
-
-A third user, ``provider_limiter``, adds an order to the wait: waiters hold a
-ticket in a sorted set per priority class, and a free slot goes to the oldest
-ticket of the highest class waiting (``RANKED_ADMISSION_LUA``). The ranked
-admission is a fragment, not a script, because the limit that gates it is the
-caller's to compute (a fixed number here, an adaptive one there).
-
-Fails open: without the shared store every call proceeds. A capacity guard
-that turns a cache outage into stalled ingestion is worse than one that
-over-admits for as long as the outage lasts.
-"""
-
 from __future__ import annotations
 
 import logging
@@ -39,13 +12,6 @@ from agent.common import cache
 
 logger = logging.getLogger(__name__)
 
-# Drop the leases that are no longer vouched for. Shared by every script that
-# counts a pool, so they all age a holder out the same way. A function of the
-# pool's key; expects the locals `now` and `lease`.
-#
-# A lease stamped more than one lease into the future is dropped too: only a
-# holder whose clock runs that far ahead writes one, and it would otherwise
-# hold its slot until our clocks caught up, which `hold` would wait out.
 PRUNE_LUA = """
 local function prune(pool)
   redis.call('ZREMRANGEBYSCORE', pool, '-inf', now - lease)
@@ -53,10 +19,6 @@ local function prune(pool)
 end
 """
 
-# Drop expired leases, refuse if the pool is full, otherwise take a slot.
-# One script because the three steps must be atomic: split apart, two turns
-# both read "one slot left" and both take it, which is precisely the
-# concurrency this exists to bound. Returns 1 when a slot was taken.
 ACQUIRE_LUA = (
     """
 local key = KEYS[1]
@@ -79,19 +41,8 @@ return 1
 
 RELEASE_LUA = "return redis.call('ZREM', KEYS[1], ARGV[1])"
 
-#: How long a waiter counts as waiting after its last poll. Above the longest poll
-#: interval of :func:`hold` (2 s, jittered to 3 s), so a waiter between two polls
-#: is still seen, and a waiter that gave up stops counting soon after.
 WAITING_PATIENCE_SECONDS = 10
 
-# ACQUIRE_LUA with a fair share between lanes (organisations). A member is
-# "lane|id". A lane may take a slot while the pool has room and either it holds
-# fewer than its share (the limit over the lanes holding or waiting, rounded up)
-# or no other lane is waiting. So a lone lane takes the whole pool, and a second
-# lane's first call gets the next free slot instead of queueing behind the first
-# lane's hundred: work-conserving, the claim queue's rule (ADR-0076) applied to
-# the slots. A refused caller is recorded as waiting (KEYS[2]) for
-# ARGV[6] seconds, renewed on every poll, so the other lanes see it.
 FAIR_ACQUIRE_LUA = (
     """
 local key = KEYS[1]
@@ -141,9 +92,6 @@ return 0
 """
 )
 
-# Re-stamp a slot this turn still holds. A slot that was already reclaimed
-# stays gone: adding it back could take the pool past its limit, which is the
-# over-admission a renewal exists to prevent. Returns 1 when renewed.
 RENEW_LUA = """
 local key = KEYS[1]
 local now = tonumber(ARGV[1])
@@ -159,30 +107,6 @@ return 1
 """
 
 
-# Admission by rank, under two limits: the slot goes to the oldest waiter of
-# the highest class waiting, never to whoever polls first, and only while BOTH
-# the key's pool and the caller's scoped pool (one model's) have room.
-#
-# A fragment, because the limits belong to the caller. It expects these locals
-# (numbers, except `member`): now, lease, ticket_ttl, member, rank (1 is served
-# first), classes (how many ticket sets), limit (the key pool's), scoped (1 when
-# the caller also holds a slot in a scoped pool) and scoped_limit; and these
-# keys: KEYS[1] the key pool's leases, KEYS[2] the waiters' last poll, KEYS[3]
-# the waiters a full scoped pool is holding, KEYS[4 .. 3 + classes] one ticket
-# set per class (scored by arrival, highest class first), KEYS[5 + classes] the
-# scoped pool's leases. Further keys are the caller's.
-#
-# A waiter whose scoped pool is full is marked blocked, with the pool it waits
-# on, on every poll. It does not count as "ahead" of a caller of ANOTHER pool,
-# so one model at its limit never holds back the others; it always counts ahead
-# of a caller of its own pool, where priority is the point. A waiter that stops
-# polling is dropped after `ticket_ttl`, from every set at once: its ticket would
-# otherwise hold back every class below it. The head is found a page of 32 at a
-# time until a ticket that counts: a window of only skipped tickets says nothing
-# about the ones behind it, and in the caller's own class the scan ends at the
-# caller at the latest.
-#
-# Returns {taken, limit, in flight, scoped limit, scoped in flight}.
 RANKED_ADMISSION_LUA = (
     """
 local key = KEYS[1]
@@ -264,10 +188,6 @@ return {0, limit, inflight, scoped_limit, scoped_inflight}
 """
 )
 
-# Take a member out of every key given: a waiter that gives up (the poll set and
-# every ticket set) and a holder that is done (every pool it holds a slot in).
-# A key may be a sorted set or a hash (the pool a blocked waiter waits on).
-# Returns how many keys held it.
 WITHDRAW_LUA = """
 local removed = 0
 for i = 1, #KEYS do
@@ -285,28 +205,6 @@ return removed
 def hold(
     key: str, limit: int, *, lease_seconds: float, max_wait_seconds: float, lane: str | None = None
 ) -> Iterator[None]:
-    """Hold one of ``limit`` fleet-wide slots in ``key`` for the ``with`` body, waiting for one.
-
-    The slot is renewed every third of ``lease_seconds`` for as long as the
-    body runs, so the lease says only how long a holder that DIED keeps its
-    slot. It was not renewed at first, and "the lease must outlast the body"
-    did not hold for its one caller: a vision call under one SDK retry and a
-    wait for a provider slot lasts several of its timeouts, its lease aged out
-    mid-call, and the pool admitted one call more than its limit for each.
-    ``limit`` of 0 or less disables the pool.
-
-    It waits for as long as the pool stays full, saying so every
-    ``max_wait_seconds``. Running without a slot after a deadline (as this
-    first did) broke the ceiling exactly when it mattered: under sustained
-    load every late waiter ran at once, which is the burst of upstream 429s
-    the pool exists to prevent. The wait is bounded all the same, because
-    every lease ages out: a holder that died frees its slot ``lease_seconds``
-    later. Only a missing store lets the body run without one.
-
-    With a ``lane`` (an organisation) the pool is shared fairly between lanes
-    (:data:`FAIR_ACQUIRE_LUA`): one lane's backlog cannot hold every slot while
-    another lane waits, and a lane alone still takes them all.
-    """
     if limit <= 0:
         yield
         return
@@ -326,7 +224,6 @@ def hold(
 def _wait_for_slot(
     key: str, limit: int, member: str, lease_seconds: float, max_wait_seconds: float, lane: str | None
 ) -> bool:
-    """Poll until ``member`` holds a slot in ``key``; False when there is no shared store (fail open)."""
     started = time.monotonic()
     next_warning = started + max_wait_seconds
     delay = 0.05
@@ -346,13 +243,11 @@ def _wait_for_slot(
         if time.monotonic() >= next_warning:
             logger.warning("Still waiting for a slot in %s after %.0fs", key, time.monotonic() - started)
             next_warning = time.monotonic() + max_wait_seconds
-        # Jittered so a fleet of waiters does not retry in lockstep.
         time.sleep(delay * (0.5 + random.random()))
         delay = min(delay * 2, 2.0)
 
 
 def _renew_until(done: threading.Event, key: str, member: str, lease_seconds: float) -> None:
-    """Vouch for ``member``'s slot in ``key`` until ``done``; a slot already reclaimed stays gone."""
     while not done.wait(lease_seconds / 3):
         if cache.eval_script(RENEW_LUA, [key], [time.time(), lease_seconds, member]) == 0:
             logger.warning("Slot in %s was reclaimed while its holder still ran", key)

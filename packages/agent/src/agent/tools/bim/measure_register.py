@@ -187,8 +187,6 @@ def _light_incidence_call(a: IfcMeasureInput) -> _EngineCall | str:
     args: dict[str, Any] = {"globalId": a.global_id, "angle": float(a.angle_deg)}
     if a.swivel_deg is not None:
         args["swivel"] = float(a.swivel_deg)
-    # A list: a window deep in a thick wall is shaded by its own reveal AND by
-    # the roof, and re-running "without the host wall" must keep the roof.
     if a.other_global_id:
         args["exclude"] = _ids(a.other_global_id)
     return "light_incidence", args
@@ -286,7 +284,6 @@ def _distance_call(a: IfcMeasureInput) -> _EngineCall | str:
 
 
 _CALL_BUILDERS: dict[str, Callable[[IfcMeasureInput], _EngineCall | str]] = {
-    # Always the rendered TEXT: the briefing's job is to be read into context and copied out of.
     "briefing": lambda a: ("briefing", {"format": "text"}),
     "find_elements": _find_elements_call,
     "element": lambda a: ("element", {"globalId": a.global_id}),
@@ -369,9 +366,6 @@ def _render(
     capturing.
     """
     lines = [_model_line(source or {}, handle), *_body_lines(operation, payload)]
-    # Two channels, deliberately: the measurement sources ground the answer's
-    # confidence, the lane hit only tells the Herleitung which file this round
-    # read (see ``note_model_read``).
     note_model_read(((source or {}).get("model") or {}).get("filename"), operation, detail or None)
     record_measurements(_measurement_sources(operation, payload, source=source, detail=detail))
     if operation not in NON_MEASURING_OPERATIONS:
@@ -379,7 +373,6 @@ def _render(
     return "\n".join(line for line in lines if line)
 
 
-# ── tracing and the tool ─────────────────────────────────────────────────────
 
 
 def _trace(operation: str, detail: str, *, outcome: str) -> None:
@@ -447,7 +440,6 @@ async def _measure(
         _trace(arguments.operation, "", outcome="rejected")
         return built
     name, args = built
-    # The measure/relation/mode the CALL asked for: the only headline a single-`Answer` payload has.
     detail = str(args.get("relation") or args.get("measure") or args.get("mode") or "")
     try:
         source, payload, handle = await asyncio.to_thread(
@@ -476,6 +468,4 @@ async def ifc_measure(tool_config: IfcMeasureConfig, builder: Builder):
         """Measure the project's IFC/BIM model and report the provenance."""
         return await run_ifc_measure(arguments, tool_config.default_limit)
 
-    # `input_schema` is what the agent runtime hands LangChain as `args_schema`: the enums,
-    # the per-parameter text and the one required field reach the model.
     yield FunctionInfo.from_fn(_ifc_measure, input_schema=IfcMeasureInput, description=_TOOL_DESCRIPTION)

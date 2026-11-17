@@ -1,10 +1,3 @@
-/**
- * The Archiv documents base-knowledge entries describe (ADR-0163): which of
- * them the reader may see, under which name, and what the ingest read of one.
- * Every read of `documents` states its reader (`documentVisibleTo`, ADR-0086):
- * a held upload stays out of the list and out of the turn until it is screened.
- */
-
 import 'server-only'
 import { and, eq, inArray } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
@@ -18,13 +11,10 @@ export interface EntryDocument {
   id: string
   fileName: string
   collectionName: string
-  /** The name the backend holds its chunks under. */
   storedName: string
-  /** The office shelf folder it is filed in; null at the shelf root. */
   folderId: string | null
 }
 
-/** The Archiv documents among `ids` the reader may see, by id. */
 export async function visibleOfficeDocuments(
   organizationId: string,
   ids: readonly string[],
@@ -58,11 +48,6 @@ export async function visibleOfficeDocuments(
   )
 }
 
-/**
- * One Archiv document as an entry names it, or null when the reader may not see
- * it. Its name only: a proposal reads nothing the ingest wrote about the text
- * (ADR-0163), since the copy may turn out to be licensed.
- */
 export async function readShelfDocument(
   organizationId: string,
   documentId: string,
@@ -92,12 +77,6 @@ export async function readShelfDocument(
   return { id: row.id, fileName: row.displayName ?? row.filename, collectionName: row.collectionName, storedName: row.filename, folderId: row.folderId }
 }
 
-/**
- * Whether an Archiv document stored under `filename` (the upload's name key) is
- * already a base-knowledge copy: the base-knowledge upload asks before it writes
- * any bytes, since an upload under an existing name replaces that document's
- * file in place.
- */
 export async function shelfNameHasEntry(organizationId: string, filename: string, reader: DocumentReader): Promise<boolean> {
   const rows = await withTenant({ organizationId }, () =>
     getDb()

@@ -1,8 +1,3 @@
-/**
- * Platform → a country → law map: the country's regions, the acts that make
- * editions binding in each, and what each act says (`LawMapPage`).
- */
-
 import type { JSX } from 'react'
 import { Suspense } from 'react'
 import { notFound } from 'next/navigation'

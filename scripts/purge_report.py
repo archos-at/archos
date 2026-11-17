@@ -1,5 +1,3 @@
-"""List purged comment lines that state an invariant, for review before merge."""
-
 from __future__ import annotations
 
 import re

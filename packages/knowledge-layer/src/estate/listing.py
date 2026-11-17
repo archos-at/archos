@@ -1,17 +1,3 @@
-"""``ls``, ``glob`` and the folder card ``README.md`` over the estate (ADR-0133 slice 3).
-
-Pure renderers over the turn's listable files (``estate.EstateBackend.listable_files``),
-so a restricted folder's document is never named, counted or carded here: the
-rows they read never held one (listing is not use, ADR-0088). Everything here is
-an INDEX: a row proves a file exists, not what it says, so nothing renders a
-grounding block and nothing is cited.
-
-The folder card is the tier-0 card ``list_files(view="tree")`` already builds
-(``browse.folder_cards``) with the tier-1 abstract the folder-card worker wrote
-(ADR-0127), served as ``README.md`` in every folder. A real document of that name
-wins: then the card is only inline in ``ls``.
-"""
-
 from __future__ import annotations
 
 from collections.abc import Mapping
@@ -31,17 +17,13 @@ from agent.common.estate_paths import Mount
 from .backend import EstateFile
 from .backend import glob_files
 
-#: The folder card's leaf.
 README = "README.md"
 
-#: File rows one ``ls`` shows, and the most a ``glob`` returns.
 MAX_LS_FILES = 40
 MAX_GLOB_FILES = 100
 
-#: The deepest tree ``ls(depth=…)`` draws, ``list_files(view="tree")``'s limit.
 MAX_DEPTH = 4
 
-#: What each mount is, for the root listing.
 MOUNT_LABELS: dict[Mount, str] = {
     "project": "this project",
     "office": "the Büroablage, the office's shelf",
@@ -54,12 +36,10 @@ INDEX_NOTE = "An index, not a source: `read_file` to read, `grep` for wording, `
 
 @dataclass(frozen=True)
 class Listing:
-    """What one listing call produced: the text, and its counts for the Herleitung row."""
 
     text: str
     files: int | None = None
     folders: int | None = None
-    #: No such folder (a restricted one answers the same): an error for the model, „nicht gefunden“ on the row.
     error: bool = False
 
 
@@ -68,12 +48,10 @@ def _count(number: int, noun: str) -> str:
 
 
 def _relative_folder(file: EstateFile) -> str:
-    """The folder below the mount, as the inventory spells it ("" at the mount root, always "" for the law)."""
     return "" if file.mount == "law" else file.row.folder
 
 
 def in_folder(files: Sequence[EstateFile], mount: Mount, folder: str) -> list[EstateFile]:
-    """The files of ``mount`` filed in ``folder`` or below it (folded compare). Pure."""
     wanted = fold(folder)
     out = []
     for file in files:
@@ -86,7 +64,6 @@ def in_folder(files: Sequence[EstateFile], mount: Mount, folder: str) -> list[Es
 
 
 def stored_folder(files: Sequence[EstateFile], mount: Mount, folder: str) -> str | None:
-    """``folder`` in its stored spelling (``Plaene`` finds ``Pläne``), or ``None`` when no listable file is there."""
     wanted = fold(folder)
     if not wanted:
         return ""
@@ -102,7 +79,6 @@ def stored_folder(files: Sequence[EstateFile], mount: Mount, folder: str) -> str
 
 
 def has_real_readme(files: Sequence[EstateFile], mount: Mount, folder: str) -> bool:
-    """Whether a real document named ``README.md`` is filed directly in this folder; it then keeps the name."""
     return any(
         file.mount == mount and fold(_relative_folder(file)) == fold(folder) and fold(file.leaf) == fold(README)
         for file in files
@@ -110,7 +86,6 @@ def has_real_readme(files: Sequence[EstateFile], mount: Mount, folder: str) -> b
 
 
 def _file_line(file: EstateFile) -> str:
-    """One file row: its leaf, then pages, Dokumentart, Plankopf Index, its own date, and what replaced it."""
     from agent.knowledge.title_block import title_block_label
 
     row = file.row
@@ -133,7 +108,6 @@ def _file_line(file: EstateFile) -> str:
 
 
 def _subfolders(files: Sequence[EstateFile], folder: str) -> list[tuple[str, int]]:
-    """``(name, documents below it)`` of each folder directly in ``folder``, by name."""
     prefix = f"{folder}/" if folder else ""
     counts: dict[str, int] = {}
     for file in files:
@@ -149,7 +123,6 @@ def _subfolders(files: Sequence[EstateFile], folder: str) -> list[tuple[str, int
 
 
 def render_root(files: Sequence[EstateFile], *, drafts: bool) -> Listing:
-    """``ls("/")``: the mounts the person may see, each with its documents counted."""
     lines = ["/  the office's documents, by where they are filed (read-only), and this conversation's drafts"]
     shown = 0
     for mount in ESTATE_MOUNTS:
@@ -165,7 +138,6 @@ def render_root(files: Sequence[EstateFile], *, drafts: bool) -> Listing:
     if not shown:
         lines.append("No document of the office is readable in this conversation.")
     lines.append("Next: `ls` a mount, `glob` by name, `grep` for wording, `read_file` to read.")
-    # The row counts what the places hold (every document, every place), as a folder's row does.
     return Listing(text="\n".join(lines), files=len(files), folders=shown)
 
 
@@ -177,7 +149,6 @@ def render_folder(
     in_flight: Sequence[str] = (),
     depth: int = 1,
 ) -> Listing:
-    """``ls(path, depth)``: one folder's subfolders and files, or (``depth`` > 1) its tree as folder cards."""
     mount = parsed.mount
     if mount is None:
         return Listing(text=f'No folder "{parsed.path}". `ls("/")` lists the places there are.', error=True)
@@ -212,8 +183,6 @@ def render_folder(
         lines.append(f"Not listed here: files still being read ({len(in_flight)}).")
     lines.append("Restricted folders are not listed.")
     lines.append("Next: `ls` a folder, `glob` by name, `grep` for wording, `read_file` to read.")
-    # Everything the folder holds, its subfolders' documents too, as its head line, the tree and the folder card
-    # count it; not what the text had room for.
     return Listing(text="\n".join(lines), files=len(selected), folders=len(subfolders))
 
 
@@ -233,7 +202,6 @@ def _render_tree(
     if in_flight:
         lines.append(f"Not listed here: files still being read ({len(in_flight)}).")
     lines.append("Restricted folders are not listed. " + INDEX_NOTE)
-    # The folder's own subfolders, as `ls` at depth 1 and its README.md count them: not every card in the tree.
     own = next((card for card in cards if card.path == (folder or "")), None)
     return Listing(text="\n".join(lines), files=len(rows), folders=len(own.subfolders) if own else 0)
 
@@ -241,7 +209,6 @@ def _render_tree(
 def render_readme(
     files: Sequence[EstateFile], parsed: EstatePath, *, abstracts: Mapping[str, Sequence[str]] | None = None
 ) -> Listing | None:
-    """``read_file(<folder>/README.md)``: that folder's card; ``None`` when no listable file is filed there."""
     mount = parsed.mount
     if mount is None:
         return None
@@ -263,7 +230,6 @@ def render_readme(
 
 
 def render_glob(files: Sequence[EstateFile], pattern: str, path: str | None) -> Listing:
-    """``glob(pattern, path)``: the matching files' absolute paths, one row each, capped."""
     matched = glob_files(files, pattern, path)
     where = (path or "").rstrip("/") or "every place"
     searched = len(files) if not path else len([f for f in files if fold(f.path).startswith(fold(path.rstrip("/")))])
@@ -290,7 +256,6 @@ def collections_of(files: Sequence[EstateFile]) -> list[str]:
 
 
 def abstracts_by_folder(found: Mapping[tuple[str, str], Any]) -> dict[str, list[str]]:
-    """The written abstracts' ``About:`` lines by folder path (``browse.abstract_lines``)."""
     from knowledge_layer.browse import abstract_lines
 
     return abstract_lines(found)

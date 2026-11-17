@@ -110,9 +110,6 @@ const after = (ms) => new Promise((resolve) => setTimeout(resolve, ms).unref())
  * @param {{ importBundle?: () => Promise<SliceBundle>, serveHealth?: typeof serveHealth, process?: Pick<NodeJS.Process, 'on'> }} [deps]
  */
 async function startJobHost(config, deps = {}) {
-  // As the Next server does (`process-error-handlers.js` in next): a promise a
-  // service started and did not await, rejecting late, is logged, not fatal.
-  // Fatal here would take every run in the pod down with it.
   const proc = deps.process ?? process
   proc.on('unhandledRejection', (reason) => console.error(`${LOG} unhandledRejection:`, reason))
   proc.on('uncaughtException', (error) => console.error(`${LOG} uncaughtException:`, error))
@@ -127,7 +124,6 @@ async function startJobHost(config, deps = {}) {
     stop: async () => {
       const drained = await Promise.race([worker.stop().then(() => true), after(config.drainMs).then(() => false)])
       health.close()
-      // A flush that hangs must not hold the pod past its grace period.
       await Promise.race([
         bundle.shutdownSliceHost().catch((/** @type {unknown} */ error) => console.warn(`${LOG} the job host did not flush:`, error)),
         after(HOST_SHUTDOWN_MS),
@@ -138,7 +134,6 @@ async function startJobHost(config, deps = {}) {
 }
 
 async function main() {
-  // No-op without OTEL_EXPORTER_OTLP_ENDPOINT (ADR-0029 capability gate).
   initOtelLogs()
   initOtelMetrics()
   const config = readConfig(process.env)

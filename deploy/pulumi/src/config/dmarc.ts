@@ -1,16 +1,7 @@
-/**
- * The shape of a DMARC policy record (RFC 7489 §6.3), checked before it is
- * published. Cloudflare accepts any TXT content, and a receiver that cannot
- * parse the record treats the domain as having none: a typo here silently
- * switches the policy off. Pure, so `stack-files.spec.ts` can run it on the
- * committed stack files too.
- */
-
 const POLICY = /^(?:none|quarantine|reject)$/;
 const ALIGNMENT = /^[rs]$/;
 const MAILTO = /^mailto:[^\s@,;!]+@[^\s@,;!]+(?:![0-9]+[kmgt]?)?$/i;
 
-/** Each tag RFC 7489 §6.3 defines, with the check its value must pass. */
 const TAGS: Record<string, (value: string) => boolean> = {
   v: (value) => value === "DMARC1",
   p: (value) => POLICY.test(value),
@@ -25,11 +16,6 @@ const TAGS: Record<string, (value: string) => boolean> = {
   ri: (value) => /^\d+$/.test(value),
 };
 
-/**
- * Why `record` is not a DMARC policy record, or undefined when it is one:
- * `v=DMARC1` first, a `p=` policy, every tag one RFC 7489 defines, none twice,
- * each value of its tag's form.
- */
 export function dmarcRecordProblem(record: string): string | undefined {
   const tags = record
     .trim()

@@ -62,34 +62,15 @@ logger = logging.getLogger(__name__)
 
 Level = Literal["low", "medium", "high"]
 Problem = Literal["unbacked", "contradicted"]
-#: Why the check gave no level: no model to ask, the call ran past :data:`JUDGE_TIMEOUT_S`, it raised, its
-#: reply was no check object, or it came back empty.
 UnavailableCause = Literal["no_judge", "timeout", "error", "unparseable", "no_reply"]
 
-#: The check runs before the turn's terminal frame, after the prose has
-#: streamed: the reader waits for the chip, not for the answer. Under the
-#: follow-ups model's own request timeout, so a slow provider is a recorded
-#: "unavailable" rather than a hung turn.
 JUDGE_TIMEOUT_S = 12.0
-#: The evidence one call reads, in characters (about 15,000 tokens). Passages
-#: go in whole, the answer's own citations first; one that does not fit is
-#: left out and counted, never cut in the middle.
 EVIDENCE_BUDGET_CHARS = 60_000
-#: The most of one workspace record the check reads, and of all of them. A read answers with the route's
-#: JSON, up to the server's 40,000-character cap; unbounded, two of them filled the budget before any
-#: passage (dev QC 2026-11-12: two ``project-base-get`` reads of 40,000 characters each made a prompt
-#: of over 80,000 characters with no room for a passage, and the turn showed no level; whether the
-#: judge timed out or failed is unmeasured). A record is cut at its share, marked as cut; the newest
-#: records are kept first, since the answer was written after them, and one past the total is left out
-#: and counted. The system prompt says what a cut means.
 RECORD_MAX_CHARS = 12_000
 RECORDS_BUDGET_CHARS = 24_000
 _CUT = " [cut for length]"
-#: Room for the level, a handful of findings and the open points.
 MAX_OUTPUT_TOKENS = 1536
-#: The findings the chip names; a longer list is cut here.
 MAX_FINDINGS = 8
-#: The open points one answer names; one is enough to cap, the rest are for the trace.
 MAX_OPEN_POINTS = 4
 
 
@@ -108,13 +89,9 @@ class Evidence:
 
     question: str
     answer: str
-    #: The answer's own confidence reason, which reaches the reader verbatim beside the level.
     confidence_reason: str = ""
     passages: Sequence[Passage] = ()
     records: Sequence[str] = ()
-    #: The turn context the answer was written from: the profile, the inventory, the ``<building_law>``
-    #: block. Never cut here: they are what the answer was told. Their producers bound the law block
-    #: (16,000 characters) and the inventory (by rows); the profile has no cap of its own.
     context: Sequence[str] = ()
     measurements: Sequence[str] = ()
     readings: Sequence[str] = ()
@@ -141,7 +118,6 @@ class Check:
 
     level: Level
     findings: tuple[Finding, ...] = field(default=())
-    #: What the answer itself states is open, unchecked or unresolved, on which its main point depends.
     open_points: tuple[str, ...] = field(default=())
 
 
@@ -186,8 +162,6 @@ class Unavailable:
     answer_chars: int | None = None
 
     def __post_init__(self) -> None:
-        # The wire caps both (``wire_v2.ConfidenceUnavailable``), and a longer value there fails the whole
-        # ``TurnResult``: a provider's free-text finish reason or a long exception class name is cut here.
         object.__setattr__(self, "error_type", self.error_type[:100] if self.error_type else self.error_type)
         object.__setattr__(self, "finish_reason", self.finish_reason[:40] if self.finish_reason else self.finish_reason)
 
@@ -196,7 +170,6 @@ class Unavailable:
         return {key: value for key, value in asdict(self).items() if value is not None and value is not False}
 
 
-#: Checks one answer against its evidence; an :class:`Unavailable` when it could not.
 JudgeFn = Callable[[Evidence], Awaitable[Check | Unavailable]]
 
 SYSTEM_PROMPT = (
@@ -283,7 +256,6 @@ def _evidence_block(evidence: Evidence) -> dict[str, Any]:
 
 def evidence_data(evidence: Evidence) -> str:
     """The evidence block exactly as the prompt carries it between ``<evidence>`` and ``</evidence>``."""
-    # ``<\/`` is the same JSON string, and no text inside the data can close the block.
     return json.dumps(_evidence_block(evidence), ensure_ascii=False).replace("</", "<\\/")
 
 
@@ -309,7 +281,6 @@ def parse_reply(text: str) -> Check | None:
     try:
         data = extract_json(text)
         if isinstance(data, dict):
-            # A reply without the field (a provider that rejected the strict format) names no open point.
             data.setdefault("open_points", [])
         reply = CheckReply.model_validate(data)
     except ValidationError, TypeError, ValueError:
@@ -394,7 +365,6 @@ def llm_judge(llm: Any) -> JudgeFn:
             outcome = _failure(exc, replace(sized, elapsed_ms=_since(started)))
         _record_call(elapsed_ms=_since(started), evidence_chars=sized.evidence_chars, answer_chars=sized.answer_chars)
         if isinstance(outcome, Unavailable):
-            # The exception's own text (a provider's "402 Payment Required", a 429) is for the log alone.
             logger.warning(
                 "Answer check unavailable (%s); the turn surfaces no confidence", outcome.to_wire(), exc_info=raised
             )

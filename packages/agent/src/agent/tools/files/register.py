@@ -51,19 +51,11 @@ from nat.plugin_api import register_function
 
 logger = logging.getLogger(__name__)
 
-#: The sentence every successful call ends on. It leads with the negative
-#: because that is the part the model gets wrong: a tool that returns
-#: „Verschoben" in any form produces an answer claiming the file has moved,
-#: and the reader then finds it where it was. ``remember``'s card path says
-#: the same thing for the same reason.
 _PROPOSED = (
     "A proposal was shown as a card. NOTHING has been changed YET — "
     "do not say it is done; the user decides on the card."
 )
 
-#: No proposal, whether there was no card channel or the server did not take it.
-#: Never dressed up as success, and no promise either way: the reader has no
-#: card to decide on, so the model must not say one is waiting.
 _NOT_PROPOSED = (
     "Error: The proposal could not be created (no card channel, or the server did not accept it), "
     "so nobody can accept anything. Nothing was changed. Say so; the person can make the change "
@@ -71,18 +63,12 @@ _NOT_PROPOSED = (
     "Do not retry in this turn."
 )
 
-#: Every operation acts on a project's workspace: folders are
-#: project-scoped and the reader's session applies the change against a
-#: project. A chat with no project in scope has nothing to organise.
 _NO_PROJECT = (
     "Error: This conversation belongs to no project, so there are no project files to organise. "
     "Nothing was changed. Do not retry."
 )
 
 
-#: The stored proposal's per-item ``reason`` allows 300 characters
-#: (``lib/proposals/types.ts``); the tool asks for one short sentence, so the
-#: cut is a net for a model that ignores the ask, not a limit it should reach.
 MAX_REASON_CHARS = 200
 
 
@@ -105,9 +91,6 @@ def _document(name: str) -> ResolvedDocument | str:
     return resolved.message if isinstance(resolved, Refusal) else resolved
 
 
-# ── the four operations ─────────────────────────────────────────────────────
-# Each returns the result text. A proposal that could be shown ends on
-# `_PROPOSED`; anything else is a refusal the model can turn into its answer.
 
 
 async def _move(document: str, target_folder: str, reason: str = "") -> str:
@@ -136,10 +119,6 @@ async def _move(document: str, target_folder: str, reason: str = "") -> str:
     return f"Proposed: `{resolved.file_name}` → {folder or 'top level'}. {_PROPOSED}"
 
 
-#: Same ceiling the BFF's rename route enforces
-#: (``MAX_DOCUMENT_NAME_LENGTH`` in ``lib/documents/display-name.ts``). Checked
-#: here so a name that is too long is refused where the model can fix it,
-#: rather than on a card the reader has already pressed.
 MAX_DISPLAY_NAME_CHARS = 255
 
 
@@ -167,9 +146,6 @@ async def _rename(document: str, new_name: str, reason: str = "") -> str:
     return f"Proposed: `{resolved.file_name}` → „{name}“. {_PROPOSED}"
 
 
-#: One segment. The BFF's own folder validation refuses separators
-#: (``lib/projects/folders.ts``); refusing them here keeps the model's mistake
-#: on the tool result, where it can still fix it.
 _FOLDER_NAME_MAX = 120
 
 
@@ -212,7 +188,6 @@ async def _assign(document: str, member: str, reason: str = "") -> str:
     return f"Proposed: `{resolved.file_name}` → {person}. {_PROPOSED}"
 
 
-# ── propose_file_change ─────────────────────────────────────────────────────
 
 _DESCRIPTION = (
     "PROPOSES a change to the project's files — changes nothing itself. A card is created that the "

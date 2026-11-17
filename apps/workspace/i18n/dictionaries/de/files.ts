@@ -1,8 +1,6 @@
 import type { en } from '../en'
 
-/** files namespace — populated during component i18n. */
 export const files: typeof en.files = {
-  /** A Büroablage file that is one of the office's standards (ADR-0163). */
   baseKnowledge: { label: 'Grundlage', open: 'Als Grundlage des Büros öffnen: Ausgabe, Lizenz, letzte Prüfung' },
   uploadZone: {
     clickToUpload: 'Zum Hochladen klicken',
@@ -12,14 +10,8 @@ export const files: typeof en.files = {
     dropAnywhere: 'Oder Dateien irgendwo auf die Seite ziehen.',
     maxSizeShort: 'max. {size} pro Datei',
   },
-  // Die Upload-Leiste. Die Formulierungen folgen der Regel der Oberfläche:
-  // Eine Zahl steht nur dort, wo tatsächlich gemessen wurde. „Wird gelesen“
-  // beschreibt, was das Backend mit einem Dokument tut – dafür gibt es keine
-  // Restzeit, also sagt der Text das, statt eine zu suggerieren.
   uploads: {
     region: 'Uploads',
-    // Kein Fehler und nichts zu wiederholen: Das Dokument wird weiter gelesen,
-    // die Leiste verfolgt es nur nicht mehr im Sekundentakt.
     stillReading: 'Das Lesen dauert länger als üblich und läuft im Hintergrund weiter.',
     heading: {
       transferringOne: '1 Dokument wird hochgeladen',
@@ -31,8 +23,6 @@ export const files: typeof en.files = {
       mixed: '{ready} hinzugefügt\u00A0· {failed} fehlgeschlagen',
       failedOne: '1 Dokument konnte nicht hinzugefügt werden',
       failedOther: '{count} Dokumente konnten nicht hinzugefügt werden',
-      // Von der Inhaltsprüfung zurückgehalten (ADR-0086): kein Fehler, nichts zu
-      // wiederholen. Nie „freigeben“, das Wort gehört der Freigabe einer Fassung.
       heldOne: '1 Dokument zurückgehalten',
       heldOther: '{count} Dokumente zurückgehalten',
       mixedHeld: '{ready} hinzugefügt\u00A0· {held} zurückgehalten',
@@ -43,8 +33,6 @@ export const files: typeof en.files = {
       eta: 'noch {time}',
       queued: '{count} in Warteschlange',
       processing: 'Wird gelesen. Die Dauer lässt sich nicht vorhersagen, Sie können weiterarbeiten.',
-      // Der Browser meldet keine Verbindung, während Bytes unterwegs sein sollten.
-      // Der Transport wartet dann auf das Netz und sendet erneut (`xhr-upload`).
       offline: 'Keine Verbindung, wartet. Bitte die Seite geöffnet lassen.',
       elapsed: 'seit {time}',
       settled: '{total} übertragen',
@@ -55,9 +43,7 @@ export const files: typeof en.files = {
       processing: 'Wird gelesen',
       ready: 'Zitierbar',
       unchanged: 'Unverändert – bereits vorhanden',
-      // Die Inhaltsprüfung hat angeschlagen; darunter steht, was sie gefunden hat.
       held: 'Zurückgehalten',
-      // Gespeichert, aber nicht gelesen: kein Erfolg, kein Fehler (wie `status.stored`).
       stored: 'Abgelegt',
       canceled: 'Abgebrochen',
       failed: 'Fehlgeschlagen',
@@ -67,8 +53,6 @@ export const files: typeof en.files = {
       collapse: 'Dateien ausblenden',
       cancelAll: 'Alle abbrechen',
       cancel: 'Upload von {name} abbrechen',
-      // Nicht „Upload abbrechen“: Die Bytes liegen auf dem Server, abgebrochen
-      // wird das Lesen. So gesagt, weiß man, was endet.
       stop: 'Lesen von {name} abbrechen',
       retryAll: 'Fehlgeschlagene wiederholen',
       retryFile: 'Erneut versuchen',
@@ -77,48 +61,24 @@ export const files: typeof en.files = {
     },
   },
   status: {
-    // "Zitierbar" (nicht bloß "Bereit") beantwortet die entscheidende Frage:
-    // Das Dokument ist jetzt in Pilotis Wissen und kann zitiert werden.
     ready: 'Zitierbar',
     processing: 'Wird gelesen',
     uploading: 'Wird hochgeladen',
     failed: 'Fehlgeschlagen',
-    // Der Bericht, den Piloti geschrieben hat: die Datei liegt im Projekt, ist
-    // aber bewusst nicht in der Wissensbasis. „Abgelegt“ sagt genau das – kein
-    // Erfolg („Zitierbar“ wäre ein Versprechen, das die Suche nicht einlöst)
-    // und kein Fehler. Dasselbe Wort wie im Toast nach dem Lauf.
     stored: 'Abgelegt',
-    // Jemand hat das Lesen abgebrochen: Die Bytes sind da, nichts wurde
-    // indexiert, und nichts ist schiefgegangen – also nie „Fehlgeschlagen“.
-    // Neutral wie „Abgelegt“, aber ein eigenes Wort, damit beides
-    // unterscheidbar bleibt.
     cancelled: 'Abgebrochen',
-    // Die Inhaltsprüfung (ADR-0086) hat angeschlagen: Die Datei liegt im
-    // Projekt, kein Modell hat sie gesehen, und jemand muss entscheiden.
     quarantined: 'Zurückgehalten',
     unknown: 'Unbekannt',
-    // Nur die eigenen Uploads des Büros: Innerhalb eines Büros wird der Reihe
-    // nach gelesen, zwischen Büros fair abgewechselt (ADR-0076).
     queuedAhead: '{count, plural, one {Wartet\u00A0· # Datei davor} other {Wartet\u00A0· # Dateien davor}}',
   },
   toast: {
-    // Sobald die asynchrone Verarbeitung abgeschlossen ist und das Dokument
-    // zitierbar wird – die bislang fehlende Bestätigung des Abschlusses.
     ingestionComplete: '„{name}“ ist jetzt in {productName}s Wissen – zitierbar',
     modelReady: '„{name}“ ist gelesen. Sie können jetzt Fragen zum Gebäude stellen.',
   },
-  // Karten-Thumbnail-Fallbacks: ein warmer Platzhalter-Chip, wenn kein Thumbnail
-  // existiert, und ein ehrliches „konnte nicht geladen werden“ bei einem echten
-  // Fehler (nie ein Bild-kaputt-Look). `image` ist der generische Chip ohne
-  // Dateiendung.
   thumbnail: {
     image: 'Bild',
     unavailable: 'Vorschau nicht verfügbar',
   },
-  // Die Dokumentart, wo sie als englisches Token gespeichert ist
-  // (`LABELLED_TAGS` in lib/documents/tag-vocabulary.ts). Die älteren
-  // Dokumentarten sind noch als deutsches Wort gespeichert und brauchen keinen
-  // Eintrag.
   documentTag: {
     correspondence: 'Korrespondenz',
     developmentPlan: 'Bebauungsplan',
@@ -152,7 +112,6 @@ export const files: typeof en.files = {
     heldNoPreview:
       "Die Vorschau ist nicht verfügbar, solange die Datei zurückgehalten wird. Die Gründe und „Prüfung anfragen“ stehen im Bereich Details.",
     tryAgain: 'Erneut versuchen',
-    // An office file is shown through a PDF the BFF makes from it (ADR-0070).
     renditionPending: 'PDF-Vorschau wird erstellt…',
     renditionNote: 'PDF-Vorschau · Original: {name}',
     noInlinePreview:
@@ -187,7 +146,6 @@ export const files: typeof en.files = {
       capturedAt: 'Aufgenommen am {when}',
       location: 'Standort',
     },
-    /** Die Fassungsgeschichte eines Dokuments (document-fassungen.tsx). Nie „Plan“: der Name sagt nicht, was eine Datei ist. */
     revision: {
       unlink: 'Verknüpfung lösen',
       timeline: 'Alle Fassungen dieses Dokuments',
@@ -211,9 +169,6 @@ export const files: typeof en.files = {
         download: 'Herunterladen',
         compareText: 'Text mit Fassung {number} vergleichen',
       },
-      // Der Abschnitt in der Seitenleiste (document-fassungen.tsx). Die Fassungen
-      // sind durchnummeriert, die neueste zuerst, über gleichnamige Uploads und
-      // verknüpfte Dokumente hinweg. Der Kopf sagt, wo die NEUESTE steht.
       rail: {
         number: 'Fassung {number}',
         dateTag: 'Stand {date}',
@@ -230,7 +185,6 @@ export const files: typeof en.files = {
           publishYou: 'Nächster Schritt: Ihre Veröffentlichung',
         },
         whoMore: '{names} oder {count} weitere',
-        // Nur wenn der Name wirklich unbekannt ist. Nie „jemand“.
         someone: 'ein Teammitglied',
         answer: {
           this: '{productName} antwortet aus dieser Fassung.',
@@ -240,7 +194,6 @@ export const files: typeof en.files = {
           notYetRead: '{productName} antwortet daraus, sobald sie gelesen ist.',
           never: '{productName} antwortet nicht daraus.',
         },
-        // {name} kommt mit dem Datum: „Anna Berger · 14.08.2026“, untrennbar.
         act: '{act} von {name}',
         actAnonymous: '{act} am {date}',
         byYou: 'Ihnen',
@@ -274,8 +227,6 @@ export const files: typeof en.files = {
       showPage: 'Seite {page} im Dokument zeigen',
       showAll: 'Alle {count} zeigen',
       showFewer: 'Weniger zeigen',
-      // The drawing types the vision pass names. A type not listed here is
-      // humanized from its key, like the structured vocabulary below.
       segmentTypes: {
         floor_plan: 'Grundriss',
         section: 'Schnitt',
@@ -341,7 +292,6 @@ export const files: typeof en.files = {
         },
       },
     },
-    // Die Typ-Zeile nennt das Format, nie den MIME-Typ (der steht im Tooltip).
     formats: {
       pdf: 'PDF',
       word: 'Word-Dokument',
@@ -376,11 +326,9 @@ export const files: typeof en.files = {
     retryIngestionError:
       'Das erneute Lesen konnte nicht gestartet werden. Bitte versuchen Sie es noch einmal.',
     dialogLabel: 'Dateivorschau: {name}',
-    // What is known about the file beside the chat, behind the ⓘ in its toolbar.
     peekViews: {
       details: 'Details',
     },
-    // The length, in the facts line under the name in the chat peek.
     pageCount: '{count, plural, one {# Seite} other {# Seiten}}',
     resizePeek: 'Breite der Dateivorschau ändern',
     peekIndexingHint: '{productName} kann diese Datei erst zitieren, wenn sie gelesen ist.',
@@ -389,11 +337,6 @@ export const files: typeof en.files = {
       'Die neue Datei konnte nicht gelesen werden – {productName} zitiert weiterhin die vorige Fassung.',
     peekFailedAction: 'Details',
   },
-  /**
-   * Warum ein Dokument nicht gelesen werden konnte, nach der Kategorie, die
-   * `features/documents/lib/ingest-failure.ts` dem gespeicherten Fehler gibt.
-   * Der Rohtext steht hinter `details`.
-   */
   ingestFailure: {
     rendition_failed:
       'Die PDF-Vorschau dieser Datei ließ sich nicht erzeugen. Erneut lesen oder die Datei als PDF hochladen.',
@@ -412,39 +355,24 @@ export const files: typeof en.files = {
     deleted: 'Die Datei wurde gelöscht, während {productName} sie las.',
     quarantined:
       'Diese Datei enthält etwas, das Ihr Büro als sensibel eingestuft hat. {productName} hat sie keinem Modell gezeigt. Die Büro- oder Projektadministration prüft sie und entscheidet, ob sie bleibt oder gelöscht wird.',
-    // Gefunden im Text, den das Bildmodell aus gescannten Seiten gelesen hat
-    // (`after_transcription`): dieses Modell hat die Seiten gesehen, kein anderes.
     quarantinedAfterTranscription:
       'Diese Datei enthält etwas, das Ihr Büro als sensibel eingestuft hat, gefunden im Text gescannter Seiten. Diese Seiten hat ein Bildmodell gelesen, damit sie geprüft werden konnten; kein anderes Modell hat sie gesehen. Die Büro- oder Projektadministration prüft sie und entscheidet, ob sie bleibt oder gelöscht wird.',
-    // Der Grund ist nicht gespeichert oder nicht lesbar: nichts behaupten, was
-    // die Zeile darüber nicht belegt.
     quarantinedUnreadable:
       'Die Inhaltsprüfung hat diese Datei zurückgehalten. Der Grund ist nicht gespeichert oder nicht lesbar. Solange sie zurückgehalten ist, zeigt {productName} sie keinem Modell. Die Büro- oder Projektadministration prüft sie und entscheidet, ob sie bleibt oder gelöscht wird.',
-    // Die Prüfregeln des Büros ließen sich nicht anwenden: die Datei wurde gar
-    // nicht gelesen und wartet wie eine zurückgehaltene (ADR-0086).
     screening_unavailable:
       'Die Prüfung auf sensible Daten ließ sich nicht durchführen, daher hat {productName} diese Datei nicht gelesen und keinem Modell gezeigt. Erneut lesen, oder die Büro- oder Projektadministration entscheidet, ob sie bleibt.',
     unknown: '{productName} konnte dieses Dokument nicht lesen, daher findet die Suche es nicht.',
     details: 'Details',
   },
   screening: {
-    // Warum eine Datei zurückgehalten (Inhaltsprüfung, im Text) oder nicht
-    // hochgeladen wurde (Namensprüfung, im Datei- oder Ordnernamen), ADR-0086.
     reasonTerm: '„{term}“ im Text',
     reasonIban: 'IBAN {sample}',
     reasonSvnr: 'Sozialversicherungsnummer {sample}',
     reasonTaxId: 'Steuer-ID {sample}',
     reasonCard: 'Kreditkartennummer {sample}',
     reasonPages: '{count, plural, one {Seite {pages}} other {Seiten {pages}}}',
-    // Tabellenblätter und Textdateien haben keine Seiten: der Treffer hat dann
-    // keinen Ort, den man aufschlagen könnte.
     reasonNoPages: 'ohne Seitenangabe',
-    // Eine Regel, die dieser Stand der Anwendung nicht kennt (der Job kann
-    // eine neue Art von Treffer zuerst melden).
     reasonOther: 'Eine Regel, die hier nicht näher beschrieben ist',
-    // Wie die Inhaltsprüfung zu dem Treffer kam: wer die Regel festgelegt hat,
-    // und was eine Zahl bestehen musste. So lässt sich eine echte Kontonummer
-    // von einer Auftragsnummer unterscheiden, die nur so aussieht.
     basisTerm: 'Dieser Begriff steht auf der Liste, die Ihr Büro als sensibel eingestuft hat.',
     basisIban:
       'Die Zahl hat den Aufbau einer IBAN und ist rechnerisch gültig, also keine zufällige Ziffernfolge. Ihr Büro hat Kontonummern als sensibel eingestuft.',
@@ -461,12 +389,8 @@ export const files: typeof en.files = {
       '{count, plural, one {Ein weiterer Grund wird nicht aufgeführt.} other {# weitere Gründe werden nicht aufgeführt.}}',
     nameInFile: 'Dateiname enthält „{term}“',
     nameInFolder: 'Ordner „{segment}“ enthält „{term}“',
-    // Gescannte Seiten werden seit ADR-0086 (2026-10-17) nach dem Lesen geprüft:
-    // „nicht geprüft“ stimmte nicht mehr, „vorab“ schon.
     partial: 'Nicht alles ließ sich vorab prüfen: Gescannte Seiten, Bilder und Zeichnungen sieht zuerst ein Bildmodell.',
     unchecked: 'Der Inhalt ließ sich ohne Modell nicht lesen und wurde nur am Namen geprüft.',
-    // Eine Fundstelle der Inhaltsprüfung, wie eine Quelle im Chat: die Seite,
-    // und darauf markiert, was das Büro als sensibel eingetragen hat.
     findingsLabel: 'Fundstellen der Inhaltsprüfung',
     findingPage: 'S. {page}',
     showFinding: 'Fundstelle auf Seite {page} zeigen',
@@ -475,16 +399,13 @@ export const files: typeof en.files = {
   browser: {
     folderEmptyTitle: 'Dieser Ordner ist leer',
     folderEmptyDescription: 'Laden Sie hier Dokumente hoch oder ziehen Sie sie irgendwo auf die Seite.',
-    /** A finger cannot drop on a page. */
     folderEmptyDescriptionTouch: 'Laden Sie hier Dokumente hoch.',
-    /** The title while the field filters the files: the query is where the reader is. */
     searchTitle: 'Suche: „{query}“',
     searchCount: '{count, plural, one {# Treffer} other {# Treffer}}',
     noDocumentsTitle: 'Noch keine Dokumente',
     noDocumentsDescription:
       'Laden Sie die Unterlagen Ihres Projekts hoch: Zeichnungen, Bescheide, Gutachten, Berichte. {productName} liest sie und zitiert daraus, statt aus allgemeinen Hinweisen zu antworten.',
     searchPlaceholder: 'Suchen…',
-    /** Das Feld einer Ablage mit der Suche: Tippen filtert Namen, Enter durchsucht alles. */
     searchPlaceholderEverything: 'Filtern, Enter sucht alles…',
     searchLabel: 'Dateien durchsuchen',
     noMatch: 'Keine Dateien entsprechen „{query}“',
@@ -493,12 +414,9 @@ export const files: typeof en.files = {
     clearSearch: 'Suche löschen',
     clearFilters: 'Filter zurücksetzen',
     resetSearch: 'Suche zurücksetzen',
-    // The label heads all of the root's files: „Zuletzt hochgeladen“ promised a subset.
     recentlyUploaded: 'Dateien',
-    /** Leere Suche, wenn die Suche nur im Namen sucht (der Ordner wird seitenweise geladen, ADR-0102). */
     noMatchNamesDescription:
       'Gesucht wird im Dateinamen. Drücken Sie Enter, um auch im Inhalt zu suchen – oder löschen Sie die Suche, um alle Dateien zu sehen.',
-    /** Ende der Liste eines großen Ordners: der Rest kommt beim Weiterscrollen. */
     loadMore: 'Weitere laden',
     loadingMore: 'Weitere Dokumente werden geladen …',
     loadMoreFailed: 'Weitere Dokumente konnten nicht geladen werden.',
@@ -528,17 +446,12 @@ export const files: typeof en.files = {
     namePlaceholder: 'Ordnername',
     newFolderName: 'Name des neuen Ordners',
     creating: 'Ordner wird erstellt …',
-    /** Die Aktion im Toast nach einem Verschieben: Ein Zug, der danebenging, ist ein Klick, kein zweiter Zug. */
     moveUndo: 'Rückgängig',
     movedBack: '„{name}“ ist wieder in „{folder}“.',
     moveRefusedReadOnly: 'Verschoben wurde nichts: Einen der beiden Ordner dürfen Sie nur lesen.',
     moveRefusedGone: 'Verschoben wurde nichts: Diesen Ordner gibt es nicht mehr.',
-    /** Ein Ordner gleichen Namens liegt schon dort, wohin dieser käme: angelegt, umbenannt oder hingezogen. */
     nameTaken: 'In „{parent}“ gibt es schon einen Ordner „{name}“.',
     allFiles: 'Alle Dateien',
-    // Der Weg nach oben, benannt – die Brotkrumenleiste sagt, WO man ist, und
-    // das ist eine Karte. Drei Ebenen tief ist der übergeordnete Ordner ein
-    // abgeschnittenes Wort mitten in einer scrollenden Zeile.
     backTo: 'Zurück zu {name}',
     newFolder: 'Ordner anlegen',
     newInside: 'Ordner darin anlegen',
@@ -550,10 +463,8 @@ export const files: typeof en.files = {
     hiddenLevels: '{count, plural, one {# weitere Ebene} other {# weitere Ebenen}}',
     movedFolder: '„{name}“ nach „{parent}“ verschoben.',
     moveFolderError: 'Der Ordner konnte nicht verschoben werden. Bitte erneut versuchen.',
-    /** Ordnerzugriff (ADR-0088, ADR-0097): einen Ordner auf Personen einschränken. */
     access: {
       menu: 'Zugriff …',
-      /** Das Schloss am Ordner: Wer auf der Liste steht, sagt erst der Dialog. */
       ownList: 'Eigene Zugriffsrechte: nur die eingetragenen Personen',
       ownListEveryoneReads: 'Eigene Zugriffsrechte: alle Projektmitglieder lesen, bearbeiten nur die eingetragenen Personen',
       openRestricted: 'Ordner „{name}“ öffnen. {access}',
@@ -585,7 +496,6 @@ export const files: typeof en.files = {
         'Ändert sich, wer lesen darf, verschiebt {productName} die Dokumente des Ordners und liest sie neu ein. Bei einem großen Ordner dauert das einige Minuten; so lange stehen die Dokumente auf „Wird gelesen“.',
       ifcNotice:
         'Ordner, die nicht alle Projektmitglieder lesen dürfen, können noch keine Gebäudemodelle (IFC) enthalten. Legen Sie IFC-Modelle in Ordner, die alle lesen dürfen.',
-      /** Der 409 der IFC-Sperre (ADR-0087): einschränken, hochladen oder verschieben in einen eingeschränkten Ordner. */
       ifcRefused:
         'Gebäudemodelle (IFC) können noch nicht in einem Ordner liegen, den nicht alle lesen dürfen: Ihre Gebäudedaten schützt der Ordnerzugriff nicht. Legen Sie IFC-Modelle in Ordner, die alle lesen dürfen.',
       readOnlyBadge: 'Nur lesen',
@@ -604,7 +514,6 @@ export const files: typeof en.files = {
       forbidden: 'Nur Projekt-Admins können ändern, wer einen Ordner lesen und bearbeiten darf.',
     },
     describe: 'Beschreibung …',
-    /** Was in einen Ordner gehört (Migration 0145): Piloti legt Uploads danach ab. */
     description: {
       title: 'Was gehört in „{name}“?',
       hint: 'Ein, zwei Sätze, was in diesem Ordner liegt. Alle, die den Ordner öffnen, lesen sie, und {productName} schlägt danach vor, wohin ein Upload gehört.',
@@ -618,19 +527,12 @@ export const files: typeof en.files = {
       empty: 'Beschreiben, was hierher gehört',
     },
   },
-  /**
-   * Piloti's filing suggestion: the chip on a card, a list row and an upload
-   * row, the popover it opens, and the filing bar that decides per folder.
-   */
   filing: {
     label: 'Ablagevorschlag von {productName}',
-    /** The chip's accessible name; it shows only the folder's last segment. */
     chip: 'Ablagevorschlag: {folder}',
     new: 'neu',
-    /** Where a file at the top level of a shelf is now, struck through in the popover. */
     rootProject: 'Projektordner (oberste Ebene)',
     rootOffice: 'Büroablage (oberste Ebene)',
-    /** Spoken before the two paths of the popover, which a screen reader cannot see struck through. */
     from: 'Liegt jetzt in',
     to: 'Würde verschoben nach',
     barHeading: '{count, plural, one {{productName} schlägt vor, # Datei abzulegen} other {{productName} schlägt vor, # Dateien abzulegen}}',
@@ -646,30 +548,23 @@ export const files: typeof en.files = {
     error: 'Das hat nicht geklappt. Bitte erneut versuchen.',
     readOnly: 'Verschieben dürfen nur Personen, die hier ablegen dürfen.',
   },
-  /** The Papierkorb of a project (ADR-0088). */
   bin: {
     title: 'Papierkorb',
     empty: 'Der Papierkorb ist leer.',
     emptyHint: 'Gelöschte Ordner erscheinen hier und lassen sich wiederherstellen.',
     deletedBy: 'gelöscht von {name} am {date}',
     deletedOn: 'gelöscht am {date}',
-    // What a folder holds, each figure only when it is not zero („0 Ordner“ was a clause that said nothing).
     contentsDocuments: '{count, plural, one {# Dokument} other {# Dokumente}}',
     contentsFolders: '{count, plural, one {# Ordner} other {# Ordner}}',
-    // One meta line („14 Dokumente · gelöscht von … am … · bleibt bis …“), so every clause is lower case and the row
-    // capitalises the line's first letter; what stays, not the press's words again;
-    // the date bound to its word.
     purgeOn: 'bleibt bis {date}',
     purging: 'wird gerade endgültig gelöscht',
     failed: 'endgültige Löschung angehalten, ein Admin kümmert sich darum',
     restore: 'Wiederherstellen',
-    // Where the press would be, so the row says why it is not there.
     restoreBlocked: {
       folder_read_only: 'Nicht wiederherstellbar: Sie dürfen diesen Ordner nur lesen.',
       project_closed: 'Nicht wiederherstellbar: Das Projekt ist abgeschlossen.',
       no_write: 'Nicht wiederherstellbar: Sie dürfen in diesem Projekt nicht ablegen.',
     },
-    // Dasselbe als Satzteil der zweiten Zeile auf dem Telefon („bleibt bis … · nur lesbar“); der ganze Satz steht im Titel.
     restoreBlockedShort: {
       folder_read_only: 'nur lesbar',
       project_closed: 'Projekt abgeschlossen',
@@ -722,11 +617,9 @@ export const files: typeof en.files = {
     tryAgain: 'Erneut versuchen',
     dropToUpload: 'Dateien hier ablegen, um sie in dieses Projekt hochzuladen',
     dropUnsupported: 'Einige Dateien haben einen nicht unterstützten Typ',
-    /** Über einer Ordnerkachel: Die Dateien landen in diesem Ordner, nicht im offenen. */
     dropInto: 'In „{name}“ ablegen',
     dropRefusedHere: 'Nur lesen: Hier können Sie keine Dateien ablegen.',
     dropRefusedFolder: '„{name}“ dürfen Sie nur lesen: Dort können Sie nichts ablegen.',
-    /** Eine Ablage, während noch hochgeladen wird oder die Ordner noch laden: Sie wartet, statt zu verschwinden. */
     dropQueued: 'Die abgelegten Dateien werden hochgeladen, sobald der laufende Upload fertig ist.',
     dropTruncated:
       'Der abgelegte Ordner war zu groß oder zu tief verschachtelt. Übernommen wurden {count, plural, one {# Datei} other {# Dateien}}; laden Sie den Rest in einem zweiten Schritt hoch.',
@@ -738,7 +631,6 @@ export const files: typeof en.files = {
       list: 'Liste',
     },
   },
-  // Detailansicht des Explorers – Spaltenüberschriften der sortierbaren Liste.
   selection: {
     start: 'Auswählen',
     nothingToPick: 'Hier liegt keine Datei zum Auswählen',
@@ -765,9 +657,6 @@ export const files: typeof en.files = {
       relevance: 'Relevanz',
       name: 'Name',
       status: 'Status',
-      // Der redaktionelle Stand (Freigabe), neben dem Verarbeitungsstatus: die
-      // Spalte, die den Freigabe-Stand dort sichtbar macht, wo stapelweise
-      // gearbeitet wird.
       approval: 'Freigabe',
       pages: 'Seiten',
       size: 'Größe',
@@ -790,9 +679,6 @@ export const files: typeof en.files = {
     reingestConfirmAction: 'Erneut lesen',
     reingestError:
       'Das erneute Lesen konnte nicht gestartet werden. Bitte versuchen Sie es noch einmal.',
-    // Ein noch laufendes Lesen beenden: Die Bytes bleiben, nichts wurde
-    // indexiert, und ein erneutes Lesen liest sie wieder. Neutral wie
-    // „Erneut lesen“, nie ein zerstörerisches Rot.
     cancel: 'Lesen abbrechen',
     cancelling: 'Wird abgebrochen …',
     cancelled: 'Lesen von „{name}“ abgebrochen',
@@ -841,11 +727,6 @@ export const files: typeof en.files = {
     error: 'Das Dokument konnte nicht gelöscht werden',
     legalHold: 'Das Dokument unterliegt einer rechtlichen Sperre und kann nicht gelöscht werden',
   },
-  /**
-   * Ein auf ein Ablagefach gezogenes ZIP. Es wird im Browser entpackt und dann
-   * wie der enthaltene Ordner behandelt (`folderUpload.*`); hier stehen nur die
-   * Sätze für ein Archiv, das nichts ergeben hat.
-   */
   zip: {
     reading: 'ZIP wird gelesen…',
     unreadable: '„{name}“ konnte nicht gelesen werden. Ist es ein gültiges ZIP ohne Passwort?',
@@ -853,14 +734,9 @@ export const files: typeof en.files = {
     tooManyFiles: '„{name}“ enthält mehr als {limit} Dateien, daher wurde nichts übernommen. Teilen Sie es in kleinere ZIPs auf.',
     tooLarge: '„{name}“ ist entpackt größer als {limit}, daher wurde nichts übernommen. Teilen Sie es in kleinere ZIPs auf.',
   },
-  /**
-   * Der Ordner-Upload-Plan — der Dialog, den ein abgelegter Ordnerbaum öffnet,
-   * bevor sich etwas bewegt. Siehe die englische Fassung für das Warum.
-   */
   folderUpload: {
     title: '„{name}“ hochladen?',
     titleGeneric: 'Diesen Ordner hochladen?',
-    // Lose Dateien, von denen mindestens eine ein vorhandenes Dokument trifft.
     titleFiles: '{count, plural, one {# Datei hochladen?} other {# Dateien hochladen?}}',
     titleFilesGeneric: 'Dateien hochladen?',
     destinationFiles: 'Die Dateien kommen nach „{folder}“.',
@@ -908,17 +784,10 @@ export const files: typeof en.files = {
     collisions: '{count} Dateien teilen sich einen Namen mit einer anderen Datei in diesem Upload',
     collisionsExplain:
       'Ein Projekt hält pro Dateiname ein Dokument, deshalb werden diese nicht hochgeladen. Benennen Sie sie um und legen Sie sie erneut ab.',
-    // Von der Namensprüfung nicht hochgeladen (ADR-0086): Die Dateien verlassen
-    // den Rechner nicht, außer jemand lädt eine einzeln trotzdem hoch.
-    // „Zurückgehalten“ gehört der Inhaltsprüfung.
     excluded: '{count, plural, one {# Datei nicht hochgeladen} other {# Dateien nicht hochgeladen}}',
     excludedExplain:
       'Ihr Büro hat diese Begriffe als sensibel eingestuft, deshalb werden die Dateien nicht hochgeladen: Sie verlassen Ihren Rechner nicht. Gehört eine davon doch nach {productName}, haken Sie sie an.',
     releaseFile: 'Trotzdem hochladen',
-    // Dateien, die als neue Fassung eines vorhandenen Dokuments hereinkommen: mit
-    // gleichem Namen (ADR-0054) oder über eine Namensreihe unter anderem Namen
-    // (ADR-0099). Ein Begriff, gleich wie Piloti es erkannt hat (ADR-0099). Sagen
-    // Sie Dokument, Datei, Fassung: ein Name mit Index sagt nicht, was eine Datei ist.
     revision: {
       title: '{count, plural, one {# neue Fassung} other {# neue Fassungen}}',
       consequence:
@@ -978,7 +847,6 @@ export const files: typeof en.files = {
       'Ein Outlook-Archiv enthält die Korrespondenz aller, die diesem E-Mail-Konto geschrieben haben. Importieren Sie, was das Projekt braucht, nicht ein ganzes E-Mail-Konto.',
     choose: 'Outlook-Archiv auswählen…',
     maxSize: 'Bis {size}.',
-    // Nur für Touch: ein Archiv dieser Größe sendet man vom Schreibtisch, mit stabiler Leitung.
     desktopHint: 'Große Archive lassen sich am Schreibtisch am besten senden. Bricht die Verbindung ab, wählen Sie dieselbe Datei erneut und es geht dort weiter.',
     notAnArchive: '„{name}“ ist kein Outlook-Archiv (.pst oder .ost).',
     tooLarge: '„{name}“ ist größer als {size}.',
@@ -1025,7 +893,6 @@ export const files: typeof en.files = {
     progress: '{done} von {total} Einträgen',
     filed: '{mails, plural, one {# E-Mail} other {# E-Mails}}, {files, plural, one {# Anhang} other {# Anhänge}}',
     skipped: '{count, plural, one {# übersprungen} other {# übersprungen}}',
-    // Die E-Mail-Verläufe, die der Import angelegt oder ergänzt hat (die Texte der E-Mails liegen dort).
     threads: '{created, plural, one {# neuer E-Mail-Verlauf} other {# neue E-Mail-Verläufe}}, {appended, plural, one {# ergänzt} other {# ergänzt}}',
     alreadyInProject: '{count, plural, one {# E-Mail schon im Projekt} other {# E-Mails schon im Projekt}}',
     skippedItem: '{file} in {mail}: {reason}',
@@ -1065,31 +932,19 @@ export const files: typeof en.files = {
   },
   errors: {
     projectClosed: 'Dieses Projekt ist abgeschlossen und schreibgeschützt. Wer es verwaltet, kann es oben im Hinweis oder in der Übersicht wieder öffnen.',
-    // Die Meldungen des Transports sind englisch und für Logs; der Mensch auf der
-    // Baustelle liest diese. Fehlschlag ohne Antwort (Netz, Stillstand, Zeit) ist
-    // wiederholbar, die Zeile bietet es an.
     uploadFailed: 'Das Hochladen ist fehlgeschlagen.',
     uploadNetwork: 'Keine Verbindung beim Hochladen. Bitte erneut versuchen.',
     uploadStalled: 'Die Verbindung hat nichts mehr übertragen, das Hochladen wurde abgebrochen.',
     uploadTimeout: 'Das Hochladen hat zu lange gedauert.',
-    // Die Ablehnungen des Servers nach Größe und Speicher: ihr englischer Text
-    // ist für Logs (`lib/upload-failure.ts`).
     uploadTooLarge: '„{name}“ ist größer, als Ihr Büro hochladen darf.',
     uploadTooLargeLimit: '„{name}“ ist größer, als Ihr Büro hochladen darf: höchstens {limit} pro Datei.',
     uploadStorageFull: 'Der Speicher Ihres Büros ist voll. Es wurde nichts hochgeladen.',
-    // Von der Namensprüfung nicht hochgeladen (ADR-0086): auf einem Weg ohne
-    // Upload-Dialog, etwa im Chat, oder als Nachprüfung des Servers.
     screenedOut:
       '{count, plural, one {Eine Datei wurde nicht hochgeladen} other {# Dateien wurden nicht hochgeladen}}, weil ihr Name einen Begriff enthält, den Ihr Büro als sensibel eingestuft hat: {files}',
-    // Ein Name allein ist ein schwaches Zeichen („Lüftungssteuerung“ enthält
-    // „Steuer“): wer die Datei abgelegt hat, schickt sie trotzdem; der Inhalt
-    // wird danach geprüft, die Freigabe protokolliert.
     uploadAnyway: '{count, plural, one {Trotzdem hochladen} other {Alle # trotzdem hochladen}}',
     uploadAnywayHint:
       'Der Name allein entscheidet nicht: Den Inhalt prüft {productName} nach dem Hochladen trotzdem. Ihre Freigabe wird protokolliert.',
     screenedOutFile: '„{name}“ ({reason})',
-    // Die Liste des Büros ist nicht lesbar: ohne sie wird nichts gesendet,
-    // auch nicht mit Pilotis Vorschlag (ADR-0086).
     screeningPolicyUnavailable:
       'Die Liste sensibler Daten Ihres Büros konnte nicht geladen werden. Es wurde nichts hochgeladen. Versuchen Sie es erneut.',
     validation: {
@@ -1108,14 +963,9 @@ export const files: typeof en.files = {
       '{failed} von {total} Dokumenten konnten nicht hochgeladen werden. Erster Grund: {reason}',
     uploadingSkipped:
       'Es werden {uploading} {fileLabel} hochgeladen, {skipped} übersprungen ({summary})',
-    // Die Datei, die dieser Upload ersetzen würde, ist zurückgehalten
-    // (Inhaltsprüfung, ADR-0086). Zustand „zurückgehalten“, Ort „Quarantäne“.
     quarantinedReplace:
       '„{name}“ würde eine Datei ersetzen, die zurückgehalten ist und in der Quarantäne auf ihre Prüfung wartet. Sobald jemand sie zulässt oder löscht, können Sie die neue hochladen.',
-    // Den Namen trägt schon ein anderes Dokument. Absichtlich ohne Ort und ohne
-    // Grund: Es kann eines sein, das diese Person nicht sehen darf.
     nameTaken: 'Den Namen „{name}“ trägt schon ein anderes Dokument. Benennen Sie die Datei um und laden Sie sie erneut hoch.',
-    // Während des Hochladens hat jemand dieselbe Datei abgelegt oder gelöscht.
     uploadChangedMeanwhile: 'Während des Hochladens hat sich hier etwas geändert. Versuchen Sie es erneut.',
     cannotRetryServerFile:
       'Vom Server geladene Dateien können nicht erneut versucht werden. Bitte laden Sie die Datei erneut hoch.',
@@ -1124,22 +974,12 @@ export const files: typeof en.files = {
     fileSingular: 'Datei',
     filePlural: 'Dateien',
   },
-  /**
-   * Das Filter-/Sortiermenü der Dateien-Kopfzeile.
-   *
-   * Ersetzt die offene Filterleiste: Die Kopfzeile trug bereits Ansichtsumschalter,
-   * Suchfeld und Upload-Button und hatte keinen Platz mehr für weitere Filter. Die
-   * Zahl am Button ist der Preis dafür – ein verborgener Filter, den niemand sieht,
-   * ist schlimmer als eine volle Leiste.
-   */
-  // Der Ordnerbrief: was Piloti über einen Ordner und alles darunter weiß.
   brief: {
     scopeFolder: 'in diesem Ordner',
     scopeFolderTree: 'in diesem Ordner und seinen Unterordnern',
     scopeProject: 'in diesem Projekt',
     scopeOffice: 'in der Büroablage',
     headlineAll: '{count, plural, one {Das Dokument ist gelesen} other {Alle # Dokumente gelesen}}',
-    /** Alles Lesbare gelesen, daneben Dokumente, die nie in die Wissensbasis kommen: „alle“ sagt, wessen. */
     headlineAllOfKnowledge: '{count, plural, one {Das eine Dokument der Wissensbasis ist gelesen} other {Alle # Dokumente der Wissensbasis gelesen}}',
     headlineSome: '{readable} von {count, plural, one {# Dokument} other {# Dokumenten}} gelesen',
     headlineNone: '{count, plural, one {Das Dokument ist noch nicht gelesen} other {Noch keines der # Dokumente gelesen}}',
@@ -1153,24 +993,19 @@ export const files: typeof en.files = {
     },
     allRead: 'Alles gelesen',
     unplacedShort: '{count} ohne Dokumentart',
-    /** Neben der Legende: Dokumente, die Piloti nie liest. Nicht in der Summe der Überschrift („von N“). */
     unindexedAside: '{count} weitere nicht in der Wissensbasis',
-    /** Laufende Beschriftung der beiden Chip-Familien unter „Worum es hier geht“. */
     typesLabel: 'Dokumentart',
     disciplinesLabel: 'Fachbereich',
-    /** Zugänglicher Name der „Anzeigen“-Schaltflächen: drei gleichlautende Knöpfe sind drei verschiedene Dinge. */
     showFailed: '{count, plural, one {Das fehlgeschlagene Dokument anzeigen} other {Die # fehlgeschlagenen Dokumente anzeigen}}',
     showHeld: '{count, plural, one {Das zurückgehaltene Dokument anzeigen} other {Die # zurückgehaltenen Dokumente anzeigen}}',
     showUnplaced: '{count, plural, one {Das Dokument ohne Dokumentart anzeigen} other {Die # Dokumente ohne Dokumentart anzeigen}}',
     showState: 'Dokumente „{state}“ in allen Unterordnern zeigen',
     showTag: 'Alle Dokumente „{tag}“ in diesem Ordner und seinen Unterordnern zeigen',
     pages: '{count, plural, one {{formatted} Seite gelesen} other {{formatted} Seiten gelesen}}',
-    // On the brief's own line after „… gelesen“: the count alone, or „gelesen“ twice in one line.
     pagesCount: '{count, plural, one {{formatted} Seite} other {{formatted} Seiten}}',
     aboutTitle: 'Worum es hier geht',
     aboutMore: '+{count}',
     noTypes: '{productName} hat hier noch keine Dokumentart erkannt.',
-    /** „Worum es hier geht“, solange nur die Zahlen des Ordners geladen sind (ADR-0102). */
     aboutDeferred: 'Dokumentarten, Fachbereiche und Themen',
     aboutDeferredHint:
       'Was {productName} in den Dokumenten erkannt hat, steht bei jedem Dokument. Für einen großen Ordner wird es erst geladen, wenn Sie es ansehen wollen.',
@@ -1215,15 +1050,12 @@ export const files: typeof en.files = {
     sliceClear: 'Zurück zum Ordner',
     sliceEmpty: 'Hier liegt nichts mehr vor.',
   },
-  /** Die Anzahl auf Karte und Zeile, wenn ein Dokument Fassungen unter anderen Dateinamen hat (ADR-0099). */
   revisionBadge: {
     count: '{count, plural, one {# Fassung} other {# Fassungen}}',
     countTitle: '{count, plural, one {# Fassung dieses Dokuments} other {# Fassungen dieses Dokuments}}',
     older: 'Ältere Fassung',
-    /** Tooltip der älteren Fassung: was sie ersetzt hat. {name} ist der Dateiname der neueren. */
     olderTitle: 'Ersetzt durch „{name}“',
   },
-  /** Visueller Vergleich zweier Fassungen: nebeneinander, überlagert, gewischt (fassung-compare/). */
   compare: {
     title: 'Fassungen vergleichen',
     olderLabel: 'Älter',
@@ -1294,17 +1126,11 @@ export const files: typeof en.files = {
     label: 'Filter',
     labelActive: 'Filter ({count} aktiv)',
     reset: 'Filter zurücksetzen',
-    // Die beiden Schalter, die ERWEITERN: Stillgelegte stehen gar nicht erst in
-    // der Liste, ältere Fassungen sind ein Eintrag mit der aktuellen (ADR-0099).
-    // Gleich formuliert und unter einer Überschrift, damit keiner als
-    // Einschränkung gelesen wird.
     alsoShowLabel: 'Auch zeigen',
     alsoShow: {
       retired: 'Stillgelegte',
       olderRevisions: 'Ältere Fassungen',
     },
-    // Was der Leserin fehlt, wenn Typ oder Status die Ebene geleert haben: die
-    // Tatsache, dass ein Filter und nicht ein leerer Ordner der Grund ist.
     emptyTitle: 'Keine Datei passt zu diesen Filtern',
     emptyDescription:
       'In diesem Ordner liegen Dokumente, aber keines entspricht der aktuellen Auswahl. Setzen Sie die Filter zurück, um wieder alles zu sehen.',
@@ -1312,9 +1138,6 @@ export const files: typeof en.files = {
     ascending: 'Aufsteigend',
     descending: 'Absteigend',
     statusLabel: 'Status',
-    // Die drei Fragen, die tatsächlich gestellt werden – nicht die zehn
-    // Pipeline-Zustände, die sich nur darin unterscheiden, welche Stufe sie
-    // gemeldet hat.
     status: {
       failed: 'Fehlgeschlagen',
       processing: 'Wird gelesen',
@@ -1335,26 +1158,12 @@ export const files: typeof en.files = {
       document: 'Dokument',
     },
   },
-  // Herkunft – wer die Datei geschrieben hat. Bewusst eine eigene Gruppe und
-  // NICHT Teil von `assignment`: Ein Gesicht sagt, wer verantwortlich ist,
-  // dieser Text sagt, wer sie erstellt hat. Ein von Piloti erstellter Bericht
-  // ist eine ganz normale unvergebene Datei – in der Fußzeile steht daneben
-  // weiterhin „Unvergeben“.
   authorship: {
     byAgent: 'Von {productName} erstellt',
     filter: 'Von {productName}',
-    /**
-     * Die Frage, die dieser Filter bisher unbeantwortet ließ: WELCHE Dateien
-     * das wären. Ohne diesen Leerzustand zeigte ein leeres Ergebnis „Dieser
-     * Ordner ist leer" über einem Ordner voller Dokumente.
-     */
     emptyTitle: '{productName} hat hier noch nichts abgelegt',
     emptyDescription:
       'Hier erscheinen die Dateien, die {productName} selbst erstellt hat: abgelegte Rechercheberichte und Diagramme. Hochgeladene Dokumente zählen nicht dazu, auch wenn {productName} sie gelesen hat.',
-    // Warum „Piloti dazu fragen“ deaktiviert ist – deaktiviert, nicht
-    // versteckt, wie beim noch nicht zitierbaren Dokument. Der Unterschied:
-    // Hier gibt es kein „noch nicht“. Der Bericht wurde absichtlich nicht
-    // indexiert, damit Piloti den eigenen Text nicht als Beleg zitiert.
     notInKnowledge: 'Von {productName} erstellt — nicht in der Wissensbasis',
   },
   lifecycle: {
@@ -1369,40 +1178,21 @@ export const files: typeof en.files = {
       published: 'Veröffentlicht',
       rejected: 'Abgelehnt',
       superseded: 'Ersetzt',
-      // NICHT „Archiviert“. Die Büroablage (früher „Archiv“) ist der Ort, an
-      // den man eine Datei legt, DAMIT sie projektübergreifendes Bürowissen
-      // wird. Dieser Zustand ist das Gegenteil: Die Datei verlässt den
-      // Arbeitsstand, und ihre Einträge in der Wissensbasis werden gelöscht.
-      // Ein Wort für beides hieße, dasselbe Verb für eine Sache und ihr
-      // Gegenteil zu verwenden. Der Spaltenwert heißt weiter `archived` —
-      // das ist Draht und Datenbank, nicht Sprache der Leserin.
       archived: 'Stillgelegt',
     },
     actions: {
       submit: 'Zur Freigabe einreichen',
       approve: 'Freigeben',
       requestChanges: 'Änderungen anfordern',
-      // Dieselbe Entscheidung wie „Änderungen anfordern“, mit einem Zusatz:
-      // Piloti übernimmt die Überarbeitung. Deshalb steht der Knopf daneben und
-      // verlangt dieselbe Begründung.
       delegateRevision: '{productName} überarbeiten lassen',
       reject: 'Ablehnen',
       publish: 'Veröffentlichen',
       archive: 'Stilllegen',
-      // Der ⋯ neben „Änderungen anfordern“: „Piloti überarbeiten lassen“ und „Ablehnen“.
       more: 'Weitere Entscheidungen',
     },
-    // Wer die Fassung freigeben soll. „Alle Bearbeiter“ ist der Normalfall und
-    // deshalb die Vorauswahl: Eine unvergebene Fassung geht an alle, die sie
-    // freigeben dürfen — wer zuerst hinsieht, entscheidet.
     reviewer: {
       every: 'Alle Bearbeiter',
     },
-    // Die Einreichung zur Freigabe ist ein haftungsnaher Akt: Wer einreicht,
-    // benennt eine Prüferin oder einen Prüfer und formuliert den Auftrag in
-    // einem Satz. Beides verriegelt den Knopf — ein deaktivierter Knopf mit
-    // Begründung, nie eine stille Verweigerung oder eine offene Runde, von der
-    // niemand erfahren hat.
     submit: {
       reviewerLabel: 'Prüferin oder Prüfer',
       reviewerPlaceholder: 'Bitte wählen',
@@ -1414,34 +1204,19 @@ export const files: typeof en.files = {
       selfReviewNote:
         'Keine weiteren Bearbeiter – die Freigabe wird als Selbstprüfung festgehalten.',
     },
-    // Die Freigabe ist die Behauptung des Büros über den Inhalt, deshalb ist
-    // sie nie ein Klick: Der Akt nennt seinen Geltungsstand (Fassung und
-    // Datum), die handelnde Person und den Zeitpunkt, und die Checkbox ist die
-    // Unterschrift.
     approveConfirm: {
       asOf: 'Fassung {number} · Stand vom {date}',
       actingWithName: 'Handelnd: {name} · {date}',
       actingDateOnly: 'Handelnd: {date}',
       checkbox: 'Ich gebe diese Fassung frei',
-      // Vor der Unterschrift, nie als Sperre: offene Punkte freizugeben ist erlaubt, sie zu übersehen nicht.
-      // {marks}: „2 offene Anmerkungen und 12 Vorschläge von Piloti“, wie der Chip in Dateien.
       openMarks: '{marks} – trotzdem freigeben?',
       openMarksLoading: 'Offene Anmerkungen werden noch gelesen …',
       openMarksUnavailable: 'Ob Anmerkungen offen sind, ließ sich gerade nicht lesen.',
     },
-    // Die Veröffentlichung ist ein eigener Akt im eigenen Abschnitt — nie ein
-    // Knopf neben der Freigabe. Die Freigabe behauptet den Inhalt, die
-    // Veröffentlichung macht die Fassung zu der, aus der Piloti antwortet:
-    // Nur eine veröffentlichte Fassung wird in die Wissensbasis gelesen (ADR-0054).
     publishSection: {
       heading: 'Veröffentlichung',
       blurb: 'Veröffentlichen macht Fassung {number} zu der Fassung, aus der {productName} antwortet.',
     },
-    // Archivieren ist der einzige Akt in diesem Abschnitt, der sich im Haus
-    // nicht zurücknehmen lässt: Die Einträge in der Wissensbasis werden
-    // gelöscht, und es gibt keine Route, die sie zurückholt. Deshalb steht er
-    // abgesetzt und nennt seine Folgen, bevor er ausgeführt wird — nie als
-    // fünfter Knopf in einer Reihe von Prüfentscheidungen.
     archiveSection: {
       heading: 'Aus der Dateiliste nehmen',
       blurb:
@@ -1457,11 +1232,6 @@ export const files: typeof en.files = {
         permanent: 'Rückgängig machen lässt sich das hier nicht.',
       },
     },
-    // Was ein Stand für die Leserin bedeutet, in einem Satz. Die Stände selbst
-    // („In Prüfung“, „Freigegeben“) kennt nur, wer weiß, was sie ändern, und
-    // geändert wird genau eines: ob Piloti aus dieser Fassung antwortet. Nur eine
-    // veröffentlichte Fassung wird in die Wissensbasis gelesen (ADR-0054); steht
-    // keine hinter der neuesten, kann der Satz nicht auf sie verweisen („Alone“).
     meaning: {
       draftLive: 'Entwurf einer neuen Fassung. {productName} antwortet weiter aus der veröffentlichten Fassung.',
       draftAlone: 'Entwurf. {productName} antwortet erst daraus, wenn sie freigegeben ist.',
@@ -1478,7 +1248,6 @@ export const files: typeof en.files = {
       rejectedLive: 'Abgelehnt. {productName} antwortet aus der veröffentlichten Fassung.',
       rejectedAlone: 'Abgelehnt. {productName} antwortet nicht daraus.',
       superseded: 'Durch eine neuere Fassung ersetzt.',
-      // NICHT „archiviert“: siehe `states.archived`.
       archived: 'Stillgelegt. Nicht mehr in der Dateiliste, {productName} zitiert sie nicht mehr.',
       none: 'Noch keine Fassung.',
       olderRevision: 'Ältere Fassung. {productName} antwortet aus der neueren.',
@@ -1511,9 +1280,6 @@ export const files: typeof en.files = {
       submitted: 'Eingereicht',
       approved: 'Freigegeben',
       published: 'Veröffentlicht',
-      // Auch eine Zurückweisung hinterlässt einen Meilenstein: Eine
-      // zurückgeschickte Fassung muss nennen, wer sie wann geschickt hat,
-      // sonst ist die Ablehnung in der Geschichte unsichtbar.
       changesRequested: 'Änderungen angefordert',
       rejected: 'Abgelehnt',
       byAt: 'von {name}, {time}',
@@ -1530,7 +1296,6 @@ export const files: typeof en.files = {
   assignment: {
     unassigned: 'Unvergeben',
     assign: 'Zuweisen',
-    // Beside the person who is responsible: „Bearbeiten“ read as editing the file.
     edit: 'Ändern',
     assignToMe: 'Mir zuweisen',
     filterAll: 'Alle',
@@ -1541,12 +1306,6 @@ export const files: typeof en.files = {
     emptyDescription:
       'Ein anderer Filter zeigt Ihnen wieder alle Dateien dieses Ordners.',
     responsible: 'Zuständig',
-    // EIN Wort für eine Geste, an allen drei Stellen: Dateiablage, Berichtskarte
-    // und Posteingang. Vorher hieß derselbe Knopf „Piloti dazu fragen“ und war
-    // ausgerechnet bei Entwürfen ausgegraut — genau den Dokumenten, über die man
-    // sprechen will. Piloti kann jetzt auch eine unveröffentlichte Fassung lesen.
-    // „Besprechen“ allein sagte nicht, MIT WEM: neben „Kolleg:in fragen“ las es
-    // sich wie eine Besprechung im Team. Der Name steht deshalb im Knopf.
     discuss: 'Mit {productName} besprechen',
     askColleague: 'Kolleg:in fragen',
     copyLink: 'Link kopieren',
@@ -1577,8 +1336,6 @@ export const files: typeof en.files = {
     unassignError: '„{name}“ konnte nicht entfernt werden',
     tryAgain: 'Erneut versuchen',
   },
-  // Anmerkungen: Markierungen an einer Stelle einer Seite, ein Punkt oder ein
-  // Bereich, mit dem, was dort zu tun ist (CONTEXT.md „Anmerkung“).
   annotations: {
     section: 'Anmerkungen',
     kind: 'Art',
@@ -1594,7 +1351,6 @@ export const files: typeof en.files = {
       'Gesetzt, bevor die aktuelle Fassung kam. Die Stelle kann sich verschoben haben, darum ist sie nicht eingezeichnet.',
     loadError: 'Anmerkungen konnten nicht geladen werden.',
     retry: 'Erneut versuchen',
-    // Die Wege in die Prüfansicht aus der Vorschau, und was sie inline zeigt.
     openReview: 'Prüfansicht öffnen',
     openReviewHint: 'Vollbild mit Anmerkungen',
     annotate: 'Anmerken',
@@ -1608,25 +1364,19 @@ export const files: typeof en.files = {
     openInReview: 'In der Prüfansicht öffnen',
     loading: 'Anmerkungen werden geladen',
     readerCount: '{count, plural, one {# Anmerkung} other {# Anmerkungen}}',
-    // In Dateien neben dem Namen: was auf dem Dokument noch offen ist, über alle Fassungen.
     listedOpen: '{count, plural, one {# offene Anmerkung} other {# offene Anmerkungen}}',
     listedOpenForYou: '{count, plural, one {# offene Anmerkung} other {# offene Anmerkungen}}, {mine} für Sie',
     listedOpenIn: '{marks} in „{name}“',
-    // Was der Chip selbst sagt, kurz genug für eine Karte; der Tooltip trägt den ganzen Satz.
     listedOpenShort: '{count} offen',
     listedOpenShortForYou: '{count} offen\u00A0· {mine} für Sie',
-    // Pilotis Vorschläge, die niemand übernommen hat: getrennt von „offen“, wie in Offene Punkte und im Protokoll.
     listedProposedShort: '{count, plural, one {# Vorschlag} other {# Vorschläge}}',
   },
-  // Offene Punkte: die offenen Anmerkungen aller Dokumente eines Projekts, für den Jour fixe.
   openPoints: {
     open: 'Offene Punkte',
     title: 'Offene Punkte',
     filters: {
       label: 'Filter',
-      // Kein Filter gewählt: jeder offene Punkt. Ein Chip, damit der Zustand „alle“ sichtbar ist und ein Druck dorthin zurückführt.
       all: 'Alle',
-      // Dasselbe Prädikat wie „Für Sie“ in der Prüfansicht und in Dateien (`isForReader`), also dieselben Worte.
       me: 'Für Sie',
       overdue: 'Überfällig',
       soon: 'Bald',
@@ -1654,9 +1404,7 @@ export const files: typeof en.files = {
       tooMany: 'Zu viele offene Punkte für ein Protokoll. Bitte mit einem Filter eingrenzen.',
       title: 'Offene Punkte – {name}',
       fileName: 'Offene Punkte – {name}',
-      // Im Projekt abgelegt: der Name der Datei, {date} als JJJJ-MM-TT im Kalender des Büros.
       filedName: 'Offene Punkte – {name} – {date}',
-      // Warum „Im Projekt ablegen“ nicht geht: das Protokoll zitiert Dokumente, die nicht alle öffnen dürfen.
       fileRestricted: 'Nicht möglich: Einige Punkte stehen auf Dokumenten, die nicht alle im Projekt öffnen dürfen. Im Projekt abgelegt, wäre ihr Text für alle lesbar.',
       documents: 'Dokumente',
       status: {
@@ -1671,15 +1419,12 @@ export const files: typeof en.files = {
       },
     },
   },
-  // Die Prüfansicht: ein Dokument im Vollbild, die Anmerkungen darauf, die
-  // Gespräche darunter, und wer gerade mit hinschaut.
   review: {
     open: 'Prüfansicht öffnen',
     openAll: 'Alle {count} in der Prüfansicht',
     othersHere: '{count, plural, one {# weitere Person sieht sich das gerade an} other {# weitere Personen sehen sich das gerade an}}',
     close: 'Prüfansicht schließen',
     nothingOpen: 'Nichts offen',
-    // Der Knopf zur Liste auf dem Telefon zeigt die offenen; sein Name sagt den ganzen Satz des Chips.
     listOpen: 'Anmerkungen: {marks}',
     revision: 'Fassung {number}',
     offline: 'Verbindung unterbrochen',
@@ -1698,7 +1443,6 @@ export const files: typeof en.files = {
       region: 'Bereich anmerken',
       ask: '{productName} fragen',
     },
-    // Unter jedem Werkzeug auf einem Touchscreen: ein Wort, das unter 56px passt.
     toolsShort: {
       select: 'Auswählen',
       point: 'Anmerken',
@@ -1707,7 +1451,6 @@ export const files: typeof en.files = {
       chat: 'Sagen',
     },
     toolsIntroFold: 'Beschriftung ausblenden',
-    // Was das Werkzeug in der Hand als Nächstes tut, oben auf der Fläche.
     toolHint: {
       point: 'Klicken Sie auf die Stelle · Esc bricht ab',
       region: 'Ziehen Sie einen Rahmen um das Detail · Esc bricht ab',
@@ -1720,9 +1463,6 @@ export const files: typeof en.files = {
     },
     popout: 'In neuem Fenster öffnen',
     copyReviewLink: 'Link zur Prüfansicht kopieren',
-    // Kolleginnen in einer Anmerkung oder ihrem Verlauf mit „@“ erwähnen, wie im Chat.
-    // Erwähnen kann man nur, wer das Dokument öffnen kann. Wen der Server nicht behielt, nennt der
-    // Verlauf ohne Grund: es kann der Ordner sein, aber auch eine ausgeschaltete Zusammenarbeit.
     mentions: {
       othersHeading: 'Können das Dokument öffnen',
       noResultsHint: 'Erwähnen können Sie alle, die dieses Dokument öffnen können.',
@@ -1731,7 +1471,6 @@ export const files: typeof en.files = {
       tooMany: 'Erwähnen Sie höchstens {max} Personen auf einmal.',
       peopleFailed: 'Die Personen konnten nicht geladen werden. Tippen Sie „@“ noch einmal.',
     },
-    // Piloti in der Prüfansicht: ein Ausschnitt, nach dem gefragt wird, die Antwort daneben, und Piloti im Verlauf.
     piloti: {
       conversationTitle: '{name} · Prüfansicht',
       ask: '{productName} fragen',
@@ -1741,7 +1480,6 @@ export const files: typeof en.files = {
       replyFailed: '{productName} konnte nicht antworten.',
       replyingFor: '{productName} antwortet … · für {name}',
       workQueued: '{productName} ist dran · für {name}',
-      // Warum ein geweckter Piloti nicht geantwortet hat, nach der Klasse des Grundes (`wakeEndReasonKind`).
       workFailed: {
         budget: '{productName} konnte nicht antworten: Das Nutzungsbudget ist aufgebraucht. Wer die Organisation verwaltet, kann es erhöhen.',
         busy: '{productName} ist nicht rechtzeitig dazu gekommen. Fragen Sie später noch einmal.',
@@ -1770,8 +1508,6 @@ export const files: typeof en.files = {
         question: 'Zu diesem Ausschnitt eine präzise Rückfrage an die Fachplanung formulieren.',
       },
       busy: '{productName} antwortet noch auf die vorige Frage.',
-      // Während Piloti arbeitet, geht, was die Person ergänzt, in die laufende
-      // Antwort statt als neue Frage: Piloti liest es vor dem nächsten Schritt.
       busySteer: '{productName} arbeitet noch: Ihre Frage geht als Ergänzung in die laufende Antwort.',
       steerPlaceholder: '{productName} lenken …',
       steerSend: 'Ergänzen',
@@ -1793,7 +1529,6 @@ export const files: typeof en.files = {
       reviewFound: '{count, plural, one {{productName} hat # Punkt gefunden} other {{productName} hat # Punkte gefunden}}',
       busyTooltip: '{productName} beantwortet gerade Ihre Frage',
       reviewFailed: 'Prüfung fehlgeschlagen',
-      // „Was behoben ist“: Piloti antwortet im Verlauf jeder Anmerkung, nicht in einer Liste.
       checkingFixed: '{productName} prüft, was behoben ist …',
       checkFixedDone: '{productName} hat in den Verläufen geantwortet',
       openConversation: 'Chat',
@@ -1815,7 +1550,6 @@ export const files: typeof en.files = {
     onPage: '{name} · Seite {page}',
     peerPoint: 'setzt eine Anmerkung',
     peerRegion: 'markiert einen Bereich',
-    // Piloti nennt auf dem Dokument, für wen es schreibt (ADR-0105; EU AI Act Art. 50).
     attribution: {
       agentFor: '{productName} · für {name}',
       proposalFor: 'Vorschlag von {productName} · für {name}',
@@ -1832,10 +1566,8 @@ export const files: typeof en.files = {
       proposed: 'Vorschlag',
       resolved: 'erledigt',
       dismissed: 'verworfen',
-      // Eine offene Anmerkung einer früheren Fassung, hohl gezeichnet, wo sie auf jener stand.
       ghost: 'aus Fassung {number}',
       ghostUnnumbered: 'aus einer früheren Fassung',
-      // Der Verlauf hat Neues, das die lesende Person noch nicht geöffnet hat (der Punkt am Pin).
       unread: 'ungelesen',
     },
     pinOpenBy: 'offen bei {names}',
@@ -1868,7 +1600,6 @@ export const files: typeof en.files = {
     replyPlaceholder: 'Antworten …',
     send: 'Senden',
     sendFailed: 'Konnte nicht gesendet werden. Der Text ist noch da.',
-    // Eine Anmerkung oder Antwort, die ihre Verfasserin umformuliert: gespeichert, nicht gesendet.
     saveFailed: 'Konnte nicht gespeichert werden. Der Text ist noch da.',
     actionFailed: 'Das hat nicht geklappt. Bitte noch einmal.',
     conflict: 'Jemand hat diese Anmerkung gerade geändert. Sie sehen jetzt den aktuellen Stand.',
@@ -1897,11 +1628,7 @@ export const files: typeof en.files = {
     linkCopied: 'Link kopiert',
     linkCopyFailed: 'Der Link konnte nicht kopiert werden.',
     earlierRevision: 'Aus Fassung {number}. Auf diesem Blatt nicht eingezeichnet.',
-    // Offen: hohl und punktiert dort gezeichnet, wo sie auf ihrer Fassung stand.
     earlierRevisionGhost: 'Aus Fassung {number}. Der hohle Punkt zeigt, wo sie dort stand.',
-    // „Gilt weiter": eine offene Anmerkung geht mit der aktuellen Fassung weiter,
-    // an derselben Stelle, mit Nummer und Verlauf. Eine Anmerkung eines
-    // ersetzten Dokuments kommt als verknüpfte Anmerkung in das neue.
     carry: 'Auf aktuelle Fassung übernehmen',
     carryTo: 'In „{name}“ übernehmen',
     carryMark: 'Anmerkung {number} auf aktuelle Fassung übernehmen',
@@ -1919,10 +1646,6 @@ export const files: typeof en.files = {
     replacedBy: 'Ersetzt durch „{name}“',
     replaces: 'Ersetzt „{name}“',
     replacedNotice: 'Dieses Dokument ist durch „{name}“ ersetzt.',
-    // Piloti prüfen lassen, ob die offenen Anmerkungen einer früheren Fassung in
-    // der aktuellen behoben sind. Piloti antwortet im Verlauf jeder Anmerkung und
-    // ändert keinen Status: Erledigen bleibt bei der Person. Die Frage geht so,
-    // wie sie hier steht, an Piloti und steht im Gespräch.
     checkFixed: {
       action: '{productName} prüfen lassen, was behoben ist',
       running: '{productName} prüft, was behoben ist …',
@@ -1931,7 +1654,6 @@ export const files: typeof en.files = {
         'Prüfen, ob {count, plural, one {die offene Anmerkung {numbers}} other {die offenen Anmerkungen {numbers}}} aus einer früheren Fassung in {current} behoben {count, plural, one {ist} other {sind}}. Je Anmerkung lesen, die Stelle in diesem Dokument ansehen und im Verlauf der Anmerkung antworten, beginnend mit „In {current} behoben:“ oder „Weiterhin offen:“, und in einem Satz sagen, woran das zu sehen ist. Keine Anmerkung erledigen oder sonst ändern: Das entscheiden wir selbst.',
       seedFrom:
         'Prüfen, ob {count, plural, one {die offene Anmerkung {numbers}} other {die offenen Anmerkungen {numbers}}} auf „{from}“ in diesem Dokument, „{current}“, behoben {count, plural, one {ist} other {sind}}. Je Anmerkung auf „{from}“ lesen, die Stelle hier ansehen und im Verlauf der Anmerkung auf „{from}“ antworten, beginnend mit „In {current} behoben:“ oder „Weiterhin offen:“, und in einem Satz sagen, woran das zu sehen ist. Keine Anmerkung erledigen oder sonst ändern: Das entscheiden wir selbst.',
-      // Was Piloti zu einer Anmerkung des ersetzten Dokuments geantwortet hat, in ihrer Zeile.
       verdict: 'Antwort von {productName}',
       resolve: 'Erledigen',
       resolveMark: 'Anmerkung {number} auf „{name}“ erledigen',
@@ -1939,31 +1661,24 @@ export const files: typeof en.files = {
     },
     delete: 'Löschen',
     deleteConfirm: 'Anmerkung {number} löschen?',
-    // Die eigene Anmerkung, die nicht mehr gelöscht wird: warum, und was stattdessen geht.
     deleteRefused: {
       discussed: 'Andere haben im Verlauf geantwortet. Erledigen Sie die Anmerkung stattdessen.',
       carried: 'Sie wurde zwischen Dokumenten übernommen. Erledigen Sie sie stattdessen.',
     },
     resolveInstead: 'Stattdessen erledigen',
-    // Den eigenen Text einer Anmerkung ändern: wer neu erwähnt wird, erfährt es; wer schon erwähnt war, nicht noch einmal.
     edit: 'Bearbeiten',
     editLabel: 'Text von Anmerkung {number}',
     save: 'Speichern',
     editCancel: 'Abbrechen',
-    // Die eigene Antwort im Verlauf ändern oder löschen, solange die Anmerkung offen ist und Piloti sie nicht aufgenommen hat.
     replyMore: 'Weitere Aktionen zu Ihrer Antwort',
     replyEditLabel: 'Ihre Antwort',
-    // Eine Bearbeitung ist kein neues Ereignis: Piloti wird davon nicht geweckt, auch nicht durch ein neues @Piloti.
     replyEditNoWake: 'Eine bearbeitete Antwort erreicht {productName} nicht. Fragen Sie {productName} mit einer neuen Antwort.',
     replyDeleteConfirm: 'Ihre Antwort löschen?',
     replyDeleteHint: 'Wer darin erwähnt wurde, sieht den Hinweis darauf nicht mehr.',
     replyTakenUp: '{productName} hat diese Antwort schon aufgenommen. Sie bleibt, wie sie ist; schreiben Sie eine neue.',
-    // Neben der Zeit einer Antwort, die ihre Verfasserin geändert hat.
     edited: 'bearbeitet',
-    // Die Zuständige ist die lesende Person selbst, solange ihr Name noch nicht da ist.
     assigneeYou: 'Sie',
     clearDue: 'Frist entfernen',
-    // E und Entf entscheiden mit einer Taste: ein Toast sagt, was geschah, und nimmt es zurück, bevor es gesendet ist.
     decided: {
       accepted: 'Anmerkung {number} übernommen',
       resolved: 'Anmerkung {number} erledigt',
@@ -1975,7 +1690,6 @@ export const files: typeof en.files = {
       open: 'Offen',
       closed: 'Erledigt',
     },
-    // Dieselben Wörter wie der Chip in Dateien („4 offen · 2 für Sie“): die Anmerkungen, für die Sie zuständig sind.
     mine: 'Für Sie',
     proposalsGroup: '{count, plural, one {# Vorschlag von {productName}} other {# Vorschläge von {productName}}}',
     walkProposals: 'Durchgehen',
@@ -1997,8 +1711,6 @@ export const files: typeof en.files = {
       closedTitle: 'Noch nichts erledigt',
       closedBody: 'Was erledigt oder verworfen ist, sammelt sich hier.',
     },
-    // Die Anmerkungen als Protokoll, für den Jour fixe oder an Bauherrschaft und
-    // Fachplanung: das Menü in der Prüfansicht und die Wörter in der Datei selbst.
     export: {
       button: 'Protokoll exportieren',
       scopeLabel: 'Welche Anmerkungen',
@@ -2020,9 +1732,6 @@ export const files: typeof en.files = {
       },
       failed: 'Das Protokoll konnte nicht exportiert werden.',
       tooLongForPdf: 'Zu umfangreich für ein PDF. Bitte als Word oder Markdown exportieren.',
-      // Das Protokoll als Dokument im Projekt, im Ordner des Dokuments: über die
-      // Hochladetür der Dateien, wie ein Mensch es ablegt. Derselbe Name am
-      // selben Tag wird eine neue Fassung des ersten.
       fileInto: 'Im Projekt ablegen',
       filing: 'Wird abgelegt …',
       fileName: 'Protokoll – {name} – {date}',
@@ -2049,7 +1758,6 @@ export const files: typeof en.files = {
         revisions: {
           current: 'aktuelle Fassung',
           all: 'alle Fassungen',
-          // Auch Erledigtes, aber nur der aktuellen Fassung: was aus früheren noch offen ist, steht trotzdem drin.
           currentWithOpenFromEarlier: 'aktuelle Fassung, dazu Offenes aus früheren Fassungen',
         },
         withProposals: 'mit Vorschlägen von {productName}',
@@ -2082,7 +1790,6 @@ export const files: typeof en.files = {
       },
     },
   },
-  // Den Stammordner in Ordner einsortieren (das Menü „Erweitert“). Ein Lauf, eine Prüfung, ein Rückgängig.
   rootSort: {
     advanced: 'Erweitert',
     menuItem: 'Alle Dateien in Ordner einsortieren…',

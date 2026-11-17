@@ -1,11 +1,3 @@
-/**
- * Upload summaries and history rows for the `/dev/upload-summary` and
- * `/dev/upload-history` previews and the specs: one mixed batch that exercises
- * every branch of the summary, and a history with the reader's own and a
- * colleague's uploads. Typed as the wire types, so a fixture that stops
- * matching the endpoint fails to compile.
- */
-
 import type { UploadHistoryEntry, UploadSummary } from '@/adapters/api/upload-batches-client'
 
 export const FIXTURE_PROJECT_ID = 'proj-stadthaus'
@@ -13,13 +5,6 @@ export const FIXTURE_PROJECT_NAME = 'Stadthaus Lindengasse'
 export const FIXTURE_USER_ID = 'user_01JOWN'
 export const FIXTURE_COLLEAGUE_ID = 'user_01JCOLLEAGUE'
 
-/**
- * A folder upload into a project with one file still being read: every
- * outcome, every note, two folders and the root. „Gutachten" has its own
- * access list, so both files there are protected, and the Brandschutzkonzept
- * was there already: this upload is a new version of it. Open, so the summary
- * polls.
- */
 export const MIXED_SUMMARY: UploadSummary = {
   id: '0f0e4c1e-6d7a-4b8e-9a51-3c2d1e0f9a10',
   scope: 'project',
@@ -142,7 +127,6 @@ export const MIXED_SUMMARY: UploadSummary = {
   ],
 }
 
-/** The same batch once the last file has been read: complete, so the summary stops asking. */
 export const SETTLED_SUMMARY: UploadSummary = {
   ...MIXED_SUMMARY,
   completedAt: '2026-10-01T08:21:40.000Z',
@@ -161,7 +145,6 @@ export const SETTLED_SUMMARY: UploadSummary = {
   ),
 }
 
-/** The reader's own uploads and a colleague's, newest first. */
 export const HISTORY: UploadHistoryEntry[] = [
   {
     id: MIXED_SUMMARY.id,

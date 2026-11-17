@@ -1,9 +1,3 @@
-/**
- * The hand-off sends a post to Buffer once, whatever fails around the send.
- * Both sides are faked behind `fetch`: a CMS that holds social posts and answers
- * Payload's REST, and a Buffer that creates and lists posts. Each test breaks one
- * step and runs the hand-off again.
- */
 import assert from 'node:assert/strict';
 import { afterEach, test, vi } from 'vitest';
 import { handoff } from '../social/handoff.mjs';
@@ -18,12 +12,9 @@ type Reply = { status: number; body: unknown };
 type World = {
   docs: Doc[];
   bufferPosts: BufferPost[];
-  /** Every `createPost` Buffer received: the count is the number of posts on the public channel. */
   created: number;
   now: Date;
-  /** Answers a CMS PATCH instead of applying it, when it returns a reply. */
   failPatch?: (data: Record<string, unknown>) => Reply | undefined;
-  /** Runs when Buffer receives `createPost`; `landed` says whether Buffer keeps the post. */
   onCreate?: () => { landed: boolean; reply?: Reply };
   failList?: boolean;
 };
@@ -70,7 +61,6 @@ function fake(docs: Doc[]): World {
   return world;
 }
 
-/** One run at `now`; a run that dies is the case under test, so its rejection is swallowed. */
 async function run(world: World, now: Date): Promise<string[]> {
   world.now = now;
   const lines: string[] = [];
@@ -96,7 +86,6 @@ test('a post whose record fails after the send is not sent again: the next run f
 
 test('an answer that does not say whether Buffer took the post leaves it claimed, and the next run reads Buffer', async () => {
   const world = fake([post(1), post(2, { text: 'Zweiter.' })]);
-  // The first post lands although the gateway answers 502; the second never arrives.
   const outcomes = [{ landed: true, reply: { status: 502, body: {} } }, { landed: false, reply: { status: 502, body: {} } }];
   world.onCreate = () => outcomes[world.created - 1];
   await run(world, T0);
@@ -124,7 +113,6 @@ test('a claim another run made moments ago is left alone, and one Buffer cannot 
 test('a post Buffer refuses is failed with its reason, and a post another run claimed first is not sent', async () => {
   const world = fake([post(1), post(2)]);
   world.onCreate = () => ({ landed: false, reply: { status: 200, body: { data: { createPost: { message: 'Channel paused' } } } } });
-  // The second post's claim is refused, as the CMS refuses it when another run holds the row.
   let claims = 0;
   world.failPatch = (data) => (data.status === 'sending' && ++claims === 2 ? { status: 409, body: {} } : undefined);
   await run(world, T0);

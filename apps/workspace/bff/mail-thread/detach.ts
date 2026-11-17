@@ -1,35 +1,4 @@
 import 'server-only'
-/**
- * Taking a filed message out of its E-Mail-Verlauf (ADR-0137, D34): it was
- * filed into the wrong conversation, so it moves into another thread, or a new
- * one, and each thread gets a new Fassung.
- *
- * - **The one recorded exception to the superset invariant.** The thread it
- *   leaves gets Fassung N+1 WITHOUT its section (and a section that folded a
- *   quote of it, or answered it, shows the quote again or loses its „Antwort
- *   auf“ line, `./render.ts`). Earlier Fassungen keep it: a citation into them
- *   stays true, and the confirmation names them.
- * - **A move, never a delete** (migration 0196, DELETE is revoked). The entry's
- *   row changes thread: its Message-IDs move with it (`ON UPDATE CASCADE`), its
- *   original keeps its key, what came with it stays its (D36). Its heading is
- *   made again against the new thread's, and it counts as filed now, after
- *   every entry already there, so no earlier section of the new thread changes.
- * - **Follows of the thread it left end** (`detached`): a person followed the
- *   conversation as it was, and a follow is a standing decision about that one.
- * - **As the person, under both threads' render leases.** Each Fassung is
- *   uploaded through the ordinary upload path in their session (their folder
- *   rights in both places, the Namensprüfung on a new thread's name), quietly
- *   (D35's append row). The thread it leaves is written first: should the
- *   second upload be refused, the message is still in the first thread's rows,
- *   and the next Fassung there brings its section back, which the invariant
- *   allows; the other order could not be undone. Nothing in the database
- *   changes until both Fassungen are there.
- *
- * Who may: whoever may file mail into the project (the `inbound-mail`
- * entitlement, `project:documents:write`) and read both threads, with write in
- * both thread documents' folders. Refusals are 409s with `details.reason`
- * (`MAIL_THREAD_REFUSALS`).
- */
 
 import { randomUUID } from 'node:crypto'
 import { ConflictError, NotFoundError } from '@/lib/api/errors'
@@ -78,7 +47,6 @@ import {
   type WritableThread,
 } from './write-repository'
 
-/** A refusal of a write on a thread, with its code (`details.reason`). */
 export function threadRefusal(
   reason: MailThreadRefusal,
   message: string,
@@ -87,7 +55,6 @@ export function threadRefusal(
   return new ConflictError(message, { reason, ...details })
 }
 
-/** Where the message goes, resolved and checked. */
 type Destination =
   | { kind: 'existing'; target: WritableThread }
   | {
@@ -99,7 +66,6 @@ type Destination =
       screeningRelease: boolean
     }
 
-/** The last day of the dates a set of render entries spans, for the thread row. */
 const lastEntryAtOf = (entries: readonly MailThreadRenderEntry[]): Date | null =>
   entries.length === 0
     ? null
@@ -109,7 +75,6 @@ const lastEntryAtOf = (entries: readonly MailThreadRenderEntry[]): Date | null =
         )
       )
 
-/** A thread the reader may read and write the next Fassung of, or a refusal with `notFound`'s message. */
 async function writableThread(
   session: AuthorizedSession,
   projectId: string,
@@ -125,7 +90,6 @@ async function writableThread(
   return writable
 }
 
-/** Where `body` sends the message, checked as the person: visible, writable, a free and passing name. */
 async function destinationOf(
   session: AuthorizedSession,
   projectId: string,
@@ -188,10 +152,6 @@ async function destinationOf(
   }
 }
 
-/**
- * Move one filed message out of its thread (`mail-thread-entry-detach`), see the
- * module header. Answers what each thread became.
- */
 export async function detachMailThreadEntry(
   session: AuthorizedSession,
   projectId: string,
@@ -392,7 +352,6 @@ async function moveEntry(
       created: destination.kind === 'new',
       ended,
     })
-    // An ended follow is asked to renew no more.
     await settleFollowExpiring(session.organizationId, ended.map((follow) => follow.id))
     return {
       entryId: moving.id,
@@ -405,7 +364,6 @@ async function moveEntry(
   }
 }
 
-/** The uploaded Fassung, or the refusal the upload path gave as the thread's 409. */
 function refusedOr(result: ThreadVersionResult): { documentId: string; versionId: string | null } {
   if (result.ok) return result
   if (result.failure === 'name_taken')
@@ -418,7 +376,6 @@ function refusedOr(result: ThreadVersionResult): { documentId: string; versionId
   })
 }
 
-/** The trail and the live hint of a detach: the move, and each follow it ended. */
 function recordDetach(
   session: AuthorizedSession,
   detach: {

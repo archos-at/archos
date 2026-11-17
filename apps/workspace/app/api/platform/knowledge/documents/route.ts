@@ -1,21 +1,3 @@
-/**
- * Platform knowledge management — upload a PDF (or a ZIP of PDFs) into the
- * shared base corpus (ADR-0016). Platform owners only. The backend ingests in
- * the background, so a successful accept returns `pending` (HTTP 200); the UI
- * polls the corpus status for the terminal lifecycle. An optional `doc_class`
- * form field pre-sets the Dokumentart for a single-PDF upload.
- *
- * Other bytes under a file a platform record names are refused (409
- * `NAME_TAKEN`, ADR-0165): the bytes a reviewer read are the bytes a publish
- * indexes, so a named text changes only in a change request.
- *
- * GET lists the whole corpus, released or not, with each file's indexing
- * state: the platform's knowledge page. A query narrows it by name and country,
- * can leave out the summaries and pages (`corpus-query.ts`), for an agent whose
- * result is capped. An office lists what is released to
- * it through `GET /api/knowledge-base`. Platform staff with `platform:settings:view`.
- */
-
 import { NextResponse } from 'next/server'
 import { platformApiRoute } from '@/lib/api/platform-handler'
 import { PLATFORM_PERMISSIONS } from '@/lib/authz/permissions'
@@ -45,8 +27,6 @@ export const POST = platformApiRoute(
 
     await refuseReplacingNamedTexts(await uploadedPdfHashes(file))
     const result = await uploadKnowledgeBaseDocument(file, { docClass })
-    // Ingestion is backgrounded: 'pending' (accepted) and 'success' are OK;
-    // only a terminal 'failed'/'timeout' maps to a gateway error the UI surfaces.
     const ok = result.status === 'pending' || result.status === 'success'
     return NextResponse.json(result, { status: ok ? 200 : 502 })
   },

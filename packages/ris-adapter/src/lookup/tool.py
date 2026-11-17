@@ -60,7 +60,6 @@ those it did not read.
     application (str): Only for the non-statute corpora: "Vfgh", "Vwgh", "Justiz", "Bvwg", "Lvwg" for case \
 law, "BgblAuth"/"LgblAuth" for the authentic gazettes, "Begut"/"RegV" for drafts. Empty for statute law."""
 
-#: The ``as_of`` argument's line (ADR-0171), offered on every turn since the ``time-editions`` switch went (ADR-0175).
 AS_OF_ARG = """
     as_of (str): Optional YYYY-MM-DD: the version in force on that day (e.g. the filing day of a \
 submission), read only from RIS version documents of that day; a miss rather than today's text."""
@@ -72,7 +71,6 @@ Returns:
 paragraph text. A miss says what was searched, which Bundesland was assumed and where that came from, what \
 matched but was not read, and one concrete retry."""
 
-#: What every caller sees, ``as_of`` included.
 RIS_LOOKUP_DESCRIPTION = _ARGS + AS_OF_ARG + _RETURNS
 
 
@@ -108,8 +106,6 @@ class RisLookupToolConfig(FunctionBaseConfig, name="ris_lookup"):
 
 @register_function(config_type=RisLookupToolConfig)
 async def ris_lookup(tool_config: RisLookupToolConfig, builder: Builder):
-    # cache_max_entries=0: the shared read-through cache already holds the
-    # document, and a second copy per worker is a megabyte per law per replica.
     client = RisClient(base_url=tool_config.base_url, timeout=tool_config.timeout, cache_max_entries=0)
     planner, picker = await _resolve_llms(tool_config, builder)
 
@@ -121,10 +117,6 @@ async def ris_lookup(tool_config: RisLookupToolConfig, builder: Builder):
         application: str = "",
         as_of: str = "",
     ) -> str:
-        # `conclusion` is deliberately unread, exactly like the knowledge
-        # tools': it is the Herleitung's checkpoint slot, read off the CALL by
-        # tool_calls.CONCLUSION_ARG, and a tool that acted on it would turn a
-        # transparency field into a control channel.
         question = (question or "").strip()
         if not question:
             return "Error: ris_lookup needs a question — the legal question in German, not a search string."

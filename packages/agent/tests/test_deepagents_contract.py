@@ -32,9 +32,6 @@ from langchain_core.tools import tool
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
-#: Every deepagents name imported anywhere in `src/`, `apps/` or `tests/`,
-#: by module. A name missing after a bump is an ImportError at worker start in
-#: production; here it is a test that says which module moved it.
 _IMPORTED_NAMES = {
     "deepagents": ["create_deep_agent"],
     "deepagents.backends": ["CompositeBackend", "FilesystemBackend", "StateBackend"],
@@ -60,15 +57,12 @@ _IMPORTED_NAMES = {
         "FilesystemPermission",
         "FsToolName",
         "ReadFileSchema",
-        # private, used by tests that pin our permission rules' semantics
         "_apply_permissions_to_ls_results",
         "_check_fs_permission",
     ],
     "deepagents.middleware.patch_tool_calls": ["PatchToolCallsMiddleware"],
     "deepagents.middleware.skills": ["SkillsMiddleware", "_list_skills"],
     "deepagents.middleware.summarization": ["create_summarization_middleware"],
-    # named in `agent_host/jobs/phase_events.py` and `tokenomics/`, which read the
-    # `task` tool's `subagent_type` argument off tool callbacks
     "deepagents.middleware.subagents": ["TaskToolSchema", "_build_task_tool"],
 }
 
@@ -97,9 +91,6 @@ def test_the_installed_release_is_the_pinned_one() -> None:
     assert installed == pinned, f"venv has deepagents {installed}, pyproject pins {pinned}: run `uv sync --group dev`"
 
 
-# ---------------------------------------------------------------------------
-# FilesystemMiddleware: the allowlist both tool surfaces are built with
-# ---------------------------------------------------------------------------
 
 
 def test_the_filesystem_tool_names_are_the_ones_our_allowlists_use() -> None:
@@ -143,8 +134,6 @@ def test_the_allowlist_builds_only_the_listed_tools() -> None:
     assert allowed == {"ls", "read_file"}
 
 
-#: The private builders ``tools/documents/filesystem.DocumentFilesystem`` overrides (ADR-0133). They carry no
-#: stability promise, so a rename is caught here rather than by a model that silently gets the stock tool.
 _OVERRIDDEN_BUILDERS = ("_create_read_file_tool", "_create_ls_tool", "_create_glob_tool", "_create_grep_tool")
 
 
@@ -185,9 +174,6 @@ def test_the_composite_strips_the_route_prefix_the_draft_route_puts_back() -> No
     assert key == "/a.md"
 
 
-# ---------------------------------------------------------------------------
-# Backends: the protocol our two subclasses override
-# ---------------------------------------------------------------------------
 
 
 @pytest.mark.parametrize(
@@ -223,7 +209,6 @@ def test_state_backend_still_reads_through_the_one_hook_the_skills_backend_overr
 
     assert callable(getattr(StateBackend, "_read_files", None)), "StateBackend._read_files is gone"
     backend = SkillsBackend({"office": (Skill(name="x", description="d", body="b"),)})
-    # Outside a graph: a StateBackend that still read the graph's channel would raise here.
     assert [e["path"] for e in backend.ls("/office/").entries or []] == ["/office/x/"]
     assert backend.glob("**/SKILL.md").matches
     assert backend.download_files(["/office/x/SKILL.md"])[0].content
@@ -271,9 +256,6 @@ def test_stock_write_overwrites_so_the_draft_refusal_is_ours() -> None:
     assert backend.read("/a.md").file_data["content"] == "two"
 
 
-# ---------------------------------------------------------------------------
-# Tool contracts the model's descriptions and our callbacks rely on
-# ---------------------------------------------------------------------------
 
 
 async def test_read_file_output_has_the_header_our_draft_description_names() -> None:
@@ -302,9 +284,6 @@ def test_the_task_tool_takes_description_and_subagent_type_only() -> None:
         TaskToolSchema.model_validate({"description": "x", "subagent_type": "planner-agent", "prompt": "y"})
 
 
-# ---------------------------------------------------------------------------
-# What create_deep_agent no longer gives by default
-# ---------------------------------------------------------------------------
 
 
 def _fake_model() -> GenericFakeChatModel:

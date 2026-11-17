@@ -1,18 +1,4 @@
 import 'server-only'
-/**
- * SQL that writes an E-Mail-Verlauf (ADR-0137): the render lease, the reads a
- * new Fassung is rendered from, the one transaction that records a filed
- * message, a detach, and an entry's kept original. No authorization here: the
- * filing job, the follow job and the detach service decide who may, and
- * row-level security is the backstop. Every list is bounded.
- *
- * The rules the rows keep are the migration's (0196): an entry is a person's,
- * its heading unique in its thread, its original under exactly its own key;
- * what came with a message is frozen once written (the guard on
- * `mail_thread_entry_attachments`); DELETE is revoked, so a detach MOVES an
- * entry. A function that may run inside a caller's transaction takes its
- * executor (`transaction-shape.spec.ts`).
- */
 
 import { and, desc, eq, inArray, isNull, lt, or, sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
@@ -26,15 +12,6 @@ import type { DocumentReader } from '@/lib/documents/document-reader'
 import { documentVisibleTo } from '@/lib/documents/visibility'
 import { MAIL_THREAD_MAX_ENTRIES } from './mail-thread-vocabulary'
 
-// ---------------------------------------------------------------------------
-// The render lease
-// ---------------------------------------------------------------------------
-
-/**
- * Take the thread's render lease for `holder` until `until`: free, run out, or
- * already this holder's (a retry). False when another writer holds it. A
- * compare-and-set in one statement, so two writers never both hold it.
- */
 export async function acquireRenderLease(
   threadId: string,
   holder: string,
@@ -57,7 +34,6 @@ export async function acquireRenderLease(
   return taken.length === 1
 }
 
-/** Let the lease go, if it is still `holder`'s. */
 export async function releaseRenderLease(threadId: string, holder: string): Promise<void> {
   await getDb()
     .update(mailThreads)
@@ -65,11 +41,6 @@ export async function releaseRenderLease(threadId: string, holder: string): Prom
     .where(and(eq(mailThreads.id, threadId), eq(mailThreads.renderLeaseHolder, holder)))
 }
 
-// ---------------------------------------------------------------------------
-// What a Fassung is rendered from
-// ---------------------------------------------------------------------------
-
-/** A thread with the document its next Fassung is written to. */
 export interface WritableThread {
   thread: MailThreadRow
   document: {
@@ -80,11 +51,6 @@ export interface WritableThread {
   }
 }
 
-/**
- * The thread, if its document is live for `reader`: readable by them, not
- * archived, not in a folder in the bin. Null when the thread is gone, has no
- * document, or its document is out of reach (`thread_document_gone`).
- */
 export async function findWritableThread(
   projectId: string,
   threadId: string,
@@ -126,7 +92,6 @@ export async function findWritableThread(
   }
 }
 
-/** A thread row by id in the project, whatever its document; null when there is none. */
 export async function findThreadRow(
   projectId: string,
   threadId: string,
@@ -140,7 +105,6 @@ export async function findThreadRow(
   return row ?? null
 }
 
-/** Every entry of the thread (at most {@link MAIL_THREAD_MAX_ENTRIES}), in filing order. */
 export async function findThreadEntryRows(threadId: string): Promise<MailThreadEntryRow[]> {
   return getDb()
     .select()
@@ -150,7 +114,6 @@ export async function findThreadEntryRows(threadId: string): Promise<MailThreadE
     .limit(MAIL_THREAD_MAX_ENTRIES + 1)
 }
 
-/** What came with these entries, by entry, in the message's order. */
 export async function findEntryAttachmentRows(
   entryIds: readonly string[]
 ): Promise<Map<string, MailThreadEntryAttachmentRow[]>> {
@@ -166,7 +129,6 @@ export async function findEntryAttachmentRows(
   return byEntry
 }
 
-/** The entry a mail was filed as, in any thread of the project; null before it is. */
 export async function findEntryOfMail(
   projectId: string,
   mailId: string
@@ -181,11 +143,6 @@ export async function findEntryOfMail(
   return row ?? null
 }
 
-/**
- * Whether ANOTHER mail's entry in the project holds this original
- * (`author_message_id`, migration 0198). The mail's own entry does not count,
- * so a retry of its filing renders the same section again.
- */
 export async function isOriginalFiledByAnother(
   projectId: string,
   authorMessageId: string,
@@ -205,7 +162,6 @@ export async function isOriginalFiledByAnother(
   return row !== undefined
 }
 
-/** A document's newest Fassung, as `reader` may read the document. */
 export interface CurrentVersion {
   documentId: string
   versionId: string
@@ -214,7 +170,6 @@ export interface CurrentVersion {
   folderId: string | null
 }
 
-/** The newest Fassung of each of these documents `reader` may read. */
 export async function findCurrentVersions(
   documentIds: readonly string[],
   reader: DocumentReader
@@ -242,7 +197,6 @@ export async function findCurrentVersions(
   )
 }
 
-/** When each of these Fassungen was made, of documents `reader` may read: was it this mail's, or there before? */
 export async function findVersionTimes(
   versionIds: readonly string[],
   reader: DocumentReader
@@ -258,16 +212,9 @@ export async function findVersionTimes(
   return new Map(rows.map((row) => [row.id, new Date(row.createdAt)]))
 }
 
-// ---------------------------------------------------------------------------
-// Recording a filed message
-// ---------------------------------------------------------------------------
-
-/** Everything one filed message writes, in one transaction. */
 export interface AppendCommit {
-  /** A new thread to insert first (its first Fassung), or null to update the existing one. */
   newThread: NewMailThreadRow | null
   threadId: string
-  /** What the thread row says after this Fassung. */
   threadUpdate: Pick<
     MailThreadRow,
     'documentId' | 'entryCount' | 'renderedBytes' | 'lastEntryAt' | 'participantDomains'
@@ -275,20 +222,11 @@ export interface AppendCommit {
   entry: NewMailThreadEntryRow
   messageIds: { received: string | null; referenced: readonly string[] }
   attachments: readonly NewMailThreadEntryAttachmentRow[]
-  /** The message part this entry files, and the Fassung it went into. */
   part: { id: string; documentId: string; versionId: string | null }
-  /** Mark the mail's raw message as moving to the entry's original (retry-safe; sweep 13 finishes it). */
   mailId: string
   movesOriginal: boolean
 }
 
-/**
- * Record a filed message, all or nothing: the thread (new, or its counters and
- * document), the entry, its Message-IDs, what came with it, the message part
- * `filed` naming its entry and Fassung, and the mail's original as moving. A
- * second commit of the same entry (a retry after a lost answer) finds it and
- * changes nothing: the entry's id is the decision's.
- */
 export async function commitAppend(commit: AppendCommit): Promise<'committed' | 'already'> {
   return getDb().transaction(async (tx) => {
     const [existing] = await tx
@@ -303,9 +241,6 @@ export async function commitAppend(commit: AppendCommit): Promise<'committed' | 
       .set({ ...commit.threadUpdate, renderPendingAt: null })
       .where(eq(mailThreads.id, commit.threadId))
     await tx.insert(mailThreadEntries).values(commit.entry)
-    // An archive entry written into the thread since its last Fassung (D33,
-    // `./archive.ts`, under the same lease) is in this Fassung too, which
-    // clears `render_pending_at` above: it first appears here.
     if (commit.entry.firstVersionId) {
       await tx
         .update(mailThreadEntries)
@@ -327,9 +262,6 @@ export async function commitAppend(commit: AppendCommit): Promise<'committed' | 
         documentVersionId: commit.part.versionId,
         mailThreadEntryId: commit.entry.id,
         lastFailure: null,
-        // A suggestion names the text's bytes until it is filed
-        // (`inbound_mail_parts_suggestion_with_bytes`). Left set, the CHECK
-        // rolls back the whole commit and the text never files.
         suggestion: null,
         updatedAt: new Date(),
       })
@@ -346,11 +278,6 @@ export async function commitAppend(commit: AppendCommit): Promise<'committed' | 
   })
 }
 
-/**
- * The entry's Message-IDs in one statement: the one it received (keyed per
- * entry, RT-S1) and each it names, once. Shared with the archive import
- * (`./archive-repository.ts`), which records an entry the same way.
- */
 export async function insertMessageIds(
   tx: DbTransaction,
   entry: NewMailThreadEntryRow,
@@ -371,11 +298,6 @@ export async function insertMessageIds(
   if (rows.length > 0) await tx.insert(mailThreadMessageIds).values(rows).onConflictDoNothing()
 }
 
-/**
- * Link a row of what came with a message that still waited when the message was
- * filed (`pending`) to what became of it later (D36): filed as a document and
- * Fassung, or ended for good. The section's words stay as they were frozen.
- */
 export async function decidePendingAttachment(
   entryId: string,
   position: number,
@@ -408,11 +330,6 @@ export async function decidePendingAttachment(
     )
 }
 
-// ---------------------------------------------------------------------------
-// The original
-// ---------------------------------------------------------------------------
-
-/** An entry with its thread and the mail it came from, as the original's move and download need it. */
 export async function findEntry(
   projectId: string,
   entryId: string
@@ -425,7 +342,6 @@ export async function findEntry(
   return row ?? null
 }
 
-/** The entry keeps its original now: bucket, key, digest, size and the raw message's scan. Only once. */
 export async function recordEntryOriginal(
   entryId: string,
   original: Pick<
@@ -444,7 +360,6 @@ export async function recordEntryOriginal(
     .where(and(eq(mailThreadEntries.id, entryId), isNull(mailThreadEntries.originalStorageKey)))
 }
 
-/** The mail no longer names its raw message: it moved to the entry's original (and was erased by its key). */
 export async function forgetMovedRaw(mailId: string): Promise<void> {
   await getDb()
     .update(inboundMails)
@@ -452,41 +367,21 @@ export async function forgetMovedRaw(mailId: string): Promise<void> {
     .where(eq(inboundMails.id, mailId))
 }
 
-// ---------------------------------------------------------------------------
-// Detach
-// ---------------------------------------------------------------------------
-
-/** What a detach writes, in one transaction. */
 export interface DetachCommit {
   entryId: string
   fromThreadId: string
   toThreadId: string
-  /** A new thread to insert first, or null to append to an existing one. */
   newThread: NewMailThreadRow | null
-  /** The entry's heading in its new thread (the old one may be taken there). */
   heading: string
   fromThreadUpdate: Pick<MailThreadRow, 'entryCount' | 'renderedBytes' | 'lastEntryAt'>
   toThreadUpdate: Pick<
     MailThreadRow,
     'documentId' | 'entryCount' | 'renderedBytes' | 'lastEntryAt' | 'participantDomains'
   >
-  /** The Fassung of the new thread the message now first appears in. */
   firstVersionId: string | null
-  /**
-   * When the message joined its new thread: a section there may lean only on
-   * entries filed before it (`./render.ts`), so the moved entry counts as filed
-   * now, after every entry already there.
-   */
   movedAt: Date
 }
 
-/**
- * Move an entry to another thread (D34, D2: an UPDATE, DELETE is revoked):
- * its Message-IDs move with it (`ON UPDATE CASCADE`), its original keeps its
- * key, what came with it stays its. Every follow of the thread it left ends
- * (`detached`): a person followed the conversation as it was. Returns the
- * follows it ended.
- */
 export async function commitDetach(
   commit: DetachCommit
 ): Promise<Array<{ id: string; userId: string }>> {
@@ -507,7 +402,6 @@ export async function commitDetach(
           eq(mailThreadEntries.threadId, commit.fromThreadId)
         )
       )
-    // A reply in the old thread no longer answers a message that is not there.
     await tx
       .update(mailThreadEntries)
       .set({ inReplyToEntryId: null })

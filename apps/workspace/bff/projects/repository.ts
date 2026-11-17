@@ -1,20 +1,3 @@
-/**
- * Projects repository — the only module that talks to the `projects` (and
- * project-deletion-queue) tables for the projects domain.
- *
- * Repository rules (see docs/architecture/bff-service-architecture.md):
- *   - drizzle only; no HTTP, no auth, no WorkOS.
- *   - Every query that serves tenant data takes `organizationId` and scopes
- *     the WHERE clause with it — tenancy is enforced in SQL, not in JS.
- *   - Every such query also RUNS in that organization's tenant context, via
- *     `withTenant`. Having the `organizationId` and not stating it was the gap:
- *     callers with no ambient context (server components, whose `enterWith`
- *     publish does not survive this Next version's render) failed closed with
- *     `MissingTenantContextError`. The scope belongs with the argument that
- *     determines it, not with each caller's memory to establish one.
- *   - List queries are always bounded (`limit`).
- */
-
 import 'server-only'
 import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
@@ -30,18 +13,11 @@ import type { DbTransaction } from '@/lib/storage/repository'
 import { publishProjectChanged, publishProjectListChanged } from '@/lib/realtime/door-events'
 import type { ProjectOutcome, ProjectStatus } from './project-status'
 
-/**
- * Tell the agent door's listeners that a project changed (`realtime/door-events.ts`).
- * Every write of the projects domain ends here, after its commit, so one place
- * decides what a listener hears; `listed` when the project's row in the office's
- * list changed too (created, renamed, deleted, restored, moved to another status).
- */
 function announceProject(organizationId: string, projectId: string, { listed = false } = {}): void {
   publishProjectChanged(organizationId, projectId)
   if (listed) publishProjectListChanged(organizationId)
 }
 
-/** Hard cap for unpaginated org-wide lists. */
 export const PROJECT_LIST_LIMIT = 500
 
 export async function listProjectsInOrg(
@@ -51,8 +27,6 @@ export async function listProjectsInOrg(
     order = 'newest',
   }: { limit?: number; order?: 'newest' | 'oldest' } = {}
 ): Promise<Project[]> {
-  // The cap is the repository's guarantee, not the caller's suggestion — a
-  // default a caller can pass straight through is not a bound at all.
   const boundedLimit = Math.min(Math.max(1, Math.trunc(limit)), PROJECT_LIST_LIMIT)
   const db = getDb()
   return withTenant({ organizationId }, () =>
@@ -65,10 +39,6 @@ export async function listProjectsInOrg(
   )
 }
 
-/**
- * The names of these projects, by id: for a list whose rows say which project they are about.
- * A deleted project and an id of another organization have no entry.
- */
 export async function listProjectNamesInOrg(
   organizationId: string,
   projectIds: readonly string[]
@@ -86,15 +56,6 @@ export async function listProjectNamesInOrg(
   return new Map(rows.map((row) => [row.id, row.name]))
 }
 
-/**
- * Load a project by id scoped to an organization. Soft-deleted rows are
- * excluded unless `includeDeleted` (restore flows).
- *
- * The profile is salvaged like {@link findProjectProfile}'s, for the reason
- * given there: a never-saved project stores `{}`, and every caller of this
- * function reads `profile.facts`. A profile nothing can be salvaged from reads
- * as the empty one, so no caller has to guard it.
- */
 export async function findProjectInOrg(
   projectId: string,
   organizationId: string,
@@ -114,34 +75,6 @@ export async function findProjectInOrg(
   return { ...row, profile: salvageProjectProfile(row.profile).profile ?? emptyProjectProfile() }
 }
 
-/**
- * Tenancy probe for authorization: id + org + deletion state only.
- *
- * Deliberately NOT filtered by organization — the caller compares the owning
- * org against the session's and decides whether a mismatch is a 404. That is
- * what makes it a genuine cross-tenant read, so it runs under
- * {@link withPlatformAccess} with a stated reason rather than `withTenant`.
- *
- * The "unscoped by design" note this replaces was about the WHERE clause, and
- * it was read as covering the tenant context too. It does not: an unfiltered
- * predicate still has to run as somebody. `requireProjectAccess` calls this on
- * every project page, so once row-level security was enforced every one of
- * those pages threw `MissingTenantContextError` (issue #344) — the same class
- * the rest of this repository was fixed for, missed because the docstring made
- * "unscoped" sound deliberate in both senses.
- *
- * Scoping it to the session's organization instead would also stop the throw,
- * but it would make the caller's `organizationId !== session.organizationId`
- * comparison unreachable — a guard that looks live and can never fire is worse
- * than the bypass, which at least names itself.
- *
- * An id that is not a uuid is a project that cannot exist, so it answers null
- * without a query. The id comes straight from the URL: bound to the uuid
- * column, Postgres threw `invalid input syntax for type uuid` and the project
- * page rendered a 500 instead of a 404 (issues #813/#814). Route handlers map
- * that error to 404 in `apiRoute`; server components have no such net, and
- * this probe is the first query every project page makes.
- */
 export async function findProjectTenancy(
   projectId: string
 ): Promise<Pick<Project, 'organizationId' | 'deletedAt' | 'status'> | null> {
@@ -159,14 +92,8 @@ export async function findProjectTenancy(
   return row ?? null
 }
 
-/** What the vector store's copy of a project's facts is built from (`cross-project/project-facts-mirror.ts`). */
 export type ProjectFactsRow = Pick<Project, 'id' | 'organizationId' | 'collectionName' | 'profile' | 'status'>
 
-/**
- * A page of every organization's live projects, by id, for the facts sync
- * (the weekly vector reconcile): the one cross-tenant read it needs. Bounded
- * by `limit`; the caller pages with `afterId`.
- */
 export async function listProjectFactsPage(afterId: string | null, limit: number): Promise<ProjectFactsRow[]> {
   const db = getDb()
   const rows = await withPlatformAccess(
@@ -188,21 +115,11 @@ export async function listProjectFactsPage(afterId: string | null, limit: number
   return rows.map((row) => ({ ...row, profile: salvageProjectProfile(row.profile).profile ?? emptyProjectProfile() }))
 }
 
-/** A move of the lifecycle, as the repository writes it (ADR-0098). */
 export type ProjectStatusWrite =
   | { status: 'active' }
   | { status: 'paused'; at: Date }
   | { status: 'closed'; at: Date; closedBy: string; outcome: ProjectOutcome; endedOn: string }
 
-/**
- * Move a project from `from` to another state, with that state's own columns:
- * when it was paused, or when, by whom and how it closed and its Abschluss.
- * Leaving a state clears its columns, except the outcome and the Abschluss,
- * which a reopen keeps as the next close's suggestions. Only a row still in
- * `from` changes, so two people moving it at once write once, and a close
- * changes nothing when the Beginn moved past its Abschluss meanwhile; null when
- * nothing changed (either race, deleted, or not in the organization).
- */
 export async function setProjectStatusInOrg(
   projectId: string,
   organizationId: string,
@@ -234,8 +151,6 @@ export async function setProjectStatusInOrg(
           eq(projects.organizationId, organizationId),
           isNull(projects.deletedAt),
           eq(projects.status, from),
-          // A Steckbrief save that moved the Beginn past this Abschluss since
-          // the service checked it: a lost race (409), not a CHECK violation (500).
           change.status === 'closed'
             ? sql`(${projects.startedOn} IS NULL OR ${projects.startedOn} <= ${change.endedOn}::date)`
             : undefined
@@ -252,7 +167,6 @@ export async function insertProject(values: {
   name: string
   createdBy: string
   collectionName: string
-  /** The Beginn, as stored: the first of its month. A past project created closed names it up front. */
   startedOn?: string | null
 }): Promise<Project> {
   const db = getDb()
@@ -263,10 +177,6 @@ export async function insertProject(values: {
   return row
 }
 
-/**
- * One transaction in the organization's tenant context, for a write that spans
- * tables another repository owns (the intake row of a project being created).
- */
 export async function inProjectTransaction<T>(
   organizationId: string,
   work: (tx: DbTransaction) => Promise<T>
@@ -275,23 +185,14 @@ export async function inProjectTransaction<T>(
   return withTenant({ organizationId }, () => db.transaction(work))
 }
 
-/** A project's address as the same-address lookup compares it. */
 export interface ProjectAddressRow {
   id: string
   name: string
   status: ProjectStatus
-  /** `site_address` on the profile, as stored. */
   address: string | null
-  /** The geocoder's hit kept with an intake, as stored. */
   location: GeocodeResult | null
 }
 
-/**
- * Every project of the organization that has an address on its profile or an
- * intake location: what „An dieser Adresse gibt es schon ein Projekt" matches
- * against. Bounded by {@link PROJECT_LIST_LIMIT}, the same cap as the list.
- * The caller filters to what the person may open.
- */
 export async function listProjectAddressesInOrg(organizationId: string): Promise<ProjectAddressRow[]> {
   const db = getDb()
   const rows = await withTenant({ organizationId }, () =>
@@ -300,7 +201,6 @@ export async function listProjectAddressesInOrg(organizationId: string): Promise
         id: projects.id,
         name: projects.name,
         status: projects.status,
-        // `standort_adresse`: an older pod's key (migration 0159); the assumption: a typed, unconfirmed address.
         address: sql<string | null>`COALESCE(${projects.profile} #>> '{facts,site_address,value}', ${projects.profile} #>> '{facts,standort_adresse,value}', ${projects.profile} #>> '{assumptions,site_address,value}')`,
         location: projectIntakes.location,
       })
@@ -339,14 +239,6 @@ export async function setProjectWorkosResourceId(
   )
 }
 
-/**
- * Delete a project row outright, scoped to its organization.
- *
- * NOT the product's delete — that is {@link softDeleteProjectAndEnqueue}, which
- * keeps the row (and its FGA grants) through the grace period. This is the
- * compensating action for a project whose creation failed half-way, before
- * anybody could have used it.
- */
 export async function deleteProjectRow(projectId: string, organizationId: string): Promise<void> {
   const db = getDb()
   await withTenant({ organizationId }, () =>
@@ -379,10 +271,6 @@ export async function renameProjectInOrg(
   return row ?? null
 }
 
-/**
- * Soft-delete a project and enqueue it for purge, atomically. The purger
- * hard-deletes every store after the grace period; nothing is destroyed here.
- */
 export async function softDeleteProjectAndEnqueue(
   project: Pick<Project, 'id' | 'name' | 'organizationId' | 'collectionName'>,
   requestedBy: string,
@@ -410,7 +298,6 @@ export async function softDeleteProjectAndEnqueue(
   announceProject(project.organizationId, project.id, { listed: true })
 }
 
-/** The profile columns of a project row (the shape the profile API returns). */
 export type ProjectProfileState = Pick<
   Project,
   'profile' | 'profileVersion' | 'profilePromptView' | 'profileDisplay' | 'profileUpdatedAt'
@@ -445,22 +332,11 @@ export async function findProjectProfileInOrg(
   return row ?? null
 }
 
-/**
- * Optimistic-concurrency profile write: applies `values` only while the
- * stored profile_version still equals `expectedVersion`. Returns null when a
- * concurrent writer bumped the version first (the service maps this to 409).
- */
 export async function updateProjectProfileIfVersion(
   projectId: string,
   organizationId: string,
   expectedVersion: number,
   values: ProjectProfileState,
-  /**
-   * More of the same write, committed with the profile or not at all. The
-   * updated row stays locked until it returns, so a concurrent writer that
-   * locks the project (`lockProjectProfile`) sees this profile, never the one
-   * before it.
-   */
   inTransaction?: (tx: DbTransaction, saved: ProjectProfileState) => Promise<void>
 ): Promise<ProjectProfileState | null> {
   const db = getDb()
@@ -487,13 +363,6 @@ export async function updateProjectProfileIfVersion(
   return saved
 }
 
-/**
- * A project's profile, read under a row lock that holds until `tx` ends.
- *
- * For a write that depends on the profile (binding a document to one of its
- * buildings): a profile save in flight finishes first, and the read sees what
- * it wrote. Null when the project is gone.
- */
 export async function lockProjectProfile(
   tx: DbTransaction,
   projectId: string
@@ -507,13 +376,6 @@ export async function lockProjectProfile(
   return row ? salvageProjectProfile(row.profile).profile : null
 }
 
-/**
- * Persist a generated summary (and the locale it was generated in) onto
- * profile_display.summary / .summaryLocale. No-op when the project has no
- * display yet — a summary alone cannot create a display. `summaryLocale` is
- * stored inside the same jsonb blob (no column/migration) so the Project Brief
- * can detect and repair a stale-language summary after a UI locale switch.
- */
 export async function setProjectProfileSummaryInOrg(
   projectId: string,
   organizationId: string,
@@ -541,7 +403,6 @@ export async function setProjectProfileSummaryInOrg(
   announceProject(organizationId, projectId)
 }
 
-/** The WorkOS FGA resource id backing a project, or null when unregistered. */
 export async function findProjectWorkosResourceId(
   projectId: string,
   organizationId: string
@@ -563,13 +424,6 @@ export async function findProjectWorkosResourceId(
   return row?.workosResourceId ?? null
 }
 
-/**
- * Restore a soft-deleted project while its deletion-queue row is still
- * 'pending' AND unclaimed. `markFailed` returns a partially-purged row to
- * 'pending' (with claimed_at set); restoring it would resurrect a project
- * whose Chroma/SeaweedFS data was already destroyed — a hollow, corrupt restore.
- * Returns false when there is nothing safe to restore.
- */
 export async function restoreProjectIfPending(
   projectId: string,
   organizationId: string
@@ -604,15 +458,6 @@ export async function restoreProjectIfPending(
   return restored
 }
 
-/**
- * The stored prompt view for a project, for the agent's request context.
- *
- * `organizationId` is nullable because an anonymous single-tenant deployment
- * (REQUIRE_AUTH=false) has no session to derive one from — that is what
- * `withOptionalTenant` is for. When it IS present the predicate carries it too,
- * so a wrong-organization id returns nothing whether or not row-level security
- * is in the path.
- */
 export async function findProjectPromptView(
   projectId: string,
   organizationId: string | null | undefined
@@ -633,17 +478,6 @@ export async function findProjectPromptView(
   return row?.profilePromptView ?? null
 }
 
-/**
- * The stored structured profile for a project, normalized. Same nullable-org
- * rules as above.
- *
- * The column is `jsonb NOT NULL DEFAULT '{}'`, so a project whose intake was
- * never saved stores `{}`, not null. Handing that out as a `ProjectProfile`
- * let `answersFromProfile` call `Object.keys(profile.facts)` on undefined:
- * binding a Bestandsplan to a building answered 500 for every first intake.
- * The salvage parse fills the empty parts and drops malformed entries, so no
- * reader has to remember to.
- */
 export async function findProjectProfile(
   projectId: string,
   organizationId: string | null | undefined
@@ -664,7 +498,6 @@ export async function findProjectProfile(
   return row ? salvageProjectProfile(row.profile).profile : null
 }
 
-/** A project's Qdrant/Chroma collection name, scoped to its organization. */
 export async function findProjectCollectionName(
   projectId: string,
   organizationId: string
@@ -680,7 +513,6 @@ export async function findProjectCollectionName(
   return row?.collectionName ?? null
 }
 
-/** The project owning `collectionName` inside `organizationId`, or null. */
 export async function findProjectIdByCollectionName(
   collectionName: string,
   organizationId: string

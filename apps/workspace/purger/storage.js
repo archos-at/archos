@@ -33,10 +33,6 @@ function createS3Client() {
       secretAccessKey: process.env.SEAWEED_SECRET_KEY || '',
     },
     forcePathStyle: true,
-    // SeaweedFS 3.80 rejects the flexible-checksum headers AWS SDK v3.1077+
-    // injects by default (matches lib/s3.ts): request checksums break the
-    // DeleteObjects payload signing, response validation adds
-    // x-amz-checksum-mode to GETs.
     requestChecksumCalculation: 'WHEN_REQUIRED',
     responseChecksumValidation: 'WHEN_REQUIRED',
   })
@@ -107,16 +103,6 @@ async function deleteStoragePrefix(s3, bucket, prefix) {
     }
     const keys = (page.Contents || []).map((/** @type {{ Key?: string }} */ obj) => ({ Key: obj.Key }))
     if (keys.length > 0) {
-      // Quiet:true returns ONLY per-key errors. A 200 response can still carry
-      // partial failures — if we ignore them the purge "succeeds", the `app`
-      // pointer is deleted, and the surviving objects become unrecoverable
-      // orphans (a GDPR-erasure failure). Throw so the queue row retries.
-      // Inside the same guard as the List. A bucket dropped between the two
-      // calls throws here instead, and "the bucket is gone" means the same
-      // thing at either point: there is nothing left to erase. Unreachable
-      // today — nothing in the pipeline drops a bucket — but the guard costs a
-      // line and its absence would be an erasure that failed for the one
-      // reason that is not a failure.
       let res
       try {
         res = await s3.send(

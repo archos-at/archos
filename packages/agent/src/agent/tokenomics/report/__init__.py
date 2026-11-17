@@ -1,25 +1,3 @@
-"""
-Generate a self-contained tokenomics HTML report from an agent-runtime profiler trace.
-
-Single-run
-----------
-python -m agent.tokenomics.report \\
-    --trace  results/all_requests_profiler_traces.json \\
-    --config configs/config_tokenomics_pricing.yml \\
-    [--output results/tokenomics_report.html]
-
-Comparison (two or more runs)
-------------------------------
-python -m agent.tokenomics.report \\
-    --trace results/run_a/all_requests_profiler_traces.json \\
-    --trace results/run_b/all_requests_profiler_traces.json \\
-    --config configs/config_tokenomics_pricing.yml
-
-Passing ``--trace`` more than once activates comparison mode: every tab
-(Overview, Cost, Latency, Tokens, Efficiency, Per-Query) shows A-vs-B
-comparison charts instead of single-run visualisations.
-"""
-
 from __future__ import annotations
 
 import sys
@@ -41,20 +19,6 @@ def generate_report(
     config_path: str,
     output_path: str | None = None,
 ) -> str:
-    """Generate a tokenomics HTML report.
-
-    Parameters
-    ----------
-    trace_path:
-        Path to a single ``all_requests_profiler_traces.json``, or a list of
-        paths for comparison mode.  When more than one path is provided every
-        tab (Overview, Cost, Latency, Tokens, Efficiency, Per-Query) shows
-        A-vs-B comparison charts instead of single-run visualisations.
-    config_path:
-        Path to the eval config YAML (provides pricing).
-    output_path:
-        Destination HTML file.  Defaults to ``<first_trace_dir>/tokenomics_report.html``.
-    """
     if isinstance(trace_path, str):
         trace_paths: list[str] = [trace_path]
     else:
@@ -77,8 +41,6 @@ def generate_report(
             print(f"Loaded {len(predicted_osl_map)} NOVA-Predicted-OSL values from {Path(tp).name}.")
 
         rd = _build_report_data(profiles, pricing, config_path, predicted_osl_map)
-        # In multi-run mode use the trace's parent directory name as the run label
-        # so the comparison tab can distinguish "run_a" from "run_b".
         if len(trace_paths) > 1:
             rd["label"] = Path(tp).parent.name or Path(tp).stem
         run_datas.append(rd)

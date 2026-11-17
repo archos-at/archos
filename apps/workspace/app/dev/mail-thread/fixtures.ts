@@ -1,15 +1,3 @@
-/**
- * Fixtures of the „E-Mails“ tab and of a Fassung's provenance, typed from the
- * wire (`mail-thread-wire.ts`, `lifecycle-types.ts`), for `/dev/mail-thread`
- * and the component specs: one per state DECISION §9 names for the tab, each
- * built from the same few builders so a change to the wire breaks them at
- * compile time, not on screen.
- *
- * `fixtureMailThreadClient` serves them behind the interface the tab takes
- * (`MailThreadClient`). Following, renewing, ending a follow and detaching
- * „work“ in a preview: the next read answers the changed thread.
- */
-
 import type { ProjectPerson } from '@/adapters/api/folder-access-client'
 import type { MailThreadClient } from '@/features/documents/components/mail-thread/client'
 import type { FetchedDownload } from '@/lib/browser-download'
@@ -29,15 +17,12 @@ export const PROJECT_ID = 'p-dev-1'
 export const VIEWER_ID = 'user_01JVIEWER00000000000000000'
 export const THREAD_DOCUMENT_ID = fixtureId('doc:stellplatz')
 export const THREAD_FOLDER_ID = fixtureId('folder:korrespondenz')
-/** Now, for every fixture: the times below are hours and days around it. */
 export const FIXTURE_NOW = Date.parse('2026-10-22T09:30:00.000Z')
 
 const DAY = 86_400_000
 const at = (offsetMs: number): string => new Date(FIXTURE_NOW + offsetMs).toISOString()
 const daysAgo = (days: number): string => at(-days * DAY)
 const daysAhead = (days: number): string => at(days * DAY)
-
-// ------------------------------------------------------------ builders
 
 export function attachment(overrides: Partial<MailThreadAttachmentView> & { position: number }): MailThreadAttachmentView {
   return { filename: 'Unterlage.pdf', disposition: 'filed', documentId: fixtureId(`doc:att:${overrides.position}`), documentVersionId: fixtureId(`ver:att:${overrides.position}`), visible: true, ...overrides }
@@ -96,7 +81,6 @@ export function thread(overrides: Partial<MailThreadView> = {}): MailThreadView 
   }
 }
 
-/** The thread document's Fassungen 1..n, as `document-version-list` answers them. */
 export function versions(count: number): DocumentVersionView[] {
   return Array.from({ length: count }, (_, index) => {
     const number = index + 1
@@ -162,22 +146,15 @@ function threeMessages(): MailThreadEntryView[] {
   ]
 }
 
-// ------------------------------------------------------------ the variants
-
 export interface MailThreadFixture {
   view: MailThreadView
   versions: DocumentVersionView[]
-  /** Other threads of the project, for the detach dialog. */
   others: MailThreadSummaryView[]
   people: ProjectPerson[]
-  /** What a download of an original answers. */
   original: FetchedDownload
-  /** A detach answers this refusal instead of moving the mail. */
   detachRefusal?: string
-  /** The entry the preview opens the detach dialog for, or focuses. */
   detachEntryId?: string
   focusEntryId?: string
-  /** The read never answers (`loading`) or fails (`error`). */
   load?: 'loading' | 'error'
 }
 
@@ -237,7 +214,6 @@ function worstCase(): MailThreadView {
 
 export const MAIL_THREAD_VARIANTS: Record<string, MailThreadFixture> = {
   'three-messages': fixture({ view: thread({ waitingCount: 2 }) }),
-  // The structural engineer answers three times in a row: „Domain bestätigt: statik-weber.at“ is said once, on the newest.
   'same-sender': fixture({
     view: thread({
       entries: [
@@ -288,8 +264,6 @@ export const MAIL_THREAD_VARIANTS: Record<string, MailThreadFixture> = {
       ],
     }),
   }),
-  // Miriam's own mail, which her verified domain filed directly (`filedVia: 'sender'`), and a Bescheid she forwarded:
-  // headed by its author, the MA 37, never confirmed, with „Weitergeleitet von“ under it.
   'direct-and-forwarded': fixture({
     view: thread({
       entries: [
@@ -326,7 +300,6 @@ export const MAIL_THREAD_VARIANTS: Record<string, MailThreadFixture> = {
   'original-infected': fixture({
     view: thread({ entries: threeMessages().map((item, index) => (index === 2 ? { ...item, original: { scanStatus: 'infected' } } : item)) }),
   }),
-  // The entry said clean when it was read; the scan on the download says otherwise (409 `original_not_clean`).
   'original-refused': fixture({ view: thread(), original: { saved: false, status: 409, reason: 'original_not_clean' } }),
   'detach-confirm': fixture({ view: thread({ followed: true, follows: [follow({ userId: VIEWER_ID })] }), detachEntryId: fixtureId('entry:statik') }),
   'detach-refused': fixture({ view: thread(), detachEntryId: fixtureId('entry:statik'), detachRefusal: 'name_taken' }),
@@ -335,8 +308,6 @@ export const MAIL_THREAD_VARIANTS: Record<string, MailThreadFixture> = {
   error: fixture({ view: thread(), load: 'error' }),
   'worst-case': fixture({ view: worstCase(), versions: versions(24) }),
 }
-
-// ------------------------------------------------------------ provenance
 
 export function origin(overrides: Partial<MailOriginView> = {}): MailOriginView {
   return {
@@ -358,7 +329,6 @@ export const PROVENANCE_ORIGINS: Record<string, MailOriginView[]> = {
   unverified: [origin({ fromName: 'Mag. Huber', signerDomain: null, senderTrust: 'external_unverified' })],
   archive: [origin({ fromName: 'Statik Weber Büro', signerDomain: null, senderTrust: 'not_checked' })],
   anonymous: [origin({ fromName: null })],
-  // A Bescheid Miriam forwarded: named as the Verlauf heads it, its author first and never confirmed (S6).
   forwarded: [origin({ fromName: 'MA 37 – Baupolizei', forwardedByName: 'Miriam Huber', forwarded: true, signerDomain: 'huber-architektur.at', senderTrust: 'member_verified' })],
   several: [origin(), origin({ entryId: fixtureId('entry:authority'), fromName: 'Mag. Huber', signerDomain: 'ma37.wien.gv.at' })],
   worst: [
@@ -371,9 +341,6 @@ export const PROVENANCE_ORIGINS: Record<string, MailOriginView[]> = {
   ],
 }
 
-// ------------------------------------------------------------ the client
-
-/** The tab's client over one fixture: reads answer it, writes change it, in memory. */
 export function fixtureMailThreadClient(fixture: MailThreadFixture): MailThreadClient {
   let view = fixture.view
   const pending = new Promise<never>(() => {})

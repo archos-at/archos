@@ -1,5 +1,3 @@
-"""Thresholds: the height of a step at a doorway, and the finishes that lift a floor above it."""
-
 from __future__ import annotations
 
 from typing import Any
@@ -41,53 +39,9 @@ def _no_footprint(model: SpatialModel, subject: Any, method: str) -> Answer[Any]
     )
 
 
-# ════════════════════════════════════════════════════════════════════════════
-# 2 — threshold height
-# ════════════════════════════════════════════════════════════════════════════
 
 
 def threshold_height(model: SpatialModel, door_global_id: str) -> Answer[dict[str, Any]]:
-    """The step at a door: the height difference between the floors on either side.
-
-    ## The number is only as honest as what it was measured on
-
-    Barrier-free design allows almost no step, so this is a measurement in
-    millimetres — and that is exactly why it must say what it measured. Two
-    caveats travel with every answer and neither is boilerplate:
-
-    1. **The precision the export can support.** A level difference is a
-       difference of two independently tessellated faces, so it carries
-       ``DIMENSION_TOLERANCE`` = **10 mm**. The step a barrier-free doorway is
-       allowed is of the same order. A measured 0 mm and a measured 15 mm are
-       therefore *not* reliably distinguishable by this route, and the answer
-       says so instead of printing three decimals and letting the reader assume
-       them.
-    2. **Whether there is a finished floor in the file at all.** If no
-       ``IfcCovering`` of ``PredefinedType`` ``FLOORING`` exists, the levels are
-       those of the room bodies and the structural slabs — the Rohbau. A 0 mm
-       threshold on raw slabs says nothing whatever about the finished floor,
-       because the screed, the tiles and the door seal are the things that make
-       the step, and none of them is in the file. Reporting that 0 mm without
-       the caveat would be the most misleading number this module could produce,
-       and on this repository's own fixture it is exactly the number that comes
-       out: both rooms' bodies start at z = 0.000, the ground slab's top is
-       z = 0.000, and the file contains three ``IfcCovering`` — all of them
-       ceilings.
-
-    ## The declared route, which is NOT triangulated against this
-
-    ``IfcDoorLiningProperties`` carries ``ThresholdThickness``,
-    ``ThresholdDepth`` and ``ThresholdOffset``, and where they are set they are
-    reported under ``declared`` — beside the measurement, never merged with it.
-    They describe the threshold BOARD, not the difference in floor level, and
-    triangulating one against the other would produce the expensive kind of
-    wrong: a number right to the millimetre that answers a different question.
-    The sample house is instructive here too — it carries an
-    ``IfcDoorLiningProperties`` for each of its three doors and every attribute
-    of all three is unset.
-
-    Never a verdict: the permitted step is in the Bestimmung, not here.
-    """
     method = f"thresholdHeight({door_global_id})"
     subject = _require(model, door_global_id, method)
     if subject.is_a() not in DOORWAY:
@@ -118,10 +72,6 @@ def threshold_height(model: SpatialModel, door_global_id: str) -> Answer[dict[st
     finishes = _floor_finishes(model)
     declared_lining = _lining_thresholds(model, subject)
 
-    # The room body and the slab under it are two independent statements about
-    # the same floor. Where they disagree the export is saying two things, and
-    # the difference is usually the unmodelled build-up — which is the whole
-    # subject of this operator, so it is reported and not averaged away.
     drift = [
         s
         for s in known
@@ -189,7 +139,6 @@ def threshold_height(model: SpatialModel, door_global_id: str) -> Answer[dict[st
 
 
 def _one_sided(model: SpatialModel, subject: Any, method: str, sides: list[dict[str, Any]]) -> Answer[Any]:
-    """One side of the door has no measurable floor at all — undecidable, with why."""
     name = model.label(subject) or subject.GlobalId
     return undecidable(
         from_=[subject.GlobalId],
@@ -210,7 +159,6 @@ def _one_sided(model: SpatialModel, subject: Any, method: str, sides: list[dict[
 
 
 def _floor_finishes(model: SpatialModel) -> list[dict[str, Any]]:
-    """Every ``IfcCovering`` the file marks as flooring — the finished-floor evidence."""
     try:
         coverings = model.file.by_type("IfcCovering")
     except RuntimeError:
@@ -224,15 +172,6 @@ def _floor_finishes(model: SpatialModel) -> list[dict[str, Any]]:
 
 
 def _lining_thresholds(model: SpatialModel, door: Any) -> list[dict[str, Any]]:
-    """``IfcDoorLiningProperties`` threshold attributes, where the file sets any.
-
-    Reached through the door's type — ``IsTypedBy`` in IFC4, ``IsDefinedBy`` in
-    IFC2X3 where an ``IfcDoorStyle`` carries the same property sets — because
-    lining properties hang off the TYPE and not the occurrence.
-    ``model.declared_property`` cannot find them: they are entity attributes,
-    not pset values, and a pset search reports „nicht deklariert" about a file
-    that declares them.
-    """
     found: list[dict[str, Any]] = []
     types = []
     for rel in getattr(door, "IsTypedBy", []) or []:

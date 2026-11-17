@@ -1,14 +1,5 @@
 'use client'
 
-/**
- * Dev preview for Grundlagen des Büros (ADR-0163): the real workspace over a
- * fetch shim. The shim narrows and counts with the service's own pure listing
- * (`listing.ts`), so the filters, counts and folder rail behave as they do on
- * the server. `?variant=empty` shows the first visit, `?variant=readonly` a
- * member who may read but not change. Not linked from anywhere; 404s outside
- * development.
- */
-
 import { useSearchParams } from 'next/navigation'
 import { Suspense, type JSX } from 'react'
 import { I18nProvider } from '@/i18n'
@@ -66,10 +57,7 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
       }
       if (url.pathname === '/api/base-knowledge' && (init?.method ?? 'GET') === 'GET')
         return Response.json(list(url, variant))
-      // A file added (uploaded or taken from the shelf) comes back as a proposal, as the server makes one from its
-      // name; here the fixture's proposals answer in turn, so adding several walks the forms one after another.
       if (url.pathname === '/api/base-knowledge/upload' || (url.pathname === '/api/base-knowledge' && init?.method === 'POST')) {
-        // Each added file is its own proposal (as on the server), kept for the reads that follow, however many are added.
         const proposals = BASE_KNOWLEDGE_ENTRIES.filter((candidate) => candidate.status === 'proposed')
         const proposal = { ...proposals[added.length % proposals.length], id: `added-${added.length + 1}` }
         added.push(proposal)
@@ -77,10 +65,8 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
       }
       const entryId = /^\/api\/base-knowledge\/([^/]+)/.exec(url.pathname)?.[1]
       const entry = entryId ? [...BASE_KNOWLEDGE_ENTRIES, ...added].find((candidate) => candidate.id === decodeURIComponent(entryId)) : undefined
-      // An entry's own path answers with the entry; a write leaves the fixture as it is.
       if (entry) return Response.json(url.pathname.endsWith('/confirm') ? { ...entry, status: 'confirmed' } : entry)
       if (url.pathname.startsWith('/api/base-knowledge')) return Response.json({ results: [] })
-      // A standard opens as its file: the viewer reads the document's status and its bytes like any other.
       const doc = /^\/api\/documents\/([^/]+)\/(status|file|preview|details|versions|visual-details|annotations)$/.exec(url.pathname)
       const held = doc ? BASE_KNOWLEDGE_ENTRIES.find((candidate) => candidate.documentId === decodeURIComponent(doc[1])) : undefined
       if (doc && held) {

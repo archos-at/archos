@@ -1,16 +1,3 @@
-/**
- * Organization roles client (ADR-0087): the office's roles and its own custom
- * roles, through their first-party BFF routes.
- *
- *   - list   → `GET    /api/organization/roles`
- *   - create → `POST   /api/organization/roles`
- *   - update → `PATCH  /api/organization/roles/[slug]`
- *   - delete → `DELETE /api/organization/roles/[slug]`
- *
- * The server type lives in `lib/authz/custom-roles.ts`, which is server-only,
- * so the wire shape is declared here.
- */
-
 import { z } from 'zod'
 import { ApiRequestError } from './api-error'
 
@@ -54,14 +41,12 @@ async function requestError(response: Response, fallback: string): Promise<ApiRe
 
 const roleUrl = (slug: string): string => `/api/organization/roles/${encodeURIComponent(slug)}`
 
-/** Every role in the organization; permissions and `assignable` only for a role manager. */
 export async function listOrganizationRoles(signal?: AbortSignal): Promise<OrganizationRoles> {
   const response = await fetch('/api/organization/roles', { signal })
   if (!response.ok) throw await requestError(response, 'Failed to load the roles')
   return OrganizationRolesSchema.parse(await response.json())
 }
 
-/** Create a custom role. 409 = a role of that name exists; 403 = a permission the editor lacks. */
 export async function createCustomRole(fields: CustomRoleFields): Promise<OrganizationRole> {
   const response = await fetch('/api/organization/roles', {
     method: 'POST',
@@ -72,7 +57,6 @@ export async function createCustomRole(fields: CustomRoleFields): Promise<Organi
   return RoleResponseSchema.parse(await response.json()).role
 }
 
-/** Change a custom role's name, description or permissions. The slug never changes. */
 export async function updateCustomRole(slug: string, fields: Partial<CustomRoleFields>): Promise<OrganizationRole> {
   const response = await fetch(roleUrl(slug), {
     method: 'PATCH',
@@ -83,7 +67,6 @@ export async function updateCustomRole(slug: string, fields: Partial<CustomRoleF
   return RoleResponseSchema.parse(await response.json()).role
 }
 
-/** Delete a custom role. 409 = somebody still holds it. */
 export async function deleteCustomRole(slug: string): Promise<void> {
   const response = await fetch(roleUrl(slug), { method: 'DELETE' })
   if (!response.ok) throw await requestError(response, 'Failed to delete the role')

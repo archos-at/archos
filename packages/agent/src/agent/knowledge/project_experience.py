@@ -51,16 +51,13 @@ from agent.knowledge.schema import AvailableDocument
 
 logger = logging.getLogger(__name__)
 
-#: The project's text the pens read in total (about 6 000 tokens), split across the chosen files.
 MAX_TEXT_CHARS = 24_000
-#: The inventory the chooser sees; a project with more documents than this lists the first ones.
 MAX_INVENTORY = 200
 MAX_SUMMARY_CHARS = 400
 DEFAULT_CHOSEN = 6
 MAX_QUOTE_CHARS = 300
 MAX_DECISIONS = 12
 MAX_DECISION_CHARS = 600
-#: The bounds the BFF sends under (``knownDecisions``).
 MAX_KNOWN_DECISIONS = 60
 MAX_KNOWN_DECISION_CHARS = 300
 
@@ -71,7 +68,6 @@ ERROR_EXTRACTION_FAILED = "extraction_failed"
 DecisionKind = Literal["decision", "constraint"]
 Outcome = Literal["accepted", "condition", "rejected", "unknown"]
 
-#: The German outcome an extraction from before the rename may still carry.
 LEGACY_OUTCOME = {"auflage": "condition"}
 
 
@@ -175,8 +171,6 @@ class ProjectExperienceRequest(_Wire):
     organization_id: str = Field(alias="organizationId")
     project_id: str = Field(alias="projectId")
     collection: str
-    #: The only files of ``collection`` that may be read: open to every member and screened (the BFF's call).
-    #: Required, so a caller that forgets it reads nothing rather than the whole collection.
     file_names: list[str] = Field(alias="fileNames")
     vocabulary: dict[str, VocabularyEntry] = Field(default_factory=dict)
     known_facts: list[str] = Field(default_factory=list, alias="knownFacts")
@@ -197,7 +191,6 @@ class ProjectExperienceResponse(_Wire):
     error: Literal["no_documents", "no_model", "extraction_failed"] | None = None
 
 
-# The strict replies the three calls are held to. Every field is required: strict mode has no defaults.
 
 
 class ChosenFiles(_Wire):
@@ -463,7 +456,6 @@ def _read(
     text = _joined(read)
     fingerprint = extract_fingerprint(text, request.vocabulary, request.known_facts, llm)
     decisions = draft_decisions(text, request.known_decisions, llm)
-    # The quote is in the text (code); whether it SAYS the value is the decision model's (ADR-0064 use 12).
     fingerprint = verify_fingerprint(
         _evidence_within(fingerprint, read), request.vocabulary, organization_id=request.organization_id
     )

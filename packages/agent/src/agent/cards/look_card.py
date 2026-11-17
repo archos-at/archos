@@ -1,5 +1,3 @@
-"""The look card (ADR-0128): where the agent looked, as addresses, never pixels."""
-
 from typing import Annotated
 from typing import Any
 from typing import Literal
@@ -10,25 +8,19 @@ from pydantic import model_validator
 
 from agent.cards.card_model import CardModel
 
-#: How many items one card carries: the turn's look budget is 6, plus the
-#: gestures that point at the same document.
 MAX_LOOK_ITEMS = 12
 
 
 UUID_PATTERN = r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
 
 
-#: A text that is not a `data:` URL, as a pattern, so the generated JSON Schema
-#: and Zod schema refuse one too (a lookahead: these models use Python's `re`).
 NOT_A_DATA_URL = r"^(?!\s*[dD][aA][tT][aA]:)"
 
 
-#: A share of the page or image: 0 to 1.
 Share = Annotated[float, Field(ge=0, le=1)]
 
 
 def refuse_data_urls(value: Any, path: str = "card") -> None:
-    """Raise on any string under ``value`` that starts ``data:``: a card stores an address, never bytes."""
     if isinstance(value, str):
         if value.lstrip()[:5].lower() == "data:":
             raise ValueError(f"{path}: a look card holds an address, never image bytes (a `data:` URL)")
@@ -41,7 +33,6 @@ def refuse_data_urls(value: Any, path: str = "card") -> None:
 
 
 class LookDocument(CardModel):
-    """The document looked at: its id when it is a workspace document, its file name, its shelf."""
 
     model_config = ConfigDict(regex_engine="python-re")
 
@@ -58,7 +49,6 @@ class LookDocument(CardModel):
 
 
 class LookItem(CardModel):
-    """One place on the document: a look the agent took, or a box or pointer it showed the room (`reference`)."""
 
     model_config = ConfigDict(regex_engine="python-re")
 
@@ -118,11 +108,6 @@ class LookItem(CardModel):
 
 
 class LookCard(CardModel):
-    """Where the agent looked on one document in this turn, and what it showed the room there.
-
-    System-emitted (``tools/look/cards.py``) once the answer is final, from the
-    looks the answer relies on; the model cannot emit it (``SYSTEM_CARD_TYPES``).
-    """
 
     type: Literal["look"] = "look"
     document: LookDocument

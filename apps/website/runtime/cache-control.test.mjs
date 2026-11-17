@@ -12,7 +12,6 @@ test('unhashed media revalidate after a week, never immutable', () => {
 })
 
 test('pages and server routes keep the adapter default', () => {
-  // HTML must revalidate on every view, or a deploy is invisible for a week.
   for (const path of ['/', '/en/', '/blog/', '/sign-in', '/web-analytics.js', '/robots.txt']) {
     assert.equal(cacheControlFor(path), undefined, path)
   }

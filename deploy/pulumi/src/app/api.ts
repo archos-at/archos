@@ -26,26 +26,9 @@ export interface Api {
   pdb: k8s.policy.v1.PodDisruptionBudget;
 }
 
-/** How long the api container may take to start: the workflow it builds is the chat tier's. */
 const STARTUP_PERIOD_SECONDS = 10;
 const STARTUP_FAILURE_THRESHOLD = 60;
 
-/**
- * The api tier (ADR-0082 step B): `PROCESS_ROLE=api` of the backend image, every
- * HTTP route the backend serves except the chat socket. It is what
- * `BACKEND_URL` names: the BFF, the housekeeping CronJobs, the purger and the
- * workers' callers all reach it through its Service, under `name` (`tier-names.ts`).
- *
- * Stateless: a Deployment without a volume, like the worker tiers, behind a
- * Service. Its work is request-bound (knowledge lookups, LLM utilities, job
- * submit and SSE streams), so an HPA scales it on CPU and its rollout never
- * waits on a chat turn: the grace period is sized for closing SSE streams and
- * finishing short requests (`API_DRAIN_SECONDS`), where the chat tier's is its
- * longest turn. The two tiers share an image, a database, the cache and the
- * shared Qdrant, and call each other nowhere.
- *
- * The env is the chat tier's less what only chat reads (`apiEnv`).
- */
 export function installApi(
   w: AppWiring,
   cfg: DeployConfig,
@@ -56,8 +39,6 @@ export function installApi(
   const labels = commonLabels(name);
   const shutdown = gracefulShutdown(ROLLOUT.api, "python");
 
-  // Fail the preview, not production: a CPU request far below steady-state
-  // usage turns the HPA below into an on/off switch to maxReplicas.
   assertHpaTargetIsProportional(name, cfg.api.resources, cfg.api.hpaCpuTargetPercent);
   assertMemoryFitsLimit(name, cfg.api.resources);
   assertStartupFitsRollout(
@@ -71,22 +52,17 @@ export function installApi(
     {
       metadata: { name, namespace: w.namespace, labels },
       spec: {
-        // Initial size; the HPA owns replica count thereafter.
         replicas: cfg.api.minReplicas,
         selector: { matchLabels: labels },
         ...surgeRollout(ROLLOUT.api),
         template: {
           metadata: {
             labels,
-            // Rotating any credential in `grid-secrets` is a real rolling update
-            // (rollout.ts).
             annotations: secretChecksumAnnotations(withLangfuseKeysChecksum(cfg, secrets.checksum)),
           },
           spec: {
             enableServiceLinks: false, // see platform/security.ts — service-link env collisions
             imagePullSecrets: w.imagePullSecrets,
-            // preStop covers EndpointSlice propagation, then uvicorn gets its
-            // SIGTERM and the role closes its SSE streams (`drain_owned_work`).
             terminationGracePeriodSeconds: shutdown.terminationGracePeriodSeconds,
             securityContext: { runAsNonRoot: true, runAsUser: UID.backend, runAsGroup: UID.backend },
             topologySpreadConstraints: spreadAcrossNodes(labels),
@@ -101,8 +77,6 @@ export function installApi(
                 env: apiEnv(w),
                 resources: toResourceRequirements(cfg.api.resources),
                 lifecycle: shutdown.lifecycle,
-                // Boot builds the agent-runtime workflow and opens Qdrant, as the chat
-                // tier's does: the same window before liveness kicks in.
                 startupProbe: {
                   httpGet: { path: "/health", port: PORT.backend },
                   periodSeconds: STARTUP_PERIOD_SECONDS,
@@ -128,18 +102,11 @@ export function installApi(
     {
       provider: w.provider,
       dependsOn: [secrets.secret, ...dependsOn],
-      // The HPA owns spec.replicas after creation — don't let `pulumi up` revert
-      // an autoscaling decision back to minReplicas.
       ignoreChanges: ["spec.replicas"],
-      // A cold first boot is an image pull plus the workflow build; the rollout
-      // surges one pod at a time. Stay above progressDeadlineSeconds so the
-      // failure the operator sees is Kubernetes' own, not an opaque timeout.
       customTimeouts: { create: "25m", update: "25m" },
     },
   );
 
-  // Load-balanced ClusterIP: what BACKEND_URL names. Every caller is a plain
-  // HTTP client, so no per-pod address and no headless Service.
   const service = new k8s.core.v1.Service(
     name,
     {
@@ -178,8 +145,6 @@ export function installApi(
     { provider: w.provider, dependsOn: deployment },
   );
 
-  // Cap voluntary disruptions at one pod so an automatic-upgrade node drain
-  // cannot evict every api replica at once.
   const pdb = installPdb(name, w.namespace, w.provider, labels, [deployment]);
 
   return { deployment, service, hpa, pdb };

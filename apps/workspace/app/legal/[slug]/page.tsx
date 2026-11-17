@@ -1,12 +1,3 @@
-/**
- * Legal document page — renders one legal document (`/legal/imprint`,
- * `/legal/privacy`, `/legal/terms`, `/legal/ai-transparency`,
- * `/legal/subprocessors`) in the visitor's locale.
- *
- * Public and unauthenticated by design: imprint and privacy information must
- * be reachable without signing in (ECG §5, DSGVO Art. 13).
- */
-
 import { type ReactNode } from 'react'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'

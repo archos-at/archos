@@ -4,22 +4,6 @@ import { baseStackConfig, langfuseStackConfig } from "../test-support/stack-conf
 import { loadConfig } from '../config'
 import { parseCollectorConfig, pipeline } from "../test-support/collector";
 
-/**
- * The collector is deployed because something consumes it (ADR-0029).
- *
- * It used to be deployed only with the Aspire dashboard, so a stack without the
- * dashboard's OTLP key had no trace export either: Langfuse sat idle behind a
- * collector that did not exist, and nothing said so. The dashboard is gone now,
- * and the collector needs a consumer and nothing else.
- *
- * What fails quietly here:
- *   - A collector config that names an exporter whose env var nothing injects
- *     stops the collector from starting, taking every consumer's export down.
- *   - A signal with no pipeline is an error on every producer's every export.
- *   - A stack that still carries the dashboard's old keys must neither deploy
- *     it nor break on them.
- */
-
 const RESOURCES: Array<{ type: string; name: string; inputs: Record<string, unknown> }> = [];
 
 pulumi.runtime.setMocks(
@@ -47,9 +31,7 @@ function resolve(value: unknown): Promise<any> {
   );
 }
 
-// Pulumi's public special-signature constant, not a credential.
 const SECRET_SIGNATURE = "4dabf18193072939515e22adb298388d"; // pragma: allowlist secret
-/** A `pulumi.secret(...)` reaches a resource mock wrapped; read through it. */
 function unsecret<T>(value: unknown): T {
   return (value && typeof value === "object" && SECRET_SIGNATURE in (value as object)
     ? (value as { value: T }).value
@@ -93,10 +75,8 @@ const POSTHOG_LOGS = {
   "grid-oib:posthogLogsEnabled": "true",
 };
 
-/** A stack that opted out of PostHog, which is otherwise on (and a log consumer) by default. */
 const NO_POSTHOG = { "grid-oib:posthogHost": "" };
 
-/** What a stack that adopted err2issue and the feedback issues still has in its config file. */
 const LEFTOVER_ERR2ISSUE_KEYS = {
   "grid-oib:err2issueEnabled": "true",
   "grid-oib:err2issueGithubRepo": "GRID-check/grid-oib-agent",
@@ -105,7 +85,6 @@ const LEFTOVER_ERR2ISSUE_KEYS = {
   "grid-oib:feedbackIssuesRepo": "GRID-check/feedback",
 };
 
-/** What a stack that adopted the dashboard still has in its config file. */
 const LEFTOVER_DASHBOARD_KEYS = {
   "grid-oib:otelPrimaryApiKey": "otel-key", // pragma: allowlist secret
   "grid-oib:otelDomain": "otel.example.test",
@@ -120,8 +99,6 @@ describe("a stack with Langfuse and PostHog opted out", () => {
   }, 120_000);
 
   it("deploys no err2issue and no GitHub credential, whatever the config still says", async () => {
-    // err2issue is retired (PostHog error tracking replaces it), and the
-    // feedback form's issue filing, which borrowed its token, goes with it.
     expect(has("kubernetes:apps/v1:Deployment", "err2issue")).toBe(false);
     expect(d.collector).not.toContain("err2issue");
     expect(d.collector).not.toContain("errors_only");
@@ -155,7 +132,6 @@ describe("a stack with Langfuse and PostHog opted out", () => {
   });
 
   it("still takes logs and metrics, into the collector's own nop exporter", () => {
-    // A signal with no pipeline is an error on every producer's every export.
     const { exporters, service } = parseCollectorConfig(d.collector);
     expect(exporters).toHaveProperty("nop");
     expect(service.pipelines.logs).toEqual(pipeline(["nop"]));
@@ -180,8 +156,6 @@ describe("a stack with PostHog logs and no Langfuse", () => {
   });
 
   it("sends the BFF's traces and the logs to PostHog only", () => {
-    // PostHog traces are on by default, so the traces signal has a consumer and
-    // needs no nop pipeline; with no Langfuse there is no `traces` pipeline.
     const { pipelines } = parseCollectorConfig(d.collector).service;
     expect(pipelines).not.toHaveProperty("traces");
     expect(pipelines["traces/posthog"].exporters).toEqual(["otlp_http/posthog_traces"]);

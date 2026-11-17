@@ -130,54 +130,25 @@ from dataclasses import dataclass
 from dataclasses import field
 from pathlib import Path
 
-# ---------------------------------------------------------------------------
-# Cohort vocabulary. Tags are metadata only: the ranking code below never
-# branches on them; they solely group the aggregates.
-# ---------------------------------------------------------------------------
 
 COHORT_OVERVIEW = "overview"
 COHORT_EXACT_ID = "exact-id"
 COHORT_PARAPHRASE = "paraphrase"
 COHORTS = (COHORT_OVERVIEW, COHORT_EXACT_ID, COHORT_PARAPHRASE)
 
-#: Retrieval depth per channel. Above the fixture size (39) so a channel never
-#: truncates before the filter runs — the same reason the main harness uses 120.
 RETRIEVE_DEPTH = 120
 
 _FIXTURE_BOILERPLATE = (
     "Österreichisches Institut für Bautechnik. Ausgabe Mai 2023. "
     "Diese Richtlinie gilt für Gebäude. Die Anforderungen müssen eingehalten werden. "
-    # DF ballast: real corpus pages are full of German function words, so the DF
-    # ceiling prices them as noise. Terse synthetic texts without them would give
-    # words like "über"/"den"/"aus" a low document frequency and let them fire
-    # the sparse channel — measuring fixture noise instead of retrieval. This
-    # sentence puts the closed-class vocabulary in every document, exactly where
-    # production's ceiling expects it. Content nouns are deliberately absent.
     "Was hier steht, gilt für alle: wer baut, muss prüfen, kann fragen und darf vorschlagen, "
     "wie es werden soll. Der die das den dem einen einer eines und oder aber denn doch aus bei "
     "bis ins zum zur vom mit von nach über unter zwischen sein sind ein eine nicht kein sehr nur "
     "auch schon noch als zu im am beim."
 )
 
-# ---------------------------------------------------------------------------
-# Synthetic fixture corpus: one text per real data/oib file (39).
-#
-# Construction rules (tune here, never in the channel code):
-# - every text carries its document's REAL designation string(s), because the
-#   exact channel matches on them;
-# - every text carries the SHARED boilerplate above, so corpus-identity words
-#   (OIB, Richtlinie, Ausgabe, Gebäude, Anforderungen) are as frequent here as
-#   in production and the DF ceiling treats them as the noise they are;
-# - discriminative domain nouns appear in a handful of documents each (below
-#   the 25%-of-39 DF ceiling), mirroring a domain corpus where core nouns are
-#   common but not ubiquitous;
-# - change logs (aenderungen_*) read like requirements but stay excludable:
-#   they are indexed (as in production) and filtered per query (as in
-#   production), so they shape DF but can never score.
-# ---------------------------------------------------------------------------
 
 FIXTURE_TEXTS: dict[str, str] = {
-    # -- RL 1: Standsicherheit -------------------------------------------
     "oib-rl_1_ausgabe_mai_2023.pdf": (
         "OIB-Richtlinie 1 Standsicherheit. " + _FIXTURE_BOILERPLATE + " Das Tragwerk muss alle Lasten "
         "sicher abtragen. Die Tragfähigkeit ist für ständige und veränderliche Einwirkungen "
@@ -191,7 +162,6 @@ FIXTURE_TEXTS: dict[str, str] = {
         "Erläuterungen zur OIB-Richtlinie 1. " + _FIXTURE_BOILERPLATE + " Begründung der Anforderungen "
         "an Standsicherheit und Dauerhaftigkeit des Tragwerks."
     ),
-    # -- RL 2 family: Brandschutz (short + full designation spellings) ---
     "oib-rl_2_ausgabe_mai_2023.pdf": (
         "OIB-RL 2 (OIB-Richtlinie 2) Brandschutz. " + _FIXTURE_BOILERPLATE + " Gebäude werden nach "
         "Fluchtniveau in Gebäudeklassen eingeteilt. Brandabschnitte begrenzen die Brandausbreitung. "
@@ -231,7 +201,6 @@ FIXTURE_TEXTS: dict[str, str] = {
         "Erläuterungen zur OIB-Richtlinie 2.3. " + _FIXTURE_BOILERPLATE + " Hintergründe zu den "
         "Versammlungsstätten-Regelungen."
     ),
-    # -- RL 3: Hygiene ----------------------------------------------------
     "oib-rl_3_ausgabe_mai_2023.pdf": (
         "OIB-Richtlinie 3 Hygiene, Gesundheit und Umweltschutz. " + _FIXTURE_BOILERPLATE + " Trinkwasser muss "
         "in ausreichender Menge zur Verfügung stehen. Aufenthaltsräume brauchen Belichtung und Lüftung. "
@@ -241,7 +210,6 @@ FIXTURE_TEXTS: dict[str, str] = {
         "Erläuterungen zur OIB-Richtlinie 3. " + _FIXTURE_BOILERPLATE + " Warum Trinkwasser, Hygiene und "
         "Belichtung so geregelt sind."
     ),
-    # -- RL 4: Nutzungssicherheit / Barrierefreiheit ----------------------
     "oib-rl_4_ausgabe_mai_2023.pdf": (
         "OIB-Richtlinie 4 Nutzungssicherheit und Barrierefreiheit. " + _FIXTURE_BOILERPLATE + " Die nutzbare "
         "Breite von Fluchtwegen muss mindestens 1,20 m betragen. Treppen brauchen Geländer. Barrierefreie "
@@ -251,7 +219,6 @@ FIXTURE_TEXTS: dict[str, str] = {
         "Erläuterungen zur OIB-Richtlinie 4. " + _FIXTURE_BOILERPLATE + " Hintergründe zu Nutzungssicherheit, "
         "Breite der Fluchtwege und barrierefreien Türen."
     ),
-    # -- RL 5: Schallschutz -----------------------------------------------
     "oib-rl_5_ausgabe_mai_2023.pdf": (
         "OIB-Richtlinie 5 Schallschutz. " + _FIXTURE_BOILERPLATE + " Wohnungstrennwände müssen ausreichende "
         "Schalldämmung gegen Luftschall bieten. Der Trittschall aus der Nachbarwohnung ist zu begrenzen. "
@@ -261,7 +228,6 @@ FIXTURE_TEXTS: dict[str, str] = {
         "Erläuterungen zur OIB-Richtlinie 5. " + _FIXTURE_BOILERPLATE + " Messung von Schallschutz und "
         "Trittschall zwischen Wohnungen."
     ),
-    # -- RL 6 family: Energieeinsparung / Wärmeschutz ---------------------
     "oib-rl_6_ausgabe_mai_2023.pdf": (
         "OIB-Richtlinie 6 Energieeinsparung und Wärmeschutz. " + _FIXTURE_BOILERPLATE + " Beim Neubau dürfen "
         "die Wärmedurchgangskoeffizienten nicht überschritten werden. Jeder Wert der Gebäudehülle zählt: "
@@ -275,12 +241,10 @@ FIXTURE_TEXTS: dict[str, str] = {
     "erlaeuterungen_oib-rl_6_ausgabe_mai_2023.pdf": (
         "Erläuterungen zur OIB-Richtlinie 6. " + _FIXTURE_BOILERPLATE + " Warum jeder Wert so festgelegt ist."
     ),
-    # -- Begriffsbestimmungen ---------------------------------------------
     "oib-rl_begriffsbestimmungen_ausgabe_mai_2023.pdf": (
         "OIB-Begriffsbestimmungen. " + _FIXTURE_BOILERPLATE + " Gebäudeklasse nach Fluchtniveau. "
         "Fluchtniveau ist der Höhenunterschied zum Gelände. Gebäudehöhe, Bruttogeschossfläche, Bauweise."
     ),
-    # -- Zitierte Normen (rev.1 is the retrievable one) -------------------
     "oib-rl_zitierte_normen_und_sonstige_technische_regelwerke_ausgabe_mai_2023_rev.1.pdf": (
         "Zitierte Normen und sonstige technische Regelwerke, revidiert. " + _FIXTURE_BOILERPLATE + " Liste "
         "der ÖNORMEN und Richtlinien, auf die verwiesen wird. Jede Norm ist mit Ausgabedatum genannt."
@@ -289,7 +253,6 @@ FIXTURE_TEXTS: dict[str, str] = {
         "Zitierte Normen und sonstige technische Regelwerke, ersetzte Ausgabe. " + _FIXTURE_BOILERPLATE + " "
         "Durch rev.1 ersetzt; wird in der Abfrage herausgefiltert."
     ),
-    # -- Change logs: indexed, never citable -------------------------------
     "aenderungen_oib-rl_1_ausgabe_mai_2023.pdf": (
         "Änderungen OIB-Richtlinie 1 gegenüber Ausgabe 2019. Punkt 2 redaktionell angepasst, Tabelle neu."
     ),
@@ -361,11 +324,6 @@ class QueryResult:
     mrr: float
     missing: tuple[str, ...]
     hyde_fired: bool = False
-    #: The RECORDED vector channel, reported beside the deterministic ones and
-    #: deliberately not fused with them: this arm is measured on the real
-    #: corpus and those are measured on the synthetic mirror, so a fused number
-    #: would mix two corpora. Read them as two answers to "which channel
-    #: answers this cohort", which is the question the harness got wrong.
     vector_ranked: tuple[str, ...] = ()
     vector_recall: float = 0.0
 
@@ -379,8 +337,6 @@ class CohortScores:
     recall: float
     mrr: float
     empty_share: float
-    #: The recorded vector channel over the same questions — reported beside
-    #: `recall`, never merged into it. See `QueryResult.vector_ranked`.
     vector_recall: float = 0.0
 
 

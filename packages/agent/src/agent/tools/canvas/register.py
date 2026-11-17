@@ -1,57 +1,3 @@
-"""``canvas``: Piloti's hands on a document, as an agent-runtime function group.
-
-Eight tools, the way a person works a document on the review canvas: see who
-is in the ``room`` and where, ``point`` and ``highlight`` to show what is meant,
-read the ``marks``, set a ``mark`` (a proposal a person takes over, or open when
-the person asked for exactly that mark), ``update`` or ``delete`` one when the
-person asks, and ``reply`` in a mark's thread. Looking at a page or a box on it
-is ``look``, a tool of its own bound in every context (``tools/look``,
-ADR-0128); it shares this group's target resolution and makes the box glow
-through ``presence.show_reading``. The model calls these as ``canvas__room`` and
-so on; one group,
-because they share the client,
-the target resolution and the restricted-folder rule, and because the agent runtime can serve
-a function group over MCP as it stands, so a second client never means a second
-implementation (ADR-0055).
-
-## Which document, and as whom
-
-Every tool takes an optional ``document`` (a file name from the inventory, or
-an id) and otherwise acts on the document open on the canvas, then on the
-conversation's subject (``target.py``). The BFF checks the document against the
-asker's own access and the turn's signed scope, and acts as the person the
-signed envelope names (echo, never sign: ``tools/AGENTS.md``). A thread question
-is answered when the model calls ``reply``, which the prompt asks it to do; when
-it does not, the turn's answer goes into the thread once the turn has ended
-(``agent.turn.annotation_reply``), so ``reply``, ``update`` with its note and
-``delete`` each note the mark they spoke in.
-
-## What everyone sees
-
-``mark``, ``update``, ``delete``, ``reply``, ``highlight`` and a labelled
-``point`` are read by everyone who opens the document, so each passes
-``policy.shared_write_refusal`` first. ``point`` and ``highlight`` are
-ephemeral; the turn harness takes them down when the answer is out
-(``presence.py``). ``mark``, ``update``, ``delete`` and ``reply`` put what the
-BFF confirmed on the turn's ``canvas_activity`` card (``cards.py``); ``point``
-and ``highlight`` add a ``reference`` item to the document's ``look`` card
-(``tools/look/cards.py``), so a chat reader sees what the answer points at.
-
-## Parity, with light reporting
-
-What the person asks for, Piloti does under that person's rights, through the
-same service a person's PATCH runs (``lib/annotations/agent.ts``): set a mark
-open, resolve, reopen, dismiss, take over, assign, date, reword, delete one
-the person set. Each change posts the model's ``note`` as Piloti's reply in the
-mark's thread, and the card lists it with an undo. Findings of its own stay
-proposals.
-
-Parity is the office's choice: with the organization switch ``piloti-acts``
-off (the default), the BFF refuses ``create``, ``update`` and ``delete`` with
-``piloti-acts-off``, and the result tells the model to propose the mark, or
-that the person makes the change themselves (``calls.refusal_for``).
-"""
-
 from __future__ import annotations
 
 import logging
@@ -103,7 +49,6 @@ from .target import resolve_target
 
 logger = logging.getLogger(__name__)
 
-#: The instance name the config gives the group: the model sees ``canvas__<tool>``.
 GROUP = "canvas"
 
 _DOCUMENT = (
@@ -176,7 +121,7 @@ DESCRIPTIONS = {
 
 
 class DocumentCanvasConfig(FunctionGroupBaseConfig, name="document_canvas"):
-    """Configuration for the ``canvas`` function group. The render limits moved to ``look``'s own config."""
+    ...
 
 
 async def _target(document: str) -> tuple[Target, Any]:
@@ -194,7 +139,6 @@ def _shared_write_allowed(step: str) -> None:
 
 
 async def _refusing(step: str, run: Any) -> Any:
-    """Run one tool body; a :class:`Refused` becomes its sentence, recorded by its code."""
     try:
         return await run()
     except Refused as refused:
@@ -204,7 +148,6 @@ async def _refusing(step: str, run: Any) -> Any:
 
 
 async def run_room(document: str = "") -> str:
-    """Who has the document open, and where."""
 
     async def body() -> str:
         target, signed = await _target(document)
@@ -216,7 +159,6 @@ async def run_room(document: str = "") -> str:
 
 
 async def run_point(page: int, x: float, y: float, label: str = "", document: str = "") -> str:
-    """Move Piloti's pointer, for everyone in the document."""
 
     async def body() -> str:
         payload = point_payload(page, x, y, label)
@@ -241,7 +183,6 @@ async def run_point(page: int, x: float, y: float, label: str = "", document: st
 
 
 async def run_highlight(page: int, x: float, y: float, w: float, h: float, label: str, document: str = "") -> str:
-    """Show everyone in the document a labelled box."""
 
     async def body() -> str:
         payload = highlight_payload(page, x, y, w, h, label)
@@ -261,7 +202,6 @@ async def run_highlight(page: int, x: float, y: float, w: float, h: float, label
 
 
 async def run_marks(document: str = "") -> str:
-    """Read the marks on the document."""
 
     async def body() -> str:
         target, signed = await _target(document)
@@ -273,7 +213,6 @@ async def run_marks(document: str = "") -> str:
 
 
 async def run_mark(proposals: list[AnnotationProposal] | None = None, document: str = "", open: bool = False) -> str:  # noqa: A002 - the model's word
-    """Propose marks on the document, or set them open when the person asked for exactly these."""
 
     async def body() -> str:
         items = list(proposals or [])
@@ -292,7 +231,6 @@ async def run_mark(proposals: list[AnnotationProposal] | None = None, document: 
 
 
 async def _annotation_ref(annotation: str, target: Target, signed: Any, tool: str) -> tuple[str, str | None]:
-    """The id to act on, and the status read with it: as given (no status), or looked up by its number."""
     ref = (annotation or "").strip()
     if is_uuid(ref):
         return ref, None
@@ -314,14 +252,12 @@ async def run_update(
     body: str = "",
     document: str = "",
 ) -> str:
-    """Change a mark the person named, in their name, and say so in its thread."""
 
     async def run() -> str:
         change = update_payload(status=status, assignee=assignee, due_on=due_on, kind=kind, body=body, note=note)
         _shared_write_allowed("update")
         target, signed = await _target(document)
         annotation_id, seen = await _annotation_ref(annotation, target, signed, "update")
-        # A mark looked up by its number is changed only if it still stands as it was read.
         guard = {"expectedStatus": seen} if seen else {}
         result = await call({"op": "update", "annotationId": annotation_id, **change, **guard}, target, signed)
         if result.get("noted"):
@@ -334,7 +270,6 @@ async def run_update(
 
 
 async def run_delete(annotation: str, document: str = "") -> str:
-    """Delete a mark the person set, at their explicit request."""
 
     async def run() -> str:
         _shared_write_allowed("delete")
@@ -350,7 +285,6 @@ async def run_delete(annotation: str, document: str = "") -> str:
 
 
 async def run_reply(annotation: str, body: str, document: str = "") -> str:
-    """Answer in a mark's thread."""
 
     async def run() -> str:
         text = reply_body(body)
@@ -368,7 +302,6 @@ async def run_reply(annotation: str, body: str, document: str = "") -> str:
 
 @register_function_group(config_type=DocumentCanvasConfig)
 async def document_canvas(config: DocumentCanvasConfig, _builder: Builder):
-    """The canvas tools, as one group."""
     group = FunctionGroup(config=config)
     for name, fn in (
         ("room", run_room),

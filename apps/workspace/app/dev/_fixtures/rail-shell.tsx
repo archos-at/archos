@@ -1,13 +1,5 @@
 'use client'
 
-/**
- * The app shell round a dev preview: the rail at desk width; on a phone the
- * top band, the tab bar and „Mehr“ (with its project selector), as
- * `AppShellChrome` composes them. A preview that takes `?rail=1` wraps its
- * page in this, so the chrome is judged next to a page it borders in the
- * product. A preview cannot be framed in another (gotchas.md, `X-Frame-Options`).
- */
-
 import type { JSX, ReactNode } from 'react'
 
 import { AppSidebar } from '@/components/shell/app-sidebar'
@@ -17,7 +9,6 @@ import { installConnectionHealthFake } from './connection-health'
 import { installInboxBadgeFake } from './inbox-badge'
 import { DevRailChats } from './rail-chats'
 
-// A count on the Postfach and a healthy connection, so a shot does not depend on load time.
 installInboxBadgeFake(3)
 installConnectionHealthFake()
 
@@ -39,7 +30,6 @@ export function DevRailShell({
 }: {
   projectId: string
   projectName: string
-  /** The route the chrome lights. */
   pathname: string
   children: ReactNode
 }): JSX.Element {

@@ -8,24 +8,8 @@ import { WORKFLOW } from "./agent-worker";
 import { hatchetBacklogQuery } from "./keda-scaling";
 import { TRANSFER_HPA_OWNERSHIP } from "./keda-scaling";
 
-// src/app -> src -> deploy/pulumi -> deploy -> repo root
 const repoRoot = join(__dirname, "..", "..", "..", "..");
 const read = (...parts: string[]) => readFileSync(join(repoRoot, ...parts), "utf8");
-
-/**
- * The research worker tier (ADR-0021, ADR-0079).
- *
- * It crosses two boundaries this program cannot see into, and each plans and
- * applies clean when it drifts:
- *   - KEDA counts the research queue's table. A table or status that moves
- *     leaves the tier at its floor with jobs waiting, or up forever for dead
- *     rows;
- *   - the Python worker reads its env. A renamed knob leaves it on its defaults,
- *     and the drain budget is the one that decides whether a deploy repeats work.
- *
- * The tier used to scale on CPU, which a job that waits on a model provider does
- * not move, so a queue could stand while the HPA saw an idle pod.
- */
 
 const RESOURCES: Array<{ type: string; name: string; inputs: Record<string, any> }> = [];
 
@@ -116,7 +100,6 @@ describe("the agent-worker tier", () => {
       activationTargetQueryValue: "0",
     });
     expect(spec.maxReplicaCount).toBeGreaterThanOrEqual(spec.minReplicaCount);
-    // In slowly and a pod at a time: each one drains for up to its budget.
     expect(spec.advanced.horizontalPodAutoscalerConfig.behavior.scaleDown.policies[0]).toMatchObject({
       type: "Pods",
       value: 1,
@@ -125,9 +108,6 @@ describe("the agent-worker tier", () => {
   });
 
   it("takes over the plain HPA a stack from before KEDA still holds, instead of being refused", async () => {
-    // Pulumi creates the ScaledObject before it deletes the dropped HPA, and
-    // KEDA's webhook refuses a second scaler on one workload: without this the
-    // update fails at the ScaledObject on every deploy (seen on dev).
     const scaled = find(SCALED_OBJECT, "agent-worker");
     const metadata = await resolve(scaled.inputs.metadata);
     const spec = await resolve(scaled.inputs.spec);
@@ -145,15 +125,11 @@ describe("the agent-worker tier", () => {
   it("gives a pod its drain budget plus time to give back what it did not finish", async () => {
     const spec = await resolve(find(DEPLOYMENT, "agent-worker").inputs.spec);
 
-    // The worker waits `drainSeconds`, then requeues what still runs: SIGKILL
-    // before that is done would cost the job its claim until the stale window.
     expect(spec.template.spec.terminationGracePeriodSeconds).toBe(drainSeconds + 30);
     expect(spec.strategy.rollingUpdate.maxUnavailable).toBe(0);
   });
 
   it("emits no drain variable the Hatchet worker does not read; its drain is the grace period", () => {
-    // The Hatchet SDK waits for held runs on SIGTERM until the kubelet's kill,
-    // so the budget reaches the worker only as terminationGracePeriodSeconds.
     const hatchetLayer = read("apps", "agent-host", "src", "agent_host", "jobs", "research_workflow.py");
     expect(hatchetLayer).not.toContain("RESEARCH_WORKER_DRAIN_SECONDS");
     expect(env.find((e) => e.name === "RESEARCH_WORKER_DRAIN_SECONDS")).toBeUndefined();

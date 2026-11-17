@@ -1,10 +1,5 @@
 import type { en } from '../en'
 
-/**
- * Die Suche: eine Seite fürs ganze Büro, dieselbe Suche in den Dateien eines
- * Projekts und in der Büroablage. „Plannummer“, „Planstand“ und „Planliste“
- * stehen hier für Zeichnungen, wie im Dossier.
- */
 export const search: typeof en.search = {
   title: 'Suche',
   scope: {
@@ -66,12 +61,10 @@ export const search: typeof en.search = {
     document_filters: 'Die Filter gelten für Dokumente und ihre Anmerkungen. {kinds} werden so lange nicht durchsucht.',
     annotation_filters: 'Die Filter gelten nur für Anmerkungen. {kinds} werden so lange nicht durchsucht.',
     tab: 'Mit diesen Filtern nicht durchsucht',
-    /** Auf dem Telefon, eine Zeile; den ganzen Satz trägt der ausgegraute Reiter. */
     short: '{kinds}: mit Filtern nicht durchsucht',
   },
   notes: {
     buildingShort: '{count, plural, one {eine Ablage wird noch gelesen} other {# Ablagen werden noch gelesen}}',
-    /** Dasselbe, wenn ein gesetzter Filter von dem abhängt, was Piloti dort liest. */
     buildingFiltered:
       '{count, plural, one {eine Ablage wird noch gelesen, die Filter finden dort noch nicht alles} other {# Ablagen werden noch gelesen, die Filter finden dort noch nicht alles}}',
     contentPartial: 'Die Suche im Inhalt der Dokumente hat nur einen Teil dieses Bereichs abgedeckt.',
@@ -97,10 +90,8 @@ export const search: typeof en.search = {
   matchedOn: {
     label: 'Gefunden in',
     name: 'Dateiname',
-    /** Was Piloti über das Dokument las: Titel, Beteiligte, Ort, Plankopf, Verweise. Die Dateiansicht nennt es Zusammenfassung. */
     reading: 'Zusammenfassung',
     content: 'Inhalt',
-    /** Der Inhalt trifft die Frage dem Sinn nach, ohne ihre Wörter zu enthalten. */
     meaning: 'Inhalt (sinngemäß)',
   },
   annotation: {
@@ -272,7 +263,6 @@ export const search: typeof en.search = {
     deleted: '„{name}“ gelöscht',
     undo: 'Rückgängig',
     nameRequired: 'Bitte der Suche einen Namen geben.',
-    // Das ⋯ einer eigenen gespeicherten Suche, in der Ordnung einer Datei in Dateien.
     actions: 'Aktionen für „{name}“',
     shareAction: 'Teilen',
     unshare: 'Nicht mehr teilen',
@@ -282,7 +272,6 @@ export const search: typeof en.search = {
     renameDescription: 'Begriffe und Filter bleiben, wie sie sind.',
     renameConfirm: 'Umbenennen',
     nameTaken: 'Eine Ihrer Suchen heißt schon so.',
-    // Die Zeile unter dem Namen: was die Suche fragt, in den Worten der Filter-Chips.
     summaryText: '„{text}“',
     summaryEverything: 'Ohne Begriffe und Filter',
   },
@@ -290,15 +279,12 @@ export const search: typeof en.search = {
     backToFiles: 'Zurück zu den Dateien',
     backToShelf: 'Zurück zur Ablage',
   },
-  // Das ⋯ eines Dokument-Treffers: von der Suche in den Rest der Arbeitsfläche.
   hitActions: {
     label: 'Aktionen für „{name}“',
     menuLabel: 'Aktionen',
     column: 'Aktionen',
-    // Dieselben Wörter wie das ⋯ einer Datei in Dateien.
     open: 'Öffnen',
     ask: '{productName} fragen',
-    // Vorbelegt im Eingabefeld, wenn der Treffer eine Fundstelle mit Seite hat; die Person kann ihn ändern.
     askAtPage: 'Was steht auf S. {page} in „{name}“?',
     openCurrent: 'Aktuelle Fassung öffnen',
     openPoints: 'Offene Punkte',
@@ -308,11 +294,9 @@ export const search: typeof en.search = {
     linkCopied: 'Link kopiert',
     linkCopyFailed: 'Der Link konnte nicht kopiert werden.',
   },
-  // „#“ im Chat-Eingabefeld: ein Dokument aus der Suche in die Nachricht holen.
   composerPicker: {
     label: 'Dokumente',
     hint: 'Name, Plannummer oder ein Wort aus dem Inhalt eingeben',
-    // Wie die Fußzeile der Befehlspalette: Taste, dann ihr Wort.
     hints: { move: 'bewegen', open: 'einfügen', close: 'schließen' },
   },
   palette: {

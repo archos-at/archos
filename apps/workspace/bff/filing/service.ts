@@ -1,33 +1,3 @@
-/**
- * Where an upload belongs: Piloti judges an upload batch's documents against
- * the shelf's described folders and proposes the folder each belongs in, one
- * proposal per target folder (`docs/architecture/proposed-changes.md`,
- * „Ablage"). A person confirms or dismisses it on the file row, in the upload
- * tray, or from the inbox. Nothing moves until they do.
- *
- * ## Two moments, one mechanism
- *
- * - **`name`**, when the batch is sealed: the bytes are in and the person is
- *   still looking at the upload. The file name passed the name gate (ADR-0086)
- *   and is all that is read; the folders' descriptions carry the rest.
- * - **`content`**, when the batch is settled: ingestion has read it. Only
- *   documents whose screening passed are judged, from what ingestion produced
- *   (summary, tags, the Dokumentart), never from the bytes again. This may
- *   withdraw or sharpen what the name basis proposed (`./plan`).
- *
- * Both are the same BFF job (`filing_review`), run as the uploader, so what is
- * judged is what the uploader may see, and the proposals are theirs
- * (`on_behalf_of`). Background work: it never blocks or fails an upload.
- *
- * ## What is never proposed
- *
- * Nothing on a closed project (ADR-0090). Nothing into or out of a folder not
- * every member may read (ADR-0087, ADR-0088): those documents and folders are
- * not even sent. Nothing a person dismissed for the same document and target,
- * nothing for a document an open proposal already names (`./plan`). A chat's
- * attachments have no folders and are never judged.
- */
-
 import 'server-only'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { folderTree, isUnderOwnList, type FolderTree } from '@/lib/authz/folder-access-rule'
@@ -62,26 +32,20 @@ import {
   type FilingFolderInput,
 } from './types'
 
-/** How many of the office's most recent other projects the conventions are learned from. */
 const CONVENTION_PROJECTS = 20
-/** How many of those also lend their Dokumentart per folder (one collection listing each). */
 const CONVENTION_SAMPLE_PROJECTS = 3
-/** The language of the reasons a person reads. Product copy is German. */
 export const REASON_LOCALE = 'de'
 
-/** What one review did, for the log line and the specs. */
 export interface FilingReviewOutcome {
   status: 'skipped' | 'judged' | 'failed'
   reason?: string
   proposed: number
   withdrawn: number
-  /** Milliseconds from the batch's seal to the proposals being stored; null when it was not sealed. */
   sinceSealMs: number | null
 }
 
 const skipped = (reason: string): FilingReviewOutcome => ({ status: 'skipped', reason, proposed: 0, withdrawn: 0, sinceSealMs: null })
 
-/** A shelf's folders, as the uploader sees them, with which are open to every member. */
 export interface ShelfFolders {
   rows: FolderRow[]
   pathOf: (folderId: string | null) => string
@@ -99,12 +63,10 @@ export async function shelfFolders(session: AuthorizedSession, shelf: DocumentSh
   return {
     rows,
     pathOf: (folderId) => (folderId ? (paths.get(folderId) ?? '') : ''),
-    // A folder the uploader cannot see is restricted for this purpose too.
     isRestricted: (folderId) => folderId !== null && (!paths.has(folderId) || isUnderOwnList(tree, folderId)),
   }
 }
 
-/** Which Dokumentart lands in which folder of a shelf, from its screened, filed documents. */
 export async function shelfDocTypes(organizationId: string, shelf: DocumentShelf, folders: ShelfFolders) {
   const sample = await listFiledDocuments(organizationId, shelf, SCREENED_ONLY)
   const enriched = await reconcileDocumentStatuses(sample, organizationId, 'read')
@@ -114,7 +76,6 @@ export async function shelfDocTypes(organizationId: string, shelf: DocumentShelf
   return docTypesByFolder(samples)
 }
 
-/** The office's conventions for a project shelf, learned from the projects the uploader may open. */
 export async function conventionsFor(
   session: AuthorizedSession,
   projectId: string,
@@ -143,7 +104,6 @@ export async function conventionsFor(
   return officeConventions(rows, existingPaths, docTypes)
 }
 
-/** The batch's documents the judgement may read, and every one the uploader may see. */
 async function batchDocuments(
   session: AuthorizedSession,
   batch: UploadBatch,
@@ -151,7 +111,6 @@ async function batchDocuments(
 ): Promise<{ judged: Array<Document & { tags?: string[]; summary?: string }>; all: Document[] }> {
   const all = await listBatchDocuments(session.organizationId, batch.id, memberReader(session.userId))
   if (basis === 'name') {
-    // The name passed the name gate; a held file is not suggested anywhere.
     return { judged: all.filter((row) => row.status !== 'quarantined'), all }
   }
   const screened = await listBatchDocuments(session.organizationId, batch.id, SCREENED_ONLY)
@@ -181,12 +140,6 @@ export function documentInput(
 const proposalShelfOf = (shelf: DocumentShelf): ProposalShelf =>
   shelf.kind === 'project' ? { scope: 'project', projectId: shelf.projectId } : { scope: 'office_shelf' }
 
-/**
- * Judge one upload batch as its uploader and file the proposals. Never throws
- * for a refusal it can name (a closed project, a batch that is not theirs, a
- * chat's attachments); a failure of the database or the services does, so the
- * job's queue retries it.
- */
 export async function reviewUploadFiling(
   session: AuthorizedSession,
   batchId: string,
@@ -196,7 +149,6 @@ export async function reviewUploadFiling(
   const batch = await findUploadBatch(organizationId, batchId)
   if (!batch || batch.createdBy !== session.userId) return skipped('not-the-uploaders-batch')
   if (batch.scope === 'session') return skipped('chat-attachments')
-  // The content basis will judge this batch with more to go on.
   if (basis === 'name' && batch.completedAt) return skipped('already-read')
   let shelf: DocumentShelf = OFFICE_SHELF
   if (batch.scope === 'project') {
@@ -211,7 +163,6 @@ export async function reviewUploadFiling(
   const openFolders = folders.rows.filter((row) => !folders.isRestricted(row.id))
   const judgedDocuments = documents.judged
     .filter((row) => !folders.isRestricted(row.folderId))
-    // The root first: a file nobody filed is where a suggestion helps most.
     .sort((a, b) => Number(a.folderId !== null) - Number(b.folderId !== null))
     .slice(0, MAX_JUDGED_DOCUMENTS)
   if (judgedDocuments.length === 0) return skipped('nothing-to-judge')
@@ -277,9 +228,6 @@ export async function reviewUploadFiling(
       originTraceId: judgement.traceId,
     })
   }
-  // The suggestions stand on the shelf's file rows: tell the workspaces open
-  // on it to read them, instead of each asking every few seconds while an
-  // upload is on screen (`useFilingSuggestions`). After the writes, ids of nothing.
   if (plan.create.length > 0 || withdrawn > 0) publishShelfChanged(organizationId, shelf)
   const sinceSealMs = batch.sealedAt ? Date.now() - new Date(batch.sealedAt).getTime() : null
   console.debug(

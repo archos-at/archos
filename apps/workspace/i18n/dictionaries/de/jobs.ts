@@ -1,21 +1,5 @@
 import type { en } from '../en'
 
-/**
- * Aufgaben mit Rhythmus — ein Auftrag auf Wunsch mit Timer, und die Woche, die
- * daraus wird.
- *
- * Eine Aufgabe feuert ihren Prompt in einen frischen Lauf, so wie jemand einen
- * neuen Chat öffnet und tippt — einmalig, oder nach dem Rhythmus aus Schritt 2.
- * Ein Skill wird genau wie im Chat erreicht: „/name“ im Auftrag, den das Modell
- * dann von sich aus verwendet. Hier hängt nichts einen Skill an, und die
- * Skill-Werkstatt selbst liegt im Namensraum `skills`.
- *
- * Zwei Dinge gehören diesem Namensraum neu: die Texte des STUNDENPLANS und die
- * des dreiteiligen ASSISTENTEN. Beide gibt es, weil ein Rhythmus das Einzige im
- * Produkt ist, das man nicht durch Hinsehen prüfen kann — also gehen die Wörter
- * dorthin, wo die Festlegung lesbar wird („Jeden Montag um 06:00“, die nächsten
- * drei echten Termine), statt in die Namen von Cron-Feldern.
- */
 export const jobs: typeof en.jobs = {
   title: 'Aufgaben',
   backToList: 'Zurück zur Liste',
@@ -33,7 +17,6 @@ export const jobs: typeof en.jobs = {
     manualOnly: 'Nur manuell',
     onceOn: 'Einmal am {time}',
     onceDone: 'Erledigt',
-    // Bewusst knapp: beide stehen auf EINER Fußzeile einer Karte.
     nextRun: 'Nächster {time}',
     lastRun: 'Letzter {time}',
     neverRun: 'Noch nie gelaufen',
@@ -70,7 +53,6 @@ export const jobs: typeof en.jobs = {
     showActiveHours: 'Nur aktive Stunden zeigen',
     nothing: 'Nichts',
     gap: '{hours} Std.',
-    /** Ein Cron, den der Parser nicht lesen konnte — benannt, nie verschwiegen. */
     unplaceable: 'Nicht im Raster: {names}',
     emptyNoSchedules: 'Noch nichts geplant',
     emptyNoSchedulesHint: 'Legen Sie eine Aufgabe mit Rhythmus an — dann füllt sich diese Woche.',

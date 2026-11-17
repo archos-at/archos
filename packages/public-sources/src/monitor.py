@@ -1,23 +1,3 @@
-"""A source's monitor: has it changed since the last check? (design 4.2, ADR-0174)
-
-Deterministic, no model call. The record's ``monitor.probe`` names one
-operation of its access type; the probe runs it through the same guarded
-transport every read uses and compares what came back with what the last check
-saw, by the record's ``monitor.kind``:
-
-* ``sha256``: the bytes;
-* ``etag``: the validator the server states (and a 304 is "unchanged");
-* ``version``: the version the protocol or the engine states (an ELI point in
-  time, a consolidation date).
-
-It also hashes the terms page when that page lies on one of the source's hosts
-(a terms page elsewhere is a host the source may not reach, so it is reported
-unwatched rather than fetched).
-
-What a monitor does with a change (open a change request, never publish) is the
-BFF's: this module only answers what it saw.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -40,12 +20,11 @@ from public_sources.source import Source
 
 
 class MonitorError(Exception):
-    """The source cannot be watched (no probe, or ``kind: none``)."""
+    ...
 
 
 @dataclass(frozen=True)
 class Seen:
-    """What one check saw; any field may be empty when the protocol does not state it."""
 
     etag: str = ""
     sha256: str = ""
@@ -60,16 +39,13 @@ class ProbeResult:
     current: Seen
     url: str
     content_type: str
-    #: The page's text, for the change request's capture; ``None`` for bytes that are no text.
     text: str | None
     size: int
-    #: Why the terms page was not checked, when it was not.
     terms_unwatched: str = ""
     anchors: tuple[str, ...] = field(default_factory=tuple)
 
 
 def _parsed(source: Source, fetched):
-    """The engine's reading of the body, or ``None`` when it cannot read it (it then states no version, no anchors)."""
     try:
         return engine_for(source).document(fetched.body, url=fetched.url)
     except Exception:  # noqa: BLE001 - a body the engine cannot read is still a body whose bytes changed
@@ -77,7 +53,6 @@ def _parsed(source: Source, fetched):
 
 
 def _changed(kind: str, previous: Seen, current: Seen, status: int) -> bool:
-    """First check (nothing seen yet) is no change: it is the baseline."""
     if kind == "etag":
         return status != 304 and bool(previous.etag) and current.etag != previous.etag
     if kind == "version":
@@ -95,10 +70,6 @@ async def _terms_hash(source: Source, client: httpx.AsyncClient) -> tuple[str, s
 
 
 def _read(source: Source, fetched):
-    """``(document, text)``: what the engine reads and what a reviewer reads, a PDF parsed once for both.
-
-    Blocking (a PDF is read in a child process): the probe runs it off the event loop.
-    """
     if not is_pdf(fetched.body, fetched.content_type):
         return _parsed(source, fetched), _text_of(fetched)
     try:
@@ -111,7 +82,6 @@ def _read(source: Source, fetched):
 
 
 def _text_of(fetched) -> str | None:
-    """What a reviewer reads: the page's text, or a JSON body as it came (features, a collection)."""
     text = page_text(fetched.body, fetched.content_type)
     if text is None and "json" in fetched.content_type.lower():
         return fetched.body.decode("utf-8", errors="replace")[:MAX_TEXT_CHARS]
@@ -125,7 +95,6 @@ async def probe(
     inner: httpx.AsyncBaseTransport | None = None,
     credential: str | None = None,
 ) -> ProbeResult:
-    """Run the source's probe once and compare it with ``previous``. ``inner`` stands in for the network in tests."""
     if source.monitor.kind == "none" or source.monitor.probe is None:
         raise MonitorError(f"source {source.id!r} is not watched: its monitor names no probe")
     args = dict(source.monitor.probe.args)
@@ -138,7 +107,6 @@ async def probe(
         fetched = await access_for(source).fetch(client, source.monitor.probe.operation, args)
         terms_sha256, terms_unwatched = await _terms_hash(source, client)
     unchanged_304 = fetched.status == 304
-    # Off the event loop: an engine may parse for seconds (a PDF is read in a child process).
     document, text = (None, None) if unchanged_304 else await asyncio.to_thread(_read, source, fetched)
     current = Seen(
         etag=fetched.etag or (previous.etag if unchanged_304 else ""),

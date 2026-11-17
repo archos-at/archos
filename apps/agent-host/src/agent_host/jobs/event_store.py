@@ -93,8 +93,6 @@ def _events_query(
             ),
             params,
         )
-    # Two literal statements rather than one with a spliced clause: nothing
-    # but bound parameters ever reaches the SQL text.
     params["event_types"] = list(event_types)
     statement = text(
         "SELECT id, event_data FROM job_events "
@@ -555,23 +553,6 @@ class EventStore:
     def is_postgres(cls, db_url: str) -> bool:
         """Check if the database URL is for PostgreSQL."""
         return db_url.startswith("postgres")
-
-    # -------------------------------------------------------------------------
-    # Event Cleanup Methods
-    #
-    # Two cleanup strategies are available:
-    #
-    # 1. cleanup_job_events(job_id) - Delete events for a specific job.
-    #    Use when a job is explicitly deleted or for targeted cleanup.
-    #
-    # 2. cleanup_old_events(retention_seconds) - Delete all events older than
-    #    the retention period. Used by the background cleanup task in plugin.py
-    #    to prevent unbounded table growth. Runs periodically based on
-    #    expiry_seconds from config.
-    #
-    # The agent runtime's JobStore handles job metadata expiry separately. These methods
-    # handle our custom job_events table which the agent runtime doesn't know about.
-    # -------------------------------------------------------------------------
 
     @classmethod
     def cleanup_job_events(cls, db_url: str, job_id: str) -> int:

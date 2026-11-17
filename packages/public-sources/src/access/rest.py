@@ -1,18 +1,3 @@
-"""``rest``: a GET API with query parameters, described by the source record.
-
-The shape OpenAPI 3.1 describes for a read: a base URL, a path per operation,
-query parameters. The record lists each operation's path and parameters as
-templates over the operation's arguments and the source's tables
-(:mod:`public_sources.access.base`). Austria's RIS (``configs/sources/at/ris``)
-is one record of this type; NeuRIS, PVOG or planning.data.gov.uk would be
-others, each a file and no code.
-
-A parameter may carry a ``group``: a caller that composes a query in two steps
-(the RIS adapter builds the search terms first and the paging after) renders
-one group at a time. It may carry ``when``: the parameter is sent only when the
-named argument has one of the listed values.
-"""
-
 from __future__ import annotations
 
 from collections.abc import Mapping
@@ -31,7 +16,6 @@ from pydantic import model_validator
 
 
 class Param(Strict):
-    """One query parameter. ``name`` is a template too, for vocabularies that key the parameter name."""
 
     name: str
     value: str
@@ -43,12 +27,9 @@ class Param(Strict):
 
 
 class Operation(Strict):
-    """One read of the API: a path below the base URL and its parameters."""
 
     path: str = ""
     params: tuple[Param, ...] = ()
-    #: Another base URL for this operation (an API whose documents live on the
-    #: publisher's public site); on the source's hosts like every URL.
     base_url: str = ""
 
 
@@ -88,7 +69,6 @@ class Rest(AccessType):
             raise AccessError(f"{self.source.id}: no table {name!r}") from None
 
     def params(self, operation: str, args: Mapping[str, Any], *, group: str | None = None) -> dict[str, str]:
-        """The query of ``operation`` for ``args``, in the record's order; ``group`` narrows it."""
         query: dict[str, str] = {}
         for param in self.operation(operation).params:
             if group is not None and param.group != group:
@@ -102,7 +82,6 @@ class Rest(AccessType):
         return query
 
     def url(self, operation: str, args: Mapping[str, Any], *, base_url: str | None = None) -> str:
-        """The operation's URL. A path that renders empty means an argument had no entry."""
         template = self.operation(operation).path
         path = render(template, args, self.config.tables)
         if template and not path:

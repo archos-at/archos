@@ -30,14 +30,8 @@ const { LEGAL_HOLD_CODE, assertNoHold } = require('./purge-project')
 /** @typedef {import('./types').QueueEntry} QueueEntry */
 /** @typedef {import('./types').PurgeDeps} PurgeDeps */
 
-// Must match bff/internal-auth.ts INTERNAL_TOKEN_HEADER, the header
-// `internalApiRoute` reads.
 const INTERNAL_TOKEN_HEADER = 'x-internal-token'
 
-// Well under the 15-minute stale-claim window (`purger/db.js`), so a hung call
-// is abandoned and recorded as a failed attempt long before another purger
-// could re-claim the row it is still working on. The erase itself is a handful
-// of backend calls, each with its own timeout in the BFF.
 const ERASE_TIMEOUT_MS = 5 * 60_000
 
 /** error.code for a refusal no retry can change: the caller fails the row for good. */
@@ -52,8 +46,6 @@ const PERMANENT_FAILURE_CODE = 'PURGE_PERMANENT_FAILURE'
 async function purgeConversation(tx, entry, deps) {
   const fetchImpl = deps.fetchImpl || fetch
 
-  // The claim already skipped a held row; this is the TOCTOU re-check every
-  // purger makes before its first destructive step. The BFF checks once more.
   await assertNoHold(tx, entry)
 
   const res = await fetchImpl(
@@ -69,11 +61,6 @@ async function purgeConversation(tx, entry, deps) {
     },
   )
   if (res.ok) {
-    // After the BFF's erasure, not before: a held or live chat is refused above
-    // and must keep its traces. The BFF steps end by closing the queue row only
-    // when the purger has not claimed it, so a throw here leaves the row
-    // 'purging', and the attempts and backoff retry the whole call; the BFF
-    // answers `already-gone` the second time and this step runs again.
     await deps.eraseConversationTraces(entry.entity_id)
     return
   }
@@ -82,19 +69,12 @@ async function purgeConversation(tx, entry, deps) {
     typeof res.json === 'function' ? await res.json().catch(() => null) : null
   )
   if (res.status === 409 && body?.details?.reason === 'legal_hold') {
-    // Not a failure: the caller puts the row back to 'pending' and refunds the
-    // attempt, and the claim skips it until the hold is released.
     /** @type {import('./types').LegalHoldError} */
     const error = new Error(`legal hold active for conversation ${entry.entity_id} — erasure deferred`)
     error.code = LEGAL_HOLD_CODE
     throw error
   }
   if (res.status === 409 && body?.details?.reason === 'not_deleting') {
-    // The row names a chat that is live (not marked deleting). The BFF will
-    // refuse it on every attempt, so retrying only spends ten attempts over
-    // hours to reach the same answer. The caller fails it for good at once,
-    // and it stays in the admin deletions list with this reason. Not 'purged':
-    // nothing was erased, and the record must not say otherwise.
     /** @type {import('./types').LegalHoldError} */
     const error = new Error(
       `conversation ${entry.entity_id} is not marked deleting — the queue row names a live chat, nothing was erased`,

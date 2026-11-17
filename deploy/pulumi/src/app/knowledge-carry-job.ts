@@ -13,29 +13,12 @@ import { AppSecrets, AppWiring, frontendEnv } from "./config";
 
 type EnvVar = k8s.types.input.core.v1.EnvVar;
 
-/** The bundles and their manifest, as the frontend image copies them (`apps/workspace/deploy/Dockerfile`). */
 export const KNOWLEDGE_RELEASES_DIR = resolve(__dirname, "../../../../apps/workspace/config/knowledge-releases");
 
-/**
- * The names the carry sets itself. `KNOWLEDGE_SINGLE_OPERATOR=true` is this
- * pod's alone (`stack-files.spec.ts` holds that nothing else sets it on prod):
- * migration 0233 then counts the carry's own verdicts and leaves no second
- * review due, which is what ADR-0181 decided for this carry and nothing else.
- */
 const CARRY_OVERRIDES = new Set(["KNOWLEDGE_SINGLE_OPERATOR", "OTEL_SERVICE_NAME"]);
 
-/**
- * How long the carry waits for the corpus to ingest a country's texts, in minutes. Prod's first AT carry
- * (2026-11-14) indexed one new text about every three minutes, 54 texts in about 2.5 hours; at 30 minutes every
- * attempt ran out first and the labels, the legacy copies and the building classes were left undone.
- */
 export const CARRY_WAIT_MINUTES = 240;
 
-/**
- * The digest the Job's name carries: the manifest and every bundle it names, so
- * a deploy that changes no bundle plans no new Job and one that changes any
- * runs the carry again (which skips what stable already holds).
- */
 export function knowledgeReleasesDigest(dir = KNOWLEDGE_RELEASES_DIR): string {
   const hash = createHash("sha256");
   const manifest = readFileSync(resolve(dir, "manifest.json"));
@@ -60,30 +43,6 @@ export function knowledgeCarryEnv(w: AppWiring, cfg: DeployConfig): EnvVar[] {
   ];
 }
 
-/**
- * The promotion's carry of reviewed knowledge releases (ADR-0181): one Job from
- * the frontend image running `node dist-jobs/knowledge-carry.mjs`, gated by the
- * stack's `knowledgeCarry`. Per bundle it verifies the digest, imports, attaches
- * each text from its URL through the public-source fetcher, reviews and
- * approves `carried`, publishes to preview and stable, then waits for the corpus
- * to ingest every text with its country's mark. On the target it then derives
- * every live project's building class again (`rederiveBuildingClasses`), the
- * rollover's one-time step, so no operator runs it by hand.
- *
- * So it waits on what it calls: the migrated schema (0239), the api tier (the
- * corpus and the fetch), the fetcher, the bff-jobs pool (it runs the index
- * runs) and the ingest workers (they cut the chunks).
- *
- * NOT AWAITED (`pulumi.com/skipAwait`). The ingest of a country's texts (AT:
- * about 50 PDFs, chunked on their Punkte) is bounded by KEDA's scale-up and the
- * ingest pool, and the carry waits up to `CARRY_WAIT_MINUTES` for it after the
- * fetches. Awaited, that would sit inside the deploy's 60-minute job budget
- * behind every tier's rollout, and a deploy that times out there has rolled
- * everything already: failing it would roll nothing back. The Job reports
- * instead: one JSON log line per step, a non-zero exit on any failure, retried
- * (`backoffLimit`) from where the request stands. Read it with
- * `kubectl logs job/<name>`; rollover-to-prod.md says what green looks like.
- */
 export function runKnowledgeCarry(
   w: AppWiring,
   cfg: DeployConfig,
@@ -99,16 +58,11 @@ export function runKnowledgeCarry(
         namespace: w.namespace,
         annotations: {
           "pulumi.com/skipAwait": "true",
-          // A replace deletes the old Job first under the same name. Foreground deletion (the provider's default)
-          // keeps the object until its pod is gone, so while a carry still runs the create met "object is being
-          // deleted: ... already exists" (prod, 2026-11-14). Background frees the name at once.
           "pulumi.com/deletionPropagationPolicy": "background",
         },
       },
       spec: {
-        // Each retry resumes the request where it stands; three are enough for a fetch or an ingest that hiccups.
         backoffLimit: 3,
-        // A day to read its log before the cluster reaps it.
         ttlSecondsAfterFinished: 86_400,
         template: {
           metadata: { labels: commonLabels("knowledge-carry") },

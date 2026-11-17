@@ -52,44 +52,18 @@ logger = logging.getLogger(__name__)
 _VALID_SEVERITIES = {"error", "warning", "suggestion"}
 _VALID_FIELDS = {"name", "description", "body"}
 
-#: Clamps on the model's output. A reviewer that returns forty findings is not
-#: reviewing, it is nagging, and the editor surface can only usefully show a
-#: handful; the char caps keep one runaway generation from bloating a response
-#: the UI renders inline. Deliberately the same numbers the BFF applies in
-#: `lib/skills/review.ts`: it re-clamps whatever arrives, and two different
-#: limits would mean the second cut lands mid-sentence in text the first had
-#: already trimmed.
 MAX_FINDINGS = 12
 MAX_MESSAGE_CHARS = 400
 MAX_FIX_CHARS = 400
 
-#: A check id is only worth carrying if it is EXACTLY the rulebook's id — it
-#: exists so a finding can be traced back to the rule that produced it, and a
-#: truncated or invented id traces back to nothing. So this is a validity bound,
-#: not a display bound: anything longer (or shaped unlike an id) is dropped to
-#: the empty string rather than clamped into a plausible-looking lie.
 MAX_CHECK_CHARS = 64
 
-#: The body is the one unbounded field (the spec caps name and description but
-#: only *recommends* <500 lines of markdown). Truncate rather than reject: a
-#: reviewer judging the first ~12k chars still gives useful feedback, whereas a
-#: 400 on a long skill would just look like the feature is broken.
 MAX_BODY_CHARS = 12000
 
-#: The vendored rulebook. It sits BESIDE the builtin skills tree, never inside
-#: it: ``discover_builtin_skills`` globs ``builtin/*/*/SKILL.md`` and offers
-#: everything it finds to agents, and this file is a rulebook for a reviewer,
-#: not a capability any agent may invoke.
 RULEBOOK_PATH = BUILTIN_SKILLS_DIR.parent / "review" / "skill-check" / "SKILL.md"
 
-#: Lines that sell the paid tier rather than state a rule. We run this author's
-#: checks; we do not relay his advertisement to our tenants, who cannot act on
-#: it and did not ask for it.
 _UPSELL_RE = re.compile(r"getskillcheck\.com|upgrade to pro", re.IGNORECASE)
 
-#: What a check id may look like once stripped of the rulebook's prose prefix
-#: ("Check 1.9-xml-in-frontmatter" → "1.9-xml-in-frontmatter"). Bounded by
-#: MAX_CHECK_CHARS; see the note there for why this rejects rather than clamps.
 _CHECK_PREFIX_RE = re.compile(r"^check\s+", re.IGNORECASE)
 _CHECK_ID_RE = re.compile(rf"^[a-z0-9][a-z0-9._-]{{0,{MAX_CHECK_CHARS - 1}}}$", re.IGNORECASE)
 
@@ -110,14 +84,10 @@ def _load_rulebook(path: Path = RULEBOOK_PATH) -> tuple[str, str]:
     """
     skill = parse_skill_md(path.read_text(encoding="utf-8"))
     kept = [line for line in skill.body.splitlines() if not _UPSELL_RE.search(line)]
-    # Dropping a line leaves the blank line that framed it; collapse the gap so
-    # the rules read as continuous prose rather than as a document with holes.
     rules = re.sub(r"\n{3,}", "\n\n", "\n".join(kept)).strip()
     return rules, skill.metadata.get("version", "unknown")
 
 
-#: Read once, at import: the file is on disk, immutable for the process's life,
-#: and re-reading it per request would buy nothing but IO on a hot path.
 RULEBOOK, RULEBOOK_VERSION = _load_rulebook()
 
 
@@ -194,16 +164,7 @@ def _llm_settings(organization_id: str | None = None) -> ResolvedCredential:
     from agent.common.credential_resolution import read_api_key_env
     from agent.common.credential_resolution import resolve_llm_credential
 
-    # `read_api_key_env`, not `os.getenv`: docker compose `env_file` does not
-    # interpolate `${VAR}` references, so `OPENROUTER_API_KEY=${OPENROUTER_API_KEY}`
-    # arrives as a literal placeholder — truthy, but not a key. Reading it raw
-    # selected the OpenRouter endpoint below while the resolver (which normalizes
-    # the same way) treated the key as unset and fell back to `LLM_API_KEY`,
-    # sending another provider's key to openrouter.ai.
     openrouter_key = read_api_key_env("OPENROUTER_API_KEY")
-    # Mirrors the boot floor in config_oib_openrouter.yml. NOTE: this route is
-    # not an AgentGroup, so it resolves outside `platform_model_defaults` — the
-    # platform default set under Platform → Models does not reach it.
     default_model = "openai/gpt-6-luna" if openrouter_key else "gpt-4o-mini"
     default_base = "https://openrouter.ai/api/v1" if openrouter_key else "https://api.openai.com/v1"
 
@@ -262,7 +223,6 @@ def _parse_findings(content: str | None) -> list[SkillReviewFinding] | None:
 
     raw_findings = data.get("findings")
     if raw_findings is None:
-        # A well-formed object without a findings key means "nothing to report".
         return []
     if not isinstance(raw_findings, list):
         return None
@@ -278,8 +238,6 @@ def _parse_findings(content: str | None) -> list[SkillReviewFinding] | None:
         message = entry.get("message")
         if not isinstance(message, str) or not message.strip():
             continue
-        # A finding without a fix is still worth showing; an empty string is the
-        # honest rendering of "the model had nothing concrete to propose".
         fix = entry.get("fix")
         fix = fix.strip()[:MAX_FIX_CHARS] if isinstance(fix, str) else ""
         findings.append(
@@ -311,24 +269,17 @@ def add_skill_review_routes(router: APIRouter) -> None:
     )
     async def skill_review(
         request: SkillReviewRequest,
-        # Forwarded by the BFF (profile-service) so this route can reach the
-        # org's BYOK LLM credential; absent for anonymous/direct callers. The
-        # body field wins when both are present — the skills editor posts the
-        # org it is editing on behalf of, which is the more specific answer.
         x_grid_organization_id: str | None = Header(default=None),
     ) -> SkillReviewResponse:
         name = request.name.strip()
         description = request.description.strip()
         body = request.body.strip()
         if not (name or description or body):
-            # An empty draft has nothing to review; do not spend a call telling
-            # the author their blank form is blank.
             return SkillReviewResponse(findings=[])
 
         organization_id = request.organization_id or x_grid_organization_id
         cred = await asyncio.to_thread(_llm_settings, organization_id)
         if not cred.api_key:
-            # No credentials — surface a diagnosable code instead of a guaranteed 401.
             return SkillReviewResponse(findings=None, error="llm_not_configured")
 
         truncated_body = body[:MAX_BODY_CHARS]
@@ -336,9 +287,6 @@ def add_skill_review_routes(router: APIRouter) -> None:
             truncated_body += "\n\n[… body truncated for review …]"
 
         user_content = (
-            # The product is German-facing but skills may be authored in either
-            # language, and a German critique of an English skill (or the
-            # reverse) reads as a bug to the author.
             "Write every `message` and `fix` in the SAME LANGUAGE as the skill "
             "below. If the skill is written in German, answer in German.\n\n"
             f"name: {name}\n\n"

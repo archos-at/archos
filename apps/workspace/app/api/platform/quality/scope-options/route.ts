@@ -1,19 +1,3 @@
-/**
- * Platform → Answer quality: the options of the page-wide scope bar.
- *
- *   ?from=YYYY-MM-DD&to=YYYY-MM-DD   the range (or `days=7|30|90`)
- *   ?org=…                            repeatable: the chosen organizations
- *   ?project=…                        repeatable: the chosen projects
- *
- * Answers `{ organizations, organizationsTruncated, projects, projectsTruncated }`:
- * the organizations with any vote, citation check or profiled turn in the range
- * (named), and the projects of the chosen organizations. Not ratings-specific,
- * because the bar scopes every quality view. A malformed range is a 400.
- *
- * Gated in the factory on `platform:organizations:view`, like every other read
- * on the page; the reads are `lib/quality/scope-options.ts`.
- */
-
 import { BadRequestError } from '@/lib/api/errors'
 import { platformApiRoute } from '@/lib/api/platform-handler'
 import { PLATFORM_PERMISSIONS } from '@/lib/authz/permissions'

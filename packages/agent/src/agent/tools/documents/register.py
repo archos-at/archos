@@ -74,26 +74,13 @@ from .filing import post_document_version
 
 logger = logging.getLogger(__name__)
 
-#: The BFF's own ceilings (`internalDocumentVersionRequestSchema`). Checked here
-#: so an over-long title comes back where the model can shorten it, rather than
-#: as a 400 after the reader has been told the document is being filed.
 MAX_TITLE_CHARS = 200
 MAX_REF_CHARS = 200
 
-#: Bound on the reviewer name this tier puts on the wire. Not a BFF ceiling —
-#: the BFF resolves the name against the project's members and a name no person
-#: has is refused there — but a display name is a display name, and a model that
-#: pastes half a paragraph into the argument should not have it forwarded.
 MAX_REVIEWER_CHARS = 200
 
-#: The states an open version may be replaced in — the `update` rows of the
-#: transition table, mirrored so the refusal is worded for the model here instead
-#: of arriving as an HTTP 409.
 REPLACEABLE_STATES = frozenset({"draft", "changes_requested"})
 
-#: The one sentence every success ends on. It leads with what the document is
-#: NOT, because that is the claim the model gets wrong: „ins Projekt übernommen“
-#: reads as done, and the reader then tells a Bauherr that a Befund is out.
 _STILL_A_DRAFT = (
     "This is a DRAFT that nobody has approved yet — do not say the document is approved, published or final."
 )
@@ -104,9 +91,6 @@ _NO_PROJECT = (
     "Do not retry."
 )
 
-#: No signed envelope, no acting person — and this tier must not invent one. A
-#: run without it is an unattended one (CLI, eval, job worker), where there is
-#: nobody whose permissions the filing could be checked against.
 _NO_ENVELOPE = (
     "Error: This run has no signed session credential, so nothing can be filed in a "
     "person's name. Nothing was filed. Do not retry."
@@ -116,30 +100,18 @@ _NO_CONVERSATION = (
     "Error: This run belongs to no conversation, so there is no working directory. Nothing was filed. Do not retry."
 )
 
-#: The refusal of a ``create`` whose reference was already filed onto a version
-#: outside :data:`REPLACEABLE_STATES` (``in_review``, ``approved``). The state
-#: comes from the BFF's answer to that create, so it is live; a machine may not
-#: replace those bytes, because a reviewer is looking at them and the transition
-#: table gives the agent no way to take them back.
 _ALREADY_SUBMITTED = (
     "Error: This draft is already submitted for approval and can no longer be changed. "
     "Tell the user that a person must first return or approve it."
 )
 
 
-#: What a ``409`` on ``update`` means. The record in the working directory is a
-#: copy taken at the last filing, and a reviewer's „Änderungen anfordern" does
-#: not reach it, so the tool no longer refuses on that copy: it asks the
-#: lifecycle API, which holds the live state, and words the refusal here. A 409
-#: is either a version under review or one a person changed since; the body does
-#: not say which, so the sentence names both.
 _NOT_REPLACEABLE_NOW = (
     "Error: The draft in the project cannot be replaced right now. Either it is submitted for approval, "
     "or a person has changed it since it was last filed. Tell the user that a "
     "person must first return it, or that they should check the current state in the project."
 )
 
-#: What a ``409`` on ``submit`` means: the version is no longer open.
 _NOT_SUBMITTABLE_NOW = (
     "Error: This draft has already been submitted. Tell the user that it is waiting for approval by a person."
 )
@@ -232,14 +204,8 @@ async def _draft(path: str) -> tuple[DraftBackend, DraftUsage]:
     return backend, usage
 
 
-#: The generic refusal of a lifecycle call, ``{error}`` being the transport's
-#: sentence. True of every call that has not yet put bytes into the project in
-#: this invocation — a filing, and the submit of a draft filed in an earlier one.
 _CALL_FAILED = "Error filing: {error}. Nothing was filed; tell the user that the draft is in the working directory."
 
-#: The same refusal for a submit that follows a filing of THIS call, where
-#: „nothing was filed" would be false: the bytes are in the project, the review
-#: round is not.
 _SUBMIT_FAILED_AFTER_FILING = (
     "Error submitting: {error}. Tell the user that the draft is in the project as a DRAFT, but not submitted."
 )
@@ -291,19 +257,9 @@ async def _create(path: str, usage: DraftUsage, title: str, envelope: SignedEnve
         envelope,
     )
     filing = filing_record(body)
-    # The reference was already filed — a retried turn, or a working directory
-    # that lost its mapping (a restart with an in-memory store). The item comes
-    # back and NO version was written, so the bytes standing in the project are
-    # the OLD ones; saying "filed" here would be true and misleading. Replace
-    # them, using the hash the route just told us.
     if not body.get("alreadyFiled"):
         return filing
     if filing[FILED_STATE_KEY] not in REPLACEABLE_STATES:
-        # And where the standing version may NOT be replaced, the same sentence
-        # `_refile` says. Returning the record here would end the turn on „Im
-        # Projekt abgelegt" for a call that wrote nothing at all: the reader is
-        # told their revision is in the project, the reviewer is still holding
-        # the old bytes, and neither of them finds out.
         raise _Refused(_ALREADY_SUBMITTED)
     return await _update(usage, filing, envelope)
 
@@ -316,9 +272,6 @@ async def _update(usage: DraftUsage, filing: dict[str, str], envelope: SignedEnv
             "documentId": filing[FILED_DOCUMENT_KEY],
             "versionId": filing[FILED_VERSION_KEY],
             "content": usage.content or "",
-            # The hash the BFF last reported for THIS version, not one computed
-            # here: If-Match is about the bytes the server holds, and a hash of
-            # our own copy would agree with itself and overwrite a reviewer.
             "ifMatch": filing[FILED_HASH_KEY],
         },
         envelope,
@@ -334,7 +287,6 @@ def _project_or_refuse() -> str:
     return project_id
 
 
-# ── file_draft ───────────────────────────────────────────────────────────────
 
 _FILE_DRAFT_DESCRIPTION = (
     "Files a draft from the working directory into the project AS A DRAFT, so that others can see and "
@@ -359,8 +311,6 @@ _FILE_DRAFT_DESCRIPTION = (
     "by a person."
 )
 
-#: A reviewer named on a call that does not submit. Refused before anything is
-#: filed, rather than read as a request to submit: see the module docstring.
 _REVIEWER_WITHOUT_SUBMIT = (
     "Error: `reviewer` applies only together with `submit=true`. Nothing was filed. If the user "
     "asked for approval or review, call again with `submit=true`; otherwise without `reviewer`."
@@ -424,9 +374,6 @@ async def _submit(
     failure: str = _CALL_FAILED,
 ) -> dict[str, str]:
     """Submit the filed version, remember its new state, and return that record."""
-    # No check of the remembered state: after „Änderungen anfordern" it still
-    # says ``in_review`` while the live version may be submitted again. A 409 is
-    # the BFF saying the version is not open.
     body = await _post(
         _submit_payload(filing, reviewer),
         envelope,
@@ -443,8 +390,6 @@ async def _submit_unchanged(
     backend: DraftBackend, path: str, usage: DraftUsage, reviewer: str, envelope: SignedEnvelope
 ) -> str:
     """``submit=True`` on a draft the project already holds: submit, and nothing else."""
-    # The draft is already in the project, so a failed submit must not say
-    # „nothing was filed" (`_CALL_FAILED`): only the review round failed.
     submitted = await _submit(backend, path, usage.filing, reviewer, envelope, failure=_SUBMIT_FAILED_AFTER_FILING)
     emit_draft_card(path=path, content=usage.content or "", version=usage.version or 1, filing=submitted)
     return (
@@ -485,8 +430,6 @@ async def _file(path: str, title: str, *, submit: bool, reviewer: str) -> str:
     try:
         submitted = await _submit(backend, path, filing, named, envelope, failure=_SUBMIT_FAILED_AFTER_FILING)
     except _Refused as refused:
-        # The filing stands, so the card and the sentence both say so: the
-        # model must not tell the reader nothing happened, nor that it went out.
         _card(filing)
         raise _Refused(f"Filed in the project: „{chosen}“ — but NOT submitted. {refused.message}") from refused
     _card(submitted)

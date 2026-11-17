@@ -1,8 +1,4 @@
 #!/usr/bin/env python3
-# /// script
-# requires-python = ">=3.11"
-# dependencies = ["chromadb==1.5.9"]
-# ///
 """Export every Chroma collection, vectors included, to the neutral format ``piloti-vectors/1``.
 
 The one place Chroma code still runs (ADR-0115). The product no longer
@@ -55,7 +51,6 @@ import chromadb
 FORMAT = "piloti-vectors/1"
 DEFAULT_BATCH = 1000
 INCLUDE = ["embeddings", "documents", "metadatas"]
-#: Chroma's own rule for a collection name; anything else would not be a safe directory name.
 COLLECTION_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{1,510}[A-Za-z0-9]$")
 
 logger = logging.getLogger("chroma_export")
@@ -210,7 +205,6 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
 def _open(args: argparse.Namespace, scratch: Path) -> tuple[Any, dict[str, str]]:
     if args.url:
         client = _http_client(args.url)
-        # What the server reports, which is not its release: the 1.5.9 image answers "1.0.0".
         return client, {"mode": "http", "location": args.url, "server_version": str(client.get_version())}
     client = _persistent_client(args.persist_dir, scratch)
     return client, {"mode": "persist", "location": str(args.persist_dir)}
@@ -223,7 +217,6 @@ def main(argv: list[str] | None = None) -> int:
     out: Path = args.out
     out.mkdir(parents=True, exist_ok=True)
     manifest_path = out / "manifest.json"
-    # Gone before anything else, so an interrupted re-run is never mistaken for a complete export.
     manifest_path.unlink(missing_ok=True)
     shutil.rmtree(out / "collections", ignore_errors=True)
     scratch_parent = args.scratch or out.resolve().parent

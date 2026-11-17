@@ -1,5 +1,3 @@
-"""Inspecting elements: finding them, one element's profile, its relations, the room inventory and the shopping list."""
-
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -24,9 +22,6 @@ from ifc_spatial.tools_session import run
 from ifc_spatial.tools_types import ToolDef
 from ifc_spatial.tools_types import ToolError
 
-# `env`, not `envelope`: `envelope.py` is the ANSWER CONTRACT (`Answer`,
-# `computed`, `undecidable`) and `envelope_geometry.py` is the thermal envelope.
-# Two unrelated meanings of one word, one of which is imported from below.
 from . import operators as op
 from .briefing import KIND_LABEL
 from .briefing import LEGACY_ROOM_USE_KINDS
@@ -43,8 +38,6 @@ def find_elements(resolve: Callable[[Any], SpatialModel], args: dict[str, Any]) 
     out: dict[str, Any] = {
         "elements": [model.ref(e).to_dict() for e in matches],
         "total": total,
-        # Stated rather than implied: a page presented as a total is the
-        # failure this whole library is built to avoid.
         "truncated": total > len(matches),
     }
     if total == 0:
@@ -55,7 +48,6 @@ def find_elements(resolve: Callable[[Any], SpatialModel], args: dict[str, Any]) 
     return out
 
 
-# ── element ─────────────────────────────────────────────────────────────
 
 
 def element(resolve: Callable[[Any], SpatialModel], args: dict[str, Any]) -> Any:
@@ -70,10 +62,6 @@ def element(resolve: Callable[[Any], SpatialModel], args: dict[str, Any]) -> Any
 
     storey = model.storey_of(subject)
     container = run(lambda: op.container_of(model, global_id))
-    # Only the relations that are attribute reads are probed. The four in
-    # GEOMETRIC_RELATIONS fall back to a contact map that costs seconds, and
-    # building a menu is not worth that; they are listed separately as
-    # "askable" instead of as "available", which is the honest distinction.
     available = []
     for name, fn in RELATION_FN.items():
         if name in GEOMETRIC_RELATIONS:
@@ -81,12 +69,6 @@ def element(resolve: Callable[[Any], SpatialModel], args: dict[str, Any]) -> Any
         try:
             answer = fn(model, global_id)
         except WrongKindError:
-            # The ONE place a wrong kind is a question rather than a
-            # mistake: this loop asks every relation whether it applies to
-            # this element, and `hosts` on an IfcSpace answering "no" is the
-            # menu working. Everywhere else the same refusal is the caller's
-            # error and must reach them — so it is caught here by hand and
-            # nowhere else, rather than softened at the source.
             continue
         if not answer.decidable:
             continue
@@ -113,7 +95,6 @@ def element(resolve: Callable[[Any], SpatialModel], args: dict[str, Any]) -> Any
     }
 
 
-# ── relations / measure / distance ──────────────────────────────────────
 
 
 def relations(resolve: Callable[[Any], SpatialModel], args: dict[str, Any]) -> Any:
@@ -132,10 +113,6 @@ def _profile_measures(model: SpatialModel, global_id: str, applicable: list[str]
         try:
             answer = _jsonable(run(lambda fn=fn: fn(model, global_id)))
         except Exception as exc:  # noqa: BLE001
-            # One measure that throws must not cost the caller the other
-            # fifteen. The failure is reported in place, as a failure, and
-            # the profile still comes back — the alternative is a dead call
-            # and another turn spent finding out which kind was to blame.
             measures[name] = {"decidable": False, "error": f"{type(exc).__name__}: {exc}"}
             continue
         if isinstance(answer, dict):
@@ -145,20 +122,6 @@ def _profile_measures(model: SpatialModel, global_id: str, applicable: list[str]
 
 
 def element_profile(resolve: Callable[[Any], SpatialModel], args: dict[str, Any]) -> Any:
-    """Every measure that applies to ONE element — the inverse of `survey`.
-
-    `survey` is one measure over many elements; this is many measures over
-    one. Both exist for the same reason: the expensive thing is not the
-    measurement, it is the turn. „Erzähl mir alles über diesen Raum" is a
-    normal opening move for a reviewer who has just been pointed at an
-    outlier, and composed from primitives it costs one `measure` call per
-    kind — twenty turns for a question that has one answer.
-
-    Which measures apply is read from `MEASURE_SUBJECT`, so a door is not
-    asked for its lichte Raumhöhe and a room is not asked for its
-    Schwellenhöhe. The refusals that would produce are not useful output;
-    they are noise that pushes the real numbers out of the context window.
-    """
     model = resolve(args.get("model"))
     global_id = _require(args, "globalId")
     try:
@@ -199,23 +162,9 @@ def element_profile(resolve: Callable[[Any], SpatialModel], args: dict[str, Any]
     return out
 
 
-# ── ids ─────────────────────────────────────────────────────────────────
 
 
 def shopping_list(resolve: Callable[[Any], SpatialModel], args: dict[str, Any]) -> Any:
-    """The model's blind spots as a buildingSMART IDS file.
-
-    The one output of this package that leaves the conversation and keeps
-    working. Everything else is a sentence an architect reads once; this is
-    a file they run in their own checker, on their own schedule, and re-run
-    after the fix to prove it landed.
-    """
-    # Imported HERE, not at module scope. `ids_export` needs `ifctester`,
-    # which ships with IfcOpenShell as a separate distribution and is not
-    # guaranteed present — and a module-level import made a missing optional
-    # dependency take down the ENTIRE tool surface, so a deployment without
-    # it could not measure a wall either. One tool degrading is a fact about
-    # one capability; eleven tools vanishing is an outage.
     try:
         from . import ids_export as ids
     except ImportError as error:
@@ -235,22 +184,9 @@ def shopping_list(resolve: Callable[[Any], SpatialModel], args: dict[str, Any]) 
     return {**written, "summary": document.summary()}
 
 
-# ── room_inventory ──────────────────────────────────────────────────────
 
 
 def room_inventory(resolve: Callable[[Any], SpatialModel], args: dict[str, Any]) -> Any:
-    """``kind`` is validated here, exactly like ``relation`` and ``measure``.
-
-    It used to go straight through as ``str(args.get("kind") or "")``, and
-    ``briefing.inventory`` indexed ``KIND_LABEL`` with it — so an omitted or
-    misspelt kind came back as ``KeyError: ''`` from ``briefing.py:799``. A
-    Python traceback is not a refusal: the caller cannot read it, cannot act
-    on it, and an MCP client sees a crash where every other enum in this file
-    produces a German sentence naming the allowed values. The agent-runtime tool layer
-    happened to validate ``kind`` before this was reached, but this module is
-    the engine's own entry point, and a host may hand arguments here
-    unfiltered.
-    """
     model = resolve(args.get("model"))
     kind = str(args.get("kind") or "").strip()
     kind = LEGACY_ROOM_USE_KINDS.get(kind, kind)

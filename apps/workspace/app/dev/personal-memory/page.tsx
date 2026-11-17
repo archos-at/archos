@@ -1,28 +1,5 @@
 'use client'
 
-/**
- * Dev preview for „Mein Gedächtnis“ (ADR-0180): the REAL `PersonalMemoryPanel`
- * over a fetch shim for `/api/user/memory`, so every state is reviewable
- * without a backend. Pick one with the toggles or open it by address:
- *
- *   ?state=notes      five notes, one pinned, three topics and one without; add,
- *                     edit, pin, remove, move to a topic, and rename, merge,
- *                     ungroup or remove a topic work the way the server does
- *   ?state=empty      no note yet
- *   ?state=loading    the list never answers
- *   ?state=error      the list answers 500
- *   ?state=conflict   every edit of a text answers 409 (another note says it)
- *
- * The shim answers the list with `topics` (the counts of the notes it holds)
- * and honours `?topic=` the way the list route does: an empty value is the
- * notes without a topic. The topic routes move and remove notes in the shim's
- * own copy, so a preview session can see the result.
- *
- * The shim is installed at MODULE scope, not in an effect: a child's effect
- * fires first and would race a parent's fetch patch. Not linked from anywhere
- * and 404s outside development (see ../layout.tsx).
- */
-
 import type { JSX } from 'react'
 import { PageHeader } from '@/components/ui/page-header'
 import { PersonalMemoryPanel } from '@/features/personal-memory'
@@ -45,7 +22,6 @@ interface Note {
   updatedAt: string
 }
 
-/** The body of a topic route: a rename or merge (`from`, `to`) or a removal (`name`). */
 type Body = Partial<Note> & { from?: string | null; to?: string | null; name?: string }
 
 const note = (id: string, kind: Note['kind'], content: string, overrides: Partial<Note> = {}): Note => ({
@@ -93,16 +69,13 @@ const SEED: Note[] = [
   ),
 ]
 
-/** What the shim serves; the page sets both before it mounts the panel. */
 const server: { state: PreviewState; notes: Note[] } = { state: 'notes', notes: [...SEED] }
 
-/** Two topics name one topic when they differ only in case (`resolveTopic`, the German rules); null is no topic. */
 function sameTopic(a: string | null, b: string | null): boolean {
   if (a === null || b === null) return a === b
   return a.toLocaleLowerCase('de') === b.toLocaleLowerCase('de')
 }
 
-/** The topics of the notes with how many each holds, most first (`summarizeTopics`). */
 function topicSummary(notes: Note[]): { name: string; count: number }[] {
   const counts = new Map<string, number>()
   for (const candidate of notes) {
@@ -113,14 +86,12 @@ function topicSummary(notes: Note[]): { name: string; count: number }[] {
     .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, 'de'))
 }
 
-/** The topic a write stores: the spelling the shelf already has, else the text itself (`resolveTopic`). */
 function resolveName(raw: string | null | undefined): string | null {
   const text = (raw ?? '').trim().replace(/\s+/g, ' ')
   if (text === '') return null
   return topicSummary(server.notes).find((topic) => sameTopic(topic.name, text))?.name ?? text
 }
 
-/** `PATCH` moves every note on `from` to `to` (a `to` another topic has merges them); `DELETE` removes the notes on `name`. */
 function answerTopics(method: string, body: Body): Response {
   if (method === 'PATCH') {
     const from = body.from ?? null
@@ -148,7 +119,6 @@ async function answer(url: string, init?: RequestInit): Promise<Response> {
   if (method === 'GET') {
     if (server.state === 'loading') return new Promise<Response>(() => {})
     if (server.state === 'error') return Response.json({ error: 'Internal error' }, { status: 500 })
-    // `?topic=`: the notes of that topic, an empty value the notes without one.
     const topic = searchParams.get('topic')
     const items =
       topic === null ? server.notes : server.notes.filter((candidate) => sameTopic(candidate.topic, topic === '' ? null : topic))

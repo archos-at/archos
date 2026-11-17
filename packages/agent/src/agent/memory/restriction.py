@@ -76,20 +76,12 @@ from agent.knowledge.restricted_collections import restricted_collections_in
 
 logger = logging.getLogger(__name__)
 
-#: How long one judge call may take before it counts as unanswered (fail
-#: closed). In the ``remember`` tool it sits on the answer's path; in the
-#: reflection stage it shares the stage's 45s with the reflection call.
 JUDGE_TIMEOUT_S = 12.0
-#: How many unread restricted documents the judge is shown at most (about 12k
-#: tokens). Past it the judge would decide on part of the evidence, so it is
-#: not asked and the memory is restricted to every collection in scope.
 MAX_JUDGE_DOCUMENTS = 150
 _MAX_SUMMARY_CHARS = 300
 _MAX_NAME_CHARS = 200
 _MAX_MEMORY_CHARS = 600
 
-#: A memory's restriction: ``None`` is open memory, otherwise the restricted
-#: collections it depends on, sorted.
 Restriction = tuple[str, ...] | None
 
 
@@ -101,13 +93,8 @@ class JudgeVerdict:
     BFF records which note, which folders, and the verdict.
     """
 
-    #: ``drawn``: it named entries the memory draws on. ``none``: it named
-    #: nothing, so the judged folders add no restriction. ``failed``: no usable
-    #: answer, so the memory is restricted to every restricted folder in scope.
     verdict: Literal["drawn", "none", "failed"]
-    #: The restricted collections behind every entry the judge was shown.
     judged: tuple[str, ...]
-    #: The collections behind the entries it said the memory draws on.
     drawn: tuple[str, ...] = ()
 
     def as_payload(self) -> dict[str, object]:
@@ -152,19 +139,10 @@ class RestrictionEvidence:
     request context in ``TurnFacts``.
     """
 
-    #: ``R``: the restricted collections in the turn's scope.
     scope: tuple[str, ...] = ()
-    #: The part of ``R`` the turn, or the conversation it continues, cited or read.
     read: tuple[str, ...] = ()
-    #: Restricted documents of ``R`` the turn could list, read or not.
     documents: tuple[RestrictedDocument, ...] = ()
-    #: Restricted memory the conversation was shown: this turn's digest
-    #: ``restricted`` lines and restricted writes, and the lines earlier turns
-    #: were shown. A note drawing on one is restricted to that line's collections.
     notes: tuple[RestrictedNote, ...] = ()
-    #: Whether the turn's inventory was known at all. A turn with restricted
-    #: collections in scope and NO inventory rows (the inventory read failed
-    #: open) cannot say what it could have listed, so its memory fails closed.
     listing_known: bool = True
 
     @property
@@ -247,7 +225,6 @@ def restriction_evidence(
     )
 
 
-#: One digest line: ``- [tag | tag | …] "content"`` (``formatBoundedDigest``).
 _DIGEST_LINE = re.compile(r'^\s*-\s*\[([^\]]*)\]\s*"(.*)"\s*$')
 
 
@@ -403,12 +380,7 @@ async def restriction_decisions(
         logger.info("Memory restriction: the turn's inventory is unknown; failing closed")
         return [RestrictionDecision(_restriction(evidence.scope))] * len(contents)
     read = set(evidence.read)
-    # The restricted notes a memory reproduces draw on them, whatever a judge
-    # would say (step 4): a verbatim copy of a restricted line is that line.
     copied = [_reproduced_collections(content, evidence.notes) for content in contents]
-    # Unread restricted documents the turn could list, and restricted memory
-    # the conversation was shown that is not already covered by what it read:
-    # what the judge is for.
     unread = [_document_entry(doc) for doc in evidence.documents if doc.collection not in read]
     unread += [_note_entry(note) for note in evidence.notes if not set(note.collections) <= read]
     if not unread:
@@ -434,14 +406,7 @@ def _collections_drawn(drawn: frozenset[int], judged: Sequence[_Judged]) -> set[
     return {collection for number in drawn for collection in judged[number - 1].collections}
 
 
-# ---------------------------------------------------------------------------
-# Reproduction: a memory that copies a restricted note
-# ---------------------------------------------------------------------------
 
-#: Function words that say nothing about WHAT a note states, German and English,
-#: three letters and longer (shorter tokens are dropped anyway). Without them two
-#: unrelated sentences of one grammatical shape ("Die Kosten der Fassade und des
-#: Daches" / "Die Kosten der Fenster und des Kellers") would share most tokens.
 _STOPWORDS = frozenset(
     """
     der die das den dem des ein eine einer eines einem einen und oder aber auch noch nur
@@ -453,17 +418,7 @@ _STOPWORDS = frozenset(
     """.split()
 )
 _WORD = re.compile(r"\w+")
-#: The share of a restricted note's significant tokens a memory must repeat to
-#: reproduce it. A reordered or reformatted copy keeps nearly all of them (a fee
-#: note rewritten as "Statik-Honorar: 48.000 € netto, vereinbart mit Müller"
-#: keeps 7 of 7); a different fact about the same people keeps few (an open
-#: "Die Statik prüft Büro Müller" repeats 3 of a 7-token fee note, 0.43), and
-#: that one is the judge's to decide. Measured against the NOTE, not the memory:
-#: what matters is how much of the restricted line is carried, not how much else
-#: the memory says.
 REPRODUCTION_SHARE = 0.6
-#: At least this many significant tokens in common, or in a contained copy:
-#: below it, one shared name or number is a coincidence, not a copy.
 REPRODUCTION_MIN_TOKENS = 3
 
 

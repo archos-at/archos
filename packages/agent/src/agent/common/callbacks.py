@@ -26,7 +26,6 @@ def is_verbose_enabled() -> bool:
 
 
 class ResearchLogger:
-    """Colored logging utilities for research agents."""
 
     def __init__(self, logger_instance: logging.Logger, verbose: bool | None = None):
         self.logger = logger_instance
@@ -97,7 +96,6 @@ class ResearchLogger:
 
 
 class VerboseTraceCallback(BaseCallbackHandler):
-    """Callback handler that logs detailed agent traces with live output."""
 
     def __init__(self, log_reasoning: bool = True, max_chars: int = 5000):
         self.log_reasoning = log_reasoning
@@ -108,12 +106,6 @@ class VerboseTraceCallback(BaseCallbackHandler):
         self.depth = 0
 
     def for_new_run(self) -> VerboseTraceCallback:
-        """Return a fresh instance with the same configuration for one run.
-
-        The handler mutates per-run state (current input, active chains,
-        depth), so a single shared instance must not span concurrent or
-        consecutive runs (ADR-0018).
-        """
         return VerboseTraceCallback(log_reasoning=self.log_reasoning, max_chars=self.max_chars)
 
     def _get_indent(self) -> str:
@@ -239,9 +231,6 @@ class VerboseTraceCallback(BaseCallbackHandler):
 
     def on_tool_error(self, error: Exception, **kwargs) -> None:
         tool_name = self.active_tools.pop(kwargs.get("run_id"), None) or kwargs.get("name") or "unknown"
-        # Arguments the schema refused never reached the tool; the ToolNode hands
-        # the refusal back and the model fixes the call. At ERROR, each one filed
-        # an issue (#656) for a turn that recovered on its own.
         level = logging.WARNING if is_argument_rejection(error) else logging.ERROR
         logger.log(level, "%s[Tool Error] %s: %s%s", RED, tool_name, error, RESET)
 

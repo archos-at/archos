@@ -1,11 +1,3 @@
-"""``knowledge_search`` and ``list_files`` as a binding that reads the estate by path sees them (ADR-0133 slice 6).
-
-The same agent-runtime functions, rebound: ranked search scoped by ``path`` (the literal modes are ``grep``),
-and the listing without its tree view (that is ``ls(depth=…)``). The descriptions are the shared
-ones with one paragraph replaced; the schemas are the functions' own minus the fields that left,
-and forbid unknown arguments, so a retired one is an error naming it (``common.retired_calls``).
-"""
-
 from __future__ import annotations
 
 from collections.abc import Sequence
@@ -24,7 +16,6 @@ from agent.common.tool_calls import CONCLUSION_DESCRIPTION
 from .register import knowledge_search_description
 from .register import result_budget
 
-#: The scope paragraph of the shared description, for this binding.
 CHAT_SCOPE = (
     "Inputs: `query`, a search query in the documents' language (topic, Land, year), not the person's message. "
     "`path=` limits it to a mount, folder or document (`/law/oib/`, `/project/Gutachten/`); without it every "
@@ -33,7 +24,6 @@ CHAT_SCOPE = (
     "cites) narrow further. Ranked passages are a sample, not every mention: for exact wording, every "
     "occurrence, or to show a term stands nowhere, use `grep`. "
 )
-#: Accepted, never offered, until the ``retired-call`` tag stops counting them: `path` names the same scope.
 HIDDEN = ("folder", "shelf", "file_name")
 DROPPED = {"knowledge_search": ("match", "stemmed", "context", "filters"), "list_files": ("view", "depth")}
 
@@ -61,7 +51,6 @@ def _schema(schema: Any, drop: Sequence[str], hidden: Sequence[str]) -> Any:
 
 
 def chat_tools(tools: Sequence[Any], *, top_k: int, max_per_document: int) -> list[Any]:
-    """``tools`` with ``knowledge_search`` and ``list_files`` rebound; everything else untouched."""
     descriptions = {
         "knowledge_search": f"{knowledge_search_description(('meaning',), scope=CHAT_SCOPE)} "
         f"{result_budget(top_k, max_per_document)}",

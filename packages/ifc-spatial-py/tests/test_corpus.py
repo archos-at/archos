@@ -1,20 +1,3 @@
-"""One regression per defect the corpus run found — see ``CORPUS.md``.
-
-The corpus itself is eleven third-party IFC files (buildingSMART, KIT/FZK, the
-IfcOpenShell test repository, Revit sample projects) and **none of them are in
-this repository**: they are other people's models, some tens of megabytes, and
-committing them would be both a licensing problem and a 250 MB checkout. So
-every defect they exposed is reproduced here from something this suite can
-build: the in-repo sample house, a synthetic IFC written into ``tmp_path``, or —
-for the pure geometry defects — an array of triangles with the offending
-property.
-
-That is deliberate and it is the stricter arrangement. A test that needs
-``Trapelo_Design_Intent.ifc`` on disk is a test that silently skips in CI; a test
-that writes a two-entity IFC in square feet runs everywhere and pins the same
-behaviour.
-"""
-
 from __future__ import annotations
 
 import logging
@@ -44,19 +27,7 @@ def model() -> SpatialModel:
     return SpatialModel(str(SAMPLE_HOUSE))
 
 
-# ════════════════════════════════════════════════════════════════════════════
-# Defect 1 — a declared quantity was compared without converting its unit
-# ════════════════════════════════════════════════════════════════════════════
-#
-# `Trapelo_Design_Intent.ifc` (Revit, IFC2X3, FOOT / SQUARE FOOT) declares
-# `BaseQuantities.NetFloorArea = 68.1017516344055` for its ground-floor locker
-# room. The geometry measures 6.3269 m². Those are the same room. `floor_area`
-# compared 6.33 against 68.10, called it a 91 % disagreement and blamed the
-# export — in an operator whose whole purpose is to report export defects.
 
-#: A wall whose body is a degenerate profile (three identical points) extruded to
-#: depth 0. The kernel builds nothing from it, which is the shape of the failure
-#: 94 of 100 rooms in the corpus's ArchiCAD 18 export have.
 _UNTESSELLATABLE = """ISO-10303-21;
 HEADER;
 FILE_DESCRIPTION(('ViewDefinition [CoordinationView]'),'2;1');
@@ -139,18 +110,10 @@ def test_a_declared_area_in_square_feet_is_read_in_metres(tmp_path: Path) -> Non
     assert found.raw == pytest.approx(68.1017516344055)
     assert found.unit_label == "SQUARE FOOT"
     assert found.scale == pytest.approx(0.09290304)
-    # 68.10 ft² is 6.327 m². Before the fix this came back as 68.10 and was
-    # compared against a measurement in metres.
     assert found.value == pytest.approx(6.3269, abs=1e-3)
 
 
 def test_the_length_unit_does_not_decide_the_area_unit(model: SpatialModel) -> None:
-    """The sample house measures in MILLIMETRES and declares areas in m².
-
-    Which is why `unit_scale ** 2` is the wrong conversion and was never used:
-    it would have divided this file's room areas by a million. The area unit is
-    read on its own.
-    """
     assert model.unit_scale == pytest.approx(0.001)
     found = model.declared_quantity(model.file.by_guid(BEDROOM), ("NetFloorArea",))
     assert found is not None
@@ -159,12 +122,6 @@ def test_the_length_unit_does_not_decide_the_area_unit(model: SpatialModel) -> N
 
 
 def test_a_quantity_set_outranks_a_look_alike_property_set(tmp_path: Path) -> None:
-    """`PSet_Revit_Dimensions.Area` must not beat `Qto_SpaceBaseQuantities`.
-
-    On the Duplex apartment it did, because `get_psets` merges quantity sets and
-    property sets into one dictionary and the old search took whichever pset
-    iterated first.
-    """
     body = _FEET_MODEL.replace(
         "ENDSEC;\nEND-ISO-10303-21;",
         """#50=IFCPROPERTYSINGLEVALUE('Area',$,IFCAREAMEASURE(999.),$);
@@ -183,19 +140,9 @@ END-ISO-10303-21;""",
     assert found.path == "BaseQuantities.NetFloorArea"
 
 
-# ════════════════════════════════════════════════════════════════════════════
-# Defect 2 — a space wound inside-out measured 0 m² of floor
-# ════════════════════════════════════════════════════════════════════════════
-#
-# The Duplex apartment's *Hallway* (Revit, IFC2X3) is a closed solid with 28
-# downward-facing triangles and none facing up. `util.shape.get_footprint_area`
-# keeps only faces pointing towards +Z, so it returned 0.0 — and `floor_area`
-# published that zero with a caveat saying the element has no horizontal
-# surfaces, which was false, and triangulated it against a declared 7.80 m².
 
 
 def _unit_box_triangles(flip: bool) -> np.ndarray:
-    """A 2 × 3 × 1 m box as triangles, optionally wound inside-out."""
     x, y, z = 2.0, 3.0, 1.0
     corners = np.array(
         [[0, 0, 0], [x, 0, 0], [x, y, 0], [0, y, 0], [0, 0, z], [x, 0, z], [x, y, z], [0, y, z]],
@@ -224,16 +171,10 @@ def test_a_footprint_is_measured_whichever_way_the_mesh_is_wound() -> None:
     outward = op._footprint_area(_unit_box_triangles(flip=False))
     inward = op._footprint_area(_unit_box_triangles(flip=True))
     assert outward == pytest.approx(6.0)
-    # This was 0.0 before the fix — a confident zero on a 6 m² floor.
     assert inward == pytest.approx(6.0)
 
 
 def test_the_union_still_refuses_to_double_count() -> None:
-    """A stepped floor: two horizontal faces over the same plan, at two heights.
-
-    The reason `get_footprint_area` was chosen over summing projected areas in
-    the first place. Taking the maximum of two directions must not undo it.
-    """
     lower = _unit_box_triangles(flip=False)
     upper = lower + np.array([0.0, 0.0, 0.5])
     both = np.concatenate([lower, upper])
@@ -241,12 +182,6 @@ def test_the_union_still_refuses_to_double_count() -> None:
 
 
 def test_zero_is_still_the_answer_for_something_with_no_horizontal_face() -> None:
-    """The fix must not invent a floor where there is none.
-
-    A vertical plate has no face pointing either up or down, so both projections
-    are empty and 0 m² is the measurement — which `floor_area` says in as many
-    words rather than reporting it as a missing value.
-    """
     plate = np.array(
         [
             [[0.0, 0.0, 0.0], [3.0, 0.0, 0.0], [3.0, 0.0, 2.5]],
@@ -257,14 +192,10 @@ def test_zero_is_still_the_answer_for_something_with_no_horizontal_face() -> Non
 
 
 def test_a_walls_own_footprint_is_unchanged(model: SpatialModel) -> None:
-    """The sample house's north wall measured 4.10205 m² of footprint before the
-    winding fix and must measure it after."""
     assert op.floor_area(model, NORTH_WALL).value == pytest.approx(4.10205, abs=1e-5)
 
 
 def test_the_sample_house_room_areas_do_not_move(model: SpatialModel) -> None:
-    """The regression guard on the regression: the corrected footprint must
-    reproduce the numbers the parity suite was built on, to 1e-9 m²."""
     for global_id, expected in (
         ("3w0zWKm7n8SB1qbfwUzt0J", 15.41678125),
         ("3w0zWKm7n8SB1qbfwUzt0U", 51.994825),
@@ -273,9 +204,6 @@ def test_the_sample_house_room_areas_do_not_move(model: SpatialModel) -> None:
         assert op.floor_area(model, global_id).value == pytest.approx(expected, abs=1e-9)
 
 
-# ════════════════════════════════════════════════════════════════════════════
-# Defect 3 — every way a file can fail to open produced a different exception
-# ════════════════════════════════════════════════════════════════════════════
 
 
 def test_an_empty_file_is_refused_with_a_reason(tmp_path: Path) -> None:
@@ -326,7 +254,6 @@ def test_an_unsupported_schema_is_refused_with_a_reason(tmp_path: Path) -> None:
     ids=["sentence", "words_joined", "too_long", "punctuation"],
 )
 def test_a_schema_name_that_is_no_name_stays_out_of_the_reason(tmp_path: Path, schema: str) -> None:
-    """The name is whatever the file says, and the agent is told to pass the reason on."""
     path = tmp_path / "schema.ifc"
     path.write_text(_FEET_MODEL.replace("IFC4", schema))
     with pytest.raises(ModelUnreadableError) as raised:
@@ -336,7 +263,6 @@ def test_a_schema_name_that_is_no_name_stays_out_of_the_reason(tmp_path: Path, s
 
 
 def test_a_length_unit_without_its_conversion_factor_is_refused_with_a_reason(tmp_path: Path) -> None:
-    """It parses, and only the unit scale trips over it, which used to escape as a bare AttributeError."""
     path = tmp_path / "unit.ifc"
     path.write_text(_FEET_MODEL.replace("'FOOT',#11)", "'FOOT',$)"))
     with pytest.raises(ModelUnreadableError) as raised:
@@ -355,7 +281,6 @@ def test_a_length_unit_without_its_conversion_factor_is_refused_with_a_reason(tm
 def test_the_parsers_own_words_go_to_the_log_and_only_a_bounded_part_of_them(
     tmp_path: Path, caplog: pytest.LogCaptureFixture, schema: str
 ) -> None:
-    """They left the reason, so the log is the one place left to see which failure this was."""
     path = tmp_path / "schema.ifc"
     path.write_text(_FEET_MODEL.replace("IFC4", schema))
     with caplog.at_level(logging.INFO, logger="ifc_spatial.parser_refusal"), pytest.raises(ModelUnreadableError):
@@ -369,14 +294,6 @@ def test_the_parsers_own_words_go_to_the_log_and_only_a_bounded_part_of_them(
 
 
 def test_a_truncated_file_is_refused_before_the_parser_crashes(tmp_path: Path) -> None:
-    """The one that is not a nicety.
-
-    ``ifcopenshell.open`` **segfaults** on a file cut mid-entity — measured on
-    the Duplex export at 100 000 and at 300 000 bytes, both times a
-    SIGSEGV that no ``except`` can catch and that takes the whole process with
-    it. A complete SPF file ends with ``END-ISO-10303-21;``, so the bytes are
-    checked before the parser ever sees them.
-    """
     whole = SAMPLE_HOUSE.read_bytes()
     path = tmp_path / "cut.ifc"
     path.write_bytes(whole[: len(whole) // 3])
@@ -387,12 +304,6 @@ def test_a_truncated_file_is_refused_before_the_parser_crashes(tmp_path: Path) -
 
 
 def test_a_file_too_large_for_this_process_is_refused_not_attempted(tmp_path: Path) -> None:
-    """A real limit gets a stated refusal, not an attempt that dies.
-
-    A 22 MB IFC2X3 export reaches 3.1 GB of resident memory in the geometry pass
-    and the tree build. There is a size above which starting is the wrong move,
-    and the caller has to be told which one it is.
-    """
     path = tmp_path / "big.ifc"
     path.write_text(_FEET_MODEL)
     with pytest.raises(ModelTooLargeError) as raised:
@@ -402,7 +313,6 @@ def test_a_file_too_large_for_this_process_is_refused_not_attempted(tmp_path: Pa
 
 
 def test_a_valid_header_with_no_entities_is_a_model_not_an_error(tmp_path: Path) -> None:
-    """An empty model must answer, not raise: every model-wide read is defined."""
     path = tmp_path / "header.ifc"
     path.write_text(
         "ISO-10303-21;\nHEADER;\n"
@@ -418,13 +328,9 @@ def test_a_valid_header_with_no_entities_is_a_model_not_an_error(tmp_path: Path)
     assert model.true_north is None
     assert model.georeferenced is False
     assert model.space_contacts() == {}
-    # A ray with no stated length has no reach in a model with no extent, and
-    # says so instead of scanning the 100 m `diagonal` falls back to and
-    # reporting "nothing hit" as a result.
     unbounded = op.ray(model, [0.0, 0.0, 0.0], [0.0, 0.0, 1.0])
     assert unbounded.decidable is False
     assert "keine Modellausdehnung" in unbounded.missing.what
-    # With an explicit length it is a real answer: nothing is there.
     stated = op.ray(model, [0.0, 0.0, 0.0], [0.0, 0.0, 1.0], length=10.0)
     assert stated.decidable is True
     assert stated.value is None
@@ -432,21 +338,10 @@ def test_a_valid_header_with_no_entities_is_a_model_not_an_error(tmp_path: Path)
         op.extent(model, "3w0zWKm7n8SB1qbfwUzt0J")
 
 
-# ════════════════════════════════════════════════════════════════════════════
-# Defect 4 — a non-GlobalId reached an operator and answered about the wrong thing
-# ════════════════════════════════════════════════════════════════════════════
 
 
 @pytest.mark.parametrize("bad", [None, 123, "", "   ", 4.5, b"3w0zWKm7n8SB1qbfwUzt0J"])
 def test_anything_that_is_not_a_global_id_raises_the_contract_error(model: SpatialModel, bad) -> None:
-    """`file.by_guid` is lenient in two ways that are both dangerous here.
-
-    `by_guid(None)` returns `None`, and the operator then dies of an
-    `AttributeError` several frames later; `by_guid(123)` falls through to lookup
-    **by entity id** and hands back `#123`, a real entity of the wrong kind for
-    an id nobody asked about. Both used to escape as unhandled exceptions or, in
-    the second case, as an ANSWER about the wrong element.
-    """
     with pytest.raises(UnknownElementError):
         model.by_id(bad, "test")
     with pytest.raises(UnknownElementError):
@@ -458,17 +353,12 @@ def test_anything_that_is_not_a_global_id_raises_the_contract_error(model: Spati
 
 
 def test_an_entity_id_is_not_a_global_id(model: SpatialModel) -> None:
-    """`by_guid(<int>)` falls through to lookup by entity id and returns a real
-    entity. It must not become an answer."""
     entity_id = model.file.by_guid(NORTH_WALL).id()
     assert model.file.by_guid(entity_id) is not None  # the entity exists…
     with pytest.raises(UnknownElementError):  # …and is still not a subject
         model.by_id(entity_id, "test")
 
 
-# ════════════════════════════════════════════════════════════════════════════
-# Defect 5 — a malformed prism reached the broad phase
-# ════════════════════════════════════════════════════════════════════════════
 
 
 def test_obstructions_refuses_a_volume_that_is_not_a_prism(model: SpatialModel) -> None:
@@ -479,8 +369,6 @@ def test_obstructions_refuses_a_volume_that_is_not_a_prism(model: SpatialModel) 
 
 
 def test_obstructions_on_a_prism_from_another_model_raises(model: SpatialModel) -> None:
-    """A cached prism naming an id this file does not contain is a wrong
-    SUBJECT, not an undecidable question — the same rule as everywhere else."""
     volume = op.prism(model, OPENING, 45, 30).value
     assert volume is not None
     volume = dict(volume, openingId="0000000000000000000000")
@@ -488,27 +376,15 @@ def test_obstructions_on_a_prism_from_another_model_raises(model: SpatialModel) 
         op.obstructions(model, volume)
 
 
-# ════════════════════════════════════════════════════════════════════════════
-# Defect 9 — an unhosted window came back as a bare empty list
-# ════════════════════════════════════════════════════════════════════════════
 
 
 def test_a_window_with_no_opening_chain_says_why_it_is_empty(model: SpatialModel) -> None:
-    """The ArchiCAD 18 export in the corpus has 464 windows and doors and 79
-    `IfcRelVoidsElement`: 84 % of its fenestration resolves to no host at all,
-    because the wall body was exported with the hole already subtracted.
-
-    `[]` is the true answer and reads as "this window is in no wall". The caveat
-    has to say which of the two it is.
-    """
     hosted = op.hosted_in(model, WINDOW)
     assert hosted.decidable and hosted.value  # this fixture DOES carry the chain
     assert "voids+fills" in hosted.caveat
 
 
 def test_a_window_the_export_never_chained_says_so(tmp_path: Path) -> None:
-    """The dialect itself, in nine entities: one window with an opening chain,
-    one without, in a file that plainly has the relations."""
     body = _FEET_MODEL.replace(
         "ENDSEC;\nEND-ISO-10303-21;",
         """#60=IFCWALL('0aaaaaaaaaaaaaaaaaaaa6',#5,'W1',$,$,#30,$,$,$);
@@ -532,24 +408,13 @@ END-ISO-10303-21;""",
     orphan = op.hosted_in(model, "0aaaaaaaaaaaaaaaaaaaa9")
     assert orphan.decidable
     assert orphan.value == []
-    # `[]` alone would be rendered as "sitzt in keiner Wand".
     assert "keine Öffnungskette" in orphan.caveat
     assert "Öffnungen und Füllungen" in orphan.caveat
 
 
-# ════════════════════════════════════════════════════════════════════════════
-# Defect 11 — geometry the kernel rejects was reported as geometry that is absent
-# ════════════════════════════════════════════════════════════════════════════
 
 
 def test_a_body_the_kernel_rejects_is_not_reported_as_a_missing_body(tmp_path: Path) -> None:
-    """94 of the 100 rooms in the corpus's ArchiCAD 18 export carry a full `Body`
-    representation that OCCT will not build (`Failed to process shape`).
-
-    Telling that architect "dieses Bauteil trägt keinen Körper" sends them to
-    re-export with a setting that is already on. The two failures need different
-    sentences, so the kernel's own message travels with the refusal.
-    """
     path = tmp_path / "broken-body.ifc"
     path.write_text(_UNTESSELLATABLE)
     model = SpatialModel(str(path))
@@ -563,9 +428,6 @@ def test_a_body_the_kernel_rejects_is_not_reported_as_a_missing_body(tmp_path: P
     answer = op.extent(model, wall)
     assert answer.decidable is False
     assert "auswertbare Körpergeometrie" in answer.missing.what
-    # The renderer builds „dieser Export liefert {what} nicht", so `what` has to
-    # be a bare noun phrase — „Körpergeometrie … ist nicht auswertbar" produced
-    # a sentence with two negations and one verb too many.
     assert not answer.missing.what.startswith("kein")
     assert "Geometriekern" in answer.missing.remedy
     assert "ändert daran nichts" in answer.missing.remedy
@@ -588,15 +450,10 @@ def test_an_element_with_no_representation_at_all_says_that_instead(model: Spati
     assert model.geometry_failure(orphan.GlobalId) == "no-representation"
 
 
-# ════════════════════════════════════════════════════════════════════════════
-# Defect 6 — a ray with a nonsense length answered anyway
-# ════════════════════════════════════════════════════════════════════════════
 
 
 @pytest.mark.parametrize("length", [-5.0, 0.0, float("inf"), float("nan")])
 def test_a_ray_with_an_unusable_length_is_undecidable(model: SpatialModel, length: float) -> None:
-    """OCCT happily returns a hit for a NEGATIVE length — behind the origin. The
-    answer looked valid and was not."""
     answer = op.ray(model, [0.0, 0.0, 1.0], [0.0, 0.0, 1.0], length=length)
     assert answer.decidable is False
     assert "Länge > 0" in answer.missing.what
@@ -611,18 +468,9 @@ def test_a_ray_with_an_unusable_geometry_is_undecidable(model: SpatialModel, ori
     assert answer.decidable is False
 
 
-# ════════════════════════════════════════════════════════════════════════════
-# Defect 7 — deriving space boundaries had no time bound
-# ════════════════════════════════════════════════════════════════════════════
 
 
 def test_bounds_costs_one_offset_not_one_per_room(model: SpatialModel) -> None:
-    """`bounds(space)` needs the contacts of THAT space.
-
-    It used to build the model-wide map, which is one OCCT offset per room:
-    **212 seconds** on a 99-room office export, inside one call about one
-    window. The per-space path must not populate the whole map.
-    """
     fresh = SpatialModel(str(SAMPLE_HOUSE))
     answer = op.bounds(fresh, "3w0zWKm7n8SB1qbfwUzt0J")
     assert answer.decidable
@@ -634,12 +482,6 @@ def test_bounds_costs_one_offset_not_one_per_room(model: SpatialModel) -> None:
 def test_an_incomplete_contact_map_refuses_instead_of_reporting_a_subset(
     model: SpatialModel, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """When the budget bites, the answer is a refusal that says how far it got.
-
-    A partial map is indistinguishable from a building with fewer neighbours,
-    and `opens_to` returning three rooms out of ninety-nine reads exactly like
-    the truth.
-    """
     fresh = SpatialModel(str(SAMPLE_HOUSE))
     monkeypatch.setattr("ifc_spatial.model.CONTACT_BUDGET_SECONDS", -1.0)
     answer = op.opens_to(fresh, WINDOW)
@@ -652,14 +494,6 @@ def test_an_incomplete_contact_map_refuses_instead_of_reporting_a_subset(
 def test_a_model_too_large_to_derive_refuses_before_it_starts(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The time budget can only be checked BETWEEN offsets.
-
-    One `tree.select(space, extend=…)` is a single OCCT call with no
-    interruption point — a `SIGALRM` set for 900 s did not stop one on the
-    3 729-product Trapelo export, because a Python signal handler only runs when
-    the interpreter regains control. So a model above the product threshold is
-    refused before anything is started.
-    """
     fresh = SpatialModel(str(SAMPLE_HOUSE))
     monkeypatch.setattr("ifc_spatial.model.DERIVED_BOUNDARY_MAX_PRODUCTS", 1)
     assert fresh.derivable_boundaries is False

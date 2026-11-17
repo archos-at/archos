@@ -139,12 +139,8 @@ async def test_research_turn_resolves_allows_and_folds_skill_tool():
 
         ResolverCls.assert_called_once_with(agent="researcher")
         resolver.resolve.assert_called_once_with("org-1")
-        # The catalog and nothing else: the runtime takes no list of names.
         RuntimeCls.office.assert_called_once_with(resolved)
 
-        # The turn got the search tool and read_file over the skills (no
-        # conversation, so no draft verbs); the agent itself was built once,
-        # at boot, with the search tool only.
         assert len(stub.built) == 1
         turn = stub.built[0].run.await_args.kwargs["turn"]
         assert [getattr(t, "name", None) for t in turn.tools] == ["web_search_tool", "read_file"]

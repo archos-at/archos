@@ -6,9 +6,6 @@ from typing import Any
 from pydantic import BaseModel
 from pydantic import Field
 
-# ---------------------------------------------------------------------------
-# Config models (Pydantic) — deserialised from YAML
-# ---------------------------------------------------------------------------
 
 
 class ModelPriceConfig(BaseModel):
@@ -16,8 +13,6 @@ class ModelPriceConfig(BaseModel):
 
     input_per_1m_tokens: float
     output_per_1m_tokens: float
-    # Optional — if omitted, cached tokens are billed at the full input rate
-    # (i.e. no caching discount).
     cached_input_per_1m_tokens: float | None = None
 
 
@@ -41,9 +36,6 @@ class PricingRegistryConfig(BaseModel):
     default: ModelPriceConfig | None = None
 
 
-# ---------------------------------------------------------------------------
-# Runtime objects
-# ---------------------------------------------------------------------------
 
 
 @dataclass(frozen=True)
@@ -103,9 +95,6 @@ class PricingRegistry:
         self._default = default
         self._tools: dict[str, ToolPrice] = tools or {}
 
-    # ------------------------------------------------------------------
-    # Construction
-    # ------------------------------------------------------------------
 
     @classmethod
     def from_config(cls, config: PricingRegistryConfig) -> PricingRegistry:
@@ -140,17 +129,10 @@ class PricingRegistry:
         """Convenience constructor: pass the raw ``tokenomics.pricing`` dict."""
         return cls.from_config(PricingRegistryConfig(**raw))
 
-    # ------------------------------------------------------------------
-    # Lookup
-    # ------------------------------------------------------------------
 
     def get(self, model_name: str) -> ModelPrice:
         if model_name in self._prices:
             return self._prices[model_name]
-        # Substring fallback (trace names are often provider-prefixed, e.g.
-        # "azure/openai/gpt-4o"). Prefer the LONGEST key so "gpt-4o-mini"
-        # matches its own entry rather than whichever of gpt-4o/gpt-4o-mini
-        # happens to come first in the config.
         best: ModelPrice | None = None
         best_len = -1
         for key, price in self._prices.items():

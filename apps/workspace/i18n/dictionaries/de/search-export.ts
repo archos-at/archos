@@ -1,6 +1,5 @@
 import type { en } from '../en'
 
-/** Die Wörter der Planliste, die eine Suche exportiert (`lib/search/plan-list-export.ts`). */
 export const searchExport: typeof en.searchExport = {
   fileName: 'Planliste {date}',
   sheet: 'Planliste',

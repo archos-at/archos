@@ -1,21 +1,3 @@
-"""The golden set (``--set golden --cases <file>``): a country's golden cases as the suite's questions.
-
-A golden case is a platform record (``golden_case``, ADR-0165 amendment): the question, the site and facts it
-needs, what a right answer says (expected values, the edition, the citations) and what it must not do. A
-country's cases are proposed, reviewed and published through the platform door; the suite reads them from a
-file in the records format, the pack an operator proposes from
-(``configs/knowledge-packs/<country>-golden-cases.json``). The suite runs with no stack, so it reads no store:
-the released cases reach it as a file once the door exports a release (the pack export of the country-as-data
-review, 3.8). Nothing here names a country: every word the checks look for is the case's own.
-
-:func:`score` mirrors ``apps/workspace/bff/base-knowledge/golden/score.ts``, which scores a run on the door.
-``tests/fixtures/golden/scoring_parity.json`` holds both to one set of verdicts
-(``tests/test_golden_eval.py`` here, ``score.spec.ts`` there): change one and the other fails until it follows.
-
-The suite's runs carry the law of the case's site from ``fixture_law`` (the turn's knowledge context as the
-production resolvers wrote it from the packs); a case whose site that fixture does not hold runs with no site.
-"""
-
 from __future__ import annotations
 
 import json
@@ -23,20 +5,16 @@ import unicodedata
 from pathlib import Path
 from typing import Any
 
-#: The suite's generic ``family_cited`` does not apply: a golden case names its own citations.
 CHECKS_FAMILY = False
 
-#: The file ``--cases`` named; ``load_questions`` reads it (the suite calls it with no argument).
 CASES_FILE: Path | None = None
 
 
 def normalized(text: str) -> str:
-    """Lower-cased, with every run of whitespace (a non-breaking space too) as one space."""
     return " ".join(unicodedata.normalize("NFKC", text).lower().split())
 
 
 def holds_phrase(text: str, phrase: str) -> bool:
-    """Whether ``phrase`` stands in ``text`` as its own words: "40 m" is not found in "140 m" or "40 mm"."""
     haystack, needle = normalized(text), normalized(phrase)
     if not needle:
         return False
@@ -94,12 +72,6 @@ def _violated(rule: dict[str, Any], answer: dict[str, Any]) -> bool:
 
 
 def score(case: dict[str, Any], answer: dict[str, Any]) -> dict[str, Any]:
-    """Every check of ``case`` against ``answer`` and the scores they make; it passes when every deciding check does
-    and at least one decides (none: ``unverified``).
-
-    ``answer`` is ``{text, confidence: {level, reason} | None, sources: [{name, kind, url, clause, documentId}],
-    recordsReleased}``, as ``GoldenAnswer`` in ``wire/golden-case.ts``.
-    """
     expected = case.get("expected") or {}
     values = [
         _check("value", value["label"], _holds_any(answer["text"], value["anyOf"]), value["grounding"])
@@ -133,8 +105,6 @@ def score(case: dict[str, Any], answer: dict[str, Any]) -> dict[str, Any]:
     }
     if values:
         scores["golden-expected-values"] = round(sum(1 for check in values if check["passed"]) / len(values), 4)
-    # ``edition-named`` and ``law-cited-from-web`` are the agent's scores on every answered turn; the edition and
-    # web checks above decide ``golden-case-passed`` instead (``golden_scores`` module docstring).
     if citations:
         scores["claim-citation-resolves"] = all(check["passed"] for check in citations)
     return {
@@ -146,17 +116,14 @@ def score(case: dict[str, Any], answer: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-# --- The suite's side ---------------------------------------------------------
 
 
 def load_cases(path: Path) -> list[dict[str, Any]]:
-    """The golden cases of a file in the records format: its ``records`` of type ``golden_case``."""
     document = json.loads(path.read_text(encoding="utf-8"))
     return [row for row in document.get("records") or [] if row.get("type") == "golden_case"]
 
 
 def load_questions(path: Path | None = None) -> list[dict]:
-    """Each case as a suite question: its key as the id, the case itself under ``golden``, the site as ``territory``."""
     file = path or CASES_FILE
     if file is None:
         raise SystemExit("--set golden needs --cases <file>: golden cases in the records format")
@@ -175,11 +142,6 @@ def load_questions(path: Path | None = None) -> list[dict]:
 
 
 def answer_of(run: Any, answer_text: str) -> dict[str, Any]:
-    """A suite run as the scorer reads an answer: its prose and cards, its confidence, and the source lines it wrote.
-
-    A suite run has no citation objects, so a source is a line of the answer's own source list, with the kind
-    its marker names; the door's run reads the stored citations instead.
-    """
     import re
 
     sources = []
@@ -197,7 +159,6 @@ def answer_of(run: Any, answer_text: str) -> dict[str, Any]:
 
 
 def set_checks(question: dict, run: Any, answer: str, judge: Any) -> dict[str, bool]:
-    """The golden case's checks, one key per check, as the suite records its own."""
     scored = score(question["golden"], answer_of(run, answer))
     failed = set(scored["failed"])
     case = question["golden"]

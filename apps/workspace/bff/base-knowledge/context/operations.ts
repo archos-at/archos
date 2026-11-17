@@ -1,12 +1,3 @@
-/**
- * The knowledge context's operations (ADR-0173, design §4.5, §5.4): how far
- * the base knowledge goes (`coverage-get`), a report of wrong law
- * (`base-knowledge-report`), a project's base (`project-base-get`) and its
- * confirmation as the Steckbrief (`project-base-confirm`). Every read runs as
- * the office; the report alone writes into the platform, as a draft change
- * request a platform reviewer reads.
- */
-
 import 'server-only'
 import { and, desc, eq, sql } from 'drizzle-orm'
 import { ConflictError, UnprocessableError } from '@/lib/api/errors'
@@ -34,7 +25,6 @@ import type {
   ProjectBaseView,
 } from './operations-wire'
 
-/** Most nodes stating a coverage that one country returns. */
 const MAX_NODES = 500
 
 interface CoverageRow extends Record<string, unknown> {
@@ -46,7 +36,6 @@ interface CoverageRow extends Record<string, unknown> {
   municipal_law: boolean | null
 }
 
-/** How far the base knowledge goes in each country the office is entitled to: the country's level and every node that states its own. */
 export async function readCoverage(session: AuthorizedSession, query: CoverageQuery): Promise<CoverageView> {
   const { organizationId } = session
   const { entitled } = await readOrganizationCountries(organizationId)
@@ -78,14 +67,7 @@ export async function readCoverage(session: AuthorizedSession, query: CoverageQu
   }
 }
 
-/**
- * Report wrong law to the platform: a draft change request in the country,
- * titled with what is wrong, for a platform reviewer to fill and release
- * (design §4.4 "Hotfix"). Only for a country the office is entitled to, so
- * nobody reports on records they cannot read.
- */
 export async function reportBaseKnowledge(session: AuthorizedSession, body: BaseKnowledgeReportBody): Promise<BaseKnowledgeReportResult> {
-  // A report reaches a platform reviewer outside the office: it goes on the person's own yes, never an agent's.
   requirePersonDecision('Reporting wrong law in the base knowledge to the platform')
   const { entitled } = await readOrganizationCountries(session.organizationId)
   if (!entitled.some((entry) => entry.countryId === body.countryId)) {
@@ -100,10 +82,6 @@ export async function reportBaseKnowledge(session: AuthorizedSession, body: Base
 const contextOf = (session: AuthorizedSession, projectId: string) =>
   knowledgeContextForTurn(session.organizationId, projectId, undefined, null, 'operation')
 
-/**
- * A project's base as the turn reads it, the law it names (`lawOf`), and the newest Steckbrief a person confirmed;
- * on `asOf`, resolved on that day instead (a day a question names). Needs project:view.
- */
 export async function readProjectBase(session: AuthorizedSession, projectId: string, asOf?: string): Promise<ProjectBaseView> {
   await requireProjectAccess(session, projectId, 'project:view')
   const [context, confirmed, records] = await Promise.all([
@@ -124,19 +102,12 @@ export async function readProjectBase(session: AuthorizedSession, projectId: str
     readSetupRecords(session.organizationId),
   ])
   const row = confirmed[0]
-  // One resolution for both: the page names the same uses, in the same roles, as the context it shows.
   return { context, law: lawOf(context, records), confirmed: row ? { ...row, confirmedAt: row.confirmedAt.toISOString() } : null }
 }
 
 const sameSeqs = (a: readonly { packId: string; seq: number }[], b: readonly { packId: string; seq: number }[]) =>
   JSON.stringify([...a].sort((x, y) => x.packId.localeCompare(y.packId))) === JSON.stringify([...b].sort((x, y) => x.packId.localeCompare(y.packId)))
 
-/**
- * Confirm the project's Steckbrief: the person's yes on the base as the
- * server resolves it now, never a snapshot the client sent. The packs the
- * person saw must still be the newest, or the confirmation is refused (409)
- * and they look again. Needs project:edit and the person's own decision.
- */
 export async function confirmProjectBase(
   session: AuthorizedSession,
   projectId: string,

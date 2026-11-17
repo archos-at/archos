@@ -1,28 +1,3 @@
-"""The workspace eval's MCP door: Piloti's four meta-tools, served from a fixture office (ADR-0123).
-
-The answer suite runs the real agent with no BFF, so its workspace tools
-(``tools/workspace``) reach nothing and an office-operations turn cannot be
-measured. ``fixture_bff.py`` mounts this on ``POST /api/mcp`` for
-``suite.py --set workspace``:
-
-- ``search-operations`` ranks the catalog production shows in-product Piloti
-  (``apps/workspace/tests/fixtures/workspace/catalog.json``, written from the
-  real catalog by ``workspace-eval.fixture.spec.ts``) with a mirror of the
-  server's ranking, ``lib/text/operation-search.ts``, which ``discovery.ts``
-  ranks with. It is held to the lists the spec wrote from the TypeScript
-  (``tests/test_workspace_eval.py``), so the mirror cannot drift unseen.
-- ``describe-operation`` answers the production text, verbatim.
-- ``call-operation`` answers a read from ``office.json`` and turns a write into
-  a proposal, as the server does for Piloti: nothing is changed, the model
-  reads „Proposed — the person decides. Nothing was changed.", and the
-  structured result carries the proposal id the card shows. The input is
-  checked against the operation's schema for what it requires.
-- ``report-missing-operation`` is recorded.
-
-Every call is logged by the fixture BFF beside the run, with its arguments and
-what it answered, so a check reads what the turn did on the door.
-"""
-
 from __future__ import annotations
 
 import json
@@ -39,26 +14,20 @@ from fixture_bff import _fold
 FIXTURES = ROOT / "apps" / "workspace" / "tests" / "fixtures" / "workspace"
 VOCABULARY = ROOT / "apps" / "workspace" / "bff" / "text" / "operation-search-vocabulary.json"
 
-#: As ``DEFAULT_SEARCH_LIMIT`` and ``MAX_SEARCH_LIMIT`` in ``discovery.ts``.
 DEFAULT_SEARCH_LIMIT = 10
 MAX_SEARCH_LIMIT = 50
-#: As ``MAX_SEARCH_QUERY_LENGTH`` in ``discovery.ts``.
 MAX_SEARCH_QUERY_LENGTH = 200
-#: As ``PREFIX_MATCH_MIN_LENGTH``, ``COMPOUND_MIN_LENGTH`` and ``MIN_WORD_LENGTH`` in ``lib/text/operation-search.ts``.
 PREFIX_MATCH_MIN_LENGTH = 5
 COMPOUND_MIN_LENGTH = 10
 MIN_WORD_LENGTH = 2
-#: The text the server answers a proposed write with (``runOperation``).
 PROPOSED_TEXT = "Proposed — the person decides. Nothing was changed."
 
 _NOT_ALNUM = re.compile(r"[^a-z0-9]+")
 
 
-# --- ranking ------------------------------------------------------------------
 
 
 class Vocabulary:
-    """``lib/text/operation-search.ts``'s word groups, from the same vocabulary file."""
 
     def __init__(self, path: Path = VOCABULARY) -> None:
         vocabulary = json.loads(path.read_text(encoding="utf-8"))
@@ -66,7 +35,6 @@ class Vocabulary:
         self.inflections: frozenset[str] = frozenset(vocabulary["inflections"])
 
     def _is_form_of(self, word: str, term: str) -> bool:
-        """``isFormOf``: the term itself, or the term inflected when it is long enough to be."""
         if len(term) < PREFIX_MATCH_MIN_LENGTH:
             return word == term
         return word.startswith(term) and word[len(term) :] in self.inflections
@@ -103,7 +71,6 @@ class Vocabulary:
         return groups
 
 
-#: ``STOPWORDS``: the question's grammar and the person asking, which no catalog word answers.
 STOPWORDS = frozenset(
     "a about all am an and any are as at be by can do does for from get give has have how i in into is it its me my "
     "of on or our please show some tell that the their there this to under us want was we what when where which who "
@@ -116,7 +83,6 @@ _ES_PLURAL = re.compile(r"(?:ss|x|z|ch|sh)es$")
 
 
 def _stem(word: str) -> str:
-    """``stemSearchWord``: common English endings removed."""
     if len(word) <= 4:
         return word
     if word.endswith("ies"):
@@ -137,7 +103,6 @@ def _words(text: str) -> list[str]:
 
 
 def _matches(word: str, token: str) -> bool:
-    """``wordMatches``: the same word, the same stem, or the start of a longer word; never a fragment inside one."""
     if token == word:
         return True
     if len(word) >= WORD_PREFIX_MIN_LENGTH and token.startswith(word):
@@ -154,7 +119,6 @@ def _index(op: dict[str, Any]) -> tuple[list[str], list[str], list[str]]:
 
 
 def _scorer(query: str, groups: list[list[str]], corpus: list[dict[str, Any]]) -> Any:
-    """``operationScorer``: a blank query lists every operation, text with no usable word in it matches none."""
     lists_all = query.strip() == ""
     meaningful = [group for group in groups if group[0] not in STOPWORDS]
     groups = meaningful or groups
@@ -194,7 +158,6 @@ def _scorer(query: str, groups: list[list[str]], corpus: list[dict[str, Any]]) -
     return score
 
 
-# --- the door -----------------------------------------------------------------
 
 
 def _text(value: Any) -> str:
@@ -213,7 +176,6 @@ def _failure(message: str) -> dict[str, Any]:
 
 
 def _missing(schema: dict[str, Any], value: Any, where: str) -> list[str]:
-    """The required fields ``value`` lacks against ``schema``, as dotted paths; nested objects followed."""
     if not isinstance(schema, dict) or schema.get("type") != "object":
         return []
     present = value if isinstance(value, dict) else {}
@@ -225,7 +187,6 @@ def _missing(schema: dict[str, Any], value: Any, where: str) -> list[str]:
 
 
 class FixtureWorkspace:
-    """The fixture office behind the four meta-tools, ranking searches as the server does."""
 
     def __init__(self, directory: Path = FIXTURES) -> None:
         catalog = json.loads((directory / "catalog.json").read_text(encoding="utf-8"))
@@ -233,10 +194,8 @@ class FixtureWorkspace:
         self.by_name = {op["name"]: op for op in self.operations}
         self.office = json.loads((directory / "office.json").read_text(encoding="utf-8"))
         rendered = directory / "rendered.json"
-        #: What the production renderers made of the office (``workspace-block.fixture.spec.ts``).
         self.rendered: dict[str, Any] = json.loads(rendered.read_text(encoding="utf-8")) if rendered.exists() else {}
         self.vocabulary = Vocabulary()
-        #: The proposals each conversation filed, oldest first: what its next turn's WORKSPACE block lists.
         self._filed: dict[str, list[tuple[str, str]]] = {}
         self._lock = threading.Lock()
 
@@ -262,7 +221,6 @@ class FixtureWorkspace:
         domain = arguments.get("domain")
         domains = sorted({op["domain"] for op in self.operations})
         if domain is not None and domain not in domains:
-            # The server's input schema takes a domain from its enum and refuses anything else.
             expected = " | ".join(f"'{name}'" for name in domains)
             return _failure(f"search-operations: Invalid enum value. Expected {expected}, received '{domain}'")
         limit = max(1, min(int(arguments.get("limit") or DEFAULT_SEARCH_LIMIT), MAX_SEARCH_LIMIT))
@@ -303,7 +261,6 @@ class FixtureWorkspace:
         if isinstance(data, dict) and key is not None and key in data:
             return _success(data[key])
         if isinstance(data, dict) and any(_is_project_id(k, self.office) for k in data):
-            # Keyed by project, and this project has nothing: an empty answer, as the route gives.
             return _success({})
         return _success(data)
 
@@ -322,7 +279,6 @@ class FixtureWorkspace:
             if isinstance(value, str | int | float | bool) and str(value).strip()
         ][:4]
         summary = op["summary"].rstrip(".") + (f" ({', '.join(facts)})" if facts else "")
-        # The same call in the same conversation files one proposal, as the server does.
         seed = json.dumps([conversation, op["name"], call_input], sort_keys=True, ensure_ascii=False)
         proposal_id = str(uuid.uuid5(uuid.NAMESPACE_URL, seed))
         with self._lock:
@@ -350,7 +306,6 @@ class FixtureWorkspace:
         return self._propose(op, call_input, conversation)
 
     def handle(self, body: dict[str, Any], conversation: str | None) -> dict[str, Any]:
-        """One JSON-RPC ``tools/call``, answered as the server answers it."""
         params = body.get("params") if isinstance(body.get("params"), dict) else {}
         tool = params.get("name")
         arguments = params.get("arguments") if isinstance(params.get("arguments"), dict) else {}
@@ -371,7 +326,6 @@ class FixtureWorkspace:
         return {"jsonrpc": "2.0", "id": body.get("id"), "result": result}
 
     def turn_context(self, conversation: str | None, with_workspace: bool = True) -> dict[str, Any]:
-        """The turn context of a chat in the office's current project: the WORKSPACE block, nothing else."""
         block = self.rendered.get("workspace") if with_workspace else None
         if block:
             block = self._with_proposals(block, conversation)
@@ -387,7 +341,6 @@ class FixtureWorkspace:
         }
 
     def _with_proposals(self, block: str, conversation: str | None) -> str:
-        """The block with the proposals this conversation filed, newest first, in the renderer's own lines."""
         with self._lock:
             filed = list(self._filed.get(conversation or "", []))
         if not filed:
@@ -404,7 +357,6 @@ def _is_project_id(key: str, office: dict[str, Any]) -> bool:
 
 
 def workspace_calls(log_path: Path, conversation_id: str) -> list[dict[str, Any]]:
-    """The calls this conversation made on the door, in order: ``{tool, arguments, result}`` each."""
     if not log_path.exists():
         return []
     calls = []

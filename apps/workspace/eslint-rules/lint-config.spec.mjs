@@ -49,21 +49,17 @@ const FIXTURES = {
     'export const text = (page: { getTextContent(): void }) => page.getTextContent()',
     "export const redis = require('ioredis')",
   ].join('\n'),
-  // Specs may spell the tenant boundary's failure modes on purpose.
   'bff/canary.spec.ts': [
     "import { getCached } from '@/lib/cache'",
     'export const load = (projectId: string) => getCached(`digest:${projectId}`, 1000, async () => 1)',
     "export const isDuplicate = (error: { code: string }) => error.code === '23505'",
   ].join('\n'),
-  // Transport code does not query: one value import from `@/lib/db` must be
-  // reported; the type import and `tenant-context` must not.
   'app/api/canary/route.ts': [
     "import { db } from '@/lib/db'",
     "import type { Users } from '@/lib/db/schema'",
     "import { withTenant } from '@/lib/db/tenant-context'",
     'export const handle = [db, withTenant] as unknown as Users',
   ].join('\n'),
-  // A file that imported the db before the rule existed stays allowed.
   'app/api/internal/usage/route.ts': "import { db } from '@/lib/db'\nexport const handle = db",
   'ui/features/cards/schematics/kit.tsx': "export const size = 'text-sm'",
   'tests/canary.test.ts': 'export const fixture: any = {}',
@@ -108,7 +104,6 @@ beforeAll(() => {
       encoding: 'utf8',
     })
   } catch (error) {
-    // Findings exit non-zero; the report is still on stdout.
     stdout = error.stdout
   }
   findings = JSON.parse(stdout).diagnostics.map((d) => [d.filename, d.code])
@@ -137,8 +132,6 @@ describe('.oxlintrc.json', () => {
   })
 
   it('exempts exactly the files PRE_EXISTING_DB_IMPORTERS lists', () => {
-    // JSON cannot import the allowlist module, so the config carries a copy.
-    // This keeps the copy honest: an entry added to one and not the other fails.
     const json = fs
       .readFileSync(path.join(UI, '.oxlintrc.json'), 'utf8')
       .split('\n')

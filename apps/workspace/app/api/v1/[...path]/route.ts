@@ -1,34 +1,3 @@
-/**
- * V1 API Proxy Route
- *
- * Proxies requests to the backend /v1/* endpoints.
- * Handles collections, documents, data_sources, and other v1 APIs.
- *
- * This allows the frontend to make requests to the same origin,
- * with the backend URL configured at runtime via BACKEND_URL env var.
- *
- * Authentication handling:
- * - In auth-required mode, resolves an authorized Grid session and forwards
- *   the WorkOS access token as Authorization: Bearer <token>.
- * - In anonymous mode, no Authorization header is sent.
- *
- * Collection scoping:
- * - Attaches X-Grid-Collection-Scope to every upstream request. Its payload is
- *   `base64url(JSON.stringify([{collection, shelf?}, ...]))` — each collection
- *   states its shelf (`archiv | project | session | base`) explicitly, so no
- *   consumer re-derives it from a name prefix (ADR-0047). The value is built
- *   whole by `buildCollectionScopeFromRequest`, which is where the shelves are
- *   known; this route only forwards it.
- * - Forwards only the requests a product client makes
- *   (`@/lib/proxy/v1-allowlist`); everything else is a 404.
- * - Validates collection_name for collection-scoped routes (e.g. uploads)
- *   via `@/lib/proxy/collection-authz`, per method.
- *
- * This route stays a transport pass-through (see the BFF architecture doc):
- * no repository/service layer, but authz and scope resolution go through the
- * shared guards.
- */
-
 import { NextResponse } from 'next/server'
 import { tenantSlotRoute } from '@/lib/db/tenant-context'
 import { buildCollectionScopeFromRequest } from '@/lib/retrieval-scope/collection-scope-request'
@@ -49,13 +18,6 @@ import { buildProxyUrl } from '@/lib/proxy/proxy-request'
 import { isForwardableV1Request } from '@/lib/proxy/v1-allowlist'
 import { isWebSearchEnabledForOrg } from '@/lib/organizations/service'
 
-/**
- * Sources hidden from the org (ADR-0022). Applied to the `/v1/data_sources`
- * listing so a disabled tool disappears from the picker; the hard gate is
- * the `x-grid-disabled-sources` WS header + submit-time subtraction, so this
- * filter is UX, not the security boundary. Fail-open: a settings lookup
- * error must not break the listing.
- */
 async function filterDataSourcesResponse(
   path: string[],
   organizationId: string | null | undefined,
@@ -72,9 +34,6 @@ async function filterDataSourcesResponse(
       (source) =>
         !(source && typeof source === 'object' && (source as { id?: unknown }).id === 'web_search')
     )
-  // The backend returns `{ data_sources, vlm_available }`; older/other shapes
-  // may return a bare array. Filter web_search in either while preserving the
-  // capability fields (e.g. vlm_available) untouched.
   if (Array.isArray(data)) return dropWebSearch(data)
   if (
     data &&
@@ -93,19 +52,6 @@ const isRedirectError = (error: unknown): boolean => {
   return error instanceof Error && error.message === 'NEXT_REDIRECT'
 }
 
-/**
- * Forward only what a product client asks for (`@/lib/proxy/v1-allowlist`).
- *
- * The proxy forwards to `BACKEND_URL` (the `aiq-api` service) over the internal network, so the
- * backend's `AuthMiddleware` classifies these requests as *internal* and skips
- * its `EXTERNAL_ALLOWED_PATHS` filter. A denylist of the two control-plane
- * prefixes (`admin`, `maintenance`) was therefore the only thing between a
- * browser cookie and the agent service's whole surface, the agent runtime's agent-turn
- * endpoints (`/v1/chat/completions`, `/v1/workflow`) included — which ran
- * outside the signed context envelope, so with no organization, budget or
- * source policy. An allowlist closes those and whatever is mounted next.
- * Rejected before any upstream fetch, with the same 404 for every shape.
- */
 const rejectUnlistedPath = (method: string, path: string[]): NextResponse | null => {
   if (isForwardableV1Request(method, path)) return null
   return errorEnvelope(404, 'NOT_FOUND', 'Not found')
@@ -184,7 +130,6 @@ export const POST = tenantSlotRoute(async function POST(
     const requestHeaders: Record<string, string> = {}
 
     if (contentType.includes('multipart/form-data')) {
-      // Stream the raw body to avoid buffering large uploads in memory
       body = req.body as ReadableStream<Uint8Array>
       requestHeaders['Content-Type'] = contentType
     } else {

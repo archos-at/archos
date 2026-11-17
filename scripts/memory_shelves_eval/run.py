@@ -77,7 +77,6 @@ CONFIG = REPO_ROOT / "configs" / "config_oib_openrouter.yml"
 CASES = REPO_ROOT / "tests" / "fixtures" / "memory_shelves" / "cases.yaml"
 PASSES = ("reflection", "tool")
 DEFAULT_MAX_COST = 5.0
-#: Errored runs after which no further run starts: a rate limit or a refused key is not a result.
 MAX_ERRORS = 15
 
 

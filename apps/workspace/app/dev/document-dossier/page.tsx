@@ -1,22 +1,5 @@
 'use client'
 
-/**
- * Dev preview for the document dossier (`docs/architecture/document-dossier.md`):
- * the „Piloti reading“ rail of a Baubeschreibung with its type, parties, dates,
- * place, facts, references (resolved, missing, norms and laws), „Verwiesen
- * von“ and the coverage line; beside it, a drawing's rail; and above both the
- * project's „Befunde aus den Dokumenten“ panel, compared with a Steckbrief
- * that holds GK 3 and Holzbau (`profile_contradiction`). Below them, the
- * Eingangsbericht the inbox row shows for an upload that brought the drawing
- * and the Brandschutzkonzept. The findings, the resolved references and the
- * report are computed by the real pure functions (`lib/documents/findings.ts`,
- * `lib/upload-batches/upload-report.ts`) over the fixtures, so the preview
- * shows what the route and the settle would serve.
- *
- * Pinned to German, the copy under review. Links point at a project that does
- * not exist; they are there to be seen, not followed.
- */
-
 import type { JSX } from 'react'
 import { I18nProvider } from '@/i18n'
 import { InspectorGroup } from '@/components/ui/inspector-group'
@@ -128,7 +111,6 @@ const FILES = [DESCRIPTION, GROUND_FLOOR, FIRE_CONCEPT]
 
 const DOCUMENTS = FILES.map(toFindingsDocument)
 
-/** The Steckbrief: confirmed GK 3, Holzbau, Wien. */
 const PROFILE: ProfileFacts = {
   facts: {
     building_class: { value: 'GK3' },
@@ -145,7 +127,6 @@ const RESPONSE: DocumentFindingsResponse = {
   document: null,
 }
 
-/** The upload that brought the drawing and the Brandschutzkonzept, onto a project that held the Baubeschreibung. */
 const REPORT: UploadReport = {
   projectId: PROJECT_ID,
   ...uploadReport([GROUND_FLOOR, FIRE_CONCEPT].map(toFindingsDocument), DOCUMENTS, PROFILE),

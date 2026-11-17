@@ -21,7 +21,6 @@ from agent.common import turn_admission
 
 from .internal_auth import _require_internal_token
 
-#: The path KEDA's ``metrics-api`` trigger reads (``deploy/pulumi/src/app/backend-scaling.ts``).
 CHAT_OCCUPANCY_PATH = "/v1/internal/chat-occupancy"
 
 
@@ -35,7 +34,6 @@ def add_chat_occupancy_routes(router: APIRouter) -> None:
     )
     async def chat_occupancy(request: Request) -> dict[str, int]:
         _require_internal_token(request)
-        # The store client is synchronous: off the loop that serves every chat socket.
         active = await asyncio.to_thread(turn_admission.active_turns)
         if active is None:
             raise HTTPException(status_code=503, detail="Active-turn count unavailable")

@@ -37,9 +37,6 @@ from agent.common import load_prompt
 PROMPTS_DIR = Path(factory_module.__file__).parent / "prompts"
 PROMPT_NAMES = ("planner", "researcher", "orchestrator", "writer", "source_router")
 
-# Built-in tools the DeepAgents/LangChain runtime always provides but that the
-# factory does not list in an agent's explicit `tools=`; a prompt may reference
-# these by name without them appearing in the agent's registered source toolset.
 _BUILTIN_TOOL_NAMES = {
     "edit_file",
     "execute",
@@ -172,9 +169,6 @@ def _advertised_tool_names(section_body: str) -> set[str]:
     return {match.group("name").strip() for match in _BOLD_TOOL_BULLET.finditer(section_body)}
 
 
-# Each agent whose prompt renders a directly-callable tool list, mapped to the
-# heading marker of that list. These are the loops fed from the factory's bound
-# tool lists (`{% for tool in tools %}`), i.e. the exact surface T2-9 broke.
 _CALLABLE_TOOL_SECTIONS = {
     "orchestrator": "Available Tools",
     "researcher-agent": "Tool Availability and Prioritization",
@@ -191,11 +185,8 @@ def test_orchestrator_prompt_never_advertises_source_tools_as_callable():
     callable_tools = _advertised_tool_names(_section(prompt, "Available Tools"))
     assert callable_tools == orchestrator["tool_names"]
     assert callable_tools == {"think", "get_verified_sources", "run_research_batch"}
-    # The configured source tool must never appear as a directly-callable tool.
     assert "web_search_tool" not in callable_tools
 
-    # It is still surfaced, but only under the explicit not-callable section so
-    # the model references it via ResearchQuery.preferred_tools instead.
     not_callable = _section(prompt, "Research Source Tools")
     assert "not directly callable" in prompt
     assert "web_search_tool" in _advertised_tool_names(not_callable)

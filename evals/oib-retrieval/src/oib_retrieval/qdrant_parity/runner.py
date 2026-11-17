@@ -52,15 +52,10 @@ logger = logging.getLogger(__name__)
 
 _CHUNK_NAMESPACE = uuid.UUID("0f4e8a52-3c1d-4b8e-9f60-7a2d1c5e9b31")
 
-#: Retrieval depth of the hybrid comparison: production's ``rerank_candidates``,
-#: the pool ``knowledge_search`` asks each collection for.
 HYBRID_DEPTH = 60
-#: Depth the lexical channels are read to; well above every reported cutoff.
 LEXICAL_DEPTH = 120
 LEXICAL_K = (1, 5, 10, 16, 20)
 
-#: Phrases the exact-mode check runs: the hard cases plus multi-word, separator
-#: and transliteration cases ``browse.phrase_pattern`` exists for.
 EXTRA_EXACT_PHRASES = (
     "Fluchtweg",
     "Geschoß",
@@ -92,7 +87,6 @@ class Inputs:
     embedded_now: int = 0
 
 
-# ---------------------------------------------------------------- inputs
 
 
 def indexed_chunks(raw: Sequence[corpus.Chunk]) -> list[IndexedChunk]:
@@ -132,7 +126,6 @@ def embed_inputs(inputs: Inputs, embedder: Embedder) -> None:
     inputs.embedded_now = embedder.embedded_now
 
 
-# ---------------------------------------------------------------- helpers
 
 
 class Corpus:
@@ -170,7 +163,6 @@ def _graded(judgements: Sequence[qrels.Judgements]) -> list[dict]:
     return [dict(judged.graded) for judged in judgements]
 
 
-# ---------------------------------------------------------------- measurements
 
 
 def measure_lexical(inputs: Inputs, corpus_view: Corpus, retriever: Any) -> dict[str, Any]:
@@ -252,8 +244,6 @@ def measure_hybrid(inputs: Inputs, retriever: Any, rounds: int) -> dict[str, Any
         "golden_de": golden("de"),
         "golden_en": golden("en"),
         "overview": _overview_scores(inputs.overview, rankings),
-        # Per overview question: where the first expected file lands, and the top
-        # files. The per-expectation detail a reviewer reads before trusting a cohort mean.
         "overview_per_query": {
             entry.id: {
                 "first_expected_rank": next(
@@ -292,7 +282,6 @@ def _overview_scores(entries: Sequence[Any], rankings: dict[str, list[Any]]) -> 
         cohort: {
             "queries": len(pairs),
             "recall@16": round(metrics.mean([metrics.recall_at_k(r, rel, 16) for r, rel in pairs]), 4),
-            # Every file the 60-chunk pool reaches: what the reranker can still choose from.
             "recall_pool": round(metrics.mean([len(rel & set(r)) / len(rel) for r, rel in pairs]), 4),
             "mrr": round(metrics.mean([metrics.mrr(r, rel) for r, rel in pairs]), 4),
         }
@@ -339,7 +328,6 @@ def measure_dimension(inputs: Inputs, corpus_view: Corpus, client: Any | None) -
     return result
 
 
-# ---------------------------------------------------------------- the run
 
 
 def environment(qdrant_url: str) -> dict[str, str]:
@@ -470,7 +458,6 @@ def _plain(value: Any) -> Any:
     return value
 
 
-# ---------------------------------------------------------------- the report
 
 
 def _fmt(value: Any) -> str:
@@ -619,7 +606,6 @@ def render_markdown(report: dict[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
-# ---------------------------------------------------------------- CLI
 
 
 def load_inputs(embedder_name: str, cache_dir: Path) -> Inputs:

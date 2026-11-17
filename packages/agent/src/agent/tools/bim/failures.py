@@ -1,13 +1,3 @@
-"""The ways the two BIM tools fail, said once.
-
-Every text here is read by the agent, not by a person, so each says what to DO:
-retry with different arguments, do not retry at all, or tell the user. The
-distinction between "the arguments were wrong" and "nothing could be read" is
-the whole point — every 4xx used to arrive as an outage, which ends a turn on a
-typo with the agent told to say nothing about the building
-(``docs/roadmap/ifc-review-findings.md``).
-"""
-
 from __future__ import annotations
 
 import logging
@@ -21,9 +11,6 @@ from agent.knowledge.ifc_spatial_client import ModelUnreadableError
 from agent.knowledge.ifc_spatial_client import SpatialEngineUnavailableError
 from agent.knowledge.ifc_spatial_client import SpatialToolError
 
-#: No project on this conversation, so there is no model to address. "Do not
-#: retry" is the operative half: no argument can fix it, and without being told
-#: so the agent retries until its tool budget runs out.
 NO_PROJECT_TEXT = (
     "Error: this conversation is not attached to a project, so no BIM model can be selected. "
     "Do not retry — no argument to this tool can fix it. Tell the user (in German) that the "
@@ -33,24 +20,12 @@ NO_PROJECT_TEXT = (
 
 NO_ORG_TEXT = "Error: organization unknown for this session — the BIM model cannot be read. Do not retry."
 
-#: The project is right and there is nothing in it to read: no model stored
-#: (``no_models``), or the one stored never produced an index
-#: (``extraction_failed``). The route's own sentence names the situation; this
-#: one says what to do with it, because the answer the agent reaches for
-#: otherwise is another operation on the same absent model. Same shape as
-#: ``NO_PROJECT_TEXT``: one call is the answer, and the reply says so.
 NO_MODEL_TEXT = (
     "This one call is the answer: tell the user (in German) that no readable IFC model is stored for "
     "this project, and answer the rest of their question without any claim about the building. "
     "Another call with different arguments returns this same result."
 )
 
-#: A model IS stored and its index is not ready (``not_ready``): usually still
-#: being extracted, and the route sends the same reason for one whose
-#: extraction failed. Either state outlives the turn, so the retry the listing
-#: invites (a filename under "not yet queryable") returns this same result.
-#: The route's own sentence says WHICH state it is; this one says what to do
-#: with it, the way ``NO_MODEL_TEXT`` does.
 NOT_READY_TEXT = (
     "This one call is the answer for this turn: tell the user (in German) that this model is not ready "
     "to be queried yet, in the words of the sentence above, and answer the rest of their question "
@@ -58,7 +33,6 @@ NOT_READY_TEXT = (
     "returns this same result."
 )
 
-#: Nothing was looked at. "Could not look" is not "looked and found nothing".
 UNAVAILABLE_TEXT = (
     "Error: the model could not be read right now (the model service is unreachable). "
     "Do NOT state anything about the building's geometry; tell the user the model could not be read."
@@ -70,7 +44,6 @@ QUERY_UNAVAILABLE_TEXT = (
     "the model could not be read."
 )
 
-#: This deployment has no geometry engine. Not a fact about the building either.
 ENGINE_UNAVAILABLE_TEXT = (
     "Error: geometric measurement is not available in this deployment (the spatial engine is not "
     "installed). Metadata questions can still be answered with ifc_query. Do NOT estimate the number."
@@ -78,7 +51,6 @@ ENGINE_UNAVAILABLE_TEXT = (
 
 
 def rejected_text(reason: str) -> str:
-    """The arguments were wrong, and that is fixable in this same turn."""
     return (
         f"Error: the request was rejected — {reason}. This is a problem with the arguments, not "
         "with the model. Correct them and call the tool again. Do NOT state anything about the "
@@ -87,12 +59,6 @@ def rejected_text(reason: str) -> str:
 
 
 def unrunnable_text(reason: str) -> str:
-    """The call could not be MADE — distinct from ``decidable: false``, which is an answer.
-
-    A wrong KIND (asking a wall for its clear opening width) means the id is
-    right and the operator is not; sending the agent back to ``find_elements``
-    for that would loop. The engine's message names the operator to use.
-    """
     if "Fehler im Aufruf" in reason:
         return (
             f"Error: {reason}. The GlobalId is fine — the OPERATOR is wrong for this kind of "
@@ -105,7 +71,6 @@ def unrunnable_text(reason: str) -> str:
 
 
 def too_large_text(model_bytes: int | None, limit_bytes: int) -> str:
-    """A model this worker cannot hold — a fact about the FILE, not an outage, so waiting does not help."""
     size = f"{model_bytes / (1024 * 1024):.0f} MB" if model_bytes else "This model"
     limit = f"{limit_bytes // (1024 * 1024)} MB"
     return (
@@ -118,14 +83,10 @@ def too_large_text(model_bytes: int | None, limit_bytes: int) -> str:
     )
 
 
-#: The engine's longest reason for a file it cannot read is 284 characters. It is
-#: another package's text and this tool tells the agent to pass it on, so it is
-#: bounded here too.
 MAX_REASON_CHARS = 400
 
 
 def unreadable_text(reason: str) -> str:
-    """The engine refused the file and said why — a fact about the FILE, so neither waiting nor retrying helps."""
     return (
         f"Error: the model file could not be opened. The reason: {reason[:MAX_REASON_CHARS]} "
         "This is a statement about the FILE, not an outage — waiting or calling again does not help. "
@@ -136,7 +97,6 @@ def unreadable_text(reason: str) -> str:
 
 @dataclass(frozen=True)
 class Failure:
-    """One exception a tool body catches: how loud to log it, what the trace calls it, what the agent reads."""
 
     exception: type[BaseException]
     level: int
@@ -145,11 +105,6 @@ class Failure:
 
 
 class FailureTable:
-    """The ordered exception → :class:`Failure` mapping of one tool.
-
-    Ordered because a subclass (``ModelTooLargeError``) must be matched before
-    its base; ``exceptions`` is what the ``except`` clause takes.
-    """
 
     def __init__(self, *failures: Failure) -> None:
         self._failures = failures

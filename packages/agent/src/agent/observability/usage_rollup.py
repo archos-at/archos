@@ -1,25 +1,3 @@
-"""Per-turn usage rollup in dollars: what one turn spent, in one record.
-
-The per-call ledger (``CostTracker`` → ``llm_usage_events``) records every
-model call. Its rows name the chat answer they belong to (``message_id``,
-which the answer's cost line sums) but no turn of a job, and nothing in the
-BFF groups by turn. This module is the usage sibling of ``common.citation_events``
-(citation health) and mirrors its pattern exactly:
-
-- a pure :func:`build_usage_rollup` the tests exercise directly,
-- a best-effort :func:`record_usage_turn` that never raises into the answer path,
-- turn identity resolved the same way (explicit args win, then the active
-  profiler — which is what links the rollup to the turn's timeline and what
-  makes async jobs without request headers work).
-
-The sink differs on purpose: there is NO turn-level BFF endpoint in this
-scope (adding one is a BFF migration, not a telemetry passthrough), and the
-per-call dollars already land in ``llm_usage_events``. The rollup rides the
-trace itself via ``record_trace_metadata`` — per-turn tokens and dollars,
-queryable in Langfuse next to the spans they explain — and returns its
-payload so a future endpoint can consume the exact shape pinned here.
-"""
-
 from __future__ import annotations
 
 import logging
@@ -31,20 +9,13 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class UsageRollup:
-    """One turn's whole spend: every LLM call the turn's tracker saw."""
 
     llm_calls: int
     prompt_tokens: int
     completion_tokens: int
     total_tokens: int
     cost_usd: float
-    #: 'usage_field' when dollars were observed, 'missing' when the provider
-    #: reported no cost (per-call provenance stays in ``llm_usage_events``).
     cost_source: str
-    #: Why this row exists despite no spend: ``NO_CALLS_ERROR`` on a zero row.
-    #: None on a spending turn. A turn that spent nothing still records a row —
-    #: "no calls" and "the rollup failed" must read differently on the
-    #: dashboard, and only a flag on the row itself survives the trace export.
     error: str | None = None
 
     def to_payload(self) -> dict[str, Any]:
@@ -59,8 +30,6 @@ class UsageRollup:
         }
 
 
-#: The ``error`` flag a zero row carries: the turn made no LLM calls, so there
-#: is no spend to attribute — recorded as a row rather than as silence.
 NO_CALLS_ERROR = "no_llm_calls"
 
 
@@ -73,13 +42,6 @@ def build_usage_rollup(
     cost_usd: float = 0.0,
     cost_source: str | None = None,
 ) -> UsageRollup:
-    """Assemble one turn's rollup — a zero row with an error flag when the turn made no LLM calls.
-
-    A call-free turn still records a row: like every other turn, it spent an
-    observable zero, and silence on the dashboard reads as "the rollup failed".
-    The ``error`` flag (``NO_CALLS_ERROR``) is what tells the two apart. Pure
-    and side-effect free.
-    """
     calls = max(0, int(llm_calls or 0))
     if calls <= 0:
         return UsageRollup(
@@ -106,24 +68,6 @@ def build_usage_rollup(
 
 
 def from_tracker(tracker: Any) -> UsageRollup | None:
-    """Build the rollup off a ``CostTracker``.
-
-    A tracker that saw no calls yields the zero row (see
-    :func:`build_usage_rollup`); ``None`` only when the tracker itself is
-    missing or unreadable — unknown is not zero, and a fabricated row would
-    claim a measurement that never happened.
-
-    Duck-typed (``events_recorded``/``prompt_tokens``/``completion_tokens``/
-    ``turn_cost_usd``) like ``stages.runner._cost_metadata``: the tracker is
-    the whole turn's accumulator either way, so a turn's cost is the whole
-    turn's cost. The tracker aggregates no cached/reasoning split and no
-    model list — that detail stays per-call in ``llm_usage_events``.
-
-    ``cost_source`` is read off the tracker when it aggregates one
-    (``usage_field``/``estimate``/``mixed``), so the rollup reports the
-    provenance the EVENTS carry instead of inferring ``usage_field`` from a
-    positive cost; a tracker that states none falls back to that inference.
-    """
     try:
         return build_usage_rollup(
             llm_calls=int(getattr(tracker, "events_recorded", 0) or 0),
@@ -138,12 +82,6 @@ def from_tracker(tracker: Any) -> UsageRollup | None:
 
 
 def _resolve_turn(turn_id: str | None, job_id: str | None, tracker: Any) -> tuple[str | None, str | None]:
-    """Turn/job for one rollup: explicit args win, then the tracker, then the profiler.
-
-    Mirrors ``citation_events._resolve_context`` minus the fresh-UUID tier: a
-    rollup without a turn to belong to is still worth stamping (its trace
-    metadata lands on whatever trace is ambient), so no id is invented here.
-    """
     resolved_turn = turn_id
     resolved_job = job_id if job_id is not None else getattr(tracker, "job_id", None)
     if resolved_turn is None:
@@ -168,15 +106,6 @@ def record_usage_turn(
     job_id: str | None = None,
     identity: dict[str, str | None] | None = None,
 ) -> dict[str, Any] | None:
-    """Record one turn's usage rollup. Never raises; None only when the tracker is unreadable.
-
-    Stamps the totals as Langfuse trace metadata (per-turn dollars queryable
-    next to the spans) and returns the payload — including the zero row of a
-    call-free turn, whose ``error`` flag says it spent nothing. Call once per
-    turn, where the turn finalizes — currently ``profiler.flush_after_answer``,
-    the single funnel that already holds every turn's ledgers after the answer
-    is out.
-    """
     try:
         rollup = from_tracker(tracker)
     except Exception:
@@ -206,8 +135,6 @@ def record_usage_turn(
             usage_completion_tokens=rollup.completion_tokens,
             usage_total_tokens=rollup.total_tokens,
             usage_cost_usd=rollup.cost_usd,
-            # Provenance of the dollars, and the zero row's flag: the two facts
-            # that tell "spent nothing" from "spent and reported nothing".
             usage_cost_source=rollup.cost_source,
             usage_error=rollup.error,
         )

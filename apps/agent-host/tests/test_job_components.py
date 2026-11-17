@@ -289,10 +289,6 @@ class TestDeepResearchEventCallback:
 
         callback.on_tool_end("search results", run_id="test-run-id", name="web_search")
 
-        # on_tool_end emits the tool.end event first; a source-bearing output
-        # additionally emits a citation_source artifact (restored by the PB-1
-        # fix — previously this second emit crashed with a TypeError), so there
-        # may be more than one store call. Assert the first is the tool.end event.
         assert mock_store.store.call_count >= 1
         call_args = mock_store.store.call_args_list[0][0][0]
         assert call_args["type"] == "tool.end"
@@ -812,11 +808,9 @@ class TestDeepResearchEventCallbackAdvanced:
         """Test tool call syntax detection."""
         callback = DeepResearchEventCallback()
 
-        # Pattern matches quoted arguments and keyword arguments
         assert callback._contains_tool_call_syntax('Let me call task("query")')
         assert callback._contains_tool_call_syntax("Let me call task(query=value)")
         assert not callback._contains_tool_call_syntax("Normal text without calls")
-        # Bare positional arguments don't match to avoid false positives
         assert not callback._contains_tool_call_syntax("Let me call task(query)")
 
     def test_emit_artifact_adds_workflow_metadata(self):
@@ -1403,7 +1397,6 @@ class TestAsyncJobRunnerAgentFactory:
         assert agent.max_research_concurrency == 2
         assert agent.max_concurrent_source_tool_calls == 3
         assert agent.max_source_tool_batch_size == 4
-        # F5: max_run_seconds wired through from fn_config (DeepResearchAgentConfig default 2400)
         assert agent.max_run_seconds == 2400
 
     def test_async_deep_researcher_constructor_applies_config_tuning(self):
@@ -1797,7 +1790,6 @@ class TestDeepResearchReflection:
                 side_effect=lambda **_: nullcontext(),
             ),
         ):
-            # Must not raise.
             await _run_deep_research_reflection(
                 builder=builder,
                 job_id="job-1",
@@ -2185,7 +2177,6 @@ class TestVerifiedCitedSourceStream:
             callback.on_llm_end(_StubLLMResult(REPORT_CITING_BOTH + "x" * 200), run_id="run-1")
 
         assert _cited(emitted) == []
-        # The output artifact itself still streams — only the "cited" claim waits.
         assert any(item["type"] == ArtifactType.OUTPUT for item in emitted)
 
     def test_the_verified_report_is_what_announces_cited_sources(self):
@@ -2242,7 +2233,6 @@ class TestVerifiedCitedSourceStream:
         cited = _cited(emitted)
         cited_urls = [item.get("url") for item in cited]
         cited_keys = [item.get("citation_key") for item in cited]
-        # The retrieved-but-stripped document: announcing it is the real bug.
         assert "oib-rl_2_ausgabe_mai_2023.pdf, p.12" not in cited_keys
         assert "https://fabricated.example.org/nie-abgerufen" not in cited_urls
         assert "https://example.com/a" in cited_urls
@@ -2305,7 +2295,6 @@ class TestWorkerHeaderInjection:
         from starlette.datastructures import Headers
 
         request = SimpleNamespace(headers=Headers(headers={"x-existing": "1"}))
-        # `attrs.headers` must follow `_request.headers`, as the real object does.
         return SimpleNamespace(metadata=_Slot(_LiveAttrs(request)))
 
     def test_layers_headers_and_keeps_existing_ones(self):

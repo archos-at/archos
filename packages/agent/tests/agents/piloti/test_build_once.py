@@ -108,10 +108,6 @@ def counters(monkeypatch):
         counts["agents_built"] += 1
         real_init(self, *args, **kwargs)
 
-    # BOTH caches, both ends. The prompt is two files now — the dynamic
-    # template and the bundled static half — each read through its own
-    # `functools.cache`. Leaving either primed would make this counter depend
-    # on which test ran first, and it would read LOWER than the truth.
     prompt_module.system_prompt_template.cache_clear()
     prompt_module.bundled_static_block.cache_clear()
     monkeypatch.setattr(prompt_module, "load_prompt", counting_load)
@@ -145,12 +141,7 @@ async def test_two_skills_turns_build_one_agent_read_the_prompt_once_and_compile
 
     assert first.messages[-1].content == "Die Antwort [1]."
     assert second.messages[-1].content == "Die Antwort [1]."
-    # Two reads, both at BOOT and neither per turn: the dynamic template and
-    # the bundled static half are two files now. What this counts is still the
-    # same thing — a read that happens per turn moves this number.
     assert counters == {"prompt_reads": 2, "graph_compiles": 1, "agents_built": 1}
-    # What a turn DOES cost: one binding of the turn's tool set (search +
-    # read_file over the turn's skills), because the skills are per turn. Never more.
     assert llm.bind_tools.call_count == 1 + 2
     bound_names = [[t.name for t in call.args[0]] for call in llm.bind_tools.call_args_list]
     assert bound_names[0] == ["web_search_tool"]

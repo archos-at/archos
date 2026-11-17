@@ -1,31 +1,3 @@
-"""Reading a DXF file without losing what it says (ADR-0152).
-
-## Why the reader defines blocks the file does not
-
-BEV, Austria's cadastre authority, delivers the Katastralmappe in two DXF forms.
-The "BEV-DXF+CSV" one is a partial AutoCAD R12 file: a minimal header and the
-entities, with no BLOCKS section. Its parcel numbers, boundary points and
-land-use symbols are INSERTs of blocks the file never defines; the receiving
-system is expected to hold BEV's symbol library already (BEV, Katastralmappe
-DXF, Schnittstellenbeschreibung v2.6, §1). ezdxf's audit, and its ``recover``
-reader which audits, DELETE every INSERT whose block is missing. Measured on a
-file shaped like BEV's: every parcel number gone, silently, and the page still
-looks like a drawing. So the plain reader runs first, an empty stand-in block is
-defined for every missing name, and only then does anything audit. An INSERT's
-attributes are entities of their own, so the parcel numbers draw from a stand-in;
-the symbols' own strokes do not, until BEV's library ships with this module.
-
-## What a Katastralmappe tells us about itself
-
-Recognised by its layer scheme (``GG`` parcel boundaries, ``GN`` parcel numbers,
-``RL`` sheet markers). Its coordinates are metres in MGI / Austria Gauß-Krüger,
-in the meridian strip the sheet marker ``MBNR`` names in its attribute tag
-(``scale*meridian*…``), with the 5,000,000 of the northing dropped (§2, §3.1),
-which is exactly EPSG 31254/31255/31256. A parcel number is ``GN1G``/``GNPG`` in
-the Grenzkataster and ``GN1``/``GNP`` in the Grundsteuerkataster, whose
-boundaries are digitised from paper and legally not binding (§3.3, p. 12).
-"""
-
 from __future__ import annotations
 
 import logging
@@ -40,9 +12,6 @@ from ezdxf.entities import Insert
 
 logger = logging.getLogger(__name__)
 
-#: ``$INSUNITS`` to metres per drawing unit. 0 (unitless) is absent on purpose:
-#: a drawing that names no unit has no scale, and guessing one prints a wrong
-#: one with a straight face.
 METRES_PER_INSUNIT: dict[int, float] = {
     1: 0.0254,  # inches
     2: 0.3048,  # feet
@@ -54,27 +23,21 @@ METRES_PER_INSUNIT: dict[int, float] = {
     14: 0.1,  # decimetres
 }
 
-#: Meridian strip (degrees east of Ferro) to the EPSG code of its Greenwich-based
-#: Gauß-Krüger zone, as BEV's spec lists them (§2).
 CADASTRE_EPSG_BY_MERIDIAN: dict[int, int] = {28: 31254, 31: 31255, 34: 31256}
 
-#: Layers only a Katastralmappe uses together.
 _CADASTRE_LAYERS = frozenset({"GG", "GN"})
 
-#: Parcel-number blocks of the Grundsteuerkataster (no ``G`` suffix).
 _TAX_CADASTRE_NUMBER_BLOCKS = frozenset({"GN1", "GNP", "RN1"})
 
-#: Parcel-number blocks of either cadastre, on the layers that name an area.
 _PARCEL_NUMBER_BLOCKS = _TAX_CADASTRE_NUMBER_BLOCKS | {"GN1G", "GNPG"}
 
 
 class UnreadableDrawingError(ValueError):
-    """The bytes are not a DXF file ezdxf can read, even in recovery."""
+    ...
 
 
 @dataclass(frozen=True)
 class CadastreFacts:
-    """What a Katastralmappe says about where it is and what it is worth."""
 
     epsg: int | None
     meridian: int | None
@@ -85,18 +48,14 @@ class CadastreFacts:
 
 @dataclass(frozen=True)
 class DxfSource:
-    """A read drawing and the facts the page is laid out from."""
 
     doc: Drawing
-    #: ``None`` when the file names no unit: the page is then not to scale.
     metres_per_unit: float | None
     cadastre: CadastreFacts | None
-    #: Block names the file used and did not define (see the module docstring).
     standin_blocks: tuple[str, ...]
 
 
 def read_dxf(data: bytes) -> DxfSource:
-    """Read DXF bytes, keep every INSERT, and say what the drawing is."""
     doc = _read_document(data)
     define_missing_styles(doc)
     standins = define_missing_blocks(doc)
@@ -112,10 +71,6 @@ def read_dxf(data: bytes) -> DxfSource:
 
 
 def _read_document(data: bytes) -> Drawing:
-    """The plain reader first (it does not audit), ``recover`` for a damaged file.
-
-    ezdxf reads from a path: it sniffs binary DXF and the text encoding there.
-    """
     with tempfile.NamedTemporaryFile(suffix=".dxf", delete=False) as handle:
         handle.write(data)
         path = handle.name
@@ -134,7 +89,6 @@ def _read_document(data: bytes) -> Drawing:
 
 
 def define_missing_blocks(doc: Drawing) -> tuple[str, ...]:
-    """Define an empty block for every INSERT name the file uses and lacks."""
     used = {entity.dxf.name for entity in doc.entitydb.values() if entity.dxftype() == "INSERT"}
     missing = sorted(name for name in used if name not in doc.blocks)
     for name in missing:
@@ -142,9 +96,6 @@ def define_missing_blocks(doc: Drawing) -> tuple[str, ...]:
     return tuple(missing)
 
 
-#: Stand-in patterns for line types a partial file names and does not define, in
-#: drawing units: BEV's dotted "ideelle Grenze" (``DOT``, §3.2) and its dashed
-#: underground line (``UGROUND``, §3.7). Anything else unknown is drawn dashed.
 _STANDIN_LINETYPES: dict[str, list[float]] = {
     "DOT": [0.8, 0.0, -0.8],
     "UGROUND": [2.0, 1.4, -0.6],
@@ -153,12 +104,6 @@ _STANDIN_DASHED = [2.0, 1.4, -0.6]
 
 
 def define_missing_styles(doc: Drawing) -> None:
-    """Define the text styles and line types the entities name and the file lacks.
-
-    BEV's texts name the style ``NORM`` and its lines ``DOT`` and ``UGROUND``, none of
-    them defined in a partial file; the audit would strip the references, and a
-    dotted boundary would draw solid.
-    """
     styles, linetypes = set(), set()
     for entity in doc.entitydb.values():
         if entity.dxf.hasattr("style"):
@@ -182,7 +127,6 @@ def _metres_per_unit(doc: Drawing) -> float | None:
 
 
 def cadastre_facts(doc: Drawing) -> CadastreFacts | None:
-    """The Katastralmappe's own statements, or ``None`` for any other drawing."""
     msp = doc.modelspace()
     layers = {entity.dxf.layer.upper() for entity in msp}
     if not _CADASTRE_LAYERS <= layers:
@@ -217,7 +161,6 @@ def _attribute_values(insert: Insert) -> list[str]:
 
 
 def _sheet_meridian(doc: Drawing) -> int | None:
-    """The meridian strip from the first ``MBNR`` sheet marker: ``scale*meridian*…``."""
     for insert in doc.modelspace().query("INSERT"):
         if insert.dxf.name.upper() != "MBNR" or not insert.attribs:
             continue
