@@ -151,6 +151,7 @@ export const chat: typeof en.chat = {
       authority: 'Behördliche Information',
       external_standard: 'Externe Norm',
       office_piloti: '{productName}-Dokument',
+      office_agent: '{productName}-Dokument',
       measurement: 'Modellmessung',
     },
   },

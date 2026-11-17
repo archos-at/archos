@@ -416,7 +416,7 @@ describe('PATCH /api/documents/[id]/annotations/[annotationId]', () => {
 
   describe("a decision on the agent’s proposed mark, in the audit trail", () => {
     const decided = () =>
-      vi.mocked(recordAuditEvent).mock.calls.map(([input]) => input).filter((input) => input.action === 'piloti.mark.decided')
+      vi.mocked(recordAuditEvent).mock.calls.map(([input]) => input).filter((input) => input.action === 'agent.mark.decided')
     afterEach(() => {
       for (const [input] of vi.mocked(recordAuditEvent).mock.calls) expectRegistered(input)
     })
@@ -431,7 +431,7 @@ describe('PATCH /api/documents/[id]/annotations/[annotationId]', () => {
 
       expect(decided()).toEqual([
         {
-          action: 'piloti.mark.decided',
+          action: 'agent.mark.decided',
           organizationId: 'org_1',
           actor: { userId: 'user_1', email: 'a@example.test' },
           targetType: 'document_annotation',

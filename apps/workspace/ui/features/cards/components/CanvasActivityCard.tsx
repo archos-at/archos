@@ -50,6 +50,7 @@ import { matchChanges, standsAsChanged } from '../lib/canvas-changes'
 import { ClampedText } from './ClampedText'
 import { ProposalShell } from './ProposalShell'
 import { StackedLabel } from '@/components/ui/stacked-label'
+import { isAgentKind } from '@/lib/agent-kind'
 
 const DEFAULT_PAGE_ASPECT = Math.SQRT2
 
@@ -671,7 +672,7 @@ function ThreadGlance({ mark }: { mark: LiveMark | 'gone' | undefined }): JSX.El
   if (!mark || mark === 'gone' || mark.replyCount === 0) return null
   const last = mark.lastReply
   const name = last
-    ? last.authorKind === 'piloti'
+    ? isAgentKind(last.authorKind)
       ? PRODUCT_NAME
       : (last.authorName ?? t('cards.canvasActivity.thread.someone'))
     : null

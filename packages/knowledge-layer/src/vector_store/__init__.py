@@ -74,6 +74,12 @@ _LAZY: dict[str, str] = {
     "LICENCE_CLASSES": ".schema",
     "LICENCE_CLASS_FIELD": ".schema",
     "OFFICE_FIELD": ".schema",
+    "DOCUMENT_ID_FIELD": ".schema",
+    "KEYWORD_FIELDS": ".schema",
+    "ensure_payload_indexes": ".schema",
+    "ENRICHED_FIELDS": ".payload",
+    "STORE_ONLY_FIELDS": ".payload",
+    "LEGACY_DOCUMENT_ID_FIELD": ".legacy_names",
     "Physical": ".schema",
     "SCOPE_FIELD": ".schema",
     "TEXT_FIELD": ".schema",
@@ -108,6 +114,12 @@ _LAZY: dict[str, str] = {
 __getattr__ = lazy_exports(__name__, _LAZY, cache=False)
 
 __all__ = [
+    "DOCUMENT_ID_FIELD",
+    "KEYWORD_FIELDS",
+    "ensure_payload_indexes",
+    "ENRICHED_FIELDS",
+    "STORE_ONLY_FIELDS",
+    "LEGACY_DOCUMENT_ID_FIELD",
     "AI_PROCESSING_FIELD",
     "Boost",
     "CHUNK_ID_FIELD",

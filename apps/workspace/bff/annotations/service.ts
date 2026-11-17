@@ -106,6 +106,8 @@ import {
   type WakeOutcome,
 } from './types'
 import { PRODUCT_NAME } from '@/lib/brand'
+import { isAgentKind } from '@/lib/agent-kind'
+import { LEGACY_AGENT_KIND } from '@/lib/legacy-agent-kind'
 
 export interface AnnotationActor {
   kind: AnnotationAuthor
@@ -113,7 +115,7 @@ export interface AnnotationActor {
 }
 
 const PERSON: AnnotationActor = { kind: 'person' }
-export const AGENT: AnnotationActor = { kind: 'piloti' }
+export const AGENT: AnnotationActor = { kind: LEGACY_AGENT_KIND }
 
 const mayDeleteMark = (record: Pick<AnnotationRecord, 'authorKind' | 'createdBy' | 'acceptedBy'>, userId: string) =>
   record.createdBy === userId && (record.authorKind === 'person' || record.acceptedBy === userId)
@@ -122,7 +124,7 @@ export function deleteRefusalOf(
   record: Pick<AnnotationRecord, 'createdBy' | 'replies' | 'carriedFromId' | 'carriedFrom' | 'carriedTo'>
 ): AnnotationDeleteRefusal | null {
   if (record.carriedFromId || record.carriedFrom || record.carriedTo) return 'carried'
-  const othersWrote = record.replies.some((reply) => reply.authorKind !== 'piloti' && reply.createdBy !== record.createdBy)
+  const othersWrote = record.replies.some((reply) => !isAgentKind(reply.authorKind) && reply.createdBy !== record.createdBy)
   return othersWrote ? 'discussed' : null
 }
 
@@ -321,7 +323,7 @@ function announce(
     actor: {
       peerId: actor.peerId ?? null,
       userId: session.userId,
-      name: actor.kind === 'piloti' ? PRODUCT_NAME : (session.name ?? session.email),
+      name: isAgentKind(actor.kind) ? PRODUCT_NAME : (session.name ?? session.email),
       kind: actor.kind,
     },
   })
@@ -483,7 +485,7 @@ async function insertAgentMarks(
     organizationId: session.organizationId,
     documentId: doc.id,
     versionId: doc.publishedVersionId ?? null,
-    authorKind: 'piloti',
+    authorKind: LEGACY_AGENT_KIND,
     createdBy: session.userId,
     acceptedBy,
     marks: parsed.map(toMark),
@@ -491,7 +493,7 @@ async function insertAgentMarks(
   const ids = rows.map((row) => row.id)
   announce(session, doc.id, ids, 'created', AGENT)
   for (const row of rows) {
-    markEvent(session, 'annotation_created', doc.id, { author_kind: 'piloti', kind: row.kind, status: row.status })
+    markEvent(session, 'annotation_created', doc.id, { author_kind: LEGACY_AGENT_KIND, kind: row.kind, status: row.status })
   }
   if (acceptedBy) {
     traceSet(
@@ -523,7 +525,7 @@ export function transition(
     throw new ConflictError(`An Anmerkung cannot go from ${from} to ${to}.`)
   }
   if (to !== 'open') return { status: to, ...closed }
-  const accepts = from === 'proposed' || (from === 'dismissed' && record.authorKind === 'piloti')
+  const accepts = from === 'proposed' || (from === 'dismissed' && isAgentKind(record.authorKind))
   return { status: 'open', ...reopened, ...(accepts ? acceptance : {}) }
 }
 
@@ -628,7 +630,7 @@ function traceAssigned(
     onAssigneeChanged({
       ...markRefOf(session, doc, mark),
       actorUserId: session.userId,
-      byAgent: actor.kind === 'piloti',
+      byAgent: isAgentKind(actor.kind),
       markText: mark.body,
       previousAssigneeUserId: previous,
       assigneeUserId: mark.assigneeUserId,
@@ -643,7 +645,7 @@ function traceRedated(session: AuthorizedSession, doc: Document, mark: ChangedMa
     onDueChanged({
       ...markRefOf(session, doc, mark),
       actorUserId: session.userId,
-      byAgent: actor.kind === 'piloti',
+      byAgent: isAgentKind(actor.kind),
       markText: mark.body,
       assigneeUserId: mark.assigneeUserId,
       dueOn: mark.dueOn,
@@ -666,7 +668,7 @@ function traceChange(
   } else if (after.dueOn !== existing.dueOn && after.assigneeUserId) {
     traceRedated(session, doc, after, actor)
   }
-  if (existing.authorKind === 'piloti' && existing.acceptedBy === null && after.status === 'open') {
+  if (isAgentKind(existing.authorKind) && existing.acceptedBy === null && after.status === 'open') {
     traceSet(session, doc, 'created_piloti', [
       { ...after, mentions: existing.mentions, toldOtherwise: [after.assigneeUserId] },
     ])
@@ -680,7 +682,7 @@ function traceChange(
     onMarkMoved({
       ...markRefOf(session, doc, existing),
       actorUserId: session.userId,
-      byAgent: actor.kind === 'piloti',
+      byAgent: isAgentKind(actor.kind),
       markText: after.body,
       move,
       mark: existing,
@@ -696,7 +698,7 @@ function traceMove(
   existing: Pick<AnnotationRecord, 'authorKind' | 'status' | 'number' | 'kind' | 'createdBy'>,
   to: 'open' | 'resolved' | 'dismissed' | undefined
 ): void {
-  const proposal = existing.authorKind === 'piloti' && existing.status === 'proposed'
+  const proposal = isAgentKind(existing.authorKind) && existing.status === 'proposed'
   if (!proposal || (to !== 'open' && to !== 'dismissed')) return
   auditMarkDecided(session, doc, { ...existing, id: annotationId }, to === 'open' ? 'taken_over' : 'dismissed')
   bestEffort('score the decision', () =>
@@ -731,7 +733,7 @@ function delegationOf(
   const cleared = { delegatedBy: null, delegatedAt: null } as const
   const closing = parsed.status === 'resolved' || parsed.status === 'dismissed'
   if (parsed.delegateToPiloti === undefined) return closing && existing.delegatedBy ? cleared : undefined
-  if (actor.kind === 'piloti') throw new ForbiddenError(PRODUCT_NAME + ' cannot delegate a mark to itself.')
+  if (isAgentKind(actor.kind)) throw new ForbiddenError(PRODUCT_NAME + ' cannot delegate a mark to itself.')
   if (!parsed.delegateToPiloti) return existing.delegatedBy ? cleared : undefined
   if (!wakesEnabled(session)) {
     throw new ForbiddenError('Delegating to ' + PRODUCT_NAME + ' is not switched on for this organization.', {
@@ -926,7 +928,7 @@ const takeBackAudit = (
 ): TakeBackAudit => ({
   userId: session.userId,
   email: session.email || null,
-  piloti: actor.kind === 'piloti',
+  piloti: isAgentKind(actor.kind),
   projectId: doc.projectId ?? null,
   markNumber: mark.number,
 })
@@ -1080,7 +1082,7 @@ export async function replyToAnnotation(
     onMarkReplied({
       ...markRefOf(session, doc, existing),
       actorUserId: session.userId,
-      byAgent: actor.kind === 'piloti',
+      byAgent: isAgentKind(actor.kind),
       markText: existing.body,
       mark: existing,
       replyText: reply.body,

@@ -10,7 +10,8 @@ import {
   MentionPicker,
   type MentionPickerHandle,
 } from '@/features/collaboration/components/MentionPicker'
-import { AGENT_MENTION_ID, type MentionCandidate } from '@/lib/mentions/types'
+import { type MentionCandidate } from '@/lib/mentions/types'
+import { LEGACY_AGENT_MENTION_ID } from '@/lib/mentions/legacy-mention-ids'
 import { PRODUCT_NAME } from '@/lib/brand'
 import { SectionLabel } from '@/components/ui/section-label'
 
@@ -34,8 +35,8 @@ const candidate = (
 
 const CANDIDATES: MentionCandidate[] = [
   {
-    targetId: AGENT_MENTION_ID,
-    person: { userId: AGENT_MENTION_ID, name: PRODUCT_NAME, email: null, profilePictureUrl: null },
+    targetId: LEGACY_AGENT_MENTION_ID,
+    person: { userId: LEGACY_AGENT_MENTION_ID, name: PRODUCT_NAME, email: null, profilePictureUrl: null },
     isAgent: true,
     isParticipant: true,
     needsInvite: false,

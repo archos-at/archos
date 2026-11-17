@@ -36,6 +36,7 @@ import {
 } from '../../hooks/use-document-room'
 import { useAgentByline } from './agent-attribution'
 import { PRODUCT_NAME } from '@/lib/brand'
+import { isAgentKind } from '@/lib/agent-kind'
 
 const MIN_REGION = 0.012
 
@@ -51,7 +52,7 @@ const box = (x: number, y: number, w: number, h: number): CSSProperties => ({
 
 const roomTool = (tool: ReviewTool) => (tool === 'ask' ? 'region' : tool)
 
-export const isAgentPeer = (state: RoomPeerState): boolean => state.peer.kind === 'piloti'
+export const isAgentPeer = (state: RoomPeerState): boolean => isAgentKind(state.peer.kind)
 
 export function agentForShort(peer: Pick<RoomPeerState['peer'], 'forName'>): string | null {
   const first = peer.forName?.trim().split(/\s+/)[0]?.split('@')[0]
@@ -235,7 +236,7 @@ function PeerSelection({
 }
 
 export function markInk(annotation: Pick<AnnotationView, 'authorKind' | 'createdBy'>): string {
-  return annotation.authorKind === 'piloti' ? 'var(--paper-ink)' : identityInk(annotation.createdBy)
+  return isAgentKind(annotation.authorKind) ? 'var(--paper-ink)' : identityInk(annotation.createdBy)
 }
 
 const onPage = (value: number) => Math.round(Math.min(1, Math.max(0, value)) * 10_000) / 10_000
@@ -444,7 +445,7 @@ const PageMarks = memo(function PageMarks({
         const ink = markInk(annotation)
         const proposed = annotation.status === 'proposed'
         const agentLine =
-          annotation.authorKind === 'piloti' ? byline(annotation.createdByName, { proposal: proposed }) : undefined
+          isAgentKind(annotation.authorKind) ? byline(annotation.createdByName, { proposal: proposed }) : undefined
         const done = !isLive(annotation)
         const openBy = selections.get(annotation.id)
         return (

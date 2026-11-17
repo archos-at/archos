@@ -336,7 +336,7 @@ export const ITEMS: InboxItemView[] = [
   },
   {
     id: 'i-agent-failed',
-    type: 'piloti.work_failed',
+    type: 'agent.work_failed',
     state: 'unread',
     archived: false,
     read: false,
@@ -359,7 +359,7 @@ export const ITEMS: InboxItemView[] = [
   },
   {
     id: 'i-agent-asks',
-    type: 'piloti.asks_you',
+    type: 'agent.asks_you',
     state: 'unread',
     archived: false,
     read: false,
@@ -382,7 +382,7 @@ export const ITEMS: InboxItemView[] = [
   },
   {
     id: 'i-agent-done',
-    type: 'piloti.work_done',
+    type: 'agent.work_done',
     state: 'read',
     archived: false,
     read: true,
@@ -594,7 +594,7 @@ export const ITEMS: InboxItemView[] = [
   },
   {
     id: 'i-agent-proposal',
-    type: 'piloti.proposal_waiting',
+    type: 'agent.proposal_waiting',
     state: 'unread',
     archived: false,
     read: false,
