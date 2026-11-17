@@ -32,6 +32,7 @@ def as_of_error(as_of: str) -> str:
     return ""
 
 
+# RIS prints Ausserkrafttretensdatum as the last day in force (OGD API checked 2026-11-10); that day is in force.
 def in_force_on(metadata: dict[str, str], day: date) -> bool:
     since = parse_day(metadata.get("In Kraft seit", ""))
     if since is None or since > day:

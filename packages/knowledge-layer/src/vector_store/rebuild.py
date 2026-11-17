@@ -145,6 +145,7 @@ def _copied_vector(record: Any, relex: Mapping[str, float] | None) -> Any:
     return vector
 
 
+# Qdrant 1.19.2 accepts init_from and ignores it, leaving the new collection empty (drilled 2026-10-13).
 def copy_collection(
     client: QdrantClient,
     physical: Physical,

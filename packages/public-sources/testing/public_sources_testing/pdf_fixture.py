@@ -4,6 +4,7 @@ from pathlib import Path
 
 from knowledge_layer_testing.pdf_fixtures import build_pdf
 
+# baunvo.pdf is a statute fetched 2026-11-10 from gesetze-im-internet.de; statutes are free works (§ 5 Abs. 1 UrhG DE, § 7 Abs. 1 UrhG AT).
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 REAL_PDF = FIXTURES / "baunvo.pdf"
 REAL_TEXT = FIXTURES / "baunvo.txt"

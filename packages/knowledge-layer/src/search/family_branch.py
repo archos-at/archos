@@ -21,6 +21,7 @@ class _FamilyBranch:
 NO_FAMILY_BRANCH = _FamilyBranch()
 
 
+#: Measured 2026-09-23: the full sixteen made a 25.5k character block, half of it never cited.
 FAMILY_RANKED_HITS = 4
 
 

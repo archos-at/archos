@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 
+#: One dead pod drained the API's thread pool on 2026-10-12 when the client had no timeout.
 REQUEST_TIMEOUT_SECONDS = 30
 
 

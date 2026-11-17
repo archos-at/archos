@@ -227,6 +227,7 @@ def build_plan_set_pdf(
     return _xref_pdf(objects)
 
 
+# The shape that OOM-killed the ingest worker in the text pass (2026-10-19).
 def build_drawing_sheets_pdf(sheets: int, paths_per_sheet: int, *, seed: int = 7) -> bytes:
     rng = random.Random(seed)
     objects: list[bytes] = [

@@ -127,6 +127,7 @@ _METADATA_FIELDS = (
 _TITLE_KEYS = ("Kurztitel", "Titel", "Dokumenttitel", "Kurzinformation", "Geschaeftszahl")
 
 
+# OGD-RIS started stating ogd.ris.bka.gv.at in URLs in 2026-09; it answers 301 to ris.bka.gv.at and is on no allow-list.
 def public_host(url: str, rewrites: tuple[tuple[str, str], ...] = ()) -> str:
     for old, new in rewrites:
         if url.startswith(old):
@@ -205,6 +206,7 @@ _TITLE_RE = re.compile(r"<title[^>]*>(.*?)</title>", re.IGNORECASE | re.DOTALL)
 
 
 
+# #content holds 759,015 of 759,687 characters of the Bauordnung für Wien page (2026-09-04); the rest is site furniture at the front.
 def html_to_text(
     markup: str, content_selector: str = "#content", drop_selectors: tuple[str, ...] = (".sr-only",)
 ) -> tuple[str, str]:

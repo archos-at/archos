@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from knowledge_layer.ingest import MIN_JUDGEABLE_CHARS
 from knowledge_layer.ingest import text_quality
 
+#: Thresholds measured 2026-10 on live OIB-RL 2 passages (tests/fixtures/ocr_noise): debris share 0.66-1.00, text at most 0.04.
 MIN_DEBRIS_SHARE = 0.5
 MAX_FRAGMENT_GLYPHS = 4
 MIN_ALNUM_SHARE = 0.5
