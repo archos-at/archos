@@ -17,8 +17,6 @@ vi.mock('@/lib/db/tenant-context', async (importOriginal) => ({
   withTenant: vi.fn(async (_scope: unknown, run: () => Promise<unknown>) => run()),
 }))
 
-import { readFileSync } from 'node:fs'
-import { fileURLToPath } from 'node:url'
 import { fileAgentDocumentDraft } from '@/lib/documents/agent-document'
 import { replaceVersionContent, transitionDocumentVersion } from '@/lib/documents/lifecycle'
 import { resolvePinnedRequesterSession } from '@/lib/auth/pinned-session'
@@ -30,8 +28,8 @@ import {
 } from '@/lib/request-context'
 import {
   AGENT_REACHABLE_OPS,
+  DOCUMENT_VERSION_OPS,
   findDocumentVersionTransition,
-  transitionsForOp,
   type DocumentVersionOp,
 } from '@/lib/documents/lifecycle-types'
 import { POST } from './route'
@@ -40,6 +38,18 @@ const SECRET = 'internal-token-for-tests' // pragma: allowlist secret
 const DOC = '11111111-1111-4111-8111-111111111111'
 const VERSION = '22222222-2222-4222-8222-222222222222'
 const PROJECT = '33333333-3333-4333-8333-333333333333'
+
+const AGENT_REQUEST_BODIES: Partial<Record<DocumentVersionOp, Record<string, unknown>>> = {
+  create: {
+    op: 'create',
+    projectId: PROJECT,
+    ref: 's_conv_1-aktenvermerk',
+    title: 'Aktenvermerk',
+    content: '# Aktenvermerk',
+  },
+  update: { op: 'update', documentId: DOC, versionId: VERSION, content: 'korrigiert', ifMatch: 'sha256:abc' },
+  submit: { op: 'submit', documentId: DOC, versionId: VERSION },
+}
 
 const session = {
   userId: 'user_requester',
@@ -146,14 +156,10 @@ describe('the project the body names must be the project the envelope names', ()
 })
 
 describe('the op set is closed by the transition table, not by this file', () => {
-  it('admits only ops whose every transition is reachable by a machine', () => {
-    const source = readFileSync(fileURLToPath(new URL('./route.ts', import.meta.url)), 'utf8')
-    for (const op of ['create', 'update', 'submit'] as const) {
-      expect(source).toContain(`'${op}'`)
-      expect(AGENT_REACHABLE_OPS).toContain(op)
-      for (const row of transitionsForOp(op)) {
-        expect(row.actor, `${op} must be reachable by a machine`).toBe('either')
-      }
+  it('admits exactly the ops the transition table makes agent-reachable', async () => {
+    for (const op of DOCUMENT_VERSION_OPS) {
+      const response = await call(AGENT_REQUEST_BODIES[op] ?? { op })
+      expect(response.status, op).toBe(AGENT_REACHABLE_OPS.includes(op) ? 201 : 400)
     }
   })
 
