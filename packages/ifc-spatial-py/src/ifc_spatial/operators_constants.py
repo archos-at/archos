@@ -25,6 +25,7 @@ FENESTRATION = {
 
 FURNISHING = ("IfcFurnishingElement", "IfcFurniture", "IfcSystemFurnitureElement")
 
+CLEAR_HEIGHT_TRANSPARENT = (*FURNISHING, "IfcStair", "IfcStairFlight", "IfcRamp", "IfcRampFlight", "IfcRailing")
 _RELATIONS = {
     "voids": ("IfcRelVoidsElement", "Öffnungen und Füllungen mitexportieren"),
     "fills": ("IfcRelFillsElement", "Öffnungen und Füllungen mitexportieren"),

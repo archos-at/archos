@@ -101,9 +101,9 @@ critical point. Both numbers are reported, the perpendicular one as the value an
 the vertical one beside it, because a clause that means the vertical reading must
 be able to get it without a second call.
 
-The exclusion discipline is :func:`~ifc_spatial.operators.clear_height`'s, not a
-new one: :data:`~ifc_spatial.model.AIR_TYPES` and
-:data:`~ifc_spatial.operators.FURNISHING` are skipped and everything else counts.
+The exclusion discipline is the air and furniture half of
+:func:`~ifc_spatial.operators.clear_height`'s: :data:`~ifc_spatial.model.AIR_TYPES` and
+:data:`~ifc_spatial.operators.FURNISHING` are skipped and everything else counts, stairs included.
 Unfiltered rays have already cost this repository three wrong answers, and a
 chair is not a Durchgangshöhe. ``IfcRailing`` was proposed for that list and is
 deliberately not in it — every stair in the corpus was reporting its own

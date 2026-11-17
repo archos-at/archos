@@ -179,7 +179,7 @@
     "packages/ifc-spatial-py/src/ifc_spatial/operators_facade.py::prism": 95,
     "packages/ifc-spatial-py/src/ifc_spatial/operators_facade.py::ray": 69,
     "packages/ifc-spatial-py/src/ifc_spatial/operators_vertical.py::azimuth": 87,
-    "packages/ifc-spatial-py/src/ifc_spatial/operators_vertical.py::clear_height": 85,
+    "packages/ifc-spatial-py/src/ifc_spatial/operators_vertical.py::clear_height": 79,
     "packages/ifc-spatial-py/src/ifc_spatial/operators_vertical.py::distance": 61,
     "packages/ifc-spatial-py/src/ifc_spatial/render.py::plan": 158,
     "packages/ifc-spatial-py/src/ifc_spatial/stairs.py::steps_of": 77,

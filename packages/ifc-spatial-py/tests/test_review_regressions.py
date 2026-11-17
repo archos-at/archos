@@ -46,6 +46,8 @@ CURTAIN_PANE = "3cUkl32yn9qRSPvBJVyW_5"
 BEDROOM_WINDOW = "3cUkl32yn9qRSPvBJVyWcE"
 INTERNAL_DOOR = "3cUkl32yn9qRSPvBJVyWaG"
 BODYLESS_WALL = "3Fuss000000Wall000001"
+LIVING_CEILING = "3cUkl32yn9qRSPvBJVyWfu"
+SPIRAL_STAIR = "38a9vdh9bF5Qg28GWyHhlr"
 
 
 @pytest.fixture(scope="module")
@@ -699,6 +701,78 @@ class TestARoomWhoseBodyIsAShellIsStillMeasurable:
         assert "samples" not in remedy
         assert "extent()" in remedy
         assert "samples" not in inspect.getsource(tools.create_tools)
+
+
+class _FarthestHitFirst:
+    def __init__(self, tree: object) -> None:
+        self._tree = tree
+
+    def __getattr__(self, name: str) -> object:
+        return getattr(self._tree, name)
+
+    def select_ray(self, *args: object, **kwargs: object) -> list:
+        return sorted(self._tree.select_ray(*args, **kwargs), key=lambda hit: -float(hit.distance))
+
+
+def _living_room_with_the_spiral_stair(path: Path) -> SpatialModel:
+    file = ifcopenshell.open(str(FIXTURES / "gallery-slab-opening.ifc"))
+    file.add(ifcopenshell.open(str(FIXTURES / "spiral-stair.ifc")).by_guid(SPIRAL_STAIR))
+    file.write(str(path))
+    return SpatialModel(str(path))
+
+
+class TestAClearHeightRayStopsAtTheNearestElementAndNotAtAStair:
+    GALLERY_LIVING = "0Lt8gR_E9ESeGH5uY_g9e9"
+
+    def test_a_ray_with_two_hits_reports_the_nearer_one(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        model = SpatialModel(str(HOUSE))
+        monkeypatch.setattr(model, "tree", _FarthestHitFirst(model.tree))
+        answer = op.clear_height(model, LIVING)
+        assert answer.value == pytest.approx(2.20, abs=0.01), "the farther slab was taken for the ceiling"
+        assert LIVING_CEILING in answer.from_
+
+    def test_the_stair_really_stands_in_the_room(self, tmp_path: Path) -> None:
+        model = _living_room_with_the_spiral_stair(tmp_path / "wohnen-mit-treppe.ifc")
+        stair_low, stair_high = model.geometry(SPIRAL_STAIR).box
+        room_low, room_high = model.geometry(self.GALLERY_LIVING).box
+        assert float(stair_low[2]) < float(room_high[2])
+        assert all(float(room_low[i]) <= float(stair_low[i]) for i in (0, 1))
+        assert all(float(stair_high[i]) <= float(room_high[i]) for i in (0, 1))
+
+    def test_a_stair_in_the_room_is_not_its_clear_height(self, tmp_path: Path) -> None:
+        model = _living_room_with_the_spiral_stair(tmp_path / "wohnen-mit-treppe.ifc")
+        answer = op.clear_height(model, self.GALLERY_LIVING)
+        assert answer.value == pytest.approx(2.50, abs=0.01), "1.53 m was the stair's tread"
+        assert SPIRAL_STAIR not in answer.from_
+        assert "Treppen, Rampen, Geländer und Bodenaufbauten sind ausgenommen" in answer.caveat
+
+    @pytest.mark.parametrize(("part", "predefined"), [("IfcSlab", "LANDING"), ("IfcMember", "STRINGER")])
+    def test_a_stair_exported_in_parts_is_not_its_clear_height(
+        self, tmp_path: Path, part: str, predefined: str
+    ) -> None:
+        file = ifcopenshell.open(str(FIXTURES / "gallery-slab-opening.ifc"))
+        stair = file.add(ifcopenshell.open(str(FIXTURES / "spiral-stair.ifc")).by_guid(SPIRAL_STAIR))
+        piece = file.create_entity(
+            part,
+            GlobalId=ifcopenshell.guid.new(),
+            OwnerHistory=stair.OwnerHistory,
+            ObjectPlacement=stair.ObjectPlacement,
+            Representation=stair.Representation,
+            PredefinedType=predefined,
+        )
+        stair.Representation = None
+        file.create_entity(
+            "IfcRelAggregates",
+            GlobalId=ifcopenshell.guid.new(),
+            OwnerHistory=stair.OwnerHistory,
+            RelatingObject=stair,
+            RelatedObjects=[piece],
+        )
+        path = tmp_path / f"wohnen-mit-{predefined.lower()}.ifc"
+        file.write(str(path))
+        answer = op.clear_height(SpatialModel(str(path)), self.GALLERY_LIVING)
+        assert answer.value == pytest.approx(2.50, abs=0.01), f"1.53 m was the stair's {predefined.lower()}"
+        assert piece.GlobalId not in answer.from_
 
 
 class TestAnExternalWallBoundsMoreThanOneRoom:

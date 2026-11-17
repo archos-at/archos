@@ -139,7 +139,7 @@
   "packages/ifc-spatial-py/src/ifc_spatial/operators.py": 7,
   "packages/ifc-spatial-py/src/ifc_spatial/operators_facade.py": 3,
   "packages/ifc-spatial-py/src/ifc_spatial/operators_measures.py": 1,
-  "packages/ifc-spatial-py/src/ifc_spatial/operators_vertical.py": 4,
+  "packages/ifc-spatial-py/src/ifc_spatial/operators_vertical.py": 2,
   "packages/ifc-spatial-py/src/ifc_spatial/relations.py": 1,
   "packages/ifc-spatial-py/src/ifc_spatial/render.py": 6,
   "packages/ifc-spatial-py/src/ifc_spatial/stairs_geometry.py": 1,
