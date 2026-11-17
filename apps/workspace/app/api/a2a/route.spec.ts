@@ -26,7 +26,7 @@ vi.mock('@/lib/agent-api/telemetry', async (original) => ({
 
 import { ConflictError, NotFoundError } from '@/lib/api/errors'
 import type { AuthorizedSession } from '@/lib/auth/types'
-import { actingReaderIsAgent } from '@/lib/agent-api/acting-session'
+import { actingDoor, actingReaderIsAgent } from '@/lib/agent-api/acting-session'
 import { resolvePrincipal, type AgentPrincipal } from '@/lib/agent-api/principal'
 import { recordOperationCalled } from '@/lib/agent-api/telemetry'
 import { enforceLimit, MCP_REQUEST_LIMIT, memberSubject } from '@/lib/limits'
@@ -219,6 +219,16 @@ describe('A2A 1.0', () => {
     })
     await POST(rpc('SendMessage', { message: userMessage('Hallo?') }, V1))
     expect(agentReads).toBe(true)
+  })
+
+  it('runs the ask route behind the A2A door, so its turn is filed under that door', async () => {
+    let door: ReturnType<typeof actingDoor> | null = null
+    vi.mocked(askAgent).mockImplementation(async () => {
+      door = actingDoor()
+      return view()
+    })
+    await POST(rpc('SendMessage', { message: userMessage('Hallo?') }, V1))
+    expect(door).toEqual({ door: 'a2a', sessionSource: 'mcp' })
   })
 
   it('records each method’s call on the agent door, door a2a, and not the polls it waits with', async () => {

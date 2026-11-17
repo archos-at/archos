@@ -1,6 +1,7 @@
 import 'server-only'
 
 import { LangfuseClient } from '@langfuse/client'
+import { configuredAppHost } from '@/lib/app-origin'
 import { type LangfuseApiConfig, langfuseApiConfig } from './config'
 
 export const TOOL_CALL_TRACE_NAME = 'agent-tool-call'
@@ -31,6 +32,11 @@ export function environment(raw = process.env.APP_ENV ?? ''): string | undefined
 export function release(raw = process.env.GIT_SHA ?? ''): string | undefined {
   const value = raw.trim()
   return value && value !== 'unknown' ? value : undefined
+}
+
+/** Staging and production both run APP_ENV=production; this tag is what tells their traces apart in PostHog. */
+export function deploymentTags(host = configuredAppHost()): string[] {
+  return host ? [`app_host:${host}`] : []
 }
 
 const identityOn = () => process.env.TRACE_IDENTITY_ATTRIBUTES?.trim().toLowerCase() === 'true'
@@ -70,6 +76,7 @@ export function toolCallBatch(call: ToolCallRecord, ids: { traceId: string; obse
             `decision:${call.decision}`,
             ...(call.status >= 400 ? [`error:${call.status}`] : []),
             ...(identity ? [`org:${call.organizationId}`] : []),
+            ...deploymentTags(),
           ],
           ...(call.conversationId ? { sessionId: call.conversationId } : {}),
           ...(identity ? { userId: call.userId } : {}),

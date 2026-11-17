@@ -1,0 +1,7 @@
+---
+# area: administration
+operators:
+  - >
+    Model call traces in analytics now say which deployment they came from, so
+    production can be told apart from staging. Background job steps are no
+    longer filed under an unnamed environment.

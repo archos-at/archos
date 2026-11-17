@@ -6,13 +6,24 @@
  * names and numbers only.
  */
 
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
 
 const { FRESHNESS_SCORE_NAME, SOURCE_MONITOR_TRACE_NAME, sourceMonitorBatch } = await import('./source-monitor-trace')
 
+afterEach(() => {
+  vi.unstubAllEnvs()
+})
+
 describe('sourceMonitorBatch', () => {
+  it('tags the run with the deployment’s host', () => {
+    vi.stubEnv('WORKOS_REDIRECT_URI', 'https://app.example.test/api/auth/callback')
+    const run = { startedAt: 0, endedAt: 1, checked: 0, changed: 0, failed: 0, opened: 0, lags: [] }
+    const [trace] = sourceMonitorBatch(run, { traceId: 'a'.repeat(32), eventId: () => 'event-1' }).batch
+    expect(trace?.body).toMatchObject({ tags: ['feature:source-monitor', 'app_host:app.example.test'] })
+  })
+
   it('posts the run as a trace and one freshness score per watched source', () => {
     let n = 0
     const batch = sourceMonitorBatch(

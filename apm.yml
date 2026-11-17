@@ -30,6 +30,7 @@ dependencies:
     # target. A skill of our own is only for agent-specific procedure
     # (docs/contributing/agent-skills.md).
     - ./skills/verify-on-dev
+    - ./skills/querying-product-analytics
 
     # Writing documents an agent consumes: skills, AGENTS.md, CLAUDE.md.
     # Pinned to a commit; an unpinned ref drifts silently under `apm install`.

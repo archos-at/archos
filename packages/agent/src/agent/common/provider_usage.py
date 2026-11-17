@@ -24,6 +24,16 @@ def as_int(value: Any) -> int:
         return 0
 
 
+def model_id_once(model: Any) -> str | None:
+    if not isinstance(model, str) or not model:
+        return None
+    for size in range(1, len(model) // 2 + 1):
+        unit = model[:size]
+        if len(model) % size == 0 and "/" in unit and unit * (len(model) // size) == model:
+            return unit
+    return model
+
+
 def usage_from_langchain_metadata(usage_metadata: Any, accounting: Any = None) -> dict[str, Any]:
     """LangChain's normalized ``usage_metadata``, reshaped as a provider usage object.
 

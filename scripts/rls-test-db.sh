@@ -4436,3 +4436,25 @@ apply_in sn_0241 0243_documents_generated_namespace.down.sql
 check_in sn_0241 "SELECT (indexdef LIKE '%generated/%')::text FROM pg_indexes WHERE indexname = 'uniq_documents_live_name_per_collection'" "false" "0243 down: the index returns to 0083's two arms"
 apply_in sn_0241 0243_documents_generated_namespace.sql
 echo "==> 0241 to 0243 expand migrations and their downs verified"
+
+# ---------------------------------------------------------------------------
+# Migration 0244: a ledger row names its model once. A provider id written
+# twice is folded to the id; an id once, one with no provider prefix and a
+# NULL stay as they are. The down changes nothing, and 0244 applies again.
+# ---------------------------------------------------------------------------
+echo "==> verifying the 0244 model folded once and its down migration on um_0244"
+migrate_before um_0244 0244_usage_events_model_once
+sql_in um_0244 <<SQL
+INSERT INTO llm_usage_events (organization_id, model, generation_id) VALUES
+  ('org_0244', 'openai/gpt-6.1-terraopenai/gpt-6.1-terra', 'a-doubled'),
+  ('org_0244', 'openai/gpt-6.1-terra', 'b-once'),
+  ('org_0244', 'gpt-4ogpt-4o', 'c-no-prefix'),
+  ('org_0244', NULL, 'd-none');
+SQL
+STATE_0244="SELECT string_agg(generation_id || '=' || coalesce(model, 'null'), ',' ORDER BY generation_id) FROM llm_usage_events WHERE organization_id = 'org_0244'"
+apply_in um_0244 0244_usage_events_model_once.sql
+check_in um_0244 "$STATE_0244" "a-doubled=openai/gpt-6.1-terra,b-once=openai/gpt-6.1-terra,c-no-prefix=gpt-4ogpt-4o,d-none=null" "0244 folds a doubled provider id and touches no other row"
+apply_in um_0244 0244_usage_events_model_once.down.sql
+apply_in um_0244 0244_usage_events_model_once.sql
+check_in um_0244 "$STATE_0244" "a-doubled=openai/gpt-6.1-terra,b-once=openai/gpt-6.1-terra,c-no-prefix=gpt-4ogpt-4o,d-none=null" "0244 applies again after its down and folds nothing twice"
+echo "==> 0244 model folded once and its down migration verified"

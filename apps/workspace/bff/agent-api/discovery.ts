@@ -46,6 +46,7 @@ import type { AgentPrincipal } from './principal'
 import { readGateFor, sharedConversationReadRefusal } from './read-gate'
 import { READ_GATE_DETAIL, problemFailure, refusalResult } from './door-problem'
 import { IDEMPOTENCY_KEY_SCHEMA } from './door-idempotency'
+import { actingDoorOf } from './call-origin'
 import { type McpCallContext, recordOperationCalled, recordOperationMissing } from './telemetry'
 import { PRODUCT_NAME } from '@/lib/brand'
 import { isAgentKind } from '@/lib/agent-kind'
@@ -354,7 +355,7 @@ export async function executeOperation(
       record(403)
       return { refusal: problemFailure(refused, 403, 'FORBIDDEN', READ_GATE_DETAIL), status: 403, code: 'FORBIDDEN' }
     }
-    const result = await callOperation(op, input, ctx.principal.session, 'agent', { decisionSource: ctx.decisionSource, clientId: ctx.principal.clientId ?? undefined })
+    const result = await callOperation(op, input, ctx.principal.session, 'agent', { decisionSource: ctx.decisionSource, clientId: ctx.principal.clientId ?? undefined, ...actingDoorOf(ctx) })
     record(result.status)
     if (isRedirectBody(result.body) && !(await gate.mayHandOnLink())) {
       return { refusal: problemFailure(sharedConversationReadRefusal(), 403, 'FORBIDDEN', READ_GATE_DETAIL), status: 403, code: 'FORBIDDEN' }
