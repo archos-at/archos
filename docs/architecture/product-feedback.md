@@ -36,8 +36,8 @@ team answers in PostHog ──▶ PostHog workflow ──▶ POST /api/webhooks/
 | Platform routes (`platform:settings:view` to read, `:manage` to change status) | `apps/workspace/app/api/platform/feedback/` |
 | Platform page | `apps/workspace/ui/features/product-feedback/components/feedback-triage.tsx` |
 | The member's cases (list, chat, reply), and their routes | `features/product-feedback/components/feedback-threads/case-list.tsx`, `feedback-threads/case-rows.tsx`, `feedback-threads/thread-view.tsx`, `feedback-threads/thread-messages.tsx`, `feedback-atoms.tsx`, `app/api/feedback/reports/route.ts` (GET), `app/api/feedback/reports/[reportId]/messages/route.ts` |
-| The office view (`org:settings:manage`) | `app/api/feedback/office-reports/route.ts`, `listOfficeProductFeedbackThreads` in `lib/product-feedback/thread-list.ts` |
-| Taking a ticket from Slack | `app/api/platform/feedback/claim/route.ts`, `claimProductFeedbackTicket` in `lib/product-feedback/platform-triage.ts` |
+| The office view (`org:settings:manage`) | `app/api/feedback/office-reports/route.ts`, `listOfficeProductFeedbackThreads` in `apps/workspace/bff/product-feedback/thread-list.ts` |
+| Taking a ticket from Slack | `app/api/platform/feedback/claim/route.ts`, `claimProductFeedbackTicket` in `apps/workspace/bff/product-feedback/platform-triage.ts` |
 
 The page, the browser and the screen size are captured when the form is sent
 and shown to the reporter before sending. The reporter's email reaches the
@@ -59,7 +59,7 @@ PostHog.
 ## The Support ticket in PostHog
 
 The BFF opens a Support ticket for every report, after storing and announcing it
-(`openTicketFor` in `lib/product-feedback/report-submission.ts`). The browser sends no
+(`openTicketFor` in `apps/workspace/bff/product-feedback/report-submission.ts`). The browser sends no
 report text to PostHog.
 
 - **The text is the server's, masked.** The first message is
@@ -245,7 +245,7 @@ team replies in PostHog ──▶ $conversation_message_sent
 ```
 
 - **The origin tag.** Every ticket carries `origin:<host>` (`originTicketTag`
-  in `lib/posthog-support/types.ts`), the host of the deployment's pinned app
+  in `apps/workspace/bff/posthog-support/types.ts`), the host of the deployment's pinned app
   origin (`configuredAppOrigin`): `origin:app.piloti.at`,
   `origin:app.dev.piloti.at`. Dev and prod share one PostHog project, so the
   workflow needs it to know whom to poke. A deployment without a pinned origin
@@ -273,7 +273,7 @@ team replies in PostHog ──▶ $conversation_message_sent
   author when PostHog does. Operational, so every member gets it, chat or not;
   pushed under „results", email `never` (a product decision: the inbox and the
   push are the notice). Code:
-  `lib/product-feedback/reply-notice.ts`.
+  `apps/workspace/bff/product-feedback/reply-notice.ts`.
 - **Where it lands.** The `product_feedback` inbox target opens the reporter's
   own report as `/app/projects?feedback=<report id>`
   (`feedbackThreadHref`); `FeedbackProvider` reads the parameter on any shell

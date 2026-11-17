@@ -82,7 +82,7 @@ migrations, and copy (the i18n dictionaries, the site's `src/data/` and
 
 A spec imports the code, calls it and asserts on what it returns, renders or
 sends. It never reads a source file as text to assert on what the code says:
-by 2026-11 about 220 specs opened `bff/x.ts` with `readFileSync` and checked
+by 2026-11 about 220 specs opened a source file with `readFileSync` and checked
 that a string appeared in it, so they passed while the behaviour was broken
 and failed on a rename that changed nothing. Wave B1 rewrote them to test
 behaviour, or deleted the ones that only pinned wording.
@@ -310,15 +310,15 @@ profiler's `toISOString is not a function` crash; that fix and its
 Before writing a text transform, a formatter, a date or number helper, or any
 other utility that is not *about* your feature's domain, search for an existing
 one. If you write a new one, put it where the next caller will look:
-`lib/text/`, `lib/utils/`, `lib/format.ts`. `features/<x>/lib/` is for logic
+`lib/text/`, `lib/utils/`, `apps/workspace/bff/format.ts`. `features/<x>/lib/` is for logic
 that really is domain logic.
 
 A private copy inside a feature file is a fork. The copies drift, and the drift
 is invisible because each one looks locally correct. German transliteration
 (`ä`→`ae`, `ß`→`ss`) existed in `MarkdownRenderer.tsx` and in
-`norm-entry-editor.tsx`, and a third was being written into `lib/bim/bcf.ts`,
+`norm-entry-editor.tsx`, and a third was being written into `apps/workspace/bff/bim/bcf.ts`,
 where its absence had been shipping `Beispielstraße` as the filename
-`Beispielstra-e`. All three now call `lib/text/latinize.ts`.
+`Beispielstra-e`. All three now call `apps/workspace/bff/text/latinize.ts`.
 
 A split moves a module's side-effect imports (a stylesheet, a polyfill) with
 the code that needs them. When `ReasoningFlow` was split into modules, no new
@@ -357,7 +357,7 @@ Python tier through the BFF (`GET /api/internal/stages`), which has no WorkOS
 client of its own. `FOLDER_CARDS` and `OFFICE_CONVENTIONS` were built
 as variables and replaced by the `folder-cards` and `office-conventions` flags;
 their tuning (`FOLDER_CARDS_MONTHLY_TOKENS`) stayed. One exception remains:
-`FILING_SUGGESTIONS=off` (`lib/filing/trigger.ts`) switches filing
+`FILING_SUGGESTIONS=off` (`apps/workspace/bff/filing/trigger.ts`) switches filing
 suggestions off for a whole deployment. It is still a variable, documented in
 [`environment-variables.md`](../deployment/environment-variables.md), and
 becomes a flag the next time filing suggestions are touched. Registering a flag:
