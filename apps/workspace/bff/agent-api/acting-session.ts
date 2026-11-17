@@ -2,7 +2,7 @@ import 'server-only'
 
 import { AsyncLocalStorage } from 'node:async_hooks'
 import type { AuthorizedSession } from '@/lib/auth/types'
-import type { CallDoor, SessionSource } from './call-origin'
+import type { CallDoor, SessionSource } from './call-door'
 
 export type ActingReader = 'agent' | 'person'
 

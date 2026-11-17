@@ -1,8 +1,7 @@
+import type { CallDoor, SessionSource } from './call-door'
 import type { AgentPrincipal } from './principal'
 
-export type CallDoor = 'mcp' | 'piloti' | 'a2a' | 'platform'
-
-export type SessionSource = 'ui' | 'mcp' | 'script'
+export type { CallDoor, SessionSource } from './call-door'
 
 export interface CallOrigin {
   principal: AgentPrincipal
