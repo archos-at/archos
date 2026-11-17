@@ -1,19 +1,3 @@
-/**
- * The promotion's carry of reviewed knowledge releases (ADR-0181): `bff/base-knowledge/platform/carry.ts` over
- * the bundles in `config/knowledge-releases/` (the manifest names them). Run by the Job `knowledge-carry`
- * (`deploy/pulumi/src/app/knowledge-carry-job.ts`) from the frontend image, bundled at image build into
- * `dist-jobs/knowledge-carry.mjs` with the shims the jobs bundle uses (`scripts/build-jobs-bundle.ts`):
- *
- *   node dist-jobs/knowledge-carry.mjs
- *
- * Environment, besides the BFF's: `KNOWLEDGE_SINGLE_OPERATOR=true` (this pod only), `KNOWLEDGE_CARRY_DEPLOYMENT`
- * (the stack: the source deployment carries nothing to itself), `KNOWLEDGE_CARRY_PROMOTION` (what the trail names
- * as the promotion: the image tag), `KNOWLEDGE_CARRY_WAIT_MINUTES` (default 30; the Job sets `CARRY_WAIT_MINUTES`). Every step logs one JSON line;
- * the exit code is 0 when every bundle is carried or skipped, 1 otherwise. On a target deployment it then derives
- * every live project's building class again from the released records (`rederiveBuildingClasses`, the step the
- * rollover's "Existing projects" names), and a failed project or a cut run is a 1 too: the Job's retry runs it again.
- */
-
 import 'server-only'
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
@@ -47,8 +31,6 @@ async function main(): Promise<number> {
   })
   log('finished', { outcomes })
   if (deployment === manifest.sourceDeployment || outcomes.length === 0) return 0
-  // The one-time re-derivation the rollover asks for once a country is released (`rederive.ts`): idempotent,
-  // so a retried Job that finds every bundle already carried runs it again and writes only what is behind.
   const rederived = await rederiveBuildingClasses()
   log('building classes rederived', { ...rederived })
   return rederived.failed === 0 && rederived.complete ? 0 : 1

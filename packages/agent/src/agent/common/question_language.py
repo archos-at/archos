@@ -45,11 +45,8 @@ from langchain_core.messages import HumanMessage
 
 from agent.common.message_utils import content_to_text
 
-#: The product's default answer language; a question in it gets no line.
 DEFAULT_LANGUAGE = "de"
 
-#: The languages the detector chooses between, by ISO 639-1 code, with the
-#: English name the line uses. Every code is one py3langid's model knows.
 LANGUAGE_NAMES: dict[str, str] = {
     "ar": "Arabic",
     "bg": "Bulgarian",
@@ -81,23 +78,14 @@ LANGUAGE_NAMES: dict[str, str] = {
     "zh": "Chinese",
 }
 
-#: The probability below which a call is no call. Measured on 50 short office
-#: questions (2026-10-28, the cases in ``packages/agent/tests/common/test_question_language.py``):
-#: an English question of three words or more scored 0.90 to 1.0, a German one was
-#: never called another language above 0.5, and „ok danke", a name or „GK 5 OIB RL 2"
-#: stayed under 0.5.
+#: 2026-10-28, 50 short questions: English of 3+ words scored 0.90-1.0; German never another language above 0.5.
 MIN_CONFIDENCE = 0.9
 
-#: Fewer words than this is never called: one word („Summarize", „danke",
-#: „Lacknergasse") says too little to move an answer off the default.
 MIN_WORDS = 2
 
-#: The detector reads this much of the message: enough to call any question,
-#: and a pasted document cannot make the call cost more.
 MAX_CHARS = 1000
 
 _WORD = re.compile(r"[^\W\d_]{2,}")
-#: Scripts written without spaces between words, where a sentence is one run.
 _UNSPACED = re.compile(r"[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]{4,}")
 
 
@@ -113,7 +101,6 @@ class QuestionLanguage(NamedTuple):
         return self.code != DEFAULT_LANGUAGE and self.confidence >= MIN_CONFIDENCE
 
 
-#: No call: the default, at no confidence.
 UNDECIDED = QuestionLanguage(code=DEFAULT_LANGUAGE, confidence=0.0)
 
 

@@ -1,9 +1,3 @@
-/**
- * A held mail as the viewer reads it (ADR-0137): the list's summary, the
- * mail's view with its parts and the viewer's candidates, and the office's
- * content check as the reader's mask. What `./service.ts` answers with.
- */
-
 import 'server-only'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import type { InboundMailPartRow, InboundMailRow } from '@/lib/db/schema/inbound-mail'
@@ -21,7 +15,6 @@ import { readSuggestion, suggestionSkipReason } from './suggest'
 
 const DAY_MS = 86_400_000
 
-/** The office's content check for this project, as a reader's mask: the same rules a chat attachment is screened with. */
 export async function maskRulesFor(organizationId: string, projectId: string): Promise<ContentScreenRules | null> {
   return chatScreeningRules(await gatePolicy(organizationId, projectId))
 }
@@ -31,17 +24,14 @@ export const masked = (text: string | null, rules: ContentScreenRules | null): s
 
 const iso = (value: Date | string | null): string | null => (value === null ? null : new Date(value).toISOString())
 
-/** Whether anything of the mail still waits for a person: the waiting list's, else the handled list's. */
 function listStatusOf(mail: InboundMailRow, parts: readonly InboundMailPartRow[]): InboundMailListStatus {
   const open = parts.some((part) => part.state === 'waiting' || part.state === 'filing')
   return mail.status === 'waiting' && open ? 'waiting' : 'handled'
 }
 
-/** Until when a dismissed or expired part can be restored: only while the mail is held and its bytes are there. */
 function restorableUntil(mail: InboundMailRow, part: InboundMailPartRow, now: number): string | null {
   if (mail.status !== 'waiting' || (part.state !== 'dismissed' && part.state !== 'expired') || !part.endedAt) return null
   if (part.kind === 'attachment' && part.storageKey === null) return null
-  // An outsider's mail that ran out is discarded on the next sweep: nothing to restore.
   if (part.state === 'expired' && expiryIsFinal(mail)) return null
   const until = new Date(part.endedAt).getTime() + INBOUND_MAIL_RESTORE_DAYS * DAY_MS
   return until > now ? new Date(until).toISOString() : null
@@ -69,13 +59,11 @@ function partView(mail: InboundMailRow, part: InboundMailPartRow, candidates: Vi
     duplicateOf: matched.duplicateOf,
     revisionCandidate: matched.revisionCandidate,
     revisionCandidateHidden: matched.revisionCandidateHidden,
-    // A mail the agent does not suggest for shows none, even one stored before the rule said so (an impersonation).
     suggestion: suggestionSkipReason(mail) === null ? readSuggestion(part.suggestion) : null,
     restorableUntil: restorableUntil(mail, part, now),
   }
 }
 
-/** One mail as `inbound-mail-get` answers it. */
 function mailView(
   mail: InboundMailRow,
   parts: readonly InboundMailPartRow[],
@@ -86,7 +74,6 @@ function mailView(
   return withReviewDefaults({
     id: mail.id,
     senderClass: mail.senderClass,
-    // A sender the receive job could not check is not called an outsider or read-only (`./receive-faults.ts`).
     waitReason: senderWaitReason(mail),
     onlySenderReleases: onlySenderReleases(mail, context.viewerUserId),
     projectId: mail.projectId,
@@ -122,7 +109,6 @@ function mailView(
   })
 }
 
-/** What a list row shows of a mail: read off the mail's own view, so the row and the detail never disagree. */
 export function summaryView(mail: InboundMailRow, parts: readonly InboundMailPartRow[], view: InboundMailView, now: number): InboundMailSummaryView {
   const count = (state: InboundMailOutcome) => parts.filter((part) => part.state === state).length
   const until = parts
@@ -166,7 +152,6 @@ export const groupParts = (parts: readonly InboundMailPartRow[]): Map<string, In
   return byMail
 }
 
-/** These mails as the viewer reads them, with one load of parts, candidates, followers and the mask for all of them. */
 export async function loadMailViews(
   session: AuthorizedSession,
   projectId: string,

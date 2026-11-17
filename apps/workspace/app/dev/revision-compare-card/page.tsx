@@ -1,17 +1,5 @@
 'use client'
 
-/**
- * Dev preview: the revision-compare chat card (ADR-0128, slice V10), as the
- * reader of a chat sees it under Piloti's answer.
- *
- *   1. The card with two changes boxed on both Fassungen of an A1 Grundriss.
- *   2. The same card with no summary lines and no boxes (nothing changed).
- *
- * Backend-free: a module-scope fetch shim answers each Fassung's `/file` with
- * the A1 fixture (`../_fixtures/a1-sheet.ts`), Index C for the older and
- * Index D for the newer. Gated by `../layout.tsx`. Pinned to German.
- */
-
 import type { FC, ReactNode } from 'react'
 import { I18nProvider } from '@/i18n'
 import { RevisionCompareCard } from '@/features/cards/components/RevisionCompareCard'

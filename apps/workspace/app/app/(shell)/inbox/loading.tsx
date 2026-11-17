@@ -1,9 +1,3 @@
-/**
- * Route-level loading state for the Postfach's hard-load page — sheet-shaped,
- * like the Archiv's, so a pasted `/app/inbox` link shows the panel arriving
- * rather than a blank frame.
- */
-
 import type { JSX } from 'react'
 import { PageSheetSkeleton } from '@/components/shell/page-sheet-skeleton'
 import { InboxSheetSkeleton } from '@/features/collaboration/components/InboxSkeleton'

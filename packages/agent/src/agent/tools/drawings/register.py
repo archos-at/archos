@@ -138,7 +138,6 @@ async def run_dxf_measure(arguments: DxfMeasureInput) -> str:
             outcome.settle(row)
             return loaded
         result = answer(loaded.site, arguments)
-        # The Herleitung hangs the file this call read on its round, the way a look or a model query is filed.
         record_lane_hit(loaded.file_name, detail=" · ".join(filter(None, (arguments.operation, arguments.parcel))))
         outcome.failed = not result.decidable
         outcome.settle(row)

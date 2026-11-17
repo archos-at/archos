@@ -23,9 +23,7 @@ class LinkOutcome(StrEnum):
     """What :meth:`DocumentMetadataStore.link_revision` did."""
 
     LINKED = "linked"
-    #: ``newer`` already leads to ``older`` through replacements; nothing was written.
     LOOP = "loop"
-    #: ``older`` has no metadata row in the collection; nothing was written.
     MISSING = "missing"
 
 
@@ -163,18 +161,7 @@ def _kept_reason(stored: dict[str, Any] | None, older: str) -> dict[str, Any]:
     return {key: stored[key] for key in ("confidence", "reason", "basis")}
 
 
-# Every raw-SQL statement in this module interpolates ONLY trusted, code-defined
-# SQL identifiers: the table/index name constants above, and column names drawn
-# from a fixed allowlist (``_OPTIONAL_COLUMNS`` plus the literal
-# ``"tags"``/``"doc_class"``/``"display_title"``/``"folder_path"``/``"provenance"``/
-# ``"doc_class_suggestion"``/``"topics"``/``"capture"``/``"superseded_by"``/
-# ``"revision_suggestion"``/``"revision_facts"`` passed by the typed accessors).
-# SQL identifiers cannot be bound parameters, so they must live in the statement
-# text. Every caller-supplied *value* (collection, filename, summary, tags,
-# display_title, …) is always passed as a bound ``:param`` and never interpolated.
-# The interpolation is therefore not attacker-reachable, which is why each
 # ``sqlalchemy.text()`` call below carries a ``# nosemgrep: …avoid-sqlalchemy-text``
-# marker for the taint-based SAST rule.
 
 
 def _escape_like(value: str) -> str:

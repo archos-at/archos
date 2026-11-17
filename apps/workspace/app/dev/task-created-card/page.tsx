@@ -1,33 +1,5 @@
 'use client'
 
-/**
- * Dev preview — the `task_created` card, in the shapes a delegation arrives in.
- *
- *  1. **The usual one.** A deadline the person named and a thread the run is
- *     writing into: the two facts the card can offer beyond „angelegt". Its one
- *     control is a link, and where that link GOES is the thing this page exists
- *     to make visible — hover it and the status bar reads
- *     `/app/chat?session=…`, the URL the app actually resolves. It read
- *     `/chat/<id>` for as long as the card existed, which routed nowhere.
- *  2. **Nothing but the task.** No deadline was named and the run's conversation
- *     could not be created, so the meta line is two words and there is no link
- *     at all. The card must still read as a card rather than as one that failed
- *     to finish loading — that is the whole judgement here.
- *  3. **The long one.** A title and a goal that outrun the card. The title
- *     truncates on its own line — it is a name, and half a name is still a
- *     name — while the goal wraps, because it is the reader's own sentence and
- *     cutting it would lose the request. Neither pushes the meta line out of
- *     shape.
- *  4. **The other three kinds**, because the kind is the only word on the card
- *     that changes what the reader thinks was delegated: Normprüfung, Dokument
- *     and — the one that arrives from a Freigabe rather than from a sentence —
- *     Überarbeitung.
- *
- * Pure: the card fetches nothing and holds no store state, so there is no shim.
- * Pinned to German (`I18nProvider initialLocale="de" fixedLocale`) because the
- * copy under review is the German copy. 404s outside development.
- */
-
 import type { JSX } from 'react'
 import { notFound } from 'next/navigation'
 import { I18nProvider } from '@/i18n'

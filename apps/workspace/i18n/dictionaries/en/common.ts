@@ -1,6 +1,4 @@
-/** Shared strings used across many surfaces. */
 export const common = {
-  /** The product's name, from `PRODUCT_NAME` (`lib/brand.ts`): every other string says `{productName}`. */
   productName: '{productName}',
   tagline: 'Workspace for planning offices',
   actions: {
@@ -27,22 +25,16 @@ export const common = {
     empty: 'Nothing here yet',
     copyFailed: 'Could not copy',
   },
-  /**
-   * Leaving an editor with unsaved changes (`components/ui/unsaved-edit-confirm.tsx`): Escape, the X and a
-   * scrim click ask first.
-   */
   unsavedEdit: {
     title: 'Leave without your changes?',
     text: 'What you changed here has not been applied yet.',
     confirm: 'Leave without changes',
     keep: 'Keep editing',
   },
-  /** A value a press copies (`components/ui/copyable-value.tsx`): an IFC GlobalId, a project's mail address. */
   copyableValue: {
     copy: 'Copy: {value}',
     copied: 'Copied',
   },
-  /** The shared „failed to load, retry" block (`components/ui/load-error.tsx`). */
   loadError: {
     retry: 'Try again',
     title: 'Could not be loaded',
@@ -67,8 +59,6 @@ export const common = {
     english: 'English',
     german: 'Deutsch',
   },
-  // GFM footnotes: the heading and the back-reference link are written by the
-  // markdown converter, so they are named here rather than left to its defaults.
   markdown: {
     footnotes: 'Footnotes',
     backToReference: 'Back to reference {n}',
@@ -154,7 +144,6 @@ export const common = {
       open: 'Open passage',
     },
   },
-  /** Content drawn from a folder that has since been deleted (ADR-0088). */
   derivedSource: {
     deletedOn: 'Source deleted on {date}',
     deletedOnTitle: 'The folder this came from was permanently deleted on {date}.',

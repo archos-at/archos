@@ -1,12 +1,3 @@
-/**
- * Platform → Agents. How platform staff connect their own assistant to the
- * operator console's MCP door (ADR-0126) and to the cluster's own MCP servers
- * behind the platform MCP gateway (ADR-0154).
- *
- * Owner gate, shell chrome and section nav live in the shared `layout.tsx`;
- * this page decides what may be shown, on the server, and renders it.
- */
-
 import type { JSX } from 'react'
 import { PageHeader } from '@/components/ui/page-header'
 import { getTranslations } from '@/i18n/server'

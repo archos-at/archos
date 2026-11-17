@@ -1,16 +1,5 @@
 'use client'
 
-/**
- * Dev preview for what a reader steers a deep research with, and what it hands
- * back: the Rechercheplan checklist (its „Unterlagen wählen" opens the picker),
- * and the report's
- * Befundmatrix in both of its forms — a table that judged (Befunde, with a
- * status per row) and one that only compared (Ergebnisse, no status column).
- *
- * The REAL components over fixtures; nothing is fetched. Not linked from
- * anywhere; 404s outside development. Pinned to German, the copy that ships.
- */
-
 import { useState, type ReactNode } from 'react'
 import { notFound } from 'next/navigation'
 

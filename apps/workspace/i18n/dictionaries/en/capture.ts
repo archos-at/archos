@@ -1,7 +1,3 @@
-/**
- * Capture from where the reader stands: the composer's attach menu, photos
- * from the camera and the photo library, and dictation's on-screen states.
- */
 export const capture = {
   attach: {
     menuLabel: 'Add to this chat',

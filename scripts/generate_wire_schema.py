@@ -1,16 +1,3 @@
-"""Generate the chat wire v2 JSON Schema from the Pydantic models.
-
-:mod:`agent.common.wire_v2` is the single source of truth for the chat
-wire. This script renders its JSON Schema to ``contracts/wire/v2.schema.json``;
-``npm run generate:wire`` in ``apps/workspace`` renders that to the Zod module the
-browser parses frames with. The same two-stage pipeline as the cards
-(``scripts/generate_card_schema.py``), guarded by the same pre-commit hook.
-
-Run with::
-
-    uv run python scripts/generate_wire_schema.py
-"""
-
 import argparse
 import json
 from collections.abc import Sequence
@@ -22,12 +9,10 @@ SCHEMA_PATH = Path(__file__).resolve().parent.parent / "contracts" / "wire" / "v
 
 
 def render() -> str:
-    """The schema file's contents: deterministic, LF, sorted keys."""
     return json.dumps(wire_json_schema(), indent=2, sort_keys=True, ensure_ascii=False) + "\n"
 
 
 def main(argv: Sequence[str] | None = None) -> None:
-    """Write the schema. Takes no arguments; anything else is refused."""
     parser = argparse.ArgumentParser(
         description=f"Regenerate {SCHEMA_PATH.relative_to(SCHEMA_PATH.parents[2])} from the Pydantic wire models.",
         epilog="Then run `npm run generate:wire` in apps/workspace.",

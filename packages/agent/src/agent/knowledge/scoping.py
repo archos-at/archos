@@ -96,7 +96,6 @@ def _parse_scope_entry(item: Any) -> ScopedCollection | _UnreadableScopeEntry | 
     """
     if isinstance(item, str):
         name = item.strip()
-        # A bare string states no shelf — unknown, never inferred from the name.
         return ScopedCollection(_normalize_collection_name(name)) if name else None
     if isinstance(item, dict):
         raw_name = item.get("collection")
@@ -222,8 +221,6 @@ def get_scoped_collections_from_context() -> list[ScopedCollection] | None:
         ctx = RequestContext.from_context()
         scope = ctx.collection_scope_entries if ctx.collection_scope_entries is not None else ctx.collection_scope
     except Exception:
-        # project_context unavailable — fall back to the raw header so scoping
-        # still functions (parity with pre-envelope behavior).
         logger.debug("Verified collection-scope read failed; falling back to raw header", exc_info=True)
         scope = _raw_collection_scope_from_header()
 

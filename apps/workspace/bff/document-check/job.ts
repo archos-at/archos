@@ -1,32 +1,3 @@
-/**
- * Run one check of a new document (ADR-0130, second slice): the
- * `document_check` job of the bff-jobs pool, as the person whose upload
- * finished. A headless turn (ADR-0106's driver, the one `agent-asks` uses), so
- * Piloti reads, searches and proposes marks with the same tools and the same
- * rules as in a chat, and the turn is booked to the person's budget.
- *
- * Two kinds of slice, told apart by `conversationId`:
- *
- * 1. **Start.** Everything is asked again, because the job waited: the person
- *    (`resolvePinnedRequesterSession`), the organization's `piloti-notices`,
- *    the document (project scope, screened, writable by them), and the budget
- *    (`resolveTurnContext` refuses a spent one, fail-closed: nobody asked for
- *    this spend). The turn runs in its OWN private conversation whose subject is
- *    the document, so a check that finds nothing can be erased without a trace
- *    in the person's lists. The fixed instruction is the person's message
- *    there, under the check's id, which is also the turn's id.
- * 2. **Wait.** Every {@link POLL_SECONDS} the job looks for the turn's answer
- *    (a derived message id). Once it is there, the marks the turn proposed are
- *    read from the change ledger. None: the conversation is deleted and nothing
- *    is left. Some: the shared `leaveNotice` writes one message in the person's
- *    thread about the document and one inbox row that opens the Prüfansicht.
- *    Either way the `document-check` score is written on the turn's trace.
- *
- * A turn that never answers within {@link MAX_WAITS} polls is given up on and
- * its conversation erased. Nothing here edits, links or classifies: the turn
- * has Piloti's tools, and what they write waits for a person.
- */
-
 import 'server-only'
 import { isAuthzRefusal } from '@/lib/api/errors'
 import { resolvePinnedRequesterSession } from '@/lib/auth/pinned-session'
@@ -65,7 +36,6 @@ import {
   POLL_SECONDS,
 } from './check'
 
-/** The hello entries a server must name before the turn is sent: without `if_idle` it would supersede. */
 export const CHECK_REQUIRES = ['user_message.trigger', 'user_message.if_idle'] as const
 
 type Result = JobSliceResult<DocumentCheckPayload>
@@ -78,7 +48,6 @@ const later = (payload: DocumentCheckPayload): Result => ({
   notBefore: new Date(Date.now() + POLL_SECONDS * 1000),
 })
 
-/** The document as the person may write it today, or null: gone, held, not a project's, no right. */
 async function checkableDocument(session: AuthorizedSession, documentId: string): Promise<Document | null> {
   try {
     const document = await getAccessibleDocument(session, documentId, 'write')
@@ -90,7 +59,6 @@ async function checkableDocument(session: AuthorizedSession, documentId: string)
   }
 }
 
-/** Erase the check's conversation, where nothing of it is to be kept. Never throws. */
 async function eraseConversation(organizationId: string, conversationId: string): Promise<void> {
   try {
     await deleteConversationInOrg(conversationId, organizationId)
@@ -99,7 +67,6 @@ async function eraseConversation(organizationId: string, conversationId: string)
   }
 }
 
-/** The turn's message, as the wire carries it (`docs/api/websocket-protocol.md`). */
 export function checkTurnMessage(input: {
   payload: DocumentCheckPayload
   conversationId: string
@@ -121,7 +88,6 @@ export function checkTurnMessage(input: {
   }
 }
 
-/** Start the turn in its own conversation. */
 async function startCheck(
   session: AuthorizedSession,
   payload: DocumentCheckPayload,
@@ -139,7 +105,6 @@ async function startCheck(
     return done
   }
 
-  // Nobody asked for this spend: a spent scope, or a budget nobody can read, ends the check.
   if (!(await unaskedSpendAllowed(session, document.projectId ?? null))) return end('the budget is spent')
   try {
     await requireProjectAccess(session, document.projectId as string, CHAT_PERMISSIONS)
@@ -147,7 +112,6 @@ async function startCheck(
     if (isAuthzRefusal(error)) return done
     throw error
   }
-  // Idempotent on the derived ids: a retried slice finds its conversation and its message.
   await insertConversation({
     id: conversationId,
     organizationId,
@@ -177,7 +141,6 @@ async function startCheck(
     throw error
   }
   const secret = process.env.INTERNAL_API_TOKEN
-  // Without it the envelope is unsigned and the backend would not trust it: a deployment fault.
   if (!secret) throw new Error('INTERNAL_API_TOKEN is not set: a check cannot sign its turn')
 
   const outcome = await runHeadlessTurn({
@@ -191,7 +154,6 @@ async function startCheck(
   switch (outcome.kind) {
     case 'started':
     case 'duplicate':
-    // A fresh conversation is never busy; if it is, our own turn runs there.
     case 'busy':
       return later({ ...payload, conversationId })
     case 'unavailable':
@@ -207,7 +169,6 @@ async function startCheck(
   }
 }
 
-/** The turn answered: leave what it found, or nothing. */
 async function finishCheck(
   session: AuthorizedSession,
   payload: DocumentCheckPayload,
@@ -225,7 +186,6 @@ async function finishCheck(
   const traceId = typeof meta.trace_id === 'string' ? meta.trace_id : null
   void recordDocumentCheckScore({ checkId: payload.checkId, traceId, findings: proposed.size })
 
-  // Silence is an answer: the check erases itself.
   if (proposed.size === 0) {
     await eraseConversation(organizationId, conversationId)
     return
@@ -234,7 +194,6 @@ async function finishCheck(
     .filter((mark) => proposed.has(mark.id))
     .sort((a, b) => a.page - b.page || a.number - b.number)
   if (marks.length === 0) {
-    // Every mark it proposed is gone already: nothing is left to point at.
     await eraseConversation(organizationId, conversationId)
     return
   }
@@ -245,7 +204,6 @@ async function finishCheck(
     messageId: documentCheckMessageId(payload.checkId),
     content: checkMessage({ documentName: documentDisplayName(document), marks }),
     metadata: {
-      // The decision score on each mark finds its trace here (`lib/langfuse/decision-score.ts`).
       ...(traceId ? { trace_id: traceId } : {}),
       documentCheck: { checkId: payload.checkId, conversationId },
     },
@@ -255,7 +213,6 @@ async function finishCheck(
   })
 }
 
-/** The job's slice (`lib/jobs-queue/handlers.ts`). */
 export async function runDocumentCheckSlice(
   organizationId: string,
   payload: DocumentCheckPayload,

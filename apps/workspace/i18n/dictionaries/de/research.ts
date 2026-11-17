@@ -1,13 +1,11 @@
 import type { en } from '../en'
 
-/** The research workspace: chat shell, panels, and deep-research detail views. */
 export const research: typeof en.research = {
   dismissError: 'Fehler ausblenden',
 
   detailsHelp:
     'Diese Details erscheinen während einer laufenden Recherche und sind für abgeschlossene Berichte möglicherweise nicht verfügbar.',
 
-  // Label for a run whose chat has no local title (headless/CLI jobs).
   runsList: {
     untitledRun: 'Deep-Research-Durchlauf',
   },
@@ -16,28 +14,17 @@ export const research: typeof en.research = {
     ariaMessages: 'Chat-Nachrichten',
     loading: 'Chat wird geladen',
     scrollToLatest: 'Zum neuesten Beitrag springen',
-    // Eine leise Zeile über der Eingabe, statt einer Fehlerkarte im Verlauf:
-    // die Seite verbindet sich von selbst neu, die Lesenden müssen nichts tun.
-    // Gilt ohne Netz, bei gesperrtem Telefon und bei nicht erreichbarem
-    // Server: eine laufende Antwort geht dabei nicht verloren, sie wird
-    // fortgesetzt, sobald die Verbindung wieder steht.
     connection: {
       lost: 'Verbindung unterbrochen · {productName} macht weiter, sobald sie wieder steht',
       restored: 'Wieder verbunden',
     },
     status: {
       thinking: 'Denkt nach …',
-      // Einmal, höflich, wenn die Antwort vollständig dasteht.
       answerReady: 'Antwort fertig',
-      // Mit dem Kern der Antwort: dem Ergebnis oder ihrem ersten Satz.
       answerReadyWith: 'Antwort fertig: {gist}',
-      // Die Lesenden haben die Antwort angehalten.
       stopped: 'Gestoppt',
-      // Der Zug ist gescheitert; die Fehlerkarte darunter sagt wie.
       failed: 'Fehlgeschlagen',
-      // Der Zug hat eine Aufgabe angelegt: die Arbeit hat erst begonnen.
       handedOff: 'Aufgabe angelegt',
-      // Piloti hat die Frage nicht bearbeitet; das Banner sagt warum.
       refused: 'Nicht bearbeitet',
     },
     loggedOutTitle: '{productName} wird verfügbar, sobald Ihre Organisation verifiziert ist.',
@@ -54,7 +41,6 @@ export const research: typeof en.research = {
       'Es kann keine neue Sitzung erstellt werden, solange die aktuelle Sitzung aktiv ist',
     newChat: 'Neuer Chat',
     toggleSessions: 'Chatverlauf',
-    /** The history door's visible word, beside its glyph at every width (one word with the rail's „Alle Chats“). */
     historyDoor: 'Chats',
     signInToView: 'Melden Sie sich an, um Ihren Chatverlauf zu sehen',
     sessions: 'Sitzungen',
@@ -62,10 +48,8 @@ export const research: typeof en.research = {
     signInToManage: 'Melden Sie sich an, um Datenquellen zu verwalten',
     sources: 'Quellen',
     research: 'Recherche',
-    /** Trigger for the thread menu that holds every non-primary header action. */
     moreActions: 'Weitere Aktionen',
     renameSession: 'Chat umbenennen',
-    /** The persistent "still working" signal while a run is going in the thread. */
     researching: 'Recherche läuft',
   },
 
@@ -76,18 +60,6 @@ export const research: typeof en.research = {
     retryAria: 'Laden der Datenquellen erneut versuchen',
   },
 
-  /**
-   * Datenbasis — der Verfasser-Regler dafür, WORIN Piloti suchen darf.
-   *
-   * Ein Name für eine Sache: dieses Objekt löst die vier konkurrierenden
-   * Bezeichnungen ab, die dieselbe Fläche früher trugen (aria-label
-   * „Datengrundlage“, sichtbar „Datengrundlage“, title „Ausgewählte
-   * Datenverbindungen“, Kopfzeile „Datenquellen“).
-   *
-   * Zeitform ist hier Bedeutung: der Regler spricht ausschließlich in der
-   * Gegenwart/Möglichkeit („darf suchen“). Was tatsächlich benutzt wurde, sagt
-   * die Herleitung — nie dieses Bedienelement.
-   */
   sourceBasis: {
     label: 'Datenbasis',
     triggerAria: 'Datenbasis: {summary}. Öffnet die Auswahl.',
@@ -108,25 +80,18 @@ export const research: typeof en.research = {
     emptyBody:
       'Für dieses Projekt sind derzeit keine externen Quellen freigeschaltet. {productName} sucht in Ihren Projektunterlagen.',
     toggleAria: '{name} zulassen',
-    /** Wortmarken der Provenienz-Straten — immer mit Icon und Farbe zusammen. */
     strata: {
       law: 'Baurecht',
       office: 'Büroablage',
       project: 'Projektwissen',
       auto: 'Web',
     },
-    /** Voreinstellungen im Fuß der Auswahl — „Alle“ macht den Normalfall benennbar. */
     presets: {
       all: 'Alle Quellen',
       law: 'Baurecht & Richtlinien',
       project: 'Projektunterlagen',
       office: 'Büroablage',
     },
-    /**
-     * Die Wissensschicht ist keine umschaltbare Quelle — sie geht bei jedem Zug
-     * mit auf die Leitung. Deshalb steht sie hier sichtbar drin, statt gefiltert
-     * zu verschwinden und die Zählung zu verfälschen.
-     */
     knowledge: {
       projectName: 'Projektwissen',
       projectDescription: 'Ihre Projektunterlagen in diesem Projekt.',
@@ -177,12 +142,9 @@ export const research: typeof en.research = {
     statusIngesting: 'Wird gelesen',
     statusAvailable: 'Verfügbar',
     statusError: 'Fehler',
-    // Von der Inhaltsprüfung zurückgehalten (ADR-0086); nie „freigeben“.
     statusHeld: 'Zurückgehalten',
-    // Gespeichert, nie gelesen: Piloti kann daraus nicht antworten, nichts ist fehlgeschlagen.
     statusStored: 'Abgelegt',
     statusDeleting: 'Wird gelöscht...',
-    // Wie in der Upload-Leiste (`uploads.row.canceled`, `uploads.actions.dismiss`).
     statusCanceled: 'Abgebrochen',
     dismiss: '{title} ausblenden',
     expiryPending: 'Löschung ausstehend – erneut hochladen',
@@ -228,8 +190,6 @@ export const research: typeof en.research = {
     pleaseWait: 'Bitte warten...',
     typeAhead: 'Nächste Frage schon eingeben …',
     typeAheadHint: 'Senden ist möglich, sobald die Antwort fertig ist.',
-    // Während Piloti an der eigenen Frage arbeitet: Enter schickt den Text als
-    // Lenkung in die laufende Antwort, nicht als neue Frage.
     steer: '{productName} lenken …',
     steerHint: 'Enter ergänzt die laufende Antwort; {productName} liest es vor dem nächsten Schritt.',
     steerChip: 'lenkt',
@@ -245,7 +205,6 @@ export const research: typeof en.research = {
     uploadNotAvailable: 'Datei-Upload nicht verfügbar',
     attachFiles: 'Dateien anhängen',
     uploadDisabledBusy: 'Datei-Upload während aktiver Vorgänge deaktiviert',
-    // Über dem Chat, solange eine gezogene Datei gerade nicht angehängt werden kann.
     dropRefusedReadOnly: 'Sie können diesen Chat lesen, aber keine Dateien hinzufügen.',
     dropRefusedAnswering: '{productName} antwortet gerade. Dateien können Sie anhängen, sobald die Antwort fertig ist.',
     dropRefusedQuestion: 'Beantworten Sie zuerst die Rückfrage von {productName}, dann können Sie Dateien anhängen.',
@@ -278,25 +237,17 @@ export const research: typeof en.research = {
 
   sessionsPanel: {
     title: 'Chatverlauf',
-    /** Schließen-Steuerung des Sheets (Grabber-Pille + Desktop-X). */
     close: 'Chatverlauf schließen',
-    /** Steht neben dem Titel, damit der Bereich seinen eigenen Umfang nennt. */
     countLabel: '{count, plural, one {# Chat} other {# Chats}}',
     countLabelOne: '1 Chat',
-    // Chats werden serverseitig gespeichert (Postgres via /api/conversations) —
-    // diese Zeile darf nie behaupten, sie lägen im Browser, und nie raten,
-    // Chats zu löschen, um lokalen Platz zu schaffen: Löschen entfernt auch die
-    // Server-Kopie.
     syncedNote:
       'Chats werden in Ihrem Workspace gespeichert und sind auf allen Geräten verfügbar. Rechercheberichte können auf dem Server ablaufen.',
     deleteAllDisabled: 'Alle Chats dieses Projekts löschen (deaktiviert)',
     deleteAll: 'Alle Chats dieses Projekts löschen',
     cannotDeleteBusy: 'Löschen nicht möglich, während Vorgänge laufen',
     deleteAllButton: 'Alle Chats löschen',
-    /** Stopp-Aktion für einen blockierten Deep-Research-Durchlauf (Chatzeile, Durchlaufzeile). */
     stopResearch: 'Recherche stoppen',
     stopResearchTitle: 'Diesen Recherchedurchlauf stoppen',
-    /** Stopping cancels server-side work that cannot be resumed (shared ConfirmDialog, warning tone). */
     stopConfirmTitle: 'Recherche stoppen?',
     stopConfirmBody:
       'Die laufende Recherche wird abgebrochen und kann nicht fortgesetzt werden. Der bisherige Teilfortschritt bleibt im Recherchebereich sichtbar.',
@@ -309,20 +260,17 @@ export const research: typeof en.research = {
     searchPlaceholder: 'Chats durchsuchen',
     searchAria: 'Chats durchsuchen',
     clearSearch: 'Suche zurücksetzen',
-    /** Live-Trefferanzahl unter dem Suchfeld, solange eine Suche aktiv ist. */
     searchResults: '{count} von {total} Chats',
     noMatching: 'Keine passenden Chats',
     noMatchingDescription: 'Nichts in diesem Projekt passt zu „{query}“.',
     noSessions: 'Noch keine Chats',
     noSessionsDescription: 'Ihre Chats mit {productName} in diesem Projekt erscheinen hier.',
-    /** Erklärt, warum alle Zeilen während einer Antwort ausgegraut sind. */
     navigationBlocked:
       '{productName} antwortet noch. Neue Chats und der Wechsel zwischen Chats pausieren bis zum Abschluss.',
     today: 'Heute',
     yesterday: 'Gestern',
     editTitle: 'Chat-Titel bearbeiten',
     untitledSession: 'Chat ohne Titel',
-    /** Zeilenmenü am Touch-Gerät (kein Hover): Name der Schaltfläche. */
     rowActions: 'Aktionen für „{title}“',
     renameDisabled: 'Chat umbenennen (deaktiviert)',
     rename: 'Chat umbenennen',
@@ -334,26 +282,19 @@ export const research: typeof en.research = {
     chatSession: 'Chat',
     sessionLabelBusy: 'Chat: {title} (Verarbeitung läuft)',
     sessionLabel: 'Chat: {title}',
-    /** Dieselbe Zeile, ergänzt um den Zustand, den ihr Symbol zeigt. */
     sessionLabelWithStatus: 'Chat: {title} — {status}',
-    /** Eine Zeile eines temporären Chats (ADR-0180): die Marke als Tooltip, und die Zeile mit ihr im Namen. */
     temporaryMark: 'Temporärer Chat: Daraus wird nichts gemerkt.',
     sessionLabelTemporary: '{label} (temporärer Chat, daraus wird nichts gemerkt)',
-    // FB-10: Deep-Research-Bereich im Sitzungsbereich. Die Anzahl trägt ein
-    // CountPill neben der Überschrift, nicht der Text selbst.
     deepResearchHeading: 'Deep Research',
     deepResearchChip: 'Deep Research',
     deepResearchRunLabel: 'Deep-Research-Durchlauf öffnen: {label} — {status}',
-    /** Bereichsfilter über die eine Liste — Chats, Durchläufe oder beides. */
     filterAria: 'Verlauf filtern',
     filterAll: 'Alle',
     filterChats: 'Chats',
     filterResearch: 'Deep Research',
-    /** Ein fehlgeschlagener Abruf sagt es — ein leerer Bereich würde ihn verschweigen. */
     researchLoadFailed: 'Deep-Research-Durchläufe konnten nicht geladen werden.',
     noRuns: 'Noch keine Deep-Research-Durchläufe',
     noRunsDescription: 'Deep-Research-Durchläufe aus diesem Projekt erscheinen hier.',
-    /** Der Zustand eines Durchlaufs in Worten — das Symbol allein ließ „fehlgeschlagen“ und „fertig“ gleich aussehen. */
     runStatus: {
       running: 'Läuft',
       completed: 'Bericht fertig',

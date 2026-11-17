@@ -1,24 +1,5 @@
 'use client'
 
-/**
- * Dev preview for „Feedback senden" — the shell's own provider opening the
- * real „Mein Feedback" modal on its form, as the org header's button does,
- * with a fake backend (`../_fixtures/feedback-threads.ts`) so the form, the
- * validation, the error and the hand-off to the new case's thread can
- * be reviewed and screenshotted without one. 404s outside development (see
- * `../layout.tsx`).
- *
- *   /dev/feedback                  the form, a bug pre-selected
- *   /dev/feedback?kind=idea        another kind pre-selected
- *   /dev/feedback?variant=error    sending fails
- *   /dev/feedback?variant=sent     after a send: the new case selected, its thread open with the thanks
- *   /dev/feedback?lang=en          English (German is the default)
- *
- * Also renders the org header with the provider mounted, so the entry point
- * next to the inbox (and the avatar's dot for a waiting reply) is in the
- * capture.
- */
-
 import type { JSX } from 'react'
 import * as React from 'react'
 import { useSearchParams } from 'next/navigation'
@@ -41,7 +22,6 @@ function Preview(): JSX.Element {
     : 'bug'
   const threadsApi = React.useMemo(() => feedbackPreviewApi('thread', { failSubmit: variant === 'error' }), [variant])
 
-  // For the `sent` and `error` captures: fill and send once the dialog is up.
   React.useEffect(() => {
     if (variant !== 'sent' && variant !== 'error') return
     const timer = window.setTimeout(() => {
@@ -56,9 +36,6 @@ function Preview(): JSX.Element {
   }, [variant])
 
   return (
-    // The shell's own provider, with the fakes: sending runs the real hand-off
-    // to the new case's thread, and the avatar carries the dot for the reply
-    // waiting in „Mein Feedback".
     <FeedbackProvider userEmail="maria.huber@buero-nord.at" threadsApi={threadsApi}>
       <OpenOnMount kind={kind} />
       <OrgHeader
@@ -76,7 +53,6 @@ function Preview(): JSX.Element {
   )
 }
 
-/** Opens the modal on its form once, as the org header's „Feedback senden" would. */
 function OpenOnMount({ kind }: { kind: ProductFeedbackKind }): null {
   const openFeedback = useOpenFeedback()
   React.useEffect(() => openFeedback(kind), [openFeedback, kind])

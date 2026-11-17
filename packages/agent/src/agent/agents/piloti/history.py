@@ -36,11 +36,6 @@ def _get_token_encoder():
 
         return tiktoken.get_encoding("cl100k_base")
     except (ImportError, OSError) as exc:
-        # "tiktoken" and "per-token" are the BPE tokenizer, not a credential;
-        # `exc` is an ImportError or an OSError from the BPE-table download.
-        # The rule is a keyword match on "token" in a logged string, so it
-        # cannot tell the two apart -- suppressed here rather than repo-wide,
-        # because it does catch real credential logging elsewhere.
         # nosemgrep: python.lang.security.audit.logging.logger-credential-leak.python-logger-credential-disclosure
         logger.warning("tiktoken unavailable (%s); history is budgeted by the 4-chars-per-token heuristic", exc)
         return None
@@ -60,9 +55,7 @@ def warm_token_encoder() -> bool:
 def _encoded_len(text: str) -> int:
     encoder = _get_token_encoder()
     if encoder is None:
-        # Fallback heuristic when tiktoken is unavailable: ~4 chars per token.
         return max(1, len(text) // 4)
-    # A user can type "<|endoftext|>"; counting must not refuse it.
     return len(encoder.encode(text, disallowed_special=()))
 
 
@@ -106,11 +99,7 @@ def trim_message_history(
     )
 
 
-#: The tools ``look`` replaced (ADR-0128), and what each one's arguments are called now.
-#: A stored transcript still holds calls to them, and a provider may reject a past
-#: call to a tool that is not declared, so replay shows the model ``look`` instead.
-#: ``collection`` goes: ``look`` never takes one. Compatibility for ONE release;
-#: remove this table, :func:`replay_retired_look_names` and its test after 2026-12-01.
+# Remove this table, replay_retired_look_names and its test after 2026-12-01.
 _RETIRED_LOOK_NAMES: dict[str, dict[str, str | None]] = {
     "view_knowledge_image": {"file_name": "document", "page_number": "page", "collection": None},
     "canvas__look": {},
@@ -172,18 +161,9 @@ def _with_look_calls(message: AIMessage) -> AIMessage:
     return message.model_copy(update=update)
 
 
-#: Older turns lose their tool results in batches of this many turns. Pruning
-#: rewrites a past turn's bytes, and the provider's cache holds a prefix only
-#: up to its first changed byte, so one prune per turn broke the carry right
-#: after the static prefix on every turn. "Clearing invalidates the cache, so
-#: clear enough at once" (Anthropic, Context editing, on or after 2026-11-09):
-#: once per batch, the turns in between keep their results and read them from
-#: the cache.
+# Anthropic, Context editing, 2026-11-09: clearing invalidates the cache, so prune once per batch.
 PRUNE_BATCH_TURNS = 4
 
-#: When the window overflows its budget it is cut to this share of it, not to
-#: the budget itself, so the start holds for several turns before it moves
-#: again. A window cut to the budget moved on every turn past it.
 TRIM_TO_SHARE = 0.625
 
 
@@ -299,11 +279,8 @@ def _prose_only(message: AIMessage) -> AIMessage | None:
     return message.model_copy(update={"content": kept, "tool_calls": [], "invalid_tool_calls": []})
 
 
-#: The block delimiter ``grounding_block.render_grounding_block`` writes.
 _RESULT_BLOCK_RE = re.compile(r"^--- Result \d+ ---$", re.M)
 _CITATION_LINE_RE = re.compile(r"^Citation: (.+)$", re.M)
-#: What stands where an uncited passage stood. English like the block's own
-#: header lines; it names the way back, not the text.
 UNCITED_PASSAGE_NOTE = "[passage not cited by the answer; open it again by its Path if it is needed]"
 
 
@@ -337,7 +314,6 @@ def compact_tool_results(messages: list[BaseMessage], cited_keys: set[str]) -> l
 
 
 def _compact_block(content: str, wanted: set[str]) -> str:
-    # A delimiter a passage body spells inside its fence is the body's text, not a block.
     starts = [m.start() for m in unfenced(_RESULT_BLOCK_RE, content)]
     if not starts:
         return content
@@ -360,10 +336,6 @@ def _header_only(block: str) -> str:
     header, sep, rest = block.partition("\n\n")
     if not sep:
         return block
-    # The body is its fence, or, rendered before the fence, runs to the blank
-    # line that closes it; keep whatever follows (a trailer such as the
-    # ``## Gliederung`` index belongs to the result, not to one passage). A
-    # fenced body may hold blank lines of its own.
     spans = fenced_spans(rest)
     after = rest[spans[0][1] :] if spans and spans[0][0] == 0 else None
     _body, tail_sep, tail = after.partition("\n\n") if after is not None else rest.partition("\n\n")

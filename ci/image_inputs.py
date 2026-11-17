@@ -54,8 +54,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 FIND_PUBLISHED_TAG = ROOT / "deploy" / "pulumi" / "scripts" / "find-published-tag.sh"
 
-# Bump to rename every image at once, e.g. after a change to how images are
-# built that no input file records.
 SCHEME = "1"
 
 
@@ -65,8 +63,6 @@ class Image:
     context: str
     dockerfile: str
     target: str = ""
-    #: The registry repository, when it is not the old prefixed one. A new image is
-    #: named for its job alone (ADR-0145: the registry path already names the owner).
     repo: str = ""
 
     @property
@@ -78,7 +74,6 @@ IMAGES = (
     Image("backend", context=".", dockerfile="apps/agent-host/Dockerfile", target="release"),
     Image("frontend", context="apps/workspace", dockerfile="apps/workspace/deploy/Dockerfile"),
     Image("web", context="apps/website", dockerfile="apps/website/Dockerfile"),
-    # The website's CMS (ADR-0155).
     Image("cms", context="apps/cms", dockerfile="apps/cms/Dockerfile", repo="cms"),
 )
 
@@ -192,8 +187,6 @@ def input_hash(image: Image, rev: str = "HEAD", *, week: str) -> str:
     listing = _git("ls-tree", "-r", "--full-tree", rev, "--", *paths)
     tracked = {line.split("\t", 1)[1] for line in listing.splitlines()}
     missing = [path for path in paths if path != image.dockerfile and not _covered(path, tracked)]
-    # .dockerignore is optional; anything else the Dockerfile copies must exist,
-    # or the hash would silently leave out a file the build then fails to find.
     missing = [path for path in missing if not path.endswith(".dockerignore")]
     if missing:
         raise ValueError(f"{image.dockerfile} copies {missing}, which {rev} does not track")
@@ -228,8 +221,6 @@ def plan_pull_request(base: str, *, week: str) -> tuple[list[dict], list[dict]]:
     """
     merge_base = _git("merge-base", base, "HEAD").strip()
     head = hashes("HEAD", week=week)
-    # An image whose Dockerfile the base does not have (new, or moved with its
-    # directory) has no inputs there to compare: it is a change, and is built.
     before = {
         image.name: input_hash(image, merge_base, week=week)
         for image in IMAGES

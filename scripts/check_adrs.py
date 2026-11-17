@@ -57,28 +57,13 @@ from pathlib import Path
 ADR_DIR = Path("docs/adr")
 TEMPLATE = "0000-template.md"
 
-# The first ADR expected to use the MADR template. Everything below it predates
-# the template; converting them would rewrite accepted decisions, which the
-# process here forbids.
 MADR_FROM = 50
 
-# Pre-template records that were RENUMBERED out of a collision (0027, 0039,
-# 0044 and 0047 were each used twice; the later record of each pair moved to
-# 0056-0059). Their NUMBER is now above MADR_FROM; their content is not, and a
-# renumbering must not rewrite an accepted decision, so they are read with the
-# legacy parser like every other record written before the template.
-#
-# This set is closed. It exists because four records moved once; it is not a
-# way to opt a NEW ADR out of the template.
 RENUMBERED_LEGACY = frozenset({56, 57, 58, 59})
 
-# The legend, exactly. Bare ``superseded`` is for a record whose replacement is
-# not written yet (0048); it becomes ``superseded by ADR-NNNN`` when it is.
 VALID_STATUS_RE = re.compile(r"^(?:proposed|rejected|accepted|deprecated|superseded(?: by ADR-\d{4})?)$")
 
 FRONTMATTER_RE = re.compile(r"^---\r?\n(.*?)\r?\n---", re.DOTALL)
-# The retired shapes, refused wherever they appear: optional bullet, colon
-# inside or outside the bold, or a ``## Status`` section.
 LEGACY_STATUS_RE = re.compile(r"^[-*]?\s*\*\*Status:?\*\*:?\s*(.+)$", re.MULTILINE)
 SECTION_STATUS_RE = re.compile(r"^##\s*Status\s*\n+(.+)$", re.MULTILINE)
 INDEX_ROW_RE = re.compile(r"^\|\s*\[(\d{4})\]\(([^)]+)\)\s*\|([^|]*)\|([^|]*)\|", re.MULTILINE)
@@ -133,8 +118,6 @@ def index_rows(readme: Path, errors: list[str]) -> dict[str, str]:
         if name in rows:
             errors.append(f"docs/adr/README.md: {name} has more than one index row.")
         rows[name] = status
-        # A row is read wherever it stands, so one pasted above the intro or
-        # out of turn would pass while the rendered table never shows it there.
         line_before = text[: m.start()].rstrip("\n").rpartition("\n")[2]
         if not line_before.startswith("|"):
             errors.append(f"docs/adr/README.md: the row for {name} stands outside the index table.")
@@ -148,8 +131,6 @@ def index_rows(readme: Path, errors: list[str]) -> dict[str, str]:
 
 
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
-# The heading plus everything up to the next heading, so an empty section
-# is caught: a Confirmation naming no gate is the thing this checks for.
 CONFIRMATION_RE = re.compile(r"^###\s+Confirmation\s*$\n((?:(?!^#{1,6}\s)[\s\S])*)", re.MULTILINE)
 
 
@@ -229,9 +210,6 @@ def check(errors: list[str]) -> int:
     seen: dict[int, Path] = {}
     for path in files:
         num = number_of(path)
-        # No exemptions. The four historical collisions were renumbered to
-        # 0056-0059 rather than recorded, because a recorded collision is a
-        # number that names two decisions and a checker that says that is fine.
         if num in seen:
             errors.append(
                 f"{path.name}: number {num:04d} is already used by {seen[num].name}. Take the next one from `--next`."

@@ -60,10 +60,8 @@ class ProbeResult:
     current: Seen
     url: str
     content_type: str
-    #: The page's text, for the change request's capture; ``None`` for bytes that are no text.
     text: str | None
     size: int
-    #: Why the terms page was not checked, when it was not.
     terms_unwatched: str = ""
     anchors: tuple[str, ...] = field(default_factory=tuple)
 
@@ -138,7 +136,6 @@ async def probe(
         fetched = await access_for(source).fetch(client, source.monitor.probe.operation, args)
         terms_sha256, terms_unwatched = await _terms_hash(source, client)
     unchanged_304 = fetched.status == 304
-    # Off the event loop: an engine may parse for seconds (a PDF is read in a child process).
     document, text = (None, None) if unchanged_304 else await asyncio.to_thread(_read, source, fetched)
     current = Seen(
         etag=fetched.etag or (previous.etag if unchanged_304 else ""),

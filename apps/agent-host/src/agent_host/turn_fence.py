@@ -43,9 +43,7 @@ from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
 
-#: The longest one guarded write (a checkpoint write, the outcome's persist) may take.
 GUARDED_WRITE_TIMEOUT_SECONDS = 3.0
-#: What the margin adds to one write: the cancel reaching the turn, and clock skew.
 FENCE_SLACK_SECONDS = 1.0
 
 

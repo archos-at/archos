@@ -49,7 +49,6 @@ class Chunk(BaseModel):
     so the Agent always sees a consistent format.
     """
 
-    # --- 1. Core Data (The Agent Reads This) ---
     chunk_id: str = Field(..., description="Unique ID for citation tracking.")
     content: str = Field(
         ...,
@@ -57,7 +56,6 @@ class Chunk(BaseModel):
     )
     score: float = Field(0.0, ge=0.0, le=1.0, description="Similarity score (0.0 to 1.0).")
 
-    # --- 2. Strict Citation Contract (For UI Reliability) ---
     file_name: str = Field(..., description="Original filename (for example, 'Q3_Report.pdf').")
     page_number: int | None = Field(
         None,
@@ -69,7 +67,6 @@ class Chunk(BaseModel):
         description="User-facing citation label. Adapters MUST populate this.",
     )
 
-    # --- 3. The Four Pillars (Strictly Typed) ---
     content_type: ContentType = Field(
         ...,
         description="The semantic category of this chunk.",
@@ -79,13 +76,11 @@ class Chunk(BaseModel):
         description="Granular subtype (for example, 'bar_chart', 'pie_chart').",
     )
 
-    # --- 4. The 'Deep' Payload (Optional) ---
     structured_data: str | None = Field(
         None,
         description="Raw code/data representation for Code Interpreter analysis.",
     )
 
-    # --- 5. Visual Assets (Optional) ---
     image_storage_uri: str | None = Field(
         None,
         description="Internal S3/SeaweedFS URI for system access.",
@@ -95,11 +90,6 @@ class Chunk(BaseModel):
         description="Presigned HTTP URL for frontend display.",
     )
 
-    # --- 6. Retrieval Provenance (Optional) ---
-    # Rank fusion is scale-free, which is why these exist: session/project collections
-    # sit in a worse cosine band than the professionally chunked base corpus, so a user's
-    # own upload can never win on raw score. Its RANK inside its own collection is
-    # comparable across collections even when its score is not.
     retrieval_rank: int | None = Field(
         None,
         ge=0,
@@ -116,7 +106,6 @@ class Chunk(BaseModel):
         ),
     )
 
-    # --- 7. Extra Metadata ---
     metadata: dict[str, Any] = Field(
         default_factory=dict,
         description="Passthrough for extra backend-specific metadata.",
@@ -150,12 +139,6 @@ class JobState(StrEnum):
     PROCESSING = "processing"
     COMPLETED = "completed"
     FAILED = "failed"
-    #: A person stopped the job before it finished, or a newer upload of its
-    #: document replaced it (``ingest_status_store.cancelled``,
-    #: ``ingest_execution.settle_superseded``). Terminal, and neither a failure
-    #: nor a success: nothing went wrong, and the files it had not finished
-    #: were not indexed. Files that finished before the stop keep ``success``
-    #: and their chunks. A reader shows it as its own state.
     CANCELLED = "cancelled"
 
 
@@ -168,7 +151,6 @@ class FileStatus(StrEnum):
     FAILED = "failed"
 
 
-#: Namespace of ``stable_file_id``. Fixed for good: changing it renames every file.
 _FILE_ID_NAMESPACE = uuid.UUID("6f1c0a52-3b7e-4d8a-9c41-5e2d7a90b3f6")
 
 
@@ -481,7 +463,6 @@ class IngestionJobStatus(BaseModel):
         ),
     )
 
-    # Extra metadata for backend-specific info (e.g., milvus_uri, results_count)
     metadata: dict[str, Any] = Field(
         default_factory=dict,
         description="Backend-specific metadata. Contains db info for retrieval.",

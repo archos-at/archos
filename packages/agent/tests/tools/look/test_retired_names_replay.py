@@ -37,7 +37,6 @@ from agent.common import turn_status
 
 RAN: list[str] = []
 
-#: What each retired tool was called with in a stored turn.
 RETIRED_CALLS = {
     "view_knowledge_image": {"file_name": "Grundriss_EG.pdf", "page_number": 2, "collection": "proj_1"},
     "canvas__look": {"page": 2, "region": [0.1, 0.1, 0.3, 0.2]},
@@ -123,14 +122,10 @@ async def test_a_follow_up_after_a_retired_look_looks_with_look_and_answers(reti
 
     result = await agent.run(ResearchAgentState(messages=history))
 
-    # The turn looked with the one tool there is, and answered.
     assert RAN == ["look:Grundriss_OG.pdf:1"]
     assert result.messages[-1].content == "Im OG ist die Tür ebenfalls 1,00 m breit."
-    # Only `look` is bound; the retired name is never offered again.
     bound = [t.name for call in llm.bind_tools.call_args_list for t in call.args[0]]
     assert retired not in bound and "look" in bound
-    # Every request carries the old call WITH its result, both under the name that is bound now:
-    # a call without a result, or to an undeclared tool, is what a provider refuses.
     for request in model.requests:
         old = [c for m in request if isinstance(m, AIMessage) for c in m.tool_calls if c["id"] == "old-1"]
         results = [m for m in request if isinstance(m, ToolMessage) and m.tool_call_id == "old-1"]
@@ -162,10 +157,8 @@ def test_the_retired_call_is_replayed_as_look_with_its_arguments_renamed() -> No
 
     call = replayed[1].tool_calls[0]
     assert call["name"] == "look"
-    # file_name -> document, page_number -> page; look takes no collection.
     assert call["args"] == {"document": "Grundriss_EG.pdf", "page": 2}
     assert replayed[2].name == "look" and replayed[2].tool_call_id == "old-1"
-    # The stored transcript is not edited.
     assert old[1].tool_calls[0]["name"] == "view_knowledge_image"
     assert old[1].tool_calls[0]["args"]["file_name"] == "Grundriss_EG.pdf"
 

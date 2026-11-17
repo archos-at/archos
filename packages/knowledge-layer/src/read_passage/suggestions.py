@@ -14,20 +14,10 @@ from .models import ReadPassageInput
 from .ranges import _locus_label
 from .targets import _document_names
 
-#: How many verbatim guesses an unknown-document refusal may name.
 _MAX_DID_YOU_MEAN = 3
 
-#: Minimum similarity (difflib ratio over case-folded names) for a guess to be
-#: named. Below this the closest inventory title is noise rather than help,
-#: and the refusal stands on the two recovery ways alone. 0.6 is the stdlib
-#: ``get_close_matches`` default: 0.4 let cross-document titles with a shared
-#: suffix ("Plan.pdf" vs "Brandschutzkonzept.pdf" at 0.40) spend a guess the
-#: caller cannot use.
 _DID_YOU_MEAN_CUTOFF = 0.6
 
-#: Every refusal that a name is not readable says this, because the agent read
-#: "not readable" as "not there": a file whose read failed is in the project and
-#: in none of the lists a read builds (feld72, Jour fixe 2026-10-09).
 _NOT_READABLE_IS_NOT_ABSENT = (
     "Not readable here is not the same as not in the project: a file whose read failed is listed under "
     "`documents_unreadable:` in the project context — say it could not be read, never that it is missing."
@@ -140,9 +130,6 @@ def _store_silent_message(query: str) -> str:
     """Every fetch for this locus raised. Not an empty document; an unanswered store."""
     from agent.common.tool_calls import FETCH_FAILED_MARKER
 
-    # Marked so the agent's duplicate-fetch guard can tell this apart from a
-    # passage that was actually read: without the marker the retry this
-    # sentence asks for comes back "you already fetched that".
     return (
         f"{FETCH_FAILED_MARKER} Could not read {query}: the knowledge store did not answer. "
         "Retry once; if it fails again, say so and do not invent a citation."

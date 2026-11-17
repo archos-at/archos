@@ -28,13 +28,8 @@ const { PERMANENT_FAILURE_CODE } = require('./purge-conversation')
 /** @typedef {import('./types').QueueEntry} QueueEntry */
 /** @typedef {import('./types').PurgeDeps} PurgeDeps */
 
-// Must match bff/internal-auth.ts INTERNAL_TOKEN_HEADER.
 const INTERNAL_TOKEN_HEADER = 'x-internal-token'
 
-// Under the 15-minute stale-claim window (`purger/db.js`). A large folder is
-// many documents, each a few store calls; a purge that does not finish here
-// fails the attempt, and the retry carries on where it stopped (every step is
-// idempotent, the folders are marked last).
 const PURGE_TIMEOUT_MS = 10 * 60_000
 
 /**
@@ -46,8 +41,6 @@ const PURGE_TIMEOUT_MS = 10 * 60_000
 async function purgeFolder(tx, entry, deps) {
   const fetchImpl = deps.fetchImpl || fetch
 
-  // The TOCTOU re-check every purger makes before its first destructive step.
-  // The BFF checks once more.
   await assertNoHold(tx, entry)
 
   const res = await fetchImpl(
@@ -71,8 +64,6 @@ async function purgeFolder(tx, entry, deps) {
       : []
     let traces = 0
     for (const conversationId of conversations) {
-      // Throws on a Langfuse failure: the row's attempts retry the whole call,
-      // and the BFF's steps are no-ops the second time.
       const result = /** @type {{ traces?: number } | undefined} */ (await deps.eraseConversationTraces(conversationId))
       traces += Number(result?.traces ?? 0)
     }
@@ -92,8 +83,6 @@ async function purgeFolder(tx, entry, deps) {
     throw error
   }
   if (res.status === 409 && body?.details?.reason === 'not_in_bin') {
-    // The row names a folder that is not deleted: a restore that raced the
-    // claim, or a bug. The BFF refuses it every time, so it fails for good.
     /** @type {import('./types').LegalHoldError} */
     const error = new Error(`folder ${entry.entity_id} is not in the bin — nothing was purged`)
     error.code = PERMANENT_FAILURE_CODE

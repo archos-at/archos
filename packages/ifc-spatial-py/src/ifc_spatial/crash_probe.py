@@ -27,10 +27,7 @@ PARSER_CRASH_REASON = (
 
 _CRASH_SIGNALS = frozenset({signal.SIGSEGV, signal.SIGBUS, signal.SIGABRT, signal.SIGILL, signal.SIGFPE})
 
-# The thread is for its stack size. The host has frames of its own above the parser, so
-# on an equal stack a file can fit here and overflow there: nesting of 55184 to 55205
-# levels passed a probe on a default thread and killed the host with exit -10. Hence
-# half of the smaller stack the host can open on, its main thread or a worker thread.
+# 55184-55205 nesting levels passed a default-stack probe and killed the host (exit -10); probe gets half the stack.
 _OPEN_ON_A_SMALLER_STACK = """
 import sys, threading, ifcopenshell
 threading.stack_size(int(sys.argv[2]))
@@ -39,10 +36,6 @@ opener.start()
 opener.join()
 """
 
-# glibc gives a thread the soft RLIMIT_STACK, or 2 MiB when that is unlimited;
-# CPython on macOS gives its threads 16 MiB whatever the limit. The result is rounded
-# down to 64 KiB because macOS refuses a stack that is not whole pages, and kept at
-# 64 KiB at least because a stack size of 0 means the default stack.
 _GLIBC_THREAD_STACK_WHEN_UNLIMITED = 2 * 1024 * 1024
 _CPYTHON_THREAD_STACK_ON_MACOS = 16 * 1024 * 1024
 

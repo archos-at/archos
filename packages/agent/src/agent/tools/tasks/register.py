@@ -67,25 +67,14 @@ from .client import post_task
 
 logger = logging.getLogger(__name__)
 
-#: The BFF's own ceiling (`TASK_GOAL_MAX_CHARS`). Checked here so an over-long
-#: goal comes back where the model can shorten it, rather than as a 400 after the
-#: reader has been told the task is being created.
 MAX_GOAL_CHARS = 500
 
-#: The BFF's cron ceiling (`internalTaskRequestSchema.cadence`). A 5-field cron
-#: is at most a few dozen characters; a longer one is REFUSED, never truncated,
-#: because slicing a comma list can leave a different, still-valid schedule.
 MAX_CADENCE_CHARS = 120
 
-#: The kinds, read from `TaskKind`, the set the BFF's `DELEGATABLE_TASK_KINDS` is generated from.
 TASK_KINDS: tuple[str, ...] = get_args(TaskKind)
 
-#: Kinds as they were stored before migration 0167. A conversation that already holds a
-#: ``create_task(kind="einreichcheck")`` call invites the model to repeat it, so the tool
-#: maps the old name; the request it sends carries the new one. Remove after one release.
 LEGACY_TASK_KINDS: dict[str, str] = {"einreichcheck": "submission_check"}
 
-#: What each kind is called when the refusal has to name the set.
 _KIND_LIST = ", ".join(f"`{kind}`" for kind in TASK_KINDS)
 
 _NO_PROJECT = (
@@ -156,17 +145,11 @@ async def _post(payload: dict[str, Any], envelope: SignedEnvelope) -> dict[str, 
         ) from exc
 
 
-#: How the answer is told to talk about what just happened. It leads with the
-#: thing the model gets wrong — „ich habe den Einreichcheck gemacht" about work
-#: that has been QUEUED — because that sentence is the reason the tool exists.
 _QUEUED = (
     "The task is created and running; it is NOT done. Say in one sentence that you are "
     "taking care of it and will get back — do not claim the result is already available."
 )
 
-#: The scheduled arm. Nothing runs now: the definition exists and the scheduler
-#: owns every fire, so the answer must not claim a first result is coming before
-#: the cadence fires — and must name WHEN it will first run when the route said.
 _SCHEDULED = (
     "The task is created as a recurring schedule; the first run starts at the given "
     "time, not now. Say in one sentence that the schedule is set and when it first "
@@ -212,8 +195,6 @@ async def _create(kind: str, goal: str, due: str, cadence: str) -> str:
         "kind": chosen_kind,
         "goal": chosen_goal,
     }
-    # Only when the model gave one. The BFF's schema is strict, and an empty
-    # string is not a date — it would be a 400 for a field nobody asked for.
     if (due or "").strip():
         payload["due"] = due.strip()
     if (cadence or "").strip():

@@ -42,10 +42,8 @@ logger = logging.getLogger(__name__)
 PRODUCTION_MODEL = os.environ.get("EMBED_MODEL", "openai/text-embedding-3-large")
 PRODUCTION_BASE_URL = os.environ.get("EMBED_BASE_URL", "https://openrouter.ai/api/v1")
 
-#: Dimension of the offline stand-in. Small, so a test indexes a corpus in milliseconds.
 HASHED_DIMENSION = 64
 
-#: Texts per embedding request; production's ingestion batch size is in the same range.
 EMBED_BATCH = 64
 
 

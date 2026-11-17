@@ -3,8 +3,6 @@
 from pydantic import BaseModel
 from pydantic import Field
 
-#: Ceiling on the live lesson register a distill request may carry. Mirrors the
-#: BFF's MAX_DISTILL_REGISTER_SIZE (lib/platform-lessons/types.ts).
 MAX_DISTILL_LESSONS = 60
 
 

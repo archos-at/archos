@@ -6,11 +6,8 @@ export interface QuoteProps {
   name: string;
   role?: string;
   office?: string;
-  /** Portrait (an <img>, 4:5) to the right, portrait-width wide */
   portrait?: ReactNode;
-  /** The photo keeps its own landscape proportions and takes 7 of 12 columns */
   wide?: boolean;
-  /** Photo credit under the photo: a `.ui-quote-credit-holder` span, then the links side by side */
   credit?: ReactNode;
   className?: string;
 }

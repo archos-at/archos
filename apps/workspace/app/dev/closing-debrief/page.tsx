@@ -1,33 +1,5 @@
 'use client'
 
-/**
- * Dev preview for the closing debrief (docs/roadmap/office-experience.md, step
- * 3): the REAL `ProjectLifecycleCard`, whose close dialog (ADR-0098) carries the
- * REAL `ClosingDebrief` as its second step. Open it with „Projekt abschließen",
- * then „Weiter". The card's other states: `/dev/project-lifecycle`.
- *
- *   - default             — a project admin who may write the memory: the Vorhaben
- *                           is a suggestion read from the documents (with its
- *                           evidence and „Übernehmen"), the OIB edition is
- *                           suggested beside the fingerprint, the derived
- *                           Gebäudeklasse is open, a decision drawn from the
- *                           documents waits to be confirmed or dismissed, two
- *                           more decisions to confirm, a constraint a person
- *                           already pinned, and the lesson. „Aus den Unterlagen
- *                           erschließen" answers after 1.5 s with a fixed result.
- *   - `?variant=readonly` — a closer without `project:memory:write`: what stays,
- *                           and no control that would change it.
- *   - `?variant=empty`    — nothing recorded yet, and no profile at all.
- *   - `?variant=structure` — a Stützmauer: the class and the construction „trifft
- *                           nicht zu", not missing.
- *
- * A module-scope fetch shim (browser + dev only) answers the memory listing,
- * its two writes, the Steckbrief's „Wer war dabei" and the dialog's „Ausmisten" proposal (nothing to remove), so
- * confirming and recording are live; closing itself is refused, so the preview
- * stays open. Pinned to German, the product's primary
- * language (`docs/ux/visual-screenshots.md`).
- */
-
 import type { JSX } from 'react'
 import { useEffect, useState } from 'react'
 
@@ -86,11 +58,9 @@ const MEMORY = [
   ),
 ]
 
-// Built by the intake's own producer, in the shape production stores.
 const built = (answers: Record<string, ProjectPrimitiveValue>): ProjectProfile =>
   buildIntakeProfile(answers, projectIntakeDefinitionV1, { buildings: [{ id: 'bldg1', name: 'Haupthaus' }] })
 
-/** A value the closing extraction read from a document, not yet a person's answer. */
 const suggested = (value: ProjectPrimitiveValue, reason: string): ProjectAssumption => ({
   value,
   status: 'unconfirmed',
@@ -113,7 +83,6 @@ const PROFILE: ProjectProfile = {
   },
 }
 
-/** A Stützmauer: no Gebäudeklasse, no Bauweise to ask for. */
 const STRUCTURE = built({ A2_country: 'at', A2_land: 'tyrol', A5: ['new_build'], 'C1@bldg1': 'other' })
 
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
@@ -123,7 +92,6 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
     const real = window.fetch.bind(window)
     window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
-      // „Wer war dabei": the Steckbrief of every variant, editable in the preview.
       const projectRecord = await answerProjectRecord(PROJECT, url, init)
       if (projectRecord) return projectRecord
       if (url === `/api/projects/${EMPTY}/memory`) return Response.json({ items: [] })
@@ -138,16 +106,13 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
         const body = JSON.parse(String(init?.body)) as { status?: string }
         return Response.json({ item: { ...found, ...(body.status ? { status: body.status } : { verification: 'user_confirmed' }) } })
       }
-      // Answered after a pause, as the BFF reads documents for a while; the fixture is not changed.
       if (url === `/api/projects/${PROJECT}/experience` && init?.method === 'POST') {
         await new Promise((resolve) => setTimeout(resolve, 1500))
         return Response.json({ suggested: 1, drafted: 1, documentsRead: ['Baubeschreibung.pdf', 'Bescheid.pdf'], error: null })
       }
-      // Accepting answers, but the fixture profile stays as it was rendered.
       if (url === `/api/projects/${PROJECT}/profile/patches` && init?.method === 'POST') {
         return Response.json({ profile: PROFILE })
       }
-      // The „Ausmisten" proposal the close dialog asks for first (ADR-0092): nothing to remove.
       if (url.endsWith('/cleanup/proposal')) return Response.json({ items: [], considered: 0, aiUsed: false, aiError: null })
       if (url.endsWith('/status')) return new Response('{}', { status: 409 })
       return real(input, init)

@@ -65,13 +65,8 @@ from agent.turn.payload import thread_reply_requested
 
 logger = logging.getLogger(__name__)
 
-#: The trace metadata key a thread turn carries (``docs/observability/langfuse.md``):
-#: ``replied`` when the model answered in the thread itself, ``skipped`` when it
-#: did not, ``skipped_withheld`` when it did not and the turn may not post there.
 THREAD_REPLY_METADATA_KEY = "thread_reply"
 
-#: The longest reply the BFF takes: ``MAX_ANNOTATION_BODY`` in
-#: ``apps/workspace/bff/annotations/types.ts``, as ``canvas__reply`` enforces it.
 MAX_REPLY_CHARS = MAX_BODY
 
 
@@ -80,13 +75,9 @@ class ThreadReply:
     """One turn's thread question: which mark, on which document, and what the turn did about it."""
 
     annotation_id: str
-    #: The document the question was asked on (``focus_document_id``), or None for the conversation's subject.
     document_id: str | None = None
-    #: Ids of the marks Piloti spoke in this turn (lower case): replied, noted a change, or deleted.
     posted: set[str] = field(default_factory=set)
-    #: Whether the turn's own context said if a shared write may go out (:func:`settle_thread_reply`).
     settled: bool = False
-    #: That context's refusal, when it said no.
     refusal: str | None = None
 
     @classmethod

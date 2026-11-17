@@ -1,15 +1,9 @@
 import { describe, it, expect } from "vitest";
 import { dmarcRecordProblem } from "./dmarc";
 
-/**
- * The DMARC record check `loadConfig` and `stack-files.spec.ts` run before a
- * record is published: a receiver that cannot parse one acts as if the domain
- * had none, so a typo switches the policy off without a sound.
- */
 describe("a DMARC record", () => {
   it.each([
     "v=DMARC1; p=none; sp=none; adkim=r; aspf=r; rua=mailto:mail-ops@company.example",
-    // The prod stack's dnsDmarc today, trailing separator included.
     "v=DMARC1; p=quarantine; adkim=r; aspf=r; rua=mailto:dmarc_rua@onsecureserver.net;",
     "v=DMARC1;p=reject;pct=100;fo=1:d;ri=86400;rua=mailto:a@example.org!10m,mailto:b@example.org",
   ])("accepts %s", (record) => {

@@ -92,20 +92,11 @@ __all__ = [
     "valid_iban",
 ]
 
-#: What a quarantined file's legacy ``error_message`` starts with; the JSON follows it.
 QUARANTINED_PREFIX = "quarantined:"
 
-#: What one reason and one verdict carry at most. A reviewer opens the document
-#: at each listed page, so a reason lists every page it was found on up to
-#: ``MAX_REASON_PAGES``; past that, or where the verdict with its legacy prefix
-#: would outgrow ``MAX_ERROR_CHARS`` of JSON, the reason says its list is cut
-#: (``pages_truncated``).
 MAX_REASON_PAGES = 50
 MAX_REASONS = 10
 MAX_ERROR_CHARS = 2000
-
-
-# ----------------------------------------------------------------------- verdict
 
 
 @dataclass(frozen=True)
@@ -117,7 +108,6 @@ class Reason:
     pages: list[int]
     term: str | None = None
     sample: str | None = None
-    #: ``pages`` is not every page it was found on; written only when true.
     pages_truncated: bool = False
 
     def to_model(self) -> QuarantineReason:
@@ -141,8 +131,6 @@ class ScreeningVerdict:
 
     reasons: list[Reason] = field(default_factory=list)
     checked: Literal["full", "partial"] = "full"
-    #: The pages screened were the vision model's transcript of scanned pages:
-    #: that model saw them, no later model call did. Written only when true.
     after_transcription: bool = False
 
     @property

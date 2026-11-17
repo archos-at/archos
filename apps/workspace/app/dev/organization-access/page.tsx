@@ -1,37 +1,5 @@
 'use client'
 
-/**
- * Dev preview for Organization → People & access: the real `PeopleDirectory`,
- * `RoleCatalog` and `PermissionReference` with fixture data and no backend, so
- * the surface can be reviewed and screenshotted
- * (`docs/ux/visual-screenshots.md`). Not linked from anywhere; 404s outside
- * development.
- *
- * Deliberately fetch-free, the way `app/dev/cards/page.tsx` is: the roles
- * and permissions views read `lib/authz/catalog.ts` directly (that is the point
- * of them), and the directory is handed its roster as a prop. The one part that
- * does talk to a server — the WorkOS Users Management widget — is suppressed
- * with `showManagement={false}`, because it needs a real `/api/widgets/token`
- * response and would otherwise capture as a spinner or an error box. Its chrome
- * is already evidenced on the organization overview.
- *
- * `?view=` selects the captured scenario, because one page carrying all three
- * would be a 6000px screenshot nobody reviews:
- *   - (default)           the People directory, under the real sub-tab strip
- *   - `?view=roles`       the full role catalog, all four tiers
- *   - `?view=permissions` the full permission reference with the live inversion
- *
- * The roster fixture is chosen for the states that are easy to get wrong rather
- * than for a tidy list: a role the catalog knows, a *custom* role it has never
- * heard of (must degrade to the raw slug), a membership with no role at all, a
- * pending invitation, and a member WorkOS knows only by email.
- *
- * Pinned to German (`I18nProvider initialLocale="de" fixedLocale`): German is
- * the product's primary language, so the committed evidence must carry the copy
- * most users actually see — without the pin the screenshot's language depends on
- * whose dev server captured it.
- */
-
 import type { JSX } from 'react'
 import { useEffect, useState } from 'react'
 import { notFound } from 'next/navigation'
@@ -67,8 +35,6 @@ const MEMBERS: OrganizationMemberWithRole[] = [
     roleSlug: 'org-compliance-officer',
     status: 'active',
   },
-  // A custom role provisioned in WorkOS that our catalog does not define: the
-  // cell must show the slug rather than blanking or claiming "unknown".
   {
     id: 'user_04',
     email: 'sabine.gruber@buero.at',
@@ -83,7 +49,6 @@ const MEMBERS: OrganizationMemberWithRole[] = [
     roleSlug: 'member',
     status: 'pending',
   },
-  // WorkOS knows this membership by email only, and it carries no role.
   {
     id: 'user_06',
     email: 'jonas.steiner@buero.at',
@@ -100,8 +65,6 @@ const isView = (value: string | null): value is View =>
 
 function Preview(): JSX.Element {
   const t = useTranslations(organizationCopy)
-  // Read the variant after mount rather than during render, so the markup the
-  // server produced and the markup React hydrates are the same.
   const [view, setView] = useState<View>('people')
   useEffect(() => {
     const requested = new URLSearchParams(window.location.search).get('view')

@@ -26,13 +26,9 @@ from agent.common.wire_v2 import ToolStep
 
 logger = logging.getLogger(__name__)
 
-#: Step id prefix of an action row (ADR-0132); a fresh id per call follows.
 ACTION_STEP_PREFIX = "action:"
 
 
-#: The action row of the tool call running RIGHT NOW, so the sources it returns
-#: name the same call (ADR-0132). Each parallel call runs in its own task, so
-#: siblings never see each other's id.
 _action_call: ContextVar[str | None] = ContextVar("action_call", default=None)
 
 
@@ -97,8 +93,6 @@ class ActionRow:
         try:
             _action_call.reset(token)
         except ValueError:
-            # Settled from another context than the one that opened it: that
-            # context ends with its task, and the id goes with it.
             pass
 
     def _emit(self, *, started: bool) -> None:
@@ -125,10 +119,6 @@ def _clip_action(fields: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
-#: Slot prefix of the technical record a literal-mode ``knowledge_search`` (``match="exact"`` or
-#: ``"regex"``) leaves. A tool step carries the tool's name and never its arguments, so this record is
-#: how a reader of the turn (the ``file-tools-used`` score) tells a literal search, which the eval's
-#: ``navigate`` arm counts as navigation, from a ranked one (ADR-0127).
 LITERAL_SEARCH_SLOT = "literal-search"
 
 

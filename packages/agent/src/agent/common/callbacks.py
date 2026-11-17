@@ -239,9 +239,6 @@ class VerboseTraceCallback(BaseCallbackHandler):
 
     def on_tool_error(self, error: Exception, **kwargs) -> None:
         tool_name = self.active_tools.pop(kwargs.get("run_id"), None) or kwargs.get("name") or "unknown"
-        # Arguments the schema refused never reached the tool; the ToolNode hands
-        # the refusal back and the model fixes the call. At ERROR, each one filed
-        # an issue (#656) for a turn that recovered on its own.
         level = logging.WARNING if is_argument_rejection(error) else logging.ERROR
         logger.log(level, "%s[Tool Error] %s: %s%s", RED, tool_name, error, RESET)
 

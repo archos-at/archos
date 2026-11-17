@@ -1,23 +1,5 @@
 'use client'
 
-/**
- * Dev preview for the base-knowledge SELECTION toolbar: the bar that replaces the
- * search row once documents are ticked, carrying the bulk actions (change document
- * type, re-index, remove). Pinned to German, the primary product language.
- *
- * It is its own target because those controls are unreachable from a static page: they
- * render only once rows are selected, and the screenshot harness waits on a selector
- * rather than driving the UI. So this preview ticks the first two rows itself after
- * mount. That clicking lives here, in a dev-only route, rather than as a prop on the
- * production component — a preview may script the real component, but it must not make
- * the component grow an API only a preview uses.
- *
- * The fixture is in the CLIENT shape (camelCase), because the shim answers the browser
- * fetch directly and so bypasses the BFF's snake_case→camelCase mapping. Getting that
- * wrong renders an error page rather than a component, which is what a screenshot of a
- * crashed preview quietly commits.
- */
-
 import type { JSX } from 'react'
 import { useEffect } from 'react'
 import { notFound } from 'next/navigation'
@@ -109,7 +91,6 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
   }
 }
 
-/** Tick the first two rows so the selection toolbar is on screen for the capture. */
 function useSelectFirstRows(): void {
   useEffect(() => {
     const tick = window.setInterval(() => {

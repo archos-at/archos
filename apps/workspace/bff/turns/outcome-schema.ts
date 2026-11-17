@@ -1,8 +1,3 @@
-/**
- * The turn-outcome wire schemas as JSON Schema, for the chat socket (ADR-0055).
- * Generated from `outcome-types.ts` into `tests/fixtures/turn-outcome.schema.json`.
- */
-
 import { jsonSchemaDocument, type JsonSchemaNode } from '@/lib/api/zod-json-schema'
 import { turnOutcomeRequestSchema, turnOutcomeResponseSchema } from './outcome-types'
 

@@ -49,8 +49,6 @@ def citations_removed_summary(removed_citations: Sequence[dict[str, Any]]) -> di
     otherwise ``None`` so the ``citations_removed`` field stays absent. This IS
     the wire shape — the conversation graph lifts the field unchanged.
     """
-    # A merged duplicate cost the reader nothing (its [N] now points at the
-    # line it duplicated), so it is not reported as a removal.
     removed_citations = lost_citations(removed_citations)
     if not removed_citations:
         return None
@@ -141,8 +139,6 @@ def record_turn_ledger(
     not in either count; counting one there would report a cited source out
     of zero retrieved ones.
     """
-    # The persisted `citation_events.agent` enum (`shallow` | `deep`), not a
-    # name for this agent: renaming it would orphan every row already written.
     citation_events.record_turn(
         agent="shallow",
         source_count=len(turn_sources),
@@ -150,15 +146,11 @@ def record_turn_ledger(
         removed_citations=list(final.removed_citations),
         unverified_quote_count=final.unverified_quote_count,
         grounded=final.citation_grounded,
-        # The single-source fallback is gone (ADR-0125); the column stays for the rows already written.
         fallback_used=False,
         confidence_capped_reason=capped_reason,
         source_origins=[source_origin_token(entry).strip("[]").lower() or None for entry in turn_sources],
         source_lanes=[source.get("lane") for source in wire],
         source_tools=[entry.tool_name or None for entry in turn_sources],
-        # Source IDENTITIES (URL / document key), never answer prose. They turn
-        # the platform export from "3 citations removed" into "these three
-        # documents were cited but never retrieved".
         retrieved_source_labels=[label for label in map(source_label, turn_sources) if label],
         cited_source_labels=[label for label in ((s.get("citation_key") or s.get("url")) for s in wire) if label],
     )
@@ -202,7 +194,6 @@ def assemble_result(
         "answer_open_points": list(final.open_points),
         "answer_lookup_found_nothing": final.lookup_found_nothing,
         "answer_quotes_verified": final.quotes_verified,
-        # A sentence that states law without the records caps like law the records do not settle.
         "answer_law_unsettled": law_unsettled(source.entry for source in final.cited) or bool(claims),
         "escalation_requested": final.escalation_requested,
         "answer_is_handoff": final.answer_is_handoff,
@@ -213,10 +204,6 @@ def assemble_result(
         "answer_meta": final.answer_meta,
         "skills_applied": list(final.skills_applied) or None,
         "verified_sources": (wire + measurement_sources_to_wire(list(turn_measurements))) or None,
-        # Retrieved-but-not-cited document identities (no prose): what the
-        # turn read beyond what the answer claims. Computed off the same two
-        # inputs as the ledger row — this turn's captures minus the cited
-        # documents — and lifted unchanged like ``verified_sources``.
         "read_sources": read_but_uncited(turn_sources, final.cited),
     }
     summary = citations_removed_summary(final.removed_citations)

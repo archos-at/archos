@@ -1,31 +1,5 @@
 'use client'
 
-/**
- * Dev preview for the agent-authored document surfaces — everything a reader
- * meets when Piloti has written a report into the project.
- *
- * Three blocks, in the order the reader meets them:
- *
- *  1. The filter strip, twice: at rest, and with `Unvergeben` + `Von Piloti`
- *     both engaged. The pair is the point — they are two questions (who is
- *     responsible / who wrote it) and they AND, which is what the lead clearing
- *     Unvergeben before an Einreichung actually asks.
- *  2. The card grid with a generated report among ordinary uploads: the quiet
- *     `Von Piloti erstellt` byline under the name, the neutral `Abgelegt`
- *     badge, and — in the footer, unchanged — the word `Unvergeben`. Provenance
- *     and responsibility on one card, never mistakable for each other.
- *  3. The preview pane for that report: the byline under the name, the
- *     assignment row two lines below it, and `Piloti dazu fragen` DISABLED with
- *     the hint that says why. That state is designed, not a gap — the report is
- *     deliberately not in the knowledge base.
- *
- * Pinned to German (`I18nProvider initialLocale="de" fixedLocale`): the copy
- * under review is the German copy, and without the pin the page renders in
- * whichever locale the capturing developer prefers. A module-scope fetch shim
- * (browser + dev only) 404s thumbnails so the deterministic SVG sketch fallback
- * renders, and serves the preview URL. 404s outside development.
- */
-
 import type { JSX } from 'react'
 import { useState } from 'react'
 import { notFound } from 'next/navigation'
@@ -40,7 +14,6 @@ import { FilePreviewPane } from '@/features/documents/components/file-preview-pa
 import type { FileItem } from '@/features/documents/components/project-file-workspace'
 import { PRODUCT_NAME } from '@/lib/brand'
 
-/** A rendered report page, inline, so the fixture needs no backend and no binary. */
 const REPORT_PAGE =
   'data:image/svg+xml;utf8,' +
   encodeURIComponent(
@@ -88,15 +61,10 @@ function makeFile(id: string, filename: string, summary: string, extra: Partial<
   }
 }
 
-/** The report Piloti wrote: never ingested, so `stored`, and nobody's yet. */
 const GENERATED: FileItem = makeFile('g1', 'Tiefenrecherche_Fluchtwege-GK4.pdf', '', {
   status: 'stored',
   authoredBy: 'agent',
   fileSize: 780_000,
-  // Everything below comes out of INGESTION, and this document was never
-  // ingested: no summary, no page or chunk counts, no detected content types.
-  // The fixture says so rather than inventing them, because the honest version
-  // of this rail is what the preview has to look right with.
   summary: null,
   pageCount: null,
   chunkCount: null,

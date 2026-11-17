@@ -1,44 +1,3 @@
-/**
- * LLM budgets & usage service (ADR-0015, ADR-0053,
- * docs/architecture/usage-budgets.md).
- *
- * Business logic and authorization only — all DB access lives in
- * `./repository` (ADR-0017).
- *
- * Money has three units here and this module is where they part ways:
- *
- *   cost    — USD, what OpenRouter charged. Recorded raw, never shown to a
- *             tenant. The share that ran on a tenant's own key is kept apart
- *             (`ownKeyCostUsd`) because it was the tenant's bill, not ours.
- *   price   — USD, what a platform-billed tenant is charged: cost × margin,
- *             frozen on the ledger row at write time from the active pricing
- *             version. Zero for a generation on the tenant's own key. No
- *             currency conversion anywhere.
- *   credits — the platform-billed tenant's unit: price ÷ the credit price.
- *
- * And a fourth that is not money at all:
- *
- *   tokens  — the unit of an organization on its OWN key. The platform bills
- *             it nothing for LLM usage, so it sees no credits and no price;
- *             what it sees and limits is the tokens on its own provider bill.
- *
- * Which unit an organization is on (`getOrgBudgetUnit`) follows its key mode
- * and nothing else: `credit` when the platform bills it, `token` when it runs
- * on its own key. Limits are stored with their unit, and only limits in the
- * organization's current unit are honoured.
- *
- * The backend tracker meters cost AND tokens off the same usage object, so
- * the remaining budget crosses to it in whichever family applies: USD of cost
- * (the exact inverse of pricing) for credits, tokens as they are.
- *
- * Windows are UTC: "daily" = since 00:00 UTC today, "monthly" = since the
- * 1st of the current month 00:00 UTC.
- *
- * Policy precedence is not a hierarchy — every applicable scope (org, member,
- * project) is enforced independently and the FIRST exhausted one blocks.
- * Member/project limits may never exceed the org limits (validated on write).
- */
-
 import 'server-only'
 import type { BudgetPolicy, BudgetScope, BudgetUnit, NewLlmUsageEvent } from '@/lib/db/schema/budgets'
 import { UNBILLED_USAGE_ACTIVITIES } from '@/lib/db/schema/budgets'
@@ -77,17 +36,12 @@ export { EMPTY_SPEND_WINDOW, sumSpendWindows, utcDayStart, utcMonthStart } from 
 export type { BudgetUnit }
 export type { DailySpendRow, MemberSpend, ModelSpend, OrganizationSpend, SpendSummary, SpendTotals, SpendWindow }
 
-/**
- * The unit this organization is budgeted and shown in. Follows the key mode
- * (ADR-0022) and nothing else; cached for a minute with it.
- */
 export async function getOrgBudgetUnit(organizationId: string): Promise<BudgetUnit> {
   return (await isOrgOnOwnKey(organizationId)) ? 'token' : 'credit'
 }
 
 export interface BudgetLimits {
   unit: BudgetUnit
-  /** In `unit`; null = that window is unlimited. */
   dailyLimit: number | null
   monthlyLimit: number | null
 }
@@ -95,7 +49,6 @@ export interface BudgetLimits {
 export interface EffectiveBudgetPolicy extends BudgetLimits {
   scope: BudgetScope
   subjectId: string | null
-  /** False when the org runs on the seeded allowance (no explicit row yet). */
   explicit: boolean
   policy: BudgetPolicy | null
 }
@@ -108,14 +61,6 @@ function toLimits(policy: BudgetPolicy): BudgetLimits {
   }
 }
 
-/**
- * The org-wide limits in the org's unit: the explicit row, or for a
- * platform-billed organization the allowance the active pricing version
- * seeds it with (ADR-0053 — a plan size is a platform decision, not a code
- * constant). An organization on its own key is seeded with no limit at all:
- * the platform is not paying, so the platform has nothing to cap by default,
- * and the organization sets its own.
- */
 export async function getOrgBudget(organizationId: string, unit?: BudgetUnit): Promise<EffectiveBudgetPolicy> {
   const resolvedUnit = unit ?? (await getOrgBudgetUnit(organizationId))
   const policy = await repository.findActivePolicy(organizationId, 'organization', null, resolvedUnit)
@@ -149,27 +94,16 @@ export async function getScopedBudget(
   return { scope, subjectId, explicit: true, policy, ...toLimits(policy) }
 }
 
-/** All active member/project policies of an org in its current unit (for the settings UI). */
 export async function listActivePolicies(organizationId: string, unit?: BudgetUnit): Promise<BudgetPolicy[]> {
   return repository.listActivePolicies(organizationId, unit ?? (await getOrgBudgetUnit(organizationId)))
 }
 
-/** Full policy history (audit view), every unit. */
 export async function listPolicyHistory(organizationId: string, limit = 100): Promise<BudgetPolicy[]> {
   return repository.listPolicyHistory(organizationId, limit)
 }
 
 export class BudgetValidationError extends Error {}
 
-/**
- * Set (or clear a window of) a budget policy in the org's CURRENT unit.
- * Supersedes the previous active row of that unit — never updates in place,
- * so every change stays auditable.
- *
- * Member and project limits are validated against the org's effective limits:
- * a scoped limit must be set (not unlimited) and must not exceed the org
- * limit for any window the org bounds.
- */
 export async function setBudgetPolicy(params: {
   organizationId: string
   scope: BudgetScope
@@ -178,7 +112,6 @@ export async function setBudgetPolicy(params: {
   monthlyLimit: number | null
   actorUserId: string
   note?: string | null
-  /** Reject a draft opened before the organization's key mode changed. */
   expectedUnit?: BudgetUnit
 }): Promise<BudgetPolicy> {
   const { organizationId, scope, subjectId } = params
@@ -233,13 +166,6 @@ export async function setBudgetPolicy(params: {
   return inserted
 }
 
-/**
- * Remove a scoped (member/project) policy in the org's current unit:
- * supersede the active row without a replacement, so the subject falls back
- * to the org limits alone. The row itself stays for the audit trail.
- * Org-scope policies are never removed — they are replaced (the org always
- * has effective limits, seeded or explicit).
- */
 export async function clearBudgetPolicy(params: {
   organizationId: string
   scope: 'member' | 'project'
@@ -254,31 +180,13 @@ export async function clearBudgetPolicy(params: {
   return removed
 }
 
-// ---------------------------------------------------------------------------
-// Ledger
-// ---------------------------------------------------------------------------
-
-/** A ledger row as the backend reports it — cost only; pricing happens here. */
 export type UsageEventInput = Omit<NewLlmUsageEvent, 'priceUsd' | 'credits' | 'pricingVersionId'>
 
-/**
- * Price and append ledger rows. Each row is priced ONCE, here, from the
- * pricing active at this moment, and carries that version's id — a later
- * price change never rewrites what a tenant was shown (ADR-0053). A row on
- * the tenant's own key is priced at nothing, and so is an unbilled activity
- * (voice dictation), which also never reaches the rollup. The write-through daily rollup
- * (ADR-0019) is incremented in the same transaction by the repository.
- *
- * A pricing lookup failure prices at the boot floor rather than dropping the
- * batch: an unpriced generation is reconcilable, a missing one is not.
- */
 export async function recordUsageEvents(events: UsageEventInput[]): Promise<number> {
   if (events.length === 0) return 0
   const pricing = await getEffectivePricingOrBootFloor()
   return repository.insertUsageEventsWithRollups(
     events.map((event) => {
-      // Nobody is billed for an unbilled activity (voice dictation); its real
-      // cost stays in `costUsd`. Migration 0107's CHECK refuses anything else.
       const priced =
         event.activity && UNBILLED_USAGE_ACTIVITIES.has(event.activity)
           ? { priceUsd: 0, credits: 0 }
@@ -293,11 +201,6 @@ export async function recordUsageEvents(events: UsageEventInput[]): Promise<numb
   )
 }
 
-/**
- * Day/month spend totals from the write-through rollup (ADR-0019) — the
- * enforcement hot path. Per-model breakdowns stay on getSpendSummary
- * (admin views only).
- */
 export async function getSpendTotals(
   organizationId: string,
   filter: { userId?: string; projectId?: string } = {},
@@ -305,10 +208,6 @@ export async function getSpendTotals(
   return repository.sumRollupTotals(organizationId, filter)
 }
 
-/**
- * Windowed spend, org-wide by default or narrowed to one member/project.
- * One month-window aggregation query; the day slice reuses it via FILTER.
- */
 export async function getSpendSummary(
   organizationId: string,
   filter: { userId?: string; projectId?: string } = {},
@@ -316,32 +215,18 @@ export async function getSpendSummary(
   return repository.aggregateSpendSummary(organizationId, filter)
 }
 
-/**
- * Windowed spend per member (admin view — the member usage table).
- * Events without a user id (anonymous mode) are excluded.
- */
 export async function getSpendByMember(organizationId: string): Promise<MemberSpend[]> {
   return repository.aggregateSpendByMember(organizationId)
 }
 
-/**
- * Windowed spend per organization across the WHOLE platform (platform-tier
- * dashboards only — caller must hold `platform:usage:view`, ADR-0016).
- */
 export async function getSpendAcrossOrganizations(): Promise<OrganizationSpend[]> {
   return repository.aggregateSpendAcrossOrganizations()
 }
 
 export interface DailySpendPoint extends SpendWindow {
-  /** UTC day, `YYYY-MM-DD`. */
   day: string
 }
 
-/**
- * Daily spend series for trend charts — one point per UTC day, zero-filled
- * so the series is continuous. Org-scoped when `organizationId` is given,
- * platform-wide otherwise (platform dashboards only).
- */
 export async function getDailySpendTrend(options: {
   organizationId?: string
   days?: number
@@ -372,25 +257,13 @@ export async function getDailySpendTrend(options: {
   return series
 }
 
-// ---------------------------------------------------------------------------
-// Enforcement snapshot
-// ---------------------------------------------------------------------------
-
 export interface BudgetStatus {
   blocked: boolean
   blockedScope: BudgetScope | null
-  /** The unit every remainder below is expressed in for the tenant. */
   unit: BudgetUnit
-  /** Remaining budget in `unit` per applicable scope; null = unlimited. */
   remainingOrg: number | null
   remainingUser: number | null
   remainingProject: number | null
-  /**
-   * The same remainders as the backend tracker meters them. A credit
-   * organization gets USD of platform-billed cost (the inverse of pricing at
-   * the active version) and no token family; a token organization gets tokens
-   * and no USD family. The tracker enforces whichever is present.
-   */
   remainingOrgUsd: number | null
   remainingUserUsd: number | null
   remainingProjectUsd: number | null
@@ -399,7 +272,6 @@ export interface BudgetStatus {
   remainingProjectTokens: number | null
 }
 
-/** What one window has consumed in a given unit. */
 const consumed = (window: SpendWindow, unit: BudgetUnit): number =>
   unit === 'token' ? window.tokens : window.credits
 
@@ -411,13 +283,6 @@ function remainingIn(limits: BudgetLimits, spend: SpendTotals): number | null {
   return Math.max(0, Math.min(...candidates))
 }
 
-/**
- * Policy LIMITS for the enforcement path, via the shared cache
- * (write-invalidate on policy writes, ADR-0020). Only the numeric limits are
- * cached — policy rows with their audit fields stay uncached in the
- * settings/admin reads. The unit is part of the key: flipping the key mode
- * must never serve the other unit's limits for a TTL.
- */
 const LIMITS_CACHE_TTL_MS = 5 * 60 * 1000
 
 const limitsCacheKey = (organizationId: string, unit: BudgetUnit, scope: BudgetScope, subjectId: string | null): string =>
@@ -448,34 +313,21 @@ async function invalidateLimitsCache(
   scope: BudgetScope,
   subjectId: string | null,
 ): Promise<void> {
-  // Both units: a write in one unit must not leave a stale read in the other.
   await Promise.all(
     (['credit', 'token'] as const).map((unit) => invalidateCached(limitsCacheKey(organizationId, unit, scope, subjectId))),
   )
 }
 
-/**
- * Drop every cached org-scope limit — a pricing save changes the seeded
- * allowance, which is what the cache holds for organizations without an
- * explicit row. Prefix invalidation covers every org at once.
- */
 export async function invalidateSeededLimits(): Promise<void> {
   await invalidateCachedPrefix('budgetlimits:')
 }
 
-/**
- * The enforcement snapshot forwarded to the backend as `X-Grid-Budget` on the
- * WS upgrade, and used to refuse the upgrade outright when already exhausted.
- */
 export async function getBudgetStatus(
   organizationId: string,
   userId: string | null,
   projectId: string | null,
 ): Promise<BudgetStatus> {
   const unit = await getOrgBudgetUnit(organizationId)
-  // Two parallel waves instead of up to six serial round-trips: policies and
-  // org spend first, then the scoped spend aggregations only where a policy
-  // actually exists.
   const [orgBudget, orgSpend, memberBudget, projectBudget, pricing] = await Promise.all([
     getCachedOrgLimits(organizationId, unit),
     getSpendTotals(organizationId),
@@ -520,28 +372,15 @@ export async function getBudgetStatus(
   }
 }
 
-/** One limited window of one budget scope, and how much of it is used. */
 export interface BudgetUtilisation {
   scope: BudgetScope
-  /** The member's user id or the project's id; `null` for the organization. */
   subjectId: string | null
   unit: BudgetUnit
   window: 'day' | 'month'
-  /** In `unit`; always set, because only limited windows are listed. */
   limit: number
   used: number
 }
 
-/**
- * How much of each LIMITED budget window is used, for the scopes that apply to
- * this user and project: the figures `getBudgetStatus` folds into one
- * `remaining`, kept apart so a caller can say "80 % of the monthly budget"
- * instead of only "something is left". Same cached limits and the same rollup
- * as the enforcement path, so the two cannot disagree about a window.
- *
- * Consumed by `budget-events.ts` (PostHog `budget_threshold_crossed`), after a
- * usage batch lands. Unlimited windows are left out, not reported as 0 %.
- */
 export async function getBudgetUtilisation(
   organizationId: string,
   userId: string | null,
@@ -581,27 +420,11 @@ export async function getBudgetUtilisation(
 }
 
 export interface ConnectionDiagnostics {
-  /** True when a budget scope that applies to this caller is already exhausted. */
   budgetExhausted: boolean
-  /** Which scope is blocking (organization/member/project), or null. */
   blockedScope: BudgetScope | null
-  /** Whether the caller can raise limits (budget admin) — drives the UI copy. */
   canManageBudgets: boolean
 }
 
-/**
- * Read-only reason discovery for a failed chat WebSocket upgrade.
- *
- * When a budget scope is exhausted the gateway (server.js) refuses the WS
- * upgrade with a bare failed handshake the browser cannot read, so chat only
- * sees a generic connection failure. After its retries are exhausted the chat
- * client calls this same-origin endpoint to learn whether the real cause was
- * budget exhaustion and render a distinct, actionable banner.
- *
- * Reuses the exact enforcement snapshot the websocket-scope route uses
- * (`getBudgetStatus`) so the answer can never disagree with what actually
- * blocked the upgrade. No side effects.
- */
 export async function getConnectionDiagnostics(
   session: AuthorizedSession,
   requested: { projectId?: string } = {},
@@ -614,13 +437,6 @@ export async function getConnectionDiagnostics(
   }
 }
 
-/**
- * The one budget notice for the chat composer, or null.
- *
- * The project only counts when the viewer may see it; a project id they cannot
- * reach is dropped rather than refused, so its budget is never confirmed to
- * exist and the organization's and their own windows are still reported.
- */
 export async function getChatUsageNotice(
   session: AuthorizedSession,
   requested: { projectId?: string } = {},
@@ -660,22 +476,13 @@ export async function getChatUsageNotice(
   }
 }
 
-// ---------------------------------------------------------------------------
-// Session-facing operations (route handlers delegate here)
-// ---------------------------------------------------------------------------
-
 export interface BudgetOverview {
   unit: BudgetUnit
   organization: EffectiveBudgetPolicy
   ownMemberLimit: EffectiveBudgetPolicy | null
-  /** Only present for budget admins: every active member/project policy in the unit. */
   policies?: BudgetPolicy[]
 }
 
-/**
- * Budget view for the settings page: every member sees the org limits and
- * their own member limit; budget admins additionally get all active policies.
- */
 export async function getBudgetOverview(session: AuthorizedSession): Promise<BudgetOverview> {
   const unit = await getOrgBudgetUnit(session.organizationId)
   const [organization, ownMemberLimit] = await Promise.all([
@@ -689,28 +496,8 @@ export async function getBudgetOverview(session: AuthorizedSession): Promise<Bud
   return overview
 }
 
-/**
- * Whether the write being authorized creates a policy or removes one.
- *
- * The subject checks below are asymmetric on purpose. Storing a policy for
- * somebody who is not a member is the bug; REMOVING one is the cure, and a
- * roster check on the clear path would make a departed member's stale limit
- * permanent — the one row an admin most wants gone is the one whose subject no
- * longer resolves.
- */
 type PolicyWriteIntent = 'set' | 'clear'
 
-/**
- * Authorization for policy writes. Org and member scopes: budget admins only.
- * Project scope: budget admins (with the subject validated against the org)
- * or that project's admins (requireProjectAccess enforces tenancy + FGA).
- *
- * "Validated against the org" is the whole point for the member scope too: a
- * limit stored against a user id that is not in this organization's roster is
- * not a limit, it is a row that never matches spend. It reads as enforced on the
- * settings page and enforces nothing, which is strictly worse than the admin
- * being told the id is wrong.
- */
 async function authorizePolicyWrite(
   session: AuthorizedSession,
   scope: BudgetScope,
@@ -722,14 +509,11 @@ async function authorizePolicyWrite(
       throw new BadRequestError('project scope requires subjectId')
     }
     if (canManageBudgets(session)) {
-      // Admins skip the per-project FGA check, but the subject must still be
-      // a real project of THIS org — never store a foreign or made-up id.
       const project = await findProjectTenancy(subjectId)
       if (!project || project.organizationId !== session.organizationId) {
         throw new BadRequestError('Unknown project')
       }
     } else {
-      // Project admins may manage their own project's budget.
       await requireProjectAccess(session, subjectId, 'project:manage')
     }
     return
@@ -739,10 +523,6 @@ async function authorizePolicyWrite(
   }
   if (scope !== 'member' || intent === 'clear') return
 
-  // The roster, through the same resolver sharing uses to answer "can that other
-  // person reach this" (`lib/authz/project-membership`). It asks WorkOS for the
-  // membership and caches it per (org, user), so this costs a cached lookup on
-  // an admin action rather than a round trip.
   if (!subjectId) {
     throw new BadRequestError('member scope requires subjectId')
   }
@@ -755,13 +535,11 @@ async function authorizePolicyWrite(
 export interface BudgetPolicyInput {
   scope: BudgetScope
   subjectId?: string | null
-  /** In the org's current unit — the caller does not choose the unit. */
   dailyLimit: number | null
   monthlyLimit: number | null
   note?: string | null
 }
 
-/** Set a budget policy for the caller's org (authz + validation + audit). */
 export async function saveBudgetPolicy(
   session: AuthorizedSession,
   input: BudgetPolicyInput,
@@ -802,7 +580,6 @@ export async function saveBudgetPolicy(
   return policy
 }
 
-/** Remove a scoped limit — the subject falls back to the org limits alone. */
 export async function removeBudgetPolicy(
   session: AuthorizedSession,
   input: { scope: 'member' | 'project'; subjectId: string },
@@ -832,20 +609,7 @@ export async function removeBudgetPolicy(
   return removed
 }
 
-// ---------------------------------------------------------------------------
-// The tenant's view: its own unit, nothing else
-// ---------------------------------------------------------------------------
-
-/**
- * What a tenant is shown of a window: the amount in ITS unit, and how many
- * generations made it. Cost and price are deliberately absent, and so is the
- * other unit — a token organization sees no credits, a credit organization
- * no tokens (ADR-0053). This projection is the ONE place the ledger's columns
- * are narrowed for tenant surfaces, so a new tenant endpoint that reuses it
- * cannot leak cost by accident.
- */
 export interface TenantSpendWindow {
-  /** In the organization's unit (see `UsageOverview.unit`). */
   amount: number
   events: number
 }
@@ -858,7 +622,6 @@ const toTenantWindow =
   })
 
 export interface UsageOverview {
-  /** The unit every `amount` and limit below is in. */
   unit: BudgetUnit
   summary: {
     day: TenantSpendWindow
@@ -872,11 +635,6 @@ export interface UsageOverview {
   scope: { userId?: string; projectId?: string }
 }
 
-/**
- * Spend summary for the budget UI. Budget admins see the org-wide summary
- * (optionally narrowed to one member/project); everyone else always gets
- * their own usage only.
- */
 export async function getUsageOverview(
   session: AuthorizedSession,
   requested: { userId?: string; projectId?: string } = {},
@@ -899,13 +657,6 @@ export async function getUsageOverview(
   })
 }
 
-/**
- * One organization's Budgets view as its own admins see it, for the platform's
- * per-organization drill-down (`lib/budgets/platform-service.ts`). The same
- * assembly as {@link getUsageOverview}, so the platform reads exactly the
- * numbers the office reads. The caller holds the platform permission and the
- * tenant scope.
- */
 export async function getOrganizationUsageOverview(organizationId: string): Promise<UsageOverview> {
   return assembleUsageOverview(organizationId, { filter: {}, statusUserId: null, admin: true, scope: {} })
 }
@@ -914,9 +665,7 @@ async function assembleUsageOverview(
   organizationId: string,
   options: {
     filter: { userId?: string; projectId?: string }
-    /** Whose member budget the blocked status includes; `null` for the organization alone. */
     statusUserId: string | null
-    /** Budget admins also get the member breakdown and the 30-day trend. */
     admin: boolean
     scope: { userId?: string; projectId?: string }
   },
@@ -929,7 +678,6 @@ async function assembleUsageOverview(
     getSpendSummary(organizationId, filter),
     getOrgBudget(organizationId, unit),
     getBudgetStatus(organizationId, statusUserId, null),
-    // Member breakdown + trend feed the admin dashboard only.
     admin ? getSpendByMember(organizationId) : Promise.resolve(null),
     admin ? getDailySpendTrend({ organizationId, days: 30 }) : Promise.resolve(null),
   ])
@@ -960,27 +708,15 @@ async function assembleUsageOverview(
 }
 
 export interface ProjectUsage {
-  /** The unit every amount and limit below is in. */
   unit: BudgetUnit
   day: TenantSpendWindow
   month: TenantSpendWindow
   perModel: Array<{ model: string; month: TenantSpendWindow }>
-  /** This project's own limit, or null when only the organization's applies. */
   projectLimit: BudgetLimits | null
-  /** The ceiling a project limit may not exceed (validated on write). */
   orgLimit: BudgetLimits
-  /** Which applicable scope is exhausted right now, if any. */
   blockedScope: BudgetScope | null
 }
 
-/**
- * One project's spend and limits, for its Settings page.
- *
- * Read by the same people who may write the project's limit: its admins
- * (`project:manage`) and the organization's budget admins. The per-member
- * breakdown is left out on purpose, because who spent what stays an org
- * budget-admin view.
- */
 export async function getProjectUsage(
   session: AuthorizedSession,
   projectId: string,
@@ -1021,20 +757,13 @@ export async function getProjectUsage(
   }
 }
 
-/** Re-exported so platform surfaces can convert cost with the active rate. */
 export type { EffectivePricing }
 
 
-/** What an answer cost, in the unit this organization sees (`getOrgBudgetUnit`). */
 export interface AnswerUsage extends AnswerUsageRow {
   unit: BudgetUnit
 }
 
-/**
- * The cost of one answer for its details line: the credits billed for it, or
- * on the organization's own key the tokens (the platform bills nothing there).
- * Readable by anyone who may read the conversation.
- */
 export async function getAnswerUsage(
   session: AuthorizedSession,
   conversationId: string,

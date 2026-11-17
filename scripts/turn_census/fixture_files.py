@@ -1,37 +1,3 @@
-"""The office-file eval's fixture project, and how it is seeded where the real tools read (ADR-0127).
-
-``tests/fixtures/files_eval/project.yaml`` extends the intake eval's project, so its loader is the
-intake fixture's own (``scripts/intake_eval/fixture.py``: ``load_fixture``, ``FixtureFile``); this
-adds only what the extension needs (``refile``, ``tags``). Unlike the intake eval, which fakes the
-three file tools over the fixture, the ``files`` set runs the REAL ``list_files``,
-``knowledge_search`` and ``read_passage``, so the project has to exist where they read:
-
-- the vector store (``QDRANT_URL``): each file cut by the ingest job's own chunkers
-  (``adapter.text_chunks_for_pages``: the section chunker's breadcrumbs and its overlap across page
-  breaks, the per-page splitter where a file has no headings), written through the adapter's own
-  write path (``knowledge_layer.vector_store.writes.write_chunks``) and embedded by the deployment's
-  embedder, with ``page_label``, ``chunk_ordinal``, ``folder_path`` and ``grid_document_id`` as an
-  ingest job writes them;
-- the metadata store (``SUMMARY_DB``): each document registered, filed, typed and given its
-  Fassung facts through ``DocumentMetadataStore``, which is what ``list_files`` reads.
-
-Seeding is idempotent: a file whose chunks already carry this content's hash is not embedded again.
-``FilesWorkspace`` is the fixture BFF's side: the turn context of a chat in this project.
-The tools are under test, on chunks cut as production cuts them: a count that one chunk per page
-cannot get wrong (a word in the overlap, a heading word in every chunk's breadcrumb) is wrong here
-until the tools count right. A project may still ask for ``chunking="page"`` (the visual set: one
-caption per sheet, as a scanned sheet's ingest leaves it).
-
-**The E-Mail-Verlauf is cut as its ingest cuts it** (ADR-0137). A file with ``markdown:`` is the bytes
-the BFF's renderer wrote (``tests/fixtures/files_eval/mail/``, pinned by
-``apps/workspace/bff/mail-thread/files-eval-fixture.spec.ts``), cut by the knowledge layer's own
-Markdown chunker (``text_formats.markdown_documents``) and stamped ``source_format: mail`` the way
-an ingest job stamps it, because what its rows test is the message boundary: one section per
-message, the forged heading inside its real sender's section, a quote under the message that kept
-it. ``mail_facts:`` names the facts the BFF sends beside it (``mail_thread``, and ``mail_origin``
-per filed attachment), which land on the metadata row as the ingest job puts them there.
-"""
-
 from __future__ import annotations
 
 import hashlib
@@ -65,12 +31,9 @@ class FilesProject:
     description: str
     files: tuple[FixtureFile, ...]
     tags: dict[str, list[str]]
-    #: The files that are Markdown renditions, chunked by the real Markdown chunker (by name).
     markdown: frozenset[str] = frozenset()
-    #: The ``mail_thread`` of each E-Mail-Verlauf and the ``mail_origin`` of each attachment, by name.
     mail_threads: dict[str, dict[str, Any]] = field(default_factory=dict)
     mail_origins: dict[str, dict[str, Any]] = field(default_factory=dict)
-    #: ``"ingest"``: each file cut by the ingest job's chunkers; ``"page"``: one chunk per page, as written.
     chunking: str = "page"
 
     @property
@@ -79,7 +42,6 @@ class FilesProject:
 
 
 def load_project(path: Path = PROJECT) -> FilesProject:
-    """The project: its base's files, refiled, then its own."""
     raw = yaml.safe_load(path.read_text(encoding="utf-8"))
     base = load_fixture((path.parent / raw["extends"]).resolve())
     refile: dict[str, str] = raw.get("refile") or {}
@@ -96,7 +58,6 @@ def load_project(path: Path = PROJECT) -> FilesProject:
     for item in raw.get("files") or []:
         name = item["name"]
         if item.get("markdown"):
-            # The rendition is ONE text; the chunker, not a page break, decides its passages.
             pages: tuple[str, ...] = ((path.parent / item["markdown"]).read_text(encoding="utf-8"),)
             markdown.add(name)
         else:
@@ -133,7 +94,6 @@ def load_project(path: Path = PROJECT) -> FilesProject:
 
 
 def document_id(project: FilesProject, name: str) -> str:
-    """A stable BFF-style document id for a file: the seeding is repeatable."""
     return str(uuid.uuid5(uuid.NAMESPACE_URL, f"files-eval/{project.collection}/{name}"))
 
 
@@ -142,12 +102,6 @@ def content_hash(file: FixtureFile) -> str:
 
 
 def chunk_specs(project: FilesProject, file: FixtureFile) -> list[dict[str, Any]]:
-    """The file's chunks: ``{chunk_id, text, embed_text, metadata, ordinal}``, before any embedding.
-
-    Under ``chunking="ingest"`` the ingest job's own cut (``adapter.text_chunks_for_pages``), so the
-    text carries the breadcrumb and the overlap production stores; under ``"page"`` one chunk per page.
-    A Markdown rendition is cut by the Markdown chunker, as its ingest cuts it (:func:`markdown_chunk_specs`).
-    """
     if file.name in project.markdown:
         return markdown_chunk_specs(project, file)
     digest = content_hash(file)
@@ -172,14 +126,6 @@ def chunk_specs(project: FilesProject, file: FixtureFile) -> list[dict[str, Any]
 
 
 def markdown_chunk_specs(project: FilesProject, file: FixtureFile) -> list[dict[str, Any]]:
-    """A Markdown rendition's chunks as an ingest job cuts and stamps them: one per section, its locator kept.
-
-    ``text_formats.markdown_documents`` is the chunker ``extract_text_format_documents`` runs for a
-    ``.md``; each section of a Verlauf is one message and well under the chunk budget, so the
-    splitter that follows it in a real job leaves it whole. The stored text is the breadcrumb and the
-    section, as the job stores it; the format is stamped as ``adapter._stamp_chunk_metadata`` does
-    for a job whose config carries ``mail_thread``.
-    """
     from knowledge_layer.ingest import markdown_documents
 
     from agent.common.source_kinds import MAIL_SOURCE_FORMAT
@@ -224,7 +170,6 @@ def _ingested_specs(project: FilesProject, file: FixtureFile, digest: str) -> li
 
 
 def seed_problem() -> str | None:
-    """Why the suite cannot seed or read the project (nothing runs then), or None."""
     if not os.environ.get("QDRANT_URL"):
         return "QDRANT_URL is not set: the files set seeds its project into a Qdrant and its runs read it."
     summary_db = os.environ.get("SUMMARY_DB", "")
@@ -234,10 +179,6 @@ def seed_problem() -> str | None:
 
 
 def seed(project: FilesProject | None = None, *, embed: Any = None) -> dict[str, int]:
-    """Write the project where the tools read; ``{file name: chunks written}`` (0 when it was already there).
-
-    ``embed`` is texts -> vectors (default: the deployment's embedder, as ``production_embedder`` builds it).
-    """
     from fixture_bff import production_embedder
     from knowledge_layer.embedding import embed_fingerprint_metadata
     from knowledge_layer.search import LlamaIndexRetriever
@@ -258,8 +199,6 @@ def seed(project: FilesProject | None = None, *, embed: Any = None) -> dict[str,
     metadata = DocumentMetadataStore(os.environ["SUMMARY_DB"])
     written: dict[str, int] = {}
     for file in project.files:
-        # The row first: the chunk write copies the row's facts onto the points (``writes.facts_by_file``),
-        # so a document date read off the row (a Plankopf's, a Verlauf's newest message) is on them at once.
         register_metadata(metadata, project, file)
         specs = chunk_specs(project, file)
         have = (
@@ -267,13 +206,11 @@ def seed(project: FilesProject | None = None, *, embed: Any = None) -> dict[str,
             if store.exists(project.collection)
             else []
         )
-        # The chunk ids carry the content hash and the cut: the same set is the same content, chunked the same way.
         stored = {str((r.payload or {}).get("chunk_id") or "") for r in have}
         wanted = {spec["chunk_id"] for spec in specs}
         if stored == wanted:
             written[file.name] = 0
         else:
-            # A file chunked another way before (one chunk per page, or an earlier text) leaves no stale point.
             store.delete_chunks(project.collection, sorted(stored - wanted))
             vectors = embed([spec["embed_text"] for spec in specs])
             if vectors is None:
@@ -293,7 +230,6 @@ def seed(project: FilesProject | None = None, *, embed: Any = None) -> dict[str,
 
 
 def register_metadata(store: Any, project: FilesProject, file: FixtureFile) -> None:
-    """The file's row in the metadata store, as ingest and the Files pane leave it."""
     summary = file.pages[0].splitlines()[0].lstrip("# ")[:200]
     store.register(project.collection, file.name, summary, project.tags.get(file.name) or None)
     if file.folder:
@@ -307,8 +243,6 @@ def register_metadata(store: Any, project: FilesProject, file: FixtureFile) -> N
 
 
 class FilesWorkspace:
-    """What the fixture BFF serves a chat in the files project: its turn context, and no MCP door."""
-
     office = {"organizationId": ORGANIZATION_ID, "userId": USER_ID}
     project_id = PROJECT_ID
 
@@ -317,7 +251,6 @@ class FilesWorkspace:
 
     @property
     def envelope_fields(self) -> dict[str, Any]:
-        """The signed envelope's ``collectionScope``: the project's own collection, on the project shelf."""
         return {"collectionScope": [{"collection": self.project.collection, "shelf": "project"}]}
 
     def turn_context(self, conversation: str | None) -> dict[str, Any]:
@@ -332,5 +265,4 @@ class FilesWorkspace:
         }
 
     def handle(self, body: dict[str, Any], conversation: str | None) -> dict[str, Any]:
-        """The set measures the file tools: the office door offers nothing here."""
         return {"jsonrpc": "2.0", "id": body.get("id"), "error": {"code": -32601, "message": "No MCP door in this set"}}

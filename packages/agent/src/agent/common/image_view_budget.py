@@ -27,15 +27,9 @@ from __future__ import annotations
 import contextvars
 from typing import Literal
 
-#: How many images one turn may ask to see. Six covers a question that needs a
-#: drawing, its section and a detail with room to re-look; past that the model
-#: is browsing, not answering.
 MAX_IMAGE_VIEWS_PER_TURN = 6
-#: How many of them may be whole pages. One overview, then regions, is the
-#: shape that reads a large sheet well; two leaves room for a second document.
 MAX_OVERVIEW_VIEWS_PER_TURN = 2
 
-#: A whole page or image (``overview``), or a box or stored raster on it (``region``).
 ViewKind = Literal["overview", "region"]
 
 
@@ -49,9 +43,6 @@ class ImageViewBudget:
         self.overview_limit = overview_limit
         self.used = 0
         self.overviews_used = 0
-        #: How many of the views rendered a REGION of a page (``region=``): the
-        #: turn looked at the box a person drew, not just at the page around it.
-        #: Read once the turn ends, as ``focus_region_viewed`` on its trace.
         self.regions_viewed = 0
 
     @property

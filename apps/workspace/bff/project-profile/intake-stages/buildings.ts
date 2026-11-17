@@ -1,5 +1,3 @@
-/** Stage C, Bauwerke: each building, its geometry and construction. */
-
 import { FOUND_IN } from '../intake-options'
 import type { ProjectIntakeStage } from '../intake-types'
 import { PRODUCT_NAME } from '@/lib/brand'
@@ -40,12 +38,6 @@ export const BUILDINGS_STAGE: ProjectIntakeStage = {
       writesTo: '/facts/construction_status/value',
       foundIn: [FOUND_IN.buildingDescription, FOUND_IN.permit, FOUND_IN.floorLayout],
     },
-    // -------------------------------------------------- Bestandsblock
-    // v1.0 asked these once per PROJECT (A6/A7/A9/A10); since v1.1 they
-    // belong to the building whose Bestand they describe. The storage keys
-    // are unchanged — only the scope suffix is new — and
-    // `answersFromProfile` bridges legacy project-scope values into the
-    // single-building case.
     {
       id: 'CB1',
       group: 'Bestand heute',
@@ -145,7 +137,6 @@ export const BUILDINGS_STAGE: ProjectIntakeStage = {
       conditions: [{ param: 'C2', op: 'equals', value: 'existing' }],
       writesTo: '/facts/existing_escape_level_m/value',
     },
-    // -------------------------------------------------- Zielgeometrie
     {
       id: 'C3',
       group: 'Zielzustand — nach Umsetzung aller Maßnahmen',
@@ -206,11 +197,6 @@ export const BUILDINGS_STAGE: ProjectIntakeStage = {
       feeds: 'building_class',
     },
     {
-      // v1.0's C7 with INVERTED polarity, so it writes a NEW key:
-      // `units_under_400` (ja = alle Einheiten bis 400 m²) stays untouched in
-      // stored profiles and `answersFromProfile` bridges it, inverted, into
-      // this question. Reusing the old key would silently flip the meaning
-      // of every stored answer — and the GK derivation with it.
       id: 'C8',
       label:
         'Gibt es einzelne Wohnungen oder Betriebseinheiten mit mehr als 400 m² Brutto-Grundfläche?',
@@ -253,9 +239,6 @@ export const BUILDINGS_STAGE: ProjectIntakeStage = {
       foundIn: [FOUND_IN.siteLayout, FOUND_IN.submissionSiteLayout],
     },
     {
-      // Multi-select since v1.1 (a building can combine structures); the
-      // storage key stays `construction_method` — legacy single values are mapped by
-      // the `answersFromProfile` bridge.
       id: 'C10',
       label: 'Tragstruktur / Bauweise (Mehrfachauswahl bei Kombination)',
       type: 'multi_select',

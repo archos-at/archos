@@ -28,12 +28,8 @@ from public_sources.engines.base import Passage
 
 
 class RisXmlConfig(EngineConfig):
-    #: The page element that holds the document and nothing else; absent, the whole page.
     content_selector: str = "#content"
-    #: Elements dropped before reading (CSS, as BeautifulSoup selects them).
     drop_selectors: tuple[str, ...] = (".sr-only",)
-    #: A host the API states in URLs that the public site serves under another name.
-    #: Each pair is ``[from_prefix, to_prefix]``.
     host_rewrites: tuple[tuple[str, str], ...] = ()
 
 
@@ -81,11 +77,6 @@ class RisDocument:
     text: str
 
 
-# ---------------------------------------------------------------------------
-# JSON traversal helpers (XML-derived JSON has dict-or-list ambiguity)
-# ---------------------------------------------------------------------------
-
-
 def _as_list(node: Any) -> list[Any]:
     """Normalize an XML-derived JSON node to a list (single child -> dict)."""
     if node is None:
@@ -131,23 +122,17 @@ def _as_text(value: Any) -> str:
     if isinstance(value, dict):
         if "#text" in value:
             return _as_text(value["#text"])
-        # e.g. Geschaeftszahl arrays come as {"item": [...]}
         return ", ".join(filter(None, (_as_text(v) for v in value.values())))
     if isinstance(value, list):
         return ", ".join(filter(None, (_as_text(v) for v in value)))
     return str(value).strip()
 
 
-#: The label of ``Ausserkrafttretensdatum``: the last day a version is in force, inclusive (OGD-RIS).
-#: Readers that decide whether a version holds on a day key on this name, never on a copy of the string.
 IN_FORCE_UNTIL = "In Kraft bis"
 IN_FORCE_FROM = "In Kraft seit"
-#: The label of the territory a Land-law hit belongs to.
 TERRITORY_FIELD = "Bundesland"
-#: The label of the provision a version document holds (``§ 1``): one hit is one provision in one version.
 PROVISION_FIELD = "Paragraph/Artikel"
 
-# Metadata fields worth surfacing to the agent, in display order.
 _METADATA_FIELDS = (
     ("Kurztitel", "Kurztitel"),
     ("ArtikelParagraphAnlage", PROVISION_FIELD),
@@ -165,6 +150,7 @@ _METADATA_FIELDS = (
 _TITLE_KEYS = ("Kurztitel", "Titel", "Dokumenttitel", "Kurzinformation", "Geschaeftszahl")
 
 
+# OGD-RIS started stating ogd.ris.bka.gv.at in URLs in 2026-09; it answers 301 to ris.bka.gv.at and is on no allow-list.
 def public_host(url: str, rewrites: tuple[tuple[str, str], ...] = ()) -> str:
     """A URL on the public host the citations, the catalog and the fetch use.
 
@@ -206,7 +192,6 @@ def _parse_hit(ref: Any, rewrites: tuple[tuple[str, str], ...] = ()) -> RisHit:
         if value and label not in hit.metadata:
             hit.metadata[label] = value
 
-    # Content URLs live under Dokumentliste/ContentReference/Urls/ContentUrl.
     for content_url in _find_all(ref, "ContentUrl"):
         for entry in _as_list(content_url):
             if not isinstance(entry, dict):
@@ -251,29 +236,10 @@ def parse_search_response(payload: dict[str, Any], rewrites: tuple[tuple[str, st
     return RisSearchResult(hits=hits, total=total, page=page, page_size=page_size)
 
 
-# ---------------------------------------------------------------------------
-# HTML / XML -> plain text
-# ---------------------------------------------------------------------------
-
 _TITLE_RE = re.compile(r"<title[^>]*>(.*?)</title>", re.IGNORECASE | re.DOTALL)
 
 
-#: Why ``content_selector`` is ``#content`` for RIS:
-#:
-#: Measured against ``GeltendeFassung.wxe`` for the Bauordnung für Wien
-#: (2026-09-04): the page is 759,687 characters of extracted text and ``#content``
-#: holds 759,015 of them. The 672 characters outside it are the site's own
-#: furniture — an accesskey menu ("Zum Inhalt (Accesskey 0)"), the navigation
-#: bar, the footer — and they sit at the FRONT, which is where they do the most
-#: damage: they are the first thing the in-app reader shows, the first thing the
-#: agent reads inside its ``max_chars`` window, and they are ingested into the
-#: session collection where they become retrievable text that is not law.
-#:
-#: Absence is not an error. A ``/Dokumente/…`` document page, an XML payload, or
-#: a future RIS template may carry no such container, and then the whole document
-#: is the answer exactly as it was before.
-
-
+# #content holds 759,015 of 759,687 characters of a Bauordnung für Wien page (2026-09-04); the rest is site furniture.
 def html_to_text(
     markup: str, content_selector: str = "#content", drop_selectors: tuple[str, ...] = (".sr-only",)
 ) -> tuple[str, str]:
@@ -298,11 +264,6 @@ def html_to_text(
         soup = BeautifulSoup(markup, "html.parser")
         for tag in soup(["script", "style", "noscript", "head"]):
             tag.decompose()
-        # RIS states every marker twice: ``a)`` for the eye (aria-hidden) and
-        # ``Litera a`` for a screen reader (.sr-only), and every citation again
-        # spelled out ("Paragraph 118, Absatz eins"). Kept, the spoken twin was
-        # a third of the Bauordnung für Wien and half of some §§, and it pushed
-        # the provision itself out of the passage the agent reads.
         for tag in [tag for selector in drop_selectors for tag in soup.select(selector)]:
             tag.decompose()
         root = (soup.select_one(content_selector) if content_selector else None) or soup
@@ -311,7 +272,6 @@ def html_to_text(
         text = re.sub(r"(?is)<(script|style|head)[^>]*>.*?</\1>", " ", markup)
         text = unescape(re.sub(r"<[^>]+>", "\n", text))
 
-    # Collapse intra-line whitespace and runs of blank lines.
     lines = [re.sub(r"[ \t\xa0]+", " ", line).strip() for line in text.splitlines()]
     collapsed: list[str] = []
     for line in lines:
@@ -320,11 +280,6 @@ def html_to_text(
         elif collapsed and collapsed[-1] != "":
             collapsed.append("")
     return title, "\n".join(collapsed).strip()
-
-
-# ---------------------------------------------------------------------------
-# Client
-# ---------------------------------------------------------------------------
 
 
 class RisXml(Engine):

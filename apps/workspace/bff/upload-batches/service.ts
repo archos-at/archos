@@ -1,19 +1,3 @@
-/**
- * Upload batches: one upload gesture, from the browser's first request to the
- * moment everything it brought in has been read (migration 0110, ADR-0086).
- *
- *   open    → the browser, before it sends a file (`POST /api/upload-batches`)
- *   stamp   → each upload names the batch; the document row carries its id
- *   seal    → the browser, after its last request (`POST …/[id]/seal`)
- *   settle  → reconciliation, once no document of a sealed batch is in flight
- *             (`./settle`), which tells the uploader in their inbox — unless
- *             the batch was opened quiet (its effects, migration 0195)
- *   summary → what arrived, where, what it is, what was held back and why
- *
- * The summary is the uploader's. It names what the office's screening kept on
- * their machine only by term and count: those files never reached the server.
- */
-
 import 'server-only'
 import { BadRequestError, ConflictError, NotFoundError } from '@/lib/api/errors'
 import type { AuthorizedSession } from '@/lib/auth/types'
@@ -57,10 +41,8 @@ import {
   sealUploadBatch,
 } from './repository'
 
-/** The shelves an upload can go to; re-stated here so a route needs nothing from the db layer. */
 export { UPLOAD_BATCH_SCOPES } from '@/lib/db/schema/upload-batches'
 
-/** Most files one batch may announce. Mirrors the CHECK in migration 0110. */
 import { UPLOAD_BATCH_MAX_FILES } from './batch-wire'
 
 export { UPLOAD_BATCH_MAX_FILES }
@@ -72,23 +54,9 @@ export interface OpenUploadBatchInput {
   conversationId: string | null
   expectedCount: number
   excluded: UploadBatchExclusion[]
-  /**
-   * What settling the batch sets off, where it differs from a person's upload
-   * ({@link DEFAULT_UPLOAD_BATCH_EFFECTS}). Server-side callers only: the
-   * route's body (`openUploadBatchSchema`) has no such field, so neither a
-   * browser nor an agent can open a batch that keeps its Fassung from the
-   * people who follow the document.
-   */
   effects?: Partial<UploadBatchEffects>
 }
 
-/**
- * Open a batch for the session's upload. Authorized as the upload itself will
- * be: a project upload needs document write access, the Büroablage its
- * curators. A chat attachment's batch needs no more than the session, because
- * every upload into the chat is authorized on its own and the batch grants
- * nothing.
- */
 export async function openUploadBatch(session: AuthorizedSession, input: OpenUploadBatchInput): Promise<void> {
   if (input.scope === 'project') {
     if (!input.projectId) throw new BadRequestError('A project upload names its project')
@@ -110,18 +78,11 @@ export async function openUploadBatch(session: AuthorizedSession, input: OpenUpl
   })
 }
 
-/** The session's own batch, or null. Another member's batch answers like a missing one. */
 export async function findOwnUploadBatch(session: AuthorizedSession, batchId: string): Promise<UploadBatch | null> {
   const batch = await findUploadBatch(session.organizationId, batchId)
   return batch && batch.createdBy === session.userId ? batch : null
 }
 
-/**
- * The batch id an upload request may carry, or null when it may not carry
- * this one. An invalid id never fails the upload: the file is what the person
- * asked for, and the summary is a courtesy. It is ignored instead when the
- * batch is someone else's, sealed already, or for another shelf.
- */
 export async function acceptedUploadBatchId(
   session: AuthorizedSession,
   rawId: unknown,
@@ -136,17 +97,10 @@ export async function acceptedUploadBatchId(
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-/** The multipart field an upload names its batch in; anything but a uuid is no batch. */
 export function readUploadBatchId(value: FormDataEntryValue | null): string | null {
   return typeof value === 'string' && UUID_PATTERN.test(value) ? value : null
 }
 
-/**
- * Seal the session's batch once its last request has answered. Idempotent for
- * a sealed batch. `excluded` is what the server's repeat of the name check
- * refused (a 422 the browser's own check did not foresee), by term and count,
- * never by name: added to what the browser's check held back when it opened.
- */
 export async function sealOwnUploadBatch(
   session: AuthorizedSession,
   batchId: string,
@@ -157,24 +111,13 @@ export async function sealOwnUploadBatch(
   if (batch.sealedAt) return
   const sealed = await sealUploadBatch(session.organizationId, batchId, session.userId, counts, new Date())
   if (!sealed) throw new ConflictError('The upload changed while it was being sealed')
-  // The bytes are in and the person is still looking at the upload: Piloti
-  // judges where it belongs from the names now (`lib/filing`). Never throws,
-  // and neither does loading it: a seal is never refused over a suggestion.
   await import('@/lib/filing/trigger')
     .then(({ queueFilingReview }) => queueFilingReview(session.organizationId, batch, 'name'))
     .catch((error: unknown) => console.warn(`[filing] the name review of batch ${batch.id} was not queued; the upload is unaffected:`, error))
-  // A batch whose documents all finished before the seal arrived completes
-  // here rather than waiting for a reader or the sweep.
   const { settleUploadBatches } = await import('./settle')
   await settleUploadBatches(session.organizationId, [batchId])
 }
 
-/**
- * Record files the name check refused on a job's batch (the mail import), by
- * term and count, so its summary says why they are missing, as a browser
- * upload's does. Never throws: the summary is a courtesy, and the import's own
- * skip list names the file to the person who started it.
- */
 export async function recordJobUploadExclusions(
   organizationId: string,
   batchId: string,
@@ -188,16 +131,10 @@ export async function recordJobUploadExclusions(
   }
 }
 
-/** A batch as a server-side job filing into it sees it; see {@link findJobUploadBatch}. */
 export type JobUploadBatchState =
   | { status: 'missing' | 'foreign' | 'sealed' }
   | { status: 'open'; documents: number }
 
-/**
- * A batch a server-side job files into on a person's behalf (the mail import,
- * ADR-0085): missing, someone else's, sealed, or open with how many documents
- * carry it. The job opens it with {@link openUploadBatch} as that person.
- */
 export async function findJobUploadBatch(
   organizationId: string,
   batchId: string,
@@ -210,22 +147,11 @@ export async function findJobUploadBatch(
   return { status: 'open', documents: await countUploadBatchDocuments(organizationId, batchId, createdBy) }
 }
 
-/**
- * Every document in the job's batch, held ones included: the job files as the
- * person who opened it, so their own reader sees all of it (ADR-0086).
- */
 async function countUploadBatchDocuments(organizationId: string, batchId: string, createdBy: string): Promise<number> {
   const counts = await countBatchDocumentsByStatus(organizationId, [batchId], { reader: memberReader(createdBy) })
   return counts.reduce((sum, row) => sum + row.count, 0)
 }
 
-/**
- * Seal a batch a job filed into, once it has nothing more to send. The job
- * did not know up front how much it would send, so it opened the batch
- * announcing nothing and the seal announces the documents that carry it.
- * Needs no session: the job may be ending because its person left. A missing,
- * foreign or sealed batch is left alone.
- */
 export async function sealJobUploadBatch(organizationId: string, batchId: string, createdBy: string): Promise<void> {
   const state = await findJobUploadBatch(organizationId, batchId, createdBy)
   if (state.status !== 'open') return
@@ -235,14 +161,12 @@ export async function sealJobUploadBatch(organizationId: string, batchId: string
   await settleUploadBatches(organizationId, [batchId])
 }
 
-/** What one document of an upload became, as the summary shows it. */
 export interface UploadSummaryDocument {
   id: string
   filename: string
   displayName: string | null
   folderPath: string | null
   status: string
-  /** The status family, so the client need not re-derive it. */
   outcome: 'ready' | 'reading' | 'quarantined' | 'failed' | 'stored'
   screening: Document['screeningOutcome']
   quarantine: QuarantineVerdict | null
@@ -250,20 +174,7 @@ export interface UploadSummaryDocument {
   summary: string | null
   tags: string[]
   pageCount: number | null
-  /**
-   * A new version of a document that was already on the shelf (ADR-0054), not
-   * a new document: „geändert". Read off the row rather than recorded: a
-   * re-upload keeps the document's id and `created_at` and stamps this batch,
-   * so a row older than its batch is one this upload changed.
-   */
   replaced: boolean
-  /**
-   * Filed in a folder with its own access list, or below one (ADR-0088):
-   * „geschützt", as ticket „Übersicht" asks. The test the folder's lock in the
-   * file browser and the download log apply (`isUnderOwnList`), whatever the
-   * list grants: one that lets every member read and limits only who may
-   * change the files counts too, so the mark and the lock never disagree.
-   */
   restricted: boolean
 }
 
@@ -282,12 +193,6 @@ export interface UploadSummary {
   documents: UploadSummaryDocument[]
 }
 
-/**
- * The tally's word for each state (`surfaceStateOf`). A status nobody declared
- * is counted as being read, as the folder brief and its SQL count it
- * (`documentReadFamily`), never as stored: „Abgelegt“ is a claim that the
- * bytes are at rest on purpose, and nothing is known about an undeclared one.
- */
 const OUTCOME_BY_STATE: Record<SurfaceState, UploadSummaryDocument['outcome']> = {
   citable: 'ready',
   uploading: 'reading',
@@ -295,10 +200,6 @@ const OUTCOME_BY_STATE: Record<SurfaceState, UploadSummaryDocument['outcome']> =
   held: 'quarantined',
   unreadable: 'failed',
   stored: 'stored',
-  // A read a person stopped: the bytes are here and nothing was read, the same
-  // at-rest family as `stored` — never `failed` (nothing went wrong) and never
-  // `ready`. The tally has no `cancelled` word of its own, so it counts the
-  // document with the other at-rest ones; the row's own status says the rest.
   cancelled: 'stored',
   unknown: 'reading',
 }
@@ -323,7 +224,6 @@ function toSummaryDocument(
     outcome: outcomeOf(row.status),
     screening: row.screeningOutcome,
     quarantine: quarantineVerdictOf(row),
-    // A quarantine verdict is shown as reasons, not as an error string.
     errorMessage: row.status === 'quarantined' ? null : row.errorMessage,
     summary: row.summary ?? null,
     tags: row.tags ?? [],
@@ -332,20 +232,8 @@ function toSummaryDocument(
   }
 }
 
-/** The counts a batch holds itself rather than on a document row. */
 type BatchCounts = Pick<UploadBatch, 'expectedCount' | 'unchangedCount' | 'failedCount' | 'excluded'>
 
-/**
- * A batch's own counts, as this reader may see them. Only a document row
- * carries a folder: the files the batch announced, the ones the server
- * answered „unchanged" for (no row is written), the transfers that failed and
- * the files the screening kept back are counts on the batch, and any of them
- * may be of a file bound for a folder hidden from the reader. Where that is
- * possible, `placed` (the documents the reader may see) stands in for the
- * announced total and the rest is withheld; `null` passes the batch through.
- * It is possible while a folder the reader may not read can still receive a
- * file, empty or not: a batch is opened before its first file lands.
- */
 function batchCounts(batch: UploadBatch, placed: number | null): BatchCounts {
   if (placed === null) {
     const { expectedCount, unchangedCount, failedCount, excluded } = batch
@@ -354,12 +242,6 @@ function batchCounts(batch: UploadBatch, placed: number | null): BatchCounts {
   return { expectedCount: placed, unchangedCount: 0, failedCount: 0, excluded: [] }
 }
 
-/**
- * A project's folder tree and the session's access to it, or null when no
- * folder hides anything from anyone (no own list, nothing in the Papierkorb):
- * one probe, as `getProjectFolderAccess` costs. The tree is kept because the
- * summary's „geschützt" asks it a question the access answer does not hold.
- */
 async function readerFolders(
   session: AuthorizedSession,
   projectId: string
@@ -369,28 +251,14 @@ async function readerFolders(
   return { tree: folderTree(folders), access: computeFolderAccess(folders, await clearanceOf(session, projectId), '') }
 }
 
-/** What the reader may see of a batch, and which of its folders have their own access list. */
 interface ReaderView {
   rows: Document[]
-  /** A row was left out because its folder is one the reader may not read: the batch's own counts go too. */
   withheld: boolean
   isRestricted: (folderId: string | null) => boolean
 }
 
 const UNRESTRICTED = (): boolean => false
 
-/**
- * The batch's documents this reader may still see. A folder restricted after
- * the upload hides what was filed in it from its own uploader too (ADR-0087):
- * the summary names files, and a name is what the restriction withholds. Once
- * it hides any of them, the batch's own counts are withheld as well
- * (`batchCounts`), since they may count files in that folder. A file in the
- * Papierkorb is left out as the file list leaves it out, but withholds
- * nothing while the uploader may still read its folder: what it would reveal
- * they may see in the bin. A batch that wrote no row at all (every file
- * „unchanged") keeps its counts: nothing places it, and they only restate what
- * its uploader sent.
- */
 async function readerView(session: AuthorizedSession, batch: UploadBatch, rows: Document[]): Promise<ReaderView> {
   const open = { rows, withheld: false, isRestricted: UNRESTRICTED }
   if (batch.scope !== 'project' || !batch.projectId) return open
@@ -406,12 +274,6 @@ async function readerView(session: AuthorizedSession, batch: UploadBatch, rows: 
   }
 }
 
-/**
- * The uploader's summary of one upload. Reads go through status
- * reconciliation, so opening the summary is itself a reader that can settle
- * the batch, and the summary and tags come from the same enrichment the file
- * list uses.
- */
 export async function getUploadSummary(session: AuthorizedSession, batchId: string): Promise<UploadSummary> {
   const batch = await findOwnUploadBatch(session, batchId)
   if (!batch) throw new NotFoundError('Upload not found')
@@ -443,11 +305,9 @@ export async function getUploadSummary(session: AuthorizedSession, batchId: stri
   }
 }
 
-/** One row of a project's upload history (ticket „Verlauf/Protokoll"). */
 export interface UploadHistoryEntry {
   id: string
   createdBy: string
-  /** The uploader's display name from the organization directory; null when they have left it. */
   createdByName: string | null
   createdAt: string
   completedAt: string | null
@@ -458,56 +318,15 @@ export interface UploadHistoryEntry {
   counts: Record<UploadSummaryDocument['outcome'], number>
 }
 
-/**
- * The folders the reader may not read that a file can still be filed in: every
- * unreadable folder but a purged tombstone. The purge erases a folder's
- * documents before it marks the folder purged, and nothing is uploaded into or
- * restored to a tombstone, so it holds no file and never will. A living folder
- * can receive one at any moment, empty or not.
- */
 function foldersClosedToReader(tree: FolderTree, access: ProjectFolderAccess): string[] {
   return unreadableFolderIds(access).filter((folderId) => !tree.get(folderId)?.purgedAt)
 }
 
-/** One page of a project's upload history. */
 export interface UploadHistoryPage {
   uploads: UploadHistoryEntry[]
-  /** Where the next page starts (`?cursor=`), or `null` on the last one. */
   nextCursor: string | null
 }
 
-/**
- * A project's uploads, newest first, one keyset page at a time: every upload
- * is reachable by following `nextCursor`. Readable by anyone who can open the
- * project: it says who brought how much in when, and the per-file detail stays
- * in each uploader's summary.
- *
- * What was filed in a folder hidden from the reader (ADR-0087) is left out as
- * the document listing leaves it out, as if it did not exist. A count is
- * metadata, and „12 Dateien, 3 in Quarantäne" for a folder the reader cannot
- * open says who filed how much there and when. Only a document row carries a
- * folder, so a reader who cannot open every folder of the project is shown
- * only the documents that landed where they can look: the batch's own counts
- * (the files it announced, the ones the server answered „unchanged" for, the
- * transfers that failed, the ones the screening kept back) cannot be placed
- * in a folder, and an upload with no such document is not listed at all. A
- * page can therefore hold fewer rows than it read, or none, and still have a
- * next one. A folder in the Papierkorb is hidden from everyone, organization
- * admins included, so its files are not tallied; it withholds the batch's
- * counts only from a reader who may not read it, or every project with a
- * binned folder would show everyone a cut-down history.
- *
- * What withholds is a folder closed to the reader that can still hold a file
- * (`foldersClosedToReader`). An empty one withholds too: the batch is opened
- * with its announced total before the first file is sent, so a history that
- * showed „12 Dateien" while the folder is empty and then dropped the upload
- * once its first file landed there would tell the reader who filed how much
- * there, and when. A purged folder's tombstone (closed to non-admins under the
- * `admins` and `remove` settings) does not: the purge erased what it held
- * before marking it, and nothing is filed in a tombstone again. Otherwise one
- * purge would cut every project member's history down for good, though nothing
- * is left to withhold.
- */
 export async function listProjectUploadHistory(
   session: AuthorizedSession,
   projectId: string,

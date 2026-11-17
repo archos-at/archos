@@ -1,9 +1,3 @@
-/**
- * Every configured public source (ADR-0174): published and proposed, with its
- * hosts and their state, its monitor's last check and freshness lag, and
- * whether a key is set (never the key).
- */
-
 import { BadRequestError } from '@/lib/api/errors'
 import { platformApiRoute } from '@/lib/api/platform-handler'
 import { PLATFORM_PERMISSIONS } from '@/lib/authz/permissions'

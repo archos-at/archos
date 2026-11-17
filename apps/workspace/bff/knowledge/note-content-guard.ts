@@ -1,30 +1,3 @@
-/**
- * What a memory note may not hold: a secret anywhere, a way to reach a person
- * on a shared shelf. The ONE refusal, made at the single writer of each store
- * (`createProjectMemoryItem` / `updateProjectMemoryItem`, and the personal
- * service's create and edit), so a note typed in a memory panel, accepted on a
- * card, sent by an outside agent through the MCP door or written by the agent all
- * meet it. The office's screening mask (ADR-0086) runs first; this refuses
- * what the mask left.
- *
- * The twin of `agent.knowledge.memory_content_guard`, which gives the agent
- * the same refusal before its round trip. Both are held to one table,
- * `tests/fixtures/memory_note_guard_cases.json`, and every rule is written so
- * that the two regular-expression engines read it alike: ASCII classes spelt
- * out, no `\b` (the engines disagree on an umlaut), the same order of checks.
- *
- * Account and identity numbers are the content screen's detectors
- * (`upload-screening/content-screen.ts`), which count a number only when its
- * checksum holds (IBAN mod 97, the insurance numbers' check digits, Luhn in a
- * card network's range): a plot number, a drawing number or a date is not one.
- * Credentials are the rules here, since nothing in the repo detected them
- * (`text/redact-pii.ts` redacts a line after a keyword, which is right for a
- * scrub and far too broad for a refusal). The Python docstring says what the
- * rules deliberately miss.
- *
- * Pure: no database, no session.
- */
-
 import { BadRequestError } from '@/lib/api/errors'
 import { buildContentRules, findSpans, type ContentScreenRules } from '@/lib/upload-screening/content-screen'
 import { SCREENING_DETECTORS } from '@/lib/upload-screening/policy'
@@ -39,7 +12,6 @@ import {
 export { CONTACT_KINDS, NOTE_REFUSED_REASON, SECRET_KINDS } from './note-refusal'
 export type { ContactKind, NoteRefusalKind, SecretKind } from './note-refusal'
 
-/** What a refusal calls each kind. English: an agent reads it too. Never the value found. */
 const KIND_NAMES: Record<NoteRefusalKind, string> = {
   iban: 'a bank account number (IBAN)',
   at_svnr: 'a social-insurance number',
@@ -54,7 +26,6 @@ const KIND_NAMES: Record<NoteRefusalKind, string> = {
   phone: 'a phone number',
 }
 
-/** Every detector, no terms: independent of what the office's own policy switched on. */
 const DETECTORS_ONLY = buildContentRules([], SCREENING_DETECTORS) as ContentScreenRules
 
 const WORD = 'A-Za-z0-9ÄÖÜäöüß'
@@ -64,7 +35,6 @@ const TOKEN = '[^ \\t\\r\\n\\u00a0]+'
 
 const PRIVATE_KEY = /-----BEGIN [A-Z ]*PRIVATE KEY-----/
 
-/** Tokens that say what they are by their prefix: the shapes the providers document and gitleaks' default rules key on. */
 const API_KEY = new RegExp(
   '(?<![A-Za-z0-9])(?:' +
     'sk[-_](?:live|test|proj|ant|or)[-_][A-Za-z0-9_-]{3,}' +
@@ -80,28 +50,17 @@ const API_KEY = new RegExp(
     '|eyJ[A-Za-z0-9_-]{8,}\\.eyJ[A-Za-z0-9_-]{8,}\\.[A-Za-z0-9_-]{8,}' +
     ')'
 )
-/** A long unbroken run with no prefix to name it: judged by `isRandomToken`. */
 const LONG_TOKEN = /(?<![A-Za-z0-9+=_-])[A-Za-z0-9+=_-]{24,}(?![A-Za-z0-9+=_-])/g
 const RANDOM_MIN_CHARS = 24
 const RANDOM_MIN_EACH = 6
 
-/**
- * A word that says the next token is a credential. A long one may end a
- * compound („WLAN-Passwort", „Serverkennwort"); a short one stands alone.
- */
 const STRONG_LABEL =
   '(?:(?:passwor[dt]|passwd|kennwort|passphrase|losungswort|api[ _-]?key|api[ _-]?schl(?:ü|ue)ssel' +
   `|client[ _-]?secret)|(?<![${WORD}])(?:pw|pwd|secret|token))(?![${WORD}])`
-/** Group 1: an explicit `:` or `=`. Group 2: the value. */
 const LABELLED_VALUE = new RegExp(
   `${STRONG_LABEL}(?:${SP}*([:=])${SP}*|${SP}+(?:(?:ist|lautet|is)${SP}+)?)(${TOKEN})`,
   'gi'
 )
-/**
- * A word that MAY introduce a credential („Projektserver-Zugang: …", „Login
- * Planserver: …"): what follows its colon on the line (group 1) is searched for
- * a token only a password looks like.
- */
 const WEAK_LABEL = new RegExp(
   '(?:zugang(?:sdaten)?|log-?in|anmeld(?:ung|edaten)|account)[^:=\\r\\n]{0,30}[:=]([^\\r\\n]{0,80})',
   'gi'
@@ -124,7 +83,6 @@ const UPPER = /[A-ZÄÖÜ]/g
 const DIGIT = /[0-9]/g
 const ALL_DIGITS = /^[0-9]+$/
 
-/** A label of an identity or tax number (group 1: what follows on its line). */
 const IDENTITY_LABEL = new RegExp(
   `(?:steuernummer|steuer-?nr|(?<![${WORD}])st\\.?-?nr|personalausweis|reisepass|ausweisn(?:ummer|r)` +
     '|passn(?:ummer|r)|f(?:ü|ue)hrerschein|sozialversicherungsn(?:ummer|r)' +
@@ -132,25 +90,10 @@ const IDENTITY_LABEL = new RegExp(
   'gi'
 )
 const IDENTITY_MIN_DIGITS = 6
-/**
- * A US social-security number as it is written, with its dashes. It has no
- * checksum, so the unbroken nine digits are not counted: that is any order,
- * article or file number.
- */
 const US_SSN = /(?<![0-9-])[0-9]{3}-[0-9]{2}-[0-9]{4}(?![0-9-])/
 
 const EMAIL = /[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+/
-/**
- * A date is a run of digits with separators too, and a deadline written
- * 12/03/2027 is precisely what a project memory exists to carry: blanked
- * before a phone number is looked for.
- */
 const DATE_SHAPE = /(?<![0-9])(?:[0-9]{1,2}[./-][0-9]{1,2}[./-][0-9]{2,4}|[0-9]{4}-[0-9]{2}-[0-9]{2})(?![0-9])/g
-/**
- * A number someone can call says so: an international prefix, a trunk zero, or
- * a label. A bare run of digit groups is a drawing number, a dimension chain or
- * an article number far more often than a phone number in a planning office.
- */
 const PHONE_INTERNATIONAL = /(?<![A-Za-z0-9])(?:\+|00)[1-9][0-9 ()/-]{5,}[0-9]/g
 const PHONE_NATIONAL =
   /(?<![A-Za-z0-9.,/-])0[1-9](?:[0-9]{7,12}|[0-9]{0,4}[ /-]{1,3}\(?[0-9][0-9 ()/-]{3,}[0-9])(?![0-9])/g
@@ -165,15 +108,12 @@ const LABELLED_PHONE_MIN_DIGITS = 6
 
 const count = (pattern: RegExp, text: string): number => text.match(pattern)?.length ?? 0
 
-/** A token as the value it holds: opening quotes and closing punctuation taken off. */
 const valueOf = (token: string): string => token.replace(LEADING_QUOTES, '').replace(TRAILING_MARKS, '')
 
-/** Whether the value holds a lower-case letter, an upper-case one, a digit, a sign a password carries. */
 function characterClasses(value: string): [boolean, boolean, boolean, boolean] {
   return [count(LOWER, value) > 0, count(UPPER, value) > 0, count(DIGIT, value) > 0, STRONG_SIGNS.test(value)]
 }
 
-/** Whether the token after a credential's label is its value, not the next word of the sentence. */
 function isLabelledPassword(token: string, explicit: boolean): boolean {
   const value = valueOf(token)
   if (value.length < 4 || URL_START.test(value)) return false
@@ -182,7 +122,6 @@ function isLabelledPassword(token: string, explicit: boolean): boolean {
   return (classes[2] || classes[3]) && classes.filter(Boolean).length >= 2
 }
 
-/** Whether a token after a login's label can only be a password: a letter, a digit and a sign. */
 function isUnlabelledPassword(token: string): boolean {
   const value = valueOf(token)
   if (value.length < 6 || URL_START.test(value) || EMAIL_TOKEN.test(value)) return false
@@ -190,7 +129,6 @@ function isUnlabelledPassword(token: string): boolean {
   return (lower || upper) && digit && sign
 }
 
-/** Whether a long run holds a stretch no word or file name has: 24 characters, six digits and six letters. */
 function isRandomToken(run: string): boolean {
   return run.split(/[-_]/).some(
     (part) =>
@@ -211,10 +149,8 @@ function hasCredential(text: string): boolean {
   return false
 }
 
-/** The kind of secret a note holds, or null. */
 export function secretKind(content: string): SecretKind | null {
   const [span] = findSpans(content, DETECTORS_ONLY)
-  // No terms in the rules, so a span's kind is always a detector's.
   if (span) return span.kind as SecretKind
   if (PRIVATE_KEY.test(content)) return 'private_key'
   if (API_KEY.test(content) || (content.match(LONG_TOKEN) ?? []).some(isRandomToken)) return 'api_key'
@@ -230,7 +166,6 @@ const digitsBetween = (text: string, low: number, high: number): boolean => {
   return low <= digits && digits <= high
 }
 
-/** The kind of contact detail a note holds, or null. */
 export function contactKind(content: string): ContactKind | null {
   if (EMAIL.test(content)) return 'email'
   const scrubbed = content.replace(DATE_SHAPE, ' ')
@@ -241,17 +176,10 @@ export function contactKind(content: string): ContactKind | null {
   return null
 }
 
-/** Why a note may not be stored, as the kind found, or null: a secret anywhere, a contact on a shared shelf. */
 export function noteRefusal(content: string, shared: boolean): NoteRefusalKind | null {
   return secretKind(content) ?? (shared ? contactKind(content) : null)
 }
 
-/**
- * Refuse a note that may not be stored (400). `refuseContact` is the shared
- * shelves' extra rule (ADR-0180): a way to reach a person is not written into
- * memory other people read. The message names the kind of thing found and
- * never repeats it; `details` carries `{ reason: 'note_refused', kind }`.
- */
 export function assertStorableNote(content: string, options: { refuseContact: boolean }): void {
   const kind = noteRefusal(content, options.refuseContact)
   if (!kind) return

@@ -115,55 +115,22 @@ from __future__ import annotations
 import re
 from collections.abc import Sequence
 
-#: Fraction of a collection's chunks a lexeme may appear in and still be used.
-#:
-#: Measured on the real base corpus (776 pages), the values this must separate are:
-#: ``OIB`` 95.0% and ``anforderung``/``punkt`` 27.8% (all noise, must die) against
-#: ``Geschoß`` 23.2% and ``Fluchtweg`` 14.0% (core domain nouns, must live). 0.2 cut
-#: between the wrong pair -- it silenced ``Geschoss`` entirely, a term with 779 corpus
-#: occurrences and its own glossary entry.
-#:
-#: The distinction the ceiling is actually drawing is corpus-IDENTITY words, which a
-#: domain corpus repeats on nearly every page, against DOMAIN words, which are common
-#: precisely because they are what the corpus is about. 0.25 puts the line between the
-#: two measured clusters. The bracket is narrow (23.2 vs 27.8) and calibrated on one
-#: corpus, so this is a tuned parameter, not a constant of nature — overridable per
-#: call, and a prime candidate for the retrieval-eval harness to re-derive.
+#: 776-page base corpus: ``OIB`` 95%, ``punkt`` 27.8% (noise), ``Geschoß`` 23.2%; 0.2 silenced ``Geschoss``.
 DEFAULT_DF_CEILING_RATIO = 0.25
 
-#: Below this many rows a document-frequency RATIO is noise (in a 6-chunk project
-#: collection every content word looks "too frequent"), so the ceiling is not
-#: applied at all — only lexemes that cannot match anything are dropped.
 DEFAULT_DF_CEILING_MIN_TOTAL = 25
 
-#: Alphanumeric runs, plus dotted numbers kept whole. The corpus cites by
-#: ``Punkt N.N`` (1,565 occurrences) — ``4.2.1`` must survive as ONE lexeme, not
-#: three. Underscore is excluded so ``oib-rl_2`` splits like ``oib-rl 2`` does.
-#: Consequence relied upon elsewhere: a token can never contain the SQL LIKE
-#: wildcards ``%`` or ``_``, so :func:`like_pattern` needs no escaping.
 _TOKEN_RE = re.compile(r"\d+(?:\.\d+)+|[^\W_]+", re.UNICODE)
 
-#: Single-vowel folding (see the module docstring for why not the digraph form).
 _FOLD = (("ä", "a"), ("ö", "o"), ("ü", "u"), ("ß", "ss"))
 
 _VOWELS = frozenset("aeiouy")
 
-#: Snowball German's valid ``-s`` predecessors. Without this, ``geschoss`` would
-#: stem to ``geschos`` and stop matching ``Geschoß``.
 _S_ENDINGS = frozenset("bdfghklmnrt")
 
-#: Step-1 suffixes, longest first so ``-ern`` wins over ``-er``.
 _SUFFIXES = ("ern", "em", "er", "en", "es", "e")
 
-#: Shortest lexeme kept from a query. Single DIGITS are exempt (``§ 3``, ``OIB-RL 2``).
-#:
-#: 3, not 2, because of a measured leak: this channel is supposed to be silent for an
-#: English query, and ``"What is the required width of escape routes?"`` was returning
-#: chunks on the strength of ``of`` alone — which survives the df==0 rule because the
-#: German corpus does contain a handful of English ÖNORM titles (5 of 776 pages, 0.6%),
-#: and survives the alphabetic rule because it is a word. Rarity normally means signal;
-#: for a two-letter foreign function word it means coincidence. No German content word
-#: this corpus cites is shorter than three characters.
+#: 2 let ``of`` match German chunks through the 0.6% of pages with English ÖNORM titles.
 _MIN_TERM_LENGTH = 3
 
 
@@ -330,7 +297,6 @@ def query_terms(text: str | None, *, extra_terms: Sequence[str] = ()) -> list[st
     return _merge_terms(_plain_terms, text, extra_terms)
 
 
-#: An umlaut and the way a German writes it on a keyboard without one.
 _DIGRAPHS = (("ä", "ae"), ("ö", "oe"), ("ü", "ue"))
 
 

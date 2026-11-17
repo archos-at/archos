@@ -1,5 +1,3 @@
-/** Stage D, Nutzungen: the use zones of each building. */
-
 import { FOUND_IN, USES } from '../intake-options'
 import type { ProjectIntakeStage } from '../intake-types'
 

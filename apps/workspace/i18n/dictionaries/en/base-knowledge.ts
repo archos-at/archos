@@ -1,8 +1,3 @@
-/**
- * Office standards (ADR-0163): the standards, commentaries and directives an
- * office owns, as a place of its own with folders. "Edition" is the standard's
- * state, "revision" the state of the uploaded file (CONTEXT.md).
- */
 export const baseKnowledge = {
   title: 'Office standards',
   subtitle: 'Standards, commentaries and directives your office owns, which {productName} relies on in your answers.',

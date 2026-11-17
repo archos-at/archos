@@ -1,46 +1,4 @@
 #!/usr/bin/env python3
-"""Decision eval for the annotations off the reader's path (ADR-0064, uses 4, 8 and 9).
-
-WHY THIS EXISTS
----------------
-ADR-0064's uses 4, 8 and 9 put the decision model on three annotations: the
-tags stored with every upload, the Dokumentart offered for a base-corpus file,
-and the cause a down-vote is filed under. Their thresholds were set from runs
-over hand-labelled German sets, committed as ``tests/fixtures/decisions/*.yaml``.
-This script is that run, so a threshold or a criterion is changed against a
-number and not a guess.
-
-THESE ARE TUNING SETS
----------------------
-The criteria were written against these rows, so a pass here says the
-wording still does what it was tuned to do, not that it generalises. That is
-``decision_eval_holdout.py`` (``task be:eval:decisions:holdout``), on sets
-written blind to the wording.
-
-THE FLOORS
-----------
-- tags: the decided type is a labelled type on every row, and no discipline
-  is tagged that the row does not carry.
-- Dokumentart: every suggestion offered is the labelled class (a wrong one
-  is offered to a person, who may accept it).
-- feedback causes: at least 14 of the 16 labelled down-votes filed under
-  their cause (an operator's count, so a miss skews a number, not an answer).
-
-IT NEEDS A KEY, NOT A BACKEND
------------------------------
-``OPENROUTER_API_KEY`` (or ``DECISIONS_API_KEY``); well under a cent for
-both sets. Exit 0 when the floors hold, 1 when they do not.
-
-USAGE
------
-    python scripts/decision_eval_offpath.py
-
-THE LAST RUN
-------------
-2026-09-26: tags 12/12 types, disciplines 4 of 8 labelled with none false at
-0.8 (clear disciplines 0.96-0.98, the highest false one 0.47); Dokumentart
-10/10 offered, none wrong; feedback causes 16/16.
-"""
 
 from __future__ import annotations
 

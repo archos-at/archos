@@ -43,8 +43,6 @@ def add_ingest_routes(router: APIRouter):
             "Submits an ingestion job that downloads the file when it runs. Every URL in the body"
             " must name the object store (`ObjectStoreUrl`); nothing is downloaded in the request."
         ),
-        # Every status this handler raises: a missing object or an unreachable store is the job's
-        # FAILED file (`original_download_failed`), and 422 (a URL off the store) is FastAPI's own.
         responses={
             400: {"description": "Invalid request: no collection"},
             500: {"description": "The job could not be submitted"},
@@ -76,15 +74,9 @@ def add_ingest_routes(router: APIRouter):
         override — the ingest thread is detached from the request, so the org
         id must be captured here and carried in the job config.
         """
-        # Every URL passed `ObjectStoreUrl`; the job gates them again (`DeferredObjectDownload.from_payload`).
         if not request.collection:
             raise HTTPException(status_code=400, detail="collection is required")
 
-        # Idempotent per document, object and collection (see _dispatch_key): the BFF
-        # retries once when its ten-second budget runs out, and a retry must
-        # join the job the first attempt started, not start a second one. The
-        # slot serialises the lookup and the submit of one key on this
-        # replica, so two dispatches arriving together submit once.
         dispatch_key = _dispatch_key(request)
         async with _dispatch_slot(dispatch_key):
             existing = await _live_job(ingestor, dispatch_key)
@@ -107,8 +99,6 @@ async def _submit(ingestor: BaseIngestor, request: IngestRequest, config: dict) 
     try:
         job_id = await asyncio.to_thread(_submit_durably, ingestor, [original], request.collection, config)
     except Exception as error:
-        # Class name, not `str(e)`: an arbitrary internal message is exactly
-        # where a path, a DSN or a URL rides out to the client.
         logger.exception("Ingestion submit failed: %s", type(error).__name__)
         raise HTTPException(status_code=500, detail="Ingestion failed") from None
     logger.info("Submitted ingestion job %s for %s", job_id, config["original_filenames"][0])
@@ -132,64 +122,30 @@ def _submit_durably(ingestor: BaseIngestor, files: list, collection: str, config
 def _job_config(request: IngestRequest, organization_id: str | None, dispatch_key: str | None) -> dict:
     """The job config this request carries; no URL in it survives a ``repr``."""
     config: dict = {
-        # The job owns the files it is handed and deletes them; a file its
-        # deferred download wrote is its own either way.
         "cleanup_files": True,
-        # The BFF's own `documents.filename` when it stated one, and the
-        # presigned URL's last path segment otherwise. Stating it is what
-        # keeps the chunk `file_name` metadata equal to the join key every
-        # chunk purge addresses: the URL segment is the OBJECT KEY's
-        # basename, which the BFF sanitises (a slash becomes an underscore, a
-        # 300-character name is cut), so the derived form can be a string no
-        # purge ever asks for.
         "original_filenames": [request.file_name or _extract_filename(request.file_ref)],
-        # Who is waiting on it: the durable queue claims by it inside an
-        # organisation, and the provider limiter ranks the job's model calls by it.
         "priority": request.priority,
-        # The original's size: a large file reads on the high-memory pool (`ingest_dispatch.original_bytes`).
         "original_bytes": request.byte_size,
     }
     if thumbnail_url := request.thumbnail_upload_url:
-        # Gated as an `ObjectStoreUrl` and rebuilt on the configured store's origin.
         config["thumbnail_upload_url"] = object_store_request_url(thumbnail_url, field="thumbnail_upload_url")
-    # What a retried dispatch of this document and object is matched against (`BaseIngestor.find_live_job`).
     if dispatch_key:
         config["dispatch_key"] = dispatch_key
     config.update(_filing_choice_config(request))
     config.update(_mail_config(request))
     config.update(_tenant_config(request, organization_id))
-    # The licence mark and the project's facts for the chunks' payload (`writes.enrichment`), as plain data.
     config.update(request.licence_mark())
     if request.project_facts is not None:
         config["project_facts"] = request.project_facts.facts.to_store()
         config["project_status"] = request.project_facts.status
-    # The document's id, so the pipeline can ask the BFF for a PUT slot per
-    # raster it extracts (`knowledge_layer.ingest.image_store`). Without
-    # it the captions are indexed and the rasters discarded, which is what
-    # every caller that sends no id (the OIB corpus sync) gets.
     if request.document_id:
         config["document_id"] = request.document_id
-    # Who wrote this document and who released it (ADR-0054); absent for
-    # every human document, which is what the parser expects
-    # (agent.common.provenance.parse_agent_provenance).
     config.update(_provenance_config(request))
-    # The office's upload screening (`knowledge_layer.ingest.screening`),
-    # as plain data so it rides the durable queue's JSON payload unchanged.
-    # An empty policy is no policy: the file's `screening` outcome stays null.
     if request.screening is not None and not request.screening.is_empty:
         config["screening"] = request.screening.model_dump(mode="json")
     if request.extraction_ref:
-        # Read the document from its PDF rendition (ADR-0071), downloaded by
-        # the job like the original. Positional like original_filenames, whose
-        # entry above stays the original's name, the identity every chunk
-        # carries.
         config["extraction_paths"] = [DeferredObjectDownload(request.extraction_ref, suffix=".pdf")]
     elif request.preview_ref and request.thumbnail_upload_url:
-        # An office original indexed from its own bytes (a spreadsheet) has a
-        # thumbnail only through its rendition. The job downloads it and draws
-        # it once the file's screening has passed (ADR-0086); drawn here, in a
-        # background task, it was a derivative of a file nobody had screened.
-        # A file read from its rendition draws from that one download instead.
         config["preview_paths"] = [DeferredObjectDownload(request.preview_ref, suffix=".pdf")]
     return config
 
@@ -269,7 +225,6 @@ def _dispatch_key(request: IngestRequest) -> str | None:
     return hashlib.sha256(f"{request.document_id}\0{path}\0{request.collection}".encode()).hexdigest()
 
 
-#: Dispatch keys with a request in the handler on this replica, and how many.
 _dispatch_slots: dict[str, tuple[asyncio.Lock, int]] = {}
 
 
@@ -355,13 +310,6 @@ class DeferredObjectDownload:
         return cls(url, data.get("suffix"))
 
     def __call__(self) -> str:
-        # No redirects: a follow could land on a host outside the allowlist
-        # (e.g. a cloud metadata endpoint), which would make the route's host
-        # check a no-op. Presigned object-store GETs never redirect; a 3xx is
-        # a failed download like any other.
-        # The request goes to the configured store by construction: only the
-        # object's path and its presigned query come from the URL handed in
-        # (`object_store_request_url`), never its host.
         response = _get_original(object_store_request_url(self._url))
         response.raise_for_status()
         suffix = self._suffix or _infer_suffix(response.headers.get("content-type", ""), self._url)
@@ -372,22 +320,13 @@ class DeferredObjectDownload:
         except BaseException:
             os.unlink(path)
             raise
-        # The size, never the URL: see the class docstring.
         logger.info("Downloaded %d bytes for ingestion", len(response.content))
         return path
 
 
-#: Per phase (connect, each read), not for the whole body: a large original
-#: streams for as long as bytes keep arriving.
 _DOWNLOAD_TIMEOUT_SECONDS = 60.0
-#: Connect attempts after the first (``agent.common.connect_retry``, the
-#: same policy every other BFF and store call of the worker uses).
 _DOWNLOAD_CONNECT_RETRIES = CONNECT_RETRIES
-#: Per connect attempt. The 60 s read timeout on every one of seven attempts
-#: would hold a worker for minutes against a store that drops SYNs.
 _DOWNLOAD_CONNECT_TIMEOUT_SECONDS = CONNECT_TIMEOUT_SECONDS
-#: Tries of a GET the store cut short mid-response (a reset, a truncated
-#: body). A GET repeats the same bytes; the file is lost if the last one fails.
 _DOWNLOAD_RESPONSE_ATTEMPTS = 3
 _RESPONSE_RETRY_PAUSE_SECONDS = 1.0
 
@@ -462,11 +401,6 @@ def _infer_suffix(content_type: str, url: str) -> str:
         "text/markdown": ".md",
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx",
         "application/vnd.openxmlformats-officedocument.presentationml.presentation": ".pptx",
-        # The rest of the office family the BFF renders to PDF (ADR-0070,
-        # OFFICE_RENDITION_CONTENT_TYPES in the UI's preview-types.ts), each
-        # with the one extension its type names. Without them an office file
-        # whose presigned path has no extension would land as `.bin`, and the
-        # parser dispatches by that suffix.
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": ".xlsx",
         "application/vnd.ms-word.document.macroenabled.12": ".docm",
         "application/msword": ".doc",
@@ -481,13 +415,9 @@ def _infer_suffix(content_type: str, url: str) -> str:
         "text/rtf": ".rtf",
         "image/png": ".png",
         "image/jpeg": ".jpg",
-        # A DXF is indexed from the PDF rendition the backend draws (ADR-0152);
-        # its own suffix still decides that it needs one.
         "image/vnd.dxf": ".dxf",
         "application/dxf": ".dxf",
     }
-    # MIME types are case-insensitive, and the macro-enabled ones are commonly
-    # sent as `...macroEnabled.12`.
     suffix = content_map.get(content_type.split(";", maxsplit=1)[0].strip().lower(), "")
     if not suffix:
         suffix = re.sub(r"[^a-zA-Z0-9.]", "", os.path.splitext(urlparse(url).path)[1])[:16]

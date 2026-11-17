@@ -1,5 +1,3 @@
-/** An IANA time zone the runtime knows: what "today" in a territory is read in. */
-
 import { z } from 'zod'
 
 export const zoneSchema = z

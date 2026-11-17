@@ -29,10 +29,6 @@ from .geometry import signed_distance
 from .model import AIR_TYPES
 from .model import SpatialModel
 
-# ════════════════════════════════════════════════════════════════════════════
-# constructive — geometry the file does not contain, built from geometry it does
-# ════════════════════════════════════════════════════════════════════════════
-
 
 def facade_plane_of(model: SpatialModel, global_id: str) -> Answer[dict[str, Any]]:
     """The element's facade plane, with its normal pointing away from the building.
@@ -54,9 +50,6 @@ def facade_plane_of(model: SpatialModel, global_id: str) -> Answer[dict[str, Any
     subject = _require(model, global_id, method)
     geo, missing = _geometry_or_answer(model, subject, method)
     if geo is None:
-        # A body the kernel REJECTED is a different finding from a body that was
-        # never exported, and `_no_geometry` carries the kernel's own message.
-        # The curtain-wall hint below only applies to the second case.
         if (model.geometry_failure(global_id) or "").startswith(("shape-failed", "empty-mesh")):
             return missing  # type: ignore[return-value]
         return undecidable(
@@ -64,9 +57,6 @@ def facade_plane_of(model: SpatialModel, global_id: str) -> Answer[dict[str, Any
             method=method,
             provenance="computed",
             missing=MissingFact(
-                # Same rule as `_no_geometry`: the renderer supplies the „nicht",
-                # so this may not start with „keine" or the sentence negates
-                # itself.
                 what=f"Körpergeometrie für {subject.is_a()} in dieser Datei",
                 remedy=(
                     "Dieses Bauteil trägt keinen eigenen Körper — eine Vorhangfassade exportiert ihre "
@@ -119,15 +109,6 @@ def facade_plane_of(model: SpatialModel, global_id: str) -> Answer[dict[str, Any
             ),
         )
 
-    # No `area` in this payload. It used to carry `seated.area`, which is the
-    # summed triangle area of the seating bin and double-counts overlapping and
-    # opposite-facing triangles: the south wall 3cUkl32yn9qRSPvBJVyWy4 published
-    # 23.527 m² for an outer face that is 17.776 m². Nothing read the field, and
-    # `_provenance_line` stamped it „(m)" alongside a point and a normal, so the
-    # one honest option was to stop publishing it — the operator's job is to
-    # SEAT A PLANE, and a plane has a position and a direction, not an area. A
-    # facade area is `measure/extent` or the thermal-envelope operators, both of
-    # which union their faces instead of summing them.
     return computed(
         {
             "normal": n.tolist(),
@@ -224,9 +205,6 @@ def ray(
     ``None`` means the ray reached ``length`` without meeting anything — which is
     a real answer and must never be confused with "could not look".
     """
-    # Built defensively: the arguments are not validated yet, and a `method`
-    # string that formats them as floats crashed on `ray(model, "x", ...)` —
-    # before the check that was supposed to reject it could run.
     method = f"ray({_vector_text(origin)}, {_vector_text(direction)}" + (f", {length})" if length is not None else ")")
     try:
         d = np.array(direction, dtype=float).reshape(3)
@@ -250,10 +228,6 @@ def ray(
             ),
         )
     if length is None and model.bounds is None:
-        # `model.diagonal` falls back to a flat 100.0 when nothing in the file
-        # has a body. Casting 100 m into a model with no geometry and reporting
-        # "nichts getroffen" as decidable would dress a could-not-look up as a
-        # result — the one substitution this library exists to prevent.
         return undecidable(
             from_=[],
             method=method,
@@ -333,10 +307,6 @@ def prism(model: SpatialModel, opening_id: str, angle_deg: float, swivel_deg: fl
     if geo is None:
         return missing  # type: ignore[return-value]
 
-    # The host wall sets the DIRECTION — its facade is decided by tens of square
-    # metres, an opening's by one or two — while the plane is seated on the
-    # OPENING's own outer face, because light enters at the opening and seating
-    # it on the wall would hide a recessed window's own reveal shading.
     host = hosted_in(model, opening_id)
     host_id = host.value[0].global_id if host.decidable and host.value else None
     plane_answer = facade_plane_of(model, host_id or opening_id)
@@ -437,10 +407,6 @@ def obstructions(
     Returns geometry, never a verdict: a cut prism ENLARGES the required
     Lichteintrittsfläche under OIB 3, it does not ban the window.
     """
-    # `volume` comes back from `prism()` and travels through a caller — an agent,
-    # a JSON round-trip, a cache from a DIFFERENT model. All three can hand back
-    # something that is not a prism, and a KeyError or a bare RuntimeError from
-    # deep inside the broad phase tells nobody what went wrong.
     required = ("openingId", "angleDeg", "swivelDeg", "halfSpaces", "lowerEdge", "normal", "reach", "sillZ")
     if not isinstance(volume, dict) or any(k not in volume for k in required):
         absent = [k for k in required if not isinstance(volume, dict) or k not in volume]
@@ -462,8 +428,6 @@ def obstructions(
     )
 
     skip = {opening_id, *(exclude or ())}
-    # Through `by_id`, so a prism built against another model raises the contract
-    # error instead of a raw RuntimeError from the wrapper.
     subject = _require(model, opening_id, method)
     for rel in getattr(subject, "HasFillings", []) or []:
         skip.add(rel.RelatedBuildingElement.GlobalId)
@@ -475,8 +439,6 @@ def obstructions(
         (np.array(h["normal"]), np.array(h["point"])) for h in volume["halfSpaces"] if h["role"] == "incline"
     )
 
-    # Broad phase: the prism is unbounded, so it is boxed by the model's own
-    # extent in front of the facade before it is handed to the tree.
     bounds = model.bounds
     edge = np.array(volume["lowerEdge"][0]), np.array(volume["lowerEdge"][1])
     reach = float(volume["reach"])

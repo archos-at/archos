@@ -218,68 +218,23 @@ logger = logging.getLogger(__name__)
 
 WS_POLICY_VIOLATION = 1008
 
-#: How often a running turn says it is still running, in seconds. It travels on
-#: the event (``every_ms``), so the client's tolerance is a multiple of what the
-#: server keeps rather than a constant both tiers hold.
 TURN_HEARTBEAT_SECONDS = 20.0
 
-#: How long a HITL prompt stays open before the turn gives up. Generous, because
-#: a clarifying question can sit while somebody checks a drawing, but finite:
-#: an unanswered prompt used to pin a turn and its checkpoint forever.
 HITL_RESPONSE_TIMEOUT_SECONDS = float(os.getenv("HITL_RESPONSE_TIMEOUT_SECONDS", "1800"))
 
-#: How long a finished turn keeps its sequencer for the stage events that follow
-#: its terminal (``docs/architecture/post-answer-stages.md`` §4).
 STAGE_WIRE_TTL_S = 600.0
 
-#: The turn's deadline, in seconds of its own clock: from RUN_STARTED, minus the
-#: time spent waiting on a person (:class:`TurnDeadline`); 0 disables it. The
-#: longest legitimate chat turn is the in-process deep-research fallback, which
-#: its own clock ends at ``deep_researcher.agent.DEFAULT_MAX_RUN_SECONDS``
-#: (2400 s) with an answer; this sits above that so it never pre-empts a clean
-#: cut-off, and bounds everything else: a model call, tool or graph that never
-#: returns. How many turns run at once is not decided here: ADR-0040's
-#: admission (``MAX_ACTIVE_TURNS``) refuses a turn it has no slot for at
-#: once, and the agent runtime's own semaphore, which queued it silently, is off
-#: (``plugin.AgentHostWorker._create_chat_session_manager``).
 TURN_DEADLINE_SECONDS = float(os.getenv("CHAT_TURN_DEADLINE_SECONDS", "2700"))
 
-#: How many of its own frames a turn's sequencer keeps for ``attach``, so the
-#: replica running a turn can replay it without the bus. The bus stream keeps
-#: the same number per conversation (``CONV_STREAM_MAXLEN``'s default).
 LOCAL_REPLAY_FRAMES = 2000
 
-# @environment_variable CHAT_SUPERSEDE_WAIT_SECONDS
-# @category Server
-# @type float
-# @default 13.5
-# @required false
-# How long a newer question waits for the conversation's running turn to stop
-# (and its `conv:<id>:running` marker to clear) before it is refused as "still
-# finishing the previous answer". Keep it under the client's 15 s acknowledgement
-# bound (`ACK_TIMEOUT_MS`) so the reader hears an answer, and above
-# `CHAT_RUNNING_TTL_SECONDS`, so a replica that died mid-turn never costs a
-# refusal. Only used while the conversation bus spans replicas.
 SUPERSEDE_WAIT_SECONDS = float(os.getenv("CHAT_SUPERSEDE_WAIT_SECONDS", "13.5") or "13.5")
 
-# @environment_variable CHAT_DRAIN_SECONDS
-# @category Server
-# @type float
-# @default 2700
-# @required false
-# How long a terminating replica waits for the turns it is running before it
-# cancels them (each then ends with a cancelled terminal and is persisted). It
-# must fit inside the pod's grace period, and cover the longest turn:
-# `CHAT_TURN_DEADLINE_SECONDS`. Pulumi derives both from one number.
 DRAIN_SECONDS = float(os.getenv("CHAT_DRAIN_SECONDS", "2700") or "2700")
 
-#: How often the wait looks at the running marker, and how often it asks the
-#: owner to stop again: a pub/sub message sent while the owner's input
-#: subscription was restarting is lost, so one ask is not enough.
 SUPERSEDE_POLL_SECONDS = 0.2
 SUPERSEDE_REPUBLISH_SECONDS = 2.0
 
-#: What a refused question says, and how soon the reader may ask again.
 PREVIOUS_TURN_REFUSAL = (
     "The assistant is still finishing the previous answer. Please send your message again in a moment."
 )
@@ -288,7 +243,6 @@ FENCE_UNAVAILABLE_REFUSAL = (
 )
 REFUSAL_RETRY_AFTER_SECONDS = 5
 
-#: What an ``if_idle`` question is told when the conversation runs another turn.
 BUSY_REFUSAL = "The conversation is running another turn; ask again once it has finished."
 
 
@@ -305,21 +259,8 @@ def chat_affinity_enabled() -> bool:
     return os.getenv("CHAT_AFFINITY", "1").strip().lower() not in ("0", "false", "no", "off", "")
 
 
-# @environment_variable WIRE_V2_ADDITIVE_FIELDS
-# @category Server
-# @type str
-# @default on
-# @required false
-# Send the server-to-client fields the lenient-parsing release added (``STAGED_SERVER_FIELDS``).
-# It was off for that one release, while a tab opened before it still ran a bundle whose wire
-# schemas were strict. Every bundle since parses leniently, so it is on; ``off`` is the rollback.
-# Off, the hello names nothing it accepts, and the canvas's box, thread target and notes never travel.
 _ADDITIVE_FIELDS_ENV = "WIRE_V2_ADDITIVE_FIELDS"
 
-#: The server-to-client fields this release added, as (frame kind, member, key). The bundle before it
-#: parsed every frame strictly (``.strict()`` zod), so an open tab of it marks the socket ``outdated`` on
-#: a hello that names ``accepts`` and never folds a ``RUN_FINISHED`` whose result has a
-#: ``reasoning_effort``. Withheld only while ``WIRE_V2_ADDITIVE_FIELDS`` is ``off``, the rollback.
 STAGED_SERVER_FIELDS: tuple[tuple[str, str, str], ...] = (
     ("hello", "value", "accepts"),
     ("RUN_FINISHED", "result", "reasoning_effort"),
@@ -350,17 +291,12 @@ def for_open_tabs(frame: dict[str, Any]) -> dict[str, Any]:
 
 
 if not chat_affinity_enabled():
-    # The owner fences itself (`agent_host.turn_fence`): a TTL it cannot write inside is a misconfiguration to stop on.
     validate_running_ttl(running_ttl())
 
 
-#: How soon a dead bus loop (a relay's frames, an owner's inputs) is restarted,
-#: doubling per failure up to the maximum.
 _LOOP_RESTART_MIN_S = 0.5
 _LOOP_RESTART_MAX_S = 30.0
 
-#: How long an ``attach`` waits for its relay's subscription before reading the
-#: stream anyway (the bus's own command bound).
 BUS_READY_TIMEOUT_S = 1.0
 
 _ORG_ID_HEADER = "x-grid-organization-id"
@@ -369,11 +305,6 @@ _NOT_ASKER_STOP = "Only the person who asked can stop this turn."
 _auth_validators: list = []
 _require_auth = False
 _external_hostnames: set[str] | None = None
-
-
-# ---------------------------------------------------------------------------
-# Who holds the socket
-# ---------------------------------------------------------------------------
 
 
 def configure_websocket_auth(
@@ -448,11 +379,6 @@ def _org_id_from_scope(scope: Mapping[str, Any]) -> str | None:
     return None
 
 
-# ---------------------------------------------------------------------------
-# Persistence: the finished answer is the server's to keep
-# ---------------------------------------------------------------------------
-
-
 async def persist_turn_result(
     *,
     conversation_id: str,
@@ -511,18 +437,10 @@ def _persist_in_background(
     )
 
 
-# ---------------------------------------------------------------------------
-# After the terminal: the thread's answer, and the outcome a headless caller waits for
-# ---------------------------------------------------------------------------
-
-#: The wire's terminal as the BFF names it (``TURN_OUTCOMES`` in
-#: ``apps/workspace/bff/turns/outcome-types.ts``); every ``RUN_ERROR`` is ``failed``.
 OUTCOME_OF_TERMINAL = {"answered": "answered", "refused": "refused", "handed_off": "handed_off", "cancelled": "stopped"}
 
-#: ``reason``'s bound in that contract.
 OUTCOME_REASON_CHARS = 500
 
-#: The turn ids a wake mints (``crypto.randomUUID``) and the contract's ``turnId`` accepts.
 _TURN_ID = re.compile(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
 
 
@@ -584,11 +502,6 @@ async def _after_terminal(turn: RunningTurn) -> None:
         logger.warning("What follows the terminal of turn %s failed", turn.wire.turn_id, exc_info=True)
 
 
-# ---------------------------------------------------------------------------
-# One turn: its sequencer, its partial answer, its pending question
-# ---------------------------------------------------------------------------
-
-
 def _now_ms() -> int:
     return int(time.time() * 1000)
 
@@ -619,14 +532,11 @@ class TurnWire:
         self._guard = guard
         self.seq = 0
         self.finished = False
-        #: The one terminal this sequencer stamped, once it has.
         self.terminal: RunFinishedBody | RunErrorBody | None = None
         self._publish = publish
         self._lock = asyncio.Lock()
         self._held_stages: list[StageBody] = []
         self._frames = TurnFrames(LOCAL_REPLAY_FRAMES)
-        #: Told each body with the seq it was stamped, under the lock: so a fold
-        #: of them sees exactly the frames a reader saw, in their order.
         self.on_stamp: Callable[[EventBody, int], None] | None = None
 
     def replay(self) -> list[dict[str, Any]]:
@@ -742,7 +652,6 @@ class Fence:
 
     held: bool = False
     refusal: str | None = None
-    #: With affinity off, the clock the holder must stop writing by; None when nothing fails closed.
     guard: TurnFence | None = None
 
 
@@ -758,41 +667,22 @@ class RunningTurn:
     asker_subject: str | None
     organization_id: str | None = None
     task: asyncio.Task[None] | None = None
-    #: The answer so far, folded from the frames as they are stamped, for a stopped turn's result.
     fold: TurnTextFold = field(default_factory=TurnTextFold)
-    #: What the asker had on screen when they pressed Stop, when their cancel said (``cancel_turn.shown``).
     shown: ShownAnswer | None = None
     pending: PendingInteraction | None = None
     deadline: TurnDeadline = field(default_factory=TurnDeadline)
-    #: This turn holds the conversation's running marker: it renews it while it runs and deletes it when it ends.
     holds_marker: bool = False
-    #: Its own clock on that marker, with affinity off: every write to the conversation asks it first.
     guard: TurnFence | None = None
-    #: The level the asker stated, for a stopped turn's result: the graph's state
-    #: is gone by then, and a stated level is the one the answering call runs at
-    #: (``request_llm_context.with_turn_effort``). None when none was stated.
     reasoning_effort: str | None = None
-    #: The notes the asker typed while the turn runs (``common.steering``),
-    #: bound into the workflow's context by :func:`_drive`.
     inbox: SteerInbox = field(default_factory=SteerInbox)
-    #: A headless caller started it (``X-Chat-Mode: headless``): it is told the outcome (:func:`_after_terminal`).
     headless: bool = False
-    #: The thread the question asks its answer in, or None (``agent.turn.annotation_reply``),
-    #: bound into the workflow's context by :func:`_drive` so the canvas tools mark it.
     thread_reply: ThreadReply | None = None
-    #: The socket's signed envelope as received, echoed by the thread's answer (echo, never sign).
     envelope: SignedEnvelope | None = None
-    #: The WorkOS user the BFF signed into the envelope. An internal (service-token) caller has no
-    #: verified subject of its own, so this is who the trace belongs to, not the caller's type.
     envelope_user_id: str | None = None
-    #: The answer row's write, which what follows the terminal waits for.
     persisting: asyncio.Task[Any] | None = None
     _followed: bool = field(default=False, init=False, repr=False)
 
     def __post_init__(self) -> None:
-        # Folded as stamped, not as yielded: a body the wire drops (a fenced
-        # turn, after the terminal) never reached a reader, and a ``seq`` the
-        # asker's Stop names must mean the text it meant on their screen.
         self.wire.on_stamp = self.fold.add
 
     @property
@@ -917,11 +807,6 @@ class RunningTurn:
         await self.finish(RunFinishedBody(outcome="cancelled", result=result))
 
 
-# ---------------------------------------------------------------------------
-# The registry: sockets, running turns, and the bus between replicas
-# ---------------------------------------------------------------------------
-
-
 class _Outlet:
     """The socket a conversation's frames go to. It holds them while an ``attach`` replays."""
 
@@ -968,7 +853,6 @@ class ChatRegistry:
         """The bus this registry publishes on: the process bus, or a replica's own in a test."""
         return self._bus or get_bus()
 
-    # ---- sockets ---------------------------------------------------------
     def set_socket(self, conversation_id: str, socket: WebSocket, *, holding: bool = False) -> _Outlet:
         current = self._outlets.get(conversation_id)
         if current is not None and current.socket is socket and not holding:
@@ -994,7 +878,6 @@ class ChatRegistry:
         try:
             await self.bus().publish_frame(conversation_id, frame)
         except BusUnavailable:
-            # Fail-open: the local socket still gets the frame, and the bus has said it is down.
             logger.debug("Bus publish skipped for conversation %s", conversation_id, exc_info=True)
         outlet = self._outlets.get(conversation_id)
         return await outlet.deliver(frame) if outlet is not None else False
@@ -1043,7 +926,6 @@ class ChatRegistry:
         if envelope.type == FRAME and outlet is not None:
             await outlet.deliver(envelope.payload)
 
-    # ---- turns -----------------------------------------------------------
     def running(self, conversation_id: str, turn_id: str | None = None) -> RunningTurn | None:
         turn = self._turns.get(conversation_id)
         if turn is None or (turn_id is not None and turn.wire.turn_id != turn_id):
@@ -1367,7 +1249,6 @@ def _relayed_shown(payload: dict[str, Any]) -> ShownAnswer | None:
         return None
 
 
-#: How soon a renewal that failed is tried again, when that is sooner than the interval.
 RENEW_RETRY_SECONDS = 1.0
 
 
@@ -1452,11 +1333,6 @@ async def send_stage(conversation_id: str, turn_id: str, value: StageValue) -> b
     return await _registry.send_stage(conversation_id, turn_id, value)
 
 
-# ---------------------------------------------------------------------------
-# Running a turn
-# ---------------------------------------------------------------------------
-
-
 async def _beat(wire: TurnWire) -> None:
     """A heartbeat every ``TURN_HEARTBEAT_SECONDS`` while the turn runs. Sleeps first: a short turn sends none."""
     body = HeartbeatBody(value=HeartbeatValue(every_ms=int(TURN_HEARTBEAT_SECONDS * 1000)))
@@ -1467,7 +1343,6 @@ async def _beat(wire: TurnWire) -> None:
 
 async def _relay_workflow(turn: RunningTurn, request: UserMessage, session: Any) -> None:
     """Send every body the turn's ``_run`` yields, in order; the stream closes in this task."""
-    # One entry per call (a tool step is sent when it starts and again when it ends, under one id).
     tools_called: dict[str, str] = {}
     literal_searches: set[str] = set()
     async with contextlib.aclosing(stream_workflow(request, session=session)) as bodies:
@@ -1476,8 +1351,6 @@ async def _relay_workflow(turn: RunningTurn, request: UserMessage, session: Any)
                 tools_called[body.step.id] = tool
             elif is_literal_search(getattr(body, "step", None)):
                 literal_searches.add(body.step.id)
-            # The terminal is the turn's authoritative record; the root span,
-            # exported after it, carries it to Langfuse (`turn_outcome`).
             if isinstance(body, RunFinishedBody):
                 record_turn_finished(body)
                 if body.outcome == "answered":
@@ -1504,34 +1377,16 @@ async def _drive(
     """Run the workflow in a runtime session bound to this turn: verified subject, question, HITL callback."""
     headers = dict(socket.scope.get("headers", []))
     tags = build_request_trace_tags(headers, socket.scope, caller, external_hostnames=_external_hostnames)
-    # The turn's trace is named by its answer id, so the persisted answer row
-    # (`turn_row_metadata`) can say which trace it is, and a vote on it can be
-    # scored there. The agent runtime adopts a pinned id instead of drawing a random one.
-    # The turn's outcome rides its root span (`turn_outcome`): bound here, the
-    # context every export task of this turn snapshots, and filled in place
-    # by `_relay_workflow` when the terminal passes.
     outcome = begin_turn_outcome()
-    # The asker's PostHog session, so Langfuse's PostHog export can put this
-    # turn's observations on the recording (`record_posthog_session`). Bound
-    # here, ahead of the session, for the same reason as the outcome: every
-    # export task of the turn snapshots the context it was created in.
     contributions = begin_trace_contributions()
     record_posthog_session(request.posthog_session_id)
-    # Where the question was asked: the chat, a box on the review canvas, or an
-    # Anmerkung's thread (`turn_surface`), for every span of the turn.
     record_turn_surface(turn_surface(request.focus_region, reply_in_thread=thread_reply_requested(request)))
-    # The event that woke the turn, when nobody typed it (the BFF's wake job).
     record_turn_trigger(request.trigger)
-    # The asker's notes while it runs (`common.steering`): bound here, the
-    # context the workflow's tasks copy, so the graph reads the one inbox.
     steering = bind_steer_inbox(turn.inbox)
-    # The thread the question was asked in (`turn.annotation_reply`): bound here
-    # for the same reason, so the canvas tools mark the one record the socket reads.
     thread = bind_thread_reply(turn.thread_reply)
     try:
         with pinned_trace(trace_id_for_message(turn.message_id)), user_context(caller), request_trace_tag_context(tags):
             async with session_manager.session(
-                # Never None: the agent runtime would then derive an id from the unverified headers.
                 user_id=trace_user_id(turn, caller),
                 user_message_id=request.message_id,
                 conversation_id=request.conversation_id,
@@ -1540,8 +1395,6 @@ async def _drive(
             ) as session:
                 await _relay_workflow(turn, request, session)
     except Exception as exc:
-        # Best effort: a root span exported before the exception got here
-        # keeps whatever the box held, so a fault can still read as healthy.
         record_turn_error(_error_for(exc).code, str(exc))
         raise
     finally:
@@ -1551,8 +1404,6 @@ async def _drive(
         end_turn_outcome(outcome)
 
 
-#: ``RUN_ERROR.details`` of a turn its deadline ended, so a log line or a client
-#: can tell it from a workflow fault without a new wire code.
 DEADLINE_DETAILS = "turn_deadline_exceeded"
 
 
@@ -1616,13 +1467,9 @@ async def _end_turn(turn: RunningTurn, request: UserMessage, **drive: Any) -> No
         async with turn.deadline.running():
             await _drive(turn, request, **drive)
     except asyncio.CancelledError:
-        # Taken, not re-raised: the cancel was ours (Stop, or a newer question),
-        # and the turn still owes its reader a terminal.
         asyncio.current_task().uncancel()
         await turn.finish_cancelled()
     except TurnFenced:
-        # A write was refused before the cancel arrived, or while it unwound the
-        # graph: the same ending, the fence told the turn first.
         await turn.finish_cancelled()
     except Exception as exc:  # noqa: BLE001 — every failure ends the turn with a RUN_ERROR the client can act on
         logger.warning("Turn %s failed", turn.wire.turn_id, exc_info=True)
@@ -1636,11 +1483,6 @@ async def _ensure_terminal(turn: RunningTurn) -> None:
         return
     answer_failure.report_turn_failed(turn, answer_failure.WORKFLOW_ERROR, "no_terminal")
     await turn.wire.send(RunErrorBody(code="workflow_error", message="The turn ended without a result."))
-
-
-# ---------------------------------------------------------------------------
-# One socket
-# ---------------------------------------------------------------------------
 
 
 def _relayable(message: InteractionResponse | CancelTurn | Steer) -> dict[str, Any]:
@@ -1664,19 +1506,13 @@ class ChatSocket:
         envelope = _handshake_envelope(socket.scope)
         self.envelope_present = envelope is not None
         self.bound = envelope.conversation_id if envelope is not None else None
-        #: The signed organization, for the office's chat screening. Which
-        #: restricted folders a turn may draw on is asked per TURN by the agent
-        #: (``agent.knowledge.restricted_use``), never fixed per socket.
         self.signed_org_id = envelope.organization_id if envelope is not None else None
         self.signed_user_id = envelope.user_id if envelope is not None else None
-        #: The envelope's bytes as received, for a write that acts as the asker (echo, never sign).
         self.signed = (
             SignedEnvelope(header=envelope.envelope_header, signature=envelope.envelope_signature)
             if envelope is not None and envelope.envelope_header and envelope.envelope_signature
             else None
         )
-        #: The office's chat screening, once the BFF has answered for it; kept for
-        #: the socket's life. A fail-closed fallback is not kept (``_screening_rules``).
         self.screening: ChatScreening | None = None
 
     @property
@@ -1711,7 +1547,6 @@ class ChatSocket:
         except WebSocketDisconnect:
             logger.debug("Chat socket closed for conversation %s", self.bound)
         finally:
-            # A dropped socket never cancels its turn: it finishes and is persisted.
             self.registry.clear_socket(self.bound, self.socket)
 
     async def _serve_messages(self) -> None:
@@ -1726,8 +1561,6 @@ class ChatSocket:
     async def _receive(self, raw: object) -> None:
         kind = _client_type(raw)
         if kind is None:
-            # Answered, never dropped: a client that sent something this wire
-            # does not have must hear so, or it waits on silence.
             await self._reject(raw, "unknown", "invalid_message", "Unknown message type.")
             return
         try:
@@ -1777,8 +1610,6 @@ class ChatSocket:
             await self.socket.send_json(to_frame(event))
 
     async def on_user_message(self, message: UserMessage) -> None:
-        # The focus file's name is the client's word too, and the system prompt
-        # quotes it (``prompt.py``): masked like the text it rides with.
         update = {"text": await self._masked(message.text, message)}
         if message.focus_file_name:
             update["focus_file_name"] = await self._masked(message.focus_file_name, message)
@@ -1789,17 +1620,13 @@ class ChatSocket:
             return
         conversation_id = message.conversation_id
         if message.if_idle and await self.registry.busy(conversation_id, message.message_id):
-            # Before the claim, so the sender's retry under the same id is not a duplicate.
             await self._reject(message.model_dump(), "user_message", "busy", BUSY_REFUSAL)
             return
         if not await self.registry.claim_turn(conversation_id, message.message_id):
-            # Running or ran, here or on another replica: the client attaches instead.
             await self._reject(message.model_dump(), "user_message", "duplicate_turn")
             return
-        # Claimed first, so a duplicate never asks the running turn to stop.
         fence = await self._hold(message)
         if fence is None:
-            # An `if_idle` question that lost the race to a turn started since the check.
             await self.registry.release_claim(conversation_id, message.message_id)
             await self._reject(message.model_dump(), "user_message", "busy", BUSY_REFUSAL)
             return
@@ -1876,7 +1703,6 @@ class ChatSocket:
         return masked.text
 
     async def on_interaction_response(self, message: InteractionResponse) -> None:
-        # A chosen option is not free text, and passes as it is.
         if isinstance(message.answer, TextAnswer):
             text = await self._masked(message.answer.text, message)
             if text != message.answer.text:
@@ -1914,7 +1740,6 @@ class ChatSocket:
             message, subject=self.subject, internal=self.internal, author=verified_display_name(self.caller)
         )
         if refusal is not None:
-            # Refused before the outlet moves: a colleague's note must not take the asker's stream.
             await self._reject(message.model_dump(), "steer", refusal)
             return
         self.registry.set_socket(message.conversation_id, self.socket)
@@ -1940,10 +1765,6 @@ class ChatSocket:
         if isinstance(message, Steer):
             payload["author"] = verified_display_name(self.caller)
         if isinstance(message, CancelTurn) and message.shown is not None:
-            # Beside the message, not in it: the owner may be a pod one release
-            # older, whose strict ``CancelTurn`` would refuse the field and drop
-            # the Stop with it. An older owner ignores the key and keeps
-            # everything streamed so far, as it always did.
             payload["shown"] = message.shown.model_dump(mode="json")
         try:
             await self.registry.bus().publish_input(message.conversation_id, input_type, payload)

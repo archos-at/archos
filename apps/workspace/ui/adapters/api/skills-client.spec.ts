@@ -29,8 +29,6 @@ const fetchMock = vi.fn()
 
 beforeEach(() => {
   fetchMock.mockReset()
-  // A FRESH Response per call: a body can only be read once, so a single
-  // shared instance makes the second call in a test throw rather than assert.
   fetchMock.mockImplementation(async () =>
     new Response(JSON.stringify({ skills: [] }), {
       status: 200,
@@ -44,7 +42,6 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-/** The (url, init) of the single request the call under test made. */
 function lastRequest(): { url: string; method: string | undefined } {
   expect(fetchMock).toHaveBeenCalledTimes(1)
   const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit | undefined]

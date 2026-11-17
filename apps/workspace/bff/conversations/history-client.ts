@@ -1,17 +1,6 @@
-/**
- * Reading a thread's whole history through the paged messages route: the
- * newest page first, then the pages before it, up to what the chat window
- * restores. Every browser reader of `GET /api/conversations/[id]/messages`
- * goes through this, so none of them meets a page boundary the others do not.
- *
- * No `server-only`: the browser imports this.
- */
-
 import type { MessageListResponse, MessageView } from './message-view'
 
-/** Messages per request. */
 const HISTORY_PAGE = 200
-/** The most messages of one thread the chat window restores. */
 const HISTORY_MESSAGES_MAX = 1000
 
 export type ThreadHistory = { ok: true; messages: MessageView[] } | { ok: false; response: Response }

@@ -1,10 +1,3 @@
-/**
- * Stop an ask (ADR-0124): `POST` → the ask as `AskView`, `canceled` once its
- * turn stopped. 409 when it had already ended. Behind `agent-ask-cancel` and
- * the A2A door's `CancelTask`. Thin handler; the rules live in
- * `@/lib/agent-asks/service`.
- */
-
 import { apiRoute } from '@/lib/api/handler'
 import { cancelAsk } from '@/lib/agent-asks/service'
 

@@ -177,9 +177,6 @@ _TOOL_DESCRIPTION = (
 )
 
 
-# The Hauptnutzung values the rule catalogue knows — mirroring
-# `BIM_MAIN_USE` in `lib/bim/query.ts`, whose zod enum rejects anything
-# else outright.
 _MAIN_USES = frozenset(
     {
         "residential",
@@ -205,7 +202,6 @@ def _valid_main_use(value: str) -> str:
     presents as merely imprecise. Its sibling `_valid_building_class` is
     sanitised here for exactly this reason; this one was not.
     """
-    # The German word (`wohnen`) is what a profile or a model that has not caught up still says.
     lowered = normalize_profile_token("main_use", value.strip().lower())
     return lowered if lowered in _MAIN_USES else ""
 
@@ -261,9 +257,6 @@ def _element_link(
 def _bcf_link(
     project_id: str | None,
     filename: str | None,
-    # `None` as well as an out-of-range int: `_valid_building_class` is the one
-    # place that decides what an impossible value means, and the annotation
-    # should admit what callers actually pass it.
     building_class: int | None = 0,
     main_use: str = "",
 ) -> str:
@@ -281,8 +274,6 @@ def _bcf_link(
     if not project_id or not filename:
         return ""
     query = f"model={quote(filename, safe='')}"
-    # Through the same gate the catalogue run went through, so the archive can
-    # never carry a fact the verdicts did not use.
     valid_klasse = _valid_building_class(building_class)
     if valid_klasse:
         query = f"{query}&buildingClass={valid_klasse}"
@@ -303,23 +294,13 @@ class IfcQueryInput(BaseModel):
     ifc_type: str = ""
     model_name: str = ""
     compare_with: str = ""
-    # The German names are read for one release (remove after): a conversation
-    # or a cached tool schema from before the rename still sends them.
     building_class: int = Field(default=0, validation_alias=AliasChoices("building_class", "gebaeudeklasse"))
     main_use: str = Field(default="", validation_alias=AliasChoices("main_use", "hauptnutzung"))
     limit: int = 0
 
 
-# ── building the query ───────────────────────────────────────────────────────
-
-#: Operations that need nothing beyond their name.
 _BARE_OPS = frozenset({"overview", "types", "health", "schedule", "profile"})
 
-#: Operations that read the WHOLE model and take no element filter — with what
-#: each returns, for the refusal. A filter on these used to be dropped, so
-#: ``schedule`` with a storey filter returned the whole building's Raumbuch and
-#: the agent presented it as one floor's. Saying no is the only answer that does
-#: not put a wrong number in front of someone.
 _WHOLE_MODEL_OPS = {
     "overview": "a summary of the whole model",
     "types": "the type distribution of the whole model",
@@ -427,8 +408,6 @@ def _aggregate_query(args: _QueryArgs) -> dict[str, Any] | str:
     if metric != "count":
         query["quantity"] = args.quantity
     if args.group_by.lower() == "property":
-        # `property` needs a companion `groupProperty` this tool has no
-        # parameter for, so the endpoint would reject it every time.
         return (
             "Error: group_by='property' is not available through this tool. "
             "Use operation='properties' to see which values a property takes and how many "
@@ -443,8 +422,6 @@ _QUERY_BUILDERS: dict[str, Callable[[_QueryArgs], dict[str, Any] | str]] = {
     "compliance": lambda args: _compliance_query("compliance", args),
     "compliance-diff": lambda args: _compliance_query("compliance-diff", args),
     "takeoff": _takeoff_query,
-    # `baseModelId` is deliberately absent: the endpoint resolves the other
-    # revision from `compare_with`, so no UUID has to survive the turn.
     "compare": lambda args: {"op": "compare", "limit": 20000},
     "properties": _properties_query,
     "element": _element_query,
@@ -495,8 +472,6 @@ def _build_query(
     )
     return _QUERY_BUILDERS[operation](args)
 
-
-# ── rendering ────────────────────────────────────────────────────────────────
 
 _clipped = clipped
 
@@ -609,12 +584,9 @@ def _rule_rows(rule: dict[str, Any], ctx: _RenderContext) -> list[str]:
 
     failed = int(rule.get("failed") or 0)
     undecidable = int(rule.get("undecidable") or 0)
-    # A hint judges nothing at the site: its reason says which edition binds there instead.
     hint = f" — {rule['hint']}" if rule.get("hint") else ""
     head = f"- Rule {rule.get('ruleId')}: {rule.get('titleDe')} — {failed} not met, {undecidable} undecidable{hint}"
     lines = [head] if rule.get("ruleId") and (failed or undecidable) else []
-    # The server list is itself capped at 25 verdicts per rule; `failed` above
-    # is the real count and the clip note says the LIST is not.
     return lines + listed(rule.get("failures") or [], 10, "affected elements", verdict, indent="  ")
 
 
@@ -668,8 +640,6 @@ def _render_properties(result: dict[str, Any], ctx: _RenderContext) -> _Lines:
     return listed(result.get("properties") or [], 60, "properties", row)
 
 
-#: Per-op detail under the summary line. `health` and `aggregate` have none:
-#: their summary is the whole answer.
 _QUERY_RENDERERS: dict[str, Callable[[dict[str, Any], _RenderContext], _Lines]] = {
     "overview": _render_overview,
     "elements": _render_elements,
@@ -683,9 +653,6 @@ _QUERY_RENDERERS: dict[str, Callable[[dict[str, Any], _RenderContext], _Lines]] 
     "properties": _render_properties,
 }
 
-#: Ops whose `truncated` means "these figures cover part of the building", not
-#: "there are more rows to page through". Telling the agent to narrow a Raumbuch
-#: invites it to quote a partial sum as a total.
 _PARTIAL_MODEL_OPS = frozenset({"schedule", "takeoff", "compliance", "compliance-diff", "compare", "profile", "health"})
 
 
@@ -717,8 +684,6 @@ def _render(
     model = result.get("model") or {}
     ctx = _RenderContext(project_id, model.get("filename"), building_class, main_use)
     op = str(result.get("op") or "")
-    # The Herleitung's account of this round: the model file, read by this
-    # operation. Only a RESOLVED result — an unresolved one read no file.
     note_model_read(ctx.filename, op)
     lines: _Lines = [
         shelf_notice(result),
@@ -733,8 +698,6 @@ def _render(
         lines.append(_truncation_note(op))
     return "\n".join(line for line in lines if line)
 
-
-# ── tracing and the tool ─────────────────────────────────────────────────────
 
 _model_handle = model_handle
 

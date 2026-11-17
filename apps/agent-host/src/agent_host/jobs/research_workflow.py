@@ -60,20 +60,13 @@ from . import worker
 
 logger = logging.getLogger(__name__)
 
-#: The task's name, fixed by the migration contract.
 TASK_NAME = "research-run"
-#: The worker pool name on Hatchet, the k8s tier that runs it.
 WORKER_NAME = "agent-worker"
-#: The CEL expression that groups runs for fairness.
 CONCURRENCY_KEY = "input.organization_id"
-#: The fairness group of a job that names no organization.
 PLATFORM_LANE = "__platform__"
-#: How long a run may wait for a slot: the job's own default expiry.
 SCHEDULE_TIMEOUT = timedelta(days=1)
-#: Interactive before bulk, inside one organization's group.
 PRIORITIES = {"interactive": Priority.HIGH, "bulk": Priority.LOW}
 DEFAULT_PRIORITY = "interactive"
-#: How often the worker touches the liveness file the pod's probe reads.
 _LIVENESS_EVERY_SECONDS = 15
 
 
@@ -81,10 +74,8 @@ class ResearchRunInput(BaseModel):
     """What Hatchet stores of a research job: ids, the priority and the ciphertext, nothing in the clear."""
 
     job_id: str
-    #: The fairness group: the organization, or ``PLATFORM_LANE`` when none.
     organization_id: str
     priority: str
-    #: ``payload_crypto.serialize_encrypted`` of the ``run_agent_job`` kwargs.
     payload: str
 
 
@@ -111,39 +102,16 @@ def check_submittable(priority: str | None) -> None:
     payload_crypto.require_kek()
 
 
-# @environment_variable MAX_ACTIVE_JOBS_PER_ORG
-# @category Server
-# @type int
-# @default 3
-# @required false
-# Research jobs one organization may RUN at once, fleet-wide, so one tenant cannot
-# occupy every worker. It is the `research-run` concurrency cap per organization:
-# a job over it waits on Hatchet instead of being refused. 0 or negative disables it.
 def max_active_per_org() -> int:
     """Research jobs an organization may run at once; 0 or less is no cap."""
     return _int_env("MAX_ACTIVE_JOBS_PER_ORG", 3)
 
 
-# @environment_variable RESEARCH_RUN_TIMEOUT_SECONDS
-# @category Agent Jobs
-# @type int
-# @default 7200
-# @required false
-# How long one attempt of a research run may execute before Hatchet cancels it.
-# A backstop well past the deep researcher's own 40-minute wall clock, not a
-# budget: the run stops itself first.
 def execution_timeout() -> timedelta:
     """The execution timeout of one attempt."""
     return timedelta(seconds=_int_env("RESEARCH_RUN_TIMEOUT_SECONDS", 7200, floor=60))
 
 
-# @environment_variable RESEARCH_WORKER_MAX_ATTEMPTS
-# @category Server
-# @type int
-# @default 3
-# @required false
-# Attempts of a research run before it is given up and marked FAILURE. Only a
-# lost worker or a timeout spends one: a run that fails on its own is not retried.
 def retries() -> int:
     """Attempts after the first."""
     return _int_env("RESEARCH_WORKER_MAX_ATTEMPTS", 3, floor=1) - 1
@@ -190,11 +158,8 @@ async def run_task(run: ResearchRunInput, attempt: int | None = None) -> dict[st
         failure = _failure_of(exc)
         logger.error("Job %s failed on Hatchet: %s", run.job_id, failure.text, exc_info=exc)
         if not failure.transient:
-            # The retry keeps the id for its cancel; a run that ends here does not need it.
             await _forget(db_url, run.job_id)
         raise orchestrator_client.task_error(failure, retry=failure.transient) from None
-    # A cancel ends the run too: only a lost worker leaves the id for its retry,
-    # and a duplicate copy leaves it to the copy that runs.
     if ran:
         await _forget(db_url, run.job_id)
     return {"job_id": run.job_id, "ran": "yes" if ran else "duplicate"}
@@ -266,7 +231,6 @@ async def start(
     try:
         await asyncio.to_thread(orchestrator_runs.record, db_url, job_id, run_id)
     except Exception:
-        # The run exists; the cancel route still stops it through job_info.
         logger.warning("Job %s: Hatchet run %s started but its id was not stored", job_id, run_id, exc_info=True)
     logger.info("Job %s started as Hatchet run %s", job_id, run_id)
     return run_id
@@ -324,7 +288,6 @@ async def _liveness() -> AsyncIterator[None]:
         yield None
     finally:
         task.cancel()
-        # Stopped between rows, never mid-transaction: a pass ends after the row it holds.
         stop.set()
         await asyncio.gather(cutover, return_exceptions=True)
 
@@ -342,7 +305,6 @@ def run_worker() -> None:
 
     hatchet = orchestrator_client.client()
     otlp_metrics.install_from_env()
-    # The SDK's step-run spans, into Langfuse beside the run's own (never into Hatchet's database).
     orchestrator_tracing.instrument(getattr(hatchet, "config", None))
     slots = _int_env("RESEARCH_WORKERS", 1, floor=1)
     hatchet_worker = hatchet.worker(

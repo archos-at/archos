@@ -27,7 +27,6 @@ class EstateFile:
     row: FileRow
     mount: Mount
     path: str
-    #: A restricted folder's document; resolvable only once its collection may be named.
     restricted: bool = False
 
     @property
@@ -56,7 +55,6 @@ class Resolution:
     """What a path resolved to: one file, or a miss with the names to suggest."""
 
     file: EstateFile | None
-    #: A line the read says ahead of the text (the file has moved to another folder).
     note: str = ""
     suggestions: list[str] = field(default_factory=list)
 
@@ -67,7 +65,6 @@ class ToolOutput:
 
     text: str
     hits: tuple[Any, ...] = ()
-    #: ``ok`` | ``empty`` | ``error``: the call's Herleitung outcome and whether the result is an error.
     status: str = "ok"
 
 

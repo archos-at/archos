@@ -36,27 +36,15 @@ logger = logging.getLogger(__name__)
 
 MCP_PATH = "/api/mcp"
 
-#: The version this client speaks. The server also serves 2026-07-28; the older
-#: one is named because it is the one a client that never ran ``initialize`` is
-#: certain to be answered in.
 PROTOCOL_VERSION = "2025-11-25"
 
-#: ``search`` exposes the four meta-tools; the full catalogue would cost every
-#: turn a tool list of hundreds (``docs/architecture/agent-surface.md``). The
-#: server still accepts ``discovery``, the mode's name until October 2026.
 MODE_HEADER = "x-piloti-mcp-mode"
 SEARCH_MODE = "search"
 
-#: The answer the turn is writing (``turn_answer_message_id``), as the other internal tools send it in
-#: their bodies (``answerMessageId``): the BFF marks it in ``message_restricted_use`` when a read runs in
-#: a conversation that drew on a restricted folder (ADR-0093). A header, because the MCP body is JSON-RPC.
 ANSWER_MESSAGE_HEADER = "X-Answer-Message-Id"
 
-#: A routed operation runs a BFF route in-process, some of them a search.
 REQUEST_TIMEOUT_SECONDS = 30
 
-#: How a tool-level error (``isError``) starts, so the model reads it as one. English, like everything
-#: the model reads from the workspace (working-style.md, "Industry standard first"); it words it for the reader.
 ERROR_PREFIX = "Error: "
 
 
@@ -142,8 +130,6 @@ def _result_text(message: dict[str, Any]) -> str:
     text = "\n".join(part for part in parts if part).strip()
     if not text and result.get("structuredContent") is not None:
         text = json.dumps(result["structuredContent"], ensure_ascii=False, separators=(",", ":"))
-    # No cap of its own: the server caps every result (``MAX_RESULT_CHARS`` in ``discovery.ts``) and says how to
-    # narrow it; a second, smaller cut here would end mid-JSON and contradict the server's note.
     return f"{ERROR_PREFIX}{text}" if result.get("isError") else text
 
 

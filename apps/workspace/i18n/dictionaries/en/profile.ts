@@ -1,4 +1,3 @@
-/** The profile / account settings page. */
 export const profile = {
   title: 'Profile',
   subtitle: 'Manage your account, appearance, and language preferences.',

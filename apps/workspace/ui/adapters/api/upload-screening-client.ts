@@ -1,20 +1,3 @@
-/**
- * Upload screening client (ADR-0086): the organization's policy and the
- * quarantine queue, through their first-party BFF routes.
- *
- *   - policy  → `GET|PUT /api/organization/upload-screening`
- *   - queue   → `GET     /api/quarantine`
- *   - access  → `GET     /api/documents/[id]/quarantine`
- *   - release → `POST    /api/documents/[id]/quarantine/release`
- *   - ask     → `POST    /api/documents/[id]/quarantine/request-release`
- *   - decide  → `POST    /api/quarantine/decisions` (allow or delete one file or a selection)
- *
- * The queue's server type lives in `lib/upload-screening/review.ts`, which is
- * server-only, so its wire shape is declared here. The verdict is NOT
- * re-declared: it is read with `verdictSchema`, the one schema the server used
- * to build it, so the two cannot drift.
- */
-
 import { z } from 'zod'
 import { uploadScreeningPolicySchema, type UploadScreeningPolicy } from '@/lib/upload-screening/policy'
 import {
@@ -36,15 +19,12 @@ const SavedUploadScreeningSchema = z.object({
   suggested: z.boolean(),
 })
 
-/** A verdict the server could not explain, or one this client cannot read, is `null`, never a guess. */
 const QuarantineFieldSchema = verdictSchema.nullable().catch(null)
 
 const QuarantineQueueItemSchema = z.object({
   id: z.string(),
-  // Absent from a BFF older than the field: every row it listed was a quarantine.
   held: z.enum(['quarantined', 'unscreened']).default('quarantined'),
   filename: z.string(),
-  // `archiv` is what a server not yet rolled still sends. Remove after one release.
   scope: z.preprocess((value) => (value === 'archiv' ? 'office_shelf' : value), z.enum(['project', 'office_shelf', 'session'])),
   projectId: z.string().nullable(),
   conversationId: z.string().nullable(),
@@ -67,14 +47,12 @@ async function requestError(response: Response, fallback: string): Promise<ApiRe
   )
 }
 
-/** The policy in force, whether it is still Piloti's suggestion, and that suggestion. */
 export async function getUploadScreening(signal?: AbortSignal): Promise<UploadScreeningState> {
   const response = await fetch('/api/organization/upload-screening', { signal })
   if (!response.ok) throw await requestError(response, 'Failed to load the screening policy')
   return UploadScreeningResponseSchema.parse(await response.json())
 }
 
-/** Save the office's own policy. A 403 arrives as `ApiRequestError` with that status. */
 export async function saveUploadScreening(
   policy: UploadScreeningPolicy
 ): Promise<z.infer<typeof SavedUploadScreeningSchema>> {
@@ -87,7 +65,6 @@ export async function saveUploadScreening(
   return SavedUploadScreeningSchema.parse(await response.json())
 }
 
-/** The quarantined documents this session may review, newest first. */
 export async function listQuarantineQueue(signal?: AbortSignal): Promise<QuarantineQueueItem[]> {
   const response = await fetch('/api/quarantine', { signal })
   if (!response.ok) throw await requestError(response, 'Failed to load the quarantine queue')
@@ -96,11 +73,6 @@ export async function listQuarantineQueue(signal?: AbortSignal): Promise<Quarant
 
 const ReleaseSchema = z.object({ status: z.string() })
 
-/**
- * Release one document: it is read again, unscreened, like any other upload.
- * Resolves to the status it was dispatched with (`uploaded`, `processing`, …),
- * so a surface showing the document can show it being read.
- */
 export async function releaseQuarantinedDocument(documentId: string): Promise<{ status: string }> {
   const response = await fetch(`/api/documents/${encodeURIComponent(documentId)}/quarantine/release`, {
     method: 'POST',
@@ -112,7 +84,6 @@ export async function releaseQuarantinedDocument(documentId: string): Promise<{ 
 const QuarantineReviewAccessSchema = z.object({ canReview: z.boolean(), canAskForReview: z.boolean() })
 export type QuarantineReviewAccess = z.infer<typeof QuarantineReviewAccessSchema>
 
-/** What this session may do about one held document: decide about it, or ask for a decision. */
 export async function getQuarantineReviewAccess(
   documentId: string,
   signal?: AbortSignal
@@ -124,10 +95,6 @@ export async function getQuarantineReviewAccess(
 
 const ReleaseRequestSchema = z.object({ id: z.string(), notified: z.number().int().nonnegative() })
 
-/**
- * Ask the people who may release one of your quarantined files to look at it.
- * Resolves to how many were told; zero means nobody but the uploader may.
- */
 export async function requestQuarantineRelease(documentId: string): Promise<{ notified: number }> {
   const response = await fetch(`/api/documents/${encodeURIComponent(documentId)}/quarantine/request-release`, {
     method: 'POST',
@@ -136,11 +103,6 @@ export async function requestQuarantineRelease(documentId: string): Promise<{ no
   return ReleaseRequestSchema.parse(await response.json())
 }
 
-/**
- * Allow or delete several held documents in one request (at most
- * `QUARANTINE_DECISION_LIMIT`). Each answers with its own outcome; the promise
- * rejects only when the request itself fails.
- */
 export async function decideQuarantinedDocuments(
   decision: QuarantineDecisions['decision'],
   documentIds: readonly string[]

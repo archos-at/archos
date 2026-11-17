@@ -18,19 +18,8 @@ from agent.common.client_tools import client_tool_declared
 from agent.common.tool_calls import tool_basename
 from agent.project_context import get_project_id_from_context
 
-#: Tools that read the PROJECT's building model. Outside a project they can
-#: only answer "no project" (``tools/bim/failures.NO_PROJECT_TEXT``), and
-#: their two schemas are ~8 200 of the ~17 000 tool tokens every call of the
-#: turn re-sends (measured 2026-09-23 on the live request; deferral did not
-#: reduce what was billed).
 _PROJECT_MODEL_TOOLS = frozenset({"ifc_query", "ifc_measure"})
 
-#: The kind of model file each measuring tool reads. In a project known to hold
-#: none of that kind the tool can only answer "no model", and its schema is
-#: re-sent on every call of the turn: ``ifc_measure`` and ``ifc_query`` ~8.1k
-#: tokens, ``dxf_measure`` ~1.1k (o200k, 2026-11-10). A turn's tools are
-#: request-only and whether a project has a model is a stable fact of it, so
-#: an org still lands on a handful of cache shards (token report, change 5).
 _MODEL_KIND_OF_TOOL = {"ifc_query": "ifc", "ifc_measure": "ifc", "dxf_measure": "dxf"}
 
 _project_models: ContextVar[frozenset[str] | None] = ContextVar("turn_project_models", default=None)
@@ -55,7 +44,6 @@ def tools_in_scope(tools: list[Any]) -> list[Any]:
     models = _project_models.get()
 
     def runs_here(tool: Any) -> bool:
-        # The BASE name: a grouped or MCP tool arrives as ``bim__ifc_query``.
         name = tool_basename(getattr(tool, "name", "") or "")
         if name in KNOWN_CLIENT_TOOLS:
             return client_tool_declared(name)

@@ -1,33 +1,10 @@
-/**
- * The advice policy and the terminology of a site (design §3.7, §5.5 and
- * §9b(b), ADR-0174). Pure: the caller hands in the rulesets in force and the
- * site's territory chain, leaf first, as for {@link selectRecord}.
- *
- * Unlike a decision table, neither is decided by one node:
- * - **Advice policy: a union by depth, the strictest code wins per topic.**
- *   `de` may hedge deadlines and `de-by` decline contract drafting; a Bavarian
- *   answer does both. An office's own policy joins the same union, so it can
- *   only tighten, never loosen (design §5.5). A topic no policy states is
- *   `hedge`: nothing is asserted that no policy allows (fail closed), and an
- *   answer is never silenced by a gap either.
- * - **Terminology: the nearest node's gloss wins per term and language.**
- *
- * What reaches a prompt is the rendered hedges (fixed templates keyed by code,
- * {@link HEDGE_TEMPLATES}) and the capped term pairs, never a record's prose.
- */
-
 import type { AdvicePolicy, Terminology } from '@/lib/base-knowledge/wire/advice'
 import { ADVICE_MODES, ADVICE_TOPICS, type AdviceMode, type AdviceTopic } from '@/lib/base-knowledge/wire/vocab'
 import { RulesetEvaluationError } from './expression'
 import type { StoredRuleset } from './select'
 
-/** What a topic falls back to when no policy on the chain states it. */
 export const UNSTATED_MODE: AdviceMode = 'hedge'
 
-/**
- * The one text each code renders to, in English: what the agent reads, never
- * what the record says. A new topic or mode is a code change reviewed here.
- */
 export const HEDGE_TEMPLATES: Readonly<Record<AdviceTopic, Readonly<Record<AdviceMode, string>>>> = {
   provision_application: {
     assert: 'You may state a provision and apply it to the facts the person stated.',
@@ -66,11 +43,8 @@ const STRICTNESS: Readonly<Record<AdviceMode, number>> = Object.fromEntries(
 ) as Record<AdviceMode, number>
 
 export interface ComposedAdvicePolicy {
-  /** Every topic, each with its code: stated by the strictest policy on the chain, else {@link UNSTATED_MODE}. */
   topics: Record<AdviceTopic, AdviceMode>
-  /** The topics no policy on the chain states. */
   unstated: AdviceTopic[]
-  /** The rulesets that contributed, in chain order. */
   rulesetIds: string[]
 }
 
@@ -79,11 +53,9 @@ function validOn(ruleset: StoredRuleset, on: string): boolean {
 }
 
 function requireIsoDate(on: string) {
-  // Validity compares ISO dates as text, which is only right for an ISO date.
   if (!/^\d{4}-\d{2}-\d{2}$/.test(on)) throw new RulesetEvaluationError(`on is an ISO date, found ${on}`)
 }
 
-/** The rulesets of `kind` in force on `on` at each node of the chain, leaf first. */
 function onChain<K extends 'advice_policy' | 'terminology'>(
   rulesets: readonly StoredRuleset[],
   chain: readonly string[],
@@ -102,7 +74,6 @@ function onChain<K extends 'advice_policy' | 'terminology'>(
   )
 }
 
-/** The union of every advice policy on the chain, strictest per topic. */
 export function composeAdvicePolicy(
   rulesets: readonly StoredRuleset[],
   query: { chain: readonly string[]; on: string },
@@ -125,14 +96,12 @@ export function composeAdvicePolicy(
   return { topics, unstated: ADVICE_TOPICS.filter((topic) => !stated.has(topic)), rulesetIds }
 }
 
-/** A hedge code as the prompt carries it: `<topic>:<mode>`, the key the `advice_policy_held` score compares. */
 export type HedgeCode = `${AdviceTopic}:${AdviceMode}`
 
 export function hedgeCodes(policy: ComposedAdvicePolicy): HedgeCode[] {
   return ADVICE_TOPICS.map((topic) => `${topic}:${policy.topics[topic]}` as HedgeCode)
 }
 
-/** The lines a prompt carries for the policy: one fixed template per topic. */
 export function renderHedges(policy: ComposedAdvicePolicy): string[] {
   return ADVICE_TOPICS.map((topic) => HEDGE_TEMPLATES[topic][policy.topics[topic]])
 }
@@ -144,12 +113,6 @@ export interface TermPair {
   rulesetId: string
 }
 
-/**
- * The term pairs for `languages` on the chain: per language and term, the
- * nearest node's gloss. A language matches its own tag and its region's
- * (`de` takes `de` and `de-CH` pairs when `de-CH` is asked; `de-CH` takes `de`
- * pairs too), and nothing else.
- */
 export function composeTerminology(
   rulesets: readonly StoredRuleset[],
   query: { chain: readonly string[]; on: string; languages: readonly string[] },
@@ -163,7 +126,6 @@ export function composeTerminology(
     for (const entry of (body.payload as Terminology).entries) {
       if (!wanted(entry.language)) continue
       const key = `${entry.language}|${entry.term.toLocaleLowerCase('und')}`
-      // Leaf first: the first pair seen for a term is the nearest node's.
       if (!chosen.has(key)) chosen.set(key, { ...entry, rulesetId: ruleset.id })
     }
   }

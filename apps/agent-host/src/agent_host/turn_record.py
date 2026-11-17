@@ -26,20 +26,14 @@ from agent.observability.turn_trace import TRACE_ID_METADATA_KEY
 from agent.observability.turn_trace import trace_id_for_message
 from agent.observability.turn_trace import trace_id_hex
 
-#: What the row does not keep: id and text are columns, cards unkeyed, a queue notice or run hand-off no answer.
 _NOT_METADATA = {"message_id", "text", "cards", "job_admission_rejected", "retry_after_seconds", "run"}
 
-#: The frames the fold makes Herleitung rows of (``turn-fold.ts``: ``foldStep``, ``foldSubagent``, ``foldSteer``).
 STEP_FRAME_TYPES = frozenset(
     {"STEP_STARTED", "STEP_FINISHED", "SUBAGENT_STARTED", "SUBAGENT_FINISHED", "SUBAGENT_ERROR"}
 )
 STEP_CUSTOM_NAMES = frozenset({"steer_received", "steer_applied"})
 
-#: The rows the stored Herleitung's sanitizer reads at all (``MAX_THINKING_STEPS_READ`` in
-#: ``message-provenance.ts``, which ``turn-steps.spec.ts`` holds this to); a row past it is never stored.
 MAX_STEP_ROWS = 2400
-#: The most step frames one turn hands over: three per row (:class:`_Row`). The route's
-#: ``MAX_TURN_STEP_FRAMES`` is held to it by ``turn-steps.spec.ts``.
 MAX_STEP_FRAMES = 7200
 
 
@@ -59,7 +53,6 @@ def turn_row_metadata(finished: RunFinishedBody) -> dict[str, Any] | None:
         metadata["cards"] = [keyed.card for keyed in result.cards]
     if finished.outcome == "cancelled":
         metadata["stopped"] = True
-    # The trace `_drive` pinned from the same id, so the BFF can score and link it (`observability.turn_trace`).
     trace_id = trace_id_hex(trace_id_for_message(result.message_id))
     if trace_id:
         metadata[TRACE_ID_METADATA_KEY] = trace_id

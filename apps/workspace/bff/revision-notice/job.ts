@@ -1,34 +1,3 @@
-/**
- * Run one notice of a new Fassung (ADR-0130): the `revision_notice` job of the
- * bff-jobs pool, as the person whose upload or link made the Fassung.
- *
- * Everything is asked again here, because the job waited (the debounce) and the
- * person's rights are those of today:
- *
- * 1. The person, resolved from WorkOS now (`resolvePinnedRequesterSession`);
- *    a person who left ends the notice.
- * 2. The organization's switch, `piloti-notices`, from their session's flags.
- * 3. Their budget: a spent scope ends the notice before a model is asked.
- * 4. The pages: which pages of the newer Fassung changed, read from the index
- *    with no model call (`changedRevisionPages`), at most
- *    `REVISION_NOTICE_MAX_PAGES` of them.
- * 5. One vision call per page through the comparison the compare view uses
- *    (`compareRevisionPage`, purpose `notice`): read access to both, neither
- *    held, one collection, no restricted folder. A page that cannot be
- *    rendered is skipped.
- * 6. The boxes become proposed marks on the newer Fassung through the one path
- *    Piloti's canvas tool uses (`runAgentAnnotationRequest`, op `propose`): the
- *    person must be able to write the document, the change ledger records each
- *    mark against the notice's message, so a decision on it is scored
- *    `piloti-decision` on the trace that produced it.
- * 7. One message in the person's thread about the document, and one inbox row
- *    for them that opens the Prüfansicht at the first mark.
- *
- * Nothing found is silence: no message, no row, only the score (0). Nothing
- * here edits, links, classifies or sets a mark open: everything it leaves waits
- * for a person.
- */
-
 import 'server-only'
 import { ApiError } from '@/lib/api/errors'
 import { resolvePinnedRequesterSession } from '@/lib/auth/pinned-session'
@@ -56,7 +25,6 @@ import {
 } from './notice'
 import { leaveNotice, noticeThread } from './leave'
 
-/** How a notice ended, for the log and the tests. */
 export type NoticeOutcome =
   | { status: 'skipped'; reason: string }
   | { status: 'silent'; compared: number[] }
@@ -67,11 +35,9 @@ const skipped = (reason: string): NoticeOutcome => {
   return { status: 'skipped', reason }
 }
 
-/** A refusal a retry would meet again (no access, gone, restricted, not readable): the notice ends. */
 const isFinal = (error: unknown): boolean =>
   error instanceof ApiError && error.status >= 400 && error.status < 500
 
-/** One page's comparison, or null for a page that cannot be compared (past the end, not rendered). */
 async function comparePage(
   session: AuthorizedSession,
   payload: RevisionNoticePayload,
@@ -86,7 +52,6 @@ async function comparePage(
   }
 }
 
-/** Leave the proposals, the thread message and the inbox row. Returns how many marks were proposed. */
 async function leave(input: {
   session: AuthorizedSession
   payload: RevisionNoticePayload
@@ -101,15 +66,12 @@ async function leave(input: {
   const olderName = documentDisplayName(older)
   const found = proposalsFrom(input.comparisons, olderName)
   if (found.length === 0) return 0
-  // A retry after the marks were written proposes nothing again, and still writes the message.
   const existing = await listDocumentAnnotations(session.organizationId, newer.id)
   const fresh = proposalsFrom(input.comparisons, olderName, existing)
-  // ...and still counts the marks it wrote then, for the inbox row and the score.
   const earlier = alreadyProposed(found, existing).flatMap((mark) => (mark.id ? [{ id: mark.id }] : []))
 
   const conversationId = await noticeThread(session, newer)
   const messageId = revisionNoticeMessageId(payload.noticeId)
-  // The marks first: a write the person may no longer make must not leave a message about marks that are not there.
   const result =
     fresh.length > 0
       ? await runAgentAnnotationRequest(
@@ -135,7 +97,6 @@ async function leave(input: {
       proposals: found,
     }),
     metadata: {
-      // The decision score on each mark finds its trace here (`lib/langfuse/decision-score.ts`).
       ...(input.traceId ? { trace_id: input.traceId } : {}),
       revisionNotice: { noticeId: payload.noticeId, olderDocumentId: older.id, pages: input.compared },
     },
@@ -147,10 +108,6 @@ async function leave(input: {
   return marks.length
 }
 
-/**
- * The notice itself. Throws only for what a retry may fix (the backend or the
- * database did not answer); every refusal ends it with a reason.
- */
 export async function noticeRevision(organizationId: string, payload: RevisionNoticePayload): Promise<NoticeOutcome> {
   const session = await resolvePinnedRequesterSession({ ...payload.actor, organizationId })
   if (!session) return skipped('the person is no longer a member')
@@ -190,7 +147,6 @@ export async function noticeRevision(organizationId: string, payload: RevisionNo
   }
 }
 
-/** The job's step (`lib/jobs-queue/handlers.ts`). On its last attempt a failure is logged, not thrown again. */
 export async function runRevisionNotice(
   organizationId: string,
   payload: RevisionNoticePayload,

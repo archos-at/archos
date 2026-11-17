@@ -48,7 +48,6 @@ from .job_reaper import reap_stale_jobs_once
 logger = logging.getLogger(__name__)
 
 
-#: The catalog routes, answered without a job store: (method, path, handler in `job_handlers`, metadata).
 _CATALOG_ROUTES: tuple[tuple[str, str, str, dict[str, Any]], ...] = (
     (
         "GET",
@@ -73,7 +72,6 @@ _CATALOG_ROUTES: tuple[tuple[str, str, str, dict[str, Any]], ...] = (
     ),
 )
 
-#: The job routes, registered in this order on a `JobRouteHandlers` bound to the job store.
 _JOB_ROUTES: tuple[tuple[str, str, str, dict[str, Any]], ...] = (
     (
         "POST",
@@ -273,8 +271,6 @@ async def register_job_routes(app: FastAPI, builder: WorkflowBuilder, worker: Fa
     """
     from .builder_state import set_active_builder
 
-    # Publish the builder so the internal skills submit route (registered
-    # without one) can reuse validate_data_sources_for_agent.
     set_active_builder(builder)
 
     from nat.front_ends.fastapi.async_jobs.job_store import JobStore
@@ -294,13 +290,7 @@ async def register_job_routes(app: FastAPI, builder: WorkflowBuilder, worker: Fa
     logger.info("Registered /v1/data_sources and /v1/jobs/async/agents routes")
 
     db_url = getattr(worker, "_db_url", None) or os.environ.get("NAT_JOB_STORE_DB_URL", "sqlite:///./data/jobs.db")
-    # The job store the routes read and write. Research runs on Hatchet (ADR-0150),
-    # so there is no Dask scheduler: JobStore only stores the address it is given,
-    # and every call here goes to the database.
     job_store = JobStore(scheduler_address="", db_url=db_url)
-    # submit_agent_job resolves the database from the environment only; publish the
-    # worker-provided value so an agent-runtime-config-only deployment (no env vars) doesn't
-    # register routes whose every submission then fails.
     os.environ.setdefault("NAT_JOB_STORE_DB_URL", db_url)
     config_path = getattr(worker, "_config_file_path", None) or os.environ.get("NAT_CONFIG_FILE", "")
     if not config_path:
@@ -316,13 +306,8 @@ async def register_job_routes(app: FastAPI, builder: WorkflowBuilder, worker: Fa
     _add_routes(app, handlers, _JOB_ROUTES)
     logger.info("Registered async job routes at /v1/jobs/async")
 
-    # Ensure job_events table exists before reaper runs (reaper queries it via raw SQL;
-    # table is otherwise created lazily on first EventStore write).
     EventStore._ensure_table_exists(db_url)
 
-    # Housekeeping runs only through these routes, one cycle per call, on a
-    # schedule outside the process (the housekeeping CronJobs; Compose's
-    # housekeeping service). ADR-0082 step A1.
     _add_housekeeping_routes(app, job_store, db_url, default_expiry_seconds)
 
 

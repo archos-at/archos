@@ -27,28 +27,21 @@ from dataclasses import dataclass
 from typing import Literal
 
 _SEP = r"[ _.\-]"
-# ``re.ASCII`` on the case-insensitive patterns: JS ``/i`` without ``u`` folds only ASCII
-# letters, while Python would also match the four non-ASCII look-alikes of ``[a-z]``.
 _FLAGS = re.IGNORECASE | re.ASCII
 
-# ``Index C``, ``idx-B``, ``index_a``, ``Rev. 12``, ``Rev02``, ``v3``, ``Version 2``.
 _KEYWORD_INDEX = re.compile(
     rf"(^|{_SEP})(?:index|idx|ind|rev|revision|ver|version|v)\.?{_SEP}?([a-z]|[0-9]{{1,3}})(?=\Z|{_SEP})",
     _FLAGS,
 )
-# A bare capital letter right after a leading sheet number: ``A-101_C_Grundriss``. Case-sensitive.
 _SHEET_NUMBER_LETTER = re.compile(r"^([A-Za-z]{1,3}[-_ ]?[0-9]{2,4})[ _.-]([A-Z])(?=[ _.-]\S)")
-# ``2026-08-14``, ``2026_08_14``, ``20260814``, optionally after ``Stand``.
 _ISO_DATE = re.compile(
     rf"(^|{_SEP})(?:stand{_SEP}*)?(20[0-9]{{2}})[-_.]?(0[1-9]|1[0-2])[-_.]?(0[1-9]|[12][0-9]|3[01])(?=\Z|{_SEP})",
     _FLAGS,
 )
-# ``14.08.2026``, optionally after ``Stand``.
 _DOTTED_DATE = re.compile(
     rf"(^|{_SEP})(?:stand{_SEP}*)?(0[1-9]|[12][0-9]|3[01])\.(0[1-9]|1[0-2])\.(20[0-9]{{2}})(?=\Z|{_SEP})",
     _FLAGS,
 )
-# ``260814_...`` or ``..._260814``: six digits only at either end, where offices put a date.
 _SHORT_DATE_START = re.compile(r"^([0-9]{2})(0[1-9]|1[0-2])(0[1-9]|[12][0-9]|3[01])(?=[ _.-])")
 _SHORT_DATE_END = re.compile(rf"{_SEP}([0-9]{{2}})(0[1-9]|1[0-2])(0[1-9]|[12][0-9]|3[01])\Z")
 _EXTENSION = re.compile(r"^(.*)\.([a-z0-9]{1,5})\Z", _FLAGS)
@@ -62,18 +55,14 @@ _WHITESPACE = re.compile(r"\s+")
 @dataclass(frozen=True)
 class RevisionIndex:
     kind: Literal["letter", "number"]
-    # ``C``, ``12``: as it should be shown (letters upper-cased, numbers without leading zeros).
     value: str
-    # Comparable within one kind: A=1 ... Z=26, numbers as themselves.
     rank: int
 
 
 @dataclass(frozen=True)
 class RevisionName:
-    # What the Fassungen of one document share: the name without its index, its date and its extension.
     key: str
     index: RevisionIndex | None
-    # ISO ``YYYY-MM-DD``.
     date: str | None
 
 
@@ -85,11 +74,8 @@ class RevisionSeriesMember[T]:
 
 @dataclass(frozen=True)
 class RevisionSeries[T]:
-    # The series key plus the format, so a PDF and a DWG of one Fassung are not versions of each other.
     key: str
-    # The revision that looks current: a suggestion, never a decision.
     current: RevisionSeriesMember[T]
-    # The others, newest first.
     older: list[RevisionSeriesMember[T]]
 
 
@@ -235,7 +221,6 @@ def find_revision_series[T](
             continue
         ordered = _newest_first(members, created_at)
         series.append(RevisionSeries(key=key, current=ordered[0], older=ordered[1:]))
-    # Code-point order, as the TS twin sorts.
     return sorted(series, key=lambda entry: entry.key)
 
 

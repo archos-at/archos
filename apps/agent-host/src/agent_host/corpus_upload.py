@@ -21,12 +21,8 @@ from fastapi import HTTPException
 from fastapi import UploadFile
 from fastapi import status
 
-# Upper bound for a single base-corpus PDF (the largest shipped OIB PDF is ~15 MB).
-# Also the cap applied per member AND to the total extracted payload of a ZIP.
 MAX_OIB_UPLOAD_BYTES = 100 * 1024 * 1024
 
-# What a ZIP's bytes start with: a local file header, an empty archive's end record, a spanned archive's marker.
-# The BFF decides by the same bytes (`ZIP_MAGIC` in `apps/workspace/bff/base-knowledge/platform/upload-hashes.ts`).
 ZIP_MAGIC = (b"PK\x03\x04", b"PK\x05\x06", b"PK\x07\x08")
 
 
@@ -43,8 +39,6 @@ def normalised_name(name: str) -> str:
     return unicodedata.normalize("NFC", name).strip()
 
 
-# The name the product gives an attached text: its manifestation's key and twelve hex digits of its sha256
-# (`corpus_text_name` in `routes/public_source_capture.py`, `textFileName` in the BFF).
 _TEXT_NAME = re.compile(r"[a-z0-9][a-z0-9._-]{0,99}-([0-9a-f]{12})\.pdf")
 
 
@@ -81,9 +75,6 @@ def is_safe_zip_member(member_name: str, base_dir: Path) -> bool:
     """Reject zip-slip: absolute paths and members that escape ``base_dir``."""
     if not member_name or member_name.endswith("/"):
         return False  # directory entry
-    # A NUL (zipfile itself cuts a name there, another reader does not), a backslash (a separator to
-    # some readers, a character to others) or a `..` step: two readers could keep such a member under
-    # two names, so it is kept under none.
     if "\0" in member_name or "\\" in member_name or ".." in member_name.split("/"):
         return False
     if Path(member_name).is_absolute() or member_name.startswith("/"):
@@ -128,12 +119,10 @@ def extract_zip_pdfs(content: bytes) -> tuple[list[tuple[str, bytes]], list[tupl
     rejected: list[tuple[str, str]] = []
     seen_names: set[str] = set()
     total_bytes = 0
-    # A stable, non-existent anchor for the zip-slip resolved-path check.
     base_dir = Path(os.getcwd()) / "__oib_zip_extract__"
 
     archive = _open_archive(content)
     for member in archive.infolist():
-        # The name as the archive spells it: `filename` is already cut at a NUL.
         member_name = member.orig_filename
         if member.is_dir() or member_name.endswith("/"):
             continue

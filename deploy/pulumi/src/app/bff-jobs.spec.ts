@@ -8,23 +8,8 @@ import { baseStackConfig } from "../test-support/stack-config";
 import { WORKFLOW } from "./bff-jobs";
 import { hatchetBacklogQuery } from "./keda-scaling";
 
-// src/app -> src -> deploy/pulumi -> deploy -> repo root
 const repoRoot = join(__dirname, "..", "..", "..", "..");
 const read = (...parts: string[]) => readFileSync(join(repoRoot, ...parts), "utf8");
-
-/**
- * The BFF's background pool (ADR-0079).
- *
- * It crosses three boundaries this program cannot see into, and each one plans
- * and applies clean when it drifts:
- *   - the runner reads its env (`apps/workspace/workers/jobs/index.js`), and a
- *     renamed knob leaves the pool on its defaults;
- *   - KEDA counts the queue's table, and a table or status that moves leaves
- *     the pool at its floor with work waiting (or up forever for dead rows);
- *   - nothing may route to the pod: its internal route runs a job's work as
- *     whoever the queue row names, and its only legitimate caller is the loop
- *     on its own loopback.
- */
 
 const RESOURCES: Array<{ type: string; name: string; inputs: Record<string, any> }> = [];
 
@@ -76,8 +61,6 @@ describe("the bff-jobs pool", () => {
   beforeAll(async () => {
     pulumi.runtime.setAllConfig({
       ...baseStackConfig(),
-      // The pool logs under its own name only where the collector runs, and the
-      // collector counts as deployed once something consumes it: PostHog logs here.
       "grid-oib:posthogHost": "https://eu.i.posthog.com",
       "grid-oib:posthogProjectToken": "phc_test_token", // pragma: allowlist secret
       "grid-oib:posthogLogsEnabled": "true",
@@ -118,10 +101,7 @@ describe("the bff-jobs pool", () => {
 
     expect(pod.containers).toHaveLength(1);
     expect(pod.containers[0].command).toEqual(["node", "workers/jobs/index.js"]);
-    // A path that moves leaves a pod that crash-loops with a green plan.
     expect(existsSync(join(repoRoot, "apps", "workspace", "workers", "jobs", "index.js"))).toBe(true);
-    // The image copies `workers/` whole; a second COPY line per file is how
-    // `purger/` once shipped without a module it required.
     expect(read("apps", "workspace", "deploy", "Dockerfile")).toMatch(/COPY .*\/app\/workers \.\/workers/);
     expect(pod.securityContext).toMatchObject({ runAsNonRoot: true });
     expect(RESOURCES.filter((r) => r.type === "kubernetes:core/v1:Service" && r.name === "bff-jobs")).toEqual([]);
@@ -129,15 +109,12 @@ describe("the bff-jobs pool", () => {
 
   it("is never routed to: no HTTPRoute names it", () => {
     expect(read("deploy", "pulumi", "src", "app", "httproutes.ts")).not.toMatch(/bff-jobs/);
-    // And this module creates no Service: the runner reaches the BFF on loopback.
     expect(read("deploy", "pulumi", "src", "app", "bff-jobs.ts")).not.toMatch(/core\.v1\.Service/);
   });
 
   it("gives a pod its drain budget plus time to stop the BFF it supervises", async () => {
     const spec = await resolve(find(DEPLOYMENT, "bff-jobs").inputs.spec);
 
-    // The runner drains for `drainSeconds`, then stops the BFF: SIGKILL before
-    // that would cost every claim in hand its stale window and an attempt.
     expect(spec.template.spec.terminationGracePeriodSeconds).toBe(drainSeconds + 30);
     expect(spec.strategy.rollingUpdate.maxUnavailable).toBe(0);
     expect(spec.template.spec.containers[0].readinessProbe.httpGet.path).toBe("/api/healthz");
@@ -151,20 +128,17 @@ describe("the bff-jobs pool", () => {
 
     expect(emitted.length).toBeGreaterThan(2);
     expect(emitted.filter((name) => !readByRunner.has(name))).toEqual([]);
-    // What the worker and the services in its pod cannot start without.
     const names = env.map((e) => e.name);
     expect(names).toEqual(expect.arrayContaining(["APP_DATABASE_URL", "HATCHET_CLIENT_TOKEN", "HATCHET_CLIENT_HOST_PORT"]));
   });
 
   it("carries what the scheduling tasks read: run retention, and Langfuse's API for the trace sweeps", () => {
-    // The names `bff/scheduling/sweeps.ts` reads, and the shared trace client's window.
     const sweeps = read("apps", "workspace", "bff", "scheduling", "sweeps.ts") + read("apps", "workspace", "workers", "langfuse-traces.js")
     for (const name of ["SKILL_RUNS_RETENTION_DAYS", "TRACE_RETENTION_DAYS", "LANGFUSE_HOST", "LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY"]) {
       expect(sweeps).toContain(name);
     }
     const names = env.map((e) => e.name);
     expect(names).toContain("SKILL_RUNS_RETENTION_DAYS");
-    // Once each: the frontend's Langfuse settings are withheld and the API keys added back on their own.
     expect(names.filter((name) => name === "LANGFUSE_HOST")).toHaveLength(names.includes("TRACE_RETENTION_DAYS") ? 1 : 0);
   });
 
@@ -190,7 +164,6 @@ describe("the bff-jobs pool", () => {
 
     expect(names.filter((name, i) => names.indexOf(name) !== i)).toEqual([]);
     expect(env.find((e) => e.name === "OTEL_SERVICE_NAME")?.value).toBe("grid-bff-jobs");
-    // Stopped after the runner has drained, so it needs no long WebSocket drain.
     expect(env.find((e) => e.name === "SHUTDOWN_DRAIN_MS")?.value).toBe("5000");
   });
 
@@ -205,7 +178,6 @@ describe("the bff-jobs pool", () => {
       activationTargetQueryValue: "0",
     });
     expect(spec.maxReplicaCount).toBeGreaterThanOrEqual(spec.minReplicaCount);
-    // In slowly and a pod at a time: each one drains for up to its budget.
     expect(spec.advanced.horizontalPodAutoscalerConfig.behavior.scaleDown.policies[0]).toMatchObject({
       type: "Pods",
       value: 1,
@@ -225,12 +197,8 @@ describe("the bff-jobs pool", () => {
       const svc = services["bff-jobs"];
       expect(svc, file).toBeDefined();
       expect(svc.command, file).toEqual(["node", "workers/jobs/index.js"]);
-      // Internal only: a published port would put the pod's BFF on the host.
       expect(svc.ports, file).toBeUndefined();
     }
-    // The file shares the frontend's environment by alias, so the two cannot
-    // disagree: it is the frontend's, in full, because a job calls the same
-    // services a route does.
     const dev = composeServices("docker-compose.yaml");
     expect(dev["bff-jobs"].environment).toEqual(dev.frontend.environment);
   });
@@ -245,8 +213,6 @@ describe("the bff-jobs pool", () => {
   });
 
   it("refuses a plan with no replica to run the scheduling crons on", async () => {
-    // KEDA wakes the pool for `bff-job` runs only; a cron adds nothing to that
-    // backlog, so at zero replicas no automation fires and no sweep prunes.
     const { assertBffJobsRunsSchedules } = await import("../config/workers");
     expect(() => assertBffJobsRunsSchedules(true, 1)).not.toThrow();
     expect(() => assertBffJobsRunsSchedules(true, 0)).toThrow(/bffJobsMinReplicas must be at least 1.*scheduled automations/);

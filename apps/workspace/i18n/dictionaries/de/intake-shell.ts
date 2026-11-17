@@ -1,6 +1,5 @@
 import type { en } from '../en'
 
-/** intakeShell: der Rahmen der Einrichtung in fünf Schritten: Schrittleiste, Seitenkopf und der Weg zurück aus der Übersicht. */
 export const intakeShell: typeof en.intakeShell = {
   head: {
     eyebrow: 'Einrichtung',

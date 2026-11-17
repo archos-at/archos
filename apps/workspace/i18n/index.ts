@@ -1,11 +1,3 @@
-/**
- * Public i18n entry point for client code.
- *
- * Client components import hooks and the provider from here. Server Components
- * and route handlers should import from `@/i18n/server` instead (that module is
- * `server-only` and would fail if pulled into a client bundle).
- */
-
 export {
   locales,
   defaultLocale,

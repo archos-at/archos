@@ -4,7 +4,6 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
 import { createDocumentsClient } from './documents-client'
 
-// Mock the config - note: browser environment uses relative URLs
 vi.mock('./config', () => ({
   apiConfig: {
     collectionsUrl: '/api/v1/collections',
@@ -12,7 +11,6 @@ vi.mock('./config', () => ({
   },
 }))
 
-// Mock the schemas
 vi.mock('./documents-schemas', () => ({
   CollectionInfoSchema: {
     parse: (data: unknown) => data,

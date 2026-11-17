@@ -55,7 +55,6 @@ PUBLIC_KEY_ENV = "LANGFUSE_PUBLIC_KEY"
 SECRET_KEY_ENV = "LANGFUSE_SECRET_KEY"  # pragma: allowlist secret
 
 
-#: Every score Grid writes. Adding a score means adding it here first.
 SCORE_DEFINITIONS: tuple[ScoreDefinition, ...] = (
     ScoreDefinition(
         "user-feedback",
@@ -360,9 +359,6 @@ SCORE_DEFINITIONS: tuple[ScoreDefinition, ...] = (
     *BASE_KNOWLEDGE_SCORE_DEFINITIONS,
 )
 
-#: Scores a person or a judge writes inside Langfuse. Grid never writes these;
-#: they are defined here so the provisioning script, the docs and the queue
-#: agree on one name each.
 REVIEW_AND_JUDGE_DEFINITIONS: tuple[ScoreDefinition, ...] = (
     ScoreDefinition(
         "review-correctness",
@@ -405,7 +401,6 @@ SCORE_DEFINITIONS = SCORE_DEFINITIONS + REVIEW_AND_JUDGE_DEFINITIONS + RESIDENCY
 
 _DEFINITIONS_BY_NAME = {definition.name: definition for definition in SCORE_DEFINITIONS}
 
-#: Severities of ``common.citation_events`` that make a turn unhealthy.
 _UNHEALTHY_SEVERITIES = frozenset({"warn", "error"})
 
 
@@ -416,7 +411,6 @@ class RuntimeScore:
     name: str
     value: float | str
     comment: str | None = None
-    #: Distinguishes several scores of one name on one trace (one per card).
     item: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
@@ -427,11 +421,6 @@ class RuntimeScore:
 
 def _boolean(name: str, value: bool, comment: str | None = None) -> RuntimeScore:
     return RuntimeScore(name, 1.0 if value else 0.0, comment=comment)
-
-
-# ---------------------------------------------------------------------------
-# Builders: one check's outcome in, scores out. Pure.
-# ---------------------------------------------------------------------------
 
 
 def turn_outcome_scores(result: Any) -> list[RuntimeScore]:
@@ -513,12 +502,6 @@ def look_scores(*, looks: int, drawing_value: bool, region_look_first: bool) -> 
     return scores
 
 
-#: The tool basenames that navigate the office's files (ADR-0127). ``knowledge_search`` is the search
-#: move when it ranks by meaning and a navigate move in a literal mode (``match="exact"`` or ``"regex"``),
-#: as the files eval's ``navigate`` arm defines it (``scripts/turn_census/files_eval.py``).
-#: The filesystem verbs (ADR-0133) are navigate moves on the estate: ``grep`` is the literal search under its
-#: standard name. A file call that stayed in the drafts arrives as ``draft:<tool>`` (``chat_socket.tool_called_by``)
-#: and is neither. ``list_files`` and ``read_passage`` stay for the release their aliases live.
 NAVIGATE_TOOLS = frozenset({"list_files", "read_passage", "ls", "glob", "grep", "read_file"})
 SEARCH_TOOLS = frozenset({"knowledge_search"})
 
@@ -554,19 +537,12 @@ def thread_reply_scores(verdict: str) -> list[RuntimeScore]:
     return [_boolean("thread-answered-in-place", verdict == "replied")]
 
 
-# ---------------------------------------------------------------------------
-# Transport
-# ---------------------------------------------------------------------------
-
 _REQUEST_TIMEOUT_SECONDS = 5.0
-#: Ceiling on posts queued but not sent. A hung Langfuse must cost dropped
-#: scores, never a replica's memory (the same trade ``citation_events`` makes).
 _MAX_PENDING = 500
 _executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="langfuse-scores")
 _pending = 0
 _pending_lock = Lock()
 
-#: Namespace for score ids: stable across processes and restarts.
 _SCORE_ID_NAMESPACE = uuid.UUID("6f1c2a52-4f7e-4f43-9c39-2f0f8a8f6d5e")
 
 

@@ -119,84 +119,33 @@ CHAT = "chat"
 INTERACTIVE = "interactive"
 RESEARCH = "research"
 BULK = "bulk"
-#: Served first to last: a free slot goes to the earliest class with a waiter.
 CLASSES = (CHAT, INTERACTIVE, RESEARCH, BULK)
 DEFAULT_CLASS = INTERACTIVE
 
-#: The two scopes a limit can have: the key's own, and one model's.
 KEY_SCOPE = "key"
 MODEL_SCOPE = "model"
 
-#: The pool of the OpenRouter key. A name, so a second provider key is a second pool.
 POOL = "openrouter"
 
-#: How long a lease survives without its holder vouching for it. A held slot is
-#: renewed every third of this, so it only has to outlast a few missed renewals.
 LEASE_SECONDS = 60.0
-#: A slot nobody released is no longer renewed after this: a leak ages out.
 MAX_HOLD_SECONDS = 1800.0
-#: How long a waiter's ticket lives without a poll.
 TICKET_SECONDS = 5.0
-#: How often a waiter asks. Ticket order decides who wins, so polls need no jitter.
 POLL_SECONDS = 0.15
-#: Calls that fail together count as one 429 for the limit.
 CUT_COOLDOWN_SECONDS = 2.0
-#: The limit forgets itself after this long without traffic.
 STATE_TTL_SECONDS = 3600
-#: The longest a chat call sleeps a provider's Retry-After before it re-raises.
 RETRY_AFTER_CAP_SECONDS = 30.0
 _WAIT_WARNING_SECONDS = 30.0
 
-# @environment_variable PROVIDER_LIMITER
-# @category Server
-# @type str
-# @default on
-# @required false
-# The fleet-wide model-call limiter (ADR-0081). `off` lets every call through.
-# It also lets every call through, by design, when the shared cache is down.
 _ENABLED_ENV = "PROVIDER_LIMITER"
 
-# @environment_variable PROVIDER_LIMIT_CEILING
-# @category Server
-# @type int
-# @default 128
-# @required false
-# Model calls in flight across the whole fleet when the provider is not
-# rate-limiting: where the adaptive limit starts and the most it recovers to.
 _CEILING_ENV = "PROVIDER_LIMIT_CEILING"
 
-# @environment_variable PROVIDER_LIMIT_FLOOR
-# @category Server
-# @type int
-# @default 8
-# @required false
-# The least the adaptive limit falls to however often the provider says 429.
 _FLOOR_ENV = "PROVIDER_LIMIT_FLOOR"
 
-# @environment_variable PROVIDER_LIMIT_INTERVAL_SECONDS
-# @category Server
-# @type float
-# @default 5
-# @required false
-# Each interval without a 429 adds one call to the adaptive limit, up to the ceiling.
 _INTERVAL_ENV = "PROVIDER_LIMIT_INTERVAL_SECONDS"
 
-# @environment_variable PROVIDER_MODEL_LIMIT_CEILING
-# @category Server
-# @type int
-# @default 32
-# @required false
-# Calls in flight across the whole fleet to ONE model while its provider is not
-# rate-limiting: where that model's adaptive limit starts and the most it
-# recovers to. A 429 from an upstream provider halves only its model's limit.
 _MODEL_CEILING_ENV = "PROVIDER_MODEL_LIMIT_CEILING"
 
-# @environment_variable PROVIDER_MODEL_LIMIT_FLOOR
-# @category Server
-# @type int
-# @default 2
-# @required false
-# The least one model's adaptive limit falls to however often its provider says 429.
 _MODEL_FLOOR_ENV = "PROVIDER_MODEL_LIMIT_FLOOR"
 
 _DEFAULT_CEILING = 128
@@ -208,9 +157,6 @@ _DEFAULT_INTERVAL_SECONDS = 5.0
 
 class ProviderWaitTimeout(TimeoutError):
     """A call gave up waiting for a provider slot before its own deadline."""
-
-
-# --------------------------------------------------------------------- config
 
 
 def enabled() -> bool:
@@ -254,8 +200,6 @@ def limit_interval_seconds() -> float:
     return _env_number(_INTERVAL_ENV, _DEFAULT_INTERVAL_SECONDS, 0.0)
 
 
-# ---------------------------------------------------------------------- class
-
 _CLASS: contextvars.ContextVar[str] = contextvars.ContextVar("limiter_class", default=DEFAULT_CLASS)
 
 
@@ -290,8 +234,6 @@ def provider_class(cls: str) -> Iterator[str]:
         try:
             _CLASS.reset(token)
         except ValueError:
-            # Closed from another context (an async generator finalised by the
-            # event loop): there is no token to give back, so put the default back.
             _CLASS.set(DEFAULT_CLASS)
 
 
@@ -325,17 +267,6 @@ def with_provider_class(cls: str) -> Callable[[Callable[P, Awaitable[R]]], Calla
     return decorate
 
 
-# ---------------------------------------------------------------------- Lua
-
-# The adaptive limits of both scopes, then the ranked admission of lease_slots
-# under them. KEYS: the key pool's leases, polls, blocked, blocked-on, one ticket set per
-# class (CLASSES order), the model pool's leases, the key's limit state, the
-# model's limit state. ARGV: now, lease, ticket ttl, member, rank, interval,
-# state ttl, key floor, key ceiling, scoped (1 with a model), model floor,
-# model ceiling, model.
-#
-# A limit stamped in the future by a clock that ran ahead is clamped to `now`,
-# or it would stop the limit recovering until the rest of the fleet caught up.
 ACQUIRE_LUA = (
     """
 local classes = 4
@@ -373,9 +304,6 @@ end
     + lease_slots.RANKED_ADMISSION_LUA
 )
 
-# The cut: halve the limit unless one already happened within the cooldown.
-# KEYS: the scope's limit state. ARGV: now, floor, ceiling, cooldown, state ttl.
-# Returns the limit.
 THROTTLE_LUA = """
 local state = KEYS[1]
 local now = tonumber(ARGV[1])
@@ -426,9 +354,6 @@ def _held_keys(keys: dict[str, Any], model: str | None) -> list[str]:
     return [keys["leases"], keys["model_leases"]] if model else [keys["leases"]]
 
 
-# -------------------------------------------------------------------- meters
-
-#: The limit each scope reported last, for the gauge: (scope, model or None).
 _last_limits: dict[tuple[str, str | None], int] = {}
 _instruments: tuple[Any, Any, Any] | None = None
 _instruments_lock = threading.Lock()
@@ -503,8 +428,6 @@ def _remember_limits(attempt: _Attempt, model: str | None) -> None:
     _meters()
 
 
-# ------------------------------------------------------------------ renewing
-
 _held: dict[str, tuple[list[str], float]] = {}
 _held_lock = threading.Lock()
 _renewer: threading.Thread | None = None
@@ -543,9 +466,6 @@ def _ensure_renewer() -> None:
             return
         _renewer = threading.Thread(target=_renew_forever, daemon=True, name="provider-limiter-renew")
         _renewer.start()
-
-
-# --------------------------------------------------------------------- leases
 
 
 @dataclass
@@ -737,9 +657,6 @@ def _abandon_after(attempt: asyncio.Future | None, member: str, model: str | Non
     attempt.add_done_callback(withdraw)
 
 
-# ---------------------------------------------------------------------- 429s
-
-
 def _chain(exc: BaseException) -> Iterator[BaseException]:
     seen: set[int] = set()
     current: BaseException | None = exc
@@ -860,9 +777,6 @@ def _backoff_before_retry(exc: BaseException) -> float:
     """Seconds to sit out a 429, with a little jitter so the callers it stopped do not return together."""
     wait = retry_after_seconds(exc)
     return wait * (0.9 + 0.2 * random.random()) if wait else 0.0
-
-
-# ---------------------------------------------------------- the one-call forms
 
 
 @contextmanager

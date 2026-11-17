@@ -1,9 +1,3 @@
-/**
- * „Endgültig löschen": purge a folder from the Papierkorb now, with its
- * subfolders and documents (ADR-0088). Project admins. A legal hold refuses
- * it with 409 and never names the hold.
- */
-
 import { apiRoute } from '@/lib/api/handler'
 import { purgeFolderFromBinNow } from '@/lib/projects/folder-bin'
 

@@ -67,8 +67,6 @@ sys.path.insert(0, str(REPO_ROOT))
 DEFAULT_QUESTIONS = REPO_ROOT / "tests" / "fixtures" / "derivation" / "loop_eval_questions.yaml"
 DEFAULT_FOLLOW_UPS = REPO_ROOT / "tests" / "fixtures" / "derivation" / "follow_up_questions.yaml"
 
-#: The six families as the platform corpus holds them, so the eval asks the
-#: same questions a turn asks. Synthetic filenames in the corpus's own shape.
 CORPUS_FILES = [
     "oib-rl_1_ausgabe_mai_2023.pdf",
     "oib-rl_2_ausgabe_mai_2023.pdf",
@@ -83,14 +81,8 @@ CORPUS_FILES = [
 
 FAMILY_TOP1_FLOOR = 0.85
 CORPUS_FLOOR = 0.90
-#: Of the follow-up rows, how many the decision must hold back from a search
-#: of the fragment (`self_contained` under 0.5): a fragment searched is one
-#: wasted block, so the bar is high but not absolute.
 FOLLOW_UP_FLOOR = 0.80
 
-#: Which chat skill a family's question is the subject of — for REPORTING
-#: skill top-1, not for the gate: the loop-eval rows carry no expected skill,
-#: and OIB-RL 1 has no skill of its own.
 FAMILY_SKILL = {
     "2": "fire-safety",
     "3": "hygiene",

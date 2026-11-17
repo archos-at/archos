@@ -105,11 +105,6 @@ def _spread(values: list[float]) -> dict[str, float]:
     }
 
 
-# ════════════════════════════════════════════════════════════════════════════
-# what the file declares about a stair
-# ════════════════════════════════════════════════════════════════════════════
-
-
 def _declared_count(model: SpatialModel, elements: list[Any]) -> tuple[int | None, str | None]:
     """``NumberOfRiser`` off the first element that declares it, with its source.
 
@@ -201,11 +196,6 @@ def _reconcile(
         "agreement": pair.agreement,
     }
     return block, pair.caveat
-
-
-# ════════════════════════════════════════════════════════════════════════════
-# stair_geometry
-# ════════════════════════════════════════════════════════════════════════════
 
 
 def _parts_of(element: Any) -> list[Any]:

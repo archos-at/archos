@@ -1,8 +1,3 @@
-/**
- * What ingestion read a document to be and what the project's documents say
- * about each other (`lib/documents/dossier.ts`, `lib/documents/findings.ts`).
- * The vocabulary labels are keyed by the contract's English keys.
- */
 export const dossier = {
   documentTypes: {
     submission_drawing: 'Submission drawing',

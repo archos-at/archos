@@ -19,18 +19,15 @@ const ruleTester = new RuleTester({
 
 const PAGE = 'app/projects/[id]/page.tsx'
 
-// `RuleTester.run` declares its own suite, so it has to sit at the top level.
 ruleTester.run('require-tenant-scope', rule, {
   valid: [
     {
-      // The pattern: the page body runs inside withPageSession's slot.
       filename: PAGE,
       code:
         "import { withPageSession } from '@/lib/auth/require-auth'\n" +
         'export default function Page() { return withPageSession(async (session) => session) }',
     },
     {
-      // runWithTenantSlot for a nullable session, resolving inside the callback.
       filename: PAGE,
       code:
         "import { runWithTenantSlot } from '@/lib/db/tenant-context'\n" +
@@ -38,7 +35,6 @@ ruleTester.run('require-tenant-scope', rule, {
         'export default function Page() { return runWithTenantSlot(async () => getUserSession()) }',
     },
     {
-      // An aliased import is still the real opener.
       filename: PAGE,
       code:
         "import { runWithTenantSlot as slot } from '@/lib/db/tenant-context'\n" +
@@ -46,41 +42,34 @@ ruleTester.run('require-tenant-scope', rule, {
         'export default function Page() { return slot(async () => getUserSession()) }',
     },
     {
-      // Route handlers get their slot from the route factories.
       filename: 'app/api/projects/route.ts',
       code: "import { getUserSession } from '@/lib/auth/session'\nexport const GET = () => getUserSession()",
     },
     {
-      // Library code inherits its caller's scope by design.
       filename: 'bff/projects/service.ts',
       code: "import { getUserSession } from '@/lib/auth/session'\nexport const load = () => getUserSession()",
     },
     {
-      // Specs are not entry points.
       filename: 'app/projects/page.spec.tsx',
       code: "import { getUserSession } from '@/lib/auth/session'\ngetUserSession()",
     },
     {
-      // A streamed child that opens its own slot (the fix for issue #1097).
       filename: PAGE,
       code:
         "import { withPageSession } from '@/lib/auth/require-auth'\n" +
         'async function Slot({ projectId }) { return withPageSession(async (session) => [session, projectId]) }',
     },
     {
-      // A synchronous component may take a session: it renders inside its parent's call.
       filename: PAGE,
       code: 'function Badge({ session }) { return session.userId }',
     },
     {
-      // Library code is not an entry point, so a helper there is not checked.
       filename: 'ui/features/projects/components/tile.tsx',
       code: 'export async function Tile({ session }) { return session }',
     },
   ],
   invalid: [
     {
-      // Issues #342 and #344: the session resolved with no slot open.
       filename: PAGE,
       code:
         "import { getUserSession } from '@/lib/auth/session'\n" +
@@ -88,7 +77,6 @@ ruleTester.run('require-tenant-scope', rule, {
       errors: [{ messageId: 'unscoped' }],
     },
     {
-      // A server action is an entry point too.
       filename: 'app/projects/actions.ts',
       code:
         "'use server'\nimport { requireUserSession } from '@/lib/auth/session'\n" +
@@ -96,7 +84,6 @@ ruleTester.run('require-tenant-scope', rule, {
       errors: [{ messageId: 'unscoped' }],
     },
     {
-      // A local function that merely shares the opener's NAME opens nothing.
       filename: PAGE,
       code:
         "import { getUserSession } from '@/lib/auth/session'\n" +
@@ -105,7 +92,6 @@ ruleTester.run('require-tenant-scope', rule, {
       errors: [{ messageId: 'unscoped' }],
     },
     {
-      // Nor does an import of that name from somewhere else.
       filename: PAGE,
       code:
         "import { getUserSession } from '@/lib/auth/session'\n" +
@@ -114,7 +100,6 @@ ruleTester.run('require-tenant-scope', rule, {
       errors: [{ messageId: 'unscoped' }],
     },
     {
-      // Nor a member call that shares the name.
       filename: PAGE,
       code:
         "import { getUserSession } from '@/lib/auth/session'\n" +
@@ -122,13 +107,11 @@ ruleTester.run('require-tenant-scope', rule, {
       errors: [{ messageId: 'unscoped' }],
     },
     {
-      // Issue #1097: a Suspense child handed the page's session renders after its slot closed.
       filename: PAGE,
       code: 'async function SimilarProjectsSlot({ session, projectId }) { return [session, projectId] }',
       errors: [{ messageId: 'sessionProp' }],
     },
     {
-      // The same shape bound to a const.
       filename: PAGE,
       code: 'const Slot = async ({ session }) => session',
       errors: [{ messageId: 'sessionProp' }],

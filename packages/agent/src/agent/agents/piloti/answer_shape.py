@@ -25,14 +25,11 @@ import re
 
 logger = logging.getLogger(__name__)
 
-#: Share of a mindmap's words a table beside it may already hold before the
-#: drawing counts as the table again. Between the census's 0.8 and 0.3.
 MINDMAP_TABLE_COVERAGE = 0.7
 
 _MERMAID_FENCE = re.compile(r"\n?```mermaid[ \t]*\n(?P<body>.*?)\n```[ \t]*\n?", re.DOTALL)
 _TABLE_ROW = re.compile(r"^\s*\|.*\|\s*$", re.MULTILINE)
 _WORD = re.compile(r"[a-zäöüß0-9]{4,}")
-#: A node's text: quoted, or inside the shape brackets mindmap syntax allows.
 _NODE_TEXT = re.compile(r'"([^"]+)"|[\[(]{1,2}([^\])"]+)[\])]{1,2}')
 
 

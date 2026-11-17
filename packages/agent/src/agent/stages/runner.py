@@ -48,28 +48,14 @@ from agent.stages.spec import TurnFacts
 
 logger = logging.getLogger(__name__)
 
-#: Shared across ALL stages, not per stage: two stages with four slots each is
-#: eight background LLM calls competing with live turns.
 _MAX_CONCURRENCY = int(os.environ.get("STAGE_MAX_CONCURRENCY", "4"))
-#: Beyond this many in-flight handlers, further stages are dropped rather than
-#: queued — a stage is a best-effort enhancement of an already-delivered answer.
 _MAX_PENDING = int(os.environ.get("STAGE_MAX_PENDING", "16"))
 
-#: Strong references to in-flight tasks so the event loop's weak bookkeeping does
-#: not garbage-collect a stage mid-run.
 _background_tasks: set[asyncio.Task] = set()
-#: The subset that is actually running a handler — what the pending cap counts.
-#: Recording-only tasks (a skip, a disabled stage) do no LLM work and must not
-#: shed real work.
 _handler_tasks: set[asyncio.Task] = set()
 
-#: Semaphores are loop-bound; keyed weakly per loop, because the chat process
-#: and the research workers run separate event loops.
 _semaphores: weakref.WeakKeyDictionary[asyncio.AbstractEventLoop, asyncio.Semaphore] = weakref.WeakKeyDictionary()
 
-#: Bounded LRU of ``(conversation_id, ws_parent_id, stage_id)`` keys already
-#: claimed. Bounded rather than unbounded because it is a re-entrancy guard on a
-#: long-lived process, not an audit log.
 _MAX_REMEMBERED_KEYS = 1024
 _claimed_keys: OrderedDict[tuple[str, str, str], None] = OrderedDict()
 
@@ -204,8 +190,6 @@ def schedule_post_answer_stages(
         try:
             task = _schedule_one(loop, spec, facts, llms)
         except Exception:
-            # Scheduling runs inline on the answer path. Nothing it does may
-            # surface as a user-facing failure, including a gate that raises.
             logger.exception("Could not schedule post-answer stage %s (non-fatal)", spec.id)
             continue
         if task is not None:
@@ -224,8 +208,6 @@ def _schedule_one(
     if outcome is None:
         llm = _resolve_llm(spec, llms)
         if llm is None:
-            # The capability bit: a stage whose agent group resolves no LLM is a
-            # no-op, exactly as reflection is today with no reflection LLM built.
             outcome = StageOutcome(stage_id=spec.id, status="disabled", reason="no_llm")
     if outcome is None and len(_handler_tasks) >= _MAX_PENDING:
         outcome = StageOutcome(stage_id=spec.id, status="skipped", reason="pending_cap")
@@ -233,8 +215,6 @@ def _schedule_one(
         outcome = StageOutcome(stage_id=spec.id, status="skipped", reason="duplicate")
 
     if outcome is not None:
-        # Recorded from a task rather than inline: the span post is blocking I/O
-        # and the answer's first token is still waiting behind this function.
         return _track(loop.create_task(_record_only(spec, facts, outcome)), handler=False)
 
     return _track(loop.create_task(_run_stage(spec, StageContext(facts=facts, llm=llm))), handler=True)
@@ -311,12 +291,8 @@ async def _run_stage(spec: StageSpec, ctx: StageContext) -> StageOutcome:
                         "user_id": facts.user_id,
                         "project_id": facts.project_id,
                         "conversation_id": facts.conversation_id,
-                        # A stage's spend is part of what the answer cost.
                         "message_id": _answer_message_id(facts),
                     },
-                    # Empty on purpose: a post-answer stage is never hard-stopped
-                    # by a budget it did not spend against, but its spend is
-                    # still written to llm_usage_events.
                     budget=BudgetSnapshot(),
                 ) as tracker,
             ):
@@ -326,24 +302,18 @@ async def _run_stage(spec: StageSpec, ctx: StageContext) -> StageOutcome:
                     status, reason = "timeout", None
                     logger.warning("Stage %s timed out after %ss", spec.id, spec.timeout_s)
                 except asyncio.CancelledError:
-                    # Loop teardown, not a stage fault. Propagate rather than
-                    # recording an outcome nobody is left to read.
                     raise
                 except Exception as exc:
                     status, reason = "failed", type(exc).__name__
                     logger.exception("Stage %s failed (non-fatal)", spec.id)
                 else:
                     status, reason, payload = _validate(spec, result)
-                # Read by track_agent_profile at teardown, which is why it is
-                # filled in before leaving the block.
                 metadata["outcome"] = status
                 metadata["reason"] = reason
                 metadata.update(_cost_metadata(tracker))
     except asyncio.CancelledError:
         raise
     except Exception:
-        # The semaphore, the trackers, the profiler — anything out here failing
-        # is still a stage failure and still gets an outcome.
         status, reason = "failed", "runner_error"
         logger.exception("Stage %s: the runner itself failed (non-fatal)", spec.id)
 
@@ -398,13 +368,6 @@ def _validate(spec: StageSpec, result: Any) -> tuple[str, str | None, dict[str, 
         except Exception:
             logger.warning("Stage %s returned a payload its own model rejects", spec.id, exc_info=True)
             return "failed", "invalid_payload", None
-        # ``exclude_none`` because on this envelope an absent key and a null are
-        # the same fact, and only one of them is the contract: `shared/stages/
-        # frames.json` shows an optional field simply missing, so a model that
-        # serialised its own ``None`` default would make the fixture file and its
-        # own producer disagree — which is the drift the fixtures exist to catch.
-        # It is the same rule the envelope already applies one level up, where a
-        # non-``ready`` frame carries no ``payload`` KEY rather than a null one.
         return "ready", None, validated.model_dump(mode="json", exclude_none=True)
     if not isinstance(result, dict):
         return "failed", "invalid_payload", None

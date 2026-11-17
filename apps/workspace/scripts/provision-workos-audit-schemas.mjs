@@ -62,7 +62,6 @@ async function currentSchema(action) {
     if (error instanceof NotFoundException) return null
     throw error
   }
-  // WorkOS keeps every version; only the newest one validates incoming events.
   return versions.reduce((latest, schema) => (!latest || schema.version > latest.version ? schema : latest), null)
 }
 

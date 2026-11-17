@@ -1,9 +1,3 @@
-/**
- * A tiny fake catalog for the agent-door specs: what the policy and discovery
- * cases need (a read, a write, a delete, a sensitive write) without importing
- * the real catalog and every route behind it.
- */
-
 import { z } from 'zod'
 import type { Exposure } from './exposure.config'
 import type { AgentOperation } from './operation'
@@ -66,13 +60,8 @@ export const FAKE_OPERATIONS: readonly AgentOperation[] = [
   },
 ]
 
-/** The calls the fake platform overview route answered, for the platform door's spec. */
 export const platformOverviewCalls: Request[] = []
 
-/**
- * A tiny fake operator console for the platform door's spec (ADR-0126): a
- * read whose route answers, a fleet-wide destructive write, and a `secret` one.
- */
 export const PLATFORM_FAKE_OPERATIONS: readonly AgentOperation[] = [
   {
     name: 'platform-overview-get',
@@ -111,14 +100,6 @@ export const PLATFORM_FAKE_OPERATIONS: readonly AgentOperation[] = [
   },
 ]
 
-/**
- * Who the fakes are offered to. A fake stands for a kind of operation (a write
- * Piloti proposes, a POST that only reads), not for the real operation of its
- * name, so a spec that mocks the catalog with the fakes mocks their entries too:
- *
- *   vi.mock('@/lib/agent-api/exposure.config', async (importOriginal) =>
- *     (await import('@/lib/agent-api/test-operations')).withFakeExposure(await importOriginal()))
- */
 export const FAKE_EXPOSURE: Readonly<Record<string, Exposure>> = {
   'project-list': { external: true, agent: true },
   'project-member-add': { external: true, agent: true },
@@ -130,7 +111,6 @@ export const FAKE_EXPOSURE: Readonly<Record<string, Exposure>> = {
   'platform-audit-portal-link': { external: false, agent: false, platform: true },
 }
 
-/** The real config module with the fakes' entries laid over it (the read tools keep their real ones). */
 export function withFakeExposure<T extends { EXPOSURE: Readonly<Record<string, Exposure>> }>(real: T): T {
   return { ...real, EXPOSURE: { ...real.EXPOSURE, ...FAKE_EXPOSURE } }
 }

@@ -21,7 +21,6 @@ from agent.citations.entries import normalize_url
 from agent.common.url_safety import is_citable_url
 from agent.common.url_safety import strip_signed_query
 
-#: One record header, at the start of a line: the address, then the title block the tool always prints.
 _RECORD_RE = re.compile(
     r'^<Document href="(?P<url>[^"\n]*)">\n<title>\n(?P<title>.*?)\n</title>$',
     re.MULTILINE | re.DOTALL,

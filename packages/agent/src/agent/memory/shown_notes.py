@@ -38,11 +38,7 @@ from agent.memory.restriction import RestrictedNote
 logger = logging.getLogger(__name__)
 
 _CACHE_PREFIX = "restricted-notes:"
-#: Thirty days. Longer than the citation registry's day on purpose: a forgotten
-#: note is an open door, not a missing chip, and a record is a few kilobytes.
 _TTL_SECONDS = 30 * 24 * 60 * 60
-#: Notes kept per conversation. The judge is shown at most 150 entries
-#: (``restriction.MAX_JUDGE_DOCUMENTS``), so a longer record could not be judged.
 MAX_NOTES = 150
 _MAX_NOTE_CHARS = 300
 
@@ -52,8 +48,6 @@ class ShownNotes:
     """What earlier turns of one conversation were shown of restricted memory."""
 
     notes: tuple[RestrictedNote, ...] = ()
-    #: Collections of notes that fell out of the bounded record: every later
-    #: memory of the conversation is restricted to them.
     overflowed: tuple[str, ...] = ()
 
     @property
@@ -144,10 +138,6 @@ def persist_shown_notes(conversation_id: str | None, shown: ShownNotes) -> None:
     cache.set_json(_key(conversation_id), _encode(shown), _TTL_SECONDS)
 
 
-# ---------------------------------------------------------------------------
-# The turn's view: bound for the turn, read by the `remember` tool
-# ---------------------------------------------------------------------------
-
 _turn_shown_notes: ContextVar[ShownNotes | None] = ContextVar("turn_shown_restricted_notes", default=None)
 
 
@@ -165,7 +155,6 @@ def turn_shown_notes() -> ShownNotes:
     return _turn_shown_notes.get() or ShownNotes()
 
 
-# Strong references to in-flight writes so the loop cannot collect them mid-run.
 _persist_tasks: set[asyncio.Task] = set()
 
 

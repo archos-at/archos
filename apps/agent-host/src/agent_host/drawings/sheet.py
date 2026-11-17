@@ -16,7 +16,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-#: ISO 216 sheets, landscape, in millimetres.
 PAPERS_MM: dict[str, tuple[float, float]] = {
     "A4": (297.0, 210.0),
     "A3": (420.0, 297.0),
@@ -25,26 +24,18 @@ PAPERS_MM: dict[str, tuple[float, float]] = {
     "A0": (1189.0, 841.0),
 }
 
-#: Standard scale denominators, most detailed first.
 STANDARD_SCALES: tuple[int, ...] = (
     1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1000, 2000, 2500, 5000, 10000, 25000,
 )  # fmt: skip
 
-#: The drawing frame, as ISO 5457 places it: a 20 mm filing margin on the left,
-#: 10 mm on the other sides. The title band runs along the foot inside the frame,
-#: and the drawing keeps a few millimetres clear of both.
 FRAME_LEFT_MM = 20.0
 FRAME_MM = 10.0
 TITLE_BAND_MM = 30.0
 DRAWING_INSET_MM = 3.0
 
-#: A frame narrower than this (A4 and A3 upright) has no room for the title band's
-#: four fields in one row; the notes move to a row of their own above the others.
 WIDE_FRAME_MM = 300.0
 NOTES_ROW_MM = 15.0
 
-#: The sheets an office prints and attaches, and the coarsest scale tried on them
-#: before a larger sheet is.
 _SMALL_PAPERS = ("A4", "A3")
 _SMALL_PAPER_COARSEST_SCALE = 2000
 _LARGE_PAPERS = ("A2", "A1", "A0")
@@ -56,7 +47,6 @@ class Sheet:
 
     paper: str
     page_mm: tuple[float, float]
-    #: The denominator of 1:n, or ``None`` when the drawing is fitted, not scaled.
     scale: int | None
 
     @property

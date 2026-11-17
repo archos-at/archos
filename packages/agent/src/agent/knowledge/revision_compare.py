@@ -32,29 +32,19 @@ from typing import Any
 
 from agent.common.image_redaction import redact_inline_images
 
-#: Bumped whenever the prompt or the reply handling changes. Part of the cache
-#: identity, so a new prompt is never answered from the old one's results.
 PROMPT_VERSION = 1
 
-#: Boxes kept per page. The compare view overlays them; past a dozen it is noise.
 MAX_REGIONS = 12
-#: Sentences kept in the summary.
 MAX_SUMMARY_LINES = 8
-#: A label is a few words on a box, a summary line one sentence.
 MAX_LABEL_CHARS = 80
 MAX_SUMMARY_LINE_CHARS = 240
-#: A side below this fraction of the page is a dot, not a change worth boxing.
 MIN_SIDE = 0.004
-#: Overshoot of ``0..1`` read as rounding and clamped; more is a malformed box.
 EDGE_TOLERANCE = 0.02
 
-#: The answer when the model sees no difference. Also what the prompt asks for.
 NO_CHANGE_TEXT = "keine sichtbare Änderung"
 
-#: How long a result lives in the shared cache: as long as the VLM cache's.
 CACHE_TTL_SECONDS = 30 * 86400
 
-#: A completion has room for twelve boxes and their sentences.
 MAX_COMPLETION_TOKENS = 1500
 
 COMPARE_PROMPT = "\n".join(

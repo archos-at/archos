@@ -65,21 +65,15 @@ async def test_inherited_tools_resolved_lazily_after_registry_populated():
     config = DeepResearchAgentConfig(orchestrator_llm="orch_llm", tools=[])
 
     with patch.object(register_module, "DeepResearcherAgent", _make_agent_stub()):
-        # Registry empty at build time.
         with patch.object(register_module, "get_all_tool_refs", return_value=[]):
             run_fn, gen = await _get_run_fn(config, builder)
-            # No build-time tool resolution for inherited tools.
             assert builder.get_tools_calls == []
 
-            # First request: registry still empty -> runtime gate returns an error state,
-            # and the empty result is NOT cached.
             result = await run_fn(DeepResearchAgentState(messages=[]))
             assert result.messages  # error AIMessage placed by the runtime gate
 
-        # Registry now populated (build-order race resolved by request time).
         with patch.object(register_module, "get_all_tool_refs", return_value=["web_search_tool"]):
             result2 = await run_fn(DeepResearchAgentState(messages=[]))
-            # Tools were resolved lazily and the agent actually ran.
             assert result2 is not None
             assert ["web_search_tool"] in builder.get_tools_calls
 
@@ -98,12 +92,10 @@ async def test_explicit_tools_resolved_eagerly_and_registry_never_consulted():
         patch.object(register_module, "get_all_tool_refs", get_all),
     ):
         run_fn, gen = await _get_run_fn(config, builder)
-        # Eager resolution at build time for the explicit list.
         assert builder.get_tools_calls == [["web_search_tool"]]
 
         result = await run_fn(DeepResearchAgentState(messages=[]))
         assert result is not None
-        # The inherited-tools registry path is never taken for explicit configs.
         get_all.assert_not_called()
 
         await gen.aclose()

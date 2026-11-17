@@ -24,8 +24,6 @@ logger = logging.getLogger(__name__)
 _FRONTEND_INTERNAL_URL_ENV = "FRONTEND_INTERNAL_URL"
 _INTERNAL_TOKEN_ENV = "INTERNAL_API_TOKEN"
 _PERMIT_RECORDS_PATH = "/api/internal/permit-records"
-# The BFF embeds the requirements before it answers (up to 60 of them), so this is
-# longer than the presence check's 10 s.
 _HTTP_TIMEOUT_SECONDS = 30.0
 
 
@@ -63,7 +61,6 @@ def store_permit_record(
     try:
         from agent.common.connect_retry import connect_retrying_client
 
-        # No redirect following: the token must not follow a 3xx elsewhere.
         with connect_retrying_client(read_timeout=_HTTP_TIMEOUT_SECONDS) as client:
             response = client.post(
                 f"{base_url.rstrip('/')}{_PERMIT_RECORDS_PATH}",

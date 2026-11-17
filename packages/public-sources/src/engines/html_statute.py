@@ -30,17 +30,11 @@ _TOKEN_RE = re.compile(r"[0-9]+[a-z]*", re.IGNORECASE)
 
 
 class HtmlStatuteConfig(EngineConfig):
-    #: XPath selecting each provision's container.
     unit: str
-    #: XPath, relative to the unit, of the provision's number ("§ 6", "Art. 3").
     number: str
-    #: XPath, relative to the unit, of its heading; empty when the page has none.
     heading: str = ""
-    #: XPath of the document title; the page ``<title>`` when empty.
     title: str = ""
-    #: XPath of elements removed before reading: navigation, footnotes, screen-reader twins.
     drop: tuple[str, ...] = ()
-    #: The page's encoding. Stated, not sniffed: lxml reads undeclared bytes as Latin-1.
     encoding: str = "utf-8"
     max_passages: int = Field(default=2000, ge=1)
 

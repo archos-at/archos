@@ -1,12 +1,5 @@
 'use client'
 
-/**
- * Dev preview for Organisation → what Piloti has learned about the office
- * (ADR-0129): the real card over a fetch shim with one line of each state, a
- * counted one, a declined one and a confirmed one the latest count no longer
- * shows. Not linked from anywhere and 404s outside development.
- */
-
 import type { JSX } from 'react'
 import { I18nProvider } from '@/i18n'
 import { OfficeConventionsCard } from '@/features/organization/components/office-conventions-card'

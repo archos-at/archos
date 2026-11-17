@@ -101,7 +101,6 @@ from .utils import is_headless_request
 
 logger = logging.getLogger(__name__)
 
-# Backwards-compatible aliases for tests and internal helper imports.
 _build_pseudonymous_trace_user_id = auth_utils._build_pseudonymous_trace_user_id
 _build_pseudonymous_trace_client_id = auth_utils._build_pseudonymous_trace_client_id
 
@@ -134,15 +133,6 @@ def build_request_trace_tags(
     )
 
 
-# ---------------------------------------------------------------------------
-# Path configuration
-# ---------------------------------------------------------------------------
-
-# Paths reachable from outside the cluster.  Any external request whose path
-# does NOT match one of these receives 404.  Prefix entries must end with "/".
-# No turn route is here: a turn runs on the chat socket alone (ADR-0068), and
-# The agent runtime's HTTP turn routes (`/chat`, `/generate`, `/v1/chat`, ...) are
-# not mounted (`agent_host.plugin.AgentHostConfig`).
 EXTERNAL_ALLOWED_PATHS: list[str] = [
     "/health",
     "/docs",
@@ -154,7 +144,6 @@ EXTERNAL_ALLOWED_PATHS: list[str] = [
     "/v1/jobs/async/job/",  # prefix — matches /v1/jobs/async/job/{id}/*
 ]
 
-# External paths that require no token (monitoring, etc.)
 AUTH_EXEMPT_PATHS: set[str] = {"/health", "/docs", "/redoc", "/openapi.json"}
 
 
@@ -223,9 +212,6 @@ def detect_internal_caller(headers: dict[bytes, bytes]) -> dict[str, Any]:
     """Classify an internal request without validating any presented token."""
     token = extract_auth_token(headers)
     headless = is_headless_request(headers)
-    # ``headless`` beside ``skip_clarifier``: an anonymous caller skips the
-    # clarifier too, but only an ``X-Chat-Mode: headless`` caller has nobody
-    # holding the socket to answer a question (``ask_user`` refuses for it).
     marks = {"skip_clarifier": headless, **({"headless": True} if headless else {})}
     if token:
         return {"type": "unverified_jwt", "token": token, **marks}
@@ -267,11 +253,6 @@ async def resolve_request_user(
         return None, 401, is_external, "token_missing"
 
     return detect_internal_caller(headers), None, is_external, None
-
-
-# ---------------------------------------------------------------------------
-# Middleware
-# ---------------------------------------------------------------------------
 
 
 class AuthMiddleware:
@@ -334,16 +315,8 @@ class AuthMiddleware:
             self._trace_client_ip_headers,
         )
 
-    # ------------------------------------------------------------------
-    # ASGI entry point
-    # ------------------------------------------------------------------
-
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":
-            # WebSocket connections are authenticated in
-            # agent_host.chat_socket.authenticate_websocket_connection,
-            # which validates the handshake Authorization header and binds the
-            # identity per message via user_context().
             await self.app(scope, receive, send)
             return
 
@@ -351,7 +324,6 @@ class AuthMiddleware:
         path: str = scope["path"]
         is_external = self._is_external(headers)
 
-        # External requests still honor the public path allowlist before auth.
         if is_external and not self._path_allowed(path):
             await self._send_json(send, 404, {"detail": "Not found"})
             return
@@ -377,10 +349,6 @@ class AuthMiddleware:
             return
 
         await self._call_app(scope, receive, send, headers, user)
-
-    # ------------------------------------------------------------------
-    # Internal helpers
-    # ------------------------------------------------------------------
 
     async def _call_app(
         self,

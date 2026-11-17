@@ -45,12 +45,6 @@ from dataclasses import dataclass
 from typing import Any
 from typing import Literal
 
-#: How a value came to be known. The caller must render these differently.
-#:
-#: - ``declared``  — the file states it. Wrong only if the export is wrong.
-#: - ``computed``  — derived from the file's own structure or geometry, within
-#:   ``tolerance``.
-#: - ``inferred``  — a heuristic. Always carries ``confidence`` and ``because``.
 Provenance = Literal["declared", "computed", "inferred"]
 
 
@@ -58,13 +52,8 @@ Provenance = Literal["declared", "computed", "inferred"]
 class MissingFact:
     """What would make an undecidable question decidable."""
 
-    #: What is absent, in the file's own vocabulary — a property path
-    #: (``Pset_WindowCommon.SillHeight``), an entity (``IfcSpace``), or a
-    #: relation (``IfcRelFillsElement``).
     what: str
-    #: Where it would have to appear, in words an architect can act on.
     remedy: str
-    #: Elements the gap applies to, when it is not model-wide.
     elements: list[str] | None = None
 
 
@@ -73,28 +62,16 @@ class Answer[T]:
     """One answer, with everything needed to audit it."""
 
     value: T | None
-    #: SI or the file's declared unit, spelled the way it should be printed.
     unit: str | None
-    #: Absolute tolerance in ``unit``, for computed values. ``None`` for declared
-    #: values (a declared number has no measurement error, only authoring error)
-    #: and for non-numeric answers.
     tolerance: float | None
     provenance: Provenance
-    #: GlobalIds the value was derived from, in the order they were used.
     from_: list[str]
-    #: The operator expression, as text a reviewer can read back.
     method: str
     decidable: bool
-    #: Present exactly when ``decidable`` is false.
     missing: MissingFact | None = None
-    #: Present for ``inferred`` answers: 0..1, and the reasons behind it.
     confidence: float | None = None
     because: list[str] | None = None
-    #: A qualification the answer is not valid without — the analogue of the
-    #: truncation caveats the query layer already carries. A caller that drops
-    #: this is reporting a subset as a total.
     caveat: str | None = None
-    #: Set only by :func:`triangulate`: ``agree`` / ``disagree`` / ``single``.
     agreement: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
@@ -287,9 +264,6 @@ def triangulate(
     scale = max(abs(av), abs(bv), 2.220446049250313e-16)
     delta = abs(av - bv) / scale
 
-    # The COMPUTED value is reported when the two disagree. A declared quantity
-    # that contradicts the geometry it is supposed to describe is the thing under
-    # suspicion; the geometry is what the building will be built from.
     winner = a if delta <= relative_tolerance else (a if a.provenance == "computed" else b)
 
     out = _copy(winner)
@@ -303,9 +277,6 @@ def triangulate(
             "Das ist ein Befund über den Export, nicht über das Gebäude."
         )
     else:
-        # Named only when one side really is `declared` — `triangulate` takes any
-        # two routes, and claiming a schedule entry that neither side came from
-        # would be the same false-provenance error in the other direction.
         declared_side = "declared" in (a.provenance, b.provenance)
         verdict = (
             f"Zwei unabhängige Wege bestätigen diese Zahl: {_fmt(av)} ({a.provenance}) und "
@@ -317,9 +288,6 @@ def triangulate(
                 else "Beide Wege führen zum selben Ergebnis."
             )
         )
-    # Appended, never substituted: the winning answer's own caveat („Gemessene
-    # Grundfläche 0 m²…", a unit conversion note) is a qualification the value is
-    # not valid without, and overwriting it would drop it.
     out.caveat = f"{out.caveat} {verdict}" if out.caveat else verdict
     return out
 

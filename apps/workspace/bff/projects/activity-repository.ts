@@ -5,15 +5,10 @@ import { conversations } from '@/lib/db/schema/conversations'
 import { messages } from '@/lib/db/schema/messages'
 
 export interface DailyQuestions {
-  /** UTC day, `YYYY-MM-DD`. */
   day: string
   questions: number
 }
 
-/**
- * Questions asked in one project per UTC day since `start`: the user turns of
- * every conversation filed under it. Counts only; no conversation is read.
- */
 export async function countQuestionsPerDay(
   organizationId: string,
   projectId: string,
@@ -40,7 +35,6 @@ export async function countQuestionsPerDay(
   return rows.map((row) => ({ day: row.day, questions: Number(row.questions) }))
 }
 
-/** How many different people asked in the project since `start`. */
 export async function countAskingPeople(
   organizationId: string,
   projectId: string,

@@ -58,8 +58,6 @@ from oib_retrieval.corpus import extract_pages
 from oib_retrieval.corpus import page_documents
 from oib_retrieval.qrels import ClauseIndex
 
-#: A table-of-contents leader line ("3.1 Brandabschnitte ....... 5") points at a Punkt and
-#: is never the Punkt itself, so it must not be mistaken for its heading.
 _DOT_LEADER_RE = re.compile(r"\.{4,}")
 
 
@@ -153,9 +151,6 @@ class ArmStructure:
     contiguous: int
     isolated: int
     chunks: int
-    #: Leaf Punkte wholly contained, summed over the chunks containing at least one. A
-    #: LOWER BOUND on blending: a leaf split across a chunk boundary is not counted at
-    #: all, so the true number of requirements a page chunk touches is higher.
     contained_total: int
     chunks_with_clauses: int
 
@@ -233,8 +228,6 @@ def measure_document(
             contained_total=sum(contained_counts),
             chunks_with_clauses=sum(1 for count in contained_counts if count),
         )
-    # Parents are counted from the INDEX, not from what was located, so an unlocated
-    # Punkt cannot quietly move between the parent and leaf tallies.
     parents = sum(1 for punkt in index.clauses(richtlinie) if index.has_children(richtlinie, punkt))
     return results, len(spans), parents, unlocated
 

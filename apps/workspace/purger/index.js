@@ -38,8 +38,6 @@ const { purgeFolder } = require('./purge-folder')
 const { initOtelLogs } = require('../observability/otel-logs')
 const { initOtelMetrics } = require('../observability/otel-metrics')
 const { createConversationTraceEraser, readLangfuseConfig } = require('../workers/langfuse-traces')
-// The deletion queue spans every organization, so the purger's transactions
-// step up to the BYPASSRLS role (ADR-0041).
 const { withPlatformScope } = require('../workers/platform-scope')
 const { createFailureStreak, databaseOutage, escalationTicks } = require('../workers/failure-streak')
 
@@ -50,14 +48,8 @@ const { createFailureStreak, databaseOutage, escalationTicks } = require('../wor
 
 const purgers = {
   project: purgeProject,
-  // The retry of a chat erasure its delete request could not finish.
   conversation: purgeConversation,
-  // A folder from the Papierkorb, once its grace period is over.
   folder: purgeFolder,
-  // document / organization / user: later phases. The organization purge must call
-  // `eraseLane` (`workers/job-queue.js`) for the organization's background jobs,
-  // as the project purge calls `eraseProject`: their payloads hold its content and
-  // nothing cascades to them.
 }
 
 /**
@@ -87,15 +79,9 @@ function logQueueWriteFailure(what, error) {
  */
 function createPurger({ sql, deps, streak }) {
   async function processOne() {
-    // Phase A: claim (own transaction so the claim + attempts survive failures).
     const claimed = await withPlatformScope(sql, (tx) => claimNext(tx))
     if (!claimed) return false
 
-    // Phase B: purge. `app` row deletes are atomic within this transaction;
-    // external steps are idempotent so a mid-flight crash re-runs safely after
-    // the 15-minute stale-claim window.
-    // Unsupported entity types are a config/programming error, not a transient
-    // failure: fail the row permanently instead of burning MAX_ATTEMPTS retries.
     const purge = /** @type {Record<string, typeof purgeProject | undefined>} */ (purgers)[
       claimed.entity_type
     ]
@@ -107,8 +93,6 @@ function createPurger({ sql, deps, streak }) {
     }
 
     try {
-      // The row is marked in the purge's transaction: a purge that committed
-      // is `purged`, and one that did not is not.
       await withPlatformScope(sql, async (tx) => {
         await purge(tx, claimed, deps)
         await markPurged(tx, claimed)
@@ -120,8 +104,6 @@ function createPurger({ sql, deps, streak }) {
         error instanceof Error ? error : undefined
       )
       if (failure?.code === LEGAL_HOLD_CODE) {
-        // A hold appeared between claim and purge: not a failure. Release the
-        // row back to 'pending'; claimNext skips it while the hold is active.
         console.warn(
           `[purger] legal hold blocked purge of ${claimed.entity_type} ${claimed.entity_id} — releasing back to pending`,
         )
@@ -129,18 +111,12 @@ function createPurger({ sql, deps, streak }) {
         return true
       }
       if (failure?.code === PERMANENT_FAILURE_CODE) {
-        // A refusal no retry can change (a chat erasure queued for a live chat):
-        // fail it now instead of spending MAX_ATTEMPTS on the same answer.
         console.error(`[purger] ${failure.message} (queue row ${claimed.id}) — marking failed, no retry`)
         await markFailedPermanent(sql, claimed, failure.message).catch((e) =>
           logQueueWriteFailure('record error', e),
         )
         return true
       }
-      // Stays ERROR even when the cause is an unreachable store: a purge spans
-      // the database, the agent, object storage and WorkOS, and a refused
-      // connection to any of them looks the same on `cause`. The row's
-      // attempts and backoff are the retry.
       console.error('[purger] purge failed:', error)
       await markFailed(sql, claimed, failure?.message ?? error).catch((e) => logQueueWriteFailure('record error', e))
       return false
@@ -154,16 +130,12 @@ function createPurger({ sql, deps, streak }) {
     /** @type {Failure | undefined} */
     let outage
     try {
-      // A folder the BFF provably purged, whose row was never closed, is
-      // `purged`: before the reap, which would fail it.
       const closed = await closeErased(sql).catch((e) => {
         outage = databaseOutage(e)
         if (!outage) console.error('[purger] failed to close the rows of erased folders:', e)
         return 0
       })
       if (closed > 0) console.warn(`[purger] closed ${closed} row(s) of folders already purged → 'purged'`)
-      // Reap rows a crashed purger stranded in 'purging' on their final attempt
-      // (claimNext can't re-pick them, and they'd never surface to an admin).
       const reaped = await reapStranded(sql).catch((e) => {
         outage = outage ?? databaseOutage(e)
         if (!databaseOutage(e)) console.error('[purger] failed to reap stranded rows:', e)
@@ -172,16 +144,9 @@ function createPurger({ sql, deps, streak }) {
       if (reaped > 0) {
         console.warn(`[purger] reaped ${reaped} row(s) stranded in 'purging' → 'failed' (see last_error)`)
       }
-      // Drain everything due, one at a time.
-      //
-      // A claim that throws (the database is down, or a migration this image
-      // needs — 0093's `legal_hold_blocks` — has not run yet) is logged and
-      // retried on the next tick. Unhandled, it was a rejected `void tick()`,
-      // which ends the Node process instead of waiting for the database.
       while (await processOne()) {
         /* keep going */
       }
-      // The claim reached the database, so it is back, whatever the reap met.
       outage = undefined
     } catch (error) {
       const claimOutage = databaseOutage(error)
@@ -198,7 +163,6 @@ function createPurger({ sql, deps, streak }) {
 }
 
 function main() {
-  // No-op without OTEL_EXPORTER_OTLP_ENDPOINT (ADR-0029 capability gate).
   initOtelLogs()
   initOtelMetrics()
 
@@ -209,20 +173,10 @@ function main() {
   /** @type {PurgeDeps} */
   const deps = {
     backendUrl: (process.env.BACKEND_URL || 'http://aiq-api:8000').replace(/\/$/, ''),
-    // A chat's erasure runs in the BFF; the purger only retries it
-    // (`purge-conversation.js`).
     frontendUrl: (process.env.FRONTEND_INTERNAL_URL || 'http://frontend:3000').replace(/\/$/, ''),
     internalToken: process.env.INTERNAL_API_TOKEN || '',
-    // The deployment's shared bucket. Every OTHER bucket a purge has to sweep is
-    // read from the document rows themselves (ADR-0043) rather than derived from
-    // the organization id — see the note in `purge-project.js` step 2. That is
-    // why this process needs no bucket-naming rule and no feature flag.
     bucket: sharedBucket,
-    // The SDK throws at construction without a key, which crash-looped the purger
-    // in every stack without WorkOS. Such a stack never created an FGA resource
-    // (the BFF needs the key for that too), so there is nothing to delete.
     workos: process.env.WORKOS_API_KEY ? new WorkOS(process.env.WORKOS_API_KEY) : null,
-    // A chat's traces: the one store neither the BFF nor the agent erases.
     eraseConversationTraces: createConversationTraceEraser({ env: process.env }),
     deleteStoragePrefix: (/** @type {string} */ bucket, /** @type {string} */ prefix) =>
       deleteStoragePrefix(s3, bucket, prefix),

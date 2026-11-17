@@ -14,8 +14,6 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-#: The provider's accounting fields the Responses carrier keeps beside the
-#: normalized usage (``cost_tracking.install_responses_cost_carrier``).
 ACCOUNTING_FIELDS = ("cost", "is_byok")
 
 
@@ -51,7 +49,6 @@ def usage_from_langchain_metadata(usage_metadata: Any, accounting: Any = None) -
         "total_tokens": usage_metadata.get("total_tokens", 0),
         "prompt_tokens_details": {
             "cached_tokens": input_details.get("cache_read", 0),
-            # langchain's name for the provider's cache write.
             "cache_write_tokens": input_details.get("cache_creation", 0),
         },
         "completion_tokens_details": {"reasoning_tokens": output_details.get("reasoning", 0)},
@@ -102,7 +99,6 @@ def install_chat_stream_cost_carrier() -> bool:
     Idempotent; ``False`` and an error log when langchain-openai renames the method.
     """
     logger = logging.getLogger(__name__)
-    # Called while ``cost_tracking`` finishes importing, after it defined the key.
     from agent.common.cost_tracking import RESPONSES_ACCOUNTING_KEY
 
     try:

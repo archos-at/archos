@@ -7,20 +7,6 @@ import { baseStackConfig } from "../test-support/stack-config";
 import { loadConfig } from '../config'
 import { QDRANT_ALERT_THRESHOLDS, qdrantAlertNames, qdrantAlertRules, quantityBytes } from "./qdrant-alerts";
 
-/**
- * The Qdrant alert rules (`qdrant-alerts.ts`).
- *
- * A rule is a string that parses, loads and never fires when it names a series
- * that does not exist, and nothing in this stack evaluates the rules yet to
- * notice. So every name a rule uses is held to the collector's real export of
- * Qdrant 1.19.2 (`qdrant-metrics.fixture.txt`, captured in the 2026-10-13 drill,
- * where a counter gains `_total` and Qdrant's own names would miss), and every
- * runbook link to a heading that exists. The rendered file was also loaded by
- * `promtool check rules` and by a Prometheus 3.5 that fired QdrantPeerDown when
- * a peer was stopped (the drill).
- */
-
-// `loadConfig` namespaces keys by the project, which the runtime reads from the mock context.
 pulumi.runtime.setMocks(
   { newResource: (args) => ({ id: `${args.name}-id`, state: args.inputs }), call: () => ({}) },
   "grid-oib",
@@ -34,7 +20,6 @@ const REPO = path.resolve(__dirname, "../../../..");
 const FIXTURE = fs.readFileSync(path.join(__dirname, "qdrant-metrics.fixture.txt"), "utf8");
 const RUNBOOK = fs.readFileSync(path.join(REPO, "docs/deployment/qdrant-runbook.md"), "utf8");
 
-/** Series the collector does not scrape, by design: disk use comes from the kubelet. */
 const KUBELET = ["kubelet_volume_stats_used_bytes", "kubelet_volume_stats_capacity_bytes"];
 
 function rulesFor(config: Record<string, string>): Rule[] {
@@ -44,12 +29,10 @@ function rulesFor(config: Record<string, string>): Rule[] {
   return doc.groups[0].rules;
 }
 
-/** Metric names a PromQL expression selects, histogram suffixes folded to the family. */
 function selected(expr: string): string[] {
   return [...expr.matchAll(/([a-z_][a-z0-9_]*)\{/g)].map((m) => m[1].replace(/_(bucket|sum|count)$/, ""));
 }
 
-/** GitHub's heading anchors. */
 function anchors(markdown: string): Set<string> {
   return new Set(
     [...markdown.matchAll(/^#{2,4} (.+)$/gm)].map((m) =>
@@ -116,8 +99,6 @@ describe("Qdrant alert rules", () => {
     expect(QDRANT_ALERT_THRESHOLDS.diskRatio * 100).toBeLessThan(85);
   });
 
-  // A one-hour increase held for the whole window: an increase over 26 hours
-  // went pending the moment a fresh Prometheus started (the drill).
   it("judge snapshot staleness by a held condition, not a 26-hour window", () => {
     const stale = rules.find((r) => r.alert === "QdrantSnapshotsStale")!;
     expect(stale.expr).toContain("[1h]");

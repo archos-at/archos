@@ -39,21 +39,12 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-#: How much of a passage the decider reads. The judge shows 600; the
-#: operative sentence of a Punkt is within that.
 PASSAGE_CHARS = 600
 
-#: Above this probability on any passage of the head, the pool is sufficient
-#: and no generative judge runs. Set where the vendor's RAG cookbook sets
-#: "contains answer evidence" (0.55); the decision eval sweeps it.
 DEFAULT_SUFFICIENCY_THRESHOLD = 0.55
 
-#: Above this, a passage is recorded as carrying instruction-like text.
 INJECTION_THRESHOLD = 0.70
 
-#: Upper bound per decision call inside a search. The judge it replaces is
-#: bounded at 15 s; the reranker beside it at 3 s. A decision past this is
-#: not worth the wait, and the caller runs as before.
 DEFAULT_TIMEOUT_S = 1.5
 
 _ANSWERS = (
@@ -75,9 +66,6 @@ _INJECTION_TRUE = (
 )
 _INJECTION_FALSE = "Ordinary regulation, guidance, planning or project text, whatever its subject."
 
-#: The injection question as the endpoint takes it, for every caller that reads
-#: passages it did not write: this judge, and the cross-project lookup's
-#: (``agent.tools.cross_project.hit_judge``). One wording, so one eval.
 INJECTION_QUESTION = {
     "type": "noul",
     "instructions": _INJECTION,

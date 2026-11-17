@@ -42,7 +42,6 @@ def _reset_warn_flag():
 
 @pytest.fixture(autouse=True)
 def _set_api_key(monkeypatch):
-    # Ensure the live path (not the stub) is exercised in these tests.
     monkeypatch.setenv("TAVILY_API_KEY", "tvly-test")
 
 
@@ -78,7 +77,6 @@ class TestTavilyWebSearchToolConfig:
         assert issubclass(TavilyWebSearchToolConfig, FunctionBaseConfig)
 
 
-#: The product's own domains, which every search excludes (``agent.common.brand.PRODUCT_DOMAINS``).
 from agent.common.brand import PRODUCT_DOMAINS  # noqa: E402
 
 OWN = list(PRODUCT_DOMAINS)
@@ -121,7 +119,6 @@ class TestDomainFilterKwargs:
         assert kwargs["exclude_domains"] == ["b.example", *OWN]
 
     async def test_empty_lists_kwargs_absent(self, fake_langchain_tavily):
-        # Explicitly empty lists must behave like the default: no restriction but the product's own site.
         config = TavilyWebSearchToolConfig(include_domains=[], exclude_domains=[])
         await _run_search(config)
 
@@ -176,8 +173,6 @@ class TestPlatformMaxResultsOverride:
         assert second_kwargs["search_depth"] == "advanced"
 
     async def test_bff_outage_falls_back_to_config(self, fake_langchain_tavily, monkeypatch):
-        # The real failure mode is an unreachable BFF: the resolver swallows it
-        # (it is contractually never-raising), so the config value stays in force.
         from agent.common import retrieval_settings
 
         def boom():
@@ -192,7 +187,6 @@ class TestPlatformMaxResultsOverride:
         assert kwargs["max_results"] == 5
         hrefs = re.findall(r'href="([^"]+)"', output)
         assert [urlparse(h).hostname for h in hrefs] == ["a.example.org"]
-        # The resolver's cache is process-global; do not leave this outage in it.
         retrieval_settings.reset_retrieval_settings_cache()
 
 
@@ -347,7 +341,6 @@ class TestWebIsNoSourceForLaw:
             assert withheld not in output
         assert "a web copy of OIB-Richtlinie 2" in output
         assert "the product's own site is no source for law" in output
-        # The provider's summary was written from the withheld hits too.
         assert "Laut OIB-RL 2:2023" not in output
 
     async def test_every_result_says_web_content_is_information(self, fake_langchain_tavily):

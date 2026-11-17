@@ -135,9 +135,6 @@ def _clear_opening_area(model: SpatialModel, opening: Any, z_band: tuple[float, 
     if normal is None:
         return None
 
-    # An orthonormal basis in the opening's plane. `up` is world Z projected
-    # into the plane, so the second axis is horizontal — which keeps the
-    # projected coordinates readable if this ever needs debugging.
     up = np.array([0.0, 0.0, 1.0])
     up = up - normal * float(up @ normal)
     if np.linalg.norm(up) < 1e-9:
@@ -146,9 +143,6 @@ def _clear_opening_area(model: SpatialModel, opening: Any, z_band: tuple[float, 
     across = np.cross(normal, up)
 
     normals, _ = triangle_normals_areas(geo.triangles)
-    # Only the faces that actually lie IN the aperture plane. The prism's side
-    # walls (the reveal) are perpendicular to it and project to slivers that
-    # would inflate the union.
     facing = geo.triangles[np.abs(normals @ normal) > 0.9]
     if len(facing) == 0:
         return None
@@ -167,16 +161,6 @@ def _clear_opening_area(model: SpatialModel, opening: Any, z_band: tuple[float, 
         return None
 
     if z_band is not None:
-        # Only the part of the aperture that lies inside the ROOM. A curtain
-        # wall runs past a floor: the sample house's 31.09 m² facade spans
-        # z 0–3.36 and was credited in full to the living room (z 0–2.5) AND in
-        # full to the 1.00 m loft above it, which came out at 40.65 %. Two rooms
-        # cannot each own all of the same glass.
-        #
-        # `up` is world Z projected into the aperture plane, so for a vertical
-        # opening the in-plane vertical coordinate is world Z divided by that
-        # projection; the band is mapped through the same factor. Exact for a
-        # vertical facade, slightly generous for a raked one.
         low, high = z_band
         minx, _, maxx, _ = merged.bounds
         span = float(up[2]) or 1.0
@@ -220,24 +204,10 @@ def _rooms_on_one_side(model: SpatialModel, element: Any, rooms: Sequence[Any]) 
     for ref in rooms:
         room = model.geometry(getattr(ref, "global_id", ref))
         if room is None:
-            # A room we cannot place is not a room on the other side — it is a
-            # room we know nothing about, and skipping it silently is how
-            # „rooms on one side" gets returned from partial evidence.
-            #
-            # It matters because of WHICH way the error runs. A wall between
-            # two rooms, one of them without a body, would come back with a
-            # single side and be called external: `_external_route` puts it in
-            # the thermal envelope, `_faces_outside` calls its windows daylight,
-            # and `_facade_candidates` will rank it as a facade. Every one of
-            # those adds something that is not there. Undecided is the honest
-            # answer, and the callers all handle it.
             unplaceable = True
             continue
         offset = float(np.dot(np.asarray(room.centroid, dtype=float) - origin, normal))
         if abs(offset) < SIDE_TOLERANCE:
-            # ON the plane, which says nothing about a side. Distinct from the
-            # case above: this room WAS placed, and the placement is what is
-            # uninformative, so it does not poison the rest of the evidence.
             continue
         sides.add(offset > 0)
     if unplaceable or not sides:
@@ -266,17 +236,6 @@ def _faces_outside(model: SpatialModel, element: Any) -> tuple[bool | None, str]
     ``None`` means neither route decided, and the caller must report that rather
     than picking a side.
     """
-    # The element's OWN declaration first. A window carries
-    # `Pset_WindowCommon.IsExternal` and a curtain-wall pane carries
-    # `Pset_PlateCommon.IsExternal`, and both outrank anything inferred — this
-    # is the architect saying which side it faces.
-    #
-    # It also fixes a case the wall route cannot reach. A plate sits in no wall,
-    # so `hosted_in` is empty and the space-count fallback decided it. That
-    # fallback is a DOOR heuristic ("joins two rooms, therefore interior"), and
-    # the sample house's glazed facade touches the living room AND the loft
-    # above it — so every pane of a 4.49 m² glass wall was classified interior
-    # and the room's largest daylight source counted as zero.
     own = model.declared_property(element, ("IsExternal",))
     if isinstance(own, bool):
         return own, "Pset_*Common.IsExternal am Bauteil selbst (deklariert)"
@@ -288,18 +247,6 @@ def _faces_outside(model: SpatialModel, element: Any) -> tuple[bool | None, str]
             found = model.declared_property(wall, ("IsExternal",))
             if isinstance(found, bool):
                 return found, "Pset_*Common.IsExternal der Wand (deklariert)"
-        # The wall declares nothing — so MEASURE the wall instead of giving up.
-        #
-        # A window is outside-facing exactly when the wall carrying it is, and
-        # whether a wall is external is a question about its sides: rooms on one
-        # side only means outside is on the other. Without this rung an export
-        # that omits `IsExternal` — which `AC20-FZK-Haus.ifc` does on all 26 of
-        # its walls — leaves every window undetermined, and
-        # `light_entry_area` then reported **0.00 %** for the Schlafzimmer, the
-        # Bad, the Büro, the Küche and the Galerie of a house with a window in
-        # each of them. Honest (the windows land under „unbestimmt" and the
-        # caveat says so) and still a 0 % headline on an OIB 3 daylight check,
-        # which reads as a finding about the building.
         for ref in hosts_.value or []:
             wall = model.file.by_guid(ref.global_id)
             walls_rooms = enclosed_by(model, wall.GlobalId)
@@ -311,14 +258,6 @@ def _faces_outside(model: SpatialModel, element: Any) -> tuple[bool | None, str]
             if one_side is False:
                 return False, "die tragende Wand hat Räume auf beiden Seiten (aus der Geometrie)"
 
-    # The space-count fallback is a DOOR heuristic and is applied ONLY to doors.
-    # A curtain-wall pane runs past a floor, so it touches the room and the one
-    # above it — and the heuristic then calls a glass facade an „Innentür".
-    # Measured: strip `IsExternal` from the sample house and six panes were
-    # classified interior, taking the living room from 72.42 % to 12.64 %.
-    #
-    # For anything that is not a door the honest answer is UNDETERMINED, which
-    # `light_entry_area` reports separately and neither counts nor discards.
     if element.is_a("IfcDoor"):
         touching = opens_to(model, element.GlobalId)
         if touching.decidable and touching.value is not None:
@@ -391,31 +330,14 @@ def light_entry_area(model: SpatialModel, space_global_id: str) -> Answer[dict[s
 
     openings: list[dict[str, Any]] = []
     without_geometry: list[str] = []
-    # `IfcPlate` is here because of a real hole: the sample house's living room
-    # is glazed with a curtain wall, and a curtain wall is exported as members
-    # and PLATES, not as windows. Counting only IfcWindow/IfcDoor made the
-    # largest glazed surface in the building contribute exactly nothing — a
-    # fully glazed room reporting 0 % daylight. That is the safe direction for a
-    # threshold and still a false finding, and an architect shown 0 % on a glass
-    # wall stops trusting the number that is right.
-    #
-    # Plates carry no IfcOpeningElement (they fill no void; they ARE the wall),
-    # so they land on the element-body route below and are labelled as such.
     GLAZING = ("IfcWindow", "IfcDoor", "IfcPlate")
 
-    # The room's own height band, so an opening that runs past a floor is
-    # credited only for the part inside THIS room.
     space_geo = model.geometry(space_global_id)
     z_band = None
     if space_geo is not None and space_geo.triangles is not None and len(space_geo.triangles):
         zs = space_geo.triangles.reshape(-1, 3)[:, 2]
         z_band = (float(zs.min()), float(zs.max()))
 
-    # Deduplicated by GlobalId. A 2nd-level export publishes one
-    # IfcRelSpaceBoundary row PER FACE, so a window bounding a room twice
-    # appeared twice in `bounds` and was summed twice — the bedroom reported
-    # 28.41 % instead of 14.21 %, listing the same GlobalId in both lines. The
-    # better the export, the more reliably it happened.
     seen: set[str] = set()
     for ref in bounding.value or []:
         if ref.ifc_type not in GLAZING or ref.global_id in seen:
@@ -430,9 +352,6 @@ def light_entry_area(model: SpatialModel, space_global_id: str) -> Answer[dict[s
             if area:
                 break
         if not area:
-            # No opening bookkeeping, or an opening without a body. The element's
-            # own aperture is the next best thing and is NOT the same number —
-            # it includes the frame — so it is labelled, not silently mixed in.
             area = _clear_opening_area(model, element, z_band)
             via = (
                 "Verglasungsfeld (Vorhangfassade, Rahmen enthalten)"
@@ -469,11 +388,6 @@ def light_entry_area(model: SpatialModel, space_global_id: str) -> Answer[dict[s
             ),
         )
 
-    # ONLY the openings that face outside are summed. An interior door is not a
-    # Lichteintrittsfläche under any reading of OIB 3, and including one took the
-    # sample house's bedroom from 14.2 % to 25.3 % — two opposite answers to the
-    # same daylight check. The others stay in the payload, labelled, because a
-    # number is only checkable when what was left out of it is visible.
     external = [entry for entry in openings if entry["external"] is True]
     internal = [entry for entry in openings if entry["external"] is False]
     unknown = [entry for entry in openings if entry["external"] is None]

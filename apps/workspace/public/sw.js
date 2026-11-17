@@ -1,34 +1,3 @@
-/*
- * Piloti service worker: system notifications for the inbox, and nothing else
- * (Web Push, ADR-0112).
- *
- * What it does:
- *   - push                 shows the notification the server sent
- *   - notificationclick    marks the item read, then focuses an open Piloti tab
- *                          and takes it to the item, or opens one
- *   - pushsubscriptionchange   subscribes again and tells the server
- *   - message              closes notifications the page says are no longer news
- *
- * What it must never do: cache anything. There is NO `fetch` event handler here
- * and no Cache Storage use, on purpose. Piloti serves several offices from one
- * origin, and a worker that answered requests from a cache could answer one
- * person with what another person's session fetched, or keep a revoked
- * document alive on a device. The browser's own HTTP cache rules stay in charge
- * of every request. The worker calls `fetch()` twice, to mark a tapped item
- * read and to re-register a rotated subscription, and those are requests it
- * makes, not ones it intercepts.
- *
- * It is a classic script with no build step and no imports, so it can be served
- * as a static file with `Cache-Control: no-cache` (next.config.ts) and updated
- * by a deploy like any other asset. The pure functions at the top are exported
- * for the spec (`bff/push/service-worker.spec.ts`) when loaded as a module;
- * in a browser `module` does not exist and only the listeners register.
- *
- * The payload shape is `PushMessage` in `bff/push/payload.ts`. `version`
- * lets this file and the server move independently across a deploy: a payload
- * of a version this file does not know still shows a notification, with the
- * words it carries if they are there and a generic line if they are not.
- */
 'use strict'
 
 var INBOX_PATH = '/app/inbox'
@@ -176,8 +145,6 @@ async function openItem(scope, rawUrl) {
   } catch (error) {
     // A window the browser will not focus is still told where to go.
   }
-  // `navigate` is refused for a window this worker does not control; the page
-  // listens for the message and routes itself.
   try {
     var navigated = client.navigate ? await client.navigate(target) : null
     if (navigated) return
@@ -243,8 +210,6 @@ function register(scope) {
   scope.addEventListener('notificationclick', function (event) {
     event.notification.close()
     var data = event.notification.data || {}
-    // The read is sent first and given a moment to land before the page loads,
-    // never longer: a browser lets a tap open a window only for a short while.
     var reading = markRead(data.itemId)
     var settled = new Promise(function (resolve) {
       setTimeout(resolve, READ_WAIT_MS)

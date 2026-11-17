@@ -19,7 +19,6 @@ def plain_text(value: object) -> str:
     return " ".join(str(value).split()) if value is not None else ""
 
 
-#: How a record's kind reads in a permit source: labels for the closed enums the BFF stores, not a reading of any text.
 _PERMIT_KIND = {
     "approval": "Bewilligung",
     "information_request": "Nachforderung",
@@ -79,7 +78,6 @@ def permit_body(item: dict[str, Any]) -> str:
     return "\n".join(([f"Procedure: {procedure}"] if procedure else []) + requirements)
 
 
-#: A passage is capped at 900 characters; a record's requirements are several short items.
 PERMIT_BODY_MAX_CHARS = 2400
 
 

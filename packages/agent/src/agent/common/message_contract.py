@@ -47,10 +47,6 @@ from langchain_core.messages import HumanMessage
 
 logger = logging.getLogger(__name__)
 
-#: Appended when a request would otherwise end on an assistant turn. Kept short,
-#: neutral and instruction-free beyond "your turn now" so it cannot pull an
-#: agent off the task its system prompt already defines — every agent in the
-#: fleet shares this one string.
 CONTINUATION_TURN = "Continue from the conversation above and respond now, following your instructions exactly."
 
 

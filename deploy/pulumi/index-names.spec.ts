@@ -2,22 +2,6 @@ import { describe, it, expect, beforeAll } from "vitest";
 import * as pulumi from "@pulumi/pulumi";
 import { baseStackConfig, forProject, langfuseStackConfig } from "./src/test-support/stack-config";
 
-/**
- * No infrastructure name the `workspace` project creates carries a brand
- * (ADR-0147). Not `grid`, the retired name, and not `piloti`, the current one.
- *
- * Checked on the whole program, not on the names table, because the table only
- * covers what someone remembered to put in it: a new module that types
- * `"grid-foo"` as a Secret name is caught here, in this project's run, while
- * the legacy project keeps creating the names its stack already has.
- *
- * What is checked: Pulumi logical names (URN segments), and every object's
- * `metadata.name`, `metadata.namespace`, label value and annotation key.
- * Not checked, each with its owner in ADR-0147: Postgres database and role
- * names, bucket names and SeaweedFS identities, env var and OTel service
- * names. Those sit in env values and SQL, which this spec does not read.
- */
-
 type Meta = { name?: string; namespace?: string; labels?: Record<string, string>; annotations?: Record<string, string> };
 type Inputs = { metadata?: Meta; spec?: { template?: { metadata?: Meta }; jobTemplate?: { spec?: { template?: { metadata?: Meta } } } } };
 
@@ -38,7 +22,6 @@ pulumi.runtime.setMocks(
 
 const BRAND = /grid|piloti/i;
 
-/** Every name-shaped string one resource carries, labelled by where it sits. */
 function namesOf(r: { name: string; inputs: Inputs }): Array<[string, string]> {
   const metas: Meta[] = [
     r.inputs.metadata,

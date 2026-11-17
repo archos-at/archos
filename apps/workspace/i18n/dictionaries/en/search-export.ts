@@ -1,8 +1,3 @@
-/**
- * `searchExport` namespace — the words inside the Planliste a search exports
- * (`lib/search/plan-list-export.ts`). The file leaves the product, so every
- * header and sheet name is written down here rather than in the builder.
- */
 export const searchExport = {
   fileName: 'Plan list {date}',
   sheet: 'Plan list',

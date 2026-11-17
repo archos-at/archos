@@ -42,21 +42,14 @@ from agent.knowledge.title_block import same_document
 
 logger = logging.getLogger(__name__)
 
-#: The model's own confidence a candidate must reach to be suggested.
 REVISION_THRESHOLD = 0.7
-#: Candidates a prompt carries: the series first, then the likeliest by class and tags.
 MAX_REVISION_CANDIDATES = 8
-#: The reason a person reads beside the suggestion.
 MAX_REASON_CHARS = 160
-#: A change summary is a glance, not a report.
 MAX_CHANGE_LINES = 5
 MAX_CHANGE_LINE_CHARS = 160
-#: Each summary and excerpt is cut to this before it enters a prompt.
 MAX_PROMPT_SUMMARY_CHARS = 400
 MAX_PROMPT_EXCERPT_CHARS = 600
 
-#: The answer when the two descriptions show no difference. Said, not left out:
-#: an empty change line would read as "nothing was compared".
 NO_CHANGE_TEXT = "Keine inhaltliche Änderung aus den Zusammenfassungen erkennbar."
 
 
@@ -77,7 +70,6 @@ class RevisionDocument:
     revision: str | None = None
     series_key: str | None = None
     excerpt: str | None = None
-    #: The title block read from the document's drawing pages (``revision_facts``), when it had one.
     revision_facts: Mapping[str, Any] | None = field(default=None, compare=False)
 
 
@@ -88,8 +80,6 @@ class RevisionVerdict:
     of: str
     confidence: float
     reason: str
-    #: ``title_block`` when both carry the same document number, ``name`` when the candidate shares the
-    #: new document's series key, else ``content``.
     basis: str
 
     def as_suggestion(self) -> dict[str, Any]:
@@ -214,7 +204,6 @@ def _basis(new_doc: RevisionDocument, chosen: RevisionDocument) -> str:
     return "name" if _same_series(new_doc, chosen) else "content"
 
 
-#: What the title blocks alone decide: the confidence stored, since no model was asked.
 TITLE_BLOCK_CONFIDENCE = 0.95
 
 
@@ -328,11 +317,6 @@ def judge_revision(
             "[FASSUNG] %s -> newer than %s (%s, %.2f)", new_doc.file_name, verdict.of, verdict.basis, verdict.confidence
         )
     return verdict
-
-
-# =============================================================================
-# What changed
-# =============================================================================
 
 
 def build_change_prompt(older: RevisionDocument, newer: RevisionDocument) -> str:

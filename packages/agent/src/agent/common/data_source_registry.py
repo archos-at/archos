@@ -59,20 +59,12 @@ class DataSourceMeta:
     requires_auth: bool = False
 
 
-# ── Global state ──
 _registry: dict[str, DataSourceMeta] = {}
 _tool_source_map: dict[str, str] = {}  # exact tool name → source ID
 _group_source_map: dict[str, str] = {}  # group prefix → source ID
-# Combined (group refs + exact refs) pre-sorted longest-first for prefix
-# matching. Exact refs participate in prefix matching too so that MCP-style
-# child tools (``foo__bar``) resolve to their parent source even when the
-# ref was declared without being marked as a function group — matches the
-# behavior the agent runtime's auto-detection would give in production but is robust
-# to tests and configs that forget to pass ``group_names``.
 _sorted_prefix_refs: list[tuple[str, str]] = []
 
 
-# ── Config models ──
 class DataSourceEntry(BaseModel):
     """A single data source with its display metadata and tool references."""
 
@@ -135,7 +127,6 @@ async def data_source_registry_fn(config: DataSourceRegistryConfig, builder: Any
     Auto-detects whether each tool ref is a function group (prefix match)
     or individual function (exact match) by checking the builder.
     """
-    # builder._function_groups is a dict of registered function groups
     function_groups = set(getattr(builder, "_function_groups", {}))
 
     entries = [
@@ -158,7 +149,6 @@ async def data_source_registry_fn(config: DataSourceRegistryConfig, builder: Any
         len(_group_source_map),
     )
 
-    # The agent runtime requires yielding a FunctionInfo; this is a config-only function
     async def _noop(query: str) -> str:
         """Data source registry (config-only, not a tool)."""
         return "This is a config-only function."
@@ -166,7 +156,6 @@ async def data_source_registry_fn(config: DataSourceRegistryConfig, builder: Any
     yield FunctionInfo.from_fn(_noop, description="Data source registry (config-only)")
 
 
-# ── Lookup helpers ──
 def get_all_tool_refs() -> list[str]:
     """Return all tool refs (individual names + group names) from the registry.
 
@@ -233,7 +222,6 @@ def set_group_source_map(mapping: dict[str, str]) -> None:
     _rebuild_prefix_index()
 
 
-# ── Test helpers ──
 def populate_from_config(sources: list[dict], group_names: set[str] | None = None) -> None:
     """Populate registry and maps directly (for testing without agent-runtime startup).
 

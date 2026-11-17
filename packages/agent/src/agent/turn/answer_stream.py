@@ -56,8 +56,6 @@ from agent.common.wire_v2 import card_key
 logger = logging.getLogger(__name__)
 
 
-#: At most one ``TEXT_MESSAGE_CONTENT`` per window: a frame per token was 78
-#: frames for a four-line answer, and a reader cannot tell 50 ms apart.
 RELAY_WINDOW_S = 0.05
 
 
@@ -131,16 +129,12 @@ class _ProseTokenHandler(AsyncCallbackHandler):
 
     def _reset(self) -> None:
         self._masthead_read = self._settled = self._started = self._ended = False
-        #: Whether this call put anything on the wire; only then is there
-        #: something to take back.
         self._shown = False
         self._cards = 0
         self._pending = ""
         self._flushed_at: float | None = None
 
     async def on_chat_model_start(self, *args: Any, **kwargs: Any) -> None:
-        # A fresh reader per call (the envelope ladder retries on a rejected
-        # parameter); none at all once the turn has shown prose.
         self._reader = None if self._prose.streamed else AnswerProseStream()
         self._reset()
 
@@ -158,9 +152,6 @@ class _ProseTokenHandler(AsyncCallbackHandler):
             self._settled = True
             self._end()
             await self._settle_prose(reader)
-            # The tools' cards head the list, and go out with the settled
-            # prose even when the envelope has none of its own: the reader
-            # draws an unplaced card once the prose is complete.
             tool_cards = self._guarded("tool cards", lambda live: live.tool_cards()) or []
             for card in tool_cards if reader.emitted else ():
                 self._show_card(card)

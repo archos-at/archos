@@ -1,25 +1,6 @@
-// dependency-cruiser reporter for `task workspace:lint`: its own `err` report, plus
-// the one seam dependency-cruiser cannot express, a cycle between FEATURES.
-//
-// dependency-cruiser finds cycles between modules or between leaf folders, and
-// keys each one by the path it happened to walk. A feature is a folder tree
-// (`features/chat/components/…`, `features/chat/lib/…`), and a cycle path
-// shifts whenever an unrelated edge inside a feature moves, so a baseline of
-// those paths would break on edits that changed no seam. This collapses the
-// graph to one node per feature and keys a cycle by its feature-to-feature
-// edges, which only move when a seam does.
-//
-// The known edges live in `.dependency-cruiser-known-feature-cycles.json` and
-// may only shrink: a new edge inside a cycle fails, and so does a listed edge
-// that no longer closes one. `UPDATE_FEATURE_CYCLES=1` drops the stale entries
-// and never adds one.
 import fs from 'node:fs'
 import path from 'node:path'
 
-// dependency-cruiser calls a reporter plugin synchronously, and its public
-// `format` is async, so the built-in `err` reporter is imported by path. The
-// version is pinned exactly in package.json; if the path moves, this import
-// fails loudly rather than passing.
 const { default: errReporter } = await import(
   new URL('../node_modules/dependency-cruiser/src/report/error.mjs', import.meta.url).href
 )
@@ -131,7 +112,6 @@ export function featureCycleFindings(modules, known) {
 /** @param {import('dependency-cruiser').ICruiseResult} result */
 export default function moduleSeamsReporter(result) {
   const base = errReporter(result, result.summary.optionsUsed?.reporterOptions?.err ?? {})
-  // dependency-cruiser validates a plugin by calling it on an empty graph.
   if (result.modules.length === 0) return base
 
   const known = readKnown()

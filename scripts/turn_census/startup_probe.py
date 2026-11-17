@@ -38,7 +38,6 @@ from typing import Any
 import httpx
 
 HERE = Path(__file__).resolve().parent
-# The sibling census script, not a package: where the tree's path and the key come from.
 sys.path.insert(0, str(HERE))
 
 from census import ensure_key  # noqa: E402
@@ -46,10 +45,8 @@ from census import run_python  # noqa: E402
 from census import tree_pythonpath  # noqa: E402
 
 CONFIG = HERE.parent.parent / "configs" / "config_oib_openrouter.yml"
-#: Set on the re-executed process, so it does not re-execute again.
 _IN_TREE = "STARTUP_PROBE_IN_TREE"
 
-#: The turn's start, set per question; ``None`` outside a turn.
 _T0: list[float | None] = [None]
 
 

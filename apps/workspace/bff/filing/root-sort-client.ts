@@ -1,16 +1,3 @@
-/**
- * The typed client for sorting a shelf's root (ADR-0055, ADR-0121): describe
- * the root, start a run, read it, and ask for its next step. Paths, verbs and
- * response shapes are written once, here, and parsed with the schemas of
- * `./root-sort-types`.
- *
- * Every call is one short request. The run itself is worked by the server's
- * `root_sort` job; nothing here loops over documents, so nothing is lost when
- * the tab closes.
- *
- * No `server-only`: the browser imports this.
- */
-
 import type { ZodType } from 'zod'
 import {
   rootSortRunSchema,
@@ -21,7 +8,6 @@ import {
   type RootSortSummary,
 } from './root-sort-types'
 
-/** How a request is made: `fetch` in a browser, the real handler in a route spec. */
 export type RootSortFetch = (path: string, init?: RequestInit) => Promise<Response>
 
 const defaultFetch: RootSortFetch = (path, init) => fetch(path, init)

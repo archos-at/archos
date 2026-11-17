@@ -150,7 +150,6 @@ class TestRoundZero:
         repeat = [m for m in second if isinstance(m, ToolMessage) and m.tool_call_id == "c1"]
         assert repeat and repeat[0].content.startswith(_REPEAT_FETCH_PREFIX)
         assert "Treffer zu" in repeat[0].content
-        # The repeat-only round is still charged as the model's own decision.
         assert result.tool_iterations == 1
 
     async def test_a_second_fetch_of_the_model_is_round_one(self, steps):
@@ -159,7 +158,6 @@ class TestRoundZero:
         assert [r.get("index") for r in result.retrieval_rounds] == [0, 1]
         assert any(s.id == "status:retrieval:1" for s in steps.steps)
         assert result.tool_iterations == 1
-        # Only the decision's round is a prefetch: the Herleitung draws no row for it (ADR-0132).
         prefetch = {s.id: s.prefetch for s in steps.steps if s.id.startswith("status:retrieval:")}
         assert prefetch == {"status:retrieval:0": True, "status:retrieval:1": False}
 
@@ -223,5 +221,4 @@ class TestPrefetchSwitch:
         from agent.agents.piloti.register import ResearchAgentConfig
 
         assert ResearchAgentConfig(llm="research_llm").prefetch is True
-        # `nat run --override … prefetch false` hands the value over as a string.
         assert ResearchAgentConfig(llm="research_llm", prefetch="false").prefetch is False

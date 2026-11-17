@@ -108,8 +108,6 @@ def graph() -> MagicMock:
     compiled.with_config = MagicMock(return_value=compiled)
 
     def _astream(*_args, **_kwargs):
-        # run() streams the graph (stream_mode="values") so a cut-off run has a
-        # last known state to salvage; one chunk is one full graph state.
         async def _generate():
             yield final_state
 
@@ -185,13 +183,9 @@ async def test_a_platform_skill_reaches_the_writer_as_a_catalog_line_and_a_body(
     assert middleware.sources == ["/skills/office/"]
     assert "- **piloti-voice**:" in (catalog or "")
     assert "Read `/skills/office/piloti-voice/SKILL.md`" in (catalog or "")
-    # One block, and no second one telling the writer it MUST load anything:
-    # the `standard: True` on the row above is not read on this side any more.
     assert "Active skills" not in (catalog or "")
     assert VOICE_BODY not in (catalog or "")
 
-    # The writer reads the body with read_file, through the run's backend, and
-    # the read is what the "Skills used" disclosure reports.
     read = middleware._backend.read("/skills/office/piloti-voice/SKILL.md", 0, 1000)
     assert VOICE_BODY in read.file_data["content"]
     assert skill_runtime.activated == ("piloti-voice",)
@@ -235,13 +229,9 @@ async def test_the_writer_prompt_carries_the_diagram_contract(llm_provider, grap
         writer = await _prepare(agent, graph, state)
 
     prompt = writer["system_prompt"]
-    # The fence, and the declaration line without which mermaid draws nothing.
     assert "```mermaid" in prompt
     assert "`stateDiagram-v2`" in prompt
-    # The ban that the field transcripts are about, and the reason for it.
     assert "Never draw with ASCII box art" in prompt
-    # Meaning survives a converter that drops styling, and a label cannot
-    # outrun the report's own grounding.
     assert "never in colour or styling" in prompt
     assert "No label may carry a claim the report has not grounded" in prompt
 

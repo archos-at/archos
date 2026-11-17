@@ -107,26 +107,6 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-# ---------------------------------------------------------------------------
-# Files
-# ---------------------------------------------------------------------------
-
-
-# ---------------------------------------------------------------------------
-# What a tool returns
-# ---------------------------------------------------------------------------
-
-
-# ---------------------------------------------------------------------------
-# Page addresses
-# ---------------------------------------------------------------------------
-
-
-# ---------------------------------------------------------------------------
-# The backend
-# ---------------------------------------------------------------------------
-
-
 class EstateBackend(BackendProtocol):
     """The estate mounts, async and read-only, over the knowledge layer.
 
@@ -156,10 +136,7 @@ class EstateBackend(BackendProtocol):
         self._page_reader = page_reader or stored_pages.read_pages
         self._rows_loader = rows_loader
         self._restricted_loader = restricted_loader
-        #: ``None``: the knowledge layer's active retriever, looked up per call.
         self._retriever = retriever
-
-    # -- scope -----------------------------------------------------------------
 
     def entries(self) -> list[Any]:
         """The collections this turn may read, with their shelves, narrowed to the turn's shelves."""
@@ -223,8 +200,6 @@ class EstateBackend(BackendProtocol):
         ]
         return await _rows_of(admitted)
 
-    # -- resolution ------------------------------------------------------------
-
     async def resolve(self, parsed: EstatePath) -> Resolution:
         """The document ``parsed`` names, or a miss (with suggestions drawn only from listable rows).
 
@@ -235,8 +210,6 @@ class EstateBackend(BackendProtocol):
         """
         files = await self.readable_files()
         return resolve_in(files, parsed)
-
-    # -- read_file -------------------------------------------------------------
 
     async def read_file(
         self,
@@ -251,7 +224,6 @@ class EstateBackend(BackendProtocol):
         from agent.common.action_rows import ActionRow
         from agent.common.turn_status import lane_tool_scope
 
-        # Running, the row says what the model asked to read, in its own words; settled, what it may name.
         row = ActionRow("read", target=asked_document(file_path))
         try:
             with lane_tool_scope(READ_FILE_TOOL):
@@ -282,7 +254,6 @@ class EstateBackend(BackendProtocol):
         resolution = await self.resolve(parsed)
         file = resolution.file
         if file is None:
-            # A miss and a guessed restricted path alike: the name the model asked for, and nothing it did not.
             miss = ToolOutput(no_such_file(parsed.path, resolution.suggestions), status="error")
             return miss, ReadRowFacts(target=asked_document(parsed.path), missing=True)
         facts = ReadRowFacts(target=file.row.file_name if may_name(file.row.collection) else None, shelf=file.row.shelf)
@@ -424,8 +395,6 @@ class EstateBackend(BackendProtocol):
         notices = [line for line in (note, _older_revision_notice(file)) if line]
         return _render(hits, preamble=preamble, notices=notices, trailer="", tool=READ_FILE_TOOL)
 
-    # -- ls, glob and the folder card ---------------------------------------------
-
     async def _abstracts(self, files: Sequence[EstateFile], mount: Mount | None) -> dict[str, list[str]]:
         """The written folder abstracts (tier 1) of ``mount``'s collections; empty off a chat turn or on any error."""
         from agent.knowledge.folder_cards import listing_abstracts
@@ -492,7 +461,6 @@ class EstateBackend(BackendProtocol):
 
         from .listing import render_glob
 
-        # A name pattern is what was looked for: the row's query, beside the place it was looked in.
         row = ActionRow("list", query=(pattern or "").strip(), **action_place(path))
         try:
             if path:
@@ -536,8 +504,6 @@ class EstateBackend(BackendProtocol):
             retriever=self._retriever,
         )
 
-    # -- the protocol ------------------------------------------------------------
-
     async def aread(self, file_path: str, offset: int = 0, limit: int = 2000) -> ReadResult:
         """The protocol's read: the document's text as lines, pages marked ``<!-- page N -->``. Not evidence."""
         from deepagents.backends.utils import slice_read_response
@@ -568,9 +534,6 @@ class EstateBackend(BackendProtocol):
     async def agrep(
         self, pattern: str, path: str | None = None, glob: str | None = None, *, max_count: int | None = None
     ) -> GrepResult:
-        # The literal grep's verification needs the scope, the pre-filter and the page text; the tool calls
-        # :meth:`grep` for it. A caller that holds only the protocol gets no matches rather than an error,
-        # because one route's error aborts a CompositeBackend's whole fan-out (ADR-0133 trap 6).
         return GrepResult(matches=[], truncated=True)
 
     async def awrite(self, file_path: str, content: str) -> WriteResult:
@@ -584,16 +547,6 @@ class EstateBackend(BackendProtocol):
         replace_all: bool = False,  # noqa: FBT001, FBT002 - positional, to match the backend protocol
     ) -> EditResult:
         return EditResult(error=f"{file_path} is read-only (permission denied); drafts are edited under /drafts/")
-
-
-# ---------------------------------------------------------------------------
-# Resolution, pure
-# ---------------------------------------------------------------------------
-
-
-# ---------------------------------------------------------------------------
-# Rendering
-# ---------------------------------------------------------------------------
 
 
 async def _in_flight(files: Sequence[EstateFile]) -> list[str]:

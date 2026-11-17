@@ -32,13 +32,9 @@ POSITIVE_TTL_SECONDS = 60.0
 NEGATIVE_TTL_SECONDS = 30.0
 _REQUEST_TIMEOUT_SECONDS = 3.0
 
-# Pydantic field names langchain chat models use for the credential pair.
-# Checked in order; the first present on the model wins.
 _API_KEY_FIELDS = ("openai_api_key", "api_key")
 _BASE_URL_FIELDS = ("openai_api_base", "base_url")
 
-# Client objects are rebuilt by the constructor's validators — carrying them
-# into the new instance would keep traffic on the OLD credential.
 _CLIENT_FIELDS = {"client", "root_client", "async_client", "root_async_client", "http_client", "http_async_client"}
 
 
@@ -79,7 +75,6 @@ def _fetch_credential(organization_id: str) -> OrgLLMCredential | None:
     """One HTTP round-trip to the BFF's internal resolution endpoint."""
     token = os.environ.get("INTERNAL_API_TOKEN")
     if not token:
-        # No internal-token trust channel — BYOK cannot be resolved securely.
         return None
 
     import httpx
@@ -104,8 +99,6 @@ def _fetch_credential(organization_id: str) -> OrgLLMCredential | None:
     return OrgLLMCredential(
         credential_id=str(data.get("id") or ""),
         provider=str(data.get("provider") or "custom"),
-        # An office's own OpenRouter key is held to its cell's zone like the platform's (ADR-0167); an endpoint
-        # the zone cannot rewrite or place is refused at the seam.
         base_url=residency.routed_url(base_url, residency.active_cell()),
         api_key=api_key,
         key_fingerprint=str(data.get("keyFingerprint") or ""),
@@ -138,7 +131,6 @@ def resolve_org_llm_credential(organization_id: str | None) -> OrgLLMCredential 
 
     with _cache_lock:
         _cache[organization_id] = _CacheEntry(credential, ttl)
-        # Bounded: one entry per org this process has served recently.
         if len(_cache) > 512:
             expired = [key for key, value in _cache.items() if value.expires_at <= now]
             for key in expired:

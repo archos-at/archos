@@ -22,14 +22,6 @@ export default async function ProjectsPage({
     const { new: newParam } = await searchParams
     const t = await getTranslations(projectsCopy)
 
-    // The page is transport: it resolves the session, asks the service for the
-    // view, and renders. Tenancy scope, FGA filtering and the document counts all
-    // belong to the service/repository pair behind this call — see
-    // `getProjectsListData`.
-    // 'newest' rather than 'oldest': the grid orders itself by recency now (the
-    // resume rail, then the list), and the repository's order decides which
-    // projects survive PROJECT_LIST_LIMIT — at the cap, dropping the oldest is
-    // the right direction to lose them in.
     const {
       projects: rows,
       documentCounts: docCountByProject,
@@ -40,9 +32,6 @@ export default async function ProjectsPage({
     const autoOpenCreate = newParam === '1'
 
     return (
-      // `wide`: this page is a card grid, which is what that opt-in is for. The
-      // frame owns the `<main>`, the scroll container and the page background —
-      // this is only the column.
       <ShellContent width="wide">
         <ProjectsGrid
           projects={rows}

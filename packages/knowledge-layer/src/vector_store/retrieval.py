@@ -31,16 +31,8 @@ from .search import grouped_search
 from .search import hybrid_search
 from .store import get_store
 
-#: The German stopwords spelled with an umlaut or ß (Snowball's list, the one
-#: Postgres' ``german`` config and Qdrant's German BM25 both use). Qdrant folds
-#: before it drops stopwords, so with ``ascii_folding`` „über“ reaches the
-#: index and the query as ``uber``, a term on 18% of the OIB corpus: „was
-#: weißt du über die oib 1“ ranked every chunk with an „über“ (measured,
-#: ``qdrant-gates-2026-10.md``, "Ranking sweep"). The rest of the list Qdrant
-#: drops itself, as Postgres drops all of it.
 BM25_FOLDED_STOPWORDS = frozenset({"daß", "für", "können", "könnte", "über", "während", "würde", "würden"})
 
-#: A file name typed into a question: a word with a document extension.
 _FILE_NAME = re.compile(
     r"[\w.-]+\.(?:pdf|docx?|xlsx?|pptx?|odt|ods|rtf|txt|md|csv|dwg|dxf|ifc|png|jpe?g|tiff?|eml|msg|zip)\b",
     re.IGNORECASE,
@@ -65,7 +57,6 @@ def bm25_candidates(query: str, extra_terms: Sequence[str] = ()) -> list[str]:
 
     prose = _FILE_NAME.sub(" ", query)
     spellings = (german_text.umlaut_spellings(term) for term in german_text.query_terms(prose, extra_terms=extra_terms))
-    # A stopword typed either way („für“, „fuer“) is left out with both its spellings.
     kept = (spelling for each in spellings if BM25_FOLDED_STOPWORDS.isdisjoint(each) for spelling in each)
     return list(dict.fromkeys(kept))
 
@@ -177,8 +168,6 @@ def term_frequencies(
     return total, counts
 
 
-#: A character class standing between words in a ``browse.phrase_pattern``:
-#: whitespace and dashes, at least one of them.
 _SEPARATOR_CLASS = re.compile(r"\[((?:\\s|[^\]\w\\])+)\]\+")
 _PLAIN_TOKEN = re.compile(r"[a-z0-9]+")
 
@@ -288,17 +277,10 @@ def literal_tokens(pattern: str) -> list[list[str]] | None:
     return alternatives
 
 
-#: Seconds one chunk may take a person's regex. A chunk is a few thousand characters, so a
-#: pattern that needs longer is backtracking catastrophically, and the whole search stops.
 USER_REGEX_TIMEOUT = 0.2
 
-#: Seconds the whole scan of one collection may take with a person's regex, reading included.
-#: The per-chunk limit alone does not bound it: a pattern that costs 0.15 s on each of 10 000
-#: chunks naming a common word passes every chunk's limit and holds a worker for 25 minutes.
 USER_REGEX_SCAN_SECONDS = 3.0
 
-#: Chunks one scan with a person's regex may read. Past it the pattern narrows too little to
-#: answer in one search, whatever each chunk costs.
 USER_REGEX_SCAN_CHUNKS = 20_000
 
 logger = logging.getLogger(__name__)

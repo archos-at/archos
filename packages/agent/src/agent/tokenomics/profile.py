@@ -3,7 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from dataclasses import field
 
-# Canonical phase names produced by nat_adapter.
 PHASE_ORCHESTRATOR = "orchestrator"
 PHASE_PLANNER = "planner-agent"
 PHASE_RESEARCHER = "researcher-phase"
@@ -53,7 +52,6 @@ class RequestProfile:
     question: str
     duration_s: float
 
-    # Aggregates across all phases
     total_cost_usd: float = 0.0
     total_tool_cost_usd: float = 0.0
     total_prompt_tokens: int = 0
@@ -62,23 +60,13 @@ class RequestProfile:
     total_cache_savings_usd: float = 0.0
     total_llm_calls: int = 0
 
-    # One entry per (phase, model) pair — populated by nat_adapter
     phases: list[PhaseStats] = field(default_factory=list)
 
-    # tool_name → invocation count
     tool_calls: dict[str, int] = field(default_factory=dict)
 
-    # Individual LLM call observations (one dict per LLM_END event):
-    # keys: isl, osl, cached, reasoning, dur_s, tps, model, phase, call_idx
     llm_call_events: list[dict] = field(default_factory=list)
 
-    # Individual tool call observations (one dict per TOOL_END event):
-    # keys: tool, dur_s
     tool_call_events: list[dict] = field(default_factory=list)
-
-    # ------------------------------------------------------------------
-    # Derived properties
-    # ------------------------------------------------------------------
 
     @property
     def grand_total_cost_usd(self) -> float:

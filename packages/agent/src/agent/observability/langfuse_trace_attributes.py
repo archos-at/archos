@@ -74,28 +74,14 @@ from agent.observability.usage_details import usage_observation_attributes
 
 logger = logging.getLogger(__name__)
 
-#: Env flag the deployment sets when the Langfuse tier is on (ADR-0044).
 IDENTITY_ATTRIBUTES_ENV = "TRACE_IDENTITY_ATTRIBUTES"
 
-#: Langfuse's trace-level attribute names. It also accepts `session.id`, but the
-#: `langfuse.`-prefixed spelling takes precedence in its OTel mapping, so it is
-#: the one to write when we mean to be authoritative.
 SESSION_ID_ATTRIBUTE = "langfuse.session.id"
 TAGS_ATTRIBUTE = "langfuse.trace.tags"
+# Names from https://langfuse.com/integrations/native/opentelemetry.
 METADATA_PREFIX = "langfuse.trace.metadata."
 
 
-#: Per-turn facts a TOOL contributed, merged into the attributes below.
-#:
-#: Copy-on-write: writers always ``ContextVar.set`` a NEW dict rather than
-#: mutating the one they read. ``asyncio.create_task`` snapshots the var's
-#: OBJECT reference, not the dict's contents, so an in-place ``update``/``append``
-#: after a span ended would still bleed into that span's export task — and, worse,
-#: into a concurrent job sharing the same dict object. A fresh dict per write
-#: keeps each snapshot frozen at what was known when the task was created.
-#: Per-job lifecycle (bind fresh at job start, reset in ``finally``) lives with
-#: the runner — see ``DeepResearcherAgent.run`` — the way ``cards/registry.py``
-#: and ``citations/session.py`` bind per turn.
 _CONTRIBUTED: contextvars.ContextVar[dict[str, Any] | None] = contextvars.ContextVar(
     "langfuse_contributed", default=None
 )
@@ -167,15 +153,8 @@ def record_trace_metadata(**pairs: Any) -> None:
         logger.debug("Failed to record Langfuse trace metadata", exc_info=True)
 
 
-#: The trace metadata key Langfuse's PostHog integration reads: it exports
-#: ``trace.metadata.$posthog_session_id`` as the event's ``$session_id``, which
-#: is what puts a ``langfuse observation`` event on the browser session's replay
-#: (https://langfuse.com/integrations/analytics/posthog, "Metadata matching").
 POSTHOG_SESSION_METADATA_KEY = "$posthog_session_id"
 
-#: PostHog session ids are UUIDv7 (version nibble 7, RFC 9562 variant); the JS
-#: SDK's own docs require one when a session is bootstrapped. Anything else is
-#: not a session id and would only mislabel a trace.
 _UUID_V7 = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}")
 
 
@@ -210,9 +189,6 @@ def record_posthog_session(value: Any) -> bool:
     return True
 
 
-#: Trace metadata keys of the platform-lessons experiment. Always recorded, with
-#: no identity switch: the arm is a function of the conversation id and a lesson
-#: id names a fleet-wide caution, so neither identifies a person.
 LESSONS_ARM_METADATA_KEY = "lessons_arm"
 LESSON_IDS_METADATA_KEY = "lesson_ids"
 
@@ -235,8 +211,6 @@ def record_lessons(arm: str, lesson_ids: Sequence[str]) -> None:
     )
 
 
-#: Trace metadata key: where the question was asked (``chat``, ``review_canvas``,
-#: ``annotation_thread``), and the tag every canvas turn carries.
 TURN_SURFACE_METADATA_KEY = "turn_surface"
 REVIEW_CANVAS_TAG = "surface:review-canvas"
 
@@ -253,9 +227,6 @@ def record_turn_surface(surface: str) -> None:
         add_trace_tag(REVIEW_CANVAS_TAG)
 
 
-#: Trace metadata keys for a turn an event woke (ADR-0105 draft): which kind of
-#: event, and its id (a reply or assignment id, never text). The tag is the
-#: kind, as a label: ``trigger:thread_mention``.
 TURN_TRIGGER_METADATA_KEY = "turn_trigger"
 TRIGGER_EVENT_METADATA_KEY = "trigger_event_id"
 
@@ -306,91 +277,11 @@ def reset_contributions() -> None:
     _CONTRIBUTED.set(None)
 
 
-# ---------------------------------------------------------------------------
-# Usage attribution: input/output/total (+cost) onto generation observations
-# ---------------------------------------------------------------------------
-#
-# Production showed empty ``usageDetails``/``costDetails`` on every
-# generation observation. The provider numbers DO enter the process:
-# OpenRouter's ``usage`` object (prompt/completion/total + ``cost`` +
-# cached/reasoning details) arrives on every chat completion and
-# ``CostTracker`` records it to ``llm_usage_events``. It never reaches
-# the spans Langfuse renders, through two drops:
-#
-# 1. The agent runtime's ``LangchainProfilerHandler.on_llm_end`` reads ONLY LangChain's
-#    normalized ``message.usage_metadata`` (no cost field exists on its
-#    ``TokenUsageBaseModel`` at all), and the span exporter forwards only
-#    ``llm.token_count.prompt/completion/total``. The OpenRouter object —
-#    the only place ``cost`` lives — survives solely inside the span's
-#    ``nat.metadata`` JSON (``chat_responses[].message.response_metadata``),
-#    and only on the chat-completions path: a role on ``api_type: responses``
-#    leaves LangChain's normalized ``usage_metadata`` there, whose
-#    ``input_token_details.cache_read`` is the cached bucket under another
-#    name (the ``cost``/``is_byok`` that ``cost_tracking``'s carrier keeps
-#    beside it is for the ledger; this reader does not use it). Reading only the provider shape is what rendered every
-#    Piloti research generation with bare input/output/total and no cache
-#    bucket, however well the provider was caching.
-# 2. The turn's result carries no usage at all (a chat turn ends with a
-#    ``TurnResult``, an eval wrapper with plain text), so nothing above the
-#    LLM span holds the totals.
-#
-# This processor closes drop 1 at export time, where every LLM span passes
-# regardless of which handler built it (the agent runtime's stock handler on chat turns,
-# ``SpanClosingProfilerHandler`` on async jobs): it mirrors the counts into
-# the ``gen_ai.usage.*`` namespace Langfuse's OTel ingestion maps to
-# ``usageDetails``, pins the model so Langfuse can infer ``costDetails``
-# from its own model price table, and — when the provider object is present
-# in the span metadata — ingests the OpenRouter-reported cost verbatim.
-#
-# No client-side price table is consulted: the only ``PricingRegistry`` in
-# this repo (``agent.tokenomics.pricing``) is eval-only, built from the
-# ``tokenomics.pricing`` section of an eval YAML that is never deployed.
-# Per-span cost computation against a deployed table is the follow-up; until
-# then spans carry usage (+model for server-side inference, +verbatim cost
-# when the provider reported one) and per-turn dollars land on the trace
-# via ``agent.observability.usage_rollup``.
-
-
-# ---------------------------------------------------------------------------
-# Prompt linkage: which prompt version produced this generation
-# ---------------------------------------------------------------------------
-#
-# Langfuse renders `promptName`/`promptVersion` on a generation and lets the
-# trace list filter and aggregate on them — "did version 12 cost more than
-# version 11" is the question prompt management exists to answer, and until
-# something writes these two attributes both columns are null.
-#
-# The names are Langfuse's OTel property mapping, verified against its docs
-# (https://langfuse.com/integrations/native/opentelemetry) rather than guessed:
-# `langfuse.observation.prompt.name` and `langfuse.observation.prompt.version`,
-# in the same `langfuse.observation.*` namespace as the usage keys above, which
-# "always take precedence over the generic OpenTelemetry conventions".
-#
-# PROCESS STATE, WITH A PER-TURN BOX ON TOP. What is being named here is the
-# PLATFORM prompt: one static text per process, identical for every tenant and
-# every turn, changing only when `common/prompt_store.py` refreshes it from
-# Langfuse. So the identity lives in a process global. What a TURN's spans
-# carry is the identity that turn rendered with, which a refresh between the
-# render and the span export could otherwise misname: `begin_turn_prompt_link`
-# binds a mutable box in the turn's own context, every resolution writes into
-# it IN PLACE, and the span processor reads the box first. In place matters:
-# `asyncio.to_thread` copies the context, so a `.set()` from the render thread
-# would die with it, while a mutation of the shared dict is what the loop sees.
-# LangGraph nodes copy the context too, which is why the box is bound in
-# `ChatAgent.run` and not where the prompt is rendered.
-#
-# THE KNOWN OVER-BROADNESS: a generation from another agent in this process —
-# the clarifier, deep research — renders its own prompt, which nothing manages,
-# and still gets stamped with the platform prompt's identity. Accepted rather
-# than unnoticed: the remedy is to bring those prompts under the store too, at
-# which point each records its own link and this becomes a per-prompt map.
 OBSERVATION_PROMPT_NAME = "langfuse.observation.prompt.name"
 OBSERVATION_PROMPT_VERSION = "langfuse.observation.prompt.version"
 
-#: The prompt identity this process is currently serving; see the note above.
 _PROMPT_LINK: dict[str, Any] = {}
 
-#: The identity THIS turn rendered with, when a turn bound one; see the note.
 _TURN_PROMPT_LINK: contextvars.ContextVar[dict[str, Any] | None] = contextvars.ContextVar(
     "turn_prompt_link", default=None
 )
@@ -551,11 +442,6 @@ def _find_usage(node: Any, matches: Any, depth: int = 0) -> dict[str, Any] | Non
     return None
 
 
-#: The one key in the agent runtime's ``TraceMetadata`` holding THIS call's output. Both the
-#: chat-completions and the Responses-API path reach it through the same
-#: ``on_llm_end`` (``nat/plugins/langchain/callback_handler.py:318``, and :249
-#: for a streamed chunk); every other usage-bearing key on the span
-#: (``chat_inputs``, ``tool_inputs``, ``span_inputs``) is input.
 RESPONSE_METADATA_KEY = "chat_responses"
 
 
@@ -682,17 +568,8 @@ def langfuse_attributes_for(
     if project_id:
         attributes[f"{METADATA_PREFIX}project_id"] = project_id
 
-    # Tags are Langfuse's fast filter in the trace list, so the tenant goes here
-    # as well as in metadata: "show me this organization's traces" is the first
-    # question anyone asks of a multi-tenant trace store, and metadata filtering
-    # is a slower, less discoverable path in the UI.
     tags = [f"org:{organization_id}"] if organization_id else []
 
-    # What a tool recorded about what it did. Namespaced under the same
-    # `langfuse.trace.metadata.` prefix as the identity fields, so it is subject
-    # to exactly the same redaction policy — this whole map is written ahead of
-    # the agent runtime's redaction processor and an operator listing a key in
-    # `redaction_attributes` must be able to reach these too.
     for key, value in (contributed or {}).get("metadata", {}).items():
         attributes[f"{METADATA_PREFIX}{key}"] = value
     tags.extend(tag for tag in (contributed or {}).get("tags", []) if tag not in tags)
@@ -814,7 +691,6 @@ try:
 
         def __init__(self, *, identity: bool = True) -> None:
             super().__init__()
-            #: False installs the contributions half only (no tenant, no session).
             self._identity = identity
 
         async def process(self, item: Span) -> Span:
@@ -911,8 +787,6 @@ try:
                 from agent.observability.decision_trace import is_decision_span
 
                 if is_decision_span(item.name):
-                    # The decision model's calls bypass LangChain; their usage
-                    # rides the observation's own output (decision_trace).
                     decided = decision_usage(attributes)
                     if decided is not None:
                         for key, value in usage_observation_attributes(
@@ -1006,16 +880,12 @@ try:
                     elif isinstance(value, list | tuple) and any(
                         isinstance(entry, str) and "data:image" in entry for entry in value
                     ):
-                        # A sequence-valued attribute (OpenTelemetry allows lists of strings).
                         item.attributes[key] = type(value)(redact_inline_images(list(value)))
             except Exception:
                 logger.debug("Failed to redact inline images from a span", exc_info=True)
             return item
 
 except Exception:  # pragma: no cover - exercised only without the agent-runtime extras
-    # Mirrors the import guards in `otel_header_redaction_exporter.py`: the
-    # pure mapping above stays importable (and testable) even where the agent-runtime
-    # observability extras are not installed.
     LangfuseTraceAttributeProcessor = None  # type: ignore[assignment,misc]
     TraceContextProcessor = None  # type: ignore[assignment,misc]
     UsageAttributeProcessor = None  # type: ignore[assignment,misc]

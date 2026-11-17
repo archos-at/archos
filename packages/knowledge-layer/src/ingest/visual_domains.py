@@ -59,30 +59,20 @@ class SegmentRole:
     same three words rather than each inventing its own rule.
     """
 
-    #: The domain's own primary artifact: a floor plan, a schematic, a map.
     PRIMARY = "primary"
-    #: A data graphic: chart, diagram, table of values.
     CHART = "chart"
-    #: A picture: photograph, rendering, screenshot.
     PICTORIAL = "pictorial"
 
 
-#: Chunk ``content_type`` per role. ``drawing`` is the type whose citation
-#: format names the kind of drawing, which is why PRIMARY maps to it.
 _ROLE_CONTENT_TYPES = {
     SegmentRole.PRIMARY: "drawing",
     SegmentRole.CHART: "chart",
     SegmentRole.PICTORIAL: "image",
 }
 
-#: Precedence when one image mixes roles. A sheet carrying a plan AND a chart
-#: is a plan sheet: the reader came for the plan, and the chart is on it.
 _ROLE_PRECEDENCE = (SegmentRole.PRIMARY, SegmentRole.CHART, SegmentRole.PICTORIAL)
 
 
-#: A term that is no longer offered to the model but still resolves, so a
-#: record extracted under it keeps rendering. Terms are deprecated, never
-#: deleted: the key is what stored payloads reference.
 ACTIVE = "active"
 DEPRECATED = "deprecated"
 
@@ -95,7 +85,6 @@ class SegmentType:
     label: str
     role: str = SegmentRole.PRIMARY
     status: str = ACTIVE
-    #: Key that supersedes this one, for a term that was split or renamed.
     replaced_by: str | None = None
 
 
@@ -122,18 +111,11 @@ class Domain:
 
     id: str
     label: str
-    #: What one depiction can BE, in this domain's words.
     segment_types: tuple[SegmentType, ...]
-    #: What can be named inside one.
     entity_categories: tuple[EntityCategory, ...]
-    #: Lifecycle values an entity can carry, where the domain has such a notion.
     states: tuple[str, ...] = ()
-    #: What "scale" is called here — a plan has a scale, a micrograph has a
-    #: magnification, a photo has neither.
     measure_label: str = "scale"
-    #: One sentence telling the model when this domain applies.
     applies_to: str = ""
-    #: Domain rules appended to the shared ones, each already a sentence.
     guidance: tuple[str, ...] = field(default_factory=tuple)
 
     @property
@@ -163,14 +145,6 @@ class Domain:
         return SegmentRole.PICTORIAL
 
 
-# ---------------------------------------------------------------------------
-# Shared vocabulary
-#
-# Categories every domain gets for free. `other` exists so a thing the model
-# genuinely recognised is filed loosely rather than dropped — losing it
-# because the domain has no word for it is the worse failure.
-# ---------------------------------------------------------------------------
-
 _UNIVERSAL_CATEGORIES = (
     EntityCategory("material", "Materials", "what things are made of"),
     EntityCategory("other", "Other", ""),
@@ -184,10 +158,6 @@ _PICTORIAL_TYPES = (
     SegmentType("other", "Something else", SegmentRole.PICTORIAL),
 )
 
-
-# ---------------------------------------------------------------------------
-# Architecture — the deployment default, and the domain this product is for.
-# ---------------------------------------------------------------------------
 
 ARCHITECTURE = Domain(
     id="architecture",
@@ -226,10 +196,6 @@ ARCHITECTURE = Domain(
 )
 
 
-# ---------------------------------------------------------------------------
-# General — the honest fallback for content no enabled domain claims.
-# ---------------------------------------------------------------------------
-
 GENERAL = Domain(
     id="general",
     label="General",
@@ -250,21 +216,10 @@ GENERAL = Domain(
 )
 
 
-#: Every domain this build knows about. A deployment enables a subset.
 DOMAINS: dict[str, Domain] = {domain.id: domain for domain in (ARCHITECTURE, GENERAL)}
 
-#: Always enabled: it is what a segment falls back to, so it can never be off.
 FALLBACK_DOMAIN_ID = GENERAL.id
 
-# @environment_variable VISUAL_DOMAINS
-# @category Knowledge Layer
-# @type str
-# @default architecture,general
-# @required false
-# Comma-separated domain vocabularies offered to the vision model when reading
-# uploaded images. The schema is the same whichever are enabled; the domains
-# decide what the model is asked to look for and what the extracted categories
-# are called. "general" is always enabled as the fallback.
 DEFAULT_DOMAIN_IDS = os.environ.get("VISUAL_DOMAINS", f"{ARCHITECTURE.id},{GENERAL.id}")
 
 

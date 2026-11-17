@@ -50,32 +50,20 @@ import sys
 import threading
 from dataclasses import dataclass
 
-#: The most pages a PDF may have to be read here: 300 pages read in about 27 s, inside the deadline.
 MAX_PDF_PAGES = 300
-#: How long one parse may take before its process is killed; the BFF waits 120 s for a whole capture.
 PARSE_TIMEOUT_SECONDS = 45.0
-#: The address space the parsing process may map; the fetcher pod's limit holds two of them (2.5 GiB).
 MEMORY_LIMIT_BYTES = 1024**3
-#: How long a caller waits for the fetcher's ``/v1/extract``: the parse's deadline, and the hop.
 EXTRACT_TIMEOUT_SECONDS = PARSE_TIMEOUT_SECONDS + 5
-#: The most text a read answers; the BFF's capture column holds the same (0209).
 MAX_TEXT_CHARS = 2_000_000
-#: How many PDFs one process reads at once; a further read waits for one to finish.
 MAX_PDF_READERS = 2
-#: What the child's environment holds: what Python needs, and the one setting of the text pass.
 CHILD_ENV_KEYS = ("PATH", "LANG", "LC_ALL", "PDF_PAGE_MAX_OBJECTS")
-#: Where the fetcher is (``public_sources.routing.ENV_FETCHER_URL``), named here to keep this module import-light.
 ENV_FETCHER_URL = "PUBLIC_SOURCE_FETCHER_URL"
-#: What joins two pages' text, and what a page is counted by.
 PAGE_BREAK = "\f"
 
 PDF_CONTENT_TYPE = "application/pdf"
 
 _READERS = threading.BoundedSemaphore(MAX_PDF_READERS)
 
-#: Whether :func:`read_pdf` may parse in this process when no fetcher is set. Code turns it on, never
-#: configuration, and only in a process that is no backend role: the fixture runner
-#: (``python -m public_sources test``) and the test suites (:func:`allow_parsing_here`).
 _parse_here = False
 
 
@@ -95,9 +83,7 @@ class PdfError(ValueError):
 
 @dataclass(frozen=True)
 class PdfText:
-    #: Each page's text, in order, for the pages read; an empty string for a page with no text layer.
     pages: tuple[str, ...]
-    #: The pages the document has; more than ``len(pages)`` when the text cap stopped the read.
     page_count: int = 0
     title: str = ""
 

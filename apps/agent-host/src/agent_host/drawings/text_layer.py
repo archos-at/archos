@@ -35,10 +35,8 @@ logger = logging.getLogger(__name__)
 
 _PT_PER_MM = 72.0 / 25.4
 
-#: Texts written at most; a whole cadastral community has tens of thousands of point numbers.
 MAX_TEXTS = 40_000
 
-#: General Sans's capital height as a share of its em, near enough for any sans the fallback picks.
 CAP_HEIGHT_EM = 0.7
 
 _HALIGN = {0: "left", 1: "center", 2: "right", 3: "left", 4: "center", 5: "left"}

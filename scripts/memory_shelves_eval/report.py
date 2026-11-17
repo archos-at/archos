@@ -1,5 +1,3 @@
-"""The memory-shelves eval's Markdown report, rendered from ``results.json`` alone."""
-
 from __future__ import annotations
 
 from typing import Any
@@ -76,7 +74,6 @@ def _failure_section(cases: list[dict[str, Any]], records: list[dict[str, Any]])
 
 
 def _mixed_section(cases: list[dict[str, Any]], records: list[dict[str, Any]]) -> list[str]:
-    """Every shared note on a case that also holds a personal matter: the markers are stems, so read these."""
     mixed = {case["id"] for case in cases if case.get("personal_markers")}
     lines: list[str] = []
     for record in sorted(records, key=lambda r: (r["pass"], r["case_id"], r["run"])):

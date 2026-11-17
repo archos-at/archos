@@ -73,21 +73,10 @@ from .schema import LEGACY_FIELDS
 from .schema import PROJECT_FACTS_FIELD
 from .schema import fact_field
 
-#: The share of its own score a passage gains in each channel when its project
-#: shares every fact with the current one. 0.05 lifts a 0.50 cosine to 0.525:
-#: enough to put a similar project's passage ahead of near-equal ones from
-#: projects that share nothing, not enough to beat a clearly better passage.
-#: Hand-set like the weights. The answer suite (gate G1) is where it is tuned.
 LIKENESS = 0.05
 
-#: The share of its own score a passage of a binding edition gains in each channel. The same passage in
-#: another edition (the same words, another Ausgabe) scores alike, so any share puts the binding one first;
-#: 0.05 also orders a near twin that changed a word or a number, and does not beat a clearly better passage.
-#: Hand-set like LIKENESS; the answer suite is where it is tuned.
 EDITION_PREFERENCE = 0.05
 
-#: Uses compared for "at least n shared". The combinations grow as n choose
-#: k, and the intake records a handful of uses per project.
 MAX_USES = 6
 
 

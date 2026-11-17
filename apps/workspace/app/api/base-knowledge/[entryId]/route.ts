@@ -1,15 +1,3 @@
-/**
- * One base-knowledge entry (ADR-0163).
- *
- * GET    — any member.
- * PATCH  — change a confirmed entry's values; appends a revision, never rewrites one.
- * DELETE — remove the entry and its Archiv document (the Archiv's own delete);
- *          the records go with the document. Answers a receipt per store, and
- *          `removed: true` only when nothing is left anywhere.
- *
- * Writes need org:office_shelf:manage, checked in `@/lib/base-knowledge/office/service`.
- */
-
 import { apiRoute, parseJsonBody } from '@/lib/api/handler'
 import {
   getBaseKnowledgeEntry,

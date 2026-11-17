@@ -1,10 +1,3 @@
-/**
- * Fassung link API — a person confirms, or takes back, that this document
- * (`[id]`, the NEWER one) replaces another (CONTEXT.md, „Fassung").
- * Thin handler; access, the same-collection rule and the backend call live in
- * `@/lib/documents/revision-service`.
- */
-
 import { apiRoute, parseJsonBody } from '@/lib/api/handler'
 import { revisionLinkSchema } from '@/lib/documents/document-wire'
 import { setRevisionLink } from '@/lib/documents/revision-service'

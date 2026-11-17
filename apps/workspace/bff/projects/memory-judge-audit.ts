@@ -1,25 +1,3 @@
-/**
- * The restricted-memory judge's verdicts, in the audit trail (ADR-0087; AI Act).
- *
- * When a turn could have seen a restricted folder it did not read, a language
- * model judges whether a note Piloti keeps draws on it (`memory/restriction.py`).
- * Its answer decides who may read the note: "none" leaves the note open to the
- * whole project. That answer was only logged, so nobody could later ask which
- * notes a model opened. The agent now sends the verdict with the write, and
- * this records it with the item it was about: which note, which folders, and
- * the verdict. Never the note's text.
- *
- * An organization-wide finding a deployment refuses to store (the default) is
- * recorded too, against the organization: its "none" is what let the agent
- * offer it to the user as a card that writes it open, to the widest audience
- * memory has. `outcome` says which: `stored` or `refused`.
- *
- * The agent names collections; the trail names folders, resolved through the
- * one mapping (`sourceFoldersOfCollections`). A collection that no longer
- * resolves (its folder was opened since, or organization memory, which has no
- * project to resolve against) is recorded by its name rather than dropped.
- */
-
 import 'server-only'
 import { z } from 'zod'
 import { recordAuditEvent, SYSTEM_ACTORS } from '@/lib/audit/service'
@@ -27,11 +5,8 @@ import { sourceFoldersOfCollections } from '@/lib/authz/folder-access'
 import { PROJECT_MEMORY_JUDGE_VERDICTS, type ProjectMemoryItem } from '@/lib/db/schema/project-memory'
 import { findProjectInOrg } from './repository'
 
-/** The `restrictionJudge` body field of `POST /api/internal/memory`. */
 export const memoryJudgeVerdictSchema = z.object({
   verdict: z.enum(PROJECT_MEMORY_JUDGE_VERDICTS),
-  // Bounded generously: the judge is shown at most 150 entries, and a write
-  // must not fail because its audit record was large.
   judgedCollections: z.array(z.string().max(255)).max(1000),
   drawnCollections: z.array(z.string().max(255)).max(1000).default([]),
 })
@@ -43,15 +18,8 @@ type JudgedItem = Pick<
   'id' | 'organizationId' | 'projectId' | 'restrictedFolderIds' | 'provenanceType' | 'sourceConversationId'
 >
 
-/**
- * An organization-wide finding this deployment refused to store
- * (`ALLOW_AGENT_ORG_MEMORY` unset, the default). The judge's "none" still
- * decided something: the finding stayed open, so the agent offered it to the
- * user as a card that writes it open, organization-wide or to the project.
- */
 type RefusedWrite = Pick<ProjectMemoryItem, 'organizationId' | 'provenanceType' | 'sourceConversationId'>
 
-/** What the verdict was about, as the trail names it. */
 interface JudgedSubject {
   organizationId: string
   projectId: string | null
@@ -63,7 +31,6 @@ interface JudgedSubject {
   conversationId: string | null
 }
 
-/** WorkOS keeps metadata values to 500 characters; the counts say when a list was cut. */
 const joined = (values: readonly string[]): string => values.join(',').slice(0, 500)
 
 async function folderOfCollection(subject: JudgedSubject, collections: readonly string[]): Promise<Map<string, string>> {
@@ -101,13 +68,10 @@ async function recordVerdict(subject: JudgedSubject, judge: MemoryJudgeVerdict):
       },
     })
   } catch (error) {
-    // The note is written (or refused for its own reason); an audit line that
-    // could not be assembled must not turn that into a different answer.
     console.error('[memory-judge-audit] could not record the judge verdict:', error)
   }
 }
 
-/** Record the judge's verdict on this item. Never throws. */
 export async function recordMemoryJudgeVerdict(item: JudgedItem, judge: MemoryJudgeVerdict): Promise<void> {
   await recordVerdict(
     {
@@ -124,11 +88,6 @@ export async function recordMemoryJudgeVerdict(item: JudgedItem, judge: MemoryJu
   )
 }
 
-/**
- * Record the judge's verdict on an organization-wide finding that was refused,
- * against the organization it was meant for: there is no item to name. Never
- * throws.
- */
 export async function recordRefusedMemoryJudgeVerdict(refused: RefusedWrite, judge: MemoryJudgeVerdict): Promise<void> {
   await recordVerdict(
     {

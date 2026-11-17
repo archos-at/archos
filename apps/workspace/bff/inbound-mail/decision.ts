@@ -1,33 +1,4 @@
 import 'server-only'
-/**
- * Whether a person's decision about a held mail may be written, check by check
- * (ADR-0137, DECISION §4 C2), and the decision rows it becomes.
- *
- * A decision is the filing job's only instruction: the job reads what to file,
- * where, under which name and with which acknowledgements from the rows this
- * module plans, and from nowhere else. So every check a person must have
- * passed is made here, synchronously, with a code the UI and an agent can act
- * on, before a row exists:
- *
- * | Code | The check |
- * |---|---|
- * | `stale`, `part_not_waiting`, `part_unknown` | the mail is the one the person read (`ifMatch`), each part is this mail's and waits |
- * | `scan_not_clean` | an attachment's scan said clean (the job re-scans one older than a day); for the text, the whole raw message's scan did, since filing the text keeps that message as the entry's original |
- * | `type_not_accepted` | the office accepts the type, of the part and of the name it is filed under |
- * | `name_stop` | the name check passes the file name, the thread name and a new folder path, or the person released it |
- * | `risk_not_acknowledged` | a `macro` or `type_mismatch` part, an append to a thread the sender could not vouch for, a Fassung of an earlier document from such a sender: the part's id is in `acknowledgeRisk` |
- * | `sender_only` | a mail that claims a writer it could not prove to be (`unverified_writer`) is filed only by that writer (ADR-0137's amendment; the database holds the same rule) |
- * | `sender_not_acknowledged` | an unconfirmed sender the person must accept: `member_unverified`, a DKIM `fail` or `policy`, a mail addressed to others (outside the Bcc case), a stale date, and every mail that claims a writer it could not prove to be |
- * | `acknowledgement_in_bulk` | acknowledgements only in a request about one mail (RT-S5) |
- * | `card_carries_acknowledgement` | an agent's card carries none (RT-S5; the database refuses it too) |
- * | `target_unknown`, `thread_full` | the thread or the earlier document is one the person may read, and the thread has room |
- * | `name_taken` | the name is free in the project, or the person files the part as that document's next Fassung |
- * | `unreadable`, `nothing_to_mask` | the text was read, and masking has something to mask |
- *
- * The folder rights (`requireFolderWrite` on every target) are asked last, as
- * the person, by {@link requireDecisionRights}; the filing job asks them again
- * when it uploads as that person.
- */
 
 import { createHash, randomUUID } from 'node:crypto'
 import { ConflictError } from '@/lib/api/errors'
@@ -46,13 +17,10 @@ import { findDocumentIdByStoredName, type CandidateDocument, type ThreadDocument
 import { onlySenderReleases } from './sender-class'
 import { senderFactsOf, senderNeedsAcknowledgement as needsAcknowledgement } from './sender-risk'
 
-/** The Dokumentart a filed mail text's thread document carries (D14). */
 export const THREAD_DOCUMENT_TYPE = 'correspondence' as const
 
-/** Risk flags whose part is filed only with its id in `acknowledgeRisk` (D17); `unverified_thread` is judged per target. */
 const ACKNOWLEDGED_RISK_FLAGS = ['macro', 'type_mismatch'] as const
 
-/** A refusal with its code (`details.reason`) and what it names: ids and terms, never text. */
 export function refusal(
   reason: InboundMailRefusal,
   message: string,
@@ -61,12 +29,6 @@ export function refusal(
   return new ConflictError(message, { reason, ...details })
 }
 
-/**
- * The compare-and-set token of a mail as a person read it (C3): a digest of
- * the mail's and each part's state and change time. A decision carries it back,
- * and is refused when anything changed since (another person decided, a part
- * was filed, a scan finished).
- */
 export function mailIfMatch(
   mail: Pick<InboundMailRow, 'id' | 'status' | 'updatedAt'>,
   parts: ReadonlyArray<Pick<InboundMailPartRow, 'id' | 'state' | 'scanStatus' | 'lastFailure' | 'updatedAt'>>,
@@ -82,46 +44,30 @@ export function mailIfMatch(
   return createHash('sha256').update(facts.join('\n')).digest('base64url').slice(0, 27)
 }
 
-/**
- * Whether filing anything of this mail needs the person to accept its sender
- * (`acknowledgeSender`, C2): `./sender-risk`'s rule, read off the stored
- * verdict. A mail a person can read always has one (`inbound_mails_trust_when_shown`).
- */
 export function senderNeedsAcknowledgement(
   mail: Pick<InboundMailRow, 'senderTrust' | 'senderReason' | 'senderFlags' | 'senderClass'>,
 ): boolean {
-  // „Haben Sie diese E-Mail gesendet?“: the claimed writer files it by saying so (`acknowledged_sender`, migration 0197).
   if (mail.senderClass === 'unverified_writer') return true
   const facts = senderFactsOf(mail)
   return facts === null || needsAcknowledgement(facts)
 }
 
-/** What a decision is checked against: the request, the office's rules, and the viewer's candidates. */
 export interface DecisionContext {
   actor: DecisionActor
-  /** More than one mail in the request: no acknowledgement may ride along (RT-S5). */
   bulk: boolean
-  /** The office's accepted file extensions (`acceptedTypesForOrganization`). */
   acceptedTypes: readonly string[]
-  /** The office's name terms a file name, in a folder path, matches; empty when it may pass. */
   nameStops(filename: string, folderPath: string | null): string[]
   candidates: ViewerCandidates
-  /** The project's live folders the request names, each with its path. */
   folders: ReadonlyMap<string, string>
-  /** The matched and named threads with a live document, as the viewer may or may not see them. */
   threads: ReadonlyMap<string, ThreadDocument>
-  /** The documents `revisionOf` names, screened and live. */
   documents: ReadonlyMap<string, CandidateDocument>
 }
 
-/** One mail's decision, planned: the `file` rows, and what the person must still be allowed. */
 export interface PlannedMailDecision {
   mailId: string
   ifMatch: string
   files: NewInboundMailDecisionRow[]
-  /** Every folder a part goes into (null: the project root); the person must write in each. */
   writeFolders: Array<string | null>
-  /** Names filed fresh (not as a Fassung): each must be free in the project. */
   freshNames: Array<{ partId: string; storedName: string }>
 }
 
@@ -131,7 +77,6 @@ const refuseRisk = (partId: string, flag: string) =>
     flag,
   })
 
-/** A target folder: an existing folder by id, a path to create, or the root. Throws `target_unknown` for a folder that is gone. */
 function folderTarget(
   target: { folderId: string | null; newFolderPath: string | null },
   context: DecisionContext,
@@ -146,7 +91,6 @@ function folderTarget(
   return { folderId: null, folderPath: normalizeFolderPath(target.newFolderPath) }
 }
 
-/** The name check on a name filed into a folder path, unless the person released it. */
 function requireNamePasses(
   name: string,
   folderPath: string,
@@ -184,7 +128,6 @@ function planAttachment(
     if (!earlier || !context.candidates.readsFolder(earlier.folderId)) {
       throw refusal('target_unknown', 'The document to file a new Fassung of was not found', { partId: part.id })
     }
-    // A Fassung of a project document on a stranger's word is the unverified-thread case of D11.
     if (senderPreselectionBlocks(senderEvidenceOf(mail)).length > 0 && !acknowledgedRisk.has(part.id)) {
       throw refuseRisk(part.id, 'unverified_thread')
     }
@@ -220,7 +163,6 @@ function planMessage(
   if (!mail.readStorageKey || part.riskFlags.includes('unreadable')) {
     throw refusal('unreadable', 'The text of this mail could not be read; download its original instead', { partId: part.id })
   }
-  // Filing the text moves the raw message into the Verlauf as its original, for the Verlauf's life.
   if (mail.rawScanStatus !== 'clean') {
     throw refusal('scan_not_clean', 'This mail has no clean scan, so its text cannot be filed; dismiss it', { partId: part.id })
   }
@@ -286,7 +228,6 @@ function baseRow(
   }
 }
 
-/** The part a decision names, if it is this mail's, of this kind, and still waiting. */
 function waitingPart(parts: ReadonlyMap<string, InboundMailPartRow>, partId: string, kind: 'message' | 'attachment'): InboundMailPartRow {
   const part = parts.get(partId)
   if (!part || part.kind !== kind) throw refusal('part_unknown', `No ${kind} part of this mail has this id`, { partId })
@@ -294,11 +235,6 @@ function waitingPart(parts: ReadonlyMap<string, InboundMailPartRow>, partId: str
   return part
 }
 
-/**
- * Plan one mail's decision, or throw the first refusal with its code. Pure
- * apart from minting the decision ids; the caller loaded `mail`, its `parts`
- * and the context for the whole request.
- */
 export function planMailDecision(
   mail: InboundMailRow,
   parts: readonly InboundMailPartRow[],
@@ -360,14 +296,6 @@ export function planMailDecision(
   }
 }
 
-/**
- * What the planned decisions need of the person and the project, asked last:
- * write in every target folder (404 for a folder they may not read, 403 for
- * one they may only read, the project-closed refusal for a closed project),
- * and every name filed fresh free in the project (`name_taken`; the name is
- * the person's own, the document is not named, since it may sit where they
- * cannot read).
- */
 export async function requireDecisionRights(
   session: AuthorizedSession,
   projectId: string,

@@ -34,7 +34,6 @@ from oib_retrieval.qdrant_parity.vectors import truncate_renormalise
 FULL = 3072
 REDUCED = 1024
 
-#: Named vectors in the G6 collection: (name, dimension, quantized).
 VARIANTS = (
     ("f3072", FULL, False),
     ("q3072", FULL, True),

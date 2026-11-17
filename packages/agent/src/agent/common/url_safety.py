@@ -29,15 +29,12 @@ from urllib.parse import urlunsplit
 
 import validators
 
-#: Query parameters that carry a signature or a bearer credential, lower case: object-storage pre-signed
-#: URLs (S3 ``X-Amz-*``, GCS ``X-Goog-*``, Azure SAS ``sig``), signed CDN links and plain access tokens.
 SIGNED_QUERY_PARAMETERS = frozenset(
     {
         *("signature", "sig", "token", "access_token", "id_token", "auth", "authorization"),
         *("key-pair-id", "awsaccesskeyid", "googleaccessid", "apikey", "api_key", "api-key"),
     }
 )
-#: Prefixes of a provider's whole signing vocabulary.
 SIGNED_QUERY_PREFIXES = ("x-amz-", "x-goog-")
 
 

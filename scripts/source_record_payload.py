@@ -27,7 +27,6 @@ from public_sources.source import get_source
 
 ROOT = Path(__file__).resolve().parents[1]
 
-#: Each payload: the repository record it is made from, the key it is proposed under, and the file it is written to.
 PAYLOADS: tuple[tuple[str, str, Path], ...] = (
     ("at-ris", "at-ris-ogd", ROOT / "configs" / "knowledge-packs" / "at-sources.json"),
 )

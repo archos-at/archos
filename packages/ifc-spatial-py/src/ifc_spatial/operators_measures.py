@@ -22,10 +22,6 @@ from .geometry import dominant_vertical_plane
 from .geometry import triangle_normals_areas
 from .model import SpatialModel
 
-# ════════════════════════════════════════════════════════════════════════════
-# metric — numbers off the geometry, each with its error attached
-# ════════════════════════════════════════════════════════════════════════════
-
 
 def extent(model: SpatialModel, global_id: str) -> Answer[dict[str, Any]]:
     """The element's bounding box and its three axis-aligned dimensions, in metres.
@@ -113,13 +109,6 @@ def floor_area(model: SpatialModel, global_id: str, declared_area: float | None 
     declared_method = f"NetFloorArea({global_id})"
     declared_caveat = None
     if declared_area is None:
-        # `Area` and `NetArea` mean "floor area" only on something that HAS a
-        # floor. On a wall, Revit's `Dimensions.Area` is the elevation area —
-        # 26.48 m² against this wall's 4.10 m² of footprint — and triangulating
-        # the two produced "die Datei widerspricht sich" on every wall of every
-        # Revit export. Both numbers were right; they measure different things,
-        # and it is the comparison that was wrong. So the ambiguous names are
-        # only consulted for a spatial element.
         names = ("NetFloorArea", "GrossFloorArea")
         if model.kind_of(subject) == "space":
             names = ("NetFloorArea", "NetArea", "GrossFloorArea", "Area")
@@ -135,13 +124,8 @@ def floor_area(model: SpatialModel, global_id: str, declared_area: float | None 
                 f"umgerechnet {found.value:.4f} m².{compared}"
             )
     else:
-        # A caller-supplied number is assumed to be SI already; it has to be,
-        # because nothing here can tell which unit the caller measured in.
         declared_area = float(declared_area)
 
-    # The measured value goes in first because `triangulate` reports the COMPUTED
-    # side when the two disagree: a declared quantity that contradicts the
-    # geometry it describes is the thing under suspicion.
     answer = triangulate(
         measured,
         declared(declared_area, unit="m²", from_=[global_id], method=declared_method),
@@ -251,9 +235,6 @@ def _facing_union_area(triangles: np.ndarray, normals: np.ndarray) -> tuple[floa
     saw_facing = False
     errored = False
     for sign in (1.0, -1.0):
-        # 0.01 is IfcOpenShell's own `normal_tol`: close to perpendicular, with
-        # a fuzz for numerical noise. Kept identical so the two agree face for
-        # face on a correctly wound mesh.
         facing = triangles[normals[:, 2] * sign > 0.01]
         if len(facing) == 0:
             continue

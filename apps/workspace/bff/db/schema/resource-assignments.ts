@@ -1,14 +1,6 @@
 import { index, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core'
 import { SHAREABLE_RESOURCE_TYPES, type ShareableResourceType } from './resource-shares'
 
-/**
- * `resource_assignments` — who is professionally on the hook for a resource
- * (ADR-0047). Not access (that is `resource_shares`) and not provenance
- * (`created_by`). Cardinality 0..n; empty is valid; upload writes no row.
- *
- * Same polymorphic key as grants and inbox items so a later consumer
- * (a compliance lane) is a registry entry, not a second table.
- */
 export const resourceAssignments = pgTable(
   'resource_assignments',
   {
@@ -41,5 +33,4 @@ export const resourceAssignments = pgTable(
 export type ResourceAssignment = typeof resourceAssignments.$inferSelect
 export type NewResourceAssignment = typeof resourceAssignments.$inferInsert
 
-/** Compile-time reminder that assignment keys the same union as sharing. */
 export const ASSIGNMENT_RESOURCE_TYPES = SHAREABLE_RESOURCE_TYPES

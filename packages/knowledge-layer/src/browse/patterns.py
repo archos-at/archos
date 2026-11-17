@@ -13,31 +13,16 @@ import regex
 
 from .matches import MAX_MATCH_CHUNKS
 
-#: A single character matches noise. Two and three characters („EG“, „T30“)
-#: are real search terms and match as whole words (:data:`WHOLE_WORD_MAX_CHARS`).
 MIN_PHRASE_CHARS = 2
 
-#: A person's regex is a pattern, not a document: longer than this is refused.
 MAX_USER_PATTERN_CHARS = 300
 
-#: Alternatives in one exact search. „BA-03 | BA 03 | Brandabschnitt 3“
-#: is one question asked three ways; ten is a runaway.
 MAX_ALTERNATIVES = 6
 
-#: What stands between two words in extracted text: whitespace (a line break,
-#: a double space, NBSP — ``\s`` is Unicode-aware in Python's ``re`` and in
-#: Rust's ``regex`` alike), a hyphen, a non-breaking hyphen, an en dash, a soft
-#: hyphen. A run of any of them in the phrase matches a run of any of them in
-#: the text, so „OIB Richtlinie“ finds „OIB-Richtlinie“ and „Brandabschnitt 3“
-#: finds „Brandabschnitt⏎3“. The ``-`` stands last so neither dialect reads a range.
 _SEPARATOR_CHARS = "\u00ad\u2010\u2011\u2013-"
 
 _SEPARATOR = f"[\\s{_SEPARATOR_CHARS}]+"
 
-#: One German letter and its ASCII transliteration are one letter to a reader.
-#: Either spelling in the phrase matches both in the text (and a decomposed
-#: umlaut, ``a`` + U+0308, which some PDF text layers carry). Case is the
-#: pattern's ``(?i)``, so „AE“ and „Ä“ are covered by the same group.
 _EQUIVALENT = {
     "ä": "(?:ä|a\u0308|ae)",
     "ö": "(?:ö|o\u0308|oe)",
@@ -45,20 +30,10 @@ _EQUIVALENT = {
     "ß": "(?:ß|ss)",
 }
 
-#: A phrase is read left to right as separator runs, transliteration digraphs
-#: and single characters; ``ae`` wins over ``a`` + ``e``.
 _TOKEN = re.compile(f"[\\s{_SEPARATOR_CHARS}]+|ae|oe|ue|ss|.", re.DOTALL)
 
-#: A phrase this short matches as a whole word only: „EG“ is inside „Weg“,
-#: „Steg“ and „Regel“, and a count of those is not an answer to „wo steht EG“.
-#: Four characters („BA03“, „T30-2“) are specific enough to match inside a word.
-#: The boundary goes only on an edge that is a word character, so „§ 5“ still
-#: matches after a space. ``\b`` is Unicode-aware in both dialects.
 WHOLE_WORD_MAX_CHARS = 3
 
-#: A bound on the pattern the store compiles. A phrase expands about fourfold
-#: (every umlaut and separator becomes a group), so this admits six
-#: alternatives of well over a hundred characters: a sentence, not a phrase.
 MAX_PATTERN_CHARS = 4000
 
 
@@ -76,13 +51,10 @@ def _phrase_pattern(phrase: str) -> str:
     return f"{start}{body}{end}"
 
 
-#: German inflectional endings :func:`inflection_stem` strips, longest first.
 _INFLECTION_ENDINGS = ("ern", "nen", "en", "er", "es", "em", "e", "n", "s")
 
-#: Words shorter than this keep their form: a code, an abbreviation, a short word is matched as written.
 _INFLECTED_MIN_CHARS = 5
 
-#: What a stripped word must keep.
 _STEM_MIN_CHARS = 4
 
 
@@ -169,7 +141,6 @@ def user_pattern(text: str) -> tuple[Any | None, str]:
     return compiled, ""
 
 
-#: What a regex with no literal word and no narrowing is told: it would read every passage of every file.
 _NEEDS_A_ANCHOR = (
     "A regex needs something to narrow the search with: one literal whole word or number it must contain, or a "
     "`folder=`, `file_name=` or `doc_class=` to read in. This pattern has no such word: a word followed by `?`, "
@@ -178,21 +149,18 @@ _NEEDS_A_ANCHOR = (
     'keep that word and give `folder=`, or use `match="exact"` for a literal.'
 )
 
-#: What a regex that outran its time limit is told.
 _TOO_COSTLY = (
     "`query` is too costly: the regex backtracks on a passage of the files (nested repetition such as `(a+)+`, or "
     "overlapping alternatives under a `*`), and the search was stopped. This is NOT a result, neither a hit nor "
     'a no. Rewrite it without nested repetition, or use `match="exact"` for a literal word.'
 )
 
-#: What a regex whose whole scan outran its deadline is told: too costly, and not a result.
 _TOO_COSTLY_SCAN = (
     "`query` is too costly: reading this regex over every passage that holds its words takes longer than one "
     "search may, and the search was stopped. This is NOT a result, neither a hit nor a no. Narrow it with "
     '`folder=`, `file_name=` or `doc_class=`, add a rarer literal word, or use `match="exact"` for a literal word.'
 )
 
-#: A capped scan whose passages all held the match only in a heading breadcrumb or an overlap.
 _CAPPED_WITHOUT_OWN_MATCH = (
     f"The search stopped after {MAX_MATCH_CHUNKS} matching passages, and in those the words stood only in "
     "headings restated from elsewhere or in text repeated from the passage before. What lies past that limit was "

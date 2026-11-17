@@ -1,6 +1,5 @@
 import type { en } from '../en'
 
-/** Ähnliche abgeschlossene Projekte: was das Büro früher gebaut hat, soweit die Person es einsehen darf. */
 export const references: typeof en.references = {
   intro:
     'Abgeschlossene Projekte des Büros, die diesem am ähnlichsten sind und die Sie einsehen dürfen: was sie gemeinsam haben, welche Entscheidungen dort fielen und welche Auflagen die Behörde stellte. Dieselben Projekte zieht {productName} im Chat als Präzedenzfälle heran.',

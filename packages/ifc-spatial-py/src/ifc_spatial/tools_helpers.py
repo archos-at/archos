@@ -10,12 +10,7 @@ import numpy as np
 
 from ifc_spatial.tools_types import ToolError
 
-# `env`, not `envelope`: `envelope.py` is the ANSWER CONTRACT (`Answer`,
-# `computed`, `undecidable`) and `envelope_geometry.py` is the thermal envelope.
-# Two unrelated meanings of one word, one of which is imported from below.
 from .model import SpatialModel
-
-# ── find_elements ───────────────────────────────────────────────────────
 
 
 def _select(
@@ -41,10 +36,6 @@ def _select(
     for element in _nodes(model):
         if wanted_type and element.is_a().lower() != wanted_type:
             continue
-        # Subtype-aware, unlike `ifcType`, because this filter is the
-        # measure's own definition of its subject rather than the caller's
-        # spelling: `IfcWallStandardCase` IS an `IfcWall`, and an ArchiCAD
-        # export writes only the former.
         if subject_types and not any(element.is_a(subject) for subject in subject_types):
             continue
         if wanted_kind and model.kind_of(element) != wanted_kind:
@@ -61,9 +52,6 @@ def _select(
         if len(matches) < limit:
             matches.append(element)
     return matches, total
-
-
-# ── helpers ─────────────────────────────────────────────────────────────────
 
 
 def _nodes(model: SpatialModel) -> list[Any]:
@@ -85,8 +73,6 @@ def _jsonable(value: Any) -> Any:
     if isinstance(value, (str, bool, int)) or value is None:
         return value
     if isinstance(value, float):
-        # NaN and ±Inf are not JSON. They arrive from a degenerate mesh, and a
-        # transport-level crash is a worse report than a null.
         return value if math.isfinite(value) else None
     if hasattr(value, "to_dict") and callable(value.to_dict):
         return _jsonable(value.to_dict())

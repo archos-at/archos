@@ -4,22 +4,15 @@ import os
 import re
 from typing import Any
 
-# Host of the removed NVIDIA NIM endpoint. Any llm entry still pointing here,
-# or still typed `nim`, is a stale config — not a working provider.
 NIM_API_HOST = "integrate.api.nvidia.com"
 
-# Surfaced whenever NIM remnants are found: names the supported config so the
-# failure is actionable at startup instead of a deep client error later.
 NIM_UNSUPPORTED_MESSAGE = "nim configs no longer supported; migrate to config_oib_openrouter.yml"
 
-# Mapping of LLM _type to required API key environment variable names
-# This can be extended as new providers are added
 LLM_API_KEY_MAP = {
     "openai": ["OPENAI_API_KEY"],
     "anthropic": ["ANTHROPIC_API_KEY"],
     "google": ["GOOGLE_API_KEY"],
     "gemini": ["GOOGLE_API_KEY"],
-    # Add more providers as needed
 }
 
 
@@ -45,14 +38,11 @@ def _get_llm_api_key_requirements(llm_config: dict[str, Any]) -> list[str]:
     llm_type = llm_config.get("_type", "").lower()
     required_keys = LLM_API_KEY_MAP.get(llm_type, [])
 
-    # If api_key is explicitly set in config, check if it references an env var
     api_key_config = llm_config.get("api_key")
     if api_key_config:
         env_var = _extract_env_var(api_key_config)
         if env_var:
-            # If config specifies an env var, that's the required key
             return [env_var]
-        # If api_key is a literal value, no env var needed
         return []
 
     return required_keys

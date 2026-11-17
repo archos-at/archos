@@ -47,21 +47,13 @@ from . import payload_crypto
 
 logger = logging.getLogger(__name__)
 
-#: The config keys whose entries are deferred downloads, beside ``file_paths``:
-#: the rendition a document is read from, and the one only its thumbnail is
-#: drawn from (``knowledge_layer.ingest.renditions.RENDITION_CONFIG_LISTS``).
 _DEFERRED_CONFIG_LISTS = ("extraction_paths", "preview_paths")
 
-#: Config keys that are URLs a worker requests: gated again on the way back in.
 _URL_CONFIG_KEYS = ("thumbnail_upload_url",)
 
 _DOWNLOAD = "__object_download__"
 _CORPUS_OBJECT = "__corpus_object__"
-#: How an encrypted payload begins (``payload_crypto.serialize``).
 _ENCRYPTED = "enc:"
-
-
-# ----------------------------------------------------------------- payload
 
 
 def _encode_entry(entry: Any) -> Any:
@@ -128,7 +120,6 @@ def decode(stored: str) -> PreparedIngestJob:
             config[key] = [_decode_entry(e) for e in config[key]]
     for key in _URL_CONFIG_KEYS:
         if config.get(key):
-            # Gated again and rebuilt on the configured store's origin, whatever the row says.
             config[key] = object_store_request_url(config[key], field=key)
     return PreparedIngestJob(
         job_id=data["job_id"],
@@ -137,9 +128,6 @@ def decode(stored: str) -> PreparedIngestJob:
         collection_name=data["collection_name"],
         config=config,
     )
-
-
-# ---------------------------------------------------------------- dispatch
 
 
 class QueueUnavailable(RuntimeError):
@@ -161,7 +149,6 @@ def _hand_over(prepared: PreparedIngestJob) -> bool:
             byte_size=original_bytes(prepared),
         )
     except Exception as error:
-        # Class name only: the payload and its error carry presigned URLs.
         raise QueueUnavailable(
             f"could not hand ingestion job {prepared.job_id} to Hatchet: {type(error).__name__}"
         ) from error
@@ -216,9 +203,6 @@ def enqueue_only(prepared: PreparedIngestJob) -> bool:
     return _hand_over(prepared)
 
 
-# ------------------------------------------------------------------ cancel
-
-#: How a cancel ended, as :func:`cancel` reports it.
 CANCEL_STOPPED = "cancelled"
 CANCEL_FINISHED = "finished"
 CANCEL_UNAVAILABLE = "unavailable"
@@ -243,7 +227,6 @@ def cancel(job_id: str) -> str:
     run_id = ingest_run_hold.run_id_of(job_id)
     if run_id is None:
         return CANCEL_UNAVAILABLE
-    # Before the cancel: the run that sees it must know a person asked, not a newer upload.
     ingest_run_hold.mark_stopped_by_person(job_id)
     try:
         ingest_workflow.cancel_run(run_id)
@@ -251,8 +234,6 @@ def cancel(job_id: str) -> str:
         logger.warning("Could not cancel the run of ingestion job %s: %s", job_id, type(error).__name__)
         return CANCEL_UNAVAILABLE
     if not ingest_status_store.settle_cancelled(job_id):
-        # Nothing live was left to settle. The job ended between the read above and here, or the
-        # write failed: then the row is still live, and the cancelled run settles it itself.
         after = ingest_status_store.get(job_id)
         if after is not None and after.status in (JobState.COMPLETED, JobState.FAILED):
             return CANCEL_FINISHED

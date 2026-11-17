@@ -1,11 +1,3 @@
-/**
- * What the platform view shows (ADR-0165): each country with its released
- * records by type, its open change requests, how many offices are entitled to
- * it and how many released editions are past their check target; and the
- * review queue, which holds the submitted requests and every request approved
- * alone whose second review is due. Read as the platform role, bounded.
- */
-
 import 'server-only'
 import { sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
@@ -77,9 +69,7 @@ export async function readOverview(now: Date = new Date()): Promise<PlatformKnow
     const last = row.checked_at ? { checkedAt: new Date(row.checked_at), result: String(row.result) } : null
     if (platformEditionOverdue(row.kind, last, now)) country(row.country_id).overdueEditions += 1
   }
-  // The queue: what waits for a review, and what was approved alone and still owes its second one (ADR-0176).
   const [submitted, secondReviewDue] = await Promise.all([listChangeRequests({ status: 'submitted' }), listChangeRequests({ secondReview: 'due' })])
-  // A submitted one is listed once; a rejected one reached no office and owes no review.
   const queue = [...submitted, ...secondReviewDue.filter((request) => request.status !== 'submitted' && request.status !== 'rejected')]
   return { countries: [...countries.values()].sort((a, b) => a.countryId.localeCompare(b.countryId)), queue }
 }

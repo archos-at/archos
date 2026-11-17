@@ -51,19 +51,11 @@ from .scope import ScopeRead
 from .scope import scope_condition
 from .store import QdrantStore
 
-#: Points ranked before grouping: enough for ``documents`` groups of
-#: ``per_document`` passages when a few documents hold many near passages.
 MAX_CANDIDATES = 200
-#: Chunks of one file read to find the one holding a cited passage. A guard:
-#: a document's chunks stay far below it.
 LOCATE_SCAN_CAP = 4096
-#: How much of a cited passage has to be found inside a chunk. A citation's
-#: snippet can be cut short, so its head is what is matched.
 LOCATE_PROBE_CHARS = 240
-#: Below this many characters a passage is too short to say which chunk holds it.
 LOCATE_MIN_CHARS = 24
 
-#: How the query vector was obtained.
 ORIGIN_POINT = "point"
 ORIGIN_EMBEDDED = "embedded"
 
@@ -80,10 +72,7 @@ class PassageSource:
     text: str = ""
     page: int | None = None
     chunk_id: str | None = None
-    #: The passage is retrieved text (a citation) and may stand for a stored chunk.
-    #: A selection is never matched to a chunk: the chunk says more than the selection.
     cited: bool = False
-    #: The BFF's document id, when it knows it: excluded by id as well as by file.
     document_id: str | None = None
 
 
@@ -112,7 +101,6 @@ class SimilarResult:
 
     documents: list[SimilarDocument]
     origin: str
-    #: Points ranked before grouping, for the trace.
     candidates: int = 0
 
 
@@ -183,8 +171,6 @@ def _excluded(source: PassageSource) -> models.Filter:
     return models.Filter(must_not=exclusions)
 
 
-#: The superseded Fassung of a document drops out, as from every answer (ADR-0099).
-#: ``$ne`` keeps a point that carries no ``superseded`` at all.
 CURRENT_REVISIONS: dict[str, Any] = {"superseded": {"$ne": True}}
 
 
@@ -266,8 +252,6 @@ def find_similar(
         using=DENSE,
         lookup_from=lookup,
         query_filter=read.filter(CURRENT_REVISIONS, _excluded(source)),
-        # The scores are shown as a match percentage: rescored from the original
-        # vectors rather than read off the 4-bit quantized copy.
         search_params=models.SearchParams(quantization=models.QuantizationSearchParams(rescore=True)),
         limit=candidates,
         with_payload=True,

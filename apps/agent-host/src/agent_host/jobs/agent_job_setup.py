@@ -48,7 +48,6 @@ class JobModels:
     fn_config: Any
     provider: Any
     llm: Any
-    # The organization's own credential, re-applied by the reflection pass, which builds its own LLM.
     org_credential: Any
     zdr: bool
 
@@ -64,7 +63,6 @@ class RunContext:
     event_stream: Any
     user_info: dict | None
     memory_digest: str | None
-    # Profile and memory, composed as ``get_project_context_from_context()`` composes them.
     project_context: str | None
 
     def open_spans(self, request: JobRequest, workflow: Any, parent: Any) -> None:
@@ -128,24 +126,14 @@ async def prepare_models(builder: Any, request: JobRequest) -> JobModels:
     fn_config = _function_config(builder, request.agent_config_name)
     built, llm = await _create_llm_provider(builder, fn_config)
     provider = built
-    # On the provider itself, not only through the header bind_request injects,
-    # so the override holds whenever the agent resolves its LLMs.
     if request.model_overrides:
         provider = provider.with_model_overrides(sanitize_model_overrides(request.model_overrides))
-    # The platform owner's thinking level per group: platform-wide, so resolved
-    # here as the chat replicas do. Off the loop: a cold cache is a BFF call.
     provider = provider.with_reasoning_efforts(await asyncio.to_thread(get_reasoning_efforts))
-    # BYOK (ADR-0022): the org's own credential, fetched just in time and never
-    # carried in the payload; resolution fails open to the platform credential.
     org_credential = None
     if request.organization_id:
-        # Off the loop: a cold or expired cache is a BFF call.
         org_credential = await asyncio.to_thread(resolve_org_llm_credential, request.organization_id)
     if org_credential is not None:
         provider = provider.with_credential(org_credential)
-    # Zero Data Retention (ADR-0014), after BYOK so the pin lands only on models
-    # still pointing at OpenRouter. Every model the job builds comes from this
-    # provider, so pinning it pins them all. Off the loop; fails closed.
     data_policy = await asyncio.to_thread(data_policy_for, request.organization_id)
     provider = provider.with_zdr(data_policy.zdr)
     if provider is not built and llm is not None:
@@ -352,7 +340,6 @@ def trace_metadata(request: JobRequest, run: RunContext) -> tuple[Any, Any]:
         }
     )
     if is_temporary_conversation(request.usage_context):
-        # ADR-0180: nothing is kept from this run, said on its trace (the reflection is skipped).
         workflow.provided_metadata[TEMPORARY_CONVERSATION_KEY] = True
     if not request.parent_span_id or request.parent_span_id == "root":
         return workflow, None

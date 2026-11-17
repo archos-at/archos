@@ -1,14 +1,3 @@
-/**
- * Org BYOK LLM credentials (ADR-0022).
- *
- * GET  — list credential METADATA (never key material).
- * POST — verify a new key live against the provider, store the secret
- *        (WorkOS Vault / local AES-GCM), and atomically activate it.
- *
- * Double gate like model-config: `org:models:manage` + the `byok-llm`
- * feature flag.
- */
-
 import { apiRoute, parseJsonBody } from '@/lib/api/handler'
 import { ORG_PERMISSIONS } from '@/lib/authz/permissions'
 import { FEATURE_FLAGS, requireFeature } from '@/lib/authz/feature-flags'

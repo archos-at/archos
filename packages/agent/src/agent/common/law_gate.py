@@ -24,12 +24,8 @@ from agent.common.knowledge_context import turn_knowledge_context
 if TYPE_CHECKING:
     from agent.citations.entries import SourceEntry
 
-#: The country whose law each legal-database adapter holds (``configs/*.yml`` ``data_sources`` ids).
-#: A fact about the source, like its URL: RIS is Austria's legal information system. A turn may call an
-#: adapter only where its knowledge context allows that country's law (:func:`law_sources_withheld`).
 LAW_SOURCE_COUNTRIES: dict[str, str] = {"ris": "AT"}
 
-#: The tag that marks the turn's building law, in the turn context and in a research prompt.
 BUILDING_LAW_TAG = "<building_law>"
 
 
@@ -117,9 +113,6 @@ def turn_building_law_block() -> str | None:
     return building_law_block(turn_knowledge_context().text)
 
 
-#: How to reason about building law in any country, injected into the research prompts as
-#: ``{{ norm_doctrine }}`` ahead of the turn's own building law. ONE copy; the chat's static prompt
-#: carries the same method in ``<legal_method>``.
 LEGAL_METHOD = """## Norm hierarchy & document roles
 
 **Order of authority ≠ order of retrieval.** Which source ANSWERS a question (law > ordinance > a technical
@@ -160,8 +153,6 @@ def research_doctrine() -> str:
     return "\n\n".join(part for part in parts if part)
 
 
-# The jurisdiction + project-hard-limits grounding, injected into every deep-research
-# prompt as {{ jurisdiction_grounding }} — ONE copy, rendered by the prompt factories.
 JURISDICTION_GROUNDING = """## Jurisdiction
 
 Which country's building law applies to this project, and how far this workspace covers it, is stated once:

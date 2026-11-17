@@ -1,8 +1,3 @@
-/**
- * Single BYOK credential (ADR-0022): DELETE revokes the active credential —
- * traffic falls back to the platform key within one backend cache TTL.
- */
-
 import { apiRoute } from '@/lib/api/handler'
 import { BadRequestError } from '@/lib/api/errors'
 import { ORG_PERMISSIONS } from '@/lib/authz/permissions'

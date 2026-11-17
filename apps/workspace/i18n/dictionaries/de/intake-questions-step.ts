@@ -1,6 +1,5 @@
 import type { en } from '../en'
 
-/** intakeQuestionsStep: step 4, Rückfragen: one question at a time, only what changes the classification. */
 export const intakeQuestionsStep: typeof en.intakeQuestionsStep = {
   heading: 'Rückfragen',
   subtitle: 'Nur, was die Einstufung ändert',

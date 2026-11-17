@@ -11,7 +11,6 @@ from __future__ import annotations
 
 from typing import Any
 
-#: ``genre`` values, and the ``answer_type`` values that shared them.
 LEGACY_PLAN_GENRE: dict[str, str] = {
     "pruefbericht": "inspection_report",
     "aktenvermerk": "file_note",
@@ -20,13 +19,11 @@ LEGACY_PLAN_GENRE: dict[str, str] = {
     "bericht": "report",
 }
 
-#: ``depth`` values.
 LEGACY_PLAN_DEPTH: dict[str, str] = {
     "kurzpruefung": "quick_check",
     "gutachten": "expert_report",
 }
 
-#: Keys of the plan object (and of the ``plan_json`` fence).
 LEGACY_PLAN_KEYS: dict[str, str] = {
     "grundlage": "basis",
     "ausgeschlossen": "excluded",

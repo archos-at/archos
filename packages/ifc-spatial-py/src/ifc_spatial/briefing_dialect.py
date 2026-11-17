@@ -55,9 +55,6 @@ def measure_dialect(
             if not isinstance(values, dict):
                 continue
             for property_name, value in values.items():
-                # `get_psets` injects the pset's own express id under `id`. It
-                # is bookkeeping, not vocabulary, and printing it in the DIALEKT
-                # block would offer the agent a property it cannot filter on.
                 if property_name == "id":
                     continue
                 if value is None or value == "":
@@ -115,8 +112,6 @@ def _summarise_dialect(
             )
         )
 
-    # Stable: decisive first, then by fill count, then alphabetically. Two runs
-    # over the same file must produce the same briefing.
     ranked = sorted(shaped, key=lambda e: (0 if e.concept is not None else 1, -e.filled, f"{e.set}.{e.property}"))
     absent = [
         {"concept": concept, "property": property_name}

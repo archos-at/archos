@@ -10,8 +10,6 @@ from pydantic import TypeAdapter
 
 from agent.cards.calculation_card import CalculationCard
 from agent.cards.canvas_activity_card import CanvasActivityCard
-
-# The catalog imports this module only inside functions, so this is no cycle.
 from agent.cards.catalog import CHAT_ONLY_CARD_TYPES
 from agent.cards.catalog import SYSTEM_CARD_TYPES
 from agent.cards.file_operation_card import FileOperationProposalCard
@@ -71,7 +69,6 @@ AnswerCard = (
 )
 
 
-# Discriminated-union adapter — the canonical validator for a raw card dict.
 answer_card_adapter = TypeAdapter(Annotated[AnswerCard, Field(discriminator="type")])
 
 

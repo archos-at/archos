@@ -1,8 +1,3 @@
-/**
- * The platform's change requests (ADR-0165): list them, by status if asked, or
- * open a draft for one country. Every platform revision is proposed in one.
- */
-
 import { parseJsonBody } from '@/lib/api/handler'
 import { BadRequestError } from '@/lib/api/errors'
 import { platformApiRoute } from '@/lib/api/platform-handler'

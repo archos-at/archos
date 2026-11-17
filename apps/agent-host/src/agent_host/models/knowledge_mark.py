@@ -18,7 +18,6 @@ from typing import Literal
 from pydantic import BaseModel
 from pydantic import Field
 
-#: The licence classes a point may carry; ``vector_store.schema.LICENCE_CLASSES``, which a test holds equal.
 LicenceClass = Literal["public_open", "public_restricted", "licensed"]
 
 
@@ -77,7 +76,6 @@ class KnowledgeMarkResult(BaseModel):
     file_name: str
     licence_class: LicenceClass | None
     edition_id: str | None
-    #: The released flag the body set; None when it set none. A caller that withdraws a text checks it is echoed.
     released: bool | None = None
     chunks: int
 
@@ -102,7 +100,6 @@ class OibReingestRequest(BaseModel):
         """The marks as the corpus stores them (``agent.corpus_store.FileMark``)."""
         from agent.corpus_store import FileMark
 
-        # A mark the platform sends with a re-index is a release's: the text is released.
         return {name: FileMark(**mark.model_dump(), released=True) for name, mark in self.marks.items()}
 
 

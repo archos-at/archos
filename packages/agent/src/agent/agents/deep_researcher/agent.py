@@ -91,19 +91,11 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_MAX_RESEARCH_CONCURRENCY = 6
 
-# Wall-clock budget for one deep-research run (40 min). Generous relative to a
-# healthy run so it only fires on pathological ones; 0 disables the guard.
 DEFAULT_MAX_RUN_SECONDS = 2400
 
-# Path to this agent's directory (for loading prompts)
 AGENT_DIR = Path(__file__).parent
 
-#: This agent's name in ``grid-agents``, the one gate a skill declares itself
-#: with. It is the ``AGENT_REGISTRY`` identifier, so the string a schedule's
-#: ``agent_type`` uses, the string the Skills tab writes, and the string
-#: resolved here are the same string.
 SKILL_AGENT = "deep_researcher"
-#: Its name as a subagent of a chat turn on the wire (SUBAGENT_STARTED): the same identifier.
 DEEP_RESEARCH_AGENT = SKILL_AGENT
 
 _PROMPT_NAMES = ("planner", "researcher", "orchestrator", "writer", "source_router")
@@ -144,8 +136,6 @@ def _run_scoped_callbacks(callbacks: Sequence[Any], source_registry_middleware: 
         setter = getattr(cb, "set_source_registry", None)
         if callable(setter):
             setter(source_registry_middleware.active_registry)
-        # The same refusal the registry makes, so an excluded document is not
-        # announced as a source the moment its tool returns.
         exclusion = getattr(cb, "set_source_exclusion", None)
         if callable(exclusion):
             exclusion(source_registry_middleware.is_excluded)
@@ -178,25 +168,14 @@ class DeepResearchRunArtifacts:
     tool_set: DeepResearchToolSet
     middleware_set: DeepResearchMiddlewareSet
     callbacks: list[Any]
-    #: What each research batch of this run announced it would fetch, and what
-    #: it already fetched. Read back once the graph has finished, to state the
-    #: run's rounds beside its sources.
     rounds: RetrievalRounds
-    #: The Unterlagen the reader named, for the unread mark at the end.
     plan_documents: PlanDocuments | None
-    #: This run's skills, served under ``/skills/`` (ADR-0135). The runtime
-    #: accumulates the activation list DURING the run, from the reads of every
-    #: subagent, and ``_finalize`` reports it — a runtime that went out of
-    #: scope at graph-build time is why deep research once shipped
-    #: ``skills_activated=None`` on every answer.
     skill_runtime: SkillRuntime
 
 
 class DeepResearcherAgent:
     """Deep research agent using deepagents library for multi-phase workflow."""
 
-    #: The state model ``run`` takes, declared for the async job runner the same
-    #: way ``ChatAgent`` declares its own — see the note there.
     state_model = DeepResearchAgentState
 
     def __init__(
@@ -242,8 +221,6 @@ class DeepResearcherAgent:
         self.deepagents_runtime = DeepAgentsRuntime(skills=skills, sandbox=sandbox, job_id=self.job_id)
         self._prompts = _prompt_templates()
         self.source_tool_names = {tool.name for tool in self.tools}
-
-    # -- per-run construction ------------------------------------------------
 
     def _prepare_run(
         self,
@@ -335,8 +312,6 @@ class DeepResearcherAgent:
         logger.info("Deep research resolved %d office skill(s) for the writer", len(office))
         return runtime
 
-    # -- the run --------------------------------------------------------------
-
     def _invocation(self, callbacks: list[Any]) -> tuple[dict[str, Any] | None, dict[str, Any]]:
         """The ``astream`` config and kwargs for one run.
 
@@ -395,10 +370,6 @@ class DeepResearcherAgent:
         if get_session_registry() is None:
             registry_token = set_session_registry(artifacts.source_registry_middleware.active_registry())
         contributions_token = begin_trace_contributions()
-        # The run's lane hits, recorded per round by the tools the researchers
-        # call. Bound HERE and reset in ``finally`` for the reason the trace
-        # contributions are: a research worker is reused across jobs and tenants,
-        # and a capture left open would hang job N+1's hits under job N.
         lane_token = begin_lane_capture()
         write_now_token = begin_write_now_record()
         try:
@@ -431,8 +402,6 @@ class DeepResearcherAgent:
             end_write_now_record(write_now_token)
             end_trace_contributions(contributions_token)
 
-    # -- post-processing ------------------------------------------------------
-
     def _finalize(
         self,
         result: Any,
@@ -448,20 +417,11 @@ class DeepResearcherAgent:
         being the banner and the flags that say it was cut off.
         """
         middleware = artifacts.source_registry_middleware
-        # A run the reader cut short by asking for the report is salvaged and
-        # marked like a cut-off run, under its own token: the banner says it
-        # was their choice. Cut short means a batch was refused; a request that
-        # arrived after the last batch cut nothing.
         if cutoff_reason is None and write_now_honoured():
             cutoff_reason = CUTOFF_USER_REQUESTED
         report, degraded_reasons = self._extract_report(result, middleware)
-        # The writer's self-assessment comes out before ANY other reader touches
-        # the text, or a stray "[CONFIDENCE:high]" reaches the PDF.
         report, self_confidence, self_confidence_reason = detect_and_strip_confidence_marker(report)
         verification = self._verify(report, middleware, self_confidence)
-        # The receipt: a Grundlage document with no passage in the registry was
-        # never read, whatever the writer wrote about it. That includes one the
-        # reader added while the run went, announced to the orchestrator or not.
         unread = unread_basis(artifacts.plan_documents, middleware.read_file_names(), all_added_documents())
         finalized = finalize_report(
             verification,
@@ -532,8 +492,6 @@ class DeepResearcherAgent:
             research_type="deep research",
             enable_logging=False,
         )
-        # The hardest citation failure there is — the run captured nothing to
-        # cite — lands on the citation-health dashboard, not only in the logs.
         citation_events.record_empty_registry(
             agent="deep",
             unavailable_tools=unavailable,
@@ -544,8 +502,6 @@ class DeepResearcherAgent:
             unavailable_tools=unavailable,
             available_count=available_count,
         )
-
-    # -- thin accessors kept for callers and tests ----------------------------
 
     def _extract_final_markdown(self, result: Any) -> str | None:
         """Extract final Markdown from output files."""

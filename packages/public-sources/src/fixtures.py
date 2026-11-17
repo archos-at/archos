@@ -49,7 +49,6 @@ class FixtureResult:
     fixture: str
     failures: list[str] = field(default_factory=list)
     requested: list[str] = field(default_factory=list)
-    #: The URLs whose capture is not recorded yet; the fixture was not run.
     awaiting: list[str] = field(default_factory=list)
 
     @property
@@ -121,7 +120,6 @@ async def _document(engine, fixture: Fixture, fetched):
     captured = sorted(url for url, r in fixture.responses.items() if isinstance(r, CapturedResponse))
     if captured:
         raise ValueError(f"a capture stands for the document itself, and the fetch ended on {fetched.url}: {captured}")
-    # Off the event loop: the api tier serves chat sockets too, and a PDF is read in a child process.
     return await asyncio.to_thread(engine.document, fetched.body, url=fetched.url)
 
 

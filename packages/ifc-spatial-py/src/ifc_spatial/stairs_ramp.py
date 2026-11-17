@@ -78,7 +78,6 @@ def _running_surface(model: SpatialModel, element: Any) -> _Running | None:
         run = float(max(vertices[:, 0].max() - vertices[:, 0].min(), vertices[:, 1].max() - vertices[:, 1].min()))
         width = float(min(vertices[:, 0].max() - vertices[:, 0].min(), vertices[:, 1].max() - vertices[:, 1].min()))
     else:
-        # Steepest ascent is the negated horizontal part of the up-normal.
         uphill = np.array([-normal[0] / horizontal, -normal[1] / horizontal, 0.0])
         across = np.array([-uphill[1], uphill[0], 0.0])
         along_extent = vertices @ uphill
@@ -187,7 +186,6 @@ def ramp_slope(model: SpatialModel, global_id: str) -> Answer[dict[str, Any]]:
                     elements=[global_id],
                 ),
             )
-        # A declared plane angle, converted to SI radians by `declared_quantity`.
         forms = _slope_forms(math.tan(declared_slope.value))
         return declared(
             {**forms, "rise": None, "run": None, "clearWidth": None, "flights": []},

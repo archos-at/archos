@@ -40,7 +40,6 @@ def _engine(db_url: str):
 def _create_table(conn) -> None:
     from sqlalchemy import text
 
-    # Only the module constant is interpolated.
     # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
     conn.execute(text(f"CREATE TABLE IF NOT EXISTS {TABLE} (job_id VARCHAR PRIMARY KEY, run_id VARCHAR NOT NULL)"))
 
@@ -96,15 +95,6 @@ def forget(db_url: str, job_id: str) -> None:
         logger.warning("Could not drop the orchestrator run id of job %s (non-fatal)", job_id, exc_info=True)
 
 
-# @environment_variable MAX_QUEUED_JOBS_PER_ORG
-# @category Server
-# @type int
-# @default 50
-# @required false
-# Research jobs one organization may have WAITING to start. Past it a submit is
-# refused with 429: abuse protection against a runaway caller, not capacity
-# management, because capacity makes a job wait, never fail. 0 or negative
-# disables the bound.
 def max_queued_per_org() -> int:
     """Research jobs an organization may have waiting; 0 or less is no bound."""
     try:
@@ -124,7 +114,6 @@ def waiting_for_org(db_url: str, organization_id: str | None) -> int:
     if not inspect(engine).has_table("job_info") or not inspect(engine).has_table("job_access"):
         return 0
     org_clause = "a.organization_id = :org" if organization_id else "a.organization_id IS NULL"
-    # Only a literal clause chosen above is interpolated; every value is bound.
     # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
     query = text(
         "SELECT COUNT(*) FROM job_info i JOIN job_access a ON a.job_id = i.job_id "

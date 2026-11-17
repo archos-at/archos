@@ -1,7 +1,3 @@
-"""The estate grep suites' corpus and backend: the files fixture's Brandschutzkonzept
-cut by the real section chunker, a retriever over it, and the grounding capture.
-"""
-
 from __future__ import annotations
 
 import re
@@ -21,7 +17,6 @@ from agent.knowledge.schema import Chunk
 from agent.knowledge.schema import ContentType
 from agent.knowledge.scoping import ScopedCollection
 
-# The repository, found by what it holds, so moving this package moves nothing here.
 REPO_ROOT = next(path for path in Path(__file__).resolve().parents if (path / "scripts" / "turn_census").is_dir())
 sys.path.insert(0, str(REPO_ROOT / "scripts" / "turn_census"))
 
@@ -60,8 +55,6 @@ def _report_row() -> FileRow:
 
 
 class Retriever:
-    """``find_text`` as the store answers it: every chunk the pattern finds, per collection."""
-
     def __init__(self, by_collection: dict, fail: set[str] = frozenset(), deadline: set[str] = frozenset()):
         self.by_collection = by_collection
         self.fail = fail

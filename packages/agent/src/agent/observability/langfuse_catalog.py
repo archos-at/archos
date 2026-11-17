@@ -22,8 +22,6 @@ from agent.common.licensed_text import LICENSED_TRACE_TAG
 from agent.common.residency import QUALITY_EVALUATION_TAG
 from agent.observability.onboarding_scores import ADVICE_POLICY_TRACE_TAG
 
-#: The queue every down-voted answer lands in (the BFF adds it,
-#: ``apps/workspace/bff/langfuse/feedback-score.ts`` ``REVIEW_QUEUE_NAME``).
 REVIEW_QUEUE_NAME = "answer-review"
 
 
@@ -31,7 +29,6 @@ REVIEW_QUEUE_NAME = "answer-review"
 class QueueDefinition:
     name: str
     description: str
-    #: Score names a reviewer fills in; each must be a defined score.
     score_names: tuple[str, ...]
 
 
@@ -42,7 +39,6 @@ class JudgeDefinition:
     name: str
     description: str
     prompt: str
-    #: Prompt variable -> (source, JSONPath or None), Langfuse's mapping.
     variables: dict[str, tuple[str, str | None]] = field(default_factory=dict)
 
 
@@ -73,8 +69,6 @@ QUEUES: tuple[QueueDefinition, ...] = (
     ),
 )
 
-#: The root observation of a chat turn: its input is the wire ``UserMessage``
-#: (the question is ``$.text``), its output the answer text (``turn_outcome``).
 _QUESTION = ("input", "$.text")
 _ANSWER = ("output", None)
 
@@ -117,10 +111,8 @@ _CHAT_TURN_JUDGES: tuple[JudgeDefinition, ...] = (
     ),
 )
 
-#: The hedge codes a turn's prompt carried (``topic:mode``), in its trace metadata (ADR-0174).
 _HEDGES = ("metadata", "$.hedges")
 
-#: Judges of a turn that carried an advice policy; their own rule runs only on those turns.
 ADVICE_JUDGES: tuple[JudgeDefinition, ...] = (
     JudgeDefinition(
         name="advice-policy-held",
@@ -139,7 +131,6 @@ ADVICE_JUDGES: tuple[JudgeDefinition, ...] = (
     ),
 )
 
-#: Every judge the project holds; each rule names its own.
 JUDGES: tuple[JudgeDefinition, ...] = _CHAT_TURN_JUDGES + ADVICE_JUDGES
 
 
@@ -154,8 +145,6 @@ def judge_rules(residency_on: bool) -> tuple[RuleDefinition, ...]:
         {"type": "stringOptions", "column": "traceName", "operator": "any of", "value": ["chat-turn"]},
         {"type": "boolean", "column": "isRootObservation", "operator": "=", "value": True},
         {"type": "arrayOptions", "column": "tags", "operator": "any of", "value": ["outcome:answered"]},
-        # A turn that read licensed text holds references in its trace, not the text it was grounded in,
-        # so a judge would grade the answer against the wrong evidence (ADR-0164, design 6.1).
         {"type": "arrayOptions", "column": "tags", "operator": "none of", "value": [LICENSED_TRACE_TAG]},
     ]
     if residency_on:
@@ -166,17 +155,13 @@ def judge_rules(residency_on: bool) -> tuple[RuleDefinition, ...]:
         RuleDefinition(
             name="chat-turn-judges",
             judge_names=tuple(judge.name for judge in _CHAT_TURN_JUDGES),
-            # One turn in five: enough to chart, a fifth of the cost.
             sampling=0.2,
-            # The root observation of an answered chat turn: the one whose input
-            # is the question and whose output is the answer.
             filter=conditions,
         ),
         RuleDefinition(
             name="advice-policy-judges",
             judge_names=tuple(judge.name for judge in ADVICE_JUDGES),
             sampling=0.2,
-            # Only a turn whose prompt held hedges: without them there is no policy to hold.
             filter=[
                 *conditions,
                 {"type": "arrayOptions", "column": "tags", "operator": "any of", "value": [ADVICE_POLICY_TRACE_TAG]},
@@ -188,7 +173,6 @@ def judge_rules(residency_on: bool) -> tuple[RuleDefinition, ...]:
 GOLDEN_DATASET_NAME = "golden-questions"
 GOLDEN_QUESTIONS_PATH = Path("tests/fixtures/derivation/loop_eval_questions.yaml")
 
-#: The fields of a golden question that say what a right answer is.
 _EXPECTATION_KEYS = ("family", "clause", "paragraph", "kind", "kind_also", "expect")
 
 

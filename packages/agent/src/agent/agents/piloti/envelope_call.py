@@ -31,11 +31,6 @@ _ENVELOPE_RESPONSE_FORMATS: tuple[dict[str, Any], ...] = (
     {"type": "json_object"},
 )
 
-#: The statuses a provider answers with when it rejects the request's SHAPE
-#: (an unsupported ``response_format``). Never auth (401/403), quota (429),
-#: a server fault (5xx) or a transport error: those fail the same way on every
-#: rung, and retrying them under a different ``response_format`` only logs the
-#: real error as "response_format failed" three times over.
 _PARAMETER_REJECTION_STATUSES = frozenset({400, 422})
 
 
@@ -89,7 +84,6 @@ async def ainvoke_with_envelope_json_mode(llm: Any, messages: list[Any], config:
     return await ainvoke(llm, messages, config)
 
 
-#: Forced synthesis tells the provider to answer, not call (``ainvoke_synthesis``).
 NO_TOOL_CALLS = "none"
 
 
@@ -120,7 +114,6 @@ async def ainvoke_synthesis(binding: Any, messages: list[Any], live: Any, json_m
             raise
         logger.warning("Forced synthesis: tool_choice=none rejected (%s); answering tool-free", exc)
         response = None
-    # A call the provider sent malformed is still a call, not an answer.
     calls = [*(getattr(response, "tool_calls", None) or []), *(getattr(response, "invalid_tool_calls", None) or [])]
     if response is not None and not calls:
         return response

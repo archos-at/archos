@@ -34,16 +34,11 @@ if TYPE_CHECKING:
 class GatePolicy:
     """What a gate state lets a turn do with the law of its site."""
 
-    #: The primary law may be read (the legal-database lookup runs): reading is no verdict.
     reads_law: bool
-    #: A rule may be presented as this project's requirement and the chain text shown.
     may_bind: bool
-    #: Reviewed coverage: the records settle which edition binds, and nothing caps the answer for it.
     settled: bool
 
 
-#: Every gate state, weakest first (``GATE_STATES`` in the TypeScript wire), and what it allows: the one
-#: table every reader asks through :func:`gate_policy`. A state not listed fails closed.
 GATES: dict[str, GatePolicy] = {
     "organization_unplaced": GatePolicy(reads_law=False, may_bind=False, settled=False),
     "site_unknown": GatePolicy(reads_law=True, may_bind=False, settled=False),
@@ -56,7 +51,6 @@ GATES: dict[str, GatePolicy] = {
 }
 GATE_STATES: tuple[str, ...] = tuple(GATES)
 
-#: What an unknown state allows: nothing.
 FAIL_CLOSED = GatePolicy(reads_law=False, may_bind=False, settled=False)
 
 
@@ -65,32 +59,23 @@ def gate_policy(state: str) -> GatePolicy:
     return GATES.get(state, FAIL_CLOSED)
 
 
-#: Most leaves, packs and uses kept; the BFF's own bounds.
 MAX_LEAVES = 8
 MAX_PACKS = 16
 MAX_USES = 500
 
-#: Longest chain text kept: the BFF's own bound (``MAX_CONTEXT_TEXT_CHARS``), which cuts at a line and says so.
 MAX_TEXT_CHARS = 16_000
 
-#: The roles an edition can have (design §3.5); the TypeScript source is
-#: ``EDITION_ROLES`` in ``apps/workspace/bff/base-knowledge/wire/vocab.ts``.
 EDITION_ROLES: tuple[str, ...] = ("binding", "guidance", "interpretation", "authority_practice", "information")
 
-#: How a role arose: law in its territory, a relation's route, or nothing (a norm no route reaches).
 ROUTE_VIAS: tuple[str, ...] = ("territory", "relation", "none")
 
-#: What qualifies a role: law nobody curated (open coverage), or an edition the office keeps itself.
 QUALIFIERS: tuple[str, ...] = ("uncurated", "office_maintained")
 
 
-#: How current an edition is by the platform's newest check (``FRESHNESS`` in the TypeScript wire).
 FRESHNESS: tuple[str, ...] = ("current", "check_due", "newer_known", "superseded")
 
-#: What an edition's held text is (``TEXT_STATUSES`` in the TypeScript wire).
 TEXT_STATUSES: tuple[str, ...] = ("authentic", "official_non_prevailing", "translation")
 
-#: The label tokens a use carries (``USE_LABELS`` in the TypeScript wire); a renderer words each.
 USE_LABELS: tuple[str, ...] = ("uncurated_source", "check_overdue", "unchecked_since", "depends_on_connecting_factor")
 
 
@@ -126,35 +111,20 @@ class EditionUse:
     corpus_files: tuple[str, ...] = ()
     designation: str | None = None
     edition_label: str | None = None
-    #: Who issues the work, as its record names it: the publisher a citation of the edition's text names.
     issuer: str | None = None
-    #: The work's identifiers at its source: what a passage read live there is matched by (:func:`use_for_source_ref`).
     source_refs: tuple[SourceRef, ...] = ()
-    #: Whether the edition's own scope (``applicability``) leaves it open for this project: a person's check
-    #: (``check``), a building fact not yet known (``open``), or ``not_applicable``. False when the edition
-    #: states no scope or its scope applies. The chain text then says neither binds nor does not bind, and so
-    #: does the citation chip (``citations/roles.binding_status_for``).
     scope_unsettled: bool = False
-    #: The day the role holds on: the day the context was resolved for. A citation states its status as of it.
     date: str | None = None
-    #: How current the edition is by the platform's newest check; None when the BFF sent no known token.
     freshness: str | None = None
-    #: The platform's newest check, as a day; None when never checked or law read live.
     last_checked_at: str | None = None
     labels: tuple[str, ...] = ()
-    #: Where a person opens the edition's text in public, from its manifestation records.
     source_url: str | None = None
-    #: The declaring instrument when the role came by a relation; None for law in its territory.
     route: UseRoute | None = None
-    #: The first day a binding role holds from by the records; None for every other role.
     role_since: str | None = None
-    #: The language of the edition's held text (BCP 47); None where no text is held.
     language: str | None = None
-    #: What the held text is (``TEXT_STATUSES``); None where none is held.
     text_status: str | None = None
 
 
-#: Most sources a turn carries (``MAX_CONTEXT_SOURCES`` in the TypeScript wire).
 MAX_SOURCES = 8
 
 
@@ -178,28 +148,19 @@ class KnowledgeContext:
 
     gate: str
     reason: str | None = None
-    #: The coverage at the first leaf; None when not entitled, unplaced or unknown.
     coverage: str | None = None
-    #: The first leaf's country (ISO 3166-1 alpha-2); None when no site is placed.
     site_country: str | None = None
-    #: The site is an assumption of the profile (``certainty`` ``unverified``), not a confirmed fact.
     site_assumed: bool = False
     chains: dict[str, tuple[str, ...]] = field(default_factory=dict)
     packs: dict[str, int] = field(default_factory=dict)
     retrieval_countries: frozenset[str] = frozenset()
-    #: Per procedure, per node: the reference day (a filing day that has come), else its basis (``undetermined``).
     reference_dates: dict[str, dict[str, str]] = field(default_factory=dict)
     uses: tuple[EditionUse, ...] = ()
-    #: The chain text the BFF rendered for the site: the turn's ``<building_law>`` block. None when nothing binds.
     text: str | None = None
     date: str | None = None
-    #: The packs released since this conversation's last answer (E42): the answer says the base was updated.
     updated_since_last_answer: tuple[str, ...] = ()
-    #: Law on the chain whose edition at the date the records cannot name, as ``work_id=reason``: no edition is assumed.
     undetermined: tuple[str, ...] = ()
-    #: The released sources with a law lookup of the countries the turn reads; empty where it reads none.
     sources: tuple[LawSource, ...] = ()
-    #: Released sources the BFF could not carry this turn (too large, or past the cap): never read silently.
     sources_dropped: tuple[str, ...] = ()
 
     @property
@@ -453,9 +414,6 @@ class _Unscoped:
         return False
 
 
-#: "No country filter on the base corpus": the answer of :func:`corpus_countries` for a read that belongs to no
-#: request (a script, a sync loop, an internal service call), or that runs under :func:`unscoped_corpus_reads`.
-#: It is a marker, never an absence: an empty ``frozenset`` is the opposite, a request that may read no country.
 UNSCOPED = _Unscoped()
 
 _unscoped_reads: contextvars.ContextVar[bool] = contextvars.ContextVar("_unscoped_reads", default=False)
@@ -604,7 +562,6 @@ _GATE_NOTES: dict[str, str] = {
     ),
 }
 
-#: Said under every note that withholds a binding claim, and under open coverage: the web never fills the gap.
 WEB_IS_INFORMATION = (
     "A web page is never the source of a requirement or of which edition binds: what the web says about a "
     "law is unverified information, labelled as such, and a norm the knowledge base holds is cited from the "
@@ -627,7 +584,6 @@ def covered_sentences(countries: frozenset[str]) -> str:
     )
 
 
-#: Said where the site that decides the law is an assumption: quiet, never a routine caveat (ADR-0158).
 ASSUMED_SITE_NOTE = (
     "The site this law is read for is an assumption in the project memory, not a confirmed fact. Do not "
     "mention that as a routine caveat. Only where the answer would be different in another Land or country, "

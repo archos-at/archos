@@ -76,67 +76,25 @@ from agent.common.estate_paths import estate_path
 
 logger = logging.getLogger(__name__)
 
-#: The slot the technical record is filed under: ``status:decision:turn``.
 SLOT = "turn"
 
-#: The knowledge tool the prefetch calls. A wire name (``configs/*.yml``).
 KNOWLEDGE_SEARCH = "knowledge_search"
-#: The literal search a quoted term or a code is prefetched with.
 GREP = "grep"
 
-#: Below this p(needs_evidence) nothing is prefetched. Deliberately low: a
-#: false "no" costs the model its first round, a false "yes" costs one unread
-#: grounding block.
 NEEDS_EVIDENCE_THRESHOLD = 0.5
-#: A family is prefetched at or above this; the top ``MAX_FAMILY_PREFETCH``.
-#: Measured, not guessed: on the 27 loop-eval questions (2026-09-22,
-#: ``tests/fixtures/derivation/decision_eval_2026-09-22.csv``) the expected
-#: family's probability ran 0.54-0.97 and no Bauordnung row's top family
-#: passed 0.49, so 0.5 is recall 1.0 at precision 1.0 where 0.6 lost two
-#: rows. Re-run ``task be:eval:decisions`` before moving it.
 FAMILY_THRESHOLD = 0.5
 MAX_FAMILY_PREFETCH = 2
-#: A card type gets its shape attached at or above this; the top ``MAX_CARD_SHAPES``.
 CARD_THRESHOLD = 0.6
 MAX_CARD_SHAPES = 2
-#: The chosen corpus must reach this before its prefetch runs.
 CORPUS_THRESHOLD = 0.5
-#: p(precedent) at or above which the reference projects are prefetched beside
-#: the corpus's own search, when the decision placed the answer anywhere but
-#: in the law. Measured (`scripts/decision_eval_office.py precedent`, 10 Oct
-#: 2026, 59 German rows: 24 that must look, 35 that must not, two runs, mean
-#: drift 0.013): the noul alone does not separate a practice question from a
-#: rule question well — at the old single 0.6 it caught 23/24 and fired on
-#: 8/35 rule questions (sommerlicher Wärmeschutz 0.75, Tragwerk 0.66) — but
-#: the corpus choice does: every rule question put the answer in `baurecht`
-#: at ~1.00. So the bar depends on where the answer lives.
 PRECEDENT_THRESHOLD = 0.55
-#: The bar when the decision put the answer in the law (`baurecht`): a
-#: precedent search beside a rule question needs a strong signal. With
-#: PRECEDENT_THRESHOLD the eval read 24/24 caught and 1-2/35 fired on rule
-#: rows over two runs. Read off the same rows: the next labelled precedent
-#: questions are the held-out check.
 PRECEDENT_THRESHOLD_LAW = 0.7
-#: The cross-project tool the reference prefetch calls (ADR-0094). A wire name.
 PROJECT_LOOKUP = "project_lookup"
-#: A skill's body and shapes ride the turn when the choice lands on it at
-#: this probability AND its own "fits" noul is not near zero. Measured on the
-#: loop-eval set (``decision_eval_2026-09-22.csv``): the choice was right or
-#: abstained on every row, while the fit noul ran 0.11-0.88 on rows where
-#: the method plainly applied (Schallschutz → waermeschutz at 0.13, a
-#: Holzfassade → brandschutz at 0.26). The cookbook's 0.30 on the fit was
-#: set for loads that cost more than this one — a body is ~400 tokens and an
-#: offer — so here the choice carries the decision and the fit only vetoes
-#: a name-match (``ordner-brandschutz-listing`` → brandschutz at 0.59/0.13).
 SKILL_THRESHOLD = 0.6
 SKILL_FIT_THRESHOLD = 0.1
-#: Below this p(self_contained) the message itself is not searched.
 SELF_CONTAINED_THRESHOLD = 0.5
-#: How many card shapes the turn may attach in all (skill's plus the nouls').
 MAX_ATTACHED_SHAPES = 5
 
-#: The corpora a question can live in, with the criteria the decider reads.
-#: ``modell`` and ``none`` prefetch nothing; the others prefetch one search.
 CORPUS_OPTIONS: Mapping[str, str] = {
     "baurecht": (
         "Austrian building law and standards: an OIB-Richtlinie, a Bauordnung of a Land, an ÖNORM, "
@@ -162,8 +120,6 @@ CORPUS_OPTIONS: Mapping[str, str] = {
     ),
 }
 
-#: What each Richtlinie is about, in the decider's language, so a German
-#: question can be matched to the family whose subject it names.
 FAMILY_SCOPE: Mapping[str, str] = {
     "1": "OIB-Richtlinie 1 — mechanical resistance and stability: load-bearing structure, Standsicherheit.",
     "2": (
@@ -201,7 +157,6 @@ class TurnDecisions:
     skill_p: float = 0.0
     skill_fit: float | None = None
     self_contained: float | None = None
-    #: p(an earlier project of the office faced this decision); None when not asked.
     precedent: float | None = None
     latency_ms: int = 0
 
@@ -259,18 +214,10 @@ class TurnFacts:
     project_files: int = 0
     archive_files: int = 0
     card_types: Sequence[tuple[str, str]] = ()
-    #: ``(name, description)`` of every skill the turn resolved — the choice's options.
     skills: Sequence[tuple[str, str]] = ()
-    #: The user's previous message, bounded — what a follow-up refers to.
     previous_message: str | None = None
-    #: The opening of the assistant's previous answer, bounded — the subject
-    #: a follow-up continues, which the previous question alone may not name.
     previous_answer: str | None = None
-    #: How many reference projects the turn's catalog lists (``<reference_projects>``):
-    #: none, and the precedent question is not asked and nothing is prefetched.
     reference_projects: int = 0
-    #: The catalog itself, for the reference fit (``reference_fit``); never part
-    #: of the decision's state, which knows only the count.
     reference_catalog: str | None = None
 
     def state(self) -> dict[str, Any]:
@@ -425,8 +372,6 @@ def prefetch_query(question: str | None) -> str:
     One definition, because the turn-start warm-up embeds this exact string
     and a warm-up for a different string is a wasted round trip.
     """
-    # Stripped after the cut: a cut on a space would leave one, and the search
-    # strips its query, so the warm-up would have embedded another string.
     return " ".join((question or "").split())[:300].rstrip()
 
 
@@ -498,10 +443,8 @@ def prefetch_calls(
     return calls
 
 
-#: At most this many literal searches ride beside the meaning search in round 0.
 MAX_LITERAL_PREFETCH = 2
 
-#: The shelf an exact prefetch reads, per chosen corpus. The legal base corpus has no literal path here.
 _LITERAL_SHELF = {"projekt": "project", "buero": "office_shelf"}
 
 _QUOTED = re.compile(r"[„“\"»]([^„“”\"«»\n]{2,60})[“”\"«]|(?<!\w)'([^'\n]{2,60})'(?!\w)")
@@ -559,7 +502,6 @@ def _corpus_prefetch(
         if focus:
             from wcmatch import glob as wcglob
 
-            # Deep Agents' own matcher, which `glob` uses with BRACE: every metacharacter escaped.
             scope["glob"] = wcglob.escape(focus.rsplit("/", 1)[-1])
         calls.extend(
             {"name": GREP, "args": {"pattern": term, "output_mode": "content", **scope}}

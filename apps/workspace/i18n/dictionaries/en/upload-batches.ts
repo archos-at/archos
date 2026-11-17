@@ -1,15 +1,7 @@
-/**
- * What one upload brought in, and a project's uploads over time (ADR-0086).
- *
- * The status words („Citable", „Reading", „Quarantined", „Failed", „Filed")
- * are NOT here: the summary reads them from `files.status.*`, so a count and
- * the badge beside a file cannot name one state two ways.
- */
 export const uploadBatches = {
   summary: {
     title: 'What arrived',
     loading: 'Loading the summary…',
-    // Where the upload went, when the project's name cannot be read.
     place: {
       project: 'Project',
       office_shelf: 'Office filing',
@@ -40,8 +32,6 @@ export const uploadBatches = {
     },
     excluded: {
       title: 'Not uploaded',
-      // Stopped by the name check: in the browser (the file never left the
-      // computer), by the server, or in the mail import (nothing was stored).
       description:
         'The name check did not upload these files, and none of them was stored. Your office marks these terms in file and folder names as sensitive.',
       listLabel: 'Files not uploaded, by term',

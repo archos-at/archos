@@ -16,28 +16,16 @@ from __future__ import annotations
 
 import re
 
-#: An OIB Richtlinie named by number, however a question spells it: ``OIB 2``,
-#: ``OIB-RL 2``, ``OIB-Richtlinie 2.1``, ``Richtlinie 2``, ``RL 4``. The number
-#: is captured; :func:`family_query_number` reduces ``2.1`` to its family.
 _FAMILY_ANCHOR_RE = re.compile(
     r"\b(?:oib[-\s]*(?:rl|richtlinie)?|rl|richtlinie)[-\s]*(\d+(?:\.\d+)?)\b",
     re.IGNORECASE,
 )
 
-#: A second family key joined to an anchor without repeating it: the ``und 4``
-#: in "OIB 2 und 4", the ``, 4`` in "OIB 2, 4". One or two digits (or a part
-#: number), so a printing year ("OIB 2 2023", "OIB 2, 2023") is never read as a
-#: key. A full stop after the key ends the sentence, not the number: only a
-#: digit after it continues one. Matched right after an anchor, never on its own.
 _FAMILY_JOINED_KEY_RE = re.compile(
     r"\s*(?:,|/|&|\bund\b|\boder\b|\bbzw\.?)\s*(\d{1,2}(?:\.\d+)?)(?!\d|\.\d)",
     re.IGNORECASE,
 )
 
-#: What makes a query a LOCATOR rather than a question about the whole
-#: Richtlinie. A Punkt, a paragraph, a page or a table is addressed inside one
-#: document, and a file name names one file: each is already answered better by
-#: the ordinary path, and none of them wants four documents back.
 _FAMILY_BLOCKER_RE = re.compile(
     "|".join(
         (
@@ -57,14 +45,6 @@ _FAMILY_BLOCKER_RE = re.compile(
     re.IGNORECASE,
 )
 
-#: Every word a family-shaped question may hold BESIDES its anchor: question
-#: words, articles, pronouns, the verbs that ask what a document is for, the
-#: overview nouns, and the edition words that name a printing rather than a
-#: topic. A token outside this set is a TOPIC, and a topic question is an
-#: ordinary search. "OIB 2 Fluchtweglänge GK 4" must come back as passages.
-#:
-#: Casefolded spellings: ``str.casefold`` writes "weißt" as "weisst", so that is
-#: the form listed here.
 _FAMILY_QUERY_STOPWORDS = frozenset(
     """
     was wer wie wo welche welcher welches welchem welchen warum wieso weshalb worum wofuer wofür
@@ -89,7 +69,6 @@ _FAMILY_QUERY_STOPWORDS = frozenset(
     """.split()
 )
 
-#: A word or a number, with punctuation and separators dropped.
 _FAMILY_TOKEN_RE = re.compile(r"[^\W\d_]+|\d+(?:[.,]\d+)?")
 
 

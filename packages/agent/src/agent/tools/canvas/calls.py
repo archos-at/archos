@@ -18,7 +18,6 @@ from .target import Target
 
 logger = logging.getLogger(__name__)
 
-#: The turn's Langfuse tag: every turn that worked on a document's canvas is one filter away.
 FEATURE_TAG = "feature:canvas"
 
 
@@ -52,7 +51,6 @@ DELETE_FORBIDDEN = (
     "this document. Tell them so; resolving (`update` with `status` `resolved`) works if they "
     "want it."
 )
-#: The BFF's ``details.reason`` values for a mark its author may no longer delete (``deleteRefusalOf``).
 DELETE_KEPT_REASONS = frozenset({"mark-discussed", "mark-carried"})
 DELETE_KEPT = (
     "Not deleted: Others have replied in this annotation's thread, or it was carried over between documents. "
@@ -62,7 +60,6 @@ DELETE_KEPT = (
 ASSIGNEE_UNCLEAR = (
     "Unclear who is meant ({detail}). Ask the person whom they mean, then use the full name; nothing was changed."
 )
-#: The BFF's ``details.reason`` when the organization has Piloti propose only (``piloti-acts`` off).
 PILOTI_ACTS_OFF = "piloti-acts-off"
 PROPOSE_ONLY_MARK = (
     "Not set: This office lets you only propose annotations. Set them with `mark` without `open` as a "
@@ -97,7 +94,6 @@ def _with_answer(payload: dict[str, Any]) -> dict[str, Any]:
     return {**payload, "answerMessageId": turn_answer_message_id(conversation_id)}
 
 
-#: The ops that name one mark: a 404 there is the mark, not the document.
 _ON_ONE_MARK = frozenset({"reply", "update", "delete"})
 
 

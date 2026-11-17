@@ -37,7 +37,6 @@ logger = logging.getLogger(__name__)
 
 PHASE_HISTOGRAM = "grid.boot.phase_seconds"
 
-#: Seconds, from a fast import to a slow build on a cold node.
 _BUCKETS = (0.5, 1, 2, 3, 5, 8, 13, 20, 30, 45, 60, 90, 120)
 
 _histogram = None
@@ -63,8 +62,6 @@ def process_age_seconds(proc: str = "/proc") -> float | None:
         with open(f"{proc}/uptime", encoding="ascii") as f:
             uptime = float(f.read().split()[0])
         with open(f"{proc}/self/stat", encoding="ascii") as f:
-            # The command name (field 2) may contain spaces; fields after its
-            # closing parenthesis are fixed. starttime is field 22.
             after_name = f.read().rsplit(")", 1)[1].split()
     except OSError:
         return None

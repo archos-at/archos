@@ -18,7 +18,6 @@ from collections import Counter
 from collections.abc import Sequence
 from typing import Any
 
-#: The causes, in the decider's language. Keys are stable: the page translates them.
 CAUSES: dict[str, str] = {
     "wrong_value": "The answer states a wrong number, class or requirement, or misread a table or the project's facts.",
     "wrong_rule": (
@@ -47,11 +46,7 @@ CAUSES: dict[str, str] = {
     "other": "None of the above, or no way to tell from what was written.",
 }
 
-#: A label counts at this probability; below it the vote is unlabelled. Measured
-#: 2026-09-26 on sixteen down-votes (``tests/fixtures/decisions/feedback_causes.yaml``):
-#: 16/16 right, the lowest 0.89 once `slow` covers a bare 'too_slow' chip
-#: with no comment (0.75-0.79 before). Held-out (24 down-votes written blind):
-#: 20 right, 1 wrong, 3 left unlabelled, with or without that change.
+#: Measured 2026-09-26 on 16 down-votes (``tests/fixtures/decisions/feedback_causes.yaml``): 16/16 right at 0.8.
 CAUSE_THRESHOLD = 0.8
 SLOT = "feedback_causes"
 CAUSE_QUESTION = (

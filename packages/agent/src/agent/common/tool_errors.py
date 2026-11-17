@@ -14,16 +14,11 @@ from __future__ import annotations
 
 from pydantic import ValidationError
 
-#: The host pydantic links to from every rendered error.
 _PYDANTIC_DOCS_HOST = "errors.pydantic.dev"
 
-#: Longest rejected value echoed back; past it the value is the model's own
-#: argument to look up, not something worth spending the message on.
 _MAX_INPUT_CHARS = 60
 
 
-#: Said after a tool's own failure (staging QC, run 1 F2: „Das Projektprofil konnte technisch nicht abgerufen
-#: werden" in an answer). The error text is for deciding the next call, never for the reader.
 FAILURE_IS_NOT_A_FACT = (
     "This is the tool failing, not a fact about the work: never repeat this text, a tool name or the failure "
     "in the answer. Say in plain words what could not be checked, and keep confidence below high."

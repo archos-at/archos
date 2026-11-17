@@ -1,26 +1,3 @@
-/**
- * The golden run (ADR-0165 amendment, design §4.4): a country's golden cases,
- * released or of one change request in preview, asked through the real answer
- * path and scored.
- *
- * Each case is an ask (`askAgent`, ADR-0124): the same headless turn an outside
- * agent's `agent-ask-create` runs, as the operator, in a private conversation
- * of the operator's own organization, on that organization's budget, traced in
- * Langfuse like any turn. The one thing a golden turn has that another turn has
- * not is its site: the case states it, so the turn's context is resolved for
- * that territory and the case's facts stand where a project's would
- * (`./turn.ts`). The law it reads is the released law the operator's
- * organization is entitled to; a preview of law records answers no turn yet
- * (ADR-0165, "a head column per channel"), so `changeRequestId` chooses whose
- * cases run, never whose law.
- *
- * A run outlives a request, so the caller steps it: `start` opens the run and
- * asks the first cases, `advance` settles the asks that ended and asks the
- * next, at most {@link CONCURRENT_CASES} at once, the load the before-baseline
- * was measured under. Only the person who started a run steps it, because only
- * they read its asks.
- */
-
 import 'server-only'
 import { ConflictError, ForbiddenError, NotFoundError } from '@/lib/api/errors'
 import { askAgent, getAsk } from '@/lib/agent-asks/service'
@@ -54,14 +31,12 @@ import {
 } from './repository'
 import { scoreGoldenCase } from './score'
 
-/** How many cases are asked at once: the before-baseline asked in waves of four. */
 export const CONCURRENT_CASES = 4
 
 const isAuthorized = (session: UserSession): session is AuthorizedSession => typeof session.organizationId === 'string' && session.organizationId.length > 0
 
 async function requireOperator(session: UserSession | null): Promise<AuthorizedSession> {
   const operator = await requirePlatform(session, PLATFORM_PERMISSIONS.knowledgeWrite)
-  // A golden turn is recognised in the platform organization only (`./turn.ts`), so no office's turn pays for the lookup.
   if (!isAuthorized(operator) || operator.organizationId !== (await getPlatformOrganizationId())) {
     throw new ForbiddenError('A golden run asks in the platform organization; make it your active organization and run again.')
   }
@@ -77,10 +52,8 @@ async function casesFor(body: { countryId: string; changeRequestId?: string }): 
   return request.cases
 }
 
-/** Open a run of a country's golden cases and ask the first of them. */
 export async function startGoldenRun(session: UserSession | null, body: { countryId: string; changeRequestId?: string; caseKeys?: string[] }): Promise<GoldenRunView> {
   const operator = await requireOperator(session)
-  // Every case is asked as an agent ask: with the switch off each would settle as unanswered, so refuse the run instead.
   if (!isAgentAskEnabled(operator)) {
     throw new ConflictError('A golden run asks through the ask door, which is off for your organization (the agent-ask feature flag). Switch it on for the platform organization, then run again.', {
       reason: 'golden-run-ask-off',
@@ -113,13 +86,11 @@ export async function startGoldenRun(session: UserSession | null, body: { countr
   return advance(operator, runId, 0)
 }
 
-/** Settle the asks that ended, ask the next cases, and answer the run as it stands. */
 export async function advanceGoldenRun(session: UserSession | null, runId: string, waitSeconds: number): Promise<GoldenRunView> {
   return advance(await requireOperator(session), runId, waitSeconds)
 }
 
 async function requireRun(runId: string): Promise<GoldenRunState> {
-  // An id of another shape names no run: the same answer as one that does not exist.
   const state = isUuid(runId) ? await findGoldenRun(runId) : null
   if (!state) throw new NotFoundError('No golden run with this id.')
   return state
@@ -136,7 +107,6 @@ async function advance(operator: AuthorizedSession, runId: string, waitSeconds: 
     throw new ForbiddenError('Only the person who started a golden run steps it: its questions are asked as them. Read it with platform-knowledge-golden-run-get.')
   }
   const asked = state.cases.filter((entry) => entry.askId && !entry.settledAt)
-  // One wait covers every running ask: the first takes it, the rest are read as they stand.
   await Promise.all(asked.map((entry, index) => settle(operator, state, entry, index === 0 ? waitSeconds : 0)))
   const after = (await findGoldenRun(runId)) ?? state
   const running = after.cases.filter((entry) => entry.askId && !entry.settledAt).length
@@ -154,7 +124,6 @@ type RunCase = GoldenRunState['cases'][number]
 
 async function ask(operator: AuthorizedSession, state: GoldenRunState, entry: RunCase): Promise<void> {
   const scope = { organizationId: operator.organizationId, userId: operator.userId }
-  // `lost`: another step of the same run took the case first, so this one sends no turn and settles nothing.
   let lost = false
   const beforeTurn = async (started: { id: string; conversationId: string }) => {
     lost = !(await claimCaseForAsking(state.run.id, entry.recordId, { askId: started.id, conversationId: started.conversationId }))
@@ -162,7 +131,6 @@ async function ask(operator: AuthorizedSession, state: GoldenRunState, entry: Ru
   }
   try {
     const view = await withTenant(scope, () => askAgent(operator, { question: entry.golden.question, waitSeconds: 0 }, { beforeTurn }))
-    // Refused before it ran (a spent budget, a busy server): the case is settled as unanswered, with why.
     if (!lost && view.state !== 'completed' && isTerminalAskState(view.state)) {
       await settleCase(state.run.id, entry.recordId, { failure: `${view.state}: ${view.reason ?? 'no reason given'}` })
     }
@@ -171,13 +139,11 @@ async function ask(operator: AuthorizedSession, state: GoldenRunState, entry: Ru
   }
 }
 
-/** Whether the records answer at the case's site: its gate is a coverage level above `none`. */
 async function recordsReleasedAt(organizationId: string, golden: GoldenCase, countryId: string): Promise<boolean> {
   const context = await knowledgeContextForStatedSite(organizationId, { territoryId: golden.context.territoryId ?? countryId, filedOn: null })
   return (COVERAGE_LEVELS as readonly string[]).includes(context.gate.state) && context.gate.state !== 'none'
 }
 
-/** The answer of a completed ask as the scorer reads it. */
 export function goldenAnswerOf(view: AskView, recordsReleased: boolean): GoldenAnswer {
   const confidence = view.answer?.confidence
   return {
@@ -187,7 +153,6 @@ export function goldenAnswerOf(view: AskView, recordsReleased: boolean): GoldenA
       name: source.name,
       kind: source.kind,
       documentId: source.documentId,
-      // An outbound address only: the link into the asker's own conversation says nothing about the source.
       ...(source.documentId.startsWith('url:') ? { url: source.url } : {}),
       ...(source.clause ? { clause: source.clause } : {}),
     })),
@@ -236,7 +201,6 @@ async function settle(operator: AuthorizedSession, state: GoldenRunState, entry:
     traceId,
   }
   await settleCase(state.run.id, entry.recordId, { passed: scored.passed, result })
-  // Best-effort and after the verdict is kept: Langfuse being away never costs a run its result.
   await recordGoldenScores({ runId: state.run.id, countryId: state.run.countryId, golden: entry.golden, result })
 }
 
@@ -260,7 +224,6 @@ function caseView(entry: RunCase): GoldenRunCaseView {
   }
 }
 
-/** A run as the door answers it. Pure. */
 export function viewOf(state: GoldenRunState): GoldenRunView {
   const cases = state.cases.map(caseView)
   const settled = cases.filter((entry) => entry.state === 'settled')

@@ -1,28 +1,7 @@
-/**
- * Budgets repository (ADR-0017): the ONLY module that queries the DB for the
- * budgets domain. Raw data access and row shaping only — validation,
- * authorization, pricing, and enforcement semantics live in `./service`.
- *
- * The ledger (`llm_usage_events`) is append-only; the daily rollup
- * (`llm_usage_rollups`, ADR-0019) is incremented in the SAME transaction as
- * every ledger insert, so enforcement reads (`sumRollupTotals`) are exact.
- *
- * Every aggregate carries the money columns side by side — `costUsd` (what
- * OpenRouter charged, of which `ownKeyCostUsd` was the tenant's own bill),
- * `priceUsd` (what the tenant is charged), `credits` (the platform-billed
- * tenant's unit) and `tokens` (the own-key tenant's unit) — and the SERVICE
- * decides which of them a caller may see (ADR-0053: cost never reaches a
- * tenant).
- */
-
 import 'server-only'
 import { and, desc, eq, gte, isNotNull, isNull, sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
 import { budgetPolicies, llmUsageEvents, llmUsageRollups, UNBILLED_USAGE_ACTIVITIES, type BudgetPolicy, type BudgetScope, type BudgetUnit, type NewLlmUsageEvent } from '@/lib/db/schema/budgets'
-
-// ---------------------------------------------------------------------------
-// UTC windows
-// ---------------------------------------------------------------------------
 
 export function utcDayStart(now = new Date()): Date {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
@@ -32,15 +11,6 @@ export function utcMonthStart(now = new Date()): Date {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1))
 }
 
-// ---------------------------------------------------------------------------
-// Policies
-// ---------------------------------------------------------------------------
-
-/**
- * The active policy for a subject IN THE GIVEN UNIT. A policy in the other
- * unit is not this organization's limit today (it belongs to the key mode the
- * organization is not in), so it is invisible here rather than converted.
- */
 export async function findActivePolicy(
   organizationId: string,
   scope: BudgetScope,
@@ -66,7 +36,6 @@ export async function findActivePolicy(
   return row ?? null
 }
 
-/** All active member/project policies of an org in one unit (for the settings UI). */
 export async function listActivePolicies(organizationId: string, unit: BudgetUnit): Promise<BudgetPolicy[]> {
   const db = getDb()
   return db
@@ -82,7 +51,6 @@ export async function listActivePolicies(organizationId: string, unit: BudgetUni
     .orderBy(budgetPolicies.scope, budgetPolicies.subjectId)
 }
 
-/** Full policy history (audit view). */
 export async function listPolicyHistory(organizationId: string, limit = 100): Promise<BudgetPolicy[]> {
   const db = getDb()
   return db
@@ -93,11 +61,6 @@ export async function listPolicyHistory(organizationId: string, limit = 100): Pr
     .limit(limit)
 }
 
-/**
- * Supersede idiom: mark the active row of the same unit (if any) superseded
- * and insert the replacement in one transaction, so every limit change stays
- * auditable. Limits are in `unit` — credits or tokens (ADR-0053).
- */
 export async function insertPolicySuperseding(values: {
   organizationId: string
   scope: BudgetScope
@@ -147,7 +110,6 @@ export async function insertPolicySuperseding(values: {
   })
 }
 
-/** Mark the active scoped policy of one unit superseded without replacement. */
 export async function supersedeActivePolicy(
   organizationId: string,
   scope: 'member' | 'project',
@@ -173,11 +135,6 @@ export async function supersedeActivePolicy(
   return true
 }
 
-// ---------------------------------------------------------------------------
-// Ledger writes (+ write-through rollup, ADR-0019)
-// ---------------------------------------------------------------------------
-
-/** UTC calendar day (YYYY-MM-DD) an event belongs to. */
 function utcDayOf(createdAt: Date | undefined): string {
   return (createdAt ?? new Date()).toISOString().slice(0, 10)
 }
@@ -197,12 +154,6 @@ interface RollupIncrement {
   events: number
 }
 
-/**
- * The rollup increments a batch adds. An unbilled activity (voice dictation)
- * adds none: the rollup is what every budget reads, and a member is never
- * blocked by spend they are not billed for. Its ledger row still carries the
- * real cost for the platform views, which read the ledger.
- */
 export function buildRollupIncrements(events: NewLlmUsageEvent[]): RollupIncrement[] {
   const byKey = new Map<string, RollupIncrement>()
   for (const event of events) {
@@ -234,18 +185,12 @@ export function buildRollupIncrements(events: NewLlmUsageEvent[]): RollupIncreme
   return [...byKey.values()]
 }
 
-/**
- * Append fully priced ledger rows (the service fills `priceUsd`, `credits` and
- * `pricingVersionId` before calling this) and increment the rollup in the same
- * transaction.
- */
 export async function insertUsageEventsWithRollups(events: NewLlmUsageEvent[]): Promise<number> {
   if (events.length === 0) return 0
   const db = getDb()
   return db.transaction(async (tx) => {
     const inserted = await tx.insert(llmUsageEvents).values(events).returning({ id: llmUsageEvents.id })
 
-    // Same transaction as the ledger insert, so the rollup is exact.
     for (const increment of buildRollupIncrements(events)) {
       const costUsd = increment.costUsd.toFixed(8)
       const ownKeyCostUsd = increment.ownKeyCostUsd.toFixed(8)
@@ -288,32 +233,14 @@ export async function insertUsageEventsWithRollups(events: NewLlmUsageEvent[]): 
   })
 }
 
-// ---------------------------------------------------------------------------
-// Spend reads
-// ---------------------------------------------------------------------------
-
-/** One window's money in every unit, plus how many generations made it. */
 export interface SpendWindow {
-  /** USD as OpenRouter charged it, whoever's key it was. */
   costUsd: number
-  /** The share of `costUsd` that was the tenant's own provider bill (`is_byok`). */
   ownKeyCostUsd: number
   priceUsd: number
   credits: number
   tokens: number
   events: number
-  /**
-   * What document ingestion cost the PLATFORM in this window: `activity =
-   * 'ingest'` rows not on a tenant's own key (migration 0101). Present only
-   * where the window was summed from the ledger itself; the rollup the
-   * budgets read does not know which spend was ingestion.
-   */
   ingestCostUsd?: number
-  /**
-   * What voice dictation cost the PLATFORM in this window: `activity =
-   * 'dictation'` rows not on a tenant's own key (migration 0107). Ledger-summed
-   * windows only, like `ingestCostUsd`; dictation never reaches the rollup.
-   */
   dictationCostUsd?: number
 }
 
@@ -334,7 +261,6 @@ export interface SpendTotals {
   month: SpendWindow
 }
 
-/** Day/month totals from the write-through rollup — the enforcement hot path. */
 export async function sumRollupTotals(
   organizationId: string,
   filter: { userId?: string; projectId?: string } = {},
@@ -370,7 +296,6 @@ export async function sumRollupTotals(
   return toWindows(row)
 }
 
-/** The month-window ledger aggregation every breakdown below shares. */
 function windowColumns(dayStartIso: string) {
   const isToday = sql`${llmUsageEvents.createdAt} >= ${dayStartIso}`
   const ownKey = sql`${llmUsageEvents.isByok} = true`
@@ -409,14 +334,12 @@ interface WindowRow {
   dayCredits: string
   dayTokens: string
   dayEvents: string
-  /** Only the ledger-summed windows carry these (`windowColumns`); the rollup does not. */
   monthIngestCostUsd?: string
   dayIngestCostUsd?: string
   monthDictationCostUsd?: string
   dayDictationCostUsd?: string
 }
 
-/** Coerce at the repository boundary: raw `sql<T>` columns arrive as strings. */
 function toWindows(row: WindowRow): { day: SpendWindow; month: SpendWindow } {
   return {
     day: {
@@ -470,20 +393,12 @@ export interface SpendSummary {
   perModel: ModelSpend[]
 }
 
-/**
- * Windowed spend with per-model breakdown, org-wide by default or narrowed to
- * one member/project. One month-window ledger aggregation; the day slice
- * reuses it via FILTER. (Admin views only — enforcement uses sumRollupTotals.)
- */
 export async function aggregateSpendSummary(
   organizationId: string,
   filter: { userId?: string; projectId?: string } = {},
 ): Promise<SpendSummary> {
   const db = getDb()
   const monthStart = utcMonthStart()
-  // Raw `sql` fragments bypass drizzle's column-type mapping, and the
-  // postgres-js driver rejects Date instances for inferred parameters — pass
-  // ISO strings there (the typed gte() below handles the Date itself).
   const dayStartIso = utcDayStart().toISOString()
 
   const conditions = [eq(llmUsageEvents.organizationId, organizationId), gte(llmUsageEvents.createdAt, monthStart)]
@@ -499,7 +414,6 @@ export async function aggregateSpendSummary(
 
   const perModel: ModelSpend[] = rows
     .map((row) => ({ model: row.model, ...toWindows(row) }))
-    // Tokens order every model regardless of unit; credits are 0 on own keys.
     .sort((a, b) => b.month.tokens - a.month.tokens)
 
   return {
@@ -515,10 +429,6 @@ export interface MemberSpend {
   month: SpendWindow
 }
 
-/**
- * Windowed spend per member (admin view — the member usage table).
- * Events without a user id (anonymous mode) are excluded.
- */
 export async function aggregateSpendByMember(organizationId: string): Promise<MemberSpend[]> {
   const db = getDb()
   const dayStartIso = utcDayStart().toISOString()
@@ -547,10 +457,6 @@ export interface OrganizationSpend {
   month: SpendWindow
 }
 
-/**
- * Windowed spend per organization across the WHOLE platform (platform-tier
- * dashboards only — the service enforces `platform:usage:view`, ADR-0016).
- */
 export async function aggregateSpendAcrossOrganizations(): Promise<OrganizationSpend[]> {
   const db = getDb()
   const dayStartIso = utcDayStart().toISOString()
@@ -568,11 +474,9 @@ export async function aggregateSpendAcrossOrganizations(): Promise<OrganizationS
 }
 
 export interface DailySpendRow extends SpendWindow {
-  /** UTC day, `YYYY-MM-DD`. */
   day: string
 }
 
-/** Daily spend rows since `start` (sparse — the service zero-fills the series). */
 export async function aggregateDailySpend(options: {
   organizationId?: string
   start: Date
@@ -611,7 +515,6 @@ export async function aggregateDailySpend(options: {
   }))
 }
 
-/** What one chat answer cost, summed over the ledger rows stamped with its id (migration 0098). */
 export interface AnswerUsageRow {
   calls: number
   credits: number
@@ -621,12 +524,6 @@ export interface AnswerUsageRow {
   totalTokens: number
 }
 
-/**
- * Sum the frozen `credits` and the tokens of one answer's generations. The
- * credits are the ones written at record time (ADR-0053), so the answer shows
- * what was billed, not a re-pricing. `null` when no row names the answer
- * (an answer from before 0098, or a turn that made no model call).
- */
 export async function sumAnswerUsage(
   organizationId: string,
   conversationId: string,

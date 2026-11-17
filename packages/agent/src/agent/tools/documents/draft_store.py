@@ -58,95 +58,30 @@ from .cards import emit_draft_card
 
 logger = logging.getLogger(__name__)
 
-#: The one directory the working directory has. One
-#: root because a tree the model invents is a tree nobody else can find. Every
-#: write and every edit is refused outside it, by the backend AND by a
-#: ``FilesystemPermission`` on the tools (``tools.py``), so neither side is the
-#: only thing standing between a draft and ``/etc``.
 DRAFT_ROOT = "/drafts/"
 
-#: The root drafts lived under before it had an English name. Stored cards,
-#: LangGraph store keys, a model's earlier turns and an older pod still say it.
-#: Read-only: nothing writes it any more (:func:`modernize_draft_path` maps it,
-#: :func:`rename_legacy_draft_keys` moves the stored keys).
 LEGACY_DRAFT_ROOT = "/entwuerfe/"
 
-#: Byte ceiling for ONE conversation's working directory, across all its files.
-#:
-#: A page of German Markdown is roughly 3 KB, so a commissioned Aktenvermerk or
-#: Protokoll is 3–15 KB and the longest thing a chat turn is asked for — a
-#: Flächenaufstellung with a table per Geschoß — stays under 50 KB. Five such
-#: documents, each revised a few times, is already an unusual conversation, so
-#: 256 KB is about five times the honest worst case while still being small
-#: enough that a model looping on ``write_file`` cannot grow the checkpoint
-#: database on its own.
-#:
-#: It refuses rather than truncates: a silently shortened draft is a lie about
-#: what was written, and the model cannot see the truncation to correct it.
 MAX_DRAFT_BYTES = 256 * 1024
 
-#: Version counter stamped on the stored item after every successful write or
-#: edit. Not read by DeepAgents (it converts only ``content``/``encoding``/the
-#: timestamps), so it rides along without changing what the tools see.
 VERSION_KEY = "grid_draft_version"
 
-#: Where a filed draft's project document is remembered, on the stored item and
-#: beside the version counter.
-#:
-#: One conversation writing „Aktenvermerk" twice must land on ONE document with
-#: two versions, so the second ``file_draft`` of a path has to know the document
-#: the first one created. The BFF's own idempotency key (``{conversation}-{slug}``)
-#: would answer "is this already filed" but not "which open version do I replace,
-#: and against what content hash" — the ``update`` op needs both, and an
-#: If-Match it had to guess would either clobber a reviewer's edit or fail.
-#:
-#: They live on the stored VALUE and therefore have to be re-stamped after every
-#: write and edit: DeepAgents rebuilds the value from ``content``/``encoding``,
-#: so a key not written back after the operation is gone (``AGENTS.md``). That
-#: is what :meth:`DraftBackend._record` carries through, and what
-#: :func:`usage_from_items` reads back out.
 FILED_DOCUMENT_KEY = "grid_filed_document_id"
 FILED_VERSION_KEY = "grid_filed_version_id"
 FILED_HASH_KEY = "grid_filed_content_hash"
-#: The editorial state the BFF last reported for that version. Stored rather than
-#: re-fetched because the card the NEXT ``edit_file`` emits has to say whether the
-#: draft is still submittable, and a card that had to make a round trip to find
-#: out would be a card that renders late or wrong.
 FILED_STATE_KEY = "grid_filed_state"
 
-#: The four together, in the order a reader meets them.
 FILING_KEYS = (FILED_DOCUMENT_KEY, FILED_VERSION_KEY, FILED_HASH_KEY, FILED_STATE_KEY)
 
-#: The draft's own version counter (:data:`VERSION_KEY`) at the moment its bytes
-#: were last filed. It answers the one question the four keys above cannot: are
-#: the bytes in the project the bytes in the working directory? ``file_draft``
-#: with ``submit=True`` on a draft that has not moved since it was filed only
-#: SUBMITS — an ``update`` of identical bytes would write a second object, run
-#: the version's effects again, and fail on If-Match if a person had meanwhile
-#: edited the filed version in the Files pane.
-#:
-#: Not one of :data:`FILING_KEYS` and deliberately not re-stamped by
-#: :meth:`DraftBackend._record`: it is compared against the counter, and every
-#: write or edit moves the counter, so a stamp that survives an edit is stale and
-#: one that is dropped reads as "never filed at this version". Both say changed,
-#: which is the safe answer — the draft is filed again before it is submitted.
 FILED_AT_DRAFT_VERSION_KEY = "grid_filed_at_draft_version"
 
-#: The root without its trailing slash: the middleware normalises ``/drafts/``
-#: to ``/drafts`` before the permission check, so both spellings name the
-#: listing and both are allowed.
 _DRAFT_ROOT_BARE = DRAFT_ROOT.rstrip("/")
 
-#: Store rows read per page while totalling a conversation's bytes. The ceiling
-#: above bounds the real number far below this; the page size only decides how
-#: many round trips an unusual conversation costs.
 _PAGE_SIZE = 100
 
 _DSN_ENV = "CHECKPOINT_DB"
 
 _stores: dict[str, BaseStore] = {}
-#: Serialises store creation: ``setup()`` is an await, so a bare check-then-act
-#: would let two concurrent turns both run the DDL and leak the loser's store.
 _store_lock = asyncio.Lock()
 
 
@@ -186,17 +121,10 @@ def draft_bytes(text: str) -> int:
 class DraftUsage:
     """What the store already holds, as the guards need to see it."""
 
-    #: Bytes across every file in this conversation's namespace.
     total_bytes: int
-    #: Current content of the path being written, or ``None`` when it is new.
     content: str | None
-    #: Times that path has been written or edited so far.
     version: int
-    #: The project document this path was filed as, if it has been: the three
-    #: :data:`FILING_KEYS` as stored. Empty when the draft has never been filed.
     filing: dict[str, str] = field(default_factory=dict)
-    #: :data:`VERSION_KEY` as it stood when the path was last filed, or ``0``
-    #: when that is not known (never filed, or filed before the stamp existed).
     filed_at_version: int = 0
 
     @property
@@ -372,8 +300,6 @@ class DraftBackend(StoreBackend):
         super().__init__(store=store, namespace=lambda _runtime: draft_namespace(conversation_id))
         self.conversation_id = conversation_id
 
-    # -- reading what is already there -----------------------------------------
-
     def _usage(self, file_path: str) -> DraftUsage:
         store = self._get_store()
         namespace = self._get_namespace()
@@ -404,8 +330,6 @@ class DraftBackend(StoreBackend):
                 break
             offset += _PAGE_SIZE
         return usage_from_items(items, file_path)
-
-    # -- what a successful verb leaves behind ----------------------------------
 
     def _record(self, file_path: str, version: int, filing: dict[str, str]) -> None:
         """Stamp the new version on the stored item and put the draft card up.
@@ -445,8 +369,6 @@ class DraftBackend(StoreBackend):
             filing=filing,
         )
 
-    # -- what the filing tool reads and writes ---------------------------------
-
     async def arecord_filing(
         self,
         file_path: str,
@@ -474,8 +396,6 @@ class DraftBackend(StoreBackend):
             return
         stamp = {FILED_AT_DRAFT_VERSION_KEY: draft_version} if draft_version is not None else {}
         await store.aput(namespace, file_path, {**item.value, **filing, **stamp})
-
-    # -- the two write verbs ---------------------------------------------------
 
     def write(self, file_path: str, content: str) -> WriteResult:
         text = normalize_draft_text(content)
@@ -555,7 +475,6 @@ async def _build_store(dsn: str) -> BaseStore:
     from agent.knowledge.leader_lock import keyed_lock_async
 
     store = AsyncPostgresStore(get_checkpoint_pool(dsn))
-    # As for the checkpointer (`common.get_checkpointer`): every role runs this, and `setup()` is not safe against it.
     async with keyed_lock_async("langgraph-setup:store"):
         await store.setup()
     await rename_legacy_draft_keys(store)

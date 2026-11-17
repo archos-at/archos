@@ -1,17 +1,5 @@
-/**
- * The wire of `POST /api/quarantine/decisions` (ADR-0086): one reviewer's
- * decision about several held documents at once, the Quarantäne list's
- * selection. Client-safe: the route, the agent catalog and the browser client
- * read the same schema.
- */
-
 import { z } from 'zod'
 
-/**
- * How many documents one request decides about. Each is one bounded step (a
- * row update and a dispatch, or a delete), so the request ends in seconds, well
- * inside one request's time (ADR-0121, "Outside the rule").
- */
 export const QUARANTINE_DECISION_LIMIT = 50
 
 export const quarantineDecisionsSchema = z
@@ -33,13 +21,6 @@ export const quarantineDecisionsSchema = z
   .strict()
 export type QuarantineDecisions = z.infer<typeof quarantineDecisionsSchema>
 
-/**
- * What became of one document. `rechecking`: it is being screened again, and
- * comes back to the queue only if it still matches. `changed`: it is no longer
- * held (someone decided first). `not_found`: this session may not decide about it, answered as for a
- * document that does not exist. `forbidden`: a reviewer who may not write its
- * folder. `failed`: anything else; the document is as it was.
- */
 export const QUARANTINE_DECISION_OUTCOMES = [
   'allowed',
   'rechecking',

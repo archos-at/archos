@@ -1,9 +1,3 @@
-/**
- * A project's Outlook archive imports (ADR-0085): list them a page at a time
- * (`?limit=`, `?cursor=` from the previous page's `nextCursor`), or start one.
- * Thin handlers; all logic lives in `@/lib/mail-import/service`.
- */
-
 import { apiRoute, parseJsonBody, parseQuery } from '@/lib/api/handler'
 import { listMailImports, startMailImport } from '@/lib/mail-import/service'
 import { mailImportListQuerySchema, startMailImportSchema } from '@/lib/mail-import/types'

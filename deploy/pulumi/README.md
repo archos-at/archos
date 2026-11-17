@@ -385,6 +385,7 @@ All keys live under the `grid-oib:` namespace. **Bold** = required (no default).
 | `mcpGatewayEnabled` | `false` | The `https-platform-mcp` listener (certificate `platform-mcp-tls`), its DNS record under `dnsEnabled`, the `platform-mcp-gateway` HTTPRoute, Deployment (2 replicas), Service, ConfigMap and session Secret, and the `allow-edge-to-platform-mcp-gateway` and `allow-platform-mcp-gateway-to-langfuse` NetworkPolicies. Off, none of these exist. On, it needs `workosAuthkitDomain`, Langfuse, and the two keys below, or the plan fails naming the missing one |
 | `mcpGatewayDomain` | `platform-mcp.<baseDomain>` | Its public host. Must stay under the WorkOS resource indicator `https://<host>/*` |
 | `mcpGatewayPlatformOrgId` | — | WorkOS id (`org_…`) of the platform organization: a token with any other `org_id` gets 403. Not `platformOrgExternalId` |
+| `mcpGatewayLangfuseTraceOrgs` | — | Whose agent traces `/langfuse/mcp` reads (ADR-0160, amendment of 2026-11-17). Unset, none. `*`, every trace (staging). Comma-separated WorkOS ids (`org_…`), only theirs: each `listObservations` call must pin `tags` to their `org:<id>`, and `getObservation` is not offered. Never list a customer's office |
 | 🔒 `mcpGatewaySessionKey` | — | 64 hex characters (`openssl rand -hex 32`). agentgateway encrypts MCP session ids with it, and both replicas share it. Rotating it ends open sessions; clients reconnect |
 
 ## Validation (no target cluster required)

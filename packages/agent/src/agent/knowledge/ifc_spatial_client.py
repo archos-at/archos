@@ -60,33 +60,12 @@ from agent.knowledge.bim_query import BimQueryUnavailableError
 
 logger = logging.getLogger(__name__)
 
-#: Resolving a model to a URL is a list, a flag lookup and a HEAD. It is not
-#: the download.
 _RESOLVE_TIMEOUT_SECONDS = 10
 
-#: The download itself. A 250 MB model (`BIM_MAX_IFC_BYTES`) over the compose
-#: network is seconds; the ceiling is here so a stalled object store cannot hold
-#: a turn open indefinitely.
 _DOWNLOAD_TIMEOUT_SECONDS = 120
 
-#: Resident bytes per byte of IFC, once IfcOpenShell has the file open.
-#:
-#: Measured across the corpus, the ratio runs from 20× to about 143× — 2.3 MB of
-#: sample house occupies 47 MB, and a 151 MB office model peaked at 5.3 GB. The
-#: spread is real and it is not predictable from the file size: it tracks
-#: geometric complexity, so a dense curtain-wall facade costs far more per byte
-#: than a big flat slab.
-#:
-#: The LOW end is used deliberately. It makes the gate a NECESSARY condition and
-#: not a sufficient one: a file over the ceiling certainly cannot be measured
-#: here, while one under it merely might be. Using 143× would be honest about
-#: the worst case and would refuse a 30 MB model on a 4 GB pod, which is most
-#: real projects — the guard would have removed the capability instead of
-#: protecting it.
 PARSE_FOOTPRINT_RATIO = 20
 
-#: Floor and cap for the derived ceiling. The cap is the BFF's own upload limit
-#: rounded up; below the floor the tool is not worth having at all.
 _MIN_MODEL_BYTES = 16 * 1024 * 1024
 _MAX_MODEL_BYTES_CAP = 512 * 1024 * 1024
 
@@ -111,7 +90,6 @@ def _container_memory_bytes() -> int | None:
             value = int(raw)
         except ValueError:
             continue
-        # cgroup v1 writes a sentinel near 2^63 to mean "unlimited".
         if 0 < value < (1 << 62):
             return value
     try:
@@ -151,8 +129,6 @@ def _derive_max_model_bytes() -> int:
     return max(_MIN_MODEL_BYTES, min(_MAX_MODEL_BYTES_CAP, derived))
 
 
-#: What this process will read into memory for one model — a refusal rather than
-#: an OOM, because a killed worker takes the whole conversation with it.
 MAX_MODEL_BYTES = _derive_max_model_bytes()
 
 
@@ -238,8 +214,6 @@ def resolve_model_source(
     except bff_http.BffNotConfiguredError as exc:
         raise BimQueryUnavailableError(str(exc)) from exc
     except bff_http.BffRefusedError as exc:
-        # Never log the body: it names the tenant's files. The status is what a
-        # reader needs.
         logger.warning("BIM source lookup refused by the frontend (status=%s)", exc.status)
         if is_correctable(exc):
             raise BimQueryRejectedError(_rejection_message(exc)) from exc
@@ -274,31 +248,6 @@ def source_identity(result: dict[str, Any]) -> str:
     return f"model:{model.get('modelId')}:{model.get('updatedAt')}"
 
 
-#: An opener that can only speak HTTP(S) — no `file:`, no `ftp:`, no `data:`.
-#:
-#: `urllib.request.urlopen` uses a default opener carrying a `FileHandler`, so
-#: `file:///etc/passwd` is a URL it will happily fetch. The scheme test in
-#: `_download` already refuses that, and a string test is the weaker of the two
-#: available guards: it protects the one call site it sits in front of, and it
-#: has to be re-derived by anyone who reads the call.
-#:
-#: Building the opener WITHOUT the file handler removes the capability instead
-#: of filtering for it — a `file:` URL raises `URLError: unknown url type`
-#: whatever any caller passes, and the same holds for each redirect hop, since
-#: the hops go through this opener too. The string test stays as the first and
-#: clearest line of defence; this is what makes it belt AND braces.
-#:
-#: Not closed here, and worth naming: this opener does not validate the
-#: DESTINATION. It does not need to — the URL comes from the BFF, not from an
-#: agent or a chat message, which is what separates it from
-#: `ifc_spatial.tools._read_source`, where the URL IS agent-reachable and a full
-#: unroutable-address guard is applied.
-#: Built from a bare `OpenerDirector`, NOT with `build_opener`. That distinction
-#: is the whole fix and it is easy to get wrong: `build_opener` starts from the
-#: default handler set and merely adds to it, so
-#: `build_opener(HTTPHandler, HTTPSHandler)` still carries the `FileHandler` and
-#: still reads `file:///…`. Verified rather than assumed — the first version of
-#: this used `build_opener` and returned the file's bytes.
 def _http_only_opener() -> urllib.request.OpenerDirector:
     opener = urllib.request.OpenerDirector()
     for handler in (
@@ -320,36 +269,22 @@ def _download(url: str, expected_bytes: Any = None) -> bytes:
     if not isinstance(url, str) or not url.lower().startswith(("http://", "https://")):
         raise BimQueryUnavailableError("the model source URL was not usable")
     if isinstance(expected_bytes, (int, float)) and expected_bytes > MAX_MODEL_BYTES:
-        # Refused on the HEAD's byte count, before a single byte is transferred.
         raise ModelTooLargeError(int(expected_bytes), MAX_MODEL_BYTES)
     try:
         with _HTTP_ONLY_OPENER.open(url, timeout=_DOWNLOAD_TIMEOUT_SECONDS) as response:
-            # One byte past the ceiling, so "exactly at the limit" and "over it"
-            # are distinguishable without reading the whole thing first.
             data = response.read(MAX_MODEL_BYTES + 1)
             encoding = (response.headers.get("Content-Encoding") or "").lower()
-            # What http.client was still owed when the read ended. None unless it went
-            # by a Content-Length, so chunked framing and a bad value say nothing here.
             missing = response.length
     except Exception as exc:  # noqa: BLE001
         logger.warning("the model source could not be downloaded: %s", type(exc).__name__)
         raise BimQueryUnavailableError("the model file could not be downloaded") from exc
 
     if len(data) > MAX_MODEL_BYTES:
-        # The store gave no Content-Length, or lied about it.
         raise ModelTooLargeError(len(data), MAX_MODEL_BYTES)
     if missing:
-        # `read(n)` hands back what arrived when the connection closes early, and
-        # does not raise. Spilled, those bytes would be refused as a file cut off
-        # by its upload, and the file in the store is fine: this is the outage.
         logger.warning("the model source arrived incomplete: %d bytes, %d missing", len(data), missing)
         raise BimQueryUnavailableError("the model file arrived incomplete")
     if "gzip" in encoding:
-        # The internal route presigns the ORIGINAL object precisely so this
-        # cannot happen — the viewer's `_bim/source.ifc.gz` is transparent only
-        # because a browser inflates it. Handled anyway rather than trusted,
-        # because the alternative failure is IfcOpenShell reporting a perfectly
-        # good building as unreadable.
         import gzip
 
         try:
@@ -359,46 +294,16 @@ def _download(url: str, expected_bytes: Any = None) -> bytes:
     return data
 
 
-# ── the engine ───────────────────────────────────────────────────────────────
-
-#: How many models one process keeps parsed. Two, not the package default of
-#: four: a conversation touches one building, occasionally two being compared,
-#: and each resident model holds its tessellation and its OCCT tree in the C++
-#: heap of a process that is also running an agent.
 MAX_RESIDENT_MODELS = 2
 
-#: Guards the four tables below. Held for dictionary work only, never across a
-#: download or a parse.
 _LOCK = threading.Lock()
 
-#: Serialises the whole open flow: the rebuild decision, the parse, and the
-#: registration of the handle it produced.
-#:
-#: `_LOCK` cannot do this job. It is held for microseconds by
-#: :func:`call_spatial_tool` on every operator call, and the thing that has to be
-#: atomic here takes SECONDS — `create_tools` replaces the table and clears
-#: `_OPEN_HANDLES`, and a handle opened against the old table is absent from the
-#: new one. Reproduced: with `MAX_RESIDENT_MODELS` at 2, one slow parse and three
-#: other turns landing during it, the slow turn's handle registers into a table
-#: that never saw its model, and the next operator on it fails with
-#: „model … ist nicht geöffnet — open_model aufrufen" — an argument mistake, for
-#: a GlobalId and a handle that were both correct.
-#:
-#: The cost is stated rather than hidden: two DIFFERENT models can no longer be
-#: parsed at the same time. That is the trade the rebuild rule already implies —
-#: the table is sized by `MAX_RESIDENT_MODELS` (2), so a third concurrent parse
-#: was going to evict one of the two anyway. The download is deliberately
-#: OUTSIDE this lock, because that is the part that takes two minutes and the
-#: part that has its own per-identity key.
 _OPEN_LOCK = threading.Lock()
 
-#: source identity → the local file the bytes were spilled to.
+# Bounded by MAX_RESIDENT_MODELS: an unbounded per-tenant-file table would retain tenant model data.
 _PATH_BY_SOURCE: dict[str, str] = {}
-#: source identity → content hash, once this process has read those bytes.
 _HANDLE_BY_SOURCE: dict[str, str] = {}
-#: The handles registered in the CURRENT tool table — see :func:`open_model`.
 _OPEN_HANDLES: list[str] = []
-#: Spill files, unlinked when the interpreter exits and never before.
 _SPILLED: list[str] = []
 _CACHE: Any = None
 _TOOLS: Any = None
@@ -513,9 +418,6 @@ def open_model(result: dict[str, Any]) -> str:
     cache, _ = _engine()
     identity = source_identity(result)
 
-    # Read outside `_OPEN_LOCK` on purpose: the ordinary case is the second,
-    # third and tenth question about one building, and making those queue behind
-    # a different model's parse would spend seconds to answer from a dictionary.
     with _LOCK:
         known = _HANDLE_BY_SOURCE.get(identity)
         if known and known in _OPEN_HANDLES:
@@ -532,8 +434,6 @@ def open_model(result: dict[str, Any]) -> str:
 
     with _OPEN_LOCK:
         with _LOCK:
-            # Checked again under the open lock: another turn may have opened
-            # exactly this model while this one was downloading it.
             known = _HANDLE_BY_SOURCE.get(identity)
             if known and known in _OPEN_HANDLES:
                 return known

@@ -99,33 +99,10 @@ from agent.common.lease_slots import RENEW_LUA
 
 logger = logging.getLogger(__name__)
 
-# @environment_variable MAX_ACTIVE_TURNS
-# @category Server
-# @type int
-# @default 24
-# @required false
-# Maximum interactive chat turns running concurrently across all organizations.
-# Its own pool, never shared with the research queue — that separation is what
-# stops background research from starving chat. 0 or negative disables.
 MAX_ACTIVE_TURNS = int(os.environ.get("MAX_ACTIVE_TURNS", "24"))
 
-# @environment_variable MAX_ACTIVE_TURNS_PER_ORG
-# @category Server
-# @type int
-# @default 6
-# @required false
-# Maximum concurrent interactive chat turns per organization, so one tenant
-# cannot occupy the interactive pool. 0 or negative disables the per-org cap.
 MAX_ACTIVE_TURNS_PER_ORG = int(os.environ.get("MAX_ACTIVE_TURNS_PER_ORG", "6"))
 
-# @environment_variable TURN_LEASE_SECONDS
-# @category Server
-# @type int
-# @default 120
-# @required false
-# How long an admission slot survives without its turn renewing it. A running
-# turn renews every third of this, so it bounds only how long a replica killed
-# mid-turn keeps its slots, not how long a turn may run.
 TURN_LEASE_SECONDS = int(os.environ.get("TURN_LEASE_SECONDS", "120"))
 
 
@@ -154,15 +131,10 @@ class TurnAdmissionError(RuntimeError):
         self.retry_after_seconds = retry_after_seconds
 
 
-# The lease scripts are shared with every fleet-wide slot pool (lease_slots).
 _ACQUIRE_LUA = ACQUIRE_LUA
 _RELEASE_LUA = RELEASE_LUA
 _RENEW_LUA = RENEW_LUA
 
-# Per-process fallback, used only when there is no shared store (local dev, a
-# single-replica compose stack, tests). It bounds this replica honestly and says
-# nothing about the fleet — with N replicas the effective ceiling is N x the
-# configured one. The same trade every other layer makes without a store.
 _local_slots: dict[str, dict[str, float]] = {}
 _local_lock = threading.Lock()
 
@@ -211,13 +183,9 @@ def _acquire(key: str, limit: int, member: str) -> bool:
     try:
         result = cache.eval_script(_ACQUIRE_LUA, [key], [now, TURN_LEASE_SECONDS, limit, member])
     except Exception:
-        # `eval_script` already swallows store errors; reaching here means
-        # something unexpected. Admit anyway — this is a protective control, and
-        # a bug in it must not become an outage.
         logger.warning("Turn admission check failed on %s; admitting", key, exc_info=True)
         return True
     if result is None:
-        # No shared store: bound this replica honestly rather than not at all.
         return _local_acquire(key, limit, member, now)
     return int(result) == 1
 
@@ -311,10 +279,6 @@ async def _keep_renewing(held: list[str], member: str, owner: TurnSlots | None =
             logger.warning("Turn slot renewal failed", exc_info=True)
 
 
-# The two pools a turn is admitted against, in acquisition order. Global first,
-# so a tenant sitting at its own limit cannot drain the shared pool with turns
-# that never ran: if the per-org slot is refused, the global one is handed back
-# on the way out.
 def _pools(organization_id: str | None) -> list[tuple[str, int, str]]:
     """`(key, limit, refusal message)` for each pool that applies to this turn."""
     pools: list[tuple[str, int, str]] = []
@@ -337,8 +301,6 @@ def _pools(organization_id: str | None) -> list[tuple[str, int, str]]:
     return pools
 
 
-# Drop expired leases, then count what is left: the fleet's running turns.
-# One script so the count never includes a lease that has already aged out.
 _COUNT_LUA = """
 local key = KEYS[1]
 local now = tonumber(ARGV[1])
@@ -422,8 +384,6 @@ def _release_abandoned(acquisition: asyncio.Task, member: str) -> None:
     if acquisition.cancelled():
         return
     if acquisition.exception() is not None:
-        # `_acquire_all` swallows store errors and admits; an exception here is
-        # a bug, and it means no slot was recorded to give back.
         return
     held, _refusal = acquisition.result()
     if not held:
@@ -485,10 +445,6 @@ async def admit_turn_async(organization_id: str | None) -> AsyncIterator[None]:
     try:
         held, refusal = await asyncio.shield(acquisition)
     except asyncio.CancelledError:
-        # Cannot reliably await anything once cancelled, so hand the cleanup to
-        # the task itself. `add_done_callback` fires after the worker returns,
-        # which is the ordering that matters: releasing before the acquire lands
-        # would ZREM nothing and strand the slot anyway.
         acquisition.add_done_callback(lambda task: _release_abandoned(task, member))
         raise
     if refusal is not None:
@@ -496,7 +452,6 @@ async def admit_turn_async(organization_id: str | None) -> AsyncIterator[None]:
     owner = _TURN_SLOTS.get()
     if owner is not None and held:
         if owner.closed:
-            # The turn is over and only its workflow is still unwinding: it may not take a slot now.
             await asyncio.to_thread(_release_all, held, member)
             raise TurnAdmissionError("This answer has already ended.")
         owner.held[member] = held

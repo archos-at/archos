@@ -1,27 +1,3 @@
-"""What this package refuses to do with input it does not control.
-
-Four of these are not questions about a building. They are questions about the
-PROCESS the building is measured in, and each was reproduced against the code
-before it was fixed. (A fifth, ``open_model(url=…)`` reading whatever a URL
-named, went with the URL itself on 2026-11-04: the engine opens a path its host
-fetched through the host's own access check.)
-
-  - ``write_ids(name=…)`` joined ``name`` onto the target directory, so an
-    absolute name replaced the directory and a ``..`` walked out of it;
-  - ``render.plan`` derived the raster HEIGHT from the model's aspect ratio and
-    allocated it. A 400 m × 2 m gallery is 365 megapixels at the default width,
-    which is 1.41 GB and an OOM-killed worker rather than a refused request;
-  - opening a model followed its length unit's conversion chain with no limit,
-    so a chain leading back to itself never returned;
-  - a file the parser dies on in C took the process with it, and with the process
-    every conversation running there.
-
-The first is a refusal and read as ``ToolError``: the call could not be
-made. The last two are refusals about the file, a ``ModelUnreadableError``.
-None of them is an ``undecidable`` — that is a finding about an export, and
-"we will not connect there" is a finding about us.
-"""
-
 from __future__ import annotations
 
 import os
@@ -43,22 +19,10 @@ FIXTURES = Path(__file__).resolve().parent / "fixtures"
 HOUSE = FIXTURES / "Ifc4_SampleHouse.ifc"
 
 
-# ── [30] the size of a raster ───────────────────────────────────────────────
-
-
 def _gallery(path: Path) -> SpatialModel:
-    """A 400 m × 2 m covered walkway — two long walls and nothing else.
-
-    Not a contrived shape. A noise barrier, a gallery, a tunnel section and a
-    platform canopy all have this aspect ratio, and each of them is a perfectly
-    ordinary IFC that an architect uploads. At the default 1400 px width it
-    derives a height of 260 942 px: 365 megapixels, 1.41 GB of RGB, and the
-    worker dies before the first line is drawn.
-    """
     f = ifcopenshell.file(schema="IFC4")
 
     def gid(tag: str) -> str:
-        """A readable 22-character GlobalId, as the other synthetic fixtures use."""
         return f"2Long{tag}".ljust(22, "0")[:22]
 
     z = f.create_entity("IfcDirection", DirectionRatios=(0.0, 0.0, 1.0))
@@ -146,7 +110,6 @@ def _gallery(path: Path) -> SpatialModel:
     f.create_entity("IfcRelAggregates", GlobalId=gid("Agg2"), RelatingObject=site, RelatedObjects=[building])
     f.create_entity("IfcRelAggregates", GlobalId=gid("Agg3"), RelatingObject=building, RelatedObjects=[storey])
 
-    # 400 m long, 2 m apart: an aspect ratio of 1:200.
     west = wall("Wall01", "Galeriewand West", (0.0, 0.2, 0.0, 400.0, 0.0, 3.0))
     east = wall("Wall02", "Galeriewand Ost", (1.8, 2.0, 0.0, 400.0, 0.0, 3.0))
     f.create_entity(
@@ -160,24 +123,14 @@ def _gallery(path: Path) -> SpatialModel:
 
 
 def test_a_long_thin_building_cannot_allocate_the_worker_away(tmp_path: Path) -> None:
-    """The finding, end to end and through the public entry point.
-
-    Before the bound this produced a 1400 × 260 942 px canvas. The assertion is
-    on the pixel count rather than on either edge, because that is what the
-    allocation is proportional to.
-    """
     drawn = render.plan(_gallery(tmp_path / "galerie.ifc"))
 
     assert drawn is not None
     assert drawn.width * drawn.height <= render.MAX_RASTER_PIXELS
-    # And it is still a drawing of a long thin thing, not a cropped square: the
-    # bound moves the SCALE, so the aspect ratio survives it.
     assert drawn.height > drawn.width
 
 
 def test_a_caller_cannot_ask_for_an_arbitrary_canvas(tmp_path: Path) -> None:
-    """``tools.view`` never passes ``width_px``, so anything past the ceiling is
-    a library caller — and 12 000 px on the sample house is 63 megapixels."""
     house = SpatialModel(str(HOUSE))
     drawn = render.plan(house, width_px=12_000)
 
@@ -193,8 +146,6 @@ def test_a_caller_cannot_ask_for_an_arbitrary_canvas(tmp_path: Path) -> None:
         (1400, 48, 0.5, 2_000.0),
         (100_000, 48, 14.16, 6.08),
         (8_000, 48, 1.0, 1_000.0),
-        # A margin at or past half the width drove the scale to zero or below,
-        # which is a divide-by-nothing rather than a small plan.
         (10, 900, 5.0, 5.0),
     ],
 )
@@ -210,12 +161,6 @@ def test_no_span_and_no_request_gets_past_the_pixel_ceiling(
 
 
 def test_an_ordinary_plan_is_untouched_by_the_bound() -> None:
-    """The guard must be invisible on every model anyone actually draws.
-
-    The sample house at the default width is 1.0 megapixels — 40× under the
-    ceiling — and its numbers must not move, because `scale_px_per_m` is printed
-    on the drawing's own scale bar.
-    """
     house = SpatialModel(str(HOUSE))
     drawn = render.plan(house)
 
@@ -224,17 +169,7 @@ def test_an_ordinary_plan_is_untouched_by_the_bound() -> None:
     assert drawn.width * drawn.height < render.MAX_RASTER_PIXELS // 10
 
 
-# ── [28] where an IDS file is written ───────────────────────────────────────
-
-
 class _Empty:
-    """A document with no specifications.
-
-    Used deliberately: the empty list is the branch that returns EARLY, and a
-    guard placed after it would be a guard an attacker can choose their way
-    past by picking a model with no findings.
-    """
-
     class ids:  # noqa: N801 — mirrors the attribute name on IdsShoppingList
         specifications: list[Any] = []
 
@@ -269,13 +204,6 @@ def test_a_name_that_leaves_the_target_directory_is_refused(name: str, tmp_path:
 
 
 def test_a_nested_name_is_refused_and_not_silently_renamed(tmp_path: Path) -> None:
-    """``os.path.basename`` is the obvious sanitiser and the wrong one.
-
-    It turns ``"befunde/haus.ids"`` into ``"haus.ids"`` and writes a file the
-    caller did not ask for. This module's whole promise is that the file an
-    architect loads into their checker is exactly the document that was
-    described, so a name it cannot honour is refused rather than reinterpreted.
-    """
     from ifc_spatial.ids_export import write_ids
 
     with pytest.raises(ToolError):
@@ -302,9 +230,6 @@ def test_a_real_document_still_lands_under_the_given_name(tmp_path: Path) -> Non
     assert (tmp_path / "haus.ids").is_file()
 
 
-# ── a length unit with no end ─────────────────────────
-
-
 UNITS_FEET = FIXTURES / "units-feet.ifc"
 FOOT = "#10=IFCCONVERSIONBASEDUNIT(#7,.LENGTHUNIT.,'FOOT',#9);"
 FOOT_FACTOR = "#9=IFCMEASUREWITHUNIT(IFCRATIOMEASURE(0.3048),#8);"
@@ -321,7 +246,6 @@ except ModelUnreadableError as refused:
 
 
 def _foot_through(conversions: int) -> str:
-    """The foot's factor, reaching the metre through ``conversions`` more units."""
     lines = ["#9=IFCMEASUREWITHUNIT(IFCRATIOMEASURE(0.3048),#100);"]
     for i in range(conversions):
         unit, factor, target = 100 + 2 * i, 101 + 2 * i, 102 + 2 * i if i + 1 < conversions else 8
@@ -331,7 +255,6 @@ def _foot_through(conversions: int) -> str:
 
 
 def _open_units_in_a_child(tmp_path: Path, *swaps: tuple[str, str]) -> str:
-    """A regression here never returns, so it has to fail this test and not hang the run."""
     text = UNITS_FEET.read_text()
     for old, new in swaps:
         assert old in text
@@ -442,12 +365,9 @@ def test_a_length_unit_that_can_be_followed_reports_the_same_scale(tmp_path: Pat
     assert _open_units_in_a_child(tmp_path, *swaps) == repr(scale)
 
 
-# ── a file the parser dies on ───────────────────────────────────────────────
-
 _NAME = "FILE_NAME('h.ifc','2026-08-12T00:00:00',(''),(''),'','','');\n"
 _SCHEMA = "FILE_SCHEMA(('IFC4'));\n"
 
-#: In a child, because without the probe this is a SIGSEGV and the test run would die of it.
 _OPEN_AND_PRINT_THE_REFUSAL = """
 import sys
 from ifc_spatial.model import ModelUnreadableError, SpatialModel
@@ -459,7 +379,6 @@ except Exception:
     pass
 """
 
-#: A host whose worker threads get 2 MiB, which is what glibc gives them when RLIMIT_STACK is unlimited.
 _OPEN_ON_A_2_MIB_WORKER = """
 import sys, threading
 threading.stack_size(2 * 1024 * 1024)
@@ -500,8 +419,6 @@ def test_a_file_the_parser_dies_on_is_refused_and_the_process_lives(tmp_path: Pa
     assert "neu exportieren" in child.stdout
 
 
-# A SIGSEGV on macOS; whether Linux faults too is not established, so these hold
-# only that the process lives.
 @pytest.mark.parametrize(
     ("header", "data"),
     [

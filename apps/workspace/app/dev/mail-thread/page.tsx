@@ -1,18 +1,5 @@
 'use client'
 
-/**
- * Dev preview of the „E-Mails“ tab of a thread document and of a Fassung's
- * provenance (D16, D36, DECISION §9): the real components over the fixture
- * client, in a column as wide as the preview's rail (and the whole width on
- * a phone).
- *
- * `?variant=three-messages|same-sender|followed|renew-limit|manager-follows|member-sees-follows|unverified-section|direct-and-forwarded|archive-sections|original-infected|original-refused|detach-confirm|detach-refused|focused|loading|error|worst-case|provenance|provenance-worst`
- *
- * Following, ending a follow and detaching work against the fixtures.
- * `&locale=en`, `&chrome=0` as on `/dev/inbound-mail`. Not linked from
- * anywhere; the `/dev` layout 404s outside development.
- */
-
 import type { JSX } from 'react'
 import { use, useMemo, useState } from 'react'
 import { I18nProvider } from '@/i18n'
@@ -35,7 +22,6 @@ type SearchParams = Record<string, string | string[] | undefined>
 const PROVENANCE_VARIANTS = ['provenance', 'provenance-worst'] as const
 const VARIANTS = [...Object.keys(MAIL_THREAD_VARIANTS), ...PROVENANCE_VARIANTS]
 
-/** The preview never navigates: „Im E-Mail-Verlauf ansehen“ only proves it was pressed. */
 const stayHere = async (_origin: MailOriginView): Promise<void> => {}
 
 export default function MailThreadDevPage({ searchParams }: { searchParams: Promise<SearchParams> }): JSX.Element {
@@ -59,7 +45,6 @@ function Tab({ variant }: { variant: string }): JSX.Element {
   const [view, setView] = useState<RailView>('mail')
   const focus = useMemo(() => (fixture.focusEntryId ? { entryId: fixture.focusEntryId } : undefined), [fixture.focusEntryId])
   return (
-    // The rail: 280px beside the document from `@2xl`, the whole width below.
     <div className="bg-surface-sunken mx-auto flex min-h-dvh w-full flex-col border-x p-4 sm:max-w-[280px] sm:box-content">
       <ThreadRailViews
         mail={
@@ -105,7 +90,6 @@ function Provenance({ worst }: { worst: boolean }): JSX.Element {
       {/* A Fassung row of the timeline, 248px of rail content. */}
       <section className="bg-surface-sunken flex flex-col gap-4 rounded-lg border p-4 sm:max-w-[280px]" aria-label="Fassungen">
         {keys.map((key) => (
-          // On the card the timeline's group gives its rows (`InspectorGroup`).
           <div key={key} className="bg-card flex flex-col gap-1 rounded-lg border p-3">
             <p className="text-[13px] font-medium">Fassung 2</p>
             <MailOriginLine origins={PROVENANCE_ORIGINS[key]} onOpen={stayHere} />

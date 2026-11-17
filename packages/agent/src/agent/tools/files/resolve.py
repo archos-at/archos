@@ -41,16 +41,10 @@ from agent.common.source_kinds import Shelf
 from agent.common.source_kinds import parse_shelf
 from agent.knowledge.inventory import get_turn_documents
 
-#: The two shelves a workspace operation can touch. `base` is the platform
-#: corpus (nobody's to organise) and `session` is this chat's own attachments,
-#: which are not project documents and have no folder to move into.
 DocumentSource = Literal["project", "office"]
 
 _SHELF_SOURCES: dict[Shelf, DocumentSource] = {Shelf.PROJECT: "project", Shelf.OFFICE_SHELF: "office"}
 
-#: How many candidate names an ambiguity message lists before it stops. The
-#: message exists so the model can ask a precise question; twenty names is not
-#: a question.
 _MAX_NAMED_CANDIDATES = 8
 
 
@@ -86,7 +80,6 @@ class ResolvedDocument:
 
     file_name: str
     source: DocumentSource
-    #: The folder it sits in today, ``""`` for the project root.
     folder_path: str
 
 
@@ -171,8 +164,6 @@ def known_folders() -> list[str]:
     return sorted(paths, key=str.casefold)
 
 
-#: What the reader calls the project root, in both languages the tools meet it
-#: in. An empty string is the root on the wire.
 _ROOT_WORDS = frozenset({"", "/", ".", "root", "stamm", "projektstamm", "hauptordner", "oberste ebene"})
 
 

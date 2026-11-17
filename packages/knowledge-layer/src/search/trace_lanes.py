@@ -36,8 +36,6 @@ def _trace_lanes_for_chunks(
             chunk,
             resolved=resolved,
             resolved_titles=resolved_titles,
-            # Neither reaches the fan-out: it names documents by raw
-            # filename, so no citation key is built and no folder is read.
             resolved_folders={},
             ambiguous=set(),
         )
@@ -153,5 +151,4 @@ def _lane_source(hit, detail: str | None, *, opened: bool) -> TraceLaneSource:
     return source
 
 
-#: The lane fan-out for chunks, public: what a producer outside the package (the law lookup) renders.
 trace_lanes_for_chunks = _trace_lanes_for_chunks

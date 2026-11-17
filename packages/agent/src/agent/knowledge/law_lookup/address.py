@@ -23,34 +23,18 @@ from agent.knowledge.law_lookup.source import LawSource
 
 logger = logging.getLogger(__name__)
 
-#: An item with no sign of its own: at most three digits (a year is not a provision).
 _BARE = re.compile(r"\s*(\d{1,3})([a-z]?)\b", re.IGNORECASE)
-#: After a comma, "2. Satz" is an ordinal, not the second provision.
 _ORDINAL_AHEAD = re.compile(r"\.\s*\w")
 
-#: How many provisions one list may address: the tool's own passage budget
-#: (``extract.MAX_PASSAGES``). A longer list or range addresses its first six,
-#: and the result says which it did not read (``Address.unread``).
 MAX_ADDRESSED_SECTIONS = 6
 
-#: A bare document number as an ``instrument=`` argument ("NOR40217157",
-#: "JWT_2020130074_20210415J00"). The four-digit lookahead is load-bearing:
-#: without it a one-word law name reads as a document number, an address
-#: nothing can resolve, and the question misses. Every such number carries a
-#: year-length run of digits; no law's short title does.
 _DOCUMENT_NUMBER_RE = re.compile(r"^(?=[A-Za-z0-9_.\-]*\d{4})[A-Za-z]{2,4}[A-Za-z0-9_.\-]{4,}$")
 
-#: Where the assumed territory came from, in precedence order. The reader of a
-#: miss needs the PROVENANCE, not just the value: a wrong jurisdiction is the
-#: commonest silent failure, and ``focus_entries`` drops other territories' law
-#: without saying so.
 TERRITORY_FROM_ARGUMENT = "jurisdiction argument"
 TERRITORY_FROM_INSTRUMENT = "instrument argument"
 TERRITORY_FROM_QUESTION = "the question"
 TERRITORY_FROM_BRIEF = "the project brief"
 
-#: A range is expanded in full, so every provision past the first six is named
-#: as not read. This bounds only nonsense input ("1 to 999999").
 _MAX_RANGE_SPAN = 1000
 
 
@@ -60,9 +44,7 @@ class Address:
 
     kind: str = ""  # a unit's sign ("§", "Art") or ""
     number: str = ""
-    #: Every provision the caller named, ``number`` first; one entry for a single one.
     numbers: tuple[str, ...] = ()
-    #: The provisions a list named past :data:`MAX_ADDRESSED_SECTIONS`, not read.
     unread: tuple[str, ...] = ()
     subsection: str = ""
     law: str = ""
@@ -105,7 +87,6 @@ def _list_from(text: str, kind: str, start: int, grammar: Grammar) -> tuple[tupl
     items, end = [first.group(1) + first.group(2).lower()], first.end()
     while True:
         qualified = False
-        # Three qualifiers on one item are each consumed.
         while qualifier := grammar.qualifier.match(text, end):
             qualified, end = True, qualifier.end()
         join = grammar.join.match(text, end)
@@ -164,7 +145,6 @@ def parse_address(question: str, instrument: str, jurisdiction: str, law: LawSou
     is prose that may mention a provision in passing.
     """
     grammar = law.grammar
-    # A URL a search stated on an API host addresses the same document as its public-host twin.
     instrument = law.public_host((instrument or "").strip())
     url = instrument if law.addressable(instrument) else ""
     number = instrument if not url and _DOCUMENT_NUMBER_RE.match(instrument) else ""
@@ -175,7 +155,6 @@ def parse_address(question: str, instrument: str, jurisdiction: str, law: LawSou
         kind, section, where = _first_section(source, grammar)
     items = _list_from(source, kind, where, grammar)[0] if kind else ()
     listed = items if len(items) > 1 else ()
-    # A part narrows ONE provision; with a list it would narrow all of them to the same number.
     subsection = (
         None if listed else (grammar.subsection.search(instrument) or grammar.subsection.search(question or ""))
     )
@@ -199,7 +178,6 @@ def _law_name(instrument: str, url: str, number: str, grammar: Grammar) -> str:
     if url or number:
         return ""
     rest = instrument
-    # Every list goes, with its parts: the first is the address, any later one a reference.
     for _ in range(8):
         kind, _number, where = _first_section(rest, grammar)
         if not kind:

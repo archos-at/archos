@@ -39,18 +39,11 @@ from agent.common.run_ledger import RunLedgerAppendRequest
 from agent.common.run_ledger import RunLedgerFinishRequest
 from agent.common.run_ledger import to_wire
 
-# The two preconditions of any internal backend→BFF POST: where the BFF is, and
-# the service token that authenticates the call. Imported rather than re-derived
-# so the base URL and the header spelling cannot drift from the message-write
-# path that has been using them since long before this one existed.
 from ..internal_api import internal_base_url
 from ..internal_api import internal_headers
 
 logger = logging.getLogger(__name__)
 
-#: Shorter than the message-persist timeout: a ledger flush happens repeatedly
-#: during a run and its payload is small, so a BFF that is slow to answer should
-#: cost the run a skipped flush rather than seconds of a worker's time.
 LEDGER_TIMEOUT_SECONDS = 5.0
 
 
@@ -67,9 +60,6 @@ class RunLedgerClient:
     async def finish(self, run_id: str, body: RunLedgerFinishRequest) -> bool:
         """The terminal fact: what the run produced, or why it stopped."""
         if (body.result is None) == (body.error is None):
-            # The route answers 400 to both-or-neither. Refusing it here keeps a
-            # doomed POST off the wire and names the defect in this tier's log,
-            # where the fold that built the body can be read.
             logger.warning("Run %s: a finish op carries a result or an error, never both", run_id)
             return False
         return await self._post(run_id, body)
@@ -81,9 +71,6 @@ class RunLedgerClient:
         url = self._url(run_id)
         headers = internal_headers()
         if url is None or headers is None:
-            # Not configured is not an error to retry: this deployment has no
-            # BFF to write to. Said once per flush at debug, because a run that
-            # cannot reach the BFF would otherwise log a warning per second.
             logger.debug("Run %s: internal API not configured; skipping the ledger %s", run_id, body.op)
             return False
 
@@ -105,7 +92,4 @@ class RunLedgerClient:
         base_url = internal_base_url()
         if not base_url:
             return None
-        # Quoted although a run id is a uuid: this value reaches here from a job
-        # payload, and a path segment built by concatenation is how a value that
-        # is "always a uuid" one day addresses a different route.
         return f"{base_url.rstrip('/')}/api/internal/runs/{quote(run_id, safe='')}/ledger"

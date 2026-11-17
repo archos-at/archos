@@ -15,11 +15,6 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: t('project.nav.references') }
 }
 
-/**
- * Hub → Similar projects: the closed projects most like this one that the
- * person may open (ADR-0094). The service owns the access (`project:view` on
- * this project, and what each reference shows); the page only asks and draws.
- */
 export default async function ProjectReferencesPage({ params }: PageProps): Promise<JSX.Element> {
   return withPageSession(async (session) => {
     const { id } = await params

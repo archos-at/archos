@@ -25,7 +25,6 @@ from typing import Any
 
 from oib_retrieval.qdrant_parity.stores import SCOPE
 
-#: The base collection's filter, as ``search_scope.base_collection_filters`` builds it.
 NON_EVIDENCE_CHUNKING = "page"
 
 

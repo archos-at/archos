@@ -1,5 +1,3 @@
-"""Make the src layout importable without an install, so `pytest` just runs."""
-
 import sys
 from pathlib import Path
 

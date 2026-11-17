@@ -58,8 +58,6 @@ class Resolved:
     collection: str = ""
     target: Target | None = None
     signed: SignedEnvelope | None = None
-    #: The BFF already answered for the document while it was resolved (its ``list``, for the name),
-    #: so a caller that only needs to know the person may read it need not ask again.
     read_by_bff: bool = False
 
 
@@ -120,7 +118,6 @@ async def _named(name: str, signed: SignedEnvelope | None) -> Resolved | str:
     if signed is None:
         return Resolved(file_name, collection)
     document_id = await asyncio.to_thread(canvas_target.lookup_document_id, collection, file_name, signed)
-    # No id costs the glow, never the look: the bytes are still the turn's to read.
     target = Target(document_id, file_name, collection) if document_id else None
     return Resolved(file_name, collection, target, signed if target else None)
 

@@ -27,8 +27,6 @@ export const LONG_REVALIDATE = 'public, max-age=604800, stale-while-revalidate=8
 /** Disjoint top-level directories, so the order does not matter. */
 const RULES = [
   ['/_astro/', IMMUTABLE],
-  // Photos, product shots, logos and the share card: unhashed names, so they
-  // revalidate. A changed image gets a new file name rather than new bytes.
   ['/media/', LONG_REVALIDATE],
 ]
 

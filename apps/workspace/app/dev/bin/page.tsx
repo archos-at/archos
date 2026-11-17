@@ -1,20 +1,5 @@
 'use client'
 
-/**
- * Dev preview for the Papierkorb and everything around a deleted folder
- * (ADR-0088).
- *
- * The REAL `FolderBinPanel` over a fixture listing: one folder restorable,
- * one whose parent is gone (restores to the project root), one the reader may
- * only read (no restore), one being purged. Restore and „Endgültig löschen"
- * go through a module-scope fetch shim that answers as the server would, including the legal-hold refusal on
- * „Honorare". Below it: the organization setting „Inhalte aus gelöschten
- * Ordnern", and the „Quelle gelöscht am …" note as an answer, a memory note
- * and a filed report show it.
- *
- * Not linked from anywhere and 404s outside development.
- */
-
 import { FIXTURE_NOW } from '../inbound-mail/fixture-base'
 import type { JSX } from 'react'
 import { notFound } from 'next/navigation'
@@ -26,7 +11,6 @@ import { FolderBinPanel } from '@/features/documents/components/folder-bin-panel
 import { DeletedFolderContentCard } from '@/features/organization/components/deleted-folder-content-card'
 
 const PROJECT = 'dev-project'
-// Relative to today, as the E-Mail-Eingang's fixture: a „bleibt bis“ already past read as a broken Papierkorb.
 const BIN_DAYS = 14
 const daysAgo = (days: number): string => new Date(FIXTURE_NOW - days * 86_400_000).toISOString()
 
@@ -35,7 +19,6 @@ const LISTING: FolderBinListing = {
   nextCursor: null,
   entries: [
     {
-      // One document sent to the bin on its own: restoring it files it back in „Pläne“.
       folderId: 'f-grundriss',
       name: 'Grundriss EG Index C.pdf',
       path: 'Pläne/Grundriss EG Index C.pdf',
@@ -152,7 +135,6 @@ export default function BinDevPage(): JSX.Element {
   if (process.env.NODE_ENV !== 'development') {
     notFound()
   }
-  // The waiting count the rail would have read, for the E-Mail-Eingang tab.
   primeInboundMailWaiting(PROJECT, { count: 3, more: false })
   return (
     <main className="flex flex-col gap-10 pb-12" data-testid="bin-preview">

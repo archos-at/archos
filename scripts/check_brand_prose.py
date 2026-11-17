@@ -90,9 +90,6 @@ import yaml
 BASELINE = Path("ci/brand_prose_baseline.json")
 MANIFEST = Path("ci/brand_history_manifest.txt")
 CUTOVER_DATE = date(2026, 10, 29)
-# The last ADR written before this rule (ADR-0149) existed. 0148 was decided in
-# parallel on develop, under the name the product had then, and merged first, so it
-# is a record of its time like 0147. Every ADR from 0149 on is written under the rule.
 HISTORY_ADR_MAX = 148
 TRANSLATIONS = "releasenotes/translations/de.json"
 SUMMARIES = "releasenotes/summaries.yaml"
@@ -108,19 +105,13 @@ RETIRED = re.compile(
         )
     )
 )
-# The name as copy is written ARCHOS (or Archos). Lowercase `archos` is the repository and its
-# clone directory (`archos/scripts/…`), an identifier the brand-names check governs.
 CURRENT = re.compile(r"\b(?:ARCHOS|Archos)\b")
 NEEDLES = ("piloti", "aiq", "ai-q", "grid", "archos")  # lowercase; every pattern above contains one
 
-# Where the current name may be written out: the brand's own file and package, the
-# blog's prose, dated records, and the first-impression documents (VISION, README,
-# the user guides), which introduce the product by its name.
 CURRENT_NAME_ALLOWED = re.compile(
     "|".join(
         (
             r"(^|/)identity\.json$",
-            # The literal copies sync.mjs writes from identity.json (packages/brand/name-copies.mjs).
             r"^apps/workspace/public/sw\.js$|^apps/workspace/app/icon\.svg$|^apps/(website|site)/public/favicon\.svg$",
             r"^packages/brand/",
             r"^apps/website/src/content/",
@@ -133,7 +124,6 @@ CURRENT_NAME_ALLOWED = re.compile(
     )
 )
 
-# Whole files that are history, or lists of paths nobody reads as prose, by path. Each line says why.
 HISTORY_PATHS = re.compile(
     "|".join(
         (
@@ -158,9 +148,6 @@ BACKTICKED = re.compile(r"`[^`\n]*`")
 
 ADR_LINK = re.compile(r"\b\d{4}-[a-z0-9-]+\.md\b")
 
-# Legal continuity (owner decision D23, ADR-0149): the privacy and legal notices name the
-# former name beside the current one, so a reader who signed up under it can tell the
-# notice covers them. Only in these files, and only as this exact parenthesis.
 LEGAL_CONTINUITY_FILES = frozenset(
     {
         "apps/workspace/bff/legal/content/de.ts",
@@ -170,14 +157,8 @@ LEGAL_CONTINUITY_FILES = frozenset(
 )
 LEGAL_CONTINUITY = re.compile(r"\((?:vormals|formerly) Piloti\)")
 URL = re.compile(r"\b(?:https?|git|ssh)://\S+|\b[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
-# The input is this repository's own text (``name_lines``), not a request: the leading
-# label repetition is quadratic on a long dotted run, never exponential.
 # nosemgrep: python.lang.security.audit.regex-dos.regex_dos
 OWN_NAMES = re.compile(r"(?i)\barchos-at(?:/archos)?\b|\b(?:[\w-]+\.)*archos\.tech\b")
-# Host names under the old domain (and its test domain) are infrastructure: the domain moves
-# by an operator's cutover (ADR-0149, owner decision D2), not by a copy edit.
-# The input is this repository's own text (``name_lines``), not a request: the leading
-# label repetition is quadratic on a long dotted run, never exponential.
 # nosemgrep: python.lang.security.audit.regex-dos.regex_dos
 OLD_HOSTS = re.compile(r"(?i)\b(?:[\w-]+\.)*piloti\.(?:at|test)\b")
 
@@ -203,7 +184,6 @@ def name_lines(text: str) -> str:
     return "\n".join(text[start : (text.find("\n", start) + 1 or len(text) + 1) - 1] for start in sorted(starts))
 
 
-#: The module path of a Python import into the chat agent's package: an identifier, not copy.
 IMPORT_PATH = re.compile(r"^(\s*(?:from|import)\s+)agent\.agents\.piloti(?!\w)(?:\.\w+)*", re.M)
 
 

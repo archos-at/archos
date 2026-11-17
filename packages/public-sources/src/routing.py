@@ -28,9 +28,7 @@ from public_sources.source import Source
 from public_sources.source import get_source
 
 ENV_FETCHER_URL = "PUBLIC_SOURCE_FETCHER_URL"
-#: Header the fetcher sets on a refusal, so the caller raises instead of reading a body.
 REFUSED_HEADER = "x-public-source-refused"
-#: Response headers the fetcher passes back from the source.
 RETURNED_HEADERS = ("content-type", "etag", "last-modified")
 
 
@@ -66,7 +64,6 @@ class FetcherTransport(httpx.AsyncBaseTransport):
         credential: tuple[str, str] | None = None,
     ) -> None:
         self.source_id = source_id
-        #: A configured (database) source's hosts; the fetcher has no record of it (ADR-0174).
         self.hosts = hosts
         self.credential = credential
         self.endpoint = fetcher_url.rstrip("/") + "/v1/fetch"

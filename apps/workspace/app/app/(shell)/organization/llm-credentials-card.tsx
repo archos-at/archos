@@ -1,15 +1,5 @@
 'use client'
 
-/**
- * BYOK LLM credential management (ADR-0022, admin + `byok-llm` flag).
- *
- * Shows the active credential (metadata only — the key never returns from
- * the API), the rotation/revocation history, and a form to connect or
- * rotate a key. The key is verified live against the provider before
- * anything is stored; storage is WorkOS Vault (or the local encrypted store
- * on dev deployments).
- */
-
 import { type FC, useCallback, useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { KeyRound, ShieldCheck, Trash2 } from 'lucide-react'
@@ -57,7 +47,6 @@ interface ListResponse {
 
 export const PROVIDERS = ['openrouter', 'openai', 'azure-openai', 'custom'] as const
 
-/** Whether `id` is a provider the dictionary has a display name for (`byok.providers.*`). */
 export function isKnownProvider(id: string | null): id is (typeof PROVIDERS)[number] {
   return id !== null && (PROVIDERS as readonly string[]).includes(id)
 }
@@ -120,8 +109,6 @@ export const LlmCredentialsCard: FC = () => {
       })
       if (!res.ok) {
         const body = (await res.json().catch(() => null)) as { error?: string } | null
-        // The sentence in the reader's language leads; the provider's own
-        // words (a refused key says why) are the secondary detail.
         toast.error(t('byok.saveError'), body?.error ? { description: body.error } : undefined)
         return
       }

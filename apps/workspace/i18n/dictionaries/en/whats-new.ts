@@ -1,4 +1,3 @@
-/** whatsNew namespace: the in-app list of every change, for signed-in members (`/app/whats-new`, ADR-0156). */
 export const whatsNew = {
   title: "What's new",
   subtitle: 'Every change to {productName}, week by week. The public website shows only the summary of each week.',
@@ -14,14 +13,12 @@ export const whatsNew = {
   newer: 'Newest weeks',
   older: 'Older weeks',
   pageLabel: 'Pages of weeks',
-  /** The one-time notice of the newest weekly summary (`whats-new-notice.tsx`). */
   notice: {
     title: 'New this week',
     open: 'See everything new',
     close: 'Close',
     stop: "Don't show again",
   },
-  /** The switch for the notice, on the profile page (`whats-new-notice-settings.tsx`). */
   settings: {
     title: "What's new",
     description: 'Once a week, a short note on what changed in {productName}.',
@@ -29,7 +26,6 @@ export const whatsNew = {
     hint: "Shows each new week's summary once. Every change stays in the user menu under What's new.",
     failed: 'The setting could not be saved. Try again.',
   },
-  /** One label per product area, keyed by the area id the release notes carry (`release_notes_areas.py`). */
   areas: {
     projects: 'Projects and setup',
     documents: 'Files and office shelf',
@@ -44,7 +40,6 @@ export const whatsNew = {
     agents: 'Your own agents',
     general: 'General',
   },
-  /** One label per customer section of `releasenotes/config.yaml`. */
   sections: {
     features: 'New',
     improvements: 'Improved',

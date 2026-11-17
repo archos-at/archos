@@ -154,56 +154,30 @@ from langchain_core.messages import SystemMessage
 
 logger = logging.getLogger(__name__)
 
-#: OpenRouter's sticky-routing key (body field; ``x-session-id`` is the header
-#: spelling). Capped at 256 characters by the API — ours is 32.
 SESSION_ID_FIELD = "session_id"
 
-#: OpenAI's cache-shard hint, forwarded by OpenRouter and used as the sticky
-#: key when no ``session_id`` is present.
 PROMPT_CACHE_KEY_FIELD = "prompt_cache_key"
 
-#: OpenRouter's automatic-caching switch for providers that cache only on request.
 CACHE_CONTROL_FIELD = "cache_control"
 
-#: OpenRouter's caching mode switch; ``explicit`` with no breakpoint caches nothing.
 PROMPT_CACHE_OPTIONS_FIELD = "prompt_cache_options"
 _NO_CACHE_WRITES = {"mode": "explicit"}
 
-#: Families that cache, and bill the write, without being asked: OpenAI's GPT
-#: from 5.6 on (OpenRouter prompt caching guide, on or after 2026-10-07).
+# OpenAI GPT from 5.6 on caches and bills the write unasked (OpenRouter prompt caching guide, 2026-10-07).
 AUTOMATIC_WRITE_FAMILIES = ("openai",)
 _AUTOMATIC_WRITES_FROM = (5, 6)
 _GPT_VERSION = re.compile(r"gpt-(\d+)(?:\.(\d+))?")
 
-#: The default five-minute entry: a turn's calls are seconds apart. The one-hour
-#: TTL costs 2x on every write, which a turn's repeats would not pay back.
 _AUTOMATIC_CACHE = {"type": "ephemeral"}
 
-#: Model families whose provider caches only what the request marks. An
-#: OpenRouter model id is ``<family>/<model>``, with a leading ``~`` on the
-#: ``-latest`` aliases.
 EXPLICIT_CACHE_FAMILIES = ("anthropic",)
 
-#: Families whose provider takes a per-block ``cache_control`` through
-#: OpenRouter's Chat Completions: Anthropic natively, OpenAI translated to
-#: ``prompt_cache_breakpoint``, Gemini as its one (last) marker (OpenRouter
-#: prompt caching guide, on or after 2026-10-07). Two of the four Anthropic
-#: breakpoint slots are then in use: this one and the automatic tail marker.
 BLOCK_BREAKPOINT_FAMILIES = ("anthropic", "openai", "google")
 
-#: Prefix on the emitted key so a value showing up in a provider dashboard is
-#: attributable without a lookup.
 _KEY_PREFIX = "grid"
 
 _DIGEST_CHARS = 24
 
-#: The part of this turn's system prompt that is stable across turns, when the
-#: agent knows it. Piloti's system prompt used to be a static half followed by
-#: a dynamic half that changed on every turn; keyed on the whole message, every
-#: turn got a new key and the static tokens started cold. The dynamic half is
-#: now its own message after the history (``agents/piloti/prompt.py``,
-#: ``request_messages``), so Piloti's system prompt IS the stable prefix; naming
-#: it still guards any agent whose system prompt has a per-turn tail.
 _STABLE_PREFIX: ContextVar[str | None] = ContextVar("prompt_cache_stable_prefix", default=None)
 
 
@@ -416,8 +390,6 @@ def _system_text(messages: Any) -> str | None:
     content = getattr(first, "content", None)
     if isinstance(content, str):
         return content
-    # The block form of one static prompt (``cached_system_message``) keys as its text,
-    # so the marker does not split a shard from the plain-string calls before it.
     if isinstance(content, list) and all(isinstance(b, dict) and b.get("type") == "text" for b in content):
         return "".join(str(b.get("text", "")) for b in content)
     return _canonical(content)

@@ -18,18 +18,8 @@ from .models import parse_skill_md
 
 logger = logging.getLogger(__name__)
 
-#: Root of the platform's builtin skills: ``<collection>/<name>/SKILL.md``.
 BUILTIN_SKILLS_DIR = Path(__file__).resolve().parent / "builtin"
 
-#: Builtin skills renamed to English (migration 0169), old name -> current name.
-#:
-#: A skill's name is what people type after a slash, what a stored schedule's prompt
-#: says (``/einreichcheck``) and what an older message lists as activated, so the old
-#: names keep resolving: :func:`canonical_skill_name` is the one place that maps them,
-#: and the pinned skill, the skills the model reports followed and the turn-start
-#: decision all go through it. Mirrored in ``apps/workspace/bff/skills/legacy-names.ts``;
-#: ``test_builtin.py`` pins the two against the same table. Nothing writes an old name
-#: again. Remove after one release.
 LEGACY_SKILL_NAMES: dict[str, str] = {
     "einreichcheck": "submission-check",
     "brandschutz": "fire-safety",

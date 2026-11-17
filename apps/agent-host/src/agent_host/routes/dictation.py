@@ -72,33 +72,23 @@ logger = logging.getLogger(__name__)
 
 MODEL_ENV = "DICTATION_MODEL"
 FALLBACK_MODEL_ENV = "DICTATION_FALLBACK_MODEL"
-#: Chosen in a live test (2026-10-08, ten synthetic mixed German/English clips,
-#: ``docs/architecture/voice-dictation.md``): Scribe kept every mixed sentence
-#: as spoken; Whisper Turbo is a different provider, so the two fail apart.
-#: Both have zero-data-retention endpoints, which the platform's pin requires;
-#: ``openai/gpt-4o-transcribe`` has none and failed every pinned call.
+# Chosen in a live test (2026-10-08, ten mixed German/English clips): Scribe kept every mixed
+# sentence; openai/gpt-4o-transcribe has no zero-data-retention endpoint.
 DEFAULT_MODEL = "elevenlabs/scribe-v2"
 DEFAULT_FALLBACK_MODEL = "openai/whisper-large-v3-turbo"
-#: What an organization on its own OpenAI-compatible key is sent instead: the
-#: models above are OpenRouter ids that mean nothing at ``api.openai.com``.
 OWN_KEY_MODELS = ("gpt-4o-transcribe", "whisper-1")
 
 _OPENROUTER_BASE = "https://openrouter.ai/api/v1"
 _OPENAI_BASE = "https://api.openai.com/v1"
 
-#: One attempt's ceiling. Two attempts stay inside the BFF's 60 s timeout.
 _ATTEMPT_TIMEOUT_SECONDS = 25.0
 
 _MIME_TYPES = {"webm": "audio/webm", "ogg": "audio/ogg", "m4a": "audio/mp4"}
 
-#: Style prompts: clean, punctuated, mixed-language sample text with no fillers.
-#: A transcription prompt is text the model continues, not an instruction it
-#: obeys. Whether OpenRouter forwards it (as ``provider.options``) is unverified.
 _WORDING_HINTS = {
     "de": "Okay, wir prüfen das laut OIB-Richtlinie 2. The fire rating of the Stiegenhaus needs a review.",
     "en": "Okay, we check this against OIB-Richtlinie 2. Das Stiegenhaus braucht noch eine Prüfung.",
 }
-#: Providers whose options carry the prompt on OpenRouter's JSON path.
 _PROMPT_PROVIDER_SLUGS = ("openai", "groq")
 
 
@@ -168,8 +158,6 @@ async def _post_audio(
             }
         )
         return await client.post(url, json=body, headers=headers)
-    # An organization on its own OpenAI-compatible key: the provider's
-    # multipart contract. Azure's deployment paths are not covered.
     form = cred.request_body({"model": model, "prompt": hint, "temperature": "0", "response_format": "json"})
     files = {"file": (f"dictation.{audio_format}", audio, _MIME_TYPES[audio_format])}
     return await client.post(url, data=form, files=files, headers=headers)
@@ -193,8 +181,6 @@ def parse_transcription(data: Any, *, model: str, own_key: bool, generation_id: 
         model=model,
         audio_seconds=_number(usage.get("seconds")) or _number(data.get("duration")),
         cost_usd=_number(usage.get("cost")),
-        # The organization's own key paid, whatever OpenRouter's flag says
-        # about OpenRouter-level BYOK: the platform's cost excludes it.
         is_byok=True if own_key else (reported_byok if isinstance(reported_byok, bool) else None),
         generation_id=generation_id,
         input_tokens=int(_number(usage.get("input_tokens")) or 0),

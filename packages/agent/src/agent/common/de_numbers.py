@@ -31,7 +31,6 @@ from agent.common.screen_chars import _skip_separator
 
 _RVNR_WEIGHTS = (2, 1, 2, 5, 7, 1, 2, 1, 2, 1, 2, 1)
 
-#: Labels of a German tax identification number, folded (``content_screen.fold``), matched at a word start.
 TAX_ID_LABELS: tuple[str, ...] = (
     "steuer-id",
     "steuer id",
@@ -86,9 +85,6 @@ def mask_de_svnr(compact: str) -> str:
 
 def mask_de_tax_id(digits: str) -> str:
     return f"•• ••• ••• •{digits[-2:]}"
-
-
-# ------------------------------------------------------------------ parsers
 
 
 def de_svnr_at(text: str, start: int, soft: frozenset[int]) -> tuple[str, int] | None:

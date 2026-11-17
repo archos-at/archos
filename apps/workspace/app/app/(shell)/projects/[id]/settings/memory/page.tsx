@@ -16,7 +16,6 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: t('project.nav.memory') }
 }
 
-/** Settings → Memory: what Piloti has learned here, readable by every member. */
 export default async function ProjectMemorySettingsPage({
   params,
 }: PageProps): Promise<JSX.Element> {

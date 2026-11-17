@@ -23,7 +23,6 @@ import time
 
 from agent.stages.flags import fetch_turn_flags
 
-#: How long one organization's answer is reused. The BFF keeps its own 30 s cache underneath.
 TTL_SECONDS = 60
 _MAX_ORGANIZATIONS = 1000
 

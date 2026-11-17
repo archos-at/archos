@@ -18,9 +18,6 @@ from agent.cards.registry import get_card_registry
 
 logger = logging.getLogger(__name__)
 
-#: Room for the title read out of the document. The card sets it on one line
-#: beside the path, so a heading someone wrote as a sentence is clipped rather
-#: than allowed to wrap the card.
 MAX_TITLE_CHARS = 120
 
 
@@ -35,9 +32,6 @@ def draft_title(path: str, content: str) -> str:
     return path.rsplit("/", 1)[-1]
 
 
-#: The stored filing keys, as the card's own field names. Spelled here rather
-#: than imported from ``draft_store`` so this module keeps its one-way import
-#: (the store imports the card, never the other way round).
 _FILED_FIELDS = {
     "grid_filed_document_id": "document_id",
     "grid_filed_version_id": "version_id",

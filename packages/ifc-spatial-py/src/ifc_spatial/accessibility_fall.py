@@ -94,9 +94,6 @@ def _fall_through(model: SpatialModel, opening: Any, railings: list[Any], space:
             return None
         top, inside_space = floor, space
 
-    # Cast from the middle of the void's own thickness: below the floor it is cut
-    # into, above whatever is beneath it, and inside the hole for every void
-    # thicker than nothing.
     probe_z = (z_min + z_max) / 2.0
     deepest: tuple[float, Any] | None = None
     for fx, fy in _VOID_PROBES:

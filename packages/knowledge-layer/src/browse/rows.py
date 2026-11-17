@@ -26,27 +26,18 @@ from agent.knowledge.title_block import newest_first
 from .text import _words
 from .text import fold
 
-#: Rows one ``list_files`` page returns by default, and the most it may ask for.
-#: A row is ~40 tokens with its summary, so the default page costs about what
-#: one search result costs.
 DEFAULT_PAGE_SIZE = 40
 
 MAX_PAGE_SIZE = 100
 
-#: How many subfolders the folder overview names before it counts the rest.
 MAX_FOLDER_LINES = 30
 
-#: Document types named in the listing's profile line before it stops (the vocabulary has 12).
 MAX_TYPE_COUNTS = 8
 
-#: Topics (Themen) named in the listing's profile line before it stops.
 MAX_TOPIC_COUNTS = 8
 
-#: The summary is a hint for choosing what to open, not something to answer from.
 MAX_SUMMARY_CHARS = 160
 
-#: The shelves a person calls "my files". Basiswissen is the platform corpus:
-#: listable on request (``shelf="base"``), never part of a default listing.
 USER_SHELVES = ("project", "office_shelf", "session")
 
 KNOWN_SHELVES = (*USER_SHELVES, "base")
@@ -58,7 +49,6 @@ _SHELF_LABELS = {
     "base": "Basiswissen",
 }
 
-#: What a listing row shows of the ingest's reading: a few facts and references, never the lot.
 MAX_ROW_FACTS = 6
 
 MAX_ROW_REFERENCES = 8
@@ -77,38 +67,24 @@ class FileRow:
     tags: tuple[str, ...] = ()
     summary: str = ""
     added_at: str | None = None
-    #: Open topics (Themen) Piloti recognised, or a person set.
     topics: tuple[str, ...] = ()
-    #: What the camera wrote: the ISO time it was taken, and make and model. Never a position.
     captured_at: str | None = None
     camera: str | None = None
-    #: The newer file a PERSON confirmed replaces this one, and the files this one replaces.
     superseded_by: str | None = None
     supersedes: tuple[str, ...] = ()
-    #: The document's licence (``agent.common.licensed_text.LICENCE_CLASSES``) and its quote cap, as the
-    #: office layer records them at upload; ``None`` for a document nobody marked.
     licence_class: str | None = None
     quote_max_chars: int | None = None
     ai_processing_attested: bool = False
-    #: What changed against the Fassung it replaced, and the file name that was compared against.
     change_summary: str | None = None
     change_basis: str | None = None
-    #: What the title block (Plankopf) of the document's first drawing page says: ``document_number``,
-    #: ``revision`` (Index), ``revision_date`` (ISO), ``scale``, ``title``; present keys only.
     revision_facts: Mapping[str, Any] | None = field(default=None, compare=False)
-    #: Pages the document has, when the store knows (None: not recorded, never "zero").
     page_count: int | None = None
-    #: What the ingest read the document to be (the dossier's ``document_type``), the facts it
-    #: states (``key value unit (p. N)``), what it points at, and how much of it was fully read.
     document_type: str | None = None
     facts: tuple[str, ...] = ()
     references: tuple[str, ...] = ()
     pages_not_read: int = 0
-    #: What the facts say differently from the Fassung this one replaced: ``key before → after``.
     fact_changes: tuple[str, ...] = ()
-    #: On a filed E-Mail-Verlauf: its newest message and count (``agent.knowledge.mail_facts``).
     mail_thread: Mapping[str, Any] | None = field(default=None, compare=False)
-    #: On a file filed from a mail: the message it came with, sender trust included.
     mail_origin: Mapping[str, Any] | None = field(default=None, compare=False)
 
     @property
@@ -140,7 +116,6 @@ def file_row(row: Any) -> FileRow | None:
         return None
     shelf = _attr(row, "shelf")
     shelf = getattr(shelf, "value", shelf)
-    # Only the two facts a listing may show are read from the capture; the position stays unread.
     capture = _attr(row, "capture")
     capture = capture if isinstance(capture, dict) else {}
     revision_facts = _attr(row, "revision_facts")
@@ -244,19 +219,12 @@ class Listing:
     here: int = 0
     shelves: tuple[str, ...] = ()
     notes: list[str] = field(default_factory=list)
-    #: Document types Piloti assigned across the WHOLE selection (not just the
-    #: page), most frequent first, and how many files carry none.
     types: list[tuple[str, int]] = field(default_factory=list)
     untyped: int = 0
-    #: Topics (Themen) across the whole selection, most frequent first.
     topics: list[tuple[str, int]] = field(default_factory=list)
-    #: What the file names say about Fassungen, keyed by ``(collection, file_name)``:
-    #: the mark a row carries, and how many documents in the selection have several.
     revision_marks: dict[tuple[str, str], str] = field(default_factory=dict)
     revision_series: int = 0
-    #: How many files a person confirmed as replaced, among the selection.
     confirmed_replacements: int = 0
-    #: How many documents in the selection share a document number in their title blocks across several states.
     title_block_series: int = 0
 
 
@@ -454,7 +422,6 @@ def _sort_rows(rows: list[FileRow], sort: str) -> None:
     """Order the rows in place: by folder (the default), by name, or newest first with undated rows last."""
     if sort == "newest":
         rows.sort(key=lambda row: (row.added_at or "", fold(row.file_name)), reverse=True)
-        # Undated rows last, whatever the reverse did to the empty string.
         rows.sort(key=lambda row: row.added_at is None)
     elif sort == "name":
         rows.sort(key=lambda row: fold(row.file_name))

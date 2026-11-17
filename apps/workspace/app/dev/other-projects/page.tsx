@@ -1,20 +1,5 @@
 'use client'
 
-/**
- * Dev preview: how a chat shows that it drew on other projects (ADR-0094).
- * Rendered through the real components with fixture data, no backend:
- *
- *   1. THE SOURCES — an answer citing a project upload of this chat, a passage
- *      from a closed project's detail folder and one from a running project:
- *      each chip from another project names it.
- *   2. THE NOTICE — what the composer says while other projects narrow the chat,
- *      as the server judges it now (`restrictingOtherProjects`): a running
- *      project, a closed project whose restricted folder the chat drew on, and
- *      a project that is gone. A project closed since the answer is not listed.
- *
- * Not linked anywhere; the `/dev` server layout 404s it outside development.
- */
-
 import type { FC, ReactNode } from 'react'
 import { AnswerCitations } from '@/features/chat/components/AnswerCitations'
 import { AnswerSourcesRow } from '@/features/chat/components/AnswerSourcesRow'
@@ -28,7 +13,6 @@ const at = new Date('2026-10-06T14:30:00')
 const GRAZ: CitationProject = { id: '22222222-0000-4000-8000-000000000002', name: 'Wohnbau Graz', status: 'closed' }
 const LINZ: CitationProject = { id: '33333333-0000-4000-8000-000000000003', name: 'Schule Linz', status: 'active' }
 
-/** What the server says restricts the chat now: Graz only through a restricted folder, and a project since deleted. */
 const RESTRICTING: RestrictingOtherProject[] = [
   { id: GRAZ.id, name: GRAZ.name },
   { id: LINZ.id, name: LINZ.name },

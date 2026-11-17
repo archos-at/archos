@@ -1,9 +1,3 @@
-/**
- * Copy of the demo page, both locales. `{name}` is the brand name, filled by
- * `withName`. Text, labels and option values only: the form's field names, the
- * mailto target and the page's structure live in `src/views/DemoView.astro`.
- * The option values are what the sales inbox reads, so they follow the locale.
- */
 const de = {
   title: 'Demo anfragen',
   description: 'Sehen Sie, wie Planungsbüros mit {name} arbeiten.',

@@ -71,8 +71,6 @@ logger = logging.getLogger(__name__)
 
 PROPOSALS_PATH = "/api/internal/proposals"
 
-#: One insert. Short, because the fallback is a working card: a slow BFF
-#: should cost the reader the server object, not the turn's time.
 REQUEST_TIMEOUT_SECONDS = 10
 
 ProposalKind = Literal["file_operation", "memory", "project_profile"]

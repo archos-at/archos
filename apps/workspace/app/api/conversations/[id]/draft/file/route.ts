@@ -1,18 +1,3 @@
-/**
- * Conversation draft-filing API — file one unfiled draft into the project.
- *
- * Thin handler; all logic lives in `@/lib/conversations/draft-filing`. The
- * card already names the draft (path, title); this is the door that files its
- * CONTENT as the signed-in user, through the same `fileAgentDocumentDraft` the
- * agent's internal route reaches. The browser and the agent converge on one
- * document through the shared idempotency reference, never on two.
- *
- * A same-name collision is a 409 carrying the existing row
- * (`details.documentId`, `details.displayName`): the card answers it with an
- * explicit „Trotzdem ablegen" confirmation (`force`) rather than versioning
- * onto an unrelated document.
- */
-
 import { apiRoute, parseJsonBody } from '@/lib/api/handler'
 import { fileDraftBodySchema } from '@/lib/conversations/conversation-wire'
 import { fileConversationDraft } from '@/lib/conversations/draft-filing'

@@ -1,12 +1,3 @@
-/**
- * Profile / account settings.
- *
- * A single place to manage identity, appearance (theme), interface language,
- * and session/security. Account identity is read from the WorkOS session on
- * the server; the interactive preference controls render in a client island
- * ({@link ProfileControls}).
- */
-
 import type { JSX } from 'react'
 import { Building2, UserRound } from 'lucide-react'
 import { withPageSession } from '@/lib/auth/require-auth'
@@ -29,10 +20,6 @@ import { getReleaseNoticePreference } from '@/lib/release-notes/summary-notice'
 
 const KNOWN_ROLE_SLUGS = new Set(['org-platform-owner', 'admin', 'member'])
 
-/**
- * Turn an unknown WorkOS role slug into a readable label: drop an `org-`
- * prefix and title-case the words (`org-billing-admin` → `Billing Admin`).
- */
 const humanizeRoleSlug = (slug: string): string =>
   slug
     .replace(/^org-/, '')
@@ -40,15 +27,9 @@ const humanizeRoleSlug = (slug: string): string =>
     .trim()
     .replace(/\b\w/g, (char) => char.toUpperCase()) || slug
 
-/** Localized role label, falling back to a humanized slug for unknown roles. */
 const roleLabel = (slug: string, t: Translator): string =>
   KNOWN_ROLE_SLUGS.has(slug) ? t(`account.roles.${slug}`) : humanizeRoleSlug(slug)
 
-/**
- * Best-effort organization display name. Prefers the app-side display name,
- * falls back to the WorkOS org name, and finally the raw id — never throws, so
- * a lookup failure degrades gracefully instead of crashing the page.
- */
 const resolveOrganizationName = async (organizationId: string): Promise<string> => {
   try {
     const settings = await getOrgSettings(organizationId)
@@ -69,14 +50,12 @@ export default async function ProfilePage(): Promise<JSX.Element> {
   return withPageSession(async (session) => {
     const t = await getTranslations(profileCopy)
 
-    // `process.env` whole, so Next does not inline the build-time value (layout.tsx).
     const posthog = postHogConfigFromEnv(process.env)
     const analyticsAvailable = Boolean(posthog.host && posthog.projectToken)
 
     const displayName = session.name || session.email || t('account.noName')
     const initial = String(displayName).charAt(0).toUpperCase()
 
-    // The weekly notice's switch (ADR-0156, amendment). A failed read shows it on, the default.
     const releaseNoticeEnabled = session.organizationId
       ? await getReleaseNoticePreference(session).then(
           (preference) => preference.enabled,
@@ -173,8 +152,6 @@ export default async function ProfilePage(): Promise<JSX.Element> {
           <ProfileControls
             authRequired={isAuthRequired()}
             email={session.email}
-            // The /app layout mounts the shortcuts for every session with an
-            // organization, so the toggle shows exactly where they exist.
             shortcutsAvailable={Boolean(session.organizationId)}
             analyticsAvailable={analyticsAvailable}
             releaseNoticeEnabled={releaseNoticeEnabled}

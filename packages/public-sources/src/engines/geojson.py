@@ -23,13 +23,9 @@ from pydantic import Field
 
 
 class GeoJsonConfig(EngineConfig):
-    #: The property that identifies a feature when the feature has no ``id``.
     id_property: str = ""
-    #: The property a passage is headed by.
     title_property: str = ""
-    #: The properties read into the passage's text, in this order.
     properties: tuple[str, ...] = Field(default=(), max_length=50)
-    #: The document's title.
     title: str = ""
 
 

@@ -21,11 +21,6 @@ class _FreeFloor:
         self.triangles = 0
 
 
-# ════════════════════════════════════════════════════════════════════════════
-# opening geometry — the frame the three door/window operators share
-# ════════════════════════════════════════════════════════════════════════════
-
-
 class _Frame:
     """An opening's own coordinate frame in plan: ``lateral`` across it, ``normal``
     through it, and how far the wall reaches on either side.

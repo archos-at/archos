@@ -1,18 +1,4 @@
 #!/usr/bin/env node
-/*
- * The expensive determinism check: the kit's own tools/verify.mjs on every job
- * of every work, in Chromium and Firefox. Minutes, not seconds, so it is not in
- * `npm run check`; run it after changing a work, the engine or the series look.
- *
- *   node art/riso/verify.mjs                  # every work, every job
- *   node art/riso/verify.mjs --work tafeln    # one work
- *   node art/riso/verify.mjs --times 0,2,5    # some jobs (the page's ?t=)
- *
- * It checks that seek(t) is pure: repeated and reordered seeks, cold jumps and
- * a fresh page drawn in reverse all give identical pixels. It does not judge
- * the art, and cross-engine differences in antialiasing are reported, not
- * failed. Both engines must launch (setup.mjs lists which do).
- */
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { args, evaluateWork, kitEnv, requireKit, selectWorks } from './kit.mjs';

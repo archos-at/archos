@@ -32,7 +32,6 @@ from .scope import _shelf_lines
 from .scope import _wanted
 from .text import _pages_label
 
-#: Lines of context around a hit (``context=``), and the lines the whole index may print.
 MAX_CONTEXT_LINES = 3
 
 MAX_SNIPPET_LINES = 40
@@ -147,7 +146,6 @@ def match_snippets(groups: Sequence[FileMatches], pattern: Any, context: int, *,
             break
     if not out:
         return ""
-    # The lines are the documents' own text, so they sit in the passages' fence (``passage_fence``).
     notes = (
         [f"… the lines stop at {MAX_SNIPPET_LINES}; narrow with `folder=` or `file_name=` for the rest."] if cut else []
     )

@@ -1,27 +1,13 @@
-/**
- * A platform change request through its lifecycle, for the specs that need
- * released platform knowledge to read (migration 0218): proposed by its author,
- * submitted, every claim accepted by a domain expert who wrote nothing in it,
- * approved by them, then published. The one way a spec seeds an approved or
- * published request; the status trigger refuses every shortcut.
- *
- * The store and the release are imported when called, after the spec has
- * pointed `APP_DATABASE_URL` at its database.
- */
-
 import { randomUUID } from 'node:crypto'
 import { sql } from 'drizzle-orm'
 import type { Tx } from '../../store/repository'
 import { MAX_PROPOSED_RECORDS, type ProposedRecord } from '../wire'
 
 export interface LifecycleActors {
-  /** Who proposes the records: never the reviewer (four eyes). */
   author: string
-  /** The domain expert who accepts every claim and approves. */
   expert: string
 }
 
-/** A request to take through its lifecycle; `pins` is the sha256 of the corpus file each manifestation names, by record id, as the kit pins it. */
 export interface LifecycleRequest {
   title: string
   countryId: string
@@ -29,17 +15,11 @@ export interface LifecycleRequest {
   pins?: ReadonlyMap<string, string>
 }
 
-/**
- * Proposed, submitted, every claim accepted and approved as domain expert. Returns the request's id.
- * The expert also vouches for the sources (`sourceChecked`): a pasted page, or a text nobody fetched, holds
- * every approval up until another person than its author did (migrations 0218 and 0224).
- */
 export async function approvedRequest(request: LifecycleRequest, actors: LifecycleActors): Promise<string> {
   const store = await import('../store')
   const id = await store.insertChangeRequest({ title: request.title, countryId: request.countryId, createdBy: actors.author })
   await store.platformTransaction(async (tx) => {
     const draft = await store.lockChangeRequest(tx, id)
-    // In batches, as records-propose takes them: a pack may hold more records than one batch carries.
     for (let start = 0; start < request.records.length; start += MAX_PROPOSED_RECORDS) {
       const batch = request.records.slice(start, start + MAX_PROPOSED_RECORDS)
       await store.insertProposedRecords(tx, draft!, batch, { createdBy: actors.author, proposedBy: 'person', pins: request.pins })
@@ -58,7 +38,6 @@ export async function approvedRequest(request: LifecycleRequest, actors: Lifecyc
   return id
 }
 
-/** As {@link approvedRequest}, then published to preview and stable by the expert. */
 export async function publishedRequest(request: LifecycleRequest, actors: LifecycleActors): Promise<string> {
   const id = await approvedRequest(request, actors)
   const release = await import('../release')
@@ -68,11 +47,6 @@ export async function publishedRequest(request: LifecycleRequest, actors: Lifecy
   return id
 }
 
-/**
- * For a spec that seeds a request's rows in SQL (no proposal to parse): from
- * draft to approved the lawful way, inside the caller's transaction, with a
- * reviewer's verdict on each revision and their approval as domain expert.
- */
 export async function approveSeededRequest(tx: Tx, requestId: string, revisionIds: readonly string[], reviewer: string): Promise<void> {
   await tx.execute(sql`UPDATE knowledge_change_requests SET status = 'submitted' WHERE id = ${requestId}`)
   for (const revisionId of revisionIds) {

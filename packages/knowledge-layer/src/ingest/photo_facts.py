@@ -36,7 +36,6 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-#: EXIF writes ``YYYY:MM:DD HH:MM:SS``; some phones pad unknown parts with spaces or zeros.
 _EXIF_DATETIME = "%Y:%m:%d %H:%M:%S"
 _OFFSET = re.compile(r"^[+-]\d{2}:\d{2}$")
 
@@ -87,11 +86,9 @@ def _captured_at(exif_ifd: Any) -> str | None:
         moment = datetime.strptime(raw.strip().rstrip("\x00"), _EXIF_DATETIME)
     except ValueError:
         return None
-    # A camera with an unset clock writes 1970 or 2000-01-01; neither is a site visit.
     if moment.year < 2000 or moment.date() == date(2000, 1, 1):
         return None
     offset = exif_ifd.get(ExifTags.Base.OffsetTimeOriginal)
-    # EXIF ASCII is NUL-terminated, and Pillow keeps the NUL.
     offset = offset.strip().rstrip("\x00").strip() if isinstance(offset, str) else ""
     stamp = moment.isoformat(timespec="seconds")
     return stamp + offset if _OFFSET.match(offset) else stamp
@@ -118,7 +115,6 @@ def _position(gps_ifd: Any) -> tuple[float | None, float | None]:
     longitude = _degrees(gps_ifd.get(ExifTags.GPS.GPSLongitude), gps_ifd.get(ExifTags.GPS.GPSLongitudeRef))
     if latitude is None or longitude is None:
         return None, None
-    # (0, 0) is what a phone writes with no fix; it is the Gulf of Guinea, not a site.
     if latitude == 0 and longitude == 0:
         return None, None
     if not (-90 <= latitude <= 90 and -180 <= longitude <= 180):

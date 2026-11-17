@@ -98,7 +98,6 @@ def resolve_scoped_collections(
     from agent.common.source_kinds import Shelf
     from agent.knowledge.scoping import ScopedCollection
 
-    # Header-based collection scope takes precedence.
     try:
         from agent.knowledge.scoping import get_scoped_collections_from_context
 
@@ -118,7 +117,6 @@ def resolve_scoped_collections(
     base = base_collection if base_collection is not None else config.collection_name
 
     if config.use_fixed_collection:
-        # Legacy pinned behavior: base only, never the session collection.
         return [ScopedCollection(base, Shelf.BASE)]
 
     session_collection = _normalize_session_collection_name(session_id)
@@ -130,7 +128,6 @@ def resolve_scoped_collections(
         targets.append(ScopedCollection(session_collection, Shelf.SESSION))
     targets.extend(ScopedCollection(name, Shelf.PROJECT) for name in config.project_collections)
 
-    # De-duplicate while preserving order.
     seen: set[str] = set()
     ordered: list[ScopedCollection] = []
     for entry in targets:
@@ -138,7 +135,6 @@ def resolve_scoped_collections(
             seen.add(entry.collection)
             ordered.append(entry)
 
-    # Empty search set -> fall back to the base collection.
     if not ordered:
         return [ScopedCollection(base, Shelf.BASE)]
     return ordered
@@ -183,30 +179,6 @@ def _resolve_target_collections(
     return [entry.collection for entry in scoped_collections_for_site(config, session_id, base_collection)]
 
 
-#: The ``chunking`` value the base corpus uses for text that is not evidence.
-#:
-#: ``clause_documents`` (``ingest/clause_chunking.py``) cuts a Punkt-structured
-#: Richtlinie into one chunk per numbered Punkt, tagged ``chunking: "clause"``, and
-#: emits everything outside that run -- the cover page and the Impressum -- as
-#: per-page Documents tagged ``chunking: "page"``. Neither is citable: pdfplumber
-#: returns the cover's display type as garble, and the Impressum is furniture. A
-#: title-shaped query ("OIB-Richtlinie 2 Ausgabe Mai 2023") matched exactly those
-#: two, so an overview question came back as four cover pages at page 1 and the
-#: model learned nothing.
-#:
-#: The exclusion is a STORE filter rather than a post-retrieval drop because a
-#: dropped hit still costs its candidate slot. It is ``$ne`` rather than a
-#: whitelist of ``clause`` on purpose: only Punkt-structured documents carry the
-#: key at all -- Begriffsbestimmungen, Zitierte Normen, project uploads and office
-#: files carry no ``chunking`` key -- and a whitelist would delete them from
-#: search. ``$ne`` KEEPS records that lack the key (``qdrant.scope.translate``
-#: compiles it to a ``must_not``), so the keyless majority of the corpus is
-#: untouched. ``tests/knowledge_layer_tests/test_page_chunk_exclusion.py``
-#: round-trips that through a real Qdrant, so a change that altered the
-#: semantics fails a test rather than emptying the corpus silently.
-#:
-#: ``read_passage`` builds its own filters and is deliberately NOT subject to
-#: this: naming page 1 of a Richtlinie is an explicit request, not a similarity hit.
 _NON_EVIDENCE_CHUNKING = "page"
 
 

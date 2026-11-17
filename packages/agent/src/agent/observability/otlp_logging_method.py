@@ -73,15 +73,8 @@ class OtlpLoggingMethodConfig(LoggingBaseConfig, name="otelcollector_logs"):
 
 @register_logging_method(config_type=OtlpLoggingMethodConfig)
 async def otlp_logging_method(config: OtlpLoggingMethodConfig, _builder: Builder):
-    # PostHog error tracking (ADR-0100) does not depend on the collector, so it
-    # is installed before the no-endpoint early return below. This is the seam
-    # every agent-runtime process passes (the agent and any worker running a workflow
-    # config); the API plugin installs the same handler for its own start-up
-    # path, and the install is idempotent. No-op while PostHog is off.
     posthog_exceptions.install()
 
-    # Blank endpoint == observability tier not deployed (same capability check
-    # as the tracing exporter, ADR-0029): no-op so compose/local pay nothing.
     if not config.endpoint or not config.endpoint.strip():
         logger.info(
             "otelcollector_logs: no OTLP endpoint configured "
@@ -96,7 +89,6 @@ async def otlp_logging_method(config: OtlpLoggingMethodConfig, _builder: Builder
     from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
     from opentelemetry.sdk.resources import Resource
 
-    # Process-wide and never stopped with this workflow (see otlp_metrics).
     otlp_metrics.install(config.endpoint)
 
     provider = LoggerProvider(resource=Resource.create(resource_attributes(os.environ)))
@@ -108,15 +100,8 @@ async def otlp_logging_method(config: OtlpLoggingMethodConfig, _builder: Builder
     handler = LoggingHandler(level=level, logger_provider=provider)
     handler.addFilter(_OtelSdkFilter())
     handler.addFilter(_NatBuildFailureItemizationFilter())
-    # Exported logs leave the cluster and are retained by whatever is on the
-    # other end, so this is the sink where a leaked presigned URL is hardest to
-    # take back. Attached here rather than trusted to every call site — see
-    # agent.common.log_redaction.
     handler.addFilter(PresignedUrlFilter())
 
-    # Every other handler already on the root logger (stdout, and anything the
-    # host added) gets the same treatment, so the guarantee does not depend on
-    # which sink a record happens to reach.
     install_presigned_url_scrubbing()
 
     yield handler

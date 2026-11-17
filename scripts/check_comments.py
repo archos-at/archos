@@ -29,7 +29,8 @@ EXCLUDED = re.compile(
             r"\.generated\.",
             r"^apps/workspace/shared/cards/generated\.ts$",
             r"^apps/cms/src/payload-types\.ts$",
-            r"^apps/cms/src/app/\(payload\)/admin/importMap\.js$",
+            r"^apps/cms/src/app/\(payload\)/",
+            r"^apps/workspace/bff/skills/platform-skills\.ts$",
             r"\.d\.ts$",
             r"(^|/)migrations/",
             r"(^|/)drizzle/",
@@ -38,7 +39,7 @@ EXCLUDED = re.compile(
     )
 )
 DIRECTIVE = re.compile(
-    r"noqa|type:\s*ignore|pragma|pyright:|mypy:|fmt:\s*(off|on|skip)|ruff:|"
+    r"noqa|type:\s*ignore|ty:\s*ignore|nosemgrep|nosec\b|NOSONAR|isort:|@deprecated|pragma|pyright:|mypy:|fmt:\s*(off|on|skip)|ruff:|"
     r"eslint-|oxlint-|biome-ignore|prettier-ignore|@ts-(expect-error|ignore|nocheck|check)|"
     r"istanbul ignore|c8 ignore|v8 ignore|@vitest-environment|@jest-environment|@disk-inputs|"
     r"@type\s*\{|@typedef|@param\s*\{|@returns?\s*\{|@template|@satisfies|@import|"
@@ -61,9 +62,24 @@ def tracked_sources(root: Path) -> list[str]:
     return [path for path in out.splitlines() if is_checked(path) and (root / path).is_file()]
 
 
+def script_metadata_lines(source: str) -> set[int]:
+    found, inside = set(), False
+    for number, row in enumerate(source.split("\n"), start=1):
+        if row.strip() == "# /// script":
+            inside = True
+        if inside:
+            found.add(number)
+        if inside and row.strip() == "# ///":
+            inside = False
+    return found
+
+
 def prose_comment_count(path: str, source: str) -> int:
     rows = source.split("\n")
-    return sum(1 for number in comment_lines(path, source) if not DIRECTIVE.search(rows[number - 1]))
+    kept = script_metadata_lines(source)
+    return sum(
+        1 for number in comment_lines(path, source) if number not in kept and not DIRECTIVE.search(rows[number - 1])
+    )
 
 
 @functools.cache

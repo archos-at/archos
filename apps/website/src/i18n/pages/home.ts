@@ -1,9 +1,3 @@
-/**
- * Copy of the home page, both locales. `{name}` is the brand name, filled by
- * `withName`. Text, alt text and labels only: images, video sources and the
- * page's structure live in `src/views/HomeView.astro`. A `\n` in a title or in
- * the hero text is a line break the design sets on purpose, at every width.
- */
 const de = {
   meta: {
     title: 'Der Workspace für Architekturbüros',

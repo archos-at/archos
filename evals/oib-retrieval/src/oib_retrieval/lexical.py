@@ -44,12 +44,6 @@ from dataclasses import field
 
 from oib_retrieval.corpus import Chunk
 
-#: Passed through to ``german_text.select_terms``. Left at the shipped defaults so the
-#: measured behaviour is the shipped behaviour; exposed so a tuning run can sweep it.
-# Imported, never copied. The module docstring's whole claim is that a change to the
-# shipped document-frequency ceiling must move these numbers; a literal here would keep
-# the harness reporting stable results while production behaviour had already moved.
-# Retrieval's term pricing (`lexical_query.lexical_inputs`) reads it the same way.
 try:
     from agent.common.german_text import DEFAULT_DF_CEILING_RATIO
 except ImportError:  # pragma: no cover - the harness can run without the backend package
@@ -156,8 +150,5 @@ def search(
         for position in index.postings.get(term, ()):
             scores[position] += weight
 
-    # Ties break toward the earlier chunk (corpus order), which is stable across runs;
-    # a set-iteration order would not be, and an unstable baseline cannot detect a
-    # regression.
     ordered = sorted(scores.items(), key=lambda item: (-item[1], item[0]))
     return [index.chunks[position] for position, _score in ordered[:top_k]]

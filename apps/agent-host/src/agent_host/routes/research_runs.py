@@ -27,16 +27,12 @@ def _listing_queries(where_clause: str):
     from sqlalchemy import text
 
     join_sql = "FROM job_access ja INNER JOIN job_info ji ON ja.job_id = ji.job_id"
-    # where_clause is literal fragments with ":name" placeholders; every value is bound.
     # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
     count_query = text(f"SELECT COUNT(*) {join_sql} {where_clause}")
     # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
     page_query = text(
         "SELECT ja.job_id, ji.status, ji.created_at, ja.conversation_id, ja.project_collection "
         f"{join_sql} {where_clause} "
-        # job_id tiebreaker: created_at alone is not unique, and an
-        # unstable order across pages would duplicate/drop rows
-        # during offset pagination.
         "ORDER BY ji.created_at DESC, ja.job_id DESC "
         "LIMIT :limit OFFSET :offset"
     )
@@ -72,10 +68,6 @@ def find_research_runs(
     EventStore._ensure_table_exists(db_url)
     engine = EventStore._get_or_create_sync_engine(db_url)
 
-    # job_info is created by the agent runtime's JobStore; on a fresh database where no job
-    # has ever been submitted it may not exist yet, and the JOIN below would
-    # 500 the listing instead of returning an empty page (same guard as
-    # _find_stale_jobs uses for job_events).
     if not inspect(engine).has_table("job_info"):
         return [], 0
 

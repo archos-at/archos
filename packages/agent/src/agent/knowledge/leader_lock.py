@@ -51,13 +51,9 @@ import threading
 
 logger = logging.getLogger(__name__)
 
-#: The direct Postgres DSN every session lock is taken on.
 LOCK_DB_ENV = "LOCK_DB_URL"
-#: The direct Postgres DSN the job SSE streams LISTEN on.
 LISTEN_DB_ENV = "LISTEN_DB_URL"
 
-# Databases a process may be configured with. A process that has one of these on
-# Postgres and no lock DSN is misconfigured, not single-node: see `require_direct_dsns`.
 _DATABASE_ENVS = ("SUMMARY_DB", "NAT_JOB_STORE_DB_URL")
 
 
@@ -115,14 +111,8 @@ def _lock_url() -> str | None:
     return None
 
 
-# libpq TCP keepalives on every lock connection (psycopg passes them to libpq):
-# a lock server that vanishes without closing TCP is noticed in about a minute,
-# instead of a holder or a waiter sitting on a dead socket. The server's own
-# keepalives, set in the Postgres deployment, end the session of a client that
-# vanished, and with it the locks that session held.
 _KEEPALIVES = {"keepalives": 1, "keepalives_idle": 30, "keepalives_interval": 10, "keepalives_count": 3}
 
-# One engine per URL for the life of the process; the URLs are fixed by the environment.
 _lock_engines: dict[str, object] = {}
 _LOCK_ENGINES_GUARD = threading.Lock()
 
@@ -207,9 +197,6 @@ def leader_lock(lock_id: int):
         yield True
         return
 
-    # Acquire before the `yield`, with the failure handling inside the helper,
-    # so the body is never inside a try that also catches: a @contextmanager must
-    # yield exactly once.
     granted, conn = _try_leader(url, lock_id)
     try:
         yield granted
@@ -229,12 +216,8 @@ async def leader_lock_async(lock_id: int):
         await asyncio.to_thread(election.__exit__, None, None, None)
 
 
-# The namespace half of the two-int advisory key ("AIQR", re-ingest), so a
-# keyed lock never collides with a leader_lock id or another feature's locks.
 _KEYED_LOCK_NAMESPACE = 0x41495152
 
-# One per key, for the life of the process: bounded by the document names this
-# process has ingested, the same bound as oib_sync's per-file locks.
 _PROCESS_LOCKS: dict[str, threading.Lock] = {}
 _PROCESS_LOCKS_GUARD = threading.Lock()
 
@@ -247,16 +230,6 @@ def _process_lock(key: str) -> threading.Lock:
 _DEFAULT_KEYED_LOCK_TIMEOUT_SECONDS = 900
 
 
-# @environment_variable KEYED_LOCK_TIMEOUT_SECONDS
-# @category Knowledge Layer
-# @type int
-# @default 900
-# @required false
-# The longest a `keyed_lock` waits for another holder of the same key (an ingest
-# replacing a document's previous version, the OIB sync cycle) before it gives
-# up, and the attempt fails and is retried by the claim queue. Bounds the wait on
-# a session that died without closing TCP and still holds the lock. Must exceed
-# the longest a live holder keeps one (a file's ingestion). 0 for no limit.
 def _keyed_lock_timeout_seconds() -> int:
     try:
         value = int(os.environ.get("KEYED_LOCK_TIMEOUT_SECONDS", ""))
@@ -281,7 +254,6 @@ def _acquire_keyed(key: str):
     conn = None
     try:
         conn = _lock_engine(url).connect()
-        # Session-wide on purpose: this connection only ever holds this lock, and closes with it.
         conn.execute(
             text("SELECT set_config('lock_timeout', :timeout, false)"),
             {"timeout": f"{_keyed_lock_timeout_seconds()}s"},

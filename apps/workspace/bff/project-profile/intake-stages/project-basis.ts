@@ -1,10 +1,7 @@
-/** Stage A, Projektbasis: master data, location and the kind of project. */
-
 import austria from '@/lib/base-knowledge/rulesets/seeds/at-setup-fact-definitions.json'
 import { FOUND_IN } from '../intake-options'
 import type { ProjectIntakeOption, ProjectIntakeStage } from '../intake-types'
 
-/** The countries A2_country offers. */
 const COUNTRY_OPTIONS: ProjectIntakeOption[] = [
   { value: 'at', label: 'Österreich (AT)' },
   { value: 'de', label: 'Deutschland (DE)' },
@@ -12,13 +9,6 @@ const COUNTRY_OPTIONS: ProjectIntakeOption[] = [
   { value: 'other', label: 'Anderes Land' },
 ]
 
-/**
- * Austria's subdivisions, read from its `fact_definitions` record (ADR-0169)
- * rather than written here: the Bundesländer and the option that places a site
- * outside Austria. Read as JSON, not through the zod wire: this stage is in
- * every spec's import graph, and the seed is parsed by `setup-facts.spec.ts`
- * and at boot by `rulesets/shipped.ts`, so a seed nobody checked never ships.
- */
 const AUSTRIA = (() => {
   const subdivisions = austria.body.payload.subdivisions
   const options: ProjectIntakeOption[] = subdivisions.options.map((option) => ({ value: option.token, label: option.label }))
@@ -26,12 +16,6 @@ const AUSTRIA = (() => {
   return { label: subdivisions.label, options, country: austria.territoryIds[0].toLowerCase() }
 })()
 
-/**
- * The subdivisions a site picker offers, from the same record: the country
- * token they belong to, each subdivision's token, name and territory, and the
- * token that places a site outside. The one list the create form, the
- * contradiction check and the platform's reviewer read, never a copy of their own.
- */
 export const SITE_SUBDIVISIONS = {
   country: AUSTRIA.country,
   label: AUSTRIA.label,
@@ -66,12 +50,6 @@ export const PROJECT_BASIS_STAGE: ProjectIntakeStage = {
       writesTo: '/facts/site_address/value',
       foundIn: [FOUND_IN.titleBlock, FOUND_IN.submissionSiteLayout, FOUND_IN.landRegister, FOUND_IN.permit],
     },
-    // Spec id A2_staat with AT/DE only. Kept as the shipped superset: the
-    // storage key `country` and its token set are load-bearing (mirrored by
-    // the backend jurisdiction pipeline), and CH/other already exist in
-    // stored projects. The German federal state list rides with the German
-    // question catalog (v2, per README Länder-Scope) — until then non-AT
-    // locations describe themselves in `site_details`.
     {
       id: 'A2_country',
       core: true,
@@ -90,11 +68,6 @@ export const PROJECT_BASIS_STAGE: ProjectIntakeStage = {
       label: AUSTRIA.label,
       type: 'single_select',
       required: true,
-      // Asked unless another country was chosen: a reading that finds
-      // „Bundesland: Wien“ before any document names the country must still be
-      // asked for it. Answering it derives `country`. Germany's and
-      // Switzerland's subdivisions arrive with their records (ADR-0169); until
-      // then a site there describes itself in `site_details`.
       conditions: [
         {
           param: 'A2_country',

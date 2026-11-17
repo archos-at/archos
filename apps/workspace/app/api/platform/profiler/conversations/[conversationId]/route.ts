@@ -1,8 +1,3 @@
-/**
- * Agent profiler — one conversation's turn/span timeline for the platform
- * owner's dashboard. Platform owners only; tenant admins get 403.
- */
-
 import { NextResponse } from 'next/server'
 import { platformApiRoute } from '@/lib/api/platform-handler'
 import { PLATFORM_PERMISSIONS } from '@/lib/authz/permissions'

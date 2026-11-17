@@ -1,16 +1,3 @@
-/**
- * Organization → budgets. LLM spend against the limits that stop it.
- *
- * The chrome, the back link and the section nav live in the shared `layout.tsx`;
- * this page only names its section and renders it.
- *
- * Deliberately NOT gated: when a budget is exhausted chat stops, and the person
- * it stopped for is usually not an admin. `canManageBudgets` therefore decides
- * what the card shows rather than whether the route opens — admins get the
- * org-wide meters plus the limit editors, everyone else gets their own spend
- * (ADR-0015), which is the only place that explains why chat went quiet.
- */
-
 import type { JSX } from 'react'
 import { Gauge } from 'lucide-react'
 import { withPageSession } from '@/lib/auth/require-auth'

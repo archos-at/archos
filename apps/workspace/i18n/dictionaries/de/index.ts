@@ -1,11 +1,3 @@
-/**
- * German dictionary.
- *
- * Each namespace is annotated with `typeof en.<ns>`, so any key added to the
- * English source that is missing here is a compile error — the two locales
- * can never structurally drift.
- */
-
 import { common } from './common'
 import { nav } from './nav'
 import { profile } from './profile'

@@ -1,8 +1,3 @@
-/**
- * Move an office's seat to another home country (ADR-0165, design §5.1): the
- * person's own yes; the old home stays an entitlement until withdrawn.
- */
-
 import { parseJsonBody } from '@/lib/api/handler'
 import { platformApiRoute } from '@/lib/api/platform-handler'
 import { PLATFORM_PERMISSIONS } from '@/lib/authz/permissions'

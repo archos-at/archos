@@ -1,10 +1,3 @@
-/**
- * Rows of a held mail as the review service reads them, for the specs of the
- * decision, the candidates and the service. Each builder answers a mail that
- * keeps every rule of migration 0196 for its state; a spec overrides only the
- * fact its case is about.
- */
-
 import type { InboundMailPartRow, InboundMailRow } from '@/lib/db/schema/inbound-mail'
 
 export const PROJECT_ID = '3f0b1c2d-4e5f-4a6b-8c7d-9e0f1a2b3c4d'
@@ -18,7 +11,6 @@ export const PERSON = 'user_01JCX0R4D8M2W6YB3N5Q7T9V1A'
 
 const AT = new Date('2026-10-21T08:14:00.000Z')
 
-/** A `member_verified` mail addressed to the project, waiting, with a reference match on {@link THREAD_ID}. */
 export function heldMail(overrides: Partial<InboundMailRow> = {}): InboundMailRow {
   return {
     id: MAIL_ID,
@@ -48,7 +40,6 @@ export function heldMail(overrides: Partial<InboundMailRow> = {}): InboundMailRo
     subject: 'AW: Statik Einreichung',
     participants: [],
     participantDomains: ['statik-weber.at'],
-    // Its one recipient is the project's own address, which is not counted.
     recipientCount: 0,
     senderTrust: 'member_verified',
     senderUserId: PERSON,
@@ -85,7 +76,6 @@ export function heldMail(overrides: Partial<InboundMailRow> = {}): InboundMailRo
   }
 }
 
-/** The mail's text part, waiting. */
 export function textPart(overrides: Partial<InboundMailPartRow> = {}): InboundMailPartRow {
   return {
     id: TEXT_PART_ID,
@@ -127,7 +117,6 @@ export function textPart(overrides: Partial<InboundMailPartRow> = {}): InboundMa
   }
 }
 
-/** One clean PDF attachment, waiting. */
 export function filePart(overrides: Partial<InboundMailPartRow> = {}): InboundMailPartRow {
   return textPart({
     id: FILE_PART_ID,

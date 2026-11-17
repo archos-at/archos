@@ -1,38 +1,10 @@
-/**
- * The data contracts of the post blocks in this folder: what each component takes, as plain,
- * serializable JSON, and the one parser per block that turns untrusted JSON (a CMS block's
- * fields) into it. The CMS registers one block per entry of `BLOCK_PARSERS`, with fields that
- * produce the shape below; the site's mapper calls the parser and drops a block that does not
- * parse, as it drops an unknown block kind. README.md in this folder is the same contract in
- * prose, with an example payload per block.
- *
- * Pure and import-free on purpose: the tests, the components and a CMS mapper read it alike.
- */
-
-// ---------------------------------------------------------------------------
-// Shared vocabulary
-// ---------------------------------------------------------------------------
-
-/**
- * The coarse kinds a source can be: the keys of `SOURCE_KINDS` in
- * `packages/agent/src/agent/common/source_kinds.py`. The website cannot import the
- * workspace's generated copy (its image sees only apps/website), so this is a mirror that
- * `contracts.test.ts` holds to `apps/workspace/shared/vocabularies.generated.ts`.
- */
 export const SOURCE_KINDS = ['building_law', 'office', 'project', 'web', 'measurement'] as const;
 export type SourceKind = (typeof SOURCE_KINDS)[number];
 
-/**
- * An image a block shows, already resolved to a URL. The CMS holds an upload; the mapper
- * turns it into `src` (and `srcset`) through the CMS's transform presets, as PostBlocks does
- * for an image block.
- */
 export interface BlockImage {
   src: string;
-  /** Intrinsic size of `src`, for the aspect ratio and against layout shift. */
   width: number;
   height: number;
-  /** What the image shows, for a reader who cannot see it. Required. */
   alt: string;
   srcset?: string;
   sizes?: string;
@@ -40,140 +12,91 @@ export interface BlockImage {
 
 export type Parsed<T> = { ok: true; value: T } | { ok: false; issues: string[] };
 
-// ---------------------------------------------------------------------------
-// The contracts
-// ---------------------------------------------------------------------------
-
 export interface ChartSeries {
   name: string;
-  /** One value per label; `null` is a missing value (no bar, a gap in the line). */
   values: (number | null)[];
 }
 
 export interface ChartBlock {
-  /** `bar`: vertical bars from a zero baseline. `line`: change over an ordered axis. */
   form: 'bar' | 'line';
-  /** Bars only, with two or three series: side by side (default) or on top of each other. */
   stacking?: 'grouped' | 'stacked';
-  /** The finding, as a statement: „Die Antwortzeit sank um ein Drittel.“ */
   title: string;
-  /** One sentence under the title: what is measured, where, when. */
   caption?: string;
-  /** Short unit written after a value: `%`, `h`, `m²`, `Tage`. */
   unit?: string;
-  /** What the vertical axis measures, when the title does not say it: „Stunden je Planstand“. */
   axisLabel?: string;
-  /** Decimal places of the values (0–2). Without it, as many as the data has, at most 2. */
   decimals?: number;
-  /** Lines only: start the axis at zero (default true). Bars always start at zero. */
   startAtZero?: boolean;
-  /** The categories or points along the horizontal axis, 2 to 24. */
   labels: string[];
-  /** One to three series. */
   series: ChartSeries[];
-  /** Where the numbers come from (Belegpflicht): „Pilotbetrieb in drei Büros, Sept. 2026“. */
   source: string;
   sourceUrl?: string;
 }
 
 export interface KeyFigure {
-  /** The number as it is read, already formatted: „3,5“, „1.284“, „11“. */
   value: string;
-  /** Short unit after the value: `h`, `%`, `Tage`. */
   unit?: string;
-  /** What the number counts, one line: „Stunden bis zur Antwort“. */
   label: string;
-  /** Where the number comes from; shown as a numbered note under the row. */
   source?: string;
 }
 
 export interface KeyFiguresBlock {
-  /** Two to four figures. */
   items: KeyFigure[];
 }
 
 export interface CompareBlock {
-  /** The earlier state, on the left. */
   before: BlockImage;
-  /** The later state, on the right. Same aspect ratio as `before`. */
   after: BlockImage;
-  /** Short names of the two states: „Rev. C, 12.09.“, „Rev. D, 25.09.“ */
   beforeLabel: string;
   afterLabel: string;
   caption?: string;
-  /** Where the divider starts, in percent from the left (default 50). */
   start?: number;
 }
 
 export interface ImageMarker {
-  /** Position in percent of the image's width and height, from its top left corner. */
   x: number;
   y: number;
-  /** What the marker points at, one line. */
   title: string;
-  /** The explanation, one or two sentences. */
   text?: string;
 }
 
 export interface AnnotatedImageBlock {
   image: BlockImage;
-  /** One to nine markers, numbered in this order. */
   markers: ImageMarker[];
   caption?: string;
 }
 
 export interface LegalSourceBlock {
-  /** The norm or law: „OIB-Richtlinie 2.2“, „Wiener Bauordnung“. */
   title: string;
-  /** The passage: „Punkt 5.1.1“, „§ 106 Abs. 2“. */
   section?: string;
-  /** The edition or the version's date: „Ausgabe Mai 2023“, „Fassung vom 01.01.2025“. */
   version?: string;
-  /** Who issues it: „Österreichisches Institut für Bautechnik“. */
   issuer?: string;
-  /** The passage's wording, short and verbatim. */
   excerpt?: string;
-  /** The excerpt's language when it differs from the page's (BCP 47): `de` on an English page. */
   excerptLang?: 'de' | 'en';
-  /** The source itself (RIS, OIB), https only. */
   url?: string;
 }
 
 export interface QaSource {
   kind: SourceKind;
-  /** The document: „OIB-Richtlinie 2.3“, „Brandschutzkonzept, Rev. B“. */
   title: string;
-  /** Where in it: „Punkt 3.2“, „S. 4“. */
   detail?: string;
 }
 
 export interface QaExcerptBlock {
   question: string;
-  /** The answer as Markdown (paragraphs, bold, lists); raw HTML is escaped. */
   answer: string;
-  /** Up to six sources, shown in this order. */
   sources: QaSource[];
-  /** How many sources the answer was derived from, when more than the ones shown. */
   sourceCount?: number;
-  /** Who asked, without a name: „Projektleiterin, Wohnbau in Wien“. */
   asker?: string;
   caption?: string;
 }
 
 export interface KeyTakeawaysBlock {
-  /** Overrides the default heading („Das Wichtigste in Kürze“ / „Key takeaways“). */
   title?: string;
-  /** Three to five short sentences. */
   items: string[];
 }
 
-// ---------------------------------------------------------------------------
-// Reading untrusted JSON
-// ---------------------------------------------------------------------------
-
 type Json = Record<string, unknown>;
 
-/** Collects the problems of one block while its fields are read. */
 class Reader {
   issues: string[] = [];
   constructor(readonly at: string) {}
@@ -249,20 +172,10 @@ class Reader {
 
 const isObject = (value: unknown): value is Json => typeof value === 'object' && value !== null && !Array.isArray(value);
 
-/** Drops the keys whose value is undefined, so a parsed block is the JSON it would serialize to. */
 function compact<T extends object>(value: T): T {
   return Object.fromEntries(Object.entries(value).filter(([, v]) => v !== undefined)) as T;
 }
 
-// ---------------------------------------------------------------------------
-// The chart's table, as an editor types or pastes it
-// ---------------------------------------------------------------------------
-
-/**
- * A number as an editor writes it in either language: `12`, `12,5`, `12.5`, `-3`. A thousands
- * separator is not allowed (`1.200` is ambiguous between the two languages): write `1200`.
- * An empty cell or `–` is a missing value.
- */
 export function parseCell(cell: string): number | null | undefined {
   const raw = cell.trim().replace(/−/g, '-');
   if (raw === '' || raw === '–' || raw === '-') return null;
@@ -270,18 +183,7 @@ export function parseCell(cell: string): number | null | undefined {
   return Number(raw.replace(',', '.'));
 }
 
-/**
- * Labels and series from a table pasted from a spreadsheet or typed by hand: one row per
- * label, the first column the label, one column per series; the first row names the series.
- * Columns are separated by tabs (a spreadsheet's paste), semicolons or, without either, `|`.
- * A row shorter than the header is missing its last values.
- *
- *   Planstand; Büro A; Büro B
- *   Rev. A; 12; 9
- *   Rev. B; 7,5; 6
- */
 export function parseChartTable(table: string): Parsed<{ labels: string[]; series: ChartSeries[] }> {
-  // Spaces around a row go, tabs stay: a spreadsheet ends a row with an empty cell as a tab.
   const rows = table
     .split(/\r?\n/)
     .map((row) => row.replace(/^ +| +$/g, ''))
@@ -296,7 +198,6 @@ export function parseChartTable(table: string): Parsed<{ labels: string[]; serie
   const series: ChartSeries[] = names.map((name) => ({ name, values: [] }));
   const labels: string[] = [];
   body.forEach((row, r) => {
-    // A shorter row is missing its last values (a spreadsheet drops trailing empty cells).
     if (row.length > head.length) issues.push(`table: row ${r + 2} has ${row.length} columns, the header ${head.length}`);
     labels.push(row[0] ?? '');
     names.forEach((_, s) => {
@@ -307,10 +208,6 @@ export function parseChartTable(table: string): Parsed<{ labels: string[]; serie
   });
   return issues.length ? { ok: false, issues } : { ok: true, value: { labels, series } };
 }
-
-// ---------------------------------------------------------------------------
-// One parser per block
-// ---------------------------------------------------------------------------
 
 export function parseChart(json: unknown): Parsed<ChartBlock> {
   const r = new Reader('chart');
@@ -459,10 +356,6 @@ export function parseKeyTakeaways(json: unknown): Parsed<KeyTakeawaysBlock> {
   return r.done(compact({ title: r.text(json, 'title', 60), items }));
 }
 
-/**
- * Every block, by the type name the CMS gives it (Payload's `blockType`), with its parser.
- * A block the CMS adds here first and the site does not know yet is dropped by the mapper.
- */
 export const BLOCK_PARSERS = {
   chart: parseChart,
   keyFigures: parseKeyFigures,
@@ -484,7 +377,6 @@ export type ContentBlock =
   | ({ type: 'qaExcerpt' } & QaExcerptBlock)
   | ({ type: 'keyTakeaways' } & KeyTakeawaysBlock);
 
-/** One block from its type name and its fields, or the reasons it cannot be shown. */
 export function parseContentBlock(type: string, json: unknown): Parsed<ContentBlock> {
   if (!(type in BLOCK_PARSERS)) return { ok: false, issues: [`${type}: not a block this site renders`] };
   const parsed = BLOCK_PARSERS[type as ContentBlockType](json);

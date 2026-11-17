@@ -203,14 +203,11 @@ def post_answer_turn_facts(
         answer_confidence=state.answer_confidence,
         remembered_this_turn=remembered_this_turn,
         noted_this_turn=noted_this_turn,
-        # Read here, while the turn is bound: the stages run after it is gone.
         drew_on_other_projects=drew_on_other_projects(),
         restriction=turn_restriction_evidence(
             state,
             registry_collections=registry_collections,
             listed_documents=listed_documents,
-            # The digest the agent was shown, and what the tool stored as
-            # restricted this turn: restricted memory in the prompt.
             restricted_notes=(*restricted_digest_notes(request_facts.memory_digest), *restricted_memory_writes),
             earlier_notes=earlier_restricted_notes,
         ),

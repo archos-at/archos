@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ast
 import io
+import re
 import sys
 import tokenize
 from pathlib import Path
@@ -13,8 +14,12 @@ from check_comments import DIRECTIVE  # noqa: E402
 from check_comments import _comment_nodes  # noqa: E402
 from check_comments import _kind  # noqa: E402
 from check_comments import _parser  # noqa: E402
+from check_comments import script_metadata_lines  # noqa: E402
 
-BEHAVIOUR = ("__doc__", "@tool", "from_function", "FunctionInfo")
+MODEL_FACING = re.compile(
+    r"__doc__|getdoc|@tool|\.tool\(|from_function|FunctionInfo|StructuredTool|BaseModel|TypedDict|"
+    r"\btyper\b|\bclick\b|APIRouter|FastAPI|@\w+\.(get|post|put|patch|delete)\("
+)
 
 
 def _docstring_spans(tree: ast.Module, lines: list[str]) -> list[tuple[int, int, bool, int]]:
@@ -39,21 +44,23 @@ def _docstring_spans(tree: ast.Module, lines: list[str]) -> list[tuple[int, int,
 
 
 def _comment_lines(source: str) -> set[int]:
-    found = set()
+    found: set[int] = set()
+    kept = script_metadata_lines(source)
     for token in tokenize.generate_tokens(io.StringIO(source).readline):
         if token.type != tokenize.COMMENT or token.line[: token.start[1]].strip():
             continue
         if token.start[0] == 1 and token.string.startswith("#!"):
             continue
-        if not DIRECTIVE.search(token.string):
+        if token.start[0] not in kept and not DIRECTIVE.search(token.string):
             found.add(token.start[0])
     return found
 
 
-def purge(path: Path) -> int:
+KEEP_DOCSTRINGS = re.compile(r"^(packages/[^/]+/src|apps/agent-host/src|evals/[^/]+/src)/")
+
+
+def purge(path: Path, *, keep_docstrings: bool = False) -> int:
     source = path.read_text(encoding="utf-8")
-    if any(marker in source for marker in BEHAVIOUR):
-        return 0
     lines = source.split("\n")
     try:
         tree = ast.parse(source)
@@ -61,7 +68,9 @@ def purge(path: Path) -> int:
     except SyntaxError, tokenize.TokenError, IndentationError:
         return 0
     replace: dict[int, str] = {}
-    for start, end, sole, col in _docstring_spans(tree, lines):
+    keep = keep_docstrings or KEEP_DOCSTRINGS.search(path.as_posix()) or MODEL_FACING.search(source)
+    spans = [] if keep else _docstring_spans(tree, lines)
+    for start, end, sole, col in spans:
         remove.update(range(start, end + 1))
         if sole:
             replace[start] = " " * col + "..."

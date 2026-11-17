@@ -1,11 +1,5 @@
 'use client'
 
-/**
- * A project's chat history for a preview of the rail: the chat store seeded with the reader's chats in the previewed project
- * (newest first: more than the rail's ten, so „Alle Chats“ ends a full list), and the rail's source round the page, lit for the
- * route the preview names. `?chats=empty` is a project nobody has chatted in yet: the rail shows no „Letzte Chats“. The open chat is the newest but one, so the shot shows the current place below the top row.
- */
-
 import type { JSX, ReactNode } from 'react'
 import { useEffect } from 'react'
 

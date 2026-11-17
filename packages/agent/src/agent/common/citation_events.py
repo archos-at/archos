@@ -48,9 +48,6 @@ from agent.common import bff_http
 
 logger = logging.getLogger(__name__)
 
-# ---------------------------------------------------------------------------
-# Taxonomy
-# ---------------------------------------------------------------------------
 
 EventKind = Literal[
     "turn_verified",
@@ -65,49 +62,21 @@ EventKind = Literal[
 
 EventSeverity = Literal["ok", "info", "warn", "error"]
 
-#: Severity per kind. Kept here (not on the wire's whim) so the dashboard's
-#: severity mix cannot drift between emitters.
 SEVERITY_BY_KIND: dict[str, EventSeverity] = {
-    # The baseline row every observed turn emits — the clean-rate denominator.
     "turn_verified": "ok",
-    # A source was captured but the model cited nothing verifiable; the answer
-    # ships with the honest "Ohne Quellenangabe" gap row. Worst user-visible
-    # outcome short of an outright failure.
     "answer_ungrounded": "error",
-    # Retrieval captured nothing at all — EmptySourceRegistryError, the turn
-    # fails rather than answering ungrounded.
     "registry_empty": "error",
-    # verify_citations dropped >=1 citation the model wrote.
     "citations_removed": "warn",
-    # A QUOTED span was not found (fuzzily) in any retrieved passage — the
-    # "real section, fabricated quote" pattern.
     "quote_unverified": "warn",
-    # Nothing the model cited survived, but exactly one registry source existed
-    # and was appended as a minimal citation. Grounded, but not by the model.
     "citation_fallback": "info",
-    # The overconfidence guard downgraded the surfaced confidence. `reasons`
-    # carries which gate closed — including `normative_claim_uncited`, the mixed
-    # answer whose numbers were measured but whose legal claim was not cited.
-    # That row is the only place the normative-claim heuristic's hit rate becomes
-    # observable, so it is worth counting even though the level is unchanged from
-    # what the answer would have got before measurement grounding existed.
     "confidence_capped": "info",
-    # Per-turn retrieval feedback: how many retrieved sources the answer
-    # actually cited vs ignored. An observation, not a defect.
     "retrieval_precision": "info",
 }
 
-#: Removal reasons ``verify_citations`` produces. ``duplicate_of_citation_<n>``
-#: is collapsed to ``duplicate`` so the dashboard's reason breakdown does not
-#: explode into one bucket per citation number.
 _DUPLICATE_REASON_PREFIX = "duplicate_of_citation_"
 
-#: Cap on distinct reason keys carried per event — a pathological answer must
-#: not post an unbounded payload.
 _MAX_REASONS = 8
 
-#: Cap on distinct source labels (origin/lane/tool) carried in an event's
-#: detail blob.
 _MAX_DETAIL_LABELS = 12
 
 
@@ -128,16 +97,10 @@ def summarize_removal_reasons(removed_citations: list[dict[str, Any]]) -> dict[s
     return dict(counter.most_common(_MAX_REASONS))
 
 
-# The citation TARGET inside a dropped source line: the URL or the
-# "filename.pdf, p.12" key the model claimed. Extracting just the target keeps
-# the ledger free of answer prose while still recording WHICH source failed —
-# the one fact a diagnosis actually needs.
 _TARGET_URL_RE = re.compile(r"https?://[^\s<>\"'\]]+")
 _TARGET_FILE_RE = re.compile(r"([^\s\[\]|]+\.[A-Za-z]{2,5})(\s*,\s*(?:p\.?|page|S\.)\s*\d+)?", re.IGNORECASE)
 
-#: Hard bound on a recorded target string.
 _MAX_TARGET_LEN = 300
-#: Hard bound on how many targets one event carries.
 _MAX_TARGETS = 10
 
 
@@ -178,22 +141,13 @@ def summarize_removed_targets(removed_citations: list[dict[str, Any]]) -> list[d
     return targets
 
 
-# ---------------------------------------------------------------------------
-# Event model
-# ---------------------------------------------------------------------------
-
-
 @dataclass
 class CitationEvent:
     """One citation-health observation for one turn."""
 
     kind: EventKind
-    #: How many individual items the event covers (citations dropped, quotes
-    #: unverified, …). Always >= 1; the baseline row uses 1.
     count: int = 1
-    #: Machine reason key -> occurrences. Empty for kinds without reasons.
     reasons: dict[str, int] = field(default_factory=dict)
-    #: Small, non-prose context blob (source origins, tool names, counts).
     detail: dict[str, Any] = field(default_factory=dict)
 
     def to_payload(self) -> dict[str, Any]:
@@ -204,11 +158,6 @@ class CitationEvent:
             "reasons": self.reasons or None,
             "detail": self.detail or None,
         }
-
-
-# ---------------------------------------------------------------------------
-# Turn assembly
-# ---------------------------------------------------------------------------
 
 
 def _label_counts(values: list[str | None]) -> dict[str, int]:
@@ -258,10 +207,6 @@ def build_turn_events(
 
     retrieved_labels = [label for label in (retrieved_source_labels or []) if label]
     if retrieved_labels:
-        # The retrieval feedback loop: of the sources retrieval handed the
-        # model, how many did the answer actually use? Counts are over UNIQUE
-        # labels (a source cited twice is still one source); `cited_count` is
-        # the overlap with what the model cited, not the raw citation count.
         unique_retrieved = list(dict.fromkeys(retrieved_labels))
         cited_labels = {label for label in (cited_source_labels or []) if label}
         uncited = [label for label in unique_retrieved if label not in cited_labels]
@@ -286,8 +231,6 @@ def build_turn_events(
                 detail={
                     "source_count": source_count,
                     "cited_count": cited_count,
-                    # WHICH sources were dropped, and why — the payload that makes
-                    # the platform export diagnosable rather than merely countable.
                     "targets": summarize_removed_targets(removed),
                 },
             )
@@ -300,9 +243,6 @@ def build_turn_events(
                 detail={
                     "source_count": source_count,
                     "cited_count": cited_count,
-                    # The documents the answer was quoting FROM, so a diagnosis
-                    # can be checked against the real passage. The quoted text
-                    # itself is answer prose and is deliberately not recorded.
                     "cited_sources": (cited_source_labels or [])[:_MAX_TARGETS],
                 },
             )
@@ -314,9 +254,6 @@ def build_turn_events(
                 detail={
                     "source_count": source_count,
                     "removed_count": len(removed),
-                    # What retrieval DID return while nothing survived citation —
-                    # the difference between "nothing relevant found" and "the
-                    # model ignored what it was given".
                     "retrieved_sources": (retrieved_source_labels or [])[:_MAX_TARGETS],
                     "targets": summarize_removed_targets(removed),
                 },
@@ -334,20 +271,10 @@ def build_turn_events(
     return events
 
 
-# ---------------------------------------------------------------------------
-# Identity + transport
-# ---------------------------------------------------------------------------
-
 _REQUEST_TIMEOUT_SECONDS = 5.0
 _MAX_EVENTS_PER_BATCH = 50
 _post_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="citation-events")
 
-#: Ceiling on batches queued but not yet posted. ThreadPoolExecutor's work queue
-#: is UNBOUNDED: with the BFF hung, every worker blocks for the full request
-#: timeout while new turns keep submitting, and the backlog (holding each
-#: payload) grows without limit. Telemetry must never be the thing that runs a
-#: replica out of memory, so past this point new batches are dropped — the
-#: honest trade for a best-effort ledger.
 _MAX_PENDING_BATCHES = 200
 _pending_batches = 0
 _pending_lock = Lock()
@@ -373,7 +300,6 @@ def _submit_batch(payload: dict[str, Any]) -> bool:
             _pending_batches += 1
             backlog_full = False
     if backlog_full:
-        # Log sparsely: a stuck BFF would otherwise produce one line per turn.
         if dropped == 1 or dropped % 100 == 0:
             logger.warning(
                 "Citation-event backlog full (%d pending) — dropped %d batch(es) so far",
@@ -578,9 +504,6 @@ def record_empty_registry(
     to the softer defects instead of only in the logs. Never raises.
     """
     try:
-        # `unavailable_tools` comes from tool-validation callers and is not
-        # guaranteed to be a list — a set or generator is not sliceable, and the
-        # docstring promises this never raises.
         tools = list(unavailable_tools or [])[:_MAX_DETAIL_LABELS]
         event = CitationEvent(
             kind="registry_empty",

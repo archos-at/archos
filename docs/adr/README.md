@@ -218,7 +218,7 @@ Consequences, where a reader looks for them.
 | [0146](0146-piloti-draws-sketches-in-excalidraws-own-format.md) | Piloti draws sketches in Excalidraw's own format: an `excalidraw` fence, checked twice, drawn as it streams; amends 0141 | Proposed |
 | [0147](0147-infrastructure-names-carry-no-brand.md) | Infrastructure names carry no brand: namespace `workspace`, Pulumi project `workspace`, moved by expand, switch and contract | Proposed |
 | [0148](0148-a-list-is-worked-beside-the-real-surface-never-a-copy.md) | A list is worked beside the real surface, never a copy of it: one docked-panel primitive, and page overlays that leave it in view | Proposed |
-| [0149](0149-the-product-name-is-copy-and-identifiers-carry-no-brand.md) | The product's name is copy and no identifier carries a brand: the product and its agent are ARCHOS | Accepted |
+| [0149](0149-the-product-name-is-copy-and-identifiers-carry-no-brand.md) | The product's name is copy and no identifier carries a brand: the product and its agent are ARCHOS (rule 4 amended by 0182) | Accepted |
 | [0150](0150-background-work-runs-on-self-hosted-hatchet.md) | Background work runs on self-hosted Hatchet, with fairness keyed on the organization, in place of our claim queues; supersedes 0076 and 0079 | Accepted |
 | [0151](0151-addresses-are-geocoded-by-komoots-public-photon.md) | Addresses are geocoded by komoot's public Photon instance, with no workload of ours; supersedes 0120 | Accepted |
 | [0152](0152-dxf-drawings-are-viewed-through-a-pdf-the-backend-draws-to-scale.md) | DXF drawings are viewed through a PDF the backend draws to scale with ezdxf, with a text layer and a title block | Accepted |
@@ -251,6 +251,7 @@ Consequences, where a reader looks for them.
 | [0179](0179-lifecycles-are-declared-as-statechart-tables.md) | A record's lifecycle is declared once, as a statechart table | Proposed |
 | [0180](0180-personal-memory-is-its-own-table-keyed-to-the-person.md) | A note has one home that says who reads it: personal memory is its own table, keyed to the person | Proposed |
 | [0181](0181-a-reviewed-dev-release-may-be-carried-to-production-once-by-the-promotion.md) | A reviewed dev release may be carried to production once by the promotion | Accepted |
+| [0182](0182-the-brand-is-swept-out-of-the-code-now.md) | The brand is swept out of the code now, not renamed on touch; the one agent is `agent/core/`; amends 0149 | Accepted |
 
 > Note: 0027, 0039, 0044 and 0047 were each independently used twice, every
 > time because two people read the next number off this index instead of off

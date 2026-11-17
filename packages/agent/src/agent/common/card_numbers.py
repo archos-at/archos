@@ -30,22 +30,13 @@ from __future__ import annotations
 from collections.abc import Callable
 from collections.abc import Iterator
 
-#: The card networks' issuer ranges, on a number's first four digits: Mir 2200-2204,
-#: Mastercard 2221-2720, Diners 30, Amex 34/37, JCB 35, Diners 36/38/39, Visa 4,
-#: Maestro and Mastercard 5, Maestro, Discover and UnionPay 6. No card begins
-#: 2000-2199, the years a table prints in rows of four.
 _CARD_PREFIXES = ((2200, 2204), (2221, 2720), (3000, 3099), (3400, 3999), (4000, 6999))
-#: The layouts one network prints in, and the first two digits that network's numbers carry.
 _NETWORK_SPLITS: dict[tuple[int, ...], tuple[str, ...]] = {
     (4, 6, 5): ("34", "37"),
     (4, 6, 4): ("30", "36", "38", "39"),
 }
 CARD_MAX_GROUPS = 5
 
-#: Words that say a card is meant, folded (``content_screen.fold``): lower case,
-#: umlauts spelt out. ``karte`` also finds ``Kartennummer`` and ``Kartenprüfnummer``;
-#: it finds a map too, which costs little, since the number beside it must still
-#: be a Luhn-valid card number in a network's range.
 CARD_CONTEXT_WORDS: tuple[str, ...] = (
     "karte",
     "kreditkart",
@@ -65,10 +56,7 @@ CARD_CONTEXT_WORDS: tuple[str, ...] = (
     "cvc",
     "cvv",
 )
-#: How many characters of the reading before and after an unbroken number are searched for a card's word.
 CARD_CONTEXT_REACH = 48
-#: Labels that make every unbroken number on the page a candidate, wherever they stand: a list
-#: of the office's cards names its column once, in the header, out of the reach above.
 CARD_PAGE_LABELS: tuple[str, ...] = ("kartennummer", "kartennr", "kreditkartennummer", "card number", "cardnumber")
 
 

@@ -63,7 +63,6 @@ INDEX = Path("docs/architecture/where-is-what.md")
 
 CODE_SPAN_RE = re.compile(r"`([^`\n]+)`")
 
-# Extensions that make a bare filename (no slash) a path claim.
 SOURCE_SUFFIXES = (
     ".py",
     ".ts",
@@ -76,17 +75,12 @@ SOURCE_SUFFIXES = (
     ".yaml",
 )
 
-# A span is a path claim only if it is shaped like one. Everything else in this
-# file is a symbol (`fileGeneratedDocument`), a constant (`SOURCE_KINDS`), a
-# command (`task release:note -- <slug>`) or a word in quotes.
 PATH_SHAPE_RE = re.compile(r"^[A-Za-z0-9._\-/\[\]]+$")
 
 BASELINE = Path("ci/doc_paths_baseline.json")
 
-#: The docs held to the ratchet, by prefix.
 RATCHETED = ("docs/architecture/", "docs/contributing/")
 
-# Gitignored and created by setup: a path into one is named on purpose.
 GENERATED = ("node_modules/", ".claude/", ".agents/", ".venv/", "apm_modules/")
 
 
@@ -103,7 +97,6 @@ def is_path_claim(span: str) -> bool:
     if not PATH_SHAPE_RE.match(span):
         return False
     if span.startswith(("http://", "https://", "/", ".")):
-        # A leading dot is a bare suffix (`.down.sql`) or a glob, never a row's path.
         return False
     return "/" in span or span.endswith(SOURCE_SUFFIXES)
 
@@ -127,8 +120,6 @@ def check(errors: list[str]) -> list[str]:
     tracked = tracked_paths()
     claims = path_claims(INDEX.read_text(encoding="utf-8"))
     for claim in claims:
-        # A directory may be written with its trailing slash (`apps/cms/social/`); git's
-        # parents carry none, so compare without it.
         bare = claim.rstrip("/")
         beside_index = (INDEX.parent / bare).as_posix()
         if bare in tracked or beside_index in tracked:

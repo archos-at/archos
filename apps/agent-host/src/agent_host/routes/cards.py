@@ -28,11 +28,6 @@ from fastapi import APIRouter
 
 from agent.cards.catalog import describe_card_catalog
 
-# Where a user asks for a card type, or a value on one, that Grid cannot render
-# yet. The issue FORM is linked rather than the bare issue list: an enhancement
-# filed through `02-enhancement.yml` arrives with the problem, the proposal and
-# the affected surfaces already separated, which is the difference between a
-# request that can be triaged and one that has to be chased.
 REPOSITORY_URL = "https://github.com/GRID-check/grid-oib-agent"
 FEATURE_REQUEST_URL = f"{REPOSITORY_URL}/issues/new?template=02-enhancement.yml&title=%5BFeature%5D%3A+"
 

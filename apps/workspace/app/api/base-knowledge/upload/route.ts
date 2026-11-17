@@ -1,14 +1,3 @@
-/**
- * Upload a file to the office shelf as base knowledge (ADR-0163): stored, and
- * proposed from its file name, with its text held until a person confirms the
- * copy public or attested. Nothing embeds, summarises or facets it before. Use
- * this, not the plain office shelf upload, for a standard, commentary or
- * directive: the plain upload reads the file at once. Multipart: `file`, and
- * the optional `folderId`.
- *
- * Needs org:office_shelf:manage, checked in `@/lib/base-knowledge/office/service`.
- */
-
 import { apiRoute, parseFormData } from '@/lib/api/handler'
 import { BadRequestError } from '@/lib/api/errors'
 import { DOCUMENT_UPLOAD_LIMIT } from '@/lib/limits'

@@ -41,11 +41,6 @@ from ..models import last_message_text
 
 _NO_TOOL_RUNTIME = cast(ToolRuntime, None)
 
-#: What the orchestrator reads instead of notes once the reader asked for the
-#: report: no further research, write from the notes already on /shared.
-#: Prepended to a batch result when the reader added documents to the
-#: Grundlage while the run went: the orchestrator plans them next, one query
-#: each, exactly like a Grundlage named before the run.
 ADDED_DOCUMENTS_NOTICE = (
     "The reader added documents to the Grundlage during this run. Each MUST be read in full: plan ONE "
     "dedicated ResearchQuery per document in the NEXT batch, naming the file exactly, knowledge tool first.\n{lines}"
@@ -59,8 +54,6 @@ WRITE_NOW_NOTICE = (
 logger = logging.getLogger(__name__)
 _NOTE_SLUG_MAX_LENGTH = 64
 
-#: The researcher worker's subagent name: its skills scope (``factory``) and
-#: its name on the chat wire's SUBAGENT_* events.
 RESEARCHER_AGENT = "researcher-agent"
 
 
@@ -73,30 +66,13 @@ def _positive_int_env(name: str, default: int) -> int:
     return value if value > 0 else default
 
 
-# Explicit per-worker step cap: without one the LangGraph default
-# recursion_limit (25) lets a stuck researcher burn its whole budget before
-# failing, and the failure surfaced as a resubmittable error, feeding the
-# plan -> batch -> resubmit loop. 100 steps is generous for a single-query
-# researcher (each tool round-trip costs 2 steps) while still bounding a
-# pathological worker. Overridable via RESEARCHER_RECURSION_LIMIT.
 RESEARCHER_RECURSION_LIMIT = _positive_int_env("RESEARCHER_RECURSION_LIMIT", 100)
 
-# Code-level bound on orchestrator resubmissions of the same query digest
-# (the "retry budget: at most 2" prompt prose is advisory only). After this
-# many submissions of one digest the query is returned as a terminal
-# unresearchable gap instead of being run again. Overridable via
-# MAX_QUERY_SUBMISSIONS.
 MAX_QUERY_SUBMISSIONS = _positive_int_env("MAX_QUERY_SUBMISSIONS", 3)
 
-# Research notes are read back by the writer at full size (its pruning
-# middleware keeps the last N results intact), so a single oversized note can
-# blow the writer's context late in the run. Cap the persisted payload; the
-# marker tells the writer the note was cut off.
 RESEARCH_NOTE_MAX_CHARS = 40_000
 _RESEARCH_NOTE_TRUNCATION_SUFFIX = "\n\n[... truncated: research note exceeded the size budget ...]"
 
-# Unresearchable-gap marker language strings reused by the batch-tool terminal
-# outcome and by tests.
 _UNRESEARCHABLE_SUMMARY = "Dieser Aspekt konnte nach mehrmaligen Versuchen nicht recherchiert werden."
 _UNRESEARCHABLE_NARRATIVE = (
     "Der Worker hat wiederholt das Schritt- oder Wiederholungslimit erreicht, ohne verwertbare Ergebnisse zu liefern."
@@ -116,13 +92,7 @@ class RetrievalRounds:
     tenant's rounds on another tenant's report.
     """
 
-    #: One entry per announced batch, in dispatch order, as
-    #: ``retrieval_status.record_round_announcement`` shapes it. Its position is the
-    #: round index the hits of that batch are stamped with.
     announcements: list[dict[str, Any]] = field(default_factory=list)
-    #: Fetch signature to the note that signature's first execution returned,
-    #: as the wire dict the batch replies with. A query that FAILED is absent,
-    #: so the retry the orchestrator sends runs.
     results: dict[str, dict[str, Any]] = field(default_factory=dict)
 
 
@@ -231,9 +201,6 @@ async def _run_research_query(
     length — it is treated as a failed worker so the orchestrator resubmits
     instead of persisting an empty note that silently drops the work.
     """
-    # One worker is one subagent invocation on the chat wire (AG-UI 1.0
-    # SUBAGENT_*): its steps carry its run id, and a worker that returns no
-    # usable note failed, the same as one that raised.
     async with semaphore, subagent_run(RESEARCHER_AGENT, description=query.query):
         try:
             result = await researcher_runnable.ainvoke(
@@ -322,10 +289,6 @@ def _truncate_research_note(note: ResearchNotes) -> ResearchNotes:
         keep = max(0, len(current) - overshoot - len(_RESEARCH_NOTE_TRUNCATION_SUFFIX))
         new_value = current[:keep] + _RESEARCH_NOTE_TRUNCATION_SUFFIX
         if len(new_value) >= len(current):
-            # Cutting the largest leaf can no longer shrink the payload; stop.
-            # The ceiling is a soft one (the writer's total-char budget is the
-            # real backstop), so a rare many-tiny-fields note may stay slightly
-            # over rather than loop forever.
             break
         container[key] = new_value
     return ResearchNotes.model_validate(data)

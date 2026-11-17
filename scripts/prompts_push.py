@@ -76,8 +76,6 @@ from pathlib import Path
 from typing import Any
 from typing import Protocol
 
-# The pull's constants, client and read, not copies: one place names the file,
-# the prompt and the credentials, and one reads a version. Imported by path so the script runs as a file.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from prompts_pull import FALLBACK_FILE  # noqa: E402
 from prompts_pull import PROMPT_NAME  # noqa: E402
@@ -91,12 +89,8 @@ EXIT_WOULD_CHANGE = 1
 EXIT_UNCONFIGURED = 2
 EXIT_REFUSED = 3
 
-#: The tag this script puts on the prompt, for filtering in the Langfuse UI.
-#: NOT provenance: Langfuse keeps tags per prompt, not per version
-#: (:func:`published_from_git` is the check).
 GIT_TAG = "git"
 
-#: What :func:`publish` writes as a version's commit message: ``git <sha> <path>``.
 _COMMIT_MESSAGE_RE = re.compile(r"^git ([0-9a-f]{7,40}) (\S+)$")
 
 
@@ -141,9 +135,6 @@ def published_from_git(live: Any) -> bool:
         committed = text_at(match.group(1), match.group(2))
         if committed is not None and committed_text(committed) == served:
             return True
-    # A UI edit that was pulled and committed IS reviewed text, whatever its
-    # message: without this the documented recovery (pull, commit, push) found
-    # "same", stamped nothing, and refused the next real change forever.
     return any(committed_text(text) == served for text in file_history())
 
 

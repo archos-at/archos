@@ -11,11 +11,6 @@ from agent.common.canned_replies import TOOLS_UNAVAILABLE_MESSAGE
 
 logger = logging.getLogger(__name__)
 
-#: How a stub registered in place of a tool marks itself:
-#: ``"Web search tool (unavailable - missing TAVILY_API_KEY)"``. Matched as the
-#: marker, not as a word: a real tool's description saying what it does about
-#: "missing standard property sets" is not a stub (ifc_query was listed as
-#: unavailable on every turn for exactly that sentence).
 _STUB_MARKER = re.compile(r"\(unavailable\b", re.IGNORECASE)
 
 
@@ -146,8 +141,6 @@ def format_user_facing_tool_error(
     if dev_env == "cli":
         return detailed
 
-    # Detailed diagnostics (tool names, missing keys) are only shown when
-    # DEV_ENV is "cli", which deploy/.env.example sets for local development.
     return TOOLS_UNAVAILABLE_MESSAGE
 
 

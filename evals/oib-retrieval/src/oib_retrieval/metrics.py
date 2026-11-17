@@ -42,10 +42,6 @@ from collections.abc import Hashable
 from collections.abc import Mapping
 from collections.abc import Sequence
 
-#: Cutoffs every arm is reported at. 16 is not decoration: it is the ``top_k`` the
-#: production retriever is configured with, so recall@16 is the number that decides
-#: whether the answer generator could possibly have seen the right Punkt. 1/3/5 show
-#: ranking quality above it, 10/20 bracket it.
 K_VALUES: tuple[int, ...] = (1, 3, 5, 10, 16, 20)
 
 

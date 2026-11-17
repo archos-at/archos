@@ -37,8 +37,6 @@ from .internal_auth import _require_internal_token
 
 logger = logging.getLogger(__name__)
 
-#: Bounds re-applied here; a route that trusts its caller's bounds is one
-#: refactor away from embedding a transcript.
 _MAX_TEXTS = 64
 _MAX_TEXT_CHARS = 2000
 
@@ -87,8 +85,6 @@ def add_note_embedding_routes(router: APIRouter) -> None:
             from knowledge_layer.embedding import make_embed_model
 
             embedder = make_embed_model(base_url=base_url, model=model, api_key=api_key)
-            # Synchronous HTTP inside; keep it off the event loop like the
-            # retriever's own embed call does.
             vectors = await asyncio.to_thread(embedder.get_text_embedding_batch, texts)
         except ImportError:
             logger.warning("Embedding dependencies unavailable; notes stay on the lexical path")

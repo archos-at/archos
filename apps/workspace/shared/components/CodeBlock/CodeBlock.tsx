@@ -1,11 +1,3 @@
-/**
- * CodeBlock Component
- *
- * Bespoke replacement for KUI's CodeSnippet: a `<pre>` block with a language
- * label, a copy-to-clipboard button, and optional collapse/expand behavior
- * for long code blocks (> `maxLines`).
- */
-
 'use client'
 
 import { type FC, useMemo, useState } from 'react'
@@ -16,15 +8,10 @@ import { useTranslations } from '@/i18n'
 import { commonCopy } from '@/i18n/namespaces/common'
 
 export interface CodeBlockProps {
-  /** Raw code content to display */
   value: string
-  /** Language label shown in the header (e.g. "typescript") */
   language?: string
-  /** Whether the block should collapse when it exceeds maxLines */
   collapsible?: boolean
-  /** Number of lines to show before collapsing (default 15) */
   maxLines?: number
-  /** Additional CSS classes for the wrapper */
   className?: string
 }
 
@@ -50,8 +37,6 @@ export const CodeBlock: FC<CodeBlockProps> = ({
       setCopied(true)
       window.setTimeout(() => setCopied(false), 1500)
     } catch {
-      // Clipboard API unavailable or blocked (e.g. insecure context, denied
-      // permission) — surface the failure instead of swallowing it silently.
       toast.error(t('states.copyFailed'))
     }
   }

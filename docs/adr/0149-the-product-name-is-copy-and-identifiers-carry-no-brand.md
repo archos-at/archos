@@ -6,6 +6,8 @@ consulted: the rename-planning and naming-audit consultants, the rebrand work pa
 informed: everyone working in this repo, and every customer whose agent is connected to the workspace
 ---
 
+Rule 4 and D22 for the code are amended by [ADR-0182](0182-the-brand-is-swept-out-of-the-code-now.md): the code is swept now.
+
 # The product's name is copy and no identifier carries a brand: the product and its agent are ARCHOS
 
 ## Context and Problem Statement

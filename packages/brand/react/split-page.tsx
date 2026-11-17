@@ -6,21 +6,14 @@ import type { NavLink } from './nav-link';
 import { Wordmark } from './wordmark';
 
 export interface SplitPageProps {
-  /** login: 5:7, photo right · form: 1:1, form card on a photo right */
   variant?: 'login' | 'form';
-  /** Left column content (title, text, form or logos) */
   children?: ReactNode;
-  /** Right side: photo URL (login: full bleed; form: behind the card) */
   image?: string;
   imageAlt?: string;
   imageStyle?: CSSProperties;
-  /** login: replaces the photo · form: content of the white card */
   aside?: ReactNode;
-  /** form: small note under the card, light on the photo */
   asideNote?: ReactNode;
-  /** Shows the AI tag on the photo (login) */
   ai?: boolean;
-  /** Bottom links; the first sits left (Zur Website) */
   footer?: NavLink[];
   note?: string;
   homeHref?: string;

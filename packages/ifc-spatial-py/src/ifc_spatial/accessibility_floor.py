@@ -30,10 +30,6 @@ from .model import SpatialModel
 from .operators import COORDINATE_TOLERANCE
 from .operators import FURNISHING
 
-# ════════════════════════════════════════════════════════════════════════════
-# plan geometry — the polygons the four operators are all built out of
-# ════════════════════════════════════════════════════════════════════════════
-
 
 def _plan_footprint(triangles: np.ndarray) -> Any | None:
     """A solid's floor polygon, by exactly the method ``_footprint_area`` measures.
@@ -217,9 +213,6 @@ def _free_floor(model: SpatialModel, space: Any, skip: set[str] | None = None) -
         other = model.geometry(global_id)
         if other is None:
             continue
-        # The floor-contact rule. An element obstructs the clear floor when it
-        # reaches DOWN to it: a ceiling at 2.20 m and a roof at 2.50 m project
-        # over the whole room and take none of its floor away.
         if not (float(other.box[0][2]) <= floor_z + FLOOR_CONTACT < float(other.box[1][2])):
             continue
         free.triangles += len(other.triangles)
@@ -427,9 +420,6 @@ def _spaces_by_side(model: SpatialModel, element: Any, frame: _Frame) -> dict[fl
             continue
         through = float(np.array(geo.centroid[:2]) @ frame.normal)
         sign = 1.0 if through > (frame.v_min + frame.v_max) / 2.0 else -1.0
-        # First room wins a side. Two rooms projecting onto the same side happens
-        # when a door sits in a re-entrant corner; reporting the second as if it
-        # were the far side would invent a step that is not there.
         found.setdefault(sign, model.file.by_guid(ref.global_id))
     return found
 

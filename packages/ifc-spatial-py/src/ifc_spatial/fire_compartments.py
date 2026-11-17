@@ -14,10 +14,6 @@ from .envelope import computed
 from .envelope import undecidable
 from .model import SpatialModel
 
-# ════════════════════════════════════════════════════════════════════════════
-# compartment_area — what a Brandabschnitt is measured on
-# ════════════════════════════════════════════════════════════════════════════
-
 
 def compartment_area(model: SpatialModel, storey_or_space_ids: str | Sequence[str]) -> Answer[dict[str, Any]]:
     """The floor area of a group of spaces taken together, in m².
@@ -184,11 +180,6 @@ def compartment_area(model: SpatialModel, storey_or_space_ids: str | Sequence[st
         "overlaps": overlaps,
         "deklarierteZonen": _declared_zones(model),
     }
-    # `computed`, always, even when the GROUPING is the architect's own IfcZone:
-    # the envelope carries one provenance and the number is the sum of measured
-    # areas. That the grouping was declared is stated in `grouping[].deklariert`
-    # and in the caveat, where it can be read as what it is — a statement about
-    # which rooms belong together, not about how large they are.
     return computed(
         value,
         unit="m²",
@@ -205,9 +196,6 @@ def _resolve_group(model: SpatialModel, subject: Any) -> tuple[list[Any] | None,
     if kind == "space":
         return [subject], "Raum unmittelbar übergeben", True
     if subject.is_a("IfcGroup"):
-        # `IfcZone` is a subtype of `IfcGroup`, so both arrive here. Only the
-        # spaces are taken: a zone may legitimately group other zones and
-        # elements, and an IfcWall inside a zone is not floor area.
         members = [
             member
             for rel in (getattr(subject, "IsGroupedBy", []) or [])
@@ -218,11 +206,6 @@ def _resolve_group(model: SpatialModel, subject: Any) -> tuple[list[Any] | None,
     if kind == "storey":
         spaces = [space for space in model.file.by_type("IfcSpace") if _storey_id(model, space) == subject.GlobalId]
         return spaces, "alle Räume dieses Geschoßes (IfcRelAggregates / IfcRelContainedInSpatialStructure)", True
-    # A building or a site is deliberately NOT accepted. "Alle Räume des
-    # Gebäudes" is a plausible-looking call that produces the Brutto-Grundfläche
-    # of the whole house under the name of a Brandabschnitt, and the answer would
-    # carry no sign of the substitution. The caller has to name the storeys or
-    # the zone it means.
     return None, "", False
 
 

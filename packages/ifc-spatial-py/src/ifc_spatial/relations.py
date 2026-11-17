@@ -177,10 +177,6 @@ def elements_of_storey(model: SpatialModel, storey_global_id: str) -> Answer[lis
             "für einen Raum oder ein Gebäude: contains()",
         )
 
-    # The storey resolution is model-wide or absent — if the export wrote no
-    # spatial containment at all, nothing decomposes out of any storey, and
-    # "dieses Geschoss ist leer" would be a wrong answer about a building that
-    # has floors.
     if not _has(model, "IfcRelContainedInSpatialStructure") and not _has(model, "IfcRelAggregates"):
         return undecidable(
             from_=[storey_global_id],

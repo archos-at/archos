@@ -91,18 +91,15 @@ def _failed_note(failed: Sequence[str]) -> str:
     )
 
 
-#: What the pattern tolerates, said where a count or a „Nein“ is stated.
 _TOLERATED = (
     "ignoring case, umlaut spelling (ä/ae, ö/oe, ü/ue, ß/ss), and a line break, space or hyphen between the words"
 )
 
-#: Said above the table of a stemmed search: what "a match" meant.
 _STEMMED_NOTE = (
     "Inflected forms included (German stemming): a passage matches when it holds the words in any inflected "
     "form („Fluchtwegbreiten“ for „Fluchtwegbreite“) or literally as before; a compound matches only literally."
 )
 
-#: What a person's regex tolerates: nothing but what they wrote, apart from case.
 _TOLERATED_REGEX = (
     "as a regex in Python syntax, ignoring case; umlaut spellings and line breaks are not matched for you"
 )

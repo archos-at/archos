@@ -19,11 +19,6 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: t('bin.title') }
 }
 
-/**
- * A project's Papierkorb (ADR-0088): the deleted folders the reader may read.
- * Read here so the first paint is the list; the panel re-reads after each
- * action.
- */
 export default async function FolderBinPage({ params }: BinPageProps): Promise<JSX.Element> {
   return withPageSession(async (session) => {
     const { id } = await params

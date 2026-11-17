@@ -1,20 +1,3 @@
-/**
- * Session-documents repository — the only module that queries the `documents`
- * table for files attached privately to one conversation (rows with
- * `scope = 'session'`, `project_id` NULL, `conversation_id` set).
- *
- * Repository rules (docs/architecture/bff-service-architecture.md):
- *   - drizzle only; no HTTP, no auth, no SeaweedFS/backend calls.
- *   - Every query is scoped by `organizationId` in the SQL WHERE clause, and
- *     by `conversationId` where the caller has one — a session document is the
- *     narrowest thing this application stores, so both bounds are in SQL.
- *   - List queries are always bounded (`limit`).
- *
- * Every predicate names `scope = 'session'` explicitly rather than leaning on
- * `project_id IS NULL`. That reading was only ever correct while the Archiv was
- * the sole null-project shelf, and it is what this scope would have broken.
- */
-
 import 'server-only'
 import { and, desc, eq, inArray } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
@@ -23,18 +6,11 @@ import { documents, type Document } from '@/lib/db/schema/documents'
 import { DOCUMENT_LIST_LIMIT, type DocumentListRow } from '@/lib/documents/repository'
 import { documentVisibleTo, type DocumentReader } from '@/lib/documents/visibility'
 
-/**
- * Bound for one conversation's attachments. Far below the project/Archiv cap:
- * these are the files a person dragged into a single chat, and a listing that
- * could return five hundred of them is describing a corpus, not a conversation.
- */
 export const SESSION_DOCUMENT_LIST_LIMIT = 100
 
-/** List one conversation's private attachments, most-recent first (bounded). */
 export async function listSessionDocuments(
   conversationId: string,
   organizationId: string,
-  /** Who reads the chat's attachments (ADR-0086); see `ListProjectDocumentsOptions.reader`. */
   reader: DocumentReader,
   limit = SESSION_DOCUMENT_LIST_LIMIT,
 ): Promise<DocumentListRow[]> {
@@ -47,8 +23,6 @@ export async function listSessionDocuments(
         filename: documents.filename,
         projectId: documents.projectId,
         scope: documents.scope,
-        // Added by 0048 on develop and required by `DocumentListRow`; a session
-        // attachment is renameable like any other document.
         displayName: documents.displayName,
         fileSize: documents.fileSize,
         contentType: documents.contentType,
@@ -83,15 +57,6 @@ export async function listSessionDocuments(
   )
 }
 
-/**
- * Every row belonging to a conversation — the full `Document`, because the
- * caller is about to delete the objects these rows point at and needs the
- * storage key and bucket to do it.
- *
- * Bounded like every other list. A conversation past the bound would leave
- * objects behind, so the caller loops until this returns nothing rather than
- * assuming one page is all of them.
- */
 export async function listSessionDocumentsForCleanup(
   conversationId: string,
   organizationId: string,
@@ -115,7 +80,6 @@ export async function listSessionDocumentsForCleanup(
   )
 }
 
-/** Load one session document by id, scoped to its organization, as `reader` may see it (ADR-0086). */
 export async function findSessionDocument(
   documentId: string,
   organizationId: string,
@@ -139,21 +103,6 @@ export async function findSessionDocument(
   return row ?? null
 }
 
-/**
- * Recording a session document goes through `insertDocumentWithinQuota`
- * (`@/lib/storage/repository`), like every other shelf. There is no insert here
- * for the reason spelled out in `documents/repository.ts`: a second, ungated
- * way to create a `documents` row is how a storage quota stops being a ceiling.
- * A chat attachment is bytes in the tenant's bucket exactly like a project
- * upload, so it must not be the way around the limit.
- */
-
-/**
- * Hard-delete one session document row (the DB record; SeaweedFS + backend
- * cleanup live in the service). Scoped by organization AND conversation, so a
- * document id from another tenant or another chat can never be deleted through
- * this path.
- */
 export async function deleteSessionDocument(
   documentId: string,
   organizationId: string,
@@ -174,20 +123,6 @@ export async function deleteSessionDocument(
   )
 }
 
-/**
- * Hard-delete the session document rows the caller has just finished erasing
- * externally, by id.
- *
- * By id rather than "everything for this conversation", because the discard
- * path works a bounded page at a time: a statement that deleted the whole
- * conversation would remove rows whose objects the caller has not reached yet,
- * and those bytes would then be unreachable — no row names them, so nothing can
- * ever find them again.
- *
- * Still scoped by organization, scope and conversation on top of the ids: an id
- * list is caller-supplied, and these three predicates are what stop one from
- * reaching another tenant's, another chat's, or a project's row.
- */
 export async function deleteSessionDocumentsByIds(
   documentIds: string[],
   organizationId: string,

@@ -4,17 +4,6 @@ import { baseStackConfig } from "../test-support/stack-config";
 import { parseCollectorConfig, pipeline } from "../test-support/collector";
 import type { CollectorConfig } from "./collector-config";
 
-/**
- * The per-node agent: the node's kubelet and the annotated pods beside it, to
- * the gateway.
- *
- * Every failure here is a gap, not an error. An agent scraping every pod in
- * the cluster sends each series once per node; one without the node filter in
- * its discovery does the same; one exporting to PostHog itself is one more
- * holder of the token; a missing env var leaves `${env:…}` unresolved and the
- * agent refusing to start on every node at once.
- */
-
 const RESOURCES: Array<{ type: string; name: string; inputs: Record<string, unknown> }> = [];
 
 pulumi.runtime.setMocks(
@@ -60,7 +49,6 @@ describe("the node agent, with PostHog metrics on (the default)", () => {
   }, 120_000);
 
   it("reads its own node's kubelet, every group of readings", () => {
-    // `kubelet_stats`, the current id: upstream deprecated the `kubeletstats` alias.
     expect(agent.receivers.kubelet_stats).toMatchObject({
       auth_type: "serviceAccount",
       endpoint: "https://${env:K8S_NODE_IP}:10250",
@@ -80,8 +68,6 @@ describe("the node agent, with PostHog metrics on (the default)", () => {
   });
 
   it("scrapes each pod once, at the container port its annotation names", () => {
-    // Discovery yields a target per declared port and per port-less (init)
-    // container; without this a multi-port pod is scraped once per port.
     const [scrape] = (agent.receivers["prometheus/pods"] as any).config.scrape_configs;
     expect(scrape.relabel_configs).toContainEqual({
       source_labels: ["__meta_kubernetes_pod_container_port_number"],

@@ -35,9 +35,6 @@ def _ensure_table_sync(store):
         if store.db_url in facade.DocumentMetadataStore._tables_initialized:
             return
 
-        # Only mark the store initialized when the schema is actually ready.
-        # A failed migration must NOT be cached as initialized, so the next
-        # call retries it instead of writing against a missing column.
         try:
             ensure_schema(store._sync_engine, TABLE_NAME, store._run_schema)
         except Exception as e:
@@ -52,8 +49,6 @@ async def _ensure_table_async(cls, db_url: str):
         return
 
     engine = cls._get_or_create_async_engine(db_url)
-    # A detached instance carries db_url so the shared schema helpers can read
-    # `_is_postgres()`; they never touch the (async) engine.
     store = cls.__new__(cls)
     store.db_url = db_url
 
@@ -82,20 +77,12 @@ def _run_schema(store, conn) -> None:
     has_legacy = inspector.has_table(LEGACY_TABLE_NAME)
 
     if not has_current and has_legacy:
-        # Preserve every existing row: rename the table in place rather
-        # than recreating it. Postgres and SQLite both support this.
         # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
         conn.execute(text(f"ALTER TABLE {LEGACY_TABLE_NAME} RENAME TO {TABLE_NAME}"))
         logger.info("Migrated legacy '%s' table to '%s' (rows preserved)", LEGACY_TABLE_NAME, TABLE_NAME)
     elif not has_current:
         store._create_table(conn)
 
-    # Backfill any optional column that predates the current schema
-    # (covers a just-renamed legacy table and older document_metadata ones).
-    # Only the MISSING ones: ``ADD COLUMN IF NOT EXISTS`` locks the table
-    # exclusively before it checks, so running it for every column on every
-    # start blocked all readers, and behind one stuck reader it hung the API's
-    # start (see ``present_columns``). On a current table this issues no DDL.
     present = present_columns(conn, TABLE_NAME)
     for column in _OPTIONAL_COLUMNS:
         if column not in present:
@@ -117,8 +104,6 @@ def _rename_legacy_doc_classes(store, conn) -> None:
     from sqlalchemy import text
 
     names = list(LEGACY_DOC_CLASSES.items())
-    # The keys travel as bound parameters; only the table and the two fixed column names are
-    # spliced in, and both come from this module.
     params = {f"old{i}": legacy for i, (legacy, _) in enumerate(names)}
     params |= {f"new{i}": current for i, (_, current) in enumerate(names)}
     old_keys = ", ".join(f":old{i}" for i in range(len(names)))
@@ -224,8 +209,6 @@ def _ensure_index(store, conn) -> None:
     """Create the collection index under the new name; drop the legacy one."""
     from sqlalchemy import text
 
-    # Checked first: ``CREATE INDEX IF NOT EXISTS`` takes the table's SHARE lock
-    # before it looks at the name (see ``present_indexes``).
     if _INDEX_NAME not in present_indexes(conn, TABLE_NAME):
         # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
         conn.execute(text(f"CREATE INDEX IF NOT EXISTS {_INDEX_NAME} ON {TABLE_NAME} (collection)"))

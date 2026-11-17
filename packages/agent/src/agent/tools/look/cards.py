@@ -57,7 +57,6 @@ from agent.common.retrieval_status import emit_look_step
 logger = logging.getLogger(__name__)
 
 CARD_TYPE = "look"
-#: The kind the entries are held under on the card registry.
 HELD = "look"
 
 
@@ -242,7 +241,6 @@ def _cited_names(cited: Iterable[Any]) -> set[str]:
     return names
 
 
-#: A reading that says it found nothing: absence is reported in the prose, not shown as evidence.
 _NOTHING_FOUND_RE = re.compile(
     r"\b(?:nothing|none|not\s+(?:visible|legible|readable|shown|present|found|recognisable|recognizable)"
     r"|no\s+\w+(?:\s+\w+)?\s+(?:visible|found|shown|present|legible))\b"

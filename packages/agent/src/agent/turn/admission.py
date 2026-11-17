@@ -44,18 +44,11 @@ from agent.observability.turn_phases import observed_phase
 
 logger = logging.getLogger(__name__)
 
-#: The name of the profiler ROOT span for a chat turn. A persisted identifier,
-#: not a module path: it is stored per turn as `agent_profiler_spans.name` and
-#: matched by string in `apps/workspace/ui/features/chat/lib/trace-lanes.ts`, so
-#: it stayed put when the package that used to be called `chat_researcher` was
-#: folded into Piloti. Renaming it re-labels the reasoning view for
-#: every turn already stored.
 PROFILE_AGENT_NAME = "chat_researcher"
 
 StateT = TypeVar("StateT")
 
 
-#: Every wire body type: what the agent's stream yields before its final state.
 _BODIES = get_args(EventBody)
 
 
@@ -86,7 +79,6 @@ class TurnRefusal:
 
     message: str
     retry_after_seconds: int | None = None
-    #: The profiler's word for how the turn ended.
     outcome: str = "refused"
 
 
@@ -160,8 +152,6 @@ async def answer_turn[StateT](
     final: StateT | None = None
     try:
         async with contextlib.AsyncExitStack() as admission:
-            # Every model call the turn makes, retrieval embeddings included, queues
-            # for the provider ahead of research and bulk work (ADR-0081).
             admission.enter_context(provider_class(CHAT))
             refused = await _enter_admission_slot(admission, organization_id)
             if refused is not None:

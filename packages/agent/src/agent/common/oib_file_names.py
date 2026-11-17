@@ -24,15 +24,8 @@ from __future__ import annotations
 
 import re
 
-#: Anchored at the start and bound to the ``oib-`` stem, so only a name that
-#: already says it is an OIB-Richtlinie is rewritten.
 _PUBLISHED_STEM_RE = re.compile(r"^(?:(erlaeuterungen|aenderungen)(?:_|-zu-))?oib-(?:rl|richtlinie)_")
-#: The Richtlinien of the editions published under other spellings, each by its exact name (lower-cased,
-#: without ``.pdf``) and the canonical name it reads as. A table, not a pattern: every item page also
-#: publishes ``oib-rl-<n>-aenderungen-gegenueber-version-2015.pdf``, a diff a pattern over
-#: ``oib-rl-<n>-…-<year>`` read as the 2015 Richtlinie itself. The names were read off
-#: https://www.oib.or.at/richtlinien/oib-richtlinien-<year>/oib-richtlinie-<n> on 2026-11-10, the months
-#: off the Austria pack's edition labels (``configs/knowledge-packs/at.json``).
+# Read off oib.or.at/richtlinien/oib-richtlinien-<year>/oib-richtlinie-<n> on 2026-11-10; skip the 2015 diff PDFs.
 PUBLISHED_EDITIONS = {
     "richtlinie_1_12.04.19_0": "oib-rl_1_ausgabe_april_2019",
     "oib-rl-2-brandschutz-2019": "oib-rl_2_ausgabe_april_2019",
@@ -50,8 +43,6 @@ PUBLISHED_EDITIONS = {
 }
 
 
-#: Files published under the ``oib-rl_<n>_`` stem that are no Richtlinie, each by its exact name and a
-#: name no OIB reader parses: the RL 6 temperature table on the 2025 item page.
 PUBLISHED_COMPANIONS = {"oib-rl_6_normaussentemperaturen": "normaussentemperaturen-zu-oib-rl-6"}
 
 

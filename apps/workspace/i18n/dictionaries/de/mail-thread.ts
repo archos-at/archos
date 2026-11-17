@@ -1,15 +1,5 @@
 import type { en } from '../en'
 
-/**
- * mailThread namespace: der E-Mail-Verlauf, eine Korrespondenz als ein
- * Dokument (ADR-0137). Der Reiter „E-Mails“, das Folgen und das Herauslösen
- * (D16) ergänzen ihn; die festen Codelisten aus `lib/mail-thread` werden hier
- * formuliert, damit jede Fläche sie gleich sagt.
- *
- * Die Worte der Darstellung selbst (Abschnittsüberschriften, „eingegangen …“,
- * „Zitat aus der E-Mail vom …“) stehen NICHT hier, sondern versioniert in
- * `lib/mail-thread/render-copy.ts`: eine Änderung schriebe jeden Abschnitt neu.
- */
 export const mailThread: typeof en.mailThread = {
   followIneligible: {
     no_active_follow: 'Niemand folgt diesem E-Mail-Verlauf',
@@ -34,7 +24,6 @@ export const mailThread: typeof en.mailThread = {
     project_closed: 'Das Projekt wurde abgeschlossen',
   },
 
-  /** Der Reiter „E-Mails“ in der Vorschau eines E-Mail-Verlaufs (D16). */
   tab: {
     label: 'E-Mails',
     views: 'Ansicht',
@@ -47,7 +36,6 @@ export const mailThread: typeof en.mailThread = {
       '{count, plural, one {# E-Mail dieses E-Mail-Verlaufs wartet} other {# E-Mails dieses E-Mail-Verlaufs warten}} im E-Mail-Eingang',
     waitingOpen: 'Ansehen',
   },
-  /** Eine abgelegte E-Mail im Reiter. */
   entry: {
     fromRevision: 'ab Fassung {number}',
     received: 'eingegangen {time}',
@@ -57,7 +45,6 @@ export const mailThread: typeof en.mailThread = {
       unverified: 'Domain nicht bestätigt',
       notChecked: 'Aus dem Outlook-Archiv · nicht geprüft',
     },
-    /** Wie sie abgelegt wurde, nur genannt, wo nicht eine Person in der App entschieden hat. */
     filedVia: {
       agent: 'Von einem Agenten im Namen einer Person abgelegt',
       agent_proposal: 'Auf Vorschlag von {productName} abgelegt',
@@ -65,7 +52,6 @@ export const mailThread: typeof en.mailThread = {
       archive_import: 'Aus dem Outlook-Archiv übernommen',
       sender: 'Direkt abgelegt: von einem Mitglied gesendet, das im Projekt ablegen darf, und von seiner Domain bestätigt',
     },
-    /** Unter der Überschrift einer weitergeleiteten E-Mail, die ihren ursprünglichen Absender nennt. */
     forwardedBy: 'Weitergeleitet von {name}',
     compare: 'Vergleichen',
     compareLabel: 'Fassung {from} mit Fassung {to} vergleichen',
@@ -73,7 +59,6 @@ export const mailThread: typeof en.mailThread = {
     menu: 'Mehr zur E-Mail vom {heading}',
     detach: 'Herauslösen …',
   },
-  /** Was mit einer E-Mail kam (D36). */
   attachments: {
     label: 'Anhänge',
     hidden: 'Ein Anhang in einem Ordner, den Sie nicht sehen',
@@ -99,7 +84,6 @@ export const mailThread: typeof en.mailThread = {
       unreadable: 'nicht lesbar',
     },
   },
-  /** Das Original (`.eml`) einer abgelegten E-Mail, als Beleg aufbewahrt. */
   original: {
     download: 'Original (.eml)',
     downloading: 'Wird geprüft …',
@@ -109,7 +93,6 @@ export const mailThread: typeof en.mailThread = {
     gone: 'Kein Original: aus dem Outlook-Archiv übernommen',
     failed: 'Das Herunterladen hat nicht geklappt. Bitte erneut versuchen.',
   },
-  /** „Verlauf folgen“ im Reiter: das eigene Folgen, und für die Projektverwaltung das aller. */
   follow: {
     offer: 'Diesem E-Mail-Verlauf folgen',
     start: 'Folgen',
@@ -135,7 +118,6 @@ export const mailThread: typeof en.mailThread = {
     failed: 'Das hat nicht geklappt. Bitte erneut versuchen.',
     closed: 'Das Projekt ist abgeschlossen. Wieder öffnen, um zu folgen.',
   },
-  /** „Herauslösen …“: eine E-Mail, die im falschen E-Mail-Verlauf liegt (D34). */
   detach: {
     title: 'E-Mail herauslösen?',
     description: 'Die E-Mail vom {heading} kommt in einen anderen E-Mail-Verlauf.',
@@ -158,7 +140,6 @@ export const mailThread: typeof en.mailThread = {
     followsEnded: '{count, plural, one {# Folgen beendet} other {# Folgen beendet}}',
     open: 'Öffnen',
   },
-  /** Warum ein Schreiben in einen E-Mail-Verlauf abgelehnt wurde (`MAIL_THREAD_REFUSALS`, und Folgen im abgeschlossenen Projekt). */
   refusals: {
     last_entry: 'Das ist die einzige E-Mail dieses E-Mail-Verlaufs. Löschen Sie stattdessen das Dokument.',
     busy: 'Gerade wird eine E-Mail in diesen E-Mail-Verlauf abgelegt. Bitte gleich noch einmal versuchen.',
@@ -172,12 +153,10 @@ export const mailThread: typeof en.mailThread = {
     project_closed: 'Das Projekt ist abgeschlossen. Bitte zuerst wieder öffnen.',
     unknown: 'Das hat nicht geklappt. Bitte erneut versuchen.',
   },
-  /** Woher eine Fassung kam (D36): die Zeile unter dem Kopf eines Dokuments, das eine E-Mail brachte, und eine Zeile seiner Fassungen. */
   provenance: {
     label: 'Herkunft',
     cameWith: 'Kam mit der E-Mail von {name} am {date}',
     cameWithAnonymous: 'Kam mit einer E-Mail am {date}',
-    // Dieselben Worte wie die Überschrift im E-Mail-Verlauf: zuerst wer sie geschrieben hat, dann wer sie weitergeleitet hat.
     cameWithForwarded: 'Kam mit der E-Mail von {name}, weitergeleitet von {forwarder}, am {date}',
     cameWithForwardedAnonymous: 'Kam mit einer weitergeleiteten E-Mail am {date}',
     open: 'Im E-Mail-Verlauf ansehen',

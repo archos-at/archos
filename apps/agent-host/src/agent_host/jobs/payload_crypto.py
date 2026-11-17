@@ -114,12 +114,7 @@ def deserialize(stored: str) -> dict[str, Any]:
         data = AESGCM(kek).decrypt(nonce, ciphertext, None)
         return json.loads(data)
     if _kek() is not None:
-        # KEK configured: a plaintext row is either pre-KEK legacy (drain before
-        # enabling the KEK) or forged by a DB-write attacker — either way it
-        # must never be executed.
         raise PayloadKeyError("payload is not encrypted but JOB_PAYLOAD_KEK is set; refusing plaintext")
     if stored.startswith(_PLAIN_PREFIX):
         return json.loads(base64.b64decode(stored[len(_PLAIN_PREFIX) :]))
-    # Back-compat: a raw JSON object written before this wrapper existed.
-    # Dev/no-KEK only — unreachable when a KEK is set (rejected above).
     return json.loads(stored)

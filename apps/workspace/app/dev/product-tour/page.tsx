@@ -1,29 +1,5 @@
 'use client'
 
-/**
- * Product-tour dev preview: the real tours over the real chrome, from fixtures,
- * started through the same three roads the product uses.
- *
- * Which screen — `?variant=`:
- * - `welcome` (default): the org header over an empty projects home.
- * - `project`: the project rail beside an empty chat.
- *
- * Which reader:
- * - `?tour=welcome` / `?tour=project` — the CREATOR, handed over by onboarding
- *   or by the first intake save ("your organization is ready").
- * - `?joined=1` — the JOINER on a first visit: the server marked the tour
- *   eligible ("welcome to Musterarchitektur"). Add `&member=1` for someone who
- *   cannot manage the organization.
- * - neither — a REPLAY from the account menu.
- *
- * Below `md` both screens carry the phone's bottom tab bar, which is where the
- * tours point on a phone: Chat, Dateien and the Übersicht are tabs, the
- * Büroablage is behind "Mehr", and the keyboard stop becomes the search button.
- *
- * `?archiv=0` / `?inbox=0` turn those features off. Fixture data only; the
- * `/dev` layout 404s this outside development.
- */
-
 import { useSearchParams } from 'next/navigation'
 import { Suspense, useEffect, useState } from 'react'
 import { MessageSquare } from 'lucide-react'
@@ -41,7 +17,6 @@ const USER = { name: 'Anna Berger', email: 'anna.berger@example.at' }
 const ORGANIZATION = 'Musterarchitektur ZT GmbH'
 const PROJECTS = [{ id: 'p-1', name: 'Wohnbau Seestadt Baufeld D12' }]
 
-/** The replay road: what the account menu's "Product tour" entry does. */
 function Replay(): null {
   const start = useStartProductTour()
   useEffect(() => {
@@ -55,8 +30,6 @@ function Preview(): JSX.Element {
   const params = useSearchParams()
   const variant: TourId = params.get('variant') === 'project' ? 'project' : 'welcome'
   const joined = params.get('joined') === '1'
-  // Read once: the tour takes `?tour=` out of the URL as it starts, and the
-  // preview must not then mistake itself for a replay and start it again.
   const [handover] = useState(() => params.has('tour'))
   const flags = {
     canAccessOfficeShelf: params.get('office_shelf') !== '0',
