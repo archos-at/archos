@@ -3,7 +3,7 @@
 /**
  * PROTOTYPE, not for merge: three ways the rail could hold a personal area next to the projects
  * (concept for ticket 81). Built from the rail's real parts so the shots show the product's own
- * geometry. `?v=a|b|c` picks the variant, `?place=me|project` where the reader is.
+ * geometry. `?v=a|b|c|d` picks the variant, `?place=me|project` where the reader is.
  */
 
 import type { JSX, ReactNode } from 'react'
@@ -265,6 +265,51 @@ function VariantC({ me }: { me: boolean }): JSX.Element {
   )
 }
 
+/**
+ * D: two zones. The switcher at the top chooses the place and lists what belongs to it; the chats under it are the
+ * reader's own, the same list wherever they are.
+ */
+const ALL_CHATS: Chat[] = [MY_CHATS[0]!, MY_CHATS[1]!, { title: 'Abgleich Statik, Planstand Oktober', project: 'p-1', shared: true }, MY_CHATS[2]!, MY_CHATS[3]!]
+
+function VariantD({ me }: { me: boolean }): JSX.Element {
+  return (
+    <>
+      <SidebarHeader className="shrink-0 gap-0 p-0 px-3">
+        <SidebarBrand iconRail={false} />
+        <div className="mt-1 flex items-center">
+          <ProjectSwitcher projects={[ME, ...PROJECTS]} activeProjectId={me ? 'me' : 'p-1'} />
+        </div>
+      </SidebarHeader>
+      <SidebarContent className="mt-3 flex-1 gap-0 overflow-y-auto px-3 py-px">
+        <SidebarMenu className="gap-0.5">
+          <NavRow icon={Folder} label="Dateien" />
+          {me ? <NavRow icon={BookMarked} label="Gedächtnis" /> : <NavRow icon={LayoutGrid} label="Übersicht" />}
+          {me ? <NavRow icon={Zap} label="Abläufe" /> : <NavRow icon={Zap} label="Automatisierung" />}
+        </SidebarMenu>
+        <a href="#" className="bg-primary text-primary-foreground mt-6 flex h-9 shrink-0 items-center justify-center gap-2 rounded-control text-sm font-medium">
+          <Plus className="size-4" aria-hidden />
+          Neuer Chat
+        </a>
+        <div className="flex items-end justify-between">
+          <GroupLabel>Chats</GroupLabel>
+          {!me && (
+            <div className="bg-selected text-meta mb-1 flex rounded-control p-0.5 font-medium">
+              <span className="bg-sheet shadow-xs rounded-[4px] px-2 py-0.5">Alle</span>
+              <span className="text-muted-foreground px-2 py-0.5">Dieses Projekt</span>
+            </div>
+          )}
+        </div>
+        <ul className="flex flex-col gap-0.5">
+          {ALL_CHATS.map((chat, index) => (
+            <ChatRow key={chat.title} chat={chat} current={index === (me ? 0 : 1)} showProject indent={false} />
+          ))}
+          <MoreRow label="Alle Chats" indent={false} />
+        </ul>
+      </SidebarContent>
+    </>
+  )
+}
+
 function Foot(): JSX.Element {
   return (
     <SidebarFooter className="shrink-0 gap-0 p-0 px-3 pb-3 pt-4">
@@ -323,7 +368,7 @@ export default function PersonalAreaRailPreview(): JSX.Element {
     <div className="bg-background text-foreground flex h-dvh overflow-hidden">
       <SidebarProvider className="h-full min-h-0 w-auto shrink-0">
         <Sidebar collapsible="icon" data-scope="project" aria-label="Navigation">
-          {variant === 'c' ? <VariantC me={me} /> : variant === 'b' ? <VariantB me={me} /> : <VariantA me={me} />}
+          {variant === 'd' ? <VariantD me={me} /> : variant === 'c' ? <VariantC me={me} /> : variant === 'b' ? <VariantB me={me} /> : <VariantA me={me} />}
           <Foot />
           <SidebarRail aria-label="Breite ändern" />
         </Sidebar>
