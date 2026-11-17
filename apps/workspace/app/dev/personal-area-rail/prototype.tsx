@@ -453,12 +453,10 @@ export function NewChatButton(): JSX.Element {
 
 function TemporaryToggle({ on }: { on: boolean }): JSX.Element {
   return (
-    <div className={cn(PILL, 'shrink-0')}>
-      <span title="Temporärer Chat" className={cn('flex h-7 items-center gap-1.5 rounded-control px-2 text-xs font-medium', on && 'bg-foreground text-background')}>
-        <HatGlasses className="size-4" aria-label="Temporärer Chat" />
-        {on && 'Temporär'}
-      </span>
-    </div>
+    <span title="Temporärer Chat" className={cn('flex h-8 shrink-0 items-center gap-1.5 rounded-control px-2 text-xs font-medium', on ? 'bg-foreground text-background' : 'text-muted-foreground')}>
+      <HatGlasses className="size-[18px]" aria-label="Temporärer Chat" />
+      {on && 'Temporär'}
+    </span>
   )
 }
 
