@@ -1,11 +1,10 @@
 """The process's one MeterProvider: OTLP metrics to the collector, which forwards them to PostHog Metrics.
 
-Every ``grid.*`` instrument (``grid.queue.*``, ``grid.provider.*``,
-``grid.boot.*``) measures through the OpenTelemetry API and records into
-whatever global provider exists. ``install`` sets it once per process and
-nothing here ever stops it: the research worker builds a workflow per job,
-OpenTelemetry sets the global provider once, and a provider stopped with the
-first workflow left every later job recording into a dead one
+Every ``grid.*`` instrument (``grid.provider.*``, ``grid.boot.*``) measures
+through the OpenTelemetry API into whatever global provider exists. ``install``
+sets it once per process and nothing here ever stops it: the research worker
+builds a workflow per job, OpenTelemetry sets the global provider once, and a
+provider stopped with the first workflow left every later job recording into a dead one
 (``docs/contributing/gotchas.md``, "Overriding of current MeterProvider is not
 allowed"). The SDK flushes it at interpreter exit through its own ``atexit``
 hook.

@@ -334,7 +334,7 @@ release that put it there has run there:
 - [ ] **Function wrappers.** 0190 keeps each `grid_` function's old name as a
   wrapper (#1342). The next release drops every function whose comment starts
   `Old name, kept for one release by migration 0190`.
-- [ ] **Browser keys.** `storage-rename-boot.ts` and the `grid-locale` cookie
+- [x] **Browser keys.** `storage-rename-boot.ts` and the `grid-locale` cookie
   read (#1358) are deleted the release after.
 - [ ] **Role-name fallback.** The deploy renames the row-level-security roles
   after the migrations (`rename-legacy-names.sh after-migrate`), because the

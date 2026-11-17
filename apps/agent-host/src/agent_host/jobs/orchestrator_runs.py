@@ -1,10 +1,10 @@
 """Which Hatchet run a research job is, and how many of an organization's jobs wait (ADR-0150).
 
-Two things the old ``research_job_queue`` row answered live here now:
+Two things about a research job that Hatchet does not answer for us:
 
 * The Hatchet run id, which the cancel route needs to cancel the run. It lives
   in ``research_orchestrator_runs`` (job id, run id), a table of this tier's own
-  created on first use like the queue's, because neither ``job_info`` (the agent
+  created on first use, because neither ``job_info`` (the agent
   runtime's) nor ``job_access`` has a column for it. A row is written at submit
   and deleted once the run is terminal.
 * How many of an organization's jobs are waiting, for the

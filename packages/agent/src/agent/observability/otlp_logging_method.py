@@ -55,10 +55,9 @@ class OtlpLoggingMethodConfig(LoggingBaseConfig, name="otelcollector_logs"):
     """Ships runtime logs to the OTLP collector (ADR-0029), which forwards WARN and above to PostHog Logs.
 
     It is also the seam that installs the process's ``MeterProvider``
-    (``otlp_metrics``): every agent-runtime process passes it, and the ``grid.queue.*``,
-    ``grid.provider.*`` and ``grid.boot.*`` instruments then reach the
-    collector, which forwards them to PostHog Metrics. The provider outlives
-    this workflow on purpose; see ``otlp_metrics``.
+    (``otlp_metrics``): every agent-runtime process passes it, and the ``grid.*``
+    instruments reach the collector, which forwards them to PostHog Metrics.
+    The provider outlives this workflow on purpose; see ``otlp_metrics``.
 
     `endpoint` is Optional because `${OTEL_EXPORTER_OTLP_ENDPOINT:-}`
     interpolates to None (not "") when the observability tier is not deployed.

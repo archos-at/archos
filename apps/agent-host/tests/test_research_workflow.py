@@ -17,7 +17,6 @@ from agent.common.task_failures import TransientTaskError
 from agent_host.jobs import access as job_access
 from agent_host.jobs import orchestrator_runs
 from agent_host.jobs import payload_crypto
-from agent_host.jobs import requeue_legacy
 from agent_host.jobs import research_workflow
 from agent_host.jobs import submit
 from agent_host.jobs import worker as worker_mod
@@ -285,13 +284,9 @@ async def test_the_envelope_is_renewed_at_task_start_by_the_run_path():
     assert "run_agent_job(" in inspect.getsource(worker_mod.run_stored_job)
 
 
-async def _no_cutover(*_args) -> None: ...
-
-
 async def test_the_worker_lifespan_keeps_the_liveness_file_fresh(tmp_path, monkeypatch):
     marker = tmp_path / "alive"
     monkeypatch.setenv("WORKER_LIVENESS_FILE", str(marker))
-    monkeypatch.setattr(requeue_legacy, "cutover_loop", _no_cutover)
 
     lifespan = research_workflow._liveness()
     await lifespan.__anext__()

@@ -73,7 +73,7 @@ The hash and version are written only after the file's job reached `FileStatus.S
 
 ## Who runs ingestion
 
-**The ingest workers do.** A file that needs ingestion becomes exactly one ingest job, an `ingest-document` run on Hatchet (ADR-0150, [`hatchet.md`](../deployment/hatchet.md)) with no organisation and `bulk` priority. The rest of this paragraph describes the claim queue it replaced, `ingest_job_queue`, kept until the cutover drains it: one job on that table, the queue `POST /v1/ingest` uses (`agent.knowledge.ingest_queue`), in the platform lane (no organisation) at `bulk` priority. It is claimed by the ingest-worker tier, and by nothing else: the `chat` and `api` roles only enqueue (ADR-0082 step B). Kubernetes runs it as the `ingest-worker` Deployment and both Compose files as the `ingest-worker` service, with the queue's heartbeat, stale-claim reclaim, attempt limit, dead rows and drain behaviour. The queue is on whenever `SUMMARY_DB` is set, which the corpus needs anyway.
+**The ingest workers do.** A file that needs ingestion becomes exactly one ingest job, an `ingest-document` run on Hatchet (ADR-0150, [`hatchet.md`](../deployment/hatchet.md)) with no organisation and `bulk` priority. It runs on the ingest-worker tier, and on nothing else: the `chat` and `api` roles only dispatch (ADR-0082 step B). Kubernetes runs it as the `ingest-worker` Deployment and both Compose files as the `ingest-worker` service.
 
 **There is no in-process path.** `oib_sync` never calls `upload_file`, `submit_job` or `run_prepared`, and has no thread pool (a test greps for it). If the queue is off or cannot take the job (no database, a write error), `ingest_dispatch.enqueue_only` (the API tier's own enqueue, which its routes hand to `oib_sync` as `enqueue`, so the agent tier never imports the API tier) raises `QueueUnavailable`: the upload route answers 500, the sync cycle fails loudly, and the next cycle queues the file once the queue is back.
 
@@ -81,7 +81,7 @@ The hash and version are written only after the file's job reached `FileStatus.S
 
 | Piece | Value |
 |-------|-------|
-| Job id | `oib-` plus the first 32 hex characters of `sha256(name \0 sha256 \0 CHUNK_FORMAT_VERSION)` (`oib_sync.job_id_for`). The queue's primary key is what keeps one job per (name, bytes, pipeline version): `ClaimQueue.enqueue` is `INSERT ... ON CONFLICT (job_id) DO NOTHING` and returns whether it stored the row |
+| Job id | `oib-` plus the first 32 hex characters of `sha256(name \0 sha256 \0 CHUNK_FORMAT_VERSION)` (`oib_sync.job_id_for`). The job id is what keeps one job per (name, bytes, pipeline version): `ingest_workflow.trigger` starts no second run while one for the id is live |
 | File | `corpus_store.CorpusObjectDownload(storage_key, sha256)`: a deferred download in the job payload. The worker downloads the object with its own read-only S3 credential, into a temp file, and checks the hash (a mismatch fails the job). No presigned URL goes into the payload, so a job that waits in the queue longer than a URL would live is not a problem. The key must start with `base-corpus/`; a payload naming anything else is refused when it is decoded |
 | Config | `cleanup_files`, `original_filenames=[name]`, `priority=bulk`, and `doc_class` when an admin chose one |
 | What the ingestor does with it | The same as for any file: summary, the Dokumentart (the admin's choice, else the one a person set on the replaced version, else the file-name guess), the display title seeded from the file name, and the replacement of the previous version's chunks |
@@ -111,7 +111,7 @@ sync()
   returns {enqueued, ingested_recorded, failed, total}
 ```
 
-Run twice, the second cycle queues nothing: the job exists, waiting or running. A job that dies (every claim lost, so the queue row is `dead`) or that ran and failed shows as `failed`; the cycle counts it in `failed`, records the job id in `failed_job_id` (the status row is pruned after an hour and a ran-and-failed job leaves no dead queue row, so the table is the memory), and does not queue the file again until the bytes change (a new job id) or an admin re-indexes it.
+Run twice, the second cycle queues nothing: the job exists, waiting or running. A job whose Hatchet run failed shows as `failed`; the cycle counts it in `failed`, records the job id in `failed_job_id` (the status row is pruned after an hour, so the table is the memory), and does not queue the file again until the bytes change (a new job id) or an admin re-indexes it.
 
 ---
 
@@ -216,10 +216,10 @@ packages/agent/src/agent/oib_sync.py ──────────► packages/
        │   │                              │ writes: BFF presigned URLs / delete
        │   │                              │ reads:  agent.common.seaweed_s3
        │   │                              └ cache:  BASE_CORPUS_CACHE_DIR
-       │   └── enqueue (handed in by the route) ─► agent_host.jobs.ingest_dispatch.enqueue_only ─► ingest_job_queue
-       │                                                          │ claimed by
+       │   └── enqueue (handed in by the route) ─► agent_host.jobs.ingest_dispatch.enqueue_only ─► Hatchet ingest run
+       │                                                          │ run by
        │                                                          ▼
-       │                                         ingest workers (QueueSource) ─► CorpusObjectDownload
+       │                                         ingest workers ─► CorpusObjectDownload
        ├── knowledge_layer.ingest.adapter   (prepare_job; the worker runs the job)
        ├── agent.knowledge.ingest_status_store (job outcomes, read by settle)
        ├── agent.knowledge.leader_lock

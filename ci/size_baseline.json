@@ -73,7 +73,6 @@
     "packages/agent/src/agent/cards/catalog.py": 702,
     "packages/agent/src/agent/cards/surface_documents.py": 651,
     "packages/agent/src/agent/common/answer_envelope.py": 888,
-    "packages/agent/src/agent/common/claim_queue.py": 625,
     "packages/agent/src/agent/common/content_screen.py": 647,
     "packages/agent/src/agent/common/cost_tracking.py": 623,
     "packages/agent/src/agent/common/norm_registry.py": 666,

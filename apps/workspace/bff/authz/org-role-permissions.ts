@@ -1,7 +1,6 @@
 import 'server-only'
 import { getCached } from '@/lib/cache'
 import { getWorkOS } from '@/lib/workos/client'
-import { acceptedPermissionSlugs } from './permissions'
 
 export const ROLE_CACHE_TTL_MS = 60 * 1000
 
@@ -28,6 +27,5 @@ export async function rolesHoldPermission(
   roles: readonly string[],
   permission: string
 ): Promise<boolean> {
-  const held = await rolePermissions(organizationId, roles)
-  return acceptedPermissionSlugs(permission).some((slug) => held.has(slug))
+  return (await rolePermissions(organizationId, roles)).has(permission)
 }

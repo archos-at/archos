@@ -539,7 +539,7 @@ describe('moveDocumentToFolder on the Archiv shelf', () => {
     expect(mirrorBody()).toEqual({ folder_path: 'Normen/Brandschutz' })
   })
 
-  it('takes org:archiv:manage, not a project permission', async () => {
+  it('takes org:office_shelf:manage, not a project permission', async () => {
     vi.mocked(canManageOfficeShelf).mockReturnValueOnce(false)
     db.selects = [[OFFICE_SHELF_DOCUMENT]]
 
