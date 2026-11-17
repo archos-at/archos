@@ -1,4 +1,5 @@
 import 'server-only'
+import { hitDocumentId } from '@/lib/documents/legacy-search-hit'
 import { BadRequestError, UnprocessableError, UpstreamError } from '@/lib/api/errors'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { documentReadFamily } from '@/lib/documents/document-status'
@@ -266,17 +267,22 @@ async function searchDocuments(
   const structured: DocumentQuery = { ...documents, text: null }
   const content = text && text.length >= CONTENT_MIN_CHARS ? await rankedContent(reach, structured, text) : NO_CONTENT
   const found = content.hits ?? []
-  const passagesById = new Map(found.flatMap((hit) => (hit.grid_document_id ? [[hit.grid_document_id, hit] as const] : [])))
+  const passagesById = new Map(
+    found.flatMap((hit) => {
+      const id = hitDocumentId(hit)
+      return id ? [[id, hit] as const] : []
+    })
+  )
   const passagesByKey = new Map(
-    found.flatMap((hit) => (hit.grid_document_id ? [] : [[contentKey(hit.collection, hit.file_name), hit] as const]))
+    found.flatMap((hit) => (hitDocumentId(hit) ? [] : [[contentKey(hit.collection, hit.file_name), hit] as const]))
   )
   const query: DocumentQuery = {
     ...structured,
     text: text
       ? {
           text,
-          contentKeys: found.map((hit) => (hit.grid_document_id ? '' : contentKey(hit.collection, hit.file_name))),
-          contentIds: found.map((hit) => hit.grid_document_id ?? ''),
+          contentKeys: found.map((hit) => (hitDocumentId(hit) ? '' : contentKey(hit.collection, hit.file_name))),
+          contentIds: found.map((hit) => hitDocumentId(hit) ?? ''),
         }
       : null,
   }

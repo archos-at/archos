@@ -208,9 +208,12 @@ describe('runSearch', () => {
     expect(answer.sections.document?.hits[0].matchedOn).toEqual(['meaning'])
   })
 
-  it('joins a hit that names its document by id, whatever the file is called now', async () => {
+  it.each([
+    ['its id', { document_id: 'd1' }],
+    ['its id under the old name, from a backend one release old', { grid_document_id: 'd1' }],
+  ])('joins a hit that names its document by %s, whatever the file is called now', async (_label, id) => {
     vi.mocked(fetchGroupedSemanticHits).mockResolvedValue([
-      { file_name: 'old-name.pdf', collection: 'proj_a', snippet: 'Auflage 3', page_number: 2, score: 0.7, rank: 0, grid_document_id: 'd1' },
+      { file_name: 'old-name.pdf', collection: 'proj_a', snippet: 'Auflage 3', page_number: 2, score: 0.7, rank: 0, ...id },
     ])
 
     const answer = await runSearch(session, {}, { text: 'Auflage', kinds: ['document'] })
@@ -221,7 +224,7 @@ describe('runSearch', () => {
 
   it('never hands a passage to another document, nor a person\'s passage to a machine-written row of the same name', async () => {
     vi.mocked(fetchGroupedSemanticHits).mockResolvedValue([
-      { file_name: 'bsk.pdf', collection: 'proj_a', snippet: 'of R', page_number: 3, score: 0.9, rank: 0, grid_document_id: 'other' },
+      { file_name: 'bsk.pdf', collection: 'proj_a', snippet: 'of R', page_number: 3, score: 0.9, rank: 0, document_id: 'other' },
       { file_name: 'bericht.pdf', collection: 'proj_a', snippet: 'of a person', page_number: 1, score: 0.8, rank: 1 },
     ])
     repository.searchDocumentPage.mockResolvedValue({

@@ -61,6 +61,7 @@ from knowledge_layer.env import env_switch
 from knowledge_layer.ingest.listing import LISTING_FIELDS
 from knowledge_layer.ingest.listing import files_from_payloads
 from knowledge_layer.ingest.listing import from_epoch
+from knowledge_layer.ingest.purge import ChunkPurgeMixin
 
 from agent.common.connect_retry import connect_retrying_client
 from agent.knowledge import ingest_status_store
@@ -1855,7 +1856,7 @@ def _log_ingest_perf(file_name: str, stages: dict[str, float]) -> None:
 
 
 @register_ingestor("llamaindex")
-class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
+class LlamaIndexIngestor(TTLCleanupMixin, ChunkPurgeMixin, BaseIngestor):
     """
     LlamaIndex-based document ingestor with optional multimodal extraction.
 
@@ -2770,29 +2771,8 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
         """
         file_name = self._file_name_of(file_id, collection_name)
         forgotten = ingest_status_store.forget_file(collection_name, file_name)
-
-        spellings = [
-            stored
-            for stored in self._store().file_counts(collection_name)
-            if stored == file_name or _stored_name_matches(file_name, stored)
-        ]
-        chunk_ids = [chunk_id for chunk_id, _ in self._chunk_ids_of(collection_name, spellings)]
-
-        from agent.knowledge import unregister_summary
-
-        if not chunk_ids:
-            if forgotten:
-                logger.info(f"Removed {forgotten} job record(s) of file {file_name}")
-            else:
-                logger.warning(f"No chunks found for file_name={file_name}; clearing its summary")
-            unregister_summary(collection_name, file_name, permanent=permanent)
-            return forgotten > 0
-
-        self._store().delete_chunks(collection_name, chunk_ids)
-        bump_collection_version(collection_name)
-        logger.info(f"Deleted {len(chunk_ids)} chunks for file {file_name}")
-        unregister_summary(collection_name, file_name, permanent=permanent)
-        return True
+        chunks = self._chunk_ids_of(collection_name, self._spellings_in(collection_name, file_name))
+        return self._purge(collection_name, [file_name], chunks, forgotten, permanent=permanent)
 
     def _indexed_files(self, collection_name: str) -> dict[str, FileInfo]:
         """``file_name -> FileInfo`` for each file the collection holds chunks of: the store says what is indexed."""

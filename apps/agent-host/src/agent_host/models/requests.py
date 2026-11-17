@@ -40,20 +40,6 @@ class CreateCollectionRequest(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict, description="Backend-specific metadata")
 
 
-class DeleteFilesRequest(BaseModel):
-    """Request body for batch file deletion."""
-
-    file_ids: list[str] = Field(..., description="List of file IDs to delete")
-    permanent: bool = Field(
-        False,
-        description=(
-            "True when nobody will undo this delete (an erase, a move to another collection): the Fassung facts "
-            "a person made on the files go with them. False (the default) keeps those facts for the files' "
-            "return after an archive, the folder bin or a publish."
-        ),
-    )
-
-
 class ScreeningPolicy(BaseModel):
     """What an ingest job screens the document's locally extracted text for, before any model sees it.
 
@@ -377,7 +363,7 @@ class GroupedSearchFilters(BaseModel):
     ``disciplines`` both read the document's tags (one closed vocabulary,
     ``tag-vocabulary.ts``), as two separate any-of conditions.
     ``document_ids``, ``reading_types`` and ``refers_to`` read what ingestion
-    put on every chunk (``grid_document_id`` and the dossier's
+    put on every chunk (``document_id`` and the dossier's
     ``document_type`` and ``references``), so the BFF's search core can narrow
     the content query to its own candidates for recall (ADR-0136, item 5).
     """
@@ -393,13 +379,13 @@ class GroupedSearchFilters(BaseModel):
     document_ids: list[_DocumentId] = Field(
         default_factory=list,
         max_length=1000,
-        description="Only passages of these documents (the BFF's document ids, `grid_document_id` on the chunks).",
+        description="Only passages of these documents (the BFF's document ids, `document_id` on the chunks).",
     )
     file_names: list[_FileName] = Field(
         default_factory=list,
         max_length=1000,
         description=(
-            "The same documents' file names, for the passages that carry no `grid_document_id` (written before "
+            "The same documents' file names, for the passages that carry no `document_id` (written before "
             "the field existed, or copied from Chroma): any of `document_ids` or of these. Only with `document_ids`."
         ),
     )

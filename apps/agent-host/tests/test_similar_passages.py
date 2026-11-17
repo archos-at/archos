@@ -102,7 +102,15 @@ def stack(monkeypatch):
     store_module.reset_store()
 
 
-def _put(store, scope: str, file_name: str, *passages: tuple[float, int], text: str = "", **metadata) -> list[str]:
+def _put(
+    store,
+    scope: str,
+    file_name: str,
+    *passages: tuple[float, int],
+    text: str = "",
+    document_id: str | None = None,
+    **metadata,
+) -> list[str]:
     from knowledge_layer.vector_store import ChunkRecord
 
     ids = [str(uuid.uuid4()) for _ in passages]
@@ -117,6 +125,7 @@ def _put(store, scope: str, file_name: str, *passages: tuple[float, int], text: 
             )
             for chunk_id, (cosine, page) in zip(ids, passages, strict=True)
         ],
+        {"document_id": document_id} if document_id else None,
     )
     return ids
 
@@ -241,7 +250,7 @@ async def test_a_superseded_revision_and_another_copy_of_the_source_document_sta
     app, store, _ = stack
     ids = _seed(store)
     _put(store, "proj_a", "Brandschutzkonzept-alt.pdf", (0.99, 4), superseded=True)
-    _put(store, "proj_a", "Brandschutzkonzept (1).pdf", (0.99, 4), grid_document_id="doc-source")
+    _put(store, "proj_a", "Brandschutzkonzept (1).pdf", (0.99, 4), document_id="doc-source")
 
     async with _client(app) as client:
         res = await client.post(

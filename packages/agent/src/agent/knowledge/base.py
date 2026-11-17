@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from datetime import UTC
 from datetime import datetime
 from datetime import timedelta
+from functools import partial
 from typing import Any
 
 from .schema import Chunk
@@ -601,6 +602,27 @@ class BaseIngestor(ABC):
             True if deleted successfully, False otherwise.
         """
 
+    def delete_document(
+        self, document_id: str, file_name: str, collection_name: str, *, permanent: bool = False
+    ) -> bool:
+        """By ``document_id``; a backend whose chunks carry no id deletes by ``file_name``."""
+        return self.delete_file(file_name, collection_name, permanent=permanent)
+
+    def delete_documents(
+        self,
+        documents: list[tuple[str, str]],
+        collection_name: str,
+        *,
+        permanent: bool = False,
+    ) -> dict[str, Any]:
+        """Each ``(document_id, file_name)`` by :meth:`delete_document`, reported by name as :meth:`delete_files`."""
+        return _delete_each(
+            [
+                (name, partial(self.delete_document, document_id, name, collection_name, permanent=permanent))
+                for document_id, name in documents
+            ]
+        )
+
     def delete_files(
         self,
         file_ids: list[str],
@@ -609,34 +631,17 @@ class BaseIngestor(ABC):
         permanent: bool = False,
     ) -> dict[str, Any]:
         """
-        Delete multiple files from a collection (batch delete).
-
-        Args:
-            file_ids: List of file IDs to delete.
-            collection_name: Collection containing the files.
-            permanent: Passed to :meth:`delete_file` for each file.
+        Delete multiple files from a collection (batch delete), each by :meth:`delete_file` with ``permanent``.
 
         Returns: 'successful', 'not_found' (nothing was there), 'failed' (raised:
         points may remain) and 'total_deleted'.
         """
-        successful, not_found, failed = [], [], []
-
-        for file_id in file_ids:
-            try:
-                if self.delete_file(file_id, collection_name, permanent=permanent):
-                    successful.append(file_id)
-                else:
-                    not_found.append(file_id)
-            except Exception as e:
-                failed.append({"file_id": file_id, "error": str(e)})
-
-        return {
-            "message": f"Deleted {len(successful)} of {len(file_ids)} files",
-            "successful": successful,
-            "not_found": not_found,
-            "failed": failed,
-            "total_deleted": len(successful),
-        }
+        return _delete_each(
+            [
+                (file_id, partial(self.delete_file, file_id, collection_name, permanent=permanent))
+                for file_id in file_ids
+            ]
+        )
 
     @abstractmethod
     def list_files(self, collection_name: str) -> list[FileInfo]:
@@ -718,3 +723,19 @@ class BaseIngestor(ABC):
             True if healthy, False otherwise.
         """
         return True  # NOSONAR
+
+
+def _delete_each(attempts: list[tuple[str, Callable[[], bool]]]) -> dict[str, Any]:
+    successful, not_found, failed = [], [], []
+    for name, delete in attempts:
+        try:
+            (successful if delete() else not_found).append(name)
+        except Exception as e:
+            failed.append({"file_id": name, "error": str(e)})
+    return {
+        "message": f"Deleted {len(successful)} of {len(attempts)} files",
+        "successful": successful,
+        "not_found": not_found,
+        "failed": failed,
+        "total_deleted": len(successful),
+    }

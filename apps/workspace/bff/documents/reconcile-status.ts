@@ -20,7 +20,7 @@ import {
 } from '@/lib/upload-screening/quarantine'
 import type { DocumentScreeningOutcome } from '@/lib/db/schema/documents'
 import type { DocumentAuthor } from '@/lib/db/schema/documents'
-import { collectionFileRef, type CollectionFileRef } from './collection-file-ref'
+import { collectionFileRef, type AuthoredDocumentRow, type CollectionFileRef } from './collection-file-ref'
 import { IN_FLIGHT_DOCUMENT_STATUSES } from './document-status'
 import { parseRevisionLinkNames, type RevisionLinkNames, type RawRevisionLinkFields } from './revision-links'
 import { parsePhotoCapture, type PhotoCapture } from './photo-capture'
@@ -360,13 +360,9 @@ export type BackendIngestKnowledge =
   | { state: 'absent' }
   | { state: 'unreachable' }
 
-export async function describeBackendIngestState(row: {
-  metadata?: unknown
-  collectionName: string
-  filename: string
-  authoredBy: DocumentAuthor
-  publishedVersionId: string | null
-}): Promise<BackendIngestKnowledge> {
+export async function describeBackendIngestState(
+  row: AuthoredDocumentRow & { metadata?: unknown },
+): Promise<BackendIngestKnowledge> {
   const jobId = extractIngestJobId(row.metadata)
   if (jobId) {
     const statuses = await fetchJobStatuses([jobId])

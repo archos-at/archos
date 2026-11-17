@@ -53,7 +53,7 @@ from agent.knowledge.schema import AvailableDocument
 from agent.knowledge.schema import FileInfo
 from agent.observability.direct_trace import observed_generation
 
-from ..models.requests import DeleteFilesRequest
+from ..models.delete_requests import DeleteFilesRequest
 from ..models.requests import UploadResponse
 from .collections import _require_ingestor
 from .collections import require_collection
@@ -736,7 +736,7 @@ async def delete_files(
     """
     await require_collection(ingestor, collection_name)
 
-    if not request.file_ids:
+    if not request.file_ids and not request.documents:
         return {
             "message": "No file IDs provided",
             "successful": [],
@@ -745,9 +745,17 @@ async def delete_files(
         }
 
     try:
-        result = await asyncio.to_thread(
-            ingestor.delete_files, request.file_ids, collection_name, permanent=request.permanent
-        )
+        if request.documents:
+            result = await asyncio.to_thread(
+                ingestor.delete_documents,
+                [(document.id, document.file_name) for document in request.documents],
+                collection_name,
+                permanent=request.permanent,
+            )
+        else:
+            result = await asyncio.to_thread(
+                ingestor.delete_files, request.file_ids, collection_name, permanent=request.permanent
+            )
         total_deleted = result.get("total_deleted", 0)
         failed = result.get("failed", [])
 

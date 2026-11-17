@@ -14,7 +14,7 @@ from fastapi import APIRouter
 from fastapi import Depends
 from fastapi import HTTPException
 from fastapi import Request
-from knowledge_layer.vector_store import LEGACY_DOCUMENT_ID_FIELD
+from knowledge_layer.vector_store import DOCUMENT_ID_FIELD
 
 from agent.knowledge.base import FUSED_SCORE_KEY
 from agent.knowledge.base import LEXICAL_MATCH_KEY
@@ -195,7 +195,7 @@ def _lexical(chunks: list[Chunk]) -> bool | None:
 
 def _document_id(chunk: Chunk) -> str | None:
     """The document's BFF id from the chunk's metadata, when the store put it there."""
-    value = chunk.metadata.get(LEGACY_DOCUMENT_ID_FIELD)
+    value = chunk.metadata.get(DOCUMENT_ID_FIELD)
     return value if isinstance(value, str) and value else None
 
 
@@ -233,6 +233,7 @@ def _ranked_group_hits(
                 snippet=_snippet(chunk.content, snippet_max_chars),
                 page_number=chunk.page_number,
                 collection=collection,
+                document_id=_document_id(chunk),
                 grid_document_id=_document_id(chunk),
                 lexical=_lexical(by_file[chunk.file_name]),
             )
@@ -283,7 +284,7 @@ def _reading_clauses(filters: GroupedSearchFilters) -> list[dict[str, Any]]:
 
     parts: list[dict[str, Any]] = []
     if filters.document_ids:
-        by_id: dict[str, Any] = {LEGACY_DOCUMENT_ID_FIELD: {"$in": list(dict.fromkeys(filters.document_ids))}}
+        by_id: dict[str, Any] = {DOCUMENT_ID_FIELD: {"$in": list(dict.fromkeys(filters.document_ids))}}
         parts.append(
             {"$or": [by_id, {"file_name": {"$in": list(dict.fromkeys(filters.file_names))}}]}
             if filters.file_names
@@ -383,7 +384,7 @@ def _trace_picks(grouped: list[tuple[str, list[Chunk]]], hits: list[DocumentSear
     return {
         "candidates": sum(len(chunks) for _, chunks in grouped),
         "documents": len(hits),
-        "with_document_id": sum(1 for hit in hits if hit.grid_document_id),
+        "with_document_id": sum(1 for hit in hits if hit.document_id),
         "collections_with_hits": len(per_collection),
         "hits_per_collection": dict(ranked[:TRACE_COLLECTION_LIMIT]),
     }
