@@ -48,7 +48,7 @@ would see one organization.
   ```
 
 - **Switch:** every write-side `LEGACY_AGENT_KIND` becomes `AGENT_KIND`
-  (`bff/annotations/service.ts`, `agent-work.ts`, `wake-job.ts`, `wake-audit.ts`,
+  (`bff/annotations/service.ts`, `bff/annotations/annotation-access.ts`, `agent-work.ts`, `wake-job.ts`, `wake-audit.ts`,
   `bff/proposals/service.ts`, `bff/realtime/document-channel.ts`,
   `bff/agent-api/principal.ts`). Python writes no actor kind.
 - **Contract:** a migration drops `'piloti'` from the three checks. Delete the legacy modules.
