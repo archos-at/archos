@@ -362,7 +362,7 @@ scheduled task definitions, feedback, the folder bin, budgets.
 | A review reply stays in `editing` when the agent takes the thread up, and the draft is lost | `ui/features/documents/components/review/thread-card.tsx` | scout, mechanism traced |
 | An activity card's row derives "undone" from five sources; its undo reads then writes with no version | `ui/features/cards/components/CanvasActivityCard.tsx` | scout, race suspected |
 | The intake wizard's save awaits deferred uploads with no bound, and decides a conflict by comparing translated text | the intake wizard controller | scout |
-| The IFC viewer destroys its renderer twice on a cancel mid-load, and its two-point measurement is written twice | `use-ifc-viewer-canvas-controller.tsx` | scout |
+| The IFC viewer destroys its renderer twice on a cancel mid-load, and its two-point measurement is written twice | `features/bim/hooks/use-ifc-model-load.ts`, `features/bim/hooks/use-ifc-viewer-input.ts` | scout |
 | The members form loads a roster with no request guard across projects | `ui/components/projects/project-members-form.tsx` | scout, suspected |
 
 The hand-written loading, error and retry state is wider than the dozen this
