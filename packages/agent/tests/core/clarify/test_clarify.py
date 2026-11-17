@@ -1,5 +1,3 @@
-"""Tests for the clarification step."""
-
 import asyncio
 import json
 from unittest.mock import AsyncMock
@@ -36,17 +34,10 @@ from tests.conftest import stream_custom
 
 @tool
 def web_search_tool(query: str) -> str:
-    """Search the web for information."""
     return f"Results for: {query}"
 
 
 def make_llm(*replies: str) -> MagicMock:
-    """A chat-model double that answers ``replies`` in order.
-
-    ``bind_tools`` and ``bind`` return the model itself, the way a real
-    integration returns a runnable that still serves ``ainvoke`` — the step
-    binds one or the other on every model it resolves.
-    """
     llm = MagicMock()
     llm.bind_tools = MagicMock(return_value=llm)
     llm.bind = MagicMock(return_value=llm)
@@ -67,7 +58,6 @@ def make_provider(llm: MagicMock) -> MagicMock:
 
 
 def deps_for(llm: MagicMock, *, ask=None, tools=(), planner=None, **settings) -> ClarifyDeps:
-    """The resolved dependencies one run reads, built the way boot builds them."""
     return build_deps(
         make_provider(llm),
         list(tools),
@@ -78,7 +68,6 @@ def deps_for(llm: MagicMock, *, ask=None, tools=(), planner=None, **settings) ->
 
 
 def clarification(question: str | None = None, options: list[str] | None = None) -> str:
-    """The JSON envelope the clarifier LLM is expected to return."""
     if question is None:
         return ClarificationResponse.complete().model_dump_json()
     return ClarificationResponse(
@@ -93,10 +82,7 @@ def request_for(text: str = "Research AI") -> ClarifyRequest:
 
 
 class TestBuildDeps:
-    """What one run resolves, and which model gets which binding."""
-
     def test_the_clarifier_role_is_what_the_provider_is_asked_for(self):
-        """The `clarifier` agent group survives the collapse; this is where it is read."""
         provider = make_provider(make_llm())
 
         build_deps(provider, [], None, ClarifierSettings(llm="l"), AsyncMock())
@@ -104,7 +90,6 @@ class TestBuildDeps:
         provider.get.assert_called_with(LLMRole.CLARIFIER)
 
     def test_a_tool_free_clarifier_gets_the_schema_natively(self):
-        """No tools: the model is bound to strict json_schema output."""
         llm = make_llm()
 
         deps_for(llm)
@@ -115,7 +100,6 @@ class TestBuildDeps:
         assert "ClarificationResponse" in [fmt["json_schema"]["name"] for fmt in bound]
 
     def test_a_tool_bound_clarifier_is_not_also_schema_bound(self):
-        """Binding both is how OpenRouter silently drops the tool calls."""
         llm = make_llm()
 
         deps_for(llm, tools=[web_search_tool])
@@ -125,7 +109,6 @@ class TestBuildDeps:
             assert call.kwargs["response_format"]["json_schema"]["name"] == "PlanResponse"
 
     def test_the_planner_always_gets_the_schema(self):
-        """Plan generation is tool-free, so it is always strict."""
         planner = make_llm()
 
         deps_for(make_llm(), planner=planner)
@@ -138,21 +121,17 @@ class TestBuildDeps:
         assert (deps.max_turns, deps.enable_plan_approval, deps.max_plan_iterations) == (5, True, 2)
 
     def test_the_tools_are_addressable_by_name(self):
-        """A tool call names a tool; the step looks it up rather than scanning."""
         assert set(deps_for(make_llm(), tools=[web_search_tool]).tools) == {"web_search_tool"}
         assert deps_for(make_llm(), tools=[]).tools == {}
 
 
 class TestPrompts:
-    """The prompts are module constants, read once at import."""
-
     def test_prompts_are_loaded(self):
         assert "research clarification assistant" in CLARIFICATION_PROMPT
         assert "research planning assistant" in PLAN_GENERATION_PROMPT
         assert "Einreichplan" not in PLAN_GENERATION_PROMPT
 
     def test_the_turn_limit_is_single_sourced(self):
-        """The prompt used to hard-code TWO while the config said three."""
         assert "{{ max_turns }}" in CLARIFICATION_PROMPT
         assert "TWO clarification questions" not in CLARIFICATION_PROMPT
 
@@ -170,40 +149,26 @@ class TestPrompts:
         assert "Never ask more than 3 clarification questions total" in rendered
 
     def test_clarification_prompt_localizes_question_text(self):
-        """Clarification prompt tells the model to write questions in the user's language."""
         assert "**Language**" in CLARIFICATION_PROMPT
         assert "same language as the user's most recent message" in CLARIFICATION_PROMPT.lower()
         assert "byte-stable" in CLARIFICATION_PROMPT
         assert "SKIP_COMMANDS" in CLARIFICATION_PROMPT
 
     def test_clarification_prompt_prefers_asking_over_silently_guessing(self):
-        """The prompt used to bias hard against asking ("minimal friction",
-        clarification marked "(Rare)", a threshold of "genuinely cannot
-        proceed"). A live transcript pattern was the model silently picking
-        one of several plausible angles instead of offering the choice as
-        `options` — the exact UI users report enjoying, just rarely offered.
-
-        This locks in the calibration the other way: whenever 2-5 concrete,
-        distinct directions can already be named, the prompt must say to ask
-        rather than to guess.
-        """
         assert "2-5 concrete" in CLARIFICATION_PROMPT
         assert "do not silently pick one and proceed" in CLARIFICATION_PROMPT.lower()
         assert "(rare)" not in CLARIFICATION_PROMPT.lower()
         assert "minimal friction" not in CLARIFICATION_PROMPT.lower()
 
     def test_every_example_carries_every_key(self):
-        """Strict json_schema requires all three keys, so the examples show all three."""
         assert CLARIFICATION_PROMPT.count('"needs_clarification"') == CLARIFICATION_PROMPT.count('"options"')
 
     def test_plan_generation_prompt_localizes_content(self):
-        """Plan-generation prompt localizes title/sections but not the approval envelope."""
         assert "same language as the user's request" in PLAN_GENERATION_PROMPT.lower()
         assert "APPROVAL ENVELOPE" in PLAN_GENERATION_PROMPT
         assert "PLAN_REPLIES" in PLAN_GENERATION_PROMPT
 
     def test_localization_contract_comments_stay_out_of_rendered_prompts(self):
-        """The byte-stable contract notes are Jinja comments — never sent to the model."""
         from agent.common import render_prompt_template
 
         rendered_clarification = render_prompt_template(
@@ -227,8 +192,6 @@ class TestPrompts:
 
 
 class TestParseJsonResponse:
-    """One parse, one helper, for both structured replies."""
-
     def test_valid_json(self):
         parsed = parse_json_response(clarification("What scope?"), ClarificationResponse)
 
@@ -259,7 +222,6 @@ class TestParseJsonResponse:
         assert parse_json_response("", ClarificationResponse) is None
 
     def test_json_that_does_not_fit_the_schema(self, caplog):
-        """A validation failure names itself instead of being swallowed."""
         with caplog.at_level("WARNING"):
             assert parse_json_response('{"needs_clarification": "maybe"}', ClarificationResponse) is None
 
@@ -277,8 +239,6 @@ class TestParseJsonResponse:
 
 
 class TestSkipCommands:
-    """The replies that end the questioning."""
-
     @pytest.mark.parametrize("command", ["skip", "done", "exit", "quit", "proceed", "continue", "no", "n", ""])
     def test_recognized(self, command):
         assert command in SKIP_COMMANDS
@@ -288,8 +248,6 @@ class TestSkipCommands:
 
 
 class TestFallbackClarification:
-    """What is asked when the model's own clarification is unusable."""
-
     def test_topic_aware(self):
         response = fallback_clarification("Research quantum computing applications")
 
@@ -310,8 +268,6 @@ class TestFallbackClarification:
 
 
 class TestParsePlanReply:
-    """Three literal tokens, one bare refusal, everything else is feedback."""
-
     @pytest.mark.parametrize("reply", ["approve", "APPROVE", "  approve  "])
     def test_approve(self, reply):
         assert parse_plan_reply(reply) == ("approved", "")
@@ -324,7 +280,6 @@ class TestParsePlanReply:
 
     @pytest.mark.parametrize("reply", ["no", "nein", "nope", "reject"])
     def test_a_bare_refusal_falls_through_to_shallow(self, reply):
-        """The user said no to the PLAN, not to being answered."""
         assert parse_plan_reply(reply) == ("shallow", "")
 
     @pytest.mark.parametrize("reply", ["stop", "abbrechen"])
@@ -341,8 +296,6 @@ class TestParsePlanReply:
         ],
     )
     def test_a_sentence_is_feedback_not_a_verdict(self, reply):
-        """A revision must stay a revision: these are the plan being improved,
-        not the plan being refused."""
         decision, feedback = parse_plan_reply(reply)
 
         assert decision == "feedback"
@@ -355,15 +308,12 @@ class TestParsePlanReply:
         assert parse_plan_reply('{"query": "add a security section"}') == ("feedback", "add a security section")
 
     def test_json_with_a_non_string_query_is_not_unwrapped(self):
-        """A number here used to crash the turn on .strip()."""
         decision, _ = parse_plan_reply('{"query": 42}')
 
         assert decision == "feedback"
 
 
 class TestPlanFormatting:
-    """The envelope the UI regex-matches."""
-
     def test_format_plan_for_user(self):
         result = format_plan_for_user(PlanResponse(title="AI Research Report", sections=["Introduction", "Analysis"]))
 
@@ -383,11 +333,8 @@ class TestPlanFormatting:
 
 
 class TestTheQuestionLoop:
-    """Asking, skipping, and stopping."""
-
     @pytest.mark.asyncio
     async def test_immediate_completion(self):
-        """A model that says it has enough asks nothing."""
         ask = AsyncMock()
 
         result = await clarify(request_for(), deps_for(make_llm(clarification()), ask=ask))
@@ -417,7 +364,6 @@ class TestTheQuestionLoop:
 
     @pytest.mark.asyncio
     async def test_the_dialog_stops_at_max_turns(self):
-        """The configured limit governs, and every turn is in the transcript."""
         llm = make_llm()
         llm.ainvoke = AsyncMock(return_value=AIMessage(content=clarification("Which angle?")))
         ask = AsyncMock(return_value="the technical one")
@@ -441,7 +387,6 @@ class TestTheQuestionLoop:
 
     @pytest.mark.asyncio
     async def test_the_running_transcript_reaches_the_next_prompt(self):
-        """Each round re-renders the prompt with what has been asked so far."""
         llm = make_llm(clarification("Which angle?"), clarification())
 
         await clarify(request_for(), deps_for(llm, ask=AsyncMock(return_value="the technical one")))
@@ -451,7 +396,6 @@ class TestTheQuestionLoop:
 
     @pytest.mark.asyncio
     async def test_an_unparseable_reply_asks_the_fallback_question(self):
-        """A model that writes prose still gets the user asked, not researched."""
         seen: list[str] = []
 
         async def ask(question: str, options) -> str:
@@ -472,7 +416,6 @@ class TestTheQuestionLoop:
 
     @pytest.mark.asyncio
     async def test_the_llm_reply_is_parsed_once_per_call(self, caplog):
-        """The parse used to run five times per turn, warning five times over."""
         deps = deps_for(make_llm("still not json"), ask=AsyncMock(return_value="skip"))
 
         with caplog.at_level("WARNING"):
@@ -482,13 +425,8 @@ class TestTheQuestionLoop:
 
 
 class TestTheTraceRow:
-    """The one thing the reader sees of this step."""
-
     @pytest.mark.asyncio
     async def test_the_step_is_one_clarification_row_written_before_the_first_question(self):
-        """A row that arrived after the dialog would appear once the reader had
-        already been waiting on a question with no explanation. Run through a
-        compiled graph, so what is asserted is what the stream carries."""
 
         async def ask(question: str, options) -> str:
             get_stream_writer()("asked")
@@ -504,8 +442,6 @@ class TestTheTraceRow:
 
 
 class TestPlanApproval:
-    """The plan preview and the user's verdict."""
-
     @staticmethod
     def deps(ask, planner, **settings) -> ClarifyDeps:
         return deps_for(make_llm(clarification()), ask=ask, planner=planner, enable_plan_approval=True, **settings)
@@ -523,9 +459,6 @@ class TestPlanApproval:
 
     @pytest.mark.asyncio
     async def test_plan_generation_anchors_on_current_request(self):
-        """The planner is anchored on the CURRENT request, not an earlier-turn
-        topic still sitting in history — guards against stale-plan carry-over
-        (an aborted research bleeding into a new, unrelated request)."""
         planner = make_llm('{"title": "T", "sections": ["A", "B"]}')
         request = ClarifyRequest(
             messages=[
@@ -543,7 +476,6 @@ class TestPlanApproval:
 
     @pytest.mark.asyncio
     async def test_a_bare_refusal_declines_the_plan(self):
-        """The caller falls through to shallow: the question is still answerable."""
         planner = make_llm('{"title": "Test Plan", "sections": ["Section 1"]}')
 
         result = await clarify(request_for(), self.deps(AsyncMock(return_value="reject"), planner))
@@ -553,7 +485,6 @@ class TestPlanApproval:
 
     @pytest.mark.asyncio
     async def test_the_explicit_middle_way_declines_the_plan(self):
-        """„Kurz beantworten" declines the plan the same way a rejection does."""
         planner = make_llm('{"title": "Test Plan", "sections": ["Section 1"]}')
 
         result = await clarify(request_for(), self.deps(AsyncMock(return_value="shallow"), planner))
@@ -562,7 +493,6 @@ class TestPlanApproval:
 
     @pytest.mark.asyncio
     async def test_cancelled(self):
-        """An explicit cancellation is neither an approval nor a decline-to-shallow."""
         planner = make_llm('{"title": "Test Plan", "sections": ["Section 1"]}')
 
         result = await clarify(request_for(), self.deps(AsyncMock(return_value="cancel"), planner))
@@ -585,7 +515,6 @@ class TestPlanApproval:
 
     @pytest.mark.asyncio
     async def test_feedback_reaches_the_next_plan(self):
-        """The revision is what the user asked for, not a fresh guess."""
         planner = make_llm('{"title": "P", "sections": ["A"]}')
         ask = AsyncMock(side_effect=["add a security section", "approve"])
 
@@ -627,7 +556,6 @@ class TestPlanApproval:
 
     @pytest.mark.asyncio
     async def test_plan_approval_off_ends_without_a_plan(self):
-        """Without plan approval the dialog ends when clarification does."""
         ask = AsyncMock()
 
         result = await clarify(request_for(), deps_for(make_llm(clarification()), ask=ask))
@@ -637,7 +565,6 @@ class TestPlanApproval:
 
     @pytest.mark.asyncio
     async def test_the_planner_llm_is_used_when_configured(self):
-        """The planner ref exists so plan generation can run on another model."""
         clarifier_llm = make_llm(clarification())
         planner = make_llm('{"title": "T", "sections": ["A"]}')
         deps = deps_for(
@@ -651,7 +578,6 @@ class TestPlanApproval:
 
     @pytest.mark.asyncio
     async def test_without_a_planner_the_clarifier_model_plans(self):
-        """`planner_llm` is optional; the same model then does both calls."""
         llm = make_llm(clarification(), '{"title": "T", "sections": ["A"]}')
 
         result = await clarify(
@@ -663,11 +589,8 @@ class TestPlanApproval:
 
 
 class TestOptions:
-    """Threading structured answer options to the user channel."""
-
     @pytest.mark.asyncio
     async def test_options_are_passed_to_the_callback(self):
-        """The picker is starved unless the labels reach the callback as data."""
         question = "**Focus**: which area?\n\n1. Alpha: about alpha\n2. Beta: about beta"
         seen: list[tuple[str, list[str]]] = []
 
@@ -684,7 +607,6 @@ class TestOptions:
 
     @pytest.mark.asyncio
     async def test_a_question_without_options_offers_none(self):
-        """An open question is asked as free text, exactly as before."""
         seen: list[list[str]] = []
 
         async def ask(text: str, options) -> str:
@@ -697,7 +619,6 @@ class TestOptions:
 
     @pytest.mark.asyncio
     async def test_free_text_answer_is_still_accepted(self):
-        """The user may type instead of picking; that reply drives the next turn."""
         deps = deps_for(
             make_llm(clarification("**Focus**: which area?", ["Alpha", "Beta"]), clarification()),
             ask=AsyncMock(return_value="Something I typed myself"),
@@ -709,7 +630,6 @@ class TestOptions:
 
     @pytest.mark.asyncio
     async def test_options_are_never_parsed_out_of_the_question(self):
-        """Regex-parsing the prose back into options is the bug being fixed."""
         question = "**Focus**: which area?\n\n1. Alpha: about alpha\n2. Beta: about beta"
         seen: list[list[str]] = []
 
@@ -723,8 +643,6 @@ class TestOptions:
 
 
 class TestTools:
-    """The tool loop: the model searches, then decides."""
-
     @staticmethod
     def tool_call_message() -> AIMessage:
         return AIMessage(
@@ -739,7 +657,6 @@ class TestTools:
 
     @pytest.mark.asyncio
     async def test_a_tool_call_runs_the_tool_and_comes_back(self):
-        """The branch that had no test at all: model -> tools -> model."""
         llm = make_llm()
         llm.ainvoke = AsyncMock(side_effect=[self.tool_call_message(), AIMessage(content=clarification())])
 
@@ -752,7 +669,6 @@ class TestTools:
 
     @pytest.mark.asyncio
     async def test_the_json_reminder_follows_the_tool_results(self):
-        """After tool output the model reaches for a report; the reminder stops it."""
         llm = make_llm()
         llm.ainvoke = AsyncMock(side_effect=[self.tool_call_message(), AIMessage(content=clarification())])
 
@@ -762,12 +678,9 @@ class TestTools:
 
     @pytest.mark.asyncio
     async def test_a_failing_tool_is_reported_to_the_model_not_raised(self, caplog):
-        """A dead search tool must not end a turn that can still be clarified —
-        but the exception is still logged in full."""
 
         @tool
         def broken_tool(query: str) -> str:
-            """Always fails."""
             raise RuntimeError("upstream is down")
 
         llm = make_llm()
@@ -789,7 +702,6 @@ class TestTools:
 
     @pytest.mark.asyncio
     async def test_a_tool_the_deployment_does_not_have_is_named_back(self):
-        """The model hallucinated a tool name; it is told so and moves on."""
         llm = make_llm()
         llm.ainvoke = AsyncMock(
             side_effect=[
@@ -805,14 +717,11 @@ class TestTools:
 
     @pytest.mark.asyncio
     async def test_two_tool_calls_run_concurrently(self):
-        """Independent searches, one gather — the repo rule for two awaits that
-        do not depend on each other."""
         running = 0
         overlapped = False
 
         @tool
         async def slow_tool(query: str) -> str:
-            """Sleeps."""
             nonlocal running, overlapped
             running += 1
             overlapped = overlapped or running > 1
@@ -840,8 +749,6 @@ class TestTools:
 
     @pytest.mark.asyncio
     async def test_a_model_that_only_ever_searches_is_cut_off(self, caplog):
-        """The loop states its own bound; the graph borrowed LangGraph's
-        recursion limit, which was nobody's decision about this dialog."""
         llm = self._searching_llm(MAX_TOOL_ROUNDS + 1)
         ask = AsyncMock()
 
@@ -855,8 +762,6 @@ class TestTools:
 
 
 class TestThePlanCard:
-    """The plan travels as data beside its text, and comes back edited."""
-
     def test_the_preview_carries_the_plan_as_json_beside_the_list(self):
         plan = PlanResponse(
             title="Brandschutz", sections=["GK", "Fluchtwege"], genre="inspection_report", depth="quick_check"

@@ -1,17 +1,3 @@
-"""Which paper, which way round and which standard scale a drawing goes on (ADR-0152).
-
-A rendition that is "fit to page" is what an online converter hands out, and an
-architect cannot measure on it. So a drawing whose unit is known is placed at a
-STANDARD scale on a standard sheet, the most detailed scale first and the
-smaller sheet first: a Kataster extract of 150 × 100 m lands on A3 at 1:500, a
-40 × 30 m parcel on A4 at 1:200. A4 and A3 are tried up to 1:2000 before a
-larger sheet is, because those are what an office prints and attaches; A2 to A0
-take what does not fit them. Only a drawing too large for A0 at 1:25000, or one
-that names no unit, is fitted, and the page then says it is not to scale.
-
-Pure: no ezdxf, no matplotlib, so it is tested on numbers alone.
-"""
-
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -43,39 +29,32 @@ _LARGE_PAPERS = ("A2", "A1", "A0")
 
 @dataclass(frozen=True)
 class Sheet:
-    """A page and how the drawing sits on it."""
-
     paper: str
     page_mm: tuple[float, float]
     scale: int | None
 
     @property
     def frame_mm(self) -> tuple[float, float, float, float]:
-        """The frame as left, bottom, right, top on the page."""
         width, height = self.page_mm
         return FRAME_LEFT_MM, FRAME_MM, width - FRAME_MM, height - FRAME_MM
 
     @property
     def is_wide(self) -> bool:
-        """Whether the title band holds all its fields in one row."""
         left, _bottom, right, _top = self.frame_mm
         return right - left >= WIDE_FRAME_MM
 
     @property
     def title_band_mm(self) -> float:
-        """The title band's height: one row on a wide frame, two on a narrow one."""
         return TITLE_BAND_MM if self.is_wide else TITLE_BAND_MM + NOTES_ROW_MM
 
     @property
     def drawing_box_mm(self) -> tuple[float, float, float, float]:
-        """Where the drawing goes: inside the frame, above the title band, inset."""
         left, bottom, right, top = self.frame_mm
         inset = DRAWING_INSET_MM
         return left + inset, bottom + self.title_band_mm + inset, right - inset, top - inset
 
     @property
     def drawing_area_mm(self) -> tuple[float, float]:
-        """Width and height of ``drawing_box_mm``."""
         left, bottom, right, top = self.drawing_box_mm
         return right - left, top - bottom
 
@@ -101,7 +80,6 @@ def _first_fit(width_m: float, height_m: float, papers: tuple[str, ...], scales:
 
 
 def choose_sheet(width_m: float | None, height_m: float | None) -> Sheet:
-    """The sheet for a drawing of this real size, or a fitted A3 when its size is unknown."""
     if width_m is None or height_m is None or width_m <= 0 or height_m <= 0:
         return fitted_sheet(width_m or 1.0, height_m or 1.0)
     small_scales = tuple(scale for scale in STANDARD_SCALES if scale <= _SMALL_PAPER_COARSEST_SCALE)
@@ -113,13 +91,11 @@ def choose_sheet(width_m: float | None, height_m: float | None) -> Sheet:
 
 
 def fitted_sheet(width: float, height: float) -> Sheet:
-    """A3 the way round the drawing's proportions suit, not to scale."""
     landscape, portrait = _orientations("A3")
     return Sheet("A3", landscape if width >= height else portrait, None)
 
 
 def scale_bar_metres(scale: int) -> float:
-    """A round length whose bar is between 30 and 45 mm long on paper at this scale."""
     for metres in (
         0.01,
         0.02,

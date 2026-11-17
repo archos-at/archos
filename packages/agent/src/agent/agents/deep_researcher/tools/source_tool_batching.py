@@ -1,5 +1,3 @@
-"""Researcher-facing source tool adapters."""
-
 from __future__ import annotations
 
 import asyncio
@@ -14,17 +12,7 @@ from pydantic import ConfigDict
 from pydantic import Field
 
 
-class SourceToolSlotTimeout(TimeoutError):
-    """No concurrency slot came free — the source tool was never called.
-
-    Distinct from the ``TimeoutError`` an upstream source raises, and the
-    distinction is the whole point. Both are ``TimeoutError`` to anything that
-    does not care (this subclasses it deliberately, so existing handlers keep
-    working), but they mean opposite things: an upstream timeout is evidence
-    about a source, while this one is evidence about OUR OWN scheduling. Letting
-    the second wear the first's name told the deep researcher its sources were
-    failing when nothing had been asked of them.
-    """
+class SourceToolSlotTimeout(TimeoutError): ...
 
 
 DEFAULT_MAX_CONCURRENT_SOURCE_TOOL_CALLS = 5
@@ -33,8 +21,6 @@ DEFAULT_SOURCE_TOOL_CONCURRENCY_TIMEOUT = 120.0
 
 
 class SourceToolConcurrencyLimiter:
-    """Shared per-event-loop limiter for source tool calls."""
-
     def __init__(
         self,
         max_concurrent: int,
@@ -61,7 +47,6 @@ class SourceToolConcurrencyLimiter:
 
     @asynccontextmanager
     async def limit(self) -> AsyncIterator[None]:
-        """Acquire one source-tool slot and release it on success, failure, or cancellation."""
         semaphore = self._get_semaphore()
         acquired = False
         try:
@@ -79,15 +64,12 @@ class SourceToolConcurrencyLimiter:
 
 
 class BatchSourceToolInput(BaseModel):
-    """Input schema for batch-capable same-name source tool wrappers."""
-
     model_config = ConfigDict(extra="forbid")
 
     queries: str | list[str] = Field(description="One query/input string, or a list of query/input strings.")
 
 
 def _single_string_input_field(tool: BaseTool) -> str | None:
-    """Return the sole string input field for a compatible tool, otherwise None."""
     schema = getattr(tool, "args_schema", None)
     fields = getattr(schema, "model_fields", None)
     if not fields or len(fields) != 1:
@@ -100,7 +82,6 @@ def _single_string_input_field(tool: BaseTool) -> str | None:
 
 
 def _format_batch_tool_output(results: list[tuple[str, str | None, str | None]]) -> str:
-    """Render grouped per-input output without hiding partial failures."""
     parts: list[str] = []
     for query, output, error in results:
         body = f"ERROR: {error}" if error else (output or "")
@@ -115,7 +96,6 @@ def _make_batch_source_tool(
     limiter: SourceToolConcurrencyLimiter,
     max_batch_size: int,
 ) -> BaseTool:
-    """Create a same-name wrapper that fans out list input to the original tool."""
 
     async def _run_batch(queries: str | list[str]) -> str:
         query_list = [queries] if isinstance(queries, str) else list(queries)
@@ -156,7 +136,6 @@ def _make_throttled_source_tool(
     *,
     limiter: SourceToolConcurrencyLimiter,
 ) -> BaseTool:
-    """Create a same-name wrapper that throttles calls to a non-batchable source tool."""
 
     async def _run_throttled(**kwargs) -> object:
         try:
@@ -192,12 +171,6 @@ def adapt_source_tools_for_research(
     max_concurrent_source_tool_calls: int = DEFAULT_MAX_CONCURRENT_SOURCE_TOOL_CALLS,
     max_batch_size: int = DEFAULT_MAX_SOURCE_TOOL_BATCH_SIZE,
 ) -> list[BaseTool]:
-    """Return researcher-facing tools with source calls internally throttled.
-
-    Compatible single-string source tools are upgraded to same-name batch-capable
-    tools. Other source tools keep their original schema and receive a
-    throttle-only wrapper. Non-source tools are returned unchanged.
-    """
     adapted_tools: list[BaseTool] = []
     limiter = SourceToolConcurrencyLimiter(max_concurrent_source_tool_calls)
     for candidate in tools:

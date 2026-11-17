@@ -1,17 +1,3 @@
-"""Single, framing-agnostic description of the card catalog for the LLM.
-
-The app describes the SAME discriminated-union card schema to the model on two
-surfaces — the mid-turn ``emit_card`` tool (:mod:`agent.cards.register`) and
-the post-hoc batch generator (:mod:`agent.cards.prompt` /
-:mod:`agent.cards.generate`). This module owns the one representation they
-share: compact per-type shapes, shared building blocks defined once, and worked
-examples for the hard-to-nest types. Each surface adds only its own framing
-(tool-call vs batch), so the schema description can never drift between them.
-
-Deliberately free of agent-runtime/tooling imports so it can be imported from either
-surface without triggering tool registration side effects.
-"""
-
 import functools
 import json
 import textwrap
@@ -74,7 +60,6 @@ RETIRED_CARD_TYPES: frozenset[str] = frozenset(RETIRED_CARD_REPLACEMENTS)
 
 
 def retired_refusal(card_type: str) -> str:
-    """The one sentence every channel refuses a retired card type with: what to write instead."""
     return f"card type '{card_type}' no longer exists: write {RETIRED_CARD_REPLACEMENTS[card_type]} instead."
 
 
@@ -85,7 +70,6 @@ _LABEL_CHARS = 40
 
 
 def _cell(value: Any) -> str:
-    """One table cell: a scalar as text, anything else as its scalars joined, pipes escaped."""
     if isinstance(value, dict):
         value = " · ".join(_cell(item) for item in value.values() if item not in (None, "", [], {}))
     elif isinstance(value, list):
@@ -103,18 +87,6 @@ def _table(header: list[str], rows: list[list[Any]]) -> list[str]:
 
 
 def retired_card_markdown(payload: object) -> str | None:
-    """A retired card's content as the Markdown that replaced it, or ``None`` when it holds none.
-
-    A model that reaches for a retired type on chat put content in it — the
-    quote of a ``legal_basis``, the rows of a ``typed_table``, the steps of a
-    ``process_map`` — that may be nowhere else in the answer. Dropping the card
-    would delete that content (guardrail 8), so it is laid out as plain
-    Markdown at the card's marker instead: its title as a bold line, a
-    verbatim passage as a quote line (which the quote check then holds to its
-    source like any other), a list of records as a table, text as a paragraph.
-    Generic by shape rather than per type: the types are gone, and so are
-    their models.
-    """
     if not isinstance(payload, dict) or payload.get("type") not in RETIRED_CARD_TYPES:
         return None
     parts: list[str] = []
@@ -428,34 +400,17 @@ CARD_EXAMPLES["formula"] = {
 
 
 def _card_type_of(card_cls: type) -> str:
-    """The ``type`` literal of a card class (``"summary"``, …)."""
     return getattr(card_cls.model_fields["type"].annotation, "__args__", ("?",))[0]
 
 
 @functools.lru_cache(maxsize=1)
 def model_facing_card_types() -> frozenset[str]:
-    """Every card ``type`` the ANSWERING model may be ASKED to produce.
-
-    The union minus :data:`SYSTEM_CARD_TYPES`.
-    It is exposed separately because other surfaces need to answer "may a
-    skill/author name this card?" without parsing the rendered catalog text:
-    the skills substrate validates ``cards`` against it (see
-    :mod:`agent.skills.models`), and the editor's picker derives the same
-    set from the generated Zod schemas. One definition of "advertisable", so a
-    new card type appears everywhere at once and a system card can never be
-    requested by name.
-    """
     from agent.cards.models import AnswerCard
 
     return frozenset(_card_type_of(c) for c in AnswerCard.__args__) - SYSTEM_CARD_TYPES
 
 
 def _annotation_str(annotation: object, nested: list[type]) -> str:
-    """Render a field annotation as a compact JSON-ish type string.
-
-    Nested pydantic models are shown by name and collected into ``nested`` so
-    their full shape is defined once in a shared "building blocks" section.
-    """
     origin = typing.get_origin(annotation)
     args = typing.get_args(annotation)
 
@@ -476,7 +431,6 @@ def _annotation_str(annotation: object, nested: list[type]) -> str:
 
 
 def _field_constraints(field_info: object) -> list[str]:
-    """Extract human-readable constraints (>0, non-empty, defaults) from a field."""
     out: list[str] = []
     for meta in getattr(field_info, "metadata", []) or []:
         gt = getattr(meta, "gt", None)
@@ -495,22 +449,12 @@ def _field_constraints(field_info: object) -> list[str]:
 
 
 def _is_discriminator(field_name: str, field_info: Any) -> bool:
-    """Whether a field is a card's ``type`` tag — the one field the model never fills.
-
-    A card's ``type`` is a single-value ``Literal`` that the union switches on;
-    the shape already names it. A building block may have a field CALLED
-    ``type`` that is a choice (``TypedColumn.type``: mass, norm, verdict, …),
-    and that one is the model's to fill — the renderer once hid such a field
-    while the validator required it, so every card written from the shape
-    failed on its first attempt.
-    """
     if field_name != "type":
         return False
     return len(getattr(field_info.annotation, "__args__", ())) == 1
 
 
 def _shape(model_cls: type, nested: list[type], *, with_desc: bool) -> str:
-    """Render a model's fields as `{ name*: type (desc; constraints), ... }`."""
     from agent.cards.proposal_cards import SERVER_SET_CARD_FIELDS  # models import this module
 
     parts: list[str] = []
@@ -529,12 +473,10 @@ def _shape(model_cls: type, nested: list[type], *, with_desc: bool) -> str:
 
 
 def _card_shape(card_cls: type, nested: list[type]) -> str:
-    """The one-line shape spec for a card body (top-level fields, no descriptions)."""
     return _shape(card_cls, nested, with_desc=False)
 
 
 def _field_specs(model_cls: type, nested: list[type]) -> list[dict[str, Any]]:
-    """The same per-field information ``_shape`` renders as prose, as data."""
     specs: list[dict[str, Any]] = []
     for field_name, field_info in model_cls.model_fields.items():
         if _is_discriminator(field_name, field_info):
@@ -552,19 +494,6 @@ def _field_specs(model_cls: type, nested: list[type]) -> list[dict[str, Any]]:
 
 
 def describe_card_catalog() -> dict[str, Any]:
-    """The card catalog as data, for surfaces that show it to PEOPLE.
-
-    :func:`render_card_catalog` renders the same models as prose for the model
-    and omits the system cards, because a model that reads about them can
-    fabricate them. A human catalog has the opposite need: it must list every
-    card the product can render — a platform owner asking "can it show me X?"
-    is not served by a list with holes in it — so system cards are included and
-    flagged (``emittedBy``) rather than hidden.
-
-    Derived from the Pydantic union like every other card surface, so a new card
-    type appears here the moment it is added to ``AnswerCard`` and cannot drift.
-    Keys are camelCase because this is a wire shape, not a Python one.
-    """
     from agent.cards.models import AnswerCard
 
     nested: list[type] = []
@@ -599,51 +528,10 @@ def describe_card_catalog() -> dict[str, Any]:
 
 
 def shape_hint_for(card_type: str) -> str | None:
-    """The FULL L2 entry for one card type — what a failed ``emit_card`` hands back.
-
-    This used to be a one-line abbreviation of :func:`render_card_details`: the
-    shape and its building blocks joined with "where", and the worked example
-    appended after a full stop. The abbreviation was the problem. A model that
-    had just got a field wrong was handed a denser rendering of the same
-    information and no field rules at all, so its second attempt was a guess
-    too, and the only way to actually learn a shape was a charged
-    ``describe_card`` round trip the tool description had to talk it into paying
-    in advance — on every turn, for every card, including the ones it would have
-    filled in correctly.
-
-    So the retry carries the whole thing instead: the same shapes, blocks,
-    field rules and worked example ``describe_card`` returns, for the one type
-    that failed. It is the cheapest moment to spend those tokens, because it is
-    the only moment we know they are needed and know which type needs them.
-
-    ``None`` for a type the model may not emit at all — an unknown name, a
-    system card, a retired type. Teaching one of those a shape would be
-    teaching a card the next validator refuses; the caller's refusal message
-    names the right channel instead.
-
-    A ``surface``'s entry is the COMPOSE rule (:func:`render_card_details`).
-    """
     return render_card_details([card_type]) or None
 
 
 def render_card_catalog(*, include_model_backed: bool = True, exclude: frozenset[str] = frozenset()) -> str:
-    """The shared catalog body: building blocks, per-card shapes, worked examples.
-
-    Framing-free — callers wrap it in tool-call or batch instructions. This is
-    the single source both card surfaces render from, so a new card type is
-    documented identically to the model on both paths.
-
-    Args:
-        include_model_backed: Whether to advertise the cards in
-            :data:`MODEL_BACKED_CARD_TYPES`. The ``emit_card`` tool leaves this
-            on — its caller has the ``ifc_query`` rows in context. Post-hoc
-            generation turns it off, because it has no tool output to copy ids
-            from and would have to invent them.
-        exclude: Further types to leave out (:data:`CHAT_ONLY_CARD_TYPES` on
-            a path that is not the chat envelope).
-
-    The system types are withheld unconditionally: a tool owns each one.
-    """
     from agent.cards.models import AnswerCard
 
     withheld = SYSTEM_CARD_TYPES | exclude
@@ -730,7 +618,6 @@ def _plain_text_note() -> str:
 
 
 def _render_trigger_table(*, include_ifc_triggers: bool, include_craft: bool) -> str:
-    """The head, then one row per trigger with its craft indented beneath it."""
     rows = (*_CARD_TRIGGERS, _MODEL_PICKER_ROW) if include_ifc_triggers else _CARD_TRIGGERS
     lead = (
         "The trigger, the card, and under it what fills that card well:"
@@ -748,56 +635,12 @@ def _render_trigger_table(*, include_ifc_triggers: bool, include_craft: bool) ->
 
 
 def render_card_doctrine(*, include_ifc_triggers: bool = True, include_craft: bool = True, chat: bool = False) -> str:
-    """Markdown first, the trigger table, the craft that fills each card, and the negative default.
-
-    Framing-free in the same sense as :func:`render_card_catalog`: it says which
-    content takes which card, how that card is filled well, and when to emit
-    none, and leaves each surface to add what only it can promise — where a
-    marker puts a card, or what a batch of them may be built out of.
-
-    Args:
-        include_ifc_triggers: Whether to carry the ``ifc_model_picker`` row and
-            its note. The ``emit_card`` tool leaves this on. Post-hoc generation
-            turns it off: that trigger is a live "show me the model" intent in
-            the turn being answered, and it directs the model to emit the card
-            instead of writing the file names as prose — a trade only a surface
-            that is still writing the answer can make. The picker's SHAPE is not
-            withheld anywhere, because it names no file and invents nothing.
-        include_craft: Whether each row carries the paragraph that says how that
-            card is filled well. The ``emit_card`` tool leaves this on — it is
-            the whole point of the tool owning its own contract. Post-hoc
-            generation turns it off and states its own short craft instead
-            (``prompt.py``): half of what is written here is an instruction
-            about an answer still being written, which that path cannot act on.
-        chat: The chat envelope's variant: MARKDOWN FIRST names the dialect's
-            blocks and the ``surface`` card, which only the chat draws. Deep
-            research and the post-hoc pass keep plain GFM (their PDF prints a
-            ``:::`` line as text until Phase B) and are offered no ``surface``.
-
-    MARKDOWN FIRST leads on every surface: what the retired cards carried
-    (:data:`RETIRED_CARD_TYPES`) is written in the answer's own Markdown.
-    """
     table = _render_trigger_table(include_ifc_triggers=include_ifc_triggers, include_craft=include_craft)
     lead = _MARKDOWN_FIRST_CHAT if chat else _MARKDOWN_FIRST
     return "\n\n".join((lead, table, _CARD_HONESTY, _CARD_RESTRAINT))
 
 
 def render_card_index(*, include_model_backed: bool = True, exclude: frozenset[str] = frozenset()) -> str:
-    """L1: one line per card type — name and purpose, no shapes, no examples.
-
-    The always-on half of the card vocabulary. Rendering every shape and worked
-    example costs ~5,200 tokens on EVERY turn whether or not a card is ever
-    emitted, and each new card type adds ~190 to that permanently — the exact
-    "load everything upfront" failure that dilutes attention on a long turn and
-    scales linearly with a vocabulary we intend to keep growing.
-
-    An index plus :func:`render_card_details` on demand costs ~580 tokens and
-    ~23 per new type. The reasoning is already written down one module over, on
-    ``_preferred_cards_block``: a card description is worth nothing until the
-    card is actually in play.
-
-    The system types are withheld unconditionally: a tool owns each one.
-    """
     from agent.cards.models import AnswerCard
 
     withheld = SYSTEM_CARD_TYPES | exclude
@@ -818,12 +661,6 @@ def render_card_index(*, include_model_backed: bool = True, exclude: frozenset[s
 def card_index_entries(
     *, include_model_backed: bool = False, exclude: frozenset[str] = frozenset()
 ) -> list[tuple[str, str]]:
-    """``(type, first docstring line)`` per content card the answering model may emit.
-
-    The same rows :func:`render_card_index` prints, as data: what a decision
-    over "which card would this answer earn" (``core/decisions.py``)
-    needs as its criteria, without parsing the rendered index back.
-    """
     from agent.cards.models import AnswerCard
 
     withheld = SYSTEM_CARD_TYPES | exclude
@@ -839,12 +676,6 @@ def card_index_entries(
 
 
 def render_card_details(card_types: Iterable[str]) -> str:
-    """L2: the exact shape, building blocks and worked example for named types.
-
-    Unknown and system types are skipped rather than raising: this is fed from
-    a model-supplied name and from skill metadata, and a stale name must not
-    take down the turn that mentioned it.
-    """
     from agent.cards.models import AnswerCard
 
     by_type = {_card_type_of(c): c for c in AnswerCard.__args__}

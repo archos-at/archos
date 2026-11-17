@@ -1,5 +1,3 @@
-"""Access types: one per protocol, none per country. See ``base`` for the shared contract."""
-
 from __future__ import annotations
 
 from public_sources.access.base import AccessError
@@ -21,7 +19,6 @@ def access_type(name: str) -> type[AccessType]:
 
 
 def access_for(source) -> AccessType:
-    """The access type of ``source``, configured from its record."""
     return access_type(source.protocol)(source)
 
 

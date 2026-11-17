@@ -17,8 +17,6 @@ logger = logging.getLogger(__name__)
 
 
 class _NoRow:
-    """The Herleitung row where there is no agent to draw it: takes the calls, emits nothing."""
-
     def __init__(self, *_args: Any, **_fields: Any) -> None:
         pass
 
@@ -27,8 +25,6 @@ class _NoRow:
 
 
 class _NoOutcome:
-    """What a call found, kept for a row nobody draws."""
-
     def __init__(self) -> None:
         self.hits: int | None = None
         self.failed = False
@@ -53,11 +49,6 @@ _missing_key_warned = False
 
 
 class TavilyWebSearchToolConfig(FunctionBaseConfig, name="tavily_web_search"):
-    """
-    Tool that retrieves relevant contexts from web search (using Tavily) for the given question.
-    Requires a TAVILY_API_KEY environment variable or api_key config.
-    """
-
     include_answer: str = Field(default="advanced", description="Whether to include answers in the search results")
     max_results: int = Field(default=3, description="Maximum number of search results to return")
     api_key: SecretStr | None = Field(default=None, description="The API key for the Tavily service")
@@ -85,11 +76,6 @@ class TavilyWebSearchToolConfig(FunctionBaseConfig, name="tavily_web_search"):
 
 
 def _screened(results: list) -> tuple[list, str, bool]:
-    """The hits the agent may read as sources, the lines above them, and whether any hit was withheld.
-
-    ``agent.common.web_sources`` decides. Without the agent package (a standalone distribution) nothing is
-    screened and nothing is said.
-    """
     try:
         from agent.common.web_sources import preamble
         from agent.common.web_sources import screen
@@ -106,12 +92,10 @@ _RECORD_TAG_RE = re.compile(r"<(/?(?:Document|title|source_note|Answer)\b)", re.
 
 
 def _inert(text: str) -> str:
-    """``text`` with every result-record tag in it defused: a page cannot write a record of its own."""
     return _RECORD_TAG_RE.sub(r"&lt;\1", text)
 
 
 def _address(url: str) -> str:
-    """The address a record states: without a signed query (``agent.common.url_safety``), safe inside ``href``."""
     try:
         from agent.common.url_safety import strip_signed_query
     except ImportError:
@@ -120,11 +104,6 @@ def _address(url: str) -> str:
 
 
 def _record(doc: dict, content: str) -> str:
-    """One hit as the record the citation reader parses: its address and title, a note when it is a copy, its text.
-
-    The record header is the search's own statement; only it names a source. The text is the page's, and a
-    link inside it is not a source (``agent.citations.web_results``).
-    """
     note = doc.get("source_note")
     note_block = f"<source_note>\n{_inert(str(note))}\n</source_note>\n" if note else ""
     return (
@@ -135,7 +114,6 @@ def _record(doc: dict, content: str) -> str:
 
 
 def _client_kwargs(tool_config: TavilyWebSearchToolConfig) -> dict:
-    """The Tavily client's arguments; the product's own site is always excluded (and screened, ``_screened``)."""
     kwargs: dict = {
         "max_results": tool_config.max_results,
         "search_depth": "advanced" if tool_config.advanced_search else "basic",
@@ -151,7 +129,6 @@ def _client_kwargs(tool_config: TavilyWebSearchToolConfig) -> dict:
 
 
 def _product_domains() -> list[str]:
-    """The product's own domains, which no search hands on as a source for law (``agent.common.brand``)."""
     try:
         from agent.common.brand import PRODUCT_DOMAINS
     except ImportError:
@@ -160,11 +137,6 @@ def _product_domains() -> list[str]:
 
 
 def _refusing_licensed_text(search):
-    """``search``, refusing a query that repeats licensed text the turn read before the provider sees it.
-
-    The office's licensed text goes to no search provider (``agent.common.licensed_text``). Outside a turn that
-    read licensed text, nothing is refused and the search is unchanged.
-    """
 
     @functools.wraps(search)
     async def searched(question: str) -> str:
@@ -254,7 +226,6 @@ async def tavily_web_search(tool_config: TavilyWebSearchToolConfig, builder: Bui
             question = question[:397] + "..."
 
         def _truncate_content(content: str) -> str:
-            """Truncate content if max_content_length is set."""
             if tool_config.max_content_length and len(content) > tool_config.max_content_length:
                 return content[: tool_config.max_content_length - 3] + "..."
             return content

@@ -1,30 +1,4 @@
 #!/usr/bin/env python3
-"""How long a change takes to reach people, measured from the Actions API.
-
-Two numbers, each split into its stages so a regression names its stage:
-
-- **Merge to staging**: a push to develop until the staging deploy of that
-  commit finished green. Stages: the CI push run (queue + checks + image
-  tags), the hand-off to Deploy (staging), the deploy itself.
-- **Pull request run to green**: a pull request's CI run, from its creation
-  until it concluded success. The runs API has no push time, so the minutes
-  between a push and its run's creation are not in it.
-
-A deploy of a commit whose own CI run was dropped (a queued run replaced by a
-newer push) is attributed to the run that did deploy it; the dropped commits
-are counted from their own push, which is what the person who merged them
-waited. Runs that failed are left out of the percentiles and counted beside
-them: a red run's duration says nothing about the pipeline's speed.
-
-This exists because "it got faster" was the claim of every CI change, and the
-numbers behind it were picked by hand from a few runs. Run it before and after
-a pipeline change and put both reports in the pull request; the weekly
-Lead time workflow keeps the trend.
-
-Usage: lead_time.py [--days N]
-Environment: GITHUB_TOKEN (actions: read), GITHUB_REPOSITORY, GITHUB_API_URL.
-Prints a Markdown report; exits 0 unless the API cannot be read at all.
-"""
 
 from __future__ import annotations
 
@@ -56,8 +30,6 @@ PAGES = 10
 
 @dataclass(frozen=True)
 class Sample:
-    """One change's way through the pipeline, every stage in seconds."""
-
     sha: str
     total: float
     stages: dict[str, float]
@@ -72,11 +44,6 @@ def seconds(start: str, end: str) -> float:
 
 
 def merge_to_staging(ci_runs: Iterable[Run], deploy_runs: Iterable[Run]) -> tuple[list[Sample], int]:
-    """Samples for every develop push a green staging deploy covered, and how many deploys failed.
-
-    `ci_runs` are CI's push runs on develop, `deploy_runs` Deploy (staging)'s
-    workflow_run runs, both as the runs API lists them.
-    """
     pushes = sorted((r for r in ci_runs if r.get("event") == "push"), key=lambda r: r["created_at"])
     deploys = sorted(
         (r for r in deploy_runs if r.get("event") == "workflow_run" and r.get("conclusion") in (*RED, "success")),
@@ -112,7 +79,6 @@ def merge_to_staging(ci_runs: Iterable[Run], deploy_runs: Iterable[Run]) -> tupl
 
 
 def pull_request_to_green(ci_runs: Iterable[Run]) -> tuple[list[Sample], int]:
-    """Samples for every pull request run that went green, and how many did not."""
     prs = [r for r in ci_runs if r.get("event") == "pull_request" and r.get("status") == "completed"]
     green = [r for r in prs if r.get("conclusion") == "success"]
     red = sum(1 for r in prs if r.get("conclusion") in RED)
@@ -154,7 +120,6 @@ def render(title: str, samples: list[Sample], excluded: int, excluded_label: str
 
 
 def runs(get: Get, repo: str, workflow: str, since: datetime, **filters: str) -> tuple[list[Run], bool]:
-    """Runs of `workflow` created since `since`, newest first, and whether the page cap cut them off."""
     created = since.strftime("%Y-%m-%dT%H:%M:%SZ")
     found: list[Run] = []
     for page in range(1, PAGES + 1):

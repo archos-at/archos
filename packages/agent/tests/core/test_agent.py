@@ -1,5 +1,3 @@
-"""Tests for the ChatAgent."""
-
 from unittest.mock import AsyncMock
 from unittest.mock import MagicMock
 from unittest.mock import patch
@@ -33,12 +31,6 @@ from tests.fixtures.drafting_turns import traced_tool_name
 
 
 async def _run_with_captured_registry(agent, state):
-    """Run the agent with a bound session registry and return (result, registry).
-
-    Standalone runs use a fresh per-run registry (discarded afterwards) instead
-    of the shared instance one, so tests observe source capture by binding a
-    session registry for the duration of the run.
-    """
     registry = SourceRegistry()
     token = set_session_registry(registry)
     try:
@@ -49,13 +41,6 @@ async def _run_with_captured_registry(agent, state):
 
 
 async def _run_with_bound_registry(agent, state, registry):
-    """Run the agent with a caller-supplied (pre-populated) session registry.
-
-    Lets a test seed the registry with prior-turn sources — mirroring the
-    cumulative per-session registry hydrated from Redis — so the emission path's
-    citation→SourceEntry resolution (entry_for_url / entry_for_citation_key)
-    finds real entries.
-    """
     token = set_session_registry(registry)
     try:
         result = await agent.run(state)
@@ -66,31 +51,20 @@ async def _run_with_bound_registry(agent, state, registry):
 
 @tool
 def web_search_tool(query: str) -> str:
-    """Search the web for information."""
     return f"Results for: {query}"
 
 
 @tool
 def emit_card(card_json: str) -> str:
-    """Render a rich UI card alongside your answer."""
     return f"Card will be shown with your answer: {card_json}"
 
 
 @tool
 def describe_card(card_types: str) -> str:
-    """Return the exact JSON shape for one or more card types."""
     return f"Shapes for: {card_types}"
 
 
 def _chat_prompt_source() -> str:
-    """The agent's bundled prompt as ONE template: the system prompt, then the turn context.
-
-    The system prompt is `chat_static.md`, the bundled fallback for the
-    platform prompt Langfuse serves; `system.j2` is the turn context, sent as
-    its own message before the newest human message. Rendering them as one
-    template lets these tests assert about everything the model reads in a
-    turn rather than silently about one of the two messages.
-    """
     from pathlib import Path
 
     from agent.core import agent as chat_agent
@@ -101,13 +75,6 @@ def _chat_prompt_source() -> str:
 
 
 def _bundled_static_block() -> str:
-    """The static half of the agent's prompt, rendered the way the agent renders it.
-
-    The prompt is two files now: `chat_static.md` (the bundled fallback for
-    the platform prompt Langfuse serves) and `system.j2` (the dynamic half,
-    which opens with `{{ static_block }}`). A test that renders the template
-    directly has to supply the half the prompt store would have resolved.
-    """
     from agent.core.prompt import bundled_static_block
     from agent.core.prompt import render_static_block
 
@@ -115,12 +82,6 @@ def _bundled_static_block() -> str:
 
 
 def _bundled_prompt_text() -> str:
-    """Both halves as bundled, for a test that asks what the prompt SAYS.
-
-    `agent.system_prompt` is the dynamic template alone — everything above the
-    KV-cache boundary is resolved per render — so asserting prompt content
-    against it would silently stop seeing most of the prompt.
-    """
     from agent.core.prompt import bundled_static_block
     from agent.core.prompt import system_prompt_template
 
@@ -128,16 +89,8 @@ def _bundled_prompt_text() -> str:
 
 
 class TestChatAgent:
-    """Tests for the ChatAgent class."""
-
     @pytest.fixture(autouse=True)
     def _bypass_citation_pipeline(self):
-        """Bypass citation verification for tests that don't test it.
-
-        These tests mock the LLM to return AIMessage directly (no tool calls),
-        so no tools execute and the source registry stays empty. Patching the
-        pipeline avoids EmptySourceRegistryError in run().
-        """
         with (
             patch.object(SourceRegistry, "all_sources", return_value=[SourceEntry(url="https://example.com")]),
             patch("agent.core.answer_pipeline.verify_citations") as mock_verify,
@@ -151,7 +104,6 @@ class TestChatAgent:
 
     @pytest.fixture
     def mock_llm(self):
-        """Create a mock LLM."""
         llm = MagicMock()
         llm.ainvoke = AsyncMock()
         llm.bind_tools = MagicMock(return_value=llm)
@@ -160,18 +112,15 @@ class TestChatAgent:
 
     @pytest.fixture
     def mock_llm_provider(self, mock_llm):
-        """Create a mock LLM provider."""
         provider = MagicMock(spec=LLMProvider)
         provider.get = MagicMock(return_value=mock_llm)
         return provider
 
     @pytest.fixture
     def real_tool(self):
-        """Create a real LangChain tool."""
         return web_search_tool
 
     def test_init_with_defaults(self, mock_llm_provider, real_tool):
-        """Test ChatAgent initialization with defaults."""
         agent = ChatAgent(
             llm_provider=mock_llm_provider,
             tools=[real_tool],
@@ -185,7 +134,6 @@ class TestChatAgent:
         assert agent.system_prompt is not None
 
     def test_init_with_custom_prompt(self, mock_llm_provider, real_tool):
-        """Test ChatAgent initialization with custom system prompt."""
         custom_system = "Custom system prompt"
         agent = ChatAgent(
             llm_provider=mock_llm_provider,
@@ -195,7 +143,6 @@ class TestChatAgent:
         assert agent.system_prompt == custom_system
 
     def test_init_with_custom_limits(self, mock_llm_provider, real_tool):
-        """The research budget IS the ceiling; nothing else bounds the loop."""
         agent = ChatAgent(
             llm_provider=mock_llm_provider,
             tools=[real_tool],
@@ -206,7 +153,6 @@ class TestChatAgent:
         assert agent.tool_iteration_ceiling == 3
 
     def test_init_with_callbacks(self, mock_llm_provider, real_tool):
-        """Test ChatAgent initialization with callbacks."""
         callbacks = [MagicMock()]
         agent = ChatAgent(
             llm_provider=mock_llm_provider,
@@ -217,7 +163,6 @@ class TestChatAgent:
         assert agent.callbacks == callbacks
 
     def test_init_with_empty_tools(self, mock_llm_provider):
-        """Test ChatAgent initialization with empty tools."""
         agent = ChatAgent(
             llm_provider=mock_llm_provider,
             tools=[],
@@ -227,7 +172,6 @@ class TestChatAgent:
         assert agent.tools_info == []
 
     def test_build_tools_info(self, mock_llm_provider, real_tool):
-        """Test _build_tools_info correctly extracts tool information."""
         agent = ChatAgent(
             llm_provider=mock_llm_provider,
             tools=[real_tool],
@@ -238,7 +182,6 @@ class TestChatAgent:
         assert "Search the web" in agent.tools_info[0]["description"]
 
     def test_get_llm(self, mock_llm_provider, mock_llm, real_tool):
-        """Test _get_llm returns LLM from provider."""
         agent = ChatAgent(
             llm_provider=mock_llm_provider,
             tools=[real_tool],
@@ -250,7 +193,6 @@ class TestChatAgent:
         assert result == mock_llm
 
     def test_graph_property(self, mock_llm_provider, real_tool):
-        """Test graph property returns compiled graph."""
         agent = ChatAgent(
             llm_provider=mock_llm_provider,
             tools=[real_tool],
@@ -261,7 +203,6 @@ class TestChatAgent:
 
     @pytest.mark.asyncio
     async def test_run_basic_query(self, mock_llm_provider, mock_llm, real_tool):
-        """Test run() with a basic query."""
         agent_response = AIMessage(content="CUDA is a parallel computing platform.")
         mock_llm.ainvoke = AsyncMock(return_value=agent_response)
 
@@ -279,7 +220,6 @@ class TestChatAgent:
 
     @pytest.mark.asyncio
     async def test_run_with_callbacks(self, mock_llm_provider, mock_llm, real_tool):
-        """Test run() passes callbacks to config."""
         agent_response = AIMessage(content="Answer")
         mock_llm.ainvoke = AsyncMock(return_value=agent_response)
 
@@ -296,10 +236,6 @@ class TestChatAgent:
 
     @pytest.mark.asyncio
     async def test_run_extracts_and_strips_control_markers(self, mock_llm_provider, mock_llm, real_tool):
-        """Both control markers are stripped before emit_final_report and in the returned message.
-
-        The detected signals are carried as structured state fields.
-        """
         from langchain_core.callbacks import BaseCallbackHandler
 
         agent_response = AIMessage(content="The answer body.\n[CONFIDENCE:high]\n[ESCALATE_TO_DEEP]")
@@ -336,7 +272,6 @@ class TestChatAgent:
 
     @pytest.mark.asyncio
     async def test_run_without_markers_sets_neutral_structured_signals(self, mock_llm_provider, mock_llm, real_tool):
-        """A clean answer still marks extraction done, with neutral signals."""
         mock_llm.ainvoke = AsyncMock(return_value=AIMessage(content="A clean grounded answer [1]."))
         agent = ChatAgent(llm_provider=mock_llm_provider, tools=[real_tool])
 
@@ -347,13 +282,6 @@ class TestChatAgent:
 
     @pytest.mark.asyncio
     async def test_run_flattens_list_shaped_answer_content(self, mock_llm_provider, mock_llm, real_tool):
-        """Reasoning models can return the answer as a list of content blocks.
-
-        Regression: ``str(answer_msg.content)`` turned that list into a Python
-        repr (``"[{'type': 'text', ...}]"``) as the answer text, which every
-        downstream filter (marker extraction, citation checks) then no-oped on.
-        The answer text must be the flattened block text, not the list repr.
-        """
         agent_response = AIMessage(
             content=[
                 {"type": "text", "text": "The flattened answer body [1]."},
@@ -374,7 +302,6 @@ class TestChatAgent:
 
     @staticmethod
     def _envelope_reply(*, fenced: bool = True, **overrides):
-        """One contract-shaped envelope reply, long enough to earn takeaways."""
         import json as _json
 
         prose = (
@@ -404,7 +331,6 @@ class TestChatAgent:
 
     @pytest.mark.asyncio
     async def test_run_consumes_a_full_answer_envelope(self, mock_llm_provider, mock_llm, real_tool):
-        """Envelope in → prose out, confidence consumed, anatomy gated onto state."""
         from langchain_core.callbacks import BaseCallbackHandler
 
         mock_llm.ainvoke = AsyncMock(return_value=AIMessage(content=self._envelope_reply()))
@@ -443,7 +369,6 @@ class TestChatAgent:
 
     @pytest.mark.asyncio
     async def test_run_accepts_the_bare_object_json_mode_produces(self, mock_llm_provider, mock_llm, real_tool):
-        """Provider JSON mode emits an UNFENCED object; the chain must not care."""
         mock_llm.ainvoke = AsyncMock(return_value=AIMessage(content=self._envelope_reply(fenced=False)))
         agent = ChatAgent(llm_provider=mock_llm_provider, tools=[real_tool])
 
@@ -457,7 +382,6 @@ class TestChatAgent:
 
     @pytest.mark.asyncio
     async def test_run_keeps_one_placed_callout_marker(self, mock_llm_provider, mock_llm, real_tool):
-        """A surviving callout keeps its FIRST own-line `[[callout]]`, and only that."""
         prose = (
             "Die erforderliche Geländerhöhe beträgt 100 cm [1].\n\n"
             "[[callout]]\n\n"
@@ -475,7 +399,6 @@ class TestChatAgent:
 
     @pytest.mark.asyncio
     async def test_run_strips_the_marker_when_no_callout_survived(self, mock_llm_provider, mock_llm, real_tool):
-        """A marker with nothing behind it must never reach the reader."""
         prose = "Die Antwort [1].\n\n[[callout]]\n\nMehr Text.\n\n## References\n- [1] https://example.com"
         mock_llm.ainvoke = AsyncMock(return_value=AIMessage(content=self._envelope_reply(answer=prose, callout=None)))
         agent = ChatAgent(llm_provider=mock_llm_provider, tools=[real_tool])
@@ -486,7 +409,6 @@ class TestChatAgent:
 
     @pytest.mark.asyncio
     async def test_run_envelope_escalation_discards_the_anatomy(self, mock_llm_provider, mock_llm, real_tool):
-        """`escalate_to_deep: true` sets the signal and drops the decoration."""
         mock_llm.ainvoke = AsyncMock(return_value=AIMessage(content=self._envelope_reply(escalate_to_deep=True)))
         agent = ChatAgent(llm_provider=mock_llm_provider, tools=[real_tool])
 
@@ -497,7 +419,6 @@ class TestChatAgent:
         assert result.answer_confidence_marker == "medium"
 
     def _bindable(self, mock_llm, reply):
-        """Configure `mock_llm.bind(...)` to return a working bound double."""
         bound = MagicMock()
         bound.ainvoke = AsyncMock(return_value=AIMessage(content=reply))
         mock_llm.bind = MagicMock(return_value=bound)
@@ -505,11 +426,6 @@ class TestChatAgent:
 
     @pytest.mark.asyncio
     async def test_forced_synthesis_keeps_the_tools_and_asks_for_no_call(self, mock_llm_provider, mock_llm, real_tool):
-        """Budget exhausted → the synthesis call is the round's own binding with ``tool_choice: "none"``.
-
-        Dropping the tools, or switching the output format, invalidates the
-        cached prefix on the turn's longest call (``envelope_call.ainvoke_synthesis``).
-        """
         bound = self._bindable(mock_llm, self._envelope_reply())
         agent = ChatAgent(llm_provider=mock_llm_provider, tools=[real_tool], max_tool_iterations=0)
 
@@ -523,7 +439,6 @@ class TestChatAgent:
 
     @pytest.mark.asyncio
     async def test_synthesis_binds_json_mode_only_where_the_rounds_did(self, mock_llm_provider, mock_llm, real_tool):
-        """With ``envelope_json_mode_with_tools`` every round sent the format, so synthesis keeps it too."""
         bound = self._bindable(mock_llm, self._envelope_reply(fenced=False))
         bound.bind = MagicMock(return_value=bound)
         agent = ChatAgent(
@@ -543,7 +458,6 @@ class TestChatAgent:
     async def test_a_provider_that_ignores_tool_choice_gets_the_tool_free_call(
         self, mock_llm_provider, mock_llm, real_tool
     ):
-        """A tool call at the ceiling would run past it: the answer comes from the old tool-free call."""
         bound = self._bindable(mock_llm, "")
         ignored = AIMessage(content="", tool_calls=[{"name": "knowledge_search", "args": {}, "id": "c1"}])
         bound.ainvoke = AsyncMock(side_effect=[ignored, AIMessage(content=self._envelope_reply(fenced=False))])
@@ -578,7 +492,6 @@ class TestChatAgent:
     async def test_a_provider_that_rejects_tool_choice_gets_the_tool_free_call(
         self, mock_llm_provider, mock_llm, real_tool
     ):
-        """A 400 on ``tool_choice: "none"`` must not end the turn the old tool-free call answered."""
         rejected = RuntimeError("tool_choice not supported")
         rejected.status_code = 400
         bound = self._bindable(mock_llm, "")
@@ -593,12 +506,6 @@ class TestChatAgent:
 
     @pytest.mark.asyncio
     async def test_a_transport_error_is_not_retried_down_the_ladder(self, mock_llm_provider, mock_llm, real_tool):
-        """Auth, quota and network faults fail the same way on every rung.
-
-        Retrying them under a different ``response_format`` only logged the
-        real error three times as "response_format failed" and tripled the
-        latency of a turn that was already lost.
-        """
         bound = self._bindable(mock_llm, "")
         bound.bind = MagicMock(return_value=bound)
         bound.ainvoke = AsyncMock(side_effect=ConnectionError("upstream reset"))
@@ -618,7 +525,6 @@ class TestChatAgent:
 
     @pytest.mark.asyncio
     async def test_tool_bound_iterations_bind_json_mode_only_by_opt_in(self, mock_llm_provider, mock_llm, real_tool):
-        """Default OFF on tool-bound calls (silent tool-suppression risk); flag turns it on."""
         mock_llm.bind = MagicMock()
         mock_llm.ainvoke = AsyncMock(return_value=AIMessage(content=self._envelope_reply()))
         agent = ChatAgent(llm_provider=mock_llm_provider, tools=[real_tool])
@@ -636,7 +542,6 @@ class TestChatAgent:
 
     @pytest.mark.asyncio
     async def test_run_with_user_info(self, mock_llm_provider, mock_llm, real_tool):
-        """Test run() with user info in state."""
         agent_response = AIMessage(content="Personalized answer")
         mock_llm.ainvoke = AsyncMock(return_value=agent_response)
 
@@ -658,7 +563,6 @@ class TestChatAgent:
 
     @pytest.mark.asyncio
     async def test_run_with_tools_info_in_state(self, mock_llm_provider, mock_llm, real_tool):
-        """Test run() uses tools_info from state if provided."""
         agent_response = AIMessage(content="Answer")
         mock_llm.ainvoke = AsyncMock(return_value=agent_response)
 
@@ -681,7 +585,6 @@ class TestChatAgent:
         assert result is not None
 
     def test_a_missing_prompt_is_a_boot_failure(self, mock_llm_provider, real_tool):
-        """No stub prompt, ever: production must not run on three lines of filler."""
         from agent.common.prompt_utils import PromptError
         from agent.core import prompt as prompt_module
 
@@ -696,7 +599,6 @@ class TestChatAgent:
             prompt_module.system_prompt_template.cache_clear()
 
     def test_the_prompt_template_is_read_once_per_process(self, mock_llm_provider, real_tool):
-        """Two agents, one disk read: the 43 KB template is cached by name."""
         from agent.core import prompt as prompt_module
 
         prompt_module.system_prompt_template.cache_clear()
@@ -712,7 +614,6 @@ class TestChatAgent:
         assert first.system_prompt is second.system_prompt
 
     def test_default_prompt_requires_tool_result_references(self, mock_llm_provider, real_tool):
-        """Default prompt tells the model to cite non-URL tool results by the tool's name."""
         ChatAgent(
             llm_provider=mock_llm_provider,
             tools=[real_tool],
@@ -722,7 +623,6 @@ class TestChatAgent:
         assert "exactly as the tool returned it" in _bundled_prompt_text()
 
     def test_default_prompt_matches_user_language(self, mock_llm_provider, real_tool):
-        """Default prompt instructs the model to answer in the user's language."""
         ChatAgent(
             llm_provider=mock_llm_provider,
             tools=[real_tool],
@@ -734,11 +634,6 @@ class TestChatAgent:
         assert "German is Austrian technical German" in text
 
     def test_an_english_question_is_answered_in_english_in_the_examples(self, mock_llm_provider, real_tool):
-        """Every example was German, so the examples taught German whatever the rule said.
-
-        At least one example asks in English and answers in English, with the
-        English sources label the CITATIONS rule names.
-        """
         import re
 
         ChatAgent(llm_provider=mock_llm_provider, tools=[real_tool])
@@ -749,21 +644,11 @@ class TestChatAgent:
         assert all("**References:**" in body and "**Quellen:**" not in body for body in english)
 
     def test_default_prompt_names_profile_facts_in_words(self, mock_llm_provider, real_tool):
-        """The project context lists facts as `key=value`; a key copied into prose reached the reader.
-
-        Live QA 2026-10-27: „max_building_height=3" stood in an answer, in the
-        UI and over MCP alike.
-        """
         ChatAgent(llm_provider=mock_llm_provider, tools=[real_tool])
 
         assert "Name a fact in words, never as its key" in _bundled_prompt_text()
 
     def test_default_prompt_keeps_escalate_marker_language_independent(self, mock_llm_provider, real_tool):
-        """Language matching must NOT disturb the envelope's contract tokens.
-
-        The legacy bracket grammar (`[ESCALATE_TO_DEEP]`) is still stripped by
-        the parser but no longer taught: the envelope field is the one channel.
-        """
         ChatAgent(
             llm_provider=mock_llm_provider,
             tools=[real_tool],
@@ -795,14 +680,6 @@ class TestChatAgent:
         )
 
     def test_the_formatting_block_routes_a_diagram_to_a_drawing_card(self, mock_llm_provider, real_tool):
-        """The model-side half of "a diagram printed as a shell listing".
-
-        Asked for a diagram the model drew ASCII box art into a bare fence, and
-        the answer promised a drawing and printed a listing. The formatting rule
-        routes a drawing to a TAGGED mermaid fence (the envelope parser now
-        survives one) or to the shaped card whose fields it needs, and keeps
-        the ban on box art.
-        """
         rendered = self._render_default_prompt(mock_llm_provider, real_tool)
         formatting = rendered.split("<formatting>")[1].split("</formatting>")[0]
         assert "```mermaid" in formatting
@@ -815,10 +692,6 @@ class TestChatAgent:
         assert "│" in formatting
 
     def test_project_memory_is_framed_as_fallible_not_binding(self, mock_llm_provider, real_tool):
-        """The digest rides inside <project_context>, whose "confirmed facts bind" rule is meant for
-        CONFIRMED profile facts. Without an explicit carve-out, agent-authored `unverified` notes inherit
-        that weight and the agent defends stale memory instead of accepting a correction. The legend
-        renders in the turn context, beside the block, only when the block is there."""
         rendered = self._render_default_prompt(
             mock_llm_provider,
             real_tool,
@@ -836,7 +709,6 @@ class TestChatAgent:
         assert "PROJECT_MEMORY" not in without
 
     def test_research_turn_prompt_keeps_the_envelope_mandate(self, mock_llm_provider, real_tool):
-        """The envelope contract is rendered on every turn; there is no suppression note."""
         rendered = self._render_default_prompt(mock_llm_provider, real_tool)
 
         assert "<answer_envelope>" in rendered
@@ -846,18 +718,6 @@ class TestChatAgent:
         assert "classified as conversational / meta" not in rendered
 
     def test_the_confidence_marker_does_not_depend_on_having_sources(self, mock_llm_provider, real_tool):
-        """A measured answer cites nothing, and used to drop the marker with it.
-
-        On the first live run of this branch the marker was absent from 4 of 32
-        real answers — and the split was not random. Every answer that produced
-        a `**Quellen:**` section carried the marker (18/18); every answer that
-        produced none dropped it 4 times in 14. The prompt therefore has to say
-        that confidence stands alone, and to give a measurement somewhere to
-        land among the levels.
-
-        Nothing here makes the marker enforceable: a missing marker stays a
-        soft degradation (no chip), never an error and never a retry.
-        """
         rendered = self._render_default_prompt(mock_llm_provider, real_tool)
 
         assert "every answer that retrieved, measured or cites" in rendered
@@ -868,7 +728,6 @@ class TestChatAgent:
 
     @pytest.mark.asyncio
     async def test_tool_iterations_incremented_on_tool_calls(self, mock_llm_provider, mock_llm, real_tool):
-        """Test tool_iterations counter increments when LLM makes tool calls."""
         tool_call_response = AIMessage(
             content="",
             tool_calls=[{"name": "web_search_tool", "args": {"query": "test"}, "id": "1"}],
@@ -892,7 +751,6 @@ class TestChatAgent:
 
     @pytest.mark.asyncio
     async def test_forced_synthesis_at_max_iterations(self, mock_llm_provider, mock_llm, real_tool):
-        """Test that agent forces synthesis when max_tool_iterations is reached."""
         final_response = AIMessage(content="Forced synthesis response")
         mock_llm.ainvoke = AsyncMock(return_value=final_response)
 
@@ -914,16 +772,6 @@ class TestChatAgent:
 
     @pytest.mark.asyncio
     async def test_a_round_of_cards_costs_one_round(self, mock_llm_provider, mock_llm, real_tool):
-        """The regression behind "an answer only ever carries one card".
-
-        One search, then a shape lookup and two cards. Every tool CALL used to
-        be charged to ``max_tool_iterations``, so three calls of the answer's
-        own output channel ate three of the budget and the second card the
-        doctrine allows was unreachable on any turn that had actually searched.
-        Charging ROUNDS removes the problem at its cause rather than exempting
-        the card channel: the whole card round is one, like the search before
-        it, and no second currency has to be kept in step.
-        """
         search_round = AIMessage(
             content="",
             tool_calls=[{"name": "web_search_tool", "args": {"query": "test"}, "id": "1"}],
@@ -951,18 +799,15 @@ class TestChatAgent:
         assert sum(1 for message in result.messages if getattr(message, "name", None) == "emit_card") == 2
 
     def test_state_has_tool_iterations_field(self):
-        """Test that ResearchAgentState has tool_iterations field."""
         state = ResearchAgentState(messages=[HumanMessage(content="Test")])
         assert hasattr(state, "tool_iterations")
         assert state.tool_iterations == 0
 
     def test_state_tool_iterations_default_value(self):
-        """Test tool_iterations defaults to 0."""
         state = ResearchAgentState(messages=[HumanMessage(content="Test")])
         assert state.tool_iterations == 0
 
     def test_state_tool_iterations_can_be_set(self):
-        """Test tool_iterations can be set to custom value."""
         state = ResearchAgentState(
             messages=[HumanMessage(content="Test")],
             tool_iterations=5,
@@ -971,7 +816,6 @@ class TestChatAgent:
 
     @pytest.mark.asyncio
     async def test_run_returns_updated_tool_iterations(self, mock_llm_provider, mock_llm, real_tool):
-        """Test that run() returns state with updated tool_iterations."""
         agent_response = AIMessage(content="Answer")
         mock_llm.ainvoke = AsyncMock(return_value=agent_response)
 
@@ -991,7 +835,6 @@ class TestChatAgent:
 
     @pytest.mark.asyncio
     async def test_forced_synthesis_adds_instruction_message(self, mock_llm_provider, mock_llm, real_tool):
-        """Test that forced synthesis adds instruction to synthesize."""
         captured_messages = []
 
         async def capture_messages(messages):
@@ -1022,7 +865,6 @@ class TestChatAgent:
 
 @tool
 def web_search_with_urls(query: str) -> str:
-    """Search the web and return results with URLs."""
     return (
         '<Document href="https://docs.nvidia.com/cuda/">\n'
         "<title>\nCUDA Toolkit Documentation\n</title>\n"
@@ -1033,31 +875,26 @@ def web_search_with_urls(query: str) -> str:
 
 @tool
 def mcp_time__get_current_time(timezone: str = "UTC") -> str:
-    """Get the current time for a timezone."""
     return "2026-05-11T14:30:00+09:00"
 
 
 @tool
 def weather_observation_tool(location: str) -> str:
-    """Get current observed weather conditions."""
     return f"Current conditions for {location}: clear, 68F"
 
 
 @tool
 def empty_web_search_tool(query: str) -> str:
-    """Search the web (returns no results)."""
     return ""
 
 
 @tool
 def project_lookup(action: str, query: str = "") -> str:
-    """Look into the office's other projects (a search that matched nothing)."""
     return "Treffer aus anderen Projekten: 0 Passage(n) aus 0 Projekt(en); 7 von 7 Projekten durchsucht."
 
 
 @tool
 def remember_tool(fact: str) -> str:
-    """Durably save a user preference, decision, or project fact."""
     return f"Saved: {fact}"
 
 
@@ -1066,14 +903,11 @@ _SPY_SEARCH_EXECUTIONS: list[str] = []
 
 @tool
 def spy_search_tool(query: str) -> str:
-    """Search the web (spy: records every actual execution)."""
     _SPY_SEARCH_EXECUTIONS.append(query)
     return f"Results for: {query}"
 
 
 class TestChatSourceRegistryGating:
-    """Tests that source capture is gated by data_source_registry."""
-
     @pytest.fixture(autouse=True)
     def _reset_data_source_registry(self):
         reset_registry()
@@ -1096,12 +930,6 @@ class TestChatSourceRegistryGating:
 
     @pytest.mark.asyncio
     async def test_explicit_tool_not_declared_as_data_source_is_not_captured(self, mock_llm_provider, mock_llm):
-        """Loaded agent tools are not enough; the tool must be in data_source_registry.
-
-        A tool outside the registry captures no sources, and because no
-        data-source lookup was attempted the answer is returned rather than
-        rejected by the citation guard.
-        """
         tool_call_response = AIMessage(
             content="",
             tool_calls=[{"name": "mcp_time__get_current_time", "args": {"timezone": "Asia/Tokyo"}, "id": "1"}],
@@ -1124,11 +952,6 @@ class TestChatSourceRegistryGating:
 
     @pytest.mark.asyncio
     async def test_an_answer_that_looked_nothing_up_is_returned_as_is(self, mock_llm_provider, mock_llm):
-        """A reply from project context calls no data-source tool. An empty
-        registry then is not a failure — the answer is returned as it is, and
-        the result says no source was consulted (which is what the chat node
-        reads a direct reply from).
-        """
         final_response = AIMessage(content="Your project **test 1** is a Neubau, Beherbergung, GK3 building.")
         mock_llm.ainvoke = AsyncMock(side_effect=[final_response])
 
@@ -1148,11 +971,6 @@ class TestChatSourceRegistryGating:
 
     @pytest.mark.asyncio
     async def test_a_greeting_keeps_the_full_binding(self, mock_llm_provider, mock_llm):
-        """No turn is narrowed by a classification any more (ADR-0052): the
-        greeting is answered from the same construction-time binding a
-        Baurecht question uses, search tool included. Whether to call it is
-        the model's decision, made with the tool in hand.
-        """
         populate_from_config(
             [
                 {
@@ -1183,11 +1001,6 @@ class TestChatSourceRegistryGating:
 
     @pytest.mark.asyncio
     async def test_a_search_the_model_calls_on_a_greeting_executes(self, mock_llm_provider, mock_llm):
-        """The other half of the same rule: a tool the model decides to call
-        runs, on any turn. The old meta partition returned an invalid-tool
-        error here; that partition is what made "zeig mir die Grundrisse"
-        answer that its tool was not available in this session.
-        """
         _SPY_SEARCH_EXECUTIONS.clear()
         populate_from_config(
             [
@@ -1221,8 +1034,6 @@ class TestChatSourceRegistryGating:
 
     @pytest.mark.asyncio
     async def test_research_turn_hallucinated_search_call_executes(self, mock_llm_provider, mock_llm):
-        """A research question: the search tool is available and a tool call
-        executes normally."""
         _SPY_SEARCH_EXECUTIONS.clear()
         populate_from_config(
             [
@@ -1256,8 +1067,6 @@ class TestChatSourceRegistryGating:
 
     @pytest.mark.asyncio
     async def test_research_turn_keeps_search_tools_bound(self, mock_llm_provider, mock_llm):
-        """A research question uses the full construction-time binding, so the
-        search tool remains available."""
         populate_from_config(
             [
                 {
@@ -1286,13 +1095,6 @@ class TestChatSourceRegistryGating:
 
     @pytest.mark.asyncio
     async def test_a_failed_lookup_ships_the_answer_labelled_as_model_knowledge(self, mock_llm_provider, mock_llm):
-        """A research turn that DID query a data source and captured nothing ships its answer, labelled.
-
-        It used to raise EmptySourceRegistryError, and the reader got a canned
-        „nothing retrieved" message instead of the answer (ADR-0125). The
-        answer now carries the banner flag, and every sentence is the model's
-        own knowledge; an [N] it wrote anyway is labelled, not shown as a source.
-        """
         populate_from_config(
             [
                 {
@@ -1326,7 +1128,6 @@ class TestChatSourceRegistryGating:
 
     @pytest.mark.asyncio
     async def test_a_ruling_whose_lookup_found_nothing_is_still_refused(self, mock_llm_provider, mock_llm):
-        """A ruling exists to carry a copyable legal value; without a source it has nothing to show."""
         populate_from_config(
             [{"id": "web_search", "name": "Web Search", "description": "Web.", "tools": ["empty_web_search_tool"]}],
         )
@@ -1349,13 +1150,6 @@ class TestChatSourceRegistryGating:
     async def test_a_lookup_in_other_projects_that_found_nothing_keeps_its_honest_answer(
         self, mock_llm_provider, mock_llm
     ):
-        """„Nichts Vergleichbares" is the answer, not a failed retrieval.
-
-        A search over the office's projects that matched nothing, a listing and
-        a brief register no passage; replacing the model's answer with the
-        retry message told a planner to try again a question whose answer is
-        „das hatten wir noch nie" (precedent eval, Oct 2026).
-        """
         populate_from_config(
             [{"id": "knowledge_layer", "name": "Knowledge", "description": "Projects.", "tools": ["project_lookup"]}],
         )
@@ -1383,7 +1177,6 @@ class TestChatSourceRegistryGating:
 
     @pytest.mark.asyncio
     async def test_an_empty_passage_search_beside_a_record_lookup_is_flagged(self, mock_llm_provider, mock_llm):
-        """Only the record lookup is exempt: a norm search that came back empty still raises the banner."""
         populate_from_config(
             [
                 {"id": "knowledge_layer", "name": "Knowledge", "description": "Projects.", "tools": ["project_lookup"]},
@@ -1412,13 +1205,6 @@ class TestChatSourceRegistryGating:
 
     @pytest.mark.asyncio
     async def test_research_turn_answered_from_context_returns_answer(self, mock_llm_provider, mock_llm):
-        """A research-routed turn the agent answers from conversation/project
-        context WITHOUT attempting any data-source lookup must return the
-        answer, not raise. Regression for the misrouted-conversational-turn
-        incident: the citation guard replaced a substantive answer with a
-        misleading "search tools did not return any results" error even though
-        no tool was ever called.
-        """
         final_response = AIMessage(content="To fill in hohe_gebaeude_details I need the exact building height.")
         mock_llm.ainvoke = AsyncMock(side_effect=[final_response])
 
@@ -1437,7 +1223,6 @@ class TestChatSourceRegistryGating:
 
     @pytest.mark.asyncio
     async def test_registered_group_tool_without_urls_is_captured(self, mock_llm_provider, mock_llm):
-        """Registered group child tools without URLs can be non-URL citation sources."""
         populate_from_config(
             [
                 {
@@ -1474,7 +1259,6 @@ class TestChatSourceRegistryGating:
 
     @pytest.mark.asyncio
     async def test_a_source_the_model_did_not_cite_is_never_appended(self, mock_llm_provider, mock_llm):
-        """The single-source fallback is gone (ADR-0125): an uncited answer stays uncited, with no chip invented."""
         populate_from_config(
             [
                 {
@@ -1507,7 +1291,6 @@ class TestChatSourceRegistryGating:
 
     @pytest.mark.asyncio
     async def test_missing_citation_fallback_skips_ambiguous_multi_source_registry(self, mock_llm_provider, mock_llm):
-        """Do not inject the first captured source when multiple sources exist."""
         populate_from_config(
             [
                 {
@@ -1551,7 +1334,6 @@ class TestChatSourceRegistryGating:
 
     @pytest.mark.asyncio
     async def test_registered_exact_data_source_tool_without_urls_is_captured(self, mock_llm_provider, mock_llm):
-        """Any exact tool declared under data_sources can be a non-URL citation source."""
         populate_from_config(
             [
                 {
@@ -1585,13 +1367,6 @@ class TestChatSourceRegistryGating:
 
 
 class TestChatSourceCaptureIntegration:
-    """Integration tests verifying source capture through the full pipeline.
-
-    These tests do NOT bypass the citation pipeline — they verify that
-    tool_node_with_source_capture registers sources from real tool execution,
-    and that verify_citations + sanitize_report run on the final output.
-    """
-
     @pytest.fixture
     def mock_llm(self):
         llm = MagicMock()
@@ -1624,7 +1399,6 @@ class TestChatSourceCaptureIntegration:
 
     @pytest.mark.asyncio
     async def test_source_registry_populated_from_tool_call(self, mock_llm_provider, mock_llm):
-        """Tool execution populates the source registry with extracted URLs."""
         tool_call_response = AIMessage(
             content="",
             tool_calls=[{"name": "web_search_with_urls", "args": {"query": "CUDA"}, "id": "1"}],
@@ -1654,7 +1428,6 @@ class TestChatSourceCaptureIntegration:
 
     @pytest.mark.asyncio
     async def test_invalid_citation_removed_end_to_end(self, mock_llm_provider, mock_llm):
-        """Citations not backed by registry sources are removed from output."""
         tool_call_response = AIMessage(
             content="",
             tool_calls=[{"name": "web_search_with_urls", "args": {"query": "CUDA"}, "id": "1"}],
@@ -1683,12 +1456,6 @@ class TestChatSourceCaptureIntegration:
 
 
 class TestChatSessionRegistry:
-    """Tests verifying session-scoped SourceRegistry integration.
-
-    These tests do NOT use the _bypass_citation_pipeline fixture — they verify
-    the actual ContextVar-based session registry behavior.
-    """
-
     @pytest.fixture
     def mock_llm(self):
         llm = MagicMock()
@@ -1705,7 +1472,6 @@ class TestChatSessionRegistry:
 
     @pytest.mark.asyncio
     async def test_run_uses_session_registry_when_set(self, mock_llm_provider, mock_llm):
-        """When session registry is set via ContextVar, run() uses it and doesn't raise."""
         from agent.citations.session import set_session_registry
 
         session_reg = SourceRegistry()
@@ -1736,8 +1502,6 @@ class TestChatSessionRegistry:
 
     @pytest.mark.asyncio
     async def test_standalone_runs_never_share_a_registry(self, mock_llm_provider, mock_llm):
-        """Without a session registry every run gets a fresh one: a source the
-        previous run captured must not be auto-appended as this run's citation."""
         from agent.citations.session import set_session_registry
 
         set_session_registry(None)  # Ensure no session registry
@@ -1774,7 +1538,6 @@ class TestChatSessionRegistry:
 
     @pytest.mark.asyncio
     async def test_the_session_registry_is_left_bound_after_the_run(self, mock_llm_provider, mock_llm):
-        """A run reads the session registry and never unbinds or replaces it."""
         from agent.citations.session import get_session_registry
         from agent.citations.session import set_session_registry
 
@@ -1800,13 +1563,6 @@ class TestChatSessionRegistry:
 
 
 class TestChatAnswerGrounding:
-    """The ``answer_citation_grounded`` overconfidence-guard signal set by run().
-
-    This class deliberately does NOT inherit the citation-bypass autouse fixture
-    of TestChatAgent: each test controls the verification outcome
-    and registry contents itself.
-    """
-
     @pytest.fixture(autouse=True)
     def _reset_data_source_registry(self):
         reset_registry()
@@ -1815,13 +1571,6 @@ class TestChatAnswerGrounding:
 
     @staticmethod
     def _after_a_lookup(mock_llm, answer: str, *, query: str = "q") -> None:
-        """Script one web search, then the answer.
-
-        The single-source fallback grounds an answer in the one source THIS
-        turn retrieved; a turn that looked nothing up gets no citation appended
-        (or a greeting would inherit last turn's source). So the tests that
-        exercise the fallback have to look something up first.
-        """
         populate_from_config(
             [{"id": "web_search", "name": "Web Search", "description": "Search the web.", "tools": ["web_search_tool"]}]
         )
@@ -2118,7 +1867,6 @@ class TestChatAnswerGrounding:
 
 @tool
 def knowledge_search(query: str) -> str:
-    """Search the internal knowledge base (returns KB-format results)."""
     return (
         "Found 1 relevant document(s):\n\n"
         "--- Result 1 ---\n"
@@ -2137,8 +1885,6 @@ def knowledge_search(query: str) -> str:
 
 
 class TestChatQuoteVerification:
-    """The agent annotates fabricated quotes and flips answer_quotes_verified."""
-
     @pytest.fixture
     def mock_llm(self):
         llm = MagicMock()
@@ -2217,8 +1963,6 @@ class TestChatQuoteVerification:
 
 
 class TestChatRepairPass:
-    """The one repair (ADR-0067): a misremembered quote corrected in place against its passage."""
-
     @pytest.fixture
     def mock_llm(self):
         llm = MagicMock()
@@ -2377,15 +2121,6 @@ class TestChatRepairPass:
 
 
 class TestClarificationGuidance:
-    """The agent must be told what to do with an under-specified query —
-    on every turn, and independent of whether project_context is present.
-
-    Regression: the only Rueckfrage/pushback guidance lived INSIDE the
-    ``{% if project_context %}`` block, so a shallow turn with no project brief
-    got zero clarification guidance and always answered straight through.
-    The rule now sits in the static system prompt, which no condition renders.
-    """
-
     def _render(self, *, project_context):
 
         from agent.common import render_prompt_template
@@ -2401,7 +2136,6 @@ class TestClarificationGuidance:
         )
 
     def test_clarification_guidance_present_on_research_turn_without_project_context(self):
-        """A turn with NO project context still gets the guidance — the core regression."""
         rendered = self._render(project_context=None)
         rules = rendered.split("<rules>")[1].split("</rules>")[0]
         assert "answer under a stated assumption" in rules
@@ -2414,15 +2148,6 @@ class TestClarificationGuidance:
 
 
 class TestOffTopicDeclineShape:
-    """Out-of-scope questions reach the assistant like every other turn, and
-    the assistant must DECLINE + redirect them — not answer them from its own
-    knowledge.
-
-    Regression: the direct-reply shape said "answer from your own knowledge",
-    so a clearly off-topic question (e.g. "how do I bake a cake") risked
-    getting a cheerful full answer. The rules carve out an explicit decline.
-    """
-
     def _render(self):
 
         from agent.common import render_prompt_template
@@ -2445,24 +2170,11 @@ class TestOffTopicDeclineShape:
         assert "no tool call" in rules
 
     def test_in_scope_conversational_shape_still_answers(self):
-        """Guard against over-correction: genuine conversational/platform turns
-        (greetings, capability questions) are still answered directly."""
         kinds = self._render().split("KINDS.")[1].split("FIELDS.")[0]
         assert "`direct`: a greeting, a question about you" in kinds
 
 
 class TestADirectReplyMayStillEmitACard:
-    """The direct-reply shape and the card contract must not contradict.
-
-    Field case: „Wie läuft das Baubewilligungsverfahren in Wien ab?" was offered
-    a deep-research plan, refused twice, then retyped in plain words — and the
-    reply came as prose because the conversational shape said "no tool calls"
-    while the card contract told the model to emit one. Every tool is bound on
-    every turn (ADR-0052), so the contract says so, a plain-words building-law
-    question is a walkthrough or a ruling, and a greeting has nothing to put on
-    a card and emits none.
-    """
-
     def _render(self):
         return TestOffTopicDeclineShape._render(self)
 
@@ -2492,7 +2204,6 @@ class TestADirectReplyMayStillEmitACard:
         assert "never handed off" in hand_off
 
     def test_the_card_contract_is_in_every_system_prompt(self):
-        """The card contract is rendered from the catalog into the static half, so no turn can lack it."""
         from agent.core.prompt import bundled_static_block
         from agent.core.prompt import render_static_block
 
@@ -2501,11 +2212,6 @@ class TestADirectReplyMayStillEmitACard:
         assert "[[card:N]]" in system
 
     def test_the_contract_names_the_kinds_and_earns_a_ruling(self):
-        """A workspace turn is not a researched Bescheid by default.
-
-        The prompt has to name the kinds and keep ``verdict`` behind a
-        copyable legal value, or every file walkthrough inherits the gavel.
-        """
         kinds = self._kinds()
         for kind in ("direct", "walkthrough", "ruling", "handoff", "work"):
             assert f"`{kind}`" in kinds
@@ -2523,11 +2229,6 @@ class TestADirectReplyMayStillEmitACard:
             assert '"verdict"' not in example
 
     def test_the_research_example_is_a_walkthrough_not_a_topic_gavel(self):
-        """An overview question taught ``kind=ruling`` / ``value: Brandschutz``.
-
-        Brandschutz is a topic, not a copyable legal value. The model copies
-        the example.
-        """
         rendered = self._render()
         overview = rendered.split('type="walkthrough"')[1].split("</example>", 1)[0]
         assert '"kind": "walkthrough"' in overview
@@ -2544,13 +2245,6 @@ class TestADirectReplyMayStillEmitACard:
         assert "OIB-Richtlinien, österreichischem Baurecht" not in rendered
 
     def test_the_research_rules_state_outcomes_not_a_procedure(self):
-        """The rules say what must be true of a finished answer, never which
-        tool to call next or how many times.
-
-        A fetch the turn already ran is answered from the transcript, stated
-        as the fact it is; the Herleitung checkpoint is the tool's own
-        `conclusion` argument, described where it is passed.
-        """
         rendered = self._render()
         assert "Grid OIB Research Agent" not in rendered
         assert "at most 2 calls" not in rendered
@@ -2575,17 +2269,6 @@ class TestADirectReplyMayStillEmitACard:
 
 
 class TestKnowledgeInventoryIsNotCitable:
-    """The corpus inventory in the prompt must not read as citable evidence.
-
-    Every research turn renders the whole knowledge base — base OIB corpus
-    included — as `file_name: summary` lines. Those filenames are the exact
-    citation keys verification matches against, so a model that cites one it
-    never retrieved produces citations that are all dropped
-    (`citation_key_not_in_registry`) and an answer that ships with no source at
-    all. The prompt used to forbid recalling URLs from memory but said nothing
-    about document keys, while handing the model a list of them.
-    """
-
     def _render(self, prompt: str, documents: list[dict]) -> str:
         from agent.common import render_prompt_template
 
@@ -2607,7 +2290,6 @@ class TestKnowledgeInventoryIsNotCitable:
 
     @staticmethod
     def _prompt(path: str) -> str:
-        """The prompt source at this path; for the agent, both halves recombined."""
         from pathlib import Path
 
         import agent
@@ -2629,11 +2311,6 @@ class TestKnowledgeInventoryIsNotCitable:
         assert "Cite only what a tool returned" in citations
 
     def test_chat_prompt_asks_for_disagreement_between_sources_to_be_shown(self):
-        """The everyday chat surface had no rule about contradictory sources.
-
-        In a legal product a smoothed-over difference is the dangerous failure:
-        an unqualified answer reads as a settled one, and gets built on.
-        """
         source = self._prompt("core/prompts/system.j2")
 
         block = source.split("<legal_method>")[1].split("</legal_method>")[0]
@@ -2644,12 +2321,6 @@ class TestKnowledgeInventoryIsNotCitable:
         assert "keep `confidence` below high" in rule
 
     def test_every_example_source_line_in_the_prompt_is_a_bare_locator(self):
-        """The prompt's rule says `- [N] filename.pdf, p.X`; two of its examples
-        wrote `- [1] OIB-Richtlinie 2 – oib-rl_2_….pdf, p.1`, and the model
-        copies examples over rules. The BFF read that line as one long filename,
-        met no wire document, and drew a second, dead chip for the same source
-        under every answer. An example that contradicts the rule is a defect in
-        the prompt, so every example entry is checked against the rule here."""
         import json
         import re
 
@@ -2678,9 +2349,6 @@ class TestKnowledgeInventoryIsNotCitable:
         assert "not a citable source" in rendered
 
     def test_no_prompt_still_calls_the_base_corpus_a_user_upload(self):
-        """The list mixes the platform's OIB corpus with project uploads, so
-        "User Uploaded Documents" was also simply untrue — and a heading rename
-        must not leave dangling references to the old one."""
         for path in (
             "core/prompts/system.j2",
             "deep_researcher/prompts/researcher.j2",
@@ -2692,7 +2360,6 @@ class TestKnowledgeInventoryIsNotCitable:
             assert "Uploaded Documents" not in source, path
 
     def test_chat_prompt_teaches_the_four_shelves(self):
-        """The shelves themselves are taught where they are listed (the inventory block); the prompt names them."""
         source = self._prompt("core/prompts/system.j2")
         for mount, name in (("/project/", "Projektwissen"), ("/office/", "Büroablage"), ("/chat/", "Private Sitzung")):
             assert f"{mount} is {name}" in source or f"{mount} {name}" in source
@@ -2717,14 +2384,6 @@ class TestKnowledgeInventoryIsNotCitable:
 
 
 class TestTheModelCardsAreActuallyAskedFor:
-    """The five IFC cards had renderers and no instruction that named them.
-
-    That instruction lives in ``ifc-spatial-reasoning``, because most turns
-    never touch a model and the always-on prompt must not teach a minority
-    path. The skill catalog in the turn context points at it; the skill keeps
-    the card types and the id rule.
-    """
-
     def _ifc_skill(self) -> str:
         from pathlib import Path
 
@@ -2769,7 +2428,6 @@ _MEASURED_MODEL = {"model": {"filename": "Institut.ifc", "schemaVersion": "IFC4"
 
 @tool
 def ifc_measure(operation: str = "measure") -> str:
-    """Measure the project's IFC/BIM model and report the provenance."""
     from agent.tools.bim.measure_register import _render
 
     return _render(
@@ -2782,21 +2440,6 @@ def ifc_measure(operation: str = "measure") -> str:
 
 
 class TestMeasurementSourcesDoNotGroundCitations:
-    """A measurement reaches the Herleitung; it never reaches the citation gate.
-
-    The reason this class exists is the mixed answer:
-
-        (a) „Der Keller ist 2,70 m hoch"            — measured, reproducible
-        (b) „…und erfüllt damit OIB 4 Punkt 2.1"    — a legal claim, uncited
-
-    Giving measurements a derivation trail means they now travel on the citation
-    WIRE, beside the retrieved sources. If that also put them in the
-    ``SourceRegistry``, ``citation_grounded`` would flip true off (a), and the
-    answer check would read the measurement as a passage that (b) could rest
-    on. That is the laundering path ``source_kinds`` describes, and these tests
-    are what keep the Herleitung from re-opening it.
-    """
-
     @pytest.fixture
     def mock_llm(self):
         llm = MagicMock()
@@ -2812,7 +2455,6 @@ class TestMeasurementSourcesDoNotGroundCitations:
         return provider
 
     def _measuring_turn(self, mock_llm, answer: str, *, tools=None):
-        """An agent whose one tool call is a measurement, then the given answer."""
         mock_llm.ainvoke = AsyncMock(
             side_effect=[
                 AIMessage(
@@ -2832,13 +2474,6 @@ class TestMeasurementSourcesDoNotGroundCitations:
     async def test_measured_answer_with_uncited_normative_claim_never_reaches_the_registry(
         self, mock_llm_provider, mock_llm
     ):
-        """THE mixed case, after measurements appear in the Herleitung.
-
-        Named so a reviewer looking for the laundering guard finds it: the
-        measurement IS in the derivation trail and never in the registry, so it
-        is no passage. Whether the verdict beside it is backed is the answer
-        check's, told that a measurement never backs one (ADR-0139).
-        """
         tools = self._measuring_turn(
             mock_llm,
             "Der Keller ist 2,70 m hoch und erfüllt damit die Mindestraumhöhe nach OIB-Richtlinie 4.",
@@ -2856,12 +2491,6 @@ class TestMeasurementSourcesDoNotGroundCitations:
 
     @pytest.mark.asyncio
     async def test_a_lone_measurement_is_never_a_citation(self, mock_llm_provider, mock_llm):
-        """A measurement never reaches the registry, so nothing can hand it out as „[1]".
-
-        The single-source fallback that once appended a lone registry source is
-        gone (ADR-0125); the measurement stays out of the registry regardless,
-        because the registry is what ``[N]`` resolves through.
-        """
         tools = self._measuring_turn(mock_llm, "Der Keller ist 2,70 m hoch.")
         agent = ChatAgent(llm_provider=mock_llm_provider, tools=tools)
         state = ResearchAgentState(
@@ -2877,13 +2506,6 @@ class TestMeasurementSourcesDoNotGroundCitations:
 
     @pytest.mark.asyncio
     async def test_failed_retrieval_is_still_reported_even_when_the_turn_measured(self, mock_llm_provider, mock_llm):
-        """An empty retrieval keeps its meaning.
-
-        The question is "did retrieval capture anything to cite?", asked of the
-        registry. A measurement in it would answer with a value that was never
-        retrieved, so a turn whose web search came back empty would quietly stop
-        reporting the failure: no banner, no ``sources-empty``.
-        """
         populate_from_config(
             [
                 {
@@ -2920,7 +2542,6 @@ class TestMeasurementSourcesDoNotGroundCitations:
 
     @pytest.mark.asyncio
     async def test_the_card_carries_the_audit_trail_the_envelope_had(self, mock_llm_provider, mock_llm):
-        """Value, tolerance, German provenance, method, GlobalIds, model, caveat."""
         tools = self._measuring_turn(mock_llm, "Der Keller ist 2,70 m hoch.")
         agent = ChatAgent(llm_provider=mock_llm_provider, tools=tools)
         state = ResearchAgentState(
@@ -2943,12 +2564,6 @@ class TestMeasurementSourcesDoNotGroundCitations:
 
     @pytest.mark.asyncio
     async def test_the_measurement_does_not_count_as_a_cited_source(self, mock_llm_provider, mock_llm):
-        """The citation-health ledger counts CITATIONS, not measurements.
-
-        ``cited_count`` is measured against ``source_count`` — this turn's
-        retrieval. A measurement appended to the wire and then counted as a
-        citation would report one cited source out of zero retrieved.
-        """
         tools = self._measuring_turn(mock_llm, "Der Keller ist 2,70 m hoch.")
         agent = ChatAgent(llm_provider=mock_llm_provider, tools=tools)
         state = ResearchAgentState(
@@ -2963,17 +2578,6 @@ class TestMeasurementSourcesDoNotGroundCitations:
 
 
 class TestTheResearchBudgetIsOneNumber:
-    """``max_tool_iterations`` is the whole ceiling, and every call is charged to it.
-
-    It used to have a reserve on top, sized to the skills the deployment forced
-    onto every turn: those calls were overhead the question never asked for, and
-    charging them shortened every research chain in the product by one per
-    published house skill. Nothing is forced now — a skill read is one
-    the model chose, exactly like a search — so there is no overhead to
-    compensate, and the number the config's traced floors measure is the number
-    the turn gets.
-    """
-
     def _agent(self, iterations: int = 3):
         llm = MagicMock()
         llm.ainvoke = AsyncMock()
@@ -2992,22 +2596,12 @@ class TestTheResearchBudgetIsOneNumber:
         assert agent.tool_iteration_ceiling == 7
 
     def test_the_agent_takes_no_reserve_at_all(self):
-        """Not "reserve zero": the knob is gone, so nothing can put one back."""
         import inspect
 
         assert "reserved_tool_iterations" not in inspect.signature(ChatAgent.__init__).parameters
 
 
 class TestTruncationIsObservable:
-    """Silent truncation is the worst failure this product has; make it countable.
-
-    Hitting the ceiling means evidence-gathering was CUT OFF and the answer was
-    written from whatever had been gathered by then. ``[CONFIDENCE:…]`` does not
-    cover it — that grades whether the claims are sourced, not whether the
-    search finished — so before this there was nothing anywhere that could
-    answer "how often does this happen, and on which question shapes".
-    """
-
     @pytest.fixture(autouse=True)
     def _bypass_citation_pipeline(self):
         with (
@@ -3093,12 +2687,6 @@ class TestTruncationIsObservable:
 
     @pytest.mark.asyncio
     async def test_the_answer_carries_the_fact_out_of_the_graph(self):
-        """The log is for us; this field is the half the reader gets.
-
-        Telemetry answers "how often". It cannot put a line under the answer
-        the reader is looking at, and that answer is the one place where "the
-        search stopped early" changes what a person does next.
-        """
         llm = MagicMock()
         llm.bind_tools = MagicMock(return_value=llm)
         llm.bind = MagicMock(return_value=llm)
@@ -3112,7 +2700,6 @@ class TestTruncationIsObservable:
 
     @pytest.mark.asyncio
     async def test_an_answer_that_finished_its_research_claims_nothing(self):
-        """Absent, not False: presence is the fact, so nothing has to read a default."""
         llm = MagicMock()
         llm.bind_tools = MagicMock(return_value=llm)
         llm.bind = MagicMock(return_value=llm)
@@ -3140,13 +2727,6 @@ class TestTruncationIsObservable:
 
 
 class TestAssistantCheckpoint:
-    """The Thought before a tool round is the Herleitung checkpoint.
-
-    Empty content is the common tool-calling collapse — we keep the round as a
-    layer and do not invent a conclusion. A fenced answer is the final reply,
-    not a checkpoint.
-    """
-
     def test_a_sentence_before_the_calls_is_the_checkpoint(self):
         message = AIMessage(
             content="OIB 3 Pkt. 3.4.2 verweist auf den lichten Einfallswinkel.",
@@ -3167,7 +2747,6 @@ class TestAssistantCheckpoint:
 
 
 def _render_researcher_prompt(*, drafting_enabled: bool = False) -> str:
-    """The default prompt, rendered with the working directory on or off."""
 
     from agent.common import render_prompt_template
 
@@ -3189,22 +2768,10 @@ def _drafts_block() -> str:
 
 
 class TestTheWorkingDirectoryBlock:
-    """What is LEFT in the prompt about drafting, after ADR-0060's amendment.
-
-    Every verb's workflow is a tool's own contract and lives in the tool
-    description that owns it (see ``TestTheDraftingRulesLiveInTheTools``). One
-    sentence stays, because no tool description can carry it: what „mach
-    daraus ein File" refers to. What happens without a project is the
-    refusal ``file_draft`` returns, at the moment it matters.
-    """
-
     def test_a_turn_without_the_tools_is_never_told_to_write(self):
-        """A prompt describing a tool the model was not given is a promise it cannot keep."""
         assert "<drafts>" not in _render_researcher_prompt(drafting_enabled=False)
 
     def test_the_anaphora_resolves_against_the_previous_answer(self):
-        """„kannst du daraus ein File machen" has an antecedent only the
-        transcript holds, so no tool description can resolve it."""
         block = _drafts_block()
         assert "`daraus`/`davon`/`das`" in block
         assert "previous answer of this conversation" in block
@@ -3219,14 +2786,11 @@ class TestTheWorkingDirectoryBlock:
         assert "Without a project" not in _drafts_block()
 
     def test_the_workflow_the_tools_own_is_no_longer_in_the_prompt(self):
-        """The cut itself. Each of these was a sentence about how to hold a
-        tool, charged on every call of every turn (ADR-0060 (d))."""
         block = _drafts_block()
         for teaching in ("`write_file`", "`edit_file`", "`file_draft`", "`submit=true`", "`reviewer`"):
             assert teaching not in block, teaching
 
     def test_the_block_follows_the_tools_and_not_a_second_switch(self):
-        """The flag is derived from what is bound, by the renderer itself."""
         from agent.core.prompt import render_turn_context
         from agent.core.prompt import system_prompt_template
 
@@ -3246,13 +2810,6 @@ class TestTheWorkingDirectoryBlock:
 
 
 class TestTheDraftingRulesLiveInTheTools:
-    """Every rule the `<drafts>` block dropped, in the description that owns it.
-
-    A tool owns its whole contract (ADR-0060 (d)), so a rule deleted from the
-    prompt has to be findable in the schema the provider already sends. These
-    are the receipts for that move, one assertion per deleted sentence.
-    """
-
     @staticmethod
     def _draft_verbs() -> dict[str, str]:
         from agent.tools.documents.tools import _TOOL_DESCRIPTIONS
@@ -3272,12 +2829,6 @@ class TestTheDraftingRulesLiveInTheTools:
         assert verbs["edit_file"].startswith("Changes part of a draft")
 
     def test_read_file_says_the_working_directory_is_not_a_source(self):
-        """The one thing that must not blur: a draft cannot ground an answer.
-
-        It sits on `read_file` because that is the verb whose output is text a
-        model would otherwise cite. `ls` returns filenames, which nobody
-        quotes.
-        """
         verbs = self._draft_verbs()
         assert "the answer wrote itself" in verbs["read_file"]
         assert "source tools" in verbs["read_file"]
@@ -3293,7 +2844,6 @@ class TestTheDraftingRulesLiveInTheTools:
         assert "nobody has approved it" in _FILE_DRAFT_DESCRIPTION
 
     def test_submitting_needs_an_explicit_request(self):
-        """`submit_draft` merged into `file_draft(submit=true)`; its rules came with it."""
         from agent.tools.documents.register import _FILE_DRAFT_DESCRIPTION
 
         assert "Call with `submit=true` only when the user asks for approval" in _FILE_DRAFT_DESCRIPTION
@@ -3303,8 +2853,6 @@ class TestTheDraftingRulesLiveInTheTools:
 
 
 class TestTheDelegationRulesLiveInTheTool:
-    """`<delegieren>` is gone; `create_task`'s description carries what it said."""
-
     @staticmethod
     def _description() -> str:
         from agent.tools.tasks.register import _CREATE_TASK_DESCRIPTION
@@ -3315,61 +2863,39 @@ class TestTheDelegationRulesLiveInTheTool:
         assert "<delegieren>" not in _render_researcher_prompt(drafting_enabled=True)
 
     def test_it_names_the_delegatable_kinds(self):
-        """All four kinds are delegatable: the retirement was the chat TOOL, not the kind.
-
-        ``compliance_check`` was removed from the chat agent's tool list; it
-        stays a durable task kind and runs as a delegated Normprüfung
-        (`delegation.ts::TASK_ENGINES`, `docs/architecture/system-overview.md`).
-        """
         description = self._description()
         for kind in ("compliance_check", "submission_check", "document", "revision"):
             assert f"`{kind}`" in description
 
     def test_it_names_the_requests_a_person_actually_makes(self):
-        """So the model recognises the handoff instead of judging every long task one."""
         description = self._description()
         assert "Einreichcheck bis Freitag" in description
         assert f"@{PRODUCT_NAME} prüf das" in description
 
     def test_the_deadline_is_a_date_and_not_a_phrase(self):
-        """A string nothing can compare is a deadline the scheduler never enforces."""
         description = self._description()
         assert "`YYYY-MM-DD`" in description
         assert "do not pass text" in description
 
     def test_the_answer_must_not_claim_the_work_is_done(self):
-        """The sentence this whole tool exists to stop."""
         assert "CREATED, not done" in self._description()
 
     def test_delegating_is_not_a_way_out_of_answering(self):
         assert "not for a question that can be answered now" in self._description()
 
     def test_the_precondition_is_stated_where_the_model_reads_it(self):
-        """Without a project no task is created — the fact the deleted block
-        carried and the description did not."""
         description = self._description()
         assert "without a project in this conversation none is created" in description
         assert "instead of retrying" in description
 
 
 class TestTheWorkingDirectoryBudget:
-    """The file verbs cost one round like everything else — and cite nothing."""
-
     def test_the_recursion_limit_derives_from_the_ceiling_alone(self):
-        """Nothing else moves when the ceiling does."""
         from agent.core.agent import _recursion_limit
 
         assert _recursion_limit(5) == (5 * 2) + 10
 
     def test_a_draft_read_back_is_never_a_source(self):
-        """The safety property: nothing in the working directory can be cited.
-
-        ``read_file`` returns text the model wrote itself. Registering it would
-        let a draft ground a legal statement, which is the laundering path the
-        source registry exists to close — and the second gate
-        (``get_source_id_for_tool``) is what actually holds, because the file
-        verbs ARE in the turn's bound tool set.
-        """
         from agent.core.agent import _capture_sources
 
         registry = SourceRegistry()
@@ -3379,16 +2905,6 @@ class TestTheWorkingDirectoryBudget:
 
 
 class TestAFailedCallIsNotASource:
-    """The round loop reads the message STATUS, never the error text.
-
-    A retrieval call rejected by argument validation came back as pydantic's
-    own message, and the ``https://errors.pydantic.dev/...`` line in it was
-    mined as a URL: the Herleitung then showed a web card for a host nobody had
-    searched, on a turn whose search had not run at all. The tool here is the
-    web one on purpose, because that is the tool whose results are read for
-    URLs at all.
-    """
-
     @pytest.fixture(autouse=True)
     def _web_search_is_a_data_source(self):
         reset_registry()
@@ -3431,7 +2947,6 @@ class TestAFailedCallIsNotASource:
         assert self._captured(message) == []
 
     def test_a_result_that_succeeded_is_still_read(self):
-        """The other half: the gate is the status, not the text and not the tool."""
         from langchain_core.messages import ToolMessage
 
         message = ToolMessage(
@@ -3444,7 +2959,6 @@ class TestAFailedCallIsNotASource:
 
 
 def _bind_signed_turn(monkeypatch, *, conversation_id: str) -> None:
-    """A project-scoped chat turn carrying a valid signed envelope, as the WS upgrade leaves it."""
     import base64
     import hashlib
     import hmac
@@ -3482,14 +2996,6 @@ def _bind_signed_turn(monkeypatch, *, conversation_id: str) -> None:
 
 
 class TestATurnThatWritesADraft:
-    """The whole slice through the compiled graph: two file verbs, one document.
-
-    The LLM is scripted the way the budget tests above script it — one
-    ``AIMessage`` per round — while the tools are the REAL DeepAgents verbs over
-    a real ``InMemoryStore``. What is asserted is the file that exists at the
-    end, the cards the reader is shown, and what the turn was charged for.
-    """
-
     @pytest.fixture(autouse=True)
     def _bypass_citation_pipeline(self):
         with (
@@ -3596,15 +3102,6 @@ class TestATurnThatWritesADraft:
     async def test_write_then_file_draft_files_once_and_the_card_names_the_document(
         self, provider, scripted_llm, cards, working_directory, monkeypatch
     ):
-        """The whole filing slice through the graph: one write, one filing, one card that can act.
-
-        Only the HTTP call is a double. The working directory, the draft store's
-        filing record, the card registry and the budget accounting are the real
-        ones, because what this test is for is that the three meet: the file the
-        turn wrote is the bytes that go out, the answer the route gives back is
-        what the card carries, and filing is charged to the interaction channel
-        rather than to research.
-        """
         from langchain_core.tools import StructuredTool
 
         from agent.tools.documents import register as filing_tools
@@ -3670,19 +3167,10 @@ def _file_verb_descriptions() -> dict[str, str]:
 
 
 class TestTheTidyingRulesLiveInTheTools:
-    """`<aufraeumen>` is gone; the tool's description carries what it said.
-
-    The block taught the tidying verbs how to behave, in a paragraph charged on
-    every call of every turn. A tool owns its whole contract (ADR-0060 (d)); the
-    four verbs are one tool with an `operation` now, and the assertions below
-    are what its description has to keep.
-    """
-
     def test_the_prompt_no_longer_teaches_tidying(self):
         assert "<aufraeumen>" not in _render_researcher_prompt(drafting_enabled=True)
 
     def test_the_tool_says_it_changes_nothing(self):
-        """The one failure this rule exists to prevent: „ist verschoben"."""
         for name, description in _file_verb_descriptions().items():
             assert "PROPOSES" in description, name
             assert "changes nothing itself" in description, name
@@ -3693,13 +3181,10 @@ class TestTheTidyingRulesLiveInTheTools:
             assert "the user accepts or dismisses" in description, name
 
     def test_it_is_asked_for_and_not_volunteered(self):
-        """These answer a request; they are not a tidy-up nobody asked for."""
         for name, description in _file_verb_descriptions().items():
             assert "Propose only when the user asks for it" in description, name
 
     def test_it_offers_no_operation_that_is_not_bound(self):
-        """`set_doc_class` is gone; a description still naming it teaches a call
-        that fails, and a Dokumentart the reader could never accept."""
         for name, description in _file_verb_descriptions().items():
             assert "set_doc_class" not in description and "doc_class" not in description, name
 
@@ -3714,20 +3199,6 @@ class TestTheTidyingRulesLiveInTheTools:
 
 
 class TestTheThreeDraftingTurnShapes:
-    """Commission, revise, file — the same three cases the live eval runs.
-
-    ``evals/turn-shapes/test_turn_shapes_live.py`` puts these prompts to the
-    real model and skips without a key, so nothing about a drafting turn was
-    checked on any PR (ledger row 5). These are the same cases, the same
-    assertion (``tests/fixtures/drafting_turns.py``) and the same real tools —
-    the working directory, the card registry and the budget accounting — with
-    the model scripted, which is what makes them runnable in CI.
-
-    What they can prove and the live pair cannot: that the graph does the right
-    thing with the calls. What the live pair proves and these cannot: that the
-    model MAKES them.
-    """
-
     @pytest.fixture(autouse=True)
     def _bypass_citation_pipeline(self):
         with (
@@ -3780,7 +3251,6 @@ class TestTheThreeDraftingTurnShapes:
 
     @staticmethod
     def _answer(text: str) -> AIMessage:
-        """The reply a drafting turn ends on: prose, a kind, and no verdict."""
         import json as _json
 
         return AIMessage(content=f"```answer_json\n{_json.dumps({'answer': text, 'kind': 'direct'})}\n```")
@@ -3797,7 +3267,6 @@ class TestTheThreeDraftingTurnShapes:
             await backend.awrite(path, content)
 
     def _file_draft_tool(self, monkeypatch, backend, posted):
-        """`file_draft` with only the HTTP call doubled, as the filing test does."""
         from langchain_core.tools import StructuredTool
 
         from agent.tools.documents import register as filing_tools
@@ -3914,13 +3383,6 @@ class TestTheThreeDraftingTurnShapes:
 
 
 def _scripted_tool_names(scripted_llm) -> list[str]:
-    """Every tool the scripted turn actually asked for, in order.
-
-    Read off the replies the model made rather than off the tool doubles: the
-    graph may withhold a call (the round-zero fan-out cap answers the surplus
-    with an explanation), and what the shape assertion is about is what the
-    turn DID — a withheld call did not happen.
-    """
     names: list[str] = []
     for call in scripted_llm.ainvoke.await_args_list:
         for message in call.args[0]:

@@ -1,15 +1,3 @@
-"""Mirror a project's facts and status onto its points (design §4, "Mutable facts").
-
-Postgres ``projects`` (profile, status) is the authority; the BFF owns it and
-calls this whenever a project's fingerprint or lifecycle state changes, and
-from its facts sync for every project. The points carry a copy so the
-cross-project search can filter by a fact and lift similar projects inside
-the one query (``knowledge_layer.vector_store.boost``).
-
-A stale copy never widens access: who may read a point is the signed scope
-and the scope filter alone. A fact on a point only ranks and narrows.
-"""
-
 import asyncio
 import logging
 
@@ -27,7 +15,6 @@ PROJECT_COLLECTION_PREFIX = "proj_"
 
 
 def add_project_facts_routes(router: APIRouter):
-    """Add the project-facts mirror route to the FastAPI app."""
 
     @router.put(
         "/v1/collections/{collection_name}/project-facts",
@@ -38,14 +25,6 @@ def add_project_facts_routes(router: APIRouter):
     async def put_project_facts(
         collection_name: str, request: ProjectFactsUpdate, http_request: Request
     ) -> ProjectFactsResult:
-        """Overwrite ``project_facts`` and ``project_status`` on every point of the collection.
-
-        Authorized like the searches: the collection must be in the request's
-        signed scope (404 when not, 403 under auth without one). 400 for a
-        collection that is not a project's. 409 when this process has no
-        Qdrant store installed: the BFF reads that as "nothing to mirror
-        here". Idempotent: the same body twice writes the same payload.
-        """
         _authorize_collection(http_request, collection_name)
         if not collection_name.startswith(PROJECT_COLLECTION_PREFIX):
             raise HTTPException(status_code=400, detail="project facts belong to a project collection")

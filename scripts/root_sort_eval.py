@@ -1,41 +1,4 @@
 #!/usr/bin/env python3
-"""Root-sort eval: how often a "sure" placement is right, and where the sure cut belongs.
-
-WHY THIS EXISTS
----------------
-A person sorting a shelf's root asks the filing judgement (``POST /v1/filing-fit``,
-``purpose: sort``) to place every loose document into a folder. Each placement carries
-Jev's probability for its folder; the dialog reads it as "sure" at ``SURE_CONFIDENCE``
-(``apps/workspace/bff/filing/root-sort-types.ts``) and as "unsure" below. That cut was
-never measured. This script measures it on a labelled synthetic shelf: an Austrian
-architecture office's project root (``tests/fixtures/root_sort/austrian_office_root.json``).
-
-WHAT IT MEASURES
-----------------
-* Placement precision (proposed == label), coverage (placeable documents that got a
-  proposal), the wrong-folder rate (placeable, proposed elsewhere) and the false
-  placements (a document no folder fits, given one).
-* For each cut: the precision of the "sure" placements, and how many correct placements
-  the cut leaves "unsure". Unscored placements (no confidence) are never sure.
-* Folder proposals (``POST /v1/folder-proposals``) over the documents labelled "": how many
-  were grouped, and each group's purity by the theme a person would give it.
-
-The sort runs in chunks of ``CHUNK`` documents, the production ``ROOT_SORT_CHUNK``
-(half of ``MAX_JUDGED_DOCUMENTS`` in ``apps/workspace/bff/filing/types.ts``), and each
-chunk's seconds are reported with the grouping's. No conventions are sent, so a placement
-is always into an existing folder of the shelf.
-
-USAGE
------
-    cd apps/agent-host && ../../.venv/bin/python -I ../../scripts/root_sort_eval.py
-    ... --out /some/where.json        (default: tests/fixtures/root_sort/eval_<date>.json)
-
-IT NEEDS A KEY, NOT A BACKEND
------------------------------
-``OPENROUTER_API_KEY`` (or ``DECISIONS_API_KEY``). The routes run in-process through
-FastAPI's TestClient, so the only network call is the model's. A failed call stops the
-run: a partial run is not a measurement, so no report is written.
-"""
 
 from __future__ import annotations
 
@@ -63,8 +26,7 @@ MIN_SURE_FOR_RECOMMENDATION = 20
 PROJECT_ID = "root-sort-eval"
 
 
-class EvalUnreachable(RuntimeError):
-    """The model did not answer; the run measured nothing."""
+class EvalUnreachable(RuntimeError): ...
 
 
 def load_fixture(path: Path = FIXTURE) -> dict[str, Any]:
@@ -72,7 +34,6 @@ def load_fixture(path: Path = FIXTURE) -> dict[str, Any]:
 
 
 def check_fixture(fixture: dict[str, Any]) -> list[str]:
-    """Structural problems in the fixture; an empty list means it is usable."""
     paths = {folder["path"] for folder in fixture["folders"]}
     problems = [f"unknown label {d['label']!r}" for d in fixture["documents"] if d["label"] and d["label"] not in paths]
     files = Counter(d["file"] for d in fixture["documents"])
@@ -86,7 +47,6 @@ def check_fixture(fixture: dict[str, Any]) -> list[str]:
 
 
 def indexed_documents(fixture: dict[str, Any]) -> list[dict[str, Any]]:
-    """The fixture's documents with stable ids (r001, r002, …) and the labels kept apart from the input."""
     return [
         {
             "id": f"r{index:03d}",
@@ -109,7 +69,6 @@ def folders_payload(fixture: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def build_client() -> Any:
-    """The live routes on an in-process app: the same handlers the BFF reaches over HTTP."""
     from fastapi import APIRouter
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
@@ -130,7 +89,6 @@ def _trace(batch_id: str) -> dict[str, str]:
 
 
 def _sort_rows(chunk: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """What ingestion sends a root document: its name, Dokumentart and summary. Never its label."""
     return [
         {"id": doc["id"], "file": doc["file"], "folder": "", "type": doc["type"], "summary": doc["summary"]}
         for doc in chunk
@@ -138,7 +96,6 @@ def _sort_rows(chunk: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 def judge_chunk(client: Any, folders: list[dict[str, Any]], chunk: list[dict[str, Any]], index: int) -> dict[str, Any]:
-    """One filing judgement with the sort purpose; returns the whole answer."""
     body = {
         "basis": "content",
         "purpose": "sort",
@@ -157,7 +114,6 @@ def judge_chunk(client: Any, folders: list[dict[str, Any]], chunk: list[dict[str
 def judge_all(
     client: Any, folders: list[dict[str, Any]], documents: list[dict[str, Any]]
 ) -> tuple[dict[str, Any], str | None, list[float]]:
-    """Every document's proposed move (id → move), the model that answered, and each chunk's seconds."""
     moves: dict[str, Any] = {}
     model: str | None = None
     seconds: list[float] = []
@@ -171,7 +127,6 @@ def judge_all(
 
 
 def score_records(documents: list[dict[str, Any]], moves: dict[str, Any]) -> list[dict[str, Any]]:
-    """One row per document: what was proposed, the confidence, and the label it is checked against."""
     rows = []
     for doc in documents:
         move = moves.get(doc["id"])
@@ -217,7 +172,6 @@ def placement_metrics(rows: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def cut_metrics(rows: list[dict[str, Any]], cut: float) -> dict[str, Any]:
-    """What a "sure" cut at ``cut`` would show: its precision and the correct placements it leaves unsure."""
     proposed = [row for row in rows if row["proposed"] is not None]
     correct = [row for row in proposed if row["proposed"] == row["label"]]
     sure = [row for row in proposed if row["confidence"] is not None and row["confidence"] >= cut]
@@ -234,7 +188,6 @@ def cut_metrics(rows: list[dict[str, Any]], cut: float) -> dict[str, Any]:
 
 
 def recommend(cuts: list[dict[str, Any]]) -> dict[str, Any]:
-    """The lowest scanned cut whose sure precision reaches the target, with enough sure placements to trust it."""
     for metrics in sorted(cuts, key=lambda item: item["cut"]):
         if metrics["sure"] >= MIN_SURE_FOR_RECOMMENDATION and (metrics["sure_precision"] or 0) >= TARGET_PRECISION:
             return {"cut": metrics["cut"], "metrics": metrics, "found": True}
@@ -242,7 +195,6 @@ def recommend(cuts: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def run_grouping(client: Any, folders: list[dict[str, Any]], leftovers: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Folder proposals for the documents no folder fits; returns the proposals as the route answered them."""
     body = {
         "locale": "de",
         "folders": folders,
@@ -261,7 +213,6 @@ def run_grouping(client: Any, folders: list[dict[str, Any]], leftovers: list[dic
 
 
 def group_report(proposals: list[dict[str, Any]], leftovers: list[dict[str, Any]]) -> dict[str, Any]:
-    """Each proposed group with its files, the themes it mixes, and its purity (share in the dominant theme)."""
     theme_of = {doc["id"]: doc["theme"] for doc in leftovers}
     file_of = {doc["id"]: doc["file"] for doc in leftovers}
     groups = []

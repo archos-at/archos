@@ -1,11 +1,3 @@
-"""The turn's chat model reaches its tools, through the compiled graph (`common/model_vision.py`).
-
-An image tool asks whether the model can see before it sends a page. The answer
-is bound in the tools node, because a ContextVar set beside the LLM call dies at
-the node boundary (`core/AGENTS.md`); only a test through the compiled
-graph that reads the var inside a tool can fail on that.
-"""
-
 from __future__ import annotations
 
 from unittest.mock import AsyncMock
@@ -29,7 +21,6 @@ SEEN: list[str | None] = []
 
 @tool
 def look(page: int) -> str:
-    """Look at a page."""
     SEEN.append(current_chat_model())
     return f"Seite {page}"
 

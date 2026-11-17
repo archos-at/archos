@@ -1,10 +1,3 @@
-"""Project profile summary generation endpoint.
-
-Calls an OpenAI-compatible chat completions endpoint to produce a concise
-one-sentence project summary from the structured profile prompt view text
-sent by the UI's ``/api/projects/[id]/generate-summary`` BFF route.
-"""
-
 import asyncio
 import logging
 import os
@@ -34,20 +27,6 @@ SYSTEM_PROMPT = (
 
 
 def _llm_settings(organization_id: str | None = None, *, data_policy: DataPolicy | None = None) -> ResolvedCredential:
-    """Resolve the endpoint (model, key, base URL, data policy) for the summary LLM call.
-
-    Goes through the shared credential resolver so this route reaches the org's
-    BYOK credential and ZDR policy like every other LLM call, then the same env
-    chain as before: ``SUMMARY_LLM_*`` → generic ``LLM_*`` → the OpenRouter/OpenAI
-    default used by ``config_oib_openrouter.yml`` (without which every summary
-    silently degrades to ""). Model + base URL keep their two-level env fallback;
-    the resolver adds BYOK (org key + base, model unchanged) and provider
-    inference on top. Fail-open for the key: a BYOK miss falls back to the env
-    chain. Callers send their body through ``request_body``.
-
-    ``data_policy`` is for the cross-tenant routes sharing this resolver
-    (feedback digest, lesson distill): see ``resolve_llm_credential``.
-    """
     from agent.common.credential_resolution import read_api_key_env
     from agent.common.credential_resolution import resolve_llm_credential
 
@@ -72,7 +51,6 @@ def _llm_settings(organization_id: str | None = None, *, data_policy: DataPolicy
 
 
 def add_generate_summary_routes(router: APIRouter) -> None:
-    """Register the generate-summary endpoint."""
 
     @router.post(
         "/v1/generate-summary",

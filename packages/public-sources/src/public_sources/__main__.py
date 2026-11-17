@@ -1,9 +1,3 @@
-"""``python -m public_sources test [source-id ...]``: validate records and run their fixtures.
-
-What an operator's agent or an expert runs on a proposed source before it is
-used. Exit status 0 only when every record parses and every fixture passes.
-"""
-
 from __future__ import annotations
 
 import argparse

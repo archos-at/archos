@@ -1,68 +1,5 @@
 #!/usr/bin/env python3
 
-"""Publish the committed platform prompt to Langfuse, or say what publishing would change.
-
-Why this exists
----------------
-
-ADR-0060 (a) decided the platform prompt's source of truth: **git**. The static
-half lives in ``packages/agent/src/agent/core/prompts/chat_static.md``, review
-reads it, and it is PUSHED to Langfuse, where labels carry experiments. Only
-the pull (``task prompts:pull``) was ever built, so with prompt management on,
-every change to that file — including the ones code depends on, like the
-envelope's field order the answer stream reads (ADR-0066) — would reach the
-fleet only if someone re-typed it into Langfuse by hand. This is the push.
-
-What it refuses
----------------
-
-A version under the label that was NOT published from git (somebody edited
-and promoted it in Langfuse) is never overwritten. Publishing over it would
-silently discard an edit nobody reviewed; refusing turns it into a diff a
-person has to bring into review first (``task prompts:pull``, commit, push
-again). A file with uncommitted changes is not published either: the version
-records the commit it came from, and text that is in no commit has no
-reviewable origin.
-
-Provenance is read off the VERSION, never off tags: Langfuse keeps one tag
-list per prompt, "the same across versions", so once one version was
-published with ``git`` every later UI edit carries it too. A live version
-counts as published from git when the text Langfuse serves is, byte for byte,
-a committed text: the file in the commit its message names (``git <sha>
-<path>``, as :func:`publish` writes it), or the file in any commit of its
-history (:func:`file_history`). The second arm is what lets a UI edit that was
-pulled and committed through review count as reviewed. An edit made in the UI
-and never committed matches neither, whatever its message says.
-
-Not closed: the label is read and the new version written in two calls, so
-an edit promoted in the UI between them is still overwritten.
-
-Usage
------
-
-::
-
-    task prompts:push                              # CHECK: what would change under `production`
-    task prompts:push -- --label staging           # the same against another label
-    task prompts:push -- --label staging --apply   # WRITES a new version, labelled
-
-``--apply`` needs ``--label`` spelled out, ``production`` included: the check
-defaults to ``production``, a write never does.
-
-Checking is read-only and safe to run anywhere. ``--apply`` creates a Langfuse
-version and moves the label to it, which is what the fleet serving that label
-renders within ``LANGFUSE_PROMPT_CACHE_TTL_SECONDS``: run it when the code the
-text belongs to is deployed, and ask before running it against ``production``.
-
-Run ``--apply`` only from a commit on ``develop``. Text published from a
-branch that never merges was never reviewed, and once that branch is gone no
-commit in the file's history holds it, so the next push refuses the version as
-a Langfuse edit.
-
-Exit codes: 0 up to date or published; 1 CHECK found a change to publish;
-2 no credentials; 3 refused (the label holds an unreviewed edit, the file is
-uncommitted, or ``--apply`` named no label).
-"""
 
 from __future__ import annotations
 
@@ -95,8 +32,6 @@ _COMMIT_MESSAGE_RE = re.compile(r"^git ([0-9a-f]{7,40}) (\S+)$")
 
 
 class PromptApi(ReadApi, Protocol):
-    """The pull's read, and the one write only this script makes."""
-
     def create_prompt(
         self, *, name: str, prompt: str, labels: list[str], tags: list[str], type: str, commit_message: str
     ) -> Any: ...
@@ -104,31 +39,21 @@ class PromptApi(ReadApi, Protocol):
 
 @dataclass(frozen=True)
 class Plan:
-    """What publishing would do: ``same``, ``create``, ``update`` or ``refuse``."""
-
     action: str
     version: int | None = None
     diff: str = ""
 
 
 def committed_text(text: str) -> str:
-    """The text as the store serves it: trailing newlines are not part of the prompt."""
     return text.rstrip("\n")
 
 
 def text_at(sha: str, path: str) -> str | None:
-    """The file ``path`` as commit ``sha`` holds it, or None when git has no such thing."""
     shown = subprocess.run(["git", "show", f"{sha}:{path}"], cwd=REPO_ROOT, capture_output=True, text=True, check=False)
     return shown.stdout if shown.returncode == 0 else None
 
 
 def published_from_git(live: Any) -> bool:
-    """Whether ``live`` is a version this script published, and unedited since.
-
-    The text served is exactly a committed text: the file in the commit its
-    message names, or the file in any commit of the file's history. Tags
-    cannot say this (see the module docstring).
-    """
     served = committed_text(getattr(live, "prompt", "") or "")
     match = _COMMIT_MESSAGE_RE.match((getattr(live, "commit_message", None) or "").strip())
     if match is not None:
@@ -139,7 +64,6 @@ def published_from_git(live: Any) -> bool:
 
 
 def file_history() -> list[str]:
-    """Every committed version of the prompt file, newest first."""
     relative = str(FALLBACK_FILE.relative_to(REPO_ROOT))
     shas = subprocess.run(
         ["git", "log", "--format=%H", "--", relative], cwd=REPO_ROOT, capture_output=True, text=True, check=False
@@ -148,7 +72,6 @@ def file_history() -> list[str]:
 
 
 def plan(live: Any | None, text: str, *, label: str) -> Plan:
-    """Decide, without writing, what publishing ``text`` under ``label`` means."""
     if live is None:
         return Plan("create")
     served = committed_text(getattr(live, "prompt", "") or "")
@@ -171,7 +94,6 @@ def plan(live: Any | None, text: str, *, label: str) -> Plan:
 
 
 def git_origin() -> tuple[str, bool]:
-    """``(HEAD sha, whether the prompt file differs from it)``."""
     relative = str(FALLBACK_FILE.relative_to(REPO_ROOT))
     sha = subprocess.run(
         ["git", "rev-parse", "HEAD"], cwd=REPO_ROOT, capture_output=True, text=True, check=True
@@ -182,7 +104,6 @@ def git_origin() -> tuple[str, bool]:
 
 
 def publish(client: PromptApi, text: str, *, name: str, label: str, sha: str) -> Any:
-    """A new version from ``text``, labelled, tagged as coming from git, naming its commit."""
     return client.create_prompt(
         name=name,
         prompt=committed_text(text),

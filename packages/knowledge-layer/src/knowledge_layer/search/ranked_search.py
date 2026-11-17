@@ -1,11 +1,3 @@
-"""One ranked `knowledge_search` call, stage by stage.
-
-Fan out over every collection in scope (with the HyDE probe beside it), fuse,
-narrow, rerank beside the retrieval-loop judge, widen once when the judge asks,
-cap to the answer budget, apply the relevance floor, put a family overview in
-front, record the picking, and render the block the model reads.
-"""
-
 import asyncio
 import logging
 from typing import Any
@@ -30,8 +22,6 @@ AGENT_FILTER_OVERFETCH = 3
 
 
 class RankedSearch:
-    """The state of one ranked search: its scope, its budgets, and what each stage left out."""
-
     def __init__(self, engine: Any, outcome: Any, args: Any, targets: list, base_collection: str, budgets: tuple):
         from knowledge_layer.vector_store import plan as qdrant_plan
         from knowledge_layer.vector_store import post_filtered as qdrant_post_filtered
@@ -86,7 +76,6 @@ class RankedSearch:
         return [entry.collection for entry in self.targets if entry.collection != self.base_collection]
 
     async def answer(self) -> str:
-        """The block for this search; a failure is a sentence the model can act on, never a raise."""
         await self._prepare()
         try:
             return await self._ranked()
@@ -125,7 +114,6 @@ class RankedSearch:
             logger.debug("Requery slot reset skipped", exc_info=True)
 
     def _start_side_reads(self) -> None:
-        """The family overview and the folder routes, read BESIDE the ranked search."""
         from agent.common.norm_registry import family_query_number
 
         from .folder_channel import folder_routes
@@ -217,10 +205,6 @@ class RankedSearch:
         return result
 
     async def _with_named_file(self, entry, result):
-        """Named retrieve: the agent's `file_name=` (explicit) or the visible peek (`focus_file_name`).
-
-        So similarity is not the only path to that file. Explicit name wins when both are set.
-        """
         try:
             from agent.common.focus_file import get_focused_file_name
 
@@ -246,11 +230,6 @@ class RankedSearch:
         return result
 
     def _fused(self, channels: list):
-        """Rank-fuse the channels, then narrow by the agent's filters.
-
-        `file_name=` is a FILTER, not a preference: the agent named a file, so
-        other hits would be a silent bait-and-switch.
-        """
         merged = fusion.merge_results(
             channels, self.query, self.candidate_k, self.engine.retriever.backend_name, max_per_document=0
         )
@@ -267,7 +246,6 @@ class RankedSearch:
         return merged.model_copy(update={"chunks": merged.chunks})
 
     async def _reranked(self, chunks):
-        """Cross-encoder first when configured, LLM judge as the fallback; any error keeps the fused order."""
         if not self.engine.reranks:
             return chunks
         from knowledge_layer.search.rerank import rerank_chunks
@@ -282,13 +260,6 @@ class RankedSearch:
         )
 
     async def _judged(self, chunks):
-        """The retrieval loop's judge (rag-system-audit-2026-08 F13), read BESIDE the reranker.
-
-        A pool that is sufficient, the common case, pays nothing for having
-        been judged; only an insufficient verdict costs a second round. Never
-        raises: the judge fails open to "sufficient". The judge is skipped when
-        the first pool already answers, and the turn fires at most ONCE.
-        """
         if self.engine.requery_llm is None or self.args.file_name:
             if self.args.file_name:
                 self.requery_skipped_reason = "file_pinned"
@@ -334,7 +305,6 @@ class RankedSearch:
         return reason if skip else None
 
     async def _requery(self, verdict, results, merged, reranked):
-        """The judge's alternative queries as new RRF channels, once per turn; a failure keeps the first pool."""
         try:
             from knowledge_layer.search.requery import claim_requery_slot
 
@@ -373,11 +343,6 @@ class RankedSearch:
             return merged, reranked
 
     def _answer_budget(self, merged, pool) -> tuple[Any, str]:
-        """Trim to top_k: the soft per-document diversity cap, or one entry per document when grouping.
-
-        In whatever order survived reranking (or the fused order when no
-        reranker is configured). With the cap disabled this is the plain trim.
-        """
         pre_cap_count = len(merged.chunks)
         groups_trailer = ""
         if self.args.grouping:
@@ -391,15 +356,6 @@ class RankedSearch:
         return merged.model_copy(update={"chunks": capped}), groups_trailer
 
     def _relevance_floor(self, merged):
-        """Drop chunks under ``knowledge.relevance_floor_pct``; off by default.
-
-        A floor is a number on one embedding model's cosine distribution, and
-        measured on this corpus top-1 similarity does NOT separate answerable
-        from unanswerable questions (they overlap by 0.066 with
-        multilingual-e5-small over the 52-entry golden set). Abstention wants a
-        judge that reads the question against the text (`coverage_gap`), not a
-        threshold on a distance; calibrate with the retrieval-eval harness first.
-        """
         from agent.common.retrieval_settings import get_retrieval_setting
 
         floor_pct = get_retrieval_setting("knowledge.relevance_floor_pct", 0)
@@ -420,12 +376,6 @@ class RankedSearch:
         return merged.model_copy(update={"chunks": kept})
 
     def _with_family(self, merged, branch):
-        """The family's members in FRONT of the ranked passages, after the cap and the floor.
-
-        They are addressed, not ranked, so neither budget decides whether a
-        part of the Richtlinie is shown. A passage the search also found is one
-        passage, not two.
-        """
         overview = branch.overview
         if not merged.success:
             overview = None
@@ -437,12 +387,6 @@ class RankedSearch:
         return merged.model_copy(update={"chunks": [*overview.chunks, *ranked]}), overview
 
     def _notice(self, merged, branch) -> str:
-        """The widening and what was left out, said to the model that asked for the search.
-
-        Carried on the empty-result message too: a search that widened AND
-        still found nothing is where the model most needs to know that its own
-        formulation was already given a second chance.
-        """
         from knowledge_layer.search.requery import requery_notice
 
         notice = (
@@ -497,14 +441,6 @@ class RankedSearch:
 
 
 def _cross_lingual_query(query: str) -> str:
-    """The query the store matches: an English question gets the corpus's own German terms prepended.
-
-    The corpus is German; an English question reaches it only weakly by
-    embedding and not at all lexically (golden set: MRR 0.276 against 0.605
-    for the same question in German, lifted to 0.502 by the bridge). A German
-    query comes back untouched. ONLY the matching query is augmented: the
-    reranker judges, and the grounding block reports, the question as asked.
-    """
     from agent.common.query_expansion import augmented_query
 
     retrieval_query = augmented_query(query)
@@ -514,13 +450,6 @@ def _cross_lingual_query(query: str) -> str:
 
 
 def _tag_with_collection(result, entry) -> None:
-    """Stamp each chunk with its collection and shelf, the last point both are known for free.
-
-    The trace UI's lane labels and source_lane read the collection; nothing
-    downstream may recover the shelf from the collection id (ADR-0047). An
-    unstated shelf stays absent: absent means unknown, and unknown renders
-    unattributed.
-    """
     for chunk in getattr(result, "chunks", []) or []:
         chunk.metadata.setdefault("collection", entry.collection)
         if entry.shelf is not None:

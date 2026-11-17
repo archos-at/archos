@@ -1,9 +1,3 @@
-"""What a search sends Qdrant's lexical channels: the BM25 text and the selective exact terms, priced per collection.
-
-``df_cache`` is the caller's document-frequency memo (the retriever keeps one), so pricing a
-term costs one count per new term rather than one per retrieval.
-"""
-
 import logging
 from collections.abc import Sequence
 
@@ -15,24 +9,6 @@ _EXACT_TERM_DF_CACHE_MAX = 512
 def lexical_inputs(
     query: str, collection_names: str | Sequence[str], df_cache: dict[tuple[str, int, str], int]
 ) -> tuple[str, list[str]]:
-    """The BM25 query text and the selective exact terms, both priced against the searched collections.
-
-    The BM25 terms go through the rule the German mirror has always applied
-    (``german_text.select_terms``): a term absent from the collection or on
-    more than a quarter of it is dropped, and with no alphabetic term left
-    BM25 is not asked at all. Empty beats noisy. Sent unpriced, BM25 ranked
-    whole Richtlinien for „OIB-RL 2“ on the digit and for a file name on
-    „ausgabe mai 2023“, and fusion promoted that over the dense hits:
-    exact-id MRR 0.30 against Chroma's 0.53 (``qdrant-gates-2026-10.md``).
-    The candidates leave out what BM25 must not be asked for at any price
-    (``retrieval.bm25_candidates``: umlaut stopwords, file-name pieces).
-
-    Several collections (cross-project grouped search) are priced over their
-    union, the corpus BM25's IDF is computed over.
-
-    Fails open to the unpriced inputs: pricing sharpens the channels, it
-    never gates a search.
-    """
     from agent.common import german_text
     from knowledge_layer.vector_store import bm25_candidates as qdrant_bm25_candidates
     from knowledge_layer.vector_store import term_frequencies as qdrant_term_frequencies
@@ -55,7 +31,6 @@ def lexical_inputs(
 
 
 def expansion_terms(query: str) -> list[str]:
-    """The EN->DE glossary terms the German mirror is given for ``query``; none when unavailable."""
     try:
         from agent.common import query_expansion
 
@@ -66,8 +41,4 @@ def expansion_terms(query: str) -> list[str]:
 
 
 def bm25_text(query: str) -> str:
-    """The unpriced BM25 query: the question plus the EN->DE glossary terms the German mirror was given.
-
-    What BM25 receives only when pricing fails (``lexical_inputs``).
-    """
     return " ".join([query, *expansion_terms(query)])

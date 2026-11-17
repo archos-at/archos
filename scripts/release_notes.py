@@ -1,62 +1,4 @@
 #!/usr/bin/env python3
-"""Release notes: lint the reno notes, publish them to the website and to the app.
-
-The pipeline this file implements
----------------------------------
-
-1. A change that a customer can notice ships with a reno note
-   (``releasenotes/notes/<slug>-<hash>.yaml``, written with ``task release:note``),
-   in one product area (its ``# area:`` line). ``lint`` enforces the house
-   rules on it, on every PR.
-2. On merge to ``develop``, ``publish`` reads the notes **through reno**, so a
-   note is attributed to the release it actually shipped in, from git history
-   rather than from whatever the file claims; translates the new English
-   strings into German once; and writes two artifacts, one per reader
-   (ADR-0156):
-
-   * ``apps/website/src/data/changelog.json``, the **public** tier: the weekly
-     summaries from ``releasenotes/summaries.yaml``, and nothing else;
-   * ``apps/workspace/bff/release-notes/release-notes.generated.json``, the
-     **customer** tier: every note of the customer sections, with its section
-     and area, for the app's "What's new" behind sign-in.
-
-   ``security``, ``incident`` and ``operators`` notes reach neither.
-3. The website renders the first at ``/changelog/`` and ``/en/changelog/``; the
-   app renders the second at ``/app/whats-new``. Both images are built from the
-   repo, so the commit made in step 2 is what puts a note in front of a reader.
-
-The modules beside this file hold the parts: ``release_notes_rules`` (the house
-rules), ``release_notes_areas`` (the area vocabulary and its guess),
-``release_notes_build`` (reading, grouping, the two artifacts) and
-``release_notes_translate`` (the German side and its cache).
-
-Why JSON artifacts instead of ``reno report``
----------------------------------------------
-
-``reno report`` emits reStructuredText for a Sphinx build. The readers are an
-Astro site and a Next.js app, and the notes have to survive machine translation
-string by string (so a translation is cached per sentence, not per release). A
-structured artifact gives both.
-
-Why the artifacts are committed rather than generated at build time
--------------------------------------------------------------------
-
-reno derives versions from git history, and the image builds have neither the
-history (they copy a working tree) nor this Python toolchain. Generating on
-merge and committing the result keeps the image builds hermetic and offline.
-
-Usage
------
-
-    python scripts/release_notes.py lint
-    python scripts/release_notes.py publish [--check] [--no-translate]
-    python scripts/release_notes.py week 2026-W44
-
-reno itself is deliberately *not* a repo dependency (it is needed by two
-commands and a workflow, not by the product), so the Taskfile runs this script
-under ``uv run --no-project --with reno``. Everything except the git scan works
-without it, which is also what keeps the unit tests reno-free.
-"""
 
 from __future__ import annotations
 
@@ -96,7 +38,6 @@ CUSTOMER_FILE = REPO_ROOT / "apps" / "workspace" / "bff" / "release-notes" / "re
 
 
 def dump_json(data: dict[str, Any]) -> str:
-    """Deterministic serialisation: the files are diffed and committed by a bot."""
     return json.dumps(data, ensure_ascii=False, indent=2) + "\n"
 
 
@@ -127,7 +68,6 @@ def cmd_lint(args: argparse.Namespace) -> int:
 
 
 def _render(args: argparse.Namespace) -> tuple[dict[Path, str], list[str], list[str], dict[str, Any]]:
-    """Both artifacts as text, keyed by where they go, with what is untranslated and what is due."""
     repo_root = Path(args.repo_root)
     sections = customer_sections(read_config_sections(repo_root / "releasenotes" / "config.yaml"))
     notes = load_notes_from_reno(repo_root)
@@ -150,7 +90,6 @@ def _render(args: argparse.Namespace) -> tuple[dict[Path, str], list[str], list[
 
 
 def _report_due(due: list[str]) -> None:
-    """Weeks the public page leaves out until someone summarises them; an annotation on GitHub."""
     prefix = "::warning title=Weekly summary due::" if os.environ.get("GITHUB_ACTIONS") else "  ! "
     for week in due:
         print(
@@ -187,7 +126,6 @@ def cmd_publish(args: argparse.Namespace) -> int:
 
 
 def cmd_week(args: argparse.Namespace) -> int:
-    """One week's customer notes by area, from the committed app artifact: what its summary is written from."""
     artifact = json.loads(Path(args.customer_output).read_text(encoding="utf-8"))
     release = next((item for item in artifact["releases"] if item["id"] == args.week), None)
     if release is None:

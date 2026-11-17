@@ -1,53 +1,4 @@
 #!/usr/bin/env python3
-"""Decision eval: does the decision model answer the turn-start questions right, in German?
-
-WHY THIS EXISTS
----------------
-ADR-0064 lets a decision model (TypeSafe's Jev, through OpenRouter's alpha
-Decisions endpoint) decide four things before a chat turn's first LLM call:
-whether the message needs evidence, which corpus it lives in, which
-OIB-Richtlinien it needs, and which card types it is likely to earn. Every one
-of those can only ADD to the turn, so a wrong answer costs a wasted fetch and
-never a capability — but a decider that is wrong most of the time wastes a
-fetch most of the time, and the vendor says German is "accepted but currently
-[of] lower accuracy". So the adoption rule is written down here, and this
-script measures against it on the loop-eval questions
-(`tests/fixtures/derivation/loop_eval_questions.yaml`), which already carry the
-family the answer must be grounded in.
-
-THE ADOPTION RULE (audit §4.4, ADR-0064)
-----------------------------------------
-- `needs_evidence` never below 0.5 on a `ruling` row (a false "no" costs the
-  reader the prefetch on exactly the question it helps most).
-- family top-1 ≥ 85 % on the OIB rows (the family the row names is the
-  highest family noul).
-- corpus `baurecht` on ≥ 90 % of the regulation rows.
-Anything under that: keep `turn_decisions: false` and say so in the PR.
-
-IT NEEDS A KEY, NOT A BACKEND
------------------------------
-Unlike `loop_eval.py`, nothing here needs the corpus or a running backend: the
-decision reads the question and a fixed description of the six families. It
-needs `OPENROUTER_API_KEY` (or `DECISIONS_API_KEY`) and costs about a
-cent for the whole set. It cannot run in CI for that reason alone.
-
-USAGE
------
-    python scripts/decision_eval.py                 # the 27 loop-eval questions
-    python scripts/decision_eval.py --out /tmp/decisions.csv
-    python scripts/decision_eval.py --questions my_questions.yaml
-
-`task be:eval:decisions` is the same thing with the paths defaulted.
-
-THE LAST RUN
-------------
-2026-09-22, from the branch that introduced the decisions, committed beside
-the questions as `tests/fixtures/derivation/decision_eval_2026-09-22.csv`:
-27/27 decided, family top-1 1.00, corpus `baurecht` 1.00 on the regulation
-rows, the ruling floor held, latency 467-899 ms (mean 614). The family
-threshold sweep put recall at 1.00 for thresholds up to 0.5 and at 0.90 at
-0.6, which is why `FAMILY_THRESHOLD` is 0.5.
-"""
 
 from __future__ import annotations
 
@@ -145,7 +96,6 @@ class Row:
 
 
 def expected_family(family: str | None) -> str | None:
-    """``"OIB-RL 2.2"`` → ``"2"``; a Bauordnung or office row expects no family."""
     if not family or not family.startswith("OIB-RL"):
         return None
     return family.split()[-1].split(".")[0]
@@ -158,7 +108,6 @@ def expected_corpus(family: str | None) -> str | None:
 
 
 def load_follow_ups(path: Path) -> list[dict[str, Any]]:
-    """The follow-up rows: ``id``, ``previous``, ``question``, ``family``."""
     import yaml
 
     raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
@@ -270,7 +219,6 @@ def summarise(rows: list[Row]) -> dict[str, float | int | bool]:
 
 
 def threshold_sweep(rows: list[Row]) -> list[tuple[float, float, float]]:
-    """(threshold, recall, precision) of "expected family chosen" as the family threshold moves."""
     out = []
     family_rows = [r for r in rows if r.decided and r.expected_family is not None]
     for tenths in range(3, 10):

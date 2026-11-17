@@ -1,5 +1,3 @@
-"""The calculation card: a derivation the reader can follow step by step, and the procedure behind it."""
-
 from typing import Literal
 
 from pydantic import ConfigDict

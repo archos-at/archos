@@ -1,5 +1,3 @@
-"""The IFC cards: the viewer, schedules, compliance, an element, a diff and the model picker."""
-
 from typing import Literal
 
 from pydantic import AliasChoices
@@ -68,14 +66,6 @@ class IfcElementMatch(CardModel):
     properties: list[IfcPropertyMatch] | None = Field(default=None, description="Property predicates, all required")
 
     def is_empty(self) -> bool:
-        """True when no criterion was given at all.
-
-        An empty filter means "every element in the building", which would
-        light up the whole model under a label like *nicht erfüllt*. The
-        frontend refuses it, so without this check the card validated, the
-        group reached the browser, and it was dropped there — the legend lost
-        an entry with no signal to anyone.
-        """
         return not any(
             (self.ifc_types, self.storeys, self.name_contains, self.material, self.classification, self.properties)
         )
@@ -130,11 +120,6 @@ class IfcHighlight(CardModel):
 
     @model_validator(mode="after")
     def exactly_one_selector(self) -> IfcHighlight:
-        """A group with neither selects nothing; with both, the two disagree.
-
-        Both is the dangerous one: the renderer would have to pick, and either
-        choice silently discards half of what the model asked for.
-        """
         if (self.global_ids is None) == (self.match is None):
             raise ValueError("give exactly one of 'global_ids' or 'match'")
         if self.match is not None and self.match.is_empty():

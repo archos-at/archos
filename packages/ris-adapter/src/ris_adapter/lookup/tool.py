@@ -1,10 +1,3 @@
-"""The agent-runtime function: config, description, and the stages in order.
-
-Nothing is decided here. Every bound, every fallback and every sentence the
-model reads lives in the stage that owns it; this module says what the tool is
-called, what it takes, and which stage runs next.
-"""
-
 from __future__ import annotations
 
 import logging
@@ -75,8 +68,6 @@ RIS_LOOKUP_DESCRIPTION = _ARGS + AS_OF_ARG + _RETURNS
 
 
 class RisLookupToolConfig(FunctionBaseConfig, name="ris_lookup"):
-    """One RIS tool: question in, citable passages out."""
-
     base_url: str = Field(default=DEFAULT_BASE_URL, description="OGD-RIS API base URL")
     timeout: float = Field(default=60.0, description="HTTP timeout in seconds")
     planner_llm: LLMRef | None = Field(
@@ -159,14 +150,6 @@ async def ris_lookup(tool_config: RisLookupToolConfig, builder: Builder):
 
 
 async def _resolve_llms(tool_config: RisLookupToolConfig, builder: Builder):
-    """The search planner and the § extractor, or ``(None, None)``.
-
-    One configured model serves both: they are the same kind of bounded
-    structured-output call, and a second LLMRef would be a second thing to
-    configure for no decision anybody makes differently. A model that cannot be
-    resolved is not fatal — the live search then uses the caller's own words
-    and the picker only answers a named §.
-    """
     if not tool_config.planner_llm:
         return None, None
     try:

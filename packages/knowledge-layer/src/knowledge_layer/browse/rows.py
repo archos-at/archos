@@ -1,7 +1,3 @@
-"""The file rows the listing, the search and the estate tools read: one row per document, its facts, the Listing
-a folder gives, and the selection a turn's filters make.
-"""
-
 from __future__ import annotations
 
 from collections.abc import Iterable
@@ -55,8 +51,6 @@ MAX_ROW_REFERENCES = 8
 
 @dataclass(frozen=True)
 class FileRow:
-    """One file as the browser shows it. Built from an inventory row."""
-
     file_name: str
     shelf: str | None
     collection: str
@@ -88,13 +82,6 @@ class FileRow:
 
     @property
     def document_date(self) -> str | None:
-        """The document's OWN date (ISO day): the title block's Stand, else the day a photo was taken,
-        else a mail thread's newest message.
-
-        The same rule as the ``document_date`` payload field (``vector_store/payload.py``), read from the
-        facts the row already carries. None for a document that prints none; never the upload date,
-        and never the day an attachment was mailed (that is its origin, not its date).
-        """
         thread_date = mail_thread_date(self.mail_thread)
         stamp = str((self.revision_facts or {}).get("revision_date") or self.captured_at or thread_date or "")
         return stamp.strip()[:10] or None
@@ -109,7 +96,6 @@ def _attr(row: Any, name: str) -> Any:
 
 
 def file_row(row: Any) -> FileRow | None:
-    """An inventory row (``AvailableDocument`` or its dict) as a :class:`FileRow`."""
     file_name = str(_attr(row, "file_name") or "").strip()
     if not file_name:
         return None
@@ -144,7 +130,6 @@ def file_row(row: Any) -> FileRow | None:
 
 
 def _reading_fields(row: Any) -> dict[str, Any]:
-    """The dossier's type and facts, the references and the unread pages, as :class:`FileRow` fields."""
     dossier = _attr(row, "dossier")
     dossier = dossier if isinstance(dossier, dict) else {}
     facts = []
@@ -177,7 +162,6 @@ def _reading_fields(row: Any) -> dict[str, Any]:
 
 
 def file_rows(rows: Iterable[Any]) -> list[FileRow]:
-    """Deduplicated by ``(collection, file_name)``, the inventory's identity."""
     seen: set[tuple[str, str]] = set()
     out: list[FileRow] = []
     for raw in rows:
@@ -194,7 +178,6 @@ def _in_folder(row: FileRow, folder: str) -> bool:
 
 
 def _folder_matches(rows: Sequence[FileRow], folder: str) -> str | None:
-    """The stored spelling of ``folder``, case- and umlaut-insensitively, or None."""
     wanted = fold(folder)
     for row in rows:
         parts = row.folder.split("/") if row.folder else []
@@ -207,8 +190,6 @@ def _folder_matches(rows: Sequence[FileRow], folder: str) -> str | None:
 
 @dataclass
 class Listing:
-    """What one ``list_files`` call selected, before it is rendered."""
-
     rows: list[FileRow]
     total: int
     offset: int
@@ -228,13 +209,6 @@ class Listing:
 
 
 def _type_profile(rows: Sequence[FileRow]) -> tuple[list[tuple[str, int]], int]:
-    """What the selected files are, by the document type Piloti gave each: the folder's README line.
-
-    The agent otherwise meets a folder of 300 files as 300 lines, of which a page
-    of 50 is shown. One line of counts tells it what the folder holds before it
-    reads any of them (and what the folder brief in Dateien shows a person).
-    „Sonstiges“ is counted last whatever its size: it says nothing about the folder.
-    """
     from agent.knowledge.document_classification import DOCUMENT_TYPE_TAGS
 
     known = set(DOCUMENT_TYPE_TAGS)
@@ -252,11 +226,6 @@ def _type_profile(rows: Sequence[FileRow]) -> tuple[list[tuple[str, int]], int]:
 
 
 def _topic_profile(rows: Sequence[FileRow]) -> list[tuple[str, int]]:
-    """The topics the selected files carry, counted per file, most frequent first.
-
-    A topic counts once per file whatever its case, and the spelling shown is the
-    first one seen. Ties sort alphabetically, so the line is the same on every page.
-    """
     counts: dict[str, int] = {}
     spelling: dict[str, str] = {}
     for row in rows:
@@ -273,7 +242,6 @@ def _topic_profile(rows: Sequence[FileRow]) -> list[tuple[str, int]]:
 
 
 def _subfolders(rows: Sequence[FileRow], folder: str | None) -> tuple[list[tuple[str, int]], int]:
-    """The folders one level below ``folder`` with their file counts (whole subtree), and the files AT it."""
     counts: dict[str, int] = {}
     here = 0
     base = folder or ""
@@ -292,14 +260,6 @@ _RowKey = tuple[str, str]
 
 
 def revision_marks(rows: Sequence[FileRow]) -> tuple[dict[_RowKey, str], dict[_RowKey, _RowKey]]:
-    """Which rows the names say are the current or an older Fassung of one document.
-
-    The same grammar the folder brief reads (``revision_series.py``, its TS twin
-    held to one fixture), grouped per collection: a Fassung lives on one shelf.
-    Grouped over every row handed in, because an older Fassung is often moved
-    into an ``alt/`` folder that the listing's folder filter would cut away.
-    Returns the marks, and for each marked row the key of its series' current row.
-    """
     by_collection: dict[str, list[FileRow]] = {}
     for row in rows:
         by_collection.setdefault(row.collection, []).append(row)
@@ -326,7 +286,6 @@ def revision_marks(rows: Sequence[FileRow]) -> tuple[dict[_RowKey, str], dict[_R
 
 
 def _state_label(facts: Mapping[str, Any] | None) -> str:
-    """``Index C, Stand 14.08.2026``: the state a title block names, without the number."""
     facts = facts or {}
     parts = [f"Index {facts['revision']}"] if facts.get("revision") else []
     if facts.get("revision_date"):
@@ -335,14 +294,6 @@ def _state_label(facts: Mapping[str, Any] | None) -> str:
 
 
 def title_block_marks(rows: Sequence[FileRow]) -> tuple[dict[_RowKey, str], dict[_RowKey, _RowKey]]:
-    """Which rows the title blocks say are the current or an older Fassung of one document.
-
-    Two files of one collection whose title blocks carry the same ``document_number`` are
-    Fassungen of one document, whatever their names share, and the higher Index (else the later
-    date) printed on the sheet is the current one. Needs two different states: the same number
-    and the same Index twice is a copy. Returns the marks, and for each marked row the key of
-    its series' current row.
-    """
     groups: dict[tuple[str, str], list[FileRow]] = {}
     for row in rows:
         key = document_key((row.revision_facts or {}).get("document_number"))
@@ -370,13 +321,6 @@ def title_block_marks(rows: Sequence[FileRow]) -> tuple[dict[_RowKey, str], dict
 
 
 def confirmed_revision_marks(rows: Sequence[FileRow]) -> dict[_RowKey, str]:
-    """The rows a PERSON linked as one replacing another, with the mark each carries.
-
-    The older file says by which it was replaced, the newer which it replaced.
-    These are confirmations, not readings of a name, so they beat the name
-    marks. A link counts only when both files are among ``rows``: the store
-    clears a link whose newer file is gone, and this guards a row it missed.
-    """
     present = {(row.collection, row.file_name) for row in rows}
     marks: dict[_RowKey, list[str]] = {}
     for row in rows:
@@ -390,7 +334,6 @@ def confirmed_revision_marks(rows: Sequence[FileRow]) -> dict[_RowKey, str]:
 
 
 def on_shelves(rows: Sequence[FileRow], *, shelf: str | None, default_shelves: Sequence[str]) -> list[FileRow]:
-    """The rows on the asked shelf, or on the default shelves (plus rows with no shelf) when none is asked."""
     shelves = (shelf,) if shelf else tuple(default_shelves)
     return [row for row in rows if row.shelf in shelves or (not shelf and row.shelf is None)]
 
@@ -403,7 +346,6 @@ def _filter_rows(
     name_contains: str | None,
     topic: str | None,
 ) -> list[FileRow]:
-    """The rows every filter a call asked for keeps; a filter it did not ask for keeps them all."""
     if doc_class:
         rows = [row for row in rows if row.doc_class == doc_class]
     if added_since:
@@ -418,7 +360,6 @@ def _filter_rows(
 
 
 def _sort_rows(rows: list[FileRow], sort: str) -> None:
-    """Order the rows in place: by folder (the default), by name, or newest first with undated rows last."""
     if sort == "newest":
         rows.sort(key=lambda row: (row.added_at or "", fold(row.file_name)), reverse=True)
         rows.sort(key=lambda row: row.added_at is None)
@@ -442,11 +383,6 @@ def select_files(
     limit: int = DEFAULT_PAGE_SIZE,
     default_shelves: Sequence[str] = USER_SHELVES,
 ) -> Listing:
-    """Filter, order and page the rows. Pure: the tool's whole behaviour is here.
-
-    ``default_shelves`` is what „my files“ means when no ``shelf`` is asked
-    for: the user shelves, or the subset of them this turn is restricted to.
-    """
     notes: list[str] = []
     shelves = (shelf,) if shelf else tuple(default_shelves)
     selected = on_shelves(rows, shelf=shelf, default_shelves=default_shelves)

@@ -288,6 +288,6 @@
   "packages/ris-adapter/src/ris_adapter/lookup/render.py": 7,
   "packages/ris-adapter/src/ris_adapter/lookup/telemetry.py": 8,
   "packages/ris-adapter/src/ris_adapter/lookup/tool.py": 54,
-  "packages/ris-adapter/src/ris_adapter/register.py": 135,
-  "packages/ris-adapter/src/ris_adapter/search_plan.py": 15
+  "packages/ris-adapter/src/ris_adapter/register.py": 122,
+  "packages/ris-adapter/src/ris_adapter/search_plan.py": 14
 }

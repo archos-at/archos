@@ -1,18 +1,3 @@
-"""``dxf_measure`` — a project's DXF drawing as a site the agent can ask about (ADR-0153).
-
-The PDF rendition (ADR-0152) lets the agent READ a DXF: its labels and the
-parcel list are text in the index. This tool lets it MEASURE one: parcel areas
-and shapes, the boundary shared with each neighbour, the buildings on a parcel
-and their distance to each boundary, what remains buildable after given
-setbacks and limits, the distance between two parcels or buildings, and, for any
-DXF, its labels and what its layers hold. The numbers come from the drawing's
-own geometry (``agent.drawings``), the same model the rendition draws, so the
-page a person sees and the figures the agent quotes cannot disagree.
-
-Served twice like ``ifc_measure``: as the agent's native tool, and on the MCP door
-as ``dxf-measure`` for other agents (``apps/workspace/bff/agent-api/backend-operations.ts``).
-"""
-
 from __future__ import annotations
 
 import logging
@@ -94,7 +79,6 @@ class DxfMeasureInput(BaseModel):
 
 
 def answer(site: Site, arguments: DxfMeasureInput) -> SiteAnswer:
-    """The operation over a loaded site. Pure, so the tests drive it without a store."""
     operation = arguments.operation
     if operation == "overview":
         return site_ops.overview(site)
@@ -129,7 +113,6 @@ def _rendered(loaded: LoadedSite, result: SiteAnswer) -> str:
 
 
 async def run_dxf_measure(arguments: DxfMeasureInput) -> str:
-    """The tool body with its Herleitung row (ADR-0132): one row per call, settled on every path."""
     outcome = ActionOutcome()
     row = ActionRow("model", query=f"dxf {arguments.operation} {arguments.parcel or arguments.query}".strip())
     try:
@@ -148,14 +131,12 @@ async def run_dxf_measure(arguments: DxfMeasureInput) -> str:
         raise
 
 
-class DxfMeasureConfig(FunctionBaseConfig, name="dxf_measure"):
-    """Configuration for the ``dxf_measure`` tool. Nothing to set: the limits are the operations' own."""
+class DxfMeasureConfig(FunctionBaseConfig, name="dxf_measure"): ...
 
 
 @register_function(config_type=DxfMeasureConfig)
 async def dxf_measure(tool_config: DxfMeasureConfig, builder: Builder):
     async def _dxf_measure(arguments: DxfMeasureInput) -> str:
-        """Measure a DXF drawing of the project as a site."""
         return await run_dxf_measure(arguments)
 
     yield FunctionInfo.from_fn(_dxf_measure, input_schema=DxfMeasureInput, description=TOOL_DESCRIPTION)

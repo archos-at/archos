@@ -1,19 +1,3 @@
-"""What the turn records about a lookup: the ledger and the span.
-
-Two consumers, both of which already exist for ``knowledge_search`` and
-neither of which could see RIS before:
-
-* the per-round LEDGER (``turn_status.record_lane_hit``) — one entry per
-  RETURNED passage, not per hit scanned. A RIS search used to capture twenty
-  documents it never read, so the Herleitung drew twenty for a round that
-  produced one;
-* the ``retrieve.ris_lookup`` SPAN — the same fields ``knowledge_search``
-  emits, because the loop eval's columns read the same spans for both tools.
-
-Fail-open by contract: telemetry is worth strictly less than the answer it
-describes and must never take a turn down.
-"""
-
 from __future__ import annotations
 
 import logging
@@ -29,12 +13,10 @@ logger = logging.getLogger(__name__)
 
 
 def capture_passages(passages: list[Passage]) -> None:
-    """One ledger entry per RETURNED passage: the document, titled, with its §."""
     _capture_lane_hits([(p.url, p.title or None, p.clause_label or None) for p in passages])
 
 
 def emit_lookup_span(question: str, address: Address, trace: LookupTrace, passages: list[Passage]) -> None:
-    """One ``retrieve.ris_lookup`` observation, mirroring ``knowledge_search``."""
     try:
         from types import SimpleNamespace
 
@@ -57,7 +39,6 @@ def emit_lookup_span(question: str, address: Address, trace: LookupTrace, passag
 
 
 def _span_context(question: str, address: Address, trace: LookupTrace, passages: list[Passage]) -> dict:
-    """The half of the span that explains WHY these passages."""
     from agent.common.turn_status import current_retrieval_round
 
     context = {
@@ -81,7 +62,6 @@ def _span_context(question: str, address: Address, trace: LookupTrace, passages:
 
 
 def _span_picks(passages: list[Passage]) -> dict:
-    """The picks themselves — citation keys and § ids, never passage text."""
     picks: dict = {
         "picked": [{"file": p.citation, "score": round(p.score, 4), "collection": p.collection} for p in passages]
     }

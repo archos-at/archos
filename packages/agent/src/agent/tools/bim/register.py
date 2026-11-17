@@ -1,13 +1,3 @@
-"""``ifc_query`` tool — the project's BIM model, queried deterministically.
-
-The model counterpart of ``knowledge_search``: a structured query against the
-extracted index, run by the BFF's internal endpoint
-(:mod:`agent.knowledge.bim_query`), rendered as the German lines the agent
-quotes. Models are addressed by project and file name, never by UUID. The
-defects each rule here answers are catalogued in
-``docs/roadmap/ifc-review-findings.md``.
-"""
-
 import asyncio
 import json
 import logging
@@ -193,30 +183,11 @@ _MAIN_USES = frozenset(
 
 
 def _valid_main_use(value: str) -> str:
-    """The Hauptnutzung if the catalogue knows it, else "" — see below.
-
-    The tool description says an unrecognised value makes the rules that need
-    it "stand down as not applicable". It did not: the value went into a
-    `.strict()` object whose field is an enum, so `"wohngebäude"` produced a
-    400 and the whole compliance run failed — on a value the description
-    presents as merely imprecise. Its sibling `_valid_building_class` is
-    sanitised here for exactly this reason; this one was not.
-    """
     lowered = normalize_profile_token("main_use", value.strip().lower())
     return lowered if lowered in _MAIN_USES else ""
 
 
 def _valid_building_class(value: int | None) -> int:
-    """The Gebäudeklasse if it is one, else 0 — the single place that decides.
-
-    OIB knows GK 1–5. A model asked for "Gebäudeklasse 9" will occasionally
-    supply one, and the two consumers of this value MUST agree on what to do
-    with it: the catalogue omits an invalid fact so the rules stand down with
-    their reason, and the BCF link has to omit it for the same reason. Deciding
-    that twice is how they came to disagree — the run happened at "no
-    Gebäudeklasse given" while the download link said `buildingClass=9`, so the
-    archive an architect opened was built against thresholds nobody chose.
-    """
     return value if value and 1 <= value <= 5 else 0
 
 
@@ -226,25 +197,6 @@ def _element_link(
     global_id: str | None,
     status: str = "info",
 ) -> str:
-    """The in-app path that opens the model on one element.
-
-    Mirrors `buildModelHref` in the frontend (`features/bim/lib/model-link.ts`);
-    the parameter names are the contract between the two. Returns an empty
-    string when anything needed is missing, so a caller can append it
-    unconditionally and get nothing rather than a broken link.
-
-    Emitted per row rather than described as a template: a model asked to
-    compose a URL from a pattern will eventually compose a wrong one, and a
-    link to the wrong wall is worse than no link.
-
-    `status` colours the highlight. Every link this tool emitted was `info`
-    (blue) regardless of what the row said, so a wall that FAILS a requirement
-    opened in the same neutral colour as one the user merely asked to look at —
-    the viewer supports `pass|fail|warning|info` and the whole set was
-    collapsed to one. An unknown status falls back to `info` rather than
-    reaching the URL: the frontend parser drops a highlight it cannot read, and
-    a dropped highlight means the element does not light up at all.
-    """
     if not project_id or not global_id:
         return ""
     tone = status if status in {"pass", "fail", "warning", "info"} else "info"
@@ -260,17 +212,6 @@ def _bcf_link(
     building_class: int | None = 0,
     main_use: str = "",
 ) -> str:
-    """The download path for the open items as a BCF 2.1 file.
-
-    Addressed by file NAME rather than by model id, like every other link this
-    tool emits: a UUID carried through a conversation is a reliable source of
-    hallucinated identifiers, and the route resolves the name within the
-    project the same way `ifc_query` does.
-
-    The facts are carried along so the archive is built against the same
-    Gebäudeklasse the answer was — an export whose fire-resistance thresholds
-    belong to a different building would be worse than no export.
-    """
     if not project_id or not filename:
         return ""
     query = f"model={quote(filename, safe='')}"
@@ -283,8 +224,6 @@ def _bcf_link(
 
 
 class IfcQueryInput(BaseModel):
-    """The arguments of one ``ifc_query`` call. Every default is written here and nowhere else."""
-
     operation: str = "overview"
     filters: str = ""
     metric: str = "count"
@@ -319,8 +258,6 @@ _METRICS = frozenset({"count", "sum", "avg", "min", "max"})
 
 @dataclass(frozen=True)
 class _QueryArgs:
-    """The tool's arguments, stripped and clamped, for one query builder."""
-
     filters: dict[str, Any]
     metric: str
     quantity: str
@@ -333,11 +270,6 @@ class _QueryArgs:
 
 
 def _parse_filters(filters: str) -> dict[str, Any] | str:
-    """The ``filters`` JSON as a dict, or the error that says why it is not one.
-
-    Silently dropping an unparseable filter would turn "external walls on the
-    ground floor" into every element in the building, confidently counted.
-    """
     if not filters.strip():
         return {}
     try:
@@ -350,11 +282,6 @@ def _parse_filters(filters: str) -> dict[str, Any] | str:
 
 
 def _compliance_query(op: str, args: _QueryArgs) -> dict[str, Any]:
-    """The rule catalogue takes project facts, not element filters.
-
-    A fact that was not supplied is OMITTED rather than defaulted: the rules
-    that need it stand down with their reason, which is the honest outcome.
-    """
     query: dict[str, Any] = {"op": op}
     klasse = _valid_building_class(args.building_class)
     if klasse:
@@ -366,7 +293,6 @@ def _compliance_query(op: str, args: _QueryArgs) -> dict[str, Any]:
 
 
 def _takeoff_query(args: _QueryArgs) -> dict[str, Any] | str:
-    """Material is the only split a Massenermittlung has; any other grouping is refused, not ignored."""
     grouping = args.group_by.lower()
     if grouping and grouping != "material":
         return (
@@ -442,11 +368,6 @@ def _build_query(
     building_class: int | None = 0,
     main_use: str = "",
 ) -> dict[str, Any] | str:
-    """Assemble the endpoint's query object, or return an error string.
-
-    The endpoint validates the result again with the same zod schema the UI
-    uses — this is convenience, not a security boundary.
-    """
     if operation not in VALID_OPERATIONS:
         return f"Error: unknown operation '{operation}'. Use one of: {', '.join(sorted(VALID_OPERATIONS))}."
     parsed = _parse_filters(filters)
@@ -480,8 +401,6 @@ _Lines = list[str | None]
 
 @dataclass(frozen=True)
 class _RenderContext:
-    """What a rendered row needs beyond the payload: where its links point."""
-
     project_id: str | None
     filename: str | None
     building_class: int
@@ -493,7 +412,6 @@ class _RenderContext:
 
 
 def _entry_label(entry: dict[str, Any], storey: bool = True) -> str:
-    """`IfcWall „Aussenwand Nord“ · Erdgeschoss` — one comparison row, named."""
     label = f"{entry.get('ifcType')} „{entry.get('name') or entry.get('globalId')}“"
     return f"{label} · {entry.get('storeyName') or '—'}" if storey else label
 
@@ -576,7 +494,6 @@ def _shopping_row(entry: dict[str, Any]) -> str:
 
 
 def _rule_rows(rule: dict[str, Any], ctx: _RenderContext) -> list[str]:
-    """The rule id for every rule that left work behind, then its breaches, each opening RED."""
 
     def verdict(entry: dict[str, Any]) -> str:
         name = entry.get("name") or entry.get("globalId")
@@ -591,7 +508,6 @@ def _rule_rows(rule: dict[str, Any], ctx: _RenderContext) -> list[str]:
 
 
 def _render_compliance(result: dict[str, Any], ctx: _RenderContext) -> _Lines:
-    """The verdict lines are already in `summary`; this adds the shopping list, the rule ids and the BCF export."""
     lines: _Lines = listed(result.get("complianceShoppingList") or [], 15, "missing properties", _shopping_row)
     lines += listed(result.get("compliance") or [], 40, "rules", lambda rule: _rule_rows(rule, ctx))
     bcf = _bcf_link(ctx.project_id, ctx.filename, ctx.building_class, ctx.main_use)
@@ -657,7 +573,6 @@ _PARTIAL_MODEL_OPS = frozenset({"schedule", "takeoff", "compliance", "compliance
 
 
 def _truncation_note(op: str) -> str:
-    """What a `truncated` result means, for the op that produced it."""
     if op in _PARTIAL_MODEL_OPS:
         return (
             "(Warning: these figures cover only part of the model. "
@@ -672,13 +587,6 @@ def _render(
     building_class: int = 0,
     main_use: str = "",
 ) -> str:
-    """Turn the endpoint's body into the string the model reads.
-
-    The `summary` line is the answer; the `caveat` is not optional colour (a
-    storey breakdown over unplaced elements is a subset presented as a total);
-    the per-op detail follows, clipped so a broad query cannot flood the
-    context with forty thousand element names.
-    """
     if not result.get("resolved"):
         return render_unresolved(result, "The model could not be queried.")
     model = result.get("model") or {}
@@ -709,12 +617,6 @@ def _trace(
     unavailable: bool = False,
     outcome: str | None = None,
 ) -> None:
-    """Which operation, which model, whether it resolved, whether the answer covered the WHOLE building.
-
-    The BFF exports no traces, so this is the only shape Langfuse gets. The
-    honesty flags matter for correctness, not speed: a truncated or sampled
-    result is a subset presented as a total.
-    """
     operation = str(query.get("op", "unknown"))
     found = result or {}
     if outcome is None and unavailable:
@@ -738,13 +640,11 @@ def _trace(
 
 
 def _query_row_fields(arguments: IfcQueryInput) -> dict[str, str]:
-    """The Herleitung row of a model query, from its own arguments: the operation and what it is about."""
     about = arguments.ifc_type or arguments.quantity or arguments.group_by
     return {"query": f"{arguments.operation.strip().lower() or 'overview'} {about}".strip()}
 
 
 def _listed(result: dict[str, Any]) -> int | None:
-    """How many rows a list-shaped answer carries (elements, take-off groups); None for any other shape."""
     for key in ("elements", "takeoff"):
         if isinstance(result.get(key), list):
             return len(result[key])
@@ -752,7 +652,6 @@ def _listed(result: dict[str, Any]) -> int | None:
 
 
 async def run_ifc_query(arguments: IfcQueryInput, default_limit: int) -> str:
-    """:func:`_query` with its Herleitung row (ADR-0132): one row per call, settled on every path."""
     outcome = ActionOutcome()
     row = ActionRow("model", **_query_row_fields(arguments))
     try:
@@ -765,7 +664,6 @@ async def run_ifc_query(arguments: IfcQueryInput, default_limit: int) -> str:
 
 
 async def _query(arguments: IfcQueryInput, default_limit: int, outcome: ActionOutcome | None = None) -> str:
-    """The tool body: guard, build, post, render — every failure as text the agent can act on."""
     outcome = outcome if outcome is not None else ActionOutcome()
     outcome.failed = True  # cleared once the model answered; a refusal on the way leaves it set
     organization_id = get_organization_id_from_context()
@@ -809,15 +707,12 @@ async def _query(arguments: IfcQueryInput, default_limit: int, outcome: ActionOu
 
 
 class IfcQueryConfig(FunctionBaseConfig, name="ifc_query"):
-    """Configuration for the ``ifc_query`` BIM tool."""
-
     default_limit: int = Field(default=25, description="Rows returned by 'elements' when none is given.")
 
 
 @register_function(config_type=IfcQueryConfig)
 async def ifc_query(tool_config: IfcQueryConfig, builder: Builder):
     async def _ifc_query(arguments: IfcQueryInput) -> str:
-        """Query the project's IFC/BIM model for exact building facts."""
         return await run_ifc_query(arguments, tool_config.default_limit)
 
     yield FunctionInfo.from_fn(_ifc_query, input_schema=IfcQueryInput, description=_TOOL_DESCRIPTION)

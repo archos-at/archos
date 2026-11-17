@@ -1,34 +1,3 @@
-"""The memory-reflection pass itself: prompt, sanitisation, and the writes.
-
-The in-turn ``remember`` tool captures findings while the agent is still
-answering, but a busy answer often ends before the agent pauses to consolidate
-what the exchange actually established. This module reads the just-finished
-exchange and the project's EXISTING memory digest (the ``x-grid-project-memory``
-the BFF injects), asks a small LLM whether the turn established any NEW durable
-finding the in-turn tool missed, and writes each qualifying item through the same
-token-guarded internal endpoint the ``remember`` tool uses (``app`` stays
-single-writer).
-
-**Scheduling does not live here.** Reflection is a *post-answer stage*, and how a
-stage is gated, bounded, made concurrent and recorded is the primitive's job, not
-this module's — see ``agent/stages/memory_reflection.py`` for the
-declaration and ``agent/stages/runner.py`` for the timeout, the shared
-semaphore, the pending cap and the outcome span. This module is the body of the
-handler and nothing else.
-
-Design guarantees kept here:
-- **Never crashes the turn on a finding.** A write that fails is logged and
-  dropped; the worst outcome is that no memory is recorded. A provider fault on
-  the one LLM call propagates to the stage runner, which owns the timeout and
-  the failure span — swallowing it here would only hide the outage.
-- **Context-free execution.** All request-scoped values (ids, digest, text) are
-  passed in explicitly, so the pass is safe to run after the request context has
-  been torn down.
-
-See docs/architecture/project-memory-design.md and
-docs/architecture/post-answer-stages.md.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -73,12 +42,10 @@ _NEUTRAL_IMPORTANCE = 5
 
 
 def _lowered(value: Any) -> Any:
-    """A trimmed, lowercased copy of a string; anything else untouched."""
     return value.strip().lower() if isinstance(value, str) else value
 
 
 def _one_of(value: Any, allowed: set[str], fallback: str) -> str:
-    """``value`` folded into ``allowed``, or ``fallback`` when it is not in it."""
     text = _lowered(value)
     return text if text in allowed else fallback
 
@@ -87,14 +54,6 @@ _PROJECT_ONLY_KINDS = frozenset({"decision", "constraint", "open_question", "der
 
 
 def _about(value: Any, kind: Any) -> str | None:
-    """Whose shelf a finding belongs on: ``project``, ``person``, or None when nothing says.
-
-    The model's ``about`` decides when it is readable. When it is not, the kind
-    may: the four project kinds are the project's, and ``profile`` exists only
-    in personal memory. A ``preference`` with no usable ``about`` gets None and
-    is dropped (ADR-0180): a personal note on the team's shelf is the harm, a
-    lost note is not.
-    """
     about = _lowered(value)
     if about in ("project", "person"):
         return about
@@ -104,7 +63,6 @@ def _about(value: Any, kind: Any) -> str | None:
 
 
 def _clamped_importance(value: Any) -> int:
-    """``value`` as an importance rating in 1..10, defaulting when unreadable."""
     try:
         importance = int(value)
     except TypeError, ValueError:
@@ -167,16 +125,6 @@ class _ReflectionFinding(BaseModel):
     @model_validator(mode="before")
     @classmethod
     def _tolerate_a_loose_reply(cls, data: Any) -> Any:
-        """Read forgivingly what the wire schema declares strictly.
-
-        A reply that came back through native structured output already fits.
-        The fallback path (no ``response_format``) does not: a model writes
-        ``"High"``, omits ``importance``, or adds a key the prompt never asked
-        for, and each of those used to be handled by 40 lines of imperative
-        coercion downstream. Folded here, one validated model is the only shape
-        the rest of this module handles. Only ``kind`` has no safe default — a
-        guessed category mislabels the row — so an unreadable one still fails.
-        """
         if not isinstance(data, dict):
             return data
         known = {key: value for key, value in data.items() if key in cls.model_fields}
@@ -210,7 +158,6 @@ class ReflectionOutput(BaseModel):
 
 
 def _build_user_prompt(query: str, answer: str, memory_digest: str | None, personal_memory: str | None = None) -> str:
-    """Assemble the reflection prompt from the turn and the existing memory."""
     existing = memory_digest.strip() if memory_digest else "(no project memory recorded yet)"
     if len(existing) > _MAX_DIGEST_CHARS:
         existing = existing[:_MAX_DIGEST_CHARS] + "\n… (project memory truncated)"
@@ -228,7 +175,6 @@ def _build_user_prompt(query: str, answer: str, memory_digest: str | None, perso
 
 
 def _normalize(text: str) -> str:
-    """Lowercase + collapse whitespace + drop non-alphanumerics, for cheap dedup."""
     return re.sub(r"[^a-z0-9äöüß]+", " ", text.lower()).strip()
 
 
@@ -236,31 +182,11 @@ _DIGEST_ENTRY_RE = re.compile(r'^\s*-\s*\[[^\]]*\]\s*"(.*)"\s*$')
 
 
 def _digest_entry_contents(memory_digest: str | None) -> frozenset[str]:
-    """Normalized contents of the COMPLETE entries displayed in the digest.
-
-    A supersede quote must name one whole entry: a substring check would accept
-    a truncated quote ("Client chose a flat" for "Client chose a flat roof"),
-    which the frontend's fuzzy resolver would then happily resolve — retiring an
-    entry the model never actually quoted.
-
-    No unescaping needed: ``_normalize`` drops the backslashes and quotes
-    ``formatDigestLines`` adds.
-    """
     matches = (_DIGEST_ENTRY_RE.match(line) for line in (memory_digest or "").splitlines())
     return frozenset(filter(None, (_normalize(match.group(1)) for match in matches if match)))
 
 
 def _content_in_digest(content: str, normalized_digest: str) -> bool:
-    """True when a finding is already (near-)present in the digest it was shown.
-
-    A cheap normalized-substring guard so the stage cannot re-store an item that
-    was literally in front of the LLM. It does NOT catch semantic paraphrase or
-    items outside the bounded digest — full de-duplication is the write-time
-    consolidation gate (design §3.2), still a follow-up.
-
-    ``normalized_digest`` is ``_normalize``d once by the caller: the digest runs
-    to ~6 kB and every finding in a batch asks the same question of it.
-    """
     normalized_content = _normalize(content)
     return bool(normalized_content) and normalized_content in normalized_digest
 
@@ -272,7 +198,6 @@ def _person_finding(
     can_write_personal: bool,
     personal_entries: frozenset[str] = frozenset(),
 ) -> _ReflectionFinding | None:
-    """A finding about the person as it may be written to their personal memory, or None."""
     if not can_write_personal:
         logger.info("Memory reflection: dropped a personal finding; no envelope names its owner")
         return None
@@ -298,13 +223,6 @@ def _finding_from_entry(
     can_write_personal: bool = False,
     personal_entries: frozenset[str] = frozenset(),
 ) -> _ReflectionFinding | None:
-    """One insertable finding from a proposed entry, or None when it does not qualify.
-
-    Drops anything malformed, out-of-vocabulary, empty, already present in the
-    digest, without a usable ``about``, or matching a PII/secret shape (audit
-    finding S4). The guard runs HERE and not only at the write endpoint so a
-    dropped finding never counts against ``MAX_NEW_ITEMS``.
-    """
     try:
         finding = _ReflectionFinding.model_validate(entry)
     except ValidationError:
@@ -341,17 +259,6 @@ def _sanitize_findings(
     personal_memory: str | None = None,
     can_write_personal: bool = False,
 ) -> list[_ReflectionFinding]:
-    """Validate LLM-proposed findings into insertable project or personal items.
-
-    The autonomous reflection stage never writes ``organization`` scope.
-    Firm-wide memory poisons every project in the tenant and there is no
-    write-time authorization gate or human review, so org-wide writes stay a
-    deliberate, human-driven action (audit finding S1). A finding about the
-    person is kept only when ``can_write_personal`` (ADR-0180).
-
-    The cap applies to what SURVIVES the filters, not to what the model
-    proposed: a dropped finding must not cost a real one its slot.
-    """
     if not isinstance(raw, list) or not has_project:
         return []
     checks = {
@@ -368,12 +275,6 @@ def _sanitize_findings(
 async def _write_personal_finding(
     finding: _ReflectionFinding, *, envelope: SignedEnvelope | None, conversation_id: str | None
 ) -> dict[str, str] | None:
-    """Record one finding about the person in their personal memory, never the project's (ADR-0180).
-
-    A finding that names a note in ``supersedes`` removes it first, and is
-    written only once it is gone: a correction never stands beside the note it
-    contradicts. A finding with no content is that removal alone.
-    """
     if envelope is None:
         return None
     if finding.supersedes:
@@ -407,7 +308,6 @@ async def _write_finding(
     decision: RestrictionDecision | None = None,
     envelope: SignedEnvelope | None = None,
 ) -> dict[str, str] | None:
-    """Record one finding, returning the row it became, or None if it did not land."""
     if finding.about == "person":
         return await _write_personal_finding(finding, envelope=envelope, conversation_id=conversation_id)
     decision = decision or RestrictionDecision(None)
@@ -443,16 +343,6 @@ async def _record_findings(
     decisions: list[RestrictionDecision] | None = None,
     envelope: SignedEnvelope | None = None,
 ) -> list[dict[str, str]]:
-    """Write every finding concurrently, keeping the rows that landed, in order.
-
-    The writes are independent HTTP round trips against one endpoint, so they
-    are gathered rather than walked: five sequential 5s-timeout calls inside a
-    45s stage budget is the whole batch riding on the slowest link. Order is
-    preserved, which the frame's "in write order" contract depends on. Two
-    near-duplicate findings in one batch now race the BFF's dedup; the partial
-    UNIQUE indexes make the loser an error that is logged and dropped, the same
-    outcome the sequential second write reached by merging.
-    """
     decisions = decisions if decisions is not None else [RestrictionDecision(None)] * len(findings)
     results = await asyncio.gather(
         *(
@@ -480,11 +370,6 @@ async def _record_findings(
 async def _project_restrictions(
     findings: list[_ReflectionFinding], restriction: RestrictionEvidence | None, llm: Any
 ) -> list[RestrictionDecision]:
-    """One restriction decision per finding, in order: judged for the project's, open for the person's.
-
-    A personal note is read by the one person who was in the turn, so it is
-    never restricted-folder memory and never costs a judge call (ADR-0180).
-    """
     project = [finding for finding in findings if finding.about == "project"]
     judged = iter(
         await restriction_decisions(
@@ -509,21 +394,6 @@ async def run_memory_reflection(
     personal_memory: str | None = None,
     envelope: SignedEnvelope | None = None,
 ) -> list[dict[str, str]]:
-    """Run one reflection pass and record any qualifying findings.
-
-    Returns the memory items written, ``id``, ``kind``, ``content`` and
-    ``about`` (which memory it went to) each; empty when nothing qualified or
-    every write failed. The words ride along because the stage puts the
-    project's rows on the wire for the "noted this" chip
-    (``docs/architecture/post-answer-stages.md`` §5.1). A fault on the LLM call
-    propagates to the stage runner, which owns the timeout and the failure span.
-
-    ``restriction`` is what the turn could have taken from restricted folders
-    (ADR-0087): a project finding that depends on it is written as restricted
-    memory, never dropped. ``envelope`` and ``personal_memory`` are the asker's
-    (ADR-0180): a finding about the person goes to their personal memory with
-    the envelope, is dropped without one, and never reaches project memory.
-    """
     messages = [
         SystemMessage(content=REFLECTION_SYSTEM_PROMPT),
         HumanMessage(content=_build_user_prompt(query, answer, memory_digest, personal_memory)),

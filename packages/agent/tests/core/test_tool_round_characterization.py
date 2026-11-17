@@ -1,23 +1,3 @@
-"""Characterization: what the agent's tool loop does today, pinned before the loop moves onto LangChain.
-
-Not a specification. Each test records the CURRENT behaviour of one seam the
-move has to preserve or change on purpose, through the compiled graph:
-
-* whether the agent's inner graph writes checkpoints into the conversation
-  graph's checkpointer (namespace ``shallow_research:*``);
-* the exact transcript of ONE round that mixes every way a call is answered:
-  ran, cross-round repeat, same-batch repeat of a failed fetch, refused
-  (switched-off source), width-capped, and held for a steering note;
-* one ``admit`` call for a round with two restricted results;
-* the text the model reads for a schema-invalid call and for a tool that raises.
-
-Each guard alone is pinned elsewhere (``test_repeat_fetch_guard.py``,
-``test_disabled_sources.py``, ``test_budget_by_rounds.py``,
-``test_steering_turn.py``, ``test_restricted_tool_round.py``,
-``common/test_tool_errors.py``); what is pinned here is their composition and
-order in one transcript. A diff here after a refactor is a decision, not noise.
-"""
-
 from __future__ import annotations
 
 from typing import Any
@@ -71,7 +51,6 @@ FAILING_QUERIES: set[str] = set()
 
 @tool
 def knowledge_search(query: str) -> str:
-    """Search the office's documents."""
     if query in FAILING_QUERIES:
         FAILING_QUERIES.discard(query)
         RAN.append(f"knowledge_search:{query}:failed")
@@ -82,21 +61,18 @@ def knowledge_search(query: str) -> str:
 
 @tool
 def read_passage(document: str, clause: str | None = None) -> str:
-    """Open a named passage of a known document."""
     RAN.append(f"read_passage:{document}|{clause or ''}")
     return f"Passage aus {document} {clause or ''}".strip()
 
 
 @tool
 def web_search_tool(query: str) -> str:
-    """Search the web."""
     RAN.append(f"web_search_tool:{query}")
     return f"Web-Treffer zu: {query}"
 
 
 @tool("canvas__mark")
 def mark(target: str) -> str:
-    """Propose an Anmerkung on the document."""
     RAN.append(f"mark:{target}")
     return f"Vorgeschlagen: {target}"
 
@@ -132,7 +108,6 @@ def _bypass_citation_pipeline():
 
 @pytest.fixture
 def inbox():
-    """One turn's steering inbox, bound in a SYNC fixture (gotchas: ContextVar tokens)."""
     box = SteerInbox()
     token = bind_steer_inbox(box)
     yield box
@@ -159,15 +134,6 @@ def _transcript(result: ResearchAgentState) -> list[tuple[str, str]]:
 
 class TestInnerGraphCheckpoints:
     async def test_the_inner_graph_checkpoints_into_the_outer_saver(self):
-        """Today: the agent's graph is compiled WITHOUT a checkpointer, and still writes checkpoints.
-
-        Recorded as found. ``agent.run`` invokes it inside the conversation
-        graph's ``shallow_research`` node, LangGraph hands the subgraph the
-        parent's checkpointer, and every super-step of the inner loop lands in
-        the conversation's saver under ``shallow_research:<task id>``: six for a
-        turn of one tool round, one thread namespace. A move that stops this changes what a stored
-        conversation holds; one that keeps it keeps a cost per turn.
-        """
         inner_agent = _agent(
             [AIMessage(content="", tool_calls=[_call("knowledge_search", "k1", query="Q")]), _ANSWER],
             [knowledge_search],
@@ -196,16 +162,6 @@ class TestInnerGraphCheckpoints:
 
 class TestOneMixedRound:
     async def test_every_way_a_call_is_answered_in_one_round(self, inbox, emitted):
-        """Round 1 runs one search. Round 2 asks for seven calls; a note arrives while the model decides it.
-
-        * ``k1`` the retry-able search that FAILS: runs;
-        * ``k2`` the same search in the same batch: the failed-repeat notice;
-        * ``r1`` round one's search again: its earlier result, labelled;
-        * ``w1`` a switched-off source: refused;
-        * ``m1`` a write chosen before the note: held for the steer;
-        * ``p1`` a passage: runs (third of three under the cap);
-        * ``p2`` a passage past the width cap of 3: the width notice.
-        """
         FAILING_QUERIES.add("kaputt")
         replies = [
             AIMessage(content="", tool_calls=[_call("knowledge_search", "s0", query="Fluchtweg")]),
@@ -276,7 +232,6 @@ class TestTwoRestrictedResultsOneAdmission:
 
         @tool("knowledge_search")
         def restricted_search(query: str) -> str:
-            """Search the project's documents."""
             collection = first if query == "Honorar" else second
             return (
                 "Found 1 relevant document(s):\n\n--- Result 1 ---\n"
@@ -322,7 +277,6 @@ class TestWhatAFailedCallSays:
     async def test_a_schema_invalid_call_and_a_raising_tool(self):
         @tool
         def explode(query: str) -> str:
-            """Always fails."""
             raise RuntimeError("store rejected the filter")
 
         agent = _agent(

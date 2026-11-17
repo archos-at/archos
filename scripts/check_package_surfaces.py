@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-"""Code outside a knowledge_layer subpackage imports its surface (code-conventions.md)."""
 
 from __future__ import annotations
 
@@ -20,13 +19,11 @@ PACKAGES = {
 
 
 def tracked_python(root: Path) -> list[str]:
-    """Every Python file git tracks (staged included), so a new file is seen at commit time."""
     out = subprocess.run(["git", "ls-files", "*.py"], cwd=root, capture_output=True, text=True, check=True).stdout
     return [path for path in out.splitlines() if path not in EXCLUDED and (root / path).is_file()]
 
 
 def surface(root: Path, package: str) -> tuple[set[str], set[str]]:
-    """(the names the package exports, its submodules), read from its files without importing it."""
     directory = root / PACKAGES[package]
     submodules = {path.stem for path in directory.glob("*.py") if path.stem != "__init__"}
     init = directory / "__init__.py"
@@ -53,7 +50,6 @@ def _owner(path: str) -> str | None:
 
 
 def _split(dotted: str) -> tuple[str, str] | None:
-    """(package, submodule) when ``dotted`` names a submodule path of a listed package."""
     for package in PACKAGES:
         if dotted.startswith(package + "."):
             return package, dotted[len(package) + 1 :].split(".", maxsplit=1)[0]
@@ -64,7 +60,6 @@ STRING = re.compile(r"(?<![\w.])(" + "|".join(re.escape(p) for p in PACKAGES) + 
 
 
 def references(source: str, path: str, submodules: dict[str, set[str]]) -> list[tuple[str, str, int, list[str]]]:
-    """(package, submodule, line, names imported) for each reference ``path`` makes from outside the package."""
     owner = _owner(path)
     found = []
     nodes = list(ast.walk(ast.parse(source)))

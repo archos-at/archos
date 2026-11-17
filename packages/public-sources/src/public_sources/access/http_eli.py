@@ -1,25 +1,3 @@
-"""``http_eli``: legislation addressed by European Legislation Identifier URIs.
-
-ELI (Council conclusions 2012/C 325/02, 2017/C 441/05) names a work, its
-expression at a point in time, its language and its format with one URI
-pattern per publisher. The record holds that pattern as a template; the access
-type fills it, checks every argument against the pattern the record declares
-for it (an argument may sit inside a URI or a query, so it is never free text),
-and resolves the expression to the bytes of a manifestation.
-
-Publishers resolve differently, and the record says which:
-
-* ``direct``: the ELI URI itself answers with the manifestation
-  (legislation.gov.uk's ``/data.akn``). One GET.
-* ``sparql``: the URI is a resource in the publisher's linked-data graph and
-  the file is found by a query (Fedlex: the consolidation in force on a date,
-  then its ``jolux:isExemplifiedBy`` file). One POST to the endpoint, then a GET.
-
-The version the protocol states (the consolidation date the query chose, or
-the ``{as_of}`` the caller named) is carried on :class:`Fetched` for the change
-monitor and the citation, never guessed from the text.
-"""
-
 from __future__ import annotations
 
 import json
@@ -95,7 +73,6 @@ class HttpEli(AccessType):
     config_model = ElIConfig
 
     def arguments(self, args: Mapping[str, Any]) -> dict[str, str]:
-        """``args`` over the defaults, each checked against its declared pattern."""
         merged = {**self.config.defaults, **{k: str(v) for k, v in args.items() if v not in (None, "")}}
         unknown = sorted(set(merged) - set(self.config.args))
         if unknown:

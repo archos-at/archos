@@ -1,33 +1,3 @@
-"""A PDF's parsed document, stored once per version so a retry does not parse it again.
-
-The CPU pass before a PDF's first model call is its text pass (pdfplumber, page
-by page), its page triage (PDFium's object counts) and its table pass
-(pdfplumber's table finder). On a 133-page CAD PDF it took 103 s for the text and
-125 s for the tables (ADR-0117), and a retry of the same version (an interrupted
-worker, a transient provider error, "Erneut lesen") paid all of it again for the
-same bytes. Once the upload screen has passed and the tables are read, this
-module writes what the pass produced as ``<version dir>/_text/parsed.json``,
-beside ``page_text_store``'s ``pages.md`` and ``index.json``, through the same
-BFF-presigned PUT; the next attempt for that version reads it back with the
-backend's read-only credential and skips the pass.
-
-**What it holds.** The text pass's pages (text, captioned tables and their boxes,
-line styles, raster counts) with its failed, dense and page counts; the triage's
-verdict per page, which decides each page's route (transcription, drawing
-analysis, text); and the table pass's tables, with the pages it skipped. The
-upload screen is NOT stored as a verdict: it is a function of the office's rules,
-which may change between attempts, and it is cheap, so it runs again on the
-read-back text.
-
-**When it counts.** Only an artefact whose header names this file's content hash
-and this pipeline (:data:`PIPELINE_VERSION`: the schema, the reader version, the
-thresholds and the source of every module the pass runs) is read; anything else
-is parsed afresh and overwritten. A table pass is reused only for the same
-skipped pages. It is bounded: an artefact over :data:`PARSED_MAX_BYTES` is not
-written (logged), and one read back over it is ignored. Every failure is "no
-artefact": the pass runs as before.
-"""
-
 from __future__ import annotations
 
 import contextlib
@@ -75,7 +45,6 @@ _PIPELINE: str | None = None
 
 
 def pipeline_version() -> str:
-    """The identity of the pass that wrote an artefact; computed once per process."""
     global _PIPELINE
     if _PIPELINE is None:
         _PIPELINE = _pipeline_version()
@@ -146,8 +115,6 @@ _UNSET: Any = object()
 
 @dataclasses.dataclass
 class ParsedDocument:
-    """What one PDF version's pass produced: read back from the store, or recorded as it runs."""
-
     content_hash: str
     text: dict[str, Any] | None = None
     triage: Any = _UNSET
@@ -167,7 +134,6 @@ class ParsedDocument:
 
     @classmethod
     def from_body(cls, body: Any, content_hash: str) -> ParsedDocument | None:
-        """The artefact in ``body`` when it is this version's and this pipeline's; else ``None``."""
         if not isinstance(body, dict) or body.get("schema_version") != SCHEMA_VERSION:
             return None
         if body.get("content_hash") != content_hash or body.get("pipeline") != pipeline_version():
@@ -199,8 +165,6 @@ def _fetch(bucket: str | None, key: str) -> bytes | None:
 
 @dataclasses.dataclass
 class ParsedStore:
-    """Where one file's artefact is read from and written to; inert without a document id."""
-
     document_id: str | None
     collection: str
     organization_id: str | None
@@ -217,7 +181,6 @@ class ParsedStore:
         return presign(self.document_id, self.collection, PARSED_PART, self.organization_id)
 
     def load(self, content_hash: str) -> ParsedDocument | None:
-        """This version's artefact, or ``None`` (none stored, another version or pipeline, too large, any failure)."""
         try:
             slot = self._slot()
             if slot is None or not getattr(slot, "storage_key", None):
@@ -231,7 +194,6 @@ class ParsedStore:
             return None
 
     def save(self, parsed: ParsedDocument) -> bool:
-        """Write ``parsed`` when it holds something new and fits; True when it landed. Never raises."""
         if not parsed.dirty or not self.document_id or PARSED_MAX_BYTES <= 0:
             return False
         from . import page_text_store
@@ -261,8 +223,6 @@ class ParsedStore:
 
 @dataclasses.dataclass
 class FileParse:
-    """One PDF's pass, served from the read-back artefact where it has it, recorded where it does not."""
-
     store: ParsedStore | None
     parsed: ParsedDocument | None
 
@@ -298,14 +258,12 @@ class FileParse:
         return tables
 
     def save(self) -> bool:
-        """Store what this attempt parsed, once the screen has passed. Never raises."""
         if self.store is None or self.parsed is None:
             return False
         return self.store.save(self.parsed)
 
 
 def open_for(config: dict[str, Any], collection: str, pdf_path: str) -> contextlib.AbstractContextManager[FileParse]:
-    """:func:`file_parse` for one dispatched PDF: its document's store, keyed by its bytes' hash."""
     from .chunk_identity import file_version
 
     document_id = config.get("document_id")
@@ -319,13 +277,11 @@ _CURRENT: contextvars.ContextVar[FileParse | None] = contextvars.ContextVar("fil
 
 
 def current() -> FileParse:
-    """The file's parse inside :func:`file_parse`; outside one, a parse that stores and reads nothing."""
     return _CURRENT.get() or FileParse(None, None)
 
 
 @contextlib.contextmanager
 def file_parse(store: ParsedStore | None, content_hash: str | None) -> Iterator[FileParse]:
-    """Open one PDF's parse: read back its artefact when the store has this version's."""
     parsed = None
     if store is not None and content_hash:
         parsed = store.load(content_hash)

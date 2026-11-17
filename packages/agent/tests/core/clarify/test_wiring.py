@@ -1,11 +1,3 @@
-"""Tests for how the clarification step is configured and wired.
-
-What was the `clarifier_agent` agent-runtime registration: the config block (now nested
-under the workflow), the tool set it boots with, the HITL channel it asks
-through, and the per-request narrowing that keeps a per-org model override,
-a BYOK credential, ZDR routing and data-source filtering working.
-"""
-
 from unittest.mock import AsyncMock
 from unittest.mock import MagicMock
 from unittest.mock import patch
@@ -31,19 +23,15 @@ from nat.plugin_api import MultipleChoiceOption
 
 @tool
 def alpha_tool(query: str) -> str:
-    """Alpha."""
     return query
 
 
 @tool
 def beta_tool(query: str) -> str:
-    """Beta."""
     return query
 
 
 class TestClarifierSettings:
-    """The config block, one level deeper than it used to be."""
-
     def test_settings_with_required_fields(self):
         settings = ClarifierSettings(llm="test_llm")
 
@@ -69,15 +57,12 @@ class TestClarifierSettings:
         assert settings.verbose is True
 
     def test_tools_default_factory(self):
-        """Each instance gets its own list, not a shared one."""
         first = ClarifierSettings(llm="llm")
         second = ClarifierSettings(llm="llm")
 
         assert first.tools == [] and first.tools is not second.tools
 
     def test_the_field_names_are_the_ones_the_yaml_already_used(self):
-        """The block moved onto the workflow; the keys inside it did not change,
-        so an existing deployment re-indents its YAML and nothing else."""
         assert set(ClarifierSettings.model_fields) == {
             "llm",
             "planner_llm",
@@ -97,7 +82,6 @@ class TestClarifierSettings:
         assert fields["max_turns"].description is not None
 
     def test_it_hangs_off_the_workflow_config(self):
-        """The one place a deployment addresses this step from now."""
         from agent.core.conversation_register import ChatDeepResearcherConfig
 
         config = ChatDeepResearcherConfig(enable_clarifier=True, clarifier={"llm": "clarifier_llm", "max_turns": 3})
@@ -106,15 +90,12 @@ class TestClarifierSettings:
         assert config.clarifier.llm == "clarifier_llm"
 
     def test_it_is_absent_by_default(self):
-        """A deployment with no clarifier configures nothing."""
         from agent.core.conversation_register import ChatDeepResearcherConfig
 
         assert ChatDeepResearcherConfig().clarifier is None
 
 
 class TestBuildClarifierGuard:
-    """Turning the clarifier on without configuring it fails at boot."""
-
     @pytest.mark.asyncio
     async def test_enabled_without_a_block_is_a_boot_error(self):
         from agent.core.conversation_register import ChatDeepResearcherConfig
@@ -125,7 +106,6 @@ class TestBuildClarifierGuard:
 
     @pytest.mark.asyncio
     async def test_disabled_resolves_nothing(self):
-        """The graph gets None and the escalation goes straight to deep research."""
         from agent.core.conversation_register import ChatDeepResearcherConfig
         from agent.core.conversation_register import _build_clarifier
 
@@ -133,8 +113,6 @@ class TestBuildClarifierGuard:
 
 
 class TestResolveTools:
-    """The tool set the step boots with."""
-
     @staticmethod
     def builder_returning(*tools):
         builder = MagicMock()
@@ -152,7 +130,6 @@ class TestResolveTools:
 
     @pytest.mark.asyncio
     async def test_an_empty_tool_list_inherits_the_registry(self):
-        """Empty means "everything the data-source registry has", not "nothing"."""
         builder = self.builder_returning(alpha_tool)
 
         with patch("agent.core.clarify.get_all_tool_refs", return_value=["registry_tool"]):
@@ -170,12 +147,6 @@ class TestResolveTools:
 
 
 class TestAskThroughNat:
-    """The HITL channel: agent-runtime prompt out, user's reply in.
-
-    This is the live user interaction the plan-approval dialog blocks on, so it
-    keeps its own tests even though nothing registers an agent-runtime function any more.
-    """
-
     @staticmethod
     def context_answering(response):
         manager = MagicMock()
@@ -186,7 +157,6 @@ class TestAskThroughNat:
 
     @pytest.mark.asyncio
     async def test_a_question_without_options_is_a_text_prompt(self):
-        """No options: byte-identical to the prompt the clarifier always sent."""
         answer = InteractionResponse(id="1", timestamp="2026-08-18T10:00:00Z", content=HumanResponseText(text="skip"))
         context, manager = self.context_answering(answer)
 
@@ -199,7 +169,6 @@ class TestAskThroughNat:
 
     @pytest.mark.asyncio
     async def test_options_become_a_picker(self):
-        """The picker gets its data from the prompt, not from parsing the prose."""
         picked = InteractionResponse(
             id="1",
             timestamp="2026-08-18T10:00:00Z",
@@ -218,7 +187,6 @@ class TestAskThroughNat:
 
     @pytest.mark.asyncio
     async def test_a_typed_skip_survives_a_picker_prompt(self):
-        """The skip path is only ever typed, so it must survive the picker prompt."""
         typed = InteractionResponse(id="1", timestamp="2026-08-18T10:00:00Z", content=HumanResponseText(text="skip"))
         context, _ = self.context_answering(typed)
 
@@ -227,14 +195,12 @@ class TestAskThroughNat:
 
     @pytest.mark.asyncio
     async def test_it_is_the_default_channel_a_booted_clarifier_asks_through(self):
-        """Wiring check: nothing else has to remember to pass the callback."""
         clarifier = Clarifier.build(provider_varying(False), [], None, ClarifierSettings(llm="l"))
 
         assert clarifier.boot.ask_user is ask_through_nat
 
 
 def provider_varying(varies: bool) -> MagicMock:
-    """A provider double whose override chain returns itself, or a new one."""
     provider = MagicMock(spec=LLMProvider)
     chained = MagicMock(spec=LLMProvider) if varies else provider
     chain = provider.with_model_overrides.return_value.with_reasoning_efforts.return_value
@@ -247,20 +213,16 @@ def request_with(data_sources=None) -> ClarifyRequest:
 
 
 class TestDepsForRequest:
-    """What one request varies from the boot-time step."""
-
     @staticmethod
     def clarifier_for(provider, tools=(), planner=None) -> Clarifier:
         return Clarifier.build(provider, list(tools), planner, ClarifierSettings(llm="l"), AsyncMock())
 
     async def test_nothing_varies(self):
-        """The common request: the boot deps serve it, nothing is rebuilt."""
         clarifier = self.clarifier_for(provider_varying(False), [alpha_tool])
 
         assert await clarifier.deps_for(request_with()) is clarifier.boot
 
     async def test_an_org_override_produces_its_own_deps(self):
-        """A model override, a BYOK credential or ZDR routing all arrive this way."""
         provider = provider_varying(True)
         clarifier = self.clarifier_for(provider, [alpha_tool])
 
@@ -269,7 +231,6 @@ class TestDepsForRequest:
         assert deps is not clarifier.boot
 
     async def test_narrowed_data_sources_produce_their_own_deps(self):
-        """Org-disabled sources narrow the tool set even without a model override."""
         clarifier = self.clarifier_for(provider_varying(False), [alpha_tool, beta_tool])
 
         with patch("agent.core.clarify.filter_tools_by_sources", return_value=[alpha_tool]):
@@ -279,7 +240,6 @@ class TestDepsForRequest:
         assert set(deps.tools) == {"alpha_tool"}
 
     async def test_the_planner_is_carried_through_the_override(self):
-        """The planner belongs to the same agent group as the clarifier LLM."""
         planner = MagicMock()
         clarifier = self.clarifier_for(provider_varying(True), [], planner)
 
@@ -292,7 +252,6 @@ class TestDepsForRequest:
         assert override.call_args.args[1] is AgentGroup.CLARIFIER
 
     async def test_no_configured_planner_stays_none(self):
-        """None means "fall back to the (already overridden) clarifier LLM"."""
         provider = provider_varying(True)
         clarifier = self.clarifier_for(provider, [])
 

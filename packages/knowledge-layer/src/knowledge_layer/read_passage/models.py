@@ -1,5 +1,3 @@
-"""The shapes a passage read is built from: the input a call carries, and the target a document name resolves to."""
-
 from __future__ import annotations
 
 from collections.abc import Mapping
@@ -26,8 +24,6 @@ class ReadPassageInput(BaseModel):
 
 @dataclass(frozen=True)
 class PassageTarget:
-    """One resolved (collection, document) the locator will fetch from."""
-
     collection: str
     file_name: str
     shelf: str | None
@@ -37,8 +33,6 @@ class PassageTarget:
 
 @dataclass(frozen=True)
 class Fetched:
-    """What one gathered fetch returned: the chunks, the failures, and whether every read was structural."""
-
     chunks: list[Any]
     failures: list[BaseException]
     structural: bool

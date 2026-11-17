@@ -1,32 +1,3 @@
-"""Storing the rasters the ingest pipeline cuts out of a PDF.
-
-``_extract_images_from_pdf`` pulls every image XObject out of a PDF, the VLM
-captions each, and until now the bytes were dropped once the caption was
-indexed. That left ``look`` one option for an embedded photo
-or scanned drawing: render the whole page, at page resolution, with the text
-around it. This module keeps the raster itself, beside the document, so the
-tool can hand the model the image at the resolution it was captioned at.
-
-The backend holds a read-only object-store credential (ADR-0039), so it
-cannot write the raster itself. It asks the BFF for one presigned PUT per
-image (``POST /api/internal/document-image-upload-url``, service-token
-guarded) — the thumbnail pattern, per image instead of per document, because
-how many rasters a PDF holds is unknown until extraction has run and most
-hold none. The BFF builds the key from the document's own storage key
-(``<doc dir>/_img/<index>.jpg``) and refuses an index past its per-document
-ceiling with a 404, which this module reads as "stop asking".
-
-The presigned URL is trusted as it comes: it is the BFF's answer over the
-token-authenticated internal channel, not a field of a request a user token
-can reach (the SSRF allowlist on ``/v1/ingest`` exists because that route is
-reachable through the user proxy). It is never logged, not even truncated —
-it is a live bearer credential to the object.
-
-Fail-open, bounded: any failure keeps the caption and stops storing for the
-rest of that file. A dead BFF costs one timeout per document, not one per
-image, and the chunk simply carries no ``image_key``.
-"""
-
 from __future__ import annotations
 
 import logging
@@ -50,12 +21,6 @@ Uploader = Callable[[str, bytes], None]
 def request_upload_slot(
     document_id: str, collection: str, image_index: int, organization_id: str | None = None
 ) -> tuple[str, str] | None:
-    """Ask the BFF for a presigned PUT for one raster; ``None`` on any failure.
-
-    A 404 is the BFF saying the document is unknown or the index is past
-    ``MAX_STORED_IMAGES_PER_DOCUMENT`` (``apps/workspace/bff/s3.ts``) —
-    both mean there is nothing more to store for this document.
-    """
     base_url = os.environ.get(_FRONTEND_INTERNAL_URL_ENV, "").strip()
     token = os.environ.get(_INTERNAL_TOKEN_ENV, "").strip()
     if not base_url or not token:
@@ -90,7 +55,6 @@ def request_upload_slot(
 
 
 def put_raster(upload_url: str, image_bytes: bytes) -> None:
-    """PUT one raster to its presigned slot. Raises on any failure."""
     with connect_retrying_client(read_timeout=_HTTP_TIMEOUT_SECONDS) as client:
         response = client.put(upload_url, content=image_bytes, headers={"Content-Type": "image/jpeg"})
     response.raise_for_status()
@@ -105,20 +69,6 @@ def store_extracted_images(
     presign: Presigner | None = None,
     upload: Uploader | None = None,
 ) -> int:
-    """Store each extracted raster beside its document; returns how many landed.
-
-    ``image_results`` is ``enrich_vlm_batch``'s output: ``(record, content_type,
-    caption)`` with the JPEG bytes in ``record["image_bytes"]``. A record that
-    was stored gains ``image_key`` (the object's storage key) and
-    ``stored_image_index`` (the index the key was built from); the adapter
-    copies both onto the caption chunk's metadata, and the hit renderer shows
-    an ``Image:`` line only when they are present.
-
-    Records are visited in document order (page, then position on the page)
-    so the index a re-ingest assigns to a raster is the same one it got last
-    time, and the re-ingest overwrites in place. Stops at the first failure —
-    see the module docstring for why.
-    """
     presign = presign or request_upload_slot
     upload = upload or put_raster
     ordered = sorted(image_results, key=lambda item: (item[0].get("page_number", 0), item[0].get("image_index", 0)))

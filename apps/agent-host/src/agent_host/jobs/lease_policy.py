@@ -1,14 +1,3 @@
-"""What the research and ingest workers share about holding a claim (ADR-0079).
-
-Both queues use these defaults. The BFF's claim loop
-(``apps/workspace/workers/jobs/index.js``) shares max attempts and dead retention,
-and drains for 60 s instead of 600 because a slice is short;
-``apps/agent-host/tests/test_lease_policy.py`` holds both sides to that. Each
-caller keeps its own floors, and its own values where the queues differ on
-purpose: the stale window (research 90 s, ingest 180 s) and the per-organization
-cap are product choices, not drift.
-"""
-
 from __future__ import annotations
 
 import logging
@@ -25,7 +14,6 @@ DEAD_RETENTION_DAYS = 14
 
 
 def int_env(name: str, default: int, *, floor: int | None = None) -> int:
-    """``name`` as an int; ``default`` when unset, not a number, or below ``floor``."""
     try:
         value = int(os.environ.get(name, ""))
     except ValueError:
@@ -36,11 +24,6 @@ def int_env(name: str, default: int, *, floor: int | None = None) -> int:
 
 
 def touch_liveness(path: str) -> None:
-    """Write the marker file the pod's liveness probe checks the age of.
-
-    A failed write is logged, not raised: the probe then fails on the stale file,
-    which is the signal, and the loop that holds claims keeps them.
-    """
     try:
         with open(path, "w") as handle:
             handle.write("ok")

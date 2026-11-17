@@ -1,42 +1,3 @@
-"""Follow-up questions, declared as a post-answer stage.
-
-The reader who now knows what a Fluchtniveau is has a next question and no
-phrasing for it. Until now that set of questions was a card the answering model
-*may* emit (``follow_ups`` in ``cards/catalog.py``); here it becomes something
-the system runs after every substantive answer, gated by deterministic Python
-rather than by the model's own opinion of its answer.
-
-**This slice delivers nothing.** ``delivery="silent"``: the stage runs, is
-bounded, and records an outcome, and no reader sees a chip. That is the point —
-it answers "how often does the model decline, and what does this actually cost"
-for the price of an LLM call, before the old card is retired and before a
-placement is committed to. Every question the measurement has to answer is a
-``GROUP BY`` over the stage's spans:
-
-- *did it fire, and did the gate decline* — ``outcome='skipped' GROUP BY reason``,
-  one reason per gate condition (§7.6);
-- *did the model return questions or nothing* — ``outcome='ready'`` against
-  ``outcome='empty'``, and ``empty`` splits by reason into ``model_declined``
-  (it returned no questions) and ``no_usable_items`` (it returned questions that
-  named nothing in the answer);
-- *what did it cost* — ``prompt_tokens`` / ``completion_tokens`` / ``cost_usd``
-  on the same span, next to ``durationMs``;
-- *did it break* — ``outcome='timeout'`` and ``outcome='failed' GROUP BY reason``.
-
-**The prompt is the existing doctrine, moved rather than rewritten.** Its four
-sources, each named where it is used below: ``_FOLLOW_UPS_RULE``
-(``cards/catalog.py``) for when a set is right and the two exceptions;
-``FollowUpsCard``/``FollowUp`` (``cards/models.py``) for anchoring, spread, the
-composer-prefill semantics and what a hint is; the ``follow_ups`` paragraph of
-``_POST_HOC_CRAFT`` plus ``_POST_HOC_GROUNDING`` (``cards/prompt.py``), which
-were already written for a model that sees only a finished text — exactly this
-stage's situation; and the German „Anschlussfragen: vier verschiedene Züge"
-section of the seeded ``answer-cards`` skill, whose bad/good worked example is
-the only place the four *kinds* of move are shown rather than described.
-
-See docs/architecture/post-answer-stages.md §5.2, §7.5 and §7.6.
-"""
-
 from __future__ import annotations
 
 import logging
@@ -69,13 +30,6 @@ MIN_QUESTION_CHARS = 12
 
 
 class FollowUpQuestion(BaseModel):
-    """One next question, as it will land in the composer.
-
-    Every constraint here exists to make a *specific* bad follow-up
-    inexpressible rather than merely discouraged — the same move as
-    ``calculation`` having no result field on the wire.
-    """
-
     model_config = ConfigDict(extra="forbid")
 
     question: str = Field(
@@ -92,11 +46,6 @@ class FollowUpQuestion(BaseModel):
     @field_validator("question")
     @classmethod
     def _must_be_a_question(cls, value: str) -> str:
-        """A topic label is not a question. The chip prefills the composer with
-        this exact text, so 'Fluchtniveau' gives the reader a word to finish
-        writing and 'Wie wird das Fluchtniveau gemessen?' gives them a message.
-        A newline would break the one-line chip, and both halves of a
-        two-sentence chip compete for the same reply."""
         text = " ".join(value.split())
         if not text.endswith("?"):
             raise ValueError("a follow-up must be a question and end with '?'")
@@ -114,26 +63,12 @@ class FollowUpQuestion(BaseModel):
 
     @model_validator(mode="after")
     def _hint_never_restates_the_question(self) -> FollowUpQuestion:
-        """A hint that repeats the question in other words is the tooltip saying
-        what the chip already says (``cards/models.py``: "omit it rather than
-        restating the question")."""
         if self.hint and (self.hint.rstrip("?") in self.question or len(self.hint) >= len(self.question)):
             self.hint = None
         return self
 
 
 class FollowUpsPayload(BaseModel):
-    """The wire payload of the ``follow_ups`` stage (contract §4.2).
-
-    Deliberately the same shape as the existing ``follow_ups`` card's ``items``,
-    so the chip component renders either source unchanged and retiring the card
-    is a change of route rather than of content — **minus the card's optional
-    ``title``**. The heading is the rail's, not the model's: a payload with a
-    title field is an invitation to write „Weiterführende Fragen" chrome into
-    the data, and there is nothing a heading could say that four questions do
-    not already say better.
-    """
-
     model_config = ConfigDict(extra="forbid")
 
     items: list[FollowUpQuestion] = Field(
@@ -144,9 +79,6 @@ class FollowUpsPayload(BaseModel):
 
     @model_validator(mode="after")
     def _no_two_of_the_same_question(self) -> FollowUpsPayload:
-        """Four rephrasings of one question is one question. A validator cannot
-        catch a paraphrase, but it can catch the case where the set is provably
-        not four different moves."""
         seen = {_normalize(item.question) for item in self.items}
         if len(seen) != len(self.items):
             raise ValueError("two follow-ups are the same question")
@@ -197,13 +129,6 @@ MAX_OUTPUT_TOKENS = 512
 
 
 def _ends_in_a_question(answer: str) -> bool:
-    """Whether the answer already closes by asking the reader something.
-
-    „Zwei Fragen, die um dieselbe Antwort konkurrieren, sind der Weg, keine von
-    beiden zu bekommen" — ``_FOLLOW_UPS_RULE``'s second exception. A cheap
-    suffix check over the last non-empty line, ignoring trailing markdown
-    emphasis and list markers.
-    """
     for line in reversed((answer or "").strip().splitlines()):
         stripped = line.strip().strip("*_`>-• \t")
         if stripped:
@@ -212,14 +137,6 @@ def _ends_in_a_question(answer: str) -> bool:
 
 
 def _gate(facts: TurnFacts) -> GateDecision:
-    """Which turns get follow-up questions (§7.6).
-
-    Deterministic and LLM-free: the whole bet of this design is that Python
-    picks better turns than a model does with its own answer in front of it, and
-    a gate whose conditions each name themselves is the only way to find out
-    whether the bet paid. Ordered most specific first, so a turn that fails two
-    conditions is filed under the one that says the most about it.
-    """
     if facts.run_id:
         return GateDecision.skip("commissioned_run")
     if facts.routing_decision == "meta":
@@ -292,17 +209,6 @@ def _slice(text: str, limit: int, note: str) -> str:
 
 
 def build_user_prompt(facts: TurnFacts) -> str:
-    """The turn, as the stage sees it: the question, the answer, and the one
-    piece of project context that is cheap enough to carry.
-
-    The design (§5.2) named "project profile" as a third input. It is not
-    carried: the profile's substantive half is the project-memory digest, capped
-    at 6,000 characters, which would roughly double a per-turn cost the product
-    owner accepted for a navigation aid — and the "narrower onto this project"
-    move is anchored by the answer's own words anyway. ``federal_state`` is
-    carried because it costs a handful of tokens and is what makes a
-    Land-specific next question possible at all.
-    """
     parts = []
     if facts.federal_state:
         parts.append(f"## Bundesland\n{facts.federal_state}")
@@ -383,8 +289,6 @@ _ANCHOR_STOPWORDS = frozenset(
 
 
 def _normalize(text: str) -> str:
-    """Lowercase, drop punctuation, collapse whitespace — the same cheap
-    normalisation memory reflection uses for its dedup."""
     return re.sub(r"[^0-9a-zäöüß]+", " ", text.lower()).strip()
 
 
@@ -393,16 +297,6 @@ def _answer_prefixes(answer: str) -> set[str]:
 
 
 def _is_anchored(question: str, answer_prefixes: set[str]) -> bool:
-    """Whether the question names something the answer actually contains.
-
-    This is the doctrine's first property ("jede Frage muss etwas nennen, das
-    DIESE Antwort eingeführt hat") as a decidable test rather than an
-    instruction — and it is what makes the documented bad set *inexpressible*
-    rather than merely discouraged: "Erzähl mir mehr dazu" and "Was gilt sonst
-    noch?" carry no content word from the answer, by construction. One shared
-    content word is enough; requiring more would reject a good question that
-    happens to name its subject once.
-    """
     for token in _normalize(question).split():
         if len(token) < _MIN_ANCHOR_CHARS or token in _ANCHOR_STOPWORDS:
             continue
@@ -412,14 +306,6 @@ def _is_anchored(question: str, answer_prefixes: set[str]) -> bool:
 
 
 def sanitize_items(raw: Any, *, answer: str) -> list[dict[str, str]]:
-    """Reduce the model's proposal to the questions that pass both properties.
-
-    Drops rather than rejects: a set with one filler question in it is a good
-    set minus one item, and the alternative — failing the whole payload — throws
-    away two good questions to punish a third. What survives is validated by
-    :class:`FollowUpsPayload`, which is where a set that is still wrong becomes
-    a `failed` outcome rather than a bad chip.
-    """
     if not isinstance(raw, list):
         return []
     prefixes = _answer_prefixes(answer)
@@ -450,16 +336,6 @@ def sanitize_items(raw: Any, *, answer: str) -> list[dict[str, str]]:
 
 
 async def _handler(ctx: StageContext) -> dict[str, Any] | StageEmpty | None:
-    """One structured-output call over the finished answer.
-
-    The same mechanism as ``run_memory_reflection``: a strict ``json_schema``
-    binding with the plain-call fallback for a model or binding that rejects
-    ``response_format``, and the same response-healing plugin behind it.
-
-    The two ways of producing nothing are named apart, because "the model saw
-    nothing here" and "the model wrote filler" are opposite verdicts on the gate
-    and would otherwise share a bucket.
-    """
     from langchain_core.messages import HumanMessage
     from langchain_core.messages import SystemMessage
 

@@ -1,7 +1,3 @@
-"""The names, limits and extension sets the estate tools share: the tool names the agent sees, the read caps, and
-which files are images or models.
-"""
-
 from __future__ import annotations
 
 import re

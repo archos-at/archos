@@ -1,12 +1,3 @@
-"""The provision picker: headings in, ranked provision ids out. Never a body.
-
-The one LLM call a lookup makes when nobody named a provision, and the reason
-it is cheap: its input is the law's table of contents, so it is bounded by how
-many provisions the law has rather than by how long they are. It returns IDS,
-never prose: the passages the answering model reads are cut out of the law by
-``sections``, so no summary of the law can stand in for the law.
-"""
-
 from __future__ import annotations
 
 from pydantic import BaseModel
@@ -37,7 +28,6 @@ class PassagePlan(BaseModel):
 
 
 def picker_prompt(law: LawSource) -> str:
-    """The picker's system prompt, its examples in the source's own signs."""
     examples = ", ".join(f"{unit.sign} 5" for unit in law.lookup.locus.units)
     return f"""You pick the provisions of a law that answer a question.
 
@@ -54,7 +44,6 @@ is a real answer; a wrong provision is not."""
 
 
 def make_picker(llm, law: LawSource):
-    """Wrap a chat model into the provision picker, with one bounded corrective retry."""
     system = picker_prompt(law)
 
     async def _pick_sections(question: str, index: str) -> PassagePlan:

@@ -1,5 +1,3 @@
-"""Comparing two revisions of one document: resolving which two, and the change between their stored passages."""
-
 from __future__ import annotations
 
 import asyncio
@@ -27,13 +25,6 @@ def resolve_compare(
     shelf: str | None = None,
     default_shelves: Sequence[str] = USER_SHELVES,
 ) -> tuple[FileRow | None, FileRow | None, str]:
-    """``(older, newer, "")`` for ``list_files(revisions_of=…, compare_to=…)``, or ``(None, None, refusal)``.
-
-    ``wanted`` names the document and, when it names one Fassung exactly, that
-    Fassung; otherwise the current one. ``compare_to`` names the other Fassung
-    in the same chain, or says "previous" (the default) for the one right before.
-    Pure, over the rows the turn may list, like :func:`render_revisions`.
-    """
     members, refusal = _resolve_chain(rows, wanted, shelf=shelf, default_shelves=default_shelves)
     if refusal:
         return None, None, refusal
@@ -68,17 +59,12 @@ def resolve_compare(
 
 
 def _change_line_between(older: FileRow, newer: FileRow) -> str | None:
-    """The stored change summary, only when it was written against exactly this older file."""
     if newer.change_summary and newer.change_basis == older.file_name:
         return newer.change_summary
     return None
 
 
 def _stored_chunks(collection: str, file_name: str) -> list[Any] | None:
-    """Both Fassungen are read from what the index holds: blocking, so the tool runs it on a thread.
-
-    None when the index holds no chunk of the file; raises when the store cannot be read.
-    """
     from agent.knowledge.collection_pages import read_chunks
     from agent.knowledge.revision_diff import chunk_from_store
 
@@ -89,7 +75,6 @@ def _stored_chunks(collection: str, file_name: str) -> list[Any] | None:
 
 
 async def compare_revisions(older: FileRow, newer: FileRow) -> str:
-    """The compare of two Fassungen the turn may list, from their stored chunks and title blocks (ADR-0104)."""
     from agent.common.tool_calls import FETCH_FAILED_MARKER
     from agent.knowledge.restricted_use import note_collections_read
     from agent.knowledge.revision_diff import diff_revisions

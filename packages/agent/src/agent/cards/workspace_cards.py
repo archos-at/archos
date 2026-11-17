@@ -1,5 +1,3 @@
-"""The system-emitted workspace cards: surfaced documents, a draft, and a created task."""
-
 from typing import Literal
 
 from pydantic import ConfigDict

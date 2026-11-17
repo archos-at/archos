@@ -1,18 +1,3 @@
-"""Agent-agnostic async job API routes.
-
-Routes:
-    GET  /v1/jobs/async/agents                            - List available agent types
-    POST /v1/jobs/async/submit                            - Submit a new job for any agent
-    GET  /v1/jobs/async/job/{job_id}                      - Get job status
-    GET  /v1/jobs/async/job/{job_id}/stream               - SSE stream from beginning
-    GET  /v1/jobs/async/job/{job_id}/stream/{last_event_id} - SSE stream from event ID
-    POST /v1/jobs/async/job/{job_id}/cancel               - Cancel running job
-    GET  /v1/jobs/async/job/{job_id}/state                - Get artifacts from event store
-    GET  /v1/jobs/async/job/{job_id}/report               - Get final report
-    GET  /v1/internal/jobs/{job_id}/outcome               - A job's verdict for the BFF's run reconciler
-                                                            (service token, never on the external allowlist)
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -257,18 +242,11 @@ _JOB_ROUTES: tuple[tuple[str, str, str, dict[str, Any]], ...] = (
 
 
 def _add_routes(app: FastAPI, handlers: Any, routes: tuple[tuple[str, str, str, dict[str, Any]], ...]) -> None:
-    """Register each route on ``app``, as ``@app.get`` / ``@app.post`` would, with its metadata."""
     for method, path, name, metadata in routes:
         app.add_api_route(path, getattr(handlers, name), methods=[method], **metadata)
 
 
 async def register_job_routes(app: FastAPI, builder: WorkflowBuilder, worker: FastApiFrontEndPluginWorker) -> None:
-    """
-    Register agent-agnostic async job routes.
-
-    Uses the agent runtime's JobStore for job metadata. Research runs on Hatchet
-    (ADR-0150). The /v1/data_sources endpoint is always registered.
-    """
     from .builder_state import set_active_builder
 
     set_active_builder(builder)
@@ -312,14 +290,6 @@ async def register_job_routes(app: FastAPI, builder: WorkflowBuilder, worker: Fa
 
 
 def _add_housekeeping_routes(app: FastAPI, job_store, db_url: str, expiry_seconds: int) -> None:
-    """One cycle of each housekeeping job, behind the internal token.
-
-    The first three take the same Postgres advisory lock as their loop did, so a
-    call that overlaps a running cycle (a slow previous call) skips and reports
-    nothing done. The base-corpus cycle instead waits on the cross-replica
-    ``oib-sync`` lock and then finds nothing left to queue. It ingests nothing itself: it
-    records the ingest jobs that finished and queues one for each file that needs it.
-    """
 
     @app.post("/v1/maintenance/housekeeping/ghost-jobs", tags=["maintenance"], include_in_schema=False)
     async def housekeeping_ghost_jobs(request: Request) -> dict:

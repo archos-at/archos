@@ -1,5 +1,3 @@
-"""Format engines: bytes into anchored text. One per format, none per country."""
-
 from __future__ import annotations
 
 from public_sources.engines.akn import Akn
@@ -24,7 +22,6 @@ def engine_type(name: str) -> type[Engine]:
 
 
 def engine_for(source) -> Engine:
-    """The format engine of ``source``, configured from its record."""
     return engine_type(source.format)(source.engine)
 
 

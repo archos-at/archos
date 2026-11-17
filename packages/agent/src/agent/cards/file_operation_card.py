@@ -1,5 +1,3 @@
-"""The file-operation proposal card: moves, renames, new folders and assignments waiting for the person's yes."""
-
 from typing import Literal
 
 from pydantic import ConfigDict
@@ -108,13 +106,6 @@ class FileOperationProposalCard(CardModel):
 
     @model_validator(mode="after")
     def _require_operation_fields(self) -> FileOperationProposalCard:
-        """Every entry must carry what its verb needs, and nothing it does not.
-
-        The card is built in Python, so this is not a guard against a model —
-        it is the guard against a TOOL that grows a fifth caller and forgets a
-        field. A row missing its target renders as a proposal to do nothing,
-        which the reader would accept.
-        """
         required: dict[str, tuple[str, ...]] = {
             "move": ("document", "target_folder"),
             "rename": ("document", "new_display_name"),

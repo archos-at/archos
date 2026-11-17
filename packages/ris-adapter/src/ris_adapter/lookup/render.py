@@ -1,13 +1,3 @@
-"""[6] The grounding block.
-
-RIS states its passages as :class:`~agent.common.grounding_block.GroundingHit`
-records and hands them to the one renderer every evidence tool shares
-(ADR-0061). There is no RIS layout: the ``--- Result N ---`` blocks, the header
-lines and the ``## Trace-Lanes`` object are the knowledge layer's, which is the
-whole reason RIS is evidence now rather than a URL in prose. The same reader
-that reads a corpus hit reads this.
-"""
-
 from __future__ import annotations
 
 from knowledge_layer.search import _trace_lanes_for_chunks
@@ -30,13 +20,6 @@ RIS_LOOKUP_TOOL = "ris_lookup"
 
 
 def format_passages(passages: list[Passage], ingested_name: str | None, address: Address) -> str:
-    """Every selected passage as one grounding block.
-
-    The preamble carries the two facts that are about the CALL rather than
-    about a passage: the jurisdiction it assumed, and the document it left in
-    the session collection. It sits before the first ``--- Result N ---``, so
-    the citation reader never sees it as a hit's field.
-    """
     hits = tuple(_hit(passage) for passage in passages)
     return render_grounding_block(
         GroundingBlock(
@@ -50,7 +33,6 @@ def format_passages(passages: list[Passage], ingested_name: str | None, address:
 
 
 def _preamble_lines(passages: list[Passage], ingested_name: str | None, address: Address) -> list[str]:
-    """The count, the jurisdiction the call assumed, and what it ingested."""
     documents = len({passage.url for passage in passages})
     lines = [f"Found {len(passages)} relevant passage(s) in {documents} document(s):"]
     if address.federal_state:
@@ -66,7 +48,6 @@ def _preamble_lines(passages: list[Passage], ingested_name: str | None, address:
 
 
 def _unread_sentence(address: Address) -> str:
-    """The §§ a list named past the lookup's budget: named, so the caller can ask for them."""
     sign = "§" if address.kind == "§" else "Art."
     runs = _runs(address.unread)
     named = ", ".join(f"{sign} {r[0]}" if len(r) == 1 else f"{sign} {r[0]} bis {sign} {r[-1]}" for r in runs)
@@ -78,7 +59,6 @@ def _unread_sentence(address: Address) -> str:
 
 
 def _runs(numbers: tuple[str, ...]) -> list[list[str]]:
-    """``numbers`` grouped into runs of consecutive plain integers; a lettered § is a run of its own."""
     runs: list[list[str]] = []
     for number in numbers:
         last = runs[-1][-1] if runs else None
@@ -90,29 +70,6 @@ def _runs(numbers: tuple[str, ...]) -> list[list[str]]:
 
 
 def _hit(passage: Passage) -> GroundingHit:
-    """One passage as a record.
-
-    ``file_name`` is the citation rather than a filename because RIS holds no
-    file: the key the answer copies IS this passage's identity. The shelf is
-    stated (``base``) rather than left unknown, because RIS is the base corpus
-    of law. The doc_class is known here too, which is what puts the hit in the
-    Rechtsquelle lane instead of Projektwissen.
-
-    No URL is PRINTED. The one RIS has is the WHOLE law, the same for every §,
-    and printed as ``Source URL:`` beside the citation it was what the answer
-    copied: "Bauordnung für Wien - <link>" names no § the lookup returned, the
-    verifier removed it, and a repair pass paid for it on every Bauordnung
-    question of the answer suite. The citation key is the passage's identity.
-
-    The address still travels, as the record's ``public_url`` (and the day the
-    text is in force from as ``revision``): fields the renderer prints nowhere and
-    the registry keeps beside the entry, for a reader to open.
-
-    The passage also states the knowledge record it is a text of (``work_id``,
-    ``edition_id``): the work whose record carries the identifier this source
-    gives the document (:func:`_record_of`). A citation's role is resolved by
-    that id. Without it a passage read here never got its role.
-    """
     work_id, edition_id = _record_of(passage.url)
     body, truncated = _cut_body(passage.body)
     return GroundingHit(
@@ -140,12 +97,6 @@ def _hit(passage: Passage) -> GroundingHit:
 
 
 def _record_of(url: str) -> tuple[str | None, str | None]:
-    """The work (and held edition, if any) the document at ``url`` is a text of, by the turn's records.
-
-    The source's own record says how a document's address states each identifier (``identifiers`` in its
-    ``source.yml``); the turn's knowledge context says which work carries that identifier. Neither is
-    written here. No identifier, or no work that carries it: no record, and the citation states no role.
-    """
     from agent.common.knowledge_context import turn_knowledge_context
     from agent.common.knowledge_context import use_for_source_ref
 
@@ -162,40 +113,17 @@ def _record_of(url: str) -> tuple[str | None, str | None]:
 
 
 def _revision(stated: str) -> SourceRevision | None:
-    """The day the source says this text is in force from, as a record; None when it stated none or not a day."""
     day = parse_day(stated)
     return SourceRevision(date=day.isoformat()) if day else None
 
 
 def _cut_body(body: str) -> tuple[str, bool]:
-    """The passage text, and whether ``cut_on_absatz`` had to cut it.
-
-    The marker is protocol and the renderer appends it, so it is taken back off
-    here rather than travelling inside the record. A body is evidence:
-    ``verify_quoted_spans`` matches the answer's quotes against it.
-    """
     if not body.endswith(TRUNCATION_MARKER):
         return body, False
     return body[: -len(TRUNCATION_MARKER)], True
 
 
 def _trace_lanes(passages: list[Passage]) -> tuple[TraceLane, ...]:
-    """The lane fan-out, through the knowledge layer's own helper.
-
-    The helper builds its own records off these hit-likes, so RIS lanes are
-    computed by the SAME function as corpus lanes instead of a second table
-    that would eventually disagree with it. The two resolver maps are passed
-    EMPTY on purpose: they resolve a document's stored doc_class and display
-    title out of the metadata store, and a RIS passage is not in it. An empty
-    map means "nothing stored", which is true.
-
-    The fan-out is fed the CITATION as the name and no title, while the block's
-    ``Source:`` line carries the Kurztitel. That is not a drift: the fan-out
-    names a document by its identity and adds a title only when the identity is
-    not readable, and for a RIS passage the citation key already reads as the
-    law and its §. A Kurztitel put there as a title would replace ``§ 63 Abs 1``
-    in the Herleitung with the law's name alone.
-    """
     from types import SimpleNamespace
 
     chunks = [

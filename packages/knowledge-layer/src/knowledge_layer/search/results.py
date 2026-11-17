@@ -1,8 +1,3 @@
-"""The tool result a ranked knowledge search returns.
-
-The grounding block, the empty-result message and the coverage line.
-"""
-
 import logging
 
 from knowledge_layer.search.grounding_hits import grounding_hits
@@ -19,7 +14,6 @@ def empty_search_message(
     title_contains: str | None = None,
     folder: str | None = None,
 ) -> str:
-    """Steer a miss toward a more specific next call, not a invented citation."""
     bits = [f"query={query!r}"]
     if file_name:
         bits.append(f"file_name={file_name!r}")
@@ -52,16 +46,6 @@ def empty_search_message(
 
 
 async def coverage_gap(query: str, merged, verdict, config, *, widened: bool):
-    """The decider's "none of these answers it" for the pool as delivered, or ``None``.
-
-    Asked only where the judge already ran and found the first pool
-    insufficient, so the family overview, a pinned file, a skipped judge and a
-    sufficient pool never reach it and render exactly as before. Only the
-    ``jev`` decider: the LLM judge's verdict was on the fused head before the
-    reranker and the requery round, and asking it again costs a frontier call.
-    A degraded pool claims nothing either: the layer that dropped out may hold
-    the answer, and the block already says it is partial.
-    """
     from knowledge_layer.search.requery import DECIDER_JEV
     from knowledge_layer.search.requery import judge_coverage
 
@@ -82,34 +66,6 @@ def format_results(
     coverage_gap: str | None = None,
     reading_of: str | None = None,
 ) -> str:
-    """Build this result set's grounding hits and render them for the LLM.
-
-    The layout itself lives in
-    :func:`~agent.common.grounding_block.render_grounding_block`, which also
-    files the records under the hash of the bytes it returns, so the citation
-    registry reads fields rather than re-parsing this text (ADR-0061). That is
-    why both decorations are rendered here and neither is glued on by the
-    caller: a byte added after rendering changes the hash, and the reader would
-    fall back to parsing the text. ``notice`` is what the model must read before
-    the results (the requery widening, a family overview that could not be
-    built) and goes ahead of everything; ``trailer`` is ``read_passage``'s
-    ``## Gliederung`` index and follows the fan-out.
-
-    ``preamble_note`` is what the CALL was, when that is more than a count: the
-    family a family-shaped query resolved to, and where its parts sit in the
-    results. It is a second preamble line, so a result set without one renders
-    byte-for-byte as before.
-
-    ``coverage_gap`` is why the passages do not answer the question, when the
-    decider read them and said so (``requery.judge_coverage``). The block then
-    says "Coverage: insufficient" under a preamble that no longer calls the
-    hits relevant; the line itself says how many were judged, and the preamble
-    claims nothing about the rest.
-
-    ``reading_of`` names what ``read_passage`` opened. That call searched for
-    nothing and ranked nothing, so its header says which passages were read, in
-    reading order, instead of "Found N relevant document(s)".
-    """
     tail = f"\n{trailer}" if trailer else ""
 
     if not retrieval_result.success:

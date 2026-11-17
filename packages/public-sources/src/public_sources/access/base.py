@@ -1,24 +1,3 @@
-"""What every access type shares: the fetched bytes, the template language, the type registry.
-
-An access type turns an operation of a source (``search``, ``expression``,
-``document``) and its arguments into requests, and the responses into
-:class:`Fetched` bytes. It knows a PROTOCOL, never a country: every value that
-belongs to one source (a base URL, a vocabulary table, a query template) is in
-that source's record.
-
-The template language is deliberately small, so a reviewer can read a source
-record without reading code:
-
-* ``{arg}`` is the argument's value, empty when absent;
-* ``{table[arg]}`` looks the argument up in one of the source's tables, empty
-  when the table has no entry;
-* anything else is literal.
-
-A parameter whose name or value renders empty is left out. That one rule is
-what lets a record say "send ``Fassung.FassungVom`` only for consolidated
-federal law" as a table instead of as an ``if``.
-"""
-
 from __future__ import annotations
 
 import hashlib
@@ -37,8 +16,7 @@ from pydantic import ConfigDict
 _PLACEHOLDER_RE = re.compile(r"\{(\w+)(?:\[(\w+)\])?\}")
 
 
-class AccessError(RuntimeError):
-    """A request the access type cannot build or a response it cannot accept."""
+class AccessError(RuntimeError): ...
 
 
 class Strict(BaseModel):
@@ -46,8 +24,6 @@ class Strict(BaseModel):
 
 
 class Table(Strict):
-    """A vocabulary of one source: argument value -> the source's own token."""
-
     normalize: Literal["exact", "fold"] = "exact"
     values: dict[str, str]
 
@@ -57,7 +33,6 @@ class Table(Strict):
 
 
 def fold(value: str) -> str:
-    """The ``fold`` normalization of :class:`Table`."""
     lowered = value.strip().lower()
     for umlaut, spelled in (("ä", "ae"), ("ö", "oe"), ("ü", "ue"), ("ß", "ss")):
         lowered = lowered.replace(umlaut, spelled)
@@ -66,12 +41,10 @@ def fold(value: str) -> str:
 
 
 def placeholders(template: str) -> list[tuple[str, str | None]]:
-    """The ``(name, arg)`` pairs a template refers to; ``arg`` is ``None`` for a plain ``{arg}``."""
     return [(match.group(1), match.group(2)) for match in _PLACEHOLDER_RE.finditer(template)]
 
 
 def render(template: str, args: Mapping[str, Any], tables: Mapping[str, Table]) -> str:
-    """Fill a template. A table placeholder whose table is unknown is a configuration error."""
 
     def _one(match: re.Match[str]) -> str:
         name, arg = match.group(1), match.group(2)
@@ -89,8 +62,6 @@ def render(template: str, args: Mapping[str, Any], tables: Mapping[str, Table]) 
 
 @dataclass(frozen=True)
 class Fetched:
-    """The bytes one request brought back, with what a monitor and a citation need."""
-
     url: str
     status: int
     content_type: str
@@ -109,23 +80,17 @@ class Fetched:
 
 
 class AccessConfig(Strict):
-    """Base of every access type's configuration model."""
-
     def urls(self) -> list[str]:
-        """Every absolute URL the configuration names; each must be on the source's hosts."""
         return []
 
 
 class AccessType:
-    """Base of the protocol implementations. Subclasses set ``name`` and ``config_model``."""
-
     name: ClassVar[str]
     config_model: ClassVar[type[AccessConfig]]
     served_operations: ClassVar[tuple[str, ...]] = ()
 
     @classmethod
     def operations_of(cls, config: AccessConfig) -> tuple[str, ...]:
-        """The operations a record of this type offers: those it declares, else the protocol's fixed set."""
         declared = getattr(config, "operations", None)
         return tuple(declared) if declared is not None else cls.served_operations
 
@@ -137,7 +102,6 @@ class AccessType:
         raise NotImplementedError
 
     async def _get(self, client, url: str, *, params: Mapping[str, str] | None = None, headers=None) -> Fetched:
-        """One GET through ``client`` (a guarded client), checked against the source's hosts."""
         self.source.require_allowed(url)
         response = await client.get(url, params=params, headers=headers)
         if response.status_code >= 400:

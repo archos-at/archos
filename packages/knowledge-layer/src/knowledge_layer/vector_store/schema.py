@@ -1,25 +1,3 @@
-"""The physical shape of the Qdrant store: collections, vectors, payload indexes.
-
-Two collections by data shape, not one per scope (ADR-0116):
-
-* ``corpus`` holds the shared legal corpus (``oib_knowledge`` and any other
-  collection without a tenant prefix). Every office reads it.
-* ``office`` holds everything an office owns: Büroablage (``archiv_``, ``office_shelf_`` once re-tagged),
-  projects and their restricted folders (``proj_``), conversation uploads
-  (``s_``).
-
-The logical collection name every caller still speaks is the ``scope``
-payload field, indexed ``is_tenant`` so each scope's points sit together on
-disk. Clients address each collection through an alias (``piloti_corpus``,
-``piloti_office``); a rebuild is a new ``_vN`` collection and one atomic alias
-switch, which is how open-source Qdrant changes a shard count it cannot
-reshard.
-
-Every field a read filters on is indexed BEFORE the first point lands, because
-strict mode refuses a filter on an unindexed field rather than scanning, and
-filterable HNSW builds its extra links at index time.
-"""
-
 from __future__ import annotations
 
 import logging
@@ -53,7 +31,6 @@ LEGACY_METADATA_PREFIX = "aiq:"
 
 
 def current_metadata(metadata: dict[str, Any] | None) -> dict[str, Any]:
-    """``metadata`` with each legacy ``aiq:`` key read under its bare name wherever that one is missing."""
     current = dict(metadata or {})
     for key in METADATA_KEYS:
         legacy = LEGACY_METADATA_PREFIX + key
@@ -63,19 +40,11 @@ def current_metadata(metadata: dict[str, Any] | None) -> dict[str, Any]:
 
 
 def with_legacy_keys(metadata: dict[str, Any]) -> dict[str, Any]:
-    """``metadata`` with each of our keys written again under its legacy name, for the previous release."""
     legacy = {LEGACY_METADATA_PREFIX + key: value for key, value in metadata.items() if key in METADATA_KEYS}
     return {**metadata, **legacy}
 
 
 def adopt_legacy_metadata(client: QdrantClient, collection: str) -> dict[str, Any]:
-    """Write the bare keys a collection holds only under the legacy prefix; returns what it wrote.
-
-    The copy every collection made before the rename needs, run by every
-    process before it reads one, so nobody runs it by hand. Idempotent: a
-    collection that has the keys gets no write. Qdrant merges the keys into the
-    metadata, so the legacy ones stay for the previous release's readers.
-    """
     stored = client.get_collection(collection).config.metadata or {}
     missing = {key: value for key, value in current_metadata(stored).items() if key not in stored}
     if missing:
@@ -85,7 +54,6 @@ def adopt_legacy_metadata(client: QdrantClient, collection: str) -> dict[str, An
 
 
 def bm25_length_of(metadata: dict[str, Any] | None) -> dict[str, float]:
-    """The BM25 length parameters a collection's metadata records; ``{}`` (Qdrant's defaults) when none."""
     stored = current_metadata(metadata).get(BM25_LENGTH_KEY)
     if not isinstance(stored, dict):
         return {}
@@ -97,7 +65,6 @@ def bm25_length_of(metadata: dict[str, Any] | None) -> dict[str, float]:
 
 
 def effective_bm25_length(length: dict[str, float] | None) -> dict[str, float]:
-    """``length`` with Qdrant's default for each parameter it leaves out: what the server computes with."""
     return {**BM25_DEFAULT_LENGTH, **(length or {})}
 
 
@@ -162,7 +129,6 @@ LEGACY_KEYWORD_FIELDS: tuple[str, ...] = tuple(
 
 
 def fact_field(key: str) -> str:
-    """The payload path of one fingerprint fact, as filters and formulas name it."""
     if key not in FACT_KEYS:
         raise ValueError(f"{key!r} is not a project fact")
     return f"{PROJECT_FACTS_FIELD}.{key}"
@@ -246,8 +212,6 @@ EMBED_IDENTITY_KEYS = ("embed_fingerprint", "embed_model")
 
 
 class Physical(StrEnum):
-    """The two physical collections."""
-
     CORPUS = "corpus"
     OFFICE = "office"
 
@@ -259,7 +223,6 @@ WRITE_CONSISTENCY_FACTOR = 1
 
 
 def physical_for_scope(scope: str) -> Physical:
-    """Which physical collection holds a logical collection's points."""
     return Physical.OFFICE if scope.startswith(TENANT_PREFIXES) else Physical.CORPUS
 
 
@@ -290,16 +253,6 @@ def create_collection(
     replication: int | None = None,
     bm25_length: dict[str, float] | None = None,
 ) -> None:
-    """Create one physical collection with its vectors, quantization, strict mode and indexes.
-
-    No alias: :func:`ensure_collection` points the alias at a first version,
-    and a rebuild (``rebuild.py``) creates the next ``_vN`` beside the live one
-    and switches the alias only once the copy is complete. ``shards`` and
-    ``replication`` override the environment's, which is what a rebuild is for.
-    ``bm25_length`` is recorded in the metadata (:data:`BM25_LENGTH_KEY`) and is
-    what every lexical vector written into the collection is computed with; only a
-    rebuild passes one, after measuring the chunks it copies.
-    """
     tenant = physical is Physical.OFFICE
     rf = replication or replication_factor()
     client.create_collection(
@@ -322,7 +275,6 @@ def create_collection(
 
 
 def _metadata(identity: dict[str, Any], bm25_length: dict[str, float] | None) -> dict[str, Any]:
-    """The new collection's metadata: the embedder's identity, and its own BM25 length or none (never a copy's)."""
     metadata = {
         key: value
         for key, value in current_metadata(identity).items()
@@ -334,7 +286,6 @@ def _metadata(identity: dict[str, Any], bm25_length: dict[str, float] | None) ->
 
 
 def text_index_drift(params: Any) -> str | None:
-    """How an existing text index differs from :data:`TEXT_INDEX`, or None when it does not."""
     wanted = TEXT_INDEX.model_dump(include={"tokenizer", "lowercase", "ascii_folding", "phrase_matching"})
     found = {key: getattr(params, key, None) for key in wanted}
     drift = {key: (found[key], value) for key, value in wanted.items() if found[key] != value}
@@ -344,21 +295,6 @@ def text_index_drift(params: Any) -> str | None:
 
 
 def ensure_payload_indexes(client: QdrantClient, collection: str) -> list[str]:
-    """Create every index in :data:`INDEXED_FIELDS` the collection lacks; returns the fields created.
-
-    The migration for a field added after a collection was made: strict mode
-    refuses a filter on it until its index exists, so every process that
-    reads or writes a collection runs this once before its first query.
-    Idempotent: an index that exists is left alone, its points untouched.
-
-    An index cannot change its analysis in place. A text index built with
-    other parameters than :data:`TEXT_INDEX` is reported, loudly, and left:
-    rebuilding it is a new collection and an alias switch, never a silent
-    drop under a running cluster.
-
-    It also copies metadata held only under the legacy prefix
-    (:func:`adopt_legacy_metadata`), the other migration every collection needs.
-    """
     adopt_legacy_metadata(client, collection)
     schema = client.get_collection(collection).payload_schema or {}
     text = schema.get(TEXT_FIELD)
@@ -385,7 +321,6 @@ def _alias_exists(client: QdrantClient, alias: str) -> bool:
 
 
 def _create_alias(client: QdrantClient, name: str, alias: str) -> None:
-    """Point ``alias`` at ``name`` unless it already exists; a racing writer that made it first is success."""
     if _alias_exists(client, alias):
         return
     try:
@@ -400,7 +335,6 @@ def _create_alias(client: QdrantClient, name: str, alias: str) -> None:
 
 
 def identity_mismatch(stored: dict[str, Any] | None, identity: dict[str, str]) -> str | None:
-    """Why the collection's vectors are not from this process's embedder, or None when they are."""
     stored = current_metadata(stored)
     fingerprint = EMBED_IDENTITY_KEYS[0]
     if stored.get(fingerprint) == identity.get(fingerprint):
@@ -412,15 +346,6 @@ def identity_mismatch(stored: dict[str, Any] | None, identity: dict[str, str]) -
 
 
 def _create_or_adopt(client: QdrantClient, physical: Physical, dense_size: int, identity: dict[str, str]) -> None:
-    """Create the first collection behind the alias, or finish one another writer started.
-
-    Creating is three steps (collection, indexes, alias) and none of them is
-    atomic with the next. A writer that dies after the first leaves ``_v1``
-    with no alias, and a writer racing this one may hold the collection
-    without its alias yet. Either way the create conflicts, and the
-    collection is finished here instead: every index added, the alias made.
-    Both steps are idempotent, so two writers finishing it at once agree.
-    """
     alias = ALIASES[physical]
     name = alias + FIRST_VERSION
     try:
@@ -435,11 +360,6 @@ def _create_or_adopt(client: QdrantClient, physical: Physical, dense_size: int, 
 
 
 def ensure_collection(client: QdrantClient, physical: Physical, dense_size: int, identity: dict[str, str]) -> None:
-    """Create the physical collection behind its alias if missing; refuse a foreign vector space.
-
-    Idempotent and safe to race, and it recovers a collection a dead writer
-    left without its alias (:func:`_create_or_adopt`).
-    """
     alias = ALIASES[physical]
     if not _alias_exists(client, alias):
         _create_or_adopt(client, physical, dense_size, identity)

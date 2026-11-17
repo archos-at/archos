@@ -1,56 +1,3 @@
-"""One durable, fair claim queue, generic over its table (ADR-0079).
-
-Background work that must outlive the process that accepted it is a row here:
-claimed by whichever worker is free, on any replica or in a dedicated worker
-tier, with ``FOR UPDATE SKIP LOCKED`` so no two claim it, and a heartbeat so a
-crashed worker's job is claimed again. ``agent.knowledge.ingest_queue`` is
-the first queue on it (ADR-0076); ``agent_host.jobs.queue``, the research queue,
-is the second. Each queue keeps its own table, payload and verdict; this module
-owns the algorithm.
-
-THE CLAIM IS FAIR, ACROSS THE WHOLE FLEET. A free worker takes a job of the
-LANE (an organisation, or a platform lane) with the fewest jobs running
-anywhere; among equals, the lane served longest ago (the turns table, never
-served first); then the lane whose oldest runnable job is oldest; then the lane
-name, so a tie is the same on every database. Inside that lane it takes the
-best job by priority (``interactive`` before ``bulk``), then the oldest. So one
-organisation's thousand-document reindex takes every worker while it is alone,
-and the next organisation's upload takes the next worker that frees up,
-whatever the backlog ahead of it. PRIORITY decides inside a lane only: an
-office's single upload goes before its own reindex, and never before another
-office. The BFF's queue (``apps/workspace/workers/job-queue.js``) claims in the
-same order.
-
-The optional per-lane cap is hard: two claims racing past it both commit, then
-each checks again under a per-lane advisory lock, and a claim that finds the
-lane already holding its cap puts its job back (``_release_over_cap``).
-
-A claim still in flight (selected, not yet committed) is not counted as running, so a second
-claimer racing it can take the same lane's next job while a lane with nothing running waits. Only
-the per-lane cap bounds that. Only Postgres shows it; SQLite claims one at a time.
-
-A claim that cannot finish is given back, not lost:
-
-* ``release_claims`` requeues a worker's jobs WITHOUT consuming an attempt, for
-  a drain that ran out of time.
-* A claim whose heartbeat went stale is claimed again, up to ``max_attempts``
-  times; ``reap_exhausted`` then moves it to ``status='dead'`` with a reason.
-  A dead row is kept (the trace of what failed), counted, and never counted as
-  work: it is not runnable, not running, and not in the autoscaler's depth.
-* ``cancel`` retires a job a person stopped before it finished
-  (``status='cancelled'``). Like a dead row it is kept as a trace, is never
-  runnable or running, and is not in the autoscaler's depth; unlike one it did
-  not fail, so the caller settles the job ``cancelled``, not interrupted.
-
-Postgres ranks LANES in SQL (~43 ms p50 at 100 000 queued jobs across 2 000
-lanes, ADR-0076); SQLite, which backs single-process dev and tests, ranks the
-same order in Python.
-
-Measured through the OpenTelemetry API only (``grid.queue.*``), into the
-process's meter provider (``observability/otlp_metrics.py``), which exports to
-PostHog Metrics through the collector (ADR-0119); a test installs its own.
-"""
-
 from __future__ import annotations
 
 import logging
@@ -101,11 +48,6 @@ _SQLITE_TIME = "%Y-%m-%d %H:%M:%S"
 
 
 def priority_rank(name: str | None) -> int:
-    """The stored rank of a priority name; ``interactive`` when none is named.
-
-    Raises ``ValueError`` for a name that is not a priority: an unknown value
-    must be refused where it enters, not silently ranked somewhere.
-    """
     if name is None:
         return PRIORITY_INTERACTIVE
     try:
@@ -124,8 +66,6 @@ class Claim:
 
 
 class _Instruments:
-    """The ``grid.queue.*`` instruments and the queues the gauges observe."""
-
     def __init__(self, meter: metrics.Meter) -> None:
         self._queues: weakref.WeakSet[ClaimQueue] = weakref.WeakSet()
         self.claim_latency = meter.create_histogram(
@@ -172,7 +112,6 @@ _instruments_lock = threading.Lock()
 
 
 def instruments() -> _Instruments:
-    """The process's instruments, created on first use against the global meter provider."""
     global _instruments
     with _instruments_lock:
         if _instruments is None:
@@ -181,13 +120,6 @@ def instruments() -> _Instruments:
 
 
 class ClaimQueue:
-    """The claim algorithm over one table (see the module docstring).
-
-    ``db_url`` says where the table lives right now (None: no database, every
-    call is a no-op). ``engine_for`` turns the URL into a SQLAlchemy engine.
-    ``reap_lock_id`` serialises the reaper across replicas on Postgres.
-    """
-
     def __init__(
         self,
         *,
@@ -208,13 +140,6 @@ class ClaimQueue:
         self._claim_sql = self._build_pg_claim()
 
     def ensure_table(self, url: str, conn=None) -> None:
-        """Create the queue and its lane-turn table, and bring an older table up to date; idempotent.
-
-        With ``conn`` the DDL runs in the caller's transaction, and the caller
-        calls :meth:`mark_ensured` once that has committed: marking the URL
-        before then would let another thread query a table it cannot see yet,
-        and keep a table whose commit failed marked as present until restart.
-        """
         if url in self.initialized:
             return
         if conn is not None:
@@ -226,7 +151,6 @@ class ClaimQueue:
         self.mark_ensured(url)
 
     def mark_ensured(self, url: str) -> None:
-        """The DDL for ``url`` has committed: later calls skip it."""
         self.initialized.add(url)
 
     def _ensure_on(self, conn, url: str) -> None:
@@ -257,7 +181,6 @@ class ClaimQueue:
             _execute_constant(conn, statement)
         self._add_missing_columns(conn, ts)
         ensure_status_guard(conn, t, born=QUEUED, live=(QUEUED, CLAIMED), retired=RETIRED)
-        # CREATE INDEX IF NOT EXISTS takes a SHARE lock first; run on every start it wedged the queue (2026-10-11).
         present = present_indexes(conn, t)
         for name, columns in (
             (f"ix_{t}_status_created", "status, created_at"),
@@ -270,12 +193,6 @@ class ClaimQueue:
             _execute_constant(conn, f"DROP INDEX IF EXISTS ix_{t}_lane_created")
 
     def _add_missing_columns(self, conn, ts: str) -> None:
-        """Additive upgrade of a table created before lanes, priority and dead rows existed.
-
-        A row that predates its lane is in ``NO_LANE``, one lane of its own that
-        drains like any other; the default also keeps a replica still on the old
-        code, which inserts no lane, able to enqueue during a rolling deploy.
-        """
         wanted = {
             "lane": f"VARCHAR NOT NULL DEFAULT '{NO_LANE}'",
             "priority": f"INTEGER NOT NULL DEFAULT {PRIORITY_INTERACTIVE}",
@@ -286,12 +203,6 @@ class ClaimQueue:
         upgrade_columns(conn, self.table, wanted, postgres="WITH TIME ZONE" in ts)
 
     def enqueue(self, job_id: str, lane: str, payload: str, priority: str | None = None) -> bool:
-        """Store a claimable job; whether this call stored it. Raises when the queue cannot be written.
-
-        Idempotent on ``job_id``: a second call for an id the table already holds (queued, claimed
-        or dead) stores nothing and answers False, so a caller whose ids name their work (the base
-        corpus's do) can ask twice and get one job.
-        """
         url = self._db_url()
         if not url:
             raise RuntimeError(f"no database for the {self.name} queue")
@@ -316,13 +227,6 @@ class ClaimQueue:
         )
 
     def _build_pg_claim(self) -> str:
-        """Two steps, so a claim never sorts the whole backlog.
-
-        Rank the LANES (one row per lane with work), then take the best job of
-        the best few lanes through the (lane, priority, created_at) index.
-        100 000 queued jobs across 2 000 lanes: ~165 ms per claim as one sort
-        over every job, ~43 ms ranked this way (ADR-0076).
-        """
         t, turns, runnable = self.table, self.turns_table, self._runnable()
         return f"""
 WITH running AS (
@@ -367,7 +271,6 @@ SELECT job_id, lane, payload, attempts, priority FROM claimed
 """
 
     def claim_next(self, worker: str, *, stale_seconds: int, max_attempts: int, per_lane_cap: int = 0) -> Claim | None:
-        """Claim the fairest runnable job (see the module docstring), or None."""
         url = self._db_url()
         if not url:
             return None
@@ -396,17 +299,6 @@ SELECT job_id, lane, payload, attempts, priority FROM claimed
         return Claim(job_id=row[0], lane=row[1], payload=row[2], attempts=row[3], priority=row[4])
 
     def _release_over_cap(self, conn, url: str, row, params: dict) -> bool:
-        """Put a claim back when its lane already holds ``cap`` other live claims; whether it did.
-
-        The claim query skips a lane at its cap, but two claims committing at once
-        each saw the lane one under it. So every claim, once committed, checks again
-        under a per-lane advisory lock, counting EVERY other live claim of the lane.
-        The checks run one at a time and each claim commits before its own check, so
-        the last check of a race sees all the others and the lane ends at most at
-        its cap. A claim given back costs no attempt; the next free worker takes it.
-        (Ranking by claim time instead let three of a cap of two through: a
-        transaction's start time is not its commit order.)
-        """
         job_id, lane = row[0], row[1]
         if _is_postgres(url):
             conn.execute(text("SELECT pg_advisory_xact_lock(hashtext(:lane))"), {"lane": f"{self.table}-cap:{lane}"})
@@ -445,7 +337,6 @@ SELECT job_id, lane, payload, attempts, priority FROM claimed
         return True
 
     def _claim_sqlite(self, conn, params: dict):
-        """The same order as the Postgres claim, ranked in Python. Single process only."""
         now = datetime.now(UTC).replace(tzinfo=None)
         threshold = _sqlite_threshold(params["stale"])
         t = self.table
@@ -498,7 +389,6 @@ SELECT job_id, lane, payload, attempts, priority FROM claimed
         return (best[0], best[1], best[2], best[3] + 1, best[4])
 
     def heartbeat(self, job_id: str, worker: str) -> bool:
-        """Refresh a claim; False when it is not this worker's any more."""
         url = self._db_url()
         if not url:
             return False
@@ -516,13 +406,6 @@ SELECT job_id, lane, payload, attempts, priority FROM claimed
         return (result.rowcount or 0) > 0
 
     def mark_done(self, job_id: str, worker: str | None = None) -> None:
-        """Forget a finished job; with ``worker``, only while the claim is still its own.
-
-        A worker's delete is gated on the row still being CLAIMED, so a row the
-        queue retired meanwhile (cancelled, dead) is kept as the trace it is, not
-        deleted under the worker's feet. A caller with no ``worker`` (the cancel
-        route, a submit that could not queue) deletes unconditionally.
-        """
         url = self._db_url()
         if not url:
             return
@@ -538,14 +421,6 @@ SELECT job_id, lane, payload, attempts, priority FROM claimed
             conn.commit()
 
     def release_claims(self, job_ids: list[str], worker: str) -> int:
-        """Put this worker's claimed jobs back in the queue WITHOUT spending an attempt; how many.
-
-        For a drain that ran out of time: the claim did not fail, the worker
-        left, so another worker may take the job at once instead of after the
-        stale window, and the job keeps the attempts it has. A job keeps its
-        place in line (``created_at`` is untouched). A claim that is no longer
-        the worker's own is left alone.
-        """
         url = self._db_url()
         if not url or not job_ids:
             return 0
@@ -567,22 +442,6 @@ SELECT job_id, lane, payload, attempts, priority FROM claimed
         return released
 
     def cancel(self, job_id: str) -> str | None:
-        """Stop a live job before it finishes; the status it held (``queued``/``claimed``), or None.
-
-        The status returned is the one the update itself matched, never a read
-        before it: a worker that claims the row between a read and the write
-        would otherwise be reported as ``queued``, and the caller would settle
-        a status a worker holds. So a queued row is stopped first, in one
-        statement, and only then a claimed one.
-
-        A queued row never reaches a worker. A claimed one is left to its worker:
-        ``heartbeat`` matches only a CLAIMED row, so the worker's next beat fails
-        and it stops at its next ownership check, before it reads or writes. The
-        row stays as a ``cancelled`` trace, on the same purge clock as a dead one,
-        its payload blanked as a dead row's is: it will never run, and the payload
-        can carry presigned URLs worth no longer holding. A row already retired
-        (dead, cancelled) or absent has nothing live to stop and is None.
-        """
         url = self._db_url()
         if not url:
             return None
@@ -596,7 +455,6 @@ SELECT job_id, lane, payload, attempts, priority FROM claimed
         return prior
 
     def _cancel_if(self, conn: Any, job_id: str, live: str, now: str) -> bool:
-        """Cancel ``job_id`` if its row is ``live`` right now, in one statement; whether it was."""
         result = conn.execute(
             # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
             text(
@@ -609,7 +467,6 @@ SELECT job_id, lane, payload, attempts, priority FROM claimed
         return bool(result.rowcount)
 
     def status_of(self, job_id: str) -> str | None:
-        """The queue's status for a job, or None when it holds none (finished, or never queued)."""
         url = self._db_url()
         if not url:
             return None
@@ -623,12 +480,6 @@ SELECT job_id, lane, payload, attempts, priority FROM claimed
         return str(row) if row is not None else None
 
     def mark_dead(self, job_id: str, reason: str) -> bool:
-        """Retire a job that must not run again, keeping the row; whether a live row was retired.
-
-        The payload is blanked: it can carry presigned URLs and a dead row is
-        kept for the trace of what failed, not to run. A row already retired —
-        dead, or cancelled by a person — is left as it is.
-        """
         url = self._db_url()
         if not url:
             return False
@@ -650,7 +501,6 @@ SELECT job_id, lane, payload, attempts, priority FROM claimed
         return retired
 
     def reap_exhausted(self, *, stale_seconds: int, max_attempts: int) -> list[str]:
-        """Move claims that died ``max_attempts`` times to dead; their ids. One replica per cycle on Postgres."""
         url = self._db_url()
         if not url:
             return []
@@ -691,11 +541,6 @@ SELECT job_id, lane, payload, attempts, priority FROM claimed
         return ids
 
     def purge_retired(self, *, older_than_seconds: int) -> int:
-        """Delete dead or cancelled rows older than the retention; how many.
-
-        A retired row is a trace, not a record; the clock that ages it is the one
-        its retirement stamped (``dead_at`` or ``cancelled_at``).
-        """
         url = self._db_url()
         if not url:
             return 0
@@ -718,7 +563,6 @@ SELECT job_id, lane, payload, attempts, priority FROM claimed
         return result.rowcount or 0
 
     def counts(self) -> dict[str, int]:
-        """Rows by status (a status with none is 0): what the depth gauge and the tests read."""
         url = self._db_url()
         counts = dict.fromkeys(STATUSES, 0)
         if not url:
@@ -731,7 +575,6 @@ SELECT job_id, lane, payload, attempts, priority FROM claimed
         return counts
 
     def queued_in_lane(self, lane: str) -> int:
-        """Jobs of one lane still waiting for a worker: the bound admission checks."""
         url = self._db_url()
         if not url:
             return 0
@@ -745,7 +588,6 @@ SELECT job_id, lane, payload, attempts, priority FROM claimed
         return int(waiting or 0)
 
     def oldest_queued_age(self) -> float:
-        """Seconds the longest-waiting queued job has waited; 0 when nothing waits."""
         url = self._db_url()
         if not url:
             return 0.0
@@ -763,7 +605,6 @@ SELECT job_id, lane, payload, attempts, priority FROM claimed
         return max(0.0, float(value or 0))
 
     def counts_or_none(self) -> dict[str, int] | None:
-        """``counts`` for a gauge callback: a database that cannot answer is no observation, not an error."""
         try:
             return self.counts()
         except Exception:  # noqa: BLE001 - a metrics callback must never raise into the SDK
@@ -778,14 +619,6 @@ SELECT job_id, lane, payload, attempts, priority FROM claimed
             return None
 
     def ahead_in_lane(self, job_ids: list[str]) -> dict[str, int]:
-        """For each job still waiting, how many of its own lane's jobs wait ahead of it.
-
-        The lane's own count is the only order the queue promises: inside a lane
-        jobs are claimed by priority, then oldest first, and across lanes the claim
-        interleaves by the fewest running. So "3 ahead" is exact for an office's own
-        uploads, and no other office's backlog is in it, because none stands
-        between. A job not in the queue, or already claimed, has no entry.
-        """
         url = self._db_url()
         if not url or not job_ids:
             return {}
@@ -805,11 +638,9 @@ SELECT job_id, lane, payload, attempts, priority FROM claimed
         return {str(job_id): int(ahead) for job_id, ahead in rows}
 
     def observe(self) -> None:
-        """Report this queue's depth and oldest age from this process (call where workers claim)."""
         instruments().watch(self)
 
     def record_duration(self, seconds: float, kind: str) -> None:
-        """Record how long a claimed job of ``kind`` ran."""
         instruments().job_duration.record(max(0.0, seconds), {"queue": self.name, "kind": kind})
 
 
@@ -818,12 +649,6 @@ def _is_postgres(url: str) -> bool:
 
 
 def _fairest_lane_head(rows, running: dict, turns: dict, cap: int):
-    """The head job of the lane the Postgres claim would pick, or None when every lane is at its cap.
-
-    ``rows`` is one ``(job_id, lane, payload, attempts, priority, oldest)`` per lane: that lane's
-    best job by priority, then age, and the lane's oldest runnable job. The lane order is the
-    Postgres one: fewest running, served longest ago (never served first), oldest job, name.
-    """
     eligible = [r for r in rows if not cap or running.get(r[1], 0) < cap]
     if not eligible:
         return None
@@ -834,11 +659,9 @@ def _fairest_lane_head(rows, running: dict, turns: dict, cap: int):
 
 
 def _sqlite_threshold(seconds: int) -> str:
-    """The naive-UTC timestamp ``seconds`` ago, as SQLite stores a heartbeat."""
     return (datetime.now(UTC).replace(tzinfo=None) - timedelta(seconds=seconds)).strftime(_SQLITE_TIME)
 
 
 def _execute_constant(conn, statement: str) -> None:
-    """Run DDL built from module constants and dialect literals; nothing here is user input."""
     # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
     conn.execute(text(statement))

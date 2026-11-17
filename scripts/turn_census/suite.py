@@ -1,74 +1,3 @@
-"""Answer suite: the reference questions through the real agent, timed and checked.
-
-`census.py` measures one question. This runs the loop eval's question set
-(`tests/fixtures/derivation/loop_eval_questions.yaml`) through `nat run`, N
-times each and several at once, and writes one report that answers both
-questions a change to the prompt, the retrieval or the answer pipeline has to
-answer: did the answers get slower or more variable, and are they still right.
-
-Per run it records what the provider billed and what the reader got:
-
-- seconds (wall, answering call), research calls, tool calls, reasoning tokens and
-  the largest single-call spike: the September 2026 census found that time
-  follows reasoning tokens at ~85 tok/s, and that the spike, not the round
-  count, is the variance (`docs/audit/turns-per-answer-audit-2026-09.md`);
-- seconds until the reader saw prose (`first_text_s`);
-- the pipeline's own signals from the log (`_LOG_SIGNALS`): a flagged quote, a
-  quote patch, the terminal frame replacing the settled text, a gated summary,
-  a dropped mindmap, prose outside the envelope, a salvaged envelope, an
-  escalation to deep research;
-- checks against the question's expectations: the envelope parsed, the `kind`,
-  the cited Richtlinien family, and the optional `expect` block (a value that
-  must appear, a claim that must not, a shape such as variant tabs). An
-  expectation is a fact read off the corpus, never a value from memory; the
-  question set's header says why.
-
-No backend, no BFF: a question about an office's own files needs a project and
-is skipped, and says so. Needs OPENROUTER_API_KEY and the corpus ingested into
-the Qdrant at QDRANT_URL (`--ingest` queues the corpus's ingest jobs from the table in
-SUMMARY_DB and the object store, and claims and runs them in this process; with `--corpus data/oib`
-the corpus is that directory's PDFs and needs no BFF or object store). Every run costs model calls.
-
-`--set precedent` runs the precedent eval instead
-(`tests/fixtures/precedent/precedent_questions.yaml`): each turn is asked in
-the current project of a fixture office, with a signed envelope, and the
-internal routes a cross-project turn reads are served by `fixture_bff.py`.
-Its checks say whether the agent looked into other projects when it should
-and not when it should not, cited the right project, said when nothing
-comparable exists, and flagged an older edition
-(docs/roadmap/office-experience.md, step A).
-
-`--set editions` (`tests/fixtures/editions/at_edition_questions.yaml`, `edition_eval.py`) asks which
-OIB-RL edition binds in an Austrian Land on a given day, with no project; `--only r3` runs one group.
-
-`--set visual` (`tests/fixtures/visual/visual_questions.yaml`, ADR-0128) asks questions answered by looking
-at a drawing: three sheets are rendered from `drawings.json` into the output directory and served by the
-fixture BFF, and the report counts looks and the IoU of their regions against the gold boxes. `--look off`
-is its paired arm (`VIEW_IMAGES_ENABLED=0`). Needs `QDRANT_URL` and `SUMMARY_DB` like `--set files`.
-
-`--set north-star` (`tests/fixtures/north_star/north_star_questions.yaml`) asks the exemplars of
-docs/architecture/north-star-answers.md: each row is a files-set or visual-set row, run behind its own
-fixture BFF with that set's checks (`north_star_eval.py`). Rows the commit or the harness cannot ask yet are
-reported not applicable; horizon rows are listed, never run.
-
-    python scripts/turn_census/suite.py                        # the core set, 2 runs each
-    python scripts/turn_census/suite.py --ingest --corpus data/oib   # ingest data/oib first, no stack needed
-    python scripts/turn_census/suite.py --all --runs 3 --out /tmp/suite/after
-    python scripts/turn_census/suite.py --baseline /tmp/suite/before/results.json
-    python scripts/turn_census/suite.py --report /tmp/suite/after/results.json
-    python scripts/turn_census/suite.py --set precedent --runs 2
-    python scripts/turn_census/suite.py --set editions --only r1 r2 --runs 1
-    python scripts/turn_census/suite.py --set visual --runs 2 [--look off]
-    python scripts/turn_census/suite.py --set north-star --runs 2
-    python scripts/turn_census/suite.py --set files --arm all --runs 3 --out /tmp/fs/before
-    python scripts/turn_census/suite.py --set files --arm all --runs 3 --out /tmp/fs/after --baseline /tmp/fs/before
-    python scripts/turn_census/suite.py --compare /tmp/fs/before /tmp/fs/after   # no model calls
-
-Every run records what the provider billed for the turn (``cost_usd``, OpenRouter's ``usage.cost``), and
-``compare.py`` turns runs into the before/after table: accuracy, rounds, tool calls, tokens and cost per
-answer and latency, per arm and per row.
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -134,8 +63,6 @@ _LOG_SIGNALS = {
 
 @dataclass
 class Run:
-    """One turn: what it cost and what the checks found."""
-
     question_id: str
     run: int
     wall_s: float = 0.0
@@ -172,21 +99,11 @@ _PRECEDENT_RE = re.compile(r"Turn decision in \d+ ms: .*precedent=([0-9.]+)")
 
 
 def precedent_of(log_text: str) -> float | None:
-    """The turn decision's p(precedent) as its log line states it; None when it states none."""
     found = _PRECEDENT_RE.search(log_text)
     return float(found.group(1)) if found else None
 
 
 def log_signals(log_text: str) -> list[str]:
-    """The pipeline signals a run's log carries.
-
-    ``quote_patch`` counts only a patch that LANDED (N > 0 in „corrected N of
-    M"; the line is logged for N = 0 too). A landed patch removes the quote's
-    unverified marker, so the terminal frame differs from the settled one by
-    design (ADR-0067): that run's ``settled_replaced`` is ``settled_patched``,
-    and only the rest are regressions. A run with both a landed patch and a
-    real regression reads as patched; the log cannot tell them apart.
-    """
     found = [name for name, needle in _LOG_SIGNALS.items() if needle in log_text]
     landed = any(int(n) > 0 for n in _PATCHED_RE.findall(log_text))
     if not landed:
@@ -197,14 +114,12 @@ def log_signals(log_text: str) -> list[str]:
 
 
 def load_precedent_questions(path: Path = PRECEDENT_QUESTIONS) -> list[dict]:
-    """The precedent eval's questions: every row runs, each in the fixture office's current project."""
     import yaml
 
     return list((yaml.safe_load(path.read_text(encoding="utf-8")) or {}).get("questions") or [])
 
 
 def set_questions(name: str | None) -> list[dict]:
-    """Every row of a set, whatever its ``suite``: a fixture set's from its own module, a norm set's from its file."""
     if name == "precedent":
         return load_precedent_questions()
     if module := set_module(name):
@@ -213,7 +128,6 @@ def set_questions(name: str | None) -> list[dict]:
 
 
 def load_questions(path: Path = QUESTIONS, *, core_only: bool = True) -> tuple[list[dict], list[str]]:
-    """The runnable questions and the ids skipped for a project; a row of a set but loop's carries its ``set``."""
     import yaml
 
     named = next((name for name, file in NORM_QUESTIONS.items() if file == path and name != "loop"), None)
@@ -238,14 +152,12 @@ def _usage(entry: dict) -> tuple[int, int, int]:
 
 
 def turn_cost(rows: list[dict]) -> tuple[float, int]:
-    """USD billed over every recorded call, and how many calls carried usage but no ``cost``."""
     billed = [row["usage"] for row in rows if row.get("usage")]
     costs = [float(usage["cost"]) for usage in billed if isinstance(usage.get("cost"), int | float)]
     return round(sum(costs), 6), len(billed) - len(costs)
 
 
 def final_answer(log_text: str) -> str:
-    """The answer the pipeline delivered: `nat run`'s Workflow Result, minus the colour codes."""
     plain = _ANSI.sub("", log_text)
     marker = plain.rfind("Workflow Result:")
     if marker < 0:
@@ -255,16 +167,6 @@ def final_answer(log_text: str) -> str:
 
 
 def last_envelope(research: list[dict]) -> tuple[dict | None, int | None]:
-    """The last answer envelope the model wrote, and which research call wrote it; ``(None, None)`` for none.
-
-    The last ENVELOPE, not the last reply: a repair pass rewrites the prose in
-    a call of its own after the answer, and reading that call as the answer
-    reported every repaired turn as having no envelope.
-
-    Read by the pipeline's own extractor, never a second parser: a regex that
-    wanted the fence reported a bare-JSON answer, which the pipeline accepts
-    and the reader got whole, as a turn without an envelope.
-    """
     from agent.common.answer_envelope import extract_answer_envelope
 
     found, at = None, None
@@ -279,20 +181,10 @@ def last_envelope(research: list[dict]) -> tuple[dict | None, int | None]:
 
 
 def _no_answer(log_text: str) -> str:
-    """Why a turn delivered nothing: the census's own timeout marker first, since it says why."""
     return "timed out" if timed_out(log_text) else "no Workflow Result in the log"
 
 
 def _read_calls(run: Run, research: list[dict], answered_at: int | None, t0: float) -> None:
-    """Tokens, tools and timing off the research calls.
-
-    ``research_calls`` counts the calls up to and including the one that wrote
-    the answer; the calls after it (a repair rewriting the prose) are
-    ``post_answer_calls``. Their tokens still count, since they were billed and
-    waited for, but a repair is not a research round. ``final_call_s`` and
-    ``first_text_s`` time the answering call, not a repair after it. With no
-    envelope, the last call stands in for the answer.
-    """
     answering = len(research) - 1 if answered_at is None else answered_at
     run.research_calls = answering + 1
     run.post_answer_calls = len(research) - run.research_calls
@@ -317,12 +209,6 @@ def _read_calls(run: Run, research: list[dict], answered_at: int | None, t0: flo
 def observe(
     question: dict, index: int, record: Path, log: Path, door_offset: int | None = None, look_on: bool = True
 ) -> Run:
-    """Everything one turn left behind, read into a Run.
-
-    ``door_offset`` (``--set workspace``) is how many MCP calls the
-    conversation made before this turn: the turn's own are the ones after it.
-    ``look_on`` (``--set visual``) is False for the ``--look off`` arm, which asks no look of the turn.
-    """
     run = Run(
         question_id=str(question["id"]),
         run=index,
@@ -407,7 +293,6 @@ def observe(
 
 
 def _normal(text: str) -> str:
-    """Case-folded, with subscripts and non-breaking spaces as the reader types them."""
     return text.translate(str.maketrans("₀₁₂₃₄₅₆₇₈₉  ", "0123456789  ")).casefold()
 
 
@@ -417,7 +302,6 @@ def _family_number(family: str | None) -> str | None:
 
 
 def _card_strings(value: Any) -> list[str]:
-    """Every string a card carries, depth first: titles, table cells, a `Text` leaf's Markdown."""
     if isinstance(value, str):
         return [value]
     if isinstance(value, dict):
@@ -428,11 +312,6 @@ def _card_strings(value: Any) -> list[str]:
 
 
 def _has_shape(shape: str, prose: str, cards: list[Any]) -> bool:
-    """Whether the delivered answer has this shape: variant tabs, a table, a drawing, a dialect block, or none.
-
-    Read off the prose AND the cards, as the reader sees them: a Markdown table
-    or a ```mermaid fence inside a surface's `Text` counts like one in the prose.
-    """
     cards = [card for card in cards if isinstance(card, dict)]
     text = "\n".join([prose, *_card_strings(cards)])
     if shape == "tabs":
@@ -459,13 +338,11 @@ _DIRECTIVE_OPENER = re.compile(r"^[ \t]*:{3,}[ \t]*([A-Za-z][\w-]*)", re.MULTILI
 
 
 def _directive_blocks(text: str) -> set[str]:
-    """The dialect's block names an answer opens, outside code fences."""
     outside = re.sub(r"^[ \t]*(`{3,}|~{3,}).*?^[ \t]*\1[ \t]*$", "", text, flags=re.MULTILINE | re.DOTALL)
     return {name for name in _DIRECTIVE_OPENER.findall(outside) if name in _DIALECT_BLOCKS}
 
 
 def check(question: dict, run: Run, envelope: dict | None) -> dict[str, bool]:
-    """The question's expectations against what the turn delivered. Each key is one fact."""
     checks: dict[str, bool] = {"envelope": envelope is not None}
     if question.get("kind"):
         accepted = [question["kind"], *((question.get("expect") or {}).get("kind_also") or [])]
@@ -499,7 +376,6 @@ def check(question: dict, run: Run, envelope: dict | None) -> dict[str, bool]:
 
 
 def _office_projects(scenario: str) -> list[str]:
-    """The names of the projects the fixture office of this scenario holds, the chat's own included."""
     from fixture_bff import DEFAULT_SCENARIO
     from fixture_bff import FixtureOffice
 
@@ -507,14 +383,12 @@ def _office_projects(scenario: str) -> list[str]:
 
 
 def _judge() -> Judge | None:
-    """The model judge when a key is set (`judge.py`); None offline, which records the meaning checks as failed."""
     import judge
 
     return judge.ask if judge.available() else None
 
 
 def looked_up(run: Run) -> bool:
-    """Whether the turn read another project: a lookup the fixture BFF served it (round 0 included), or a model call."""
     return bool(run.lookups) or any(str(name).endswith("project_lookup") for name in run.tool_calls)
 
 
@@ -529,16 +403,10 @@ _SOURCE_PROJECT = re.compile(
 
 
 def sourced_projects(answer: str) -> list[str]:
-    """The projects the answer's source lines name, in order: what the reader is told the answer rests on."""
     return [" ".join(name.split()) for name in _SOURCE_PROJECT.findall(answer)]
 
 
 def _cited(options: list[Any], question: str, answer: str) -> bool:
-    """Whether the answer names the project by an option the QUESTION does not already contain.
-
-    An option the question holds is no evidence: an answer that only repeats
-    the question would satisfy it (10 of 23 groups did, on the first review).
-    """
     asked = _normal(question)
     return any(_normal(str(option)) in answer for option in options if _normal(str(option)) not in asked)
 
@@ -552,19 +420,6 @@ def precedent_checks(
     judge: Judge | None = None,
     projects: Collection[str] | None = None,
 ) -> dict[str, bool]:
-    """The precedent eval's checks (`tests/fixtures/precedent/precedent_questions.yaml` says what each means).
-
-    `cites` counts only a name the question does not contain (:func:`_cited`).
-    `real_projects`, given the names of the projects the fixture office holds,
-    is a fact: every project the answer's source lines name exists in it.
-
-    `says_none` and `caveat` are meanings and go to the judge (`judge.py`) with
-    the raw answer. A judge that cannot answer (no key, a failed call, a reply
-    that is neither yes nor no) is a RECORDED failure of that check, with
-    ``judge_unavailable:<kind>`` in the run's signals: leaving the check out
-    shrank its denominator without a word (`says_none` 9/9 hid a tenth run).
-    An answer that is empty says nothing and fails without asking.
-    """
     checks: dict[str, bool] = {}
     run.signals[:] = [signal for signal in run.signals if not signal.startswith(JUDGE_UNAVAILABLE)]
     lookup = expect.get("lookup")
@@ -600,7 +455,6 @@ def _spread(values: list[float]) -> str:
 
 
 def summarize(runs: list[Run]) -> dict[str, dict[str, Any]]:
-    """Per question: medians, spread and the share of each check that held."""
     by_question: dict[str, list[Run]] = {}
     for run in runs:
         by_question.setdefault(run.question_id, []).append(run)
@@ -633,7 +487,6 @@ def _delta(now: list[float], then: list[float] | None) -> str:
 def render(
     runs: list[Run], skipped: list[str], meta: dict, baseline: dict | None = None, not_in_corpus: Sequence[str] = ()
 ) -> str:
-    """The Markdown report: one row per question, failing checks named, then the totals."""
     summary = summarize(runs)
     before = summarize([Run(**row) for row in baseline["runs"]]) if baseline else {}
     lines = [
@@ -695,10 +548,6 @@ def render(
 
 
 def split_lines(runs: list[Run]) -> list[str]:
-    """The checks over the tuned and the held-out questions apart, and per scenario: where overfitting shows.
-
-    Nothing when every run is tuned and in the default office (the norm set).
-    """
     if not any(run.holdout or run.scenario for run in runs):
         return []
     lines = ["## Tuned, held out, and per scenario", ""]
@@ -714,7 +563,6 @@ def split_lines(runs: list[Run]) -> list[str]:
 
 
 def aggregate_lines(runs: list[Run]) -> list[str]:
-    """Each kind of check (the part of its key before a colon), held in how many runs it was asked of."""
     held: dict[str, list[bool]] = {}
     for run in runs:
         for key, value in run.checks.items():
@@ -736,14 +584,6 @@ def aggregate_lines(runs: list[Run]) -> list[str]:
 
 
 def corpus_families() -> set[str] | None:
-    """The Richtlinien the corpus holds (``{"2", "2.1", …}``), or None.
-
-    The corpus is the operator's (the ``oib_corpus_files`` table), and a question
-    about a Richtlinie it lacks cannot be answered from it whatever the agent
-    does: the first full sweep ran Schallschutz against a corpus without OIB-RL 5
-    and reported the agent as wrong. None when the table cannot be read, which
-    skips nothing.
-    """
     from agent import corpus_store
     from agent.common.norm_registry import oib_family_member
 
@@ -755,7 +595,6 @@ def corpus_families() -> set[str] | None:
 
 
 def lacking_family(question: dict, families: set[str] | None) -> str | None:
-    """The Richtlinie a question asks about that the corpus does not hold."""
     family = _family_number(question.get("family"))
     if family is None or families is None or family in families:
         return None
@@ -763,7 +602,6 @@ def lacking_family(question: dict, families: set[str] | None) -> str | None:
 
 
 def source_commit() -> str:
-    """The commit the runs measure, ``-dirty`` when the tree has changes on top of it."""
     import subprocess
 
     def git(*args: str) -> subprocess.CompletedProcess[str]:
@@ -774,12 +612,6 @@ def source_commit() -> str:
 
 
 def _ingest_corpus(poll_seconds: float = 5.0, timeout_seconds: float = 3600.0) -> str | None:
-    """Run the corpus's ingest jobs here; None when done, else why not.
-
-    The corpus is ingested by Hatchet's ``ingest-document`` runs (ADR-0150), with no worker on a
-    developer machine, so here the sync's hand-over runs each job at once, until no file waits on
-    a job. A file whose job failed is reported, not retried: the sync does not queue it again.
-    """
     from agent import corpus_store
     from agent import oib_sync
 
@@ -807,16 +639,6 @@ def _ingest_corpus(poll_seconds: float = 5.0, timeout_seconds: float = 3600.0) -
 
 
 def use_local_corpus(directory: Path) -> int:
-    """``--corpus``: make the PDFs in ``directory`` the base corpus, with no BFF and no object store; how many.
-
-    The base corpus is a table row plus an object in SeaweedFS, written through
-    the BFF (``corpus_store``), so ``--ingest`` alone needs a running stack. This
-    makes ``directory`` the bucket for this process, through the same four seams
-    the corpus tests replace, and stores each PDF with ``corpus_store.put``: the
-    table, the cache and the ingest job are the real ones, and the worker reads
-    the bytes from the directory. Unchanged bytes keep their ingested hash, so a
-    second run ingests nothing again.
-    """
     import hashlib
     import shutil
 
@@ -850,12 +672,6 @@ def use_local_corpus(directory: Path) -> int:
 
 
 def _corpus_ready() -> bool:
-    """Whether the OIB collection holds chunks in the Qdrant at ``QDRANT_URL``.
-
-    Asked through the process-wide store the ingest itself writes through.
-    The reason a check fails is printed, so a corpus that reads as "not
-    ingested" for another cause (an unreachable server) is not silent.
-    """
     try:
         from knowledge_layer.vector_store import get_store
 
@@ -868,14 +684,6 @@ def _corpus_ready() -> bool:
 
 
 def inventory_database() -> Path | None:
-    """The SQLite file the runs will read the document inventory from, or None when it is not SQLite.
-
-    ``SUMMARY_DB`` or the config's default, ``./summaries.db``. A relative
-    path is resolved against the REPO ROOT, because that is the working
-    directory every run's ``nat run`` gets (``census.run_once``), whatever
-    directory the suite itself was started from. A worktree has its own root,
-    and its own empty ``summaries.db``.
-    """
     url = os.environ.get("SUMMARY_DB") or "sqlite+aiosqlite:///./summaries.db"
     prefix = "sqlite+aiosqlite:///"
     if not url.startswith(prefix):
@@ -885,12 +693,6 @@ def inventory_database() -> Path | None:
 
 
 def foreign_imports(out: Path) -> list[str]:
-    """The packages a run would import from outside this checkout: ``name: path``, empty when none.
-
-    Asked of the interpreter the runs use (``census.run_python``), with the
-    path they get (``census.tree_pythonpath``): a report names this checkout's commit, so
-    every package it measured must come from this checkout.
-    """
     import subprocess
 
     names = ("agent", *source_packages())
@@ -910,13 +712,6 @@ def foreign_imports(out: Path) -> list[str]:
 
 
 def inventory_ready(path: Path | None) -> bool:
-    """Whether the runs will see the corpus's documents: an inventory, family overviews, quote checks.
-
-    Not optional. Without it every run answers blind to what the corpus holds
-    and verifies no quote, and does it without an error: a worktree run once
-    measured 38.5 s per turn against 31.3 s for the same code with the
-    inventory, and every search-round number with it.
-    """
     if path is None:
         return True  # not SQLite: the deployment's own store, not ours to check
     import sqlite3
@@ -943,14 +738,6 @@ def run_suite(
     conversations: bool = False,
     look_on: bool = True,
 ) -> list[Run]:
-    """Every question ``runs`` times, ``workers`` at once; each recorded as ``suite-{stamp}-{id}-{run}``.
-
-    ``env_for(conversation_id, question)``, when given, is each run's extra
-    environment (the precedent eval's envelope and fixture BFF).
-    ``conversations`` (``--set workspace``): a row's ``turns`` run in order in
-    one conversation, and the last is the one observed with its door calls.
-    ``look_on`` is False for ``--set visual --look off``.
-    """
     out.mkdir(parents=True, exist_ok=True)
     stamp = stamp or run_stamp()
     jobs = [(question, index) for question in questions for index in range(1, runs + 1)]
@@ -984,14 +771,6 @@ def run_suite(
 def precedent_envelope(
     office: dict, conversation_id: str, secret: str, current: dict | None = None, extra: dict | None = None
 ) -> tuple[str, str]:
-    """The signed request-context envelope the BFF would mint for a turn in the fixture office's current project.
-
-    Base64url JSON, HMAC-SHA256 over the exact bytes with the run's
-    ``INTERNAL_API_TOKEN``: the agent verifies it like a real one
-    (``RequestContext.from_envelope``). A solo chat, as the conversation
-    has no row: the fixture BFF searches every project in the office. ``extra`` adds payload
-    fields (``--set files`` states the project's ``collectionScope`` this way).
-    """
     import base64
     import hashlib
     import hmac
@@ -1016,7 +795,6 @@ def precedent_envelope(
 
 
 def start_workspace_bff(out: Path) -> tuple[Any, Any]:
-    """``--set workspace``: the fixture BFF serving the MCP door from the workspace office, and each run's env."""
     import secrets
 
     from fixture_bff import FixtureBFF
@@ -1046,12 +824,6 @@ def start_workspace_bff(out: Path) -> tuple[Any, Any]:
 
 
 def start_files_bff(out: Path) -> tuple[Any, Any]:
-    """``--set files``: a fixture BFF that serves the project's turn context, and each run's env.
-
-    The run's scope is the fixture project's collection, stated in the signed envelope's
-    ``collectionScope`` (as the BFF's is), so ``list_files``, ``knowledge_search`` and
-    ``read_passage`` read what ``fixture_files.py`` seeded and nothing else.
-    """
     import secrets
 
     from fixture_bff import FixtureBFF
@@ -1077,13 +849,6 @@ def start_files_bff(out: Path) -> tuple[Any, Any]:
 
 
 def start_visual_bff(out: Path, look: bool = True) -> tuple[Any, Any]:
-    """``--set visual``: the fixture BFF serving the rendered drawings, and each run's env.
-
-    The drawings are drawn from ``drawings.json`` into ``out/drawings`` now. The fixture BFF answers the
-    document lookup and is the object store the run reads the bytes from (``fixture_visual.py``); the
-    run's scope is the project's collection, as in ``--set files``. ``look`` False sets
-    ``VIEW_IMAGES_ENABLED=0`` for every run.
-    """
     import secrets
 
     from fixture_bff import FixtureBFF
@@ -1110,7 +875,6 @@ def start_visual_bff(out: Path, look: bool = True) -> tuple[Any, Any]:
 
 
 def start_fixture_bff(out: Path) -> tuple[Any, Any]:
-    """The fixture BFF on a free port, and each run's extra environment for it: envelope, token, address."""
     import secrets
 
     from fixture_bff import FixtureBFF
@@ -1135,12 +899,6 @@ def start_fixture_bff(out: Path) -> tuple[Any, Any]:
 
 
 def recording(folder: Path, stamp: str | None, run: Run) -> Path | None:
-    """The recording one run left in ``folder``, or None.
-
-    By the stamp results.json keeps. An older results.json has none: then the
-    name must be ``suite-HHMMSS-pid-{id}-{run}``, so question ``gk4`` never
-    picks up ``treppenhaus-gk4``'s recording, and the newest file wins.
-    """
     if stamp:
         found = folder / f"suite-{stamp}-{run.question_id}-{run.run}.jsonl"
         return found if found.exists() else None
@@ -1150,12 +908,6 @@ def recording(folder: Path, stamp: str | None, run: Run) -> Path | None:
 
 
 def _rerender(report: Path, baseline: dict | None) -> int:
-    """``--report``: re-read and re-check a results.json, and print it. No model calls.
-
-    Re-read from the recordings beside results.json when they are there, and
-    re-checked against the question set as it is NOW: a harness fix or a
-    corrected expectation applies without paying for the runs again.
-    """
     data = json.loads(report.read_text())
     runs = [Run(**row) for row in data["runs"]]
     chosen = data["meta"].get("set")
@@ -1181,11 +933,6 @@ def _rerender(report: Path, baseline: dict | None) -> int:
 
 
 def _preflight(out: Path, ingest: bool, corpus: Path | None = None, needs_corpus: bool = True) -> int:
-    """0 when the runs would measure what the report will say they measured, else 2 and why.
-
-    ``needs_corpus`` is False for the workspace set: its questions are about the
-    office's records, served by the fixture, and none asks the corpus.
-    """
     if not ensure_key():
         print("OPENROUTER_API_KEY is not set; the suite needs the real models.", file=sys.stderr)
         return 2
@@ -1235,10 +982,6 @@ def _preflight(out: Path, ingest: bool, corpus: Path | None = None, needs_corpus
 def select_questions(
     only: list[str] | None, every: bool, path: Path = QUESTIONS
 ) -> tuple[list[dict], list[str]] | None:
-    """The questions to run and the ids skipped for a project; None (and why, on stderr) for a bad ``--only``.
-
-    An ``--only`` token is a question id or a row's ``group`` (the editions set's ``r1`` … ``r5``).
-    """
     if not only:
         return load_questions(path=path, core_only=not every)
     runnable, needs_project = load_questions(path=path, core_only=False)
@@ -1264,7 +1007,6 @@ def _warn_if_dirty(commit: str) -> None:
 
 
 def run_set(questions: list[dict], args: argparse.Namespace, stamp: str, meta: dict) -> list[Run]:
-    """Every set but the north-star one: its fixture BFF, if it has one, and the runs behind it."""
     bff, env_for = (
         start_fixture_bff(args.out)
         if args.set == "precedent"
@@ -1297,10 +1039,6 @@ def run_set(questions: list[dict], args: argparse.Namespace, stamp: str, meta: d
 
 
 def run_north_star(questions: list[dict], args: argparse.Namespace, stamp: str) -> list[Run]:
-    """``--set north-star``: the files rows behind the files fixture BFF, then the visual rows behind the visual one.
-
-    Each row's ``set`` is its fixture, so ``observe`` checks it as that set checks its own rows.
-    """
     from north_star_eval import by_fixture
 
     runs: list[Run] = []
@@ -1401,7 +1139,6 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def arms_for(args: argparse.Namespace) -> list[str | None]:
-    """The arms this invocation runs: the files set's one or three, None for every other set."""
     if args.set != "files":
         return [None]
     from files_eval import arms_of
@@ -1410,7 +1147,6 @@ def arms_for(args: argparse.Namespace) -> list[str | None]:
 
 
 def arm_pairs(arm: str | None) -> list[list[str]]:
-    """The ``--override`` pairs that restrict the agent to ``arm`` (``files_eval.arm_overrides``)."""
     if arm is None:
         return []
     from files_eval import arm_overrides
@@ -1420,7 +1156,6 @@ def arm_pairs(arm: str | None) -> list[list[str]]:
 
 
 def baseline_for(baseline: Path | None, arm: str | None) -> dict | None:
-    """The earlier results.json an arm's report diffs against: the file given, or the arm's in a directory."""
     if baseline is None:
         return None
     candidates = [baseline] if baseline.is_file() else [baseline / str(arm) / "results.json", baseline / "results.json"]
@@ -1437,7 +1172,6 @@ def measure(
     not_in_corpus: list[str],
     baseline: dict | None,
 ) -> list[Run]:
-    """One arm's runs, written to ``args.out`` as results.json and report.md."""
     arm = f" (arm {meta['arm']})" if meta.get("arm") else ""
     print(f"{len(questions)} question(s) × {args.runs} run(s){arm}, {args.workers} at a time → {args.out}")
     args.out.mkdir(parents=True, exist_ok=True)
@@ -1455,7 +1189,6 @@ def measure(
 
 
 def write_compare(before: Path, after: Path) -> int:
-    """``--compare``: the before/after report, printed and written beside ``after`` as compare.md."""
     from compare import compare_report
     from compare import load
 

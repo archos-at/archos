@@ -1,31 +1,3 @@
-"""The one-shot move of the jobs the retired ingest claim queue still holds onto Hatchet.
-
-Ingestion ran on our own claim queue, ``ingest_job_queue`` (ADR-0076), until
-Hatchet replaced it (ADR-0150). A deployment that switches over may hold jobs
-there that no worker will claim any more: queued ones, and claims of a worker
-the deploy replaced. Each is handed to Hatchet with the payload it already
-carries (encrypted, the same the task reads) and then deleted from the old
-table, which no code writes again and a later migration drops.
-
-The status rows of those jobs are held from the moment the store's
-``held_until`` column arrives (``ingest_status_store``), so none reads as
-interrupted while it waits for this. ``trigger`` holds them again for Hatchet.
-
-API pods still on the old release keep writing that table while the rollout
-lasts, so the ingest worker does not run this once: every minute it asks
-``live_rows`` and, while there are any, hands over a batch of ``BATCH``
-(``agent_host.jobs.ingest_worker``), until the table has held nothing for a
-while. An operator can run it by hand: ``python -m agent.knowledge.ingest_cutover``.
-The runbook: apply the platform, deploy, let the ingest workers run it, and
-watch ``ingest_job_queue`` empty. A claim younger than ``_STALE_SECONDS``
-belongs to an old worker that may still be draining; it is moved on a later run.
-
-The claim, row by row, is ``agent.common.claim_queue``'s own (``FOR UPDATE SKIP
-LOCKED``, an owner per process), so two workers never hand one job over twice;
-``trigger`` is idempotent on the job id besides. Only ciphertext is handed
-over: a plaintext payload is refused and left in the table (``_sealed``).
-"""
-
 from __future__ import annotations
 
 import logging
@@ -75,10 +47,6 @@ def _table_exists(url: str) -> bool:
 
 
 def live_rows() -> int:
-    """Jobs ``ingest_job_queue`` still holds (queued or claimed); 0 without a database or the table.
-
-    The cheap check the ingest worker runs every minute before a batch.
-    """
     url = _db_url()
     if not url or not _table_exists(url):
         return 0
@@ -89,19 +57,10 @@ def live_rows() -> int:
 
 
 def _worker() -> str:
-    """This process's claim owner: a claim another worker holds is never this one's to release or delete."""
     return f"{_WORKER}-{socket.gethostname()}-{os.getpid()}"
 
 
 def redispatch_queued(trigger: Trigger, *, limit: int = BATCH) -> int:
-    """Hand up to ``limit`` jobs still waiting in ``ingest_job_queue`` to Hatchet; how many were handed over.
-
-    The rows found are held first (``ingest_run_hold.hold_cutover_rows``), so a
-    job an old API pod queued a moment ago does not read as interrupted while it
-    waits for this. A trigger that fails gives the job back to the table,
-    unspent, and ends the run: Hatchet is not there, and the next run tries
-    again. A payload that is not ciphertext is never handed over (``_sealed``).
-    """
     url = _db_url()
     if not url or not _table_exists(url):
         return 0
@@ -130,16 +89,6 @@ def redispatch_queued(trigger: Trigger, *, limit: int = BATCH) -> int:
 
 
 def _sealed(job_id: str, payload: str) -> bool:
-    """Whether the payload is ciphertext Hatchet may hold; a plaintext one is refused and left in the table.
-
-    An old API pod without ``JOB_PAYLOAD_KEK`` (allowed on develop) wrote its
-    payload as ``json:`` base64 or raw JSON, which would reach Hatchet's
-    database in the clear. It is not encrypted here either: with a KEK set,
-    ``payload_crypto`` refuses to read plaintext at all, because a row in the
-    clear may as well be forged (``requeue_legacy`` leaves such rows the same
-    way). The row stays claimed, so this pass does not meet it again; it is
-    seen once more after the stale window, for an operator to settle.
-    """
     if payload.startswith(_ENCRYPTED):
         return True
     logger.error("Ingest cutover: job %s carries a payload that is not encrypted; left in %s", job_id, TABLE)

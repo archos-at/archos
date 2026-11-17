@@ -1,5 +1,3 @@
-"""Comment and docstring purge for Python, TypeScript and JavaScript; the rule: code-conventions.md#comments."""
-
 from __future__ import annotations
 
 import ast

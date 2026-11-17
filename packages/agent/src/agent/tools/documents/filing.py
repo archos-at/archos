@@ -1,38 +1,3 @@
-"""Filing a draft into the project: the one call this tier makes to the lifecycle API.
-
-``POST /api/internal/document-versions``, ops ``create``, ``update`` and
-``submit``. Nothing here writes a row: the BFF is the single writer of
-``app`` (ADR-0003) and this module is a CLIENT of the route the browser's
-own filing goes through (ADR-0055).
-
-Beside the write door, the READ one:
-``GET /api/internal/document-versions/<id>/content`` hands back one version's
-text plus the four facts a filing record is made of. It is the same lifecycle
-API and therefore the same client, and it carries NO envelope, because it acts
-as nobody — see :func:`get_document_version_content`.
-
-## The tool echoes the envelope; it never signs one
-
-The route carries a static service token and no user, and the agent's principal
-is wider than any human's. So the acting identity does not come from anything
-this process chooses: it comes from the **signed request-context envelope** the
-BFF minted at the start of the turn, forwarded here byte-for-byte
-(``RequestContext.envelope_header`` / ``envelope_signature``), verified there
-with the same secret, and turned into that person's pinned session
-(ADR-0054 §4). Every permission check, every ``created_by`` and every audit actor
-downstream is the human who asked.
-
-Re-signing a payload of our own with ``INTERNAL_API_TOKEN`` would work, and
-that is the point: it would let this tier CHOOSE the user id, with a secret that
-authenticates the service. The rule is therefore stated as a rule and not as an
-implementation detail — **echo, never sign** — and
-``packages/agent/tests/tools/documents/test_filing.py`` asserts the bytes go out
-unchanged.
-
-The transport, the token and the redirect guard are
-:mod:`agent.common.bff_http`'s, as for every other BFF client here.
-"""
-
 from __future__ import annotations
 
 import logging
@@ -54,8 +19,6 @@ REQUEST_TIMEOUT_SECONDS = 15
 
 
 class FilingError(bff_http.BffError):
-    """The route refused, or could not be reached. Carries what the model may be told."""
-
     def __init__(self, message: str, *, status: int | None = None, code: str | None = None) -> None:
         super().__init__(message, status=status, code=code)
 
@@ -67,31 +30,6 @@ def get_document_version_content(
     user_id: str | None = None,
     answer_message_id: str | None = None,
 ) -> dict[str, Any]:
-    """One version's text and identity from the internal read route.
-
-    Returns the parsed body: ``content`` plus the facts the caller has to stamp
-    onto the working-directory file it writes — ``documentId``, ``versionId``,
-    ``state`` and ``contentHash`` — so a later ``file_draft`` on that path
-    REPLACES this open version instead of filing a second document.
-
-    **Both scopes travel, and neither is optional.** ``organizationId`` is the
-    tenant boundary; ``conversationId`` is the narrower one the BFF now requires,
-    and it refuses unless the version is that conversation's SUBJECT. A version
-    id is the only thing a client chooses, so without the second predicate the
-    route would read any version in the tenant on the say-so of an id — the
-    conversation is what says the reader was already looking at this document.
-    A version that is not this conversation's subject comes back ``404``, which
-    the caller reads as "no subject to load". ``user_id`` is the turn's signed
-    asker: a version in a folder not every member may read is sent only once the
-    BFF has admitted that folder for the conversation (ADR-0087, ADR-0088), and
-    without an asker it answers ``404`` too. ``answer_message_id`` is the answer
-    the turn writes: when the read admits such a folder, the BFF marks that
-    answer in the same transaction (ADR-0093).
-
-    Raises :class:`FilingError` for every refusal and every transport failure,
-    the same one thing every caller in this module has to catch. Blocking — call
-    it through ``asyncio.to_thread``.
-    """
     path = INTERNAL_DOCUMENT_VERSION_CONTENT_PATH.format(version_id=urllib.parse.quote(version_id, safe=""))
     params = {"organizationId": organization_id, "conversationId": conversation_id}
     if user_id:
@@ -118,12 +56,6 @@ def get_document_version_content(
 
 
 def post_document_version(payload: dict[str, Any], envelope: SignedEnvelope) -> dict[str, Any]:
-    """One call to the internal document-versions route; the parsed JSON body.
-
-    Raises :class:`FilingError` for every refusal and every transport failure, so
-    the tool has exactly one thing to catch. Blocking — call it through
-    ``asyncio.to_thread``.
-    """
     try:
         body = bff_http.post_json(
             INTERNAL_DOCUMENT_VERSIONS_PATH, payload, timeout=REQUEST_TIMEOUT_SECONDS, headers=envelope.headers()

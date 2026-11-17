@@ -1,12 +1,3 @@
-"""The documents a PDF's read visuals become: its embedded rasters and its rendered pages.
-
-Moved out of ``adapter._ingest_job`` unchanged, so that function can shrink. An
-embedded raster goes through the SAME analysis as a rendered page, so a scanned
-plan placed inside a PDF is indexed per drawing rather than as one paragraph;
-a rendered page is nearly always a drawing, but the analysis types it, and a
-rendered photo page is not forced to claim it is a plan.
-"""
-
 from __future__ import annotations
 
 import logging
@@ -41,7 +32,6 @@ def visual_documents_for_pdf(
     extract_images: bool,
     extract_charts: bool,
 ) -> VisualDocuments:
-    """The image, chart and drawing documents, and the charts and images counted (drawings count as images)."""
     from knowledge_layer.ingest import adapter as _adapter
 
     documents: list[Any] = []

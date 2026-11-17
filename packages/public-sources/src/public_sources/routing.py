@@ -1,20 +1,3 @@
-"""Where a source's requests go: through the sandboxed fetcher, and nowhere else.
-
-A caller (the RIS adapter, a capture, a monitor, ``source-test``) builds
-requests as it always did and hands its httpx client the transport
-:func:`source_transport` returns. That transport sends each request to the
-``public-source-fetcher`` (``PUBLIC_SOURCE_FETCHER_URL``: a Deployment in every
-stack, a service in Compose), which makes it from a pod that can reach public
-hosts and nothing in the cluster. There is no in-process path: without a
-fetcher, a source is refused (ADR-0162 amendment). The guard
-(:mod:`public_sources.egress`) runs in the fetcher itself; a test hands in a
-transport instead of the network.
-
-The transport refuses a URL off the source's hosts before anything is sent,
-and forwards only the headers :data:`public_sources.egress.FORWARDED_HEADERS`
-names.
-"""
-
 from __future__ import annotations
 
 import os
@@ -34,8 +17,6 @@ RETURNED_HEADERS = ("content-type", "etag", "last-modified")
 
 
 class _SourceCheck(httpx.AsyncBaseTransport):
-    """Refuse a URL off the source's hosts, strip the headers, then delegate."""
-
     def __init__(self, source, inner: httpx.AsyncBaseTransport, credential: tuple[str, str] | None = None) -> None:
         self.source = source
         self.inner = inner
@@ -53,8 +34,6 @@ class _SourceCheck(httpx.AsyncBaseTransport):
 
 
 class FetcherTransport(httpx.AsyncBaseTransport):
-    """Sends each request to the sandboxed fetcher instead of the network."""
-
     def __init__(
         self,
         source_id: str,
@@ -99,14 +78,6 @@ def source_transport(
     inner: httpx.AsyncBaseTransport | None = None,
     credential: str | None = None,
 ) -> httpx.AsyncBaseTransport:
-    """The transport for a source's requests: always the fetcher; with no fetcher configured, a refusal.
-
-    ``source`` is a repository record's id, or a configured source (ADR-0174)
-    parsed with :func:`public_sources.source.parse_inline_source`, whose hosts
-    travel with each request because the fetcher holds no record of it.
-    ``credential`` is a keyed source's key, set after the strip under the
-    header its record names. ``inner`` stands in for the network in tests only.
-    """
     record = get_source(source) if isinstance(source, str) else source
     header = None
     if credential is not None:

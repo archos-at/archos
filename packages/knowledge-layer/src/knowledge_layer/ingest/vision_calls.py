@@ -1,38 +1,3 @@
-"""One vision call of an ingest: its client, its fleet slot, its waits, its trace and its cache key.
-
-Every page an ingest reads with a vision model (a drawing, an image, an embedded
-raster, a scanned page's transcription) goes through :func:`_vlm_chat_create`.
-It used to live in ``adapter.py``; it is here so that file can shrink.
-
-Three things this module owns, each a decision:
-
-* **Waiting out the provider, in place.** A 429 waits (Retry-After, else 2, 4,
-  8 … s) up to ``VLM_RATE_LIMIT_RETRIES`` times. A 402 "would exceed your
-  available credits given your current in-flight requests" clears as soon as the
-  key's other requests finish, so it waits too, for at most
-  :data:`CREDIT_WAIT_BUDGET_SECONDS` in all. A plain "insufficient credits" 402
-  is an empty balance and stays final. The OpenRouter transport already retries
-  the in-flight 402 three times in about 7 s (``common.credit_retry``); that time
-  is inside the budget, because the budget is measured on the clock from the
-  first attempt, so the two never stack into minutes. On 2026-11-02, 126 pages
-  went unread in two minutes for want of this wait.
-* **Prompt caching.** The fixed prompt leads every page read (about 2,160 tokens
-  for a drawing), so it is a cacheable prefix, and the cache rate was 1%: no
-  sticky key was sent, and the zero-data-retention routing carried a manual
-  ``provider.order``, which switches OpenRouter's sticky routing off
-  (``common/prompt_caching.py``). A call now carries the key
-  ``prompt_caching.prompt_cache_key`` builds from the organization, the model and
-  the prompt's identity (its schema version and vocabulary fingerprint, never
-  the page or any tenant text). A zero-data-retention organization's page reads
-  are EU-only through ``provider.only`` with no non-EU fallback
-  (``DataPolicy.for_page_reads``), which keeps OpenRouter's sticky routing and
-  lets the provider's cache hit, where the EU-first ``provider.order`` switched
-  it off. Decided 2026-11-03. When no EU endpoint can take a call, the refusal
-  waits in place like the in-flight 402 (:func:`retry_wait`).
-* **The trace.** Each call is one ``ingest-vision`` generation, nested under its
-  file's ``ingest-file`` trace by the context the vision pools copy.
-"""
-
 from __future__ import annotations
 
 import logging
@@ -64,19 +29,6 @@ VISION_GENERATION_NAME = "ingest-vision"
 
 
 def _vlm_slot():
-    """One of the fleet's ``VLM_FLEET_CONCURRENCY`` vision-call slots, for as long as the call lasts.
-
-    The call under the slot is not bounded by ``VLM_REQUEST_TIMEOUT_SECONDS``: that is
-    httpx's timeout per phase of one attempt, the SDK makes two attempts with a backoff
-    between, and each first waits for a provider slot. ``hold`` renews the lease while
-    the call runs, so the lease is only how long a dead worker's slot stays taken.
-
-    Shared fairly between organisations (``lease_slots.FAIR_ACQUIRE_LUA``): an
-    office's 300-sheet upload takes every slot while it is alone, and gives one
-    up to the next office's first page as soon as that office waits. The lane is
-    the organisation on the job's cost ledger (``_ingest_cost_scope``), which the
-    vision pool's threads inherit; a call outside a job has none and is unlaned.
-    """
     from agent.common import lease_slots
 
     return lease_slots.hold(
@@ -89,7 +41,6 @@ def _vlm_slot():
 
 
 def _vision_lane() -> str | None:
-    """The organisation the running ingest job reads for, or ``None`` outside one."""
     from agent.common.cost_tracking import cost_tracker_var
 
     tracker = cost_tracker_var.get()
@@ -98,14 +49,6 @@ def _vision_lane() -> str | None:
 
 
 def page_cache_body(client: Any, request: dict[str, Any], prompt_id: str | None) -> dict[str, Any]:
-    """``request`` with the sticky-routing key and cache marker for its fixed prompt, on OpenRouter only.
-
-    ``prompt_id`` names the prompt (``visual_analysis.cache_prompt_type``: schema
-    and vocabulary fingerprint), never the page: the key is the organization,
-    the model and that name, so every page of one office read with one prompt
-    shares a shard, and no tenant text is in it. Without a ``prompt_id``, or off
-    OpenRouter (the fields are OpenRouter's), the request is returned unchanged.
-    """
     from agent.common import prompt_caching
     from agent.common.openrouter import targets_openrouter
 
@@ -118,7 +61,6 @@ def page_cache_body(client: Any, request: dict[str, Any], prompt_id: str | None)
 
 
 def _observed_vlm_call(client: Any, request: dict[str, Any]) -> Any:
-    """One vision call, as a Langfuse generation under the file's trace (images redacted from the span)."""
     from agent.common.openrouter import vision_extra_body
     from agent.observability.direct_trace import observed_generation
 
@@ -135,7 +77,6 @@ def _observed_vlm_call(client: Any, request: dict[str, Any]) -> Any:
 
 
 def _rate_limited_for(error: Exception) -> float | None:
-    """Seconds to wait before retrying a call the provider rate-limited; None when it was not a 429."""
     if getattr(error, "status_code", None) != 429 and "rate_limit" not in str(error).lower():
         return None
     headers = getattr(getattr(error, "response", None), "headers", None) or {}
@@ -147,7 +88,6 @@ def _rate_limited_for(error: Exception) -> float | None:
 
 
 def is_in_flight_credit_402(error: Exception) -> bool:
-    """Whether ``error`` is the provider's transient in-flight-credit 402, not an empty balance."""
     if getattr(error, "status_code", None) != 402:
         return False
     text = f"{error} {getattr(error, 'body', '') or ''}"
@@ -155,21 +95,12 @@ def is_in_flight_credit_402(error: Exception) -> bool:
 
 
 def waits_out(error: Exception) -> bool:
-    """Whether a failed page read waits within the budget: the in-flight 402, or no allowed EU endpoint now."""
     from agent.knowledge.ingest_failures import no_allowed_provider
 
     return is_in_flight_credit_402(error) or no_allowed_provider(None, error)
 
 
 def retry_wait(error: Exception, *, rate_limited: int, credit_waits: int, spent: float) -> float | None:
-    """Seconds to wait before the next attempt of a failed page read, or None when it is final. Pure but for jitter.
-
-    ``rate_limited`` and ``credit_waits`` are the 429 and 402 retries so far;
-    ``spent`` is how much of :data:`CREDIT_WAIT_BUDGET_SECONDS` the read has used.
-    A 429 is counted (``VLM_RATE_LIMIT_RETRIES``); an in-flight 402, and a refusal
-    because no allowed (EU) endpoint can take the call now, are bounded by the
-    budget, so a call that has waited the budget out fails as it would have.
-    """
     stated = _rate_limited_for(error)
     if stated is not None:
         if rate_limited >= VLM_RATE_LIMIT_RETRIES:
@@ -184,13 +115,6 @@ def retry_wait(error: Exception, *, rate_limited: int, credit_waits: int, spent:
 
 
 def _vlm_create_fairly(client, **request):
-    """``client.chat.completions.create`` inside a fleet slot, waiting out the provider's 429s and in-flight 402s.
-
-    The OpenAI SDK retries a 429 once on its own (``max_retries=1``) and a 402
-    never; a burst of ingest workers outlasts both. Each further attempt waits
-    OUTSIDE the slot (:func:`retry_wait`), so a waiting call never holds capacity
-    another call could use once the limit lifts.
-    """
     started = time.monotonic()
     rate_limited = credit_waits = 0
     waited = 0.0
@@ -214,16 +138,6 @@ def _vlm_create_fairly(client, **request):
 
 
 def _vlm_client(base_url: str, api_key: str, *, role: str = USAGE_ROLE_INGEST_VISION):
-    """The vision client for one ingest call, under the ingest job's data policy and on its cost ledger.
-
-    The ingest job enters ``openrouter.data_policy_scope`` for its organization;
-    anything that reaches here without one (the base corpus sync, a thread that
-    lost the context) is pinned to zero-data-retention endpoints. A ZDR page read
-    is EU-only (``provider.only``, no fallback, no ``order``: ``for_page_reads``),
-    so the sticky routing the cache key drives stays on; decided 2026-11-03.
-    Each call's usage is recorded under ``role`` in the job's tracker
-    (``_ingest_cost_scope``).
-    """
     from agent.common.openrouter import openai_client
     from agent.common.openrouter import scoped_data_policy
 
@@ -248,29 +162,6 @@ def _vlm_chat_create(
     temperature: float = 0.2,
     prompt_id: str | None = None,
 ) -> str:
-    """One VLM chat completion with a single truncation retry.
-
-    ``prompt_id`` names the fixed prompt the messages lead with, for the cache key
-    (:func:`page_cache_body`); never anything read from the page.
-
-    A response clipped at ``max_tokens`` (``finish_reason == "length"``) loses
-    the trailing fields of the structured drawing format — exactly the
-    ZUSAMMENFASSUNG the document summary is built from — so retry ONCE with a
-    doubled budget. Returns the message content (possibly empty); a still-
-    truncated response is returned as-is with a warning rather than silently
-    treated as complete.
-
-    The retry is a best-effort improvement on a caption we ALREADY have, so it
-    is deliberately cheap and never destructive:
-
-    - It runs with the SDK retries disabled. The first call already spends the
-      client's ``max_retries`` budget, and letting the second call spend it
-      again would double the worst-case latency of a single caption on top of
-      an attempt that, by definition, already succeeded.
-    - A failure is swallowed and the truncated first caption is returned.
-      Raising here would discard usable content and — since failure placeholders
-      are no longer indexed — drop the chunk entirely over a partial success.
-    """
     request = {"model": model, "messages": messages, "temperature": temperature, "prompt_id": prompt_id}
     response = _vlm_create_fairly(client, max_tokens=max_tokens, **request)
     choice = response.choices[0]

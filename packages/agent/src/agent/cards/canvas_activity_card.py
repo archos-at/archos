@@ -1,5 +1,3 @@
-"""The canvas activity card: what happened on a canvas this turn."""
-
 from typing import Annotated
 from typing import Literal
 
@@ -24,8 +22,6 @@ class CanvasDocument(CardModel):
 
 
 class _CanvasSetMark(CardModel):
-    """A mark the agent set on a page: where, what kind, what it says."""
-
     annotation_id: str = Field(min_length=1, description="The mark's id")
     number: int = Field(ge=1, description="The mark's number on the document")
     page: int = Field(ge=1, description="The page, from 1")

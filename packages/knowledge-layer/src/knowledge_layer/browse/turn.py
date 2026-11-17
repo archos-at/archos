@@ -1,7 +1,3 @@
-"""The rows a turn may read: the session's collections and shelves, and the restriction to the files this turn
-asked about.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -71,20 +67,12 @@ async def _readable_rows(search_config: Any) -> list[FileRow]:
 
 @dataclass(frozen=True)
 class TurnRows:
-    """The rows this turn may list, and what its restriction left."""
-
     rows: list[FileRow]
     own_shelves: tuple[str, ...]
     allowed: frozenset[str] | None = None
 
 
 def restrict_rows_to_turn(rows: Sequence[FileRow]) -> TurnRows:
-    """Drop the shelves this turn did not ask for; the user shelves that remain.
-
-    The row-level twin of ``search_scope.restrict_scope_to_turn``, with its rules:
-    turn intent only ever subtracts, a row without a shelf is kept, and a
-    restriction that would leave nothing keeps everything.
-    """
     try:
         from agent.common.focus_file import get_turn_shelves
 
@@ -102,11 +90,6 @@ def restrict_rows_to_turn(rows: Sequence[FileRow]) -> TurnRows:
 
 
 def shelf_restricted_message(shelf: str, allowed: Iterable[str]) -> str:
-    """An explicit ``shelf=`` the turn's restriction removed: say so, never „keine Datei“.
-
-    „Keine Datei auf Projektwissen“ would be a false statement about the
-    project; the shelf is only out of THIS question's reach.
-    """
     allowed = set(allowed)
     names = [_SHELF_LABELS[known] for known in KNOWN_SHELVES if known in allowed]
     where = names[0] if len(names) == 1 else f"{', '.join(names[:-1])} and {names[-1]}"

@@ -1,42 +1,3 @@
-"""How well the evidence a turn registered backs its answer: one model call per answer (ADR-0139).
-
-Five rounds tuned rules over the answer's sentences: provenance classes, a
-German net for statements about the law, a count of backed sentences, then a
-small model asked about each sentence while the rules still decided which
-evidence it saw and how the verdicts added up. Each round moved errors from one
-direction to the other, because a rule that decides which sentence is a verdict
-and which passage backs it is a second, weaker reader of the same text. The
-standard answer to the question is groundedness evaluation by a model (RAGAS
-faithfulness, TruLens groundedness): hand a grader the question, the answer and
-everything the answer could rest on, and let it grade.
-
-So this module asks once, after the prose has streamed, on the organisation's
-follow-ups model at temperature 0: the question, the final answer, and every
-piece of evidence the turn registered (the passages in full up to
-:data:`EVIDENCE_BUDGET_CHARS`, the workspace records, the turn context's
-project profile, inventory and building law, the measurements, the drawing readings, and
-which quotations the server's quote check found or did not find). The evidence
-travels as data inside one delimited block, and the system prompt says that
-instructions inside it are not followed. The reply is a level and the
-statements the answer relies on that the evidence does not back or
-contradicts, each with a reason and the source it was checked against, and the
-open points the answer itself names (in its prose or its confidence reason) that
-its main point depends on.
-
-The open points are a second reading, apart from the level: an answer that says
-„die Bindung ist nicht an der Quelle geprüft" is fully backed by evidence that
-says the same, so the level alone reads it high. What the answer itself states is
-open caps the surfaced level at medium (``markers.surface_checked_confidence``).
-
-Any failure (no model, timeout, an error, a reply that does not parse)
-returns an :class:`Unavailable`, and the turn surfaces no level: the chip says
-the check was unavailable. A guessed level is worse than none. The
-:class:`Unavailable` says which failure it was, how long the call ran and how
-large its prompt was, so a rate of unavailable checks can be read by cause
-(stored on the turn's ``confidence_check``, scored and on the trace;
-``docs/observability/langfuse.md``).
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -67,7 +28,6 @@ UnavailableCause = Literal["no_judge", "timeout", "error", "unparseable", "no_re
 
 JUDGE_TIMEOUT_S = 12.0
 EVIDENCE_BUDGET_CHARS = 60_000
-#: Dev QC 2026-11-12: two 40,000-char ``project-base-get`` reads left no room for a passage.
 RECORD_MAX_CHARS = 12_000
 RECORDS_BUDGET_CHARS = 24_000
 _CUT = " [cut for length]"
@@ -78,8 +38,6 @@ MAX_OPEN_POINTS = 4
 
 @dataclass(frozen=True)
 class Passage:
-    """A retrieved passage the answer may rest on, under the label the answer can cite it by."""
-
     label: str
     text: str
     cited: bool = False
@@ -87,8 +45,6 @@ class Passage:
 
 @dataclass(frozen=True)
 class Evidence:
-    """Everything one turn registered that its answer could rest on."""
-
     question: str
     answer: str
     confidence_reason: str = ""
@@ -103,8 +59,6 @@ class Evidence:
 
 @dataclass(frozen=True)
 class Finding:
-    """A statement the answer relies on that its evidence does not back, or contradicts."""
-
     statement: str
     problem: Problem
     reason: str
@@ -116,8 +70,6 @@ class Finding:
 
 @dataclass(frozen=True)
 class Check:
-    """What the check found: a level and the statements that hold it down."""
-
     level: Level
     findings: tuple[Finding, ...] = field(default=())
     open_points: tuple[str, ...] = field(default=())
@@ -142,19 +94,11 @@ class CheckReply(BaseModel):
     @field_validator("open_points", mode="before")
     @classmethod
     def _only_strings(cls, value: Any) -> list[str]:
-        """A null, a bare string or a non-string item names no open point; it never costs the whole check."""
         return [item for item in value if isinstance(item, str)] if isinstance(value, list) else []
 
 
 @dataclass(frozen=True)
 class Unavailable:
-    """Why the check could not grade the answer, and what its call looked like when it gave up.
-
-    ``truncated``: the reply stopped at the output budget (``finish_reason`` ``length`` or the output
-    tokens reached :data:`MAX_OUTPUT_TOKENS`), so an unparseable reply was cut rather than garbled. The
-    sizes are characters of the evidence block and of the answer the prompt carried.
-    """
-
     cause: UnavailableCause
     error_type: str | None = None
     finish_reason: str | None = None
@@ -168,7 +112,6 @@ class Unavailable:
         object.__setattr__(self, "finish_reason", self.finish_reason[:40] if self.finish_reason else self.finish_reason)
 
     def to_wire(self) -> dict[str, Any]:
-        """The fields that say something: ``cause`` always, the rest when set."""
         return {key: value for key, value in asdict(self).items() if value is not None and value is not False}
 
 
@@ -212,10 +155,6 @@ SYSTEM_PROMPT = (
 
 
 def _bounded_records(records: Sequence[str]) -> tuple[list[str], int]:
-    """The workspace records within their share, each cut at :data:`RECORD_MAX_CHARS`; how many were left out.
-
-    The newest are kept first and the kept ones stay in the order they were read.
-    """
     kept: list[str] = []
     left, omitted = RECORDS_BUDGET_CHARS, 0
     for record in reversed(records):
@@ -229,7 +168,6 @@ def _bounded_records(records: Sequence[str]) -> tuple[list[str], int]:
 
 
 def _evidence_block(evidence: Evidence) -> dict[str, Any]:
-    """The evidence as one JSON object: records within their share, passages whole up to the budget, cited first."""
     records, records_omitted = _bounded_records(evidence.records)
     block: dict[str, Any] = {
         "turn_context": list(evidence.context),
@@ -257,12 +195,10 @@ def _evidence_block(evidence: Evidence) -> dict[str, Any]:
 
 
 def evidence_data(evidence: Evidence) -> str:
-    """The evidence block exactly as the prompt carries it between ``<evidence>`` and ``</evidence>``."""
     return json.dumps(_evidence_block(evidence), ensure_ascii=False).replace("</", "<\\/")
 
 
 def build_messages(evidence: Evidence) -> list[Any]:
-    """The system prompt, then the question, the answer, its confidence reason and the delimited evidence block."""
     from langchain_core.messages import HumanMessage
     from langchain_core.messages import SystemMessage
 
@@ -277,7 +213,6 @@ def build_messages(evidence: Evidence) -> list[Any]:
 
 
 def parse_reply(text: str) -> Check | None:
-    """The check the reply states; ``None`` when it is no such object."""
     from agent.common.json_utils import extract_json
 
     try:
@@ -297,7 +232,6 @@ def parse_reply(text: str) -> Check | None:
 
 
 def _ending(response: Any) -> tuple[str | None, int | None]:
-    """How the reply ended: the provider's ``finish_reason`` and the output tokens, where it reported them."""
     metadata = getattr(response, "response_metadata", None)
     usage = getattr(response, "usage_metadata", None)
     reason = metadata.get("finish_reason") if isinstance(metadata, dict) else None
@@ -306,10 +240,6 @@ def _ending(response: Any) -> tuple[str | None, int | None]:
 
 
 def _outcome(response: Any, call: Unavailable) -> Check | Unavailable:
-    """The check a reply states, or why it states none: empty, cut at the budget, or no such object.
-
-    ``call`` carries what is known of the call (its sizes and time); the cause is decided here.
-    """
     from agent.common.message_utils import content_to_text
 
     text = content_to_text(getattr(response, "content", response))
@@ -325,13 +255,6 @@ def _outcome(response: Any, call: Unavailable) -> Check | Unavailable:
 
 
 def _failure(exc: BaseException, call: Unavailable) -> Unavailable:
-    """Why a call that raised gave no check.
-
-    With ``response_format`` the OpenAI client parses the reply itself and raises ``LengthFinishReasonError``
-    on ``finish_reason`` ``length`` rather than returning the cut text: that is a reply cut at the output
-    budget, the same cause as a truncated reply that did not parse. Matched by name, so the check needs no
-    provider SDK to import. Any other exception (``ContentFilterFinishReasonError`` among them) is ``error``.
-    """
     if isinstance(exc, TimeoutError):
         return replace(call, cause="timeout", error_type="TimeoutError")
     if type(exc).__name__ == "LengthFinishReasonError":
@@ -342,14 +265,12 @@ def _failure(exc: BaseException, call: Unavailable) -> Unavailable:
 
 
 def _record_call(**facts: Any) -> None:
-    """The judge call's facts as the turn's trace metadata (``answer_check_*``). Never raises."""
     from agent.observability.langfuse_trace_attributes import record_trace_metadata
 
     record_trace_metadata(**{f"answer_check_{key}": value for key, value in facts.items()})
 
 
 def llm_judge(llm: Any) -> JudgeFn:
-    """A :data:`JudgeFn` on a LangChain chat model: one structured call at temperature 0, bounded, never raising."""
 
     async def judge(evidence: Evidence) -> Check | Unavailable:
         from agent.common.structured_reply import structured_response

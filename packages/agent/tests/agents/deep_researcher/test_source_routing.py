@@ -1,5 +1,3 @@
-"""Tests for deep research source routing helpers."""
-
 import json
 
 import pytest
@@ -12,31 +10,26 @@ from agent.common.data_source_registry import reset_registry
 
 @tool
 def web_search_tool(query: str) -> str:
-    """Search the web."""
     return query
 
 
 @tool
 def knowledge_search(query: str) -> str:
-    """Search uploaded documents."""
     return query
 
 
 @tool
 def news_search_tool(query: str) -> str:
-    """Search recent news."""
     return query
 
 
 @tool
 def market_search_tool(query: str) -> str:
-    """Search prediction markets."""
     return query
 
 
 @tool
 def helper_tool(value: str) -> str:
-    """Unmapped helper tool."""
     return value
 
 

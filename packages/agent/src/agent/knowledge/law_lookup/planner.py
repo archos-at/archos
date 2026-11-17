@@ -1,14 +1,3 @@
-"""The search planner: a legal question in, the source's search out. Built from the record.
-
-One structured-output call (``response_format: json_schema``, strict) whose
-choices are the record's: the collections its search offers (``lookup.collections``,
-each with the line that says when to choose it) and the territories its filter
-knows (``lookup.territory.choices``). The plan model is made at runtime from
-those, so an invalid collection or territory is refused by the schema whenever
-the payload parses. Not every OpenRouter-served model honours strict mode, so
-a garbled payload gets one corrective retry before the caller's fail-open.
-"""
-
 from __future__ import annotations
 
 import logging
@@ -29,7 +18,6 @@ _CORRECTIVE = "Your previous output was invalid JSON. Return ONLY a single valid
 
 
 def plan_model(law: LawSource) -> type[BaseModel]:
-    """The search plan the planner fills, its choices the record's."""
     lookup = law.lookup
     collections = tuple(c.id for c in lookup.collections if c.plannable)
     territories = ("", *lookup.territory.choices) if lookup.territory else ("",)
@@ -51,7 +39,6 @@ def plan_model(law: LawSource) -> type[BaseModel]:
 
 
 def planner_prompt(law: LawSource) -> str:
-    """The planner's system prompt: the source, its collections' guide lines, the record's term guidance."""
     lookup = law.lookup
     guides = [f"- {c.id}: {c.guide}" for c in lookup.collections if c.plannable and c.guide]
     lines = [
@@ -66,15 +53,6 @@ def planner_prompt(law: LawSource) -> str:
 
 
 def apply_org_llm_policy(llm):
-    """Apply the platform's per-request LLM policy to an auxiliary model.
-
-    The org's runtime model override for the DEEP_RESEARCH_ROUTER agent group
-    (the planner is the same kind of lightweight routing task) and the org's
-    BYOK credential (ADR-0022) are applied per call, credential first so the
-    ZDR pin inside ``apply_model_override`` lands only on a model that still
-    points at OpenRouter. A failure falls back to the configured model PINNED
-    to zero-data-retention endpoints, never the bare one.
-    """
     from agent.common import apply_model_override
     from agent.common import apply_org_credential
     from agent.common import apply_zdr_routing
@@ -88,7 +66,6 @@ def apply_org_llm_policy(llm):
 
 
 async def invoke_structured(llm, schema: type[BaseModel], messages: list[dict], what: str):
-    """One strict structured-output call, with one corrective retry on an invalid payload."""
     structured = apply_org_llm_policy(llm).with_structured_output(schema, method="json_schema", strict=True)
     try:
         return await structured.ainvoke(messages)
@@ -98,7 +75,6 @@ async def invoke_structured(llm, schema: type[BaseModel], messages: list[dict], 
 
 
 def make_planner(llm, law: LawSource):
-    """Wrap a chat model into the source's search planner."""
     schema = plan_model(law)
     system = planner_prompt(law)
 

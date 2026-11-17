@@ -1,5 +1,3 @@
-"""The revision-compare card: what changed between two Fassungen of a document."""
-
 from typing import Annotated
 from typing import Any
 from typing import Literal

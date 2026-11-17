@@ -1,23 +1,3 @@
-"""A note typed while the agent works reaches the next round, and holds back a write chosen before it.
-
-Through the COMPILED GRAPH, because the two halves live in two nodes: the agent
-node reads the inbox at the top of a decision, the tools node holds back the
-writes of a round the model chose before a note arrived. A unit test of either
-passes while the two disagree.
-
-What is pinned, per ``common/steering.py``:
-
-* the note is in the NEXT request, after the messages that existed when it
-  arrived, and at that same index in every later request (the prompt cache's
-  prefix stays byte-stable);
-* it never enters ``state.messages``, so ``answer_pipeline.this_turn`` sees the
-  turn it saw before;
-* a write the model chose before the note is answered with the hold notice and
-  not run, its reads run, and every call still gets exactly one result;
-* the reader is told ``steer_applied`` with the round, and the round costs what
-  it cost without the note.
-"""
-
 from __future__ import annotations
 
 from unittest.mock import AsyncMock
@@ -56,14 +36,12 @@ RAN: list[str] = []
 
 @tool("look")
 def look(page: int) -> str:
-    """Look at a page of the document."""
     RAN.append(f"look:{page}")
     return f"Seite {page}: Tür links, Treppe rechts"
 
 
 @tool("canvas__mark")
 def mark(target: str) -> str:
-    """Propose an Anmerkung on the document."""
     RAN.append(f"mark:{target}")
     return f"Vorgeschlagen: {target}"
 
@@ -79,7 +57,6 @@ def _clean_slate():
 
 @pytest.fixture(autouse=True)
 def _bypass_citation_pipeline():
-    """The answer pipeline is not what these tests are about."""
     with (
         patch.object(SourceRegistry, "all_sources", return_value=[SourceEntry(url="https://example.com")]),
         patch("agent.core.answer_pipeline.verify_citations") as verify,
@@ -94,7 +71,6 @@ def _bypass_citation_pipeline():
 
 @pytest.fixture
 def inbox():
-    """One turn's inbox, bound the way the socket binds it, in a SYNC fixture (gotchas: ContextVar tokens)."""
     box = SteerInbox()
     token = bind_steer_inbox(box)
     yield box
@@ -106,8 +82,6 @@ def _call(name: str, call_id: str, **args) -> dict:
 
 
 class Scripted:
-    """The model: one reply per decision, every request kept, and a hook that runs DURING a call."""
-
     def __init__(self, *replies: AIMessage, during: dict[int, object] | None = None) -> None:
         self.replies = list(replies)
         self.requests: list[list] = []
@@ -147,7 +121,6 @@ def _notes_in(request: list) -> list[int]:
 
 class TestTheNextRoundReadsTheNote:
     async def test_a_note_typed_during_round_one_is_in_round_two_and_holds_the_door_mark_back(self, inbox, emitted):
-        """The whole story: the model chose to look AND mark the door; the person typed while it decided."""
         model = Scripted(
             AIMessage(content="", tool_calls=[_call("look", "l1", page=1), _call("canvas__mark", "m1", target="Tür")]),
             AIMessage(content="", tool_calls=[_call("canvas__mark", "m2", target="Treppe")]),
@@ -186,11 +159,9 @@ class TestTheNextRoundReadsTheNote:
         assert inbox.applied and not inbox.has_pending()
 
     async def test_a_note_that_arrives_while_tools_run_is_read_next_and_holds_nothing(self, inbox):
-        """The writes were chosen and run before the note; there is nothing to hold, only a next round."""
 
         @tool("look")
         def slow_look(page: int) -> str:
-            """Look at a page of the document."""
             RAN.append(f"look:{page}")
             inbox.offer(_note())
             return "Seite 1"
@@ -256,7 +227,6 @@ class TestTheNextRoundReadsTheNote:
 
 class TestWithoutAnInbox:
     async def test_a_turn_outside_a_socket_is_byte_identical(self):
-        """An eval, ``nat run`` or a job binds no inbox: nothing is read, held or spliced."""
         model = Scripted(
             AIMessage(content="", tool_calls=[_call("look", "l1", page=1), _call("canvas__mark", "m1", target="Tür")]),
             AIMessage(content="Fertig."),
@@ -269,7 +239,6 @@ class TestWithoutAnInbox:
         assert result.steering == []
 
     async def test_a_note_the_final_call_never_read_is_left_for_the_next_question(self, inbox):
-        """The model decided to finish while the person typed: the note stays unread, no steer_applied."""
         model = Scripted(AIMessage(content="Fertig."), during={1: lambda: inbox.offer(_note())})
 
         result = await _run(_agent(model))

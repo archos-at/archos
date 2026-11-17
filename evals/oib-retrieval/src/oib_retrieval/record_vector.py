@@ -1,46 +1,3 @@
-"""Record the VECTOR channel's file-level ranking for every golden question.
-
-WHY THIS EXISTS
----------------
-The golden harness scored two of production's three retrieval channels, the
-exact ``$contains`` pass and the German sparse index, and left the vector
-channel out because that one needs a model, a key and the corpus. The omission
-was not a detail. Measured with the production embedder over the real corpus,
-the vector channel alone answers the overview cohort at recall@16 0.933 while
-the two deterministic channels together manage 0.150. A harness printing only
-the 0.150 makes any movement in the weak channels look like the whole story,
-and once let a regression read as a 4x win (``overview``'s module docstring).
-
-So the channel is RECORDED. It is embedded once here against the real
-``data/oib`` corpus with the production model and written to a fixture the
-offline harness reads. CI stays offline, deterministic and key-free, and the
-number is a measurement rather than a model of one.
-
-WHAT IS RECORDED, AND WHAT THAT COSTS
--------------------------------------
-Per golden question, the file-level ranking over the corpus plus each file's
-best chunk score. Not the vectors. 30 questions by 39 files is a fixture a
-human can read and diff, where 3072 dimensions for every chunk are 15 MB
-nobody would review.
-
-The cost is that the fixture cannot be re-derived from itself. Change the
-embedder, the chunking or the corpus and it is stale, so it carries the model
-name and a corpus fingerprint, and the golden test pins that model against the
-deployed one (``deploy/compose/docker-compose.yaml``). A stale fixture
-then fails CI instead of quietly scoring the wrong embedder.
-
-The chunks here are sampled PAGES rather than production's chunks: page text
-under the same ``MetadataMode.EMBED`` header production embeds. That header
-carries the filename on purpose, since ``EMBED_EXCLUDED_METADATA_KEYS`` keeps
-``file_name`` because "those are what users actually ask by". File-level recall
-survives the difference where chunk-level recall would not, which is why this
-records files and the golden set labels files.
-
-USAGE
------
-    task be:eval:record-vector      # needs the embeddings key
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -68,11 +25,6 @@ def default_fixture_path() -> Path:
 
 
 def resolve_api_key(base_url: str, model: str) -> str:
-    """Production's own key chain, imported when it is importable.
-
-    The fallback is the same chain by hand, so this script still runs from a
-    checkout that has not installed the knowledge layer.
-    """
     try:
         from knowledge_layer.embedding import resolve_embed_api_key
 
@@ -89,13 +41,6 @@ def resolve_api_key(base_url: str, model: str) -> str:
 
 
 def embed(texts: list[str], *, model: str, base_url: str, api_key: str) -> list[list[float]]:
-    """Embed ``texts`` in order through the configured embeddings endpoint.
-
-    ``httpx`` rather than ``urllib``: ``base_url`` is configuration, and urllib
-    would honour a ``file://`` in it and read a local path instead of calling an
-    API. httpx speaks http and https only, so the scheme cannot be talked into
-    something else.
-    """
     import httpx
 
     vectors: list[list[float]] = []
@@ -115,7 +60,6 @@ def embed(texts: list[str], *, model: str, base_url: str, api_key: str) -> list[
 
 
 def read_corpus(corpus_dir: Path) -> list[tuple[str, int, str]]:
-    """Sampled (file_name, page, text) triples from the real corpus PDFs."""
     import pdfplumber
 
     rng = random.Random(SAMPLE_SEED)
@@ -131,17 +75,10 @@ def read_corpus(corpus_dir: Path) -> list[tuple[str, int, str]]:
 
 
 def embed_text_for(file_name: str, page: int, text: str) -> str:
-    """The string production embeds: LlamaIndex's EMBED header, then the body.
-
-    ``file_name`` is in the header deliberately (see the module docstring); a
-    recording that dropped it would measure a retrieval this product does not
-    run.
-    """
     return f"file_name: {file_name}\npage_label: {page}\n\n{text}"
 
 
 def corpus_fingerprint(chunks: list[tuple[str, int, str]]) -> str:
-    """Identity of what was embedded, so a stale fixture is detectable."""
     digest = hashlib.sha256()
     for file_name, page, text in chunks:
         digest.update(f"{file_name}\x00{page}\x00{text}\x00".encode())
@@ -158,7 +95,6 @@ def cosine(left: list[float], right: list[float]) -> float:
 
 
 def record(golden_path: Path, corpus_dir: Path, *, model: str, base_url: str) -> dict:
-    """Embed corpus and questions, return the fixture payload."""
     entries = json.loads(golden_path.read_text())["entries"]
     chunks = read_corpus(corpus_dir)
     if not chunks:

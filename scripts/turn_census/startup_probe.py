@@ -1,27 +1,3 @@
-"""Startup probe: what a chat turn does before its first model call, in milliseconds.
-
-Runs questions through the real agent in ONE process (so the second question
-onward is a warm process, the way a worker serves turns) and prints a timeline
-per turn, relative to the turn's start:
-
-    HTTP  <start>ms +<duration>ms <host><path>       every async provider call
-    SYNC  <phase> <start>ms +<duration>ms <query>     the retriever's embed, store and retrieve
-
-Read it for the order of the startup steps (decision, query embedding,
-retrieval, rerank, sufficiency verdicts, requery, first ``/responses`` call)
-and for which ones wait on which. ``docs/audit/turn-latency-measured-2026-09.md``
-is the write-up it produced.
-
-Needs what a local turn needs (OPENROUTER_API_KEY, the ingested corpus, the
-document inventory), and every run costs real model calls. It measures the
-checkout it lives in: it re-executes itself once with that checkout's
-interpreter and ``census.tree_pythonpath``, so from a ``git worktree`` it
-imports the worktree's ``src/`` and ``sources/`` packages, not the ones the venv
-installed from the main checkout (``docs/contributing/gotchas.md``).
-
-    python scripts/turn_census/startup_probe.py "Wie hoch muss ein Geländer sein?" "…"
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -109,13 +85,6 @@ async def _run(config: Path, questions: list[str]) -> None:
 
 
 def _in_tree(argv: list[str]) -> None:
-    """Re-execute this script once, importing this checkout's packages; a no-op in the re-executed process.
-
-    The same interpreter and PYTHONPATH as a census run (``census.run_python``,
-    ``census.tree_pythonpath``). Without it a worktree's probe timed the main
-    checkout's knowledge layer. ``REC_OUT`` is dropped: the census's recorder
-    is on that path and would start writing.
-    """
     if os.environ.get(_IN_TREE):
         return
     env = {key: value for key, value in os.environ.items() if key != "REC_OUT"}

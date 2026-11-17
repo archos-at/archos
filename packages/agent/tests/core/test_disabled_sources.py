@@ -1,25 +1,3 @@
-"""A switched-off data source keeps its tool and refuses the call.
-
-The toggles used to delete tools from the binding, and the prompt then told the
-model what it could infer from their absence. Two costs, both real. The
-provider's prompt cache is keyed on the tool payload
-(``common/prompt_caching.py``), so every toggle combination was its own cache
-shard on a workload that is ~99 % input tokens and re-sends its prefix three to
-eight times per turn. And an absent tool is a capability the model has to
-notice is missing, where a refusal is a fact it can say out loud: „ich konnte
-das Web nicht prüfen".
-
-So the tool stays bound and the call is answered with one sentence, at the same
-``ToolNode`` boundary the duplicate-fetch guard sits on, uncharged and never
-executed. Org-disabled sources (ADR-0022) stay enforced — by the layer that
-cannot be talked around, rather than by absence.
-
-Through the COMPILED GRAPH, because the claim is about what RUNS and what the
-model reads next: the agent node decides what to charge and the tools node what
-to execute, and a unit test of either half passes while the two disagree about
-which calls were withheld.
-"""
-
 from __future__ import annotations
 
 from unittest.mock import AsyncMock
@@ -52,28 +30,24 @@ RAN: list[str] = []
 
 @tool
 def web_search_tool(query: str) -> str:
-    """Search the web."""
     RAN.append(f"web_search_tool:{query}")
     return f"Web-Treffer zu: {query}"
 
 
 @tool
 def knowledge_search(query: str) -> str:
-    """Search the OIB knowledge corpus."""
     RAN.append(f"knowledge_search:{query}")
     return f"Treffer zu: {query}"
 
 
 @tool
 def ris_lookup_tool(question: str) -> str:
-    """Look up Austrian law in RIS."""
     RAN.append(f"ris_lookup_tool:{question}")
     return f"RIS-Treffer zu: {question}"
 
 
 @tool
 def emit_card(kind: str) -> str:
-    """Emit a UI card."""
     RAN.append(f"emit_card:{kind}")
     return "Karte erstellt"
 
@@ -135,7 +109,6 @@ def _bypass_citation_pipeline():
 
 @pytest.fixture
 def steps(emitted):
-    """Every body the producers wrote during the test (``tests/conftest.py``)."""
     return emitted
 
 
@@ -177,7 +150,6 @@ def _answer_for(result, call_id: str) -> str:
 
 class TestTheCallIsRefusedNotRemoved:
     async def test_the_tool_is_still_bound(self):
-        """The whole point: the payload does not change with the toggle."""
         agent, llm = _agent(AIMessage(content="Die Antwort [1]."))
 
         await _run(agent, {"web_search"})
@@ -220,7 +192,6 @@ class TestTheCallIsRefusedNotRemoved:
         assert "switched off" in _answer_for(result, "w")
 
     async def test_a_tool_belonging_to_no_source_is_never_refused(self):
-        """`emit_card` and its kind are not data sources and have no toggle."""
         agent, _llm = _agent(
             _batch(_call("emit_card", "c", kind="verdict_header")),
             AIMessage(content="Die Antwort [1]."),
@@ -248,8 +219,6 @@ class TestTheCallIsRefusedNotRemoved:
 
 class TestWhatARefusedRoundCosts:
     async def test_a_refused_round_costs_one_round_and_announces_no_retrieval(self, steps):
-        """It cost an LLM call and two graph steps, so it costs a round — and
-        nothing was fetched, so there is no layer of the Herleitung to draw."""
         agent, _llm = _agent(
             _batch(_call("web_search_tool", "w", query="OIB 2")),
             AIMessage(content="Die Antwort [1]."),
@@ -261,9 +230,6 @@ class TestWhatARefusedRoundCosts:
         assert [step.id for step in steps.steps if step.id.startswith("status:retrieval")] == []
 
     async def test_the_refusal_is_reported_as_its_own_technical_event(self, steps):
-        """A refused call runs nothing and announces nothing, so without this
-        record the toggle's effect on a turn is invisible — the repeat guard
-        beside it has had `status:repeat:N` all along."""
         agent, _llm = _agent(
             _batch(
                 _call("web_search_tool", "w", query="OIB 2"),
@@ -281,8 +247,6 @@ class TestWhatARefusedRoundCosts:
         assert "key" not in record
 
     async def test_a_round_with_nothing_refused_leaves_no_record(self, steps):
-        """A constant is not an event: the toggle is on for the whole turn, and
-        only a call that MET it is worth a record."""
         agent, _llm = _agent(
             _batch(_call("knowledge_search", "k", query="OIB 2")),
             AIMessage(content="Die Antwort [1]."),
@@ -294,8 +258,6 @@ class TestWhatARefusedRoundCosts:
 
 
 class TestOneCacheShardPerOrgAndModel:
-    """The cost half of row 6, asserted where the key is actually computed."""
-
     async def test_two_turns_with_different_toggles_share_a_prompt_cache_key(self):
         agent_a, llm_a = _agent(AIMessage(content="Die Antwort [1]."))
         agent_b, llm_b = _agent(AIMessage(content="Die Antwort [1]."))
@@ -310,7 +272,6 @@ class TestOneCacheShardPerOrgAndModel:
         assert key_a == key_b, "a toggle still splits the cache shard"
 
     def test_a_different_tool_set_still_splits_it(self):
-        """The guarantee is about toggles, not about the key going blunt."""
         base = prompt_cache_key(system_prompt=_PROMPT, tools=["a", "b"], organization_id="org-1", model="m")
         fewer = prompt_cache_key(system_prompt=_PROMPT, tools=["a"], organization_id="org-1", model="m")
         assert base != fewer
@@ -326,8 +287,6 @@ class TestTheHelperIsTheOnePlaceThatDecides:
         assert disabled_source_notice("web_search_tool", set()) is None
 
     def test_the_selection_and_the_org_toggle_are_one_set(self):
-        """What the request did not select and what the org switched off are the
-        same fact to a tool: this source is not available on this turn."""
         assert unavailable_source_ids(["knowledge_layer"], disabled_sources=set()) == frozenset({"web_search", "ris"})
         assert unavailable_source_ids(None, disabled_sources={"web_search"}) == frozenset({"web_search"})
         assert unavailable_source_ids(["knowledge_layer"], disabled_sources={"knowledge_layer"}) == frozenset(

@@ -1,30 +1,3 @@
-"""``ogc``: geodata services that speak an OGC standard (design 4.2, ADR-0174).
-
-Two of them, both reads, both answering features a format engine turns into
-anchored records (``geojson``):
-
-* **OGC API - Features** (OGC 17-069r4), ``service: features``:
-  ``{base_url}/collections/{collection}/items`` with ``bbox``, ``datetime``,
-  ``limit`` and ``f=json`` (operation ``features``), and the collection's own
-  description (operation ``collection``), which is what a monitor watches.
-* **WFS 2.0** (OGC 09-025r2), ``service: wfs``: a key-value ``GetFeature`` with
-  ``typeNames``, ``bbox``, ``count`` and the record's ``output_format``
-  (operation ``features``), and ``GetCapabilities`` (operation ``collection``).
-
-A collection is named in the record (``collections``: our name to the
-service's id), so an argument never becomes a path segment unchecked.
-
-**A site point leaves only towards a site-keyed source.** ``bbox`` is the one
-argument that says where a project is. A ``public_only`` source refuses a
-request that carries one, before it is built: the data-flow register
-(ADR-0161) lists only site-keyed sources as receiving a site point, and a
-site-keyed source is published only after a privacy reviewer's yes.
-
-OWSLib is not used: it makes its own requests through ``requests``, around the
-guarded client every fetch must use, and the two requests above are all a
-source here needs.
-"""
-
 from __future__ import annotations
 
 import re
@@ -70,7 +43,6 @@ class Ogc(AccessType):
             raise AccessError(f"{self.source.id}: no collection {name!r} (known: {known})") from None
 
     def _site_args(self, args: Mapping[str, Any]) -> dict[str, str]:
-        """The location arguments, refused unless the source may receive a site point."""
         bbox = str(args.get("bbox", "") or "")
         if not bbox:
             return {}

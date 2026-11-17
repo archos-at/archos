@@ -1,17 +1,3 @@
-"""The child process that reads a PDF: ``python -I -m public_sources.pdf_reader <max_pages> <memory> <max_chars>``.
-
-:func:`public_sources.pdf.read_pdf` starts it, hands it the PDF on stdin and
-reads ``{pages, page_count, title}`` or ``{error, message}`` from stdout. It
-runs ingestion's own text pass (:func:`knowledge_layer.ingest.pdf_page_texts`)
-under the limits a stranger's bytes need: an address-space ceiling, no core
-file, and a cap on the text it answers, so a small PDF that expands to a
-hundred million characters costs this process, never the server.
-
-Its own module, which ``public_sources/__init__`` does not import: run with
-``-m``, a module the package already imported would be imported twice, and
-runpy's warning about it would stand in stderr for whatever really went wrong.
-"""
-
 from __future__ import annotations
 
 import json
@@ -24,7 +10,6 @@ from public_sources.pdf import PdfError
 
 
 def _limit(memory_bytes: int) -> None:
-    """The address space this process may map, and no core file of the bytes it read."""
     import resource
 
     resource.setrlimit(resource.RLIMIT_AS, (memory_bytes, memory_bytes))
@@ -32,7 +17,6 @@ def _limit(memory_bytes: int) -> None:
 
 
 def _gate(content: bytes, max_pages: int) -> tuple[int, str]:
-    """Open the PDF once, to refuse what the text pass would read as empty: ``(pages, title)``."""
     import pypdfium2 as pdfium
     from pypdfium2 import raw
 
@@ -53,7 +37,6 @@ def _gate(content: bytes, max_pages: int) -> tuple[int, str]:
 
 
 def _within(pages: list[str], limit: int) -> list[str]:
-    """The pages, whole, while their text fits ``limit`` characters; the first page cut to it when it alone does not."""
     kept: list[str] = []
     total = 0
     for page in pages:
@@ -65,7 +48,6 @@ def _within(pages: list[str], limit: int) -> list[str]:
 
 
 def extract(content: bytes, max_pages: int = MAX_PDF_PAGES, max_chars: int = MAX_TEXT_CHARS) -> dict:
-    """``{pages, page_count, title}``: the text pass's pages, as many as fit the text cap."""
     from knowledge_layer.ingest import pdf_page_texts
     from knowledge_layer.ingest import unreadable_pdf_verdict
 

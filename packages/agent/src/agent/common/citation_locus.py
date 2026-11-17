@@ -1,29 +1,3 @@
-"""Locus agreement: a § or Punkt written beside ``[N]`` must occur in the passage ``[N]`` resolves to.
-
-``verify_citations`` proves that a cited SOURCE is real. It never asked whether
-the place the sentence names is in it: „§ 5 Abs. 2 [1]" passed as long as
-``[1]`` was some passage of the cited file, even when that passage is § 12 and
-§ 5 is nowhere in the turn. A reader who opens the chip finds a different
-section than the one the sentence promises, which is the misgrounded citation
-the Stanford audit counts as a hallucination and a pointer check alone misses.
-
-So the locus written immediately before a marker is held to the cited entry:
-
-- ``Punkt 3.5.2`` / ``Pkt. 3.5.2``: the entry's own ``clause`` agrees (equal,
-  or one is a prefix of the other on a dot boundary, since a passage of 3.5 may
-  carry 3.5.2), or ``3.5.2`` stands in its text or title.
-- ``§ 5`` / ``§§ 5``: ``§ 5`` (not ``§ 50``) stands in its text, title or key,
-  or the RIS URL names ``Paragraf=5``.
-
-Fail-open in the one direction the quote check is: an entry with neither
-passage text nor a clause (a URL-only web hit) cannot be checked and passes.
-Only the CLOSEST locus before the marker counts, and only within the marker's
-own clause: a sentence that names § 3 and then cites § 5 with [2] is about two
-places, and only the second is [2]'s promise.
-
-Pure: text and entries in, verdicts out.
-"""
-
 from __future__ import annotations
 
 import re
@@ -41,8 +15,6 @@ _INLINE_MARKER_RE = re.compile(r"\[(\d+)\]")
 
 
 class LocusEntry(Protocol):
-    """The fields of a registry entry the check reads (``citations.entries.SourceEntry``)."""
-
     chunk_text: str | None
     clause: str | None
     title: str | None
@@ -52,8 +24,6 @@ class LocusEntry(Protocol):
 
 @dataclass(frozen=True)
 class Locus:
-    """One locus the prose wrote beside a marker."""
-
     kind: str  # "clause" or "paragraph"
     value: str
 
@@ -63,8 +33,6 @@ class Locus:
 
 @dataclass(frozen=True)
 class LocusMismatch:
-    """One marker occurrence whose locus is not in the entry it resolves to."""
-
     number: int
     locus: Locus
     start: int
@@ -72,7 +40,6 @@ class LocusMismatch:
 
 
 def locus_before(text: str, marker_start: int) -> Locus | None:
-    """The locus closest before the marker at ``marker_start``, within its clause; None when there is none."""
     window_start = max(0, marker_start - _LOOKBACK_CHARS)
     window = text[window_start:marker_start]
     ends = list(_CLAUSE_END_RE.finditer(window))
@@ -94,7 +61,6 @@ def _clause_agrees(clause: str, value: str) -> bool:
 
 
 def locus_in_entry(locus: Locus, entry: LocusEntry) -> bool | None:
-    """Whether ``entry`` holds ``locus``; None when the entry has nothing to check against."""
     text = " ".join(part for part in (entry.chunk_text, entry.title, entry.citation_key) if part)
     if not (entry.chunk_text or entry.clause):
         return None
@@ -109,12 +75,6 @@ def locus_in_entry(locus: Locus, entry: LocusEntry) -> bool | None:
 
 
 def locus_mismatches(body: str, entries: Mapping[int, LocusEntry]) -> list[LocusMismatch]:
-    """Every marker in ``body`` whose closest locus is not in the entry its number resolves to.
-
-    ``entries`` maps each VALID citation number to its registry entry; a marker
-    of any other number is somebody else's business (it is removed as
-    unresolvable) and is skipped here.
-    """
     mismatches: list[LocusMismatch] = []
     for match in _INLINE_MARKER_RE.finditer(body):
         number = int(match.group(1))

@@ -1,45 +1,3 @@
-"""Load a ``piloti-vectors/1`` export into Qdrant, without re-embedding (ADR-0115).
-
-The second half of the move off Chroma: ``deploy/migration/chroma_export.py``
-wrote the export beside Chroma, and this reads it with nothing of Chroma
-installed (the format: ``deploy/migration/README.md``). Point ids are the
-chunk ids and every write is insert-only, so a re-run adds what is missing,
-leaves what ingestion wrote (its office, project and document ids) in place,
-and finishes a run that stopped halfway.
-
-    python scripts/import_vectors.py --in /exchange/export --dry-run     # read and check everything, write nothing
-    python scripts/import_vectors.py --in /exchange/export --verify      # import every collection, then compare ids
-    python scripts/import_vectors.py --in /exchange/export --collection oib_knowledge
-    python scripts/import_vectors.py --in /exchange/export --prune --verify
-    python scripts/import_vectors.py --in /exchange/export --verify-only
-
-Without ``--collection``, the scopes Qdrant holds and the export does not are
-found too: ``--prune`` deletes them, ``--verify`` counts them as out of step.
-``--prune`` treats the export as the whole truth: run it only before the new
-release takes writes, or it deletes what was uploaded since the export (a new
-file, a new project). A file the export holds that ingestion wrote again
-after the export was taken is the one exception: its exported chunks are not
-inserted, and its new ones are neither pruned nor counted as a gap.
-
-Once an import has verified in step (``--verify``, every collection, exit 0),
-it marks the Qdrant collections, and every later run that would write is
-refused (exit 2) unless ``--force``: importing an old export again brings back
-the chunks of every document deleted since. ``--dry-run`` and
-``--verify-only`` write nothing and are never refused.
-
-Each collection's vectors must come from the embedder the Qdrant collection
-was created with (``embed_fingerprint``); a mismatch refuses the run
-before anything is written. A collection the export names no embedder for
-takes the configured one (``EMBED_MODEL``, ``EMBED_BASE_URL``). It
-reads ``QDRANT_URL``, ``QDRANT_API_KEY`` and, for the person-set
-facts, the metadata store's settings, as the backend does.
-
-EXIT CODES: ``0`` done and, with ``--verify``, every collection in step;
-``1`` a collection failed or, with ``--verify``, differs (run it again);
-``2`` Qdrant unreachable, or the export invalid, incomplete or refused (another
-embedder, or an import that already verified).
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -85,7 +43,6 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
 
 
 def _configured_identity() -> dict[str, str]:
-    """The embedder this deployment is configured for: the fallback for a collection the export names none for."""
     from knowledge_layer.embedding import embed_fingerprint_metadata
 
     return embed_fingerprint_metadata(
@@ -113,7 +70,6 @@ def _run_one(
 
 
 def _orphans(store: QdrantStore, scopes: list[str], names: list[str], args: argparse.Namespace) -> list[ScopeReport]:
-    """A report per scope Qdrant holds and the export does not: pruned with ``--prune``, a gap under ``--verify``."""
     reports = []
     for scope in orphan_scopes(names, scopes):
         report = ScopeReport(scope, export_count=0, qdrant_count=store.count(scope))
@@ -152,7 +108,6 @@ def _open(args: argparse.Namespace) -> tuple[Export, list[str]]:
 
 
 def _fallback_identity(export: Export, names: list[str]) -> dict[str, str] | None:
-    """The configured embedder, read only when a collection's own fingerprint is missing from the export."""
     if all(export.collections[name].has_identity for name in names):
         return None
     return _configured_identity()
@@ -223,7 +178,6 @@ def _writes(args: argparse.Namespace) -> bool:
 
 
 def _already_imported(store: QdrantStore, args: argparse.Namespace) -> bool:
-    """Refuse a run that would write into a Qdrant an earlier import already verified, unless ``--force``."""
     if not _writes(args) or args.force:
         return False
     marker = recorded_import(store)
@@ -238,7 +192,6 @@ def _already_imported(store: QdrantStore, args: argparse.Namespace) -> bool:
 
 
 def _record_if_complete(store: QdrantStore, export: Export, args: argparse.Namespace, code: int) -> None:
-    """Mark the collections once a full import verified in step, so the next one is refused."""
     if code != 0 or not args.verify or not _writes(args) or args.collection:
         return
     record_import(store, export)
@@ -246,7 +199,6 @@ def _record_if_complete(store: QdrantStore, export: Export, args: argparse.Names
 
 
 def _report_orphans(store: QdrantStore, scopes: list[str], names: list[str], args: argparse.Namespace) -> int:
-    """Log the scopes only Qdrant holds; returns how many count as failed."""
     try:
         orphans = _orphans(store, scopes, names, args)
     except Exception as exc:  # noqa: BLE001 - reported like a failed collection

@@ -1,54 +1,5 @@
 #!/usr/bin/env python3
 
-"""Keep the paths written in agent guides and docs pointing at files that exist.
-
-Why this exists
----------------
-
-``docs/architecture/where-is-what.md`` is a concept-to-path index: an agent
-arrives with the name of a thing and leaves with the module that owns it. Its
-whole value is that the paths resolve. A rename anywhere in the repo silently
-turns a row into a dead end, and the symptom is the one the index was written to
-remove — somebody greps.
-
-Nothing else catches it. The paths sit in code spans rather than links, so
-``markdown-link-check`` never looks at them, and the file type-checks and builds
-like any other Markdown.
-
-What it checks
---------------
-
-Every backticked span in the index that looks like a repository path (it
-contains a ``/`` or ends in a known source extension, and is not prose, a
-command or an identifier) names something **git tracks** — a file or a
-directory. Tracked, not merely present: a path that resolves only in the
-author's working tree is dead for every other reader.
-
-A claim is read from the repository root first and from the index's own
-directory second, which is how a reader reads it: the sibling docs are named
-``document-roles.md`` in the prose and live beside the index.
-
-The same rot reaches every other doc an agent reads. An audit of the guides on
-2026-11-15 found a dozen ``lib/...`` paths, a wrong module for
-``FileOperationKind`` and more, all in code spans, all dead for months. So:
-
-- **Every tracked ``AGENTS.md``** is held to zero. A guide is short and loads on
-  every turn in its scope: a dead path there is a wrong instruction.
-- **``docs/architecture/`` and ``docs/contributing/``** are a ratchet on
-  ``ci/doc_paths_baseline.json``: a file may not gain a dead path, and lowers its
-  entry with ``--update`` when it loses one. Some entries are deliberate, a path
-  named because it is gone (``gotchas.md``), so the count is per file, not zero.
-
-Outside the index a claim is looser, because guides name files the way people
-do: ``test_proposals.py`` or ``common/bff_http.py``, not the full path. It must
-end in a source extension or ``/`` and match the end of some tracked path. That
-still fails on a rename or a deletion, which is what goes stale.
-
-Usage:
-    python scripts/check_doc_paths.py [--list] [--update]
-
-Exit code is 0 when every path resolves, 1 otherwise.
-"""
 
 from __future__ import annotations
 
@@ -85,7 +36,6 @@ GENERATED = ("node_modules/", ".claude/", ".agents/", ".venv/", "apm_modules/")
 
 
 def tracked_paths() -> set[str]:
-    """Every file git knows about, plus every directory that holds one."""
     out = subprocess.run(["git", "ls-files"], capture_output=True, text=True, check=True).stdout
     files = set(out.splitlines())
     directories = {parent.as_posix() for f in files for parent in Path(f).parents if parent.as_posix() != "."}
@@ -93,7 +43,6 @@ def tracked_paths() -> set[str]:
 
 
 def is_path_claim(span: str) -> bool:
-    """Whether this code span promises a repository path."""
     if not PATH_SHAPE_RE.match(span):
         return False
     if span.startswith(("http://", "https://", "/", ".")):
@@ -102,7 +51,6 @@ def is_path_claim(span: str) -> bool:
 
 
 def path_claims(text: str) -> list[str]:
-    """Every distinct path claim in the index, in the order it appears."""
     seen: dict[str, None] = {}
     for span in CODE_SPAN_RE.findall(text):
         candidate = span.strip()
@@ -112,7 +60,6 @@ def path_claims(text: str) -> list[str]:
 
 
 def check(errors: list[str]) -> list[str]:
-    """Validate every path claim, appending to ``errors``. Returns the claims."""
     if not INDEX.exists():
         errors.append(f"{INDEX}: the concept index is missing.")
         return []
@@ -132,7 +79,6 @@ def check(errors: list[str]) -> list[str]:
 
 
 def path_suffixes(tracked: set[str]) -> set[str]:
-    """Every trailing run of segments of every tracked path: `a/b/c.py` gives `c.py`, `b/c.py`, `a/b/c.py`."""
     suffixes: set[str] = set()
     for path in tracked:
         parts = path.split("/")
@@ -141,7 +87,6 @@ def path_suffixes(tracked: set[str]) -> set[str]:
 
 
 def dead_claims(doc: Path, suffixes: set[str]) -> list[str]:
-    """Path claims in ``doc`` that name no tracked file or directory, by the looser rule."""
     dead = []
     for claim in path_claims(doc.read_text(encoding="utf-8")):
         if not claim.endswith((*SOURCE_SUFFIXES, "/")) or "*" in claim or claim.startswith(GENERATED):
@@ -152,14 +97,12 @@ def dead_claims(doc: Path, suffixes: set[str]) -> list[str]:
 
 
 def scoped_docs(tracked: set[str]) -> tuple[list[Path], list[Path]]:
-    """The guides (held to zero) and the ratcheted docs, both as tracked files on disk."""
     guides = sorted(Path(p) for p in tracked if Path(p).name == "AGENTS.md" and Path(p).exists())
     docs = sorted(Path(p) for p in tracked if p.startswith(RATCHETED) and p.endswith(".md") and Path(p).exists())
     return guides, docs
 
 
 def check_scoped(errors: list[str], update: bool = False) -> None:
-    """Hold every guide to zero dead paths and every ratcheted doc to its baseline."""
     tracked = tracked_paths()
     suffixes = path_suffixes(tracked)
     guides, docs = scoped_docs(tracked)
@@ -180,7 +123,6 @@ def check_scoped(errors: list[str], update: bool = False) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    """CLI entry point: validate the concept index and return an exit code."""
     parser = argparse.ArgumentParser(
         description="Keep the paths written in agent guides and docs pointing at files that exist."
     )

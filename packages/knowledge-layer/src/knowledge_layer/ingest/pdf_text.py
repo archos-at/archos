@@ -1,16 +1,3 @@
-"""A PDF's text, page by page: the text pass every ingested PDF goes through.
-
-Moved out of ``adapter`` so that whatever else reads a PDF's text reads the same
-text the corpus indexes: a public source's capture (ADR-0170, its quote check
-KC-6) and a ``pdf_document`` source's pages (``public_sources``) take
-:func:`pdf_page_texts`, and a quote that holds there holds in the index. Light
-by design: pdfplumber and pypdfium2, no model client, no vector store.
-
-Each page is read on its own (one broken page costs only itself), closed as
-soon as it is read, and a page denser than ``PDF_PAGE_MAX_OBJECTS`` is read by
-PDFium without layout. Licence watermarks a CAD tool stamps are dropped.
-"""
-
 from __future__ import annotations
 
 import logging
@@ -39,15 +26,6 @@ WATERMARK_LINE_PATTERNS = [
 
 
 def _strip_watermark_lines(text: str | None) -> str:
-    """Drop licence/watermark boilerplate lines (e.g. "VECTORWORKS EDUCATIONAL
-    VERSION") from extracted text.
-
-    Runs before both the visual-page heuristic and summarisation: without it a
-    drawing page that is pure linework plus a stamped watermark reads as "has
-    text" (so it never reaches the VLM) and its watermark becomes the document
-    summary. Only whole lines matching a known pattern are removed; real
-    content is never touched.
-    """
     if not text:
         return ""
     kept = [line for line in text.splitlines() if not any(p.match(line) for p in WATERMARK_LINE_PATTERNS)]
@@ -55,15 +33,6 @@ def _strip_watermark_lines(text: str | None) -> str:
 
 
 class PdfTextPages(list):
-    """``_extract_text_from_pdf``'s pages, plus the pages that could not be read.
-
-    A list, so every caller that iterates pages is unchanged. ``failed_pages``
-    is the 1-based numbers of pages whose extraction raised; ``page_count`` is
-    how many pages the PDF has (0 when it could not be opened);
-    ``dense_pages`` the pages over ``PDF_PAGE_MAX_OBJECTS``, read by PDFium
-    without layout (no captioned tables, no line styles).
-    """
-
     def __init__(
         self,
         pages=(),
@@ -82,11 +51,6 @@ _MAX_FAILED_PAGE_FRACTION = 0.2
 
 
 def unreadable_pdf_verdict(text_pages: list[dict[str, Any]]) -> str | None:
-    """The file-level failure for too many unreadable pages, or None when the file may stand.
-
-    Takes any list: a caller (or a test double) that returns a plain one has no
-    failed pages to report.
-    """
     failed = len(getattr(text_pages, "failed_pages", ()))
     total = getattr(text_pages, "page_count", 0)
     if not failed or not total:
@@ -97,7 +61,6 @@ def unreadable_pdf_verdict(text_pages: list[dict[str, Any]]) -> str | None:
 
 
 def _read_pdf_page(page, page_num: int, previous, pdf_path: str) -> tuple[dict[str, Any] | None, Any]:
-    """One page's text and captioned tables, and the table a next page may continue."""
     from knowledge_layer.ingest.captioned_tables import extract_page_tables
 
     try:
@@ -121,11 +84,6 @@ def _read_pdf_page(page, page_num: int, previous, pdf_path: str) -> tuple[dict[s
 
 
 def _raster_count(page) -> int:
-    """How many rasters pdfplumber parsed on ``page``; one when it cannot say.
-
-    Never costs the page its text, and errs toward the screen calling the file
-    ``partial`` rather than claiming a raster-free page it did not see.
-    """
     try:
         return len(page.images)
     except Exception:  # noqa: BLE001 - an uncountable page is counted as carrying one
@@ -133,14 +91,6 @@ def _raster_count(page) -> int:
 
 
 def _dense_page_texts(pdf_path: str, max_objects: int) -> dict[int, dict[str, Any]]:
-    """The pages of ``pdf_path`` holding more than ``max_objects`` page objects, read by PDFium.
-
-    Page number (1-based) to the page's text and raster count. Counting is
-    ``FPDFPage_CountObjects``, which parses the page but builds nothing per
-    object: 40 sheets of 20 000 paths count in well under a second. The PDFium
-    lock is held per page, as ``pdfium_lock`` asks. Fail-open: a PDF PDFium
-    cannot open, or a page it cannot load, is left to pdfplumber as before.
-    """
     if max_objects <= 0:
         return {}
     import pypdfium2 as pdfium
@@ -168,7 +118,6 @@ def _dense_page_texts(pdf_path: str, max_objects: int) -> dict[int, dict[str, An
 
 
 def _dense_page_text(document: Any, index: int, max_objects: int) -> dict[str, Any] | None:
-    """Page ``index``'s text and raster count when it is over ``max_objects``, else None. Inside ``pdfium_lock``."""
     import pypdfium2.raw as pdfium_c
 
     try:
@@ -196,7 +145,6 @@ def _dense_page_text(document: Any, index: int, max_objects: int) -> dict[str, A
 
 
 def _dense_page_entry(dense: dict[str, Any], page_num: int) -> dict[str, Any] | None:
-    """The text-pass entry for a page read by PDFium: its text, no tables, no line styles."""
     text = _strip_watermark_lines(dense["text"])
     if not text:
         return None
@@ -211,22 +159,6 @@ def _dense_page_entry(dense: dict[str, Any], page_num: int) -> dict[str, Any] | 
 
 
 def _extract_text_from_pdf(pdf_path: str) -> PdfTextPages:
-    """Extract per-page text from a PDF without falling back to raw PDF bytes.
-
-    Each page is read on its own: one page pdfplumber cannot parse used to end
-    the loop, and every page after it was dropped without a word. A failed page
-    is now logged, skipped and counted in ``failed_pages``, and the caller
-    decides with ``unreadable_pdf_verdict`` whether the file still stands.
-
-    Memory is one page, not the document. pdfplumber caches every parsed object
-    on its ``Page`` until the page is closed, and the pages hang off the open
-    ``PDF``: unclosed, a set of CAD sheets held about 77 MiB per sheet of
-    20 000 paths until the whole file was read, and two 26-29 MB plan
-    collections OOM-killed a 12 GiB worker before this function returned. A
-    page is closed as soon as its entry is built, and a page denser than
-    ``PDF_PAGE_MAX_OBJECTS`` never reaches pdfplumber at all
-    (``_dense_page_texts``).
-    """
     try:
         import pdfplumber
     except ImportError:
@@ -270,7 +202,6 @@ def _extract_text_from_pdf(pdf_path: str) -> PdfTextPages:
 
 
 def _inside_any(obj: dict[str, Any], boxes: list[tuple]) -> bool:
-    """Whether a pdfplumber object's centre lies in any of ``boxes`` (x0, top, x1, bottom)."""
     if "x0" not in obj or "top" not in obj:
         return False
     x = (obj["x0"] + obj.get("x1", obj["x0"])) / 2
@@ -279,7 +210,6 @@ def _inside_any(obj: dict[str, Any], boxes: list[tuple]) -> bool:
 
 
 def pdf_page_texts(content: bytes) -> PdfTextPages:
-    """The text pass over a PDF held in memory: :func:`_extract_text_from_pdf` on a private temporary copy."""
     handle, path = tempfile.mkstemp(suffix=".pdf")
     try:
         with os.fdopen(handle, "wb") as file:

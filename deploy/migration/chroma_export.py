@@ -3,32 +3,6 @@
 # requires-python = ">=3.11"
 # dependencies = ["chromadb==1.5.9"]
 # ///
-"""Export every Chroma collection, vectors included, to the neutral format ``piloti-vectors/1``.
-
-The one place Chroma code still runs (ADR-0115). The product no longer
-depends on ``chromadb``: this script carries its own pin (the inline metadata
-above, which must match the Chroma server that wrote the data) and runs in a
-throwaway environment, never in the backend image. The importer
-(``scripts/import_vectors.py``) reads what it writes and knows nothing about
-Chroma. The format is specified in ``deploy/migration/README.md``.
-
-    # Against a persist directory (mounted read-only is fine: it is copied first)
-    uv run --script deploy/migration/chroma_export.py --persist-dir /chroma --out /exchange/export
-    # Against a running Chroma server
-    uv run --script deploy/migration/chroma_export.py --url http://chroma:8000 --out /exchange/export
-
-Stop every writer first (ingest workers, uploads): the export is a snapshot,
-and a collection whose count changes while it is read fails the run.
-
-Re-running overwrites the export. ``manifest.json`` is written last and only
-on success, so an export without one is incomplete and the importer refuses it.
-
-Standard library plus ``chromadb`` only: it must run with nothing of this
-repository installed.
-
-EXIT CODES: ``0`` exported; ``1`` a collection failed or changed while it was
-read; ``2`` Chroma could not be opened or the arguments are invalid.
-"""
 
 from __future__ import annotations
 
@@ -60,12 +34,10 @@ COLLECTION_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{1,510}[A-Za-z0-9]$")
 logger = logging.getLogger("chroma_export")
 
 
-class ExportError(RuntimeError):
-    """One collection could not be exported as a consistent snapshot."""
+class ExportError(RuntimeError): ...
 
 
 def encode_embedding(values: Any) -> str:
-    """A vector as base64 of little-endian float32, whatever Chroma returned it as (ndarray or list)."""
     if hasattr(values, "astype"):
         raw = values.astype("<f4").tobytes()
     else:
@@ -77,7 +49,6 @@ def encode_embedding(values: Any) -> str:
 
 
 def add_to_digest(digest: int, chunk_id: str) -> int:
-    """Fold one id into the order-independent digest: the sum of every id's SHA-256, mod 2**256."""
     return (digest + int.from_bytes(hashlib.sha256(chunk_id.encode("utf-8")).digest(), "big")) % (1 << 256)
 
 
@@ -86,7 +57,6 @@ def format_digest(digest: int) -> str:
 
 
 def _json_value(value: Any) -> Any:
-    """``json.dumps`` fallback for numpy scalars and arrays in metadata; anything else is an error."""
     if hasattr(value, "tolist"):
         return value.tolist()
     if hasattr(value, "item"):
@@ -95,7 +65,6 @@ def _json_value(value: Any) -> Any:
 
 
 def _pages(collection: Any, batch: int) -> Iterator[dict[str, Any]]:
-    """The collection in pages of ``batch``, by offset: stable while nothing writes."""
     offset = 0
     while True:
         page = collection.get(include=INCLUDE, limit=batch, offset=offset)
@@ -115,7 +84,6 @@ def _column(page: dict[str, Any], key: str, size: int) -> list[Any]:
 
 
 def _write_batch(path: Path, lines: list[str]) -> None:
-    """One gzip file, written beside its final name and renamed, with mtime 0 so equal data gives equal bytes."""
     partial = path.with_name(path.name + ".partial")
     with partial.open("wb") as raw, gzip.GzipFile(filename="", mode="wb", fileobj=raw, mtime=0) as out:
         out.write("".join(lines).encode("utf-8"))
@@ -123,7 +91,6 @@ def _write_batch(path: Path, lines: list[str]) -> None:
 
 
 def export_collection(collection: Any, target: Path, batch: int) -> dict[str, Any]:
-    """Write one collection's batches under ``target``; returns its manifest entry."""
     expected = int(collection.count())
     target.mkdir(parents=True)
     digest, written, files, dimension = 0, 0, 0, None
@@ -180,7 +147,6 @@ def _http_client(url: str):
 
 
 def _persistent_client(persist_dir: Path, scratch: Path):
-    """A client on a COPY of ``persist_dir``: Chroma cannot open a read-only directory and must not alter the source."""
     if not (persist_dir / "chroma.sqlite3").is_file():
         raise ValueError(f"{persist_dir} holds no chroma.sqlite3: not a Chroma persist directory")
     copy = scratch / "chroma"
@@ -267,7 +233,6 @@ def _export(args: argparse.Namespace, out: Path, manifest_path: Path, scratch: P
 
 
 def write_manifest(out: Path, collections: dict[str, Any], source: dict[str, str]) -> Path:
-    """Write ``manifest.json`` atomically: the last step, and the mark of a complete export."""
     manifest = {
         "format": FORMAT,
         "chroma_version": chromadb.__version__,

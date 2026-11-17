@@ -1,16 +1,3 @@
-"""``html_statute``: a statute published as an HTML page, into anchored passages.
-
-For the portals that publish law as web pages without a structured format.
-The record says where the provisions are, as XPath over the page: the element
-that holds one provision, and inside it the number and the heading. The
-engine builds an Akoma Ntoso style anchor from the number (``§ 6a`` ->
-``para_6a``, ``Art. 16b`` -> ``art_16b``), so a passage from a web page is
-cited and compared exactly like one from an AKN file.
-
-lxml's HTML parser, XPath 1.0. No CSS selectors: one selector language in the
-records, and no extra dependency for it.
-"""
-
 from __future__ import annotations
 
 import re
@@ -41,7 +28,6 @@ class HtmlStatuteConfig(EngineConfig):
 
 
 def anchor_for(number: str) -> str:
-    """An AKN-style eId for a provision number: ``§ 6a`` -> ``para_6a``."""
     lowered = number.strip().lower()
     prefix = next((eid for word, eid in _ANCHOR_PREFIXES if lowered.startswith(word)), "prov")
     token = _TOKEN_RE.search(lowered)

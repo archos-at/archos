@@ -1,5 +1,3 @@
-"""The writer's verified source list: the tool, and the renderer behind it."""
-
 from __future__ import annotations
 
 import functools
@@ -23,7 +21,6 @@ _PROMPTS_DIR = Path(__file__).resolve().parents[1] / "prompts"
 
 @functools.cache
 def _source_registry_template() -> str:
-    """The list template, read once per process rather than per tool call."""
     return load_prompt(_PROMPTS_DIR, "source_registry")
 
 
@@ -34,7 +31,6 @@ def _display_title(entry: SourceEntry) -> str:
 
 
 def dedupe_sources(entries: list[SourceEntry]) -> list[dict[str, str]]:
-    """Registry entries as ``{title, url}`` rows, one per URL or citation key, in order."""
     seen: set[str] = set()
     rows: list[dict[str, str]] = []
     for entry in entries:
@@ -48,11 +44,6 @@ def dedupe_sources(entries: list[SourceEntry]) -> list[dict[str, str]]:
 
 
 def render_source_list(entries: list[SourceEntry]) -> str | None:
-    """The consolidated source list for the writer, or None when nothing was captured.
-
-    A missing or broken template raises: the tool would otherwise report "No
-    sources captured yet" about a run that captured plenty.
-    """
     rows = dedupe_sources(entries)
     if not rows:
         return None
@@ -78,7 +69,6 @@ GET_VERIFIED_SOURCES_DESCRIPTION = (
 
 
 def build_get_verified_sources_tool(registry_middleware: SourceRegistryMiddleware) -> BaseTool:
-    """Build the get_verified_sources tool for the active source registry."""
 
     @tool(description=GET_VERIFIED_SOURCES_DESCRIPTION)
     def get_verified_sources(mode: str = "compact") -> str:

@@ -1,39 +1,4 @@
 #!/usr/bin/env python3
-"""Name each image by what goes into it, and decide which images a CI run must build.
-
-An image is a function of its Dockerfile, the files the Dockerfile copies out of
-its build context, and its base images. The first two are read here, from git,
-so the name is exact: `inputs-<hash>`. The base images are tags that float
-(`node:22-slim`, `debian:bookworm-slim`), so the ISO week goes into the hash as
-well. An image is therefore never reused across a week boundary, and a patched
-base reaches every image within seven days without anyone asking for it.
-
-Why a hash and not a path filter. Publish Images used to diff each push against
-the commit before it and rebuild only the images whose paths changed. Two things
-broke that, both silently:
-
-- The path lists were written by hand, twice, and disagreed with the
-  Dockerfile. `apps/agent-host/Dockerfile` copies `packages/ifc-spatial-py/`, and neither
-  list watched it, so a change there never reached a published image.
-- A push that is superseded while queued is dropped, and the next push diffs
-  only against its own parent. On 2026-10-09 a merge train of nine commits
-  built the web image and nothing else: the frontend and backend changes of
-  five merged pull requests were never built, and staging kept the old ones.
-
-A hash of the inputs answers "is this image already built?" against the
-registry, which is the one place that knows, so a dropped run costs nothing.
-
-Usage:
-  image_inputs.py hashes [REV]                  JSON {image: hash} for REV (default HEAD)
-  image_inputs.py inputs IMAGE                  the paths that make up IMAGE, one per line
-  image_inputs.py build-args IMAGE              KEY=VALUE build arguments IMAGE is built with
-  image_inputs.py plan --base REV               pull request: build what REV..HEAD changed
-  image_inputs.py plan --registry OWNER         push: build what GHCR does not have yet
-
-`plan` writes `build=<json list>` and `images=<json list>` to $GITHUB_OUTPUT.
-`build` is the matrix of images this run must build; `images` is all of them,
-with their hashes, for the job that tags them.
-"""
 
 from __future__ import annotations
 
@@ -81,7 +46,6 @@ _INSTRUCTION = re.compile(r"^\s*(COPY|ADD)\s+(.*)$", re.IGNORECASE)
 
 
 def _logical_lines(text: str) -> list[str]:
-    """Dockerfile lines with `\\` continuations joined and comments dropped."""
     lines: list[str] = []
     pending = ""
     for raw in text.splitlines():
@@ -98,12 +62,6 @@ def _logical_lines(text: str) -> list[str]:
 
 
 def copy_sources(dockerfile_text: str) -> list[str]:
-    """Every path a COPY or ADD takes from the build context, as written.
-
-    `--from=` copies from another stage or image, not the context, so it is
-    skipped. A glob is cut back to the directory before its first wildcard,
-    which can only widen the inputs, never narrow them.
-    """
     sources: list[str] = []
     for line in _logical_lines(dockerfile_text):
         match = _INSTRUCTION.match(line)
@@ -149,7 +107,6 @@ def _tracks(rev: str, path: str) -> bool:
 
 
 def inputs(image: Image, rev: str = "HEAD") -> list[str]:
-    """The repository paths whose content is this image's content."""
     dockerfile = _git("show", f"{rev}:{image.dockerfile}")
     paths = {image.dockerfile, _normalise(image.context, ".dockerignore")}
     paths.update(_normalise(image.context, source) for source in copy_sources(dockerfile))
@@ -161,13 +118,6 @@ _BASE_DOMAIN = re.compile(r"^\s*[\w-]+:baseDomain:\s*[\"']?([^\s\"'#]+)", re.MUL
 
 
 def build_args(image: Image, rev: str = "HEAD") -> dict[str, str]:
-    """Build arguments that are part of what the image is.
-
-    The website bakes its own address into every canonical URL, the sitemap and
-    hreflang, so it is built with the address it is served from: the prod
-    stack's `baseDomain`. The value is hashed with the inputs, so moving the
-    domain (docs/deployment/domain-cutover.md) rebuilds the image.
-    """
     if image.name != "web":
         return {}
     match = _BASE_DOMAIN.search(_git("show", f"{rev}:{PROD_STACK}"))
@@ -182,7 +132,6 @@ def iso_week(today: datetime.date) -> str:
 
 
 def input_hash(image: Image, rev: str = "HEAD", *, week: str) -> str:
-    """sha256 over the git blobs of every input, the target and the week."""
     paths = inputs(image, rev)
     listing = _git("ls-tree", "-r", "--full-tree", rev, "--", *paths)
     tracked = {line.split("\t", 1)[1] for line in listing.splitlines()}
@@ -213,12 +162,6 @@ def _entry(image: Image, digest: str) -> dict[str, str]:
 
 
 def plan_pull_request(base: str, *, week: str) -> tuple[list[dict], list[dict]]:
-    """Build an image when the pull request changes what goes into it.
-
-    `base` is compared through its merge base with HEAD, the same three-dot
-    reading the path filter uses, so a base that moved on does not count as a
-    change the pull request made.
-    """
     merge_base = _git("merge-base", base, "HEAD").strip()
     head = hashes("HEAD", week=week)
     before = {
@@ -234,19 +177,12 @@ Published = Callable[[str, str], bool | None]
 
 
 def plan_push(published: Published, *, week: str) -> tuple[list[dict], list[dict]]:
-    """Build an image unless the registry already has one with these inputs.
-
-    `published(repository, tag)` answers True, False, or None when the registry
-    could not say. None builds: an extra build costs minutes, a skipped one
-    ships the wrong code.
-    """
     head = hashes("HEAD", week=week)
     images = [_entry(image, head[image.name]) for image in IMAGES]
     return [entry for entry in images if published(entry["name"], f"inputs-{entry['hash']}") is not True], images
 
 
 def registry_lookup(owner: str) -> Published:
-    """Ask GHCR through the same script the deploy uses for its own lookups."""
 
     repositories = {image.name: image.repository for image in IMAGES}
 

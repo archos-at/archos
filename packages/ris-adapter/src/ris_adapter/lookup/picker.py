@@ -1,13 +1,3 @@
-"""The § picker: headings in, ranked § ids out. Never a body.
-
-The one LLM call ``ris_lookup`` makes when nobody named a §, and the reason it
-is cheap: its input is the law's table of contents, so it is bounded by how
-many paragraphs the law has rather than by how long they are. It returns IDS,
-never prose — the passages the answering model reads are cut out of the law by
-``grammar``, so no summary of the law can stand in for the law (Cognition:
-"actions carry implicit decisions").
-"""
-
 from __future__ import annotations
 
 import logging
@@ -55,12 +45,6 @@ is a real answer; a wrong § is not."""
 
 
 def make_picker(llm):
-    """Wrap a chat model into the § picker, with one bounded corrective retry.
-
-    Same shape and same reason as ``register._make_planner``: strict schema
-    mode is not honored by every OpenRouter-served model, so a garbled payload
-    can still reach the parser.
-    """
 
     async def _pick_sections(question: str, index: str) -> RisPassagePlan:
         structured = _apply_org_llm_policy(llm).with_structured_output(

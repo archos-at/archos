@@ -1,5 +1,3 @@
-"""A composed surface (A2UI): a bounded layout of catalog components the model assembles."""
-
 import functools
 import re
 from typing import Any
@@ -26,13 +24,6 @@ _ENVELOPE_FIELD_TYPES: frozenset[str] = frozenset(
 
 @functools.cache
 def _basic_catalog() -> Any:
-    """A2UI's v0.9 basic catalog, whose `Row`, `Column` and `Tabs` the layouts are.
-
-    `a2ui-core` finds a component's child ids from its catalog's schema (a
-    `ChildList` or `ComponentId` reference), so the structure is read through
-    the catalog the layouts take their names and shapes from. Built once: it
-    is the catalog's document, not per-turn state.
-    """
     from a2ui.core.basic_catalog import BasicCatalog
 
     return BasicCatalog("0.9")
@@ -66,7 +57,6 @@ SURFACE_ALIGN = frozenset({"start", "center", "end", "stretch"})
 
 
 def _check_row(component: dict[str, Any]) -> dict[str, Any]:
-    """A `Row` or `Column`: static child ids, 2 to the cap, `justify`/`align` the renderer takes."""
     name, component_id = component["component"], component["id"]
     for prop, allowed in (("justify", SURFACE_JUSTIFY), ("align", SURFACE_ALIGN)):
         if prop in component and (not isinstance(component[prop], str) or component[prop] not in allowed):
@@ -86,11 +76,6 @@ def _check_row(component: dict[str, Any]) -> dict[str, Any]:
 
 
 def _checked_tab(component_id: str, tab: Any) -> dict[str, str]:
-    """One `{title, child}` entry, its title flattened BEFORE the emptiness check.
-
-    Flattened first because `[]()` or a code span of spaces is markup around
-    nothing: checked raw it passes, and the reader gets a blank tab.
-    """
     if not isinstance(tab, dict) or set(tab) != {"title", "child"}:
         raise ValueError(f"'{component_id}' (Tabs): every tab is exactly {{title, child}}.")
     title = flatten_card_markup(tab["title"]).strip() if isinstance(tab["title"], str) else ""
@@ -100,12 +85,6 @@ def _checked_tab(component_id: str, tab: Any) -> dict[str, str]:
 
 
 def _check_tabs(component: dict[str, Any]) -> dict[str, Any]:
-    """A `Tabs`: 2 to the cap, each `{title, child}`, returned with plain-text titles.
-
-    A tab title is on-screen text and gets the plain-text guarantee every other
-    card string gets (`flatten_card_markup`), which the model-level flattening
-    does not reach inside the component dicts.
-    """
     component_id = component["id"]
     tabs = component.get("tabs")
     if not isinstance(tabs, list) or not 2 <= len(tabs) <= SURFACE_MAX_TABS:
@@ -118,14 +97,12 @@ def _check_tabs(component: dict[str, Any]) -> dict[str, Any]:
 
 
 def _check_layout(component: dict[str, Any]) -> dict[str, Any]:
-    """A layout component's own props, returned normalised (see :func:`_check_tabs`)."""
     if component["component"] == "Tabs":
         return _check_tabs(component)
     return _check_row(component)
 
 
 def _checked_text(component: dict[str, Any]) -> dict[str, Any]:
-    """A `Text` leaf: exactly `{id, component, text}`, the text non-empty Markdown."""
     component_id = component["id"]
     extra = set(component) - {"id", "component", "text"}
     if extra:
@@ -147,7 +124,6 @@ def _checked_text(component: dict[str, Any]) -> dict[str, Any]:
 
 
 def _checked_leaf(component: dict[str, Any]) -> dict[str, Any]:
-    """A card component, validated as the card it is; returned normalised, id and name kept."""
     name, component_id = component["component"], component["id"]
     if name == SURFACE_TEXT:
         return _checked_text(component)
@@ -171,13 +147,6 @@ def _checked_leaf(component: dict[str, Any]) -> dict[str, Any]:
 
 
 def _structural_models(components: list[dict[str, Any]]) -> dict[str, Any]:
-    """The components as `a2ui-core` models, keyed by id, for its integrity and topology checks.
-
-    A leaf is passed without its props: it holds no child, and `a2ui-core`
-    falls back to guessing references from the props of a component its
-    catalog does not know, which would read a card field whose value happens
-    to equal a component id as a reference.
-    """
     from a2ui.core.state.component_model import ComponentModel
 
     catalog = _basic_catalog()
@@ -192,19 +161,12 @@ def _structural_models(components: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def _references(component: dict[str, Any]) -> list[str]:
-    """The ids a layout component holds, children and tab children alike; [] for a leaf."""
     if component["component"] not in SURFACE_LAYOUTS:
         return []
     return list(component.get("children") or []) + [tab["child"] for tab in component.get("tabs") or []]
 
 
 def _check_single_parent(components: list[dict[str, Any]]) -> None:
-    """Every component is referenced at most once: the surface is a tree.
-
-    `a2ui-core` accepts a child listed twice, or held by two parents (two tabs
-    on one leaf, a leaf in a tab and in a Row), and the renderer would then
-    draw the one component in two places.
-    """
     seen: set[str] = set()
     for child in (child for component in components for child in _references(component)):
         if child in seen:

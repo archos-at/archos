@@ -1,25 +1,3 @@
-"""Rewrite the German payload keys of every point in place to their English names (ADR-0115).
-
-Points written before the rename hold ``punkt_id`` / ``punkt_path`` / ``punkt_title`` / ``punkt_parent_id`` /
-``punkt_depth``, ``richtlinie``, ``chunking: "punkt"`` and a ``project_facts`` object with German keys
-(``bundesland`` ...) and German tokens (``wien`` ...). New points carry the English ones, and reads accept both
-(``knowledge_layer.vector_store.schema.LEGACY_FIELDS``). This script ends the "both":
-
-    python scripts/qdrant_rename_payload_keys.py all                  # DRY RUN: counts, writes nothing
-    python scripts/qdrant_rename_payload_keys.py all --apply          # create the indexes, rewrite, verify
-    python scripts/qdrant_rename_payload_keys.py all --verify         # counts only; exit 1 while any legacy key is left
-
-It reads the environment the backend reads: ``QDRANT_URL`` and ``QDRANT_API_KEY``. Without ``--apply`` it
-writes nothing at all, not even the payload indexes. With it, per collection: the payload indexes the English
-names need (idempotent, the same call the backend makes at start), then for each point one request that SETS
-the English fields and one that DELETES the German keys, in that order, so an interrupted run leaves a point
-readable under both names and the next run finishes it. A second run changes nothing. Vectors are not read or
-written. The full procedure is ``docs/deployment/qdrant-payload-rename-runbook.md``.
-
-EXIT CODES: ``0`` done (``--apply``: no legacy key is left; dry run: always); ``1`` legacy keys remain after
-``--apply`` or under ``--verify``; ``2`` Qdrant could not be reached.
-"""
-
 from __future__ import annotations
 
 import argparse

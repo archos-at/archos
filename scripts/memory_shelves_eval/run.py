@@ -1,54 +1,4 @@
 #!/usr/bin/env python3
-"""Memory-shelves eval: on which shelf do the two memory writers file a note?
-
-WHY THIS EXISTS
----------------
-The assistant keeps notes on three shelves (ADR-0180): personal (only the
-person reads it), project (its members), organization (everyone). Which shelf a
-finding goes to is a model's judgement, made in the post-answer reflection pass
-(``agent/memory/reflection.py``) and in the in-turn ``remember`` tool
-(``agent/memory/register.py``). The harm is a note about a PERSON on a shelf
-other people read. This measures how often that happens, on labelled exchanges
-(``tests/fixtures/memory_shelves/cases.yaml``).
-
-WHAT RUNS
----------
-- ``reflection``: the real ``run_memory_reflection`` per case: production
-  prompt, schema, sanitiser and writers.
-- ``tool``: the real ``remember`` tool (production description and schema)
-  bound to the same model with the case's user message as the turn; whatever it
-  calls runs through the tool's real body. One model step: a call the tool
-  refused is not handed back for a second try.
-Only ``bff_http.post_json`` is faked, so a note counts when it would have been
-sent. The fake accepts organization writes, which a default deployment's BFF
-refuses and turns into a confirmation card: an organization note here is the
-model's intent.
-
-THE MODEL
----------
-The LLM entry ``workflow.memory_reflection_llm`` names in
-``configs/config_oib_openrouter.yml``, built the way the server builds it and
-pinned to zero-data-retention endpoints (ADR-0074). That is the boot fallback;
-a deployment's live default is the admin's choice (``--model`` runs another).
-In production the chat model, not this one, decides the ``remember`` call.
-
-THE NUMBERS
------------
-(a) leak: a personal matter on the project or organization shelf, over the
-    ``must_not_reach_shared`` cases; (b) a project fact filed only as personal;
-(c) any note on a nothing-to-keep case; (d) a secret kept on any shelf. Each
-as n of N per pass, category and sub-category, with the spread over runs, for
-what was written and for what the model proposed before the filters.
-
-USAGE
------
-    task be:eval:memory-shelves
-    task be:eval:memory-shelves -- --runs 1 --only per-01 adv-sec-02
-    task be:eval:memory-shelves -- --report /tmp/memory_shelves_eval/<time>/results.json
-
-Needs OPENROUTER_API_KEY; no backend, no database. About 420 short calls.
-Exit 1 = a leak or a kept secret was written; 3 = a run errored; 0 otherwise.
-"""
 
 from __future__ import annotations
 
@@ -81,22 +31,18 @@ MAX_ERRORS = 15
 
 
 def _expand(value: Any) -> Any:
-    """``${NAME:-default}`` as the agent runtime expands it."""
     if not isinstance(value, str):
         return value
     return re.sub(r"\$\{(\w+)(?::-([^}]*))?\}", lambda m: os.environ.get(m.group(1)) or (m.group(2) or ""), value)
 
 
 def reflection_llm_config() -> tuple[str, dict[str, Any]]:
-    """The name and the config of the LLM the reflection stage is built with, env expanded."""
     config = yaml.safe_load(CONFIG.read_text(encoding="utf-8"))
     name = config["workflow"]["memory_reflection_llm"]
     return name, {key: _expand(value) for key, value in config["llms"][name].items() if key != "_type"}
 
 
 class Usage:
-    """Calls, tokens and cost as the provider reported them, and the brake on both."""
-
     def __init__(self, max_cost: float) -> None:
         self.calls = self.input_tokens = self.output_tokens = self.errors = 0
         self.cost_usd = 0.0
@@ -135,7 +81,6 @@ class Usage:
 
 
 async def _build_llm(builder: Any, name: str, llm_config: dict[str, Any], model: str) -> Any:
-    """The stage's LLM as the server builds it, on ``model``, pinned to zero data retention."""
     import nat.plugins.langchain.llm  # noqa: F401 - registers the LangChain wrapper for the OpenAI provider
     from agent.common import get_langchain_llm
     from agent.common.openrouter import ZERO_DATA_RETENTION

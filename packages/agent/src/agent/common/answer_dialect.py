@@ -1,36 +1,3 @@
-"""The answer's Markdown dialect, server side: its vocabulary, and the validator that holds an answer to it.
-
-The model writes a few ``remark-directive`` blocks around ordinary Markdown
-(ADR-0069, ``docs/design/answer-richness.md``): ``:::check``, ``:::cases``,
-``:::actions`` and the rest, the markers ``:current`` / ``:applies`` /
-``:recommended``, and the inline project binding ``:project[key]``. The
-frontend draws them (``apps/workspace/bff/text/answer-directives.ts`` holds
-the same vocabulary; ``packages/agent/tests/common/test_answer_dialect_parity.py``
-holds the two lists together).
-
-:func:`validate_dialect` runs on the finished answer after citation
-verification and before report hygiene. It repairs and unwraps; it never
-deletes a line the reader would read (guardrail 8):
-
-- a block name the renderer does not know loses its fences, keeps its content,
-  and its ``[label]`` becomes a bold line over it;
-- a block over the budget of the answer's ``kind`` is unwrapped the same way
-  (``direct``: none; ``ruling``: one primary block; ``walkthrough``: two);
-- a marker outside the block it belongs to has no provenance and is stripped
-  (guardrail 5). ``:current`` inside a ``:::procedure`` is kept: whether the
-  conversation established the step is not decidable here, so it is logged;
-- ``:project[key]`` with a key the renderer cannot resolve becomes the key's
-  plain text. The model never types the value (guardrail 7).
-
-Every repair is recorded, and the census (blocks by name) goes to the trace.
-
-The scanner is a port of the frontend's ``scanDirectiveFences`` rather than
-markdown-it-py's container plugin: the renderer closes the innermost open block
-at a bare ``:::`` (``normalizeDirectiveFences``), which CommonMark containers
-do not, and the server must see the blocks the reader sees. ``mdit-py-plugins``
-is not a dependency either.
-"""
-
 from __future__ import annotations
 
 import logging
@@ -112,7 +79,6 @@ class _Block:
 
 
 def _code_fence(line: str) -> str | None:
-    """The fence ``line`` opens, or ``None`` (``openingCodeFence``)."""
     match = _FENCE_OPEN.match(line)
     if not match:
         return None
@@ -128,7 +94,6 @@ def _closes(line: str, fence: str) -> bool:
 
 
 def _label(rest: str) -> str:
-    """The opener's ``[label]``, or the free words after its name (``:::check Brandschutz``)."""
     stripped = rest.strip()
     label = _LABEL.match(stripped)
     if label:
@@ -138,15 +103,12 @@ def _label(rest: str) -> str:
 
 @dataclass
 class DialectResult:
-    """The answer held to the dialect, with what was repaired and what it held."""
-
     text: str
     census: dict[str, int] = field(default_factory=dict)
     repairs: list[dict[str, str]] = field(default_factory=list)
     sketches: list[SketchCheck] = field(default_factory=list)
 
     def as_trace(self) -> dict[str, Any]:
-        """The census, the repairs by kind and the sketches (``sketch_census``), for the trace metadata."""
         trace: dict[str, Any] = {
             "blocks": dict(self.census),
             "repairs": dict(Counter(repair["repair"] for repair in self.repairs)),
@@ -158,14 +120,11 @@ class DialectResult:
 
 @dataclass
 class _Sketch:
-    """An ``excalidraw`` fence: its opener's line and the body between its fences."""
-
     open: int
     body: list[str] = field(default_factory=list)
 
 
 def _scan(lines: Sequence[str]) -> tuple[list[_Block], list[bool], int, list[_Sketch]]:
-    """The blocks, code lines, drawing count and sketch fences: ``scanDirectiveFences``, kept structured."""
     blocks: list[_Block] = []
     stack: list[int] = []
     code = [False] * len(lines)
@@ -220,7 +179,6 @@ def _scan(lines: Sequence[str]) -> tuple[list[_Block], list[bool], int, list[_Sk
 def _refused_sketches(
     lines: list[str], sketches: Sequence[_Sketch], repairs: list[dict[str, str]]
 ) -> list[SketchCheck]:
-    """Each sketch's verdict; a refused one's opener is retagged in ``lines`` so no reader tries it again."""
     checks: list[SketchCheck] = []
     for sketch in sketches:
         check = check_sketch("\n".join(sketch.body))
@@ -235,7 +193,6 @@ def _refused_sketches(
 
 
 def _unwrap_set(blocks: Sequence[_Block], kind: str | None, repairs: list[dict[str, str]]) -> set[int]:
-    """The blocks that lose their fences: unknown names, then whatever is over the kind's budget."""
     unwrap: set[int] = set()
     for index, block in enumerate(blocks):
         if block.bounded:
@@ -262,7 +219,6 @@ def _unwrap_set(blocks: Sequence[_Block], kind: str | None, repairs: list[dict[s
 
 
 def _enclosing(blocks: Sequence[_Block], unwrap: set[int], line_count: int) -> list[frozenset[str]]:
-    """For each line, the names of the surviving blocks it sits inside (fence lines excluded)."""
     inside: list[set[str]] = [set() for _ in range(line_count)]
     for index, block in enumerate(blocks):
         if index in unwrap:
@@ -274,7 +230,6 @@ def _enclosing(blocks: Sequence[_Block], unwrap: set[int], line_count: int) -> l
 
 
 def _inline(line: str, around: frozenset[str], repairs: list[dict[str, str]]) -> str:
-    """One prose line's markers and project bindings, held to the rules. Inline code is left alone."""
 
     def substitute(match: re.Match[str]) -> str:
         before, name, label = match.group(1), match.group(3), match.group(4)
@@ -298,7 +253,6 @@ def _inline(line: str, around: frozenset[str], repairs: list[dict[str, str]]) ->
 
 
 def _cases_keys(blocks: Sequence[_Block], unwrap: set[int], repairs: list[dict[str, str]]) -> None:
-    """Log a ``:::cases{by=…}`` whose key the renderer cannot resolve; it degrades to an unmarked table."""
     for index, block in enumerate(blocks):
         if index in unwrap or block.name != "cases" or not block.attrs:
             continue
@@ -308,7 +262,6 @@ def _cases_keys(blocks: Sequence[_Block], unwrap: set[int], repairs: list[dict[s
 
 
 def validate_dialect(text: str, kind: str | None) -> DialectResult:
-    """``text`` held to the dialect and the budget of ``kind``; see the module docstring for the rules."""
     if ":" not in text and "```" not in text and "~~~" not in text:
         return DialectResult(text)
     lines = text.split("\n")
@@ -357,7 +310,6 @@ def validate_dialect(text: str, kind: str | None) -> DialectResult:
 
 
 def _canonical_opener(line: str, block: _Block) -> str:
-    """``::: check`` as ``:::check``, and free words after the name as its ``[label]``."""
     opener = _OPENER.match(line)
     if opener is None:
         return line

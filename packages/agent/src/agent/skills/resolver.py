@@ -1,21 +1,3 @@
-"""Org skill resolution: builtin (platform) + BFF-served org skills.
-
-The BFF internal endpoint ``GET /api/internal/skills/resolve`` (built in a
-later phase) returns the org's active skill set layered over the platform
-offerings; this module fetches it fail-open. Resolution discipline:
-
-- Cached in the shared Dragonfly/Redis cache (ADR-0020) keyed by
-  ``skills:{organization_id}:{agent}`` for ``SKILLS_CACHE_TTL_SECONDS``
-  (default 60), so per-turn resolution does not hammer the BFF across
-  replicas — exactly like ``RIS_CACHE_TTL_DAYS`` caches live law.
-- Any failure (no token, timeout, non-2xx, malformed payload) degrades to the
-  builtin set: skills are an additive capability and must never take chat
-  down.
-- Org rows with the same name as a builtin skill SHADOW it (the tenant's
-  version wins), matching BYOK's "explicit org value beats deployment
-  default" ordering.
-"""
-
 from __future__ import annotations
 
 import logging
@@ -41,7 +23,6 @@ AGENT_ALIASES: dict[str, str] = {"shallow_researcher": "researcher"}
 
 
 def canonical_agent(name: str) -> str:
-    """The current name for ``name``, following one retired alias."""
     return AGENT_ALIASES.get(name, name)
 
 
@@ -61,24 +42,10 @@ CATALOG_CURATED = "curated"
 
 
 def _is_curated(skill: Skill) -> bool:
-    """Whether a platform skill is an offer rather than machinery.
-
-    Anything unrecognised reads as machinery, which is the closed default: a
-    typo in this key must not silently expose an internal instruction to every
-    tenant as something they can switch off.
-    """
     return (metadata_value(skill.metadata, METADATA_CATALOG) or "").strip().lower() == CATALOG_CURATED
 
 
 def _agent_allows(skill: Skill, agent: str | None) -> bool:
-    """Respect the ``agents`` metadata: absent = all agents.
-
-    Both sides go through :func:`canonical_agent`: the stored names because a
-    row may predate the ``shallow_researcher`` → ``researcher`` rename, and the
-    caller's ``agent`` because a mid-deploy caller may still be asking under the
-    old name. Normalising only one side reintroduces the failure the alias
-    exists to prevent, in the opposite direction.
-    """
     if agent is None:
         return True
     allowed = metadata_value(skill.metadata, "agents")
@@ -101,27 +68,10 @@ def _agent_allows(skill: Skill, agent: str | None) -> bool:
 
 
 def _skill_applies_to_agent(skill: Skill, agent: str | None) -> bool:
-    """Whether ``skill`` is offered to ``agent``.
-
-    ONE gate, and it is ``agents``. A skill is available to every agent
-    unless it says otherwise in so many words.
-
-    Nothing else narrows a skill, and no other key may: a skill knows nothing
-    about time or output format. Which agent a JOB runs on follows from the
-    job's own ``output`` choice (see ``routes/skills.py::_OUTPUT_AGENT_TYPES``),
-    and the picker then offers only the skills this gate resolves for that
-    agent. Unreserved leftovers such as ``execution`` in a stored org row
-    are ignored here, exactly as any other free-form metadata key is.
-
-    Deep-only leftovers that call ``execute`` and write ``/shared/`` say so
-    with ``agents: deep_researcher``, which is the mechanism for exactly
-    this and is checked by ``_agent_allows``.
-    """
     return _agent_allows(skill, agent)
 
 
 def _build_org_skills(payload: Any) -> list[Skill]:
-    """Strictly validate the BFF skill list; drop malformed rows individually."""
     if not isinstance(payload, list):
         return []
     skills: list[Skill] = []
@@ -148,12 +98,6 @@ def _build_org_skills(payload: Any) -> list[Skill]:
 
 
 class SkillResolver:
-    """Resolves the effective skill set for a run: builtin + org, shadows applied.
-
-    Instances are cheap and reentrant; the platform set is loaded once per
-    instance and the org set is served from the shared cache on the hot path.
-    """
-
     def __init__(self, agent: str | None = None) -> None:
         self.agent = agent
         self._builtin_by_name: dict[str, Skill] | None = None
@@ -166,30 +110,9 @@ class SkillResolver:
 
     @property
     def always_on(self) -> tuple[Skill, ...]:
-        """The builtins that run for every org: the pipeline's own machinery.
-
-        A builtin marked ``catalog: curated`` is NOT machinery — it is a
-        capability the platform offers organizations, and it runs only for the
-        ones that switched it on. That decision lives in the BFF
-        (``curated_skill_activations``), so an activated curated skill arrives
-        through the org payload like any other row and an un-activated one
-        simply does not arrive.
-
-        Which is why it has to be excluded HERE as well: this baseline is the
-        filesystem, and a curated skill left in it would be on for everybody
-        regardless of what any org decided — the payload can add to this map,
-        never subtract from it. Machinery is the default, so a builtin that says
-        nothing about itself stays exactly as always-on as it was.
-        """
         return tuple(skill for skill in self.builtin if not _is_curated(skill))
 
     def resolve(self, organization_id: str | None = None) -> tuple[Skill, ...]:
-        """Machinery + org skills for the current org, org rows shadowing builtins.
-
-        Fails open to the always-on set on any fetch/validation error — which
-        deliberately drops curated skills rather than guessing that an org
-        wanted them: they are additive, and chat must never go down for one.
-        """
         merged_by_name: dict[str, Skill] = {s.name: s for s in self.always_on}
         if organization_id:
             merged_by_name.update({s.name: s for s in self._resolve_org_skills(organization_id)})
@@ -218,7 +141,6 @@ class SkillResolver:
         return self._org_skills_from_rows(rows, known)
 
     def _known_org_names(self, rows: Any) -> set[str] | None:
-        """Names a cached/remote payload REALLY carries; None when unparseable."""
         if not isinstance(rows, list):
             logger.warning("Org skill payload is not a list; ignoring")
             return None
@@ -261,26 +183,6 @@ class SkillResolver:
 
 
 def resolve_served_skills(agent: str, organization_id: str | None) -> tuple[Skill, ...]:
-    """The BFF-SERVED skills that apply to ``agent``, and never an exception.
-
-    Two things separate this from ``SkillResolver.resolve`` and both are about
-    the deep-research path, which is the caller this exists for.
-
-    It returns only rows the BFF served (``origin == "org"``: the platform's
-    standard rows, the offers this organization took up, and its own skills).
-    The builtin FILES are dropped because on the deep path they already have a
-    delivery mechanism of their own — ``deepagents_runtime`` mounts
-    ``skills/builtin`` at ``/skills/`` and the YAML assigns collections per
-    DeepAgents subagent, which is a finer gate than ``agents`` can express.
-    Serving them through this channel as well would hand the WRITER the research
-    skills whose instructions call ``execute``.
-
-    And it never raises. ``resolve`` already fails open on a bad payload or an
-    unreachable BFF, but ``INTERNAL_API_TOKEN`` being unset raises out of
-    ``_fetch_org_skills`` and a deep-research job must not die because the house
-    voice could not be fetched — a report written without it is worth far more
-    than no report. The degradation is silent to the reader and loud in the log.
-    """
     try:
         resolved = SkillResolver(agent=agent).resolve(organization_id)
     except Exception as exc:  # noqa: BLE001 - skills are additive; a run must survive their absence

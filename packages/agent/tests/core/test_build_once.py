@@ -1,13 +1,3 @@
-"""The agent is built once; a turn binds only what it varies.
-
-Before this, every skills-enabled turn (every production turn: the builtin
-skills always resolve, so the skill tool is always folded in) constructed a
-fresh ``ChatAgent``: the 43 KB prompt re-read from disk inside
-the async request, the LangGraph recompiled, every tool schema rebound, the
-BM25 index rebuilt. The "bind once at construction" comments were true of a
-path production never took. These tests count what a turn costs.
-"""
-
 from __future__ import annotations
 
 from unittest.mock import AsyncMock
@@ -36,7 +26,6 @@ from tests.provider_doubles import nat_langchain_client
 
 @tool
 def web_search_tool(query: str) -> str:
-    """Search the web."""
     return f"results: {query}"
 
 
@@ -90,7 +79,6 @@ def _bypass_citation_pipeline():
 
 @pytest.fixture
 def counters(monkeypatch):
-    """How many times the expensive parts ran: prompt reads, graph compiles, constructions."""
     counts = {"prompt_reads": 0, "graph_compiles": 0, "agents_built": 0}
     real_load = prompt_module.load_prompt
     real_build = ChatAgent._build_graph
@@ -120,7 +108,6 @@ def counters(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_two_skills_turns_build_one_agent_read_the_prompt_once_and_compile_once(counters):
-    """The production path: skills on, two turns, one construction."""
     llm = _mock_llm()
     config = ResearchAgentConfig(llm="research_llm", tools=["web_search_tool"], skills_enabled=True)
     runtime = _skill_runtime()
@@ -167,13 +154,6 @@ async def test_a_turn_that_varies_nothing_reuses_the_boot_binding():
 
 @pytest.mark.asyncio
 async def test_the_ceiling_is_the_research_budget_and_nothing_is_added_to_it():
-    """One number bounds the turn, on the boot binding and on a turn binding alike.
-
-    A turn used to be able to raise the ceiling for the skill calls the
-    deployment forced. Nothing is forced now, so ``TurnConfig`` cannot vary the
-    budget at all: what the config says is what the turn gets, which is what the
-    traced floors in ``config_oib_openrouter.yml`` measure.
-    """
     llm = _mock_llm()
     provider = MagicMock(spec=LLMProvider)
     provider.get = MagicMock(return_value=llm)
@@ -192,12 +172,6 @@ async def test_the_ceiling_is_the_research_budget_and_nothing_is_added_to_it():
 
 
 def test_the_recursion_guard_is_derived_from_the_ceiling():
-    """Two steps per round, the final synthesis, and slack.
-
-    Nothing is added on top of the ceiling any more: a round costs one whatever
-    it asked for, so there is no second allowance that could buy rounds the
-    guard has to leave room for.
-    """
     for ceiling in (0, 5, 7):
         assert _recursion_limit(ceiling) > 2 * ceiling + 1
     assert _recursion_limit(5) == (5 * 2) + 10

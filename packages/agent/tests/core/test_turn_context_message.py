@@ -1,27 +1,3 @@
-"""The turn context is its own message; the system prompt is the same bytes on every turn.
-
-A request is ``[system, *earlier turns, turn context, newest question, *this
-turn]``. Everything a turn varies (the date, the asker, the inventory, the
-workspace, the project) is in the turn context, so the system prompt and the
-whole history in front of the newest question are a prefix the next round and
-the next turn share byte for byte. Appended to the system prompt, the per-turn
-half made every turn's first message unique: the provider's prefix cache ended
-inside the system message and never reached the history, and a model that keeps
-its reasoning across turns saw its instructions change under it.
-
-What fails here: a per-turn value leaking into the system prompt, the context
-landing anywhere but right before the newest question, or the context entering
-the stored transcript.
-
-And the answer-language line (live on dev 2026-10-28, project Holzbau Wien,
-conversation ``s_db26a123…``): „What is this project about?" was answered
-entirely in German although the static prompt says to write in the language of
-the newest message (#1336). The turn context is mostly German and is the
-human-role message right before the question, so it outweighed the rule. What
-fails: the line missing on an English question, present on a German or
-ambiguous one, anywhere but after ``</turn_context>``, or not in the trace.
-"""
-
 from __future__ import annotations
 
 from datetime import datetime
@@ -55,12 +31,10 @@ PROMPT = TurnPrompt(system="SYSTEM", context="<turn_context>\nCTX\n</turn_contex
 
 
 def _read(prompt: TurnPrompt) -> str:
-    """Everything the model reads about the turn besides the system prompt, in either layout (``context_layout``)."""
     return (prompt.conversation or "") + prompt.context
 
 
 def _between(request: list) -> str:
-    """The text a request carries between its system prompt and the question."""
     return "".join(content_to_text(message.content) for message in request[1:-1])
 
 
@@ -70,8 +44,6 @@ def _bundled_prompt(monkeypatch):
 
 
 class _Day(datetime):
-    """A clock pinned to one day, so two renders can straddle midnight."""
-
     day = 1
 
     @classmethod
@@ -139,7 +111,6 @@ class TestWhereTheContextGoes:
         assert request[4:] == history[2:]
 
     def test_the_prefix_before_the_newest_question_is_what_the_last_turn_sent(self):
-        """Turn two's request starts with turn one's system prompt and question, byte for byte."""
         turn_one = [HumanMessage(content="erste Frage")]
         turn_two = [*turn_one, AIMessage(content="erste Antwort"), HumanMessage(content="zweite Frage")]
 
@@ -150,12 +121,6 @@ class TestWhereTheContextGoes:
         assert two[1] == turn_one[0]
 
     def test_the_system_prompt_ends_on_the_one_cache_breakpoint(self):
-        """The static prompt is one text block whose end is where the cache entry is written.
-
-        Without it no entry is ever written at the bytes every turn shares, and
-        the next turn's first call re-writes the whole static prefix
-        (``common/prompt_caching.py``, "one block breakpoint").
-        """
         request = request_messages(PROMPT, [HumanMessage(content="Frage")])
 
         assert request[0].content == [{"type": "text", "text": "SYSTEM", "cache_control": {"type": "ephemeral"}}]
@@ -263,7 +228,6 @@ class TestTheAnswerLanguageLine:
 
 @tool
 def knowledge_search(query: str) -> str:
-    """Search the knowledge base."""
     return "Treffer"
 
 
@@ -341,7 +305,6 @@ CHAIN = "Building law at this site, Wien (AT-9, AT, EU), on 2026-11-10, from the
 
 @pytest.fixture
 def bound():
-    """Bind a knowledge context with a chain text for one test; reset after it."""
     from agent.common.knowledge_context import KnowledgeContext
     from agent.common.knowledge_context import set_turn_knowledge_context
 
@@ -378,7 +341,6 @@ def test_a_core_context_carries_the_records_chain_and_no_note(bound):
 
 
 def test_without_a_context_a_vienna_profile_reads_no_law_and_the_unavailable_note(bound):
-    """ADR-0175: the project's text never places it; no context fails closed, chain or not."""
     bound(None)
     context = _context()
     assert "<building_law>" not in context
@@ -404,7 +366,6 @@ def test_open_coverage_carries_the_chain_and_says_it_is_open(bound):
 
 
 def test_no_hand_written_verdicts_reach_the_turn_any_more(bound):
-    """``common/applicability.py`` is gone: which law applies is the records' to say."""
     bound("core")
     assert "OIB 1 —" not in _context()
     assert "Likely relevant for this project" not in _context()

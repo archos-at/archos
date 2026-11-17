@@ -1,19 +1,3 @@
-"""Read-only status view of the OIB knowledge corpus.
-
-Answers "what does the RAG know right now?" by merging the two sources of truth
-that the ingestion pipeline maintains:
-
-1. the ``oib_corpus_files`` table (the corpus: every file with the hash of its
-   current bytes, the hash and chunk-format version the index was last built
-   from, and the ingest job that gave up on it, if one did), brought up to date
-   with the outcome of each file's ingest job (``oib_sync.settle``),
-2. the vector-store collection itself (chunk counts per file).
-
-The merge yields one entry per known file with an explicit lifecycle status,
-so the UI can show users exactly which documents ground the agent's answers
-and which are still pending, changed since they were indexed, or orphaned.
-"""
-
 import logging
 from datetime import datetime
 from enum import StrEnum
@@ -29,8 +13,6 @@ logger = logging.getLogger(__name__)
 
 
 class OibFileState(StrEnum):
-    """Lifecycle of a corpus file relative to what the RAG has indexed."""
-
     INGESTED = "ingested"
     """In the corpus, the index was built from its current bytes, chunks present."""
 
@@ -57,8 +39,6 @@ class OibFileState(StrEnum):
 
 
 class OibFileEntry(BaseModel):
-    """One corpus file as the RAG sees it."""
-
     file_name: str = Field(..., description="PDF filename (unique within the corpus).")
     state: OibFileState = Field(..., description="Lifecycle status relative to the index.")
     size_bytes: int | None = Field(
@@ -97,8 +77,6 @@ class OibFileEntry(BaseModel):
 
 
 class OibStatusSummary(BaseModel):
-    """Aggregate counts over all corpus files."""
-
     total_files: int = 0
     ingested: int = 0
     stale: int = 0
@@ -110,8 +88,6 @@ class OibStatusSummary(BaseModel):
 
 
 class OibKnowledgeStatus(BaseModel):
-    """Full transparency report for the OIB knowledge corpus."""
-
     collection_name: str
     collection_exists: bool
     collection_updated_at: datetime | None = None
@@ -120,7 +96,6 @@ class OibKnowledgeStatus(BaseModel):
 
 
 def _load_suggestions(collection_name: str, file_names: list[str]) -> dict[str, str]:
-    """Best-effort batch read of the Dokumentart suggestions; empty on any store hiccup."""
     try:
         from agent.knowledge.factory import get_document_doc_class_suggestions
 
@@ -131,14 +106,6 @@ def _load_suggestions(collection_name: str, file_names: list[str]) -> dict[str, 
 
 
 def _load_summaries(collection_name: str) -> dict[str, tuple[str | None, str | None, str | None]]:
-    """Best-effort lookup of per-document (summary, doc_class, display_title).
-
-    The document_metadata store is authoritative for all three fields; a store
-    hiccup resolves to an empty map so status never fails on it. Keyed by
-    filename. ``display_title`` is the stored override only — the caller layers
-    the derived default on top so a document that was never explicitly seeded
-    still shows an effective name.
-    """
     try:
         from agent.knowledge.factory import get_available_documents
 
@@ -209,13 +176,6 @@ def _with_metadata(entries: list[OibFileEntry], collection_name: str) -> None:
 
 
 def get_status(ingestor=None) -> OibKnowledgeStatus:
-    """Compute the merged corpus status. Blocking; call off the event loop.
-
-    Args:
-        ingestor: Optional ingestor override (used by tests). Defaults to the
-            same LlamaIndex singleton that ``oib_sync`` ingests through, so the
-            report reflects exactly the collection the agent retrieves from.
-    """
     collection_name = oib_sync.COLLECTION_NAME
     if ingestor is None:
         ingestor = oib_sync._get_oib_ingestor()

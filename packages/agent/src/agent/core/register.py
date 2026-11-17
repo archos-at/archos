@@ -1,16 +1,3 @@
-"""Agent-runtime register function for research agent.
-
-One :class:`ChatAgent` is built at boot. Per request ``_run_turn``
-computes only what the turn varies (the switched-off data sources, the org's
-skills behind ``read_file``, the model override) as a :class:`TurnConfig`
-and hands it to ``agent.run``; nothing is compiled, read or re-indexed per turn.
-The tool SET no longer varies with the data-source toggles — a switched-off
-source keeps its tool and refuses the call (``common/data_sources.py``), so
-every turn of an org sends the same tool payload to the same cache shard —
-except that a turn without a project is not sent the building-model tools
-(``turn_tools.tools_in_scope``), which cannot run there.
-"""
-
 import asyncio
 import logging
 from collections.abc import Sequence
@@ -90,8 +77,6 @@ _MAX_MEMOISED_SELECTIONS = 64
 
 
 class ResearchAgentConfig(FunctionBaseConfig, name="research_agent"):
-    """Configuration for the research agent."""
-
     llm: LLMRef = Field(..., description="LLM to use")
     tools: list[FunctionRef | FunctionGroupRef] = Field(
         default_factory=list,
@@ -194,7 +179,6 @@ class ResearchAgentConfig(FunctionBaseConfig, name="research_agent"):
     @field_validator("filesystem", mode="before")
     @classmethod
     def _no_filesystem(cls, value: Any) -> Any:
-        """``null``, ``none`` or empty from an ``--override`` (the files eval's search arm) switch the estate off."""
         if isinstance(value, str) and value.strip().lower() in ("", "null", "none"):
             return None
         return value
@@ -213,8 +197,6 @@ class ResearchAgentConfig(FunctionBaseConfig, name="research_agent"):
 
 @dataclass(frozen=True)
 class _Deployment:
-    """What the boot built, shared by every turn."""
-
     config: ResearchAgentConfig
     agent: ChatAgent
     provider: LLMProvider
@@ -251,16 +233,6 @@ async def _resolve_skill_runtime(
     config: ResearchAgentConfig,
     state: ResearchAgentState,
 ) -> SkillRuntime | None:
-    """The org's skills for THIS run (ADR-0018: never cached on the agent), or None.
-
-    Builtin + org set from the resolver, narrowed by the config allowlist, in
-    the one office source of a :class:`SkillRuntime` (ADR-0135). The catalog is
-    announced BEFORE the LLM runs — how many skills were offered, on the
-    technical channel. The per-skill announcement fires at delivery instead,
-    because a catalog line is an offer until the model reads the ``SKILL.md``.
-    No skills resolved: nothing to offer, nothing to read, and silence is the
-    correct announcement.
-    """
     if not config.skills_enabled:
         return None
     resolver = SkillResolver(agent="researcher")
@@ -274,20 +246,10 @@ async def _resolve_skill_runtime(
 
 
 async def _active_provider(provider: LLMProvider) -> LLMProvider:
-    """Per-org model overrides + platform thinking level + BYOK credential + ZDR (ADR-0022).
-
-    Each returns the boot provider unchanged when inactive, so the agent's
-    identity check keeps the boot binding on a turn that overrides nothing.
-    The four lookups each fall back to a blocking BFF call, so they are read
-    off the loop, concurrently and failing on their own:
-    ``common/request_llm_context.py``, which the clarifier and deep research
-    read through too.
-    """
     return (await read_request_llm_context()).apply(provider)
 
 
 def _turn_facts(state: ResearchAgentState, runtime: SkillRuntime | None) -> TurnFacts:
-    """What the decider is shown, from the state the gather already filled."""
     from agent.cards.catalog import CHAT_ONLY_CARD_TYPES
     from agent.cards.catalog import card_index_entries
     from agent.cards.envelope import ENVELOPE_SHAPE_TYPES
@@ -325,15 +287,10 @@ def _turn_facts(state: ResearchAgentState, runtime: SkillRuntime | None) -> Turn
 
 
 def reference_project_count(catalog: str | None) -> int:
-    """How many reference projects the turn's catalog lists: one line each, each naming its id."""
     return sum(1 for line in (catalog or "").splitlines() if line.startswith("- ") and " (id " in line)
 
 
 async def _decide_turn(facts: TurnFacts | None) -> TurnDecisions:
-    """The turn-start decision, or none: never raises, never blocks longer than its timeout.
-
-    ``facts`` is ``None`` when the config switched the decision off.
-    """
     if facts is None:
         return TurnDecisions.none()
     if facts.previous_message is None and len(facts.question.split()) < 3:
@@ -347,13 +304,6 @@ async def _decide_turn(facts: TurnFacts | None) -> TurnDecisions:
 
 
 async def _fit_references(facts: TurnFacts | None) -> ReferenceFit | None:
-    """The catalog verified against the question (ADR-0064 use 10), beside the turn decision; never raises.
-
-    Under the same gates as the decision: switched off with it, and not for a
-    first message of one or two words. Asked whatever the decision then says,
-    because it runs beside it: the model reads the catalog in every turn, and
-    its own lookups walk the same order.
-    """
     if facts is None or facts.reference_projects < MIN_FIT_LINES:
         return None
     if facts.previous_message is None and len(facts.question.split()) < 3:
@@ -368,7 +318,6 @@ async def _fit_references(facts: TurnFacts | None) -> ReferenceFit | None:
 
 
 def _apply_reference_fit(fit: ReferenceFit | None, state: ResearchAgentState) -> None:
-    """The catalog in its fit order, and the order every similar or closed search of the turn walks."""
     if fit is None:
         return
     state.reference_projects = fit.catalog
@@ -387,22 +336,6 @@ _WARMING: set[asyncio.Task[None]] = set()
 
 
 def _warm_question(facts: TurnFacts | None) -> None:
-    """Start embedding the question the round-0 prefetch will search; not awaited.
-
-    The prefetch is known only after the decision, and its search then pays
-    the query embedding (280-980 ms, measured 2026-09-24) before it can rank.
-    The string it will search is known now, so the embedding runs beside the
-    decision and the search finds it cached, or in flight. Nothing waits on it.
-
-    Warmed only where ``prefetch_calls`` can search the raw question, as far
-    as that is known before the decision: a FIRST message of three words or
-    more, which the decision may prefetch, or one that names an OIB family,
-    which is prefetched even undecided — „OIB 2" skips the decision and is
-    still searched. A later message is searched only when the decision rules it
-    self-contained, and without a decision never (``prefetch_calls``), so
-    warming it would mostly be an embedding call nobody reads. A decided
-    first message whose corpus is not searched still wastes one call.
-    """
     if facts is None or facts.previous_message is not None:
         return
     from agent.common.norm_registry import family_query_number
@@ -418,16 +351,6 @@ def _warm_question(facts: TurnFacts | None) -> None:
 
 
 def _apply_decisions(decisions: TurnDecisions, state: ResearchAgentState, runtime: SkillRuntime | None) -> None:
-    """The two prompt-side effects: the chosen skill's body, and the likely card shapes.
-
-    The chosen skill is pinned: its body rides this turn's prompt in full, the
-    one method the question is the subject of; the shapes are its preferred
-    cards beyond the shapes the envelope teaches and ``surface`` — what a
-    ``read_file`` of it hands over with the body — then the turn decision's card
-    picks, capped (``attached_card_types``). ``surface`` is left out because
-    its shape is the envelope's compose rule, already in the prompt. Still
-    offers: the model decides.
-    """
     from agent.cards.catalog import CHAT_ONLY_CARD_TYPES
     from agent.cards.envelope import ENVELOPE_SHAPE_TYPES
     from agent.skills.models import preferred_cards
@@ -448,15 +371,6 @@ def _apply_decisions(decisions: TurnDecisions, state: ResearchAgentState, runtim
 
 
 def _report_skills(result: ResearchAgentState, runtime: SkillRuntime) -> None:
-    """Lift what was DELIVERED AND FOLLOWED onto the result.
-
-    ``skills_activated`` is rendered to the reader as what shaped this answer,
-    so only a skill whose body reached the model belongs in it: read with
-    ``read_file``, or pinned in the prompt and named in the envelope's
-    ``skills_applied`` (ADR-0063), which the runtime accepts only for a body
-    it pinned. A catalog the model read past is not a miss to report: the
-    offer was the whole mechanism.
-    """
     runtime.record_applied(result.skills_applied or ())
     result.skills_activated = list(runtime.activated)
     hidden = list(runtime.hidden_activated)
@@ -469,13 +383,6 @@ def _reply(state: ResearchAgentState, text: str) -> ResearchAgentState:
 
 
 def _warn_if_nothing_is_reachable(disabled_sources: frozenset[str]) -> None:
-    """The one diagnostic the narrowing used to give: a turn with no source left.
-
-    It is a request the caller probably did not mean (``data_sources`` naming
-    nothing the registry knows, or every source toggled off), and it no longer
-    shows up as an empty tool list — the tools are all still bound, they will
-    all just refuse.
-    """
     if not disabled_sources:
         return
     reachable = [meta.id for meta in get_all_sources() if meta.id.lower() not in disabled_sources]
@@ -484,7 +391,6 @@ def _warn_if_nothing_is_reachable(disabled_sources: frozenset[str]) -> None:
 
 
 async def _run_turn(deployment: _Deployment, state: ResearchAgentState) -> ResearchAgentState:
-    """One request: narrow the tools, resolve the skills, run the shared agent."""
     config = deployment.config
     disabled_sources = unavailable_source_ids(state.data_sources) | law_sources_withheld(reads_turn_sources=True)
     _warn_if_nothing_is_reachable(disabled_sources)
@@ -532,7 +438,6 @@ async def _run_turn(deployment: _Deployment, state: ResearchAgentState) -> Resea
 def _turn_prefetch(
     decisions: TurnDecisions, facts: TurnFacts | None, state: ResearchAgentState, *, enabled: bool = True
 ) -> tuple:
-    """Round 0's tool calls; none when the config switched the decision off, or the prefetch (``prefetch: false``)."""
     if facts is None or not enabled:
         return ()
     calls = tuple(
@@ -551,13 +456,6 @@ def _turn_prefetch(
 
 
 def record_reference_decision(decisions: TurnDecisions, offered: int, calls: tuple) -> None:
-    """The office's experience at the start of a turn, for Langfuse (ADR-0089, ADR-0094).
-
-    How many reference projects the catalog offered, what the decision said
-    about a precedent, and whether round 0 searched the reference projects on
-    its own: the lookup's own observation cannot tell a prefetch from a call
-    the model chose, and a turn whose catalog was empty never reaches it.
-    """
     prefetched = any(call.get("name") == PROJECT_LOOKUP for call in calls)
     record_trace_metadata(
         reference_projects_offered=offered,
@@ -569,7 +467,6 @@ def record_reference_decision(decisions: TurnDecisions, offered: int, calls: tup
 
 
 async def _run_agent(deployment: _Deployment, state: ResearchAgentState, turn: TurnConfig) -> ResearchAgentState | str:
-    """The shared agent's run, or the reply to a miss, which the caller sends."""
     try:
         return await deployment.agent.run(state, turn=turn)
     except EmptySourceRegistryError as exc:
@@ -579,11 +476,6 @@ async def _run_agent(deployment: _Deployment, state: ResearchAgentState, turn: T
 
 
 def _estate_backend(config: ResearchAgentConfig, builder: Builder) -> Any:
-    """The estate backend the filesystem tools read through, built at boot; ``None`` when none is configured.
-
-    It reads nothing here: the scope, the rows and the pages are the turn's,
-    read per call from the turn's context (ADR-0133).
-    """
     if config.filesystem is None:
         return None
     from knowledge_layer.estate import EstateBackend
@@ -592,13 +484,6 @@ def _estate_backend(config: ResearchAgentConfig, builder: Builder) -> Any:
 
 
 def _chat_bound(tools: list[Any], config: ResearchAgentConfig, builder: Builder) -> list[Any]:
-    """The shared knowledge-layer tools on the contract of a binding that reads the estate (slice 6).
-
-    Only when the turns will bind the estate's verbs (``filesystem`` set): ``knowledge_search`` is
-    then ranked search with ``path`` and ``list_files`` loses its tree view, because ``grep`` and
-    ``ls`` do those. A config without the estate (an eval, a benchmark) keeps the full contracts,
-    the literal modes included. The budget the description states is the search's own configuration.
-    """
     if config.filesystem is None:
         return tools
     from knowledge_layer.chat_binding import chat_tools
@@ -613,7 +498,6 @@ def _chat_bound(tools: list[Any], config: ResearchAgentConfig, builder: Builder)
 
 @register_function(config_type=ResearchAgentConfig, framework_wrappers=[LLMFrameworkEnum.LANGCHAIN])
 async def research_agent(config: ResearchAgentConfig, builder: Builder):
-    """Research agent with tool-calling capabilities."""
     llm = await get_langchain_llm(builder, config.llm)
     tools = _chat_bound(await _load_tools(config, builder), config, builder)
 
@@ -646,21 +530,14 @@ async def research_agent(config: ResearchAgentConfig, builder: Builder):
     yield FunctionInfo.from_fn(_run, description="Research agent for fast, bounded research.")
 
 
-class ResearchWorkflowConfig(FunctionBaseConfig, name="research_workflow"):
-    """Configuration for the research workflow wrapper.
-
-    This wrapper accepts a string query and converts it to messages
-    for the shallow_research_agent. Use this as the workflow for evaluation.
-    """
+class ResearchWorkflowConfig(FunctionBaseConfig, name="research_workflow"): ...
 
 
 @register_function(config_type=ResearchWorkflowConfig, framework_wrappers=[LLMFrameworkEnum.LANGCHAIN])
 async def research_workflow(config: ResearchWorkflowConfig, builder: Builder):
-    """Wrapper workflow that accepts string queries for evaluation."""
     research_agent_fn = await builder.get_function("shallow_research_agent")
 
     async def _run(query: str, project_context: str | None = None) -> str:
-        """Run research on a query string."""
         result = await research_agent_fn.ainvoke(
             ResearchAgentState(messages=[HumanMessage(content=query)], project_context=project_context)
         )

@@ -1,5 +1,3 @@
-"""Structured response contracts for deep researcher planning, research, and synthesis."""
-
 from typing import ClassVar
 from typing import Literal
 
@@ -12,8 +10,6 @@ from agent.common.plan_vocabulary import LEGACY_PLAN_GENRE
 
 
 class _StrictContract(BaseModel):
-    """Base model for structured response schemas."""
-
     model_config: ClassVar[ConfigDict] = {"extra": "forbid"}
 
 
@@ -59,7 +55,6 @@ class AnswerStrategy(_StrictContract):
     @field_validator("answer_type", mode="before")
     @classmethod
     def _legacy_answer_type(cls, value: object) -> object:
-        """A checkpointed strategy still names the German genre."""
         return LEGACY_PLAN_GENRE.get(value, value) if isinstance(value, str) else value
 
     title: str = Field(description="Concise human-facing title for the final output.")
@@ -79,8 +74,6 @@ class Constraint(_StrictContract):
 
 
 class SourceRecommendation(_StrictContract):
-    """A source-router recommendation for the planner."""
-
     source_id: str = Field(description="Configured data source ID to use.")
     tool_names: list[str] = Field(description="Exact available source tool names under this source.")
     priority: int = Field(ge=1, le=3, description="Priority rank for this source: 1 is highest, 3 is lowest.")
@@ -88,8 +81,6 @@ class SourceRecommendation(_StrictContract):
 
 
 class SourceRoutingPlan(_StrictContract):
-    """Advisory source route produced before planning."""
-
     domain_id: str = Field(description="Best-fit configured domain route for this request.")
     domain_name: str = Field(description="Human-readable domain name.")
     routing_reason: str = Field(description="Why this domain/source route fits the user request.")
@@ -126,15 +117,6 @@ class ResearchQuery(_StrictContract):
     @field_validator("preferred_tools", mode="after")
     @classmethod
     def _require_preferred_tools(cls, value: list[str]) -> list[str]:
-        """Enforce non-empty preferred_tools without a JSON-Schema minLength.
-
-        Field(min_length=1) compiles to a JSON-Schema minLength constraint,
-        which strict json_schema structured-output mode does not support (see
-        EvidenceJudgment.relevance_score below for the ge/le equivalent).
-        Unlike relevance_score, an empty preferred_tools list cannot be
-        clamped to a valid value -- there is no tool name to invent -- so this
-        raises, matching the previous Field(min_length=1) failure semantics.
-        """
         if not value:
             raise ValueError("preferred_tools must include at least one tool name")
         return value
@@ -195,16 +177,6 @@ class EvidenceJudgment(_StrictContract):
     @field_validator("relevance_score", mode="after")
     @classmethod
     def _clamp_relevance_score(cls, value: int) -> int:
-        """Clamp out-of-range scores instead of raising.
-
-        Field(ge=0, le=100) compiles to JSON-Schema minimum/maximum, which
-        strict json_schema structured-output mode does not support --
-        langchain's ProviderStrategy ships the schema verbatim (no
-        sanitization), causing provider 400s or inconsistent handling for
-        researcher-worker structured responses. A model returning 105 should
-        degrade gracefully to 100 rather than raising and killing the whole
-        research worker over a minor numeric overshoot.
-        """
         return max(0, min(100, value))
 
 

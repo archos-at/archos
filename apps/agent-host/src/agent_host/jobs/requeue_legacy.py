@@ -1,41 +1,3 @@
-"""The cutover of the old research claim queue onto Hatchet (ADR-0150).
-
-A deployment that ran research on ``research_job_queue`` holds rows there when
-the Hatchet release goes out: jobs still waiting (``queued``), and jobs an old
-worker claimed (``claimed``). No new code claims them. The agent-worker moves
-them itself: its Hatchet lifespan runs :func:`cutover_loop` from boot
-(``research_workflow._liveness``), a pass a minute, because old API and chat
-pods keep writing the table while they drain. It stops once the table has held
-nothing to move for an hour, or once the table is gone.
-
-Each row is locked (``FOR UPDATE SKIP LOCKED`` on Postgres), its payload
-decrypted, started as a ``research-run`` with the row's organization and
-priority, and deleted in the same transaction. A start that fails rolls the
-transaction back, so the row stays for the next pass. A job already terminal in
-``job_info`` (cancelled or reaped while it waited) is not started, only deleted;
-one that already has a Hatchet run is not started again, only deleted. A payload
-that cannot be read stays in place and is named in the log. The old payload's
-``claim_owner`` key is dropped at replay (``worker.RETIRED_PAYLOAD_KEYS``).
-
-What is safe to move: every ``queued`` row, and a ``claimed`` row only once its
-claim has shown no sign of life (the later of its claim and its last heartbeat)
-for longer than the old worker's drain budget (``RESEARCH_WORKER_DRAIN_SECONDS``,
-default 600 s) plus a margin. An old worker heartbeats every claim it holds,
-also while it drains, so a younger claim may still be running there. The old
-claim takes its row with ``FOR UPDATE SKIP LOCKED`` and flips it to ``claimed``
-in one statement, so it skips a row a cutover holds; and a row it claimed a
-moment ago fails the age check here, which Postgres re-evaluates on the newest
-version of a row it locks. Two new replicas skip each other's row the same way.
-
-An operator can run a pass by hand, from any backend pod with the job database
-and the Hatchet connection:
-
-    python -m agent_host.jobs.requeue_legacy           # the same claim-age rule
-    python -m agent_host.jobs.requeue_legacy --force   # every claim: the old pods are gone
-
-The table itself stays until a later migration drops it.
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -77,12 +39,10 @@ class Requeued:
 
     @property
     def removed(self) -> int:
-        """Rows this pass took out of the table."""
         return len(self.started) + len(self.already_terminal) + len(self.already_on_hatchet)
 
 
 def claim_age_floor() -> int:
-    """Seconds a claim must have been silent before it is moved: the old drain budget plus the margin."""
     return lease_policy.int_env(DRAIN_ENV, lease_policy.DRAIN_SECONDS, floor=0) + CLAIM_MARGIN_SECONDS
 
 
@@ -99,7 +59,6 @@ def _table_exists(db_url: str) -> bool:
 
 
 def _movable_query(postgres: bool, skip: int, every_claim: bool):
-    """The oldest row that may move, locked on Postgres; ``skip`` rows this pass already left in place."""
     from sqlalchemy import bindparam
     from sqlalchemy import text
 
@@ -118,10 +77,6 @@ def _movable_query(postgres: bool, skip: int, every_claim: bool):
 
 
 def _lock_next(conn, min_claim_age: int, skip: set[str]) -> tuple | None:
-    """``(job_id, lane, payload, priority, job_info status)`` of the next movable row, held by ``conn``.
-
-    A ``min_claim_age`` of 0 or less moves every claim, however young.
-    """
     postgres = conn.dialect.name == "postgresql"
     every_claim = min_claim_age <= 0
     params: dict = {}
@@ -134,7 +89,6 @@ def _lock_next(conn, min_claim_age: int, skip: set[str]) -> tuple | None:
 
 
 def _sqlite_threshold(min_claim_age: int) -> str:
-    """SQLite's ``CURRENT_TIMESTAMP`` format, in UTC, for the age comparison (tests and local stacks)."""
     return (datetime.now(UTC) - timedelta(seconds=min_claim_age)).strftime("%Y-%m-%d %H:%M:%S")
 
 
@@ -146,10 +100,6 @@ def _delete_row(conn, job_id: str) -> None:
 
 
 async def _settle(db_url: str, row: tuple, result: Requeued) -> bool:
-    """Start one locked row's job on Hatchet unless it needs none; whether the row is to be deleted.
-
-    A failed start raises, and the caller's transaction is rolled back.
-    """
     job_id, lane, stored, priority, status = row
     if status in _TERMINAL:
         result.already_terminal.append(job_id)
@@ -170,11 +120,6 @@ async def _settle(db_url: str, row: tuple, result: Requeued) -> bool:
 
 
 async def move_next(db_url: str, result: Requeued, *, min_claim_age: int, skip: set[str]) -> bool:
-    """Lock, settle and delete the next movable row in one transaction; whether there was one.
-
-    A row left in place (an unreadable payload) joins ``skip``. A failed start
-    raises after the transaction is rolled back, so the row stays.
-    """
     conn = await asyncio.to_thread(_engine(db_url).connect)
     try:
         row = await asyncio.to_thread(_lock_next, conn, min_claim_age, skip)
@@ -193,10 +138,6 @@ async def move_next(db_url: str, result: Requeued, *, min_claim_age: int, skip: 
 async def requeue(
     db_url: str, *, min_claim_age: int | None = None, limit: int | None = None, stop: asyncio.Event | None = None
 ) -> Requeued:
-    """One pass: move the table's movable rows to Hatchet, up to ``limit``; what happened to each.
-
-    ``min_claim_age`` defaults to :func:`claim_age_floor`; 0 moves every claim.
-    """
     result = Requeued()
     if not await asyncio.to_thread(_table_exists, db_url):
         result.table_missing = True
@@ -221,11 +162,6 @@ def _live_rows(db_url: str) -> int:
 
 
 async def cut_over(db_url: str, stop: asyncio.Event) -> bool | None:
-    """One pass of the worker's loop: whether the table still had work, None once it is gone.
-
-    Work is a row moved, or a row left waiting (a claim inside its window).
-    Best effort: a failed pass counts as one that found work.
-    """
     try:
         result = await requeue(db_url, limit=BATCH, stop=stop)
         if result.table_missing:
@@ -248,11 +184,6 @@ async def cut_over(db_url: str, stop: asyncio.Event) -> bool | None:
 async def cutover_loop(
     db_url: str, stop: asyncio.Event, *, every: float = CUTOVER_EVERY_SECONDS, quiet_for: float = CUTOVER_QUIET_SECONDS
 ) -> None:
-    """Pass after pass while the old table holds work: old pods still write it while they drain.
-
-    The first pass runs at boot. The loop ends with the worker, once the table
-    has held nothing for ``quiet_for`` seconds, or once the table is gone.
-    """
     quiet = 0.0
     while quiet < quiet_for:
         busy = await cut_over(db_url, stop)

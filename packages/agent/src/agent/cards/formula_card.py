@@ -1,8 +1,3 @@
-"""The formula card: a named rule whose inputs the reader may change.
-
-And the checks that keep a figure out of a name.
-"""
-
 import re
 import unicodedata
 from typing import Annotated
@@ -119,7 +114,6 @@ def _is_symbol(char: str) -> bool:
 
 
 def _figure_in(value: str, *, name: bool) -> str | None:
-    """What makes ``value`` carry a figure or a verdict, or None. ``name``: a title or label, not a text."""
     text = _TOP_EDGE.sub(" ", unicodedata.normalize("NFKC", value))
     if _VERDICT.search(text):
         return "a verdict"
@@ -416,11 +410,6 @@ class SiteBinding(CardModel):
 
 
 def site_binding() -> dict[str, Any] | None:
-    """The turn's binding editions as a formula card carries them; None outside a turn. Pure but for the turn.
-
-    One entry per designation. Its label is the binding uses' one label, or None where they name two
-    editions (the card cannot tell which binds); ``scope_unsettled`` where any of them is still open.
-    """
     context = get_turn_knowledge_context()
     if context is None:
         return None
@@ -513,7 +502,6 @@ _FORMULA_SLOTS: dict[str, tuple[str, ...]] = {
 
 
 def formula_inputs(card: dict[str, Any]) -> list[dict[str, Any]]:
-    """Every input object of a validated formula card's dict, in reading order. Pure."""
     formula = card.get("formula") or {}
     name = formula.get("name")
     if name == "u_value":
@@ -538,11 +526,6 @@ def _stated(node: Any) -> int:
 
 
 def stated_result_fields(payload: Any) -> int:
-    """How many fields of a raw computing card state what the card computes. Pure.
-
-    A ``calculation`` or ``formula`` payload, or a ``surface`` whose leaves
-    include them (a leaf names its type as ``component``).
-    """
     if not isinstance(payload, dict):
         return 0
     if payload.get("type") in _COMPUTING_CARDS:

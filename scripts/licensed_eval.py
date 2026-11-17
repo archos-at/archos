@@ -1,34 +1,4 @@
 #!/usr/bin/env python3
-"""The licensed-seam eval: how well answers use licensed norm text, and whether any of it leaks.
-
-``tests/fixtures/licensed_eval/norms.yaml`` holds norm-like documents with tables (written for
-this eval, no real standard's text) and questions read off them. Some table cells are unreadable
-on purpose, the way a scanned page reaches the index; a question about one expects the answer to
-point to the page and the table and to state no value.
-
-Each question runs as one turn through the real chat-request contract (``llm_factory``) against
-OpenRouter: the platform's static system prompt, the question, a ``knowledge_search`` call and its
-grounding block as the tool result. Three arms change only how the passage is marked:
-
-- ``public``: unmarked, the text in the transcript, as every office document is today;
-- ``seam``: marked ``licensed`` with the ``licensed-seam`` flag on: a reference in the transcript,
-  the text expanded inside the call, the reply capped (``common/licensed_text.py``);
-- ``off``: marked ``licensed`` with the flag off: listed, no text;
-- ``unattested``: marked ``licensed``, flag on, but the office has not attested that its licence covers
-  processing by AI services: listed, no text, nothing quotable (design 4.7).
-
-Per run it records whether the expected value is stated, whether an unreadable value is pointed to
-and not guessed, the longest stretch of licensed text in the answer against the quote cap, and two
-leak checks: the longest licensed stretch any LangChain callback saw (what Langfuse and the agent
-runtime's spans are built from) and in the messages a checkpoint would store. ``off`` is the
-floor (the model never read the text), as is ``unattested``, and ``public`` the ceiling the seam is measured against.
-
-    .venv/bin/python scripts/licensed_eval.py --out /tmp/licensed-eval            # 2 runs per question and arm
-    .venv/bin/python scripts/licensed_eval.py --arm seam --runs 1 --only barrier_mid
-    .venv/bin/python scripts/licensed_eval.py --report /tmp/licensed-eval/results.json
-
-Needs OPENROUTER_API_KEY. ``--model`` defaults to ``DEFAULT_MODEL``, else the configs' boot default.
-"""
 
 from __future__ import annotations
 
@@ -86,7 +56,6 @@ def _norm(text: str) -> str:
 
 
 def longest_licensed_run(text: str, licensed: str) -> int:
-    """The longest stretch of ``text`` that also occurs in ``licensed`` (whitespace and case normalised)."""
     a, b = _norm(text), _norm(licensed)
     best, previous = 0, [0] * (len(b) + 1)
     for i in range(1, len(a) + 1):
@@ -100,13 +69,11 @@ def longest_licensed_run(text: str, licensed: str) -> int:
 
 
 def _value_pattern(value: str) -> re.Pattern[str]:
-    """``100 cm`` matched as ``100 cm``, ``100cm`` or ``1,00 m``-free: the number, then the unit, spaces optional."""
     number, _, unit = value.partition(" ")
     return re.compile(rf"(?<![\d,.]){re.escape(number)}\s*{re.escape(unit)}\b", re.IGNORECASE)
 
 
 def check(answer: str, expect: dict[str, Any]) -> dict[str, Any]:
-    """The answer against the question's expectations: values stated, place pointed to, nothing guessed."""
     result: dict[str, Any] = {}
     if expect.get("values"):
         result["value_found"] = all(_value_pattern(value).search(answer) for value in expect["values"])
@@ -165,7 +132,6 @@ def _block(document: dict[str, Any], arm: str) -> str:
 
 
 def _system_prompt() -> str:
-    """The bundled static system prompt, rendered as the chat agent renders it (its one variable filled)."""
     from agent.common.prompt_utils import render_prompt_template
 
     (path,) = (ROOT / "packages" / "agent" / "src" / "agent" / "agents").glob("*/prompts/chat_static.md")
@@ -236,7 +202,6 @@ def _recorder():
 
 
 async def _calls(record: Run, messages: list, model: str, recorder: Any, calls: int) -> Any:
-    """Send the turn ``calls`` times, as an agent loop re-sends it; record cache reads, cost and seconds per call."""
     seconds: list[float] = []
     reply = None
     for _ in range(calls):
@@ -256,7 +221,6 @@ async def _calls(record: Run, messages: list, model: str, recorder: Any, calls: 
 async def run_one(
     question: dict[str, Any], document: dict[str, Any], arm: str, index: int, model: str, calls: int = 1
 ) -> Run:
-    """One question, one arm, one run, measured."""
     from langchain_core.load import dumpd
 
     from agent.common.grounding_block import begin_grounding_capture
@@ -312,7 +276,6 @@ def _arm_row(arm: str, runs: list[Run]) -> str:
 
 
 def report(runs: list[Run], meta: dict[str, Any]) -> str:
-    """The report as Markdown: one row per arm, then one row per question and arm."""
     lines = [
         "# Licensed-seam eval",
         "",

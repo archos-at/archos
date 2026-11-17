@@ -1,18 +1,3 @@
-"""
-Universal Schema for Knowledge Layer.
-
-This module defines the "Golden Record" - strict Pydantic models that all
-adapters must output. This ensures agents always see a consistent format
-whatever adapter produced them (the llamaindex backend, or a test fake).
-
-Schema Rules (enforced by all adapters):
-1. Five Pillars: content_type MUST be exactly "text", "table", "chart", "image", or "drawing"
-2. Display Citation: display_citation MUST be populated with human-readable string
-3. Visual Safety: content MUST NEVER be None (use empty string for visuals)
-4. Data vs View: Raw data in structured_data, renderable image in image_url
-5. Link Rot: image_url MUST be presigned URL, not internal S3 path
-"""
-
 import uuid
 from datetime import datetime
 from enum import StrEnum
@@ -27,13 +12,6 @@ from pydantic import model_validator
 
 
 class ContentType(StrEnum):
-    """
-    The Five Pillars - strict content categorization.
-
-    All adapters MUST map their internal types to one of these five categories.
-    The frontend relies on this for component switching.
-    """
-
     TEXT = "text"
     TABLE = "table"
     CHART = "chart"
@@ -42,13 +20,6 @@ class ContentType(StrEnum):
 
 
 class Chunk(BaseModel):
-    """
-    The Atomic Unit of Knowledge (The 'Golden Record').
-
-    This schema is what every adapter outputs (llamaindex, and the test fakes)
-    so the Agent always sees a consistent format.
-    """
-
     chunk_id: str = Field(..., description="Unique ID for citation tracking.")
     content: str = Field(
         ...,
@@ -114,7 +85,6 @@ class Chunk(BaseModel):
     @model_validator(mode="before")
     @classmethod
     def ensure_content_string(cls, data: Any) -> Any:
-        """Safety check: Ensure content is never None, even if backend returns None."""
         if isinstance(data, dict):
             if data.get("content") is None:
                 data["content"] = ""
@@ -122,8 +92,6 @@ class Chunk(BaseModel):
 
 
 class RetrievalResult(BaseModel):
-    """The container object returned by the retrieve_documents tool."""
-
     chunks: list[Chunk] = Field(default_factory=list)
     total_tokens: int = Field(0, ge=0, description="Estimated token count for context management.")
     query: str = Field(..., description="The original query that produced these results.")
@@ -133,8 +101,6 @@ class RetrievalResult(BaseModel):
 
 
 class JobState(StrEnum):
-    """Ingestion job states for async processing."""
-
     PENDING = "pending"
     PROCESSING = "processing"
     COMPLETED = "completed"
@@ -143,8 +109,6 @@ class JobState(StrEnum):
 
 
 class FileStatus(StrEnum):
-    """File processing status for UI tracking."""
-
     UPLOADING = "uploading"
     INGESTING = "ingesting"
     SUCCESS = "success"
@@ -155,24 +119,10 @@ _FILE_ID_NAMESPACE = uuid.UUID("6f1c0a52-3b7e-4d8a-9c41-5e2d7a90b3f6")
 
 
 def stable_file_id(collection_name: str, file_name: str) -> str:
-    """The id of a file: a function of where it lives and what it is called, nothing else.
-
-    A file is identified by ``(collection, file name)`` everywhere else (its
-    chunks, its summary row, a delete), so its id is too. Any process derives
-    the same id without asking another, which is what lets the ``api`` process
-    list a file the ``ingest-worker`` indexed, and delete it by the id it listed.
-    A random id per call, or per ingest, could not be handed from one to the other.
-    """
     return str(uuid.uuid5(_FILE_ID_NAMESPACE, f"{collection_name}\x00{file_name}"))
 
 
 class CollectionInfo(BaseModel):
-    """
-    Metadata about a collection/index.
-
-    Used by UI to display available sources/collections.
-    """
-
     name: str = Field(..., description="Unique collection name.")
     description: str | None = Field(None, description="Human-readable description.")
     file_count: int = Field(0, ge=0, description="Number of files in this collection.")
@@ -187,22 +137,6 @@ class CollectionInfo(BaseModel):
 
 
 class QuarantineReason(BaseModel):
-    """One reason the upload screen held a file back (ADR-0086, ADR-0113).
-
-    A term the office listed, or a detector (``iban``, ``at_svnr``,
-    ``credit_card``, ``de_svnr``, ``de_tax_id``); never a matched value. A detector's ``sample`` is masked
-    before it gets here (``AT61 •••• •••• •••• 3201``). ``kind`` is open: a
-    detector the job learns first reaches a reader as a kind it does not know,
-    which it reads as ``other`` rather than failing the whole verdict.
-
-    Serialised in one shape wherever it is dumped (the job status, the
-    collection file list, the legacy ``quarantined:`` string): ``term`` and
-    ``sample`` only when set, ``pages_truncated`` only when true. The BFF's
-    ``verdictSchema`` (``apps/workspace/bff/upload-screening/quarantine.ts``)
-    reads exactly that, and ``tests/fixtures/quarantine_verdict_cases.json``
-    holds the two to it.
-    """
-
     kind: str = Field(..., min_length=1, description="`term`, or the detector that matched.")
     term: str | None = Field(None, description="The office's term, as it wrote it; only for `kind == 'term'`.")
     count: int = Field(..., ge=0, description="How often it was found.")
@@ -222,17 +156,6 @@ class QuarantineReason(BaseModel):
 
 
 class QuarantineVerdict(BaseModel):
-    """Why the upload screen held a file back, as data (ADR-0113).
-
-    Built only by ``ScreeningVerdict.to_model`` in the knowledge layer's
-    ``screening.py``, which bounds it: at most ten reasons, at most fifty pages
-    a reason, and the whole within two thousand characters of JSON, cutting
-    pages before reasons. ``omitted`` says how many reasons it left out, so a
-    short list is never read as the whole one; it is serialised only when it is
-    not zero, and ``checked`` always. ``after_transcription`` is serialised only
-    when true.
-    """
-
     reasons: list[QuarantineReason] = Field(default_factory=list)
     checked: Literal["full", "partial"] = Field(
         ..., description="`partial` when some of the file's content went unscreened (pages without a text layer)."
@@ -257,12 +180,6 @@ class QuarantineVerdict(BaseModel):
 
 
 class FileInfo(BaseModel):
-    """
-    Metadata about a file within a collection.
-
-    Used by UI to display files and their processing status.
-    """
-
     file_id: str = Field(..., description="Unique file identifier.")
     file_name: str = Field(..., description="Original filename.")
     collection_name: str = Field(..., description="Collection this file belongs to.")
@@ -364,8 +281,6 @@ class FileInfo(BaseModel):
 
 
 class FileProgress(BaseModel):
-    """Progress tracking for individual files within an ingestion job."""
-
     file_id: str = Field(default="", description="Unique identifier for the file.")
     file_name: str = Field(..., description="Name of the file being processed.")
     status: FileStatus = Field(default=FileStatus.UPLOADING, description="Current processing status.")
@@ -433,13 +348,6 @@ class FileProgress(BaseModel):
 
 
 class IngestionJobStatus(BaseModel):
-    """
-    Status model for async ingestion jobs.
-
-    This follows a polling pattern where the frontend submits a job and then
-    polls this status endpoint every 2 seconds until completion.
-    """
-
     job_id: str = Field(..., description="Unique identifier for this ingestion job.")
     status: JobState = Field(default=JobState.PENDING, description="Overall job status.")
     submitted_at: datetime = Field(..., description="When the job was submitted.")
@@ -470,96 +378,20 @@ class IngestionJobStatus(BaseModel):
 
     @property
     def progress_percent(self) -> float:
-        """Calculate progress percentage."""
         if self.total_files == 0:
             return 0.0
         return (self.processed_files / self.total_files) * 100.0
 
     @property
     def is_terminal(self) -> bool:
-        """Check if job is in a terminal state (completed, failed or cancelled)."""
         return self.status in (JobState.COMPLETED, JobState.FAILED, JobState.CANCELLED)
 
     @property
     def is_success(self) -> bool:
-        """Check if job completed successfully (at least some files processed)."""
         return self.status == JobState.COMPLETED and self.processed_files > 0
 
 
 class AvailableDocument(BaseModel):
-    """One searchable document the agent may list in this turn.
-
-    Identity is ``(collection, file_name)`` (ADR-0047): the same filename can
-    sit on the Büroablage and in a project as two different documents. ``shelf``
-    is where it sits (``office_shelf`` / ``project`` / ``session`` / ``base``) and is
-    stamped at aggregation from the signed scope — never guessed back from the
-    filename. Missing shelf is unknown, not ``base``.
-
-    Attributes:
-        file_name: The name of the uploaded file.
-        summary: Optional one-sentence summary of the document content.
-        tags: Optional controlled ingestion-generated tags (document type + OIB
-            discipline).
-        doc_class: Optional explicit per-document classification ("Dokumentart"),
-            preferred over the filename guess for lane/kind placement.
-        display_title: Optional user-facing document name shown on citation chips
-            and in the base-corpus admin UI. When unset, callers fall back to the
-            derived default (``guess_display_title``); the filename is never shown.
-        folder_path: Optional materialised folder path the document is filed
-            under, denormalised from the BFF's ``project_folders.path``
-            (ADR-0049) — e.g. ``Brandschutz/Fluchtwege``. ``None`` means the
-            project root (or a shelf that has no folders at all). It is a PATH,
-            not an id: it reads as itself, and a prefix match gives the folder's
-            whole subtree.
-        topics: Optional open topics (Themen): the model's own confident terms,
-            or a person's correction. Free text beside the controlled tags.
-        capture: Optional facts a camera wrote into a photo: ``captured_at``
-            (ISO 8601), ``latitude``, ``longitude``, ``camera``, present keys
-            only. Coordinates ride along for the BFF, which shows them to the
-            people who may open the file; they are never rendered to a model.
-            Only ``captured_at`` (as a date) and ``camera`` may reach a prompt.
-        superseded_by: Optional file name of the newer document in the SAME
-            collection that a person confirmed replaces this one (a Fassung
-            across different names; ADR-0054 covers the same name). Never set by
-            a model.
-        supersedes: Derived, never stored: the file names whose ``superseded_by``
-            is this document.
-        revision_suggestion: Optional open suggestion, as a dict: ``of`` (the
-            older file name), ``confidence``, ``reason`` (German), ``basis``
-            (``title_block`` | ``name`` | ``content``), ``dismissed``, and
-            ``dismissed_of`` (every file a person refused as the older Fassung;
-            ``dismissed`` says whether ``of`` is one). A suggestion is not a link.
-        revision_facts: Optional title-block facts read from the first drawing
-            page that has a title block: ``document_number``, ``revision`` (the
-            Index as printed), ``revision_date`` (ISO), ``scale``, ``title``,
-            ``page``; present keys only. Two documents with the same
-            ``document_number`` are Fassungen of one another.
-        change_summary: Optional German bullet lines: what changed against the
-            Fassung named by ``change_basis``.
-        change_basis: Optional file name ``change_summary`` compared against.
-        page_count: Optional number of pages the file has, counted when it was ingested (a backfill
-            fills the older rows). ``None`` for a file without pages, such as a text file, and for a row
-            ingested before the count was kept: the listing says nothing rather than guess.
-        mail_thread: Optional, on a filed E-Mail-Verlauf: ``latest_sent_at`` (the newest message's
-            send time, RFC 3339 UTC), ``message_count`` and ``locale``
-            (:mod:`~agent.knowledge.mail_facts`). Its date is the document's own date.
-        mail_origin: Optional, on a file filed from a mail: the message it came with, ``sent_at``,
-            ``received_at``, ``from_name``, ``from_domain``, ``signer_domain``, ``sender_trust``,
-            ``thread_document_id`` and ``locale``; a forwarded message's ``from_*`` and ``sent_at``
-            are its author's, and ``forwarded_by_name``, ``forwarded_by_domain`` and
-            ``forwarded_at`` its forwarder's. Display names and domains only, never an
-            address. A reader names the sender's domain only as :func:`~agent.knowledge.
-            mail_facts.mail_origin_label` does: the signing domain when it was verified, else
-            „Domain nicht bestätigt“, and never for a forward's author.
-        added_at: Optional ``YYYY-MM-DD`` the document was first indexed under
-            this name (the row's ``created_at``; a re-ingest keeps it). A
-            string, not a datetime, because the row rides the checkpointed turn
-            state and the prompt cache key.
-        collection: The RAG collection this row was loaded from.
-        shelf: Wire shelf (ADR-0047). Rendering-only labels live on
-            ``SHELF_QUALIFIERS``; do not infer this from ``collection``.
-    """
-
     file_name: str
     summary: str | None = None
     tags: list[str] | None = None

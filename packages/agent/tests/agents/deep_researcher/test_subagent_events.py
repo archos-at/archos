@@ -1,12 +1,3 @@
-"""Deep research's subagents reach the chat wire as AG-UI 1.0 ``SUBAGENT_*`` events.
-
-Two producers: the orchestrator's ``task`` calls (``SubagentEventsMiddleware``,
-through a real ``create_agent`` tool loop) and each researcher worker of
-``run_research_batch`` (``_run_research_query``). Both run inside a compiled
-outer graph under ``astream``, the shape an in-process deep research has on a
-chat turn, because only there does the writer reach them.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -40,8 +31,6 @@ from agent.common.wire_v2 import SubagentStartedBody
 
 
 class _ToolCallingFake(GenericFakeChatModel):
-    """A scripted chat model that accepts tools, for a real ``create_agent`` loop."""
-
     def bind_tools(self, tools: Any, **kwargs: Any) -> _ToolCallingFake:
         return self
 
@@ -71,7 +60,6 @@ async def _bodies_of(node: Any) -> list[Any]:
 def _orchestrator(responses: Iterator[AIMessage], task_body: Any) -> Any:
     @tool("task")
     async def task(description: str, subagent_type: str) -> str:
-        """Run a subagent."""
         return await task_body(subagent_type)
 
     return create_agent(
@@ -185,8 +173,6 @@ def _notes(topic: str) -> dict[str, Any]:
 
 
 class _Researcher:
-    """A researcher runnable that writes one step, then returns notes (or nothing usable)."""
-
     def __init__(self, empty_for: str | None = None) -> None:
         self.empty_for = empty_for
 
@@ -231,7 +217,6 @@ async def test_each_researcher_worker_is_its_own_subagent_and_a_useless_one_fail
 
 
 async def test_an_error_result_from_the_task_tool_is_a_failed_subagent_too() -> None:
-    """A middleware further in may turn the raise into an error ToolMessage: still a failure, ended once."""
     middleware = SubagentEventsMiddleware(["writer-agent"])
     request = SimpleNamespace(tool_call={"name": "task", "args": {"subagent_type": "writer-agent"}, "id": "call_w"})
 

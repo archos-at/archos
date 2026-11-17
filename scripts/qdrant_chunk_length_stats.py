@@ -1,21 +1,3 @@
-"""Measure the BM25 length of the chunks in each Qdrant collection, read-only (ADR-0127).
-
-Qdrant's ``qdrant/bm25`` normalises a chunk's term weights by its length against
-``avg_len``, counted in its own tokens (the words left after the German
-analysis). This reads that length back out of the stored lexical vectors of a
-sample of chunks and prints the mean and percentiles per physical collection,
-next to the ``avg_len`` the collection was written with. Nothing is written.
-
-    python scripts/qdrant_chunk_length_stats.py              # both collections
-    python scripts/qdrant_chunk_length_stats.py office --sample 20000
-
-The rebuild (``scripts/qdrant_rebuild.py --copy-to``) measures the same way and
-writes the mean into the new collection; this is how to see the number first.
-It reads ``QDRANT_URL`` and ``QDRANT_API_KEY`` like the backend.
-
-EXIT CODES: ``0`` measured; ``2`` Qdrant could not be reached.
-"""
-
 from __future__ import annotations
 
 import argparse

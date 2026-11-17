@@ -1,19 +1,3 @@
-"""A turn whose transcript still carries a call to a retired look tool runs (ADR-0128, plan risk R1).
-
-The previous turn's tool calls and results stay in the transcript for one turn
-(``history.prune_tool_results``), so the first follow-up after the deploy that
-retired ``view_knowledge_image`` and ``canvas__look`` sends the model a call to
-a tool that is no longer bound. Through the COMPILED GRAPH: the old call and its
-result reach the model as a pair (a call without its result is what a provider
-refuses), nothing on this side re-runs, drops or rejects it, and the turn looks
-with ``look`` and answers.
-
-What this cannot show is whether every provider accepts a historical call to an
-undeclared tool, so ``history.replay_retired_look_names`` does not ask: it shows
-the model the old calls (and their results) as ``look``, arguments renamed, for
-one release. The first test runs it through the compiled graph; the rest pin the mapping.
-"""
-
 from __future__ import annotations
 
 from unittest.mock import AsyncMock
@@ -45,7 +29,6 @@ RETIRED_CALLS = {
 
 @tool("look")
 def look(document: str = "", page: int = 1) -> str:
-    """Look at a page of a document."""
     RAN.append(f"look:{document}:{page}")
     return f"Seite {page}: Tür 1,00 m"
 
@@ -61,7 +44,6 @@ def _clean_slate():
 
 @pytest.fixture(autouse=True)
 def _bypass_citation_pipeline():
-    """The answer pipeline is not what these tests are about."""
     with (
         patch.object(SourceRegistry, "all_sources", return_value=[SourceEntry(url="https://example.com")]),
         patch("agent.core.answer_pipeline.verify_citations") as verify,
@@ -75,7 +57,6 @@ def _bypass_citation_pipeline():
 
 
 def _previous_turn(retired: str) -> list:
-    """A stored turn that looked with ``retired``: the question, the call, its image result, the answer."""
     return [
         HumanMessage(content="Wie breit ist die Tür im EG?"),
         AIMessage(content="", tool_calls=[{"name": retired, "args": RETIRED_CALLS[retired], "id": "old-1"}]),
@@ -136,7 +117,6 @@ async def test_a_follow_up_after_a_retired_look_looks_with_look_and_answers(reti
 
 @pytest.mark.parametrize("retired", sorted(RETIRED_CALLS))
 def test_one_turn_later_the_retired_call_is_pruned_with_its_result(retired: str) -> None:
-    """The transcript forgets the old name by itself after one more turn: nothing stored carries it for long."""
     later = [
         *_previous_turn(retired),
         HumanMessage(content="Und im OG?"),

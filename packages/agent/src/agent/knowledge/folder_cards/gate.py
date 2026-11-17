@@ -1,21 +1,3 @@
-"""Whether an organization has written folder cards: the ``folder-cards`` WorkOS flag (ADR-0127).
-
-An office capability's on/off switch is a WorkOS flag, decided per organization
-by the BFF (``GET /api/internal/stages``, ``features.folderCards``). This tier has
-no WorkOS client; it asks the BFF the way the per-turn stage read does
-(``agent.stages.flags.fetch_turn_flags``) and keeps the answer for
-:data:`TTL_SECONDS`, because a mark happens once per changed document and a
-bulk import changes hundreds.
-
-Two ways to ask, for two kinds of caller:
-
-* :func:`enabled_for` never raises and answers ``False`` for anything short of a
-  yes (no organization, no token, a BFF that is down). The hooks and the listing
-  use it: a lost mark is found by the nightly reconcile once the flag answers.
-* :func:`check` raises when the BFF cannot be asked. The builder uses it, so a
-  run fails its attempt and is tried again instead of dropping its folders on a blip.
-"""
-
 from __future__ import annotations
 
 import threading
@@ -35,7 +17,6 @@ def _fetch(organization_id: str) -> bool:
 
 
 def check(organization_id: str | None) -> bool:
-    """Whether ``organization_id`` has the flag; ``False`` without one. Raises when the BFF cannot be asked."""
     if not organization_id:
         return False
     now = time.monotonic()
@@ -53,7 +34,6 @@ def check(organization_id: str | None) -> bool:
 
 
 def enabled_for(organization_id: str | None) -> bool:
-    """:func:`check`, with every failure read as off. Never raises. Blocking; call off the event loop."""
     try:
         return check(organization_id)
     except Exception:  # noqa: BLE001 - off is the safe answer for an entitlement
@@ -61,6 +41,5 @@ def enabled_for(organization_id: str | None) -> bool:
 
 
 def forget() -> None:
-    """Drop every kept answer (tests)."""
     with _lock:
         _answers.clear()

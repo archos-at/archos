@@ -32,12 +32,10 @@ SERVICE_HEADERS: frozenset[bytes] = frozenset(
 
 
 def legacy_name(name: bytes) -> bytes:
-    """The old name of a service header: ``x-budget`` → ``x-grid-budget``."""
     return b"x-grid-" + name.removeprefix(b"x-")
 
 
 def with_legacy_names(headers: list[tuple[bytes, bytes]]) -> list[tuple[bytes, bytes]]:
-    """``headers`` plus an old-name copy of each service header that arrived only under its new name."""
     present = {name for name, _ in headers}
     added = [
         (legacy_name(name), value)
@@ -64,8 +62,6 @@ def legacy_header(name: str) -> str:
 
 
 class LegacyHeaderNamesMiddleware:
-    """Pure ASGI, so it serves the chat WebSocket as well as HTTP."""
-
     def __init__(self, app: ASGIApp) -> None:
         self.app = app
 

@@ -1,59 +1,3 @@
-"""Agent-runtime function for opening a NAMED passage: the locator beside the search.
-
-`knowledge_search` is the only way this agent could reach a passage, and it is
-a semantic search. So a second round that already knows what it wants — "the
-Herleitung concluded that OIB-Richtlinie 2 Pkt. 3.5.2 decides this, and I have
-not read it" — had to ask the corpus to *find* that passage again, by
-similarity, competing with every neighbouring requirement. The model paid one
-more search, one more reranker pass and one more requery judge for a lookup it
-could already address.
-
-This tool is that lookup. Given a document the inventory knows and a Punkt or a
-page, it fetches exactly the chunks carrying that Punkt (``clause_id``, the
-identifier the Punkt chunker verified against the corpus's own contents pages)
-or that page, and returns them in the SAME grounding block ``knowledge_search``
-returns — same ``Citation:`` keys, same ``Punkt:`` line, same ``## Trace-Lanes``
-fan-out under the same round stamp. Everything downstream (citation
-verification, the Herleitung spine, the source registry) therefore treats a
-located passage exactly as it treats a searched one, which is the point: this
-adds a way to REACH evidence, not a second kind of evidence.
-
-Three properties are load-bearing, and they hold for the same lookup one
-granularity up: ``document=`` with neither Punkt nor page is the OUTLINE, which
-answers "what is in this document at all?" with the document's opening passage
-plus a ``## Gliederung`` of its top-level Punkte. That question has no Punkt and
-no page to name, and refusing it sent the model to a search that returns cover
-pages and then to a Punkt number it had guessed.
-
-**It never guesses a document.** The name is resolved against the documents
-registered for the collections this turn may read — exact file name, stored
-display title, or the derived OIB title — and an unresolved name is refused
-with the two ways to recover plus up to three verbatim guesses from this
-turn's inventory when anything is close. A locator that fuzzy-matches is a
-search with worse recall and a confident label.
-
-**It is deterministic.** No reranker, no requery judge, no LLM. The metadata
-filter admits only the chunks of the named document that carry the named Punkt
-or page, so the SET is whatever is stored; the order is by page and then Punkt
-and then chunk id, which is stable across calls rather than across editions.
-(The corpus stores no ordinal within a Punkt: the 11 Punkte of 946 long enough
-for ``SentenceSplitter`` to cut carry only the parent's metadata on each piece.
-Chunk id is the tie-break because it is stable, not because it is the reading
-order.)
-
-**It costs one call.** ``knowledge_search`` fans out across every collection in
-scope, drafts, reranks and may re-query; this issues one filtered fetch per
-collection the named document actually lives in — normally exactly one. It is
-still charged to the research budget, because it reads evidence and the budget
-is what bounds evidence-gathering; it is simply the cheapest thing that budget
-can buy.
-
-Scope and exclusions are NOT restated here: the tool reads them off the
-``knowledge_search`` instance it is configured against
-(:class:`~knowledge_layer.register.KnowledgeRetrievalConfig`), so the two can
-never drift into reading different corpora.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -194,15 +138,6 @@ _READ_PASSAGE_DESCRIPTION = (
 
 
 class ReadPassageConfig(FunctionBaseConfig, name="read_passage"):
-    """Configuration for the ``read_passage`` locator.
-
-    One field, on purpose. Which collections a turn may read, which base corpus
-    it points at and which files are excluded are the SEARCH's contract; this
-    tool reads the same index through the same scope and so reads them off the
-    ``knowledge_search`` instance rather than restating them, which is the only
-    way the two cannot end up pointed at different corpora.
-    """
-
     knowledge_search: FunctionRef = Field(
         default=FunctionRef("knowledge_search"),
         description=(
@@ -214,7 +149,6 @@ class ReadPassageConfig(FunctionBaseConfig, name="read_passage"):
 
 @register_function(config_type=ReadPassageConfig)
 async def read_passage(config: ReadPassageConfig, _builder: Builder):
-    """Open a named passage of a named document, or its outline. Deterministic; no LLM."""
     from knowledge_layer.search import resolve_base_collection
     from knowledge_layer.search import restrict_scope_to_turn
     from knowledge_layer.search import scoped_collections_for_site
@@ -227,13 +161,6 @@ async def read_passage(config: ReadPassageConfig, _builder: Builder):
         )
 
     async def _unknown(document: str) -> str:
-        """The refusal for a name nothing nameable carries, with its guesses.
-
-        Counts and guesses come only from collections whose documents may be
-        named to the model (:func:`may_name`): a restricted folder's file is
-        neither suggested nor counted until this turn admitted its collection,
-        because listing is not use (ADR-0088).
-        """
         from agent.knowledge.restricted_use import may_name
 
         nameable = [entry for entry in _entries() if may_name(entry.collection)]
@@ -243,20 +170,12 @@ async def read_passage(config: ReadPassageConfig, _builder: Builder):
         return _unknown_document_message(document, known, _suggestion_names(document, scoped, limit=1000))
 
     async def _resolve_or_refuse(document: str) -> tuple[list[PassageTarget], str]:
-        """The (collection, file) targets this name resolves to, or the refusal."""
         targets = await _resolve_targets(_entries(), document)
         if targets:
             return targets, ""
         return [], await _unknown(document)
 
     async def _miss(document: str, targets: list[PassageTarget], message: str, outcome: ActionOutcome) -> str:
-        """``message`` for a read that returned no passage, unless it would confirm a hidden document.
-
-        A document only restricted folders hold, none of them admitted this
-        turn, is answered as if it did not exist: "no such Punkt" or "registered
-        but empty" would tell the model it is there (ADR-0088). Its row says the
-        same: an error over the name the model asked for, no file name, no count.
-        """
         if _nameable(targets) is not None:
             return message
         outcome.hits = None
@@ -264,43 +183,6 @@ async def read_passage(config: ReadPassageConfig, _builder: Builder):
         return await _unknown(document)
 
     async def _read(arguments: ReadPassageInput) -> str:
-        """Open a document you can name: one clause (Punkt) or page of it, or its outline.
-
-        With neither `clause` nor `page`, the document's OUTLINE is returned: its
-        opening passage plus a `## Gliederung` of its top-level Punkte with
-        their pages. That is what to call when you know the document but not yet
-        which Punkt holds the answer — never guess a Punkt number.
-        Several documents or several Punkte are one call each, issued in the
-        same round: a round costs one however many calls it holds.
-
-        Arguments (``ReadPassageInput``):
-            document: The document's exact indexed file name or display
-                title, as the inventory or a previous hit printed it. Never
-                invented, never a fragment.
-            clause: Optional. The Punkt number alone, e.g. "3.5.2" — no
-                "Pkt.", no title — or a table's caption, "Tabelle 3". A
-                top-level Punkt often arrives as a number (`3`) and is read as
-                its digits, the way `page` accepts a numeric string. Omit it,
-                and `page`, for the outline. ``punkt`` is accepted as the
-                former name of this argument.
-            page: Optional. The page number, 1-based. Ignored when `clause` is
-                given: the clause alone names the passage. ``''`` is treated as
-                omitted (#656: providers send empty string for "no page"). Omit
-                it, and `clause`, for the outline.
-            pages: Optional. A page range such as "4-6" (or one page, "4"; at most
-                30 pages): those pages in reading order, up to about 6k tokens,
-                without the overlap between neighbouring chunks. Ignored when
-                `clause` is given. Request every range you need in one round.
-            cursor: Optional. The `cursor` a ranged read ended with, passed back with
-                the same `document` to continue where it stopped. Opaque: copy it.
-            conclusion: Optional. One line on what you are looking for;
-                no effect on the call.
-
-        Returns:
-            str: The passages, in the same grounding-block format
-            `knowledge_search` returns, with Citation keys to copy verbatim —
-            followed by the Gliederung when no clause and no page was named.
-        """
         outcome = ActionOutcome()
         row = ActionRow("read", **_read_row_fields(arguments))
         try:
@@ -369,7 +251,6 @@ async def read_passage(config: ReadPassageConfig, _builder: Builder):
         return formatted
 
     async def _open_range(document: str, pages_argument: Any, cursor_token: str | None, outcome: ActionOutcome) -> str:
-        """Pages ``first``-``last`` of a document in reading order, or the rest of a read that stopped early."""
         from knowledge_layer.search import format_results
 
         try:
@@ -436,7 +317,6 @@ async def read_passage(config: ReadPassageConfig, _builder: Builder):
         return formatted
 
     async def _outline(document: str, outcome: ActionOutcome) -> str:
-        """The same lookup at document granularity: scope passage plus Gliederung."""
         from knowledge_layer.search import format_results
 
         targets, refusal = await _resolve_or_refuse(document)
@@ -466,15 +346,6 @@ async def read_passage(config: ReadPassageConfig, _builder: Builder):
     async def _opening_passages(
         document: str, targets: list[PassageTarget], query: str, failures: list[BaseException], outcome: ActionOutcome
     ) -> str:
-        """The outline of a document with no Punkt metadata: its opening passages.
-
-        Those chunks ARE the passages — there is no heading structure to index,
-        so the block carries no Gliederung and says so in one line. Nothing is
-        re-checked here beyond the document itself: the fetch narrows to the
-        file and the document-order sort decides which chunks open it, because
-        a second clause on ``page_label`` would exclude every store that fills
-        it with something other than a page number.
-        """
         from knowledge_layer.search import format_results
 
         whole = await _fetch_all(targets, _whole_document_filters, query, _MAX_OUTLINE_CHUNKS)
@@ -504,7 +375,6 @@ async def read_passage(config: ReadPassageConfig, _builder: Builder):
 
 
 def _session_collection() -> str | None:
-    """This conversation's own collection, when an agent-runtime context states one."""
     try:
         ctx = Context.get()
         return ctx.conversation_id if ctx else None
@@ -513,7 +383,6 @@ def _session_collection() -> str | None:
 
 
 def _passage_result(chunks: list[Any], query: str):
-    """The located chunks as the ``RetrievalResult`` the formatter expects."""
     from agent.knowledge.schema import RetrievalResult
 
     return RetrievalResult(chunks=chunks, query=query, backend="read_passage", success=True)

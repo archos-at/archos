@@ -1,18 +1,3 @@
-"""Agent-runtime tools for the Austrian RIS (Rechtsinformationssystem des Bundes).
-
-Two tools built on the OGD-RIS API:
-
-- ``ris_search``          — search Austrian federal law, state law, and case
-  law; returns document references with citation URLs. Optionally refines the
-  query through a planner LLM using strict structured outputs
-  (``response_format: json_schema``, OpenRouter-compatible) so search
-  parameters are always schema-valid.
-- ``ris_fetch_document``  — fetch an ENTIRE document (law paragraph, full
-  consolidated law, court decision) on demand, return its text to the agent,
-  and (optionally) ingest it into the session knowledge collection so the
-  knowledge layer can retrieve and cite it afterwards.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -101,13 +86,6 @@ def _build_search_params(
     date_from: str,
     date_to: str,
 ) -> dict[str, str]:
-    """Translate the tool arguments into OGD-RIS query parameters.
-
-    The parameters are the ``terms`` of the ``search`` operation in the RIS
-    source record (``configs/sources/at/ris/source.yml``): which Bundesland
-    parameter a state name becomes, and which date parameter each application
-    takes, are tables there, not branches here.
-    """
     for value, name in ((date_from, "date_from"), (date_to, "date_to")):
         if value and not _DATE_RE.fullmatch(value.strip()):
             raise RisError(f"{name} must use the YYYY-MM-DD format, got '{value}'")
@@ -123,13 +101,6 @@ def _build_search_params(
 
 
 class RisSearchInput(BaseModel):
-    """The arguments of one ``ris_search`` call, as the model sees them.
-
-    ``federal_state`` was ``bundesland``; the old name is read for one release
-    (remove the alias after) so a cached tool schema or a replayed call from
-    before the rename still validates.
-    """
-
     query: str
     application: str = "BrKons"
     title: str = ""
@@ -161,17 +132,6 @@ Search term rules:
 
 
 def _apply_org_llm_policy(llm):
-    """Apply the platform's per-request LLM policy to the planner model.
-
-    Mirrors how other auxiliary LLM calls (e.g. memory reflection) integrate:
-    the org's runtime model override for the DEEP_RESEARCH_ROUTER agent group
-    (the planner is the same kind of lightweight routing/planning task) and
-    the org's BYOK credential (ADR-0022) are applied per call, credential
-    first so the ZDR pin inside ``apply_model_override`` lands only on a model
-    that still points at OpenRouter. A failure falls back to the YAML-configured
-    model PINNED to zero-data-retention endpoints, never the bare one; this
-    import degrades gracefully when the adapter is used outside the agent.
-    """
     try:
         from agent.common import apply_model_override
         from agent.common import apply_org_credential
@@ -187,13 +147,6 @@ def _apply_org_llm_policy(llm):
 
 
 def _make_planner(llm):
-    """Wrap a LangChain chat model into a RIS search planner using structured outputs.
-
-    ``method="json_schema"`` emits ``response_format: {type: json_schema, strict: true}`` —
-    the OpenRouter structured-outputs wire format. Not every OpenRouter-served model
-    honors ``strict: true``, so ``_plan`` performs one bounded corrective retry on a
-    parse/validation failure before letting the error surface to the caller's fail-open.
-    """
 
     async def _plan(query: str, application: str, title: str, federal_state: str, date_from: str, date_to: str):
         structured = _apply_org_llm_policy(llm).with_structured_output(RisSearchPlan, method="json_schema", strict=True)
@@ -228,11 +181,6 @@ def _make_planner(llm):
 
 
 def _cache_hits(raw: object) -> list[tuple[str | None, str | None, str | None]]:
-    """The hit triples stored beside a cached search text, defensively read.
-
-    The cache is shared and may hold a payload from another build: anything
-    that is not a (name, title, detail) triple is skipped, never guessed.
-    """
     if not isinstance(raw, list):
         return []
     hits: list[tuple[str | None, str | None, str | None]] = []
@@ -243,12 +191,6 @@ def _cache_hits(raw: object) -> list[tuple[str | None, str | None, str | None]]:
 
 
 def _capture_lane_hits(hits: list[tuple[str | None, str | None, str | None]]) -> None:
-    """Best-effort per-round ledger capture: ``(name, title, detail)`` per shown hit.
-
-    No-op when the adapter runs standalone (guarded import above) and never
-    raising: ``record_lane_hit`` itself cannot fail, so a capture must never
-    break a tool result. The ledger reads this, never the prose.
-    """
     if not _LANE_CAPTURE_AVAILABLE or _record_lane_hit is None:
         return
     for name, title, detail in hits:
@@ -278,8 +220,6 @@ def _format_hit(index: int, hit: RisHit) -> str:
 
 
 class RisSearchToolConfig(FunctionBaseConfig, name="ris_search"):
-    """Search the Austrian RIS (Rechtsinformationssystem des Bundes) via the OGD-RIS API."""
-
     base_url: str = Field(default=DEFAULT_BASE_URL, description="OGD-RIS API base URL")
     timeout: float = Field(default=30.0, description="HTTP timeout in seconds")
     page_size: int = Field(default=20, description="Documents per page (10, 20, 50, or 100)")
@@ -491,13 +431,11 @@ async def ris_search(tool_config: RisSearchToolConfig, builder: Builder):
 
 
 async def _plan_with(planner, query, application, title, federal_state, date_from, date_to) -> RisSearchPlan | None:
-    """Run the planner, writing nothing to the prompt cache (its tail is the request's own); isolated for tests."""
     with one_shot_calls():
         return await planner(query, application, title, federal_state, date_from, date_to)
 
 
 def _format_catalog_entry(index: int, entry: NormEntry) -> str:
-    """Format one curated catalog entry as an agent-readable pointer block."""
     lines = [f"--- Catalog match {index} ---"]
     lines.append(f"Title: {entry.title}")
     if entry.federal_state:
@@ -521,8 +459,6 @@ def _format_catalog_entry(index: int, entry: NormEntry) -> str:
 
 
 class RisCatalogLookupToolConfig(FunctionBaseConfig, name="ris_catalog_lookup"):
-    """Look up building-law topics in the curated RIS catalog of verified norms."""
-
     catalog_path: str = Field(
         default="",
         description=(
@@ -581,8 +517,6 @@ async def ris_catalog_lookup(tool_config: RisCatalogLookupToolConfig, builder: B
 
 
 class RisFetchDocumentToolConfig(FunctionBaseConfig, name="ris_fetch_document"):
-    """Fetch entire documents (laws, court decisions) from the Austrian RIS on demand."""
-
     timeout: float = Field(default=60.0, description="HTTP timeout in seconds")
     max_chars: int = Field(
         default=40_000,
@@ -610,19 +544,6 @@ _RIS_DOCUMENT_PATH_RE = re.compile(r"/Dokumente/[^/]+/([^/]+)/", re.IGNORECASE)
 
 
 def _document_anchor(reference: str) -> str:
-    """The document number a `ris_fetch_document` reference identifies.
-
-    ``reference`` is either a bare document number or a RIS URL for the same
-    document, and both MUST anchor the same name: the ingest marker is keyed on
-    the FETCHED document's URL, so a URL fetch that reuses a number fetch's
-    ingestion would otherwise skip ingestion while reporting a filename that was
-    never stored (and vice versa).
-
-    A URL whose identity cannot be read contributes no anchor at all rather than
-    a sanitized URL soup: the title alone is stable, a mangled URL is not. That
-    includes a URL `urlparse` refuses (``http://[`` raises ValueError): naming a
-    document must never be the thing that fails an otherwise successful fetch.
-    """
     ref = (reference or "").strip()
     if ref.lower().startswith(("http://", "https://")):
         try:
@@ -643,15 +564,6 @@ def _document_anchor(reference: str) -> str:
 
 
 def _safe_document_name(reference: str, title: str) -> str:
-    """Build a stable, filesystem- and citation-friendly name for an ingested document.
-
-    The name becomes a CITATION KEY the reader sees, so it has to be both
-    human-legible and stable across fetches. The document number anchors it
-    (read out of a URL reference when that is what the agent passed, see
-    :func:`_document_anchor`): two fetches of the same law converge on one
-    document instead of piling up date-stamped copies, and the reader can still
-    tell which law it is.
-    """
     base = _RIS_TITLE_REVISION_RE.sub("", _RIS_TITLE_PREFIX_RE.sub("", title or ""))
     base = re.sub(r"[^\w.\- ]+", "_", base).strip("_ ").replace(" ", "_")
     base = re.sub(r"[._\-]+$", "", base[:_RIS_NAME_TITLE_CHARS])
@@ -661,7 +573,6 @@ def _safe_document_name(reference: str, title: str) -> str:
 
 
 def _resolve_session_collection() -> str | None:
-    """Return the per-session knowledge collection name, or None outside a session."""
     from agent.knowledge.base import SESSION_COLLECTION_PREFIX
     from nat.plugin_api import Context
 
@@ -678,11 +589,6 @@ def _resolve_session_collection() -> str | None:
 
 
 def _ingest_document_sync(text: str, file_name: str, source_url: str) -> str | None:
-    """Write the document to a temp file and submit it to the active ingestor.
-
-    Returns the ingested file name, or None when ingestion is unavailable.
-    Best-effort by design: fetching must succeed even when ingestion cannot.
-    """
     from agent.knowledge.factory import get_active_ingestor
 
     ingestor = get_active_ingestor()
@@ -706,7 +612,6 @@ def _ingest_document_sync(text: str, file_name: str, source_url: str) -> str | N
 
 
 def _legal_status_note(url: str) -> str | None:
-    """Konsolidierte Fassung disclaimer for consolidated-law URLs (lawyer-grade citation hygiene)."""
     if "GeltendeFassung" in url or "/Bundesnormen/" in url or "/Landesnormen/" in url:
         return _KONSOLIDIERT_NOTE
     return None

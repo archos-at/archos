@@ -1,18 +1,3 @@
-"""Upload every PDF in a directory to the base corpus, through the backend's admin route.
-
-The base corpus lives in object storage and is written only through the
-backend (ADR-0082), so a developer who has a directory of OIB PDFs uploads them
-the way the admin UI does: ``POST /v1/admin/oib/documents``. Each upload stores
-the file and queues its ingestion; this script does not wait for ingestion,
-watch ``/v1/oib/status`` for that.
-
-    ADMIN_TOKEN=... uv run python scripts/upload_oib_corpus.py data/oib
-    uv run python scripts/upload_oib_corpus.py data/oib --url http://localhost:8000
-
-``ADMIN_TOKEN`` is the backend's own setting; a backend without one accepts
-the request unauthenticated (local dev), and the header is then omitted.
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -27,7 +12,6 @@ _TIMEOUT_SECONDS = 300.0
 
 
 def _upload(client: httpx.Client, url: str, pdf: Path, headers: dict[str, str]) -> str | None:
-    """None when the backend accepted ``pdf``, else why not."""
     with pdf.open("rb") as handle:
         response = client.post(
             f"{url}{_UPLOAD_PATH}", files={"file": (pdf.name, handle, "application/pdf")}, headers=headers

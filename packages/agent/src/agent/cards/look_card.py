@@ -1,5 +1,3 @@
-"""The look card (ADR-0128): where the agent looked, as addresses, never pixels."""
-
 from typing import Annotated
 from typing import Any
 from typing import Literal
@@ -23,7 +21,6 @@ Share = Annotated[float, Field(ge=0, le=1)]
 
 
 def refuse_data_urls(value: Any, path: str = "card") -> None:
-    """Raise on any string under ``value`` that starts ``data:``: a card stores an address, never bytes."""
     if isinstance(value, str):
         if value.lstrip()[:5].lower() == "data:":
             raise ValueError(f"{path}: a look card holds an address, never image bytes (a `data:` URL)")

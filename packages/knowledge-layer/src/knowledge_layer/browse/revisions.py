@@ -1,5 +1,3 @@
-"""The revision chain of one document and its rendering: which sheets supersede which, in order."""
-
 from __future__ import annotations
 
 import re
@@ -32,25 +30,11 @@ _EXTENSION = re.compile(r"\.([a-z0-9]{1,5})\Z", re.IGNORECASE | re.ASCII)
 
 
 def _series_ident(file_name: str) -> tuple[str, str]:
-    """What Fassungen of one document share on the name: the key without index and date, and the format.
-
-    A PDF and a DWG of one Fassung are not versions of each other, and a first
-    state with neither index nor date (``Grundriss EG.pdf``) shares the key of
-    its indexed successor (``Grundriss EG Index B.pdf``).
-    """
     extension = _EXTENSION.search(file_name.strip())
     return series_key_of(file_name), extension.group(1).lower() if extension else ""
 
 
 def _chain_members(rows: Sequence[FileRow], start: FileRow) -> list[FileRow]:
-    """Every file of ``start``'s collection that is a Fassung of the same document, in no order.
-
-    Three things connect files: a link a PERSON confirmed (``superseded_by``,
-    followed in both directions through any number of steps), the same
-    ``document_number`` in the title blocks (Plankopf), and the file name's own
-    series (:func:`_series_ident`). All are followed transitively, so a confirmed
-    link joins a differently named older document to a name series.
-    """
     same = [row for row in rows if row.collection == start.collection]
     by_name = {row.file_name: row for row in same}
     neighbours: dict[str, set[str]] = {name: set() for name in by_name}
@@ -78,7 +62,6 @@ def _chain_members(rows: Sequence[FileRow], start: FileRow) -> list[FileRow]:
 
 
 def _with_supersedes(members: Sequence[FileRow]) -> list[FileRow]:
-    """The members with ``supersedes`` read off ``superseded_by``, the one fact a link is stored as."""
     return [
         replace(row, supersedes=tuple(sorted(old.file_name for old in members if old.superseded_by == row.file_name)))
         for row in members
@@ -86,20 +69,17 @@ def _with_supersedes(members: Sequence[FileRow]) -> list[FileRow]:
 
 
 def _by_title_block(members: Sequence[FileRow]) -> bool:
-    """Whether every member's title block states an Index or a date, so the sheets themselves can be compared."""
     return len(members) > 1 and all(
         (row.revision_facts or {}).get("revision") or (row.revision_facts or {}).get("revision_date") for row in members
     )
 
 
 def _sheet_order(members: Sequence[FileRow]) -> list[str]:
-    """The members' file names, newest state first by what their title blocks print."""
     ordered = newest_first(members, lambda row: row.revision_facts, lambda row: row.added_at or "")
     return [row.file_name for row in ordered]
 
 
 def _name_order(members: Sequence[FileRow]) -> list[str]:
-    """The members whose NAME carries an Index or a date, newest first (the folder brief's grammar)."""
     names: list[str] = []
     for series in find_revision_series(
         [row for row in members if parse_revision_name(row.file_name)],
@@ -111,14 +91,6 @@ def _name_order(members: Sequence[FileRow]) -> list[str]:
 
 
 def _chain_order(members: Sequence[FileRow]) -> list[FileRow]:
-    """Newest first: a confirmed replacement always precedes what it replaced, the names order the rest.
-
-    When every member's title block states an Index or a date, that is the order
-    (what the office printed on the sheet beats the file name, ``title_block.newest_first``).
-    Otherwise it is the name order, the folder brief's (``find_revision_series``); a file
-    whose name carries neither index nor date is the first state of the
-    document, so it follows the others, by upload date.
-    """
     names_order = _sheet_order(members) if _by_title_block(members) else _name_order(members)
     rest = sorted((row for row in members if row.file_name not in names_order), key=lambda row: fold(row.file_name))
     rest.sort(key=lambda row: row.added_at or "", reverse=True)
@@ -136,10 +108,6 @@ def _chain_order(members: Sequence[FileRow]) -> list[FileRow]:
 
 
 def _chain_line(position: int, row: FileRow, *, current: bool, mark: str | None, basis: str) -> str:
-    """One Fassung: the Index and date its name carries, its Plankopf, who vouches for its place, upload, change.
-
-    ``basis`` is what ordered the chain when no person confirmed the row: "by Plankopf" or "by file name".
-    """
     revision = parse_revision_name(row.file_name)
     label = revision_label(revision) if revision is not None else ""
     bits = [label or "no Index and no date in the name"]
@@ -167,7 +135,6 @@ def _chain_line(position: int, row: FileRow, *, current: bool, mark: str | None,
 
 
 def _chain_candidates(rows: Sequence[FileRow], wanted: str) -> list[FileRow]:
-    """The files ``wanted`` names: an exact file name or title first, else every file whose name has all its words."""
     folded = fold(wanted.strip())
     exact = [row for row in rows if folded in (fold(row.file_name), fold(row.display_title or ""))]
     if exact:
@@ -183,12 +150,6 @@ def _resolve_chain(
     shelf: str | None,
     default_shelves: Sequence[str],
 ) -> tuple[list[FileRow], str]:
-    """The ordered chain of Fassungen ``wanted`` names, newest first, or the sentence that says why there is none.
-
-    One lookup for the listing (:func:`render_revisions`) and the compare
-    (:func:`resolve_compare`), so the two cannot disagree about which document
-    a name means.
-    """
     shelves = (shelf,) if shelf else tuple(default_shelves)
     scoped = [row for row in rows if row.shelf in shelves or (not shelf and row.shelf is None)]
     where = " and ".join(_SHELF_LABELS.get(name, name) for name in shelves)
@@ -220,13 +181,6 @@ def render_revisions(
     shelf: str | None = None,
     default_shelves: Sequence[str] = USER_SHELVES,
 ) -> str:
-    """The whole chain of Fassungen of the document ``wanted`` names, newest first, as the model reads it.
-
-    Pure, over the rows the turn may list and nothing else: the same shelves
-    ``select_files`` lists, so a Fassung on a shelf this turn did not ask for,
-    or a file nobody may name, is not in the chain. The chain spans folders (an
-    older Fassung is often filed under ``alt/``) and ignores every other filter.
-    """
     members, refusal = _resolve_chain(rows, wanted, shelf=shelf, default_shelves=default_shelves)
     if refusal:
         return refusal

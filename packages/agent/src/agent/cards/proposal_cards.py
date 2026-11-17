@@ -1,8 +1,3 @@
-"""The proposal cards, each waiting for the person's yes.
-
-A project-profile patch, a memory and a workspace operation.
-"""
-
 from typing import Any
 from typing import Literal
 

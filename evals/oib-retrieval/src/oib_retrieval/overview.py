@@ -1,125 +1,3 @@
-"""File-level golden recall for broad/exact/paraphrased OIB queries (backlog item 12).
-
-The measuring instrument items 13/14 must beat. It scores ~30 German golden
-questions (``fixtures/oib_golden_overview.json``) in three cohorts — overview,
-exact-id, paraphrase — as recall@k (k = production's ``top_k``) plus MRR,
-against a deterministic in-memory fixture corpus. No network, no Chroma, no
-embedder, no PDF, no key. Everything here runs in CI in seconds.
-
-WHAT IT MEASURES
-----------------
-Which of the CURRENT retrieval's deterministic channels fire for each query
-shape, and whether the expected corpus files are among what fired:
-
-* the exact channel: ``agent.common.legal_terms.extract_exact_terms``,
-  then ``knowledge_layer.search.hybrid.selective_terms`` (the retriever's
-  document-frequency ceiling), then a case-sensitive substring match over
-  ``file_name + text`` — the offline mirror of Chroma
-  ``where_document {"$contains": term}``, which ``german_text``'s docstring
-  documents as case-sensitive. The ceiling half is load-bearing: without it
-  this mirror credits a term for retrieving a corpus it merely fails to
-  filter (see EXPECTED BASELINE);
-* the sparse channel: ``oib_retrieval.lexical`` — the shipped
-  ``german_text`` analyzer, query terms, DF-ceiling selection and idf ranking
-  over the fixture corpus (the SQLite-path semantics, in memory).
-
-Both channels are the production code, imported — never reimplemented — so a
-change to the stemmer, the ceiling or term extraction moves these numbers.
-
-WHAT IT DOES NOT MEASURE (read before citing a number)
-------------------------------------------------------
-* The deterministic ranking per query is exact matches (corpus order) followed
-  by sparse matches (index order), deduplicated — and nothing else. There is
-  deliberately no fill-to-top-k with generic neighbours: production fills
-  ``top_k`` (floor off by design), but filling appends BELOW the signal
-  ranking. A query with no deterministic channel firing scores recall 0.0 in
-  the ``recall@k`` column.
-
-  That column is NOT this product's retrieval quality, and reading it as such
-  is the mistake this harness invited for one release. The vector channel is
-  measured too — recorded, not simulated (``vector@k``, see below) — and on the
-  overview cohort it scores 0.933 where the deterministic channels score
-  0.150. A query that "ranks nothing" here is usually answered in production.
-* Order beyond channel membership is modelling, not production: production
-  fuses via reciprocal rank fusion, this harness concatenates exact-first.
-  Recall is order-invariant while the union fits in k (it always does here);
-  MRR is reported under the exact-first rule, which is optimistic for the
-  exact channel — the channel items 13/14 strengthen.
-* The fixture texts are synthetic German carrying each document's real
-  designation and discriminative vocabulary (see ``FIXTURE_TEXTS``). They are
-  NOT the corpus: absolute values are about channel activation, and the
-  before/after deltas are what this set is for.
-
-THE VECTOR CHANNEL (``vector@k``) — RECORDED, REPORTED, NEVER FUSED
--------------------------------------------------------------------
-``oib_retrieval.record_vector`` embeds the REAL ``data/oib`` pages and the
-golden questions with the production embedding model and writes the file-level
-ranking per question to ``fixtures/vector_channel_recorded.json``. The harness
-reads that fixture, so CI stays offline and key-free while the number is a
-measurement rather than a model of one. Re-record when the model, the corpus or
-the questions change; the golden test pins the recorded model against the
-deployed one so a stale fixture fails rather than misleads.
-
-It is reported BESIDE the deterministic columns and deliberately not fused into
-them: this arm is measured on the real corpus and those are measured on the
-synthetic mirror, so a fused number would average two corpora and mean nothing.
-Read the two columns as answers to "which channel actually serves this cohort".
-
-EXPECTED BASELINE (recorded 2026-09-03)
----------------------------------------
-Overview queries reach neither deterministic channel. The sparse survivors die
-at the DF ceiling, and the exact term casefolding extracts from "oib N" is the
-bare ``OIB``, which dies at the same ceiling on the exact side. The vector
-channel answers them anyway, and answers the literal-filename questions too,
-because the filename is in the embedded text. ``tests/
-test_oib_overview_recall.py`` holds the pinned numbers.
-
-THE ARTEFACT THIS HARNESS PRODUCED, AND THE TWO GUARDS AGAINST A REPEAT
------------------------------------------------------------------------
-Scoring two channels of three, it once read a regression as a 4x win: a change
-that widened the exact channel to a term matching most of the corpus (see
-``knowledge_layer.search.hybrid.selective_terms`` for the measurement) took
-overview from 0.150 to 0.583. Nothing was retrieved. All six "oib N" questions
-produced ONE ranking, the corpus in filename order, and each score was only
-where that question's labels fell in it. Reversing the fixture order moved the
-cohort to 0.750 with no code change at all.
-
-Recall cannot see that, so two things guard it:
-
-* the vector column, so the channel that does the work is on the page and a
-  deterministic "lift" has to be argued against it;
-* ``_distinguishability_line``, because distinct questions that share one
-  ranking were answered with the corpus rather than a search.
-
-Mirror the production GATE and not only its matcher. A channel that fires is
-not a channel that retrieves.
-
-HYDE (backlog item 14) — WHAT THE ON-MODE MEASURES, AND WHAT IT CANNOT
-----------------------------------------------------------------------
-``run(..., hyde_drafter=...)`` fuses a draft channel beside the original one:
-for a query where the production gate fires
-(``agent.common.hyde.should_draft``, shape-only, no vocabulary), the
-drafter's passage is ranked through the SAME deterministic halves a
-production ``retrieve(draft)`` would run — exact terms extracted from the
-draft plus sparse search on the draft — and fused with the original channels
-via the production ``fuse_with_ranks`` (original channels first, so the
-question as asked keeps the tie-break seat, exactly like the cross-collection
-merge). There is deliberately no reranker offline: recall@k over the fused
-pool is the recall-side claim only.
-
-What it cannot measure is the dense half: production embeds the draft with
-the document pipeline's model and retrieves on draft similarity, and this
-harness has no vector arm by design (see above). A draft's lift through
-embedding similarity is invisible here; only its lift through the
-deterministic channels registers. The honest on/off comparison therefore
-needs RECORDED drafts — passages generated once by the real draft model with
-the production prompt, stored as a fixture, and replayed deterministically —
-never hand-written passages (hand-writing the draft from the expected files
-is label leakage, the overfit trap ``query_expansion`` documents for its own
-glossary). With no drafter (or a drafter that returns nothing) the on-mode is
-byte-identical to the baseline: that identity IS the fail-open assertion.
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -293,16 +171,12 @@ assert len(FIXTURE_TEXTS) == 39, f"fixture must cover all 39 data/oib files, has
 
 @dataclass(frozen=True)
 class FixtureDoc:
-    """One fixture document: a real corpus filename plus synthetic German text."""
-
     file_name: str
     text: str
 
 
 @dataclass(frozen=True)
 class GoldenEntry:
-    """One golden question: file-level expected answer plus cohort metadata."""
-
     id: str
     cohort: str
     question: str
@@ -313,8 +187,6 @@ class GoldenEntry:
 
 @dataclass(frozen=True)
 class QueryResult:
-    """Everything measured for one golden question."""
-
     entry: GoldenEntry
     exact_terms: tuple[str, ...]
     sparse_terms: tuple[str, ...]
@@ -329,8 +201,6 @@ class QueryResult:
 
 @dataclass
 class CohortScores:
-    """Aggregate over one cohort (or the whole set)."""
-
     label: str
     n: int
     recall: float
@@ -341,15 +211,12 @@ class CohortScores:
 
 @dataclass
 class Report:
-    """The full harness output: per-query rows plus cohort aggregates."""
-
     k: int
     results: list[QueryResult] = field(default_factory=list)
     cohorts: list[CohortScores] = field(default_factory=list)
 
 
 def package_root() -> Path:
-    """The ``evals/oib-retrieval`` harness directory."""
     return Path(__file__).resolve().parents[2]
 
 
@@ -358,8 +225,6 @@ def default_golden_path() -> Path:
 
 
 def _k() -> int:
-    """The cutoff the headline recall is quoted at: production's top_k, read —
-    never copied — from the production OIB config (fallback 16)."""
     try:
         from oib_retrieval.corpus import production_retrieval_settings
 
@@ -369,12 +234,10 @@ def _k() -> int:
 
 
 def fixture_docs() -> list[FixtureDoc]:
-    """All 39 fixture documents in stable (sorted filename) order."""
     return [FixtureDoc(file_name=name, text=FIXTURE_TEXTS[name]) for name in sorted(FIXTURE_TEXTS)]
 
 
 def production_excluded() -> frozenset[str]:
-    """Production's query-time exclusion list, read — never copied."""
     try:
         from oib_retrieval.corpus import production_excluded_file_names
 
@@ -384,13 +247,6 @@ def production_excluded() -> frozenset[str]:
 
 
 def load_golden(path: str | Path, *, known_files: frozenset[str] | None = None) -> list[GoldenEntry]:
-    """Load and strictly validate the overview golden set.
-
-    Strict like the Punkt golden loader: a duplicate id, an unknown cohort, an
-    empty question, an expected file outside the fixture corpus, or an expected
-    file production filters out at query time raises — an instrument that drops
-    what it cannot resolve reports a better number the more broken it is.
-    """
     with open(path, encoding="utf-8") as handle:
         payload = json.load(handle)
 
@@ -455,7 +311,6 @@ def load_golden(path: str | Path, *, known_files: frozenset[str] | None = None) 
 
 
 def build_index(docs: list[FixtureDoc]):
-    """In-memory sparse index over the fixture corpus (shipped analyzer)."""
     from oib_retrieval.corpus import Chunk
     from oib_retrieval.lexical import build_index
 
@@ -467,31 +322,18 @@ def build_index(docs: list[FixtureDoc]):
 
 
 def exact_terms_for(query: str) -> list[str]:
-    """Production exact-term extraction, unchanged."""
     from agent.common.legal_terms import extract_exact_terms
 
     return extract_exact_terms(query)
 
 
 def sparse_terms_for(index, query: str) -> list[str]:
-    """The lexemes production's selector would actually search on."""
     from oib_retrieval.lexical import selected_terms
 
     return selected_terms(index, query)
 
 
 def exact_files_for(terms: list[str], docs: list[FixtureDoc]) -> list[str]:
-    """Files whose name or text contains any SELECTIVE term (offline ``$contains`` mirror).
-
-    Two production halves, both imported rather than restated: the substring test is
-    the case-sensitive byte match Chroma's ``where_document`` runs, and the document
-    frequency ceiling is ``knowledge_layer.search.hybrid.selective_terms``, the
-    same rule and constants the retriever applies before it spends a pass on a term.
-
-    The ceiling half is what keeps this a mirror. Without it a term the retriever
-    would never search on still scores here, and the module docstring records what
-    that cost.
-    """
     if not terms:
         return []
     from knowledge_layer.search import selective_terms
@@ -505,20 +347,10 @@ def exact_files_for(terms: list[str], docs: list[FixtureDoc]) -> list[str]:
 
 
 def default_vector_fixture_path() -> Path:
-    """Where the recorded vector-channel ranking lives."""
     return Path(__file__).resolve().parents[2] / "fixtures" / "vector_channel_recorded.json"
 
 
 def load_recorded_vector(path: str | Path | None = None) -> dict:
-    """The recorded vector-channel ranking, or an empty recording when absent.
-
-    Absence is tolerated (the harness still scores the deterministic channels)
-    because the recording needs a key and the corpus, which a fresh checkout
-    may not have. It is NOT tolerated silently: the report prints "not
-    recorded" and the golden test asserts the recording is present, so a
-    deleted fixture fails CI rather than quietly removing the only channel
-    that answers the overview cohort.
-    """
     fixture = Path(path) if path is not None else default_vector_fixture_path()
     if not fixture.exists():
         return {}
@@ -526,13 +358,11 @@ def load_recorded_vector(path: str | Path | None = None) -> dict:
 
 
 def vector_files_for(recorded: dict, entry_id: str) -> list[str]:
-    """The vector channel's file ranking for one golden question, best first."""
     ranking = (recorded.get("rankings") or {}).get(entry_id) or []
     return [file_name for file_name, _score in ranking]
 
 
 def sparse_files_for(index, query: str, *, depth: int = RETRIEVE_DEPTH) -> list[str]:
-    """Files the sparse channel ranks for ``query``, deduplicated, index order."""
     from oib_retrieval.lexical import search
 
     ranked: list[str] = []
@@ -543,29 +373,12 @@ def sparse_files_for(index, query: str, *, depth: int = RETRIEVE_DEPTH) -> list[
 
 
 def rank_files(query: str, docs: list[FixtureDoc], index, *, depth: int = RETRIEVE_DEPTH) -> list[str]:
-    """Ranked file names for one query: exact matches, then sparse matches.
-
-    Exact matching is a case-sensitive substring test over
-    ``file_name + text`` — the offline mirror of Chroma ``$contains`` (which
-    carries the production filename in the embedded text, hence the file_name
-    half). No fill: a query with no firing channel ranks nothing, and recall
-    over that empty ranking is 0.0 — the honest lower bound (production would
-    fill top_k with generic neighbours and hedge; see the module docstring).
-    """
     exact = exact_files_for(exact_terms_for(query), docs)
     exclude = set(exact)
     return exact + [name for name in sparse_files_for(index, query, depth=depth) if name not in exclude]
 
 
 def fuse_file_channels(channels: list[list[str]]) -> list[str]:
-    """RRF-fuse file-rank lists through the production fusion helper.
-
-    Channel order is the tie-break seat: the original query's channels come
-    first, a HyDE draft's channels after — the same convention as the
-    cross-collection merge in ``knowledge_layer.register``. Identity is the
-    filename; a file every channel agrees on rises, one only the draft found
-    enters.
-    """
     from types import SimpleNamespace
 
     from knowledge_layer.search import fuse_with_ranks
@@ -577,14 +390,6 @@ def fuse_file_channels(channels: list[list[str]]) -> list[str]:
 def rank_files_with_hyde(
     query: str, draft: str, docs: list[FixtureDoc], index, *, depth: int = RETRIEVE_DEPTH
 ) -> list[str]:
-    """Ranked files with a HyDE draft fused as one extra RRF channel.
-
-    The draft runs through the deterministic halves a production
-    ``retrieve(draft)`` would run — exact terms extracted from the draft plus
-    sparse search on the draft — fused with the original query's channels.
-    The draft's dense half (draft-similarity retrieval) has no offline mirror
-    and is not claimed here; see the module docstring.
-    """
     return fuse_file_channels(
         [
             exact_files_for(exact_terms_for(query), docs),
@@ -596,18 +401,12 @@ def rank_files_with_hyde(
 
 
 def hyde_fires(query: str) -> bool:
-    """Whether the production HyDE gate would draft for ``query`` (switch on).
-
-    The production shape gate, imported — never reimplemented — so a change
-    to the gating moves these numbers.
-    """
     from agent.common.hyde import should_draft
 
     return should_draft(query, enabled=True)
 
 
 def apply_production_filter(ranked: list[str]) -> list[str]:
-    """Drop files production's ``exclude_file_names`` removes at query time."""
     excluded = production_excluded()
     return [name for name in ranked if name not in excluded]
 
@@ -619,17 +418,6 @@ def run(
     k: int | None = None,
     hyde_drafter: Callable[[GoldenEntry], str | None] | None = None,
 ) -> Report:
-    """Retrieve every golden question through the deterministic channels.
-
-    Args:
-        hyde_drafter: Optional ``entry -> draft passage`` callback enabling the
-            HyDE on-mode: for entries where the production gate fires, the
-            draft is ranked through the draft channels and fused beside the
-            original ones (see :func:`rank_files_with_hyde`). ``None`` (or a
-            callback returning nothing/raising) is the baseline — the ranking
-            is then byte-identical to the off-mode, which is the fail-open
-            assertion. Drafts are never echoed into the report.
-    """
     from oib_retrieval.metrics import mean
     from oib_retrieval.metrics import mrr
     from oib_retrieval.metrics import recall_at_k
@@ -693,13 +481,6 @@ def run(
 
 
 def _distinguishability_line(report: Report) -> str:
-    """How many DISTINCT rankings the six "oib N" questions produced.
-
-    The single number that catches the failure recall cannot see. Six questions
-    naming six different guidelines must not share one ranking; when they do,
-    whatever scored did not search — it returned the corpus, and the cohort
-    recall is just where the labels happened to fall in it.
-    """
     siblings = [r for r in report.results if r.entry.id.startswith("ov-rl")]
     if not siblings:
         return "distinguishability: no 'oib N' siblings in this set."
@@ -715,7 +496,6 @@ def _distinguishability_line(report: Report) -> str:
 
 
 def format_report(report: Report) -> str:
-    """Human-readable harness output: cohort table plus per-query diff."""
     lines = [
         "OIB OVERVIEW GOLDEN RECALL",
         f"cutoff k={report.k} (production top_k); fixture: {len(FIXTURE_TEXTS)} files; "
@@ -764,7 +544,6 @@ def format_report(report: Report) -> str:
 
 
 def main(argv: list[str] | None = None) -> int:
-    """Print the harness report (human entry point; gating lives in pytest)."""
     parser = argparse.ArgumentParser(
         description="File-level golden recall for broad/exact/paraphrased OIB queries (backlog item 12)."
     )

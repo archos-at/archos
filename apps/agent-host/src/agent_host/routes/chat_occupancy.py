@@ -1,16 +1,3 @@
-"""The chat tier's scaling signal: how many turns run across the fleet (ADR-0080).
-
-KEDA's ``metrics-api`` scaler polls this and sizes the ``aiq-agent`` StatefulSet
-to it: ``activeTurns`` divided by the per-replica target is the replica count it
-asks for. Any replica can answer, because the count is the global admission pool
-in Dragonfly (``turn_admission``), which every replica already keeps for the cap.
-
-Internal-token only, like the maintenance routes: the scaler sends
-``x-grid-internal-token``. A count that cannot be read is a 503, never a low
-number, so KEDA keeps the replicas it has (its ``fallback``) rather than
-scaling in under turns it cannot see.
-"""
-
 import asyncio
 
 from fastapi import APIRouter
@@ -25,7 +12,6 @@ CHAT_OCCUPANCY_PATH = "/v1/internal/chat-occupancy"
 
 
 def add_chat_occupancy_routes(router: APIRouter) -> None:
-    """Add the chat-occupancy route to the knowledge router."""
 
     @router.get(
         CHAT_OCCUPANCY_PATH,

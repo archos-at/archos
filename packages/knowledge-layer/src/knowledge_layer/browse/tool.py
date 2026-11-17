@@ -1,46 +1,3 @@
-"""Looking at the files the way a person does: the listing and the exact search.
-
-A person in the Files pane does two things before they read anything: they
-LOOK at what is there (open a folder, sort by date, filter by name) and they
-FIND where something is written (Ctrl+F across the project). The agent could do
-neither. What it saw of the project was the prompt inventory, capped at fifty
-rows, and what it could find was ``knowledge_search`` — a ranked top-k
-similarity search that answers "what passage best matches this" and never
-"which files say this". So on a project with three hundred files the agent
-answered „welche Unterlagen liegen in Brandschutz/?“ from whichever fifty names the
-cap kept, and „wo kommt BA-03 überall vor?“ from the three passages that ranked.
-
-- ``list_files`` is ``ls`` / the Files pane: every file on the reader's own
-  shelves, filtered by folder, name, Dokumentart and date, paged, with the
-  subfolders and their counts. An INDEX, never evidence: a row proves a file
-  exists, as the inventory does.
-- ``knowledge_search(match="exact")`` is ``grep`` (:func:`exact_search`, here
-  because it shares the rows): every chunk whose text contains a phrase, over
-  every file in scope, counted per file — then the first passages of the
-  best-covered files, rendered through the knowledge layer's own grounding
-  block, so they are citable exactly like a search hit. One regex
-  (:func:`phrase_pattern`) does the finding in the store and the counting
-  here, and it reads the phrase the way a person does: case, ä/ae and ß/ss
-  spellings, and a line break or hyphen between two words do not matter; a
-  term of two or three characters is a whole word.
-
-The exact search is a MODE of the search rather than a tool of its own: it is
-the same verb over the same scope with the same narrowing arguments, and a
-second tool would have been one more name for the model to choose between
-(docs/architecture/agent-tool-surface.md).
-
-Both are deterministic: no reranker, no judge, no LLM. Both read only what the
-turn may read: the rows the turn's inventory resolved against the signed scope
-(``knowledge.inventory.get_turn_documents``, uncapped), or — on a path that
-bound none — the same scope ``knowledge_search`` resolves. Both then subtract
-the shelves this turn did not ask for (``focus_file.get_turn_shelves``), the
-way ``search_scope.restrict_scope_to_turn`` does for the ranked search, so a turn
-about one upload lists and greps that upload, not the Büroablage. The exact
-search reads the base corpus through the same store filter the ranked search
-uses (``search_scope.base_collection_filters``): an excluded edition or a cover
-page is not evidence in either mode.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -226,14 +183,6 @@ _EQUIVALENT.update({"ae": _EQUIVALENT["ä"], "oe": _EQUIVALENT["ö"], "ue": _EQU
 
 
 async def _turn_rows(search_config: Any) -> list[FileRow]:
-    """The turn's inventory rows, uncapped; loaded from the scope when this path bound none.
-
-    Never a row of a restricted folder's collection, whichever way the rows were
-    found (ADR-0088): listing is not use, so a name, a title or a summary of
-    such a file never reaches the model without an admission. The filter sits on
-    the rows themselves rather than on one of the two sources, because the
-    fallback below is the path a failed inventory load takes.
-    """
     from agent.knowledge.restricted_collections import is_restricted_collection
 
     return [row for row in await _readable_rows(search_config) if not is_restricted_collection(row.collection)]
@@ -250,8 +199,6 @@ def _in_flight(collections: Sequence[str]) -> list[str]:
 
 
 class ListFilesConfig(FunctionBaseConfig, name="list_files"):
-    """``list_files`` reads the turn's inventory; the search instance names its scope when none is bound."""
-
     knowledge_search: FunctionRef = Field(
         default=FunctionRef("knowledge_search"),
         description="The `knowledge_retrieval` instance whose collection scope this browser shares.",
@@ -260,7 +207,6 @@ class ListFilesConfig(FunctionBaseConfig, name="list_files"):
 
 @register_function(config_type=ListFilesConfig)
 async def list_files(config: ListFilesConfig, _builder: Builder):
-    """Browse the reader's files: folders, names, Dokumentart, dates. Deterministic; no LLM."""
     search_config = _builder.get_function_config(config.knowledge_search)
 
     async def _list(
@@ -278,29 +224,6 @@ async def list_files(config: ListFilesConfig, _builder: Builder):
         view: Literal["files", "tree"] | None = None,
         depth: int | str | None = None,
     ) -> str:
-        """List the reader's files, like opening a folder in the Files pane.
-
-        Args:
-            folder (str | None): Folder path as a previous listing or the inventory printed it
-                ("Brandschutz/Fluchtwege"); includes everything below it. Omit to list every file.
-            name_contains (str | None): Words that must all appear in the file name or title.
-            doc_class (str | None): One Dokumentart key (e.g. "oib_guideline", "law").
-            added_since (str | None): Only files uploaded on or after this date, YYYY-MM-DD.
-            shelf (str | None): project | office_shelf | session | base. Omit for the reader's own files.
-            sort (str | None): folder (default) | name | newest.
-            offset (int | None): Start of the page; the result names the next one.
-            limit (int | None): Page size, default 40, at most 100.
-            topic (str | None): A Thema the agent recognised (e.g. "Attika", "Holzrahmenbau"); matches part of a topic.
-            revisions_of (str | None): A file name; returns that document's chain of Fassungen instead of a listing.
-            compare_to (str | None): With `revisions_of`: compare that Fassung with this one (a file name of the
-                same chain, or "previous" for the one before) and return what changed, page by page.
-            view (str | None): files (default) lists files; tree returns a card per folder instead.
-            depth (int | None): With view=tree: folder levels below `folder` that get a card, 1 to 4, default 2.
-
-        Returns:
-            str: A count, the subfolders with counts, and one line per file with its exact name; as a tree,
-                a card per folder.
-        """
         outcome = ActionOutcome()
         row = ActionRow(
             "list",
@@ -438,15 +361,6 @@ async def _files_by_collection(
     doc_class: str | None,
     title_contains: str | None,
 ) -> dict[str, list[str]] | None:
-    """The files a narrowed exact search may read, per collection; ``None`` when nothing narrows it.
-
-    A Dokumentart and a title are not searchable on the chunks as a person
-    types them (``doc_class`` is human-set and store-authoritative; a title is
-    a substring), so they become the list of files they name. A folder is on
-    every point since ADR-0116 (``folder_ancestors``): the exact search pushes
-    it into the query (:func:`_folder_scope`), and only the ranked search still
-    asks this function for the collections a folder reaches.
-    """
     if not (file_name or folder or doc_class or title_contains):
         return None
     from knowledge_layer.search import _file_name_matches
@@ -474,11 +388,6 @@ async def _files_by_collection(
 
 
 async def _folder_scope(search_config: Any, folder: str) -> tuple[set[str], str | None]:
-    """The collections that hold files in ``folder`` or below, and the folder as the points spell it.
-
-    The key is the folder in its stored spelling (so „Plaene“ finds „Pläne“) as
-    :func:`folder_key` writes it onto every point; ``(set(), None)`` when no file is filed there.
-    """
     from knowledge_layer.vector_store import folder_key
 
     rows = await _turn_rows(search_config)
@@ -505,22 +414,6 @@ async def exact_search(
     shelf: str | None = None,
     outcome: ActionOutcome | None = None,
 ) -> str:
-    """``knowledge_search(match="exact"|"regex")``: every chunk in scope that contains the phrase or matches the regex.
-
-    ``stemmed`` (exact only) also finds the inflected forms of each phrase through
-    the German-stemmed index (``qdrant.retrieval.stem_condition``).
-
-    ``entries`` is the scope the search already resolved and restricted to the
-    turn, so the exact mode reads exactly what the meaning mode reads — and the
-    base corpus through the same store filter (:func:`_collection_filter`).
-    A folder narrows inside the query (``folder_ancestors``), the other narrowings by file list.
-
-    ``shelf`` ("project" | "office" | "base" | "session") keeps one shelf of that scope. Omitted, the
-    search reads every shelf the turn allows, the Basiswissen corpus included: a literal question about
-    the law (a Frist, „EI 90“) must not get a false „no“ because the corpus was left out. The answer
-    says per shelf how many documents were read and how many matched, so „not in our documents“ is
-    read off the project and office lines and not off the corpus's hits.
-    """
     entries, refusal = entries_on_shelf(entries, shelf)
     if refusal:
         return refusal
@@ -594,7 +487,6 @@ async def exact_search(
 
 
 async def _searched_documents(search_config: Any, narrowed: Mapping[str, Sequence[str]] | None, folder: str | None):
-    """Per collection, the documents of the inventory that the search could read under its narrowing."""
     rows = await _turn_rows(search_config)
     resolved = _folder_matches(rows, folder) if folder else None
     counts: dict[str, int] = {}
@@ -614,7 +506,6 @@ async def _read_collection(
     filters_by_collection: dict[str, dict[str, Any] | None],
     read_options: dict[str, Any],
 ) -> tuple[list[Any] | None, bool]:
-    """One collection's matching chunks, each stamped with its collection and shelf, and whether the cap was hit."""
     chunks = await retriever.find_text(
         entry.collection,
         pattern,

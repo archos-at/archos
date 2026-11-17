@@ -1,11 +1,3 @@
-"""The agent's chat binding of the shared knowledge tools, through ``ChatAgent.run`` (ADR-0133 slice 6).
-
-Through the compiled graph, because the claim is about what the model is offered and what RUNS: the
-rebound schema is what ``bind_tools`` sends, a retired argument is an error that names its replacement
-and runs nothing, an unbound name is answered by the ``ToolNode``, and a hidden scope argument still
-reaches the function.
-"""
-
 from __future__ import annotations
 
 from unittest.mock import AsyncMock
@@ -30,8 +22,6 @@ RAN: list[dict] = []
 
 
 class _SearchInput(BaseModel):
-    """The agent-runtime function's own arguments, as the shared binding has them."""
-
     query: str
     match: str = "meaning"
     folder: str | None = None

@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-"""Comment-line ratchet; the rule and its reasons: docs/contributing/code-conventions.md#comments."""
 
 from __future__ import annotations
 

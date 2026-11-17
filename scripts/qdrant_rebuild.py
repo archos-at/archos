@@ -1,27 +1,3 @@
-"""Rebuild a Qdrant collection as a new _vN beside the live one, then move its alias (ADR-0115).
-
-Open-source Qdrant cannot reshard, so a new shard count or replication shape is
-a new collection, a copy of the stored vectors (no re-embedding) and one atomic
-alias switch. The old collection stays: switching back is the rollback.
-
-    python scripts/qdrant_rebuild.py office --copy-to piloti_office_v2 --shards 12
-    python scripts/qdrant_rebuild.py office --switch-to piloti_office_v2      # then backfill --prune --verify
-    python scripts/qdrant_rebuild.py office --switch-to piloti_office_v1      # rollback
-
-A copy also tunes the BM25 channel to the chunks it copies: it measures their
-mean length and, when that is more than 10 % from the live collection's
-``avg_len``, recomputes every lexical vector with the measured one (ADR-0127).
-``--bm25-avg-len``, ``--bm25-k`` and ``--bm25-b`` set the values outright (a
-parity sweep's result); ``--keep-bm25`` copies the lexical vectors as stored.
-``scripts/qdrant_chunk_length_stats.py`` shows the measurement without copying.
-
-It reads the environment the backend reads: ``QDRANT_URL`` and
-``QDRANT_API_KEY``. The full procedure is ``docs/deployment/qdrant-runbook.md``.
-
-EXIT CODES: ``0`` done (a copy with equal counts); ``1`` the copy's counts
-differ, or the target is refused; ``2`` Qdrant could not be reached.
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -61,7 +37,6 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
 
 
 def _bm25_length(client, live: str, args: argparse.Namespace) -> dict[str, float] | None:
-    """The new collection's BM25 length when one is given on the command line, else None (measure, or keep)."""
     if args.keep_bm25 or (args.bm25_avg_len is None and args.bm25_k is None and args.bm25_b is None):
         return None
     source = bm25_length_of(client.get_collection(live).config.metadata)

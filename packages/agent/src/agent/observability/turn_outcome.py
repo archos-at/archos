@@ -1,32 +1,3 @@
-"""What a chat turn delivered, on the trace that produced it (ADR-0089).
-
-A turn's root observation was the least useful row in Langfuse. Its name was
-the workflow's config type (``chat_deepresearcher_agent``), and its output was
-the agent runtime's ``output_preview``: the first fifty streamed bodies, which are step
-events and text deltas, not the answer. Everything an analyst slices by
-(answered or refused, shallow or deep, the confidence, how many sources) lived
-only in the ``TurnResult`` the socket persists, so none of it could be charted,
-filtered or compared across prompt versions in Langfuse.
-
-The terminal ``TurnResult`` is the one authoritative record of a turn (the
-persisted row is built from it and nothing else), so the trace is filled from
-the same object:
-
-* :func:`outcome_attributes` maps it to trace metadata, low-cardinality tags,
-  the root observation's output (the answer text) and a level. Pure.
-* :func:`begin_turn_outcome` binds a per-turn box in the socket's ``_drive``,
-  the context the root span's export task snapshots; :func:`record_turn_finished`
-  and :func:`record_turn_error` fill it IN PLACE when the terminal is relayed.
-  In place matters for the same reason as the prompt link's box: the workflow
-  and its export tasks run in copies of this context, and only a mutation of
-  the shared dict is visible from all of them.
-* ``TurnOutcomeProcessor`` (in ``langfuse_trace_attributes``) stamps the box
-  onto the root span when it is exported, which is after the terminal.
-
-No new content category: the answer text is what ``output.value`` was meant to
-carry, and the rest is labels and counts.
-"""
-
 from __future__ import annotations
 
 import contextvars
@@ -49,12 +20,10 @@ _TURN_OUTCOME: contextvars.ContextVar[dict[str, Any] | None] = contextvars.Conte
 
 
 def begin_turn_outcome() -> contextvars.Token[dict[str, Any] | None]:
-    """Bind an empty box for one turn; the terminal fills it, the root span reads it."""
     return _TURN_OUTCOME.set({})
 
 
 def end_turn_outcome(token: contextvars.Token[dict[str, Any] | None]) -> None:
-    """Unbind the turn's box, restoring whatever was bound before."""
     _TURN_OUTCOME.reset(token)
 
 
@@ -63,12 +32,6 @@ _TAGS = "__turn_tags__"
 
 
 def current_turn_outcome() -> dict[str, Any] | None:
-    """The attributes recorded for this turn, or None when no turn bound a box or nothing is in it yet.
-
-    The facts the workflow recorded (:func:`record_turn_facts`) ride as trace
-    metadata beside the terminal's, and its tags (:func:`record_turn_tag`) beside the
-    terminal's tags: a box holding only tags answers them before the turn finished.
-    """
     box = _TURN_OUTCOME.get()
     if not box:
         return None
@@ -92,13 +55,6 @@ def _fill(attributes: dict[str, Any]) -> None:
 
 
 def record_turn_facts(**facts: Any) -> None:
-    """Facts only the end of the workflow knows, onto the turn's root as trace metadata. Never raises.
-
-    The box is shared by reference with the socket's context, so a fact the
-    workflow records in its own copy of the context still reaches the root span;
-    the terminal, relayed after it, keeps it (:func:`_fill`). Outside a turn
-    nothing is bound and nothing is recorded. ``None`` values are left out.
-    """
     try:
         box = _TURN_OUTCOME.get()
         if box is None:
@@ -111,11 +67,6 @@ def record_turn_facts(**facts: Any) -> None:
 
 
 def record_turn_tag(tag: str) -> None:
-    """A tag onto the turn's ROOT observation, from wherever in the workflow it is learnt. Never raises.
-
-    ``add_trace_tag`` writes a ContextVar, and a tool runs in a copy of the context that dies with its
-    node, so the root span never sees it. The box is shared by reference (:func:`record_turn_facts`).
-    """
     try:
         box = _TURN_OUTCOME.get()
         if box is not None and tag not in (box.get(_TAGS) or []):
@@ -125,13 +76,11 @@ def record_turn_tag(tag: str) -> None:
 
 
 def turn_tagged(tag: str) -> bool:
-    """Whether :func:`record_turn_tag` put ``tag`` on this turn, read in the context that bound the box."""
     box = _TURN_OUTCOME.get()
     return bool(box) and tag in (box.get(_TAGS) or [])
 
 
 def record_turn_finished(body: Any) -> None:
-    """Remember a finished turn's outcome for its root span. Never raises."""
     try:
         _fill(outcome_attributes(outcome=body.outcome, result=body.result))
     except Exception:
@@ -139,7 +88,6 @@ def record_turn_finished(body: Any) -> None:
 
 
 def record_turn_error(code: str, message: str | None = None) -> None:
-    """Remember that a turn failed, so its root reads ERROR rather than a healthy span. Never raises."""
     try:
         _fill(error_attributes(code=code, message=message))
     except Exception:
@@ -156,7 +104,6 @@ def _quote_counts(stamps: list[Any]) -> dict[str, int]:
 
 
 def _source_project_id(source: Any) -> str | None:
-    """The other project (ADR-0094) a wire source came from, or None for this project's own scope."""
     project = getattr(source, "project", None)
     project_id = project.get("id") if isinstance(project, dict) else None
     return str(project_id) if project_id else None
@@ -168,12 +115,10 @@ def _answer_kind(meta: Any) -> str | None:
 
 
 def _level_for(outcome: str) -> str:
-    """Cancelled is the asker's Stop: worth seeing, not a fault. Everything else that finished is DEFAULT."""
     return "WARNING" if outcome == "cancelled" else "DEFAULT"
 
 
 def _work_counts(meta: Any) -> dict[str, int | None]:
-    """A work report's lines per section (ADR-0123); nothing for any other answer."""
     work = meta.get("work") if isinstance(meta, dict) else None
     if not isinstance(work, dict):
         return {}
@@ -183,7 +128,6 @@ def _work_counts(meta: Any) -> dict[str, int | None]:
 
 
 def outcome_metadata(*, outcome: str, result: Any) -> dict[str, Any]:
-    """The analyst-facing facts of one finished turn, absent values omitted."""
     removed = getattr(result, "citations_removed", None)
     quotes = _quote_counts(list(getattr(result, "quote_stamps", None) or []))
     precedents = [pid for pid in map(_source_project_id, getattr(result, "sources", None) or []) if pid]
@@ -212,7 +156,6 @@ def outcome_metadata(*, outcome: str, result: Any) -> dict[str, Any]:
 
 
 def outcome_tags(metadata: dict[str, Any]) -> list[str]:
-    """Low-cardinality tags, the trace list's fast filter. Never ids, never free text."""
     tags = [f"outcome:{metadata['turn_outcome']}"]
     for key, prefix in (
         ("answer_route", "route"),
@@ -237,7 +180,6 @@ def outcome_tags(metadata: dict[str, Any]) -> list[str]:
 
 
 def outcome_attributes(*, outcome: str, result: Any) -> dict[str, Any]:
-    """Every attribute the root span of a finished turn gains. Pure."""
     metadata = outcome_metadata(outcome=outcome, result=result)
     attributes: dict[str, Any] = {f"{METADATA_PREFIX}{key}": value for key, value in metadata.items()}
     attributes[TAGS_ATTRIBUTE] = outcome_tags(metadata)
@@ -249,7 +191,6 @@ def outcome_attributes(*, outcome: str, result: Any) -> dict[str, Any]:
 
 
 def error_attributes(*, code: str, message: str | None = None) -> dict[str, Any]:
-    """The root span of a failed turn: ERROR, with the wire's code as its status. Pure."""
     attributes: dict[str, Any] = {
         f"{METADATA_PREFIX}turn_outcome": "error",
         f"{METADATA_PREFIX}error_code": code,

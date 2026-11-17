@@ -1,57 +1,3 @@
-"""Which restricted folders a memory depends on (ADR-0087).
-
-A turn whose signed scope holds restricted-folder collections (``R``) may have
-put restricted content in front of the model: through what it retrieved, and
-through document listings — the inventory block, which names in-scope documents
-with their summaries before the first tool call, and ``list_files``, which
-lists every one of them with its summary on request. Memory outlives the turn and is read by the
-whole project, so a memory written in such a turn carries the restricted
-collections it depends on, and the BFF serves and shows it only to a session
-cleared for all of them. "Restricted shouldn't feel like amnesia, it should
-feel like a first thought" (product owner, 2026-10-02): the memory is kept, for
-the people allowed to know it.
-
-This module is the ONE place that decides. The ``remember`` tool and the
-reflection stage both call :func:`restriction_decisions`, which returns each
-memory's restriction with the judge's verdict when it was asked
-(:func:`decide_restrictions` is the restriction alone). The writers send that
-verdict with every write, and the BFF audits it as
-``project.memory.restriction_judged``: with the note it was about, or, for an
-organization write the deployment refuses (the default), with the organization,
-since that "none" is what let the agent offer the finding as an open card:
-
-1. Nothing restricted in scope: open.
-2. The turn (or the conversation it continues) cited or read restricted
-   collections: the memory is restricted to those.
-3. Restricted documents the turn could list but did not read: a model judge is
-   shown the memory and those documents' inventory lines (name and summary) and
-   names the ones it draws on. Their collections are added. Nothing named: no
-   addition. Restricted MEMORY the conversation was shown is judged the same
-   way — this turn's digest ``restricted`` lines, what this turn already wrote
-   as restricted, and the restricted lines EARLIER turns of the conversation
-   were shown (``memory/shown_notes.py``; the digest is re-ranked per turn and
-   capped, so a note can leave the prompt and stay in the history). A note that
-   draws on one is restricted to the collections that note could carry: the
-   restricted collections of the scope it was shown under, because a digest
-   line does not say which folder it came from. Without this a paraphrase of a
-   restricted note would be filed as open memory.
-4. Before the judge, and whatever it says: a memory whose text substantially
-   reproduces a restricted note (:func:`reproduces`) draws on it. A judge that
-   answers "nothing" for a verbatim copy cannot open it.
-5. Any judge failure — no model, timeout, transport error, a reply that does not
-   parse strictly — counts as "draws on all of them": fail closed. So does a
-   turn whose inventory is unknown (it failed open), and one with more unread
-   restricted documents than the judge is shown.
-
-Step 3 also runs alongside step 2 when unread restricted documents of OTHER
-collections could be listed, so a memory restricted to folder A cannot carry
-what folder B's summary said to people cleared only for A.
-
-Organization scope is the caller's to demote: organization memory reaches every
-project in the tenant, so a restricted finding is filed as restricted memory of
-the turn's project instead (the BFF refuses a restricted organization write).
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -87,33 +33,22 @@ Restriction = tuple[str, ...] | None
 
 @dataclass(frozen=True)
 class JudgeVerdict:
-    """What the judge said about one memory, for the audit trail (AI Act; ADR-0087).
-
-    Collections only, never the memory's text or what the judge was shown: the
-    BFF records which note, which folders, and the verdict.
-    """
-
     verdict: Literal["drawn", "none", "failed"]
     judged: tuple[str, ...]
     drawn: tuple[str, ...] = ()
 
     def as_payload(self) -> dict[str, object]:
-        """The ``restrictionJudge`` body field of ``POST /api/internal/memory``."""
         return {"verdict": self.verdict, "judgedCollections": list(self.judged), "drawnCollections": list(self.drawn)}
 
 
 @dataclass(frozen=True)
 class RestrictionDecision:
-    """One memory's restriction, and the judge's verdict when a judge was asked."""
-
     restriction: Restriction
     judge: JudgeVerdict | None = None
 
 
 @dataclass(frozen=True)
 class RestrictedDocument:
-    """One restricted document as the turn's inventory listed it."""
-
     collection: str
     name: str
     summary: str
@@ -121,24 +56,12 @@ class RestrictedDocument:
 
 @dataclass(frozen=True)
 class RestrictedNote:
-    """One restricted memory line a turn of the conversation was shown or wrote.
-
-    ``collections`` are the restricted collections of the scope it was shown
-    under: the note is restricted to some of them, and a line does not say which.
-    """
-
     content: str
     collections: tuple[str, ...]
 
 
 @dataclass(frozen=True)
 class RestrictionEvidence:
-    """What a turn could have taken from restricted folders.
-
-    Context-free and frozen, so the reflection stage can carry it past the
-    request context in ``TurnFacts``.
-    """
-
     scope: tuple[str, ...] = ()
     read: tuple[str, ...] = ()
     documents: tuple[RestrictedDocument, ...] = ()
@@ -147,7 +70,6 @@ class RestrictionEvidence:
 
     @property
     def restricted(self) -> bool:
-        """Whether the turn could see restricted content at all."""
         return bool(self.scope)
 
 
@@ -171,25 +93,6 @@ def restriction_evidence(
     earlier_notes: Iterable[RestrictedNote] = (),
     always: Iterable[str] = (),
 ) -> RestrictionEvidence:
-    """Assemble the evidence from what a turn holds.
-
-    ``scope_names`` is the turn's (signed) collection scope;
-    ``source_collections`` the collections of every source it cited or read
-    (and of the conversation's citation registry, whose passages are in the
-    history); ``listed_documents`` the inventory rows the turn could list
-    (``AvailableDocument`` or a dict with ``collection``/``file_name``/
-    ``display_title``/``summary``); ``restricted_notes`` this turn's restricted
-    memory lines, shown under this scope; ``earlier_notes`` the lines earlier
-    turns were shown, each with its own collections; ``always`` collections
-    every memory of the conversation is restricted to (earlier notes that no
-    longer fit the bounded record, ``memory/shown_notes.py``).
-
-    The restricted scope is this turn's restricted collections plus those of the
-    earlier notes and ``always``: a note shown under folder A is A's content even
-    in a turn that no longer has A in scope. Collection names compare
-    case-insensitively, like :func:`is_restricted_collection`, and keep the
-    scope's spelling.
-    """
     signed = tuple(dict.fromkeys(restricted_collections_in(scope_names)))
     earlier = tuple(note for note in map(_earlier_note, earlier_notes) if note is not None)
     pinned = tuple(dict.fromkeys(restricted_collections_in(always)))
@@ -229,7 +132,6 @@ _DIGEST_LINE = re.compile(r'^\s*-\s*\[([^\]]*)\]\s*"(.*)"\s*$')
 
 
 def restricted_digest_notes(digest: str | None) -> tuple[str, ...]:
-    """The contents of the digest lines tagged ``restricted`` (ADR-0087)."""
     notes = []
     for line in (digest or "").splitlines():
         match = _DIGEST_LINE.match(line)
@@ -275,12 +177,6 @@ JUDGE_SYSTEM_PROMPT = (
 
 @dataclass(frozen=True)
 class _Judged:
-    """One entry the judge is shown: a restricted document, or a restricted note.
-
-    ``collections`` are what a memory drawing on it is restricted to: the
-    document's collection, or every collection the note could carry.
-    """
-
     name: str
     summary: str
     collections: tuple[str, ...]
@@ -307,12 +203,6 @@ def _judge_prompt(contents: Sequence[str], documents: Sequence[_Judged]) -> str:
 
 
 def parse_judge_reply(text: str, *, notes: int, documents: int) -> list[frozenset[int]] | None:
-    """The documents (1-based) each note draws on, or ``None`` when the reply is unusable.
-
-    Strict on purpose, because ``None`` is the fail-closed answer: every note
-    exactly once, every number in range. A partial or out-of-range reply is not
-    half an answer, it is no answer.
-    """
     parsed = extract_json(text)
     if not isinstance(parsed, dict):
         return None
@@ -333,12 +223,6 @@ def parse_judge_reply(text: str, *, notes: int, documents: int) -> list[frozense
 
 
 async def judge(contents: Sequence[str], documents: Sequence[_Judged], *, llm: Any) -> list[frozenset[int]] | None:
-    """Ask the model which documents each note draws on; ``None`` on any failure.
-
-    One call for every note of a write (the reflection stage writes up to five),
-    bounded by :data:`JUDGE_TIMEOUT_S`. Never raises: an exception here would be
-    a memory written open, which is the one outcome this must not produce.
-    """
     if llm is None or not contents or not documents:
         return None
     from agent.memory.reflection import structured_reply
@@ -361,18 +245,12 @@ def _restriction(collections: Iterable[str]) -> Restriction:
 
 
 async def decide_restrictions(contents: Sequence[str], evidence: RestrictionEvidence, *, llm: Any) -> list[Restriction]:
-    """The restriction of each memory about to be written, in order. See the module docstring."""
     return [decision.restriction for decision in await restriction_decisions(contents, evidence, llm=llm)]
 
 
 async def restriction_decisions(
     contents: Sequence[str], evidence: RestrictionEvidence, *, llm: Any
 ) -> list[RestrictionDecision]:
-    """:func:`decide_restrictions`, with the judge's verdict on each memory when it was asked.
-
-    The writers send the verdict with the write, and the BFF audits it: a judge
-    that says "nothing" is what leaves a note open, so that answer is recorded.
-    """
     if not contents:
         return []
     if not evidence.restricted:
@@ -403,7 +281,6 @@ async def restriction_decisions(
 
 
 def _collections_drawn(drawn: frozenset[int], judged: Sequence[_Judged]) -> set[str]:
-    """The collections behind the judged entries a memory draws on."""
     return {collection for number in drawn for collection in judged[number - 1].collections}
 
 
@@ -423,7 +300,6 @@ REPRODUCTION_MIN_TOKENS = 3
 
 
 def _normalized(text: str) -> str:
-    """Case, Unicode form, punctuation and spacing folded away: what a copy keeps."""
     folded = unicodedata.normalize("NFKC", text).casefold()
     return " ".join(_WORD.findall(folded))
 
@@ -437,16 +313,6 @@ def _significant(normalized: str) -> set[str]:
 
 
 def reproduces(memory: str, note: str) -> bool:
-    """Whether ``memory`` substantially reproduces the restricted ``note``.
-
-    Either one contains the other once normalized (a verbatim copy, with or
-    without words around it, or a verbatim fragment of the note), the contained
-    side carrying at least :data:`REPRODUCTION_MIN_TOKENS` significant tokens;
-    or the memory repeats at least :data:`REPRODUCTION_SHARE` of the note's
-    significant tokens, and at least :data:`REPRODUCTION_MIN_TOKENS` of them.
-    Deterministic and conservative in one direction only: a match restricts, a
-    miss leaves the question to the judge.
-    """
     left, right = _normalized(memory), _normalized(note)
     if not left or not right:
         return False
@@ -463,5 +329,4 @@ def _reproduced_collections(memory: str, notes: Sequence[RestrictedNote]) -> set
 
 
 async def decide_restriction(content: str, evidence: RestrictionEvidence, *, llm: Any) -> Restriction:
-    """:func:`decide_restrictions` for one memory."""
     return (await decide_restrictions([content], evidence, llm=llm))[0]

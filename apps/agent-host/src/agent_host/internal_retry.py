@@ -1,24 +1,3 @@
-"""A short, bounded retry for the backend's best-effort writes to the BFF.
-
-A finished run tells the BFF how it ended (``jobs/outcome_notify.py``) and fills
-its thread message (``jobs/conversation_output.py``) over the internal HTTP API.
-Each of those was one POST: a BFF restart or a network blip at that moment lost
-the write for good, and a run whose ``task_runs`` row the BFF had not recorded
-yet got a 404 and was dropped. This is the first of two answers. It heals the
-common case within half a minute; the BFF's run reconciler
-(``apps/workspace/bff/runs/reconcile.ts``) is the backstop that heals the rest
-by asking the job store.
-
-Why a loop and not ``tenacity``: tenacity is in the venv only as somebody
-else's dependency, and three attempts with two fixed pauses is the whole
-policy. Declaring a library for it would add a contract without removing any
-code.
-
-The caller keeps its own ``httpx`` call inside ``send``, so each module still
-owns its URL, payload and the meaning of each status code, and a test that
-doubles a module's ``httpx.AsyncClient`` still doubles the only client used.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -35,19 +14,10 @@ _RETRYABLE_STATUSES = frozenset({408, 425, 429, 500, 502, 503, 504})
 
 
 async def _sleep(seconds: float) -> None:
-    """The pause between attempts; its own function so a test can skip it."""
     await asyncio.sleep(seconds)
 
 
 def is_retryable_status(status_code: int, *, retry_not_found: bool) -> bool:
-    """Whether an answer is worth asking again.
-
-    ``retry_not_found`` is the caller's knowledge that a row SHOULD exist: a job
-    submitted for a ``task_runs`` row can finish before the BFF has recorded the
-    row's backend job id, and the first report then meets a 404 that would be a
-    200 a few seconds later. Without that knowledge a 404 is an answer (an
-    interactive job has no row at all) and asking again only delays the worker.
-    """
     if status_code == 404:
         return retry_not_found
     return status_code in _RETRYABLE_STATUSES
@@ -60,12 +30,6 @@ async def send_with_retry(
     retry_not_found: bool = False,
     delays: tuple[float, ...] | None = None,
 ) -> Any | None:
-    """Call ``send`` until it gives a final answer or the attempts run out.
-
-    Returns the last response, which may still be a retryable status when every
-    attempt got one, so the caller reads it exactly as it read a single response.
-    Returns ``None`` when every attempt raised. Never raises itself.
-    """
     schedule = RETRY_DELAYS_SECONDS if delays is None else delays
     attempts = len(schedule) + 1
     response: Any | None = None

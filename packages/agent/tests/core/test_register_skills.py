@@ -1,12 +1,3 @@
-"""The agent's register: skill wiring (resolver → allowlist → runtime → tools).
-
-Covers the seam between the skills engine and the agent registration: the
-per-run resolution + allowlist narrowing + the skill ``read_file`` (ADR-0135) +
-``skills_block``/``skills_activated`` propagation declared in
-``ResearchAgentConfig``. The engine itself (model/resolver/runtime) is
-tested under ``packages/agent/tests/skills/``.
-"""
-
 from unittest.mock import AsyncMock
 from unittest.mock import MagicMock
 from unittest.mock import patch
@@ -26,7 +17,6 @@ from tests.provider_doubles import nat_langchain_client
 
 @tool
 def web_search_tool(query: str) -> str:
-    """Search the web."""
     return f"results: {query}"
 
 
@@ -47,11 +37,6 @@ class _FakeBuilder:
 
 
 def _make_agent_stub():
-    """ChatAgent replacement whose .run echoes the input state.
-
-    Records the tools each constructed instance was given so the test can
-    assert the skill read was folded into the turn, never the boot build.
-    """
 
     def _factory(*args, **kwargs):
         agent = MagicMock()
@@ -79,12 +64,6 @@ def _skill(name: str):
 
 
 def _skill_runtime(resolved, *, activated=()):
-    """A stand-in runtime.
-
-    ``activated`` is what the model actually opened this run. It defaults to
-    nothing, which is the honest default now that a turn can only be OFFERED a
-    skill: a catalog the model read past activates none of it.
-    """
     from agent.skills.backend import SkillsBackend
 
     runtime = MagicMock()
@@ -99,7 +78,6 @@ def _skill_runtime(resolved, *, activated=()):
 
 
 def _patch_runtime(runtime):
-    """Patch the register's ``SkillRuntime``; the register builds one with ``SkillRuntime.office``."""
     cls = MagicMock()
     cls.office.return_value = runtime
     return patch.object(register_module, "SkillRuntime", cls)
@@ -107,12 +85,6 @@ def _patch_runtime(runtime):
 
 @pytest.mark.asyncio
 async def test_research_turn_resolves_allows_and_folds_skill_tool():
-    """skills_enabled research turn: resolve → allowlist → runtime → the skill ``read_file``.
-
-    The turn must carry ``read_file`` over the skills; the pre-rendered
-    skills block must land on the state before ``run()`` and the activation
-    list must be lifted onto the result.
-    """
     builder = _FakeBuilder({"web_search_tool": web_search_tool})
     config = ResearchAgentConfig(
         llm="research_llm",
@@ -151,13 +123,6 @@ async def test_research_turn_resolves_allows_and_folds_skill_tool():
 
 @pytest.mark.asyncio
 async def test_the_catalog_is_announced_before_the_llm_runs():
-    """The `offered` event fires at wiring time, not after the answer.
-
-    Everything about skills used to leave the process as ``skills_activated[]``
-    on the TERMINAL frame — i.e. after the answer the skill shaped. This asserts
-    the seam: the register announces the catalog while it is still assembling
-    the run, before a single token is generated.
-    """
     builder = _FakeBuilder({"web_search_tool": web_search_tool})
     config = ResearchAgentConfig(
         llm="research_llm",
@@ -186,7 +151,6 @@ async def test_the_catalog_is_announced_before_the_llm_runs():
 
 @pytest.mark.asyncio
 async def test_a_turn_without_skills_announces_nothing():
-    """Silence is the correct report for a turn with no skills in it."""
     builder = _FakeBuilder({"web_search_tool": web_search_tool})
     config = ResearchAgentConfig(
         llm="research_llm",
@@ -213,12 +177,6 @@ async def test_a_turn_without_skills_announces_nothing():
 
 @pytest.mark.asyncio
 async def test_a_mentioned_skill_is_offered_like_any_other():
-    """The `/name` invocation is TEXT, and the runtime is given the catalog.
-
-    Nothing on the state says which skill the user typed: the mention is in the
-    message, the model reads it there, and the same `read_file` answers it.
-    So the register's job is the same on this turn as on any other.
-    """
     builder = _FakeBuilder({"web_search_tool": web_search_tool})
     config = ResearchAgentConfig(
         llm="research_llm",
@@ -250,7 +208,6 @@ async def test_a_mentioned_skill_is_offered_like_any_other():
 
 @pytest.mark.asyncio
 async def test_skills_disabled_skips_resolution():
-    """skills_enabled=False: engine is never consulted, tool set unchanged."""
     builder = _FakeBuilder({"web_search_tool": web_search_tool})
     config = ResearchAgentConfig(
         llm="research_llm",
@@ -273,7 +230,6 @@ async def test_skills_disabled_skips_resolution():
 
 @pytest.mark.asyncio
 async def test_allowlist_narrows_resolved_set():
-    """skill_allowlist restricts which resolved skills reach the runtime."""
     builder = _FakeBuilder({"web_search_tool": web_search_tool})
     config = ResearchAgentConfig(
         llm="research_llm",
@@ -304,11 +260,6 @@ async def test_allowlist_narrows_resolved_set():
 
 @pytest.mark.asyncio
 async def test_a_name_the_allowlist_dropped_is_simply_not_in_the_catalog():
-    """A skill the deployment does not allow never reaches the runtime.
-
-    It is not an error and not a refusal: the model is offered what resolved,
-    and a path it guesses for a name that is not there reads as not found.
-    """
     builder = _FakeBuilder({"web_search_tool": web_search_tool})
     config = ResearchAgentConfig(
         llm="research_llm",
@@ -336,13 +287,6 @@ async def test_a_name_the_allowlist_dropped_is_simply_not_in_the_catalog():
 
 @pytest.mark.asyncio
 async def test_the_turn_config_reserves_nothing_on_top_of_the_budget():
-    """One ceiling, and it is the number the config's traced floors measure.
-
-    The register used to add one iteration per standard skill, because the
-    deployment forced those skills and the turn had to pay for calls nobody
-    asked for. Nothing is forced now, so there is nothing to compensate: a
-    skill read is the model's own and is charged like a search.
-    """
     builder = _FakeBuilder({"web_search_tool": web_search_tool})
     config = ResearchAgentConfig(
         llm="research_llm",
@@ -374,14 +318,6 @@ async def test_the_turn_config_reserves_nothing_on_top_of_the_budget():
 
 @pytest.mark.asyncio
 async def test_only_what_was_delivered_is_reported_as_used(caplog):
-    """`skills_activated` is the answer's provenance, so it carries deliveries only.
-
-    The register lifts ``SkillRuntime.activated`` onto the result and the
-    frontend renders it as "what shaped this answer". A skill the model read
-    past in the catalog shaped nothing — and that is not a failure to log
-    either: the catalog is an offer, and declining one is the mechanism
-    working.
-    """
     builder = _FakeBuilder({"web_search_tool": web_search_tool})
     config = ResearchAgentConfig(llm="research_llm", tools=["web_search_tool"], skills_enabled=True)
     resolved = (_skill("piloti-voice"), _skill("piloti-cards"))
@@ -405,8 +341,6 @@ async def test_only_what_was_delivered_is_reported_as_used(caplog):
 
 @pytest.mark.asyncio
 async def test_the_model_credential_and_zdr_lookups_overlap():
-    """The three tenant lookups are independent blocking reads, so they run
-    concurrently — one cold BFF round-trip stalls the turn once, not 3x."""
     import threading
     import time
 
@@ -450,8 +384,6 @@ async def test_the_model_credential_and_zdr_lookups_overlap():
 
 @pytest.mark.asyncio
 async def test_one_bad_tenant_reader_does_not_poison_the_others():
-    """Each lookup fails open on its own: a raising credential reader costs
-    the credential, never the turn — and never the other two readers."""
     builder = _FakeBuilder({"web_search_tool": web_search_tool})
     config = ResearchAgentConfig(llm="research_llm", tools=["web_search_tool"], skills_enabled=False)
 
@@ -473,8 +405,6 @@ async def test_one_bad_tenant_reader_does_not_poison_the_others():
 
 @pytest.mark.asyncio
 async def test_the_skill_resolve_runs_off_the_event_loop():
-    """A cold resolve is a blocking BFF round-trip with a 5s timeout. On the
-    loop it stalled every conversation on the replica; it runs on a thread."""
     import threading
 
     builder = _FakeBuilder({"web_search_tool": web_search_tool})
@@ -503,8 +433,6 @@ async def test_the_skill_resolve_runs_off_the_event_loop():
 
 @pytest.mark.asyncio
 async def test_the_envelope_names_reach_the_runtime_after_the_run():
-    """``skills_applied`` on the finished state is handed to the runtime, which
-    decides what it means (ADR-0063); ``skills_activated`` is read after that."""
     builder = _FakeBuilder({"web_search_tool": web_search_tool})
     config = ResearchAgentConfig(llm="research_llm", tools=["web_search_tool"], skills_enabled=True)
     resolved = (_skill("building-class"),)
@@ -539,7 +467,6 @@ async def test_the_envelope_names_reach_the_runtime_after_the_run():
 
 @pytest.mark.asyncio
 async def test_skills_disabled_offers_no_catalog_and_no_skill_read():
-    """The flag off: no catalog in the turn context and no ``read_file`` over skills."""
     builder = _FakeBuilder({"web_search_tool": web_search_tool})
     config = ResearchAgentConfig(llm="research_llm", tools=["web_search_tool"], skills_enabled=False)
     stub = _make_agent_stub()
@@ -557,7 +484,6 @@ async def test_skills_disabled_offers_no_catalog_and_no_skill_read():
 
 @pytest.mark.asyncio
 async def test_a_real_runtime_serves_the_catalog_and_records_what_the_model_read():
-    """End to end through the register with the real runtime: catalog in, read out, activation reported."""
     from types import SimpleNamespace
 
     from agent.skills.models import Skill

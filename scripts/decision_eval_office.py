@@ -1,59 +1,4 @@
 #!/usr/bin/env python3
-"""Office-experience decision eval: does Jev serve the similar-projects path well, in German?
-
-WHY THIS EXISTS
----------------
-The decision model (TypeSafe's Jev, ADR-0064) sits at four points of the
-office's experience (ADR-0094, ADR-0096, docs/roadmap/office-experience.md):
-
-``precedent``
-    The turn decision's ``precedent`` noul and ``referenz`` corpus decide
-    whether round 0 searches the office's closed projects before the model
-    asks (``TurnDecisions.wants_reference``).
-``fit``
-    Rank, then verify (use 10, ``core/reference_fit.py``): the
-    catalog is ranked by fingerprint, then one ``fits`` noul per line reorders
-    it for THIS question. Measured as whether a project the answer must cite
-    lands in the first page a closed search walks (8 projects).
-``hits``
-    Use 11 (``tools/cross_project/hit_judge.py``): one ``solved`` noul per
-    passage another project handed out, and the knowledge layer's
-    ``injection`` noul. Measured against the passages each question names as
-    its evidence, and against planted instructions.
-``verify``
-    Use 12 (``knowledge/fingerprint_verify.py``): one ``stated`` noul per
-    fingerprint value the closed-project reading proposes. Measured on
-    hand-labelled quotes.
-
-Every part reads fixtures that exist for their own sake: the precedent eval's
-fixture office (``apps/workspace/tests/fixtures/precedent/office.json``), its
-catalog as the production renderer writes it (``rendered.json``) and its
-labelled questions (``tests/fixtures/precedent/precedent_questions.yaml``);
-the loop-eval questions (``tests/fixtures/derivation/loop_eval_questions.yaml``)
-are rule questions that must NOT look; ``verify`` reads
-``tests/fixtures/decisions/fingerprint_quotes.yaml``. The questions asked are
-the production ones, imported, so a change to a question's wording is
-measured here before it ships.
-
-THE LAST RUN
-------------
-10 Oct 2026, ``typesafe/jev-1.13-20260917``; the numbers each module's
-threshold cites. Two precedent runs drifted by 0.013 on average (max 0.06)
-and chose the same corpus on every row.
-
-IT NEEDS A KEY, NOT A BACKEND
------------------------------
-``OPENROUTER_API_KEY`` (or ``DECISIONS_API_KEY``). A few cents for every
-part together. It cannot run in CI for that reason alone.
-
-USAGE
------
-    python scripts/decision_eval_office.py                 # every part
-    python scripts/decision_eval_office.py precedent fit   # some parts
-    python scripts/decision_eval_office.py --out /tmp/office-eval.json
-
-``task be:eval:decisions:office`` is the same thing.
-"""
 
 from __future__ import annotations
 
@@ -169,12 +114,6 @@ class PrecedentRow:
 
 
 def _precedent_cases() -> list[tuple[str, str, str, bool, bool]]:
-    """``(id, source, question, should_look, holdout)``.
-
-    A ``required`` lookup must look; a ``forbidden`` one and every loop-eval
-    rule question must not; an ``optional`` one and the office with no other
-    project (where nothing is asked) are left out.
-    """
     cases = []
     for question in _precedent_questions():
         lookup = (question.get("expect") or {}).get("lookup")
@@ -253,7 +192,6 @@ async def evaluate_precedent() -> dict[str, Any]:
 
 
 def _cited_projects(question: dict[str, Any], projects: list[dict[str, Any]]) -> set[str]:
-    """The projects a question's answer must cite, by the names the eval's ``cites`` check matches."""
     groups = (question.get("expect") or {}).get("cites") or []
     found = set()
     for group in groups:
@@ -264,7 +202,6 @@ def _cited_projects(question: dict[str, Any], projects: list[dict[str, Any]]) ->
 
 
 def _closed_order(office: dict[str, Any], rendered: dict[str, Any], scenario: str) -> list[str]:
-    """What a ``closed`` search walks: the closed projects in likeness order, the chat's own left out."""
     status = {project["id"]: project["status"] for project in office["projects"]}
     current = (office["scenarios"].get(scenario) or {}).get("current", office["current"])["id"]
     return [
@@ -275,7 +212,6 @@ def _closed_order(office: dict[str, Any], rendered: dict[str, Any], scenario: st
 
 
 def _fit_first(order: list[str], fit: list[str]) -> list[str]:
-    """The BFF's ``fitFirst``: the fit's projects first, in its order, then the rest in theirs."""
     first = [project_id for project_id in fit if project_id in order]
     return [*first, *(project_id for project_id in order if project_id not in first)]
 

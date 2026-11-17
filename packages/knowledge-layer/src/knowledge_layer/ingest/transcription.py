@@ -1,22 +1,3 @@
-"""Verbatim transcription of scanned and garbled PDF pages through the vision model.
-
-A scanned page has no text layer, and a garbled one has a text layer that
-decodes to glyph ids (``page_triage``). Both are rendered and sent to the SAME
-OpenAI-compatible endpoint the drawing analysis uses, with the same credential
-(``resolve_vlm_credential``: org BYOK, then ``VLM_API_KEY``, then the
-provider key for ``VLM_BASE_URL``), and the reply becomes the page's text.
-It is then chunked like any other page: a transcription is text, not a visual,
-so it never enters the drawing schema.
-
-There is no local OCR engine by decision (2026-09-29): no tesseract, no new
-container, no GPU. Why this route and not OpenRouter's ``file-parser`` plugin:
-``docs/architecture/visual-ingestion.md`` ("Scans and garbled text layers").
-
-Results are cached in the VLM cache (Dragonfly) under their own prompt type,
-keyed by the rendered page's content hash and the model, so a re-ingest of the
-same scan costs nothing and a prompt change never serves the old reply.
-"""
-
 from __future__ import annotations
 
 import base64
@@ -66,23 +47,14 @@ _FAILURE_PREFIX = "[transcription -"
 
 
 def cache_prompt_type() -> str:
-    """Cache namespace for transcriptions, distinct from every visual-analysis prompt."""
     return f"ocr:v{PROMPT_VERSION}"
 
 
 def resolve_ocr_model(vlm_model: str, org_override: str | None = None) -> str:
-    """The model that transcribes: the org's vision override, else ``OCR_MODEL``, else the VLM.
-
-    The org's ``ingest_vlm`` override wins because it is the tenant's own choice
-    of vision model, made in the admin UI; a separate ``ingest_ocr`` group was
-    not added (it would be a new picker row, a new bootstrap default and a new
-    config key in the BFF for a choice no tenant has asked to make separately).
-    """
     return org_override or os.environ.get(OCR_MODEL_ENV, "").strip() or vlm_model
 
 
 def _transcribe_live(image_bytes: bytes, *, ocr_model: str, base_url: str, api_key: str) -> str:
-    """One transcription call. Returns the reply, or a failure placeholder (never cached)."""
     from knowledge_layer.ingest import vision_calls
 
     try:
@@ -111,7 +83,6 @@ def _transcribe_live(image_bytes: bytes, *, ocr_model: str, base_url: str, api_k
 
 
 def clean_reply(reply: str | None) -> str:
-    """Strip what a model wraps around a transcription despite being told not to."""
     text = (reply or "").strip()
     if text.startswith("```"):
         text = text.split("\n", 1)[1] if "\n" in text else ""
@@ -124,7 +95,6 @@ def is_failed(reply: str | None) -> bool:
 
 
 def transcribe_image(image_bytes: bytes, *, model: str, base_url: str, api_key: str) -> str:
-    """Transcribe one rendered page, through the content-hash VLM cache."""
     from knowledge_layer.ingest import processing as _processing
 
     return _processing._cached_vlm_call(
@@ -141,13 +111,6 @@ def transcribe_image(image_bytes: bytes, *, model: str, base_url: str, api_key: 
 
 @dataclass
 class TranscriptionOutcome:
-    """What happened to every page the triage sent to transcription.
-
-    Every page lands in exactly one bucket, so ``over_cap`` and ``failed`` are
-    the counts a file result reports rather than something a reader infers from
-    a short chunk list.
-    """
-
     texts: dict[int, str] = field(default_factory=dict)
     drawings: list[int] = field(default_factory=list)
     blank: list[int] = field(default_factory=list)
@@ -184,15 +147,6 @@ def transcribe_pdf_pages(
     max_dim: int,
     workers: int | None = None,
 ) -> TranscriptionOutcome:
-    """Render and transcribe ``page_numbers`` of ``pdf_path``, at most ``max_pages`` of them.
-
-    Pages past the cap are listed in ``over_cap``, never dropped quietly. The
-    pages stream through the file's page-read pool (``page_reads``): each is
-    submitted as soon as it is rendered, with no batch waiting for its slowest
-    call, and at most twice the pool's size of rendered pages are held at once,
-    so a 500-page scan never holds 500 JPEGs. ``workers`` sizes a private pool
-    when no file pool is open (a direct call).
-    """
     from knowledge_layer.ingest import page_reads
 
     wanted = sorted(page_numbers)
@@ -226,7 +180,6 @@ def _submit_transcriptions(
     api_key: str,
     outcome: TranscriptionOutcome,
 ) -> list[tuple[int, Any]]:
-    """Render each page on this thread (under ``pdfium_lock``) and submit its transcription at once."""
     from knowledge_layer.ingest import processing as _processing
 
     doc = _processing._open_pdf(pdf_path, "Page render")
@@ -252,12 +205,6 @@ def _submit_transcriptions(
 
 @dataclass
 class PageRoutes:
-    """Where the triage sent each page of one PDF, and what came of it.
-
-    ``drawing_pages`` is ``None`` when the PDF could not be measured: the
-    renderer then applies its own drawing check, as before triage existed.
-    """
-
     drawing_pages: set[int] | None = None
     scan_pages: set[int] = field(default_factory=set)
     outcome: TranscriptionOutcome = field(default_factory=TranscriptionOutcome)
@@ -265,7 +212,6 @@ class PageRoutes:
     garbled_kept: list[int] = field(default_factory=list)
 
     def counts(self) -> dict[str, int]:
-        """The per-file counts that go on the job status; zero counts are left out."""
         counts = {
             **self.outcome.counts(),
             "pages_not_transcribed_no_vlm": len(self.not_transcribed),
@@ -277,15 +223,6 @@ class PageRoutes:
 def _merge_transcriptions(
     text_pages: list[dict], garbled: set[int], texts: dict[int, str], blank: set[int] | frozenset[int] = frozenset()
 ) -> list[int]:
-    """Put transcriptions in as page text, in place; return the garbled pages that kept their own text.
-
-    A transcription replaces a garbled text layer. A garbled page nothing
-    replaced (no key, a failed call, the OCR cap, an unmeasurable PDF) keeps
-    what of its text is not glyph ids (``page_triage.salvage_text``): the
-    garbled verdict is a heuristic, and dropping a false positive loses a clean
-    page. A page the model read and called blank keeps nothing. Mutated in
-    place so the caller's list keeps its type and attributes.
-    """
     from knowledge_layer.ingest.page_triage import salvage_text
 
     by_number = {page["page_number"]: page for page in text_pages}
@@ -321,18 +258,6 @@ def route_pdf_pages(
     workers: int | None = None,
     triage: Any = _UNMEASURED,
 ) -> PageRoutes:
-    """Triage every page, transcribe the scanned and garbled ones, merge them into ``text_pages``.
-
-    ``text_pages`` is updated in place: transcriptions become ordinary page
-    text (and flow through the normal chunker) and replace garbled text layers;
-    an untranscribed garbled page keeps its salvageable text
-    (``garbled_kept``). Without a vision key nothing is transcribed and the pages are
-    counted in ``not_transcribed``; the caller decides whether the file stands.
-    ``triage`` is the caller's ``page_triage.triage_pdf`` result for these
-    same ``page_texts`` when it measured the PDF already (the upload screen
-    does, to know which pages it could not read); ``None`` there means
-    unmeasurable, as it does from ``triage_pdf``.
-    """
     from knowledge_layer.ingest import page_triage
 
     if triage is _UNMEASURED:

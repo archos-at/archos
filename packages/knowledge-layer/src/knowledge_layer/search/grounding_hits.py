@@ -1,5 +1,3 @@
-"""Ranked chunks as `GroundingHit` records: provenance, citation keys, pages and image regions."""
-
 import json
 import logging
 import math
@@ -19,45 +17,18 @@ PASSAGE_MAX_CHARS = _CHUNK_TRUNCATE_CHARS
 
 
 def _hit_provenance(chunk):
-    """The agent provenance stated in a hit's chunk metadata, or ``None``.
-
-    The keys are stamped at ingest by the publish path and read back by
-    ``agent.common.provenance``; a human-authored document has none, and
-    every line below that depends on this is simply not emitted for it. Chunk
-    metadata is the only carrier — unlike doc_class and the display title there
-    is no store-resolved override, because authorship is decided once, at
-    publish, and cannot be edited afterwards.
-    """
     from agent.common.provenance import parse_agent_provenance
 
     return parse_agent_provenance(chunk.metadata or {})
 
 
 def _chunk_shelf(chunk):
-    """The shelf a hit came from, as STATED in its metadata (ADR-0047).
-
-    ``None`` when the producer stated none. It is not recovered from the
-    collection id: an unknown shelf is unknown, and a citation for it stays
-    unqualified rather than claiming a shelf the pipeline guessed.
-    """
     from agent.common.source_kinds import parse_shelf
 
     return parse_shelf((chunk.metadata or {}).get("shelf"))
 
 
 def _ambiguous_file_names(chunks) -> set[str]:
-    """Filenames this result set holds on MORE THAN ONE shelf.
-
-    A search fans out across the base corpus, the session collection and the
-    project collections concurrently, so one result set can carry a project
-    `Plan.pdf` and a Büroablage `Plan.pdf` — different documents that a bare
-    filename cannot tell apart. Those names (and only those) get a shelf
-    qualifier in their citation key, so the common case stays a plain filename.
-
-    Shelf, not raw collection, is the grouping: it is all a citation key can
-    express, so two collections on the same shelf are not a distinction the
-    model could act on anyway.
-    """
     shelves_by_name: dict[str, set] = {}
     for chunk in chunks:
         name = (chunk.file_name or "").strip()
@@ -68,15 +39,6 @@ def _ambiguous_file_names(chunks) -> set[str]:
 
 
 def _citation_key_for(file_name: str, shelf, page: int | None, ambiguous: set[str]) -> str:
-    """The key the model copies: ``"filename, p.X"``, or just ``"filename"``.
-
-    It keeps the REAL filename, which is the document identity preview
-    resolution and source dedup use; only the human ``Source:`` label is
-    prettified. When the same filename arrived from two different shelves in
-    this very result set the name alone no longer identifies a document, so it
-    is qualified: ``Plan.pdf (Projektwissen), p.3``. The qualifier is
-    rendering, not transport, and an unknown shelf gets none.
-    """
     from agent.common.source_kinds import shelf_qualifier
 
     name = file_name
@@ -87,14 +49,6 @@ def _citation_key_for(file_name: str, shelf, page: int | None, ambiguous: set[st
 
 
 def _stored_image_index(metadata: dict) -> int | None:
-    """The index of a raster the ingest pipeline stored beside the document.
-
-    ``None`` unless the chunk carries BOTH keys (``image_store.py``): the model
-    reads the index off the rendered line and passes it to
-    ``view_knowledge_image``, which then shows the embedded image itself rather
-    than a render of the page around it, and an index with no stored key names
-    nothing.
-    """
     index = metadata.get("stored_image_index")
     if index is None or not metadata.get("image_key"):
         return None
@@ -112,23 +66,6 @@ _WHOLE_FRAME_AREA = 0.9
 
 
 def _hit_regions(chunk) -> tuple:
-    """Where on the page a visual chunk's depiction sits, as the viewer draws it (issue #433).
-
-    The visual analysis stores one ``bbox`` per segment inside the chunk's
-    ``drawing_data`` (``visual_analysis.segment_payloads``), normalised 0-1 over
-    the picture it read. That picture is the frame the viewer shows in two cases
-    and not in the third:
-
-    - a rendered PDF page (no ``image_index``): the whole page, uncropped;
-    - an uploaded image (``image_index`` on an image file): the whole image;
-    - a raster embedded in a PDF or office document: only the raster, and where
-      the raster sits on the page was never stored. A box there would land in
-      the wrong place with full confidence, so it gets none.
-
-    Anything malformed yields nothing: a missing box leaves the viewer opening
-    at the page, which is what it did before, while a wrong one points the
-    reader at the wrong drawing.
-    """
     from agent.common.grounding_block import SourceRegion
 
     metadata = chunk.metadata or {}
@@ -153,20 +90,10 @@ def _hit_regions(chunk) -> tuple:
 
 
 def _metadata_text(value: object) -> str | None:
-    """A chunk-metadata value as the string a grounding block states, or ``None``."""
     return str(value) if value else None
 
 
 def grounding_hit(chunk, *, resolved, resolved_titles, resolved_folders, ambiguous: set[str]):
-    """One retrieval chunk as the RECORD a grounding block is made of (ADR-0061).
-
-    The single place a chunk becomes citable fields, so the header lines, the
-    Trace-Lanes fan-out and the citation registry cannot disagree about a hit's
-    shelf, Dokumentart or title. Three fields are resolved against the document
-    metadata store rather than chunk metadata (``doc_class``, ``display_title``,
-    ``folder_path``): the store is authoritative and a folder rename must take
-    effect with no re-ingest (ADR-0049).
-    """
     from agent.common.grounding_block import GroundingHit
     from agent.common.licensed_text import EDITION_KEY
     from agent.common.licensed_text import licence_from_metadata
@@ -205,8 +132,6 @@ def grounding_hit(chunk, *, resolved, resolved_titles, resolved_folders, ambiguo
 
 
 def _hit_revision(file_name: str | None, shelf):
-    """What an office or project document's own name says about its Fassung (index, day); None for the base
-    corpus, whose editions the knowledge records name, and for a name that states neither."""
     from agent.common.grounding_block import SourceRevision
     from agent.common.source_kinds import Shelf
     from knowledge_layer.revision_series import parse_revision_name
@@ -220,18 +145,11 @@ def _hit_revision(file_name: str | None, shelf):
 
 
 def _page_end(chunk, page: int | None) -> int | None:
-    """The chunk's stored ``page_end`` when it is later than its start page, else None."""
     end = str((chunk.metadata or {}).get("page_end") or "")
     return int(end) if page is not None and end.isdigit() and int(end) > page else None
 
 
 def grounding_hits(chunks) -> tuple:
-    """Every chunk of one result set as a record.
-
-    The three store reads are batched once per result set (one query per
-    in-scope collection), and which filenames are ambiguous is a property of
-    the whole set, so both belong here rather than in the per-chunk builder.
-    """
     resolved = resolve_doc_classes(chunks)
     resolved_titles = resolve_display_titles(chunks)
     resolved_folders = resolve_folder_paths(chunks)

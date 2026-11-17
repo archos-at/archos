@@ -1,30 +1,5 @@
 #!/usr/bin/env python3
 
-"""
-Adapter Compliance Test
-
-This script validates that an adapter correctly implements BaseRetriever/BaseIngestor:
-1. Quick mode: Registration and instantiation checks (no external services)
-2. Full mode: Complete ingestion and retrieval pipeline
-
-Prerequisites:
-    - OPENROUTER_API_KEY environment variable set (for full mode)
-    - Backend dependencies installed
-
-Usage:
-    export OPENROUTER_API_KEY=your-openrouter-key
-
-    # Quick mode - registration check only (no files/services needed)
-    python tests/knowledge_layer_tests/run_adapter_compliance.py --backend llamaindex --quick
-
-    # Full mode - complete ingestion + retrieval test
-    python tests/knowledge_layer_tests/run_adapter_compliance.py --backend llamaindex
-
-Exit codes:
-    0 - All tests passed
-    1 - Some tests failed
-    2 - Configuration error
-"""
 
 import argparse
 import asyncio
@@ -41,8 +16,6 @@ sys.path.insert(0, str(project_root))
 
 @dataclass
 class TestResult:
-    """Result of a single test."""
-
     name: str
     passed: bool
     message: str
@@ -54,12 +27,6 @@ class TestResult:
 
 
 class AdapterComplianceTest:
-    """
-    Generic test suite for Knowledge Layer adapters.
-
-    Tests all required methods from BaseRetriever and BaseIngestor.
-    """
-
     def __init__(
         self,
         backend: str,
@@ -84,7 +51,6 @@ class AdapterComplianceTest:
         self.job_id = None
 
     def _import_backend(self):
-        """Import the backend module to trigger registration."""
         module_name = f"knowledge_layer.{self.backend.lower()}"
 
         try:
@@ -94,7 +60,6 @@ class AdapterComplianceTest:
             return False, f"Failed to import {module_name}: {e}"
 
     def _run_test(self, name: str, test_fn) -> TestResult:
-        """Run a single test and capture result."""
         start = time.time()
         try:
             result = test_fn()
@@ -115,7 +80,6 @@ class AdapterComplianceTest:
             return TestResult(name, False, f"Exception: {e}", duration)
 
     def run_all_tests(self) -> bool:
-        """Run all compliance tests."""
         mode = "QUICK (registration only)" if self.quick else "FULL"
 
         print(f"\n{'=' * 70}")

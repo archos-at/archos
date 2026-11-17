@@ -1,8 +1,3 @@
-"""The schematic cards and the sub-structures they share.
-
-Sections, stairs, dimensions, setbacks, egress, daylight, guardrails and fire access.
-"""
-
 from typing import Literal
 
 from pydantic import ConfigDict
@@ -271,14 +266,6 @@ class SetbackPlanCard(CardModel):
 
     @model_validator(mode="after")
     def _plan_or_areas(self) -> SetbackPlanCard:
-        """The plan needs its four dimensions; a pure density question needs the parcel area instead.
-
-        A Bebauungsgrad or GFZ question with no parcel geometry leaves ``sides``
-        empty and gives ``parcel_area_m2``: the card draws the readout and no
-        plan. Requiring the dimensions there would leave a model (or the
-        repair model) only one way to pass, inventing a parcel the renderer
-        then draws to scale (``_CARD_HONESTY``).
-        """
         dimensions = (self.parcel_width_m, self.parcel_depth_m, self.building_width_m, self.building_depth_m)
         if all(value is not None for value in dimensions):
             return self
@@ -291,7 +278,6 @@ class SetbackPlanCard(CardModel):
 
     @model_validator(mode="after")
     def _ratio_units(self) -> SetbackPlanCard:
-        """A ratio's unit, when the model gave none: ``%`` for Bebauungsgrad, none for GFZ (never ``cm``)."""
         if self.coverage is not None and "unit" not in self.coverage.model_fields_set:
             self.coverage = self.coverage.model_copy(update={"unit": "%"})
         if self.density is not None and "unit" not in self.density.model_fields_set:

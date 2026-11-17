@@ -1,24 +1,3 @@
-"""What a lookup says when it found nothing.
-
-Never empty and never a bare error, because an empty tool result is the one
-thing that reliably produces an invented citation. Four facts, the same four
-``knowledge_search``'s ``_empty_search_message`` carries, in RIS's vocabulary:
-
-1. what was actually SEARCHED — the planner's terms, not the user's words, so
-   the model can see the rewrite it did not write;
-2. which Bundesland was assumed and WHERE THAT CAME FROM. A wrong jurisdiction
-   is the commonest silent RIS failure, and ``focus_entries`` drops other
-   states' law without saying so;
-3. what matched but was not read, including the catalog's honest "Not in RIS"
-   cases — the second of which hands the web tool its next move;
-4. ONE concrete retry.
-
-A document that was READ but answers nothing returns its § headings, labelled
-as an index rather than as evidence: "the law is here, these are its
-paragraphs, none of them answers this" is a real answer, and it is the one that
-lets the next round ask a better question instead of guessing.
-"""
-
 from __future__ import annotations
 
 from ris_adapter.lookup.address import Address
@@ -28,7 +7,6 @@ from ris_adapter.register import _KONSOLIDIERT_APPLICATIONS
 
 
 def miss_message(question: str, address: Address, trace: LookupTrace) -> str:
-    """The four facts, in order, ending in one retry."""
     lines = [
         f"No RIS passage answered {question.strip()!r}.",
         f"Searched: {trace.searched or repr(question.strip())}"
@@ -43,7 +21,6 @@ def miss_message(question: str, address: Address, trace: LookupTrace) -> str:
 
 
 def _as_of_lines(trace: LookupTrace) -> list[str]:
-    """On a past day, say that no version of that day was found, and that today's text was not substituted."""
     if not trace.as_of:
         return []
     return [
@@ -54,7 +31,6 @@ def _as_of_lines(trace: LookupTrace) -> list[str]:
 
 
 def _candidate_lines(trace: LookupTrace) -> list[str]:
-    """The documents that matched but were not read, with the reason."""
     unread = [candidate for candidate in trace.candidates if candidate.url not in trace.fetched]
     if not unread:
         return []
@@ -66,7 +42,6 @@ def _candidate_lines(trace: LookupTrace) -> list[str]:
 
 
 def _headings_lines(trace: LookupTrace) -> list[str]:
-    """A fetched document with no answering § returns its INDEX, not evidence."""
     if not trace.headings:
         return []
     return [
@@ -77,7 +52,6 @@ def _headings_lines(trace: LookupTrace) -> list[str]:
 
 
 def _retry_line(address: Address, trace: LookupTrace) -> str:
-    """ONE concrete retry, chosen by what is missing."""
     if not address.federal_state:
         return "Retry once: name the Bundesland, e.g. jurisdiction='Wien'."
     if not address.law and not trace.candidates:

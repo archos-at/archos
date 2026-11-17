@@ -1,5 +1,3 @@
-"""Agent-runtime function for knowledge retrieval."""
-
 import asyncio
 import logging
 import os
@@ -68,13 +66,6 @@ _REGEX_PARAGRAPH = _KNOWLEDGE_SEARCH_DESCRIPTION[
 
 
 def knowledge_search_description(match_modes: Sequence[str], scope: str | None = None) -> str:
-    """The description, offering only the ``match`` modes this configuration accepts.
-
-    ``match_modes`` is an eval knob (``KnowledgeRetrievalConfig.match_modes``). A description that
-    offered a mode the search then refuses would cost each arm a call to learn so, and bias the
-    comparison the knob exists for. ``scope`` replaces :data:`SCOPE_PARAGRAPH` (and the
-    ``conclusion`` line, which such a binding's schema describes) for a binding scoped another way.
-    """
     modes = set(match_modes)
     text = _KNOWLEDGE_SEARCH_DESCRIPTION
     if scope is not None:
@@ -87,7 +78,6 @@ def knowledge_search_description(match_modes: Sequence[str], scope: str | None =
 
 
 def result_budget(top_k: int, max_per_document: int) -> str:
-    """The sentence that states how many passages a search returns, from its configuration."""
     if max_per_document > 0:
         diversity = (
             f"spread across multiple distinct documents (at most {max_per_document} per document "
@@ -105,8 +95,6 @@ BACKEND = "llamaindex"
 
 
 class KnowledgeRetrievalConfig(FunctionBaseConfig, name="knowledge_retrieval"):
-    """Configuration for knowledge retrieval function."""
-
     collection_name: str = Field(default="default", description="Name of the collection/index to search")
     use_fixed_collection: bool = Field(
         default=False,
@@ -294,21 +282,18 @@ class KnowledgeRetrievalConfig(FunctionBaseConfig, name="knowledge_retrieval"):
     @model_validator(mode="before")
     @classmethod
     def read_match_modes(cls, data):
-        """``match_modes`` given as a comma-separated string (a ``nat run --override``) is a list."""
         if isinstance(data, dict) and isinstance(data.get("match_modes"), str):
             data = {**data, "match_modes": [mode.strip() for mode in data["match_modes"].split(",") if mode.strip()]}
         return data
 
     @model_validator(mode="after")
     def keep_ranked_search(self):
-        """A search without ``meaning`` is refused: literal-only is ``grep``'s, on a binding that reads the estate."""
         if "meaning" not in self.match_modes:
             raise ValueError("match_modes must keep `meaning`; a literal-only arm unbinds the search for `grep`.")
         return self
 
     @model_validator(mode="after")
     def validate_summary_config(self):
-        """``generate_summary`` needs a ``summary_model`` to summarise with."""
         if self.generate_summary and not self.summary_model:
             raise ValueError(
                 "generate_summary=true requires summary_model to be set. "
@@ -318,19 +303,6 @@ class KnowledgeRetrievalConfig(FunctionBaseConfig, name="knowledge_retrieval"):
 
 
 def _setup_backend(config: KnowledgeRetrievalConfig, summary_llm_obj=None) -> tuple[str, dict]:
-    """
-    Import the llamaindex ingestor and retriever and build their configuration.
-
-    Importing the two modules triggers the @register_ingestor/@register_retriever
-    decorators, which register the adapter classes with the factory.
-
-    Args:
-        config: Knowledge retrieval configuration
-        summary_llm_obj: Optional resolved LLM object for summarization
-
-    Returns:
-        Tuple of (backend_name, backend_config_dict)
-    """
     from knowledge_layer.ingest import LlamaIndexIngestor  # noqa: F401
     from knowledge_layer.search import LlamaIndexRetriever  # noqa: F401
 
@@ -347,7 +319,6 @@ def _setup_backend(config: KnowledgeRetrievalConfig, summary_llm_obj=None) -> tu
     return BACKEND, backend_config
 
 
-# Lazy search imports: folder_channel alone cost 136 ms on the first turn (measured 2026-10-27).
 def _warm_search_path_sync(retriever: Any) -> None:
     warm = getattr(retriever, "warm_components", None)
     if callable(warm):
@@ -360,15 +331,6 @@ def _warm_search_path_sync(retriever: Any) -> None:
 
 
 async def _warm_search_path(retriever: Any) -> None:
-    """Initialise the retriever and import the search path now, off the loop; never raises.
-
-    What the first search of a process otherwise paid before its first
-    embedding call: the retrieval stack's imports and the embedding client
-    (``LlamaIndexRetriever.warm_components``), and the modules the search body
-    imports on first use. It reads no network, so a store that is down costs
-    nothing here and fails the search where it always did. A failure is logged
-    and the first search initialises as before.
-    """
     import time
 
     started = time.perf_counter()
@@ -381,7 +343,6 @@ async def _warm_search_path(retriever: Any) -> None:
 
 
 def _get_retriever(config: KnowledgeRetrievalConfig):
-    """Get the retriever singleton from the factory."""
     from agent.knowledge.factory import get_retriever
 
     backend, backend_config = _setup_backend(config)
@@ -391,17 +352,6 @@ def _get_retriever(config: KnowledgeRetrievalConfig):
 
 
 def _initialize_ingestor(config: KnowledgeRetrievalConfig, summary_llm_obj=None):
-    """
-    Initialize and activate the ingestor for the Knowledge API.
-
-    Called during function registration to:
-    1. Create the ingestor singleton via the factory
-    2. Set it as the active ingestor for API routes to use
-
-    Args:
-        config: Knowledge retrieval configuration
-        summary_llm_obj: Optional resolved LLM object for summarization
-    """
     from agent.knowledge.factory import get_ingestor
     from agent.knowledge.factory import set_active_ingestor
 
@@ -413,14 +363,6 @@ def _initialize_ingestor(config: KnowledgeRetrievalConfig, summary_llm_obj=None)
 
 
 async def _platform_llm(builder: Builder, ref):
-    """A model no organization can choose, pinned to zero-data-retention endpoints.
-
-    The summary, judge and requery models have no agent group: no organization
-    can choose them, and every tenant's documents and questions pass through
-    them. So they are pinned here, once, for every request
-    (``openrouter.PLATFORM_FIXED``); a model that cannot carry the pin fails
-    here rather than send unpinned.
-    """
     from agent.common import get_langchain_llm
     from agent.common.openrouter import PLATFORM_FIXED
     from agent.common.openrouter import pin_chat_model
@@ -429,7 +371,6 @@ async def _platform_llm(builder: Builder, ref):
 
 
 async def _judge_models(config: KnowledgeRetrievalConfig, builder: Builder) -> tuple[Any, Any]:
-    """The LLM-judge reranker and the retrieval loop's judge; each fails open to ``None``."""
     rerank_llm_obj = None
     if config.rerank_llm:
         try:
@@ -451,15 +392,6 @@ async def _judge_models(config: KnowledgeRetrievalConfig, builder: Builder) -> t
 
 
 def _cross_encoder(config: KnowledgeRetrievalConfig):
-    """The cross-encoder reranker when configured, primary over the LLM judge; ``None`` otherwise, never a raise.
-
-    Built once at startup with no organization in scope, which is why the KEY
-    is not decided here: the handle resolves its credential per search from the
-    turn's organization, so a BYOK org's reranks go out on its own key
-    (``cross_encoder.CrossEncoderReranker._credential_for_search``). The
-    platform key still has to resolve at startup, because a handle that could
-    never authenticate anything is one this returns None for.
-    """
     try:
         from knowledge_layer.search import resolve_cross_encoder
 
@@ -470,7 +402,6 @@ def _cross_encoder(config: KnowledgeRetrievalConfig):
 
 
 async def _bound_retriever(config: KnowledgeRetrievalConfig, summary_llm_obj) -> Any:
-    """The stores configured, the search retriever built and warmed, and the ingestor initialized."""
     from agent.knowledge.factory import configure_summary_db
     from agent.knowledge.factory import set_search_retriever
     from agent.knowledge.norm_store import configure_norm_store
@@ -486,17 +417,6 @@ async def _bound_retriever(config: KnowledgeRetrievalConfig, summary_llm_obj) ->
 
 @register_function(config_type=KnowledgeRetrievalConfig)
 async def knowledge_retrieval(config: KnowledgeRetrievalConfig, _builder: Builder):
-    """
-    Knowledge retrieval function for searching ingested documents.
-
-    This function provides semantic search over documents that have been
-    previously ingested into the knowledge layer (the llamaindex backend) and
-    returns formatted results suitable for LLM consumption.
-
-    The retriever and ingestor are initialized once when the function is
-    created and reused for all subsequent queries. The ingestor singleton
-    is also made available to the Knowledge API routes via the factory.
-    """
     summary_llm_obj = None
     if config.summary_model and config.generate_summary:
         summary_llm_obj = await _platform_llm(_builder, config.summary_model)
@@ -535,74 +455,6 @@ async def knowledge_retrieval(config: KnowledgeRetrievalConfig, _builder: Builde
         conclusion: str = "",
         path: str | None = None,
     ) -> str:
-        """Read and cite passages from the ingested knowledge base.
-
-        Args:
-            query (str): The fact or passage you need, rewritten as a search
-                query (topic + jurisdiction + implied year). Not the raw user
-                message.
-            conclusion (str): Optional. One line on what you are looking for;
-                no effect on the call.
-            file_name (str | None): Indexed file name to read (from the
-                inventory or the user). Never invent a name. Base-corpus
-                files are not listed in the inventory — filter those with
-                `doc_class` instead.
-            doc_class (str | None): Dokumentart key (e.g. "oib_guideline",
-                "law"). Store-authoritative; reclassifications apply
-                without re-ingest.
-            title_contains (str | None): Case-insensitive substring of the
-                file name OR display title.
-            folder (str | None): Project folder path to read within, exactly as
-                the inventory prints it after "Ordner:" (e.g.
-                "Brandschutz/Fluchtwege"). Includes everything filed beneath it,
-                so "Brandschutz" also reads "Brandschutz/Fluchtwege". Never
-                invent a folder.
-            filters (dict | None): Rare. Metadata filter on the base
-                collection only (e.g. {"content_type": "text"}). Session and
-                project collections are never filtered.
-            match (str): "meaning" (default) ranks passages by what they say.
-                "exact" returns EVERY passage whose text contains the query
-                literally (case, ä/ae, ß/ss spellings and line breaks or
-                hyphens between words matched; a term of up to three
-                characters as a whole word; several spellings separated by
-                "|"), with a per-file count of all matches — for a name, a
-                number, a code or a wording. "regex" is the same search for a
-                pattern in Python syntax (case-insensitive; "|" is regex
-                alternation): it needs one literal word it must contain, or
-                `folder`, `file_name` or `doc_class` to read in.
-            context (int | None): Exact and regex only: 0 to 3 lines shown
-                around every hit, as an index under the passages (0: the hit
-                lines alone, for every hit and not only the eight passages).
-            group_by (str | None): "document" returns one entry per document
-                (its best passage, and how many passages of the ranked pool it
-                held) for "which documents deal with X". Ranked search only.
-            shelf (str | None): "project", "office" or "base": read that shelf only.
-                Omitted: every shelf this question may read, the Basiswissen
-                corpus (building law) included. For "is X in OUR documents" pass
-                "project" or "office" (or both in turn); an exact or regex answer
-                also counts matches and documents per shelf.
-            document_type (str | None): Only documents the agent judged to be this kind,
-                the "Type:" `list_files` prints with underscores (e.g.
-                "fire_safety_concept", "building_description", "permit",
-                "submission_drawing"). Project and office documents only.
-            refers_to (str | None): Only documents that refer to this: a norm
-                ("ÖNORM B 1600"), a law ("§ 33 BayBO"), a plan number ("EP-05") or a
-                kind of document, named the way the documents write it. For "which
-                documents cite this standard", "what points to plan EP-05", "who
-                relies on the fire safety concept". `list_files` prints each
-                document's "Refers to:".
-            stemmed (bool): Exact only: also find each word's inflected forms
-                (German stemming: "Fluchtwegbreite" finds "Fluchtwegbreiten" and
-                the reverse). Off by default: the exact search is literal.
-            path (str | None): Where to search, as the filesystem tools name it: a place
-                ("/project/", "/office/", "/chat/", "/law/oib/"), a folder in one
-                ("/project/Gutachten/"), or one file (a hit's `Path:`). Advised, never
-                automatic: omitted, every place this question may read is searched.
-                It sets `shelf`, `folder` and `file_name`; an explicit one of those wins.
-
-        Returns:
-            str: Numbered excerpts with a Citation key to copy verbatim, each with the `Path:` read_file opens.
-        """
         return await engine.search(
             query,
             filters=filters,

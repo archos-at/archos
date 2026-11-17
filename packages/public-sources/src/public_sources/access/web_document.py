@@ -1,12 +1,3 @@
-"""``web_document``: a list of published documents, each at a stable URL.
-
-For the many portals that publish a statute as an HTML or XML page and offer
-no API (most German Land portals, many cantonal collections, authority
-guidance). The record lists the documents by id; the access type fetches one,
-sending the validators of the last fetch (``If-None-Match``) when the caller
-has them, so a monitor that finds nothing new costs the publisher a 304.
-"""
-
 from __future__ import annotations
 
 from collections.abc import Mapping

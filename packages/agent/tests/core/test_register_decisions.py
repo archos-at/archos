@@ -1,12 +1,3 @@
-"""The register applies the turn decision by ADDING only (ADR-0064).
-
-The decision itself is mocked; what is pinned is the seam: the facts the
-decider is shown come from the state the gather filled, a model answer
-pins the IFC skill, the chosen card types become the turn's shapes block,
-and the prefetch calls reach ``TurnConfig`` — while a decision that did not
-run, or a config that switched it off, leaves all three untouched.
-"""
-
 from __future__ import annotations
 
 from unittest.mock import AsyncMock
@@ -31,7 +22,6 @@ from tests.provider_doubles import nat_langchain_client
 
 @tool
 def knowledge_search(query: str) -> str:
-    """Search the OIB knowledge corpus."""
     return query
 
 
@@ -53,7 +43,6 @@ IFC = "ifc-spatial-reasoning"
 
 
 def _runtime() -> SkillRuntime:
-    """Two skills, nothing pinned until a decision says so."""
     ifc = Skill(name=IFC, description="Am Modell messen.", body="x" * 5000, origin="platform")
     short = Skill(
         name="fire-safety",
@@ -101,7 +90,6 @@ class TestTheEffects:
         assert "stair_diagram" not in state.card_shapes_block
 
     def test_a_calculation_or_formula_the_turn_earns_brings_its_whole_shape(self):
-        """They left the static prompt (``cards/envelope.ENVELOPE_SHAPE_TYPES``); the turn that picks one reads it."""
         state = ResearchAgentState(messages=[])
         _apply_decisions(TurnDecisions(decided=True, cards=(("formula", 0.9), ("calculation", 0.8))), state, None)
         block = state.card_shapes_block or ""
@@ -147,7 +135,6 @@ class TestTheEffects:
         assert facts.previous_answer is not None and facts.previous_answer.startswith("Gebäudeklasse 5")
 
     def test_the_file_counts_read_the_shelf_the_inventory_stamps(self):
-        """Stamped rows carry the shelf's string value; an `is` against the enum never matched."""
         from agent.common.source_kinds import Shelf
         from agent.knowledge.inventory import stamp_document
         from agent.knowledge.schema import AvailableDocument
@@ -254,9 +241,6 @@ class TestTheTurn:
         warm.assert_awaited_once_with(turn.prefetch[0]["args"]["query"])
 
     async def test_a_two_word_family_question_is_warmed_for_its_undecided_prefetch(self):
-        """„OIB 2" skips the decision, and the undecided path still searches it:
-        the search must find its embedding warm, not pay for it after. Austria's corpus is read only
-        because the turn's knowledge context allows it (ADR-0175)."""
         from agent.common.knowledge_context import KnowledgeContext
         from agent.common.knowledge_context import set_turn_knowledge_context
 
@@ -295,9 +279,6 @@ class TestTheTurn:
         warm.assert_not_awaited()
 
     async def test_a_follow_up_is_not_warmed_and_not_prefetched_without_a_decision(self):
-        """„Was sagt die OIB 2 dazu?" after a stair question: round 0 must not
-        fill with the family overview, and nothing embeds a string no search
-        will read."""
         from langchain_core.messages import AIMessage
 
         messages = [
@@ -355,8 +336,6 @@ class TestTheTurn:
 
 
 class TestTheMeasuringToolsNeedAModel:
-    """In a project known to hold no IFC (or no DXF) the tool that measures one is not sent."""
-
     NAMES = ("knowledge_search", "ifc_query", "ifc_measure", "dxf_measure", "bim__ifc_query")
 
     def _scoped(self, monkeypatch, kinds):
@@ -388,8 +367,6 @@ class TestTheMeasuringToolsNeedAModel:
 
 
 class TestTheBuildingModelToolsNeedAProject:
-    """Outside a project `ifc_query`/`ifc_measure` can only say "no project"; they are not sent."""
-
     @staticmethod
     def _tools():
         from types import SimpleNamespace
@@ -424,8 +401,6 @@ class TestTheBuildingModelToolsNeedAProject:
 
 
 class TestTheViewerToolIsSentOnlyToAPageThatCanRunIt:
-    """``show_in_viewer`` runs on the asking page (ADR-0144): bound only when that page declared it."""
-
     @staticmethod
     def _tools():
         from types import SimpleNamespace
@@ -463,7 +438,6 @@ def test_the_catalog_is_counted_by_its_project_lines_not_its_tail():
 
 
 def test_the_turn_start_records_the_catalog_the_precedent_and_whether_round_0_looked(monkeypatch):
-    """Langfuse sees the office's experience at the start of a turn (ADR-0089): the lookup's own span cannot."""
     from agent.core.register import record_reference_decision
 
     recorded: dict = {}

@@ -1,50 +1,3 @@
-"""The renderer behind ``look``: a page, a region of it, or an image, as content blocks.
-
-Agents retrieve caption-only chunks for image/drawing pages: the caption
-describes the image but the model never sees it. :func:`view_image` returns the
-source visual as a multimodal content block (``image_url`` with a data URL), so
-vision-capable models can inspect drawings, sections, elevations and charts
-directly at answer time. The tool the model calls is ``look``
-(``agent.tools.look``, ADR-0128), which resolves WHICH file and collection
-and hands them here; this module is no agent-runtime function of its own any more.
-
-Three source shapes are covered, without re-ingest:
-
-- **PDF pages** — the requested page is rendered from the original PDF on
-  demand (max-dim capped). Base-corpus PDFs are read from this replica's cache
-  of the corpus, filled from the object store on demand
-  (``corpus_store.ensure_local``); project/Archiv PDFs are fetched from
-  SeaweedFS and rendered from bytes.
-- **Standalone images** (PNG/JPG project/Archiv uploads) — the stored bytes
-  are fetched from SeaweedFS and returned directly (re-encoded to JPEG).
-- **Stored embedded rasters** — an image the ingest pipeline cut out of a
-  PDF and kept beside the document (``<doc dir>/_img/<index>.jpg``, see
-  ``ingest/image_store.py``). Addressed by ``image_index``; the hit's
-  ``Image:`` line names the index. Fetched at its own resolution instead of
-  rendering the page it sits on.
-
-Storage-key resolution goes through the BFF internal lookup
-(``GET /api/internal/document-file``): the backend carries only
-``(collection, filename)``, and the mapping to a SeaweedFS ``storage_key``
-lives in the frontend's ``documents`` table. For a stored raster the BFF
-builds the derived key from the document's own row, so this tool never names
-an object key itself. Fail-open: every failure returns a text-only block
-explaining what went wrong — the tool never raises.
-
-The collection reaches here from ``look``'s resolution, never typed by the
-model, and it is still checked before anything is looked up (ADR-0088): it must
-be in the turn's scope, and a restricted folder's collection must also be one
-the turn may draw on. The lookup echoes the turn's
-signed envelope, and the BFF answers only inside the scope it signs. An image
-returned from a collection is reported (``note_collections_read``), so the tools
-node admits a restricted folder's image before the model sees it.
-
-Bounded per turn: :mod:`agent.common.image_view_budget` caps how many
-looks one turn may take, and how many of them may be whole pages; past either
-cap the tool answers with a short text block instead of an image, and every
-image it does return says how many looks are left.
-"""
-
 import asyncio
 import base64
 import io
@@ -82,7 +35,6 @@ _INTERNAL_TOKEN_ENV = "INTERNAL_API_TOKEN"
 
 
 def default_max_dim() -> int:
-    """The long edge a page is rendered at: ``PAGE_RENDER_MAX_DIM``, or 2048."""
     try:
         value = int(os.environ.get(_MAX_DIM_ENV, str(_DEFAULT_MAX_DIM)).strip())
     except ValueError:
@@ -96,11 +48,6 @@ def _is_enabled() -> bool:
 
 
 def _find_pdf(file_name: str) -> str | None:
-    """The base-corpus PDF ``file_name`` the turn may read, fetched into this replica's cache, or ``None``.
-    The corpus table decides what a base-corpus file is; one not released to a country of the turn
-    (``corpus_countries``, as for chunk reads) answers as an absent one. Fail-open otherwise: an unreadable
-    corpus counts as "not a base-corpus file" and the caller tries the project/Archiv lookup.
-    """
     try:
         from agent import corpus_store
         from agent.common.knowledge_context import corpus_countries
@@ -115,14 +62,6 @@ def _find_pdf(file_name: str) -> str | None:
 
 
 def _render_pdf_page(source: str | bytes, page_number: int, max_dim: int) -> tuple[bytes, int, int]:
-    """Render one page (1-based) of a PDF, given as a path or its bytes, to JPEG bytes.
-
-    Every PDFium call, the closes included, runs under the process-wide
-    :func:`pdfium_lock` (this tool renders on the event loop's executor while
-    the ingest pool renders on its own threads, and PDFium is not
-    thread-safe). The image leaves the lock detached from the bitmap, and the
-    JPEG encode runs after it is released.
-    """
     import pypdfium2 as pdfium
 
     with pdfium_lock():
@@ -145,31 +84,14 @@ def _render_pdf_page(source: str | bytes, page_number: int, max_dim: int) -> tup
 
 
 def _render_page(pdf_path: str, page_number: int, max_dim: int) -> tuple[bytes, int, int]:
-    """Render one page (1-based) of a PDF on disk to JPEG bytes.
-
-    Returns ``(jpeg_bytes, width_px, height_px)``. Raises on any failure; the
-    caller turns errors into text-only blocks.
-    """
     return _render_pdf_page(pdf_path, page_number, max_dim)
 
 
 def _render_page_from_bytes(pdf_bytes: bytes, page_number: int, max_dim: int) -> tuple[bytes, int, int]:
-    """Render one page (1-based) of a PDF held in memory to JPEG bytes.
-
-    Same as :func:`_render_page` but takes raw bytes (a project/Archiv PDF
-    fetched from SeaweedFS) instead of a path. pypdfium2 accepts a bytes-like
-    object directly.
-    """
     return _render_pdf_page(pdf_bytes, page_number, max_dim)
 
 
 def _normalize_image_to_jpeg(image_bytes: bytes, max_dim: int) -> tuple[bytes, int, int]:
-    """Re-encode a standalone image (PNG/JPG/…) to max-dim-capped JPEG bytes.
-
-    Mirrors the ingestion-time normalization so the model sees the image at a
-    consistent resolution and format regardless of the upload type. Returns
-    ``(jpeg_bytes, width_px, height_px)``; raises on any decode failure.
-    """
     from PIL import Image
 
     pil_image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
@@ -196,7 +118,6 @@ _EDGE_EPSILON = 1e-6
 
 
 def parse_region(value: object) -> Region:
-    """``value`` as ``(x, y, w, h)``; raises ``ValueError`` naming the expected frame. Pure."""
     if not isinstance(value, list | tuple) or len(value) != 4:
         raise ValueError(_REGION_FORMAT)
     try:
@@ -213,7 +134,6 @@ def parse_region(value: object) -> Region:
 
 
 def _grown(start: float, size: float, minimum: float, total: float) -> tuple[float, float]:
-    """One axis of a box, widened about its centre to ``minimum`` and kept on the page. In page units."""
     if size >= minimum or total <= minimum:
         return (0.0, total) if total <= minimum else (start, size)
     centre = start + size / 2
@@ -222,7 +142,6 @@ def _grown(start: float, size: float, minimum: float, total: float) -> tuple[flo
 
 
 def region_box_pt(region: Region, width_pt: float, height_pt: float) -> tuple[float, float, float, float]:
-    """The region as ``(left, top, width, height)`` in points of the shown page, widened to the minimum. Pure."""
     x, y, w, h = region
     left, box_w = _grown(x * width_pt, w * width_pt, _MIN_REGION_PT, width_pt)
     top, box_h = _grown(y * height_pt, h * height_pt, _MIN_REGION_PT, height_pt)
@@ -232,11 +151,6 @@ def region_box_pt(region: Region, width_pt: float, height_pt: float) -> tuple[fl
 def region_render_args(
     region: Region, width_pt: float, height_pt: float, max_dim: int
 ) -> tuple[float, tuple[float, float, float, float]]:
-    """``(scale, crop)`` for ``PdfPage.render``: the crop's long edge about ``max_dim`` pixels. Pure.
-
-    ``crop`` is ``(left, bottom, right, top)``, the points cut off each edge of
-    the shown page, which is pypdfium2's order.
-    """
     left, top, box_w, box_h = region_box_pt(region, width_pt, height_pt)
     scale = min(max_dim / (max(box_w, box_h) or 1.0), _MAX_REGION_SCALE)
     right = max(width_pt - left - box_w, 0.0)
@@ -247,14 +161,6 @@ def region_render_args(
 def _render_pdf_region(
     source: str | bytes, page_number: int, region: Region, max_dim: int
 ) -> tuple[bytes, int, int, bool]:
-    """Render ONE region of one page (1-based) of a PDF to JPEG bytes, never the whole page's bitmap.
-
-    Returns ``(jpeg_bytes, width_px, height_px, widened)``; ``widened`` says the
-    box was smaller than :data:`_MIN_REGION_PT` and was grown about its centre.
-    The bitmap pypdfium2 allocates is the crop's size, so an A0 sheet costs what
-    an A4 one does. Every PDFium call runs under :func:`pdfium_lock`, as in
-    :func:`_render_pdf_page`. Raises on any failure.
-    """
     import pypdfium2 as pdfium
 
     with pdfium_lock():
@@ -278,7 +184,6 @@ def _render_pdf_region(
 
 
 def _crop_image_region(image_bytes: bytes, region: Region, max_dim: int) -> tuple[bytes, int, int, bool]:
-    """Crop a standalone image to ``region`` and re-encode it max-dim-capped. Same return as the PDF one."""
     from PIL import Image
 
     pil_image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
@@ -297,12 +202,6 @@ def _crop_image_region(image_bytes: bytes, region: Region, max_dim: int) -> tupl
 
 
 class StorageLocation(tuple):
-    """``(storage_key, storage_bucket)``, and the Fassung (``version_id``) those bytes are, when the BFF said.
-
-    A tuple so every caller that unpacks or compares the pair reads it as
-    before; ``version_id`` rides along for ``look``'s card (ADR-0128).
-    """
-
     version_id: str | None
     document_id: str | None
 
@@ -320,38 +219,12 @@ class StorageLocation(tuple):
 
 
 def location_version(location: object) -> str | None:
-    """The Fassung a resolved location names; None for a bare pair or none."""
     return getattr(location, "version_id", None)
 
 
 async def _resolve_storage_location(
     collection: str, file_name: str, organization_id: str | None = None, image_index: int | None = None
 ) -> StorageLocation | None:
-    """Resolve a ``(collection, filename)`` pair to a SeaweedFS object location.
-
-    With ``image_index`` the location is that of the stored raster the ingest
-    pipeline kept under the document (``imageIndex`` query param); the BFF
-    derives the key from the row, so an index it does not know yields ``None``.
-
-    Returns ``(storage_key, storage_bucket)`` as a :class:`StorageLocation`
-    that also carries the Fassung (``versionId``) when the BFF names one, where ``storage_bucket`` is
-    ``None`` for a document in the deployment's shared bucket — which is every
-    document written before per-organization buckets existed (ADR-0043). The
-    bucket comes from the BFF rather than being derived here on purpose: the
-    naming rule already exists in two places (TypeScript for the app, CommonJS
-    for the purger) and a third implementation in Python would only ever be
-    discovered when it disagreed, which surfaces as a silent 404 and a
-    text-only answer rather than as an error.
-
-    Calls the BFF internal lookup (service-token guarded). Returns ``None`` on
-    any failure (unconfigured URL/token, non-200, transport error) — fail-open,
-    so a base-corpus-only deployment with no BFF wiring simply never resolves.
-
-    An optional ``organization_id`` is forwarded as the ``organizationId``
-    query param (needed to scope office-shelf documents); when not passed it is
-    derived from the collection prefix (``archiv_org_123`` or ``office_shelf_org_123`` -> ``org_123``).
-    The param is only added to the request when one was derived/provided.
-    """
     base_url = os.environ.get(_FRONTEND_INTERNAL_URL_ENV, "").strip()
     token = os.environ.get(_INTERNAL_TOKEN_ENV, "").strip()
     if not base_url or not token:
@@ -395,12 +268,6 @@ async def _resolve_storage_location(
 
 
 def _envelope_headers() -> dict[str, str]:
-    """The turn's signed request-context envelope, ECHOED to the lookup; empty off a chat turn.
-
-    The BFF answers for a collection only inside the scope this envelope signs,
-    and for a restricted folder's collection only with one (ADR-0088). Echo,
-    never sign (ADR-0054 §4): the two strings go out exactly as they arrived.
-    """
     try:
         from agent.project_context import REQUEST_CONTEXT_ENVELOPE_HEADER
         from agent.project_context import REQUEST_CONTEXT_ENVELOPE_SIG_HEADER
@@ -416,15 +283,6 @@ def _envelope_headers() -> dict[str, str]:
 
 
 def _may_read(collection: str) -> bool:
-    """Whether this turn may read ``collection``: the turn's scope, as every read path takes it.
-
-    The scope is the signed one, narrowed to the restricted collections the
-    turn may draw on (:func:`agent.knowledge.scoping.get_collection_scope_from_context`).
-    A restricted folder's collection needs more than its name in a scope: a
-    restricted use bound for the turn that lets it be drawn on, which only a
-    verified envelope gets (ADR-0088). A run with no scope at all (a CLI run, an
-    eval) reads no restricted collection and keeps reaching the others by name.
-    """
     from agent.knowledge.restricted_collections import is_restricted_collection
     from agent.knowledge.restricted_use import current_restricted_use
     from agent.knowledge.scoping import get_collection_scope_from_context
@@ -441,7 +299,6 @@ def _may_read(collection: str) -> bool:
 
 
 def _out_of_scope(file_name: str) -> str:
-    """The refusal for a collection this turn may not read. Names neither the collection nor whether the file exists."""
     return (
         f"[look] Cannot show '{file_name}': it is not in a collection this turn may read. "
         "Name a document from the inventory or a hit of this turn."
@@ -449,16 +306,6 @@ def _out_of_scope(file_name: str) -> str:
 
 
 def _fetch_seaweed_bytes(storage_key: str, storage_bucket: str | None = None) -> bytes | None:
-    """Fetch an object's bytes from SeaweedFS via boto3 (S3, path-style).
-
-    ``storage_bucket`` is the bucket the BFF recorded for this document;
-    ``None`` means the deployment's shared bucket (``SEAWEED_BUCKET``), which is
-    what every document predating ADR-0043 uses.
-
-    Returns ``None`` on any failure (missing creds, transport error, NoSuchKey)
-    so callers degrade to a text-only block. Imports boto3 lazily so the tool
-    imports cleanly in a deployment that never fetches.
-    """
     bucket = storage_bucket or seaweed_s3.default_bucket()
     try:
         client = seaweed_s3.s3_client()
@@ -472,29 +319,18 @@ def _fetch_seaweed_bytes(storage_key: str, storage_bucket: str | None = None) ->
 
 
 def _is_standalone_image(file_name: str) -> bool:
-    """True when the file is an uploaded image (PNG/JPG/…), not a page of a PDF."""
     idx = file_name.rfind(".")
     return idx > 0 and file_name[idx:].lower() in _IMAGE_EXTENSIONS
 
 
 @dataclass(frozen=True)
 class ViewLimits:
-    """How large and how long one view may be: ``look``'s config."""
-
     max_dim: int = _DEFAULT_MAX_DIM
     timeout: float = 30.0
 
 
 @dataclass(frozen=True)
 class View:
-    """One rendered look: the words that go with it and the JPEG itself.
-
-    ``region`` is the box that was asked for (shares of the page, origin top
-    left), ``None`` for a whole page or image. ``look`` (``tools/look``) shows
-    the model :meth:`blocks`, or, for a model that takes no images, only what a
-    second reader made of ``jpeg`` (``tools/look/reading.py``).
-    """
-
     text: str
     jpeg: bytes
     width: int
@@ -506,7 +342,6 @@ class View:
         return replace(self, text=text)
 
     def blocks(self) -> list[dict]:
-        """The text block, then the image block (a data URL), as a vision model takes them."""
         image_b64 = base64.b64encode(self.jpeg).decode("ascii")
         return [
             {"type": "text", "text": self.text},
@@ -515,7 +350,6 @@ class View:
 
 
 def _region_text(what: str, region: Region, width: int, height: int, widened: bool) -> str:
-    """The text block that goes with a region crop: which box, in the canvas's frame, and what it holds."""
     x, y, w, h = region
     grown = " The box was smaller than about 8 mm and was widened about its centre." if widened else ""
     return (
@@ -526,10 +360,6 @@ def _region_text(what: str, region: Region, width: int, height: int, widened: bo
 
 
 async def turn_sees() -> bool | None:
-    """Whether the turn's chat model takes images (``common/model_vision.py``); ``None`` when that is unknown.
-
-    Unknown is not "no": the image is then sent, as before the check existed.
-    """
     try:
         from agent.common.model_vision import turn_model_accepts_images
 
@@ -540,7 +370,6 @@ async def turn_sees() -> bool | None:
 
 
 def _blind_sentence(tool: str) -> str:
-    """What a text-only model is told when nothing can show it the page and no reading was asked for."""
     return (
         f"[{tool}] The model this office answers with takes no images, so the page cannot be shown to it. "
         "Say plainly that you cannot see the page or the box, answer only from text you have, and do not guess "
@@ -563,7 +392,6 @@ async def _fetch(location: tuple[str, str | None], timeout: float, what: str) ->
 async def _raster_view(
     image_bytes: bytes, region: Region | None, limits: ViewLimits, describe: str, what: str, tool: str
 ) -> View | str:
-    """A stored or uploaded image, whole or cropped to ``region``, as content blocks."""
     try:
         if region is None:
             jpeg_bytes, width, height = await _off_loop(
@@ -591,7 +419,6 @@ async def _pdf_view(
     origin: str,
     tool: str,
 ) -> View | str:
-    """One page of a PDF on disk (a path) or in memory (bytes), whole or cropped to ``region``."""
     whole = _render_page if isinstance(source, str) else _render_page_from_bytes
     try:
         if region is None:
@@ -725,7 +552,6 @@ async def _stored_pdf(
 
 
 def _spent(tool: str) -> str:
-    """Why the turn's budget refused a look: every look is spent, or only the whole pages are."""
     budget = get_image_view_budget()
     if budget is not None and budget.remaining > 0:
         return (
@@ -741,7 +567,6 @@ def _spent(tool: str) -> str:
 async def _gate(
     collection: str, file_name: str, region: object, tool: str, *, overview: bool
 ) -> tuple[Region | None, str | None]:
-    """Every check that comes before any work, in the order that costs least: the region, then the turn's say."""
     if not _is_enabled():
         return None, f"[{tool}] Image viewing is disabled ({_VIEW_IMAGES_ENABLED_ENV} is off)."
     try:
@@ -775,18 +600,6 @@ async def render_view(
     limits: ViewLimits | None = None,
     tool: str = "look",
 ) -> View | str:
-    """A page (or a region of it), an uploaded image or a stored raster, rendered. Never raises.
-
-    The whole of ``look`` once it knows the file and the collection, so every
-    look takes the same scope check, image budget, vision-key gate and
-    restricted-folder report. ``region`` is ``[x, y, w, h]`` in shares of the
-    page as shown, origin top left; ``tool`` names the caller in every refusal,
-    so the model reads the name of the tool it called. A page or image without
-    ``region`` and ``image_index`` is an overview, which the turn's budget
-    counts apart. A successful look ends its text with how many looks are left.
-    Whether the turn's model can be shown the image is not decided here
-    (:func:`turn_sees`): ``look`` decides what to hand a model that cannot see.
-    """
     limits = limits or ViewLimits()
     collection = (collection or "").strip()
     overview = region is None and image_index is None
@@ -808,11 +621,6 @@ async def view_image(
     limits: ViewLimits | None = None,
     tool: str = "look",
 ) -> list[dict] | str:
-    """:func:`render_view` as content blocks, for a caller that only ever shows the image.
-
-    A turn whose chat model takes no images is answered with a sentence saying
-    so, before any look is spent.
-    """
     if await turn_sees() is False:
         return _blind_sentence(tool)
     result = await render_view(file_name, page_number, collection, image_index, region, limits=limits, tool=tool)
@@ -820,7 +628,6 @@ async def view_image(
 
 
 def _with_remaining(result: View | str) -> View | str:
-    """The look's text, ending with how many looks the turn has left; unchanged outside a turn."""
     left = remaining_views_text()
     if not left or not isinstance(result, View):
         return result
@@ -836,7 +643,6 @@ async def _view(
     limits: ViewLimits,
     tool: str,
 ) -> View | str:
-    """The source the arguments name, rendered: a stored raster, an uploaded image, or a PDF page."""
     if image_index is not None:
         return await _stored_raster(file_name, page_number, collection, image_index, parsed, limits, tool)
     if _is_standalone_image(file_name):

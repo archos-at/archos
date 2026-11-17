@@ -1,25 +1,3 @@
-"""
-Knowledge Layer - Universal RAG interfaces and schemas.
-
-This module defines the abstractions for knowledge ingestion and retrieval. The one
-production backend, llamaindex (ADR-0072), implements them, and so do the fakes the
-tests register; both output data conforming to these schemas.
-
-Architecture:
-    packages/agent/src/agent/knowledge/      # Core abstractions
-    ├── schema.py                # Data models (Chunk, RetrievalResult, etc.)
-    ├── base.py                  # Abstract interfaces (BaseRetriever, BaseIngestor)
-    └── factory.py               # Registry + factory pattern
-
-    packages/knowledge-layer/src/knowledge_layer/ # Backend implementations
-    ├── ingest/                  # Reading a file: LlamaIndex readers and chunking, OpenRouter embeddings
-    ├── search/                  # Finding passages: the retriever, fusion, rerank, the requery judge
-    └── vector_store/            # The vector store (ADR-0115): every chunk, every read
-
-Usage:
-    from agent.knowledge import Chunk, BaseRetriever, get_retriever
-"""
-
 from .base import BaseIngestor
 from .base import BaseRetriever
 from .factory import clear_active_ingestor

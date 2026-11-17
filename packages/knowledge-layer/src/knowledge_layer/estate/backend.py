@@ -1,33 +1,3 @@
-"""The office's documents as a read-only filesystem: Piloti's estate backend (ADR-0133).
-
-``ls``, ``glob``, ``grep`` and ``read_file`` serve one namespace
-(``agent.common.estate_paths``): ``/project/``, ``/office/``, ``/chat/`` and
-``/law/oib/`` are the shelves the turn's scope names, and ``/drafts/`` is the
-conversation's working directory, which the tool layer routes to the draft store
-before anything here is asked. This module is everything below the tool layer
-for the four estate mounts: which files exist, which path names which document,
-and what a read or a search returns.
-
-**Tenant and scope come from the turn, never from an argument.** The rows are the
-turn's inventory (``browse._turn_rows``), the collections its signed scope names
-(``search_scope.scoped_collections_for_site``, narrowed to the turn's shelves), read
-from the per-turn context like every other knowledge-layer tool. The same
-backend instance therefore serves every turn of every tenant.
-
-**Listing hides, reading admits (ADR-0088).** A restricted folder's document is
-never listed and never suggested. A path to it resolves only once this turn may
-name its collection (:func:`may_name`, i.e. a search returned it and the round
-admitted it); before that, a guessed path gets exactly the answer a path that
-does not exist gets. The text then goes through the round's admission like any
-other result.
-
-**Every read is a grounding block.** One block per page, rendered by
-``render_grounding_block`` (ADR-0061), so citation capture, quote verification
-and the Herleitung read a ``read_file`` exactly as they read a ``read_passage``;
-the citation key stays ``<file>, p.N``. Pages come from the stored page text
-(ADR-0134, ``stored_pages``) when the document has it, else from its chunks.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -108,21 +78,6 @@ logger = logging.getLogger(__name__)
 
 
 class EstateBackend(BackendProtocol):
-    """The estate mounts, async and read-only, over the knowledge layer.
-
-    ``search_config`` is the ``knowledge_retrieval`` instance whose scope the
-    files are read through (the same one ``read_passage`` and ``list_files``
-    read through, so the three cannot drift). The constructor reads nothing:
-    the agent builds one at boot and every turn reads its own scope.
-
-    The protocol methods (``als``, ``aread``, ``aglob``, ``agrep``) answer in
-    the protocol's types, for any caller that holds a ``BackendProtocol``; the
-    tools call the richer methods (:meth:`read_file` and the others), which
-    return the text the model reads. Writes are refused: nothing under the
-    estate is writable through a filesystem verb
-    (``filesystem-design.md`` §2).
-    """
-
     def __init__(
         self,
         search_config: Any,
@@ -139,7 +94,6 @@ class EstateBackend(BackendProtocol):
         self._retriever = retriever
 
     def entries(self) -> list[Any]:
-        """The collections this turn may read, with their shelves, narrowed to the turn's shelves."""
         from knowledge_layer.browse import _session_collection
         from knowledge_layer.search import resolve_base_collection
         from knowledge_layer.search import restrict_scope_to_turn
@@ -153,13 +107,11 @@ class EstateBackend(BackendProtocol):
         )
 
     async def listable_files(self) -> list[EstateFile]:
-        """Every document the turn may LIST: never one of a restricted folder (listing is not use)."""
         rows = await (self._rows_loader() if self._rows_loader is not None else self._load_rows())
         files = [estate_file(row) for row in rows]
         return [file for file in files if file is not None]
 
     async def readable_files(self) -> list[EstateFile]:
-        """The listable documents, plus those of restricted folders this turn may already name."""
         listable = await self.listable_files()
         restricted = await (
             self._restricted_loader() if self._restricted_loader is not None else self._load_restricted_rows()
@@ -168,7 +120,6 @@ class EstateBackend(BackendProtocol):
         return listable + [file for file in extra if file is not None]
 
     async def _load_rows(self) -> list[FileRow]:
-        """The turn's inventory rows, with the base corpus added when the inventory does not carry it."""
         from agent.knowledge.restricted_collections import is_restricted_collection
         from knowledge_layer.browse import _turn_rows
         from knowledge_layer.browse import restrict_rows_to_turn
@@ -188,7 +139,6 @@ class EstateBackend(BackendProtocol):
         return [row for row in rows if row.collection in in_scope]
 
     async def _load_restricted_rows(self) -> list[FileRow]:
-        """Rows of the restricted folders in scope that this turn may already name (:func:`may_name`)."""
         from agent.knowledge.restricted_collections import is_restricted_collection
         from agent.knowledge.restricted_use import may_name
 
@@ -200,13 +150,6 @@ class EstateBackend(BackendProtocol):
         return await _rows_of(admitted)
 
     async def resolve(self, parsed: EstatePath) -> Resolution:
-        """The document ``parsed`` names, or a miss (with suggestions drawn only from listable rows).
-
-        The leaf identifies a document inside its mount; the folder part is a
-        hint. A stale folder still resolves, with a note saying where the file
-        is now. A restricted folder's document needs its folder named: without
-        it the listable one of that name wins, and with none it is a miss.
-        """
         files = await self.readable_files()
         return resolve_in(files, parsed)
 
@@ -219,7 +162,6 @@ class EstateBackend(BackendProtocol):
         offset: int = 0,
         limit: int = DEFAULT_LINE_LIMIT,
     ) -> ToolOutput:
-        """``read_file`` on the estate: grounding blocks, one per page (agent-filesystem.md §3)."""
         from agent.common.action_rows import ActionRow
         from agent.common.turn_status import lane_tool_scope
 
@@ -236,7 +178,6 @@ class EstateBackend(BackendProtocol):
     async def _read_body(
         self, file_path: str, pages: Any, clause: Any, offset: int, limit: int
     ) -> tuple[ToolOutput, ReadRowFacts]:
-        """The read, and what its row may say: the resolved document only when ``may_name`` (ADR-0088)."""
         from agent.knowledge.restricted_use import may_name
 
         try:
@@ -338,7 +279,6 @@ class EstateBackend(BackendProtocol):
     def _render_window(
         self, file: EstateFile, text: stored_pages.PageText, offset: int, limit: int, note: str
     ) -> ToolOutput:
-        """A page-less file (text, image caption): one block of lines ``[offset, offset+limit)``."""
         lines = "\n\n".join(page.text for page in text.pages if page.text).split("\n")
         start = max(0, offset)
         end = min(len(lines), start + max(1, limit))
@@ -358,7 +298,6 @@ class EstateBackend(BackendProtocol):
         return _render((hit,), preamble=preamble, notices=notices, trailer=trailer, tool=READ_FILE_TOOL)
 
     async def _outline(self, file: EstateFile) -> str:
-        """The document's Gliederung, as ``read_passage`` builds it; empty when it has none or the read fails."""
         from knowledge_layer.read_passage import PassageTarget
         from knowledge_layer.read_passage import _outline_block
         from knowledge_layer.read_passage import outline_for
@@ -372,7 +311,6 @@ class EstateBackend(BackendProtocol):
         return _outline_block(outline.entries) if outline.entries else ""
 
     async def _read_clause(self, file: EstateFile, clause: str, note: str) -> ToolOutput:
-        """One Punkt: the chunks that carry it, as ``read_passage(clause=…)`` opens them."""
         from knowledge_layer.read_passage import PassageTarget
         from knowledge_layer.read_passage import _addresses
         from knowledge_layer.read_passage import _clause_sort_key
@@ -395,7 +333,6 @@ class EstateBackend(BackendProtocol):
         return _render(hits, preamble=preamble, notices=notices, trailer="", tool=READ_FILE_TOOL)
 
     async def _abstracts(self, files: Sequence[EstateFile], mount: Mount | None) -> dict[str, list[str]]:
-        """The written folder abstracts (tier 1) of ``mount``'s collections; empty off a chat turn or on any error."""
         from agent.knowledge.folder_cards import listing_abstracts
 
         from .listing import abstracts_by_folder
@@ -409,7 +346,6 @@ class EstateBackend(BackendProtocol):
             return {}
 
     async def _folder_card(self, parsed: EstatePath) -> Listing | None:
-        """``<folder>/README.md`` as the folder's card, unless a real document holds that name there."""
         from .listing import has_real_readme
         from .listing import render_readme
         from .listing import stored_folder
@@ -423,7 +359,6 @@ class EstateBackend(BackendProtocol):
         return render_readme(files, parsed, abstracts=await self._abstracts(files, parsed.mount))
 
     async def ls(self, path: str | None, *, depth: int = 1, drafts: bool = False) -> ToolOutput:
-        """``ls`` on the estate (agent-filesystem.md §3): a folder, or the tree as folder cards. An index."""
         from agent.common.action_rows import ActionRow
 
         from .listing import render_folder
@@ -455,7 +390,6 @@ class EstateBackend(BackendProtocol):
         return ToolOutput(listing.text, status="error" if listing.error else "ok")
 
     async def glob(self, pattern: str, path: str | None = None) -> ToolOutput:
-        """``glob`` on the estate: file names, ``* ** ? [abc] {a,b}``, folded. An index."""
         from agent.common.action_rows import ActionRow
 
         from .listing import render_glob
@@ -487,7 +421,6 @@ class EstateBackend(BackendProtocol):
         stemmed: bool = False,
         context: int = 0,
     ) -> ToolOutput:
-        """``grep`` on the estate: wording in two stages, never a silent no (``estate_grep``)."""
         from .grep import search
 
         return await search(
@@ -504,7 +437,6 @@ class EstateBackend(BackendProtocol):
         )
 
     async def aread(self, file_path: str, offset: int = 0, limit: int = 2000) -> ReadResult:
-        """The protocol's read: the document's text as lines, pages marked ``<!-- page N -->``. Not evidence."""
         from deepagents.backends.utils import slice_read_response
 
         try:
@@ -549,7 +481,6 @@ class EstateBackend(BackendProtocol):
 
 
 async def _in_flight(files: Sequence[EstateFile]) -> list[str]:
-    """Files of these collections still being read, by name (``browse._in_flight``); empty on any error."""
     from knowledge_layer.browse import _in_flight as in_flight
 
     collections = sorted({file.row.collection for file in files if file.row.collection})
@@ -568,7 +499,6 @@ def _entry_shelf(entry: Any) -> str | None:
 
 
 async def _rows_of(entries: Sequence[Any]) -> list[FileRow]:
-    """The documents registered for ``entries``' collections, as rows with their shelves; a failed one gives none."""
     if not entries:
         return []
     from agent.knowledge import get_available_documents_async

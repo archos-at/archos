@@ -1,10 +1,3 @@
-"""The retriever: a query embedded once, one fused Qdrant search, hits as ``Chunk`` records.
-
-Embeds the query through the OpenAI-compatible endpoint and reads Qdrant
-(``knowledge_layer.vector_store``, ADR-0115); registered with the knowledge factory as
-the ``llamaindex`` backend.
-"""
-
 import asyncio
 import json
 import logging
@@ -36,20 +29,12 @@ logger = logging.getLogger(__name__)
 
 
 def collection_version(collection_name: str) -> int | None:
-    """The collection's write version, or ``None`` when it cannot be resolved.
-
-    NOTE the contract: ``None`` means UNKNOWN, not 0. A caller must not build a cache
-    key from it and must not store a result. Coercing unknown to 0 is precisely how a
-    replica keeps serving superseded legal text through a cache outage -- every entry
-    another replica stored under version 0 would match again.
-    """
     from agent.knowledge import collection_version as _collection_version
 
     return _collection_version.current(collection_name)
 
 
 def _filters_fingerprint(filters: dict[str, Any] | None) -> str:
-    """Stable cache-key fragment for a filter dict (empty string when unfiltered)."""
     if not filters:
         return ""
     return json.dumps(filters, sort_keys=True, default=str)
@@ -57,25 +42,6 @@ def _filters_fingerprint(filters: dict[str, Any] | None) -> str:
 
 @register_retriever("llamaindex")
 class LlamaIndexRetriever(BaseRetriever):
-    """
-    LlamaIndex-based document retriever.
-
-    Embeds the query through an OpenAI-compatible endpoint and reads Qdrant
-    (``knowledge_layer.vector_store``, ADR-0115).
-
-    Configuration options:
-        embed_model: Embedding model id (default from EMBED_MODEL)
-        top_k: Default number of results (default: 10)
-        hybrid_search: Enable lexical+vector hybrid retrieval (default from HYBRID_RETRIEVAL)
-
-    Environment variables:
-        QDRANT_URL: The Qdrant cluster every chunk is written to
-        EMBED_MODEL: Default embedding model name
-        EMBED_BASE_URL: Default embedding model base URL
-        RETRIEVER_TOP_K: Default top_k value
-        HYBRID_RETRIEVAL: Enable hybrid lexical+vector retrieval (default: true)
-    """
-
     DEFAULT_EMBED_MODEL = os.environ.get("EMBED_MODEL", "openai/text-embedding-3-large")
     DEFAULT_EMBED_BASE_URL = os.environ.get("EMBED_BASE_URL", "https://openrouter.ai/api/v1")
     DEFAULT_TOP_K = env_int("RETRIEVER_TOP_K", 10)
@@ -119,7 +85,6 @@ class LlamaIndexRetriever(BaseRetriever):
     RESULT_CACHE_MAX = 256
 
     def _ensure_initialized(self):
-        """Lazy initialization of components. Thread-safe: retrieval runs off-loop."""
         if self._initialized:
             return
 
@@ -161,24 +126,9 @@ class LlamaIndexRetriever(BaseRetriever):
         top_k: int = 10,
         filters: dict[str, Any] | None = None,
     ) -> RetrievalResult:
-        """Retrieve documents matching the query.
-
-        The embedding call and the Qdrant query are synchronous; they run in a
-        worker thread so a retrieval never stalls the server's event loop (and
-        the per-collection fan-out in the knowledge tool actually parallelizes).
-        """
         return await asyncio.to_thread(self._retrieve_sync, query, collection_name, top_k, filters)
 
-    # The query embedding is a remote round trip of 280-980 ms (measured 2026-09-24).
     async def warm_query(self, query: str) -> None:
-        """Embed ``query`` ahead of the search that will ask for it; never raises.
-
-        The query embedding is a remote round trip (280-980 ms measured
-        2026-09-24) that the knowledge tool pays before it can rank anything.
-        A caller that knows the query before the search starts runs it here,
-        and the search then finds it in the LRU (or waits for it in flight).
-        It also absorbs the adapter's lazy initialisation on a cold process.
-        """
         try:
             await asyncio.to_thread(self._warm_sync, query)
         except Exception:  # noqa: BLE001 - a warm-up is worth less than the turn
@@ -193,19 +143,6 @@ class LlamaIndexRetriever(BaseRetriever):
         user_regex: bool = False,
         stem_phrases: list[str] | None = None,
     ) -> list[Chunk] | None:
-        """Every chunk matching the regex ``pattern`` (``qdrant.retrieval.find_text``).
-
-        ``user_regex`` marks a person's own pattern (``match="regex"``), which is read
-        with a match timeout and raises ``PatternTooCostly`` when it backtracks.
-        ``stem_phrases`` adds the chunks holding an inflected form of those phrases
-        (the German-stemmed index, ``knowledge_search(stemmed=true)``).
-
-        The vector store is the source of truth for chunk text, so this reads it
-        there. No embedding, no ranking: a scroll over the collection, narrowed
-        on the server by the words every match must hold and decided by the
-        regex. A collection with no chunks is an empty answer, not a failure;
-        a store error raises, so the caller can say the search did not run.
-        """
         return await asyncio.to_thread(
             self._find_text_sync, collection_name, pattern, filters, limit, user_regex, stem_phrases
         )
@@ -213,7 +150,6 @@ class LlamaIndexRetriever(BaseRetriever):
     async def candidate_counts(
         self, collection_name: str, pattern: str, filters: dict[str, Any] | None = None, user_regex: bool = False
     ) -> dict[str, int] | None:
-        """``file_name -> chunks that hold the pattern's words`` (``qdrant.retrieval.candidate_counts``), or None."""
         from knowledge_layer.vector_store import candidate_counts as qdrant_candidate_counts
 
         office = office_for([collection_name])
@@ -234,11 +170,6 @@ class LlamaIndexRetriever(BaseRetriever):
         order_by: str | None = None,
         start_from: tuple[int, int] | None = None,
     ) -> list[Chunk] | None:
-        """The chunks ``filters`` admits, by scroll, with no query vector and no ranking.
-
-        No embedding and no lazy adapter start-up: nothing here needs the
-        embedder (``vector_store/reads.py``).
-        """
         return await asyncio.to_thread(self._fetch_sync, collection_name, filters, limit, order_by, start_from)
 
     def _fetch_sync(
@@ -288,20 +219,7 @@ class LlamaIndexRetriever(BaseRetriever):
                 chunk.metadata.setdefault(CHUNK_ORDINAL_FIELD, hit.payload[CHUNK_ORDINAL_FIELD])
         return chunks
 
-    # Measured 2026-10-27: 1.0 s + 0.6 s + 0.4 s warm, 6.1 s for the llama_index.core import alone cold.
     def warm_components(self) -> None:
-        """Pay the lazy initialisation now, so the first search of the process does not. Blocking.
-
-        The preflight imports ``llama_index.core`` and ``qdrant_client`` and
-        the embedding client is built (``_initialize_components``); the Qdrant
-        read path is imported with them. None of it touches the network.
-        Measured 2026-10-27 in a process that had done the boot imports:
-        1.0 s + 0.6 s + 0.4 s from a warm disk cache, 6.1 s for the
-        ``llama_index.core`` import alone from a cold one. On the first turn
-        of a process that sat inside the round-0 prefetch, before its
-        embedding call. The knowledge tool calls this at build time
-        (``knowledge_layer.register``).
-        """
         self._ensure_initialized()
         from knowledge_layer.vector_store import find_text  # noqa: F401 - the read path's imports, paid here
 
@@ -310,7 +228,6 @@ class LlamaIndexRetriever(BaseRetriever):
         self._embed_query_cached(query)
 
     def _embed_query_cached(self, query: str) -> list[float]:
-        """``query`` as this retriever's embedder embeds it, once per (model, text) (``QueryEmbeddingCache``)."""
         return self._query_embeddings.embed(
             (self.embed_model_name, query), lambda: self._embed_model.get_query_embedding(query)
         )
@@ -341,21 +258,6 @@ class LlamaIndexRetriever(BaseRetriever):
     def _static_cache_key(
         self, collection_name: str, query: str, top_k: int, filters: dict[str, Any] | None
     ) -> tuple[str, int, str, int, str] | None:
-        """The result-cache key for this search, or ``None`` when its result may not be cached.
-
-        No resolvable write version => no cache key at all. `None` is unknown,
-        not 0: an entry stored or matched against a version we cannot vouch for
-        is how one replica keeps answering from a corpus another replica has
-        already changed. Read through instead -- the cache is an optimisation,
-        the version is a correctness invariant.
-
-        Membership is tested FIRST because resolving the version is a shared-cache
-        round trip. Every query also fans out across the per-conversation session
-        collection and any project collections, and none of those is cacheable, so
-        resolving first spent one EVAL per non-cacheable collection per query on the
-        retrieval hot path -- and grew a permanent memo entry for each -- to discard
-        the answer immediately afterwards.
-        """
         if collection_name not in self.STATIC_RESULT_CACHE_COLLECTIONS:
             return None
         version = collection_version(collection_name)
@@ -410,19 +312,11 @@ class LlamaIndexRetriever(BaseRetriever):
             )
 
     def _identity(self) -> dict[str, str]:
-        """The embedder this retriever's query vectors come from, as Qdrant collection metadata holds it."""
         return embed_fingerprint_metadata(self.embed_model_name, self.embed_base_url)
 
     def _qdrant_chunks(
         self, query: str, collection_name: str, top_k: int, filters: dict[str, Any] | None
     ) -> list[Chunk]:
-        """One Query API call fusing dense, German BM25 and exact-term channels.
-
-        The channels run server-side: the dense ranking, BM25 over the chunk
-        text (with the EN->DE glossary terms), and per selective exact term the
-        dense ranking restricted to chunks containing it. ``hybrid_search`` off
-        leaves the dense channel alone.
-        """
         from knowledge_layer.vector_store import search_chunks
 
         query_vector = self._embed_query_cached(query)
@@ -450,7 +344,6 @@ class LlamaIndexRetriever(BaseRetriever):
         filters: dict[str, Any] | None = None,
         boost: dict[str, Any] | None = None,
     ) -> list[tuple[str, list[Chunk]]]:
-        """One fused ranking over ``collection_names``, grouped per collection."""
         return await asyncio.to_thread(
             self._search_grouped_sync, query, collection_names, groups, group_size, filters, boost
         )
@@ -485,7 +378,6 @@ class LlamaIndexRetriever(BaseRetriever):
         return [(scope, [self._grouped_chunk(hit) for hit in hits]) for scope, hits in grouped]
 
     def _grouped_chunk(self, hit: Any) -> Chunk:
-        """A grouped hit as a Chunk stating its place in the fused ranking and whether it holds the words."""
         from agent.knowledge.base import FUSED_SCORE_KEY
         from agent.knowledge.base import LEXICAL_MATCH_KEY
 
@@ -494,20 +386,16 @@ class LlamaIndexRetriever(BaseRetriever):
         return chunk
 
     def embed_query(self, text: str) -> list[float]:
-        """``text`` as the production embedder's query vector, from the same LRU and in-flight dedupe a search uses."""
         self._ensure_initialized()
         return self._embed_query_cached(text)
 
     def embedding_identity(self) -> dict[str, str]:
-        """The embedder behind :meth:`embed_query`, as Qdrant collection metadata records it."""
         return self._identity()
 
     def _lexical_inputs(self, query: str, collection_names: str | Sequence[str]) -> tuple[str, list[str]]:
-        """The BM25 text and exact terms for ``query``, priced against these collections (``lexical_query``)."""
         return lexical_inputs(query, collection_names, self._qdrant_term_df)
 
     def _chunk_from_hit(self, hit: Any) -> Chunk:
-        """A Qdrant hit as a Chunk, through ``normalize``, with the hit's true cosine as its score."""
         from llama_index.core.schema import NodeWithScore
         from llama_index.core.schema import TextNode
 
@@ -517,11 +405,9 @@ class LlamaIndexRetriever(BaseRetriever):
         return self.normalize(NodeWithScore(node=node, score=float(hit.cosine)))
 
     def normalize(self, raw_result: Any) -> Chunk:
-        """Convert LlamaIndex NodeWithScore to universal Chunk (``retrieved_chunks.chunk_from_node``)."""
         return chunk_from_node(raw_result)
 
     async def health_check(self) -> bool:
-        """Whether Qdrant, the one store this retriever reads, answers."""
         from knowledge_layer.vector_store import healthy as qdrant_healthy
 
         return await asyncio.to_thread(qdrant_healthy)

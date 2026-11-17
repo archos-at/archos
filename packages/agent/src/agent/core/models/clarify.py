@@ -1,19 +1,3 @@
-"""What the clarification step is asked, what it asks the two LLMs, and what it
-hands back.
-
-The two ``_StrictContract`` models are sent to a model as native strict
-``json_schema`` structured output via
-:func:`agent.common.strict_json_response_format`, so both obey the
-strict-mode contract: every property is required (an optional one is expressed
-as nullable, never as a default) and ``extra="forbid"`` puts
-``additionalProperties: false`` in the emitted schema. A schema that omits a
-property from ``required`` is rejected by the provider with a 400, which is why
-none of these fields carries a pydantic default.
-
-Parsing is deliberately more forgiving than the schema — see
-``ClarificationResponse._fill_omitted_keys``.
-"""
-
 from dataclasses import dataclass
 from typing import Any
 from typing import ClassVar
@@ -42,8 +26,6 @@ PlanDepth = Literal["quick_check", "expert_report"]
 
 
 class _StrictContract(BaseModel):
-    """Base for schemas sent to an LLM as strict json_schema structured output."""
-
     model_config: ClassVar[ConfigDict] = {"extra": "forbid"}
 
 
@@ -81,34 +63,21 @@ class ClarificationResponse(_StrictContract):
     @model_validator(mode="before")
     @classmethod
     def _fill_omitted_keys(cls, data: Any) -> Any:
-        """Accept a reply that leaves out the two keys with an obvious empty value.
-
-        The SCHEMA has to require all three (strict mode), and does. Parsing is
-        the other direction: the tool-bound binding cannot carry a schema (see
-        ``clarify._clarifier_llm``), so on that path the model is only *asked*
-        for three keys, and one that answers with two is answering, not
-        failing. Rejecting it would replace a good question with the fallback
-        one.
-        """
         if isinstance(data, dict):
             return {"clarification_question": None, "options": [], **data}
         return data
 
     @classmethod
     def complete(cls) -> ClarificationResponse:
-        """The sentinel written when nothing more needs asking."""
         return cls(needs_clarification=False, clarification_question=None, options=[])
 
     def is_valid(self) -> bool:
-        """Check if the response is valid (has question when needed)."""
         if self.needs_clarification:
             return bool(self.clarification_question)
         return not self.options
 
 
 def _require_every_property(schema: dict[str, Any]) -> None:
-    """Strict json_schema needs every property required; the Python defaults
-    below are for callers that build a plan by hand, never for the model."""
     schema["required"] = list(schema.get("properties", {}))
 
 
@@ -132,7 +101,6 @@ class PlanResponse(_StrictContract):
     @model_validator(mode="before")
     @classmethod
     def _legacy_spellings(cls, data: Any) -> Any:
-        """A checkpointed plan or an old tab's edits still say ``grundlage``/``pruefbericht``."""
         return modernize_plan(data)
 
     title: str = Field(description="Clear, descriptive title for the research report.")
@@ -159,13 +127,6 @@ class PlanResponse(_StrictContract):
 
 @dataclass(frozen=True)
 class ClarifyRequest:
-    """What the conversation graph hands the clarification step.
-
-    A trimmed window of the conversation plus the same three context values the
-    agent itself answered on, so the questions and the plan are asked
-    against the reader's project rather than against the query alone.
-    """
-
     messages: list[BaseMessage]
     data_sources: list[str] | None = None
     project_context: str | None = None
@@ -174,16 +135,6 @@ class ClarifyRequest:
 
 @dataclass(frozen=True)
 class ClarifyResult:
-    """How the dialog ended, and the text deep research reads if it runs.
-
-    One outcome instead of three mutually-exclusive booleans that could
-    contradict each other, and one finished string instead of a title, a
-    section list and a caller that concatenated them: ``research_context``
-    already carries the Q&A transcript and, when a plan was approved, that
-    plan. ``outcome`` is None when plan approval is off — the questions were
-    asked, no plan was ever shown, and deep research proceeds.
-    """
-
     research_context: str
     outcome: PlanOutcome | None = None
     data_sources: list[str] | None = None
