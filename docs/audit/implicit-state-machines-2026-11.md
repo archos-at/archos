@@ -165,7 +165,7 @@ Paths are under `apps/workspace/` unless they start with a package.
 | Intake setup step | project, filing, reading, questions, profile | same | an ordered list |
 | Filing step mode | empty, chosen, uploading, project | same | one ternary |
 | Participants overlays | four slots | same | |
-| BIM model poll | pending, extracting, ready, failed | `features/bim/hooks/use-bim-model.ts` | |
+| BIM model poll | pending, extracting, ready, failed | `features/bim/hooks/use-project-bim-models.ts`, `features/bim/hooks/use-document-bim-model.ts` | |
 | IFC viewer load | idle, downloading, parsing, ready, error | `features/bim/components/` | cancel kept outside the phase |
 | IFC compare | idle, loading, error | same | |
 | Inbound attachment case | nine statuses | `features/inbound-mail/lib/attachment-case.ts` | exhaustive by type (read) |
