@@ -58,7 +58,24 @@ def test_posthog_sql_naming_a_former_app_host_also_names_the_current_one() -> No
 
 def _rules(sql: str) -> list[tuple[str, str]]:
     blocks = re.split(r"\n(?=SELECT\n)", _code(sql))
-    return [(label.group(1), block) for block in blocks if (label := re.search(r"'([^']*for 15 min[^']*)'", block))]
+    labelled = [(re.search(r"'([^']*for 15 min[^']*)'", block), block) for block in blocks]
+    return [(label.group(1), block) for label, block in labelled if label]
+
+
+def _breach(block: str) -> str:
+    return block[block.index("toFloat(") :]
+
+
+def _unguarded(sql: str) -> list[str]:
+    code = _code(sql)
+    guarded = {name for name, body in re.findall(r"\n(\w+) AS \((.*?)\n\)", code, re.S) if "spans15" in body}
+    return [
+        label
+        for label, block in _rules(sql)
+        if "spans15" not in _breach(block)
+        and "covered15" not in _breach(block)
+        and not set(re.findall(r"\bFROM (\w+)", block)) & guarded
+    ]
 
 
 def test_every_15_minute_rule_needs_a_series_covering_the_window() -> None:
@@ -69,12 +86,12 @@ def test_every_15_minute_rule_needs_a_series_covering_the_window() -> None:
         _code(sql),
     )
     assert len(guard) == sql.count("AS lo15,"), "every area reading lo15 defines spans15 over both ends of the window"
-    rules = _rules(sql)
-    assert rules, "no rule says 'for 15 min'"
-    guarded_ctes = {name for name, body in re.findall(r"\n(\w+) AS \((.*?)\n\)", _code(sql), re.S) if "spans15" in body}
-    unguarded = [
-        label
-        for label, block in rules
-        if "spans15" not in block and not set(re.findall(r"\bFROM (\w+)", block)) & guarded_ctes
-    ]
-    assert not unguarded, f"{unguarded} fire on a single sample: require spans15"
+    assert _rules(sql), "no rule says 'for 15 min'"
+    assert not _unguarded(sql), f"{_unguarded(sql)} fire on a single sample: their breach needs spans15"
+
+
+def test_a_guard_only_in_the_label_does_not_count() -> None:
+    sql = (ALERTS / "platform-health.sql").read_text()
+    breach = "toFloat(countIf(spans15 AND hi15 = 0))"
+    assert breach in sql
+    assert _unguarded(sql.replace(breach, "toFloat(countIf(hi15 = 0))")) == ["Qdrant peer down for 15 min: "]

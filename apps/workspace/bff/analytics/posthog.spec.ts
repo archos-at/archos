@@ -83,6 +83,7 @@ describe('posthog analytics facade', () => {
       replaySampleRate: 0,
       proxy: false,
       release: '',
+      deployment: '',
     })
   })
 })
@@ -398,6 +399,16 @@ describe('adoptServerIdentity', () => {
     expect(postHogConfigFromEnv({ GIT_SHA: 'abc1234' }).release).toBe('abc1234')
     expect(postHogConfigFromEnv({ GIT_SHA: 'unknown' }).release).toBe('')
   })
+
+  test('registers the deployment the server names beside the release, and nothing for a blank one', () => {
+    const config = { ...enabledConfig, ...postHogConfigFromEnv({ GIT_SHA: 'abc1234', POSTHOG_DEPLOYMENT: ' prod ' }) }
+    const sdkClient = { get_distinct_id: () => 'user_01', reset: vi.fn(), identify: vi.fn(), register: vi.fn() }
+    ;(buildPosthogInitOptions(config, identity).loaded as (client: unknown) => void)(sdkClient)
+    expect(sdkClient.register).toHaveBeenCalledWith({ release: 'abc1234', deployment: 'prod' })
+
+    expect(postHogConfigFromEnv({ POSTHOG_DEPLOYMENT: '  ' }).deployment).toBe('')
+    expect(postHogConfigFromEnv({}).deployment).toBe('')
+  })
 })
 
 describe('scrubEvent (before_send)', () => {
@@ -544,6 +555,14 @@ describe('posthog enabled path', () => {
     const mod = await load()
     mod.resetPosthog()
     expect(sdk.reset).toHaveBeenCalledTimes(1)
+  })
+
+  test('reset keeps the release and the deployment on the next person’s events', async () => {
+    const mod = await load()
+    mod.registerBuild(sdk, { release: 'abc1234', deployment: 'prod' })
+    sdk.register.mockClear()
+    mod.resetPosthog()
+    expect(sdk.register).toHaveBeenCalledWith({ release: 'abc1234', deployment: 'prod' })
   })
 
   test('support context: hands the server the replay session, and no widget session', async () => {

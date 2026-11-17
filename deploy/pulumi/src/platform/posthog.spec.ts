@@ -35,6 +35,8 @@ function resolve(value: unknown): Promise<any> {
   );
 }
 
+const byName = (env: Array<{ name: string }>, name: string) => env.find((e) => e.name === name);
+
 function find(type: string, name: string) {
   const hit = RESOURCES.find((r) => r.type === type && r.name === name);
   if (!hit) throw new Error(`${type} ${name} was not created`);
@@ -191,13 +193,38 @@ describe("the Python tiers' PostHog pair", () => {
       ingress: { appDomain: "app.archos.tech" },
     }) as unknown as Parameters<typeof posthogEnv>[0];
 
-  it("emits both names when both are set, and the app's host beside them", () => {
+  it("emits both names when both are set, and the app's host and the stack beside them", () => {
     expect(posthogEnv(appCfg("https://eu.i.posthog.com", "phc_x"))).toEqual([
       { name: "POSTHOG_HOST", value: "https://eu.i.posthog.com" },
       { name: "POSTHOG_PROJECT_TOKEN", value: "phc_x" },
       { name: "POSTHOG_APP_HOST", value: "app.archos.tech" },
+      { name: "POSTHOG_DEPLOYMENT", value: "test" },
     ]);
   });
+
+  it("names the deployment by the stack, the value the collector stamps as deployment.environment.name", async () => {
+    const { collector } = await deploy(POSTHOG);
+    const stamped = pulumi.getStack();
+    expect(parseCollectorConfig(collector).processors["resource/traces_environment"]).toEqual({
+      attributes: [{ key: "deployment.environment.name", value: stamped, action: "insert" }],
+    });
+    const envOf = async (type: string, name: string) =>
+      ((await resolve(find(type, name).inputs.spec)) as any).template.spec.containers[0].env as Array<{
+        name: string;
+        value?: string;
+      }>;
+    for (const [type, name] of [
+      ["kubernetes:apps/v1:Deployment", "frontend"],
+      ["kubernetes:apps/v1:Deployment", "bff-jobs"],
+      ["kubernetes:apps/v1:Deployment", "api"],
+      ["kubernetes:apps/v1:StatefulSet", "chat"],
+    ]) {
+      expect(byName(await envOf(type, name), "POSTHOG_DEPLOYMENT"), name).toEqual({
+        name: "POSTHOG_DEPLOYMENT",
+        value: stamped,
+      });
+    }
+  }, 120_000);
 
   it("names the app host the BFF reads off its redirect URI, so a filter on app_host keeps Python errors", () => {
     pulumi.runtime.setAllConfig({ ...baseStackConfig(), ...POSTHOG });
@@ -242,11 +269,13 @@ describe("the Python tiers' PostHog pair", () => {
         { name: "POSTHOG_HOST", value: "https://eu.i.posthog.com/" },
         { name: "POSTHOG_PROJECT_TOKEN", value: "phc_test_token" },
         { name: "POSTHOG_APP_HOST", value: "app.example.test" },
+        { name: "POSTHOG_DEPLOYMENT", value: "test" },
       ]);
       expect(await withPosthog({}, name, type), name).toEqual([
         { name: "POSTHOG_HOST", value: POSTHOG_DEFAULT_HOST },
         { name: "POSTHOG_PROJECT_TOKEN", value: POSTHOG_DEFAULT_PROJECT_TOKEN },
         { name: "POSTHOG_APP_HOST", value: "app.example.test" },
+        { name: "POSTHOG_DEPLOYMENT", value: "test" },
       ]);
       expect(await withPosthog({ "grid-oib:posthogHost": "" }, name, type), name).toEqual([]);
     }
