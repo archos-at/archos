@@ -86,7 +86,7 @@ Thirteen distinct sizes, ten of them arbitrary values — and note `text-[12px]`
 
 ### 0.4 Colour is correct but is being spent on three different axes
 
-`statusColor()` (kit.tsx:49–60) resolves four verdict states to `--text-color-feedback-*` tokens. It is correct and used consistently. But three *other* semantic axes are each solved ad hoc:
+`statusColor()` (`ui/features/cards/lib/dimension-status.ts`) resolves four verdict states to `--text-color-feedback-*` tokens. It is correct and used consistently. But three *other* semantic axes are each solved ad hoc:
 
 - **Modality** (binding vs interpretive): NormChainCard.tsx:76–78 uses weight + ink + a word. Correct.
 - **Currency** (applies to you vs hypothetical): the retired `condition_tree` used `border-dashed bg-muted/30` against a solid tinted panel — chrome differing *in kind*. Correct and excellent.
@@ -110,7 +110,7 @@ The schema generator flattens **every** `$ref` to `z.any()` — not only arrays 
 
 **4. No charting library.** No recharts, d3, visx, chart.js, nivo. The two existing charts are hand-rolled SVG. A chart-bearing card means hand-rolled SVG or a new dependency — and §D forbids the dependency.
 
-**5. No SVG auto-layout.** No elkjs, no dagre. All schematic layout is hand-computed via `fitScale` (kit.tsx:174). Any drawn connector in this charter must have its geometry computed explicitly.
+**5. No SVG auto-layout.** No elkjs, no dagre. All schematic layout is hand-computed via `fitScale` (`ui/features/cards/lib/schematic-scale.ts`). Any drawn connector in this charter must have its geometry computed explicitly.
 
 **6. No visual-regression diffing.** Screenshots are captured and committed but **never compared**, and the coverage workflow is comment-only and cannot fail a PR. **Do not claim CI will catch a visual regression.**
 
@@ -186,7 +186,7 @@ Chroma belongs to provenance (`design-language.md` §Principles 2). These axes m
 
 The retired `norm_chain` and `condition_tree` cards already did this. Codify it so the next card does not invent a fifth hue family.
 
-**3. The binding constraint — "which one decides it?"** In a set of checks, exactly one usually decides the verdict, and nothing marks it today: `LimitBar` (kit.tsx:414–519) draws every check identically. The deciding row gets **its value at the Figure step and its label in `--foreground`**; every other row stays Body in the muted ink. No left rule: side stripes are discouraged since 2026-10-27 (design-language.md, "Emphasis without a stripe"). One per card, or none.
+**3. The binding constraint — "which one decides it?"** In a set of checks, exactly one usually decides the verdict, and nothing marks it today: `LimitBar` (`ui/features/cards/components/limit-bar.tsx`) draws every check identically. The deciding row gets **its value at the Figure step and its label in `--foreground`**; every other row stays Body in the muted ink. No left rule: side stripes are discouraged since 2026-10-27 (design-language.md, "Emphasis without a stripe"). One per card, or none.
 
 **4. Direction — "which way did it move?"** → glyph + word + a borrowed verdict ink:
 - `tightens` → ↑ + „strenger" in `--text-color-feedback-warning`
@@ -244,12 +244,12 @@ Governed by `design-language.md` §Motion vocabulary. Card-specific rulings:
 
 ### A7. The drawing kit, and where `rough` stops
 
-`kit.tsx` (731 lines) is really two modules wearing one name:
+`kit.tsx` (731 lines) was really two modules wearing one name:
 
-- **Shell + vocabulary** (used by everything): `statusColor`/`statusLabel`/`worstStatus` (:49–96), Austrian formatting `fmtNum`/`fmtDim`/`fmtTolerance` (:103–166), `LimitBar` (:414), `DimChecksList` (:544), `NormRefFooter` (:618), `SchematicCard` (:702).
-- **Drawing layer** (schematics only): `fitScale` (:174), `SvgLabel` (:195), `ExtensionLine` (:236), `DimensionArrow` (:271), `SchematicCanvas` + `MAX_CANVAS_SCALE` (:368–400).
+- **Shell + vocabulary** (used by everything): `statusColor`/`statusLabel`/`worstStatus` (`ui/features/cards/lib/dimension-status.ts`), Austrian formatting `fmtNum`/`fmtDim`/`fmtTolerance` (`ui/features/cards/lib/dimension-format.ts`), `LimitBar` (`ui/features/cards/components/limit-bar.tsx`), `DimChecksList` (`ui/features/cards/components/dim-checks-list.tsx`), `NormRefFooter` and `SchematicCard` (`ui/features/cards/schematics/kit.tsx`).
+- **Drawing layer** (schematics only): `fitScale` (`ui/features/cards/lib/schematic-scale.ts`), `SvgLabel`, `ExtensionLine`, `DimensionArrow`, `SchematicCanvas` (`ui/features/cards/schematics/schematic-drawing.tsx`).
 
-**Split it.** `cards/shell.tsx` and `schematics/draw.tsx`. This is not cosmetic: it makes "may I sketch here?" a question of which module you import, and it stops `SchematicCard` — the chrome nine non-drawn cards depend on — living in a file called `schematics`.
+**Split it, in part.** The drawing layer is `schematics/schematic-drawing.tsx`, and the vocabulary and shell pieces moved out of `kit.tsx`. This is not cosmetic: it makes "may I sketch here?" a question of which module you import. Two things stay in `schematics/kit.tsx`: `NormRefFooter`, the one kit piece that reaches into `features/knowledge`, and `SchematicCard`, which renders it. The seam ratchet (`.dependency-cruiser-known-violations.json`) keys those edges to this path, so moving `NormRefFooter` means re-keying it first, and `SchematicCard` cannot leave until `NormRefFooter` does.
 
 #### The ruling on `rough`: confined to the schematics, permanently
 
@@ -293,7 +293,7 @@ test or a lint where one exists. They apply on the pointer, not the breakpoint,
 wherever the thing being sized is a finger (`design-language.md`, Touch).
 
 1. **A label that decides a verdict is never clipped.** `DimChecksList` rows
-   (`schematics/kit.tsx`) wrap: the label takes the free width (basis 12rem) and
+   (`ui/features/cards/components/dim-checks-list.tsx`) wrap: the label takes the free width (basis 12rem) and
    the figures drop under it, right-aligned, when the box is narrow. A `title`
    attribute is not a second way in: a touch screen never shows one.
 2. **Text the reader decides on wraps or opens.** A proposal's reason, a
@@ -369,7 +369,7 @@ Keep verbatim: a row with no `detail` is not a button (line 58).
 > 1. **`lane`** — the code already states the case verbatim (LegalBasisCard.tsx:61–68): the OIB accent cannot be resolved because `legalBasisCardSchema` carries no lane, and deriving `'oib'` from the law string by hand is precisely the drift `accentForLane` exists to prevent. OIB vs RIS is the distinction architects compare most (`design-language.md` §Accents vs signals). **Highest-value schema addition in this charter.**
 >
 > **IMPLEMENTED, and NOT in the shape this charter first asked for.** The charter specified `lane: 'oib' | 'law'`; that was wrong and the implementation correctly refused it. `accentForLane(lane, signal)` matches on `startsWith('baurecht_oib')` — the fine-lane vocabulary `norm_registry.lane_for_hit` stamps on every chunk and chip. `'oib' | 'law'` is the accent a lane RESOLVES TO (`SourceTint`), not a lane, so feeding it back in would have required a second hand-written mapping in the renderer — the exact drift the helper exists to prevent — and would have let the card and the „Belegt durch" chips disagree about one document. Shipped as `lane: Literal["baurecht_oib", "baurecht_ris"] | None`, with a `mode="before"` validator folding the other real lanes on. `baurecht_basis` is excluded by name so an unclassified upload can never inherit the RIS tier.
-> 2. **`edition: str | None`** — `NormReference` carries `edition` and the schematics print it (kit.tsx:637); `legal_basis` has no such field, so the product's most authoritative card is the one citation that cannot say *which Ausgabe*. „OIB-Richtlinie 2" without „Ausgabe Mai 2023" is not verifiable.
+> 2. **`edition: str | None`** — `NormReference` carries `edition` and the schematics print it (`NormRefFooter` in `ui/features/cards/schematics/kit.tsx`); `legal_basis` has no such field, so the product's most authoritative card is the one citation that cannot say *which Ausgabe*. „OIB-Richtlinie 2" without „Ausgabe Mai 2023" is not verifiable.
 >
 > **IMPLEMENTED** as specified, optional, printed beside the identifiers exactly as `NormRefFooter` does.
 
@@ -652,7 +652,7 @@ The tables were the substance. `comparison_table` rendered **thirteen distinct t
 
 | Item | Section | Status |
 |---|---|---|
-| Split `kit.tsx` into `cards/shell.tsx` + `schematics/draw.tsx` | A7 | Pending |
+| Split `kit.tsx`: vocabulary, shell pieces and drawing layer moved out; `SchematicCard` and `NormRefFooter` stay (see A7) | A7 | Partly done |
 | One shell, three registers | A1 | Pending |
 | Six-step type ramp + migration off the other seven sizes | A2 | Pending |
 | Figure rule (one element above 14px, and it is the answer) | A2 | Pending |
@@ -727,7 +727,7 @@ level, clearly heavier and darker than the hairline. It stays at /40.
 | Field | Card | Justification | Status |
 |---|---|---|---|
 | `lane` (fine-lane keys) | legal_basis | LegalBasisCard.tsx:61–68 states the case verbatim; OIB vs RIS is the distinction architects compare most | **IMPLEMENTED** — as `Literal["baurecht_oib", "baurecht_ris"] \| None`, NOT the `'oib' \| 'law'` this charter asked for; see §B1 |
-| `edition: str \| None` | legal_basis | `NormReference` has it and the schematics print it (kit.tsx:637); without it the product's most authoritative card cannot say which Ausgabe | **IMPLEMENTED** as specified |
+| `edition: str \| None` | legal_basis | `NormReference` has it and the schematics print it (`NormRefFooter` in `ui/features/cards/schematics/kit.tsx`); without it the product's most authoritative card cannot say which Ausgabe | **IMPLEMENTED** as specified |
 
 Both require a change to `packages/agent/src/agent/cards/models.py`, regeneration of `contracts/cards/schemas.json` via `scripts/generate_card_schema.py`, then `npm run generate:cards`.
 
