@@ -143,7 +143,7 @@ def extract_pages(pdf_path: Path, cache_dir: Path | None = None) -> list[dict[st
         with open(cache_path, encoding="utf-8") as handle:
             return _pages_from_json(json.load(handle))
 
-    from knowledge_layer.ingest.adapter import _extract_text_from_pdf
+    from knowledge_layer.ingest import _extract_text_from_pdf
 
     pages = _extract_text_from_pdf(str(pdf_path))
     cache_dir.mkdir(parents=True, exist_ok=True)

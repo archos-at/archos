@@ -10,7 +10,7 @@ that reads a corpus hit reads this.
 
 from __future__ import annotations
 
-from knowledge_layer.search.trace_lanes import _trace_lanes_for_chunks
+from knowledge_layer.search import _trace_lanes_for_chunks
 
 from agent.common.grounding_block import TRUNCATION_MARKER
 from agent.common.grounding_block import GroundingBlock

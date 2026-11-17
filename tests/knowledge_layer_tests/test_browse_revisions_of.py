@@ -3,13 +3,13 @@ from __future__ import annotations
 from unittest.mock import MagicMock
 
 import pytest
+from knowledge_layer.browse import _LIST_FILES_DESCRIPTION
 from knowledge_layer.browse import MAX_CHAIN_CHANGE_CHARS
 from knowledge_layer.browse import MAX_CHAIN_LINES
 from knowledge_layer.browse import ListFilesConfig
 from knowledge_layer.browse import file_rows
 from knowledge_layer.browse import list_files
 from knowledge_layer.browse import render_revisions
-from knowledge_layer.browse.tool import _LIST_FILES_DESCRIPTION
 from knowledge_layer.register import KnowledgeRetrievalConfig
 from knowledge_layer_testing.vector_store import reads_as_an_office  # noqa: F401 - a read names its office
 

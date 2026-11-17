@@ -155,13 +155,13 @@ def scope_entries(entries: Sequence[Any], parsed: EstatePath | None) -> list[Any
     """The collections a path covers: every one for no path or ``/``, else the mount's."""
     if parsed is None or parsed.mount is None:
         return list(entries)
-    from knowledge_layer.browse.tool import _entry_shelf
+    from knowledge_layer.browse import _entry_shelf
 
     return [entry for entry in entries if SHELF_MOUNTS.get(_entry_shelf(entry) or "") == parsed.mount]
 
 
 def _mount_of_entry(entry: Any) -> str:
-    from knowledge_layer.browse.tool import _entry_shelf
+    from knowledge_layer.browse import _entry_shelf
 
     mount = SHELF_MOUNTS.get(_entry_shelf(entry) or "")
     return MOUNT_ROOTS[mount].rstrip("/") if mount else "the index"
@@ -334,8 +334,8 @@ async def _candidates(
     narrowed: dict[str, list[str]] | None,
 ) -> tuple[list[Any] | ToolOutput, list[Gap]]:
     """Stage 1: the chunks the index's literal scan proposes, per collection, and what it could not serve."""
-    from knowledge_layer.browse.tool import _collection_filter
-    from knowledge_layer.browse.tool import _entry_shelf
+    from knowledge_layer.browse import _collection_filter
+    from knowledge_layer.browse import _entry_shelf
     from knowledge_layer.search import resolve_base_collection
     from knowledge_layer.vector_store import PatternTooCostly
 

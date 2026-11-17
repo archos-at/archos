@@ -240,7 +240,7 @@ def _page_hit(file: EstateFile, page: stored_pages.Page, *, budget: int, paged: 
     """One page as a grounding record: the page's text, the file's own row, the ``file, p.N`` key."""
     from agent.common.grounding_block import GroundingHit
     from agent.common.source_kinds import parse_shelf
-    from knowledge_layer.search.grounding_hits import _citation_key_for
+    from knowledge_layer.search import _citation_key_for
 
     number = page.number if paged and page.number > 0 else None
     shelf = parse_shelf(file.row.shelf)
@@ -273,9 +273,9 @@ def _chunk_hit(file: EstateFile, chunk: Any) -> Any:
     from agent.common.grounding_block import GroundingHit
     from agent.common.licensed_text import licence_from_metadata
     from agent.common.source_kinds import parse_shelf
-    from knowledge_layer.search.grounding_hits import _CHUNK_TRUNCATE_CHARS
-    from knowledge_layer.search.grounding_hits import _citation_key_for
-    from knowledge_layer.search.grounding_hits import _hit_provenance
+    from knowledge_layer.search import _CHUNK_TRUNCATE_CHARS
+    from knowledge_layer.search import _citation_key_for
+    from knowledge_layer.search import _hit_provenance
 
     shelf = parse_shelf(file.row.shelf)
     page = chunk.page_number if chunk.page_number and chunk.page_number > 0 else None

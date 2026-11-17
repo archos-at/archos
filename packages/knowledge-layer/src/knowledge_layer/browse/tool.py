@@ -449,7 +449,7 @@ async def _files_by_collection(
     """
     if not (file_name or folder or doc_class or title_contains):
         return None
-    from knowledge_layer.search.hit_metadata import _file_name_matches
+    from knowledge_layer.search import _file_name_matches
 
     rows = await _turn_rows(search_config)
     if folder:
@@ -645,7 +645,7 @@ async def _search(
     scopes: Sequence[ShelfScope] = (),
     outcome: ActionOutcome | None = None,
 ) -> str:
-    from knowledge_layer.read_passage.tool import _passage_result
+    from knowledge_layer.read_passage import _passage_result
     from knowledge_layer.search import format_results
     from knowledge_layer.vector_store import USER_REGEX_SCAN_SECONDS
     from knowledge_layer.vector_store import USER_REGEX_TIMEOUT

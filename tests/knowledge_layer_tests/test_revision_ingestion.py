@@ -4,9 +4,9 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
+from knowledge_layer.ingest import _PreviousVersion
 from knowledge_layer.ingest import adapter as adapter_module
 from knowledge_layer.ingest import revisions
-from knowledge_layer.ingest.adapter import _PreviousVersion
 from knowledge_layer_testing import revision_ingestion as harness
 from knowledge_layer_testing.revision_ingestion import _documents
 from knowledge_layer_testing.revision_ingestion import _ingest

@@ -18,8 +18,8 @@ from pydantic import model_validator
 from pydantic.json_schema import SkipJsonSchema
 
 from agent.common.tool_calls import CONCLUSION_DESCRIPTION
+from knowledge_layer.browse import _LIST_FILES_DESCRIPTION
 from knowledge_layer.browse import TREE_PARAGRAPH
-from knowledge_layer.browse.tool import _LIST_FILES_DESCRIPTION
 
 from .register import knowledge_search_description
 from .register import result_budget

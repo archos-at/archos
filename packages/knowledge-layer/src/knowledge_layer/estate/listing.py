@@ -23,9 +23,9 @@ from agent.common.estate_paths import ESTATE_MOUNTS
 from agent.common.estate_paths import MOUNT_ROOTS
 from agent.common.estate_paths import EstatePath
 from agent.common.estate_paths import Mount
+from knowledge_layer.browse import _card_lines
 from knowledge_layer.browse import fold
 from knowledge_layer.browse import folder_cards
-from knowledge_layer.browse.tool import _card_lines
 
 from .backend import EstateFile
 from .backend import glob_files

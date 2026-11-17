@@ -12,7 +12,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-from knowledge_layer.search.grounding_hits import _CHUNK_TRUNCATE_CHARS as PASSAGE_MAX_CHARS
+from knowledge_layer.search import _CHUNK_TRUNCATE_CHARS as PASSAGE_MAX_CHARS
 
 SECTION_MAX_CHARS = 8000
 

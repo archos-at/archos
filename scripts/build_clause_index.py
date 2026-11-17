@@ -373,7 +373,7 @@ def make_page_reader() -> PageReader | None:
     and all.
     """
     try:
-        from knowledge_layer.ingest.adapter import _extract_text_from_pdf
+        from knowledge_layer.ingest import _extract_text_from_pdf
     except Exception as exc:  # noqa: BLE001 - reported, not raised
         logger.error("Could not import the production PDF extractor: %s", exc)
         return None

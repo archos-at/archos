@@ -47,6 +47,15 @@ _LAZY: dict[str, str] = {
     "split_alternatives": ".tool",
     "stemmed_pattern": ".tool",
     "user_pattern": ".tool",
+    "_LIST_FILES_DESCRIPTION": ".tool",
+    "_card_lines": ".tool",
+    "_collection_filter": ".tool",
+    "_entry_shelf": ".tool",
+    "_files_by_collection": ".tool",
+    "_has_literal_word": ".tool",
+    "_in_flight": ".tool",
+    "_session_collection": ".tool",
+    "_turn_rows": ".tool",
 }
 
 __getattr__ = lazy_exports(__name__, _LAZY, cache=False)

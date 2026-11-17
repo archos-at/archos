@@ -28,9 +28,6 @@
     "knowledge_layer.vector_store.schema": 1,
     "knowledge_layer.vector_store.store": 1
   },
-  "evals/oib-retrieval/src/oib_retrieval/corpus.py": {
-    "knowledge_layer.ingest.adapter": 1
-  },
   "evals/oib-retrieval/src/oib_retrieval/qdrant_parity/decompound.py": {
     "knowledge_layer.vector_store.retrieval": 1
   },
@@ -40,9 +37,6 @@
   },
   "evals/oib-retrieval/src/oib_retrieval/qdrant_parity/variants.py": {
     "knowledge_layer.vector_store.search": 1
-  },
-  "evals/oib-retrieval/src/oib_retrieval/structure.py": {
-    "knowledge_layer.ingest.clause_chunking": 3
   },
   "evals/oib-retrieval/tests/test_oib_corpus_cache.py": {
     "knowledge_layer.ingest.adapter": 1
@@ -62,12 +56,6 @@
   "packages/agent/src/agent/oib_sync.py": {
     "knowledge_layer.ingest.adapter": 1
   },
-  "packages/agent/tests/common/test_citation_pipeline_contract.py": {
-    "knowledge_layer.search.grounding_hits": 1
-  },
-  "packages/agent/tests/common/test_turn_status.py": {
-    "knowledge_layer.read_passage.tool": 1
-  },
   "packages/agent/tests/knowledge/test_collection_pages.py": {
     "knowledge_layer.vector_store.store": 1
   },
@@ -84,25 +72,7 @@
     "knowledge_layer.ingest.adapter": 1
   },
   "packages/knowledge-layer/src/knowledge_layer/browse/tool.py": {
-    "knowledge_layer.read_passage.tool": 1,
-    "knowledge_layer.search.hit_metadata": 1,
     "knowledge_layer.vector_store.prefilter": 1
-  },
-  "packages/knowledge-layer/src/knowledge_layer/chat_binding.py": {
-    "knowledge_layer.browse.tool": 1
-  },
-  "packages/knowledge-layer/src/knowledge_layer/estate/backend.py": {
-    "knowledge_layer.browse.tool": 4,
-    "knowledge_layer.read_passage.tool": 5
-  },
-  "packages/knowledge-layer/src/knowledge_layer/estate/grep.py": {
-    "knowledge_layer.browse.tool": 4
-  },
-  "packages/knowledge-layer/src/knowledge_layer/estate/listing.py": {
-    "knowledge_layer.browse.tool": 1
-  },
-  "packages/knowledge-layer/src/knowledge_layer/estate/render.py": {
-    "knowledge_layer.search.grounding_hits": 4
   },
   "packages/knowledge-layer/src/knowledge_layer/ingest/adapter.py": {
     "knowledge_layer.vector_store.reads": 1,
@@ -115,9 +85,6 @@
     "knowledge_layer.search.folder_channel": 2,
     "knowledge_layer.search.requery": 2,
     "knowledge_layer.search.retriever": 1
-  },
-  "packages/knowledge-layer/src/knowledge_layer/search/knowledge_search.py": {
-    "knowledge_layer.browse.tool": 1
   },
   "packages/knowledge-layer/src/knowledge_layer/search/lexical_query.py": {
     "knowledge_layer.vector_store.retrieval": 1
@@ -165,12 +132,9 @@
   },
   "packages/knowledge-layer/tests/test_licensed_hits.py": {
     "knowledge_layer.estate.grep": 1,
-    "knowledge_layer.estate.render": 3,
+    "knowledge_layer.estate.render": 1,
     "knowledge_layer.search.grounding_hits": 1,
     "knowledge_layer.search.rerank": 1
-  },
-  "packages/knowledge-layer/tests/test_metadata_filters.py": {
-    "knowledge_layer.search.retriever": 1
   },
   "packages/knowledge-layer/tests/test_read_passage_outline.py": {
     "knowledge_layer.read_passage.tool": 1
@@ -198,7 +162,7 @@
     "knowledge_layer.vector_store.writes": 1
   },
   "packages/knowledge-layer/tests/test_vector_store_adapter_deletes.py": {
-    "knowledge_layer.ingest.adapter": 2,
+    "knowledge_layer.ingest.adapter": 1,
     "knowledge_layer.vector_store.store": 1
   },
   "packages/knowledge-layer/tests/test_vector_store_bm25_tuning.py": {
@@ -221,7 +185,6 @@
     "knowledge_layer.vector_store.schema": 1
   },
   "packages/knowledge-layer/tests/test_vector_store_prefilter.py": {
-    "knowledge_layer.search.hit_metadata": 1,
     "knowledge_layer.vector_store.prefilter": 1,
     "knowledge_layer.vector_store.schema": 1,
     "knowledge_layer.vector_store.store": 1,
@@ -264,21 +227,8 @@
     "knowledge_layer.vector_store.store": 1,
     "knowledge_layer.vector_store.writes": 1
   },
-  "packages/ris-adapter/src/ris_adapter/lookup/grammar.py": {
-    "knowledge_layer.search.grounding_hits": 1
-  },
-  "packages/ris-adapter/src/ris_adapter/lookup/render.py": {
-    "knowledge_layer.search.trace_lanes": 1
-  },
-  "scripts/build_clause_index.py": {
-    "knowledge_layer.ingest.adapter": 1
-  },
   "scripts/import_vectors.py": {
     "knowledge_layer.vector_store.import_vectors": 1
-  },
-  "scripts/intake_eval/fixture.py": {
-    "knowledge_layer.browse.tool": 1,
-    "knowledge_layer.read_passage.tool": 1
   },
   "scripts/qdrant_chunk_length_stats.py": {
     "knowledge_layer.vector_store.rebuild": 1,
@@ -297,22 +247,11 @@
   "tests/knowledge_layer_tests/run_collections_api.py": {
     "knowledge_layer.ingest.adapter": 1
   },
-  "tests/knowledge_layer_tests/test_agent_filters.py": {
-    "knowledge_layer.search.hit_metadata": 1
-  },
   "tests/knowledge_layer_tests/test_browse.py": {
-    "knowledge_layer.browse.tool": 1,
     "knowledge_layer.vector_store.store": 1
   },
   "tests/knowledge_layer_tests/test_browse_revisions_of.py": {
-    "knowledge_layer.browse.tool": 1,
     "knowledge_layer.vector_store.store": 1
-  },
-  "tests/knowledge_layer_tests/test_browse_tree.py": {
-    "knowledge_layer.browse.tool": 1
-  },
-  "tests/knowledge_layer_tests/test_captioned_tables.py": {
-    "knowledge_layer.ingest.adapter": 3
   },
   "tests/knowledge_layer_tests/test_chunk_identity.py": {
     "knowledge_layer.ingest.chunk_identity": 1,
@@ -320,9 +259,6 @@
   },
   "tests/knowledge_layer_tests/test_chunk_noise.py": {
     "knowledge_layer.search.chunk_noise": 1
-  },
-  "tests/knowledge_layer_tests/test_citation_key_scope.py": {
-    "knowledge_layer.search.grounding_hits": 1
   },
   "tests/knowledge_layer_tests/test_clause_chunking.py": {
     "knowledge_layer.ingest.chunk_metadata": 1,
@@ -358,8 +294,6 @@
     "knowledge_layer.vector_store.retrieval": 2
   },
   "tests/knowledge_layer_tests/test_exact_search_regex.py": {
-    "knowledge_layer.browse.tool": 1,
-    "knowledge_layer.search.grounding_hits": 2,
     "knowledge_layer.vector_store.retrieval": 1
   },
   "tests/knowledge_layer_tests/test_extraction_defaults.py": {
@@ -375,9 +309,6 @@
   "tests/knowledge_layer_tests/test_folder_channel.py": {
     "knowledge_layer.search.folder_channel": 1
   },
-  "tests/knowledge_layer_tests/test_folder_scoped_retrieval.py": {
-    "knowledge_layer.search.hit_metadata": 1
-  },
   "tests/knowledge_layer_tests/test_heavy_document_memory.py": {
     "knowledge_layer.ingest.adapter": 1
   },
@@ -385,7 +316,7 @@
     "knowledge_layer.ingest.adapter": 1
   },
   "tests/knowledge_layer_tests/test_image_ingestion.py": {
-    "knowledge_layer.ingest.adapter": 5,
+    "knowledge_layer.ingest.adapter": 1,
     "knowledge_layer.ingest.visual_analysis": 1
   },
   "tests/knowledge_layer_tests/test_image_store.py": {
@@ -406,9 +337,6 @@
     "knowledge_layer.ingest.adapter": 2,
     "knowledge_layer.ingest.processing": 2
   },
-  "tests/knowledge_layer_tests/test_ingest_reading.py": {
-    "knowledge_layer.ingest.adapter": 1
-  },
   "tests/knowledge_layer_tests/test_ingest_robustness.py": {
     "knowledge_layer.ingest.adapter": 1,
     "knowledge_layer.ingest.captioned_tables": 1,
@@ -423,11 +351,8 @@
     "knowledge_layer.vector_store.writes": 1
   },
   "tests/knowledge_layer_tests/test_latency_gates.py": {
-    "knowledge_layer.search.requery": 7,
+    "knowledge_layer.search.requery": 6,
     "knowledge_layer.search.results": 1
-  },
-  "tests/knowledge_layer_tests/test_layered_retrieval.py": {
-    "knowledge_layer.search.scope": 1
   },
   "tests/knowledge_layer_tests/test_multi_content_sheet.py": {
     "knowledge_layer.ingest.adapter": 1,
@@ -436,7 +361,6 @@
     "knowledge_layer.ingest.visual_domains": 1
   },
   "tests/knowledge_layer_tests/test_office_extractors.py": {
-    "knowledge_layer.ingest.adapter": 1,
     "knowledge_layer.ingest.office_extractors": 1
   },
   "tests/knowledge_layer_tests/test_page_chunk_exclusion.py": {
@@ -482,30 +406,18 @@
   "tests/knowledge_layer_tests/test_platform_retrieval_settings.py": {
     "knowledge_layer.search.results": 1
   },
-  "tests/knowledge_layer_tests/test_quarantine_verdict_contract.py": {
-    "knowledge_layer.ingest.adapter": 1
-  },
   "tests/knowledge_layer_tests/test_query_warm_up.py": {
     "knowledge_layer.search.query_embeddings": 1,
     "knowledge_layer.search.retriever": 1
   },
-  "tests/knowledge_layer_tests/test_read_passage.py": {
-    "knowledge_layer.read_passage.tool": 6
-  },
-  "tests/knowledge_layer_tests/test_read_passage_ranges.py": {
-    "knowledge_layer.read_passage.tool": 4
-  },
-  "tests/knowledge_layer_tests/test_read_passage_revisions.py": {
-    "knowledge_layer.read_passage.tool": 1
-  },
   "tests/knowledge_layer_tests/test_reingest_replaces_versions.py": {
-    "knowledge_layer.ingest.adapter": 2,
+    "knowledge_layer.ingest.adapter": 1,
     "knowledge_layer.ingest.deferred_files": 1,
     "knowledge_layer.ingest.document_presence": 1,
     "knowledge_layer.vector_store.store": 1
   },
   "tests/knowledge_layer_tests/test_rendered_metadata_budget.py": {
-    "knowledge_layer.ingest.chunk_metadata": 3
+    "knowledge_layer.ingest.chunk_metadata": 1
   },
   "tests/knowledge_layer_tests/test_rendition_extraction.py": {
     "knowledge_layer.ingest.adapter": 1,
@@ -514,11 +426,8 @@
   },
   "tests/knowledge_layer_tests/test_requery.py": {
     "knowledge_layer.search.decisions": 1,
-    "knowledge_layer.search.requery": 2,
+    "knowledge_layer.search.requery": 1,
     "knowledge_layer.search.results": 1
-  },
-  "tests/knowledge_layer_tests/test_rerank.py": {
-    "knowledge_layer.search.rerank": 4
   },
   "tests/knowledge_layer_tests/test_restricted_reads.py": {
     "knowledge_layer.browse.tool": 2,
@@ -536,11 +445,10 @@
     "knowledge_layer.ingest.visual_domains": 1
   },
   "tests/knowledge_layer_tests/test_revision_ingestion.py": {
-    "knowledge_layer.ingest.adapter": 2,
+    "knowledge_layer.ingest.adapter": 1,
     "knowledge_layer.ingest.revisions": 1
   },
   "tests/knowledge_layer_tests/test_section_chunking.py": {
-    "knowledge_layer.ingest.adapter": 1,
     "knowledge_layer.ingest.section_chunking": 1
   },
   "tests/knowledge_layer_tests/test_text_formats.py": {
@@ -549,9 +457,6 @@
   "tests/knowledge_layer_tests/test_text_pass_memory.py": {
     "knowledge_layer.ingest.adapter": 1,
     "knowledge_layer.ingest.pdf_text": 1
-  },
-  "tests/knowledge_layer_tests/test_trace_lanes.py": {
-    "knowledge_layer.search.trace_lanes": 1
   },
   "tests/knowledge_layer_tests/test_upload_screening.py": {
     "knowledge_layer.ingest.screening": 1
@@ -584,7 +489,7 @@
     "knowledge_layer.ingest.visual_domains": 1
   },
   "tests/knowledge_layer_tests/test_visual_page_ingestion.py": {
-    "knowledge_layer.ingest.adapter": 5,
+    "knowledge_layer.ingest.adapter": 1,
     "knowledge_layer.ingest.processing": 9,
     "knowledge_layer.vector_store.store": 1
   },

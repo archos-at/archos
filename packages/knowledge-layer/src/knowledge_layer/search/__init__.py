@@ -67,6 +67,22 @@ _LAZY: dict[str, str] = {
     "citation_key_for_span": ".span",
     "normalized_query_for_span": ".span",
     "trace_lanes_for_hits": ".trace_lanes",
+    "_CHUNK_TRUNCATE_CHARS": ".grounding_hits",
+    "_MIN_EXCERPT_CHARS": ".rerank",
+    "_TOTAL_EXCERPT_BUDGET_CHARS": ".rerank",
+    "_ambiguous_file_names": ".grounding_hits",
+    "_build_user_prompt": ".rerank",
+    "_citation_key_for": ".grounding_hits",
+    "_excerpt_budget": ".rerank",
+    "_file_name_matches": ".hit_metadata",
+    "_filters_fingerprint": ".retriever",
+    "_folder_matches": ".hit_metadata",
+    "_has_narrow_anchor": ".requery",
+    "_hit_provenance": ".grounding_hits",
+    "_page_end": ".grounding_hits",
+    "_parse_verdict": ".requery",
+    "_resolve_target_collections": ".scope",
+    "_trace_lanes_for_chunks": ".trace_lanes",
 }
 
 __getattr__ = lazy_exports(__name__, _LAZY, cache=False)

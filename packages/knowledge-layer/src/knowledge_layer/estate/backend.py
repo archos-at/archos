@@ -140,7 +140,7 @@ class EstateBackend(BackendProtocol):
 
     def entries(self) -> list[Any]:
         """The collections this turn may read, with their shelves, narrowed to the turn's shelves."""
-        from knowledge_layer.browse.tool import _session_collection
+        from knowledge_layer.browse import _session_collection
         from knowledge_layer.search import resolve_base_collection
         from knowledge_layer.search import restrict_scope_to_turn
         from knowledge_layer.search import scoped_collections_for_site
@@ -170,8 +170,8 @@ class EstateBackend(BackendProtocol):
     async def _load_rows(self) -> list[FileRow]:
         """The turn's inventory rows, with the base corpus added when the inventory does not carry it."""
         from agent.knowledge.restricted_collections import is_restricted_collection
+        from knowledge_layer.browse import _turn_rows
         from knowledge_layer.browse import restrict_rows_to_turn
-        from knowledge_layer.browse.tool import _turn_rows
 
         rows = restrict_rows_to_turn(await _turn_rows(self.search_config)).rows
         entries = self.entries()
@@ -360,8 +360,8 @@ class EstateBackend(BackendProtocol):
     async def _outline(self, file: EstateFile) -> str:
         """The document's Gliederung, as ``read_passage`` builds it; empty when it has none or the read fails."""
         from knowledge_layer.read_passage import PassageTarget
+        from knowledge_layer.read_passage import _outline_block
         from knowledge_layer.read_passage import outline_for
-        from knowledge_layer.read_passage.tool import _outline_block
 
         target = PassageTarget(collection=file.row.collection, file_name=file.row.file_name, shelf=file.row.shelf)
         try:
@@ -374,10 +374,10 @@ class EstateBackend(BackendProtocol):
     async def _read_clause(self, file: EstateFile, clause: str, note: str) -> ToolOutput:
         """One Punkt: the chunks that carry it, as ``read_passage(clause=…)`` opens them."""
         from knowledge_layer.read_passage import PassageTarget
-        from knowledge_layer.read_passage.tool import _addresses
-        from knowledge_layer.read_passage.tool import _clause_sort_key
-        from knowledge_layer.read_passage.tool import _fetch_all
-        from knowledge_layer.read_passage.tool import _passage_filters
+        from knowledge_layer.read_passage import _addresses
+        from knowledge_layer.read_passage import _clause_sort_key
+        from knowledge_layer.read_passage import _fetch_all
+        from knowledge_layer.read_passage import _passage_filters
 
         target = PassageTarget(collection=file.row.collection, file_name=file.row.file_name, shelf=file.row.shelf)
         fetched = await _fetch_all([target], lambda name: _passage_filters(name, clause, None), clause, 12)
@@ -550,7 +550,7 @@ class EstateBackend(BackendProtocol):
 
 async def _in_flight(files: Sequence[EstateFile]) -> list[str]:
     """Files of these collections still being read, by name (``browse._in_flight``); empty on any error."""
-    from knowledge_layer.browse.tool import _in_flight as in_flight
+    from knowledge_layer.browse import _in_flight as in_flight
 
     collections = sorted({file.row.collection for file in files if file.row.collection})
     if not collections:
@@ -562,7 +562,7 @@ async def _in_flight(files: Sequence[EstateFile]) -> list[str]:
 
 
 def _entry_shelf(entry: Any) -> str | None:
-    from knowledge_layer.browse.tool import _entry_shelf as entry_shelf
+    from knowledge_layer.browse import _entry_shelf as entry_shelf
 
     return entry_shelf(entry)
 

@@ -17,6 +17,22 @@ _LAZY: dict[str, str] = {
     "older_revision_line": ".tool",
     "outline_for": ".tool",
     "read_passage": ".tool",
+    "_MAX_PASSAGE_CHUNKS": ".tool",
+    "_READ_PASSAGE_DESCRIPTION": ".tool",
+    "_addresses": ".tool",
+    "_chunk_position": ".tool",
+    "_clause_sort_key": ".tool",
+    "_current_revision": ".tool",
+    "_document_names": ".tool",
+    "_fetch_all": ".tool",
+    "_matches": ".tool",
+    "_outline_block": ".tool",
+    "_parse_pages": ".tool",
+    "_passage_filters": ".tool",
+    "_passage_result": ".tool",
+    "_range_order": ".tool",
+    "_store_silent_message": ".tool",
+    "_without_overlap": ".tool",
 }
 
 __getattr__ = lazy_exports(__name__, _LAZY, cache=False)

@@ -16,6 +16,8 @@ _LAZY: dict[str, str] = {
     "GrepRefused": ".grep",
     "compile_query": ".grep",
     "render_glob": ".listing",
+    "_chunk_hit": ".render",
+    "_page_hit": ".render",
 }
 
 __getattr__ = lazy_exports(__name__, _LAZY, cache=False)

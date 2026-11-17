@@ -64,7 +64,7 @@ from agent.common.image_view_budget import try_consume_image_view
 from agent.common.source_kinds import office_shelf_organization_id
 from agent.knowledge.restricted_use import note_collections_read
 from knowledge_layer.ingest import detached_pil
-from knowledge_layer.ingest.pdfium_lock import pdfium_lock
+from knowledge_layer.ingest import pdfium_lock
 
 logger = logging.getLogger(__name__)
 

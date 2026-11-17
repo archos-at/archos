@@ -306,7 +306,7 @@ class KnowledgeSearch:
         empty while holding exactly what was asked. The post-filter in
         `apply_agent_filters` stays as the backstop.
         """
-        from knowledge_layer.browse.tool import _files_by_collection
+        from knowledge_layer.browse import _files_by_collection
 
         folder_files = (
             await _files_by_collection(self.config, file_name=None, folder=folder, doc_class=None, title_contains=None)
