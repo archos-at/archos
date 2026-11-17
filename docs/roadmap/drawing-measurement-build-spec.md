@@ -35,12 +35,15 @@ Checked against pypdfium2 5.14.0 and pdfminer as installed; the declared floor i
 * **PDFium gives geometry and characters, not page dictionary entries.** `/VP`,
   `/Measure`, `/UserUnit`, the boxes and optional content are read with pdfminer
   (it arrives with pdfplumber).
-* **Path points come back in user space**, not relative to the crop. On a page
-  with MediaBox `0 0 200 100` and CropBox `50 20 150 80`, `get_size()` answers
-  `(100, 60)` and a point drawn at `(60, 30)` comes back as `(60, 30)`; its place
-  on the page as shown is `(10, 50)`. Subtract the effective box's origin before
-  anything else. pdfplumber reports that page as 200 × 100, so the two readers
-  must never be mixed in one frame.
+* **Path points come back in object space**, not relative to the crop. A point is
+  in the space of its object's matrix (`FPDFPageObj_GetMatrix`, which already holds
+  every `cm` above it on the page), so under `2 0 0 2 0 0 cm` a path returns its
+  points unscaled, with the matrix beside them (pypdfium2 5.14.0, checked
+  2026-11-17). With no `cm`: on a page with MediaBox `0 0 200 100` and CropBox
+  `50 20 150 80`, `get_size()` answers `(100, 60)` and a point drawn at `(60, 30)`
+  comes back as `(60, 30)`; its place on the page as shown is `(10, 50)`. Subtract
+  the effective box's origin before anything else. pdfplumber reports that page as
+  200 × 100, so the two readers must never be mixed in one frame.
 * **A Bézier segment arrives as three points** of type `FPDF_SEGMENT_BEZIERTO`:
   two control points and the end. Consume them in triples and take the chord from
   the previous point to the third. Treating each as a line end draws phantom lines
