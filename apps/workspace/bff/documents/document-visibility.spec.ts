@@ -46,7 +46,7 @@ const SEES_EVERY_ROW: Record<string, string> = {
     "Narrows the recipient's own inbox rows to one project; the row exists either way and is redacted at read time by its target's access check.",
   'lib/mentions/repository.ts#deleteOrphanedMentionRequests':
     'Orphan sweep: NOT EXISTS over every row, or a held document loses its mention requests.',
-  'lib/documents/version-repository.ts#keyIsUnnamed':
+  'lib/documents/version-repository/content-swap.ts#keyIsUnnamed':
     "Whether any row still names an object before it is deleted: a held row's object must not be.",
   'lib/projects/cleanup-repository.ts#deleteEmptyCreatedFolder':
     'Undo of a clean-out: removes a folder only when NO document is filed in it, held ones included.',
@@ -92,25 +92,25 @@ const KEYED_BY_A_READ_DOCUMENT: Record<string, string> = {
     'A correlated count beside the thread document the same query lets through `documentVisibleTo(SCREENED_ONLY)`. A number, no fact.',
   'lib/inbound-mail/review-read-repository.ts#findCandidateDocuments|documentVersions':
     'A correlated count beside the document the same query lets through `documentVisibleTo(SCREENED_ONLY)`. A number, no fact.',
-  'lib/documents/version-repository.ts#listDocumentVersions|documentVersions':
+  'lib/documents/version-repository/lookup.ts#listDocumentVersions|documentVersions':
     'The version list and the last refusers, after `getAccessibleDocument` / `findDocumentForSession` read the document.',
-  'lib/documents/version-repository.ts#findDocumentVersion|documentVersions':
+  'lib/documents/version-repository/lookup.ts#findDocumentVersion|documentVersions':
     'A version of a document the transition, the view or the content read loaded through its reader first.',
-  'lib/documents/version-repository.ts#listReviewQueue|documentVersions':
+  'lib/documents/version-repository/review-queue.ts#listReviewQueue|documentVersions':
     "The review queue's own cursor reads the submission time of the version the previous page ended on; the page itself joins `documents` behind `documentVisibleTo`.",
-  'lib/documents/version-repository.ts#findPreviousVersion|documentVersions':
+  'lib/documents/version-repository/lookup.ts#findPreviousVersion|documentVersions':
     "The version before the one a transition just moved, of the document that transition read.",
-  'lib/documents/version-repository.ts#findDocumentVersionInOrg|documentVersions':
+  'lib/documents/version-repository/lookup.ts#findDocumentVersionInOrg|documentVersions':
     "`readVersionForService` reads the version's document through SCREENED_ONLY before it returns a byte.",
-  'lib/documents/version-repository.ts#findPublishedVersion|documentVersions': 'The fork, after `getAccessibleDocument(…, "write")`.',
-  'lib/documents/version-repository.ts#findOpenVersion|documentVersions':
+  'lib/documents/version-repository/lookup.ts#findPublishedVersion|documentVersions': 'The fork, after `getAccessibleDocument(…, "write")`.',
+  'lib/documents/version-repository/lookup.ts#findOpenVersion|documentVersions':
     'The fork, the status read and the filing paths, each after reading the document (or writing it a moment ago).',
-  'lib/documents/version-repository.ts#listDocumentVersionSummaries|documentVersions':
+  'lib/documents/version-repository/lookup.ts#listDocumentVersionSummaries|documentVersions':
     'Annotates rows a listing already narrowed by its reader; ids in, never a project id.',
-  'lib/documents/version-repository.ts#listDocumentVersionObjects|documentVersions':
+  'lib/documents/version-repository/lookup.ts#listDocumentVersionObjects|documentVersions':
     "Erasing a document's objects, after the delete authorized the document.",
-  'lib/documents/version-repository.ts#nextVersionNumber|documentVersions': 'The key of an upload that is replacing this document. A number, no fact.',
-  'lib/documents/version-repository.ts#allocateVersionNumber|documentVersions': 'Inside the insert of a new version. A number, no fact.',
+  'lib/documents/version-repository/lookup.ts#nextVersionNumber|documentVersions': 'The key of an upload that is replacing this document. A number, no fact.',
+  'lib/documents/version-repository/insert.ts#allocateVersionNumber|documentVersions': 'Inside the insert of a new version. A number, no fact.',
   'lib/projects/folder-derived-repository.ts#listReportsDerivedFrom|documentVersions':
     "The agent's own reports drawn from a purged folder (see SEES_EVERY_ROW): none of them is an upload.",
   'lib/storage/repository.ts#versionOverheadByScope|documentVersions': 'Quota: version bytes, every row.',
