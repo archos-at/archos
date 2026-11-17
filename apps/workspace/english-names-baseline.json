@@ -34,7 +34,7 @@
   "bff/feedback/export-repository.ts": 3,
   "bff/feedback/repository.integration.spec.ts": 1,
   "bff/geocoding/types.ts": 10,
-  "bff/inbox/service.ts": 1,
+  "bff/inbox/inbox-item-view.ts": 1,
   "bff/jobs-queue/types.ts": 1,
   "bff/knowledge/doc-class.ts": 5,
   "bff/navigation/describe-path.ts": 1,
