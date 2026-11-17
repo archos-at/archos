@@ -66,7 +66,7 @@ const RECORD: InternalIntakeRequest = {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  process.env.INTERNAL_API_TOKEN = SECRET
+  vi.stubEnv('INTERNAL_API_TOKEN', SECRET)
   vi.mocked(requireVerifiedContext).mockReturnValue(CONTEXT)
   vi.mocked(requirePinnedSession).mockResolvedValue(SESSION)
   vi.mocked(intakeNeeds).mockResolvedValue({ needs: [], unreadFiles: ['Einreichplan.pdf'], description: null, location: null, mode: 'active', previousSummary: null })
@@ -80,7 +80,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
-  delete process.env.INTERNAL_API_TOKEN
+  vi.stubEnv('INTERNAL_API_TOKEN', undefined)
 })
 
 describe('POST /api/internal/project-intake', () => {

@@ -39,12 +39,12 @@ describe.skipIf(!url || !engine)('bff-job on a real Hatchet engine', () => {
   let stop: (() => Promise<void>) | null = null
 
   beforeAll(async () => {
-    process.env.APP_DATABASE_URL = url
-    process.env.HATCHET_CLIENT_NAMESPACE = `${process.env.HATCHET_CLIENT_NAMESPACE ?? 'it'}_bffjobs_${STAMP}`
-    process.env.BFF_JOBS_MAX_PER_ORG = '1'
-    process.env.BFF_JOBS_CONCURRENCY = '3'
-    process.env.BFF_JOBS_MAX_ATTEMPTS = '2'
-    process.env.BFF_JOBS_RETRY_BACKOFF_SECONDS = '1'
+    vi.stubEnv('APP_DATABASE_URL', url)
+    vi.stubEnv('HATCHET_CLIENT_NAMESPACE', `${process.env.HATCHET_CLIENT_NAMESPACE ?? 'it'}_bffjobs_${STAMP}`)
+    vi.stubEnv('BFF_JOBS_MAX_PER_ORG', '1')
+    vi.stubEnv('BFF_JOBS_CONCURRENCY', '3')
+    vi.stubEnv('BFF_JOBS_MAX_ATTEMPTS', '2')
+    vi.stubEnv('BFF_JOBS_RETRY_BACKOFF_SECONDS', '1')
     context = await import('@/lib/db/tenant-context')
     db = (await import('@/lib/db')).getDb()
     enqueueJob = (await import('./enqueue')).enqueueJob

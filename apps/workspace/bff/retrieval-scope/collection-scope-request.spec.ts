@@ -46,7 +46,7 @@ function stubDb(): void {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  process.env.REQUIRE_AUTH = 'true'
+  vi.stubEnv('REQUIRE_AUTH', 'true')
   stubDb()
   vi.mocked(requireProjectAccess).mockResolvedValue({ role: 'project-editor', closed: false, readsBecauseClosed: false })
   vi.mocked(findGrantForSubject).mockResolvedValue(null)

@@ -206,9 +206,9 @@ describe.skipIf(!url)('texts attached in the change request (ADR-0165)', () => {
     withPlatformAccess('texts spec', () => db.execute<{ n: number }>(sql`SELECT count(*)::int AS n FROM knowledge_revisions WHERE change_request_id = ${id}::uuid`))
 
   beforeAll(async () => {
-    process.env.APP_DATABASE_URL = url
-    process.env.BACKEND_URL = BACKEND
-    process.env.INTERNAL_API_TOKEN = 'texts-spec-internal-token'
+    vi.stubEnv('APP_DATABASE_URL', url)
+    vi.stubEnv('BACKEND_URL', BACKEND)
+    vi.stubEnv('INTERNAL_API_TOKEN', 'texts-spec-internal-token')
     withPlatformAccess = (await import('@/lib/db/tenant-context')).withPlatformAccess
     db = (await import('@/lib/db')).getDb()
     service = await import('./service')

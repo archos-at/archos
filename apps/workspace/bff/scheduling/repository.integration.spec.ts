@@ -58,7 +58,7 @@ describe.skipIf(!url)('taking a due occurrence against Postgres', () => {
     inTenant(() => repo.advanceDueDefinition(id, ORG, dueAt, () => ({ nextRunAt, enabled: true, fire: true })))
 
   beforeAll(async () => {
-    process.env.APP_DATABASE_URL = url
+    vi.stubEnv('APP_DATABASE_URL', url)
     ;({ withTenant, withPlatformAccess } = await import('@/lib/db/tenant-context'))
     db = (await import('@/lib/db')).getDb()
     repo = await import('./repository')

@@ -52,7 +52,7 @@ describe('recordAuditEvent (WorkOS-native audit trail)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     createEvent.mockResolvedValue(undefined)
-    process.env.AUDIT_LOGS_ENABLED = 'true'
+    vi.stubEnv('AUDIT_LOGS_ENABLED', 'true')
   })
 
   it('emits an org-scoped WorkOS audit event with actor, target and context', async () => {
@@ -152,8 +152,8 @@ describe('recordAuditEvent (WorkOS-native audit trail)', () => {
       ['false', 'false'],
       ['truthy junk', 'yes'],
     ])('suppresses emission when AUDIT_LOGS_ENABLED is %s', async (_case, value) => {
-      if (value === undefined) delete process.env.AUDIT_LOGS_ENABLED
-      else process.env.AUDIT_LOGS_ENABLED = value
+      if (value === undefined) vi.stubEnv('AUDIT_LOGS_ENABLED', undefined)
+      else vi.stubEnv('AUDIT_LOGS_ENABLED', value)
       const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
 
       await recordAuditEvent({
@@ -170,7 +170,7 @@ describe('recordAuditEvent (WorkOS-native audit trail)', () => {
 
     it('accepts true case- and whitespace-insensitively', () => {
       for (const value of ['true', 'TRUE', ' true ']) {
-        process.env.AUDIT_LOGS_ENABLED = value
+        vi.stubEnv('AUDIT_LOGS_ENABLED', value)
         expect(auditLogsEnabled()).toBe(true)
       }
     })
@@ -257,7 +257,7 @@ describe('further targets', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     createEvent.mockResolvedValue(undefined)
-    process.env.AUDIT_LOGS_ENABLED = 'true'
+    vi.stubEnv('AUDIT_LOGS_ENABLED', 'true')
   })
 
   it('follow the subject in order, and one without an id is left out', async () => {
@@ -365,7 +365,7 @@ describe('a restricted document is not named in the trail (ADR-0087)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     createEvent.mockResolvedValue(undefined)
-    process.env.AUDIT_LOGS_ENABLED = 'true'
+    vi.stubEnv('AUDIT_LOGS_ENABLED', 'true')
   })
 
   const rename = (folderId: string | null) =>
@@ -496,17 +496,17 @@ describe('a restricted document is not named in the trail (ADR-0087)', () => {
 
 describe('trustedAppOrigin', () => {
   it('prefers the configured origin over the (spoofable) request Host', () => {
-    process.env.NEXT_PUBLIC_WORKOS_REDIRECT_URI = 'https://grid.bigls.net/api/auth/callback'
+    vi.stubEnv('NEXT_PUBLIC_WORKOS_REDIRECT_URI', 'https://grid.bigls.net/api/auth/callback')
     try {
       expect(trustedAppOrigin(new Request('https://evil.example/api/x'))).toBe('https://grid.bigls.net')
     } finally {
-      delete process.env.NEXT_PUBLIC_WORKOS_REDIRECT_URI
+      vi.stubEnv('NEXT_PUBLIC_WORKOS_REDIRECT_URI', undefined)
     }
   })
 
   it('falls back to the request origin when unconfigured', () => {
-    delete process.env.WORKOS_REDIRECT_URI
-    delete process.env.NEXT_PUBLIC_WORKOS_REDIRECT_URI
+    vi.stubEnv('WORKOS_REDIRECT_URI', undefined)
+    vi.stubEnv('NEXT_PUBLIC_WORKOS_REDIRECT_URI', undefined)
     expect(trustedAppOrigin(new Request('https://app.example.test/api/x'))).toBe('https://app.example.test')
   })
 })

@@ -111,10 +111,10 @@ async function toolsOf(post: typeof POST, url: string, headers: Record<string, s
 beforeEach(() => {
   vi.clearAllMocks()
   platformOverviewCalls.length = 0
-  process.env.WORKOS_AUTHKIT_DOMAIN = DOMAIN
-  process.env.MCP_RESOURCE_URL = OFFICE
-  process.env.INTERNAL_API_TOKEN = SECRET
-  process.env.WORKOS_REDIRECT_URI = 'https://app.example.test/api/auth/callback'
+  vi.stubEnv('WORKOS_AUTHKIT_DOMAIN', DOMAIN)
+  vi.stubEnv('MCP_RESOURCE_URL', OFFICE)
+  vi.stubEnv('INTERNAL_API_TOKEN', SECRET)
+  vi.stubEnv('WORKOS_REDIRECT_URI', 'https://app.example.test/api/auth/callback')
   vi.mocked(resolvePinnedRequesterSession).mockResolvedValue(operator)
   vi.mocked(isOrgFeatureEnabled).mockResolvedValue(true)
   vi.mocked(getPlatformOrganizationId).mockResolvedValue(PLATFORM_ORG)

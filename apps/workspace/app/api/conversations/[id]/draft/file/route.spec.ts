@@ -82,7 +82,7 @@ const conversation = (overrides: Partial<Conversation> = {}): Conversation =>
 describe('POST /api/conversations/[id]/draft/file', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    process.env.INTERNAL_API_TOKEN = 'test-token'
+    vi.stubEnv('INTERNAL_API_TOKEN', 'test-token')
     vi.stubGlobal('fetch', fetchMock)
     requireResourceAccessMock.mockResolvedValue({ role: 'viewer' })
     vi.mocked(findConversationInOrg).mockResolvedValue(conversation())

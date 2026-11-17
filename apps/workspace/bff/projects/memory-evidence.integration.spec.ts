@@ -90,7 +90,7 @@ describe.skipIf(!url)('memory evidence names against live Postgres', () => {
     inOrg(() => decisions.searchProjectDecisions(ORG, [{ projectId, readableFolderIds }], 'Fluchttreppe Stahl'))
 
   beforeAll(async () => {
-    process.env.APP_DATABASE_URL = url
+    vi.stubEnv('APP_DATABASE_URL', url)
     const context = await import('@/lib/db/tenant-context')
     withTenant = context.withTenant
     withPlatformAccess = context.withPlatformAccess

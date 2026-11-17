@@ -2,7 +2,7 @@
  * @vitest-environment node
  */
 
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { GET as a2a } from './api/a2a/route'
 import { GET as pathInserted } from './api/mcp/route'
 import { GET as platform } from './api/platform/mcp/route'
@@ -16,9 +16,9 @@ const CURRENT_HOST = new URL(CANONICAL).host
 const at = (host = CURRENT_HOST) => new Request('http://10.0.0.7:3000/.well-known/oauth-protected-resource', { headers: { host } })
 
 beforeEach(() => {
-  delete process.env.MCP_FORMER_ORIGINS
-  process.env.WORKOS_AUTHKIT_DOMAIN = 'auth.example.test'
-  process.env.MCP_RESOURCE_URL = CANONICAL
+  vi.stubEnv('MCP_FORMER_ORIGINS', undefined)
+  vi.stubEnv('WORKOS_AUTHKIT_DOMAIN', 'auth.example.test')
+  vi.stubEnv('MCP_RESOURCE_URL', CANONICAL)
 })
 
 describe('oauth-protected-resource', () => {
@@ -62,26 +62,26 @@ describe('oauth-protected-resource', () => {
   })
 
   it('derives the platform door from the same setting, so one change moves all three resources', async () => {
-    process.env.MCP_RESOURCE_URL = 'https://example.test/api/mcp'
+    vi.stubEnv('MCP_RESOURCE_URL', 'https://example.test/api/mcp')
     const body = (await platform(at()).json()) as { resource: string }
     expect(body.resource).toBe('https://example.test/api/platform/mcp')
   })
 
   it('takes the resource from the pinned app origin when none is set', async () => {
-    delete process.env.MCP_RESOURCE_URL
-    process.env.WORKOS_REDIRECT_URI = 'https://app.example.test/api/auth/callback'
+    vi.stubEnv('MCP_RESOURCE_URL', undefined)
+    vi.stubEnv('WORKOS_REDIRECT_URI', 'https://app.example.test/api/auth/callback')
     const body = (await GET(at()).json()) as { resource: string }
     expect(body.resource).toBe('https://app.example.test/api/mcp')
   })
 
   it('answers 503 while AuthKit is not configured', () => {
-    delete process.env.WORKOS_AUTHKIT_DOMAIN
+    vi.stubEnv('WORKOS_AUTHKIT_DOMAIN', undefined)
     expect(GET(at()).status).toBe(503)
   })
 
   describe('after a domain move (MCP_FORMER_ORIGINS)', () => {
     beforeEach(() => {
-      process.env.MCP_FORMER_ORIGINS = 'https://app.old.test'
+      vi.stubEnv('MCP_FORMER_ORIGINS', 'https://app.old.test')
     })
 
     it('names the former host’s resource to a client that asked there (RFC 9728 section 3.3)', async () => {

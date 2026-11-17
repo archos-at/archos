@@ -10,7 +10,7 @@ const url = process.env.TEST_DATABASE_URL
 
 describe.skipIf(!url)('model-config service against live Postgres', () => {
   beforeAll(() => {
-    process.env.APP_DATABASE_URL = url
+    vi.stubEnv('APP_DATABASE_URL', url)
   })
 
   afterAll(async () => {

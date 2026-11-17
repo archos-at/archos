@@ -55,7 +55,7 @@ function call(
 
 beforeEach(() => {
   vi.clearAllMocks()
-  process.env.INTERNAL_API_TOKEN = SECRET
+  vi.stubEnv('INTERNAL_API_TOKEN', SECRET)
   vi.mocked(recordAgentStageFrame).mockResolvedValue({ id: MESSAGE_ID } as never)
 })
 

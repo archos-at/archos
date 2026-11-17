@@ -1,3 +1,4 @@
+import { vi } from 'vitest'
 import { randomUUID } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -110,7 +111,7 @@ export async function setSearchKeysIndexed(modelId: string, value: boolean): Pro
 export async function seedQueryFixture(): Promise<QueryFixture> {
   const url = process.env.TEST_DATABASE_URL
   if (!url) throw new Error('TEST_DATABASE_URL is unset, so the BIM query fixture has no Postgres to seed')
-  process.env.APP_DATABASE_URL = url
+  vi.stubEnv('APP_DATABASE_URL', url)
 
   const ORG = `org_bim_${randomUUID()}`
   const OTHER_ORG = `org_bim_other_${randomUUID()}`

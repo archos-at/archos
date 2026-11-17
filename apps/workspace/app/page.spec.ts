@@ -42,18 +42,17 @@ const visit = async (searchParams: { 'sign-in'?: string } = {}): Promise<string>
   throw new Error('HomePage returned without redirecting')
 }
 
-const originalEnv = process.env
-
 describe('HomePage redirect', () => {
   beforeEach(() => {
-    process.env = { ...originalEnv, REQUIRE_AUTH: 'true', LANDING_URL: LANDING_URL }
+    vi.stubEnv('REQUIRE_AUTH', 'true')
+    vi.stubEnv('LANDING_URL', LANDING_URL)
     redirect.mockClear()
     getUserSession.mockReset()
     getUserSession.mockResolvedValue(null)
   })
 
   afterEach(() => {
-    process.env = originalEnv
+    vi.unstubAllEnvs()
   })
 
   test('sends a logged-out visitor to the landing site', async () => {
@@ -65,7 +64,7 @@ describe('HomePage redirect', () => {
   })
 
   test('falls back to the sign-in route when no landing site is configured', async () => {
-    delete process.env.LANDING_URL
+    vi.stubEnv('LANDING_URL', undefined)
 
     expect(await visit()).toBe('/api/auth/signin')
   })
@@ -83,7 +82,7 @@ describe('HomePage redirect', () => {
   })
 
   test('skips auth entirely when REQUIRE_AUTH is off', async () => {
-    process.env.REQUIRE_AUTH = 'false'
+    vi.stubEnv('REQUIRE_AUTH', 'false')
 
     expect(await visit()).toBe('/app/projects')
     expect(getUserSession).not.toHaveBeenCalled()

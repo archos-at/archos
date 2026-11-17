@@ -99,7 +99,7 @@ function call(body: unknown, headers: Record<string, string> = envelopeHeaders()
 
 beforeEach(() => {
   vi.clearAllMocks()
-  process.env.INTERNAL_API_TOKEN = SECRET
+  vi.stubEnv('INTERNAL_API_TOKEN', SECRET)
   vi.mocked(resolvePinnedRequesterSession).mockResolvedValue(session)
   vi.mocked(fileAgentDocumentDraft).mockResolvedValue({
     documentId: DOC,

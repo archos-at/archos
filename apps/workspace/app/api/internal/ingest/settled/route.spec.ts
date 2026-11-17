@@ -102,8 +102,8 @@ describe('POST /api/internal/ingest/settled', () => {
     vi.clearAllMocks()
     clearCollectionFilesCache()
     vi.stubGlobal('fetch', mockFetch)
-    process.env.INTERNAL_API_TOKEN = 'test-token'
-    process.env.APP_ENV = 'development'
+    vi.stubEnv('INTERNAL_API_TOKEN', 'test-token')
+    vi.stubEnv('APP_ENV', 'development')
     backendSaysCompleted()
   })
 
@@ -112,7 +112,7 @@ describe('POST /api/internal/ingest/settled', () => {
   it('refuses a missing or wrong token, and fails closed when none is configured', async () => {
     expect((await POST(request({ job_ids: ['job-1'] }, null))).status).toBe(403)
     expect((await POST(request({ job_ids: ['job-1'] }, 'wrong'))).status).toBe(403)
-    delete process.env.INTERNAL_API_TOKEN
+    vi.stubEnv('INTERNAL_API_TOKEN', undefined)
     expect((await POST(request({ job_ids: ['job-1'] }, 'anything'))).status).toBe(503)
     expect(listSettleableDocumentsForIngestJobs).not.toHaveBeenCalled()
   })

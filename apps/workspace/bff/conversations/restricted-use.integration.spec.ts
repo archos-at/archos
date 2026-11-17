@@ -176,7 +176,7 @@ describe.skipIf(!url)('restricted use against Postgres (migrations 0112, 0111)',
     )
 
   beforeAll(async () => {
-    process.env.APP_DATABASE_URL = url
+    vi.stubEnv('APP_DATABASE_URL', url)
     const context = await import('@/lib/db/tenant-context')
     withTenant = context.withTenant
     withPlatformAccess = context.withPlatformAccess

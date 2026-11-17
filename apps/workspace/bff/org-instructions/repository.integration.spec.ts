@@ -31,7 +31,7 @@ describe.skipIf(!url)('the bound Postgres holds on organization_instructions', (
     })
 
   beforeAll(async () => {
-    process.env.APP_DATABASE_URL = url
+    vi.stubEnv('APP_DATABASE_URL', url)
     repository = await import('./repository')
   })
 

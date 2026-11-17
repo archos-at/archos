@@ -99,8 +99,8 @@ const chatTurn = { projectId: PROJECT_ID, conversationId: CONVERSATION_ID, inter
 
 beforeEach(() => {
   vi.clearAllMocks()
-  process.env.REQUIRE_AUTH = 'true'
-  process.env.BASE_COLLECTION_NAME = 'oib_knowledge'
+  vi.stubEnv('REQUIRE_AUTH', 'true')
+  vi.stubEnv('BASE_COLLECTION_NAME', 'oib_knowledge')
   vi.mocked(findProjectCollectionName).mockResolvedValue(PROJECT_COLLECTION)
   vi.mocked(findUserPreferencesForSession).mockResolvedValue(null)
   vi.mocked(findConversationTenancy).mockResolvedValue(null)
@@ -240,7 +240,7 @@ describe('every other scope carries no restricted collection, whoever asks (ADR-
   })
 
   it('an anonymous deployment: no session, no clearance', async () => {
-    process.env.REQUIRE_AUTH = 'false'
+    vi.stubEnv('REQUIRE_AUTH', 'false')
 
     const { scope } = await buildCollectionScopeFromRequest(null, chatTurn)
 

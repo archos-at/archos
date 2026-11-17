@@ -297,16 +297,16 @@ describe('the signed_in cookie for the website', () => {
   const saved = Object.fromEntries(ENV_KEYS.map((key) => [key, process.env[key]]))
 
   beforeEach(() => {
-    process.env.REQUIRE_AUTH = 'true'
-    process.env.WORKOS_REDIRECT_URI = 'https://app.dev.piloti.at/api/auth/callback'
-    process.env.LANDING_URL = 'https://dev.piloti.at'
-    delete process.env.WORKOS_COOKIE_MAX_AGE
+    vi.stubEnv('REQUIRE_AUTH', 'true')
+    vi.stubEnv('WORKOS_REDIRECT_URI', 'https://app.dev.piloti.at/api/auth/callback')
+    vi.stubEnv('LANDING_URL', 'https://dev.piloti.at')
+    vi.stubEnv('WORKOS_COOKIE_MAX_AGE', undefined)
   })
 
   afterEach(() => {
     for (const key of ENV_KEYS) {
-      if (saved[key] === undefined) delete process.env[key]
-      else process.env[key] = saved[key]
+      if (saved[key] === undefined) vi.stubEnv(key, undefined)
+      else vi.stubEnv(key, saved[key])
     }
   })
 
@@ -366,7 +366,7 @@ describe('the signed_in cookie for the website', () => {
   })
 
   test('is never written when the website is not on the app’s parent domain', async () => {
-    process.env.LANDING_URL = 'https://elsewhere.example'
+    vi.stubEnv('LANDING_URL', 'https://elsewhere.example')
 
     const response = await throughProxy(request('wos-session=sealed'), passThrough())
 
@@ -374,7 +374,7 @@ describe('the signed_in cookie for the website', () => {
   })
 
   test('is never written with auth switched off', async () => {
-    process.env.REQUIRE_AUTH = 'false'
+    vi.stubEnv('REQUIRE_AUTH', 'false')
 
     const response = await throughProxy(request('wos-session=sealed'), passThrough())
 
