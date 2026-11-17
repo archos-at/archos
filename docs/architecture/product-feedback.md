@@ -30,14 +30,14 @@ team answers in PostHog ──▶ PostHog workflow ──▶ POST /api/webhooks/
 |---|---|
 | The form (a pane of the „Mein Feedback" modal), and its entry points (org header; the avatar menu's and phone „Mehr"'s „Mein Feedback") | `apps/workspace/ui/features/product-feedback/components/feedback-form.tsx`, `feedback-threads.tsx`, `feedback-provider.tsx` |
 | Submit route, rate limited by `FEEDBACK_REPORT_LIMIT` (10 an hour per person) | `apps/workspace/app/api/feedback/reports/route.ts` |
-| Store, announce, open the ticket | `apps/workspace/bff/product-feedback/service.ts`, `announce.ts` |
+| Store, announce, open the ticket | `apps/workspace/bff/product-feedback/report-submission.ts`, `announce.ts`, `support-analytics.ts` |
 | The PostHog Support client (open, list, read, change status) | `apps/workspace/bff/posthog-support/client.ts`, `config.ts`, `types.ts` |
 | Table, bounds, RLS | `apps/workspace/migrations/0100_product_feedback.sql`, `0155_product_feedback_posthog_ticket.sql` |
 | Platform routes (`platform:settings:view` to read, `:manage` to change status) | `apps/workspace/app/api/platform/feedback/` |
 | Platform page | `apps/workspace/ui/features/product-feedback/components/feedback-triage.tsx` |
 | The member's cases (list, chat, reply), and their routes | `features/product-feedback/components/feedback-threads/case-list.tsx`, `feedback-threads/case-rows.tsx`, `feedback-threads/thread-view.tsx`, `feedback-threads/thread-messages.tsx`, `feedback-atoms.tsx`, `app/api/feedback/reports/route.ts` (GET), `app/api/feedback/reports/[reportId]/messages/route.ts` |
-| The office view (`org:settings:manage`) | `app/api/feedback/office-reports/route.ts`, `listOfficeProductFeedbackThreads` in `lib/product-feedback/service.ts` |
-| Taking a ticket from Slack | `app/api/platform/feedback/claim/route.ts`, `claimProductFeedbackTicket` in `lib/product-feedback/service.ts` |
+| The office view (`org:settings:manage`) | `app/api/feedback/office-reports/route.ts`, `listOfficeProductFeedbackThreads` in `lib/product-feedback/thread-list.ts` |
+| Taking a ticket from Slack | `app/api/platform/feedback/claim/route.ts`, `claimProductFeedbackTicket` in `lib/product-feedback/platform-triage.ts` |
 
 The page, the browser and the screen size are captured when the form is sent
 and shown to the reporter before sending. The reporter's email reaches the
@@ -59,7 +59,7 @@ PostHog.
 ## The Support ticket in PostHog
 
 The BFF opens a Support ticket for every report, after storing and announcing it
-(`openTicketFor` in `lib/product-feedback/service.ts`). The browser sends no
+(`openTicketFor` in `lib/product-feedback/report-submission.ts`). The browser sends no
 report text to PostHog.
 
 - **The text is the server's, masked.** The first message is
