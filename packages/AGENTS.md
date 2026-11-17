@@ -8,10 +8,6 @@ uv workspace. How they fit and how they are tested:
   then run `node packages/brand/sync.mjs` (`--check` fails on drift in CI).
 - `ifc-spatial-py` has its own `uv.lock`. Run its suite with `task pkg:test`;
   plain `uv run pytest` lacks the `dev` and `ids` extras.
-- The agent's suites that call the engine skip in the root environment. The
-  `agent-engine` job installs the engine there and runs them, on a change to
-  either side, so a change to an operator's text or a tool's rendering can turn
-  it red. Its install floats, like the image's, so a new engine release can too.
 - An IFC measurement goes through `ifc_spatial.envelope`: provenance, tolerance
   and method on every value. `tests/test_parity.py` numbers are frozen; nothing
   regenerates them.
