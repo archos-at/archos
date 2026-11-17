@@ -277,7 +277,7 @@ Each step is compact, typed data. None of them carries a tool's input or output.
 | `sources` | `round?`, `tool`, `lanes[]` (`TraceLane{key,label,kind,hit_count,sources[{name,title?,detail?,shelf?,round?,provenance?}]}`) | `grounding_block.render_grounding_block`, built from the records it is given, never scraped from the text |
 | `tool` | `tool` (basename), `status: running \| ok \| error` | one LangChain callback on the graph run (`on_tool_start`/`_end`/`_error`) |
 | `skill` | `phase: offered \| activated \| loaded`, `skill?`, `title?`, `hidden`, `count?`, `channel` | `skills/events.py` |
-| `clarification` | `max_turns` | `agents/piloti/clarify.py` |
+| `clarification` | `max_turns` | `core/clarify.py` |
 | `look` | `round?`, `document_name`, `document_id?`, `revision_id?` (the Fassung; absent: the current one), `shelf: stored \| base`, `page`, `region?` (`[x, y, w, h]`), `image_index?`, `where?` (the region in words), `question?`, `reading?`. One per look that rendered, id `look:<n>`; a refused look leaves none | `retrieval_status.emit_look_step`, called by `tools/look/cards.note_look` (ADR-0128) |
 
 `scope: chat | deep` sits on every step. In-process deep research sets `deep`.
@@ -378,7 +378,7 @@ which bundle it talks to.
 
 **The mechanism is LangGraph's own writer.** The conversation graph runs under
 `astream(stream_mode=["custom", "values"], subgraphs=True)` instead of `ainvoke`
-(`agents/piloti/conversation.py`, today `self._graph.ainvoke` at ~687). Every
+(`core/conversation.py`, today `self._graph.ainvoke` at ~687). Every
 producer inside a graph run calls `get_stream_writer()` and writes a wire
 **body**. This was measured on the installed LangGraph, not assumed
 (`packages/agent/tests/turn/test_stream_writer_reach.py`, committed with this design): the writer reaches a node in a graph that another node
@@ -411,7 +411,7 @@ def emit_step(step: Step, *, started: bool = False) -> None:
     emit(StepStartedBody(step=step) if started else StepFinishedBody(step=step))
 
 
-# agents/piloti/conversation.py
+# core/conversation.py
 async def stream(self, state: ConversationState, thread_id: str | None) -> AsyncIterator[EventBody | ConversationState]:
     final = None
     async for namespace, mode, chunk in self._graph.astream(
@@ -430,7 +430,7 @@ async def answer_turn(
 ) -> AsyncIterator[EventBody | TurnOutcome[StateT]]: ...
 
 
-# agents/piloti/conversation_register.py
+# core/conversation_register.py
 async def _run(
     request: UserMessage | str,
 ) -> Annotated[AsyncGenerator[EventBody, None], Streaming(convert=fold_turn)]: ...
@@ -450,17 +450,17 @@ where it emits in v2:
 | Producer today | Where | v2 emission |
 |---|---|---|
 | `turn_status.push_custom_step`: a balanced agent runtime FUNCTION START/END pair disguised as a function, with JSON inside an HTML-escaped code block | `common/turn_status.py` | **Deleted.** `emit_step(Step)`. The disguise, the span-stack balancing and its docstring go with it |
-| `emit_status` and its callers: `emit_documents_loading`, `_waiting`, `emit_retrieval_requery`, `emit_citation_check`, `emit_answer_repair`, `emit_escalation`, `emit_synthesis`, `emit_family_coverage`, `emit_repeat_fetch`, `emit_refused_source`, `emit_width_cap`, `emit_research_truncated`, `emit_input_budget_exhausted`, `emit_deep_research_cutoff`, `emit_answer_degraded`, `emit_card_invalid`, `emit_anatomy_dropped`, `emit_verdict_dropped`, `emit_checkpoint` | `common/turn_status.py`, called from `agents/piloti/*`, `agents/deep_researcher/{agent,cutoff,finalize,tools/research}.py`, `common/{retrieval_rounds,answer_envelope,grounding_block}.py`, `cards/surface_documents.py`, `tools/bim/measurement_sources.py`, `packages/{ris-adapter,tavily-web-search,knowledge-layer}` | Each builds a `StatusStep` and calls `emit_step`. The `slot` stays the step id's suffix (`status:<slot>`), and the keys are unchanged (`ALL_STATUS_KEYS`) |
+| `emit_status` and its callers: `emit_documents_loading`, `_waiting`, `emit_retrieval_requery`, `emit_citation_check`, `emit_answer_repair`, `emit_escalation`, `emit_synthesis`, `emit_family_coverage`, `emit_repeat_fetch`, `emit_refused_source`, `emit_width_cap`, `emit_research_truncated`, `emit_input_budget_exhausted`, `emit_deep_research_cutoff`, `emit_answer_degraded`, `emit_card_invalid`, `emit_anatomy_dropped`, `emit_verdict_dropped`, `emit_checkpoint` | `common/turn_status.py`, called from `core/*`, `agents/deep_researcher/{agent,cutoff,finalize,tools/research}.py`, `common/{retrieval_rounds,answer_envelope,grounding_block}.py`, `cards/surface_documents.py`, `tools/bim/measurement_sources.py`, `packages/{ris-adapter,tavily-web-search,knowledge-layer}` | Each builds a `StatusStep` and calls `emit_step`. The `slot` stays the step id's suffix (`status:<slot>`), and the keys are unchanged (`ALL_STATUS_KEYS`) |
 | `emit_retrieval` | `common/retrieval_status.py`, from the agent's node and deep research | `RetrievalStep` with `round`, `tools` and `reason`, and `prefetch` on the round the decision ran before the model (`_prefetch_node`). It still sets `_retrieval_round` |
 | `emit_subject_document` | `turn/subject_document.py`, **setup phase** | `load_subject_document` **returns** the outcome as a `StatusStep`, and `_run` yields it. Nothing is emitted from outside a graph |
 | `emit_documents_loading` | `conversation_register._run`, **setup phase** | `_run` yields the `StatusStep` |
 | `emit_documents_waiting` | `turn/inventory.py`, **setup phase**, before waiting on indexing | `load_inventory` is split: `pending_uploads()` returns what is pending, `_run` yields the waiting step, then awaits `wait_for_uploads()` |
 | Skill events (`SELECTION_STEP_NAME`, `skill:<name>`) | `skills/events.py` | `SkillStep` through `emit_step` |
-| Clarification trace row | `agents/piloti/clarify.py:676` | `ClarificationStep` |
+| Clarification trace row | `core/clarify.py:676` | `ClarificationStep` |
 | Decision records (`status:decision:*`) | `common/decisions.py:478`, `packages/knowledge-layer/src/search/decisions.py:167` | technical `StatusStep` |
 | The Trace-Lanes fan-out, which the UI regex-read out of the agent runtime TOOL_END payload (`## Trace-Lanes` + JSON) | `packages/knowledge-layer/src/search/trace_lanes.py` `trace_lanes_for_hits`, `read_passage/tool.py`, `ris_adapter/lookup/render.py`, rendered by `common/grounding_block.render_grounding_block` | `render_grounding_block` emits one `SourcesStep` from `block.lanes`, which becomes typed `TraceLane` models rather than a JSON string. That is one producer site for every evidence tool. The `## Trace-Lanes` line in the tool text is left for now; see F2 |
 | Tool calls (agent runtime TOOL steps that the executed-steps chips read) | the runtime's LangChain profiler, through the step adaptor | One `AsyncCallbackHandler` (`action_rows.ToolStepCallback`: `on_tool_start/end/error` → `ToolStep`, basename only), added once to the conversation graph's run config. the runtime's profiler still bills and traces through its own handler |
-| Live prose: `_ProseTokenHandler` → `AnswerStreamSink.push/put/retract` (deltas, `Masthead`, `Snapshot`, `Cards`) | `turn/answer_stream.py`, with `common/answer_prose_stream.py` and `agents/piloti/answer_pipeline.LiveAnswer` | The handler writes bodies: `TEXT_MESSAGE_START`, coalesced `_CONTENT` (flushed when 50 ms have passed since the last flush, before any other body, and at `on_llm_end`), `_END` when the `answer` string closes, `STATE_SNAPSHOT` from `LiveAnswer.settle` (still in `to_thread`, where the writer works), `masthead`, one `card`/`card_refused` per card (the tools' cards first, then the envelope's, as today), and `answer_retracted`. `LiveAnswer` and the verifier are unchanged |
+| Live prose: `_ProseTokenHandler` → `AnswerStreamSink.push/put/retract` (deltas, `Masthead`, `Snapshot`, `Cards`) | `turn/answer_stream.py`, with `common/answer_prose_stream.py` and `core/answer_pipeline.LiveAnswer` | The handler writes bodies: `TEXT_MESSAGE_START`, coalesced `_CONTENT` (flushed when 50 ms have passed since the last flush, before any other body, and at `on_llm_end`), `_END` when the `answer` string closes, `STATE_SNAPSHOT` from `LiveAnswer.settle` (still in `to_thread`, where the writer works), `masthead`, one `card`/`card_refused` per card (the tools' cards first, then the envelope's, as today), and `answer_retracted`. `LiveAnswer` and the verifier are unchanged |
 | The terminal `ChatResponseChunk` with its extras on `model_extra`, lifted by name in `websocket_reconnect.py` (`_TRANSPARENCY_EXTRA_FIELDS`, `_SKILLS_EXTRA_FIELDS`, `_PERSISTED_EXTRA_FIELDS`) | `turn/response.py` `build_response`, `conversation_register._answer_chunks` | `build_result(state, cards, message_id) -> TurnResult`, a typed model, and `_run` yields `RunFinishedBody`. The lift tables, the `setattr` loops and `common/nat_converters.py` are deleted. A refusal is `RunFinishedBody(outcome="refused")` |
 | Run hand-off (ADR-0062) | `turn/commission.py`, lifted as `run_id`/`run_message_id` | `TurnResult.run`, with `outcome="handed_off"` |
 | Heartbeat | `websocket_reconnect._beat_while_running` (`GridTurnHeartbeat`) | the same task in the handler, writing a `HeartbeatBody` stamped by the turn's sequencer. The `grid_`-prefixed agent runtime workaround model is deleted |
@@ -816,7 +816,7 @@ and a reader-order change, nothing more.
 | Contract | Every recorded event is valid **and** is byte for byte the frame the server writes. Turns are ordered: seq 1..n, one terminal, only stages after it. Every client message parses. Old agent runtime frames, `v: 1`, empty deltas, raw payloads on steps, unknown kinds and names, a half run hand-off, and a both-answers interaction response are refused, and so is the newer server's drift in `newer-events.jsonl`, which this server never writes. The committed schema is fresh | `packages/agent/tests/common/test_wire_v2.py` (committed) |
 | Contract, UI side | The same files through the generated zod: every event parses to its type, defaults restored, and every invalid frame refused. `newer-events.jsonl` parses, its unknown keys stripped and its unknown types, step kinds and `CUSTOM` names folded as no-ops (§a, Compatibility). The generated module is the generator's output | `src/adapters/api/wire-v2.spec.ts`, `scripts/generate-wire-schemas.spec.mjs` (committed) |
 | Generation | Pydantic → `contracts/wire/v2.schema.json` → `wire-v2.generated.ts`. A `wire-schemas` pre-commit hook fails the commit when either artifact would change, the same arrangement as `card-schemas` | `.pre-commit-config.yaml` (committed) |
-| Producers | One test per producer that goes **through the compiled graph** under `astream` and asserts the body it wrote. The most important: the writer reaches the agent's inner graph through the real agent runtime function boundary, which `test_stream_writer_reach.py` stands in for with a plain async function. Also: setup steps are yielded, `ToolStepCallback` emits basename only, a `sources` step equals the records' lanes, and prose deltas are coalesced | `packages/agent/tests/turn/`, `…/agents/piloti/`, `…/common/test_turn_status.py`, `…/skills/` |
+| Producers | One test per producer that goes **through the compiled graph** under `astream` and asserts the body it wrote. The most important: the writer reaches the agent's inner graph through the real agent runtime function boundary, which `test_stream_writer_reach.py` stands in for with a plain async function. Also: setup steps are yielded, `ToolStepCallback` emits basename only, a `sources` step equals the records' lanes, and prose deltas are coalesced | `packages/agent/tests/turn/`, `…/core/`, `…/common/test_turn_status.py`, `…/skills/` |
 | Handler | Auth, binding, rejection codes, cancel authorisation (asker yes, colleague `not_asker`, bus path), HITL round trip and expiry, attach replay and splice with no duplicate or missing seq, stage stamping after the terminal, persistence built from `TurnResult`. A test that builds the app and asserts the runtime's `websocket_endpoint` and `WebSocketMessageHandler` are the runtime's own objects. A ruff `banned-api` for `nat.data_models.api_server` everywhere, and for the internal modules `nat.plugin_api` covers | `apps/agent-host/tests/test_chat_socket.py` |
 | Golden replay | One real turn recorded through the whole backend (a fake LLM with a recorded token stream and the real graph) and compared frame for frame, `ts` excepted, with a committed golden JSONL. Every frame is under 4 KB except `STATE_SNAPSHOT` and `RUN_FINISHED` (under 64 KB), the two that carry the sources | `packages/agent/tests/turn/test_golden_turn.py` |
 | Fold | Every fixture turn folds to the expected `TurnView`. Duplicate seq keeps identity, and a gap is flagged. Snapshot, retraction and terminal replacement. Card before marker. Spectator mid-turn start. The persisted projection round-trips through `sanitizeProvenance` | `bff/turns/turn-fold.spec.ts` |
@@ -862,7 +862,7 @@ separately. The exit criterion in the definition of done is the measured diff.
   `packages/knowledge-layer/src/search/decisions.py`, `packages/knowledge-layer/src/register.py`
   (lanes as models), `common/grounding_block.py`, `turn/inventory.py`,
   `turn/subject_document.py`, and the one-line call sites in
-  `agents/piloti/clarify.py`, `agents/deep_researcher/*` and the Python packages under `packages/`
+  `core/clarify.py`, `agents/deep_researcher/*` and the Python packages under `packages/`
   (`emit_*` names unchanged).
 - **Adds:** `emit`, `emit_step`, `ToolStepCallback`, `StatusStep` builders
   (~+110).
@@ -873,7 +873,7 @@ separately. The exit criterion in the definition of done is the measured diff.
   setup steps returned.
 
 **S2 · Backend turn pipeline.**
-- **Owns:** `agents/piloti/conversation_register.py`, `agents/piloti/conversation.py`,
+- **Owns:** `core/conversation_register.py`, `core/conversation.py`,
   `turn/admission.py`, `turn/answer_stream.py`, `turn/streaming.py`,
   `turn/response.py`, `common/nat_converters.py` (deleted), `stages/delivery.py`
   (sink signature).

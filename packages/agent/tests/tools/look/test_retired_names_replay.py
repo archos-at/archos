@@ -26,14 +26,14 @@ from langchain_core.messages import HumanMessage
 from langchain_core.messages import ToolMessage
 from langchain_core.tools import tool
 
-from agent.agents.piloti.agent import ChatAgent
-from agent.agents.piloti.history import prune_tool_results
-from agent.agents.piloti.history import replay_retired_look_names
-from agent.agents.piloti.models import ResearchAgentState
 from agent.citations.entries import SourceEntry
 from agent.citations.registry import SourceRegistry
 from agent.common import LLMProvider
 from agent.common import turn_status
+from agent.core.agent import ChatAgent
+from agent.core.history import prune_tool_results
+from agent.core.history import replay_retired_look_names
+from agent.core.models import ResearchAgentState
 
 RAN: list[str] = []
 
@@ -64,8 +64,8 @@ def _bypass_citation_pipeline():
     """The answer pipeline is not what these tests are about."""
     with (
         patch.object(SourceRegistry, "all_sources", return_value=[SourceEntry(url="https://example.com")]),
-        patch("agent.agents.piloti.answer_pipeline.verify_citations") as verify,
-        patch("agent.agents.piloti.answer_pipeline.sanitize_report") as sanitize,
+        patch("agent.core.answer_pipeline.verify_citations") as verify,
+        patch("agent.core.answer_pipeline.sanitize_report") as sanitize,
     ):
         verify.side_effect = lambda content, reg, reference_sources=None, **_: MagicMock(
             verified_report=content, removed_citations=[]

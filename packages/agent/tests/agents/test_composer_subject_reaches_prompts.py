@@ -19,13 +19,13 @@ from langchain_core.messages import AIMessage
 from langchain_core.messages import HumanMessage
 from langchain_core.tools import tool
 
-from agent.agents.piloti.agent import ChatAgent
-from agent.agents.piloti.agent import _shelf_label
-from agent.agents.piloti.models import ConversationState
-from agent.agents.piloti.models import ResearchAgentState
 from agent.common import LLMProvider
 from agent.common import render_prompt_template
 from agent.common.data_source_registry import populate_from_config
+from agent.core.agent import ChatAgent
+from agent.core.agent import _shelf_label
+from agent.core.models import ConversationState
+from agent.core.models import ResearchAgentState
 
 SUBJECT = "220724_Aufsicht_1_100.pdf"
 
@@ -186,7 +186,7 @@ class TestSubjectSurvivesTheGraphHandoff:
 
     @pytest.mark.asyncio
     async def test_shallow_node_forwards_the_subject(self):
-        from agent.agents.piloti.conversation import ConversationGraph
+        from agent.core.conversation import ConversationGraph
 
         captured: dict = {}
 

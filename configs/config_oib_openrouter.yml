@@ -861,7 +861,7 @@ functions:
     # A CEILING ON ROUNDS, NOT A QUOTA ON CALLS — and the number is the floor of
     # the longest chain this surface documents, plus one repair.
     #
-    # The accounting is one unit per ROUND in `piloti/agent.py`: a round is one
+    # The accounting is one unit per ROUND in `core/agent.py`: a round is one
     # LLM decision that emitted tool calls, charged when the model emits it and
     # never refunded. Three consequences that are not obvious from the name:
     #   * a round that comes back with 0 hits costs what one that answers costs;
@@ -1079,7 +1079,7 @@ workflow:
   # reconstruct. A single call on this surface carries 37-84k input tokens and
   # the static prompt alone is ~14k, so 8 000 trimmed the user's own words and
   # their corrections while re-sending everything else. See the field docstring
-  # in `piloti/conversation_register.py`.
+  # in `core/conversation_register.py`.
   max_history_tokens: 40000
   enable_clarifier: true
   # The clarification step that confirms a research plan before deep research

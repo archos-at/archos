@@ -32,7 +32,7 @@ legal verdict the evidence of its own basement measurement — the laundering
 path the grounding module exists to close. So measurements travel their own
 channel (:mod:`agent.tools.bim.measurement_sources`) and meet the
 retrieved sources only on the wire, where this taxonomy is all that is left of
-either. See ``packages/agent/tests/agents/piloti/test_agent.py::
+either. See ``packages/agent/tests/core/test_agent.py::
 TestMeasurementSourcesDoNotGroundCitations``.
 
 ``auto`` exists in the click-dummy as a *selection mode* (the agent picks the

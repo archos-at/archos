@@ -271,7 +271,7 @@ for an Energieeffizienzklasse, and a cited quote line `> „…“ [N]` for the
 wording an answer turns on, verified against the source like every quote
 (`verify_quoted_spans`). The backend treats the directive lines as inert text:
 citation verification, renumbering, quote verification and the report hygiene
-pass keep them byte-equal (`packages/agent/tests/agents/piloti/test_answer_pipeline_directives.py`;
+pass keep them byte-equal (`packages/agent/tests/core/test_answer_pipeline_directives.py`;
 the hygiene pass keeps a line's leading indentation and never pulls the space
 out of „Klasse :energy-class[B]").
 
@@ -481,7 +481,7 @@ every channel.
 
 The description used to say "emit a card only when it adds real value". That is
 a disclaimer, not an instruction, and fifteen diagram renderers sat behind it —
-while eight lines away in `piloti.j2` the IFC block named a trigger and gave
+while eight lines away in `system.j2` the IFC block named a trigger and gave
 a reason, which is exactly why the IFC cards were emitted and the schematics
 were not.
 
@@ -534,7 +534,7 @@ reason is the same each time: they are not true there.
 The CRAFT — which card actually improves an ordinary answer, and how the
 verdict divides the ruling with the answer's first sentence — is in neither
 rendering. It lives in the `<cards>` and `<answer_meta>` sections of
-the agent's system prompt (`piloti/prompts/piloti.j2`), where
+the agent's system prompt (`core/prompts/system.j2`), where
 the retired `piloti-cards` platform skill used to carry it: a forced skill's
 body only reached the model through a `use_skill` call it could skip, and the
 prompt is unconditional. The post-hoc path cannot read a prompt meant for the
@@ -802,7 +802,7 @@ an id would have to survive validation, persistence AND the deep-research path,
 which builds its cards post-hoc from a finished report and has no emission order
 to refer back to.
 
-The contract is stated in `piloti.j2` as well as in the tool return, and
+The contract is stated in `system.j2` as well as in the tool return, and
 deliberately so: a marker the model only learns about from the tool result
 arrives after it has already committed to the paragraph the card belongs to, so
 placement could only ever be retrofitted. Named up front, it can be planned.

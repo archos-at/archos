@@ -45,7 +45,7 @@ down-vote (existing WS-7 capture: verdict + reason chip + comment)
   active lessons ──► bounded digest (≤20 lessons / 1600 chars, cached 5 min) + the ids of the lessons in it
     └─ GET /api/internal/platform-lessons/digest   [token-guarded, cross-tenant]  { digest, lessonIds }
          └─ agent.common.platform_lessons      [60 s TTL, fail-open to None]
-              └─ piloti.j2 §PLATFORM_LESSONS   [meta-framing, everything outranks it]
+              └─ system.j2 §PLATFORM_LESSONS   [meta-framing, everything outranks it]
 ```
 
 One code path serves both the event-driven kick (3 reports per vote) and the
@@ -376,5 +376,5 @@ means anything.
 | Schema | `apps/workspace/bff/db/schema/platform-lessons.ts`, migration `0068` |
 | Trigger | `apps/workspace/app/api/feedback/answers/route.ts` (`after()`) |
 | Internal pull | `apps/workspace/app/api/internal/platform-lessons/digest/route.ts` → `packages/agent/src/agent/common/platform_lessons.py` |
-| Prompt section | `packages/agent/src/agent/agents/piloti/prompts/piloti.j2` §PLATFORM_LESSONS |
+| Prompt section | `packages/agent/src/agent/core/prompts/system.j2` §PLATFORM_LESSONS |
 | Dashboard | `apps/workspace/app/app/(shell)/platform/lessons/` |

@@ -482,7 +482,7 @@ because `server.js` has no unit seam.
 
 ### L3 — interactive-turn admission (`packages/agent/src/agent/common/turn_admission.py`)
 
-A lease-based semaphore around `agent.run(...)` in `piloti/conversation_register.py`:
+A lease-based semaphore around `agent.run(...)` in `core/conversation_register.py`:
 slots held for the duration of a turn, per organization and globally, refused
 turns answered with a friendly message the way a budget refusal already is.
 

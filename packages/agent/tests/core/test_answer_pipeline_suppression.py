@@ -1,0 +1,432 @@
+import json
+
+import pytest
+from langchain_core.messages import AIMessage
+
+from agent.cards.envelope import FLOOR_EXEMPT_CARD_TYPES
+from agent.cards.registry import CardRegistry
+from agent.cards.registry import reset_card_registry
+from agent.cards.registry import set_card_registry
+from agent.citations.entries import SourceEntry
+from agent.citations.registry import SourceRegistry
+from agent.common.answer_envelope import AnswerMeta
+from agent.common.answer_envelope import gate_answer_meta
+from agent.core.answer_pipeline import _Extracted
+from agent.core.answer_pipeline import _gated_meta
+from agent.core.answer_pipeline import _should_suppress_meta_cards
+from agent.core.answer_pipeline import _suppress_cards
+from agent.core.answer_pipeline import finalize_answer
+
+WINDOW_PROSE = "x" * 500
+SHORT_PROSE = "x" * 300
+
+_CALLOUT = {"kind": "deadline", "text": "Die Bauverhandlung ist binnen sechs Wochen anzuberaumen."}
+_TAKEAWAYS = [
+    {"text": "Massgeblich ist das Fluchtniveau, nicht die Geschosszahl"},
+    {"text": "Tragende Bauteile mindestens REI 60", "detail": "Nach OIB-Richtlinie 2, Tabelle 1b."},
+]
+
+
+@pytest.fixture
+def card_registry():
+    registry = CardRegistry()
+    token = set_card_registry(registry)
+    yield registry
+    reset_card_registry(token)
+
+
+def _gated(payload: dict, prose_chars: int) -> dict | None:
+    return gate_answer_meta(AnswerMeta.model_validate(payload), prose_chars=prose_chars)
+
+
+def _oib_source():
+    return SourceEntry(
+        citation_key="oib-rl_2_ausgabe_mai_2023.pdf, p.12",
+        title="OIB-Richtlinie 2",
+        source_type="knowledge_layer",
+        tool_name="knowledge_search",
+        collection="oib_knowledge",
+    )
+
+
+class TestShouldSuppressMetaCards:
+    def test_no_meta_is_nothing_to_drop(self):
+        assert _should_suppress_meta_cards(WINDOW_PROSE, None) is False
+
+    def test_prose_at_the_floor_earns_its_cards(self):
+        meta = _gated({"takeaways": _TAKEAWAYS}, prose_chars=1_000)
+        assert _should_suppress_meta_cards("x" * 400, meta) is False
+
+    def test_prose_one_char_under_the_floor_drops(self):
+        meta = _gated({"summary": "REI 60 in GK 4."}, prose_chars=399)
+        assert _should_suppress_meta_cards("x" * 399, meta) is True
+
+    def test_a_verdict_vetoes(self):
+        meta = _gated(
+            {"verdict": {"value": "REI 60", "subject": "Feuerwiderstand"}},
+            prose_chars=300,
+        )
+        assert _should_suppress_meta_cards(SHORT_PROSE, meta) is False
+
+    def test_a_ruling_vetoes(self):
+        meta = _gated({"kind": "ruling", "callout": _CALLOUT}, prose_chars=300)
+        assert _should_suppress_meta_cards(SHORT_PROSE, meta) is False
+
+    def test_a_work_report_vetoes(self):
+        meta = _gated({"kind": "work", "work": {"done": [{"text": "Freigaben gelesen"}]}}, prose_chars=60)
+        assert _should_suppress_meta_cards(SHORT_PROSE, meta) is False
+
+    def test_short_direct_answer_without_verdict_drops(self):
+        meta = _gated({"kind": "direct", "callout": _CALLOUT}, prose_chars=300)
+        assert _should_suppress_meta_cards(SHORT_PROSE, meta) is True
+
+
+class TestTheProofLivesInTheProse:
+    def test_a_quote_line_survives_while_the_card_goes(self, card_registry):
+        meta = _gated({"kind": "direct", "callout": _CALLOUT}, prose_chars=300)
+        card_registry.add({"type": "calculation", "title": "Fläche"})
+        quote = "> „Brandabschnitte dürfen höchstens 1.200 m² umfassen.“ [1]"
+        content = SHORT_PROSE + "\n\n" + quote + "\n\n[[card:1]]\n"
+
+        kept_content, _, suppressed = _suppress_cards(content, meta)
+
+        assert suppressed is True
+        assert quote in kept_content
+        assert "[[card:1]]" not in kept_content
+        assert len(card_registry) == 0
+
+
+class TestCalloutSurvival:
+    def test_suppression_preserves_the_callout_field(self, card_registry):
+        meta = _gated({"kind": "direct", "callout": _CALLOUT}, prose_chars=300)
+        card_registry.add({"type": "typed_table", "title": "Tabelle"})
+        content = SHORT_PROSE + "\n\n[[card:1]]\n"
+
+        kept_content, kept_meta, suppressed = _suppress_cards(content, meta)
+
+        assert suppressed is True
+        assert kept_meta is not None
+        assert set(kept_meta) == {"v", "callout"}
+        assert kept_meta["callout"] == _CALLOUT
+        assert len(card_registry) == 0
+        assert "[[card:1]]" not in kept_content
+
+    def test_no_callout_is_meta_none_not_an_empty_object(self, card_registry):
+        meta = _gated({"kind": "direct", "summary": "REI 60 in GK 4."}, prose_chars=300)
+        assert meta is not None
+
+        _, kept_meta, suppressed = _suppress_cards(SHORT_PROSE, meta)
+
+        assert suppressed is True
+        assert kept_meta is None
+
+    async def test_the_callout_marker_survives_suppression_end_to_end(self):
+        prose = "Die Antwort ist kurz [1].\n\n[[callout]]\n\nMehr Text.\n\n## References\n- [1] https://example.com"
+        envelope = {"answer": prose, "kind": "direct", "callout": _CALLOUT}
+        messages = [AIMessage(content="```answer_json\n" + json.dumps(envelope) + "\n```")]
+        registry = SourceRegistry()
+        registry.add(SourceEntry(url="https://example.com", tool_name="web"))
+
+        final = await finalize_answer(messages, registry=registry, tools=[], repair=None)
+
+        assert final.answer_meta is not None
+        assert final.answer_meta["callout"]["kind"] == "deadline"
+        assert final.content is not None and final.content.count("[[callout]]") == 1
+
+
+class TestTheWindowBetweenTheFloors:
+    def test_cards_kept_at_500_chars_while_takeaways_are_gated_out(self, card_registry):
+        meta = _gated({"takeaways": _TAKEAWAYS, "callout": _CALLOUT}, prose_chars=500)
+        assert meta is not None and "takeaways" not in meta and "callout" in meta
+        card_registry.add({"type": "typed_table", "title": "Tabelle"})
+        content = WINDOW_PROSE + "\n\n[[card:1]]\n"
+
+        kept_content, kept_meta, suppressed = _suppress_cards(content, meta)
+
+        assert suppressed is False
+        assert kept_meta == meta
+        assert len(card_registry) == 1
+        assert "[[card:1]]" in kept_content
+
+    def test_takeaways_at_650_chars_stay_with_their_cards(self, card_registry):
+        meta = _gated({"takeaways": _TAKEAWAYS, "callout": _CALLOUT}, prose_chars=650)
+        assert meta is not None and "takeaways" in meta
+        card_registry.add({"type": "typed_table", "title": "Tabelle"})
+
+        _, kept_meta, suppressed = _suppress_cards("x" * 650, meta)
+
+        assert suppressed is False and kept_meta == meta and len(card_registry) == 1
+
+    def test_one_char_under_the_card_floor_shrinks_to_the_callout(self, card_registry):
+        meta = _gated({"summary": "REI 60 in GK 4.", "callout": _CALLOUT}, prose_chars=399)
+        assert meta is not None
+
+        _, kept_meta, suppressed = _suppress_cards("x" * 399, meta)
+
+        assert suppressed is True
+        assert kept_meta is not None and set(kept_meta) == {"v", "callout"}
+
+
+class TestSiblingProbes:
+    def test_memory_proposal_is_a_catalog_member_and_vetoes(self, card_registry):
+        from agent.cards.catalog import SYSTEM_CARD_TYPES
+
+        assert "memory_proposal" in SYSTEM_CARD_TYPES
+        card_registry.add(
+            {"type": "memory_proposal", "title": "T", "content": "C", "kind": "decision", "confidence": "high"}
+        )
+        meta = _gated({"kind": "direct", "callout": _CALLOUT}, prose_chars=300)
+
+        _, kept_meta, suppressed = _suppress_cards(SHORT_PROSE, meta)
+
+        assert suppressed is False
+        assert kept_meta == meta
+        assert len(card_registry) == 1
+
+    def test_task_created_is_a_catalog_member_and_vetoes(self, card_registry):
+        from agent.cards.catalog import SYSTEM_CARD_TYPES
+        from agent.tools.tasks.cards import emit_task_card
+
+        assert "task_created" in SYSTEM_CARD_TYPES
+        assert (
+            emit_task_card(
+                {"taskId": "t-1", "kind": "document", "title": "Ziel", "conversationId": "c"},
+                goal="Ziel",
+                kind="document",
+            )
+            is True
+        )
+        meta = _gated({"kind": "direct", "callout": _CALLOUT}, prose_chars=300)
+
+        _, kept_meta, suppressed = _suppress_cards(SHORT_PROSE, meta)
+
+        assert suppressed is False
+        assert kept_meta == meta
+        assert len(card_registry) == 1
+
+    def test_document_draft_from_a_write_vetoes(self, card_registry):
+        from agent.cards.catalog import SYSTEM_CARD_TYPES
+        from agent.tools.documents.cards import emit_draft_card
+
+        assert "document_draft" in SYSTEM_CARD_TYPES
+        assert emit_draft_card(path="vermerk.md", content="# Titel\n\nText", version=1) is True
+        meta = _gated({"kind": "direct", "callout": _CALLOUT}, prose_chars=300)
+
+        _, kept_meta, suppressed = _suppress_cards(SHORT_PROSE, meta)
+
+        assert suppressed is False
+        assert kept_meta == meta
+        assert len(card_registry) == 1
+
+    def test_document_draft_from_the_file_draft_repush_vetoes(self, card_registry):
+        from agent.cards.catalog import SYSTEM_CARD_TYPES
+        from agent.tools.documents.cards import emit_draft_card
+
+        assert "document_draft" in SYSTEM_CARD_TYPES
+        assert (
+            emit_draft_card(
+                path="vermerk.md",
+                content="# Titel\n\nText",
+                version=2,
+                filing={
+                    "grid_filed_document_id": "doc-1",
+                    "grid_filed_version_id": "ver-2",
+                    "grid_filed_state": "in_review",
+                },
+            )
+            is True
+        )
+        assert card_registry.snapshot()[0].get("document_id") == "doc-1"
+        meta = _gated({"kind": "direct", "callout": _CALLOUT}, prose_chars=300)
+
+        _, kept_meta, suppressed = _suppress_cards(SHORT_PROSE, meta)
+
+        assert suppressed is False
+        assert kept_meta == meta
+        assert len(card_registry) == 1
+
+    def test_the_rest_of_the_system_set_vetoes_too(self, card_registry):
+        from agent.cards.catalog import SYSTEM_CARD_TYPES
+
+        for card_type in ("document_grid", "file_operation_proposal"):
+            assert card_type in SYSTEM_CARD_TYPES
+        card_registry.add({"type": "document_grid", "title": "Dateien"})
+        card_registry.add(
+            {
+                "type": "file_operation_proposal",
+                "title": "Verschieben",
+                "operation": "move",
+                "operations": [],
+            }
+        )
+        meta = _gated({"kind": "direct", "callout": _CALLOUT}, prose_chars=300)
+
+        _, kept_meta, suppressed = _suppress_cards(SHORT_PROSE, meta)
+
+        assert suppressed is False
+        assert kept_meta == meta
+        assert len(card_registry) == 2
+
+
+class TestTrailerValueWiring:
+    def _extracted(self, payload: dict) -> _Extracted:
+        return _Extracted(
+            content="x" * 700,
+            meta=AnswerMeta.model_validate(payload),
+            escalation_requested=False,
+            confidence=None,
+            confidence_reason=None,
+        )
+
+    def test_a_verdict_with_a_resolving_locus_survives(self):
+        extracted = self._extracted(
+            {
+                "verdict": {
+                    "value": "100 cm",
+                    "subject": "Erforderliche Gelanderhohe",
+                    "reference": {"document": "OIB-Richtlinie 2"},
+                }
+            }
+        )
+        meta = _gated_meta(extracted, "x" * 700, SourceRegistry(), turn_sources=[_oib_source()])
+
+        assert meta is not None and meta["verdict"]["value"] == "100 cm"
+
+    def test_a_verdict_with_no_locus_in_the_captures_drops(self):
+        extracted = self._extracted({"verdict": {"value": "100 cm", "subject": "Erforderliche Gelanderhohe"}})
+        stranger = SourceEntry(citation_key="plan.pdf, p.1", title="Plan", source_type="knowledge_layer")
+        assert _gated_meta(extracted, "x" * 700, SourceRegistry(), turn_sources=[stranger]) is None
+
+    def test_a_takeaway_with_a_locus_in_its_detail_survives(self):
+        extracted = self._extracted({"takeaways": _TAKEAWAYS})
+        meta = _gated_meta(extracted, "x" * 700, SourceRegistry(), turn_sources=[_oib_source()])
+
+        assert meta is not None
+        assert [item["text"] for item in meta["takeaways"]] == [t["text"] for t in _TAKEAWAYS]
+
+
+class TestMarkerOnlyContent:
+    def test_an_answer_that_was_only_a_marker_becomes_empty(self, card_registry):
+        meta = _gated({"kind": "direct", "callout": _CALLOUT}, prose_chars=300)
+        card_registry.add({"type": "typed_table", "title": "Tabelle"})
+
+        kept_content, _, suppressed = _suppress_cards("[[card:1]]", meta)
+
+        assert suppressed is True
+        assert "[[card:" not in kept_content
+        assert kept_content == ""
+
+
+class TestTrailerCaptures:
+    def test_explicit_turn_sources_are_the_log(self):
+        from agent.core.answer_pipeline import _trailer_captures
+
+        turn = _oib_source()
+
+        assert _trailer_captures([turn]) == [turn]
+
+    def test_both_kinds_of_source_ground_a_verdict(self):
+        extracted = _Extracted(
+            content="x" * 700,
+            meta=AnswerMeta.model_validate(
+                {
+                    "verdict": {
+                        "value": "100 cm",
+                        "subject": "Erforderliche Gelanderhohe",
+                        "reference": {"document": "Plan"},
+                    }
+                }
+            ),
+            escalation_requested=False,
+            confidence=None,
+            confidence_reason=None,
+        )
+        repair = SourceEntry(citation_key="plan.pdf, p.3", title="Plan", source_type="knowledge_layer")
+
+        meta = _gated_meta(extracted, "x" * 700, SourceRegistry(), turn_sources=[repair])
+
+        assert meta is not None and meta["verdict"]["value"] == "100 cm"
+
+
+def _surface(leaf: str, **fields: str) -> dict:
+    return {
+        "type": "surface",
+        "title": "Zwei Häuser",
+        "components": [
+            {"id": "root", "component": "Tabs", "tabs": [{"title": "A", "child": "a"}, {"title": "B", "child": "b"}]},
+            {"id": "a", "component": leaf, "title": "Haus A", **fields},
+            {"id": "b", "component": leaf, "title": "Haus B", **fields},
+        ],
+    }
+
+
+class TestTheModelCardIsTheAnswer:
+    @pytest.mark.parametrize("card_type", sorted(FLOOR_EXEMPT_CARD_TYPES))
+    def test_it_vetoes_the_floor(self, card_registry, card_type):
+        card_registry.add({"type": card_type, "title": "Dachgeschoß"})
+        meta = _gated({"kind": "walkthrough", "topic": "Dachgeschoß"}, prose_chars=51)
+        content = "Das Dachgeschoß ist im Modell isoliert dargestellt.\n\n[[card:1]]"
+
+        kept_content, kept_meta, suppressed = _suppress_cards(content, meta)
+
+        assert suppressed is False
+        assert kept_content == content
+        assert kept_meta == meta
+        assert len(card_registry) == 1
+
+    def test_a_trailer_card_on_a_short_answer_still_goes(self, card_registry):
+        card_registry.add({"type": "calculation", "title": "Fläche"})
+        meta = _gated({"kind": "walkthrough", "topic": "Fläche"}, prose_chars=51)
+
+        _, _, suppressed = _suppress_cards("Die Fläche beträgt 21,41 m².\n\n[[card:1]]", meta)
+
+        assert suppressed is True
+        assert len(card_registry) == 0
+
+    def test_a_surface_of_trailer_cards_on_a_short_answer_still_goes(self, card_registry):
+        card_registry.add(_surface("calculation"))
+        meta = _gated({"kind": "walkthrough", "topic": "Fläche"}, prose_chars=51)
+
+        _, _, suppressed = _suppress_cards("Die Fläche beträgt 21,41 m².\n\n[[card:1]]", meta)
+
+        assert suppressed is True
+        assert len(card_registry) == 0
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("answer", "kind", "card"),
+        [
+            pytest.param(
+                "Wählen Sie das Modell aus, das Sie öffnen möchten.",
+                "direct",
+                {"type": "ifc_model_picker", "title": "Welches Modell möchten Sie öffnen?"},
+                id="zeig-mir-das-modell",
+            ),
+            pytest.param(
+                "Das Dachgeschoß ist im Modell isoliert dargestellt.\n\n[[card:1]]",
+                "walkthrough",
+                {
+                    "type": "ifc_viewer",
+                    "title": "Dachgeschoß",
+                    "model_file": "AC20-FZK-Haus.ifc",
+                    "storey": "Dachgeschoss",
+                },
+                id="zeig-mir-das-dachgeschoss",
+            ),
+            pytest.param(
+                "Beide Häuser sind im Modell zu sehen.\n\n[[card:1]]",
+                "direct",
+                _surface("ifc_viewer", model_file="AC20-FZK-Haus.ifc"),
+                id="zeig-mir-beide-haeuser",
+            ),
+        ],
+    )
+    async def test_an_answer_keeps_its_model_card_through_finalize(self, card_registry, answer, kind, card):
+        envelope = {"answer": answer, "kind": kind, "topic": "Modell", "cards": [card]}
+        message = AIMessage(content="```answer_json\n" + json.dumps(envelope, ensure_ascii=False) + "\n```")
+
+        final = await finalize_answer([message], registry=SourceRegistry(), tools=[], repair=None)
+
+        assert [kept["type"] for kept in card_registry.snapshot()] == [card["type"]]
+        assert final.answer_meta is not None
+        assert final.answer_meta.get("kind") == kind

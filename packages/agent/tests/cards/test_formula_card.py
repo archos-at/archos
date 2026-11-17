@@ -4,12 +4,12 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from agent.agents.piloti import answer_pipeline
 from agent.cards.catalog import CARD_EXAMPLES
 from agent.cards.envelope import ENVELOPE_SHAPE_TYPES
 from agent.cards.formula_card import formula_inputs
 from agent.cards.formula_card import stated_result_fields
 from agent.cards.models import answer_card_adapter
+from agent.core import answer_pipeline
 from agent.observability.langfuse_scores import card_validity_score
 from agent.observability.langfuse_scores import formula_provenance_score
 

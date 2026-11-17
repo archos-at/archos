@@ -104,12 +104,12 @@ viz = [
 
 [project.entry-points."nat.plugins"]
 # Named for the job, with no product name. `researcher*` and not `piloti*`
-# although the package moved to `agents/piloti`: an entry-point name is what the
+# although the package moved to `core`: an entry-point name is what the
 # installed dist-info carries, and a stale `<pkg>.egg-info/entry_points.txt`
 # from an older checkout is exactly the ModuleNotFoundError-from-nowhere in
 # `docs/contributing/gotchas.md` (re-run `uv sync` after this rename).
-researcher_conversation = "agent.agents.piloti.conversation_register"
-researcher = "agent.agents.piloti.register"
+researcher_conversation = "agent.core.conversation_register"
+researcher = "agent.core.register"
 deep_researcher = "agent.agents.deep_researcher.register"
 data_source_registry = "agent.common.data_source_registry"
 project_memory = "agent.memory.register"

@@ -142,7 +142,7 @@ track_llm_costs()  ──sets──▶  cost_tracker_var (ContextVar)
 ```
 
 - **Activation points (the only wiring, 4 total)**:
-  - sync chat turn — `piloti/conversation_register.py` around `agent.run(...)`
+  - sync chat turn — `core/conversation_register.py` around `agent.run(...)`
   - async research job — `agent_host/jobs/runner.py` around `_run_agent(...)`
     (identity + budget captured at submit time via `capture_usage_context()`)
   - background memory reflection — `project_memory/reflection.py` (own

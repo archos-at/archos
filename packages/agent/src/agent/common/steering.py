@@ -15,7 +15,7 @@ Three halves, one object
   pattern of ``tools/canvas/presence.py``: the graph's tasks copy the context,
   so they all see the one object. It :meth:`SteerInbox.offer`\\ s each note
   (masked, authorised, capped, idempotent on ``steer_id``).
-* **The agent node** (``agents/piloti/agent.py``) :meth:`SteerInbox.take`\\ s
+* **The agent node** (``core/agent.py``) :meth:`SteerInbox.take`\\ s
   what arrived at the top of every model decision and records each note with
   the index of ``state.messages`` it arrived at. The note is spliced into the
   model REQUEST at that index (:func:`with_steering`) and never written to

@@ -1,7 +1,7 @@
 """Memory reflection, declared as a post-answer stage.
 
 This is the migration of the bespoke block that used to sit inline in
-``agents/piloti/conversation_register.py`` (schedule + gate) and in
+``core/conversation_register.py`` (schedule + gate) and in
 ``project_memory/reflection.schedule_memory_reflection`` (semaphore, pending cap,
 cost/profile tracking). **What it does is unchanged** — the same predicate, the
 same prompt, the same writes through the same token-guarded endpoint. What

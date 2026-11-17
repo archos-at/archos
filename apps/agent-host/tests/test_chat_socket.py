@@ -2520,12 +2520,12 @@ async def test_a_note_is_read_by_the_real_graph_in_its_next_round_and_holds_back
     from langchain_core.messages import ToolMessage
     from langchain_core.tools import tool
 
-    from agent.agents.piloti.agent import ChatAgent
-    from agent.agents.piloti.models import ResearchAgentState
     from agent.citations.entries import SourceEntry
     from agent.citations.registry import SourceRegistry
     from agent.common import LLMProvider
     from agent.common.steering import HELD_FOR_STEER
+    from agent.core.agent import ChatAgent
+    from agent.core.models import ResearchAgentState
 
     ran: list[str] = []
     requests: list[list] = []
@@ -2574,8 +2574,8 @@ async def test_a_note_is_read_by_the_real_graph_in_its_next_round_and_holds_back
         monkeypatch.setattr("agent.common.turn_status.get_stream_writer", lambda: bodies.put_nowait)
         with (
             patch.object(SourceRegistry, "all_sources", return_value=[SourceEntry(url="https://example.com")]),
-            patch("agent.agents.piloti.answer_pipeline.verify_citations") as verify,
-            patch("agent.agents.piloti.answer_pipeline.sanitize_report") as sanitize,
+            patch("agent.core.answer_pipeline.verify_citations") as verify,
+            patch("agent.core.answer_pipeline.sanitize_report") as sanitize,
         ):
             verify.side_effect = lambda content, reg, reference_sources=None, **_: MagicMock(
                 verified_report=content, removed_citations=[]

@@ -7,7 +7,7 @@ something, which of them merely failed, and what the model said it concluded
 before asking. None of those answers depends on which agent asked, so they live
 here rather than in either.
 
-What stayed in :mod:`agent.agents.piloti.agent` is everything that does
+What stayed in :mod:`agent.core.agent` is everything that does
 depend on Piloti: the width cap and the switched-off-source refusal read a
 Piloti turn's state and answer their withheld calls with Piloti's own
 sentences, so ``_RoundSplit`` and ``_split_round`` are built there out of these

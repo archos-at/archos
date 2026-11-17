@@ -34,13 +34,7 @@ infrastructure name the owner kept (ADR-0182 decision 4); in the three legal
 notices (``LEGAL_CONTINUITY_FILES``), the former name in exactly "(vormals Piloti)"
 or "(formerly Piloti)". A link to an ADR file (``0146-piloti-draws-….md``), whose
 filename is history; on a line carrying ``<!-- brand-history -->``, anything in
-backticks, which is how a later record quotes an old name; and the module path
-of a Python ``from``/``import`` line into the chat agent's package
-(``IMPORT_PATH``). That path is an identifier nobody reads as copy, kept on
-purpose because the checkpointer restores a graph by it (the agent's AGENTS.md,
-"Move or rename a package under agents/"), and ``check_brand_names.py`` already
-ratchets it. Counted here too, it made every new test of that package a new hit
-this check refuses, so none could be written.
+backticks, which is how a later record quotes an old name.
 
 History is not rewritten
 ------------------------
@@ -187,12 +181,9 @@ def name_lines(text: str) -> str:
     return "\n".join(text[start : (text.find("\n", start) + 1 or len(text) + 1) - 1] for start in sorted(starts))
 
 
-IMPORT_PATH = re.compile(r"^(\s*(?:from|import)\s+)agent\.agents\.piloti(?!\w)(?:\.\w+)*", re.M)
-
-
 def scrub(text: str) -> str:
-    """``text`` without what never counts: ADR filenames, import paths, and backticks on a marked line."""
-    text = IMPORT_PATH.sub(r"\1", ADR_LINK.sub(" ", text))
+    """``text`` without what never counts: ADR filenames, and backticks on a marked line."""
+    text = ADR_LINK.sub(" ", text)
     if LINE_MARKER not in text:
         return text
     return "\n".join(BACKTICKED.sub(" ", line) if LINE_MARKER in line else line for line in text.split("\n"))

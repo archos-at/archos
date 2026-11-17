@@ -1,7 +1,7 @@
 """Agent-runtime human-in-the-loop (HITL) prompts, and how they travel on the chat wire.
 
 Two places stop a run to ask the user something, the clarification step
-(`agents/piloti/clarify.py`) and Piloti's `ask_user` tool, and both go through
+(`core/clarify.py`) and Piloti's `ask_user` tool, and both go through
 the agent runtime's ``prompt_user_input``. Four halves have to agree, so all four live here:
 
 1. build the prompt (:func:`build_human_prompt`): a ``HumanPromptText``, or a

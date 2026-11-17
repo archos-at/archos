@@ -345,7 +345,7 @@ the other.
 
 `researcher` was called `shallow_researcher` until the chat agent was renamed.
 It stayed `researcher` when that agent's package was renamed again, to
-`agents/piloti`: this string is a wire name, stored in
+`core/`: this string is a wire name, stored in
 `platform_skills.grid_agents` and hand-written into skill frontmatter, so
 moving it costs another migration and another alias pair.
 Because the name is author-written and was seeded by ten migrations, both
@@ -443,7 +443,7 @@ A later source wins a name clash, which is the middleware's own layering.
   (`test_turn_context_message.py`); `SkillRuntime.catalog_block` therefore runs
   the middleware's own `before_agent` (load from the backend) and
   `modify_request` (render) and puts the section in the turn context
-  (`piloti.j2` `skills_block`). Same text, same loader, both agents. Nothing a
+  (`system.j2` `skills_block`). Same text, same loader, both agents. Nothing a
   person sets takes a row out: `grid-auto-invoke: false` still parses and
   decides nothing.
 - **L2 — the body.** The model reads `SKILL.md` with `read_file`. In deep

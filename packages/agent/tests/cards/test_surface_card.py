@@ -449,10 +449,10 @@ class TestPipelineRecital:
     def test_a_surface_that_would_collapse_is_stored_recited_in_place(self):
         from types import SimpleNamespace
 
-        from agent.agents.piloti.answer_pipeline import _recite_surface_cards
         from agent.cards.registry import CardRegistry
         from agent.cards.registry import reset_card_registry
         from agent.cards.registry import set_card_registry
+        from agent.core.answer_pipeline import _recite_surface_cards
 
         before = {"type": "ifc_model_picker", "title": "OIB-Richtlinie 2", "note": "x"}
         card = _tabs(components=[_tabs()["components"][0], _text("a", "[3]"), _text("b", "REI 90 [5]")])
@@ -472,10 +472,10 @@ class TestPipelineRecital:
     def test_a_merged_duplicate_in_a_tab_follows_the_prose(self):
         from types import SimpleNamespace
 
-        from agent.agents.piloti.answer_pipeline import _recite_surface_cards
         from agent.cards.registry import CardRegistry
         from agent.cards.registry import reset_card_registry
         from agent.cards.registry import set_card_registry
+        from agent.core.answer_pipeline import _recite_surface_cards
 
         card = _tabs(components=[_tabs()["components"][0], copy.deepcopy(BASIS_A), _text("b", "Brandwand [2].")])
         registry = CardRegistry()

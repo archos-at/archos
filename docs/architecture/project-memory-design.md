@@ -323,7 +323,7 @@ the model to treat confirmed facts as *binding constraints it must never
 contradict*. That rule is meant for the intake profile; inherited by agent-authored
 `unverified` notes it turns stale memory into something the agent defends. The
 answering prompt therefore carves `PROJECT_MEMORY` out explicitly, in a
-legend `prompts/piloti.j2` renders beside the Project Context only when the
+legend `prompts/system.j2` renders beside the Project Context only when the
 block is there (since 2026-10; it was in the static prompt before, paid on
 every turn without memory): prior notes, not confirmed facts and not law;
 `user_confirmed` alone carries a confirmed fact's weight; entries run newest

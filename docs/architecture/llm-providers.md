@@ -73,7 +73,7 @@ that grades each answer against everything its turn registered (ADR-0139),
 resolved per turn on the `follow_ups` agent group and bound to temperature 0.
 The clarify step is configured by the `clarifier:` block on
 `chat_deepresearcher_agent` (`ClarifierSettings` in
-`packages/agent/src/agent/agents/piloti/clarify.py`): `llm` asks the questions and
+`packages/agent/src/agent/core/clarify.py`): `llm` asks the questions and
 `planner_llm` writes the plan, falling back to `llm` when unset.
 
 ## Runtime per-org model overrides (ADR-0014)

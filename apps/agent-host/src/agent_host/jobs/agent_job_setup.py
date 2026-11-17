@@ -297,7 +297,7 @@ async def _inject_identity_headers(state: Any, request: JobRequest) -> dict | No
 async def _inject_memory_header(state: Any, request: JobRequest) -> str | None:
     """WHAT the project already knows: a live digest, else the one the BFF built at submit.
 
-    The chat path's discipline (``piloti/conversation_register.py``): a
+    The chat path's discipline (``core/conversation_register.py``): a
     successful fetch is authoritative even when empty, since memory may have
     been cleared since the job fired.
     """

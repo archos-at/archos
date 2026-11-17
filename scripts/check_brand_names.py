@@ -51,12 +51,6 @@ What is not a hit
   `grid-org-<id>`, and the Qdrant aliases `piloti_corpus` and `piloti_office`.
   Renaming any of them copies every stored document or replaces every
   resource, and no customer reads them.
-- The module path on a Python ``from``/``import`` line into the chat agent's
-  package (``IMPORT_PATH``). The package's directory is the identifier, kept on
-  purpose because the checkpointer restores a graph by it, and is counted once
-  under its ``dir/`` key; every import of it is a consequence of that one name.
-  Counted per import, each new test of the package was a new hit only a
-  ``--rebaseline`` could admit. The path anywhere else still counts.
 - History and copy (``EXCLUDED``): ADRs, audits, release notes, migrations,
   the i18n dictionaries and the site's content, published assets, lockfiles,
   and Markdown, whose paths and names follow the code they describe.
@@ -112,6 +106,7 @@ EXCLUDED = re.compile(
             r"^apps/workspace/bff/http/legacy-header-names\.|^apps/agent-host/src/agent_host/legacy_headers\.py$",
             r"^packages/brand/identity\.json$|^apps/[^/]+/(.*/)?identity\.json$|^packages/agent/src/agent/common/identity\.json$",
             r"^tests/test_legacy_headers\.py$",
+            r"^packages/agent/src/agent/legacy_paths\.py$|^packages/agent/tests/agents/test_legacy_paths\.py$",
             r"^deploy/postgres/rename-legacy-names\.sh$|^deploy/pulumi/src/data/postgres-rename\.ts$",
             r"^deploy/pulumi/index-postgres-rename\.spec\.ts$|^tests/test_postgres_rename_legacy_names\.py$",
             r"^apps/workspace/app/storage-rename-boot(\.spec)?\.ts$",
@@ -178,9 +173,6 @@ def branded_tokens(text: str) -> list[str]:
     return tokens
 
 
-IMPORT_PATH = re.compile(r"^(\s*(?:from|import)\s+)agent\.agents\.piloti(?!\w)(?:\.\w+)*", re.M)
-
-
 def _without_exempt_names(text: str) -> str:
     """``text`` with URLs, the repository's own name and the pending infra names blanked.
 
@@ -197,8 +189,6 @@ def _without_exempt_names(text: str) -> str:
         text = EXTERNAL_NAMES.sub(" ", text)
     if "aiq-a" in text:
         text = PENDING_INFRA_NAMES.sub(" ", text)
-    if "agent.agents." in text:
-        text = IMPORT_PATH.sub(r"\1", text)
     return text
 
 

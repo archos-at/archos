@@ -416,7 +416,7 @@ class TestRunAgentStateFields:
     @pytest.mark.asyncio
     async def test_run_agent_skips_unsupported_state_fields(self):
         """Fields absent from a state model are not passed (no validation errors)."""
-        from agent.agents.piloti.models import ResearchAgentState
+        from agent.core.models import ResearchAgentState
         from agent_host.jobs.runner import _run_agent
 
         captured: dict = {}
@@ -426,7 +426,7 @@ class TestRunAgentStateFields:
                 captured["state"] = state
                 return state
 
-        FakeChatAgent.__module__ = "agent.agents.piloti.agent"
+        FakeChatAgent.__module__ = "agent.core.agent"
         FakeChatAgent.__name__ = "ChatAgent"
         FakeChatAgent.state_model = ResearchAgentState
 

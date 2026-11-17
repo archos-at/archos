@@ -112,8 +112,8 @@ def test_the_generic_card_seed_carries_the_craft_the_tool_no_longer_states():
 
 
 CHAT_PROMPT_FILES = (
-    REPO_ROOT / "packages/agent/src/agent/agents/piloti/prompts/chat_static.md",
-    REPO_ROOT / "packages/agent/src/agent/agents/piloti/prompts/piloti.j2",
+    REPO_ROOT / "packages/agent/src/agent/core/prompts/chat_static.md",
+    REPO_ROOT / "packages/agent/src/agent/core/prompts/system.j2",
 )
 DEEP_WRITER_PROMPT = REPO_ROOT / "packages/agent/src/agent/agents/deep_researcher/prompts/writer.j2"
 DEEP_AGENT = REPO_ROOT / "packages/agent/src/agent/agents/deep_researcher/agent.py"
@@ -462,8 +462,8 @@ def test_the_card_craft_the_retired_seed_taught_lives_in_the_tool():
     assert "never a second operand" in doctrine
     assert "delete the cards mentally" in _build_tool_description().lower()
 
-    from agent.agents.piloti.prompt import bundled_static_block
-    from agent.agents.piloti.prompt import render_static_block
+    from agent.core.prompt import bundled_static_block
+    from agent.core.prompt import render_static_block
 
     system = render_static_block(bundled_static_block().text)
     assert "[[card:N]]" in system

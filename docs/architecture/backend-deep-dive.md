@@ -66,9 +66,9 @@ Browser WebSocket
 ```
 
 Key files:
-- Graph build: `packages/agent/src/agent/agents/piloti/conversation.py` (`_build_graph`,
+- Graph build: `packages/agent/src/agent/core/conversation.py` (`_build_graph`,
   nodes). The escalation edge and the conversation-scoped state belong to the agent; the workflow only wires them up.
-- Workflow registration + response creation: `packages/agent/src/agent/agents/piloti/conversation_register.py`.
+- Workflow registration + response creation: `packages/agent/src/agent/core/conversation_register.py`.
 - Wire types: `packages/agent/src/agent/common/wire_v2.py`, the contract both tiers are
   generated from and tested against (`contracts/wire/v2/`).
 
@@ -106,7 +106,7 @@ field at its default, and each is reset at the turn boundary in
   deep-escalating on a bug.
 - `answer_confidence_reason` (≤300 chars) — the model's own one-clause
   justification. The agent may append `| <reason>` to its terminal
-  `[CONFIDENCE:<level>]` marker (`piloti.j2`); `markers.py` parses it
+  `[CONFIDENCE:<level>]` marker (`system.j2`); `markers.py` parses it
   (fail-open: an invalid level discards level AND reason, the reason is trimmed
   and capped), and `conversation.py::_finalize_answer` carries it as
   `answer_confidence_reason` alongside the level. Escalated turns drop it.
@@ -161,7 +161,7 @@ field at its default, and each is reset at the turn boundary in
   was derived from (`ifc_spatial.envelope.Answer`). The agent's tools node records
   `answer_measurement_grounded` when this turn produced at least one
   `declared`/`computed` `ifc_measure` answer (a sticky OR across the tool loop;
-  `piloti/grounding.py` decides what counts — a refusal, an outage, an
+  `core/grounding.py` decides what counts — a refusal, an outage, an
   `inferred` guess and a `decidable: false` finding all do not), and the
   measured values reach the answer check beside the passages, which is told
   that a measurement never backs a statement about what a regulation requires.
@@ -299,7 +299,7 @@ next real turn's `ainvoke` then reads the ingested turns as ordinary history.
 Key pieces:
 - Char caps, appender registry: `packages/agent/src/agent/conversation_context.py`.
 - The appender is *published*, not imported: `agent_host` owns the socket and
-  `agent` owns the graph, so `piloti/conversation_register.py` calls
+  `agent` owns the graph, so `core/conversation_register.py` calls
   `register_context_appender(agent.append_context_message)` where the compiled graph
   (and its checkpointer) exists.
 - Fail-soft throughout. A missing appender, a dead checkpointer or a raising append is
@@ -705,7 +705,7 @@ alone.
 retrieval to the right file answers "where do I look"; it does not answer "what
 is *this document*". `register.py` lifts the turn ContextVars onto
 `ConversationState.focus_file_name` / `.focus_shelf`, the graph carries them
-into `ResearchAgentState`, and the answering prompt (`piloti.j2`
+into `ResearchAgentState`, and the answering prompt (`system.j2`
 §"This turn's subject") names the file — so a bare "fass zusammen" has an
 antecedent. Without that the model asked which document the user meant while
 the composer bar on screen said exactly which one, and retrieval's correct
@@ -734,7 +734,7 @@ double LLM failure" below for the fix that closed the practical case of
 this.
 
 `available_documents` is fetched **once per turn**, in
-`piloti/conversation_register.py`, aggregated across the collections in the
+`core/conversation_register.py`, aggregated across the collections in the
 request's header-based scope (or the base + session collection fallback when
 no scope header is present). Identity is `(collection, file_name)` — the same
 filename on the Büroablage and in a project is two documents (ADR-0047). The
@@ -768,10 +768,10 @@ prompts (`agents/deep_researcher/prompts/planner.j2`,
 `agents/deep_researcher/prompts/researcher.j2`, and
 `agents/deep_researcher/prompts/source_router.j2`) used to gate document
 *awareness* purely on `available_documents` being non-empty, unlike the agent's unconditional "use `knowledge_search` first" instruction
-(`agents/piloti/prompts/piloti.j2:31`). The document
+(`core/prompts/system.j2:31`). The document
 *listing* block is still wrapped in `{% if available_documents %}` (nothing
 to list when the document_metadata table has no row), but `planner.j2` and
-`piloti.j2` now separately instruct the agent to probe `knowledge_search`
+`system.j2` now separately instruct the agent to probe `knowledge_search`
 unconditionally whenever the query concerns project/user content — "do this
 regardless of whether the ... list below is empty or missing" — explaining
 that the list "comes from a summaries index that can lag ingestion and
@@ -796,7 +796,7 @@ at indexing and is the wrong place to look.
 
 The prompts therefore label the block "Knowledge-base inventory (index — NOT
 sources)" and state that a filename is not citable until a retrieval result has
-returned a passage from it (`piloti/prompts/piloti.j2`,
+returned a passage from it (`core/prompts/system.j2`,
 `deep_researcher/prompts/{researcher,orchestrator}.j2`); the anti-memory rule in
 `<citation_format>` covers document citation keys and not only URLs, and the
 prompt no longer tells the model that verification will sort the references out
@@ -1218,7 +1218,7 @@ thing the budget can buy. The live line names what is being read rather than a
 corpus: `status.retrieval.punkt` / `status.retrieval.page`
 ("Liest OIB-Richtlinie 2, Pkt. 3.5.2").
 
-A fetch it already made this turn is not made twice. `piloti/agent.py` derives a
+A fetch it already made this turn is not made twice. `core/agent.py` derives a
 signature per call (`fetch_signature` in `common/tool_calls.py`: the tool plus
 its locus or its query and narrowing) and carries the turn's `executed_fetches`
 on the state; a `knowledge_search` or `read_passage` call whose signature already
@@ -1385,7 +1385,7 @@ Five retrieval-quality improvements sit in the knowledge layer's ranked search
    `deleteDerivedObjects` (`lib/documents/object-cleanup.ts`). One turn may
    call the tool at most `MAX_IMAGE_VIEWS_PER_TURN` times (6,
    `common/image_view_budget.py`, a per-turn ContextVar bound beside the card
-   registry in `piloti/conversation_register.py`); past that it answers with a
+   registry in `core/conversation_register.py`); past that it answers with a
    text block. Because the SeaweedFS `storage_key` lives only in the frontend's
    `documents` table, the tool resolves `(collection, filename)` through a new
    token-guarded BFF route `GET /api/internal/document-file`
@@ -1837,7 +1837,7 @@ runner). And the research tab can 403 — see §9.
 
 **Collection-scope re-injection gap — now diagnosable (fixed 2026-07-16,
 `f8093a0`)**: the `X-Grid-Collection-Scope` header is captured once at submit
-time (`piloti/conversation_register.py`) and threaded into the async job payload
+time (`core/conversation_register.py`) and threaded into the async job payload
 as `collection_scope`. The research worker only re-injects it into its own
 request context conditionally — `apps/agent-host/src/agent_host/jobs/agent_job_setup.py`
 (`_inject_scope_headers`) does `if collection_scope is not None:` before base64url-encoding it back
@@ -1934,7 +1934,7 @@ Registered agents (via the runtime's `@register_function` + `FunctionBaseConfig`
 `chat_deepresearcher_agent` (entrypoint), `shallow_research_agent`,
 `deep_research_agent` (+ eval/placeholder wrappers). The clarifier is no longer
 among them: it is a step of the conversation graph
-(`piloti/clarify.py`) configured by the `clarifier:` block on
+(`core/clarify.py`) configured by the `clarifier:` block on
 `chat_deepresearcher_agent`.
 
 No shared base-agent class exists; the remaining agent classes each repeat: tool
@@ -1958,7 +1958,7 @@ change lands in the wrong place and appears not to work.
 
 A request is `[system prompt, *earlier turns, turn context, newest question,
 *this turn]` (`prompt.request_messages`). The system prompt is the static half
-alone, the same bytes on every turn; the turn context (`piloti.j2`) is its own
+alone, the same bytes on every turn; the turn context (`system.j2`) is its own
 message right before the newest question, request-only (never stored in the
 transcript). So the system prompt and every earlier turn are a prefix the next
 round and the next turn share byte for byte, and the provider's cache reaches
@@ -1982,7 +1982,7 @@ past the system prompt into the history.
    layer collates (ADR-0046, §8d). Nothing here is authored in a prompt file at
    all: a skill is a document the agent decides to read.
 
-**What the turn context carries, and why it is short.** `piloti.j2`
+**What the turn context carries, and why it is short.** `system.j2`
 renders per-turn FACTS and nothing standing: the date and user, what this turn
 cannot do (a restricted conversation, deep research off), the one drafting
 sentence no tool can carry (what „mach daraus ein File" refers to), the skills
@@ -2002,7 +2002,7 @@ which lives in the tool description that owns it (ADR-0060 (d)), a rail code
 enforces, or gone; the 2026-10 audit lists each line.
 
 **Git is the source of truth** (ADR-0060 (a)).
-`packages/agent/src/agent/agents/piloti/prompts/chat_static.md` is the prompt review
+`packages/agent/src/agent/core/prompts/chat_static.md` is the prompt review
 reads, and it is pushed to Langfuse, where labels carry experiments. It is also
 what a process renders when prompt management is off (the default), when the
 Langfuse keys are absent, when Langfuse is unreachable, or when it holds no

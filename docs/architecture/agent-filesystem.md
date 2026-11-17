@@ -143,12 +143,12 @@ the evidence tool surface went from 5,560 to 3,111 tokens per call (o200k).
 | Piece | Where |
 |---|---|
 | The descriptions, bare schema fields, `conclusion` on `grep` and `read_file` | `packages/agent/src/agent/tools/documents/tools.py` (`_ESTATE_DESCRIPTIONS`), `filesystem.py` |
-| `knowledge_search` (ranked only, `path`) and `list_files` (no tree view) where the estate is read | `packages/knowledge-layer/src/chat_binding.py`, applied in `agents/piloti/register._chat_bound` only when `filesystem` is set (`estate_paths.reads_the_estate`) |
+| `knowledge_search` (ranked only, `path`) and `list_files` (no tree view) where the estate is read | `packages/knowledge-layer/src/chat_binding.py`, applied in `core/register._chat_bound` only when `filesystem` is set (`estate_paths.reads_the_estate`) |
 | A retired argument is an error that names it and its replacement | the chat schemas forbid unknown arguments; `packages/agent/src/agent/common/retired_calls.py` adds the replacement in `tool_errors.render_tool_error` |
 | Shared hints state facts and name no tool | `read_passage/tool.py`, `register.py`, `browse/tool.py`, `document_groups.py`, `chunk_noise.py`, `vector_store/folders.py`, `already_read.py`, `revision_diff.py` |
 | A citation written as a path resolves to its key | `citations/citation_keys.py::citation_key_of_path` |
 | The coverage line and the `Herkunft:` line say what they mean | `common/grounding_block.COVERAGE_GAP_NOTE`, `AGENT_DOCUMENT_NOTE` |
-| The literal prefetch of a quoted term or a code | `agents/piloti/decisions._corpus_prefetch`: a `grep` with `output_mode="content"` on the shelf's mount, narrowed to the open document by `glob` |
+| The literal prefetch of a quoted term or a code | `core/decisions._corpus_prefetch`: a `grep` with `output_mode="content"` on the shelf's mount, narrowed to the open document by `glob` |
 
 Departures, each with its reason:
 
@@ -230,7 +230,7 @@ the turn's one.
   the listable one wins. The same name on two shelves is two paths, which is what
   the qualified citation key already says (`x.pdf (Büroablage), p.9`).
 - **Agent-filed documents** (`filename = 'piloti/<name>'`) appear as `<name>` in
-  their folder; no `piloti/` directory exists.
+  their folder; the prefix is never shown as a directory.
 - **Matching** for `glob` and resolution is case-insensitive, NFC, and folds ä→ae,
   ß→ss (the existing `browse.fold`), so `Plaene` finds `Pläne`.
 - **Canonical form.** Absolute POSIX paths only; `..`, percent-encoding and a

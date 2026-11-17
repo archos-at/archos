@@ -121,13 +121,6 @@ def test_the_external_names_the_owner_kept_are_not_counted(checker):
     assert checker.count_text("image grid-oib-backend, grid_document_id, piloti_corpus_v2") == 3
 
 
-def test_an_import_of_the_chat_package_is_not_a_new_name_but_the_path_elsewhere_is(checker):
-    assert checker.count_text("from agent.agents.piloti import run") == 0
-    assert checker.count_text("from agent.agents.piloti.prompt import TurnPrompt as PilotiPrompt") == 1
-    assert checker.count_text('module = "agent.agents.piloti.agent"') == 1
-    assert checker.count_text("from agent.agents.piloti_v2 import run") == 1
-
-
 def test_a_file_split_inside_a_package_directory_is_not_a_new_hit(checker, repo):
     _add(repo, "packages/agent/src/agent/big.py", "from agent.common import x\n")
     assert checker.main(["--rebaseline"]) == 0

@@ -438,7 +438,7 @@ Absence of every field is the unscoped project turn: the signed header stands
 as-is.
 
 `focus_file_name` is not only a retrieval hint. It is lifted onto
-`ConversationState` and rendered into the answering prompt (`piloti.j2`),
+`ConversationState` and rendered into the answering prompt (`system.j2`),
 because a turn that says "fass zusammen" carries its subject in the composer bar
 and nowhere in its text: with retrieval scoped correctly but the model told
 nothing, the answer was "which document do you mean?" over an open PDF. The
@@ -610,7 +610,7 @@ what it did before the canvas could ask.
 | `focus_region` | `{page, x, y, w, h, annotation_id?}` | A box a person drew on a page of the document the question is about. `page` counts from 1; `x`, `y`, `w`, `h` are shares of the page **as shown** (its rotation applied), origin top left, the frame an Anmerkung's region uses: `0 ≤ x, y ≤ 1`, `0 < w, h ≤ 1`, `x + w ≤ 1` and `y + h ≤ 1` (a rounding slack of 1e-6 is allowed; the JSON Schema cannot state the sums, so the server's model does and refuses the message). `annotation_id` names the Anmerkung the box is the region of, when the question was asked in its thread. |
 | `reply_in_thread` | `boolean` | The question was asked in the thread of `focus_region.annotation_id`. Without an `annotation_id` it means nothing. |
 
-What the turn does with them (`turn/payload.py`, `agents/piloti/prompt.py`):
+What the turn does with them (`turn/payload.py`, `core/prompt.py`):
 the system prompt gains a „Fokusbereich“ section naming the document, page and
 box in words, and telling the model to look at exactly that crop
 (`look` with `region=[x, y, w, h]`) before it answers. With

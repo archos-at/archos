@@ -35,7 +35,7 @@ def test_every_deep_research_prompt_introduces_the_agent_by_the_product_name(nam
 
 
 def test_the_agent_role_is_the_office_colleague_who_works_in_the_workspace_before_it_knows_the_law() -> None:
-    static = (ROOT / "packages/agent/src/agent/agents/piloti/prompts/chat_static.md").read_text(encoding="utf-8")
+    static = (ROOT / "packages/agent/src/agent/core/prompts/chat_static.md").read_text(encoding="utf-8")
     role = static.split("<role>", 1)[1].split("</role>", 1)[0]
     assert "colleague in this planning office" in role
     assert role.index("workspace") < role.index("building law")
@@ -43,7 +43,7 @@ def test_the_agent_role_is_the_office_colleague_who_works_in_the_workspace_befor
 
 
 def test_the_scan_sees_the_prompts() -> None:
-    assert "packages/agent/src/agent/agents/piloti/prompts/chat_static.md" in PROMPTS
+    assert "packages/agent/src/agent/core/prompts/chat_static.md" in PROMPTS
     assert len(PROMPTS) >= 8
 
 

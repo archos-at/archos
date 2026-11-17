@@ -107,7 +107,7 @@ process-lifetime handle holding no tenant or turn data:
   the retriever in `packages/knowledge-layer/src/search/query_embeddings.py`;
 - `knowledge/factory._SEARCH_RETRIEVER`, the retriever handle recorded when the
   knowledge tool is built;
-- `agents/piloti/register._WARMING`, strong references to running warm-ups, so
+- `core/register._WARMING`, strong references to running warm-ups, so
   the loop does not drop a task it holds only weakly;
 - the parsed-model cache in `apps/workspace/ui/features/diagrams/use-diagram-model.ts`,
   keyed by the mermaid source text and capped at 64.

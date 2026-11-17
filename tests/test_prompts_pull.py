@@ -21,7 +21,7 @@ def _load(name: str, relative: str):
 
 pull = _load("scripts.prompts_pull", "scripts/prompts_pull.py")
 
-BUNDLED = REPO_ROOT / "packages/agent/src/agent/agents/piloti/prompts/chat_static.md"
+BUNDLED = REPO_ROOT / "packages/agent/src/agent/core/prompts/chat_static.md"
 
 
 @pytest.fixture(autouse=True)
@@ -90,7 +90,7 @@ class TestWriteFallback:
         assert pull.write_fallback("SOME PROMPT", target) is False
 
     def test_the_bundled_file_round_trips_through_a_pull(self, tmp_path: Path):
-        bundled = REPO_ROOT / "packages/agent/src/agent/agents/piloti/prompts/chat_static.md"
+        bundled = REPO_ROOT / "packages/agent/src/agent/core/prompts/chat_static.md"
         target = tmp_path / "copy.md"
         target.write_text(bundled.read_text(encoding="utf-8"), encoding="utf-8")
 

@@ -53,7 +53,7 @@ happen.
 **New, and the largest single change.** „Schreib mir den Aktenvermerk" now
 produces a file rather than a long message: `write_file` into a per-conversation
 working folder (`packages/agent/src/agent/tools/documents/tools.py`, bound per turn at
-`packages/agent/src/agent/agents/piloti/register.py:325`), with a `document_draft` card
+`packages/agent/src/agent/core/register.py:325`), with a `document_draft` card
 beside the answer naming what was written
 (`apps/workspace/ui/features/cards/components/DocumentDraftCard.tsx`).
 „Kürze Punkt 3" edits that file in place instead of printing a second copy
@@ -92,7 +92,7 @@ and resolves itself once decided. **Den Agenten überarbeiten lassen** stands be
 version instead of handing the work back to a colleague
 (`piloti-ueberarbeiten-lassen`). In the same conversation the reviewer's words
 arrive verbatim as a `REVIEW_DECISIONS v1` block
-(`packages/agent/src/agent/agents/piloti/prompts/piloti.j2:365`); with no live conversation
+(`packages/agent/src/agent/core/prompts/system.j2:365`); with no live conversation
 a `revision` task is opened instead (`auftraege-und-ueberarbeitung`).
 
 **Where it breaks.** The submitter cannot approve their own version
@@ -143,7 +143,7 @@ assign — `set_doc_class` was deliberately left out
 
 **Note on the tool surface.** The four working-directory verbs are *not* in
 `configs/config_oib_openrouter.yml`; they are folded in per turn in
-`piloti/register.py` and vanish when a turn has no conversation (CLI, eval,
+`core/register.py` and vanish when a turn has no conversation (CLI, eval,
 worker). The YAML binds `file_draft`, `submit_draft`, `create_task` and the five
 proposal tools (`:557-600`, listed at `:660-666`).
 
@@ -257,7 +257,7 @@ proposal tools (`:557-600`, listed at `:660-666`).
   set, inside the migration. Guarded by `NOT EXISTS` and re-runnable; not
   batched. Nothing lands in a review queue, which is the right call and worth
   saying out loud to the pilot before the deploy.
-- **The interaction budget, 6 → 9** (`agents/piloti/agent.py:95-135`). Three more
+- **The interaction budget, 6 → 9** (`core/agent.py:95-135`). Three more
   non-research calls per turn. The derivation is written down and the ceiling is
   a ceiling, not a quota — but the same loop now has more room to spend on
   output before it spends on retrieval. No before/after measurement exists.
@@ -265,7 +265,7 @@ proposal tools (`:557-600`, listed at `:660-666`).
   text a model copies. A reader who sees the office's own approved document
   quoted beside an OIB passage may still read both as authority; the verdict
   gate protects the copyable value and not the prose.
-- **Prompt growth.** Three new blocks and +367 lines in `piloti.j2` (plus 69 in
+- **Prompt growth.** Three new blocks and +367 lines in `system.j2` (plus 69 in
   `plan_generation.j2`, 203 in `research_clarification.j2`). Every turn pays for
   them in tokens and latency, including the greeting. Unmeasured.
 

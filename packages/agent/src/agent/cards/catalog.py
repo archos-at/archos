@@ -819,7 +819,7 @@ def card_index_entries(
     """``(type, first docstring line)`` per content card the answering model may emit.
 
     The same rows :func:`render_card_index` prints, as data: what a decision
-    over "which card would this answer earn" (``agents/piloti/decisions.py``)
+    over "which card would this answer earn" (``core/decisions.py``)
     needs as its criteria, without parsing the rendered index back.
     """
     from agent.cards.models import AnswerCard
