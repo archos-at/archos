@@ -1980,15 +1980,11 @@ ingestion in the web process. See [`oib-sync.md`](../technical-reference/oib-syn
 `volumeClaimTemplates`, an immutable field, so the first `pulumi up` plans a
 **replace** of `aiq-agent` (delete-before-replace: a short outage of the chat
 tier). The old `data-aiq-agent-*` claims are retained by Kubernetes and nothing
-the new pods mount them. A one-shot `legacy-corpus-import` Job carried the
-corpus off `data-aiq-agent-0` into the corpus store
-(`agent.legacy_corpus_import`). It ran on staging and on production
-(2026-10-11) and has been removed from this program with its
-`grid-oib:legacyCorpusClaim` key. A stack that still holds a pre-A2 claim
-runs the importer by hand, from a pod that mounts the claim read-only:
-`python -m agent.legacy_corpus_import <mount>`. Deleting the old
-`data-aiq-agent-*` claims stays an operator step, once the knowledge view lists
-the corpus.
+the new pods mount them. A one-shot Job carried the corpus off
+`data-aiq-agent-0` into the corpus store on staging and on production
+(2026-10-11); it, its `grid-oib:legacyCorpusClaim` key and the importer
+(`agent.legacy_corpus_import`, removed 2026-11) are gone. Deleting the old
+`data-aiq-agent-*` claims stays an operator step.
 
 ### 6.4b Chat scale-out: affinity off, KEDA on running turns (ADR-0080)
 

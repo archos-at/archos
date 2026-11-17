@@ -95,11 +95,7 @@ and set their own `PROCESS_ROLE`, so the four cannot drift.
 There is no mount for the OIB Richtlinien PDFs: the base corpus lives in SeaweedFS
 and the `oib_corpus_files` table (ADR-0082 step A2). Upload it in the admin UI, or
 `scripts/upload_oib_corpus.py <directory>`; an empty corpus boots fine and answers
-nothing until it is filled. A stack upgraded from before A2 needs neither: the
-one-shot `legacy-corpus-import` service reads the old `aiq-data` volume and
-`data/oib` read-only and stores what they held, and the base-corpus housekeeping
-route indexes it. Remove the `aiq-data` volume once the knowledge view lists the
-corpus. The backend keeps no volume at all: the vectors are in
+nothing until it is filled. The backend keeps no volume at all: the vectors are in
 the shared `qdrant` service.
 
 **Healthcheck**: `python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"` — interval 15s, timeout 10s, retries 10, start period 30s.

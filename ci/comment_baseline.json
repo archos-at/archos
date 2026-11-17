@@ -578,7 +578,6 @@
   "packages/agent/src/agent/knowledge/scoping.py": 144,
   "packages/agent/src/agent/knowledge/title_block.py": 57,
   "packages/agent/src/agent/lazy_exports.py": 26,
-  "packages/agent/src/agent/legacy_corpus_import.py": 35,
   "packages/agent/src/agent/memory/reflection.py": 136,
   "packages/agent/src/agent/memory/reflection_prompt.py": 6,
   "packages/agent/src/agent/memory/register.py": 107,
