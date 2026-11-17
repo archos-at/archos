@@ -11,7 +11,6 @@ from urllib.parse import parse_qs
 from urllib.parse import urlparse
 
 from langchain_core.exceptions import OutputParserException
-from pydantic import AliasChoices
 from pydantic import BaseModel
 from pydantic import Field
 from pydantic import ValidationError
@@ -104,7 +103,7 @@ class RisSearchInput(BaseModel):
     query: str
     application: str = "BrKons"
     title: str = ""
-    federal_state: str = Field(default="", validation_alias=AliasChoices("federal_state", "bundesland"))
+    federal_state: str = ""
     date_from: str = ""
     date_to: str = ""
     page: int = 1

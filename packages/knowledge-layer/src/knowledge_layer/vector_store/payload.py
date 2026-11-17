@@ -14,6 +14,7 @@ from agent.knowledge.base import reading_order
 from agent.knowledge.document_classification import canonical_doc_class
 from agent.knowledge.document_classification import qdrant_doc_class
 
+from .legacy_names import LEGACY_DOCUMENT_ID_FIELD
 from .prefilter import FOLDER_FIELD
 from .prefilter import folder_ancestors
 from .schema import ADDED_AT_FIELD
@@ -22,6 +23,7 @@ from .schema import CHUNK_ID_FIELD
 from .schema import CHUNK_ORDINAL_FIELD
 from .schema import DATETIME_FIELDS
 from .schema import DOCUMENT_DATE_FIELD
+from .schema import DOCUMENT_ID_FIELD
 from .schema import FACT_KEYS
 from .schema import INDEXED_AT_FIELD
 from .schema import INTEGER_FIELDS
@@ -259,7 +261,17 @@ def build_payload(scope: str, record: ChunkRecord, enrichment: Mapping[str, Any]
 
 
 ENRICHED_FIELDS = frozenset(
-    {"office_id", "project_id", "grid_document_id", "folder_path", FOLDER_FIELD, "tags", "topics", "superseded"}
+    {
+        "office_id",
+        "project_id",
+        LEGACY_DOCUMENT_ID_FIELD,
+        DOCUMENT_ID_FIELD,
+        "folder_path",
+        FOLDER_FIELD,
+        "tags",
+        "topics",
+        "superseded",
+    }
     | {"doc_class", INDEXED_AT_FIELD, *DATETIME_FIELDS}
 )
 
@@ -270,7 +282,7 @@ def chunk_own_payload(scope: str, record: ChunkRecord) -> dict[str, Any]:
 
 STORE_ONLY_FIELDS = frozenset(
     {TEXT_FIELD, TEXT_STEM_FIELD, SCOPE_FIELD, CHUNK_ID_FIELD, READING_ORDER_FIELD}
-    | {"office_id", "project_id"}
+    | {"office_id", "project_id", DOCUMENT_ID_FIELD}
     | {
         CHUNK_ORDINAL_FIELD,
         "folder_path",

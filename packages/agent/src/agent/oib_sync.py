@@ -247,19 +247,8 @@ def mark_for_reingest(name: str, mark: corpus_store.FileMark | None = None) -> b
     return True
 
 
-IMPORT_PENDING_ENV = "VECTOR_IMPORT_PENDING"
-
-
 def _forget_everything_if_the_index_was_reset(rows: dict[str, corpus_store.FileRow]) -> dict[str, corpus_store.FileRow]:
     if not any(row.ingested_sha256 for row in rows.values()) or not _collection_is_empty(_get_oib_ingestor()):
-        return rows
-    if os.environ.get(IMPORT_PENDING_ENV, "").strip().lower() in ("1", "true", "yes"):
-        logger.warning(
-            "OIB sync: collection %s is empty while the table lists ingested files, and %s is set: "
-            "an import is pending, so nothing is re-ingested. Unset it once the import has verified",
-            COLLECTION_NAME,
-            IMPORT_PENDING_ENV,
-        )
         return rows
     logger.warning(
         "OIB sync: the table lists ingested files but collection %s is empty/missing "

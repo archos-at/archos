@@ -990,11 +990,3 @@ class TestLaneCapture:
                 "detail": "NOR40217157",
             }
         ]
-
-
-def test_ris_search_still_reads_the_old_state_argument_for_one_release():
-    from ris_adapter.register import RisSearchInput
-
-    assert RisSearchInput.model_validate({"query": "x", "bundesland": "Wien"}).federal_state == "Wien"
-    assert RisSearchInput.model_validate({"query": "x", "federal_state": "Tirol"}).federal_state == "Tirol"
-    assert "bundesland" not in RisSearchInput.model_json_schema()["properties"]

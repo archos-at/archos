@@ -16,6 +16,7 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { AddressField, type AddressFieldProps, type AddressValue } from './address-field'
 import { EMPTY_SITE_PLACE, SitePlaceFields, type SitePlace } from './site-place-fields'
 import { toFormData, type CreateProjectState } from './create-project-form-data'
+import { LEGACY_AGENT_SETUP } from '@/lib/projects/legacy-project-setup'
 import { createProject } from '@/app/app/(shell)/projects/actions'
 import {
   FileDropOverlay,
@@ -114,10 +115,10 @@ export function CreateProjectForm({
       created.current = true
       let result: Awaited<ReturnType<typeof createProject>>
       try {
-        result = await createProject({}, toFormData(value, holding.current ? dropKey : null, 'piloti'))
+        result = await createProject({}, toFormData(value, holding.current ? dropKey : null, LEGACY_AGENT_SETUP))
       } catch (error) {
         if (isRedirectSignal(error)) {
-          capturePosthog('project_created', { state: value.state, setup: 'piloti' })
+          capturePosthog('project_created', { state: value.state, setup: LEGACY_AGENT_SETUP })
           return
         }
         created.current = false
@@ -126,7 +127,7 @@ export function CreateProjectForm({
         return
       }
       if (!result?.error) {
-        capturePosthog('project_created', { state: value.state, setup: 'piloti' })
+        capturePosthog('project_created', { state: value.state, setup: LEGACY_AGENT_SETUP })
         return
       }
       created.current = false

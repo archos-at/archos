@@ -341,7 +341,7 @@ otherwise to state as „not verified because“ in the closing checklist.
   `packages/agent/pyproject.toml`; `configs/config_oib_openrouter.yml` (the
   function block and both tool lists); `common/backend_tools.py`;
   `common/tool_calls.py`; `common/workspace_records.py`;
-  `agents/piloti/turn_tools.py` (`_MODEL_KIND_OF_TOOL`); <!-- brand-history -->
+  `core/turn_tools.py` (`_MODEL_KIND_OF_TOOL`);
   `turn/context_client.py` (`_model_kinds` hard-codes `ifc` and `dxf`);
   `apps/workspace/bff/turn-context/wire.ts` (a strict object of `ifc` and `dxf`)
   and its service; `bff/bim/model-kinds-repository.ts`;
@@ -351,7 +351,7 @@ otherwise to state as „not verified because“ in the closing checklist.
   `ui/features/chat/lib/executed-steps.ts` and its copy in every dictionary;
   both token ceilings of `test_static_prefix_size.py` and both of
   `mcp-server.spec.ts` (decision 12);
-  `agents/piloti/AGENTS.md`. <!-- brand-history -->
+  `core/AGENTS.md`.
 * **Mind:** the turn-context wire is strict, so a new field needs the BFF and the
   agent to roll in an order the pull request states.
 * **Done when:** `test_chat_tools_are_classified.py`,

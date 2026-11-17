@@ -6,6 +6,7 @@ from typing import Any
 
 ENVIRONMENT_ATTRIBUTE = "langfuse.environment"
 RELEASE_ATTRIBUTE = "langfuse.release"
+TAGS_ATTRIBUTE = "langfuse.trace.tags"
 TRACE_NAME_ATTRIBUTE = "langfuse.trace.name"
 OBSERVATION_TYPE_ATTRIBUTE = "langfuse.observation.type"
 OBSERVATION_LEVEL_ATTRIBUTE = "langfuse.observation.level"
@@ -13,6 +14,10 @@ OBSERVATION_STATUS_MESSAGE_ATTRIBUTE = "langfuse.observation.status_message"
 
 ENVIRONMENT_ENV = "APP_ENV"
 RELEASE_ENV = "GIT_SHA"
+APP_HOST_ENV = "POSTHOG_APP_HOST"
+APP_HOST_TAG_PREFIX = "app_host:"
+DEPLOYMENT_ENV = "POSTHOG_DEPLOYMENT"
+DEPLOYMENT_TAG_PREFIX = "deployment:"
 
 _ENVIRONMENT_INVALID = re.compile(r"[^a-z0-9_-]+")
 _ENVIRONMENT_MAX = 40
@@ -53,6 +58,25 @@ def langfuse_release(raw: str | None = None) -> str | None:
     return value
 
 
+def app_host(raw: str | None = None) -> str | None:
+    value = (os.environ.get(APP_HOST_ENV, "") if raw is None else raw).strip().lower()
+    return value or None
+
+
+def deployment(raw: str | None = None) -> str | None:
+    value = (os.environ.get(DEPLOYMENT_ENV, "") if raw is None else raw).strip()
+    return value or None
+
+
+def deployment_tags() -> list[str]:
+    host = app_host()
+    name = deployment()
+    return [
+        *([f"{APP_HOST_TAG_PREFIX}{host}"] if host else []),
+        *([f"{DEPLOYMENT_TAG_PREFIX}{name}"] if name else []),
+    ]
+
+
 def process_trace_attributes() -> dict[str, Any]:
     attributes: dict[str, Any] = {}
     environment = langfuse_environment()
@@ -61,6 +85,9 @@ def process_trace_attributes() -> dict[str, Any]:
     release = langfuse_release()
     if release:
         attributes[RELEASE_ATTRIBUTE] = release
+    tags = deployment_tags()
+    if tags:
+        attributes[TAGS_ATTRIBUTE] = tags
     return attributes
 
 

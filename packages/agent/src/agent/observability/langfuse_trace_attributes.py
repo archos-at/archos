@@ -376,7 +376,7 @@ def context_attributes_for(
         additions[OBSERVATION_TYPE_ATTRIBUTE] = kind
     if is_root:
         additions[TRACE_NAME_ATTRIBUTE] = trace_name_for_root(name)
-        additions.update(outcome or {})
+        merge_span_attributes(additions, outcome or {})
     return additions
 
 

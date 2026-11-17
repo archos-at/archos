@@ -481,7 +481,6 @@ def test_a_prod_rollback_is_a_dispatch_tag_checked_before_it_reaches_a_command_l
     assert job["environment"]["name"] == "production"
     verify = _step_index(steps, "Verify the pinned images exist")
     assert "^sha-[0-9a-f]{40}$" in steps[verify]["run"]
-    assert "vector-store-floor.sh" in steps[verify]["run"]
     validate = steps[_step_index(steps, "Validate plan (CRD schemas + policy pack)")]
     assert all(key in validate["run"] for key in ("backendImage", "frontendImage", "webImage"))
     for name in ("Validate plan (CRD schemas + policy pack)", "Pulumi up"):

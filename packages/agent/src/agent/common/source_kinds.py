@@ -47,7 +47,7 @@ SOURCE_KINDS: dict[str, SourceKind] = {
     ),
 }
 
-AGENT_AUTHORED_LANE = "office_piloti"
+AGENT_AUTHORED_LANE = "office_agent"
 AGENT_AUTHORED_LANE_LABEL = f"{PRODUCT_NAME}-Dokument"
 
 MAIL_SOURCE_FORMAT = "mail"

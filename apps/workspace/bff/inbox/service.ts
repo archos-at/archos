@@ -122,7 +122,7 @@ export async function emitInboxItems(emissions: InboxEmission[]): Promise<number
       await publishToUser(recipientUserId, {
         kind: 'inbox.changed',
         pending: -1,
-        itemType: emission.type,
+        itemType: canonicalInboxType(emission.type) as InboxItemType,
       })
     }),
   )
@@ -394,7 +394,7 @@ async function markAnswersFor(
 
 function answerPlaceOf(row: InboxItem, reachable: boolean, answers: MarkAnswers): InboxAnswerPlace | null {
   if (!reachable || !asksAboutMark(row) || !answers.writable.has(row.resourceId)) return null
-  return row.type === 'piloti.asks_you' && !answers.wakesOn ? 'review' : 'row'
+  return canonicalInboxType(row.type) === 'agent.asks_you' && !answers.wakesOn ? 'review' : 'row'
 }
 
 function nonEmpty(value: unknown): string | null {
@@ -438,7 +438,7 @@ function toItemView(
     actorUserId: row.actorUserId,
     count: row.count,
     href: access
-      ? access.deepLink({ itemType: row.type, anchorId: row.anchorId, taskId, run })
+      ? access.deepLink({ itemType: canonicalInboxType(row.type), anchorId: row.anchorId, taskId, run })
       : null,
     subject: access ? coerceText(payload.subject, SUBJECT_MAX_LENGTH) : null,
     related: access ? coerceText(payload.related, SUBJECT_MAX_LENGTH) : null,
@@ -531,8 +531,8 @@ async function countFiltersAcross(
 
 export async function viewInboxItemAs(session: AuthorizedSession, row: InboxItem): Promise<InboxItemView | null> {
   const lanes = await lanesFor(session)
-  const inLaneOfRow = lanes.some((lane) => lane.organizationId === row.organizationId && lane.types.includes(row.type))
-  if (!inLaneOfRow) return null
+  const itemType = canonicalInboxType(row.type)
+  if (!lanes.some((lane) => lane.organizationId === row.organizationId && lane.types.includes(itemType))) return null
   const [targets, withheld, people] = await Promise.all([
     resolveTargets(session, [row]),
     rowsWithUnreadableRuns(session, [row]),

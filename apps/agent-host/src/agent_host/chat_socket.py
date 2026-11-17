@@ -4,7 +4,6 @@ import asyncio
 import contextlib
 import logging
 import os
-import re
 import time
 from collections.abc import AsyncIterator
 from collections.abc import Awaitable
@@ -72,6 +71,7 @@ from agent.conversation_context import ContextOnlyMessage
 from agent.conversation_context import append_conversation_context
 from agent.conversation_context import format_context_turn
 from agent.observability import answer_failure
+from agent.observability import answer_finished
 from agent.observability.answer_scores import steer_scores
 from agent.observability.langfuse_scores import emit_scores
 from agent.observability.langfuse_scores import file_tool_scores
@@ -136,6 +136,7 @@ from agent_host.startup_banner import deployed_sha
 from agent_host.tool_calls import tool_called_by
 from agent_host.turn_fence import TurnFence
 from agent_host.turn_fence import validate_running_ttl
+from agent_host.turn_outcome_notice import turn_outcome_report
 from agent_host.turn_record import TurnFrames
 from agent_host.turn_record import turn_row_metadata
 from agent_host.workflow_stream import stream_workflow
@@ -323,33 +324,6 @@ def _persist_in_background(
     )
 
 
-OUTCOME_OF_TERMINAL = {"answered": "answered", "refused": "refused", "handed_off": "handed_off", "cancelled": "stopped"}
-
-OUTCOME_REASON_CHARS = 500
-
-_TURN_ID = re.compile(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
-
-
-def _outcome_reason(text: str) -> str | None:
-    flat = " ".join((text or "").split())
-    if not flat:
-        return None
-    return flat if len(flat) <= OUTCOME_REASON_CHARS else flat[: OUTCOME_REASON_CHARS - 1].rstrip() + "…"
-
-
-def turn_outcome_report(
-    conversation_id: str, turn_id: str, terminal: RunFinishedBody | RunErrorBody
-) -> dict[str, Any] | None:
-    if not _TURN_ID.match(turn_id):
-        return None
-    if isinstance(terminal, RunErrorBody):
-        outcome, reason = "failed", _outcome_reason(terminal.message) or "failed"
-    else:
-        outcome = OUTCOME_OF_TERMINAL[terminal.outcome]
-        reason = _outcome_reason(terminal.result.text) if outcome == "refused" else None
-    return {"conversation_id": conversation_id, "turn_id": turn_id, "outcome": outcome, "reason": reason}
-
-
 async def _report_outcome(turn: RunningTurn, terminal: RunFinishedBody | RunErrorBody) -> None:
     report = turn_outcome_report(turn.wire.conversation_id, turn.wire.turn_id, terminal)
     if report is None:
@@ -508,6 +482,8 @@ class RunningTurn:
     envelope: SignedEnvelope | None = None
     envelope_user_id: str | None = None
     persisting: asyncio.Task[Any] | None = None
+    origin: answer_finished.TurnOrigin = answer_finished.TYPED_IN_CHAT
+    started_at: float = field(default_factory=time.monotonic)
     _followed: bool = field(default=False, init=False, repr=False)
 
     def __post_init__(self) -> None:
@@ -534,6 +510,7 @@ class RunningTurn:
         if self._followed or self.wire.terminal is None:
             return
         self._followed = True
+        answer_finished.report_turn_finished(self)
         in_background(_after_terminal(self))
 
     async def ask(self, prompt: InteractionPrompt) -> HumanResponse:
@@ -1289,6 +1266,7 @@ class ChatSocket:
             return
         self.registry.set_socket(conversation_id, self.socket)
         wire = TurnWire(conversation_id, message.message_id, self.registry.publish, fence.guard)
+        headless = bool(self.caller.get("headless"))
         turn = RunningTurn(
             wire=wire,
             asker_subject=self.subject,
@@ -1296,10 +1274,11 @@ class ChatSocket:
             holds_marker=fence.held,
             guard=fence.guard,
             reasoning_effort=message.reasoning_effort,
-            headless=bool(self.caller.get("headless")),
+            headless=headless,
             thread_reply=ThreadReply.requested_by(message),
             envelope=self.signed,
             envelope_user_id=self.signed_user_id,
+            origin=answer_finished.origin_of(message.trigger, self.socket.scope["headers"], headless=headless),
         )
         await wire.send(RunStartedBody(message_id=turn.message_id))
         if fence.refusal is not None:

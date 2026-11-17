@@ -49,6 +49,8 @@ from agent.common.wire_v2 import TurnResult
 from agent.common.wire_v2 import WireSource
 from agent.common.write_fence import TurnFenced
 from agent.common.write_fence import current_write_fence
+from agent.observability import answer_finished
+from agent.observability import posthog_client
 from agent.observability.langfuse_trace_attributes import IDENTITY_ATTRIBUTES_ENV
 from agent.observability.langfuse_trace_attributes import snapshot_contributions
 from agent.turn import annotation_reply
@@ -3086,3 +3088,140 @@ def test_a_service_token_turn_is_filed_under_the_envelope_user_not_internal():
     assert chat_socket.trace_user_id(bare, internal) == "internal"
     assert chat_socket.trace_user_id(signed, internal) == "user_01"
     assert chat_socket.trace_user_id(verified, internal) == "user_02"
+
+
+@pytest.fixture
+def product_events(monkeypatch) -> list[tuple[str, dict]]:
+    sent: list[tuple[str, dict]] = []
+    monkeypatch.setattr(posthog_client, "capture", lambda event, **kwargs: sent.append((event, kwargs)) or True)
+    return sent
+
+
+def _finished_events(sent: list[tuple[str, dict]]) -> list[dict]:
+    return [kwargs for event, kwargs in sent if event == "answer_finished"]
+
+
+async def _settled_finished_events(sent: list[tuple[str, dict]]) -> list[dict]:
+    await until(lambda: _finished_events(sent))
+    await _settle_background()
+    await asyncio.sleep(0.05)
+    return _finished_events(sent)
+
+
+async def test_an_answered_chat_turn_sends_answer_finished_once_with_its_ids(harness, product_events):
+    sock = harness().connect()
+    sock.client(type="user_message", message_id="t1", text="Wie lang?", reasoning_effort="high")
+    await until(lambda: _last(sock) == "RUN_FINISHED")
+
+    [sent] = await _settled_finished_events(product_events)
+    properties = sent["properties"]
+    assert sent["distinct_id"] == "user_asker"
+    assert {key: properties[key] for key in ("outcome", "message_id", "conversation_id", "effort", "door")} == {
+        "outcome": "ok",
+        "message_id": answer_message_id(CONV, "t1"),
+        "conversation_id": CONV,
+        "effort": "high",
+        "door": "chat",
+    }
+    assert properties["session_source"] == "ui"
+    assert isinstance(properties["duration_ms"], int) and properties["duration_ms"] >= 0
+    assert "trigger" not in properties
+
+
+async def test_a_turn_that_fails_before_it_streams_sends_answer_finished_error_once(harness, product_events):
+    async def failing(request, ask):
+        raise RuntimeError("the model is down")
+        yield  # pragma: no cover - makes this an async generator
+
+    sock = harness(failing).connect()
+    sock.client(type="user_message", message_id="t1", text="?")
+    await until(lambda: _last(sock) == "RUN_ERROR")
+
+    [sent] = await _settled_finished_events(product_events)
+    assert (sent["properties"]["outcome"], sent["properties"]["error_code"]) == ("error", "workflow_error")
+    assert [event for event, _ in product_events].count("answer_failed") == 1
+
+
+async def test_a_turn_with_no_result_sends_answer_finished_error_once(harness, product_events):
+    async def silent(request, ask):
+        yield TextMessageStartBody(message_id="m")
+
+    sock = harness(silent).connect()
+    sock.client(type="user_message", message_id="t1", text="?")
+    await until(lambda: _last(sock) == "RUN_ERROR")
+
+    assert [sent["properties"]["outcome"] for sent in await _settled_finished_events(product_events)] == ["error"]
+
+
+async def test_a_stopped_turn_sends_answer_finished_aborted_once(harness, persisted, product_events):
+    gate = Gate()
+    sock = harness(gate.turn).connect()
+    sock.client(type="user_message", message_id="t1", text="?")
+    await until(lambda: gate.calls)
+    sock.client(type="cancel_turn", turn_id="t1")
+    await until(lambda: persisted)
+    sock.client(type="cancel_turn", turn_id="t1")  # a second Stop finds no turn and sends nothing
+    await until(lambda: sock.rejected())
+
+    assert [sent["properties"]["outcome"] for sent in await _settled_finished_events(product_events)] == ["aborted"]
+
+
+async def test_a_question_the_fence_refuses_sends_answer_finished_refused(harness, monkeypatch, product_events):
+    owner, _, shared = _replicas()
+    monkeypatch.setenv("CHAT_AFFINITY", "0")
+    _bus_down(monkeypatch, shared, "set_nx", "get", "publish", "xadd")
+    sock = harness(answering, owner).connect()
+    sock.client(type="user_message", message_id="t1", text="?")
+    await until(lambda: _last(sock) == "RUN_FINISHED")
+
+    assert [sent["properties"]["outcome"] for sent in await _settled_finished_events(product_events)] == ["refused"]
+
+
+async def test_an_ask_through_an_agent_door_names_that_door_and_session_source(harness, bff, product_events):
+    door = [(b"x-turn-door", b"a2a"), (b"x-turn-session-source", b"script")]
+    sock = harness().connect(headers=[*HEADLESS, *door])
+    trigger = {"kind": "agent_consult", "event_id": WAKE, "annotation_id": None}
+    sock.client(type="user_message", message_id=WAKE, text="?", trigger=trigger, if_idle=True)
+    await until(lambda: bff.outcomes)
+
+    [sent] = await _settled_finished_events(product_events)
+    properties = sent["properties"]
+    assert (properties["door"], properties["session_source"], properties["trigger"]) == (
+        "a2a",
+        "script",
+        "agent_consult",
+    )
+    assert properties["outcome"] == "ok"
+
+
+async def test_a_browser_socket_cannot_name_an_agent_door(harness, product_events):
+    sock = harness().connect(headers=[(b"x-turn-door", b"mcp"), (b"x-turn-session-source", b"mcp")])
+    sock.client(type="user_message", message_id="t1", text="?")
+    await until(lambda: _last(sock) == "RUN_FINISHED")
+
+    [sent] = await _settled_finished_events(product_events)
+    assert (sent["properties"]["door"], sent["properties"]["session_source"]) == ("chat", "ui")
+
+
+async def test_a_wake_is_an_event_door_a_person_s_act_woke(harness, bff, product_events):
+    sock = harness().connect(headers=HEADLESS)
+    trigger = {"kind": "thread_mention", "event_id": "reply-7", "annotation_id": "a-1"}
+    sock.client(type="user_message", message_id=WAKE, text="?", trigger=trigger)
+    await until(lambda: bff.outcomes)
+
+    [sent] = await _settled_finished_events(product_events)
+    properties = sent["properties"]
+    assert (properties["door"], properties["session_source"], properties["trigger"]) == (
+        "event",
+        "ui",
+        "thread_mention",
+    )
+
+
+def test_the_door_headers_are_the_ones_the_bff_sends_and_its_proxy_strips():
+    workspace = Path(__file__).resolve().parents[3] / "apps" / "workspace" / "bff"
+    sender = (workspace / "turns" / "headless-mode.ts").read_text(encoding="utf-8")
+    proxy = (workspace / "proxy" / "ws-upgrade-headers.js").read_text(encoding="utf-8")
+    for header in (answer_finished.DOOR_HEADER, answer_finished.SESSION_SOURCE_HEADER):
+        assert f"'{header}'" in sender
+        assert f"'{header}'" in proxy

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import ast
 import io
+import re
 import sys
 import tokenize
 from pathlib import Path
@@ -48,6 +49,9 @@ def _comment_lines(source: str) -> set[int]:
     return found
 
 
+EXPIRY = re.compile(r"drop after release \S+?(?=[.\s\"]|$)")
+
+
 def purge(path: Path) -> int:
     source = path.read_text(encoding="utf-8")
     lines = source.split("\n")
@@ -62,6 +66,8 @@ def purge(path: Path) -> int:
         remove.update(range(start, end + 1))
         if sole:
             replace[start] = " " * col + "..."
+        elif marker := EXPIRY.search("\n".join(lines[start - 1 : end])):
+            replace[start] = " " * col + f"# {marker.group(0)}"
     if not remove:
         return 0
     out = []

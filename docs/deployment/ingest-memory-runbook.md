@@ -177,8 +177,8 @@ A run whose worker was OOM-killed is reassigned by Hatchet and counts an
 attempt; one that spent every attempt is failed, with each attempt's error on
 the run in the dashboard ([`hatchet.md`](hatchet.md), "Reaching the
 dashboard"). Failed `ingest-document` runs climbing while pods restarted is the
-sequence to look for. The old `ingest_job_queue` table is kept until the cutover
-drains it; [`hatchet.md`](hatchet.md) has the query that watches it empty.
+sequence to look for. The old `ingest_job_queue` table stays, unread, until a
+migration drops it; [`hatchet.md`](hatchet.md) has the query that checks it.
 
 ## 5. What the lab measures, before and after
 

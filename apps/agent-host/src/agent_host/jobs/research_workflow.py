@@ -208,8 +208,6 @@ def _touch_liveness(path: str) -> None:
 
 
 async def _liveness() -> AsyncIterator[None]:
-    from . import requeue_legacy
-
     path = os.environ.get("WORKER_LIVENESS_FILE", "/tmp/research-worker.alive")
 
     async def _touch() -> None:
@@ -218,14 +216,10 @@ async def _liveness() -> AsyncIterator[None]:
             await asyncio.sleep(_LIVENESS_EVERY_SECONDS)
 
     task = asyncio.create_task(_touch())
-    stop = asyncio.Event()
-    cutover = asyncio.create_task(requeue_legacy.cutover_loop(_db_url(), stop), name="research-cutover")
     try:
         yield None
     finally:
         task.cancel()
-        stop.set()
-        await asyncio.gather(cutover, return_exceptions=True)
 
 
 def run_worker() -> None:

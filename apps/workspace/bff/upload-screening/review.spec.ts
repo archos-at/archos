@@ -60,7 +60,7 @@ const member: AuthorizedSession = {
   featureFlags: null,
 }
 const orgAdmin: AuthorizedSession = { ...member, userId: 'user-admin', permissions: ['org:projects:administer'] }
-const archivist: AuthorizedSession = { ...member, userId: 'user-arch', permissions: ['org:archiv:manage'] }
+const archivist: AuthorizedSession = { ...member, userId: 'user-arch', permissions: ['org:office_shelf:manage'] }
 
 const verdict = 'quarantined:{"reasons":[{"kind":"term","term":"Lohnzettel","count":1,"pages":[1]},{"kind":"iban","count":1,"sample":"AT61 •••• 1234"}],"checked":"full"}'
 const quarantined = makeDocument({

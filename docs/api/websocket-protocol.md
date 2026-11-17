@@ -686,6 +686,10 @@ a server whose hello lists it (`user_message.trigger`, `user_message.if_idle`).
   then marked `headless` (and `skip_clarifier`), so the clarifier and its plan
   approval are skipped and `ask_user` refuses without prompting; the model asks
   in the thread instead of waiting thirty minutes on a socket nobody reads.
+  An ask through an agent door (`agent_consult`) also sends `x-turn-door`
+  (`mcp`, `a2a`) and `x-turn-session-source` (`mcp`, `script`), the door its
+  turn's `answer_finished` is filed under. The backend reads them only on a
+  headless socket, and `server.js` strips both from a browser's upgrade.
 - **Before sending,** read the hello: `accepts` must hold
   `user_message.trigger` and `user_message.if_idle`. A server without them
   (or `WIRE_V2_ADDITIVE_FIELDS` set off) would supersede a typed turn; do not

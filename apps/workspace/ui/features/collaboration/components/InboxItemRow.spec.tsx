@@ -758,7 +758,7 @@ describe('InboxItemRow — a new Fassung (document.new_revision)', () => {
 describe('InboxItemRow — what the agent did, in the reader’s words', () => {
   const onMark = (overrides: Partial<InboxItemView> = {}) =>
     item({
-      type: 'piloti.work_done',
+      type: 'agent.work_done',
       state: 'unread',
       archived: false,
       read: false,
@@ -803,20 +803,20 @@ describe('InboxItemRow — what the agent did, in the reader’s words', () => {
     ['access', new RegExp(String.raw`${PRODUCT_NAME} konnte sich nicht in Ihrem Namen anmelden\.`)],
     ['error', /Die Bearbeitung brach ab, bevor eine Antwort da war\./],
   ] as const)('a failure says why (%s) and what the reader can do', (variant, body) => {
-    german(onMark({ type: 'piloti.work_failed', variant }))
+    german(onMark({ type: 'agent.work_failed', variant }))
     expect(screen.getByText(`${PRODUCT_NAME} konnte Anmerkung 4 in „Grundriss EG“ nicht bearbeiten`)).toBeInTheDocument()
     expect(screen.getByText(body)).toBeInTheDocument()
   })
 
   test('a failure stored before the reason was kept reads the general sentence', () => {
-    german(onMark({ type: 'piloti.work_failed', variant: null }))
+    german(onMark({ type: 'agent.work_failed', variant: null }))
     expect(
       screen.getByText(`Öffnen Sie die Anmerkung: Bitten Sie ${PRODUCT_NAME} noch einmal darum oder bearbeiten Sie sie selbst.`),
     ).toBeInTheDocument()
   })
 
   test('a variant the build has no words for reads the type’s general wording', () => {
-    german(onMark({ type: 'piloti.work_failed', variant: 'quota_from_the_future' }))
+    german(onMark({ type: 'agent.work_failed', variant: 'quota_from_the_future' }))
     expect(screen.getByText(`${PRODUCT_NAME} konnte Anmerkung 4 in „Grundriss EG“ nicht bearbeiten`)).toBeInTheDocument()
     expect(screen.getByText(new RegExp(String.raw`Bitten Sie ${PRODUCT_NAME} noch einmal darum oder bearbeiten Sie sie selbst`))).toBeInTheDocument()
   })
@@ -837,7 +837,7 @@ describe('InboxItemRow — what the agent did, in the reader’s words', () => {
   })
 
   test('a Rückfrage asks the reader, with the question below', () => {
-    const asks = onMark({ type: 'piloti.asks_you', actionable: true, excerpt: 'Ist die Brüstungshöhe hier 1,00 m?' })
+    const asks = onMark({ type: 'agent.asks_you', actionable: true, excerpt: 'Ist die Brüstungshöhe hier 1,00 m?' })
     german(asks)
     expect(screen.getByText(`${PRODUCT_NAME} hat eine Rückfrage an Sie zu Anmerkung 4 in „Grundriss EG“`)).toBeInTheDocument()
     expectBodyOnlyInPush(asks, `${PRODUCT_NAME} wartet auf Ihre Antwort. Antworten Sie im Verlauf der Anmerkung.`)
@@ -846,7 +846,7 @@ describe('InboxItemRow — what the agent did, in the reader’s words', () => {
 
   test('a proposal says what it changes; where it waits is the push’s sentence, the row leads there', () => {
     const proposal = onMark({
-      type: 'piloti.proposal_waiting',
+      type: 'agent.proposal_waiting',
       actionable: true,
       resourceType: 'conversation',
       resourceId: 'c1',
@@ -866,13 +866,13 @@ describe('InboxItemRow — what the agent did, in the reader’s words', () => {
 
 
   test('mirrors the meaning in English', () => {
-    render(<InboxItemRow item={onMark({ type: 'piloti.work_failed', variant: 'budget' })} />)
+    render(<InboxItemRow item={onMark({ type: 'agent.work_failed', variant: 'budget' })} />)
     expect(screen.getByText(`${PRODUCT_NAME} could not work on annotation 4 in “Grundriss EG”`)).toBeInTheDocument()
     expect(screen.getByText(/The usage budget is used up\./)).toBeInTheDocument()
   })
 
   test('a redacted row names neither the mark nor why', () => {
-    german(onMark({ type: 'piloti.work_failed', href: null, subject: null, related: null, excerpt: null, variant: null }))
+    german(onMark({ type: 'agent.work_failed', href: null, subject: null, related: null, excerpt: null, variant: null }))
     expect(screen.getByText(`${PRODUCT_NAME} konnte eine Anmerkung nicht bearbeiten`)).toBeInTheDocument()
     expect(screen.getByText('Das ist für Sie nicht mehr verfügbar.')).toBeInTheDocument()
   })
@@ -1206,7 +1206,7 @@ describe('InboxItemRow — a row about a mark acts on the mark', () => {
   })
 
   test('answers the agent’s question, but does not resolve the mark for it', () => {
-    render(<InboxItemRow item={markRow({ type: 'piloti.asks_you', actorName: null, actorUserId: null })} markClient={client()} />)
+    render(<InboxItemRow item={markRow({ type: 'agent.asks_you', actorName: null, actorUserId: null })} markClient={client()} />)
     expect(screen.getByTestId('inbox-mark-reply')).toBeInTheDocument()
     expect(screen.queryByTestId('inbox-mark-resolve')).not.toBeInTheDocument()
   })
@@ -1221,7 +1221,7 @@ describe('InboxItemRow — a row about a mark acts on the mark', () => {
   test('leads the agent’s question to the review when the answer must be asked from there, and claims no answer here', () => {
     render(
       <InboxItemRow
-        item={markRow({ type: 'piloti.asks_you', actorName: null, actorUserId: null, answerIn: 'review' })}
+        item={markRow({ type: 'agent.asks_you', actorName: null, actorUserId: null, answerIn: 'review' })}
         markClient={client()}
       />,
     )
@@ -1366,7 +1366,7 @@ describe('InboxItemRow — who and what at a glance', () => {
     )
     expect(screen.queryByTestId('person-avatar')).not.toBeInTheDocument()
     unmount()
-    render(<InboxItemRow item={item({ type: 'piloti.work_done', actionable: false, actorName: null, actorUserId: null })} />)
+    render(<InboxItemRow item={item({ type: 'agent.work_done', actionable: false, actorName: null, actorUserId: null })} />)
     expect(document.querySelector('[data-slot="agent-glyph"]')).toHaveAttribute('data-tone', 'outline')
     expect(screen.queryByTestId('person-avatar')).not.toBeInTheDocument()
   })
@@ -1413,7 +1413,7 @@ describe('InboxItemRow — who and what at a glance', () => {
       <I18nProvider initialLocale="de" fixedLocale>
         <InboxItemRow
           item={item({
-            type: 'piloti.proposal_waiting',
+            type: 'agent.proposal_waiting',
             actorName: null,
             actorUserId: null,
             resourceType: 'project',

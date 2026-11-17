@@ -223,7 +223,7 @@ describe('markItemsInertAnchoredOn', () => {
   it('turns every live item of the named types on one anchor inert, for everyone, and wipes what it quoted', async () => {
     await markItemsInertAnchoredOn({
       organizationId: 'org_1',
-      types: ['piloti.asks_you', 'annotation.activity'],
+      types: ['agent.asks_you', 'annotation.activity'],
       anchorId: 'ann_1',
     })
 
@@ -236,7 +236,7 @@ describe('markItemsInertAnchoredOn', () => {
     expect(sql).toContain('"anchor_id" = $')
     expect(sql).toContain('"inert_at" is null')
     expect(sql).not.toContain('"recipient_user_id" = $')
-    expect(params).toEqual(expect.arrayContaining(['org_1', 'piloti.asks_you', 'annotation.activity', 'ann_1']))
+    expect(params).toEqual(expect.arrayContaining(['org_1', 'agent.asks_you', 'piloti.asks_you', 'annotation.activity', 'ann_1']))
   })
 
   it('turns one recipient’s items inert, and nobody else’s, when one is named', async () => {
@@ -267,7 +267,7 @@ describe('resolveOpenItemsAnchoredOn', () => {
   it('resolves the open items of the named types on one anchor, in one organization, for everyone', async () => {
     await resolveOpenItemsAnchoredOn({
       organizationId: 'org_1',
-      types: ['piloti.asks_you'],
+      types: ['agent.asks_you'],
       anchorId: 'ann_1',
     })
 
@@ -278,13 +278,13 @@ describe('resolveOpenItemsAnchoredOn', () => {
     expect(sql).toContain('"anchor_id" = $')
     expect(sql).toContain('"resolved_at" is null')
     expect(sql).not.toContain('"recipient_user_id" = $')
-    expect(params).toEqual(expect.arrayContaining(['org_1', 'piloti.asks_you', 'ann_1']))
+    expect(params).toEqual(expect.arrayContaining(['org_1', 'agent.asks_you', 'piloti.asks_you', 'ann_1']))
   })
 
   it('narrows to one recipient when one is named', async () => {
     await resolveOpenItemsAnchoredOn({
       organizationId: 'org_1',
-      types: ['piloti.asks_you'],
+      types: ['agent.asks_you'],
       anchorId: 'ann_1',
       recipientUserId: 'user_me',
     })
@@ -407,7 +407,8 @@ describe('listTouchedOfType — the rows a burst is made of', () => {
     await listTouchedOfType('org_1', 'user_me', 'annotation.assigned_to_you', { from, to }, 51)
 
     const { sql, params } = onlyQuery()
-    for (const column of ['organization_id', 'recipient_user_id', 'type']) expect(sql).toContain(`"inbox_items"."${column}" = $`)
+    for (const column of ['organization_id', 'recipient_user_id']) expect(sql).toContain(`"inbox_items"."${column}" = $`)
+    expect(sql).toContain('"inbox_items"."type" in ($')
     for (const state of ['read_at', 'archived_at', 'resolved_at', 'inert_at']) expect(sql).not.toContain(`"inbox_items"."${state}"`)
     expect(sql).toContain('"inbox_items"."updated_at" >= $')
     expect(sql).toContain('"inbox_items"."updated_at" <= $')

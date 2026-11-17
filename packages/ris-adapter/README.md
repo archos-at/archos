@@ -100,7 +100,7 @@ behavior with a warning):
 **Jurisdiction-aware matching.** Building law is state law, and the nine state
 codes all match generic topics like "bauordnung", so both tool consumers
 resolve the Bundesland before truncating results (`focus_entries`): the
-explicit `federal_state` argument (`ris_search`; the old `bundesland` is still read for one release) or the state named in the topic
+explicit `federal_state` argument (`ris_search`) or the state named in the topic
 (`ris_catalog_lookup`) drops the OTHER states' law and sorts the project's own
 state first; federal law always stays. The Bundesland itself comes from the
 structured `federal_state=<token>` fact the project-intake wizard writes into the

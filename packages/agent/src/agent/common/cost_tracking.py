@@ -21,6 +21,7 @@ from agent.common import bff_http
 from agent.common.provider_usage import ACCOUNTING_FIELDS
 from agent.common.provider_usage import as_int as _as_int
 from agent.common.provider_usage import install_chat_stream_cost_carrier
+from agent.common.provider_usage import model_id_once
 from agent.common.provider_usage import reported_cost as _reported_cost
 from agent.common.provider_usage import usage_from_langchain_metadata as _usage_from_langchain_metadata
 
@@ -180,7 +181,7 @@ def extract_usage_event(response: Any) -> UsageEvent | None:
     cost_usd = _reported_cost(usage.get("cost"), generation_id)
 
     return UsageEvent(
-        model=llm_output.get("model_name") or response_metadata.get("model_name"),
+        model=model_id_once(llm_output.get("model_name") or response_metadata.get("model_name")),
         requested_model=None,  # filled by the tracker from invocation params
         generation_id=generation_id,
         prompt_tokens=_as_int(usage.get("prompt_tokens")),

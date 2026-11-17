@@ -302,7 +302,7 @@ describe('a reply that wakes the agent', () => {
     expect(insertWake).toHaveBeenCalledWith(TX, expect.objectContaining({ status: 'suppressed', reason: 'cap:mark-hour' }))
     expect(recordAuditEvent).toHaveBeenCalledWith(
       expect.objectContaining({
-        action: 'piloti.wake.suppressed',
+        action: 'agent.wake.suppressed',
         targetId: MARK_ID,
         metadata: expect.objectContaining({ reason: 'cap:mark-hour', stage: 'enqueue', status: 'suppressed' }),
       })
@@ -770,7 +770,7 @@ describe('what a change or a reply tells people', () => {
 
 describe('the audit trail of a wake taken back', () => {
   const stopped = () =>
-    vi.mocked(recordAuditEvent).mock.calls.map(([input]) => input).filter((input) => input.action === 'piloti.wake.stopped')
+    vi.mocked(recordAuditEvent).mock.calls.map(([input]) => input).filter((input) => input.action === 'agent.wake.stopped')
   afterEach(() => {
     for (const [input] of vi.mocked(recordAuditEvent).mock.calls) expectRegistered(input)
   })
@@ -779,14 +779,14 @@ describe('the audit trail of a wake taken back', () => {
     vi.mocked(findDocumentAnnotation).mockResolvedValue(DELEGATED)
   })
 
-  it('records one piloti.wake.stopped for a queued wake, as the person who took it back', async () => {
+  it('records one agent.wake.stopped for a queued wake, as the person who took it back', async () => {
     vi.mocked(findLiveDelegationWake).mockResolvedValue(liveWake('queued', 'user_3'))
 
     await updateAnnotation(DOC_ID, MARK_ID, { delegateToPiloti: false }, { run })
 
     expect(stopped()).toEqual([
       {
-        action: 'piloti.wake.stopped',
+        action: 'agent.wake.stopped',
         organizationId: 'org_1',
         actor: { userId: 'user_1', email: 'a@example.test' },
         targetType: 'document_annotation',
@@ -864,7 +864,7 @@ describe('the audit trail of a wake taken back', () => {
     })
 
     expect(response.status).toBe(200)
-    expect(warn).toHaveBeenCalledWith(expect.stringContaining('piloti.wake.stopped'), expect.any(Error))
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('agent.wake.stopped'), expect.any(Error))
     warn.mockRestore()
   })
 })

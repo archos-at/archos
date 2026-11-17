@@ -241,7 +241,7 @@ describe('GET /api/proposals', () => {
       [OFFICE_SHELF, null, false],
     ])
     expect(requireProjectAccess).not.toHaveBeenCalled()
-    SESSION.permissions = ['org:archiv:manage']
+    SESSION.permissions = ['org:office_shelf:manage']
     expect((await listOpenProposals({ shelf: 'office_shelf' }, run)).proposals[0].proposal.canDecide).toBe(true)
   })
 
@@ -317,7 +317,7 @@ describe('a proposal no conversation made', () => {
 describe('the Büroablage', () => {
   it('is decided by its curators: a member gets a 403', async () => {
     await expect(applyProposal(OFFICE_SHELF, run)).rejects.toMatchObject({ status: 403 })
-    SESSION.permissions = ['org:archiv:manage']
+    SESSION.permissions = ['org:office_shelf:manage']
     const { proposal } = await applyProposal(OFFICE_SHELF, run)
     expect(proposal.status).toBe('applied')
     expect(moveDocumentToFolder).toHaveBeenCalledWith({ documentId: 'doc_n', folderId: 'f_normen' }, SESSION)

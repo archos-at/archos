@@ -74,7 +74,7 @@ def test_what_changes_how_every_python_test_runs_forces_the_full_suite(mod, path
 
 @pytest.mark.parametrize(
     "path",
-    ["scripts/release_notes.py", "packages/ifc-spatial-py/x.py", "deploy/migration/chroma_export.py"],
+    ["scripts/release_notes.py", "packages/ifc-spatial-py/x.py", "deploy/posthog/weekly-report/compact.py"],
 )
 def test_python_outside_the_tested_packages_forces_the_full_suite(mod, path):
     assert mod.decide_python([path], TESTS, recorded=True)[0] == "full"

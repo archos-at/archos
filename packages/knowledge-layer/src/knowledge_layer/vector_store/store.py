@@ -3,7 +3,6 @@ from __future__ import annotations
 import logging
 import threading
 import time
-import uuid
 from collections.abc import Callable
 from collections.abc import Iterable
 from collections.abc import Iterator
@@ -321,43 +320,6 @@ class QdrantStore:
                 yield str((record.payload or {}).get(CHUNK_ID_FIELD) or record.id)
             if offset is None:
                 return
-
-    def missing_chunk_ids(self, scope: str, chunk_ids: Sequence[str]) -> list[str]:
-        if not chunk_ids:
-            return []
-        if not self.exists(scope):
-            return list(chunk_ids)
-        by_point = {point_id(chunk_id): chunk_id for chunk_id in chunk_ids}
-        points = list(by_point)
-        present: set[str] = set()
-        for start in range(0, len(points), SCROLL_PAGE * 4):
-            found = self.client.retrieve(
-                self.alias(scope),
-                points[start : start + SCROLL_PAGE * 4],
-                with_payload=[SCOPE_FIELD],
-                with_vectors=False,
-            )
-            present.update(str(record.id) for record in found if (record.payload or {}).get(SCOPE_FIELD) == scope)
-        return [chunk_id for point, chunk_id in by_point.items() if point not in present]
-
-    def sample_chunk_ids(self, scope: str, size: int) -> list[str]:
-        if not self.exists(scope) or size <= 0:
-            return []
-        query_filter = scope_filter([scope])
-        ids: dict[str, None] = {}
-        for offset in (str(uuid.uuid4()), None):
-            page, _next = self.client.scroll(
-                self.alias(scope),
-                scroll_filter=query_filter,
-                limit=size - len(ids),
-                offset=offset,
-                with_payload=[CHUNK_ID_FIELD],
-                with_vectors=False,
-            )
-            ids.update(dict.fromkeys(str((record.payload or {}).get(CHUNK_ID_FIELD) or record.id) for record in page))
-            if len(ids) >= size:
-                break
-        return list(ids)
 
     def set_scope_payload(self, scope: str, payload: Mapping[str, Any]) -> bool:
         if not payload or not self.exists(scope):

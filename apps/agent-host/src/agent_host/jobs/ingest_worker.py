@@ -10,7 +10,6 @@ from collections.abc import AsyncIterator
 from agent.common.data_flow_register import assert_no_latent_vendor
 from agent.common.logging_utils import suppress_noisy_dependency_logs
 from agent.common.residency import assert_residency
-from agent.knowledge import ingest_cutover
 from agent.knowledge import ingest_workflow
 from agent.knowledge.leader_lock import require_direct_dsns
 
@@ -21,8 +20,6 @@ logger = logging.getLogger(__name__)
 
 _DEFAULT_CONFIG = "/app/configs/config_oib_openrouter.yml"
 _LIVENESS_EVERY_SECONDS = 15
-CUTOVER_EVERY_SECONDS = 60
-CUTOVER_QUIET_SECONDS = 3600
 
 
 def _pool() -> str:
@@ -57,38 +54,12 @@ async def ingestor_lifespan() -> AsyncIterator:
         clock.ready()
         boot_timing.flush()
         stop = asyncio.Event()
-        loops = [
-            asyncio.create_task(_liveness(stop), name="liveness"),
-            asyncio.create_task(_cutover_loop(stop), name="ingest-cutover"),
-        ]
+        liveness = asyncio.create_task(_liveness(stop), name="liveness")
         try:
             yield ingestor
         finally:
             stop.set()
-            await asyncio.gather(*loops, return_exceptions=True)
-
-
-def _cut_over() -> bool:
-    try:
-        if ingest_cutover.live_rows() == 0:
-            return False
-        ingest_cutover.redispatch_queued(ingest_workflow.trigger)
-    except Exception as error:  # noqa: BLE001 - a failed cutover must not keep the worker down
-        logger.warning("Ingest cutover pass failed (%s); the next one tries again", type(error).__name__)
-    return True
-
-
-async def _cutover_loop(
-    stop: asyncio.Event, *, every: float = CUTOVER_EVERY_SECONDS, quiet_for: float = CUTOVER_QUIET_SECONDS
-) -> None:
-    quiet = 0.0
-    while quiet < quiet_for:
-        quiet = 0.0 if await asyncio.to_thread(_cut_over) else quiet + every
-        with contextlib.suppress(TimeoutError):
-            await asyncio.wait_for(stop.wait(), timeout=every)
-        if stop.is_set():
-            return
-    logger.info("Ingest cutover: %s held no job for %ds; no longer checked", ingest_cutover.TABLE, int(quiet_for))
+            await asyncio.gather(liveness, return_exceptions=True)
 
 
 async def _liveness(stop: asyncio.Event) -> None:

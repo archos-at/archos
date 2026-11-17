@@ -1,0 +1,8 @@
+---
+# area: administration
+operators:
+  - >
+    Every analytics event and every agent trace now names the deployment it
+    came from, production or staging, by a name that stays the same when a
+    domain changes, so reports and alerts can stop keeping staging out by a
+    list of hostnames.

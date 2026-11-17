@@ -212,11 +212,10 @@
   "packages/agent/src/agent/knowledge/norm_store.py": 2,
   "packages/agent/src/agent/knowledge/permit_extraction.py": 16,
   "packages/agent/src/agent/knowledge/schema.py": 1,
-  "packages/agent/src/agent/legacy_corpus_import.py": 5,
   "packages/agent/src/agent/memory/reflection.py": 1,
   "packages/agent/src/agent/observability/langfuse_catalog.py": 4,
   "packages/agent/src/agent/oib_status.py": 40,
-  "packages/agent/src/agent/oib_sync.py": 15,
+  "packages/agent/src/agent/oib_sync.py": 14,
   "packages/agent/src/agent/profile_names.py": 17,
   "packages/agent/src/agent/project_context.py": 11,
   "packages/agent/src/agent/skills/builtin/bim/ifc-spatial-reasoning/SKILL.md": 9,
@@ -288,6 +287,6 @@
   "packages/ris-adapter/src/ris_adapter/lookup/render.py": 7,
   "packages/ris-adapter/src/ris_adapter/lookup/telemetry.py": 8,
   "packages/ris-adapter/src/ris_adapter/lookup/tool.py": 54,
-  "packages/ris-adapter/src/ris_adapter/register.py": 122,
+  "packages/ris-adapter/src/ris_adapter/register.py": 121,
   "packages/ris-adapter/src/ris_adapter/search_plan.py": 14
 }

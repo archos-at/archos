@@ -39,6 +39,7 @@ def _load_norm_registry_module():
             sys.modules[package] = stub
     _standalone_module("agent.common.brand", common_dir / "brand.py")
     _standalone_module("agent.common.source_kinds", common_dir / "source_kinds.py")
+    _standalone_module("agent.common.legacy_lane_names", common_dir / "legacy_lane_names.py")
     _standalone_module("agent.common.oib_file_names", common_dir / "oib_file_names.py")  # stdlib-only too
     _standalone_module("agent.profile_names", common_dir.parent / "profile_names.py")
     _standalone_module("agent.common.family_query", common_dir / "family_query.py")

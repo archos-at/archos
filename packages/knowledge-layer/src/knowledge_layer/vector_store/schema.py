@@ -12,6 +12,7 @@ from agent.knowledge.base import READING_ORDER
 
 from .config import replication_factor
 from .config import shard_number
+from .legacy_names import LEGACY_DOCUMENT_ID_FIELD
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +27,7 @@ BM25_DEFAULT_LENGTH: dict[str, float] = {"k": 1.2, "b": 0.75, "avg_len": 256.0}
 _BM25_LENGTH_KEYS = frozenset(BM25_DEFAULT_LENGTH)
 
 
-METADATA_KEYS = frozenset({"embed_fingerprint", "embed_model", "bm25_length", "vector_import"})
+METADATA_KEYS = frozenset({"embed_fingerprint", "embed_model", "bm25_length"})
 LEGACY_METADATA_PREFIX = "aiq:"
 
 
@@ -70,6 +71,7 @@ def effective_bm25_length(length: dict[str, float] | None) -> dict[str, float]:
 
 SCOPE_FIELD = "scope"
 OFFICE_FIELD = "office_id"
+DOCUMENT_ID_FIELD = "document_id"
 LICENCE_CLASS_FIELD = "licence_class"
 LICENCE_CLASSES = ("public_open", "public_restricted", "licensed")
 KNOWLEDGE_EDITION_FIELD = "knowledge_edition_id"
@@ -146,7 +148,8 @@ KEYWORD_FIELDS: tuple[str, ...] = (
     "guideline",
     OFFICE_FIELD,
     "project_id",
-    "grid_document_id",
+    LEGACY_DOCUMENT_ID_FIELD,
+    DOCUMENT_ID_FIELD,
     LICENCE_CLASS_FIELD,
     KNOWLEDGE_EDITION_FIELD,
     COUNTRY_FIELD,

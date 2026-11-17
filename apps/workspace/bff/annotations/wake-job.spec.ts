@@ -260,7 +260,7 @@ describe('what the socket answers', () => {
     await expect(runAgentWake('org_1', PAYLOAD, NOT_LAST)).resolves.toMatchObject({ done: true })
     expect(settleWake).toHaveBeenCalledWith('org_1', WAKE_ID, { status: 'refused', reason: 'Budget erschöpft.' })
     expect(recordAuditEvent).toHaveBeenCalledWith(
-      expect.objectContaining({ action: 'piloti.wake.ended', metadata: expect.objectContaining({ outcome: 'refused' }) })
+      expect.objectContaining({ action: 'agent.wake.ended', metadata: expect.objectContaining({ outcome: 'refused' }) })
     )
   })
 
@@ -336,7 +336,7 @@ describe('asked again when the job runs', () => {
 })
 
 describe('the audit trail of a wake that started', () => {
-  const started = () => vi.mocked(recordAuditEvent).mock.calls.filter(([input]) => input.action === 'piloti.wake.started')
+  const started = () => vi.mocked(recordAuditEvent).mock.calls.filter(([input]) => input.action === 'agent.wake.started')
   afterEach(() => {
     for (const [input] of vi.mocked(recordAuditEvent).mock.calls) expectRegistered(input)
   })
@@ -346,7 +346,7 @@ describe('the audit trail of a wake that started', () => {
 
     expect(recordAuditEvent).toHaveBeenCalledTimes(1)
     expect(started()[0][0]).toEqual({
-      action: 'piloti.wake.started',
+      action: 'agent.wake.started',
       organizationId: 'org_1',
       actor: { userId: 'user_anna', email: 'anna@example.at' },
       targetType: 'document_annotation',
@@ -468,14 +468,14 @@ describe('the audit trail of a wake the job ended', () => {
     for (const [input] of vi.mocked(recordAuditEvent).mock.calls) expectRegistered(input)
   })
 
-  it('records a refusal once as piloti.wake.ended, like a turn’s end, with the class of its reason', async () => {
+  it('records a refusal once as agent.wake.ended, like a turn’s end, with the class of its reason', async () => {
     vi.mocked(resolveTurnContext).mockRejectedValue(new TurnBudgetExhaustedError('user'))
 
     await runAgentWake('org_1', PAYLOAD, NOT_LAST)
 
     expect(audited()).toEqual([
       {
-        action: 'piloti.wake.ended',
+        action: 'agent.wake.ended',
         organizationId: 'org_1',
         actor: { userId: 'user_anna', email: 'anna@example.at' },
         targetType: 'document_annotation',
@@ -509,7 +509,7 @@ describe('the audit trail of a wake the job ended', () => {
     await runAgentWake('org_1', { ...PAYLOAD, waits }, NOT_LAST)
 
     expect(audited()).toHaveLength(1)
-    expect(audited()[0]).toMatchObject({ action: 'piloti.wake.ended', metadata: { outcome: recorded, reasonKind } })
+    expect(audited()[0]).toMatchObject({ action: 'agent.wake.ended', metadata: { outcome: recorded, reasonKind } })
   })
 
   it('says the delegation went back with it, and not when the hand-back failed', async () => {
@@ -536,12 +536,12 @@ describe('the audit trail of a wake the job ended', () => {
     expect(recordAuditEvent).not.toHaveBeenCalled()
   })
 
-  it('keeps piloti.wake.suppressed for a wake held before the agent was asked', async () => {
+  it('keeps agent.wake.suppressed for a wake held before the agent was asked', async () => {
     vi.mocked(getAccessibleDocument).mockRejectedValue(new ForbiddenError())
 
     await runAgentWake('org_1', PAYLOAD, NOT_LAST)
 
-    expect(audited().map((input) => input.action)).toEqual(['piloti.wake.suppressed'])
+    expect(audited().map((input) => input.action)).toEqual(['agent.wake.suppressed'])
     expect(audited()[0].metadata).toMatchObject({ status: 'suppressed', stage: 'claim' })
   })
 

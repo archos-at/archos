@@ -11,6 +11,8 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from typing import Any
 
+from opentelemetry.sdk.trace import SpanProcessor
+
 from agent.common import residency
 from agent.common.image_redaction import redact_inline_images
 from agent.common.licensed_text import trace_payload
@@ -85,8 +87,25 @@ def _build(endpoint: str | None, env: Mapping[str, str], exporter):
 
         exporter = OTLPSpanExporter(endpoint=signal_endpoint(endpoint or "", "traces"))
     provider = TracerProvider(resource=Resource.create(resource_attributes(env)))
+    provider.add_span_processor(ProcessContextSpanProcessor())
     provider.add_span_processor(BatchSpanProcessor(exporter))
     return provider
+
+
+def process_context_additions(existing: Mapping[str, Any]) -> dict[str, Any]:
+    additions = {key: value for key, value in process_trace_attributes().items() if key not in existing}
+    tags = process_trace_attributes().get(TAGS_ATTRIBUTE)
+    if tags:
+        additions[TAGS_ATTRIBUTE] = list(dict.fromkeys([*(existing.get(TAGS_ATTRIBUTE) or ()), *tags]))
+    return additions
+
+
+class ProcessContextSpanProcessor(SpanProcessor):
+    def on_start(self, span: Any, parent_context: Any = None) -> None:
+        try:
+            span.set_attributes(process_context_additions(span.attributes or {}))
+        except Exception:
+            logger.debug("direct_trace: could not stamp the process context onto a span", exc_info=True)
 
 
 def tracer_provider():
@@ -129,7 +148,7 @@ def generation_start_attributes(
     metadata: Mapping[str, Any] | None = None,
     nested: bool = False,
 ) -> dict[str, Any]:
-    attributes: dict[str, Any] = {**process_trace_attributes(), OBSERVATION_TYPE_ATTRIBUTE: "generation"}
+    attributes: dict[str, Any] = {OBSERVATION_TYPE_ATTRIBUTE: "generation"}
     if not nested:
         attributes[TRACE_NAME_ATTRIBUTE] = feature
         attributes[TAGS_ATTRIBUTE] = [f"feature:{feature}", AUXILIARY_SURFACE_TAG]
@@ -317,7 +336,6 @@ def observed_span(feature: str, *, metadata: Mapping[str, Any] | None = None) ->
                 context=_parent_context.get() or Context(),
                 kind=SpanKind.INTERNAL,
                 attributes={
-                    **process_trace_attributes(),
                     OBSERVATION_TYPE_ATTRIBUTE: "span",
                     TRACE_NAME_ATTRIBUTE: feature,
                     TAGS_ATTRIBUTE: [f"feature:{feature}", AUXILIARY_SURFACE_TAG],
@@ -403,7 +421,6 @@ def retrieval_attributes(
     metadata: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     return {
-        **process_trace_attributes(),
         OBSERVATION_TYPE_ATTRIBUTE: "retriever",
         TRACE_NAME_ATTRIBUTE: feature,
         TAGS_ATTRIBUTE: [f"feature:{feature}", AUXILIARY_SURFACE_TAG],

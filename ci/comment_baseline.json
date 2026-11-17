@@ -97,7 +97,6 @@
   "apps/workspace/workers/rederive-building-classes.js": 14,
   "deploy/pulumi/scripts/validate-crs.mjs": 51,
   "deploy/pulumi/src/platform/inbound-mail-worker.js": 43,
-  "packages/agent/src/agent/knowledge/document_metadata_store.py": 8,
   "packages/brand/art/riso/check.mjs": 9,
   "packages/brand/art/riso/export.mjs": 13,
   "packages/brand/art/riso/kit.mjs": 60,
@@ -110,6 +109,5 @@
   "packages/brand/name-copies.mjs": 14,
   "packages/brand/outline.mjs": 17,
   "packages/brand/sync.mjs": 30,
-  "packages/ris-adapter/tests/test_register.py": 7,
   "scripts/check_brand_rules.mjs": 47
 }

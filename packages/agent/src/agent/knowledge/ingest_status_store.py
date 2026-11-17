@@ -43,12 +43,6 @@ _SWEEP_LIMIT = 500
 
 _ADDED_COLUMNS = {"owner": "VARCHAR", "dispatch_key": "VARCHAR", "collection_name": "VARCHAR", "run_id": "VARCHAR"}
 
-_HOLD_QUEUED_AT_CUTOVER = (
-    "UPDATE ingest_jobs SET held_until = {until} WHERE (held_until IS NULL OR held_until <= {now}) AND job_id IN "
-    "(SELECT job_id FROM ingest_job_queue WHERE status IN ('queued', 'claimed'))"
-)
-_CUTOVER_HOLD_SECONDS = 24 * 3600
-
 _BACKFILL_COLLECTION_NAME = {
     True: "UPDATE ingest_jobs SET collection_name = CAST(status_json AS json) ->> 'collection_name' "
     "WHERE collection_name IS NULL",
@@ -102,9 +96,6 @@ def _add_missing_columns(conn, url: str) -> None:
     if "collection_name" not in present:
         # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
         conn.execute(text(_BACKFILL_COLLECTION_NAME[_is_postgres(url)]))
-    if "held_until" not in present and "ingest_job_queue" in inspect(conn).get_table_names():
-        # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
-        conn.execute(text(_HOLD_QUEUED_AT_CUTOVER.format(until=_from_now(url, _CUTOVER_HOLD_SECONDS), now=_now(url))))
     conn.execute(text("CREATE INDEX IF NOT EXISTS ix_ingest_jobs_dispatch_key ON ingest_jobs (dispatch_key)"))
     conn.execute(text("CREATE INDEX IF NOT EXISTS ix_ingest_jobs_collection_name ON ingest_jobs (collection_name)"))
 

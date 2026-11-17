@@ -10,12 +10,14 @@ from typing import Any
 
 from agent.common.source_kinds import office_shelf_organization_id
 
+from .legacy_names import LEGACY_DOCUMENT_ID_FIELD
 from .payload import ChunkRecord
 from .payload import document_facts
 from .payload import project_payload
 from .prefilter import FOLDER_FIELD
 from .schema import AI_PROCESSING_FIELD
 from .schema import COUNTRY_FIELD
+from .schema import DOCUMENT_ID_FIELD
 from .schema import INDEXED_AT_FIELD
 from .schema import KNOWLEDGE_EDITION_FIELD
 from .schema import LICENCE_CLASS_FIELD
@@ -49,7 +51,8 @@ def enrichment(scope: str, config: Mapping[str, Any] | None = None) -> dict[str,
     base: dict[str, Any] = {
         OFFICE_FIELD: office_id,
         "project_id": config.get("project_id"),
-        "grid_document_id": config.get("document_id"),
+        DOCUMENT_ID_FIELD: config.get("document_id"),
+        LEGACY_DOCUMENT_ID_FIELD: config.get("document_id"),
         "folder_path": config.get("folder_path"),
         INDEXED_AT_FIELD: int(time.time()),
         **licence_mark(scope, config),

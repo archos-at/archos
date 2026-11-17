@@ -65,3 +65,8 @@ def test_inline_script_metadata_survives(tmp_path):
     text = '#!/usr/bin/env python3\n# /// script\n# dependencies = ["x==1"]\n# ///\n# gone\nX = 1\n'
     out = _purge(tmp_path, "h.py", text)
     assert '# dependencies = ["x==1"]' in out and "# ///" in out and "# gone" not in out
+
+
+def test_a_docstring_marker_of_a_legacy_module_becomes_a_comment(tmp_path):
+    out = _purge(tmp_path, "g.py", '"""Old names: drop after release 2026-W48."""\n\nOLD = "x"\n')
+    assert out.startswith("# drop after release 2026-W48\n") and '"""' not in out

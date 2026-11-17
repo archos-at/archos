@@ -28,8 +28,9 @@ import {
   voidOpenRequestsForResource,
   voidOpenRequestsForSubject,
 } from './repository'
+import { LEGACY_AGENT_MENTION_ID } from './legacy-mention-ids'
 import {
-  AGENT_MENTION_ID,
+  isAgentMentionId,
   MENTION_ERROR_REASONS,
   type AddresseeSet,
   type AwaitingStateResponse,
@@ -93,9 +94,9 @@ export async function applyMessageMentions(
   const { session, resourceType, resourceId, anchorId } = input
 
   const targets = [...new Set(input.mentions.map((mention) => mention.targetId).filter(Boolean))]
-  const agentMentioned = targets.includes(AGENT_MENTION_ID)
+  const agentMentioned = targets.some(isAgentMentionId)
   const humanTargets = targets.filter(
-    (targetId) => targetId !== AGENT_MENTION_ID && targetId !== session.userId,
+    (targetId) => !isAgentMentionId(targetId) && targetId !== session.userId,
   )
 
   if (targets.length === 0) {
@@ -414,9 +415,9 @@ export async function listMentionCandidates(
 
   const candidates: MentionCandidate[] = [
     {
-      targetId: AGENT_MENTION_ID,
+      targetId: LEGACY_AGENT_MENTION_ID,
       person: {
-        userId: AGENT_MENTION_ID,
+        userId: LEGACY_AGENT_MENTION_ID,
         email: null,
         name: PRODUCT_NAME,
         profilePictureUrl: null,

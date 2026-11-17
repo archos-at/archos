@@ -146,6 +146,7 @@ export const chat = {
       authority: 'Official information',
       external_standard: 'External standard',
       office_piloti: '{productName} document',
+      office_agent: '{productName} document',
       measurement: 'Model measurement',
     },
   },
