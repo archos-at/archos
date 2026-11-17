@@ -261,9 +261,8 @@ function SwitchPage({ own, top, titleSwitch, mode, menuOpen, settingsOpen }: { o
             choice between the project's and the person's own stands at the title, in one of two positions. */}
         <div className={`bg-background absolute left-8 right-8 top-[10px] z-40 flex flex-col justify-between ${tall ? 'h-[152px]' : 'h-[68px]'}`}>
           {/* Where the reader stands. In a project „Meine Ablage“ opens at the folder that carries the project's name. */}
-          <span className="text-muted-foreground text-meta flex items-center gap-1.5">
-            {own ? 'Meine Ablage' : project.name}
-          </span>
+          {/* No crumb above the title where the track under it says whose Ablage this is. */}
+          <span className="text-muted-foreground text-meta flex items-center gap-1.5">{tall ? '' : own ? 'Meine Ablage' : project.name}</span>
           {tall && <h1 className="text-page-title">Ablage</h1>}
           {mode === 'wide' && (
             <div className="bg-desk grid max-w-[620px] grid-cols-2 rounded-[10px] p-1">
@@ -482,11 +481,11 @@ function InOfficeShelf(): JSX.Element {
 }
 
 /** The chat beside the rail as the concept now has it: bound to no project (`me`), or just started in one (`new`). */
-function Talk({ place }: { place: string }): JSX.Element {
+function Talk({ place, settingsOpen }: { place: string; settingsOpen: boolean }): JSX.Element {
   const own = place === 'me'
   return (
     <>
-      <Rail own={own} openChat={own ? 0 : null} />
+      <Rail own={own} openChat={own ? 0 : place === 'project' ? 1 : null} gear={settingsOpen ? 'menu' : 'none'} />
       <Page me={own} fresh={place === 'new'} noneLabel="Alle Projekte" />
     </>
   )
@@ -497,7 +496,7 @@ export default function PersonalFilesPreview(): JSX.Element {
   const variant = params?.get('v') ?? 'page'
   return (
     <I18nProvider initialLocale="de" fixedLocale>
-      <div className="bg-background text-foreground flex h-dvh overflow-hidden">{variant === 'talk' ? <Talk place={params?.get('place') ?? 'me'} /> : variant === 'all' ? <AllProjects page={params?.get('page') === 'automation' ? 'automation' : 'files'} own={params?.get('shelf') === 'own'} /> : variant === 'switch' ? <SwitchPage own={params?.get('shelf') === 'own'} top={params?.get('top') === 'all' ? 'all' : 'project'} mode={params?.get('mode') ?? 'track'} menuOpen={params?.get('open') === '1'} settingsOpen={params?.get('settings') === '1'} titleSwitch={params?.get('pos') === 'title'} /> : variant === 'office' ? <InOfficeShelf /> : variant === 'chat' ? <FromChat /> : <OwnPage />}</div>
+      <div className="bg-background text-foreground flex h-dvh overflow-hidden">{variant === 'talk' ? <Talk place={params?.get('place') ?? 'me'} settingsOpen={params?.get('settings') === '1'} /> : variant === 'all' ? <AllProjects page={params?.get('page') === 'automation' ? 'automation' : 'files'} own={params?.get('shelf') === 'own'} /> : variant === 'switch' ? <SwitchPage own={params?.get('shelf') === 'own'} top={params?.get('top') === 'all' ? 'all' : 'project'} mode={params?.get('mode') ?? 'track'} menuOpen={params?.get('open') === '1'} settingsOpen={params?.get('settings') === '1'} titleSwitch={params?.get('pos') === 'title'} /> : variant === 'office' ? <InOfficeShelf /> : variant === 'chat' ? <FromChat /> : <OwnPage />}</div>
     </I18nProvider>
   )
 }

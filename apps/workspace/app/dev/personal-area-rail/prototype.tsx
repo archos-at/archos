@@ -407,24 +407,6 @@ export function Page({ me, fresh = false, noneLabel = 'Ohne Projekt' }: { me: bo
       <div className="mx-auto mb-8 w-full max-w-2xl px-8">
         <div className="bg-sheet border-field-border flex flex-col gap-3 rounded-[10px] border p-3">
           <span className="text-muted-foreground text-sm">Frage stellen …</span>
-          {/* Only what varies: the knowledge base and the Büroablage are always drawn on, so they are not listed. */}
-          <div className="text-name flex flex-wrap items-center gap-1.5">
-            {!me && (
-              <span className="bg-desk inline-flex h-7 items-center gap-1.5 rounded-full px-2.5">
-                <Folder className="text-muted-foreground size-3.5" aria-hidden />
-                {PROJECTS[0]!.short}
-                {fresh && <X className="text-muted-foreground size-3.5" aria-label="Projekt entfernen" />}
-              </span>
-            )}
-            {across && (
-              <span className="bg-desk inline-flex h-7 items-center gap-1.5 rounded-full px-2.5">
-                <Folder className="text-muted-foreground size-3.5" aria-hidden />
-                Alle Projekte
-                <X className="text-muted-foreground size-3.5" aria-hidden />
-              </span>
-            )}
-            {me && !across && <span className="shadow-press inline-flex h-7 items-center rounded-full px-2.5">+ Projekt</span>}
-          </div>
         </div>
       </div>
     </main>
