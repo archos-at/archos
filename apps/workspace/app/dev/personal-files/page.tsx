@@ -77,7 +77,7 @@ function Rail({ own, ownFiles = false, officeShelfOpen = false, openChat = null,
         <SidebarContent className="mt-3 flex-1 gap-0 overflow-y-auto px-3 py-px">
           {section && (
             <SidebarMenu className="mb-6 gap-0.5">
-              <NavRow icon={Folder} label="Dateien" active={section === 'files'} />
+              <NavRow icon={Folder} label="Ablage" active={section === 'files'} />
               <NavRow icon={LayoutGrid} label="Übersicht" />
               <NavRow icon={Zap} label="Automatisierung" active={section === 'automation'} />
             </SidebarMenu>
@@ -225,9 +225,9 @@ const OWN_PROJECT_FILES: FileItem[] = [
 
 /**
  * D: one Dateien page. The track beside the tools says whose files these are: a project's (its name opens the list
- * of projects) or the person's own. `top` is what the rail's switcher shows, `menu` opens the list of projects.
+ * of projects) or the person's own. `top` is what the rail's switcher shows; `?pos=title` makes the two the title.
  */
-function SwitchPage({ own, top, menu, scoped }: { own: boolean; top: 'project' | 'all'; menu: boolean; scoped: boolean }): JSX.Element {
+function SwitchPage({ own, top, titleSwitch, scoped }: { own: boolean; top: 'project' | 'all'; titleSwitch: boolean; scoped: boolean }): JSX.Element {
   const [view, setView] = useState<FileView>('cards')
   const search = useFileSearch(projectSearchScope('proj-demo'))
   const project = PROJECTS[0]!
@@ -237,39 +237,29 @@ function SwitchPage({ own, top, menu, scoped }: { own: boolean; top: 'project' |
     <>
       <Rail own={top === 'all'} section="files" />
       <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-        {own && (
-          <div className="absolute left-[132px] top-[38px] z-10">
-            <OnlyYou />
-          </div>
-        )}
-        {/* One chooser for the project (the rail's switcher). `menu` keeps the earlier draft, where the track chose it too. */}
-        {menu ? (
-          <div className="absolute right-8 top-8 z-10">
-            <div className="bg-desk text-name flex rounded-control p-0.5 font-medium">
-              <span className={`${own ? off : on} inline-flex items-center gap-1`}>
-                {top === 'all' ? 'Projekt wählen' : project.short}
-                <ChevronDown className="size-3.5" aria-hidden />
-              </span>
-              <span className={own ? on : off}>Meine Dateien</span>
+        {/* The page's own title row, drawn over the frame's („Dateien“): the place is called Ablage here, and the
+            choice between the project's and the person's own stands at the title, in one of two positions. */}
+        <div className="bg-background absolute left-8 right-8 top-[31px] z-10 flex h-11 items-center gap-4">
+          {titleSwitch ? (
+            <div className="text-page-title flex items-center gap-6">
+              {top === 'project' ? (
+                <span className={own ? 'text-muted-foreground font-medium' : 'border-foreground border-b-2 pb-0.5'}>Projektablage</span>
+              ) : (
+                <span className="text-muted-foreground text-sm font-normal">Kein Projekt ausgewählt</span>
+              )}
+              <span className={own ? 'border-foreground border-b-2 pb-0.5' : 'text-muted-foreground font-medium'}>Meine Ablage</span>
             </div>
-            <div className="bg-sheet shadow-md absolute right-0 top-full mt-2 w-72 rounded-[16px] p-1.5">
-              <div className="text-muted-foreground text-meta px-2.5 pb-1 pt-1.5 font-medium">Dateien eines Projekts</div>
-              {PROJECTS.map((item) => (
-                <div key={item.id} className="text-name flex h-9 items-center gap-2.5 rounded-control px-2.5">
-                  <Folder className="text-muted-foreground size-4 shrink-0" aria-hidden />
-                  <span className="min-w-0 flex-1 truncate">{item.name}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        ) : top === 'project' ? (
-          <div className="bg-desk text-name absolute right-8 top-8 z-10 flex rounded-control p-0.5 font-medium">
-            <span className={own ? off : on}>Projektdateien</span>
-            <span className={own ? on : off}>Meine Dateien</span>
-          </div>
-        ) : (
-          <p className="text-muted-foreground absolute right-8 top-10 z-10 text-sm">Für Projektdateien oben ein Projekt wählen.</p>
-        )}
+          ) : (
+            <>
+              <h1 className="text-page-title">Ablage</h1>
+              <div className="bg-desk text-name flex rounded-control p-0.5 font-medium">
+                <span className={own ? off : on}>{top === 'project' ? 'Projektablage' : 'Kein Projekt ausgewählt'}</span>
+                <span className={own ? on : off}>Meine Ablage</span>
+              </div>
+            </>
+          )}
+          {own && <OnlyYou />}
+        </div>
         <ProjectSectionFrame projectId="dev" projectName={own ? (top === 'all' ? 'Alle Projekte' : project.name) : project.name} pathname="/app/projects/dev/files" inboundMail={!own}>
           <ProjectSectionActions>
             <FilesHeaderControls
@@ -290,7 +280,7 @@ function SwitchPage({ own, top, menu, scoped }: { own: boolean; top: 'project' |
                 </span>
                 <span className={`inline-flex h-7 items-center gap-1 rounded-full px-2.5 ${scoped ? 'bg-desk' : 'bg-selected'}`}>
                   {!scoped && <Check className="size-3.5" aria-hidden />}
-                  Alle meine Dateien
+                  Alles in meiner Ablage
                 </span>
               </div>
             )}
@@ -439,7 +429,7 @@ export default function PersonalFilesPreview(): JSX.Element {
   const variant = params?.get('v') ?? 'page'
   return (
     <I18nProvider initialLocale="de" fixedLocale>
-      <div className="bg-background text-foreground flex h-dvh overflow-hidden">{variant === 'all' ? <AllProjects page={params?.get('page') === 'automation' ? 'automation' : 'files'} own={params?.get('shelf') === 'own'} /> : variant === 'switch' ? <SwitchPage own={params?.get('shelf') === 'own'} top={params?.get('top') === 'all' ? 'all' : 'project'} menu={params?.get('menu') === '1'} scoped={params?.get('mine') !== 'all'} /> : variant === 'office' ? <InOfficeShelf /> : variant === 'chat' ? <FromChat /> : <OwnPage />}</div>
+      <div className="bg-background text-foreground flex h-dvh overflow-hidden">{variant === 'all' ? <AllProjects page={params?.get('page') === 'automation' ? 'automation' : 'files'} own={params?.get('shelf') === 'own'} /> : variant === 'switch' ? <SwitchPage own={params?.get('shelf') === 'own'} top={params?.get('top') === 'all' ? 'all' : 'project'} titleSwitch={params?.get('pos') === 'title'} scoped={params?.get('mine') !== 'all'} /> : variant === 'office' ? <InOfficeShelf /> : variant === 'chat' ? <FromChat /> : <OwnPage />}</div>
     </I18nProvider>
   )
 }
