@@ -1,3 +1,5 @@
+"""The office's documents as a read-only filesystem: the estate backend (ADR-0133)."""
+
 from __future__ import annotations
 
 from agent.lazy_exports import lazy_exports

@@ -342,8 +342,6 @@ class AnswerMeta(_EnvelopeModel):
         )
 
 
-
-
 @dataclass(frozen=True)
 class GateContext:
     """Everything a gate may judge an answer by. Extend here, not per gate."""
@@ -694,8 +692,6 @@ ANATOMY_FIELDS: tuple[AnatomyField, ...] = (
 )
 
 
-
-
 def _object_end(raw: str, start: int) -> int | None:
     """The index just past the JSON object opening at ``raw[start]``, or None.
 
@@ -1026,8 +1022,6 @@ def resolve_callout_marker(prose: str, *, has_callout: bool) -> str:
             continue
         lines.append(_CALLOUT_INLINE_RE.sub("", line))
     return "\n".join(lines)
-
-
 
 
 def _shape(model_cls: type[BaseModel]) -> str:

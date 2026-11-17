@@ -109,8 +109,6 @@ def month_of(now: float) -> str:
     return datetime.fromtimestamp(now, tz=UTC).strftime("%Y-%m")
 
 
-
-
 def db_url() -> str:
     """The agent database: the one ``document_metadata`` lives in."""
     from agent.knowledge.factory import _get_document_metadata_store
@@ -198,8 +196,6 @@ def _create_tables(conn) -> None:
         Column("manifest", Text, nullable=False),
     )
     metadata.create_all(conn, checkfirst=True)
-
-
 
 
 def mark(
@@ -329,8 +325,6 @@ def queued(collection: str, *, url: str | None = None) -> list[tuple[str, float,
     return [(row[0], float(row[1]), float(row[2])) for row in rows]
 
 
-
-
 def remember_collection(collection: str, organization_id: str, *, url: str | None = None) -> None:
     _write(
         f"INSERT INTO {COLLECTIONS_TABLE} (collection, organization_id, reconciled_at) "
@@ -368,8 +362,6 @@ def set_reconciled(collection: str, *, now: float | None = None, url: str | None
     )
 
 
-
-
 def tokens_used(organization_id: str, *, now: float | None = None, url: str | None = None) -> int:
     rows = _read(
         f"SELECT tokens FROM {USAGE_TABLE} WHERE organization_id = :organization_id AND month = :month",
@@ -389,7 +381,6 @@ def add_tokens(organization_id: str, tokens: int, *, now: float | None = None, u
         {"organization_id": organization_id, "month": month_of(time.time() if now is None else now), "tokens": tokens},
         url,
     )
-
 
 
 _MANIFEST_KEY = "WHERE collection = :collection AND folder_path = :path"

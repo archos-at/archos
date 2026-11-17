@@ -1,3 +1,95 @@
+"""Structured extraction schema for every ingested visual (schema v4).
+
+One module owns everything about WHAT is extracted from an image and HOW that
+extraction becomes indexable text — and nothing about how the VLM is called or
+where chunks are stored. The adapter stays the orchestrator; this module is a
+pure library (schema in, JSON out, text out) so the extraction schema, the VLM
+backend, and the index layout can each be changed without touching the others.
+That boundary is a stated backend requirement: see
+``docs/architecture/visual-ingestion.md``.
+
+Three things are kept apart here on purpose:
+
+**The kernel** (this module) is domain-neutral and versioned. A visual is
+segments; a segment holds entities, compositions, states, quantities,
+relations and annotations. Nothing in it names a room or a floor plan.
+
+**The vocabulary** (:mod:`visual_domains`) is data. A room is an entity whose
+category is ``space`` in the ``architecture`` domain. Adding a domain must not
+require a change here; if it does, the thing it needs belongs in the kernel.
+
+**The domain is chosen per SEGMENT, not per image.** Real sheets mix — a plan
+sheet carries a floor plan, a detail, a legend, a site photo and an energy
+chart. Every enabled domain's vocabulary is offered, and each segment says
+which one it was read with.
+
+Schema v5 (canonical form, produced by :func:`parse_visual_analysis`)::
+
+    {
+      "schema_version": 5,
+      "registry": "architecture+general",  # vocabulary that produced this
+      "segments": [
+        {
+          "domain": "architecture",
+          "segment_type": "floor_plan",    # from that domain's vocabulary
+          "title": str|None,
+          "scale": str|None,               # per SEGMENT, not per image
+          "summary": str,                  # free text, kept deliberately
+          "entities": [{"name": str, "category": str,
+                        "role": str|None, "measure": str|None}],
+          "compositions": [{"component": str,
+                            "layers": [{"material": str,
+                                        "thickness": str|None,
+                                        "function": str|None}]}],
+          "states": [{"element": str, "state": str}],
+          "quantities": [{"object": str, "property": str, "value": str,
+                          "unit": str|None, "source": str|None,
+                          "confidence": str|None}],
+          "relations": [{"subject": str, "relation": str, "object": str}],
+          "annotations": [str],            # verbatim dimension/label strings
+          "bbox": [x0, y0, x1, y1]|None,   # approximate, normalised 0-1
+          "source": "text|visual|inferred",
+          "confidence": "high|medium|low"
+        }
+      ],
+      "document": {                        # title-block facts, once
+        "title": str|None, "subtitle": str|None,
+        "slogans": [str],                  # headlines — NEVER mixed into title
+        "author": str|None, "institution": str|None,
+        "supervision": str|None, "location": str|None,
+        "strategies": [str], "process_steps": [str],
+        "watermark": str|None,
+        "summary": str,
+        "title_block": {                   # the Plankopf, once; all null without one
+          "document_number": str|None,     # Plannummer / Zeichnungsnummer, verbatim
+          "revision": str|None,            # the Index as printed: letter or number
+          "revision_date": "YYYY-MM-DD"|None,
+          "scale": str|None,               # Maßstab of the sheet
+          "title": str|None                # Planinhalt / Bezeichnung
+        }|None
+      }
+    }
+
+Design decisions that are easy to get wrong later:
+
+- **Quantities carry meaning.** ``71 %`` alone is worthless; every number is
+  stored as object + property + value + unit ("existing fabric retained",
+  "share", "71", "%").
+- **Provenance and confidence are first-class** on segments and quantities, so
+  a visually-guessed scale is never laundered into a certain fact downstream.
+- **Titles and slogans are separate fields.** A poster headline is not a
+  subtitle.
+- **The parser is lenient and versioned.** Any reply that is not valid v5 JSON
+  falls back to the legacy ``KEY: value`` parser, so a weaker model (or an old
+  cached caption) degrades to earlier behaviour, never to a failed page.
+- **``bbox`` is groundwork, not truth.** A model's box on a technical sheet is
+  approximate; it is stored (normalised, clamped) for the future crop-per-view
+  stage and for highlighting, and must never be used as a measurement.
+- **Identifiers and instructions are English**, because they are business
+  logic. Free text (summaries, names read off the sheet) stays in the
+  document's own language, because that is what retrieval has to match.
+"""
+
 from __future__ import annotations
 
 import json
@@ -32,12 +124,33 @@ _CONFIDENCE_SET = frozenset(CONFIDENCES)
 
 
 def cache_prompt_type(registry: DomainRegistry) -> str:
+    """Cache identity for one (schema, vocabulary) pair.
+
+    The vocabulary's CONTENT is part of it, not just which domains are on:
+    renaming a category or rewriting a hint changes what the model is asked to
+    look for, and a key naming only the domain set would serve the old reading
+    for the whole cache TTL.
+    """
     return f"visual:v{SCHEMA_VERSION}:{registry.fingerprint}"
 
 
-
-
 def json_schema(registry: DomainRegistry) -> dict[str, Any]:
+    """The extraction schema as a standalone JSON Schema document.
+
+    One artifact, three uses: it is handed to providers that support
+    schema-constrained decoding (``response_format`` / guided decoding), it is
+    rendered into the prompt for providers that do not, and it documents the
+    contract for anything downstream.
+
+    Written for the strict-structured-output subset rather than for expressive
+    completeness: object types only, ``additionalProperties: false``, every
+    property listed in ``required`` with nullability carried by the type union.
+    Notably it does NOT try to express "a category must belong to the segment's
+    domain" — that is conditional validation (``if``/``then``), which the
+    strict subsets do not accept. Enums here are the flat union across enabled
+    domains, and the domain-specific check happens in
+    :func:`parse_visual_analysis`, where the segment's domain is known.
+    """
 
     def nullable_string(description: str) -> dict[str, Any]:
         return {"type": ["string", "null"], "description": description}
@@ -185,9 +298,15 @@ def json_schema(registry: DomainRegistry) -> dict[str, Any]:
     }
 
 
-
-
 def _sketch(node: dict[str, Any], indent: int = 0) -> str:
+    """A compact, readable shape derived FROM the JSON Schema.
+
+    The prompt needs the shape, not the schema document: pasting the full
+    schema in costs ~11k characters per image and repeats what the field
+    descriptions already say. Deriving the sketch means there is still exactly
+    one source of truth — a field added to :func:`json_schema` appears here
+    without anyone remembering to add it.
+    """
     pad = "  " * indent
     node_type = node.get("type")
     types = node_type if isinstance(node_type, list) else [node_type]
@@ -216,6 +335,13 @@ def _sketch(node: dict[str, Any], indent: int = 0) -> str:
 
 
 def build_prompt(registry: DomainRegistry, *, context: str | None = None) -> str:
+    """The extraction instructions for one vocabulary.
+
+    Rules that are ABOUT THE SCHEMA are written once, here — they are what the
+    parser and the index depend on, and a domain that restated them would drift
+    from them. A domain contributes only its vocabulary, when it applies, and
+    its own guidance.
+    """
     domain_blocks: list[str] = []
     for domain in registry.domains:
         types = "\n".join(
@@ -303,9 +429,8 @@ not in English.
     return prompt
 
 
-
-
 def _clip(value: Any, limit: int = _MAX_STR) -> str | None:
+    """Coerce to a stripped, length-capped string; None for empty/non-scalars."""
     if value is None or isinstance(value, (dict, list, bool)):
         return None
     text = str(value).strip()
@@ -325,6 +450,11 @@ def _str_list(value: Any) -> list[str]:
 
 
 def _term(value: Any, allowed: frozenset[str]) -> str | None:
+    """A vocabulary term, or ``None``.
+
+    Strings only: a numeric ``category`` is not a category, and coercing it
+    would put "42" where a term belongs.
+    """
     if not isinstance(value, str):
         return None
     slug = value.strip().lower()
@@ -409,6 +539,12 @@ def _normalise_relation(item: dict[str, Any]) -> dict[str, Any] | None:
 
 
 def _normalise_bbox(value: Any) -> list[float] | None:
+    """Normalised ``[x0, y0, x1, y1]`` clamped to 0-1, or ``None``.
+
+    Groundwork for the crop-per-view stage: approximate by nature, so anything
+    malformed, degenerate or out-of-order is dropped rather than repaired into
+    a wrong-but-plausible box.
+    """
     if not isinstance(value, (list, tuple)) or len(value) != 4:
         return None
     try:
@@ -457,6 +593,11 @@ def _normalise_segment(raw: Any, registry: DomainRegistry) -> dict[str, Any] | N
 
 
 def _normalise_title_block(raw: Any) -> dict[str, str] | None:
+    """The Plankopf facts of a reply: the five known fields that hold a value, the date ISO; ``None`` without any.
+
+    Only the schema's own keys are read, so a stray ``page`` in a reply is not
+    taken for a fact. A date that is not a calendar day is dropped, not repaired.
+    """
     if not isinstance(raw, dict):
         return None
     facts = normalise_revision_facts({key: raw.get(key) for key in TITLE_BLOCK_FIELDS})
@@ -481,11 +622,19 @@ def _normalise_document(raw: Any) -> dict[str, Any]:
     }
 
 
-
 _FENCE_RE = re.compile(r"^```[a-zA-Z]*\s*|\s*```$", re.MULTILINE)
 
 
 def parse_visual_analysis(reply: str | None, registry: DomainRegistry | None = None) -> dict[str, Any] | None:
+    """Parse a model reply into the canonical v4 analysis, or ``None``.
+
+    Lenient the way the whole pipeline is lenient: markdown fences are
+    stripped, prose around the outermost ``{...}`` is ignored, unknown keys are
+    dropped, vocabulary terms are validated against the segment's own domain,
+    and list and string sizes are capped. ``None`` (not an exception) for
+    anything that does not contain a JSON object with at least one usable
+    segment — the caller then falls back to the legacy line parser.
+    """
     registry = registry or resolve_registry()
     if not reply:
         return None
@@ -524,13 +673,24 @@ def parse_visual_analysis(reply: str | None, registry: DomainRegistry | None = N
 
 
 def content_type_for(analysis: dict[str, Any], registry: DomainRegistry | None = None) -> str:
+    """The chunk ``content_type`` this analysis describes.
+
+    One rule for every visual, whatever it came from and whichever domains read
+    it: each segment's role comes from its own domain, and precedence picks one
+    for the image — so a plan sheet carrying a chart is still typed a drawing.
+    """
     registry = registry or resolve_registry()
     return registry.content_type_for(analysis.get("segments") or [])
 
 
-
-
 def legacy_fields(analysis: dict[str, Any]) -> dict[str, str]:
+    """Flatten an analysis into the flat field dict older consumers read.
+
+    ``_summary_from_drawing_fields``, the chunk metadata (``drawing_type``,
+    ``drawing_scale``) and every test written against the line format read this
+    shape; the mapping keeps them working while the granular data travels
+    alongside. Only non-empty values are emitted.
+    """
     segments = analysis.get("segments") or []
     document = analysis.get("document") or {}
     out: dict[str, str] = {}
@@ -582,14 +742,27 @@ def legacy_fields(analysis: dict[str, Any]) -> dict[str, str]:
     return out
 
 
-
-
 def render_segment_text(
     segment: dict[str, Any],
     registry: DomainRegistry | None = None,
     *,
     position: tuple[int, int] | None = None,
 ) -> str:
+    """Render ONE segment as structured text — the chunk body.
+
+    The renderer decides what retrieval sees, so it states every populated
+    category under its own label and keeps the free-text summary as the opening
+    line. Labels come from the segment's domain, so a new domain reads in its
+    own words without touching this function. The labels are English (business
+    logic); the VALUES stay in the document's language, which is what a German
+    query has to match.
+
+    ``position`` is the ``(n, total)`` ordinal among the sheet's segments of
+    the SAME type, set by :func:`segment_payloads` when a type repeats — two
+    floor plans side by side read "Floor plan 1 of 2" and "Floor plan 2 of 2",
+    so the chunks stay addressable even when the model gave both the same
+    title. ``None`` leaves the header untouched.
+    """
     registry = registry or resolve_registry()
     domain = registry.get(segment.get("domain"))
     labels = {category.key: category.label for category in domain.entity_categories}
@@ -663,6 +836,7 @@ def render_segment_text(
 
 
 def render_document_text(document: dict[str, Any]) -> str:
+    """Render the document-level facts (title block, strategies) as text lines."""
     lines: list[str] = []
     title_bits = [part for part in (document.get("title"), document.get("subtitle")) if part]
     if title_bits:
@@ -694,6 +868,11 @@ def render_document_text(document: dict[str, Any]) -> str:
 
 
 def render_analysis_text(analysis: dict[str, Any], registry: DomainRegistry | None = None) -> str:
+    """Full rendering: document facts plus every segment, blank-line separated.
+
+    Used as the ``caption`` (document-summary input, single-segment chunk body)
+    and as the human-readable body the visual-details view shows.
+    """
     registry = registry or resolve_registry()
     document = analysis.get("document") or {}
     parts: list[str] = []
@@ -707,9 +886,24 @@ def render_analysis_text(analysis: dict[str, Any], registry: DomainRegistry | No
     return "\n\n".join(part for part in parts if part)
 
 
-
-
 def segment_payloads(analysis: dict[str, Any], registry: DomainRegistry | None = None) -> list[dict[str, Any]]:
+    """Chunk payloads for one analysed visual — ONE per segment.
+
+    Each payload carries the text to embed, the per-segment metadata scalars
+    the store can filter on, and ``drawing_data``: the segment plus document
+    facts as a JSON string, so the detail view (and any later re-mapper) gets
+    the full structure back without re-running the model. It stays a string so
+    the payload holds one opaque, unindexed field rather than a nested object.
+
+    The document-level text rides on the FIRST segment only — repeating the
+    title block on every chunk would let a project-name query retrieve five
+    near-identical chunks from one sheet.
+
+    A segment type that repeats on the sheet (two floor plans side by side)
+    carries its per-type ordinal into the header — "Floor plan 1 of 2" — so
+    the two chunks are distinguishable in retrieval even when the model gave
+    both the same title. A type that occurs once renders exactly as before.
+    """
     registry = registry or resolve_registry()
     document = analysis.get("document") or {}
     segments = analysis.get("segments") or []

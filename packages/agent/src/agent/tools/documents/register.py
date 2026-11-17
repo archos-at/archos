@@ -287,7 +287,6 @@ def _project_or_refuse() -> str:
     return project_id
 
 
-
 _FILE_DRAFT_DESCRIPTION = (
     "Files a draft from the working directory into the project AS A DRAFT, so that others can see and "
     "review it. `path` is the path in the working directory (`" + DRAFT_ROOT + "<name>.md`), `title` "

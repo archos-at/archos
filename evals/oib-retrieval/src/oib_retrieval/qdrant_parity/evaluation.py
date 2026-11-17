@@ -90,8 +90,6 @@ def load_hard_cases(path: str | Path) -> list[HardCase]:
     return cases
 
 
-
-
 @dataclass(frozen=True)
 class RankScores:
     """One channel over one query set."""
@@ -185,8 +183,6 @@ def latency_summary(samples_ms: Sequence[float]) -> dict[str, float]:
         "p99": round(percentile(samples_ms, 99), 2),
         "mean": round(sum(samples_ms) / len(samples_ms), 2) if samples_ms else math.nan,
     }
-
-
 
 
 @dataclass(frozen=True)

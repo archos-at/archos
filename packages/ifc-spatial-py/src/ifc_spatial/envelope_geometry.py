@@ -113,7 +113,6 @@ from .operators import _rooms_on_one_side
 from .operators import azimuth
 from .operators import enclosed_by
 
-
 _KIND_OF_TYPE: dict[str, str] = {
     "IfcWall": "Wand",
     "IfcWallStandardCase": "Wand",
@@ -138,8 +137,6 @@ VOLUME_RELATIVE_TOLERANCE = 1.5 * AREA_RELATIVE_TOLERANCE
 _HORIZONTAL_NORMAL_TOLERANCE = 0.01
 
 SLOPE_REPORT_FRACTION = 0.01
-
-
 
 
 def _declared_u_value(element: Any) -> tuple[float | None, str | None]:
@@ -398,8 +395,6 @@ def _no_envelope(method: str, surveyed: list[dict[str, Any]]) -> Answer[Any]:
             elements=candidates or None,
         ),
     )
-
-
 
 
 def thermal_envelope(model: SpatialModel) -> Answer[dict[str, Any]]:

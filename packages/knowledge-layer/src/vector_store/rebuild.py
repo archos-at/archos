@@ -1,3 +1,40 @@
+"""Rebuild a physical collection as a new ``_vN`` and move its alias (ADR-0115).
+
+Open-source Qdrant cannot reshard or change a collection's replication shape
+in place, so a changed shape is a new collection beside the live one, a copy,
+and one alias switch. Every client addresses the store through the alias
+(``piloti_office``, ``piloti_corpus``), so nothing else changes.
+
+The copy is a scroll of the live collection with its stored vectors, upserted
+page by page into the new one: nothing is re-embedded, and the lexical sparse
+vector is copied as Qdrant computed it. Each page is an upsert by point id,
+so a transient failure is retried like every other write (``store.with_retry``)
+instead of leaving a half copy behind a refused target. ``init_from`` is no shortcut: Qdrant
+1.19.2 accepts it and ignores it, leaving the new collection empty (drilled
+2026-10-13, ``docs/deployment/qdrant-runbook.md``).
+
+The alias moves only in :func:`switch_alias`, one request that deletes and
+recreates it, which Qdrant applies atomically. The old collection is left
+where it was: switching back to it is the rollback. Writes that land in the old
+collection while the copy runs are not in the new one, and nothing else holds
+them, so ingestion is paused for the copy (the runbook,
+``docs/deployment/qdrant-runbook.md``, says how).
+
+A rebuild is also where the BM25 channel is tuned to our chunks (ADR-0127,
+S12). Qdrant's ``qdrant/bm25`` normalises a chunk's term weights by its length
+against ``avg_len`` (default 256), counted in ITS tokens: words left after the
+German analysis drops stopwords, about 0.30 per ``cl100k`` token on our text
+(measured on 1.19.2, ``docs/deployment/qdrant-runbook.md``). :func:`measure_lengths`
+reads that length back out of the stored sparse vectors, and :func:`tuned_length`
+turns the mean into the target's ``avg_len``. When the target's normalisation
+differs from the source's, every lexical vector is recomputed from the chunk text
+(server-side BM25 inference, no embedding call); otherwise it is copied as stored.
+A chunk written before the stemmed text field (``schema.TEXT_STEM_FIELD``) gets it
+in the copy, so a rebuild is also that field's backfill.
+
+``scripts/qdrant_rebuild.py`` is the command line around it.
+"""
+
 from __future__ import annotations
 
 import logging
@@ -32,6 +69,7 @@ AVG_LEN_TOLERANCE = 0.10
 
 @dataclass
 class RebuildReport:
+    """What one copy did, and whether the two collections now hold the same number of points."""
 
     source: str
     target: str
@@ -47,6 +85,7 @@ class RebuildReport:
 
 
 def current_collection(client: QdrantClient, physical: Physical) -> str:
+    """The collection the physical collection's alias points at; raises when there is no alias."""
     alias = ALIASES[physical]
     for entry in client.get_aliases().aliases:
         if entry.alias_name == alias:
@@ -59,6 +98,12 @@ def _exact_count(client: QdrantClient, name: str) -> int:
 
 
 def length_from_weight(weight: float, length: Mapping[str, float]) -> float | None:
+    """The BM25 length of a chunk, from the weight Qdrant stored for a term it holds once. Pure.
+
+    Qdrant stores ``tf·(k+1) / (tf + k·(1 − b + b·dl/avg_len))`` per term; a term
+    with ``tf = 1`` (every chunk has one) gives ``dl`` back. ``None`` when ``b`` is 0
+    (no length in the weight) or the weight is out of range.
+    """
     k, b, avg_len = (length[key] for key in ("k", "b", "avg_len"))
     if weight <= 0 or b <= 0:
         return None
@@ -68,6 +113,7 @@ def length_from_weight(weight: float, length: Mapping[str, float]) -> float | No
 
 @dataclass(frozen=True)
 class LengthStats:
+    """BM25 chunk lengths of one collection (in Qdrant's tokens), read from its stored vectors."""
 
     collection: str
     sampled: int
@@ -80,6 +126,7 @@ class LengthStats:
 
 
 def measure_lengths(client: QdrantClient, collection: str, sample: int = LENGTH_SAMPLE) -> LengthStats | None:
+    """The BM25 lengths of up to ``sample`` chunks of ``collection``, read-only; ``None`` when it holds none."""
     length = effective_bm25_length(bm25_length_of(client.get_collection(collection).config.metadata))
     found: list[float] = []
     offset = None
@@ -115,6 +162,12 @@ def tuned_length(
     b: float | None = None,
     avg_len: float | None = None,
 ) -> dict[str, float]:
+    """The BM25 length normalisation for a rebuild's target. Pure.
+
+    ``avg_len`` is the measured mean unless given, rounded, and the source's when
+    the mean is within :data:`AVG_LEN_TOLERANCE` of it; ``k`` and ``b`` are the
+    source's unless given (a parity sweep sets them). An empty source keeps its own.
+    """
     current = effective_bm25_length(dict(source))
     wanted = dict(current)
     if avg_len is not None:
@@ -129,6 +182,7 @@ def tuned_length(
 
 
 def _copied_payload(record: Any) -> dict[str, Any]:
+    """The record's payload, with the stemmed copy of its text if it predates that field: the rebuild backfills it."""
     payload = dict(record.payload or {})
     if TEXT_FIELD in payload and TEXT_STEM_FIELD not in payload:
         payload[TEXT_STEM_FIELD] = payload[TEXT_FIELD]
@@ -136,6 +190,7 @@ def _copied_payload(record: Any) -> dict[str, Any]:
 
 
 def _copied_vector(record: Any, relex: Mapping[str, float] | None) -> Any:
+    """The record's vectors as the target takes them: as stored, or with BM25 recomputed under ``relex``."""
     if relex is None:
         return record.vector
     vector: dict[str, Any] = {DENSE: record.vector[DENSE]}
@@ -157,6 +212,16 @@ def copy_collection(
     bm25_length: Mapping[str, float] | None = None,
     retune_bm25: bool = True,
 ) -> RebuildReport:
+    """Create ``target`` in the live collection's shape (or ``shards``/``replication``) and copy every point into it.
+
+    Refuses a ``target`` that exists: a half-copied collection from an earlier
+    attempt is dropped by a person, never overwritten here.
+
+    The target's BM25 length normalisation is ``bm25_length`` when given, else
+    :func:`tuned_length` over the measured source (``retune_bm25=False`` keeps the
+    source's). When it differs from the source's, each lexical vector is
+    recomputed from the chunk text; the dense vectors are always copied.
+    """
     source = current_collection(client, physical)
     if target == source:
         raise ValueError(f"{target} is the live collection behind {ALIASES[physical]}")
@@ -215,6 +280,7 @@ def copy_collection(
 
 
 def switch_alias(client: QdrantClient, physical: Physical, target: str) -> str:
+    """Point the physical collection's alias at ``target`` in one atomic request; returns the previous collection."""
     alias = ALIASES[physical]
     previous = current_collection(client, physical)
     if not client.collection_exists(target):

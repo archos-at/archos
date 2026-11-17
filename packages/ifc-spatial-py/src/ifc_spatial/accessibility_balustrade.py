@@ -23,7 +23,6 @@ from .operators import _require
 from .operators import _wrong_kind
 
 
-
 def balustrade_check(
     model: SpatialModel, space_or_element_global_id: str, fall_height: float | None = None
 ) -> Answer[dict[str, Any]]:

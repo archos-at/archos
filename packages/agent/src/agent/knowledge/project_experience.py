@@ -191,8 +191,6 @@ class ProjectExperienceResponse(_Wire):
     error: Literal["no_documents", "no_model", "extraction_failed"] | None = None
 
 
-
-
 class ChosenFiles(_Wire):
     file_names: list[str] = Field(description="The chosen file names, copied exactly from the list, most useful first.")
 

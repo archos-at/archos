@@ -24,7 +24,6 @@ from ifc_spatial.tools_types import ToolDef
 from ifc_spatial.tools_types import ToolError
 
 from . import clearance as clr
-
 from . import operators as op
 from .briefing import storey_heights
 from .model import SpatialModel

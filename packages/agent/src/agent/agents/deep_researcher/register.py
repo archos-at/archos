@@ -181,8 +181,6 @@ def resolve_deep_research_runtime_config(
     return skills, sandbox
 
 
-
-
 async def _resolve_tools(builder: Builder, tool_refs: list[str], exclude_tools: list[str]) -> list:
     return await load_agent_tools(builder, tool_refs, exclude_tools)
 
@@ -321,8 +319,6 @@ class LazyTools:
             if tools:
                 self.tools, self.agent = tools, agent
             return tools, agent
-
-
 
 
 def _agent_for_request(

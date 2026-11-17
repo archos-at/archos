@@ -21,7 +21,6 @@ from .model import AIR_TYPES
 from .model import SpatialModel
 
 
-
 def distance_to_site_boundary(model: SpatialModel, global_id: str | None = None) -> Answer[dict[str, Any]]:
     """Horizontal distance from the building — or from one element — to the site boundary, in metres.
 
@@ -338,8 +337,6 @@ def _outside_polygon(point: np.ndarray, boundary: np.ndarray) -> bool:
             if point[0] < crossing:
                 inside = not inside
     return not inside
-
-
 
 
 def _matching_term(name: str | None, terms: Sequence[str] = NOT_OCCUPIED_TERMS) -> str | None:

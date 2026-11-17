@@ -325,8 +325,6 @@ async def test_a_plain_domain_question_still_searches(agent):
     assert result.escalation_requested is False, result.answer_escalation_reason
 
 
-
-
 def _filing_stubs(backend):
     """`file_draft`, with the REAL description.
 

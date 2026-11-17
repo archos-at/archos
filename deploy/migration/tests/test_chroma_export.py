@@ -145,7 +145,6 @@ def test_a_directory_that_is_not_chroma_exits_two(tmp_path):
 
 
 class _Changing:
-
     metadata: dict = {}
 
     def __init__(self):
@@ -213,7 +212,6 @@ def test_http_mode_exports_what_the_server_holds(chroma_server, tmp_path):
     assert manifest["source"]["mode"] == "http"
     assert set(manifest["collections"]) == {"proj_alpha"}
     assert _read(out, "proj_alpha", manifest) == held["proj_alpha"]
-
 
 
 _DRIVER = textwrap.dedent(

@@ -1,3 +1,17 @@
+"""``ris_xml``: the OGD-RIS search payload and RIS document pages.
+
+The format of Austria's Rechtsinformationssystem, read once here and configured
+per source: the search answer is JSON converted from the XML response schemas
+(``OGD_*_Response.xsd``), so element cardinality is ambiguous (a node holding
+one child is a dict, the same node with several is a list) and every read goes
+through the shape-tolerant helpers below. Document pages are HTML whose
+``#content`` holds the law and whose ``.sr-only`` twins repeat it for screen
+readers; both selectors are the source's configuration, not constants.
+
+Moved here from ``ris_adapter.client`` (ADR-0162), which re-exports every name,
+so the RIS tools read and cite exactly as before.
+"""
+
 from __future__ import annotations
 
 import re
@@ -20,11 +34,15 @@ class RisXmlConfig(EngineConfig):
 
 
 class RisError(EngineError):
-    ...
+    """Raised for OGD-RIS API errors (validation errors, bad pages, HTTP failures).
+
+    An :class:`EngineError`, so a reader that knows no format catches it as one.
+    """
 
 
 @dataclass
 class RisHit:
+    """A single normalized document reference from an OGD-RIS search result."""
 
     application: str = ""
     document_number: str = ""
@@ -36,11 +54,13 @@ class RisHit:
 
     @property
     def fetch_url(self) -> str:
+        """Best URL for fetching the document text (HTML preferred, then XML)."""
         return self.content_urls.get("Html") or self.citation_url or self.content_urls.get("Xml", "")
 
 
 @dataclass
 class RisSearchResult:
+    """Normalized OGD-RIS search response."""
 
     hits: list[RisHit] = field(default_factory=list)
     total: int = 0
@@ -50,15 +70,15 @@ class RisSearchResult:
 
 @dataclass
 class RisDocument:
+    """A fetched RIS document converted to plain text."""
 
     url: str
     title: str
     text: str
 
 
-
-
 def _as_list(node: Any) -> list[Any]:
+    """Normalize an XML-derived JSON node to a list (single child -> dict)."""
     if node is None:
         return []
     if isinstance(node, list):
@@ -67,6 +87,7 @@ def _as_list(node: Any) -> list[Any]:
 
 
 def _find_first(node: Any, key: str) -> Any:
+    """Breadth-first search for the first value under ``key`` anywhere in ``node``."""
     queue = [node]
     while queue:
         current = queue.pop(0)
@@ -80,6 +101,7 @@ def _find_first(node: Any, key: str) -> Any:
 
 
 def _find_all(node: Any, key: str) -> list[Any]:
+    """Breadth-first search for every value under ``key`` anywhere in ``node``."""
     found: list[Any] = []
     queue = [node]
     while queue:
@@ -94,6 +116,7 @@ def _find_all(node: Any, key: str) -> list[Any]:
 
 
 def _as_text(value: Any) -> str:
+    """Flatten a scalar / ``{"#text": ...}`` / list node into a display string."""
     if value is None:
         return ""
     if isinstance(value, dict):
@@ -129,6 +152,13 @@ _TITLE_KEYS = ("Kurztitel", "Titel", "Dokumenttitel", "Kurzinformation", "Gescha
 
 # OGD-RIS started stating ogd.ris.bka.gv.at in URLs in 2026-09; it answers 301 to ris.bka.gv.at and is on no allow-list.
 def public_host(url: str, rewrites: tuple[tuple[str, str], ...] = ()) -> str:
+    """A URL on the public host the citations, the catalog and the fetch use.
+
+    OGD-RIS started stating ``ogd.ris.bka.gv.at`` for document and whole-law
+    URLs in 2026-09. It answers with a 301 to ``ris.bka.gv.at``, is on no
+    allow-list, and written into the norm catalog it replaced every pointer the
+    reader can open; the source's ``host_rewrites`` name the pair.
+    """
     for old, new in rewrites:
         if url.startswith(old):
             return new + url[len(old) :]
@@ -136,6 +166,7 @@ def public_host(url: str, rewrites: tuple[tuple[str, str], ...] = ()) -> str:
 
 
 def _parse_hit(ref: Any, rewrites: tuple[tuple[str, str], ...] = ()) -> RisHit:
+    """Normalize one OgdDocumentReference node into a RisHit."""
     hit = RisHit()
 
     data = ref.get("Data", ref) if isinstance(ref, dict) else ref
@@ -174,6 +205,11 @@ def _parse_hit(ref: Any, rewrites: tuple[tuple[str, str], ...] = ()) -> RisHit:
 
 
 def parse_search_response(payload: dict[str, Any], rewrites: tuple[tuple[str, str], ...] = ()) -> RisSearchResult:
+    """Parse a raw OGD-RIS JSON response into a RisSearchResult.
+
+    Raises:
+        RisError: When the payload carries an ``OgdSearchResult.Error`` node.
+    """
     result = payload.get("OgdSearchResult")
     if not isinstance(result, dict):
         raise RisError("Unexpected OGD-RIS response: missing OgdSearchResult")
@@ -200,16 +236,23 @@ def parse_search_response(payload: dict[str, Any], rewrites: tuple[tuple[str, st
     return RisSearchResult(hits=hits, total=total, page=page, page_size=page_size)
 
 
-
 _TITLE_RE = re.compile(r"<title[^>]*>(.*?)</title>", re.IGNORECASE | re.DOTALL)
-
-
 
 
 # #content holds 759,015 of 759,687 characters of a Bauordnung für Wien page (2026-09-04); the rest is site furniture.
 def html_to_text(
     markup: str, content_selector: str = "#content", drop_selectors: tuple[str, ...] = (".sr-only",)
 ) -> tuple[str, str]:
+    """Convert an HTML/XML document to (title, plain text).
+
+    Uses BeautifulSoup when available; falls back to a regex tag stripper so
+    the adapter degrades gracefully rather than failing the whole tool call.
+
+    The RIS page's own navigation is dropped when the document container can be
+    found (``content_selector``); everything else is kept verbatim,
+    because this text is what a legal answer is grounded on and what a reader
+    checks it against.
+    """
     title = ""
     title_match = _TITLE_RE.search(markup)
     if title_match:
@@ -239,9 +282,8 @@ def html_to_text(
     return title, "\n".join(collapsed).strip()
 
 
-
-
 class RisXml(Engine):
+    """The engine object a source record configures; the functions above with its values."""
 
     name = "ris_xml"
     config_model = RisXmlConfig
@@ -260,5 +302,6 @@ class RisXml(Engine):
         return html_to_text(markup, self.config.content_selector, self.config.drop_selectors)
 
     def document(self, body: bytes, *, url: str = "") -> ParsedDocument:
+        """A RIS page as one passage: the § grammar lives in ``ris_adapter.lookup.grammar``."""
         title, text = self.text(body.decode("utf-8", errors="replace"))
         return ParsedDocument(title=title, uri=self.public_host(url), passages=(Passage("", "", title, text),))

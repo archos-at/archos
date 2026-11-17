@@ -156,8 +156,6 @@ class GroundingBlock(BaseModel):
     coverage_gap: str | None = None
 
 
-
-
 COVERAGE_GAP_LABEL = "Coverage: insufficient —"
 
 COVERAGE_GAP_NOTE = (
@@ -420,7 +418,6 @@ def _doc_class_label(doc_class: str) -> str:
     from agent.knowledge.document_classification import canonical_doc_class
 
     return DOCUMENT_CLASS_LABELS.get(canonical_doc_class(doc_class) or doc_class, doc_class)
-
 
 
 _MAX_CAPTURED_BLOCKS = 64

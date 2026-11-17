@@ -7,7 +7,6 @@ from dataclasses import dataclass
 from typing import Any
 
 
-
 @dataclass(frozen=True)
 class ToolDef:
     """One operation by name. What it means to a model is written once, by the

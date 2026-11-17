@@ -7,7 +7,6 @@ from dataclasses import dataclass
 import numpy as np
 
 
-
 @dataclass(frozen=True)
 class _Tread:
     """One horizontal step surface, as the mesh shows it."""
@@ -57,8 +56,6 @@ class _Body:
     levels: int
 
 
-
-
 @dataclass(frozen=True)
 class _Running:
     """A ramp flight's running surface: the dominant up-facing planar cluster."""
@@ -70,8 +67,6 @@ class _Running:
     width: float
     uphill: np.ndarray | None
     corners: np.ndarray
-
-
 
 
 @dataclass(frozen=True)

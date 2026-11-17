@@ -142,7 +142,6 @@ class DocumentMetadataStore:
         self._ensure_table_sync()
         logger.info("DocumentMetadataStore initialized: %s", redact_db_url(db_url))
 
-
     _CAPTURE_TYPES: dict[str, type | tuple[type, ...]] = {
         "captured_at": str,
         "latitude": (int, float),
@@ -161,7 +160,6 @@ class DocumentMetadataStore:
     @classmethod
     def _cleanup_stale_engines(cls, cache: dict[str, tuple[Any, float]]):
         return engines_impl._cleanup_stale_engines(cls, cache)
-
 
     def _is_postgres(self) -> bool:
         return schema_impl._is_postgres(self)
@@ -349,7 +347,6 @@ class DocumentMetadataStore:
 
     def rewrite_folder_paths_moved(self, collection: str, from_path: str, to_path: str | None) -> tuple[int, list[str]]:
         return folders_impl.rewrite_folder_paths_moved(self, collection, from_path, to_path)
-
 
     def _update_column(self, collection: str, filename: str, column: str, value: Any) -> bool:
         return fields_impl._update_column(self, collection, filename, column, value)

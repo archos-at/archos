@@ -183,7 +183,6 @@ def _normalize_image_to_jpeg(image_bytes: bytes, max_dim: int) -> tuple[bytes, i
     return buf.getvalue(), pil_image.width, pil_image.height
 
 
-
 _MIN_REGION_PT = 24.0
 _MAX_REGION_SCALE = 1200 / 72
 _MIN_REGION_PX = 16

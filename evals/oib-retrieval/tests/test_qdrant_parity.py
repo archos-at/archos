@@ -17,8 +17,6 @@ FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 HARD_CASES = FIXTURES / "qdrant_lexical_hard_cases.json"
 
 
-
-
 def test_the_hard_case_fixture_loads_and_covers_every_kind_the_gate_names():
     cases = evaluation.load_hard_cases(HARD_CASES)
     assert {case.kind for case in cases} == set(evaluation.HARD_CASE_KINDS)
@@ -60,8 +58,6 @@ def test_the_loader_refuses_a_malformed_fixture(tmp_path, mutation, message):
         evaluation.load_hard_cases(path)
 
 
-
-
 def test_hard_case_scores_count_precision_r_precision_and_first_hit():
     case = evaluation.HardCase("x", "allcaps_code", "REI 90", r"\bREI\s*90\b")
     ranked = ["nothing", "REI 90 here", "REI 60", "REI 90 again"]
@@ -95,8 +91,6 @@ def test_percentiles_interpolate_and_an_empty_sample_is_nan():
     assert evaluation.latency_summary([1.0, 3.0])["p50"] == 2.0
 
 
-
-
 def _scores(recall16: float) -> evaluation.RankScores:
     return evaluation.RankScores(queries=1, recall={16: recall16}, ndcg={}, mrr=0.0)
 
@@ -126,8 +120,6 @@ def test_g2_and_g6_bounds_are_the_design_docs_and_inclusive():
     assert failed.status == "fail", "a drop at the top must fail even when recall@16 is saturated"
 
 
-
-
 def test_truncation_renormalises_and_keeps_the_prefix_direction():
     rng = np.random.default_rng(0)
     matrix = rng.normal(size=(5, 12)).astype(np.float32)
@@ -146,8 +138,6 @@ def test_the_base_filter_is_the_one_register_builds():
     excluded = ["b.pdf", "a.pdf"]
     config = KnowledgeRetrievalConfig.model_construct(exclude_file_names=excluded)
     assert channels.base_filters(excluded) == base_collection_filters(config, None)
-
-
 
 
 def test_the_reference_is_the_gate_reports_chroma_path_and_names_its_source():
@@ -216,8 +206,6 @@ def test_the_markdown_report_renders_every_section_from_plain_results():
         assert heading in markdown
     assert "reference (Postgres `german` FTS)" in markdown and "reference (Chroma)" in markdown
     assert "describe another corpus" in markdown, "a hashed run must not read as comparable to the reference"
-
-
 
 
 def test_the_sweep_diff_names_the_questions_that_moved():

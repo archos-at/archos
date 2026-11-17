@@ -695,7 +695,6 @@ class TestRendering:
         )
         assert "1 entry" in line and "1 Einträge" not in line
 
-
     BLOCKED = {
         "value": [
             {

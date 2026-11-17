@@ -126,7 +126,6 @@ class AgentProfiler(BaseCallbackHandler):
         self._spans_recorded = 0
         self._run_span: dict[Any, str] = {}
 
-
     def start_span(self, kind: SpanKind, name: str, *, metadata: dict[str, Any] | None = None) -> str:
         span_id = str(uuid.uuid4())
         with self._lock:
@@ -174,7 +173,6 @@ class AgentProfiler(BaseCallbackHandler):
         if should_flush:
             self.flush(wait=False)
 
-
     def _model_name(self, kwargs: dict[str, Any]) -> str:
         params = kwargs.get("invocation_params") or {}
         model = params.get("model") or params.get("model_name")
@@ -192,7 +190,6 @@ class AgentProfiler(BaseCallbackHandler):
     def on_llm_error(self, error: BaseException, **kwargs: Any) -> None:
         self._end_run_span(kwargs, status="error", error=str(error))
 
-
     @staticmethod
     def _tool_name(serialized: dict | None, kwargs: dict[str, Any]) -> str:
         if serialized:
@@ -207,7 +204,6 @@ class AgentProfiler(BaseCallbackHandler):
 
     def on_tool_error(self, error: BaseException, **kwargs: Any) -> None:
         self._end_run_span(kwargs, status="error", error=str(error))
-
 
     def _start_run_span(self, kind: SpanKind, name: str, kwargs: dict[str, Any]) -> None:
         run_id = kwargs.get("run_id")
@@ -224,7 +220,6 @@ class AgentProfiler(BaseCallbackHandler):
             span_id = self._run_span.pop(run_id, None)
         if span_id is not None:
             self.end_span(span_id, status=status, error=error)
-
 
     @property
     def spans_recorded(self) -> int:
@@ -272,7 +267,6 @@ def _post_profiler_spans(payload: dict[str, Any]) -> None:
         logger.warning("Internal profiler endpoint rejected batch: HTTP %s", error.status)
     except Exception:
         logger.warning("Failed to post profiler spans to internal endpoint", exc_info=True)
-
 
 
 agent_profiler_var: ContextVar[AgentProfiler | None] = ContextVar("agent_profiler", default=None)

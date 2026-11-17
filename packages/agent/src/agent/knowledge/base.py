@@ -506,7 +506,6 @@ class BaseIngestor(ABC):
     def backend_name(self) -> str:
         """Return the name of this backend for logging/tracking."""
 
-
     @abstractmethod
     def create_collection(
         self,
@@ -563,7 +562,6 @@ class BaseIngestor(ABC):
             Exception: when the store cannot answer (unreachable, timed out).
             That is not "missing", and a caller must not treat it as one.
         """
-
 
     @abstractmethod
     def upload_file(
@@ -665,7 +663,6 @@ class BaseIngestor(ABC):
             FileInfo if found, None otherwise.
         """
 
-
     def select_sources(self, source_names: list[str]) -> bool:
         """
         Select which collections/sources to use for retrieval.
@@ -693,7 +690,6 @@ class BaseIngestor(ABC):
         raise NotImplementedError(
             f"{self.backend_name} does not support source selection. Override this method if your backend supports it."
         )
-
 
     def generate_summary(self, text_content: str, file_name: str) -> str | None:
         """

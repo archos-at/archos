@@ -166,8 +166,6 @@ def fallback_summary_from_text(text: str | None, max_chars: int = FALLBACK_SUMMA
     return single_line[:max_chars].rstrip() + "…"
 
 
-
-
 def summarize_document_text(text_content: str, file_name: str, llm) -> str | None:
     """Generate a one-sentence summary from already-extracted document text.
 
@@ -206,8 +204,6 @@ def summarize_document_text(text_content: str, file_name: str, llm) -> str | Non
     except Exception as e:
         logger.warning("Summary via LLM failed for %s: %s", file_name, e)
         return None
-
-
 
 
 def _build_tag_prompt(text: str, file_name: str) -> str:
@@ -273,7 +269,6 @@ def _parse_tags(raw: str) -> list[str] | None:
     return result or None
 
 
-
 DOCUMENT_TYPE_CRITERIA: dict[str, str] = {
     "Bebauungsplan": "A development plan (Bebauungsplan): building lines, heights, density or use for plots.",
     "Flächenwidmungsplan": "A land-use zoning plan (Flächenwidmungsplan): which land may be used for what.",
@@ -305,7 +300,7 @@ DISCIPLINE_CRITERIA: dict[str, str] = {
     "Energieeinsparung/Wärmeschutz": "Energy saving and thermal insulation: U-values, Energieausweis.",
 }
 
-# Measured 2026-09-25/26 on twelve openings plus 24 held-out: every type 24/24 at 0.8, clear disciplines at 0.96-0.98, everything else at or below 0.52.
+# 2026-09-25/26, 12 openings + 24 held-out: types 24/24 at 0.8, clear disciplines 0.96-0.98, the rest <= 0.52.
 TYPE_THRESHOLD = 0.8
 DISCIPLINE_THRESHOLD = 0.8
 MAX_DISCIPLINE_TAGS = 3
@@ -442,7 +437,6 @@ def reconcile_image_tags(
         return tags
     rest = [tag for tag in (tags or []) if tag != PHOTO_TAG]
     return [PHOTO_TAG, *rest][:MAX_TAGS]
-
 
 
 MAX_TOPICS = 6

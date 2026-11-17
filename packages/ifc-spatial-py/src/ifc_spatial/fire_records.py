@@ -7,7 +7,6 @@ from dataclasses import field
 from typing import Any
 
 
-
 @dataclass(frozen=True)
 class StoreyJudgement:
     """One storey, its elevation, and whether it was counted — with the reason.
@@ -34,8 +33,6 @@ class StoreyJudgement:
             "why": self.why,
             "rooms": list(self.spaces),
         }
-
-
 
 
 @dataclass(frozen=True)

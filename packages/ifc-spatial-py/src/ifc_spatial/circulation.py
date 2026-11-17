@@ -273,8 +273,6 @@ class _Build:
     caveat: str | None
 
 
-
-
 def door_graph(model: SpatialModel) -> Answer[DoorGraph]:
     """The walkable graph: ``IfcSpace`` nodes plus OUTSIDE, doors as edges.
 
@@ -547,8 +545,6 @@ def _graph_caveat(graph: DoorGraph, derived_any: bool) -> str:
     return caveat
 
 
-
-
 def _centre(model: SpatialModel, global_id: str) -> np.ndarray | None:
     geo = model.geometry(global_id)
     return None if geo is None else geo.centroid
@@ -581,8 +577,6 @@ def _traverse(model: SpatialModel, a: str, door_id: str, b: str) -> float | None
     if first is None or second is None:
         return None
     return first + second
-
-
 
 
 _Search = tuple[dict[str, tuple[float, int]], dict[str, tuple[str, DoorEdge]]]
@@ -653,8 +647,6 @@ def _shortest(graph: DoorGraph, start: str, goal: str) -> tuple[list[DoorEdge], 
     if goal in best:
         return _route(came, start, goal), None
     return None
-
-
 
 
 def egress_path(model: SpatialModel, space_global_id: str) -> Answer[dict[str, Any]]:

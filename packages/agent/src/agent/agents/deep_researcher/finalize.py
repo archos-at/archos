@@ -71,8 +71,6 @@ _CUTOFF_CAUSE_CLAUSES_EN = {
 _OUTPUT_PATHS = ("/shared/output.md", "/output.md")
 
 
-
-
 def _file_text(entry: Any) -> str | None:
     """The non-blank text of one DeepAgents file entry, in any of its shapes."""
     if isinstance(entry, dict):
@@ -119,8 +117,6 @@ def replace_last_message_content(result: Any, content: str) -> None:
         messages[-1] = last_msg.model_copy(update={"content": content})
         return
     messages[-1] = type(last_msg)(content=content)
-
-
 
 
 def _cap_for_incomplete_evidence(
@@ -217,8 +213,6 @@ def _summarize_removed_citations(removed_citations: list[dict[str, Any]]) -> dic
         if len(reasons) >= 5:
             break
     return {"count": len(removed_citations), "reasons": reasons}
-
-
 
 
 def _registry_entry(registry: Any, citation: dict[str, Any]) -> Any:
@@ -333,8 +327,6 @@ def _apply_renumbering(
             sorted(dead),
         )
     return [_renumbered(source, renumber_map) for source in kept]
-
-
 
 
 @dataclass(frozen=True)
@@ -457,8 +449,6 @@ def record_citation_ledger(verification: Verification, registry: Any, self_confi
             label for label in ((c.get("citation_key") or c.get("url")) for c in verification.valid_citations) if label
         ],
     )
-
-
 
 
 @dataclass(frozen=True)

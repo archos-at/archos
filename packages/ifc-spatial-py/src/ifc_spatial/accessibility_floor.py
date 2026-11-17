@@ -31,7 +31,6 @@ from .operators import COORDINATE_TOLERANCE
 from .operators import FURNISHING
 
 
-
 def _plan_footprint(triangles: np.ndarray) -> Any | None:
     """A solid's floor polygon, by exactly the method ``_footprint_area`` measures.
 

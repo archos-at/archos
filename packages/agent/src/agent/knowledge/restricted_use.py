@@ -280,7 +280,6 @@ async def begin_restricted_use(
     return await asyncio.to_thread(check_restricted_use, use, candidates)
 
 
-
 COLLECTIONS_READ_KEY = "grid_collections_read"
 
 _call_reads: contextvars.ContextVar[set[str] | None] = contextvars.ContextVar("grid_collections_read", default=None)
@@ -331,7 +330,6 @@ def collections_read(message: Any) -> set[str]:
     metadata = getattr(message, "response_metadata", None)
     value = metadata.get(COLLECTIONS_READ_KEY) if isinstance(metadata, dict) else None
     return set(_names(value))
-
 
 
 _RESTRICTED_IN_TEXT = re.compile(r"(?<![\w-])proj_[\w-]+?_r[0-9a-f]{12}(?![\w-])", re.IGNORECASE)

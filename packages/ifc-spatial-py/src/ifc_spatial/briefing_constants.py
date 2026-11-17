@@ -23,7 +23,6 @@ DECISIVE_PROPERTIES: tuple[tuple[str, str], ...] = (
 )
 
 
-
 RoomUseKind = Literal["habitable_room", "ancillary_room", "circulation"]
 
 

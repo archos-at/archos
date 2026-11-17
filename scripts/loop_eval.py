@@ -176,8 +176,6 @@ def load_questions(path: Path) -> list[Question]:
     ]
 
 
-
-
 def _status_payloads(steps: Iterable[dict]) -> list[tuple[str, dict]]:
     """`(step name, payload)` for every status step of a turn, in order."""
     out: list[tuple[str, dict]] = []
@@ -212,8 +210,6 @@ def clause_matches(expected: str | None, cited: Sequence[str]) -> str:
         if number == expected or number.startswith(f"{expected}."):
             return "yes"
     return "no"
-
-
 
 
 def _normalise_query(text: object) -> str:
@@ -367,7 +363,6 @@ def flag_cross_turn(payloads: Sequence[tuple[str, dict]]) -> str:
             return "yes"
         seen.update(keys)
     return "no"
-
 
 
 _RIS_TOOL_PREFIXES = ("ris", "law_lookup")
@@ -529,8 +524,6 @@ def observe(question: Question, steps: Sequence[dict], answer: str, envelope: di
     )
 
 
-
-
 def write_csv(path: Path, rows: Sequence[Observation]) -> None:
     """Write the run. One row per question, in the set's own order."""
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -572,8 +565,6 @@ def read_csv(path: Path) -> list[Observation]:
                 f"(missing={missing or '-'}, unexpected={extra or '-'}). Re-run the eval to produce it."
             )
         return [Observation(**{name: str(row.get(name) or "") for name in FIELDS}) for row in reader]
-
-
 
 
 @dataclass(frozen=True)
@@ -704,7 +695,6 @@ def format_comparison(before: Sequence[Observation], after: Sequence[Observation
     lines.append(f"per question ({len(changes)} cell(s) moved):" if changes else "per question: nothing moved")
     lines += [f"  {question_id:34} {name:20} {was} → {now}" for question_id, name, was, now in changes]
     return "\n".join(lines)
-
 
 
 DATA_SOURCES: tuple[str, ...] = ("knowledge_layer", "ris", "web_search")

@@ -138,7 +138,6 @@ def persist_shown_notes(conversation_id: str | None, shown: ShownNotes) -> None:
     cache.set_json(_key(conversation_id), _encode(shown), _TTL_SECONDS)
 
 
-
 _turn_shown_notes: ContextVar[ShownNotes | None] = ContextVar("turn_shown_restricted_notes", default=None)
 
 

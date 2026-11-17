@@ -96,8 +96,6 @@ def group_pages(chunks: Iterable[tuple[Any, str]]) -> list[DocumentPage]:
     return pages
 
 
-
-
 @dataclass(frozen=True)
 class ProjectDocument:
     collection: str
@@ -166,8 +164,6 @@ def _unknown_document(name: str, documents: list[ProjectDocument]) -> str:
         f"No document named „{name}“ in this project ({len(names)} documents in scope).{hint} "
         "Call list_files for the exact names, or knowledge_search to find which document holds a value."
     )
-
-
 
 
 def _header(document: ProjectDocument, pages: list[DocumentPage]) -> list[str]:
@@ -282,8 +278,6 @@ def make_read_document_tool() -> StructuredTool:
         description=READ_DOCUMENT_DESCRIPTION,
         args_schema=ReadDocumentInput,
     )
-
-
 
 
 def _strip_qualifier(name: str) -> str:

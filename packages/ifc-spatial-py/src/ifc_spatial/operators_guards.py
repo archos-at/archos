@@ -16,7 +16,6 @@ from .model import SpatialModel
 from .model import WrongKindError
 
 
-
 def _require(model: SpatialModel, global_id: str, method: str) -> Any:
     return model.by_id(global_id, method)
 

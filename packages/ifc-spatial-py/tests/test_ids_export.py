@@ -54,8 +54,6 @@ def _verdicts(document: Any, ifc_path: Path) -> dict[str, bool]:
     return {spec.name: bool(spec.status) for spec in _run(document, ifc_path)}
 
 
-
-
 def test_the_sample_house_fails_the_specifications_derived_from_it(house: SpatialModel, tmp_path: Path) -> None:
     document = _written(blind_spots_as_ids(house), tmp_path)
     verdicts = _verdicts(document, SAMPLE_HOUSE)
@@ -114,8 +112,6 @@ def test_openings_must_resolve_to_a_host_and_the_sample_house_already_does(tmp_p
     assert _verdicts(document, NO_SPACES)[name] is True
 
 
-
-
 def test_no_specification_states_a_value(house: SpatialModel, spaceless: SpatialModel) -> None:
     for model in (house, spaceless):
         root = ElementTree.fromstring(to_xml(blind_spots_as_ids(model)))
@@ -166,8 +162,6 @@ def test_the_property_table_is_the_ifc_templates_and_says_so_when_it_is_not() ->
         )
 
 
-
-
 def test_answers_map_by_the_shape_of_missing_what(tmp_path: Path) -> None:
     answers = [
         declared(3, from_=[], method="ignored"),
@@ -206,8 +200,6 @@ def test_the_same_gap_asked_twice_is_one_specification(tmp_path: Path) -> None:
     _written(shopping, tmp_path)
 
 
-
-
 def test_write_returns_facts_about_the_file_and_never_the_file(house: SpatialModel, tmp_path: Path) -> None:
     facts = write_ids(blind_spots_as_ids(house), directory=str(tmp_path))
 
@@ -236,8 +228,6 @@ def test_an_empty_shopping_list_is_a_result_and_not_a_file(tmp_path: Path) -> No
     assert list(tmp_path.iterdir()) == []
     with pytest.raises(IdsExportError):
         to_xml(empty)
-
-
 
 
 def _gap(what: str, remedy: str) -> Any:

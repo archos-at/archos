@@ -1,3 +1,5 @@
+"""The matches an exact search found, grouped per file and per passage, and the distinct wording of them."""
+
 from __future__ import annotations
 
 import re
@@ -34,17 +36,20 @@ MAX_TRACKED_STRINGS = 200
 
 
 def _occurrences(body: str, pattern: Any, timeout: float | None = None) -> int:
+    """Non-empty, non-overlapping matches: one place in the text counts once, whichever alternative found it."""
     if timeout is None:
         return sum(1 for match in pattern.finditer(body) if match.end() > match.start())
     return sum(1 for match in pattern.finditer(body, timeout=timeout) if match.end() > match.start())
 
 
 def _matched_strings(own: OwnText, pattern: Any, timeout: float | None = None) -> list[str]:
+    """Every match that is the chunk's own, whitespace collapsed (a match across a line break reads as one line)."""
     return [" ".join(match.group().split()) for match in own_matches(own, pattern, timeout)]
 
 
 @dataclass
 class FileMatches:
+    """Every matching chunk of one file."""
 
     file_name: str
     shelf: str | None
@@ -73,6 +78,7 @@ class FileMatches:
 
 
 def _add_match(groups: dict[tuple[str, str], FileMatches], chunk: Any, own: str, count: int, found: list[str]) -> None:
+    """Record one chunk's ``count`` matches in its file's group, opening the group on the file's first chunk."""
     metadata = getattr(chunk, "metadata", None) or {}
     collection = str(metadata.get("collection") or "")
     key = (collection, chunk.file_name)
@@ -99,6 +105,28 @@ def group_matches(
     deadline: float | None = None,
     collect_strings: bool = False,
 ) -> list[FileMatches]:
+    """Chunks the :func:`phrase_pattern` really matches, grouped per file, most occurrences first.
+
+    The same pattern the store filtered with, compiled here: what the store
+    returned and what is counted cannot disagree about what a match is. A
+    person's regex arrives compiled, with the timeout it ran under.
+
+    ``store_decides`` (a stemmed search) keeps every chunk the store returned:
+    the stemmed index matched it, so it counts at least once even where the
+    counting pattern's approximation of the stem finds no place in it.
+
+    ``deadline`` (a ``time.monotonic()`` instant, with ``timeout``) bounds the
+    whole count: each chunk's timeout shrinks to what is left, and
+    ``TimeoutError`` is raised once nothing is.
+
+    ``collect_strings`` (a regex search) also records each distinct matched string per file, for
+    :func:`distinct_matches`.
+
+    One place in the document is one match (``chunk_positions``): a chunk's breadcrumb is not
+    matched, its own heading counts on its first part only, and a match inside the overlap it
+    repeats from the returned chunk before it is that chunk's. A chunk left with no match of its
+    own is no passage either.
+    """
     compiled = pattern if hasattr(pattern, "finditer") else re.compile(pattern)
     groups: dict[tuple[str, str], FileMatches] = {}
     chunks = list(chunks)
@@ -124,6 +152,7 @@ def group_matches(
 
 
 def pick_passages(groups: Sequence[FileMatches], limit: int = MAX_MATCH_PASSAGES) -> list[Any]:
+    """Round-robin over the files, best-covered first: the first match of each, then the second."""
     picked: list[Any] = []
     depth = 0
     while len(picked) < limit and any(depth < len(group.chunks) for group in groups):
@@ -135,6 +164,11 @@ def pick_passages(groups: Sequence[FileMatches], limit: int = MAX_MATCH_PASSAGES
 
 
 def distinct_matches(groups: Sequence[FileMatches]) -> tuple[list[tuple[str, int, list[str], list[int]]], bool]:
+    """Each distinct matched string over all files: ``(spelling, count, files, pages)``, most frequent first.
+
+    ``files`` is in the order of the match table, ``pages`` ascending. The flag says a file had more
+    distinct strings than it tracks, so the aggregate may miss some.
+    """
     merged: dict[str, list[Any]] = {}
     cut = False
     for group in groups:
@@ -149,6 +183,7 @@ def distinct_matches(groups: Sequence[FileMatches]) -> tuple[list[tuple[str, int
 
 
 def _distinct_lines(groups: Sequence[FileMatches]) -> list[str]:
+    """The "Distinct matches" aggregate of a regex search: each different string with its count and places."""
     ranked, cut = distinct_matches(groups)
     if not ranked:
         return []

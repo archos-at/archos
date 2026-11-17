@@ -121,8 +121,6 @@ def _build_search_params(
     return search_terms(args)
 
 
-
-
 class RisSearchInput(BaseModel):
     """The arguments of one ``ris_search`` call, as the model sees them.
 

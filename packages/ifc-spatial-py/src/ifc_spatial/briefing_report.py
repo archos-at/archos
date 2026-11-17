@@ -37,7 +37,6 @@ from ifc_spatial.briefing_text import _wrap
 from .model import SpatialModel
 
 
-
 def briefing(model: SpatialModel, *, dialect_sample_size: int = DIALECT_SAMPLE_SIZE) -> Briefing:
     """Compute the précis. Deterministic, and free of geometry.
 
@@ -177,8 +176,6 @@ def briefing(model: SpatialModel, *, dialect_sample_size: int = DIALECT_SAMPLE_S
         absent_properties=absent,
         blind_spots=find_blind_spots(model, dialect_sample_size if sampled else None),
     )
-
-
 
 
 def render_briefing(model: SpatialModel, *, dialect_sample_size: int = DIALECT_SAMPLE_SIZE) -> str:

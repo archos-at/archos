@@ -10,7 +10,6 @@ from pydantic import TypeAdapter
 
 from agent.cards.calculation_card import CalculationCard
 from agent.cards.canvas_activity_card import CanvasActivityCard
-
 from agent.cards.catalog import CHAT_ONLY_CARD_TYPES
 from agent.cards.catalog import SYSTEM_CARD_TYPES
 from agent.cards.file_operation_card import FileOperationProposalCard

@@ -13,7 +13,6 @@ from ifc_spatial.tools_types import ToolError
 from .model import SpatialModel
 
 
-
 def _select(
     model: SpatialModel,
     args: dict[str, Any],
@@ -53,8 +52,6 @@ def _select(
         if len(matches) < limit:
             matches.append(element)
     return matches, total
-
-
 
 
 def _nodes(model: SpatialModel) -> list[Any]:

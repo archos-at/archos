@@ -98,8 +98,6 @@ _consecutive_failures = 0
 _breaker_open_until = 0.0
 
 
-
-
 def noul(instructions: str, *, true: str, false: str) -> dict[str, Any]:
     """A yes/no question. ``true``/``false`` are the criteria the vendor asks for."""
     return {"type": "noul", "instructions": instructions, "criteria": {"true": true, "false": false}}
@@ -117,8 +115,6 @@ def score(instructions: str, levels: Sequence[str]) -> dict[str, Any]:
     if not 2 <= len(levels) <= 10:
         raise ValueError("a score needs between 2 and 10 levels")
     return {"type": "score", "instructions": instructions, "criteria": list(levels)}
-
-
 
 
 @dataclass(frozen=True)
@@ -186,8 +182,6 @@ def _probability(value: Any) -> float | None:
     if not math.isfinite(number):
         return None
     return min(1.0, max(0.0, number))
-
-
 
 
 @dataclass(frozen=True)

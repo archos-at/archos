@@ -530,7 +530,6 @@ def fail_interrupted() -> int:
     return settled
 
 
-
 _IN_FLIGHT_SCAN_LIMIT = 200
 
 

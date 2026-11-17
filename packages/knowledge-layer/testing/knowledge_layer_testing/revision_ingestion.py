@@ -10,7 +10,6 @@ from langchain_core.messages import AIMessage
 
 
 class _Model:
-
     def __init__(self, judge='{"of": null, "confidence": 0.0, "reason": ""}', change="- Stiege nach Norden verschoben"):
         self.judge = judge
         self.change = change

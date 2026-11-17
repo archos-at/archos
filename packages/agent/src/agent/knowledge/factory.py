@@ -397,7 +397,6 @@ def clear_active_retriever() -> None:
         _RETRIEVER_INSTANCES.clear()
 
 
-
 _document_metadata_store: DocumentMetadataStore | None = None
 _document_metadata_store_lock = threading.Lock()
 
@@ -941,8 +940,6 @@ def is_retriever_registered(name: str) -> bool:
 def is_ingestor_registered(name: str) -> bool:
     """Check if an ingestor backend is registered."""
     return name in _INGESTOR_REGISTRY
-
-
 
 
 def get_default_retriever_backend() -> str:

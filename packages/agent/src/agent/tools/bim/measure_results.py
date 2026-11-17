@@ -15,7 +15,6 @@ from agent.tools.bim.measurement_sources import MeasuredElement
 from agent.tools.bim.measurement_sources import MeasurementSource
 
 
-
 def _is_evidence(answer: Any) -> bool:
     """Whether one envelope answer is EVIDENCE: decidable, declared or computed, and a QUANTITY.
 

@@ -222,7 +222,6 @@ class DeepResearcherAgent:
         self._prompts = _prompt_templates()
         self.source_tool_names = {tool.name for tool in self.tools}
 
-
     def _prepare_run(
         self,
         state: DeepResearchAgentState,
@@ -313,7 +312,6 @@ class DeepResearcherAgent:
         logger.info("Deep research resolved %d office skill(s) for the writer", len(office))
         return runtime
 
-
     def _invocation(self, callbacks: list[Any]) -> tuple[dict[str, Any] | None, dict[str, Any]]:
         """The ``astream`` config and kwargs for one run.
 
@@ -403,7 +401,6 @@ class DeepResearcherAgent:
             end_lane_capture(lane_token)
             end_write_now_record(write_now_token)
             end_trace_contributions(contributions_token)
-
 
     def _finalize(
         self,
@@ -505,7 +502,6 @@ class DeepResearcherAgent:
             unavailable_tools=unavailable,
             available_count=available_count,
         )
-
 
     def _extract_final_markdown(self, result: Any) -> str | None:
         """Extract final Markdown from output files."""

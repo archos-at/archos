@@ -1,3 +1,7 @@
+"""The phrase patterns the exact search finds a phrase with: umlaut and case spellings, inflection stems, the
+separators a line break or hyphen counts as, and the anchor rules for a pattern.
+"""
+
 from __future__ import annotations
 
 import re
@@ -34,6 +38,7 @@ MAX_PATTERN_CHARS = 4000
 
 
 def _phrase_pattern(phrase: str) -> str:
+    """One phrase as a regex body: separators, umlaut spellings, whole word when short."""
     text = unicodedata.normalize("NFC", phrase).lower()
     body = "".join(
         _SEPARATOR if token[0].isspace() or token[0] in _SEPARATOR_CHARS else _EQUIVALENT.get(token, re.escape(token))
@@ -54,6 +59,13 @@ _STEM_MIN_CHARS = 4
 
 
 def inflection_stem(phrase: str) -> str:
+    """``phrase`` with each long word's inflectional ending removed: the stem the count and the context lines look for.
+
+    A Python approximation of the stemmed index's Snowball German, for counting
+    and showing the matches that index found („Fluchtwegbreiten“ → „Fluchtwegbreit“,
+    which the substring pattern then finds in „Fluchtwegbreite“ and „Fluchtwegbreiten“).
+    Which chunks match is decided by the index, never by this.
+    """
     words = []
     for word in phrase.split():
         stem = word
@@ -67,23 +79,44 @@ def inflection_stem(phrase: str) -> str:
 
 
 def stemmed_pattern(phrases: Sequence[str]) -> str | None:
+    """The counting pattern of a stemmed search: each phrase and its stem (the phrases alone when too long)."""
     stems = [inflection_stem(phrase) for phrase in phrases]
     return phrase_pattern([*phrases, *stems]) or phrase_pattern(phrases)
 
 
 def phrase_pattern(phrases: Sequence[str]) -> str | None:
+    """The ONE case-insensitive regex that finds any of ``phrases``, or None when it is too long.
+
+    It is written to mean the same in Rust's ``regex`` and Python's ``re``
+    (``qdrant.retrieval.find_text`` narrows by its literal words on the server
+    and applies it in Python), so it keeps to what both dialects read alike:
+    ``(?i)`` at the start, non-capturing groups, classes, ``\\s``, ``\\b``,
+    escaped literals; no lookaround, no backreference. Longest phrase
+    first, so at one position „Brandschutzplan“ is taken before „Brandschutz“
+    and a match is counted once however many alternatives it satisfies.
+    """
     ordered = sorted(dict.fromkeys(phrases), key=len, reverse=True)
     pattern = "(?i)" + "|".join(_phrase_pattern(phrase) for phrase in ordered)
     return pattern if len(pattern) <= MAX_PATTERN_CHARS and ordered else None
 
 
 def split_alternatives(text: str) -> list[str]:
+    """``"BA-03 | BA 03"`` → ``["BA-03", "BA 03"]``; empty, too-short and letterless parts dropped.
+
+    A part without a letter or digit („--“) would match every separator run.
+    """
     parts = [" ".join(part.split()) for part in unicodedata.normalize("NFC", text or "").split("|")]
     kept = [part for part in dict.fromkeys(parts) if len(part) >= MIN_PHRASE_CHARS and re.search(r"\w", part)]
     return kept[:MAX_ALTERNATIVES]
 
 
 def user_pattern(text: str) -> tuple[Any | None, str]:
+    """A person's regex, compiled; ``(None, refusal)`` when it cannot run, with the line that teaches the fix.
+
+    Python syntax, case-insensitive. Refused: longer than :data:`MAX_USER_PATTERN_CHARS`, not a valid
+    pattern, and a pattern that matches the empty string (it would match every passage). Catastrophic
+    backtracking is stopped at match time, by the timeout the store scan runs under.
+    """
     from knowledge_layer.vector_store import compile_user_regex
 
     pattern = text.strip()

@@ -294,7 +294,6 @@ class TestChatAgent:
 
         await agent.run(state)
 
-
     @pytest.mark.asyncio
     async def test_run_extracts_and_strips_control_markers(self, mock_llm_provider, mock_llm, real_tool):
         """Both control markers are stripped before emit_final_report and in the returned message.
@@ -372,7 +371,6 @@ class TestChatAgent:
         assert not final_content.startswith("[{")
         assert "[CONFIDENCE" not in final_content
         assert result.answer_confidence_marker == "high"
-
 
     @staticmethod
     def _envelope_reply(*, fenced: bool = True, **overrides):
@@ -497,7 +495,6 @@ class TestChatAgent:
         assert result.escalation_requested is True
         assert result.answer_meta is None
         assert result.answer_confidence_marker == "medium"
-
 
     def _bindable(self, mock_llm, reply):
         """Configure `mock_llm.bind(...)` to return a working bound double."""
@@ -1021,8 +1018,6 @@ class TestChatAgent:
             "research limit" in str(msg.content).lower() for msg in last_call_messages if hasattr(msg, "content")
         )
         assert synthesis_instruction_found
-
-
 
 
 @tool
@@ -1687,8 +1682,6 @@ class TestChatSourceCaptureIntegration:
         assert "docs.nvidia.com/cuda" in output
 
 
-
-
 class TestChatSessionRegistry:
     """Tests verifying session-scoped SourceRegistry integration.
 
@@ -1932,7 +1925,6 @@ class TestChatAnswerGrounding:
         assert "OIB Richtlinie" not in answer.content
         assert result.answer_citation_grounded is False
 
-
     @pytest.mark.asyncio
     async def test_verified_sources_empty_when_answer_cites_nothing(self, mock_llm_provider, mock_llm):
         mock_llm.ainvoke.return_value = AIMessage(content="Hallo! Wie kann ich helfen?")
@@ -2033,7 +2025,6 @@ class TestChatAnswerGrounding:
         result = await _run_with_bound_registry(self._agent(mock_llm_provider), state, registry)
         assert result.verified_sources is None
 
-
     @pytest.mark.asyncio
     async def test_verified_sources_carry_their_citation_number(self, mock_llm_provider, mock_llm):
         mock_llm.ainvoke.return_value = AIMessage(content="Antwort [1][2].")
@@ -2073,7 +2064,6 @@ class TestChatAnswerGrounding:
         assert "Belegt [1]" in final_text
         assert [s["number"] for s in result.verified_sources] == [1]
         assert [s["url"] for s in result.verified_sources] == ["https://example.com/real"]
-
 
     @pytest.mark.asyncio
     async def test_citations_removed_populated_when_verification_drops_citations(self, mock_llm_provider, mock_llm):
@@ -2763,8 +2753,6 @@ class TestTheModelCardsAreActuallyAskedFor:
         assert "THIS turn" in body
 
 
-
-
 _MEASURED_BASEMENT = {
     "value": 2.703,
     "unit": "m",
@@ -2839,7 +2827,6 @@ class TestMeasurementSourcesDoNotGroundCitations:
     @staticmethod
     def _measurement_sources(result):
         return [s for s in (result.verified_sources or []) if s.get("kind") == "measurement"]
-
 
     @pytest.mark.asyncio
     async def test_measured_answer_with_uncited_normative_claim_never_reaches_the_registry(
@@ -2931,7 +2918,6 @@ class TestMeasurementSourcesDoNotGroundCitations:
         assert registry.all_sources() == []
         assert result.answer_lookup_found_nothing is True
 
-
     @pytest.mark.asyncio
     async def test_the_card_carries_the_audit_trail_the_envelope_had(self, mock_llm_provider, mock_llm):
         """Value, tolerance, German provenance, method, GlobalIds, model, caveat."""
@@ -2974,8 +2960,6 @@ class TestMeasurementSourcesDoNotGroundCitations:
         assert self._measurement_sources(result)
         assert events.record_turn.call_args.kwargs["cited_count"] == 0
         assert events.record_turn.call_args.kwargs["source_count"] == 0
-
-
 
 
 class TestTheResearchBudgetIsOneNumber:
@@ -3677,8 +3661,6 @@ class TestATurnThatWritesADraft:
         )
 
         assert result.tool_iterations == 2
-
-
 
 
 def _file_verb_descriptions() -> dict[str, str]:

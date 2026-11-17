@@ -22,7 +22,6 @@ def _isolate_shared_cache():
     reset_local_store()
 
 
-
 _BO_WIEN_TEXT = """Bauordnung für Wien
 
 Bauansuchen
@@ -50,7 +49,6 @@ Stellplätze
 
 
 class FakeLookupClient:
-
     search_result: RisSearchResult | Exception = RisSearchResult()
     documents: dict[str, RisDocument] = {}
     search_calls: list[dict] = []
@@ -78,12 +76,10 @@ class FakeLookupClient:
         pass
 
 
-class _LookupProbeConfig(FunctionBaseConfig, name="test_lookup_call_probe"):
-    ...
+class _LookupProbeConfig(FunctionBaseConfig, name="test_lookup_call_probe"): ...
 
 
 class LookupHarness:
-
     WIEN_URL = "https://www.ris.bka.gv.at/GeltendeFassung.wxe?Abfrage=LrW&Gesetzesnummer=20000006"
     TIROL_URL = "https://www.ris.bka.gv.at/GeltendeFassung.wxe?Abfrage=LrT&Gesetzesnummer=20000112"
 
@@ -168,7 +164,6 @@ def catalog(monkeypatch):
 
 
 class FakePicker:
-
     def __init__(self, *sections: str):
         self.sections = list(sections)
         self.calls: list[tuple[str, str]] = []
@@ -182,7 +177,6 @@ class FakePicker:
 
 
 class FakePlanner:
-
     def __init__(self, application="LrKons", suchworte="Bauordnung", titel="", federal_state=""):
         from ris_adapter.register import RisSearchPlan
 

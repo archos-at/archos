@@ -212,8 +212,6 @@ class ReadPassageConfig(FunctionBaseConfig, name="read_passage"):
     )
 
 
-
-
 @register_function(config_type=ReadPassageConfig)
 async def read_passage(config: ReadPassageConfig, _builder: Builder):
     """Open a named passage of a named document, or its outline. Deterministic; no LLM."""

@@ -49,8 +49,6 @@ GOING = 0.270
 PITCH = math.atan2(RISER, GOING)
 
 
-
-
 def _build(path: Path) -> None:
     f = ifcopenshell.file(schema="IFC4")
     person = f.create_entity("IfcPerson", FamilyName="x")
@@ -361,13 +359,9 @@ def house() -> SpatialModel:
     return SpatialModel(str(SAMPLE_HOUSE))
 
 
-
-
 def test_the_sample_house_has_no_stair_at_all(house: SpatialModel) -> None:
     for kind in ("IfcStair", "IfcStairFlight", "IfcRamp", "IfcRampFlight"):
         assert house.file.by_type(kind) == [], kind
-
-
 
 
 def test_a_regular_flight_is_measured_off_its_own_solid(stairs: SpatialModel) -> None:
@@ -430,8 +424,6 @@ def test_no_threshold_and_no_verdict_appears_anywhere_in_the_answer(stairs: Spat
             assert word not in text, (global_id, word)
 
 
-
-
 def test_an_assembly_pools_its_flights_and_still_lists_them_separately(stairs: SpatialModel) -> None:
     answer = st.stair_geometry(stairs, STAIR_NORTH)
     value = answer.value
@@ -479,8 +471,6 @@ def test_an_unknown_global_id_raises_and_is_never_an_undecidable(stairs: Spatial
             operator(stairs, "0erfundene0000000000id")
 
 
-
-
 def test_a_six_percent_ramp_is_six_percent_and_one_to_sixteen_seven(stairs: SpatialModel) -> None:
     answer = st.ramp_slope(stairs, RAMP_ENTRY)
     assert answer.decidable
@@ -521,8 +511,6 @@ def test_ramp_slope_refuses_a_stair(stairs: SpatialModel) -> None:
     with pytest.raises(WrongKindError) as raised:
         st.ramp_slope(stairs, FLIGHT_ONE)
     assert "stairGeometry()" in str(raised.value)
-
-
 
 
 def test_the_headroom_is_perpendicular_to_the_pitch_and_not_vertical(stairs: SpatialModel) -> None:
@@ -604,8 +592,6 @@ def test_headroom_refuses_a_wall(stairs: SpatialModel) -> None:
     assert "clearHeight()" in str(raised.value)
 
 
-
-
 def test_a_stair_reports_its_flights_and_the_landing_between_them(stairs: SpatialModel) -> None:
     answer = st.steps_of(stairs, STAIR_NORTH)
     assert answer.decidable
@@ -649,8 +635,6 @@ def test_steps_of_on_a_flight_points_at_the_assembly_it_belongs_to(stairs: Spati
 def test_a_ramp_decomposes_the_same_way_a_stair_does(stairs: SpatialModel) -> None:
     answer = st.steps_of(stairs, RAMP_GARAGE)
     assert [ref.global_id for ref in answer.value["flights"]] == [RAMP_GARAGE_FLAT, RAMP_GARAGE_STEEP]
-
-
 
 
 def test_every_answer_carries_its_method_its_sources_and_serialises(stairs: SpatialModel) -> None:
@@ -697,7 +681,6 @@ def test_the_nosing_line_is_the_front_edge_of_each_tread(stairs: SpatialModel) -
     assert nosings[0][2] == pytest.approx(RISER, abs=1e-9)
     assert nosings[-1][0] == pytest.approx(8 * GOING, abs=1e-9)
     assert nosings[-1][2] == pytest.approx(9 * RISER, abs=1e-9)
-
 
 
 _MILLIMETRE_STAIR = """ISO-10303-21;
@@ -754,10 +737,7 @@ def test_both_routes_produce_the_same_key_shape(stairs: SpatialModel) -> None:
         assert {"value", "measured", "declared", "declaredAs", "agreement"} <= set(schedule[key]), key
 
 
-
-
 class TestADoglegWrittenAsOneBodyIsThreeFlightsAndNotOne:
-
     FIXTURE = FIXTURES / "stair-three-flight.ifc"
     STAIR = "1Kl5_Wzb98HOSGZ8eaBX2f"
     RAILING = "01e2zHdgn5GRyyfNksJ$8a"
@@ -836,7 +816,6 @@ class TestADoglegWrittenAsOneBodyIsThreeFlightsAndNotOne:
 
 
 class TestAWinderIsRefusedRatherThanAveraged:
-
     FIXTURE = FIXTURES / "spiral-stair.ifc"
     STAIR = "38a9vdh9bF5Qg28GWyHhlr"
 

@@ -108,7 +108,6 @@ def write_pdf(path: Path, pages: list[list[PdfLine]]) -> Path:
     return path
 
 
-
 PLAN_SET_RASTER_PX: tuple[int, int] = (3000, 2200)
 
 PLAN_SET_UNDERSIZED_PX: tuple[int, int] = (40, 40)

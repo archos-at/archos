@@ -15,8 +15,6 @@ ABS_TOLERANCE = 0.01
 PRECISION_FLOOR = 0.9
 
 
-
-
 def fold(text: str) -> str:
     return " ".join(unicodedata.normalize("NFC", str(text)).casefold().split())
 
@@ -64,8 +62,6 @@ def judge(key: str, value: Any, answer_key: Mapping[str, Any]) -> str:
     if key in answer_key.get("either", {}):
         return "neutral" if matches(answer_key["either"][key], value) else "wrong"
     return "wrong"
-
-
 
 
 def standing(records: Iterable[Mapping[str, Any]]) -> list[Mapping[str, Any]]:
@@ -135,8 +131,6 @@ def stayed_open(records: Iterable[Mapping[str, Any]], answer_key: Mapping[str, A
     return ((len(should_stay) - len(broken)) / len(should_stay) if should_stay else None), broken
 
 
-
-
 def _falls_for(trap: Mapping[str, Any], record: Mapping[str, Any]) -> bool:
     return any(spec["key"] == record.get("key") and matches(spec, record.get("value")) for spec in trap["values"])
 
@@ -186,7 +180,6 @@ def revision_result(
     if any(present and same_value(value, spec["current"]) for present, value in current):
         return "handled"
     return "not_recorded"
-
 
 
 _NOT_VALUES = [
@@ -247,8 +240,6 @@ def summary_check(
     }
 
 
-
-
 def call_kind(url: str) -> str:
     path = url.rsplit("openrouter.ai", maxsplit=1)[-1]
     if path.endswith("/responses") or path.endswith("completions"):
@@ -297,8 +288,6 @@ def usage_totals(calls: Iterable[Mapping[str, Any]]) -> dict[str, Any]:
         totals["cost_usd"] += cost
         kind["cost_usd"] += cost
     return totals
-
-
 
 
 def score_run(

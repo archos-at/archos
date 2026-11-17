@@ -423,8 +423,6 @@ def _boolean(name: str, value: bool, comment: str | None = None) -> RuntimeScore
     return RuntimeScore(name, 1.0 if value else 0.0, comment=comment)
 
 
-
-
 def turn_outcome_scores(result: Any) -> list[RuntimeScore]:
     """Scores from a finished turn's ``TurnResult``: what the reader was shown."""
     scores: list[RuntimeScore] = []
@@ -537,7 +535,6 @@ def thread_reply_scores(verdict: str) -> list[RuntimeScore]:
     if verdict not in ("replied", "skipped"):
         return []
     return [_boolean("thread-answered-in-place", verdict == "replied")]
-
 
 
 _REQUEST_TIMEOUT_SECONDS = 5.0

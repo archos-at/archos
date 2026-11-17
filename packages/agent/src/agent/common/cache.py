@@ -50,7 +50,6 @@ _client_lock = threading.Lock()
 _CLIENT_RETRY_SECONDS = 30.0
 
 
-
 _STORE_DOWN_WARN_INTERVAL_SECONDS = 300.0
 
 _store_down_warned_at: float | None = None

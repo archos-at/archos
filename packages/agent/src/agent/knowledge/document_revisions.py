@@ -319,8 +319,6 @@ def judge_revision(
     return verdict
 
 
-
-
 def build_change_prompt(older: RevisionDocument, newer: RevisionDocument) -> str:
     """The prompt that compares two descriptions of one document in two states."""
     both_excerpts = bool(older.excerpt and newer.excerpt)

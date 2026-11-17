@@ -13,7 +13,6 @@ from agent.tools.bim.rendering import listed
 from agent.tools.bim.rendering import render_unresolved
 
 
-
 def _is_profile(payload: Any) -> bool:
     """`element_profile`: many measures over ONE element."""
     return isinstance(payload, dict) and "measures" in payload and "element" in payload

@@ -28,8 +28,6 @@ def turns_of(question: dict) -> list[str]:
     return [str(turn) for turn in turns] if turns else [str(question["question"])]
 
 
-
-
 def _operation(call: dict[str, Any]) -> str | None:
     name = (call.get("arguments") or {}).get("name")
     return str(name) if name else None
@@ -147,8 +145,6 @@ def workspace_checks(
         if verdict is None and answer.strip():
             signals.append(f"judge_unavailable:{kind}")
     return checks
-
-
 
 
 def run_conversation(

@@ -335,7 +335,6 @@ class TestThroughTheAgent:
         assert contributed["metadata"]["answer_language_instructed"] is False
 
 
-
 VIENNA_TEXT = "PROJECT_CONTEXT v1\n\nconfirmed:\n- federal_state=vienna\n- main_use=residential\n- building_class=4\n"
 CHAIN = "Building law at this site, Wien (AT-9, AT, EU), on 2026-11-10, from the platform's reviewed records."
 

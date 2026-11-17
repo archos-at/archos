@@ -1,3 +1,5 @@
+"""The page numbers an estate read asks for: parsing them, naming them back, and the refusal when they are too many."""
+
 from __future__ import annotations
 
 from collections.abc import Sequence
@@ -10,10 +12,15 @@ from .constants import MAX_READ_PAGES
 
 
 class PagesRefused(ValueError):
-    ...
+    """A ``pages=`` the reader cannot serve; the message is what the model reads."""
 
 
 def parse_pages(raw: Any) -> list[int] | None:
+    """``"3"``, ``"3-5"`` or ``"3,7,11"`` as the page numbers, in the order asked, without repeats. Pure.
+
+    ``None`` for no ``pages``. More than :data:`MAX_READ_PAGES` pages, or an
+    item that is not a page or a range, raises :class:`PagesRefused`.
+    """
     if raw is None:
         return None
     text = str(raw).strip()
@@ -35,6 +42,7 @@ def parse_pages(raw: Any) -> list[int] | None:
 
 
 def pages_label(numbers: Sequence[int]) -> str:
+    """``[3, 4, 5, 9]`` as ``"3-5, 9"``. Pure."""
     ordered = sorted(set(numbers))
     parts: list[str] = []
     start = previous = None
@@ -53,6 +61,7 @@ def pages_label(numbers: Sequence[int]) -> str:
 
 
 def pages_for_lines(pages: Sequence[stored_pages.Page], offset: int, limit: int) -> list[int]:
+    """The pages a line window ``[offset, offset+limit)`` falls on, counting the pages' lines in order. Pure."""
     first_line = max(0, offset)
     last_line = first_line + max(1, limit)
     out: list[int] = []

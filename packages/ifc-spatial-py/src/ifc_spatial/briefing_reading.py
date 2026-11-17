@@ -22,7 +22,6 @@ from .model import SpatialModel
 from .model import Storey
 
 
-
 def storey_heights(model: SpatialModel) -> Answer[list[dict[str, Any]]]:
     """Storey heights as the difference between consecutive declared elevations.
 

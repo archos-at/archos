@@ -1,3 +1,29 @@
+"""One page of a stored document as JPEG bytes, for a caller that is not a chat turn.
+
+``look`` shows a page to the model inside a turn: it is bound to
+the turn's scope and its per-turn image budget, and it answers in content
+blocks. The Fassung comparison (``agent_host.routes.revision_compare``) needs the
+same bytes outside a turn, so this is the same three steps without the tool
+around them: ask the BFF where the document lives (``GET
+/api/internal/document-file``), fetch the object from SeaweedFS, render the page
+(a PDF) or re-encode the image (an uploaded picture) to the long edge the
+ingest-time captioning used.
+
+**Nothing is stored per page.** Ingestion keeps the rasters it cut out of a PDF
+(``ingest/image_store``) and one thumbnail per document, not a render of
+every page, so a page is rendered from the original on demand, exactly as
+``look`` does it. Those helpers are used as they are, so a
+change to how a page is rendered lands in both places.
+
+**Who may ask is not decided here.** The lookup carries no turn envelope, so the
+BFF answers for an ordinary collection by name and never for a restricted
+folder's (ADR-0088): such a page is simply unavailable. The caller is the
+backend's own route, behind the BFF's access check.
+
+Every failure is a :class:`PageImageUnavailable` with a reason code; nothing
+else is raised.
+"""
+
 from __future__ import annotations
 
 import asyncio
@@ -10,6 +36,7 @@ logger = logging.getLogger(__name__)
 
 
 class PageImageUnavailable(Exception):
+    """The page could not be produced. ``reason`` is a code, never a path or a key."""
 
     def __init__(self, reason: str) -> None:
         super().__init__(reason)
@@ -18,6 +45,7 @@ class PageImageUnavailable(Exception):
 
 @dataclass(frozen=True)
 class PageImage:
+    """A page as JPEG bytes, with its pixel size."""
 
     jpeg: bytes
     width: int
@@ -33,6 +61,13 @@ async def load_page_jpeg(
     max_dim: int | None = None,
     timeout: float = 30.0,
 ) -> PageImage:
+    """Page ``page`` (1-based) of ``file_name`` in ``collection``.
+
+    A standalone image has one page. Raises :class:`PageImageUnavailable` with
+    ``not_stored`` (the BFF knows no such file), ``fetch_failed`` (the object
+    store did not give the bytes), ``page_not_found`` (the page does not exist
+    or the file is not a PDF or an image) or ``invalid_page``.
+    """
     if page < 1:
         raise PageImageUnavailable("invalid_page")
     limit = max_dim or _view.default_max_dim()

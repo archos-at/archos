@@ -25,7 +25,6 @@ from .model import DERIVED_BOUNDARY_MAX_PRODUCTS
 from .model import SpatialModel
 
 
-
 def hosts(model: SpatialModel, global_id: str) -> Answer[list[ElementRef]]:
     """Openings cut out of this element — the window and door reveals in a wall.
 

@@ -18,12 +18,10 @@ GATE = Path(__file__).with_name("gate.ts")
 JOB_ID = "intake-eval-job"
 
 
-class GateError(RuntimeError):
-    ...
+class GateError(RuntimeError): ...
 
 
 class Gate:
-
     def __init__(self) -> None:
         bun = shutil.which("bun")
         if bun is None:
@@ -53,7 +51,6 @@ class Gate:
 
 
 class FakeIntakeBff:
-
     def __init__(self, fixture: Fixture, gate: Gate) -> None:
         self.fixture = fixture
         self.gate = gate
@@ -114,7 +111,6 @@ class FakeIntakeBff:
 
 
 class FakeIntakeRoute:
-
     def __init__(self, **answers: Any) -> None:
         self.answers = {"progress": {"filesOpened": 1}, "finish": {"status": "ready"}, **answers}
         self.requests: list[urllib.request.Request] = []

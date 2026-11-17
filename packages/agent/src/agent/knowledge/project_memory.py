@@ -324,8 +324,6 @@ def fetch_memory_digest(
     return digest if isinstance(digest, str) and digest.strip() else None
 
 
-
-
 def looks_like_personal_data(content: str) -> bool:
     """Whether a memory finding holds a secret or a way to reach a person.
 

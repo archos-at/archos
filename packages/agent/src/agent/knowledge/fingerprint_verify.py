@@ -36,7 +36,7 @@ logger = logging.getLogger(__name__)
 
 SLOT = "experience_verify"
 
-# Measured 10 Oct 2026 on 32 hand-labelled quotes: no wrong value scored above 0.32, correct values scored as low as 0.14; at 0.5 the check dropped 5-6 of 17 correct values, at 0.1 it keeps all 17 and still rejects the pen's slips (0.03-0.05).
+# 2026-10-10, 32 labelled quotes: wrong <= 0.32, correct >= 0.14; 0.1 keeps all 17 correct, rejects slips (0.03-0.05).
 STATED_THRESHOLD = 0.1
 
 UNCHECKED_KEYS = frozenset({"building_class", "gebaeudeklasse"})

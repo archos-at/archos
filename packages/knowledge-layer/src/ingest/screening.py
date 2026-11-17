@@ -1,3 +1,35 @@
+"""Upload screening: a document an office has ruled out never reaches an external model.
+
+An office names terms (``Gehaltsabrechnung``, ``Honorarvereinbarung``) and switches
+on detectors for identifiers that must not leave the building (IBAN, the Austrian
+social-security number, a payment-card number). The ingest job runs this check on
+the text it extracted LOCALLY (pdfplumber, the office and text-format readers) and
+before its first model call (OCR, image captioning, VLM enrichment, summary and
+tags, embeddings). A match fails the file, records why as a typed verdict
+(``ScreeningVerdict.to_model``, ``FileProgress.quarantine``, ADR-0113), and nothing
+of it is sent anywhere.
+
+Rule-based and local on purpose: the NVIDIA toolkits evaluated for this read English
+only and hook in after the model call, which is one step too late.
+
+Pure: rules in, verdict out. ``ScreeningRules.from_config`` never raises into the job.
+
+The matcher itself (folding, terms, the three detectors, spans, masked samples)
+is ``agent.common.content_screen``, shared with the chat socket's mask and
+mirrored in the browser; this module turns its spans into a verdict per file.
+The names it used to define are re-exported below, so callers did not move.
+
+Only checksum-valid matches count, so a document full of order numbers is not
+quarantined for looking like one. The verdict never carries a matched value: a
+detector reason holds a MASKED sample (``AT61 •••• •••• •••• 3201``), because the
+reason is stored on the job status and shown to people who may not see the value.
+
+The file's ``error_message`` still carries the same verdict as
+``quarantined:{json}`` (``quarantine_error``), for one release: a BFF that predates
+the typed field reads it from there. It is derived from the model, so the two
+never disagree, and nothing new may read it.
+"""
+
 from __future__ import annotations
 
 import json
@@ -67,10 +99,9 @@ MAX_REASONS = 10
 MAX_ERROR_CHARS = 2000
 
 
-
-
 @dataclass(frozen=True)
 class Reason:
+    """Why a file was quarantined: one term or one detector, never a matched value."""
 
     kind: str
     count: int
@@ -80,6 +111,7 @@ class Reason:
     pages_truncated: bool = False
 
     def to_model(self) -> QuarantineReason:
+        """This reason as the job status stores it."""
         return QuarantineReason(
             kind=self.kind,
             term=self.term,
@@ -95,6 +127,7 @@ class Reason:
 
 @dataclass(frozen=True)
 class ScreeningVerdict:
+    """What the screen found. ``checked`` is ``partial`` when some content was not screened."""
 
     reasons: list[Reason] = field(default_factory=list)
     checked: Literal["full", "partial"] = "full"
@@ -105,6 +138,15 @@ class ScreeningVerdict:
         return bool(self.reasons)
 
     def to_model(self) -> QuarantineVerdict:
+        """The verdict as the job status stores it: at most ten reasons, bounded as a whole.
+
+        Until its JSON, with the legacy prefix, fits ``MAX_ERROR_CHARS``, the
+        reason listing the most pages gives up its last one and says so
+        (``pages_truncated``), so every reason keeps at least its first page to
+        open the document at. Only when each lists one page are reasons dropped
+        from the end. ``omitted`` says how many reasons it left out, so a
+        reader is never shown a short list as the complete one.
+        """
         listed = list(self.reasons[:MAX_REASONS])
         while True:
             model = QuarantineVerdict(
@@ -140,6 +182,18 @@ def screen_pages(
     checked: Literal["full", "partial"] = "full",
     stream: Sequence[tuple[int, str]] = (),
 ) -> ScreeningVerdict:
+    """Screen ``(page number or None, text)`` pages against ``rules``. Pure.
+
+    ``checked`` is passed through to the verdict: the caller knows whether the
+    pages it handed over are all of the document's content.
+
+    ``stream`` is the document's body text page by page, in reading order (a
+    PDF's text layer). Each page is screened on its own above; the stream is
+    then read as one text, running headers and footers left out
+    (``agent.common.page_text``), and a match that runs from one page into
+    the next counts too, listed on every page it touches. A number split by a
+    page break and a „Seite 2 von 3“ is otherwise two halves nobody reads.
+    """
     term_tallies = {term: _Tally() for term in rules.terms}
     detector_tallies = {name: _Tally() for name in rules.detectors}
     found = [(span, (page,)) for page, text in pages for span in find_spans(text, rules)]
@@ -173,6 +227,7 @@ def screen_pages(
 
 
 def _spans_across_pages(stream: Sequence[tuple[int, str]], rules: ScreeningRules) -> list[tuple[Span, tuple[int, ...]]]:
+    """The matches in ``stream`` read as one text that start on one page and end on a later one."""
     if len(stream) < 2:
         return []
     page_lines = [text.split("\n") for _, text in stream]
@@ -201,6 +256,7 @@ def _page_list(pages: set[int]) -> list[int]:
 
 
 def page_number_of(label: object) -> int | None:
+    """A ``page_label`` as a page number when it is one (``"3"``, ``3``); ``None`` otherwise."""
     if isinstance(label, bool):
         return None
     if isinstance(label, int):
@@ -211,6 +267,7 @@ def page_number_of(label: object) -> int | None:
 
 
 def document_pages(documents: Iterable[object]) -> list[tuple[int | None, str]]:
+    """LlamaIndex Documents as screen pages: their text, paged by ``page_label`` where numeric."""
     pages: list[tuple[int | None, str]] = []
     for document in documents:
         metadata = getattr(document, "metadata", None) or {}
@@ -219,6 +276,12 @@ def document_pages(documents: Iterable[object]) -> list[tuple[int | None, str]]:
 
 
 def quarantine_error(verdict: ScreeningVerdict) -> str:
+    """The file's legacy ``error_message``: the prefix, then compact JSON of ``verdict.to_model()``.
+
+    Kept for one release beside ``FileProgress.quarantine`` (ADR-0113), for a
+    BFF that still reads the reason out of the string. Derived from the typed
+    verdict, so it holds the same reasons and the same bounds.
+    """
     return QUARANTINED_PREFIX + _compact_json(verdict.to_model())
 
 
@@ -227,6 +290,7 @@ def _compact_json(model: QuarantineVerdict) -> str:
 
 
 def _with_one_page_fewer(reasons: list[Reason]) -> list[Reason] | None:
+    """``reasons`` with the last page of the one listing the most cut, or ``None`` when none lists two."""
     widest = max(range(len(reasons)), key=lambda index: len(reasons[index].pages))
     pages = reasons[widest].pages
     if len(pages) < 2:
@@ -237,4 +301,5 @@ def _with_one_page_fewer(reasons: list[Reason]) -> list[Reason] | None:
 
 
 def log_summary(verdict: ScreeningVerdict) -> str:
+    """The reason kinds and counts, for a log line: no term, no sample, no value."""
     return ", ".join(f"{reason.kind}={reason.count}" for reason in verdict.reasons)

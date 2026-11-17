@@ -29,7 +29,6 @@ from .operators import _require
 from .operators import _wrong_kind
 
 
-
 def clear_approach(model: SpatialModel, door_global_id: str) -> Answer[dict[str, Any]]:
     """The free floor in front of a door, on each side, and what ends it.
 

@@ -1,3 +1,7 @@
+"""The folder tree and the folder cards: each folder's abstract, its current files and its revision series,
+rendered as a tree.
+"""
+
 from __future__ import annotations
 
 from collections.abc import Mapping
@@ -42,6 +46,7 @@ TREE_PARAGRAPH = (
 
 @dataclass(frozen=True)
 class FolderCard:
+    """What one folder holds, counted from the rows alone: tier 0, nothing stored, nothing stale."""
 
     path: str
     depth: int
@@ -63,6 +68,7 @@ class FolderCard:
 
 @dataclass(frozen=True)
 class _Series:
+    """A document in several Fassungen: the current one, what says so, and the names it replaces."""
 
     head: FileRow
     basis: str
@@ -70,6 +76,7 @@ class _Series:
 
 
 def _confirmed_head(row: FileRow, by_key: dict[_RowKey, FileRow]) -> FileRow | None:
+    """The end of the confirmed chain ``row`` starts: A → B → C gives C. ``None`` for a chain that loops."""
     seen: set[_RowKey] = set()
     current = row
     while current.superseded_by and (current.collection, current.superseded_by) in by_key:
@@ -81,6 +88,13 @@ def _confirmed_head(row: FileRow, by_key: dict[_RowKey, FileRow]) -> FileRow | N
 
 
 def _revision_series(rows: Sequence[FileRow]) -> list[_Series]:
+    """Every series of Fassungen among ``rows``, by the same precedence ``select_files`` marks them.
+
+    A person's confirmation beats the title block, which beats the file name. A confirmed chain
+    A → B → C is ONE series headed by C: B is not current because something replaces it. A
+    title-block or name series whose head a person confirmed as replaced joins the series of the
+    chain's end, so no file a person marked as replaced is ever called current.
+    """
     by_key = {(row.collection, row.file_name): row for row in rows}
     confirmed = confirmed_revision_marks(rows)
     heads: dict[_RowKey, _RowKey] = {}
@@ -115,6 +129,7 @@ def _revision_series(rows: Sequence[FileRow]) -> list[_Series]:
 
 
 def _series_label(head: FileRow, basis: str) -> str:
+    """``Index B, Stand 03.02.2026; by Plankopf``: the state the current file carries, and what says it is current."""
     facts = head.revision_facts or {}
     state = _state_label(facts) if facts.get("revision") or facts.get("revision_date") else ""
     if not state:
@@ -124,6 +139,7 @@ def _series_label(head: FileRow, basis: str) -> str:
 
 
 def _current_lines(series: Sequence[_Series], keys: set[_RowKey]) -> tuple[list[str], int]:
+    """The ``Current Fassung`` lines for the series whose current file is among ``keys``, and the older files held."""
     lines: list[str] = []
     older_held = 0
     for entry in sorted(series, key=lambda item: fold(item.head.file_name)):
@@ -168,12 +184,14 @@ def _folder_card(path: str, depth: int, rows: Sequence[FileRow], series: Sequenc
 
 
 def _card_ancestors(folder: str, root: str, depth: int) -> list[str]:
+    """``root`` and every folder from it down to ``folder``, no deeper than ``depth`` below ``root``."""
     base = len(root.split("/")) if root else 0
     parts = folder.split("/") if folder else []
     return ["/".join(parts[:count]) for count in range(base, min(len(parts), base + depth) + 1)]
 
 
 def _card_order(card: FolderCard) -> list[str]:
+    """Parents before children, siblings by name."""
     return [fold(part) for part in card.path.split("/")] if card.path else []
 
 
@@ -184,6 +202,13 @@ def folder_cards(
     depth: int = DEFAULT_TREE_DEPTH,
     series_rows: Sequence[FileRow] | None = None,
 ) -> list[FolderCard]:
+    """One card for ``root`` and for every folder up to ``depth`` levels below it, parents first.
+
+    Pure, and one pass over the rows: each row is folded into every card above
+    it. ``rows`` are the selection (already inside ``root``); the Fassungen are
+    read over ``series_rows`` when given, because an older Fassung is often
+    filed in a folder the selection cut away.
+    """
     root = root or ""
     depth = max(0, min(depth, MAX_TREE_DEPTH))
     members: dict[str, list[FileRow]] = {}
@@ -204,6 +229,12 @@ def _count(number: int, noun: str) -> str:
 
 
 def abstract_lines(found: Mapping[tuple[str, str], Any]) -> dict[str, list[str]]:
+    """The written (tier-1) abstracts by folder path, one ``About:`` line per collection that has one.
+
+    ``found`` maps ``(collection, folder_path)`` to what
+    ``agent.knowledge.folder_cards.listing_abstracts`` read: ``abstract``,
+    ``status``, ``generated_at``. A card that is not fresh says so and since when.
+    """
     lines: dict[str, list[str]] = {}
     for (_collection, path), card in sorted(found.items()):
         line = f"About: {card.abstract}"
@@ -215,6 +246,7 @@ def abstract_lines(found: Mapping[tuple[str, str], Any]) -> dict[str, list[str]]
 
 
 def _card_lines(card: FolderCard, about: Sequence[str] = ()) -> list[str]:
+    """One card as the model reads it: counts, the written abstract, document types, dates, Fassungen, subfolders."""
     older = f"; {card.superseded} older Fassung{'' if card.superseded == 1 else 'en'}" if card.superseded else ""
     here = f"{card.direct} here, {card.total - card.direct} below{older}" if card.subfolders else f"all here{older}"
     head = f"{card.path}/" if card.path else "Top level"
@@ -263,6 +295,10 @@ def render_tree(
     in_flight: Sequence[str] = (),
     abstracts: Mapping[str, Sequence[str]] | None = None,
 ) -> str:
+    """The folder tree as the model reads it: a card per folder, bounded, ending with how to go on.
+
+    ``abstracts`` are the written cards' ``About:`` lines by folder path (:func:`abstract_lines`).
+    """
     abstracts = abstracts or {}
     lines: list[str] = [*notes]
     if not cards:

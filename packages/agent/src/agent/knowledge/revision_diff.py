@@ -110,8 +110,6 @@ class RevisionDiff:
     notes: tuple[str, ...] = field(default=())
 
 
-
-
 @dataclass
 class _Page:
     label: str
@@ -288,8 +286,6 @@ def _align(older: list[_Page], newer: list[_Page]) -> tuple[list[PageChange], in
     return changes, unchanged
 
 
-
-
 def diff_title_blocks(older: Mapping[str, Any] | None, newer: Mapping[str, Any] | None) -> tuple[FieldChange, ...]:
     """The title-block fields that differ; a field only one side prints counts as a change."""
     older = older or {}
@@ -301,8 +297,6 @@ def diff_title_blocks(older: Mapping[str, Any] | None, newer: Mapping[str, Any] 
         if old_value != new_value:
             changes.append(FieldChange(field=key, label=label, older=old_value, newer=new_value))
     return tuple(changes)
-
-
 
 
 def diff_revisions(
@@ -364,8 +358,6 @@ def chunk_from_store(text: str | None, metadata: Mapping[str, Any] | None) -> Re
         return None
     page = str(metadata.get("page_label") or "")
     return RevisionChunk(page=page, content_type=content_type, text=text or "", structured=structured)
-
-
 
 
 def _clip(text: str) -> str:

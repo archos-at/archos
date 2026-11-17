@@ -1,3 +1,7 @@
+"""Text helpers the listing, the search and the match rendering share: the case and umlaut fold, and the
+shortening of a long label.
+"""
+
 from __future__ import annotations
 
 import re
@@ -13,6 +17,7 @@ def _words(text: str) -> list[str]:
 
 
 def fold(text: str) -> str:
+    """Lowercase, NFC, umlauts transliterated: how two spellings of a name compare."""
     return unicodedata.normalize("NFC", text or "").lower().translate(_FOLD)
 
 

@@ -13,7 +13,6 @@ from agent.tools.bim.failures import unrunnable_text
 logger = logging.getLogger(__name__)
 
 
-
 _rejected_text = rejected_text
 
 
@@ -21,7 +20,6 @@ _unrunnable_text = unrunnable_text
 
 
 _too_large_text = too_large_text
-
 
 
 OPERATIONS: tuple[str, ...] = (
@@ -50,7 +48,6 @@ OPERATIONS: tuple[str, ...] = (
 VALID_OPERATIONS = frozenset(OPERATIONS)
 
 
-
 NON_MEASURING_OPERATIONS: frozenset[str] = frozenset(
     {
         "briefing",
@@ -61,8 +58,6 @@ NON_MEASURING_OPERATIONS: frozenset[str] = frozenset(
         "shopping_list",
     }
 )
-
-
 
 
 RELATIONS: dict[str, str] = {
@@ -82,9 +77,7 @@ RELATIONS: dict[str, str] = {
 }
 
 
-
 GEOMETRIC_RELATIONS = frozenset({"bounds", "enclosedBy", "opensTo", "adjacentSpaces", "above", "below"})
-
 
 
 MEASURES: dict[str, str] = {
@@ -151,7 +144,6 @@ MEASURES: dict[str, str] = {
 }
 
 
-
 DISTANCE_MODES = {
     "min": (
         "gap between the two axis-aligned BOUNDING BOXES. 0 means the boxes overlap — it does NOT "
@@ -167,7 +159,6 @@ DISTANCE_MODES = {
         "measure/clearHeight on the room"
     ),
 }
-
 
 
 FIRE_ASPECTS = {
@@ -192,7 +183,6 @@ FIRE_ASPECTS = {
 }
 
 
-
 ENVELOPE_ASPECTS = {
     "thermalEnvelope": (
         "which elements form the boundary between heated inside and outside, grouped by kind, each "
@@ -211,24 +201,19 @@ ENVELOPE_ASPECTS = {
 }
 
 
-
 VIEW_MODES = {
     "highlight": "mark these elements red on the full plan — 'where is this in the building'",
     "only": "draw nothing but these elements — 'what does this look like'",
 }
 
 
-
 KINDS = ("project", "site", "building", "storey", "space", "element", "opening", "group")
-
 
 
 ROOM_KINDS = ("habitable_room", "ancillary_room", "circulation")
 
 
-
 MAX_BATCH = 50
-
 
 
 PROFILE_KINDS = ("expensive",)
@@ -236,8 +221,6 @@ PROFILE_KINDS = ("expensive",)
 
 def _enum_lines(entries: dict[str, str], indent: str = "    ") -> str:
     return "\n".join(f"{indent}{name} — {meaning}" for name, meaning in entries.items())
-
-
 
 
 def _literal(*groups) -> Any:
@@ -251,7 +234,6 @@ def _literal(*groups) -> Any:
     return Literal[tuple(names)]  # type: ignore[valid-type]
 
 
-
 _KIND_FIELD: dict[str, str] = {
     "fire": "fire.kind",
     "envelope": "envelope.kind",
@@ -259,9 +241,7 @@ _KIND_FIELD: dict[str, str] = {
 }
 
 
-
 _ALL_KINDS: tuple[str, ...] = (*KINDS, *FIRE_ASPECTS, *ENVELOPE_ASPECTS, *PROFILE_KINDS)
-
 
 
 _CASE_FOLDED: dict[str, tuple[str, ...]] = {
@@ -270,7 +250,6 @@ _CASE_FOLDED: dict[str, tuple[str, ...]] = {
     "kind": _ALL_KINDS,
     "mode": (*DISTANCE_MODES, *VIEW_MODES),
 }
-
 
 
 _LEGACY_TOKENS: dict[str, dict[str, str]] = {

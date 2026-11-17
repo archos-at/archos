@@ -21,7 +21,6 @@ from .geometry import triangle_normals_areas
 from .model import SpatialModel
 
 
-
 def extent(model: SpatialModel, global_id: str) -> Answer[dict[str, Any]]:
     """The element's bounding box and its three axis-aligned dimensions, in metres.
 

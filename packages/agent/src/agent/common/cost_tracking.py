@@ -301,7 +301,6 @@ class CostTracker(BaseCallbackHandler):
         self._requested_models: dict[Any, str] = {}
         self._requested_model: str | None = None
 
-
     def _check_budget(self) -> None:
         if self.budget is None:
             return
@@ -337,7 +336,6 @@ class CostTracker(BaseCallbackHandler):
                 if run_id is not None:
                     self._requested_models[run_id] = model
                 self._requested_model = model
-
 
     def on_llm_end(self, response: Any, **kwargs: Any) -> None:
         run_id = kwargs.get("run_id")
@@ -381,7 +379,6 @@ class CostTracker(BaseCallbackHandler):
         if run_id is not None:
             with self._lock:
                 self._requested_models.pop(run_id, None)
-
 
     @property
     def turn_cost_usd(self) -> float:
@@ -488,7 +485,6 @@ def _post_usage_events(payload: dict[str, Any]) -> None:
         logger.warning("Internal usage endpoint rejected batch: HTTP %s", error.status)
     except Exception:
         logger.warning("Failed to post usage events to internal endpoint", exc_info=True)
-
 
 
 cost_tracker_var: ContextVar[CostTracker | None] = ContextVar("cost_tracker", default=None)

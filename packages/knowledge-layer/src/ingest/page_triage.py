@@ -1,3 +1,33 @@
+"""Page triage: what each PDF page needs before it can be indexed.
+
+A PDF page reaches the index by one of four roads, and choosing the wrong one
+loses the page:
+
+``text``
+    A usable text layer. Indexed from pdfplumber's text, as always.
+``scan``
+    No usable text layer and a raster covering most of the page: a scanned
+    letter, a Bescheid, a photographed page. Rendered and TRANSCRIBED by the
+    vision model (``transcription``), and the transcription becomes the page's
+    text. The drawing schema used to take these, and it describes a page
+    ("Dokument mit Auflagen …") instead of saying what is written on it.
+``garbled``
+    A text layer that decodes to glyph ids or mojibake: ``(cid:37)(cid:68)…``
+    runs from a CAD or scanner export whose fonts carry no ToUnicode map, or
+    UTF-8 read as cp1252 (``GebÃ¤ude``). It used to pass the binary guard and be
+    embedded as garbage. Transcribed like a scan, and the transcription
+    replaces it. Untranscribed (no key, a failure, the cap), the page keeps
+    what of its text is not glyph ids (:func:`salvage_text`).
+``drawing``
+    Vector-heavy with little text: a plan, a section, an elevation. Rendered
+    and analysed with the drawing schema (``visual_analysis``).
+
+The decision is pure (:func:`classify_page`) over signals measured once per
+page (:func:`read_page_signals`), so the thresholds are testable without a PDF
+and the renderer, the transcriber and the image extractor all agree on which
+page is which.
+"""
+
 from __future__ import annotations
 
 import logging
@@ -39,6 +69,13 @@ _VOWELS = frozenset("aeiouyäöüAEIOUYÄÖÜ")
 
 @dataclass(frozen=True)
 class TextQuality:
+    """How much of a page's extracted text is real text.
+
+    ``chars`` counts glyphs: non-space characters, with each ``(cid:n)`` token
+    counted as the ONE glyph it stands for. The shares are of those glyphs.
+    Counting a token's nine characters made a clean list with a dozen unmapped
+    bullets (``(cid:120)``) score 0.17 and lose its text.
+    """
 
     chars: int
     cid_share: float
@@ -69,6 +106,7 @@ def _is_private_use(ch: str) -> bool:
 
 
 def _is_replacement(ch: str) -> bool:
+    """U+FFFD, private-use glyphs and stray control characters: bytes no font mapped."""
     if ch == "\ufffd":
         return True
     category = unicodedata.category(ch)
@@ -76,6 +114,7 @@ def _is_replacement(ch: str) -> bool:
 
 
 def _without_bullets(text: str) -> str:
+    """``text`` minus symbol-font bullets: the known ones anywhere, any private-use glyph opening a line."""
     lines = []
     for line in text.splitlines():
         stripped = line.lstrip()
@@ -86,6 +125,7 @@ def _without_bullets(text: str) -> str:
 
 
 def text_quality(text: str | None) -> TextQuality:
+    """Measure one page's extracted text. Pure; empty text scores as clean and empty."""
     body = "".join(_without_bullets(text or "").split())
     if not body:
         return TextQuality(0, 0.0, 0.0, 0.0)
@@ -107,9 +147,13 @@ def text_quality(text: str | None) -> TextQuality:
 
 
 def salvage_text(text: str | None) -> str:
+    """What of a garbled page's text layer is worth keeping when nothing replaces it.
+
+    The ``(cid:n)`` tokens go (they are glyph ids, never words); the rest stays.
+    Empty when nothing real is left, as on a page that was all glyph ids.
+    """
     kept = _CID_TOKEN.sub("", text or "")
     return kept if len("".join(kept.split())) >= MIN_JUDGEABLE_CHARS else ""
-
 
 
 MIN_SCAN_RASTER_COVERAGE = 0.5
@@ -119,6 +163,7 @@ MIN_SKETCH_PATHS = 20
 
 @dataclass(frozen=True)
 class PageSignals:
+    """What one page carries, measured once."""
 
     page_number: int
     text: str
@@ -127,6 +172,19 @@ class PageSignals:
 
 
 def classify_page(signals: PageSignals, *, min_text_chars: int, min_paths: int) -> PageKind:
+    """The road one page takes into the index. Pure.
+
+    Order matters: a garbled text layer is judged first, because its length
+    says nothing (4 800 characters of ``(cid:n)`` are 120 real ones). A
+    drawing needs little text — the old rule also took any page with 300 paths,
+    which sent every table-ruled text page with 300 cell borders past the text
+    reader. A page with little text is a drawing as soon as it carries any real
+    linework or a picture (``MIN_SKETCH_PATHS``), because a simple sketch
+    matters as much as a CAD sheet; only a practically empty page stays text. A
+    garbled page that is also path-heavy is a CAD sheet with unmapped fonts:
+    the drawing analysis reads its labels off the render, a transcription would
+    lose the drawing.
+    """
     quality = text_quality(signals.text)
     if quality.garbled:
         return PageKind.DRAWING if signals.path_count >= min_paths else PageKind.GARBLED
@@ -139,9 +197,8 @@ def classify_page(signals: PageSignals, *, min_text_chars: int, min_paths: int) 
     return PageKind.TEXT
 
 
-
-
 def _raster_coverage(page: Any, page_area: float) -> float:
+    """Share of the page covered by its largest image object (0..1)."""
     largest = 0.0
     for obj in page.get_objects():
         if obj.type != _PAGEOBJ_IMAGE:
@@ -172,6 +229,7 @@ def _page_signals(page: Any, page_number: int, text: str, min_paths: int) -> Pag
 
 
 def _measure_page(doc: Any, index: int, text: str, min_paths: int) -> PageSignals:
+    """One page's signals, under the PDFium lock; a page pdfium cannot read is measured from its text."""
     from knowledge_layer.ingest.pdfium_lock import pdfium_lock
 
     number = index + 1
@@ -189,6 +247,7 @@ def _measure_page(doc: Any, index: int, text: str, min_paths: int) -> PageSignal
 
 
 def _open_pdf(pdf_path: str) -> tuple[Any, int]:
+    """``(document, page count)``, opened under the PDFium lock; closed again if it cannot be counted."""
     import pypdfium2 as pdfium
     from knowledge_layer.ingest.pdfium_lock import pdfium_lock
 
@@ -202,6 +261,14 @@ def _open_pdf(pdf_path: str) -> tuple[Any, int]:
 
 
 def read_page_signals(pdf_path: str, page_texts: dict[int, str], *, min_paths: int) -> list[PageSignals] | None:
+    """Measure every page of ``pdf_path``; ``None`` when pdfium cannot open it.
+
+    ``page_texts`` is the caller's extracted text (1-based page → text), so the
+    text layer is read once. A page pdfium cannot read is measured from its text
+    alone, which classifies it as text or garbled but never as a scan. PDFium is
+    held (``pdfium_lock``) for the open, each page and the close, not for the
+    whole document, so a long PDF does not stall the other ingest workers.
+    """
     from knowledge_layer.ingest.pdfium_lock import pdfium_lock
 
     try:
@@ -218,6 +285,7 @@ def read_page_signals(pdf_path: str, page_texts: dict[int, str], *, min_paths: i
 
 @dataclass(frozen=True)
 class PdfTriage:
+    """Every page's kind, in page order."""
 
     kinds: dict[int, PageKind]
 
@@ -240,6 +308,7 @@ def triage_pdf(
     min_text_chars: int,
     min_paths: int,
 ) -> PdfTriage | None:
+    """Classify every page of ``pdf_path``; ``None`` when the PDF cannot be measured."""
     signals = read_page_signals(pdf_path, page_texts, min_paths=min_paths)
     if signals is None:
         return None

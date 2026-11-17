@@ -180,8 +180,6 @@ def _indexed_names(ingestor) -> set[str]:
     return {info.file_name for info in ingestor.list_files(COLLECTION_NAME)}
 
 
-
-
 def progress_of(row: corpus_store.FileRow) -> JobProgress:
     """Where the job for ``row``'s current bytes is, read from the ingest status store.
 
@@ -320,8 +318,6 @@ def store_and_request(name: str, data: bytes, doc_class: str | None = None, *, e
         return _request_locked(name, doc_class, enqueue)
 
 
-
-
 def remove_document(name: str) -> bool:
     """Delete a base-corpus document: its job, chunks, summary registration, row, object and cached copy.
 
@@ -376,8 +372,6 @@ def mark_for_reingest(name: str, mark: corpus_store.FileMark | None = None) -> b
             corpus_store.set_mark(name, mark)
         corpus_store.forget_ingested(name)
     return True
-
-
 
 
 IMPORT_PENDING_ENV = "VECTOR_IMPORT_PENDING"

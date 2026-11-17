@@ -15,7 +15,6 @@ from .envelope import undecidable
 from .model import SpatialModel
 
 
-
 def compartment_area(model: SpatialModel, storey_or_space_ids: str | Sequence[str]) -> Answer[dict[str, Any]]:
     """The floor area of a group of spaces taken together, in m².
 

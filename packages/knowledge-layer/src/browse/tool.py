@@ -222,19 +222,7 @@ from .turn import shelf_restricted_message  # noqa: F401
 logger = logging.getLogger(__name__)
 
 
-
-
-
-
-
-
-
-
-
-
 _EQUIVALENT.update({"ae": _EQUIVALENT["ä"], "oe": _EQUIVALENT["ö"], "ue": _EQUIVALENT["ü"], "ss": _EQUIVALENT["ß"]})
-
-
 
 
 async def _turn_rows(search_config: Any) -> list[FileRow]:
@@ -259,8 +247,6 @@ def _in_flight(collections: Sequence[str]) -> list[str]:
     except Exception:  # noqa: BLE001 — a status read never costs the listing
         return []
     return list(dict.fromkeys(name for names in pending.values() for name in names))
-
-
 
 
 class ListFilesConfig(FunctionBaseConfig, name="list_files"):

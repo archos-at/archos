@@ -56,7 +56,6 @@ from .operators import _geometry_or_answer
 from .operators import _require
 from .operators import _wrong_kind
 
-
 CLEARANCE_MAX_TRIANGLE_PAIRS = 1_600_000_000
 
 CLEARANCE_BUDGET_SECONDS = 20.0
@@ -64,7 +63,6 @@ CLEARANCE_BUDGET_SECONDS = 20.0
 AXIS_ALIGNED_DEGREES = 0.5
 
 _MIN_TRIANGLE_AREA = 1e-12
-
 
 
 def _closest_on_triangles(points: np.ndarray, tris: np.ndarray) -> np.ndarray:
@@ -338,8 +336,6 @@ def _soup_distance(
         if best <= 0.0:
             break
     return best, point_a, point_b, tested, False
-
-
 
 
 def clear_width(model: SpatialModel, a_global_id: str, b_global_id: str) -> Answer[dict[str, Any]]:

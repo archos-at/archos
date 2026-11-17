@@ -406,7 +406,6 @@ def _collections_drawn(drawn: frozenset[int], judged: Sequence[_Judged]) -> set[
     return {collection for number in drawn for collection in judged[number - 1].collections}
 
 
-
 _STOPWORDS = frozenset(
     """
     der die das den dem des ein eine einer eines einem einen und oder aber auch noch nur

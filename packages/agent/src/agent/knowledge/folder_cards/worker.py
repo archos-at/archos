@@ -138,8 +138,6 @@ def _load(collection: str, organization_id: str) -> _Collection:
     return _Collection(organization_id, collection_rows(collection), cards, descriptions, owned)
 
 
-
-
 def _publish_point(collection: str, card: dict[str, Any]) -> None:
     """Embed ``card`` with the production embedder and write its point into ``collection``'s scope."""
     try:
@@ -174,8 +172,6 @@ def _drop_point(collection: str, folder_path: str) -> None:
         folders.delete_folder_card(get_store(), collection, folder_path)
     except Exception:  # noqa: BLE001
         logger.warning("folder cards: could not delete the point of %s in %s", folder_path, collection, exc_info=True)
-
-
 
 
 def _mark_parent(folder: queue.Due, context: _Collection) -> None:
@@ -247,8 +243,6 @@ def _store(
     if (existing or {}).get("abstract_hash") != draft.abstract_hash:
         _mark_parent(folder, context)
     return True
-
-
 
 
 def _ledger(organization_id: str):
@@ -506,8 +500,6 @@ def give_up_run(collection: str) -> dict[str, int]:
             queue.GIVE_UP_ROUNDS,
         )
     return {"deferred": deferred, "dropped": dropped}
-
-
 
 
 def _folders(rows: list[Any]) -> set[str]:

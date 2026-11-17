@@ -81,8 +81,6 @@ class Run:
     error: str | None = None
 
 
-
-
 def _norm(text: str) -> str:
     return " ".join(text.split()).lower()
 
@@ -119,8 +117,6 @@ def check(answer: str, expect: dict[str, Any]) -> dict[str, Any]:
         result["pointed"] = bool(page or label)
     result["guessed"] = [value for value in expect.get("not_values", []) if _value_pattern(value).search(answer)]
     return result
-
-
 
 
 def _hit(document: dict[str, Any], arm: str):
@@ -290,8 +286,6 @@ async def run_one(
     return record
 
 
-
-
 def _share(values: list[bool | None]) -> str:
     counted = [value for value in values if value is not None]
     return f"{sum(counted)}/{len(counted)}" if counted else "–"
@@ -350,8 +344,6 @@ def report(runs: list[Run], meta: dict[str, Any]) -> str:
 
 def _mark(value: bool | None) -> str:
     return "–" if value is None else ("yes" if value else "no")
-
-
 
 
 def _commit() -> str:

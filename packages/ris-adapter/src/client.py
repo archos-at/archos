@@ -33,7 +33,6 @@ from public_sources import access_for
 from public_sources import engine_for
 from public_sources import get_source
 from public_sources.egress import EgressRefused
-
 from public_sources.engines import ris_xml
 from public_sources.engines.ris_xml import RisDocument
 from public_sources.engines.ris_xml import RisError
@@ -127,8 +126,6 @@ def parse_search_response(payload: dict[str, Any]) -> RisSearchResult:
 def html_to_text(markup: str) -> tuple[str, str]:
     """Convert a RIS HTML/XML document to (title, plain text) (the ``ris_xml`` engine)."""
     return _ENGINE.text(markup)
-
-
 
 
 class RisClient:

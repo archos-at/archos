@@ -136,8 +136,6 @@ class FinalAnswer:
     lookup_found_nothing: bool = False
 
 
-
-
 def answer_index(messages: Sequence[Any]) -> int | None:
     """The answer message, by the SAME selector the chat node uses: the last
     AIMessage that is not a tool call."""

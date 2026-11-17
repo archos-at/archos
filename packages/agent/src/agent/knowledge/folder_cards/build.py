@@ -124,8 +124,6 @@ class Generation:
     trace_id: str | None
 
 
-
-
 def _document_line(document: Any) -> str:
     bits = [document.file_name]
     if document.title:
@@ -197,8 +195,6 @@ def incremental_prompt(inputs: FolderInputs, change: Any, abstract: str, key_fac
     lines += _named("Changed subfolders", [_folder_line(folders[name]) for name in change.folders_changed])
     lines += _named("Removed subfolders", [f"- {name}/" for name in change.folders_removed])
     return "\n".join(lines)
-
-
 
 
 def _usage(response: Any) -> dict[str, int]:
@@ -280,7 +276,6 @@ async def generate(
         except Exception as exc:  # noqa: BLE001 — the call was made and billed; the worker books it
             raise GenerationRejected(str(exc), tokens=_tokens(response, prompt, text)) from exc
     return Generation(reply=reply, model=model, tokens=_tokens(response, prompt, text), trace_id=generation.trace_id)
-
 
 
 _ABBREVIATIONS = re.compile(

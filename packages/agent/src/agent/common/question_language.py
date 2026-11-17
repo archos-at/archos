@@ -78,7 +78,7 @@ LANGUAGE_NAMES: dict[str, str] = {
     "zh": "Chinese",
 }
 
-#: Measured 2026-10-28 on 50 short questions: English of 3+ words scored 0.90-1.0, German was never called another language above 0.5.
+#: 2026-10-28, 50 short questions: English of 3+ words scored 0.90-1.0; German never another language above 0.5.
 MIN_CONFIDENCE = 0.9
 
 MIN_WORDS = 2

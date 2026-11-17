@@ -41,7 +41,6 @@ def parser_for(tool_name: str) -> SourceParser | None:
     return None
 
 
-
 register_source_parser(lambda name: "knowledge" in name, parse_knowledge_layer)
 
 

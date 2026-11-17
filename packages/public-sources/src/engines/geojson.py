@@ -1,3 +1,15 @@
+"""``geojson``: a GeoJSON FeatureCollection (RFC 7946) as anchored records (ADR-0174).
+
+What an ``ogc`` source answers. Each feature becomes one passage, anchored by
+its ``id`` (or the configured property), headed by the configured title
+property, its text the configured properties as ``name: value`` lines. A
+change monitor compares passages by anchor, as it does a statute's.
+
+Geometry is not text: it is dropped here and stays with the source. The
+record's ``properties`` list says which attributes are read, so a service that
+adds a column does not change what an answer can cite until a reviewer adds it.
+"""
+
 from __future__ import annotations
 
 import json

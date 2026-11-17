@@ -130,8 +130,6 @@ def decode(stored: str) -> PreparedIngestJob:
     )
 
 
-
-
 class QueueUnavailable(RuntimeError):
     """The job cannot be handed to Hatchet, and its caller has no other place to run it."""
 

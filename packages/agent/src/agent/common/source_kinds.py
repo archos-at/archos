@@ -145,8 +145,6 @@ def source_kind(key: str | None) -> SourceKind:
     return SOURCE_KINDS.get((key or "").strip().lower(), SOURCE_KINDS[DEFAULT_SOURCE_KIND])
 
 
-
-
 class Shelf(StrEnum):
     """The shelf a retrieved chunk came from. The wire vocabulary of ADR-0047.
 

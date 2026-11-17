@@ -123,8 +123,6 @@ async def test_an_admitted_result_reaches_the_model_and_confines_the_conversatio
     assert use.confined is True
 
 
-
-
 class _QuietReaderConfig(FunctionBaseConfig, name="test_fixture_quiet_restricted_reader"):
     pass
 

@@ -60,7 +60,6 @@ def _gid(tag: str) -> str:
 
 
 class _Writer:
-
     def __init__(self, name: str) -> None:
         self.file = ifcopenshell.file(schema="IFC4")
         f = self.file
@@ -328,8 +327,6 @@ def bodyless() -> SpatialModel:
     return SpatialModel(str(NO_GEOMETRY))
 
 
-
-
 def test_escape_level_is_the_top_occupied_floor_above_the_lowest_ground(office: SpatialModel) -> None:
     answer = fire.escape_level(office)
     assert answer.decidable
@@ -526,7 +523,6 @@ def test_a_habitable_room_outranks_the_storeys_name(tmp_path: Path) -> None:
 
 
 class TestTheStoreyNameIsATieBreakerAndNotAVeto:
-
     @pytest.fixture(scope="class")
     @classmethod
     def model(cls) -> SpatialModel:
@@ -562,8 +558,6 @@ class TestTheStoreyNameIsATieBreakerAndNotAVeto:
         answer = fire.escape_level(model)
         assert answer.unit == "m"
         assert re.search(r"\bGK\s?[1-5]\b", _text(answer)) is None
-
-
 
 
 def test_a_declared_zone_is_measured_as_the_sum_of_its_rooms(office: SpatialModel) -> None:
@@ -654,8 +648,6 @@ def test_an_unknown_id_raises_rather_than_returning_undecidable(office: SpatialM
         fire.compartment_area(office, "3w0zWKm7n8SB1qbfwUztXX")
 
 
-
-
 def test_the_fire_wall_between_two_compartments_is_found_with_its_fire_rating(office: SpatialModel) -> None:
     answer = fire.separating_elements(office, OFFICE_01, OFFICE_02)
     assert answer.decidable
@@ -726,7 +718,6 @@ def test_a_gap_in_a_file_that_declares_elsewhere_reads_differently(bodyless: Spa
 
 
 class TestAnEmptyFireRatingIsNotADeclaration:
-
     @pytest.fixture(scope="class")
     @classmethod
     def model(cls, tmp_path_factory: pytest.TempPathFactory) -> SpatialModel:
@@ -853,8 +844,6 @@ def test_a_wall_is_not_a_room(house: SpatialModel) -> None:
     assert "enclosedBy()" in str(raised.value)
 
 
-
-
 @pytest.mark.parametrize("fixture", [SAMPLE_HOUSE, NO_GEOMETRY, NO_SPACES, NO_STOREYS, BOUNDARIES_ONLY])
 def test_no_fixture_in_this_repository_can_answer_the_boundary_question(fixture: Path) -> None:
     model = SpatialModel(str(fixture))
@@ -968,8 +957,6 @@ def test_a_list_that_is_complete_says_that_too(office: SpatialModel) -> None:
     assert len(listed) < 10
     assert f"die {len(listed)} nächstgelegenen der {len(listed)} geprüften Bauteile" in answer.caveat
     assert "das sind alle." in answer.caveat
-
-
 
 
 def _text(answer: Any) -> str:

@@ -116,8 +116,6 @@ class IntakeSession:
         return difflib.get_close_matches(key, list(self.needs), n=CLOSEST_KEYS, cutoff=0.5)
 
 
-
-
 def _options_text(need: dict[str, Any]) -> str:
     options = [option for option in need.get("options") or [] if isinstance(option, dict)]
     if not options:
@@ -208,8 +206,6 @@ class NeedsInput(BaseModel):
     start: int = Field(
         default=0, ge=0, description="Skip this many needs: the answer names the next start when bounded."
     )
-
-
 
 
 class RecordedValue(BaseModel):
@@ -534,8 +530,6 @@ def _record_results(
         lines[candidate.index] = f"- {candidate.key} = {candidate.value!r}: {text}"
 
 
-
-
 class WithdrawInput(BaseModel):
     keys: list[str] = Field(
         description=f"1 to {client.MAX_RECORD_VALUES} keys, each one you recorded in this run, exactly as recorded."
@@ -579,8 +573,6 @@ async def withdraw_values(session: IntakeSession, keys: list[str]) -> str:
     if len(wanted) > len(batch):
         lines.append(f"[{len(wanted) - len(batch)} more key(s) not sent: at most {client.MAX_RECORD_VALUES} per call.]")
     return "\n".join(lines) or "No result returned."
-
-
 
 
 class FinishInput(BaseModel):

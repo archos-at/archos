@@ -9,7 +9,6 @@ from typing import Literal
 from ifc_spatial.briefing_constants import RoomUseKind
 
 
-
 @dataclass(frozen=True)
 class BriefingStorey:
     global_id: str
@@ -182,8 +181,6 @@ class RoomProposal:
         }
 
 
-
-
 @dataclass(frozen=True)
 class LexiconEntry:
     term: str
@@ -199,8 +196,6 @@ class ClassifiedRoom:
     kind: str | None
     confidence: float
     because: list[str]
-
-
 
 
 @dataclass(frozen=True)

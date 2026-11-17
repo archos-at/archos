@@ -193,7 +193,6 @@ PLACEHOLDERS: dict[str, str] = {
 _PLACEHOLDER_RE = re.compile("|".join(re.escape(placeholder) for placeholder in PLACEHOLDERS.values()))
 
 
-
 _SPACE_RUN = re.compile(f"[{WHITESPACE}]+")
 
 _FOLD_TABLE = str.maketrans({"ς": "σ", "ä": "ae", "ö": "oe", "ü": "ue", "ß": "ss"})
@@ -201,7 +200,6 @@ _FOLD_TABLE = str.maketrans({"ς": "σ", "ä": "ae", "ö": "oe", "ü": "ue", "ß
 
 def _split_words(text: str) -> list[str]:
     return [word for word in _SPACE_RUN.split(text) if word]
-
 
 
 IGNORABLE = "\u00ad\u200b\u200c\u200d\u2060\ufeff"
@@ -306,8 +304,6 @@ def _read(text: str) -> _Reading:
     return _Reading("".join(parts), starts, frozenset(soft))
 
 
-
-
 def _clusters(text: str) -> Iterator[tuple[int, int]]:
     """``(start, end)`` of each character with the combining marks that follow it."""
     start = 0
@@ -349,8 +345,6 @@ def _fold_mapped(text: str) -> _Folded:
 
 def _term_words(term: str) -> tuple[str, ...]:
     return tuple(_split_words(fold(term)))
-
-
 
 
 @dataclass(frozen=True)
@@ -435,7 +429,6 @@ def _normalised_terms(terms: Iterable[str]) -> tuple[str, ...]:
         if MIN_TERM_CHARS <= len(stripped) <= MAX_TERM_CHARS:
             kept.setdefault(fold(stripped), stripped)
     return tuple(kept.values())[:MAX_TERMS]
-
 
 
 IBAN_LENGTHS: dict[str, int] = {
@@ -570,8 +563,6 @@ def _cut_runs(run: str, cuts: list[int]) -> Iterator[list[tuple[str, int, int]]]
     bounds = [0, *cuts, len(run)]
     for a, b in zip(bounds, bounds[1:], strict=False):
         yield [(digits, start + a, end + a) for digits, start, end in _digit_groups(run[a:b])]
-
-
 
 
 @dataclass(frozen=True)
@@ -848,8 +839,6 @@ _NUMBER_KINDS = ("at_svnr", "credit_card", "de_svnr", "de_tax_id")
 
 def _overlaps_any(span: Span, regions: list[tuple[int, int]]) -> bool:
     return any(span.start < end and start < span.end for start, end in regions)
-
-
 
 
 @dataclass(frozen=True)

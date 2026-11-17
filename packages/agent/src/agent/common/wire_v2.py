@@ -83,7 +83,6 @@ CLOSE_CLIENT_OUTDATED = 4426
 Scalar = str | int | float | bool
 
 
-
 SourceKindKey = Literal["building_law", "office", "project", "web"]
 Channel = Literal["live", "technical"]
 Scope = Literal["chat", "deep"]
@@ -134,8 +133,6 @@ def card_key(card: dict[str, Any]) -> str:
     """
     canonical = json.dumps(card, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:16]
-
-
 
 
 class _StepBase(_Model):
@@ -308,8 +305,6 @@ Step = Annotated[
 ]
 
 
-
-
 class AnswerSnapshot(_Model):
     """The streamed prose settled (ADR-0066): it REPLACES text, citations and masthead; cards are untouched."""
 
@@ -415,8 +410,6 @@ class TurnResult(_Model):
     lookup_found_nothing: bool = False
     run: RunHandoff | None = None
     reasoning_effort: Literal["none", "minimal", "low", "medium", "high", "xhigh"] | None = None
-
-
 
 
 class Envelope(_Model):
@@ -549,8 +542,6 @@ class RunErrorBody(_Model):
     details: str | None = None
 
 
-
-
 class MastheadValue(_Model):
     answer_meta: dict[str, Any]
 
@@ -642,7 +633,6 @@ class SteerAppliedValue(_Model):
 
     steer_id: str = Field(min_length=1, max_length=128)
     round: int = Field(ge=1)
-
 
 
 ViewerActionName = Literal[
@@ -849,8 +839,6 @@ class Hello(_Model):
     value: HelloValue
 
 
-
-
 class RunStarted(Envelope, RunStartedBody):
     pass
 
@@ -1044,8 +1032,6 @@ def stamp(body: EventBody, *, conversation_id: str, turn_id: str, seq: int, ts: 
 def to_frame(event: Envelope | Hello) -> dict[str, Any]:
     """The JSON object the socket writes: defaults omitted (never null), discriminators always present."""
     return event.model_dump(mode="json", exclude_defaults=True)
-
-
 
 
 def _legacy_focus_shelf(value: object) -> object:

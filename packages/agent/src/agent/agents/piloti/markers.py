@@ -154,7 +154,6 @@ def detect_and_strip_confidence_marker(content: Any) -> tuple[Any, ConfidenceLev
     return stripped, level, reason
 
 
-
 CONFIDENCE_RULE_VERSION = 2
 
 

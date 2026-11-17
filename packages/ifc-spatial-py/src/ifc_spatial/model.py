@@ -55,7 +55,6 @@ from .envelope import ElementRef
 from .parser_refusal import parser_refusal
 from .project_units import project_unit_scale
 
-
 _SPATIAL_KINDS = {
     "IfcProject": "project",
     "IfcSite": "site",
@@ -353,7 +352,6 @@ class SpatialModel:
         self.contact_seconds = 0.0
         self.tree_seconds = 0.0
 
-
     def by_id(self, global_id: str, method: str) -> Any:
         """The entity, or :class:`UnknownElementError`. Never a silent ``None``.
 
@@ -407,7 +405,6 @@ class SpatialModel:
 
     def refs(self, elements: Iterable[Any], via: str | None = None) -> list[ElementRef]:
         return [self.ref(e, via) for e in elements if getattr(e, "GlobalId", None)]
-
 
     def storey_of(self, element: Any) -> Any | None:
         """The storey this element belongs to, through containment OR aggregation.
@@ -489,7 +486,6 @@ class SpatialModel:
             return bool(self.file.by_type("IfcMapConversion"))
         except RuntimeError:
             return False
-
 
     def geometry(self, global_id: str) -> ElementGeometry | None:
         """This element's triangulated body, or ``None`` when it never had one.
@@ -758,7 +754,6 @@ class SpatialModel:
             tree.add_iterator(iterator)
         self.tree_seconds = time.perf_counter() - t0
         return tree
-
 
     def declared_property(self, element: Any, names: Iterable[str]) -> Any:
         """The first non-null property value matching ``names``, across every pset.

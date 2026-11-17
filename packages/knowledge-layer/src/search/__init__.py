@@ -1,3 +1,5 @@
+"""Retrieval: a query embedded, searched, fused, reranked and judged into the block the model reads."""
+
 from __future__ import annotations
 
 from agent.lazy_exports import lazy_exports

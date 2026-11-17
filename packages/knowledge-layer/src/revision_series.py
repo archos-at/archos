@@ -1,3 +1,25 @@
+"""Revision series: which documents exist in several Fassungen, and which one is current.
+
+The Planfred-like logic feld72 asked for (Jour fixe 2026-10-09): read the index and
+the date from the name, treat only the newest Fassung as the basis, and offer the older
+ones only on request. It is a SUGGESTION a person confirms, never a decision.
+Offices name every revision explicitly and never overwrite one, so the name
+carries it: ``EG_Grundriss_Index_C_2026-08-14.pdf``, ``A-101_C_Grundriss EG.pdf``,
+``260814_Schnitt_AA_idx-B.pdf``. Nothing here changes, hides or re-files a
+document; it says which one looks current.
+
+This is the Python twin of ``apps/workspace/bff/documents/revision-series.ts``.
+The same grammar runs in both, and both are held to one set of cases
+(``tests/fixtures/revision_series_cases.json``), so the folder brief in the UI and the
+agent's ``list_files`` cannot disagree about which Fassung is current. Change a
+rule on one side and the fixture must move with it.
+
+A name says nothing about WHAT a file is, so nothing here calls a file a plan
+(CONTEXT.md, "Fassung").
+
+Pure: no I/O, no framework.
+"""
+
 import re
 from collections.abc import Callable
 from collections.abc import Sequence
@@ -74,6 +96,7 @@ def _index_of(raw: str) -> RevisionIndex:
 
 
 def _series_key(stem: str) -> str:
+    """What is left once index and date are cut out, folded and with one space between words."""
     key = _KEY_SEPARATORS.sub(" ", stem.lower())
     key = _DASH_BEFORE_SPACE.sub(" ", key)
     key = _DASH_AT_WORD_START.sub(r"\1", key)
@@ -86,6 +109,10 @@ def _cut(stem: str, match: re.Match[str], *, keep_lead: bool) -> str:
 
 
 def parse_revision_name(filename: str) -> RevisionName | None:
+    """What a file name says about its revision, or None when it names neither an index nor a date.
+
+    None means the file is not part of a series.
+    """
     stem, _ = _split_extension(filename)
     index: RevisionIndex | None = None
     date: str | None = None
@@ -117,6 +144,14 @@ def parse_revision_name(filename: str) -> RevisionName | None:
 
 
 def series_key_of(filename: str) -> str:
+    """What this file name shares with the other Fassungen of its document, extension left out.
+
+    The key of the revision parse when the name carries an index or a date; the
+    folded name itself when it carries neither, because the FIRST state of a
+    document usually has none (``Grundriss EG.pdf`` beside ``Grundriss EG Index B.pdf``).
+    Backend only: the folder brief groups by :func:`find_revision_series`, which
+    needs two different revisions, so it has no use for a bare key.
+    """
     revision = parse_revision_name(filename)
     if revision is not None:
         return revision.key
@@ -127,6 +162,13 @@ def series_key_of(filename: str) -> str:
 def _newest_first[T](
     members: list[RevisionSeriesMember[T]], created_at: Callable[[T], str | None]
 ) -> list[RevisionSeriesMember[T]]:
+    """The revisions of ONE series, newest first, by a tuple — a total order (the TS twin's ``newestFirst``).
+
+    When every revision carries an index of the same kind, the index decides,
+    then the date, then arrival. Otherwise the date decides, then the index, then
+    arrival. A pairwise rule that let the index decide some pairs and the date
+    others was cyclic, and the current revision then depended on the sort.
+    """
     kinds = {member.revision.index.kind if member.revision.index is not None else "none" for member in members}
     index_leads = len(kinds) == 1 and "none" not in kinds
 
@@ -157,6 +199,13 @@ def find_revision_series[T](
     filename: Callable[[T], str],
     created_at: Callable[[T], str | None],
 ) -> list[RevisionSeries[T]]:
+    """The documents that exist in more than one Fassung, each with its current one.
+
+    A series needs at least two DIFFERENT revisions: one Fassung uploaded twice is
+    a duplicate, which the upload already handles, not a version history. Grouped
+    over the whole set handed in (callers pass one shelf's documents), because an
+    older Fassung is often moved into an ``alt/`` folder.
+    """
     groups: dict[str, list[RevisionSeriesMember[T]]] = {}
     for item in items:
         name = filename(item)
@@ -176,6 +225,7 @@ def find_revision_series[T](
 
 
 def revision_label(revision: RevisionName) -> str:
+    """How a revision reads to a person: ``Index C · 14.08.2026``, ``v3``, ``02.09.2026``."""
     parts: list[str] = []
     if revision.index is not None:
         parts.append(f"Index {revision.index.value}" if revision.index.kind == "letter" else f"v{revision.index.value}")

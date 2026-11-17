@@ -53,8 +53,6 @@ from .profile import RequestProfile
 logger = logging.getLogger(__name__)
 
 
-
-
 @dataclass
 class _TaskWindow:
     """Time span of a single subagent (task tool) invocation."""
@@ -256,8 +254,6 @@ def _parse_request(request_index: int, steps: list[dict], pricing: PricingRegist
         total_tool_cost_usd=total_tool_cost_usd,
         total_cache_savings_usd=sum(p.cache_savings_usd for p in phases),
     )
-
-
 
 
 def parse_trace(path: str, pricing: PricingRegistry) -> list[RequestProfile]:

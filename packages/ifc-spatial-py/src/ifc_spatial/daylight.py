@@ -61,7 +61,6 @@ from .geometry import triangle_normals_areas
 from .model import AIR_TYPES
 from .model import SpatialModel
 
-
 SOLAR_TOLERANCE_DEGREES = 0.01
 SOLAR_TOLERANCE_DEGREES_EXTRAPOLATED = 0.1
 
@@ -71,8 +70,6 @@ CORNER_ROOM_SHARE = 0.5
 RECTANGULARITY_TOLERANCE = 0.005
 
 CURTAIN_WALL_TYPES = ("IfcPlate", "IfcMember", "IfcCurtainWall")
-
-
 
 
 def _footprint_points(triangles: np.ndarray) -> np.ndarray | None:
@@ -576,8 +573,6 @@ def _depth_caveat(
     return " ".join(parts)
 
 
-
-
 def _is_excluded(element: Any) -> bool:
     """Air and furniture — the two classes that make an overhead ray lie.
 
@@ -753,8 +748,6 @@ def below(model: SpatialModel, global_id: str, samples: int = OVERHEAD_SAMPLES) 
     far side happens to be.
     """
     return _overhead(model, global_id, upward=False, samples=samples)
-
-
 
 
 def _by_type(model: SpatialModel, ifc_type: str) -> list[Any]:

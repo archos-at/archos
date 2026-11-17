@@ -39,7 +39,6 @@ def load_project(spec: dict[str, Any] | None = None, path: Path = SPEC) -> Files
 
 
 class VisualWorkspace(FilesWorkspace):
-
     def __init__(self, pdfs: dict[str, bytes], project: FilesProject | None = None) -> None:
         super().__init__(project or load_project())
         self.pdfs = pdfs

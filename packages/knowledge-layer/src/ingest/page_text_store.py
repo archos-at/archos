@@ -1,3 +1,34 @@
+"""Storing what each page of a document says, once per version: ``_text/pages.md`` and ``index.json``.
+
+The pipeline reads every page (the text layer, a transcription of a scan, the vision
+model's reading of a drawing) and until now kept only the chunks cut from it. A
+re-chunk or a re-embed (a re-index, a move into a restricted folder, a quarantine
+release) therefore parsed the PDF and called the vision model again, and the agent's
+file reader (ADR-0133) had only chunks, with overlap and breadcrumbs, to rebuild a
+page from. ADR-0134 stores the page itself, beside the version's file:
+
+``<version dir>/_text/pages.md``
+    UTF-8. Per page, the marker line ``<!-- page N -->`` (N the 1-indexed physical
+    page), then that page's text: no breadcrumbs, no overlap, a table once at its
+    page, running headers and footers stripped (and recorded as stripped).
+``<version dir>/_text/index.json``
+    ``schema_version`` 1; ``file`` (document id and version as the BFF resolved
+    them, content hash, reader version, page count, failed pages, whether furniture
+    was stripped, when) and ``pages``, one entry per page ``1..page_count`` in
+    order, each with the byte offset and length of its body in ``pages.md``, its
+    line count, its ``source`` (``text_layer`` | ``ocr`` | ``vlm_reading``) and the
+    model that read it.
+
+Written once the upload screen has passed and the vision batch has read the
+drawings, through BFF-presigned PUTs like the stored rasters (``image_store``):
+the backend holds a read-only object-store credential. The BFF builds each key
+from the document's own row, and the presign answer carries the row's id and
+version, which ``index.json`` repeats so the reader can refuse a stray file.
+Fail-open: a failure here costs the stored text, never the ingest. The same
+presign serves a third part, ``parsed.json``, the ingest's own parsed document
+(``parsed_store``), whose answer's key and bucket the ingest reads it back from.
+"""
+
 from __future__ import annotations
 
 import json
@@ -29,6 +60,7 @@ INDEX_PART = "index.json"
 
 @dataclass(frozen=True)
 class Slot:
+    """One presigned PUT, and the row the BFF resolved it for."""
 
     upload_url: str
     document_id: str
@@ -44,6 +76,7 @@ Uploader = Callable[[str, bytes, str], None]
 
 @dataclass(frozen=True)
 class PageText:
+    """What one page says, and what read it."""
 
     page: int
     text: str
@@ -53,6 +86,7 @@ class PageText:
 
 
 def strip_furniture(pages: list[PageText]) -> tuple[list[PageText], bool]:
+    """The pages without the running headers and footers that repeat on most of them; and whether any were. Pure."""
     from agent.common.page_text import running_furniture
     from agent.common.page_text import without_furniture
 
@@ -79,6 +113,11 @@ def render(
     furniture_stripped: bool,
     created_at: str | None = None,
 ) -> tuple[bytes, dict[str, Any]]:
+    """``pages.md`` and ``index.json`` for one version. Pure.
+
+    Every page ``1..page_count`` gets an entry in order; a page nothing read (it
+    failed, or it held no text) gets its marker and an empty body (``length`` 0).
+    """
     by_page = {page.page: page for page in pages if 1 <= page.page <= page_count}
     failed = sorted({int(n) for n in failed_pages if 1 <= int(n) <= page_count})
     body = bytearray()
@@ -118,6 +157,7 @@ def render(
 
 
 def request_slot(document_id: str, collection: str, part: str, organization_id: str | None = None) -> Slot | None:
+    """Ask the BFF for a presigned PUT for one part of the stored text; ``None`` on any failure."""
     base_url = os.environ.get(_FRONTEND_INTERNAL_URL_ENV, "").strip()
     token = os.environ.get(_INTERNAL_TOKEN_ENV, "").strip()
     if not base_url or not token:
@@ -156,6 +196,7 @@ def request_slot(document_id: str, collection: str, part: str, organization_id: 
 
 
 def put_part(upload_url: str, body: bytes, content_type: str) -> None:
+    """PUT one part to its presigned slot. Raises on any failure."""
     with connect_retrying_client(read_timeout=_HTTP_TIMEOUT_SECONDS) as client:
         response = client.put(upload_url, content=body, headers={"Content-Type": content_type})
     response.raise_for_status()
@@ -172,6 +213,11 @@ def store_page_text(
     presign: Presigner | None = None,
     upload: Uploader | None = None,
 ) -> bool:
+    """Write ``pages.md``, then ``index.json``, for the version the BFF resolves; True when both landed.
+
+    ``index.json`` goes last, so a reader that finds it finds the text it describes.
+    Never raises.
+    """
     from knowledge_layer.ingest.reader_version import INGEST_READER_VERSION
 
     presign = presign or request_slot
@@ -211,6 +257,14 @@ def pdf_pages(
     vision_model: str | None,
     tables: Iterable[Mapping[str, Any]] = (),
 ) -> list[PageText]:
+    """Each page's text as the pipeline read it, with what read it. Pure.
+
+    ``text_pages`` carry the text layer, a transcription already merged in where the
+    page was a scan or garbled (``transcribed`` names those pages); a drawing's
+    reading follows its text layer, and the page is then a ``vlm_reading``; an
+    uncaptioned table is appended once to its page (a captioned one is already in
+    the page's text).
+    """
     text: dict[int, str] = {}
     for page in text_pages:
         number = page.get("page_number")

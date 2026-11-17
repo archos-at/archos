@@ -25,10 +25,7 @@ PROPOSED_TEXT = "Proposed — the person decides. Nothing was changed."
 _NOT_ALNUM = re.compile(r"[^a-z0-9]+")
 
 
-
-
 class Vocabulary:
-
     def __init__(self, path: Path = VOCABULARY) -> None:
         vocabulary = json.loads(path.read_text(encoding="utf-8"))
         self.terms: list[tuple[str, list[str]]] = list(vocabulary["terms"].items())
@@ -158,8 +155,6 @@ def _scorer(query: str, groups: list[list[str]], corpus: list[dict[str, Any]]) -
     return score
 
 
-
-
 def _text(value: Any) -> str:
     return value if isinstance(value, str) else json.dumps(value, ensure_ascii=False, indent=2)
 
@@ -187,7 +182,6 @@ def _missing(schema: dict[str, Any], value: Any, where: str) -> list[str]:
 
 
 class FixtureWorkspace:
-
     def __init__(self, directory: Path = FIXTURES) -> None:
         catalog = json.loads((directory / "catalog.json").read_text(encoding="utf-8"))
         self.operations: list[dict[str, Any]] = catalog["operations"]

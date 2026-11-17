@@ -12,7 +12,6 @@ from ifc_spatial.briefing_rooms import _spaces_of
 from .model import SpatialModel
 
 
-
 def find_blind_spots(model: SpatialModel, dialect_sample: int | None = None) -> list[BlindSpot]:
     """What this file cannot answer, worked out before anybody asks.
 

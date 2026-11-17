@@ -27,7 +27,7 @@ from agent.knowledge.law_lookup.trace import LookupTrace
 
 logger = logging.getLogger(__name__)
 
-# Dev QC 2026-11-12: a province's building ordinance had 35 to 58 hits, and a 2016 version read as today's law was cited for a 2026 question.
+# Dev QC 2026-11-12: a building ordinance had 35-58 hits; a 2016 version was cited as today's law.
 MAX_CANDIDATES = 3
 LIVE_PAGE_SIZE = 20
 VERSIONS_PAGE_SIZE = 100

@@ -1,3 +1,5 @@
+"""The listing as text: one line per row, the change marks it carries, and the folder's listing block."""
+
 from __future__ import annotations
 
 from collections.abc import Sequence
@@ -22,6 +24,7 @@ MAX_CHAIN_CHANGE_CHARS = 700
 
 
 def _change_text(row: FileRow, limit: int) -> str:
+    """The stored change line as one sentence of at most ``limit`` characters; empty when none is stored."""
     if not row.change_summary:
         return ""
     lines = [line.lstrip("-•* ").strip() for line in row.change_summary.splitlines()]
@@ -36,6 +39,11 @@ def _compared_with_own_upload(row: FileRow) -> bool:
 
 
 def _change_bit(row: FileRow) -> str:
+    """``changed: …`` for what changed against the Fassung this file replaced, bounded; empty when none is stored.
+
+    A change line against the file's own previous upload (``change_basis`` is its
+    own name) says so, because the previous upload is not another file.
+    """
     text = _change_text(row, MAX_CHANGE_CHARS)
     if not text:
         return ""
@@ -93,6 +101,7 @@ def _row_line(row: FileRow, *, show_shelf: bool, mark: str | None = None) -> str
 
 
 def _scope_of(listing: Listing) -> str:
+    """Where a listing looked: the shelves, and the folder when one was asked for."""
     where = " and ".join(_SHELF_LABELS.get(shelf, shelf) for shelf in listing.shelves)
     return f'{where}, folder "{listing.folder}" with subfolders' if listing.folder else where
 
@@ -106,6 +115,7 @@ def _in_flight_line(in_flight: Sequence[str]) -> str:
 
 
 def _profile_lines(listing: Listing) -> list[str]:
+    """The lines that say what the listed files are: their Dokumentart, topics and Fassungen."""
     lines: list[str] = []
     if listing.types:
         profile = " · ".join(f"{tag} {count}" for tag, count in listing.types[:MAX_TYPE_COUNTS])
@@ -140,6 +150,7 @@ def _profile_lines(listing: Listing) -> list[str]:
 
 
 def render_listing(listing: Listing, *, in_flight: Sequence[str] = ()) -> str:
+    """The listing as the model reads it: counts first, then folders, then files."""
     scope = _scope_of(listing)
     lines: list[str] = [*listing.notes]
     if listing.notes and not listing.total:

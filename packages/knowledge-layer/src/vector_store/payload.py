@@ -1,3 +1,18 @@
+"""One chunk's Qdrant point: id, vectors and a flat, typed payload.
+
+The payload carries the chunk's own metadata as LlamaIndex wrote it (minus
+LlamaIndex's bookkeeping), the chunk text as a top-level field, the logical
+``scope`` it belongs to, and what the collection name used to only imply:
+the office, project and BFF document it came from, and the facts a person
+set on the document (tags, Dokumentart, Fassung status, folder).
+
+A point id is the chunk id (the chunker's node id), so a citation, an
+``already_read`` digest or a Langfuse score that names a chunk names the
+point, and chunks copied from the old store keep the ids they were cited
+by. A chunk id that is not a UUID gets a stable UUIDv5 point id; the payload
+keeps the original.
+"""
+
 from __future__ import annotations
 
 import re
@@ -52,6 +67,7 @@ _POINT_NAMESPACE = uuid.UUID("5b0c7f8e-6b8a-4f0e-9a51-2c1d8f3e7a10")
 
 @dataclass
 class ChunkRecord:
+    """One embedded chunk: its id, text, dense vector and metadata, as ingestion (or a migration) writes it."""
 
     chunk_id: str
     text: str
@@ -61,6 +77,7 @@ class ChunkRecord:
 
 
 def point_id(chunk_id: str) -> str:
+    """The Qdrant point id for a chunk: the chunk id itself when it is a UUID."""
     try:
         return str(uuid.UUID(chunk_id))
     except ValueError, AttributeError, TypeError:
@@ -68,14 +85,17 @@ def point_id(chunk_id: str) -> str:
 
 
 def paragraph_key(number: str) -> str:
+    """One ``§`` reference as :data:`PARAGRAPH_FIELD` holds it: ``§ 3a``, case folded."""
     return f"§ {number.strip().rstrip('.')}".casefold()
 
 
 def paragraph_refs(text: str) -> list[str]:
+    """Every ``§`` reference ``text`` cites, once each, in order of first appearance."""
     return list(dict.fromkeys(paragraph_key(match) for match in _PARAGRAPH_REF.findall(text or "")))
 
 
 def _as_bool(value: Any) -> bool | None:
+    """``value`` as a boolean; a string is read for what it says ("false" is False), anything unreadable is None."""
     if isinstance(value, bool):
         return value
     if isinstance(value, str):
@@ -98,6 +118,12 @@ def _as_int(value: Any) -> int | None:
 
 
 def as_rfc3339(value: Any) -> str | None:
+    """``value`` as an RFC 3339 UTC timestamp; None when it is not a date.
+
+    Reads a ``date``/``datetime``, an ISO 8601 string (``2026-01-31``, ``2026-01-31T10:00:00+02:00``,
+    a trailing ``Z``) and an EXIF-style ``2026:01:31 10:00:00``. A naive time is taken as UTC. A bool
+    or a number is not a date.
+    """
     if isinstance(value, datetime):
         moment = value
     elif isinstance(value, date):
@@ -118,6 +144,11 @@ def as_rfc3339(value: Any) -> str | None:
 
 
 def coerce_field(key: str, value: Any) -> Any:
+    """A value in the type its index expects; None when it cannot be one.
+
+    Used for writes AND for filter values, so the two always agree: the same
+    coercion that stores ``page_label`` 3 as "3" turns a filter's 3 into "3".
+    """
     if value is None:
         return None
     if key in INTEGER_FIELDS:
@@ -135,6 +166,11 @@ def coerce_field(key: str, value: Any) -> Any:
 
 
 def document_facts(document: Any | None) -> dict[str, Any]:
+    """The person-set facts of one document, as payload fields.
+
+    ``document`` is an ``AvailableDocument`` row from the metadata store, the
+    authority for every one of these: Postgres decides, the payload mirrors.
+    """
     if document is None:
         return {}
     facts: dict[str, Any] = {
@@ -154,10 +190,16 @@ def document_facts(document: Any | None) -> dict[str, Any]:
 
 
 def reference_value(kind: str, key: str) -> str:
+    """One reference as the ``references`` field holds it: ``norm:önorm b 1600``, ``plan:ep-05``."""
     return f"{kind}:{key}".casefold()
 
 
 def fact_value(key: str, value: Any, unit: Any = None) -> str:
+    """One stated fact as the ``dossier_facts`` field holds it: ``building_class=4``, ``room_height=2.6 m``.
+
+    The value is folded so two spellings of one statement match: case, spaces, a decimal
+    comma, and a Gebäudeklasse written "GK 4" or "Gebäudeklasse IV" read as its number.
+    """
     text = " ".join(str(value).split()).casefold().replace(",", ".")
     if key == "building_class":
         roman = {"i": "1", "ii": "2", "iii": "3", "iv": "4", "v": "5"}
@@ -168,6 +210,14 @@ def fact_value(key: str, value: Any, unit: Any = None) -> str:
 
 
 def reading_facts(document: Any) -> dict[str, Any]:
+    """What the ingest read of the whole document, as filterable payload (``docs/architecture/document-dossier.md``).
+
+    Copied onto every chunk of the document, like the tags: ``document_type`` (the dossier's),
+    ``references`` (``kind:key``), ``dossier_facts`` (``key=value unit``), ``parties`` (names,
+    case-folded) and ``pages_not_read``. Each is stated even when empty, so a re-read that
+    found nothing stops a stale value from matching. One indexed condition then answers
+    "every passage of a document citing ÖNORM B 1600" or "of a fire safety concept".
+    """
     dossier = getattr(document, "dossier", None)
     dossier = dossier if isinstance(dossier, Mapping) else {}
     references = getattr(document, "doc_references", None) or []
@@ -201,6 +251,12 @@ def reading_facts(document: Any) -> dict[str, Any]:
 
 
 def _document_date(document: Any) -> str | None:
+    """The document's own date: the title block's ``revision_date``, else the photo's ``captured_at``,
+    else, for a filed E-Mail-Verlauf, its newest message's send time (``mail_thread.latest_sent_at``).
+
+    A file that came WITH a mail keeps its own date: a Stellplatznachweis dated in March and sent in
+    May is a March document, so ``mail_origin`` is not read here.
+    """
     revision = getattr(document, "revision_facts", None)
     capture = getattr(document, "capture", None)
     thread = getattr(document, "mail_thread", None)
@@ -221,6 +277,14 @@ def _fact_values(key: str, value: Any) -> list[Any]:
 
 
 def project_payload(facts: Mapping[str, Any] | None, status: str) -> dict[str, Any]:
+    """The project's facts and status as the payload every one of its points carries.
+
+    ``facts`` is the BFF's similarity reading of ``projects.profile`` (the
+    authority): ``federal_state`` one token or absent, every other key a list.
+    The whole ``project_facts`` object is written at once, so a fact a person
+    removed disappears from the points instead of lingering. Unknown keys are
+    dropped; an unknown status raises, since it would filter as nothing.
+    """
     if status not in PROJECT_STATUSES:
         raise ValueError(f"project status {status!r} is not one of {', '.join(PROJECT_STATUSES)}")
     shaped: dict[str, Any] = {}
@@ -235,6 +299,12 @@ def project_payload(facts: Mapping[str, Any] | None, status: str) -> dict[str, A
 
 
 def build_payload(scope: str, record: ChunkRecord, enrichment: Mapping[str, Any] | None = None) -> dict[str, Any]:
+    """The payload for one chunk; ``scope``, ``text``, ``chunk_id``, ``reading_order`` and the ordinal always win.
+
+    ``reading_order`` is derived from the STORED ``page_label`` (a string by
+    then), the value a reader's ``Chunk.page_number`` is parsed from, so the
+    order a fetch sorts by and the order its reader re-sorts by agree.
+    """
     payload: dict[str, Any] = {
         key: value for key, value in (record.metadata or {}).items() if key not in LLAMA_INTERNAL_KEYS
     }
@@ -266,6 +336,12 @@ ENRICHED_FIELDS = frozenset(
 
 
 def chunk_own_payload(scope: str, record: ChunkRecord) -> dict[str, Any]:
+    """The payload fields derived from the chunk alone: its metadata, text and every field computed from them.
+
+    Merged onto a point that already exists (``set_payload``), it brings a
+    field added to :func:`build_payload` after the point was written, and
+    leaves the job's ids and a person's facts as they are.
+    """
     return {key: value for key, value in build_payload(scope, record).items() if key not in ENRICHED_FIELDS}
 
 
@@ -290,6 +366,13 @@ STORE_ONLY_FIELDS = frozenset(
 
 
 def chunk_metadata(payload: Mapping[str, Any]) -> dict[str, Any]:
+    """The chunk metadata a caller sees on a hit: the payload minus what only the store adds.
+
+    ``doc_class`` is the chunk's own, as the chunker stamped it, not the
+    person's class a pre-filter matches: the reader resolves the stored class itself
+    and falls back to this one (``hit_metadata.hit_doc_class``). A point written
+    before :data:`CHUNK_DOC_CLASS_FIELD` existed keeps the payload's.
+    """
     metadata = {key: value for key, value in payload.items() if key not in STORE_ONLY_FIELDS}
     if CHUNK_DOC_CLASS_FIELD in payload:
         metadata.pop("doc_class", None)
@@ -301,6 +384,11 @@ def chunk_metadata(payload: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def _english_clause_keys(metadata: dict[str, Any]) -> dict[str, Any]:
+    """``metadata`` with the clause keys a point written before the rename holds read under their English names.
+
+    ``punkt_id`` is read as ``clause_id`` and ``chunking: "punkt"`` as ``"clause"``; the English
+    key wins when both are present. Remove with ``schema.LEGACY_FIELDS``.
+    """
     for new, old in LEGACY_FIELDS.items():
         if old in metadata and not old.startswith(PROJECT_FACTS_FIELD):
             legacy = metadata.pop(old)

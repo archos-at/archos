@@ -96,7 +96,6 @@ def emit_operation_proposal_card(proposal: OperationProposal, call_input: dict[s
     return True
 
 
-
 REVISION_COMPARE_OPERATION = "document-revision-compare"
 REVISION_COMPARE_CARD_TYPE = "revision_compare"
 

@@ -1,3 +1,21 @@
+"""``knowledge_search(group_by="document")``: one line per document (ADR-0127, S7).
+
+"Which documents deal with X" is not answered by the top passages: five chunks of
+one PDF crowd out the rest. Grouped, the ranked pool becomes one entry per
+document, its best passage first, with how many of the pool's passages it held.
+
+The grouping runs here, over the pool the search already ranked and reranked,
+and not in Qdrant: a group query whose query is a fusion fuses again for every
+round of groups it collects (measured on 1.19.2, ``vector_store/search.py``
+``grouped_search``), and this pool is fused across several collections besides.
+Ranking is untouched: a group's place is its best passage's place.
+
+A document is its ``grid_document_id`` (the BFF's id, on every point an ingest
+job wrote), and, where a point carries none (the base corpus, a point written
+before the field), its collection and file name: a file name is unique within
+one collection only.
+"""
+
 from __future__ import annotations
 
 from collections.abc import Iterable
@@ -12,6 +30,7 @@ GROUP_OVERFETCH = 4
 
 @dataclass(frozen=True)
 class DocumentGroup:
+    """One document of a grouped search: its best passage, and what else of the pool it held."""
 
     best: Any
     passages: int
@@ -19,6 +38,7 @@ class DocumentGroup:
 
 
 def document_key(chunk: Any) -> tuple[str, ...]:
+    """The document a chunk belongs to: its BFF id, else its collection and file name."""
     metadata = getattr(chunk, "metadata", None) or {}
     document_id = metadata.get("grid_document_id")
     if document_id:
@@ -46,6 +66,13 @@ def _distinct(chunks: Iterable[Any]) -> list[Any]:
 
 
 def group_by_document(ordered: Sequence[Any], pool: Sequence[Any] = ()) -> list[DocumentGroup]:
+    """The documents of ``ordered`` in ranking order, each with its best passage and its count. Pure.
+
+    ``ordered`` is the final order (after the reranker, which may trim); ``pool``
+    is the whole ranked candidate set it was cut from. A document the reranker
+    trimmed away still counts, and still appears after every document it kept, in
+    pool order. Counts are over the union; the caller cuts the list to its budget.
+    """
     candidates = _distinct([*ordered, *pool])
     best: dict[tuple[str, ...], Any] = {}
     counts: dict[tuple[str, ...], int] = {}
@@ -72,6 +99,11 @@ def _pages_cell(pages: tuple[int, ...]) -> str:
 
 
 def render_document_groups(groups: Sequence[DocumentGroup], pool_size: int) -> str:
+    """The trailer under a grouped search's passages: one row per document, in the order shown. Pure.
+
+    English labels (an agent reads it); file names as stored. The count is over
+    the ranked pool, never every mention: that is ``match="exact"``.
+    """
     if not groups:
         return ""
     lines = [

@@ -30,7 +30,6 @@ from .model import AIR_TYPES
 from .model import SpatialModel
 
 
-
 def facade_plane_of(model: SpatialModel, global_id: str) -> Answer[dict[str, Any]]:
     """The element's facade plane, with its normal pointing away from the building.
 

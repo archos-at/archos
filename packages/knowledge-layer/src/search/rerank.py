@@ -1,3 +1,26 @@
+"""Relevance reranking of retrieved chunks against the query.
+
+Retrieval ranks by embedding proximity and lexical overlap (the fused dense and
+BM25 channels), not by whether a chunk actually answers the question.
+Reranking converts that recall into precision, and it is the stage that pays for
+over-fetching in the first place.
+
+Two rankers live here, tried in order and both fail-open:
+
+1. :func:`rerank_chunks` -- an LLM acting as a relevance judge, scoring every
+   candidate in one batched call.
+2. the cross-encoder in :mod:`knowledge_layer.search.cross_encoder`, when one is
+   configured -- resolved by the caller and passed in as ``cross_encoder``.
+
+Fail-open is deliberate and absolute: any error, timeout, malformed reply or
+unusable score set leaves the input order untouched, because retrieval must
+never be a gate. The distinction this module draws is between *failing* (keep
+the retrieval order, say so in the log) and *succeeding with a bad reply* --
+the second is the dangerous one, because a judge that renumbers, repeats or
+omits candidates produces an order that looks reranked and is not. Every such
+reply is rejected rather than absorbed.
+"""
+
 from __future__ import annotations
 
 import asyncio
@@ -44,6 +67,7 @@ _MAX_SCORE = 10.0
 
 
 def _excerpt_budget(chunk_count: int, max_doc_chars: int) -> int:
+    """Per-candidate excerpt size that keeps the whole prompt within budget."""
     if chunk_count <= 0:
         return max_doc_chars
     affordable = _TOTAL_EXCERPT_BUDGET_CHARS // chunk_count
@@ -51,6 +75,13 @@ def _excerpt_budget(chunk_count: int, max_doc_chars: int) -> int:
 
 
 def _format_page(chunk: Any) -> str:
+    """Render a chunk's page as ``p.12``, or nothing when it has no page.
+
+    ``page_number`` is ``int | None``, so a ``getattr`` default never fires for a
+    chunk whose page is genuinely absent -- the attribute exists and holds
+    ``None``. Rendering that as ``p.None`` spends prompt tokens telling the judge
+    nothing.
+    """
     page = getattr(chunk, "page_number", None)
     return f" p.{page}" if page else ""
 
@@ -73,12 +104,24 @@ def _build_user_prompt(query: str, chunks: list[Any], max_doc_chars: int = _CHUN
 
 
 def _is_real_number(value: Any) -> bool:
+    """True for a usable numeric score.
+
+    Rejects ``bool`` (a subclass of ``int``, so ``{"score": true}`` would
+    otherwise be read as 1.0) and non-finite floats -- ``json.loads`` accepts
+    ``NaN``, and a single NaN makes the whole sort order implementation-defined
+    because every comparison against it is false.
+    """
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         return False
     return math.isfinite(float(value))
 
 
 def _parse_scores(raw: str) -> list[tuple[int, float]]:
+    """Parse ``{"scores": [{"i": int, "score": float}]}`` out of a model reply.
+
+    Tolerates markdown fences and surrounding prose; drops malformed entries.
+    Entry order is preserved so the caller can resolve duplicates first-wins.
+    """
     text = raw.strip()
     if text.startswith("```"):
         text = text.strip("`")
@@ -112,6 +155,18 @@ def _parse_scores(raw: str) -> list[tuple[int, float]]:
 
 
 def _validated_scores(parsed: list[tuple[int, float]], chunk_count: int) -> dict[int, float] | None:
+    """Turn parsed entries into a usable ``{1-based index: score}`` map, or ``None``.
+
+    Returns ``None`` -- meaning "fail open, keep the retrieval order" -- when no
+    entry refers to a candidate that was actually sent. That is the signature of a
+    judge that renumbered (a 0-based reply) or answered about a different list,
+    and absorbing it silently produces a *wrong* order indistinguishable from a
+    successful rerank in the logs.
+
+    Duplicate indices resolve first-wins (a repeat is a transcription slip, not a
+    revision) and out-of-range indices are dropped, both with a warning -- the
+    previous ``dict()`` collapse silently let a repeated index *demote* a chunk.
+    """
     if chunk_count <= 0:
         return None
 
@@ -139,6 +194,24 @@ def _validated_scores(parsed: list[tuple[int, float]], chunk_count: int) -> dict
 
 
 def _ranked_order(chunks: list[Any], scores: dict[int, float]) -> list[Any]:
+    """Order ``chunks`` by judged score, imputing the mean for unscored candidates.
+
+    Models routinely score only a prefix of a long candidate list. Treating those
+    omissions as a low score buries them beneath candidates the judge explicitly
+    rejected -- with twenty candidates and a reply covering eight, twelve
+    top-ranked hits would sort below a chunk scored 0 ("completely irrelevant").
+
+    An omission is not a rejection, it is an absence of opinion, so an unscored
+    candidate is imputed the mean of the scores the judge did give. The invariant
+    this buys, stated exactly: **an unscored candidate outranks every candidate
+    scored below the mean, and trails every candidate scored above it.** Scored
+    candidates win ties against imputed ones, so when the judge rejects everything
+    equally (all scores identical) the imputation carries no information and the
+    retrieval order survives intact.
+
+    ``sorted`` is stable and ``reverse=True`` does not reverse ties, so equals keep
+    their retrieval order.
+    """
     mean_score = sum(scores.values()) / len(scores)
     return [
         chunk
@@ -151,6 +224,12 @@ def _ranked_order(chunks: list[Any], scores: dict[int, float]) -> list[Any]:
 
 
 def _trim(chunks: list[Any], top_n: int | None) -> list[Any]:
+    """Trim to ``top_n``; ``None`` and non-positive both mean "no trim".
+
+    A non-positive ``top_n`` used to slice the result to nothing, which turned a
+    misconfigured ``rerank_candidates`` into an empty knowledge base with the
+    fail-open path failing open to zero chunks.
+    """
     if top_n is None or top_n <= 0:
         return chunks
     return chunks[:top_n]
@@ -166,6 +245,29 @@ async def rerank_chunks(
     max_doc_chars: int = _CHUNK_EXCERPT_CHARS,
     cross_encoder: Any = None,
 ) -> list[Any]:
+    """Re-order ``chunks`` by judged relevance to ``query``; fail-open to the input.
+
+    When ``cross_encoder`` is supplied it is tried first; the LLM judge is the
+    fallback. Unscored chunks sort after scored ones and keep their original
+    relative order (``sorted`` is stable, and ``reverse=True`` does not reverse
+    ties).
+
+    Args:
+        llm: LangChain chat model with an async ``ainvoke``. May be ``None`` when
+            only a cross-encoder is configured.
+        query: The user query the chunks were retrieved for.
+        chunks: Retrieved chunks, best-vector-first.
+        top_n: Maximum number of reranked chunks to return (default: all).
+        timeout_seconds: Upper bound for the judge call.
+        max_doc_chars: Per-candidate excerpt budget, reduced automatically to keep
+            the whole prompt within :data:`_TOTAL_EXCERPT_BUDGET_CHARS`.
+        cross_encoder: Optional object with
+            ``async rerank(query, chunks, top_n) -> list[chunk] | None``.
+
+    Returns:
+        The re-ordered (and trimmed) chunks, or the original (trimmed) list on any
+        failure.
+    """
     if not chunks or not query:
         return chunks
 

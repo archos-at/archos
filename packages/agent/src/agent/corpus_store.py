@@ -139,8 +139,6 @@ class FileRow:
         return self.ingested_sha256 != self.sha256 or self.chunk_format_version != chunk_format_version
 
 
-
-
 def cache_dir() -> Path:
     """This process's cache of corpus files (``BASE_CORPUS_CACHE_DIR``), read at call time."""
     return Path(os.environ.get(CACHE_DIR_ENV, "").strip() or DEFAULT_CACHE_DIR)
@@ -179,8 +177,6 @@ def is_valid_name(name: str) -> bool:
 def _require_name(name: str) -> None:
     if not is_valid_name(name):
         raise CorpusStoreError(f"not a corpus file name: {name!r}")
-
-
 
 
 def _db_url() -> str:
@@ -398,8 +394,6 @@ def forget_ingested(name: str | None = None) -> None:
         conn.execute(statement)
 
 
-
-
 def _bff() -> tuple[str, dict[str, str]]:
     base_url = os.environ.get(_FRONTEND_INTERNAL_URL_ENV, "").strip()
     token = os.environ.get(_INTERNAL_TOKEN_ENV, "").strip()
@@ -468,8 +462,6 @@ def _download_object(storage_key: str, out: BinaryIO) -> None:
         raise CorpusStoreError(f"download of {storage_key} failed: {type(e).__name__}") from e
 
 
-
-
 @contextlib.contextmanager
 def _temp_beside(target: Path):
     """A temp file in ``target``'s directory, removed on the way out, so a rename into place is atomic."""
@@ -525,8 +517,6 @@ def ensure_local(name: str) -> Path | None:
     return target
 
 
-
-
 def put(name: str, data: bytes) -> FileRow:
     """Store a PDF in the corpus, and keep this process's copy in the cache.
 
@@ -555,7 +545,6 @@ def remove(name: str) -> None:
     _delete_file_row(name)
     _delete_object(name)
     (cache_dir() / name).unlink(missing_ok=True)
-
 
 
 _KEY_PREFIX = "base-corpus/"

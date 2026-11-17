@@ -52,8 +52,6 @@ def identity(model: str, base_url: str) -> dict[str, str]:
     return embed_fingerprint_metadata(model, base_url)
 
 
-
-
 @contextlib.contextmanager
 def isolated_qdrant(url: str, api_key: str | None = None) -> Iterator[str]:
     """The knowledge layer's Qdrant store on uniquely named aliases; collections dropped on exit.
@@ -153,8 +151,6 @@ def wait_until_indexed(timeout_s: float = 600.0) -> dict[str, Any]:
         "indexed_vectors": int(info.indexed_vectors_count or 0),
         "segments": int(info.segments_count or 0),
     }
-
-
 
 
 def retriever(model: str, base_url: str, queries: Sequence[str], query_vectors: np.ndarray) -> Any:

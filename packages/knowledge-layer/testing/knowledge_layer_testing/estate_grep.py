@@ -55,7 +55,6 @@ def _report_row() -> FileRow:
 
 
 class Retriever:
-
     def __init__(self, by_collection: dict, fail: set[str] = frozenset(), deadline: set[str] = frozenset()):
         self.by_collection = by_collection
         self.fail = fail

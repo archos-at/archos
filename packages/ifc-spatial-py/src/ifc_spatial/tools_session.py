@@ -71,8 +71,6 @@ def run(fn: Callable[[], Any]) -> Any:
         raise ToolError(str(error)) from None
 
 
-
-
 def open_model(cache: SpatialCache, register: Callable[[SpatialModel], str], args: dict[str, Any]) -> Any:
     source = str(args.get("path") or "").strip()
     started = time.perf_counter()

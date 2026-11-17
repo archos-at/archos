@@ -123,8 +123,6 @@ def identifies_document(facts: Mapping[str, Any] | None) -> bool:
     return bool(facts) and any(facts.get(key) for key in ("document_number", "revision", "revision_date"))
 
 
-
-
 def document_key(number: Any) -> str | None:
     """What two spellings of one number share: letters and digits, folded (``A-101`` = ``a 101`` = ``A101``).
 
@@ -143,8 +141,6 @@ def same_document(first: Mapping[str, Any] | None, second: Mapping[str, Any] | N
         return False
     key = document_key(first.get("document_number"))
     return key is not None and key == document_key(second.get("document_number"))
-
-
 
 
 def revision_rank(revision: Any) -> tuple[str, int] | None:
@@ -204,8 +200,6 @@ def newest_first[T](
         return (value if index_leads else 0, str(facts.get("revision_date") or ""), value, tiebreak(item))
 
     return sorted(items, key=key, reverse=True)
-
-
 
 
 def display_date(iso: str) -> str:

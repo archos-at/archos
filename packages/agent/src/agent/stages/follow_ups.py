@@ -52,7 +52,6 @@ from pydantic import model_validator
 from agent.common.message_utils import response_text
 from agent.common.model_overrides import AgentGroup
 from agent.common.prompt_caching import one_shot_calls
-
 from agent.stages.memory_reflection import REFLECTION_NON_ANSWERS as _NON_ANSWERS
 from agent.stages.registry import register_stage
 from agent.stages.spec import GateDecision
@@ -181,7 +180,6 @@ class FollowUpsDraft(BaseModel):
     items: list[_DraftQuestion] = Field(description="Two to four questions; an empty list if none qualify.")
 
 
-
 MIN_ANSWER_CHARS = 400
 
 FOLLOW_UPS_TIMEOUT_S = 20.0
@@ -231,7 +229,6 @@ def _gate(facts: TurnFacts) -> GateDecision:
     if _ends_in_a_question(text):
         return GateDecision.skip("answer_ends_in_question")
     return GateDecision.proceed()
-
 
 
 FOLLOW_UPS_SYSTEM_PROMPT = (
@@ -303,7 +300,6 @@ def build_user_prompt(facts: TurnFacts) -> str:
     parts.append(f"## Reader's question\n{_slice(facts.query, MAX_QUERY_CHARS, ' … (gekürzt)')}")
     parts.append(f"## The answer they received\n{_slice(facts.answer, MAX_ANSWER_CHARS, ' … (Antwort gekürzt)')}")
     return "\n\n".join(parts)
-
 
 
 _MIN_ANCHOR_CHARS = 5
@@ -442,8 +438,6 @@ def sanitize_items(raw: Any, *, answer: str) -> list[dict[str, str]]:
         if len(items) == 4:
             break
     return items
-
-
 
 
 async def _handler(ctx: StageContext) -> dict[str, Any] | StageEmpty | None:

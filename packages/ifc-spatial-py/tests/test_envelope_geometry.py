@@ -136,8 +136,6 @@ def _all_entries(value: dict) -> dict[str, dict]:
     return found
 
 
-
-
 def test_every_candidate_in_the_sample_house_is_decided_by_declaration(envelope: Answer) -> None:
     assert envelope.decidable
     value = envelope.value
@@ -217,8 +215,6 @@ def test_the_curtain_wall_mullions_are_excluded_and_the_caveat_says_how_many(env
     assert "20 IfcMember" in envelope.caveat
 
 
-
-
 def test_a_wall_and_its_openings_add_up_to_its_gross_elevation(house: SpatialModel, envelope: Answer) -> None:
     entries = _all_entries(envelope.value)
     low, high = house.geometry(SOUTH_WALL).box
@@ -263,8 +259,6 @@ def test_the_branch_is_chosen_by_measurement_not_by_ifc_type(envelope: Answer) -
     assert entries[NORTH_WINDOW]["horizontal"] is False
     assert entries[ROOF]["horizontal"] is True
     assert entries[GROUND_SLAB]["horizontal"] is True
-
-
 
 
 def test_the_orientation_table_of_the_sample_house(orientation: Answer) -> None:
@@ -313,8 +307,6 @@ def test_orientation_totals_agree_with_the_envelope_total(orientation: Answer, e
     assert orientation.value["windowWallRatio"] == pytest.approx(0.176564, abs=1e-5)
 
 
-
-
 def test_compactness_reports_both_inputs_and_lands_in_the_plausible_band(compact: Answer) -> None:
     assert compact.decidable
     assert compact.unit == "1/m"
@@ -355,8 +347,6 @@ def test_compactness_says_which_rooms_it_treated_as_heated(compact: Answer) -> N
 def test_compactness_area_agrees_with_the_envelope_operator(compact: Answer, envelope: Answer) -> None:
     assert compact.value["envelopeArea"] == pytest.approx(envelope.value["totalArea"], abs=1e-6)
     assert compact.value["areaByKind"] == envelope.value["areaByKind"]
-
-
 
 
 def test_the_geometry_route_decides_when_nothing_is_declared(two_rooms: SpatialModel) -> None:
@@ -419,8 +409,6 @@ def test_declared_space_boundaries_are_not_reported_as_geometry(
     assert "deklarierte Raumgrenzen" in partition["because"]
 
 
-
-
 def test_declared_without_geometry_never_reports_a_confident_zero() -> None:
     model = SpatialModel(str(DECLARED_NO_GEOMETRY))
     answer = eg.thermal_envelope(model)
@@ -456,8 +444,6 @@ def test_a_model_with_no_building_elements_says_so_rather_than_naming_psets() ->
         assert not answer.decidable
         assert answer.missing.what.startswith("keine Bauteile der thermischen Hülle")
         assert "Infrastruktur" in answer.missing.remedy
-
-
 
 
 def test_no_operator_returns_a_verdict(envelope: Answer, orientation: Answer, compact: Answer) -> None:

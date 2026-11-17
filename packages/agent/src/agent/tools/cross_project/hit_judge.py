@@ -33,7 +33,7 @@ SLOT = "reference_hits"
 
 PASSAGE_CHARS = 600
 
-# Measured 10 Oct 2026 (19 questions, 184 passages): all 22 evidence passages scored 0.8 or more, so 0.5 never fired the page-on hint beside an answer.
+# 2026-10-10, 19 questions, 184 passages: all 22 evidence passages scored >= 0.8; 0.5 never fired the hint.
 SOLVED_THRESHOLD = 0.5
 
 # Measured: 7 of 7 planted instructions flagged, none of 184 real passages.

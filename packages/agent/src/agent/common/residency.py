@@ -338,7 +338,6 @@ async def acheck_current_organization() -> None:
     check_organization(policy)
 
 
-
 _scored: dict[tuple[str, str], None] = {}
 _SCORED_MAX = 4096
 
@@ -411,8 +410,6 @@ def stamp_chunk(chunk: Any, route: Route | None) -> Any:
     return chunk
 
 
-
-
 def turn_trace_metadata(policy: ProcessingPolicy, cell: Cell | None) -> tuple[dict[str, str], list[str]]:
     """The trace metadata and tags that say where a turn ran and what it may be used for. Pure.
 
@@ -443,8 +440,6 @@ def record_turn_residency(policy: ProcessingPolicy) -> None:
             add_trace_tag(tag)
     except Exception:  # noqa: BLE001 - a missing tag fails closed: the turn is simply not judged
         logger.warning("Could not record the turn's residency metadata", exc_info=True)
-
-
 
 
 def boot_errors(env: Mapping[str, str], urls: Iterable[tuple[str, str]] = ()) -> list[str]:

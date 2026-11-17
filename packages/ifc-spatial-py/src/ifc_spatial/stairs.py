@@ -159,7 +159,6 @@ from .operators import _require  # noqa: F401
 from .operators import _wrong_kind  # noqa: F401
 
 
-
 def steps_of(model: SpatialModel, global_id: str) -> Answer[dict[str, Any]]:
     """The flights and landings a stair (or ramp) is made of — ``IfcRelAggregates``.
 

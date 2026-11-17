@@ -141,8 +141,6 @@ def normalise(raw: str) -> str:
     return re.sub(r"[^a-z0-9]+", " ", text).strip()
 
 
-
-
 def _by_type(model: SpatialModel, ifc_type: str) -> list[Any]:
     """Instances of a type, or an empty list when the SCHEMA has no such type.
 

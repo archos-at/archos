@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from .operators import FURNISHING
 
-
 STAIR_TYPES = ("IfcStair", "IfcStairFlight")
 RAMP_TYPES = ("IfcRamp", "IfcRampFlight")
 

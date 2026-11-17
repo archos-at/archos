@@ -123,8 +123,6 @@ def is_product_site(url: str) -> bool:
     return on_host(host_of(url), PRODUCT_DOMAINS)
 
 
-
-
 @dataclass(frozen=True)
 class SourceHosts:
     """One configured source: whose law it holds, its own hosts and the hosts that republish it."""
@@ -283,8 +281,6 @@ def held_works() -> tuple[HeldWork, ...]:
         except Exception:  # noqa: BLE001 - one unreadable record set never fails a search
             logger.warning("web_sources: a set of held works could not be read", exc_info=True)
     return tuple(works)
-
-
 
 
 def contains_run(haystack: tuple[str, ...], run: tuple[str, ...]) -> bool:

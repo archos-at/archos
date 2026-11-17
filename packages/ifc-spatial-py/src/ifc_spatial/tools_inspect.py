@@ -50,8 +50,6 @@ def find_elements(resolve: Callable[[Any], SpatialModel], args: dict[str, Any]) 
     return out
 
 
-
-
 def element(resolve: Callable[[Any], SpatialModel], args: dict[str, Any]) -> Any:
     model = resolve(args.get("model"))
     global_id = str(args.get("globalId") or "")
@@ -95,8 +93,6 @@ def element(resolve: Callable[[Any], SpatialModel], args: dict[str, Any]) -> Any
             "einige Sekunden. Über relations sind sie normal abrufbar."
         ),
     }
-
-
 
 
 def relations(resolve: Callable[[Any], SpatialModel], args: dict[str, Any]) -> Any:
@@ -178,8 +174,6 @@ def element_profile(resolve: Callable[[Any], SpatialModel], args: dict[str, Any]
     return out
 
 
-
-
 def shopping_list(resolve: Callable[[Any], SpatialModel], args: dict[str, Any]) -> Any:
     """The model's blind spots as a buildingSMART IDS file.
 
@@ -205,8 +199,6 @@ def shopping_list(resolve: Callable[[Any], SpatialModel], args: dict[str, Any]) 
     )
     written = ids.write_ids(document)
     return {**written, "summary": document.summary()}
-
-
 
 
 def room_inventory(resolve: Callable[[Any], SpatialModel], args: dict[str, Any]) -> Any:

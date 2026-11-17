@@ -207,8 +207,6 @@ class ClarifyDeps:
         return {"callbacks": list(self.callbacks)}
 
 
-
-
 def parse_json_response[ModelT: BaseModel](content: Any, schema: type[ModelT]) -> ModelT | None:
     """Parse one structured response out of an LLM reply.
 
@@ -450,8 +448,6 @@ def _fallback_plan() -> PlanResponse:
     return PlanResponse(title=FALLBACK_PLAN_TITLE, sections=list(FALLBACK_PLAN_SECTIONS))
 
 
-
-
 def _clarification_messages(
     request: ClarifyRequest, deps: ClarifyDeps, messages: Sequence[BaseMessage], log: str
 ) -> list[BaseMessage]:
@@ -644,8 +640,6 @@ async def clarify(request: ClarifyRequest, deps: ClarifyDeps) -> ClarifyResult:
     if not deps.enable_plan_approval:
         return ClarifyResult(research_context=log)
     return await preview_plan(request, deps, log)
-
-
 
 
 async def ask_through_nat(question: str, options: Sequence[str] = ()) -> str:

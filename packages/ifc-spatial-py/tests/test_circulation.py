@@ -41,8 +41,6 @@ def house() -> SpatialModel:
     return SpatialModel(str(SAMPLE_HOUSE))
 
 
-
-
 def test_graph_has_every_space_plus_one_outside_node(house: SpatialModel) -> None:
     answer = ci.door_graph(house)
     assert answer.decidable
@@ -99,8 +97,6 @@ def test_the_graph_is_built_once_and_memoised(house: SpatialModel) -> None:
 def test_the_graph_does_not_trigger_a_model_wide_geometry_pass(house: SpatialModel) -> None:
     ci.door_graph(house)
     assert house.geometry_seconds == 0.0
-
-
 
 
 def test_the_hall_leaves_through_its_own_external_door(house: SpatialModel) -> None:
@@ -177,8 +173,6 @@ def test_a_room_with_no_door_is_undecidable_and_not_an_empty_answer(house: Spati
     assert "Treppe" in answer.missing.remedy
 
 
-
-
 def test_reachable_from_the_bedroom_counts_hops_and_metres(house: SpatialModel) -> None:
     value = ci.reachable_from(house, BEDROOM).value
     found = {entry["globalId"]: entry for entry in value["reachable"]}
@@ -202,8 +196,6 @@ def test_reachable_from_a_room_with_no_egress_says_so_without_a_verdict(house: S
     assert answer.value["outside"] == {"reachable": False}
     assert "Aussage über den Türgraph dieses Exports, nicht über das Gebäude" in answer.caveat
     assert {entry["globalId"] for entry in answer.value["nichtErreichbar"]} == {LIVING, BEDROOM, HALL}
-
-
 
 
 def test_a_model_without_spaces_refuses_with_a_remedy() -> None:
@@ -274,8 +266,6 @@ def test_asking_a_wall_for_its_escape_route_names_the_operator_that_would_answer
         ci.egress_path(house, NORTH_WALL)
     assert "erwartet einen Raum (IfcSpace)" in str(raised.value)
     assert "opensTo()" in str(raised.value)
-
-
 
 
 def test_no_answer_this_module_produces_states_a_verdict_or_a_threshold(house: SpatialModel) -> None:

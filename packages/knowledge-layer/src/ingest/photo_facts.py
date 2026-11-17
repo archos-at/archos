@@ -1,3 +1,30 @@
+"""What a camera wrote into a photo: when it was taken, where, and with what.
+
+A site photo is evidence of a moment — the state of the Rohbau on 14 September,
+the fire door before it was closed in — and the moment is written in the file:
+the EXIF ``DateTimeOriginal`` the camera set when the shutter fired. Piloti
+re-encodes every image to JPEG before the vision model reads it, which drops
+EXIF, so unless it is read from the ORIGINAL bytes first it is gone, and
+"die Baustellenfotos von letzter Woche" has nothing to be answered from but
+the upload date, which is when someone got round to uploading them.
+
+Only the facts that answer a planner's question are kept:
+
+- ``captured_at`` — ``DateTimeOriginal`` with ``OffsetTimeOriginal`` when the
+  camera wrote one (ISO 8601; local time without an offset when it did not).
+- ``latitude`` / ``longitude`` — the GPS position in decimal degrees. Stored
+  and shown to the people who may open the file, NEVER sent to a model: a
+  client's site location is not something to hand a provider to caption a
+  photo, and nothing a caption says needs it.
+- ``camera`` — make and model, so a drone shot reads as one.
+
+Everything else EXIF can carry is ignored on purpose, above all the owner's
+name and the body serial number some cameras write.
+
+Pure and model-free; never raises. A file without EXIF, or with EXIF Pillow
+cannot parse, answers an empty :class:`PhotoFacts`.
+"""
+
 from __future__ import annotations
 
 import logging
@@ -25,6 +52,7 @@ class PhotoFacts:
         return self.captured_at is None and self.latitude is None and self.camera is None
 
     def as_metadata(self) -> dict[str, Any]:
+        """The facts as the metadata row stores them: present keys only."""
         out: dict[str, Any] = {}
         if self.captured_at:
             out["captured_at"] = self.captured_at
@@ -36,6 +64,7 @@ class PhotoFacts:
         return out
 
     def model_context(self) -> str | None:
+        """What a model may be told about the photo: when it was taken. Never where."""
         if not self.captured_at:
             return None
         day, _, time = self.captured_at.partition("T")
@@ -66,6 +95,7 @@ def _captured_at(exif_ifd: Any) -> str | None:
 
 
 def _degrees(value: Any, ref: Any) -> float | None:
+    """A GPS coordinate from EXIF's (degrees, minutes, seconds) rationals and its N/S/E/W ref."""
     try:
         degrees, minutes, seconds = (float(part) for part in value)
     except TypeError, ValueError, ZeroDivisionError:
@@ -106,6 +136,7 @@ def _camera(exif: Any) -> str | None:
 
 
 def read_photo_facts(file_path: str) -> PhotoFacts:
+    """The capture facts of the image at ``file_path`` — the ORIGINAL file, before any re-encode."""
     try:
         from PIL import ExifTags
         from PIL import Image

@@ -115,7 +115,7 @@ from __future__ import annotations
 import re
 from collections.abc import Sequence
 
-#: Measured on the 776-page base corpus: ``OIB`` 95%, ``punkt`` 27.8% (noise) against ``Geschoß`` 23.2% (core noun); 0.2 silenced ``Geschoss``.
+#: 776-page base corpus: ``OIB`` 95%, ``punkt`` 27.8% (noise), ``Geschoß`` 23.2%; 0.2 silenced ``Geschoss``.
 DEFAULT_DF_CEILING_RATIO = 0.25
 
 DEFAULT_DF_CEILING_MIN_TOTAL = 25

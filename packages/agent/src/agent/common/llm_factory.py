@@ -506,8 +506,6 @@ def enforce_chat_request_contract(llm: Any) -> Any:
     return llm
 
 
-
-
 async def get_langchain_llm(builder: Any, ref: Any) -> Any:
     """Resolve a LangChain chat model with fleet-wide OpenRouter defaults applied.
 

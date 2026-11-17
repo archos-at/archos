@@ -87,8 +87,6 @@ def mask_de_tax_id(digits: str) -> str:
     return f"•• ••• ••• •{digits[-2:]}"
 
 
-
-
 def de_svnr_at(text: str, start: int, soft: frozenset[int]) -> tuple[str, int] | None:
     """The Rentenversicherungsnummer printed at ``start``: its compact form and where it ends.
 

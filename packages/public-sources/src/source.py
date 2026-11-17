@@ -311,7 +311,6 @@ class Source(_Strict):
             if table and table not in tables:
                 raise ValueError(f"{field} {table!r} is not a table of the access")
 
-
     @property
     def directory(self) -> Path:
         if self._directory is None:

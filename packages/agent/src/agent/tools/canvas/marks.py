@@ -69,7 +69,6 @@ Shape = Annotated[Literal["point", "region"], BeforeValidator(_normalized)]
 class AnnotationProposal(BaseModel):
     """One finding: where on which page, what kind, what is wrong, what it rests on."""
 
-
     page: int
     shape: Shape = "region"
     x: float
@@ -195,8 +194,6 @@ def render_list(body: dict[str, Any]) -> str:
     if len(items) > MAX_LISTED:
         lines.append(f"[{len(items) - MAX_LISTED} more, resolved or dismissed, not listed.]")
     return "\n".join(lines)
-
-
 
 
 def _region_size(proposal: AnnotationProposal, index: int) -> tuple[float, float]:
@@ -327,8 +324,6 @@ def replied_item(body: dict[str, Any], text: str) -> dict[str, Any]:
     }
 
 
-
-
 def annotation_number(annotation: str) -> int | None:
     """The mark's number in ``annotation`` („Nr. 4“, „#4“, „4“), or None when it is not one."""
     ref = (annotation or "").strip().removeprefix("Nr.").strip().lstrip("#")
@@ -360,7 +355,6 @@ def render_replied(body: dict[str, Any]) -> str:
         f"Your reply is now in the thread of annotation no. {body.get('number')}, marked as your reply "
         f"({body.get('replies')} reply(ies) in the thread)."
     )
-
 
 
 _STATUSES = {
@@ -504,8 +498,6 @@ def render_deleted(body: dict[str, Any]) -> str:
         f"Deleted: annotation no. {body.get('number')}{_on(body)} („{_clipped(body.get('body'), 120)}“) with its "
         "thread. This cannot be undone."
     )
-
-
 
 
 def marks_observation(operation: str, body: dict[str, Any]) -> dict[str, Any]:

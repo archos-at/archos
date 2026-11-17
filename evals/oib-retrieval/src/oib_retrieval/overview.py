@@ -130,7 +130,6 @@ from dataclasses import dataclass
 from dataclasses import field
 from pathlib import Path
 
-
 COHORT_OVERVIEW = "overview"
 COHORT_EXACT_ID = "exact-id"
 COHORT_PARAPHRASE = "paraphrase"

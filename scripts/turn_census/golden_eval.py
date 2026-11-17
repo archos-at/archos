@@ -116,8 +116,6 @@ def score(case: dict[str, Any], answer: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-
-
 def load_cases(path: Path) -> list[dict[str, Any]]:
     document = json.loads(path.read_text(encoding="utf-8"))
     return [row for row in document.get("records") or [] if row.get("type") == "golden_case"]

@@ -299,7 +299,6 @@ class IfcQueryInput(BaseModel):
     limit: int = 0
 
 
-
 _BARE_OPS = frozenset({"overview", "types", "health", "schedule", "profile"})
 
 _WHOLE_MODEL_OPS = {
@@ -472,7 +471,6 @@ def _build_query(
         main_use=main_use,
     )
     return _QUERY_BUILDERS[operation](args)
-
 
 
 _clipped = clipped
@@ -699,7 +697,6 @@ def _render(
     if result.get("truncated"):
         lines.append(_truncation_note(op))
     return "\n".join(line for line in lines if line)
-
 
 
 _model_handle = model_handle

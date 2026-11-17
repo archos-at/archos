@@ -1,3 +1,5 @@
+"""The estate's file records: what a path resolves to, the tool outputs, and the content types a read can open."""
+
 from __future__ import annotations
 
 from collections.abc import Sequence
@@ -20,6 +22,7 @@ from .constants import MODEL_EXTENSIONS
 
 @dataclass(frozen=True)
 class EstateFile:
+    """One document as the estate serves it: its row, its mount and its path."""
 
     row: FileRow
     mount: Mount
@@ -32,11 +35,13 @@ class EstateFile:
 
     @property
     def paged(self) -> bool:
+        """Whether the document has pages to address; a text file has lines, an image has neither."""
         name = self.row.file_name.lower()
         return not name.endswith((*TEXT_EXTENSIONS, *IMAGE_EXTENSIONS, *MODEL_EXTENSIONS))
 
 
 def estate_file(row: FileRow, *, restricted: bool = False) -> EstateFile | None:
+    """``row`` placed in the namespace, or ``None`` when its shelf has no mount."""
     shelf = row.shelf or ""
     mount = SHELF_MOUNTS.get(shelf)
     path = estate_path(shelf, row.folder, row.file_name)
@@ -47,6 +52,7 @@ def estate_file(row: FileRow, *, restricted: bool = False) -> EstateFile | None:
 
 @dataclass
 class Resolution:
+    """What a path resolved to: one file, or a miss with the names to suggest."""
 
     file: EstateFile | None
     note: str = ""
@@ -55,6 +61,7 @@ class Resolution:
 
 @dataclass
 class ToolOutput:
+    """The text the model reads, and the passages in it."""
 
     text: str
     hits: tuple[Any, ...] = ()
@@ -62,6 +69,7 @@ class ToolOutput:
 
 
 def no_such_file(path: str, suggestions: Sequence[str] = ()) -> str:
+    """The one answer for a path that names nothing the turn may see: a miss and a restricted guess alike."""
     text = f'No file "{path}".'
     if suggestions:
         text += " Did you mean:\n" + "\n".join(f"- {name}" for name in suggestions[:MAX_SUGGESTIONS])

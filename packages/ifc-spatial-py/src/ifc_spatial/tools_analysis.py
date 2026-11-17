@@ -21,13 +21,11 @@ from ifc_spatial.tools_types import ToolError
 
 from . import circulation as circ
 from . import daylight as dl
-
 from . import envelope_geometry as env
 from . import fire as fi
 from . import operators as op
 from .briefing import content_hash
 from .model import SpatialModel
-
 
 
 def _plan_note(drawn: Any) -> str:
@@ -58,8 +56,6 @@ def _plan_note(drawn: Any) -> str:
             f"keine Aussage über das Gebäude. {tail}"
         )
     return f"{head} — auf dieser Höhe erscheinen Tür- und Fensteröffnungen als Lücken in der Wand. {tail}"
-
-
 
 
 def fire_op(resolve: Callable[[Any], SpatialModel], args: dict[str, Any]) -> Any:
@@ -97,8 +93,6 @@ def fire_op(resolve: Callable[[Any], SpatialModel], args: dict[str, Any]) -> Any
     raise ToolError(f'what "{what}" gibt es nicht. Erlaubt: {", ".join(FIRE_ASPECTS)}')
 
 
-
-
 def envelope_op(resolve: Callable[[Any], SpatialModel], args: dict[str, Any]) -> Any:
     """The three OIB-6 operators behind one name.
 
@@ -122,8 +116,6 @@ def envelope_op(resolve: Callable[[Any], SpatialModel], args: dict[str, Any]) ->
     if what == "compactness":
         return run(lambda: env.compactness(model))
     raise ToolError(f'what "{what}" gibt es nicht. Erlaubt: {", ".join(ENVELOPE_ASPECTS)}')
-
-
 
 
 def view(resolve: Callable[[Any], SpatialModel], args: dict[str, Any]) -> Any:
@@ -173,8 +165,6 @@ def view(resolve: Callable[[Any], SpatialModel], args: dict[str, Any]) -> Any:
     }
 
 
-
-
 def draw(resolve: Callable[[Any], SpatialModel], args: dict[str, Any]) -> Any:
     import ifcopenshell.draw as drawing
 
@@ -208,8 +198,6 @@ def draw(resolve: Callable[[Any], SpatialModel], args: dict[str, Any]) -> Any:
             "Maße nicht aus dem Bild ablesen — dafür measure/distance verwenden."
         ),
     }
-
-
 
 
 def sun_position(resolve: Callable[[Any], SpatialModel], args: dict[str, Any]) -> Any:

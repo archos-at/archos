@@ -19,8 +19,6 @@ def golden() -> qrels.GoldenSet:
     return qrels.load_golden(FIXTURES / "oib_retrieval_golden.json")
 
 
-
-
 def test_recall_at_k_divides_by_the_full_judged_set_not_by_k():
     ranked = ["a", "x", "y"]
     relevant = {"a", "b", "c"}
@@ -48,8 +46,6 @@ def test_a_cutoff_of_zero_or_less_is_a_programming_error_not_an_empty_result():
         metrics.recall_at_k(["a"], {"a"}, 0)
     with pytest.raises(ValueError):
         metrics.fill_rate(["a"], -1)
-
-
 
 
 def test_ndcg_at_k_matches_a_gain_and_discount_computed_by_hand():
@@ -88,8 +84,6 @@ def test_ndcg_at_k_is_zero_when_nothing_is_judged_relevant():
     assert metrics.ndcg_at_k(["a", "b"], {}, 5) == 0.0
 
 
-
-
 def test_mrr_is_the_reciprocal_of_the_first_relevant_rank():
     assert metrics.mrr(["x", "y", "a"], {"a"}) == pytest.approx(1 / 3)
     assert metrics.mrr(["a", "y"], {"a"}) == pytest.approx(1.0)
@@ -116,8 +110,6 @@ def test_fill_rate_is_one_when_the_retriever_fills_every_slot_of_an_unanswerable
     assert metrics.fill_rate(list(range(16)), 16) == pytest.approx(1.0)
     assert metrics.fill_rate([], 16) == 0.0
     assert metrics.fill_rate(list(range(4)), 16) == pytest.approx(0.25)
-
-
 
 
 def test_the_committed_clause_index_holds_946_clauses_across_12_guidelines(clause_index):
@@ -171,8 +163,6 @@ def test_the_forbidden_container_matches_by_file_name_prefix_only():
     assert qrels.Unit("aenderungen_oib-rl_2_ausgabe_mai_2023.pdf", 7) in forbidden
     assert qrels.Unit("oib-rl_2_ausgabe_mai_2023.pdf", 7) not in forbidden
     assert ("aenderungen_x.pdf", 1) in forbidden
-
-
 
 
 def test_the_golden_set_has_between_40_and_60_entries_all_calibration_pending(golden):
@@ -233,8 +223,6 @@ def test_a_duplicate_entry_id_is_rejected_by_the_loader(tmp_path):
     path.write_text(json.dumps(payload), encoding="utf-8")
     with pytest.raises(ValueError, match="duplicate"):
         qrels.load_golden(path)
-
-
 
 
 def test_citation_parsing_reads_the_units_the_knowledge_tool_formats():

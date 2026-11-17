@@ -134,7 +134,6 @@ class SpatialCache:
         self._temp: dict[str, str] = {}
         _TEMP_FILES.append(self._temp)
 
-
     @property
     def stats(self) -> dict[str, int]:
         """Counters for the process, not for a request.
@@ -188,7 +187,6 @@ class SpatialCache:
     def hashes(self) -> list[str]:
         with self._lock:
             return list(self._models)
-
 
     def load(self, path: str | os.PathLike[str]) -> SpatialModel:
         """The model for this file — from the cache, from a read already

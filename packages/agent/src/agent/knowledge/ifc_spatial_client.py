@@ -294,14 +294,13 @@ def _download(url: str, expected_bytes: Any = None) -> bytes:
     return data
 
 
-
 MAX_RESIDENT_MODELS = 2
 
 _LOCK = threading.Lock()
 
 _OPEN_LOCK = threading.Lock()
 
-# Process-local and bounded by MAX_RESIDENT_MODELS: a table keyed per tenant file that grew without bound would retain tenant model data.
+# Bounded by MAX_RESIDENT_MODELS: an unbounded per-tenant-file table would retain tenant model data.
 _PATH_BY_SOURCE: dict[str, str] = {}
 _HANDLE_BY_SOURCE: dict[str, str] = {}
 _OPEN_HANDLES: list[str] = []

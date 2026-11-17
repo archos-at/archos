@@ -68,7 +68,6 @@ class RequestProfile:
 
     tool_call_events: list[dict] = field(default_factory=list)
 
-
     @property
     def grand_total_cost_usd(self) -> float:
         """LLM token costs + tool API call costs combined."""

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-
 NOT_OCCUPIED_TERMS: tuple[str, ...] = (
     "dach",
     "attika",

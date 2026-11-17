@@ -91,8 +91,6 @@ def test_the_installed_release_is_the_pinned_one() -> None:
     assert installed == pinned, f"venv has deepagents {installed}, pyproject pins {pinned}: run `uv sync --group dev`"
 
 
-
-
 def test_the_filesystem_tool_names_are_the_ones_our_allowlists_use() -> None:
     """`draft_tools` and the deep researcher build the FS tools from an allowlist of these names."""
     from deepagents.middleware.filesystem import FsToolName
@@ -172,8 +170,6 @@ def test_the_composite_strips_the_route_prefix_the_draft_route_puts_back() -> No
     composite = CompositeBackend(default=StateBackend(), routes={"/drafts/": StateBackend()})
     _backend, key = composite._get_backend_and_key("/drafts/a.md")
     assert key == "/a.md"
-
-
 
 
 @pytest.mark.parametrize(
@@ -256,8 +252,6 @@ def test_stock_write_overwrites_so_the_draft_refusal_is_ours() -> None:
     assert backend.read("/a.md").file_data["content"] == "two"
 
 
-
-
 async def test_read_file_output_has_the_header_our_draft_description_names() -> None:
     """`tools/documents/tools.py` tells the model the `@@ lines … @@` header is not part of the draft."""
     from langgraph.store.memory import InMemoryStore
@@ -282,8 +276,6 @@ def test_the_task_tool_takes_description_and_subagent_type_only() -> None:
     assert set(TaskToolSchema.model_fields) == {"description", "subagent_type"}
     with pytest.raises(ValidationError, match="prompt"):
         TaskToolSchema.model_validate({"description": "x", "subagent_type": "planner-agent", "prompt": "y"})
-
-
 
 
 def _fake_model() -> GenericFakeChatModel:

@@ -18,7 +18,6 @@ from release_notes_rules import clean
 
 @dataclass
 class Note:
-
     filename: str
     version: str
     date: str | None
@@ -26,8 +25,6 @@ class Note:
     prelude: str | None = None
 
     area: str = "general"
-
-
 
 
 def read_config_sections(config_path: Path) -> list[tuple[str, str]]:
@@ -124,8 +121,6 @@ def _note_date(repo_root: Path, sha: bytes | str | None) -> str | None:
     return stamp[:10] if stamp else None
 
 
-
-
 def group_notes(
     notes: list[Note],
     section_order: list[str],
@@ -217,7 +212,6 @@ def collect_strings(groups: list[dict[str, Any]]) -> list[str]:
             strings.append(group["summary"])
         strings.extend(item["text"] for item in group["notes"])
     return list(dict.fromkeys(strings))
-
 
 
 GENERATED = (

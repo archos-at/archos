@@ -277,8 +277,6 @@ def reset_contributions() -> None:
     _CONTRIBUTED.set(None)
 
 
-
-
 OBSERVATION_PROMPT_NAME = "langfuse.observation.prompt.name"
 OBSERVATION_PROMPT_VERSION = "langfuse.observation.prompt.version"
 

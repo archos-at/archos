@@ -89,9 +89,7 @@ from .briefing import briefing as build_briefing
 from .briefing import content_hash
 from .envelope import Answer
 from .model import SpatialModel
-
 from .tools import ToolError
-
 
 IFC_VERSIONS: tuple[str, ...] = ("IFC2X3", "IFC4", "IFC4X3_ADD2")
 
@@ -135,8 +133,6 @@ WHY_NO_ELEMENTS = (
     "Dieses Modell enthält keine Bauteile der Klassen, an denen dieses Merkmal geführt wird — eine "
     "IDS-Spezifikation darauf hätte nichts, worauf sie anwendbar wäre."
 )
-
-
 
 
 @dataclass(frozen=True)
@@ -210,8 +206,6 @@ _CONVENTION_NOTE = {
 }
 
 
-
-
 @dataclass(frozen=True)
 class NotExportable:
     """A finding that stays German prose, and the reason it has to."""
@@ -272,8 +266,6 @@ class IdsExportError(Exception):
     document that fails its own schema is a defect in this module, and it must
     never reach an architect's checker as a file that silently does nothing.
     """
-
-
 
 
 def blind_spots_as_ids(
@@ -348,8 +340,6 @@ def blind_spots_as_ids(
     )
 
 
-
-
 def answers_as_ids(
     answers: Sequence[Answer[Any]],
     *,
@@ -421,8 +411,6 @@ def answers_as_ids(
         not_exportable=not_exportable,
         source=f"{undecided} von {len(answers)} Antworten unentscheidbar",
     )
-
-
 
 
 def to_xml(document: IdsShoppingList | Any) -> str:
@@ -526,8 +514,6 @@ def write_ids(
             "Grenzwerte — Grenzwerte stehen in der OIB-Richtlinie. " + document.summary()
         ),
     }
-
-
 
 
 def _document(
@@ -837,8 +823,6 @@ def _property_path_specification(
             requirements=[Property(propertySet=pset, baseName=name, cardinality="required")],
         )
     ], None
-
-
 
 
 def _entity_facet(classes: Sequence[str]) -> Entity:

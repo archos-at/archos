@@ -41,8 +41,6 @@ def _no_footprint(model: SpatialModel, subject: Any, method: str) -> Answer[Any]
     )
 
 
-
-
 def threshold_height(model: SpatialModel, door_global_id: str) -> Answer[dict[str, Any]]:
     """The step at a door: the height difference between the floors on either side.
 

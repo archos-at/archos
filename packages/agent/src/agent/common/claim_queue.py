@@ -123,8 +123,6 @@ class Claim:
     priority: int = PRIORITY_INTERACTIVE
 
 
-
-
 class _Instruments:
     """The ``grid.queue.*`` instruments and the queues the gauges observe."""
 
@@ -182,8 +180,6 @@ def instruments() -> _Instruments:
         return _instruments
 
 
-
-
 class ClaimQueue:
     """The claim algorithm over one table (see the module docstring).
 
@@ -210,7 +206,6 @@ class ClaimQueue:
         self._reap_lock_id = reap_lock_id
         self.initialized: set[str] = set()
         self._claim_sql = self._build_pg_claim()
-
 
     def ensure_table(self, url: str, conn=None) -> None:
         """Create the queue and its lane-turn table, and bring an older table up to date; idempotent.
@@ -262,7 +257,7 @@ class ClaimQueue:
             _execute_constant(conn, statement)
         self._add_missing_columns(conn, ts)
         ensure_status_guard(conn, t, born=QUEUED, live=(QUEUED, CLAIMED), retired=RETIRED)
-        # CREATE INDEX IF NOT EXISTS takes a SHARE lock before checking the name; run on every start it wedged the queue (2026-10-11).
+        # CREATE INDEX IF NOT EXISTS takes a SHARE lock first; run on every start it wedged the queue (2026-10-11).
         present = present_indexes(conn, t)
         for name, columns in (
             (f"ix_{t}_status_created", "status, created_at"),
@@ -290,7 +285,6 @@ class ClaimQueue:
         }
         upgrade_columns(conn, self.table, wanted, postgres="WITH TIME ZONE" in ts)
 
-
     def enqueue(self, job_id: str, lane: str, payload: str, priority: str | None = None) -> bool:
         """Store a claimable job; whether this call stored it. Raises when the queue cannot be written.
 
@@ -314,7 +308,6 @@ class ClaimQueue:
             )
             conn.commit()
         return (result.rowcount or 0) > 0
-
 
     def _runnable(self) -> str:
         return (
@@ -503,7 +496,6 @@ SELECT job_id, lane, payload, attempts, priority FROM claimed
             {"lane": best[1], "now": stamp},
         )
         return (best[0], best[1], best[2], best[3] + 1, best[4])
-
 
     def heartbeat(self, job_id: str, worker: str) -> bool:
         """Refresh a claim; False when it is not this worker's any more."""
@@ -725,7 +717,6 @@ SELECT job_id, lane, payload, attempts, priority FROM claimed
             conn.commit()
         return result.rowcount or 0
 
-
     def counts(self) -> dict[str, int]:
         """Rows by status (a status with none is 0): what the depth gauge and the tests read."""
         url = self._db_url()
@@ -813,7 +804,6 @@ SELECT job_id, lane, payload, attempts, priority FROM claimed
             rows = conn.execute(query, {"q": QUEUED, "ids": list(job_ids)}).all()
         return {str(job_id): int(ahead) for job_id, ahead in rows}
 
-
     def observe(self) -> None:
         """Report this queue's depth and oldest age from this process (call where workers claim)."""
         instruments().watch(self)
@@ -821,8 +811,6 @@ SELECT job_id, lane, payload, attempts, priority FROM claimed
     def record_duration(self, seconds: float, kind: str) -> None:
         """Record how long a claimed job of ``kind`` ran."""
         instruments().job_duration.record(max(0.0, seconds), {"queue": self.name, "kind": kind})
-
-
 
 
 def _is_postgres(url: str) -> bool:

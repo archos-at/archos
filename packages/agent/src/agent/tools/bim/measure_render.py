@@ -92,8 +92,6 @@ def _trailer(answer: dict[str, Any]) -> list[str]:
     return lines
 
 
-
-
 def _render_light_entry(answer: dict[str, Any], list_limit: int) -> list[str]:
     value = answer["value"]
     decimals = _computed_decimals(answer)
@@ -178,7 +176,6 @@ def _render_door_graph(answer: dict[str, Any], list_limit: int) -> list[str]:
         lambda e: named("NOT counted as an edge", e, e.get("why")),
     )
     return lines + _trailer(answer)
-
 
 
 _ANSWER_SHAPES: tuple[tuple[Callable[[Any], bool], Callable[[dict[str, Any], int], list[str]]], ...] = (

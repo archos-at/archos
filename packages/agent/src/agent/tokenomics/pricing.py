@@ -7,7 +7,6 @@ from pydantic import BaseModel
 from pydantic import Field
 
 
-
 class ModelPriceConfig(BaseModel):
     """Per-token prices for one model, in USD per 1 M tokens."""
 
@@ -34,8 +33,6 @@ class PricingRegistryConfig(BaseModel):
     models: dict[str, ModelPriceConfig] = Field(default_factory=dict)
     tools: dict[str, ToolPriceConfig] = Field(default_factory=dict)
     default: ModelPriceConfig | None = None
-
-
 
 
 @dataclass(frozen=True)
@@ -95,7 +92,6 @@ class PricingRegistry:
         self._default = default
         self._tools: dict[str, ToolPrice] = tools or {}
 
-
     @classmethod
     def from_config(cls, config: PricingRegistryConfig) -> PricingRegistry:
         prices = {}
@@ -128,7 +124,6 @@ class PricingRegistry:
     def from_dict(cls, raw: dict[str, Any]) -> PricingRegistry:
         """Convenience constructor: pass the raw ``tokenomics.pricing`` dict."""
         return cls.from_config(PricingRegistryConfig(**raw))
-
 
     def get(self, model_name: str) -> ModelPrice:
         if model_name in self._prices:

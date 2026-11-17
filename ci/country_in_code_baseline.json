@@ -113,7 +113,6 @@
   "apps/workspace/bff/text/operation-search.ts": 1,
   "apps/workspace/scripts/provision-workos-environment.ts": 2,
   "apps/workspace/shared/components/MarkdownRenderer/bind-words.ts": 1,
-  "apps/workspace/shared/components/MarkdownRenderer/headings.ts": 1,
   "apps/workspace/ui/adapters/api/knowledge-client.ts": 4,
   "apps/workspace/ui/components/projects/site-place-fields.tsx": 1,
   "apps/workspace/ui/features/cards/lib/formulas.ts": 10,

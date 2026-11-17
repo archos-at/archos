@@ -167,8 +167,6 @@ class Run:
     turns: int = 1
 
 
-
-
 _PATCHED_RE = re.compile(r"quote patch corrected (\d+) of \d+")
 _PRECEDENT_RE = re.compile(r"Turn decision in \d+ ms: .*precedent=([0-9.]+)")
 
@@ -227,8 +225,6 @@ def load_questions(path: Path = QUESTIONS, *, core_only: bool = True) -> tuple[l
         elif not core_only or row.get("suite") == "core":
             runnable.append(row)
     return runnable, skipped
-
-
 
 
 def _usage(entry: dict) -> tuple[int, int, int]:
@@ -408,8 +404,6 @@ def observe(
     if "escalated" not in run.signals and not run.answer:
         run.error = _no_answer(log_text)
     return run
-
-
 
 
 def _normal(text: str) -> str:
@@ -596,8 +590,6 @@ def precedent_checks(
     return checks
 
 
-
-
 def _spread(values: list[float]) -> str:
     if not values:
         return "–"
@@ -741,8 +733,6 @@ def aggregate_lines(runs: list[Run]) -> list[str]:
             + (f" ({by_kind})" if by_kind else "")
         )
     return lines or ["None."]
-
-
 
 
 def corpus_families() -> set[str] | None:

@@ -141,8 +141,6 @@ def summarize_removed_targets(removed_citations: list[dict[str, Any]]) -> list[d
     return targets
 
 
-
-
 @dataclass
 class CitationEvent:
     """One citation-health observation for one turn."""
@@ -160,8 +158,6 @@ class CitationEvent:
             "reasons": self.reasons or None,
             "detail": self.detail or None,
         }
-
-
 
 
 def _label_counts(values: list[str | None]) -> dict[str, int]:
@@ -273,7 +269,6 @@ def build_turn_events(
             )
         )
     return events
-
 
 
 _REQUEST_TIMEOUT_SECONDS = 5.0

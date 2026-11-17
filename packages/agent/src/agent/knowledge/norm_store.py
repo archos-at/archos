@@ -64,7 +64,6 @@ class NormRegistryStore:
         self._get_cache_lock = threading.Lock()
         logger.info("NormRegistryStore initialized: %s", redact_db_url(db_url))
 
-
     @classmethod
     def _get_or_create_sync_engine(cls, db_url: str):
         with cls._cache_lock:
@@ -114,7 +113,6 @@ class NormRegistryStore:
                         engine.dispose()
                     except RuntimeError, OSError:
                         pass
-
 
     def _ensure_table_sync(self):
         """Create the ``norm_registry`` table if it doesn't exist (sync)."""
@@ -177,7 +175,6 @@ class NormRegistryStore:
         metadata.create_all(conn)
         logger.info("Created norm_registry table in %s", redact_db_url(self.db_url))
 
-
     def get(self, country: str = DEFAULT_COUNTRY) -> tuple[NormsFile | None, int]:
         """Return the stored ``(NormsFile, version)``; ``(None, 0)`` when absent or unparseable."""
         from sqlalchemy import text
@@ -221,7 +218,6 @@ class NormRegistryStore:
         with self._get_cache_lock:
             self._get_cache[country] = (result, time.monotonic())
         return result
-
 
     def put(
         self,
@@ -294,7 +290,6 @@ class NormRegistryStore:
             logger.warning("Failed to write norm_registry for %s: %s", country, e)
             return None
 
-
     def seed_from_yaml_if_empty(self, country: str = DEFAULT_COUNTRY) -> bool:
         """Seed the store from the YAML seed when no row exists yet (idempotent).
 
@@ -346,7 +341,6 @@ class NormRegistryStore:
                     pass
             cls._sync_engine_cache.clear()
             cls._tables_initialized.clear()
-
 
 
 _norm_store: NormRegistryStore | None = None

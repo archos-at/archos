@@ -300,7 +300,6 @@ class DraftBackend(StoreBackend):
         super().__init__(store=store, namespace=lambda _runtime: draft_namespace(conversation_id))
         self.conversation_id = conversation_id
 
-
     def _usage(self, file_path: str) -> DraftUsage:
         store = self._get_store()
         namespace = self._get_namespace()
@@ -331,7 +330,6 @@ class DraftBackend(StoreBackend):
                 break
             offset += _PAGE_SIZE
         return usage_from_items(items, file_path)
-
 
     def _record(self, file_path: str, version: int, filing: dict[str, str]) -> None:
         """Stamp the new version on the stored item and put the draft card up.
@@ -371,7 +369,6 @@ class DraftBackend(StoreBackend):
             filing=filing,
         )
 
-
     async def arecord_filing(
         self,
         file_path: str,
@@ -399,7 +396,6 @@ class DraftBackend(StoreBackend):
             return
         stamp = {FILED_AT_DRAFT_VERSION_KEY: draft_version} if draft_version is not None else {}
         await store.aput(namespace, file_path, {**item.value, **filing, **stamp})
-
 
     def write(self, file_path: str, content: str) -> WriteResult:
         text = normalize_draft_text(content)

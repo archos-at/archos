@@ -159,8 +159,6 @@ class ProviderWaitTimeout(TimeoutError):
     """A call gave up waiting for a provider slot before its own deadline."""
 
 
-
-
 def enabled() -> bool:
     """Whether the limiter runs at all (``PROVIDER_LIMITER``)."""
     return os.environ.get(_ENABLED_ENV, "on").strip().lower() not in {"off", "false", "0", "no"}
@@ -200,7 +198,6 @@ def model_limit_floor() -> int:
 def limit_interval_seconds() -> float:
     """How long without a 429 before the limit gains one."""
     return _env_number(_INTERVAL_ENV, _DEFAULT_INTERVAL_SECONDS, 0.0)
-
 
 
 _CLASS: contextvars.ContextVar[str] = contextvars.ContextVar("limiter_class", default=DEFAULT_CLASS)
@@ -268,7 +265,6 @@ def with_provider_class(cls: str) -> Callable[[Callable[P, Awaitable[R]]], Calla
         return wrapper
 
     return decorate
-
 
 
 ACQUIRE_LUA = (
@@ -358,7 +354,6 @@ def _held_keys(keys: dict[str, Any], model: str | None) -> list[str]:
     return [keys["leases"], keys["model_leases"]] if model else [keys["leases"]]
 
 
-
 _last_limits: dict[tuple[str, str | None], int] = {}
 _instruments: tuple[Any, Any, Any] | None = None
 _instruments_lock = threading.Lock()
@@ -433,7 +428,6 @@ def _remember_limits(attempt: _Attempt, model: str | None) -> None:
     _meters()
 
 
-
 _held: dict[str, tuple[list[str], float]] = {}
 _held_lock = threading.Lock()
 _renewer: threading.Thread | None = None
@@ -472,8 +466,6 @@ def _ensure_renewer() -> None:
             return
         _renewer = threading.Thread(target=_renew_forever, daemon=True, name="provider-limiter-renew")
         _renewer.start()
-
-
 
 
 @dataclass
@@ -665,8 +657,6 @@ def _abandon_after(attempt: asyncio.Future | None, member: str, model: str | Non
     attempt.add_done_callback(withdraw)
 
 
-
-
 def _chain(exc: BaseException) -> Iterator[BaseException]:
     seen: set[int] = set()
     current: BaseException | None = exc
@@ -787,8 +777,6 @@ def _backoff_before_retry(exc: BaseException) -> float:
     """Seconds to sit out a 429, with a little jitter so the callers it stopped do not return together."""
     wait = retry_after_seconds(exc)
     return wait * (0.9 + 0.2 * random.random()) if wait else 0.0
-
-
 
 
 @contextmanager

@@ -27,7 +27,7 @@ PARSER_CRASH_REASON = (
 
 _CRASH_SIGNALS = frozenset({signal.SIGSEGV, signal.SIGBUS, signal.SIGABRT, signal.SIGILL, signal.SIGFPE})
 
-# Nesting of 55184 to 55205 levels passed a probe on a default thread stack and killed the host (exit -10); the probe thread gets half the host's smaller stack.
+# 55184-55205 nesting levels passed a default-stack probe and killed the host (exit -10); probe gets half the stack.
 _OPEN_ON_A_SMALLER_STACK = """
 import sys, threading, ifcopenshell
 threading.stack_size(int(sys.argv[2]))

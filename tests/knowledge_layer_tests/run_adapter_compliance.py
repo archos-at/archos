@@ -173,7 +173,6 @@ class AdapterComplianceTest:
 
         return all(r.passed for r in self.results)
 
-
     def _test_get_ingestor(self):
         from agent.knowledge.factory import get_ingestor
 
@@ -385,7 +384,6 @@ class AdapterComplianceTest:
             return False, "Collection still exists after deletion"
 
         return True, f"Deleted '{self.collection_name}'"
-
 
     def _print_summary(self):
         print(f"\n{'=' * 70}")

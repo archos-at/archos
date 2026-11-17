@@ -7,7 +7,6 @@ from public_sources.egress import PublicOnlyBackend
 
 
 class PlainHttpsForMock(httpx.AsyncBaseTransport):
-
     def __init__(self, inner: httpx.AsyncBaseTransport) -> None:
         self.inner = inner
 

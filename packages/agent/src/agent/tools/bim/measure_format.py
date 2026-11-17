@@ -4,7 +4,6 @@ import math
 from typing import Any
 
 
-
 def _decimals(tolerance: Any) -> int | None:
     """How many decimals a value carrying this tolerance may be shown to.
 
@@ -89,7 +88,6 @@ def _angle(value: Any) -> str:
     if not isinstance(value, (int, float)) or isinstance(value, bool):
         return str(value)
     return str(int(value)) if float(value).is_integer() else _num(float(value), 1)
-
 
 
 _UNITLESS_KEYS = frozenset({"windowWallRatio", "percent", "confidence"})

@@ -88,8 +88,6 @@ def load_answer_key(path: Path = FIXTURE_DIR / "answer_key.yaml") -> dict[str, A
     return yaml.safe_load(path.read_text(encoding="utf-8"))
 
 
-
-
 def available_document(fixture: Fixture, file: FixtureFile) -> Any:
     from agent.knowledge.schema import AvailableDocument
 
@@ -123,8 +121,6 @@ def page_fetcher_for(fixture: Fixture):
         return [(str(number), text) for number, text in enumerate(file.pages, 1)]
 
     return fetch_document_pages
-
-
 
 
 @dataclass(frozen=True)
@@ -197,8 +193,6 @@ class PassageIndex:
         return hits[:MAX_EXACT_PASSAGES]
 
 
-
-
 def render_passages(fixture: Fixture, hits: list[tuple[Passage, float]], tool: str, trailer: str = "") -> str:
     """Hits as ``knowledge_search`` renders them (``_format_results``), filed for the read log."""
     from agent.common.grounding_block import GroundingBlock
@@ -245,8 +239,6 @@ def _allowed(fixture: Fixture, file_name: str | None, folder: str | None, title:
     if title:
         names &= {f.name for f in fixture.files if title.strip().casefold() in f.name.casefold()}
     return None if names == set(fixture.names) else names
-
-
 
 
 def knowledge_search_tool(fixture: Fixture, index: PassageIndex) -> StructuredTool:

@@ -971,7 +971,6 @@ class ChatAgent:
         self._boot = self._bind_turn(self.llm_provider, tuple(self.tools))
         self._graph = self._build_graph()
 
-
     @property
     def _llm_with_tools(self) -> Any:
         """The boot binding: every boot tool, bound once at construction."""
@@ -1037,7 +1036,6 @@ class ChatAgent:
         if turn.disabled_sources == base.disabled_sources and not turn.prefetch:
             return base
         return replace(base, disabled_sources=frozenset(turn.disabled_sources), prefetch=tuple(turn.prefetch))
-
 
     def _build_graph(self) -> CompiledStateGraph:
         """Compile the two-node loop once; turns vary through the config."""
@@ -1248,7 +1246,6 @@ class ChatAgent:
                 tool_name, content, binding.source_tool_names, registry, getattr(message, "artifact", None)
             )
         return measured
-
 
     def _graph_config(self, binding: TurnBinding) -> dict[str, Any]:
         config: dict[str, Any] = {

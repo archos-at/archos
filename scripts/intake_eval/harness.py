@@ -26,8 +26,6 @@ CONFIG = REPO_ROOT / "configs" / "config_oib_openrouter.yml"
 MAX_TRANSCRIPT_OUTPUT = 6000
 
 
-
-
 def _expand(value: Any) -> Any:
     if not isinstance(value, str):
         return value
@@ -43,8 +41,6 @@ def intake_config() -> tuple[dict[str, Any], dict[str, Any]]:
 
 def boot_model() -> str:
     return str(intake_config()[1]["model_name"])
-
-
 
 
 def _usage_from_text(text: str) -> dict[str, Any] | None:
@@ -63,7 +59,6 @@ def _usage_from_text(text: str) -> dict[str, Any] | None:
 
 
 class ModelCallRecorder:
-
     def __init__(self) -> None:
         self.calls: list[dict[str, Any]] = []
 
@@ -117,8 +112,6 @@ class ModelCallRecorder:
             httpx.AsyncClient.send, httpx.Client.send = original_async, original_sync
 
 
-
-
 def _text(content: Any) -> str:
     from agent.common.message_utils import content_to_text
 
@@ -126,7 +119,6 @@ def _text(content: Any) -> str:
 
 
 class Transcript(AsyncCallbackHandler):
-
     def __init__(self) -> None:
         self.events: list[dict[str, Any]] = []
         self._open: dict[Any, dict[str, Any]] = {}
@@ -180,8 +172,6 @@ class Transcript(AsyncCallbackHandler):
             return {**event, "output": output} if event["type"] == "tool" else event
 
         return [cut(event) for event in self.events]
-
-
 
 
 @contextlib.contextmanager

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-
 FLOOR_CONTACT = 0.02
 
 MIN_OBSTACLE_AREA = 1e-4

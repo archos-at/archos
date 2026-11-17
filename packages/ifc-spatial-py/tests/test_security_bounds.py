@@ -19,8 +19,6 @@ FIXTURES = Path(__file__).resolve().parent / "fixtures"
 HOUSE = FIXTURES / "Ifc4_SampleHouse.ifc"
 
 
-
-
 def _gallery(path: Path) -> SpatialModel:
     f = ifcopenshell.file(schema="IFC4")
 
@@ -171,10 +169,7 @@ def test_an_ordinary_plan_is_untouched_by_the_bound() -> None:
     assert drawn.width * drawn.height < render.MAX_RASTER_PIXELS // 10
 
 
-
-
 class _Empty:
-
     class ids:  # noqa: N801 — mirrors the attribute name on IdsShoppingList
         specifications: list[Any] = []
 
@@ -233,8 +228,6 @@ def test_a_real_document_still_lands_under_the_given_name(tmp_path: Path) -> Non
 
     assert facts["path"] == str(tmp_path / "haus.ids")
     assert (tmp_path / "haus.ids").is_file()
-
-
 
 
 UNITS_FEET = FIXTURES / "units-feet.ifc"
@@ -370,7 +363,6 @@ def test_a_length_unit_that_cannot_be_followed_is_refused_with_a_reason(tmp_path
 )
 def test_a_length_unit_that_can_be_followed_reports_the_same_scale(tmp_path: Path, swaps, scale: float) -> None:
     assert _open_units_in_a_child(tmp_path, *swaps) == repr(scale)
-
 
 
 _NAME = "FILE_NAME('h.ifc','2026-08-12T00:00:00',(''),(''),'','','');\n"
