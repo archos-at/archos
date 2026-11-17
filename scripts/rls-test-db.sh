@@ -192,10 +192,11 @@ release_databases
 echo "==> running the site-resolution suite as app_rw"
 TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app" \
   npx vitest run bff/site-resolution/site-resolution.integration.spec.ts
-echo "==> running the isolation, BIM query, memory consolidation, personal memory, profile-binding, legal-hold, chat-erasure, restricted-use, cross-project use, similar passages, project intake, run-reconciler, usage-ledger, answer-feedback, restricted memory, download-log, Papierkorb, closed-project, Steckbrief, Ausmisten, upload batches, quarantine decisions, the agent's proposed operations and solo reads, restricted-feedback, revision-subject, the hold on a document, permit-record, push subscription, inbox paging, Anmerkungen, Offene Punkte, folder cards and search providers, workspace search, inbound mail and mail thread suites as app_rw"
+echo "==> running the isolation, tenant keys, BIM query, memory consolidation, personal memory, profile-binding, legal-hold, chat-erasure, restricted-use, cross-project use, similar passages, project intake, run-reconciler, usage-ledger, answer-feedback, restricted memory, download-log, Papierkorb, closed-project, Steckbrief, Ausmisten, upload batches, quarantine decisions, the agent's proposed operations and solo reads, restricted-feedback, revision-subject, the hold on a document, permit-record, push subscription, inbox paging, Anmerkungen, Offene Punkte, folder cards and search providers, workspace search, inbound mail and mail thread suites as app_rw"
 TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app" \
   npx vitest run \
     bff/db/tenant-isolation.integration.spec.ts \
+    bff/db/rls-coverage-tenant-keys.integration.spec.ts \
     bff/bim/query.integration.spec.ts \
     bff/bim/query.search-keys.integration.spec.ts \
     bff/bim/query.catalog.integration.spec.ts \
