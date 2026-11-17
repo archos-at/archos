@@ -56,7 +56,10 @@ def _comment_lines(source: str) -> set[int]:
     return found
 
 
-def purge(path: Path) -> int:
+KEEP_DOCSTRINGS = re.compile(r"^(packages/[^/]+/src|apps/agent-host/src|evals/[^/]+/src)/")
+
+
+def purge(path: Path, *, keep_docstrings: bool = False) -> int:
     source = path.read_text(encoding="utf-8")
     lines = source.split("\n")
     try:
@@ -65,7 +68,8 @@ def purge(path: Path) -> int:
     except SyntaxError, tokenize.TokenError, IndentationError:
         return 0
     replace: dict[int, str] = {}
-    spans = [] if MODEL_FACING.search(source) else _docstring_spans(tree, lines)
+    keep = keep_docstrings or KEEP_DOCSTRINGS.search(path.as_posix()) or MODEL_FACING.search(source)
+    spans = [] if keep else _docstring_spans(tree, lines)
     for start, end, sole, col in spans:
         remove.update(range(start, end + 1))
         if sole:
